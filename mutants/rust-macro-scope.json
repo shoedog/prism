@@ -54,7 +54,7 @@
     ],
     "MS-07-use-census-dropped-w1": [
       "src/call_graph/rust/macro_args.rs",
-      "        collect_use_bound_names(parsed, parsed.tree.root_node(), &mut shadow);\n",
+      "        collect_use_leaves(parsed, parsed.tree.root_node(), &mut leaves);\n",
       "",
       [
         "rust_macro_scope_test::w1_a_macro_imported_under_a_std_spelling_still_poisons",
@@ -79,8 +79,8 @@
     ],
     "MS-10-std-import-not-trusted-w1": [
       "src/call_graph/rust/macro_args.rs",
-      "    if is_listed_spelling(bound) && !(STD_ROOTS.contains(&root) && bound == original) {",
-      "    if is_listed_spelling(bound) {",
+      "            if !(STD_ROOTS.contains(&u.root.as_str()) && !u.aliased && u.bound == u.original) {",
+      "            if true {",
       [
         "rust_macro_scope_test::k12_super_and_crate_globs_and_std_imports_do_not_poison"
       ]
@@ -91,6 +91,49 @@
       "            if !STD_ROOTS.contains(&r.as_str()) {",
       [
         "rust_macro_scope_test::k12_super_and_crate_globs_and_std_imports_do_not_poison"
+      ]
+    ],
+    "MS-12-in-repo-unaliased-import-taints-3": [
+      "src/call_graph/rust/macro_args.rs",
+      "        } else if u.aliased && macro_like.contains(&u.original) {",
+      "        } else if !u.aliased || macro_like.contains(&u.original) {",
+      [
+        "rust_macro_scope_test::k14_an_unaliased_in_repo_import_of_a_fn_named_like_a_macro_does_not_taint",
+        "rust_macro_scope_test::k15_write_arguments_are_still_extracted_when_write_is_a_fn_import"
+      ]
+    ],
+    "MS-13-in-repo-alias-never-taints-2": [
+      "src/call_graph/rust/macro_args.rs",
+      "        } else if u.aliased && macro_like.contains(&u.original) {",
+      "        } else if false {",
+      [
+        "rust_macro_scope_test::w1_a_macro_imported_under_a_std_spelling_still_poisons",
+        "rust_macro_scope_test::w4_an_alias_of_a_transparent_macro_withholds_its_transparency"
+      ]
+    ],
+    "MS-14-alias-of-any-in-repo-item-taints-2": [
+      "src/call_graph/rust/macro_args.rs",
+      "        } else if u.aliased && macro_like.contains(&u.original) {",
+      "        } else if u.aliased {",
+      [
+        "rust_macro_scope_test::k13_an_in_repo_alias_of_a_fn_imports_no_macro"
+      ]
+    ],
+    "MS-15-alias-chain-not-followed": [
+      "src/call_graph/rust/macro_args.rs",
+      "            if in_repo(u) && u.aliased && macro_like.contains(&u.original) {",
+      "            if false {",
+      [
+        "rust_macro_scope_test::w8_a_chain_of_in_repo_aliases_of_a_macro_taints"
+      ]
+    ],
+    "MS-16-external-root-never-taints-1": [
+      "src/call_graph/rust/macro_args.rs",
+      "        if !in_repo(u) {",
+      "        if false {",
+      [
+        "rust_macro_scope_test::w7_an_alias_of_an_external_item_taints",
+        "rust_macro_scope_test::w2_an_external_import_of_a_std_spelling_still_poisons"
       ]
     ]
   }

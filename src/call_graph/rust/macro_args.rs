@@ -183,13 +183,55 @@ pub fn is_transparent_arg_macro(macro_name: &str, shadow: &BTreeSet<String>) -> 
 /// existing per-build whole-program-fact pattern, e.g.
 /// `CallGraph::extract_js_ts_resolution_facts`).
 pub fn collect_macro_shadow_set(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {
-    let mut shadow = BTreeSet::new();
+    let mut defs = BTreeSet::new();
+    let mut mods = BTreeSet::new();
+    let mut leaves = Vec::new();
     for parsed in files.values() {
         if parsed.language != crate::languages::Language::Rust {
             continue;
         }
-        collect_macro_defs(parsed, parsed.tree.root_node(), &mut shadow);
-        collect_use_bound_names(parsed, parsed.tree.root_node(), &mut shadow);
+        collect_macro_defs(parsed, parsed.tree.root_node(), &mut defs);
+        collect_mod_names(parsed, parsed.tree.root_node(), &mut mods);
+        collect_use_leaves(parsed, parsed.tree.root_node(), &mut leaves);
+    }
+    let crates = in_repo_crate_names(files);
+    let in_repo = |u: &UseLeaf| {
+        matches!(u.root.as_str(), "crate" | "self" | "super")
+            || mods.contains(&u.root)
+            || crates.contains(&u.root)
+    };
+    // Names that can denote an in-repo macro: every `macro_rules!` name, and every in-repo
+    // `as` alias of one (`use crate::make as mk; use crate::mk as env;`), to a fixpoint.
+    let mut macro_like = defs.clone();
+    loop {
+        let before = macro_like.len();
+        for u in &leaves {
+            if in_repo(u) && u.aliased && macro_like.contains(&u.original) {
+                macro_like.insert(u.bound.clone());
+            }
+        }
+        if macro_like.len() == before {
+            break;
+        }
+    }
+    let mut shadow = defs;
+    for u in &leaves {
+        if !is_listed_spelling(&u.bound) {
+            continue;
+        }
+        if !in_repo(u) {
+            // (1) rooted outside the repo (an unresolvable first segment counts): the macro
+            // may be any macro of that crate; only the std item of the same name is trusted.
+            if !(STD_ROOTS.contains(&u.root.as_str()) && !u.aliased && u.bound == u.original) {
+                shadow.insert(u.bound.clone());
+            }
+        } else if u.aliased && macro_like.contains(&u.original) {
+            // (2) an in-repo alias of an in-repo macro: `use crate::make as env;`.
+            shadow.insert(u.bound.clone());
+        }
+        // (3) in-repo and unaliased: it can only import an in-repo macro of that very name,
+        // whose `macro_rules!` is already in the set; an in-repo alias of a fn/type/mod
+        // (`use crate::helper as env;`) imports no macro.
     }
     shadow
 }
@@ -202,12 +244,43 @@ fn is_listed_spelling(name: &str) -> bool {
     TRANSPARENT_ARG_MACROS.contains(&name) || NON_BINDING_EXPR_MACROS.contains(&name)
 }
 
-/// One `use` leaf binding `bound` (the leaf, or its `as` alias) from `original` under `root`:
-/// a listed spelling bound by anything but the std item of the same name is a different
-/// macro (`use crate::make as env;`, `use other::env;`) and joins the shadow set.
-fn note_use_binding(bound: &str, original: &str, root: &str, out: &mut BTreeSet<String>) {
-    if is_listed_spelling(bound) && !(STD_ROOTS.contains(&root) && bound == original) {
-        out.insert(bound.to_string());
+/// One `use` leaf: `bound` is the leaf or its `as` alias, `original` the last path segment,
+/// `root` the first segment of the whole path.
+struct UseLeaf {
+    bound: String,
+    original: String,
+    root: String,
+    aliased: bool,
+}
+
+/// Names of in-repo workspace crates, from `crates/<name>/` directories (hyphens become
+/// underscores). The root package's own name is not known from the files, so a
+/// `use <root crate>::..` counts as rooted outside the repo (fail-closed).
+fn in_repo_crate_names(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    for path in files.keys() {
+        let mut parts = path.split('/');
+        while let Some(seg) = parts.next() {
+            if seg == "crates" {
+                if let Some(name) = parts.next() {
+                    out.insert(name.replace('-', "_"));
+                }
+                break;
+            }
+        }
+    }
+    out
+}
+
+fn collect_mod_names(parsed: &ParsedFile, node: Node, out: &mut BTreeSet<String>) {
+    if node.kind() == "mod_item" {
+        if let Some(name) = node.child_by_field_name("name") {
+            out.insert(parsed.node_text(&name).to_string());
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_mod_names(parsed, child, out);
     }
 }
 
@@ -219,10 +292,8 @@ fn last_segment(path: &str) -> &str {
     path.rsplit("::").next().unwrap_or(path).trim()
 }
 
-/// Add every listed spelling bound by a `use` item anywhere in `node` (a block-scope or
-/// nested-module `use` included, `pub use`, nested `{..}` lists, `as` aliases) that is not
-/// the std item of that name. Repo-wide and by spelling, like the `macro_rules!` census.
-fn collect_use_bound_names(parsed: &ParsedFile, node: Node, out: &mut BTreeSet<String>) {
+/// Every `use` leaf anywhere in `node` (block scope, nested lists, `pub use`, `as` aliases).
+fn collect_use_leaves(parsed: &ParsedFile, node: Node, out: &mut Vec<UseLeaf>) {
     if node.kind() == "use_declaration" {
         if let Some(arg) = node.child_by_field_name("argument") {
             walk_use_tree(parsed, arg, None, out, &mut false);
@@ -231,7 +302,7 @@ fn collect_use_bound_names(parsed: &ParsedFile, node: Node, out: &mut BTreeSet<S
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        collect_use_bound_names(parsed, child, out);
+        collect_use_leaves(parsed, child, out);
     }
 }
 
@@ -242,14 +313,19 @@ fn walk_use_tree(
     parsed: &ParsedFile,
     node: Node,
     root: Option<&str>,
-    out: &mut BTreeSet<String>,
+    out: &mut Vec<UseLeaf>,
     external_glob: &mut bool,
 ) {
     let text = |n: &Node| parsed.node_text(n).to_string();
     match node.kind() {
         "identifier" => {
             let name = text(&node);
-            note_use_binding(&name, &name, root.unwrap_or(&name), out);
+            out.push(UseLeaf {
+                bound: name.clone(),
+                original: name.clone(),
+                root: root.unwrap_or(&name).to_string(),
+                aliased: false,
+            });
         }
         "scoped_identifier" => {
             let path = node
@@ -261,7 +337,12 @@ fn walk_use_tree(
                 let r = root
                     .map(str::to_string)
                     .unwrap_or_else(|| first_segment(&path).to_string());
-                note_use_binding(&leaf, &leaf, &r, out);
+                out.push(UseLeaf {
+                    bound: leaf.clone(),
+                    original: leaf,
+                    root: r,
+                    aliased: false,
+                });
             }
         }
         "use_as_clause" => {
@@ -273,7 +354,12 @@ fn walk_use_tree(
                 let r = root
                     .map(str::to_string)
                     .unwrap_or_else(|| first_segment(&path).to_string());
-                note_use_binding(&text(&alias), last_segment(&path), &r, out);
+                out.push(UseLeaf {
+                    bound: text(&alias),
+                    original: last_segment(&path).to_string(),
+                    root: r,
+                    aliased: true,
+                });
             }
         }
         "use_list" => {
@@ -349,7 +435,7 @@ fn census_walk(parsed: &ParsedFile, node: Node, external_glob: &mut bool, macro_
     match node.kind() {
         "use_declaration" => {
             if let Some(arg) = node.child_by_field_name("argument") {
-                walk_use_tree(parsed, arg, None, &mut BTreeSet::new(), external_glob);
+                walk_use_tree(parsed, arg, None, &mut Vec::new(), external_glob);
             }
             return;
         }

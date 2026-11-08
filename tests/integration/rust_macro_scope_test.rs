@@ -258,3 +258,60 @@ fn k12_super_and_crate_globs_and_std_imports_do_not_poison() {
         );
     }
 }
+
+// ── Refined census (#765 PR D, round-2 prep): only what can import a macro taints ──
+
+const MAKE_LIB: &str =
+    "#[macro_export]\nmacro_rules! make { () => { fn helper() -> u8 { 2 } }; }\nmod m;\n";
+
+#[test]
+fn w7_an_alias_of_an_external_item_taints() {
+    let cg = import_graph(PLAIN_LIB, "use ext::anything as env;\n", "env!();");
+    unbound(&cg, "src/m.rs", "g", "helper");
+}
+
+#[test]
+fn w8_a_chain_of_in_repo_aliases_of_a_macro_taints() {
+    let cg = import_graph(
+        MAKE_LIB,
+        "use crate::make as mk;\nuse crate::mk as env;\n",
+        "env!();",
+    );
+    unbound(&cg, "src/m.rs", "g", "helper");
+}
+
+#[test]
+fn w9_an_external_import_of_write_withholds_the_transparent_macro() {
+    let cg = import_graph(PLAIN_LIB, "use ext::write;\n", "write!(s, \"{}\", 1);");
+    unbound(&cg, "src/m.rs", "g", "helper");
+}
+
+#[test]
+fn k13_an_in_repo_alias_of_a_fn_imports_no_macro() {
+    // `use crate::not_a_macro as env;` names a fn: `env!(..)` is still the std macro.
+    let lib = "pub fn not_a_macro() {}\nmod m;\n";
+    let cg = import_graph(
+        lib,
+        "use crate::not_a_macro as env;\n",
+        "let _ = env!(\"X\");",
+    );
+    binds(&cg, "src/m.rs", "g", "helper", ("src/m.rs", "helper", 2));
+}
+
+#[test]
+fn k14_an_unaliased_in_repo_import_of_a_fn_named_like_a_macro_does_not_taint() {
+    // `use super::write;` imports a fn: no `macro_rules! write` exists, so `write!` is std.
+    let lib = "pub fn write() {}\nmod m;\n";
+    let cg = import_graph(lib, "use super::write;\n", "write!(s, \"{}\", 1);");
+    binds(&cg, "src/m.rs", "g", "helper", ("src/m.rs", "helper", 2));
+}
+
+#[test]
+fn k15_write_arguments_are_still_extracted_when_write_is_a_fn_import() {
+    let m = "use super::write;\nfn helper(n: u8) -> u8 { n }\npub fn g() {\n    write!(s, \"{}\", helper(2)).unwrap();\n}\n";
+    let cg = build(&[
+        ("src/lib.rs", "pub fn write() {}\nmod m;\n"),
+        ("src/m.rs", m),
+    ]);
+    binds(&cg, "src/m.rs", "g", "helper", ("src/m.rs", "helper", 2));
+}
