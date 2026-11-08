@@ -1042,7 +1042,7 @@ impl CodePropertyGraph {
         self.taint_forward_cfg_with_return_flow_labeled(sources).0
     }
 
-    pub(crate) fn taint_forward_cfg_with_return_flow_labeled(
+    pub fn taint_forward_cfg_with_return_flow_labeled(
         &self,
         sources: &[(String, usize)],
     ) -> (

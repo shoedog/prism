@@ -8,7 +8,7 @@
 //! See `docs/superpowers/specs/2026-04-25-phase1-cwe-go-design.md` §3.4–§3.9.
 
 pub mod js_ts;
-pub(crate) mod matching;
+pub mod matching;
 pub mod path;
 pub mod python;
 pub mod shell;

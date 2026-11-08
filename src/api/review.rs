@@ -1,4 +1,3 @@
-use crate::algorithms;
 use crate::ast::ParsedFile;
 use crate::call_graph::ScopeGraphBuildInputs;
 use crate::cpg::{CodePropertyGraph, CpgContext};
@@ -164,7 +163,8 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
         };
 
         // Check parse quality for all files and collect warnings + structured data.
-        let (parse_warnings, parse_quality) = algorithms::check_parse_quality(&files);
+        let (parse_warnings, parse_quality) =
+            crate::ast::parse_quality::check_parse_quality(&files);
         drop(profile_load);
         let (scope_graph_inputs, source_listing) =
             crate::repo_loader::scope_graph_build_inputs_with_listing(&opts.repo, &files);

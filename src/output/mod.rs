@@ -4,7 +4,6 @@
 //! - `mermaid` — Mermaid flowchart rendering for SliceGraph (added in Task 5)
 
 pub mod mermaid;
-pub mod navigation;
 pub mod onboarding;
 pub mod review;
 pub mod review_compact;
@@ -12,6 +11,8 @@ pub mod sarif;
 mod sarif_model;
 mod sarif_rules;
 
+/// Nav evidence rendering moved to core (`navigation::render`, #701 S5); old path kept.
+pub use crate::navigation::render as navigation;
 pub use mermaid::{format_mermaid_report, render};
 pub use sarif::{to_sarif, SarifInputs};
 

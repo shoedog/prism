@@ -884,7 +884,7 @@ pub struct CallGraph {
     /// so cache bytes are unchanged. Scoped / cache-loaded / AST-only paths
     /// leave it `None` and construct their own.
     #[serde(skip)]
-    pub(crate) shared_plain_go_provider: Option<crate::type_providers::go::GoTypeProvider>,
+    pub shared_plain_go_provider: Option<crate::type_providers::go::GoTypeProvider>,
 }
 
 impl CallGraph {

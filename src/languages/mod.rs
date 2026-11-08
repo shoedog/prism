@@ -24,7 +24,7 @@ pub enum Language {
 
 impl Language {
     /// JS binding semantics apply to JS (including JSX, .mjs and .cjs), TS and TSX.
-    pub(crate) fn is_js_family(self) -> bool {
+    pub fn is_js_family(self) -> bool {
         matches!(self, Self::JavaScript | Self::TypeScript | Self::Tsx)
     }
 
@@ -144,7 +144,7 @@ impl Language {
     /// function. This is intentionally broader than `function_node_types()`:
     /// anonymous closures are boundaries even when they are not independently
     /// indexed as functions.
-    pub(crate) fn callable_boundary_node_types(&self) -> Vec<&'static str> {
+    pub fn callable_boundary_node_types(&self) -> Vec<&'static str> {
         let mut types = self.function_node_types();
         types.extend(match self {
             Self::Python => vec!["lambda"],

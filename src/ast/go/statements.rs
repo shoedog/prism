@@ -19,7 +19,7 @@ pub(crate) fn is_branch_anchor(kind: &str) -> bool {
 /// All direct children, with Go's `statement_list` replaced by its children.
 /// Keep case headers, comments and anonymous tokens in their original order.
 /// Other languages keep their native tree shape.
-pub(crate) fn children(node: Node<'_>, language: Language) -> Children<'_> {
+pub fn children(node: Node<'_>, language: Language) -> Children<'_> {
     let mut cursor = node.walk();
     let ready = cursor.goto_first_child();
     Children {
@@ -30,7 +30,7 @@ pub(crate) fn children(node: Node<'_>, language: Language) -> Children<'_> {
     }
 }
 
-pub(crate) struct Children<'tree> {
+pub struct Children<'tree> {
     cursor: TreeCursor<'tree>,
     ready: bool,
     flatten: bool,

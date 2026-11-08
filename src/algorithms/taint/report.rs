@@ -95,12 +95,7 @@ pub(super) fn source_line_text(source: &str, line: usize) -> String {
 fn evidence_rank(evidence: &EvidencePath) -> u8 {
     if evidence.crossed_unlabeled || evidence.hops.is_empty() {
         0
-    } else if evidence.hops.iter().all(|hop| match hop {
-        EvidenceHop::DataFlow { confidence, .. } => confidence.is_exact(),
-        EvidenceHop::Call { confidence, .. } => {
-            *confidence == crate::resolution::ResolutionConfidence::Exact
-        }
-    }) {
+    } else if evidence.hops.iter().all(EvidenceHop::is_exact) {
         2
     } else {
         1

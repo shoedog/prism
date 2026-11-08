@@ -460,7 +460,7 @@ fn build_result_with_options(
     }
     // else: leave the query's own warnings (including any ResultTruncated) intact.
 
-    let content_text = prism::output::navigation::render(&shaped, "json");
+    let content_text = prism::navigation::render::render(&shaped, "json");
     let structured = Some(serde_json::to_value(&shaped).unwrap_or_else(|_| serde_json::json!({})));
     McpToolResult {
         content_text,
@@ -1640,7 +1640,7 @@ mod tests {
         );
         assert_eq!(
             r.content_text,
-            prism::output::navigation::render(&ev, "json")
+            prism::navigation::render::render(&ev, "json")
         );
     }
 
