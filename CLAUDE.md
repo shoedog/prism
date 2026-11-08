@@ -10,12 +10,12 @@ taxonomy and novel theoretical extensions.
 
 ```bash
 cargo build          # Build the project
-cargo test           # Run all tests (unit + integration)
-cargo fmt --check    # Check formatting (must pass before PR)
+cargo test           # Run all tests (unit + integration) of the default members: prism (core) and prism-review
+cargo fmt --all --check  # Check formatting of every workspace crate (must pass before PR)
 cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 30 algorithms
 cargo build -p prism-mcp --bin prism-mcp    # Build the MCP stdio server
-cargo test --workspace                      # Run tests for the root package and prism-mcp
+cargo test --workspace                      # Run tests for prism, prism-review and prism-mcp
 ```
 
 ### Mutation gate
@@ -79,7 +79,7 @@ Full multi-corpus runs (`uv run tier-a --corpus all`) are human-triggered; see
 
 Always run these checks before committing/pushing:
 ```bash
-cargo fmt            # Fix formatting
+cargo fmt --all      # Fix formatting
 cargo test           # All tests must pass
 ```
 
@@ -89,14 +89,14 @@ file-derived module name):
 cargo test --test algo_paper                       # Paper algorithm tests
 cargo test --test algo_taxonomy taint_cve_test::   # Taint CVE tests
 cargo test --test lang_c algo_test::               # C language-specific tests
-cargo test --test cli validation_test::            # CLI validation tests
+cargo test --test cli validation_test::            # CLI validation tests (prism-review crate)
 cargo test --test integration core_test::          # Core integration tests
 cargo test --test integration coverage_test::      # Coverage matrix
 ```
 
 ## Code Organization
 
-### Core Modules (`src/`)
+### Core Modules (`src/`, the `prism` library)
 
 - `lib.rs` — Public API; re-exports all modules.
 - `ast.rs` — Tree-sitter AST wrapper (`ParsedFile`). All tree-sitter interaction goes through here.
@@ -109,15 +109,21 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `languages/mod.rs` — Language-specific node type mappings. Add new languages here.
 - `diff.rs` — Diff parsing and `DiffInput`/`DiffInfo` types.
 - `slice.rs` — `SlicingAlgorithm` enum (30 variants), `SliceConfig`, and `SliceResult`.
-- `output/` — Output formatters: `mod.rs`, `navigation.rs`, `review.rs`, `review_compact.rs`, `mermaid.rs`, `sarif.rs` (SARIF 2.1 serializer), `sarif_rules.rs` (rule descriptions + pure mapping helpers), `sarif_model.rs` (serde model structs).
-- `cli.rs` — The clap `Cli` derive tree (`Cli`, `ReviewArgs`, `Command`, `NavArgs`, `NavQuery`, `TargetsArgs`); `pub mod cli` in `lib.rs` so `tests/cli/readme_test.rs` can parse-only via `Cli::try_parse_from` without executing the binary.
+- `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
+- `api/` — `prism::api`: the stable, `#[non_exhaustive]` core facade of the `prism` library (`build_info`, `nav_session`/`callers`/`callees`, `OwnerOptions`, `load_review_inputs`, `build_context`, `ReviewOptions`, the finding-confidence items, `with_build_pool`). The review runner, SARIF and targets items are not in it: they live in `prism_review::api` (see "Review crate" below). See the module doc for the compatibility promise.
+- `finding_confidence.rs` — Single source for per-finding confidence/tier/parse-quality classification (`classify`, `evidence_files`, `ParseQuality::min_over`), consumed by both prism-review's `output/sarif.rs` and `targets/`.
+
+### Review crate (`crates/prism-review/src/`)
+
+The review layer is the workspace crate `crates/prism-review` (package `prism-review`, library `prism_review`, binary `prism`; #734, the 4.0.0 split). It depends on the `prism` core library; the core never depends on it. Its tests are `crates/prism-review/tests/cli/` (the `cli` umbrella target) plus its inline `src/` unit tests.
+
+- `output/` — Output formatters: `mod.rs`, `review.rs`, `review_compact.rs`, `mermaid.rs`, `sarif.rs` (SARIF 2.1 serializer), `sarif_rules.rs` (rule descriptions + pure mapping helpers), `sarif_model.rs` (serde model structs). Nav evidence rendering lives in core (`src/navigation/render.rs`) and is re-exported as `output::navigation`, so `output::navigation::` paths resolve.
+- `cli.rs` — The clap `Cli` derive tree (`Cli`, `ReviewArgs`, `Command`, `NavArgs`, `NavQuery`, `TargetsArgs`); `pub mod cli` in `lib.rs` so `crates/prism-review/tests/cli/readme_test.rs` can parse-only via `Cli::try_parse_from` without executing the binary.
 - `main.rs` — CLI entry point: `main()`, `run_review`/`run_nav`/`run_targets`, and the format-arm dispatch; the clap grammar itself lives in `cli.rs`.
 - `algorithms/` — All 30 slicing algorithms. Each is self-contained.
 - `algorithms/taint_sinks/` — taint's flat sink matcher (#622 S1), a hybrid policy. JS/TS/TSX, Python and Go sinks are decided from the AST: the identifier must be the callee of a call (or the target of an assignment for DOM/location sinks) — `callee.rs` finds the call and reads receiver chains. For high-severity names (exec/spawn, query/execute/raw, system/popen/remove, send/write, eval/Function, Command, HTML, redirect) an UNKNOWN receiver keeps firing; only PROVEN non-sinks suppress: a regex literal/`new RegExp`/binding initialised with one, loggers, message channels and stdio, a collection or file-object binding (every binding form of the name counts toward one file-wide total: plain, annotated and tuple-unpacking assignment, `with .. as`, `for` targets including JS `for (x of ..)`, walrus and augmented assignment, JS destructuring and compound assignment; more than the one proving binding, or any rebinding of a parameter, proves nothing, so the receiver is unknown and the sink fires. A Python annotation counts by its base identifier only, generic arguments ignored, and a union only when every non-`None` alternative is a collection), a `def`/function declared in this file under the same name, zero-argument calls (`model.eval()`, `u.Query()`), request-typed Go receivers (SQL names only; framework-context `HTML` still fires, a 3-argument value call being tagged `go-html-render` and graded weak), imported Go packages other than the rule's (`cobra.Command`), a constant `Sprintf` format. Go container-named receivers (`cache`, `l`, `list`) suppress `Remove`/`Rename`-style file ops only without a declared parameter or `var` type, or with a declared container type (`*lru.Cache`, `*list.List`); a file-system type (`afero.Fs`, `*os.File`) fires, as does a local initialised by a file-package constructor (`afero.NewOsFs()`, `os.Open(..)`). Struct-field receivers (`s.cache`) are not typed and stay name-only. Python `query` fires when its SQL argument (positional, or a `query=`/`sql=`/`statement=` keyword value) is (after peeling parentheses) an f-string, a `%` operation, a `+` with a string/identifier operand, a `.format` call or a lowercase variable; attribute-only arithmetic (`User.a + User.b`) and `session.query(Model)` stay ORM builders. Go `if`/`for`/`switch` init statements and `range` clauses are scopes. Receiver allowlists (response chains, db handles, `child_process` bindings, import-path-resolved Go packages) are positive evidence only: they pick the rule and CWE tag, never gate. Bindings are resolved lexically (`js_scope.rs`, `py_scope.rs`, `go_scope.rs`), so a shadowing parameter or local never inherits a module-level fact. Python `.where`/`.filter` with a positional argument stays a (weak) SQL clause sink by owner decision. Other languages keep the whole `SINK_PATTERNS` substring list (`legacy.rs`) except `SHELL_ONLY` command names (gated to Bash) and `get_user` (exact, C/C++); library names such as `sqlite3`, `chmod`, `chown`, `curl`, `uci`, `mtd`, `fw_setenv` are not gated. JS structured `exec`/`execSync` sinks carry a semantic check (`js_exec_call_is_command`). Sink strength (#636): each hit carries `Strength`, and `SinkClassifier::line_strength` (`taint_sinks/strength.rs`) grades the `taint_sink` finding at emission. Weak requires proof; anything unproven stays Strong. A line is Weak only when every rule-recognised sink call on it (and on the calls enclosing it, for lines inside a multi-line call) is weak, no caller-supplied or wrapper sink name is on it, and no non-SQL structured pattern (SSRF, path, command, ... `taint_sinks/structured.rs`, every pattern, no flow path) matches it; JS/TS/TSX, Python and Go only, other languages are always Strong. Weak shapes: SQL calls (`js-db-call` for the SQL-text-in-argument-0 names only, never `createQueryBuilder`; `py-db-call`; `go-db-call`) whose query argument is constant text (a string literal without interpolation, or a name with exactly one binding in its function, or in the file for a module-level name, never written: Go `const`, `query := ".."`, `var query = ".."` (a multi-name `var a, b = x, y` pairs each name with its own initializer and gives none when the counts differ); JS single declarator with parameters, shorthand destructuring bindings and `catch` parameters counted as declarations in the strength proof only (the shared resolver keeps main's presence behaviour) and no write, so a later `var` redeclaration, a parameter of the same name or `:=` redeclaration is Strong); Python SQL (design A, a closed allow-list in `taint_sinks/sqla_tables.rs`, the grader in `sqla.rs`, `sqla_value.rs` and `sqla_chain.rs`; the old raw-SQL deny-list is gone): `execute`/`query` weak only when its argument proves as a statement (S), and a `.where`/`.filter`/`.filter_by` hit (`py-sql-clause`, the tag is shared with the strong `text(<non-literal>)` hit; strength is per hit) weak only when its own arguments and the whole method chain around it prove (maximal chain: methods applied to its result and methods of its receiver are on the `CHAIN` table with proven arguments; the root may be built elsewhere, a parameter, an attribute or an unknown call, but a library statement or a local is proven and a local bound more than once is Strong; a root that calls a same-file `def` (one binding, undecorated) or a module-level lambda, or `self.m`/`cls.m` resolved through the class and its same-file bases (a method defined more than once, conditionally, or overridden in a same-file subclass is Strong), proves only when every `return` passes the same chain rule, to depth 2, and every call argument is a value or a proven chain; recursion, a bare return, no return or another assigned callee is Strong; `sqla_helpers.rs`). Every argument has a position class: C clause (becomes SQL structure: only column references, literals, comparisons, boolean and arithmetic over those, and calls to table constructs and column methods), V value (a bound parameter), F from, S statement, L literal, T type, O loader; anything not on a table is unproven. A raw constructor (`text(<non-literal>)`, `literal_column`, `column`, `table`, `Column(<non-literal>)`, `SQL`, `RawSQL`, `.extra`, `.op`, `prefix_with`/`suffix_with`, `with_hint`/`with_statement_hint`/`from_statement`, `getattr(func, x)`, a `*list` or `**dict` splat in a C position) is never admitted, and a belt of raw-API names refuses a callee of that name whatever its receiver (`db.literal_column(x)`); the same belt is applied to the whole line (`SinkClassifier::py_line_has_raw`, strength only). Library identity: a name is SQLAlchemy/peewee/Django only when EVERY binding of that spelling in the file (`py_scope::Sites`, a census over assignment, annotated and augmented targets, unpacking, `for` and comprehension targets, `with`/`except .. as`, walrus, imports, `def`/`class`, parameters of functions and lambdas, `global`/`nonlocal`, match captures, `del`, type aliases) is an import of the same member of `sqlalchemy`(.sub) / `peewee` / `django.db.models`(.sub), an exact package boundary (`sqlalchemy_utils` is not `sqlalchemy`); the original member name selects the table entry, so an alias cannot hide `literal_column`. A local name resolves to exactly one binding in the nearest enclosing scope (function, lambda, comprehension, module; class bodies only for code directly in them), at most 8 hops deep (D3), else Strong (a proof that held is memoised by initializer, so a name used many times is proven once; the grader also has a fixed step budget, beyond which the answer is Strong); a name bound more than once, a loop target in a C/S/F position, an unannotated parameter in a C/S/F position and `self.x`/`cls.x` roots are Strong. D2: a never-rebound parameter annotated `Table`/`Select`/`Subquery`/`Alias`/`CTE`/`FromClause`/`TableClause`/`Join`/`type[..]` is a schema root, and one annotated `Select`/`Insert`/`Update`/`Delete`/`CompoundSelect` is a statement (`Executable` is not proof). A schema root is also an imported or star-imported name that no scope rebinds, a class, a module-level object, or a local bound once to a proven S/F. Django sub-grammar (D4): `Q(**V)`, `~Q`, `Q & Q`, `Q | Q`, `Exists(S)`, `Subquery(S)`, `OuterRef(L)`, `F(L)`, `Value(V)`, `exclude`/`using`/`values_list`; nothing else of `django.db.models` is admitted. Contract (D1): a value position binds the Python object it receives, so a SQL construct that reaches a V position from outside the function (a parameter, the return of a cross-module function, an attribute set elsewhere, a module imported from elsewhere) is out of model, as runtime mutation is for `Exact`; everything the function or file builds itself is checked: a local in a V position resolves to its initializer (a loop or `with` target is data, except that an iterable built in place, a display or comprehension, directly or through one local name that no mutator fills with a non-value, is still checked, D1b), a same-file function (or a `self.m`/`cls.m` method) is proven by its returns (two levels), an object the function stores to (`o.x = ..`, `o[k] = ..`, `setattr`, or a mutator method such as `append`/`update` with a non-value argument) is Strong, and a local container (a display, a comprehension, or a container-constructor or same-file-function call) is data only when every other occurrence of its name is an allow-listed one (`name.append|extend|add|insert|update|setdefault|appendleft|extendleft(values)`, the iterable of a `for`, an argument of `len`/`list`/`tuple`/`set`/`sorted`/`str`, a read-only truth test or `in` right operand; adders count only as whole statements and a container holding a nested display is Strong; `sqla_uses.rs`), any alias, other call, store, `del` or nested-scope occurrence being Strong, a `self`/`cls` attribute is checked against every assignment to it in the enclosing class (tuple targets, `setattr`, mutators on it) and a same-named property (D1a), a belt method on an opaque chain root is Strong on any line, a maximal-chain root bound by a conditional or boolean expression checks every branch while unpacking and walrus roots are Strong, an unknown call is admitted as data only when its callee and every argument are values (an import of a belt name or of a SQL-library member, or a module-qualified call rooted at one, is never data, even when file-wide identity trust failed), a listed column method needs its argument classes whatever the receiver, and an f-string in a V position is weak (`.ilike(f"%{q}%")`) while the same f-string in a C position is Strong; `tests/algo/taxonomy/taint_sink_strength_sqla_test.rs` pins the contract rows as Weak. Go's constant-query proof counts every tree-sitter-go binding or write node of the name (assignment, short var decl, var spec, `++`/`--`, `range`, `case q = <-ch` / `case q := <-ch`, a type-switch alias) and `&name`; a constant needs zero such bindings in the function, a variable exactly one; and reads a separate per-name initializer, so rule presence keeps the historical first-value pairing. Go `go-html-render` (3 arguments on a value receiver, weak only when the receiver's declared type is exactly `gin.Context` or `*gin.Context`, a package-qualified identity and not a substring; a status argument is no proof, so `plugin.Context`, an unknown `Ctx` and iris `HTML(format, a, b)` are Strong). A weak finding has severity `suggestion` instead of `warning`, so the existing mechanisms apply: `--format review` hides it under the default `warning` floor and `--review-min-severity suggestion` shows it, SARIF level is `note`, `--format json`/targets keep it (`targets[].id` hashes severity, so weak taint_sink target ids change once on upgrade). The tier is a view: the `taint_sink` set is unchanged. `--format review` adds `findings_below_floor` (per result and top level) counting hidden findings of severity `suggestion` or above, omitted when zero (`info` is never counted). Parameterised JS/Python `query`/`execute` calls whose taint rides only in bound parameters are already cleansed by the structured sanitizers and produce no finding, so they have no weak row. JS/TS/TSX also have import-resolved module identity (`js_modules.rs`, #637 A1): a lexically resolved import or `require` of `fs`/`fs/promises`/`fs-extra`/`graceful-fs` (`node:` forms, `.promises`, named and renamed imports) fires `js-fs` on the path-taking API, a single-binding `new NodeSSH()` local from `node-ssh` fires `execCommand`/`exec`, and `document.execCommand` on the unshadowed global document fires for `'insertHTML'` or a non-literal command; identity needs the innermost scope binding the name (`js_binding.rs`: params, loops, catch, hoisted `var`) to hold exactly one unwritten binding, type-only imports, a class expression's own name and `with` bodies prove nothing, and an fs hit needs a non-literal path argument; tables are positive evidence only, closed, with fields out of scope. Python module identity (#637 A2, `py_modules.rs`): closed per-module tables (paramiko `exec_command`, pexpect `spawn`/`run`/`PopenSpawn`, fabric/invoke `run`/`sudo`/`local`, jinja2 `from_string`; `jinja2.sandbox.SandboxedEnvironment` is weak) fire strong only when the callee is proven by an import visible at the use (every binding in its resolved scope is that import, no star import can replace it), or one hop from it (a single-binding local, a `with .. as` target, the first parameter of a fabric 2/invoke `@task`; a receiver that is itself a listed-class call counts; `from_string` needs a non-literal template); fields, annotations and rebinding prove nothing, and the tables never suppress. New sink shapes go in a rule table with matrix rows in `tests/algo/taxonomy/taint_sink_rules_*`, never as a bare name in `SINK_PATTERNS`; mutants in `mutants/taint-sink-rules.json`.
-- `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
-- `api/` — `prism::api`: the stable, `#[non_exhaustive]` facade for embedding prism as a library (`build_info`, `review`, `run`, `nav`). See its module doc for the compatibility promise; `main.rs` is its first consumer.
+- `api/` — `prism_review::api`: the review facade. It re-exports all of `prism::api` and adds the algorithm runner (`review`, `run_review`, `run_algorithm`, `parse_algorithms`, `AlgorithmParams`, `ReviewOutcome`, `ReviewRun`, `annotate_finding_parse_quality`, `filter_result_findings`), SARIF (`to_sarif`, `SarifInputs`) and targets (`project`, `TargetsDocument`, `TargetsMeta`). Both facades carry the same `#[non_exhaustive]` and compatibility promise (within a major version every item keeps its name and signature; removal or signature change is preceded by a `#[deprecated]` release); 4.0.0 made the split and moved the review items to `prism_review::api`. `main.rs` is its first consumer.
 - `targets/` — `prism targets`: projects findings into the instrumentation-targets contract (`mod.rs`: `project`/`TargetsMeta`/id/dedupe/warnings; `model.rs`: schema DTOs; `mapping.rs`: category table, hint parsers, language lowering). Schema at `docs/contracts/targets.schema.json`.
-- `finding_confidence.rs` — Single source for per-finding confidence/tier/parse-quality classification (`classify`, `evidence_files`, `ParseQuality::min_over`), consumed by both `output/sarif.rs` and `targets/`.
 
 ### Test Structure (`tests/`)
 
@@ -129,7 +135,6 @@ tests/
 │   ├── taxonomy/      # 5 test files (taint CVE/lang/sink, misc, misc_lang)
 │   └── theoretical/   # 4 test files (angle, quantum, spiral, vertical)
 ├── ast/               # AST infrastructure tests (access_path, binding, cpg, dfg, field)
-├── cli/               # CLI tests (algo, output, validation)
 ├── common/            # Shared test helpers and fixture generators
 │   └── mod.rs         # Re-exports core types + fixture generators per language
 ├── fixtures/          # Test data files (bash, c, python, terraform)
@@ -145,7 +150,10 @@ tests/
 ```
 
 Cargo.toml defines one umbrella test target per `tests/` subdirectory (e.g.,
-`cargo test --test algo_paper`).
+`cargo test --test algo_paper`). The CLI tests (algo, output, validation, `readme_test`, ...) are the
+`cli` umbrella target of the `prism-review` crate, in `crates/prism-review/tests/cli/`; the root
+workspace's `default-members` include `prism-review`, so `cargo test --test cli validation_test::`
+still works from the root (`cargo test -p prism-review --test cli ...` names it explicitly).
 Shared test helpers in `tests/common/mod.rs` provide fixture generators like
 `make_python_test()`, `make_javascript_test()`, etc.
 
@@ -215,7 +223,7 @@ Navigation queries include `nodes-at`, `symbol-spans`, `callers`, `callees`, `eg
 `module-deps`, `repo-map`, `dfg-stats`, and the CLI-only `onboard` report.
 `module-deps`/`repo-map` live in `src/navigation/module_graph.rs`; onboarding report
 construction lives in `src/navigation/onboarding.rs` and deterministic Markdown/JSON
-rendering in `src/output/onboarding.rs`. `onboard --out` is explicit create-new-only
+rendering in `crates/prism-review/src/output/onboarding.rs`. `onboard --out` is explicit create-new-only
 output and must never overwrite an existing file.
 Navigation and CPG call resolution share one ordered ladder (S3),
 `CallGraph::resolve_call_site` in `src/resolution.rs`, which returns each callee
@@ -772,16 +780,21 @@ Algorithms fall into two categories:
 
 ### Layering and file layout (#701)
 
-Core modules never import the review layer: `tests/integration/layering_test.rs` fails on any
-`crate::algorithms` or `algorithms::` reference in a non-test source file outside `src/algorithms/`, `src/output/`,
-`src/targets/`, `src/api/`, `src/cli.rs`, `src/main.rs`, `src/lib.rs`. It exempts files
-by name only (`*_tests.rs`, `*_test.rs`, `tests.rs`, any `/tests/` component) and `//` comment
-lines; there is deliberately no `#[cfg(test)]` exemption, so a core file's inline test module may
-not import `algorithms` (put such a test in a `*_tests.rs` sibling). The test scans `src/` and `crates/prism-mcp/src/` (the latter with no review-layer allowlist) and matches `crate::algorithms`, `algorithms::` and `prism::algorithms`. Large files are split by
+The workspace is three crates: `prism` (the core library, root `src/`), `crates/prism-review` (the review
+layer, library `prism_review` plus the `prism` binary) and `crates/prism-mcp`; `default-members` are the root
+and `prism-review` (`prism-mcp` is opt-in with `-p prism-mcp` or `--workspace`). The layering boundary is
+Cargo: the core cannot name `prism_review` (no dependency) or `algorithms` (the module is not there).
+`tests/integration/layering_test.rs` backs this up where Cargo cannot: it fails on any non-comment line
+under `src/` that contains `prism_review`, test modules and `*_tests.rs` files included (the root's
+dev-dependency on `prism-review` is for integration tests only and must not leak into core source), and it
+scans `crates/prism-mcp/src/` for `crate::algorithms`, `algorithms::`, `prism::algorithms` and
+`prism_review`, exempting only its test files by name (`*_tests.rs`, `*_test.rs`, `tests.rs`, any
+`/tests/` component); `//` comment lines are skipped, and there is deliberately no `#[cfg(test)]`
+exemption. Large files are split by
 generated move-only PRs with byte-identity checks: `src/ast.rs` is the entry (types, `mod` lines,
 re-exports, a few core methods) over `src/ast/{js_ts,go,python}/` and concern files
 (`imports`, `parameters`, `assignments`, `lvalues`, `rvalues`, `calls`, `control_flow`, ...);
-`src/algorithms/taint.rs` likewise over `taint/`; `src/call_graph/*_tests.rs` hold the former
+`crates/prism-review/src/algorithms/taint.rs` likewise over `taint/`; `src/call_graph/*_tests.rs` hold the former
 inline test modules. Language-specific code stays per layer (`<layer>/<lang>/`), never in a
 per-language crate. The former root language modules now live in their layers:
 `resolution/{go,js_ts,rust}/`, `call_graph/{go,js_ts,rust}/`, `type_providers/go/type_alias.rs`,
@@ -790,7 +803,7 @@ per-language crate. The former root language modules now live in their layers:
 
 ### Algorithm Dispatch
 
-`src/algorithms/mod.rs` contains:
+`crates/prism-review/src/algorithms/mod.rs` contains:
 - `run_slicing(ctx: &CpgContext, diff: &DiffInput, config: &SliceConfig)` — main dispatcher
 - `run_slicing_compat(...)` — backward-compatible wrapper that builds `CpgContext` automatically
 - `check_parse_warnings(...)` — reports tree-sitter parse errors (>10% warn, >30% skip)
@@ -888,11 +901,11 @@ Key algorithm-specific flags:
 
 ## Adding a New Slicing Algorithm
 
-1. Create `src/algorithms/your_algo.rs` with a `pub fn slice(...)` function
+1. Create `crates/prism-review/src/algorithms/your_algo.rs` with a `pub fn slice(...)` function
 2. Add variant to `SlicingAlgorithm` in `src/slice.rs` (both enum and `from_str`/`name`/`all`)
-3. Add `pub mod your_algo;` in `src/algorithms/mod.rs`
-4. Wire it up in the `run_slicing` dispatcher in `src/algorithms/mod.rs`
-5. Add CLI flags in `src/main.rs` if it needs algorithm-specific config
+3. Add `pub mod your_algo;` in `crates/prism-review/src/algorithms/mod.rs`
+4. Wire it up in the `run_slicing` dispatcher in `crates/prism-review/src/algorithms/mod.rs`
+5. Add CLI flags in `crates/prism-review/src/cli.rs` (the clap grammar) and `crates/prism-review/src/main.rs` if it needs algorithm-specific config
 6. Add tests in `tests/algo/` (appropriate subcategory) and add a `mod <stem>;`
    line to that directory's `main.rs`
 7. Add the algorithm to the `algorithms` list in `test_algorithm_language_matrix`
@@ -916,7 +929,7 @@ Key algorithm-specific flags:
 ## Dependencies
 
 - `tree-sitter` + 11 language grammar crates (12 parsed language variants) for AST parsing; TypeScript 0.23.2 and Go 0.25.0 + PR #193 are source-vendored (see each `vendor/tree-sitter-*/PRISM.md`)
-- `tikv-jemallocator` (Linux only) is the `prism` CLI's global allocator (`src/main.rs`; #437); `prism-mcp` stays on the system allocator because its sampler reads glibc `mallinfo2`
+- `tikv-jemallocator` (Linux only) is the `prism` CLI's global allocator (`crates/prism-review/src/main.rs`; #437); `prism-mcp` stays on the system allocator because its sampler reads glibc `mallinfo2`
 - `petgraph` for graph data structures (CFG, CPG)
 - `clap` for CLI
 - `dirs` for prism-owned cache directory discovery
