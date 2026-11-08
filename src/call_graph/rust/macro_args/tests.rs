@@ -424,3 +424,38 @@ fn find_token_tree_child_locates_the_args_token_tree() {
     let tt = find_token_tree_child(macro_node).expect("token_tree child");
     assert_eq!(tt.kind(), "token_tree");
 }
+
+// ---- #724: leading `crate`/`self`/`super` keep the RECORDED name (KEEP) ----
+//
+// The recorded `callee_name`, span and dump text stay base's spelling (the chain
+// from the first identifier); the keyword prefix is stored aside for the
+// authoritative route only (see `path_anchor_*` rows below).
+
+#[test]
+fn leading_keyword_chains_keep_the_recorded_name() {
+    for (src, want) in [
+        ("fn t() { assert!(super::super::f(x)); }", "f"),
+        ("fn t() { assert!(super::a::f(x)); }", "a::f"),
+        ("fn t() { assert!(crate::api::f(x)); }", "api::f"),
+        ("fn t() { assert!(crate::f(x)); }", "f"),
+        ("fn t() { assert!(self::f(x)); }", "f"),
+    ] {
+        let (_pf, sites, facts) = extract(src);
+        assert_eq!(sites, vec![(want.to_string(), None)], "{src}");
+        assert_eq!(facts.calls_recorded, 1, "{src}");
+    }
+}
+
+#[test]
+fn keyword_paths_without_a_call_mint_nothing() {
+    // B11: a path in pattern position and a bare keyword are not calls.
+    for src in [
+        "fn t() { assert!(matches!(x, super::E::A)); }",
+        "fn t() { assert!(super); }",
+        "fn t() { assert!(crate::E::A == x); }",
+    ] {
+        let (_pf, sites, facts) = extract(src);
+        assert!(sites.is_empty(), "{src}: {sites:?}");
+        assert_eq!(facts.calls_recorded, 0, "{src}");
+    }
+}
