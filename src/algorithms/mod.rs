@@ -37,8 +37,7 @@ use crate::cpg::CpgContext;
 use crate::diff::DiffInput;
 use crate::output::mermaid;
 use crate::slice::{
-    DiagramWarning, DiagramWarningKind, FileParseQuality, SliceConfig, SliceResult,
-    SlicingAlgorithm,
+    DiagramWarning, DiagramWarningKind, SliceConfig, SliceResult, SlicingAlgorithm,
 };
 use crate::type_db::TypeDatabase;
 use anyhow::Result;
