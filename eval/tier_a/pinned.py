@@ -8,15 +8,15 @@ from .oracles import OracleTimeout
 from .sut import SutAmbiguous, SutError, SutTimeout
 
 PINNED = [
-    {"id": "target-c-method", "symbol": "target", "file": "src/algorithms/taint.rs",
+    {"id": "target-c-method", "symbol": "target", "file": "crates/prism-review/src/algorithms/taint.rs",
      "expected": "known_fail",   # G1(b): reproduce raw P<=0.2 and R<=0.2, or flip-candidate
      "note": "prototype C-method total failure; S3 flip indicator"},
     {"id": "module-deps-feature-gated", "symbol": "module_deps",
      "file": "src/navigation/module_graph.rs", "expected": "oracle_miss_site",
-     "oracle_miss_site": "src/mcp/tools.rs:162"},
+     "oracle_miss_site": "crates/prism-mcp/src/tools.rs:162"},
     {"id": "load-repo-feature-gated", "symbol": "load_repo",
      "file": "src/repo_loader.rs", "expected": "oracle_miss_site",
-     "oracle_miss_site": "src/mcp/session.rs:28"},
+     "oracle_miss_site": "crates/prism-mcp/src/session.rs:28"},
     {"id": "ambiguous-symbol-contract", "symbol": "slice", "file": None,
      "expected": "ambiguous_symbol_error",
      "note": "bare-symbol seed with no file MUST safe-fail (prototype contract)"},
