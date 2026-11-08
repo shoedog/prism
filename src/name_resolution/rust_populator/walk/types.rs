@@ -26,22 +26,23 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_struct(
     scope: ScopeId,
     ctx: &Ctx,
 ) {
-    let (name, vis_kind, cond, lo, hi, is_unit_or_tuple) = with_node(b, path, nid, |pf, n| {
-        let body = n.child_by_field_name("body");
-        // unit struct = no body; tuple struct = ordered_field_declaration_list.
-        let unit_or_tuple = match &body {
-            None => true,
-            Some(x) => x.kind() == "ordered_field_declaration_list",
-        };
-        (
-            type_name_text(pf, n),
-            parse_vis(pf, n).0,
-            parse_cfg_for_item(pf, n),
-            n.start_byte(),
-            n.end_byte(),
-            unit_or_tuple,
-        )
-    });
+    let (name, (vis_kind, vin), cond, lo, hi, is_unit_or_tuple) =
+        with_node(b, path, nid, |pf, n| {
+            let body = n.child_by_field_name("body");
+            // unit struct = no body; tuple struct = ordered_field_declaration_list.
+            let unit_or_tuple = match &body {
+                None => true,
+                Some(x) => x.kind() == "ordered_field_declaration_list",
+            };
+            (
+                type_name_text(pf, n),
+                parse_vis(pf, n),
+                parse_cfg_for_item(pf, n),
+                n.start_byte(),
+                n.end_byte(),
+                unit_or_tuple,
+            )
+        });
     if name.is_empty() {
         return;
     }
@@ -63,6 +64,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_struct(
         cond.clone(),
         vec![full_scope_span(b, scope, ctx.file)],
     );
+    b.note_restrict(vis_kind, &vin);
     // unit/tuple struct also binds a Value constructor (callable for tuple).
     if is_unit_or_tuple {
         let ctor = b.fresh_item();
@@ -80,6 +82,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_struct(
             cond,
             vec![full_scope_span(b, scope, ctx.file)],
         );
+        b.note_restrict(vis_kind, &vin);
     }
 }
 
@@ -90,7 +93,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_enum(
     scope: ScopeId,
     ctx: &Ctx,
 ) {
-    let (name, vis_kind, cond, lo, hi, variants) = with_node(b, path, nid, |pf, n| {
+    let (name, (vis_kind, vin), cond, lo, hi, variants) = with_node(b, path, nid, |pf, n| {
         let mut variants: Vec<(String, usize)> = Vec::new();
         if let Some(body) = n.child_by_field_name("body") {
             let mut c = body.walk();
@@ -104,7 +107,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_enum(
         }
         (
             type_name_text(pf, n),
-            parse_vis(pf, n).0,
+            parse_vis(pf, n),
             parse_cfg_for_item(pf, n),
             n.start_byte(),
             n.end_byte(),
@@ -131,6 +134,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_enum(
         cond.clone(),
         vec![full_scope_span(b, scope, ctx.file)],
     );
+    b.note_restrict(vis_kind, &vin);
     // Enum variants → Value bindings in the enum's Type scope (path-reachable as
     // `E::Variant`, NOT bare-visible — same re-parent rule as assoc items).
     for (vn, _vb) in variants {
@@ -149,6 +153,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_enum(
             cond.clone(),
             vec![full_scope_span(b, type_scope, ctx.file)],
         );
+        b.note_restrict(vis_kind, &vin);
     }
 }
 
@@ -161,10 +166,10 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_type_like(
     ctx: &Ctx,
     _is_trait: bool,
 ) {
-    let (name, vis_kind, cond, lo, hi, body_nid) = with_node(b, path, nid, |pf, n| {
+    let (name, (vis_kind, vin), cond, lo, hi, body_nid) = with_node(b, path, nid, |pf, n| {
         (
             type_name_text(pf, n),
-            parse_vis(pf, n).0,
+            parse_vis(pf, n),
             parse_cfg_for_item(pf, n),
             n.start_byte(),
             n.end_byte(),
@@ -191,6 +196,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_type_like(
         cond,
         vec![full_scope_span(b, scope, ctx.file)],
     );
+    b.note_restrict(vis_kind, &vin);
     if let Some(body_nid) = body_nid {
         walk_assoc_items(b, path, &body_nid, type_scope, ctx);
     }
@@ -240,10 +246,10 @@ fn walk_assoc_items(
     for it in items {
         match it.kind.as_str() {
             "function_item" | "function_signature_item" => {
-                let (name, vis_kind, cond) = with_node(b, path, &it, |pf, n| {
+                let (name, (vis_kind, vin), cond) = with_node(b, path, &it, |pf, n| {
                     (
                         name_text(pf, n).unwrap_or_default(),
-                        parse_vis(pf, n).0,
+                        parse_vis(pf, n),
                         parse_cfg_for_item(pf, n),
                     )
                 });
@@ -263,15 +269,16 @@ fn walk_assoc_items(
                         cond,
                         vec![full_scope_span(b, type_scope, ctx.file)],
                     );
+                    b.note_restrict(vis_kind, &vin);
                 }
                 // ...and build the BODY re-parented to the module (assoc=true).
                 walk_function(b, path, &it, type_scope, ctx, /*assoc=*/ true);
             }
             "const_item" | "static_item" => {
-                let (name, vis_kind, cond) = with_node(b, path, &it, |pf, n| {
+                let (name, (vis_kind, vin), cond) = with_node(b, path, &it, |pf, n| {
                     (
                         name_text(pf, n).unwrap_or_default(),
-                        parse_vis(pf, n).0,
+                        parse_vis(pf, n),
                         parse_cfg_for_item(pf, n),
                     )
                 });
@@ -291,6 +298,7 @@ fn walk_assoc_items(
                         cond,
                         vec![full_scope_span(b, type_scope, ctx.file)],
                     );
+                    b.note_restrict(vis_kind, &vin);
                 }
             }
             _ => {}
@@ -307,10 +315,10 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_value_item(
     scope: ScopeId,
     ctx: &Ctx,
 ) {
-    let (name, vis_kind, cond) = with_node(b, path, nid, |pf, n| {
+    let (name, (vis_kind, vin), cond) = with_node(b, path, nid, |pf, n| {
         (
             name_text(pf, n).unwrap_or_default(),
-            parse_vis(pf, n).0,
+            parse_vis(pf, n),
             parse_cfg_for_item(pf, n),
         )
     });
@@ -332,6 +340,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_value_item(
         cond,
         vec![full_scope_span(b, scope, ctx.file)],
     );
+    b.note_restrict(vis_kind, &vin);
 }
 
 pub(in crate::name_resolution::rust_populator::walk) fn walk_type_alias(
@@ -341,10 +350,10 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_type_alias(
     scope: ScopeId,
     ctx: &Ctx,
 ) {
-    let (name, vis_kind, cond) = with_node(b, path, nid, |pf, n| {
+    let (name, (vis_kind, vin), cond) = with_node(b, path, nid, |pf, n| {
         (
             type_name_text(pf, n),
-            parse_vis(pf, n).0,
+            parse_vis(pf, n),
             parse_cfg_for_item(pf, n),
         )
     });
@@ -366,6 +375,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_type_alias(
         cond,
         vec![full_scope_span(b, scope, ctx.file)],
     );
+    b.note_restrict(vis_kind, &vin);
 }
 
 // ── macros ────────────────────────────────────────────────────────────────────

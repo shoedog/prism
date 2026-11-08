@@ -20,7 +20,18 @@ impl CallGraph {
         }
         let graph = self.scope_graph.as_ref()?;
         let (file, from) = rust_authoritative_scope(graph, site)?;
-        Some(self.rust_authoritative_nonself(graph, site, file, from))
+        // A macro-argument path keeps its `crate`/`self`/`super` prefix aside (#724).
+        let anchored = super::path_anchor::anchored_site(site);
+        let was_anchored = anchored.is_some();
+        let site = anchored.as_ref().unwrap_or(site);
+        let out = self.rust_authoritative_nonself(graph, site, file, from);
+        Some(super::path_anchor::guard(
+            graph,
+            site,
+            was_anchored,
+            from,
+            out,
+        ))
     }
 
     fn rust_authoritative_nonself(

@@ -243,7 +243,7 @@
    ]
   ],
   "PD-30-synthetic-identity-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "        self.js_ts_synthetic_callable_name(func_node)\n    }",
    "        None\n    }",
    [
@@ -293,7 +293,7 @@
    ]
   ],
   "PD-36-e3-fence-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "        self.js_ts_binding_scope_at(reference.start_byte(), name)\n            .map(|s| s.0)\n            != self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)",
    "        false",
    [
@@ -301,7 +301,7 @@
    ]
   ],
   "PD-37-e3-def-containment-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)",
    "Some(usize::MAX)",
    [
@@ -317,7 +317,7 @@
    ]
   ],
   "PD-39-e3-self-name-binder-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "if matches!(scope.kind(), \"function_expression\" | \"generator_function\")",
    "if matches!(scope.kind(), \"never_function_expression\")",
    [
@@ -325,7 +325,7 @@
    ]
   ],
   "PD-40-e3-function-scope-binder-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "inside(body) && self.js_ts_function_scope_binds(body, boundaries, name)",
    "inside(body) && false && self.js_ts_function_scope_binds(body, boundaries, name)",
    [
@@ -333,7 +333,7 @@
    ]
   ],
   "PD-41-e3-class-name-binder-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "            \"class\" | \"class_declaration\" | \"abstract_class_declaration\" => scope",
    "            \"class\" | \"class_declaration\" | \"abstract_class_declaration\" if false => scope",
    [
@@ -405,7 +405,7 @@
    ]
   ],
   "PD-50-erased-type-read-filter-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "|| self.language.is_in_erased_type_context(ident)",
    "|| false && self.language.is_in_erased_type_context(ident)",
    [
@@ -421,7 +421,7 @@
    ]
   ],
   "PD-52-plain-binding-alias-filter-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "            \"assignment_expression\"\n                if parent.child_by_field_name(\"left\")",
    "            \"assignment_expression\" | \"augmented_assignment_expression\"\n                if parent.child_by_field_name(\"left\")",
    [
@@ -453,7 +453,7 @@
    ]
   ],
   "PD-56-r1-computed-key-environment-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "            if !body.is_some_and(inside)\n                && !params.is_some_and(inside)\n                && !in_self_name\n                && !in_return_type\n            {",
    "            if false && !body.is_some_and(inside)\n                && !params.is_some_and(inside)\n                && !in_self_name\n                && !in_return_type\n            {",
    [
@@ -461,7 +461,7 @@
    ]
   ],
   "PD-57-r1-default-body-visibility-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "inside(body) && self.js_ts_function_scope_binds(body, boundaries, name)",
    "self.js_ts_function_scope_binds(body, boundaries, name)",
    [
@@ -501,7 +501,7 @@
    ]
   ],
   "PD-62-r1-decoded-binder-comparison-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "Self::js_ts_decoded_identifier(text).is_some_and(|decoded| decoded == name)",
    "text.contains('\\\\')",
    [
@@ -510,7 +510,7 @@
    ]
   ],
   "PD-63-r1-static-block-scope-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "            \"class_static_block\" => scope",
    "            \"never_class_static_block\" => scope",
    [
@@ -518,7 +518,7 @@
    ]
   ],
   "PD-64-r1-return-type-visibility-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "let in_return_type = scope.child_by_field_name(\"return_type\").is_some_and(inside);",
    "let in_return_type = false;",
    [
@@ -526,7 +526,7 @@
    ]
   ],
   "PD-65-r2-parens-write-wrapper-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "| \"parenthesized_expression\"",
    "| \"never_parenthesized_expression\"",
    [
@@ -535,7 +535,7 @@
    ]
   ],
   "PD-65-r2-nonnull-write-wrapper-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "| \"parenthesized_expression\"\n                | \"non_null_expression\"",
    "| \"parenthesized_expression\"\n                | \"never_non_null_expression\"",
    [
@@ -544,7 +544,7 @@
    ]
   ],
   "PD-65-r2-as-write-wrapper-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "| \"as_expression\"\n                | \"satisfies_expression\"",
    "| \"satisfies_expression\"",
    [
@@ -553,7 +553,7 @@
    ]
   ],
   "PD-65-r2-satisfies-write-wrapper-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "| \"satisfies_expression\"\n                | \"type_assertion\"",
    "| \"type_assertion\"",
    [
@@ -562,7 +562,7 @@
    ]
   ],
   "PD-65-r2-assertion-write-wrapper-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "| \"type_assertion\" => {}",
    "| \"never_type_assertion\" => {}",
    [
@@ -577,7 +577,7 @@
    "cpg::callback_identity_tests::r2_body_function_hoisting_shares_simple_parameters"
   ],
   "PD-71-r2-parameter-body-separation-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "!(self.js_ts_seam_binding(owner, name)\n            && owner\n                .child_by_field_name(\"body\")\n                .is_some_and(|body| body.start_byte() <= byte && byte < body.end_byte()))",
    "true",
    "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
@@ -589,13 +589,13 @@
    "cpg::callback_identity_tests::r2_use_endpoints_keep_binding_valid_occurrence_bytes"
   ],
   "PD-73-r2-with-body-refusal-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "node.kind() == \"with_statement\"",
    "node.kind() == \"never_with_statement\"",
    "cpg::callback_identity_tests::r2_synthetic_with_body_is_refused_but_expression_and_outside_reads_remain"
   ],
   "PD-74-r2-computed-parameter-expression-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "| \"computed_property_name\"",
    "| \"never_computed_property_name\"",
    "cpg::callback_identity_tests::r2_parameter_expressions_separate_body_vars_and_functions"
@@ -613,43 +613,43 @@
    "cpg::callback_identity_tests::r2_synthetic_with_body_is_refused_but_expression_and_outside_reads_remain"
   ],
   "PD-83-r5-seam-refusal-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "let seam = self.js_ts_seam_binding(owner, &name);",
    "let seam = false;",
    "cpg::callback_identity_tests::r5_synthetic_seam_formals_and_parameter_endpoints_are_refused"
   ],
   "PD-84-r5-seam-expression-guard-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "if !self.js_ts_parameters_have_expressions(owner) {",
    "if false {",
    "cpg::callback_identity_tests::r5_eval_and_mapped_arguments_refuse_all_formals_with_negative_controls"
   ],
   "PD-85-r5-seam-body-var-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "self.js_ts_function_scope_binds(body, &self.language.callable_boundary_node_types(), name)\n            || body_function",
    "false || body_function",
    "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
   ],
   "PD-86-r5-direct-eval-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "let eval = self.js_ts_direct_eval_anywhere(owner);",
    "let eval = false;",
    "cpg::callback_identity_tests::r5_eval_and_mapped_arguments_refuse_all_formals_with_negative_controls"
   ],
   "PD-87-r5-mapped-args-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "let args = self.js_ts_mapped_arguments_possible(owner);",
    "let args = false;",
    "cpg::callback_identity_tests::r5_eval_and_mapped_arguments_refuse_all_formals_with_negative_controls"
   ],
   "PD-88-r5-optional-eval-token-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "matches!(n.kind(), \"optional_chain\" | \"?.\")",
    "matches!(n.kind(), \"optional_chain\")",
    "cpg::callback_identity_tests::r5_eval_and_mapped_arguments_refuse_all_formals_with_negative_controls"
   ],
   "PD-89-r5-strict-args-guard-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "if self.js_ts_callable_is_strict(owner)\n",
    "if false\n",
    "cpg::callback_identity_tests::r5_eval_and_mapped_arguments_refuse_all_formals_with_negative_controls"
@@ -673,13 +673,13 @@
    "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
   ],
   "PD-93-r6-seam-formal-membership-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "if !formal_names.iter().any(|formal| formal == name) {",
    "if false {",
    "cpg::callback_identity_tests::r6_named_seam_fallback_excludes_nonformal_body_locals"
   ],
   "PD-94-r7-positive-non-simple-inversion": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "    fn js_ts_parameter_is_non_simple(node: Node<'_>) -> bool {\n        match node.kind() {\n            \"assignment_pattern\" | \"object_pattern\" | \"array_pattern\" | \"rest_pattern\" => true,\n            \"required_parameter\" | \"optional_parameter\" => {\n                node.child_by_field_name(\"value\").is_some()\n                    || node\n                        .child_by_field_name(\"pattern\")\n                        .is_some_and(|p| Self::js_ts_parameter_is_non_simple(p))\n            }\n            \"formal_parameters\" => {\n                let mut cursor = node.walk();\n                let found = node\n                    .named_children(&mut cursor)\n                    .any(|p| Self::js_ts_parameter_is_non_simple(p));\n                found\n            }\n            _ => false,\n        }\n    }\n",
    "    fn js_ts_parameter_is_non_simple(node: Node<'_>) -> bool {\n        match node.kind() {\n            \"assignment_pattern\" | \"object_pattern\" | \"array_pattern\" | \"rest_pattern\" => true,\n            \"required_parameter\" | \"optional_parameter\" => {\n                node.child_by_field_name(\"value\").is_some()\n                    || node\n                        .child_by_field_name(\"pattern\")\n                        .is_some_and(|p| Self::js_ts_parameter_is_non_simple(p))\n            }\n            \"formal_parameters\" => {\n                let mut cursor = node.walk();\n                let found = node\n                    .named_children(&mut cursor)\n                    .any(|p| Self::js_ts_parameter_is_non_simple(p));\n                found\n            }\n            _ => true,\n        }\n    }\n",
    [
@@ -688,7 +688,7 @@
    ]
   ],
   "PD-95-r7-undefined-bound-name-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "pub(super) fn js_ts_pattern_bound_names_with_decoder(\n        &self,\n        node: Node<'_>,\n        names: &mut Vec<String>,\n        decode: fn(&str) -> Option<String>,\n    ) {\n        match node.kind() {\n            \"identifier\"\n            | \"undefined\"",
    "pub(super) fn js_ts_pattern_bound_names_with_decoder(\n        &self,\n        node: Node<'_>,\n        names: &mut Vec<String>,\n        decode: fn(&str) -> Option<String>,\n    ) {\n        match node.kind() {\n            \"identifier\"",
    [
@@ -697,7 +697,7 @@
    ]
   ],
   "PD-96-r7-erased-simple-arguments-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {\n        let mut cursor = params.walk();\n        let simple = params\n            .named_children(&mut cursor)\n            .filter(|n| n.kind() != \"comment\")\n            .all(|p| {\n                matches!(p.kind(), \"identifier\" | \"undefined\" | \"this\")\n                    || matches!(p.kind(), \"required_parameter\" | \"optional_parameter\")\n                        && p.child_by_field_name(\"value\").is_none()\n                        && p.child_by_field_name(\"pattern\").is_some_and(|n| {\n                            matches!(n.kind(), \"identifier\" | \"undefined\" | \"this\")\n                        })\n            });\n        simple\n    }\n",
    "fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {\n        let mut cursor = params.walk();\n        let simple = params\n            .named_children(&mut cursor)\n            .filter(|n| n.kind() != \"comment\")\n            .all(|p| {\n                p.kind() == \"identifier\"\n                    || p.kind() == \"required_parameter\"\n                        && p.child_by_field_name(\"value\").is_none()\n                        && p.child_by_field_name(\"pattern\").is_some_and(|n| {\n                            n.kind() == \"identifier\"\n                        })\n            });\n        simple\n    }\n",
    [
@@ -705,7 +705,7 @@
    ]
   ],
   "PD-97-r7-undefined-fence-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "fn js_ts_fence_pattern_binds(&self, node: Node<'_>, name: &str) -> bool {\n        match node.kind() {\n            \"identifier\"\n            | \"undefined\"",
    "fn js_ts_fence_pattern_binds(&self, node: Node<'_>, name: &str) -> bool {\n        match node.kind() {\n            \"identifier\"",
    [
@@ -714,7 +714,7 @@
    ]
   ],
   "PD-98-r7-undefined-decoder-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "matches!(ident.kind(), \"identifier\" | \"undefined\")",
    "ident.kind() == \"identifier\"",
    [
@@ -723,7 +723,7 @@
    ]
   ],
   "PD-99-r7-invalid-binding-target-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "if Self::js_ts_binding_has_invalid_target(params)",
    "if false",
    [
@@ -731,7 +731,7 @@
    ]
   ],
   "PD-100-r9-recovery-proof-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "if params.has_error() {",
    "if false && params.has_error() {",
    [
@@ -747,7 +747,7 @@
    ]
   ],
   "PD-102-r9-class-declaration-self-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "\"class\" | \"class_declaration\" | \"abstract_class_declaration\" => scope",
    "\"class\" => scope",
    [
@@ -755,7 +755,7 @@
    ]
   ],
   "PD-103-r9-eval-erasure-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "                        while matches!(\n                            callee.kind(),\n                            \"parenthesized_expression\"\n                                | \"as_expression\"\n                                | \"satisfies_expression\"\n                                | \"non_null_expression\"\n                                | \"type_assertion\"\n                        ) {",
    "                        while callee.kind() == \"parenthesized_expression\" {",
    [
@@ -763,7 +763,7 @@
    ]
   ],
   "PD-104-r9-jsx-intrinsic-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    ".is_some_and(u8::is_ascii_lowercase)",
    ".is_some_and(|_| false)",
    [
@@ -771,7 +771,7 @@
    ]
   ],
   "PD-105-r9-labelled-seam-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "while n.kind() == \"labeled_statement\" {",
    "while false && n.kind() == \"labeled_statement\" {",
    [
@@ -779,7 +779,7 @@
    ]
   ],
   "PD-106-r9-duplicate-function-kinds-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "        let permits_duplicates = simple\n            && !strict\n            && matches!(owner.kind(), \"function_declaration\" | \"function_expression\");\n",
    "        let permits_duplicates = simple && !strict && owner.kind() == \"function_declaration\" && !self.node_text(owner).starts_with(\"async\");\n",
    [
@@ -795,7 +795,7 @@
    ]
   ],
   "PD-108-r9-predicate-read-role-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "                \"type_predicate\"\n                | \"asserts\"\n                | \"type_predicate_annotation\"\n                | \"asserts_annotation\" => return true,",
    "                \"type_predicate\"\n                | \"asserts\"\n                | \"type_predicate_annotation\"\n                | \"asserts_annotation\" => return false,",
    [
@@ -803,7 +803,7 @@
    ]
   ],
   "PD-109-r9-computed-method-key-ownership-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "if node.kind() == \"method_definition\"",
    "if false && node.kind() == \"method_definition\"",
    [
@@ -819,7 +819,7 @@
    ]
   ],
   "PD-111-r10-jsx-member-tag-filter-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "&& node.kind() == \"identifier\"\n            && (self",
    "&& (self",
    [
@@ -843,7 +843,7 @@
    ]
   ],
   "PD-114-r10-eval-comment-unwrap-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    ".named_children(&mut cursor)\n                                .filter(|n| n.kind() != \"comment\")",
    ".named_children(&mut cursor)",
    [
@@ -851,7 +851,7 @@
    ]
   ],
   "PD-115-r10-error-ancestor-proof-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "if node.is_error() || node.is_missing() {",
    "if false && (node.is_error() || node.is_missing()) {",
    [
@@ -972,7 +972,7 @@
  "extra": {
   "PD-91-r5-named-main-path-off": [
    [
-    "src/ast_callback_identity.rs",
+    "src/ast/callback_identity.rs",
     "if self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {",
     "if false && self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {"
    ]

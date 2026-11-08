@@ -5,7 +5,11 @@ status = "pass"
 probe = "dfg"
 
 [[expect.edges]]
+from = "main.go:3:x"
+to = "main.go:4:x"
+confidence = "exact"
+
+[[expect.edges]]
 from = "main.go:5:x"
 to = "main.go:4:x"
-confidence = "nameonly"
-doubt = "cfg_incomplete"
+present = false

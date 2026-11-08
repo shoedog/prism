@@ -15,11 +15,10 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::PathBuf;
 
 #[cfg(test)]
-#[path = "call_graph_anon_prep_tests.rs"]
 mod anon_prep_tests;
 mod boundary;
 pub(crate) mod go;
-#[path = "call_graph_profile_initializers.rs"]
+#[path = "call_graph/profile_initializers.rs"]
 mod init_profile;
 pub mod js_ts;
 mod js_ts_facts;
@@ -180,6 +179,11 @@ pub struct CallSite {
     /// callees. Excluded from `cmp_key`.
     #[serde(default)]
     pub local_binding: JsLocalBinding,
+    /// #724, Rust macro-argument calls: the `crate`/`self`/`super::super` prefix
+    /// written before `callee_name`. Read only by the authoritative route; excluded from
+    /// `cmp_key` and from every other consumer.
+    #[serde(default)]
+    pub path_anchor: Option<String>,
 }
 
 /// S1b-3b (SPEC §3.6): what a JS/TS unqualified callee statically denotes at its site.
@@ -1184,6 +1188,7 @@ impl CallGraph {
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
                         jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                        path_anchor: meta.path_anchor,
                         local_binding: Self::js_local_binding_at(
                             parsed,
                             start_byte,
@@ -1599,6 +1604,7 @@ impl CallGraph {
                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                             pre_resolved_target: None,
                             jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                            path_anchor: meta.path_anchor,
                             local_binding: Self::js_local_binding_at(
                                 parsed,
                                 start_byte,
@@ -2724,6 +2730,7 @@ impl CallGraph {
             origin: CallSiteOrigin::IndirectResolution,
             pre_resolved_target: None,
             jsx_element: false,
+            path_anchor: None,
             // E10 non-goal: indirect-resolution sites never carry a lexical binding.
             local_binding: JsLocalBinding::Unchecked,
         }
@@ -4972,6 +4979,7 @@ impl CallGraph {
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
                         jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                        path_anchor: meta.path_anchor,
                         local_binding: Self::js_local_binding_at(
                             parsed,
                             start_byte,

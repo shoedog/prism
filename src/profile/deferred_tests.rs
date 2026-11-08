@@ -57,7 +57,7 @@ fn repeated_phase_instances_are_additive_and_distinct() {
 
 #[test]
 fn initializer_stage_boundaries_precede_builders() {
-    let source = include_str!("../call_graph_profile_initializers.rs");
+    let source = include_str!("../call_graph/profile_initializers.rs");
     let mut previous = 0;
     for (name, builder) in [
         ("js_ts_props", "let props = crate::call_graph::js_ts::props::collect(files);"),
