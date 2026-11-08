@@ -472,7 +472,7 @@ impl ParsedFile {
         }
     }
 
-    fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {
+    pub(crate) fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {
         let mut cursor = params.walk();
         let simple = params
             .named_children(&mut cursor)

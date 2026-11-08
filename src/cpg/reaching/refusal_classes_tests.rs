@@ -69,6 +69,19 @@ fn enclosing_mapped_arguments_are_named_only_when_they_alias_the_formal() {
     assert!(!named(JS, &nested("function g() {"), "arguments"));
 }
 
+/// A method parameter named like the immutable name scopes the method's body and parameter defaults
+/// (a genuine shadow: no `immutable-name` line), but not its computed key (the method's own parameter is
+/// not in scope there). The position rule is one function for every scope check.
+#[test]
+fn a_method_parameter_scopes_its_body_and_defaults_but_not_its_computed_key() {
+    let body = "(function g() {\n  const o = {\n    m(g) {\n      (() => {\n        g = 2;\n        sink(g);\n      })();\n    }\n  };\n})();\n";
+    let default = "(function g() {\n  const o = {\n    m(g, h = () => {\n      g = 2;\n      sink(g);\n    }) {}\n  };\n})();\n";
+    let key = "(function g() {\n  const o = {\n    [(() => {\n      g = 2;\n      sink(g);\n    })()](g) {}\n  };\n})();\n";
+    assert!(!named(JS, body, "immutable-name"));
+    assert!(!named(JS, default, "immutable-name"));
+    assert!(named(JS, key, "immutable-name"));
+}
+
 #[test]
 fn the_trace_never_changes_an_outcome_on_any_s1d_source() {
     for (language, src) in crate::cpg::s1d_label_tests::sources() {

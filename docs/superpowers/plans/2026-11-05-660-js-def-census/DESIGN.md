@@ -333,7 +333,15 @@ immutably), with no declaration of the name scoping the write: a body declaratio
 or a closure created there. Its kills stay (over-kill is the conservative direction); a write to the class name outside the
 body is an ordinary write; (5) sloppy mapped `arguments` refuses the formals of the owner and of every enclosing non-arrow
 callable whose arguments object is mapped (a nested owner reads them as captured names, directly or by alias); an arrow owner's
-own formals are never mapped. G6 is closed by this slice. The one-node rows and `first_hazard` are S1d-2's.
+own formals are never mapped. One position rule (`js_write_census/position.rs`: params / body / eager) decides every scope
+check that walks callable ancestry: a parameter scopes the parameter list and the body, body declarations the body only, and an
+eager position (a computed key, a decorator of the callable or of a parameter) belongs to the scope around the callable, so it
+is not shadowed by that callable's parameters and reads the enclosing function's `arguments`; an unclassifiable position keeps
+the refusal. `js_ts_mapped_arguments_possible` (shared with `first_hazard`) is unchanged; the eager read is found by a
+refusal-local detector. Closed here: G6a, G6b (function and class expressions and class declarations) and 6.1-6.1e as stated.
+Disclosed residuals (over-refusals): a nested owner's own same-named binding under an enclosing mapped `arguments`; a `var` in a
+class static block does not shadow the class name; a key literally named `arguments` in a computed position; a catch parameter's
+default keeps the refusal. The one-node rows and `first_hazard` are S1d-2's.
 | 6.2 captured writes (D2-c, option A) | below | 411 / 16 (heuristic; §11) |
 | runtime mutation (getters/setters, Proxy, `globalThis`, `Reflect`) | out of model (CLAUDE.md runtime-mutation rule) | — |
 

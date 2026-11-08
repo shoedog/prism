@@ -289,6 +289,28 @@ const CASES: &[Case] = &[
         source: "(function g(a) {\n  'use strict';\n  {\n    function g() {}\n    g = 2;\n    sink(g);\n  }\n})();" },
     Case { name: "inner_name_labelled_block_class_shadow_control", lang: JS, edge: "g@4->g@5", expected: NOT_CFG,
         source: "(function g(a) {\n  {\n    class g {}\n    g = 2;\n    sink(g);\n  }\n})();" },
+    // Round 2 fold: one position rule (params / body / eager). SOL-R2-W1: a method parameter does not scope
+    // its own computed key; a closure in the body, or in a default after the parameter, is scoped by it.
+    Case { name: "inner_name_method_computed_key_closure_param_does_not_scope", lang: JS, edge: "g@4->g@5", expected: CFG,
+        source: "(function g() {\n  const o = {\n    [(() => {\n      g = 2;\n      sink(g);\n    })()](g) {}\n  };\n})();" },
+    Case { name: "inner_name_method_decorator_closure_ts", lang: TS, edge: "g@4->g@5", expected: CFG,
+        source: "(function g() {\n  class C {\n    @dec(() => {\n      g = 2;\n      sink(g);\n    })\n    m(g) {}\n  }\n})();" },
+    Case { name: "inner_name_class_decorator_closure_ts", lang: TS, edge: "K@2->K@3", expected: CFG,
+        source: "@dec(() => {\n  K = 2;\n  sink(K);\n})\nclass K {}" },
+    // SOL-R2-W2: `arguments` in a nested method's computed key or decorator is the enclosing function's.
+    Case { name: "args_computed_key_arrow_owner", lang: JS, edge: "a@4->a@6", expected: CFG,
+        source: "function f(a) {\n  const o = {\n    [(() => {\n      a = 1;\n      arguments[0] = 2;\n      sink(a);\n    })()]() {}\n  };\n}" },
+    Case { name: "args_computed_key_direct_write_owner_f", lang: JS, edge: "a@1->a@5", expected: CFG,
+        source: "function f(a) {\n  const o = {\n    [arguments[0] = 2]() {}\n  };\n  sink(a);\n}" },
+    Case { name: "args_method_body_is_the_methods_own_control", lang: JS, edge: "a@1->a@7", expected: EXACT,
+        source: "function f(a) {\n  const o = {\n    m() {\n      arguments[0] = 2;\n    }\n  };\n  sink(a);\n}" },
+    Case { name: "args_method_decorator_arrow_owner_ts", lang: TS, edge: "a@4->a@6", expected: CFG,
+        source: "function f(a) {\n  class C {\n    @dec(() => {\n      a = 1;\n      arguments[0] = 2;\n      sink(a);\n    })\n    m() {}\n  }\n}" },
+    Case { name: "args_method_parameter_default_is_the_methods_own_control", lang: JS, edge: "a@1->a@7", expected: EXACT,
+        source: "function f(a) {\n  const o = {\n    m(b = arguments[0]) {\n      b = 1;\n    }\n  };\n  sink(a);\n}" },
+    // Catch parameter: it scopes the clause's body only.
+    Case { name: "inner_name_catch_parameter_default_keeps_the_refusal", lang: JS, edge: "g@3->g@4", expected: CFG,
+        source: "(function g() {\n  try { h(); } catch ({ x = (() => {\n    g = 2;\n    sink(g);\n  })() }) {}\n})();" },
 ];
 
 #[test]

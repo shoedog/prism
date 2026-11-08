@@ -12,6 +12,7 @@
 //! Nothing here changes an edge set, availability or a counter: every class only moves a label toward
 //! `NameOnly`. Detection reuses the existing strictness, eval and arguments helpers and the binding
 //! helpers `js_ts_function_scope_binds` / `js_ts_block_statement_binds`; no new strictness detection.
+use super::position::{mapped_arguments_possible, position, Position};
 use super::tables::Tables;
 use super::walk::{is_callable, Form, Site};
 use crate::ast::ParsedFile;
@@ -145,12 +146,16 @@ fn mapped_arguments(
         if !is_callable(t, f.kind()) || f.kind() == "arrow_function" {
             continue;
         }
+        // An owner in `f`'s computed key or decorator reads the arguments of the callable around `f`.
+        if f.id() != owner.id() && position(parsed, f, owner) == Some(Position::Eager) {
+            continue;
+        }
         let mut names = Vec::new();
         if let Some(p) = parsed.parameter_binding_region(&f) {
             parsed.js_ts_pattern_bound_names(p, &mut names);
         }
         if names.iter().any(|n| bases.contains(n.as_str()))
-            && parsed.js_ts_mapped_arguments_possible(&f)
+            && mapped_arguments_possible(parsed, t, f)
         {
             for n in names {
                 out.names.entry(n).or_insert(ARGUMENTS);
@@ -350,9 +355,11 @@ fn dead_formals(
     }
 }
 
-/// G6b: the write at `node` names the own name of a function or class expression enclosing it, and no
-/// declaration of that name scopes the write between them (a declaration in the expression's own
-/// parameters or body included): it writes nothing in sloppy code and throws in strict code.
+/// G6b: the write at `node` names the own name of a function or class expression (or a class
+/// declaration) enclosing it, and no declaration of that name scopes the write between them: it writes
+/// nothing in sloppy code and throws in strict code. Whether a callable's declarations scope the write
+/// is decided by `position` alone: parameters scope its parameter list and body, body declarations its
+/// body, and an eager position (a computed key, a decorator) belongs to the scope around the callable.
 fn writes_inner_name(parsed: &ParsedFile, t: &Tables, node: Node<'_>, name: &str) -> bool {
     let named = |n: Node<'_>| {
         n.child_by_field_name("name")
@@ -362,17 +369,24 @@ fn writes_inner_name(parsed: &ParsedFile, t: &Tables, node: Node<'_>, name: &str
     while let Some(p) = cur.parent() {
         match p.kind() {
             "function_expression" | "function" | "generator_function" if named(p) => {
-                return !callable_declares(parsed, p, name, cur);
+                match position(parsed, p, node) {
+                    Some(Position::Eager) => {}
+                    Some(at) => return !callable_scopes(parsed, p, name, at),
+                    None => return true,
+                }
             }
             "class" | "class_declaration" | "abstract_class_declaration" if named(p) => {
                 return true
             }
             _ => {
                 if is_callable(t, p.kind()) {
-                    if callable_declares(parsed, p, name, cur) {
+                    let at = position(parsed, p, node);
+                    if at.is_some_and(|at| {
+                        at != Position::Eager && callable_scopes(parsed, p, name, at)
+                    }) {
                         return false;
                     }
-                } else if block_declares(parsed, p, name) {
+                } else if block_declares(parsed, p, name, cur) {
                     return false;
                 }
             }
@@ -382,31 +396,31 @@ fn writes_inner_name(parsed: &ParsedFile, t: &Tables, node: Node<'_>, name: &str
     false
 }
 
-/// The callable's parameters bind `name`, or its function scope does (`var` anywhere outside nested
-/// callables, body-level lexical, function and class declarations) and the write is in the body: a
-/// write in a parameter default, or in a closure created there, sees the parameter environment, which
-/// the body's declarations do not enter. `at` is the child of `callable` the write lies under.
-fn callable_declares(parsed: &ParsedFile, callable: Node<'_>, name: &str, at: Node<'_>) -> bool {
+/// The callable's declarations scope a position: its parameters bind `name` (the position is in the
+/// parameter list or the body), or its function scope does (`var` anywhere outside nested callables,
+/// body-level lexical, function and class declarations) and the position is in the body.
+fn callable_scopes(parsed: &ParsedFile, callable: Node<'_>, name: &str, at: Position) -> bool {
     let mut names = Vec::new();
     if let Some(p) = parsed.parameter_binding_region(&callable) {
         parsed.js_ts_pattern_bound_names(p, &mut names);
     }
     names.iter().any(|n| n == name)
-        || callable
-            .child_by_field_name("body")
-            .filter(|b| b.kind() == "statement_block" && b.id() == at.id())
-            .is_some_and(|b| {
-                parsed.js_ts_function_scope_binds(
-                    b,
-                    &parsed.language.callable_boundary_node_types(),
-                    name,
-                )
-            })
+        || at == Position::Body
+            && callable
+                .child_by_field_name("body")
+                .filter(|b| b.kind() == "statement_block")
+                .is_some_and(|b| {
+                    parsed.js_ts_function_scope_binds(
+                        b,
+                        &parsed.language.callable_boundary_node_types(),
+                        name,
+                    )
+                })
 }
 
 /// A block-like node declares `name` lexically (`let`, `const`, `class`, a block function), a `for`
 /// head does, or a `catch` parameter does.
-fn block_declares(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
+fn block_declares(parsed: &ParsedFile, node: Node<'_>, name: &str, at: Node<'_>) -> bool {
     match node.kind() {
         "statement_block" | "switch_body" => {
             let mut c = node.walk();
@@ -427,11 +441,16 @@ fn block_declares(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
                     names.iter().any(|n| n == name)
                 })
         }
-        "catch_clause" => node.child_by_field_name("parameter").is_some_and(|p| {
-            let mut names = Vec::new();
-            parsed.js_ts_pattern_bound_names(p, &mut names);
-            names.iter().any(|n| n == name)
-        }),
+        // The parameter scopes the clause's body (a position under the parameter itself keeps the refusal).
+        "catch_clause" => {
+            node.child_by_field_name("body")
+                .is_some_and(|b| b.id() == at.id())
+                && node.child_by_field_name("parameter").is_some_and(|p| {
+                    let mut names = Vec::new();
+                    parsed.js_ts_pattern_bound_names(p, &mut names);
+                    names.iter().any(|n| n == name)
+                })
+        }
         _ => false,
     }
 }
