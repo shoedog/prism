@@ -171,11 +171,19 @@ fn the_edge_set_does_not_move() {
 // ---------------------------------------------------------------------------
 
 fn assert_no_exact(name: &str, source: &str) {
+    assert_no_exact_except(name, source, "");
+}
+
+/// `assert_no_exact`, ignoring rows that contain `ignored` (a non-empty marker): #761 makes a parameter
+/// default `z = y` the alias `const z = y`, so the nested callable's own `z` def has an exact edge to its body.
+fn assert_no_exact_except(name: &str, source: &str, ignored: &str) {
     for (language, ext) in LANGS {
         let (rows, without_cfg) = labels(language, ext, source);
         assert!(!rows.is_empty(), "{name}/{language:?}: no edge in {source}");
         assert!(
-            rows.iter().all(|row| !row.ends_with(":Exact")),
+            rows.iter()
+                .filter(|row| ignored.is_empty() || !row.contains(ignored))
+                .all(|row| !row.ends_with(":Exact")),
             "{name}/{language:?}: {rows:?} for {source}"
         );
         let _ = without_cfg;
@@ -271,14 +279,32 @@ fn hazard_e_direct_eval_keeps_the_fallback() {
 
 #[test]
 fn hazard_f_nested_callable_defaults_are_deferred_reads() {
-    assert_no_exact(
+    assert_no_exact_except(
         "function expression default",
         "function h(y) {\n  g(function (z = y) {\n    use(z);\n  });\n}\n",
+        ":z@",
     );
-    assert_no_exact(
+    assert_no_exact_except(
         "arrow default",
         "function h(y) {\n  g((z = y) => {\n    use(z);\n  });\n}\n",
+        ":z@",
     );
+    // #761: the permitted rows are exactly the nested callable's own alias binding `z` reaching its use (the
+    // default `z = y` is the alias `const z = y`), and nothing else is exact.
+    for (language, ext) in LANGS {
+        for src in [
+            "function h(y) {\n  g(function (z = y) {\n    use(z);\n  });\n}\n",
+            "function h(y) {\n  g((z = y) => {\n    use(z);\n  });\n}\n",
+        ] {
+            let (rows, _) = labels(language, ext, src);
+            let exact_rows: Vec<_> = rows.iter().filter(|r| r.ends_with(":Exact")).collect();
+            assert_eq!(
+                exact_rows,
+                [&exact("<anon@2:5>:z@2->z@3")],
+                "{language:?}: {rows:?} for {src}"
+            );
+        }
+    }
     // Control: a nested callable without a parameter default.
     for (language, ext) in LANGS {
         let src = "function h(y) {\n  g(function (z) {\n    use(z);\n  }, y);\n}\n";

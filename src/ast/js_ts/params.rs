@@ -6,12 +6,15 @@ use tree_sitter::Node;
 
 impl ParsedFile {
     /// PR-C: classify how a formal is used. `MemberOnly`
-    /// is JS/TS/TSX only: no bare read, at least one `name.<prop>` member
+    /// is JS/TS/TSX only: no bare read (in the body, or in a default of the own
+    /// parameter list, #761), at least one `name.<prop>` member
     /// read in the body, callable not parse-recovered, formal not a seam
     /// binding, callable containing no `with` statement and no escaped identifier.
     /// Shared by `data_flow.rs` and `reasoning/seeds.rs` (lockstep).
     pub fn classify_parameter_use(&self, func_node: &Node<'_>, var_name: &str) -> ParameterUse {
-        if self.has_bare_references(func_node, var_name) {
+        if self.has_bare_references(func_node, var_name)
+            || self.js_ts_parameter_list_reads_bare(func_node, var_name)
+        {
             return ParameterUse::Bare;
         }
         if !matches!(
@@ -221,7 +224,7 @@ impl ParsedFile {
         false
     }
 
-    fn js_ts_binding_pattern_may_bind(&self, node: Node<'_>, name: &str) -> bool {
+    pub(super) fn js_ts_binding_pattern_may_bind(&self, node: Node<'_>, name: &str) -> bool {
         match node.kind() {
             "identifier" | "type_identifier" | "shorthand_property_identifier_pattern" => {
                 let text = self.node_text(&node);

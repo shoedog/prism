@@ -60,6 +60,7 @@ mod order_prune;
 #[cfg(test)]
 mod order_prune_tests;
 mod owner_labels;
+mod param_alias_trace;
 #[cfg(test)]
 mod prune_cap_tests;
 mod python_prune;

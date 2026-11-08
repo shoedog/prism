@@ -6,6 +6,7 @@ mod export_facts;
 pub mod exports;
 mod imports;
 mod local_bindings;
+mod param_alias;
 mod params;
 mod props_types;
 mod receiver_evidence;

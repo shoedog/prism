@@ -94,6 +94,10 @@ impl Producer {
                     // Defs, and cannot contribute even kill-only input.
                     if parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
                         || refused_occurrence(&span.path, span.start_byte)
+                        // #761: an alias of a refused formal (`d = f`, `f` a seam binding) reads it.
+                        || parsed
+                            .js_ts_param_default_alias_target_at(span.start_byte, span.end_byte)
+                            .is_some_and(|target| refused_formals.contains(target.as_str()))
                         || span.path.base == "this"
                             && parsed.js_ts_span_this_rebound_between(
                                 span.start_byte,
@@ -524,6 +528,8 @@ impl Producer {
                     // binding environment; body vars cannot reach defaults.
                     let def_scope =
                         crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte);
+                    // #761: a parameter-list alias binding's own identifier is no read of it, whatever
+                    // row the def is placed on (the def sits on the owner's first line).
                     let refs = crate::profile::search_refs(
                         parsed,
                         &member_refs,
@@ -532,7 +538,8 @@ impl Producer {
                         def_line,
                         span.start_byte,
                         def_scope,
-                        synthetic,
+                        synthetic
+                            || parsed.js_ts_is_param_alias_binding_at(span.start_byte, span.end_byte),
                     );
                     for (ref_line, admitted) in &refs {
                         if *ref_line == def_line

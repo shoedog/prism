@@ -172,7 +172,8 @@ const CASES: &[Case] = &[
         source: "function f(a, b = ([a = 1] = x)) {\n  return sink(a);\n}" },
     Case { name: "own_default_closure_write", lang: JS, edge: "a@1->a@2", label: CFG, mechs: &["d2c"],
         source: "function f(a, b = () => { a = 1; }) {\n  return sink(a);\n}" },
-    Case { name: "own_default_read_is_harmless", lang: JS, edge: "a@1->a@2", label: EXACT, mechs: &[],
+    // #761: `b = a` is the alias `const b = a`; its twin def of `a` shares the one node (a name defined twice).
+    Case { name: "own_default_alias_one_node", lang: JS, edge: "a@1->a@2", label: CFG, mechs: &[],
         source: "function f(a, b = a) {\n  return sink(a, b);\n}" },
     // Other refusal classes (S1d-1) reached for the first time by a one-node owner.
     Case { name: "with_body_use", lang: JS, edge: "a@1->a@1", label: CFG, mechs: &["with"],
@@ -247,11 +248,11 @@ const CASES: &[Case] = &[
     // A body def runs after every list write: not refused.
     Case { name: "own_body_def_after_list_write_stays_exact", lang: JS, edge: "o.x@2->o.x@3", label: EXACT, mechs: &[],
         source: "function f(o, u = o.x++) {\n  o.x = 2;\n  return sink(o.x);\n}" },
-    // #761 (pre-existing aliasing gap, pinned so a fix flips it deliberately): a parameter-list alias `u = o`
-    // does not suppress `o`'s projection paths, so a write through `u` leaves `o.x` `exact` (wrong).
-    Case { name: "own_alias_write_is_761_wrong_exact", lang: JS, edge: "o@1->o.x@2", label: EXACT, mechs: &["guard-deleted:a"],
+    // #761: a parameter-list alias `u = o` is an alias like the body's `const u = o`: the formal is mixed (no
+    // projection edge `o@1->o.x`), and the alias twin def of `o` on the signature line refuses the edge.
+    Case { name: "own_alias_write_is_761_fixed", lang: JS, edge: "o@1->o@2", label: CFG, mechs: &["guard-deleted:a"],
         source: "function f(o, u = o, v = u.x++) {\n  return sink(o.x);\n}" },
-    Case { name: "own_alias_write_is_761_wrong_exact_multi", lang: JS, edge: "o@1->o.x@3", label: EXACT, mechs: &[],
+    Case { name: "own_alias_write_is_761_fixed_multi", lang: JS, edge: "o@1->o@3", label: SAME, mechs: &[],
         source: "function f(o, u = o, v = u.x++) {\n  log();\n  return sink(o.x);\n}" },
 ];
 
