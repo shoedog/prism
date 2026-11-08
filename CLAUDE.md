@@ -262,6 +262,7 @@ Ambiguous impl metadata and macro-token calls without a parsed call expression
 also refuse.
 External, std, derive and macro-generated impls remain outside the existing owner
 index model. Rust std/core/alloc paths, scope-selected imports/aliases and known external crate paths filter each owner/function candidate against declarations in that target's own crate using a graph-cached lookup that excludes generic barriers, only with complete scope facts and external-prefix proof; lexical in-repo roots and receiver annotations take precedence, surviving targets retain main's kind/confidence, and missing facts, poisoned roots, macro-hidden declarations, facade re-exports, chained imports and external globs keep main's behavior; the eight-corpus audit identifies no correct-edge losses among 88 Exact/204 total removals. Accepted cost: a crate that declares a type or trait with the std name loses correct edges to its own impls of or for the std item (for example `std::error::Error::source(e)` in a crate that declares `enum Error` and implements `std::error::Error` loses its correct NameOnly candidates; the `ExitCode` fixture is one instance). The filter also fails open, keeping wrong edges, when the `std` root lookup is Poisoned by an unexpanded glob or macro, or when the target file is attached to no crate because its `mod` is macro-hidden. Mixed-edition workspaces and `extern crate self` supply no external proof.
+A Rust `pub(in path)` item is visible to call sites inside the named ancestor module: after population `rust_populator/restrict.rs` places the path (`crate`/`self`/`super` anchor, each segment naming the next module on the item's own module chain) and sets the binding's restrict; a path it cannot place (not anchored, not an ancestor, through a re-export, `pub(in ..) use`) stays unknown and refuses as before.
 Import-qualified `pkg.f()` narrows by file
 stem or Go package directory with no permissive fall-through; `Class.m()` binds
 when the qualifier is itself an owner key; unqualified calls prefer a local free
@@ -481,7 +482,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v160) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v161) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
