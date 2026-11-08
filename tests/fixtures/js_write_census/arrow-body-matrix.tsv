@@ -5,7 +5,7 @@ a03_function_expression	js	t@3->t@5	exact+nameonly/killed	nameonly/killed+nameon
 a04_async_arrow	js	t@3->t@5	exact+nameonly/killed	nameonly/killed+nameonly/sameline	async arrow body	const outer = (k) =>\n  async () => {\n    var t = src();\n    t++;\n    sink(t);\n  };
 a05_generator_expression	js	t@3->t@5	exact+nameonly/killed	nameonly/killed+nameonly/sameline	generator function expression body	const outer = (k) =>\n  function* () {\n    var t = src();\n    t++;\n    sink(t);\n  };
 a06_async_function_expression	js	t@3->t@5	exact+nameonly/killed	nameonly/killed+nameonly/sameline	async function expression	const outer = (k) =>\n  async function () {\n    var t = src();\n    t++;\n    sink(t);\n  };
-a07_three_deep	js	t@4->t@6	nameonly/killed+nameonly/sameline	nameonly/killed+nameonly/sameline	a => b => () => {..}: the middle arrow is anonymous (no DFG owner) and the outer one is already one node	const outer = (a) =>\n  (b) =>\n    () => {\n      var t = src();\n      t++;\n      sink(t);\n    };
+a07_three_deep	js	t@4->t@6	nameonly/killed+nameonly/sameline	nameonly/killed+nameonly/sameline	a => b => () => {..}: the outer one is already one node; the anonymous middle arrow is an RD owner that carries none of these edges	const outer = (a) =>\n  (b) =>\n    () => {\n      var t = src();\n      t++;\n      sink(t);\n    };
 a08_inner_twin_three_deep	js	b@2->b@5	nameonly/cfg_incomplete	nameonly/cfg_incomplete	innermost writes the middle formal	const outer = (a) =>\n  (b) =>\n    () => {\n      b++;\n      sink(b);\n    };
 a09_inner_param_default_call	js	t@3->t@5	exact+nameonly/killed	nameonly/killed+nameonly/sameline	inner callable has a parameter	const outer = (k) =>\n  (x) => {\n    var t = src();\n    t++;\n    sink(t);\n  };
 a10_control_flow_inside	js	t@3->t@7	exact+exact	exact+nameonly/sameline	inner body with an if	const outer = (k) =>\n  () => {\n    var t = src();\n    if (k) {\n      t++;\n    }\n    sink(t);\n  };
@@ -38,3 +38,15 @@ d03_assignment_target	js	t@3->t@5	exact+nameonly/killed	nameonly/killed+nameonly
 d04_default_export	js	t@3->t@5	nameonly/killed	nameonly/killed	anonymous default export arrow	export default (k) =>\n  () => {\n    var t = src();\n    t++;\n    sink(t);\n  };
 c07_multiline_non_callable_update	js	k@1->k@3	nameonly/killed	nameonly/killed	multi-line non-callable body: partial universe, census kills the update	const outer = (k) =>\n  c(k++) ||\n  sink(k);
 e01_two_defs_in_nested_body_belt	js	t@4->t@5	exact+exact	exact+nameonly/cfg_incomplete	two defs of one name inside the callable: the one-node distinct-bases belt refuses the owner	const outer = (k) =>\n  () => {\n    var t = src();\n    t = clean(t);\n    sink(t);\n  };
+f01_ternary_arms	js	k@3->k@4	exact	nameonly/cfg_incomplete	ternary body: a def in one arm must not reach a use in the other (opus r01)	const outer = (k) =>\n  c(k)\n    ? f(k = 1)\n    : sink(k);
+f02_ternary_formal_arm_def	js	t@3->t@4	exact	nameonly/cfg_incomplete	ternary body, formal def in an arm (opus r03)	const outer = (k, t) =>\n  k\n    ? f(t = src())\n    : sink(t);
+f03_ternary_arm_def_other_arm_use	js	t@3->t@4	exact	nameonly/cfg_incomplete	ternary body (opus u05)	const outer = (k, t) =>\n  k\n    ? f(t = 1)\n    : g(t);
+f04_ternary_each_arm_defines_and_reads	js	t@3->t@6	nameonly/sameline	nameonly/cfg_incomplete	both arms define and read t	const outer = (k) =>\n  k\n    ? f(t = 1,\n        t)\n    : g(t = 2,\n        t);
+f05_nested_ternary	js	t@3->t@6	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nested ternary in the alternative	const outer = (k, t) =>\n  c(k)\n    ? f(t = 1)\n    : j(k)\n      ? g(t)\n      : h(t);
+f06_ternary_no_assignment	js	k@1->k@3	exact	exact	ternary body without a write keeps its edge	const outer = (k) =>\n  c(k)\n    ? f(k)\n    : sink(k);
+f07_parenthesized_ternary_control	js	k@3->k@4	nameonly/cfg_incomplete	nameonly/cfg_incomplete	parenthesized ternary: one node on main already	const outer = (k) =>\n  (c(k)\n    ? f(k = 1)\n    : sink(k));
+f08_and_or_def_then_use	js	k@3->k@4	nameonly/cfg_incomplete	nameonly/cfg_incomplete	&& / || evaluate in source order: unchanged (opus r02)	const outer = (k) =>\n  a(k) &&\n  b(k = 1) ||\n  sink(k);
+f09_or_def_then_use	js	k@2->k@3	exact	exact	|| evaluates in source order: unchanged (opus r04)	const outer = (k) =>\n  c(k = 0) ||\n  sink(k);
+f10_nullish_def_then_use	js	t@3->t@4	nameonly/cfg_incomplete	nameonly/cfg_incomplete	?? evaluates in source order: unchanged (opus r05)	const outer = (k, t) =>\n  g(k) ??\n  h(t = 1) ??\n  sink(t);
+f11_ts_ternary	ts	t@3->t@4	exact	nameonly/cfg_incomplete	TS ternary body	const outer = (k: number, t: number) =>\n  k\n    ? f(t = 1)\n    : g(t);
+f12_tsx_ternary	tsx	t@3->t@4	exact	nameonly/cfg_incomplete	TSX ternary body	const outer = (k: number, t: number) =>\n  k\n    ? f(t = 1)\n    : g(t);

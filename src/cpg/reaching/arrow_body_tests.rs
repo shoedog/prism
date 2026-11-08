@@ -42,6 +42,18 @@ fn rows() -> Vec<Row> {
         .collect()
 }
 
+/// Rows whose new one-node universe trips the distinct-bases belt (two recorded defs of one name).
+const BELT_ROWS: &[&str] = &[
+    "e01_two_defs_in_nested_body_belt",
+    "f01_ternary_arms",
+    "f02_ternary_formal_arm_def",
+    "f03_ternary_arm_def_other_arm_use",
+    "f04_ternary_each_arm_defines_and_reads",
+    "f05_nested_ternary",
+    "f11_ts_ternary",
+    "f12_tsx_ternary",
+];
+
 fn sorted_labels(r: &Row) -> String {
     let mut got = labels_of(r.lang, &r.source, &r.edge);
     got.sort();
@@ -51,7 +63,7 @@ fn sorted_labels(r: &Row) -> String {
 #[test]
 fn rows_have_the_expected_labels() {
     let all = rows();
-    assert_eq!(all.len(), 39, "matrix rows");
+    assert_eq!(all.len(), 51, "matrix rows");
     let failures: Vec<String> = all
         .iter()
         .filter_map(|r| {
@@ -93,11 +105,13 @@ fn universe_moved(r: &Row) -> bool {
         .any(|f| super::arrow_control::universe_moved(&parsed, f))
 }
 
-/// The rule's population. Every row whose label moved is in it; six more change universe but their
-/// edge was already refused by S1a / D2-c (`a02`, `a08`, `a13`, `c06`) or belongs to an owner with no
-/// label of its own (`a07`'s anonymous middle arrow, `d04`'s anonymous default export).
+/// The rule's population (callable and ternary bodies with 2+ located statements). Every row whose label
+/// moved is in it; eight more change universe but their edge was already refused (S1a / D2-c: `a02`, `a08`,
+/// `a13`, `c06`; already non-exact or the belt: `f05`, `f06`'s edge is unchanged) or belongs to an owner that
+/// carries none of the nested callable's edges (`a07`'s anonymous middle arrow is an RD owner, `d04`'s
+/// anonymous default export has no labelled edge).
 #[test]
-fn moved_rows_are_callable_body_owners() {
+fn moved_rows_are_one_node_body_owners() {
     let (mut moved, mut universe) = (0, 0);
     for r in rows() {
         let flagged = universe_moved(&r);
@@ -105,7 +119,7 @@ fn moved_rows_are_callable_body_owners() {
         moved += usize::from(r.main != r.expected);
         universe += usize::from(flagged);
     }
-    assert_eq!((moved, universe), (14, 20));
+    assert_eq!((moved, universe), (20, 28));
 }
 
 /// The solver and the cap preflight use one universe, so they agree on every row's owners.
@@ -137,7 +151,7 @@ fn edge_lines(r: &Row) -> Vec<(String, String)> {
         .collect()
 }
 
-/// A moved row's edge is named `arrow-callable-body`, once, and no other mechanism names it for that
+/// A moved row's edge is named `arrow-body-node`, once, and no other mechanism names it for that
 /// owner (the nested callable's own owner may name its own edge); an unmoved row's edge is never named.
 #[test]
 fn the_trace_names_each_moved_edge_once() {
@@ -145,7 +159,7 @@ fn the_trace_names_each_moved_edge_once() {
         let lines = edge_lines(&r);
         let arrow: Vec<_> = lines
             .iter()
-            .filter(|(m, _)| m == "arrow-callable-body")
+            .filter(|(m, _)| m == "arrow-body-node")
             .collect();
         if r.main != r.expected {
             assert_eq!(arrow.len(), 1, "{} {lines:?}", r.fixture);
@@ -170,7 +184,7 @@ fn owner_lines_are_one_per_moved_owner() {
             .collect();
         let arrow: Vec<_> = owners
             .iter()
-            .filter(|l| l.contains("\tarrow-callable-body\t"))
+            .filter(|l| l.contains("\tarrow-body-node\t"))
             .collect();
         let flagged = universe_moved(&r);
         assert_eq!(
@@ -179,10 +193,10 @@ fn owner_lines_are_one_per_moved_owner() {
             "{} {owners:?}",
             r.fixture
         );
-        // Availability flips: only the belt row turns an available owner unavailable.
+        // Availability flips: only the belt rows turn an available owner unavailable.
         for a in &arrow {
             let flip = a.split('\t').nth(5).unwrap();
-            let want = if r.fixture.starts_with("e01_") {
+            let want = if BELT_ROWS.contains(&r.fixture.as_str()) {
                 "ok>no-cfg"
             } else {
                 "ok>ok"
@@ -198,5 +212,51 @@ fn owner_lines_are_one_per_moved_owner() {
             });
             assert!(!guard, "{} {owners:?}", r.fixture);
         }
+    }
+}
+
+/// SOL-781-01: an edge supplied twice (`dfg_edges = [e, e]`; the producer emits per lvalue and the legacy
+/// key has no bytes) is named once. The input is doubled directly, not rebuilt from a label map.
+#[test]
+fn a_duplicated_input_edge_is_named_once() {
+    for name in [
+        "a01_issue_arrow_in_arrow",
+        "e01_two_defs_in_nested_body_belt",
+        "f01_ternary_arms",
+    ] {
+        let r = rows().into_iter().find(|r| r.fixture == name).unwrap();
+        let parsed = parse(r.lang, &r.source);
+        let mut named = 0;
+        for owner in parsed.all_functions() {
+            let (defs, edges) = recorded(&parsed, &owner);
+            let doubled: Vec<crate::data_flow::FlowEdge> =
+                edges.iter().chain(edges.iter()).cloned().collect();
+            let cfg = crate::cfg::build_cfg_edges_with_arms(&parsed);
+            let index = super::super::FileCfgEdgeIndex::new(&cfg);
+            let mut out = Vec::new();
+            super::traced(&parsed, &owner, &defs, &doubled, &[], &index, &mut out);
+            let text = String::from_utf8(out).unwrap();
+            let lines: Vec<&str> = text
+                .lines()
+                .filter(|l| l.starts_with("rd-census\tarrow-body-node\t"))
+                .collect();
+            let distinct: BTreeSet<&&str> = lines.iter().collect();
+            assert_eq!(lines.len(), distinct.len(), "{name}: {lines:?}");
+            named += lines.len();
+        }
+        assert!(named > 0, "{name}: nothing was named");
+    }
+}
+
+/// Opus S2: the control writes no capture lines of its own (the production pass and the `#674` control
+/// already do). The call site reads the trace switch from the environment, which tests do not set, so the
+/// predicate is pinned directly.
+#[test]
+fn only_the_arrow_control_and_the_census_free_control_skip_capture_lines() {
+    use super::Pass;
+    assert!(!Pass::ArrowControl.traces_capture());
+    assert!(!Pass::NoCensus.traces_capture());
+    for pass in [Pass::Census, Pass::CensusLogged, Pass::CensusEqualKills] {
+        assert!(pass.traces_capture());
     }
 }
