@@ -12,7 +12,7 @@ use tree_sitter::Node;
 /// `pub(crate)` (P9): reused as-is by `framework_entries::express_route_candidates`
 /// to compute the express receiver set for registration-first extraction —
 /// no logic change, just visibility.
-pub(crate) fn js_ts_framework_receiver_names(
+pub fn js_ts_framework_receiver_names(
     parsed: &ParsedFile,
     framework: &str,
 ) -> BTreeSet<String> {
@@ -38,7 +38,7 @@ pub(crate) fn js_ts_framework_receiver_names(
 /// `pub(crate)` (P9): reused by `framework_entries::express_route_candidates`
 /// to collect every call node in a file before filtering to route
 /// registrations.
-pub(crate) fn collect_js_ts_call_nodes<'a>(
+pub fn collect_js_ts_call_nodes<'a>(
     node: Node<'a>,
     parsed: &ParsedFile,
     out: &mut Vec<Node<'a>>,
@@ -54,7 +54,7 @@ pub(crate) fn collect_js_ts_call_nodes<'a>(
 
 /// `pub(crate)` (P9): reused by `framework_entries` to test a call's method
 /// name against the express route-method set.
-pub(crate) fn js_ts_framework_route_method(framework: &str, method: &str) -> bool {
+pub fn js_ts_framework_route_method(framework: &str, method: &str) -> bool {
     match framework {
         "express" => matches!(
             method,
@@ -74,7 +74,7 @@ pub(crate) fn js_ts_framework_route_method(framework: &str, method: &str) -> boo
 
 /// `pub(crate)` (P9): reused by `framework_entries` to test whether a route
 /// call's receiver is a direct express instance (vs. a `.route()` builder).
-pub(crate) fn js_ts_receiver_expr_is_framework_instance(
+pub fn js_ts_receiver_expr_is_framework_instance(
     parsed: &ParsedFile,
     receiver: Node<'_>,
     framework: &str,
@@ -91,7 +91,7 @@ pub(crate) fn js_ts_receiver_expr_is_framework_instance(
 /// `pub(crate)` (P9): reused by `framework_entries` to detect the
 /// `.route(path).get(handler)` builder shape (arg positioning differs from
 /// the direct-instance shape — see `framework_entries::express_route_candidates`).
-pub(crate) fn js_ts_receiver_expr_is_route_builder(
+pub fn js_ts_receiver_expr_is_route_builder(
     parsed: &ParsedFile,
     receiver: Node<'_>,
     framework: &str,
@@ -143,7 +143,7 @@ fn js_ts_expr_constructs_framework_receiver(
     js_ts_callee_constructs_framework_receiver(parsed, callee, framework, imports)
 }
 
-pub(crate) fn js_ts_call_or_new_callee(node: Node<'_>) -> Option<Node<'_>> {
+pub fn js_ts_call_or_new_callee(node: Node<'_>) -> Option<Node<'_>> {
     node.child_by_field_name("function")
         .or_else(|| node.child_by_field_name("constructor"))
         .or_else(|| node.child_by_field_name("name"))
@@ -213,7 +213,7 @@ fn js_ts_module_matches_framework(module: &str, framework: &str) -> bool {
     }
 }
 
-pub(crate) fn js_ts_require_call_module(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
+pub fn js_ts_require_call_module(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
     let node = unwrap_parenthesized(*node);
     if !parsed.language.is_call_node(node.kind()) {
         return None;
@@ -226,7 +226,7 @@ pub(crate) fn js_ts_require_call_module(parsed: &ParsedFile, node: &Node<'_>) ->
     js_ts_literal_string_value(parsed, &arg)
 }
 
-pub(crate) fn js_ts_literal_string_value(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
+pub fn js_ts_literal_string_value(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
     let node = unwrap_parenthesized(*node);
     let text = parsed.node_text(&node).trim();
     if !(matches!(node.kind(), "string" | "template_string")
@@ -246,7 +246,7 @@ pub(crate) fn js_ts_literal_string_value(parsed: &ParsedFile, node: &Node<'_>) -
         .map(ToString::to_string)
 }
 
-pub(crate) fn collect_js_ts_assignment_like_nodes<'a>(
+pub fn collect_js_ts_assignment_like_nodes<'a>(
     node: Node<'a>,
     parsed: &ParsedFile,
     out: &mut Vec<Node<'a>>,
@@ -260,7 +260,7 @@ pub(crate) fn collect_js_ts_assignment_like_nodes<'a>(
     }
 }
 
-pub(crate) fn js_ts_assignment_target_and_value<'a>(
+pub fn js_ts_assignment_target_and_value<'a>(
     parsed: &ParsedFile,
     node: &Node<'a>,
 ) -> Option<(Node<'a>, Node<'a>)> {
@@ -270,7 +270,7 @@ pub(crate) fn js_ts_assignment_target_and_value<'a>(
     ))
 }
 
-pub(crate) fn js_ts_assignment_target<'a>(
+pub fn js_ts_assignment_target<'a>(
     parsed: &ParsedFile,
     node: &Node<'a>,
 ) -> Option<Node<'a>> {
@@ -280,7 +280,7 @@ pub(crate) fn js_ts_assignment_target<'a>(
     parsed.language.assignment_target(node)
 }
 
-pub(crate) fn js_ts_assignment_value<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
+pub fn js_ts_assignment_value<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
     if node.kind() == "variable_declarator" {
         return node.child_by_field_name("value");
     }

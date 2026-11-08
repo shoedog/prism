@@ -54,14 +54,14 @@ mod singleton_rvalue_spans;
 mod statement_traversal;
 pub(crate) use statement_traversal::is_c_cpp_statement_kind;
 mod tree_access;
-pub(crate) mod tree_helpers;
+pub mod tree_helpers;
 
 mod assignments;
 mod call_args;
 mod calls;
 mod control_flow;
 mod fptr_text;
-pub(crate) mod go;
+pub mod go;
 mod imports;
 pub mod parse_quality;
 pub mod js_ts;

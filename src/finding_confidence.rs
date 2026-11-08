@@ -407,7 +407,7 @@ pub fn classify_for_resolution(
 /// Admit a finding against its evidence grade, then apply the selected emitter
 /// projection to the retained finding. Keeping both operations here prevents a
 /// nominal projection from weakening an Exact finding before the floor runs.
-pub(crate) fn admit_finding_for_resolution(
+pub fn admit_finding_for_resolution(
     algorithm: &str,
     parse_quality: ParseQuality,
     evidence: Option<&EvidencePath>,
