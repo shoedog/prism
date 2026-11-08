@@ -46,8 +46,9 @@ pub(super) fn affects_writers(
             else {
                 return false;
             };
-            !(def.path.base == "this" && this_is_rebound_at(parsed, owner, def.start_byte))
-                && !bound_without_def(parsed, owner, start, &def.path.base)
+            let rebound_this =
+                def.path.base == "this" && this_is_rebound_at(parsed, owner, def.start_byte);
+            !(rebound_this || bound_without_def(parsed, owner, start, &def.path.base))
         })
         .collect()
 }
