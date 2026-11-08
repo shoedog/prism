@@ -481,35 +481,46 @@ fn n8_restrict_through_a_reexport_is_refused() {
     refused(&cg, "src/a/x.rs", "sibling", "crate::a::b::f");
 }
 
-/// N10 (review fold): the populator resolves a non-inline `#[path]` relative to
-/// `<declaring file stem>/`, rustc relative to the declaring file's directory. Here
-/// rustc loads `src/b.rs`; the populator picks the retained decoy `src/a/b.rs`, whose
-/// synthetic chain is still `crate -> a -> b`. The restrict must not be placed across
-/// a mount the populator put at the wrong file.
+/// N10 (review fold, #765): rustc loads `src/b.rs` for `#[path = "b.rs"]` in the non-mod-rs
+/// `src/a.rs`; `src/a/b.rs` is a retained decoy (the pre-fix populator bound it). The
+/// restrict is placed across rustc's file: the caller inside `crate::a` binds it, one
+/// outside is refused.
 fn n10_files() -> Vec<(&'static str, &'static str)> {
     vec![
-        ("src/lib.rs", "mod a;\n"),
+        ("src/lib.rs", "mod a;\nmod z;\n"),
         (
             "src/a.rs",
             "#[path = \"b.rs\"]\npub mod b;\npub fn caller() -> u8 {\n    b::f()\n}\n",
         ),
-        ("src/b.rs", "pub(in crate::a) fn f() -> u8 {\n    1\n}\n"),
+        (
+            "src/b.rs",
+            "// rustc loads this file\npub(in crate::a) fn f() -> u8 {\n    1\n}\n",
+        ),
         ("src/a/b.rs", "pub(in crate::a) fn f() -> u8 {\n    2\n}\n"),
+        (
+            "src/z.rs",
+            "pub fn outside() -> u8 {\n    crate::a::b::f()\n}\n",
+        ),
     ]
 }
 
 #[test]
-fn n10_decoy_mount_is_not_an_exact_edge() {
+fn n10_mount_binds_rustcs_file_inside_the_restrict() {
     let cg = build(&n10_files());
     let o = cg.resolve_call_site_full(site(&cg, "src/a.rs", "caller", "b::f"));
+    assert_eq!(o.resolved.len(), 1, "{o:?}");
+    let r = &o.resolved[0];
     assert_eq!(
-        o.resolved
-            .iter()
-            .map(|r| (&r.target.file, r.confidence))
-            .collect::<Vec<_>>(),
-        vec![],
+        (r.target.file.as_str(), r.target.start_line, r.confidence),
+        ("src/b.rs", 2, ResolutionConfidence::Exact),
         "{o:?}"
     );
+}
+
+#[test]
+fn n10b_mount_restrict_still_refuses_outside_it() {
+    let cg = build(&n10_files());
+    refused(&cg, "src/z.rs", "outside", "crate::a::b::f");
 }
 
 #[test]

@@ -234,7 +234,7 @@ one of these, so the census plus the three refusals see every write P needs.
 | A11 | dead formals (§6.1) | formal name vs body-top-level `function`/`generator` declaration names, and vs own-parameter-list write bases | raw equality (escape-free owner) | — (refusal) |
 | A12 | Annex B (sloppy) | block-level function declaration name vs owner def bases | raw equality | — (refusal) |
 | A13 | `arguments`, `eval` detection | token vs literal | existing decoding helpers; an escaped spelling in the owner refuses the owner first | — (refusal) |
-| A14 | one-node distinct-bases belt (`js_single.rs:79`) | def bases over the completed def list | raw equality | — (refusal) |
+| A14 | one-node distinct-bases belt (`js_single.rs:79`) | def bases over the **recorded** def list (S1b-1 controller decision: the census never changes availability; a completed-only collision is the label refusal `owner-refuse:one-node`) | raw equality | — (refusal) |
 | A15 | `with` body writes | write path -> kill-only def | `ident` | — (refusal: may-write kills) |
 | A16 | name-wide refusals (W1 is owner-wide now; `arguments`, Annex B, unmappable site E18) | refused base vs edge paths | `affects(base, q)` | — (refusal) |
 
@@ -530,12 +530,20 @@ fixtures are what does.
 - `capture.rs` (S1a): parameter lists and instance field initializers become regions; `is_capture` requires the def in the
   use's innermost region (E10 belt).
 - `js_single.rs` (S1d): `first_hazard` is deleted. `single_node_cfg_is_complete` = JS family && one statement line && distinct
-  bases over the **completed** defs.
+  bases over the **recorded** defs (S1b-1 reason: the census never changes availability, so a collision only the completed
+  list shows is the label refusal `owner-refuse:one-node`; recorded S1d-2 decision, not the completed list).
+  **Fallback-cap rule (S1d-2, accepted):** an owner newly admitted to RD is exempt from the fallback edge cap like every RD
+  owner; the old guard is not kept as a cap gate (that would re-add the deleted predicate). Fallback-cap counters
+  (`fallback_functions_capped`, `functions_without_cfg`) can therefore fall, and edges appear, for owners the guard used to
+  refuse; zero such owners on the three corpora. Pinned by `fallback_cap_tests::a_formerly_guarded_one_node_owner_is_exempt_from_the_fallback_cap`.
+- `refusals.rs` (S1d-2): a member or computed-member write in the owner's own parameter list refuses (`own-params`) the edges
+  from a def before it to a use it `affects` (a bare formal's edge is untouched), for one-node and multi-node owners.
 
 **Parity tests** (S1b-1, S1d), unchanged: availability agreement on every matrix fixture; a census-only availability flip
 (`(o) => (o.x = 1, delete o.x, use(o))`) charged to the fallback cap identically; label-only refusals never move availability
 (same owner with and without each trigger: an escape, `with`, sloppy `arguments`, a captured write, a same-node write); the
-completed def lists at the two seams are equal.
+completed def lists at the two seams are equal; and (S1d-2) solver and preflight agree on every one-node row (recorded-def
+admission, the belt on recorded bases).
 
 ## 9. Slices (each label-only, one contract each, two review rounds each; fold item 10)
 
@@ -546,7 +554,7 @@ completed def lists at the two seams are equal.
 | **S1b-1** identity and coverage wiring | `census_defs.rs` at both seams, kill-only defs with `affects`, stored-path coverage (A7), E18 mapping and `site-unmapped`, collapse exclusion, owner refusals (escape, parse, `Refuse` kinds). `first_hazard` kept. Expectation: the prototype's -41 / -10 plus the unmapped eager sites. | S0 | about -41 / -10 | bump |
 | **S1b-2** order relation and D3 | `precedes` over `order.tsv` node chains, the single-site exception, D3 use and def side. | S1b-1 | 68 + 164 / 1 + 12 | bump |
 | **S1c** scope exclusions | D2-c option A: regions, the inner-binding rule of §6.2, binding B, `affects`. | S1b-1 | 411 / 16 (245 of excalidraw's are in one generated emscripten file by the round-2 count; the trace re-counts) | bump |
-| **S1d** refusal classes + guard deletion | Strictness-aware `arguments`, eval, `with`, dead formals and Annex B by syntactic position; delete `first_hazard`; one-node rows s01-s15, w03, w04, d06, d07; promotion audit. | S1a, S1b-2, S1c | 0 / 0 refusals on these corpora; promotions only in one-node owners `first_hazard` refused (TypeScript upper bound 17 owners) | bump |
+| **S1d** refusal classes (S1d-1, #747 merged) + guard deletion (S1d-2, done: `first_hazard` kept only as the trace control `reaching/guard_control.rs`; the belt is main's, on recorded bases) | Strictness-aware `arguments`, eval, `with`, dead formals and Annex B by syntactic position; delete `first_hazard`; one-node rows s01-s15, w03, w04, d06, d07; promotion audit. | S1a, S1b-2, S1c | 0 / 0 refusals on these corpora; promotions only in one-node owners `first_hazard` refused (TypeScript upper bound 17 owners) | bump |
 
 Filed, not in this lane: #667 (creation anchors, §6.3), #670 (D3 recovery: loops, the for-initializer labels c03/d05/a18, patterns, switch clauses,
 one-node distinct bases, `kill:for-increment`), #669 (promotion to emitted defs), #673 (G5), and the G1/G2(+G6) issue of §17. Sizes: S0 about
@@ -603,7 +611,7 @@ covers it.
 | C3 W1 closes escaped-identity loss | argued (§4.4: an escape-free owner has raw = decoded; an owner with an escape is refused) and probed: w01-w13 on main show the defects, the estimator selects every escaped owner | an owner with no `\` in any NAME token in which two spellings denote one name |
 | C4 D2-c (A) closes creation timing | argued (no exception, nothing to prove); rows h01-h11, b01-b05 | an outer use of a binding written in a region that stays `exact` |
 | C5 the order relation never proves a false order | argued (§7.1: no loop, no unknown, `seq` chains, byte order; one one-fact exception); astra R4 audited all 61 `seq` rows; rows o01-o39, a01-a08, a17-a20, fb01, fb02, fb07, fb09 | a `seq` kind whose children are not evaluated in source order, a write construct that writes before its end, or a repeated/phase-reordered context not classed `loop`/`unknown` |
-| C6 census + D3 + refusals + capture subsume `first_hazard` | **unverified** until S1d; the test is every one-node row | any one-node row back at `exact` |
+| C6 census + D3 + refusals + capture subsume `first_hazard` | **verified by S1d-2** (own-parameter member writes added after review: `own-params`; `reaching/guard_deleted_tests.rs`: every hazard (a)-(f) in a one-node owner has a named mechanism and a row, label and mechanism asserted; cloud promotion audit pending); the test is every one-node row | any one-node row back at `exact` |
 | C7 corpus costs | heuristic candidates | the cloud trace counts |
 | C8 `var a;` writes nothing but is recorded (WRONG, IMMATERIAL here) | probe c12; issue #668 | — |
 | C9 G1-G6 are main's behaviour and unchanged | verified: o23, o27, o29, fb08 on main | a census change that moves them without a trace mechanism |

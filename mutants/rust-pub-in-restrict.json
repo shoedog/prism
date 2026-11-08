@@ -82,7 +82,7 @@
     ],
     "PIR-09-skip-postpass": [
       "src/name_resolution/rust_populator/builder.rs",
-      "        super::restrict::resolve_restricts(\n            &mut self.graph,\n            &self.pending_restricts,\n            &self.misplaced_mounts,\n        );\n",
+      "        super::restrict::resolve_restricts(&mut self.graph, &self.pending_restricts);\n",
       "",
       [
         "pub_in_restrict_test::p1_restrict_resolves_to_the_named_ancestor",
@@ -129,42 +129,6 @@
       [
         "pub_in_restrict_test::p1_restrict_resolves_to_the_named_ancestor",
         "rust_pub_in_resolution_test::p2_bare_call_in_defining_module_binds"
-      ]
-    ],
-    "PIR-15-drop-mount-placement-check-n10": [
-      "src/name_resolution/rust_populator/walk/items.rs",
-      "if src != expected_mount_file(path, &ctx.dir, rel) {",
-      "if false {",
-      [
-        "pub_in_restrict_test::n10_misplaced_path_mount_leaves_the_restrict_none",
-        "rust_pub_in_resolution_test::n10_decoy_mount_is_not_an_exact_edge"
-      ]
-    ],
-    "PIR-16-ignore-misplaced-chain-n10": [
-      "src/name_resolution/rust_populator/restrict.rs",
-      "if chain.iter().any(|m| misplaced.contains(m)) {",
-      "if false {",
-      [
-        "pub_in_restrict_test::n10_misplaced_path_mount_leaves_the_restrict_none",
-        "rust_pub_in_resolution_test::n10_decoy_mount_is_not_an_exact_edge"
-      ]
-    ],
-    "PIR-17-mount-expected-at-populator-dir-n10": [
-      "src/name_resolution/rust_populator/restrict.rs",
-      "if !is_mod_rs && ctx_dir == own_child_dir {",
-      "if false {",
-      [
-        "pub_in_restrict_test::n10_misplaced_path_mount_leaves_the_restrict_none",
-        "rust_pub_in_resolution_test::n10_decoy_mount_is_not_an_exact_edge"
-      ]
-    ],
-    "PIR-18-flag-every-mount-p12": [
-      "src/name_resolution/rust_populator/walk/items.rs",
-      "if src != expected_mount_file(path, &ctx.dir, rel) {",
-      "if true {",
-      [
-        "pub_in_restrict_test::p12_inline_relative_path_mount_keeps_its_restrict",
-        "rust_pub_in_resolution_test::p12_inline_module_relative_path_mount_binds"
       ]
     ],
     "PIR-12b-drop-assoc-const-restrict": [

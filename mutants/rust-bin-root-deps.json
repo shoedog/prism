@@ -1,0 +1,135 @@
+{
+  "lane": "Rust binary roots of a workspace member get the package's in-repo dependencies (#749)",
+  "source": "src/name_resolution/rust_populator/builder.rs",
+  "lib_test_prefixes": [
+    "repo_loader::bin_deps_tests::"
+  ],
+  "test_targets": [
+    {
+      "prefix": "bin_root_deps_test::",
+      "package": "prism",
+      "target": "name_resolution"
+    }
+  ],
+  "mutations": {
+    "BRD-01-key-library-roots-only-c1": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "            let Some(bins) = self.config.member_bin_roots.get(member_dir) else {\n                continue;\n            };\n            for bin in &bins.roots {",
+      "            let Some(bins) = self.config.member_bin_roots.get(member_dir).filter(|_| false) else {\n                continue;\n            };\n            for bin in &bins.roots {",
+      [
+        "bin_root_deps_test::d1_every_bin_shape_is_keyed_with_the_dependency",
+        "rust_cross_crate_bin_test::c1_every_bin_shape_resolves_dependency_paths"
+      ]
+    ],
+    "BRD-02-skip-the-conflict-check-c7": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "                    if bins.own_lib_name.as_deref() == Some(name.as_str()) {\n                        continue;\n                    }",
+      "                    if bins.own_lib_name.is_none() && false {\n                        continue;\n                    }",
+      [
+        "bin_root_deps_test::d11_dependency_named_like_the_own_library_is_dropped_alone",
+        "rust_cross_crate_bin_test::c7_dependency_named_like_the_own_library_is_not_keyed",
+        "rust_cross_crate_bin_test::c7b_only_the_conflicting_dependency_is_dropped"
+      ]
+    ],
+    "BRD-03-key-every-root-of-the-member-c4": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "            for bin in &bins.roots {\n                let Some(&consumer) = self.roots_by_path.get(bin) else {",
+      "            for bin in self.roots_by_path.keys().filter(|p| p.starts_with(member_dir.as_str())) {\n                let Some(&consumer) = self.roots_by_path.get(bin) else {",
+      [
+        "bin_root_deps_test::d4c_tests_examples_and_benches_roots_are_not_keyed",
+        "rust_cross_crate_bin_test::c4_build_script_and_other_target_roots_get_no_dependency_entry"
+      ]
+    ],
+    "BRD-04-skip-bin-only-members-c6": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "            let Some(bins) = self.config.member_bin_roots.get(member_dir) else {\n                continue;\n            };\n            for bin in &bins.roots {",
+      "            let Some(bins) = self.config.member_bin_roots.get(member_dir) else {\n                continue;\n            };\n            if !self.lib_root_by_member_dir.contains_key(member_dir) {\n                continue;\n            }\n            for bin in &bins.roots {",
+      [
+        "bin_root_deps_test::d6_bin_only_member_is_keyed",
+        "rust_cross_crate_bin_test::c6_bin_only_package_resolves_dependency_paths"
+      ]
+    ],
+    "BRD-05-ignore-autobins-c11": [
+      "src/repo_loader/bin_roots.rs",
+      "    if explicit_bins.is_none() && package.get(\"autobins\").and_then(|v| v.as_bool()) != Some(false) {",
+      "    if explicit_bins.is_none() {",
+      [
+        "bin_root_deps_test::d8_autobins_false_keys_no_auto_bin",
+        "rust_cross_crate_bin_test::c11_autobins_false_keys_no_auto_bin",
+        "repo_loader::bin_deps_tests::own_library_lane_keeps_explicit_bins_autobins_and_edition_rules"
+      ]
+    ],
+    "BRD-06-ignore-a-target-edition-c12": [
+      "src/repo_loader/bin_roots.rs",
+      "            if bin.get(\"edition\").is_some() {\n                continue;\n            }",
+      "            if bin.get(\"edition\").is_some() && false {\n                continue;\n            }",
+      [
+        "bin_root_deps_test::d10_bin_with_its_own_edition_is_skipped_per_target",
+        "rust_cross_crate_bin_test::c12_bin_with_its_own_edition_is_not_keyed",
+        "repo_loader::bin_deps_tests::own_library_lane_keeps_explicit_bins_autobins_and_edition_rules"
+      ]
+    ],
+    "BRD-07-skip-src-bin-dir-main-c1": [
+      "src/repo_loader/bin_roots.rs",
+      "                        .is_some_and(|name| !name.is_empty() && !name.contains('/'))",
+      "                        .is_some_and(|_| false)",
+      [
+        "bin_root_deps_test::d1_every_bin_shape_is_keyed_with_the_dependency",
+        "repo_loader::bin_deps_tests::own_library_lane_enumerates_every_auto_bin_shape",
+        "repo_loader::bin_deps_tests::dependency_lane_uses_the_same_enumeration_as_the_own_library_lane"
+      ]
+    ],
+    "BRD-08-explicit-bins-do-not-replace-auto-discovery-c9": [
+      "src/repo_loader/bin_roots.rs",
+      "    if explicit_bins.is_none() && package.get(\"autobins\")",
+      "    if package.get(\"autobins\")",
+      [
+        "bin_root_deps_test::d9_explicit_bin_path_is_keyed_and_replaces_auto_discovery",
+        "rust_cross_crate_bin_test::c9_explicit_bin_path_resolves_and_replaces_auto_discovery",
+        "repo_loader::bin_deps_tests::own_library_lane_keeps_explicit_bins_autobins_and_edition_rules"
+      ]
+    ],
+    "BRD-09-key-without-name-normalization-c5": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "                    let name = normalize_crate_ident(in_source_name);\n                    if bins.own_lib_name",
+      "                    let name = in_source_name.clone();\n                    if bins.own_lib_name",
+      [
+        "bin_root_deps_test::d5_hyphenated_dependency_name_is_normalized"
+      ]
+    ],
+    "BRD-12-block-shadow-check-dropped-c18": [
+      "src/resolution/rust/bin_dep_guard.rs",
+      "    if deps.is_empty() || !block_binds_type(graph, from, first) {",
+      "    if deps.is_empty() || true {",
+      [
+        "rust_cross_crate_bin_test::c18_block_import_shadows_a_module_level_import_of_the_dependency",
+        "rust_cross_crate_bin_test::c18b_block_module_shadows_a_module_level_import_of_the_dependency"
+      ]
+    ],
+    "BRD-13-block-shadow-refuses-local-targets-c16": [
+      "src/resolution/rust/bin_dep_guard.rs",
+      "roots.iter().any(|target_root| deps.contains(target_root))",
+      "roots.iter().any(|_| true)",
+      [
+        "rust_cross_crate_bin_test::c16_block_local_type_shadow_binds_the_local_associated_fn"
+      ]
+    ],
+    "BRD-14-shadow-judged-by-any-binding-name-c18d": [
+      "src/resolution/rust/bin_dep_guard.rs",
+      "                if graph.binding_indices(id, name, NS_TYPE).next().is_some() =>",
+      "                if graph.binding_indices(id, name, NS_TYPE).next().is_some() || true =>",
+      [
+        "rust_cross_crate_bin_test::c18d_block_binding_of_another_name_does_not_refuse"
+      ]
+    ],
+    "BRD-15-first-occurrence-of-the-target-file-only-c18e": [
+      "src/resolution/rust/bin_dep_guard.rs",
+      "roots.iter().any(|target_root| deps.contains(target_root))",
+      "roots.iter().take(1).any(|target_root| deps.contains(target_root))",
+      [
+        "rust_cross_crate_bin_test::c18e_shadow_refuses_when_another_crate_mounts_the_target_file_first",
+        "rust_cross_crate_bin_test::c18i_shadow_refuses_when_the_dependencys_own_bin_mounts_the_target_file"
+      ]
+    ]
+  }
+}

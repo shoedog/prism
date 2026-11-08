@@ -1,9 +1,11 @@
 mod anchor_glob_precision_test;
 mod anchor_glob_test;
+mod bin_root_deps_test;
 mod build_wiring_test;
 mod consumer_test;
 mod glob_expand_test;
 mod local_binding_test;
+mod path_attribute_placement_test;
 mod pub_in_restrict_test;
 mod resolve_test;
 mod rust_populate_test;

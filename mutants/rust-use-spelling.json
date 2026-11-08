@@ -137,27 +137,11 @@
     ],
     "RUS-15-drop-the-block-shadow-refusal-b4": [
       "src/resolution/rust/path_anchor.rs",
-      "    if alias_routed && first.is_some_and(|f| block_shadows_module_alias(graph, from, f)) {",
+      "    if first.is_some_and(|f| block_shadows_module_alias(graph, from, f)) {",
       "    if false && first.is_some_and(|f| block_shadows_module_alias(graph, from, f)) {",
       [
         "rust_module_alias_test::b4_shadowed_self_alias_refuses",
         "rust_module_alias_test::b4_shadow_by_a_block_local_module_refuses"
-      ]
-    ],
-    "RUS-16-mount-guard-skips-anchored-sites-b16": [
-      "src/resolution/rust/path_anchor.rs",
-      "    if out.resolved.iter().any(|r| in_misplaced(&r.target.file)) {",
-      "    if alias_routed && out.resolved.iter().any(|r| in_misplaced(&r.target.file)) {",
-      [
-        "rust_module_alias_test::b16_anchored_macro_path_refuses_a_misplaced_mount"
-      ]
-    ],
-    "RUS-17-mount-guard-skips-alias-sites-b17": [
-      "src/resolution/rust/path_anchor.rs",
-      "    if out.resolved.iter().any(|r| in_misplaced(&r.target.file)) {",
-      "    if was_anchored && out.resolved.iter().any(|r| in_misplaced(&r.target.file)) {",
-      [
-        "rust_module_alias_test::b17_alias_refuses_a_misplaced_mount"
       ]
     ],
     "RUS-18-self-may-not-lead-super-hops-w2": [

@@ -1,0 +1,59 @@
+{
+  "lane": "Rust let/for/if-let bindings are in scope after their initializer (#765 PR D, E1)",
+  "source": "src/name_resolution/rust_populator/walk/locals.rs",
+  "lib_test_prefixes": [],
+  "mutations": {
+    "LS-01-extent-starts-at-the-identifier": [
+      "src/name_resolution/rust_populator/walk/locals.rs",
+      "    match visible_from.filter(|from| *from > def_byte) {",
+      "    match None::<usize> {",
+      [
+        "rust_let_scope_test::l1_let_initializer_calls_the_fn_not_the_new_local",
+        "rust_let_scope_test::l2_tuple_pattern_binds_after_the_initializer"
+      ]
+    ],
+    "LS-02-let-statement-extent-not-delayed": [
+      "src/name_resolution/rust_populator/walk/locals.rs",
+      "        Some(stmt_end),\n",
+      "        None,\n",
+      [
+        "rust_let_scope_test::l1_let_initializer_calls_the_fn_not_the_new_local",
+        "rust_let_scope_test::l3b_let_else_block_does_not_see_the_pattern_binding"
+      ]
+    ],
+    "LS-03-for-variable-visible-in-the-iterator": [
+      "src/name_resolution/rust_populator/walk/locals.rs",
+      "        loop_scope,\n        ctx.file,\n        value_end,\n",
+      "        loop_scope,\n        ctx.file,\n        None,\n",
+      [
+        "rust_let_scope_test::l4_for_iterator_expression_is_outside_the_loop_variable"
+      ]
+    ],
+    "LS-04-if-let-binding-visible-in-the-scrutinee": [
+      "src/name_resolution/rust_populator/walk/locals.rs",
+      "        cond_scope,\n        ctx.file,\n        cond_end,\n",
+      "        cond_scope,\n        ctx.file,\n        None,\n",
+      [
+        "rust_let_scope_test::l5_if_let_scrutinee_is_outside_the_pattern_binding",
+        "rust_let_scope_test::l6_while_let_scrutinee_is_outside_the_pattern_binding"
+      ]
+    ],
+    "LS-05-closure-parameter-invisible-in-its-body": [
+      "src/name_resolution/rust_populator/walk/locals.rs",
+      "        body_scope,\n        ctx.file,\n        hi,\n",
+      "        body_scope,\n        ctx.file,\n        lo,\n",
+      [
+        "rust_let_scope_test::k3_closure_parameter_shadows_the_fn_in_its_body"
+      ]
+    ],
+    "LS-06-def-byte-identity-extent-dropped": [
+      "src/name_resolution/rust_populator/walk/locals.rs",
+      "            span(def_byte, def_byte + 1),\n            span(from, scope_end.max(from + 1)),",
+      "            span(from, scope_end.max(from + 1)),",
+      [
+        "rust_let_scope_test::k5_return_typed_receiver_of_a_let_still_binds",
+        "rust_let_scope_test::k6_constructor_receiver_of_a_let_still_binds"
+      ]
+    ]
+  }
+}

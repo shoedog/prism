@@ -33,7 +33,6 @@ pub(crate) fn unavailable_before_edges(
     if !cfg.has_owner_edges(&lines)
         && !crate::cfg::js_single::single_node_cfg_is_complete(
             parsed,
-            owner,
             lines.len(),
             &defs
                 .iter()
@@ -128,10 +127,11 @@ mod tests {
                 Some(RdUnavailable::NoCfgEdges),
             ),
             (
-                "update hazard",
+                // #660 S1d-2: the update is the census's to label, not an availability refusal.
+                "update is not a hazard",
                 "function f(c) {\n  return (c++, exec(c));\n}\n",
                 &["c"],
-                Some(RdUnavailable::NoCfgEdges),
+                None,
             ),
             (
                 "empty body",

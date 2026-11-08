@@ -109,6 +109,23 @@ pub struct RustCrateConfig {
     /// This contributes only to the existing 2018+ extern-prelude lane.
     #[serde(default)]
     pub binary_library_deps: BTreeMap<String, (String, String)>,
+    /// Rust: per workspace-member directory that has in-repo `[dependencies]`, its binary
+    /// target roots (explicit `[[bin]]` paths, else Cargo's auto-bins) and own library's
+    /// extern name (#749). The Builder keys each root with the member's in-repo dependencies
+    /// at `finish()`, as `member_in_repo_deps` does for the library root. Empty under the
+    /// same 2018+/uniform-edition gate as `binary_library_deps`.
+    #[serde(default)]
+    pub member_bin_roots: BTreeMap<String, MemberBins>,
+}
+
+/// One member's binary roots for the dependency lane (`RustCrateConfig::member_bin_roots`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MemberBins {
+    /// The member's nameable own-library extern name (hyphen-normalized), if it has one: a
+    /// dependency named alike is a second claimant for that name and is not keyed.
+    pub own_lib_name: Option<String>,
+    /// Repo-relative binary root paths of the member (never its library root).
+    pub roots: Vec<String>,
 }
 
 impl Default for RustCrateConfig {
@@ -123,6 +140,7 @@ impl Default for RustCrateConfig {
             edition_uniform: true,
             member_in_repo_deps: BTreeMap::new(),
             binary_library_deps: BTreeMap::new(),
+            member_bin_roots: BTreeMap::new(),
         }
     }
 }
@@ -166,6 +184,7 @@ impl RustCrateConfig {
             edition_uniform: true,
             member_in_repo_deps: BTreeMap::new(),
             binary_library_deps: BTreeMap::new(),
+            member_bin_roots: BTreeMap::new(),
         }
     }
 
@@ -183,7 +202,8 @@ impl RustCrateConfig {
     }
 }
 
-/// Is `path` a conventional Rust crate root? (Keys use forward slashes.)
+/// Is `path` a conventional Rust crate root? (Keys use forward slashes.) `tests/<name>.rs`,
+/// `benches/<name>.rs` and `examples/<name>.rs` count only outside a `src/` directory.
 fn is_convention_root(p: &str) -> bool {
     if !p.ends_with(".rs") {
         return false;
@@ -199,8 +219,15 @@ fn is_convention_root(p: &str) -> bool {
         return rest == "main.rs" || (rest.ends_with("/main.rs")) || !rest.contains('/');
     }
     // benches/<name>.rs, tests/<name>.rs, examples/<name>.rs (single level).
+    // Cargo names these targets only at the package root: a `tests/`, `benches/` or
+    // `examples/` directory below a `src/` segment holds modules, never crate roots
+    // (`src/data_flow/tests/*.rs`).
     for dir in ["benches/", "tests/", "examples/"] {
         if let Some(rest) = segment_after(p, dir) {
+            let prefix = &p[..p.len() - rest.len() - dir.len()];
+            if prefix.split('/').any(|seg| seg == "src") {
+                continue;
+            }
             if !rest.contains('/') && rest.ends_with(".rs") {
                 return true;
             }

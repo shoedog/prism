@@ -308,7 +308,7 @@ fn reaching_definitions_impl(
     }
     if cfg_edges.is_empty()
         && !census.one_node_admits(&mut defs, |bases| {
-            cfg::js_single::single_node_cfg_is_complete(parsed, func_node, lines.len(), bases)
+            cfg::js_single::single_node_cfg_is_complete(parsed, lines.len(), bases)
         })
     {
         return RdOutcome::Unavailable(RdUnavailable::NoCfgEdges);

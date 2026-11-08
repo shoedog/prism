@@ -22,16 +22,11 @@ impl CallGraph {
         let (file, from) = rust_authoritative_scope(graph, site)?;
         // A macro-argument path keeps its `crate`/`self`/`super` prefix aside (#724).
         let anchored = super::path_anchor::anchored_site(site);
-        let was_anchored = anchored.is_some();
         let site = anchored.as_ref().unwrap_or(site);
         let out = self.rust_authoritative_nonself(graph, site, file, from);
-        Some(super::path_anchor::guard(
-            graph,
-            site,
-            was_anchored,
-            from,
-            out,
-        ))
+        let out = super::path_anchor::guard(graph, site, from, out);
+        // Entries keyed for a package's binary roots refuse block-scope shadows (#749).
+        Some(super::bin_dep_guard::guard(graph, site, from, out))
     }
 
     fn rust_authoritative_nonself(

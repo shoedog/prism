@@ -311,8 +311,11 @@ mod stream;
 /// - v160: JS/TS/TSX refusal classes (#660 S1d-1): direct `eval`, sloppy mapped `arguments`, `with` bodies, dead formals, Annex B block functions, the Annex B.3.5 catch `var` and immutable inner names move labels toward `nameonly/cfg_incomplete` or `nameonly/killed`. Label-only: edge sets, availability and counters are unchanged.
 /// - v161: Rust `pub(in path)` restricts are resolved after population (#710): a call site inside the named ancestor module binds to the item, and glob members outside it become hidden instead of poisoning the lookup, so Rust call edges and their kinds change.
 /// - v162: Rust `use p::{self as m}` binds `m` to the module `p` and a self import binds the type namespace only (#724), and macro-argument `crate`/`self`/`super` prefixes reach the authoritative route as a `CallSite::path_anchor`, so Rust call edges, their kinds, the `CallSite` layout and the `ScopeGraph` layout (misplaced `#[path]` mount files, self-import aliases) change.
-/// - v163: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
-const CACHE_VERSION: u32 = 163;
+/// - v163: JS/TS/TSX one-node `first_hazard` guard deleted (#660 S1d-2): a one-node owner the guard refused is now admitted to reaching definitions, so availability counters (`functions_without_cfg`) and labels move (promotions toward `exact`/`killed` only where the hazard is harmless or a refusal class kills it); edge sets are unchanged. Own-parameter member writes refuse the projections they affect (`own-params`).
+/// - v164: Rust `#[path]` modules resolve relative to the declaring file's directory as rustc does (inline module blocks per the Reference), so mounted files are modeled where they were not (or bound as a decoy at the `<stem>/` directory), Rust call edges and their kinds change, and `ScopeGraph::misplaced_mount_files` leaves the layout; a let/for/if-let binding is in scope only after its statement and std expression macros (`env!`, `matches!`, ...) no longer poison name lookup (#765).
+/// - v165: Rust binary roots of a workspace member resolve the package's in-repo `[dependencies]` (#749), so Rust call edges and their kinds change, and the serialized layout changes: `RustCrateConfig::member_bin_roots` joins the cached inputs and `ScopeGraph::bin_dep_entries` joins the graph (the reason the version must move).
+/// - v166: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
+const CACHE_VERSION: u32 = 166;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -845,7 +848,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 163);
+        assert_eq!(super::CACHE_VERSION, 166);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

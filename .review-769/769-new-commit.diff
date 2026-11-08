@@ -1,0 +1,421 @@
+commit 110caf7f45bc86e794e6538d4cf8e4a6d455db0c
+Author: Wesley Jinks <wesley.jinks@gmail.com>
+Date:   Sun Nov 8 09:40:15 2026 -0700
+
+    fix(resolution): drop the bin-root dependency guard now that #765 placement is rustc's (#749)
+    
+    #765 places `#[path]` modules as rustc does, so the placement half of `bin_dep_guard`
+    (misplaced-mount files) is gone with the machinery it read, and the five rows that
+    bound the decoy through re-exports, third-crate re-exports and typed receivers are
+    un-ignored and pass (W2a, W2b, R1, R2, R3). C17/C17b/C17d now assert rustc's file.
+    The block-scope shadow refusal (review W1, #768) is not made redundant by #765 and
+    stays: `bin_dep_guard.rs` keeps only that check (`ScopeGraph::bin_dep_entries`). Lane:
+    the two placement mutants are removed and the three shadow mutants re-anchored.
+    CPG cache stays at the 165 of the rebased cache commit.
+    
+    Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_01NyaW5RjoZRbfJYKp4NMhx9
+
+diff --git a/CLAUDE.md b/CLAUDE.md
+index a6d5d7a9..12bbd83b 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -295,7 +295,7 @@ family than the caller are dropped, a pool left empty refuses with no later rung
+ filter never promotes (a multi-owner NameOnly pool left with one target stays NameOnly with the
+ same kind). Free-function pools filter inside their rungs; method rungs (R1, R3b, R4b, self and
+ receiver-variable owner lookups, recovered receivers, R6) share one admission on the public full
+-resolution (`resolve_call_site_full`). `resolve_call_site_candidates` is the unfiltered view. Every binary root of a workspace member with in-repo `[dependencies]` (explicit `[[bin]]` paths, else `src/main.rs`, `src/bin/*.rs`, `src/bin/*/main.rs`; bin-only members included) is keyed with those dependencies under their in-source names (`Builder::finish`, `RustCrateConfig::member_bin_roots`, enumeration shared with `binary_library_deps` in `repo_loader/bin_roots.rs`), so `prism::m::f()` in `crates/prism-review/src/main.rs` resolves like the same path in a library file; a dependency named like the member's own library is keyed for neither, `build.rs`/`tests/`/`examples`/`benches` roots stay unkeyed (they also see unparsed build/dev dependencies), `autobins = false`, a `[[bin]]` with its own `edition` and the 2018+/uniform-edition gate still exclude, and a result in such a dependency refuses when a block or callable scope binds the path's first segment in the type namespace (`resolution/rust/bin_dep_guard.rs`; #768). The misplaced-`#[path]` hazard of these entries is not closed here (see #765 for the pending placement fix). The `T::m` owner-pool fail-open in `rust_authoritative_nonself` is inherited and unchanged.
++resolution (`resolve_call_site_full`). `resolve_call_site_candidates` is the unfiltered view. Every binary root of a workspace member with in-repo `[dependencies]` (explicit `[[bin]]` paths, else `src/main.rs`, `src/bin/*.rs`, `src/bin/*/main.rs`; bin-only members included) is keyed with those dependencies under their in-source names (`Builder::finish`, `RustCrateConfig::member_bin_roots`, enumeration shared with `binary_library_deps` in `repo_loader/bin_roots.rs`), so `prism::m::f()` in `crates/prism-review/src/main.rs` resolves like the same path in a library file; a dependency named like the member's own library is keyed for neither, `build.rs`/`tests/`/`examples`/`benches` roots stay unkeyed (they also see unparsed build/dev dependencies), `autobins = false`, a `[[bin]]` with its own `edition` and the 2018+/uniform-edition gate still exclude, and a result in such a dependency refuses when a block or callable scope binds the path's first segment in the type namespace (`resolution/rust/bin_dep_guard.rs`; #768). `#[path]` placement for these entries is rustc's (#765), with no guard of their own. The `T::m` owner-pool fail-open in `rust_authoritative_nonself` is inherited and unchanged.
+ 
+ Navigation maps confidence to `score` (Exact 1.0 / NameOnly 0.6) with a
+ `Reason::Resolution` and a `Collision` warning when same-name receiver sites are
+diff --git a/mutants/rust-bin-root-deps.json b/mutants/rust-bin-root-deps.json
+index eab8e5e1..fd9f1a8d 100644
+--- a/mutants/rust-bin-root-deps.json
++++ b/mutants/rust-bin-root-deps.json
+@@ -97,27 +97,10 @@
+         "bin_root_deps_test::d5_hyphenated_dependency_name_is_normalized"
+       ]
+     ],
+-    "BRD-10-placement-guard-removed-c17": [
+-      "src/resolution/rust/bin_dep_guard.rs",
+-      "        (shadowed || misplaced) && in_dep(&r.target.file)",
+-      "        (shadowed || misplaced && false) && in_dep(&r.target.file)",
+-      [
+-        "rust_cross_crate_bin_test::c17_bin_dependency_path_refuses_a_misplaced_mount",
+-        "rust_cross_crate_bin_test::c17b_bin_dependency_path_via_use_refuses_a_misplaced_mount"
+-      ]
+-    ],
+-    "BRD-11-guard-covers-library-root-consumers-c17d": [
+-      "src/resolution/rust/bin_dep_guard.rs",
+-      "    let deps: Vec<ScopeId> = graph\n        .bin_dep_entries\n        .range((root, ScopeId(0))..=(root, ScopeId(u32::MAX)))\n        .map(|&(_, target)| target)\n        .collect();",
+-      "    let deps: Vec<ScopeId> = graph\n        .crate_deps_by_root\n        .get(&root)\n        .map(|m| m.values().copied().collect())\n        .unwrap_or_default();",
+-      [
+-        "rust_cross_crate_bin_test::c17d_library_root_consumer_keeps_its_inherited_outcome"
+-      ]
+-    ],
+     "BRD-12-block-shadow-check-dropped-c18": [
+       "src/resolution/rust/bin_dep_guard.rs",
+-      "        (shadowed || misplaced) && in_dep(&r.target.file)",
+-      "        (shadowed && false || misplaced) && in_dep(&r.target.file)",
++      "    if deps.is_empty() || !block_binds_type(graph, from, first) {",
++      "    if deps.is_empty() || true {",
+       [
+         "rust_cross_crate_bin_test::c18_block_import_shadows_a_module_level_import_of_the_dependency",
+         "rust_cross_crate_bin_test::c18b_block_module_shadows_a_module_level_import_of_the_dependency"
+@@ -125,16 +108,16 @@
+     ],
+     "BRD-13-block-shadow-refuses-local-targets-c16": [
+       "src/resolution/rust/bin_dep_guard.rs",
+-      "        (shadowed || misplaced) && in_dep(&r.target.file)",
+-      "        shadowed || misplaced && in_dep(&r.target.file)",
++      "            .is_some_and(|target_root| deps.contains(&target_root))",
++      "            .is_some()",
+       [
+         "rust_cross_crate_bin_test::c16_block_local_type_shadow_binds_the_local_associated_fn"
+       ]
+     ],
+     "BRD-14-shadow-judged-by-any-binding-name-c18d": [
+       "src/resolution/rust/bin_dep_guard.rs",
+-      "        .any(|&s| graph.binding_indices(s, name, NS_TYPE).next().is_some())",
+-      "        .any(|&s| graph.binding_indices(s, name, NS_TYPE).next().is_some() || !local.is_empty())",
++      "                if graph.binding_indices(id, name, NS_TYPE).next().is_some() =>",
++      "                if graph.binding_indices(id, name, NS_TYPE).next().is_some() || true =>",
+       [
+         "rust_cross_crate_bin_test::c18d_block_binding_of_another_name_does_not_refuse"
+       ]
+diff --git a/src/name_resolution/binding_index_tests.rs b/src/name_resolution/binding_index_tests.rs
+index d39b8884..8bdc7ff7 100644
+--- a/src/name_resolution/binding_index_tests.rs
++++ b/src/name_resolution/binding_index_tests.rs
+@@ -232,6 +232,8 @@ fn index_is_absent_from_serialization_and_identity() {
+         // (#765 removed the `misplaced_mount_files` field that sat before it.)
+         &graph.self_import_aliases,
+         &graph.multi_occurrence_files,
++        // Appended by #749.
++        &graph.bin_dep_entries,
+     ))
+     .unwrap();
+     let cold_json = serde_json::to_string(&graph).unwrap();
+diff --git a/src/name_resolution/graph.rs b/src/name_resolution/graph.rs
+index 40deb808..b5a8d335 100644
+--- a/src/name_resolution/graph.rs
++++ b/src/name_resolution/graph.rs
+@@ -139,6 +139,11 @@ pub struct ScopeGraph {
+     /// file cannot be tied to one occurrence, so it keeps only targets in its own file.
+     #[serde(default)]
+     pub multi_occurrence_files: std::collections::BTreeSet<crate::name_resolution::types::FileId>,
++    /// Rust: `(binary root, dependency library root)` of every `crate_deps_by_root` entry
++    /// keyed for a package's binary roots (#749). The resolution guard refuses a target of
++    /// these entries when a block scope shadows the path's first segment (#768).
++    #[serde(default)]
++    pub bin_dep_entries: std::collections::BTreeSet<(ScopeId, ScopeId)>,
+     /// Deferred-glob expansion telemetry for resolution walked over **this**
+     /// graph (spec §3.5). Scoped here rather than in a process-global so a
+     /// measurement (`navigation::queries::call_stats`) that resets and snapshots
+diff --git a/src/name_resolution/rust_populator/builder.rs b/src/name_resolution/rust_populator/builder.rs
+index ee11911a..b46e11c4 100644
+--- a/src/name_resolution/rust_populator/builder.rs
++++ b/src/name_resolution/rust_populator/builder.rs
+@@ -86,6 +86,9 @@ pub(crate) struct Builder<'f> {
+     pending_restricts: Vec<(usize, RawPath)>,
+     /// `(scope, name)` of every `{self as name}` import (#724), handed to the graph.
+     self_import_aliases: BTreeSet<(ScopeId, String)>,
++    /// `(bin root, dependency library root)` of every entry keyed from `member_bin_roots`
++    /// (#749); moved onto the graph for the block-shadow guard.
++    bin_dep_entries: BTreeSet<(ScopeId, ScopeId)>,
+ }
+ 
+ impl<'f> Builder<'f> {
+@@ -126,6 +129,7 @@ impl<'f> Builder<'f> {
+             crate_deps_by_root: BTreeMap::new(),
+             pending_restricts: Vec::new(),
+             self_import_aliases: BTreeSet::new(),
++            bin_dep_entries: BTreeSet::new(),
+         }
+     }
+ 
+@@ -215,6 +219,7 @@ impl<'f> Builder<'f> {
+                             .entry(consumer)
+                             .or_default()
+                             .insert(name, target);
++                        self.bin_dep_entries.insert((consumer, target));
+                     }
+                 }
+             }
+@@ -234,6 +239,7 @@ impl<'f> Builder<'f> {
+         }
+         self.graph.crate_deps_by_root = self.crate_deps_by_root;
+         self.graph.self_import_aliases = self.self_import_aliases;
++        self.graph.bin_dep_entries = self.bin_dep_entries;
+         self.graph.multi_occurrence_files = self
+             .occurrences
+             .iter()
+diff --git a/src/resolution/rust.rs b/src/resolution/rust.rs
+index e602bbd7..1c078d4b 100644
+--- a/src/resolution/rust.rs
++++ b/src/resolution/rust.rs
+@@ -1,5 +1,6 @@
+ //! Rust resolution routes: external-prefix proof, Self:: calls, macro-argument path anchors.
+ 
++pub(crate) mod bin_dep_guard;
+ pub(crate) mod external_paths;
+ pub(crate) mod path_anchor;
+ pub(crate) mod self_calls;
+diff --git a/src/resolution/rust/bin_dep_guard.rs b/src/resolution/rust/bin_dep_guard.rs
+new file mode 100644
+index 00000000..4e46a7c4
+--- /dev/null
++++ b/src/resolution/rust/bin_dep_guard.rs
+@@ -0,0 +1,88 @@
++//! #749: the block-shadow refusal for what a package's binary roots newly reach.
++//!
++//! A binary root keyed with its package's in-repo `[dependencies]` resolves `alias::f()`
++//! through a module-level `use a::m as alias`. A qualified path starts at the enclosing
++//! module, chases that import and hands the import's own scope to the extern fallback, so a
++//! block or callable scope that rebinds the path's first segment in the type namespace is
++//! never seen (#768; rustc binds the block's). A result that lands in a crate the caller's
++//! root reaches through a binary-root entry is therefore refused when such a block binding
++//! exists. `#[path]` placement needs no guard here: it is rustc's (#765).
++//!
++//! Library roots and own-library edges are untouched.
++use crate::call_graph::CallSite;
++use crate::name_resolution::graph::ScopeGraph;
++use crate::name_resolution::rust_policy::{crate_root_of, NS_TYPE};
++use crate::name_resolution::types::{FileId, ScopeId, ScopeKind};
++use crate::resolution::{DropReason, ResolutionOutcome};
++
++/// `out`, or a dropped `UnknownName` when a resolved target lies in a crate reached through
++/// a binary-root dependency entry of `from`'s crate root and a block or callable scope
++/// between the site and its module binds the path's first segment in the type namespace.
++pub(crate) fn guard<'a>(
++    graph: &ScopeGraph,
++    site: &CallSite,
++    from: ScopeId,
++    out: ResolutionOutcome<'a>,
++) -> ResolutionOutcome<'a> {
++    if graph.bin_dep_entries.is_empty() || out.resolved.is_empty() {
++        return out;
++    }
++    let Some((first, _)) = site.callee_name.split_once("::") else {
++        return out;
++    };
++    let Some(root) = crate_root_of(graph, from) else {
++        return out;
++    };
++    let deps: Vec<ScopeId> = graph
++        .bin_dep_entries
++        .range((root, ScopeId(0))..=(root, ScopeId(u32::MAX)))
++        .map(|&(_, target)| target)
++        .collect();
++    if deps.is_empty() || !block_binds_type(graph, from, first) {
++        return out;
++    }
++    let refused = out.resolved.iter().any(|r| {
++        graph
++            .file_paths
++            .get(&r.target.file)
++            .and_then(|&id| file_crate_root(graph, id))
++            .is_some_and(|target_root| deps.contains(&target_root))
++    });
++    if refused {
++        ResolutionOutcome::dropped(DropReason::UnknownName)
++    } else {
++        out
++    }
++}
++
++/// A block or callable scope between `from` and its enclosing module binds `name` in the type
++/// namespace.
++fn block_binds_type(graph: &ScopeGraph, from: ScopeId, name: &str) -> bool {
++    let mut cur = Some(from);
++    while let Some(id) = cur {
++        let Some(scope) = graph.scope(id) else {
++            return false;
++        };
++        match scope.kind {
++            ScopeKind::Module | ScopeKind::Root => return false,
++            ScopeKind::Block | ScopeKind::Callable
++                if graph.binding_indices(id, name, NS_TYPE).next().is_some() =>
++            {
++                return true
++            }
++            _ => {}
++        }
++        cur = scope.parent;
++    }
++    false
++}
++
++/// The crate root of the crate whose module tree holds `file` (any scope with an extent in
++/// the file names it: a file belongs to one module).
++fn file_crate_root(graph: &ScopeGraph, file: FileId) -> Option<ScopeId> {
++    graph
++        .scopes
++        .values()
++        .find(|s| s.extents.iter().any(|e| e.file == file))
++        .and_then(|s| crate_root_of(graph, s.id))
++}
+diff --git a/src/resolution/rust/self_calls.rs b/src/resolution/rust/self_calls.rs
+index db28b372..3540d34e 100644
+--- a/src/resolution/rust/self_calls.rs
++++ b/src/resolution/rust/self_calls.rs
+@@ -24,7 +24,9 @@ impl CallGraph {
+         let anchored = super::path_anchor::anchored_site(site);
+         let site = anchored.as_ref().unwrap_or(site);
+         let out = self.rust_authoritative_nonself(graph, site, file, from);
+-        Some(super::path_anchor::guard(graph, site, from, out))
++        let out = super::path_anchor::guard(graph, site, from, out);
++        // Entries keyed for a package's binary roots refuse block-scope shadows (#749).
++        Some(super::bin_dep_guard::guard(graph, site, from, out))
+     }
+ 
+     fn rust_authoritative_nonself(
+diff --git a/tests/integration/rust_cross_crate_bin_test.rs b/tests/integration/rust_cross_crate_bin_test.rs
+index c15e4248..6fd3d87e 100644
+--- a/tests/integration/rust_cross_crate_bin_test.rs
++++ b/tests/integration/rust_cross_crate_bin_test.rs
+@@ -537,17 +537,17 @@ fn c15_bin_local_owner_with_the_dependencys_owner_name() {
+     );
+ }
+ 
+-// ── #[path] placement (the #765 discipline for what this rule newly admits) ──
++// ── #[path] placement (rustc's since #765; no guard here) ───────────────────
+ //
+-// `#[path = "q.rs"] pub mod q;` in `a/src/p.rs`: rustc loads `a/src/q.rs`, the populator
+-// binds the retained decoy `a/src/p/q.rs`. A bin root's dependency path must not bind it.
++// `#[path = "q.rs"] pub mod q;` in `a/src/p.rs`: rustc loads `a/src/q.rs`; the retained decoy
++// `a/src/p/q.rs` must not be bound by a bin root's dependency path.
+ 
+ fn mount_files(call: &'static str) -> Vec<(&'static str, &'static str)> {
+     vec![
+         ("a/src/lib.rs", "pub mod p;\n"),
+         ("a/src/p.rs", "#[path = \"q.rs\"]\npub mod q;\n"),
+         ("a/src/q.rs", "pub fn f() -> bool { true }\n"), // what rustc loads
+-        ("a/src/p/q.rs", "pub fn f() -> bool { false }\n"), // the decoy the populator binds
++        ("a/src/p/q.rs", "pub fn f() -> bool { false }\n"), // the decoy
+         ("b/src/main.rs", call),
+     ]
+ }
+@@ -555,18 +555,25 @@ fn mount_files(call: &'static str) -> Vec<(&'static str, &'static str)> {
+ const MOUNT_CALL: &str = "fn main() {\n    a::p::q::f();\n}\n";
+ 
+ #[test]
+-fn c17_bin_dependency_path_refuses_a_misplaced_mount() {
++fn c17_bin_dependency_path_binds_the_file_rustc_loads_for_a_path_mount() {
+     let cg = fixture(B_DEP, &mount_files(MOUNT_CALL));
+-    refused(&cg, "b/src/main.rs", "main", "a::p::q::f");
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "a::p::q::f",
++        "a/src/q.rs::f@1",
++        QO,
++    );
+ }
+ 
+ #[test]
+-fn c17b_bin_dependency_path_via_use_refuses_a_misplaced_mount() {
++fn c17b_bin_dependency_path_via_use_binds_the_file_rustc_loads_for_a_path_mount() {
+     let cg = fixture(
+         B_DEP,
+         &mount_files("use a::p::q::f;\nfn main() {\n    f();\n}\n"),
+     );
+-    refused(&cg, "b/src/main.rs", "main", "f");
++    exact(&cg, "b/src/main.rs", "main", "f", "a/src/q.rs::f@1", FS);
+ }
+ 
+ #[test]
+@@ -592,14 +599,13 @@ fn c17c_bin_dependency_path_binds_a_correctly_placed_mount() {
+ }
+ 
+ #[test]
+-fn c17d_library_root_consumer_keeps_its_inherited_outcome() {
+-    // KEEP, pinned as inherited (#765): the library-root route into a misplaced mount is
+-    // unchanged by this rule (it only guards what it newly admits).
++fn c17d_library_root_consumer_binds_the_file_rustc_loads_for_a_path_mount() {
++    // The library-root route agrees with the bin-root route (#765).
+     let mut files = mount_files(MOUNT_CALL);
+     files.push(("b/src/lib.rs", "pub fn lib_fn() {\n    a::p::q::f();\n}\n"));
+     let cg = fixture(B_DEP, &files);
+     let got = outcome(&cg, "b/src/lib.rs", "lib_fn", "a::p::q::f");
+-    assert_eq!(got, exact_t("a/src/p/q.rs::f@1", QO), "{got:?}");
++    assert_eq!(got, exact_t("a/src/q.rs::f@1", QO), "{got:?}");
+ }
+ 
+ // ── block-scope shadows through a module-level import (review fold, #768) ────
+@@ -661,12 +667,10 @@ fn c18d_block_binding_of_another_name_does_not_refuse() {
+     );
+ }
+ 
+-// ── routes past the placement guard until #765 lands (PR D) ─────────────────
++// ── re-export and receiver routes through a `#[path]` mount (#765) ──────────
+ //
+-// `bin_dep_guard` checks only the terminal function's file of a direct dependency on the
+-// authoritative call route. Each row below binds the decoy `.../p/q.rs` today and asserts
+-// the file rustc loads; #765's fix (correct `#[path]` placement) makes them green and
+-// removes the guard.
++// Each row below asserts the file rustc loads (never the decoy `.../p/q.rs`): they bound the
++// decoy past the placement stopgap this PR carried until #765's fix landed.
+ 
+ /// Resolved targets as `file::function@line`, all Exact.
+ fn exact_targets(cg: &CallGraph, file: &str, caller: &str, callee: &str) -> Vec<String> {
+@@ -689,7 +693,7 @@ const OWNER_Q: &str =
+     "pub struct S;\nimpl S {\n    pub fn run(&self) {}\n}\npub fn make() -> S {\n    S\n}\n";
+ 
+ /// Dependency `a` whose `p.rs` mounts `q.rs` by `#[path]` (rustc loads `a/src/q.rs`;
+-/// the populator binds the decoy `a/src/p/q.rs`), with `q`, `decoy` as file bodies.
++/// `a/src/p/q.rs` is the decoy), with `q`, `decoy` as file bodies.
+ fn a_mount<'a>(q: &'a str, decoy: &'a str, lib: &'a str) -> Vec<(&'a str, &'a str)> {
+     vec![
+         ("a/src/lib.rs", lib),
+@@ -700,7 +704,6 @@ fn a_mount<'a>(q: &'a str, decoy: &'a str, lib: &'a str) -> Vec<(&'a str, &'a st
+ }
+ 
+ #[test]
+-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+ fn w2a_reexport_in_a_misplaced_mount_binds_rustcs_target() {
+     let mut files = a_mount(
+         "pub use crate::right as f;\n",
+@@ -715,7 +718,7 @@ fn w2a_reexport_in_a_misplaced_mount_binds_rustcs_target() {
+     );
+ }
+ 
+-/// Crate `c` holds the misplaced mount (`c/src/q.rs` is rustc's file, `c/src/p/q.rs` the decoy);
++/// Crate `c` holds the `#[path]` mount (`c/src/q.rs` is rustc's file, `c/src/p/q.rs` the decoy);
+ /// `a` depends on `c` and re-exports it; `b` depends on `a` only.
+ fn c_mount(a_lib: &'static str, call: &'static str) -> CallGraph {
+     build(
+@@ -736,7 +739,6 @@ fn c_mount(a_lib: &'static str, call: &'static str) -> CallGraph {
+ }
+ 
+ #[test]
+-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+ fn w2b_item_reexport_of_a_third_crates_misplaced_module_binds_rustcs_target() {
+     let cg = c_mount("pub use c::p::q::f;\n", "fn main() {\n    a::f();\n}\n");
+     assert_eq!(
+@@ -746,7 +748,6 @@ fn w2b_item_reexport_of_a_third_crates_misplaced_module_binds_rustcs_target() {
+ }
+ 
+ #[test]
+-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+ fn r3_transitive_module_reexport_binds_rustcs_target() {
+     let cg = c_mount("pub use c::p;\n", "fn main() {\n    a::p::q::f();\n}\n");
+     assert_eq!(
+@@ -756,7 +757,6 @@ fn r3_transitive_module_reexport_binds_rustcs_target() {
+ }
+ 
+ #[test]
+-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+ fn r1_typed_parameter_receiver_binds_rustcs_target() {
+     let mut files = a_mount(OWNER_Q, OWNER_Q, "pub mod p;\n");
+     files.push((
+@@ -771,7 +771,6 @@ fn r1_typed_parameter_receiver_binds_rustcs_target() {
+ }
+ 
+ #[test]
+-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+ fn r2_return_typed_receiver_binds_rustcs_target() {
+     let mut files = a_mount(OWNER_Q, OWNER_Q, "pub mod p;\n");
+     files.push((
