@@ -399,11 +399,22 @@ fn kills_follow_the_binding() {
 
 #[test]
 fn own_parameter_writes_and_declarations_are_not_kill_only_defs() {
-    // S1d's classes (dead formals, hoisting): main's label stands in S1b-1.
-    let own = "function f(a, b = a++) {\n  log();\n  use(a);\n}\n";
-    exact(Language::JavaScript, own, "a@1->a@3");
-    let decl = "function f(a) {\n  log();\n  function a() {}\n  sink(a);\n}\n";
-    exact(Language::JavaScript, decl, "a@1->a@4");
+    // They are S1d-1's dead formals (no kill-only def, a refusal by position): the formal's edges are killed.
+    let killed = |src: &str, edge: &str| {
+        assert_eq!(
+            labels(src, Language::JavaScript, edge),
+            ["nameonly/killed"],
+            "{edge}: {src}"
+        )
+    };
+    killed(
+        "function f(a, b = a++) {\n  log();\n  use(a);\n}\n",
+        "a@1->a@3",
+    );
+    killed(
+        "function f(a) {\n  log();\n  function a() {}\n  sink(a);\n}\n",
+        "a@1->a@4",
+    );
 }
 
 #[test]

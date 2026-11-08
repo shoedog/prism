@@ -481,7 +481,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v159) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v160) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -508,6 +508,7 @@ loop, `unknown` or deferred kind on a chain, an unplaced position or two occurre
 single `RW`/`delete` operand read is excused. The DFG keeps one use per path and line, so every read of the path on the line
 counts (found as S1a places a region read; which node a position is in is reaching definitions' answer alone, #696: a write is in the node `StatementLookup` gives its line, a read in the node of the use's line, and the census's span placement only orders two positions inside that node, so a read in a later statement of the line refuses and an unmappable counting write refuses its base). Label-only; a header def with a same-node increment (`for (let i..; i++)`) and a
 repeated context are the accepted cost (recovery #670).
+Refusal classes (#660 S1d-1, `reaching/refusal_classes.rs` over `js_write_census/refusals.rs`): writes not spelled as a target move an `exact` or `sameline` label, never a `NameOnly` one, and add no edge, def or counter. A direct `eval` anywhere in the owner and a sloppy mapped `arguments` (the formals of the owner and of every enclosing non-arrow callable, by name), a block-level function declaration in sloppy code (Annex B, a formal's name excepted), a `var` of a catch parameter's name inside `catch (a)` (G6a), a write to a function expression's or a class's own name from inside it (G6b, no declaration scoping it), a use or def inside a `with` body and an owner defined inside one become `NameOnly(CfgIncomplete)`; a formal replaced at entry by a hoisted function declaration (through labels only) or written by a later default in the own parameter list is `NameOnly(Killed)` from its own def. Which environment a position is in (parameter list, body, or eager: computed key, decorator) is one rule, `js_write_census/position.rs`. Trace names `eval`, `arguments`, `annexb`, `catch-var`, `immutable-name`, `with`, `dead-formal`.
 
 JS/TS/TSX parameter Defs: a formal that is read bare gets a Def at its identifier. A *member-only*
 formal (no bare read, including a bare read inside a member object such as `wrap(p).x`; at least one
