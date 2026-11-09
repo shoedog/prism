@@ -220,7 +220,8 @@ fn sibling_literals_each_with_their_own_named_result_stay_unconnected() {
 
 // Main parity (fold 4 D): main blanket-kept every pair of a literal-result name, so a sibling that
 // reads its own range or `var` local keeps main's coincidence edge. A sibling whose local is
-// written by a dominating `err := ..` loses the pair to rule D on main too (nothing changes there).
+// written by a dominating `err := ..` loses the pair on main too, to the reference search's shadow
+// filter (`is_shadowed_at`), and nothing changes there.
 #[test]
 fn a_sibling_literal_reading_its_own_range_local_keeps_main_edge() {
     let src = "package p\nfunc f(errs []error) {\n\tsetup := func() (err error) {\n\t\terr = open()\n\t\treturn\n\t}\n\trun := func() {\n\t\tfor _, err := range errs {\n\t\t\tcheck(err)\n\t\t}\n\t}\n\trun()\n\tsetup()\n}\n";
@@ -285,4 +286,27 @@ fn a_parenthesized_package_variable_callee_follows_the_same_gate() {
     check("paren-open", open, &[("i", 5, 10, true)]);
     let closed = "package p\nvar hook func(func(int))\nfunc f(xs []int) {\n\tfor _, i := range xs {\n\t\tuse(i)\n\t}\n\t(hook)(func(i int) {\n\t\tuse(i)\n\t})\n}\n";
     check("paren-closed", closed, &[("i", 4, 8, false)]);
+}
+
+// ---- fold 5: an ordinary write coalesced with a signature name keeps its real path -----------
+
+#[test]
+fn an_ordinary_write_beside_a_signature_name_keeps_main_edge_into_a_nested_result_read() {
+    // sol: line 2 holds the owner's result `v` and the write `v = 7` (one declaration); the read at
+    // line 4 is the nested literal's own result, which main blanket-kept.
+    let src = "package p\nfunc f() (v int) { v = 7\n\treturn func(x int) (v int) {\n\t\tdefer func() { println(v) }()\n\t\treturn x\n\t}(v)\n}\n";
+    check("entry-only-sol", src, &[("v", 2, 4, true)]);
+}
+
+#[test]
+fn a_write_beside_a_literal_result_keeps_main_edge_to_the_owner_results_deferred_read() {
+    // Opus: line 8 holds the literal's result `err` and the write `err = do()` (one declaration).
+    let src = "package p\nfunc f() (err error) {\n\tdefer func() {\n\t\tif err != nil {\n\t\t\tlog()\n\t\t}\n\t}()\n\treturn func() (err error) { err = do(); return }()\n}\n";
+    check("entry-only-opus", src, &[("err", 8, 4, true)]);
+}
+
+#[test]
+fn a_type_parameter_spelled_like_a_basic_name_opens_the_callback_gate() {
+    let src = "package p\nfunc f[string func(int)](xs []int) {\n\tfor _, i := range xs {\n\t\tuse(i)\n\t}\n\tg := func(cb string) {}\n\tx.Visit(func(i int) {\n\t\tuse(i)\n\t})\n\tg(nil)\n}\n";
+    check("type-param-string", src, &[("i", 3, 8, true)]);
 }
