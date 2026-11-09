@@ -1,6 +1,7 @@
-//! Go binding forms the Assignments query has no node for (#694 slice A):
-//! range and receive `:=` targets, type-switch aliases, and the `var`/`const`
-//! names beyond the first name of the first direct spec. Each becomes a def at
+//! Go binding forms the Assignments query has no node for (#694 slices A and B):
+//! range and receive `:=` targets, type-switch aliases, the `var`/`const`
+//! names beyond the first name of the first direct spec, and (slice B) function-literal
+//! formals and named results. Each becomes a def at
 //! its identifier, like the target of `x := e`; the right-hand side's reads sit
 //! on the same line and need nothing else.
 //!
@@ -84,6 +85,18 @@ impl ParsedFile {
                     self.push_go_names(alias, out);
                 }
             }
+            // #694 slice B: function-literal formals and the named results of any function or
+            // literal. The owner's own formals already have defs (`function_parameter_occurrences`).
+            "func_literal" | "function_declaration" | "method_declaration" => {
+                if node.kind() == "func_literal" {
+                    if let Some(list) = node.child_by_field_name("parameters") {
+                        self.push_signature_names(list, out);
+                    }
+                }
+                if let Some(list) = node.child_by_field_name("result") {
+                    self.push_signature_names(list, out);
+                }
+            }
             "var_declaration" | "const_declaration" => {
                 let mut cursor = node.walk();
                 for child in node.named_children(&mut cursor) {
@@ -106,6 +119,25 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
             self.walk_go_header_defs(child, out);
+        }
+    }
+
+    /// The declared names of a parameter or result list (a bare result type has none).
+    fn push_signature_names(&self, list: Node<'_>, out: &mut Vec<PathSpan>) {
+        if list.kind() != "parameter_list" {
+            return;
+        }
+        let mut cursor = list.walk();
+        for param in list.named_children(&mut cursor) {
+            if matches!(
+                param.kind(),
+                "parameter_declaration" | "variadic_parameter_declaration"
+            ) {
+                let mut names = param.walk();
+                for name in param.children_by_field_name("name", &mut names) {
+                    self.push_go_names(name, out);
+                }
+            }
         }
     }
 

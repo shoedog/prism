@@ -40,6 +40,14 @@ mod giant_owner_tests;
 #[cfg(test)]
 mod go_blank_tests;
 #[cfg(test)]
+mod go_literal_defs_tests;
+#[cfg(test)]
+mod go_literal_fold1_tests;
+#[cfg(test)]
+mod go_literal_fold2_tests;
+#[cfg(test)]
+mod go_literal_fold3_tests;
+#[cfg(test)]
 mod go_nodef_defs_tests;
 #[cfg(test)]
 mod legacy_producer;
@@ -60,6 +68,7 @@ mod python_prune;
 mod python_prune_tests;
 #[cfg(test)]
 mod same_line_fold2_tests;
+mod scope_params;
 mod scope_prune;
 #[cfg(test)]
 mod scope_prune_tests;

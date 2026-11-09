@@ -434,6 +434,18 @@ impl BindingFacts {
                 .is_some_and(|group| group.contains(&other))
     }
 
+    /// The scope of the explicit declaration `defs[index]` writes contains `byte`
+    /// (false for a def that resolves to no explicit declaration).
+    pub(crate) fn def_scope_contains(&self, index: usize, byte: usize) -> bool {
+        matches!(&self.def_bindings[index].id, BindingId::Declaration(d)
+            if self.declarations[*d].binding.scope.contains(byte))
+    }
+
+    /// The scope of explicit declaration `declaration` contains `byte`.
+    pub(crate) fn declaration_scope_contains(&self, declaration: usize, byte: usize) -> bool {
+        self.declarations[declaration].binding.scope.contains(byte)
+    }
+
     pub(crate) fn binding_of_def(&self, index: usize) -> &BindingId {
         &self.def_bindings[index].id
     }
