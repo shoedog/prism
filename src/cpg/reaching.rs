@@ -997,4 +997,7 @@ mod d2c_tests;
 mod d3_tests;
 
 #[cfg(test)]
+mod loop_exit_tests;
+
+#[cfg(test)]
 mod refusal_classes_tests;

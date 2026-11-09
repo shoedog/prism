@@ -17,6 +17,7 @@ use tree_sitter::Node;
 mod c_jumps;
 mod go_branches;
 mod go_jumps;
+pub(crate) mod js_loops;
 pub(crate) mod js_single;
 
 /// A control flow edge between two source lines within a function.
@@ -141,6 +142,15 @@ impl EdgeSink {
 
     fn is_empty(&self) -> bool {
         self.edges.is_empty()
+    }
+
+    /// Keep the edges `keep` accepts, with their origins.
+    fn retain(&mut self, mut keep: impl FnMut(&CfgEdge) -> bool) {
+        let flags: Vec<bool> = self.edges.iter().map(&mut keep).collect();
+        let mut next = flags.iter().copied();
+        self.edges.retain(|_| next.next().unwrap_or(true));
+        let mut next = flags.iter().copied();
+        self.origins.retain(|_| next.next().unwrap_or(true));
     }
 
     fn drain(&mut self) -> impl Iterator<Item = (CfgEdge, EdgeOrigin)> + '_ {
@@ -269,6 +279,11 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Edge
         Language::JavaScript | Language::TypeScript | Language::Tsx
     ) {
         build_try_catch_edges(func_node, parsed, &stmt_lines, edges);
+    }
+
+    // JS/TS: loop exits pass the header; a `do` condition is its own statement (#693, #697)
+    if parsed.language.is_js_family() {
+        js_loops::build(func_node, parsed, &stmt_lines, edges);
     }
 
     // Java: try/catch/finally (same structure as JS)
