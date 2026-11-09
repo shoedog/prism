@@ -51,6 +51,9 @@ mod go_literal_fold3_tests;
 mod go_nodef_defs_tests;
 #[cfg(test)]
 mod legacy_producer;
+mod js_prune;
+#[cfg(test)]
+mod js_prune_tests;
 mod lexical_prune;
 #[cfg(test)]
 mod lexical_prune_round2_tests;
