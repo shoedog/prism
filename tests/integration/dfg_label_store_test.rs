@@ -500,7 +500,9 @@ fn cache_partial_hit_replaces_edges_and_labels_after_binding_scope_changes() {
         .collect();
     assert_eq!(
         added,
-        BTreeSet::from([(4, 51, 56, 2, 15, 15), (4, 51, 56, 6, 79, 84)])
+        // #630 slice 5: the row into line 2 (`var value = source();`) is gone, rule U: that line only
+        // writes `value`.
+        BTreeSet::from([(4, 51, 56, 6, 79, 84)])
     );
     assert_eq!(
         dfg_labels(&edited_cold.dfg)[&key],
