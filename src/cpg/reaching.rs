@@ -411,10 +411,6 @@ fn reaching_definitions_impl(
     let buckets =
         def_buckets::DefinitionBuckets::with_kill_only(&defs, n_recorded, writers.as_deref());
     let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
-    // #783: writes through an alias may-kill (label-only); JS/TS/TSX owners.
-    let mut alias_kills = (pass.alias_kills() && parsed.language.is_js_family())
-        .then(|| alias_kill::AliasKills::new(parsed, func_node, &defs, n_recorded, &mapped_defs))
-        .flatten();
 
     let (in_sets, entry_reachable) =
         solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
@@ -426,6 +422,27 @@ fn reaching_definitions_impl(
         entry,
         defs.len(),
     );
+
+    // #783: a write through an alias takes the label effect of the same write on the aliased path
+    // (label-only); JS/TS/TSX owners.
+    let mut alias_kills = (pass.alias_kills() && parsed.language.is_js_family())
+        .then(|| {
+            alias_kill::AliasKills::new(
+                &alias_kill::Solved {
+                    parsed,
+                    func_node,
+                    defs: &defs,
+                    n_recorded,
+                    mapped_defs: &mapped_defs,
+                    in_sets: &in_sets,
+                    facts: &binding_facts,
+                    census: &census,
+                },
+                &mut statements,
+                &line_index,
+            )
+        })
+        .flatten();
 
     #[cfg(test)]
     join_kind_tests::record_sets(&in_sets, &flat_in_sets);
@@ -489,19 +506,24 @@ fn reaching_definitions_impl(
             &binding_facts,
             &capture_facts,
         );
-        let use_node = statements
-            .get(edge.to.line)
-            .and_then(|line| line_index.get(&line).copied());
         let label = alias_kill::AliasKills::refine(
             alias_kills.as_mut(),
             label,
-            &candidates,
-            use_node,
-            &defs,
-            &mapped_defs,
-            use_node.map(|node| &in_sets[node]),
-            &kill,
-            &successors,
+            &mut alias_kill::RefineCtx {
+                parsed,
+                edge,
+                candidates: &candidates,
+                defs: &defs,
+                mapped_defs: &mapped_defs,
+                in_sets: &in_sets,
+                kill: &kill,
+                successors: &successors,
+                statements: &mut statements,
+                line_index: &line_index,
+                function_start,
+                facts: &binding_facts,
+                regions: capture_facts.regions(),
+            },
         );
         if label.is_exact()
             && edge.to.line < edge.from.line
@@ -561,19 +583,24 @@ fn reaching_definitions_impl(
             &binding_facts,
             &capture_facts,
         );
-        let use_node = statements
-            .get(edge.to.line)
-            .and_then(|line| line_index.get(&line).copied());
         let label = alias_kill::AliasKills::refine(
             alias_kills.as_mut(),
             label,
-            &candidates,
-            use_node,
-            &defs,
-            &mapped_defs,
-            use_node.map(|node| &in_sets[node]),
-            &kill,
-            &successors,
+            &mut alias_kill::RefineCtx {
+                parsed,
+                edge,
+                candidates: &candidates,
+                defs: &defs,
+                mapped_defs: &mapped_defs,
+                in_sets: &in_sets,
+                kill: &kill,
+                successors: &successors,
+                statements: &mut statements,
+                line_index: &line_index,
+                function_start,
+                facts: &binding_facts,
+                regions: capture_facts.regions(),
+            },
         );
         exact_labels
             .entry(key)

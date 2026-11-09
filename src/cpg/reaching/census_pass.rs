@@ -165,7 +165,7 @@ pub(super) fn traced(
                 let key = (edge.from.clone(), edge.to.clone());
                 if let (Some(new), old) = (head.labels.get(&key), plain.labels.get(&key)) {
                     if old != Some(new) && !named.contains(&key) {
-                        census_trace::emit(out, alias_kill::KILL_ALIAS, edge);
+                        census_trace::emit(out, alias_kill::mechanism(*new), edge);
                         named.insert(key);
                     }
                 }
@@ -176,7 +176,7 @@ pub(super) fn traced(
                     (head.exact_labels.get(&key), plain.exact_labels.get(&key))
                 {
                     if old != Some(new) && !named_exact.contains(&key) {
-                        census_trace::emit(out, alias_kill::KILL_ALIAS, edge);
+                        census_trace::emit(out, alias_kill::mechanism(*new), edge);
                         named_exact.insert(key);
                     }
                 }

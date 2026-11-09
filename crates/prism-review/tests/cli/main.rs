@@ -1,4 +1,5 @@
 mod algo_test;
+mod alias_kill_trace_test;
 mod api_defaults_test;
 mod build_profile_fold_test;
 mod build_profile_round2_test;

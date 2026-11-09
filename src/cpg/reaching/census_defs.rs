@@ -63,6 +63,19 @@ impl CensusFacts {
             })
     }
 
+    /// The counting writes and the captured writes of the owner (empty: none), for the alias rule (#783).
+    pub(super) fn alias_inputs(
+        &self,
+    ) -> (
+        Option<&crate::js_write_census::counting::Counts>,
+        &[crate::js_write_census::captured::Captured],
+    ) {
+        (
+            self.d3.as_ref().map(|d| d.counts_ref()),
+            self.d2c.as_ref().map_or(&[], |d| d.captured_ref()),
+        )
+    }
+
     /// #674: the recorded def's path equals the census's precise identity for the write at its start byte.
     /// No completion (inert owner, non-JS), a refusal or a site the census does not cover: `false`.
     pub(super) fn covers(&self, def: &DefSite) -> bool {

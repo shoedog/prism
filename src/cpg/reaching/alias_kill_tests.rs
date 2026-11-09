@@ -11,6 +11,7 @@ use crate::languages::Language;
 const EXACT: &str = "exact";
 const CFG: &str = "nameonly/cfg_incomplete";
 const KILLED: &str = "nameonly/killed";
+const SAME: &str = "nameonly/sameline";
 const ALIAS: &str = "NameOnly(AliasUnstable)";
 const JS: Language = Language::JavaScript;
 const TS: Language = Language::TypeScript;
@@ -186,9 +187,9 @@ fn the_rule_moves_the_issue_forms_and_nothing_else_listed() {
     }
 }
 
-/// Rows whose write has no alias twin (the census kill-only source). The solver tests below feed the trace the
-/// defs `recorded` reads back from edge sources, which never carry `alias_derived`, so twin rows cannot be traced
-/// here; the corpus measurement (`kill:alias` lines against base labels) covers them.
+/// Rows whose write has no alias twin (the census kill-only source). The helper `trace_lines` feeds the solver
+/// the defs read back from edge sources, which include the twin as an ordinary def, so twin rows cannot be
+/// traced there; the CLI trace over the matrix fixtures covers them (`scripts/matrix783.py` + `kill:alias`).
 const CENSUS_ROWS: &[&str] = &[
     "incr",
     "for_of_head",
@@ -206,7 +207,7 @@ const CENSUS_ROWS: &[&str] = &[
     "anon_incr",
 ];
 
-/// The trace names `kill:alias` on exactly the edges the rule moved (the control pass has no may-kill), and on no
+/// The trace names `kill:alias` on exactly the edges the rule moved (the control pass has no rule), and on no
 /// edge of a row that does not move.
 #[test]
 fn the_trace_names_the_moved_census_edges_kill_alias() {
@@ -227,8 +228,7 @@ fn the_trace_names_the_moved_census_edges_kill_alias() {
         let census = CENSUS_ROWS.contains(&c.name);
         for (edge, now, base) in c.rows {
             let moved = now != base;
-            // A twin row may or may not be traced here (the helper's defs lack the raw write); it must
-            // never be traced when it does not move.
+            // A twin row is not traceable here; it must never be traced when it does not move.
             if (census || !moved) && named(edge) != (moved && census) {
                 failures.push(format!(
                     "{} {edge}: moved={moved} named={}",
@@ -239,4 +239,158 @@ fn the_trace_names_the_moved_census_edges_kill_alias() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+// ---- Round 1 fold (#786): alias identity, endpoint nodes, closures, parity ------------------------------------
+
+/// F1: a write through `u` counts only when an alias definition `u -> o` reaches it and binds the same
+/// declaration. `(name, source, edge, label now, label on c3e81ba4)`: a row whose last two differ is RED on
+/// c3e81ba4 (a false may-kill from a name-keyed alias, or a missed one from last-wins).
+#[rustfmt::skip]
+const ALIAS_IDENTITY: &[(&str, &str, &str, &str, &str)] = &[
+    ("reassign_before", "function g(o, p) {\n  let u = o;\n  o.x = 0;\n  u = {};\n  u.x = 1;\n  return sink(o.x);\n}", "o.x@3->o.x@6", EXACT, ALIAS),
+    ("reassign_before_incr", "function g(o, p) {\n  let u = o;\n  o.x = 0;\n  u = p;\n  u.x++;\n  return sink(o.x);\n}", "o.x@3->o.x@6", EXACT, EXACT),
+    ("reassign_after", "function g(o, p) {\n  let u = o;\n  o.x = 0;\n  u.x = 1;\n  u = p;\n  return sink(o.x);\n}", "o.x@3->o.x@6", ALIAS, EXACT),
+    ("reassign_after_incr", "function g(o, p) {\n  let u = o;\n  o.x = 0;\n  u.x++;\n  u = p;\n  return sink(o.x);\n}", "o.x@3->o.x@6", ALIAS, EXACT),
+    ("sibling_block", "function g(o, p, c) {\n  if (c) {\n    const u = o;\n    o.x = 0;\n    u.x = 1;\n    return sink(o.x);\n  }\n  {\n    const u = p;\n    log(u);\n  }\n}", "o.x@4->o.x@6", ALIAS, EXACT),
+    ("sibling_block_incr", "function g(o, p, c) {\n  if (c) {\n    const u = o;\n    o.x = 0;\n    u.x++;\n    return sink(o.x);\n  }\n  {\n    const u = p;\n    log(u);\n  }\n}", "o.x@4->o.x@6", ALIAS, EXACT),
+    ("nested_callable_declares_u", "function g(o, p) {\n  const u = o;\n  o.x = 0;\n  u.x = 1;\n  const h = () => {\n    const u = p;\n    return u;\n  };\n  return sink(o.x, h);\n}", "o.x@3->o.x@9", ALIAS, EXACT),
+    ("outer_param_u_nested_const", "function g(o, u) {\n  const f = () => {\n    const u = o;\n    return u;\n  };\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x, f);\n}", "o.x@6->o.x@8", EXACT, ALIAS),
+    ("outer_param_u_nested_const_incr", "function g(o, u) {\n  const f = () => {\n    const u = o;\n    return u;\n  };\n  o.x = 0;\n  u.x++;\n  return sink(o.x, f);\n}", "o.x@6->o.x@8", EXACT, ALIAS),
+    ("alias_after_write", "function g(o, p) {\n  let u = p;\n  o.x = 0;\n  u.x = 1;\n  u = o;\n  return sink(o.x);\n}", "o.x@3->o.x@6", EXACT, ALIAS),
+    ("this_self_nested_self", "function G(xs) {\n  var self = this;\n  this.x = 0;\n  self.x = 1;\n  xs.forEach(function (a) {\n    var self = a;\n    log(self);\n  });\n  return sink(this.x);\n}", "this.x@3->this.x@9", ALIAS, EXACT),
+    ("this_self_read_before_callback", "function G(xs) {\n  var self = this;\n  this.x = 0;\n  self.x = 1;\n  const r = sink(this.x);\n  xs.forEach(function (a) {\n    var self = a;\n    log(self);\n  });\n  return r;\n}", "this.x@3->this.x@5", ALIAS, EXACT),
+    ("conditional_rebind_may_alias", "function g(o, p, c) {\n  let u = o;\n  if (c) {\n    u = p;\n  }\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}", "o.x@6->o.x@8", ALIAS, EXACT),
+    ("chain_w_reassigned_after", "function g(o, p) {\n  const u = o;\n  let w = u;\n  o.x = 0;\n  w.x = 1;\n  w = p;\n  return sink(o.x);\n}", "o.x@4->o.x@7", ALIAS, EXACT),
+    ("chain_w_reassigned_before", "function g(o, p) {\n  const u = o;\n  let w = u;\n  o.x = 0;\n  w = p;\n  w.x = 1;\n  return sink(o.x);\n}", "o.x@4->o.x@7", EXACT, EXACT),
+    ("unchanged_alias_control", "function g(o) {\n  const u = o;\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}", "o.x@3->o.x@5", ALIAS, ALIAS),
+    ("param_alias_nested_u", "function f(o, u = o) {\n  o.x = 0;\n  u.x = 1;\n  const h = () => { const u = 2; return u; };\n  return sink(o.x, h);\n}", "o.x@2->o.x@5", ALIAS, ALIAS),
+];
+
+#[test]
+fn an_alias_counts_only_where_its_definition_reaches_and_binds() {
+    let mut failures = Vec::new();
+    for (name, source, edge, want, _c3) in ALIAS_IDENTITY {
+        let got = labels_of(JS, source, edge);
+        if got.is_empty() || got.iter().any(|g| g != want) {
+            failures.push(format!("{name} {edge}: want {want}, got {got:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// A write through an alias and the same write spelled on the aliased path, in one template (`{W}` is `u` or
+/// `o`). `rows` are the edges from the first write: `(edge, alias label now, alias label on c3e81ba4, direct)`.
+/// The parity rule: the alias edge is `exact` exactly when the direct edge is (F2 endpoint nodes through D3,
+/// F3 conditional writes, F4 closures through D2-c). Where the direct write is a proven kill the alias label is
+/// `AliasUnstable`, because the alias may not hold.
+struct Pair {
+    name: &'static str,
+    lang: Language,
+    template: &'static str,
+    rows: &'static [(&'static str, &'static str, &'static str, &'static str)],
+}
+
+#[rustfmt::skip]
+const PAIRS: &[Pair] = &[
+    Pair { name: "f2_use_node_comma", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  return ({W}.x = 1, sink(o.x));\n}",
+        rows: &[("o.x@3->o.x@4", SAME, EXACT, SAME)] },
+    Pair { name: "f2_use_node_oneline", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  {W}.x = 1; return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@4", SAME, EXACT, SAME)] },
+    Pair { name: "f2_use_node_incr_oneline", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  {W}.x++; return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@4", SAME, EXACT, SAME)] },
+    Pair { name: "f2_def_node_incr", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0; {W}.x++;\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@4", SAME, EXACT, SAME)] },
+    Pair { name: "f2_def_node_assign", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0; {W}.x = 1;\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@4", SAME, SAME, SAME)] },
+    Pair { name: "f2_multiline_return", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  return [\n    {W}.x = 1,\n    sink(o.x),\n  ];\n}",
+        rows: &[("o.x@3->o.x@6", SAME, EXACT, SAME)] },
+    Pair { name: "f2_read_before_write", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  return (sink(o.x), {W}.x = 1);\n}",
+        rows: &[("o.x@3->o.x@4", EXACT, EXACT, EXACT)] },
+    Pair { name: "f2_read_before_write_multi", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  return [\n    sink(o.x),\n    {W}.x = 1,\n  ];\n}",
+        rows: &[("o.x@3->o.x@5", EXACT, EXACT, EXACT)] },
+    Pair { name: "f3_or_assign", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 2;\n  {W}.x ||= 1;\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@5", ALIAS, ALIAS, KILLED)] },
+    Pair { name: "f3_and_assign", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 2;\n  {W}.x &&= 1;\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@5", ALIAS, ALIAS, KILLED)] },
+    Pair { name: "f3_nullish_assign", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 2;\n  {W}.x ??= 1;\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@5", ALIAS, ALIAS, KILLED)] },
+    Pair { name: "f3_for_of", lang: JS, template: "function g(o, xs) {\n  const u = o;\n  o.x = 0;\n  for ({W}.x of xs) {\n    log();\n  }\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@7", ALIAS, ALIAS, KILLED)] },
+    Pair { name: "f3_for_in", lang: JS, template: "function g(o, xs) {\n  const u = o;\n  o.x = 0;\n  for ({W}.x in xs) {\n    log();\n  }\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@7", ALIAS, ALIAS, KILLED)] },
+    Pair { name: "f3_for_await", lang: JS, template: "async function g(o, xs) {\n  const u = o;\n  o.x = 0;\n  for await ({W}.x of xs) {\n    log();\n  }\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@7", ALIAS, ALIAS, KILLED)] },
+    Pair { name: "f3_plain_assign", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  {W}.x = 1;\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@5", ALIAS, ALIAS, KILLED)] },
+    Pair { name: "f3_if_fallthrough", lang: JS, template: "function g(o, c) {\n  const u = o;\n  o.x = 0;\n  if (c) {\n    {W}.x = 1;\n  }\n  return sink(o.x);\n}",
+        rows: &[("o.x@3->o.x@7", EXACT, EXACT, EXACT)] },
+    Pair { name: "f4_closure_assign", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  const f = () => {\n    {W}.x = 1;\n  };\n  return sink(o.x, f);\n}",
+        rows: &[("o.x@3->o.x@7", CFG, ALIAS, KILLED)] },
+    Pair { name: "f4_closure_incr", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  const f = () => {\n    {W}.x++;\n  };\n  return sink(o.x, f);\n}",
+        rows: &[("o.x@3->o.x@7", CFG, EXACT, CFG)] },
+    Pair { name: "f4_closure_called", lang: JS, template: "function g(o) {\n  const u = o;\n  const f = () => {\n    {W}.x = 1;\n  };\n  o.x = 0;\n  f();\n  return sink(o.x);\n}",
+        rows: &[("o.x@6->o.x@8", CFG, EXACT, CFG)] },
+    Pair { name: "f4_function_expr", lang: JS, template: "function g(o) {\n  const u = o;\n  o.x = 0;\n  const f = function () {\n    {W}.x = 1;\n  };\n  return sink(o.x, f);\n}",
+        rows: &[("o.x@3->o.x@7", CFG, ALIAS, KILLED)] },
+];
+
+#[test]
+fn a_write_through_an_alias_has_the_label_effect_of_the_direct_write() {
+    let mut failures = Vec::new();
+    for p in PAIRS {
+        let alias = p.template.replace("{W}", "u");
+        let direct = p.template.replace("{W}", "o");
+        for (edge, want, _c3, want_direct) in p.rows {
+            let a = labels_of(p.lang, &alias, edge);
+            let d = labels_of(p.lang, &direct, edge);
+            let exact = |l: &[String]| l.iter().all(|x| x == EXACT);
+            if a.is_empty() || a.iter().any(|g| g != want) {
+                failures.push(format!("{} {edge} alias: want {want}, got {a:?}", p.name));
+            }
+            if d.is_empty() || d.iter().any(|g| g != want_direct) {
+                failures.push(format!(
+                    "{} {edge} direct: want {want_direct}, got {d:?}",
+                    p.name
+                ));
+            }
+            if exact(&a) != exact(&d) {
+                failures.push(format!(
+                    "{} {edge}: parity broken, alias {a:?} direct {d:?}",
+                    p.name
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Which pair rows moved since c3e81ba4: the endpoint-node (F2) and closure (F4) forms.
+#[test]
+fn the_fold_moves_the_endpoint_and_closure_pairs_and_no_others() {
+    let moved: Vec<&str> = PAIRS
+        .iter()
+        .filter(|p| p.rows.iter().any(|(_, now, c3, _)| now != c3))
+        .map(|p| p.name)
+        .collect();
+    for form in [
+        "f2_use_node_comma",
+        "f2_use_node_oneline",
+        "f2_use_node_incr_oneline",
+        "f2_def_node_incr",
+        "f2_multiline_return",
+        "f4_closure_incr",
+        "f4_closure_called",
+    ] {
+        assert!(moved.contains(&form), "{form} must move: {moved:?}");
+    }
+    for same in [
+        "f2_read_before_write",
+        "f3_or_assign",
+        "f3_for_of",
+        "f3_if_fallthrough",
+        "f3_plain_assign",
+    ] {
+        assert!(!moved.contains(&same), "{same} must not move: {moved:?}");
+    }
 }

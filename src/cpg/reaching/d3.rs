@@ -140,6 +140,11 @@ impl D3 {
         })
     }
 
+    /// The owner's counting writes (the alias may-kill rule, #783, derives its own from them).
+    pub(super) fn counts_ref(&self) -> &Counts {
+        &self.counts
+    }
+
     #[cfg(test)]
     pub(super) fn counts(&self) -> &Counts {
         &self.counts
