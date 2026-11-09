@@ -66,6 +66,9 @@ mod prune_cap_tests;
 mod python_prune;
 #[cfg(test)]
 mod python_prune_tests;
+mod rust_prune;
+#[cfg(test)]
+mod rust_prune_tests;
 #[cfg(test)]
 mod same_line_fold2_tests;
 mod scope_params;

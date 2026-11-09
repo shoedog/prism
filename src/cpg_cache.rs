@@ -317,7 +317,8 @@ mod stream;
 /// - v166: an expression-bodied JS/TS/TSX arrow whose body is a callable or a ternary keeps one synthetic node instead of the located statements (#759), so the DataFlow labels of the edges that owner carries change (label-only; edge sets are unchanged below the fallback edge cap, which now also applies to an owner the one-node belt refuses).
 /// - v167: a JS/TS/TSX parameter-list default `u = o` is the alias `const u = o` (#761): it reads `o` bare, so `o` stops being a member-only formal (its projection edges become mixed-formal edges), and it mints the alias twin def and the alias binding's own def (a destructuring default with an identifier value likewise), all on the owner's first line, so DataFlow edges and labels change.
 /// - v168: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
-const CACHE_VERSION: u32 = 168;
+/// - v169: Rust rules U and D in the DFG producer: pairs into write-only statements and pairs overwritten by a dominating `let`/assignment are no longer emitted (#630 slice 5, Rust).
+const CACHE_VERSION: u32 = 169;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -850,7 +851,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 168);
+        assert_eq!(super::CACHE_VERSION, 169);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

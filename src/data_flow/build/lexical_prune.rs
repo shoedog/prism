@@ -68,6 +68,7 @@ impl<'a> LexicalFacts<'a> {
             enabled: match parsed.language {
                 Language::Go => !owner.has_error(),
                 Language::Python => !owner.has_error() && owner.kind() == "function_definition",
+                Language::Rust => !owner.has_error() && owner.kind() == "function_item",
                 _ => false,
             },
             writes: BTreeMap::new(),
@@ -87,6 +88,9 @@ impl<'a> LexicalFacts<'a> {
         let mut boundaries = parsed.language.callable_boundary_node_types();
         if parsed.language == Language::Python {
             boundaries.extend(super::python_prune::NESTED_SCOPES);
+        }
+        if parsed.language == Language::Rust {
+            boundaries.extend(super::rust_prune::NESTED_ITEMS);
         }
         facts.collect(owner, owner.id(), &boundaries);
         for span in rvalues {
@@ -137,6 +141,13 @@ impl<'a> LexicalFacts<'a> {
         }
     }
 
+    fn pure_path(&self, node: Node<'_>) -> Option<AccessPath> {
+        match self.parsed.language {
+            Language::Rust => super::rust_prune::pure_path(self.parsed, node),
+            _ => pure_path(self.parsed, node),
+        }
+    }
+
     fn nested_at(&self, byte: usize) -> bool {
         self.nested
             .iter()
@@ -152,7 +163,7 @@ impl<'a> LexicalFacts<'a> {
         // Normalized index/dereference/truncated paths do not prove identical storage.
         if node.start_byte() != span.start_byte
             || node.end_byte() != span.end_byte
-            || pure_path(self.parsed, node).as_ref() != Some(&span.path)
+            || self.pure_path(node).as_ref() != Some(&span.path)
         {
             return None;
         }
@@ -165,6 +176,16 @@ impl<'a> LexicalFacts<'a> {
         if self.parsed.language == Language::Python {
             let (statement, plain) =
                 super::python_prune::classify_write(node, (span.start_byte, span.end_byte))?;
+            return Some(Write {
+                span: (span.start_byte, span.end_byte),
+                statement,
+                plain,
+                split_spec: false,
+            });
+        }
+        if self.parsed.language == Language::Rust {
+            let (statement, plain) =
+                super::rust_prune::classify_write(node, (span.start_byte, span.end_byte))?;
             return Some(Write {
                 span: (span.start_byte, span.end_byte),
                 statement,
@@ -371,6 +392,7 @@ impl<'a> LexicalFacts<'a> {
     fn is_region(&self, kind: &str) -> bool {
         match self.parsed.language {
             Language::Python => super::python_prune::is_region(kind),
+            Language::Rust => super::rust_prune::is_region(kind),
             _ => is_region(kind),
         }
     }

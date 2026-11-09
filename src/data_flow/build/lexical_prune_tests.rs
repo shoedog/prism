@@ -211,7 +211,7 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     "exact label changed in {file}: {key:?}"
                 );
             }
-            if language == Language::Python {
+            if language == Language::Python || language == Language::Rust {
                 // Opus F1 invariant: a removed edge into a minted use leaves another
                 // surviving edge from a def of the path into that same use.
                 let minted: std::collections::BTreeSet<_> = after.uses.values().flatten().collect();
@@ -234,11 +234,14 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     }
                 }
             }
-            if language != Language::Go && language != Language::Python {
-                assert_eq!(before.edges, after.edges, "non-Go/Python changed: {file}");
+            if !matches!(language, Language::Go | Language::Python | Language::Rust) {
+                assert_eq!(
+                    before.edges, after.edges,
+                    "non-Go/Python/Rust changed: {file}"
+                );
                 assert_eq!(
                     before.uses, after.uses,
-                    "non-Go/Python uses changed: {file}"
+                    "non-Go/Python/Rust uses changed: {file}"
                 );
             }
             edges += after.edges.len();
