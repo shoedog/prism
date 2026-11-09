@@ -144,6 +144,9 @@ pub struct DfgLabelStats {
     pub dfg_recall_functions_over_rd_cap: usize,
     pub dfg_recall_functions_without_cfg: usize,
     pub dfg_recall_receiver_field_refused: usize,
+    /// JS/TS/TSX loop-plan counters summed over the files (#693, #697): `trees`, `admitted`,
+    /// `refused.<reason>`, `overlap.<class>`, `owners_refused`. Empty when no file has a loop.
+    pub dfg_loop_plan: BTreeMap<String, usize>,
 }
 
 impl DfgLabelStats {
@@ -210,6 +213,12 @@ impl DfgLabelStats {
             .values()
             .map(|stats| stats.dfg_pruned_order)
             .sum();
+        self.dfg_loop_plan.clear();
+        for stats in dfg.rd_function_stats().values() {
+            for (key, n) in &stats.loop_plan {
+                *self.dfg_loop_plan.entry(key.clone()).or_insert(0) += n;
+            }
+        }
     }
 }
 

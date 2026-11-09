@@ -89,6 +89,12 @@ impl Statements {
         st
     }
 
+    /// Whether the owner's RD selects the edge: `FileCfgEdgeIndex::for_owner` admits an edge exactly when
+    /// both endpoint lines are in the owner's line index (the lines of its statement universe).
+    pub(crate) fn admits(&self, r: &EdgeRecord) -> bool {
+        self.by_line.contains_key(&r.from_line) && self.by_line.contains_key(&r.to_line)
+    }
+
     fn kept_at(&self, line: usize) -> Option<(usize, usize)> {
         self.by_line.get(&line).map(|v| v[0].range())
     }
@@ -145,14 +151,37 @@ pub(crate) enum Unres {
     NoStatement,
     /// A crossing out of a loop whose body completions this module has no rule for.
     CompletionsUnknown,
+    /// A record the owner's RD admits that another callable's build emitted (or a nested callable's
+    /// construct drew), and whose position bypasses or crosses a loop of the tree.
+    ForeignAdmitted,
+}
+
+impl Unres {
+    /// The counter name of this kind (`refused.unresolved.<key>`).
+    pub(crate) fn key(self) -> &'static str {
+        match self {
+            Unres::SharedBoundaryLine => "shared_boundary_line",
+            Unres::WrapperEntryThenEnd => "wrapper_entry_then_end",
+            Unres::HeadCollapse => "head_collapse",
+            Unres::LegacyCrossing => "legacy_crossing",
+            Unres::NonCompletionCrossing => "non_completion_crossing",
+            Unres::NoStatement => "no_statement",
+            Unres::CompletionsUnknown => "completions_unknown",
+            Unres::ForeignAdmitted => "foreign_admitted",
+        }
+    }
 }
 
 /// Records that are neither a loop tree's nor a reason to refuse it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Foreign {
-    /// Drawn for a construct inside a callable nested in the owner, with "next statement" targets taken
-    /// from the owner's line list. Slice 3 decides whether to stop emitting them.
-    NestedCallable,
+    /// Drawn for a construct inside a callable nested in the owner (with "next statement" targets taken
+    /// from the owner's line list), or emitted by another callable's build, and not selected by the
+    /// owner's RD (an endpoint line is not a statement of the owner): inert.
+    Inert,
+    /// The same, selected by the owner's RD (`FileCfgEdgeIndex` admits an edge by its endpoint lines),
+    /// and independent of every loop of the tree: kept, no reason to refuse.
+    Admitted,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -168,6 +197,8 @@ pub(crate) struct Entry {
     pub(crate) record: EdgeRecord,
     pub(crate) fate: Fate,
     pub(crate) disposition: Disposition,
+    /// The owner's RD selects this edge: both endpoint lines are statements of the owner's universe.
+    pub(crate) admitted: bool,
     /// The current rewrite dropped a record that no tree of the owner owns (`OwnedReplaceable`).
     pub(crate) unauthorized_drop: bool,
     /// A rewired tree still holds a legacy loop transition.
@@ -193,13 +224,33 @@ pub(crate) struct Ownership {
 }
 
 impl Ownership {
-    pub(crate) fn new(parsed: &ParsedFile, owner: Node<'_>, mut records: Recorder) -> Self {
+    /// `others` are the surviving records of the other callables' builds of the file: an edge RD selects
+    /// by endpoint lines does not know its emitter, so those between two statements of this owner are
+    /// foreign records it admits.
+    pub(crate) fn new(
+        parsed: &ParsedFile,
+        owner: Node<'_>,
+        mut records: Recorder,
+        others: Vec<EdgeRecord>,
+    ) -> Self {
         let statements = Statements::new(parsed, owner);
+        let base = records.live.len() + records.dropped.len() + records.suppressed.len();
+        let mut foreign: Vec<EdgeRecord> = others
+            .into_iter()
+            .filter(|r| statements.admits(r))
+            .enumerate()
+            .map(|(i, mut r)| {
+                r.id = base + i;
+                r.nested = true;
+                r
+            })
+            .collect();
         for r in records
             .live
             .iter_mut()
             .chain(&mut records.dropped)
             .chain(&mut records.suppressed)
+            .chain(&mut foreign)
         {
             r.from_kept = statements.kept_at(r.from_line);
             r.to_kept = statements.kept_at(r.to_line);
@@ -217,6 +268,7 @@ impl Ownership {
                 .iter()
                 .map(|r| (r.clone(), Fate::Suppressed)),
         );
+        all.extend(foreign.into_iter().map(|r| (r, Fate::Survived)));
         all.sort_by_key(|(r, _)| r.id);
         let facts = tree_facts(owner, parsed);
         let mut trees: Vec<TreeInventory> = facts
@@ -251,10 +303,21 @@ fn inventory(
     statements: &Statements,
     all: &[(EdgeRecord, Fate)],
 ) -> TreeInventory {
+    // Line pairs this tree's own rewrite emitted (or wanted to emit): a foreign copy of a legacy loop
+    // edge on one of them is the same edge.
+    let replaced: std::collections::BTreeSet<(usize, usize)> = all
+        .iter()
+        .filter(|(r, _)| {
+            matches!(r.producer, Producer::JsLoops | Producer::Jump)
+                && r.tree == Some((tree.root.start, tree.root.end))
+        })
+        .map(|(r, _)| (r.from_line, r.to_line))
+        .collect();
     let cx = Cx {
         tree,
         owner_trees,
         statements,
+        replaced,
     };
     // Line pairs the rewrite emits or wanted to emit: a legacy edge on one of them is the replacement.
     let wanted: std::collections::BTreeSet<(usize, usize)> = all
@@ -275,6 +338,7 @@ fn inventory(
                 record: r.clone(),
                 fate: *fate,
                 disposition,
+                admitted: statements.admits(r),
                 unauthorized_drop: false, // settled across the owner's trees by `Ownership::new`
                 surviving_bypass: tree.rewired
                     && *fate == Fate::Survived
@@ -296,6 +360,8 @@ struct Cx<'a> {
     /// Every tree of the owner (this one included): another tree's loop can end on this tree's first line.
     owner_trees: &'a [TreeFacts],
     statements: &'a Statements,
+    /// The line pairs the tree's own rewrite emits (`replaced` in `inventory`).
+    replaced: std::collections::BTreeSet<(usize, usize)>,
 }
 
 fn within(outer: Anchor, range: (usize, usize)) -> bool {
@@ -386,9 +452,30 @@ impl Cx<'_> {
 
     fn classify(&self, r: &EdgeRecord) -> Disposition {
         use Disposition::{Foreign as F, Independent as I, Unresolved as U};
-        if r.nested {
-            return F(Foreign::NestedCallable);
+        if !r.nested {
+            return self.position(r);
         }
+        // Another callable's edge: RD cannot tell its emitter, only its endpoint lines. One RD does not
+        // select is inert; one it selects is read by position, and an edge that is not independent of the
+        // tree's loops (a bypass, a crossing, an unplaceable line) cannot be owned by the tree.
+        if !self.statements.admits(r) {
+            return F(Foreign::Inert);
+        }
+        // A generic collector of an enclosing callable draws a nested loop's legacy back and exit edges
+        // too; one on a line pair the tree's own rewrite emits is that very edge (a duplicate), not a bypass.
+        match self.position(r) {
+            I(_) | F(_) => F(Foreign::Admitted),
+            Disposition::OwnedReplaceable(o)
+                if o != Owned::Replacement && self.replaced.contains(&(r.from_line, r.to_line)) =>
+            {
+                F(Foreign::Admitted)
+            }
+            _ => U(Unres::ForeignAdmitted),
+        }
+    }
+
+    fn position(&self, r: &EdgeRecord) -> Disposition {
+        use Disposition::{Independent as I, Unresolved as U};
         if self.shared_boundary(r.from_line) || self.shared_boundary(r.to_line) {
             return U(Unres::SharedBoundaryLine);
         }
@@ -512,7 +599,7 @@ impl Cx<'_> {
 }
 
 /// Whether `PRISM_CFG_OWNERSHIP_TRACE` asks for the inventory on stderr.
-fn trace_enabled() -> bool {
+pub(crate) fn trace_enabled() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ON.get_or_init(|| std::env::var_os("PRISM_CFG_OWNERSHIP_TRACE").is_some_and(|v| v != "0"))
 }
@@ -522,7 +609,7 @@ pub(super) fn trace(parsed: &ParsedFile, owner: Node<'_>, records: Recorder) {
     if !trace_enabled() || super::js_loops::main_loop_cfg() {
         return;
     }
-    let o = Ownership::new(parsed, owner, records);
+    let o = Ownership::new(parsed, owner, records, Vec::new());
     let mut out = String::new();
     o.render(&parsed.path, &mut out);
     eprint!("{out}");
@@ -557,7 +644,7 @@ impl Ownership {
                 let r = &e.record;
                 let _ = writeln!(
                     out,
-                    "own-edge {path} #{} {:?}/{:?} L{}->L{} {:?} {:?} {:?}{}{}",
+                    "own-edge {path} #{} {:?}/{:?} L{}->L{} {:?} {:?} {:?} admitted={}{}{}",
                     r.id,
                     r.producer,
                     r.role,
@@ -566,6 +653,7 @@ impl Ownership {
                     r.own,
                     e.fate,
                     e.disposition,
+                    e.admitted,
                     if e.unauthorized_drop {
                         " UNAUTHORIZED-DROP"
                     } else {
@@ -582,19 +670,15 @@ impl Ownership {
     }
 }
 
-/// The inventory of every JS-family owner of `parsed`, by running the CFG builder with records on.
+/// The inventory of every JS-family owner of `parsed`, built with records under the trees main's own
+/// policy routes (the first, all-candidates round of the plan; the plan itself may refuse some).
 #[cfg(test)]
 pub(crate) fn ownership_of(parsed: &ParsedFile) -> Vec<Ownership> {
-    let mut sink = super::EdgeSink::new();
-    let mut out = Vec::new();
-    for owner in parsed.all_functions() {
-        super::build_function_cfg(owner, parsed, &mut sink);
-        if let Some(rec) = sink.take_records() {
-            out.push(Ownership::new(parsed, owner, rec));
-        }
-        sink.drain().for_each(drop);
-    }
-    out
+    let candidates = super::js_loops::legacy_candidates(parsed);
+    super::js_loops::with_admission(&candidates, || super::js_loops::ownerships(parsed, false))
+        .into_iter()
+        .map(|(_, o)| o)
+        .collect()
 }
 
 #[cfg(test)]

@@ -110,8 +110,8 @@ mod recall_telemetry;
 #[cfg(test)]
 pub(crate) use reaching::with_recall_cap;
 pub(crate) use reaching::{
-    reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges, DefId,
-    DefSite, FileCfgEdgeIndex, RdOutcome,
+    placed_lines, reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges,
+    DefId, DefSite, FileCfgEdgeIndex, RdOutcome,
 };
 #[cfg(test)]
 pub(crate) use reaching::{RD_MAX_DEFS, RD_MAX_LINES};

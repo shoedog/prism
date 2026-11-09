@@ -83,6 +83,12 @@ impl CensusFacts {
         }
     }
 
+    /// The loop plan refused a tree of this owner (#693 O1): every edge of the owner is
+    /// `NameOnly(CfgIncomplete)`, on both label paths, and availability and caps are untouched.
+    pub(super) fn refuse_loop_plan(&mut self) {
+        self.forced.get_or_insert("owner-refuse:loop-plan");
+    }
+
     /// The one-node distinct-bases belt on the recorded bases, as main runs it (`false`: refuse
     /// availability). When only the completed bases fail it, the list is cut back to the recorded defs
     /// and the owner refused by label (`owner-refuse:one-node`).

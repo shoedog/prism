@@ -135,6 +135,9 @@ pub struct RdFileStats {
     #[serde(with = "compact_wire::cap_counts")]
     fallback_capped_function_counts: BTreeMap<FallbackFunctionKey, usize>,
     pub recall: recall_stats::RecallStats,
+    /// The file's JS/TS/TSX loop-plan counters (#693, #697; `cfg::js_loops::LoopPlan::counters`): trees,
+    /// admitted, refused by reason, overlapping reasons, owners refused. Empty for every other file.
+    pub loop_plan: BTreeMap<String, usize>,
 }
 
 impl RdFileStats {
@@ -184,6 +187,9 @@ impl RdFileStats {
         self.dfg_pruned_scope += other.dfg_pruned_scope;
         self.dfg_pruned_dominated += other.dfg_pruned_dominated;
         self.dfg_pruned_order += other.dfg_pruned_order;
+        for (key, n) in other.loop_plan {
+            *self.loop_plan.entry(key).or_insert(0) += n;
+        }
 
         self.over_cap_function_keys
             .extend(other.over_cap_function_keys);
@@ -258,6 +264,13 @@ fn reaching_definitions_impl(
     pass: census_pass::Pass,
     facts_out: &mut Option<census_defs::CensusFacts>,
 ) -> RdOutcome {
+    // #693 O1: the loop plan refused a tree of this owner (the plan is the file's, computed once).
+    let loop_plan_refused = pass.census()
+        && parsed.language.is_js_family()
+        && !cfg::js_loops::main_loop_cfg()
+        && parsed
+            .js_loop_plan()
+            .refuses_owner((func_node.start_byte(), func_node.end_byte()));
     #[cfg(test)]
     let _work = work_tests::Pass::begin(parsed, func_node);
     #[cfg(test)]
@@ -271,6 +284,9 @@ fn reaching_definitions_impl(
         deduplicate_definitions(defs),
     );
     let n_recorded = census.n_recorded;
+    if loop_plan_refused {
+        census.refuse_loop_plan();
+    }
     // The census never changes availability or the def cap (#660 S1b-1): a completed list that would
     // overflow runs RD on the recorded defs as main does, and the owner's edges take a refusal label.
     census.cap_defs(&mut defs, RD_MAX_DEFS);
@@ -935,6 +951,18 @@ fn statement_line_spans(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Statem
             end_byte: span.end_byte,
         })
         .collect()
+}
+
+/// The statement line RD's `StatementLookup` assigns to each of `lines` in `func_node` (the JS loop
+/// plan's placement rule, #693).
+pub(crate) fn placed_lines(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    lines: &[Line],
+) -> Vec<Option<Line>> {
+    let spans = statement_line_spans(parsed, func_node);
+    let mut lookup = statement_lookup::StatementLookup::new(&spans);
+    lines.iter().map(|&line| lookup.get(line)).collect()
 }
 
 /// The statement universe reaching definitions runs over, and the synthetic

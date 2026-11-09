@@ -17,6 +17,7 @@ struct WireRdFileStats {
     without_cfg_function_keys: Vec<RdFunctionKey>,
     fallback_capped_function_counts: Vec<(FallbackFunctionKey, usize)>,
     recall: super::recall_stats::RecallStats,
+    loop_plan: std::collections::BTreeMap<String, usize>,
 }
 impl RdFileStats {
     pub(crate) fn deserialize_compact_rows<'de, D: Deserializer<'de>>(
@@ -52,6 +53,7 @@ impl RdFileStats {
                         dfg_pruned_dominated: s.dfg_pruned_dominated,
                         dfg_pruned_order: s.dfg_pruned_order,
                         recall: s.recall,
+                        loop_plan: s.loop_plan,
 
                         over_cap_function_keys: s.over_cap_function_keys.into_iter().collect(),
                         without_cfg_function_keys: s

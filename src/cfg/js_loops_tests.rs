@@ -33,6 +33,17 @@ fn universe(src: &str) -> Vec<usize> {
         .collect()
 }
 
+/// The plan's verdict on the first outermost loop of `src`: `admitted`, or the reason it is refused.
+fn refusal(src: &str) -> String {
+    let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
+    let v = &parsed.js_loop_plan().verdicts[0];
+    v.why.as_ref().map_or("admitted".to_string(), |w| match w {
+        crate::cfg::js_loops::Why::Legacy(l) => format!("Legacy({l:?})"),
+        crate::cfg::js_loops::Why::Placement => "Placement".to_string(),
+        crate::cfg::js_loops::Why::Unresolved(u) => format!("Unresolved({u:?})"),
+    })
+}
+
 fn has(set: &BTreeSet<(usize, usize)>, from: usize, to: usize) -> bool {
     set.contains(&(from, to))
 }
@@ -361,14 +372,16 @@ fn an_empty_arm_completes_where_it_was_entered() {
     }
 }
 
-/// F6: only the edges the loop's builders own are dropped: an `if` that starts on the loop's first line
-/// keeps its branch edge to the `else`.
+/// F6: an `if` that starts on the loop's first line shares that line with the loop (a boundary line
+/// another construct holds), so the plan refuses the tree (`SharedBoundaryLine`, slice 2): main's edges
+/// stand, the `if`'s branch edge to the `else` among them.
 #[test]
-fn an_enclosing_if_keeps_its_branch_edge() {
-    let e = edges("function f(c, x) {\n  let y = 0;\n  if (c) while (x--) {\n    y = 1;\n  }\n  else {\n    use(y);\n  }\n  return y;\n}\n");
+fn an_enclosing_if_on_the_loop_line_refuses_the_tree_and_keeps_mains_edges() {
+    let src = "function f(c, x) {\n  let y = 0;\n  if (c) while (x--) {\n    y = 1;\n  }\n  else {\n    use(y);\n  }\n  return y;\n}\n";
+    let e = edges(src);
+    assert_eq!(e, main_edges(src));
     assert!(has(&e, 3, 7), "if -> else: {e:?}");
-    assert!(has(&e, 3, 9), "loop exit -> after the if: {e:?}");
-    assert!(has(&e, 4, 3), "{e:?}");
+    assert_eq!(refusal(src), "Unresolved(SharedBoundaryLine)");
 }
 
 /// S1: a loop tree is rewired all or nothing, so an unsupported statement outside an inner loop keeps
@@ -384,15 +397,17 @@ fn a_loop_tree_is_rewired_all_or_nothing() {
     );
 }
 
-/// S2: counters can move by construction. A one-line owner whose loop holds a `continue` gains its
-/// first CFG edge (a self-loop), which flips RD availability from no-CFG to available; a two-line `do`
-/// gains its condition as a node.
+/// S2: counters can move by construction. A one-line owner whose loop holds a `continue` would gain its
+/// first CFG edge (a self-loop) and flip RD availability from no-CFG to available, but its loop shares
+/// every line with the header, the body and the statements around it: the plan refuses the tree, so main's
+/// (empty) edge set stands. A two-line `do` gains its condition as a node.
 #[test]
 fn the_edge_and_node_counts_of_small_owners_can_move() {
     let one_line =
         "function p15(xs) { let y = 0; for (const x of xs) { y = g(x, y); continue; } }\n";
     assert!(main_edges(one_line).is_empty());
-    assert_eq!(edges(one_line), BTreeSet::from([(1, 1)]));
+    assert_eq!(edges(one_line), main_edges(one_line));
+    assert_eq!(refusal(one_line), "Unresolved(SharedBoundaryLine)");
     let two_line_do = "function p11(c) {\n  do x = c.next();\n  while (x);\n}\n";
     assert_eq!(universe(two_line_do), [2, 3]);
     crate::cfg::js_loops::with_main_loop_cfg(|| assert_eq!(universe(two_line_do), [2]));
@@ -417,12 +432,23 @@ fn a_do_ending_an_if_arm_has_no_edge_from_its_header_past_the_loop() {
 }
 
 /// Main draws the then-end edge of an `if` from the last statement of its arm (the loop line) to the
-/// next line of the universe, which can be the first statement of the OTHER arm of an enclosing `if`.
-/// That edge belongs to the loop's line, not to an `if` starting there, so it goes (a kept copy made
-/// a def of one arm reach a use in the other: excalidraw `elbowArrow.ts` `startIsSpecial`).
+/// next line of the universe, which can be the first statement of the OTHER arm of an enclosing `if`
+/// (excalidraw `elbowArrow.ts` `startIsSpecial`). Here the arm's terminal statement is an inner `if`
+/// holding the loop, and the then-end edge leaves that wrapper's ENTRY (L5 -> L14), not the loop's
+/// completion: ownership cannot be established without resolving the wrapper's completion (slice 3), so
+/// the plan refuses the tree and main's edges stand.
 #[test]
-fn a_loop_ending_an_if_arm_does_not_reach_the_other_arm() {
-    let e = edges("function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 1;\n    if (!s) {\n      s = 2;\n      for (const a of xs) {\n        use(a);\n      }\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n");
-    assert!(!has(&e, 7, 12), "loop line -> the else arm: {e:?}");
-    assert!(has(&e, 7, 14), "loop exit -> after the outer if: {e:?}");
+fn a_loop_ending_an_if_arm_through_a_wrapper_refuses_the_tree() {
+    let src = "function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 1;\n    if (!s) {\n      s = 2;\n      for (const a of xs) {\n        use(a);\n      }\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n";
+    assert_eq!(edges(src), main_edges(src));
+    assert_eq!(refusal(src), "Unresolved(WrapperEntryThenEnd)");
+}
+
+/// The same shape with the loop the direct last statement of the arm is admitted: the then-end edge
+/// leaves the loop itself, and the tree owns it.
+#[test]
+fn a_loop_directly_ending_an_if_arm_does_not_reach_the_other_arm() {
+    let e = edges("function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 2;\n    for (const a of xs) {\n      use(a);\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n");
+    assert!(!has(&e, 5, 9), "loop line -> the else arm: {e:?}");
+    assert!(has(&e, 5, 11), "loop exit -> after the if: {e:?}");
 }

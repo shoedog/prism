@@ -43,7 +43,15 @@ use std::collections::BTreeSet;
 use tree_sitter::Node;
 
 mod facts;
+mod placement;
+mod plan;
 pub(super) use facts::{tree_facts, LoopFacts, TreeFacts};
+#[cfg(test)]
+pub(super) use plan::legacy_candidates;
+pub(crate) use plan::LoopPlan;
+#[cfg(test)]
+pub(crate) use plan::Why;
+pub(super) use plan::{ownerships, with_admission};
 
 std::thread_local! {
     static MAIN_LOOP_CFG: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -128,6 +136,17 @@ struct Loop<'tree> {
     entry: Next,
 }
 
+/// Why main's policy leaves a loop tree unrewired (the fallbacks that predate the plan's checks).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Legacy {
+    /// A `for` initializer writes a name the body writes and neither test nor update does.
+    ForInit,
+    /// A `break`/`continue` leaves a `try` body or `catch` whose `finally` does not enclose its target.
+    Finally,
+    /// A continue point, exit, entry or body completion is unknown (or a `do` condition shares a line).
+    Unrouted,
+}
+
 /// A rewired loop tree: its loops (source order) and the jumps inside it.
 struct Tree<'tree> {
     loops: Vec<Loop<'tree>>,
@@ -140,34 +159,24 @@ struct Cx<'a, 'tree> {
     boundaries: &'a [&'static str],
 }
 
-/// Whether the loop tree holding `do_node` is rewired: the admission predicate of a JS-family `do`
-/// condition as a CFG statement (an admitted condition in an unrewired tree would leave the `do`
-/// header an empty node that main's exit edge bypasses the condition from). It reads syntax only.
+/// Whether the loop tree holding `do_node` is admitted by the plan (`plan`): the admission predicate of a
+/// JS-family `do` condition as a CFG statement (an admitted condition in an unrewired tree would leave
+/// the `do` header an empty node that main's exit edge bypasses the condition from). It reads syntax
+/// only: the tree's outermost loop inside the owning callable, looked up in the one immutable plan.
 pub(crate) fn do_tree_rewirable(parsed: &ParsedFile, do_node: &Node<'_>) -> bool {
     let boundaries = parsed.language.callable_boundary_node_types();
     let mut outer = *do_node;
-    let mut body = None;
     let mut at = do_node.parent();
     while let Some(n) = at {
         if boundaries.contains(&n.kind()) {
-            body = n.child_by_field_name("body");
-            break;
+            return plan::admits(parsed, (outer.start_byte(), outer.end_byte()));
         }
         if is_loop(n.kind()) {
             outer = n;
         }
         at = n.parent();
     }
-    let Some(body) = body else {
-        return false;
-    };
-    Cx {
-        parsed,
-        body,
-        boundaries: &boundaries,
-    }
-    .tree(outer)
-    .is_some()
+    false
 }
 
 pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) {
@@ -186,6 +195,7 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) 
     let trees: Vec<Tree<'_>> = cx
         .outermost()
         .into_iter()
+        .filter(|t| plan::admits(parsed, (t.start_byte(), t.end_byte())))
         .filter_map(|t| cx.tree(t))
         .collect();
     if trees.is_empty() {
@@ -357,6 +367,11 @@ impl<'a, 'tree> Cx<'a, 'tree> {
 
     /// The loop tree rooted at `root`, or `None` when it is not rewired (see the module doc).
     fn tree(&self, root: Node<'tree>) -> Option<Tree<'tree>> {
+        self.tree_checked(root).ok()
+    }
+
+    /// `tree`, naming the main-policy fallback that refused it.
+    fn tree_checked(&self, root: Node<'tree>) -> Result<Tree<'tree>, Legacy> {
         let (mut nodes, mut jumps) = (Vec::new(), Vec::new());
         let mut stack = vec![root];
         while let Some(n) = stack.pop() {
@@ -378,42 +393,44 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         let loops = nodes
             .into_iter()
             .map(|n| self.analyze(n))
-            .collect::<Option<Vec<_>>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
         for &jump in &jumps {
             let is_continue = jump.kind() == "continue_statement";
             if matches!(self.target(jump, is_continue), Some((_, true))) {
-                return None;
+                return Err(Legacy::Finally);
             }
         }
-        Some(Tree { loops, jumps })
+        Ok(Tree { loops, jumps })
     }
 
     /// The loop's continue point, exit, entry and completions, or `None` when one is unknown or the
     /// loop holds a form this module does not route.
-    fn analyze(&self, node: Node<'tree>) -> Option<Loop<'tree>> {
-        let body = node.child_by_field_name("body")?;
+    fn analyze(&self, node: Node<'tree>) -> Result<Loop<'tree>, Legacy> {
+        let body = node.child_by_field_name("body").ok_or(Legacy::Unrouted)?;
         let is_do = node.kind() == "do_statement";
         let head = if is_do {
-            self.parsed.do_geometry_line(&node)?
+            self.parsed
+                .do_geometry_line(&node)
+                .ok_or(Legacy::Unrouted)?
         } else {
             line(node)
         };
         if node.kind() == "for_statement" && self.for_init_hazard(node) {
-            return None;
+            return Err(Legacy::ForInit);
         }
         let exit = self.after(node);
         let entry = self.enter(body);
         // Only a `do` condition needs the body's entry: the other loops' headers reach it already.
         if matches!(exit, Next::Unknown) || (is_do && matches!(entry, Next::Unknown)) {
-            return None;
+            return Err(Legacy::Unrouted);
         }
         let mut completions = Vec::new();
         let empty = body.kind() == "empty_statement"
             || (body.kind() == "statement_block" && Self::last_statement(body).is_none());
         if !empty && !self.completions(body, &mut completions) {
-            return None;
+            return Err(Legacy::Unrouted);
         }
-        Some(Loop {
+        Ok(Loop {
             node,
             head,
             completions,

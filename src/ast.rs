@@ -485,6 +485,9 @@ pub struct ParsedFile {
     /// Lazily-extracted JS/TS export facts: a pure function of the parsed
     /// file, shared by the P1 loader priming and the call-graph build.
     js_export_facts: std::sync::OnceLock<js_ts::exports::JsExportFacts>,
+    /// Lazily-computed JS/TS/TSX loop-tree plan (#693, #697): a pure function of the parsed file, asked
+    /// by the `do` condition admission, the loop edge rewrite and reaching definitions.
+    js_loop_plan: std::sync::OnceLock<crate::cfg::js_loops::LoopPlan>,
 }
 
 /// How a formal parameter is used in its callable body (PR-C).
@@ -496,6 +499,12 @@ pub enum ParameterUse {
 }
 
 impl ParsedFile {
+    /// The loop-tree plan of this JS-family file (never asked in main's loop CFG; see `cfg::js_loops`).
+    pub(crate) fn js_loop_plan(&self) -> &crate::cfg::js_loops::LoopPlan {
+        self.js_loop_plan
+            .get_or_init(|| crate::cfg::js_loops::LoopPlan::compute(self))
+    }
+
     /// Parse source code in the given language.
     pub fn parse(path: &str, source: &str, language: Language) -> Result<Self> {
         let mut parser = Parser::new();
@@ -527,6 +536,7 @@ impl ParsedFile {
             go_compat: go_compat_types::Cache::default(),
             call_args: std::sync::OnceLock::new(),
             js_export_facts: std::sync::OnceLock::new(),
+            js_loop_plan: std::sync::OnceLock::new(),
         };
         pf.functions = pf.build_function_table();
         Ok(pf)

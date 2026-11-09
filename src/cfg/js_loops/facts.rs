@@ -25,7 +25,8 @@ pub(in crate::cfg) struct LoopFacts {
 
 pub(in crate::cfg) struct TreeFacts {
     pub(in crate::cfg) root: Anchor,
-    /// Whether `Cx::tree` rewires this tree (the current rule; the inventory does not depend on it).
+    /// Whether this tree is rewired: the plan admits it (under a plan pass, the assumed admission) and
+    /// `Cx::tree` routes it.
     pub(in crate::cfg) rewired: bool,
     /// Every loop of the tree in source order, the root first.
     pub(in crate::cfg) loops: Vec<LoopFacts>,
@@ -46,7 +47,8 @@ pub(in crate::cfg) fn tree_facts(owner: Node<'_>, parsed: &ParsedFile) -> Vec<Tr
         .into_iter()
         .map(|root| TreeFacts {
             root: Anchor::of(root),
-            rewired: cx.tree(root).is_some(),
+            rewired: super::plan::admits(parsed, (root.start_byte(), root.end_byte()))
+                && cx.tree(root).is_some(),
             loops: loops_under(&cx, root)
                 .into_iter()
                 .map(|n| facts(&cx, n))

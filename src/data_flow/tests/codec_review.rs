@@ -30,6 +30,8 @@ fn raw_rd(rows: Vec<(&str, Stats)>) -> Vec<u8> {
         bytes.extend(bincode::serialize(&0usize).unwrap());
         // Receiver-edge ledger (fold 1): empty.
         bytes.extend(bincode::serialize(&0usize).unwrap());
+        // Loop-plan counter map (#693 slice 2): empty.
+        bytes.extend(bincode::serialize(&0usize).unwrap());
     }
     bytes
 }

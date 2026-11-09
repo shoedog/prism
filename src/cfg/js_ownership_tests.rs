@@ -4,6 +4,7 @@
 //! draws which edge), never read back from a run. Each source has its `function` header on line 1, so a
 //! line number here is a line of the source in the test. Lines are 1-based.
 use super::*;
+use crate::cfg::js_loops::Why;
 use crate::cfg::js_ownership::{Doubt, Own, Producer, Role};
 use crate::cfg::{build_cfg_edges_with_arms, EdgeSink};
 use crate::languages::Language;
@@ -330,20 +331,42 @@ fn a_loop_in_a_nested_callable_emits_unresolved_records_for_the_outer_owner() {
         2,
         "the outer loop"
     );
-    let back = one(t, 3, 3, Producer::LoopBack);
+    // Line 3 holds the arrow's declaration, a statement of the OUTER owner too, so the outer RD selects
+    // these edges (both endpoint lines are its statements): foreign, admitted, and interior to the loop
+    // (independent of its transitions).
+    let back = on(t, 3, 3)
+        .into_iter()
+        .filter(|e| e.record.producer == Producer::LoopBack)
+        .collect::<Vec<_>>();
+    // Two `3 -> 3` back edges: the one the OUTER build drew for the arrow's loop (nested), and the one the
+    // arrow's own build drew (another callable's record the outer RD also selects by its lines).
+    assert_eq!(back.len(), 2, "{back:?}");
     let exit = one(t, 3, 4, Producer::LoopExit);
-    for e in [back, exit] {
-        assert_eq!(e.record.own, Own::Ambiguous(Doubt::NestedCallable));
-        assert_eq!(d(e), "Foreign(NestedCallable)");
+    for e in back.into_iter().chain([exit]) {
+        assert!(e.record.nested && e.admitted, "{e:?}");
+        assert_eq!(d(e), "Foreign(Admitted)");
         assert!(!e.unauthorized_drop, "{e:?}");
     }
+    assert_eq!(exit.record.own, Own::Ambiguous(Doubt::NestedCallable));
     // The arrow's own build draws its loop's edges for itself: not a nested-callable doubt (its one line
     // holds the loop and its body statement, so the line is shared), and the records are the arrow's.
     let inner = &owners[1];
     assert_eq!(inner.trees.len(), 1);
-    let own_back = one(&inner.trees[0], 3, 3, Producer::LoopBack);
+    let backs = on(&inner.trees[0], 3, 3);
+    let own_back = backs
+        .iter()
+        .find(|e| !e.record.nested)
+        .expect("the arrow's own record");
     assert_eq!(own_back.record.own, Own::Ambiguous(Doubt::SharedLine));
     assert_eq!(own_back.record.callable, inner.callable);
+    assert_eq!(d(own_back), "Unresolved(HeadCollapse)");
+    // The outer build's record for the arrow's loop is foreign to the arrow, and its RD selects it too
+    // (line 3 is the arrow's statement): it sits on the collapsed head, so it is unresolved.
+    let outer_back = backs
+        .iter()
+        .find(|e| e.record.nested)
+        .expect("the outer build's record");
+    assert_eq!(d(outer_back), "Unresolved(ForeignAdmitted)");
 }
 
 #[test]
@@ -716,22 +739,35 @@ fn f4_an_edge_leaving_a_larger_loop_for_a_smaller_sibling_is_a_body_bypass() {
 
 #[test]
 fn f5_nested_callable_records_are_foreign_whatever_else_is_uncertain() {
-    // The arrow's `if (y) { if (z) g(); }` emits a then-end from a wrapper (already Ambiguous) and branch
-    // entries into the outer owner's list. All are drawn for the arrow.
-    let o = own(
-        "function n(arr) {\n  let x = 0;\n  while ((x = next())) {\n    x = f(); arr.forEach(y => { if (y) { if (z) g(); } });\n  }\n  sink(x);\n}\n",
-    );
+    // The arrow's `if (y) { if (z) g(); }` emits branch entries and then-ends into the outer owner's list.
+    // All are drawn for the arrow and every one is foreign (never owned). The arrow shares line 4 with the
+    // outer statement `x = f();`, so the outer RD SELECTS all of them: the `4 -> 4` ones stay inside the
+    // loop (independent: foreign, admitted); the `4 -> 6` ones leave the loop from its body line and
+    // cannot be owned by it: unresolved, which refuses the tree.
+    let src = "function n(arr) {\n  let x = 0;\n  while ((x = next())) {\n    x = f(); arr.forEach(y => { if (y) { if (z) g(); } });\n  }\n  sink(x);\n}\n";
+    let o = own(src);
     let t = &o.trees[0];
     let foreign: Vec<_> = t
         .entries
         .iter()
         .filter(|e| matches!(e.record.producer, Producer::BranchEntry | Producer::ThenEnd))
+        .filter(|e| e.record.nested)
         .collect();
     assert!(foreign.len() >= 4, "{foreign:?}");
     for e in foreign {
-        assert_eq!(d(e), "Foreign(NestedCallable)", "{e:?}");
-        assert!(!e.unauthorized_drop && !e.surviving_bypass, "{e:?}");
+        let want = if e.record.to_line == 4 {
+            "Foreign(Admitted)"
+        } else {
+            assert_eq!(e.record.to_line, 6);
+            "Unresolved(ForeignAdmitted)"
+        };
+        assert_eq!(d(e), want, "{e:?}");
+        // The rewrite drops the `4 -> 6` records (they leave the loop's lines): a drop no tree owns.
+        assert_eq!(e.unauthorized_drop, e.record.to_line == 6, "{e:?}");
+        assert!(e.admitted, "{e:?}");
     }
+    let plan = parse(src).js_loop_plan().verdicts.clone();
+    assert_eq!(plan[0].why, Some(Why::Unresolved(Unres::ForeignAdmitted)));
 }
 
 #[test]
