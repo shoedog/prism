@@ -218,8 +218,65 @@ fn sibling_literals_each_with_their_own_named_result_stay_unconnected() {
     check("sibling-own-result", src, &[("errs", 4, 8, false)]);
 }
 
+// Main parity (fold 4 D): main blanket-kept every pair of a literal-result name, and a sibling that
+// reads its own local `err := setup()` is such a pair (a coincidence edge main kept; the value
+// really does reach it through the call result).
 #[test]
-fn a_sibling_literal_redeclaring_the_name_locally_gets_no_edge_from_the_other() {
-    let src = "package p\nfunc f() {\n\terr := func() (err error) {\n\t\terr = do()\n\t\treturn\n\t}()\n\tfunc() {\n\t\terr := other()\n\t\tuse(err)\n\t}()\n\t_ = err\n}\n";
-    check("sibling-redeclare-local", src, &[("err", 4, 9, false)]);
+fn a_sibling_literal_reading_its_own_local_keeps_main_edge() {
+    let src = "package p\nfunc f() {\n\tsetup := func() (err error) {\n\t\terr = open()\n\t\treturn\n\t}\n\trun := func() {\n\t\terr := setup()\n\t\tcheck(err)\n\t}\n\trun()\n}\n";
+    check("sibling-own-local", src, &[("err", 4, 9, true)]);
+}
+
+// ---- fold 4 A: a literal signature def coalesced with an ordinary def of the path --------------
+
+#[test]
+fn a_literal_result_coalesced_with_an_ordinary_write_adds_no_earlier_read_edge() {
+    // sol: line 5 holds `err = ..` and the literal's own result `err`; the read at 4 precedes both.
+    let src = "package p\nfunc f() {\n\terr := 1\n\tprintln(err)\n\terr = func() (err int) { return 2 }()\n\tprintln(err)\n}\n";
+    check("coalesce-sol", src, &[("err", 5, 4, false)]);
+}
+
+#[test]
+fn a_literal_result_coalesced_with_a_define_adds_no_edge_past_a_dominating_write() {
+    // Opus: the ordinary `err :=` is killed by line 4; the signature span has no read at line 5.
+    let src = "package p\nfunc f(x X) error {\n\terr := walk(func(n N) (k bool, err error) { return true, nil }, x)\n\terr = other()\n\treturn err\n}\n";
+    check("coalesce-opus", src, &[("err", 3, 5, false)]);
+}
+
+// ---- fold 4 B: a declare-only def never feeds another callable's named result ------------------
+
+#[test]
+fn an_outer_result_entry_value_does_not_feed_a_nested_literals_result_read() {
+    let src = "package p\nfunc f(db DB) (err error) {\n\treturn db.Tx(func(tx T) (err error) {\n\t\tdefer func() {\n\t\t\tif err != nil {\n\t\t\t\ttx.Rollback()\n\t\t\t}\n\t\t}()\n\t\treturn nil\n\t})\n}\n";
+    check(
+        "result-declare-only",
+        src,
+        &[("err", 2, 5, false), ("err", 3, 5, true)],
+    );
+}
+
+// ---- fold 4 C: a basic type name the package redeclares may accept the callback ----------------
+
+#[test]
+fn a_redeclared_basic_type_name_opens_the_callback_gate() {
+    let src = "package p\ntype string func(int)\nfunc f(xs []int) {\n\tfor _, i := range xs {\n\t\tuse(i)\n\t}\n\tg := func(cb string) {}\n\tx.Visit(func(i int) {\n\t\tuse(i)\n\t})\n\tg(nil)\n}\n";
+    check("shadowed-string", src, &[("i", 4, 9, true)]);
+    let local = "package p\nfunc f(xs []int) {\n\ttype int func(int)\n\tfor _, i := range xs {\n\t\tuse(i)\n\t}\n\tg := func(cb int) {}\n\tx.Visit(func(i int) {\n\t\tuse(i)\n\t})\n\tg(nil)\n}\n";
+    check("shadowed-int-local", local, &[("i", 4, 9, true)]);
+}
+
+#[test]
+fn an_unshadowed_basic_type_name_keeps_the_gate_closed() {
+    let src = "package p\ntype T struct{}\nfunc f(xs []int) {\n\tfor _, i := range xs {\n\t\tuse(i)\n\t}\n\tg := func(cb int) {}\n\tx.Visit(func(i int) {\n\t\tuse(i)\n\t})\n\tg(1)\n}\n";
+    check("unshadowed-int", src, &[("i", 4, 9, false)]);
+}
+
+// ---- fold 4 S3: a parenthesized callee -----------------------------------------------------------
+
+#[test]
+fn a_parenthesized_package_variable_callee_follows_the_same_gate() {
+    let open = "package p\nvar apply func(func(int))\nfunc f() {\n\tapply = func(cb func(int)) {\n\t\tfor i := 0; i < 1; i++ {\n\t\t\tcb(i)\n\t\t}\n\t}\n\t(apply)(func(i int) {\n\t\tprintln(i)\n\t})\n}\n";
+    check("paren-open", open, &[("i", 5, 10, true)]);
+    let closed = "package p\nvar hook func(func(int))\nfunc f(xs []int) {\n\tfor _, i := range xs {\n\t\tuse(i)\n\t}\n\t(hook)(func(i int) {\n\t\tuse(i)\n\t})\n}\n";
+    check("paren-closed", closed, &[("i", 4, 8, false)]);
 }
