@@ -276,6 +276,12 @@ fn trace_control(path: &str, source: &str, line: usize) {
             .all(|value| !matches_argument(&facts, clean, value)),
         "{path}"
     );
+    assert!(values
+        .iter()
+        .all(|value| !recovery.matches_argument(clean, value)));
+    assert!(values
+        .iter()
+        .any(|value| recovery.matches_argument(unknown, value)));
     assert!(
         !result.findings.is_empty(),
         "positive finding control {path}"

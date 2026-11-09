@@ -442,7 +442,7 @@ fn synthetic_unique_labels_and_callees_never_become_values() {
         (
             "a.js",
             "const z=0;\nfunction h(req) {\n send({req: 'safe'});\n}",
-            (false, true), // Inherited internal exact helper; no public-finding claim.
+            (false, false), // Collector adapter qualifies the inherited exact helper in .2c.
         ),
         (
             "a.ts",

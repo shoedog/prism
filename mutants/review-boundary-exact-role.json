@@ -1,0 +1,24 @@
+{
+  "lane": "Qualify exact simple boundary values (#602 S1b.2c)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::boundary::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "BQ01-simple-role-bypassed": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery.rs",
+      "!value.path.fields.is_empty()",
+      "true",
+      "algorithms::taint::boundary::recovery::exact_role_tests::real_diff_and_explicit_root_roles_are_qualified"
+    ],
+    "BQ02-field-path-restricted": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery.rs",
+      "!value.path.fields.is_empty()",
+      "false",
+      "algorithms::taint::boundary::recovery::exact_role_tests::real_diff_and_explicit_root_roles_are_qualified"
+    ]
+  }
+}

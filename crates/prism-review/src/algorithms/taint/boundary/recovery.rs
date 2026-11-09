@@ -36,6 +36,24 @@ impl<'a> RecoveryContext<'a> {
     }
     pub(super) fn matches_argument(&self, call: &CallSite, value: &VarLocation) -> bool {
         super::occurrences::matches_argument(&self.facts, call, value)
+            && (!value.path.fields.is_empty()
+                || self.simple_value_syntax(value.start_byte..value.end_byte))
+    }
+    fn simple_value_syntax(&self, span: std::ops::Range<usize>) -> bool {
+        let Some(node) = self
+            .parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(span.start, span.end)
+        else {
+            return false;
+        };
+        if node.byte_range() != span
+            || !matches!(node.kind(), "identifier" | "shorthand_property_identifier")
+        {
+            return false;
+        }
+        true
     }
     fn recover(&self, proof: &source::Proof<'_>, value: &VarLocation) -> Option<VarLocation> {
         if value.kind != VarAccessKind::Use
@@ -55,14 +73,7 @@ impl<'a> RecoveryContext<'a> {
         let [span] = spans.as_slice() else {
             return None;
         };
-        let node = self
-            .parsed
-            .tree
-            .root_node()
-            .descendant_for_byte_range(span.start, span.end)?;
-        if node.byte_range() != *span
-            || !matches!(node.kind(), "identifier" | "shorthand_property_identifier")
-        {
+        if !self.simple_value_syntax(span.clone()) {
             return None;
         }
         let seed = &proof.seed;
@@ -114,5 +125,7 @@ impl PreparedRoot<'_> {
         }
     }
 }
+#[cfg(test)]
+mod exact_role_tests;
 #[cfg(test)]
 mod tests;
