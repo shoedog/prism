@@ -36,6 +36,8 @@ type PlainDef = (usize, usize, bool);
 pub(super) struct ScopeFacts<'a> {
     parsed: &'a ParsedFile,
     owner: Node<'a>,
+    /// The file's declared type names, shared by every owner of the file (lazy, once).
+    declared_types: &'a OnceCell<BTreeSet<String>>,
     enabled: bool,
     /// Go, no parse error, at least one def: the lexical proofs that need no `multi` gate.
     lexical_ok: bool,
@@ -76,7 +78,12 @@ struct Built<'a> {
 }
 
 impl<'a> ScopeFacts<'a> {
-    pub(super) fn new(parsed: &'a ParsedFile, owner: Node<'a>, defs: &'a [DefSite]) -> Self {
+    pub(super) fn new(
+        parsed: &'a ParsedFile,
+        owner: Node<'a>,
+        defs: &'a [DefSite],
+        declared_types: &'a OnceCell<BTreeSet<String>>,
+    ) -> Self {
         let enabled = parsed.language == Language::Go && !owner.has_error() && !defs.is_empty();
         let multi = if enabled {
             multiply_declared(parsed, owner)
@@ -91,6 +98,7 @@ impl<'a> ScopeFacts<'a> {
         Self {
             parsed,
             owner,
+            declared_types,
             enabled: enabled && !multi.is_empty(),
             lexical_ok: enabled,
             slice_b: if enabled {
@@ -115,7 +123,12 @@ impl<'a> ScopeFacts<'a> {
         // The producer has no emitted edges yet, so the use-byte table is empty;
         // RD keeps its own instance because its table is built from the edges.
         let facts = BindingFacts::new(self.parsed, &self.owner, self.defs, std::iter::empty());
-        let params = super::scope_params::ParamFacts::new(self.parsed, self.owner, &facts);
+        let params = super::scope_params::ParamFacts::new(
+            self.parsed,
+            self.owner,
+            &facts,
+            self.declared_types,
+        );
         let mut built = Built {
             facts,
             params,
@@ -244,11 +257,17 @@ impl<'a> ScopeFacts<'a> {
         // the def's line nor the use's can make it a write through a pointer (#694 slice B).
         // Another span of the path coalesced onto this line that is not a plain write (`*v = 1`
         // beside the formal `v`) is a store the formal does not own: it takes the ordinary checks.
+        // The flag means the whole line only enters the name: EVERY coalesced span of the path is a
+        // signature name (an ordinary write `v = 7` beside the signature `(v int)` writes the
+        // variable, and its real path takes the ordinary checks below).
         if node.parent().is_some_and(is_slice_b_declaration)
             && coalesced
                 .iter()
                 .filter(|i| self.defs[**i].path == *path)
-                .all(|i| self.def_is_plain_variable_write(self.defs[*i].start_byte))
+                .all(|i| {
+                    self.def_is_plain_variable_write(self.defs[*i].start_byte)
+                        && self.span_is_signature_name(self.defs[*i].start_byte)
+                })
         {
             return Some((*declaration, index, true));
         }
@@ -393,6 +412,17 @@ impl<'a> ScopeFacts<'a> {
             all
         });
         all.get(name)
+    }
+
+    /// The def starts at an identifier that is a literal formal or a named result.
+    fn span_is_signature_name(&self, start: usize) -> bool {
+        self.parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start, start)
+            .is_some_and(|n| {
+                n.kind() == "identifier" && n.parent().is_some_and(is_slice_b_declaration)
+            })
     }
 
     /// The def starts at an identifier that is the written variable itself.

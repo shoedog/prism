@@ -22,14 +22,17 @@
 //!   the result, and a deferred literal reads it afterwards, so the def of `e` reaches the read by
 //!   name only. A read in the declaring callable's own body is reached by the writes S sees.
 //! * a def in another callable than the read's, for a name that a formal or named result of the
-//!   owner declares (`parity_keep`), when the read's callable encloses the def's or the read's
-//!   variable is captured from outside the read's own callable: main kept every such pair, so this
-//!   adds no edge main lacks. It covers a value that leaves a literal by its call result, a
-//!   deferred literal that sets the carrier's result, a literal bound inside another literal and
-//!   a read in a sibling literal of a variable the enclosing callable declares. Ordinary-name return flow out of a literal is not modelled (as on main).
+//!   owner declares (`parity_keep`), never an entry-only def (a line holding only signature
+//!   names), when the read is not inside the def's callable and EITHER the read's callable
+//!   encloses the def's, OR the read binds anything but a formal or named result of its own
+//!   callable (a captured variable, a `:=`/`var`/range local of the read's callable, or a
+//!   non-declaration binding). Main kept every such pair, so this adds no edge main lacks. It
+//!   covers a value that leaves a literal by its call result, a deferred literal that sets the
+//!   carrier's result, a literal bound inside another literal, and a read in a sibling literal.
+//!   Ordinary-name return flow out of a literal is not modelled (as on main).
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use tree_sitter::Node;
 
@@ -117,9 +120,14 @@ impl SliceBDefs {
 }
 
 impl ParamFacts {
-    pub(super) fn new(parsed: &ParsedFile, owner: Node<'_>, facts: &BindingFacts) -> Self {
+    pub(super) fn new(
+        parsed: &ParsedFile,
+        owner: Node<'_>,
+        facts: &BindingFacts,
+        declared_types: &OnceCell<BTreeSet<String>>,
+    ) -> Self {
         let mut by_declaration = BTreeMap::new();
-        let acceptors = function_acceptors(parsed, owner);
+        let acceptors = function_acceptors(parsed, owner, declared_types);
         let mut stack = vec![owner];
         while let Some(node) = stack.pop() {
             if CALLABLES.contains(&node.kind()) {
@@ -214,11 +222,12 @@ impl ParamFacts {
         }
     }
 
-    /// Main blanket-kept this pair (the caller checks the name and excludes a declare-only def),
+    /// Main blanket-kept this pair (the caller checks the name and excludes an entry-only def),
     /// so keeping it adds no edge main lacks. The def's innermost callable differs from the
-    /// read's, the read is not inside the def's callable, and either the read's callable strictly
-    /// encloses the def's, or the read's variable is declared outside the read's own callable (a
-    /// captured variable; a binding that is not an explicit declaration counts as captured).
+    /// read's, the read is not inside the def's callable, and EITHER the read's callable strictly
+    /// encloses the def's, OR the read binds anything but a formal or named result of its own
+    /// callable: a variable declared outside it (captured), a `:=`/`var`/range local of it, or a
+    /// binding that is not an explicit declaration.
     pub(super) fn parity_keep(
         &self,
         parsed: &ParsedFile,
@@ -337,8 +346,11 @@ fn discarded_callback(parsed: &ParsedFile, facts: &BindingFacts, literal: Node<'
 /// Start bytes of the owner's literals with a formal able to accept a function value: a function,
 /// interface (`any` included) or named type, a variadic of these. Pointer, slice, map, array, chan,
 /// struct and predeclared basic types cannot take a literal.
-fn function_acceptors(parsed: &ParsedFile, owner: Node<'_>) -> Vec<usize> {
-    let declared = declared_type_names(parsed);
+fn function_acceptors(
+    parsed: &ParsedFile,
+    owner: Node<'_>,
+    declared: &OnceCell<BTreeSet<String>>,
+) -> Vec<usize> {
     let mut out = Vec::new();
     let mut stack = vec![owner];
     while let Some(node) = stack.pop() {
@@ -361,7 +373,11 @@ fn function_acceptors(parsed: &ParsedFile, owner: Node<'_>) -> Vec<usize> {
     out
 }
 
-fn accepts_function(parsed: &ParsedFile, declared: &BTreeSet<String>, mut ty: Node<'_>) -> bool {
+fn accepts_function(
+    parsed: &ParsedFile,
+    declared: &OnceCell<BTreeSet<String>>,
+    mut ty: Node<'_>,
+) -> bool {
     while ty.kind() == "parenthesized_type" {
         match ty.named_child(0) {
             Some(inner) => ty = inner,
@@ -372,45 +388,60 @@ fn accepts_function(parsed: &ParsedFile, declared: &BTreeSet<String>, mut ty: No
         "function_type" | "interface_type" | "qualified_type" | "generic_type" => true,
         // `error` and `any` are interfaces; every other predeclared name is a basic type.
         "type_identifier" => {
-            declared.contains(parsed.node_text(&ty))
-                || !matches!(
-                    parsed.node_text(&ty),
-                    "int"
-                        | "int8"
-                        | "int16"
-                        | "int32"
-                        | "int64"
-                        | "uint"
-                        | "uint8"
-                        | "uint16"
-                        | "uint32"
-                        | "uint64"
-                        | "uintptr"
-                        | "float32"
-                        | "float64"
-                        | "complex64"
-                        | "complex128"
-                        | "string"
-                        | "bool"
-                        | "byte"
-                        | "rune"
-                )
+            let name = parsed.node_text(&ty);
+            let basic = matches!(
+                name,
+                "int"
+                    | "int8"
+                    | "int16"
+                    | "int32"
+                    | "int64"
+                    | "uint"
+                    | "uint8"
+                    | "uint16"
+                    | "uint32"
+                    | "uint64"
+                    | "uintptr"
+                    | "float32"
+                    | "float64"
+                    | "complex64"
+                    | "complex128"
+                    | "string"
+                    | "bool"
+                    | "byte"
+                    | "rune"
+            );
+            // The file's declared type names are read only when a basic spelling needs them.
+            !basic
+                || declared
+                    .get_or_init(|| declared_type_names(parsed))
+                    .contains(name)
         }
         _ => false,
     }
 }
 
-/// Names the file declares as types (`type_spec`, `type_alias`, at any depth): a predeclared basic
+/// Names the file declares as types (`type_spec`, `type_alias`, type parameters, at any depth): a predeclared basic
 /// name among them may be a function type (`type string func(int)`). A declaration in another file
 /// of the package is not seen (a disclosed limit).
 fn declared_type_names(parsed: &ParsedFile) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     let mut stack = vec![parsed.tree.root_node()];
     while let Some(node) = stack.pop() {
-        if matches!(node.kind(), "type_spec" | "type_alias") {
-            if let Some(name) = node.child_by_field_name("name") {
-                out.insert(parsed.node_text(&name).to_owned());
+        match node.kind() {
+            "type_spec" | "type_alias" => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    out.insert(parsed.node_text(&name).to_owned());
+                }
             }
+            // A type parameter spelled like a basic name (`[string func(int)]`) shadows it too.
+            "type_parameter_declaration" => {
+                let mut names = node.walk();
+                for name in node.children_by_field_name("name", &mut names) {
+                    out.insert(parsed.node_text(&name).to_owned());
+                }
+            }
+            _ => {}
         }
         let mut cursor = node.walk();
         stack.extend(node.named_children(&mut cursor));
