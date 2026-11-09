@@ -243,6 +243,16 @@ fn trace_control(path: &str, source: &str, line: usize) {
     let legacy = taint::slice(&ctx, &diff, &config).unwrap();
     let (result, trace) = taint::slice_with_trace(&ctx, &diff, &config).unwrap();
     let parsed = &files[path];
+    let before = format!("{trace:?}");
+    let recovery = super::super::recovery::RecoveryContext::new(parsed);
+    for root in &trace.roots {
+        let prepared = recovery.prepare(root);
+        assert_eq!(prepared.root_value(), &root.location);
+        for index in 0..root.reached.len() {
+            let _ = prepared.value(index);
+        }
+    }
+    assert_eq!(before, format!("{trace:?}"));
     let facts = ReviewOccurrenceFacts::new(parsed);
     let sites = calls(parsed);
     let unknown = sites
