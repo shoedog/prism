@@ -12,6 +12,11 @@ pub(in crate::cfg) struct LoopFacts {
     pub(in crate::cfg) end_line: usize,
     /// The continue point's line: the header, or an admitted `do`'s condition.
     pub(in crate::cfg) head: usize,
+    /// The loop's body node.
+    pub(in crate::cfg) body: Option<Anchor>,
+    /// A `do` whose condition has no execution point of its own (`do_geometry_line` is `None`: a
+    /// one-line `do`, or a condition sharing a line with a body or a following statement).
+    pub(in crate::cfg) condition_collapsed: bool,
     /// The body's normal completions: the line each leaves and the construct that completes.
     pub(in crate::cfg) completions: Vec<(usize, Anchor)>,
     /// False when `Cx::completions` has no rule for some form in the body (the list is partial).
@@ -80,15 +85,15 @@ fn facts<'t>(cx: &Cx<'_, 't>, node: Node<'t>) -> LoopFacts {
         None => false,
     };
     let start_line = node.start_position().row + 1;
-    let head = match node.kind() {
-        "do_statement" => cx.parsed.do_geometry_line(&node).unwrap_or(start_line),
-        _ => start_line,
-    };
+    let geometry = (node.kind() == "do_statement").then(|| cx.parsed.do_geometry_line(&node));
+    let head = geometry.flatten().unwrap_or(start_line);
     LoopFacts {
         node: Anchor::of(node),
         start_line,
         end_line: node.end_position().row + 1,
         head,
+        body: node.child_by_field_name("body").map(Anchor::of),
+        condition_collapsed: geometry == Some(None),
         completions: comps.iter().map(|c| (c.line, Anchor::of(c.node))).collect(),
         completions_known: known,
     }

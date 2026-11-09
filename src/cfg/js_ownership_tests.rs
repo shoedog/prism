@@ -46,6 +46,25 @@ fn no_unauthorized_drop_or_survivor(tree: &TreeInventory) {
 
 use Disposition::{Independent as I, OwnedReplaceable as O, Unresolved as U};
 
+/// The disposition as text, so a test can name a class without the enum having to know it.
+fn d(e: &Entry) -> String {
+    format!("{:?}", e.disposition)
+}
+
+fn own_ts(src: &str) -> Vec<Ownership> {
+    let parsed = ParsedFile::parse("a.ts", src, Language::TypeScript).unwrap();
+    assert_eq!(parsed.parse_error_count, 0, "{src}");
+    ownership_of(&parsed)
+}
+
+/// Every entry of `tree` that touches `line`.
+fn touching(tree: &TreeInventory, line: usize) -> Vec<&Entry> {
+    tree.entries
+        .iter()
+        .filter(|e| e.record.from_line == line || e.record.to_line == line)
+        .collect()
+}
+
 #[test]
 fn a_loop_on_distinct_lines_has_every_record_owned_or_independent() {
     // Control for the shared-line cases: the loop's own transitions are owned, the rest independent.
@@ -257,7 +276,7 @@ fn a_try_ending_an_if_arm_is_a_wrapper_entry_then_end_and_legacy_edges_are_unkno
     let then_end = one(t, 4, 14, Producer::ThenEnd);
     assert_eq!(then_end.record.from.map(|a| a.kind), Some("try_statement"));
     assert_eq!(then_end.disposition, U(Unres::WrapperEntryThenEnd));
-    // build_try_catch_edges is not modelled: its `4 -> 9` has role Legacy, no anchors, ownership unknown,
+    // build_try_catch_edges is not modelled: its `4 -> 9` has role Legacy, ownership unknown,
     // and (no endpoint on the loop's lines) is in no inventory.
     let try_edge = o
         .records
@@ -268,7 +287,9 @@ fn a_try_ending_an_if_arm_is_a_wrapper_entry_then_end_and_legacy_edges_are_unkno
     assert_eq!((try_edge.from_line, try_edge.to_line), (4, 9));
     assert_eq!(try_edge.role, Role::Legacy);
     assert_eq!(try_edge.own, Own::Unknown(Doubt::LegacyEmitter));
-    assert!(try_edge.from.is_none() && try_edge.to.is_none());
+    // The record names the `try` it was drawn for, so a refusal can point at it.
+    assert_eq!(try_edge.from.map(|a| a.kind), Some("try_statement"));
+    assert!(try_edge.to.is_none());
     assert!(on(t, 4, 9).is_empty());
 }
 
@@ -313,7 +334,8 @@ fn a_loop_in_a_nested_callable_emits_unresolved_records_for_the_outer_owner() {
     let exit = one(t, 3, 4, Producer::LoopExit);
     for e in [back, exit] {
         assert_eq!(e.record.own, Own::Ambiguous(Doubt::NestedCallable));
-        assert_eq!(e.disposition, U(Unres::NestedCallable));
+        assert_eq!(d(e), "Foreign(NestedCallable)");
+        assert!(!e.unauthorized_drop, "{e:?}");
     }
     // The arrow's own build draws its loop's edges for itself: not a nested-callable doubt (its one line
     // holds the loop and its body statement, so the line is shared), and the records are the arrow's.
@@ -537,4 +559,234 @@ fn an_if_without_else_ending_a_body_has_its_skip_and_then_end_edges_owned_by_the
         I(Indep::BranchEntry)
     );
     no_unauthorized_drop_or_survivor(t);
+}
+
+// ---- slice 1 fold r1 (F1-F6): each test below fails on 8f1ee3b4 ----
+
+#[test]
+fn f1_a_replacement_belongs_to_the_tree_that_emitted_it() {
+    // Tree 1's replacement exit `2 -> 5` and its `break` edge `3 -> 5` enter tree 2's first line. Tree 1
+    // owns them; tree 2's inventory lists the same records as independent.
+    let o = own(
+        "function f(n) {\n  while (n--) {\n    if (n) break;\n  }\n  while (n++ < 9) {\n    b();\n  }\n  c();\n}\n",
+    );
+    let (t1, t2) = (&o.trees[0], &o.trees[1]);
+    for (from, to, producer) in [(2, 5, Producer::JsLoops), (3, 5, Producer::Jump)] {
+        let (a, b) = (one(t1, from, to, producer), one(t2, from, to, producer));
+        assert_eq!(a.record.id, b.record.id, "the same record");
+        assert_eq!(
+            d(a),
+            "OwnedReplaceable(Replacement)",
+            "{from}->{to} in tree 1"
+        );
+        assert_eq!(d(b), "Independent(OtherTree)", "{from}->{to} in tree 2");
+    }
+    // Every replacement a tree claims was emitted by it: its source is on that tree's own lines.
+    for (t, (first, last)) in o.trees.iter().zip([(2, 4), (5, 7)]) {
+        for e in t
+            .entries
+            .iter()
+            .filter(|e| d(e) == "OwnedReplaceable(Replacement)")
+        {
+            assert!((first..=last).contains(&e.record.from_line), "{e:?}");
+        }
+    }
+}
+
+#[test]
+fn f2_a_header_line_that_also_holds_body_execution_is_a_head_collapse() {
+    // `while (c()) { x = f();`: the test and the first body statement share one node.
+    let o = own(
+        "function s() {\n  let x = 0;\n  while (c()) { x = f();\n    g();\n  }\n  sink(x);\n}\n",
+    );
+    let t = &o.trees[0];
+    assert!(t.rewired);
+    assert!(!t.entries.is_empty());
+    for e in &t.entries {
+        assert_eq!(d(e), "Unresolved(HeadCollapse)", "{e:?}");
+    }
+    // One-line `while (c()) x = f();`: the self edges equal their replacements; neither is a bypass.
+    let o = own("function s() {\n  let x = 0;\n  while (c()) x = f();\n  return x;\n}\n");
+    let t = &o.trees[0];
+    for e in &t.entries {
+        assert_eq!(d(e), "Unresolved(HeadCollapse)", "{e:?}");
+        assert!(!e.surviving_bypass, "{e:?}");
+    }
+    // A one-line `do` has no admitted condition point: collapsed.
+    let o =
+        own("function s() {\n  let x = 0;\n  do { x = f(); } while ((x = g()));\n  sink(x);\n}\n");
+    assert!(!o.trees[0].rewired);
+    for e in &o.trees[0].entries {
+        assert_eq!(d(e), "Unresolved(HeadCollapse)", "{e:?}");
+    }
+}
+
+#[test]
+fn f2_harmless_sharing_is_not_a_head_collapse() {
+    // A `for` header declaration shares the head line with the loop, and a multi-line header spreads over
+    // lines: neither puts body execution on the head line.
+    let o = own(
+        "function h(n) {\n  let x = 0;\n  for (let i = 0;\n       i < n;\n       i++) {\n    x = f(i);\n  }\n  sink(x);\n}\n",
+    );
+    let t = &o.trees[0];
+    assert!(!t.entries.is_empty());
+    for e in &t.entries {
+        assert_ne!(d(e), "Unresolved(HeadCollapse)", "{e:?}");
+    }
+    assert_eq!(
+        d(one(t, 6, 3, Producer::LoopBack)),
+        "OwnedReplaceable(LoopBack)"
+    );
+    // A two-line `do` (body on the `do` line, condition on its own line) is representable: its `do`
+    // header holds nothing once the condition is a statement. Its records carry the informative
+    // `SharedLine` and are still owned.
+    let o = own("function f(a) {\n  do { a = g(); }\n  while (a-- > 0);\n  sink(a);\n}\n");
+    let t = &o.trees[0];
+    assert!(t.rewired);
+    for e in &t.entries {
+        assert!(!d(e).starts_with("Unresolved"), "{e:?}");
+    }
+    let exit = one(t, 2, 4, Producer::LoopExit);
+    assert_eq!(exit.record.own, Own::Ambiguous(Doubt::SharedLine));
+    assert_eq!(d(exit), "OwnedReplaceable(LoopExit)");
+    // An empty body adds no body execution to the head line.
+    let o = own("function h() {\n  let x = 0;\n  while ((x = next())) {}\n  sink(x);\n}\n");
+    for e in &o.trees[0].entries {
+        assert!(!d(e).starts_with("Unresolved"), "{e:?}");
+        assert!(!e.unauthorized_drop && !e.surviving_bypass, "{e:?}");
+    }
+}
+
+#[test]
+fn f2_nested_loops_sharing_a_boundary_line_are_unresolved() {
+    let o = own("function f(a, b) {\n  let x = 0;\n  while (a()) { while (b()) {\n    x = 1;\n  } }\n  sink(x);\n}\n");
+    let t = &o.trees[0];
+    let on3 = touching(t, 3);
+    assert!(!on3.is_empty());
+    for e in on3 {
+        assert!(d(e).starts_with("Unresolved"), "{e:?}");
+    }
+}
+
+#[test]
+fn f3_a_then_end_from_a_wrapper_holding_a_loop_of_the_tree_is_unresolved() {
+    // Opus probes w1 (try), w3 (switch): the wrapper sits inside an outer loop and holds the inner one.
+    let w1 = own(
+        "function w1(c, a) {\n  let x = 0;\n  while (a()) {\n    if (c) {\n      try {\n        while ((x = next())) {\n          g();\n        }\n      } catch (e) {\n        h();\n      }\n    } else {\n      x = 2;\n    }\n    sink(x);\n  }\n}\n",
+    );
+    assert_eq!(
+        d(one(&w1.trees[0], 5, 15, Producer::ThenEnd)),
+        "Unresolved(WrapperEntryThenEnd)"
+    );
+    let w3 = own(
+        "function w3(c, a, k) {\n  let x = 0;\n  while (a()) {\n    if (c) {\n      switch (k) {\n        default:\n          while ((x = next())) {\n            g();\n          }\n      }\n    } else {\n      x = 2;\n    }\n    sink(x);\n  }\n}\n",
+    );
+    assert_eq!(
+        d(one(&w3.trees[0], 5, 14, Producer::ThenEnd)),
+        "Unresolved(WrapperEntryThenEnd)"
+    );
+    // A label on the loop's own line is its alias: the then-end is the loop's (delegated), not unresolved.
+    let w2 = own(
+        "function w2(c, a) {\n  let x = 0;\n  while (a()) {\n    if (c) {\n      lbl: while ((x = next())) {\n        g();\n      }\n    } else {\n      x = 2;\n    }\n    sink(x);\n  }\n}\n",
+    );
+    let e = one(&w2.trees[0], 5, 11, Producer::ThenEnd);
+    assert_eq!(d(e), "OwnedReplaceable(DelegatedThenEnd)");
+    assert_eq!(e.fate, Fate::Dropped);
+    assert!(!e.unauthorized_drop);
+}
+
+#[test]
+fn f4_an_edge_leaving_a_larger_loop_for_a_smaller_sibling_is_a_body_bypass() {
+    // e1: the larger loop `4..7` first, the smaller `8..10` second. e2 is the mirror (control).
+    let e1 = own(
+        "function e1(a) {\n  let x = 0;\n  while (a()) {\n    while ((x = next())) {\n      g();\n      x = f();\n    }\n    while (k()) {\n      m(x);\n    }\n  }\n}\n",
+    );
+    let e = one(&e1.trees[0], 6, 8, Producer::Sequential);
+    assert_eq!(d(e), "OwnedReplaceable(BodyBypass)");
+    assert_eq!(e.fate, Fate::Dropped);
+    assert!(!e.unauthorized_drop);
+    let e2 = own(
+        "function e2(a) {\n  let x = 0;\n  while (a()) {\n    while (k()) {\n      m(x);\n    }\n    while ((x = next())) {\n      g();\n      x = f();\n    }\n  }\n}\n",
+    );
+    assert_eq!(
+        d(one(&e2.trees[0], 5, 7, Producer::Sequential)),
+        "OwnedReplaceable(BodyBypass)"
+    );
+}
+
+#[test]
+fn f5_nested_callable_records_are_foreign_whatever_else_is_uncertain() {
+    // The arrow's `if (y) { if (z) g(); }` emits a then-end from a wrapper (already Ambiguous) and branch
+    // entries into the outer owner's list. All are drawn for the arrow.
+    let o = own(
+        "function n(arr) {\n  let x = 0;\n  while ((x = next())) {\n    x = f(); arr.forEach(y => { if (y) { if (z) g(); } });\n  }\n  sink(x);\n}\n",
+    );
+    let t = &o.trees[0];
+    let foreign: Vec<_> = t
+        .entries
+        .iter()
+        .filter(|e| matches!(e.record.producer, Producer::BranchEntry | Producer::ThenEnd))
+        .collect();
+    assert!(foreign.len() >= 4, "{foreign:?}");
+    for e in foreign {
+        assert_eq!(d(e), "Foreign(NestedCallable)", "{e:?}");
+        assert!(!e.unauthorized_drop && !e.surviving_bypass, "{e:?}");
+    }
+}
+
+#[test]
+fn f6_a_body_whose_last_line_holds_two_statements_has_a_body_bypass() {
+    let o = own(
+        "function n(arr) {\n  let x = 0;\n  while ((x = next())) {\n    x = f(); arr.forEach(y => g(y));\n  }\n  sink(x);\n}\n",
+    );
+    let e = one(&o.trees[0], 4, 6, Producer::Sequential);
+    assert_eq!(d(e), "OwnedReplaceable(BodyBypass)");
+    assert!(!e.unauthorized_drop, "{e:?}");
+}
+
+#[test]
+fn a_wrapper_then_end_inside_the_body_that_leaves_the_loop_is_a_non_completion_crossing() {
+    // The 62-record class on TypeScript: the outer arm's last statement is an inner `if`/`else`; main's
+    // then-end leaves its entry line past the loop. The arm's real completions are already the loop's.
+    let o = own(
+        "function f(v, k) {\n  let x = 0;\n  while (k()) {\n    if (v) {\n      if (x) {\n        x = 1;\n      } else {\n        x = 2;\n      }\n    }\n  }\n  sink(x);\n}\n",
+    );
+    let t = &o.trees[0];
+    let e = one(t, 5, 12, Producer::ThenEnd);
+    assert_eq!(d(e), "Unresolved(NonCompletionCrossing)");
+    assert_eq!(e.fate, Fate::Dropped);
+    assert!(e.unauthorized_drop);
+    // The inner arm's own end is a body completion.
+    assert_eq!(
+        d(one(t, 6, 12, Producer::ThenEnd)),
+        "OwnedReplaceable(BodyBypass)"
+    );
+    // Straight-line body flow is independent.
+    let o = own("function f(k) {\n  while (k()) {\n    a();\n    b();\n  }\n  c();\n}\n");
+    assert_eq!(
+        d(one(&o.trees[0], 3, 4, Producer::Sequential)),
+        "Independent(InteriorFlow)"
+    );
+}
+
+#[test]
+fn methods_and_arrows_are_owners_and_a_static_block_is_not() {
+    let owners = own_ts(
+        "class K {\n  m() {\n    let x = 0;\n    while ((x = next())) {\n      x = f();\n    }\n    sink(x);\n  }\n  static {\n    let y = 0;\n    while ((y = next())) {\n      y = f();\n    }\n    sink(y);\n  }\n}\nconst a = () => {\n  let x = 0;\n  for (const k of ks) {\n    x = f(k);\n  }\n  sink(x);\n};\n",
+    );
+    // The method and the arrow own one tree each; the `static` block's loop belongs to no owner
+    // (pre-existing: it has no CFG), so its lines appear in no inventory.
+    assert_eq!(owners.len(), 2);
+    for o in &owners {
+        assert_eq!(o.trees.len(), 1);
+        assert!(o.trees[0].rewired);
+    }
+    assert_eq!(
+        d(one(&owners[0].trees[0], 5, 4, Producer::LoopBack)),
+        "OwnedReplaceable(LoopBack)"
+    );
+    assert!(owners[0].trees[0]
+        .entries
+        .iter()
+        .all(|e| e.record.from_line < 9 && e.record.to_line < 9));
 }

@@ -122,6 +122,13 @@ pub(crate) struct EdgeRecord {
     pub(crate) depends_on: Option<Anchor>,
     pub(crate) from_kept: Option<(usize, usize)>,
     pub(crate) to_kept: Option<(usize, usize)>,
+    /// The loop tree (its root's byte range) whose rewrite emitted this edge: set on `JsLoops` and `Jump`
+    /// records only. A tree owns a replacement only when it emitted it.
+    pub(crate) tree: Option<(usize, usize)>,
+    /// The edge was drawn for a construct inside a callable nested in the owner (the generic collectors
+    /// recurse into callables), whatever else is uncertain about it. An edge pushed without a site
+    /// (the sequential loop) is never nested.
+    pub(crate) nested: bool,
     /// For a `suppressed` record: the live record that already held the same line pair.
     pub(crate) duplicate_of: Option<usize>,
 }
@@ -166,6 +173,7 @@ pub(crate) struct Emit<'t> {
     from: Option<Node<'t>>,
     to: Option<Node<'t>>,
     depends_on: Option<Node<'t>>,
+    tree: Option<Node<'t>>,
 }
 
 impl<'t> Emit<'t> {
@@ -178,7 +186,14 @@ impl<'t> Emit<'t> {
             from: None,
             to: None,
             depends_on: None,
+            tree: None,
         }
+    }
+
+    /// The root loop of the tree whose rewrite emits the edge.
+    pub(crate) fn tree(mut self, root: Node<'t>) -> Self {
+        self.tree = Some(root);
+        self
     }
 
     pub(crate) fn from(mut self, node: Node<'t>) -> Self {
@@ -236,10 +251,9 @@ impl Recorder {
     fn make(&mut self, edge: &CfgEdge, emit: Emit<'_>) -> EdgeRecord {
         let id = self.next_id;
         self.next_id += 1;
+        let nested = self.in_nested_callable(emit.site);
         let own = match emit.own {
-            Own::Known if self.in_nested_callable(emit.site) => {
-                Own::Ambiguous(Doubt::NestedCallable)
-            }
+            Own::Known if nested => Own::Ambiguous(Doubt::NestedCallable),
             own => own,
         };
         EdgeRecord {
@@ -255,6 +269,8 @@ impl Recorder {
             depends_on: emit.depends_on.map(Anchor::of),
             from_kept: None,
             to_kept: None,
+            tree: emit.tree.map(|n| (n.start_byte(), n.end_byte())),
+            nested,
             duplicate_of: None,
         }
     }
@@ -301,6 +317,8 @@ impl Recorder {
             depends_on: None,
             from_kept: None,
             to_kept: None,
+            tree: None,
+            nested: false,
             duplicate_of: None,
         });
     }

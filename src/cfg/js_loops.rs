@@ -240,33 +240,38 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) 
         }
     };
     for tree in &trees {
+        let root = tree.loops[0].node;
         for l in &tree.loops {
             for c in &l.completions {
                 let repeat = Emit::new(Producer::JsLoops, Role::Repetition, l.node)
                     .from(c.node)
                     .to(Some(l.node))
-                    .depends_on(l.node);
+                    .depends_on(l.node)
+                    .tree(root);
                 emit(c.line, l.head, edges, repeat);
                 // A `for`..`in`/`of` head rebinds its target on entering an iteration, not when the
                 // iterator is exhausted: the body's end leaves the loop with no header write.
                 if let (true, Next::Line(to)) = (l.node.kind() == "for_in_statement", &l.exit) {
                     let why = Emit::new(Producer::JsLoops, Role::LoopExit, l.node)
                         .from(c.node)
-                        .depends_on(l.node);
+                        .depends_on(l.node)
+                        .tree(root);
                     emit(c.line, *to, edges, why);
                 }
             }
             if let Next::Line(to) = l.exit {
                 let why = Emit::new(Producer::JsLoops, Role::LoopExit, l.node)
                     .from(l.node)
-                    .depends_on(l.node);
+                    .depends_on(l.node)
+                    .tree(root);
                 emit(l.head, to, edges, why);
             }
             if let (true, Next::Line(first)) = (l.node.kind() == "do_statement", &l.entry) {
                 let why = Emit::new(Producer::JsLoops, Role::Repetition, l.node)
                     .from(l.node)
                     .to(l.node.child_by_field_name("body"))
-                    .depends_on(l.node);
+                    .depends_on(l.node)
+                    .tree(root);
                 emit(l.head, *first, edges, why);
             }
         }
@@ -279,6 +284,7 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) 
                 Emit::new(Producer::Jump, role, jump)
                     .from(jump)
                     .depends_on(target)
+                    .tree(root)
             };
             if is_continue {
                 if let Some(to) = cx.continue_point(target) {

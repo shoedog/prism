@@ -160,6 +160,14 @@ impl EdgeSink {
         }
         self.edges.push(edge);
         self.origins.push(EdgeOrigin::Structured);
+        self.debug_assert_aligned();
+    }
+
+    /// The records describe the edges one for one (`rec.live[i]` is `edges[i]`).
+    fn debug_assert_aligned(&self) {
+        if let Some(rec) = &self.rec {
+            debug_assert_eq!(rec.live.len(), self.edges.len());
+        }
     }
 
     /// A structural edge with its ownership record (JS family; elsewhere the same as `push`).
@@ -169,6 +177,7 @@ impl EdgeSink {
         }
         self.edges.push(edge);
         self.origins.push(EdgeOrigin::Structured);
+        self.debug_assert_aligned();
     }
 
     /// Record an emission the caller skipped because its line pair is already an edge.
@@ -184,6 +193,7 @@ impl EdgeSink {
         }
         self.edges.push(edge);
         self.origins.push(EdgeOrigin::Sequential);
+        self.debug_assert_aligned();
     }
 
     fn is_empty(&self) -> bool {
@@ -200,6 +210,7 @@ impl EdgeSink {
         self.edges.retain(|_| next.next().unwrap_or(true));
         let mut next = flags.iter().copied();
         self.origins.retain(|_| next.next().unwrap_or(true));
+        self.debug_assert_aligned();
     }
 
     fn drain(&mut self) -> impl Iterator<Item = (CfgEdge, EdgeOrigin)> + '_ {
@@ -807,11 +818,16 @@ fn build_try_catch_edges(
                 if let Some(first) = first_statement_line(&child, parsed) {
                     catch_lines.push(first);
                     // try → catch (exception edge)
-                    edges.push(CfgEdge {
-                        file: parsed.path.clone(),
-                        from_line: try_line,
-                        to_line: first,
-                    });
+                    edges.push_rec(
+                        CfgEdge {
+                            file: parsed.path.clone(),
+                            from_line: try_line,
+                            to_line: first,
+                        },
+                        Emit::new(Producer::Try, Role::Legacy, node)
+                            .from(node)
+                            .own(Own::Unknown(Doubt::LegacyEmitter)),
+                    );
                 }
             }
             // finally_clause (JS/TS/Java)
@@ -819,11 +835,16 @@ fn build_try_catch_edges(
                 if let Some(first) = first_statement_line(&child, parsed) {
                     finally_first = Some(first);
                     // try → finally (always runs)
-                    edges.push(CfgEdge {
-                        file: parsed.path.clone(),
-                        from_line: try_line,
-                        to_line: first,
-                    });
+                    edges.push_rec(
+                        CfgEdge {
+                            file: parsed.path.clone(),
+                            from_line: try_line,
+                            to_line: first,
+                        },
+                        Emit::new(Producer::Try, Role::Legacy, node)
+                            .from(node)
+                            .own(Own::Unknown(Doubt::LegacyEmitter)),
+                    );
                 }
             }
         }
@@ -831,11 +852,16 @@ fn build_try_catch_edges(
         // catch → finally (if both exist)
         if let Some(finally_line) = finally_first {
             for &catch_line in &catch_lines {
-                edges.push(CfgEdge {
-                    file: parsed.path.clone(),
-                    from_line: catch_line,
-                    to_line: finally_line,
-                });
+                edges.push_rec(
+                    CfgEdge {
+                        file: parsed.path.clone(),
+                        from_line: catch_line,
+                        to_line: finally_line,
+                    },
+                    Emit::new(Producer::Try, Role::Legacy, node)
+                        .from(node)
+                        .own(Own::Unknown(Doubt::LegacyEmitter)),
+                );
             }
         }
 

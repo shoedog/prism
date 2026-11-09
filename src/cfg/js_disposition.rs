@@ -124,15 +124,19 @@ pub(crate) enum Indep {
     OutsideTree,
     /// Both endpoints are inside the tree's lines and the emitter is not modelled.
     InteriorLegacy,
+    /// A replacement edge another tree's rewrite emitted (its exit or jump enters this tree).
+    OtherTree,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Unres {
     /// An endpoint line is a loop boundary that another statement shares.
     SharedBoundaryLine,
-    /// A then-end drawn from the entry of a wrapper that encloses the tree.
+    /// A then-end drawn from the entry of a wrapper that holds a loop of the tree.
     WrapperEntryThenEnd,
-    NestedCallable,
+    /// A loop's head line also holds body execution (or a `do`'s condition has no point of its own):
+    /// the test and the body share one node, so no replacement endpoint is representable.
+    HeadCollapse,
     /// An unmodelled emitter's edge crosses the tree's boundary.
     LegacyCrossing,
     /// An edge leaves a loop from a statement that is neither its completion nor its header.
@@ -143,11 +147,20 @@ pub(crate) enum Unres {
     CompletionsUnknown,
 }
 
+/// Records that are neither a loop tree's nor a reason to refuse it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Foreign {
+    /// Drawn for a construct inside a callable nested in the owner, with "next statement" targets taken
+    /// from the owner's line list. Slice 3 decides whether to stop emitting them.
+    NestedCallable,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Disposition {
     OwnedReplaceable(Owned),
     Independent(Indep),
     Unresolved(Unres),
+    Foreign(Foreign),
 }
 
 #[derive(Debug, Clone)]
@@ -163,6 +176,8 @@ pub(crate) struct Entry {
 
 pub(crate) struct TreeInventory {
     pub(crate) root: Anchor,
+    /// The tree's first and last line.
+    pub(crate) lines: (usize, usize),
     pub(crate) rewired: bool,
     pub(crate) entries: Vec<Entry>,
 }
@@ -217,7 +232,9 @@ impl Ownership {
             .map(|e| e.record.id)
             .collect();
         for e in trees.iter_mut().flat_map(|t| &mut t.entries) {
-            e.unauthorized_drop = e.fate == Fate::Dropped && !owned.contains(&e.record.id);
+            e.unauthorized_drop = e.fate == Fate::Dropped
+                && !owned.contains(&e.record.id)
+                && !matches!(e.disposition, Disposition::Foreign(_));
         }
         Self {
             callable: records.callable,
@@ -239,6 +256,12 @@ fn inventory(
         owner_trees,
         statements,
     };
+    // Line pairs the rewrite emits or wanted to emit: a legacy edge on one of them is the replacement.
+    let wanted: std::collections::BTreeSet<(usize, usize)> = all
+        .iter()
+        .filter(|(r, _)| matches!(r.producer, Producer::JsLoops | Producer::Jump))
+        .map(|(r, _)| (r.from_line, r.to_line))
+        .collect();
     let entries = all
         .iter()
         .filter(|(r, _)| cx.intersects(r))
@@ -253,12 +276,16 @@ fn inventory(
                 fate: *fate,
                 disposition,
                 unauthorized_drop: false, // settled across the owner's trees by `Ownership::new`
-                surviving_bypass: tree.rewired && *fate == Fate::Survived && legacy_transition,
+                surviving_bypass: tree.rewired
+                    && *fate == Fate::Survived
+                    && legacy_transition
+                    && !wanted.contains(&(r.from_line, r.to_line)),
             }
         })
         .collect();
     TreeInventory {
         root: tree.root,
+        lines: cx.lines(),
         rewired: tree.rewired,
         entries,
     }
@@ -281,18 +308,15 @@ impl Cx<'_> {
         (root.start_line, root.end_line)
     }
 
-    /// Loops innermost first.
-    fn loops(&self) -> Vec<&LoopFacts> {
-        let mut v: Vec<&LoopFacts> = self.tree.loops.iter().collect();
-        v.sort_by_key(|l| l.node.end - l.node.start);
-        v
-    }
-
     /// Whether the record's endpoints touch the tree's lines, or an anchor of it encloses the tree.
     fn intersects(&self, r: &EdgeRecord) -> bool {
         let (s, e) = self.lines();
         let on = |l: usize| s <= l && l <= e;
-        let encloses = |a: Option<Anchor>| a.is_some_and(|a| a.contains(self.tree.root));
+        // An unmodelled emitter's edge (a `try` around the tree drawing its `catch` edge) touches the
+        // tree by lines only: enclosing it says nothing about the tree's transitions.
+        let encloses = |a: Option<Anchor>| {
+            r.role != Role::Legacy && a.is_some_and(|a| a.contains(self.tree.root))
+        };
         on(r.from_line)
             || on(r.to_line)
             || encloses(r.from)
@@ -324,37 +348,103 @@ impl Cx<'_> {
         })
     }
 
-    fn is_tree_loop(&self, a: Anchor) -> bool {
-        self.tree.loops.iter().any(|l| l.node.same_range(a))
+    fn loop_of(&self, a: Anchor) -> Option<&LoopFacts> {
+        self.tree.loops.iter().find(|l| l.node.same_range(a))
+    }
+
+    /// Whether the loop's head line holds execution that the head's test must be told apart from: a
+    /// statement of its body starting on that line (`while (c) x = f();`, `while (c) { x = f();`), or a
+    /// `do` whose condition has no point of its own. A header declaration (`for (let i = 0;`) and a
+    /// header spread over lines are not body execution.
+    fn collapsed(&self, l: &LoopFacts) -> bool {
+        l.condition_collapsed
+            || l.body.is_some_and(|b| {
+                self.statements
+                    .by_line
+                    .get(&l.head)
+                    .is_some_and(|v| v.iter().any(|s| within(b, s.range())))
+            })
+    }
+
+    /// Whether every statement starting on `line` lies in the loop's body.
+    fn line_in_body(&self, l: &LoopFacts, line: usize) -> bool {
+        l.body.is_some_and(|b| {
+            self.statements
+                .by_line
+                .get(&line)
+                .is_some_and(|v| v.iter().all(|s| within(b, s.range())))
+        })
+    }
+
+    /// `owned` for loop `l`, unless its head is collapsed: no replacement endpoint is representable.
+    fn grant(&self, l: Option<&LoopFacts>, owned: Owned) -> Disposition {
+        match l {
+            Some(l) if self.collapsed(l) => Disposition::Unresolved(Unres::HeadCollapse),
+            _ => Disposition::OwnedReplaceable(owned),
+        }
     }
 
     fn classify(&self, r: &EdgeRecord) -> Disposition {
-        use Disposition::{Independent as I, OwnedReplaceable as O, Unresolved as U};
-        if r.own == Own::Ambiguous(Doubt::NestedCallable) {
-            return U(Unres::NestedCallable);
+        use Disposition::{Foreign as F, Independent as I, Unresolved as U};
+        if r.nested {
+            return F(Foreign::NestedCallable);
         }
         if self.shared_boundary(r.from_line) || self.shared_boundary(r.to_line) {
             return U(Unres::SharedBoundaryLine);
+        }
+        // A record on a collapsed head line cannot be placed on either execution point.
+        if self
+            .tree
+            .loops
+            .iter()
+            .any(|l| self.collapsed(l) && (r.from_line == l.head || r.to_line == l.head))
+        {
+            return U(Unres::HeadCollapse);
         }
         let (s, e) = self.lines();
         let on = |l: usize| s <= l && l <= e;
         match r.producer {
             Producer::LoopBack | Producer::LoopExit
-                if r.depends_on.is_some_and(|d| self.is_tree_loop(d)) =>
+                if r.depends_on.and_then(|d| self.loop_of(d)).is_some() =>
             {
-                return O(if r.producer == Producer::LoopBack {
-                    Owned::LoopBack
-                } else {
-                    Owned::LoopExit
-                });
+                let l = r.depends_on.and_then(|d| self.loop_of(d));
+                return self.grant(
+                    l,
+                    if r.producer == Producer::LoopBack {
+                        Owned::LoopBack
+                    } else {
+                        Owned::LoopExit
+                    },
+                );
             }
-            Producer::JsLoops | Producer::Jump => return O(Owned::Replacement),
+            Producer::JsLoops | Producer::Jump => {
+                // Only the tree whose rewrite emitted the edge owns it.
+                let root = (self.tree.root.start, self.tree.root.end);
+                return if r.tree == Some(root) {
+                    self.grant(
+                        r.depends_on.and_then(|d| self.loop_of(d)),
+                        Owned::Replacement,
+                    )
+                } else {
+                    I(Indep::OtherTree)
+                };
+            }
             Producer::ThenEnd => {
                 if let Some(from) = r.from {
-                    if self.is_tree_loop(from) {
-                        return O(Owned::DelegatedThenEnd);
+                    if let Some(l) = self.loop_of(from) {
+                        return self.grant(Some(l), Owned::DelegatedThenEnd);
                     }
-                    if from.contains(self.tree.root) {
+                    // A label on the loop's own line is the loop's alias.
+                    let alias = self.tree.loops.iter().find(|l| {
+                        from.kind == "labeled_statement"
+                            && from.contains(l.node)
+                            && from.end == l.node.end
+                            && r.from_line == l.start_line
+                    });
+                    if alias.is_some() {
+                        return self.grant(alias, Owned::DelegatedThenEnd);
+                    }
+                    if self.tree.loops.iter().any(|l| from.contains(l.node)) {
                         return U(Unres::WrapperEntryThenEnd);
                     }
                 }
@@ -371,39 +461,49 @@ impl Cx<'_> {
         let (Some(fk), Some(tk)) = (r.from_kept, r.to_kept) else {
             return U(Unres::NoStatement);
         };
-        for l in self.loops() {
-            let (f_in, t_in) = (within(l.node, fk), within(l.node, tk));
-            match (f_in, t_in) {
-                (true, false) => {
-                    let completes = l
-                        .completions
-                        .iter()
-                        .any(|(line, a)| *line == r.from_line && within(*a, fk));
-                    return if completes {
-                        O(Owned::BodyBypass)
-                    } else if r.from_line == l.head {
-                        O(Owned::LoopExit)
-                    } else if !l.completions_known {
-                        U(Unres::CompletionsUnknown)
-                    } else {
-                        U(Unres::NonCompletionCrossing)
-                    };
-                }
-                // A branch edge that stays inside or enters a loop is the `if`'s own.
-                (false, true) if r.role == Role::BranchEntry => return I(Indep::BranchEntry),
-                (true, true) if r.role == Role::BranchEntry => return I(Indep::BranchEntry),
-                (false, true) => return I(Indep::EntryFromOutside),
-                (true, true) => {
-                    return I(if r.from_line == l.head {
-                        Indep::LoopEntry
-                    } else {
-                        Indep::InteriorFlow
-                    });
-                }
-                (false, false) => {}
-            }
+        let branch = r.role == Role::BranchEntry;
+        let loops = &self.tree.loops;
+        let size = |l: &&LoopFacts| l.node.end - l.node.start;
+        let (f_in, t_in) = (
+            |l: &LoopFacts| within(l.node, fk),
+            |l: &LoopFacts| within(l.node, tk),
+        );
+        // Exits first: the innermost loop (by containment) the edge leaves.
+        if let Some(l) = loops
+            .iter()
+            .filter(|l| f_in(l) && !t_in(l))
+            .min_by_key(size)
+        {
+            let completes = l.completions.iter().any(|(line, a)| {
+                *line == r.from_line && (within(*a, fk) || self.line_in_body(l, r.from_line))
+            });
+            return if completes {
+                self.grant(Some(l), Owned::BodyBypass)
+            } else if r.from_line == l.head {
+                self.grant(Some(l), Owned::LoopExit)
+            } else if !l.completions_known {
+                U(Unres::CompletionsUnknown)
+            } else {
+                U(Unres::NonCompletionCrossing)
+            };
         }
-        I(if r.role == Role::BranchEntry {
+        if loops.iter().any(|l| !f_in(l) && t_in(l)) {
+            return I(if branch {
+                Indep::BranchEntry
+            } else {
+                Indep::EntryFromOutside
+            });
+        }
+        if let Some(l) = loops.iter().filter(|l| f_in(l) && t_in(l)).min_by_key(size) {
+            return I(if branch {
+                Indep::BranchEntry
+            } else if r.from_line == l.head {
+                Indep::LoopEntry
+            } else {
+                Indep::InteriorFlow
+            });
+        }
+        I(if branch {
             Indep::BranchEntry
         } else {
             Indep::OutsideTree
@@ -450,8 +550,8 @@ impl Ownership {
         for t in &self.trees {
             let _ = writeln!(
                 out,
-                "own-tree {path} {}[{},{}) rewired={}",
-                t.root.kind, t.root.start, t.root.end, t.rewired
+                "own-tree {path} {}[{},{}) lines={}-{} rewired={}",
+                t.root.kind, t.root.start, t.root.end, t.lines.0, t.lines.1, t.rewired
             );
             for e in &t.entries {
                 let r = &e.record;
