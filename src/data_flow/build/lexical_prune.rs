@@ -351,7 +351,11 @@ impl<'a> LexicalFacts<'a> {
         // A stable receiver's attribute path is fixed storage: a write of the path or of
         // any prefix of it is a write of it. Every other path compares its own writes only.
         let mut prefixed: Vec<&Write<'a>> = own.iter().collect();
-        if self.stable_receivers.contains(&path.base) && !path.fields.is_empty() {
+        // JS compares identical paths only (brief: no prefix kills).
+        if self.stable_receivers.contains(&path.base)
+            && !path.fields.is_empty()
+            && !self.parsed.language.is_js_family()
+        {
             for len in 1..path.fields.len() {
                 let mut prefix = path.clone();
                 prefix.fields.truncate(len);
