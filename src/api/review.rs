@@ -67,6 +67,9 @@ pub struct ReviewInputs {
 }
 
 pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<ReviewInputs> {
+    // Bind relative library inputs before any later advisory reads. Preserve
+    // lexical/symlink behavior; canonicalization belongs to the CLI policy.
+    let repo_root = std::path::absolute(&opts.repo).context("Failed to bind review repository")?;
     crate::build_pool::install(|| {
         let profile_load = crate::profile::Phase::serial("load_parse");
         let mut diff_input = if diff_text.trim_start().starts_with('{') {
@@ -88,7 +91,7 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
         let mut load_warnings: Vec<String> = Vec::new();
 
         for diff_info in &diff_input.files {
-            let file_path = opts.repo.join(&diff_info.file_path);
+            let file_path = repo_root.join(&diff_info.file_path);
             let language = match Language::from_path(&diff_info.file_path) {
                 Some(l) => l,
                 None => {
@@ -167,12 +170,12 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
             crate::ast::parse_quality::check_parse_quality(&files);
         drop(profile_load);
         let (mut scope_graph_inputs, source_listing) =
-            crate::repo_loader::scope_graph_build_inputs_with_listing(&opts.repo, &files);
+            crate::repo_loader::scope_graph_build_inputs_with_listing(&repo_root, &files);
         // #630 slice 6a: review parses only the diff's files. When the repository holds C/C++
         // census inputs it did not read, the macro census fails closed (stamped on every
         // parsed C/C++ file) and the gap joins the review topology key.
         if let Some(gap) = crate::repo_loader::c_census::review_gap(
-            &opts.repo,
+            &repo_root,
             &files,
             source_listing.as_ref().ok().map(|l| l.as_ref()),
         ) {

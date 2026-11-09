@@ -41,6 +41,15 @@ pub fn slice(
     diff: &DiffInput,
     taint_config: &TaintConfig,
 ) -> Result<SliceResult> {
+    slice_impl(ctx, diff, taint_config, None)
+}
+
+pub(super) fn slice_impl(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    taint_config: &TaintConfig,
+    trace: Option<&mut super::trace::TaintTrace>,
+) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::Taint);
 
     // Collect taint sources. Line-scoped seeds preserve existing behavior;
@@ -124,7 +133,19 @@ pub fn slice(
     } else {
         ctx.cpg.taint_forward_cfg_labeled(&taint_sources)
     };
-    synthesize_target_seed_paths(&framework_sources, ctx, &mut paths);
+    if let Some(trace) = trace {
+        *trace = super::trace::capture(
+            ctx,
+            diff,
+            taint_config,
+            &ipc_source_set,
+            &framework_sources,
+            &mut paths,
+            &flow_evidence,
+        );
+    } else {
+        synthesize_target_seed_paths(&framework_sources, ctx, &mut paths);
+    }
 
     let mut evidence_by_lines: BTreeMap<(String, usize, String, usize), EvidencePath> =
         BTreeMap::new();
