@@ -49,11 +49,11 @@ mod go_literal_fold2_tests;
 mod go_literal_fold3_tests;
 #[cfg(test)]
 mod go_nodef_defs_tests;
-#[cfg(test)]
-mod legacy_producer;
 mod js_prune;
 #[cfg(test)]
 mod js_prune_tests;
+#[cfg(test)]
+mod legacy_producer;
 mod lexical_prune;
 #[cfg(test)]
 mod lexical_prune_round2_tests;

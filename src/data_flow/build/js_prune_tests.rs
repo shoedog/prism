@@ -38,12 +38,11 @@ fn pairs(refs: &super::FileRefs) -> BTreeSet<Pair> {
 
 #[test]
 fn js_prune_matrix() {
-    let obligations: Vec<serde_json::Value> = include_str!(
-        "../../../tests/fixtures/dfg_prune/js/obligations.jsonl"
-    )
-    .lines()
-    .map(|l| serde_json::from_str(l).unwrap())
-    .collect();
+    let obligations: Vec<serde_json::Value> =
+        include_str!("../../../tests/fixtures/dfg_prune/js/obligations.jsonl")
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
     let mut failures = Vec::new();
     for (path, lang) in fixtures() {
         let name = path.file_stem().unwrap().to_str().unwrap();

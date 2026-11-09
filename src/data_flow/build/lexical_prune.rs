@@ -54,6 +54,8 @@ pub(super) struct LexicalFacts<'a> {
     /// Python `self`/`cls` parameters never rebound in the owner: their attribute paths
     /// are fixed storage for D (see `python_prune::stable_receivers`).
     stable_receivers: BTreeSet<String>,
+    /// JS/TS/TSX: the owner mentions `arguments`, so D is off (U stays on).
+    js_d_off: bool,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -63,11 +65,17 @@ impl<'a> LexicalFacts<'a> {
         lvalues: &[PathSpan],
         rvalues: &[PathSpan],
     ) -> Self {
+        let js_switches = if parsed.language.is_js_family() {
+            super::js_prune::owner_switches(parsed, owner)
+        } else {
+            (false, false)
+        };
         let mut facts = Self {
             parsed,
             enabled: match parsed.language {
                 Language::Go => !owner.has_error(),
                 Language::Python => !owner.has_error() && owner.kind() == "function_definition",
+                l if l.is_js_family() => js_switches.0,
                 _ => false,
             },
             writes: BTreeMap::new(),
@@ -76,6 +84,7 @@ impl<'a> LexicalFacts<'a> {
             nested: Vec::new(),
             scope_declared: BTreeSet::new(),
             stable_receivers: BTreeSet::new(),
+            js_d_off: false,
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
@@ -84,7 +93,14 @@ impl<'a> LexicalFacts<'a> {
         if parsed.language == Language::Python {
             facts.stable_receivers = super::python_prune::stable_receivers(parsed, owner);
         }
+        if parsed.language.is_js_family() {
+            facts.js_d_off = js_switches.1;
+            facts.stable_receivers = super::js_prune::stable_bases(parsed, owner);
+        }
         let mut boundaries = parsed.language.callable_boundary_node_types();
+        if parsed.language.is_js_family() {
+            boundaries.extend(super::js_prune::EXTRA_BOUNDARIES);
+        }
         if parsed.language == Language::Python {
             boundaries.extend(super::python_prune::NESTED_SCOPES);
         }
@@ -122,7 +138,9 @@ impl<'a> LexicalFacts<'a> {
                 &mut self.scope_declared,
             );
         }
-        if self.parsed.language.is_identifier_node(node.kind()) {
+        if self.parsed.language.is_identifier_node(node.kind())
+            || (node.kind() == "this" && self.parsed.language.is_js_family())
+        {
             self.occurrences
                 .entry((
                     self.parsed.node_text(&node).to_owned(),
@@ -165,6 +183,15 @@ impl<'a> LexicalFacts<'a> {
         if self.parsed.language == Language::Python {
             let (statement, plain) =
                 super::python_prune::classify_write(node, (span.start_byte, span.end_byte))?;
+            return Some(Write {
+                span: (span.start_byte, span.end_byte),
+                statement,
+                plain,
+                split_spec: false,
+            });
+        }
+        if self.parsed.language.is_js_family() {
+            let (statement, plain) = super::js_prune::classify_write(self.parsed, node)?;
             return Some(Write {
                 span: (span.start_byte, span.end_byte),
                 statement,
@@ -334,7 +361,7 @@ impl<'a> LexicalFacts<'a> {
         let writes = &prefixed;
         let mut child = occurrence;
         while let Some(region) = crate::languages::go::statements::parent(child) {
-            if self.is_region(region.kind()) {
+            if self.is_region(region) {
                 if let Some(write) = writes
                     .iter()
                     .filter(|write| {
@@ -368,10 +395,11 @@ impl<'a> LexicalFacts<'a> {
         None
     }
 
-    fn is_region(&self, kind: &str) -> bool {
+    fn is_region(&self, node: Node<'_>) -> bool {
         match self.parsed.language {
-            Language::Python => super::python_prune::is_region(kind),
-            _ => is_region(kind),
+            Language::Python => super::python_prune::is_region(node.kind()),
+            l if l.is_js_family() => super::js_prune::is_region(node),
+            _ => is_region(node.kind()),
         }
     }
 
@@ -398,12 +426,12 @@ impl<'a> LexicalFacts<'a> {
         line: usize,
         stats: &mut RdFileStats,
     ) -> bool {
-        if !self.enabled || self.nested_at(start) {
+        if !self.enabled || self.nested_at(start) || self.js_d_off {
             return true;
         }
         // Python: D proves plain names and the attribute paths of a stable `self`/`cls`
         // parameter; any other base (a rebound name, `o.x`) may alias elsewhere.
-        if self.parsed.language == Language::Python
+        if (self.parsed.language == Language::Python || self.parsed.language.is_js_family())
             && !path.fields.is_empty()
             && !self.stable_receivers.contains(&path.base)
         {
@@ -439,6 +467,9 @@ fn is_region(kind: &str) -> bool {
     )
 }
 fn pure_path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
+    if parsed.language.is_js_family() {
+        return super::js_prune::pure_path(parsed, node);
+    }
     match node.kind() {
         "identifier" => Some(AccessPath::simple(parsed.node_text(&node))),
         "attribute" => {
