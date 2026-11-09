@@ -273,13 +273,21 @@ impl ParsedFile {
 
     /// Byte-bearing sibling of `statements_in_function`.
     pub fn statement_spans_in_function(&self, func_node: &Node<'_>) -> Vec<StatementSpan> {
+        let mut stmts = self.statement_spans_before_dedup(func_node);
+        stmts.dedup_by_key(|stmt| stmt.line);
+        stmts
+    }
+
+    /// The statement spans in line order BEFORE start-line deduplication: the stable sort keeps
+    /// traversal order inside one line, so the first span of a line is the one
+    /// `statement_spans_in_function` retains. Observational (the JS CFG ownership records).
+    pub(crate) fn statement_spans_before_dedup(&self, func_node: &Node<'_>) -> Vec<StatementSpan> {
         let func_node = self.unwrap_decorated(*func_node);
         let mut stmts = Vec::new();
         if let Some(body_node) = self.function_body_node(&func_node) {
             self.collect_statement_spans(body_node, &mut Visits::default(), &mut stmts);
         }
         stmts.sort_by_key(|stmt| stmt.line);
-        stmts.dedup_by_key(|stmt| stmt.line);
         stmts
     }
 
