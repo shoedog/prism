@@ -159,16 +159,20 @@ impl AliasKills {
         line_index: &BTreeMap<Line, usize>,
     ) -> Option<Self> {
         let (counts, captured) = s.census.alias_inputs();
-        let listed: BTreeSet<usize> = counts
-            .map(|c| c.writes.iter().map(|w| w.target_start).collect())
-            .unwrap_or_default();
-        // Recorded defs with fields the census does not list (a write in the own parameter list).
-        let unlisted: Vec<usize> = (0..s.n_recorded)
-            .filter(|&i| {
-                let d = &s.defs[i];
-                !d.alias_derived && d.path.has_fields() && !listed.contains(&d.start_byte)
-            })
-            .collect();
+        // Recorded defs with fields the census does not list: a write in the own parameter list.
+        let params = s.func_node.child_by_field_name("parameters");
+        let unlisted: Vec<usize> = match params {
+            Some(p) => (0..s.n_recorded)
+                .filter(|&i| {
+                    let d = &s.defs[i];
+                    !d.alias_derived
+                        && d.path.has_fields()
+                        && p.start_byte() <= d.start_byte
+                        && d.start_byte < p.end_byte()
+                })
+                .collect(),
+            None => Vec::new(),
+        };
         let mut bases: BTreeSet<&str> = BTreeSet::new();
         bases.extend(
             counts
