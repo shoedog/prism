@@ -12,6 +12,8 @@ const EXACT: &str = "exact";
 const KILLED: &str = "nameonly/killed";
 const CFG: &str = "nameonly/cfg_incomplete";
 const SAME: &str = "nameonly/sameline";
+/// #630 slice 5 (JS rules U and D): the overwritten def's edge is removed, not relabelled.
+const GONE: &str = "removed";
 const JS: Language = Language::JavaScript;
 const TS: Language = Language::TypeScript;
 
@@ -90,7 +92,7 @@ const CONTROLS: &[Case] = &[
     Case { name: "sibling_under_subscript", lang: JS, edge: "o.a.x@2->o.a.x@4", expected: EXACT,
         source: "function f(o, k) {\n  o.a.x = 1;\n  o.b[k] = 2;\n  sink(o.a.x);\n}" },
     // Main's equal-path kills are a subset.
-    Case { name: "equal_path_kill", lang: JS, edge: "o.x@2->o.x@4", expected: KILLED,
+    Case { name: "equal_path_kill", lang: JS, edge: "o.x@2->o.x@4", expected: GONE,
         source: "function f(o) {\n  o.x = 1;\n  o.x = 2;\n  sink(o.x);\n}" },
     Case { name: "equal_subscript_kill", lang: JS, edge: "o[]@2->o[]@4", expected: KILLED,
         source: "function f(o, k, j) {\n  o[k].x = 1;\n  o[j].x = 2;\n  sink(o[k].x);\n}" },
@@ -200,11 +202,11 @@ const CONTROLS: &[Case] = &[
         source: "function f(t, o) {\n  o.x = 1;\n  switch (t) { case 0: function o() {} o = {}; }\n  sink(o.x);\n}" },
     // A plain declarator (`let`/`const`/`var o = ..`) is eligible (round 3 amendment); formals, destructured and
     // loop-head names are not: a block-scoped pattern name is not told from the outer binding.
-    Case { name: "loop_const_redeclaration_resize_shape_killed", lang: JS, edge: "update.b@5->update.b@8", expected: KILLED,
+    Case { name: "loop_const_redeclaration_resize_shape_killed", lang: JS, edge: "update.b@5->update.b@8", expected: GONE,
         source: "function f(es, c) {\n  for (const e of es) {\n    const update = {};\n    if (c) {\n      update.b = 1;\n    } else {\n      update.b = 2;\n      use(update.b);\n    }\n    push(update);\n  }\n}" },
-    Case { name: "loop_const_redeclaration_resize_shape_unflagged_route", lang: JS, edge: "update.b@5->update.b@7", expected: CFG,
+    Case { name: "loop_const_redeclaration_resize_shape_unflagged_route", lang: JS, edge: "update.b@5->update.b@7", expected: GONE,
         source: "function f(es, c) {\n  for (const e of es) {\n    const update = {};\n    if (c) {\n      update.b = 1;\n    } else {\n      update.b = 2;\n      use(update.b);\n    }\n    push(update);\n  }\n}" },
-    Case { name: "let_redeclared_in_loop_body_kills_previous_iteration", lang: JS, edge: "o.b@5->o.b@8", expected: KILLED,
+    Case { name: "let_redeclared_in_loop_body_kills_previous_iteration", lang: JS, edge: "o.b@5->o.b@8", expected: GONE,
         source: "function f(es, c) {\n  for (const e of es) {\n    let o = {};\n    if (c) {\n      o.b = 1;\n    } else {\n      o.b = 2;\n      use(o.b);\n    }\n    push(o);\n  }\n}" },
     Case { name: "var_destructuring_redeclaration_keeps_main", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
         source: "function f(o, src) {\n  o.x = 1;\n  var { o } = src();\n  sink(o.x, o);\n}" },
@@ -225,7 +227,12 @@ fn run(cases: &[Case]) -> Vec<String> {
     let mut failures = Vec::new();
     for c in cases {
         let got = labels_of(c.lang, c.source, c.edge);
-        if got.is_empty() || got.iter().any(|g| g != c.expected) {
+        let bad = if c.expected == GONE {
+            !got.is_empty()
+        } else {
+            got.is_empty() || got.iter().any(|g| g != c.expected)
+        };
+        if bad {
             failures.push(format!(
                 "{} {}: want {}, got {got:?}",
                 c.name, c.edge, c.expected

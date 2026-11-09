@@ -180,7 +180,7 @@ const CASES: &[Case] = &[
     Case { name: "use_inside_the_region", lang: JS, edge: "a@2->a@3", expected: CFG,
         source: "function f(a) {\n  a = 1;\n  g(() => { sink(a); a++; });\n}" },
     // A killed edge keeps its label (D2-c refuses only `exact` and `sameline`).
-    Case { name: "killed_edge_keeps_its_label", lang: JS, edge: "a@1->a@5", expected: KILLED,
+    Case { name: "killed_edge_keeps_its_label", lang: JS, edge: "a@1->a@5", expected: GONE,
         source: "function f(a) {\n  log();\n  g(() => { a++; });\n  a = 3;\n  sink(a);\n}" },
     // Round 1 (Opus W1): a closure names a binding declared later in its scope (TDZ is no scoping): the
     // written binding is that later declaration, not the outer one a visibility-based lookup finds.
@@ -215,12 +215,20 @@ const CASES: &[Case] = &[
         source: "function f(a: number) {\n  log();\n  class C { constructor(public a = 1) { a++; } }\n  sink(a);\n}" },
 ];
 
+/// #630 slice 5: `a = 3` dominates the read, so D removes the parameter def's edge.
+const GONE: &str = "removed";
+
 #[test]
 fn binding_shape_rows() {
     let mut failures = Vec::new();
     for c in CASES {
         let got = labels_of(c.lang, c.source, c.edge);
-        if got.is_empty() || got.iter().any(|g| g != c.expected) {
+        let bad = if c.expected == GONE {
+            !got.is_empty()
+        } else {
+            got.is_empty() || got.iter().any(|g| g != c.expected)
+        };
+        if bad {
             failures.push(format!(
                 "{} {}: want {}, got {got:?}",
                 c.name, c.edge, c.expected

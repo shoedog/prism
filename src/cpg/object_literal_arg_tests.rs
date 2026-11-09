@@ -410,9 +410,7 @@ fn callee_writes_and_reassignments_are_inherited_from_the_definition_edges() {
     // A member write to `p.a` suppresses the `p.a` projection: nothing is bound to it.
     let write = "function f(p) {\n  p.a = 1;\n  sinkA(p.a);\n  sinkB(p.b);\n}\nfunction h(a, b) {\n  f({ a, b });\n}\n";
     check("member-write", write, &["h:b@7 -> f:p.b@4"]);
-    // A bare reassignment kills the formal before the read. The definition edge to that
-    // read stays in the graph labelled `Killed`; the shortcut inherits the label, exactly
-    // as the plain-argument path `Use -> Def(p) -> Use(p)` would carry it.
+    // A bare reassignment kills the formal before the read: nothing is fed to that read.
     let reassign = "function f(p) {\n  sinkP(p);\n  p = clean();\n  sinkA(p.a);\n}\nfunction h(a) {\n  f({ a });\n}\n";
     for (language, ext) in LANGS {
         let cpg = build(language, &[("m", reassign)], ext);
@@ -422,12 +420,12 @@ fn callee_writes_and_reassignments_are_inherited_from_the_definition_edges() {
             Some(&FlowConfidence::Exact),
             "{language:?}: bare read before the reassignment: {edges:?}"
         );
-        assert!(
-            matches!(
-                edges.get("h:a@7 -> f:p@4"),
-                Some(FlowConfidence::NameOnly(FlowDoubt::Killed { .. }))
-            ),
-            "{language:?}: the reassigned read is fed only as a Killed edge: {edges:?}"
+        // #630 slice 5 (rule D): `p = clean()` dominates the read, so the formal's definition
+        // edge to it is removed and the shortcut, which only follows definition edges, has none.
+        assert_eq!(
+            edges.get("h:a@7 -> f:p@4"),
+            None,
+            "{language:?}: the reassigned read is not fed: {edges:?}"
         );
     }
 }
