@@ -25,22 +25,32 @@ pub(super) const DO_COND: &str = "do-cond";
 type FileCfg = Rc<Vec<(CfgEdge, ArmProvenance)>>;
 
 std::thread_local! {
-    /// The last file's CFG under main's loop rules: one build per file and thread, not per owner.
-    static CONTROL_CFG: RefCell<Option<(String, usize, FileCfg)>> = const { RefCell::new(None) };
+    /// The last file's CFG under main's loop rules: one build per file and thread, not per owner. It is
+    /// keyed by the path and a hash of the source bytes, so an edit (even of equal length) never reuses
+    /// another source's CFG.
+    static CONTROL_CFG: RefCell<Option<(String, u64, FileCfg)>> = const { RefCell::new(None) };
 }
 
-fn control_cfg(parsed: &ParsedFile) -> FileCfg {
+fn source_hash(source: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    source.hash(&mut hasher);
+    hasher.finish()
+}
+
+pub(super) fn control_cfg(parsed: &ParsedFile) -> FileCfg {
+    let hash = source_hash(&parsed.source);
     CONTROL_CFG.with(|cell| {
         let mut slot = cell.borrow_mut();
-        if let Some((path, len, edges)) = slot.as_ref() {
-            if *path == parsed.path && *len == parsed.source.len() {
+        if let Some((path, key, edges)) = slot.as_ref() {
+            if *path == parsed.path && *key == hash {
                 return Rc::clone(edges);
             }
         }
         let edges: FileCfg = Rc::new(js_loops::with_main_loop_cfg(|| {
             crate::cfg::build_cfg_edges_with_arms(parsed)
         }));
-        *slot = Some((parsed.path.clone(), parsed.source.len(), Rc::clone(&edges)));
+        *slot = Some((parsed.path.clone(), hash, Rc::clone(&edges)));
         edges
     })
 }
@@ -168,4 +178,32 @@ pub(super) fn trace(
         }
     }
     named
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::languages::Language;
+
+    /// F7: the control CFG cache is keyed by the path and the source's content, so an edit of equal
+    /// length (a `continue;` terminator replaced by a `debugger;` that is no statement) never reuses
+    /// another source's CFG.
+    #[test]
+    fn the_control_cfg_cache_follows_the_source_content() {
+        let a = "function f(xs) {\n  for (const a of xs) {\n    x = a;\n    continue;\n    g(a);\n  }\n  h();\n}\n";
+        let b = a.replace("continue;", "debugger;");
+        assert_eq!(a.len(), b.len());
+        let pa = ParsedFile::parse("same.js", a, Language::JavaScript).unwrap();
+        let pb = ParsedFile::parse("same.js", &b, Language::JavaScript).unwrap();
+        let first = control_cfg(&pa);
+        let second = control_cfg(&pb);
+        let main_b = js_loops::with_main_loop_cfg(|| crate::cfg::build_cfg_edges_with_arms(&pb));
+        assert_ne!(*first, *second, "the two sources' CFGs differ");
+        assert_eq!(
+            *second, main_b,
+            "the control is main's CFG of the current source"
+        );
+        // And the same source again is a hit: the same allocation.
+        assert!(Rc::ptr_eq(&second, &control_cfg(&pb)));
+    }
 }

@@ -153,6 +153,18 @@ impl EdgeSink {
         self.origins.retain(|_| next.next().unwrap_or(true));
     }
 
+    /// Remove the first edge `from -> to` (one copy: two builders can push the same pair).
+    fn remove_one(&mut self, from: usize, to: usize) {
+        if let Some(i) = self
+            .edges
+            .iter()
+            .position(|e| e.from_line == from && e.to_line == to)
+        {
+            self.edges.remove(i);
+            self.origins.remove(i);
+        }
+    }
+
     fn drain(&mut self) -> impl Iterator<Item = (CfgEdge, EdgeOrigin)> + '_ {
         self.edges.drain(..).zip(self.origins.drain(..))
     }

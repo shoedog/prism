@@ -503,18 +503,41 @@ impl ParsedFile {
     /// the body and no statement after the `do` starts on it
     /// (`} while (c); return r;`). Otherwise `None` and main's edges for the
     /// loop stand. The single predicate of the statement collectors, their
-    /// oracle copies, `c_jumps` and `js_loops`. A JS-family file solved under
+    /// oracle copies, `c_jumps` and `js_loops`. For the JS family the geometry
+    /// is not enough: the `do` must also sit in a loop tree `js_loops` rewires
+    /// (`do_tree_rewirable`), else main's whole `do` shape stands (an admitted
+    /// but unrewired `do` would leave the header an empty node that main's exit
+    /// edge bypasses the condition from). A JS-family file solved under
     /// `js_loops::with_main_loop_cfg` (the trace's control) admits none.
     pub(crate) fn do_condition_line(&self, do_node: &Node<'_>) -> Option<usize> {
         use crate::languages::Language;
-        let admitted = match self.language {
-            Language::C | Language::Cpp => true,
+        match self.language {
+            Language::C | Language::Cpp => self.do_geometry_line(do_node),
             Language::JavaScript | Language::TypeScript | Language::Tsx => {
-                !crate::cfg::js_loops::main_loop_cfg()
+                if crate::cfg::js_loops::main_loop_cfg() {
+                    return None;
+                }
+                self.do_geometry_line(do_node)
+                    .filter(|_| crate::cfg::js_loops::do_tree_rewirable(self, do_node))
             }
-            _ => false,
-        };
-        if !admitted || do_node.kind() != "do_statement" {
+            _ => None,
+        }
+    }
+
+    /// The admission geometry alone (see `do_condition_line`): the condition
+    /// line when it is past every statement of the body and no statement after
+    /// the `do` starts on it.
+    pub(crate) fn do_geometry_line(&self, do_node: &Node<'_>) -> Option<usize> {
+        use crate::languages::Language;
+        if !matches!(
+            self.language,
+            Language::C
+                | Language::Cpp
+                | Language::JavaScript
+                | Language::TypeScript
+                | Language::Tsx
+        ) || do_node.kind() != "do_statement"
+        {
             return None;
         }
         let row = |n: &Node<'_>| n.start_position().row + 1;
