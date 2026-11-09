@@ -185,13 +185,19 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, lines: &[usize], edges
         })
         .collect();
     // Drop the routes main's loop builders own: from an interior line to a later line (the bypass)
-    // and back to the loop's first line (main's back edge; for a `do` also from that line itself, a
-    // body that starts on the `do` line), and one copy of the header's own exit. Other edges from the
-    // first line (an `if` that starts there) are not the loop's.
+    // and back to the loop's first line (main's back edge), and one copy of the header's own exit.
+    // A `do` header holds nothing once its condition is its own statement, so every edge from its
+    // first line past the loop (main's exit, and the enclosing `if`'s then-end edge, which main
+    // draws from the last statement of the block, the `do` line) bypasses the body and the
+    // condition and goes; so does main's back edge from that line (a body that starts on the `do`
+    // line). For a `for`/`while`/`for-in` other edges from the first line (an `if` that starts
+    // there) are not the loop's.
     edges.retain(|e| {
         !spans.iter().any(|&(s, t, is_do, _)| {
-            let inside = (s < e.from_line || (is_do && s == e.from_line)) && e.from_line <= t;
-            inside && ((s < e.from_line && e.to_line > t) || e.to_line == s)
+            let from_header = s == e.from_line;
+            let interior = s < e.from_line && e.from_line <= t;
+            (interior && (e.to_line > t || e.to_line == s))
+                || (is_do && from_header && (e.to_line > t || e.to_line == s))
         })
     });
     for &(s, _, _, exit) in &spans {

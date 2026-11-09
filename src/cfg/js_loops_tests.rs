@@ -399,3 +399,19 @@ fn the_edge_and_node_counts_of_small_owners_can_move() {
     // The body starts on the `do` line: main's back edge 2 -> 2 would skip the condition, so it is gone.
     assert_eq!(edges(two_line_do), BTreeSet::from([(2, 3), (3, 2)]));
 }
+
+/// A `do` that is the last statement of an `if` arm: main draws the then-end edge from the `do` line
+/// to the code after the `if`, which would skip the body and the condition of a loop that always runs
+/// its body once.
+#[test]
+fn a_do_ending_an_if_arm_has_no_edge_from_its_header_past_the_loop() {
+    let e = edges("function f(xs, c, k) {\n  let ch = 0;\n  for (const a of xs) {\n    ch = 1;\n    if (c) {\n      do {\n        ch = 2;\n      } while (k());\n    } else {\n      break;\n    }\n    use(ch);\n  }\n}\n");
+    assert!(
+        !has(&e, 6, 12),
+        "the do header does not reach past the loop: {e:?}"
+    );
+    assert!(
+        has(&e, 8, 12),
+        "the condition exits to the code after the if: {e:?}"
+    );
+}
