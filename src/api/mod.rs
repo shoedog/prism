@@ -45,7 +45,8 @@ pub use review_context::{
     ReviewBoundaryHints, ReviewHintBasis, ReviewImportHint, ReviewUnresolvedReason,
 };
 pub use review_occurrences::{
-    ReviewCallOccurrence, ReviewOccurrenceFacts, ReviewOccurrenceOwner, ReviewValueOccurrence,
+    ReviewCallOccurrence, ReviewOccurrenceCensus, ReviewOccurrenceFacts, ReviewOccurrenceOwner,
+    ReviewValueOccurrence,
 };
 
 /// Runs `op` on prism's large-stack worker pool and returns its result.

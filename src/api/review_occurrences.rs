@@ -7,6 +7,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use tree_sitter::Node;
 
+#[path = "review_occurrence_census.rs"]
+mod census;
+pub use census::ReviewOccurrenceCensus;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct ReviewOccurrenceOwner {
@@ -41,6 +45,7 @@ pub struct ReviewValueOccurrence {
 #[non_exhaustive]
 pub struct ReviewOccurrenceFacts<'a> {
     parsed: &'a ParsedFile,
+    census: std::sync::OnceLock<census::LiteralIndex<'a>>,
     owners: Vec<ReviewOccurrenceOwner>,
     calls: BTreeMap<(usize, usize), ReviewCallOccurrence>,
     values: BTreeMap<(usize, usize), Vec<ReviewValueOccurrence>>,
@@ -50,6 +55,7 @@ impl<'a> ReviewOccurrenceFacts<'a> {
     pub fn new(parsed: &'a ParsedFile) -> Self {
         let mut facts = Self {
             parsed,
+            census: std::sync::OnceLock::new(),
             owners: Vec::new(),
             calls: BTreeMap::new(),
             values: BTreeMap::new(),
