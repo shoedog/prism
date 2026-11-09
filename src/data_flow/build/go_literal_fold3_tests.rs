@@ -218,13 +218,19 @@ fn sibling_literals_each_with_their_own_named_result_stay_unconnected() {
     check("sibling-own-result", src, &[("errs", 4, 8, false)]);
 }
 
-// Main parity (fold 4 D): main blanket-kept every pair of a literal-result name, and a sibling that
-// reads its own local `err := setup()` is such a pair (a coincidence edge main kept; the value
-// really does reach it through the call result).
+// Main parity (fold 4 D): main blanket-kept every pair of a literal-result name, so a sibling that
+// reads its own range or `var` local keeps main's coincidence edge. A sibling whose local is
+// written by a dominating `err := ..` loses the pair to rule D on main too (nothing changes there).
 #[test]
-fn a_sibling_literal_reading_its_own_local_keeps_main_edge() {
-    let src = "package p\nfunc f() {\n\tsetup := func() (err error) {\n\t\terr = open()\n\t\treturn\n\t}\n\trun := func() {\n\t\terr := setup()\n\t\tcheck(err)\n\t}\n\trun()\n}\n";
-    check("sibling-own-local", src, &[("err", 4, 9, true)]);
+fn a_sibling_literal_reading_its_own_range_local_keeps_main_edge() {
+    let src = "package p\nfunc f(errs []error) {\n\tsetup := func() (err error) {\n\t\terr = open()\n\t\treturn\n\t}\n\trun := func() {\n\t\tfor _, err := range errs {\n\t\t\tcheck(err)\n\t\t}\n\t}\n\trun()\n\tsetup()\n}\n";
+    check("sibling-range-local", src, &[("err", 4, 9, true)]);
+}
+
+#[test]
+fn a_sibling_literal_whose_local_is_defined_by_a_dominating_write_gets_no_edge_as_on_main() {
+    let src = "package p\nfunc f() {\n\terr := func() (err error) {\n\t\terr = do()\n\t\treturn\n\t}()\n\tfunc() {\n\t\terr := other()\n\t\tuse(err)\n\t}()\n\t_ = err\n}\n";
+    check("sibling-redeclare-local", src, &[("err", 4, 9, false)]);
 }
 
 // ---- fold 4 A: a literal signature def coalesced with an ordinary def of the path --------------

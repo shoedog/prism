@@ -577,6 +577,7 @@ impl Producer {
                         let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
                             continue;
                         };
+                        if scope.raw_signature_outside_scope(path, span.start_byte, *ref_line, &mut prune_stats) { continue; }
                         let (def_start, def_end) = def_locs_by_occurrence
                             .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
                             .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));

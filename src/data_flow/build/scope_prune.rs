@@ -305,6 +305,33 @@ impl<'a> ScopeFacts<'a> {
             .is_none_or(|bytes| bytes.iter().all(|b| !(body_start <= *b && *b < body_end)))
     }
 
+    /// Rule A of fold 4: the RAW def span at `def_start` is a function-literal formal or a named
+    /// result and no occurrence of its name on `use_line` lies in its body. Unlike
+    /// `outside_declare_only_scope` this judges the raw span even when other defs of the path share
+    /// its line (the coalesced edge survives only if some raw span survives every rule).
+    pub(super) fn raw_signature_outside_scope(
+        &self,
+        path: &AccessPath,
+        raw_start: usize,
+        use_line: usize,
+        stats: &mut RdFileStats,
+    ) -> bool {
+        if !self.lexical_ok || !path.fields.is_empty() {
+            return false;
+        }
+        let Some((body_start, body_end)) = self.slice_b.scope_of(raw_start) else {
+            return false;
+        };
+        let outside = self
+            .identifiers_named(&path.base)
+            .and_then(|by_line| by_line.get(&use_line))
+            .is_none_or(|bytes| bytes.iter().all(|b| !(body_start <= *b && *b < body_end)));
+        if outside {
+            stats.dfg_pruned_scope += 1;
+        }
+        outside
+    }
+
     /// The scope of the formal or named result whose def starts at `def_start`, when no other
     /// genuine def of the path is on its line (memoized by def).
     fn lone_declare_only_scope(

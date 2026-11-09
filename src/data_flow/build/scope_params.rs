@@ -191,9 +191,13 @@ impl ParamFacts {
     ) -> bool {
         match self.by_declaration.get(&other) {
             None => false,
-            Some(Form::Result { callable }) => self
-                .enclosing_callable(parsed, use_start)
-                .is_some_and(|c| c != *callable),
+            // A declare-only def is the entry value of another callable's result: it feeds no read.
+            Some(Form::Result { callable }) => {
+                !declare_only
+                    && self
+                        .enclosing_callable(parsed, use_start)
+                        .is_some_and(|c| c != *callable)
+            }
             Some(Form::Formal {
                 literal,
                 direct,
@@ -256,7 +260,12 @@ impl ParamFacts {
             node = n.parent();
         }
         match facts.binding_at(name, use_start) {
-            BindingId::Declaration(d) => facts.declaration_scope_contains(d, use_callable),
+            // Declared outside the read's callable (captured), or a local of it: only a formal
+            // or named result of the read's own callable is a variable the def cannot reach.
+            BindingId::Declaration(d) => {
+                facts.declaration_scope_contains(d, use_callable)
+                    || !self.by_declaration.contains_key(&d)
+            }
             _ => true,
         }
     }
@@ -329,6 +338,7 @@ fn discarded_callback(parsed: &ParsedFile, facts: &BindingFacts, literal: Node<'
 /// interface (`any` included) or named type, a variadic of these. Pointer, slice, map, array, chan,
 /// struct and predeclared basic types cannot take a literal.
 fn function_acceptors(parsed: &ParsedFile, owner: Node<'_>) -> Vec<usize> {
+    let declared = declared_type_names(parsed);
     let mut out = Vec::new();
     let mut stack = vec![owner];
     while let Some(node) = stack.pop() {
@@ -337,7 +347,7 @@ fn function_acceptors(parsed: &ParsedFile, owner: Node<'_>) -> Vec<usize> {
                 let mut cursor = list.walk();
                 let any = list.named_children(&mut cursor).any(|p| {
                     p.child_by_field_name("type")
-                        .is_some_and(|t| accepts_function(parsed, t))
+                        .is_some_and(|t| accepts_function(parsed, &declared, t))
                 });
                 any
             });
@@ -351,7 +361,7 @@ fn function_acceptors(parsed: &ParsedFile, owner: Node<'_>) -> Vec<usize> {
     out
 }
 
-fn accepts_function(parsed: &ParsedFile, mut ty: Node<'_>) -> bool {
+fn accepts_function(parsed: &ParsedFile, declared: &BTreeSet<String>, mut ty: Node<'_>) -> bool {
     while ty.kind() == "parenthesized_type" {
         match ty.named_child(0) {
             Some(inner) => ty = inner,
@@ -361,28 +371,49 @@ fn accepts_function(parsed: &ParsedFile, mut ty: Node<'_>) -> bool {
     match ty.kind() {
         "function_type" | "interface_type" | "qualified_type" | "generic_type" => true,
         // `error` and `any` are interfaces; every other predeclared name is a basic type.
-        "type_identifier" => !matches!(
-            parsed.node_text(&ty),
-            "int"
-                | "int8"
-                | "int16"
-                | "int32"
-                | "int64"
-                | "uint"
-                | "uint8"
-                | "uint16"
-                | "uint32"
-                | "uint64"
-                | "uintptr"
-                | "float32"
-                | "float64"
-                | "complex64"
-                | "complex128"
-                | "string"
-                | "bool"
-                | "byte"
-                | "rune"
-        ),
+        "type_identifier" => {
+            declared.contains(parsed.node_text(&ty))
+                || !matches!(
+                    parsed.node_text(&ty),
+                    "int"
+                        | "int8"
+                        | "int16"
+                        | "int32"
+                        | "int64"
+                        | "uint"
+                        | "uint8"
+                        | "uint16"
+                        | "uint32"
+                        | "uint64"
+                        | "uintptr"
+                        | "float32"
+                        | "float64"
+                        | "complex64"
+                        | "complex128"
+                        | "string"
+                        | "bool"
+                        | "byte"
+                        | "rune"
+                )
+        }
         _ => false,
     }
+}
+
+/// Names the file declares as types (`type_spec`, `type_alias`, at any depth): a predeclared basic
+/// name among them may be a function type (`type string func(int)`). A declaration in another file
+/// of the package is not seen (a disclosed limit).
+fn declared_type_names(parsed: &ParsedFile) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    let mut stack = vec![parsed.tree.root_node()];
+    while let Some(node) = stack.pop() {
+        if matches!(node.kind(), "type_spec" | "type_alias") {
+            if let Some(name) = node.child_by_field_name("name") {
+                out.insert(parsed.node_text(&name).to_owned());
+            }
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.named_children(&mut cursor));
+    }
+    out
 }
