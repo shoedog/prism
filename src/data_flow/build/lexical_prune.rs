@@ -54,8 +54,6 @@ pub(super) struct LexicalFacts<'a> {
     /// Python `self`/`cls` parameters never rebound in the owner: their attribute paths
     /// are fixed storage for D (see `python_prune::stable_receivers`).
     stable_receivers: BTreeSet<String>,
-    /// JS/TS/TSX: the owner mentions `arguments`, so D is off (U stays on).
-    js_d_off: bool,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -65,17 +63,14 @@ impl<'a> LexicalFacts<'a> {
         lvalues: &[PathSpan],
         rvalues: &[PathSpan],
     ) -> Self {
-        let js_switches = if parsed.language.is_js_family() {
-            super::js_prune::owner_switches(parsed, owner)
-        } else {
-            (false, false)
-        };
+        let js_enabled =
+            parsed.language.is_js_family() && super::js_prune::owner_enabled(parsed, owner);
         let mut facts = Self {
             parsed,
             enabled: match parsed.language {
                 Language::Go => !owner.has_error(),
                 Language::Python => !owner.has_error() && owner.kind() == "function_definition",
-                l if l.is_js_family() => js_switches.0,
+                l if l.is_js_family() => js_enabled,
                 _ => false,
             },
             writes: BTreeMap::new(),
@@ -84,7 +79,6 @@ impl<'a> LexicalFacts<'a> {
             nested: Vec::new(),
             scope_declared: BTreeSet::new(),
             stable_receivers: BTreeSet::new(),
-            js_d_off: false,
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
@@ -94,7 +88,6 @@ impl<'a> LexicalFacts<'a> {
             facts.stable_receivers = super::python_prune::stable_receivers(parsed, owner);
         }
         if parsed.language.is_js_family() {
-            facts.js_d_off = js_switches.1;
             facts.stable_receivers = super::js_prune::stable_bases(parsed, owner);
         }
         let mut boundaries = parsed.language.callable_boundary_node_types();
@@ -371,6 +364,13 @@ impl<'a> LexicalFacts<'a> {
                     .filter(|write| {
                         !is_declaring_kind(write.statement.kind())
                             && !write.split_spec
+                            && (!self.parsed.language.is_js_family()
+                                || matches!(
+                                    write.statement.kind(),
+                                    "expression_statement"
+                                        | "lexical_declaration"
+                                        | "variable_declaration"
+                                ))
                             && write.statement.end_byte() <= child.start_byte()
                             && crate::languages::go::statements::parent(write.statement)
                                 .is_some_and(|p| p.id() == region.id())
@@ -430,7 +430,7 @@ impl<'a> LexicalFacts<'a> {
         line: usize,
         stats: &mut RdFileStats,
     ) -> bool {
-        if !self.enabled || self.nested_at(start) || self.js_d_off {
+        if !self.enabled || self.nested_at(start) {
             return true;
         }
         // Python: D proves plain names and the attribute paths of a stable `self`/`cls`
@@ -439,6 +439,11 @@ impl<'a> LexicalFacts<'a> {
             && !path.fields.is_empty()
             && !self.stable_receivers.contains(&path.base)
         {
+            return true;
+        }
+        // JS: an intermediate object is a reference the owner can swap and restore, so only a
+        // single-field path `base.f` is fixed storage.
+        if self.parsed.language.is_js_family() && path.fields.len() > 1 {
             return true;
         }
         let drop = self

@@ -186,7 +186,7 @@ fn mapped_arguments(
 }
 
 /// The owner lies in the body of a `with` statement (of any enclosing callable).
-fn inside_with_body(owner: Node<'_>) -> bool {
+pub(crate) fn inside_with_body(owner: Node<'_>) -> bool {
     let at = owner.start_byte();
     let mut up = owner.parent();
     while let Some(n) = up {

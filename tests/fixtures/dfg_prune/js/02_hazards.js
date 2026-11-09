@@ -22,7 +22,7 @@ function h_args(a) {
 }
 
 function h_annexb(c) {
-  let x = 0;
+  var x = 0;
   x = 1;
   {
     function x() {}
@@ -40,7 +40,7 @@ function h_var_redecl(c) {
 }
 
 function h_fn_same(c) {
-  let r = 0;
+  var r = 0;
   r = 1;
   return r;
   function r() {}
@@ -108,7 +108,7 @@ function h_incr(c) {
 }
 
 function h_no_init(c) {
-  let x = 0;
+  var x = 0;
   x = 1;
   var x;
   return x;
