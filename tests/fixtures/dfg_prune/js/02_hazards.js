@@ -135,3 +135,18 @@ function h_tdz(c) {
   }
   return x;
 }
+
+function h_var_redecl2(c) {
+  var x = 0;
+  if (c) {
+    var x = 1;
+  }
+  return x;
+}
+
+function h_incr2(c) {
+  let x = 0;
+  x = 1;
+  x++;
+  return x;
+}

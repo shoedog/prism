@@ -26,7 +26,7 @@ function u_member(c, i) {
 }
 
 function u_decl(c) {
-  let w = c;
+  var w = c;
   var w = 3;
   return w;
 }
