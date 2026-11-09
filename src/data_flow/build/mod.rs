@@ -67,6 +67,7 @@ mod scope_split;
 #[cfg(test)]
 mod split_fold2_tests;
 
+pub(crate) use aliases::owner_alias_map;
 pub(super) struct Producer;
 pub(super) struct FileRefs {
     pub(super) file_path: String,

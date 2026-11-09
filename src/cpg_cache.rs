@@ -316,7 +316,8 @@ mod stream;
 /// - v165: Rust binary roots of a workspace member resolve the package's in-repo `[dependencies]` (#749), so Rust call edges and their kinds change, and the serialized layout changes: `RustCrateConfig::member_bin_roots` joins the cached inputs and `ScopeGraph::bin_dep_entries` joins the graph (the reason the version must move).
 /// - v166: an expression-bodied JS/TS/TSX arrow whose body is a callable or a ternary keeps one synthetic node instead of the located statements (#759), so the DataFlow labels of the edges that owner carries change (label-only; edge sets are unchanged below the fallback edge cap, which now also applies to an owner the one-node belt refuses).
 /// - v167: a JS/TS/TSX parameter-list default `u = o` is the alias `const u = o` (#761): it reads `o` bare, so `o` stops being a member-only formal (its projection edges become mixed-formal edges), and it mints the alias twin def and the alias binding's own def (a destructuring default with an identifier value likewise), all on the owner's first line, so DataFlow edges and labels change.
-const CACHE_VERSION: u32 = 167;
+/// - v168: a write through a JS/TS/TSX alias (`const u = o; u.x = 1`, `u.x++`, `for (u.x of ..)`, a destructuring target) may-kills an earlier direct def of the same path (#783): an `exact` edge whose every unflagged route to the use crosses such a write becomes `NameOnly(AliasUnstable)`; labels only, edges identical.
+const CACHE_VERSION: u32 = 168;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -849,7 +850,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 167);
+        assert_eq!(super::CACHE_VERSION, 168);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -4,6 +4,17 @@ use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// The owner's alias map (alias name -> resolved target), re-derived for reaching definitions (#783): the
+/// producer's own non-synthetic derivation over the owner's lines. Transient; nothing is persisted.
+pub(crate) fn owner_alias_map(
+    parsed: &ParsedFile,
+    func_node: &tree_sitter::Node<'_>,
+) -> BTreeMap<String, String> {
+    let (start, end) = parsed.node_line_range(func_node);
+    let lines: BTreeSet<usize> = (start..=end).collect();
+    Producer::build_alias_map(parsed, func_node, &lines).0
+}
+
 impl Producer {
     /// Phase 3: Build a local alias map from simple assignments like `ptr = dev`.
     /// Returns (alias_map, raw_aliases) where alias_map maps alias name to

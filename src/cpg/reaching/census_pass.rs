@@ -15,6 +15,8 @@ pub(super) enum Pass {
     /// The #759 trace's control: production, solved under main's universe for an arrow whose body is a
     /// callable. It repeats none of the capture lines the production pass already wrote.
     ArrowControl,
+    /// The #783 trace's control: production without the alias may-kill.
+    NoAliasKill,
 }
 
 impl Pass {
@@ -25,12 +27,21 @@ impl Pass {
 
     /// Whether a recorded def of a JS/TS/TSX owner kills by `affects` (#674).
     pub(super) fn recorded_affects(self) -> bool {
-        matches!(self, Pass::Census | Pass::CensusLogged | Pass::ArrowControl)
+        matches!(
+            self,
+            Pass::Census | Pass::CensusLogged | Pass::ArrowControl | Pass::NoAliasKill
+        )
+    }
+
+    /// Whether a write through an alias may-kills an earlier direct def (#783): every pass but the
+    /// census-free control and its own control.
+    pub(super) fn alias_kills(self) -> bool {
+        !matches!(self, Pass::NoCensus | Pass::NoAliasKill)
     }
 
     /// Whether S1a writes its capture lines when the trace is on.
     pub(super) fn traces_capture(self) -> bool {
-        self.census() && self != Pass::ArrowControl
+        self.census() && !matches!(self, Pass::ArrowControl | Pass::NoAliasKill)
     }
 }
 
@@ -137,6 +148,41 @@ pub(super) fn traced(
         });
     let mut named = arrow.labels;
     let mut named_exact = arrow.exact;
+    // #783: a JS/TS/TSX edge whose label changes when a write through an alias does not may-kill was
+    // moved by it. Named first: the controls below keep the rule, so they never claim its moves.
+    if parsed.language.is_js_family() {
+        if let RdOutcome::Available(plain) = reaching_definitions_impl(
+            parsed,
+            func_node,
+            defs,
+            dfg_edges,
+            exact_edges,
+            file_cfg_edges,
+            Pass::NoAliasKill,
+            &mut None,
+        ) {
+            for edge in dfg_edges {
+                let key = (edge.from.clone(), edge.to.clone());
+                if let (Some(new), old) = (head.labels.get(&key), plain.labels.get(&key)) {
+                    if old != Some(new) && !named.contains(&key) {
+                        census_trace::emit(out, alias_kill::KILL_ALIAS, edge);
+                        named.insert(key);
+                    }
+                }
+            }
+            for edge in exact_edges {
+                let key = ExactFlowEdge::from_legacy(edge);
+                if let (Some(new), old) =
+                    (head.exact_labels.get(&key), plain.exact_labels.get(&key))
+                {
+                    if old != Some(new) && !named_exact.contains(&key) {
+                        census_trace::emit(out, alias_kill::KILL_ALIAS, edge);
+                        named_exact.insert(key);
+                    }
+                }
+            }
+        }
+    }
     if let Some(equal) = &by_affects {
         for edge in dfg_edges {
             let key = (edge.from.clone(), edge.to.clone());

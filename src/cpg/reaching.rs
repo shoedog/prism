@@ -12,6 +12,7 @@ use tree_sitter::Node;
 
 use super::{FlowConfidence, FlowDoubt};
 
+mod alias_kill;
 mod capture;
 mod capture_regions;
 mod census_defs;
@@ -410,6 +411,10 @@ fn reaching_definitions_impl(
     let buckets =
         def_buckets::DefinitionBuckets::with_kill_only(&defs, n_recorded, writers.as_deref());
     let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
+    // #783: writes through an alias may-kill (label-only); JS/TS/TSX owners.
+    let mut alias_kills = (pass.alias_kills() && parsed.language.is_js_family())
+        .then(|| alias_kill::AliasKills::new(parsed, func_node, &defs, n_recorded, &mapped_defs))
+        .flatten();
 
     let (in_sets, entry_reachable) =
         solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
@@ -484,6 +489,20 @@ fn reaching_definitions_impl(
             &binding_facts,
             &capture_facts,
         );
+        let use_node = statements
+            .get(edge.to.line)
+            .and_then(|line| line_index.get(&line).copied());
+        let label = alias_kill::AliasKills::refine(
+            alias_kills.as_mut(),
+            label,
+            &candidates,
+            use_node,
+            &defs,
+            &mapped_defs,
+            use_node.map(|node| &in_sets[node]),
+            &kill,
+            &successors,
+        );
         if label.is_exact()
             && edge.to.line < edge.from.line
             && (parsed.language != Language::Go || {
@@ -541,6 +560,20 @@ fn reaching_definitions_impl(
             (&mut statements, &line_index, function_start),
             &binding_facts,
             &capture_facts,
+        );
+        let use_node = statements
+            .get(edge.to.line)
+            .and_then(|line| line_index.get(&line).copied());
+        let label = alias_kill::AliasKills::refine(
+            alias_kills.as_mut(),
+            label,
+            &candidates,
+            use_node,
+            &defs,
+            &mapped_defs,
+            use_node.map(|node| &in_sets[node]),
+            &kill,
+            &successors,
         );
         exact_labels
             .entry(key)
@@ -998,3 +1031,6 @@ mod d3_tests;
 
 #[cfg(test)]
 mod refusal_classes_tests;
+
+#[cfg(test)]
+mod alias_kill_tests;

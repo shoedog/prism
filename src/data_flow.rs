@@ -15,6 +15,7 @@ mod storage;
 pub mod terraform;
 mod types;
 mod views;
+pub(crate) use build::owner_alias_map;
 pub(crate) use compact::assembly::{AssemblyId, AssemblyView};
 pub use compact::views::{IdIter, Locations};
 pub use storage::DataFlowGraph;
