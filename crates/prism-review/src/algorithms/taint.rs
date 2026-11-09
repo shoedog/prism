@@ -4,6 +4,7 @@
 //! propagates taint forward through assignments and function calls. Reports all
 //! paths from taint sources to potential sinks (SQL, exec, file ops, HTTP responses).
 
+mod boundary;
 mod cleansing;
 mod flat;
 mod go;

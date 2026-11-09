@@ -84,7 +84,8 @@ impl<'a> ReviewBoundaryHints<'a> {
         }
     }
 
-    /// Half-open byte ranges of positional argument expressions, in order.
+    /// Half-open argument-expression ranges in source order, including existing
+    /// Python keyword/splat spans. These do not establish parameter bindings.
     pub fn argument_spans(&self, call: &CallSite) -> Vec<Range<usize>> {
         let Some(parsed) = self.inputs.files.get(&call.caller.file) else {
             return Vec::new();
