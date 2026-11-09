@@ -53,7 +53,7 @@ fn rows() -> Vec<Row> {
 #[test]
 fn every_matrix_row_has_its_expected_label() {
     let all = rows();
-    assert_eq!(all.len(), 726, "matrix rows");
+    assert_eq!(all.len(), 741, "matrix rows");
     let mut failures = Vec::new();
     for r in &all {
         // `labels_of` spells the alias doubt as its debug form; the matrix uses the CLI's.
@@ -85,7 +85,7 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
         }
     }
     let moved = all.iter().filter(|r| r.kind == "MOVE").count();
-    assert_eq!(moved, 93, "rows the rule moves");
+    assert_eq!(moved, 94, "rows the rule moves");
     for r in &all {
         assert_eq!(
             r.fix,
