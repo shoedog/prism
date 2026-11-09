@@ -415,3 +415,14 @@ fn a_do_ending_an_if_arm_has_no_edge_from_its_header_past_the_loop() {
         "the condition exits to the code after the if: {e:?}"
     );
 }
+
+/// Main draws the then-end edge of an `if` from the last statement of its arm (the loop line) to the
+/// next line of the universe, which can be the first statement of the OTHER arm of an enclosing `if`.
+/// That edge belongs to the loop's line, not to an `if` starting there, so it goes (a kept copy made
+/// a def of one arm reach a use in the other: excalidraw `elbowArrow.ts` `startIsSpecial`).
+#[test]
+fn a_loop_ending_an_if_arm_does_not_reach_the_other_arm() {
+    let e = edges("function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 1;\n    if (!s) {\n      s = 2;\n      for (const a of xs) {\n        use(a);\n      }\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n");
+    assert!(!has(&e, 7, 12), "loop line -> the else arm: {e:?}");
+    assert!(has(&e, 7, 14), "loop exit -> after the outer if: {e:?}");
+}

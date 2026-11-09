@@ -153,18 +153,6 @@ impl EdgeSink {
         self.origins.retain(|_| next.next().unwrap_or(true));
     }
 
-    /// Remove the first edge `from -> to` (one copy: two builders can push the same pair).
-    fn remove_one(&mut self, from: usize, to: usize) {
-        if let Some(i) = self
-            .edges
-            .iter()
-            .position(|e| e.from_line == from && e.to_line == to)
-        {
-            self.edges.remove(i);
-            self.origins.remove(i);
-        }
-    }
-
     fn drain(&mut self) -> impl Iterator<Item = (CfgEdge, EdgeOrigin)> + '_ {
         self.edges.drain(..).zip(self.origins.drain(..))
     }
@@ -295,7 +283,7 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Edge
 
     // JS/TS: loop exits pass the header; a `do` condition is its own statement (#693, #697)
     if parsed.language.is_js_family() {
-        js_loops::build(func_node, parsed, &stmt_lines, edges);
+        js_loops::build(func_node, parsed, edges);
     }
 
     // Java: try/catch/finally (same structure as JS)
