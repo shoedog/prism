@@ -1,14 +1,20 @@
 //! The review facade: everything in `prism::api` plus the algorithm runner, SARIF and targets.
 //! Same compatibility promise as `prism::api` (see its module doc).
 
+mod diagnostics;
 mod run;
 
+pub use crate::algorithms::taint::boundary::{
+    display::{BoundaryDisplay as ReviewBoundaryDiagnostics, LocatedBoundaryNote as ContextNote},
+    records::{Availability as ReviewBoundaryAvailability, BoundaryKind as ReviewBoundaryKind},
+};
+pub use diagnostics::AlgorithmOutcome;
 pub use prism::api::*;
 
 pub use run::{
     annotate_finding_parse_quality, filter_result_findings, parse_algorithms, run_algorithm,
-    run_review, AlgorithmParams, ReviewOutcome, ReviewRun, DEFAULT_BARRIER_DEPTH,
-    DEFAULT_SPIRAL_MAX_RING, DEFAULT_TEMPORAL_DAYS,
+    run_algorithm_with_diagnostics, run_review, AlgorithmParams, ReviewOutcome, ReviewRun,
+    DEFAULT_BARRIER_DEPTH, DEFAULT_SPIRAL_MAX_RING, DEFAULT_TEMPORAL_DAYS,
 };
 
 pub use crate::output::sarif::{to_sarif, SarifInputs};

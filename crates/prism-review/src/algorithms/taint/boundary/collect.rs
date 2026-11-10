@@ -11,7 +11,7 @@ use prism::{
 use std::collections::BTreeMap;
 
 /// Inputs, context and trace must belong to the same completed review run.
-pub(super) fn collect(
+pub(crate) fn collect(
     inputs: &ReviewInputs,
     ctx: &CpgContext<'_>,
     trace: &TaintTrace,

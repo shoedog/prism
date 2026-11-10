@@ -1,0 +1,54 @@
+{
+  "lane": "Invocation-owned review API boundary diagnostics (#602 S2a)",
+  "test_targets": [{"prefix": "api_test::", "package": "prism", "target": "integration"}, {"prefix": "api::diagnostics::tests::", "package": "prism-review", "target": "lib"}],
+  "mutations": {
+    "RBD01-first-capture-omitted": [
+      "crates/prism-review/src/api/run.rs",
+      "if diagnostics.needs_collection() {",
+      "if false {",
+      "api_test::boundary_diagnostics::typed_legacy_and_direct_result_have_only_note_delta"
+    ],
+    "RBD02-legacy-append-omitted": [
+      "crates/prism-review/src/api/run.rs",
+      ".into_legacy_result(),",
+      ".result,",
+      "api_test::boundary_diagnostics::typed_legacy_and_direct_result_have_only_note_delta"
+    ],
+    "RBD03-raw-results-annotated": [
+      "crates/prism-review/src/api/run.rs",
+      "result.align_evidence();",
+      "annotate_finding_parse_quality(&mut result.findings, &inputs.files);\n    result.align_evidence();",
+      "api_test::multi_run_keeps_raw_result_findings_and_annotates_flattened_findings"
+    ],
+    "RBD04-second-capture-allowed": [
+      "crates/prism-review/src/api/diagnostics.rs",
+      "if self.complete.is_none() {",
+      "if true {",
+      "api::diagnostics::tests::capture_once_retains_complete_available_and_unavailable_states"
+    ],
+    "RBD05-nested-messages-rendered": [
+      "crates/prism-review/src/api/run.rs",
+      "result.align_evidence();",
+      "if let Some(notes) = diagnostics.project() { result.warnings.extend(notes.messages()); }\n    result.align_evidence();",
+      "api_test::boundary_diagnostics::duplicate_mixed_and_note_only_requests_reuse_one_population"
+    ],
+    "RBD06-ordinary-warnings-replaced": [
+      "crates/prism-review/src/api/diagnostics.rs",
+      "self.result.warnings.extend(diagnostics.messages());",
+      "self.result.warnings = diagnostics.messages();",
+      "api::diagnostics::tests::availability_and_ordinary_warnings_preserve_a_real_result"
+    ],
+    "RBD07-unavailability-hidden": [
+      "crates/prism-review/src/api/diagnostics.rs",
+      "if let Availability::ListingUnavailable(message) = self.availability() {",
+      "if let Availability::ListingUnavailable(message) = &Availability::Available {",
+      "api::diagnostics::tests::availability_and_ordinary_warnings_preserve_a_real_result"
+    ],
+    "RBD08-empty-findings-hide-notes": [
+      "crates/prism-review/src/api/run.rs",
+      "let diagnostics = diagnostics.project();",
+      "let diagnostics = if findings.is_empty() { None } else { diagnostics.project() };",
+      "api_test::boundary_diagnostics::finding_filter_cannot_remove_boundary_diagnostics"
+    ]
+  }
+}

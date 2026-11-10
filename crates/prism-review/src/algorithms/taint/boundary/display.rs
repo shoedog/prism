@@ -4,18 +4,55 @@ use prism::languages::Language;
 use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct LocatedBoundaryNote {
-    pub record: BoundaryRecord,
-    pub message: String,
+#[non_exhaustive]
+pub struct LocatedBoundaryNote {
+    pub(crate) record: BoundaryRecord,
+    pub(crate) message: String,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct BoundaryDisplay {
-    pub located: Vec<LocatedBoundaryNote>,
-    pub omitted_count: usize,
-    pub availability: Availability,
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct BoundaryDisplay {
+    pub(crate) located: Vec<LocatedBoundaryNote>,
+    pub(crate) omitted_count: usize,
+    pub(crate) availability: Availability,
+}
+impl LocatedBoundaryNote {
+    pub fn file(&self) -> &str {
+        &self.record.site.caller.file
+    }
+    pub fn line(&self) -> usize {
+        self.record.line
+    }
+    pub fn callee(&self) -> &str {
+        &self.record.callee
+    }
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
+        self.record.site.start_byte..self.record.site.end_byte
+    }
+    pub fn hint(&self) -> &ReviewImportHint {
+        &self.record.hint
+    }
+    pub fn kind(&self) -> BoundaryKind {
+        self.record.kind
+    }
+    pub fn language(&self) -> Language {
+        self.record.language
+    }
+    pub fn message(&self) -> &str {
+        &self.message
+    }
 }
 impl BoundaryDisplay {
-    pub(super) fn summary(&self) -> Option<String> {
+    pub fn located(&self) -> &[LocatedBoundaryNote] {
+        &self.located
+    }
+    pub fn omitted_count(&self) -> usize {
+        self.omitted_count
+    }
+    pub fn availability(&self) -> &Availability {
+        &self.availability
+    }
+    pub fn summary(&self) -> Option<String> {
         (self.omitted_count > 0).then(|| {
             format!(
                 "taint-context: {} more boundary calls not listed",
@@ -25,7 +62,7 @@ impl BoundaryDisplay {
     }
 }
 /// Accepts coherent collector records or identical duplicates, preserving input.
-pub(super) fn project(collection: &BoundaryCollection) -> BoundaryDisplay {
+pub(crate) fn project(collection: &BoundaryCollection) -> BoundaryDisplay {
     let mut ordered: Vec<_> = collection.records.iter().collect();
     ordered.sort_by(|a, b| display_order_key(a).cmp(&display_order_key(b)));
     ordered.dedup_by(|a, b| same_identity(a, b));
@@ -143,7 +180,10 @@ fn paths(paths: &[String]) -> String {
     )
 }
 fn quoted_token(text: &str) -> String {
-    let mut quoted = String::from("\"");
+    format!("\"{}\"", escape_content(text))
+}
+pub(crate) fn escape_content(text: &str) -> String {
+    let mut quoted = String::new();
     for c in text.chars() {
         match c {
             '"' => quoted.push_str("\\\""),
@@ -157,7 +197,6 @@ fn quoted_token(text: &str) -> String {
             c => quoted.push(c),
         }
     }
-    quoted.push('"');
     quoted
 }
 fn extra_control(c: char) -> bool {

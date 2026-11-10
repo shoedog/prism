@@ -1,24 +1,27 @@
 use prism::{api::ReviewImportHint, call_graph::FunctionId, languages::Language};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) struct PhysicalSite {
+pub(crate) struct PhysicalSite {
     pub caller: FunctionId,
     pub start_byte: usize,
     pub end_byte: usize,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum Availability {
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Availability {
+    #[default]
     Available,
     ListingUnavailable(String),
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum BoundaryKind {
+#[non_exhaustive]
+pub enum BoundaryKind {
     InRepo,
     GoDeclarationUnknown,
     Unresolved,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct BoundaryRecord {
+pub(crate) struct BoundaryRecord {
     pub site: PhysicalSite,
     pub line: usize,
     pub callee: String,
@@ -27,7 +30,7 @@ pub(super) struct BoundaryRecord {
     pub kind: BoundaryKind,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct BoundaryCollection {
+pub(crate) struct BoundaryCollection {
     pub availability: Availability,
     pub records: Vec<BoundaryRecord>,
 }

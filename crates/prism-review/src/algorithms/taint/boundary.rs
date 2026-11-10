@@ -1,11 +1,11 @@
-//! Review-owned matching policy; not wired into the slicing/output path.
+//! Review-owned boundary collection, matching and diagnostic projection.
 #[allow(dead_code)]
-pub(super) mod collect;
+pub(crate) mod collect;
 #[allow(dead_code)]
-pub(super) mod display;
+pub(crate) mod display;
 #[allow(dead_code)] // S1b.3 will consume this independently tested primitive.
 pub(super) mod occurrences;
 #[allow(dead_code)]
-mod records;
+pub(crate) mod records;
 #[allow(dead_code)]
 pub(super) mod recovery;

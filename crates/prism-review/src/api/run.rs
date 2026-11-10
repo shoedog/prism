@@ -1,3 +1,4 @@
+use super::diagnostics::RunDiagnostics;
 use crate::algorithms;
 use anyhow::{Context, Result};
 use prism::api::{build_context, load_review_inputs, ReviewInputs, ReviewOptions};
@@ -62,10 +63,37 @@ pub fn run_algorithm(
     params: &AlgorithmParams,
     repo: &Path,
 ) -> Result<SliceResult> {
+    Ok(
+        run_algorithm_with_diagnostics(algorithm, ctx, inputs, config, params, repo)?
+            .into_legacy_result(),
+    )
+}
+
+/// Run one algorithm with separate typed boundary diagnostics.
+pub fn run_algorithm_with_diagnostics(
+    algorithm: SlicingAlgorithm,
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+) -> Result<super::AlgorithmOutcome> {
     prism::build_pool::install(|| {
-        let mut result = run_algorithm_raw(algorithm, ctx, inputs, config, params, repo)?;
+        let mut diagnostics = RunDiagnostics::default();
+        let mut result = run_algorithm_raw(
+            algorithm,
+            ctx,
+            inputs,
+            config,
+            params,
+            repo,
+            &mut diagnostics,
+        )?;
         annotate_finding_parse_quality(&mut result.findings, &inputs.files);
-        Ok(result)
+        Ok(super::AlgorithmOutcome {
+            result,
+            diagnostics: diagnostics.project(),
+        })
     })
 }
 
@@ -76,6 +104,7 @@ fn run_algorithm_raw(
     config: &SliceConfig,
     params: &AlgorithmParams,
     repo: &Path,
+    diagnostics: &mut RunDiagnostics,
 ) -> Result<SliceResult> {
     let mut result = match algorithm {
         SlicingAlgorithm::BarrierSlice => {
@@ -118,7 +147,16 @@ fn run_algorithm_raw(
                 extra_sinks: Vec::new(),
                 return_flow: params.taint_return_flow,
             };
-            crate::algorithms::taint::slice(ctx, &inputs.diff, &taint_config)
+            if diagnostics.needs_collection() {
+                let (result, trace) =
+                    crate::algorithms::taint::slice_with_trace(ctx, &inputs.diff, &taint_config)?;
+                diagnostics.capture_once(|| {
+                    crate::algorithms::taint::boundary::collect::collect(inputs, ctx, &trace)
+                });
+                Ok(result)
+            } else {
+                crate::algorithms::taint::slice(ctx, &inputs.diff, &taint_config)
+            }
         }
         SlicingAlgorithm::ConditionedSlice => {
             let cond_str = params
@@ -332,6 +370,7 @@ pub fn filter_result_findings(
 /// map, never via `finding.parse_quality`.
 #[non_exhaustive]
 pub struct ReviewRun {
+    pub diagnostics: Option<super::ReviewBoundaryDiagnostics>,
     pub results: Vec<SliceResult>,
     pub findings: Vec<SliceFinding>,
     pub evidence: Vec<Option<EvidencePath>>,
@@ -353,13 +392,22 @@ pub fn run_review(
     prism::build_pool::install(|| {
         let mut results = Vec::new();
         let mut errors = Vec::new();
+        let mut diagnostics = RunDiagnostics::default();
 
         for &algorithm in algorithms {
             let algorithm_config = SliceConfig {
                 algorithm,
                 ..config.clone()
             };
-            match run_algorithm_raw(algorithm, ctx, inputs, &algorithm_config, params, repo) {
+            match run_algorithm_raw(
+                algorithm,
+                ctx,
+                inputs,
+                &algorithm_config,
+                params,
+                repo,
+                &mut diagnostics,
+            ) {
                 Ok(mut result) => {
                     filter_result_findings(
                         &mut result,
@@ -389,13 +437,19 @@ pub fn run_review(
             .flat_map(|result| result.evidence.clone())
             .collect();
         annotate_finding_parse_quality(&mut findings, &inputs.files);
+        let diagnostics = diagnostics.project();
+        let mut warnings = inputs.parse_warnings.clone();
+        if let Some(diagnostics) = &diagnostics {
+            warnings.extend(diagnostics.messages());
+        }
 
         ReviewRun {
+            diagnostics,
             results,
             findings,
             evidence,
             errors,
-            warnings: inputs.parse_warnings.clone(),
+            warnings,
             algorithms_run,
             min_confidence: inputs.min_confidence,
             resolution: inputs.resolution,
