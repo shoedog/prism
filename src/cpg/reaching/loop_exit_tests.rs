@@ -8,6 +8,10 @@
 //! edge to the other arm, which no loop transition owns): main's edges stand and every label of the
 //! owner is `nameonly/cfg_incomplete` (option O1), so their `main`/first-head columns are history only.
 //! MOVE rows are the ones the rule moves; HOLD rows are controls and moved-neither rows;
+//! ABSENT rows (merge of main 72be3b73, #788): rules U and D prune write-only and dominated def->use pairs from the
+//! source text before the CFG is built, so 265 rows (HOLD 154, MOVE 16, REFUSED 95) name a pair that no longer exists. A
+//! row is ABSENT only when new main 72be3b73 also lacks the pair (checked per row: `scripts/matrix_control.py`, 0
+//! rows absent on the head and present on main); the test asserts the pair is absent. No fixture lost all its rows.
 //! RESIDUAL rows are shapes of a loop tree that is not rewired (a one-line `do`, a condition sharing a
 //! line, a jump through a `finally`, a `for` initializer re-run by a back route, an unrewirable
 //! statement) and keep main's edges and labels, pinned as such. Since fold 1 of slice 2 such a tree is
@@ -73,7 +77,13 @@ fn every_matrix_row_has_its_expected_label() {
                 _ => l,
             })
             .collect();
-        if got != [r.expected.clone()] {
+        // ABSENT rows: the pair no longer exists (see the module doc); they assert exactly that.
+        let ok = if r.kind == "ABSENT" {
+            got.is_empty()
+        } else {
+            got == [r.expected.clone()]
+        };
+        if !ok {
             failures.push(format!(
                 "{} {} ({}; main {}): want {}, got {got:?}",
                 r.fixture, r.edge, r.kind, r.main, r.expected
@@ -91,17 +101,26 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
             "MOVE" => assert_ne!(r.main, r.expected, "{} {}", r.fixture, r.edge),
             "HOLD" | "RESIDUAL" => assert_eq!(r.main, r.expected, "{} {}", r.fixture, r.edge),
             "REFUSED" => assert_eq!(r.expected, "nameonly/cfg_incomplete", "{}", r.fixture),
+            "ABSENT" => assert_eq!(r.expected, "-", "{} {}", r.fixture, r.edge),
             other => panic!("kind {other}"),
         }
     }
     let moved = all.iter().filter(|r| r.kind == "MOVE").count();
-    assert_eq!(moved, 94, "rows the rule moves");
+    assert_eq!(moved, 78, "rows the rule moves");
     assert_eq!(
         all.iter().filter(|r| r.kind == "REFUSED").count(),
-        199,
+        104,
         "rows of refused trees"
     );
-    for r in all.iter().filter(|r| r.kind != "REFUSED") {
+    assert_eq!(
+        all.iter().filter(|r| r.kind == "ABSENT").count(),
+        265,
+        "rows whose pair #788 removed"
+    );
+    for r in all
+        .iter()
+        .filter(|r| r.kind != "REFUSED" && r.kind != "ABSENT")
+    {
         assert_eq!(
             r.fix,
             r.first_head != r.expected,
@@ -110,7 +129,11 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
             r.edge
         );
     }
-    assert_eq!(all.iter().filter(|r| r.fix).count(), 48, "round-1 FIX rows");
+    assert_eq!(
+        all.iter().filter(|r| r.fix && r.kind != "ABSENT").count(),
+        37,
+        "round-1 FIX rows that still have a pair"
+    );
     // Every move to `exact` was read by hand: a `do` condition no longer sits at the header (the first
     // iteration reaches the body entry), a `break`/`continue`/switch `break` reaches the continue point
     // or the code after the loop, an end-of-body arm reaches the next iteration, a `for`..`in`/`of`
@@ -123,14 +146,8 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
     assert_eq!(
         promoted,
         [
-            "continue_in_do a@1->a@4",
-            "do_cond_assign a@1->a@4",
-            "do_cond_own_line a@1->a@4",
-            "do_cond_write a@1->a@4",
-            "f1_ctl_finally_encloses_loop x@5->x@9",
             "f1_ctl_jump_in_finally_block x@7->x@11",
             "f1_ctl_try_without_finally x@5->x@11",
-            "f1_ctl_try_without_finally x@8->x@5",
             "f2_ctl_do_rewirable x@2->x@4",
             "f2_do_else_empty_stmt x@2->x@4",
             "f4_destructuring_head a@5->a@4",
@@ -143,19 +160,12 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
             "f4_labeled_continue_from_inner x@5->x@3",
             "f4_labeled_continue_from_inner x@5->x@9",
             "f5_comment_only_catch y@7->y@4",
-            "f5_comment_only_catch y@7->y@5",
             "f5_empty_catch y@7->y@4",
-            "f5_empty_catch y@7->y@5",
             "f5_empty_else y@7->y@4",
-            "f5_empty_else y@7->y@5",
             "f5_empty_finally x@6->x@4",
             "f5_empty_then y@8->y@4",
-            "f5_empty_then y@8->y@5",
             "s1_supported_labeled_continue x@5->x@10",
-            "s1_supported_labeled_continue x@5->x@8",
             "switch_in_loop i@5->i@3",
-            "ts_do_cond_write a@1->a@4",
-            "tsx_do_cond_write a@1->a@4",
         ]
     );
 }

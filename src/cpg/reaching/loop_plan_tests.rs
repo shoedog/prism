@@ -45,11 +45,13 @@ pub(crate) const REFUSED: &[Case] = &[
     Case { name: "head_collapse", why: "Unresolved(HeadCollapse)",
         src: "function f(c) {\n  let z = 1;\n  while (c()) x = g();\n  sink(x, z);\n}\n",
         edges: &["z@2->z@4", "c@1->c@3", "x@3->x@4"] },
+    // (Merge of #788: the former pair `x@3->x@5` is a dominated def into a write-only line, which rule D/U prunes
+    // on main too; the fixture asserts pairs that survive it: reads of `x`, `w` and `arr`.)
     // A foreign record: the arrow shares line 4 with `x = f();`, so the outer RD selects the arrow's branch
     // edges `4 -> 6`, which leave the loop from its body line and cannot be owned by it.
     Case { name: "foreign_admitted", why: "Unresolved(ForeignAdmitted)",
         src: "function n(arr) {\n  let w = 1;\n  let x = 0;\n  while ((x = next())) {\n    x = f(); arr.forEach(y => { if (y) { if (z) g(); } });\n  }\n  sink(x, w);\n}\n",
-        edges: &["w@2->w@7", "x@4->x@7", "x@3->x@5"] },
+        edges: &["w@2->w@7", "x@4->x@7", "x@3->x@7", "x@5->x@7", "arr@1->arr.forEach@5"] },
     // A callback's loop is refused (head collapse); the enclosing function holds no loop tree of its own, so
     // O1 refuses the arrow's labels only (`cfg::js_loops::plan_tests::only_the_owner_of_a_refused_tree...`).
     Case { name: "callback_head_collapse", why: "Unresolved(HeadCollapse)",
