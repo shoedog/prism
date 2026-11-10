@@ -24,6 +24,7 @@ mod review_no_diagrams_test;
 mod sarif_shape_test;
 mod sarif_test;
 mod skills_test;
+mod taint_context_output_test;
 mod taint_reaches_test;
 mod taint_sink_strength_view_test;
 mod targets_test;

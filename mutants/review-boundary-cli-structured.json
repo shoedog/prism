@@ -1,0 +1,42 @@
+{
+  "lane": "Structured CLI boundary diagnostics (#602 S2c.1)",
+  "test_targets": [{"prefix": "taint_context_output_test::", "package": "prism-review", "target": "cli"}],
+  "mutations": {
+    "RSC01-single-append-omitted": [
+      "crates/prism-review/src/main.rs",
+      "diagnostics.iter().flat_map(|d| d.messages()),",
+      "std::iter::empty::<String>(),",
+      "taint_context_output_test::structured_single_multi_population_and_payloads"
+    ],
+    "RSC02-multi-aggregate-replaced": [
+      "crates/prism-review/src/main.rs",
+      "let warnings = run.warnings;",
+      "let warnings = inputs.parse_warnings.clone();",
+      "taint_context_output_test::structured_single_multi_population_and_payloads"
+    ],
+    "RSC03-single-sarif-omitted": [
+      "crates/prism-review/src/main.rs",
+      ".resolution(cli.resolution);\n                    if let Some(diagnostics) = &diagnostics {",
+      ".resolution(cli.resolution);\n                    if let Some(diagnostics) = diagnostics.as_ref().filter(|_| false) {",
+      "taint_context_output_test::sarif_typed_notes_keep_original_channels"
+    ],
+    "RSC04-multi-sarif-omitted": [
+      "crates/prism-review/src/main.rs",
+      ".resolution(resolution);\n                    if let Some(diagnostics) = &diagnostics {",
+      ".resolution(resolution);\n                    if let Some(diagnostics) = diagnostics.as_ref().filter(|_| false) {",
+      "taint_context_output_test::sarif_typed_notes_keep_original_channels"
+    ],
+    "RSC05-rendered-note-feedback": [
+      "crates/prism-review/src/main.rs",
+      "let algorithms_run = vec![algorithm.name().to_string()];\n                let document = {\n                    let mut sarif = output::SarifInputs::new(&result.findings)\n                        .evidence(&result.evidence)\n                        .parse_warnings(&inputs.parse_warnings)",
+      "let algorithms_run = vec![algorithm.name().to_string()];\n                let parse_warnings = cli_output::compose_warnings(&inputs.parse_warnings, &[], diagnostics.iter().flat_map(|d| d.messages()));\n                let document = {\n                    let mut sarif = output::SarifInputs::new(&result.findings)\n                        .evidence(&result.evidence)\n                        .parse_warnings(&parse_warnings)",
+      "taint_context_output_test::sarif_typed_notes_keep_original_channels"
+    ],
+    "RSC06-ordinary-messages-deduplicated": [
+      "crates/prism-review/src/cli_output.rs",
+      ".chain(messages)\n        .collect()",
+      ".chain(messages)\n        .collect::<std::collections::BTreeSet<_>>()\n        .into_iter()\n        .collect()",
+      "taint_context_output_test::ordinary_message_composition_and_bytes"
+    ]
+  }
+}

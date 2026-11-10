@@ -1,3 +1,26 @@
+pub(super) fn compose_warnings(
+    parse: &[String],
+    ordinary: &[String],
+    messages: impl IntoIterator<Item = String>,
+) -> Vec<String> {
+    parse
+        .iter()
+        .chain(ordinary)
+        .cloned()
+        .chain(messages)
+        .collect()
+}
+
+pub(super) fn write_messages(
+    writer: &mut impl std::io::Write,
+    messages: &[String],
+) -> std::io::Result<()> {
+    for message in messages {
+        writeln!(writer, "WARNING: {message}")?;
+    }
+    Ok(())
+}
+
 pub(super) fn targets_exit_code(strict: bool, errors: &[prism::slice::AlgorithmError]) -> i32 {
     if strict && !errors.is_empty() {
         3

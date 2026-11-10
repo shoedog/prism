@@ -669,6 +669,8 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             &algorithm_params,
             repo,
         );
+        let diagnostics = run.diagnostics;
+        let warnings = run.warnings;
         let results = run.results;
         let all_errors = run.errors;
         let algorithms_run = run.algorithms_run;
@@ -719,7 +721,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     all_findings: filtered_all_findings,
                     findings_below_floor,
                     errors: all_errors,
-                    warnings: inputs.parse_warnings.clone(),
+                    warnings,
                     parse_quality: inputs.parse_quality.clone(),
                     diagram_warnings: all_diagram_warnings.clone(),
                 };
@@ -747,7 +749,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     results: review_results,
                     all_findings,
                     errors: all_errors,
-                    warnings: inputs.parse_warnings.clone(),
+                    warnings,
                     parse_quality: inputs.parse_quality.clone(),
                     diagram_warnings: all_diagram_warnings.clone(),
                 };
@@ -766,8 +768,8 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     .iter()
                     .flat_map(|r| r.diagram_warnings.iter().cloned())
                     .collect();
-                let document = output::to_sarif(
-                    &output::SarifInputs::new(&all_findings)
+                let document = {
+                    let mut sarif = output::SarifInputs::new(&all_findings)
                         .evidence(&all_evidence)
                         .errors(&all_errors)
                         .parse_warnings(&inputs.parse_warnings)
@@ -778,8 +780,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                         .files(&inputs.files)
                         .sources(&inputs.sources)
                         .min_confidence(min_confidence)
-                        .resolution(resolution),
-                );
+                        .resolution(resolution);
+                    if let Some(diagnostics) = &diagnostics {
+                        sarif = sarif.boundary_diagnostics(diagnostics);
+                    }
+                    output::to_sarif(&sarif)
+                };
                 println!("{}", serde_json::to_string_pretty(&document)?);
                 emit_warnings_to_stderr(&all_diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
@@ -832,7 +838,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
     } else {
         // --- Single-algorithm run ---
         let algorithm = algorithms_to_run[0];
-        let mut result = prism_review::api::run_algorithm(
+        let outcome = prism_review::api::run_algorithm_with_diagnostics(
             algorithm,
             &built.ctx,
             &inputs,
@@ -840,6 +846,9 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             &algorithm_params,
             repo,
         )?;
+        let diagnostics = outcome.diagnostics;
+        let mut result = outcome.result;
+        let ordinary_warnings = std::mem::take(&mut result.warnings);
         result.warnings = inputs.parse_warnings.clone();
         prism_review::api::filter_result_findings(
             &mut result,
@@ -847,6 +856,13 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             cli.min_confidence,
             cli.resolution,
         );
+        if matches!(cli.format.as_str(), "json" | "review") {
+            result.warnings = cli_output::compose_warnings(
+                &inputs.parse_warnings,
+                &ordinary_warnings,
+                diagnostics.iter().flat_map(|d| d.messages()),
+            );
+        }
 
         match cli.format.as_str() {
             "review" => {
@@ -890,13 +906,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             "sarif" => {
                 // Single-run: no AlgorithmError can exist (a failing algorithm
                 // is a hard `?` above), so `errors` keeps the builder's empty
-                // default; `result.warnings` already carries the parse warnings
-                // assigned at the top of this branch.
+                // default. Keep original warning channels separate from notes.
                 let algorithms_run = vec![algorithm.name().to_string()];
-                let document = output::to_sarif(
-                    &output::SarifInputs::new(&result.findings)
+                let document = {
+                    let mut sarif = output::SarifInputs::new(&result.findings)
                         .evidence(&result.evidence)
-                        .parse_warnings(&result.warnings)
+                        .parse_warnings(&inputs.parse_warnings)
                         .load_warnings(&inputs.load_warnings)
                         .build_warnings(&built.warnings)
                         .algorithms_run(&algorithms_run)
@@ -904,8 +919,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                         .files(&inputs.files)
                         .sources(&inputs.sources)
                         .min_confidence(cli.min_confidence)
-                        .resolution(cli.resolution),
-                );
+                        .resolution(cli.resolution);
+                    if let Some(diagnostics) = &diagnostics {
+                        sarif = sarif.boundary_diagnostics(diagnostics);
+                    }
+                    output::to_sarif(&sarif)
+                };
                 println!("{}", serde_json::to_string_pretty(&document)?);
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
