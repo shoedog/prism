@@ -75,6 +75,12 @@ pub(super) fn admits(parsed: &ParsedFile, root: Range) -> bool {
     }
 }
 
+/// Whether `parsed` is being built under a plan pass's assumption (not the standing build).
+pub(super) fn assuming(parsed: &ParsedFile) -> bool {
+    let key = file_key(parsed);
+    ASSUMED.with(|c| c.borrow().as_ref().is_some_and(|(k, _)| *k == key))
+}
+
 /// The outermost loops main's own policy routes (the plan's first assumption), as byte ranges.
 #[cfg(test)]
 pub(in crate::cfg) fn legacy_candidates(parsed: &ParsedFile) -> BTreeSet<Range> {

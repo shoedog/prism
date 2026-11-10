@@ -470,6 +470,81 @@ fn a_loop_ending_an_if_arm_through_a_wrapper_is_admitted_and_replaces_the_then_e
     );
 }
 
+/// Slice 3, hand-derived. Universe: L2 `x = 0`, L3 `if`, L4 `try`, L5 `while`, L6 `x = 1`, L9 `x = 2`,
+/// L12 `return`, L14 `sink`. Sequential (2,3) (3,4) (4,5) (5,6) (9,12) (the loop body's end (6,9) into the
+/// `catch` is the loop's bypass and goes; `return` falls through nowhere); the `if`'s entries (3,4) (3,12);
+/// the unmodelled `try` -> `catch` edge (4,9); the loop's back edge (6,5) and exit (5,14) (to `sink`, out
+/// through the `try` and the arm); and the `try`'s own completions replacing its then-end (4,14): the loop's
+/// exit (5,14) and the `catch`'s last statement (9,14).
+#[test]
+fn a_try_ending_an_if_arm_and_holding_a_loop_is_replaced_by_its_completions() {
+    let src = "function f(c, k) {\n  let x = 0;\n  if (c) {\n    try {\n      while (k()) {\n        x = 1;\n      }\n    } catch (e) {\n      x = 2;\n    }\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n";
+    assert_eq!(refusal(src), "admitted");
+    let want: BTreeSet<(usize, usize)> = [
+        (2, 3),
+        (3, 4),
+        (3, 12),
+        (4, 5),
+        (4, 9),
+        (5, 6),
+        (5, 14),
+        (6, 5),
+        (9, 12),
+        (9, 14),
+    ]
+    .into();
+    assert_eq!(edges(src), want);
+    // Main: the then-end leaves the `try` entry past the loop and the body's end falls into the `catch`.
+    assert!(has(&main_edges(src), 4, 14) && has(&main_edges(src), 6, 9));
+}
+
+/// A `switch` ending an arm and holding a loop: the loop's exit and the switch's own completions reach the
+/// code after the `if`; the then-end from the `switch` entry is replaced (its pair (4,13) is also the
+/// switch's skip edge, `no case matches`, since there is no `default`).
+#[test]
+fn a_switch_ending_an_if_arm_and_holding_a_loop_is_replaced_by_its_completions() {
+    let src = "function f(c, k, a) {\n  let x = 0;\n  if (c) {\n    switch (a) {\n      case 1:\n        while (k()) {\n          x = 1;\n        }\n    }\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n";
+    assert_eq!(refusal(src), "admitted");
+    let e = edges(src);
+    assert!(has(&e, 6, 13), "the loop exits to sink: {e:?}");
+    assert!(has(&e, 4, 13), "no case matches: {e:?}");
+    assert!(has(&e, 7, 6), "the body completes into the header: {e:?}");
+    assert!(
+        !has(&e, 7, 13),
+        "the body's end does not skip the header: {e:?}"
+    );
+}
+
+/// A `break` of a `switch` that sits inside the wrapper but outside any loop's tree: the wrapper emits its
+/// edge (L9 -> `sink` L16), so `case 1`'s end is not lost when the then-end is replaced.
+#[test]
+fn a_switch_break_inside_a_delegated_wrapper_gets_an_edge() {
+    let src = "function f(c, k) {\n  let x = 0;\n  if (c) {\n    switch (k) {\n      case 1:\n        while (g()) {\n          x = 1;\n        }\n        break;\n      default:\n        x = 2;\n    }\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n";
+    assert_eq!(refusal(src), "admitted");
+    let e = edges(src);
+    assert!(
+        has(&e, 9, 16),
+        "break -> after the switch and the if: {e:?}"
+    );
+    assert!(has(&e, 11, 16), "default's end -> after the if: {e:?}");
+    assert!(has(&e, 6, 9), "the loop exits into the break: {e:?}");
+    assert!(
+        !main_edges(src).contains(&(9, 16)),
+        "main has no edge for it"
+    );
+}
+
+/// A `try -> finally` edge that enters the loop's first line from outside is no reason to refuse (the
+/// rewrite changes nothing into the head): admitted, and the loop body still completes into the header.
+#[test]
+fn a_try_edge_entering_the_loop_from_outside_does_not_refuse_the_tree() {
+    let src = "function f(k, a) {\n  let x = 0;\n  try {\n    a();\n  } finally {\n    while (k()) {\n      x = 1;\n    }\n  }\n  sink(x);\n}\n";
+    assert_eq!(refusal(src), "admitted");
+    let e = edges(src);
+    assert!(has(&e, 3, 6), "try -> finally: {e:?}");
+    assert!(has(&e, 7, 6) && has(&e, 6, 10), "{e:?}");
+}
+
 /// The same shape with the loop the direct last statement of the arm is admitted: the then-end edge
 /// leaves the loop itself, and the tree owns it.
 #[test]

@@ -216,6 +216,13 @@ pub(super) fn drop_nested_copies<'p>(
         })
         .collect();
     if keep.iter().any(|k| !k) {
+        trace_drops(
+            parsed,
+            owner,
+            edges.live_records().unwrap_or(&[]),
+            &keep,
+            "nested",
+        );
         edges.retain_flags(&keep);
     }
 }
@@ -244,3 +251,56 @@ fn nested_owner<'p>(
 #[cfg(test)]
 #[path = "replace_tests.rs"]
 mod tests;
+
+/// `PRISM_CFG_OWNERSHIP_TRACE=1`: the standing build's drops and emissions, one line each (the accounting of
+/// the corpus gate: every removed edge is a dropped record, every added edge an emission). Plan passes
+/// (assumed admission) are not the standing build and print nothing.
+pub(super) fn trace_drops(
+    parsed: &ParsedFile,
+    owner: Node<'_>,
+    live: &[EdgeRecord],
+    keep: &[bool],
+    kind: &str,
+) {
+    if !crate::cfg::js_disposition::trace_enabled() || super::plan::assuming(parsed) {
+        return;
+    }
+    for (r, _) in live.iter().zip(keep).filter(|(_, k)| !**k) {
+        eprintln!(
+            "own-drop {} owner=[{},{}) {kind} #{} {:?}/{:?} L{}->L{}",
+            parsed.path,
+            owner.start_byte(),
+            owner.end_byte(),
+            r.id,
+            r.producer,
+            r.role,
+            r.from_line,
+            r.to_line
+        );
+    }
+}
+
+/// The edges the rewrite emitted (see `trace_drops`).
+pub(super) fn trace_emitted(parsed: &ParsedFile, owner: Node<'_>, edges: &EdgeSink) {
+    if !crate::cfg::js_disposition::trace_enabled() || super::plan::assuming(parsed) {
+        return;
+    }
+    for r in edges
+        .live_records()
+        .unwrap_or(&[])
+        .iter()
+        .filter(|r| matches!(r.producer, Producer::JsLoops | Producer::Jump))
+    {
+        eprintln!(
+            "own-emit {} owner=[{},{}) #{} {:?}/{:?} L{}->L{}",
+            parsed.path,
+            owner.start_byte(),
+            owner.end_byte(),
+            r.id,
+            r.producer,
+            r.role,
+            r.from_line,
+            r.to_line
+        );
+    }
+}

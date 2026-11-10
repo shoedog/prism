@@ -185,6 +185,11 @@ pub(crate) fn do_tree_rewirable(parsed: &ParsedFile, do_node: &Node<'_>) -> bool
 }
 
 pub(super) fn build<'p>(owner: Node<'p>, parsed: &'p ParsedFile, edges: &mut EdgeSink) {
+    build_inner(owner, parsed, edges);
+    replace::trace_emitted(parsed, owner, edges);
+}
+
+fn build_inner<'p>(owner: Node<'p>, parsed: &'p ParsedFile, edges: &mut EdgeSink) {
     if main_loop_cfg() {
         return;
     }
@@ -215,6 +220,13 @@ pub(super) fn build<'p>(owner: Node<'p>, parsed: &'p ParsedFile, edges: &mut Edg
     let Some(drops) = replace::own_drops(owner, parsed, edges) else {
         return;
     };
+    replace::trace_drops(
+        parsed,
+        owner,
+        edges.live_records().unwrap_or(&[]),
+        &drops.keep,
+        "own",
+    );
     edges.retain_flags(&drops.keep);
     let mut have: BTreeSet<(usize, usize)> = edges
         .edges
