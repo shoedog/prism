@@ -59,6 +59,12 @@ impl Producer {
                 *owner_counts.entry(key).or_insert(0usize) += 1;
             }
         }
+        // The write-census tables load once per process. The JS U/D owner switch reads
+        // them, so load them before the first owner's profile interval opens; otherwise
+        // that owner is charged for the load.
+        if parsed.language.is_js_family() {
+            let _ = crate::js_write_census::tables::Tables::shared();
+        }
         'functions: for func_node in function_nodes {
             let func_name = match parsed.dfg_owner_name(&func_node) {
                 Some(n) => n,
