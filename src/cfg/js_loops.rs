@@ -52,6 +52,7 @@ mod facts;
 mod placement;
 mod plan;
 mod replace;
+mod tryflow;
 pub(super) use facts::{tree_facts, LoopFacts, TreeFacts};
 #[cfg(test)]
 pub(super) use plan::legacy_candidates;

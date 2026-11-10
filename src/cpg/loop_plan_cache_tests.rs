@@ -34,8 +34,10 @@ fn an_admitted_and_a_refused_tree_agree_on_cold_full_hit_and_partial_hit() {
 fn trees_whose_admission_changed_in_slice_3_agree_on_cold_full_hit_and_partial_hit() {
     parity(SLICE3, |plan| {
         assert_eq!(plan.get("trees"), Some(&3), "{plan:?}");
-        assert_eq!(plan.get("admitted"), Some(&3), "{plan:?}");
-        assert_eq!(plan.get("owners_refused"), None, "{plan:?}");
+        // `wrapped` holds a `try`: since T2 its owner is refused whole (`TryFlow`); `cb` and `decl` stay admitted.
+        assert_eq!(plan.get("admitted"), Some(&2), "{plan:?}");
+        assert_eq!(plan.get("refused.try_flow"), Some(&1), "{plan:?}");
+        assert_eq!(plan.get("owners_refused"), Some(&1), "{plan:?}");
     });
 }
 

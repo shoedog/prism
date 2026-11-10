@@ -248,14 +248,13 @@ fn a_hoisted_function_declaration_in_a_body_is_not_a_body_occurrence() {
 #[test]
 fn a_wrapper_arm_is_replaced_by_its_completions_and_an_unrouted_one_is_refused() {
     // try / switch arms: delegated (see `js_ownership_tests`); labels: after the arm `x` is 1 or 2 or 0.
-    for name in ["try_arm", "switch_arm"] {
-        let src = EXTRA.iter().find(|(n, _)| *n == name).unwrap().1;
-        assert_eq!(
-            parse(JS, src).js_loop_plan().verdicts[0].why,
-            None,
-            "{name}"
-        );
-    }
+    let sw = EXTRA.iter().find(|(n, _)| *n == "switch_arm").unwrap().1;
+    assert_eq!(parse(JS, sw).js_loop_plan().verdicts[0].why, None);
+    let tr = EXTRA.iter().find(|(n, _)| *n == "try_arm").unwrap().1;
+    assert_eq!(
+        parse(JS, tr).js_loop_plan().verdicts[0].why,
+        Some(Why::TryFlow)
+    );
     // A `break` of the switch inside the wrapper: the wrapper emits its edge, so the tree is admitted.
     let owned = EXTRA
         .iter()
@@ -275,7 +274,7 @@ fn a_wrapper_arm_is_replaced_by_its_completions_and_an_unrouted_one_is_refused()
             crate::cfg::js_disposition::Unres::WrapperEntryThenEnd
         ))
     );
-    // Two trees in one wrapper: the first claims the record, both are admitted.
+    // Two trees in one try wrapper: both belong to a try owner, refused whole (T2).
     let two = EXTRA
         .iter()
         .find(|(n, _)| *n == "two_trees_in_a_wrapper")
@@ -283,7 +282,7 @@ fn a_wrapper_arm_is_replaced_by_its_completions_and_an_unrouted_one_is_refused()
         .1;
     let p = parse(JS, two).js_loop_plan().clone();
     assert!(
-        p.verdicts.iter().all(|v| v.why.is_none()),
+        p.verdicts.iter().all(|v| v.why == Some(Why::TryFlow)),
         "{:?}",
         p.verdicts
     );
@@ -297,22 +296,17 @@ const TC_NO_FINALLY: &str = "function f(c) {\n  let x = 0;\n  if (c) {\n    try 
 const TC_PRESERVING: &str = "function f(c, k) {\n  let x = 0;\n  if (c) {\n    try {\n      while (k()) {\n        work();\n      }\n    } catch (e) {\n      x = seed();\n    } finally {\n      cleanup();\n    }\n  } else {\n    return;\n  }\n  sink(x);\n}\n";
 
 #[test]
-fn a_try_wrapper_whose_catch_flow_is_not_accounted_is_not_delegated() {
-    // sol W1. RED on 975aabdf: `x@7->x@20` was `exact` although every path from L7 to `sink` writes `x`
-    // (`next()` at L8 or `other()` at L12). `catch` -> `finally` is drawn from the catch's FIRST statement
-    // (L7 -> L15), outside every loop footprint; the wrapper completion L15 -> L20 completed an unflagged
-    // route around both writes. A catch with more than one statement (or a compound one) is refused.
+fn a_try_owner_is_refused_whole_and_its_labels_are_cfg_incomplete() {
+    // sol W1 / T2. On 975aabdf `x@7->x@20` was `exact` although every path from L7 to `sink` writes `x`
+    // (`next()` at L8 or `other()` at L12): `catch` -> `finally` is drawn from the catch's first statement (L7 -> L15),
+    // outside every loop footprint, and the wrapper completion L15 -> L20 completed an unflagged route. Fold 1 refused
+    // by catch shape; T2 refuses the OWNER that contains a `try` (`TryFlow`), callable-wide, whatever the shape.
     let p = parse(JS, TC).js_loop_plan().clone();
-    assert_eq!(
-        p.verdicts[0].why,
-        Some(Why::Unresolved(
-            crate::cfg::js_disposition::Unres::WrapperEntryThenEnd
-        ))
-    );
+    assert_eq!(p.verdicts[0].why, Some(Why::TryFlow));
     assert!(p.refuses_owner(p.verdicts[0].owner));
-    let l = labels_of(JS, TC, "x@7->x@20");
-    assert!(!l.contains(&"exact".to_string()), "{l:?}");
-    // The then-end stays: nothing was dropped for the refused tree.
+    // A refused surviving pair is `cfg_incomplete`, never a fabricated `killed`.
+    assert_eq!(labels_of(JS, TC, "x@7->x@20"), ["nameonly/cfg_incomplete"]);
+    // Main's geometry stands: nothing dropped, the then-end is still there.
     let parsed = parse(JS, TC);
     let all = recorders(&parsed);
     let rec = &all[0].1;
@@ -324,28 +318,29 @@ fn a_try_wrapper_whose_catch_flow_is_not_accounted_is_not_delegated() {
 }
 
 #[test]
-fn a_try_without_a_finally_has_no_catch_to_finally_record_and_is_delegated() {
-    // Control: no `finally`, so there is no first-statement bypass. Delegated; the truth is still `killed`
-    // (every path writes `x`), and the label must not be `exact`.
+fn a_try_without_a_finally_or_with_a_preserving_catch_is_refused_too() {
+    // Fold 1 delegated both (controls). T2 has no shape whitelist: the owner holds a `try`, so both are `TryFlow`
+    // and every surviving pair is `cfg_incomplete`.
     assert_eq!(
         parse(JS, TC_NO_FINALLY).js_loop_plan().verdicts[0].why,
-        None
+        Some(Why::TryFlow)
     );
-    let l = labels_of(JS, TC_NO_FINALLY, "x@7->x@19");
-    assert!(!l.contains(&"exact".to_string()), "{l:?}");
-}
-
-#[test]
-fn a_try_whose_catch_is_one_simple_statement_keeps_its_exact_route() {
-    // Control with a genuinely preserving route: the `catch`'s first statement IS its write (L9), so
-    // L9 -> `finally` (L11) -> `sink` (L16) skips nothing. Delegated; `x@9->x@16` is truly `exact`
-    // (nothing between), and so is `x@2->x@16` (the body completes without writing `x`).
+    assert_eq!(
+        labels_of(JS, TC_NO_FINALLY, "x@7->x@18"),
+        ["nameonly/cfg_incomplete"]
+    );
     assert_eq!(
         parse(JS, TC_PRESERVING).js_loop_plan().verdicts[0].why,
-        None
+        Some(Why::TryFlow)
     );
-    assert!(labels_of(JS, TC_PRESERVING, "x@9->x@16").contains(&"exact".to_string()));
-    assert!(labels_of(JS, TC_PRESERVING, "x@2->x@16").contains(&"exact".to_string()));
+    assert_eq!(
+        labels_of(JS, TC_PRESERVING, "x@9->x@16"),
+        ["nameonly/cfg_incomplete"]
+    );
+    assert_eq!(
+        labels_of(JS, TC_PRESERVING, "x@2->x@16"),
+        ["nameonly/cfg_incomplete"]
+    );
 }
 
 /// `src`'s first owner dropped `(from, to)` by `dropped_by` and the surviving emission `(rfrom, rto)` of the
@@ -389,21 +384,10 @@ fn each_dropped_obligation_has_its_own_replacement_edge() {
     // exit (5,11) to `done()` (the then-end (5,11) is that same pair).
     let d = "function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 2;\n    for (const a of xs) {\n      use(a);\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n";
     assert_replaced(d, (Producer::LoopExit, 5, 9), (5, 11, LoopExit));
-    // Wrapper arms (delegated): label (L4 -> L11 replaced by the do's condition L7 -> L11), try (L4 -> L14 by
-    // the loop exit L5 and the catch's last statement L9), switch (L4 -> L13 by the header skip L4 and the
+    // Wrapper arms (delegated): label (L4 -> L11 replaced by the do's condition L7 -> L11), switch (L4 -> L13 by the header skip L4 and the
     // loop exit L6), nested if (L4 -> L14 by its skip L4... see the fixtures).
     let label = "function f(c, k) {\n  let x = 0;\n  if (c) {\n    again:\n    do {\n      x = 1;\n    } while (k());\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n";
     assert_replaced(label, (Producer::ThenEnd, 4, 11), (7, 11, LoopExit));
-    assert_replaced(
-        extra("try_arm"),
-        (Producer::ThenEnd, 4, 14),
-        (5, 14, LoopExit),
-    );
-    assert_replaced(
-        extra("try_arm"),
-        (Producer::ThenEnd, 4, 14),
-        (9, 14, NormalCompletion),
-    );
     assert_replaced(
         extra("switch_arm"),
         (Producer::ThenEnd, 4, 13),

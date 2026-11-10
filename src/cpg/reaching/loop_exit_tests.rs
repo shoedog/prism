@@ -12,6 +12,8 @@
 //! source text before the CFG is built, so 265 rows (HOLD 154, MOVE 16, REFUSED 95) name a pair that no longer exists. A
 //! row is ABSENT only when new main 72be3b73 also lacks the pair (checked per row: `scripts/matrix_control.py`, 0
 //! rows absent on the head and present on main); the test asserts the pair is absent. No fixture lost all its rows.
+//! TRYFLOW rows (T2): the owner holds a `try`, so the plan refuses it whole (`TryFlow`, callable-wide O1) and every
+//! surviving pair is `nameonly/cfg_incomplete` (46 rows: HOLD 30, MOVE 16, were admitted by slice 3).
 //! RESIDUAL rows are shapes of a loop tree that is not rewired (a one-line `do`, a condition sharing a
 //! line, a jump through a `finally`, a `for` initializer re-run by a back route, an unrewirable
 //! statement) and keep main's edges and labels, pinned as such. Since fold 1 of slice 2 such a tree is
@@ -102,11 +104,12 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
             "HOLD" | "RESIDUAL" => assert_eq!(r.main, r.expected, "{} {}", r.fixture, r.edge),
             "REFUSED" => assert_eq!(r.expected, "nameonly/cfg_incomplete", "{}", r.fixture),
             "ABSENT" => assert_eq!(r.expected, "-", "{} {}", r.fixture, r.edge),
+            "TRYFLOW" => assert_eq!(r.expected, "nameonly/cfg_incomplete", "{}", r.fixture),
             other => panic!("kind {other}"),
         }
     }
     let moved = all.iter().filter(|r| r.kind == "MOVE").count();
-    assert_eq!(moved, 78, "rows the rule moves");
+    assert_eq!(moved, 62, "rows the rule moves");
     assert_eq!(
         all.iter().filter(|r| r.kind == "REFUSED").count(),
         104,
@@ -117,9 +120,14 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
         265,
         "rows whose pair #788 removed"
     );
+    assert_eq!(
+        all.iter().filter(|r| r.kind == "TRYFLOW").count(),
+        46,
+        "rows of try-affected owners (T2)"
+    );
     for r in all
         .iter()
-        .filter(|r| r.kind != "REFUSED" && r.kind != "ABSENT")
+        .filter(|r| !matches!(r.kind.as_str(), "REFUSED" | "ABSENT" | "TRYFLOW"))
     {
         assert_eq!(
             r.fix,
@@ -130,8 +138,10 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
         );
     }
     assert_eq!(
-        all.iter().filter(|r| r.fix && r.kind != "ABSENT").count(),
-        37,
+        all.iter()
+            .filter(|r| r.fix && !matches!(r.kind.as_str(), "ABSENT" | "TRYFLOW"))
+            .count(),
+        34,
         "round-1 FIX rows that still have a pair"
     );
     // Every move to `exact` was read by hand: a `do` condition no longer sits at the header (the first
@@ -146,8 +156,6 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
     assert_eq!(
         promoted,
         [
-            "f1_ctl_jump_in_finally_block x@7->x@11",
-            "f1_ctl_try_without_finally x@5->x@11",
             "f2_ctl_do_rewirable x@2->x@4",
             "f2_do_else_empty_stmt x@2->x@4",
             "f4_destructuring_head a@5->a@4",
@@ -159,10 +167,7 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
             "f4_forof_continue x@4->x@7",
             "f4_labeled_continue_from_inner x@5->x@3",
             "f4_labeled_continue_from_inner x@5->x@9",
-            "f5_comment_only_catch y@7->y@4",
-            "f5_empty_catch y@7->y@4",
             "f5_empty_else y@7->y@4",
-            "f5_empty_finally x@6->x@4",
             "f5_empty_then y@8->y@4",
             "s1_supported_labeled_continue x@5->x@10",
             "switch_in_loop i@5->i@3",

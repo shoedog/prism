@@ -95,9 +95,6 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         w: Node<'tree>,
         root: (usize, usize),
     ) -> Option<Delegated<'tree>> {
-        if !self.try_flow_accounted(w) {
-            return None;
-        }
         let jumps = self.wrapper_jumps(w, root)?;
         let mut completions = Vec::new();
         if !self.completions(w, &mut completions) {
@@ -111,45 +108,6 @@ impl<'a, 'tree> Cx<'a, 'tree> {
             to,
             jumps,
         })
-    }
-
-    /// Whether every `try` under `w` (never inside a nested callable) that has both a `catch` and a `finally`
-    /// has flow the admission accounts for. `build_try_catch_edges` draws `catch` -> `finally` from the
-    /// catch's FIRST statement, an unmodelled record that lies outside every loop footprint and so neither
-    /// refuses nor is replaced; the emitted completion leaves the `finally`, which makes
-    /// first-catch-statement -> `finally` -> after a route that skips the rest of the catch (fold 1, `tc`:
-    /// a wrong `exact` across `x = next()` / `x = other()`). It is accounted only when the catch is empty or
-    /// one simple statement (nothing after it to skip). Anything else is refused: the exception flow is not
-    /// modelled, so the wrapper's completion cannot be called resolved.
-    fn try_flow_accounted(&self, w: Node<'tree>) -> bool {
-        let mut stack = vec![w];
-        while let Some(n) = stack.pop() {
-            if n.id() != w.id() && self.boundaries.contains(&n.kind()) {
-                continue;
-            }
-            if n.kind() == "try_statement" && n.child_by_field_name("finalizer").is_some() {
-                if let Some(h) = n.child_by_field_name("handler") {
-                    let body = h.child_by_field_name("body");
-                    let stmts = body.map(Self::statements).unwrap_or_default();
-                    let simple = stmts.is_empty()
-                        || (stmts.len() == 1
-                            && matches!(
-                                stmts[0].kind(),
-                                "expression_statement"
-                                    | "lexical_declaration"
-                                    | "variable_declaration"
-                                    | "return_statement"
-                                    | "throw_statement"
-                            ));
-                    if !simple {
-                        return false;
-                    }
-                }
-            }
-            let mut cursor = n.walk();
-            stack.extend(n.named_children(&mut cursor));
-        }
-        true
     }
 
     /// The jumps under `w` (never inside a nested callable) that the wrapper itself must route, or `None`

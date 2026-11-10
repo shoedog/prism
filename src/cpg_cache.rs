@@ -322,7 +322,8 @@ mod stream;
 /// - v171: a JS/TS/TSX loop body's normal completion reaches the loop's continue point, never the code after the loop (#693): a header write (a `for` update, a `while` condition) now kills body defs on the route to a read after the loop; `break`, labeled `break` and `continue` get edges; a multi-line `do`..`while` condition is its own CFG statement (#697), so the statement universe, the CPG's statement nodes and the ControlFlow edges change, and DataFlow labels move.
 /// - v172: a JS/TS/TSX loop tree is rewired only when the one loop-tree plan admits it (#693, #697 option B, slice 2): a tree whose occurrences are not placed on the head node, or one of whose intersecting CFG records has no ownership, keeps main's statement universe and edges and its owner's labels become `nameonly/cfg_incomplete` callable-wide, so the statement universe (an admitted `do` condition), the ControlFlow edges and the DataFlow labels change; and the serialized layout changes: `RdFileStats::loop_plan` and `DfgLabelStats::dfg_loop_plan` (the per-reason loop-plan counters) join the cache. Fold 1 of slice 2: slice 2 fold 1 (#693): a loop tree main's own policy refuses is classified by the plan too, and a failed placement or an unresolved record refuses its owner by label (`owner-refuse:loop-plan`; `legacy_o1.*` counters join `dfg_loop_plan`); an O1-refused owner keeps the RD availability (and fallback-cap eligibility) of the admitted tree, so `functions_without_cfg` and the labels move. Fold 2 of slice 2 (#693): every tree main's own policy refuses has its owner label-refused (a legacy tree is not rewired and keeps main's bypass edges), and an O1-refused owner's RD availability (statement-line cap, edge check, one-node test) is decided on its all-admitted universe from one place (`preflight::Availability`), so the labels and the availability counters move.
 /// - v173: JS/TS/TSX loop rewrite by record, not by line span (#693, #697 option B, slice 3): a rewired tree drops exactly the CFG records it owns (`js_loops::replace`), an `if` arm that ends in a wrapper (a label, `try`, `switch`, nested `if`) holding or leaving a loop is replaced by the wrapper's own completions instead of refusing the tree (`wrapper_entry_then_end`, `non_completion_crossing`), the enclosing owner drops its copies of the legacy edges of a loop inside a nested callable whose tree is admitted (`foreign_admitted`), and a hoisted function declaration in a loop body is no placement occurrence; so the ControlFlow edges, the statement universe of newly admitted trees, the DataFlow labels and the `dfg_loop_plan` counters change.
-const CACHE_VERSION: u32 = 173;
+/// - v174: a JS/TS/TSX owner with loop trees that contains a `try` (own syntax, callable bodies excluded) or whose selected statement lines lie on a `try` region of the file is refused whole by the loop plan (T2, `TryFlow`; callable-wide O1 on both label paths): its trees keep main's geometry, its labels become `nameonly/cfg_incomplete`, the fold-1 catch-shape rule is gone, and `dfg_loop_plan` gains `refused.try_flow`, `overlap.try_flow` and `legacy_o1.try_flow`, so the DataFlow labels and the loop-plan counters change.
+const CACHE_VERSION: u32 = 174;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -855,7 +856,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 173);
+        assert_eq!(super::CACHE_VERSION, 174);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

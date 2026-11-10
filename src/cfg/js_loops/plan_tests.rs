@@ -19,6 +19,7 @@ fn reason(w: &Option<Why>) -> String {
         Some(Why::Legacy(l)) => format!("Legacy({l:?})"),
         Some(Why::Placement) => "Placement".into(),
         Some(Why::Unresolved(u)) => format!("Unresolved({u:?})"),
+        Some(Why::TryFlow) => "TryFlow".into(),
     }
 }
 

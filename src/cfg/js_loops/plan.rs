@@ -17,7 +17,7 @@
 //! trees admitted so far assumed admitted, and refuses the trees whose records or placement fail; it
 //! stops at the first round that refuses nothing, so the surviving trees were verified against the very
 //! build that stands.
-use super::{placement, Cx, Legacy};
+use super::{placement, tryflow, Cx, Legacy};
 use crate::ast::ParsedFile;
 use crate::cfg::js_disposition::{Disposition, Ownership, Unres};
 use crate::cfg::js_ownership::EdgeRecord;
@@ -100,6 +100,8 @@ pub(crate) enum Why {
     Placement,
     /// A record of the owner that intersects the tree has this unresolved kind (the first by emission).
     Unresolved(Unres),
+    /// The owner contains, or its selected statement lines overlap, a `try` (T2, `tryflow`).
+    TryFlow,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -172,6 +174,7 @@ impl LoopPlan {
                 None => bump("admitted".into()),
                 Some(Why::Legacy(l)) => bump(format!("refused.legacy.{}", legacy_key(*l))),
                 Some(Why::Placement) => bump("refused.placement".into()),
+                Some(Why::TryFlow) => bump("refused.try_flow".into()),
                 Some(Why::Unresolved(Unres::ForeignAdmitted)) => {
                     bump("refused.foreign_admitted".into())
                 }
@@ -180,6 +183,7 @@ impl LoopPlan {
             match &v.legacy_o1 {
                 None => {}
                 Some(Why::Unresolved(u)) => bump(format!("legacy_o1.unresolved.{}", u.key())),
+                Some(Why::TryFlow) => bump("legacy_o1.try_flow".into()),
                 Some(_) => bump("legacy_o1.placement".into()),
             }
             for o in &v.overlaps {
@@ -226,6 +230,7 @@ impl LoopPlan {
 
     pub(crate) fn compute(parsed: &ParsedFile) -> Self {
         let mut verdicts = Self::initial(parsed);
+        let regions = tryflow::Regions::of(parsed);
         let mut admitted: BTreeSet<Range> = verdicts
             .values()
             .filter(|v| v.why.is_none())
@@ -240,7 +245,7 @@ impl LoopPlan {
             .collect();
         while !admitted.is_empty() || !legacy.is_empty() {
             let roots: BTreeSet<Range> = admitted.union(&legacy).copied().collect();
-            let mut refused = with_admission(parsed, &admitted, || round(parsed, &roots));
+            let mut refused = with_admission(parsed, &admitted, || round(parsed, &roots, &regions));
             let standing: Refusals = {
                 let keep = refused.keys().filter(|r| legacy.contains(r)).copied();
                 keep.collect::<Vec<_>>()
@@ -263,19 +268,40 @@ impl LoopPlan {
                 }
             }
         }
+        // Every overlapping reason is recorded: under the standing admission, a tree refused for another reason
+        // that also sits in a try-affected owner says so.
+        let tried = with_admission(parsed, &admitted, || tryflow::affected(parsed, &regions));
+        for v in verdicts.values_mut() {
+            if let (Some(why), true) = (tried.get(&v.root), v.why.is_some()) {
+                if !v.overlaps.contains(&"try_flow") {
+                    v.overlaps.push("try_flow");
+                }
+                if v.legacy_o1.is_none() && matches!(v.why, Some(Why::Legacy(_))) {
+                    v.legacy_o1 = Some(Why::TryFlow);
+                    if v.first.is_empty() {
+                        v.first = why.clone();
+                    }
+                }
+            }
+        }
         let refused_owners = verdicts
             .values()
             .filter(|v| {
                 matches!(
                     v.why,
-                    Some(Why::Placement | Why::Unresolved(_) | Why::Legacy(_))
+                    Some(Why::Placement | Why::Unresolved(_) | Why::Legacy(_) | Why::TryFlow)
                 ) || v.legacy_o1.is_some()
             })
             .map(|v| v.owner)
             .collect();
         let o1_roots = verdicts
             .values()
-            .filter(|v| matches!(v.why, Some(Why::Placement | Why::Unresolved(_))))
+            .filter(|v| {
+                matches!(
+                    v.why,
+                    Some(Why::Placement | Why::Unresolved(_) | Why::TryFlow)
+                )
+            })
             .map(|v| v.root)
             .collect();
         let plan = Self {
@@ -326,7 +352,7 @@ type Refusals = BTreeMap<Range, (Why, Vec<&'static str>, String)>;
 /// One round: the trees of `roots` (the admitted ones, assumed, see `with_admission`, and the ones main's
 /// policy refuses) that fail placement or whose records are unresolved, with the reason classes that apply
 /// and the first offender.
-fn round(parsed: &ParsedFile, roots: &BTreeSet<Range>) -> Refusals {
+fn round(parsed: &ParsedFile, roots: &BTreeSet<Range>, regions: &tryflow::Regions) -> Refusals {
     let mut out = Refusals::new();
     for (node, own) in ownerships(parsed, true) {
         for t in own
@@ -361,6 +387,18 @@ fn round(parsed: &ParsedFile, roots: &BTreeSet<Range>) -> Refusals {
             };
             if let Some((why, first)) = refusal {
                 out.insert(root, (why, overlaps, first));
+            }
+        }
+    }
+    // T2: an owner that contains or overlaps a `try` is refused whole, every tree of it (legacy ones too).
+    for (root, first) in tryflow::affected(parsed, regions) {
+        if !roots.contains(&root) {
+            continue;
+        }
+        match out.get_mut(&root) {
+            Some((_, overlaps, _)) => overlaps.push("try_flow"),
+            None => {
+                out.insert(root, (Why::TryFlow, vec!["try_flow"], first));
             }
         }
     }

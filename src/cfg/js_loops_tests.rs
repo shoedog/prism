@@ -41,6 +41,21 @@ fn refusal(src: &str) -> String {
         crate::cfg::js_loops::Why::Legacy(l) => format!("Legacy({l:?})"),
         crate::cfg::js_loops::Why::Placement => "Placement".to_string(),
         crate::cfg::js_loops::Why::Unresolved(u) => format!("Unresolved({u:?})"),
+        crate::cfg::js_loops::Why::TryFlow => "TryFlow".to_string(),
+    })
+}
+
+/// The edges of `src` with every tree main's own policy routes admitted, i.e. WITHOUT the try-flow refusal
+/// (T2): pins the completion rules of `Cx::completions` for try forms, which the plan no longer reaches
+/// for an owner that contains a `try`.
+fn rule_edges(src: &str) -> BTreeSet<(usize, usize)> {
+    let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
+    let all = crate::cfg::js_loops::legacy_candidates(&parsed);
+    crate::cfg::js_loops::with_admission(&parsed, &all, || {
+        build_cfg_edges(&parsed)
+            .into_iter()
+            .map(|e| (e.from_line, e.to_line))
+            .collect()
     })
 }
 
@@ -173,7 +188,7 @@ fn a_body_ending_in_if_completes_through_both_arms() {
 
 #[test]
 fn a_try_or_switch_at_the_end_of_a_body_completes_into_the_header() {
-    let t = edges("function f(i, n) {\n  log();\n  for (; i < n; i++) {\n    try {\n      i = g();\n    } catch (e) {\n      y();\n    }\n  }\n  sink(i);\n}\n");
+    let t = rule_edges("function f(i, n) {\n  log();\n  for (; i < n; i++) {\n    try {\n      i = g();\n    } catch (e) {\n      y();\n    }\n  }\n  sink(i);\n}\n");
     assert!(has(&t, 5, 3) && has(&t, 7, 3), "{t:?}");
     assert!(!has(&t, 5, 10) && !has(&t, 7, 10), "{t:?}");
     let s = edges("function f(i, k) {\n  log();\n  for (;; i++) {\n    switch (k) {\n      case 1: i = g(); break;\n      default: x();\n    }\n  }\n}\n");
@@ -257,16 +272,16 @@ fn a_jump_through_a_finally_keeps_mains_edges_for_the_tree() {
 #[test]
 fn a_finally_that_encloses_the_target_or_holds_the_jump_does_not_block_rewiring() {
     // The `finally` surrounds the whole loop: `after(loop)` enters it, the break edge is real.
-    let around = edges("function f(xs, x) {\n  x = 0;\n  try {\n    for (const a of xs) {\n      x = 1;\n      break;\n    }\n  } finally {\n    x = 2;\n  }\n  return x;\n}\n");
+    let around = rule_edges("function f(xs, x) {\n  x = 0;\n  try {\n    for (const a of xs) {\n      x = 1;\n      break;\n    }\n  } finally {\n    x = 2;\n  }\n  return x;\n}\n");
     assert!(has(&around, 6, 9), "break -> the finally: {around:?}");
     // A jump written in the `finally` block itself is not leaving it through a skipped `finally`.
-    let inside = edges("function f(xs, x) {\n  x = 0;\n  for (const a of xs) {\n    try {\n      x = 1;\n    } finally {\n      x = 2;\n      break;\n    }\n  }\n  return x;\n}\n");
+    let inside = rule_edges("function f(xs, x) {\n  x = 0;\n  for (const a of xs) {\n    try {\n      x = 1;\n    } finally {\n      x = 2;\n      break;\n    }\n  }\n  return x;\n}\n");
     assert!(
         has(&inside, 8, 11),
         "break in a finally -> after the loop: {inside:?}"
     );
     // No `finally`: nothing to skip.
-    let catch_only = edges("function f(xs, x) {\n  x = 0;\n  for (const a of xs) {\n    try {\n      x = 1;\n      break;\n    } catch (e) {\n      x = 3;\n    }\n  }\n  return x;\n}\n");
+    let catch_only = rule_edges("function f(xs, x) {\n  x = 0;\n  for (const a of xs) {\n    try {\n      x = 1;\n      break;\n    } catch (e) {\n      x = 3;\n    }\n  }\n  return x;\n}\n");
     assert!(has(&catch_only, 6, 11), "{catch_only:?}");
 }
 
@@ -274,7 +289,7 @@ fn a_finally_that_encloses_the_target_or_holds_the_jump_does_not_block_rewiring(
 /// `finally` is not a route back to the loop head.
 #[test]
 fn a_try_with_no_normal_completion_completes_nowhere() {
-    let e = edges("function f(xs, x) {\n  x = 0;\n  for (const a of xs) {\n    try {\n      return a;\n    } catch (e) {\n      throw e;\n    } finally {\n      x = 2;\n    }\n  }\n  return x;\n}\n");
+    let e = rule_edges("function f(xs, x) {\n  x = 0;\n  for (const a of xs) {\n    try {\n      return a;\n    } catch (e) {\n      throw e;\n    } finally {\n      x = 2;\n    }\n  }\n  return x;\n}\n");
     assert!(
         !has(&e, 9, 3),
         "the finally is not a loop-back route: {e:?}"
@@ -365,7 +380,7 @@ fn an_empty_arm_completes_where_it_was_entered() {
         ("empty catch", "function f(xs) {\n  let y = 0;\n  for (const a of xs) {\n    use(y);\n    y = a;\n    try {\n      y = parse(a);\n    } catch (e) {}\n  }\n  return y;\n}\n", &[6, 7]),
         ("comment-only catch", "function f(xs) {\n  let y = 0;\n  for (const a of xs) {\n    use(y);\n    y = a;\n    try {\n      y = parse(a);\n    } catch (e) {\n      // ignore\n    }\n  }\n  return y;\n}\n", &[6, 7]),
     ] {
-        let e = edges(src);
+        let e = rule_edges(src);
         for &from in completing {
             assert!(has(&e, from, 3), "{what}: {from} completes into the head: {e:?}");
         }
@@ -479,7 +494,8 @@ fn a_loop_ending_an_if_arm_through_a_wrapper_is_admitted_and_replaces_the_then_e
 #[test]
 fn a_try_ending_an_if_arm_and_holding_a_loop_is_replaced_by_its_completions() {
     let src = "function f(c, k) {\n  let x = 0;\n  if (c) {\n    try {\n      while (k()) {\n        x = 1;\n      }\n    } catch (e) {\n      x = 2;\n    }\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n";
-    assert_eq!(refusal(src), "admitted");
+    assert_eq!(refusal(src), "TryFlow");
+    assert_eq!(edges(src), main_edges(src), "refused: main's edges stand");
     let want: BTreeSet<(usize, usize)> = [
         (2, 3),
         (3, 4),
@@ -493,7 +509,7 @@ fn a_try_ending_an_if_arm_and_holding_a_loop_is_replaced_by_its_completions() {
         (9, 14),
     ]
     .into();
-    assert_eq!(edges(src), want);
+    assert_eq!(rule_edges(src), want);
     // Main: the then-end leaves the `try` entry past the loop and the body's end falls into the `catch`.
     assert!(has(&main_edges(src), 4, 14) && has(&main_edges(src), 6, 9));
 }
@@ -534,13 +550,15 @@ fn a_switch_break_inside_a_delegated_wrapper_gets_an_edge() {
     );
 }
 
-/// A `try -> finally` edge that enters the loop's first line from outside is no reason to refuse (the
-/// rewrite changes nothing into the head): admitted, and the loop body still completes into the header.
+/// A `try -> finally` edge that enters the loop's first line from outside changes nothing the rewrite touches
+/// (slice 3 admitted it); since T2 the owner holds a `try`, so the plan refuses it (`TryFlow`) and the rule is
+/// pinned through `rule_edges`.
 #[test]
 fn a_try_edge_entering_the_loop_from_outside_does_not_refuse_the_tree() {
     let src = "function f(k, a) {\n  let x = 0;\n  try {\n    a();\n  } finally {\n    while (k()) {\n      x = 1;\n    }\n  }\n  sink(x);\n}\n";
-    assert_eq!(refusal(src), "admitted");
-    let e = edges(src);
+    assert_eq!(refusal(src), "TryFlow");
+    assert_eq!(edges(src), main_edges(src), "refused: main's edges stand");
+    let e = rule_edges(src);
     assert!(has(&e, 3, 6), "try -> finally: {e:?}");
     assert!(has(&e, 7, 6) && has(&e, 6, 10), "{e:?}");
 }
