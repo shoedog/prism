@@ -228,18 +228,14 @@ type Refusals = BTreeMap<Range, (Why, Vec<&'static str>, String)>;
 /// records are unresolved, with the reason classes that apply and the first offender.
 fn round(parsed: &ParsedFile, admitted: &BTreeSet<Range>) -> Refusals {
     let mut out = Refusals::new();
-    for (owner, own) in ownerships(parsed, true) {
-        let node = parsed
-            .all_functions()
-            .into_iter()
-            .find(|n| (n.start_byte(), n.end_byte()) == owner);
+    for (node, own) in ownerships(parsed, true) {
         for t in own
             .trees
             .iter()
             .filter(|t| admitted.contains(&(t.root.start, t.root.end)))
         {
             let root = (t.root.start, t.root.end);
-            let placed = node.and_then(|n| placement::violation(parsed, n, root));
+            let placed = placement::violation(parsed, node, root);
             let bad: Vec<_> = t
                 .entries
                 .iter()
@@ -278,30 +274,29 @@ fn describe(r: &EdgeRecord) -> String {
     )
 }
 
-/// Every callable of the file built with ownership records, and for each one that holds a loop tree (or
-/// every one, `looped` false) its `Ownership`, under the current admission. The surviving records of
-/// the OTHER callables' builds are handed to each as the foreign records its RD may admit.
-pub(in crate::cfg) fn ownerships(parsed: &ParsedFile, looped: bool) -> Vec<(Range, Ownership)> {
-    let mut sink = EdgeSink::new();
-    let mut built = Vec::new();
-    for owner in parsed.all_functions() {
-        crate::cfg::build_function_cfg(owner, parsed, &mut sink);
-        if let Some(rec) = sink.take_records() {
-            built.push((owner, rec));
-        }
-        sink.drain().for_each(drop);
-    }
-    // The other callables' surviving edges by source line, as `FileCfgEdgeIndex` indexes them.
-    let mut by_source: BTreeMap<usize, Vec<(usize, &EdgeRecord)>> = BTreeMap::new();
-    for (i, (_, rec)) in built.iter().enumerate() {
-        for r in &rec.live {
-            by_source.entry(r.from_line).or_default().push((i, r));
-        }
-    }
-    let wanted: Vec<bool> = built
+/// The callables of the file that hold a loop tree (or every one, `looped` false), each with its `Ownership`
+/// under the current admission. A callable's RD also selects the edges OTHER callables' builds drew between
+/// two of its lines, so those callables are built too (only the ones sharing a statement line with a looped
+/// callable, or enclosing it, can matter), and their surviving records are handed over as the foreign records it may admit.
+pub(in crate::cfg) fn ownerships<'p>(
+    parsed: &'p ParsedFile,
+    looped: bool,
+) -> Vec<(tree_sitter::Node<'p>, Ownership)> {
+    let boundaries = parsed.language.callable_boundary_node_types();
+    let owners = parsed.all_functions();
+    let lines: Vec<BTreeSet<usize>> = owners
         .iter()
-        .map(|(owner, _)| {
-            let boundaries = parsed.language.callable_boundary_node_types();
+        .map(|o| {
+            parsed
+                .statement_spans_before_dedup(o)
+                .iter()
+                .map(|s| s.line)
+                .collect()
+        })
+        .collect();
+    let wanted: Vec<bool> = owners
+        .iter()
+        .map(|owner| {
             !looped
                 || owner.child_by_field_name("body").is_some_and(|body| {
                     !Cx {
@@ -314,22 +309,60 @@ pub(in crate::cfg) fn ownerships(parsed: &ParsedFile, looped: bool) -> Vec<(Rang
                 })
         })
         .collect();
-    let others: Vec<Vec<EdgeRecord>> = built
+    let mut by_line: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for (i, set) in lines.iter().enumerate() {
+        for l in set {
+            by_line.entry(*l).or_default().push(i);
+        }
+    }
+    let index: BTreeMap<usize, usize> = owners
         .iter()
         .enumerate()
-        .map(|(i, (owner, _))| {
-            if !wanted[i] {
+        .map(|(i, o)| (o.id(), i))
+        .collect();
+    let mut needed = wanted.clone();
+    for (i, set) in lines.iter().enumerate().filter(|(i, _)| wanted[*i]) {
+        for l in set {
+            for j in &by_line[l] {
+                needed[*j] |= *j != i;
+            }
+        }
+        // An enclosing callable's generic collectors draw edges for the constructs inside this one.
+        let mut at = owners[i].parent();
+        while let Some(n) = at {
+            if let Some(j) = index.get(&n.id()) {
+                needed[*j] = true;
+            }
+            at = n.parent();
+        }
+    }
+    let mut sink = EdgeSink::new();
+    let mut built = Vec::new();
+    for (i, owner) in owners.iter().enumerate().filter(|(i, _)| needed[*i]) {
+        crate::cfg::build_function_cfg(*owner, parsed, &mut sink);
+        if let Some(rec) = sink.take_records() {
+            built.push((i, *owner, rec));
+        }
+        sink.drain().for_each(drop);
+    }
+    // The other callables' surviving edges by source line, as `FileCfgEdgeIndex` indexes them.
+    let mut by_source: BTreeMap<usize, Vec<(usize, &EdgeRecord)>> = BTreeMap::new();
+    for (i, _, rec) in &built {
+        for r in &rec.live {
+            by_source.entry(r.from_line).or_default().push((*i, r));
+        }
+    }
+    let others: Vec<Vec<EdgeRecord>> = built
+        .iter()
+        .map(|(i, _, _)| {
+            if !wanted[*i] {
                 return Vec::new();
             }
-            let mine: BTreeSet<usize> = parsed
-                .statement_spans_before_dedup(owner)
+            lines[*i]
                 .iter()
-                .map(|s| s.line)
-                .collect();
-            mine.iter()
                 .filter_map(|l| by_source.get(l))
                 .flatten()
-                .filter(|(j, r)| *j != i && mine.contains(&r.to_line))
+                .filter(|(j, r)| j != i && lines[*i].contains(&r.to_line))
                 .map(|(_, r)| (*r).clone())
                 .collect()
         })
@@ -338,14 +371,8 @@ pub(in crate::cfg) fn ownerships(parsed: &ParsedFile, looped: bool) -> Vec<(Rang
     built
         .into_iter()
         .zip(others)
-        .zip(wanted)
-        .filter(|(_, w)| *w)
-        .map(|(((owner, rec), others), _)| {
-            (
-                (owner.start_byte(), owner.end_byte()),
-                Ownership::new(parsed, owner, rec, others),
-            )
-        })
+        .filter(|((i, _, _), _)| wanted[*i])
+        .map(|((_, owner, rec), others)| (owner, Ownership::new(parsed, owner, rec, others)))
         .collect()
 }
 

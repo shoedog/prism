@@ -10,7 +10,7 @@
 //! occurrence (its own statements belong to its own owner) and a body block is no occurrence.
 use super::is_loop;
 use crate::ast::ParsedFile;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
 /// Where the occurrences of a loop tree are not placed as the rewrite needs, or `None` when they all are.
@@ -39,6 +39,9 @@ pub(super) fn violation(
         stack.extend(n.named_children(&mut cursor));
     }
     loops.sort_by_key(|n| n.start_byte());
+    // Every loop's head and its header and body rows, then ONE lookup over all the rows of the tree.
+    let mut parts = Vec::new();
+    let mut all = BTreeSet::new();
     for l in loops {
         let body = l.child_by_field_name("body");
         let head = if l.kind() == "do_statement" {
@@ -55,19 +58,28 @@ pub(super) fn violation(
                 rows(part, &boundaries, false, &mut header);
             }
         }
-        let wanted: Vec<usize> = header.iter().chain(&inside).copied().collect();
-        let placed = crate::cpg::placed_lines(parsed, &owner, &wanted);
-        for (row, at) in wanted.iter().zip(placed) {
-            if header.contains(row) && at != Some(head) {
+        all.extend(header.iter().chain(&inside));
+        parts.push((l.kind(), head, header, inside));
+    }
+    let wanted: Vec<usize> = all.into_iter().collect();
+    let placed: BTreeMap<usize, Option<usize>> = wanted
+        .iter()
+        .copied()
+        .zip(crate::cpg::placed_lines(parsed, &owner, &wanted))
+        .collect();
+    for (kind, head, header, inside) in parts {
+        for row in &header {
+            if placed[row] != Some(head) {
                 return Some(format!(
-                    "{}@L{head}: header occurrence on L{row} is placed at {at:?}",
-                    l.kind()
+                    "{kind}@L{head}: header occurrence on L{row} is placed at {:?}",
+                    placed[row]
                 ));
             }
-            if inside.contains(row) && at == Some(head) {
+        }
+        for row in &inside {
+            if placed[row] == Some(head) {
                 return Some(format!(
-                    "{}@L{head}: body occurrence on L{row} is placed at the head",
-                    l.kind()
+                    "{kind}@L{head}: body occurrence on L{row} is placed at the head"
                 ));
             }
         }

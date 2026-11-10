@@ -105,3 +105,20 @@ fn the_plan_is_deterministic_and_one_per_file() {
     assert!(std::ptr::eq(a, parsed.js_loop_plan()));
     assert_eq!(a.counters(), plan(REFUSED[0].src).counters());
 }
+
+#[test]
+fn only_the_owner_of_a_refused_tree_is_refused() {
+    // The callback's loop is refused; the enclosing function holds no loop tree of its own, so O1 refuses
+    // the arrow's labels and leaves the function's.
+    let src = REFUSED
+        .iter()
+        .find(|c| c.name == "foreign_from_enclosing_callable")
+        .unwrap()
+        .src;
+    let p = plan(src);
+    assert_eq!(p.verdicts.len(), 1);
+    let outer = (0, src.trim_end().len());
+    assert_ne!(p.verdicts[0].owner, outer, "the owner is the arrow");
+    assert!(p.refuses_owner(p.verdicts[0].owner));
+    assert!(!p.refuses_owner(outer));
+}

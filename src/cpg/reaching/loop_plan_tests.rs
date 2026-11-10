@@ -60,6 +60,12 @@ pub(crate) const REFUSED: &[Case] = &[
     Case { name: "non_completion_crossing", why: "Unresolved(NonCompletionCrossing)",
         src: "function f(v, k) {\n  let x = 0;\n  let z = 1;\n  while (k()) {\n    if (v) {\n      if (x) {\n        x = 1;\n      } else {\n        x = 2;\n      }\n    }\n  }\n  sink(x, z);\n}\n",
         edges: &["z@3->z@13", "k@1->k@4", "x@2->x@13"] },
+    // A loop in a callback: the ENCLOSING function's generic collectors draw the loop's legacy back edge
+    // `5 -> 4` (the `if` entry to the header) too, and the arrow's RD selects it by lines: a bypass of both
+    // arms that the arrow's own rewrite cannot drop. Foreign, admitted, unresolved.
+    Case { name: "foreign_from_enclosing_callable", why: "Unresolved(ForeignAdmitted)",
+        src: "function outer(items) {\n  let w = 1;\n  items.forEach(it => {\n    for (const k of it) {\n      if (k) {\n        use(k);\n      } else {\n        drop(k);\n      }\n    }\n  });\n  sink(w);\n}\n",
+        edges: &["it@3->it@4"] },
 ];
 
 #[rustfmt::skip]

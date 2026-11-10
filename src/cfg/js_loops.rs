@@ -8,7 +8,13 @@
 //! reach it in order.
 //!
 //! The unit is the loop TREE: an outermost loop of the owner (never inside a
-//! nested callable) with every loop nested in it. A tree is REWIRED, all of it
+//! nested callable) with every loop nested in it. Which trees are rewired is
+//! decided ONCE per file by the plan (`plan`, #693/#697 option B slice 2): a
+//! tree is admitted only when main's own routing below accepts it, the placement
+//! rule holds (`placement`) and no CFG record intersecting it is unresolved
+//! (`js_disposition`); a tree the plan refuses keeps main's edges and universe
+//! and its owner's labels are `nameonly/cfg_incomplete` callable-wide (O1).
+//! Main's own routing: a tree is REWIRED, all of it
 //! or none of it, when it holds no form this module cannot route soundly:
 //!
 //! * every loop's continue point (the header line; an admitted `do`'s
