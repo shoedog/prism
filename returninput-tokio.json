@@ -1,0 +1,134 @@
+[
+ {
+  "change": "removed",
+  "ret": {
+   "file": "tokio-stream/tests/stream_panic.rs",
+   "fn": "test_panic",
+   "fn_line": 12,
+   "line": 15,
+   "ret_end": 1303,
+   "ret_start": 463,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 506,
+   "file": "tokio-stream/tests/stream_panic.rs",
+   "fn": "test_panic",
+   "fn_line": 12,
+   "line": 17,
+   "path": "panic_file",
+   "start": 506
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "tokio-util/tests/panic.rs",
+   "fn": "test_panic",
+   "fn_line": 21,
+   "line": 24,
+   "ret_end": 1597,
+   "ret_start": 757,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 800,
+   "file": "tokio-util/tests/panic.rs",
+   "fn": "test_panic",
+   "fn_line": 21,
+   "line": 26,
+   "path": "panic_file",
+   "start": 800
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "tokio/src/sync/mpsc/block.rs",
+   "fn": "new",
+   "fn_line": 95,
+   "line": 96,
+   "ret_end": 4033,
+   "ret_start": 2740,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 2902,
+   "file": "tokio/src/sync/mpsc/block.rs",
+   "fn": "new",
+   "fn_line": 95,
+   "line": 99,
+   "path": "block",
+   "start": 2902
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "tokio/src/sync/mpsc/list.rs",
+   "fn": "find_block",
+   "fn_line": 96,
+   "line": 124,
+   "ret_end": 6128,
+   "ret_start": 3794,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 5960,
+   "file": "tokio/src/sync/mpsc/list.rs",
+   "fn": "find_block",
+   "fn_line": 96,
+   "line": 171,
+   "path": "try_updating_tail",
+   "start": 5960
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "tokio/src/sync/mpsc/list.rs",
+   "fn": "find_block",
+   "fn_line": 96,
+   "line": 124,
+   "ret_end": 6128,
+   "ret_start": 3794,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 6040,
+   "file": "tokio/src/sync/mpsc/list.rs",
+   "fn": "find_block",
+   "fn_line": 96,
+   "line": 175,
+   "path": "block_ptr",
+   "start": 6040
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "tokio/tests/support/panic.rs",
+   "fn": "test_panic",
+   "fn_line": 4,
+   "line": 7,
+   "ret_end": 1068,
+   "ret_start": 189,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 232,
+   "file": "tokio/tests/support/panic.rs",
+   "fn": "test_panic",
+   "fn_line": 4,
+   "line": 9,
+   "path": "panic_file",
+   "start": 232
+  }
+ }
+]

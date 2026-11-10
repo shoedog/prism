@@ -1,0 +1,288 @@
+[
+ {
+  "change": "removed",
+  "ret": {
+   "file": "crates/prism-mcp/src/daemon/coordinator.rs",
+   "fn": "ensure_serving",
+   "fn_line": 256,
+   "line": 331,
+   "ret_end": 15578,
+   "ret_start": 14238,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 15357,
+   "file": "crates/prism-mcp/src/daemon/coordinator.rs",
+   "fn": "ensure_serving",
+   "fn_line": 256,
+   "line": 360,
+   "path": "control",
+   "start": 15357
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "crates/prism-mcp/src/idle_stdio.rs",
+   "fn": "serve_events",
+   "fn_line": 109,
+   "line": 118,
+   "ret_end": 5619,
+   "ret_start": 3793,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 4246,
+   "file": "crates/prism-mcp/src/idle_stdio.rs",
+   "fn": "serve_events",
+   "fn_line": 109,
+   "line": 130,
+   "path": "response",
+   "start": 4246
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "crates/prism-mcp/src/shim/arbitrate.rs",
+   "fn": "arbitrate",
+   "fn_line": 227,
+   "line": 279,
+   "ret_end": 13300,
+   "ret_start": 11426,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 12584,
+   "file": "crates/prism-mcp/src/shim/arbitrate.rs",
+   "fn": "arbitrate",
+   "fn_line": 227,
+   "line": 308,
+   "path": "owner",
+   "start": 12584
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "crates/prism-mcp/src/shim/arbitrate.rs",
+   "fn": "arbitrate",
+   "fn_line": 227,
+   "line": 279,
+   "ret_end": 13300,
+   "ret_start": 11426,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 12917,
+   "file": "crates/prism-mcp/src/shim/arbitrate.rs",
+   "fn": "arbitrate",
+   "fn_line": 227,
+   "line": 315,
+   "path": "child",
+   "start": 12917
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "crates/prism-mcp/src/shim/arbitrate.rs",
+   "fn": "arbitrate",
+   "fn_line": 227,
+   "line": 279,
+   "ret_end": 13300,
+   "ret_start": 11426,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 13113,
+   "file": "crates/prism-mcp/src/shim/arbitrate.rs",
+   "fn": "arbitrate",
+   "fn_line": 227,
+   "line": 319,
+   "path": "owner",
+   "start": 13113
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "crates/prism-review/src/algorithms/taint/js_ts/alias_edges.rs",
+   "fn": "unwrap_js_ts_alias_rhs",
+   "fn_line": 548,
+   "line": 549,
+   "ret_end": 20576,
+   "ret_start": 19606,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 19706,
+   "file": "crates/prism-review/src/algorithms/taint/js_ts/alias_edges.rs",
+   "fn": "unwrap_js_ts_alias_rhs",
+   "fn_line": 548,
+   "line": 552,
+   "path": "node",
+   "start": 19706
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "crates/prism-review/src/algorithms/taint/js_ts/alias_edges.rs",
+   "fn": "unwrap_js_ts_alias_rhs",
+   "fn_line": 548,
+   "line": 549,
+   "ret_end": 20576,
+   "ret_start": 19606,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 19769,
+   "file": "crates/prism-review/src/algorithms/taint/js_ts/alias_edges.rs",
+   "fn": "unwrap_js_ts_alias_rhs",
+   "fn_line": 548,
+   "line": 556,
+   "path": "next",
+   "start": 19769
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "src/ast/js_binding_alias.rs",
+   "fn": "js_ts_follow_alias",
+   "fn_line": 43,
+   "line": 52,
+   "ret_end": 4252,
+   "ret_start": 2451,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 3028,
+   "file": "src/ast/js_binding_alias.rs",
+   "fn": "js_ts_follow_alias",
+   "fn_line": 43,
+   "line": 65,
+   "path": "spelling",
+   "start": 3028
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "src/ast/js_binding_alias.rs",
+   "fn": "js_ts_follow_alias",
+   "fn_line": 43,
+   "line": 52,
+   "ret_end": 4252,
+   "ret_start": 2451,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 3102,
+   "file": "src/ast/js_binding_alias.rs",
+   "fn": "js_ts_follow_alias",
+   "fn_line": 43,
+   "line": 66,
+   "path": "at",
+   "start": 3102
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "src/ast/js_binding_alias.rs",
+   "fn": "js_ts_unwrap_value",
+   "fn_line": 205,
+   "line": 206,
+   "ret_end": 9744,
+   "ret_start": 9339,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 9707,
+   "file": "src/ast/js_binding_alias.rs",
+   "fn": "js_ts_unwrap_value",
+   "fn_line": 205,
+   "line": 215,
+   "path": "value",
+   "start": 9707
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "src/ast/member_reference_index/identifiers/shadow_index.rs",
+   "fn": "build",
+   "fn_line": 114,
+   "line": 126,
+   "ret_end": 6518,
+   "ret_start": 4843,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 4888,
+   "file": "src/ast/member_reference_index/identifiers/shadow_index.rs",
+   "fn": "build",
+   "fn_line": 114,
+   "line": 128,
+   "path": "visible",
+   "start": 4888
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "src/ast/member_reference_index/identifiers/shadow_index.rs",
+   "fn": "build",
+   "fn_line": 114,
+   "line": 126,
+   "ret_end": 6518,
+   "ret_start": 4843,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 6052,
+   "file": "src/ast/member_reference_index/identifiers/shadow_index.rs",
+   "fn": "build",
+   "fn_line": 114,
+   "line": 152,
+   "path": "visible",
+   "start": 6052
+  }
+ },
+ {
+  "change": "removed",
+  "ret": {
+   "file": "src/call_graph/go/receiver_index.rs",
+   "fn": "decompose_go_selector_chain",
+   "fn_line": 231,
+   "line": 240,
+   "ret_end": 11072,
+   "ret_start": 10458,
+   "slot": 0
+  },
+  "use": {
+   "anchor": true,
+   "end": 10755,
+   "file": "src/call_graph/go/receiver_index.rs",
+   "fn": "decompose_go_selector_chain",
+   "fn_line": 231,
+   "line": 249,
+   "path": "operand",
+   "start": 10755
+  }
+ }
+]
