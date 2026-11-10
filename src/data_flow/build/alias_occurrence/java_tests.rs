@@ -198,7 +198,7 @@ fn policy_bytes(parsed: &ParsedFile) -> BTreeSet<usize> {
         let lines: BTreeSet<usize> = (start..=end).collect();
         let (alias_map, _) = Producer::build_alias_map(parsed, &func, &lines);
         let spans = parsed.assignment_lvalue_spans_on_lines(&func, &lines);
-        let policy = TwinPolicy::for_owner(parsed, &spans, &alias_map);
+        let policy = TwinPolicy::for_owner(parsed, &func, &spans, &alias_map);
         out.extend(
             spans
                 .iter()
@@ -295,4 +295,47 @@ fn an_unsupported_occurrence_keeps_its_twin() {
         "{:?}",
         r.edges
     );
+}
+
+// ---- refusal R1: member-name tokens spelled like the alias target ----
+
+fn suppressed_lines(src: &str) -> Vec<usize> {
+    let parsed = parse(src);
+    policy_bytes(&parsed)
+        .into_iter()
+        .map(|b| parsed.line_for_byte(b))
+        .collect()
+}
+
+#[test]
+fn a_method_name_token_of_the_target_spelling_refuses_the_removal() {
+    // `size` is the alias target; `.size()` is a token the occurrence extraction cannot tell from
+    // the variable, so the twin stays (today's behaviour) for this owner.
+    let with_token = "class A { Integer size; int f(R r) {\n Integer result = size;\n result = 3;\n return g(r).size();\n} }\n";
+    assert!(
+        suppressed_lines(with_token).is_empty(),
+        "{:?}",
+        suppressed_lines(with_token)
+    );
+    let without = "class A { Integer size; int f(R r) {\n Integer result = size;\n result = 3;\n return g(r).count();\n} }\n";
+    assert_eq!(suppressed_lines(without), vec![2, 3]);
+}
+
+#[test]
+fn another_objects_member_name_refuses_but_this_member_does_not() {
+    let other =
+        "class A { S key; void f(N node) {\n S k = key;\n k = mk();\n use(node.key);\n} }\n";
+    assert!(suppressed_lines(other).is_empty());
+    let this_member =
+        "class A { S key; void f(N node) {\n S k = key;\n k = mk();\n use(this.key);\n} }\n";
+    assert_eq!(suppressed_lines(this_member), vec![2, 3]);
+    let method_ref = "class A { S key; void f() {\n S k = key;\n k = mk();\n run(A::key);\n} }\n";
+    assert!(suppressed_lines(method_ref).is_empty());
+}
+
+#[test]
+fn the_refusal_is_per_target_spelling() {
+    // `size` is refused (a `.size()` token); `other` has no token and is still removed.
+    let src = "class A { S size; S other; void f(R r) {\n S a = size;\n a = mk();\n S b = other;\n b = mk();\n g(r.size());\n} }\n";
+    assert_eq!(suppressed_lines(src), vec![4, 5]);
 }

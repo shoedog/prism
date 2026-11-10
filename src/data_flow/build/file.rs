@@ -173,7 +173,7 @@ impl Producer {
             };
             // Alias-twin lane: one occurrence-qualified decision, read at registration, at the
             // fallback anchors and at edge emission below (empty for every language not enabled).
-            let twin_policy = super::alias_occurrence::TwinPolicy::for_owner(parsed, &lvalue_spans, &alias_map);
+            let twin_policy = super::alias_occurrence::TwinPolicy::for_owner(parsed, &func_node, &lvalue_spans, &alias_map);
             let occurrence_byte = |byte| if synthetic { byte } else { 0 };
             let mut def_locs_by_occurrence: BTreeMap<
                 (AccessPath, usize, usize),

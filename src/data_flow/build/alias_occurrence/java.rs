@@ -284,3 +284,43 @@ fn parameters_declare(parsed: &ParsedFile, callable: Node<'_>, name: &str) -> bo
         });
     declared
 }
+
+/// Spellings the occurrence extraction can mistake for a variable inside `owner`: method names
+/// (`x.size()`, `Foo::bar`) and the member names of another object (`node.key`; `this.key` names the
+/// variable's own field and is not a token of this kind). Refusal R1 of the policy.
+pub(super) fn member_name_tokens(
+    parsed: &ParsedFile,
+    owner: &Node<'_>,
+) -> std::collections::BTreeSet<String> {
+    let mut out = std::collections::BTreeSet::new();
+    let mut stack = vec![*owner];
+    while let Some(node) = stack.pop() {
+        match node.kind() {
+            "method_invocation" => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    out.insert(parsed.node_text(&name).to_string());
+                }
+            }
+            "field_access" => {
+                let this_object = node
+                    .child_by_field_name("object")
+                    .is_some_and(|object| parsed.node_text(&object) == "this");
+                if let (false, Some(field)) = (this_object, node.child_by_field_name("field")) {
+                    out.insert(parsed.node_text(&field).to_string());
+                }
+            }
+            "method_reference" => {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "identifier" {
+                        out.insert(parsed.node_text(&child).to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.children(&mut cursor));
+    }
+    out
+}
