@@ -1,6 +1,7 @@
 //! Removal-only Go, Python and Rust proofs. No CFG or RD label is used to discard a pair.
 use crate::access_path::AccessPath;
 use crate::ast::{ParsedFile, PathSpan};
+use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::cpg::RdFileStats;
 use crate::languages::Language;
 use std::cell::RefCell;
@@ -57,9 +58,10 @@ pub(super) struct LexicalFacts<'a> {
     /// Rust names mutably borrowed anywhere in the owner: D keeps them
     /// (`rust_prune::mutably_borrowed`).
     rust_mut_borrowed: BTreeSet<String>,
-    /// Rust `(name, line)` of every occurrence inside a macro token tree: D keeps a use line
-    /// holding one (`rust_prune::in_macro_tokens`).
-    rust_macro_uses: BTreeSet<(String, usize)>,
+    /// Rust names that appear as identifier tokens of a macro invocation the census refuses
+    /// (it can emit a `macro_rules!`): neither U nor D touches them in this owner
+    /// (`rust_prune::scan_macros`).
+    rust_refused: BTreeSet<String>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -68,24 +70,28 @@ impl<'a> LexicalFacts<'a> {
         owner: Node<'a>,
         lvalues: &[PathSpan],
         rvalues: &[PathSpan],
+        census: &RustMacroCensus,
     ) -> Self {
         // No lvalue span leaves the write table empty: U cannot prove a write-only line and D has
         // no dominating write (formals still get defs), so the owner switch is not consulted.
         let js_enabled = parsed.language.is_js_family()
             && !lvalues.is_empty()
             && super::js_prune::owner_enabled(parsed, owner);
+        // Rust: an owner that defines a `macro_rules!` is off (a local macro reads a local by
+        // definition-site hygiene while the line-anchored use sits at the invocation); so is
+        // one whose macro token trees hold `macro_rules` or build names (`paste!`).
+        let rust_macros = (parsed.language == Language::Rust
+            && !owner.has_error()
+            && owner.kind() == "function_item"
+            && !super::rust_prune::has_local_macro(owner))
+        .then(|| super::rust_prune::scan_macros(parsed, owner, census))
+        .filter(|scan| !scan.owner_off);
         let mut facts = Self {
             parsed,
             enabled: match parsed.language {
                 Language::Go => !owner.has_error(),
                 Language::Python => !owner.has_error() && owner.kind() == "function_definition",
-                // A local `macro_rules!` reads a local by definition-site hygiene while the
-                // line-anchored use sits at the invocation: U and D are off for such an owner.
-                Language::Rust => {
-                    !owner.has_error()
-                        && owner.kind() == "function_item"
-                        && !super::rust_prune::has_local_macro(owner)
-                }
+                Language::Rust => rust_macros.is_some(),
                 l if l.is_js_family() => js_enabled,
                 _ => false,
             },
@@ -96,7 +102,7 @@ impl<'a> LexicalFacts<'a> {
             scope_declared: BTreeSet::new(),
             stable_receivers: BTreeSet::new(),
             rust_mut_borrowed: BTreeSet::new(),
-            rust_macro_uses: BTreeSet::new(),
+            rust_refused: BTreeSet::new(),
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
@@ -105,8 +111,20 @@ impl<'a> LexicalFacts<'a> {
         if parsed.language == Language::Python {
             facts.stable_receivers = super::python_prune::stable_receivers(parsed, owner);
         }
-        if parsed.language == Language::Rust {
+        if let Some(scan) = rust_macros {
             facts.rust_mut_borrowed = super::rust_prune::mutably_borrowed(parsed, owner);
+            facts.rust_refused = scan.refused;
+            // An implicit format capture is a read of the name on every line of its
+            // statement: it blocks U and is an occurrence D must dominate. It adds no Use.
+            for (name, literal) in scan.captures {
+                for line in super::rust_prune::statement_lines(literal) {
+                    facts
+                        .occurrences
+                        .entry((name.clone(), line))
+                        .or_default()
+                        .push(literal);
+                }
+            }
         }
         if parsed.language.is_js_family() {
             facts.stable_receivers = super::js_prune::stable_bases(parsed, owner);
@@ -165,15 +183,6 @@ impl<'a> LexicalFacts<'a> {
                 ))
                 .or_default()
                 .push(node);
-        }
-        if self.parsed.language == Language::Rust
-            && node.kind() == "identifier"
-            && super::rust_prune::in_macro_tokens(node)
-        {
-            self.rust_macro_uses.insert((
-                self.parsed.node_text(&node).to_owned(),
-                node.start_position().row + 1,
-            ));
         }
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
@@ -341,7 +350,7 @@ impl<'a> LexicalFacts<'a> {
     }
 
     fn proof(&self, path: &AccessPath, line: usize) -> UseProof {
-        if !self.enabled {
+        if !self.enabled || self.rust_refused.contains(&path.base) {
             return UseProof::default();
         }
         let key = (path.clone(), line);
@@ -493,12 +502,12 @@ impl<'a> LexicalFacts<'a> {
             return true;
         }
         // Rust: D proves identifier paths only (a field path's storage can be re-pointed
-        // behind its spelling), never a mutably borrowed name, and never a use line with an
-        // occurrence of the name inside a macro token tree.
+        // behind its spelling), never a mutably borrowed name, and never a name passed to a
+        // macro the census refuses.
         if self.parsed.language == Language::Rust
             && (!path.fields.is_empty()
                 || self.rust_mut_borrowed.contains(&path.base)
-                || self.rust_macro_uses.contains(&(path.base.clone(), line)))
+                || self.rust_refused.contains(&path.base))
         {
             return true;
         }

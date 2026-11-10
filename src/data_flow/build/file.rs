@@ -2,6 +2,7 @@
 use super::{FileRefs, Producer};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
+use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::cpg::{
     reaching_definitions_with_exact, FileCfgEdgeIndex, FlowConfidence, FlowDoubt, RdFileStats,
     RdOutcome,
@@ -11,9 +12,20 @@ use std::collections::{BTreeMap, BTreeSet};
 
 impl Producer {
     // Preserve the extracted closure's line breaks for the indentation-only byte control.
-    #[rustfmt::skip]
+    #[cfg(test)]
     pub(super) fn file_refs(file_path: &String, parsed: &ParsedFile) -> FileRefs {
-        Self::file_refs_impl(file_path, parsed, Some(super::fallback_cap::FALLBACK_EDGE_CAP))
+        // The one-file census is the same-file verdict: the seam for callers with no repository.
+        let census = RustMacroCensus::of_file(parsed);
+        Self::file_refs_with_census(file_path, parsed, &census)
+    }
+
+    #[rustfmt::skip]
+    pub(super) fn file_refs_with_census(
+        file_path: &String,
+        parsed: &ParsedFile,
+        census: &RustMacroCensus,
+    ) -> FileRefs {
+        Self::file_refs_impl(file_path, parsed, Some(super::fallback_cap::FALLBACK_EDGE_CAP), census)
     }
 
     #[cfg(test)]
@@ -22,11 +34,12 @@ impl Producer {
         parsed: &ParsedFile,
         cap: Option<usize>,
     ) -> FileRefs {
-        Self::file_refs_impl(file_path, parsed, cap)
+        let census = RustMacroCensus::of_file(parsed);
+        Self::file_refs_impl(file_path, parsed, cap, &census)
     }
 
     #[rustfmt::skip]
-    fn file_refs_impl(file_path: &String, parsed: &ParsedFile, cap: Option<usize>) -> FileRefs {
+    fn file_refs_impl(file_path: &String, parsed: &ParsedFile, cap: Option<usize>, census: &RustMacroCensus) -> FileRefs {
         let _profile_file = crate::profile::Phase::file("dfg.file_extract", file_path);
         let mut defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
             BTreeMap::new();
@@ -466,7 +479,7 @@ impl Producer {
             let unavailable = cap.and_then(|_| crate::cpg::unavailable_before_edges(
                 parsed, &func_node, &rd_defs, cfg_index,
             ));
-            let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans);
+            let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans, census);
             let scope = super::scope_prune::ScopeFacts::new(parsed, func_node, &rd_defs, &declared_types);
             let order = super::order_prune::OrderFacts::new(parsed, func_node, &rd_defs);
             let original_preferred = unavailable.map(|_| preferred_use_locs.clone());
@@ -862,9 +875,10 @@ impl Producer {
     pub(super) fn compact_file_refs(
         file: &String,
         parsed: &ParsedFile,
+        census: &RustMacroCensus,
     ) -> crate::data_flow::compact::CompactDfg {
         let _profile_file = crate::profile::Phase::file("dfg.file", file);
-        let parts = Self::file_refs(file, parsed).into_parts();
+        let parts = Self::file_refs_with_census(file, parsed, census).into_parts();
         #[cfg(test)]
         let legacy_adjacency_rows = parts
             .adjacency

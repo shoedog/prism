@@ -460,7 +460,13 @@ fn export_go_prune_probe_pairs() {
                 let lines = (start..=end).collect();
                 let lvalues = parsed.assignment_lvalue_spans_on_lines(&owner, &lines);
                 let rvalues = parsed.rvalue_identifier_spans_on_lines(&owner, &lines);
-                let facts = LexicalFacts::new(&parsed, owner, &lvalues, &rvalues);
+                let facts = LexicalFacts::new(
+                    &parsed,
+                    owner,
+                    &lvalues,
+                    &rvalues,
+                    &crate::call_graph::rust::macro_args::RustMacroCensus::of_file(&parsed),
+                );
                 let mut stats = crate::cpg::RdFileStats::default();
                 if facts.drop_write_only(&from.path, to.line, &mut stats) {
                     "write_only"

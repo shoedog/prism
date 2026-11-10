@@ -131,7 +131,7 @@
 {"case": "02_hazards", "path": "x", "def_line": 108, "use_line": 109, "keep": true, "reason": "use_in_closure"}
 {"case": "02_hazards", "path": "x", "def_line": 107, "use_line": 109, "keep": true, "reason": "use_in_closure"}
 {"case": "02_hazards", "path": "x", "def_line": 114, "use_line": 115, "keep": false, "reason": "write_only"}
-{"case": "02_hazards", "path": "x", "def_line": 114, "use_line": 116, "keep": true, "reason": "macro_use_line_d_keeps"}
+{"case": "02_hazards", "path": "x", "def_line": 114, "use_line": 116, "keep": false, "reason": "println_allowed_no_capture_d_drops"}
 {"case": "02_hazards", "path": "x", "def_line": 115, "use_line": 116, "keep": true, "reason": "macro_read"}
 {"case": "02_hazards", "path": "x", "def_line": 120, "use_line": 127, "keep": false, "reason": "dominated"}
 {"case": "02_hazards", "path": "x", "def_line": 122, "use_line": 127, "keep": true, "reason": "nested_fn_def"}
@@ -168,7 +168,7 @@
 {"case": "03_fold1", "path": "s.f", "def_line": 59, "use_line": 62, "keep": true, "reason": "mut_borrow_of_base"}
 {"case": "03_fold1", "path": "self.f", "def_line": 67, "use_line": 69, "keep": true, "reason": "self_unproven"}
 {"case": "03_fold1", "path": "x", "def_line": 74, "use_line": 77, "keep": true, "reason": "hygienic_macro_read"}
-{"case": "03_fold1", "path": "x", "def_line": 81, "use_line": 83, "keep": true, "reason": "println_use_macro_tokens_d_keeps"}
+{"case": "03_fold1", "path": "x", "def_line": 81, "use_line": 83, "keep": false, "reason": "println_allowed_no_capture_d_drops"}
 {"case": "03_fold1", "path": "x", "def_line": 88, "use_line": 89, "keep": true, "reason": "u_macro_read_line_kept"}
 {"case": "03_fold1", "path": "x", "def_line": 94, "use_line": 97, "keep": false, "reason": "block_expr_dominated"}
 {"case": "03_fold1", "path": "x", "def_line": 96, "use_line": 97, "keep": true, "reason": "own"}
@@ -177,7 +177,7 @@
 {"case": "03_fold1", "path": "x", "def_line": 104, "use_line": 107, "keep": false, "reason": "dominated"}
 {"case": "03_fold1", "path": "x", "def_line": 105, "use_line": 107, "keep": true, "reason": "tail_assignment_not_a_write"}
 {"case": "03_fold1", "path": "x", "def_line": 106, "use_line": 107, "keep": true, "reason": "own"}
-{"case": "03_fold1", "path": "x", "def_line": 111, "use_line": 114, "keep": false, "reason": "dominated"}
+{"case": "03_fold1", "path": "x", "def_line": 111, "use_line": 114, "keep": true, "reason": "unknown_macro_refused"}
 {"case": "03_fold1", "path": "x", "def_line": 112, "use_line": 114, "keep": true, "reason": "own_macro_let"}
 {"case": "03_fold1", "owner": "inner", "path": "y", "def_line": 119, "use_line": 121, "keep": false, "reason": "nested_fn_dominated_in_own_owner"}
 {"case": "03_fold1", "owner": "nested_fn_owner", "path": "y", "def_line": 119, "use_line": 121, "keep": true, "reason": "enclosing_owner_keeps_nested_pair"}
@@ -199,3 +199,24 @@
 {"case": "04_fold2", "path": "x", "def_line": 150, "use_line": 154, "keep": true, "reason": "ref_mut_binding_ident"}
 {"case": "04_fold2", "path": "x", "def_line": 158, "use_line": 161, "keep": true, "reason": "raw_mut_borrow"}
 {"case": "04_fold2", "path": "x", "def_line": 165, "use_line": 167, "keep": false, "reason": "unborrowed_control"}
+{"case": "05_fold3", "path": "x", "def_line": 24, "use_line": 26, "keep": true, "reason": "generated_reader_u", "owner": "gen_u"}
+{"case": "05_fold3", "path": "x", "def_line": 31, "use_line": 34, "keep": true, "reason": "generated_reader_d", "owner": "gen_d"}
+{"case": "05_fold3", "path": "x", "def_line": 38, "use_line": 40, "keep": true, "reason": "soup_macro_rules_owner_off", "owner": "soup_macro_rules"}
+{"case": "05_fold3", "path": "x", "def_line": 45, "use_line": 47, "keep": true, "reason": "install_macro_rules_owner_off", "owner": "metavariable_macro_rules"}
+{"case": "05_fold3", "path": "x", "def_line": 52, "use_line": 54, "keep": true, "reason": "generator_transitive", "owner": "generator_transitive"}
+{"case": "05_fold3", "path": "x", "def_line": 59, "use_line": 61, "keep": true, "reason": "metavariable_in_macro_position", "owner": "metavariable_name"}
+{"case": "05_fold3", "path": "x", "def_line": 66, "use_line": 68, "keep": true, "reason": "generator_nested_in_soup", "owner": "generator_nested_in_soup"}
+{"case": "05_fold3", "path": "x", "def_line": 73, "use_line": 75, "keep": true, "reason": "external_refused", "owner": "external_refused"}
+{"case": "05_fold3", "path": "x", "def_line": 80, "use_line": 82, "keep": true, "reason": "unknown_refused", "owner": "unknown_refused"}
+{"case": "05_fold3", "path": "x", "def_line": 87, "use_line": 90, "keep": false, "reason": "clean_in_repo_allowed", "owner": "clean_in_repo"}
+{"case": "05_fold3", "path": "x", "def_line": 94, "use_line": 97, "keep": false, "reason": "std_control", "owner": "std_matches"}
+{"case": "05_fold3", "path": "x", "def_line": 101, "use_line": 103, "keep": false, "reason": "std_qualified_allowed", "owner": "std_qualified"}
+{"case": "05_fold3", "path": "x", "def_line": 107, "use_line": 110, "keep": true, "reason": "conflicting_defs_refused", "owner": "conflicting_defs"}
+{"case": "05_fold3", "path": "x", "def_line": 114, "use_line": 116, "keep": true, "reason": "name_builder_owner_off", "owner": "name_builder"}
+{"case": "05_fold3", "path": "x", "def_line": 121, "use_line": 123, "keep": true, "reason": "expr_fragment_generator", "owner": "expr_fragment"}
+{"case": "05_fold3", "path": "x", "def_line": 128, "use_line": 129, "keep": true, "reason": "format_capture_read", "owner": "format_capture"}
+{"case": "05_fold3", "path": "x", "def_line": 134, "use_line": 135, "keep": true, "reason": "format_capture_debug_spec", "owner": "format_capture_spec"}
+{"case": "05_fold3", "path": "x", "def_line": 140, "use_line": 141, "keep": true, "reason": "format_capture_write_line", "owner": "format_capture_write"}
+{"case": "05_fold3", "path": "x", "def_line": 146, "use_line": 147, "keep": true, "reason": "statement_lines_decide", "owner": "format_capture_multiline"}
+{"case": "05_fold3", "path": "x", "def_line": 154, "use_line": 155, "keep": false, "reason": "escaped_brace_is_no_capture", "owner": "format_escaped_control"}
+{"case": "05_fold3", "path": "x", "def_line": 160, "use_line": 162, "keep": false, "reason": "capture_reads_dominating_def", "owner": "format_capture_dominated"}

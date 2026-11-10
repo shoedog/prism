@@ -23,7 +23,7 @@ impl CodePropertyGraph {
     ) -> Self {
         let type_db = type_db.cloned();
         crate::build_pool::install(|| {
-            let dfg = DataFlowGraph::build(subset);
+            let dfg = DataFlowGraph::build_with_census_files(subset, all_files);
             let cg = CallGraph::build_with_scope_graph_inputs(subset, None);
             Self::assemble_graph_in(cg, dfg, subset, type_db, Some(all_files))
         })

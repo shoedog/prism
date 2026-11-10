@@ -281,6 +281,7 @@ impl CompactDfg {
             labels: reduced,
             exact_labels,
             rd_function_stats: p.rd_function_stats,
+            rust_macro_census_digest: String::new(),
         })
     }
 }
