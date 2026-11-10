@@ -63,8 +63,11 @@ impl<'a> LexicalFacts<'a> {
         lvalues: &[PathSpan],
         rvalues: &[PathSpan],
     ) -> Self {
-        let js_enabled =
-            parsed.language.is_js_family() && super::js_prune::owner_enabled(parsed, owner);
+        // No lvalue span means no def on any line: U has no write-only use line (its use is the
+        // anchor a def mints) and D no dominating write, so the owner switch is not consulted.
+        let js_enabled = parsed.language.is_js_family()
+            && !lvalues.is_empty()
+            && super::js_prune::owner_enabled(parsed, owner);
         let mut facts = Self {
             parsed,
             enabled: match parsed.language {
