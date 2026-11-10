@@ -36,7 +36,7 @@ fn pairs(refs: &super::FileRefs) -> std::collections::BTreeSet<(String, usize, u
 /// Owner-keyed view: `(path, def_line, use_line)` to the owners (`function`, start line)
 /// holding that pair. A collapsed key lets an enclosing owner's copy of an edge hide a
 /// nested owner's loss, so a keep row needs every owner that had the pair to still have
-/// it and a drop row needs no owner to have it after.
+/// it and a drop row needs the selected owners to have had it and none to have it after.
 type Owners = std::collections::BTreeSet<(String, usize)>;
 fn owner_pairs(
     refs: &super::FileRefs,
@@ -131,7 +131,8 @@ fn rust_prune_matrix() {
             let ok = if row["keep"].as_bool().unwrap() {
                 !had.is_empty() && had.is_subset(has)
             } else {
-                has.is_empty()
+                // The filtered owner must have held the pair, or a misspelt `owner` passes.
+                !had.is_empty() && has.is_empty()
             };
             if !ok {
                 failures.push(format!("{row} owners before={had:?} after={has:?}"));

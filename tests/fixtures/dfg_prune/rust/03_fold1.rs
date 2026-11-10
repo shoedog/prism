@@ -27,9 +27,9 @@ fn if_let_rebind(a: &mut S) {
 }
 
 fn second_let() {
-    let s = make();
+    let mut s = make();
     s.f = 1;
-    let s = make2();
+    let mut s = make2();
     s.f = 2;
     sink(s.f);
 }
@@ -54,7 +54,7 @@ fn stable_formal(s: &mut S) {
     sink(s.f);
 }
 
-fn swap_base(a: &mut S, t: &mut S) {
+fn swap_base(a: &mut S, mut t: &mut S) {
     let mut s = &mut *a;
     s.f = 1;
     s.f = 2;

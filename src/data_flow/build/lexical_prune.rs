@@ -54,10 +54,12 @@ pub(super) struct LexicalFacts<'a> {
     /// Python `self`/`cls` parameters never rebound in the owner: their attribute paths
     /// are fixed storage for D (see `python_prune::stable_receivers`).
     stable_receivers: BTreeSet<String>,
-    /// Rust local names whose field paths D may prove (`rust_prune::stable_bases`).
-    rust_stable_bases: BTreeSet<String>,
-    /// Rust owner holding a `macro_rules!`: D keeps every pair (`rust_prune::has_local_macro`).
-    rust_local_macro: bool,
+    /// Rust names mutably borrowed anywhere in the owner: D keeps them
+    /// (`rust_prune::mutably_borrowed`).
+    rust_mut_borrowed: BTreeSet<String>,
+    /// Rust `(name, line)` of every occurrence inside a macro token tree: D keeps a use line
+    /// holding one (`rust_prune::in_macro_tokens`).
+    rust_macro_uses: BTreeSet<(String, usize)>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -77,7 +79,13 @@ impl<'a> LexicalFacts<'a> {
             enabled: match parsed.language {
                 Language::Go => !owner.has_error(),
                 Language::Python => !owner.has_error() && owner.kind() == "function_definition",
-                Language::Rust => !owner.has_error() && owner.kind() == "function_item",
+                // A local `macro_rules!` reads a local by definition-site hygiene while the
+                // line-anchored use sits at the invocation: U and D are off for such an owner.
+                Language::Rust => {
+                    !owner.has_error()
+                        && owner.kind() == "function_item"
+                        && !super::rust_prune::has_local_macro(owner)
+                }
                 l if l.is_js_family() => js_enabled,
                 _ => false,
             },
@@ -87,8 +95,8 @@ impl<'a> LexicalFacts<'a> {
             nested: Vec::new(),
             scope_declared: BTreeSet::new(),
             stable_receivers: BTreeSet::new(),
-            rust_stable_bases: BTreeSet::new(),
-            rust_local_macro: false,
+            rust_mut_borrowed: BTreeSet::new(),
+            rust_macro_uses: BTreeSet::new(),
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
@@ -98,8 +106,7 @@ impl<'a> LexicalFacts<'a> {
             facts.stable_receivers = super::python_prune::stable_receivers(parsed, owner);
         }
         if parsed.language == Language::Rust {
-            facts.rust_stable_bases = super::rust_prune::stable_bases(parsed, owner);
-            facts.rust_local_macro = super::rust_prune::has_local_macro(owner);
+            facts.rust_mut_borrowed = super::rust_prune::mutably_borrowed(parsed, owner);
         }
         if parsed.language.is_js_family() {
             facts.stable_receivers = super::js_prune::stable_bases(parsed, owner);
@@ -158,6 +165,15 @@ impl<'a> LexicalFacts<'a> {
                 ))
                 .or_default()
                 .push(node);
+        }
+        if self.parsed.language == Language::Rust
+            && node.kind() == "identifier"
+            && super::rust_prune::in_macro_tokens(node)
+        {
+            self.rust_macro_uses.insert((
+                self.parsed.node_text(&node).to_owned(),
+                node.start_position().row + 1,
+            ));
         }
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
@@ -476,11 +492,13 @@ impl<'a> LexicalFacts<'a> {
         {
             return true;
         }
-        // Rust: a field path needs a stable base, and a local `macro_rules!` can read a
-        // local by definition-site hygiene, so D never runs in such an owner.
+        // Rust: D proves identifier paths only (a field path's storage can be re-pointed
+        // behind its spelling), never a mutably borrowed name, and never a use line with an
+        // occurrence of the name inside a macro token tree.
         if self.parsed.language == Language::Rust
-            && (self.rust_local_macro
-                || (!path.fields.is_empty() && !self.rust_stable_bases.contains(&path.base)))
+            && (!path.fields.is_empty()
+                || self.rust_mut_borrowed.contains(&path.base)
+                || self.rust_macro_uses.contains(&(path.base.clone(), line)))
         {
             return true;
         }
