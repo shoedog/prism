@@ -1,0 +1,115 @@
+{
+ "main_edges": 249910,
+ "head_edges": 249018,
+ "main_only": 1137,
+ "added": 245,
+ "added_classes": {
+  "other": 245
+ },
+ "added_labels": [
+  [
+   "confidence=nameonly/doubt=killed",
+   153
+  ],
+  [
+   "confidence=nameonly/doubt=cfg_incomplete",
+   61
+  ],
+  [
+   "confidence=exact/doubt=None",
+   29
+  ],
+  [
+   "confidence=nameonly/doubt=alias_unstable",
+   1
+  ],
+  [
+   "confidence=nameonly/doubt=sameline",
+   1
+  ]
+ ],
+ "kept_label_transitions": [],
+ "kept_transition_edges": [],
+ "added_top_files": [
+  [
+   "src/navigation/queries.rs",
+   194
+  ],
+  [
+   "src/cpg/callback_identity_tests.rs",
+   10
+  ],
+  [
+   "examples/parameter_slot_characterization.rs",
+   5
+  ],
+  [
+   "src/cpg/callee_census_tests.rs",
+   4
+  ],
+  [
+   "crates/prism-mcp/src/mem_report.rs",
+   3
+  ],
+  [
+   "crates/prism-review/src/algorithms/resonance_slice.rs",
+   3
+  ],
+  [
+   "src/ast/call_membership_tests.rs",
+   3
+  ],
+  [
+   "src/ast/binding_verdict_probe.rs",
+   3
+  ],
+  [
+   "docs/superpowers/plans/2026-10-01-tsconfig-paths-resolution/p2-probes/gap-driver.rs",
+   3
+  ],
+  [
+   "tests/integration/js_paths_p2_test.rs",
+   3
+  ],
+  [
+   "tests/integration/js_paths_r2d_test.rs",
+   2
+  ],
+  [
+   "examples/dfg_census.rs",
+   2
+  ],
+  [
+   "src/executable_owner/admission.rs",
+   2
+  ],
+  [
+   "examples/parameter_site_census.rs",
+   2
+  ],
+  [
+   "crates/prism-review/src/algorithms/member_only_param_test_support.rs",
+   1
+  ],
+  [
+   "crates/prism-mcp/tests/mcp/footprint_guard_test.rs",
+   1
+  ],
+  [
+   "crates/prism-mcp/src/owner.rs",
+   1
+  ],
+  [
+   "src/cpg/member_only_param_tests.rs",
+   1
+  ],
+  [
+   "src/call_graph/js_ts_facts_file_tests.rs",
+   1
+  ],
+  [
+   "crates/prism-mcp/src/mem_changed_refresh.rs",
+   1
+  ]
+ ]
+}

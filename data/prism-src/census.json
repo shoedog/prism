@@ -1,0 +1,90 @@
+{
+  "census_ms": 351,
+  "defined_macro_rules": 15,
+  "digest": "5cca8bed559123b4a36ea3ea9aee9c5a92f540e28ececb8116f15233ca7e15dc",
+  "rust_files": 961,
+  "table_allowed_refused": {
+    "in-repo macro_rules (unqualified)": [
+      201,
+      0
+    ],
+    "in-repo macro_rules (unqualified) [in soup]": [
+      62,
+      0
+    ],
+    "other qualified path (external)": [
+      0,
+      149
+    ],
+    "other qualified path (external) [in soup]": [
+      0,
+      39
+    ],
+    "std list (unqualified)": [
+      17081,
+      0
+    ],
+    "std list (unqualified) [in soup]": [
+      1118,
+      0
+    ],
+    "std-qualified": [
+      1,
+      0
+    ],
+    "unknown unqualified (external/proc/undefined)": [
+      0,
+      203
+    ],
+    "unknown unqualified (external/proc/undefined) [in soup]": [
+      0,
+      79
+    ]
+  },
+  "top_refused_spellings": [
+    [
+      "json",
+      169
+    ],
+    [
+      "serde_json::json",
+      72
+    ],
+    [
+      "anyhow::bail",
+      36
+    ],
+    [
+      "anyhow::ensure",
+      26
+    ],
+    [
+      "anyhow",
+      19
+    ],
+    [
+      "ensure",
+      13
+    ],
+    [
+      "anyhow::anyhow",
+      11
+    ],
+    [
+      "std::ptr::addr_of",
+      3
+    ],
+    [
+      "bail",
+      1
+    ],
+    [
+      "include",
+      1
+    ],
+    [
+      "std::ptr::addr_of_mut",
+      1
+    ]
+  ]
+}

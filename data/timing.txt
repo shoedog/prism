@@ -1,0 +1,8 @@
+tokio 5bc3fdb3 run1: 4.5 s wall, 10.0 s user, maxrss 375 MB
+tokio fold3 run1: 4.7 s wall, 10.1 s user, maxrss 376 MB
+tokio 5bc3fdb3 run2: 4.6 s wall, 10.1 s user, maxrss 376 MB
+tokio fold3 run2: 4.4 s wall, 9.6 s user, maxrss 375 MB
+prism-main 5bc3fdb3 run1: 53.3 s wall, 154.8 s user, maxrss 2171 MB
+prism-main fold3 run1: 53.0 s wall, 154.1 s user, maxrss 2142 MB
+prism-src 5bc3fdb3 run1: 32.5 s wall, 101.3 s user, maxrss 1090 MB
+prism-src fold3 run1: 33.1 s wall, 102.9 s user, maxrss 1091 MB

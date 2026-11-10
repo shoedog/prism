@@ -1,0 +1,114 @@
+{
+  "census_ms": 199,
+  "defined_macro_rules": 132,
+  "digest": "15215d4a6c59013ad826e370a3ad2fec26e76d6d4f71a42d337d66a7647e559c",
+  "rust_files": 715,
+  "table_allowed_refused": {
+    "in-repo macro_rules (unqualified)": [
+      0,
+      2504
+    ],
+    "in-repo macro_rules (unqualified) [in soup]": [
+      0,
+      419
+    ],
+    "in-repo path": [
+      0,
+      1
+    ],
+    "in-repo path [in soup]": [
+      6,
+      14
+    ],
+    "other qualified path (external)": [
+      0,
+      238
+    ],
+    "other qualified path (external) [in soup]": [
+      0,
+      18
+    ],
+    "std list (unqualified)": [
+      0,
+      3879
+    ],
+    "std list (unqualified) [in soup]": [
+      0,
+      309
+    ],
+    "std-qualified [in soup]": [
+      1,
+      0
+    ],
+    "unknown unqualified (external/proc/undefined)": [
+      0,
+      336
+    ],
+    "unknown unqualified (external/proc/undefined) [in soup]": [
+      0,
+      33
+    ]
+  },
+  "top_refused_spellings": [
+    [
+      "assert_eq",
+      1975
+    ],
+    [
+      "assert",
+      1102
+    ],
+    [
+      "assert_ok",
+      386
+    ],
+    [
+      "assert_pending",
+      345
+    ],
+    [
+      "async_assert_fn",
+      228
+    ],
+    [
+      "assert_value",
+      188
+    ],
+    [
+      "panic",
+      187
+    ],
+    [
+      "ready",
+      172
+    ],
+    [
+      "assert_ready_ok",
+      147
+    ],
+    [
+      "vec",
+      144
+    ],
+    [
+      "assert_ready",
+      108
+    ],
+    [
+      "assert_bucket_eq",
+      97
+    ],
+    [
+      "debug_assert",
+      84
+    ],
+    [
+      "println",
+      84
+    ],
+    [
+      "pin_project",
+      75
+    ]
+  ]
+}

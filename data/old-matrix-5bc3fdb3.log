@@ -1,0 +1,227 @@
+   Compiling find-msvc-tools v0.1.9
+   Compiling shlex v1.3.0
+   Compiling tree-sitter-language v0.1.7
+   Compiling proc-macro2 v1.0.106
+   Compiling cc v1.2.57
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling serde_core v1.0.228
+   Compiling memchr v2.8.0
+   Compiling syn v2.0.117
+   Compiling libc v0.2.183
+   Compiling hashbrown v0.16.1
+   Compiling serde v1.0.228
+   Compiling equivalent v1.0.2
+   Compiling typenum v1.19.0
+   Compiling itoa v1.0.18
+   Compiling version_check v0.9.5
+   Compiling zmij v1.0.21
+   Compiling generic-array v0.14.7
+   Compiling aho-corasick v1.1.4
+   Compiling crossbeam-utils v0.8.21
+   Compiling regex-syntax v0.8.10
+   Compiling serde_json v1.0.149
+   Compiling serde_derive v1.0.228
+   Compiling regex-automata v0.4.14
+   Compiling indexmap v2.13.0
+   Compiling cfg-if v1.0.4
+   Compiling anstyle v1.0.14
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling utf8parse v0.2.2
+   Compiling autocfg v1.5.0
+   Compiling tree-sitter v0.25.10
+   Compiling num-traits v0.2.19
+   Compiling regex v1.12.3
+   Compiling anstyle-parse v1.0.0
+   Compiling digest v0.10.7
+   Compiling crossbeam-epoch v0.9.18
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling ryu v1.0.23
+   Compiling anstyle-query v1.1.5
+   Compiling rayon-core v1.13.0
+   Compiling cpufeatures v0.2.17
+   Compiling colorchoice v1.0.5
+   Compiling sha2 v0.10.9
+   Compiling anstream v1.0.0
+   Compiling hcl-primitives v0.1.11
+   Compiling vecmap-rs v0.2.4
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling crossbeam-deque v0.8.6
+   Compiling tree-sitter-hcl v1.1.0
+   Compiling tree-sitter-go v0.25.0 (/tmp/wt5bc/vendor/tree-sitter-go)
+   Compiling tree-sitter-lua v0.5.0
+   Compiling tree-sitter-c v0.24.1
+   Compiling tree-sitter-cpp v0.23.4
+   Compiling tree-sitter-java v0.23.5
+   Compiling tree-sitter-typescript v0.23.2 (/tmp/wt5bc/vendor/tree-sitter-typescript)
+   Compiling tree-sitter-rust v0.24.2
+   Compiling tree-sitter-python v0.23.6
+   Compiling tree-sitter-javascript v0.23.1
+   Compiling tikv-jemalloc-sys v0.7.1+5.3.1-0-g81034ce1f1373e37dc865038e1bc8eeecf559ce8
+   Compiling tree-sitter-bash v0.25.1
+   Compiling option-ext v0.2.0
+   Compiling strsim v0.11.1
+   Compiling pratt v0.4.0
+   Compiling winnow v0.7.15
+   Compiling fnv v1.0.7
+   Compiling heck v0.5.0
+   Compiling toml_write v0.1.2
+   Compiling thiserror v2.0.18
+   Compiling anyhow v1.0.102
+   Compiling winnow v1.0.1
+   Compiling clap_lex v1.1.0
+   Compiling clap_builder v4.6.0
+   Compiling clap_derive v4.6.0
+   Compiling toml_edit v0.22.27
+   Compiling hcl-edit v0.9.6
+   Compiling dirs-sys v0.5.0
+   Compiling prism v4.0.0 (/tmp/wt5bc)
+   Compiling thiserror-impl v2.0.18
+   Compiling predicates-core v1.0.10
+   Compiling rustix v1.1.4
+   Compiling getrandom v0.4.2
+   Compiling fixedbitset v0.5.7
+   Compiling streaming-iterator v0.1.9
+   Compiling either v1.15.0
+   Compiling foldhash v0.1.5
+   Compiling hashbrown v0.15.5
+   Compiling rayon v1.12.0
+   Compiling petgraph v0.7.1
+   Compiling float-cmp v0.10.0
+   Compiling dirs v6.0.0
+   Compiling toml v0.8.23
+   Compiling hcl-rs v0.19.7
+   Compiling clap v4.6.0
+   Compiling bincode v1.3.3
+   Compiling memmap2 v0.9.8
+   Compiling bitflags v2.11.0
+   Compiling normalize-line-endings v0.3.0
+   Compiling assert_cmd v2.2.0
+   Compiling termtree v0.5.1
+   Compiling difflib v0.4.0
+   Compiling linux-raw-sys v0.12.1
+   Compiling predicates v3.1.4
+   Compiling predicates-tree v1.0.13
+   Compiling bstr v1.12.1
+   Compiling wait-timeout v0.2.1
+   Compiling fastrand v2.3.0
+   Compiling once_cell v1.21.4
+   Compiling tempfile v3.27.0
+warning: method `exact_labels` is never used
+   --> src/data_flow/compact/views.rs:112:33
+    |
+ 36 | impl CompactDfg {
+    | --------------- method in this implementation
+...
+112 |     pub(in crate::data_flow) fn exact_labels(
+    |                                 ^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `as_legacy` is never used
+   --> src/data_flow/types.rs:108:19
+    |
+ 94 | impl ExactVarLocation {
+    | --------------------- method in this implementation
+...
+108 |     pub(crate) fn as_legacy(&self) -> VarLocation {
+    |                   ^^^^^^^^^
+
+warning: associated items `from_refs` and `as_legacy` are never used
+   --> src/data_flow/types.rs:139:19
+    |
+138 | impl ExactFlowEdge {
+    | ------------------ associated items in this implementation
+139 |     pub(crate) fn from_refs(from: &VarLocation, to: &VarLocation) -> Self {
+    |                   ^^^^^^^^^
+...
+153 |     pub(crate) fn as_legacy(&self) -> FlowEdge {
+    |                   ^^^^^^^^^
+
+warning: method `exact_labels` is never used
+  --> src/data_flow/views.rs:67:19
+   |
+33 | impl DataFlowGraph {
+   | ------------------ method in this implementation
+...
+67 |     pub(crate) fn exact_labels(
+   |                   ^^^^^^^^^^^^
+
+   Compiling tikv-jemallocator v0.7.0
+   Compiling prism-review v4.0.0 (/tmp/wt5bc/crates/prism-review)
+warning: `prism` (lib) generated 4 warnings
+warning: unused import: `petgraph::visit::EdgeRef`
+  --> src/data_flow/build/field_recall_s2f2_cpg_tests.rs:12:5
+   |
+12 | use petgraph::visit::EdgeRef;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src/cpg_cache/stream_tests.rs:476:9
+    |
+476 |     let mut errors = vec![std::io::Error::from(std::io::ErrorKind::Unsupported)];
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `prism` (lib test) generated 2 warnings (run `cargo fix --lib -p prism --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 17s
+     Running unittests src/lib.rs (/tmp/wt5bc-target/debug/deps/prism-7ce4d7ab30caef66)
+
+running 1 test
+test data_flow::build::rust_prune_tests::rust_prune_matrix ... FAILED
+
+failures:
+
+---- data_flow::build::rust_prune_tests::rust_prune_matrix stdout ----
+
+thread 'data_flow::build::rust_prune_tests::rust_prune_matrix' (22826) panicked at src/data_flow/build/rust_prune_tests.rs:142:5:
+20 failures:
+{"case":"02_hazards","def_line":114,"keep":false,"path":"x","reason":"println_allowed_no_capture_d_drops","use_line":116} owners before={("macro_read", 113)} after={("macro_read", 113)}
+{"case":"03_fold1","def_line":81,"keep":false,"path":"x","reason":"println_allowed_no_capture_d_drops","use_line":83} owners before={("println_use", 80)} after={("println_use", 80)}
+{"case":"03_fold1","def_line":111,"keep":true,"path":"x","reason":"unknown_macro_refused","use_line":114} owners before={("macro_let", 110)} after={}
+{"case":"05_fold3","def_line":24,"keep":true,"owner":"gen_u","path":"x","reason":"generated_reader_u","use_line":26} owners before={("gen_u", 23)} after={}
+{"case":"05_fold3","def_line":31,"keep":true,"owner":"gen_d","path":"x","reason":"generated_reader_d","use_line":34} owners before={("gen_d", 30)} after={}
+{"case":"05_fold3","def_line":38,"keep":true,"owner":"soup_macro_rules","path":"x","reason":"soup_macro_rules_owner_off","use_line":40} owners before={("soup_macro_rules", 37)} after={}
+{"case":"05_fold3","def_line":45,"keep":true,"owner":"metavariable_macro_rules","path":"x","reason":"install_macro_rules_owner_off","use_line":47} owners before={("metavariable_macro_rules", 44)} after={}
+{"case":"05_fold3","def_line":52,"keep":true,"owner":"generator_transitive","path":"x","reason":"generator_transitive","use_line":54} owners before={("generator_transitive", 51)} after={}
+{"case":"05_fold3","def_line":59,"keep":true,"owner":"metavariable_name","path":"x","reason":"metavariable_in_macro_position","use_line":61} owners before={("metavariable_name", 58)} after={}
+{"case":"05_fold3","def_line":66,"keep":true,"owner":"generator_nested_in_soup","path":"x","reason":"generator_nested_in_soup","use_line":68} owners before={("generator_nested_in_soup", 65)} after={}
+{"case":"05_fold3","def_line":73,"keep":true,"owner":"external_refused","path":"x","reason":"external_refused","use_line":75} owners before={("external_refused", 72)} after={}
+{"case":"05_fold3","def_line":80,"keep":true,"owner":"unknown_refused","path":"x","reason":"unknown_refused","use_line":82} owners before={("unknown_refused", 79)} after={}
+{"case":"05_fold3","def_line":101,"keep":false,"owner":"std_qualified","path":"x","reason":"std_qualified_allowed","use_line":103} owners before={("std_qualified", 100)} after={("std_qualified", 100)}
+{"case":"05_fold3","def_line":107,"keep":true,"owner":"conflicting_defs","path":"x","reason":"conflicting_defs_refused","use_line":110} owners before={("conflicting_defs", 106)} after={}
+{"case":"05_fold3","def_line":114,"keep":true,"owner":"name_builder","path":"x","reason":"name_builder_owner_off","use_line":116} owners before={("name_builder", 113)} after={}
+{"case":"05_fold3","def_line":121,"keep":true,"owner":"expr_fragment","path":"x","reason":"expr_fragment_generator","use_line":123} owners before={("expr_fragment", 120)} after={}
+{"case":"05_fold3","def_line":128,"keep":true,"owner":"format_capture","path":"x","reason":"format_capture_read","use_line":129} owners before={("format_capture", 127)} after={}
+{"case":"05_fold3","def_line":134,"keep":true,"owner":"format_capture_spec","path":"x","reason":"format_capture_debug_spec","use_line":135} owners before={("format_capture_spec", 133)} after={}
+{"case":"05_fold3","def_line":140,"keep":true,"owner":"format_capture_write","path":"x","reason":"format_capture_write_line","use_line":141} owners before={("format_capture_write", 139)} after={}
+{"case":"05_fold3","def_line":146,"keep":true,"owner":"format_capture_multiline","path":"x","reason":"statement_lines_decide","use_line":147} owners before={("format_capture_multiline", 145)} after={}
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: rust_prune_matrix
+             at ./src/data_flow/build/rust_prune_tests.rs:142:5
+   3: prism::data_flow::build::rust_prune_tests::rust_prune_matrix::{closure#0}
+             at ./src/data_flow/build/rust_prune_tests.rs:87:23
+   4: <prism::data_flow::build::rust_prune_tests::rust_prune_matrix::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+
+failures:
+    data_flow::build::rust_prune_tests::rust_prune_matrix
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3072 filtered out; finished in 0.88s
+
+error: test failed, to rerun pass `-p prism --lib`

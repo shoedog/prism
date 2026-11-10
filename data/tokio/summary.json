@@ -1,0 +1,15 @@
+{
+ "main_edges": 32647,
+ "5bc_edges": 29953,
+ "fold_edges": 30919,
+ "vs_main_removed": 1728,
+ "vs_main_added": 0,
+ "vs_5bc_restored": 966,
+ "vs_5bc_newly_removed": 0,
+ "vs_main_kept_label_transitions": 0,
+ "restored_by_cause": {
+  "census_refusal": 966
+ },
+ "restored_with_capture_text_of_def_name": 0,
+ "restored_capture_edges_attributed_to_capture": 0
+}

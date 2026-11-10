@@ -1,0 +1,2151 @@
+{
+  "aggregate": {
+    "VIOLATION (format capture)": 193,
+    "only Allowed invocations, no capture": 944
+  },
+  "by_spelling": {
+    "VIOLATION (format capture)": 193,
+    "only Allowed invocations, no capture (assert)": 301,
+    "only Allowed invocations, no capture (assert,format)": 2,
+    "only Allowed invocations, no capture (assert,format,matches)": 1,
+    "only Allowed invocations, no capture (assert,matches)": 20,
+    "only Allowed invocations, no capture (assert_eq)": 470,
+    "only Allowed invocations, no capture (assert_eq,format)": 38,
+    "only Allowed invocations, no capture (assert_eq,format,vec)": 1,
+    "only Allowed invocations, no capture (assert_eq,matches)": 2,
+    "only Allowed invocations, no capture (assert_eq,vec)": 24,
+    "only Allowed invocations, no capture (assert_ne)": 8,
+    "only Allowed invocations, no capture (assert_ne,vec)": 6,
+    "only Allowed invocations, no capture (eprintln)": 6,
+    "only Allowed invocations, no capture (format)": 3,
+    "only Allowed invocations, no capture (format,vec)": 1,
+    "only Allowed invocations, no capture (matches)": 39,
+    "only Allowed invocations, no capture (println)": 2,
+    "only Allowed invocations, no capture (vec)": 20
+  },
+  "violations": [
+    {
+      "def_line": 457,
+      "def_src": "let served = a.request(CALLEES);",
+      "file": "crates/prism-mcp/src/daemon/connection_tests.rs",
+      "path": "served",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 448,
+      "use_src": "served[\"result\"][\"structuredContent\"][\"query\"], RUN_CALLEES,"
+    },
+    {
+      "def_line": 457,
+      "def_src": "let served = a.request(CALLEES);",
+      "file": "crates/prism-mcp/src/daemon/connection_tests.rs",
+      "path": "served",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 452,
+      "use_src": "!served.to_string().contains(\"first attempt failed\"),"
+    },
+    {
+      "def_line": 16,
+      "def_src": "fn require_event(lines: &Lines, event: &str, outcome: &str) {",
+      "file": "crates/prism-mcp/src/daemon/idle_wire_logging_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 24,
+      "use_src": "lines"
+    },
+    {
+      "def_line": 274,
+      "def_src": "let message = error(write(",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 283,
+      "use_src": "message.contains(\"line 1\") && message.contains(\"not JSON\"),"
+    },
+    {
+      "def_line": 274,
+      "def_src": "let message = error(write(",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 288,
+      "use_src": "assert!(message.contains(\"has no requests\"), \"{message}\");"
+    },
+    {
+      "def_line": 274,
+      "def_src": "let message = error(write(",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 291,
+      "use_src": "assert!(message.contains(\"missing.jsonl\"), \"{message}\");"
+    },
+    {
+      "def_line": 281,
+      "def_src": "let message = error(write(\"not-json.jsonl\", \"nope\\n\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 278,
+      "use_src": "assert!(message.contains(\"line 3\"), \"{message}\");"
+    },
+    {
+      "def_line": 281,
+      "def_src": "let message = error(write(\"not-json.jsonl\", \"nope\\n\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 279,
+      "use_src": "assert!(message.contains(\"tools/call\"), \"{message}\");"
+    },
+    {
+      "def_line": 281,
+      "def_src": "let message = error(write(\"not-json.jsonl\", \"nope\\n\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 288,
+      "use_src": "assert!(message.contains(\"has no requests\"), \"{message}\");"
+    },
+    {
+      "def_line": 281,
+      "def_src": "let message = error(write(\"not-json.jsonl\", \"nope\\n\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 291,
+      "use_src": "assert!(message.contains(\"missing.jsonl\"), \"{message}\");"
+    },
+    {
+      "def_line": 287,
+      "def_src": "let message = error(write(\"empty.jsonl\", \"\\n\\n\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 278,
+      "use_src": "assert!(message.contains(\"line 3\"), \"{message}\");"
+    },
+    {
+      "def_line": 287,
+      "def_src": "let message = error(write(\"empty.jsonl\", \"\\n\\n\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 279,
+      "use_src": "assert!(message.contains(\"tools/call\"), \"{message}\");"
+    },
+    {
+      "def_line": 287,
+      "def_src": "let message = error(write(\"empty.jsonl\", \"\\n\\n\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 283,
+      "use_src": "message.contains(\"line 1\") && message.contains(\"not JSON\"),"
+    },
+    {
+      "def_line": 287,
+      "def_src": "let message = error(write(\"empty.jsonl\", \"\\n\\n\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 291,
+      "use_src": "assert!(message.contains(\"missing.jsonl\"), \"{message}\");"
+    },
+    {
+      "def_line": 290,
+      "def_src": "let message = error(dir.path().join(\"missing.jsonl\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 278,
+      "use_src": "assert!(message.contains(\"line 3\"), \"{message}\");"
+    },
+    {
+      "def_line": 290,
+      "def_src": "let message = error(dir.path().join(\"missing.jsonl\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 279,
+      "use_src": "assert!(message.contains(\"tools/call\"), \"{message}\");"
+    },
+    {
+      "def_line": 290,
+      "def_src": "let message = error(dir.path().join(\"missing.jsonl\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 283,
+      "use_src": "message.contains(\"line 1\") && message.contains(\"not JSON\"),"
+    },
+    {
+      "def_line": 290,
+      "def_src": "let message = error(dir.path().join(\"missing.jsonl\"));",
+      "file": "crates/prism-mcp/src/mem_report_tests.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 288,
+      "use_src": "assert!(message.contains(\"has no requests\"), \"{message}\");"
+    },
+    {
+      "def_line": 11,
+      "def_src": "let decoded = Reply::decode(ready.as_bytes());",
+      "file": "crates/prism-mcp/src/shared/idle_wire_tests.rs",
+      "path": "decoded",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 16,
+      "use_src": "assert!(decoded.is_ok(), \"wire v2 STATUS must decode: {decoded:?}\");"
+    },
+    {
+      "def_line": 15,
+      "def_src": "let decoded = DaemonStatus::decode(status.as_bytes());",
+      "file": "crates/prism-mcp/src/shared/idle_wire_tests.rs",
+      "path": "decoded",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 12,
+      "use_src": "assert!(decoded.is_ok(), \"wire v2 READY must decode: {decoded:?}\");"
+    },
+    {
+      "def_line": 143,
+      "def_src": "let outcome = PreambleLineReader::new().read_line(&mut Cursor::new(b\"READ\".to_vec()));",
+      "file": "crates/prism-mcp/src/shared/preamble_reader_tests.rs",
+      "path": "outcome",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 150,
+      "use_src": "matches!(outcome, Err(PreambleReadError::Eof { received: 0 })),"
+    },
+    {
+      "def_line": 148,
+      "def_src": "let outcome = PreambleLineReader::new().read_line(&mut Cursor::new(Vec::new()));",
+      "file": "crates/prism-mcp/src/shared/preamble_reader_tests.rs",
+      "path": "outcome",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 145,
+      "use_src": "matches!(outcome, Err(PreambleReadError::Eof { received: 4 })),"
+    },
+    {
+      "def_line": 248,
+      "def_src": "let detail = invalid_detail(Hello::decode(line.as_bytes()));",
+      "file": "crates/prism-mcp/src/shared/preamble_tests.rs",
+      "path": "detail",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 256,
+      "use_src": "assert!(detail.contains(\"missing field `protocol`\"), \"{detail}\");"
+    },
+    {
+      "def_line": 122,
+      "def_src": "let lines = ready_lines(&ready, &requested, Path::new(\"/socket\\ninjected\"));",
+      "file": "crates/prism-mcp/src/shim/idle_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 162,
+      "use_src": "lines[1].contains("
+    },
+    {
+      "def_line": 155,
+      "def_src": "let lines = ready_lines(&ready, &same, Path::new(\"/socket\"));",
+      "file": "crates/prism-mcp/src/shim/idle_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 124,
+      "use_src": "lines"
+    },
+    {
+      "def_line": 155,
+      "def_src": "let lines = ready_lines(&ready, &same, Path::new(\"/socket\"));",
+      "file": "crates/prism-mcp/src/shim/idle_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 144,
+      "use_src": "lines[0].contains("
+    },
+    {
+      "def_line": 155,
+      "def_src": "let lines = ready_lines(&ready, &same, Path::new(\"/socket\"));",
+      "file": "crates/prism-mcp/src/shim/idle_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 162,
+      "use_src": "lines[1].contains("
+    },
+    {
+      "def_line": 159,
+      "def_src": "let lines = ready_lines(&ready, &same, Path::new(\"/socket\"));",
+      "file": "crates/prism-mcp/src/shim/idle_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 124,
+      "use_src": "lines"
+    },
+    {
+      "def_line": 159,
+      "def_src": "let lines = ready_lines(&ready, &same, Path::new(\"/socket\"));",
+      "file": "crates/prism-mcp/src/shim/idle_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 144,
+      "use_src": "lines[0].contains("
+    },
+    {
+      "def_line": 185,
+      "def_src": "let lines = ready_lines(&ready, &args, Path::new(\"/socket\"));",
+      "file": "crates/prism-mcp/src/shim/idle_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 195,
+      "use_src": "lines.len(),"
+    },
+    {
+      "def_line": 185,
+      "def_src": "let lines = ready_lines(&ready, &args, Path::new(\"/socket\"));",
+      "file": "crates/prism-mcp/src/shim/idle_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 200,
+      "use_src": "assert!(!lines[1].contains(\"pressure_relief\"), \"{lines:?}\");"
+    },
+    {
+      "def_line": 193,
+      "def_src": "let lines = ready_lines(&ready, &args, Path::new(\"/socket\"));",
+      "file": "crates/prism-mcp/src/shim/idle_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 187,
+      "use_src": "lines.len(),"
+    },
+    {
+      "def_line": 285,
+      "def_src": "let said = run(&setup.options(None, Duration::from_millis(500))).expect_err(\"alive\");",
+      "file": "crates/prism-mcp/src/shim/shutdown_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 292,
+      "use_src": "assert!(said.contains(\"nothing to shut down\"), \"{said}\");"
+    },
+    {
+      "def_line": 291,
+      "def_src": "let said = run(&setup.options(None, Duration::from_millis(500))).expect(\"no daemon\");",
+      "file": "crates/prism-mcp/src/shim/shutdown_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 287,
+      "use_src": "said.contains(\"alive but not accepting connections\"),"
+    },
+    {
+      "def_line": 367,
+      "def_src": "let said = run(&setup.options(None, HANG)).expect_err(\"not \\\"nothing to shut down\\\"\");",
+      "file": "crates/prism-mcp/src/shim/shutdown_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 373,
+      "use_src": "said.contains(\"alive but not accepting connections\"),"
+    },
+    {
+      "def_line": 371,
+      "def_src": "let said = run(&setup.options(None, HANG)).expect_err(\"alive\");",
+      "file": "crates/prism-mcp/src/shim/shutdown_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 368,
+      "use_src": "assert!(said.contains(\"Permission denied\"), \"{said}\");"
+    },
+    {
+      "def_line": 371,
+      "def_src": "let said = run(&setup.options(None, HANG)).expect_err(\"alive\");",
+      "file": "crates/prism-mcp/src/shim/shutdown_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 369,
+      "use_src": "assert!(!said.contains(\"nothing to shut down\"), \"{said}\");"
+    },
+    {
+      "def_line": 429,
+      "def_src": "let said = run(&setup.options(None, HANG)).expect(\"gone\");",
+      "file": "crates/prism-mcp/src/shim/shutdown_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 442,
+      "use_src": "assert!(said.contains(\"Permission denied\"), \"{said}\");"
+    },
+    {
+      "def_line": 429,
+      "def_src": "let said = run(&setup.options(None, HANG)).expect(\"gone\");",
+      "file": "crates/prism-mcp/src/shim/shutdown_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 443,
+      "use_src": "assert!(!said.contains(\"is gone\"), \"{said}\");"
+    },
+    {
+      "def_line": 441,
+      "def_src": "let said = run(&setup.options(None, HANG)).expect_err(\"not gone\");",
+      "file": "crates/prism-mcp/src/shim/shutdown_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 430,
+      "use_src": "assert!(said.contains(\"is gone\"), \"{said}\");"
+    },
+    {
+      "def_line": 155,
+      "def_src": "let said = about_the_key(base.path(), &paths);",
+      "file": "crates/prism-mcp/src/shim/status_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 176,
+      "use_src": "said.contains(&format!("
+    },
+    {
+      "def_line": 358,
+      "def_src": "let said = within_hang(\"daemon-status over a FIFO marker\", move || report(&root));",
+      "file": "crates/prism-mcp/src/shim/status_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 379,
+      "use_src": "said.contains("
+    },
+    {
+      "def_line": 377,
+      "def_src": "let said = within_hang(\"daemon-status over a 4 MiB marker\", move || report(&root));",
+      "file": "crates/prism-mcp/src/shim/status_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 360,
+      "use_src": "said.contains(&format!("
+    },
+    {
+      "def_line": 436,
+      "def_src": "let said = about_the_key(base.path(), &paths);",
+      "file": "crates/prism-mcp/src/shim/status_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 446,
+      "use_src": "said.starts_with(&format!("
+    },
+    {
+      "def_line": 444,
+      "def_src": "let said = about_the_key(base.path(), &paths);",
+      "file": "crates/prism-mcp/src/shim/status_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 438,
+      "use_src": "said.starts_with(&format!("
+    },
+    {
+      "def_line": 481,
+      "def_src": "let said = report(base.path());",
+      "file": "crates/prism-mcp/src/shim/status_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 497,
+      "use_src": "said.contains(&format!(\"\\n{LOCATOR} cannot be looked at: \")),"
+    },
+    {
+      "def_line": 481,
+      "def_src": "let said = report(base.path());",
+      "file": "crates/prism-mcp/src/shim/status_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 500,
+      "use_src": "assert!(said.contains(\"Permission denied\"), \"{said}\");"
+    },
+    {
+      "def_line": 495,
+      "def_src": "let said = report(base.path());",
+      "file": "crates/prism-mcp/src/shim/status_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 483,
+      "use_src": "said.contains(&format!(\"\\n{LOCATOR} alive but not answering\")),"
+    },
+    {
+      "def_line": 495,
+      "def_src": "let said = report(base.path());",
+      "file": "crates/prism-mcp/src/shim/status_tests.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 487,
+      "use_src": "said.ends_with(\"1 keys have nothing but lock files and logs (0 bytes of logs)\\n\"),"
+    },
+    {
+      "def_line": 143,
+      "def_src": "let (status, log) = daemon.ended();",
+      "file": "crates/prism-mcp/tests/mcp/daemon_control_process_test.rs",
+      "path": "status",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 135,
+      "use_src": "status.contains(\"  shutdown requested: it drains once no client is left\\n\"),"
+    },
+    {
+      "def_line": 81,
+      "def_src": "let said = stdout(&listed);",
+      "file": "crates/prism-mcp/tests/mcp/daemon_control_process_test.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 101,
+      "use_src": "assert!(said.ends_with(\") drained\\n\"), \"{said}\");"
+    },
+    {
+      "def_line": 81,
+      "def_src": "let said = stdout(&listed);",
+      "file": "crates/prism-mcp/tests/mcp/daemon_control_process_test.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 95,
+      "use_src": "said.starts_with(&format!("
+    },
+    {
+      "def_line": 93,
+      "def_src": "let said = stdout(&output);",
+      "file": "crates/prism-mcp/tests/mcp/daemon_control_process_test.rs",
+      "path": "said",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 89,
+      "use_src": "assert!(said.contains(&expected), \"{expected:?} in {said}\");"
+    },
+    {
+      "def_line": 138,
+      "def_src": "let message = first_difference(b\"same\\nab-golden\\n\", b\"same\\nab-actual\\n\").expect(\"differs\");",
+      "file": "crates/prism-mcp/tests/mcp/golden_transcript_test.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 146,
+      "use_src": "message.starts_with(\"response line 2 differs at byte 0\"),"
+    },
+    {
+      "def_line": 138,
+      "def_src": "let message = first_difference(b\"same\\nab-golden\\n\", b\"same\\nab-actual\\n\").expect(\"differs\");",
+      "file": "crates/prism-mcp/tests/mcp/golden_transcript_test.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 151,
+      "use_src": "message.starts_with(\"line count differs: golden has 2, actual has 3\"),"
+    },
+    {
+      "def_line": 144,
+      "def_src": "let message = first_difference(b\"a\\n\", b\"a\\nb\\n\").expect(\"differs\");",
+      "file": "crates/prism-mcp/tests/mcp/golden_transcript_test.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 140,
+      "use_src": "message.starts_with(\"response line 2 differs at byte 3\"),"
+    },
+    {
+      "def_line": 144,
+      "def_src": "let message = first_difference(b\"a\\n\", b\"a\\nb\\n\").expect(\"differs\");",
+      "file": "crates/prism-mcp/tests/mcp/golden_transcript_test.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 151,
+      "use_src": "message.starts_with(\"line count differs: golden has 2, actual has 3\"),"
+    },
+    {
+      "def_line": 149,
+      "def_src": "let message = first_difference(b\"a\\nb\", b\"a\\nb\\nc\").expect(\"differs\");",
+      "file": "crates/prism-mcp/tests/mcp/golden_transcript_test.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 140,
+      "use_src": "message.starts_with(\"response line 2 differs at byte 3\"),"
+    },
+    {
+      "def_line": 149,
+      "def_src": "let message = first_difference(b\"a\\nb\", b\"a\\nb\\nc\").expect(\"differs\");",
+      "file": "crates/prism-mcp/tests/mcp/golden_transcript_test.rs",
+      "path": "message",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 146,
+      "use_src": "message.starts_with(\"response line 2 differs at byte 0\"),"
+    },
+    {
+      "def_line": 138,
+      "def_src": "let served = second.request(CALLEES);",
+      "file": "crates/prism-mcp/tests/mcp/idle_process_test.rs",
+      "path": "served",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 73,
+      "use_src": "assert_eq!(served[\"result\"][\"isError\"], false, \"{served}\");"
+    },
+    {
+      "def_line": 138,
+      "def_src": "let served = second.request(CALLEES);",
+      "file": "crates/prism-mcp/tests/mcp/idle_process_test.rs",
+      "path": "served",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 74,
+      "use_src": "assert!(served.to_string().contains(\"helper\"), \"{served}\");"
+    },
+    {
+      "def_line": 218,
+      "def_src": "let response = lines.recv_timeout(HANG).unwrap().unwrap();",
+      "file": "crates/prism-mcp/tests/mcp/idle_process_test.rs",
+      "path": "response",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 220,
+      "use_src": "assert!(response[\"result\"].is_object(), \"{response}\");"
+    },
+    {
+      "def_line": 71,
+      "def_src": "let served = first.request(CALLEES);",
+      "file": "crates/prism-mcp/tests/mcp/idle_process_test.rs",
+      "path": "served",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 140,
+      "use_src": "assert_eq!(served[\"result\"][\"isError\"], false, \"{served}\");"
+    },
+    {
+      "def_line": 71,
+      "def_src": "let served = first.request(CALLEES);",
+      "file": "crates/prism-mcp/tests/mcp/idle_process_test.rs",
+      "path": "served",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 141,
+      "use_src": "assert!(served.to_string().contains(\"helper\"), \"{served}\");"
+    },
+    {
+      "def_line": 224,
+      "def_src": "let startup = stderr.recv_timeout(RESPONSE_TIMEOUT).unwrap().unwrap();",
+      "file": "crates/prism-mcp/tests/mcp/malloc_test.rs",
+      "path": "startup",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 227,
+      "use_src": "startup.contains(&format!(\" malloc_space_efficient={expected} \")),"
+    },
+    {
+      "def_line": 224,
+      "def_src": "let startup = stderr.recv_timeout(RESPONSE_TIMEOUT).unwrap().unwrap();",
+      "file": "crates/prism-mcp/tests/mcp/malloc_test.rs",
+      "path": "startup",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 230,
+      "use_src": "assert!(startup.contains(&format!(\" pid={pid} \")), \"{startup}\");"
+    },
+    {
+      "def_line": 239,
+      "def_src": "let response = stdout.recv_timeout(RESPONSE_TIMEOUT).unwrap().unwrap();",
+      "file": "crates/prism-mcp/tests/mcp/malloc_test.rs",
+      "path": "response",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 243,
+      "use_src": "assert!(response[\"error\"].is_null(), \"{response}\");"
+    },
+    {
+      "def_line": 277,
+      "def_src": "let startup = stderr.recv_timeout(RESPONSE_TIMEOUT).unwrap().unwrap();",
+      "file": "crates/prism-mcp/tests/mcp/malloc_test.rs",
+      "path": "startup",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 279,
+      "use_src": "assert!(startup.contains(\" event=startup \"), \"{startup}\");"
+    },
+    {
+      "def_line": 277,
+      "def_src": "let startup = stderr.recv_timeout(RESPONSE_TIMEOUT).unwrap().unwrap();",
+      "file": "crates/prism-mcp/tests/mcp/malloc_test.rs",
+      "path": "startup",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 280,
+      "use_src": "assert!(startup.contains(\" malloc_space_efficient=1 \"), \"{startup}\");"
+    },
+    {
+      "def_line": 277,
+      "def_src": "let startup = stderr.recv_timeout(RESPONSE_TIMEOUT).unwrap().unwrap();",
+      "file": "crates/prism-mcp/tests/mcp/malloc_test.rs",
+      "path": "startup",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 281,
+      "use_src": "assert!(startup.contains(&format!(\" pid={pid} \")), \"{startup}\");"
+    },
+    {
+      "def_line": 66,
+      "def_src": "let lines = slice_lines(language, &src, file, &[2], SlicingAlgorithm::FullFlow);",
+      "file": "crates/prism-review/src/algorithms/member_only_param_r1_slice_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 57,
+      "use_src": "assert_eq!(lines, BTreeSet::from([1, 2, 4, 6, 9]), \"{lines:?}\");"
+    },
+    {
+      "def_line": 128,
+      "def_src": "let sarif = command_output(",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "sarif",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 139,
+      "use_src": "assert!(!results(&sarif).is_empty(), \"{sarif:#}\");"
+    },
+    {
+      "def_line": 138,
+      "def_src": "let sarif: Value = serde_json::from_slice(&sarif.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "sarif",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 137,
+      "use_src": "assert!(sarif.status.success(), \"{sarif:?}\");"
+    },
+    {
+      "def_line": 145,
+      "def_src": "let targets = command_output(",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "targets",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 157,
+      "use_src": "!targets[\"targets\"].as_array().unwrap().is_empty(),"
+    },
+    {
+      "def_line": 155,
+      "def_src": "let targets: Value = serde_json::from_slice(&targets.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "targets",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 154,
+      "use_src": "assert!(targets.status.success(), \"{targets:?}\");"
+    },
+    {
+      "def_line": 169,
+      "def_src": "let output = command_output(",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "output",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 200,
+      "use_src": "assert!(output.status.success(), \"{resolution}/targets: {output:?}\");"
+    },
+    {
+      "def_line": 179,
+      "def_src": "let doc: Value = serde_json::from_slice(&output.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "doc",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 203,
+      "use_src": "doc[\"targets\"].as_array().unwrap().is_empty(),"
+    },
+    {
+      "def_line": 233,
+      "def_src": "let scoped: Value = serde_json::from_slice(&scoped.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "scoped",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 231,
+      "use_src": "assert!(scoped.status.success(), \"{format}: {scoped:?}\");"
+    },
+    {
+      "def_line": 234,
+      "def_src": "let exact: Value = serde_json::from_slice(&exact.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "exact",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 232,
+      "use_src": "assert!(exact.status.success(), \"{format}: {exact:?}\");"
+    },
+    {
+      "def_line": 385,
+      "def_src": "let exact = command_output(",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "exact",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 396,
+      "use_src": "assert!(exact[\"targets\"].as_array().unwrap().is_empty(), \"{exact:#}\");"
+    },
+    {
+      "def_line": 395,
+      "def_src": "let exact: Value = serde_json::from_slice(&exact.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "exact",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 394,
+      "use_src": "assert!(exact.status.success(), \"{exact:?}\");"
+    },
+    {
+      "def_line": 410,
+      "def_src": "let mut implicit: Value = serde_json::from_slice(&implicit.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "implicit",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 408,
+      "use_src": "assert!(implicit.status.success(), \"{implicit:?}\");"
+    },
+    {
+      "def_line": 411,
+      "def_src": "let mut nominal: Value = serde_json::from_slice(&nominal.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "nominal",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 409,
+      "use_src": "assert!(nominal.status.success(), \"{nominal:?}\");"
+    },
+    {
+      "def_line": 86,
+      "def_src": "let exact = command_output(",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "exact",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 103,
+      "use_src": "assert!(findings(&exact).is_empty(), \"{format}: {exact:#}\");"
+    },
+    {
+      "def_line": 97,
+      "def_src": "let scoped: Value = serde_json::from_slice(&scoped.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "scoped",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 95,
+      "use_src": "assert!(scoped.status.success(), \"{format}: {scoped:?}\");"
+    },
+    {
+      "def_line": 98,
+      "def_src": "let exact: Value = serde_json::from_slice(&exact.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+      "path": "exact",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 96,
+      "use_src": "assert!(exact.status.success(), \"{format}: {exact:?}\");"
+    },
+    {
+      "def_line": 474,
+      "def_src": "let call_stats: Value = serde_json::from_slice(&call_stats.stdout).unwrap();",
+      "file": "crates/prism-review/tests/cli/min_confidence_test.rs",
+      "path": "call_stats",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 473,
+      "use_src": "assert!(call_stats.status.success(), \"{case}: {call_stats:?}\");"
+    },
+    {
+      "def_line": 435,
+      "def_src": "let suffix = format!(\"{declaration} const k='ev'+'al';{host}[k]('f=evil');\");",
+      "file": "src/anon_owner/eval_tests.rs",
+      "path": "suffix",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 421,
+      "use_src": "assert!(!exact(&script(&suffix), ext), \"{ext}: {suffix}\");"
+    },
+    {
+      "def_line": 435,
+      "def_src": "let suffix = format!(\"{declaration} const k='ev'+'al';{host}[k]('f=evil');\");",
+      "file": "src/anon_owner/eval_tests.rs",
+      "path": "suffix",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 428,
+      "use_src": "assert!(exact(&script(&suffix), ext), \"{ext}: {suffix}\");"
+    },
+    {
+      "def_line": 439,
+      "def_src": "let suffix =",
+      "file": "src/anon_owner/eval_tests.rs",
+      "path": "suffix",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 421,
+      "use_src": "assert!(!exact(&script(&suffix), ext), \"{ext}: {suffix}\");"
+    },
+    {
+      "def_line": 439,
+      "def_src": "let suffix =",
+      "file": "src/anon_owner/eval_tests.rs",
+      "path": "suffix",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 428,
+      "use_src": "assert!(exact(&script(&suffix), ext), \"{ext}: {suffix}\");"
+    },
+    {
+      "def_line": 187,
+      "def_src": "let c = Fx::in_lang(src, lang).first_census();",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "c",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 201,
+      "use_src": "c.refusals.is_empty()"
+    },
+    {
+      "def_line": 187,
+      "def_src": "let c = Fx::in_lang(src, lang).first_census();",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "c",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 202,
+      "use_src": "&& c.sites"
+    },
+    {
+      "def_line": 28,
+      "def_src": "let s = rows_in(lang, \"delete g(a++);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 35,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 28,
+      "def_src": "let s = rows_in(lang, \"delete g(a++);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 40,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 28,
+      "def_src": "let s = rows_in(lang, \"delete g(a++);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 45,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write && s[0].region.nested,"
+    },
+    {
+      "def_line": 28,
+      "def_src": "let s = rows_in(lang, \"delete g(a++);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 50,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 294,
+      "def_src": "let d = a_decls(lang, line);",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "d",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 302,
+      "use_src": "assert!(d.len() == 1 && d[0].region.nested_params, \"{lang:?} {d:?}\");"
+    },
+    {
+      "def_line": 294,
+      "def_src": "let d = a_decls(lang, line);",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "d",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 308,
+      "use_src": "d.len() == 1 && d[0].region.nested_params,"
+    },
+    {
+      "def_line": 301,
+      "def_src": "let d = a_decls(lang, \"const C = class { m(a: string): void { a = 1; } };\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "d",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 308,
+      "use_src": "d.len() == 1 && d[0].region.nested_params,"
+    },
+    {
+      "def_line": 303,
+      "def_src": "let d = a_decls(",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "d",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 302,
+      "use_src": "assert!(d.len() == 1 && d[0].region.nested_params, \"{lang:?} {d:?}\");"
+    },
+    {
+      "def_line": 33,
+      "def_src": "let s = rows_in(lang, \"delete (a = 1);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 30,
+      "use_src": "s.len() == 1 && s[0].form == Form::ReadWrite,"
+    },
+    {
+      "def_line": 33,
+      "def_src": "let s = rows_in(lang, \"delete (a = 1);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 40,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 33,
+      "def_src": "let s = rows_in(lang, \"delete (a = 1);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 45,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write && s[0].region.nested,"
+    },
+    {
+      "def_line": 33,
+      "def_src": "let s = rows_in(lang, \"delete (a = 1);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 50,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 38,
+      "def_src": "let s = rows_in(lang, \"delete (x, a = 1);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 30,
+      "use_src": "s.len() == 1 && s[0].form == Form::ReadWrite,"
+    },
+    {
+      "def_line": 38,
+      "def_src": "let s = rows_in(lang, \"delete (x, a = 1);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 35,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 38,
+      "def_src": "let s = rows_in(lang, \"delete (x, a = 1);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 45,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write && s[0].region.nested,"
+    },
+    {
+      "def_line": 38,
+      "def_src": "let s = rows_in(lang, \"delete (x, a = 1);\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 50,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 43,
+      "def_src": "let s = rows_in(lang, \"delete g(() => { a = 1; });\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 30,
+      "use_src": "s.len() == 1 && s[0].form == Form::ReadWrite,"
+    },
+    {
+      "def_line": 43,
+      "def_src": "let s = rows_in(lang, \"delete g(() => { a = 1; });\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 35,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 43,
+      "def_src": "let s = rows_in(lang, \"delete g(() => { a = 1; });\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 40,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 43,
+      "def_src": "let s = rows_in(lang, \"delete g(() => { a = 1; });\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 50,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 48,
+      "def_src": "let s = rows_in(lang, \"delete o[a = 1];\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 30,
+      "use_src": "s.len() == 1 && s[0].form == Form::ReadWrite,"
+    },
+    {
+      "def_line": 48,
+      "def_src": "let s = rows_in(lang, \"delete o[a = 1];\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 35,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 48,
+      "def_src": "let s = rows_in(lang, \"delete o[a = 1];\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 40,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write,"
+    },
+    {
+      "def_line": 48,
+      "def_src": "let s = rows_in(lang, \"delete o[a = 1];\");",
+      "file": "src/ast/js_write_census/region_tests.rs",
+      "path": "s",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 45,
+      "use_src": "s.len() == 1 && s[0].form == Form::Write && s[0].region.nested,"
+    },
+    {
+      "def_line": 1214,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1240,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 2, 1), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1214,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1241,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1214,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1244,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 2, 1), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1214,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1245,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 1, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1214,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1246,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1214,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1254,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 1, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1214,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1255,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1239,
+      "def_src": "let r = rows(&build(language, direct));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1244,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 2, 1), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1239,
+      "def_src": "let r = rows(&build(language, direct));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1245,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 1, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1239,
+      "def_src": "let r = rows(&build(language, direct));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1246,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1239,
+      "def_src": "let r = rows(&build(language, direct));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1254,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 1, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1239,
+      "def_src": "let r = rows(&build(language, direct));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1255,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1243,
+      "def_src": "let r = rows(&build(language, computed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1240,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 2, 1), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1243,
+      "def_src": "let r = rows(&build(language, computed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1241,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1243,
+      "def_src": "let r = rows(&build(language, computed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1254,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 1, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1243,
+      "def_src": "let r = rows(&build(language, computed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1255,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1249,
+      "def_src": "let r = rows(&build(language, typed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1240,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 2, 1), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1249,
+      "def_src": "let r = rows(&build(language, typed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1241,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1249,
+      "def_src": "let r = rows(&build(language, typed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1244,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 2, 1), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1249,
+      "def_src": "let r = rows(&build(language, typed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1245,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 1, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1249,
+      "def_src": "let r = rows(&build(language, typed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1246,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1249,
+      "def_src": "let r = rows(&build(language, typed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1254,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 1, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1249,
+      "def_src": "let r = rows(&build(language, typed));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1255,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1253,
+      "def_src": "let r = rows(&build(language, &simple));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1240,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 2, 1), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1253,
+      "def_src": "let r = rows(&build(language, &simple));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1241,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1253,
+      "def_src": "let r = rows(&build(language, &simple));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1244,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 2, 1), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1253,
+      "def_src": "let r = rows(&build(language, &simple));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1245,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"y\", 1, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1253,
+      "def_src": "let r = rows(&build(language, &simple));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1246,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"y\", 2, 3), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 1302,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1332,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"obj.x\", 2, 4), \"{r:?}\");"
+    },
+    {
+      "def_line": 1302,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1333,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"obj.x\", 2, 3), \"{r:?}\");"
+    },
+    {
+      "def_line": 1302,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1334,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"obj.x\", 2, 6), \"{r:?}\");"
+    },
+    {
+      "def_line": 1363,
+      "def_src": "let r = rows(&build(language, &src));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1375,
+      "use_src": "edge(&r, \"<anon@1:3>\", path, 2, 3),"
+    },
+    {
+      "def_line": 1373,
+      "def_src": "let r = rows(&build(language, &compound));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1365,
+      "use_src": "!edge(&r, \"<anon@1:3>\", path, 2, 3),"
+    },
+    {
+      "def_line": 1373,
+      "def_src": "let r = rows(&build(language, &compound));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1369,
+      "use_src": "edge(&r, \"<anon@1:3>\", path, 2, 4),"
+    },
+    {
+      "def_line": 1407,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1429,
+      "use_src": "assert!(!edge(&r, \"<anon@1:3>\", \"obj.x\", 4, 6), \"{r:?}\");"
+    },
+    {
+      "def_line": 1407,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1430,
+      "use_src": "assert!(edge(&r, \"<anon@1:3>\", \"obj.x\", 2, 6), \"{r:?}\");"
+    },
+    {
+      "def_line": 479,
+      "def_src": "let rows = rows(&build(language, capture));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 487,
+      "use_src": "assert!(edge(&rows, \"h\", \"k\", 1, 3), \"{language:?}: {rows:?}\");"
+    },
+    {
+      "def_line": 479,
+      "def_src": "let rows = rows(&build(language, capture));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 493,
+      "use_src": "assert!(edge(&rows, \"h\", \"y\", 3, 4), \"{language:?}: {rows:?}\");"
+    },
+    {
+      "def_line": 486,
+      "def_src": "let rows = rows_for(language, var_loop);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 480,
+      "use_src": "assert!(edge(&rows, \"h\", \"x\", 1, 3), \"{language:?}: {rows:?}\");"
+    },
+    {
+      "def_line": 486,
+      "def_src": "let rows = rows_for(language, var_loop);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 482,
+      "use_src": "rows.iter()"
+    },
+    {
+      "def_line": 486,
+      "def_src": "let rows = rows_for(language, var_loop);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 493,
+      "use_src": "assert!(edge(&rows, \"h\", \"y\", 3, 4), \"{language:?}: {rows:?}\");"
+    },
+    {
+      "def_line": 492,
+      "def_src": "let rows = rows_for(language, inner);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 480,
+      "use_src": "assert!(edge(&rows, \"h\", \"x\", 1, 3), \"{language:?}: {rows:?}\");"
+    },
+    {
+      "def_line": 492,
+      "def_src": "let rows = rows_for(language, inner);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 482,
+      "use_src": "rows.iter()"
+    },
+    {
+      "def_line": 492,
+      "def_src": "let rows = rows_for(language, inner);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 487,
+      "use_src": "assert!(edge(&rows, \"h\", \"k\", 1, 3), \"{language:?}: {rows:?}\");"
+    },
+    {
+      "def_line": 958,
+      "def_src": "let r = rows(&build(language, src));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 964,
+      "use_src": "assert!(edge(&r, \"h\", \"y\", 3, 4), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 958,
+      "def_src": "let r = rows(&build(language, src));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 965,
+      "use_src": "assert!(!edge(&r, \"h\", \"y\", 3, 6), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 958,
+      "def_src": "let r = rows(&build(language, src));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 966,
+      "use_src": "assert!(!edge(&r, \"h\", \"y\", 3, 1), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 963,
+      "def_src": "let r = rows(&build(language, nested));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 959,
+      "use_src": "assert!(edge(&r, \"<anon@1:5>\", \"e\", 3, 4), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 963,
+      "def_src": "let r = rows(&build(language, nested));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 960,
+      "use_src": "assert!(!edge(&r, \"<anon@1:5>\", \"e\", 3, 6), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 963,
+      "def_src": "let r = rows(&build(language, nested));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 961,
+      "use_src": "assert!(edge(&r, \"<anon@1:5>\", \"q\", 8, 9), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 963,
+      "def_src": "let r = rows(&build(language, nested));",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 962,
+      "use_src": "assert!(!edge(&r, \"<anon@1:5>\", \"q\", 8, 11), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 976,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 1008,
+      "use_src": "assert!(!edge(&r, \"h\", \"y\", 1, 6), \"{language:?}: {r:?}\");"
+    },
+    {
+      "def_line": 976,
+      "def_src": "let r = rows(&cpg);",
+      "file": "src/cpg/callback_identity_tests.rs",
+      "path": "r",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 998,
+      "use_src": "r.contains(&("
+    },
+    {
+      "def_line": 590,
+      "def_src": "let reached = reach(&cpg, \"handler:req.body.cmd@6\");",
+      "file": "src/cpg/object_literal_arg_tests.rs",
+      "path": "reached",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 601,
+      "use_src": "reached.contains(\"run:opts.note@3\"),"
+    },
+    {
+      "def_line": 590,
+      "def_src": "let reached = reach(&cpg, \"handler:req.body.cmd@6\");",
+      "file": "src/cpg/object_literal_arg_tests.rs",
+      "path": "reached",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 605,
+      "use_src": "!reached.contains(\"run:opts.cmd@2\"),"
+    },
+    {
+      "def_line": 599,
+      "def_src": "let reached = reach(&cpg, \"handler:req.body.note@6\");",
+      "file": "src/cpg/object_literal_arg_tests.rs",
+      "path": "reached",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 592,
+      "use_src": "reached.contains(\"run:opts.cmd@2\"),"
+    },
+    {
+      "def_line": 599,
+      "def_src": "let reached = reach(&cpg, \"handler:req.body.note@6\");",
+      "file": "src/cpg/object_literal_arg_tests.rs",
+      "path": "reached",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 596,
+      "use_src": "!reached.contains(\"run:opts.note@3\"),"
+    },
+    {
+      "def_line": 87,
+      "def_src": "let lines = trace_lines(language, ext, src, true);",
+      "file": "src/cpg/reaching/census_trace_tests.rs",
+      "path": "lines",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 94,
+      "use_src": "assert_eq!(lines.len(), 1, \"{lines:?}\");"
+    },
+    {
+      "def_line": 164,
+      "def_src": "let rows = recall(&s);",
+      "file": "src/data_flow/build/field_recall_fold2_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 175,
+      "use_src": "assert!(has(&rows, (\"p.a\", 2), (\"p\", 4)), \"{rows:?}\");"
+    },
+    {
+      "def_line": 174,
+      "def_src": "let rows = recall(&s);",
+      "file": "src/data_flow/build/field_recall_fold2_tests.rs",
+      "path": "rows",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 165,
+      "use_src": "assert!(has(&rows, (\"p.g\", 2), (\"p\", 4)), \"{rows:?}\");"
+    },
+    {
+      "def_line": 332,
+      "def_src": "let found = attribute(&dir, \"one.py\", \"f\");",
+      "file": "src/review_context/import_targets_py_tests.rs",
+      "path": "found",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 341,
+      "use_src": "in_repo(&found).files.ends_with(&[\"pkg/a/b.py\".to_string()]),"
+    },
+    {
+      "def_line": 339,
+      "def_src": "let found = attribute(&dir, \"two.py\", \"g\");",
+      "file": "src/review_context/import_targets_py_tests.rs",
+      "path": "found",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 334,
+      "use_src": "in_repo(&found)"
+    },
+    {
+      "def_line": 347,
+      "def_src": "let found = attribute_loaded(",
+      "file": "src/review_context/import_targets_py_tests.rs",
+      "path": "found",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 334,
+      "use_src": "in_repo(&found)"
+    },
+    {
+      "def_line": 347,
+      "def_src": "let found = attribute_loaded(",
+      "file": "src/review_context/import_targets_py_tests.rs",
+      "path": "found",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 341,
+      "use_src": "in_repo(&found).files.ends_with(&[\"pkg/a/b.py\".to_string()]),"
+    },
+    {
+      "def_line": 354,
+      "def_src": "let found = attribute_loaded(",
+      "file": "src/review_context/import_targets_py_tests.rs",
+      "path": "found",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 334,
+      "use_src": "in_repo(&found)"
+    },
+    {
+      "def_line": 354,
+      "def_src": "let found = attribute_loaded(",
+      "file": "src/review_context/import_targets_py_tests.rs",
+      "path": "found",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 341,
+      "use_src": "in_repo(&found).files.ends_with(&[\"pkg/a/b.py\".to_string()]),"
+    },
+    {
+      "def_line": 165,
+      "def_src": "let e = edges(try_src, Language::Cpp);",
+      "file": "tests/ast/c_jumps_fold1_test.rs",
+      "path": "e",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 175,
+      "use_src": "assert!(!e.contains(&(4, 6)), \"{e:?}\");"
+    },
+    {
+      "def_line": 170,
+      "def_src": "let e = edges(ifdef, l);",
+      "file": "tests/ast/c_jumps_fold1_test.rs",
+      "path": "e",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 166,
+      "use_src": "assert!(!e.contains(&(5, 10)), \"{e:?}\");"
+    },
+    {
+      "def_line": 170,
+      "def_src": "let e = edges(ifdef, l);",
+      "file": "tests/ast/c_jumps_fold1_test.rs",
+      "path": "e",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 175,
+      "use_src": "assert!(!e.contains(&(4, 6)), \"{e:?}\");"
+    },
+    {
+      "def_line": 174,
+      "def_src": "let e = edges(attr, Language::Cpp);",
+      "file": "tests/ast/c_jumps_fold1_test.rs",
+      "path": "e",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 166,
+      "use_src": "assert!(!e.contains(&(5, 10)), \"{e:?}\");"
+    },
+    {
+      "def_line": 724,
+      "def_src": "let got = format_callers(&[(\"m.js\", m), (\"app.js\", app)], nested);",
+      "file": "tests/integration/js_alias_follow_test.rs",
+      "path": "got",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 729,
+      "use_src": "assert_eq!(got[0].2, [\"run\"], \"{got:?}\");"
+    },
+    {
+      "def_line": 728,
+      "def_src": "let got = format_callers(&[(\"m.js\", m), (\"app.js\", app)], outer);",
+      "file": "tests/integration/js_alias_follow_test.rs",
+      "path": "got",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 725,
+      "use_src": "assert_eq!(got.len(), 1, \"{got:?}\");"
+    },
+    {
+      "def_line": 728,
+      "def_src": "let got = format_callers(&[(\"m.js\", m), (\"app.js\", app)], outer);",
+      "file": "tests/integration/js_alias_follow_test.rs",
+      "path": "got",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 727,
+      "use_src": "assert!(got[0].2.is_empty(), \"{got:?}\");"
+    },
+    {
+      "def_line": 131,
+      "def_src": "let calls =",
+      "file": "tests/lang/go/review_r1_test.rs",
+      "path": "calls",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 142,
+      "use_src": "calls.iter().any(|c| c.0 == \"F[k]\"),"
+    },
+    {
+      "def_line": 140,
+      "def_src": "let calls = p.function_calls_on_lines_with_qualifier(&literal, &(8..=8).collect());",
+      "file": "tests/lang/go/review_r1_test.rs",
+      "path": "calls",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 135,
+      "use_src": "calls.iter().any(|c| c.1 == line && c.0 == name),"
+    },
+    {
+      "def_line": 224,
+      "def_src": "let out = cg.resolve_call_site(&call);",
+      "file": "tests/lang/javascript/typed_receiver_test.rs",
+      "path": "out",
+      "reasons": [
+        "format capture"
+      ],
+      "use_line": 253,
+      "use_src": "assert_eq!(out.len(), 1, \"{out:?}\");"
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "census_ms": 533,
+  "defined_macro_rules": 29,
+  "digest": "f4547615f602768ff2fb4ce7ac7234c36daaee5c7b083b09d8ef9bddccc4f19c",
+  "rust_files": 1465,
+  "table_allowed_refused": {
+    "in-repo macro_rules (unqualified)": [
+      521,
+      0
+    ],
+    "in-repo macro_rules (unqualified) [in soup]": [
+      62,
+      0
+    ],
+    "other qualified path (external)": [
+      0,
+      365
+    ],
+    "other qualified path (external) [in soup]": [
+      0,
+      75
+    ],
+    "std list (unqualified)": [
+      27113,
+      10
+    ],
+    "std list (unqualified) [in soup]": [
+      1738,
+      4
+    ],
+    "std-qualified": [
+      1,
+      0
+    ],
+    "unknown unqualified (external/proc/undefined)": [
+      0,
+      295
+    ],
+    "unknown unqualified (external/proc/undefined) [in soup]": [
+      0,
+      121
+    ]
+  },
+  "top_refused_spellings": [
+    [
+      "serde_json::json",
+      281
+    ],
+    [
+      "json",
+      230
+    ],
+    [
+      "ensure",
+      38
+    ],
+    [
+      "anyhow::bail",
+      36
+    ],
+    [
+      "anyhow::ensure",
+      33
+    ],
+    [
+      "anyhow",
+      19
+    ],
+    [
+      "anyhow::anyhow",
+      11
+    ],
+    [
+      "cfg",
+      10
+    ],
+    [
+      "include",
+      5
+    ],
+    [
+      "std::ptr::addr_of",
+      3
+    ],
+    [
+      "bail",
+      2
+    ],
+    [
+      "my_macro",
+      1
+    ],
+    [
+      "std::ptr::addr_of_mut",
+      1
+    ]
+  ]
+}

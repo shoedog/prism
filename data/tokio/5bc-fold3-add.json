@@ -1,0 +1,115 @@
+{
+ "main_edges": 29953,
+ "head_edges": 30919,
+ "main_only": 0,
+ "added": 966,
+ "added_classes": {
+  "other": 966
+ },
+ "added_labels": [
+  [
+   "confidence=nameonly/doubt=cfg_incomplete",
+   465
+  ],
+  [
+   "confidence=nameonly/doubt=killed",
+   238
+  ],
+  [
+   "confidence=exact/doubt=None",
+   226
+  ],
+  [
+   "confidence=nameonly/doubt=sameline",
+   35
+  ],
+  [
+   "confidence=nameonly/doubt=alias_unstable",
+   2
+  ]
+ ],
+ "kept_label_transitions": [],
+ "kept_transition_edges": [],
+ "added_top_files": [
+  [
+   "tokio/src/fs/file/tests.rs",
+   95
+  ],
+  [
+   "tokio/tests/io_buf_reader.rs",
+   68
+  ],
+  [
+   "tokio-util/tests/codecs.rs",
+   54
+  ],
+  [
+   "tokio/tests/sync_broadcast.rs",
+   43
+  ],
+  [
+   "tokio-util/tests/mpsc.rs",
+   42
+  ],
+  [
+   "tokio/src/runtime/tests/queue.rs",
+   38
+  ],
+  [
+   "tokio/tests/sync_oneshot.rs",
+   32
+  ],
+  [
+   "tokio/tests/rt_unstable_metrics.rs",
+   28
+  ],
+  [
+   "tokio/tests/udp.rs",
+   27
+  ],
+  [
+   "tokio/tests/io_read_line.rs",
+   26
+  ],
+  [
+   "tokio-util/tests/time_delay_queue.rs",
+   26
+  ],
+  [
+   "tokio/tests/time_pause.rs",
+   24
+  ],
+  [
+   "tokio/tests/io_read_until.rs",
+   20
+  ],
+  [
+   "tokio-stream/tests/stream_stream_map.rs",
+   20
+  ],
+  [
+   "tokio/tests/sync_mpsc.rs",
+   19
+  ],
+  [
+   "tokio/tests/io_buf_writer.rs",
+   17
+  ],
+  [
+   "tokio/tests/fs_file.rs",
+   16
+  ],
+  [
+   "tokio/src/fs/file.rs",
+   15
+  ],
+  [
+   "tokio/src/runtime/scheduler/multi_thread_alt/queue.rs",
+   12
+  ],
+  [
+   "tokio/src/runtime/scheduler/multi_thread/queue.rs",
+   11
+  ]
+ ]
+}
