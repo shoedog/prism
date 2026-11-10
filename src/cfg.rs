@@ -126,6 +126,18 @@ struct EdgeSink {
     origins: Vec<EdgeOrigin>,
     /// Line pairs of the JS-family generic try edges of this function.
     try_pairs: BTreeSet<(usize, usize)>,
+    /// `(compound_header_lines, entry_lines)`: the compound statements (`if`,
+    /// loops, `switch`, nested `try`) inside a JS-family try body or catch clause
+    /// and the handler/finalizer entries that region completes into. The
+    /// branch-completion builders draw an arm's exit from the header line of a
+    /// nested compound statement that ends the arm, so an edge from such a header
+    /// to an entry is a synthetic try join, not a modelled completion.
+    try_regions: Vec<(BTreeSet<usize>, Vec<usize>)>,
+    /// Line pairs emitted by the then-arm completion builder (JS family): the
+    /// only emission that draws an arm exit from a nested compound header. A
+    /// header's own false-branch edge into the same entry is real control flow
+    /// and is not retagged.
+    arm_completions: BTreeSet<(usize, usize)>,
 }
 
 impl EdgeSink {
@@ -134,6 +146,8 @@ impl EdgeSink {
             edges: Vec::new(),
             origins: Vec::new(),
             try_pairs: BTreeSet::new(),
+            try_regions: Vec::new(),
+            arm_completions: BTreeSet::new(),
         }
     }
 
@@ -162,14 +176,23 @@ impl EdgeSink {
     }
 
     fn drain(&mut self) -> impl Iterator<Item = (CfgEdge, EdgeOrigin)> + '_ {
-        if !self.try_pairs.is_empty() {
+        if !self.try_pairs.is_empty() || !self.try_regions.is_empty() {
+            let regions = std::mem::take(&mut self.try_regions);
             for (edge, origin) in self.edges.iter().zip(self.origins.iter_mut()) {
-                if self.try_pairs.contains(&(edge.from_line, edge.to_line)) {
+                if self.try_pairs.contains(&(edge.from_line, edge.to_line))
+                    || (self
+                        .arm_completions
+                        .contains(&(edge.from_line, edge.to_line))
+                        && regions.iter().any(|(headers, entries)| {
+                            headers.contains(&edge.from_line) && entries.contains(&edge.to_line)
+                        }))
+                {
                     *origin = EdgeOrigin::JsTryJoin;
                 }
             }
             self.try_pairs.clear();
         }
+        self.arm_completions.clear();
         self.edges.drain(..).zip(self.origins.drain(..))
     }
 }
@@ -376,6 +399,9 @@ fn collect_branch_edges(
                 let if_end = node.end_position().row + 1;
                 if let Some(&next) = stmt_lines.iter().find(|&&l| l > if_end) {
                     if let Some(last) = last_statement_line(&consequence, parsed) {
+                        if parsed.language.is_js_family() {
+                            edges.arm_completions.insert((last, next));
+                        }
                         edges.push(CfgEdge {
                             file: file.to_string(),
                             from_line: last,
@@ -711,12 +737,14 @@ fn build_try_catch_edges(
 
         let mut finally_first: Option<usize> = None;
         let mut catch_lines: Vec<usize> = Vec::new();
+        let mut catch_regions: Vec<BTreeSet<usize>> = Vec::new();
 
         for child in node.children(&mut cursor) {
             // catch_clause (JS/TS/Java)
             if child.kind() == "catch_clause" {
                 if let Some(first) = first_statement_line(&child, parsed) {
                     catch_lines.push(first);
+                    catch_regions.push(compound_header_lines(child));
                     // try → catch (exception edge)
                     push_try(
                         edges,
@@ -762,6 +790,24 @@ fn build_try_catch_edges(
             }
         }
 
+        if js {
+            // Completions of the body into a handler or the finalizer, and of a
+            // catch into the finalizer (#802): conservative by region, not by
+            // the emitting builder.
+            let mut entries = catch_lines.clone();
+            entries.extend(finally_first);
+            if let Some(body) = node.child_by_field_name("body") {
+                edges
+                    .try_regions
+                    .push((compound_header_lines(body), entries));
+            }
+            if let Some(f) = finally_first {
+                for headers in catch_regions {
+                    edges.try_regions.push((headers, vec![f]));
+                }
+            }
+        }
+
         let _ = stmt_lines; // used by callers for next-statement edges
     }
 
@@ -770,6 +816,31 @@ fn build_try_catch_edges(
     for child in node.children(&mut cursor) {
         build_try_catch_edges(child, parsed, stmt_lines, edges);
     }
+}
+
+/// Start lines of the compound statements under `region`.
+fn compound_header_lines(region: Node<'_>) -> BTreeSet<usize> {
+    let mut lines = BTreeSet::new();
+    let mut stack = vec![region];
+    while let Some(node) = stack.pop() {
+        if matches!(
+            node.kind(),
+            "if_statement"
+                | "for_statement"
+                | "for_in_statement"
+                | "while_statement"
+                | "do_statement"
+                | "switch_statement"
+                | "try_statement"
+                | "with_statement"
+                | "labeled_statement"
+        ) {
+            lines.insert(node.start_position().row + 1);
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.children(&mut cursor));
+    }
+    lines
 }
 
 /// Emit a try edge: explicit incomplete provenance for the JS family, the

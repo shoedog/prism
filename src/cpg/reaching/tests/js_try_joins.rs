@@ -163,3 +163,81 @@ fn typescript_and_tsx_are_js_family_and_java_is_not() {
     assert!(!origins.is_empty());
     assert!(origins.iter().all(|o| o != "JsTryJoin"), "{origins:?}");
 }
+
+const NESTED_CATCH: &str = "function f() {\n  let x = 0;\n  try {\n    work();\n  } catch (e) {\n    if ((x = seed())) {\n      if (p()) {\n        x = more();\n      } else {\n        x = other();\n      }\n    } else {\n      x = third();\n    }\n  } finally {\n    cleanup();\n  }\n  sink(x);\n}\n";
+const NESTED_BODY: &str = "function f() {\n  let x = 0;\n  try {\n    if ((x = seed())) {\n      if (p()) {\n        x = more();\n      } else {\n        x = other();\n      }\n    } else {\n      x = third();\n    }\n  } finally {\n    cleanup();\n  }\n  sink(x);\n}\n";
+const NESTED_CATCH_NO_FINALLY: &str = "function f() {\n  let x = 0;\n  try {\n    work();\n  } catch (e) {\n    if ((x = seed())) {\n      if (p()) {\n        x = more();\n      } else {\n        x = other();\n      }\n    } else {\n      x = third();\n    }\n  }\n  sink(x);\n}\n";
+const NESTED_NO_TRY: &str = "function f() {\n  let x = 0;\n  if ((x = seed())) {\n    if (p()) {\n      x = more();\n    } else {\n      x = other();\n    }\n  } else {\n    x = third();\n  }\n  sink(x);\n}\n";
+const ONE_LINE_TRY: &str =
+    "function f() {\n  let x = 0;\n  try { x = a(); } catch (e) {\n    sink(x);\n  }\n}\n";
+
+#[test]
+fn nested_if_arm_completion_into_the_finalizer_is_a_try_join() {
+    // nested_catch.js: the catch's `if` arm ends in a nested `if`, so the branch
+    // completion builder draws 7 -> 16 (nested header -> finally entry), skipping
+    // every overwrite. Only compound-header completions into the entry are
+    // flagged, so the ordinary else-arm exact (x@13) survives.
+    let inc = incomplete();
+    assert_eq!(
+        labels(NESTED_CATCH, &[2, 6, 8, 10, 13], 18),
+        vec![
+            (2, inc),
+            (6, inc),
+            (
+                8,
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 13 })
+            ),
+            (10, inc),
+            (13, exact())
+        ]
+    );
+}
+
+#[test]
+fn nested_if_arm_completion_of_the_try_body_into_the_finalizer_is_a_try_join() {
+    // The try-body analog: body-last `if` -> nested `if` -> finally entry.
+    let inc = incomplete();
+    assert_eq!(
+        labels(NESTED_BODY, &[2, 4, 6, 8, 11], 16),
+        vec![
+            (2, inc),
+            (4, inc),
+            (
+                6,
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 11 })
+            ),
+            (8, inc),
+            (11, exact())
+        ]
+    );
+}
+
+#[test]
+fn nested_arms_without_a_finalizer_or_a_try_keep_their_labels() {
+    let got = labels(NESTED_NO_TRY, &[2, 3, 5, 7, 10], 12);
+    assert!(got.iter().any(|(_, c)| *c == exact()), "{got:?}");
+    // catch with no finally: no finalizer entry to complete into.
+    let got = labels(NESTED_CATCH_NO_FINALLY, &[6, 8, 10, 13], 16);
+    assert!(got.iter().any(|(_, c)| *c == exact()), "{got:?}");
+}
+
+#[test]
+fn one_line_try_header_edge_is_flagged() {
+    // `try { x = a(); } catch (e) {` : x@3 -> sink@4 is only reachable through the
+    // header -> catch role; exact on main.
+    assert_eq!(
+        labels(ONE_LINE_TRY, &[2, 3], 4),
+        vec![(2, incomplete()), (3, incomplete())]
+    );
+}
+
+#[test]
+fn java_nested_catch_completion_is_not_retagged() {
+    let java = "class A {\n  void f(boolean p) {\n    int x = 0;\n    try {\n      work();\n    } catch (Exception e) {\n      if (p) {\n        if (p) {\n          x = 1;\n        }\n      }\n    } finally {\n      cleanup();\n    }\n    sink(x);\n  }\n}\n";
+    let parsed = parsed(java, Language::Java);
+    let origins: Vec<String> = crate::cfg::build_cfg_edges_with_arms(&parsed)
+        .into_iter()
+        .map(|(_, p)| format!("{:?}", p.origin))
+        .collect();
+    assert!(origins.iter().all(|o| o != "JsTryJoin"), "{origins:?}");
+}
