@@ -319,8 +319,8 @@ mod stream;
 /// - v168: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
 /// - v169: Java alias twins only at real writes through the alias (alias-twin lane slice 1): an occurrence that only declares, initialises or reassigns the alias variable mints no target def and no twin edge, so DataFlow edges and labels of Java owners change.
 /// - v170: JS/TS/TSX rules U and D drop write-only anchors and dominated defs for named owners, so stored edges, use nodes and the prune counters change (#630 slice 5)
-/// - v171: Rust rules U and D in the DFG producer: pairs into write-only statements and pairs overwritten by a dominating `let`/assignment are no longer emitted (#630 slice 5, Rust).
-/// - v172: Rust U and D refuse per name (fold 3): a name passed to a macro that can emit a `macro_rules!` (repo-wide census) or captured by an implicit format string keeps its pairs, an owner whose token trees hold `macro_rules`/`paste!` is off, the token-tree use-line refusal is retired, and the census digest is persisted with the DFG storage (#630 slice 5, Rust).
+/// - v171: JS/TS/TSX generic try edges (header -> catch, header -> finally, first catch statement -> finally) are explicit incomplete joins, so reaching-definition labels of JS-family owners move toward `cfg_incomplete` (#802)
+/// - v172: Rust rules U and D in the DFG producer: pairs into write-only statements and pairs overwritten by a dominating `let`/assignment are no longer emitted (#630 slice 5, Rust); a name passed to a macro that can emit a `macro_rules!` (repo-wide census) or captured by an implicit format string keeps its pairs, an owner whose token trees hold `macro_rules`/`paste!` is off, the token-tree use-line refusal is retired, and the census digest is persisted with the DFG storage (#630 slice 5, Rust).
 const CACHE_VERSION: u32 = 172;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
