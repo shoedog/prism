@@ -17,7 +17,7 @@ use tree_sitter::Node;
 mod c_jumps;
 mod go_branches;
 mod go_jumps;
-mod js_disposition;
+pub(crate) mod js_disposition;
 pub(crate) mod js_loops;
 pub(crate) mod js_ownership;
 pub(crate) mod js_single;

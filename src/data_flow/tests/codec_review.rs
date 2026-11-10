@@ -289,8 +289,10 @@ fn go_field_recall_codec_rejects_raw_duplicates_order_and_overflow() {
         ),
     ] {
         let mut raw = raw_rd(vec![("a.go", stats(vec![]))]);
-        raw.truncate(raw.len() - 16);
+        // Drop the recall rows, the receiver ledger and the loop-plan map (24 bytes), then rebuild them.
+        raw.truncate(raw.len() - 24);
         raw.extend(bincode::serialize(&keys).unwrap());
+        raw.extend(bincode::serialize(&0usize).unwrap());
         raw.extend(bincode::serialize(&0usize).unwrap());
         let error = bincode::deserialize::<CompactDfg>(&raw)
             .unwrap_err()

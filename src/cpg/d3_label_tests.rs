@@ -123,11 +123,14 @@ const CASES: &[Case] = &[
     // (main already refuses it: a write in a nested body is a capture; D3 adds nothing.)
     Case { name: "nested_arrow_write_not_counted", lang: JS, edge: "a@1->a@3", expected: CFG,
         source: "function f(a) {\n  log();\n  h(() => { a++; }, sink(a));\n}" },
-    // The single-site operand exception, with and without a second write, in a loop.
+    // The single-site operand exception, with and without a second write, in a loop. (#693 slice 2: a
+    // trailing `debugger;` is a statement `js_loops` has no completion rule for, so the loop stays
+    // unrewired under main's policy: a loop sharing a line with its body is refused by the plan and every
+    // label of its owner would be cfg_incomplete, hiding what these rows test.)
     Case { name: "operand_exception_loop", lang: JS, edge: "a@1->a@3", expected: EXACT,
-        source: "function f(a) {\n  log();\n  while (c()) a++;\n  sink(a);\n}" },
+        source: "function f(a) {\n  log();\n  while (c()) { a++; debugger; }\n  sink(a);\n}" },
     Case { name: "operand_exception_second_write", lang: JS, edge: "a@1->a@3", expected: SAME,
-        source: "function f(a) {\n  log();\n  while (c()) { a++; a = 1; }\n  sink(a);\n}" },
+        source: "function f(a) {\n  log();\n  while (c()) { a++; a = 1; debugger; }\n  sink(a);\n}" },
     Case { name: "operand_exception_member", lang: JS, edge: "o.x@2->o.x@3", expected: EXACT,
         source: "function f(o) {\n  o.x = 0;\n  o.x++;\n  sink(o.x);\n}" },
     // Unknown-kind positions: the byte order alone would prove read -> write, the kind refuses.
@@ -142,7 +145,7 @@ const CASES: &[Case] = &[
     Case { name: "class_body_computed_key", lang: JS, edge: "a@1->a@3", expected: SAME,
         source: "function f(a) {\n  log();\n  const C = class { [sink(a)]() {} static x = a++; };\n}" },
     Case { name: "for_in_iterable", lang: JS, edge: "a@1->a@3", expected: SAME,
-        source: "function f(a, o) {\n  log();\n  for (const k in (sink(a), o)) a++;\n}" },
+        source: "function f(a, o) {\n  log();\n  for (const k in (sink(a), o)) { a++; debugger; }\n}" },
     // (decorators refuse on main already: pinned unchanged.)
     Case { name: "decorator_pair", lang: Language::TypeScript, edge: "a@1->a@3", expected: CFG,
         source: "function f(a: number) {\n  log();\n  @dec(sink(a)) @dec2(a++) class C {}\n}" },

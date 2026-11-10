@@ -507,7 +507,10 @@ fn a_write_never_maps_onto_a_statement_that_starts_after_it() {
     // p1/p6: the retained statement on the write's line is the loop body `{ k = 7; }`, which a
     // zero-iteration route bypasses; the write is in the header, so the base is refused instead.
     let p1 = "function f(n) {\n  let k = 0;\n  for (let j = 0,\n           m = k++; j < n; j++) { k = 7; }\n  sink(k);\n}\n";
-    let p6 = "function f(n) {\n  let k = 0;\n  outer: for (let i = 0;\n              k++ < n; i++) { k = 7; }\n  sink(k);\n}\n";
+    // (#693 slice 2: p6's trailing `debugger;` leaves the loop unrewired under main's policy; without it the
+    // plan refuses the tree, whose body shares the header's continuation line, and every label is
+    // cfg_incomplete, hiding the census mechanism this row pins.)
+    let p6 = "function f(n) {\n  let k = 0;\n  outer: for (let i = 0;\n              k++ < n; i++) { k = 7; debugger; }\n  sink(k);\n}\n";
     for src in [p1, p6] {
         not_exact(Language::JavaScript, src, "k@2->k@5");
         let got = mechanisms(Language::JavaScript, src);

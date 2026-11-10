@@ -348,3 +348,7 @@ pub(in crate::cfg) fn ownerships(parsed: &ParsedFile, looped: bool) -> Vec<(Rang
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "plan_tests.rs"]
+mod tests;

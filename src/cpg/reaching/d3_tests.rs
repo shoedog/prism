@@ -29,9 +29,10 @@ fn each_d3_mechanism_is_named() {
             "function f(b) {\n  let a = b;\n  a = 1, a++;\n  sink(a);\n}\n",
             "d3-use",
         ),
-        // A loop on the chain: no proof either way.
+        // A loop on the chain: no proof either way. (A one-line `do` is a loop the plan leaves to main's
+        // policy, so its labels are D3's; a one-line `while` is refused by the plan, owner-wide.)
         (
-            "function f(a) {\n  log();\n  while (c()) { sink(a); a = src(); }\n}\n",
+            "function f(a) {\n  log();\n  do { sink(a); a = src(); } while (c());\n}\n",
             "d3-loop",
         ),
         // An unknown kind (a switch clause) on the chain.
@@ -58,7 +59,7 @@ fn a_proven_order_leaves_no_d3_line() {
     for src in [
         "function f(a) {\n  log();\n  sink(a), a++;\n}\n",
         "function f(a) {\n  log();\n  a = g(a);\n}\n",
-        "function f(a) {\n  log();\n  while (c()) a++;\n  sink(a);\n}\n",
+        "function f(a) {\n  log();\n  while (c()) { a++; debugger; }\n  sink(a);\n}\n",
     ] {
         assert!(d3_lines(src).is_empty(), "{src}: {:?}", d3_lines(src));
     }
@@ -224,7 +225,8 @@ fn d3_moves_labels_only_never_availability_edges_or_recall() {
 #[test]
 fn the_def_side_reason_outranks_a_use_side_loop() {
     // Use side: a loop on U's chain (`d3-loop`); def side: `a = 1` then `a++` in D's node (`d3-def`).
-    let src = "function f(b) {\n  let a = b;\n  a = 1, a++;\n  while (c()) { sink(a); a++; }\n}\n";
+    let src =
+        "function f(b) {\n  let a = b;\n  a = 1, a++;\n  do { sink(a); a++; } while (c());\n}\n";
     let lines = d3_lines(src);
     let hit = lines
         .iter()

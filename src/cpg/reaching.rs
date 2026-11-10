@@ -1028,4 +1028,7 @@ mod d3_tests;
 mod loop_exit_tests;
 
 #[cfg(test)]
+pub(crate) mod loop_plan_tests;
+
+#[cfg(test)]
 mod refusal_classes_tests;

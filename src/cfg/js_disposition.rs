@@ -681,6 +681,15 @@ pub(crate) fn ownership_of(parsed: &ParsedFile) -> Vec<Ownership> {
         .collect()
 }
 
+/// The file's CFG edges as `ownership_of` sees them: built under the all-candidates admission.
+#[cfg(test)]
+pub(crate) fn tentative_file_edges(
+    parsed: &ParsedFile,
+) -> Vec<(super::CfgEdge, super::ArmProvenance)> {
+    let candidates = super::js_loops::legacy_candidates(parsed);
+    super::js_loops::with_admission(&candidates, || super::build_cfg_edges_with_arms(parsed))
+}
+
 #[cfg(test)]
 #[path = "js_ownership_tests.rs"]
 mod tests;

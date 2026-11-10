@@ -51,6 +51,7 @@ pub(super) use plan::legacy_candidates;
 pub(crate) use plan::LoopPlan;
 #[cfg(test)]
 pub(crate) use plan::Why;
+#[cfg(test)]
 pub(super) use plan::{ownerships, with_admission};
 
 std::thread_local! {
