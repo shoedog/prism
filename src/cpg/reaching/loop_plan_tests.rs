@@ -223,18 +223,91 @@ fn a_legacy_refused_tree_with_an_unresolved_record_refuses_its_owner() {
     }
 }
 
+/// Fold 3 (Opus W1b): a tree main's own policy refuses keeps main's bypass and exit edges whatever its records
+/// say, so its owner is label-refused: no `exact` from a tree that is not rewired. Probe `r2/lg`: the header
+/// of `fi` writes `i` through the update, `fin`'s `break` leaves before `x = f()`; main's bypass edge made both
+/// a wrong `exact`. `ctl` (no legacy form) is admitted and keeps its truthful `killed`.
 #[test]
-fn a_legacy_refused_tree_with_resolved_records_keeps_main_labels() {
-    // A `for` initializer hazard (main's own refusal) in a plain layout: every record is owned or independent
-    // and every occurrence is placed, so the owner is not refused and the independent edge stays `exact`.
-    let src = "function h(n) {\n  let z = 1;\n  let a = 0;\n  for (a = 1; a < n; n--) {\n    a = 2;\n  }\n  sink(a, z);\n}\n";
+fn a_legacy_refused_tree_with_resolved_records_refuses_its_owner() {
+    let cases = [
+        ("fi", "Legacy(ForInit)", "function fi(n) {\n  let x = 0, i = 0;\n  for (x = 0; i < n; i++) {\n    x = f();\n    i = g();\n  }\n  sink(i);\n}\n", "i@5->i@7"),
+        ("fin", "Legacy(Finally)", "function fin(c) {\n  let x = 0;\n  while ((x = next())) {\n    try { if (c()) break; } finally { h(); }\n    x = f();\n  }\n  sink(x);\n}\n", "x@5->x@7"),
+        // A `for` initializer hazard in a plain layout: every record is owned or independent.
+        ("h", "Legacy(ForInit)", "function h(n) {\n  let z = 1;\n  let a = 0;\n  for (a = 1; a < n; n--) {\n    a = 2;\n  }\n  sink(a, z);\n}\n", "z@2->z@7"),
+    ];
+    for (name, why, src, edge) in cases {
+        let parsed = ParsedFile::parse("a.js", src, JS).unwrap();
+        let p = parsed.js_loop_plan();
+        assert_eq!(
+            format!("{:?}", p.verdicts[0].why.as_ref().unwrap()),
+            why,
+            "{name}"
+        );
+        assert!(p.refuses_owner(p.verdicts[0].owner), "{name}");
+        assert_eq!(labels_of(JS, src, edge), [CFG], "{name} {edge}");
+    }
+    let ctl = "function ctl() {\n  let x = 0;\n  while ((x = next())) {\n    x = f();\n  }\n  sink(x);\n}\n";
+    assert_eq!(labels_of(JS, ctl, "x@4->x@6"), ["nameonly/killed"]);
+}
+
+/// The one-line shape of the original `a20` (a `for` initializer write inside a `do` condition on the `do`'s
+/// own line): a legacy tree, so its owner is refused.
+#[test]
+fn a_for_init_inside_a_do_on_one_line_is_a_refused_row() {
+    let src = "function a20(n) {\n  let z = 1, a = 0;\n  do { for (a = 10; false;) { a = 1; } } while (n--);\n  sink(a, z);\n}\n";
     let parsed = ParsedFile::parse("a.js", src, JS).unwrap();
     let p = parsed.js_loop_plan();
-    assert_eq!(
-        format!("{:?}", p.verdicts[0].why.as_ref().unwrap()),
-        "Legacy(ForInit)"
-    );
-    assert!(p.verdicts[0].legacy_o1.is_none());
-    assert!(!p.refuses_owner(p.verdicts[0].owner));
-    assert_eq!(labels_of(JS, src, "z@2->z@7"), ["exact"]);
+    assert!(p.refuses_owner(p.verdicts[0].owner));
+    assert_eq!(labels_of(JS, src, "z@2->z@4"), [CFG]);
+}
+
+/// Fold 3 (sol W): availability is decided on the owner's all-admitted universe at both seams. The refused
+/// outer-while/inner-do tree of `a_do_condition_in_a_refused_tree_is_not_a_statement`, padded with separate
+/// statements: the standing universe is `n` lines and the all-admitted one holds the inner `do` condition too,
+/// `n + 1`. With the standing universe at exactly `RD_MAX_LINES` the owner is over the cap, as on 874ce2c3.
+fn padded_refused(standing_lines: usize) -> (String, usize) {
+    let src = |pad: usize| {
+        format!(
+            "function f(c) {{\n  let z = 1;\n{}  while (c()) {{ do {{\n    x = g();\n  }} while (c()); }}\n  sink(x, z);\n}}\n",
+            "  log();\n".repeat(pad)
+        )
+    };
+    let base = universe(&src(0)).len();
+    let pad = standing_lines - base;
+    let source = src(pad);
+    assert_eq!(universe(&source).len(), standing_lines);
+    (source, pad)
+}
+
+fn both_seams(source: &str) -> (Option<RdUnavailable>, Option<RdUnavailable>) {
+    let parsed = ParsedFile::parse("a.js", source, JS).unwrap();
+    let cfg = crate::cfg::build_cfg_edges_with_arms(&parsed);
+    let index = FileCfgEdgeIndex::new(&cfg);
+    let owner = parsed.all_functions().into_iter().next().unwrap();
+    assert!(parsed
+        .js_loop_plan()
+        .refuses_owner((owner.start_byte(), owner.end_byte())));
+    let solver = match reaching_definitions_with_exact(&parsed, &owner, &[], &[], &[], &index) {
+        RdOutcome::Available(_) => None,
+        RdOutcome::Unavailable(reason) => Some(reason),
+    };
+    (
+        solver,
+        unavailable_before_edges(&parsed, &owner, &[], &index),
+    )
+}
+
+#[test]
+fn the_line_cap_of_a_refused_owner_is_decided_on_its_all_admitted_universe() {
+    let (source, _) = padded_refused(RD_MAX_LINES);
+    let over = Some(RdUnavailable::StatementLinesCapExceeded {
+        actual: RD_MAX_LINES + 1,
+    });
+    assert_eq!(both_seams(&source), (over, over));
+}
+
+#[test]
+fn a_refused_owner_whose_all_admitted_universe_fits_the_cap_stays_available() {
+    let (source, _) = padded_refused(RD_MAX_LINES - 1);
+    assert_eq!(both_seams(&source), (None, None));
 }

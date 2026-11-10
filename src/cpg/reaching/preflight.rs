@@ -6,18 +6,55 @@ use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
-/// #693 fold 1: an owner whose loop tree the plan refused (option O1) is refused by LABEL only. When main's
-/// CFG has no edge between its lines, availability is decided as it would be for the admitted tree: this is
-/// true when the admitted CFG has one. Solver and preflight both ask this, so they cannot disagree.
-pub(super) fn loop_refusal_keeps_edges(
-    parsed: &ParsedFile,
-    owner: &Node<'_>,
-    lines: &BTreeMap<usize, usize>,
-) -> bool {
-    parsed.language.is_js_family() && !crate::cfg::js_loops::main_loop_cfg() && {
-        let plan = parsed.js_loop_plan();
-        plan.refuses_owner((owner.start_byte(), owner.end_byte()))
-            && plan.admitted_cfg_has_edges(parsed, lines)
+/// The universe an owner's RD availability is decided on (#693 fold 2, one place for both seams). A refusal
+/// is a label decision only: an owner whose loop tree the plan refused (option O1) is available exactly when
+/// it would be with every O1-refused tree admitted (874ce2c3's build): that universe's statement-line count
+/// against `RD_MAX_LINES`, its CFG's edge check and its one-node test. Solving and labelling keep the
+/// standing universe and CFG. Any other owner is decided on its standing universe, as on main.
+pub(super) struct Availability {
+    pub(super) statement_lines: usize,
+    pub(super) lines: BTreeMap<usize, usize>,
+    /// `Some`: whether the all-admitted CFG has an edge between two of `lines` (an O1-refused owner).
+    admitted_edges: Option<bool>,
+}
+
+impl Availability {
+    pub(super) fn of(parsed: &ParsedFile, owner: &Node<'_>, standing: &[(usize, String)]) -> Self {
+        let index = |s: &[(usize, String)]| -> BTreeMap<usize, usize> {
+            s.iter()
+                .enumerate()
+                .map(|(i, (l, _))| (*l, i + 1))
+                .collect()
+        };
+        if parsed.language.is_js_family() && !crate::cfg::js_loops::main_loop_cfg() {
+            let plan = parsed.js_loop_plan();
+            if plan.refuses_owner((owner.start_byte(), owner.end_byte())) {
+                let (all, _) =
+                    plan.with_all_admitted(parsed, || super::rd_statements(parsed, owner));
+                let lines = index(&all);
+                let edges = plan.admitted_cfg_has_edges(parsed, &lines);
+                return Self {
+                    statement_lines: all.len(),
+                    lines,
+                    admitted_edges: Some(edges),
+                };
+            }
+        }
+        Self {
+            statement_lines: standing.len(),
+            lines: index(standing),
+            admitted_edges: None,
+        }
+    }
+
+    /// Whether the universe has no CFG edge; `standing_has_edges` answers for the standing CFG.
+    pub(super) fn no_edges(
+        &self,
+        standing_has_edges: impl FnOnce(&BTreeMap<usize, usize>) -> bool,
+    ) -> bool {
+        !self
+            .admitted_edges
+            .unwrap_or_else(|| standing_has_edges(&self.lines))
     }
 }
 
@@ -34,22 +71,17 @@ pub(crate) fn unavailable_before_edges(
         return Some(RdUnavailable::DefinitionsCapExceeded { actual: count });
     }
     let (statements, _) = super::rd_statements(parsed, owner);
-    if statements.len() > RD_MAX_LINES {
+    let avail = Availability::of(parsed, owner, &statements);
+    if avail.statement_lines > RD_MAX_LINES {
         return Some(RdUnavailable::StatementLinesCapExceeded {
-            actual: statements.len(),
+            actual: avail.statement_lines,
         });
     }
-    let lines: BTreeMap<_, _> = statements
-        .iter()
-        .enumerate()
-        .map(|(i, (line, _))| (*line, i + 1))
-        .collect();
     // Join classification changes labels only; it never removes selected edges.
-    if !cfg.has_owner_edges(&lines)
-        && !loop_refusal_keeps_edges(parsed, owner, &lines)
+    if avail.no_edges(|lines| cfg.has_owner_edges(lines))
         && !crate::cfg::js_single::single_node_cfg_is_complete(
             parsed,
-            lines.len(),
+            avail.lines.len(),
             &defs
                 .iter()
                 .map(|def| def.path.base.as_str())

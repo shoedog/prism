@@ -132,6 +132,12 @@ impl LoopPlan {
         self.refused_owners.contains(&owner)
     }
 
+    /// Runs `f` with every tree the plan admits and every O1-refused tree admitted (what 874ce2c3 drew).
+    pub(crate) fn with_all_admitted<T>(&self, parsed: &ParsedFile, f: impl FnOnce() -> T) -> T {
+        let all: BTreeSet<Range> = self.admitted.union(&self.o1_roots).copied().collect();
+        with_admission(parsed, &all, f)
+    }
+
     /// Whether the file's CFG would hold an edge between two of `lines` had the O1-refused trees been
     /// admitted. Refusal is a label decision: an owner's reaching-definitions availability (and with it the
     /// fallback cap) is what it would be for the admitted tree, not main's (a one-line owner has no main
@@ -142,10 +148,7 @@ impl LoopPlan {
         lines: &BTreeMap<usize, usize>,
     ) -> bool {
         let edges = self.admitted_edges.get_or_init(|| {
-            let all: BTreeSet<Range> = self.admitted.union(&self.o1_roots).copied().collect();
-            with_admission(parsed, &all, || {
-                crate::cfg::build_cfg_edges_with_arms(parsed)
-            })
+            self.with_all_admitted(parsed, || crate::cfg::build_cfg_edges_with_arms(parsed))
         });
         // The same endpoint admission as `FileCfgEdgeIndex::has_owner_edges`.
         edges
@@ -257,7 +260,10 @@ impl LoopPlan {
         let refused_owners = verdicts
             .values()
             .filter(|v| {
-                matches!(v.why, Some(Why::Placement | Why::Unresolved(_))) || v.legacy_o1.is_some()
+                matches!(
+                    v.why,
+                    Some(Why::Placement | Why::Unresolved(_) | Why::Legacy(_))
+                ) || v.legacy_o1.is_some()
             })
             .map(|v| v.owner)
             .collect();

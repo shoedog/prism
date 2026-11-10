@@ -77,7 +77,7 @@ fn counters_name_every_tree_and_reason_of_a_file() {
             .unwrap()
             .src,
         // The initializer writes `a`, the body too, neither test nor update does (`n--`): main's own fallback,
-        // so legacy, with no label refusal.
+        // so legacy; its owner is label-refused too (fold 2).
         "function h(n) {\n  let a = 0;\n  for (a = 1; a < n; n--) {\n    a = 2;\n  }\n}\n"
     );
     let p = plan(&src);
@@ -90,7 +90,7 @@ fn counters_name_every_tree_and_reason_of_a_file() {
         ("refused.legacy.for_init", 1),
         ("overlap.placement", 2),
         ("overlap.unresolved", 1),
-        ("owners_refused", 2),
+        ("owners_refused", 3),
     ];
     assert_eq!(c.len(), want.len(), "{c:?}");
     for (k, n) in want {

@@ -297,9 +297,11 @@ fn reaching_definitions_impl(
     }
 
     let (statements, expression_body) = rd_statements(parsed, func_node);
-    if statements.len() > RD_MAX_LINES {
+    // Availability is decided on one universe (`preflight::Availability`), solving on the standing one.
+    let avail = preflight::Availability::of(parsed, func_node, &statements);
+    if avail.statement_lines > RD_MAX_LINES {
         return RdOutcome::Unavailable(RdUnavailable::StatementLinesCapExceeded {
-            actual: statements.len(),
+            actual: avail.statement_lines,
         });
     }
 
@@ -321,10 +323,9 @@ fn reaching_definitions_impl(
             join_kind::is_go_defer_dispatch(parsed, &kinds, &edge, provenance),
         ));
     }
-    if cfg_edges.is_empty()
-        && !preflight::loop_refusal_keeps_edges(parsed, func_node, &line_index)
+    if avail.no_edges(|_| !cfg_edges.is_empty())
         && !census.one_node_admits(&mut defs, |bases| {
-            cfg::js_single::single_node_cfg_is_complete(parsed, lines.len(), bases)
+            cfg::js_single::single_node_cfg_is_complete(parsed, avail.lines.len(), bases)
         })
     {
         return RdOutcome::Unavailable(RdUnavailable::NoCfgEdges);

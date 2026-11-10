@@ -11,7 +11,7 @@
 //! statement) and keep main's edges and labels, pinned as such. Since fold 1 of slice 2 such a tree is
 //! classified by the plan too: the fixtures whose tree has a failed placement or an unresolved record
 //! (every `do` condition without an execution point, the `finally` jumps, the multi-line `for` header, the
-//! unrewirable statement) are REFUSED rows now, no longer RESIDUAL ones. FIX rows (round 1 of PR #785) are the
+//! unrewirable statement) are REFUSED rows now, no longer RESIDUAL ones. Fold 2 of slice 2 refuses the owner of EVERY tree main's own policy refuses (a `for` initializer hazard, a jump through a `finally`, an unrouted form): such a tree is not rewired and keeps main's bypass edges, so no label of its owner may be `exact`; the 98 former RESIDUAL rows (six fixtures) are REFUSED rows, and no RESIDUAL row remains. FIX rows (round 1 of PR #785) are the
 //! rows whose label differs from 8f1deff0's: each is a wrong `exact` or a false kill that commit made.
 use super::census_defs_tests::{trace_lines, trace_lines_main_loops};
 use crate::cpg::census_label_tests::labels_of;
@@ -96,7 +96,7 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
     assert_eq!(moved, 93, "rows the rule moves");
     assert_eq!(
         all.iter().filter(|r| r.kind == "REFUSED").count(),
-        116,
+        214,
         "rows of refused trees"
     );
     for r in all.iter().filter(|r| r.kind != "REFUSED") {
