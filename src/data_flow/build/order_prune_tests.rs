@@ -174,13 +174,19 @@ fn nested_callables_kept() {
 }
 
 #[test]
-fn named_result_written_after_use_is_kept() {
-    // Named results are declarations with no producer def (rule S inventory);
-    // O follows S and keeps them.
-    kept(
+fn named_result_written_after_use_is_dropped_only_for_direct_reads() {
+    // #694 slice B: a named result has a producer def and is an ordinary local for O. The later
+    // write cannot reach the earlier direct read; a read in a deferred literal is nested, so O
+    // keeps it (the write reaches it at exit).
+    dropped(
         "result",
         "package p\nfunc f() (r int) {\n\tuse(r)\n\tr = 1\n\treturn\n}\n",
         &[("r", 4, 3)],
+    );
+    kept(
+        "result-deferred",
+        "package p\nfunc f() (r int) {\n\tdefer func() {\n\t\tuse(r)\n\t}()\n\tr = 1\n\treturn\n}\n",
+        &[("r", 6, 4)],
     );
 }
 

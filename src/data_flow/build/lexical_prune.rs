@@ -15,13 +15,11 @@ struct Write<'a> {
     split_spec: bool,
 }
 impl Write<'_> {
-    /// A range/receive `:=` target or a type-switch alias: only ever declares its name, so
-    /// the header line it sits on holds no read of it, wherever it is nested (#694 slice A).
+    /// A range/receive `:=` target, a type-switch alias or a formal/named result: only ever
+    /// declares its name, so the header line it sits on holds no read of it, wherever it is
+    /// nested (#694 slices A and B).
     fn is_header_target(&self) -> bool {
-        matches!(
-            self.statement.kind(),
-            "range_clause" | "receive_statement" | "type_switch_statement"
-        )
+        is_declaring_kind(self.statement.kind())
     }
 }
 #[derive(Clone)]
@@ -239,6 +237,23 @@ impl<'a> LexicalFacts<'a> {
                         split_spec: false,
                     });
                 }
+                // #694 slice B: a function-literal formal or a named result is a plain write of
+                // its own declaration (its entry value); like a header target it only declares.
+                "parameter_declaration" | "variadic_parameter_declaration" => {
+                    let mut cursor = node.walk();
+                    let named = node.children_by_field_name("name", &mut cursor).any(|n| {
+                        n.start_byte() == span.start_byte && n.end_byte() == span.end_byte
+                    });
+                    if !named {
+                        return None;
+                    }
+                    return Some(Write {
+                        span: (span.start_byte, span.end_byte),
+                        statement: node,
+                        plain: true,
+                        split_spec: false,
+                    });
+                }
                 "inc_statement" | "dec_statement" => {
                     return Some(Write {
                         span: (span.start_byte, span.end_byte),
@@ -323,10 +338,8 @@ impl<'a> LexicalFacts<'a> {
                 if let Some(write) = writes
                     .iter()
                     .filter(|write| {
-                        !matches!(
-                            write.statement.kind(),
-                            "range_clause" | "receive_statement" | "type_switch_statement"
-                        ) && !write.split_spec
+                        !is_declaring_kind(write.statement.kind())
+                            && !write.split_spec
                             && write.statement.end_byte() <= child.start_byte()
                             && crate::languages::go::statements::parent(write.statement)
                                 .is_some_and(|p| p.id() == region.id())
@@ -405,6 +418,18 @@ impl<'a> LexicalFacts<'a> {
         }
         !drop
     }
+}
+
+/// Statement kinds whose write only declares a name and is never a dominating write (rule D).
+fn is_declaring_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "range_clause"
+            | "receive_statement"
+            | "type_switch_statement"
+            | "parameter_declaration"
+            | "variadic_parameter_declaration"
+    )
 }
 
 fn is_region(kind: &str) -> bool {

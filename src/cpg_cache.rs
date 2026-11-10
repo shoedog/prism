@@ -316,9 +316,10 @@ mod stream;
 /// - v165: Rust binary roots of a workspace member resolve the package's in-repo `[dependencies]` (#749), so Rust call edges and their kinds change, and the serialized layout changes: `RustCrateConfig::member_bin_roots` joins the cached inputs and `ScopeGraph::bin_dep_entries` joins the graph (the reason the version must move).
 /// - v166: an expression-bodied JS/TS/TSX arrow whose body is a callable or a ternary keeps one synthetic node instead of the located statements (#759), so the DataFlow labels of the edges that owner carries change (label-only; edge sets are unchanged below the fallback edge cap, which now also applies to an owner the one-node belt refuses).
 /// - v167: a JS/TS/TSX parameter-list default `u = o` is the alias `const u = o` (#761): it reads `o` bare, so `o` stops being a member-only formal (its projection edges become mixed-formal edges), and it mints the alias twin def and the alias binding's own def (a destructuring default with an identifier value likewise), all on the owner's first line, so DataFlow edges and labels change.
-/// - v168: a JS/TS/TSX loop body's normal completion reaches the loop's continue point, never the code after the loop (#693): a header write (a `for` update, a `while` condition) now kills body defs on the route to a read after the loop; `break`, labeled `break` and `continue` get edges; a multi-line `do`..`while` condition is its own CFG statement (#697), so the statement universe, the CPG's statement nodes and the ControlFlow edges change, and DataFlow labels move.
-/// - v169: a JS/TS/TSX loop tree is rewired only when the one loop-tree plan admits it (#693, #697 option B, slice 2): a tree whose occurrences are not placed on the head node, or one of whose intersecting CFG records has no ownership, keeps main's statement universe and edges and its owner's labels become `nameonly/cfg_incomplete` callable-wide, so the statement universe (an admitted `do` condition), the ControlFlow edges and the DataFlow labels change; and the serialized layout changes: `RdFileStats::loop_plan` and `DfgLabelStats::dfg_loop_plan` (the per-reason loop-plan counters) join the cache.
-const CACHE_VERSION: u32 = 169;
+/// - v168: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
+/// - v169: a JS/TS/TSX loop body's normal completion reaches the loop's continue point, never the code after the loop (#693): a header write (a `for` update, a `while` condition) now kills body defs on the route to a read after the loop; `break`, labeled `break` and `continue` get edges; a multi-line `do`..`while` condition is its own CFG statement (#697), so the statement universe, the CPG's statement nodes and the ControlFlow edges change, and DataFlow labels move.
+/// - v170: a JS/TS/TSX loop tree is rewired only when the one loop-tree plan admits it (#693, #697 option B, slice 2): a tree whose occurrences are not placed on the head node, or one of whose intersecting CFG records has no ownership, keeps main's statement universe and edges and its owner's labels become `nameonly/cfg_incomplete` callable-wide, so the statement universe (an admitted `do` condition), the ControlFlow edges and the DataFlow labels change; and the serialized layout changes: `RdFileStats::loop_plan` and `DfgLabelStats::dfg_loop_plan` (the per-reason loop-plan counters) join the cache.
+const CACHE_VERSION: u32 = 170;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -851,7 +852,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 169);
+        assert_eq!(super::CACHE_VERSION, 170);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
