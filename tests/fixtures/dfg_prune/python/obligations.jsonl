@@ -118,3 +118,10 @@
 {"case": "06_self", "path": "self.x", "def_line": 120, "use_line": 124, "keep": true, "reason": "self_rebound_for"}
 {"case": "06_self", "path": "self.x", "def_line": 127, "use_line": 130, "keep": true, "reason": "self_rebound_unpack"}
 {"case": "06_self", "path": "self.x", "def_line": 134, "use_line": 136, "keep": true, "reason": "self_global"}
+{"case": "07_hidden", "path": "x", "def_line": 2, "use_line": 3, "keep": true, "reason": "hidden_reader_eval"}
+{"case": "07_hidden", "path": "x", "def_line": 8, "use_line": 9, "keep": true, "reason": "hidden_reader_locals"}
+{"case": "07_hidden", "path": "x", "def_line": 14, "use_line": 15, "keep": true, "reason": "hidden_reader_format_locals"}
+{"case": "07_hidden", "path": "x", "def_line": 21, "use_line": 22, "keep": true, "reason": "hidden_reader_eval_alias"}
+{"case": "07_hidden", "path": "x", "def_line": 27, "use_line": 28, "keep": false, "reason": "member_eval_control"}
+{"case": "07_hidden", "path": "x", "def_line": 33, "use_line": 34, "keep": false, "reason": "keyword_eval_control"}
+{"case": "07_hidden", "path": "x", "def_line": 39, "use_line": 40, "keep": false, "reason": "plain_control"}

@@ -13,6 +13,37 @@ pub(super) const NESTED_SCOPES: [&str; 5] = [
     "class_definition",
 ];
 
+/// Builtins that read a function's locals by name at run time (a string passed to `eval`/`exec`,
+/// the mapping `locals()`/`vars()`/`globals()` returns, `str.format(**locals())`). Prism sees no
+/// read for them, so U could take a line that reads a name this way as write-only.
+const HIDDEN_READERS: [&str; 5] = ["eval", "exec", "locals", "vars", "globals"];
+
+/// Whether the owner (nested scopes included) mentions a hidden reader as a bare name: a call,
+/// an alias (`f = eval`) or any other occurrence. The member of an attribute (`model.eval()`) and
+/// a keyword argument's name (`f(eval=True)`) are not the builtin. U and D are off for such an
+/// owner (issue: precise handling would let them back on).
+pub(super) fn has_hidden_reader(parsed: &ParsedFile, owner: Node<'_>) -> bool {
+    let mut stack = vec![owner];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "identifier" && HIDDEN_READERS.contains(&parsed.node_text(&node)) {
+            let member = node.parent().is_some_and(|p| {
+                (p.kind() == "attribute"
+                    && p.child_by_field_name("attribute")
+                        .is_some_and(|a| a.id() == node.id()))
+                    || (p.kind() == "keyword_argument"
+                        && p.child_by_field_name("name")
+                            .is_some_and(|a| a.id() == node.id()))
+            });
+            if !member {
+                return true;
+            }
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.named_children(&mut cursor));
+    }
+    false
+}
+
 /// Single-entry region: control enters a `block` only at its first statement.
 pub(super) fn is_region(kind: &str) -> bool {
     kind == "block"
