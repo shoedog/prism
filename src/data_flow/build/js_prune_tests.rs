@@ -36,6 +36,15 @@ fn pairs(refs: &super::FileRefs) -> BTreeSet<Pair> {
         .collect()
 }
 
+/// The owners (name, start line) that carry the pair.
+fn owned(refs: &super::FileRefs, key: &Pair) -> BTreeSet<(String, usize)> {
+    refs.edges
+        .iter()
+        .filter(|e| e.from.path.to_string() == key.0 && e.from.line == key.1 && e.to.line == key.2)
+        .map(|e| (e.from.function.clone(), e.from.function_start_line))
+        .collect()
+}
+
 #[test]
 fn js_prune_matrix() {
     let obligations: Vec<serde_json::Value> =
@@ -79,8 +88,17 @@ fn js_prune_matrix() {
             if !b.contains(&key) {
                 failures.push(format!("inadmissible missing baseline pair: {row}"));
             }
-            if a.contains(&key) != row["keep"].as_bool().unwrap() {
-                failures.push(format!("{row}"));
+            // Per owner: a keep row holds only if every owner that had the pair still has it
+            // (a nested owner's loss is not hidden by the enclosing owner's copy of the edge),
+            // and a drop row only if no owner keeps it.
+            let (ob, oa) = (owned(&before, &key), owned(&after, &key));
+            let ok = if row["keep"].as_bool().unwrap() {
+                ob.is_subset(&oa)
+            } else {
+                oa.is_empty()
+            };
+            if !ok {
+                failures.push(format!("{row} owners before={ob:?} after={oa:?}"));
             }
         }
     }

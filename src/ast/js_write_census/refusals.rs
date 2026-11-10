@@ -185,6 +185,32 @@ fn mapped_arguments(
     }
 }
 
+/// Whether the owner may reach a mapped `arguments` object: the owner or an enclosing non-arrow
+/// callable (the same walk as `mapped_arguments`, without its base filter) has formals and
+/// `position::mapped_arguments_possible` holds for it (sloppy, simple parameters, `arguments`
+/// reached directly, through nested arrows, an alias or a computed key). The JS U/D owner switch
+/// (#630 slice 5) turns both rules off for such an owner.
+pub(crate) fn mapped_arguments_reachable(parsed: &ParsedFile, t: &Tables, owner: Node<'_>) -> bool {
+    let mut at = Some(owner);
+    while let Some(f) = at {
+        at = f.parent();
+        if !is_callable(t, f.kind()) || f.kind() == "arrow_function" {
+            continue;
+        }
+        if f.id() != owner.id() && position(parsed, f, owner) == Some(Position::Eager) {
+            continue;
+        }
+        let mut names = Vec::new();
+        if let Some(p) = parsed.parameter_binding_region(&f) {
+            parsed.js_ts_pattern_bound_names(p, &mut names);
+        }
+        if !names.is_empty() && mapped_arguments_possible(parsed, t, f) {
+            return true;
+        }
+    }
+    false
+}
+
 /// The owner lies in the body of a `with` statement (of any enclosing callable).
 pub(crate) fn inside_with_body(owner: Node<'_>) -> bool {
     let at = owner.start_byte();

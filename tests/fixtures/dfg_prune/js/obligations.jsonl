@@ -172,3 +172,7 @@
 {"case": "06_fold1", "path": "o.x", "def_line": 166, "use_line": 168, "keep": false, "reason": "own_declarator_control"}
 {"case": "06_fold1", "path": "a", "def_line": 141, "use_line": 143, "keep": true, "reason": "escaped_owner"}
 {"case": "06_fold1", "path": "x", "def_line": 173, "use_line": 174, "keep": true, "reason": "inherited_with_program_level"}
+{"case": "06_fold1", "path": "a", "def_line": 182, "use_line": 183, "keep": true, "reason": "inherited_mapped_arguments_alias"}
+{"case": "06_fold1", "path": "a", "def_line": 192, "use_line": 193, "keep": true, "reason": "inherited_mapped_arguments_strict_arrow"}
+{"case": "06_fold1", "path": "a", "def_line": 197, "use_line": 198, "keep": true, "reason": "inherited_mapped_arguments_rest_arrow"}
+{"case": "06_fold1", "path": "a", "def_line": 206, "use_line": 207, "keep": true, "reason": "mapped_arguments_computed_key"}

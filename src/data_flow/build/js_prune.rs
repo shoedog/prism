@@ -2,7 +2,8 @@
 //!
 //! Synthetic `<anon@..>` owners carry exact read spans and stay off. Policy:
 //! * Owner switch (`owner_enabled`): U and D are BOTH off for an owner with a direct eval, possibly
-//!   mapped `arguments` (sloppy, simple formals), a `with` statement, an enclosing `with` body, an
+//!   mapped `arguments` (sloppy, simple formals, of the owner or of an enclosing non-arrow
+//!   callable whose `arguments` the owner can reach), a `with` statement, an enclosing `with` body, an
 //!   escaped identifier spelling or a parse error, each decided by the repo's existing analysis.
 //!   Mapped `arguments` is a read hazard for U (`a = arguments[0]`) and a write hazard for D on a
 //!   stable base, so neither rule runs. Strict code, modules and non-simple parameter lists that
@@ -33,23 +34,22 @@ pub(super) const EXTRA_BOUNDARIES: [&str; 2] = ["public_field_definition", "fiel
 /// keep) for an owner the repo's own analyses mark as hazardous, no approximation of ours:
 /// * a parse error, or an anonymous owner;
 /// * a direct eval (`js_ts_direct_eval_anywhere`: parentheses, TS wrappers, escaped spelling);
-/// * mapped `arguments` (`js_ts_mapped_arguments_possible`: shorthand, decoded spellings,
-///   enclosing non-arrow callables; strict code and non-simple parameter lists are unmapped);
+/// * mapped `arguments` reachable from the owner (`refusals::mapped_arguments_reachable`: the
+///   owner or an enclosing non-arrow callable with formals whose `arguments` is mapped, reached
+///   directly, through nested arrows, an alias or a computed key; an arrow owner is judged by the
+///   callables around it; strict code and non-simple parameter lists are unmapped);
 /// * a `with` statement in the owner, or the owner inside a `with` body (`inside_with_body`);
 /// * an escaped identifier spelling anywhere in the owner (S1b-1 census `precondition`).
 pub(super) fn owner_enabled(parsed: &ParsedFile, owner: Node<'_>) -> bool {
     if owner.has_error() || parsed.language.function_name(&owner).is_none() {
         return false;
     }
+    let tables = crate::js_write_census::tables::Tables::shared();
     if parsed.js_ts_direct_eval_anywhere(&owner)
-        || parsed.js_ts_mapped_arguments_possible(&owner)
+        || crate::js_write_census::refusals::mapped_arguments_reachable(parsed, tables, owner)
         || crate::js_write_census::refusals::inside_with_body(owner)
-        || crate::js_write_census::walk::precondition(
-            crate::js_write_census::tables::Tables::shared(),
-            owner,
-            parsed.source.as_bytes(),
-        )
-        .is_some()
+        || crate::js_write_census::walk::precondition(tables, owner, parsed.source.as_bytes())
+            .is_some()
     {
         return false;
     }

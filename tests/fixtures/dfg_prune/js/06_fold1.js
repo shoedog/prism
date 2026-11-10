@@ -175,3 +175,35 @@ with (obj) {
     return x;
   };
 }
+
+function inherited_alias_outer(a) {
+  var args = arguments;
+  function inherited_alias(b) {
+    a = 1;
+    a = args[0];
+    return a;
+  }
+  return inherited_alias(0);
+}
+
+function inherited_arrow_outer(a) {
+  const inherited_arrow_strict = () => {
+    "use strict";
+    a = 1;
+    a = arguments[0];
+    return a;
+  };
+  const inherited_arrow_rest = (...rest) => {
+    a = 1;
+    a = arguments[0];
+    return a;
+  };
+  return inherited_arrow_strict() + inherited_arrow_rest();
+}
+
+function computed_key_arguments(a) {
+  log();
+  a = 1;
+  a = { [arguments[0]]() {} };
+  return a;
+}
