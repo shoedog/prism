@@ -197,6 +197,21 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     "added edge in {file}: {edge:?}"
                 );
             }
+            if language == Language::Java {
+                // Alias-twin lane slice 1: Java twins are removed at binding writes, so labels
+                // and full equality may differ from the frozen reference; removal-only still
+                // holds, edges (above) and uses.
+                for (key, uses) in &after.uses {
+                    for u in uses {
+                        assert!(
+                            before.uses.get(key).is_some_and(|b| b.contains(u)),
+                            "added use in {file}: {key:?} {u:?}"
+                        );
+                    }
+                }
+                edges += after.edges.len();
+                continue;
+            }
             for (key, label) in &after.labels {
                 assert_eq!(
                     before.labels.get(key),
