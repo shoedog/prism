@@ -84,6 +84,14 @@ int = = = ;
     }
 
     pub fn admit(&self, positive: bool, loaded: bool) -> ReviewBoundaryDiagnostics {
+        self.admit_with_result(positive, loaded).1
+    }
+
+    pub fn admit_with_result(
+        &self,
+        positive: bool,
+        loaded: bool,
+    ) -> (prism::slice::SliceResult, ReviewBoundaryDiagnostics) {
         let built = build_context(&self.inputs, &self.options).unwrap();
         let (_, trace) = taint::slice_with_trace(
             &built.ctx,
@@ -210,7 +218,7 @@ int = = = ;
             format!("{:?}", legacy.evidence),
             "serde-skipped aligned evidence parity"
         );
-        d
+        (typed.result, d)
     }
 
     pub fn invoke(&self, algorithm: &str, format: &str) -> (Value, String) {

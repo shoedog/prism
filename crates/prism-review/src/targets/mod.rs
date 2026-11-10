@@ -1,4 +1,28 @@
 //! Deterministic projection of annotated findings into targets contract v1.0.
+//!
+//! Invocation diagnostics are independent of findings: a run can have boundary
+//! notes without producing any target. When using the review facade, pass its
+//! diagnostics through [`TargetsMeta::run_warnings`] before calling [`project`].
+//! Preserve the ordinary parse, load and build warning prefix in that order:
+//!
+//! ```text
+//! let mut meta = TargetsMeta::default();
+//! // Set repository identity, algorithms, errors and admission policy as usual.
+//! meta.run_warnings = outcome.inputs.parse_warnings.clone();
+//! meta.run_warnings.extend(outcome.inputs.load_warnings.clone());
+//! meta.run_warnings.extend(outcome.build_warnings.clone());
+//! if let Some(diagnostics) = &outcome.run.diagnostics {
+//!     meta.run_warnings.extend(diagnostics.messages());
+//! }
+//! let document = project(
+//!     &outcome.run.findings, &outcome.run.evidence, &outcome.inputs, &meta,
+//! );
+//! ```
+//!
+//! Do not also append `outcome.run.warnings`: it already includes parse warnings
+//! and rendered diagnostics. Projection preserves the supplied prefix and adds
+//! its own finding warnings before severity/tier filtering; it cannot recover
+//! boundary diagnostics from findings alone.
 
 mod dependency_hint;
 mod dependency_identity;

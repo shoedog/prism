@@ -444,6 +444,9 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
     let mut run_warnings = outcome.inputs.parse_warnings.clone();
     run_warnings.extend(outcome.inputs.load_warnings.clone());
     run_warnings.extend(outcome.build_warnings.clone());
+    if let Some(diagnostics) = &outcome.run.diagnostics {
+        run_warnings.extend(diagnostics.messages());
+    }
     let min_tier = if args.min_tier == "asserted" {
         prism::api::FindingTier::Asserted
     } else {
@@ -806,6 +809,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 };
                 let report = output::format_mermaid_report(&multi_result);
                 println!("{}", report);
+                if let Some(diagnostics) = &diagnostics {
+                    cli_output::write_messages(
+                        &mut std::io::stderr().lock(),
+                        &diagnostics.messages(),
+                    )?;
+                }
                 let warnings = multi_result.aggregate_diagram_warnings();
                 emit_warnings_to_stderr(&warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);
@@ -814,7 +823,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 }
             }
             _ => {
-                for w in &inputs.parse_warnings {
+                for w in &warnings {
                     eprintln!("WARNING: {}", w);
                 }
                 for result in &results {
@@ -856,7 +865,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             cli.min_confidence,
             cli.resolution,
         );
-        if matches!(cli.format.as_str(), "json" | "review") {
+        if !matches!(cli.format.as_str(), "paper" | "mermaid" | "sarif") {
             result.warnings = cli_output::compose_warnings(
                 &inputs.parse_warnings,
                 &ordinary_warnings,
@@ -897,6 +906,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             "paper" => {
                 let paper_output = output::to_paper_format(&result.blocks);
                 println!("{}", serde_json::to_string_pretty(&paper_output)?);
+                if let Some(diagnostics) = &diagnostics {
+                    cli_output::write_messages(
+                        &mut std::io::stderr().lock(),
+                        &diagnostics.messages(),
+                    )?;
+                }
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
                 if exit_code != 0 {
@@ -946,6 +961,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 };
                 let report = output::format_mermaid_report(&multi_result);
                 println!("{}", report);
+                if let Some(diagnostics) = &diagnostics {
+                    cli_output::write_messages(
+                        &mut std::io::stderr().lock(),
+                        &diagnostics.messages(),
+                    )?;
+                }
                 let warnings = multi_result.aggregate_diagram_warnings();
                 emit_warnings_to_stderr(&warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);

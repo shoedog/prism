@@ -1,6 +1,7 @@
 mod fixtures;
 #[path = "../../src/cli_output.rs"]
 mod presentation;
+mod remaining;
 
 use fixtures::{notifications, row, Fixture};
 use serde_json::{json, Value};
