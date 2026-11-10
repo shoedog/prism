@@ -171,6 +171,9 @@ impl Producer {
             } else {
                 Self::build_alias_map(parsed, &func_node, &all_lines)
             };
+            // Alias-twin lane: one occurrence-qualified decision, read at registration, at the
+            // fallback anchors and at edge emission below (empty for every language not enabled).
+            let twin_policy = super::alias_occurrence::TwinPolicy::for_owner(parsed, &func_node, &lvalue_spans, &alias_map);
             let occurrence_byte = |byte| if synthetic { byte } else { 0 };
             let mut def_locs_by_occurrence: BTreeMap<
                 (AccessPath, usize, usize),
@@ -282,7 +285,7 @@ impl Producer {
                 // line that establishes the alias, to that line's target;
                 // re-assigning the alias name elsewhere breaks the alias, it does
                 // not write the target (flow-insensitive twins: legacy E11).
-                let twin = if header_targets.contains(&span.start_byte) {
+                let twin = if header_targets.contains(&span.start_byte) || twin_policy.suppresses_span(span.start_byte) {
                     None
                 } else if synthetic {
                     Self::resolve_on_alias_span(
@@ -325,6 +328,9 @@ impl Producer {
             // through lvalue spans. When they do surface, the lvalue loop
             // above already registered the resolved def with the raw span.
             for (alias, _target, alias_line) in &raw_aliases {
+                if twin_policy.suppresses_anchor(alias, *alias_line) {
+                    continue;
+                }
                 if lvalue_spans.iter().any(|span| {
                     span.line == *alias_line
                         && span.path.is_simple()
@@ -608,7 +614,7 @@ impl Producer {
                     }
 
                     // Phase 3: Also create edges for the alias-resolved path.
-                    let twin = if header_targets.contains(&span.start_byte) {
+                    let twin = if header_targets.contains(&span.start_byte) || twin_policy.suppresses_span(span.start_byte) {
                         None
                     } else if synthetic {
                         Self::resolve_on_alias_span(&alias_targets_by_byte, path, span.start_byte)
