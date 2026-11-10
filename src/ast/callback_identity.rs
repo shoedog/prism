@@ -904,7 +904,7 @@ impl ParsedFile {
         Some(decoded)
     }
 
-    fn js_ts_decoded_identifier(text: &str) -> Option<String> {
+    pub(crate) fn js_ts_decoded_identifier(text: &str) -> Option<String> {
         let decoded = Self::js_ts_decode_identifier_text(text)?;
         // Validate the decoded token with the same ECMAScript grammar: numeric,
         // punctuation, malformed escapes and surrogate values cannot bind a name.

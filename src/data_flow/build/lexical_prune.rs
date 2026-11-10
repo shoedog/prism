@@ -67,12 +67,18 @@ impl<'a> LexicalFacts<'a> {
         lvalues: &[PathSpan],
         rvalues: &[PathSpan],
     ) -> Self {
+        // No lvalue span leaves the write table empty: U cannot prove a write-only line and D has
+        // no dominating write (formals still get defs), so the owner switch is not consulted.
+        let js_enabled = parsed.language.is_js_family()
+            && !lvalues.is_empty()
+            && super::js_prune::owner_enabled(parsed, owner);
         let mut facts = Self {
             parsed,
             enabled: match parsed.language {
                 Language::Go => !owner.has_error(),
                 Language::Python => !owner.has_error() && owner.kind() == "function_definition",
                 Language::Rust => !owner.has_error() && owner.kind() == "function_item",
+                l if l.is_js_family() => js_enabled,
                 _ => false,
             },
             writes: BTreeMap::new(),
@@ -95,7 +101,13 @@ impl<'a> LexicalFacts<'a> {
             facts.rust_stable_bases = super::rust_prune::stable_bases(parsed, owner);
             facts.rust_local_macro = super::rust_prune::has_local_macro(owner);
         }
+        if parsed.language.is_js_family() {
+            facts.stable_receivers = super::js_prune::stable_bases(parsed, owner);
+        }
         let mut boundaries = parsed.language.callable_boundary_node_types();
+        if parsed.language.is_js_family() {
+            boundaries.extend(super::js_prune::EXTRA_BOUNDARIES);
+        }
         if parsed.language == Language::Python {
             boundaries.extend(super::python_prune::NESTED_SCOPES);
         }
@@ -136,7 +148,9 @@ impl<'a> LexicalFacts<'a> {
                 &mut self.scope_declared,
             );
         }
-        if self.parsed.language.is_identifier_node(node.kind()) {
+        if self.parsed.language.is_identifier_node(node.kind())
+            || (node.kind() == "this" && self.parsed.language.is_js_family())
+        {
             self.occurrences
                 .entry((
                     self.parsed.node_text(&node).to_owned(),
@@ -196,6 +210,15 @@ impl<'a> LexicalFacts<'a> {
         if self.parsed.language == Language::Rust {
             let (statement, plain) =
                 super::rust_prune::classify_write(node, (span.start_byte, span.end_byte))?;
+            return Some(Write {
+                span: (span.start_byte, span.end_byte),
+                statement,
+                plain,
+                split_spec: false,
+            });
+        }
+        if self.parsed.language.is_js_family() {
+            let (statement, plain) = super::js_prune::classify_write(self.parsed, node)?;
             return Some(Write {
                 span: (span.start_byte, span.end_byte),
                 statement,
@@ -355,7 +378,11 @@ impl<'a> LexicalFacts<'a> {
         // A stable receiver's attribute path is fixed storage: a write of the path or of
         // any prefix of it is a write of it. Every other path compares its own writes only.
         let mut prefixed: Vec<&Write<'a>> = own.iter().collect();
-        if self.stable_receivers.contains(&path.base) && !path.fields.is_empty() {
+        // JS compares identical paths only (brief: no prefix kills).
+        if self.stable_receivers.contains(&path.base)
+            && !path.fields.is_empty()
+            && !self.parsed.language.is_js_family()
+        {
             for len in 1..path.fields.len() {
                 let mut prefix = path.clone();
                 prefix.fields.truncate(len);
@@ -365,12 +392,19 @@ impl<'a> LexicalFacts<'a> {
         let writes = &prefixed;
         let mut child = occurrence;
         while let Some(region) = crate::languages::go::statements::parent(child) {
-            if self.is_region(region.kind()) {
+            if self.is_region(region) {
                 if let Some(write) = writes
                     .iter()
                     .filter(|write| {
                         !is_declaring_kind(write.statement.kind())
                             && !write.split_spec
+                            && (!self.parsed.language.is_js_family()
+                                || matches!(
+                                    write.statement.kind(),
+                                    "expression_statement"
+                                        | "lexical_declaration"
+                                        | "variable_declaration"
+                                ))
                             && write.statement.end_byte() <= child.start_byte()
                             && crate::languages::go::statements::parent(write.statement)
                                 .is_some_and(|p| p.id() == region.id())
@@ -399,11 +433,12 @@ impl<'a> LexicalFacts<'a> {
         None
     }
 
-    fn is_region(&self, kind: &str) -> bool {
+    fn is_region(&self, node: Node<'_>) -> bool {
         match self.parsed.language {
-            Language::Python => super::python_prune::is_region(kind),
-            Language::Rust => super::rust_prune::is_region(kind),
-            _ => is_region(kind),
+            Language::Python => super::python_prune::is_region(node.kind()),
+            Language::Rust => super::rust_prune::is_region(node.kind()),
+            l if l.is_js_family() => super::js_prune::is_region(node),
+            _ => is_region(node.kind()),
         }
     }
 
@@ -435,7 +470,7 @@ impl<'a> LexicalFacts<'a> {
         }
         // Python: D proves plain names and the attribute paths of a stable `self`/`cls`
         // parameter; any other base (a rebound name, `o.x`) may alias elsewhere.
-        if self.parsed.language == Language::Python
+        if (self.parsed.language == Language::Python || self.parsed.language.is_js_family())
             && !path.fields.is_empty()
             && !self.stable_receivers.contains(&path.base)
         {
@@ -447,6 +482,11 @@ impl<'a> LexicalFacts<'a> {
             && (self.rust_local_macro
                 || (!path.fields.is_empty() && !self.rust_stable_bases.contains(&path.base)))
         {
+            return true;
+        }
+        // JS: an intermediate object is a reference the owner can swap and restore, so only a
+        // single-field path `base.f` is fixed storage.
+        if self.parsed.language.is_js_family() && path.fields.len() > 1 {
             return true;
         }
         let drop = self
@@ -479,6 +519,9 @@ fn is_region(kind: &str) -> bool {
     )
 }
 fn pure_path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
+    if parsed.language.is_js_family() {
+        return super::js_prune::pure_path(parsed, node);
+    }
     match node.kind() {
         "identifier" => Some(AccessPath::simple(parsed.node_text(&node))),
         "attribute" => {

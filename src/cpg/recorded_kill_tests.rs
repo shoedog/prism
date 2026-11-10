@@ -90,8 +90,8 @@ const CONTROLS: &[Case] = &[
     Case { name: "sibling_under_subscript", lang: JS, edge: "o.a.x@2->o.a.x@4", expected: EXACT,
         source: "function f(o, k) {\n  o.a.x = 1;\n  o.b[k] = 2;\n  sink(o.a.x);\n}" },
     // Main's equal-path kills are a subset.
-    Case { name: "equal_path_kill", lang: JS, edge: "o.x@2->o.x@4", expected: KILLED,
-        source: "function f(o) {\n  o.x = 1;\n  o.x = 2;\n  sink(o.x);\n}" },
+    Case { name: "equal_path_kill", lang: JS, edge: "o.a.x@2->o.a.x@4", expected: KILLED,
+        source: "function f(o) {\n  o.a.x = 1;\n  o.a.x = 2;\n  sink(o.a.x);\n}" },
     Case { name: "equal_subscript_kill", lang: JS, edge: "o[]@2->o[]@4", expected: KILLED,
         source: "function f(o, k, j) {\n  o[k].x = 1;\n  o[j].x = 2;\n  sink(o[k].x);\n}" },
     // Already `killed` on main (a census kill-only def): the recorded relation must not change it.
@@ -200,12 +200,12 @@ const CONTROLS: &[Case] = &[
         source: "function f(t, o) {\n  o.x = 1;\n  switch (t) { case 0: function o() {} o = {}; }\n  sink(o.x);\n}" },
     // A plain declarator (`let`/`const`/`var o = ..`) is eligible (round 3 amendment); formals, destructured and
     // loop-head names are not: a block-scoped pattern name is not told from the outer binding.
-    Case { name: "loop_const_redeclaration_resize_shape_killed", lang: JS, edge: "update.b@5->update.b@8", expected: KILLED,
-        source: "function f(es, c) {\n  for (const e of es) {\n    const update = {};\n    if (c) {\n      update.b = 1;\n    } else {\n      update.b = 2;\n      use(update.b);\n    }\n    push(update);\n  }\n}" },
+    Case { name: "loop_const_redeclaration_resize_shape_killed", lang: JS, edge: "update.b.c@5->update.b.c@8", expected: KILLED,
+        source: "function f(es, c) {\n  for (const e of es) {\n    const update = {};\n    if (c) {\n      update.b.c = 1;\n    } else {\n      update.b.c = 2;\n      use(update.b.c);\n    }\n    push(update);\n  }\n}" },
     Case { name: "loop_const_redeclaration_resize_shape_unflagged_route", lang: JS, edge: "update.b@5->update.b@7", expected: CFG,
-        source: "function f(es, c) {\n  for (const e of es) {\n    const update = {};\n    if (c) {\n      update.b = 1;\n    } else {\n      update.b = 2;\n      use(update.b);\n    }\n    push(update);\n  }\n}" },
-    Case { name: "let_redeclared_in_loop_body_kills_previous_iteration", lang: JS, edge: "o.b@5->o.b@8", expected: KILLED,
-        source: "function f(es, c) {\n  for (const e of es) {\n    let o = {};\n    if (c) {\n      o.b = 1;\n    } else {\n      o.b = 2;\n      use(o.b);\n    }\n    push(o);\n  }\n}" },
+        source: "function f(es, c) {\n  for (const e of es) {\n    const update = {};\n    if (c) {\n      update.b = 1;\n    } else {\n      update.b = g(update.b);\n      use(update.b);\n    }\n    push(update);\n  }\n}" },
+    Case { name: "let_redeclared_in_loop_body_kills_previous_iteration", lang: JS, edge: "o.b.c@5->o.b.c@8", expected: KILLED,
+        source: "function f(es, c) {\n  for (const e of es) {\n    let o = {};\n    if (c) {\n      o.b.c = 1;\n    } else {\n      o.b.c = 2;\n      use(o.b.c);\n    }\n    push(o);\n  }\n}" },
     Case { name: "var_destructuring_redeclaration_keeps_main", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
         source: "function f(o, src) {\n  o.x = 1;\n  var { o } = src();\n  sink(o.x, o);\n}" },
     Case { name: "block_destructured_shadow_does_not_kill_outer", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,

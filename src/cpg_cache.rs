@@ -318,8 +318,9 @@ mod stream;
 /// - v167: a JS/TS/TSX parameter-list default `u = o` is the alias `const u = o` (#761): it reads `o` bare, so `o` stops being a member-only formal (its projection edges become mixed-formal edges), and it mints the alias twin def and the alias binding's own def (a destructuring default with an identifier value likewise), all on the owner's first line, so DataFlow edges and labels change.
 /// - v168: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
 /// - v169: Java alias twins only at real writes through the alias (alias-twin lane slice 1): an occurrence that only declares, initialises or reassigns the alias variable mints no target def and no twin edge, so DataFlow edges and labels of Java owners change.
-/// - v170: Rust rules U and D in the DFG producer: pairs into write-only statements and pairs overwritten by a dominating `let`/assignment are no longer emitted (#630 slice 5, Rust).
-const CACHE_VERSION: u32 = 170;
+/// - v170: JS/TS/TSX rules U and D drop write-only anchors and dominated defs for named owners, so stored edges, use nodes and the prune counters change (#630 slice 5)
+/// - v171: Rust rules U and D in the DFG producer: pairs into write-only statements and pairs overwritten by a dominating `let`/assignment are no longer emitted (#630 slice 5, Rust).
+const CACHE_VERSION: u32 = 171;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -852,7 +853,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 170);
+        assert_eq!(super::CACHE_VERSION, 171);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
