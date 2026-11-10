@@ -33,6 +33,23 @@ fn pairs(refs: &super::FileRefs) -> std::collections::BTreeSet<(String, usize, u
         .collect()
 }
 
+/// Owner-keyed view: `(path, def_line, use_line)` to the owners (`function`, start line)
+/// holding that pair. A collapsed key lets an enclosing owner's copy of an edge hide a
+/// nested owner's loss, so a keep row needs every owner that had the pair to still have
+/// it and a drop row needs no owner to have it after.
+type Owners = std::collections::BTreeSet<(String, usize)>;
+fn owner_pairs(
+    refs: &super::FileRefs,
+) -> std::collections::BTreeMap<(String, usize, usize), Owners> {
+    let mut out: std::collections::BTreeMap<_, Owners> = Default::default();
+    for e in &refs.edges {
+        out.entry((e.from.path.to_string(), e.from.line, e.to.line))
+            .or_default()
+            .insert((e.from.function.clone(), e.from.function_start_line));
+    }
+    out
+}
+
 fn check_subset(name: &str, source: &str) -> (usize, usize) {
     let parsed = ParsedFile::parse(name, source, Language::Rust).unwrap();
     let file = name.to_owned();
@@ -82,6 +99,7 @@ fn rust_prune_matrix() {
         let before = Producer::file_refs_frozen(&file, &parsed);
         let after = Producer::file_refs(&file, &parsed);
         let (b, a) = (pairs(&before), pairs(&after));
+        let (bo, ao) = (owner_pairs(&before), owner_pairs(&after));
         if std::env::var_os("PRISM_DUMP_PRUNE_BASELINE").is_some() {
             for (p, d, u) in &b {
                 println!(
@@ -100,8 +118,23 @@ fn rust_prune_matrix() {
             if !b.contains(&key) {
                 failures.push(format!("inadmissible missing baseline pair: {row}"));
             }
-            if a.contains(&key) != row["keep"].as_bool().unwrap() {
-                failures.push(format!("{row}"));
+            // An optional `owner` field narrows a row to one owner (function name).
+            let only = |set: Option<&Owners>| -> Owners {
+                set.into_iter()
+                    .flatten()
+                    .filter(|(f, _)| row.get("owner").is_none_or(|o| o == f.as_str()))
+                    .cloned()
+                    .collect()
+            };
+            let (had, has) = (only(bo.get(&key)), only(ao.get(&key)));
+            let (had, has) = (&had, &has);
+            let ok = if row["keep"].as_bool().unwrap() {
+                !had.is_empty() && had.is_subset(has)
+            } else {
+                has.is_empty()
+            };
+            if !ok {
+                failures.push(format!("{row} owners before={had:?} after={has:?}"));
             }
         }
     }

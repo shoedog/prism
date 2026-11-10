@@ -35,7 +35,7 @@
 {"case": "00_basic", "path": "x", "def_line": 38, "use_line": 37, "keep": false, "reason": "write_only"}
 {"case": "00_basic", "path": "x", "def_line": 38, "use_line": 41, "keep": true, "reason": "own"}
 {"case": "00_basic", "path": "s.f", "def_line": 46, "use_line": 47, "keep": false, "reason": "write_only"}
-{"case": "00_basic", "path": "s.f", "def_line": 46, "use_line": 48, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "s.f", "def_line": 46, "use_line": 48, "keep": true, "reason": "base_assigned_unstable"}
 {"case": "00_basic", "path": "s.f", "def_line": 47, "use_line": 48, "keep": true, "reason": "own"}
 {"case": "00_basic", "path": "s.g", "def_line": 49, "use_line": 51, "keep": true, "reason": "field_not_dominated_by_base_write"}
 {"case": "00_basic", "path": "s", "def_line": 45, "use_line": 51, "keep": false, "reason": "dominated"}
@@ -125,7 +125,7 @@
 {"case": "02_hazards", "path": "x", "def_line": 92, "use_line": 95, "keep": true, "reason": "attributed_assign_not_dstar"}
 {"case": "02_hazards", "path": "x", "def_line": 99, "use_line": 103, "keep": false, "reason": "dominated"}
 {"case": "02_hazards", "path": "x", "def_line": 100, "use_line": 103, "keep": true, "reason": "captured_writer"}
-{"case": "02_hazards", "path": "x", "def_line": 101, "use_line": 103, "keep": true, "reason": "own"}
+{"case": "02_hazards", "path": "x", "def_line": 102, "use_line": 103, "keep": true, "reason": "own"}
 {"case": "02_hazards", "path": "x", "def_line": 99, "use_line": 100, "keep": true, "reason": "use_in_closure"}
 {"case": "02_hazards", "path": "x", "def_line": 107, "use_line": 108, "keep": false, "reason": "write_only"}
 {"case": "02_hazards", "path": "x", "def_line": 108, "use_line": 109, "keep": true, "reason": "use_in_closure"}
@@ -158,3 +158,26 @@
 {"case": "02_hazards", "path": "x", "def_line": 159, "use_line": 158, "keep": true, "reason": "loop_carried"}
 {"case": "02_hazards", "path": "x", "def_line": 156, "use_line": 159, "keep": false, "reason": "write_only"}
 {"case": "02_hazards", "path": "x", "def_line": 159, "use_line": 156, "keep": false, "reason": "write_only"}
+{"case": "03_fold1", "path": "s.f", "def_line": 3, "use_line": 7, "keep": true, "reason": "repoint_base_reassigned"}
+{"case": "03_fold1", "path": "s.f", "def_line": 12, "use_line": 17, "keep": true, "reason": "box_move_restore"}
+{"case": "03_fold1", "path": "s.f", "def_line": 22, "use_line": 25, "keep": true, "reason": "if_let_rebinds_base"}
+{"case": "03_fold1", "path": "s.f", "def_line": 31, "use_line": 34, "keep": true, "reason": "second_let_rebinds_base"}
+{"case": "03_fold1", "path": "s.f", "def_line": 38, "use_line": 41, "keep": true, "reason": "closure_param_rebinds_base"}
+{"case": "03_fold1", "path": "s.f", "def_line": 46, "use_line": 48, "keep": false, "reason": "stable_let_base_control"}
+{"case": "03_fold1", "path": "s.f", "def_line": 52, "use_line": 54, "keep": false, "reason": "stable_formal_control"}
+{"case": "03_fold1", "path": "s.f", "def_line": 59, "use_line": 62, "keep": true, "reason": "mut_borrow_of_base"}
+{"case": "03_fold1", "path": "self.f", "def_line": 67, "use_line": 69, "keep": true, "reason": "self_unproven"}
+{"case": "03_fold1", "path": "x", "def_line": 74, "use_line": 77, "keep": true, "reason": "hygienic_macro_read"}
+{"case": "03_fold1", "path": "x", "def_line": 81, "use_line": 83, "keep": false, "reason": "println_use_control"}
+{"case": "03_fold1", "path": "x", "def_line": 88, "use_line": 89, "keep": true, "reason": "u_macro_read_line_kept"}
+{"case": "03_fold1", "path": "x", "def_line": 94, "use_line": 97, "keep": false, "reason": "block_expr_dominated"}
+{"case": "03_fold1", "path": "x", "def_line": 96, "use_line": 97, "keep": true, "reason": "own"}
+{"case": "03_fold1", "path": "x", "def_line": 94, "use_line": 99, "keep": true, "reason": "block_expr_not_dominating_outside"}
+{"case": "03_fold1", "path": "x", "def_line": 96, "use_line": 99, "keep": true, "reason": "own"}
+{"case": "03_fold1", "path": "x", "def_line": 104, "use_line": 107, "keep": false, "reason": "dominated"}
+{"case": "03_fold1", "path": "x", "def_line": 105, "use_line": 107, "keep": true, "reason": "tail_assignment_not_a_write"}
+{"case": "03_fold1", "path": "x", "def_line": 106, "use_line": 107, "keep": true, "reason": "own"}
+{"case": "03_fold1", "path": "x", "def_line": 111, "use_line": 114, "keep": false, "reason": "dominated"}
+{"case": "03_fold1", "path": "x", "def_line": 112, "use_line": 114, "keep": true, "reason": "own_macro_let"}
+{"case": "03_fold1", "owner": "inner", "path": "y", "def_line": 119, "use_line": 121, "keep": false, "reason": "nested_fn_dominated_in_own_owner"}
+{"case": "03_fold1", "owner": "nested_fn_owner", "path": "y", "def_line": 119, "use_line": 121, "keep": true, "reason": "enclosing_owner_keeps_nested_pair"}

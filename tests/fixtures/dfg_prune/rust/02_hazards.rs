@@ -98,8 +98,8 @@ fn attributed_assign(c: bool) {
 fn closure_writer() {
     let mut x = 0;
     let mut c = || x = 9;
-    x = 2;
     c();
+    x = 2;
     sink(x);
 }
 

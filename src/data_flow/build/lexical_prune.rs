@@ -1,4 +1,4 @@
-//! Removal-only Go and Python proofs. No CFG or RD label is used to discard a pair.
+//! Removal-only Go, Python and Rust proofs. No CFG or RD label is used to discard a pair.
 use crate::access_path::AccessPath;
 use crate::ast::{ParsedFile, PathSpan};
 use crate::cpg::RdFileStats;
@@ -54,6 +54,10 @@ pub(super) struct LexicalFacts<'a> {
     /// Python `self`/`cls` parameters never rebound in the owner: their attribute paths
     /// are fixed storage for D (see `python_prune::stable_receivers`).
     stable_receivers: BTreeSet<String>,
+    /// Rust local names whose field paths D may prove (`rust_prune::stable_bases`).
+    rust_stable_bases: BTreeSet<String>,
+    /// Rust owner holding a `macro_rules!`: D keeps every pair (`rust_prune::has_local_macro`).
+    rust_local_macro: bool,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -77,6 +81,8 @@ impl<'a> LexicalFacts<'a> {
             nested: Vec::new(),
             scope_declared: BTreeSet::new(),
             stable_receivers: BTreeSet::new(),
+            rust_stable_bases: BTreeSet::new(),
+            rust_local_macro: false,
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
@@ -84,6 +90,10 @@ impl<'a> LexicalFacts<'a> {
         }
         if parsed.language == Language::Python {
             facts.stable_receivers = super::python_prune::stable_receivers(parsed, owner);
+        }
+        if parsed.language == Language::Rust {
+            facts.rust_stable_bases = super::rust_prune::stable_bases(parsed, owner);
+            facts.rust_local_macro = super::rust_prune::has_local_macro(owner);
         }
         let mut boundaries = parsed.language.callable_boundary_node_types();
         if parsed.language == Language::Python {
@@ -428,6 +438,14 @@ impl<'a> LexicalFacts<'a> {
         if self.parsed.language == Language::Python
             && !path.fields.is_empty()
             && !self.stable_receivers.contains(&path.base)
+        {
+            return true;
+        }
+        // Rust: a field path needs a stable base, and a local `macro_rules!` can read a
+        // local by definition-site hygiene, so D never runs in such an owner.
+        if self.parsed.language == Language::Rust
+            && (self.rust_local_macro
+                || (!path.fields.is_empty() && !self.rust_stable_bases.contains(&path.base)))
         {
             return true;
         }
