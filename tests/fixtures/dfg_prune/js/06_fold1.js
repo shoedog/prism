@@ -210,7 +210,7 @@ function computed_key_arguments(a) {
 
 function escaped_key_outer(a) {
   var args;
-  ({ [(args = arguments)]() {} });
+  ({ [(args = \u0061rguments)]() {} });
   function escaped_key_inner(b) {
     a = 1;
     a = args[0];
