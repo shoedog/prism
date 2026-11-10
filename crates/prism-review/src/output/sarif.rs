@@ -32,6 +32,8 @@ use super::sarif_model::{
     RunProperties, SarifLog, SarifResult, Text, Tool,
 };
 use super::sarif_rules::{attribution, line_text_of, rule_description, Attribution, UNCATEGORIZED};
+use crate::algorithms::taint::boundary::display::escape_content;
+use crate::api::{ReviewBoundaryAvailability, ReviewBoundaryDiagnostics};
 use prism::ast::ParsedFile;
 use prism::finding_confidence::{
     admit_finding_for_resolution, parse_quality_for_selected_evidence, EvidencePath,
@@ -76,6 +78,8 @@ pub struct SarifInputs<'a> {
     /// fallback). One `warning` notification each, text verbatim, so what the
     /// run printed to stderr is also in the document a consumer reads.
     pub build_warnings: &'a [String],
+    /// Invocation-owned boundary notes and availability, separate from findings.
+    pub boundary_diagnostics: Option<&'a ReviewBoundaryDiagnostics>,
     pub algorithms_run: &'a [String],
     /// SPARSE authoritative per-file grade map (a file appears only when its
     /// error rate exceeds 1%). Absent from it + present in `files` = clean;
@@ -104,6 +108,7 @@ impl<'a> SarifInputs<'a> {
             parse_warnings: &[],
             load_warnings: &[],
             build_warnings: &[],
+            boundary_diagnostics: None,
             algorithms_run: &[],
             parse_quality: NO_PARSE_QUALITY,
             files: NO_FILES,
@@ -137,6 +142,11 @@ impl<'a> SarifInputs<'a> {
 
     pub fn build_warnings(mut self, build_warnings: &'a [String]) -> Self {
         self.build_warnings = build_warnings;
+        self
+    }
+
+    pub fn boundary_diagnostics(mut self, diagnostics: &'a ReviewBoundaryDiagnostics) -> Self {
+        self.boundary_diagnostics = Some(diagnostics);
         self
     }
 
@@ -243,6 +253,29 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
         })
         .collect();
 
+    // Build locations before the shared path-warning group; append notes after it.
+    let mut boundary_notes = Vec::new();
+    if let Some(diagnostics) = inputs.boundary_diagnostics {
+        for note in diagnostics.located() {
+            boundary_notes.push(Notification {
+                level: "note",
+                message: Text {
+                    text: note.message().to_owned(),
+                },
+                locations: vec![Location {
+                    physical_location: physical_location(
+                        note.file(),
+                        Some(note.line()),
+                        &mut escaping,
+                    ),
+                    logical_locations: Vec::new(),
+                }],
+            });
+        }
+        if let Some(summary) = diagnostics.summary() {
+            boundary_notes.push(notification("note", summary));
+        }
+    }
     let mut notifications: Vec<Notification> = Vec::new();
     for error in inputs.errors {
         notifications.push(notification(
@@ -250,12 +283,22 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
             format!("{}: {}", error.algorithm, error.error),
         ));
     }
-    for warning in inputs
-        .parse_warnings
-        .iter()
-        .chain(inputs.load_warnings)
-        .chain(inputs.build_warnings)
-    {
+    for warning in inputs.parse_warnings.iter().chain(inputs.load_warnings) {
+        notifications.push(notification("warning", warning.clone()));
+    }
+    if let Some(diagnostics) = inputs.boundary_diagnostics {
+        if let ReviewBoundaryAvailability::ListingUnavailable(message) = diagnostics.availability()
+        {
+            notifications.push(notification(
+                "warning",
+                format!(
+                    "taint-context: boundary diagnostics unavailable: {}",
+                    escape_content(message)
+                ),
+            ));
+        }
+    }
+    for warning in inputs.build_warnings {
         notifications.push(notification("warning", warning.clone()));
     }
     if inputs.findings.len() != inputs.evidence.len() {
@@ -274,6 +317,8 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
             format!("path escapes repo root: {path}"),
         ));
     }
+
+    notifications.extend(boundary_notes);
 
     let log = SarifLog {
         schema: SCHEMA,
@@ -314,6 +359,7 @@ fn notification(level: &'static str, text: String) -> Notification {
     Notification {
         level,
         message: Text { text },
+        locations: Vec::new(),
     }
 }
 

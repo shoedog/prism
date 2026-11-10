@@ -1,6 +1,8 @@
 use super::*;
 use serde_json::Value;
 
+mod boundary;
+
 fn finding(algorithm: &str, file: &str, line: usize) -> SliceFinding {
     SliceFinding {
         algorithm: algorithm.to_string(),

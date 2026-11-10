@@ -8,6 +8,9 @@ use tempfile::TempDir;
 #[path = "api_test/boundary_diagnostics.rs"]
 mod boundary_diagnostics;
 
+#[path = "api_test/sarif_diagnostics.rs"]
+mod sarif_diagnostics;
+
 fn write_repo(
     files: &[(&str, &str)],
     diff_files: &[(&str, &[usize])],

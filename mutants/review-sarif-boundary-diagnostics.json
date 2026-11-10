@@ -1,0 +1,42 @@
+{
+  "lane": "Typed SARIF boundary diagnostics (#602 S2b)",
+  "test_targets": [{"prefix": "api_test::", "package": "prism", "target": "integration"}, {"prefix": "output::sarif::tests::", "package": "prism-review", "target": "lib"}],
+  "mutations": {
+    "RSB01-projection-omitted": [
+      "crates/prism-review/src/output/sarif.rs",
+      "notifications.extend(boundary_notes);",
+      "drop(boundary_notes);",
+      "api_test::sarif_diagnostics::typed_notes_keep_caller_locations_and_exact_summary"
+    ],
+    "RSB02-physical-line-shifted": [
+      "crates/prism-review/src/output/sarif.rs",
+      "Some(note.line()),",
+      "Some(note.line() + 1),",
+      "api_test::sarif_diagnostics::typed_notes_keep_caller_locations_and_exact_summary"
+    ],
+    "RSB03-summary-omitted": [
+      "crates/prism-review/src/output/sarif.rs",
+      "if let Some(summary) = diagnostics.summary() {",
+      "if let Some(summary) = None::<String> {",
+      "api_test::sarif_diagnostics::typed_notes_keep_caller_locations_and_exact_summary"
+    ],
+    "RSB04-availability-hidden": [
+      "crates/prism-review/src/output/sarif.rs",
+      "if let ReviewBoundaryAvailability::ListingUnavailable(message) = diagnostics.availability()",
+      "if let ReviewBoundaryAvailability::ListingUnavailable(message) = &ReviewBoundaryAvailability::Available",
+      "output::sarif::tests::boundary::availability_uses_load_channel_once_without_mutating_inputs"
+    ],
+    "RSB05-availability-wrong-level": [
+      "crates/prism-review/src/output/sarif.rs",
+      "\"warning\",\n                format!(\n                    \"taint-context: boundary diagnostics unavailable: {}\",",
+      "\"note\",\n                format!(\n                    \"taint-context: boundary diagnostics unavailable: {}\",",
+      "output::sarif::tests::boundary::availability_uses_load_channel_once_without_mutating_inputs"
+    ],
+    "RSB06-empty-results-hide-notes": [
+      "crates/prism-review/src/output/sarif.rs",
+      "let mut boundary_notes = Vec::new();\n    if let Some(diagnostics) = inputs.boundary_diagnostics {",
+      "let mut boundary_notes = Vec::new();\n    if let Some(diagnostics) = inputs.boundary_diagnostics.filter(|_| !results.is_empty()) {",
+      "api_test::sarif_diagnostics::typed_notes_keep_caller_locations_and_exact_summary"
+    ]
+  }
+}
