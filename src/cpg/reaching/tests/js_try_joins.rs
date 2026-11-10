@@ -214,11 +214,41 @@ fn nested_if_arm_completion_of_the_try_body_into_the_finalizer_is_a_try_join() {
 
 #[test]
 fn nested_arms_without_a_finalizer_or_a_try_keep_their_labels() {
-    let got = labels(NESTED_NO_TRY, &[2, 3, 5, 7, 10], 12);
-    assert!(got.iter().any(|(_, c)| *c == exact()), "{got:?}");
-    // catch with no finally: no finalizer entry to complete into.
-    let got = labels(NESTED_CATCH_NO_FINALLY, &[6, 8, 10, 13], 16);
-    assert!(got.iter().any(|(_, c)| *c == exact()), "{got:?}");
+    // Residual-bearing fixtures, not clean controls: labels are pinned in full
+    // (the retag does not apply: no try, or no finalizer entry).
+    // No try: x@3 `if ((x = seed()))` is overwritten on every arm, so x@3->12 is
+    // wrong; the nested-if exit does not enter the else arm (#796-family residual).
+    assert_eq!(
+        labels(NESTED_NO_TRY, &[2, 3, 5, 7, 10], 12),
+        vec![
+            (
+                2,
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })
+            ),
+            (3, exact()), // wrong on main too (#796 family)
+            (
+                5,
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 10 })
+            ),
+            (7, incomplete()),
+            (10, exact())
+        ]
+    );
+    // Catch with no finally: no finalizer entry to complete into. x@6 `if ((x =
+    // seed()))` is overwritten on every arm, so x@6->16 is wrong (#796 family).
+    assert_eq!(
+        labels(NESTED_CATCH_NO_FINALLY, &[2, 6, 8, 10, 13], 16),
+        vec![
+            (2, incomplete()),
+            (6, exact()), // wrong on main too (#796 family)
+            (
+                8,
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 13 })
+            ),
+            (10, incomplete()),
+            (13, exact())
+        ]
+    );
 }
 
 #[test]
@@ -240,4 +270,46 @@ fn java_nested_catch_completion_is_not_retagged() {
         .map(|(_, p)| format!("{:?}", p.origin))
         .collect();
     assert!(origins.iter().all(|o| o != "JsTryJoin"), "{origins:?}");
+}
+
+const CATCH_LOOP_LAST: &str = "function f(c) {\n  let x = 0;\n  try {\n    work();\n  } catch (e) {\n    log(e);\n    while (c()) {\n      if ((x = seed())) {\n        x = more();\n      } else {\n        x = other();\n      }\n    }\n  } finally {\n    cleanup();\n  }\n  sink(x);\n}\n";
+const CATCH_DOWHILE: &str = "function f() {\n  let x = 0;\n  try {\n    work();\n  } catch (e) {\n    x = 1;\n    do {\n      x = 2;\n    } while (false);\n  } finally {\n    cleanup();\n  }\n  sink(x);\n}\n";
+const ENTRY_COLLISION: &str = "function f(c, d) {\n  let x = 0;\n  try {\n    if (c) {\n      x = 1;\n      if (d) {\n        return;\n      }\n    }\n    sink(x); } catch (e) { handle(); }\n}\n";
+
+#[test]
+fn residual_loop_ending_a_catch_stays_exact() {
+    // Residual (#693): the `while` ending the catch completes into the finalizer
+    // through the loop-exit rewrite, not a then-arm completion, so it is not
+    // retagged. x@8 `x = seed()` is overwritten on both arms of the body `if`
+    // whenever the loop runs, so x@8->sink is wrong; the zero-iteration exit
+    // (x@6 is not a def) keeps the pair alive. The same wrong `exact` exists with
+    // no try on main (no-try loop x@4->x@10). #785 closes it for admitted loops.
+    let got = labels(CATCH_LOOP_LAST, &[2, 8, 9, 11], 17);
+    assert_eq!(
+        got,
+        vec![(2, incomplete()), (8, exact()), (9, exact()), (11, exact())]
+    );
+}
+
+#[test]
+fn residual_do_while_in_a_catch_stays_exact() {
+    // Residual (#697): x@6 is overwritten by the do body (x@8) which always runs
+    // once, yet x@6->sink is `exact` through the do-while completion into the
+    // finalizer (the same wrong `exact` exists with no try on main: x@3->x@7).
+    let got = labels(CATCH_DOWHILE, &[2, 6, 8], 13);
+    assert_eq!(got, vec![(2, incomplete()), (6, exact()), (8, exact())]);
+}
+
+#[test]
+fn retagging_matches_by_line_pair_so_an_entry_line_collision_is_retagged() {
+    // Retagging matches (from, to) LINE PAIRS: a pair seeded by an arm completion
+    // retags every copy, so a header's legitimate false edge, or a loop exit, that
+    // shares the pair is retagged too. Here the inner `if (d)` header's false edge
+    // goes to the line `sink(x); } catch (e) { handle(); }`, which also holds the
+    // catch entry; the route stays inside the try, but x@5->sink is retagged.
+    // Accepted cost (closed collision class, bounded to entry LINES).
+    assert_eq!(
+        labels(ENTRY_COLLISION, &[2, 5], 10),
+        vec![(2, exact()), (5, incomplete())]
+    );
 }

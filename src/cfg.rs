@@ -791,9 +791,10 @@ fn build_try_catch_edges(
         }
 
         if js {
-            // Completions of the body into a handler or the finalizer, and of a
-            // catch into the finalizer (#802): conservative by region, not by
-            // the emitting builder.
+            // Then-arm completions from a nested compound header into a handler
+            // or finalizer entry (#802): region = the compound headers inside the
+            // try body / each catch; matched by LINE PAIR at drain, so a pair
+            // seeded by an arm completion retags every copy of that pair.
             let mut entries = catch_lines.clone();
             entries.extend(finally_first);
             if let Some(body) = node.child_by_field_name("body") {
