@@ -244,3 +244,59 @@ fn a_try_in_the_owners_own_parameter_default_refuses_it() {
     assert!(all_try_flow(src), "{:?}", why(src));
     refused_pairs(src, &["x@6->x@8"]);
 }
+
+const TS: Language = Language::TypeScript;
+
+fn why_ts(src: &str) -> Vec<Option<Why>> {
+    let p = ParsedFile::parse("a.ts", src, TS).unwrap();
+    assert_eq!(p.parse_error_count, 0, "{src}");
+    p.js_loop_plan()
+        .verdicts
+        .iter()
+        .map(|v| v.why.clone())
+        .collect()
+}
+
+fn pdec(body: &str) -> String {
+    format!(
+        "function f(c, dec) {{\n  const x = 0;\n  class C {{\n    m(@dec(class {{\n      static {{\n        {body}\n      }}\n    }}) p: unknown) {{}}\n  }}\n  while (c()) {{\n    sink(x);\n  }}\n}}\n"
+    )
+}
+
+#[test]
+fn a_parameter_decorator_of_a_nested_method_is_eager() {
+    // sol T2r2 W. The decorator on `m`'s parameter runs when the class is defined, in the owner: a try in the class
+    // static block inside it refuses the owner (probe `pdec.ts`). RED on 62645bff: only direct decorators of a nested
+    // callable were visited, the parameter decorator sits under `formal_parameters`, `x@2->x@11` was `exact`.
+    let src = pdec("try { throw 1; } finally {}");
+    assert_eq!(why_ts(&src), [Some(Why::TryFlow)]);
+    assert!(!labels_of(TS, &src, "x@2->x@11").contains(&"exact".to_string()));
+    // The throw-only variant has no try: a disclosed main residual (alongside `ckey_notry`), stays admitted and exact.
+    let no_try = pdec("throw 1;");
+    assert_eq!(why_ts(&no_try), [None]);
+    assert_eq!(labels_of(TS, &no_try, "x@2->x@11"), ["exact"]);
+}
+
+#[test]
+fn a_decorator_on_a_method_with_a_deferred_body_try_stays_admitted() {
+    // `@dec` on `m` is eager but holds no try; the try is in the deferred body (the nested owner's, not projected).
+    let src = "function f(c, dec) {\n  const x = 0;\n  class C {\n    @dec\n    m() {\n      try {\n        g();\n      } catch (e) {}\n    }\n  }\n  while (c()) {\n    sink(x);\n  }\n}\n";
+    assert_eq!(why_ts(src), [None]);
+    assert_eq!(labels_of(TS, src, "x@2->x@12"), ["exact"]);
+}
+
+#[test]
+fn instance_field_initializers_are_deferred_and_static_ones_are_eager() {
+    // sol T2r2 (immaterial): an instance field's initializer runs per instance, not when the owner's default is
+    // evaluated. Probe `instfield.js`: admitted again, `x@6->x@8` exact (RED on 62645bff: refused).
+    let inst = "function f(c, K = class {\n  field = class { static {\n    try {} finally {}\n  }};\n}) {\n  const x = 0;\n  while (c()) {\n    sink(x);\n  }\n}\n";
+    assert_plan(inst, None);
+    assert_eq!(labels_of(JS, inst, "x@6->x@8"), ["exact"]);
+    // A STATIC field initializer runs when the class is built: refused.
+    let stat = "function f(c, K = class {\n  static field = class { static {\n    try {} finally {}\n  }};\n}) {\n  const x = 0;\n  while (c()) {\n    sink(x);\n  }\n}\n";
+    assert!(all_try_flow(stat), "{:?}", why(stat));
+    refused_pairs(stat, &["x@6->x@8"]);
+    // A computed key of an instance field is eager.
+    let key = "function f(c, K = class {\n  [class { static {\n    try {} finally {}\n  }}] = 1;\n}) {\n  const x = 0;\n  while (c()) {\n    sink(x);\n  }\n}\n";
+    assert!(all_try_flow(key), "{:?}", why(key));
+}

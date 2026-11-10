@@ -51,8 +51,9 @@ impl Regions {
 
 /// The first `try_statement` the OWNER executes, as its line. The scan follows execution regions, not syntax
 /// ownership: the owner's body and its OWN parameter defaults, plus the eager parts of the callables nested in it
-/// (a method's computed key and decorators run when the class or object is built, whether or not the method is ever
-/// called; any class static block reached through them is walked as ordinary syntax). A nested callable's body and
+/// (a method's computed key, decorators and parameter decorators run when the class or object is built, whether or
+/// not the method is ever called; any class static block reached through them is walked as ordinary syntax), and
+/// class fields: names, keys, decorators and the initializers of `static` fields (instance initializers are deferred). A nested callable's body and
 /// its deferred parameter defaults are the nested owner's and stay excluded.
 fn own_try(owner: Node<'_>, body: Node<'_>, boundaries: &[&str]) -> Option<usize> {
     let mut stack = vec![body];
@@ -65,7 +66,8 @@ fn own_try(owner: Node<'_>, body: Node<'_>, boundaries: &[&str]) -> Option<usize
     let mut first: Option<usize> = None;
     while let Some(n) = stack.pop() {
         if n.id() != body.id() && boundaries.contains(&n.kind()) {
-            // Only the eager parts of a nested callable belong to the owner.
+            // Only the eager parts of a nested callable belong to the owner: its computed key, its decorators and
+            // its parameter decorators (never its parameter defaults or its body).
             if let Some(key) = n
                 .child_by_field_name("name")
                 .filter(|k| k.kind() == "computed_property_name")
@@ -74,7 +76,25 @@ fn own_try(owner: Node<'_>, body: Node<'_>, boundaries: &[&str]) -> Option<usize
             }
             let mut cursor = n.walk();
             stack.extend(n.children(&mut cursor).filter(|c| c.kind() == "decorator"));
+            if let Some(params) = n.child_by_field_name("parameters") {
+                let mut pc = params.walk();
+                for param in params.named_children(&mut pc) {
+                    let mut dc = param.walk();
+                    stack.extend(param.children(&mut dc).filter(|c| c.kind() == "decorator"));
+                }
+            }
             continue;
+        }
+        // A class field: its name, computed key and decorators are eager; its initializer VALUE runs per instance
+        // (deferred) unless the field is `static`.
+        if matches!(n.kind(), "field_definition" | "public_field_definition") {
+            let mut cursor = n.walk();
+            let kids: Vec<Node<'_>> = n.children(&mut cursor).collect();
+            if !kids.iter().any(|c| c.kind() == "static") {
+                let value = n.child_by_field_name("value").map(|v| v.id());
+                stack.extend(kids.into_iter().filter(|c| Some(c.id()) != value));
+                continue;
+            }
         }
         if n.kind() == "try_statement" {
             let l = n.start_position().row + 1;
