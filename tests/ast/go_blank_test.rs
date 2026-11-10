@@ -27,7 +27,10 @@ fn snapshot(dfg: &DataFlowGraph) -> Value {
         |e: &prism::data_flow::FlowEdgeRef<'_>| !super::recall_frozen::is_recall(&e.from, &e.to);
     let mut stats = serde_json::to_value(dfg.rd_function_stats()).unwrap();
     for file in stats.as_object_mut().unwrap().values_mut() {
-        file.as_object_mut().unwrap().remove("recall");
+        let file = file.as_object_mut().unwrap();
+        file.remove("recall");
+        // The per-file loop-plan counters (#693/#697 slice 2) are JS/TS/TSX telemetry, empty here.
+        assert_eq!(file.remove("loop_plan"), Some(serde_json::json!({})));
     }
     let locations = |defs: bool| -> Vec<VarLocation> {
         if defs {
