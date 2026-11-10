@@ -18,58 +18,54 @@ pub(super) const NESTED_SCOPES: [&str; 5] = [
 /// read for them, so U could take a line that reads a name this way as write-only.
 const HIDDEN_READERS: [&str; 5] = ["eval", "exec", "locals", "vars", "globals"];
 
-/// Names of the builtins namespace: `builtins.eval(..)`, `getattr(builtins, "eval")` and
-/// `__builtins__["eval"]` reach a hidden reader through them.
-const BUILTIN_NAMESPACES: [&str; 2] = ["builtins", "__builtins__"];
+/// Names through which the builtins namespace (and so every reader) is reachable:
+/// `builtins.eval(..)`, `from builtins import eval as ev`, `__builtins__["eval"]`,
+/// `__import__("builtins").eval`.
+const NAMESPACE_NAMES: [&str; 3] = ["builtins", "__builtins__", "__import__"];
 
-/// Names the file binds, anywhere, to a hidden reader or to the builtins namespace: a plain
-/// assignment from one (`ev = eval`, chains followed), any name imported from `builtins`
-/// (`from builtins import eval as ev`) and an alias of the module (`import builtins as b`).
-/// A reader carried as data (a parameter, an attribute, another module's alias) is out of model.
-fn file_hidden_aliases(parsed: &ParsedFile) -> BTreeSet<String> {
-    let mut aliases = BTreeSet::new();
-    let mut assigns: Vec<(String, String)> = Vec::new();
+/// Whether `node` is the member of an attribute (`model.eval`) or a keyword argument's name
+/// (`f(eval=True)`): neither is the builtin.
+fn is_member_or_keyword(node: Node<'_>) -> bool {
+    node.parent().is_some_and(|p| {
+        (p.kind() == "attribute"
+            && p.child_by_field_name("attribute")
+                .is_some_and(|a| a.id() == node.id()))
+            || (p.kind() == "keyword_argument"
+                && p.child_by_field_name("name")
+                    .is_some_and(|a| a.id() == node.id()))
+    })
+}
+
+/// File-level hazard: a reader can reach any owner of the file under another name. True when
+/// the file anywhere mentions a namespace name (any position, a member included, or as a
+/// string's whole content), a string spelling a reader (`getattr(ns, "eval")`), or a reader as
+/// a value rather than as the direct callee of a call (`ev = eval`, `(eval)`, `eval if c else
+/// f`, `ev = _ = eval`, a `match`/`for`/`with` target): every in-file alias needs one of these.
+/// A reader carried in from another module is out of model (#805).
+fn file_hidden_hazard(parsed: &ParsedFile) -> bool {
     let mut stack = vec![parsed.tree.root_node()];
     while let Some(node) = stack.pop() {
         match node.kind() {
-            "assignment" => {
-                if let (Some(l), Some(r)) = (
-                    node.child_by_field_name("left"),
-                    node.child_by_field_name("right"),
-                ) {
-                    if l.kind() == "identifier" && r.kind() == "identifier" {
-                        assigns.push((
-                            parsed.node_text(&l).to_owned(),
-                            parsed.node_text(&r).to_owned(),
-                        ));
+            "identifier" => {
+                let text = parsed.node_text(&node);
+                if NAMESPACE_NAMES.contains(&text) {
+                    return true;
+                }
+                if HIDDEN_READERS.contains(&text) && !is_member_or_keyword(node) {
+                    let direct_callee = node.parent().is_some_and(|p| {
+                        p.kind() == "call"
+                            && p.child_by_field_name("function")
+                                .is_some_and(|f| f.id() == node.id())
+                    });
+                    if !direct_callee {
+                        return true;
                     }
                 }
             }
-            "import_from_statement" => {
-                let from_builtins = node
-                    .child_by_field_name("module_name")
-                    .is_some_and(|m| BUILTIN_NAMESPACES.contains(&parsed.node_text(&m)));
-                if from_builtins {
-                    let mut c = node.walk();
-                    for name in node.children_by_field_name("name", &mut c) {
-                        let bound = match name.kind() {
-                            "aliased_import" => name.child_by_field_name("alias"),
-                            _ => Some(name),
-                        };
-                        if let Some(b) = bound {
-                            aliases.insert(parsed.node_text(&b).to_owned());
-                        }
-                    }
-                }
-            }
-            "aliased_import" => {
-                let module = node
-                    .child_by_field_name("name")
-                    .is_some_and(|m| BUILTIN_NAMESPACES.contains(&parsed.node_text(&m)));
-                if module {
-                    if let Some(a) = node.child_by_field_name("alias") {
-                        aliases.insert(parsed.node_text(&a).to_owned());
-                    }
+            "string_content" => {
+                let text = parsed.node_text(&node);
+                if HIDDEN_READERS.contains(&text) || NAMESPACE_NAMES.contains(&text) {
+                    return true;
                 }
             }
             _ => {}
@@ -77,57 +73,24 @@ fn file_hidden_aliases(parsed: &ParsedFile) -> BTreeSet<String> {
         let mut cursor = node.walk();
         stack.extend(node.named_children(&mut cursor));
     }
-    let reader = |n: &str, aliases: &BTreeSet<String>| {
-        HIDDEN_READERS.contains(&n) || BUILTIN_NAMESPACES.contains(&n) || aliases.contains(n)
-    };
-    loop {
-        let before = aliases.len();
-        for (l, r) in &assigns {
-            if reader(r, &aliases) {
-                aliases.insert(l.clone());
-            }
-        }
-        if aliases.len() == before {
-            return aliases;
-        }
-    }
+    false
 }
 
-/// Whether the owner (nested scopes included) can reach a hidden reader: a bare name that is
-/// one of them, the builtins namespace, or a file-level alias of either (`file_hidden_aliases`),
-/// or a string literal spelling a reader (`getattr(builtins, "eval")`). The member of an
-/// attribute (`model.eval()`) and a keyword argument's name (`f(eval=True)`) are not the builtin.
-/// U and D are off for such an owner (#805: precise handling would let them back on).
+/// Whether U and D must stay off for the owner: the file has a hidden-reader hazard
+/// (`file_hidden_hazard`, built once per file), or the owner (nested scopes included) names a
+/// reader as a bare identifier, a direct call `eval(..)` included. U and D are off for such an
+/// owner (#805: precise handling would let them back on).
 pub(super) fn has_hidden_reader(parsed: &ParsedFile, owner: Node<'_>) -> bool {
-    let aliases = parsed.python_hidden_aliases(file_hidden_aliases);
+    if parsed.python_hidden_hazard(file_hidden_hazard) {
+        return true;
+    }
     let mut stack = vec![owner];
     while let Some(node) = stack.pop() {
-        match node.kind() {
-            "identifier" => {
-                let text = parsed.node_text(&node);
-                if HIDDEN_READERS.contains(&text)
-                    || BUILTIN_NAMESPACES.contains(&text)
-                    || aliases.contains(text)
-                {
-                    let member = node.parent().is_some_and(|p| {
-                        (p.kind() == "attribute"
-                            && p.child_by_field_name("attribute")
-                                .is_some_and(|a| a.id() == node.id()))
-                            || (p.kind() == "keyword_argument"
-                                && p.child_by_field_name("name")
-                                    .is_some_and(|a| a.id() == node.id()))
-                    });
-                    if !member {
-                        return true;
-                    }
-                }
-            }
-            "string_content" => {
-                if HIDDEN_READERS.contains(&parsed.node_text(&node)) {
-                    return true;
-                }
-            }
-            _ => {}
+        if node.kind() == "identifier"
+            && HIDDEN_READERS.contains(&parsed.node_text(&node))
+            && !is_member_or_keyword(node)
+        {
+            return true;
         }
         let mut cursor = node.walk();
         stack.extend(node.named_children(&mut cursor));
