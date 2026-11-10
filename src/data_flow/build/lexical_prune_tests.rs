@@ -189,6 +189,12 @@ fn prune_subset_and_labels_across_fixture_tree() {
             };
             let language = Language::from_path(&file).unwrap();
             let parsed = ParsedFile::parse(&file, &source, language).unwrap();
+            if language == Language::Java {
+                // Alias-twin lane slice 1: Java alias twins are removed at binding writes, so the
+                // frozen reference (never updated) no longer bounds Java; `alias_occurrence` tests
+                // pin the Java producer and the gate measures it edge by edge.
+                continue;
+            }
             let before = Producer::file_refs_frozen(&file, &parsed);
             let after = without_recall(Producer::file_refs(&file, &parsed));
             for edge in &after.edges {
