@@ -327,6 +327,7 @@ fn build_inner<'p>(owner: Node<'p>, parsed: &'p ParsedFile, edges: &mut EdgeSink
         let Some(delegated) = cx.wrapper_completion(w, (root.start, root.end)) else {
             continue;
         };
+        replace::trace_inbound(parsed, owner, edges, w, &delegated);
         for c in &delegated.completions {
             let why = Emit::new(Producer::JsLoops, Role::NormalCompletion, w)
                 .from(c.node)

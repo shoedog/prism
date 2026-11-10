@@ -122,7 +122,7 @@ fn a_loop_on_distinct_lines_has_every_record_owned_or_independent() {
         assert_eq!(r.disposition, O(Owned::Replacement));
     }
     no_unauthorized_drop_or_survivor(t);
-    assert!(o.statements.dropped.is_empty() && o.statements.covered.is_empty());
+    assert!(o.statements.dropped.is_empty() && o.statements.covered().is_empty());
 }
 
 #[test]
@@ -495,15 +495,15 @@ fn the_700_mechanisms_are_inventoried_including_a_loop_free_control() {
     let o = own("function f(c, a) {\n  if (c) {\n    a = 1;\n  } a++, sink2(1, 2, 3, 4, 5, 6);\n  sink(a);\n}\n");
     assert!(o.trees.is_empty());
     assert!(o.statements.dropped.is_empty());
-    assert_eq!(o.statements.covered.len(), 1);
-    let (stmt, covering) = &o.statements.covered[0];
+    assert_eq!(o.statements.covered().len(), 1);
+    let (stmt, covering) = &o.statements.covered()[0];
     assert_eq!((stmt.line, stmt.kind.as_str()), (4, "expression_statement"));
     assert_eq!((covering.line, covering.kind.as_str()), (2, "if_statement"));
     // Two statements on one line: the second is dropped by deduplication, nothing is covered.
     let o = own("function f(a) {\n  a = 1; sink(a);\n  return a;\n}\n");
     assert_eq!(o.statements.dropped.len(), 1);
     assert_eq!(o.statements.dropped[0].0.line, 2);
-    assert!(o.statements.covered.is_empty());
+    assert!(o.statements.covered().is_empty());
     // The sequential record names the line's statements through the kept anchor.
     let seq = o
         .records

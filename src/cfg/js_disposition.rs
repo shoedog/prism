@@ -48,8 +48,6 @@ pub(crate) struct Statements {
     pub(crate) by_line: BTreeMap<usize, Vec<Stmt>>,
     /// Statements removed by start-line deduplication, with the statement kept on their line.
     pub(crate) dropped: Vec<(Stmt, Stmt)>,
-    /// Retained statements whose own line RD's lookup assigns to a shorter covering span.
-    pub(crate) covered: Vec<(Stmt, Stmt)>,
 }
 
 impl Statements {
@@ -70,12 +68,18 @@ impl Statements {
                 on_line.push(stmt);
             }
         }
-        let kept: Vec<Stmt> = st.by_line.values().map(|v| v[0].clone()).collect();
         for v in st.by_line.values() {
             st.dropped
                 .extend(v[1..].iter().map(|d| (d.clone(), v[0].clone())));
         }
-        // RD's lookup: the shortest retained span holding the line (ties: later start byte).
+        st
+    }
+
+    /// Retained statements whose own line RD's lookup assigns to a shorter covering span (the #700 second
+    /// mechanism). Quadratic, so computed on demand (trace and tests), never on the production path.
+    pub(crate) fn covered(&self) -> Vec<(Stmt, Stmt)> {
+        let kept: Vec<Stmt> = self.by_line.values().map(|v| v[0].clone()).collect();
+        let mut out = Vec::new();
         for k in &kept {
             let winner = kept
                 .iter()
@@ -83,10 +87,10 @@ impl Statements {
                 .min_by_key(|c| (c.end - c.start, std::cmp::Reverse(c.start)))
                 .filter(|w| w.line != k.line);
             if let Some(w) = winner {
-                st.covered.push((k.clone(), w.clone()));
+                out.push((k.clone(), w.clone()));
             }
         }
-        st
+        out
     }
 
     /// Whether the owner's RD selects the edge: `FileCfgEdgeIndex::for_owner` admits an edge exactly when
@@ -754,7 +758,7 @@ impl Ownership {
                 d.line, d.kind, d.start, d.end, k.kind, k.start, k.end
             );
         }
-        for (k, w) in &self.statements.covered {
+        for (k, w) in &self.statements.covered() {
             let _ = writeln!(
                 out,
                 "own-covered {path} line={} stmt={}[{},{}) covering={}[{},{})",

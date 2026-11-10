@@ -288,3 +288,138 @@ fn a_wrapper_arm_is_replaced_by_its_completions_and_an_unrouted_one_is_refused()
         p.verdicts
     );
 }
+
+/// Sources of fold 1 (sol W1). `TC` is the controller's probe `tc.js`.
+const TC: &str = "function f(c) {\n  let x = 0;\n  if (c) {\n    try {\n      work();\n    } catch (e) {\n      if ((x = seed())) {\n        while ((x = next())) {\n          work();\n        }\n      } else {\n        x = other();\n      }\n    } finally {\n      cleanup();\n    }\n  } else {\n    return;\n  }\n  sink(x);\n}\n";
+const TC_NO_FINALLY: &str = "function f(c) {\n  let x = 0;\n  if (c) {\n    try {\n      work();\n    } catch (e) {\n      if ((x = seed())) {\n        while ((x = next())) {\n          work();\n        }\n      } else {\n        x = other();\n      }\n    }\n  } else {\n    return;\n  }\n  sink(x);\n}\n";
+/// Loop in the `try` body; the `catch` is one simple statement, so the `catch` -> `finally` record leaves from
+/// the very line that writes `x` and nothing is skipped.
+const TC_PRESERVING: &str = "function f(c, k) {\n  let x = 0;\n  if (c) {\n    try {\n      while (k()) {\n        work();\n      }\n    } catch (e) {\n      x = seed();\n    } finally {\n      cleanup();\n    }\n  } else {\n    return;\n  }\n  sink(x);\n}\n";
+
+#[test]
+fn a_try_wrapper_whose_catch_flow_is_not_accounted_is_not_delegated() {
+    // sol W1. RED on 975aabdf: `x@7->x@20` was `exact` although every path from L7 to `sink` writes `x`
+    // (`next()` at L8 or `other()` at L12). `catch` -> `finally` is drawn from the catch's FIRST statement
+    // (L7 -> L15), outside every loop footprint; the wrapper completion L15 -> L20 completed an unflagged
+    // route around both writes. A catch with more than one statement (or a compound one) is refused.
+    let p = parse(JS, TC).js_loop_plan().clone();
+    assert_eq!(
+        p.verdicts[0].why,
+        Some(Why::Unresolved(
+            crate::cfg::js_disposition::Unres::WrapperEntryThenEnd
+        ))
+    );
+    assert!(p.refuses_owner(p.verdicts[0].owner));
+    let l = labels_of(JS, TC, "x@7->x@20");
+    assert!(!l.contains(&"exact".to_string()), "{l:?}");
+    // The then-end stays: nothing was dropped for the refused tree.
+    let parsed = parse(JS, TC);
+    let all = recorders(&parsed);
+    let rec = &all[0].1;
+    assert!(rec.dropped.is_empty());
+    assert!(rec
+        .live
+        .iter()
+        .any(|r| r.producer == Producer::ThenEnd && (r.from_line, r.to_line) == (4, 20)));
+}
+
+#[test]
+fn a_try_without_a_finally_has_no_catch_to_finally_record_and_is_delegated() {
+    // Control: no `finally`, so there is no first-statement bypass. Delegated; the truth is still `killed`
+    // (every path writes `x`), and the label must not be `exact`.
+    assert_eq!(
+        parse(JS, TC_NO_FINALLY).js_loop_plan().verdicts[0].why,
+        None
+    );
+    let l = labels_of(JS, TC_NO_FINALLY, "x@7->x@19");
+    assert!(!l.contains(&"exact".to_string()), "{l:?}");
+}
+
+#[test]
+fn a_try_whose_catch_is_one_simple_statement_keeps_its_exact_route() {
+    // Control with a genuinely preserving route: the `catch`'s first statement IS its write (L9), so
+    // L9 -> `finally` (L11) -> `sink` (L16) skips nothing. Delegated; `x@9->x@16` is truly `exact`
+    // (nothing between), and so is `x@2->x@16` (the body completes without writing `x`).
+    assert_eq!(
+        parse(JS, TC_PRESERVING).js_loop_plan().verdicts[0].why,
+        None
+    );
+    assert!(labels_of(JS, TC_PRESERVING, "x@9->x@16").contains(&"exact".to_string()));
+    assert!(labels_of(JS, TC_PRESERVING, "x@2->x@16").contains(&"exact".to_string()));
+}
+
+/// `src`'s first owner dropped `(from, to)` by `dropped_by` and the surviving emission `(rfrom, rto)` of the
+/// given role replaces it (hand-derived pairs).
+fn assert_replaced(
+    src: &str,
+    dropped: (Producer, usize, usize),
+    replacement: (usize, usize, crate::cfg::js_ownership::Role),
+) {
+    let parsed = parse(JS, src);
+    let all = recorders(&parsed);
+    let rec = &all[0].1;
+    assert!(
+        rec.dropped
+            .iter()
+            .any(|r| (r.producer, r.from_line, r.to_line) == dropped),
+        "{src}: {dropped:?} not dropped: {:?}",
+        rec.dropped
+            .iter()
+            .map(|r| (r.producer, r.from_line, r.to_line))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        rec.live
+            .iter()
+            .any(|r| emitted(r) && (r.from_line, r.to_line, r.role) == replacement),
+        "{src}: no surviving emission {replacement:?}"
+    );
+}
+
+#[test]
+fn each_dropped_obligation_has_its_own_replacement_edge() {
+    use crate::cfg::js_ownership::Role::{LoopExit, NormalCompletion, Repetition};
+    // Plain `while`, L3 header, L4 body, L6 after. Back edge (4,3) is re-emitted as the completion's
+    // repetition; the exit (3,6) as the header's exit; the sequential bypass (4,6) has the same repetition.
+    let w = "function f(n) {\n  let i = 0;\n  while (i < n) {\n    i = g();\n  }\n  sink(i);\n}\n";
+    assert_replaced(w, (Producer::LoopBack, 4, 3), (4, 3, Repetition));
+    assert_replaced(w, (Producer::LoopExit, 3, 6), (3, 6, LoopExit));
+    assert_replaced(w, (Producer::Sequential, 4, 6), (4, 3, Repetition));
+    // A loop that directly ends an `if` arm: the legacy exit (5,9) into the other arm is replaced by the
+    // exit (5,11) to `done()` (the then-end (5,11) is that same pair).
+    let d = "function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 2;\n    for (const a of xs) {\n      use(a);\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n";
+    assert_replaced(d, (Producer::LoopExit, 5, 9), (5, 11, LoopExit));
+    // Wrapper arms (delegated): label (L4 -> L11 replaced by the do's condition L7 -> L11), try (L4 -> L14 by
+    // the loop exit L5 and the catch's last statement L9), switch (L4 -> L13 by the header skip L4 and the
+    // loop exit L6), nested if (L4 -> L14 by its skip L4... see the fixtures).
+    let label = "function f(c, k) {\n  let x = 0;\n  if (c) {\n    again:\n    do {\n      x = 1;\n    } while (k());\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n";
+    assert_replaced(label, (Producer::ThenEnd, 4, 11), (7, 11, LoopExit));
+    assert_replaced(
+        extra("try_arm"),
+        (Producer::ThenEnd, 4, 14),
+        (5, 14, LoopExit),
+    );
+    assert_replaced(
+        extra("try_arm"),
+        (Producer::ThenEnd, 4, 14),
+        (9, 14, NormalCompletion),
+    );
+    assert_replaced(
+        extra("switch_arm"),
+        (Producer::ThenEnd, 4, 13),
+        (6, 13, LoopExit),
+    );
+    let nested = "function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 1;\n    if (!s) {\n      s = 2;\n      for (const a of xs) {\n        use(a);\n      }\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n";
+    assert_replaced(
+        nested,
+        (Producer::ThenEnd, 5, 14),
+        (5, 14, NormalCompletion),
+    );
+    assert_replaced(nested, (Producer::ThenEnd, 5, 14), (7, 14, LoopExit));
+    // A wrapper-owned switch `break` (L9) reaches `sink` (L16).
+    assert_replaced(
+        extra("wrapper_owned_switch_break"),
+        (Producer::ThenEnd, 4, 16),
+        (9, 16, crate::cfg::js_ownership::Role::Break),
+    );
+}

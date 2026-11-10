@@ -60,6 +60,19 @@ pub(crate) fn wrapper_resolvable<'p>(
     node_of(parsed, w).is_some_and(|n| cx.wrapper_completion(n, (root.start, root.end)).is_some())
 }
 
+/// Whether the then-end's `last` statement is a loop, or a label directly on one.
+fn is_direct_loop(parsed: &ParsedFile, a: Anchor) -> bool {
+    let Some(n) = node_of(parsed, a) else {
+        return false;
+    };
+    let body = if n.kind() == "labeled_statement" {
+        n.child_by_field_name("body")
+    } else {
+        Some(n)
+    };
+    body.is_some_and(|b| super::is_loop(b.kind()))
+}
+
 /// What replaces a then-end wrapper's edge.
 pub(super) struct Delegated<'tree> {
     /// The wrapper's normal completions.
@@ -82,6 +95,9 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         w: Node<'tree>,
         root: (usize, usize),
     ) -> Option<Delegated<'tree>> {
+        if !self.try_flow_accounted(w) {
+            return None;
+        }
         let jumps = self.wrapper_jumps(w, root)?;
         let mut completions = Vec::new();
         if !self.completions(w, &mut completions) {
@@ -95,6 +111,45 @@ impl<'a, 'tree> Cx<'a, 'tree> {
             to,
             jumps,
         })
+    }
+
+    /// Whether every `try` under `w` (never inside a nested callable) that has both a `catch` and a `finally`
+    /// has flow the admission accounts for. `build_try_catch_edges` draws `catch` -> `finally` from the
+    /// catch's FIRST statement, an unmodelled record that lies outside every loop footprint and so neither
+    /// refuses nor is replaced; the emitted completion leaves the `finally`, which makes
+    /// first-catch-statement -> `finally` -> after a route that skips the rest of the catch (fold 1, `tc`:
+    /// a wrong `exact` across `x = next()` / `x = other()`). It is accounted only when the catch is empty or
+    /// one simple statement (nothing after it to skip). Anything else is refused: the exception flow is not
+    /// modelled, so the wrapper's completion cannot be called resolved.
+    fn try_flow_accounted(&self, w: Node<'tree>) -> bool {
+        let mut stack = vec![w];
+        while let Some(n) = stack.pop() {
+            if n.id() != w.id() && self.boundaries.contains(&n.kind()) {
+                continue;
+            }
+            if n.kind() == "try_statement" && n.child_by_field_name("finalizer").is_some() {
+                if let Some(h) = n.child_by_field_name("handler") {
+                    let body = h.child_by_field_name("body");
+                    let stmts = body.map(Self::statements).unwrap_or_default();
+                    let simple = stmts.is_empty()
+                        || (stmts.len() == 1
+                            && matches!(
+                                stmts[0].kind(),
+                                "expression_statement"
+                                    | "lexical_declaration"
+                                    | "variable_declaration"
+                                    | "return_statement"
+                                    | "throw_statement"
+                            ));
+                    if !simple {
+                        return false;
+                    }
+                }
+            }
+            let mut cursor = n.walk();
+            stack.extend(n.named_children(&mut cursor));
+        }
+        true
     }
 
     /// The jumps under `w` (never inside a nested callable) that the wrapper itself must route, or `None`
@@ -177,10 +232,21 @@ pub(super) fn own_drops<'p>(
         } else {
             authority.owns(r, false)
         };
+        let mut drop_it = owned.is_some();
         if let (Some((root, _)), Producer::ThenEnd, Some(from)) = (owned, r.producer, r.from) {
-            then_ends.push((from, root));
+            // The replacement is computed before the record goes: if it cannot be, the record stays.
+            if is_direct_loop(parsed, from) || !crate::cfg::is_compound(parsed, from.kind) {
+                // A loop (or its label) that itself ends the arm, or a simple statement (a body completion): its
+                // own exit or completion edge is the replacement, no wrapper completion is needed.
+                then_ends.push((from, root));
+            } else if wrapper_resolvable(parsed, owner, from, root) {
+                then_ends.push((from, root));
+            } else {
+                debug_assert!(false, "an owned then-end whose completion does not resolve");
+                drop_it = false;
+            }
         }
-        keep.push(owned.is_none());
+        keep.push(!drop_it);
     }
     Some(Drops { keep, then_ends })
 }
@@ -302,5 +368,42 @@ pub(super) fn trace_emitted(parsed: &ParsedFile, owner: Node<'_>, edges: &EdgeSi
             r.from_line,
             r.to_line
         );
+    }
+}
+
+/// `PRISM_CFG_OWNERSHIP_TRACE=1` (standing build): the unmodelled-emitter records that end on a line a delegated
+/// wrapper's completion is about to leave from. The class of fold 1 (a catch's first statement jumping to the
+/// `finally` that the emitted completion leaves) is enumerated from these lines.
+pub(super) fn trace_inbound(
+    parsed: &ParsedFile,
+    owner: Node<'_>,
+    edges: &EdgeSink,
+    w: Node<'_>,
+    d: &Delegated<'_>,
+) {
+    if !crate::cfg::js_disposition::trace_enabled() || super::plan::assuming(parsed) {
+        return;
+    }
+    for c in &d.completions {
+        for r in edges.live_records().unwrap_or(&[]) {
+            if r.role == crate::cfg::js_ownership::Role::Legacy
+                && r.to_line == c.line
+                && r.from_line != c.line
+            {
+                eprintln!(
+                    "own-inbound {} owner=[{},{}) wrapper={}[{},{}) {:?} L{}->L{} completion=L{}",
+                    parsed.path,
+                    owner.start_byte(),
+                    owner.end_byte(),
+                    w.kind(),
+                    w.start_byte(),
+                    w.end_byte(),
+                    r.producer,
+                    r.from_line,
+                    r.to_line,
+                    c.line
+                );
+            }
+        }
     }
 }
