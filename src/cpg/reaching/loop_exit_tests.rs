@@ -2,8 +2,10 @@
 //! `tests/fixtures/js_loops/variant-matrix.tsv` is one (fixture, edge) with its label on main
 //! (4c8620a2, run by `scripts/matrix693.py`), its label at the first head (8f1deff0) and the label
 //! expected now. REFUSED rows (#693 slice 2) are the fixtures whose loop tree the plan refuses
-//! (`f6_if_loop_else`: the `if` shares the loop's head line; `f6_loop_ends_if_arm`: the arm ends in a
-//! wrapper holding the loop; `one_node_owner`: a one-line owner): main's edges stand and every label of the
+//! (`f6_if_loop_else`: the `if` shares the loop's head line; `one_node_owner`: a one-line owner; slice 3
+//! moved `f6_loop_ends_if_arm`, an arm ending in a wrapper holding the loop, to an admitted tree: its 15 rows are
+//! HOLD rows, one MOVE row and one RESIDUAL row, `s@4->s@12`, an `exact` main draws from the `if`'s own skip
+//! edge to the other arm, which no loop transition owns): main's edges stand and every label of the
 //! owner is `nameonly/cfg_incomplete` (option O1), so their `main`/first-head columns are history only.
 //! MOVE rows are the ones the rule moves; HOLD rows are controls and moved-neither rows;
 //! RESIDUAL rows are shapes of a loop tree that is not rewired (a one-line `do`, a condition sharing a
@@ -93,10 +95,10 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
         }
     }
     let moved = all.iter().filter(|r| r.kind == "MOVE").count();
-    assert_eq!(moved, 93, "rows the rule moves");
+    assert_eq!(moved, 94, "rows the rule moves");
     assert_eq!(
         all.iter().filter(|r| r.kind == "REFUSED").count(),
-        214,
+        199,
         "rows of refused trees"
     );
     for r in all.iter().filter(|r| r.kind != "REFUSED") {

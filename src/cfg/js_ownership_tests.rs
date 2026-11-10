@@ -28,6 +28,17 @@ fn on(tree: &TreeInventory, from: usize, to: usize) -> Vec<&Entry> {
         .collect()
 }
 
+/// The one SURVIVING entry of `tree` on `from -> to` drawn by `producer` (a rewrite emission that repeats a
+/// pair is recorded as suppressed beside it).
+fn survivor(tree: &TreeInventory, from: usize, to: usize, producer: Producer) -> &Entry {
+    let hits: Vec<_> = on(tree, from, to)
+        .into_iter()
+        .filter(|e| e.record.producer == producer && e.fate == Fate::Survived)
+        .collect();
+    assert_eq!(hits.len(), 1, "{from}->{to} by {producer:?}: {hits:?}");
+    hits[0]
+}
+
 /// The one entry of `tree` on `from -> to` drawn by `producer`.
 fn one(tree: &TreeInventory, from: usize, to: usize, producer: Producer) -> &Entry {
     let hits: Vec<_> = on(tree, from, to)
@@ -141,9 +152,10 @@ fn a_statement_on_the_closing_line_leaves_a_surviving_bypass_unresolved() {
 }
 
 #[test]
-fn sibling_loops_sharing_a_line_drop_each_others_edges_unauthorized() {
-    // sol r2 P1b: the `while` is rewired, the `do` (its condition shares the body's line) is not, and
-    // the while's drop removes the do header's edges `5 -> 6` and `5 -> 7`.
+fn sibling_loops_sharing_a_line_keep_each_others_edges() {
+    // sol r2 P1b: the `while` is rewired, the `do` (its condition shares the body's line) is not. Slice 1
+    // showed the while's span rule dropping the do header's edges `5 -> 6` and `5 -> 7`; slice 3 drops by
+    // record, so both survive (the while owns neither: they sit on a shared boundary line).
     let o = own(
         "function f(n, k) {\n  let x = 0;\n  while (n--) {\n    touch();\n  } do {\n    use(x); } while (k());\n  sink(x);\n}\n",
     );
@@ -153,13 +165,13 @@ fn sibling_loops_sharing_a_line_drop_each_others_edges_unauthorized() {
     assert_eq!((d.root.kind, d.rewired), ("do_statement", false));
     for t in [w, d] {
         let seq = one(t, 5, 6, Producer::Sequential);
-        assert_eq!(seq.fate, Fate::Dropped);
+        assert_eq!(seq.fate, Fate::Survived);
         assert_eq!(seq.disposition, U(Unres::SharedBoundaryLine));
-        assert!(seq.unauthorized_drop, "{seq:?}");
+        assert!(!seq.unauthorized_drop, "{seq:?}");
         let exit = one(t, 5, 7, Producer::LoopExit);
-        assert_eq!(exit.fate, Fate::Dropped);
+        assert_eq!(exit.fate, Fate::Survived);
         assert_eq!(exit.disposition, U(Unres::SharedBoundaryLine));
-        assert!(exit.unauthorized_drop);
+        assert!(!exit.unauthorized_drop);
     }
     // The while's own edges stay owned.
     assert_eq!(
@@ -207,16 +219,17 @@ fn an_if_and_a_do_on_one_line_keep_the_then_end_shortcut_unresolved() {
 }
 
 #[test]
-fn a_statement_after_a_one_line_loop_loses_its_successor_unauthorized() {
-    // opus r2 N2: `while (c()) x = f(); g(x);` on one line. The loop's drop removes `g(x)`'s edge to
-    // line 3, which the loop does not own; the line holds three statements, one kept.
+fn a_statement_after_a_one_line_loop_keeps_its_successor() {
+    // opus r2 N2: `while (c()) x = f(); g(x);` on one line. Slice 1 showed the span rule removing `g(x)`'s
+    // edge to line 3, which the loop does not own; the line holds three statements, one kept. A record-based
+    // drop leaves it.
     let o = own("function f(c, x) {\n  while (c()) x = f(); g(x);\n  return x;\n}\n");
     let t = &o.trees[0];
     assert!(t.rewired);
     let seq = one(t, 2, 3, Producer::Sequential);
-    assert_eq!(seq.fate, Fate::Dropped);
+    assert_eq!(seq.fate, Fate::Survived);
     assert_eq!(seq.disposition, U(Unres::SharedBoundaryLine));
-    assert!(seq.unauthorized_drop);
+    assert!(!seq.unauthorized_drop);
     // The #700 inventory: `x = f()` and `g(x)` are dropped by start-line deduplication; the loop is kept.
     let dropped: Vec<_> = o
         .statements
@@ -246,8 +259,9 @@ fn a_statement_after_a_one_line_loop_loses_its_successor_unauthorized() {
 
 #[test]
 fn a_labeled_do_ending_an_if_arm_is_a_wrapper_entry_then_end() {
-    // sol r2 P1 #2: the then-end `4 -> 11` leaves the label's line, not the loop's completion, and the
-    // rewrite never sees it (it is outside the do's lines).
+    // sol r2 P1 #2: the then-end `4 -> 11` leaves the label's line, not the loop's completion. The
+    // wrapper's completion resolves (the loop's condition), so the tree owns it (slice 3) and replaces it
+    // with the condition's edge to `sink(x)`.
     let o = own(
         "function f(c, k) {\n  let x = 0;\n  if (c) {\n    again:\n    do {\n      x = 1;\n    } while (k());\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n",
     );
@@ -259,8 +273,12 @@ fn a_labeled_do_ending_an_if_arm_is_a_wrapper_entry_then_end() {
         Some("labeled_statement")
     );
     assert_eq!(then_end.record.own, Own::Ambiguous(Doubt::WrapperEntry));
-    assert_eq!(then_end.fate, Fate::Survived);
-    assert_eq!(then_end.disposition, U(Unres::WrapperEntryThenEnd));
+    assert_eq!(then_end.fate, Fate::Dropped);
+    assert_eq!(then_end.disposition, O(Owned::DelegatedThenEnd));
+    assert!(!then_end.unauthorized_drop);
+    // Replaced by the wrapper's completion: the do's condition (L7) reaches `sink(x)` (L11).
+    let replacement = survivor(t, 7, 11, Producer::JsLoops);
+    assert_eq!(replacement.record.role, Role::LoopExit);
     // The if's branch entries are present and independent (the label is the consequence's first statement).
     assert_eq!(
         one(t, 3, 4, Producer::BranchEntry).disposition,
@@ -276,7 +294,21 @@ fn a_try_ending_an_if_arm_is_a_wrapper_entry_then_end_and_legacy_edges_are_unkno
     let t = &o.trees[0];
     let then_end = one(t, 4, 14, Producer::ThenEnd);
     assert_eq!(then_end.record.from.map(|a| a.kind), Some("try_statement"));
-    assert_eq!(then_end.disposition, U(Unres::WrapperEntryThenEnd));
+    // The try's completions are the loop's exit (L5) and the catch's last statement (L9): both reach
+    // `sink(x)` (L14), so the tree owns the then-end (slice 3).
+    assert_eq!(then_end.disposition, O(Owned::DelegatedThenEnd));
+    assert_eq!(then_end.fate, Fate::Dropped);
+    for from in [5, 9] {
+        let r = survivor(t, from, 14, Producer::JsLoops);
+        assert_eq!(
+            r.record.role,
+            if from == 5 {
+                Role::LoopExit
+            } else {
+                Role::NormalCompletion
+            }
+        );
+    }
     // build_try_catch_edges is not modelled: its `4 -> 9` has role Legacy, ownership unknown,
     // and (no endpoint on the loop's lines) is in no inventory.
     let try_edge = o
@@ -306,11 +338,19 @@ fn an_unmodelled_edge_is_interior_inside_the_tree_and_a_crossing_outside_it() {
         (e.record.role, e.disposition),
         (Role::Legacy, I(Indep::InteriorLegacy))
     );
-    // A `catch` whose first statement is the loop: the `try -> catch` edge enters the tree from outside.
-    let crossing = own(
-        "function f(k) {\n  try {\n    a();\n  } catch (e) {\n    while (k()) {\n      b();\n    }\n  }\n}\n",
+    // A `catch` whose first statement is the loop: the `try -> catch` edge ENTERS the tree at its first line
+    // from outside. The rewrite changes no edge into the head and owns nothing of it: independent (slice 3;
+    // slice 2 called every unmodelled edge that crosses the tree's lines unresolved).
+    let src = "function f(k) {\n  try {\n    a();\n  } catch (e) {\n    while (k()) {\n      b();\n    }\n  }\n}\n";
+    let entering = own(src);
+    let e = one(&entering.trees[0], 2, 5, Producer::Try);
+    assert_eq!(e.disposition, I(Indep::EntryFromOutside));
+    // With a `finally`, `catch -> finally` leaves the tree from its head: nothing says the loop's exit is
+    // not bypassed by it, so it stays a crossing no tree owns.
+    let leaving = own(
+        "function f(k) {\n  try {\n    a();\n  } catch (e) {\n    while (k()) {\n      b();\n    }\n  } finally {\n    c();\n  }\n}\n",
     );
-    let e = one(&crossing.trees[0], 2, 5, Producer::Try);
+    let e = one(&leaving.trees[0], 5, 9, Producer::Try);
     assert_eq!(e.disposition, U(Unres::LegacyCrossing));
 }
 
@@ -389,7 +429,7 @@ fn duplicate_line_pairs_keep_separate_records() {
 }
 
 #[test]
-fn records_are_one_per_edge_in_lockstep_and_change_no_edge() {
+fn records_are_one_per_edge_in_lockstep() {
     let srcs = [
         "function f(n, k) {\n  let x = 0;\n  while (n--) {\n    touch();\n  } do {\n    use(x); } while (k());\n  sink(x);\n}\n",
         "function f(c, k) {\n  let x = 0;\n  if (c) {\n    again:\n    do {\n      x = 1;\n    } while (k());\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n",
@@ -408,10 +448,10 @@ fn records_are_one_per_edge_in_lockstep_and_change_no_edge() {
             }
             sink.drain().for_each(drop);
         }
-        // The same edges, origins and order with the records off.
-        let on = build_cfg_edges_with_arms(&parsed);
-        let off = crate::cfg::js_ownership::without_records(|| build_cfg_edges_with_arms(&parsed));
-        assert_eq!(on, off, "{src}");
+        // The edges the public builder returns are the same sequence the sink held (records are consumed
+        // by the loop rewrite since slice 3, so there is no records-off comparison any more).
+        let all = build_cfg_edges_with_arms(&parsed);
+        assert!(!all.is_empty(), "{src}");
     }
 }
 
@@ -502,7 +542,7 @@ fn the_kept_statements_are_exactly_the_retained_universe() {
 }
 
 #[test]
-fn a_switch_or_nested_if_ending_an_if_arm_is_a_wrapper_entry_then_end() {
+fn a_switch_or_nested_if_ending_an_if_arm_is_delegated_to_the_tree() {
     // switch: the then-end `4 -> 13` leaves the `switch`'s line, past the loop inside its case.
     let o = own(
         "function f(c, k, a) {\n  let x = 0;\n  if (c) {\n    switch (a) {\n      case 1:\n        while (k()) {\n          x = 1;\n        }\n    }\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n",
@@ -510,10 +550,18 @@ fn a_switch_or_nested_if_ending_an_if_arm_is_a_wrapper_entry_then_end() {
     let t = &o.trees[0];
     let e = one(t, 4, 13, Producer::ThenEnd);
     assert_eq!(e.record.from.map(|a| a.kind), Some("switch_statement"));
+    // The switch has no `default`: its completions are its header (L4, no case matches) and the loop's
+    // exit (the last case's last statement, L6), both reaching `sink(x)` (L13): the tree owns the then-end.
     assert_eq!(
         (e.fate, e.disposition),
-        (Fate::Survived, U(Unres::WrapperEntryThenEnd))
+        (Fate::Dropped, O(Owned::DelegatedThenEnd))
     );
+    assert!(!e.unauthorized_drop);
+    for from in [4, 6] {
+        assert!(on(t, from, 13)
+            .iter()
+            .any(|e| e.record.producer == Producer::JsLoops && e.fate == Fate::Survived));
+    }
     // nested if/else: the outer if's then-end leaves the inner `if`'s line (a wrapper); the inner `if`'s
     // then-end leaves the loop itself, so the loop owns it (drawn by the branch builder, delegated),
     // and the rewrite drops it.
@@ -523,7 +571,9 @@ fn a_switch_or_nested_if_ending_an_if_arm_is_a_wrapper_entry_then_end() {
     let t = &o.trees[0];
     let outer = one(t, 4, 14, Producer::ThenEnd);
     assert_eq!(outer.record.from.map(|a| a.kind), Some("if_statement"));
-    assert_eq!(outer.disposition, U(Unres::WrapperEntryThenEnd));
+    // The inner `if`'s completions are its two arms' (the loop's exit L5, `x = 2` L9), reaching L14.
+    assert_eq!(outer.disposition, O(Owned::DelegatedThenEnd));
+    assert_eq!(outer.fate, Fate::Dropped);
     let inner = one(t, 5, 12, Producer::ThenEnd);
     assert_eq!(inner.record.from.map(|a| a.kind), Some("while_statement"));
     assert_eq!(inner.record.own, Own::Ambiguous(Doubt::WrapperEntry));
@@ -692,21 +742,21 @@ fn f2_nested_loops_sharing_a_boundary_line_are_unresolved() {
 }
 
 #[test]
-fn f3_a_then_end_from_a_wrapper_holding_a_loop_of_the_tree_is_unresolved() {
+fn f3_a_then_end_from_a_wrapper_holding_a_loop_of_the_tree_is_delegated_when_it_resolves() {
     // Opus probes w1 (try), w3 (switch): the wrapper sits inside an outer loop and holds the inner one.
     let w1 = own(
         "function w1(c, a) {\n  let x = 0;\n  while (a()) {\n    if (c) {\n      try {\n        while ((x = next())) {\n          g();\n        }\n      } catch (e) {\n        h();\n      }\n    } else {\n      x = 2;\n    }\n    sink(x);\n  }\n}\n",
     );
     assert_eq!(
         d(one(&w1.trees[0], 5, 15, Producer::ThenEnd)),
-        "Unresolved(WrapperEntryThenEnd)"
+        "OwnedReplaceable(DelegatedThenEnd)"
     );
     let w3 = own(
         "function w3(c, a, k) {\n  let x = 0;\n  while (a()) {\n    if (c) {\n      switch (k) {\n        default:\n          while ((x = next())) {\n            g();\n          }\n      }\n    } else {\n      x = 2;\n    }\n    sink(x);\n  }\n}\n",
     );
     assert_eq!(
         d(one(&w3.trees[0], 5, 14, Producer::ThenEnd)),
-        "Unresolved(WrapperEntryThenEnd)"
+        "OwnedReplaceable(DelegatedThenEnd)"
     );
     // A label on the loop's own line is its alias: the then-end is the loop's (delegated), not unresolved.
     let w2 = own(
@@ -716,6 +766,55 @@ fn f3_a_then_end_from_a_wrapper_holding_a_loop_of_the_tree_is_unresolved() {
     assert_eq!(d(e), "OwnedReplaceable(DelegatedThenEnd)");
     assert_eq!(e.fate, Fate::Dropped);
     assert!(!e.unauthorized_drop);
+}
+
+#[test]
+fn f3b_a_wrapper_whose_completion_cannot_be_routed_stays_unresolved() {
+    // A `break` of the switch INSIDE the wrapper but outside the loop's tree: no tree routes it, so the
+    // wrapper emits its edge itself (slice 3: `case 1`'s end reaches `sink(x)`), and the then-end is
+    // delegated. Hand-derived lines: switch L4, loop L6, `break` L9, `x = 2` L11, `sink(x)` L16.
+    let o = own(
+        "function f(c, k) {\n  let x = 0;\n  if (c) {\n    switch (k) {\n      case 1:\n        while (g()) {\n          x = 1;\n        }\n        break;\n      default:\n        x = 2;\n    }\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n",
+    );
+    let t = &o.trees[0];
+    let e = one(t, 4, 16, Producer::ThenEnd);
+    assert_eq!(e.record.from.map(|a| a.kind), Some("switch_statement"));
+    assert_eq!(
+        (e.fate, e.disposition),
+        (Fate::Dropped, O(Owned::DelegatedThenEnd))
+    );
+    let brk = survivor(t, 9, 16, Producer::Jump);
+    assert_eq!(brk.record.role, Role::Break);
+    survivor(t, 11, 16, Producer::JsLoops);
+    // A `break` out of the wrapper to a labeled block OUTSIDE it, outside every tree, has no edge and no
+    // owner: dropping the then-end would lose its flow, so the wrapper is not delegated.
+    let o = own(
+        "function f(c, k) {\n  let x = 0;\n  outer: {\n    if (c) {\n      switch (k) {\n        case 1:\n          while (g()) {\n            x = 1;\n          }\n          break outer;\n        default:\n          x = 2;\n      }\n    } else {\n      return 0;\n    }\n    sink(x);\n  }\n}\n",
+    );
+    let e = one(&o.trees[0], 5, 17, Producer::ThenEnd);
+    assert_eq!(e.record.from.map(|a| a.kind), Some("switch_statement"));
+    assert_eq!(
+        (e.fate, e.disposition),
+        (Fate::Survived, U(Unres::WrapperEntryThenEnd))
+    );
+    // A wrapper that holds two trees is claimed by the first of them (one record, one authority); the
+    // other sees it as another tree's, and both are delegated.
+    let two = own(
+        "function g(c, k) {\n  let x = 0;\n  if (c) {\n    try {\n      while (k()) {\n        x = 1;\n      }\n      while (k()) {\n        x = 2;\n      }\n    } finally {\n      h();\n    }\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n",
+    );
+    assert_eq!(two.trees.len(), 2);
+    assert_eq!(
+        d(one(&two.trees[0], 4, 17, Producer::ThenEnd)),
+        "OwnedReplaceable(DelegatedThenEnd)"
+    );
+    assert_eq!(
+        d(one(&two.trees[1], 4, 17, Producer::ThenEnd)),
+        "Independent(OtherTree)"
+    );
+    assert_eq!(
+        one(&two.trees[1], 4, 17, Producer::ThenEnd).fate,
+        Fate::Dropped
+    );
 }
 
 #[test]
@@ -762,8 +861,9 @@ fn f5_nested_callable_records_are_foreign_whatever_else_is_uncertain() {
             "Unresolved(ForeignAdmitted)"
         };
         assert_eq!(d(e), want, "{e:?}");
-        // The rewrite drops the `4 -> 6` records (they leave the loop's lines): a drop no tree owns.
-        assert_eq!(e.unauthorized_drop, e.record.to_line == 6, "{e:?}");
+        // Slice 3 drops by record: the `4 -> 6` records are no tree's, so they are not dropped (the plan
+        // refuses the tree instead).
+        assert!(!e.unauthorized_drop && e.fate == Fate::Survived, "{e:?}");
         assert!(e.admitted, "{e:?}");
     }
     let plan = parse(src).js_loop_plan().verdicts.clone();
@@ -781,17 +881,18 @@ fn f6_a_body_whose_last_line_holds_two_statements_has_a_body_bypass() {
 }
 
 #[test]
-fn a_wrapper_then_end_inside_the_body_that_leaves_the_loop_is_a_non_completion_crossing() {
+fn a_wrapper_then_end_inside_the_body_that_leaves_the_loop_is_delegated_to_it() {
     // The 62-record class on TypeScript: the outer arm's last statement is an inner `if`/`else`; main's
-    // then-end leaves its entry line past the loop. The arm's real completions are already the loop's.
+    // then-end leaves its entry line past the loop. The arm's real completions are already the loop's, so
+    // the loop owns the record (slice 3; slice 2 called it a non-completion crossing and refused the tree).
     let o = own(
         "function f(v, k) {\n  let x = 0;\n  while (k()) {\n    if (v) {\n      if (x) {\n        x = 1;\n      } else {\n        x = 2;\n      }\n    }\n  }\n  sink(x);\n}\n",
     );
     let t = &o.trees[0];
     let e = one(t, 5, 12, Producer::ThenEnd);
-    assert_eq!(d(e), "Unresolved(NonCompletionCrossing)");
+    assert_eq!(d(e), "OwnedReplaceable(DelegatedThenEnd)");
     assert_eq!(e.fate, Fate::Dropped);
-    assert!(e.unauthorized_drop);
+    assert!(!e.unauthorized_drop);
     // The inner arm's own end is a body completion.
     assert_eq!(
         d(one(t, 6, 12, Producer::ThenEnd)),

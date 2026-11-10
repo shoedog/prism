@@ -1,13 +1,15 @@
 //! JS/TS/TSX CFG edge ownership records (#693, #697; option B, slice 1).
 //!
-//! OBSERVATIONAL. While a JS-family owner's CFG is built, every edge the builders push also gets one
-//! record: which builder emitted it (`Producer`), what it means (`Role`), the syntax it was drawn from
-//! and to (`Anchor`s: byte ranges and node kinds), the construct whose completion it depends on, and
-//! whether that ownership is known (`Own`). The records change no edge, flag, order or label: they are
-//! kept in lockstep with `EdgeSink::edges` (`live[i]` describes `edges[i]`), the edges the loop
-//! rewrite drops move to `dropped`, and a loop edge the rewrite skipped as already present moves to
-//! `suppressed`. They are transient (never cached or serialized) and are read only by
-//! `js_disposition` (the per-loop-tree inventory, the test helper and `PRISM_CFG_OWNERSHIP_TRACE=1`).
+//! While a JS-family owner's CFG is built, every edge the builders push also gets one record: which
+//! builder emitted it (`Producer`), what it means (`Role`), the syntax it was drawn from and to
+//! (`Anchor`s: byte ranges and node kinds), the construct whose completion it depends on, and whether that
+//! ownership is known (`Own`). Slice 1 recorded them observationally; since slice 3 the loop rewrite
+//! consumes them (`js_loops::replace`: it drops exactly the records an admitted tree owns). They are kept
+//! in lockstep with `EdgeSink::edges` (`live[i]` describes `edges[i]`), the edges the loop rewrite drops
+//! move to `dropped`, and a loop edge the rewrite skipped as already present moves to `suppressed`. They
+//! are transient (never cached or serialized) and are read by `js_loops` (the replacement), by
+//! `js_disposition` (the per-loop-tree inventory the plan gates on, the test helper and
+//! `PRISM_CFG_OWNERSHIP_TRACE=1`).
 //!
 //! Full records come from the emitters that can touch a loop tree's lines, its enclosing arm's
 //! completion or a line shared with a loop boundary: the sequential builder (statement identity is
@@ -133,34 +135,9 @@ pub(crate) struct EdgeRecord {
     pub(crate) duplicate_of: Option<usize>,
 }
 
-#[cfg(test)]
-std::thread_local! {
-    static OFF: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
-
-/// Runs `f` with no records built, to compare the edges with and without them (tests only).
-#[cfg(test)]
-pub(crate) fn without_records<T>(f: impl FnOnce() -> T) -> T {
-    struct Reset(bool);
-    impl Drop for Reset {
-        fn drop(&mut self) {
-            OFF.with(|c| c.set(self.0));
-        }
-    }
-    let _reset = Reset(OFF.with(|c| c.replace(true)));
-    f()
-}
-
-/// Whether records are built for a JS-family owner. Always, outside tests: slices 2 and 3 consume them.
+/// Whether records are built for a JS-family owner. Always: the loop rewrite consumes them (slice 3).
 pub(super) fn wanted() -> bool {
-    #[cfg(test)]
-    {
-        !OFF.with(|c| c.get())
-    }
-    #[cfg(not(test))]
-    {
-        true
-    }
+    true
 }
 
 /// What an emitter tells the recorder about one edge.
@@ -228,6 +205,9 @@ pub(crate) struct Recorder {
     pub(crate) live: Vec<EdgeRecord>,
     pub(crate) dropped: Vec<EdgeRecord>,
     pub(crate) suppressed: Vec<EdgeRecord>,
+    /// The ids of `live` when the loop rewrite started (tests: the add/remove accounting of the rewrite).
+    #[cfg(test)]
+    pub(crate) pre_rewrite: Vec<usize>,
 }
 
 impl Recorder {
@@ -241,7 +221,15 @@ impl Recorder {
             live: Vec::new(),
             dropped: Vec::new(),
             suppressed: Vec::new(),
+            #[cfg(test)]
+            pre_rewrite: Vec::new(),
         }
+    }
+
+    /// Remember which records stand as the loop rewrite starts (tests only).
+    #[cfg(test)]
+    pub(crate) fn mark_pre_rewrite(&mut self) {
+        self.pre_rewrite = self.live.iter().map(|r| r.id).collect();
     }
 
     pub(crate) fn set_phase(&mut self, producer: Producer) {

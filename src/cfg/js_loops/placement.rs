@@ -105,7 +105,13 @@ fn rows(node: Node<'_>, boundaries: &[&str], body: bool, out: &mut BTreeSet<usiz
     let mut stack = vec![node];
     while let Some(n) = stack.pop() {
         let kind = n.kind();
-        if kind != "comment" && !(body && kind == "statement_block") {
+        // A hoisted function declaration executes nothing where it is written (#693 slice 3): it is a
+        // nested callable's declaration, not an occurrence of the tree, and its inside is its own owner's.
+        let hoisted = matches!(
+            kind,
+            "function_declaration" | "generator_function_declaration"
+        );
+        if kind != "comment" && !hoisted && !(body && kind == "statement_block") {
             out.insert(n.start_position().row + 1);
         }
         if boundaries.contains(&kind) {

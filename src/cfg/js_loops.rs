@@ -51,6 +51,7 @@ use tree_sitter::Node;
 mod facts;
 mod placement;
 mod plan;
+mod replace;
 pub(super) use facts::{tree_facts, LoopFacts, TreeFacts};
 #[cfg(test)]
 pub(super) use plan::legacy_candidates;
@@ -59,6 +60,7 @@ pub(crate) use plan::LoopPlan;
 pub(crate) use plan::Why;
 #[cfg(test)]
 pub(super) use plan::{ownerships, with_admission};
+pub(crate) use replace::wrapper_resolvable;
 
 std::thread_local! {
     static MAIN_LOOP_CFG: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -90,10 +92,6 @@ enum Next {
 
 fn line(node: Node<'_>) -> usize {
     node.start_position().row + 1
-}
-
-fn end_line(node: Node<'_>) -> usize {
-    node.end_position().row + 1
 }
 
 fn is_loop(kind: &str) -> bool {
@@ -186,7 +184,7 @@ pub(crate) fn do_tree_rewirable(parsed: &ParsedFile, do_node: &Node<'_>) -> bool
     false
 }
 
-pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) {
+pub(super) fn build<'p>(owner: Node<'p>, parsed: &'p ParsedFile, edges: &mut EdgeSink) {
     if main_loop_cfg() {
         return;
     }
@@ -199,6 +197,10 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) 
         body,
         boundaries: &boundaries,
     };
+    #[cfg(test)]
+    edges.mark_pre_rewrite();
+    // The enclosing owner's copies of what a nested callable's admitted tree owns go first.
+    replace::drop_nested_copies(owner, parsed, edges);
     let trees: Vec<Tree<'_>> = cx
         .outermost()
         .into_iter()
@@ -208,37 +210,12 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) 
     if trees.is_empty() {
         return;
     }
-    // Per loop: its lines, whether it is a `do`, and the edges from its first line that belong to an
-    // `if` starting on that line (kept).
-    let spans: Vec<(usize, usize, bool, Vec<usize>)> = trees
-        .iter()
-        .flat_map(|t| &t.loops)
-        .map(|l| {
-            (
-                line(l.node),
-                end_line(l.node),
-                l.node.kind() == "do_statement",
-                cx.if_branch_targets(l.node),
-            )
-        })
-        .collect();
-    // Drop the routes main's loop builders own: from an interior line to a later line (the bypass)
-    // and back to the loop's first line (main's back edge), and from the first line past the loop
-    // (main's exit, and the enclosing block's then-end edge, which main draws from the last
-    // statement of an `if` arm, the loop line, to a statement that may sit in the other arm). The
-    // branch edges of an `if` that itself starts on the loop's first line (`if (c) while (..) ..
-    // else ..`) are not the loop's and stay. A `do` header holds nothing once its condition is its
-    // own statement: main's back edge from that line (a body that starts on the `do` line) goes too.
-    edges.retain(|e| {
-        !spans.iter().any(|(s, t, is_do, keep)| {
-            let (s, t) = (*s, *t);
-            let interior = s < e.from_line && e.from_line <= t;
-            let past = e.to_line > t && !(s == e.from_line && keep.contains(&e.to_line));
-            (interior && (e.to_line > t || e.to_line == s))
-                || (s == e.from_line && past)
-                || (*is_do && s == e.from_line && e.to_line == s)
-        })
-    });
+    // Take out the records an admitted tree of this owner owns (back edges, exits, body completions that
+    // bypass the loop, delegated then-ends), by record, and nothing else.
+    let Some(drops) = replace::own_drops(owner, parsed, edges) else {
+        return;
+    };
+    edges.retain_flags(&drops.keep);
     let mut have: BTreeSet<(usize, usize)> = edges
         .edges
         .iter()
@@ -323,6 +300,36 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) 
             }
         }
     }
+    // A delegated then-end (a wrapper ends an `if` arm and holds, or leaves, a loop of a tree) is replaced
+    // by the wrapper's own completions reaching what follows the arm.
+    for (wrapper, root) in &drops.then_ends {
+        let Some(w) = replace::node_of(parsed, *wrapper) else {
+            continue;
+        };
+        let Some(tree) = trees.iter().find(|t| {
+            let n = t.loops[0].node;
+            n.start_byte() == root.start && n.end_byte() == root.end
+        }) else {
+            continue;
+        };
+        let Some(delegated) = cx.wrapper_completion(w, (root.start, root.end)) else {
+            continue;
+        };
+        for c in &delegated.completions {
+            let why = Emit::new(Producer::JsLoops, Role::NormalCompletion, w)
+                .from(c.node)
+                .depends_on(w)
+                .tree(tree.loops[0].node);
+            emit(c.line, delegated.to, edges, why);
+        }
+        for &(jump, to) in &delegated.jumps {
+            let why = Emit::new(Producer::Jump, Role::Break, jump)
+                .from(jump)
+                .depends_on(w)
+                .tree(tree.loops[0].node);
+            emit(line(jump), to, edges, why);
+        }
+    }
 }
 
 impl<'a, 'tree> Cx<'a, 'tree> {
@@ -342,32 +349,6 @@ impl<'a, 'tree> Cx<'a, 'tree> {
             let mut cursor = n.walk();
             let children: Vec<_> = n.named_children(&mut cursor).collect();
             stack.extend(children.into_iter().rev());
-        }
-        out
-    }
-
-    /// The lines an `if` that starts on the same line as `node` branches to past `node`: the first
-    /// statement of its `else` arm, and the statement after the `if` (main's branch edges from the
-    /// `if` line; they are not the loop's).
-    fn if_branch_targets(&self, node: Node<'tree>) -> Vec<usize> {
-        let mut out = Vec::new();
-        let row = node.start_position().row;
-        let mut at = node.parent();
-        while let Some(p) = at.filter(|p| p.start_position().row == row) {
-            if p.kind() == "if_statement" {
-                if let Some(first) = p
-                    .child_by_field_name("alternative")
-                    .and_then(|alt| Self::statements(alt).first().copied())
-                {
-                    if let Next::Line(to) = self.enter(first) {
-                        out.push(to);
-                    }
-                }
-                if let Next::Line(to) = self.after(p) {
-                    out.push(to);
-                }
-            }
-            at = p.parent();
         }
         out
     }

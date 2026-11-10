@@ -435,13 +435,39 @@ fn a_do_ending_an_if_arm_has_no_edge_from_its_header_past_the_loop() {
 /// next line of the universe, which can be the first statement of the OTHER arm of an enclosing `if`
 /// (excalidraw `elbowArrow.ts` `startIsSpecial`). Here the arm's terminal statement is an inner `if`
 /// holding the loop, and the then-end edge leaves that wrapper's ENTRY (L5 -> L14), not the loop's
-/// completion: ownership cannot be established without resolving the wrapper's completion (slice 3), so
-/// the plan refuses the tree and main's edges stand.
+/// completion. Slice 2 refused the tree; slice 3 resolves the wrapper's completions (the inner `if`'s skip
+/// edge L5 and the loop's exit L7, both reaching `done()` at L14), drops the then-end (the tree owns it) and
+/// emits them, so the loop no longer reaches the OTHER arm (L12).
 #[test]
-fn a_loop_ending_an_if_arm_through_a_wrapper_refuses_the_tree() {
+fn a_loop_ending_an_if_arm_through_a_wrapper_is_admitted_and_replaces_the_then_end() {
     let src = "function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 1;\n    if (!s) {\n      s = 2;\n      for (const a of xs) {\n        use(a);\n      }\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n";
-    assert_eq!(edges(src), main_edges(src));
-    assert_eq!(refusal(src), "Unresolved(WrapperEntryThenEnd)");
+    assert_eq!(refusal(src), "admitted");
+    // Hand-derived: sequential 2..8, the `if (c)` entries (3,4) (3,12), the inner `if` entries (5,6) and its
+    // skip drawn to the next universe line (5,12) (a branch skip of an `if` that ends an arm: not a loop
+    // transition, left as main draws it), the loop's back edge (8,7), exit (7,14), the iteration's
+    // exhaustion (8,14), the wrapper's replaced completions (5,14) and (7,14), and `use(s)` -> `done()`.
+    let want: BTreeSet<(usize, usize)> = [
+        (2, 3),
+        (3, 4),
+        (3, 12),
+        (4, 5),
+        (5, 6),
+        (5, 12),
+        (5, 14),
+        (6, 7),
+        (7, 8),
+        (7, 14),
+        (8, 7),
+        (8, 14),
+        (12, 14),
+    ]
+    .into();
+    assert_eq!(edges(src), want);
+    assert!(!has(&main_edges(src), 7, 14) || has(&main_edges(src), 7, 12));
+    assert!(
+        has(&main_edges(src), 7, 12),
+        "main: the loop header reaches the other arm"
+    );
 }
 
 /// The same shape with the loop the direct last statement of the arm is admitted: the then-end edge

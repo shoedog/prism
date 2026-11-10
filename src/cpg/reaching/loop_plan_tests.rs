@@ -50,21 +50,10 @@ pub(crate) const REFUSED: &[Case] = &[
     Case { name: "foreign_admitted", why: "Unresolved(ForeignAdmitted)",
         src: "function n(arr) {\n  let w = 1;\n  let x = 0;\n  while ((x = next())) {\n    x = f(); arr.forEach(y => { if (y) { if (z) g(); } });\n  }\n  sink(x, w);\n}\n",
         edges: &["w@2->w@7", "x@4->x@7", "x@3->x@5"] },
-    // Wrapper then-end: the arm of `if (c)` ends in an inner `if` holding the loop; the then-end edge leaves
-    // the inner `if`'s entry (L5) for L14, skipping the loop.
-    Case { name: "wrapper_then_end", why: "Unresolved(WrapperEntryThenEnd)",
-        src: "function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 1;\n    if (!s) {\n      s = 2;\n      for (const a of xs) {\n        use(a);\n      }\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n",
-        edges: &["c@1->c@3", "s@2->s@12", "a@7->a@8"] },
-    // Non-completion crossing: the loop's last statement is an `if` whose inner `if`/`else` is drawn from its
-    // entry past the loop, though the arms' completions are the loop's own.
-    Case { name: "non_completion_crossing", why: "Unresolved(NonCompletionCrossing)",
-        src: "function f(v, k) {\n  let x = 0;\n  let z = 1;\n  while (k()) {\n    if (v) {\n      if (x) {\n        x = 1;\n      } else {\n        x = 2;\n      }\n    }\n  }\n  sink(x, z);\n}\n",
-        edges: &["z@3->z@13", "k@1->k@4", "x@2->x@13"] },
-    // A loop in a callback: the ENCLOSING function's generic collectors draw the loop's legacy back edge
-    // `5 -> 4` (the `if` entry to the header) too, and the arrow's RD selects it by lines: a bypass of both
-    // arms that the arrow's own rewrite cannot drop. Foreign, admitted, unresolved.
-    Case { name: "foreign_from_enclosing_callable", why: "Unresolved(ForeignAdmitted)",
-        src: "function outer(items) {\n  let w = 1;\n  items.forEach(it => {\n    for (const k of it) {\n      if (k) {\n        use(k);\n      } else {\n        drop(k);\n      }\n    }\n  });\n  sink(w);\n}\n",
+    // A callback's loop is refused (head collapse); the enclosing function holds no loop tree of its own, so
+    // O1 refuses the arrow's labels only (`cfg::js_loops::plan_tests::only_the_owner_of_a_refused_tree...`).
+    Case { name: "callback_head_collapse", why: "Unresolved(HeadCollapse)",
+        src: "function outer(items) {\n  let w = 1;\n  items.forEach(it => {\n    while (it()) x = g();\n    use(x);\n  });\n  sink(w);\n}\n",
         edges: &["it@3->it@4"] },
 ];
 
@@ -78,6 +67,20 @@ pub(crate) const ADMITTED: &[(&str, &str, &[&str])] = &[
         &["z@2->z@7", "x@5->x@7", "c@1->c@4"]),
     ("ctl_do_condition_on_its_own_line", "function f(a) {\n  let z = 1;\n  do {\n    a = g();\n  } while (a-- > 0);\n  sink(a, z);\n}\n",
         &["z@2->z@6", "a@4->a@5"]),
+    // Slice 3: wrapper then-end. The arm of `if (c)` ends in an inner `if` holding the loop; main's then-end
+    // edge leaves the inner `if`'s entry (L5) for L14, skipping the loop. The wrapper's completions (its skip
+    // edge L5, the loop's exit L7) are the tree's to emit, so the then-end is replaced, not refused.
+    ("wrapper_then_end", "function f(c, xs) {\n  let s = 0;\n  if (c) {\n    s = 1;\n    if (!s) {\n      s = 2;\n      for (const a of xs) {\n        use(a);\n      }\n    }\n  } else {\n    use(s);\n  }\n  done();\n}\n",
+        &["c@1->c@3", "s@2->s@12", "a@7->a@8"]),
+    // Slice 3: the loop's last statement is an `if` whose inner `if`/`else` is drawn from its entry past the
+    // loop, though the arms' completions are the loop's own: the loop owns that record.
+    ("non_completion_crossing", "function f(v, k) {\n  let x = 0;\n  let z = 1;\n  while (k()) {\n    if (v) {\n      if (x) {\n        x = 1;\n      } else {\n        x = 2;\n      }\n    }\n  }\n  sink(x, z);\n}\n",
+        &["z@3->z@13", "k@1->k@4", "x@2->x@13"]),
+    // Slice 3 (the foreign rule): a loop in a callback. The ENCLOSING function's generic collectors drew the
+    // loop's legacy back edge `5 -> 4` too, which the arrow's own rewrite could not drop; the enclosing owner
+    // now drops its copies of what the arrow's admitted tree owns.
+    ("foreign_from_enclosing_callable", "function outer(items) {\n  let w = 1;\n  items.forEach(it => {\n    for (const k of it) {\n      if (k) {\n        use(k);\n      } else {\n        drop(k);\n      }\n    }\n  });\n  sink(w);\n}\n",
+        &["it@3->it@4"]),
 ];
 
 fn edges(src: &str) -> BTreeSet<(usize, usize)> {

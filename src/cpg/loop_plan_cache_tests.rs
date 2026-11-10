@@ -15,10 +15,33 @@ fn summary(g: &CodePropertyGraph) -> String {
     format!("{:#?}\n{:#?}", label_snapshot(&g.dfg), g.dfg_label_stats,)
 }
 
+/// Slice 3 (#693): the three shapes whose admission changed. `wrapped` ends an `if` arm in a `try` holding the
+/// loop (was `wrapper_entry_then_end`), `cb` holds a `do` in a nested callable (was `foreign_admitted`), `decl`
+/// holds a hoisted function declaration in a loop body (was a placement violation). All three trees are
+/// admitted now, so their universes, edges, labels and counters must survive a cache round trip unchanged.
+const SLICE3: &str = "function wrapped(c, k) {\n  let x = 0;\n  if (c) {\n    try {\n      while (k()) {\n        x = 1;\n      }\n    } catch (e) {\n      x = 2;\n    }\n  } else {\n    return 0;\n  }\n  sink(x);\n}\nfunction cb(xs) {\n  return xs.map((k) => {\n    let y = 0;\n    do {\n      use(y);\n      y = f();\n    } while ((y = g(k)));\n    return y;\n  });\n}\nfunction decl(n) {\n  let z = 1;\n  for (let i = 0; i < n; i++) {\n    function g() { return z; }\n    z = g();\n  }\n  sink(z);\n}\n";
+
 #[test]
 fn an_admitted_and_a_refused_tree_agree_on_cold_full_hit_and_partial_hit() {
+    parity(SOURCE, |plan| {
+        assert_eq!(plan.get("trees"), Some(&2), "{plan:?}");
+        assert_eq!(plan.get("admitted"), Some(&1), "{plan:?}");
+        assert_eq!(plan.get("owners_refused"), Some(&1), "{plan:?}");
+    });
+}
+
+#[test]
+fn trees_whose_admission_changed_in_slice_3_agree_on_cold_full_hit_and_partial_hit() {
+    parity(SLICE3, |plan| {
+        assert_eq!(plan.get("trees"), Some(&3), "{plan:?}");
+        assert_eq!(plan.get("admitted"), Some(&3), "{plan:?}");
+        assert_eq!(plan.get("owners_refused"), None, "{plan:?}");
+    });
+}
+
+fn parity(source: &str, check_plan: impl Fn(&BTreeMap<String, usize>)) {
     use crate::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
-    let sources = BTreeMap::from([("a.js".to_string(), SOURCE.to_string())]);
+    let sources = BTreeMap::from([("a.js".to_string(), source.to_string())]);
     let files: BTreeMap<String, ParsedFile> = sources
         .iter()
         .map(|(p, s)| {
@@ -29,10 +52,7 @@ fn an_admitted_and_a_refused_tree_agree_on_cold_full_hit_and_partial_hit() {
         })
         .collect();
     let cold = CodePropertyGraph::build(&files);
-    let plan = &cold.dfg_label_stats.dfg_loop_plan;
-    assert_eq!(plan.get("trees"), Some(&2), "{plan:?}");
-    assert_eq!(plan.get("admitted"), Some(&1), "{plan:?}");
-    assert_eq!(plan.get("owners_refused"), Some(&1), "{plan:?}");
+    check_plan(&cold.dfg_label_stats.dfg_loop_plan);
     let hashes = compute_file_hashes(&sources);
     let dir = tempfile::tempdir().unwrap();
     save_cache(&cold, &hashes, false, dir.path()).unwrap();

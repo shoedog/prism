@@ -227,9 +227,9 @@ impl Ownership {
     /// `others` are the surviving records of the other callables' builds of the file: an edge RD selects
     /// by endpoint lines does not know its emitter, so those between two statements of this owner are
     /// foreign records it admits.
-    pub(crate) fn new(
-        parsed: &ParsedFile,
-        owner: Node<'_>,
+    pub(crate) fn new<'p>(
+        parsed: &'p ParsedFile,
+        owner: Node<'p>,
         mut records: Recorder,
         others: Vec<EdgeRecord>,
     ) -> Self {
@@ -273,7 +273,7 @@ impl Ownership {
         let facts = tree_facts(owner, parsed);
         let mut trees: Vec<TreeInventory> = facts
             .iter()
-            .map(|t| inventory(t, &facts, &statements, &all))
+            .map(|t| inventory(parsed, owner, t, &facts, &statements, &all))
             .collect();
         // A drop is authorized when SOME tree owns the record (a sibling's bypass is another tree's
         // independent entry), unauthorized when none does.
@@ -297,7 +297,72 @@ impl Ownership {
     }
 }
 
-fn inventory(
+/// The drop authority of an owner's ADMITTED loop trees (#693/#697 option B, slice 3). A record is dropped
+/// by the loop rewrite only when an admitted tree of the callable owns it (`OwnedReplaceable`, never the
+/// tree's own `Replacement`): the tree then emits what replaces it (`js_loops::build`). It reads the same
+/// classification the plan gates on, so a tree the plan admits drops exactly what the plan found owned.
+pub(in crate::cfg) struct Authority<'p> {
+    parsed: &'p ParsedFile,
+    owner: Node<'p>,
+    statements: Statements,
+    facts: Vec<TreeFacts>,
+}
+
+impl<'p> Authority<'p> {
+    /// `None` when no tree of `owner` is rewired: it owns nothing.
+    pub(in crate::cfg) fn new(parsed: &'p ParsedFile, owner: Node<'p>) -> Option<Self> {
+        let facts = tree_facts(owner, parsed);
+        if !facts.iter().any(|t| t.rewired) {
+            return None;
+        }
+        let statements = Statements::new(parsed, owner);
+        Some(Self {
+            parsed,
+            owner,
+            statements,
+            facts,
+        })
+    }
+
+    /// The root of the admitted tree that owns `record`, and how. `foreign` is a record another callable's
+    /// build drew (an enclosing callable's generic collectors draw its nested callables' constructs): it
+    /// counts only when this owner's RD selects it, as `Ownership` classifies foreign records.
+    pub(in crate::cfg) fn owns(
+        &self,
+        record: &EdgeRecord,
+        foreign: bool,
+    ) -> Option<(Anchor, Owned)> {
+        let mut r = record.clone();
+        r.from_kept = self.statements.kept_at(r.from_line);
+        r.to_kept = self.statements.kept_at(r.to_line);
+        if foreign && !self.statements.admits(&r) {
+            return None;
+        }
+        for tree in self.facts.iter().filter(|t| t.rewired) {
+            let cx = Cx {
+                parsed: self.parsed,
+                owner: self.owner,
+                tree,
+                owner_trees: &self.facts,
+                statements: &self.statements,
+                replaced: std::collections::BTreeSet::new(),
+            };
+            if !cx.intersects(&r) {
+                continue;
+            }
+            if let Disposition::OwnedReplaceable(o) = cx.position(&r) {
+                if o != Owned::Replacement {
+                    return Some((tree.root, o));
+                }
+            }
+        }
+        None
+    }
+}
+
+fn inventory<'p>(
+    parsed: &'p ParsedFile,
+    owner: Node<'p>,
     tree: &TreeFacts,
     owner_trees: &[TreeFacts],
     statements: &Statements,
@@ -314,6 +379,8 @@ fn inventory(
         .map(|(r, _)| (r.from_line, r.to_line))
         .collect();
     let cx = Cx {
+        parsed,
+        owner,
         tree,
         owner_trees,
         statements,
@@ -356,6 +423,8 @@ fn inventory(
 }
 
 struct Cx<'a> {
+    parsed: &'a ParsedFile,
+    owner: Node<'a>,
     tree: &'a TreeFacts,
     /// Every tree of the owner (this one included): another tree's loop can end on this tree's first line.
     owner_trees: &'a [TreeFacts],
@@ -412,6 +481,44 @@ impl Cx<'_> {
                 .any(|m| bound(m) && !l.node.contains(m.node) && !m.node.contains(l.node));
             foreign_statement || disjoint_loop
         })
+    }
+
+    /// Whether the then-end wrapper `from` is delegated to this tree: this tree is its CLAIMANT (one record,
+    /// one authority) and its completion is resolvable (`Cx::wrapper_completion`: closed rule list, every
+    /// jump inside it is routed by an admitted tree or by the wrapper itself).
+    fn delegable(&self, from: Anchor) -> bool {
+        self.claims(from)
+            && super::js_loops::wrapper_resolvable(self.parsed, self.owner, from, self.tree.root)
+    }
+
+    /// Whether this tree is the one that owns the then-end record of the wrapper `from`. A wrapper inside
+    /// the tree's own loops is the tree's; one that holds whole trees of the owner (a loop-bearing `if`
+    /// between sibling loops) is claimed by the first of them that is rewired, else the first of them, so
+    /// the other trees see the record as another tree's.
+    fn claims(&self, from: Anchor) -> bool {
+        let inside: Vec<&TreeFacts> = self
+            .owner_trees
+            .iter()
+            .filter(|t| from.contains(t.root))
+            .collect();
+        match inside.iter().find(|t| t.rewired).or(inside.first()) {
+            Some(first) => first.root.same_range(self.tree.root),
+            None => true,
+        }
+    }
+
+    /// The innermost loop of the tree that holds the wrapper `from` and that the record leaves (its
+    /// target statement is outside the loop): the wrapper ends a loop body's last `if` arm.
+    fn crossed_by(&self, r: &EdgeRecord, from: Anchor) -> Option<&LoopFacts> {
+        if !super::is_compound(self.parsed, from.kind) {
+            return None;
+        }
+        let tk = r.to_kept?;
+        self.tree
+            .loops
+            .iter()
+            .filter(|l| within(l.node, (from.start, from.end)) && !within(l.node, tk))
+            .min_by_key(|l| l.node.end - l.node.start)
     }
 
     fn loop_of(&self, a: Anchor) -> Option<&LoopFacts> {
@@ -531,14 +638,34 @@ impl Cx<'_> {
                     if alias.is_some() {
                         return self.grant(alias, Owned::DelegatedThenEnd);
                     }
-                    if self.tree.loops.iter().any(|l| from.contains(l.node)) {
-                        return U(Unres::WrapperEntryThenEnd);
+                    // A compound last statement is no completion line: its entry is. The arm's completion
+                    // is delegated to the tree when the wrapper's own completions are a closed rule list
+                    // and the tree emits them (`Cx::wrapper_completion`, #693 slice 3).
+                    let held = self.tree.loops.iter().find(|l| from.contains(l.node));
+                    if let Some(l) = held {
+                        return if !self.claims(from) {
+                            I(Indep::OtherTree)
+                        } else if self.delegable(from) {
+                            self.grant(Some(l), Owned::DelegatedThenEnd)
+                        } else {
+                            U(Unres::WrapperEntryThenEnd)
+                        };
+                    }
+                    if let Some(l) = self.crossed_by(r, from) {
+                        if self.delegable(from) {
+                            return self.grant(Some(l), Owned::DelegatedThenEnd);
+                        }
                     }
                 }
             }
             _ if r.role == Role::Legacy => {
                 return if on(r.from_line) && on(r.to_line) {
                     I(Indep::InteriorLegacy)
+                } else if r.to_line == s && r.from_line < s {
+                    // An unmodelled emitter's edge (`try` -> `finally`/`catch`) that ENTERS the tree at its
+                    // first line from outside: the rewrite changes no edge into the head, so it owns nothing
+                    // of it and nothing of it is replaced (slice 3).
+                    I(Indep::EntryFromOutside)
                 } else {
                     U(Unres::LegacyCrossing)
                 };

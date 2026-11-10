@@ -200,11 +200,24 @@ impl EdgeSink {
         self.edges.is_empty()
     }
 
-    /// Keep the edges `keep` accepts, with their origins.
-    fn retain(&mut self, mut keep: impl FnMut(&CfgEdge) -> bool) {
-        let flags: Vec<bool> = self.edges.iter().map(&mut keep).collect();
+    /// Tests: remember the records standing as the loop rewrite starts.
+    #[cfg(test)]
+    fn mark_pre_rewrite(&mut self) {
         if let Some(rec) = &mut self.rec {
-            rec.retain(&flags);
+            rec.mark_pre_rewrite();
+        }
+    }
+
+    /// The ownership records of the edges pushed so far, index-aligned with `edges` (JS family only).
+    fn live_records(&self) -> Option<&[js_ownership::EdgeRecord]> {
+        self.rec.as_ref().map(|r| r.live.as_slice())
+    }
+
+    /// Keep the edges `keep[i]` accepts, with their origins (`keep` is index-aligned with `edges`).
+    fn retain_flags(&mut self, flags: &[bool]) {
+        debug_assert_eq!(flags.len(), self.edges.len());
+        if let Some(rec) = &mut self.rec {
+            rec.retain(flags);
         }
         let mut next = flags.iter().copied();
         self.edges.retain(|_| next.next().unwrap_or(true));

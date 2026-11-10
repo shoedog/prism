@@ -47,7 +47,7 @@ fn ext_of(language: Language) -> &'static str {
 }
 
 /// Labels of every DataFlow row of `source` whose endpoints are `edge` (`path@line->path@line`).
-pub(super) fn labels_of(language: Language, source: &str, edge: &str) -> Vec<String> {
+pub(crate) fn labels_of(language: Language, source: &str, edge: &str) -> Vec<String> {
     labels_with(language, source, edge, false)
 }
 
