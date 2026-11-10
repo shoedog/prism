@@ -63,8 +63,8 @@ impl<'a> LexicalFacts<'a> {
         lvalues: &[PathSpan],
         rvalues: &[PathSpan],
     ) -> Self {
-        // No lvalue span means no def on any line: U has no write-only use line (its use is the
-        // anchor a def mints) and D no dominating write, so the owner switch is not consulted.
+        // No lvalue span leaves the write table empty: U cannot prove a write-only line and D has
+        // no dominating write (formals still get defs), so the owner switch is not consulted.
         let js_enabled = parsed.language.is_js_family()
             && !lvalues.is_empty()
             && super::js_prune::owner_enabled(parsed, owner);

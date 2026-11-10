@@ -68,7 +68,8 @@ pub(crate) fn mapped_arguments_possible(parsed: &ParsedFile, t: &Tables, f: Node
     let mut stack = vec![f];
     while let Some(node) = stack.pop() {
         if matches!(node.kind(), "identifier" | "shorthand_property_identifier")
-            && parsed.node_text(&node) == "arguments"
+            && ParsedFile::js_ts_decoded_identifier(parsed.node_text(&node)).as_deref()
+                == Some("arguments")
         {
             return true;
         }

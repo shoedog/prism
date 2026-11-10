@@ -36,8 +36,10 @@ pub(super) const EXTRA_BOUNDARIES: [&str; 2] = ["public_field_definition", "fiel
 /// * a direct eval (`js_ts_direct_eval_anywhere`: parentheses, TS wrappers, escaped spelling);
 /// * mapped `arguments` reachable from the owner (`refusals::mapped_arguments_reachable`: the
 ///   owner or an enclosing non-arrow callable with formals whose `arguments` is mapped, reached
-///   directly, through nested arrows, an alias or a computed key; an arrow owner is judged by the
-///   callables around it; strict code and non-simple parameter lists are unmapped);
+///   directly, through nested arrows, an alias or a computed key, escaped spellings decoded; an
+///   arrow owner is judged by the callables around it), or by the owner's own
+///   `js_ts_mapped_arguments_possible` (a program-level arrow that spells `arguments`, which a
+///   CommonJS module wrapper maps); strict code and non-simple parameter lists are unmapped;
 /// * a `with` statement in the owner, or the owner inside a `with` body (`inside_with_body`);
 /// * an escaped identifier spelling anywhere in the owner (S1b-1 census `precondition`).
 pub(super) fn owner_enabled(parsed: &ParsedFile, owner: Node<'_>) -> bool {
@@ -46,6 +48,7 @@ pub(super) fn owner_enabled(parsed: &ParsedFile, owner: Node<'_>) -> bool {
     }
     let tables = crate::js_write_census::tables::Tables::shared();
     if parsed.js_ts_direct_eval_anywhere(&owner)
+        || parsed.js_ts_mapped_arguments_possible(&owner)
         || crate::js_write_census::refusals::mapped_arguments_reachable(parsed, tables, owner)
         || crate::js_write_census::refusals::inside_with_body(owner)
         || crate::js_write_census::walk::precondition(tables, owner, parsed.source.as_bytes())

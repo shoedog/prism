@@ -176,3 +176,5 @@
 {"case": "06_fold1", "path": "a", "def_line": 192, "use_line": 193, "keep": true, "reason": "inherited_mapped_arguments_strict_arrow"}
 {"case": "06_fold1", "path": "a", "def_line": 197, "use_line": 198, "keep": true, "reason": "inherited_mapped_arguments_rest_arrow"}
 {"case": "06_fold1", "path": "a", "def_line": 206, "use_line": 207, "keep": true, "reason": "mapped_arguments_computed_key"}
+{"case": "06_fold1", "path": "a", "def_line": 215, "use_line": 216, "keep": true, "reason": "inherited_mapped_arguments_escaped_key"}
+{"case": "06_fold1", "path": "exports", "def_line": 223, "use_line": 224, "keep": true, "reason": "program_level_arrow_arguments"}

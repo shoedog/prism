@@ -207,3 +207,20 @@ function computed_key_arguments(a) {
   a = { [arguments[0]]() {} };
   return a;
 }
+
+function escaped_key_outer(a) {
+  var args;
+  ({ [(args = arguments)]() {} });
+  function escaped_key_inner(b) {
+    a = 1;
+    a = args[0];
+    return a;
+  }
+  return escaped_key_inner(0);
+}
+
+const program_arrow = () => {
+  exports = 1;
+  exports = arguments[0];
+  return exports;
+};
