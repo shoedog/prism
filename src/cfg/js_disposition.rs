@@ -675,10 +675,12 @@ impl Ownership {
 #[cfg(test)]
 pub(crate) fn ownership_of(parsed: &ParsedFile) -> Vec<Ownership> {
     let candidates = super::js_loops::legacy_candidates(parsed);
-    super::js_loops::with_admission(&candidates, || super::js_loops::ownerships(parsed, false))
-        .into_iter()
-        .map(|(_, o)| o)
-        .collect()
+    super::js_loops::with_admission(parsed, &candidates, || {
+        super::js_loops::ownerships(parsed, false)
+    })
+    .into_iter()
+    .map(|(_, o)| o)
+    .collect()
 }
 
 /// The file's CFG edges as `ownership_of` sees them: built under the all-candidates admission.
@@ -687,7 +689,9 @@ pub(crate) fn tentative_file_edges(
     parsed: &ParsedFile,
 ) -> Vec<(super::CfgEdge, super::ArmProvenance)> {
     let candidates = super::js_loops::legacy_candidates(parsed);
-    super::js_loops::with_admission(&candidates, || super::build_cfg_edges_with_arms(parsed))
+    super::js_loops::with_admission(parsed, &candidates, || {
+        super::build_cfg_edges_with_arms(parsed)
+    })
 }
 
 #[cfg(test)]

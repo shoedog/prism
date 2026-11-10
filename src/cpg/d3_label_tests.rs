@@ -1,7 +1,7 @@
 //! #660 S1b-2: the matrix rows that name S1b-2 (same-node order relation, D3) as label rows, plus the
 //! placement and position rows the S1b-1 review history asked for. Label-only: no edge moves.
 //! FIX rows are `exact` on base d891f74d and move to `nameonly/sameline`; controls hold on both.
-use super::census_label_tests::labels_of;
+use super::census_label_tests::{labels_of, labels_of_main_loops};
 use crate::js_write_census::matrix_tests::lang_of;
 use crate::languages::Language;
 
@@ -35,6 +35,21 @@ fn rows() -> Vec<Row> {
         .collect()
 }
 
+/// Rows about the #697 loop rewrite itself (a `do` condition that is its own node): they run under the
+/// production plan. Every other row tests D3 under main's loop CFG, the geometry it was written for (a
+/// loop sharing its line with its body is refused by the plan and every label of its owner would be
+/// cfg_incomplete, hiding the mechanism; the refusal is `loop_plan_tests`').
+const PRODUCTION_ROWS: &[&str] = &["a20_for_init_inside_do_while_cond_write"];
+
+fn labels_of_row(r: &Row) -> Vec<String> {
+    let language = lang_of(&r.fixture);
+    if PRODUCTION_ROWS.contains(&r.fixture.as_str()) {
+        labels_of(language, &r.source, &r.edge)
+    } else {
+        labels_of_main_loops(language, &r.source, &r.edge)
+    }
+}
+
 /// Rows whose head label the design's `expected` column cannot yet give (a later slice, or a
 /// contradiction with the design): the head's label is pinned here and the row is listed in the PR.
 const PINNED: &[(&str, &str, &str)] = &[];
@@ -53,7 +68,7 @@ fn matrix_rows_move_to_the_expected_label() {
     let mut failures = Vec::new();
     for r in &all {
         let want = want(r);
-        let got = labels_of(lang_of(&r.fixture), &r.source, &r.edge);
+        let got = labels_of_row(r);
         if got.is_empty() || got.iter().any(|g| *g != want) {
             failures.push(format!(
                 "{} {}: want {want}, got {got:?}",
@@ -69,7 +84,7 @@ fn matrix_rows_move_to_the_expected_label() {
 fn matrix_rows_keep_their_edges() {
     for r in rows() {
         assert!(
-            !labels_of(lang_of(&r.fixture), &r.source, &r.edge).is_empty(),
+            !labels_of_row(&r).is_empty(),
             "{} {}: edge disappeared",
             r.fixture,
             r.edge
@@ -123,14 +138,11 @@ const CASES: &[Case] = &[
     // (main already refuses it: a write in a nested body is a capture; D3 adds nothing.)
     Case { name: "nested_arrow_write_not_counted", lang: JS, edge: "a@1->a@3", expected: CFG,
         source: "function f(a) {\n  log();\n  h(() => { a++; }, sink(a));\n}" },
-    // The single-site operand exception, with and without a second write, in a loop. (#693 slice 2: a
-    // trailing `debugger;` is a statement `js_loops` has no completion rule for, so the loop stays
-    // unrewired under main's policy: a loop sharing a line with its body is refused by the plan and every
-    // label of its owner would be cfg_incomplete, hiding what these rows test.)
+    // The single-site operand exception, with and without a second write, in a loop.
     Case { name: "operand_exception_loop", lang: JS, edge: "a@1->a@3", expected: EXACT,
-        source: "function f(a) {\n  log();\n  while (c()) { a++; debugger; }\n  sink(a);\n}" },
+        source: "function f(a) {\n  log();\n  while (c()) a++;\n  sink(a);\n}" },
     Case { name: "operand_exception_second_write", lang: JS, edge: "a@1->a@3", expected: SAME,
-        source: "function f(a) {\n  log();\n  while (c()) { a++; a = 1; debugger; }\n  sink(a);\n}" },
+        source: "function f(a) {\n  log();\n  while (c()) { a++; a = 1; }\n  sink(a);\n}" },
     Case { name: "operand_exception_member", lang: JS, edge: "o.x@2->o.x@3", expected: EXACT,
         source: "function f(o) {\n  o.x = 0;\n  o.x++;\n  sink(o.x);\n}" },
     // Unknown-kind positions: the byte order alone would prove read -> write, the kind refuses.
@@ -145,7 +157,7 @@ const CASES: &[Case] = &[
     Case { name: "class_body_computed_key", lang: JS, edge: "a@1->a@3", expected: SAME,
         source: "function f(a) {\n  log();\n  const C = class { [sink(a)]() {} static x = a++; };\n}" },
     Case { name: "for_in_iterable", lang: JS, edge: "a@1->a@3", expected: SAME,
-        source: "function f(a, o) {\n  log();\n  for (const k in (sink(a), o)) { a++; debugger; }\n}" },
+        source: "function f(a, o) {\n  log();\n  for (const k in (sink(a), o)) a++;\n}" },
     // (decorators refuse on main already: pinned unchanged.)
     Case { name: "decorator_pair", lang: Language::TypeScript, edge: "a@1->a@3", expected: CFG,
         source: "function f(a: number) {\n  log();\n  @dec(sink(a)) @dec2(a++) class C {}\n}" },
@@ -194,7 +206,7 @@ const CASES: &[Case] = &[
 fn placement_and_position_rows() {
     let mut failures = Vec::new();
     for c in CASES {
-        let got = labels_of(c.lang, c.source, c.edge);
+        let got = labels_of_main_loops(c.lang, c.source, c.edge);
         if got.is_empty() || got.iter().any(|g| g != c.expected) {
             failures.push(format!(
                 "{} {}: want {}, got {got:?}",

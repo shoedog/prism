@@ -122,3 +122,33 @@ fn only_the_owner_of_a_refused_tree_is_refused() {
     assert!(p.refuses_owner(p.verdicts[0].owner));
     assert!(!p.refuses_owner(outer));
 }
+
+#[test]
+fn a_placement_check_that_cannot_be_evaluated_is_a_violation() {
+    // A `do` whose condition has no execution point of its own (a one-line `do`) has no head to place
+    // against: fail closed.
+    let src = "function f(c) {\n  let z = 1;\n  do { x = g(); } while (c());\n  sink(x, z);\n}\n";
+    let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
+    let owner = parsed.all_functions().into_iter().next().unwrap();
+    let v = &parsed.js_loop_plan().verdicts[0];
+    let message = super::super::placement::violation(&parsed, owner, v.root).unwrap();
+    assert!(message.contains("no execution point"), "{message}");
+    assert!(parsed.js_loop_plan().refuses_owner(v.owner));
+    // No loop spans a range that is not one: also a violation, never an admission.
+    assert!(super::super::placement::violation(&parsed, owner, (0, 3)).is_some());
+}
+
+#[test]
+fn an_assumption_is_about_one_file_only() {
+    // A rayon join can run another file's task on the thread that holds an assumption: that file must be
+    // answered by its own plan, not by the assumption made for a different file.
+    let admitted_src = ADMITTED[0].1;
+    let a = ParsedFile::parse("a.js", admitted_src, Language::JavaScript).unwrap();
+    let b = ParsedFile::parse("b.js", admitted_src, Language::JavaScript).unwrap();
+    let root = a.js_loop_plan().verdicts[0].root;
+    assert!(super::admits(&b, root), "b's own plan admits it");
+    super::with_admission(&a, &std::collections::BTreeSet::new(), || {
+        assert!(!super::admits(&a, root), "the assumption holds for a");
+        assert!(super::admits(&b, root), "and not for b");
+    });
+}

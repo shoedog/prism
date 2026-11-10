@@ -8,9 +8,12 @@
 //! MOVE rows are the ones the rule moves; HOLD rows are controls and moved-neither rows;
 //! RESIDUAL rows are shapes of a loop tree that is not rewired (a one-line `do`, a condition sharing a
 //! line, a jump through a `finally`, a `for` initializer re-run by a back route, an unrewirable
-//! statement) and keep main's edges and labels, pinned as such. FIX rows (round 1 of PR #785) are the
+//! statement) and keep main's edges and labels, pinned as such. Since fold 1 of slice 2 such a tree is
+//! classified by the plan too: the fixtures whose tree has a failed placement or an unresolved record
+//! (every `do` condition without an execution point, the `finally` jumps, the multi-line `for` header, the
+//! unrewirable statement) are REFUSED rows now, no longer RESIDUAL ones. FIX rows (round 1 of PR #785) are the
 //! rows whose label differs from 8f1deff0's: each is a wrong `exact` or a false kill that commit made.
-use super::census_defs_tests::trace_lines;
+use super::census_defs_tests::{trace_lines, trace_lines_main_loops};
 use crate::cpg::census_label_tests::labels_of;
 use crate::languages::Language;
 
@@ -93,7 +96,7 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
     assert_eq!(moved, 93, "rows the rule moves");
     assert_eq!(
         all.iter().filter(|r| r.kind == "REFUSED").count(),
-        24,
+        116,
         "rows of refused trees"
     );
     for r in all.iter().filter(|r| r.kind != "REFUSED") {
@@ -188,10 +191,26 @@ fn the_trace_names_the_loop_mechanism_of_each_moved_edge() {
         m.iter().all(|(k, _)| k == "do-cond") && m.len() >= 3,
         "{m:?}"
     );
-    // Controls name nothing: a header that writes nothing the body defines, a one-line `do`, a loop-free owner.
+    // A one-line `do` is not rewired (its condition has no execution point): under main's loop CFG it names
+    // nothing. Under the plan its owner is refused by label (the trace names those edges), pinned by REFUSED rows.
+    let one_line = "function f(a) {\n  log();\n  do { a = g(); } while (a-- > 0);\n  sink(a);\n}\n";
+    let names: Vec<_> = trace_lines_main_loops(js, one_line)
+        .iter()
+        .filter(|l| {
+            l.split('\t')
+                .nth(1)
+                .is_some_and(|m| m == "loop-exit" || m == "do-cond")
+        })
+        .cloned()
+        .collect();
+    assert!(names.is_empty(), "{names:?}");
+    assert!(
+        !mechanisms(js, one_line).is_empty(),
+        "the refusal moves the owner's labels"
+    );
+    // Controls name nothing: a header that writes nothing the body defines, a loop-free owner.
     for src in [
         "function f(n) {\n  log();\n  for (;; n++) {\n    j = g();\n  }\n  sink(j);\n}\n",
-        "function f(a) {\n  log();\n  do { a = g(); } while (a-- > 0);\n  sink(a);\n}\n",
         "function f(a) {\n  log();\n  a++;\n  sink(a);\n}\n",
     ] {
         assert!(

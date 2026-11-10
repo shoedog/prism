@@ -319,7 +319,8 @@ mod stream;
 /// - v168: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
 /// - v169: a JS/TS/TSX loop body's normal completion reaches the loop's continue point, never the code after the loop (#693): a header write (a `for` update, a `while` condition) now kills body defs on the route to a read after the loop; `break`, labeled `break` and `continue` get edges; a multi-line `do`..`while` condition is its own CFG statement (#697), so the statement universe, the CPG's statement nodes and the ControlFlow edges change, and DataFlow labels move.
 /// - v170: a JS/TS/TSX loop tree is rewired only when the one loop-tree plan admits it (#693, #697 option B, slice 2): a tree whose occurrences are not placed on the head node, or one of whose intersecting CFG records has no ownership, keeps main's statement universe and edges and its owner's labels become `nameonly/cfg_incomplete` callable-wide, so the statement universe (an admitted `do` condition), the ControlFlow edges and the DataFlow labels change; and the serialized layout changes: `RdFileStats::loop_plan` and `DfgLabelStats::dfg_loop_plan` (the per-reason loop-plan counters) join the cache.
-const CACHE_VERSION: u32 = 170;
+/// - v171: slice 2 fold 1 (#693): a loop tree main's own policy refuses is classified by the plan too, and a failed placement or an unresolved record refuses its owner by label (`owner-refuse:loop-plan`; `legacy_o1.*` counters join `dfg_loop_plan`); an O1-refused owner keeps the RD availability (and fallback-cap eligibility) of the admitted tree, so `functions_without_cfg` and the labels move.
+const CACHE_VERSION: u32 = 171;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -852,7 +853,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 170);
+        assert_eq!(super::CACHE_VERSION, 171);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

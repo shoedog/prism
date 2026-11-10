@@ -48,8 +48,21 @@ fn ext_of(language: Language) -> &'static str {
 
 /// Labels of every DataFlow row of `source` whose endpoints are `edge` (`path@line->path@line`).
 pub(super) fn labels_of(language: Language, source: &str, edge: &str) -> Vec<String> {
+    labels_with(language, source, edge, false)
+}
+
+/// `labels_of` with the file keeping main's loop CFG and labels (`ParsedFile::with_main_loop_plan`): for the
+/// census and D3 rows, which test their own mechanism under the geometry they were written for.
+pub(super) fn labels_of_main_loops(language: Language, source: &str, edge: &str) -> Vec<String> {
+    labels_with(language, source, edge, true)
+}
+
+fn labels_with(language: Language, source: &str, edge: &str, main_loops: bool) -> Vec<String> {
     let name = format!("a.{}", ext_of(language));
-    let file = ParsedFile::parse(&name, source, language).unwrap();
+    let mut file = ParsedFile::parse(&name, source, language).unwrap();
+    if main_loops {
+        file = file.with_main_loop_plan();
+    }
     assert_eq!(file.parse_error_count, 0, "{language:?}: {source}");
     let cpg = CodePropertyGraph::build(&BTreeMap::from([(name, file)]));
     let (from, to) = edge.split_once("->").unwrap();
@@ -86,7 +99,7 @@ fn matrix_rows_move_to_the_expected_label() {
         if want == "-" {
             continue; // no edge on main (w11)
         }
-        let got = labels_of(language, &r.source, &r.edge);
+        let got = labels_of_main_loops(language, &r.source, &r.edge);
         if got.is_empty() || got.iter().any(|g| g != want) {
             failures.push(format!(
                 "{} {} (main {}): want {want}, got {got:?}",
@@ -104,7 +117,7 @@ fn matrix_rows_keep_their_edges() {
         if r.expected == "-" {
             continue;
         }
-        let got = labels_of(lang_of(&r.fixture), &r.source, &r.edge);
+        let got = labels_of_main_loops(lang_of(&r.fixture), &r.source, &r.edge);
         assert!(
             !got.is_empty(),
             "{} {}: edge disappeared",

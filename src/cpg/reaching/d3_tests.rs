@@ -1,6 +1,6 @@
 //! #660 S1b-2: D3's trace mechanisms, trace neutrality (`trace_lines` asserts the traced outcome equals
 //! the plain one) and availability neutrality (D3 on vs off), over every matrix fixture.
-use super::census_defs_tests::trace_lines;
+use super::census_defs_tests::trace_lines_main_loops as trace_lines;
 use crate::languages::Language;
 
 const JS: Language = Language::JavaScript;
@@ -29,10 +29,9 @@ fn each_d3_mechanism_is_named() {
             "function f(b) {\n  let a = b;\n  a = 1, a++;\n  sink(a);\n}\n",
             "d3-use",
         ),
-        // A loop on the chain: no proof either way. (A one-line `do` is a loop the plan leaves to main's
-        // policy, so its labels are D3's; a one-line `while` is refused by the plan, owner-wide.)
+        // A loop on the chain: no proof either way.
         (
-            "function f(a) {\n  log();\n  do { sink(a); a = src(); } while (c());\n}\n",
+            "function f(a) {\n  log();\n  while (c()) { sink(a); a = src(); }\n}\n",
             "d3-loop",
         ),
         // An unknown kind (a switch clause) on the chain.
@@ -59,7 +58,7 @@ fn a_proven_order_leaves_no_d3_line() {
     for src in [
         "function f(a) {\n  log();\n  sink(a), a++;\n}\n",
         "function f(a) {\n  log();\n  a = g(a);\n}\n",
-        "function f(a) {\n  log();\n  while (c()) { a++; debugger; }\n  sink(a);\n}\n",
+        "function f(a) {\n  log();\n  while (c()) a++;\n  sink(a);\n}\n",
     ] {
         assert!(d3_lines(src).is_empty(), "{src}: {:?}", d3_lines(src));
     }
@@ -78,7 +77,7 @@ fn a_d3_line_names_the_refused_edge() {
 
 /// The counting writes D3 keeps for the owner of `src`: (line, path) pairs, and the unplaced bases.
 fn counting(language: Language, src: &str) -> (Vec<(usize, String)>, Vec<String>) {
-    use super::census_defs_tests::{parse, recorded};
+    use super::census_defs_tests::{parse_main_loops as parse, recorded};
     let parsed = parse(language, src);
     let owner = parsed.all_functions().into_iter().next().unwrap();
     let (defs, _) = recorded(&parsed, &owner);
@@ -156,7 +155,7 @@ fn the_trace_never_changes_an_outcome_on_any_matrix_fixture() {
 
 /// The plain outcome of every owner of `src`, with D3 on or off.
 fn outcomes(language: Language, src: &str, d3_off: bool) -> Vec<super::RdOutcome> {
-    use super::census_defs_tests::{parse, recorded};
+    use super::census_defs_tests::{parse_main_loops as parse, recorded};
     use super::{cfg, reaching_definitions_with_exact, FileCfgEdgeIndex};
     super::d3::OFF.with(|off| off.set(d3_off));
     let parsed = parse(language, src);
@@ -225,8 +224,7 @@ fn d3_moves_labels_only_never_availability_edges_or_recall() {
 #[test]
 fn the_def_side_reason_outranks_a_use_side_loop() {
     // Use side: a loop on U's chain (`d3-loop`); def side: `a = 1` then `a++` in D's node (`d3-def`).
-    let src =
-        "function f(b) {\n  let a = b;\n  a = 1, a++;\n  do { sink(a); a++; } while (c());\n}\n";
+    let src = "function f(b) {\n  let a = b;\n  a = 1, a++;\n  while (c()) { sink(a); a++; }\n}\n";
     let lines = d3_lines(src);
     let hit = lines
         .iter()

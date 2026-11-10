@@ -397,10 +397,10 @@ fn a_loop_tree_is_rewired_all_or_nothing() {
     );
 }
 
-/// S2: counters can move by construction. A one-line owner whose loop holds a `continue` would gain its
-/// first CFG edge (a self-loop) and flip RD availability from no-CFG to available, but its loop shares
-/// every line with the header, the body and the statements around it: the plan refuses the tree, so main's
-/// (empty) edge set stands. A two-line `do` gains its condition as a node.
+/// S2: a one-line owner whose loop holds a `continue` would gain its first CFG edge (a self-loop), but its
+/// loop shares every line with the header, the body and the statements around it: the plan refuses the tree,
+/// so main's (empty) edge set stands. Refusal is a label decision: RD availability stays the admitted
+/// tree's (`cpg::reaching::preflight`, fold 1). A two-line `do` gains its condition as a node.
 #[test]
 fn the_edge_and_node_counts_of_small_owners_can_move() {
     let one_line =

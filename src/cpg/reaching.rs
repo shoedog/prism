@@ -322,6 +322,7 @@ fn reaching_definitions_impl(
         ));
     }
     if cfg_edges.is_empty()
+        && !preflight::loop_refusal_keeps_edges(parsed, func_node, &line_index)
         && !census.one_node_admits(&mut defs, |bases| {
             cfg::js_single::single_node_cfg_is_complete(parsed, lines.len(), bases)
         })

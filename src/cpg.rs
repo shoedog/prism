@@ -54,6 +54,8 @@ mod js_single_statement_tests;
 #[cfg(test)]
 mod loop_header_def_tests;
 #[cfg(test)]
+mod loop_plan_cache_tests;
+#[cfg(test)]
 mod member_only_param_leftflow_tests;
 #[cfg(test)]
 mod member_only_param_r1_tests;

@@ -5,8 +5,10 @@
 //! that is right for the wrong reason fails. `guard-deleted:<hazard>` names the rows whose label
 //! left `NameOnly(CfgIncomplete)` only because the guard no longer refuses the owner.
 use super::super::capture::{capture_facts_with, is_capture_to};
-use super::super::census_defs_tests::{availability, parse, recorded, trace_lines};
-use crate::cpg::census_label_tests::labels_of;
+use super::super::census_defs_tests::{
+    availability, parse, recorded, trace_lines_main_loops as trace_lines,
+};
+use crate::cpg::census_label_tests::labels_of_main_loops as labels_of;
 use crate::cpg::CodePropertyGraph;
 use crate::data_flow::test_support::label_snapshot;
 use crate::data_flow::FlowEdge;
@@ -189,8 +191,7 @@ const CASES: &[Case] = &[
     Case { name: "two_recorded_defs_keep_main_belt", lang: JS, edge: "a@1->a@2", label: CFG, mechs: &[],
         source: "function f(a) {\n  a = 1; a = 2; return sink(a);\n}" },
     Case { name: "for_head_one_line_is_d3_loop", lang: JS, edge: "a@1->a@2", label: SAME, mechs: &["d3-loop"],
-        // (#693 slice 2: `debugger;` last keeps the loop unrewired, else the plan refuses the one-line tree owner-wide.)
-        source: "function f(a, xs) {\n  for (a of xs) { sink(a); debugger; }\n}" },
+        source: "function f(a, xs) {\n  for (a of xs) sink(a);\n}" },
     // SOL-757-01: a write in the owner's own parameter list (defaults, patterns) that the producer does not
     // record refuses the field projections it affects (`own-params`); a member write does not rebind the
     // bare formal. Each FIX row has a multi-node twin (main has the same gap there).

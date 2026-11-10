@@ -27,20 +27,34 @@ use std::collections::{BTreeMap, BTreeSet};
 
 type Range = (usize, usize);
 
+/// The file an assumption is about (the address of its `ParsedFile`, which a plan pass borrows for its whole
+/// run) and its trees.
+type Assumed = (usize, BTreeSet<Range>);
+
 std::thread_local! {
     /// The trees a plan pass assumes admitted (while the plan itself is still being computed).
-    static ASSUMED: RefCell<Option<BTreeSet<Range>>> = const { RefCell::new(None) };
+    static ASSUMED: RefCell<Option<Assumed>> = const { RefCell::new(None) };
 }
 
-/// Runs `f` with exactly `admitted` as the admitted trees.
-pub(in crate::cfg) fn with_admission<T>(admitted: &BTreeSet<Range>, f: impl FnOnce() -> T) -> T {
-    struct Reset(Option<BTreeSet<Range>>);
+fn file_key(parsed: &ParsedFile) -> usize {
+    std::ptr::from_ref(parsed) as usize
+}
+
+/// Runs `f` with exactly `admitted` as the admitted trees of `parsed`. A question about another file (a
+/// rayon join can run another file's task on this thread) is answered by that file's own plan.
+pub(in crate::cfg) fn with_admission<T>(
+    parsed: &ParsedFile,
+    admitted: &BTreeSet<Range>,
+    f: impl FnOnce() -> T,
+) -> T {
+    struct Reset(Option<Assumed>);
     impl Drop for Reset {
         fn drop(&mut self) {
             ASSUMED.with(|c| *c.borrow_mut() = self.0.take());
         }
     }
-    let _reset = Reset(ASSUMED.with(|c| c.borrow_mut().replace(admitted.clone())));
+    let _reset =
+        Reset(ASSUMED.with(|c| c.borrow_mut().replace((file_key(parsed), admitted.clone()))));
     f()
 }
 
@@ -49,7 +63,13 @@ pub(super) fn admits(parsed: &ParsedFile, root: Range) -> bool {
     if super::main_loop_cfg() {
         return false;
     }
-    match ASSUMED.with(|c| c.borrow().as_ref().map(|a| a.contains(&root))) {
+    let key = file_key(parsed);
+    match ASSUMED.with(|c| {
+        c.borrow()
+            .as_ref()
+            .filter(|(k, _)| *k == key)
+            .map(|(_, a)| a.contains(&root))
+    }) {
         Some(assumed) => assumed,
         None => parsed.js_loop_plan().admitted.contains(&root),
     }
@@ -87,12 +107,22 @@ pub(crate) struct Verdict {
     pub(crate) overlaps: Vec<&'static str>,
     /// The first offending occurrence or record, for the trace.
     pub(crate) first: String,
+    /// A tree main's own policy refuses (`why` is `Legacy`) keeps main's edges, but is classified under the
+    /// final admission as well: a failed placement or an unresolved record refuses its OWNER by label
+    /// (#693 fold 2), which this records. Always `None` for any other verdict.
+    pub(crate) legacy_o1: Option<Why>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct LoopPlan {
     admitted: BTreeSet<Range>,
     refused_owners: BTreeSet<Range>,
+    /// The trees refused by the plan's own reasoning (placement, unresolved records), as opposed to main's
+    /// policy: the ones whose owner is label-refused (O1).
+    o1_roots: BTreeSet<Range>,
+    /// The file's CFG edges with every `o1_roots` tree admitted as well (what 874ce2c3 drew), built on
+    /// first use: only the availability of an O1-refused owner asks for it.
+    admitted_edges: std::sync::OnceLock<Vec<(crate::cfg::CfgEdge, crate::cfg::ArmProvenance)>>,
     pub(crate) verdicts: Vec<Verdict>,
 }
 
@@ -100,6 +130,27 @@ impl LoopPlan {
     /// Whether the owner's labels are refused callable-wide: a tree of it was newly refused (O1).
     pub(crate) fn refuses_owner(&self, owner: Range) -> bool {
         self.refused_owners.contains(&owner)
+    }
+
+    /// Whether the file's CFG would hold an edge between two of `lines` had the O1-refused trees been
+    /// admitted. Refusal is a label decision: an owner's reaching-definitions availability (and with it the
+    /// fallback cap) is what it would be for the admitted tree, not main's (a one-line owner has no main
+    /// edge but its admitted loop has a self-loop).
+    pub(crate) fn admitted_cfg_has_edges(
+        &self,
+        parsed: &ParsedFile,
+        lines: &BTreeMap<usize, usize>,
+    ) -> bool {
+        let edges = self.admitted_edges.get_or_init(|| {
+            let all: BTreeSet<Range> = self.admitted.union(&self.o1_roots).copied().collect();
+            with_admission(parsed, &all, || {
+                crate::cfg::build_cfg_edges_with_arms(parsed)
+            })
+        });
+        // The same endpoint admission as `FileCfgEdgeIndex::has_owner_edges`.
+        edges
+            .iter()
+            .any(|(e, _)| lines.contains_key(&e.from_line) && lines.contains_key(&e.to_line))
     }
 
     /// The per-reason counters of the file (persisted with the other DFG counters).
@@ -116,6 +167,11 @@ impl LoopPlan {
                     bump("refused.foreign_admitted".into())
                 }
                 Some(Why::Unresolved(u)) => bump(format!("refused.unresolved.{}", u.key())),
+            }
+            match &v.legacy_o1 {
+                None => {}
+                Some(Why::Unresolved(u)) => bump(format!("legacy_o1.unresolved.{}", u.key())),
+                Some(_) => bump("legacy_o1.placement".into()),
             }
             for o in &v.overlaps {
                 bump(format!("overlap.{o}"));
@@ -151,6 +207,7 @@ impl LoopPlan {
                         why: cx.tree_checked(root).err().map(Why::Legacy),
                         overlaps: Vec::new(),
                         first: String::new(),
+                        legacy_o1: None,
                     },
                 );
             }
@@ -165,9 +222,29 @@ impl LoopPlan {
             .filter(|v| v.why.is_none())
             .map(|v| v.root)
             .collect();
-        while !admitted.is_empty() {
-            let refused = with_admission(&admitted, || round(parsed, &admitted));
+        // The trees main's own policy refuses are classified too, in the round that stands (#693 fold 2):
+        // they keep main's edges, but a failed placement or an unresolved record still refuses the owner.
+        let legacy: BTreeSet<Range> = verdicts
+            .values()
+            .filter(|v| matches!(v.why, Some(Why::Legacy(_))))
+            .map(|v| v.root)
+            .collect();
+        while !admitted.is_empty() || !legacy.is_empty() {
+            let roots: BTreeSet<Range> = admitted.union(&legacy).copied().collect();
+            let mut refused = with_admission(parsed, &admitted, || round(parsed, &roots));
+            let standing: Refusals = {
+                let keep = refused.keys().filter(|r| legacy.contains(r)).copied();
+                keep.collect::<Vec<_>>()
+                    .into_iter()
+                    .filter_map(|r| refused.remove(&r).map(|v| (r, v)))
+                    .collect()
+            };
             if refused.is_empty() {
+                for (root, (why, overlaps, first)) in standing {
+                    if let Some(v) = verdicts.get_mut(&root) {
+                        (v.legacy_o1, v.overlaps, v.first) = (Some(why), overlaps, first);
+                    }
+                }
                 break;
             }
             for (root, (why, overlaps, first)) in refused {
@@ -179,12 +256,21 @@ impl LoopPlan {
         }
         let refused_owners = verdicts
             .values()
-            .filter(|v| matches!(v.why, Some(Why::Placement | Why::Unresolved(_))))
+            .filter(|v| {
+                matches!(v.why, Some(Why::Placement | Why::Unresolved(_))) || v.legacy_o1.is_some()
+            })
             .map(|v| v.owner)
+            .collect();
+        let o1_roots = verdicts
+            .values()
+            .filter(|v| matches!(v.why, Some(Why::Placement | Why::Unresolved(_))))
+            .map(|v| v.root)
             .collect();
         let plan = Self {
             admitted,
             refused_owners,
+            o1_roots,
+            admitted_edges: std::sync::OnceLock::new(),
             verdicts: verdicts.into_values().collect(),
         };
         plan.trace(parsed);
@@ -206,7 +292,8 @@ impl LoopPlan {
                 line(v.root.1.saturating_sub(1)),
                 v.owner.0,
                 v.owner.1,
-                v.why.as_ref().map_or("admitted".to_string(), |w| format!("{w:?}")),
+                v.why.as_ref().map_or("admitted".to_string(), |w| format!("{w:?}"))
+                    + &v.legacy_o1.as_ref().map_or(String::new(), |w| format!("+o1:{w:?}")),
                 v.overlaps,
                 if v.first.is_empty() { "-" } else { &v.first },
             );
@@ -224,15 +311,16 @@ fn legacy_key(l: Legacy) -> &'static str {
 
 type Refusals = BTreeMap<Range, (Why, Vec<&'static str>, String)>;
 
-/// One round: the trees of the admitted set (assumed, see `with_admission`) that fail placement or whose
-/// records are unresolved, with the reason classes that apply and the first offender.
-fn round(parsed: &ParsedFile, admitted: &BTreeSet<Range>) -> Refusals {
+/// One round: the trees of `roots` (the admitted ones, assumed, see `with_admission`, and the ones main's
+/// policy refuses) that fail placement or whose records are unresolved, with the reason classes that apply
+/// and the first offender.
+fn round(parsed: &ParsedFile, roots: &BTreeSet<Range>) -> Refusals {
     let mut out = Refusals::new();
     for (node, own) in ownerships(parsed, true) {
         for t in own
             .trees
             .iter()
-            .filter(|t| admitted.contains(&(t.root.start, t.root.end)))
+            .filter(|t| roots.contains(&(t.root.start, t.root.end)))
         {
             let root = (t.root.start, t.root.end);
             let placed = placement::violation(parsed, node, root);

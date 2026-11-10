@@ -21,11 +21,15 @@ pub(super) fn violation(
     root: (usize, usize),
 ) -> Option<String> {
     let boundaries = parsed.language.callable_boundary_node_types();
-    let top = parsed
+    // Fail closed: a check that cannot be evaluated is a violation, never an admission.
+    let Some(top) = parsed
         .tree
         .root_node()
         .named_descendant_for_byte_range(root.0, root.1)
-        .filter(|n| is_loop(n.kind()) && (n.start_byte(), n.end_byte()) == root)?;
+        .filter(|n| is_loop(n.kind()) && (n.start_byte(), n.end_byte()) == root)
+    else {
+        return Some(format!("no loop spans [{},{})", root.0, root.1));
+    };
     let mut loops = Vec::new();
     let mut stack = vec![top];
     while let Some(n) = stack.pop() {
@@ -45,7 +49,15 @@ pub(super) fn violation(
     for l in loops {
         let body = l.child_by_field_name("body");
         let head = if l.kind() == "do_statement" {
-            parsed.do_geometry_line(&l)?
+            match parsed.do_geometry_line(&l) {
+                Some(head) => head,
+                None => {
+                    return Some(format!(
+                        "do@L{}: its condition has no execution point of its own",
+                        l.start_position().row + 1
+                    ))
+                }
+            }
         } else {
             l.start_position().row + 1
         };

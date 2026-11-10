@@ -505,6 +505,17 @@ impl ParsedFile {
             .get_or_init(|| crate::cfg::js_loops::LoopPlan::compute(self))
     }
 
+    /// Test seam: this file keeps main's loop CFG and labels (an empty plan admits and refuses nothing).
+    /// Per FILE, so it holds on rayon workers too, unlike the thread-local `with_main_loop_cfg`. Used by the
+    /// census and D3 fixtures that were written for main's geometry and test their own mechanism, not loops.
+    #[cfg(test)]
+    pub(crate) fn with_main_loop_plan(self) -> Self {
+        let _ = self
+            .js_loop_plan
+            .set(crate::cfg::js_loops::LoopPlan::default());
+        self
+    }
+
     /// Parse source code in the given language.
     pub fn parse(path: &str, source: &str, language: Language) -> Result<Self> {
         let mut parser = Parser::new();

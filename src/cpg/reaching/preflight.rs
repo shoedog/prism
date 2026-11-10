@@ -6,6 +6,21 @@ use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+/// #693 fold 1: an owner whose loop tree the plan refused (option O1) is refused by LABEL only. When main's
+/// CFG has no edge between its lines, availability is decided as it would be for the admitted tree: this is
+/// true when the admitted CFG has one. Solver and preflight both ask this, so they cannot disagree.
+pub(super) fn loop_refusal_keeps_edges(
+    parsed: &ParsedFile,
+    owner: &Node<'_>,
+    lines: &BTreeMap<usize, usize>,
+) -> bool {
+    parsed.language.is_js_family() && !crate::cfg::js_loops::main_loop_cfg() && {
+        let plan = parsed.js_loop_plan();
+        plan.refuses_owner((owner.start_byte(), owner.end_byte()))
+            && plan.admitted_cfg_has_edges(parsed, lines)
+    }
+}
+
 pub(crate) fn unavailable_before_edges(
     parsed: &ParsedFile,
     owner: &Node<'_>,
@@ -31,6 +46,7 @@ pub(crate) fn unavailable_before_edges(
         .collect();
     // Join classification changes labels only; it never removes selected edges.
     if !cfg.has_owner_edges(&lines)
+        && !loop_refusal_keeps_edges(parsed, owner, &lines)
         && !crate::cfg::js_single::single_node_cfg_is_complete(
             parsed,
             lines.len(),
@@ -131,6 +147,14 @@ mod tests {
                 "update is not a hazard",
                 "function f(c) {\n  return (c++, exec(c));\n}\n",
                 &["c"],
+                None,
+            ),
+            (
+                // #693 fold 1: the plan refuses this loop tree (SharedBoundaryLine) and main's CFG has no
+                // edge, but refusal is a label decision: availability is the admitted tree's (a self-loop).
+                "refused loop tree keeps availability",
+                "function f(xs) { let y = 0; for (const x of xs) { y = g(x, y); continue; } }\n",
+                &["y", "y"],
                 None,
             ),
             (

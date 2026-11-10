@@ -56,6 +56,8 @@ mod lexical_prune;
 mod lexical_prune_round2_tests;
 #[cfg(test)]
 mod lexical_prune_tests;
+#[cfg(test)]
+mod loop_refusal_cap_tests;
 mod order_prune;
 #[cfg(test)]
 mod order_prune_tests;

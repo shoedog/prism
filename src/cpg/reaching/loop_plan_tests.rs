@@ -189,3 +189,52 @@ fn the_admitted_fact_matches_what_the_owners_rd_selects() {
         "the fixtures exercise a foreign admitted record"
     );
 }
+
+/// Fold 2 (Opus W1): a tree main's own policy refuses (`Legacy`) keeps main's edges, but the plan classifies
+/// it under the final admission too, and an unresolved record or a failed placement refuses its owner by
+/// label. Each is the wrapper-then-end shape of `wrapper_then_end` made legacy: a labelled `do` ends an `if`
+/// arm (`else return`), so the `do` always runs its body once and `x = 1` kills `x = 0`; main's then-end edge
+/// from the label line past the loop is a bypass of it, a wrong `exact` for `x@2 -> x@12`.
+pub(crate) const LEGACY_REFUSED: &[(&str, &str, &str)] = &[
+    // The loop is alone in its arm: unresolved record only, a jump through a `finally` is main's own refusal.
+    ("legacy_finally", "Legacy(Finally)",
+        "function lw2(c, k) {\n  let x = 0;\n  if (c) {\n    again:\n    do {\n      x = 1;\n      try { if (k()) break; } finally { g(); }\n    } while (k());\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n"),
+    // `debugger;` has no completion rule: main's `Unrouted`.
+    ("legacy_unrouted", "Legacy(Unrouted)",
+        "function lw3(c, k) {\n  let x = 0;\n  if (c) {\n    again:\n    do {\n      x = 1;\n      debugger;\n    } while (k());\n  } else {\n    return 0;\n  }\n  sink(x);\n}\n"),
+];
+
+#[test]
+fn a_legacy_refused_tree_with_an_unresolved_record_refuses_its_owner() {
+    for (name, why, src) in LEGACY_REFUSED {
+        let parsed = ParsedFile::parse("a.js", src, JS).unwrap();
+        let p = parsed.js_loop_plan();
+        let v = &p.verdicts[0];
+        assert_eq!(format!("{:?}", v.why.as_ref().unwrap()), *why, "{name}");
+        assert!(
+            v.legacy_o1.is_some(),
+            "{name}: classified under the final admission"
+        );
+        assert!(p.refuses_owner(v.owner), "{name}");
+        // Main's edges stand (no rewrite), the label is the owner-wide refusal.
+        let main = crate::cfg::js_loops::with_main_loop_cfg(|| edges(src));
+        assert_eq!(edges(src), main, "{name}");
+        assert_eq!(labels_of(JS, src, "x@2->x@12"), [CFG], "{name}");
+    }
+}
+
+#[test]
+fn a_legacy_refused_tree_with_resolved_records_keeps_main_labels() {
+    // A `for` initializer hazard (main's own refusal) in a plain layout: every record is owned or independent
+    // and every occurrence is placed, so the owner is not refused and the independent edge stays `exact`.
+    let src = "function h(n) {\n  let z = 1;\n  let a = 0;\n  for (a = 1; a < n; n--) {\n    a = 2;\n  }\n  sink(a, z);\n}\n";
+    let parsed = ParsedFile::parse("a.js", src, JS).unwrap();
+    let p = parsed.js_loop_plan();
+    assert_eq!(
+        format!("{:?}", p.verdicts[0].why.as_ref().unwrap()),
+        "Legacy(ForInit)"
+    );
+    assert!(p.verdicts[0].legacy_o1.is_none());
+    assert!(!p.refuses_owner(p.verdicts[0].owner));
+    assert_eq!(labels_of(JS, src, "z@2->z@7"), ["exact"]);
+}
