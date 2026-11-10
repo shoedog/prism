@@ -31,6 +31,10 @@
 //! token does not name the variable (the gate found 18 such edges on guava). So a binding write keeps
 //! its twin when the owner holds a method-name or non-`this` member-name token spelled like the alias's
 //! resolved target root. Purely subtractive: the refused occurrence behaves exactly as before.
+//! `this.key` is not such a token, although it names the field and not the variable when a local or
+//! parameter shadows it. Residual non-variable identifier roles, un-masked like #790-#793 and absent
+//! from the corpora: statement labels, `case` constants, annotation element keys, `this.N` /
+//! `super.N` under a shadowing local, lambda parameters in other scopes.
 //!
 //! Specification: the Java rows `J-01..J-06` of the slice-0 classifier table (`CLASSIFIER.md`);
 //! `java_tests.rs` pins them, including parity with the slice-0 oracle's pinned cases.

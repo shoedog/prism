@@ -2,6 +2,7 @@ pub mod cache;
 pub mod call_edge_cache;
 pub mod call_resolve;
 pub mod code_context;
+mod dfg_edge_endpoint;
 pub mod inventory;
 pub mod module_graph;
 mod module_imports;

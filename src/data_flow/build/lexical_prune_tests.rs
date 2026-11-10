@@ -189,12 +189,6 @@ fn prune_subset_and_labels_across_fixture_tree() {
             };
             let language = Language::from_path(&file).unwrap();
             let parsed = ParsedFile::parse(&file, &source, language).unwrap();
-            if language == Language::Java {
-                // Alias-twin lane slice 1: Java alias twins are removed at binding writes, so the
-                // frozen reference (never updated) no longer bounds Java; `alias_occurrence` tests
-                // pin the Java producer and the gate measures it edge by edge.
-                continue;
-            }
             let before = Producer::file_refs_frozen(&file, &parsed);
             let after = without_recall(Producer::file_refs(&file, &parsed));
             for edge in &after.edges {
@@ -202,6 +196,21 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     before.edges.contains(edge),
                     "added edge in {file}: {edge:?}"
                 );
+            }
+            if language == Language::Java {
+                // Alias-twin lane slice 1: Java twins are removed at binding writes, so labels
+                // and full equality may differ from the frozen reference; removal-only still
+                // holds, edges (above) and uses.
+                for (key, uses) in &after.uses {
+                    for u in uses {
+                        assert!(
+                            before.uses.get(key).is_some_and(|b| b.contains(u)),
+                            "added use in {file}: {key:?} {u:?}"
+                        );
+                    }
+                }
+                edges += after.edges.len();
+                continue;
             }
             for (key, label) in &after.labels {
                 assert_eq!(

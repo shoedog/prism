@@ -286,8 +286,11 @@ fn parameters_declare(parsed: &ParsedFile, callable: Node<'_>, name: &str) -> bo
 }
 
 /// Spellings the occurrence extraction can mistake for a variable inside `owner`: method names
-/// (`x.size()`, `Foo::bar`) and the member names of another object (`node.key`; `this.key` names the
-/// variable's own field and is not a token of this kind). Refusal R1 of the policy.
+/// (`x.size()`, `Foo::bar`) and the member names of another object (`node.key`). `this.key` is not
+/// collected: it names the field, which is other storage when a local or parameter of that name
+/// shadows it, so a `this.N` / `super.N` under a shadowing local stays un-refused (residual, with
+/// statement labels, `case` constants, annotation element keys and lambda parameters in other scopes).
+/// Refusal R1 of the policy.
 pub(super) fn member_name_tokens(
     parsed: &ParsedFile,
     owner: &Node<'_>,

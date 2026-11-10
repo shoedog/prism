@@ -265,6 +265,17 @@ fn a_binding_write_mints_no_target_def_or_edge_but_keeps_the_alias_defs() {
         .edges
         .iter()
         .any(|e| e.from.path.base == "u" && e.from.line == 3 && e.to.line == 5));
+    // Emission-site pin: no edge leaves a path other than the alias from the bytes of the
+    // binding-write occurrence `u` of `u = q;` (the flow-insensitive alias map resolves `u` to `q`
+    // here; the RHS read's own `Def(q)`, at other bytes, stays).
+    let write_byte = src.find("u = q").unwrap();
+    assert!(
+        !r.edges
+            .iter()
+            .any(|e| e.from.path.base != "u" && e.from.start_byte == write_byte),
+        "{:?}",
+        r.edges
+    );
 }
 
 #[test]
