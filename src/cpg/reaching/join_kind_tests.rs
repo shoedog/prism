@@ -71,7 +71,9 @@ fn operation_census() {
 fn owner_builds_kind_map_once() {
     let (path, source) = family()
         .into_iter()
-        .find(|(path, _)| path == "try-16.ts")
+        // A structured, non-try-join family: JS try edges (#802) are classified from
+        // their provenance alone and never build the kind map.
+        .find(|(path, _)| path == "branch-16.ts")
         .unwrap();
     let parsed = ParsedFile::parse(&path, &source, Language::TypeScript).unwrap();
     let (_, records) = work_tests::build(parsed);
@@ -133,7 +135,13 @@ pub(super) fn legacy_join(
 ) -> bool {
     // The new exit class has no frozen-main counterpart; its explicit doubt
     // precedes the unchanged historical structured/sequential lookup below.
-    if provenance.crosses_lexical_arm() || provenance.origin == EdgeOrigin::GoDeferExit {
+    // The JS try-join provenance (#802) likewise has no frozen-main counterpart.
+    if provenance.crosses_lexical_arm()
+        || matches!(
+            provenance.origin,
+            EdgeOrigin::GoDeferExit | EdgeOrigin::JsTryJoin
+        )
+    {
         return true;
     }
     if !matches!(provenance.origin, EdgeOrigin::Structured) {
@@ -458,7 +466,7 @@ fn provenance_short_circuits_without_building() {
 
 #[test]
 fn separate_owners_get_separate_lazy_maps() {
-    let source = "function f(p) {\nlet x=p;\ntry {\nx=2;\n} catch(e) {\nuse(x);\n}\nreturn x;\n}\n";
+    let source = "function f(p) {\nlet x=p;\nif (p) {\nx=2;\n} else {\nuse(x);\n}\nreturn x;\n}\n";
     let parsed = ParsedFile::parse(
         "owners.ts",
         &format!(
