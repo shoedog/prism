@@ -181,7 +181,7 @@ const CASES: &[Case] = &[
         source: "function f(a) {\n  a = 1;\n  g(() => { sink(a); a++; });\n}" },
     // A killed edge keeps its label (D2-c refuses only `exact` and `sameline`).
     Case { name: "killed_edge_keeps_its_label", lang: JS, edge: "a@1->a@5", expected: KILLED,
-        source: "function f(a) {\n  log();\n  g(() => { a++; });\n  a = 3;\n  sink(a);\n}" },
+        source: "function f(a) {\n  log();\n  g(() => { a++; });\n  [a] = [3];\n  sink(a);\n}" },
     // Round 1 (Opus W1): a closure names a binding declared later in its scope (TDZ is no scoping): the
     // written binding is that later declaration, not the outer one a visibility-based lookup finds.
     Case { name: "tdz_let_after_closure_written_binding", lang: JS, edge: "a@4->a@6", expected: CFG,
