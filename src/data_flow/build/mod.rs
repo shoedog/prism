@@ -5,6 +5,7 @@ use super::{
 };
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
+mod alias_occurrence;
 mod aliases;
 #[cfg(test)]
 mod arrow_body_cap_tests;
