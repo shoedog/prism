@@ -45,9 +45,9 @@ fn refusal(src: &str) -> String {
     })
 }
 
-/// The edges of `src` with every tree main's own policy routes admitted, i.e. WITHOUT the try-flow refusal
-/// (T2): pins the completion rules of `Cx::completions` for try forms, which the plan no longer reaches
-/// for an owner that contains a `try`.
+/// The edges of `src` with every tree main's own policy routes admitted, i.e. WITHOUT any plan refusal (not just
+/// the try-flow one: placement, unresolved records and TryFlow are all bypassed): pins the completion rules of
+/// `Cx::completions` for forms the plan no longer reaches (an owner that contains a `try`).
 fn rule_edges(src: &str) -> BTreeSet<(usize, usize)> {
     let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
     let all = crate::cfg::js_loops::legacy_candidates(&parsed);

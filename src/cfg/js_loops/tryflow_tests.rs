@@ -197,3 +197,50 @@ fn every_tree_of_an_affected_owner_is_refused_including_legacy_ones() {
     assert_eq!(c.get("refused.try_flow"), Some(&1), "{c:?}");
     assert_eq!(c.get("overlap.try_flow"), Some(&2), "{c:?}");
 }
+
+fn ckey(key_body: &str) -> String {
+    format!(
+        "function f(c) {{\n  const x = 0;\n  while (c()) {{\n    const obj = {{\n      [class {{\n        static {{\n          {key_body}\n        }}\n      }}]() {{}}\n    }};\n    sink(x);\n  }}\n}}\n"
+    )
+}
+
+#[test]
+fn an_eager_computed_key_is_executed_by_the_owner_even_though_the_method_is_not() {
+    // sol T2r1 W. The class in the method's computed key is built when `obj` is, so its static block (and the try in
+    // it) runs in the owner. RED on 66a42599: the scan skipped the whole `method_definition`, the try lines (L7) are
+    // none of the owner's statement lines (2, 3, 4, 11), and `x@2->x@11` was `exact`.
+    let src = ckey("try { throw 1; } finally {}");
+    assert!(all_try_flow(&src), "{:?}", why(&src));
+    refused_pairs(&src, &["x@2->x@11"]);
+    assert!(!labels_of(JS, &src, "x@2->x@11").contains(&"exact".to_string()));
+    // A try-free computed key keeps the existing policy: admitted.
+    assert_plan(&ckey("g();"), None);
+    assert_eq!(labels_of(JS, &ckey("g();"), "x@2->x@11"), ["exact"]);
+}
+
+#[test]
+fn an_always_throwing_eager_block_without_a_try_is_a_disclosed_main_residual() {
+    // The same witness with NO try: `static { throw 1; }` always throws while `obj` is built, so `sink` is never
+    // reached, yet `x@2->x@11` is `exact` on main too. An exception-flow gap outside the explicit-try contract (A3),
+    // pinned as such: it stays admitted and `exact`.
+    let src = ckey("throw 1;");
+    assert_plan(&src, None);
+    assert_eq!(labels_of(JS, &src, "x@2->x@11"), ["exact"]);
+}
+
+#[test]
+fn a_try_in_a_method_body_that_is_not_projected_stays_admitted() {
+    // The method body is deferred (the nested owner's); its try lines (L6..L8) are none of the owner's statement lines.
+    let src = "function f(c) {\n  const x = 0;\n  while (c()) {\n    const obj = {\n      m() {\n        try {\n          g();\n        } catch (e) {}\n      },\n    };\n    sink(x);\n  }\n}\n";
+    assert_plan(src, None);
+    assert_eq!(labels_of(JS, src, "x@2->x@11"), ["exact"]);
+}
+
+#[test]
+fn a_try_in_the_owners_own_parameter_default_refuses_it() {
+    // The default runs at every call of the owner: its class static block's try is the owner's. A try inside an
+    // arrow in the default would be that arrow's (deferred) and is not the owner's.
+    let src = "function f(c, K = class {\n  static {\n    try { throw 1; } finally {}\n  }\n}) {\n  const x = 0;\n  while (c()) {\n    sink(x);\n  }\n}\n";
+    assert!(all_try_flow(src), "{:?}", why(src));
+    refused_pairs(src, &["x@6->x@8"]);
+}

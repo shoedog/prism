@@ -8,7 +8,8 @@
 //!
 //! * (a) its own executable syntax contains a `try_statement` (scanned recursively over the owner's body,
 //!   independent of the completion rules, so a class static block, `with`, label, `switch` or bare block cannot
-//!   hide one; nested callable bodies are the nested owner's), or
+//!   hide one; it follows EXECUTION regions: the owner's own parameter defaults and the eager computed keys and
+//!   decorators of nested callables count, nested callable bodies and deferred defaults are the nested owner's), or
 //! * (b) its selected statement-line universe, under the plan's assumption, lies on a line of ANY try region of
 //!   the file (nested callable bodies and foreign projections included): downstream CFG selection is by endpoint
 //!   line, so a line interval is the refusal check, never deletion authority.
@@ -48,12 +49,31 @@ impl Regions {
     }
 }
 
-/// The first `try_statement` under `body` outside nested callables, as its line.
-fn own_try(body: Node<'_>, boundaries: &[&str]) -> Option<usize> {
+/// The first `try_statement` the OWNER executes, as its line. The scan follows execution regions, not syntax
+/// ownership: the owner's body and its OWN parameter defaults, plus the eager parts of the callables nested in it
+/// (a method's computed key and decorators run when the class or object is built, whether or not the method is ever
+/// called; any class static block reached through them is walked as ordinary syntax). A nested callable's body and
+/// its deferred parameter defaults are the nested owner's and stay excluded.
+fn own_try(owner: Node<'_>, body: Node<'_>, boundaries: &[&str]) -> Option<usize> {
     let mut stack = vec![body];
+    if let Some(p) = owner
+        .child_by_field_name("parameters")
+        .or_else(|| owner.child_by_field_name("parameter"))
+    {
+        stack.push(p);
+    }
     let mut first: Option<usize> = None;
     while let Some(n) = stack.pop() {
         if n.id() != body.id() && boundaries.contains(&n.kind()) {
+            // Only the eager parts of a nested callable belong to the owner.
+            if let Some(key) = n
+                .child_by_field_name("name")
+                .filter(|k| k.kind() == "computed_property_name")
+            {
+                stack.push(key);
+            }
+            let mut cursor = n.walk();
+            stack.extend(n.children(&mut cursor).filter(|c| c.kind() == "decorator"));
             continue;
         }
         if n.kind() == "try_statement" {
@@ -84,7 +104,7 @@ pub(super) fn affected(parsed: &ParsedFile, regions: &Regions) -> BTreeMap<Range
         if roots.is_empty() {
             continue;
         }
-        let why = own_try(body, &boundaries)
+        let why = own_try(owner, body, &boundaries)
             .map(|l| format!("try@L{l} in the owner's syntax"))
             .or_else(|| {
                 parsed
