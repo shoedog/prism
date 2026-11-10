@@ -157,8 +157,10 @@ fn only_bases_the_owner_defines_get_a_kill_only_def() {
 fn coverage_is_the_stored_path_at_the_same_start_byte() {
     // `o!.x = 2` is recorded under another spelling on main (G3): not covered, a kill-only `o.x` is added.
     let wrapped = "function f(o) {\n  o.x = 1;\n  o!.x = 2;\n  sink(o.x);\n}\n";
-    let ordinary = "function f(o) {\n  o.x = 1;\n  o.x = 2;\n  sink(o.x);\n}\n";
-    let paren = "function f(o) {\n  o.x = 1;\n  (o).x = 2;\n  sink(o.x);\n}\n";
+    // A read sits between the writes: rule D (#630 slice 5) would otherwise drop the first def's
+    // only edge, and this helper recovers defs from edge sources.
+    let ordinary = "function f(o) {\n  o.x = 1;\n  sink(o.x);\n  o.x = 2;\n  sink(o.x);\n}\n";
+    let paren = "function f(o) {\n  o.x = 1;\n  sink(o.x);\n  (o).x = 2;\n  sink(o.x);\n}\n";
     for (src, language, added) in [
         (wrapped, Language::TypeScript, 1),
         (ordinary, Language::TypeScript, 0),

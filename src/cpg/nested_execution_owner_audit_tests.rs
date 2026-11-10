@@ -253,8 +253,8 @@ fn nested_execution_owner_graph_classification() {
                 source.find("sink(").unwrap(),
                 source.find("sink(").unwrap() + 4
             ),
-            ("outer", "cb", 2, 23, 23),
-            ("outer", "cb", 3, 33, 33),
+            // #630 slice 5: lines 2 (`let cb;`) and 3 (`cb=function ..`) only write `cb`, so rule U
+            // mints no anchor use there.
             (
                 "outer",
                 "local",
@@ -294,13 +294,7 @@ fn nested_execution_owner_graph_classification() {
         .collect();
     assert_eq!(
         zero_width,
-        vec![
-            ("cb", 2, 23),
-            ("cb", 3, 33),
-            ("seed", 1, 0),
-            ("seed", 5, 71),
-            ("seed", 7, 93)
-        ]
+        vec![("seed", 1, 0), ("seed", 5, 71), ("seed", 7, 93)]
     );
     let nested_seed_anchor = source.find("    return seed;").unwrap();
     let capture_labels: Vec<_> = label_snapshot(&cpg.dfg)
