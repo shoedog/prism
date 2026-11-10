@@ -65,7 +65,12 @@ pub(in crate::cpg) fn is_incomplete_join(
     if super::join_kind_tests::legacy_enabled() {
         return super::join_kind_tests::legacy_join(parsed, kinds.statements, edge, provenance);
     }
-    if provenance.crosses_lexical_arm() || provenance.origin == EdgeOrigin::GoDeferExit {
+    if provenance.crosses_lexical_arm()
+        || matches!(
+            provenance.origin,
+            EdgeOrigin::GoDeferExit | EdgeOrigin::JsTryJoin
+        )
+    {
         return true;
     }
     if !matches!(provenance.origin, EdgeOrigin::Structured) {

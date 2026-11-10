@@ -11,7 +11,7 @@
 
 use crate::ast::ParsedFile;
 use crate::languages::Language;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
 mod c_jumps;
@@ -53,6 +53,11 @@ pub(crate) enum EdgeOrigin {
     Structured,
     /// Synthetic function-exit dispatch, not a re-evaluation of defer arguments.
     GoDeferExit,
+    /// A JS-family generic try edge (header -> catch, header -> finally, first
+    /// catch statement -> finally), or any other copy of the same line pair in
+    /// that function. Always an incomplete join, whatever the endpoint kinds:
+    /// the builder models no pending completion (#802).
+    JsTryJoin,
 }
 
 /// One lexical arm, as a preorder interval: `id` is the arm and `subtree_last`
@@ -119,6 +124,8 @@ impl ArmProvenance {
 struct EdgeSink {
     edges: Vec<CfgEdge>,
     origins: Vec<EdgeOrigin>,
+    /// Line pairs of the JS-family generic try edges of this function.
+    try_pairs: BTreeSet<(usize, usize)>,
 }
 
 impl EdgeSink {
@@ -126,12 +133,23 @@ impl EdgeSink {
         Self {
             edges: Vec::new(),
             origins: Vec::new(),
+            try_pairs: BTreeSet::new(),
         }
     }
 
     fn push(&mut self, edge: CfgEdge) {
         self.edges.push(edge);
         self.origins.push(EdgeOrigin::Structured);
+    }
+
+    /// A JS-family generic try edge. Every other copy of its line pair
+    /// (sequential or structured) is tagged `JsTryJoin` at drain: RD keeps
+    /// duplicates and accepts any unflagged one, so one flagged copy is not
+    /// enough.
+    fn push_try_join(&mut self, edge: CfgEdge) {
+        self.try_pairs.insert((edge.from_line, edge.to_line));
+        self.edges.push(edge);
+        self.origins.push(EdgeOrigin::JsTryJoin);
     }
 
     fn push_sequential(&mut self, edge: CfgEdge) {
@@ -144,6 +162,14 @@ impl EdgeSink {
     }
 
     fn drain(&mut self) -> impl Iterator<Item = (CfgEdge, EdgeOrigin)> + '_ {
+        if !self.try_pairs.is_empty() {
+            for (edge, origin) in self.edges.iter().zip(self.origins.iter_mut()) {
+                if self.try_pairs.contains(&(edge.from_line, edge.to_line)) {
+                    *origin = EdgeOrigin::JsTryJoin;
+                }
+            }
+            self.try_pairs.clear();
+        }
         self.edges.drain(..).zip(self.origins.drain(..))
     }
 }
@@ -678,6 +704,7 @@ fn build_try_catch_edges(
     stmt_lines: &[usize],
     edges: &mut EdgeSink,
 ) {
+    let js = parsed.language.is_js_family();
     if node.kind() == "try_statement" {
         let try_line = node.start_position().row + 1;
         let mut cursor = node.walk();
@@ -691,11 +718,15 @@ fn build_try_catch_edges(
                 if let Some(first) = first_statement_line(&child, parsed) {
                     catch_lines.push(first);
                     // try → catch (exception edge)
-                    edges.push(CfgEdge {
-                        file: parsed.path.clone(),
-                        from_line: try_line,
-                        to_line: first,
-                    });
+                    push_try(
+                        edges,
+                        js,
+                        CfgEdge {
+                            file: parsed.path.clone(),
+                            from_line: try_line,
+                            to_line: first,
+                        },
+                    );
                 }
             }
             // finally_clause (JS/TS/Java)
@@ -703,11 +734,15 @@ fn build_try_catch_edges(
                 if let Some(first) = first_statement_line(&child, parsed) {
                     finally_first = Some(first);
                     // try → finally (always runs)
-                    edges.push(CfgEdge {
-                        file: parsed.path.clone(),
-                        from_line: try_line,
-                        to_line: first,
-                    });
+                    push_try(
+                        edges,
+                        js,
+                        CfgEdge {
+                            file: parsed.path.clone(),
+                            from_line: try_line,
+                            to_line: first,
+                        },
+                    );
                 }
             }
         }
@@ -715,11 +750,15 @@ fn build_try_catch_edges(
         // catch → finally (if both exist)
         if let Some(finally_line) = finally_first {
             for &catch_line in &catch_lines {
-                edges.push(CfgEdge {
-                    file: parsed.path.clone(),
-                    from_line: catch_line,
-                    to_line: finally_line,
-                });
+                push_try(
+                    edges,
+                    js,
+                    CfgEdge {
+                        file: parsed.path.clone(),
+                        from_line: catch_line,
+                        to_line: finally_line,
+                    },
+                );
             }
         }
 
@@ -730,6 +769,16 @@ fn build_try_catch_edges(
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         build_try_catch_edges(child, parsed, stmt_lines, edges);
+    }
+}
+
+/// Emit a try edge: explicit incomplete provenance for the JS family, the
+/// plain structural edge for Java (which shares the builder).
+fn push_try(edges: &mut EdgeSink, js: bool, edge: CfgEdge) {
+    if js {
+        edges.push_try_join(edge);
+    } else {
+        edges.push(edge);
     }
 }
 
