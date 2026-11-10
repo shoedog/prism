@@ -268,3 +268,26 @@ fn controlled_alias_groups_use_all_records_and_agreeing_ordinary_tuples() {
     );
     assert_eq!(observed, expected);
 }
+
+#[test]
+fn display_preserves_actual_positive_result_evidence_and_complete_collection() {
+    let f = js("const copy = req;\neval(copy);\nsend(copy);");
+    let ctx = f.context();
+    let (result, trace) = f.trace(&ctx, &TaintConfig::default());
+    let complete = checked(&f, &ctx, &trace);
+    assert!(!result.findings.is_empty());
+    assert!(result.evidence.iter().flatten().any(|e| !e.hops.is_empty()));
+    assert!(!complete.records.is_empty());
+    let snapshot = || {
+        (
+            serde_json::to_value(&result).unwrap(),
+            format!("{:?}", result.evidence),
+            format!("{trace:?}"),
+            complete.clone(),
+        )
+    };
+    let before = snapshot();
+    let projected = super::super::super::display::project(&complete);
+    assert_eq!(before, snapshot());
+    assert!(!projected.located.is_empty());
+}
