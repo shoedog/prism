@@ -1,4 +1,9 @@
-base run1 11.141195815
-head run1 12.869326267
-base run2 11.921620525
-head run2 13.043441640
+base run1 10.311811783
+head run1 10.689727249
+base run2 10.256651036
+head run2 10.457854158
+base run3 10.862382618
+head run3 11.541451251
+base mean 10.477
+head mean 10.896
+(redis-ascii: redis src/ with the 3 non-ASCII directive lines made ASCII; interleaved base/head x3, RAYON_NUM_THREADS=4, --no-cache, release builds)
