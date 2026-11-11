@@ -1,0 +1,115 @@
+{
+ "main_edges": 132914,
+ "head_edges": 133128,
+ "main_only": 0,
+ "added": 214,
+ "added_classes": {
+  "other": 214
+ },
+ "added_labels": [
+  [
+   "confidence=nameonly/doubt=killed",
+   139
+  ],
+  [
+   "confidence=exact/doubt=None",
+   55
+  ],
+  [
+   "confidence=nameonly/doubt=cfg_incomplete",
+   16
+  ],
+  [
+   "confidence=nameonly/doubt=sameline",
+   3
+  ],
+  [
+   "confidence=nameonly/doubt=alias_unstable",
+   1
+  ]
+ ],
+ "kept_label_transitions": [],
+ "kept_transition_edges": [],
+ "added_top_files": [
+  [
+   "src/cpg/callback_identity_tests.rs",
+   83
+  ],
+  [
+   "src/ast/js_write_census/region_tests.rs",
+   48
+  ],
+  [
+   "crates/prism-review/tests/cli/min_confidence_admission_test.rs",
+   15
+  ],
+  [
+   "src/anon_owner/eval_tests.rs",
+   8
+  ],
+  [
+   "src/anonymous/tests/fold1.rs",
+   8
+  ],
+  [
+   "src/call_graph.rs",
+   7
+  ],
+  [
+   "src/cpg/object_literal_arg_tests.rs",
+   6
+  ],
+  [
+   "crates/prism-mcp/src/shared/idle_wire_tests.rs",
+   6
+  ],
+  [
+   "crates/prism-mcp/src/shim/idle_tests.rs",
+   6
+  ],
+  [
+   "src/navigation/anon_guard_tests.rs",
+   6
+  ],
+  [
+   "src/ast/callback_identity.rs",
+   3
+  ],
+  [
+   "src/cpg/exact_caller_read_tests.rs",
+   2
+  ],
+  [
+   "src/anonymous/tests/fold2/computed_keys.rs",
+   2
+  ],
+  [
+   "src/ast/inert_default_parameter_tests.rs",
+   2
+  ],
+  [
+   "crates/prism-review/tests/cli/min_confidence_test.rs",
+   2
+  ],
+  [
+   "crates/prism-mcp/src/bin/prism-mcp/daemon_idle_tests.rs",
+   2
+  ],
+  [
+   "src/cpg/namespace_flow_audit_tests.rs",
+   2
+  ],
+  [
+   "src/data_flow/build/giant_owner_tests.rs",
+   1
+  ],
+  [
+   "crates/prism-mcp/tests/mcp/idle_process_test.rs",
+   1
+  ],
+  [
+   "src/call_graph/js_ts_facts_file_tests.rs",
+   1
+  ]
+ ]
+}
