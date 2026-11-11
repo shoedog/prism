@@ -14,7 +14,9 @@
 //! (#634) lets a formerly capped owner regain its surviving edges.
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
-use crate::call_graph::c::macro_census::{normalized_texts, spelled_identifiers, CMacroCensus};
+use crate::call_graph::c::macro_census::{
+    macro_call_arguments, normalized_texts, spelled_identifiers, CMacroCensus,
+};
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
@@ -237,6 +239,14 @@ pub(super) fn scan(
     for name in &spelled {
         note_name(name, census, &mut out, &mut off);
     }
+    // Every identifier inside the parentheses of an in-repo macro (or varargs builtin)
+    // invocation escapes, found in the token stream, not in call-expression nodes.
+    let Some(args) =
+        macro_call_arguments(text, &|n| census.get(n).is_some() || VA_NAMES.contains(&n))
+    else {
+        return Err(Off::G2);
+    };
+    out.escaped.extend(args);
     walk(
         parsed,
         owner,

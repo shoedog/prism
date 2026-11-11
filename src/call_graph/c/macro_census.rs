@@ -155,10 +155,22 @@ struct Body {
 // Identifier characters: ASCII `[A-Za-z0-9_$]`, any non-ASCII byte, and UCNs
 // (`\uXXXX`, `\UXXXXXXXX`).
 
-/// Length of a UCN at `i` (`\u` + 4 hex or `\U` + 8 hex), else 0.
+/// Length of a UCN at `i` (`\u` + 4 hex, `\U` + 8 hex, or a delimited/named `\u{..}`,
+/// `\U{..}`, `\N{..}`), else 0.
 fn ucn_len(b: &[u8], i: usize) -> usize {
     if b.get(i) != Some(&b'\\') {
         return 0;
+    }
+    // Delimited (`\u{e9}`, `\U{..}`) and named (`\N{LATIN SMALL LETTER E}`) UCNs: accepted by
+    // current compilers in identifiers. Read through the closing brace on the same line (the
+    // prefix alone when it is unclosed): the token is complex, so it is hazardous on a
+    // define/undef line and poisons a macro, never decoded.
+    if matches!(b.get(i + 1), Some(b'u' | b'U' | b'N')) && b.get(i + 2) == Some(&b'{') {
+        let close = b[i + 3..]
+            .iter()
+            .position(|&c| c == b'}' || c == b'\n')
+            .filter(|&p| b[i + 3 + p] == b'}');
+        return close.map_or(3, |p| 4 + p);
     }
     let n = match b.get(i + 1) {
         Some(b'u') => 4,
@@ -227,6 +239,19 @@ fn insert_ident(set: &mut BTreeSet<String>, t: &str) {
 /// Identifier tokens of a `#define` body. Comments, string and character literals and
 /// numbers carry no identifier; `##` and any unterminated literal or comment fail closed.
 fn tokenize(text: &str, cxx: bool) -> Body {
+    tokenize_seq(text, cxx, None)
+}
+
+/// One token of the ordered stream [`tokenize_seq`] can record: an identifier, or a
+/// parenthesis.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Tok {
+    Ident(String),
+    Open,
+    Close,
+}
+
+fn tokenize_seq(text: &str, cxx: bool, mut seq: Option<&mut Vec<Tok>>) -> Body {
     let b = text.as_bytes();
     let mut out = Body {
         idents: BTreeSet::new(),
@@ -306,6 +331,15 @@ fn tokenize(text: &str, cxx: bool) -> Body {
                     continue;
                 }
                 insert_ident(&mut out.idents, ident);
+                if let Some(seq) = seq.as_deref_mut() {
+                    seq.push(Tok::Ident(ident.to_owned()));
+                }
+            }
+            b'(' | b')' => {
+                if let Some(seq) = seq.as_deref_mut() {
+                    seq.push(if c == b'(' { Tok::Open } else { Tok::Close });
+                }
+                i += 1;
             }
             _ => i += 1,
         }
@@ -608,6 +642,47 @@ pub(crate) fn spelled_identifiers(source: &str) -> Option<BTreeSet<String>> {
     Some(out)
 }
 
+/// Every identifier token between the parentheses that follow ANY spelling `is_macro`
+/// accepts (an in-repo macro name, a varargs builtin), read from the owner's normalized token
+/// stream in both dialects and splice modes, whatever node the parser made of it: a call
+/// argument, a `macro_type_specifier` type (`BIND(x) dummy;`) or a declarator parameter
+/// (`long M(x);`). An unclosed list runs to the end (over-approximation). `None` when a
+/// literal or comment cannot be read (the caller fails closed).
+pub(crate) fn macro_call_arguments(
+    source: &str,
+    is_macro: &dyn Fn(&str) -> bool,
+) -> Option<BTreeSet<String>> {
+    let mut out = BTreeSet::new();
+    for text in normalized_texts(source) {
+        for cxx in [false, true] {
+            let mut seq = Vec::new();
+            if !tokenize_seq(&text, cxx, Some(&mut seq)).ok {
+                return None;
+            }
+            for (k, t) in seq.iter().enumerate() {
+                let Tok::Ident(name) = t else { continue };
+                if !is_macro(name) || seq.get(k + 1) != Some(&Tok::Open) {
+                    continue;
+                }
+                let mut depth = 0usize;
+                for t in &seq[k + 1..] {
+                    match t {
+                        Tok::Open => depth += 1,
+                        Tok::Close => {
+                            depth -= 1;
+                            if depth == 0 {
+                                break;
+                            }
+                        }
+                        Tok::Ident(a) => insert_ident(&mut out, a),
+                    }
+                }
+            }
+        }
+    }
+    Some(out)
+}
+
 /// One parsed `#define`.
 struct Parsed<'a> {
     name: String,
@@ -867,6 +942,24 @@ fn may_define_or_undef(t: &str) -> bool {
     matches!(&rest[..n], "define" | "undef")
 }
 
+/// Is this directive line (starting at its `#` or `%:`) an `include`, `include_next` or
+/// `import` with a plainly ASCII, cleanly ended directive word?
+fn is_include_directive(t: &str) -> bool {
+    let Some(rest) = t.strip_prefix('#').or_else(|| t.strip_prefix("%:")) else {
+        return false;
+    };
+    let rest = skip_blanks(rest);
+    let b = rest.as_bytes();
+    let n = b
+        .iter()
+        .take_while(|c| c.is_ascii_alphanumeric() || **c == b'_')
+        .count();
+    if matches!(b.get(n), Some(c) if *c == b'\\' || *c == b'?' || *c == b'$' || *c >= 0x80) {
+        return false;
+    }
+    matches!(&rest[..n], "include" | "include_next" | "import")
+}
+
 /// Is `line` (a logical line of the raw, untranslated text) a directive that holds a
 /// non-ASCII byte or UCN outside string/char literals and comments (in either dialect pass;
 /// any non-ASCII byte when a pass cannot read the line's literal boundaries), or a trigraph
@@ -879,18 +972,22 @@ fn exotic_directive(spliced: &[u8]) -> Option<(&'static str, usize, String)> {
         if !(t.starts_with('#') || t.starts_with("%:") || t.starts_with("??=")) {
             return None;
         }
-        if !may_define_or_undef(t) {
+        let include_like = is_include_directive(t);
+        if !include_like && !may_define_or_undef(t) {
             return None;
         }
         let b = line.as_bytes();
-        let trigraph = b.windows(3).any(|w| {
-            w[0] == b'?'
-                && w[1] == b'?'
-                && matches!(
-                    w[2],
-                    b'=' | b'/' | b'\'' | b'(' | b')' | b'!' | b'<' | b'>' | b'-'
-                )
-        });
+        // An include target's trigraph is not read here (a backslash target resolves to no
+        // file); its non-ASCII or UCN spelling below is.
+        let trigraph = !include_like
+            && b.windows(3).any(|w| {
+                w[0] == b'?'
+                    && w[1] == b'?'
+                    && matches!(
+                        w[2],
+                        b'=' | b'/' | b'\'' | b'(' | b')' | b'!' | b'<' | b'>' | b'-'
+                    )
+            });
         if trigraph {
             return Some(("trigraph_directive", no + 1, line.to_string()));
         }
@@ -1009,6 +1106,17 @@ fn merge(out: &mut BTreeMap<String, RawDef>, name: String, def: RawDef) {
 /// reported too: over-approximation only costs a text read). Used by the loader to find
 /// the in-repo files the census must read as text.
 pub(crate) fn quoted_includes(source: &str) -> BTreeSet<String> {
+    include_targets(source, '"', '"')
+}
+
+/// Every `#include <x>` (also `include_next` and `import`) target spelled in `source`, read
+/// like [`quoted_includes`]. The preprocessor looks angle targets up on the include path,
+/// which may name any in-repo directory.
+pub(crate) fn angle_includes(source: &str) -> BTreeSet<String> {
+    include_targets(source, '<', '>')
+}
+
+fn include_targets(source: &str, open: char, close: char) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     for trigraphs in [true, false] {
         let (spliced, _) = splice(&translate(source, trigraphs), true);
@@ -1025,8 +1133,8 @@ pub(crate) fn quoted_includes(source: &str) -> BTreeSet<String> {
             else {
                 continue;
             };
-            if let Some(q) = skip_blanks(rest).strip_prefix('"') {
-                if let Some(end) = q.find('"') {
+            if let Some(q) = skip_blanks(rest).strip_prefix(open) {
+                if let Some(end) = q.find(close) {
                     out.insert(q[..end].to_owned());
                 }
             }

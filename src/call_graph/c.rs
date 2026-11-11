@@ -6,6 +6,8 @@ pub mod macro_census;
 mod macro_census_tests;
 
 #[cfg(test)]
+mod macro_census_fold2_tests;
+#[cfg(test)]
 mod macro_census_fold3_tests;
 #[cfg(test)]
 mod macro_census_s6b_tests;

@@ -240,7 +240,32 @@ pub fn current_c_census_identity(
     files: &BTreeMap<String, ParsedFile>,
     skipped: &[SkippedFile],
 ) -> BTreeMap<String, String> {
-    c_census::gather(root, files, skipped).identity
+    let fresh = fresh_census_skipped(root, skipped);
+    c_census::gather(root, files, &fresh).identity
+}
+
+/// The loader's skip list as a fresh walk of `root` finds it, so census membership (a text
+/// include or an angle-include target created after load, an oversize file) is rediscovered
+/// rather than read from the loaded list. A parse refusal needs the parser, so the loaded
+/// `ParseFailed` entries are kept; an unreadable root falls back to the loaded list.
+fn fresh_census_skipped(root: &Path, loaded: &[SkippedFile]) -> Vec<SkippedFile> {
+    let Ok((items, _candidates, _snapshot)) = collect_walk_items(root) else {
+        return loaded.to_vec();
+    };
+    let mut out: Vec<SkippedFile> = items
+        .into_iter()
+        .filter_map(|item| match item {
+            MergeItem::Skip(skip) => Some(skip),
+            MergeItem::Candidate { .. } => None,
+        })
+        .collect();
+    out.extend(
+        loaded
+            .iter()
+            .filter(|s| s.reason == SkipReason::ParseFailed)
+            .cloned(),
+    );
+    out
 }
 
 /// Paths of the census-only text files a loaded repository's identity names.

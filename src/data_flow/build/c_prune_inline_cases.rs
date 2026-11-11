@@ -151,11 +151,55 @@ void arrow_macro_keep(struct It *it) {
     sink(a4);             // @a1:U:keep:macro_after_arrow_takes_address
 }
 
-void paren_macro_keep(struct It *it) {
+void paren_name_escaped_keep(struct It *it) {
     long a5 = src();      // @a2:D a5
     a5 = 1;
     (stepper)(a5);
-    sink(a5);             // @a2:U:keep:parenthesized_macro_name
+    sink(a5);             // @a2:U:keep:parenthesized_name_is_not_an_invocation_but_is_escaped
+}
+"####,
+    ),
+    (
+        "13_fold2_macro_args.c",
+        r####"// Identifiers between the parentheses after an in-repo macro name escape wherever the
+// parser puts them: a type position, a declarator position, a call.
+int src(void);
+void sink(long);
+void track(long *p);
+long peek(void);
+#define BIND2(v) pp = &(v); long
+#define TRACKED(v) track(&v); long
+#define DECLM(v) tmpv = (long)&(v), dd
+long *pp;
+
+void macro_type_arg_keep(void) {
+    long x1 = src();      // @f1:D x1
+    long saved1 = x1;
+    long *p1 = 0;
+    BIND2(x1) dummy1;
+    x1 = 0;
+    *p1 = saved1;
+    sink(x1);             // @f1:U:keep:macro_type_specifier_argument
+}
+
+void macro_type_arg_track_keep(void) {
+    long x2 = src();      // @f2:D x2
+    TRACKED(x2) y2 = 0;
+    x2 = peek();
+    sink(x2 + y2);        // @f2:U:keep:macro_type_specifier_argument_tracked
+}
+
+void macro_declarator_arg_keep(void) {
+    long x3 = src();      // @f3:D x3
+    long DECLM(x3);
+    x3 = peek();
+    sink(x3);             // @f3:U:keep:macro_declarator_argument
+}
+
+void macro_args_control_drop(void) {
+    long x4 = src();      // @f4:D x4
+    x4 = 0;
+    sink(x4);             // @f4:U:drop:no_macro_spelled_here
 }
 "####,
     ),

@@ -89,4 +89,8 @@
 {"case": "12_fold1_macros", "id": "k2", "path": "x2", "def_line": 20, "use_line": 24, "keep": true, "reason": "type_keyword_spelled_macro_free_names", "owner": "type_keyword_macro_keep"}
 {"case": "12_fold1_macros", "id": "k3", "path": "x9", "def_line": 29, "use_line": 31, "keep": false, "reason": "no_macro_spelled_here", "owner": "keyword_macro_unrelated_drop"}
 {"case": "12_fold1_macros", "id": "a1", "path": "a4", "def_line": 35, "use_line": 38, "keep": true, "reason": "macro_after_arrow_takes_address", "owner": "arrow_macro_keep"}
-{"case": "12_fold1_macros", "id": "a2", "path": "a5", "def_line": 42, "use_line": 45, "keep": true, "reason": "parenthesized_macro_name", "owner": "paren_macro_keep"}
+{"case": "12_fold1_macros", "id": "a2", "path": "a5", "def_line": 42, "use_line": 45, "keep": true, "reason": "parenthesized_name_is_not_an_invocation_but_is_escaped", "owner": "paren_name_escaped_keep"}
+{"case": "13_fold2_macro_args", "id": "f1", "path": "x1", "def_line": 13, "use_line": 19, "keep": true, "reason": "macro_type_specifier_argument", "owner": "macro_type_arg_keep"}
+{"case": "13_fold2_macro_args", "id": "f2", "path": "x2", "def_line": 23, "use_line": 26, "keep": true, "reason": "macro_type_specifier_argument_tracked", "owner": "macro_type_arg_track_keep"}
+{"case": "13_fold2_macro_args", "id": "f3", "path": "x3", "def_line": 30, "use_line": 33, "keep": true, "reason": "macro_declarator_argument", "owner": "macro_declarator_arg_keep"}
+{"case": "13_fold2_macro_args", "id": "f4", "path": "x4", "def_line": 37, "use_line": 39, "keep": false, "reason": "no_macro_spelled_here", "owner": "macro_args_control_drop"}

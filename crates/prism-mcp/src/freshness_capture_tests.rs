@@ -335,6 +335,31 @@ fn freshness_census_text_edit_marks_stale() {
 }
 
 #[test]
+fn freshness_census_text_created_between_load_and_probe_marks_stale() {
+    // Census membership is rediscovered at the probe, not read from the loaded skip list: an
+    // angle-include target (any extension) or a text include created after load is a new
+    // census input.
+    let d = fixture();
+    source(
+        d.path(),
+        "m.c",
+        "#include <generated.payload>\n#include \"later.inc\"\nint f(void){return 1;}\n",
+    );
+    let repo = load_repo(d.path()).unwrap();
+    assert_probe(&repo, false, "nothing created yet");
+    source(
+        d.path(),
+        "inc/generated.payload",
+        "#define RESTORE() x = saved\n",
+    );
+    assert_probe(&repo, true, "created angle-include target");
+    fs::remove_file(d.path().join("inc/generated.payload")).unwrap();
+    assert_probe(&repo, false, "removed again");
+    source(d.path(), "later.inc", "#define LATER 1\n");
+    assert_probe(&repo, true, "created quoted text include");
+}
+
+#[test]
 fn freshness_census_text_removal_marks_stale() {
     let d = census_fixture();
     let repo = load_repo(d.path()).unwrap();

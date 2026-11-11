@@ -3,7 +3,9 @@
 //! The preprocessor reads every file a `#include` names, parsed or not. The census therefore
 //! also reads, as text only (never parsed, indexed or hashed into the parsed-file map),
 //! in-repo files with the extensions in [`TEXT_EXTS`] and every in-repo target of a quoted
-//! include whose extension is not mapped to C/C++, transitively. The loader decides the set,
+//! include whose extension is not mapped to C/C++, and every in-repo file an angle include
+//! (`<p>`, resolved against every in-repo directory: a path equal to `p` or ending in `/p`)
+//! can name, transitively. The loader decides the set,
 //! deterministically, so full, partial and scoped builds agree; each file's content hash and
 //! the aggregate of the skipped C/C++ files join the cache topology key
 //! (`c-census:` entries of `LoadedRepo::manifest_hashes`), so a change to either misses.
@@ -12,7 +14,7 @@
 //! holds census inputs the review did not read, in which case the census fails closed.
 use super::{rel, skip_dir, SkipReason, SkippedFile};
 use crate::ast::ParsedFile;
-use crate::call_graph::c::macro_census::quoted_includes;
+use crate::call_graph::c::macro_census::{angle_includes, quoted_includes};
 use crate::languages::Language;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -113,6 +115,41 @@ fn existing_targets(
     out
 }
 
+/// In-repo file paths by final component, for resolving an angle include against every
+/// in-repo directory.
+struct PathIndex(BTreeMap<String, Vec<String>>);
+
+impl PathIndex {
+    fn new<'a>(paths: impl Iterator<Item = &'a str>) -> Self {
+        let mut m: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for p in paths.filter(|p| !p.ends_with('/')) {
+            let base = p.rsplit('/').next().unwrap_or(p);
+            m.entry(base.to_owned()).or_default().push(p.to_owned());
+        }
+        PathIndex(m)
+    }
+
+    /// Repository files equal to `target` or ending in `/target`.
+    fn resolve(&self, target: &str) -> Vec<String> {
+        if target.is_empty()
+            || target.starts_with('/')
+            || target.contains('\\')
+            || target.split('/').any(|s| s == ".." || s.is_empty())
+        {
+            return Vec::new();
+        }
+        let target = target.strip_prefix("./").unwrap_or(target);
+        let base = target.rsplit('/').next().unwrap_or(target);
+        let suffix = format!("/{target}");
+        self.0.get(base).map_or_else(Vec::new, |v| {
+            v.iter()
+                .filter(|p| p.as_str() == target || p.ends_with(&suffix))
+                .cloned()
+                .collect()
+        })
+    }
+}
+
 /// `PRISM_C_PRUNE_TRACE=1`: name why the loader makes the census incomplete (first 20).
 fn trace_reason(kind: &str, items: &[String]) {
     if std::env::var_os("PRISM_C_PRUNE_TRACE").is_none() {
@@ -197,23 +234,38 @@ pub(crate) fn gather(
         })
         .map(|s| s.path.clone())
         .collect();
-    let mut sources: Vec<(String, BTreeSet<String>)> = files
+    type Sources = Vec<(String, BTreeSet<String>, BTreeSet<String>)>;
+    let mut sources: Sources = files
         .iter()
         .filter(|(_, p)| is_c_family_parsed(p))
-        .map(|(path, p)| (path.clone(), quoted_includes(&p.source)))
+        .map(|(path, p)| {
+            (
+                path.clone(),
+                quoted_includes(&p.source),
+                angle_includes(&p.source),
+            )
+        })
         .collect();
+    let index = PathIndex::new(
+        files
+            .keys()
+            .map(String::as_str)
+            .chain(skipped.iter().map(|s| s.path.as_str())),
+    );
     let mut checked = BTreeMap::new();
     let mut known: BTreeSet<String> = queue.iter().cloned().collect();
     loop {
-        for (includer, targets) in std::mem::take(&mut sources) {
-            for t in targets {
-                for cand in existing_targets(root, &includer, &t, &mut checked) {
-                    if !files.contains_key(&cand)
-                        && !is_c_family_path(&cand)
-                        && known.insert(cand.clone())
-                    {
-                        queue.push(cand);
-                    }
+        for (includer, quoted, angle) in std::mem::take(&mut sources) {
+            let cands = quoted
+                .iter()
+                .flat_map(|t| existing_targets(root, &includer, t, &mut checked))
+                .chain(angle.iter().flat_map(|t| index.resolve(t)));
+            for cand in cands.collect::<Vec<_>>() {
+                if !files.contains_key(&cand)
+                    && !is_c_family_path(&cand)
+                    && known.insert(cand.clone())
+                {
+                    queue.push(cand);
                 }
             }
         }
@@ -226,13 +278,25 @@ pub(crate) fn gather(
             std::fs::read(&full)
         };
         match read {
-            Ok(bytes) if !too_big => {
-                g.identity
-                    .insert(format!("c-census:text:{path}"), sha(&bytes));
-                let text = String::from_utf8_lossy(&bytes).into_owned();
-                sources.push((path.clone(), quoted_includes(&text)));
-                g.texts.insert(path, text);
-            }
+            Ok(bytes) if !too_big => match String::from_utf8(bytes) {
+                Ok(text) => {
+                    g.identity
+                        .insert(format!("c-census:text:{path}"), sha(text.as_bytes()));
+                    sources.push((path.clone(), quoted_includes(&text), angle_includes(&text)));
+                    g.texts.insert(path, text);
+                }
+                // The loader refuses a non-UTF-8 C/C++ file; the census holds census text to
+                // the same rule (a lossy read could hide a define behind an encoding the
+                // compiler accepts), so it cannot be read and is a loss.
+                Err(_) => {
+                    trace_reason("text_include_failed", &[format!("{path} not-utf8")]);
+                    g.incomplete = true;
+                    g.identity.insert(
+                        format!("c-census:text-failed:{path}"),
+                        "not-utf8".to_string(),
+                    );
+                }
+            },
             // A discovered text input that cannot be read still changes the census (it is
             // `incomplete`), so it joins the cache identity too: a full hit must not replay a
             // census built before this file appeared or became unreadable.
@@ -290,8 +354,22 @@ pub(crate) fn review_gap(
             }
         }
     }
-    if walk_text_paths(root, root, &mut gap).is_err() {
+    let mut all: BTreeSet<String> = BTreeSet::new();
+    if walk_text_paths(root, root, &mut gap, &mut all).is_err() {
         gap.insert("<walk failed>".into());
+    }
+    // Angle includes resolve against every in-repo directory: any repository file they can
+    // name that the review did not parse is an unread census input.
+    let index = PathIndex::new(all.iter().map(String::as_str));
+    for (_, p) in files.iter().filter(|(_, p)| is_c_family_parsed(p)) {
+        for t in angle_includes(&p.source) {
+            gap.extend(
+                index
+                    .resolve(&t)
+                    .into_iter()
+                    .filter(|c| !files.contains_key(c)),
+            );
+        }
     }
     if !gap.is_empty() {
         trace_reason(
@@ -302,17 +380,23 @@ pub(crate) fn review_gap(
     (!gap.is_empty()).then(|| sha(gap.into_iter().collect::<Vec<_>>().join("\n").as_bytes()))
 }
 
-fn walk_text_paths(root: &Path, dir: &Path, out: &mut BTreeSet<String>) -> std::io::Result<()> {
+fn walk_text_paths(
+    root: &Path,
+    dir: &Path,
+    out: &mut BTreeSet<String>,
+    all: &mut BTreeSet<String>,
+) -> std::io::Result<()> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         let name = entry.file_name().to_string_lossy().to_string();
         let file_type = entry.file_type()?;
         if file_type.is_dir() {
             if !skip_dir(&name, dir == root) && !name.starts_with('.') {
-                walk_text_paths(root, &entry.path(), out)?;
+                walk_text_paths(root, &entry.path(), out, all)?;
             }
         } else if file_type.is_file() {
             let relp = rel(root, &entry.path());
+            all.insert(relp.clone());
             if is_text_path(&relp) {
                 out.insert(relp);
             }

@@ -545,3 +545,10 @@ publication, slicing and field paths.
 - review mode with unparsed C/C++ or text-include files in the repository.
 
 Text-only include files (`.inl .inc .ipp .tcc .def .cu .cuh .H .C .HPP .CPP`, plus in-repo quoted-include targets with unmapped extensions) are read into the census. Their hashes and the skipped-file aggregate join the cache topology key (`c-census:` entries), so a full hit cannot replay a stale census. C-dialect passes are unioned. Soft poison is kept per source definition. Control matches the substrings setjmp, vfork, getcontext and savectx.
+
+**6b fold 2 (round-2 review).**
+- Delimited (`\u{..}`, `\U{..}`) and named (`\N{..}`) UCNs are UCN starts in the one identifier rule: hazardous on define/undef lines, and a token holding one is non-ASCII (poisons a macro name or parameter). A bare `\u`, `\U` or `\N` followed by anything else is no UCN.
+- Macro arguments come from the token stream: every identifier between the parentheses after an in-repo macro name (or a `va_*` builtin) escapes, whatever node the parser produced (call, `macro_type_specifier`, declarator). `(M)(x)` is not an invocation; it is escaped conservatively.
+- Census text is read strictly as UTF-8 (oversize files and text includes); a failure is `incomplete` with a `c-census:text-failed:<path>` = `not-utf8` identity entry.
+- Angle includes (`<p>`, `include_next`, `import`) read every in-repo file whose path equals `p` or ends in `/p`, transitively, and join the identity as for quoted targets. The exotic belt applies to include lines (non-ASCII byte or UCN in the target spelling), not their trigraphs. Review mode counts unparsed angle targets in its gap.
+- The freshness bootstrap recomputes census membership from a fresh walk (the loaded `ParseFailed` skips are kept, since they need the parser), so a census text file created between load and probe is stale; the identity stays apart from `scope_graph_inputs`.
