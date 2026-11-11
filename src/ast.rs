@@ -485,6 +485,9 @@ pub struct ParsedFile {
     /// Lazily-extracted JS/TS export facts: a pure function of the parsed
     /// file, shared by the P1 loader priming and the call-graph build.
     js_export_facts: std::sync::OnceLock<js_ts::exports::JsExportFacts>,
+    /// Lazily-built: whether a Python run-time local reader can reach any owner of the file
+    /// under another name (#630 U/D switch, `python_prune::file_hidden_hazard`).
+    python_hidden_hazard: std::sync::OnceLock<bool>,
 }
 
 /// How a formal parameter is used in its callable body (PR-C).
@@ -496,6 +499,11 @@ pub enum ParameterUse {
 }
 
 impl ParsedFile {
+    /// The file's Python hidden-reader hazard, built once by `build` (`python_prune`).
+    pub(crate) fn python_hidden_hazard(&self, build: impl FnOnce(&Self) -> bool) -> bool {
+        *self.python_hidden_hazard.get_or_init(|| build(self))
+    }
+
     /// Parse source code in the given language.
     pub fn parse(path: &str, source: &str, language: Language) -> Result<Self> {
         let mut parser = Parser::new();
@@ -527,6 +535,7 @@ impl ParsedFile {
             go_compat: go_compat_types::Cache::default(),
             call_args: std::sync::OnceLock::new(),
             js_export_facts: std::sync::OnceLock::new(),
+            python_hidden_hazard: std::sync::OnceLock::new(),
         };
         pf.functions = pf.build_function_table();
         Ok(pf)
