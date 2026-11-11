@@ -466,6 +466,7 @@ fn export_go_prune_probe_pairs() {
                     &lvalues,
                     &rvalues,
                     &crate::call_graph::rust::macro_args::RustMacroCensus::of_file(&parsed),
+                    &crate::call_graph::c::macro_census::CMacroCensus::of_file(&parsed),
                 );
                 let mut stats = crate::cpg::RdFileStats::default();
                 if facts.drop_write_only(&from.path, to.line, &mut stats) {

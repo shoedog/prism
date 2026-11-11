@@ -126,6 +126,10 @@ impl CompactDfg {
     pub(in crate::data_flow) fn rust_macro_census_digest(&self) -> &str {
         &self.rust_macro_census_digest
     }
+    /// The C/C++ macro census digest this graph was built under (see `CompactDfg`).
+    pub(in crate::data_flow) fn c_macro_census_digest(&self) -> &str {
+        &self.c_macro_census_digest
+    }
     pub(in crate::data_flow) fn rd_function_stats(
         &self,
     ) -> &BTreeMap<String, crate::cpg::RdFileStats> {

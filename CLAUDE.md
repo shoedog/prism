@@ -494,9 +494,11 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v173) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v174) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
+
+The C/C++ macro census (`src/call_graph/c/macro_census.rs`, `CMacroCensus`, #630 slice 6a) records per in-repo `#define` its parameters, transitive free identifiers and `control`/`poisoned` flags; it exists for slice 6 (rules U and D for C/C++, design in `docs/superpowers/plans/2026-11-11-630-s6-cpp-ud/DESIGN.md`) and changes no output yet. Its digest is persisted with the cached DFG (`c_macro_census_digest`), and a partial cache hit that finds a different digest rebuilds in full.
 
 JS/TS/TSX write census (#660 S1b-1, `src/cpg/reaching/census_defs.rs` over `src/ast/js_write_census/`; design
 `docs/superpowers/plans/2026-11-05-660-js-def-census/DESIGN.md`): a write in the owner's body that the producer records no
