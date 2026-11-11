@@ -16,6 +16,7 @@ pub(in crate::data_flow) struct WireDfg {
     #[serde(deserialize_with = "crate::cpg::RdFileStats::deserialize_compact_rows")]
     pub(in crate::data_flow) rd_function_stats: Vec<(String, crate::cpg::RdFileStats)>,
     pub(in crate::data_flow) rust_macro_census_digest: String,
+    pub(in crate::data_flow) c_macro_census_digest: String,
 }
 
 use serde::ser::SerializeSeq;
@@ -43,6 +44,7 @@ pub(in crate::data_flow) struct WireDfgRef<'a> {
     pub(in crate::data_flow) exact_labels: MapSeq<'a, (OccId, OccId), FlowConfidence>,
     pub(in crate::data_flow) rd_function_stats: MapSeq<'a, String, crate::cpg::RdFileStats>,
     pub(in crate::data_flow) rust_macro_census_digest: &'a str,
+    pub(in crate::data_flow) c_macro_census_digest: &'a str,
 }
 impl<'a> From<&'a CompactDfg> for WireDfgRef<'a> {
     fn from(g: &'a CompactDfg) -> Self {
@@ -59,6 +61,7 @@ impl<'a> From<&'a CompactDfg> for WireDfgRef<'a> {
             exact_labels: MapSeq(&g.exact_labels),
             rd_function_stats: MapSeq(&g.rd_function_stats),
             rust_macro_census_digest: &g.rust_macro_census_digest,
+            c_macro_census_digest: &g.c_macro_census_digest,
         }
     }
 }
@@ -78,6 +81,7 @@ impl From<CompactDfg> for WireDfg {
             exact_labels: g.exact_labels.into_iter().collect(),
             rd_function_stats: g.rd_function_stats.into_iter().collect(),
             rust_macro_census_digest: g.rust_macro_census_digest,
+            c_macro_census_digest: g.c_macro_census_digest,
         }
     }
 }

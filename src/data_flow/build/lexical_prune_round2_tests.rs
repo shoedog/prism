@@ -55,6 +55,7 @@ fn go_prune_compound_operator_guard_without_rvalue_facts() {
             &lvalues,
             &[],
             &crate::call_graph::rust::macro_args::RustMacroCensus::of_file(&parsed),
+            &crate::call_graph::c::macro_census::CMacroCensus::of_file(&parsed),
         );
         let mut stats = RdFileStats::default();
         let drop = facts.drop_write_only(&AccessPath::simple("x"), 4, &mut stats);

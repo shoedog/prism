@@ -57,6 +57,8 @@ pub(super) struct CompactDfg {
     /// Digest of the Rust macro census this graph was built under (empty for none); a
     /// partial cache hit rebuilds in full when a fresh census digests differently.
     pub(super) rust_macro_census_digest: String,
+    /// Digest of the C/C++ macro census (#630 slice 6a); same guard, same shape.
+    pub(super) c_macro_census_digest: String,
 }
 #[derive(Clone)]
 pub(super) struct Parts {

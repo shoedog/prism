@@ -488,6 +488,15 @@ pub struct ParsedFile {
     /// Lazily-built: whether a Python run-time local reader can reach any owner of the file
     /// under another name (#630 U/D switch, `python_prune::file_hidden_hazard`).
     python_hidden_hazard: std::sync::OnceLock<bool>,
+    /// Stamped by the repository loader on every C/C++ file when it skipped some other
+    /// in-repo C/C++ file the macro census could not read (#630 slice 6a): the census then
+    /// fails closed. Absent a loader (tests, single files) it is false.
+    c_family_skipped_in_repo: bool,
+    /// Stamped by the repository loader on every C/C++ file: the in-repo files the
+    /// preprocessor can include that are never parsed (`.inl`, `.inc`, `.def`, a quoted
+    /// include target of another extension), as `(path, text)`. The macro census reads them
+    /// textually (#630 slice 6a).
+    c_census_texts: Option<std::sync::Arc<std::collections::BTreeMap<String, String>>>,
 }
 
 /// How a formal parameter is used in its callable body (PR-C).
@@ -500,6 +509,27 @@ pub enum ParameterUse {
 
 impl ParsedFile {
     /// The file's Python hidden-reader hazard, built once by `build` (`python_prune`).
+    pub(crate) fn mark_c_family_skipped_in_repo(&mut self) {
+        self.c_family_skipped_in_repo = true;
+    }
+
+    pub(crate) fn c_family_skipped_in_repo(&self) -> bool {
+        self.c_family_skipped_in_repo
+    }
+
+    pub(crate) fn set_c_census_texts(
+        &mut self,
+        texts: std::sync::Arc<std::collections::BTreeMap<String, String>>,
+    ) {
+        self.c_census_texts = Some(texts);
+    }
+
+    pub(crate) fn c_census_texts(
+        &self,
+    ) -> Option<&std::sync::Arc<std::collections::BTreeMap<String, String>>> {
+        self.c_census_texts.as_ref()
+    }
+
     pub(crate) fn python_hidden_hazard(&self, build: impl FnOnce(&Self) -> bool) -> bool {
         *self.python_hidden_hazard.get_or_init(|| build(self))
     }
@@ -536,6 +566,8 @@ impl ParsedFile {
             call_args: std::sync::OnceLock::new(),
             js_export_facts: std::sync::OnceLock::new(),
             python_hidden_hazard: std::sync::OnceLock::new(),
+            c_family_skipped_in_repo: false,
+            c_census_texts: None,
         };
         pf.functions = pf.build_function_table();
         Ok(pf)
