@@ -47,12 +47,15 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         // A `let`/`const` header binding cannot be redeclared in the body, so a declaration of the same name
         // there (an inner `for (const i of xs)`, a `let i` in a block) is another binding: not a body write of it.
         if init.kind() == "lexical_declaration" {
-            let mut header = Vec::new();
-            self.collect_targets(init, &mut header);
-            let names: BTreeSet<_> = header
-                .iter()
-                .flat_map(|t| t.names.iter().cloned())
-                .collect();
+            // Binding positions only: the declarator NAMES, never a write inside an initial value
+            // (`let i = (x = 0)` writes `x`; it does not bind it).
+            let mut names = BTreeSet::new();
+            let mut cursor = init.walk();
+            for d in init.named_children(&mut cursor) {
+                if let Some(name) = d.child_by_field_name("name") {
+                    self.target_names(name, &mut names);
+                }
+            }
             body_writes.retain(|t| !(t.declares && t.names.iter().all(|n| names.contains(n))));
         }
         if body_writes.is_empty() {
@@ -87,6 +90,7 @@ impl<'a, 'tree> Cx<'a, 'tree> {
                 "update_expression" => n.child_by_field_name("argument"),
                 "variable_declarator" => n.child_by_field_name("name"),
                 "for_in_statement" => n.child_by_field_name("left"),
+                "unary_expression" => self.deleted_member(n),
                 _ => None,
             };
             if let Some(t) = target {
@@ -103,6 +107,25 @@ impl<'a, 'tree> Cx<'a, 'tree> {
             let mut cursor = n.walk();
             stack.extend(n.named_children(&mut cursor));
         }
+    }
+
+    /// The member or subscript a `delete` removes (`delete o.x`, `delete o[k]`, wrappers peeled); `delete name`
+    /// is not a write of a tracked definition.
+    fn deleted_member(&self, n: Node<'tree>) -> Option<Node<'tree>> {
+        let op = n.child_by_field_name("operator")?;
+        if &self.parsed.source[op.start_byte()..op.end_byte()] != "delete" {
+            return None;
+        }
+        let mut arg = n.child_by_field_name("argument")?;
+        while matches!(
+            arg.kind(),
+            "parenthesized_expression" | "non_null_expression"
+        ) {
+            let mut cursor = arg.walk();
+            let inner = arg.named_children(&mut cursor).next();
+            arg = inner?;
+        }
+        matches!(arg.kind(), "member_expression" | "subscript_expression").then_some(arg)
     }
 
     /// The identifiers a write target writes or hangs off, through patterns.
@@ -248,6 +271,11 @@ impl<'a, 'tree> Cx<'a, 'tree> {
                     out.push(path);
                 }
             }
+            "unary_expression" => {
+                if let Some(path) = self.deleted_member(n).and_then(|m| self.static_path(m)) {
+                    out.push(path);
+                }
+            }
             "binary_expression" => {
                 let short = matches!(op(n).as_str(), "&&" | "||" | "??");
                 for (i, c) in children.into_iter().enumerate() {
@@ -265,15 +293,27 @@ impl<'a, 'tree> Cx<'a, 'tree> {
 /// component); a shape without a static path falls back to a shared identifier.
 fn may_affect(i: &Target, d: &Target) -> bool {
     match (&i.path, &d.path) {
+        // The precise census paths, and RD's recorded ones (an lvalue is cut at its first `[`: `o[k].a` and
+        // `o[k].b` are both recorded `o.[]`, and equal recorded paths kill each other).
         (Some(ip), Some(dp)) => {
-            ip.len() <= dp.len()
-                && ip
-                    .iter()
-                    .zip(dp)
-                    .all(|(a, b)| a == b || a == "[]" || b == "[]")
+            prefix_compatible(ip, dp) || prefix_compatible(recorded(ip), recorded(dp))
         }
         _ => !i.names.is_disjoint(&d.names),
     }
+}
+
+/// `ip` is a prefix of `dp`, a `[]` component matching any component.
+fn prefix_compatible(ip: &[String], dp: &[String]) -> bool {
+    ip.len() <= dp.len()
+        && ip
+            .iter()
+            .zip(dp)
+            .all(|(a, b)| a == b || a == "[]" || b == "[]")
+}
+
+/// The path as RD records it: cut after the first `[]`.
+fn recorded(p: &[String]) -> &[String] {
+    p.iter().position(|c| c == "[]").map_or(p, |k| &p[..=k])
 }
 
 /// Whether the repeated write `w` certainly kills `d`: every component of `w` is spelled out and equals `d`'s.

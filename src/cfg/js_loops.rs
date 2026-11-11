@@ -23,9 +23,10 @@
 //! * no `break`/`continue` leaves a `try` body or `catch` whose `finally` does
 //!   not enclose the jump's target (a direct edge would skip the `finally`'s
 //!   writes: a wrong `exact`);
-//! * no `for` initializer writes a name that the loop's body writes and that
-//!   neither its test nor its update writes (the initializer runs once but
-//!   shares the header node, so a back route would re-run its kill).
+//! * no `for` initializer replay hazard (`for_init`: an initializer write can
+//!   affect a body definition and no exact-path, necessary test or update write
+//!   kills it too; the initializer runs once but shares the header node, so a
+//!   back route would re-run its kill).
 //!
 //! In a rewired tree every main edge the loops own is dropped: edges from a
 //! loop's interior lines to a later line (the bypass), edges from an interior
@@ -165,7 +166,7 @@ struct Loop<'tree> {
 /// Why main's policy leaves a loop tree unrewired (the fallbacks that predate the plan's checks).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Legacy {
-    /// A `for` initializer writes a name the body writes and neither test nor update does.
+    /// A `for` initializer replay hazard: see `for_init`.
     ForInit,
     /// A `break`/`continue` leaves a `try` body or `catch` whose `finally` does not enclose its target.
     Finally,

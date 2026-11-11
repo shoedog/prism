@@ -30,6 +30,10 @@ const HAZARDS: &[(&str, &str, &str, &str)] = &[
     ("p3_conditional", "function f(o, more, flag) {\n  let z = 1;\n  for (o.x = 0; more(); flag && o.x++) {\n    o.x = 1;\n  }\n  sink(o.x, z);\n}\n", "o.x@4->o.x@6", "exact"), // `flag && o.x++` is conditional
     ("p4_ternary", "function f(o, more, flag) {\n  let z = 1;\n  for (o.x = 0; more(); flag ? o.x++ : noop()) {\n    o.x = 1;\n  }\n  sink(o.x, z);\n}\n", "o.x@4->o.x@6", "exact"), // `flag ? o.x++ : noop()` is conditional
     ("p5_prefix", "function f(o, more) {\n  let z = 1;\n  for (o = {}; more(); o.y++) {\n    o = g();\n  }\n  sink(o, z);\n}\n", "o@4->o@6", "exact"), // `o.y++` does not affect the body's `o = g()`
+    ("r1_declarator_value_write", "function g(more) {\n  for (let i = (x = 0); more(); i++) {\n    var x = 1;\n  }\n  sink(x);\n}\n", "x@3->x@5", "exact"), // `let i = (x = 0)` writes `x`, it does not bind it
+    ("r2_subscript_suffixes", "function f(o, k, more) {\n  for (o[k].a = 0; more(); ) {\n    o[k].b = 1;\n  }\n  sink(o[k].b);\n}\n", "o[]@3->o[]@5", "exact"), // RD records `o[k].a` and `o[k].b` both as `o.[]`
+    ("r3_initializer_delete", "function f(o, more) {\n  for (delete o.x; more(); ) {\n    o.x = 1;\n  }\n  sink(o.x);\n}\n", "o.x@3->o.x@5", "exact"), // `delete o.x` is a write
+    ("c13_subscript_update", "function f(o, k, more) {\n  let z = 1;\n  for (o[k].a = 0; more(); o[k].a++) {\n    o[k].b = 1;\n  }\n  sink(o[k].b, z);\n}\n", "o[]@4->o[]@6", "exact"), // a `[]` update is no exact-path repeated write
 ];
 
 #[test]
@@ -58,6 +62,8 @@ const CONTROLS: &[(&str, &str, &str, bool, &str)] = &[
     ("c8_inner_decl", "function f(items, n) {\n  let z = 1;\n  let s = 0;\n  for (let i = 0; i < n; i++) {\n    for (const i of items) {\n      s = i;\n    }\n  }\n  sink(s, z);\n}\n", "s@6->s@9", true, "exact"), // an inner `for (const i ..)` is another binding
     ("c9_index_read", "function f(r, n) {\n  let z = 1;\n  let m = 0;\n  for (let i = 0; i < n; i++) {\n    (r ??= [])[i] = g(i);\n    m = i;\n  }\n  sink(m, z);\n}\n", "m@6->m@8", true, "exact"), // `(r ??= [])[i] = ..` reads `i`, writes an element
     ("c10_call_arg_read", "function f(w, arr, n) {\n  let z = 1;\n  for (let i = 0; i < n; i++) {\n    w.get(arr[i]).count--;\n  }\n  sink(w.count, z);\n}\n", "z@2->z@6", true, "exact"), // `w.get(arr[i]).count--` reads `i`, writes a property of a call result
+    ("c11_inner_let_block", "function f(n) {\n  let z = 1;\n  let s = 0;\n  for (let i = 0; i < n; i++) {\n    { let i = 5; s = i; }\n  }\n  sink(s, z);\n}\n", "s@5->s@7", true, "exact"), // an inner block `let i` is another binding
+    ("c12_repeated_delete", "function f(o, more) {\n  let z = 1;\n  for (delete o.x; more(); delete o.x) {\n    o.x = 1;\n  }\n  sink(o.x, z);\n}\n", "o.x@4->o.x@6", true, "nameonly/killed"), // `delete o.x` in the update kills the body write
     ("c4_shadow", "function f(o, more) {\n  let z = 1;\n  for (o.x = 0; more(); o.y++) {\n    { let o = {}; o.x = 1; }\n  }\n  sink(o.x, z);\n}\n", "o.x@3->o.x@6", false, "exact"),
 ];
 
