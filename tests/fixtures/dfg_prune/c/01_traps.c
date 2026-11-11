@@ -54,7 +54,8 @@ void global_inner_shadow_keep(void) {
     sink(g_nonlocal);     // @t03:U:keep:global_declared_in_inner_block
 }
 void use_before_local_decl_keep(void) {
-    g_nonlocal = 1;       // @t04:D g_nonlocal
+    g_nonlocal = 0;       // @t04:D g_nonlocal
+    g_nonlocal = 1;
     sink(g_nonlocal);     // @t04:U:keep:global_before_later_local
     int g_nonlocal;
     g_nonlocal = 2;
@@ -121,3 +122,16 @@ void compound_never_dominates(void) {
     sink(x);              // @t07c:U:keep:compound_is_no_dominating_write
 }
 
+
+void volatile_pointer_keep(char *q) {
+    char *volatile p = q; // @t05e:D p
+    p = 0;
+    parse(p);             // @t05e:U:keep:volatile_pointer_declarator
+}
+
+void field_keep(void) {
+    struct S s;
+    s.f = src();          // @fk:D s.f
+    s.f = 1;
+    sink(s.f);            // @fk:U:keep:field_paths_stay_off
+}

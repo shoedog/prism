@@ -78,3 +78,10 @@ void va_keep(int n, ...) {
     x = 1;
     sink(x);              // @g6:U:drop:va_escape_is_for_ap_only
 }
+
+void seh_ident_off(void) {
+    int x = src();        // @g7:D x
+    x = 1;
+    __leave;
+    sink(x);              // @g7:U:keep:seh_spelling_owner_off
+}

@@ -25,7 +25,7 @@ for name, src in cases:
         om = re.match(r"^[A-Za-z_].*?\b([A-Za-z_]\w*)\s*\(", line)
         if om and not line.startswith("#"):
             owner = om.group(1)
-        for m in re.finditer(r"@(\w+):D\s+(\w+)", line):
+        for m in re.finditer(r"@(\w+):D\s+(\w+(?:\.\w+)*)", line):
             defs[m.group(1)] = (n, m.group(2), owner)
         for m in re.finditer(r"@(\w+):U:(keep|drop):(\w+)", line):
             uses.setdefault(m.group(1), []).append((n, m.group(2) == "keep", m.group(3), owner))

@@ -141,3 +141,11 @@ void preproc_use_drop(void) {
     sink(x);              // @pu:U:drop:use_inside_conditional_compilation
 #endif
 }
+
+void decl_no_init_in_loop_keep(int n) {
+    while (n--) {
+        int x;
+        sink(x);          // @dl:U:keep:uninitialised_declaration_is_no_dominating_write
+        x = src();        // @dl:D x
+    }
+}
