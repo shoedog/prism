@@ -1,6 +1,7 @@
-//! Removal-only Go and Python proofs. No CFG or RD label is used to discard a pair.
+//! Removal-only Go, Python and Rust proofs. No CFG or RD label is used to discard a pair.
 use crate::access_path::AccessPath;
 use crate::ast::{ParsedFile, PathSpan};
+use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::cpg::RdFileStats;
 use crate::languages::Language;
 use std::cell::RefCell;
@@ -54,6 +55,13 @@ pub(super) struct LexicalFacts<'a> {
     /// Python `self`/`cls` parameters never rebound in the owner: their attribute paths
     /// are fixed storage for D (see `python_prune::stable_receivers`).
     stable_receivers: BTreeSet<String>,
+    /// Rust names mutably borrowed anywhere in the owner: D keeps them
+    /// (`rust_prune::mutably_borrowed`).
+    rust_mut_borrowed: BTreeSet<String>,
+    /// Rust names that appear as identifier tokens of a macro invocation the census refuses
+    /// (it can emit a `macro_rules!`): neither U nor D touches them in this owner
+    /// (`rust_prune::scan_macros`).
+    rust_refused: BTreeSet<String>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -62,12 +70,22 @@ impl<'a> LexicalFacts<'a> {
         owner: Node<'a>,
         lvalues: &[PathSpan],
         rvalues: &[PathSpan],
+        census: &RustMacroCensus,
     ) -> Self {
         // No lvalue span leaves the write table empty: U cannot prove a write-only line and D has
         // no dominating write (formals still get defs), so the owner switch is not consulted.
         let js_enabled = parsed.language.is_js_family()
             && !lvalues.is_empty()
             && super::js_prune::owner_enabled(parsed, owner);
+        // Rust: an owner that defines a `macro_rules!` is off (a local macro reads a local by
+        // definition-site hygiene while the line-anchored use sits at the invocation); so is
+        // one whose macro token trees hold `macro_rules` or build names (`paste!`).
+        let rust_macros = (parsed.language == Language::Rust
+            && !owner.has_error()
+            && owner.kind() == "function_item"
+            && !super::rust_prune::has_local_macro(owner))
+        .then(|| super::rust_prune::scan_macros(parsed, owner, census))
+        .filter(|scan| !scan.owner_off);
         let mut facts = Self {
             parsed,
             enabled: match parsed.language {
@@ -77,6 +95,7 @@ impl<'a> LexicalFacts<'a> {
                         && owner.kind() == "function_definition"
                         && !super::python_prune::has_hidden_reader(parsed, owner)
                 }
+                Language::Rust => rust_macros.is_some(),
                 l if l.is_js_family() => js_enabled,
                 _ => false,
             },
@@ -86,6 +105,8 @@ impl<'a> LexicalFacts<'a> {
             nested: Vec::new(),
             scope_declared: BTreeSet::new(),
             stable_receivers: BTreeSet::new(),
+            rust_mut_borrowed: BTreeSet::new(),
+            rust_refused: BTreeSet::new(),
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
@@ -93,6 +114,21 @@ impl<'a> LexicalFacts<'a> {
         }
         if parsed.language == Language::Python {
             facts.stable_receivers = super::python_prune::stable_receivers(parsed, owner);
+        }
+        if let Some(scan) = rust_macros {
+            facts.rust_mut_borrowed = super::rust_prune::mutably_borrowed(parsed, owner);
+            facts.rust_refused = scan.refused;
+            // An implicit format capture is a read of the name on every line of its
+            // statement: it blocks U and is an occurrence D must dominate. It adds no Use.
+            for (name, literal) in scan.captures {
+                for line in super::rust_prune::statement_lines(literal) {
+                    facts
+                        .occurrences
+                        .entry((name.clone(), line))
+                        .or_default()
+                        .push(literal);
+                }
+            }
         }
         if parsed.language.is_js_family() {
             facts.stable_receivers = super::js_prune::stable_bases(parsed, owner);
@@ -103,6 +139,9 @@ impl<'a> LexicalFacts<'a> {
         }
         if parsed.language == Language::Python {
             boundaries.extend(super::python_prune::NESTED_SCOPES);
+        }
+        if parsed.language == Language::Rust {
+            boundaries.extend(super::rust_prune::NESTED_ITEMS);
         }
         facts.collect(owner, owner.id(), &boundaries);
         for span in rvalues {
@@ -155,6 +194,13 @@ impl<'a> LexicalFacts<'a> {
         }
     }
 
+    fn pure_path(&self, node: Node<'_>) -> Option<AccessPath> {
+        match self.parsed.language {
+            Language::Rust => super::rust_prune::pure_path(self.parsed, node),
+            _ => pure_path(self.parsed, node),
+        }
+    }
+
     fn nested_at(&self, byte: usize) -> bool {
         self.nested
             .iter()
@@ -170,7 +216,7 @@ impl<'a> LexicalFacts<'a> {
         // Normalized index/dereference/truncated paths do not prove identical storage.
         if node.start_byte() != span.start_byte
             || node.end_byte() != span.end_byte
-            || pure_path(self.parsed, node).as_ref() != Some(&span.path)
+            || self.pure_path(node).as_ref() != Some(&span.path)
         {
             return None;
         }
@@ -183,6 +229,16 @@ impl<'a> LexicalFacts<'a> {
         if self.parsed.language == Language::Python {
             let (statement, plain) =
                 super::python_prune::classify_write(node, (span.start_byte, span.end_byte))?;
+            return Some(Write {
+                span: (span.start_byte, span.end_byte),
+                statement,
+                plain,
+                split_spec: false,
+            });
+        }
+        if self.parsed.language == Language::Rust {
+            let (statement, plain) =
+                super::rust_prune::classify_write(node, (span.start_byte, span.end_byte))?;
             return Some(Write {
                 span: (span.start_byte, span.end_byte),
                 statement,
@@ -298,7 +354,7 @@ impl<'a> LexicalFacts<'a> {
     }
 
     fn proof(&self, path: &AccessPath, line: usize) -> UseProof {
-        if !self.enabled {
+        if !self.enabled || self.rust_refused.contains(rust_ident(&path.base)) {
             return UseProof::default();
         }
         let key = (path.clone(), line);
@@ -409,6 +465,7 @@ impl<'a> LexicalFacts<'a> {
     fn is_region(&self, node: Node<'_>) -> bool {
         match self.parsed.language {
             Language::Python => super::python_prune::is_region(node.kind()),
+            Language::Rust => super::rust_prune::is_region(node.kind()),
             l if l.is_js_family() => super::js_prune::is_region(node),
             _ => is_region(node.kind()),
         }
@@ -445,6 +502,16 @@ impl<'a> LexicalFacts<'a> {
         if (self.parsed.language == Language::Python || self.parsed.language.is_js_family())
             && !path.fields.is_empty()
             && !self.stable_receivers.contains(&path.base)
+        {
+            return true;
+        }
+        // Rust: D proves identifier paths only (a field path's storage can be re-pointed
+        // behind its spelling), never a mutably borrowed name, and never a name passed to a
+        // macro the census refuses.
+        if self.parsed.language == Language::Rust
+            && (!path.fields.is_empty()
+                || self.rust_mut_borrowed.contains(rust_ident(&path.base))
+                || self.rust_refused.contains(rust_ident(&path.base)))
         {
             return true;
         }
@@ -508,4 +575,10 @@ fn pure_path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
         }
         _ => None,
     }
+}
+
+/// A Rust identifier without the `r#` raw prefix (`r#type` and `type` name one variable; the
+/// macro scan stores the stripped spelling).
+fn rust_ident(base: &str) -> &str {
+    base.strip_prefix("r#").unwrap_or(base)
 }

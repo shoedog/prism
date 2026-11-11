@@ -69,6 +69,10 @@ impl DataFlowGraph {
     ) -> impl Iterator<Item = (super::ExactFlowEdge, crate::cpg::FlowConfidence)> + '_ {
         self.storage.exact_labels()
     }
+    /// Digest of the Rust macro census this graph was built under (empty for none).
+    pub(crate) fn rust_macro_census_digest(&self) -> &str {
+        self.storage.rust_macro_census_digest()
+    }
     pub fn rd_function_stats(
         &self,
     ) -> &std::collections::BTreeMap<String, crate::cpg::RdFileStats> {

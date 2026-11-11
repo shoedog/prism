@@ -96,14 +96,16 @@ fn transitions(mut files: BTreeMap<String, ParsedFile>) {
         for file in order {
             let singleton = BTreeMap::from([(file.clone(), files[file].clone())]);
             expected_edges.extend(
-                DataFlowGraph::build(&singleton)
+                DataFlowGraph::build_with_census_files(&singleton, &files)
                     .edges()
                     .iter()
                     .map(|e| e.to_owned()),
             );
         }
         let actual_edges: Vec<_> = current.dfg.edges().iter().map(|e| e.to_owned()).collect();
-        // Per-file singleton builds cannot see sibling files, so they keep Go
+        // Per-file singleton builds read the Rust macro census from the whole tree
+        // (`build_with_census_files`), as the assembled build does. They cannot see
+        // sibling files for Go package fields, so they keep Go
         // receiver edges that the assembled repository refuses (a func-typed
         // field of the package, `go_package_fields`). The oracle is therefore
         // the singleton concatenation with only those edges removed, in place:

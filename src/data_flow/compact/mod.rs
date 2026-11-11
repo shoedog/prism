@@ -54,6 +54,9 @@ pub(super) struct CompactDfg {
     pub(super) labels: BTreeMap<(LegacyId, LegacyId), Label>,
     pub(super) exact_labels: BTreeMap<IdEdge, FlowConfidence>,
     pub(super) rd_function_stats: BTreeMap<String, crate::cpg::RdFileStats>,
+    /// Digest of the Rust macro census this graph was built under (empty for none); a
+    /// partial cache hit rebuilds in full when a fresh census digests differently.
+    pub(super) rust_macro_census_digest: String,
 }
 #[derive(Clone)]
 pub(super) struct Parts {

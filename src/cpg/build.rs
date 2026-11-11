@@ -698,6 +698,20 @@ impl CodePropertyGraph {
                 return Self::build_impl_inner(files, type_db, scope_inputs);
             }
 
+            // Fold 3 (#630 slice 5): Rust rules U and D read a repo-wide macro census (which
+            // spellings can emit a `macro_rules!`). Unchanged files keep the DFG built under
+            // the cached census, so a different fresh digest rebuilds in full, the same
+            // shape and reason as the macro-shadow guard above.
+            let fresh_macro_census =
+                crate::call_graph::rust::macro_args::RustMacroCensus::from_files(files);
+            if fresh_macro_census.digest() != cached_dfg.rust_macro_census_digest() {
+                drop(p);
+                drop((cached_cg, cached_dfg)); // Abandoned macro-census graphs.
+                #[cfg(test)]
+                lifetime.record("incremental_macro_census");
+                return Self::build_impl_inner(files, type_db, scope_inputs);
+            }
+
             p.next("cpg.incremental.remove");
             // Step 1: Remove stale data for changed files.
             cached_cg.remove_files(changed_files);
@@ -708,7 +722,8 @@ impl CodePropertyGraph {
             p.next("call_graph.incremental_direct");
             let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
             p.next("dfg.incremental_build");
-            let fresh_dfg = DataFlowGraph::build_subset(files, changed_files);
+            let fresh_dfg =
+                DataFlowGraph::build_subset_with_census(files, changed_files, &fresh_macro_census);
 
             p.next("cpg.incremental.merge");
             // Step 3: Merge fresh into retained.

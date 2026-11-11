@@ -226,7 +226,8 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     "exact label changed in {file}: {key:?}"
                 );
             }
-            if language == Language::Python || language.is_js_family() {
+            if language == Language::Python || language == Language::Rust || language.is_js_family()
+            {
                 // Opus F1 invariant: a removed edge into a minted use leaves another
                 // surviving edge from a def of the path into that same use.
                 let minted: std::collections::BTreeSet<_> = after.uses.values().flatten().collect();
@@ -249,12 +250,16 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     }
                 }
             }
-            if language != Language::Go && language != Language::Python && !language.is_js_family()
+            if !matches!(language, Language::Go | Language::Python | Language::Rust)
+                && !language.is_js_family()
             {
-                assert_eq!(before.edges, after.edges, "non-Go/Python changed: {file}");
+                assert_eq!(
+                    before.edges, after.edges,
+                    "non-Go/Python/Rust/JS changed: {file}"
+                );
                 assert_eq!(
                     before.uses, after.uses,
-                    "non-Go/Python uses changed: {file}"
+                    "non-Go/Python/Rust uses changed: {file}"
                 );
             }
             edges += after.edges.len();
@@ -455,7 +460,13 @@ fn export_go_prune_probe_pairs() {
                 let lines = (start..=end).collect();
                 let lvalues = parsed.assignment_lvalue_spans_on_lines(&owner, &lines);
                 let rvalues = parsed.rvalue_identifier_spans_on_lines(&owner, &lines);
-                let facts = LexicalFacts::new(&parsed, owner, &lvalues, &rvalues);
+                let facts = LexicalFacts::new(
+                    &parsed,
+                    owner,
+                    &lvalues,
+                    &rvalues,
+                    &crate::call_graph::rust::macro_args::RustMacroCensus::of_file(&parsed),
+                );
                 let mut stats = crate::cpg::RdFileStats::default();
                 if facts.drop_write_only(&from.path, to.line, &mut stats) {
                     "write_only"
