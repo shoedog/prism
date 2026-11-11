@@ -134,3 +134,4 @@
 {"case": "15_file_eval_returns_eval", "path": "x", "def_line": 5, "use_line": 6, "keep": true, "reason": "file_eval_returns_eval"}
 {"case": "16_file_namespace_string", "path": "x", "def_line": 5, "use_line": 6, "keep": true, "reason": "file_namespace_string"}
 {"case": "17_file_self_namespace", "path": "x", "def_line": 2, "use_line": 3, "keep": true, "reason": "file_self_namespace"}
+{"case": "18_file_nfkc_identifier", "path": "x", "def_line": 2, "use_line": 3, "keep": true, "reason": "file_nfkc_identifier"}

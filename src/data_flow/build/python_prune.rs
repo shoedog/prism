@@ -40,7 +40,8 @@ fn is_member_or_keyword(node: Node<'_>) -> bool {
 /// the file anywhere mentions a namespace name (any position, a member included, or as a
 /// string's whole content), a string spelling a reader (`getattr(ns, "eval")`), or a reader as a
 /// bare name in any position, a direct call included (`ev = eval`, `(eval)`, `ev = _ = eval`,
-/// `ev = eval("ev" + "al")`): every alias spelled in the file's source needs one of these.
+/// `ev = eval("ev" + "al")`), or any non-ASCII identifier (NFKC normalization can spell a
+/// reader): every alias spelled in the file's source needs one of these.
 /// Out of model (#805): a reader carried in from another module, the builtins module obtained at
 /// run time without naming it (`inspect.getmodule(len)`, `sys.modules[computed]`), and names or
 /// code built from strings (`"buil" + "tins"`, `"\x65val"`, `exec("ev = eval")`).
@@ -50,7 +51,9 @@ fn file_hidden_hazard(parsed: &ParsedFile) -> bool {
         match node.kind() {
             "identifier" => {
                 let text = parsed.node_text(&node);
-                if NAMESPACE_NAMES.contains(&text) {
+                // Python NFKC-normalizes identifiers (a fullwidth spelling is `eval`), so a
+                // non-ASCII identifier is compared with nothing and makes the file hazardous.
+                if !text.is_ascii() || NAMESPACE_NAMES.contains(&text) {
                     return true;
                 }
                 if HIDDEN_READERS.contains(&text) && !is_member_or_keyword(node) {
