@@ -21,8 +21,14 @@ use tree_sitter::Node;
 /// Why an owner is off (the ledger names these).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Off {
-    /// G1: not a `.c` `function_definition`, a parse error, a nested callable.
-    G1,
+    /// G1: the file is not a `.c` file of language C (a header, C++).
+    G1File,
+    /// G1: the owner is not a `function_definition`.
+    G1Kind,
+    /// G1: the owner has a parse error.
+    G1Error,
+    /// G1: the owner holds a nested function.
+    G1Nested,
     /// G2: `#define`/`#undef`/`#include` or an OpenMP/OpenACC pragma in the body.
     G2,
     /// G3: asm or SEH.
@@ -153,12 +159,14 @@ pub(super) fn scan(
     owner: Node<'_>,
     census: &CMacroCensus,
 ) -> Result<COwner, Off> {
-    if parsed.language != crate::languages::Language::C
-        || !is_dot_c(parsed)
-        || owner.kind() != "function_definition"
-        || owner.has_error()
-    {
-        return Err(Off::G1);
+    if parsed.language != crate::languages::Language::C || !is_dot_c(parsed) {
+        return Err(Off::G1File);
+    }
+    if owner.kind() != "function_definition" {
+        return Err(Off::G1Kind);
+    }
+    if owner.has_error() {
+        return Err(Off::G1Error);
     }
     if census.incomplete() {
         return Err(Off::Incomplete);
@@ -214,7 +222,7 @@ fn walk(
     };
     if node.id() != owner.id() && kind == "function_definition" {
         // A GNU nested function can write a captured local at a call site.
-        set_off(Off::G1);
+        set_off(Off::G1Nested);
     }
     if matches!(
         kind,
@@ -764,8 +772,13 @@ pub(super) fn trace(parsed: &ParsedFile, owner: Node<'_>, scanned: &Result<COwne
         return;
     }
     let status = match scanned {
-        Ok(o) if o.d_ok => "on".to_owned(),
-        Ok(_) => "on-no-d:g6".to_owned(),
+        Ok(o) => format!(
+            "{}\tescaped={}\tmacro_names={}\tmember_roots={}",
+            if o.d_ok { "on" } else { "on-no-d:g6" },
+            o.escaped.len(),
+            o.macro_names.len(),
+            o.member_roots.len()
+        ),
         Err(off) => format!("off:{off:?}"),
     };
     eprintln!(
