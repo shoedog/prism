@@ -19,9 +19,17 @@
 //! literals kept), and every logical line whose first token is `#` (or `%:`) followed by
 //! `define` is a definition. That covers defines the grammar does not expose as define nodes
 //! (inside an `ERROR` node, an enum body or an initializer list). The census also carries
-//! `incomplete`: some `#define` line (or an unterminated comment) could not be read into a
-//! name. `incomplete` means slice 6b must disable rules U and D everywhere for C/C++; it is
-//! part of the digest.
+//! `incomplete`: some `#define` line (or an unterminated comment, an uncertain raw string, an
+//! unreadable parameter) could not be read, or the loader skipped an in-repo C/C++ file
+//! (non-UTF-8, unparsable, unreadable, too large, a symlink: stamped on every parsed C/C++
+//! file, so full, partial and scoped builds agree). `incomplete` means slice 6b must
+//! disable rules U and D for ALL C/C++; it is part of the digest.
+//!
+//! The textual pass is not the compiler's lexer, so it is belted: phase 1 is normalized
+//! (BOM, CRLF and lone CR, trigraphs, splices with any blank before the newline), definition
+//! lines are the union of the comment-stripped and the unstripped text (only the stripped
+//! primary pass sets `incomplete`), and one identifier rule (ASCII, non-ASCII bytes, UCNs)
+//! serves the name, parameter and body readers.
 //!
 //! Several definitions of one name are unioned and every judgement over-approximates: a
 //! name that is a macro is judged by the union of all its definitions. Nothing consumes the
@@ -32,22 +40,52 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Names whose call can return a second time (G4 of the design) plus `asm` spellings.
+/// Prefixed spellings are also matched by stem (see [`is_control_name`]).
 const CONTROL_NAMES: &[&str] = &[
     "goto",
     "case",
     "default",
     "setjmp",
     "_setjmp",
+    "_setjmpex",
+    "__setjmp",
     "sigsetjmp",
+    "_sigsetjmp",
     "__sigsetjmp",
     "__builtin_setjmp",
+    "qsetjmp",
     "savectx",
     "vfork",
+    "__vfork",
     "getcontext",
     "asm",
+    "_asm",
     "__asm",
     "__asm__",
 ];
+
+/// GCC's returns-twice stems (after stripping one leading `__` or `_`).
+const CONTROL_STEMS: &[&str] = &[
+    "setjmp",
+    "setjmpex",
+    "setjmp_syscall",
+    "sigsetjmp",
+    "savectx",
+    "qsetjmp",
+    "vfork",
+    "getcontext",
+];
+
+fn is_control_name(t: &str) -> bool {
+    if CONTROL_NAMES.contains(&t) {
+        return true;
+    }
+    let stem = t
+        .strip_prefix("__")
+        .or_else(|| t.strip_prefix('_'))
+        .unwrap_or(t);
+    CONTROL_STEMS.contains(&stem)
+}
 
 /// The facts about one macro name (all definitions unioned, closure applied).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -71,7 +109,8 @@ struct RawDef {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CMacroCensus {
     macros: BTreeMap<String, MacroFacts>,
-    /// A `#define` line could not be read into a name: 6b must disable U and D everywhere.
+    /// A `#define` line could not be read into a name, or an in-repo C/C++ file never
+    /// reached the census (the loader skipped it): 6b must disable U and D for ALL C/C++.
     incomplete: bool,
 }
 
@@ -80,6 +119,79 @@ struct Body {
     idents: BTreeSet<String>,
     paste: bool,
     ok: bool,
+}
+
+// ---- The one identifier rule (name parser, parameter parser, body tokenizer). ----
+// Identifier characters: ASCII `[A-Za-z0-9_$]`, any non-ASCII byte, and UCNs
+// (`\uXXXX`, `\UXXXXXXXX`).
+
+/// Length of a UCN at `i` (`\u` + 4 hex or `\U` + 8 hex), else 0.
+fn ucn_len(b: &[u8], i: usize) -> usize {
+    if b.get(i) != Some(&b'\\') {
+        return 0;
+    }
+    let n = match b.get(i + 1) {
+        Some(b'u') => 4,
+        Some(b'U') => 8,
+        _ => return 0,
+    };
+    if b.len() >= i + 2 + n && b[i + 2..i + 2 + n].iter().all(u8::is_ascii_hexdigit) {
+        2 + n
+    } else {
+        0
+    }
+}
+
+fn is_ident_start(b: &[u8], i: usize) -> bool {
+    let c = b[i];
+    c.is_ascii_alphabetic() || c == b'_' || c == b'$' || c >= 0x80 || ucn_len(b, i) > 0
+}
+
+/// End of the identifier-character run starting at `i` (digits continue it).
+fn ident_end(b: &[u8], mut i: usize) -> usize {
+    while i < b.len() {
+        let c = b[i];
+        if c.is_ascii_alphanumeric() || c == b'_' || c == b'$' || c >= 0x80 {
+            i += 1;
+        } else {
+            let n = ucn_len(b, i);
+            if n == 0 {
+                break;
+            }
+            i += n;
+        }
+    }
+    i
+}
+
+/// A token holding a non-ASCII byte or a UCN (its ASCII fragments are recorded too).
+fn is_complex(t: &str) -> bool {
+    t.bytes().any(|c| c >= 0x80 || c == b'\\')
+}
+
+/// Insert `t` and, when it is complex, every maximal ASCII `[A-Za-z_$][A-Za-z0-9_$]*`
+/// fragment of it (extra names only refuse more).
+fn insert_ident(set: &mut BTreeSet<String>, t: &str) {
+    set.insert(t.to_owned());
+    if !is_complex(t) {
+        return;
+    }
+    let b = t.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i].is_ascii_alphanumeric() || b[i] == b'_' || b[i] == b'$' {
+            let s = i;
+            while i < b.len() && (b[i].is_ascii_alphanumeric() || b[i] == b'_' || b[i] == b'$') {
+                i += 1;
+            }
+            let frag = t[s..i].trim_start_matches(|c: char| c.is_ascii_digit());
+            if !frag.is_empty() {
+                set.insert(frag.to_owned());
+            }
+        } else {
+            i += 1;
+        }
+    }
 }
 
 /// Identifier tokens of a `#define` body. Comments, string and character literals and
@@ -146,22 +258,15 @@ fn tokenize(text: &str) -> Body {
                 }
             }
             c if c.is_ascii_digit() => i = pp_number_end(b, i),
-            c if c.is_ascii_alphabetic() || c == b'_' || c == b'$' || c >= 0x80 => {
+            _ if is_ident_start(b, i) => {
                 let start = i;
-                while i < b.len()
-                    && (b[i].is_ascii_alphanumeric()
-                        || b[i] == b'_'
-                        || b[i] == b'$'
-                        || b[i] >= 0x80)
-                {
-                    i += 1;
-                }
-                // Slicing at ASCII/non-ASCII boundaries is on char boundaries: bytes >= 0x80
-                // are consumed whole.
+                i = ident_end(b, i);
+                // Slicing is on char boundaries: bytes >= 0x80 are consumed whole and a UCN
+                // is ASCII.
                 let ident = &text[start..i];
                 if b.get(i) == Some(&b'"') && is_raw_prefix(ident) {
                     // A C++ raw string: no identifier, and no escape or quote rule inside.
-                    match raw_string_end(b, i) {
+                    match raw_string_end(b, i, &[]) {
                         Some(end) => i = end,
                         None => {
                             out.ok = false;
@@ -170,7 +275,7 @@ fn tokenize(text: &str) -> Body {
                     }
                     continue;
                 }
-                out.idents.insert(ident.to_owned());
+                insert_ident(&mut out.idents, ident);
             }
             _ => i += 1,
         }
@@ -179,10 +284,6 @@ fn tokenize(text: &str) -> Body {
 }
 
 const WS: &[char] = &[' ', '\t', '\r', '\x0b', '\x0c'];
-
-fn is_ident_byte(c: u8) -> bool {
-    c.is_ascii_alphanumeric() || c == b'_' || c == b'$' || c >= 0x80
-}
 
 /// End of the pp-number starting at `i`: digits, letters, `.`, `_`, signed exponents and
 /// C++14/C23 digit separators (`1'000`: a `'` followed by an alphanumeric or `_`).
@@ -210,12 +311,16 @@ fn is_raw_prefix(ident: &str) -> bool {
 }
 
 /// `q` indexes the opening `"` of `R"delim( .. )delim"`; the index after the closing quote.
-fn raw_string_end(b: &[u8], q: usize) -> Option<usize> {
+/// The delimiter is up to 16 characters other than space, `(`, `)`, `\`, tab, VT, FF and
+/// newline (`"` is allowed). `None` means uncertain: an invalid delimiter, an unterminated
+/// literal, or a line splice inside the literal (`splices` holds the indexes of `b` at
+/// which a splice was removed; the compiler reverts them inside a raw string).
+fn raw_string_end(b: &[u8], q: usize, splices: &[usize]) -> Option<usize> {
     let start = q + 1;
     let mut j = start;
     while j < b.len() && b[j] != b'(' {
         let c = b[j];
-        if j - start >= 16 || c.is_ascii_whitespace() || matches!(c, b')' | b'\\' | b'"') {
+        if j - start >= 16 || matches!(c, b' ' | b')' | b'\\' | b'\t' | b'\x0b' | b'\x0c' | b'\n') {
             return None;
         }
         j += 1;
@@ -227,41 +332,106 @@ fn raw_string_end(b: &[u8], q: usize) -> Option<usize> {
     close.extend_from_slice(&b[start..j]);
     close.push(b'"');
     let body = j + 1;
-    b[body..]
+    let end = b[body..]
         .windows(close.len())
         .position(|w| w == close.as_slice())
-        .map(|p| body + p + close.len())
+        .map(|p| body + p + close.len())?;
+    let first = splices.partition_point(|&s| s < q);
+    if splices.get(first).is_some_and(|&s| s < end) {
+        return None;
+    }
+    Some(end)
 }
 
-/// Translation phases 1-3 for the census: join backslash-newline continuations (a
-/// backslash, optional blanks, then CR LF or LF), then strip comments, keeping string,
-/// character and raw-string literals intact. A block comment becomes one space; the
-/// boolean is true for an unterminated block comment.
-fn logical_text(src: &str) -> (String, bool) {
+// ---- Translation phases 1-2. ----
+
+/// Phase 1: strip a leading UTF-8 BOM, map CRLF and lone CR to LF and (when `trigraphs`)
+/// translate trigraphs. Translating unconditionally over-approximates.
+fn translate(src: &str, trigraphs: bool) -> String {
+    let src = src.strip_prefix('\u{feff}').unwrap_or(src);
+    let b = src.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'\r' => {
+                out.push(b'\n');
+                i += if b.get(i + 1) == Some(&b'\n') { 2 } else { 1 };
+            }
+            b'?' if trigraphs && b.get(i + 1) == Some(&b'?') => {
+                let t = match b.get(i + 2) {
+                    Some(b'=') => Some(b'#'),
+                    Some(b'/') => Some(b'\\'),
+                    Some(b'\'') => Some(b'^'),
+                    Some(b'(') => Some(b'['),
+                    Some(b')') => Some(b']'),
+                    Some(b'!') => Some(b'|'),
+                    Some(b'<') => Some(b'{'),
+                    Some(b'>') => Some(b'}'),
+                    Some(b'-') => Some(b'~'),
+                    _ => None,
+                };
+                match t {
+                    Some(t) => {
+                        out.push(t);
+                        i += 3;
+                    }
+                    None => {
+                        out.push(b'?');
+                        i += 1;
+                    }
+                }
+            }
+            c => {
+                out.push(c);
+                i += 1;
+            }
+        }
+    }
+    // Only ASCII bytes were removed or replaced.
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Phase 2: join backslash-newline continuations, with any blanks (space, tab, VT, FF)
+/// between the backslash and the newline when `lenient` (GCC, clang, C++23); a strict
+/// splice (MSVC) takes only a backslash directly before the newline. Also returns the output indexes at which a
+/// splice was removed.
+fn splice(src: &str, lenient: bool) -> (Vec<u8>, Vec<usize>) {
     let sb = src.as_bytes();
-    let mut spliced = Vec::with_capacity(sb.len());
+    let mut out = Vec::with_capacity(sb.len());
+    let mut points = Vec::new();
     let mut i = 0;
     while i < sb.len() {
         if sb[i] == b'\\' {
             let mut j = i + 1;
-            while j < sb.len() && matches!(sb[j], b' ' | b'\t') {
+            while lenient && j < sb.len() && matches!(sb[j], b' ' | b'\t' | b'\x0b' | b'\x0c') {
                 j += 1;
             }
-            if sb.get(j) == Some(&b'\r') && sb.get(j + 1) == Some(&b'\n') {
-                i = j + 2;
-                continue;
-            }
             if sb.get(j) == Some(&b'\n') {
+                points.push(out.len());
                 i = j + 1;
                 continue;
             }
         }
-        spliced.push(sb[i]);
+        out.push(sb[i]);
         i += 1;
     }
-    let b = &spliced[..];
+    (out, points)
+}
+
+struct Stripped {
+    text: String,
+    unterminated: bool,
+    raw_uncertain: bool,
+}
+
+/// Comment stripping over spliced text, keeping string, character and raw-string literals
+/// intact. A block comment becomes one space. An uncertain raw string sets `raw_uncertain`
+/// and the rest of the text is kept unstripped (the unstripped pass also reads it).
+fn strip_comments(b: &[u8], splices: &[usize]) -> Stripped {
     let mut out = Vec::with_capacity(b.len());
     let mut unterminated = false;
+    let mut raw_uncertain = false;
     let mut i = 0;
     while i < b.len() {
         let c = b[i];
@@ -305,19 +475,22 @@ fn logical_text(src: &str) -> (String, bool) {
                 out.extend_from_slice(&b[i..end]);
                 i = end;
             }
-            c if is_ident_byte(c) => {
+            _ if is_ident_start(b, i) => {
                 let start = i;
-                while i < b.len() && is_ident_byte(b[i]) {
-                    i += 1;
-                }
+                i = ident_end(b, i);
                 out.extend_from_slice(&b[start..i]);
-                if b.get(i) == Some(&b'"') {
-                    if let Ok(id) = std::str::from_utf8(&b[start..i]) {
-                        if is_raw_prefix(id) {
-                            if let Some(end) = raw_string_end(b, i) {
-                                out.extend_from_slice(&b[i..end]);
-                                i = end;
-                            }
+                if b.get(i) == Some(&b'"')
+                    && std::str::from_utf8(&b[start..i]).is_ok_and(is_raw_prefix)
+                {
+                    match raw_string_end(b, i, splices) {
+                        Some(end) => {
+                            out.extend_from_slice(&b[i..end]);
+                            i = end;
+                        }
+                        None => {
+                            raw_uncertain = true;
+                            out.extend_from_slice(&b[i..]);
+                            i = b.len();
                         }
                     }
                 }
@@ -328,83 +501,127 @@ fn logical_text(src: &str) -> (String, bool) {
             }
         }
     }
-    (String::from_utf8_lossy(&out).into_owned(), unterminated)
+    Stripped {
+        text: String::from_utf8_lossy(&out).into_owned(),
+        unterminated,
+        raw_uncertain,
+    }
 }
 
-/// One parsed `#define`: name, parameters (function-like only), body, and whether the
-/// parameter list was left unclosed (the macro is then poisoned and the census incomplete).
+/// One parsed `#define`.
 struct Parsed<'a> {
     name: String,
     params: Option<Vec<String>>,
     body: &'a str,
+    /// The parameter list was left unclosed.
     malformed: bool,
+    /// A parameter is not a valid identifier (nor `...`).
+    bad_params: bool,
+    /// The name or a parameter holds a non-ASCII byte or a UCN.
+    complex: bool,
 }
 
-/// Split the text after the `define` keyword (comments already stripped, continuations
-/// already joined) into name, parameters and body. `None`: no name could be read.
+/// Split the text after the `define` keyword (continuations already joined, comments
+/// stripped in the primary pass) into name, parameters and body. `None`: no name.
 fn parse_define(after: &str) -> Option<Parsed<'_>> {
     let t = after.trim_start_matches(WS);
-    let end = t
-        .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
-        .unwrap_or(t.len());
-    if end == 0 || t.starts_with(|c: char| c.is_ascii_digit()) {
+    let tb = t.as_bytes();
+    if tb.is_empty() || !is_ident_start(tb, 0) {
         return None;
     }
+    let end = ident_end(tb, 0);
     let (name, rest) = t.split_at(end);
     let name = name.to_owned();
-    if let Some(inner) = rest.strip_prefix('(') {
-        let Some(close) = inner.find(')') else {
-            return Some(Parsed {
-                name,
-                params: Some(Vec::new()),
-                body: "",
-                malformed: true,
-            });
-        };
-        let params = inner[..close]
-            .split(',')
-            .map(|p| p.trim().trim_end_matches("...").trim().to_owned())
-            .chain(
-                inner[..close]
-                    .contains("...")
-                    .then(|| "__VA_ARGS__".to_owned()),
-            )
-            .filter(|p| !p.is_empty())
-            .collect();
-        Some(Parsed {
-            name,
-            params: Some(params),
-            body: &inner[close + 1..],
-            malformed: false,
-        })
-    } else {
-        Some(Parsed {
+    let mut complex = is_complex(&name);
+    let Some(inner) = rest.strip_prefix('(') else {
+        return Some(Parsed {
             name,
             params: None,
             body: rest,
             malformed: false,
-        })
+            bad_params: false,
+            complex,
+        });
+    };
+    let Some(close) = inner.find(')') else {
+        return Some(Parsed {
+            name,
+            params: Some(Vec::new()),
+            body: "",
+            malformed: true,
+            bad_params: false,
+            complex,
+        });
+    };
+    let list = inner[..close].trim_matches(WS);
+    let mut params = Vec::new();
+    let mut bad = false;
+    if !list.is_empty() {
+        for p in list.split(',') {
+            let p = p.trim_matches(WS);
+            if p == "..." {
+                params.push("__VA_ARGS__".to_owned());
+                continue;
+            }
+            let (id, va) = match p.strip_suffix("...") {
+                Some(id) => (id.trim_matches(WS), true),
+                None => (p, false),
+            };
+            let ib = id.as_bytes();
+            if ib.is_empty() || !is_ident_start(ib, 0) || ident_end(ib, 0) != ib.len() {
+                bad = true;
+                continue;
+            }
+            complex |= is_complex(id);
+            params.push(id.to_owned());
+            if va {
+                params.push("__VA_ARGS__".to_owned());
+            }
+        }
+    }
+    Some(Parsed {
+        name,
+        params: Some(params),
+        body: &inner[close + 1..],
+        malformed: false,
+        bad_params: bad,
+        complex,
+    })
+}
+
+/// A definition with the poison split: `hard` (paste, UCN/non-ASCII names) holds in every
+/// pass; `soft` (a body or parameter list the pass could not read) only counts when the
+/// primary pass never saw the name.
+struct Entry {
+    name: String,
+    def: RawDef,
+    hard: bool,
+    soft: bool,
+}
+
+fn entry(p: &Parsed<'_>) -> Entry {
+    let mut def = RawDef {
+        params: p.params.iter().flatten().cloned().collect(),
+        ..RawDef::default()
+    };
+    let body = tokenize(p.body);
+    let hard = body.paste || p.complex;
+    let soft = !body.ok || p.malformed || p.bad_params;
+    def.poisoned = hard || soft;
+    def.control = body.idents.iter().any(|t| is_control_name(t));
+    def.free = body.idents.difference(&def.params).cloned().collect();
+    Entry {
+        name: p.name.clone(),
+        def,
+        hard,
+        soft,
     }
 }
 
-fn raw_def(p: &Parsed<'_>) -> RawDef {
-    let mut def = RawDef::default();
-    def.params = p.params.iter().flatten().cloned().collect();
-    let body = tokenize(p.body);
-    def.poisoned = body.paste || !body.ok || p.malformed;
-    def.control = body
-        .idents
-        .iter()
-        .any(|t| CONTROL_NAMES.contains(&t.as_str()));
-    def.free = body.idents.difference(&def.params).cloned().collect();
-    def
-}
-
-/// Every logical `#define` line of `source`, textually. A line that names no macro, or an
-/// unterminated comment, sets `incomplete`.
-fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut bool) {
-    let (text, unterminated) = logical_text(source);
-    *incomplete |= unterminated;
+/// Every logical `#define` line of `text`. `primary` passes set `incomplete` on a line
+/// that names no macro, an unreadable parameter or an unclosed parameter list.
+fn defs_in(text: &str, primary: bool, incomplete: &mut bool) -> Vec<Entry> {
+    let mut found = Vec::new();
     for line in text.split('\n') {
         let t = line.trim_start_matches(WS);
         let Some(rest) = t.strip_prefix('#').or_else(|| t.strip_prefix("%:")) else {
@@ -413,22 +630,81 @@ fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut bo
         let Some(after) = rest.trim_start_matches(WS).strip_prefix("define") else {
             continue;
         };
-        if after.starts_with(|c: char| c.is_alphanumeric() || c == '_' || c == '$') {
+        let ab = after.as_bytes();
+        if !ab.is_empty()
+            && (ab[0].is_ascii_alphanumeric() || ab[0] == b'_' || ab[0] == b'$' || ab[0] >= 0x80)
+        {
             continue; // another directive spelling, e.g. `#definex`
         }
         let Some(p) = parse_define(after) else {
-            *incomplete = true;
+            *incomplete |= primary;
             continue;
         };
-        *incomplete |= p.malformed;
-        let def = raw_def(&p);
-        // Union of definitions; an invocation can be any of them.
-        let e = out.entry(p.name).or_default();
-        e.params.extend(def.params);
-        e.free.extend(def.free);
-        e.control |= def.control;
-        e.poisoned |= def.poisoned;
+        if primary {
+            *incomplete |= p.malformed || p.bad_params;
+        }
+        found.push(entry(&p));
     }
+    found
+}
+
+/// Collect one file. The primary pass (translated text, comments stripped) is the only one
+/// that sets `incomplete`; the other passes (comments kept, and the text without trigraph
+/// translation) only add definitions, so a lexer divergence cannot lose one.
+fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut bool) {
+    let translated = translate(source, true);
+    let plain = translate(source, false);
+    let mut texts = vec![translated];
+    if texts[0] != plain {
+        texts.push(plain);
+    }
+    let mut primary: BTreeMap<String, RawDef> = BTreeMap::new();
+    let mut extra: Vec<Entry> = Vec::new();
+    let mut seen: Vec<Vec<u8>> = Vec::new();
+    for (ti, text) in texts.iter().enumerate() {
+        for lenient in [true, false] {
+            let (spliced, points) = splice(text, lenient);
+            let is_primary = ti == 0 && lenient;
+            if !is_primary && seen.contains(&spliced) {
+                continue;
+            }
+            let stripped = strip_comments(&spliced, &points);
+            let mut flag = false;
+            let entries = defs_in(&stripped.text, is_primary, &mut flag);
+            if is_primary {
+                *incomplete |= flag | stripped.unterminated | stripped.raw_uncertain;
+                for e in entries {
+                    merge(&mut primary, e.name, e.def);
+                }
+            } else {
+                extra.extend(entries);
+            }
+            let unstripped = String::from_utf8_lossy(&spliced).into_owned();
+            extra.extend(defs_in(&unstripped, false, &mut flag));
+            seen.push(spliced);
+        }
+    }
+    for e in extra {
+        let mut def = e.def;
+        if primary.contains_key(&e.name) {
+            def.poisoned = e.hard;
+        } else {
+            def.poisoned = e.hard || e.soft;
+        }
+        merge(&mut primary, e.name, def);
+    }
+    for (name, def) in primary {
+        merge(out, name, def);
+    }
+}
+
+/// Union of definitions; an invocation can be any of them.
+fn merge(out: &mut BTreeMap<String, RawDef>, name: String, def: RawDef) {
+    let e = out.entry(name).or_default();
+    e.params.extend(def.params);
+    e.free.extend(def.free);
+    e.control |= def.control;
+    e.poisoned |= def.poisoned;
 }
 
 fn is_c_family(parsed: &ParsedFile) -> bool {
@@ -442,6 +718,7 @@ impl CMacroCensus {
         let mut raw = BTreeMap::new();
         let mut incomplete = false;
         for parsed in files.values().filter(|p| is_c_family(p)) {
+            incomplete |= parsed.c_family_skipped_in_repo();
             collect(&parsed.source, &mut raw, &mut incomplete);
         }
         Self::close(raw, incomplete)
@@ -452,6 +729,7 @@ impl CMacroCensus {
         let mut raw = BTreeMap::new();
         let mut incomplete = false;
         if is_c_family(parsed) {
+            incomplete |= parsed.c_family_skipped_in_repo();
             collect(&parsed.source, &mut raw, &mut incomplete);
         }
         Self::close(raw, incomplete)
@@ -548,24 +826,26 @@ impl CMacroCensus {
         if self.macros.is_empty() && !self.incomplete {
             return String::new();
         }
+        // Every string and every collection is length-prefixed, so no input text can
+        // collide with the framing.
+        fn put(h: &mut Sha256, bytes: &[u8]) {
+            h.update((bytes.len() as u64).to_le_bytes());
+            h.update(bytes);
+        }
         let mut h = Sha256::new();
+        h.update(b"c-macro-census-v2");
+        h.update((self.macros.len() as u64).to_le_bytes());
         for (name, f) in &self.macros {
-            h.update(b"m");
-            h.update(name.as_bytes());
-            h.update([0]);
-            for (tag, set) in [(b'p', &f.params), (b'f', &f.free)] {
-                h.update([tag]);
+            put(&mut h, name.as_bytes());
+            for set in [&f.params, &f.free] {
+                h.update((set.len() as u64).to_le_bytes());
                 for s in set {
-                    h.update(s.as_bytes());
-                    h.update([0]);
+                    put(&mut h, s.as_bytes());
                 }
-                h.update([1]);
             }
-            h.update([u8::from(f.control), u8::from(f.poisoned), 2]);
+            h.update([u8::from(f.control), u8::from(f.poisoned)]);
         }
-        if self.incomplete {
-            h.update(b"!incomplete");
-        }
+        h.update([u8::from(self.incomplete)]);
         h.finalize().iter().map(|b| format!("{b:02x}")).collect()
     }
 }

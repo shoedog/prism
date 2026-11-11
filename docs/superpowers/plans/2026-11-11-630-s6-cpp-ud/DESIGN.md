@@ -482,6 +482,8 @@ the upper end of what converged for Rust.
 
 ---
 
+**6a census gate (fold 2).** The census records an `incomplete` flag, and the rule for 6b is: `incomplete` disables U and D for ALL C/C++ (repo-wide, not per file or per macro). It is set by a `#define` line that names no macro, an unreadable macro parameter, an unterminated block comment, an uncertain raw-string scan, or any in-repo C/C++ file the loader skipped (NotUtf8, ParseFailed, Unreadable, TooLarge, Symlink; the loader stamps every parsed C/C++ file, so full, partial and scoped builds agree). This closes X2 for skipped in-repo files: they are no longer treated as external. Definition lines are the union of the comment-stripped and the unstripped text, so a lexer divergence adds macros (refusing more) and never loses one.
+
 ## 6. Fallback: H4, disclosure-first (H1 without the census)
 
 Use it if the owner declines the census's full-rebuild cost, or if 6a fails to converge within its cap. The rule set

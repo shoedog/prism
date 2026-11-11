@@ -196,6 +196,30 @@ fn merge_walk_items(
 
     debug_assert!(outcomes.next().is_none());
 
+    // #630 slice 6a: a C/C++ file the loader skipped never reaches the macro census, so a
+    // definition in it is invisible. Stamp every parsed C/C++ file; the census then fails
+    // closed (`incomplete`), identically for full, partial and scoped builds. Ignored,
+    // hidden and Go-testdata skips are exclusions, not losses.
+    if skipped.iter().any(|s| {
+        matches!(
+            Language::from_path(&s.path),
+            Some(Language::C | Language::Cpp)
+        ) && matches!(
+            s.reason,
+            SkipReason::NotUtf8
+                | SkipReason::ParseFailed
+                | SkipReason::Unreadable
+                | SkipReason::TooLarge { .. }
+                | SkipReason::Symlink
+        )
+    }) {
+        for parsed in files.values_mut() {
+            if matches!(parsed.language, Language::C | Language::Cpp) {
+                parsed.mark_c_family_skipped_in_repo();
+            }
+        }
+    }
+
     let skipped_go_testdata_files = skipped
         .iter()
         .filter(|skip| skip.reason == SkipReason::GoTestdata)
