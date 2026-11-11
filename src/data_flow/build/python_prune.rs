@@ -20,8 +20,8 @@ const HIDDEN_READERS: [&str; 5] = ["eval", "exec", "locals", "vars", "globals"];
 
 /// Names through which the builtins namespace (and so every reader) is reachable:
 /// `builtins.eval(..)`, `from builtins import eval as ev`, `__builtins__["eval"]`,
-/// `__import__("builtins").eval`.
-const NAMESPACE_NAMES: [&str; 3] = ["builtins", "__builtins__", "__import__"];
+/// `__import__("builtins").eval`, `len.__self__.eval(..)`.
+const NAMESPACE_NAMES: [&str; 4] = ["builtins", "__builtins__", "__import__", "__self__"];
 
 /// Whether `node` is the member of an attribute (`model.eval`) or a keyword argument's name
 /// (`f(eval=True)`): neither is the builtin.
@@ -38,10 +38,12 @@ fn is_member_or_keyword(node: Node<'_>) -> bool {
 
 /// File-level hazard: a reader can reach any owner of the file under another name. True when
 /// the file anywhere mentions a namespace name (any position, a member included, or as a
-/// string's whole content), a string spelling a reader (`getattr(ns, "eval")`), or a reader as
-/// a value rather than as the direct callee of a call (`ev = eval`, `(eval)`, `eval if c else
-/// f`, `ev = _ = eval`, a `match`/`for`/`with` target): every in-file alias needs one of these.
-/// A reader carried in from another module is out of model (#805).
+/// string's whole content), a string spelling a reader (`getattr(ns, "eval")`), or a reader as a
+/// bare name in any position, a direct call included (`ev = eval`, `(eval)`, `ev = _ = eval`,
+/// `ev = eval("ev" + "al")`): every alias spelled in the file's source needs one of these.
+/// Out of model (#805): a reader carried in from another module, the builtins module obtained at
+/// run time without naming it (`inspect.getmodule(len)`, `sys.modules[computed]`), and names or
+/// code built from strings (`"buil" + "tins"`, `"\x65val"`, `exec("ev = eval")`).
 fn file_hidden_hazard(parsed: &ParsedFile) -> bool {
     let mut stack = vec![parsed.tree.root_node()];
     while let Some(node) = stack.pop() {
@@ -52,14 +54,7 @@ fn file_hidden_hazard(parsed: &ParsedFile) -> bool {
                     return true;
                 }
                 if HIDDEN_READERS.contains(&text) && !is_member_or_keyword(node) {
-                    let direct_callee = node.parent().is_some_and(|p| {
-                        p.kind() == "call"
-                            && p.child_by_field_name("function")
-                                .is_some_and(|f| f.id() == node.id())
-                    });
-                    if !direct_callee {
-                        return true;
-                    }
+                    return true;
                 }
             }
             "string_content" => {
@@ -76,26 +71,11 @@ fn file_hidden_hazard(parsed: &ParsedFile) -> bool {
     false
 }
 
-/// Whether U and D must stay off for the owner: the file has a hidden-reader hazard
-/// (`file_hidden_hazard`, built once per file), or the owner (nested scopes included) names a
-/// reader as a bare identifier, a direct call `eval(..)` included. U and D are off for such an
-/// owner (#805: precise handling would let them back on).
-pub(super) fn has_hidden_reader(parsed: &ParsedFile, owner: Node<'_>) -> bool {
-    if parsed.python_hidden_hazard(file_hidden_hazard) {
-        return true;
-    }
-    let mut stack = vec![owner];
-    while let Some(node) = stack.pop() {
-        if node.kind() == "identifier"
-            && HIDDEN_READERS.contains(&parsed.node_text(&node))
-            && !is_member_or_keyword(node)
-        {
-            return true;
-        }
-        let mut cursor = node.walk();
-        stack.extend(node.named_children(&mut cursor));
-    }
-    false
+/// Whether U and D must stay off for the owner: its file has a hidden-reader hazard
+/// (`file_hidden_hazard`, built once per file). U and D are off for every owner of such a file
+/// (#805: precise handling would let them back on).
+pub(super) fn has_hidden_reader(parsed: &ParsedFile, _owner: Node<'_>) -> bool {
+    parsed.python_hidden_hazard(file_hidden_hazard)
 }
 
 /// Single-entry region: control enters a `block` only at its first statement.
