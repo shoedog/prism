@@ -213,10 +213,11 @@ fn merge_walk_items(
         js_paths_snapshot,
     );
     scope_graph_inputs.skipped_go_testdata_files = skipped_go_testdata_files;
-    scope_graph_inputs
-        .manifest_hashes
-        .extend(c_census.identity.clone());
-    let manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
+    // The census identity joins the cache topology (`LoadedRepo.manifest_hashes`) only:
+    // prism-mcp's freshness probe rebuilds `scope_graph_inputs` without it, so adding it
+    // there would make every such repository look stale on load.
+    let mut manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
+    manifest_hashes.extend(c_census.identity.clone());
 
     LoadedRepo {
         root: root.to_path_buf(),

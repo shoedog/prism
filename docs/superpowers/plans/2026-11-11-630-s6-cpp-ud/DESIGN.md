@@ -538,7 +538,7 @@ the macro policy and its wording, the C++ class and operator conventions, `.h` h
 publication, slicing and field paths.
 
 **6a census gate (fold 3, owner-approved past the cap).** Further `incomplete` triggers:
-- a non-ASCII byte, UCN or trigraph in any directive line;
+- a non-ASCII byte or UCN outside string/char literals and comments in any directive line (any non-ASCII byte when the literal boundaries are uncertain), or a trigraph anywhere in one;
 - an unreadable define-looking line in any pass;
 - any `Unreadable` loader skip, including directories;
 - skipped text-include files;

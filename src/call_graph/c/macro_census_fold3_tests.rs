@@ -75,7 +75,9 @@ fn f3_exotic_directive_class_fails_closed() {
         "#define caf\u{e9} hidden\n#define NEXT caf\\u00E9\n",
         "#define READ \u{e9}\n",
         "#define M a ??( b\n",
-        "#define M 1 // caf\u{e9}\n",
+        "#define M 1 \"unterminated \u{e9}\n",
+        "#define M /* open \u{e9}\n",
+        "#define M \"x\" caf\u{e9}\n",
         "??=define M hidden\n",
     ] {
         assert!(census(&[("a.h", src)]).incomplete(), "{src:?}");
@@ -88,6 +90,22 @@ fn f3_exotic_directive_class_fails_closed() {
     assert!(!c.incomplete());
     // Another directive (not a define) with a plain name is clean too.
     assert!(!census(&[("a.h", "#include \"x.h\"\n#define A 1\n")]).incomplete());
+}
+
+#[test]
+fn f3_non_ascii_in_literals_and_comments_is_not_exotic() {
+    for src in [
+        "#define TEST(name) printf(\"test \u{2014} %s\\n\", name);\n",
+        "#define TEST(name) printf(\"test %s\\n\", name); /* \u{2014} */\n",
+        "#define TEST(name) printf(\"test %s\\n\", name); // \u{2014}\n",
+        "#define TEST(name) printf(\"%c\", '\u{e9}'); /* x */ name\n",
+        "#define TEST(name) printf(R\"x(\u{2014} )x\", name);\n",
+    ] {
+        let c = census(&[("a.h", src)]);
+        assert!(!c.incomplete(), "{src:?}");
+        let t = c.get("TEST").unwrap();
+        assert!(t.free.contains("printf"), "{src:?}: {t:?}");
+    }
 }
 
 #[test]
@@ -301,4 +319,38 @@ fn f3_review_mode_fails_closed_when_the_repository_has_unread_inputs() {
     assert!(review(&|d| write(d, "src/table.tbl", b"#define Z 1\n")).0);
     // Nothing else in the repository: the diff's files are the repository's.
     assert_eq!(review(&|_| {}), (false, false));
+}
+
+#[test]
+fn f3_failed_text_include_joins_the_cache_identity() {
+    // sol (confirmation of fold 3): a discovered text input that cannot be read makes the census
+    // incomplete, so it must also move the topology, or a full hit replays a complete census.
+    use crate::cpg_cache::compute_topology_key;
+    let dir = tempfile::tempdir().unwrap();
+    write(
+        dir.path(),
+        "src/a.cpp",
+        b"#if __has_include(\"data.tbl\")\n#include \"data.tbl\"\n#endif\nint f() { return 0; }\n",
+    );
+    let before = load_repo(dir.path()).unwrap();
+    let key_before = compute_topology_key(&before.file_hashes, &before.manifest_hashes);
+    assert!(!CMacroCensus::from_files(&before.files).incomplete());
+    // An oversized data.tbl appears; every parsed file is unchanged.
+    let big = vec![b'x'; 2 * 1024 * 1024 + 16];
+    write(dir.path(), "src/data.tbl", &big);
+    let after = load_repo(dir.path()).unwrap();
+    assert_eq!(after.file_hashes, before.file_hashes);
+    assert!(CMacroCensus::from_files(&after.files).incomplete());
+    let key_after = compute_topology_key(&after.file_hashes, &after.manifest_hashes);
+    assert_ne!(
+        key_before, key_after,
+        "a failed text input must move the topology"
+    );
+    // Removing it restores the original identity.
+    std::fs::remove_file(dir.path().join("src/data.tbl")).unwrap();
+    let again = load_repo(dir.path()).unwrap();
+    assert_eq!(
+        compute_topology_key(&again.file_hashes, &again.manifest_hashes),
+        key_before
+    );
 }
