@@ -323,7 +323,8 @@ mod stream;
 /// - v172: Python rules U and D are off for an owner that mentions `eval`, `exec`, `locals`, `vars` or `globals` (a run-time reader of local names), so stored edges of such owners return (#630).
 /// - v173: Rust rules U and D in the DFG producer: pairs into write-only statements and pairs overwritten by a dominating `let`/assignment are no longer emitted (#630 slice 5, Rust); a name passed to a macro that can emit a `macro_rules!` (repo-wide census) keeps its pairs, and an implicit format capture (`{x}`) is an occurrence on every enclosing statement's lines that blocks U and that D must dominate (the pair is dropped only when a later write dominates it), an owner whose token trees hold `macro_rules`/`paste!` is off, the token-tree use-line refusal is retired, and the census digest is persisted with the DFG storage (#630 slice 5, Rust).
 /// - v174: the C/C++ macro census digest (#630 slice 6a) is persisted with the DFG storage and guards a partial hit like the Rust census; no output changes.
-const CACHE_VERSION: u32 = 174;
+/// - v175: C rules U and D in the DFG producer for `.c` owners (#630 slice 6b): pairs into write-only statements and pairs overwritten by a dominating assignment or initialised declaration are no longer emitted; the C/C++ macro census (6a) now gates owners and names.
+const CACHE_VERSION: u32 = 175;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -856,7 +857,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 174);
+        assert_eq!(super::CACHE_VERSION, 175);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -1,4 +1,4 @@
-//! Removal-only Go, Python and Rust proofs. No CFG or RD label is used to discard a pair.
+//! Removal-only Go, Python, Rust, JS/TS and C proofs. No CFG or RD label is used to discard a pair.
 use crate::access_path::AccessPath;
 use crate::ast::{ParsedFile, PathSpan};
 use crate::call_graph::c::macro_census::CMacroCensus;
@@ -29,6 +29,8 @@ struct Window {
     write_start: usize,
     write_end: usize,
     child_end: usize,
+    /// C: byte start of the declaration the occurrence and the write both resolve to.
+    decl: usize,
 }
 impl Window {
     fn contains(&self, start: usize, end: usize) -> bool {
@@ -63,6 +65,8 @@ pub(super) struct LexicalFacts<'a> {
     /// (it can emit a `macro_rules!`): neither U nor D touches them in this owner
     /// (`rust_prune::scan_macros`).
     rust_refused: BTreeSet<String>,
+    /// C owner facts (`c_prune`), present when the owner passes G1-G5.
+    c: Option<super::c_prune::COwner>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -72,8 +76,7 @@ impl<'a> LexicalFacts<'a> {
         lvalues: &[PathSpan],
         rvalues: &[PathSpan],
         census: &RustMacroCensus,
-        // Slice 6a: threaded to the owner, not consumed yet (rules arrive in 6b).
-        _c_census: &CMacroCensus,
+        c_census: &CMacroCensus,
     ) -> Self {
         // No lvalue span leaves the write table empty: U cannot prove a write-only line and D has
         // no dominating write (formals still get defs), so the owner switch is not consulted.
@@ -89,6 +92,13 @@ impl<'a> LexicalFacts<'a> {
             && !super::rust_prune::has_local_macro(owner))
         .then(|| super::rust_prune::scan_macros(parsed, owner, census))
         .filter(|scan| !scan.owner_off);
+        let c_owner = (parsed.language == Language::C)
+            .then(|| {
+                let scanned = super::c_prune::scan(parsed, owner, c_census);
+                super::c_prune::trace(parsed, owner, &scanned);
+                scanned.ok()
+            })
+            .flatten();
         let mut facts = Self {
             parsed,
             enabled: match parsed.language {
@@ -99,6 +109,7 @@ impl<'a> LexicalFacts<'a> {
                         && !super::python_prune::has_hidden_reader(parsed, owner)
                 }
                 Language::Rust => rust_macros.is_some(),
+                Language::C => c_owner.is_some(),
                 l if l.is_js_family() => js_enabled,
                 _ => false,
             },
@@ -110,6 +121,7 @@ impl<'a> LexicalFacts<'a> {
             stable_receivers: BTreeSet::new(),
             rust_mut_borrowed: BTreeSet::new(),
             rust_refused: BTreeSet::new(),
+            c: c_owner,
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
@@ -200,6 +212,7 @@ impl<'a> LexicalFacts<'a> {
     fn pure_path(&self, node: Node<'_>) -> Option<AccessPath> {
         match self.parsed.language {
             Language::Rust => super::rust_prune::pure_path(self.parsed, node),
+            Language::C => super::c_prune::pure_path(self.parsed, node),
             _ => pure_path(self.parsed, node),
         }
     }
@@ -242,6 +255,16 @@ impl<'a> LexicalFacts<'a> {
         if self.parsed.language == Language::Rust {
             let (statement, plain) =
                 super::rust_prune::classify_write(node, (span.start_byte, span.end_byte))?;
+            return Some(Write {
+                span: (span.start_byte, span.end_byte),
+                statement,
+                plain,
+                split_spec: false,
+            });
+        }
+        if self.parsed.language == Language::C {
+            let c = self.c.as_ref()?;
+            let (statement, plain) = super::c_prune::classify_write(self.parsed, node, c)?;
             return Some(Write {
                 span: (span.start_byte, span.end_byte),
                 statement,
@@ -394,6 +417,18 @@ impl<'a> LexicalFacts<'a> {
                 .iter()
                 .map(|node| self.window(path, *node))
                 .collect();
+            if let Some(c) = &self.c {
+                // C: E1-E3 for every occurrence, no field path, and G6 for D.
+                let bound = path.fields.is_empty()
+                    && occurrences
+                        .iter()
+                        .all(|node| c.binding(self.parsed, *node).is_some());
+                if !bound {
+                    proof = UseProof::default();
+                } else if !c.d_ok {
+                    proof.windows = None;
+                }
+            }
         }
         self.cache.borrow_mut().insert(key, proof.clone());
         proof
@@ -430,6 +465,8 @@ impl<'a> LexicalFacts<'a> {
                     .filter(|write| {
                         !is_declaring_kind(write.statement.kind())
                             && !write.split_spec
+                            // C: a compound assignment reads the old value and never dominates.
+                            && (self.parsed.language != Language::C || write.plain)
                             && (!self.parsed.language.is_js_family()
                                 || matches!(
                                     write.statement.kind(),
@@ -443,7 +480,7 @@ impl<'a> LexicalFacts<'a> {
                     })
                     .max_by_key(|w| w.statement.start_byte())
                 {
-                    let broken = self.parsed.language == Language::Go
+                    let mut broken = self.parsed.language == Language::Go
                         && crate::languages::go::statements::children(region, Language::Go).any(
                             |n| {
                                 n.kind() == "labeled_statement"
@@ -451,11 +488,29 @@ impl<'a> LexicalFacts<'a> {
                                     && n.start_byte() < child.end_byte()
                             },
                         );
+                    let mut decl = 0;
+                    if let Some(c) = &self.c {
+                        // C: a label or nested `case` in [W.start, child_end) can enter the
+                        // window; W must write the occurrence's own declaration (E1); E4.
+                        match self.c_window_decl(c, occurrence, write) {
+                            Some(d)
+                                if !super::c_prune::entry_in_range(
+                                    region,
+                                    write.statement.start_byte(),
+                                    child.end_byte(),
+                                ) =>
+                            {
+                                decl = d
+                            }
+                            _ => broken = true,
+                        }
+                    }
                     if !broken {
                         return Some(Window {
                             write_start: write.statement.start_byte(),
                             write_end: write.statement.end_byte(),
                             child_end: child.end_byte(),
+                            decl,
                         });
                     }
                 }
@@ -465,10 +520,30 @@ impl<'a> LexicalFacts<'a> {
         None
     }
 
+    /// C: the declaration the occurrence resolves to when the write targets the same one and
+    /// E4 holds; `None` keeps the window closed.
+    fn c_window_decl(
+        &self,
+        c: &super::c_prune::COwner,
+        occurrence: Node<'a>,
+        write: &Write<'a>,
+    ) -> Option<usize> {
+        let target = self
+            .parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(write.span.0, write.span.1)?;
+        let target = super::c_prune::write_target_identifier(target)?;
+        let want = c.binding(self.parsed, occurrence)?;
+        let got = c.binding(self.parsed, target)?;
+        (want == got && c.subobject_free(self.parsed, want)).then_some(want)
+    }
+
     fn is_region(&self, node: Node<'_>) -> bool {
         match self.parsed.language {
             Language::Python => super::python_prune::is_region(node.kind()),
             Language::Rust => super::rust_prune::is_region(node.kind()),
+            Language::C => super::c_prune::is_region(node),
             l if l.is_js_family() => super::js_prune::is_region(node),
             _ => is_region(node.kind()),
         }
@@ -523,10 +598,25 @@ impl<'a> LexicalFacts<'a> {
         if self.parsed.language.is_js_family() && path.fields.len() > 1 {
             return true;
         }
-        let drop = self
-            .proof(path, line)
-            .windows
-            .is_some_and(|windows| windows.iter().all(|window| !window.contains(start, end)));
+        // C: D proves identifier paths only; the candidate must be a variable write of the
+        // very declaration the windows resolved to (F1: a dereference store is no def of
+        // the pointer variable).
+        let mut c_decl = None;
+        if let Some(c) = &self.c {
+            let _ = c;
+            if !path.fields.is_empty() {
+                return true;
+            }
+            match super::c_prune::certified_candidate(self.parsed, start, end, path) {
+                Some(d) => c_decl = Some(d),
+                None => return true,
+            }
+        }
+        let drop = self.proof(path, line).windows.is_some_and(|windows| {
+            windows.iter().all(|window| {
+                !window.contains(start, end) && c_decl.is_none_or(|d| d == window.decl)
+            })
+        });
         if drop {
             stats.dfg_pruned_dominated += 1;
         }
