@@ -135,3 +135,5 @@
 {"case": "16_file_namespace_string", "path": "x", "def_line": 5, "use_line": 6, "keep": true, "reason": "file_namespace_string"}
 {"case": "17_file_self_namespace", "path": "x", "def_line": 2, "use_line": 3, "keep": true, "reason": "file_self_namespace"}
 {"case": "18_file_nfkc_identifier", "path": "x", "def_line": 2, "use_line": 3, "keep": true, "reason": "file_nfkc_identifier"}
+{"case": "19_file_py2_builtin", "path": "x", "def_line": 5, "use_line": 6, "keep": true, "reason": "file_py2_builtin_module"}
+{"case": "20_file_execfile", "path": "x", "def_line": 2, "use_line": 3, "keep": true, "reason": "file_execfile"}

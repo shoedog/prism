@@ -16,12 +16,18 @@ pub(super) const NESTED_SCOPES: [&str; 5] = [
 /// Builtins that read a function's locals by name at run time (a string passed to `eval`/`exec`,
 /// the mapping `locals()`/`vars()`/`globals()` returns, `str.format(**locals())`). Prism sees no
 /// read for them, so U could take a line that reads a name this way as write-only.
-const HIDDEN_READERS: [&str; 5] = ["eval", "exec", "locals", "vars", "globals"];
+const HIDDEN_READERS: [&str; 6] = ["eval", "exec", "locals", "vars", "globals", "execfile"];
 
 /// Names through which the builtins namespace (and so every reader) is reachable:
 /// `builtins.eval(..)`, `from builtins import eval as ev`, `__builtins__["eval"]`,
 /// `__import__("builtins").eval`, `len.__self__.eval(..)`.
-const NAMESPACE_NAMES: [&str; 4] = ["builtins", "__builtins__", "__import__", "__self__"];
+const NAMESPACE_NAMES: [&str; 5] = [
+    "builtins",
+    "__builtin__",
+    "__builtins__",
+    "__import__",
+    "__self__",
+];
 
 /// Whether `node` is the member of an attribute (`model.eval`) or a keyword argument's name
 /// (`f(eval=True)`): neither is the builtin.
@@ -43,8 +49,10 @@ fn is_member_or_keyword(node: Node<'_>) -> bool {
 /// `ev = eval("ev" + "al")`), or any non-ASCII identifier (NFKC normalization can spell a
 /// reader): every alias spelled in the file's source needs one of these.
 /// Out of model (#805): a reader carried in from another module, the builtins module obtained at
-/// run time without naming it (`inspect.getmodule(len)`, `sys.modules[computed]`), and names or
-/// code built from strings (`"buil" + "tins"`, `"\x65val"`, `exec("ev = eval")`).
+/// run time without naming it (`inspect.getmodule(len)`, `sys.modules[computed]`), names or code
+/// built from or held inside strings (`"buil" + "tins"`, `"\x65val"`, `exec("ev = eval")`,
+/// `pydoc.locate("builtins.eval")`), and Python 2 semantics beyond `__builtin__`/`execfile` (the
+/// `exec` statement, `input()`).
 fn file_hidden_hazard(parsed: &ParsedFile) -> bool {
     let mut stack = vec![parsed.tree.root_node()];
     while let Some(node) = stack.pop() {
