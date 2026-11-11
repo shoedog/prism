@@ -34,10 +34,11 @@ const HAZARDS: &[(&str, &str, &str, &str)] = &[
     ("r2_subscript_suffixes", "function f(o, k, more) {\n  for (o[k].a = 0; more(); ) {\n    o[k].b = 1;\n  }\n  sink(o[k].b);\n}\n", "o[]@3->o[]@5", "exact"), // RD records `o[k].a` and `o[k].b` both as `o.[]`
     ("r3_initializer_delete", "function f(o, more) {\n  for (delete o.x; more(); ) {\n    o.x = 1;\n  }\n  sink(o.x);\n}\n", "o.x@3->o.x@5", "exact"), // `delete o.x` is a write
     ("c13_subscript_update", "function f(o, k, more) {\n  let z = 1;\n  for (o[k].a = 0; more(); o[k].a++) {\n    o[k].b = 1;\n  }\n  sink(o[k].b, z);\n}\n", "o[]@4->o[]@6", "exact"), // a `[]` update is no exact-path repeated write
-    ("c10_call_chain_body_write", "function f(w, arr, n) {\n  let z = 1;\n  for (let i = 0; i < n; i++) {\n    w.get(arr[i]).count--;\n  }\n  sink(w.count, z);\n}\n", "z@2->z@6", "exact"), // an opaque body write cannot be told from any other: fail closed
     ("s2_call_chain_init_and_body", "function f(a, k, more) {\n  for (this.get(a[k]).x = 0; more(); ) {\n    this.get(a[k]).y = 1;\n  }\n  sink(this.get(a[k]).y);\n}\n", "this.get(a[]@3->this.get(a[]@5", "exact"), // calls in the chain: no static path
     ("s3_delete_comment", "function f(o, more) {\n  for (delete (/* c */ o.x); more(); ) {\n    o.x = 1;\n  }\n  sink(o.x);\n}\n", "o.x@3->o.x@5", "exact"), // `delete (/* c */ o.x)`: comments are skipped
-    ("c9_assignment_as_receiver", "function f(r, n) {\n  let z = 1;\n  let m = 0;\n  for (let i = 0; i < n; i++) {\n    (r ??= [])[i] = g(i);\n    m = i;\n  }\n  sink(m, z);\n}\n", "m@6->m@8", "exact"), // `(r ??= [])[i] = ..` has no static path: fail closed
+    ("t1_pattern_leaf", "function f(a, b, more) {\n  for (({p: this.x, a} = {p: 0, a: 0}); more(); ) {\n    ({p: this.x, b} = {p: 1, b: 1});\n  }\n  sink(this.x);\n}\n", "this.x@3->this.x@5", "exact"), // `({p: this.x, a} = ..)`: the leaf `this.x` is its own target
+    ("t2_comment_before_bracket", "function f(o, more) {\n  for (o.a /*[*/ .x = 0; more(); ) {\n    o.a /*[*/ .y = 1;\n  }\n  sink(o.a /*[*/ .y);\n}\n", "o.a /*[]@3->o.a /*[]@5", "exact"), // RD records both writes as one garbled path: they affect each other
+    ("c9_assignment_as_receiver", "function f(r, n) {\n  let z = 1;\n  let m = 0;\n  for (let i = 0; i < n; i++) {\n    (r ??= [])[i] = g(i);\n    m = i;\n  }\n  sink(m, z);\n}\n", "m@6->m@8", "exact"), // RD records no path for `(r ??= [])[i]`: unknown, fail closed
 ];
 
 #[test]
@@ -67,6 +68,7 @@ const CONTROLS: &[(&str, &str, &str, bool, &str)] = &[
     ("c11_inner_let_block", "function f(n) {\n  let z = 1;\n  let s = 0;\n  for (let i = 0; i < n; i++) {\n    { let i = 5; s = i; }\n  }\n  sink(s, z);\n}\n", "s@5->s@7", true, "exact"), // an inner block `let i` is another binding
     ("c12_repeated_delete", "function f(o, more) {\n  let z = 1;\n  for (delete o.x; more(); delete o.x) {\n    o.x = 1;\n  }\n  sink(o.x, z);\n}\n", "o.x@4->o.x@6", true, "nameonly/killed"), // `delete o.x` in the update kills the body write
     ("c14_field_in_body", "function f(o, n) {\n  let z = 1;\n  for (let i = 0; i < n; i++) {\n    o.f = i;\n  }\n  sink(o.f, z);\n}\n", "o.f@4->o.f@6", true, "exact"), // a representable body field write is still admitted
+    ("c10_call_chain_body_write", "function f(w, arr, n) {\n  let z = 1;\n  for (let i = 0; i < n; i++) {\n    w.get(arr[i]).count--;\n  }\n  sink(w.count, z);\n}\n", "z@2->z@6", true, "exact"), // RD records a path disjoint from the initializer's: admitted again
     ("c4_shadow", "function f(o, more) {\n  let z = 1;\n  for (o.x = 0; more(); o.y++) {\n    { let o = {}; o.x = 1; }\n  }\n  sink(o.x, z);\n}\n", "o.x@3->o.x@6", false, "exact"),
 ];
 

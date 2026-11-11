@@ -9,26 +9,27 @@
 //!             AND no proven repeated write necessarily affects D on the continue route
 //! ```
 //!
-//! A write affects `D` when its path is a prefix of `D`'s (RD's relation; `[]` may match any component, and an
-//! unknown shape falls back to the names it mentions). A repeated write excuses the replay only when it is a
-//! known static path, a MUST-write of the owner's eager test or update (never conditional, deferred or nested in
-//! a call), a prefix of `D` with every component spelled out, and its root names one binding in the loop. The
-//! test and the update both run on the route the replay would otherwise kill (body end or `continue`, then
-//! update, then test). Pure syntax: no solver is asked, so there is no cycle with admission.
+//! Identities are RD's own: each written target is enumerated by the lvalue extraction the def producer uses
+//! (`ParsedFile::recorded_write_paths`, pattern leaves one by one) and carries the `AccessPath`s RD records,
+//! plus the census identity (`static_path`, wrappers peeled as the census peels them). A write can affect `D`
+//! when RD's `affects` relation can hold between recorded paths (a prefix, `[]` matching any component) or the
+//! census identities relate; a target with no recorded path is unknown and affects everything. A repeated write
+//! excuses the replay only when its recorded path AND its census identity both prove one exact path that is a
+//! prefix of every recorded path of `D`, it is a MUST-write of the test or update (never conditional, deferred
+//! or nested in a call), and its root names one binding in the loop. No solver is asked, so there is no cycle
+//! with admission.
 use super::Cx;
+use crate::access_path::{AccessPath, ARRAY_FIELD};
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
-/// A write target: its static path when it is one (`a.b[]`: `[]` is a computed component), and every
-/// identifier it mentions (the over-approximation used when a shape has no path).
+/// A write target: the paths RD records for it and its census identity when it has one (`a.b[]`: `[]` is a
+/// computed component).
 struct Target {
-    path: Option<Vec<String>>,
-    names: BTreeSet<String>,
+    recorded: Vec<AccessPath>,
+    census: Option<Vec<String>>,
     /// The write is a declaration (a declarator or a `let`/`const`/`var` loop head), not an assignment.
     declares: bool,
-    /// A member or subscript write whose chain has no static path (a call, a tagged template, ...): it cannot be
-    /// told from any other write, so it overlaps everything.
-    opaque: bool,
 }
 
 impl<'a, 'tree> Cx<'a, 'tree> {
@@ -49,17 +50,22 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         }
         // A `let`/`const` header binding cannot be redeclared in the body, so a declaration of the same name
         // there (an inner `for (const i of xs)`, a `let i` in a block) is another binding: not a body write of it.
+        // Binding positions only: the declarator NAMES, never a write inside an initial value.
         if init.kind() == "lexical_declaration" {
-            // Binding positions only: the declarator NAMES, never a write inside an initial value
-            // (`let i = (x = 0)` writes `x`; it does not bind it).
-            let mut names = BTreeSet::new();
             let mut cursor = init.walk();
-            for d in init.named_children(&mut cursor) {
-                if let Some(name) = d.child_by_field_name("name") {
-                    self.target_names(name, &mut names);
-                }
-            }
-            body_writes.retain(|t| !(t.declares && t.names.iter().all(|n| names.contains(n))));
+            let names: BTreeSet<String> = init
+                .named_children(&mut cursor)
+                .filter_map(|d| d.child_by_field_name("name"))
+                .flat_map(|n| self.parsed.recorded_write_paths(n))
+                .map(|p| p.base)
+                .collect();
+            body_writes.retain(|t| {
+                !(t.declares
+                    && !t.recorded.is_empty()
+                    && t.recorded
+                        .iter()
+                        .all(|r| r.fields.is_empty() && names.contains(&r.base)))
+            });
         }
         if body_writes.is_empty() {
             return false;
@@ -73,16 +79,33 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         let clean = Bindings::of(self, node, init);
         body_writes.iter().any(|d| {
             init_writes.iter().any(|i| may_affect(i, d))
-                && !d.path.as_ref().is_some_and(|dp| {
-                    repeated
-                        .iter()
-                        .any(|w| must_affect(w, dp) && clean.single(&w[0]))
-                })
+                && !repeated.iter().any(|&w| self.proves(w, d, &clean))
         })
     }
 
-    /// Every write under `node` (assignment, augmented assignment, update, declarator and `for`..`in` target),
-    /// nested callables included: a deferred write is still a hazard source and a body definition.
+    /// Whether the repeated write `w` certainly kills `d`: its recorded path and census identity agree on one
+    /// exact path (every component spelled out) that is a prefix of the census identity and of every recorded
+    /// path of `d`, on a root that names one binding in the loop.
+    fn proves(&self, w: Node<'tree>, d: &Target, clean: &Bindings) -> bool {
+        let (Some(pw), Some(pd)) = (self.exact_path(w), d.census.as_ref()) else {
+            return false;
+        };
+        let recorded = self.parsed.recorded_write_paths(w);
+        let exact = AccessPath {
+            base: pw[0].clone(),
+            fields: pw[1..].to_vec(),
+        };
+        pw.len() <= pd.len()
+            && pw.iter().zip(pd).all(|(a, b)| a == b && a != ARRAY_FIELD)
+            && recorded == [exact.clone()]
+            && !d.recorded.is_empty()
+            && d.recorded.iter().all(|r| exact.is_prefix_of(r))
+            && clean.single(&exact.base)
+    }
+
+    /// Every write under `node` (assignment, augmented assignment, update, declarator, `for`..`in` target and
+    /// member `delete`), nested callables included: a deferred write is still a hazard source and a body
+    /// definition. Each is enumerated as RD's producer enumerates lvalues.
     fn collect_targets(&self, node: Node<'tree>, out: &mut Vec<Target>) {
         let mut stack = vec![node];
         while let Some(n) = stack.pop() {
@@ -97,13 +120,9 @@ impl<'a, 'tree> Cx<'a, 'tree> {
                 _ => None,
             };
             if let Some(t) = target {
-                let mut names = BTreeSet::new();
-                self.target_names(t, &mut names);
                 out.push(Target {
-                    path: self.static_path(t),
-                    opaque: self.static_path(t).is_none()
-                        && matches!(peel(t).kind(), "member_expression" | "subscript_expression"),
-                    names,
+                    recorded: self.parsed.recorded_write_paths(t),
+                    census: self.static_path(t),
                     declares: n.kind() == "variable_declarator"
                         || (n.kind() == "for_in_statement"
                             && n.child_by_field_name("kind").is_some()),
@@ -123,85 +142,6 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         }
         let arg = peel(n.child_by_field_name("argument")?);
         matches!(arg.kind(), "member_expression" | "subscript_expression").then_some(arg)
-    }
-
-    /// The identifiers a write target writes or hangs off, through patterns.
-    fn target_names(&self, t: Node<'tree>, out: &mut BTreeSet<String>) {
-        let text = |n: Node<'_>| self.parsed.source[n.start_byte()..n.end_byte()].to_string();
-        match t.kind() {
-            "identifier" | "shorthand_property_identifier_pattern" => {
-                out.insert(text(t));
-            }
-            "member_expression" | "subscript_expression" => {
-                // The written element belongs to the object: an index or property expression is only read.
-                if let Some(object) = t.child_by_field_name("object") {
-                    self.chain_names(object, out);
-                }
-            }
-            "assignment_pattern" | "object_assignment_pattern" => {
-                // `a = default`: the written side only.
-                if let Some(left) = t.child_by_field_name("left") {
-                    self.target_names(left, out);
-                }
-            }
-            "array_pattern" | "object_pattern" | "rest_pattern" | "parenthesized_expression" => {
-                let mut cursor = t.walk();
-                for c in t.named_children(&mut cursor) {
-                    match c.kind() {
-                        "property_identifier" => {}
-                        // `{ key: value }`: the value side is written.
-                        "pair_pattern" => {
-                            if let Some(v) = c.child_by_field_name("value") {
-                                self.target_names(v, out);
-                            }
-                        }
-                        _ => self.target_names(c, out),
-                    }
-                }
-            }
-            _ => {
-                let mut stack = vec![t];
-                while let Some(n) = stack.pop() {
-                    if matches!(
-                        n.kind(),
-                        "identifier" | "shorthand_property_identifier_pattern"
-                    ) {
-                        out.insert(text(n));
-                    }
-                    let mut cursor = n.walk();
-                    stack.extend(n.named_children(&mut cursor));
-                }
-            }
-        }
-    }
-
-    /// The identifiers a member chain's object hangs off: through member and subscript objects, a call's callee
-    /// (never its arguments) and wrappers; every identifier of any other shape (an assignment, a literal).
-    fn chain_names(&self, n: Node<'tree>, out: &mut BTreeSet<String>) {
-        let next = match n.kind() {
-            "member_expression" | "subscript_expression" => n.child_by_field_name("object"),
-            "call_expression" => n.child_by_field_name("function"),
-            "non_null_expression"
-            | "parenthesized_expression"
-            | "as_expression"
-            | "satisfies_expression" => {
-                let mut cursor = n.walk();
-                let first = n.named_children(&mut cursor).next();
-                first
-            }
-            _ => None,
-        };
-        if let Some(next) = next {
-            return self.chain_names(next, out);
-        }
-        let mut stack = vec![n];
-        while let Some(x) = stack.pop() {
-            if x.kind() == "identifier" {
-                out.insert(self.parsed.source[x.start_byte()..x.end_byte()].to_string());
-            }
-            let mut cursor = x.walk();
-            stack.extend(x.named_children(&mut cursor));
-        }
     }
 
     /// The static path of a write target: an identifier, `this`, or a member chain over those, wrappers peeled as
@@ -254,7 +194,7 @@ impl<'a, 'tree> Cx<'a, 'tree> {
     /// The paths an expression of the test or update NECESSARILY writes each time it is evaluated: only
     /// through parentheses, comma sequences, the right side of an assignment, non-short-circuit binary
     /// operands and the left side of `&&`, `||`, `??`. A call, conditional, callable or pattern stops it.
-    fn necessary_writes(&self, n: Node<'tree>, out: &mut Vec<Vec<String>>) {
+    fn necessary_writes(&self, n: Node<'tree>, out: &mut Vec<Node<'tree>>) {
         let op = |n: Node<'_>| {
             n.child_by_field_name("operator")
                 .map(|o| self.parsed.source[o.start_byte()..o.end_byte()].to_string())
@@ -272,27 +212,21 @@ impl<'a, 'tree> Cx<'a, 'tree> {
                 if matches!(op(n).as_str(), "&&=" | "||=" | "??=") {
                     return;
                 }
-                if let Some(path) = n
-                    .child_by_field_name("left")
-                    .and_then(|l| self.exact_path(l))
-                {
-                    out.push(path);
+                if let Some(left) = n.child_by_field_name("left") {
+                    out.push(left);
                 }
                 if let Some(right) = n.child_by_field_name("right") {
                     self.necessary_writes(right, out);
                 }
             }
             "update_expression" => {
-                if let Some(path) = n
-                    .child_by_field_name("argument")
-                    .and_then(|a| self.exact_path(a))
-                {
-                    out.push(path);
+                if let Some(arg) = n.child_by_field_name("argument") {
+                    out.push(arg);
                 }
             }
             "unary_expression" => {
-                if let Some(path) = self.deleted_member(n).and_then(|m| self.exact_path(m)) {
-                    out.push(path);
+                if let Some(member) = self.deleted_member(n) {
+                    out.push(member);
                 }
             }
             "binary_expression" => {
@@ -308,24 +242,18 @@ impl<'a, 'tree> Cx<'a, 'tree> {
     }
 }
 
-/// Whether the write of `i` can affect the definition `d`: `i` is a prefix of `d` (a `[]` component matches any
-/// component); a shape without a static path falls back to a shared identifier.
+/// Whether the write of `i` can affect the definition `d`: RD's `affects` relation can hold between a pair of
+/// recorded paths (a prefix, `[]` matching any component), or the census identities relate; a target RD records
+/// no path for is unknown and affects everything (fail closed).
 fn may_affect(i: &Target, d: &Target) -> bool {
-    match (&i.path, &d.path) {
-        // The precise census paths, and RD's recorded ones (an lvalue is cut at its first `[`: `o[k].a` and
-        // `o[k].b` are both recorded `o.[]`, and equal recorded paths kill each other).
-        (Some(ip), Some(dp)) => {
-            prefix_compatible(ip, dp) || prefix_compatible(recorded(ip), recorded(dp))
-        }
-        // An opaque chain, or a shape that names nothing, overlaps everything (fail closed).
-        _ => {
-            i.opaque
-                || d.opaque
-                || i.names.is_empty()
-                || d.names.is_empty()
-                || !i.names.is_disjoint(&d.names)
-        }
+    if i.recorded.is_empty() || d.recorded.is_empty() {
+        return true;
     }
+    i.recorded.iter().any(|ri| {
+        d.recorded
+            .iter()
+            .any(|rd| ri.base == rd.base && prefix_compatible(&ri.fields, &rd.fields))
+    }) || matches!((&i.census, &d.census), (Some(ci), Some(cd)) if prefix_compatible(ci, cd))
 }
 
 /// The wrapped operand the write census sees through: comments are skipped, and a parenthesized, `as`,
@@ -369,16 +297,6 @@ fn prefix_compatible(ip: &[String], dp: &[String]) -> bool {
             .iter()
             .zip(dp)
             .all(|(a, b)| a == b || a == "[]" || b == "[]")
-}
-
-/// The path as RD records it: cut after the first `[]`.
-fn recorded(p: &[String]) -> &[String] {
-    p.iter().position(|c| c == "[]").map_or(p, |k| &p[..=k])
-}
-
-/// Whether the repeated write `w` certainly kills `d`: every component of `w` is spelled out and equals `d`'s.
-fn must_affect(w: &[String], d: &[String]) -> bool {
-    w.len() <= d.len() && w.iter().zip(d).all(|(a, b)| a == b && a != "[]")
 }
 
 /// The names declared inside a loop, to prove a root names one binding there.
