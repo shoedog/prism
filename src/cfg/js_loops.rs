@@ -13,7 +13,7 @@
 //! tree is admitted only when main's own routing below accepts it, the placement
 //! rule holds (`placement`) and no CFG record intersecting it is unresolved
 //! (`js_disposition`); a tree the plan refuses keeps main's edges and universe
-//! and its owner's labels are `nameonly/cfg_incomplete` callable-wide (O1).
+//! and its OWNER is refused whole: it keeps main's universe, edges, labels and availability exactly.
 //! Main's own routing: a tree is REWIRED, all of it
 //! or none of it, when it holds no form this module cannot route soundly:
 //!

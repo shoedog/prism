@@ -6,7 +6,7 @@
 //! moved `f6_loop_ends_if_arm`, an arm ending in a wrapper holding the loop, to an admitted tree: its 15 rows are
 //! HOLD rows, one MOVE row and one RESIDUAL row, `s@4->s@12`, an `exact` main draws from the `if`'s own skip
 //! edge to the other arm, which no loop transition owns): main's edges stand and every label of the
-//! owner is `nameonly/cfg_incomplete` (option O1), so their `main`/first-head columns are history only.
+//! owner keeps main's label (final refusal policy), so their `main`/first-head columns are history only.
 //! MOVE rows are the ones the rule moves; HOLD rows are controls and moved-neither rows;
 //! ABSENT rows (merge of main 72be3b73, #788): rules U and D prune write-only and dominated def->use pairs from the
 //! source text before the CFG is built, so 265 rows (HOLD 154, MOVE 16, REFUSED 95) name a pair that no longer exists. A
@@ -14,8 +14,8 @@
 //! rows absent on the head and present on main); the test asserts the pair is absent. No fixture lost all its rows.
 //! FINAL REFUSAL POLICY: a refused owner keeps exactly main's labels, so the expected label of every REFUSED and TRYFLOW
 //! row below is MAIN 8cc4985d's label, re-derived from that binary's output (`O1final/matrix_rederive.py`, which also
-//! checks the head's binary equals it on all 150 rows), not the interim `nameonly/cfg_incomplete`. TRYFLOW rows (T2): the owner holds a `try`, so the plan refuses it whole (`TryFlow`, callable-wide O1) and every
-//! surviving pair is `nameonly/cfg_incomplete` (46 rows: HOLD 30, MOVE 16, were admitted by slice 3).
+//! checks the head's binary equals it on all 150 rows), not the interim `nameonly/cfg_incomplete`. TRYFLOW rows (T2): the owner holds a `try`, so the plan refuses it whole (`TryFlow`) and it keeps main's
+//! labels (46 rows: HOLD 30, MOVE 16, were admitted by slice 3).
 //! RESIDUAL rows are shapes of a loop tree that is not rewired (a one-line `do`, a condition sharing a
 //! line, a jump through a `finally`, a `for` initializer re-run by a back route, an unrewirable
 //! statement) and keep main's edges and labels, pinned as such. Since fold 1 of slice 2 such a tree is

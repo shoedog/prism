@@ -4,7 +4,7 @@
 //! edges as `Structured`, and a finalizer's completion is not tied to the completion that entered it, so a loop
 //! rewrite that leaves or repeats through a try (or a line projection that reaches one) can complete a route
 //! around a write (probes `ret`, `thr`, `lc`, `nofin`, `tc`). Rather than whitelist shapes, an owner with loop
-//! trees is REFUSED (every tree, callable-wide O1 on both label paths) when
+//! trees is REFUSED (every tree; the owner keeps main's geometry, labels and availability) when
 //!
 //! * (a) its own executable syntax contains a `try_statement` (scanned recursively over the owner's body,
 //!   independent of the completion rules, so a class static block, `with`, label, `switch` or bare block cannot
@@ -15,7 +15,7 @@
 //!   line, so a line interval is the refusal check, never deletion authority.
 //!
 //! The decision is made inside the plan fixpoint (not as an early `tree_checked` failure), so a TryFlow-refused
-//! tree is O1-refused: main's geometry stays and the all-admitted availability reference is unchanged. Limit: A3
+//! tree refuses its owner whole: main's geometry, labels and availability stand. Limit: A3
 //! contains EXPLICIT try flow. `await`, `yield` and iterator close without try syntax are out of model.
 use super::Cx;
 use crate::ast::ParsedFile;

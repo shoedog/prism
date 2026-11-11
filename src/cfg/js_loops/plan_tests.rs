@@ -36,7 +36,7 @@ fn each_refusal_fixture_is_refused_for_its_reason() {
             "{}: the trace names an offender",
             c.name
         );
-        assert!(p.refuses_owner(v.owner), "{}: O1 refuses the owner", c.name);
+        assert!(p.refuses_owner(v.owner), "{}: the owner is refused", c.name);
     }
 }
 
@@ -111,7 +111,7 @@ fn the_plan_is_deterministic_and_one_per_file() {
 #[test]
 fn only_the_owner_of_a_refused_tree_is_refused() {
     // The callback's loop is refused (head collapse); the enclosing function holds no loop tree of its own,
-    // so O1 refuses the arrow's labels and leaves the function's.
+    // so the arrow's owner is refused (main's labels) and the function's is not.
     let src = REFUSED
         .iter()
         .find(|c| c.name == "callback_head_collapse")

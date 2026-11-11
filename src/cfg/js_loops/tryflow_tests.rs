@@ -28,7 +28,7 @@ fn why(src: &str) -> Vec<Option<Why>> {
 }
 
 /// Every tree of the file is refused, each by `TryFlow` or with `try_flow` among its overlapping reasons, and its
-/// owner is label-refused (O1). A tree an earlier rule already refuses keeps that primary reason.
+/// owner is refused whole (it keeps main's labels). A tree an earlier rule already refuses keeps that primary reason.
 fn all_try_flow(src: &str) -> bool {
     let p = parsed(src);
     let plan = p.js_loop_plan();
@@ -103,7 +103,7 @@ fn loop_free_try_owners_are_main_residuals_not_t2s() {
     // `lf` x@6->x@14 is `cfg_incomplete` on main since #803 (T1 closed it); `fin_def` x@6->x@8 is still a wrong `exact`.
     assert_eq!(labels_of(JS, LF, "x@6->x@14"), [CFG]);
     assert_eq!(labels_of(JS, FIN_DEF, "x@6->x@8"), ["exact"]);
-    // `noloop` stays refused by the existing O1/legacy machinery of main: pairs are `cfg_incomplete`.
+    // `noloop` stays refused by the existing legacy machinery of main: pairs are main's `cfg_incomplete`.
     assert_eq!(labels_of(JS, NOLOOP, "x@7->x@14"), [CFG]);
 }
 

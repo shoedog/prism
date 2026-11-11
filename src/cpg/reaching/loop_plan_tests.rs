@@ -311,3 +311,16 @@ fn the_line_cap_of_a_refused_owner_is_decided_on_its_standing_universe() {
     });
     assert_eq!(both_seams(&over_source), (over, over));
 }
+
+/// Disclosed main residual (Opus O1r1 W1; follow-up candidate: drop tree-straddling foreign edges in the nested
+/// owner). The enclosing owner's own sequential edge 14->18 joins two lines that are also statements of the nested
+/// callable and skips that callable's `while`, whose header always writes `z`, so `z@14->z@18` is `exact` although
+/// the truth is killed. It is `exact` on main 8cc4985d / db005395 and on the head: pinned as the current label.
+#[test]
+fn a_tree_straddling_foreign_edge_in_the_enclosing_owner_is_a_main_residual() {
+    let src = "function shr(xs) {\n  try { a(); } catch (e) {}\n  let q = 0; xs.forEach((k) => { let z = 0;\n    while ((z = next())) {\n      z = f();\n    }\n    sink(z); }); q = 1;\n  while (c()) {\n    q = g(q);\n  }\n  return q;\n}\nfunction shr2(xs) {\n  let q = 0; xs.forEach((k) => { let z = 0;\n    while ((z = next())) {\n      z = f();\n    }\n    sink(z); }); q = 1;\n  return q;\n}\n";
+    let head = labels_of(JS, src, "z@14->z@18");
+    assert!(head.iter().all(|l| l == "exact"), "{head:?}");
+    let main = crate::cfg::js_loops::with_main_loop_cfg(|| labels_of(JS, src, "z@14->z@18"));
+    assert_eq!(head, main);
+}

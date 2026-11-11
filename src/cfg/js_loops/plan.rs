@@ -9,8 +9,9 @@
 //! edges and labels), (2) the PLACEMENT rule holds (`placement`), and (3) every record of the owner that
 //! intersects it has a disposition of `OwnedReplaceable`, `Independent` or `Foreign` (not admitted by
 //! the owner's RD, or independent): an `Unresolved` one (`js_disposition`) refuses the tree. A refused
-//! tree keeps main's statement universe and edges, and its owner's labels are refused callable-wide
-//! (`NameOnly(CfgIncomplete)`, option O1; reaching definitions asks `refuses_owner`).
+//! tree is refused WHOLE with its owner (final refusal policy): the owner keeps main's statement universe,
+//! edges, labels and RD availability exactly, and its admissible sibling trees are refused with it
+//! (`Why::OwnerSibling`); `build_inner` asks `LoopPlan::admitted` and reaching definitions has no refusal path.
 //!
 //! The dispositions are read off a build, and a build depends on the universe, which depends on the
 //! admitted set: so the plan is a fixpoint. Round k builds every callable of the file with exactly the

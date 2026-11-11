@@ -486,7 +486,7 @@ pub struct ParsedFile {
     /// file, shared by the P1 loader priming and the call-graph build.
     js_export_facts: std::sync::OnceLock<js_ts::exports::JsExportFacts>,
     /// Lazily-computed JS/TS/TSX loop-tree plan (#693, #697): a pure function of the parsed file, asked
-    /// by the `do` condition admission, the loop edge rewrite and reaching definitions.
+    /// by the `do` condition admission and the loop edge rewrite (and read for the per-file counters).
     js_loop_plan: std::sync::OnceLock<crate::cfg::js_loops::LoopPlan>,
     /// Lazily-built: whether a Python run-time local reader can reach any owner of the file
     /// under another name (#630 U/D switch, `python_prune::file_hidden_hazard`).

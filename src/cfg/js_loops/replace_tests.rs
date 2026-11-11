@@ -300,7 +300,7 @@ fn a_try_owner_is_refused_whole_and_its_labels_are_cfg_incomplete() {
     // sol W1 / T2. On 975aabdf `x@7->x@20` was `exact` although every path from L7 to `sink` writes `x`
     // (`next()` at L8 or `other()` at L12): `catch` -> `finally` is drawn from the catch's first statement (L7 -> L15),
     // outside every loop footprint, and the wrapper completion L15 -> L20 completed an unflagged route. Fold 1 refused
-    // by catch shape; T2 refuses the OWNER that contains a `try` (`TryFlow`), callable-wide, whatever the shape.
+    // by catch shape; T2 refuses the OWNER that contains a `try` (`TryFlow`), whole, whatever the shape.
     let p = parse(JS, TC).js_loop_plan().clone();
     assert_eq!(p.verdicts[0].why, Some(Why::TryFlow));
     assert!(p.refuses_owner(p.verdicts[0].owner));
