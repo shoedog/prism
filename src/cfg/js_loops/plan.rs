@@ -154,40 +154,22 @@ pub(crate) struct LoopPlan {
     pub(crate) verdicts: Vec<Verdict>,
     /// The edges the last verifying round drew for the callables it built (key: the callable's byte range),
     /// under exactly the admission that stands: the standing build of those callables is these edges.
-    built: Standing,
+    built: Built,
 }
 
 /// A callable's drained edges, each with its origin (what `EdgeSink::drain` yields).
 type Built = BTreeMap<Range, Vec<(crate::cfg::CfgEdge, crate::cfg::EdgeOrigin)>>;
 
-/// The standing builds, handed over once: the CFG build takes a callable's edges out (so they are not held
-/// beside the copy it keeps), and a later build of the same file simply builds fresh.
-#[derive(Debug, Default)]
-struct Standing(std::sync::Mutex<Built>);
-
-impl Clone for Standing {
-    fn clone(&self) -> Self {
-        Self(std::sync::Mutex::new(self.lock().clone()))
-    }
-}
-
-impl Standing {
-    fn lock(&self) -> std::sync::MutexGuard<'_, Built> {
-        self.0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-}
-
 impl LoopPlan {
-    /// Takes the standing edges of the callable at `owner`, when the verifying round built it and nobody took
-    /// them yet (a pure reuse of work the plan already did under the admission that stands, never a different
-    /// answer; `None` means build fresh).
-    pub(in crate::cfg) fn take_standing(
+    /// The standing edges of the callable at `owner`, when the verifying round built it (a pure reuse of work
+    /// the plan already did under the admission that stands, never a different answer; `None`: build fresh).
+    /// Kept for every build of the file: handing them over once cost more CPU (later builds rebuilt) and
+    /// measured no RSS gain.
+    pub(in crate::cfg) fn replay(
         &self,
         owner: Range,
-    ) -> Option<Vec<(crate::cfg::CfgEdge, crate::cfg::EdgeOrigin)>> {
-        self.built.lock().remove(&owner)
+    ) -> Option<&[(crate::cfg::CfgEdge, crate::cfg::EdgeOrigin)]> {
+        self.built.get(&owner).map(Vec::as_slice)
     }
 
     /// Whether the owner is refused: a tree of it is refused, so the owner keeps main's geometry and labels whole.
@@ -269,7 +251,7 @@ impl LoopPlan {
                 admitted: BTreeSet::new(),
                 refused_owners: BTreeSet::new(),
                 verdicts: Vec::new(),
-                built: Standing::default(),
+                built: Built::new(),
             };
             plan.trace(parsed);
             return plan;
@@ -381,7 +363,7 @@ impl LoopPlan {
             admitted,
             refused_owners,
             verdicts: verdicts.into_values().collect(),
-            built: Standing(std::sync::Mutex::new(standing_built)),
+            built: standing_built,
         };
         plan.trace(parsed);
         plan

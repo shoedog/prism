@@ -255,16 +255,13 @@ fn the_plans_standing_builds_are_the_fresh_builds() {
         let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
         let plan = parsed.js_loop_plan();
         for owner in parsed.all_functions() {
-            let Some(standing) = plan.take_standing((owner.start_byte(), owner.end_byte())) else {
+            let Some(standing) = plan.replay((owner.start_byte(), owner.end_byte())) else {
                 continue;
             };
-            assert!(plan
-                .take_standing((owner.start_byte(), owner.end_byte()))
-                .is_none());
             let mut sink = EdgeSink::new();
             build_function_cfg(owner, &parsed, &mut sink);
             let fresh: Vec<_> = sink.drain().collect();
-            assert_eq!(standing, fresh, "{src}");
+            assert_eq!(standing, fresh.as_slice(), "{src}");
             replayed += 1;
         }
     }
