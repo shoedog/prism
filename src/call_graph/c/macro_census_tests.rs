@@ -484,3 +484,37 @@ fn r2_loader_stamps_every_skip_reason_that_loses_a_c_file() {
     )
     .unwrap()));
 }
+
+#[test]
+fn incomplete_reasons_are_recorded_and_stay_out_of_the_digest() {
+    // Two triggers in one repo: a non-ASCII byte in a directive's code position, and an
+    // unclosed parameter list.
+    let c = census(&[
+        ("a.h", "#define caf\u{e9} 1\n"),
+        ("b.h", "#define F(a, b 1\n"),
+    ]);
+    assert!(c.incomplete());
+    let r = c.incomplete_reasons();
+    assert_eq!(r.counts.get("non_ascii_directive"), Some(&1));
+    assert!(
+        r.counts.len() >= 2,
+        "the unclosed parameter list is a second trigger: {:?}",
+        r.counts
+    );
+    let hit = r
+        .first
+        .iter()
+        .find(|x| x.kind == "non_ascii_directive")
+        .unwrap();
+    assert_eq!((hit.path.as_str(), hit.line), ("a.h", 1));
+    assert!(hit.snippet.contains("caf"));
+    assert!(c.trace_lines()[0].starts_with("c-census incomplete: "));
+    // The reasons never enter the digest or equality: dropping them changes nothing.
+    let mut bare = c.clone();
+    bare.reasons = Default::default();
+    assert_eq!(bare.digest(), c.digest());
+    assert_eq!(bare, c);
+    // A complete census records nothing.
+    let ok = census(&[("a.h", "#define A 1\n")]);
+    assert!(ok.incomplete_reasons().first.is_empty() && ok.trace_lines().is_empty());
+}

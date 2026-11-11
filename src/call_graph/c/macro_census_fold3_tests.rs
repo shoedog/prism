@@ -335,9 +335,12 @@ fn f3_failed_text_include_joins_the_cache_identity() {
     let before = load_repo(dir.path()).unwrap();
     let key_before = compute_topology_key(&before.file_hashes, &before.manifest_hashes);
     assert!(!CMacroCensus::from_files(&before.files).incomplete());
-    // An oversized data.tbl appears; every parsed file is unchanged.
-    let big = vec![b'x'; 2 * 1024 * 1024 + 16];
-    write(dir.path(), "src/data.tbl", &big);
+    // A data.tbl beyond the census's own read cap appears (sparse: the cap is checked on the
+    // size, the bytes are never read); every parsed file is unchanged. A file over only the
+    // loader's 2 MiB limit is now read as text instead (the `s6b_` oversize tests).
+    let f = std::fs::File::create(dir.path().join("src/data.tbl")).unwrap();
+    f.set_len(crate::repo_loader::c_census::CENSUS_MAX_BYTES + 1)
+        .unwrap();
     let after = load_repo(dir.path()).unwrap();
     assert_eq!(after.file_hashes, before.file_hashes);
     assert!(CMacroCensus::from_files(&after.files).incomplete());

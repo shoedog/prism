@@ -10,7 +10,7 @@
 //!
 //! Review mode parses only the diff files: [`review_gap`] reports whether the repository
 //! holds census inputs the review did not read, in which case the census fails closed.
-use super::{rel, skip_dir, SkipReason, SkippedFile, MAX_FILE_BYTES};
+use super::{rel, skip_dir, SkipReason, SkippedFile};
 use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::quoted_includes;
 use crate::languages::Language;
@@ -113,6 +113,26 @@ fn existing_targets(
     out
 }
 
+/// `PRISM_C_PRUNE_TRACE=1`: name why the loader makes the census incomplete (first 20).
+fn trace_reason(kind: &str, items: &[String]) {
+    if std::env::var_os("PRISM_C_PRUNE_TRACE").is_none() {
+        return;
+    }
+    eprintln!("c-census incomplete: {kind}={}", items.len());
+    for i in items.iter().take(20) {
+        eprintln!("c-census reason\t{kind}\t{i}");
+    }
+}
+
+/// The census reads an oversize census input (a generated table over the loader's
+/// [`MAX_FILE_BYTES`]) as text up to this size; beyond it the census stays incomplete.
+pub(crate) const CENSUS_MAX_BYTES: u64 = 64 * 1024 * 1024;
+
+/// A C/C++ or text-include file the loader skipped for size only: the census reads it as text.
+fn is_oversize_census_input(s: &SkippedFile) -> bool {
+    matches!(s.reason, SkipReason::TooLarge { .. }) && is_census_path(&s.path)
+}
+
 /// What the loader found for the census.
 #[derive(Default)]
 pub(crate) struct CensusInputs {
@@ -145,23 +165,36 @@ pub(crate) fn gather(
     skipped: &[SkippedFile],
 ) -> CensusInputs {
     let mut g = CensusInputs::default();
+    // Without a parsed C/C++ file there is no census to feed, so an oversize file is a loss
+    // exactly as before; with one, it is read as text below (and a failed read is a loss).
+    let any_c = files.values().any(is_c_family_parsed);
     let mut lost: Vec<String> = skipped
         .iter()
-        .filter(|s| is_loss(s))
+        .filter(|s| is_loss(s) && !(any_c && is_oversize_census_input(s)))
         .map(|s| format!("{}\0{:?}", s.path, s.reason))
         .collect();
     if !lost.is_empty() {
         lost.sort();
+        trace_reason(
+            "loader_skip",
+            &lost
+                .iter()
+                .map(|l| l.replace('\0', " "))
+                .collect::<Vec<_>>(),
+        );
         g.incomplete = true;
         g.identity
             .insert("c-census:skipped".into(), sha(lost.join("\n").as_bytes()));
     }
-    if !files.values().any(is_c_family_parsed) {
+    if !any_c {
         return g;
     }
     let mut queue: Vec<String> = skipped
         .iter()
-        .filter(|s| s.reason == SkipReason::Unsupported && is_text_path(&s.path))
+        .filter(|s| {
+            (s.reason == SkipReason::Unsupported && is_text_path(&s.path))
+                || is_oversize_census_input(s)
+        })
         .map(|s| s.path.clone())
         .collect();
     let mut sources: Vec<(String, BTreeSet<String>)> = files
@@ -186,8 +219,13 @@ pub(crate) fn gather(
         }
         let Some(path) = queue.pop() else { break };
         let full = root.join(&path);
-        let too_big = std::fs::metadata(&full).map_or(false, |m| m.len() > MAX_FILE_BYTES);
-        match std::fs::read(&full) {
+        let too_big = std::fs::metadata(&full).map_or(false, |m| m.len() > CENSUS_MAX_BYTES);
+        let read = if too_big {
+            Ok(Vec::new())
+        } else {
+            std::fs::read(&full)
+        };
+        match read {
             Ok(bytes) if !too_big => {
                 g.identity
                     .insert(format!("c-census:text:{path}"), sha(&bytes));
@@ -199,6 +237,7 @@ pub(crate) fn gather(
             // `incomplete`), so it joins the cache identity too: a full hit must not replay a
             // census built before this file appeared or became unreadable.
             Ok(_) => {
+                trace_reason("text_include_failed", &[format!("{path} too-large")]);
                 g.incomplete = true;
                 g.identity.insert(
                     format!("c-census:text-failed:{path}"),
@@ -206,6 +245,7 @@ pub(crate) fn gather(
                 );
             }
             Err(e) => {
+                trace_reason("text_include_failed", &[format!("{path} {:?}", e.kind())]);
                 g.incomplete = true;
                 g.identity.insert(
                     format!("c-census:text-failed:{path}"),
@@ -252,6 +292,12 @@ pub(crate) fn review_gap(
     }
     if walk_text_paths(root, root, &mut gap).is_err() {
         gap.insert("<walk failed>".into());
+    }
+    if !gap.is_empty() {
+        trace_reason(
+            "review_gap",
+            &gap.iter().take(20).cloned().collect::<Vec<_>>(),
+        );
     }
     (!gap.is_empty()).then(|| sha(gap.into_iter().collect::<Vec<_>>().join("\n").as_bytes()))
 }
