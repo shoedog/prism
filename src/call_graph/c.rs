@@ -4,3 +4,6 @@ pub mod macro_census;
 
 #[cfg(test)]
 mod macro_census_tests;
+
+#[cfg(test)]
+mod macro_census_fold3_tests;

@@ -166,8 +166,25 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
         let (parse_warnings, parse_quality) =
             crate::ast::parse_quality::check_parse_quality(&files);
         drop(profile_load);
-        let (scope_graph_inputs, source_listing) =
+        let (mut scope_graph_inputs, source_listing) =
             crate::repo_loader::scope_graph_build_inputs_with_listing(&opts.repo, &files);
+        // #630 slice 6a: review parses only the diff's files. When the repository holds C/C++
+        // census inputs it did not read, the macro census fails closed (stamped on every
+        // parsed C/C++ file) and the gap joins the review topology key.
+        if let Some(gap) = crate::repo_loader::c_census::review_gap(
+            &opts.repo,
+            &files,
+            source_listing.as_ref().ok().map(|l| l.as_ref()),
+        ) {
+            for parsed in files.values_mut() {
+                if matches!(parsed.language, Language::C | Language::Cpp) {
+                    parsed.mark_c_family_skipped_in_repo();
+                }
+            }
+            scope_graph_inputs
+                .manifest_hashes
+                .insert("c-census:review-incomplete".into(), gap);
+        }
         let diff_text_sha256 = format!("{:x}", Sha256::digest(diff_text.as_bytes()));
 
         Ok(ReviewInputs {

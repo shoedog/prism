@@ -196,6 +196,12 @@ fn merge_walk_items(
 
     debug_assert!(outcomes.next().is_none());
 
+    // #630 slice 6a: the macro census reads the files the loader skipped or never parses;
+    // `c_census` stamps every parsed C/C++ file (so full, partial and scoped builds agree)
+    // and carries the cache identity of those inputs.
+    let c_census = c_census::gather(root, &files, &skipped);
+    c_census.apply(&mut files);
+
     let skipped_go_testdata_files = skipped
         .iter()
         .filter(|skip| skip.reason == SkipReason::GoTestdata)
@@ -207,6 +213,9 @@ fn merge_walk_items(
         js_paths_snapshot,
     );
     scope_graph_inputs.skipped_go_testdata_files = skipped_go_testdata_files;
+    scope_graph_inputs
+        .manifest_hashes
+        .extend(c_census.identity.clone());
     let manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
 
     LoadedRepo {
@@ -488,6 +497,7 @@ fn has_complete_rust_coverage(
 #[cfg(test)]
 mod bin_deps_tests;
 mod bin_roots;
+pub(crate) mod c_census;
 #[path = "repo_loader/freshness.rs"]
 mod freshness_paths;
 #[cfg(test)]

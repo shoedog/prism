@@ -205,10 +205,12 @@ fn raw_strings_do_not_hide_tokens() {
     let c = cpp(
         "#define M R\"(a\"b)\"; sink(x); R\"(c\"d)\"\n#define G R\"(a\"b)\"; goto out; R\"(c\"d)\"\n#define P u8R\"xy(\")xy\" + secret\n#define Q LR\"(q)\" + after\n",
     );
-    assert_eq!(c.get("M").unwrap().free, set(&["sink", "x"]));
+    // The C-dialect pass (no raw strings) is unioned in, so each free set may hold more.
+    has(&c, "M", "sink");
+    has(&c, "M", "x");
     assert!(c.get("G").unwrap().control);
-    assert_eq!(c.get("P").unwrap().free, set(&["secret"]));
-    assert_eq!(c.get("Q").unwrap().free, set(&["after"]));
+    has(&c, "P", "secret");
+    has(&c, "Q", "after");
     // An unterminated raw string fails closed.
     assert!(cpp("#define U R\"(open\n").get("U").unwrap().poisoned);
 }
@@ -262,4 +264,223 @@ fn unparseable_define_sets_incomplete_and_the_digest() {
     let tainted = census(&[("a.h", "#define A 1\n"), ("b.h", "#define\n")]);
     assert!(!clean.incomplete() && tainted.incomplete());
     assert_ne!(clean.digest(), tainted.digest());
+}
+
+// ---- Fold 2: round-2 reviewer inputs (sol 1-9, opus R2-W1..W7). ----
+
+fn has(c: &CMacroCensus, name: &str, ident: &str) {
+    let m = c.get(name).unwrap_or_else(|| panic!("{name} missing"));
+    assert!(m.free.contains(ident), "{name}.free = {:?}", m.free);
+}
+
+#[test]
+fn r2_sol1_raw_string_with_quote_delimiter() {
+    let c = cpp("const char *s = R\"\"(/*)\"\";\n#define M hidden\n/* */\n");
+    has(&c, "M", "hidden");
+}
+
+#[test]
+fn r2_sol2_and_opus_w6_splice_inside_raw_string() {
+    for src in [
+        "const char *s = R\"(a)\\\n\"/*)\";\n#define M hidden\n/* */\n",
+        "const char *s = R\"(x)\\\n\" /* )\";\n#define M hidden\n/* */\n",
+    ] {
+        let c = cpp(src);
+        has(&c, "M", "hidden");
+        assert!(c.incomplete(), "uncertain raw scan fails closed: {src}");
+    }
+}
+
+#[test]
+fn r2_opus_w6_comment_openers_the_compiler_does_not_open() {
+    // R"( in strict C.
+    let c = census(&[(
+        "a.h",
+        "const char *a = R\"(\";\n#define Q(x) (x)\"/*\"\n#define M hidden\nconst char *b = \"*/\";\n",
+    )]);
+    has(&c, "M", "hidden");
+    // Pre-C23 multi-character constant.
+    let c = census(&[("a.h", "x = 1'a/*';\n#define M hidden\n/* */\n")]);
+    has(&c, "M", "hidden");
+    // MSVC does not splice a backslash followed by a blank.
+    let c = census(&[("a.h", "// note \\ \n#define M hidden\n")]);
+    has(&c, "M", "hidden");
+}
+
+#[test]
+fn r2_sol3_trigraphs() {
+    let c = census(&[(
+        "a.h",
+        "??=define M hidden\n#define NEXT hid??/\nden\n#define CAT(a,b) a ??=??= b\n",
+    )]);
+    has(&c, "M", "hidden");
+    has(&c, "NEXT", "hidden");
+    assert!(c.get("CAT").unwrap().poisoned);
+}
+
+#[test]
+fn r2_cr_only_and_mixed_line_endings() {
+    let c = census(&[("a.h", "// header\r#define M hidden\r")]);
+    has(&c, "M", "hidden");
+    let c = census(&[("a.h", "#define A 1\r#define NEXT x\r")]);
+    assert!(c.get("A").unwrap().free.is_empty());
+    has(&c, "NEXT", "x");
+    let c = census(&[("a.h", "#define M hid\\\rden\r")]);
+    has(&c, "M", "hidden");
+}
+
+#[test]
+fn r2_bom_hides_nothing() {
+    let c = census(&[("a.h", "\u{feff}#define M hidden\n")]);
+    has(&c, "M", "hidden");
+}
+
+#[test]
+fn r2_ucn_and_non_ascii_identifiers() {
+    let c = census(&[("a.h", "#define READ \\u00E9\n#define caf\\u00E9 hidden\n")]);
+    has(&c, "READ", "\\u00E9");
+    has(&c, "READ", "u00E9");
+    let m = c.get("caf\\u00E9").expect("whole UCN name recorded");
+    assert!(m.poisoned);
+    assert!(c.get("caf").is_none());
+    // Literal non-ASCII names and combining marks.
+    let c = census(&[(
+        "a.h",
+        "#define caf\u{e9} x\n#define a\u{b7}b y\n#define NEXT caf\u{e9}\n",
+    )]);
+    assert!(c.get("caf\u{e9}").unwrap().poisoned);
+    assert!(c.get("a\u{b7}b").unwrap().poisoned);
+    has(&c, "NEXT", "caf");
+    assert!(c.get("NEXT").unwrap().poisoned, "reaches a poisoned macro");
+    // NBSP glued to an identifier still records the ASCII fragment.
+    let c = census(&[("a.h", "#define M(a) a =\u{a0}secret\n")]);
+    has(&c, "M", "secret");
+    // A UCN or non-ASCII parameter poisons the macro.
+    let c = census(&[("a.h", "#define F(\u{e9}) \u{e9} + z\n")]);
+    assert!(c.get("F").unwrap().poisoned);
+    has(&c, "F", "z");
+}
+
+#[test]
+fn r2_splice_with_any_blank_before_newline() {
+    for blank in ["\x0c", "\x0b", " ", "\t", " \t"] {
+        let c = census(&[("a.h", &format!("#define M hid\\{blank}\nden\n"))]);
+        has(&c, "M", "hidden");
+    }
+}
+
+#[test]
+fn r2_control_spellings() {
+    for (i, body) in [
+        "_asm { jmp target }",
+        "if (_setjmpex(b) == 0)",
+        "__vfork()",
+        "__setjmp(e)",
+        "_sigsetjmp(e, 1)",
+        "qsetjmp(e)",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let c = census(&[("a.h", &format!("#define J{i} {body}\n"))]);
+        assert!(c.get(&format!("J{i}")).unwrap().control, "{body}");
+    }
+    // Fold 3: any identifier holding a returns-twice stem is control.
+    for (i, body) in [
+        "__mingw_setjmp(b)",
+        "_setjmp3(b)",
+        "setjmpish",
+        "my_getcontext_wrap()",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let c = census(&[("a.h", &format!("#define K{i} {body}\n"))]);
+        assert!(c.get(&format!("K{i}")).unwrap().control, "{body}");
+    }
+    assert!(
+        !census(&[("a.h", "#define P jmp_buf_size\n")])
+            .get("P")
+            .unwrap()
+            .control
+    );
+}
+
+#[test]
+fn r2_sol9_malformed_parameters_cannot_collide() {
+    let hostile = "#define A(\x01fhidden\x00\x01\x00\x00\x02mB\x00py) 1\n";
+    let clean = "#define A hidden\n#define B(y) 1\n";
+    let h = census(&[("a.h", hostile)]);
+    let k = census(&[("a.h", clean)]);
+    assert!(h.incomplete(), "an invalid parameter fails closed");
+    assert!(h.get("A").unwrap().poisoned);
+    assert_ne!(h.digest(), k.digest());
+    // Empty parameters between commas and stray text are invalid too.
+    for src in [
+        "#define F(a,,b) 1\n",
+        "#define F(a b) 1\n",
+        "#define F(1a) 1\n",
+    ] {
+        let c = census(&[("a.h", src)]);
+        assert!(c.incomplete() && c.get("F").unwrap().poisoned, "{src}");
+    }
+    // Valid forms stay clean.
+    let c = census(&[(
+        "a.h",
+        "#define F() 1\n#define G(a, ...) a\n#define H(args...) args\n",
+    )]);
+    assert!(!c.incomplete());
+}
+
+#[test]
+fn r2_union_pass_does_not_taint_clean_macros() {
+    // A multi-line comment in a body must not poison or set incomplete via the unstripped pass.
+    let c = census(&[("a.h", "#define FOUR /* multi\nline */ w\n")]);
+    assert!(!c.get("FOUR").unwrap().poisoned && !c.incomplete());
+}
+
+#[test]
+fn r2_skipped_c_family_file_fails_closed() {
+    let mut f = files(&[("a.h", "#define A 1\n")]);
+    assert!(!CMacroCensus::from_files(&f).incomplete());
+    for p in f.values_mut() {
+        p.mark_c_family_skipped_in_repo();
+    }
+    let skipped = CMacroCensus::from_files(&f);
+    assert!(skipped.incomplete());
+    assert_ne!(
+        skipped.digest(),
+        census(&[("a.h", "#define A 1\n")]).digest()
+    );
+}
+
+#[test]
+fn r2_loader_stamps_every_skip_reason_that_loses_a_c_file() {
+    use crate::repo_loader::load_repo;
+    let census_of = |setup: &dyn Fn(&std::path::Path)| {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("ok.h"), "#define A 1\n").unwrap();
+        setup(dir.path());
+        let repo = load_repo(dir.path()).unwrap();
+        CMacroCensus::from_files(&repo.files).incomplete()
+    };
+    assert!(!census_of(&|_| {}));
+    // Latin-1 copyright sign: NotUtf8.
+    assert!(census_of(&|d| std::fs::write(
+        d.join("legacy.h"),
+        b"/* \xA9 */\n#define NEXT x\n"
+    )
+    .unwrap()));
+    // A non-C file that is skipped does not matter.
+    assert!(!census_of(&|d| std::fs::write(
+        d.join("data.bin.txt"),
+        b"\xff\xfe"
+    )
+    .unwrap()));
+    #[cfg(unix)]
+    assert!(census_of(&|d| std::os::unix::fs::symlink(
+        d.join("ok.h"),
+        d.join("link.h")
+    )
+    .unwrap()));
 }

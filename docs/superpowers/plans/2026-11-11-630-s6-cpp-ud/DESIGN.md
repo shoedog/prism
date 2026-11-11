@@ -482,6 +482,8 @@ the upper end of what converged for Rust.
 
 ---
 
+**6a census gate (fold 2).** The census records an `incomplete` flag, and the rule for 6b is: `incomplete` disables U and D for ALL C/C++ (repo-wide, not per file or per macro). It is set by a `#define` line that names no macro, an unreadable macro parameter, an unterminated block comment, an uncertain raw-string scan, or any in-repo C/C++ file the loader skipped (NotUtf8, ParseFailed, Unreadable, TooLarge, Symlink; the loader stamps every parsed C/C++ file, so full, partial and scoped builds agree). This closes X2 for skipped in-repo files: they are no longer treated as external. Definition lines are the union of the comment-stripped and the unstripped text, so a lexer divergence adds macros (refusing more) and never loses one.
+
 ## 6. Fallback: H4, disclosure-first (H1 without the census)
 
 Use it if the owner declines the census's full-rebuild cost, or if 6a fails to converge within its cap. The rule set
@@ -534,3 +536,12 @@ folds. It is measured on redis `src/` and leveldb, with cpython for macro sampli
 without the census: U only on macro-free lines, and the macro boundary widened to all macros. The owner decides
 the macro policy and its wording, the C++ class and operator conventions, `.h` handling, `.c`-as-C++, corpus
 publication, slicing and field paths.
+
+**6a census gate (fold 3, owner-approved past the cap).** Further `incomplete` triggers:
+- a non-ASCII byte, UCN or trigraph in any directive line;
+- an unreadable define-looking line in any pass;
+- any `Unreadable` loader skip, including directories;
+- skipped text-include files;
+- review mode with unparsed C/C++ or text-include files in the repository.
+
+Text-only include files (`.inl .inc .ipp .tcc .def .cu .cuh .H .C .HPP .CPP`, plus in-repo quoted-include targets with unmapped extensions) are read into the census. Their hashes and the skipped-file aggregate join the cache topology key (`c-census:` entries), so a full hit cannot replay a stale census. C-dialect passes are unioned. Soft poison is kept per source definition. Control matches the substrings setjmp, vfork, getcontext and savectx.
