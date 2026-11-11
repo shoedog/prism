@@ -77,6 +77,8 @@ mod rust_prune;
 #[cfg(test)]
 mod rust_prune_fold3_tests;
 #[cfg(test)]
+mod rust_prune_inline_cases;
+#[cfg(test)]
 mod rust_prune_tests;
 #[cfg(test)]
 mod same_line_fold2_tests;

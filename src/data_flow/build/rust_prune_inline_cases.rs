@@ -1,4 +1,13 @@
-// Fold 4 (#630 slice 5, Rust): format captures in nested statements, macro_rules! in token
+//! Rust U/D matrix inputs that set repo-wide macro-census facts (#806). They live as strings,
+//! not under `tests/fixtures`, because the repository loader indexes that tree and one
+//! `#[macro_use] extern crate`, soup-defined `assert` or std-spelling import alias there would
+//! make the census of any index of the prism repository refuse the std macros.
+
+/// `(file name, source)`; rows for them stay in `tests/fixtures/dfg_prune/rust/obligations.jsonl`.
+pub(super) const INLINE_CASES: &[(&str, &str)] = &[
+    (
+        "06_fold4.rs",
+        r####"// Fold 4 (#630 slice 5, Rust): format captures in nested statements, macro_rules! in token
 // soup outside owners, comments in soup, and the format grammar.
 // Markers: `// @id:D` is the def line, `// @id:U:keep|drop:reason` the use line of a row.
 macro_rules! identity { ($($t:tt)*) => { $($t)* }; }
@@ -159,3 +168,40 @@ fn format_plain_width() -> String {
     x = format!("{:5}", 1); // @format_plain_width:U:drop:numeric_width_names_nothing
     x
 }
+"####,
+    ),
+    (
+        "07_fold4_import.rs",
+        r####"// Fold 4: a raw-identifier import alias binds the std spelling.
+use ext::install_get as r#assert;
+
+fn raw_alias_import() -> i32 {
+    let mut x = 1; // @raw_alias_import:D
+    assert!(x);
+    x = get!() + 1; // @raw_alias_import:U:keep:raw_alias_binds_assert
+    x
+}
+
+fn raw_local(mut r#type: i32) -> i32 { // @raw_local:D
+    ext::gen!(r#type);
+    r#type = get!() + 1; // @raw_local:U:keep:raw_identifier_refused
+    r#type
+}
+"####,
+    ),
+    (
+        "08_fold4_extern.rs",
+        r####"// Fold 4: a comment between `#[macro_use]` and `extern crate`.
+#[macro_use]
+/* imported macros */
+extern crate ext;
+
+fn macro_use_comment() -> i32 {
+    let mut x = 1; // @macro_use_comment:D
+    assert!(x);
+    x = get!() + 1; // @macro_use_comment:U:keep:macro_use_after_comment
+    x
+}
+"####,
+    ),
+];

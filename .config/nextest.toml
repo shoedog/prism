@@ -21,3 +21,9 @@ slow-timeout = { period = "60s", terminate-after = 8 }
 # shard neighbours (count partitioning moves it as tests are added).
 filter = 'test(=ast::member_reference_index::tests::member_index_differential_all_fixtures)'
 slow-timeout = { period = "60s", terminate-after = 8 }
+
+[[profile.ci.overrides]]
+# The RSS-interval test builds a 60-function fixture so the file-CFG rise dominates the
+# first owner's first-touch rise (#795): ~70s in debug on macOS, ~2.5x under coverage.
+filter = 'test(=build_profile_round2_test::rss_intervals_exclude_cfg_in_both_owner_orders)'
+slow-timeout = { period = "60s", terminate-after = 8 }
