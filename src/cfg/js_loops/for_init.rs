@@ -24,6 +24,8 @@ use tree_sitter::Node;
 struct Target {
     path: Option<Vec<String>>,
     names: BTreeSet<String>,
+    /// The write is a declaration (a declarator or a `let`/`const`/`var` loop head), not an assignment.
+    declares: bool,
 }
 
 impl<'a, 'tree> Cx<'a, 'tree> {
@@ -41,6 +43,17 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         let mut body_writes = Vec::new();
         if let Some(body) = node.child_by_field_name("body") {
             self.collect_targets(body, &mut body_writes);
+        }
+        // A `let`/`const` header binding cannot be redeclared in the body, so a declaration of the same name
+        // there (an inner `for (const i of xs)`, a `let i` in a block) is another binding: not a body write of it.
+        if init.kind() == "lexical_declaration" {
+            let mut header = Vec::new();
+            self.collect_targets(init, &mut header);
+            let names: BTreeSet<_> = header
+                .iter()
+                .flat_map(|t| t.names.iter().cloned())
+                .collect();
+            body_writes.retain(|t| !(t.declares && t.names.iter().all(|n| names.contains(n))));
         }
         if body_writes.is_empty() {
             return false;
@@ -78,10 +91,13 @@ impl<'a, 'tree> Cx<'a, 'tree> {
             };
             if let Some(t) = target {
                 let mut names = BTreeSet::new();
-                self.target_names(t, true, &mut names);
+                self.target_names(t, &mut names);
                 out.push(Target {
                     path: self.static_path(t),
                     names,
+                    declares: n.kind() == "variable_declarator"
+                        || (n.kind() == "for_in_statement"
+                            && n.child_by_field_name("kind").is_some()),
                 });
             }
             let mut cursor = n.walk();
@@ -89,31 +105,23 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         }
     }
 
-    /// The identifiers a write target mentions (`loose`: an index too), through patterns.
-    fn target_names(&self, t: Node<'tree>, loose: bool, out: &mut BTreeSet<String>) {
+    /// The identifiers a write target writes or hangs off, through patterns.
+    fn target_names(&self, t: Node<'tree>, out: &mut BTreeSet<String>) {
         let text = |n: Node<'_>| self.parsed.source[n.start_byte()..n.end_byte()].to_string();
         match t.kind() {
             "identifier" | "shorthand_property_identifier_pattern" => {
                 out.insert(text(t));
             }
             "member_expression" | "subscript_expression" => {
-                if loose {
-                    let mut stack = vec![t];
-                    while let Some(n) = stack.pop() {
-                        if n.kind() == "identifier" {
-                            out.insert(text(n));
-                        }
-                        let mut cursor = n.walk();
-                        stack.extend(n.named_children(&mut cursor));
-                    }
-                } else if let Some(object) = t.child_by_field_name("object") {
-                    self.target_names(object, loose, out);
+                // The written element belongs to the object: an index or property expression is only read.
+                if let Some(object) = t.child_by_field_name("object") {
+                    self.chain_names(object, out);
                 }
             }
             "assignment_pattern" | "object_assignment_pattern" => {
                 // `a = default`: the written side only.
                 if let Some(left) = t.child_by_field_name("left") {
-                    self.target_names(left, loose, out);
+                    self.target_names(left, out);
                 }
             }
             "array_pattern" | "object_pattern" | "rest_pattern" | "parenthesized_expression" => {
@@ -124,14 +132,14 @@ impl<'a, 'tree> Cx<'a, 'tree> {
                         // `{ key: value }`: the value side is written.
                         "pair_pattern" => {
                             if let Some(v) = c.child_by_field_name("value") {
-                                self.target_names(v, loose, out);
+                                self.target_names(v, out);
                             }
                         }
-                        _ => self.target_names(c, loose, out),
+                        _ => self.target_names(c, out),
                     }
                 }
             }
-            _ if loose => {
+            _ => {
                 let mut stack = vec![t];
                 while let Some(n) = stack.pop() {
                     if matches!(
@@ -144,7 +152,28 @@ impl<'a, 'tree> Cx<'a, 'tree> {
                     stack.extend(n.named_children(&mut cursor));
                 }
             }
-            _ => {}
+        }
+    }
+
+    /// The identifiers of a member chain's object: through member and subscript objects, and every identifier of
+    /// anything else (a call, an assignment, a parenthesized expression).
+    fn chain_names(&self, n: Node<'tree>, out: &mut BTreeSet<String>) {
+        match n.kind() {
+            "member_expression" | "subscript_expression" => {
+                if let Some(object) = n.child_by_field_name("object") {
+                    self.chain_names(object, out);
+                }
+            }
+            _ => {
+                let mut stack = vec![n];
+                while let Some(x) = stack.pop() {
+                    if x.kind() == "identifier" {
+                        out.insert(self.parsed.source[x.start_byte()..x.end_byte()].to_string());
+                    }
+                    let mut cursor = x.walk();
+                    stack.extend(x.named_children(&mut cursor));
+                }
+            }
         }
     }
 
