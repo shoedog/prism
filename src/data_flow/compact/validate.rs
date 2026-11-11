@@ -81,6 +81,7 @@ impl TryFrom<WireDfg> for CompactDfg {
             exact_labels: w.exact_labels.into_iter().collect(),
             rd_function_stats: w.rd_function_stats.into_iter().collect(),
             rust_macro_census_digest: w.rust_macro_census_digest,
+            c_macro_census_digest: w.c_macro_census_digest,
         })
     }
 }

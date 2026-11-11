@@ -712,6 +712,18 @@ impl CodePropertyGraph {
                 return Self::build_impl_inner(files, type_db, scope_inputs);
             }
 
+            // Slice 6a (#630 slice 6): the C/C++ macro census guards the cached DFG the same
+            // way; nothing reads it yet, but its digest is persisted and compared.
+            let fresh_c_macro_census =
+                crate::call_graph::c::macro_census::CMacroCensus::from_files(files);
+            if fresh_c_macro_census.digest() != cached_dfg.c_macro_census_digest() {
+                drop(p);
+                drop((cached_cg, cached_dfg)); // Abandoned C macro-census graphs.
+                #[cfg(test)]
+                lifetime.record("incremental_c_macro_census");
+                return Self::build_impl_inner(files, type_db, scope_inputs);
+            }
+
             p.next("cpg.incremental.remove");
             // Step 1: Remove stale data for changed files.
             cached_cg.remove_files(changed_files);
@@ -722,8 +734,12 @@ impl CodePropertyGraph {
             p.next("call_graph.incremental_direct");
             let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
             p.next("dfg.incremental_build");
-            let fresh_dfg =
-                DataFlowGraph::build_subset_with_census(files, changed_files, &fresh_macro_census);
+            let fresh_dfg = DataFlowGraph::build_subset_with_census(
+                files,
+                changed_files,
+                &fresh_macro_census,
+                &fresh_c_macro_census,
+            );
 
             p.next("cpg.incremental.merge");
             // Step 3: Merge fresh into retained.

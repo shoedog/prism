@@ -17,6 +17,7 @@ use std::path::PathBuf;
 #[cfg(test)]
 mod anon_prep_tests;
 mod boundary;
+pub mod c;
 pub(crate) mod go;
 #[path = "call_graph/profile_initializers.rs"]
 mod init_profile;

@@ -1,6 +1,7 @@
 //! Removal-only Go, Python and Rust proofs. No CFG or RD label is used to discard a pair.
 use crate::access_path::AccessPath;
 use crate::ast::{ParsedFile, PathSpan};
+use crate::call_graph::c::macro_census::CMacroCensus;
 use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::cpg::RdFileStats;
 use crate::languages::Language;
@@ -71,6 +72,8 @@ impl<'a> LexicalFacts<'a> {
         lvalues: &[PathSpan],
         rvalues: &[PathSpan],
         census: &RustMacroCensus,
+        // Slice 6a: threaded to the owner, not consumed yet (rules arrive in 6b).
+        _c_census: &CMacroCensus,
     ) -> Self {
         // No lvalue span leaves the write table empty: U cannot prove a write-only line and D has
         // no dominating write (formals still get defs), so the owner switch is not consulted.

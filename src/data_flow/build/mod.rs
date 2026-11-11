@@ -3,6 +3,7 @@ use super::{
     AccessPath, DataFlowGraph, ExactFlowEdge, FlowConfidence, FlowEdge, ParsedFile, RdFileStats,
     VarLocation,
 };
+use crate::call_graph::c::macro_census::CMacroCensus;
 use crate::call_graph::rust::macro_args::RustMacroCensus;
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -10,6 +11,8 @@ mod alias_occurrence;
 mod aliases;
 #[cfg(test)]
 mod arrow_body_cap_tests;
+#[cfg(test)]
+mod c_macro_census_tests;
 #[cfg(test)]
 mod census_cap_tests;
 mod exact_reads;
@@ -126,7 +129,8 @@ impl DataFlowGraph {
     ) -> Self {
         crate::build_pool::install(|| {
             let census = RustMacroCensus::from_files(files);
-            Self::build_subset_with_census(files, only_files, &census)
+            let c_census = CMacroCensus::from_files(files);
+            Self::build_subset_with_census(files, only_files, &census, &c_census)
         })
     }
 
@@ -135,6 +139,7 @@ impl DataFlowGraph {
         files: &BTreeMap<String, ParsedFile>,
         only_files: &BTreeSet<String>,
         census: &RustMacroCensus,
+        c_census: &CMacroCensus,
     ) -> Self {
         // Filter to only the requested files and delegate to build.
         let filtered: BTreeMap<String, &ParsedFile> = files
@@ -142,7 +147,7 @@ impl DataFlowGraph {
             .filter(|(k, _)| only_files.contains(*k))
             .map(|(k, v)| (k.clone(), v))
             .collect();
-        crate::build_pool::install(|| Self::build_from_refs_on_pool(&filtered, census))
+        crate::build_pool::install(|| Self::build_from_refs_on_pool(&filtered, census, c_census))
     }
 
     /// Build a data flow graph from parsed files.
@@ -163,7 +168,8 @@ impl DataFlowGraph {
         // build pool once (inline when already on it) whatever thread calls.
         crate::build_pool::install(|| {
             let census = RustMacroCensus::from_files(census_files);
-            Self::build_from_refs_on_pool(&refs, &census)
+            let c_census = CMacroCensus::from_files(census_files);
+            Self::build_from_refs_on_pool(&refs, &census, &c_census)
         })
     }
 
@@ -174,12 +180,17 @@ impl DataFlowGraph {
     pub(crate) fn build_on_current_pool(files: &BTreeMap<String, ParsedFile>) -> Self {
         let refs: BTreeMap<String, &ParsedFile> =
             files.iter().map(|(k, v)| (k.clone(), v)).collect();
-        Self::build_from_refs_on_pool(&refs, &RustMacroCensus::from_files(files))
+        Self::build_from_refs_on_pool(
+            &refs,
+            &RustMacroCensus::from_files(files),
+            &CMacroCensus::from_files(files),
+        )
     }
 
     fn build_from_refs_on_pool(
         files: &BTreeMap<String, &ParsedFile>,
         census: &RustMacroCensus,
+        c_census: &CMacroCensus,
     ) -> Self {
         let _profile = crate::profile::Phase::serial("dfg");
         let ordered_files: Vec<(&String, &ParsedFile)> =
@@ -188,13 +199,14 @@ impl DataFlowGraph {
             crate::build_pool::per_item(&ordered_files)
                 .map(|entry| {
                     let (file_path, parsed) = *entry;
-                    Producer::compact_file_refs(file_path, parsed, census)
+                    Producer::compact_file_refs(file_path, parsed, census, c_census)
                 })
                 .collect();
 
         let mut storage =
             super::compact::combine(per_file_refs).expect("DFG exceeds u32 location capacity");
         storage.rust_macro_census_digest = census.digest();
+        storage.c_macro_census_digest = c_census.digest();
         DataFlowGraph { storage }
     }
 }
