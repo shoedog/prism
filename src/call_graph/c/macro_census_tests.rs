@@ -205,10 +205,12 @@ fn raw_strings_do_not_hide_tokens() {
     let c = cpp(
         "#define M R\"(a\"b)\"; sink(x); R\"(c\"d)\"\n#define G R\"(a\"b)\"; goto out; R\"(c\"d)\"\n#define P u8R\"xy(\")xy\" + secret\n#define Q LR\"(q)\" + after\n",
     );
-    assert_eq!(c.get("M").unwrap().free, set(&["sink", "x"]));
+    // The C-dialect pass (no raw strings) is unioned in, so each free set may hold more.
+    has(&c, "M", "sink");
+    has(&c, "M", "x");
     assert!(c.get("G").unwrap().control);
-    assert_eq!(c.get("P").unwrap().free, set(&["secret"]));
-    assert_eq!(c.get("Q").unwrap().free, set(&["after"]));
+    has(&c, "P", "secret");
+    has(&c, "Q", "after");
     // An unterminated raw string fails closed.
     assert!(cpp("#define U R\"(open\n").get("U").unwrap().poisoned);
 }
@@ -383,8 +385,21 @@ fn r2_control_spellings() {
         let c = census(&[("a.h", &format!("#define J{i} {body}\n"))]);
         assert!(c.get(&format!("J{i}")).unwrap().control, "{body}");
     }
+    // Fold 3: any identifier holding a returns-twice stem is control.
+    for (i, body) in [
+        "__mingw_setjmp(b)",
+        "_setjmp3(b)",
+        "setjmpish",
+        "my_getcontext_wrap()",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let c = census(&[("a.h", &format!("#define K{i} {body}\n"))]);
+        assert!(c.get(&format!("K{i}")).unwrap().control, "{body}");
+    }
     assert!(
-        !census(&[("a.h", "#define P setjmpish\n")])
+        !census(&[("a.h", "#define P jmp_buf_size\n")])
             .get("P")
             .unwrap()
             .control

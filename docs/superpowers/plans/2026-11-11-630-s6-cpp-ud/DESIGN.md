@@ -536,3 +536,12 @@ folds. It is measured on redis `src/` and leveldb, with cpython for macro sampli
 without the census: U only on macro-free lines, and the macro boundary widened to all macros. The owner decides
 the macro policy and its wording, the C++ class and operator conventions, `.h` handling, `.c`-as-C++, corpus
 publication, slicing and field paths.
+
+**6a census gate (fold 3, owner-approved past the cap).** Further `incomplete` triggers:
+- a non-ASCII byte, UCN or trigraph in any directive line;
+- an unreadable define-looking line in any pass;
+- any `Unreadable` loader skip, including directories;
+- skipped text-include files;
+- review mode with unparsed C/C++ or text-include files in the repository.
+
+Text-only include files (`.inl .inc .ipp .tcc .def .cu .cuh .H .C .HPP .CPP`, plus in-repo quoted-include targets with unmapped extensions) are read into the census. Their hashes and the skipped-file aggregate join the cache topology key (`c-census:` entries), so a full hit cannot replay a stale census. C-dialect passes are unioned. Soft poison is kept per source definition. Control matches the substrings setjmp, vfork, getcontext and savectx.
