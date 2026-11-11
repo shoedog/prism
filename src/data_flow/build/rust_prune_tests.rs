@@ -1,4 +1,5 @@
 //! Rust U/D obligations (#630 slice 5, Rust): frozen-reference differential plus marked rows.
+use super::rust_prune_inline_cases::INLINE_CASES;
 use super::Producer;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
@@ -81,6 +82,29 @@ fn rust_prune_is_removal_only_over_fixture_tree() {
         };
         check_subset(path.file_name().unwrap().to_str().unwrap(), &source);
     }
+    for (name, source) in INLINE_CASES {
+        check_subset(name, source);
+    }
+}
+
+/// Every matrix input as `(file name, source)`: the on-disk fixtures plus the inline cases.
+fn matrix_inputs() -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = fixtures("tests/fixtures/dfg_prune/rust")
+        .into_iter()
+        .map(|p| {
+            (
+                p.file_name().unwrap().to_str().unwrap().to_owned(),
+                std::fs::read_to_string(&p).unwrap(),
+            )
+        })
+        .collect();
+    out.extend(
+        INLINE_CASES
+            .iter()
+            .map(|(n, s)| (n.to_string(), s.to_string())),
+    );
+    out.sort();
+    out
 }
 
 #[test]
@@ -91,10 +115,8 @@ fn rust_prune_matrix() {
             .map(|l| serde_json::from_str(l).unwrap())
             .collect();
     let mut failures = Vec::new();
-    for path in fixtures("tests/fixtures/dfg_prune/rust") {
-        let name = path.file_stem().unwrap().to_str().unwrap();
-        let file = path.file_name().unwrap().to_str().unwrap().to_owned();
-        let source = std::fs::read_to_string(&path).unwrap();
+    for (file, source) in matrix_inputs() {
+        let name = file.strip_suffix(".rs").unwrap();
         let parsed = ParsedFile::parse(&file, &source, Language::Rust).unwrap();
         let before = Producer::file_refs_frozen(&file, &parsed);
         let after = Producer::file_refs(&file, &parsed);
