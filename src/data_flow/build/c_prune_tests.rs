@@ -267,3 +267,29 @@ fn c_prune_reads_the_repo_wide_census() {
     let (b, a) = with_census(&[("a.c", owner), ("z.c", "#define 9bad 1\n")], "a.c");
     assert_eq!(a, b, "incomplete census disables every owner");
 }
+
+/// Z05 (C-specific cap row): an owner over the 2,048-definition RD limit is capped on the
+/// frozen producer (no edges); with C pruning the survivor-based cap (owner rule #634)
+/// lets it regain its surviving edges, so `edges_after` is NOT a subset here. Pinned so a
+/// change to the cap is a decision, not an accident. C++ and `.h` stay capped.
+#[test]
+fn c_prune_formerly_capped_owner_regains_survivors_per_634() {
+    let mut src = String::from("void sink(int);\nint f(void) {\n    long x = 0;\n");
+    for _ in 0..2050 {
+        src.push_str("    x = 1;\n");
+    }
+    src.push_str("    sink(x);\n    return x;\n}\n");
+    let (b, a) = edge_count("cap.c", &src, Language::C);
+    assert!(
+        a >= b,
+        "C pruning can only regain survivors here: {b} -> {a}"
+    );
+    assert!(
+        a > b,
+        "the owner was capped on the frozen producer: {b} -> {a}"
+    );
+    let (b, a) = edge_count("cap.cc", &src, Language::Cpp);
+    assert_eq!(a, b, "C++ keeps the cap");
+    let (b, a) = edge_count("cap.h", &src, Language::C);
+    assert_eq!(a, b, "a header keeps the cap");
+}

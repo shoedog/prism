@@ -62,6 +62,17 @@
 {"case": "04_gates", "id": "g6", "path": "x", "def_line": 76, "use_line": 79, "keep": false, "reason": "va_escape_is_for_ap_only", "owner": "va_keep"}
 {"case": "04_gates", "id": "g7", "path": "x", "def_line": 83, "use_line": 86, "keep": true, "reason": "seh_spelling_owner_off", "owner": "seh_ident_off"}
 {"case": "05_error_owner", "id": "er", "path": "x", "def_line": 6, "use_line": 8, "keep": true, "reason": "owner_has_parse_error", "owner": "error_owner_off"}
+{"case": "06_fold1", "id": "h1", "path": "gx", "def_line": 18, "use_line": 19, "keep": true, "reason": "conditional_extern_shadow_write_only", "owner": "cond_extern_u"}
+{"case": "06_fold1", "id": "h2", "path": "gn", "def_line": 31, "use_line": 35, "keep": true, "reason": "conditional_extern_shadow_dominated", "owner": "cond_extern_d"}
+{"case": "06_fold1", "id": "h3", "path": "m", "def_line": 46, "use_line": 47, "keep": true, "reason": "conditional_static_recursion", "owner": "cond_static_rec"}
+{"case": "06_fold1", "id": "h4", "path": "pb", "def_line": 53, "use_line": 56, "keep": false, "reason": "control_no_wrapper", "owner": "plain_block_decl_drop"}
+{"case": "06_fold1", "id": "o1", "path": "cm", "def_line": 65, "use_line": 67, "keep": true, "reason": "omp_after_comment", "owner": "omp_comment_off"}
+{"case": "06_fold1", "id": "o2", "path": "cc", "def_line": 76, "use_line": 78, "keep": true, "reason": "omp_after_continuation", "owner": "omp_continued_off"}
+{"case": "06_fold1", "id": "o3", "path": "ca", "def_line": 86, "use_line": 88, "keep": true, "reason": "acc_after_comment", "owner": "acc_comment_off"}
+{"case": "06_fold1", "id": "c1", "path": "p", "def_line": 95, "use_line": 97, "keep": true, "reason": "certificate_left_check", "owner": "cert_left_keep"}
+{"case": "06_fold1", "id": "t07", "path": "s", "def_line": 105, "use_line": 106, "keep": true, "reason": "own_use_of_whole_copy", "owner": "agg_bare_restore"}
+{"case": "06_fold1", "id": "t07", "path": "s", "def_line": 105, "use_line": 109, "keep": false, "reason": "bare_aggregate_restored_by_whole_copy", "owner": "agg_bare_restore"}
+{"case": "06_fold1", "id": "g8", "path": "ap", "def_line": 116, "use_line": 118, "keep": true, "reason": "va_list_is_escaped", "owner": "va_ap_keep"}
 {"case": "10_macros", "id": "m1", "path": "x2", "def_line": 14, "use_line": 15, "keep": true, "reason": "object_macro_hides_a_read", "owner": "macro_free_read_keep"}
 {"case": "10_macros", "id": "m2", "path": "x3", "def_line": 20, "use_line": 22, "keep": true, "reason": "name_passed_to_macro", "owner": "macro_param_read_drop"}
 {"case": "10_macros", "id": "m3", "path": "x4", "def_line": 26, "use_line": 28, "keep": false, "reason": "no_macro_involved", "owner": "macro_param_other_drop"}
@@ -74,3 +85,8 @@
 {"case": "10_macros", "id": "m10", "path": "xa", "def_line": 74, "use_line": 77, "keep": true, "reason": "define_in_body_owner_off", "owner": "define_in_body_off"}
 {"case": "10_macros", "id": "m11", "path": "xb", "def_line": 81, "use_line": 84, "keep": true, "reason": "include_in_body_owner_off", "owner": "include_in_body_off"}
 {"case": "11_incomplete", "id": "inc", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "census_incomplete", "owner": "census_incomplete_off"}
+{"case": "12_fold1_macros", "id": "k1", "path": "x1", "def_line": 11, "use_line": 15, "keep": true, "reason": "keyword_spelled_macro_free_names", "owner": "keyword_macro_keep"}
+{"case": "12_fold1_macros", "id": "k2", "path": "x2", "def_line": 20, "use_line": 24, "keep": true, "reason": "type_keyword_spelled_macro_free_names", "owner": "type_keyword_macro_keep"}
+{"case": "12_fold1_macros", "id": "k3", "path": "x9", "def_line": 29, "use_line": 31, "keep": false, "reason": "no_macro_spelled_here", "owner": "keyword_macro_unrelated_drop"}
+{"case": "12_fold1_macros", "id": "a1", "path": "a4", "def_line": 35, "use_line": 38, "keep": true, "reason": "macro_after_arrow_takes_address", "owner": "arrow_macro_keep"}
+{"case": "12_fold1_macros", "id": "a2", "path": "a5", "def_line": 42, "use_line": 45, "keep": true, "reason": "parenthesized_macro_name", "owner": "paren_macro_keep"}

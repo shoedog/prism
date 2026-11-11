@@ -14,7 +14,7 @@
 //! (#634) lets a formerly capped owner regain its surviving edges.
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
-use crate::call_graph::c::macro_census::CMacroCensus;
+use crate::call_graph::c::macro_census::{normalized_texts, spelled_identifiers, CMacroCensus};
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
@@ -33,6 +33,9 @@ pub(super) enum Off {
     G2,
     /// G3: asm or SEH.
     G3,
+    /// G3: a Microsoft-extension node (`ms_*`: `__declspec`, calling conventions, `__restrict`,
+    /// pointer modifiers); refused whole, split out in the ledger.
+    G3Ms,
     /// G4: a returns-twice name.
     G4,
     /// G5: an invoked in-repo macro is poisoned.
@@ -83,6 +86,8 @@ pub(super) struct COwner {
     member_roots: BTreeSet<String>,
     /// Names that are in-repo macros (the spelling is ineligible).
     macro_names: BTreeSet<String>,
+    /// Declarators found under a wrapper the resolver cannot see (E1; names are in `escaped`).
+    pub(super) hidden_decls: usize,
 }
 
 fn ident_chars(c: char) -> bool {
@@ -99,25 +104,64 @@ pub(super) fn is_dot_c(parsed: &ParsedFile) -> bool {
 }
 
 /// The textual belt of G2: a logical line that starts with `#` (or `%:`) and names a
-/// directive that can change names or the code the body means.
+/// directive that can change names or the code the body means. Lines are read after
+/// translation phases 1-2 and comment stripping, in both dialects and splice modes, so a
+/// comment (`#pragma /*gap*/ omp`) or a continuation cannot hide the directive word.
 fn body_has_forbidden_directive(text: &str) -> bool {
-    text.lines().any(|line| {
-        let t = line.trim_start();
-        let Some(rest) = t.strip_prefix('#').or_else(|| t.strip_prefix("%:")) else {
-            return false;
-        };
-        let rest = rest.trim_start();
-        let word: String = rest.chars().take_while(|c| ident_chars(*c)).collect();
-        match word.as_str() {
-            "define" | "undef" | "include" | "include_next" | "import" => true,
-            "pragma" => {
-                let arg = rest["pragma".len()..].trim_start();
-                let first: String = arg.chars().take_while(|c| ident_chars(*c)).collect();
-                matches!(first.as_str(), "omp" | "acc")
+    normalized_texts(text).iter().any(|t| {
+        t.lines().any(|line| {
+            let t = line.trim_start();
+            let Some(rest) = t.strip_prefix('#').or_else(|| t.strip_prefix("%:")) else {
+                return false;
+            };
+            let rest = rest.trim_start();
+            let word: String = rest.chars().take_while(|c| ident_chars(*c)).collect();
+            match word.as_str() {
+                "define" | "undef" | "include" | "include_next" | "import" => true,
+                "pragma" => {
+                    let arg = rest["pragma".len()..].trim_start();
+                    let first: String = arg.chars().take_while(|c| ident_chars(*c)).collect();
+                    matches!(first.as_str(), "omp" | "acc")
+                }
+                _ => false,
             }
-            _ => false,
-        }
+        })
     })
+}
+
+/// The name a call's callee ends in: the identifier, the field of `a.f` / `a->f`, or either
+/// inside parentheses. A function-like macro can be spelled after `->` or `.`, or in
+/// parentheses, and the preprocessor still expands it.
+fn callee_last_name<'a>(parsed: &'a ParsedFile, mut f: Node<'a>) -> Option<&'a str> {
+    loop {
+        match f.kind() {
+            "identifier" | "field_identifier" => return Some(parsed.node_text(&f)),
+            "field_expression" => f = f.child_by_field_name("field")?,
+            "parenthesized_expression" => f = f.named_child(0)?,
+            _ => return None,
+        }
+    }
+}
+
+/// Names declared by a `declaration` that is not a direct child of a block, a direct `case`,
+/// or a `for` header (a declaration under `#if`/`#ifdef`/`#else`/`#elif`, a label or a nested
+/// `case` is invisible to the lexical resolver, so the occurrence could bind an outer local).
+fn hidden_declaration(node: Node<'_>) -> bool {
+    if node.kind() != "declaration" {
+        return false;
+    }
+    match node.parent() {
+        Some(p) => match p.kind() {
+            "compound_statement" | "for_statement" | "function_definition" | "translation_unit" => {
+                false
+            }
+            "case_statement" => !p
+                .parent()
+                .is_some_and(|b| b.kind() == "compound_statement" && is_switch_body(b)),
+            _ => true,
+        },
+        None => false,
+    }
 }
 
 fn is_name_kind(kind: &str) -> bool {
@@ -180,10 +224,19 @@ pub(super) fn scan(
         escaped: BTreeSet::new(),
         member_roots: BTreeSet::new(),
         macro_names: BTreeSet::new(),
+        hidden_decls: 0,
     };
     let mut labels = BTreeSet::new();
     let mut gotos = Vec::new();
     let mut off = None;
+    // Macro spellings from the owner's preprocessing tokens, whatever node kind the parser
+    // gave them (`#define const x = saved;` makes `const` a macro use).
+    let Some(spelled) = spelled_identifiers(text) else {
+        return Err(Off::G2);
+    };
+    for name in &spelled {
+        note_name(name, census, &mut out, &mut off);
+    }
     walk(
         parsed,
         owner,
@@ -201,6 +254,35 @@ pub(super) fn scan(
         out.d_ok = false;
     }
     Ok(out)
+}
+
+/// Gates and census facts of one spelled name (a node of a name kind, or a preprocessing
+/// token).
+fn note_name(name: &str, census: &CMacroCensus, out: &mut COwner, off: &mut Option<Off>) {
+    let mut set_off = |o: Off| {
+        if off.is_none() {
+            *off = Some(o);
+        }
+    };
+    match name {
+        "asm" | "__asm" | "__asm__" | "__try" | "__except" | "__finally" | "__leave" => {
+            set_off(Off::G3)
+        }
+        "_Pragma" => set_off(Off::G2),
+        n if RETURNS_TWICE.contains(&n) => set_off(Off::G4),
+        _ => {}
+    }
+    if let Some(facts) = census.get(name) {
+        out.macro_names.insert(name.to_owned());
+        if facts.poisoned {
+            set_off(Off::G5);
+        }
+        if facts.control {
+            out.d_ok = false;
+        }
+        out.escaped.extend(facts.free.iter().cloned());
+        out.escaped.extend(facts.params.iter().cloned());
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -230,29 +312,19 @@ fn walk(
     ) {
         set_off(Off::G2);
     }
-    if kind.contains("asm") || kind.starts_with("seh_") || kind.starts_with("ms_") {
+    if kind.starts_with("ms_") {
+        set_off(Off::G3Ms);
+    } else if kind.contains("asm") || kind.starts_with("seh_") {
         set_off(Off::G3);
     }
     if is_name_kind(kind) {
-        let name = parsed.node_text(&node);
-        match name {
-            "asm" | "__asm" | "__asm__" | "__try" | "__except" | "__finally" | "__leave" => {
-                set_off(Off::G3)
-            }
-            "_Pragma" => set_off(Off::G2),
-            n if RETURNS_TWICE.contains(&n) => set_off(Off::G4),
-            _ => {}
-        }
-        if let Some(facts) = census.get(name) {
-            out.macro_names.insert(name.to_owned());
-            if facts.poisoned {
-                set_off(Off::G5);
-            }
-            if facts.control {
-                out.d_ok = false;
-            }
-            out.escaped.extend(facts.free.iter().cloned());
-            out.escaped.extend(facts.params.iter().cloned());
+        note_name(parsed.node_text(&node), census, out, off);
+    }
+    if hidden_declaration(node) {
+        let mut cursor = node.walk();
+        for d in node.children_by_field_name("declarator", &mut cursor) {
+            all_identifiers(d, parsed, &mut out.escaped);
+            out.hidden_decls += 1;
         }
     }
     match kind {
@@ -284,11 +356,11 @@ fn walk(
                 node.child_by_field_name("function"),
                 node.child_by_field_name("arguments"),
             ) {
-                let name = parsed.node_text(&f);
-                // Any occurrence inside an in-repo function-like macro invocation, and the
-                // varargs builtins that write their list argument.
-                if f.kind() == "identifier"
-                    && (census.get(name).is_some() || VA_NAMES.contains(&name))
+                // Any occurrence inside an in-repo function-like macro invocation (also
+                // spelled `it->MACRO(x)` or `(MACRO)(x)`), and the varargs builtins that
+                // write their list argument.
+                if callee_last_name(parsed, f)
+                    .is_some_and(|name| census.get(name).is_some() || VA_NAMES.contains(&name))
                 {
                     all_identifiers(args, parsed, &mut out.escaped);
                 }

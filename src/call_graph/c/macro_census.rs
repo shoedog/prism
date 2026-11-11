@@ -506,6 +506,41 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
     }
 }
 
+/// Source text after translation phases 1-2 and comment stripping (a block comment is one
+/// space), in both lexing dialects: the logical lines a directive reader must see. Slice 6b
+/// reads `#pragma omp` through it, so a comment or a continuation cannot hide the word.
+pub(crate) fn normalized_texts(source: &str) -> Vec<String> {
+    let t = translate(source, true);
+    let mut out = Vec::new();
+    for lenient in [true, false] {
+        let (spliced, points) = splice(&t, lenient);
+        for cxx in [false, true] {
+            out.push(strip_comments(&spliced, &points, cxx).text);
+        }
+    }
+    out
+}
+
+/// Every identifier token (the census's one identifier rule) spelled in `source`, read from
+/// the normalized text of both dialects and both splice modes, independently of how a
+/// parser classifies the spelling (`#define const x = 1;` makes `const` a macro use).
+/// Comments, string and character literals and numbers carry none; `None` when a literal or
+/// comment cannot be read to its end (the caller fails closed).
+pub(crate) fn spelled_identifiers(source: &str) -> Option<BTreeSet<String>> {
+    let mut out = BTreeSet::new();
+    for text in normalized_texts(source) {
+        for cxx in [false, true] {
+            let body = tokenize(&text, cxx);
+            if !body.ok {
+                // An unreadable literal or comment: the token set would be partial.
+                return None;
+            }
+            out.extend(body.idents);
+        }
+    }
+    Some(out)
+}
+
 /// One parsed `#define`.
 struct Parsed<'a> {
     name: String,

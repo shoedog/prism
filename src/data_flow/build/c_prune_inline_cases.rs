@@ -109,4 +109,54 @@ void census_incomplete_off(void) {
 }
 "####,
     ),
+    (
+        "12_fold1_macros.c",
+        r####"// Fold 1 census rows (#811 review round 1): macro spellings parsed as keywords or types,
+// macros spelled after `->` and in parentheses.
+long src(void);
+void sink(long);
+#define const x1 = saved1;
+#define short x2 = saved2; int
+#define stepper(v) step_impl(&(v))
+struct It { void (*stepper)(long); };
+
+void keyword_macro_keep(void) {
+    long x1 = src();      // @k1:D x1
+    long saved1 = x1;
+    x1 = 0;
+    const long y = 0;
+    sink(x1);             // @k1:U:keep:keyword_spelled_macro_free_names
+    sink(saved1 + y);
+}
+
+void type_keyword_macro_keep(void) {
+    long x2 = src();      // @k2:D x2
+    long saved2 = x2;
+    x2 = 0;
+    short y = 0;
+    sink(x2);             // @k2:U:keep:type_keyword_spelled_macro_free_names
+    sink(saved2 + y);
+}
+
+void keyword_macro_unrelated_drop(void) {
+    long x9 = src();      // @k3:D x9
+    x9 = 0;
+    sink(x9);             // @k3:U:drop:no_macro_spelled_here
+}
+
+void arrow_macro_keep(struct It *it) {
+    long a4 = src();      // @a1:D a4
+    a4 = 1;
+    it->stepper(a4);
+    sink(a4);             // @a1:U:keep:macro_after_arrow_takes_address
+}
+
+void paren_macro_keep(struct It *it) {
+    long a5 = src();      // @a2:D a5
+    a5 = 1;
+    (stepper)(a5);
+    sink(a5);             // @a2:U:keep:parenthesized_macro_name
+}
+"####,
+    ),
 ];
