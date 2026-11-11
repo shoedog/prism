@@ -193,8 +193,20 @@ fn the_loop_keyword_gate_never_hides_a_loop() {
     ] {
         assert!(may_hold_loop(src.as_bytes()), "{src}");
     }
+    // Conservative cases: a keyword in a string, as a property, minified, or after a statement end still pass.
+    for src in [
+        "for(;;){",
+        "do{}while(0)",
+        "a.for(1)",
+        "s = 'while the loop runs'",
+        "x=1;do{x++}while(x<3)",
+    ] {
+        assert!(may_hold_loop(src.as_bytes()), "{src}");
+    }
     for src in [
         "",
+        "$for = 1; a.$while = 2",
+        "\\u0066or(;;){}",
         "format(x); forEach(y); document.undo(); window.width = 1",
         "let do_it = 1; $for = 2; _while = 3; formdo(x)",
         "x = 1; return y;",
@@ -243,15 +255,38 @@ fn the_plans_standing_builds_are_the_fresh_builds() {
         let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
         let plan = parsed.js_loop_plan();
         for owner in parsed.all_functions() {
-            let Some(standing) = plan.replay((owner.start_byte(), owner.end_byte())) else {
+            let Some(standing) = plan.take_standing((owner.start_byte(), owner.end_byte())) else {
                 continue;
             };
+            assert!(plan
+                .take_standing((owner.start_byte(), owner.end_byte()))
+                .is_none());
             let mut sink = EdgeSink::new();
             build_function_cfg(owner, &parsed, &mut sink);
             let fresh: Vec<_> = sink.drain().collect();
-            assert_eq!(standing, fresh.as_slice(), "{src}");
+            assert_eq!(standing, fresh, "{src}");
             replayed += 1;
         }
     }
     assert!(replayed > 0, "the fixtures exercise a replayed build");
+}
+
+#[test]
+fn a_loop_recovered_from_a_parse_error_is_planned_like_the_ungated_walk() {
+    // `1while` and `1for` are no keyword to the text gate (a digit precedes), but tree-sitter recovers a loop
+    // statement in a body with an error: the gate is bypassed there (9af2aeb7 counts one tree, refused).
+    for src in [
+        "function f() {\n  let x = 0;\n  1while ((x = next())) {\n    x = g();\n  }\n  sink(x);\n}\n",
+        "function f(xs) {\n  let x = 0;\n  1for (const y of xs) {\n    x = y;\n  }\n  sink(x);\n}\n",
+    ] {
+        let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
+        let body = parsed.all_functions()[0].child_by_field_name("body").unwrap();
+        assert!(body.has_error());
+        assert!(!crate::cfg::js_loops::may_hold_loop(
+            &src.as_bytes()[body.byte_range()]
+        ));
+        let counters = parsed.js_loop_plan().counters();
+        assert_eq!(counters.get("trees"), Some(&1), "{counters:?}");
+        assert_eq!(counters.get("owners_refused"), Some(&1), "{counters:?}");
+    }
 }

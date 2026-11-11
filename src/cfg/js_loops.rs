@@ -377,7 +377,11 @@ impl<'a, 'tree> Cx<'a, 'tree> {
     /// The owner's outermost loops (never inside a nested callable), in source order.
     fn outermost(&self) -> Vec<Node<'tree>> {
         let mut out = Vec::new();
-        if !may_hold_loop(&self.parsed.source.as_bytes()[self.body.byte_range()]) {
+        // A body with a parse error is walked whatever its text: error recovery can make a loop of text
+        // (`1while (c) {}`) the keyword gate would not see.
+        if !self.body.has_error()
+            && !may_hold_loop(&self.parsed.source.as_bytes()[self.body.byte_range()])
+        {
             return out;
         }
         let mut stack = vec![self.body];

@@ -302,18 +302,18 @@ pub(crate) fn build_cfg_edges_with_arms(parsed: &ParsedFile) -> Vec<(CfgEdge, Ar
     for func_node in parsed.all_functions() {
         if replay {
             let range = (func_node.start_byte(), func_node.end_byte());
-            if let Some(edges) = parsed.js_loop_plan().replay(range) {
+            if let Some(edges) = parsed.js_loop_plan().take_standing(range) {
                 if edges.is_empty() {
                     continue;
                 }
                 let arms = parsed.statement_arms_in_function(&func_node);
-                out.extend(edges.iter().map(|(edge, origin)| {
+                out.extend(edges.into_iter().map(|(edge, origin)| {
                     let provenance = ArmProvenance {
-                        origin: *origin,
+                        origin,
                         from_arm: span_of(&arms, edge.from_line, UNKNOWN_FROM_ARM),
                         to_arm: span_of(&arms, edge.to_line, UNKNOWN_TO_ARM),
                     };
-                    (edge.clone(), provenance)
+                    (edge, provenance)
                 }));
                 continue;
             }
