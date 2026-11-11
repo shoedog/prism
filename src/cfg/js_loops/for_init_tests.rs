@@ -57,6 +57,7 @@ const CONTROLS: &[(&str, &str, &str, bool, &str)] = &[
     ("c3_readonly", "function f(n) {\n  let z = 1;\n  for (let i = 0; i < n; i++) {\n    use(i);\n  }\n  sink(z);\n}\n", "i@3->i@4", true, "nameonly/sameline"),
     ("c8_inner_decl", "function f(items, n) {\n  let z = 1;\n  let s = 0;\n  for (let i = 0; i < n; i++) {\n    for (const i of items) {\n      s = i;\n    }\n  }\n  sink(s, z);\n}\n", "s@6->s@9", true, "exact"), // an inner `for (const i ..)` is another binding
     ("c9_index_read", "function f(r, n) {\n  let z = 1;\n  let m = 0;\n  for (let i = 0; i < n; i++) {\n    (r ??= [])[i] = g(i);\n    m = i;\n  }\n  sink(m, z);\n}\n", "m@6->m@8", true, "exact"), // `(r ??= [])[i] = ..` reads `i`, writes an element
+    ("c10_call_arg_read", "function f(w, arr, n) {\n  let z = 1;\n  for (let i = 0; i < n; i++) {\n    w.get(arr[i]).count--;\n  }\n  sink(w.count, z);\n}\n", "z@2->z@6", true, "exact"), // `w.get(arr[i]).count--` reads `i`, writes a property of a call result
     ("c4_shadow", "function f(o, more) {\n  let z = 1;\n  for (o.x = 0; more(); o.y++) {\n    { let o = {}; o.x = 1; }\n  }\n  sink(o.x, z);\n}\n", "o.x@3->o.x@6", false, "exact"),
 ];
 

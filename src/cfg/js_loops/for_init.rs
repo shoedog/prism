@@ -155,25 +155,32 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         }
     }
 
-    /// The identifiers of a member chain's object: through member and subscript objects, and every identifier of
-    /// anything else (a call, an assignment, a parenthesized expression).
+    /// The identifiers a member chain's object hangs off: through member and subscript objects, a call's callee
+    /// (never its arguments) and wrappers; every identifier of any other shape (an assignment, a literal).
     fn chain_names(&self, n: Node<'tree>, out: &mut BTreeSet<String>) {
-        match n.kind() {
-            "member_expression" | "subscript_expression" => {
-                if let Some(object) = n.child_by_field_name("object") {
-                    self.chain_names(object, out);
-                }
+        let next = match n.kind() {
+            "member_expression" | "subscript_expression" => n.child_by_field_name("object"),
+            "call_expression" => n.child_by_field_name("function"),
+            "non_null_expression"
+            | "parenthesized_expression"
+            | "as_expression"
+            | "satisfies_expression" => {
+                let mut cursor = n.walk();
+                let first = n.named_children(&mut cursor).next();
+                first
             }
-            _ => {
-                let mut stack = vec![n];
-                while let Some(x) = stack.pop() {
-                    if x.kind() == "identifier" {
-                        out.insert(self.parsed.source[x.start_byte()..x.end_byte()].to_string());
-                    }
-                    let mut cursor = x.walk();
-                    stack.extend(x.named_children(&mut cursor));
-                }
+            _ => None,
+        };
+        if let Some(next) = next {
+            return self.chain_names(next, out);
+        }
+        let mut stack = vec![n];
+        while let Some(x) = stack.pop() {
+            if x.kind() == "identifier" {
+                out.insert(self.parsed.source[x.start_byte()..x.end_byte()].to_string());
             }
+            let mut cursor = x.walk();
+            stack.extend(x.named_children(&mut cursor));
         }
     }
 
