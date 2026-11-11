@@ -1,6 +1,8 @@
 //! Bootstrap-only validation against the loader's retained source and input evidence.
 use super::*;
-use prism::repo_loader::{collect_freshness_source_paths, scope_graph_build_inputs, SkipReason};
+use prism::repo_loader::{
+    collect_freshness_source_paths, current_c_census_identity, scope_graph_build_inputs, SkipReason,
+};
 use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::sync::Mutex;
@@ -55,6 +57,28 @@ pub(super) fn validate(repo: &LoadedRepo, tracked: &mut BTreeMap<String, PathSta
         }
         uncertain |= unreadable;
         tracked.insert(rel.clone(), current_stamp);
+    }
+    // Census identity (`c-census:` entries of the loaded topology), recomputed from disk with
+    // the loader's own skips and compared with the loaded entries of the same prefix. A
+    // changed, added or removed text include (or a text-failed entry) is stale; the skipped
+    // aggregate depends only on the loaded skip list, so an unchanged repository is not.
+    {
+        let current = current_c_census_identity(&repo.root, &repo.files, &repo.skipped);
+        let loaded: BTreeMap<&String, &String> = repo
+            .manifest_hashes
+            .iter()
+            .filter(|(k, _)| k.starts_with("c-census:"))
+            .collect();
+        for key in loaded.keys().copied().chain(current.keys()) {
+            if loaded.get(key).copied() != current.get(key) {
+                changed.insert(
+                    key.strip_prefix("c-census:text:")
+                        .or_else(|| key.strip_prefix("c-census:text-failed:"))
+                        .unwrap_or(key)
+                        .to_string(),
+                );
+            }
+        }
     }
     for attempt in 0..2 {
         let directories: BTreeMap<_, _> = tracked

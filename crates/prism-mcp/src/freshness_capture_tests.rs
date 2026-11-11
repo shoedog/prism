@@ -306,3 +306,52 @@ fn freshness_budget_and_completeness() {
     on("inputs-between", move || fs::remove_file(p).unwrap());
     assert_probe(&repo, true, "completeness changed");
 }
+
+fn census_fixture() -> tempfile::TempDir {
+    let d = fixture();
+    source(
+        d.path(),
+        "m.c",
+        "#include \"t.inl\"\n#include \"u.inc\"\nint f(void){return 1;}\n",
+    );
+    source(d.path(), "t.inl", "#define A 1\n");
+    source(d.path(), "u.inc", "#define B 2\n");
+    d
+}
+
+#[test]
+fn freshness_census_text_edit_marks_stale() {
+    let d = census_fixture();
+    let repo = load_repo(d.path()).unwrap();
+    assert_probe(&repo, false, "unchanged census texts");
+    source(d.path(), "t.inl", "#define A 3\n");
+    assert_probe(&repo, true, "edited .inl");
+    // A probe built before the edit notices it through its own stamps too.
+    source(d.path(), "t.inl", "#define A 1\n");
+    let probe = FreshnessProbe::from_loaded_repo(&repo);
+    assert!(!probe.check().stale);
+    source(d.path(), "t.inl", "#define A 4 /* grown */\n");
+    assert!(probe.check().stale, "stamp watches the text file");
+}
+
+#[test]
+fn freshness_census_text_removal_marks_stale() {
+    let d = census_fixture();
+    let repo = load_repo(d.path()).unwrap();
+    fs::remove_file(d.path().join("u.inc")).unwrap();
+    assert_probe(&repo, true, "removed .inc");
+}
+
+#[test]
+fn freshness_census_unchanged_with_unreadable_directory_is_not_stale() {
+    let d = census_fixture();
+    fs::create_dir(d.path().join("locked")).unwrap();
+    mode(d.path(), "locked", 0);
+    let repo = load_repo(d.path()).unwrap();
+    assert!(repo
+        .manifest_hashes
+        .keys()
+        .any(|k| k.starts_with("c-census:text:")));
+    assert_probe(&repo, false, "unchanged repo, census texts, unreadable dir");
+    mode(d.path(), "locked", 0o700);
+}

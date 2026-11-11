@@ -231,6 +231,30 @@ fn merge_walk_items(
     }
 }
 
+/// The `c-census:` cache-identity entries recomputed from the disk the way `load_repo` computed
+/// them (same files, same loader skips), for a freshness probe to compare with the loaded
+/// `LoadedRepo::manifest_hashes` entries of the same prefix. Like with like: the loaded side
+/// is never rebuilt from `scope_graph_inputs`.
+pub fn current_c_census_identity(
+    root: &Path,
+    files: &BTreeMap<String, ParsedFile>,
+    skipped: &[SkippedFile],
+) -> BTreeMap<String, String> {
+    c_census::gather(root, files, skipped).identity
+}
+
+/// Paths of the census-only text files a loaded repository's identity names.
+pub fn c_census_text_paths(manifest_hashes: &BTreeMap<String, String>) -> Vec<String> {
+    manifest_hashes
+        .keys()
+        .filter_map(|k| {
+            k.strip_prefix("c-census:text:")
+                .or_else(|| k.strip_prefix("c-census:text-failed:"))
+        })
+        .map(str::to_string)
+        .collect()
+}
+
 pub fn scope_graph_build_inputs(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
