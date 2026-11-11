@@ -26,6 +26,9 @@ struct Target {
     names: BTreeSet<String>,
     /// The write is a declaration (a declarator or a `let`/`const`/`var` loop head), not an assignment.
     declares: bool,
+    /// A member or subscript write whose chain has no static path (a call, a tagged template, ...): it cannot be
+    /// told from any other write, so it overlaps everything.
+    opaque: bool,
 }
 
 impl<'a, 'tree> Cx<'a, 'tree> {
@@ -98,6 +101,8 @@ impl<'a, 'tree> Cx<'a, 'tree> {
                 self.target_names(t, &mut names);
                 out.push(Target {
                     path: self.static_path(t),
+                    opaque: self.static_path(t).is_none()
+                        && matches!(peel(t).kind(), "member_expression" | "subscript_expression"),
                     names,
                     declares: n.kind() == "variable_declarator"
                         || (n.kind() == "for_in_statement"
@@ -116,15 +121,7 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         if &self.parsed.source[op.start_byte()..op.end_byte()] != "delete" {
             return None;
         }
-        let mut arg = n.child_by_field_name("argument")?;
-        while matches!(
-            arg.kind(),
-            "parenthesized_expression" | "non_null_expression"
-        ) {
-            let mut cursor = arg.walk();
-            let inner = arg.named_children(&mut cursor).next();
-            arg = inner?;
-        }
+        let arg = peel(n.child_by_field_name("argument")?);
         matches!(arg.kind(), "member_expression" | "subscript_expression").then_some(arg)
     }
 
@@ -207,29 +204,51 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         }
     }
 
-    /// The static path of a write target: an identifier, `this`, or a member chain over those.
-    fn static_path(&self, t: Node<'tree>) -> Option<Vec<String>> {
+    /// The static path of a write target: an identifier, `this`, or a member chain over those, wrappers peeled as
+    /// the write census peels them. `exact` is cleared when a wrapper or an optional chain was crossed: the
+    /// census identity and RD's recorded path may then disagree, so the path may be a hazard source or a body
+    /// definition but never an exemption.
+    fn static_path_with(&self, t: Node<'tree>, exact: &mut bool) -> Option<Vec<String>> {
         let text = |n: Node<'_>| self.parsed.source[n.start_byte()..n.end_byte()].to_string();
         match t.kind() {
             "identifier" | "this" => Some(vec![text(t)]),
-            "parenthesized_expression" | "non_null_expression" => {
-                let mut cursor = t.walk();
-                let mut children = t.named_children(&mut cursor);
-                let inner = children.next()?;
-                children.next().is_none().then(|| self.static_path(inner))?
+            "parenthesized_expression"
+            | "non_null_expression"
+            | "as_expression"
+            | "satisfies_expression"
+            | "type_assertion" => {
+                *exact = false;
+                self.static_path_with(operand(t)?, exact)
             }
             "member_expression" => {
-                let mut path = self.static_path(t.child_by_field_name("object")?)?;
+                let mut cursor = t.walk();
+                if t.children(&mut cursor)
+                    .any(|c| c.kind() == "optional_chain")
+                {
+                    *exact = false;
+                }
+                let mut path = self.static_path_with(t.child_by_field_name("object")?, exact)?;
                 path.push(text(t.child_by_field_name("property")?));
                 Some(path)
             }
             "subscript_expression" => {
-                let mut path = self.static_path(t.child_by_field_name("object")?)?;
+                let mut path = self.static_path_with(t.child_by_field_name("object")?, exact)?;
                 path.push("[]".to_string());
                 Some(path)
             }
             _ => None,
         }
+    }
+
+    fn static_path(&self, t: Node<'tree>) -> Option<Vec<String>> {
+        self.static_path_with(t, &mut true)
+    }
+
+    /// The path only when the census identity and RD's recorded path certainly agree.
+    fn exact_path(&self, t: Node<'tree>) -> Option<Vec<String>> {
+        let mut exact = true;
+        let path = self.static_path_with(t, &mut exact)?;
+        exact.then_some(path)
     }
 
     /// The paths an expression of the test or update NECESSARILY writes each time it is evaluated: only
@@ -255,7 +274,7 @@ impl<'a, 'tree> Cx<'a, 'tree> {
                 }
                 if let Some(path) = n
                     .child_by_field_name("left")
-                    .and_then(|l| self.static_path(l))
+                    .and_then(|l| self.exact_path(l))
                 {
                     out.push(path);
                 }
@@ -266,13 +285,13 @@ impl<'a, 'tree> Cx<'a, 'tree> {
             "update_expression" => {
                 if let Some(path) = n
                     .child_by_field_name("argument")
-                    .and_then(|a| self.static_path(a))
+                    .and_then(|a| self.exact_path(a))
                 {
                     out.push(path);
                 }
             }
             "unary_expression" => {
-                if let Some(path) = self.deleted_member(n).and_then(|m| self.static_path(m)) {
+                if let Some(path) = self.deleted_member(n).and_then(|m| self.exact_path(m)) {
                     out.push(path);
                 }
             }
@@ -298,8 +317,49 @@ fn may_affect(i: &Target, d: &Target) -> bool {
         (Some(ip), Some(dp)) => {
             prefix_compatible(ip, dp) || prefix_compatible(recorded(ip), recorded(dp))
         }
-        _ => !i.names.is_disjoint(&d.names),
+        // An opaque chain, or a shape that names nothing, overlaps everything (fail closed).
+        _ => {
+            i.opaque
+                || d.opaque
+                || i.names.is_empty()
+                || d.names.is_empty()
+                || !i.names.is_disjoint(&d.names)
+        }
     }
+}
+
+/// The wrapped operand the write census sees through: comments are skipped, and a parenthesized, `as`,
+/// `satisfies`, `<T>` or non-null expression is unwrapped (`js_write_census/walk.rs::wrap_operand`).
+fn operand(n: Node<'_>) -> Option<Node<'_>> {
+    let mut cursor = n.walk();
+    let kids: Vec<Node<'_>> = n
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() != "comment")
+        .collect();
+    match n.kind() {
+        "type_assertion" => kids.last().copied(),
+        "as_expression" | "satisfies_expression" => kids.first().copied(),
+        _ if kids.len() == 1 => kids.first().copied(),
+        _ => None,
+    }
+}
+
+/// `n` with every census wrapper unwrapped.
+fn peel(mut n: Node<'_>) -> Node<'_> {
+    while matches!(
+        n.kind(),
+        "parenthesized_expression"
+            | "non_null_expression"
+            | "as_expression"
+            | "satisfies_expression"
+            | "type_assertion"
+    ) {
+        match operand(n) {
+            Some(inner) => n = inner,
+            None => break,
+        }
+    }
+    n
 }
 
 /// `ip` is a prefix of `dp`, a `[]` component matching any component.
