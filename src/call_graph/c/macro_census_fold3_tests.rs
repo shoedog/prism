@@ -320,3 +320,37 @@ fn f3_review_mode_fails_closed_when_the_repository_has_unread_inputs() {
     // Nothing else in the repository: the diff's files are the repository's.
     assert_eq!(review(&|_| {}), (false, false));
 }
+
+#[test]
+fn f3_failed_text_include_joins_the_cache_identity() {
+    // sol (confirmation of fold 3): a discovered text input that cannot be read makes the census
+    // incomplete, so it must also move the topology, or a full hit replays a complete census.
+    use crate::cpg_cache::compute_topology_key;
+    let dir = tempfile::tempdir().unwrap();
+    write(
+        dir.path(),
+        "src/a.cpp",
+        b"#if __has_include(\"data.tbl\")\n#include \"data.tbl\"\n#endif\nint f() { return 0; }\n",
+    );
+    let before = load_repo(dir.path()).unwrap();
+    let key_before = compute_topology_key(&before.file_hashes, &before.manifest_hashes);
+    assert!(!CMacroCensus::from_files(&before.files).incomplete());
+    // An oversized data.tbl appears; every parsed file is unchanged.
+    let big = vec![b'x'; 2 * 1024 * 1024 + 16];
+    write(dir.path(), "src/data.tbl", &big);
+    let after = load_repo(dir.path()).unwrap();
+    assert_eq!(after.file_hashes, before.file_hashes);
+    assert!(CMacroCensus::from_files(&after.files).incomplete());
+    let key_after = compute_topology_key(&after.file_hashes, &after.manifest_hashes);
+    assert_ne!(
+        key_before, key_after,
+        "a failed text input must move the topology"
+    );
+    // Removing it restores the original identity.
+    std::fs::remove_file(dir.path().join("src/data.tbl")).unwrap();
+    let again = load_repo(dir.path()).unwrap();
+    assert_eq!(
+        compute_topology_key(&again.file_hashes, &again.manifest_hashes),
+        key_before
+    );
+}

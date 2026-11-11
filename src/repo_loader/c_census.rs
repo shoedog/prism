@@ -195,7 +195,23 @@ pub(crate) fn gather(
                 sources.push((path.clone(), quoted_includes(&text)));
                 g.texts.insert(path, text);
             }
-            _ => g.incomplete = true,
+            // A discovered text input that cannot be read still changes the census (it is
+            // `incomplete`), so it joins the cache identity too: a full hit must not replay a
+            // census built before this file appeared or became unreadable.
+            Ok(_) => {
+                g.incomplete = true;
+                g.identity.insert(
+                    format!("c-census:text-failed:{path}"),
+                    "too-large".to_string(),
+                );
+            }
+            Err(e) => {
+                g.incomplete = true;
+                g.identity.insert(
+                    format!("c-census:text-failed:{path}"),
+                    format!("unreadable:{:?}", e.kind()),
+                );
+            }
         }
     }
     g
