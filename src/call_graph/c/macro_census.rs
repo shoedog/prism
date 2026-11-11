@@ -33,8 +33,8 @@
 //! primary pass sets `incomplete` for lexer state; any pass sets it for a define-looking
 //! line it cannot read); a soft-poisoned definition keeps its poison unless another pass
 //! over the same text read that very definition; and any directive line holding a
-//! non-ASCII byte, a UCN or a trigraph sets `incomplete` (checked on the raw logical line,
-//! comments included), so a spelling this lexer cannot equate with the compiler's never
+//! non-ASCII byte or UCN outside string/char literals and comments, or a trigraph, sets
+//! `incomplete` (checked on the raw logical line in both dialect passes), so a spelling this lexer cannot equate with the compiler's never
 //! loses a fact silently.
 //!
 //! The census reads more than the parsed C/C++ files: the loader hands it, as text only,
@@ -676,9 +676,64 @@ fn defs_in(
     found
 }
 
+/// Does a directive line hold a non-ASCII byte or a UCN in a CODE position, read with the
+/// tokenizer's own rules for one dialect? Bytes inside string and char literals (raw strings
+/// included) and comments cannot change a name or a definition. `None` means the literal
+/// boundaries are uncertain (an unterminated literal or comment, an uncertain raw string):
+/// the caller then treats any non-ASCII byte of the line as a hazard.
+fn code_hazard(line: &str, cxx: bool) -> Option<bool> {
+    let b = line.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        match c {
+            b'/' if b.get(i + 1) == Some(&b'*') => match line[i + 2..].find("*/") {
+                Some(end) => i += end + 4,
+                None => return None,
+            },
+            b'/' if b.get(i + 1) == Some(&b'/') => return Some(false),
+            b'"' | b'\'' => {
+                i += 1;
+                let mut closed = false;
+                while i < b.len() {
+                    match b[i] {
+                        b'\\' => i += 2,
+                        q if q == c => {
+                            closed = true;
+                            i += 1;
+                            break;
+                        }
+                        _ => i += 1,
+                    }
+                }
+                if !closed {
+                    return None;
+                }
+            }
+            c if c.is_ascii_digit() => i = pp_number_end(b, i, cxx),
+            _ if is_ident_start(b, i) => {
+                let start = i;
+                i = ident_end(b, i);
+                let ident = &line[start..i];
+                if ident.bytes().any(|d| d >= 0x80 || d == b'\\') {
+                    return Some(true);
+                }
+                if cxx && b.get(i) == Some(&b'"') && is_raw_prefix(ident) {
+                    i = raw_string_end(b, i, &[])?;
+                }
+            }
+            b'\\' if matches!(b.get(i + 1), Some(b'u' | b'U')) => return Some(true),
+            _ => i += 1,
+        }
+    }
+    Some(false)
+}
+
 /// Is `line` (a logical line of the raw, untranslated text) a directive that holds a
-/// non-ASCII byte, a UCN or a trigraph? Such a line may spell names the lexer here does
-/// not equate with the compiler's, so the census fails closed. Comments count.
+/// non-ASCII byte or UCN outside string/char literals and comments (in either dialect pass;
+/// any non-ASCII byte when a pass cannot read the line's literal boundaries), or a trigraph
+/// anywhere? Such a line may spell names the lexer here does not equate with the compiler's,
+/// so the census fails closed.
 fn exotic_directive(spliced: &[u8]) -> bool {
     let text = String::from_utf8_lossy(spliced);
     text.split('\n').any(|line| {
@@ -687,17 +742,21 @@ fn exotic_directive(spliced: &[u8]) -> bool {
             return false;
         }
         let b = line.as_bytes();
-        b.iter().any(|&c| c >= 0x80)
-            || b.windows(2)
-                .any(|w| w[0] == b'\\' && matches!(w[1], b'u' | b'U'))
-            || b.windows(3).any(|w| {
-                w[0] == b'?'
-                    && w[1] == b'?'
-                    && matches!(
-                        w[2],
-                        b'=' | b'/' | b'\'' | b'(' | b')' | b'!' | b'<' | b'>' | b'-'
-                    )
-            })
+        let trigraph = b.windows(3).any(|w| {
+            w[0] == b'?'
+                && w[1] == b'?'
+                && matches!(
+                    w[2],
+                    b'=' | b'/' | b'\'' | b'(' | b')' | b'!' | b'<' | b'>' | b'-'
+                )
+        });
+        trigraph
+            || [true, false]
+                .into_iter()
+                .any(|cxx| match code_hazard(line, cxx) {
+                    Some(h) => h,
+                    None => b.iter().any(|&c| c >= 0x80),
+                })
     })
 }
 

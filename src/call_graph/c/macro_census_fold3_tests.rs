@@ -75,7 +75,9 @@ fn f3_exotic_directive_class_fails_closed() {
         "#define caf\u{e9} hidden\n#define NEXT caf\\u00E9\n",
         "#define READ \u{e9}\n",
         "#define M a ??( b\n",
-        "#define M 1 // caf\u{e9}\n",
+        "#define M 1 \"unterminated \u{e9}\n",
+        "#define M /* open \u{e9}\n",
+        "#define M \"x\" caf\u{e9}\n",
         "??=define M hidden\n",
     ] {
         assert!(census(&[("a.h", src)]).incomplete(), "{src:?}");
@@ -88,6 +90,22 @@ fn f3_exotic_directive_class_fails_closed() {
     assert!(!c.incomplete());
     // Another directive (not a define) with a plain name is clean too.
     assert!(!census(&[("a.h", "#include \"x.h\"\n#define A 1\n")]).incomplete());
+}
+
+#[test]
+fn f3_non_ascii_in_literals_and_comments_is_not_exotic() {
+    for src in [
+        "#define TEST(name) printf(\"test \u{2014} %s\\n\", name);\n",
+        "#define TEST(name) printf(\"test %s\\n\", name); /* \u{2014} */\n",
+        "#define TEST(name) printf(\"test %s\\n\", name); // \u{2014}\n",
+        "#define TEST(name) printf(\"%c\", '\u{e9}'); /* x */ name\n",
+        "#define TEST(name) printf(R\"x(\u{2014} )x\", name);\n",
+    ] {
+        let c = census(&[("a.h", src)]);
+        assert!(!c.incomplete(), "{src:?}");
+        let t = c.get("TEST").unwrap();
+        assert!(t.free.contains("printf"), "{src:?}: {t:?}");
+    }
 }
 
 #[test]
