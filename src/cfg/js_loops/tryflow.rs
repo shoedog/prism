@@ -25,11 +25,15 @@ use tree_sitter::Node;
 type Range = (usize, usize);
 
 /// Every `try_statement` of the file as an inclusive line interval, sorted by start line.
-pub(super) struct Regions(Vec<(usize, usize)>);
+pub(super) struct Regions(pub(super) Vec<(usize, usize)>);
 
 impl Regions {
     pub(super) fn of(parsed: &ParsedFile) -> Self {
         let mut out = Vec::new();
+        // A `try_statement` starts with the keyword: a file without the word holds no region (speed gate).
+        if !parsed.source.contains("try") {
+            return Self(out);
+        }
         let mut stack = vec![parsed.tree.root_node()];
         while let Some(n) = stack.pop() {
             if n.kind() == "try_statement" {

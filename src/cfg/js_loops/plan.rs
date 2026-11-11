@@ -76,8 +76,30 @@ pub(super) fn admits(parsed: &ParsedFile, root: Range) -> bool {
     }
 }
 
+/// Whether some admitted tree (under a plan pass, the assumed admission) lies inside `range`: when none does,
+/// no tree of a callable spanning `range` (or nested in it) is rewired. A speed gate, never a verdict.
+pub(in crate::cfg) fn any_admitted_within(parsed: &ParsedFile, range: Range) -> bool {
+    if super::main_loop_cfg() {
+        return false;
+    }
+    let within = |set: &BTreeSet<Range>| {
+        set.range((range.0, 0)..=(range.1, usize::MAX))
+            .any(|r| r.1 <= range.1)
+    };
+    let key = file_key(parsed);
+    match ASSUMED.with(|c| {
+        c.borrow()
+            .as_ref()
+            .filter(|(k, _)| *k == key)
+            .map(|(_, a)| within(a))
+    }) {
+        Some(found) => found,
+        None => within(&parsed.js_loop_plan().admitted),
+    }
+}
+
 /// Whether `parsed` is being built under a plan pass's assumption (not the standing build).
-pub(super) fn assuming(parsed: &ParsedFile) -> bool {
+pub(in crate::cfg) fn assuming(parsed: &ParsedFile) -> bool {
     let key = file_key(parsed);
     ASSUMED.with(|c| c.borrow().as_ref().is_some_and(|(k, _)| *k == key))
 }
@@ -130,9 +152,24 @@ pub(crate) struct LoopPlan {
     admitted: BTreeSet<Range>,
     refused_owners: BTreeSet<Range>,
     pub(crate) verdicts: Vec<Verdict>,
+    /// The edges the last verifying round drew for the callables it built (key: the callable's byte range),
+    /// under exactly the admission that stands: the standing build of those callables is these edges.
+    built: Built,
 }
 
+/// A callable's drained edges, each with its origin (what `EdgeSink::drain` yields).
+type Built = BTreeMap<Range, Vec<(crate::cfg::CfgEdge, crate::cfg::EdgeOrigin)>>;
+
 impl LoopPlan {
+    /// The standing edges of the callable at `owner`, when the verifying round built it (a pure reuse of work
+    /// the plan already did under the admission that stands, never a different answer).
+    pub(in crate::cfg) fn replay(
+        &self,
+        owner: Range,
+    ) -> Option<&[(crate::cfg::CfgEdge, crate::cfg::EdgeOrigin)]> {
+        self.built.get(&owner).map(Vec::as_slice)
+    }
+
     /// Whether the owner is refused: a tree of it is refused, so the owner keeps main's geometry and labels whole.
     #[cfg(test)]
     pub(crate) fn refuses_owner(&self, owner: Range) -> bool {
@@ -206,6 +243,17 @@ impl LoopPlan {
 
     pub(crate) fn compute(parsed: &ParsedFile) -> Self {
         let mut verdicts = Self::initial(parsed);
+        // No loop tree: nothing to admit, refuse or label, so the try regions are never read (speed gate).
+        if verdicts.is_empty() {
+            let plan = Self {
+                admitted: BTreeSet::new(),
+                refused_owners: BTreeSet::new(),
+                verdicts: Vec::new(),
+                built: Built::new(),
+            };
+            plan.trace(parsed);
+            return plan;
+        }
         let regions = tryflow::Regions::of(parsed);
         let mut admitted: BTreeSet<Range> = verdicts
             .values()
@@ -219,9 +267,14 @@ impl LoopPlan {
             .filter(|v| matches!(v.why, Some(Why::Legacy(_))))
             .map(|v| v.root)
             .collect();
+        let mut built = Built::new();
+        let mut standing_built = Built::new();
         while !admitted.is_empty() || !legacy.is_empty() {
             let roots: BTreeSet<Range> = admitted.union(&legacy).copied().collect();
-            let mut refused = with_admission(parsed, &admitted, || round(parsed, &roots, &regions));
+            built.clear();
+            let mut refused = with_admission(parsed, &admitted, || {
+                round(parsed, &roots, &regions, &mut built)
+            });
             // A refused owner keeps main's geometry whole: every other tree of an owner that has a refused
             // (or legacy) tree is refused with it.
             let bad: BTreeSet<Range> = verdicts
@@ -256,6 +309,8 @@ impl LoopPlan {
                     .collect()
             };
             if refused.is_empty() {
+                // This round's admission is the standing one: its builds are the standing builds.
+                standing_built = std::mem::take(&mut built);
                 for (root, (why, overlaps, first)) in standing {
                     if let Some(v) = verdicts.get_mut(&root) {
                         (v.legacy_o1, v.overlaps, v.first) = (Some(why), overlaps, first);
@@ -306,6 +361,7 @@ impl LoopPlan {
             admitted,
             refused_owners,
             verdicts: verdicts.into_values().collect(),
+            built: standing_built,
         };
         plan.trace(parsed);
         plan
@@ -348,9 +404,14 @@ type Refusals = BTreeMap<Range, (Why, Vec<&'static str>, String)>;
 /// One round: the trees of `roots` (the admitted ones, assumed, see `with_admission`, and the ones main's
 /// policy refuses) that fail placement or whose records are unresolved, with the reason classes that apply
 /// and the first offender.
-fn round(parsed: &ParsedFile, roots: &BTreeSet<Range>, regions: &tryflow::Regions) -> Refusals {
+fn round(
+    parsed: &ParsedFile,
+    roots: &BTreeSet<Range>,
+    regions: &tryflow::Regions,
+    built: &mut Built,
+) -> Refusals {
     let mut out = Refusals::new();
-    for (node, own) in ownerships(parsed, true) {
+    for (node, own) in ownerships(parsed, true, Some(built)) {
         for t in own
             .trees
             .iter()
@@ -415,6 +476,7 @@ fn describe(r: &EdgeRecord) -> String {
 pub(in crate::cfg) fn ownerships<'p>(
     parsed: &'p ParsedFile,
     looped: bool,
+    mut capture: Option<&mut Built>,
 ) -> Vec<(tree_sitter::Node<'p>, Ownership)> {
     let boundaries = parsed.language.callable_boundary_node_types();
     let owners = parsed.all_functions();
@@ -477,7 +539,15 @@ pub(in crate::cfg) fn ownerships<'p>(
         if let Some(rec) = sink.take_records() {
             built.push((i, *owner, rec));
         }
-        sink.drain().for_each(drop);
+        match capture.as_deref_mut() {
+            Some(built) => {
+                built.insert(
+                    (owner.start_byte(), owner.end_byte()),
+                    sink.drain().collect(),
+                );
+            }
+            None => sink.drain().for_each(drop),
+        }
     }
     // The other callables' surviving edges by source line, as `FileCfgEdgeIndex` indexes them.
     let mut by_source: BTreeMap<usize, Vec<(usize, &EdgeRecord)>> = BTreeMap::new();

@@ -175,3 +175,83 @@ fn an_admissible_loop_beside_a_refused_one_in_the_same_owner_is_refused_with_it(
         format!("{main:?}")
     );
 }
+
+// Perf slice (#785): the speed gates change cost, never output.
+
+#[test]
+fn the_loop_keyword_gate_never_hides_a_loop() {
+    use crate::cfg::js_loops::may_hold_loop;
+    for src in [
+        "for(;;){}",
+        "x;for (a of b) {}",
+        "{while(c){}}",
+        "do{}while(c)",
+        "lbl:for(;;);",
+        "a=1\nfor(;;)",
+        "\u{ff1b}for(;;)",
+        "if(x)do y();while(z)",
+    ] {
+        assert!(may_hold_loop(src.as_bytes()), "{src}");
+    }
+    for src in [
+        "",
+        "format(x); forEach(y); document.undo(); window.width = 1",
+        "let do_it = 1; $for = 2; _while = 3; formdo(x)",
+        "x = 1; return y;",
+    ] {
+        assert!(!may_hold_loop(src.as_bytes()), "{src}");
+    }
+    // Every fixture owner that holds a loop passes the gate (so the gate never changes a plan).
+    for c in REFUSED {
+        assert!(may_hold_loop(c.src.as_bytes()), "{}", c.name);
+        let p = plan(c.src);
+        assert!(!p.verdicts.is_empty(), "{}", c.name);
+    }
+    for (name, src, _) in ADMITTED {
+        assert!(may_hold_loop(src.as_bytes()), "{name}");
+    }
+}
+
+#[test]
+fn a_file_without_a_loop_has_an_empty_plan_and_without_try_no_regions() {
+    let src = "function f(a) {\n  let x = 0;\n  if (a) {\n    x = 1;\n  }\n  return x;\n}\n";
+    let p = plan(src);
+    assert!(p.verdicts.is_empty() && p.counters().is_empty());
+    let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
+    assert!(super::tryflow::Regions::of(&parsed).0.is_empty());
+    let with_try = ParsedFile::parse(
+        "a.js",
+        "function f() {\n  try {\n    g();\n  } catch (e) {}\n}\n",
+        Language::JavaScript,
+    )
+    .unwrap();
+    assert_eq!(super::tryflow::Regions::of(&with_try).0, [(2, 4)]);
+}
+
+#[test]
+fn the_plans_standing_builds_are_the_fresh_builds() {
+    use crate::cfg::{build_function_cfg, EdgeSink};
+    let mut sources: Vec<&str> = ADMITTED.iter().map(|(_, s, _)| *s).collect();
+    sources.extend(REFUSED.iter().map(|c| c.src));
+    sources.extend(
+        crate::cpg::loop_plan_tests::LEGACY_REFUSED
+            .iter()
+            .map(|(_, _, s)| *s),
+    );
+    let mut replayed = 0;
+    for src in sources {
+        let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
+        let plan = parsed.js_loop_plan();
+        for owner in parsed.all_functions() {
+            let Some(standing) = plan.replay((owner.start_byte(), owner.end_byte())) else {
+                continue;
+            };
+            let mut sink = EdgeSink::new();
+            build_function_cfg(owner, &parsed, &mut sink);
+            let fresh: Vec<_> = sink.drain().collect();
+            assert_eq!(standing, fresh.as_slice(), "{src}");
+            replayed += 1;
+        }
+    }
+    assert!(replayed > 0, "the fixtures exercise a replayed build");
+}

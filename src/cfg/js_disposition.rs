@@ -315,6 +315,13 @@ pub(in crate::cfg) struct Authority<'p> {
 impl<'p> Authority<'p> {
     /// `None` when no tree of `owner` is rewired: it owns nothing.
     pub(in crate::cfg) fn new(parsed: &'p ParsedFile, owner: Node<'p>) -> Option<Self> {
+        // No admitted tree inside the callable: none of its own trees can be rewired (speed gate).
+        if !super::js_loops::plan_any_admitted_within(
+            parsed,
+            (owner.start_byte(), owner.end_byte()),
+        ) {
+            return None;
+        }
         let facts = tree_facts(owner, parsed);
         if !facts.iter().any(|t| t.rewired) {
             return None;
@@ -807,7 +814,7 @@ impl Ownership {
 pub(crate) fn ownership_of(parsed: &ParsedFile) -> Vec<Ownership> {
     let candidates = super::js_loops::legacy_candidates(parsed);
     super::js_loops::with_admission(parsed, &candidates, || {
-        super::js_loops::ownerships(parsed, false)
+        super::js_loops::ownerships(parsed, false, None)
     })
     .into_iter()
     .map(|(_, o)| o)

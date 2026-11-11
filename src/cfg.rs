@@ -294,7 +294,30 @@ impl EdgeSink {
 pub(crate) fn build_cfg_edges_with_arms(parsed: &ParsedFile) -> Vec<(CfgEdge, ArmProvenance)> {
     let mut out = Vec::new();
     let mut sink = EdgeSink::new();
+    // JS family: the loop plan's verifying round already built the callables it needed under the admission that
+    // stands; those edges are the standing build (not in main's loop CFG, and not while tracing).
+    let replay = parsed.language.is_js_family()
+        && !js_loops::main_loop_cfg()
+        && !js_disposition::trace_enabled();
     for func_node in parsed.all_functions() {
+        if replay {
+            let range = (func_node.start_byte(), func_node.end_byte());
+            if let Some(edges) = parsed.js_loop_plan().replay(range) {
+                if edges.is_empty() {
+                    continue;
+                }
+                let arms = parsed.statement_arms_in_function(&func_node);
+                out.extend(edges.iter().map(|(edge, origin)| {
+                    let provenance = ArmProvenance {
+                        origin: *origin,
+                        from_arm: span_of(&arms, edge.from_line, UNKNOWN_FROM_ARM),
+                        to_arm: span_of(&arms, edge.to_line, UNKNOWN_TO_ARM),
+                    };
+                    (edge.clone(), provenance)
+                }));
+                continue;
+            }
+        }
         build_function_cfg(func_node, parsed, &mut sink);
         if let Some(records) = sink.take_records() {
             js_disposition::trace(parsed, func_node, records);

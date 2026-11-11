@@ -54,6 +54,7 @@ mod plan;
 mod replace;
 mod tryflow;
 pub(super) use facts::{tree_facts, LoopFacts, TreeFacts};
+pub(super) use plan::any_admitted_within as plan_any_admitted_within;
 #[cfg(test)]
 pub(super) use plan::legacy_candidates;
 pub(crate) use plan::LoopPlan;
@@ -93,6 +94,24 @@ enum Next {
 
 fn line(node: Node<'_>) -> usize {
     node.start_position().row + 1
+}
+
+/// Whether `text` holds `for`, `while` or `do` as a whole word: every loop statement kind starts with one of these
+/// keywords, so text without them holds no loop. Conservative (comments and strings count; a byte of a multi-byte
+/// character is no identifier character, so it never hides a keyword) and a pure speed gate for `Cx::outermost`.
+fn may_hold_loop(text: &[u8]) -> bool {
+    let word = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b == b'$';
+    let at = |i: usize, kw: &[u8]| {
+        text[i..].starts_with(kw)
+            && (i == 0 || !word(text[i - 1]))
+            && text.get(i + kw.len()).is_none_or(|b| !word(*b))
+    };
+    (0..text.len()).any(|i| match text[i] {
+        b'f' => at(i, b"for"),
+        b'w' => at(i, b"while"),
+        b'd' => at(i, b"do"),
+        _ => false,
+    })
 }
 
 fn is_loop(kind: &str) -> bool {
@@ -216,8 +235,7 @@ fn build_inner<'p>(owner: Node<'p>, parsed: &'p ParsedFile, edges: &mut EdgeSink
     }
     // The enclosing owner's copies of what a nested callable's admitted tree owns go first.
     replace::drop_nested_copies(owner, parsed, edges);
-    let trees: Vec<Tree<'_>> = cx
-        .outermost()
+    let trees: Vec<Tree<'_>> = roots
         .into_iter()
         .filter(|t| plan::admits(parsed, (t.start_byte(), t.end_byte())))
         .filter_map(|t| cx.tree(t))
@@ -359,6 +377,9 @@ impl<'a, 'tree> Cx<'a, 'tree> {
     /// The owner's outermost loops (never inside a nested callable), in source order.
     fn outermost(&self) -> Vec<Node<'tree>> {
         let mut out = Vec::new();
+        if !may_hold_loop(&self.parsed.source.as_bytes()[self.body.byte_range()]) {
+            return out;
+        }
         let mut stack = vec![self.body];
         while let Some(n) = stack.pop() {
             let kind = n.kind();
