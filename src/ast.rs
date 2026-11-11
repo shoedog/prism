@@ -488,6 +488,9 @@ pub struct ParsedFile {
     /// Lazily-computed JS/TS/TSX loop-tree plan (#693, #697): a pure function of the parsed file, asked
     /// by the `do` condition admission, the loop edge rewrite and reaching definitions.
     js_loop_plan: std::sync::OnceLock<crate::cfg::js_loops::LoopPlan>,
+    /// Lazily-built: whether a Python run-time local reader can reach any owner of the file
+    /// under another name (#630 U/D switch, `python_prune::file_hidden_hazard`).
+    python_hidden_hazard: std::sync::OnceLock<bool>,
 }
 
 /// How a formal parameter is used in its callable body (PR-C).
@@ -514,6 +517,11 @@ impl ParsedFile {
             .js_loop_plan
             .set(crate::cfg::js_loops::LoopPlan::default());
         self
+    }
+
+    /// The file's Python hidden-reader hazard, built once by `build` (`python_prune`).
+    pub(crate) fn python_hidden_hazard(&self, build: impl FnOnce(&Self) -> bool) -> bool {
+        *self.python_hidden_hazard.get_or_init(|| build(self))
     }
 
     /// Parse source code in the given language.
@@ -548,6 +556,7 @@ impl ParsedFile {
             call_args: std::sync::OnceLock::new(),
             js_export_facts: std::sync::OnceLock::new(),
             js_loop_plan: std::sync::OnceLock::new(),
+            python_hidden_hazard: std::sync::OnceLock::new(),
         };
         pf.functions = pf.build_function_table();
         Ok(pf)

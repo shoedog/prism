@@ -72,7 +72,11 @@ impl<'a> LexicalFacts<'a> {
             parsed,
             enabled: match parsed.language {
                 Language::Go => !owner.has_error(),
-                Language::Python => !owner.has_error() && owner.kind() == "function_definition",
+                Language::Python => {
+                    !owner.has_error()
+                        && owner.kind() == "function_definition"
+                        && !super::python_prune::has_hidden_reader(parsed, owner)
+                }
                 l if l.is_js_family() => js_enabled,
                 _ => false,
             },
