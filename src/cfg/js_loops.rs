@@ -205,6 +205,15 @@ fn build_inner<'p>(owner: Node<'p>, parsed: &'p ParsedFile, edges: &mut EdgeSink
     };
     #[cfg(test)]
     edges.mark_pre_rewrite();
+    // A refused owner (one of its trees is refused, so all are) keeps main's geometry exactly: no rewrite, no
+    // delegation, no drop of a nested admitted tree's copies (final refusal policy).
+    let roots = cx.outermost();
+    if roots
+        .iter()
+        .any(|t| !plan::admits(parsed, (t.start_byte(), t.end_byte())))
+    {
+        return;
+    }
     // The enclosing owner's copies of what a nested callable's admitted tree owns go first.
     replace::drop_nested_copies(owner, parsed, edges);
     let trees: Vec<Tree<'_>> = cx

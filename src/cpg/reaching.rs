@@ -264,13 +264,6 @@ fn reaching_definitions_impl(
     pass: census_pass::Pass,
     facts_out: &mut Option<census_defs::CensusFacts>,
 ) -> RdOutcome {
-    // #693 O1: the loop plan refused a tree of this owner (the plan is the file's, computed once).
-    let loop_plan_refused = pass.census()
-        && parsed.language.is_js_family()
-        && !cfg::js_loops::main_loop_cfg()
-        && parsed
-            .js_loop_plan()
-            .refuses_owner((func_node.start_byte(), func_node.end_byte()));
     #[cfg(test)]
     let _work = work_tests::Pass::begin(parsed, func_node);
     #[cfg(test)]
@@ -284,9 +277,6 @@ fn reaching_definitions_impl(
         deduplicate_definitions(defs),
     );
     let n_recorded = census.n_recorded;
-    if loop_plan_refused {
-        census.refuse_loop_plan();
-    }
     // The census never changes availability or the def cap (#660 S1b-1): a completed list that would
     // overflow runs RD on the recorded defs as main does, and the owner's edges take a refusal label.
     census.cap_defs(&mut defs, RD_MAX_DEFS);

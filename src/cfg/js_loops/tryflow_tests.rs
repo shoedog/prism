@@ -1,7 +1,8 @@
-//! T2 (#785): the try-flow admission boundary. Every expectation is derived by hand from the syntax (an owner that
-//! contains or overlaps a `try` is refused whole; every surviving pair is `nameonly/cfg_incomplete`, never a fabricated
-//! `killed`). The label regressions are RED on a4081dd2 (the merge head before T2), same-environment control in
-//! `~/prism-evidence/jsts-lane/693/T2/`. A3 contains EXPLICIT try flow only: `await`, `yield` and iterator close
+//! T2 (#785): the try-flow admission boundary. A refused owner (one that contains or overlaps a `try`) keeps EXACTLY
+//! main's geometry and labels (final refusal policy): every label asserted for a refused owner below is MAIN
+//! 8cc4985d's, taken from that binary's output (`O1final/out/tryflow-main-labels.json`); a wrong `exact` main has
+//! there (`ckey`, `pdec`, ...) is pinned as main's open residual. The plan verdicts are the T2 contract. History: the
+//! interim O1 forced `cfg_incomplete`; see `~/prism-evidence/jsts-lane/693/T2/`. A3 contains EXPLICIT try flow only: `await`, `yield` and iterator close
 //! without try syntax are out of model. Each source has its `function` header on line 1.
 use super::*;
 use crate::cfg::js_loops::Why;
@@ -39,15 +40,11 @@ fn all_try_flow(src: &str) -> bool {
         })
 }
 
-/// Every given pair is either pruned (#788) or labelled `cfg_incomplete`, and at least one exists.
-fn refused_pairs(src: &str, edges: &[&str]) {
-    let mut seen = 0;
-    for e in edges {
-        let l = labels_of(JS, src, e);
-        assert!(l.iter().all(|x| x == CFG), "{e}: {l:?}");
-        seen += l.len();
+/// Every `(pair, label)` equals main's label (the owner is refused, so it keeps main's labels).
+fn main_pairs(src: &str, pairs: &[(&str, &str)]) {
+    for (e, want) in pairs {
+        assert_eq!(labels_of(JS, src, e), [*want], "{e}");
     }
-    assert!(seen > 0, "no pair survived for {edges:?}");
 }
 
 const RET: &str = "function f(c, k) {\n  let x = 0;\n  if (c) {\n    try {\n      while (k()) {\n        work();\n      }\n    } catch (e) {\n      return (x = 1);\n    } finally {\n      cleanup();\n    }\n  } else {\n    return;\n  }\n  sink(x);\n}\n";
@@ -60,29 +57,41 @@ const FIN_DEF: &str = "function f() {\n  let x = 0;\n  try {\n    return;\n  } f
 const NOLOOP: &str = "function f(c, k) {\n  let x = 0;\n  if (c) {\n    try {\n      work();\n    } catch (e) {\n      return (x = 1);\n    } finally {\n      cleanup();\n    }\n  } else {\n    return;\n  }\n  sink(x);\n}\n";
 
 #[test]
-fn the_probes_with_a_loop_are_refused_whole_and_every_pair_is_cfg_incomplete() {
-    // `ret`/`thr`: the pending return/throw never reaches `sink` (x@9->x@16 was `exact` on a4081dd2). `lc`: either catch arm
-    // overwrites x before the next iteration (x@8->x@4 was `exact`). `nofin`: after the try, `x = 3` runs before the
-    // next iteration (x@7->x@4 was `exact`; x@14->x@4 a wrong `killed`). `tc`: x@7->x@20 (slice-3 fold 1).
-    for (name, src, edges) in [
-        ("ret", RET, &["x@9->x@16", "x@2->x@16"][..]),
-        ("thr", THR, &["x@9->x@16", "x@2->x@16"]),
-        ("lc", LC, &["x@8->x@4", "x@9->x@4", "x@11->x@4", "x@2->x@4"]),
+fn the_probes_with_a_loop_are_refused_whole_and_keep_mains_labels() {
+    // Plan: every tree refused (TryFlow). Labels: main's (8cc4985d binary). #803 made main flag the try joins, so each
+    // surviving try-crossing pair is `cfg_incomplete` on main already (ret/thr x@9->16, lc x@8->4, nofin x@7->4 and
+    // x@14->4, tc x@7->20); the pairs that do not cross the try stay `exact`.
+    for (name, src, pairs) in [
+        ("ret", RET, &[("x@9->x@16", CFG), ("x@2->x@16", CFG)][..]),
+        ("thr", THR, &[("x@9->x@16", CFG), ("x@2->x@16", CFG)]),
+        (
+            "lc",
+            LC,
+            &[
+                ("x@8->x@4", CFG),
+                ("x@9->x@4", CFG),
+                ("x@11->x@4", CFG),
+                ("x@2->x@4", "exact"),
+            ],
+        ),
         (
             "nofin",
             NOFIN,
-            &["x@7->x@4", "x@14->x@4", "x@9->x@4", "x@2->x@4"],
+            &[
+                ("x@7->x@4", CFG),
+                ("x@14->x@4", CFG),
+                ("x@9->x@4", CFG),
+                ("x@2->x@4", "exact"),
+            ],
         ),
-        ("tc", TC, &["x@7->x@20", "x@12->x@20", "x@2->x@20"]),
+        (
+            "tc",
+            TC,
+            &[("x@7->x@20", CFG), ("x@12->x@20", CFG), ("x@2->x@20", CFG)],
+        ),
     ] {
         assert!(all_try_flow(src), "{name}: {:?}", why(src));
-        refused_pairs(src, edges);
-        for e in edges {
-            assert!(
-                !labels_of(JS, src, e).contains(&"exact".to_string()),
-                "{name} {e}"
-            );
-        }
+        main_pairs(src, pairs);
     }
 }
 
@@ -91,7 +100,8 @@ fn loop_free_try_owners_are_main_residuals_not_t2s() {
     // No loop tree, nothing to refuse: `lf` (x@6->x@14) and `fin_def` (x@6->x@8) are wrong `exact` on main too (every
     // path overwrites x / the pending return skips the use); T1 / #802 owns them. Pinned as the main label.
     assert!(why(LF).is_empty() && why(FIN_DEF).is_empty());
-    assert_eq!(labels_of(JS, LF, "x@6->x@14"), ["exact"]);
+    // `lf` x@6->x@14 is `cfg_incomplete` on main since #803 (T1 closed it); `fin_def` x@6->x@8 is still a wrong `exact`.
+    assert_eq!(labels_of(JS, LF, "x@6->x@14"), [CFG]);
     assert_eq!(labels_of(JS, FIN_DEF, "x@6->x@8"), ["exact"]);
     // `noloop` stays refused by the existing O1/legacy machinery of main: pairs are `cfg_incomplete`.
     assert_eq!(labels_of(JS, NOLOOP, "x@7->x@14"), [CFG]);
@@ -152,7 +162,7 @@ fn a_try_dependent_delegated_wrapper_in_another_owner_refuses_the_projected_owne
     // `cfg_incomplete`.
     let src = "function f(c, k) {\n  let x = 0;\n  while (c()) {\n    const h = () => { try { while (k()) { g(); } } catch (e) {} }; x = 2;\n  }\n  sink(x);\n}\n";
     assert!(all_try_flow(src), "{:?}", why(src));
-    refused_pairs(src, &["x@2->x@6", "x@4->x@6"]);
+    main_pairs(src, &[("x@2->x@6", "exact"), ("x@4->x@6", "exact")]);
 }
 
 #[test]
@@ -211,8 +221,9 @@ fn an_eager_computed_key_is_executed_by_the_owner_even_though_the_method_is_not(
     // none of the owner's statement lines (2, 3, 4, 11), and `x@2->x@11` was `exact`.
     let src = ckey("try { throw 1; } finally {}");
     assert!(all_try_flow(&src), "{:?}", why(&src));
-    refused_pairs(&src, &["x@2->x@11"]);
-    assert!(!labels_of(JS, &src, "x@2->x@11").contains(&"exact".to_string()));
+    // Final policy: the owner keeps main's labels, and main's `x@2->x@11` is `exact` (the static block throws): main's
+    // open residual, not a T2 regression any more.
+    main_pairs(&src, &[("x@2->x@11", "exact")]);
     // A try-free computed key keeps the existing policy: admitted.
     assert_plan(&ckey("g();"), None);
     assert_eq!(labels_of(JS, &ckey("g();"), "x@2->x@11"), ["exact"]);
@@ -242,7 +253,7 @@ fn a_try_in_the_owners_own_parameter_default_refuses_it() {
     // arrow in the default would be that arrow's (deferred) and is not the owner's.
     let src = "function f(c, K = class {\n  static {\n    try { throw 1; } finally {}\n  }\n}) {\n  const x = 0;\n  while (c()) {\n    sink(x);\n  }\n}\n";
     assert!(all_try_flow(src), "{:?}", why(src));
-    refused_pairs(src, &["x@6->x@8"]);
+    main_pairs(src, &[("x@6->x@8", "exact")]);
 }
 
 const TS: Language = Language::TypeScript;
@@ -270,7 +281,8 @@ fn a_parameter_decorator_of_a_nested_method_is_eager() {
     // callable were visited, the parameter decorator sits under `formal_parameters`, `x@2->x@11` was `exact`.
     let src = pdec("try { throw 1; } finally {}");
     assert_eq!(why_ts(&src), [Some(Why::TryFlow)]);
-    assert!(!labels_of(TS, &src, "x@2->x@11").contains(&"exact".to_string()));
+    // main's label (a wrong `exact`, the static block throws) stands in the refused owner.
+    assert_eq!(labels_of(TS, &src, "x@2->x@11"), ["exact"]);
     // The throw-only variant has no try: a disclosed main residual (alongside `ckey_notry`), stays admitted and exact.
     let no_try = pdec("throw 1;");
     assert_eq!(why_ts(&no_try), [None]);
@@ -295,7 +307,7 @@ fn instance_field_initializers_are_deferred_and_static_ones_are_eager() {
     // A STATIC field initializer runs when the class is built: refused.
     let stat = "function f(c, K = class {\n  static field = class { static {\n    try {} finally {}\n  }};\n}) {\n  const x = 0;\n  while (c()) {\n    sink(x);\n  }\n}\n";
     assert!(all_try_flow(stat), "{:?}", why(stat));
-    refused_pairs(stat, &["x@6->x@8"]);
+    main_pairs(stat, &[("x@6->x@8", "exact")]);
     // A computed key of an instance field is eager.
     let key = "function f(c, K = class {\n  [class { static {\n    try {} finally {}\n  }}] = 1;\n}) {\n  const x = 0;\n  while (c()) {\n    sink(x);\n  }\n}\n";
     assert!(all_try_flow(key), "{:?}", why(key));

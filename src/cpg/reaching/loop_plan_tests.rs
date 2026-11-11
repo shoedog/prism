@@ -1,26 +1,25 @@
 //! #693/#697 option B, slice 2: what the loop-tree plan does to labels and the CFG, and how its foreign-record
 //! admission matches the real consumer. Expectations are written by hand from the layout rules (the placement
-//! rule, the disposition kinds, option O1), and use only APIs that exist before the plan, so each refusal test
-//! is RED on 874ce2c3 (where these trees are rewired and their independent edges stay `exact`).
+//! rule, the disposition kinds, the final refusal policy: a refused owner keeps main's geometry, labels and
+//! availability exactly). Refused-tree expectations are main 8cc4985d's labels, read from its binary.
 //!
 //! Each source has its `function` header on line 1, so a line number is a line of the source.
 //! `z`/`w` are defined before the loop and read after it, never written in between: independent of every loop
-//! transition, so `exact` whenever the owner is not refused, and `nameonly/cfg_incomplete` under O1.
+//! transition, so `exact` on main and on the head alike.
 use super::*;
 use crate::cpg::census_label_tests::labels_of;
 use crate::languages::Language;
 use std::collections::BTreeSet;
 
 const JS: Language = Language::JavaScript;
-const CFG: &str = "nameonly/cfg_incomplete";
 
 pub(crate) struct Case {
     pub(crate) name: &'static str,
     /// Why the plan refuses the tree (asserted in `cfg::js_loops::plan_tests`).
     pub(crate) why: &'static str,
     pub(crate) src: &'static str,
-    /// Edges of the owner: the first is independent of the loop (`exact` on 874ce2c3), all are refused by O1.
-    pub(crate) edges: &'static [&'static str],
+    /// Edges of the owner with MAIN 8cc4985d's label (final refusal policy: a refused owner keeps main's labels).
+    pub(crate) edges: &'static [(&'static str, &'static str)],
 }
 
 #[rustfmt::skip]
@@ -29,34 +28,34 @@ pub(crate) const REFUSED: &[Case] = &[
     // the header: the update would run before the first body. Placement.
     Case { name: "n1_update_on_continuation_line", why: "Placement",
         src: "function f(n) {\n  let z = 1;\n  let x = 0;\n  for (let i = 0;\n       i < n;\n       x = i++) {\n    x = g(i);\n  }\n  sink(x, z);\n}\n",
-        edges: &["z@2->z@9", "x@7->x@9", "x@3->x@9"] },
+        edges: &[("z@2->z@9", "exact"), ("x@7->x@9", "exact"), ("x@3->x@9", "exact")] },
     // Prettier layout: the initializer on its own line (L4) is a statement of its own. Placement.
     Case { name: "prettier_initializer_line", why: "Placement",
         src: "function f(n) {\n  let z = 1;\n  for (\n    let k = n;\n    k > 0;\n    k = k - 1\n  ) {\n    use(k);\n  }\n  sink(z);\n}\n",
-        edges: &["z@2->z@10", "k@4->k@8", "k@6->k@8"] },
+        edges: &[("z@2->z@10", "exact"), ("k@4->k@8", "nameonly/killed"), ("k@6->k@8", "exact")] },
     // sol: the condition's write sits on a continuation line (L5) that the body statement `work();` owns.
     Case { name: "sol_condition_on_body_line", why: "Placement",
         src: "function f() {\n  let z = 1;\n  let x = 0;\n  while (\n    (x = next())) work();\n  sink(x, z);\n}\n",
-        edges: &["z@2->z@6", "x@3->x@6", "x@5->x@6"] },
+        edges: &[("z@2->z@6", "exact"), ("x@3->x@6", "exact"), ("x@5->x@6", "exact")] },
     Case { name: "sol_condition_on_body_line_braced", why: "Placement",
         src: "function f() {\n  let z = 1;\n  let x = 0;\n  while (\n    (x = next())) { work(); }\n  sink(x, z);\n}\n",
-        edges: &["z@2->z@6", "x@3->x@6", "x@5->x@6"] },
+        edges: &[("z@2->z@6", "exact"), ("x@3->x@6", "exact"), ("x@5->x@6", "exact")] },
     // Head collapse: the body statement starts on the head line, so test and body share one node.
     Case { name: "head_collapse", why: "Unresolved(HeadCollapse)",
         src: "function f(c) {\n  let z = 1;\n  while (c()) x = g();\n  sink(x, z);\n}\n",
-        edges: &["z@2->z@4", "c@1->c@3", "x@3->x@4"] },
+        edges: &[("z@2->z@4", "exact"), ("c@1->c@3", "exact"), ("x@3->x@4", "exact")] },
     // (Merge of #788: the former pair `x@3->x@5` is a dominated def into a write-only line, which rule D/U prunes
     // on main too; the fixture asserts pairs that survive it: reads of `x`, `w` and `arr`.)
     // A foreign record: the arrow shares line 4 with `x = f();`, so the outer RD selects the arrow's branch
     // edges `4 -> 6`, which leave the loop from its body line and cannot be owned by it.
     Case { name: "foreign_admitted", why: "Unresolved(ForeignAdmitted)",
         src: "function n(arr) {\n  let w = 1;\n  let x = 0;\n  while ((x = next())) {\n    x = f(); arr.forEach(y => { if (y) { if (z) g(); } });\n  }\n  sink(x, w);\n}\n",
-        edges: &["w@2->w@7", "x@4->x@7", "x@3->x@7", "x@5->x@7", "arr@1->arr.forEach@5"] },
+        edges: &[("w@2->w@7", "exact"), ("x@4->x@7", "exact"), ("x@3->x@7", "nameonly/killed"), ("x@5->x@7", "exact"), ("arr@1->arr.forEach@5", "exact")] },
     // A callback's loop is refused (head collapse); the enclosing function holds no loop tree of its own, so
-    // O1 refuses the arrow's labels only (`cfg::js_loops::plan_tests::only_the_owner_of_a_refused_tree...`).
+    // the refusal is the arrow's owner only (`cfg::js_loops::plan_tests::only_the_owner_of_a_refused_tree...`).
     Case { name: "callback_head_collapse", why: "Unresolved(HeadCollapse)",
         src: "function outer(items) {\n  let w = 1;\n  items.forEach(it => {\n    while (it()) x = g();\n    use(x);\n  });\n  sink(w);\n}\n",
-        edges: &["it@3->it@4"] },
+        edges: &[("it@3->it@4", "exact")] },
 ];
 
 #[rustfmt::skip]
@@ -100,10 +99,10 @@ fn universe(src: &str) -> Vec<(usize, String)> {
 }
 
 #[test]
-fn a_refused_tree_labels_every_edge_of_its_owner_cfg_incomplete() {
+fn a_refused_tree_keeps_mains_labels_on_every_edge_of_its_owner() {
     for c in REFUSED {
-        for e in c.edges {
-            assert_eq!(labels_of(JS, c.src, e), [CFG], "{} {e}", c.name);
+        for (e, want) in c.edges {
+            assert_eq!(labels_of(JS, c.src, e), [*want], "{} {e}", c.name);
         }
     }
 }
@@ -138,8 +137,8 @@ fn a_do_condition_in_a_refused_tree_is_not_a_statement() {
     assert!(universe(src).iter().all(|(_, k)| k != "do_condition"));
     let main_edges = crate::cfg::js_loops::with_main_loop_cfg(|| edges(src));
     assert_eq!(edges(src), main_edges);
-    assert_eq!(labels_of(JS, src, "z@2->z@6"), [CFG]);
-    // The same `do` alone is admitted: its condition (L5) is a statement of the universe.
+    assert_eq!(labels_of(JS, src, "z@2->z@6"), ["exact"]); // main 8cc4985d
+                                                           // The same `do` alone is admitted: its condition (L5) is a statement of the universe.
     let alone =
         "function f(c) {\n  let z = 1;\n  do {\n    x = g();\n  } while (c());\n  sink(x, z);\n}\n";
     assert!(universe(alone)
@@ -221,10 +220,10 @@ fn a_legacy_refused_tree_with_an_unresolved_record_refuses_its_owner() {
             "{name}: classified under the final admission"
         );
         assert!(p.refuses_owner(v.owner), "{name}");
-        // Main's edges stand (no rewrite), the label is the owner-wide refusal.
+        // Main's edges stand (no rewrite) and so do main's labels (`exact` on 8cc4985d).
         let main = crate::cfg::js_loops::with_main_loop_cfg(|| edges(src));
         assert_eq!(edges(src), main, "{name}");
-        assert_eq!(labels_of(JS, src, "x@2->x@12"), [CFG], "{name}");
+        assert_eq!(labels_of(JS, src, "x@2->x@12"), ["exact"], "{name}");
     }
 }
 
@@ -249,7 +248,7 @@ fn a_legacy_refused_tree_with_resolved_records_refuses_its_owner() {
             "{name}"
         );
         assert!(p.refuses_owner(p.verdicts[0].owner), "{name}");
-        assert_eq!(labels_of(JS, src, edge), [CFG], "{name} {edge}");
+        assert_eq!(labels_of(JS, src, edge), ["exact"], "{name} {edge}"); // main 8cc4985d
     }
     let ctl = "function ctl() {\n  let x = 0;\n  while ((x = next())) {\n    x = f();\n  }\n  sink(x);\n}\n";
     assert_eq!(labels_of(JS, ctl, "x@4->x@6"), ["nameonly/killed"]);
@@ -263,13 +262,12 @@ fn a_for_init_inside_a_do_on_one_line_is_a_refused_row() {
     let parsed = ParsedFile::parse("a.js", src, JS).unwrap();
     let p = parsed.js_loop_plan();
     assert!(p.refuses_owner(p.verdicts[0].owner));
-    assert_eq!(labels_of(JS, src, "z@2->z@4"), [CFG]);
+    assert_eq!(labels_of(JS, src, "z@2->z@4"), ["exact"]); // main 8cc4985d
 }
 
-/// Fold 3 (sol W): availability is decided on the owner's all-admitted universe at both seams. The refused
+/// Final policy: availability of a refused owner is main's (standing universe) at both seams. The refused
 /// outer-while/inner-do tree of `a_do_condition_in_a_refused_tree_is_not_a_statement`, padded with separate
-/// statements: the standing universe is `n` lines and the all-admitted one holds the inner `do` condition too,
-/// `n + 1`. With the standing universe at exactly `RD_MAX_LINES` the owner is over the cap, as on 874ce2c3.
+/// statements: the standing universe is `n` lines; the owner is over the cap exactly when `n > RD_MAX_LINES`.
 fn padded_refused(standing_lines: usize) -> (String, usize) {
     let src = |pad: usize| {
         format!(
@@ -303,16 +301,13 @@ fn both_seams(source: &str) -> (Option<RdUnavailable>, Option<RdUnavailable>) {
 }
 
 #[test]
-fn the_line_cap_of_a_refused_owner_is_decided_on_its_all_admitted_universe() {
+fn the_line_cap_of_a_refused_owner_is_decided_on_its_standing_universe() {
+    // Final policy: a refused owner has main's availability, so the cap counts the standing universe only.
     let (source, _) = padded_refused(RD_MAX_LINES);
+    assert_eq!(both_seams(&source), (None, None));
+    let (over_source, _) = padded_refused(RD_MAX_LINES + 1);
     let over = Some(RdUnavailable::StatementLinesCapExceeded {
         actual: RD_MAX_LINES + 1,
     });
-    assert_eq!(both_seams(&source), (over, over));
-}
-
-#[test]
-fn a_refused_owner_whose_all_admitted_universe_fits_the_cap_stays_available() {
-    let (source, _) = padded_refused(RD_MAX_LINES - 1);
-    assert_eq!(both_seams(&source), (None, None));
+    assert_eq!(both_seams(&over_source), (over, over));
 }

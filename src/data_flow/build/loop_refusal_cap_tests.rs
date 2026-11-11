@@ -1,7 +1,7 @@
-//! #693/#697 slice 2 fold 1: a loop tree the plan refuses (option O1) is a LABEL decision. The owner's
-//! reaching-definitions availability, and with it the fallback edge cap, are those of the owner had the tree
-//! been admitted (874ce2c3), not main's: main's CFG of a one-line owner has no edge (`NoCfgEdges`), the
-//! admitted tree has a self-loop. Small-cap seam as in `fallback_cap_tests`.
+//! #693/#697 final refusal policy: a loop owner the plan refuses keeps EXACTLY main's availability and fallback cap
+//! (it used to keep the admitted tree's, 874ce2c3, under the interim O1). Main's CFG of a one-line owner has no edge
+//! (`NoCfgEdges`, 1 function without CFG, checked on main 8cc4985d's binary), and the owner is capped like any other
+//! owner without a CFG. Small-cap seam as in `fallback_cap_tests`.
 use super::{FileRefs, Producer};
 use crate::ast::ParsedFile;
 use crate::languages::Language;
@@ -26,24 +26,25 @@ fn owner_edges(refs: &FileRefs, owner: &str) -> usize {
 }
 
 #[test]
-fn a_refused_loop_tree_keeps_its_owner_rd_available() {
+fn a_refused_loop_owner_has_mains_availability() {
     let parsed = ParsedFile::parse("a.js", REFUSED, Language::JavaScript).unwrap();
     assert!(parsed
         .js_loop_plan()
         .counters()
         .contains_key("owners_refused"));
     let r = refs(REFUSED, None);
+    // Main: the one-line owner has no CFG edge (without_cfg 1), its fallback edges are drawn as for any such owner.
     assert!(owner_edges(&r, "p15") > 0);
-    assert_eq!(r.rd_function_stats.functions_without_cfg, 0);
+    assert_eq!(r.rd_function_stats.functions_without_cfg, 1);
 }
 
 #[test]
-fn a_refused_loop_tree_keeps_its_owner_exempt_from_the_fallback_cap() {
+fn a_refused_loop_owner_is_capped_like_main() {
     let old = refs(REFUSED, None);
-    let capped = refs(REFUSED, Some(0));
-    assert_eq!(capped.edges, old.edges);
-    assert_eq!(capped.rd_function_stats.fallback_functions_capped, 0);
-    assert_eq!(capped.rd_function_stats.fallback_edges_capped, 0);
+    let n = owner_edges(&old, "p15");
+    let capped = refs(REFUSED, Some(n - 1));
+    assert_eq!(owner_edges(&capped, "p15"), 0);
+    assert_eq!(capped.rd_function_stats.fallback_functions_capped, 1);
 }
 
 #[test]

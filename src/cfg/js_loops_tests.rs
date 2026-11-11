@@ -42,6 +42,7 @@ fn refusal(src: &str) -> String {
         crate::cfg::js_loops::Why::Placement => "Placement".to_string(),
         crate::cfg::js_loops::Why::Unresolved(u) => format!("Unresolved({u:?})"),
         crate::cfg::js_loops::Why::TryFlow => "TryFlow".to_string(),
+        crate::cfg::js_loops::Why::OwnerSibling => "OwnerSibling".to_string(),
     })
 }
 

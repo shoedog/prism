@@ -20,6 +20,7 @@ fn reason(w: &Option<Why>) -> String {
         Some(Why::Placement) => "Placement".into(),
         Some(Why::Unresolved(u)) => format!("Unresolved({u:?})"),
         Some(Why::TryFlow) => "TryFlow".into(),
+        Some(Why::OwnerSibling) => "OwnerSibling".into(),
     }
 }
 
@@ -152,4 +153,25 @@ fn an_assumption_is_about_one_file_only() {
         assert!(!super::admits(&a, root), "the assumption holds for a");
         assert!(super::admits(&b, root), "and not for b");
     });
+}
+
+#[test]
+fn an_admissible_loop_beside_a_refused_one_in_the_same_owner_is_refused_with_it() {
+    // Final policy: a refused owner keeps main's geometry whole. `while (a())` alone is admissible; the second
+    // loop is a head collapse, so the owner is refused and the first loop is `OwnerSibling`.
+    let src = "function f(a, c) {\n  let z = 1;\n  while (a()) {\n    work();\n  }\n  while (c()) x = g();\n  sink(x, z);\n}\n";
+    let p = plan(src);
+    let mut why: Vec<String> = p.verdicts.iter().map(|v| reason(&v.why)).collect();
+    why.sort();
+    assert_eq!(why, ["OwnerSibling", "Unresolved(HeadCollapse)"], "{why:?}");
+    assert!(p.refuses_owner(p.verdicts[0].owner));
+    let main = crate::cfg::js_loops::with_main_loop_cfg(|| {
+        let parsed = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
+        crate::cfg::build_cfg_edges_with_arms(&parsed)
+    });
+    let now = ParsedFile::parse("a.js", src, Language::JavaScript).unwrap();
+    assert_eq!(
+        format!("{:?}", crate::cfg::build_cfg_edges_with_arms(&now)),
+        format!("{main:?}")
+    );
 }

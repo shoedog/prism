@@ -12,7 +12,9 @@
 //! source text before the CFG is built, so 265 rows (HOLD 154, MOVE 16, REFUSED 95) name a pair that no longer exists. A
 //! row is ABSENT only when new main 72be3b73 also lacks the pair (checked per row: `scripts/matrix_control.py`, 0
 //! rows absent on the head and present on main); the test asserts the pair is absent. No fixture lost all its rows.
-//! TRYFLOW rows (T2): the owner holds a `try`, so the plan refuses it whole (`TryFlow`, callable-wide O1) and every
+//! FINAL REFUSAL POLICY: a refused owner keeps exactly main's labels, so the expected label of every REFUSED and TRYFLOW
+//! row below is MAIN 8cc4985d's label, re-derived from that binary's output (`O1final/matrix_rederive.py`, which also
+//! checks the head's binary equals it on all 150 rows), not the interim `nameonly/cfg_incomplete`. TRYFLOW rows (T2): the owner holds a `try`, so the plan refuses it whole (`TryFlow`, callable-wide O1) and every
 //! surviving pair is `nameonly/cfg_incomplete` (46 rows: HOLD 30, MOVE 16, were admitted by slice 3).
 //! RESIDUAL rows are shapes of a loop tree that is not rewired (a one-line `do`, a condition sharing a
 //! line, a jump through a `finally`, a `for` initializer re-run by a back route, an unrewirable
@@ -102,9 +104,9 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
         match r.kind.as_str() {
             "MOVE" => assert_ne!(r.main, r.expected, "{} {}", r.fixture, r.edge),
             "HOLD" | "RESIDUAL" => assert_eq!(r.main, r.expected, "{} {}", r.fixture, r.edge),
-            "REFUSED" => assert_eq!(r.expected, "nameonly/cfg_incomplete", "{}", r.fixture),
+            "REFUSED" => assert_ne!(r.expected, "-", "{} {}", r.fixture, r.edge),
             "ABSENT" => assert_eq!(r.expected, "-", "{} {}", r.fixture, r.edge),
-            "TRYFLOW" => assert_eq!(r.expected, "nameonly/cfg_incomplete", "{}", r.fixture),
+            "TRYFLOW" => assert_ne!(r.expected, "-", "{} {}", r.fixture, r.edge),
             other => panic!("kind {other}"),
         }
     }
@@ -209,7 +211,7 @@ fn the_trace_names_the_loop_mechanism_of_each_moved_edge() {
         "{m:?}"
     );
     // A one-line `do` is not rewired (its condition has no execution point): under main's loop CFG it names
-    // nothing. Under the plan its owner is refused by label (the trace names those edges), pinned by REFUSED rows.
+    // nothing, and the refused owner keeps main's labels (final refusal policy), so the trace names nothing either.
     let one_line = "function f(a) {\n  log();\n  do { a = g(); } while (a-- > 0);\n  sink(a);\n}\n";
     let names: Vec<_> = trace_lines_main_loops(js, one_line)
         .iter()
@@ -222,8 +224,8 @@ fn the_trace_names_the_loop_mechanism_of_each_moved_edge() {
         .collect();
     assert!(names.is_empty(), "{names:?}");
     assert!(
-        !mechanisms(js, one_line).is_empty(),
-        "the refusal moves the owner's labels"
+        mechanisms(js, one_line).is_empty(),
+        "a refused owner keeps main's labels: nothing moves"
     );
     // Controls name nothing: a header that writes nothing the body defines, a loop-free owner.
     for src in [

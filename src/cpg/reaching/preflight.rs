@@ -6,44 +6,27 @@ use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
-/// The universe an owner's RD availability is decided on (#693 fold 2, one place for both seams). A refusal
-/// is a label decision only: an owner whose loop tree the plan refused (option O1) is available exactly when
-/// it would be with every O1-refused tree admitted (874ce2c3's build): that universe's statement-line count
-/// against `RD_MAX_LINES`, its CFG's edge check and its one-node test. Solving and labelling keep the
-/// standing universe and CFG. Any other owner is decided on its standing universe, as on main.
+/// The universe an owner's RD availability is decided on, in one place for both seams (the producer preflight and
+/// the solver). Since the final refusal policy a refused loop owner keeps EXACTLY main's geometry (no rewrite, no
+/// admitted `do` condition), so every owner is decided on its standing universe and CFG, as on main.
 pub(super) struct Availability {
     pub(super) statement_lines: usize,
     pub(super) lines: BTreeMap<usize, usize>,
-    /// `Some`: whether the all-admitted CFG has an edge between two of `lines` (an O1-refused owner).
-    admitted_edges: Option<bool>,
 }
 
 impl Availability {
-    pub(super) fn of(parsed: &ParsedFile, owner: &Node<'_>, standing: &[(usize, String)]) -> Self {
-        let index = |s: &[(usize, String)]| -> BTreeMap<usize, usize> {
-            s.iter()
-                .enumerate()
-                .map(|(i, (l, _))| (*l, i + 1))
-                .collect()
-        };
-        if parsed.language.is_js_family() && !crate::cfg::js_loops::main_loop_cfg() {
-            let plan = parsed.js_loop_plan();
-            if plan.refuses_owner((owner.start_byte(), owner.end_byte())) {
-                let (all, _) =
-                    plan.with_all_admitted(parsed, || super::rd_statements(parsed, owner));
-                let lines = index(&all);
-                let edges = plan.admitted_cfg_has_edges(parsed, &lines);
-                return Self {
-                    statement_lines: all.len(),
-                    lines,
-                    admitted_edges: Some(edges),
-                };
-            }
-        }
+    pub(super) fn of(
+        _parsed: &ParsedFile,
+        _owner: &Node<'_>,
+        standing: &[(usize, String)],
+    ) -> Self {
         Self {
             statement_lines: standing.len(),
-            lines: index(standing),
-            admitted_edges: None,
+            lines: standing
+                .iter()
+                .enumerate()
+                .map(|(i, (l, _))| (*l, i + 1))
+                .collect(),
         }
     }
 
@@ -52,9 +35,7 @@ impl Availability {
         &self,
         standing_has_edges: impl FnOnce(&BTreeMap<usize, usize>) -> bool,
     ) -> bool {
-        !self
-            .admitted_edges
-            .unwrap_or_else(|| standing_has_edges(&self.lines))
+        !standing_has_edges(&self.lines)
     }
 }
 
@@ -182,12 +163,13 @@ mod tests {
                 None,
             ),
             (
-                // #693 fold 1: the plan refuses this loop tree (SharedBoundaryLine) and main's CFG has no
-                // edge, but refusal is a label decision: availability is the admitted tree's (a self-loop).
-                "refused loop tree keeps availability",
+                // Final refusal policy: the plan refuses this loop tree (SharedBoundaryLine), so the owner keeps
+                // main's availability: main's CFG of a one-line owner has no edge (main 8cc4985d: 1 function
+                // without CFG), no longer the admitted tree's self-loop.
+                "refused loop tree has mains availability",
                 "function f(xs) { let y = 0; for (const x of xs) { y = g(x, y); continue; } }\n",
                 &["y", "y"],
-                None,
+                Some(RdUnavailable::NoCfgEdges),
             ),
             (
                 "empty body",
