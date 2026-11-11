@@ -845,11 +845,12 @@ pub(super) fn trace(parsed: &ParsedFile, owner: Node<'_>, scanned: &Result<COwne
     }
     let status = match scanned {
         Ok(o) => format!(
-            "{}\tescaped={}\tmacro_names={}\tmember_roots={}",
+            "{}\tescaped={}\tmacro_names={}\tmember_roots={}\thidden_decls={}",
             if o.d_ok { "on" } else { "on-no-d:g6" },
             o.escaped.len(),
             o.macro_names.len(),
-            o.member_roots.len()
+            o.member_roots.len(),
+            o.hidden_decls
         ),
         Err(off) => format!("off:{off:?}"),
     };
