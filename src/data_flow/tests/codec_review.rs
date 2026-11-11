@@ -31,6 +31,8 @@ fn raw_rd(rows: Vec<(&str, Stats)>) -> Vec<u8> {
         // Receiver-edge ledger (fold 1): empty.
         bytes.extend(bincode::serialize(&0usize).unwrap());
     }
+    // Macro census digest (fold 3): empty.
+    bytes.extend(bincode::serialize("").unwrap());
     bytes
 }
 fn reject_raw(rows: Vec<(&str, Stats)>, expected: &str) {
@@ -287,9 +289,11 @@ fn go_field_recall_codec_rejects_raw_duplicates_order_and_overflow() {
         ),
     ] {
         let mut raw = raw_rd(vec![("a.go", stats(vec![]))]);
-        raw.truncate(raw.len() - 16);
+        // Drop the empty ledger rows and the empty census digest, then re-append them.
+        raw.truncate(raw.len() - 24);
         raw.extend(bincode::serialize(&keys).unwrap());
         raw.extend(bincode::serialize(&0usize).unwrap());
+        raw.extend(bincode::serialize("").unwrap());
         let error = bincode::deserialize::<CompactDfg>(&raw)
             .unwrap_err()
             .to_string();

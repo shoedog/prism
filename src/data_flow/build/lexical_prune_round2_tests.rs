@@ -49,7 +49,13 @@ fn go_prune_compound_operator_guard_without_rvalue_facts() {
         let span = lvalues.iter().find(|span| span.line == 3).unwrap();
         // Deliberately omit rvalue facts to isolate classify_write's operator
         // certificate. The producer assertion below separately uses real facts.
-        let facts = LexicalFacts::new(&parsed, owner, &lvalues, &[]);
+        let facts = LexicalFacts::new(
+            &parsed,
+            owner,
+            &lvalues,
+            &[],
+            &crate::call_graph::rust::macro_args::RustMacroCensus::of_file(&parsed),
+        );
         let mut stats = RdFileStats::default();
         let drop = facts.drop_write_only(&AccessPath::simple("x"), 4, &mut stats);
         assert_eq!(
