@@ -19,7 +19,13 @@
 //! * Everything else (a qualified external path, an unknown spelling, a proc macro) is
 //!   Refused (fail closed).
 //!
-//! Out of model: the root-collision form E2 also accepts (an external crate name that is
+//! A `macro_rules ! NAME` spelled in any token tree (outside owners too) or in a definition's
+//! right-hand side defines NAME as generating (fold 4, fail closed); comments in token soup
+//! are ignored by the recognizers.
+//!
+//! Out of model: an external generator under a spelling by a glob import (`use ext::*;`) when
+//! an unrelated clean in-repo definition of that spelling is out of textual scope, and the
+//! root-collision form E2 also accepts (an external crate name that is
 //! also an unrelated in-repo module spelling is not told apart, since in-repo qualifiers are
 //! only `crate`/`self`/`super`/`$crate`; a `mod`-rooted macro path is Refused).
 use super::{walk_use_tree, UseLeaf, NON_BINDING_EXPR_MACROS, STD_ROOTS, TRANSPARENT_ARG_MACROS};
@@ -86,12 +92,41 @@ pub struct Soup<'a> {
     pub meta_bang: bool,
     /// String literal tokens (format captures live in them).
     pub strings: Vec<Node<'a>>,
+    /// Every `macro_rules ! NAME` spelled in the soup (`r#` stripped): the rules are not
+    /// parsed, so the census treats NAME as defined and generating (fail closed).
+    pub defined: BTreeSet<String>,
+}
+
+fn is_comment(node: &Node<'_>) -> bool {
+    matches!(node.kind(), "line_comment" | "block_comment")
+}
+
+/// An identifier or keyword-spelled anonymous token (a macro may carry a keyword's spelling).
+fn name_token(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
+    match node.kind() {
+        "identifier" => Some(strip_raw(parsed.node_text(node)).to_owned()),
+        kind if !node.is_named()
+            && kind
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_alphabetic() || c == '_')
+            && kind.chars().all(|c| c.is_alphanumeric() || c == '_') =>
+        {
+            Some(kind.to_owned())
+        }
+        _ => None,
+    }
 }
 
 /// Scan a `token_tree` (or `token_repetition`) recursively.
 pub fn scan_soup<'a>(parsed: &'a ParsedFile, tt: Node<'a>, out: &mut Soup<'a>) {
     let mut cursor = tt.walk();
-    let kids: Vec<Node<'a>> = tt.children(&mut cursor).collect();
+    // Comments are extras between any two tokens (`name /* c */ !(..)`): drop them before
+    // invocation, path and metavariable recognition.
+    let kids: Vec<Node<'a>> = tt
+        .children(&mut cursor)
+        .filter(|n| !is_comment(n))
+        .collect();
     let bang_tree = |i: usize| {
         kids.get(i + 1).is_some_and(|n| n.kind() == "!")
             && kids.get(i + 2).is_some_and(|n| n.kind() == "token_tree")
@@ -102,6 +137,11 @@ pub fn scan_soup<'a>(parsed: &'a ParsedFile, tt: Node<'a>, out: &mut Soup<'a>) {
                 let text = strip_raw(parsed.node_text(kid)).to_owned();
                 if text == "macro_rules" {
                     out.macro_rules = true;
+                    if kids.get(i + 1).is_some_and(|n| n.kind() == "!") {
+                        if let Some(name) = kids.get(i + 2).and_then(|n| name_token(parsed, n)) {
+                            out.defined.insert(name);
+                        }
+                    }
                 }
                 if bang_tree(i) {
                     out.invocations.push(Invocation {
@@ -189,6 +229,8 @@ struct Acc {
     defs: BTreeMap<String, Vec<DefInfo>>,
     leaves: Vec<UseLeaf>,
     macro_use_extern: bool,
+    /// `macro_rules! NAME` written inside token trees or definition bodies.
+    soup_defined: BTreeSet<String>,
 }
 
 fn walk(parsed: &ParsedFile, node: Node<'_>, acc: &mut Acc) {
@@ -210,6 +252,7 @@ fn walk(parsed: &ParsedFile, node: Node<'_>, acc: &mut Acc) {
                     let mut soup = Soup::default();
                     scan_soup(parsed, right, &mut soup);
                     info.generates |= soup.macro_rules || soup.meta_bang;
+                    acc.soup_defined.extend(soup.defined);
                     info.invocations.extend(soup.invocations);
                 }
                 acc.defs
@@ -217,6 +260,14 @@ fn walk(parsed: &ParsedFile, node: Node<'_>, acc: &mut Acc) {
                     .or_default()
                     .push(info);
             }
+            return;
+        }
+        // A token tree anywhere (module level, `cfg_if!` bodies, inside owners): a
+        // `macro_rules! NAME` written in it defines NAME, but the rules are not parsed.
+        "token_tree" => {
+            let mut soup = Soup::default();
+            scan_soup(parsed, node, &mut soup);
+            acc.soup_defined.extend(soup.defined);
             return;
         }
         "use_declaration" => {
@@ -232,6 +283,10 @@ fn walk(parsed: &ParsedFile, node: Node<'_>, acc: &mut Acc) {
                 .unwrap_or_default();
             let mut prev = node.prev_sibling();
             while let Some(sib) = prev {
+                if is_comment(&sib) {
+                    prev = sib.prev_sibling();
+                    continue;
+                }
                 if sib.kind() != "attribute_item" {
                     break;
                 }
@@ -269,7 +324,7 @@ impl RustMacroCensus {
             walk(parsed, parsed.tree.root_node(), &mut acc);
         }
         let mut census = RustMacroCensus {
-            defined: acc.defs.keys().cloned().collect(),
+            defined: acc.defs.keys().chain(&acc.soup_defined).cloned().collect(),
             macro_use_extern: acc.macro_use_extern,
             ..Self::default()
         };
@@ -279,6 +334,7 @@ impl RustMacroCensus {
             .iter()
             .filter(|(_, defs)| defs.iter().any(|d| d.generates))
             .map(|(name, _)| name.clone())
+            .chain(acc.soup_defined.iter().cloned())
             .collect();
         // Least fixpoint: a definition invoking a Refused spelling generates.
         loop {
@@ -363,6 +419,17 @@ fn is_in_repo_qualifier(q: &str) -> bool {
 /// an in-repo `as` alias of an in-repo macro (chains followed).
 fn ext_bound(defined: &BTreeSet<String>, leaves: &[UseLeaf]) -> BTreeSet<String> {
     let relevant = |n: &str| defined.contains(n) || std_allowed(n);
+    // `use ext::m as r#assert;` binds `assert`: compare the spellings without `r#`.
+    let leaves: Vec<UseLeaf> = leaves
+        .iter()
+        .map(|u| UseLeaf {
+            bound: strip_raw(&u.bound).to_owned(),
+            original: strip_raw(&u.original).to_owned(),
+            root: strip_raw(&u.root).to_owned(),
+            aliased: u.aliased,
+        })
+        .collect();
+    let leaves = &leaves[..];
     let in_repo = |u: &UseLeaf| matches!(u.root.as_str(), "crate" | "self" | "super");
     let mut macro_like = defined.clone();
     loop {

@@ -350,7 +350,7 @@ impl<'a> LexicalFacts<'a> {
     }
 
     fn proof(&self, path: &AccessPath, line: usize) -> UseProof {
-        if !self.enabled || self.rust_refused.contains(&path.base) {
+        if !self.enabled || self.rust_refused.contains(rust_ident(&path.base)) {
             return UseProof::default();
         }
         let key = (path.clone(), line);
@@ -506,8 +506,8 @@ impl<'a> LexicalFacts<'a> {
         // macro the census refuses.
         if self.parsed.language == Language::Rust
             && (!path.fields.is_empty()
-                || self.rust_mut_borrowed.contains(&path.base)
-                || self.rust_refused.contains(&path.base))
+                || self.rust_mut_borrowed.contains(rust_ident(&path.base))
+                || self.rust_refused.contains(rust_ident(&path.base)))
         {
             return true;
         }
@@ -571,4 +571,10 @@ fn pure_path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
         }
         _ => None,
     }
+}
+
+/// A Rust identifier without the `r#` raw prefix (`r#type` and `type` name one variable; the
+/// macro scan stores the stripped spelling).
+fn rust_ident(base: &str) -> &str {
+    base.strip_prefix("r#").unwrap_or(base)
 }
