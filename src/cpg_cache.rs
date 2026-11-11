@@ -327,7 +327,8 @@ mod stream;
 /// - v176: JS/TS/TSX loop rewrite by record, not by line span (#693, #697 option B, slice 3): a rewired tree drops exactly the CFG records it owns (`js_loops::replace`), an `if` arm that ends in a wrapper (a label, `try`, `switch`, nested `if`) holding or leaving a loop is replaced by the wrapper's own completions instead of refusing the tree (`wrapper_entry_then_end`, `non_completion_crossing`), the enclosing owner drops its copies of the legacy edges of a loop inside a nested callable whose tree is admitted (`foreign_admitted`), and a hoisted function declaration in a loop body is no placement occurrence; so the ControlFlow edges, the statement universe of newly admitted trees, the DataFlow labels and the `dfg_loop_plan` counters change.
 /// - v177: a JS/TS/TSX owner with loop trees that contains a `try` (own syntax, callable bodies excluded) or whose selected statement lines lie on a `try` region of the file is refused whole by the loop plan (T2, `TryFlow`; callable-wide O1 on both label paths): its trees keep main's geometry, its labels become `nameonly/cfg_incomplete`, the fold-1 catch-shape rule is gone, and `dfg_loop_plan` gains `refused.try_flow`, `overlap.try_flow` and `legacy_o1.try_flow`, so the DataFlow labels and the loop-plan counters change.
 /// - v178: final refusal policy (#693, #697): a refused JS/TS/TSX loop owner (any tree refused, so all) keeps EXACTLY main's geometry, labels and availability: no loop rewrite, no wrapper delegation, no drop of a nested admitted tree's copies, no admitted `do` condition, no forced `nameonly/cfg_incomplete` and no all-admitted availability reference; the plan refuses every other tree of a refused owner (`refused.owner_sibling`), so the CFG, the statement universe, the DataFlow labels and the loop-plan counters change.
-const CACHE_VERSION: u32 = 178;
+/// - v179: the `for` initializer replay hazard is decided by write PATHS, bindings and necessary eager test/update writes, not by root names (#693, #697 slice 4): a sibling-field or deferred/conditional write no longer excuses the replay, an exact-path repeated write does, so loop trees change admission and the stored labels of their owners change
+const CACHE_VERSION: u32 = 179;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -860,7 +861,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 178);
+        assert_eq!(super::CACHE_VERSION, 179);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

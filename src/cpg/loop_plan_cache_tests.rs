@@ -41,6 +41,20 @@ fn trees_whose_admission_changed_in_slice_3_agree_on_cold_full_hit_and_partial_h
     });
 }
 
+/// Slice 4 (#693): `sib` (a sibling-field update) was admitted and is refused now (`ForInit`, its owner keeps main's
+/// labels); `same` (an exact-path update) stays admitted. Both survive a cache round trip unchanged.
+const SLICE4: &str = "function sib(o, more) {\n  let z = 1;\n  for (o.x = 0; more(); o.y++) {\n    o.x = 1;\n  }\n  sink(o.x, z);\n}\nfunction same(o, more) {\n  let z = 1;\n  for (o.x = 0; more(); o.x++) {\n    o.x = 1;\n  }\n  sink(o.x, z);\n}\n";
+
+#[test]
+fn trees_whose_admission_changed_in_slice_4_agree_on_cold_full_hit_and_partial_hit() {
+    parity(SLICE4, |plan| {
+        assert_eq!(plan.get("trees"), Some(&2), "{plan:?}");
+        assert_eq!(plan.get("admitted"), Some(&1), "{plan:?}");
+        assert_eq!(plan.get("refused.legacy.for_init"), Some(&1), "{plan:?}");
+        assert_eq!(plan.get("owners_refused"), Some(&1), "{plan:?}");
+    });
+}
+
 fn parity(source: &str, check_plan: impl Fn(&BTreeMap<String, usize>)) {
     use crate::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
     let sources = BTreeMap::from([("a.js".to_string(), source.to_string())]);

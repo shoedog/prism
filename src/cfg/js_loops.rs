@@ -49,6 +49,7 @@ use std::collections::BTreeSet;
 use tree_sitter::Node;
 
 mod facts;
+mod for_init;
 mod placement;
 mod plan;
 mod replace;
@@ -475,113 +476,6 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         })
     }
 
-    /// Whether a `for` initializer writes a name the loop's body writes and neither its test nor its
-    /// update does. The initializer runs once but shares the header node, so a back route through
-    /// that node would re-run its kill on the body's def.
-    fn for_init_hazard(&self, node: Node<'tree>) -> bool {
-        let Some(init) = node.child_by_field_name("initializer") else {
-            return false;
-        };
-        let (mut init_names, mut test_update, mut body_names) =
-            (BTreeSet::new(), BTreeSet::new(), BTreeSet::new());
-        self.writes(init, true, &mut init_names);
-        if init_names.is_empty() {
-            return false;
-        }
-        for field in ["condition", "increment"] {
-            if let Some(n) = node.child_by_field_name(field) {
-                self.writes(n, false, &mut test_update);
-            }
-        }
-        if let Some(body) = node.child_by_field_name("body") {
-            self.writes(body, true, &mut body_names);
-        }
-        init_names
-            .iter()
-            .any(|n| !test_update.contains(n) && body_names.contains(n))
-    }
-
-    /// The root names written under `node`: assignment, augmented assignment, update, declarator and
-    /// `for`..`in` targets. `loose` over-approximates (every identifier of a target, an index too);
-    /// the precise form (the update and test side, whose names excuse a kill) takes only the roots.
-    fn writes(&self, node: Node<'tree>, loose: bool, out: &mut BTreeSet<String>) {
-        let mut stack = vec![node];
-        while let Some(n) = stack.pop() {
-            let target = match n.kind() {
-                "assignment_expression" | "augmented_assignment_expression" => {
-                    n.child_by_field_name("left")
-                }
-                "update_expression" => n.child_by_field_name("argument"),
-                "variable_declarator" => n.child_by_field_name("name"),
-                "for_in_statement" => n.child_by_field_name("left"),
-                _ => None,
-            };
-            if let Some(t) = target {
-                self.target_names(t, loose, out);
-            }
-            let mut cursor = n.walk();
-            stack.extend(n.named_children(&mut cursor));
-        }
-    }
-
-    fn target_names(&self, t: Node<'tree>, loose: bool, out: &mut BTreeSet<String>) {
-        let text = |n: Node<'_>| self.parsed.source[n.start_byte()..n.end_byte()].to_string();
-        match t.kind() {
-            "identifier" | "shorthand_property_identifier_pattern" => {
-                out.insert(text(t));
-            }
-            "member_expression" | "subscript_expression" => {
-                if loose {
-                    let mut stack = vec![t];
-                    while let Some(n) = stack.pop() {
-                        if n.kind() == "identifier" {
-                            out.insert(text(n));
-                        }
-                        let mut cursor = n.walk();
-                        stack.extend(n.named_children(&mut cursor));
-                    }
-                } else if let Some(object) = t.child_by_field_name("object") {
-                    self.target_names(object, loose, out);
-                }
-            }
-            "assignment_pattern" | "object_assignment_pattern" => {
-                // `a = default`: the written side only.
-                if let Some(left) = t.child_by_field_name("left") {
-                    self.target_names(left, loose, out);
-                }
-            }
-            "array_pattern" | "object_pattern" | "rest_pattern" | "parenthesized_expression" => {
-                let mut cursor = t.walk();
-                for c in t.named_children(&mut cursor) {
-                    match c.kind() {
-                        "property_identifier" => {}
-                        // `{ key: value }`: the value side is written.
-                        "pair_pattern" => {
-                            if let Some(v) = c.child_by_field_name("value") {
-                                self.target_names(v, loose, out);
-                            }
-                        }
-                        _ => self.target_names(c, loose, out),
-                    }
-                }
-            }
-            _ if loose => {
-                let mut stack = vec![t];
-                while let Some(n) = stack.pop() {
-                    if matches!(
-                        n.kind(),
-                        "identifier" | "shorthand_property_identifier_pattern"
-                    ) {
-                        out.insert(text(n));
-                    }
-                    let mut cursor = n.walk();
-                    stack.extend(n.named_children(&mut cursor));
-                }
-            }
-            _ => {}
-        }
-    }
-
     /// The construct a `break` or `continue` binds to: the innermost loop (or, for `break`, `switch`),
     /// or the labeled statement its label names, and whether the jump leaves a `try` body or `catch`
     /// whose `finally` does not enclose that target. Never crosses a callable.
@@ -859,3 +753,7 @@ impl<'a, 'tree> Cx<'a, 'tree> {
 #[cfg(test)]
 #[path = "js_loops_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "js_loops/for_init_tests.rs"]
+mod for_init_tests;
