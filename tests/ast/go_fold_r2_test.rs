@@ -74,6 +74,8 @@ fn go_fold_r2_outer_writes_do_not_define_inner_bindings() {
 
 #[test]
 fn go_fold_r2_complete_receipts() {
+    // Alias-twin lane slice 2a: this receipt pins main's twin behaviour of an earlier lane.
+    let _twins = prism::data_flow::AliasTwinPolicyOff::new();
     let read = |file| {
         std::fs::read_to_string(root().join(file))
             .unwrap()

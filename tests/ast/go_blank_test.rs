@@ -76,6 +76,8 @@ fn nonblank(snapshot: &Value) -> Value {
 }
 
 fn check(name: &str) {
+    // Alias-twin lane slice 2a: this receipt pins main's twin behaviour of an earlier lane.
+    let _twins = prism::data_flow::AliasTwinPolicyOff::new();
     let all = cases();
     let case = all.iter().find(|c| c["name"] == name).unwrap();
     let dfg = graph(case);

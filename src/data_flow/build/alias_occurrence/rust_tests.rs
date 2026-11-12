@@ -116,3 +116,29 @@ fn the_refusal_is_per_target_spelling() {
     let src = "fn t(size: S, other: S, r: R) {\n let mut a = size;\n a = mk();\n let mut b = other;\n b = mk();\n g(r.size);\n}\n";
     assert_eq!(lines(src), vec![4, 5]);
 }
+
+#[test]
+fn unit_cases_of_the_oracle_for_r02_are_unsupported_or_stricter() {
+    // `&mut` receiver with a numeric RHS, an unrelated `i32` in the declaration text and a
+    // reference-annotated source: the oracle says unsupported; slice 2a agrees.
+    let a = "fn t(s: &mut S) {\n let mut a = s;\n a += 1;\n}\n";
+    assert!(d(a, 3).contains("a:unsupported:R-02"));
+    let b = "fn t(s: &mut S, k: i32) {\n let mut a = s; /* k: i32 */\n a += 1;\n}\n";
+    assert!(d(b, 3).contains("a:unsupported:R-02"));
+    let c = "fn t(k: &mut i32) {\n let mut b = k;\n b += 1;\n}\n";
+    assert!(d(c, 3).contains("b:unsupported:R-02"));
+    // The oracle's two numeric binding-write rows are the documented conservative divergence.
+    let e = "fn t(k: i32) {\n let mut b = k;\n b += 1;\n}\n";
+    assert!(d(e, 3).contains("b:unsupported:R-02"));
+}
+
+#[test]
+fn a_destructuring_assignment_leaf_is_not_a_binding_write() {
+    let src =
+        "fn t(o: usize, q: usize) {\n let mut u = o;\n let mut w = q;\n (u, w) = (q, o);\n}\n";
+    assert!(
+        !d(src, 4).iter().any(|t| t.contains("binding-write")),
+        "{:?}",
+        d(src, 4)
+    );
+}

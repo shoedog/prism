@@ -179,6 +179,8 @@ fn go_fold_r1_export() {
 
 #[test]
 fn go_fold_r1_complete_receipts() {
+    // Alias-twin lane slice 2a: this receipt pins main's twin behaviour of an earlier lane.
+    let _twins = prism::data_flow::AliasTwinPolicyOff::new();
     let base: Vec<Value> = include_str!("../fixtures/go_fold_r1/base.jsonl")
         .lines()
         .map(|s| serde_json::from_str(s).unwrap())

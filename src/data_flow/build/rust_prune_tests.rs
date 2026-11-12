@@ -73,18 +73,22 @@ fn check_subset(name: &str, source: &str) -> (usize, usize) {
 /// `edges_after ⊆ edges_before` over every Rust file of the fixture tree (differential).
 #[test]
 fn rust_prune_is_removal_only_over_fixture_tree() {
-    for path in fixtures("tests/fixtures") {
-        if path.to_string_lossy().contains("secbench") {
-            continue;
+    // The alias-twin policy removes twin edges the frozen reference has; it is off here so this
+    // differential isolates the pruning rules (the policy has its own tests).
+    super::alias_occurrence::without_policy(|| {
+        for path in fixtures("tests/fixtures") {
+            if path.to_string_lossy().contains("secbench") {
+                continue;
+            }
+            let Ok(source) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            check_subset(path.file_name().unwrap().to_str().unwrap(), &source);
         }
-        let Ok(source) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        check_subset(path.file_name().unwrap().to_str().unwrap(), &source);
-    }
-    for (name, source) in INLINE_CASES {
-        check_subset(name, source);
-    }
+        for (name, source) in INLINE_CASES {
+            check_subset(name, source);
+        }
+    });
 }
 
 /// Every matrix input as `(file name, source)`: the on-disk fixtures plus the inline cases.
@@ -109,62 +113,66 @@ fn matrix_inputs() -> Vec<(String, String)> {
 
 #[test]
 fn rust_prune_matrix() {
-    let obligations: Vec<serde_json::Value> =
-        include_str!("../../../tests/fixtures/dfg_prune/rust/obligations.jsonl")
-            .lines()
-            .map(|l| serde_json::from_str(l).unwrap())
-            .collect();
-    let mut failures = Vec::new();
-    for (file, source) in matrix_inputs() {
-        let name = file.strip_suffix(".rs").unwrap();
-        let parsed = ParsedFile::parse(&file, &source, Language::Rust).unwrap();
-        let before = Producer::file_refs_frozen(&file, &parsed);
-        let after = Producer::file_refs(&file, &parsed);
-        let (b, a) = (pairs(&before), pairs(&after));
-        let (bo, ao) = (owner_pairs(&before), owner_pairs(&after));
-        if std::env::var_os("PRISM_DUMP_PRUNE_BASELINE").is_some() {
-            for (p, d, u) in &b {
-                println!(
-                    "BASELINE {name} {p} {d} {u} kept={}",
-                    a.contains(&(p.clone(), *d, *u))
+    // The alias-twin policy removes twin edges the frozen reference has; it is off here so this
+    // differential isolates the pruning rules (the policy has its own tests).
+    super::alias_occurrence::without_policy(|| {
+        let obligations: Vec<serde_json::Value> =
+            include_str!("../../../tests/fixtures/dfg_prune/rust/obligations.jsonl")
+                .lines()
+                .map(|l| serde_json::from_str(l).unwrap())
+                .collect();
+        let mut failures = Vec::new();
+        for (file, source) in matrix_inputs() {
+            let name = file.strip_suffix(".rs").unwrap();
+            let parsed = ParsedFile::parse(&file, &source, Language::Rust).unwrap();
+            let before = Producer::file_refs_frozen(&file, &parsed);
+            let after = Producer::file_refs(&file, &parsed);
+            let (b, a) = (pairs(&before), pairs(&after));
+            let (bo, ao) = (owner_pairs(&before), owner_pairs(&after));
+            if std::env::var_os("PRISM_DUMP_PRUNE_BASELINE").is_some() {
+                for (p, d, u) in &b {
+                    println!(
+                        "BASELINE {name} {p} {d} {u} kept={}",
+                        a.contains(&(p.clone(), *d, *u))
+                    );
+                }
+            }
+            check_subset(&file, &source);
+            for row in obligations.iter().filter(|r| r["case"] == name) {
+                let key = (
+                    row["path"].as_str().unwrap().to_owned(),
+                    row["def_line"].as_u64().unwrap() as usize,
+                    row["use_line"].as_u64().unwrap() as usize,
                 );
+                if !b.contains(&key) {
+                    failures.push(format!("inadmissible missing baseline pair: {row}"));
+                }
+                // An optional `owner` field narrows a row to one owner (function name).
+                let only = |set: Option<&Owners>| -> Owners {
+                    set.into_iter()
+                        .flatten()
+                        .filter(|(f, _)| row.get("owner").is_none_or(|o| o == f.as_str()))
+                        .cloned()
+                        .collect()
+                };
+                let (had, has) = (only(bo.get(&key)), only(ao.get(&key)));
+                let (had, has) = (&had, &has);
+                let ok = if row["keep"].as_bool().unwrap() {
+                    !had.is_empty() && had.is_subset(has)
+                } else {
+                    // The filtered owner must have held the pair, or a misspelt `owner` passes.
+                    !had.is_empty() && has.is_empty()
+                };
+                if !ok {
+                    failures.push(format!("{row} owners before={had:?} after={has:?}"));
+                }
             }
         }
-        check_subset(&file, &source);
-        for row in obligations.iter().filter(|r| r["case"] == name) {
-            let key = (
-                row["path"].as_str().unwrap().to_owned(),
-                row["def_line"].as_u64().unwrap() as usize,
-                row["use_line"].as_u64().unwrap() as usize,
-            );
-            if !b.contains(&key) {
-                failures.push(format!("inadmissible missing baseline pair: {row}"));
-            }
-            // An optional `owner` field narrows a row to one owner (function name).
-            let only = |set: Option<&Owners>| -> Owners {
-                set.into_iter()
-                    .flatten()
-                    .filter(|(f, _)| row.get("owner").is_none_or(|o| o == f.as_str()))
-                    .cloned()
-                    .collect()
-            };
-            let (had, has) = (only(bo.get(&key)), only(ao.get(&key)));
-            let (had, has) = (&had, &has);
-            let ok = if row["keep"].as_bool().unwrap() {
-                !had.is_empty() && had.is_subset(has)
-            } else {
-                // The filtered owner must have held the pair, or a misspelt `owner` passes.
-                !had.is_empty() && has.is_empty()
-            };
-            if !ok {
-                failures.push(format!("{row} owners before={had:?} after={has:?}"));
-            }
-        }
-    }
-    assert!(
-        failures.is_empty(),
-        "{} failures:\n{}",
-        failures.len(),
-        failures.join("\n")
-    );
+        assert!(
+            failures.is_empty(),
+            "{} failures:\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+    });
 }

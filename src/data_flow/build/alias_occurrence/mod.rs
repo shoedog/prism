@@ -91,6 +91,38 @@ pub(crate) fn without_policy<R>(f: impl FnOnce() -> R) -> R {
     f()
 }
 
+static GLOBAL_OFF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static GLOBAL_OFF_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Test-support guard (`prism::data_flow::AliasTwinPolicyOff`): while held, the occurrence policy
+/// is off for every thread of the process (an integration test cannot reach the thread-local seam
+/// because the graph build runs on rayon workers), so frozen-reference receipts of other lanes
+/// keep comparing against main's twin behaviour. Guards serialise on a mutex. Production never
+/// creates one.
+pub struct PolicyOff {
+    _gate: std::sync::MutexGuard<'static, ()>,
+}
+
+impl PolicyOff {
+    pub fn new() -> Self {
+        let gate = GLOBAL_OFF_GATE.lock().unwrap_or_else(|e| e.into_inner());
+        GLOBAL_OFF.store(true, std::sync::atomic::Ordering::SeqCst);
+        Self { _gate: gate }
+    }
+}
+
+impl Default for PolicyOff {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Drop for PolicyOff {
+    fn drop(&mut self) {
+        GLOBAL_OFF.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 /// What an lvalue occurrence does to storage (closed set).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Disposition {
@@ -123,6 +155,9 @@ impl TwinPolicy {
         alias_map: &BTreeMap<String, String>,
     ) -> Self {
         let mut policy = Self::default();
+        if GLOBAL_OFF.load(std::sync::atomic::Ordering::Relaxed) {
+            return policy;
+        }
         #[cfg(test)]
         if POLICY_OFF.with(|c| c.get()) {
             return policy;

@@ -22,9 +22,12 @@ fn bytes(parts: FileRefs) -> Vec<u8> {
 
 #[test]
 fn prune_cap_count_and_replay_preserve_uses_and_count_prunes_once() {
-    // Parameter/raw-def and alias-resolved-def paths, including real-span and
-    // line-anchor uses. Padding forces RD refusal without adding edge candidates.
-    for body in [
+    // The alias-twin policy removes twin edges the frozen reference has; it is off here so this
+    // differential isolates the pruning rules (the policy has its own tests).
+    super::alias_occurrence::without_policy(|| {
+        // Parameter/raw-def and alias-resolved-def paths, including real-span and
+        // line-anchor uses. Padding forces RD refusal without adding edge candidates.
+        for body in [
         "func f(x int) {\nx = 1\nconsume(x)\nx = 2\nconsume(x)\n",
         "type S struct { f int }\nfunc f(s *S, x int) {\nptr := s\ns.f = 1\nptr.f = 2\nuse(s.f)\nx = 1\nx = 2\nconsume(x)\n",
     ] {
@@ -77,6 +80,7 @@ fn prune_cap_count_and_replay_preserve_uses_and_count_prunes_once() {
         let restored: RdFileStats = serde_json::from_value(json).unwrap();
         assert_eq!(&restored, stats);
     }
+    });
 }
 
 #[test]

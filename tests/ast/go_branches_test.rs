@@ -54,6 +54,8 @@ pub(super) fn snapshot(path: &Path) -> Value {
 }
 #[test]
 fn go_branches_receipts() {
+    // Alias-twin lane slice 2a: this receipt pins main's twin behaviour of an earlier lane.
+    let _twins = prism::data_flow::AliasTwinPolicyOff::new();
     let actual: Vec<_> = paths().iter().map(|p| snapshot(p)).collect();
     if std::env::var_os("PRISM_EXPORT_GO_BRANCHES").is_some() {
         for row in actual {

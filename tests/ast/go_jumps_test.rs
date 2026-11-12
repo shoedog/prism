@@ -71,6 +71,8 @@ fn snapshot(path: &Path) -> Value {
 
 #[test]
 fn go_jump_labels_and_edge_keys() {
+    // Alias-twin lane slice 2a: this receipt pins main's twin behaviour of an earlier lane.
+    let _twins = prism::data_flow::AliasTwinPolicyOff::new();
     let actual: Vec<_> = fixtures().iter().map(|p| snapshot(p)).collect();
     // Explicit export for same-environment base/head receipts; never rewrites goldens.
     if std::env::var_os("PRISM_EXPORT_GO_JUMPS").is_some() {

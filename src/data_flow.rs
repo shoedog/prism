@@ -15,6 +15,10 @@ mod storage;
 pub mod terraform;
 mod types;
 mod views;
+/// Test support for integration tests (production never constructs one): while held, the alias-twin
+/// occurrence policy is off process-wide, so a frozen-reference receipt keeps main's twin behaviour.
+#[doc(hidden)]
+pub use build::PolicyOff as AliasTwinPolicyOff;
 pub(crate) use compact::assembly::{AssemblyId, AssemblyView};
 pub use compact::views::{IdIter, Locations};
 pub use storage::DataFlowGraph;

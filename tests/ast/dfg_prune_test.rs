@@ -4,6 +4,8 @@ use std::path::Path;
 
 #[test]
 fn go_prune_complete_edge_sets() {
+    // Alias-twin lane slice 2a: this receipt pins main's twin behaviour of an earlier lane.
+    let _twins = prism::data_flow::AliasTwinPolicyOff::new();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/dfg_prune/go");
     let expected: Vec<serde_json::Value> = std::fs::read_to_string(root.join("expected.jsonl"))
         .expect("complete edge golden must be present")

@@ -8,6 +8,7 @@ use crate::call_graph::rust::macro_args::RustMacroCensus;
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 mod alias_occurrence;
+pub use alias_occurrence::PolicyOff;
 mod aliases;
 #[cfg(test)]
 mod arrow_body_cap_tests;
