@@ -488,3 +488,81 @@ fn an_unplaced_write_is_demoted_only_where_the_alias_is_proven_at_it() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+// ---- Fold 3: the alias must reach the write on a real route (`alias_point.rs`) ----------------------------------
+
+const H3: &str = "function g(o, c, d) {\n  o.x = 0;\n  sink(o.x);\n";
+
+fn body3(b: &str) -> String {
+    format!("{H3}{b}\n}}")
+}
+
+const CLS: &str = "class C { static x = u && (u.x = 1); }";
+
+/// `(name, body after the header, label of o.x@2->o.x@3)`. A negative: the alias is in another arm, or the write
+/// shares a line with another statement, so the alias does not reach it (label = 4a, `exact`). A positive: the
+/// alias declaration genuinely runs before the write (label = the direct write's, `sameline`).
+#[rustfmt::skip]
+fn variants3() -> Vec<(String, String, &'static str)> {
+    let v = |n: &str, b: String, l| (n.to_string(), body3(&b), l);
+    vec![
+        // The reproduced witnesses (w1: previous sibling in the else arm; w2: shared lines).
+        v("w1_prev_simple_in_else", format!("  if (c) {{\n    var u = o;\n  }} else {{\n    log();\n    {CLS}\n  }}"), EXACT),
+        v("w2_shared_line", format!("  if (c) {{\n    var u = o;\n    log(); }} else {{ log();\n    {CLS}\n  }}"), EXACT),
+        // Each Reach path, alias in the other arm (negative) and alias before the statement (positive control).
+        v("next_sibling_neg", format!("  if (c) {{\n    var u = o;\n  }} else {{\n    {CLS}\n    log();\n  }}"), EXACT),
+        v("next_sibling_pos", format!("  var u = o;\n  if (c) {{\n    log();\n  }} else {{\n    {CLS}\n    log();\n  }}"), SAME),
+        v("prev_simple_pos", format!("  var u = o;\n  if (c) {{\n    log();\n  }} else {{\n    log();\n    {CLS}\n  }}"), SAME),
+        v("prev_compound_neg", format!("  if (c) {{\n    var u = o;\n  }} else {{\n    if (d) {{ log(); }}\n    {CLS}\n  }}"), EXACT),
+        v("prev_compound_pos", format!("  var u = o;\n  if (c) {{\n    log();\n  }} else {{\n    if (d) {{ log(); }}\n    {CLS}\n  }}"), SAME),
+        v("compound_entry_else_neg", format!("  if (c) {{\n    var u = o;\n  }} else {{\n    {CLS}\n  }}"), EXACT),
+        v("compound_entry_else_pos", format!("  var u = o;\n  if (c) {{\n    log();\n  }} else {{\n    {CLS}\n  }}"), SAME),
+        v("loop_neg", format!("  if (c) {{\n    var u = o;\n  }} else {{\n    while (d) {{\n      {CLS}\n    }}\n  }}"), EXACT),
+        v("loop_pos", format!("  var u = o;\n  while (d) {{\n    {CLS}\n  }}"), SAME),
+        v("label_neg", format!("  if (c) {{\n    var u = o;\n  }} else {{\n    L: {{\n      {CLS}\n    }}\n  }}"), EXACT),
+        v("label_pos", format!("  var u = o;\n  L: {{\n    {CLS}\n  }}"), SAME),
+        // The alias in one arm and the class after the join: the alias may reach it.
+        v("after_the_join_pos", format!("  if (c) {{\n    var u = o;\n  }}\n  {CLS}"), SAME),
+        // An unconditional exit between the alias and the class ends the route.
+        v("exit_between_neg", format!("  if (c) {{\n    var u = o;\n    return;\n  }}\n  {CLS}"), EXACT),
+        // try/catch/finally: the exception route is not syntactic, so the label stays 4a (a disclosed residual).
+        v("try_catch_residual", format!("  try {{\n    var u = o;\n    log();\n  }} catch (e) {{\n    {CLS}\n  }}"), EXACT),
+    ]
+}
+
+#[test]
+fn an_unplaced_write_needs_the_alias_on_a_real_route() {
+    let mut failures = Vec::new();
+    for (name, src, want) in variants3() {
+        let got = labels_of(JS, &src, "o.x@2->o.x@3");
+        if got.is_empty() || got.iter().any(|g| g != want) {
+            failures.push(format!("{name}: want {want}, got {got:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// The placed route (the write has a node): an alias declared in the other arm never reaches it, whatever the
+/// reaching sets say about the spurious edge from one arm into the next.
+#[test]
+fn a_placed_write_needs_the_alias_on_a_real_route_too() {
+    let neg = "function g(o, c) {\n  o.x = 0;\n  if (c) {\n    var u = o;\n  } else {\n    log();\n    u.x = 1;\n    sink(o.x);\n  }\n}";
+    let pos = "function g(o, c) {\n  o.x = 0;\n  var u = o;\n  if (c) {\n    log();\n  } else {\n    log();\n    u.x = 1;\n    sink(o.x);\n  }\n}";
+    assert_eq!(labels_of(JS, neg, "o.x@2->o.x@8"), [EXACT]);
+    assert_eq!(labels_of(JS, pos, "o.x@2->o.x@9"), [ALIAS]);
+}
+
+/// A class expression is placed (its statement has a node): the same two mechanisms through D3's same-node order.
+#[test]
+fn a_class_expression_write_needs_the_alias_on_a_real_route() {
+    let neg = "function g(o, c) {\n  o.x = 0;\n  if (c) {\n    var u = o;\n  } else {\n    log();\n    const K = class { static x = (u.x = 1); }, r = sink(o.x);\n  }\n}";
+    let pos = "function g(o, c) {\n  o.x = 0;\n  var u = o;\n  if (c) {\n    log();\n  } else {\n    log();\n    const K = class { static x = (u.x = 1); }, r = sink(o.x);\n  }\n}";
+    let direct = pos.replace("u.x", "o.x");
+    let (a, b, d) = (
+        labels_of(JS, neg, "o.x@2->o.x@7"),
+        labels_of(JS, pos, "o.x@2->o.x@8"),
+        labels_of(JS, &direct, "o.x@2->o.x@8"),
+    );
+    assert_eq!(a, [EXACT]);
+    assert_eq!(b, d);
+}
