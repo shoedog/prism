@@ -529,3 +529,72 @@ fn a_labelled_loop_and_annex_b_and_catch_hazards_refuse() {
         "dynamic",
     );
 }
+
+// ---- Fold 2 (allow-list of supported target roots) ---------------------------------------------------------
+
+fn root_row(language: Language, init: &str, want: &[&str]) {
+    let async_ = if init.contains("await") { "async " } else { "" };
+    let src = format!(
+        "{async_}function g(p) {{\n  const o = {init};\n  const u = o;\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}}"
+    );
+    let got: Vec<String> = certs(language, &src)
+        .into_iter()
+        .filter(|c| c.ends_with(":u"))
+        .collect();
+    assert_eq!(got, want, "{init}");
+}
+
+#[test]
+fn every_allow_listed_initializer_kind_makes_a_supported_root() {
+    for init in [
+        "make()",
+        "make(p)",
+        "(make())",
+        "make?.()",
+        "new Foo()",
+        "new Foo",
+        "1",
+        "'s'",
+        "`plain`",
+        "/x/",
+        "true",
+        "false",
+        "null",
+        "{}",
+        "[]",
+        "function () {}",
+        "() => 1",
+        "class {}",
+        "await make()",
+        "(make() as any)",
+    ] {
+        root_row(TS, init, &[OK]);
+    }
+}
+
+#[test]
+fn a_forwarding_or_unknown_initializer_is_not_a_root() {
+    for (init, reason) in [
+        ("p", "chain"),
+        ("(p)", "chain"),
+        ("p as any", "chain"),
+        // The grammar reads `p<number>` as a comparison, not an instantiation: refused as an unknown kind either way.
+        ("p<number>", "target-kind"),
+        ("await p", "chain"),
+        ("(0, p)", "target-kind"),
+        ("p || p", "target-kind"),
+        ("p ?? p", "target-kind"),
+        ("true ? p : p", "target-kind"),
+        ("p.q", "target-kind"),
+        ("p[0]", "target-kind"),
+        ("-p", "target-kind"),
+        ("p + 1", "target-kind"),
+        ("`a${p}`", "target-kind"),
+        ("(o2 = p)", "target-kind"),
+        ("typeof p", "target-kind"),
+    ] {
+        root_row(TS, init, &[&format!("refused:{reason}:u")]);
+    }
+    root_row(TS, "this", &["refused:this-alias:u"]);
+    root_row(TS, "(this)", &["refused:this-alias:u"]);
+}

@@ -271,15 +271,82 @@ fn refusal(
         }
         _ => return Some(Reason::TargetKind),
     };
-    let mut value = value;
-    while let Some(v) = value.filter(|v| WRAPPERS.contains(&v.kind())) {
-        value = wrap_operand(v);
+    let root = root_kind(value);
+    match root {
+        Root::Identifier => Some(Reason::Chain),
+        Root::This => Some(Reason::ThisAlias),
+        Root::Other => Some(Reason::TargetKind),
+        Root::Supported if decl.target_start >= site.target_start => Some(Reason::TargetAfterAlias),
+        Root::Supported => None,
     }
-    match value.map(|v| v.kind()) {
-        None => Some(Reason::TargetKind),
-        Some("identifier") => Some(Reason::Chain),
-        Some("this") => Some(Reason::ThisAlias),
-        Some(_) if decl.target_start >= site.target_start => Some(Reason::TargetAfterAlias),
-        Some(_) => None,
+}
+
+/// What an initialized local's initializer makes of it.
+enum Root {
+    /// An identifier, after peeling wrappers: another alias step.
+    Identifier,
+    This,
+    /// A kind on the allow-list: the local holds its own value.
+    Supported,
+    /// Anything else (a sequence, conditional, logical, binary, member, ... or an unknown kind): refused.
+    Other,
+}
+
+/// Initializer kinds that make a local a supported root, after peeling transparent wrappers: a call or `new`, a
+/// literal, an object, array, function, arrow or class expression, and `await`/`yield` of one of these. The class
+/// is an allow-list on purpose: the set of forms that merely forward another value (`(0, p)`, `p || p`, `c ? p : p`)
+/// is open, the set of forms that produce a fresh one is not.
+const ROOT_KINDS: [&str; 15] = [
+    "call_expression",
+    "new_expression",
+    "number",
+    "string",
+    "regex",
+    "true",
+    "false",
+    "null",
+    "object",
+    "array",
+    "function_expression",
+    "function",
+    "generator_function",
+    "arrow_function",
+    "class",
+];
+
+fn root_kind(value: Option<Node<'_>>) -> Root {
+    let mut value = value;
+    // Transparent wrappers, TS instantiation expressions (`p<T>`), `await` and `yield` of an operand.
+    while let Some(v) = value {
+        value = match v.kind() {
+            k if WRAPPERS.contains(&k) => wrap_operand(v),
+            "instantiation_expression" => v.child_by_field_name("function"),
+            "await_expression" | "yield_expression" => {
+                let operand = v.named_child(0);
+                if operand.is_none() {
+                    return Root::Other;
+                }
+                operand
+            }
+            _ => break,
+        };
+    }
+    let Some(v) = value else { return Root::Other };
+    match v.kind() {
+        "identifier" => Root::Identifier,
+        "this" => Root::This,
+        "template_string" => {
+            let mut cur = v.walk();
+            let plain = !v
+                .named_children(&mut cur)
+                .any(|c| c.kind() == "template_substitution");
+            if plain {
+                Root::Supported
+            } else {
+                Root::Other
+            }
+        }
+        k if ROOT_KINDS.contains(&k) => Root::Supported,
+        _ => Root::Other,
     }
 }
