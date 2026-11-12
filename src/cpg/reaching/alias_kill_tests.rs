@@ -525,6 +525,19 @@ fn variants3() -> Vec<(String, String, &'static str)> {
         v("after_the_join_pos", format!("  if (c) {{\n    var u = o;\n  }}\n  {CLS}"), SAME),
         // An unconditional exit between the alias and the class ends the route.
         v("exit_between_neg", format!("  if (c) {{\n    var u = o;\n    return;\n  }}\n  {CLS}"), EXACT),
+        // Fold 3b: the alias is declared after an unconditional exit, so it never runs (label 4a); the same shapes with
+        // the exit after the write, or inside a nested conditional, are the positive controls.
+        v("dead_after_return_neg", format!("  if (c) {{\n    return 1;\n    var u = o;\n  }}\n  {CLS}"), EXACT),
+        v("dead_after_break_neg", format!("  L: {{\n    break L;\n    var u = o;\n  }}\n  {CLS}"), EXACT),
+        v("dead_after_throw_neg", format!("  if (c) {{\n    throw 1;\n    var u = o;\n  }}\n  {CLS}"), EXACT),
+        v("dead_outer_list_neg", format!("  return 1;\n  if (c) {{\n    var u = o;\n  }}\n  {CLS}"), EXACT),
+        v("exit_after_the_alias_pos", format!("  if (c) {{\n    var u = o;\n    log();\n  }}\n  {CLS}"), SAME),
+        v("nested_exit_before_pos", format!("  if (c) {{\n    if (d) {{ return 1; }}\n    var u = o;\n  }}\n  {CLS}"), SAME),
+        v("break_after_alias_pos", format!("  L: {{\n    var u = o;\n    if (d) break L;\n    log();\n  }}\n  {CLS}"), SAME),
+        // The other fold-3 probes: an `else if` arm, an exit in the arm after the alias, switch cases (residual).
+        v("else_if_arm_neg", format!("  if (c) {{\n    var u = o;\n  }} else if (d) {{\n    {CLS}\n  }}"), EXACT),
+        v("return_in_arm_after_alias_neg", format!("  if (c) {{\n    var u = o;\n    return;\n  }}\n  {CLS}"), EXACT),
+        v("switch_residual", format!("  switch (c) {{\n    case 1:\n      var u = o;\n      break;\n    case 2:\n      {CLS}\n  }}"), EXACT),
         // try/catch/finally: the exception route is not syntactic, so the label stays 4a (a disclosed residual).
         v("try_catch_residual", format!("  try {{\n    var u = o;\n    log();\n  }} catch (e) {{\n    {CLS}\n  }}"), EXACT),
     ]

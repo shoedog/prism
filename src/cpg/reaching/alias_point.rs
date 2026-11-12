@@ -11,7 +11,8 @@
 //! statement in its own list, and so on up to the owner's body. `P` in another arm of the same `if`, in a
 //! `catch` or `finally` clause, or before `A` is not on such a route and is not proven (the answer is `false` and
 //! the caller keeps the rule-disabled label). A statement that leaves unconditionally (`return`, `throw`, `break`,
-//! `continue`) between `A` and the exit of a list ends the route. No retained CFG node is consulted, so a
+//! `continue`) before `A` in its list, before the compound statement that holds it in the list it climbs
+//! through, or between `A` and the exit of a list ends the route (the alias never runs, or the route is cut). No retained CFG node is consulted, so a
 //! statement that shares a line with another, or has no node (a class declaration), cannot stand in for `P`.
 use crate::ast::ParsedFile;
 use tree_sitter::Node;
@@ -51,6 +52,14 @@ impl Reach<'_> {
             let Some(list) = cur.parent().filter(|l| l.kind() == "statement_block") else {
                 return false;
             };
+            // An unconditional exit before `cur` in its list makes `cur` (and the alias, if it is inside) dead.
+            let mut before = cur.prev_named_sibling();
+            while let Some(b) = before {
+                if ABRUPT.contains(&b.kind()) {
+                    return false;
+                }
+                before = b.prev_named_sibling();
+            }
             // The statements after `cur` in its list: `probe` in one of them, with no unconditional exit before it.
             let mut next = cur.next_named_sibling();
             while let Some(t) = next {
