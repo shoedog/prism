@@ -29,7 +29,7 @@
 //! A write whose node RD cannot name makes every D3 query of the base unknown (`SameLine`), as for a direct one.
 //! The write kills a def D by `affects` (its path is a prefix of D's, `[]` matching any component).
 use super::alias_cert::at;
-use super::alias_cert::AliasCerts;
+use super::alias_cert::{AliasCerts, Verdict};
 use super::census_defs::CensusFacts;
 use super::census_trace::place;
 use super::d3::D3;
@@ -39,7 +39,7 @@ use super::statement_lookup::StatementLookup;
 use super::{DefSite, FlowConfidence, FlowDoubt, Line};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
-use crate::cpg::binding_facts::BindingFacts;
+use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use crate::data_flow::FlowEdge;
 use crate::js_write_census::counting::Counting;
 use std::cell::RefCell;
@@ -69,6 +69,9 @@ struct Blocker {
     raw: AccessPath,
     site: usize,
     entry: usize,
+    /// The declaration of `o` the certificate proved (an index of `BindingFacts`): only a candidate def inside
+    /// its scope is affected (`o` has no other binding in the owner, so such a def writes that `o`).
+    decl: usize,
 }
 
 /// One owner's alias-write state.
@@ -126,6 +129,14 @@ impl<'a> AliasKills<'a> {
                 continue;
             };
             let e = &certs.entries[index];
+            let Verdict::Admitted {
+                alias_def,
+                target_decl: BindingId::Declaration(decl),
+                ..
+            } = &e.verdict
+            else {
+                continue;
+            };
             let path = AccessPath {
                 base: e.cand.target.clone(),
                 fields: w.path.fields.clone(),
@@ -137,7 +148,7 @@ impl<'a> AliasKills<'a> {
             // The declarator's own node is not a place the alias is known to hold; the alias's def must
             // reach the write's node.
             let declarator = s.parsed.line_for_byte(e.cand.alias_start);
-            if node_of(declarator) == Some(node) || !s.in_sets[node].contains(e.alias_def) {
+            if node_of(declarator) == Some(node) || !s.in_sets[node].contains(*alias_def) {
                 continue;
             }
             extra.push(Counting {
@@ -150,6 +161,7 @@ impl<'a> AliasKills<'a> {
                 raw: w.path.clone(),
                 site: w.target_start,
                 entry: index,
+                decl: *decl,
             });
         }
         // A raw write the census could not place (no node) leaves its base unknown; the aliased base is
@@ -159,7 +171,10 @@ impl<'a> AliasKills<'a> {
             certs
                 .entries
                 .iter()
-                .filter(|e| e.refusal.is_none() && raw_unplaced.contains(&e.cand.alias))
+                .filter(|e| {
+                    matches!(e.verdict, Verdict::Admitted { .. })
+                        && raw_unplaced.contains(&e.cand.alias)
+                })
                 .map(|e| e.cand.target.clone()),
         );
         if blockers.is_empty() && unplaced.is_empty() {
@@ -235,7 +250,11 @@ impl<'a> AliasKills<'a> {
             let row = self.rows.entry(candidate).or_insert_with(|| {
                 let nodes: BTreeSet<usize> = blockers
                     .iter()
-                    .filter(|b| affects(&b.path, &s.defs[candidate].path))
+                    .filter(|b| {
+                        affects(&b.path, &s.defs[candidate].path)
+                            && s.facts
+                                .declaration_scope_contains(b.decl, s.defs[candidate].start_byte)
+                    })
                     .map(|b| b.node)
                     .collect();
                 (!nodes.is_empty())

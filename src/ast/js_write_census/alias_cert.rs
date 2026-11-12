@@ -1,19 +1,23 @@
 //! #783 option A, stage 1: the syntactic admission of a single-step body alias (design `DESIGN-astra.md`
 //! 2.6 items 1-8), from the census's complete write and declaration inventory.
 //!
-//! A candidate is a `const|let|var u = o` declarator whose value is one bare identifier. It is admitted when
-//! `u` and `o` each have exactly one binding occurrence in the owner subtree (every census site with no path
-//! components counts: declarations, assignments, updates, destructuring and loop targets, parameters and
-//! nested callables included), `o` is an ordinary formal or an initialized local that is not itself an alias,
-//! the owner has no dynamic-binding hazard (`eval`, `with`, mapped `arguments`, dead formals) touching either
-//! name, and the declarator is not in a repeated initialization context or a deferred region. Everything else
+//! A candidate is a `const|let|var u = o` declarator whose value is one bare identifier (alias formation takes
+//! no wrapper). It is admitted when `u` and `o` each have exactly one binding occurrence in the owner subtree
+//! (every census site with no path components counts: declarations, assignments, updates, destructuring and
+//! loop targets, parameters and nested callables included), `o` is an ordinary formal or an initialized local
+//! whose initializer, after peeling parentheses, `as`, `!`, `satisfies` and `<T>x`, is neither an identifier
+//! nor `this` (not another alias step), the owner has no dynamic-binding hazard (`eval`, `with`, mapped
+//! `arguments`, dead formals, an Annex B or refused binding at the alias) and the declarator is not in a
+//! repeated initialization context or a deferred region. `eval` and `with` refuse every candidate of the
+//! owner; the other hazards refuse by name. Everything else
 //! is refused with a reason, never defaulted to admitted. Stage 2 (`cpg::reaching::alias_cert`) adds the
 //! positive declaration identity, which needs `BindingFacts`.
 //!
 //! Inert: nothing here moves a label, an edge or a counter. An owner with no bare-identifier declarator takes
 //! the presence test (a scan of the sites; no allocation) and returns an empty `Vec`.
 use super::refusals::Classes;
-use super::walk::{Form, Site};
+use super::schema::WRAPPERS;
+use super::walk::{wrap_operand, Form, Site};
 use crate::ast::ParsedFile;
 use tree_sitter::Node;
 
@@ -40,8 +44,10 @@ pub(crate) enum Reason {
     TargetUnresolved,
     /// `o` is declared by a form A does not admit (a pattern, a default or rest formal, a catch, a function).
     TargetKind,
-    /// `o` is itself an alias of an identifier or of `this`: a chain.
+    /// `o` is itself an alias of an identifier (after peeling wrappers): a chain.
     Chain,
+    /// `o` is itself an alias of `this` (after peeling wrappers).
+    ThisAlias,
     /// `o` is declared after the alias.
     TargetAfterAlias,
     /// Stage 2: the alias's own def is missing or its binding is not an explicit declaration.
@@ -64,6 +70,7 @@ impl Reason {
             Reason::TargetUnresolved => "target-unresolved",
             Reason::TargetKind => "target-kind",
             Reason::Chain => "chain",
+            Reason::ThisAlias => "this-alias",
             Reason::TargetAfterAlias => "target-after-alias",
             Reason::AliasIdentity => "alias-identity",
             Reason::TargetIdentity => "target-identity",
@@ -242,13 +249,15 @@ fn refusal(
     if dr.nested || dr.instance_field {
         return Some(Reason::TargetUnresolved);
     }
-    let id = parsed
+    // Fail closed: a declaration the tree cannot find again is no admitted root.
+    let Some(id) = parsed
         .tree
         .root_node()
-        .descendant_for_byte_range(decl.target_start, decl.target_end)?;
-    if id.start_byte() != decl.target_start {
+        .descendant_for_byte_range(decl.target_start, decl.target_end)
+        .filter(|id| id.start_byte() == decl.target_start)
+    else {
         return Some(Reason::TargetKind);
-    }
+    };
     if dr.own_params {
         return (decl.decl != "param" || !plain_formal(id)).then_some(Reason::TargetKind);
     }
@@ -262,9 +271,14 @@ fn refusal(
         }
         _ => return Some(Reason::TargetKind),
     };
+    let mut value = value;
+    while let Some(v) = value.filter(|v| WRAPPERS.contains(&v.kind())) {
+        value = wrap_operand(v);
+    }
     match value.map(|v| v.kind()) {
         None => Some(Reason::TargetKind),
-        Some("identifier" | "this") => Some(Reason::Chain),
+        Some("identifier") => Some(Reason::Chain),
+        Some("this") => Some(Reason::ThisAlias),
         Some(_) if decl.target_start >= site.target_start => Some(Reason::TargetAfterAlias),
         Some(_) => None,
     }

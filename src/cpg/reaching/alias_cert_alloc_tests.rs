@@ -103,6 +103,30 @@ fn the_populations_with_candidates_allocate_per_candidate_only() {
     }
 }
 
+/// The census facts are cloned once per solver pass (`*facts_out = Some(census.clone())`): the candidates
+/// ride an `Rc`, so the clone allocates nothing for them. Allocations of the clone, per population.
+#[test]
+fn cloning_the_census_facts_shares_the_candidates() {
+    use super::census_defs::complete;
+    for (name, src) in [
+        ("no-alias", NO_ALIAS),
+        ("all-refused", ALL_REFUSED),
+        ("admitted-no-affected-edge", ADMITTED_UNAFFECTED),
+        ("admitted-affected-edges", ADMITTED_AFFECTED),
+    ] {
+        let parsed = parse(Language::JavaScript, src);
+        let owner = parsed.all_functions()[0];
+        let (defs, _) = recorded(&parsed, &owner);
+        let (_, facts) = complete(&parsed, &owner, defs);
+        let (_clone, cost) = measure(|| facts.clone());
+        eprintln!("alloc census-clone {name}: {cost:?}");
+        // The same facts with the candidates dropped cost the same to clone: the candidates add no allocation.
+        let without = facts.without_alias_candidates();
+        let (_c2, cost2) = measure(|| without.clone());
+        assert_eq!(cost, cost2, "{name}");
+    }
+}
+
 /// Slice 4b: the refinement's own allocations, as the difference between the production pass and the same
 /// pass without the refinement (`Pass::NoAliasKill`, which keeps the certificates), per population.
 fn refinement_allocs(src: &str) -> (usize, usize) {

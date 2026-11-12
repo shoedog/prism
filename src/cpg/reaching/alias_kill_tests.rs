@@ -50,6 +50,8 @@ const CASES: &[Case] = &[
         rows: &[("o.x.y@3->o.x.y@5", ALIAS, EXACT), ("o.x@4->o.x@5", ALIAS, ALIAS)] },
     Case { name: "deeper_write_no_kill", lang: JS, source: "function g(o) {\n  const u = o;\n  o.x = 0;\n  u.x.y = 1;\n  return sink(o.x);\n}",
         rows: &[("o.x@3->o.x@5", EXACT, EXACT)] },
+    Case { name: "e02_inner_edge", lang: JS, source: "function g(c) {\n  if (c) {\n    const o = mk();\n    const u = o;\n    o.x = 0;\n    u.x = 1;\n    return sink(o.x);\n  }\n  o.x = 0;\n  return sink(o.x);\n}",
+        rows: &[("o.x@5->o.x@7", ALIAS, EXACT)] },
     Case { name: "sibling", lang: JS, source: "function g(o) {\n  const u = o;\n  o.x = 0;\n  u.y = 1;\n  return sink(o.x);\n}",
         rows: &[("o.x@3->o.x@5", EXACT, EXACT)] },
     Case { name: "branch_alias_write", lang: JS, source: "function g(o, c) {\n  const u = o;\n  o.x = 0;\n  if (c) {\n    u.x = 1;\n  }\n  return sink(o.x);\n}",
@@ -236,6 +238,11 @@ const REFUSED: &[(&str, &str, &str, &str)] = &[
     ("pattern_alias", "function g(o) {\n  const { k: a } = o;\n  o.k.x = 0;\n  a.x = 1;\n  return sink(o.k.x);\n}", "o.k.x@3->o.k.x@5", EXACT),
     ("target_is_alias_chain", "function g(p) {\n  const o = p;\n  const u = o;\n  p.x = 0;\n  u.x = 1;\n  return sink(p.x);\n}", "p.x@4->p.x@6", EXACT),
     ("free_target", "function g() {\n  const u = o;\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}", "o.x@3->o.x@5", EXACT),
+    // Opus round-1 fixtures: the three per-write obligations the certificate leaves to the refinement.
+    ("c01_write_outside_the_alias_scope", "function g(o, c) {\n  { const u = o; }\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}", "o.x@3->o.x@5", EXACT),
+    ("e01_free_def_outside_the_target_scope", "function g(c) {\n  o.x = 0;\n  if (c) {\n    const o = mk();\n    const u = o;\n    u.x = 1;\n  }\n  return sink(o.x);\n}", "o.x@2->o.x@8", EXACT),
+    ("e02_outer_edge", "function g(c) {\n  if (c) {\n    const o = mk();\n    const u = o;\n    o.x = 0;\n    u.x = 1;\n    return sink(o.x);\n  }\n  o.x = 0;\n  return sink(o.x);\n}", "o.x@9->o.x@10", EXACT),
+    ("e03_write_before_the_alias_initialises", "function g(o, xs) {\n  u.x = 1;\n  var u = o;\n  o.x = 0;\n  return sink(o.x);\n}", "o.x@4->o.x@5", EXACT),
     ("eval_owner", "function g(o) {\n  const u = o;\n  o.x = 0;\n  u.x = 1;\n  eval(o);\n  return sink(o.x);\n}", "o.x@3->o.x@6", CFG),
 ];
 

@@ -106,7 +106,7 @@ fn an_alias_of_an_alias_certifies_the_first_step_and_refuses_the_chain() {
     assert_eq!(certs(JS, src), ["admitted:-:u", "refused:chain:w"]);
     let this =
         "function g(o) {\n  const t = this;\n  const u = t;\n  o.x = 0;\n  return sink(o.x);\n}";
-    assert_eq!(certs(JS, this), ["refused:chain:u"]);
+    assert_eq!(certs(JS, this), ["refused:this-alias:u"]);
 }
 
 // ---- Refused: every row names the reason ---------------------------------------------------------------
@@ -416,4 +416,118 @@ fn an_admitted_certificate_moves_the_label_through_the_refinement_only() {
         ["NameOnly(AliasUnstable)"]
     );
     assert_eq!(certs(JS, src), [OK]);
+}
+
+// ---- Fold 1 (review round 1 of #817) -----------------------------------------------------------------
+
+#[test]
+fn a_target_whose_initializer_is_a_wrapped_identifier_or_this_is_still_a_chain() {
+    let body = "  const u = o;\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}";
+    for init in ["(p)", "((p))"] {
+        let src = format!("function g(p) {{\n  const o = {init};\n{body}");
+        // `o = (p)` is no bare-identifier copy: only `u -> o` is a candidate, and `o` is not a root.
+        assert_eq!(certs(JS, &src), ["refused:chain:u"], "{init}");
+    }
+    for init in [
+        "p as any",
+        "p!",
+        "(p as any)",
+        "p satisfies any",
+        "<any>p",
+        "(p!) as any",
+    ] {
+        let src = format!("function g(p: any) {{\n  const o = {init};\n{body}");
+        let got = certs(TS, &src);
+        assert_eq!(
+            got.last().map(String::as_str),
+            Some("refused:chain:u"),
+            "{init}: {got:?}"
+        );
+    }
+    for init in ["(this)", "(this as any)"] {
+        let src = format!("function g() {{\n  const o = {init};\n{body}");
+        assert_eq!(certs(TS, &src), ["refused:this-alias:u"], "{init}");
+    }
+    // Control: a wrapped call is still a root.
+    let src = format!("function g() {{\n  const o = (make());\n{body}");
+    assert_eq!(certs(JS, &src), [OK]);
+    let src = format!("function g() {{\n  const o = make() as any;\n{body}");
+    assert_eq!(certs(TS, &src), [OK]);
+}
+
+#[test]
+fn an_alias_wrapped_on_the_alias_side_is_not_a_candidate() {
+    for decl in ["const u = (o);", "const u = o!;", "const u = <any>o;"] {
+        let src = format!(
+            "function g(o: any) {{\n  {decl}\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}}"
+        );
+        assert!(certs(TS, &src).is_empty(), "{decl}");
+    }
+}
+
+/// Recall residual, pinned: `o` declared by an earlier declarator of the same declaration has no declaration
+/// identity at the alias (`BindingFacts` makes a binding visible from the end of its declaration). The count on
+/// excalidraw, express and TypeScript/src is 3 in all (`target-identity` 2 + 1, none proven to be this form).
+#[test]
+fn an_earlier_declarator_of_the_same_declaration_is_refused_on_identity() {
+    for kw in ["const", "let"] {
+        let src = format!("function g() {{\n  {kw} o = make(), u = o;\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}}");
+        assert_eq!(certs(JS, &src), ["refused:target-identity:u"], "{kw}");
+    }
+    // The two-statement control is admitted; `var` has one binding for the whole function.
+    let two = "function g() {\n  const o = make();\n  const u = o;\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}";
+    assert_eq!(certs(JS, two), [OK]);
+    let var =
+        "function g() {\n  var o = make(), u = o;\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}";
+    assert_eq!(certs(JS, var), [OK]);
+}
+
+#[test]
+fn writes_in_class_regions_and_parameter_defaults_count_as_bindings_of_u() {
+    for rebind in [
+        "class C { f = (u = p); }",
+        "class C { static f = (u = p); }",
+        "class C { static { u = p; } }",
+        "class C { [(u = p)]() {} }",
+        "const k = (a = (u = p)) => a;",
+        "const k = ((u as any) = p);",
+    ] {
+        let src = format!(
+            "function g(o, p) {{\n  const u = o;\n  o.x = 0;\n  {rebind}\n  return sink(o.x);\n}}"
+        );
+        assert_eq!(certs(TS, &src), ["refused:alias-assigned:u"], "{rebind}");
+    }
+    for shadow in [
+        "const k = (u = 1) => u;",
+        "const k = function (u) { return u; };",
+    ] {
+        let src = format!(
+            "function g(o) {{\n  const u = o;\n  o.x = 0;\n  {shadow}\n  return sink(o.x);\n}}"
+        );
+        assert_eq!(certs(TS, &src), ["refused:alias-redeclared:u"], "{shadow}");
+    }
+    // A member write through `u` in those places is no rebinding.
+    let ok = "function g(o) {\n  const u = o;\n  o.x = 0;\n  class C { static { u.x = 1; } }\n  return sink(o.x);\n}";
+    assert_eq!(certs(JS, ok), [OK]);
+}
+
+#[test]
+fn a_labelled_loop_and_annex_b_and_catch_hazards_refuse() {
+    refused(JS, &g("  outer: for (const a of xs) {\n    const u = o;\n    u.x = 1;\n    continue outer;\n  }"), "loop");
+    refused(
+        JS,
+        &g("  const u = o;\n  { function o() {} }\n  u.x = 1;"),
+        // A formal's own name is outside Annex B: the block function is a second declaration of `o`.
+        "target-redeclared",
+    );
+    refused(
+        JS,
+        &g("  const u = o;\n  { function u() {} }\n  u.x = 1;"),
+        "dynamic",
+    );
+    refused(
+        JS,
+        &g("  try { run(); } catch (u) {\n    var u = o;\n    u.x = 1;\n  }"),
+        "dynamic",
+    );
 }

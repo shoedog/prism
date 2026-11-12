@@ -44,7 +44,8 @@ pub(crate) struct Completion {
     /// The refusal classes of #660 S1d-1 (eval, `arguments`, `with`, dead formals, Annex B, G6a, G6b).
     pub classes: super::refusals::Classes,
     /// The single-step body alias candidates and their syntactic verdicts (#783 option A, inert).
-    pub alias: Vec<super::alias_cert::Candidate>,
+    /// `None` when the owner has no bare-identifier declarator; shared (not deep-copied) by clones.
+    pub alias: Option<std::rc::Rc<Vec<super::alias_cert::Candidate>>>,
 }
 
 /// `ident`'s path in the producer's representation (`[]` for a subscript).
@@ -80,7 +81,14 @@ pub(crate) fn completion(
         return out;
     }
     out.classes = super::refusals::classes(parsed, owner, &c.sites, &bases);
-    out.alias = super::alias_cert::candidates(parsed, owner, &c.sites, &out.classes);
+    out.alias = Some(super::alias_cert::candidates(
+        parsed,
+        owner,
+        &c.sites,
+        &out.classes,
+    ))
+    .filter(|v| !v.is_empty())
+    .map(std::rc::Rc::new);
     let shadows = Shadows::new(parsed, &c.sites, &bases);
     let mut by_start: BTreeMap<usize, Vec<&AccessPath>> = BTreeMap::new();
     for (path, byte, twin) in recorded {
