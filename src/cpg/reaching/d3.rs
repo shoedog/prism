@@ -50,6 +50,9 @@ pub(super) struct D3 {
     /// aliased path `o.x`) that join `counts.writes` in node order, and the bases of those with no node.
     /// Empty for the census's own D3; the alias refinement's D3 shares the counts and the read index.
     extra: Vec<Counting>,
+    /// For each extra write, the declaration of `o` its certificate proved (a `BindingFacts` index): the write
+    /// affects only reads and defs inside that declaration's scope.
+    extra_decl: Vec<usize>,
     extra_unplaced: BTreeSet<String>,
     /// The owner callable (`kind`, byte range): found again by bytes when the reads are first needed.
     owner: (&'static str, usize, usize),
@@ -143,6 +146,7 @@ impl D3 {
         (!counts.is_empty()).then(|| D3 {
             counts: Rc::new(counts),
             extra: Vec::new(),
+            extra_decl: Vec::new(),
             extra_unplaced: BTreeSet::new(),
             owner: (owner.kind(), owner.start_byte(), owner.end_byte()),
             reads: Rc::new(OnceCell::new()),
@@ -163,10 +167,16 @@ impl D3 {
 
     /// This owner's D3 with `extra` writes (and `unplaced` bases) added: it shares the counts and the read
     /// index, so the alias refinement orders the resolved writes against the same reads and anchors.
-    pub(super) fn with_extra(&self, extra: Vec<Counting>, unplaced: BTreeSet<String>) -> D3 {
+    pub(super) fn with_extra(
+        &self,
+        extra: Vec<(Counting, usize)>,
+        unplaced: BTreeSet<String>,
+    ) -> D3 {
+        let (extra, extra_decl) = extra.into_iter().unzip();
         D3 {
             counts: Rc::clone(&self.counts),
             extra,
+            extra_decl,
             extra_unplaced: unplaced,
             owner: self.owner,
             reads: Rc::clone(&self.reads),
@@ -279,14 +289,23 @@ impl D3 {
         nodes: &'s NodeIndex,
         node: usize,
         path: &'s AccessPath,
-    ) -> impl Iterator<Item = &'s Counting> {
+    ) -> impl Iterator<Item = (usize, &'s Counting)> {
         nodes
             .by_node
             .get(&node)
             .into_iter()
             .flatten()
-            .map(|&i| self.write(i))
-            .filter(move |w| super::def_buckets::affects(&w.path, path))
+            .map(|&i| (i, self.write(i)))
+            .filter(move |(_, w)| super::def_buckets::affects(&w.path, path))
+    }
+
+    /// Write `i` can write what the position at `byte` names: a census write always; a resolved alias write
+    /// only inside the scope of the declaration of `o` its certificate proved (#783).
+    fn in_scope(&self, i: usize, facts: &BindingFacts, byte: usize) -> bool {
+        match i.checked_sub(self.counts.writes.len()) {
+            Some(k) => facts.declaration_scope_contains(self.extra_decl[k], byte),
+            None => true,
+        }
     }
 
     fn use_side(
@@ -298,7 +317,8 @@ impl D3 {
         facts: &BindingFacts,
         failures: &mut Failures,
     ) {
-        let writes: Vec<&Counting> = self.affecting(nodes, use_line, &edge.to.path).collect();
+        let writes: Vec<(usize, &Counting)> =
+            self.affecting(nodes, use_line, &edge.to.path).collect();
         if writes.is_empty() {
             return;
         }
@@ -330,6 +350,8 @@ impl D3 {
             let place = Position::of_read(node, &self.counts.spans);
             let counting: Vec<&&Counting> = writes
                 .iter()
+                .filter(|(i, _)| self.in_scope(*i, facts, start))
+                .map(|(_, w)| w)
                 .filter(|w| !facts.proven_distinct_at(base, w.probe, start))
                 .collect();
             if let [only] = counting[..] {
@@ -351,13 +373,19 @@ impl D3 {
         facts: &BindingFacts,
         failures: &mut Failures,
     ) {
-        let writes: Vec<&Counting> = self.affecting(nodes, def_line, &edge.from.path).collect();
+        let writes: Vec<(usize, &Counting)> =
+            self.affecting(nodes, def_line, &edge.from.path).collect();
         let d_start = edge.from.start_byte;
         // D's own site: a recorded def (a declarator, a plain write) is positioned at its construct.
-        let d = writes.iter().find(|w| w.target_start == d_start);
+        let d = writes
+            .iter()
+            .map(|(_, w)| w)
+            .find(|w| w.target_start == d_start);
         let d_probe = d.map_or(d_start, |d| d.probe);
         let others: Vec<&&Counting> = writes
             .iter()
+            .filter(|(i, _)| self.in_scope(*i, facts, d_start))
+            .map(|(_, w)| w)
             .filter(|w| w.target_start != d_start)
             .filter(|w| !facts.proven_distinct_at(&edge.from.path.base, w.probe, d_probe))
             .collect();

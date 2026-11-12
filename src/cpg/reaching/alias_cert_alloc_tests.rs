@@ -170,3 +170,36 @@ fn the_refinement_allocates_only_for_an_admitted_alias_with_a_write_through_it()
     assert_eq!(unaffected, (0, 0));
     assert!(affected.0 > 0);
 }
+
+/// The whole production pass's allocations per population, for a before/after receipt against the 4a tip (which
+/// has the certificates but no refinement): the refinement's total cost includes `D3::new`'s two `Rc`s per
+/// owner with counting writes, which the toggle measurement above does not see.
+#[test]
+fn full_pass_allocations_per_population() {
+    use super::census_pass::Pass;
+    for (name, src) in [
+        ("no-alias", NO_ALIAS),
+        ("all-refused", ALL_REFUSED),
+        ("admitted-no-affected-edge", ADMITTED_UNAFFECTED),
+        ("admitted-affected-edges", ADMITTED_AFFECTED),
+    ] {
+        let parsed = parse(Language::JavaScript, src);
+        let owner = parsed.all_functions()[0];
+        let (defs, edges) = recorded(&parsed, &owner);
+        let cfg = crate::cfg::build_cfg_edges_with_arms(&parsed);
+        let index = super::FileCfgEdgeIndex::new(&cfg);
+        let (_, cost) = measure(|| {
+            super::reaching_definitions_impl(
+                &parsed,
+                &owner,
+                &defs,
+                &edges,
+                &[],
+                &index,
+                Pass::Census,
+                &mut None,
+            )
+        });
+        eprintln!("full-pass {name}: {cost:?}");
+    }
+}

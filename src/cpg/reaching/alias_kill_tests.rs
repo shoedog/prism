@@ -401,3 +401,53 @@ fn a_refused_owner_has_no_alias_mechanism_in_its_trace() {
         );
     }
 }
+
+/// Admitted certificates whose label must stay the rule-disabled one: the write is outside the target's scope
+/// (obligation iii on the D3 route: a global `o.x` read or def is not the certified `o`) or the alias is not proven
+/// at an unplaced write (obligation i: a free global `u`). `(name, source, edge, label)`.
+#[rustfmt::skip]
+const SCOPED: &[(&str, &str, &str, &str)] = &[
+    ("d3_use_outside_target_scope", "function g() {\n  {\n    const o = mk();\n    var u = o;\n  }\n  o.x = 0;\n  return (u.x++, sink(o.x));\n}", "o.x@6->o.x@7", EXACT),
+    ("d3_use_outside_target_scope_assign", "function g() {\n  o.x = 0;\n  {\n    let o = mk();\n    var u = o;\n  }\n  u.x = 1; sink(o.x);\n}", "o.x@2->o.x@7", EXACT),
+    ("maykill_outside_target_scope", "function g() {\n  o.x = 0;\n  {\n    let o = mk();\n    var u = o;\n  }\n  u.x = 1;\n  sink(o.x);\n}", "o.x@2->o.x@8", EXACT),
+    ("unplaced_write_of_a_free_alias_name_a", "function g(o) {\n  { const u = o; }\n  o.x = 0;\n  class C { static x = (u.x = 1); }\n  return sink(o.x);\n}", "o@1->o@2", EXACT),
+    ("unplaced_write_of_a_free_alias_name_b", "function g(o) {\n  { const u = o; }\n  o.x = 0;\n  class C { static x = (u.x = 1); }\n  return sink(o.x);\n}", "o@1->o@3", EXACT),
+    ("unplaced_write_of_another_name", "function g(o) {\n  { const u = o; g(u); }\n  o.x = 0;\n  class C { static { v.x = 1; } }\n  return sink(o.x);\n}", "o@1->o@2", EXACT),
+];
+
+#[test]
+fn an_admitted_alias_outside_the_obligations_keeps_the_baseline_label() {
+    let mut failures = Vec::new();
+    for (name, source, edge, want) in SCOPED {
+        let got = labels_of(JS, source, edge);
+        if got.is_empty() || got.iter().any(|g| g != want) {
+            failures.push(format!("{name} {edge}: want {want}, got {got:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// The read inside the target's scope is the certified `o`: the same-node order is unproven, as for the direct write.
+#[test]
+fn a_read_inside_the_target_scope_is_still_ordered_against_the_alias_write() {
+    let src = "function g() {\n  {\n    const o = mk();\n    var u = o;\n    o.x = 0;\n    return (u.x++, sink(o.x));\n  }\n}";
+    let direct = src.replace("u.x++", "o.x++");
+    let a = labels_of(JS, src, "o.x@5->o.x@6");
+    let d = labels_of(JS, &direct, "o.x@5->o.x@6");
+    assert_eq!(a, [SAME], "{a:?}");
+    assert_eq!(d, [SAME], "{d:?}");
+}
+
+/// A real unplaced write through a proven alias stays unknown: demoted, with a record naming it.
+#[test]
+fn an_unplaced_write_through_a_proven_alias_is_demoted_and_recorded() {
+    let src = "function g(o) {\n  const u = o;\n  o.x = 0;\n  {\n    class C { static { u.x = 1; } }\n  }\n  return sink(o.x);\n}";
+    assert_eq!(labels_of(JS, src, "o.x@3->o.x@7"), [SAME]);
+    let lines = trace_lines(JS, src);
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with("rd-alias-move\talias-d3\t") && l.contains("\to(unplaced)")),
+        "{lines:?}"
+    );
+}

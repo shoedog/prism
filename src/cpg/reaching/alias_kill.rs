@@ -80,6 +80,9 @@ pub(super) struct AliasKills<'a> {
     /// D3 over the census's writes plus the resolved ones.
     d3: Rc<D3>,
     blockers: Vec<Blocker>,
+    /// Unplaced raw writes proven to write through a certified alias: `(raw base, probe, certificate)`; the
+    /// aliased base is unknown to D3 (trace records only).
+    transfers: Vec<(String, usize, usize)>,
     certs: Rc<AliasCerts>,
     log: Option<MoveLog>,
     /// Per candidate def: `None` when no blocker affects it, else the CFG nodes reachable from its node
@@ -151,10 +154,13 @@ impl<'a> AliasKills<'a> {
             if node_of(declarator) == Some(node) || !s.in_sets[node].contains(*alias_def) {
                 continue;
             }
-            extra.push(Counting {
-                path: path.clone(),
-                ..w.clone()
-            });
+            extra.push((
+                Counting {
+                    path: path.clone(),
+                    ..w.clone()
+                },
+                *decl,
+            ));
             blockers.push(Blocker {
                 path,
                 node,
@@ -164,19 +170,24 @@ impl<'a> AliasKills<'a> {
                 decl: *decl,
             });
         }
-        // A raw write the census could not place (no node) leaves its base unknown; the aliased base is
-        // unknown too, as it is for the direct write.
-        let raw_unplaced = &base.counts_ref().unplaced;
-        unplaced.extend(
-            certs
-                .entries
-                .iter()
-                .filter(|e| {
-                    matches!(e.verdict, Verdict::Admitted { .. })
-                        && raw_unplaced.contains(&e.cand.alias)
-                })
-                .map(|e| e.cand.target.clone()),
-        );
+        // A raw write the census could not place leaves the aliased base unknown, as for the direct write, but
+        // only when the alias is proven at it: the base binds the alias's declaration, the declarator precedes
+        // it, and the alias's def reaches the next statement node after the write (the write itself has none).
+        let mut transfers = Vec::new();
+        for (base, probe, line) in &base.counts_ref().unplaced_sites {
+            let Some(index) = certs.alias_at(s.facts, base, *probe) else {
+                continue;
+            };
+            let e = &certs.entries[index];
+            let Verdict::Admitted { alias_def, .. } = &e.verdict else {
+                continue;
+            };
+            let after = s.line_index.range(line + 1..).next().map(|(_, &n)| n);
+            if after.is_some_and(|n| s.in_sets[n].contains(*alias_def)) {
+                unplaced.insert(e.cand.target.clone());
+                transfers.push((base.clone(), *probe, index));
+            }
+        }
         if blockers.is_empty() && unplaced.is_empty() {
             return None;
         }
@@ -184,6 +195,7 @@ impl<'a> AliasKills<'a> {
             s,
             d3: Rc::new(base.with_extra(extra, unplaced)),
             blockers,
+            transfers,
             certs: Rc::clone(certs),
             log,
             rows: BTreeMap::new(),
@@ -299,6 +311,25 @@ impl<'a> AliasKills<'a> {
                 place(to),
                 at(self.s.parsed, &b.raw.to_string(), b.site),
                 b.path,
+            ));
+        }
+        for (base, probe, index) in &self.transfers {
+            let e = &self.certs.entries[*index].cand;
+            if e.target != from.path.base && e.target != to.path.base {
+                continue;
+            }
+            let alias = at(self.s.parsed, &e.alias, e.alias_start);
+            let target = e
+                .target_start
+                .map_or("-".into(), |t| at(self.s.parsed, &e.target, t));
+            log.borrow_mut().insert(format!(
+                "rd-alias-move\t{mechanism}\t{}\t{}\t{}\t{}\t{}\t{alias}\t{alias}\t{target}\t{}(unplaced)",
+                to.file,
+                from.function,
+                place(from),
+                place(to),
+                at(self.s.parsed, base, *probe),
+                e.target,
             ));
         }
     }
