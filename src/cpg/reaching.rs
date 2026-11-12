@@ -442,14 +442,19 @@ fn reaching_definitions_impl(
     let mut alias_kills = (pass.alias_kills() && parsed.language.is_js_family())
         .then(|| {
             alias_kill::AliasKills::new(
-                &alias_kill::Solved {
+                alias_kill::Solved {
                     parsed,
+                    defs: &defs,
+                    mapped_defs: &mapped_defs,
                     in_sets: &in_sets,
+                    kill: &kill,
+                    successors: &successors,
+                    line_index: &line_index,
+                    function_start,
                     facts: &binding_facts,
                     census: &census,
                 },
                 &mut statements,
-                &line_index,
                 census.alias_log().cloned(),
             )
         })
@@ -520,20 +525,9 @@ fn reaching_definitions_impl(
         let label = alias_kill::AliasKills::refine(
             alias_kills.as_mut(),
             label,
-            &mut alias_kill::RefineCtx {
-                parsed,
-                edge,
-                candidates: &candidates,
-                defs: &defs,
-                mapped_defs: &mapped_defs,
-                in_sets: &in_sets,
-                kill: &kill,
-                successors: &successors,
-                statements: &mut statements,
-                line_index: &line_index,
-                function_start,
-                facts: &binding_facts,
-            },
+            edge,
+            &candidates,
+            &mut statements,
         );
         if label.is_exact()
             && edge.to.line < edge.from.line
@@ -596,20 +590,9 @@ fn reaching_definitions_impl(
         let label = alias_kill::AliasKills::refine(
             alias_kills.as_mut(),
             label,
-            &mut alias_kill::RefineCtx {
-                parsed,
-                edge,
-                candidates: &candidates,
-                defs: &defs,
-                mapped_defs: &mapped_defs,
-                in_sets: &in_sets,
-                kill: &kill,
-                successors: &successors,
-                statements: &mut statements,
-                line_index: &line_index,
-                function_start,
-                facts: &binding_facts,
-            },
+            edge,
+            &candidates,
+            &mut statements,
         );
         exact_labels
             .entry(key)

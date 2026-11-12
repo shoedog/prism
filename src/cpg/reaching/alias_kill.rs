@@ -71,7 +71,8 @@ struct Blocker {
 }
 
 /// One owner's alias-write state.
-pub(super) struct AliasKills {
+pub(super) struct AliasKills<'a> {
+    s: Solved<'a>,
     /// D3 over the census's writes plus the resolved ones.
     d3: Rc<D3>,
     blockers: Vec<Blocker>,
@@ -83,21 +84,27 @@ pub(super) struct AliasKills {
     rows: BTreeMap<usize, Option<BitSet>>,
 }
 
-/// What `AliasKills::new` reads: the solved owner.
+/// The solved owner the rule reads (borrowed for the whole classification loop).
+#[derive(Clone, Copy)]
 pub(super) struct Solved<'a> {
     pub parsed: &'a ParsedFile,
+    pub defs: &'a [DefSite],
+    pub mapped_defs: &'a [Option<usize>],
     pub in_sets: &'a [BitSet],
+    pub kill: &'a [BitSet],
+    pub successors: &'a [Vec<(usize, bool)>],
+    pub line_index: &'a BTreeMap<Line, usize>,
+    pub function_start: Line,
     pub facts: &'a BindingFacts,
     pub census: &'a CensusFacts,
 }
 
-impl AliasKills {
+impl<'a> AliasKills<'a> {
     /// The owner's alias-resolved write state, or `None` when it has no admitted alias or no write through
     /// one. An owner with no admitted certificate does nothing here.
     pub(super) fn new(
-        s: &Solved<'_>,
+        s: Solved<'a>,
         statements: &mut StatementLookup<'_>,
-        line_index: &BTreeMap<Line, usize>,
         log: Option<MoveLog>,
     ) -> Option<Self> {
         let certs = s.census.alias_certs().filter(|c| c.any_admitted())?;
@@ -105,7 +112,7 @@ impl AliasKills {
         let mut node_of = |line: Line| {
             statements
                 .get(line)
-                .and_then(|l| line_index.get(&l).copied())
+                .and_then(|l| s.line_index.get(&l).copied())
         };
         let (mut blockers, mut extra, mut unplaced) = (Vec::new(), Vec::new(), BTreeSet::new());
         for w in base
@@ -158,6 +165,7 @@ impl AliasKills {
             return None;
         }
         Some(Self {
+            s,
             d3: Rc::new(base.with_extra(extra, unplaced)),
             blockers,
             certs: Rc::clone(certs),
@@ -170,58 +178,67 @@ impl AliasKills {
     pub(super) fn refine(
         this: Option<&mut Self>,
         label: FlowConfidence,
-        c: &mut RefineCtx<'_, '_>,
+        edge: &FlowEdge,
+        candidates: &[usize],
+        statements: &mut StatementLookup<'_>,
     ) -> FlowConfidence {
         let (Some(this), true) = (this, label.is_exact()) else {
             return label;
         };
+        let s = this.s;
         let moved = D3::refine(
             Some(&this.d3),
             label,
-            c.parsed,
-            c.edge,
-            c.candidates,
-            c.statements,
-            c.line_index,
-            c.function_start,
-            c.facts,
+            s.parsed,
+            edge,
+            candidates,
+            statements,
+            s.line_index,
+            s.function_start,
+            s.facts,
         );
         let moved = if moved.is_exact() {
-            this.may_kill(moved, c)
+            this.may_kill(moved, edge, candidates, statements)
         } else {
             moved
         };
         if moved != label {
-            this.note(mechanism(moved), c);
+            this.note(mechanism(moved), edge);
         }
         moved
     }
 
-    fn may_kill(&mut self, label: FlowConfidence, c: &mut RefineCtx<'_, '_>) -> FlowConfidence {
-        let Some(use_node) = c
-            .statements
-            .get(c.edge.to.line)
-            .and_then(|line| c.line_index.get(&line).copied())
+    fn may_kill(
+        &mut self,
+        label: FlowConfidence,
+        edge: &FlowEdge,
+        candidates: &[usize],
+        statements: &mut StatementLookup<'_>,
+    ) -> FlowConfidence {
+        let s = self.s;
+        let Some(use_node) = statements
+            .get(edge.to.line)
+            .and_then(|line| s.line_index.get(&line).copied())
         else {
             return label;
         };
         let mut blocked_any = false;
-        for &candidate in c.candidates {
-            let Some(from) = c.mapped_defs[candidate] else {
+        for &candidate in candidates {
+            let Some(from) = s.mapped_defs[candidate] else {
                 continue;
             };
-            if !c.in_sets[use_node].contains(candidate) {
+            if !s.in_sets[use_node].contains(candidate) {
                 continue;
             }
             let blockers = &self.blockers;
             let row = self.rows.entry(candidate).or_insert_with(|| {
                 let nodes: BTreeSet<usize> = blockers
                     .iter()
-                    .filter(|b| affects(&b.path, &c.defs[candidate].path))
+                    .filter(|b| affects(&b.path, &s.defs[candidate].path))
                     .map(|b| b.node)
                     .collect();
                 (!nodes.is_empty())
-                    .then(|| clean_row(candidate, from, &nodes, c.kill, c.successors))
+                    .then(|| clean_row(candidate, from, &nodes, s.kill, s.successors))
             });
             let Some(row) = row else {
                 // Unaffected by any alias write: the classifier's verdict stands for this candidate.
@@ -241,46 +258,30 @@ impl AliasKills {
 
     /// Trace on: one `rd-alias-move` record per admitted write that affects the moved edge's candidate path
     /// (raw site, alias def, source and target declarations, resolved path, the edge, the mechanism).
-    fn note(&self, mechanism: &str, c: &RefineCtx<'_, '_>) {
+    fn note(&self, mechanism: &str, edge: &FlowEdge) {
         let Some(log) = &self.log else { return };
-        let (from, to) = (&c.edge.from, &c.edge.to);
+        let (from, to) = (&edge.from, &edge.to);
         for b in self
             .blockers
             .iter()
             .filter(|b| affects(&b.path, &from.path) || affects(&b.path, &to.path))
         {
             let e = &self.certs.entries[b.entry].cand;
-            let alias = at(c.parsed, &e.alias, e.alias_start);
+            let alias = at(self.s.parsed, &e.alias, e.alias_start);
             let target = e
                 .target_start
-                .map_or("-".into(), |t| at(c.parsed, &e.target, t));
+                .map_or("-".into(), |t| at(self.s.parsed, &e.target, t));
             log.borrow_mut().insert(format!(
                 "rd-alias-move\t{mechanism}\t{}\t{}\t{}\t{}\t{}\t{alias}\t{alias}\t{target}\t{}",
                 to.file,
                 from.function,
                 place(from),
                 place(to),
-                at(c.parsed, &b.raw.to_string(), b.site),
+                at(self.s.parsed, &b.raw.to_string(), b.site),
                 b.path,
             ));
         }
     }
-}
-
-/// What `refine` reads for one edge.
-pub(super) struct RefineCtx<'a, 'p> {
-    pub parsed: &'a ParsedFile,
-    pub edge: &'a FlowEdge,
-    pub candidates: &'a [usize],
-    pub defs: &'a [DefSite],
-    pub mapped_defs: &'a [Option<usize>],
-    pub in_sets: &'a [BitSet],
-    pub kill: &'a [BitSet],
-    pub successors: &'a [Vec<(usize, bool)>],
-    pub statements: &'a mut StatementLookup<'p>,
-    pub line_index: &'a BTreeMap<Line, usize>,
-    pub function_start: Line,
-    pub facts: &'a BindingFacts,
 }
 
 fn clean_row(
