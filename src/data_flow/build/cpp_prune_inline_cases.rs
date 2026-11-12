@@ -89,7 +89,7 @@ void cpp_clean_drop() {
     ),
     (
         "12_header_macros.h",
-        r####"// `.h` (C grammar, C++ rules): a macro naming the local keeps its pairs.
+        r####"// `.h` (C grammar, off since fold 1): the pairs are kept, macro or not.
 int src(void);
 void sink(int);
 #define PEEK (hx + 1)
@@ -103,7 +103,7 @@ static inline int header_macro_free_name_keep(void) {
 static inline int header_clean_drop(void) {
     int hy = src();       // @h2:D hy
     hy = 1;
-    return hy + 1;        // @h2:U:drop:scalar_without_macro
+    return hy + 1;        // @h2:U:keep:dot_h_owner_is_off
 }
 "####,
     ),

@@ -4,18 +4,18 @@ void sink(int);
 void may();
 int cond();
 
-void catch_param_distinct_keep() {
+void catch_param_conservative_keep() {
     int e = src();            // @cp:D e
     e = 1;
     try { may(); } catch (int e) {
-        sink(e + 1);          // @cp:U:keep:catch_parameter_is_another_variable
+        sink(e + 1);          // @cp:U:keep:conservative_outcome_catch_parameter_is_never_eligible
     }
 }
 
-void cond_decl_keep() {
+void cond_decl_conservative_keep() {
     if (int v = src()) {      // @cd:D v
         v = 1;
-        sink(v + 1);          // @cd:U:keep:condition_declaration_is_not_a_write
+        sink(v + 1);          // @cd:U:keep:conservative_outcome_condition_declaration_is_no_write
     }
 }
 
@@ -26,19 +26,19 @@ void init_stmt_drop() {
     }
 }
 
-void range_for_shadow_keep(int *arr) {
+void range_for_shadow_conservative_keep(int *arr) {
     int k = src();            // @rk:D k
     k = 1;
     for (int k : arr) {
-        sink(k + 1);          // @rk:U:keep:use_binds_the_range_for_variable
+        sink(k + 1);          // @rk:U:keep:conservative_outcome_use_binds_an_ineligible_range_for_variable
     }
 }
 
-void shadowed_in_condition_keep() {
+void shadowed_in_condition_conservative_keep() {
     int v = src();            // @sh:D v
     v = 1;
     if (int v = other()) {
-        sink(v + 1);          // @sh:U:keep:use_binds_the_condition_declaration
+        sink(v + 1);          // @sh:U:keep:conservative_outcome_use_binds_an_ineligible_condition_declaration
     }
 }
 
@@ -70,11 +70,11 @@ void try_body_def_keep() {
     }
 }
 
-void coroutine_drop() {
+void coroutine_await_keep() {
     int x = src();            // @co:D x
     x = 1;
     co_await tick();
-    sink(x + 1);              // @co:U:drop:suspension_keeps_locals
+    sink(x + 1);              // @co:U:keep:coroutine_owner_is_off
 }
 
 void local_class_method_keep() {

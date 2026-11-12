@@ -233,7 +233,7 @@ identifier-class node in the owner with the base's text, as `LexicalFacts::colle
 **Owner gate.** Both rules are off for the owner unless all of these hold:
 
 - G1 The owner is a C `function_definition` in a `.c` file (6b), or a C++ `function_definition` /
-  `template_declaration`, or a C-grammar owner in a `.h` file under the C++ rules (6c). For a
+  `template_declaration` (6c; a `.h` stays off, see D5). For a
   `template_declaration`, its own inner `function_definition` is not a nested boundary (F6). `!owner.has_error()`.
 - G2 The body contains no `preproc_def`, `preproc_function_def`, `#undef`, `preproc_include`, and no `#pragma`
   whose first token is `omp` or `acc` (F7).
@@ -254,7 +254,7 @@ identifier-class node in the owner with the base's text, as `LexicalFacts::colle
   ineligible. An unresolved, ambiguous or nested-callable binding is ineligible. For D, W's target resolves to
   the same declaration.
 - E2 The declaration has no `static` / `extern` / `thread_local` / `_Thread_local` storage class and no `volatile`
-  / `_Atomic` qualifier. C++ (and `.h` under the C++ rules) also requires the **scalar gate**: the type is a
+  / `_Atomic` qualifier. C++ also requires the **scalar gate**: the type is a
   `primitive_type`, a `sized_type_specifier`, an `enum_specifier`, or any pointer declarator, or `auto` with a
   literal initializer. References are excluded.
 - E3 The spelling has **not escaped** anywhere in the owner (by name, any binding):
@@ -263,12 +263,16 @@ identifier-class node in the owner with the base's text, as `LexicalFacts::colle
   - membership in the transitive free-identifier set of any in-repo macro invoked in the owner;
   - the spelling is itself an in-repo macro name.
 
-  C++ and `.h`-as-C++ additionally treat as escapes:
+  C++ owners additionally treat as escapes (fold 1: lvalue roots peel parentheses, both `?:` branches, a comma
+  sequence, an assignment target, `++`/`--` and casts; an address-of operand also `.`/`->`/subscript chains, and an
+  unlisted shape escapes every identifier in it):
+  - every lvalue root of an `&E` operand and of the range of a range-for, whatever the loop variable;
+  - every name inside a lambda with a non-empty capture list;
+  - names of a block-scope using-declaration;
   - a bare or parenthesized `x` as an argument of any `call_expression`, `new_expression`, constructor or brace
     initializer, or field initializer list;
   - an operand of `>>`;
   - any occurrence inside the initializer of a reference declarator or a structured-binding declaration;
-  - a by-reference capture (`&x`, `&r = …x…`);
   - the bare initializer of a declaration whose type fails the scalar gate (a converting constructor).
 - E4 (D, C grammar) If `x`'s declarator is not a pointer declarator, no recorded def rooted at `x` has fields whose
   raw first hop is `.` or a subscript (F4).
@@ -360,8 +364,13 @@ stores recorded under `b`'s spelling are never dropped (F1). Hence d's value can
   which treat bare arguments as by-value.
 - Inherited and already settled: the #634 survivor cap.
 
-No disclosure is needed for C++ exceptions, scope-exit destructors, lambdas, coroutines, unions,
-conditional-compilation writes or shadowing: each is closed by structure.
+No disclosure is needed for C++ exceptions, scope-exit destructors, unions, conditional-compilation writes or
+shadowing: each is closed by structure. Lambdas and coroutines are NOT closed by structure (6c fold 1, round-1
+review): a lambda with a non-empty capture list reads its captures when the closure is created (on the creating
+statement's line, with no spelled occurrence), so every name inside it escapes; a coroutine owner (`co_await`,
+`co_yield` or `co_return` outside nested lambdas) is off, because promise construction, `yield_value` and
+`await_transform` can bind a parameter or an operand by reference. A block-scope `using namespace` turns the owner
+off and `using N::x;` escapes `x`.
 
 ### 5.4 First obligation rows (RED-first; each first establishes that the baseline emits the pair)
 
@@ -510,6 +519,11 @@ is the same, with these changes:
 | D3 | C++ class-typed locals | scalar type gate / "assignment replaces" disclosure (2b, needs receiver escapes per F5) | type gate |
 | D4 | C++ overloaded operators binding scalars by non-const reference (X3) | disclose (escape `>>` only) / positive operand certificate (escape unless every other operand is a literal or eligible local) | disclose; measure the certificate's cost on leveldb if the owner hesitates |
 | D5 | `.h` owners (#529) | off until 6c, then C++ rules on C-grammar owners / fix #529 first / C rules (unsound on C++ headers) | off, then C++ rules |
+
+> **2026-11-12 (6c fold 1, round-1 review W3):** `.h` stays off. A `.h` is parsed with the C grammar, which accepts
+> C++ shapes such as `T& r = (x);` without an error (an assignment to a cast-looking expression), so the C++ escapes,
+> keyed on C++ node kinds, never see them. `.h` owners get the C++ rules only once headers get a C++ parse (#529).
+> C++-grammar headers (`.hpp`, `.hh`, ...) keep the C++ rules.
 | D6 | `.c` compiled as C++ (X4) | accept / turn `.c` off where a C++ build is detected | accept |
 | D7 | Corpus publication | upload redis `src/` to `corpora-v1` / keep the measurement local | owner's licence call; local is sufficient for 6b |
 | D8 | Slicing and caps | 6a/6b/6c(/6d) with cap 3 each / merge 6a+6b | 6a/6b/6c, 6d only on measured yield |

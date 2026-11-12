@@ -12,7 +12,7 @@ import glob, json, os, re, sys
 here = os.path.dirname(os.path.abspath(__file__))
 root = os.path.abspath(os.path.join(here, "../../../.."))
 cases = []
-for ext in ("cc", "h", "cpp"):
+for ext in ("cc", "h", "cpp", "hpp"):
     for p in sorted(glob.glob(os.path.join(here, "*." + ext))):
         cases.append((os.path.basename(p), open(p).read()))
 inline = open(os.path.join(root, "src/data_flow/build/cpp_prune_inline_cases.rs")).read()

@@ -130,7 +130,7 @@ fn removal_only_sweep() {
 /// Every matrix input as `(case name, file name, source)`.
 fn matrix_inputs() -> Vec<(String, String, String)> {
     let mut out: Vec<(String, String, String)> =
-        fixtures("tests/fixtures/dfg_prune/cpp", &["cc", "h", "cpp"])
+        fixtures("tests/fixtures/dfg_prune/cpp", &["cc", "h", "cpp", "hpp"])
             .into_iter()
             .map(|p| {
                 let file = p.file_name().unwrap().to_str().unwrap().to_owned();
@@ -242,14 +242,15 @@ const BARE_ARG: &str = "int src(void);\nvoid sink(int);\nint f(void) {\n    int 
 const TYPEDEF_OWNER: &str =
     "int src(void);\nint f(void) {\n    handle_t x = src();\n    x = 1;\n    return x + 1;\n}\n";
 
-/// Which rule set runs: `.c` the C rules, `.h` and C++ the C++ rules, any other C-grammar
-/// name none.
+/// Which rule set runs: `.c` the C rules, C++ the C++ rules, any other C-grammar name (a `.h`
+/// included: the C grammar parses C++ shapes such as `T& r = (x);` without an error, fold 1)
+/// none.
 #[test]
 fn cpp_rules_apply_to_headers_and_cpp_only() {
     for (name, language, scalar, bare, typedef) in [
         ("f.c", Language::C, true, true, true),
-        ("f.h", Language::C, true, false, false),
-        ("f.H", Language::C, true, false, false),
+        ("f.h", Language::C, false, false, false),
+        ("f.H", Language::C, false, false, false),
         ("f.cc", Language::Cpp, true, false, false),
         ("f.hpp", Language::Cpp, true, false, false),
         ("f.cc", Language::C, false, false, false),
@@ -302,15 +303,9 @@ fn cpp_prune_reads_the_repo_wide_census() {
     let (b, a) = with_census(&[("a.cc", owner), ("z.c", "#define 9bad 1\n")], "a.cc");
     assert_eq!(a, b, "incomplete census disables every owner");
     let hdr = "int src(void);\nint f(void) {\n    int x = src();\n    x = 1;\n    return x + 1 + BUMP(x + 0);\n}\n";
+    // A `.h` is off whatever the census holds (fold 1).
     let (b, a) = with_census(&[("a.h", hdr)], "a.h");
-    assert!(a < b, "`.h`, no macro: prunes ({b} -> {a})");
-    let (b, a) = with_census(
-        &[("a.h", hdr), ("m.h", "#define BUMP(v) ((v) + 1)\n")],
-        "a.h",
-    );
-    assert_eq!(a, b, "`.h`: macro argument keeps its pairs");
-    let (b, a) = with_census(&[("a.h", hdr), ("z.c", "#define 9bad 1\n")], "a.h");
-    assert_eq!(a, b, "`.h`: incomplete census disables the owner");
+    assert_eq!(a, b, "`.h` stays off even with no macro");
 }
 
 fn survivors(source: &str, name: &str) -> std::collections::BTreeMap<usize, Vec<(usize, usize)>> {
@@ -362,9 +357,8 @@ fn t08_template_two_passes_agree() {
 }
 
 /// Z05 (C++ cap row): an owner over the 2,048-definition RD limit stays capped under C++ and
-/// `.h` when its names escape (the bare `sink(x)` argument keeps every pair).
+/// `.h` (off) when nothing prunes (the bare `sink(x)` argument keeps every pair in C++).
 #[test]
-#[ignore = "over 2,048 definitions: minutes in a debug build; run with --release -- --ignored"]
 fn cpp_capped_owner_stays_capped_when_nothing_prunes() {
     let mut src = String::from("void sink(int);\nint f(void) {\n    long x = 0;\n");
     for _ in 0..2050 {

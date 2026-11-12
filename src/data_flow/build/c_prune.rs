@@ -1,6 +1,6 @@
 //! C facts for rules U and D (#630 slice 6b): `.c` files, `function_definition` owners.
-//! Slice 6c runs the same rules, plus `cpp_prune`'s scalar gate and escapes, for C++ owners and
-//! for C-grammar owners in `.h` files.
+//! Slice 6c runs the same rules, plus `cpp_prune`'s scalar gate and escapes, for C++ owners (a
+//! `.h` file is parsed as C, #529, and stays off: `G1File`).
 //! Design of record: `docs/superpowers/plans/2026-11-11-630-s6-cpp-ud/DESIGN.md` §5.1.
 //!
 //! Both rules read unexpanded source and drop only identifier paths (no field paths) of a
@@ -26,7 +26,7 @@ use tree_sitter::Node;
 /// Why an owner is off (the ledger names these).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Off {
-    /// G1: the file is not a `.c` file of language C (a header, C++).
+    /// G1: the file is not a `.c` file of language C or a C++ file (a `.h`, parsed as C).
     G1File,
     /// G1: the owner is not a `function_definition`.
     G1Kind,
@@ -47,6 +47,10 @@ pub(super) enum Off {
     G5,
     /// The census could not read some `#define` line.
     Incomplete,
+    /// 6c: a block-scope `using namespace` (any name may rebind).
+    UsingDirective,
+    /// 6c: a coroutine (implicit promise and awaiter calls can bind a parameter or operand).
+    Coroutine,
 }
 
 /// Names whose call can return a second time (G4).
@@ -93,7 +97,7 @@ pub(super) struct COwner {
     macro_names: BTreeSet<String>,
     /// Declarators found under a wrapper the resolver cannot see (E1; names are in `escaped`).
     pub(super) hidden_decls: usize,
-    /// 6c: the C++ rules (scalar gate, C++ escapes) apply: a C++ owner or a `.h` owner.
+    /// 6c: the C++ rules (scalar gate, C++ escapes) apply: a C++ owner.
     pub(super) cpp: bool,
     /// 6c ledger: the owner is a `template_declaration`.
     pub(super) template: bool,
@@ -235,7 +239,6 @@ pub(super) fn scan(
     let cpp = match parsed.language {
         Language::Cpp => true,
         Language::C if is_dot_c(parsed) => false,
-        Language::C if cpp_prune::is_dot_h(parsed) => true,
         _ => return Err(Off::G1File),
     };
     // F6: a `template_declaration` owner holds its own inner `function_definition`, which is
@@ -378,6 +381,11 @@ fn walk(
     }
     if out.cpp {
         cpp_prune::note_node(parsed, node, out);
+        if let Some(o) = cpp_prune::off_reason(node, owner) {
+            if off.is_none() {
+                *off = Some(o);
+            }
+        }
     }
     if hidden_declaration(node, out.cpp) {
         let mut cursor = node.walk();
@@ -570,7 +578,7 @@ fn eligible_declared(parsed: &ParsedFile, owner: &COwner, d: &Declared<'_>) -> O
     if tokens(parsed.node_text(&top)).any(|t| STORAGE_OR_QUALIFIER.contains(&t)) {
         return None;
     }
-    // C++ and `.h` owners: the scalar gate (a class, typedef, template, `decltype` or
+    // C++ owners: the scalar gate (a class, typedef, template, `decltype` or
     // non-literal `auto` type, or a reference, may hide operator and constructor effects).
     if owner.cpp && !cpp_prune::scalar_gate(parsed, decl, top, d.pointer) {
         return None;
@@ -737,8 +745,12 @@ fn decl_idents<'a>(
         } else {
             d
         };
-        if top.kind() == "structured_binding_declarator" {
-            // C++: every name binds into the aggregate; ineligible (see `declaration_of`).
+        // C++: a structured binding (also under a reference or other wrapper) binds every name
+        // into the aggregate: ineligible (see `declaration_of`). A declarator shape this
+        // resolver cannot unwrap fails closed the same way (see `decl_name`).
+        if parsed.language == crate::languages::Language::Cpp
+            && (structured_binding_in(top).is_some() || declared(top).is_none())
+        {
             if top.start_byte() <= occ.start_byte() {
                 decl_name(parsed, top, name, out);
             }
@@ -752,12 +764,31 @@ fn decl_idents<'a>(
     }
 }
 
+/// The `structured_binding_declarator` a declarator chain wraps, through reference, pointer,
+/// parenthesized, array and attributed declarators.
+fn structured_binding_in(mut node: Node<'_>) -> Option<Node<'_>> {
+    loop {
+        match node.kind() {
+            "structured_binding_declarator" => return Some(node),
+            "reference_declarator" | "parenthesized_declarator" | "attributed_declarator" => {
+                node = node.named_child(0)?;
+            }
+            "pointer_declarator" | "array_declarator" => {
+                node = node.child_by_field_name("declarator")?;
+            }
+            _ => return None,
+        }
+    }
+}
+
 /// Declarator identifiers spelled `name` under a declarator without a declaration around it
 /// (a range-for variable, a structured binding): the binding exists and is never eligible.
+/// A shape that is neither a structured binding nor a chain `declared` can unwrap binds every
+/// identifier of that spelling in it (fail closed: resolution never continues outward).
 fn decl_name<'a>(parsed: &ParsedFile, top: Node<'a>, name: &str, out: &mut Vec<Node<'a>>) {
-    if top.kind() == "structured_binding_declarator" {
-        let mut cursor = top.walk();
-        for c in top.named_children(&mut cursor) {
+    if let Some(sb) = structured_binding_in(top) {
+        let mut cursor = sb.walk();
+        for c in sb.named_children(&mut cursor) {
             if c.kind() == "identifier" && parsed.node_text(&c) == name {
                 out.push(c);
             }
@@ -766,6 +797,20 @@ fn decl_name<'a>(parsed: &ParsedFile, top: Node<'a>, name: &str, out: &mut Vec<N
         if parsed.node_text(&dd.ident) == name {
             out.push(dd.ident);
         }
+    } else {
+        let mut ids = Vec::new();
+        collect_identifiers(top, &mut ids);
+        out.extend(ids.into_iter().filter(|i| parsed.node_text(i) == name));
+    }
+}
+
+fn collect_identifiers<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    if node.kind() == "identifier" {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for c in node.named_children(&mut cursor) {
+        collect_identifiers(c, out);
     }
 }
 

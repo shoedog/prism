@@ -115,11 +115,11 @@ void default_capture_keep() {
     sink(x + 1);              // @dc:U:keep:default_reference_capture
 }
 
-void value_capture_drop() {
+void value_capture_keep() {
     int x = src();            // @vc:D x
     x = 1;
     auto l = [x]() { return x; };
-    sink(x + 1);              // @vc:U:drop:value_capture_is_a_copy
+    sink(x + 1);              // @vc:U:keep:any_capture_reads_x_at_creation
 }
 
 void address_of_keep() {

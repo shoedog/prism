@@ -1,15 +1,21 @@
 //! C++ additions to rules U and D (#630 slice 6c), consumed by `c_prune.rs`.
 //! Design of record: `docs/superpowers/plans/2026-11-11-630-s6-cpp-ud/DESIGN.md` §5.1.
 //!
-//! C++ owners (`function_definition`, and a `template_declaration` holding one) and C-grammar
-//! owners in a `.h` file (a `.h` may be included from C++, #529) run the C rules plus:
+//! C++ owners (`function_definition`, and a `template_declaration` holding one) run the C rules
+//! plus (a `.h` file is parsed as C, #529, and stays off: the C grammar parses C++ shapes such
+//! as `T& r = (x);` without an error, so the escapes below cannot see them):
 //! - the scalar gate (E2): the declared type is a `primitive_type`, a `sized_type_specifier`,
 //!   an `enum_specifier`, any pointer declarator, or `auto` initialised by a literal;
 //!   references, class and typedef types, `decltype` and `auto` from anything else fail it;
-//! - the C++ escape set (E3), owner-wide by name: a bare argument of any call, a constructor
-//!   or brace initializer, an operand of `>>`, anything inside the initializer of a reference
-//!   or structured binding, a by-reference capture, and the bare initializer of a declaration
-//!   whose type fails the gate;
+//! - the C++ escape set (E3), owner-wide by name: every lvalue root (`escape_roots`) of an
+//!   address-of operand and of the range of a range-for, a bare argument of any call, a
+//!   constructor or brace initializer, an operand of `>>`, anything inside the initializer of a
+//!   reference or structured binding, every name inside a lambda with a non-empty capture list
+//!   (captures are read when the closure is created), a block-scope using-declaration's names,
+//!   and the bare initializer of a declaration whose type fails the gate;
+//! - owners that are off: a block-scope `using namespace`, a coroutine (`co_await`, `co_yield`,
+//!   `co_return` outside nested lambdas: promise construction and `await_transform` /
+//!   `yield_value` can bind a parameter or an operand by reference);
 //! - bindings from `catch` parameters, condition and init-statement declarations and range-for
 //!   variables (never dominating writes).
 //!
@@ -18,11 +24,6 @@
 use super::c_prune::COwner;
 use crate::ast::ParsedFile;
 use tree_sitter::Node;
-
-/// A `.h` file (any case): parsed as C (#529) but possibly included from C++.
-pub(super) fn is_dot_h(parsed: &ParsedFile) -> bool {
-    parsed.path.to_ascii_lowercase().ends_with(".h")
-}
 
 /// The identifiers an expression can hand over as an lvalue: itself, through parentheses, both
 /// branches of `?:`, a comma sequence, the target of an assignment, an increment, or a cast to
@@ -36,7 +37,13 @@ pub(super) fn lvalue_roots<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Ve
             }
         }
         "conditional_expression" => {
-            for f in ["consequence", "alternative"] {
+            // `c ?: y` (GNU) yields the condition itself when it is true.
+            let fields: &[&str] = if node.child_by_field_name("consequence").is_some() {
+                &["consequence", "alternative"]
+            } else {
+                &["condition", "alternative"]
+            };
+            for f in fields {
                 if let Some(c) = node.child_by_field_name(f) {
                     lvalue_roots(parsed, c, out);
                 }
@@ -76,6 +83,55 @@ pub(super) fn lvalue_roots<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Ve
             }
         }
         _ => {}
+    }
+}
+
+/// Every identifier an address-taking site (`&E`) or a range-for range can bind a pointer or
+/// a reference to: the lvalue roots of `lvalue_roots` (any cast included), plus `.`/`->` and
+/// subscript chains down to their root; a shape not listed escapes every identifier in it.
+pub(super) fn escape_roots<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    match node.kind() {
+        "identifier" => out.push(node),
+        "parenthesized_expression" => {
+            if let Some(c) = node.named_child(0) {
+                escape_roots(c, out);
+            }
+        }
+        "conditional_expression" => {
+            let fields: &[&str] = if node.child_by_field_name("consequence").is_some() {
+                &["consequence", "alternative"]
+            } else {
+                &["condition", "alternative"]
+            };
+            for f in fields {
+                if let Some(c) = node.child_by_field_name(f) {
+                    escape_roots(c, out);
+                }
+            }
+        }
+        "comma_expression" => {
+            for f in ["left", "right"] {
+                if let Some(c) = node.child_by_field_name(f) {
+                    escape_roots(c, out);
+                }
+            }
+        }
+        "assignment_expression" => {
+            if let Some(c) = node.child_by_field_name("left") {
+                escape_roots(c, out);
+            }
+        }
+        "update_expression" | "field_expression" | "subscript_expression" => {
+            if let Some(c) = node.child_by_field_name("argument") {
+                escape_roots(c, out);
+            }
+        }
+        "cast_expression" => {
+            if let Some(c) = node.child_by_field_name("value") {
+                escape_roots(c, out);
+            }
+        }
+        _ => identifiers_in(node, out),
     }
 }
 
@@ -269,51 +325,93 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                 }
             }
         }
+        // The range is bound through an implicit reference, and ADL `begin(E&)` / `end(E&)` can
+        // keep it, whatever the loop variable's own declarator.
         "for_range_loop" => {
-            if node
-                .child_by_field_name("declarator")
-                .is_some_and(is_reference_like)
-            {
-                if let Some(r) = node.child_by_field_name("right") {
-                    identifiers_in(r, &mut roots);
-                    esc(out, "ref_init", &roots);
+            if let Some(r) = node.child_by_field_name("right") {
+                escape_roots(r, &mut roots);
+                esc(out, "range_for", &roots);
+            }
+        }
+        // `&E`: every lvalue root of E (the C rule's `chain_root` sees identifiers, `.`,
+        // subscripts and parentheses only).
+        "pointer_expression" => {
+            let amp = node
+                .child_by_field_name("operator")
+                .is_some_and(|op| parsed.node_text(&op) == "&");
+            if amp {
+                if let Some(arg) = node.child_by_field_name("argument") {
+                    escape_roots(arg, &mut roots);
+                    esc(out, "addr_of", &roots);
                 }
             }
         }
+        // Captures are initialised when the closure is created, on the creating statement's
+        // line, and a by-reference capture or a stored closure keeps the variable: every name
+        // in a lambda with any capture escapes. `[]` reads no local.
         "lambda_expression" => {
-            if let Some(caps) = node.child_by_field_name("captures") {
-                let mut by_ref = false;
+            let non_empty = node.child_by_field_name("captures").is_some_and(|caps| {
                 let mut cursor = caps.walk();
-                for c in caps.children(&mut cursor) {
-                    match c.kind() {
-                        "&" => {
-                            by_ref = true;
-                            continue;
-                        }
-                        "lambda_default_capture" => {
-                            if parsed.node_text(&c).trim() == "&" {
-                                identifiers_in(node, &mut roots);
-                                esc(out, "default_capture", &roots);
-                                roots.clear();
-                            }
-                        }
-                        "identifier" if by_ref => esc(out, "ref_capture", &[c]),
-                        // `&r = x`: the `&` is the initializer's own first child.
-                        "lambda_capture_initializer"
-                            if by_ref
-                                || c.child(0).is_some_and(|t| parsed.node_text(&t) == "&") =>
-                        {
-                            identifiers_in(c, &mut roots);
-                            esc(out, "ref_capture", &roots);
-                            roots.clear();
-                        }
-                        _ => {}
-                    }
-                    by_ref = false;
-                }
+                let any = caps
+                    .named_children(&mut cursor)
+                    .any(|c| c.kind() != "comment");
+                any
+            });
+            if non_empty {
+                identifiers_in(node, &mut roots);
+                esc(out, "lambda_capture", &roots);
             }
+        }
+        // A block-scope using-declaration names a variable of another scope (`using N::x;`
+        // hides an enclosing local `x` and writes N::x).
+        "using_declaration" if !is_using_directive(node) => {
+            collect_names(node, &mut roots);
+            esc(out, "using_decl", &roots);
         }
         _ => {}
+    }
+}
+
+fn is_using_directive(node: Node<'_>) -> bool {
+    let mut cursor = node.walk();
+    let found = node.children(&mut cursor).any(|c| c.kind() == "namespace");
+    found
+}
+
+fn collect_names<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    if matches!(
+        node.kind(),
+        "identifier" | "namespace_identifier" | "type_identifier" | "field_identifier"
+    ) {
+        out.push(node);
+    }
+    let mut cursor = node.walk();
+    for c in node.named_children(&mut cursor) {
+        collect_names(c, out);
+    }
+}
+
+/// Why a C++ owner is off, when it is (`None` otherwise): a block-scope using-directive makes
+/// any name rebind; a coroutine (outside nested lambdas, which are their own callables) has
+/// implicit promise and awaiter calls that can bind parameters and operands by reference.
+pub(super) fn off_reason(node: Node<'_>, owner: Node<'_>) -> Option<super::c_prune::Off> {
+    use super::c_prune::Off;
+    match node.kind() {
+        "using_declaration" if is_using_directive(node) => Some(Off::UsingDirective),
+        "co_await_expression" | "co_yield_statement" | "co_return_statement" => {
+            let mut p = node.parent();
+            while let Some(n) = p {
+                if n.id() == owner.id() {
+                    break;
+                }
+                if n.kind() == "lambda_expression" {
+                    return None;
+                }
+                p = n.parent();
+            }
+            Some(Off::Coroutine)
+        }
+        _ => None,
     }
 }
 
