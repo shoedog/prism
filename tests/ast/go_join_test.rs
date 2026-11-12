@@ -258,8 +258,6 @@ fn go_join_export_all() {
 
 #[test]
 fn go_join_complete_label_and_auxiliary_endpoint_receipts() {
-    // Alias-twin lane slice 2a: this receipt pins main's twin behaviour of an earlier lane.
-    let _twins = prism::data_flow::AliasTwinPolicyOff::new();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let extra: Vec<Value> = include_str!("../fixtures/go_join/extra-base.jsonl")
         .lines()

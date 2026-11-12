@@ -95,3 +95,11 @@ fn the_refusal_is_per_target_spelling() {
     let src = "def t(size, other, r):\n    a = size\n    a = mk()\n    b = other\n    b = mk()\n    g(r.size)\n";
     assert_eq!(lines(src), vec![4, 5]);
 }
+
+#[test]
+fn a_nonlocal_write_in_a_nested_def_needs_no_refusal() {
+    // Python has no address-of; the closest analog (a nested def writing the target through
+    // `nonlocal`) never un-masked a label (base already emits `exact`), so no refusal exists.
+    let src = "def t(o):\n    u = o\n    u = 1\n    def g():\n        nonlocal o\n        o = 3\n    g()\n    use(o)\n";
+    assert_eq!(lines(src), vec![2, 3]);
+}

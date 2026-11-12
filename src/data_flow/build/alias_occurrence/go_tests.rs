@@ -46,6 +46,11 @@ fn const_and_type_switch_forms_are_unsupported() {
             d(src, line)
         );
     }
+    // Control: a plain `var` of the same shape is a binding write.
+    assert_eq!(
+        lines("package p\nfunc t(o *S) {\n var u = o\n u = o\n}\n"),
+        vec![3, 4]
+    );
     let _ = Disposition::Unsupported;
 }
 
@@ -94,10 +99,15 @@ fn a_dereference_write_keeps_its_twin() {
 
 #[test]
 fn an_unsupported_occurrence_keeps_its_twin() {
-    // A `const` name is not a `var_spec`: kept exactly as before.
+    // A `const` name is not a `var_spec`: the producer retains its twin of `o` exactly as before.
     let src = "package p\nfunc t(o int) {\n const u = o\n use(o)\n}\n";
     let r = refs(F, src, Language::Go);
-    assert_eq!(lines(src), Vec::<usize>::new(), "{:?}", r.defs);
+    assert_eq!(twins(&r, "u"), vec![("o".to_string(), 3)], "{:?}", r.defs);
+    assert_eq!(lines(src), Vec::<usize>::new());
+    // Positive control: the same shape as a `var` is a binding write and mints no twin.
+    let var = "package p\nfunc t(o int) {\n var u = o\n use(o)\n}\n";
+    assert!(twins(&refs(F, var, Language::Go), "u").is_empty());
+    assert_eq!(lines(var), vec![3]);
 }
 
 #[test]
@@ -114,8 +124,21 @@ fn a_selector_field_token_of_the_target_spelling_refuses_the_removal() {
 fn keyed_literal_keys_and_labels_refuse_the_removal() {
     let keyed = "package p\nfunc t(o string) {\n u := o\n u = mk()\n _ = S{o: 1}\n}\n";
     assert!(lines(keyed).is_empty());
+    let keyed_control = "package p\nfunc t(o string) {\n u := o\n u = mk()\n _ = S{p: 1}\n}\n";
+    assert_eq!(lines(keyed_control), vec![3, 4]);
     let label = "package p\nfunc t(o string) {\n u := o\n u = mk()\no:\n for {\n  break o\n }\n}\n";
     assert!(lines(label).is_empty());
+    let label_control =
+        "package p\nfunc t(o string) {\n u := o\n u = mk()\nq:\n for {\n  break q\n }\n}\n";
+    assert_eq!(lines(label_control), vec![3, 4]);
+}
+
+#[test]
+fn taking_the_address_of_the_target_does_not_refuse() {
+    // Go twins never killed an edge here (base already emits `exact`), so `&o` needs no refusal;
+    // pinned so a later widening is a conscious change.
+    let src = "package p\nfunc t(o int) {\n u := o\n u = 1\n p := &o\n *p = 3\n use(o)\n}\n";
+    assert_eq!(lines(src), vec![3, 4]);
 }
 
 #[test]

@@ -38,12 +38,18 @@
 //!
 //! Slice 2a applies the same refusal to Go (selector field and method names, keyed literal keys,
 //! labels), Rust (field and method names, scoped-path segments, macro tokens after `.`/`::` or before
-//! a single `:`) and Python (attribute names, keyword-argument names). Residual roles not covered,
+//! a single `:` or a lone `=`, a named format argument) and Python (attribute names, keyword-argument
+//! names). Rust also keeps the twins of a target the owner can write through a borrow the alias map does not
+//! pair: `&mut <target>` in any position (call arguments included) and a `ref mut` binding of it (on a `let`
+//! initialiser or a `match` scrutinee); the alias map pairs only identifiers, so the twin's kill used to hide
+//! the resulting wrong `exact` (Go and Python probes show no such un-masking: their twins never killed). Residual roles not covered,
 //! un-masked and absent from the corpora unless the ledger says otherwise: Go struct-field
 //! declaration names are covered (`field_identifier`) but package-qualified identifiers
 //! (`pkg.o`) are selector operands, not tokens; Rust `use` path segments, lifetimes and labels,
 //! macro tokens not adjacent to `.`/`::`/`:`; Python import module names, decorator names and
-//! parameter names of nested defs and lambdas.
+//! parameter names of nested defs and lambdas; Go `u = append(u[:0], v)` writes the shared backing array
+//! of the target, Python `import o` is not a def (pre-existing), Rust constants made by a glob import or a
+//! macro, and interior mutability or a call mutating the target (out of model, as for `Exact`).
 //!
 //! Specification: the Java rows `J-01..J-06`, Go rows `G-01..G-04`, Rust rows `R-01..R-05` and
 //! Python rows `Y-01..Y-03` of the slice-0 classifier table (`CLASSIFIER.md`); `*_tests.rs` pin them,
@@ -65,6 +71,8 @@ mod java_tests;
 mod python;
 #[cfg(test)]
 mod python_tests;
+#[cfg(test)]
+mod receipt_diff_tests;
 mod rust;
 #[cfg(test)]
 mod rust_tests;
@@ -89,38 +97,6 @@ pub(crate) fn without_policy<R>(f: impl FnOnce() -> R) -> R {
     }
     let _reset = Reset(POLICY_OFF.with(|c| c.replace(true)));
     f()
-}
-
-static GLOBAL_OFF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-static GLOBAL_OFF_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-/// Test-support guard (`prism::data_flow::AliasTwinPolicyOff`): while held, the occurrence policy
-/// is off for every thread of the process (an integration test cannot reach the thread-local seam
-/// because the graph build runs on rayon workers), so frozen-reference receipts of other lanes
-/// keep comparing against main's twin behaviour. Guards serialise on a mutex. Production never
-/// creates one.
-pub struct PolicyOff {
-    _gate: std::sync::MutexGuard<'static, ()>,
-}
-
-impl PolicyOff {
-    pub fn new() -> Self {
-        let gate = GLOBAL_OFF_GATE.lock().unwrap_or_else(|e| e.into_inner());
-        GLOBAL_OFF.store(true, std::sync::atomic::Ordering::SeqCst);
-        Self { _gate: gate }
-    }
-}
-
-impl Default for PolicyOff {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Drop for PolicyOff {
-    fn drop(&mut self) {
-        GLOBAL_OFF.store(false, std::sync::atomic::Ordering::SeqCst);
-    }
 }
 
 /// What an lvalue occurrence does to storage (closed set).
@@ -155,9 +131,6 @@ impl TwinPolicy {
         alias_map: &BTreeMap<String, String>,
     ) -> Self {
         let mut policy = Self::default();
-        if GLOBAL_OFF.load(std::sync::atomic::Ordering::Relaxed) {
-            return policy;
-        }
         #[cfg(test)]
         if POLICY_OFF.with(|c| c.get()) {
             return policy;
@@ -170,9 +143,15 @@ impl TwinPolicy {
         {
             return policy;
         }
+        // Rust: the non-local item names visible to the owner, computed once on first use.
+        let items = std::cell::OnceCell::new();
         let classify = |span: &PathSpan| match lang {
             Language::Go => go::classify(parsed, span),
-            Language::Rust => rust::classify(parsed, span),
+            Language::Rust => rust::classify_with(
+                parsed,
+                span,
+                items.get_or_init(|| rust::item_names(parsed, owner)),
+            ),
             Language::Python => python::classify(parsed, span),
             _ => java::classify(parsed, span),
         };
