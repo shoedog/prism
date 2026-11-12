@@ -901,5 +901,8 @@ fn contains_call_shape(parsed: &ParsedFile, tt: Node) -> bool {
     })
 }
 
+mod census;
+pub use census::{scan_soup, std_allowed, Invocation, RustMacroCensus, Soup, Verdict};
+
 #[cfg(test)]
 mod tests;

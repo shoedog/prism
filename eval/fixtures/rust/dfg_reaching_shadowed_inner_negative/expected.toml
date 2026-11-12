@@ -12,6 +12,4 @@ present = false
 [[expect.edges]]
 from = "main.rs:2:x"
 to = "main.rs:8:x"
-confidence = "nameonly"
-doubt = "killed"
-kill_line = 7
+present = false

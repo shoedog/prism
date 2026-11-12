@@ -208,7 +208,7 @@ struct Recorded<'a>(&'a WireDfg, std::cell::RefCell<Vec<usize>>);
 impl serde::Serialize for Recorded<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
-        let mut s = serializer.serialize_struct("WireDfg", 11)?;
+        let mut s = serializer.serialize_struct("WireDfg", 13)?;
         let mut offset = 0;
         self.1.borrow_mut().clear();
         macro_rules! field {
@@ -229,6 +229,8 @@ impl serde::Serialize for Recorded<'_> {
         field!(labels);
         field!(exact_labels);
         field!(rd_function_stats);
+        field!(rust_macro_census_digest);
+        field!(c_macro_census_digest);
         s.end()
     }
 }
@@ -238,7 +240,7 @@ fn every_recorded_field_boundary_truncation_is_rejected() {
     let recording = Recorded(&w, Default::default());
     let bytes = bincode::serialize(&recording).unwrap();
     assert_eq!(bytes, bincode::serialize(&w).unwrap());
-    assert_eq!(recording.1.borrow().len(), 11);
+    assert_eq!(recording.1.borrow().len(), 13);
     for boundary in recording.1.borrow().iter().copied() {
         // Before the field ends, and between fields (except the complete wire).
         for end in [boundary - 1, boundary]

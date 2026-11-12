@@ -57,9 +57,11 @@ fn go_fold_r2_outer_writes_do_not_define_inner_bindings() {
     // 25 pairs on main; 15 `distinct` rows (range/receive `:=`, type-switch aliases including
     // the arm write, grouped and implicit const/var) no longer produce one: rule S drops the
     // pair now that the declaration has its own def (#694 slice A). The 10 left are the
-    // `existing` controls and the remaining forms.
+    // `existing` controls and the remaining forms. #694 slice B: the two named-result literal rows
+    // (`literal_result`, `literal_parameters_result`) lose theirs too (the result's own def reaches
+    // the body), leaving 8.
     assert!(
-        observed > 8,
+        observed > 6,
         "probe selected too few actual producer pairs: {observed}"
     );
     assert!(

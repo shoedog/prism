@@ -196,9 +196,9 @@ fn do_aware_continue(target: Node<'_>, parsed: &ParsedFile) -> Option<usize> {
 }
 
 /// The admitted condition line of a `do`..`while` (see
-/// `ParsedFile::c_do_condition_line`); `None` leaves main's edges standing.
+/// `ParsedFile::do_condition_line`); `None` leaves main's edges standing.
 pub(super) fn do_condition_line(node: Node<'_>, parsed: &ParsedFile) -> Option<usize> {
-    parsed.c_do_condition_line(&node)
+    parsed.do_condition_line(&node)
 }
 
 /// Whether the legacy body-last → `do` header back edge must go: every

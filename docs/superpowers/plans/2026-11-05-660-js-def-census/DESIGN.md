@@ -295,6 +295,13 @@ narrows them; the rows keep main's label as `expected`, and an issue is proposed
   body to the statement after the loop without passing the header, so a header write (`for (..; ..; a++)`, a `while`
   condition's `--k`) never kills a def made in the body on that route, on main as well as with the census. This is M3
   (the CFG's routes are the routes), not a missed write; the rows keep main's label and the fix is the CFG's (#693).
+  **Closed by #693/#697** (`cfg/js_loops.rs`, CPG cache v168): a rewired JS/TS/TSX loop tree's bodies complete into their headers, so
+  the update or condition kills on that route, and a multi-line `do` condition is its own node. The S1b rows that kept main's
+  label there (a20: `nameonly/sameline` -> `nameonly/killed`) moved with it. Residuals (G7b), a whole tree keeps main's edges and
+  labels: a statement kind with no completion rule, an unadmitted `do` (one-line, shared-line, or around one), a `break`/`continue`
+  through a `finally` that does not enclose the target, a `for` initializer that writes a name the body writes and the test and
+  update do not; a `switch` `break` outside any loop tree has no edge.
+
 - **Availability is decided on recorded defs only (S1b-1 round 1; narrows 8 in favour of 10).** The first S1b-1 draft let
   the completed def list flip the one-node distinct-bases belt and the 2,048 def cap. That changes which owners emit
   fallback edges and the cap counters (`dfg_rd_functions_without_cfg` +2 on TypeScript `src`), which 10 forbids for a

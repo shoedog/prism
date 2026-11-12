@@ -1,6 +1,8 @@
 //! Bootstrap-only validation against the loader's retained source and input evidence.
 use super::*;
-use prism::repo_loader::{collect_freshness_source_paths, scope_graph_build_inputs, SkipReason};
+use prism::repo_loader::{
+    collect_freshness_source_paths, current_c_census_identity, scope_graph_build_inputs, SkipReason,
+};
 use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::sync::Mutex;
@@ -55,6 +57,33 @@ pub(super) fn validate(repo: &LoadedRepo, tracked: &mut BTreeMap<String, PathSta
         }
         uncertain |= unreadable;
         tracked.insert(rel.clone(), current_stamp);
+    }
+    // Census identity (the aggregate `c-census:` entry of the loaded topology), recomputed
+    // from disk (the discovered and C-like census inputs) and compared with the loaded entry. A new,
+    // edited or removed define-bearing file, or a newly lost input, is stale; an unrelated
+    // edit leaves the aggregate unchanged. A repository without parsed C/C++ is not walked.
+    {
+        let current = current_c_census_identity(&repo.root, &repo.files, &repo.skipped);
+        let loaded: BTreeMap<&String, &String> = repo
+            .manifest_hashes
+            .iter()
+            .filter(|(k, _)| k.starts_with("c-census:"))
+            .collect();
+        for key in loaded.keys().copied().chain(current.keys()) {
+            if loaded.get(key).copied() != current.get(key) {
+                changed.insert(key.to_string());
+            }
+        }
+    }
+    // The text inputs the census read, compared byte for byte with the disk: an edit that
+    // leaves the facts unchanged still leaves the loaded snapshot behind the files.
+    for (rel, text) in prism::repo_loader::c_census_input_texts(&repo.files)
+        .iter()
+        .flat_map(|t| t.iter())
+    {
+        if !prism::repo_loader::c_census_text_is_current(&repo.root, rel, text) {
+            changed.insert(rel.clone());
+        }
     }
     for attempt in 0..2 {
         let directories: BTreeMap<_, _> = tracked

@@ -15,8 +15,9 @@ pub(super) enum Pass {
     /// The #759 trace's control: production, solved under main's universe for an arrow whose body is a
     /// callable. It repeats none of the capture lines the production pass already wrote.
     ArrowControl,
-    /// The #783 trace's control: production without the alias may-kill.
-    NoAliasKill,
+    /// The #693 trace's control: production, solved under main's JS/TS/TSX loop CFG and statement
+    /// universe. Like `ArrowControl`, it repeats none of the capture lines.
+    LoopControl,
 }
 
 impl Pass {
@@ -29,19 +30,13 @@ impl Pass {
     pub(super) fn recorded_affects(self) -> bool {
         matches!(
             self,
-            Pass::Census | Pass::CensusLogged | Pass::ArrowControl | Pass::NoAliasKill
+            Pass::Census | Pass::CensusLogged | Pass::ArrowControl | Pass::LoopControl
         )
-    }
-
-    /// Whether a write through an alias may-kills an earlier direct def (#783): every pass but the
-    /// census-free control and its own control.
-    pub(super) fn alias_kills(self) -> bool {
-        !matches!(self, Pass::NoCensus | Pass::NoAliasKill)
     }
 
     /// Whether S1a writes its capture lines when the trace is on.
     pub(super) fn traces_capture(self) -> bool {
-        self.census() && !matches!(self, Pass::ArrowControl | Pass::NoAliasKill)
+        self.census() && !matches!(self, Pass::ArrowControl | Pass::LoopControl)
     }
 }
 
@@ -112,6 +107,16 @@ pub(super) fn traced(
         &outcome,
         out,
     );
+    // #693/#697: the owners with a JS/TS/TSX loop name their own moved edges (`loop-exit`, `do-cond`)
+    // against main's loop CFG, ahead of the census mechanisms.
+    let looped = loop_control::trace(
+        parsed,
+        func_node,
+        defs,
+        (dfg_edges, exact_edges),
+        &outcome,
+        out,
+    );
     let RdOutcome::Available(head) = &outcome else {
         return outcome;
     };
@@ -147,42 +152,9 @@ pub(super) fn traced(
             _ => None,
         });
     let mut named = arrow.labels;
+    named.extend(looped.labels);
     let mut named_exact = arrow.exact;
-    // #783: a JS/TS/TSX edge whose label changes when a write through an alias does not may-kill was
-    // moved by it. Named first: the controls below keep the rule, so they never claim its moves.
-    if parsed.language.is_js_family() {
-        if let RdOutcome::Available(plain) = reaching_definitions_impl(
-            parsed,
-            func_node,
-            defs,
-            dfg_edges,
-            exact_edges,
-            file_cfg_edges,
-            Pass::NoAliasKill,
-            &mut None,
-        ) {
-            for edge in dfg_edges {
-                let key = (edge.from.clone(), edge.to.clone());
-                if let (Some(new), old) = (head.labels.get(&key), plain.labels.get(&key)) {
-                    if old != Some(new) && !named.contains(&key) {
-                        census_trace::emit(out, alias_kill::mechanism(*new), edge);
-                        named.insert(key);
-                    }
-                }
-            }
-            for edge in exact_edges {
-                let key = ExactFlowEdge::from_legacy(edge);
-                if let (Some(new), old) =
-                    (head.exact_labels.get(&key), plain.exact_labels.get(&key))
-                {
-                    if old != Some(new) && !named_exact.contains(&key) {
-                        census_trace::emit(out, alias_kill::mechanism(*new), edge);
-                        named_exact.insert(key);
-                    }
-                }
-            }
-        }
-    }
+    named_exact.extend(looped.exact);
     if let Some(equal) = &by_affects {
         for edge in dfg_edges {
             let key = (edge.from.clone(), edge.to.clone());
@@ -241,6 +213,8 @@ pub(super) fn traced(
 mod arrow_control;
 #[path = "guard_control.rs"]
 mod guard_control;
+#[path = "loop_control.rs"]
+mod loop_control;
 
 #[cfg(test)]
 #[path = "guard_deleted_tests.rs"]

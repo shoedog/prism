@@ -1070,9 +1070,17 @@ fn optional_inert_rd_labels_match_required_and_preserve_shadow_controls() {
             use FlowConfidence::{Exact, NameOnly};
             let expected = match case {
                 "straight" => vec![(1, 2, Exact), (1, 3, Exact)],
-                "overwrite" | "branch" => vec![
+                // #630 slice 5: (1,3) is the parameter def into the pure write `value = other`
+                // (rule U) and (1,4) is overwritten by that write before the read (rule D).
+                "overwrite" => vec![
                     (1, 2, Exact),
-                    (1, 3, Exact),
+                    (3, 1, NameOnly(CfgIncomplete)),
+                    (3, 2, NameOnly(CfgIncomplete)),
+                    (3, 4, Exact),
+                ],
+                // (1,3) is the parameter def into a line that only writes `value` (rule U).
+                "branch" => vec![
+                    (1, 2, Exact),
                     (1, 4, NameOnly(Killed { kill_line: 3 })),
                     (3, 1, NameOnly(CfgIncomplete)),
                     (3, 2, NameOnly(CfgIncomplete)),

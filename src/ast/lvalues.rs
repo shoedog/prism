@@ -60,6 +60,14 @@ impl ParsedFile {
         }
     }
 
+    /// The paths the def producer records for one write target (pattern leaves one by one): the identity RD
+    /// compares, for callers that must agree with it (the `for` initializer replay criterion, #693 slice 4).
+    pub(crate) fn recorded_write_paths(&self, target: Node<'_>) -> Vec<AccessPath> {
+        let mut spans = Vec::new();
+        self.extract_lvalue_spans_from_node(target, &mut spans);
+        spans.into_iter().map(|s| s.path).collect()
+    }
+
     pub(super) fn extract_lvalue_spans_from_node(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
         let kind = node.kind();
 

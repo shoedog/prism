@@ -196,6 +196,12 @@ fn merge_walk_items(
 
     debug_assert!(outcomes.next().is_none());
 
+    // #630 slice 6a: the macro census reads the files the loader skipped or never parses;
+    // `c_census` stamps every parsed C/C++ file (so full, partial and scoped builds agree)
+    // and carries the cache identity of those inputs.
+    let c_census = c_census::gather(root, &files, &skipped);
+    c_census.apply(&mut files);
+
     let skipped_go_testdata_files = skipped
         .iter()
         .filter(|skip| skip.reason == SkipReason::GoTestdata)
@@ -207,7 +213,11 @@ fn merge_walk_items(
         js_paths_snapshot,
     );
     scope_graph_inputs.skipped_go_testdata_files = skipped_go_testdata_files;
-    let manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
+    // The census identity joins the cache topology (`LoadedRepo.manifest_hashes`) only:
+    // prism-mcp's freshness probe rebuilds `scope_graph_inputs` without it, so adding it
+    // there would make every such repository look stale on load.
+    let mut manifest_hashes = scope_graph_inputs.manifest_hashes.clone();
+    manifest_hashes.extend(c_census.identity.clone());
 
     LoadedRepo {
         root: root.to_path_buf(),
@@ -219,6 +229,56 @@ fn merge_walk_items(
         skipped,
         type_db: None,
     }
+}
+
+/// The aggregate `c-census:` cache-identity entry recomputed from the disk the way
+/// `load_repo` computed it (same parsed files, same loader skips), for a freshness probe to
+/// compare with the loaded `LoadedRepo::manifest_hashes` entry of the same prefix. Empty,
+/// with no walk, when the repository has no parsed C/C++ file.
+pub fn current_c_census_identity(
+    root: &Path,
+    files: &BTreeMap<String, ParsedFile>,
+    skipped: &[SkippedFile],
+) -> BTreeMap<String, String> {
+    c_census::gather(root, files, skipped).identity
+}
+
+/// The census text inputs (`path -> text`) a loaded repository's C/C++ files carry, for a
+/// freshness probe to compare byte for byte with the disk.
+pub fn c_census_input_texts(
+    files: &BTreeMap<String, ParsedFile>,
+) -> Option<std::sync::Arc<BTreeMap<String, String>>> {
+    files
+        .values()
+        .find(|p| matches!(p.language, Language::C | Language::Cpp))
+        .and_then(|p| p.c_census_texts().cloned())
+}
+
+/// Is a census text still what the disk holds for `rel`, through the census's own decoding?
+pub fn c_census_text_is_current(root: &Path, rel: &str, text: &str) -> bool {
+    c_census::text_is_current(root, rel, text)
+}
+
+/// Paths of the census inputs a loaded repository holds beyond its parsed files (texts that
+/// yield definitions, and inputs lost to the census), as stamped on its C/C++ files.
+pub fn c_census_input_paths(files: &BTreeMap<String, ParsedFile>) -> Vec<String> {
+    let mut out = BTreeSet::new();
+    if let Some(p) = files
+        .values()
+        .find(|p| matches!(p.language, Language::C | Language::Cpp))
+    {
+        out.extend(
+            p.c_census_texts()
+                .into_iter()
+                .flat_map(|t| t.keys().cloned()),
+        );
+        out.extend(
+            p.c_census_lost()
+                .into_iter()
+                .flat_map(|l| l.iter().cloned()),
+        );
+    }
+    out.into_iter().collect()
 }
 
 pub fn scope_graph_build_inputs(
@@ -488,6 +548,7 @@ fn has_complete_rust_coverage(
 #[cfg(test)]
 mod bin_deps_tests;
 mod bin_roots;
+pub(crate) mod c_census;
 #[path = "repo_loader/freshness.rs"]
 mod freshness_paths;
 #[cfg(test)]

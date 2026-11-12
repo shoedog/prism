@@ -136,6 +136,9 @@ pub struct RdFileStats {
     #[serde(with = "compact_wire::cap_counts")]
     fallback_capped_function_counts: BTreeMap<FallbackFunctionKey, usize>,
     pub recall: recall_stats::RecallStats,
+    /// The file's JS/TS/TSX loop-plan counters (#693, #697; `cfg::js_loops::LoopPlan::counters`): trees,
+    /// admitted, refused by reason, overlapping reasons, owners refused. Empty for every other file.
+    pub loop_plan: BTreeMap<String, usize>,
 }
 
 impl RdFileStats {
@@ -185,6 +188,9 @@ impl RdFileStats {
         self.dfg_pruned_scope += other.dfg_pruned_scope;
         self.dfg_pruned_dominated += other.dfg_pruned_dominated;
         self.dfg_pruned_order += other.dfg_pruned_order;
+        for (key, n) in other.loop_plan {
+            *self.loop_plan.entry(key).or_insert(0) += n;
+        }
 
         self.over_cap_function_keys
             .extend(other.over_cap_function_keys);
@@ -282,9 +288,11 @@ fn reaching_definitions_impl(
     }
 
     let (statements, expression_body) = rd_statements(parsed, func_node);
-    if statements.len() > RD_MAX_LINES {
+    // Availability is decided on one universe (`preflight::Availability`), solving on the standing one.
+    let avail = preflight::Availability::of(parsed, func_node, &statements);
+    if avail.statement_lines > RD_MAX_LINES {
         return RdOutcome::Unavailable(RdUnavailable::StatementLinesCapExceeded {
-            actual: statements.len(),
+            actual: avail.statement_lines,
         });
     }
 
@@ -306,9 +314,9 @@ fn reaching_definitions_impl(
             join_kind::is_go_defer_dispatch(parsed, &kinds, &edge, provenance),
         ));
     }
-    if cfg_edges.is_empty()
+    if avail.no_edges(|_| !cfg_edges.is_empty())
         && !census.one_node_admits(&mut defs, |bases| {
-            cfg::js_single::single_node_cfg_is_complete(parsed, lines.len(), bases)
+            cfg::js_single::single_node_cfg_is_complete(parsed, avail.lines.len(), bases)
         })
     {
         return RdOutcome::Unavailable(RdUnavailable::NoCfgEdges);
@@ -997,6 +1005,18 @@ fn statement_line_spans(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Statem
         .collect()
 }
 
+/// The statement line RD's `StatementLookup` assigns to each of `lines` in `func_node` (the JS loop
+/// plan's placement rule, #693).
+pub(crate) fn placed_lines(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    lines: &[Line],
+) -> Vec<Option<Line>> {
+    let spans = statement_line_spans(parsed, func_node);
+    let mut lookup = statement_lookup::StatementLookup::new(&spans);
+    lines.iter().map(|&line| lookup.get(line)).collect()
+}
+
 /// The statement universe reaching definitions runs over, and the synthetic
 /// whole-body statement when it replaces the parser's (#599).
 fn rd_statements(
@@ -1055,6 +1075,12 @@ mod d2c_tests;
 
 #[cfg(test)]
 mod d3_tests;
+
+#[cfg(test)]
+mod loop_exit_tests;
+
+#[cfg(test)]
+pub(crate) mod loop_plan_tests;
 
 #[cfg(test)]
 mod refusal_classes_tests;

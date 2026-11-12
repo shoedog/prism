@@ -11,13 +11,18 @@
 
 use crate::ast::ParsedFile;
 use crate::languages::Language;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
 mod c_jumps;
 mod go_branches;
 mod go_jumps;
+pub(crate) mod js_disposition;
+pub(crate) mod js_loops;
+pub(crate) mod js_ownership;
 pub(crate) mod js_single;
+
+use js_ownership::{Doubt, Emit, Own, Producer, Role};
 
 /// A control flow edge between two source lines within a function.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -53,6 +58,11 @@ pub(crate) enum EdgeOrigin {
     Structured,
     /// Synthetic function-exit dispatch, not a re-evaluation of defer arguments.
     GoDeferExit,
+    /// A JS-family generic try edge (header -> catch, header -> finally, first
+    /// catch statement -> finally), or any other copy of the same line pair in
+    /// that function. Always an incomplete join, whatever the endpoint kinds:
+    /// the builder models no pending completion (#802).
+    JsTryJoin,
 }
 
 /// One lexical arm, as a preorder interval: `id` is the arm and `subtree_last`
@@ -119,6 +129,22 @@ impl ArmProvenance {
 struct EdgeSink {
     edges: Vec<CfgEdge>,
     origins: Vec<EdgeOrigin>,
+    /// JS-family ownership records, index-aligned with `edges` (`js_ownership`).
+    rec: Option<js_ownership::Recorder>,
+    /// Line pairs of the JS-family generic try edges of this function.
+    try_pairs: BTreeSet<(usize, usize)>,
+    /// `(compound_header_lines, entry_lines)`: the compound statements (`if`,
+    /// loops, `switch`, nested `try`) inside a JS-family try body or catch clause
+    /// and the handler/finalizer entries that region completes into. The
+    /// branch-completion builders draw an arm's exit from the header line of a
+    /// nested compound statement that ends the arm, so an edge from such a header
+    /// to an entry is a synthetic try join, not a modelled completion.
+    try_regions: Vec<(BTreeSet<usize>, Vec<usize>)>,
+    /// Line pairs emitted by the then-arm completion builder (JS family): the
+    /// only emission that draws an arm exit from a nested compound header. A
+    /// header's own false-branch edge into the same entry is real control flow
+    /// and is not retagged.
+    arm_completions: BTreeSet<(usize, usize)>,
 }
 
 impl EdgeSink {
@@ -126,24 +152,134 @@ impl EdgeSink {
         Self {
             edges: Vec::new(),
             origins: Vec::new(),
+            rec: None,
+            try_pairs: BTreeSet::new(),
+            try_regions: Vec::new(),
+            arm_completions: BTreeSet::new(),
         }
     }
 
+    /// Start the records of `owner`'s build: JS-family owners only.
+    fn begin(&mut self, owner: Node<'_>, parsed: &ParsedFile) {
+        self.rec = (parsed.language.is_js_family() && js_ownership::wanted())
+            .then(|| js_ownership::Recorder::new(owner, parsed));
+    }
+
+    /// The producer recorded for edges pushed without an `Emit` from here on.
+    fn phase(&mut self, producer: Producer) {
+        if let Some(rec) = &mut self.rec {
+            rec.set_phase(producer);
+        }
+    }
+
+    fn take_records(&mut self) -> Option<js_ownership::Recorder> {
+        self.rec.take()
+    }
+
     fn push(&mut self, edge: CfgEdge) {
+        if let Some(rec) = &mut self.rec {
+            rec.push_unanchored(&edge, false);
+        }
         self.edges.push(edge);
         self.origins.push(EdgeOrigin::Structured);
+        self.debug_assert_aligned();
+    }
+
+    /// The records describe the edges one for one (`rec.live[i]` is `edges[i]`).
+    fn debug_assert_aligned(&self) {
+        if let Some(rec) = &self.rec {
+            debug_assert_eq!(rec.live.len(), self.edges.len());
+        }
+    }
+
+    /// A structural edge with its ownership record (JS family; elsewhere the same as `push`).
+    fn push_rec(&mut self, edge: CfgEdge, emit: Emit<'_>) {
+        if let Some(rec) = &mut self.rec {
+            rec.push(&edge, emit);
+        }
+        self.edges.push(edge);
+        self.origins.push(EdgeOrigin::Structured);
+        self.debug_assert_aligned();
+    }
+
+    /// Record an emission the caller skipped because its line pair is already an edge.
+    fn suppress(&mut self, edge: &CfgEdge, emit: Emit<'_>) {
+        if let Some(rec) = &mut self.rec {
+            rec.suppress(edge, emit);
+        }
+    }
+
+    /// A JS-family generic try edge. Every other copy of its line pair
+    /// (sequential or structured) is tagged `JsTryJoin` at drain: RD keeps
+    /// duplicates and accepts any unflagged one, so one flagged copy is not
+    /// enough.
+    fn push_try_join(&mut self, edge: CfgEdge, emit: Emit<'_>) {
+        self.try_pairs.insert((edge.from_line, edge.to_line));
+        if let Some(rec) = &mut self.rec {
+            rec.push(&edge, emit);
+        }
+        self.edges.push(edge);
+        self.origins.push(EdgeOrigin::JsTryJoin);
+        self.debug_assert_aligned();
     }
 
     fn push_sequential(&mut self, edge: CfgEdge) {
+        if let Some(rec) = &mut self.rec {
+            rec.push_unanchored(&edge, true);
+        }
         self.edges.push(edge);
         self.origins.push(EdgeOrigin::Sequential);
+        self.debug_assert_aligned();
     }
 
     fn is_empty(&self) -> bool {
         self.edges.is_empty()
     }
 
+    /// Tests: remember the records standing as the loop rewrite starts.
+    #[cfg(test)]
+    fn mark_pre_rewrite(&mut self) {
+        if let Some(rec) = &mut self.rec {
+            rec.mark_pre_rewrite();
+        }
+    }
+
+    /// The ownership records of the edges pushed so far, index-aligned with `edges` (JS family only).
+    fn live_records(&self) -> Option<&[js_ownership::EdgeRecord]> {
+        self.rec.as_ref().map(|r| r.live.as_slice())
+    }
+
+    /// Keep the edges `keep[i]` accepts, with their origins (`keep` is index-aligned with `edges`).
+    fn retain_flags(&mut self, flags: &[bool]) {
+        debug_assert_eq!(flags.len(), self.edges.len());
+        if let Some(rec) = &mut self.rec {
+            rec.retain(flags);
+        }
+        let mut next = flags.iter().copied();
+        self.edges.retain(|_| next.next().unwrap_or(true));
+        let mut next = flags.iter().copied();
+        self.origins.retain(|_| next.next().unwrap_or(true));
+        self.debug_assert_aligned();
+    }
+
     fn drain(&mut self) -> impl Iterator<Item = (CfgEdge, EdgeOrigin)> + '_ {
+        if !self.try_pairs.is_empty() || !self.try_regions.is_empty() {
+            let regions = std::mem::take(&mut self.try_regions);
+            for (edge, origin) in self.edges.iter().zip(self.origins.iter_mut()) {
+                if self.try_pairs.contains(&(edge.from_line, edge.to_line))
+                    || (self
+                        .arm_completions
+                        .contains(&(edge.from_line, edge.to_line))
+                        && regions.iter().any(|(headers, entries)| {
+                            headers.contains(&edge.from_line) && entries.contains(&edge.to_line)
+                        }))
+                {
+                    *origin = EdgeOrigin::JsTryJoin;
+                }
+            }
+            self.try_pairs.clear();
+        }
+        self.arm_completions.clear();
         self.edges.drain(..).zip(self.origins.drain(..))
     }
 }
@@ -158,8 +294,34 @@ impl EdgeSink {
 pub(crate) fn build_cfg_edges_with_arms(parsed: &ParsedFile) -> Vec<(CfgEdge, ArmProvenance)> {
     let mut out = Vec::new();
     let mut sink = EdgeSink::new();
+    // JS family: the loop plan's verifying round already built the callables it needed under the admission that
+    // stands; those edges are the standing build (not in main's loop CFG, and not while tracing).
+    let replay = parsed.language.is_js_family()
+        && !js_loops::main_loop_cfg()
+        && !js_disposition::trace_enabled();
     for func_node in parsed.all_functions() {
+        if replay {
+            let range = (func_node.start_byte(), func_node.end_byte());
+            if let Some(edges) = parsed.js_loop_plan().replay(range) {
+                if edges.is_empty() {
+                    continue;
+                }
+                let arms = parsed.statement_arms_in_function(&func_node);
+                out.extend(edges.iter().map(|(edge, origin)| {
+                    let provenance = ArmProvenance {
+                        origin: *origin,
+                        from_arm: span_of(&arms, edge.from_line, UNKNOWN_FROM_ARM),
+                        to_arm: span_of(&arms, edge.to_line, UNKNOWN_TO_ARM),
+                    };
+                    (edge.clone(), provenance)
+                }));
+                continue;
+            }
+        }
         build_function_cfg(func_node, parsed, &mut sink);
+        if let Some(records) = sink.take_records() {
+            js_disposition::trace(parsed, func_node, records);
+        }
         if sink.is_empty() {
             continue;
         }
@@ -201,6 +363,7 @@ pub fn build_cfg_edges(parsed: &ParsedFile) -> Vec<CfgEdge> {
 
 /// Build CFG edges for a single function.
 fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) {
+    edges.begin(func_node, parsed);
     let stmts = parsed.statements_in_function(&func_node);
     if stmts.is_empty() {
         return;
@@ -268,7 +431,14 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Edge
         parsed.language,
         Language::JavaScript | Language::TypeScript | Language::Tsx
     ) {
+        edges.phase(Producer::Try);
         build_try_catch_edges(func_node, parsed, &stmt_lines, edges);
+        edges.phase(Producer::Other);
+    }
+
+    // JS/TS: loop exits pass the header; a `do` condition is its own statement (#693, #697)
+    if parsed.language.is_js_family() {
+        js_loops::build(func_node, parsed, edges);
     }
 
     // Java: try/catch/finally (same structure as JS)
@@ -278,7 +448,9 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Edge
 
     // C/C++: switch fall-through between consecutive cases
     if parsed.language.switch_has_fallthrough() {
+        edges.phase(Producer::Switch);
         build_switch_fallthrough_edges(func_node, parsed, edges);
+        edges.phase(Producer::Other);
     }
 
     // C/C++ unlabeled break/continue, switch dispatch, do-while condition
@@ -315,31 +487,44 @@ fn collect_branch_edges(
     if kind == "if_statement" || kind == "if_expression" {
         // Find the then-body and else-body
         if let Some(consequence) = node.child_by_field_name("consequence") {
-            if let Some(first) = first_statement_line(&consequence, parsed) {
-                edges.push(CfgEdge {
-                    file: file.to_string(),
-                    from_line: line,
-                    to_line: first,
-                });
+            if let Some(first) = first_statement_node(&consequence, parsed) {
+                edges.push_rec(
+                    CfgEdge {
+                        file: file.to_string(),
+                        from_line: line,
+                        to_line: first.start_position().row + 1,
+                    },
+                    Emit::new(Producer::BranchEntry, Role::BranchEntry, node)
+                        .from(node)
+                        .to(Some(first)),
+                );
             }
         }
         if let Some(alternative) = node.child_by_field_name("alternative") {
-            if let Some(first) = first_statement_line(&alternative, parsed) {
-                edges.push(CfgEdge {
-                    file: file.to_string(),
-                    from_line: line,
-                    to_line: first,
-                });
+            if let Some(first) = first_statement_node(&alternative, parsed) {
+                edges.push_rec(
+                    CfgEdge {
+                        file: file.to_string(),
+                        from_line: line,
+                        to_line: first.start_position().row + 1,
+                    },
+                    Emit::new(Producer::BranchEntry, Role::BranchEntry, node)
+                        .from(node)
+                        .to(Some(first)),
+                );
             }
         } else {
             // No else: branch to next statement after the if
             let if_end = node.end_position().row + 1;
             if let Some(&next) = stmt_lines.iter().find(|&&l| l > if_end) {
-                edges.push(CfgEdge {
-                    file: file.to_string(),
-                    from_line: line,
-                    to_line: next,
-                });
+                edges.push_rec(
+                    CfgEdge {
+                        file: file.to_string(),
+                        from_line: line,
+                        to_line: next,
+                    },
+                    Emit::new(Producer::BranchEntry, Role::BranchEntry, node).from(node),
+                );
             }
         }
 
@@ -349,12 +534,30 @@ fn collect_branch_edges(
             if !ends_with_terminator(&consequence, parsed) {
                 let if_end = node.end_position().row + 1;
                 if let Some(&next) = stmt_lines.iter().find(|&&l| l > if_end) {
-                    if let Some(last) = last_statement_line(&consequence, parsed) {
-                        edges.push(CfgEdge {
-                            file: file.to_string(),
-                            from_line: last,
-                            to_line: next,
-                        });
+                    if let Some(last) = last_statement_node(&consequence, parsed) {
+                        // The edge leaves the LAST statement's first line: for a compound
+                        // statement (a label, `try`, `switch`, a nested `if`, a loop) that is its
+                        // entry, not its completion.
+                        let own = if is_compound(parsed, last.kind()) {
+                            Own::Ambiguous(Doubt::WrapperEntry)
+                        } else {
+                            Own::Known
+                        };
+                        let last_line = last.start_position().row + 1;
+                        if parsed.language.is_js_family() {
+                            edges.arm_completions.insert((last_line, next));
+                        }
+                        edges.push_rec(
+                            CfgEdge {
+                                file: file.to_string(),
+                                from_line: last_line,
+                                to_line: next,
+                            },
+                            Emit::new(Producer::ThenEnd, Role::NormalCompletion, node)
+                                .from(last)
+                                .depends_on(consequence)
+                                .own(own),
+                        );
                     }
                 }
             }
@@ -370,12 +573,18 @@ fn collect_branch_edges(
                 || child.kind() == "case_statement"
                 || child.kind() == "default_statement"
             {
-                if let Some(first) = first_statement_line(&child, parsed) {
-                    edges.push(CfgEdge {
-                        file: file.to_string(),
-                        from_line: line,
-                        to_line: first,
-                    });
+                if let Some(first) = first_statement_node(&child, parsed) {
+                    edges.push_rec(
+                        CfgEdge {
+                            file: file.to_string(),
+                            from_line: line,
+                            to_line: first.start_position().row + 1,
+                        },
+                        Emit::new(Producer::Switch, Role::Legacy, node)
+                            .from(node)
+                            .to(Some(first))
+                            .own(Own::Unknown(Doubt::LegacyEmitter)),
+                    );
                 }
             }
         }
@@ -432,7 +641,7 @@ fn collect_loop_back_edges(
             .child_by_field_name("body")
             .or_else(|| node.child_by_field_name("consequence"))
         {
-            if let Some(last) = last_statement_line(&body, parsed) {
+            if let Some(last) = last_statement_node(&body, parsed) {
                 // A rewired C/C++ `do` completes through its condition
                 // (`c_jumps`); the header holds no code, so the edge would only
                 // bypass the condition's writes.
@@ -440,11 +649,17 @@ fn collect_loop_back_edges(
                     && node.kind() == "do_statement"
                     && c_jumps::do_back_edge_removed(node, parsed);
                 if !ends_with_terminator(&body, parsed) && !rewired_back {
-                    edges.push(CfgEdge {
-                        file: parsed.path.clone(),
-                        from_line: last,
-                        to_line: loop_line,
-                    });
+                    edges.push_rec(
+                        CfgEdge {
+                            file: parsed.path.clone(),
+                            from_line: last.start_position().row + 1,
+                            to_line: loop_line,
+                        },
+                        Emit::new(Producer::LoopBack, Role::Repetition, node)
+                            .from(last)
+                            .to(Some(node))
+                            .depends_on(node),
+                    );
                 }
             }
         }
@@ -460,11 +675,16 @@ fn collect_loop_back_edges(
             .find(|&&l| l > loop_end)
             .filter(|_| !rewired_do)
         {
-            edges.push(CfgEdge {
-                file: parsed.path.clone(),
-                from_line: loop_line,
-                to_line: next,
-            });
+            edges.push_rec(
+                CfgEdge {
+                    file: parsed.path.clone(),
+                    from_line: loop_line,
+                    to_line: next,
+                },
+                Emit::new(Producer::LoopExit, Role::LoopExit, node)
+                    .from(node)
+                    .depends_on(node),
+            );
         }
     }
 
@@ -678,24 +898,34 @@ fn build_try_catch_edges(
     stmt_lines: &[usize],
     edges: &mut EdgeSink,
 ) {
+    let js = parsed.language.is_js_family();
     if node.kind() == "try_statement" {
         let try_line = node.start_position().row + 1;
         let mut cursor = node.walk();
 
         let mut finally_first: Option<usize> = None;
         let mut catch_lines: Vec<usize> = Vec::new();
+        let mut catch_regions: Vec<BTreeSet<usize>> = Vec::new();
 
         for child in node.children(&mut cursor) {
             // catch_clause (JS/TS/Java)
             if child.kind() == "catch_clause" {
                 if let Some(first) = first_statement_line(&child, parsed) {
                     catch_lines.push(first);
+                    catch_regions.push(compound_header_lines(child));
                     // try → catch (exception edge)
-                    edges.push(CfgEdge {
-                        file: parsed.path.clone(),
-                        from_line: try_line,
-                        to_line: first,
-                    });
+                    push_try(
+                        edges,
+                        js,
+                        CfgEdge {
+                            file: parsed.path.clone(),
+                            from_line: try_line,
+                            to_line: first,
+                        },
+                        Emit::new(Producer::Try, Role::Legacy, node)
+                            .from(node)
+                            .own(Own::Unknown(Doubt::LegacyEmitter)),
+                    );
                 }
             }
             // finally_clause (JS/TS/Java)
@@ -703,11 +933,18 @@ fn build_try_catch_edges(
                 if let Some(first) = first_statement_line(&child, parsed) {
                     finally_first = Some(first);
                     // try → finally (always runs)
-                    edges.push(CfgEdge {
-                        file: parsed.path.clone(),
-                        from_line: try_line,
-                        to_line: first,
-                    });
+                    push_try(
+                        edges,
+                        js,
+                        CfgEdge {
+                            file: parsed.path.clone(),
+                            from_line: try_line,
+                            to_line: first,
+                        },
+                        Emit::new(Producer::Try, Role::Legacy, node)
+                            .from(node)
+                            .own(Own::Unknown(Doubt::LegacyEmitter)),
+                    );
                 }
             }
         }
@@ -715,11 +952,37 @@ fn build_try_catch_edges(
         // catch → finally (if both exist)
         if let Some(finally_line) = finally_first {
             for &catch_line in &catch_lines {
-                edges.push(CfgEdge {
-                    file: parsed.path.clone(),
-                    from_line: catch_line,
-                    to_line: finally_line,
-                });
+                push_try(
+                    edges,
+                    js,
+                    CfgEdge {
+                        file: parsed.path.clone(),
+                        from_line: catch_line,
+                        to_line: finally_line,
+                    },
+                    Emit::new(Producer::Try, Role::Legacy, node)
+                        .from(node)
+                        .own(Own::Unknown(Doubt::LegacyEmitter)),
+                );
+            }
+        }
+
+        if js {
+            // Then-arm completions from a nested compound header into a handler
+            // or finalizer entry (#802): region = the compound headers inside the
+            // try body / each catch; matched by LINE PAIR at drain, so a pair
+            // seeded by an arm completion retags every copy of that pair.
+            let mut entries = catch_lines.clone();
+            entries.extend(finally_first);
+            if let Some(body) = node.child_by_field_name("body") {
+                edges
+                    .try_regions
+                    .push((compound_header_lines(body), entries));
+            }
+            if let Some(f) = finally_first {
+                for headers in catch_regions {
+                    edges.try_regions.push((headers, vec![f]));
+                }
             }
         }
 
@@ -730,6 +993,41 @@ fn build_try_catch_edges(
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         build_try_catch_edges(child, parsed, stmt_lines, edges);
+    }
+}
+
+/// Start lines of the compound statements under `region`.
+fn compound_header_lines(region: Node<'_>) -> BTreeSet<usize> {
+    let mut lines = BTreeSet::new();
+    let mut stack = vec![region];
+    while let Some(node) = stack.pop() {
+        if matches!(
+            node.kind(),
+            "if_statement"
+                | "for_statement"
+                | "for_in_statement"
+                | "while_statement"
+                | "do_statement"
+                | "switch_statement"
+                | "try_statement"
+                | "with_statement"
+                | "labeled_statement"
+        ) {
+            lines.insert(node.start_position().row + 1);
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.children(&mut cursor));
+    }
+    lines
+}
+
+/// Emit a try edge: explicit incomplete provenance for the JS family, the
+/// plain structural edge for Java (which shares the builder).
+fn push_try(edges: &mut EdgeSink, js: bool, edge: CfgEdge, emit: Emit<'_>) {
+    if js {
+        edges.push_try_join(edge, emit);
+    } else {
+        edges.push_rec(edge, emit);
     }
 }
 
@@ -788,17 +1086,22 @@ fn build_switch_fallthrough_edges(node: Node<'_>, parsed: &ParsedFile, edges: &m
 
 /// Find the first statement line inside a block/body node.
 fn first_statement_line(node: &Node<'_>, parsed: &ParsedFile) -> Option<usize> {
+    first_statement_node(node, parsed).map(|n| n.start_position().row + 1)
+}
+
+/// The statement node whose line `first_statement_line` reports.
+fn first_statement_node<'t>(node: &Node<'t>, parsed: &ParsedFile) -> Option<Node<'t>> {
     for child in crate::languages::go::statements::children(*node, parsed.language) {
         if parsed.language.is_statement_node(child.kind()) {
-            return Some(child.start_position().row + 1);
+            return Some(child);
         }
         // Recurse into compound_statement / block wrappers
         if child.kind() == "compound_statement"
             || child.kind() == "block"
             || child.kind() == "statement_block"
         {
-            if let Some(line) = first_statement_line(&child, parsed) {
-                return Some(line);
+            if let Some(found) = first_statement_node(&child, parsed) {
+                return Some(found);
             }
         }
     }
@@ -807,21 +1110,32 @@ fn first_statement_line(node: &Node<'_>, parsed: &ParsedFile) -> Option<usize> {
 
 /// Find the last statement line inside a block/body node.
 fn last_statement_line(node: &Node<'_>, parsed: &ParsedFile) -> Option<usize> {
+    last_statement_node(node, parsed).map(|n| n.start_position().row + 1)
+}
+
+/// The statement node whose line `last_statement_line` reports.
+fn last_statement_node<'t>(node: &Node<'t>, parsed: &ParsedFile) -> Option<Node<'t>> {
     let mut last = None;
     for child in crate::languages::go::statements::children(*node, parsed.language) {
         if parsed.language.is_statement_node(child.kind()) {
-            last = Some(child.start_position().row + 1);
+            last = Some(child);
         }
         if child.kind() == "compound_statement"
             || child.kind() == "block"
             || child.kind() == "statement_block"
         {
-            if let Some(line) = last_statement_line(&child, parsed) {
-                last = Some(line);
+            if let Some(found) = last_statement_node(&child, parsed) {
+                last = Some(found);
             }
         }
     }
     last
+}
+
+/// A statement that holds other statements (a control-flow construct or a wrapper such as a label).
+fn is_compound(parsed: &ParsedFile, kind: &str) -> bool {
+    parsed.language.is_control_flow_node(kind)
+        || parsed.language.statement_wrapper_kinds().contains(&kind)
 }
 
 /// Check whether a block ends with a terminator (return, break, continue, goto).

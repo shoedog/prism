@@ -5,7 +5,7 @@ for (;;) {
 x = 1;
 break;
 }
-x = 2;
+x += 2;
 break;
 default:
 x = 3;

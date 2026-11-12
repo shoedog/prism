@@ -39,6 +39,9 @@ impl Producer {
         let mut labels = BTreeMap::new();
         let mut exact_labels = BTreeMap::new();
         let mut rd_function_stats = RdFileStats::default();
+        if parsed.language.is_js_family() && !crate::cfg::js_loops::main_loop_cfg() {
+            rd_function_stats.loop_plan = parsed.js_loop_plan().counters();
+        }
 
         let function_nodes = parsed.all_functions();
         let member_refs = crate::ast::member_reference_index::MemberReferenceSearch::new(parsed);

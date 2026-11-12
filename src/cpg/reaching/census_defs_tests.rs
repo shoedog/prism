@@ -4,6 +4,11 @@ use crate::cpg::CodePropertyGraph;
 use crate::data_flow::test_support::label_snapshot;
 use crate::js_write_census::matrix_tests::{fixtures, lang_of};
 
+/// `parse` with the file keeping main's loop CFG and labels (`ParsedFile::with_main_loop_plan`).
+pub(super) fn parse_main_loops(language: Language, src: &str) -> ParsedFile {
+    parse(language, src).with_main_loop_plan()
+}
+
 pub(super) fn parse(language: Language, src: &str) -> ParsedFile {
     let ext = match language {
         Language::TypeScript => "ts",
@@ -152,8 +157,10 @@ fn only_bases_the_owner_defines_get_a_kill_only_def() {
 fn coverage_is_the_stored_path_at_the_same_start_byte() {
     // `o!.x = 2` is recorded under another spelling on main (G3): not covered, a kill-only `o.x` is added.
     let wrapped = "function f(o) {\n  o.x = 1;\n  o!.x = 2;\n  sink(o.x);\n}\n";
-    let ordinary = "function f(o) {\n  o.x = 1;\n  o.x = 2;\n  sink(o.x);\n}\n";
-    let paren = "function f(o) {\n  o.x = 1;\n  (o).x = 2;\n  sink(o.x);\n}\n";
+    // A read sits between the writes: rule D (#630 slice 5) would otherwise drop the first def's
+    // only edge, and this helper recovers defs from edge sources.
+    let ordinary = "function f(o) {\n  o.x = 1;\n  sink(o.x);\n  o.x = 2;\n  sink(o.x);\n}\n";
+    let paren = "function f(o) {\n  o.x = 1;\n  sink(o.x);\n  (o).x = 2;\n  sink(o.x);\n}\n";
     for (src, language, added) in [
         (wrapped, Language::TypeScript, 1),
         (ordinary, Language::TypeScript, 0),
@@ -201,7 +208,15 @@ fn a_for_increment_kills_an_outer_def_on_every_successor() {
 // ---- The trace --------------------------------------------------------------------------------------
 
 pub(super) fn trace_lines(language: Language, src: &str) -> Vec<String> {
-    let parsed = parse(language, src);
+    trace_lines_of(parse(language, src))
+}
+
+/// `trace_lines` with the file keeping main's loop CFG and labels.
+pub(super) fn trace_lines_main_loops(language: Language, src: &str) -> Vec<String> {
+    trace_lines_of(parse_main_loops(language, src))
+}
+
+fn trace_lines_of(parsed: ParsedFile) -> Vec<String> {
     let mut out = Vec::new();
     for owner in parsed.all_functions() {
         let (defs, edges) = recorded(&parsed, &owner);
@@ -221,7 +236,11 @@ pub(super) fn trace_lines(language: Language, src: &str) -> Vec<String> {
 
 /// The S1b-1 census mechanisms of the trace; D3's `d3-*` lines are S1b-2's (`d3_tests`).
 fn mechanisms(language: Language, src: &str) -> Vec<String> {
-    trace_lines(language, src)
+    mechanism_names(trace_lines(language, src))
+}
+
+fn mechanism_names(lines: Vec<String>) -> Vec<String> {
+    lines
         .iter()
         .map(|l| l.split('\t').nth(1).unwrap().to_string())
         .filter(|m| !m.starts_with("d3-"))
@@ -509,8 +528,19 @@ fn a_write_never_maps_onto_a_statement_that_starts_after_it() {
     let p1 = "function f(n) {\n  let k = 0;\n  for (let j = 0,\n           m = k++; j < n; j++) { k = 7; }\n  sink(k);\n}\n";
     let p6 = "function f(n) {\n  let k = 0;\n  outer: for (let i = 0;\n              k++ < n; i++) { k = 7; }\n  sink(k);\n}\n";
     for src in [p1, p6] {
-        not_exact(Language::JavaScript, src, "k@2->k@5");
-        let got = mechanisms(Language::JavaScript, src);
+        // Under main's loop CFG (the geometry this row was written for): the loop plan would refuse p6's
+        // tree (its body shares the header's continuation line) and label the whole owner cfg_incomplete,
+        // hiding the census mechanism this row pins. The refusal itself is `loop_plan_tests`'.
+        let main = crate::cpg::census_label_tests::labels_of_main_loops(
+            Language::JavaScript,
+            src,
+            "k@2->k@5",
+        );
+        assert!(
+            !main.is_empty() && main.iter().all(|l| l != "exact"),
+            "{main:?} for {src}"
+        );
+        let got = mechanism_names(trace_lines_main_loops(Language::JavaScript, src));
         assert!(got.iter().all(|m| m == "site-unmapped"), "{got:?}");
     }
     // p3: no body statement on the line at all: the same refusal (already so before the fix).

@@ -2,6 +2,8 @@
 use super::{FileRefs, Producer};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
+use crate::call_graph::c::macro_census::CMacroCensus;
+use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::cpg::{
     reaching_definitions_with_exact, FileCfgEdgeIndex, FlowConfidence, FlowDoubt, RdFileStats,
     RdOutcome,
@@ -11,9 +13,22 @@ use std::collections::{BTreeMap, BTreeSet};
 
 impl Producer {
     // Preserve the extracted closure's line breaks for the indentation-only byte control.
-    #[rustfmt::skip]
+    #[cfg(test)]
     pub(super) fn file_refs(file_path: &String, parsed: &ParsedFile) -> FileRefs {
-        Self::file_refs_impl(file_path, parsed, Some(super::fallback_cap::FALLBACK_EDGE_CAP))
+        // The one-file census is the same-file verdict: the seam for callers with no repository.
+        let census = RustMacroCensus::of_file(parsed);
+        let c_census = CMacroCensus::of_file(parsed);
+        Self::file_refs_with_census(file_path, parsed, &census, &c_census)
+    }
+
+    #[rustfmt::skip]
+    pub(super) fn file_refs_with_census(
+        file_path: &String,
+        parsed: &ParsedFile,
+        census: &RustMacroCensus,
+        c_census: &CMacroCensus,
+    ) -> FileRefs {
+        Self::file_refs_impl(file_path, parsed, Some(super::fallback_cap::FALLBACK_EDGE_CAP), census, c_census)
     }
 
     #[cfg(test)]
@@ -22,11 +37,13 @@ impl Producer {
         parsed: &ParsedFile,
         cap: Option<usize>,
     ) -> FileRefs {
-        Self::file_refs_impl(file_path, parsed, cap)
+        let census = RustMacroCensus::of_file(parsed);
+        let c_census = CMacroCensus::of_file(parsed);
+        Self::file_refs_impl(file_path, parsed, cap, &census, &c_census)
     }
 
     #[rustfmt::skip]
-    fn file_refs_impl(file_path: &String, parsed: &ParsedFile, cap: Option<usize>) -> FileRefs {
+    fn file_refs_impl(file_path: &String, parsed: &ParsedFile, cap: Option<usize>, census: &RustMacroCensus, c_census: &CMacroCensus) -> FileRefs {
         let _profile_file = crate::profile::Phase::file("dfg.file_extract", file_path);
         let mut defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
             BTreeMap::new();
@@ -36,6 +53,9 @@ impl Producer {
         let mut labels = BTreeMap::new();
         let mut exact_labels = BTreeMap::new();
         let mut rd_function_stats = RdFileStats::default();
+        if parsed.language.is_js_family() && !crate::cfg::js_loops::main_loop_cfg() {
+            rd_function_stats.loop_plan = parsed.js_loop_plan().counters();
+        }
         // Go's blank identifier has no stored value. Keep raw syntax for aliases
         // and U/D proofs; admit only nonblank paths into DFG and RD collections.
         let keep_path = |path: &AccessPath| {
@@ -48,6 +68,8 @@ impl Producer {
         let file_cfg_edges = std::cell::OnceCell::new();
         // Borrows only this file's immutable CFG; drops before its backing cell.
         let file_cfg_edge_index = std::cell::OnceCell::new();
+        // Type names the file declares, read once per file by the Go callback gate.
+        let declared_types = std::cell::OnceCell::new();
         let mut owner_counts = BTreeMap::new();
         for func_node in &function_nodes {
             // js-param-defs PR-B: anonymous JS/TS/TSX callables own a
@@ -56,6 +78,12 @@ impl Producer {
                 let key = (name, parsed.node_line_range(func_node).0);
                 *owner_counts.entry(key).or_insert(0usize) += 1;
             }
+        }
+        // The write-census tables load once per process. The JS U/D owner switch reads
+        // them, so load them before the first owner's profile interval opens; otherwise
+        // that owner is charged for the load.
+        if parsed.language.is_js_family() {
+            let _ = crate::js_write_census::tables::Tables::shared();
         }
         'functions: for func_node in function_nodes {
             let func_name = match parsed.dfg_owner_name(&func_node) {
@@ -169,6 +197,9 @@ impl Producer {
             } else {
                 Self::build_alias_map(parsed, &func_node, &all_lines)
             };
+            // Alias-twin lane: one occurrence-qualified decision, read at registration, at the
+            // fallback anchors and at edge emission below (empty for every language not enabled).
+            let twin_policy = super::alias_occurrence::TwinPolicy::for_owner(parsed, &func_node, &lvalue_spans, &alias_map);
             let occurrence_byte = |byte| if synthetic { byte } else { 0 };
             let mut def_locs_by_occurrence: BTreeMap<
                 (AccessPath, usize, usize),
@@ -280,7 +311,7 @@ impl Producer {
                 // line that establishes the alias, to that line's target;
                 // re-assigning the alias name elsewhere breaks the alias, it does
                 // not write the target (flow-insensitive twins: legacy E11).
-                let twin = if header_targets.contains(&span.start_byte) {
+                let twin = if header_targets.contains(&span.start_byte) || twin_policy.suppresses_span(span.start_byte) {
                     None
                 } else if synthetic {
                     Self::resolve_on_alias_span(
@@ -323,6 +354,9 @@ impl Producer {
             // through lvalue spans. When they do surface, the lvalue loop
             // above already registered the resolved def with the raw span.
             for (alias, _target, alias_line) in &raw_aliases {
+                if twin_policy.suppresses_anchor(alias, *alias_line) {
+                    continue;
+                }
                 if lvalue_spans.iter().any(|span| {
                     span.line == *alias_line
                         && span.path.is_simple()
@@ -452,8 +486,8 @@ impl Producer {
             let unavailable = cap.and_then(|_| crate::cpg::unavailable_before_edges(
                 parsed, &func_node, &rd_defs, cfg_index,
             ));
-            let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans);
-            let scope = super::scope_prune::ScopeFacts::new(parsed, func_node, &rd_defs);
+            let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans, census, c_census);
+            let scope = super::scope_prune::ScopeFacts::new(parsed, func_node, &rd_defs, &declared_types);
             let order = super::order_prune::OrderFacts::new(parsed, func_node, &rd_defs);
             let original_preferred = unavailable.map(|_| preferred_use_locs.clone());
             // Pass 0 counts with the real admission/use logic, but constructs no edges.
@@ -577,6 +611,7 @@ impl Producer {
                         let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
                             continue;
                         };
+                        if scope.raw_signature_outside_scope(path, span.start_byte, *ref_line, &mut prune_stats) { continue; }
                         let (def_start, def_end) = def_locs_by_occurrence
                             .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
                             .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));
@@ -605,7 +640,7 @@ impl Producer {
                     }
 
                     // Phase 3: Also create edges for the alias-resolved path.
-                    let twin = if header_targets.contains(&span.start_byte) {
+                    let twin = if header_targets.contains(&span.start_byte) || twin_policy.suppresses_span(span.start_byte) {
                         None
                     } else if synthetic {
                         Self::resolve_on_alias_span(&alias_targets_by_byte, path, span.start_byte)
@@ -847,9 +882,11 @@ impl Producer {
     pub(super) fn compact_file_refs(
         file: &String,
         parsed: &ParsedFile,
+        census: &RustMacroCensus,
+        c_census: &CMacroCensus,
     ) -> crate::data_flow::compact::CompactDfg {
         let _profile_file = crate::profile::Phase::file("dfg.file", file);
-        let parts = Self::file_refs(file, parsed).into_parts();
+        let parts = Self::file_refs_with_census(file, parsed, census, c_census).into_parts();
         #[cfg(test)]
         let legacy_adjacency_rows = parts
             .adjacency

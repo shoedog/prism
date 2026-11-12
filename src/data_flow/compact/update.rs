@@ -25,6 +25,18 @@ pub(in crate::data_flow) fn combine(parts: Vec<CompactDfg>) -> Result<CompactDfg
     let mut labels = Vec::new();
     let mut exact = Vec::new();
     let mut stats: BTreeMap<String, crate::cpg::RdFileStats> = BTreeMap::new();
+    let digest = parts
+        .iter()
+        .map(|p| &p.rust_macro_census_digest)
+        .find(|d| !d.is_empty())
+        .cloned()
+        .unwrap_or_default();
+    let c_digest = parts
+        .iter()
+        .map(|p| &p.c_macro_census_digest)
+        .find(|d| !d.is_empty())
+        .cloned()
+        .unwrap_or_default();
     for p in parts {
         let mut live = vec![false; p.arena.rows().len()];
         let mut mark = |id: OccId| live[id.0 as usize] = true;
@@ -116,6 +128,8 @@ pub(in crate::data_flow) fn combine(parts: Vec<CompactDfg>) -> Result<CompactDfg
         labels: reduced,
         exact_labels,
         rd_function_stats: stats,
+        rust_macro_census_digest: digest,
+        c_macro_census_digest: c_digest,
     })
 }
 impl CompactDfg {

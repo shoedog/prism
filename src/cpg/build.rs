@@ -144,6 +144,9 @@ pub struct DfgLabelStats {
     pub dfg_recall_functions_over_rd_cap: usize,
     pub dfg_recall_functions_without_cfg: usize,
     pub dfg_recall_receiver_field_refused: usize,
+    /// JS/TS/TSX loop-plan counters summed over the files (#693, #697): `trees`, `admitted`,
+    /// `refused.<reason>`, `overlap.<class>`, `owners_refused`. Empty when no file has a loop.
+    pub dfg_loop_plan: BTreeMap<String, usize>,
 }
 
 impl DfgLabelStats {
@@ -210,6 +213,12 @@ impl DfgLabelStats {
             .values()
             .map(|stats| stats.dfg_pruned_order)
             .sum();
+        self.dfg_loop_plan.clear();
+        for stats in dfg.rd_function_stats().values() {
+            for (key, n) in &stats.loop_plan {
+                *self.dfg_loop_plan.entry(key.clone()).or_insert(0) += n;
+            }
+        }
     }
 }
 
@@ -689,6 +698,32 @@ impl CodePropertyGraph {
                 return Self::build_impl_inner(files, type_db, scope_inputs);
             }
 
+            // Fold 3 (#630 slice 5): Rust rules U and D read a repo-wide macro census (which
+            // spellings can emit a `macro_rules!`). Unchanged files keep the DFG built under
+            // the cached census, so a different fresh digest rebuilds in full, the same
+            // shape and reason as the macro-shadow guard above.
+            let fresh_macro_census =
+                crate::call_graph::rust::macro_args::RustMacroCensus::from_files(files);
+            if fresh_macro_census.digest() != cached_dfg.rust_macro_census_digest() {
+                drop(p);
+                drop((cached_cg, cached_dfg)); // Abandoned macro-census graphs.
+                #[cfg(test)]
+                lifetime.record("incremental_macro_census");
+                return Self::build_impl_inner(files, type_db, scope_inputs);
+            }
+
+            // Slice 6a (#630 slice 6): the C/C++ macro census guards the cached DFG the same
+            // way; nothing reads it yet, but its digest is persisted and compared.
+            let fresh_c_macro_census =
+                crate::call_graph::c::macro_census::CMacroCensus::from_files(files);
+            if fresh_c_macro_census.digest() != cached_dfg.c_macro_census_digest() {
+                drop(p);
+                drop((cached_cg, cached_dfg)); // Abandoned C macro-census graphs.
+                #[cfg(test)]
+                lifetime.record("incremental_c_macro_census");
+                return Self::build_impl_inner(files, type_db, scope_inputs);
+            }
+
             p.next("cpg.incremental.remove");
             // Step 1: Remove stale data for changed files.
             cached_cg.remove_files(changed_files);
@@ -699,7 +734,12 @@ impl CodePropertyGraph {
             p.next("call_graph.incremental_direct");
             let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
             p.next("dfg.incremental_build");
-            let fresh_dfg = DataFlowGraph::build_subset(files, changed_files);
+            let fresh_dfg = DataFlowGraph::build_subset_with_census(
+                files,
+                changed_files,
+                &fresh_macro_census,
+                &fresh_c_macro_census,
+            );
 
             p.next("cpg.incremental.merge");
             // Step 3: Merge fresh into retained.

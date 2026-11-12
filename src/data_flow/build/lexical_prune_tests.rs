@@ -40,7 +40,11 @@ fn go_prune_matrix() {
         let source = std::fs::read_to_string(&path).unwrap();
         let parsed = ParsedFile::parse(&file, &source, Language::Go).unwrap();
         let before = Producer::file_refs_frozen(&file, &parsed);
-        let after = without_recall(Producer::file_refs(&file, &parsed));
+        // The alias-twin policy removes twin edges the frozen reference has; it is switched off so
+        // this differential isolates the pruning rules (the policy has its own tests).
+        let after = without_recall(super::alias_occurrence::without_policy(|| {
+            Producer::file_refs(&file, &parsed)
+        }));
         assert_eq!(
             before.edges.len() - after.edges.len(),
             after.rd_function_stats.dfg_pruned_write_only
@@ -190,12 +194,58 @@ fn prune_subset_and_labels_across_fixture_tree() {
             let language = Language::from_path(&file).unwrap();
             let parsed = ParsedFile::parse(&file, &source, language).unwrap();
             let before = Producer::file_refs_frozen(&file, &parsed);
-            let after = without_recall(Producer::file_refs(&file, &parsed));
+            let policy_on = without_recall(Producer::file_refs(&file, &parsed));
+            let twin_lane = matches!(
+                language,
+                Language::Java | Language::Go | Language::Rust | Language::Python
+            );
+            // Alias-twin lane (Java slice 1; Go, Rust, Python slice 2a): the policy removes twins at
+            // binding writes, so for these languages the strict differential below runs with the
+            // policy off; the policy-on result must stay removal-only (edges and uses).
+            let after = if twin_lane && language != Language::Java {
+                without_recall(super::alias_occurrence::without_policy(|| {
+                    Producer::file_refs(&file, &parsed)
+                }))
+            } else {
+                policy_on
+            };
+            if twin_lane && language != Language::Java {
+                let on = without_recall(Producer::file_refs(&file, &parsed));
+                for edge in &on.edges {
+                    assert!(
+                        after.edges.contains(edge),
+                        "policy added an edge in {file}: {edge:?}"
+                    );
+                }
+                for (key, uses) in &on.uses {
+                    for u in uses {
+                        assert!(
+                            after.uses.get(key).is_some_and(|b| b.contains(u)),
+                            "policy added a use in {file}: {key:?} {u:?}"
+                        );
+                    }
+                }
+            }
             for edge in &after.edges {
                 assert!(
                     before.edges.contains(edge),
                     "added edge in {file}: {edge:?}"
                 );
+            }
+            if language == Language::Java {
+                // Alias-twin lane slice 1: Java twins are removed at binding writes, so labels
+                // and full equality may differ from the frozen reference; removal-only still
+                // holds, edges (above) and uses.
+                for (key, uses) in &after.uses {
+                    for u in uses {
+                        assert!(
+                            before.uses.get(key).is_some_and(|b| b.contains(u)),
+                            "added use in {file}: {key:?} {u:?}"
+                        );
+                    }
+                }
+                edges += after.edges.len();
+                continue;
             }
             for (key, label) in &after.labels {
                 assert_eq!(
@@ -211,7 +261,14 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     "exact label changed in {file}: {key:?}"
                 );
             }
-            if language == Language::Python {
+            // C rules U and D (#630 slice 6b) run for `.c` files only; a `.h` parsed as C and
+            // C++ stay byte-identical to the frozen reference.
+            let c_pruned = language == Language::C && file.ends_with(".c");
+            if language == Language::Python
+                || language == Language::Rust
+                || language.is_js_family()
+                || c_pruned
+            {
                 // Opus F1 invariant: a removed edge into a minted use leaves another
                 // surviving edge from a def of the path into that same use.
                 let minted: std::collections::BTreeSet<_> = after.uses.values().flatten().collect();
@@ -234,11 +291,17 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     }
                 }
             }
-            if language != Language::Go && language != Language::Python {
-                assert_eq!(before.edges, after.edges, "non-Go/Python changed: {file}");
+            if !matches!(language, Language::Go | Language::Python | Language::Rust)
+                && !language.is_js_family()
+                && !c_pruned
+            {
+                assert_eq!(
+                    before.edges, after.edges,
+                    "non-Go/Python/Rust/JS changed: {file}"
+                );
                 assert_eq!(
                     before.uses, after.uses,
-                    "non-Go/Python uses changed: {file}"
+                    "non-Go/Python/Rust uses changed: {file}"
                 );
             }
             edges += after.edges.len();
@@ -439,7 +502,14 @@ fn export_go_prune_probe_pairs() {
                 let lines = (start..=end).collect();
                 let lvalues = parsed.assignment_lvalue_spans_on_lines(&owner, &lines);
                 let rvalues = parsed.rvalue_identifier_spans_on_lines(&owner, &lines);
-                let facts = LexicalFacts::new(&parsed, owner, &lvalues, &rvalues);
+                let facts = LexicalFacts::new(
+                    &parsed,
+                    owner,
+                    &lvalues,
+                    &rvalues,
+                    &crate::call_graph::rust::macro_args::RustMacroCensus::of_file(&parsed),
+                    &crate::call_graph::c::macro_census::CMacroCensus::of_file(&parsed),
+                );
                 let mut stats = crate::cpg::RdFileStats::default();
                 if facts.drop_write_only(&from.path, to.line, &mut stats) {
                     "write_only"

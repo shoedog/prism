@@ -20,18 +20,35 @@ struct Occurrence {
     binding: BindingId,
     /// `*x`, `x[i]`, `x[i:j]`, `x.f`, `x.M()`, `(x)`: an access through the name.
     storage: bool,
+    /// Start byte of the identifier.
+    start: usize,
 }
 
 type LineKey = (String, usize);
 /// Per use line, the classified reads of each name; a hit allocates nothing.
 type LineCache = RefCell<HashMap<usize, Vec<(String, Rc<Vec<Occurrence>>)>>>;
 /// Per def `(start, end, line)`, the plain-def verdict of each base name.
-type DefCache = RefCell<HashMap<(usize, usize, usize), Vec<(String, Option<(usize, usize)>)>>>;
+type DefCache = RefCell<HashMap<(usize, usize, usize), Vec<(String, Option<PlainDef>)>>>;
+/// A plain def's declaration, its index, and whether it only declares the name (a function-literal
+/// formal or a named result: the entry value of a fresh variable, which writes no storage).
+type PlainDef = (usize, usize, bool);
 
 pub(super) struct ScopeFacts<'a> {
     parsed: &'a ParsedFile,
     owner: Node<'a>,
+    /// The file's declared type names, shared by every owner of the file (lazy, once).
+    declared_types: &'a OnceCell<BTreeSet<String>>,
     enabled: bool,
+    /// Go, no parse error, at least one def: the lexical proofs that need no `multi` gate.
+    lexical_ok: bool,
+    /// The owner's formals and named results with their scopes, built once (#694 slice B).
+    slice_b: super::scope_params::SliceBDefs,
+    /// Per slice-B name, the start bytes of its identifier nodes by line (one walk, on first use).
+    idents: OnceCell<HashMap<String, HashMap<usize, Vec<usize>>>>,
+    /// Genuine defs by line, for same-line peers of a slice-B def (built on first use).
+    defs_by_line: OnceCell<HashMap<usize, Vec<usize>>>,
+    /// Per slice-B def start, its scope when it has no same-line peer of its path.
+    lone_scope: RefCell<HashMap<usize, Option<(usize, usize)>>>,
     /// Names with two or more declaration sites in the owner. A pair can only
     /// be dropped for such a name, so nothing else is ever built for others.
     multi: BTreeSet<&'a str>,
@@ -56,10 +73,17 @@ struct Built<'a> {
     identifiers: BTreeMap<LineKey, Vec<Node<'a>>>,
     /// Names declared by split headers or specs: main's keep (`scope_split`, #728).
     split: super::scope_split::SplitFacts,
+    /// Formal and named-result declarations, with the shapes rule S keeps (`scope_params`).
+    params: super::scope_params::ParamFacts,
 }
 
 impl<'a> ScopeFacts<'a> {
-    pub(super) fn new(parsed: &'a ParsedFile, owner: Node<'a>, defs: &'a [DefSite]) -> Self {
+    pub(super) fn new(
+        parsed: &'a ParsedFile,
+        owner: Node<'a>,
+        defs: &'a [DefSite],
+        declared_types: &'a OnceCell<BTreeSet<String>>,
+    ) -> Self {
         let enabled = parsed.language == Language::Go && !owner.has_error() && !defs.is_empty();
         let multi = if enabled {
             multiply_declared(parsed, owner)
@@ -74,7 +98,17 @@ impl<'a> ScopeFacts<'a> {
         Self {
             parsed,
             owner,
+            declared_types,
             enabled: enabled && !multi.is_empty(),
+            lexical_ok: enabled,
+            slice_b: if enabled {
+                super::scope_params::SliceBDefs::new(parsed, owner)
+            } else {
+                super::scope_params::SliceBDefs::empty()
+            },
+            idents: OnceCell::new(),
+            defs_by_line: OnceCell::new(),
+            lone_scope: RefCell::new(HashMap::new()),
             multi,
             address_taken,
             built: OnceCell::new(),
@@ -89,8 +123,15 @@ impl<'a> ScopeFacts<'a> {
         // The producer has no emitted edges yet, so the use-byte table is empty;
         // RD keeps its own instance because its table is built from the edges.
         let facts = BindingFacts::new(self.parsed, &self.owner, self.defs, std::iter::empty());
+        let params = super::scope_params::ParamFacts::new(
+            self.parsed,
+            self.owner,
+            &facts,
+            self.declared_types,
+        );
         let mut built = Built {
             facts,
+            params,
             def_index: BTreeMap::new(),
             defs_on_line: BTreeMap::new(),
             identifiers: BTreeMap::new(),
@@ -152,6 +193,7 @@ impl<'a> ScopeFacts<'a> {
             .map(|node| Occurrence {
                 binding: facts.binding_at(name, node.start_byte()),
                 storage: is_storage_access(*node),
+                start: node.start_byte(),
             })
             .collect();
         let list = Rc::new(list);
@@ -181,7 +223,7 @@ impl<'a> ScopeFacts<'a> {
         start: usize,
         end: usize,
         line: usize,
-    ) -> Option<(usize, usize)> {
+    ) -> Option<PlainDef> {
         if !path.fields.is_empty() {
             return None;
         }
@@ -211,6 +253,24 @@ impl<'a> ScopeFacts<'a> {
         }) {
             return None;
         }
+        // A formal or named result declares a fresh variable: it writes no storage, so neither
+        // the def's line nor the use's can make it a write through a pointer (#694 slice B).
+        // Another span of the path coalesced onto this line that is not a plain write (`*v = 1`
+        // beside the formal `v`) is a store the formal does not own: it takes the ordinary checks.
+        // The flag means the whole line only enters the name: EVERY coalesced span of the path is a
+        // signature name (an ordinary write `v = 7` beside the signature `(v int)` writes the
+        // variable, and its real path takes the ordinary checks below).
+        if node.parent().is_some_and(is_slice_b_declaration)
+            && coalesced
+                .iter()
+                .filter(|i| self.defs[**i].path == *path)
+                .all(|i| {
+                    self.def_is_plain_variable_write(self.defs[*i].start_byte)
+                        && self.span_is_signature_name(self.defs[*i].start_byte)
+                })
+        {
+            return Some((*declaration, index, true));
+        }
         // Every lvalue of the path attributed to this line is classified by its
         // own span, wherever its identifier sits: `*` and the name may be on
         // different lines (`x = new(int); *` / `x = 7`), and only the first
@@ -235,7 +295,134 @@ impl<'a> ScopeFacts<'a> {
         {
             return None;
         }
-        Some((*declaration, index))
+        Some((*declaration, index, false))
+    }
+
+    /// The def is a function-literal formal or a named result and no occurrence of its name on
+    /// `use_line` lies in its function's body, the scope of that declaration (#694 slice B). The
+    /// scope is lexical, so no binding-resolution proof for the name is needed (and the name may
+    /// have a single declaration site in the owner). A def coalesced with another def of the path
+    /// on its line stands for several raw spans and is never judged here.
+    fn outside_declare_only_scope(
+        &self,
+        path: &AccessPath,
+        def_start: usize,
+        def_line: usize,
+        use_line: usize,
+    ) -> bool {
+        if !self.lexical_ok || !path.fields.is_empty() {
+            return false;
+        }
+        let Some((body_start, body_end)) = self.lone_declare_only_scope(path, def_start, def_line)
+        else {
+            return false;
+        };
+        // No variable read of the name inside the scope on this line (a use the collector
+        // records at a keyed-literal field name has no identifier node in it at all).
+        self.identifiers_named(&path.base)
+            .and_then(|by_line| by_line.get(&use_line))
+            .is_none_or(|bytes| bytes.iter().all(|b| !(body_start <= *b && *b < body_end)))
+    }
+
+    /// Rule A of fold 4: the RAW def span at `def_start` is a function-literal formal or a named
+    /// result and no occurrence of its name on `use_line` lies in its body. Unlike
+    /// `outside_declare_only_scope` this judges the raw span even when other defs of the path share
+    /// its line (the coalesced edge survives only if some raw span survives every rule).
+    pub(super) fn raw_signature_outside_scope(
+        &self,
+        path: &AccessPath,
+        raw_start: usize,
+        use_line: usize,
+        stats: &mut RdFileStats,
+    ) -> bool {
+        if !self.lexical_ok || !path.fields.is_empty() {
+            return false;
+        }
+        let Some((body_start, body_end)) = self.slice_b.scope_of(raw_start) else {
+            return false;
+        };
+        let outside = self
+            .identifiers_named(&path.base)
+            .and_then(|by_line| by_line.get(&use_line))
+            .is_none_or(|bytes| bytes.iter().all(|b| !(body_start <= *b && *b < body_end)));
+        if outside {
+            stats.dfg_pruned_scope += 1;
+        }
+        outside
+    }
+
+    /// The scope of the formal or named result whose def starts at `def_start`, when no other
+    /// genuine def of the path is on its line (memoized by def).
+    fn lone_declare_only_scope(
+        &self,
+        path: &AccessPath,
+        def_start: usize,
+        def_line: usize,
+    ) -> Option<(usize, usize)> {
+        let scope = self.slice_b.scope_of(def_start)?;
+        if let Some(known) = self.lone_scope.borrow().get(&def_start) {
+            return *known;
+        }
+        let by_line = self.defs_by_line.get_or_init(|| {
+            let mut map: HashMap<usize, Vec<usize>> = HashMap::new();
+            for (i, d) in self
+                .defs
+                .iter()
+                .enumerate()
+                .filter(|(_, d)| !d.alias_derived)
+            {
+                map.entry(d.line).or_default().push(i);
+            }
+            map
+        });
+        let lone = by_line.get(&def_line).is_none_or(|peers| {
+            peers.iter().all(|i| {
+                let d = &self.defs[*i];
+                d.path != *path || d.start_byte == def_start
+            })
+        });
+        let found = lone.then_some(scope);
+        self.lone_scope.borrow_mut().insert(def_start, found);
+        found
+    }
+
+    /// Start bytes of the identifier nodes spelled `name`, by line, for the owner's slice-B
+    /// names (all of them in one walk).
+    fn identifiers_named(&self, name: &str) -> Option<&HashMap<usize, Vec<usize>>> {
+        let all = self.idents.get_or_init(|| {
+            let mut all: HashMap<String, HashMap<usize, Vec<usize>>> = self
+                .slice_b
+                .names()
+                .iter()
+                .map(|n| (n.clone(), HashMap::new()))
+                .collect();
+            let mut stack = vec![self.owner];
+            while let Some(node) = stack.pop() {
+                if node.kind() == "identifier" {
+                    if let Some(by_line) = all.get_mut(self.parsed.node_text(&node)) {
+                        by_line
+                            .entry(node.start_position().row + 1)
+                            .or_default()
+                            .push(node.start_byte());
+                    }
+                }
+                let mut cursor = node.walk();
+                stack.extend(node.named_children(&mut cursor));
+            }
+            all
+        });
+        all.get(name)
+    }
+
+    /// The def starts at an identifier that is a literal formal or a named result.
+    fn span_is_signature_name(&self, start: usize) -> bool {
+        self.parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start, start)
+            .is_some_and(|n| {
+                n.kind() == "identifier" && n.parent().is_some_and(is_slice_b_declaration)
+            })
     }
 
     /// The def starts at an identifier that is the written variable itself.
@@ -262,10 +449,13 @@ impl<'a> ScopeFacts<'a> {
         use_line: usize,
         stats: &mut RdFileStats,
     ) -> bool {
-        if !self.enabled
-            || !self.multi.contains(path.base.as_str())
-            || self.address_taken.contains(path.base.as_str())
-        {
+        // A formal or named result is visible only in its function's body: a use line whose
+        // every occurrence of the name lies outside it reads another variable.
+        if self.outside_declare_only_scope(path, def_start, def_line, use_line) {
+            stats.dfg_pruned_scope += 1;
+            return false;
+        }
+        if !self.enabled || !self.multi.contains(path.base.as_str()) {
             return true;
         }
         let built = self.built.get_or_init(|| self.build());
@@ -291,9 +481,15 @@ impl<'a> ScopeFacts<'a> {
                 .push((path.base.clone(), verdict));
             verdict
         });
-        let Some((_, def_index)) = verdict else {
+        let Some((_, def_index, declare_only)) = verdict else {
             return true;
         };
+        // A name whose address is taken keeps every pair, except those of a declare-only def (a
+        // formal or named result): it writes only its own fresh variable, which no other
+        // declaration's storage can share (#694 slice B).
+        if self.address_taken.contains(path.base.as_str()) && !declare_only {
+            return true;
+        }
         if built
             .split
             .exempts(&built.facts, &path.base, def_index, def_start)
@@ -301,12 +497,40 @@ impl<'a> ScopeFacts<'a> {
             return true;
         }
         let reads = self.occurrences(built, &path.base, use_line);
-        let drop = !reads.is_empty()
-            && reads.iter().all(|o| {
-                !o.storage
-                    && matches!(&o.binding, BindingId::Declaration(other)
-                    if !built.facts.def_reaches_declaration(def_index, *other))
-            });
+        // A line holding only declaring occurrences of the name (a signature) has no read; a
+        // declare-only def of another variable cannot flow into a declaration of its own.
+        let declaring_only = declare_only
+            && reads.is_empty()
+            && built
+                .identifiers
+                .get(&(path.base.clone(), use_line))
+                .is_some_and(|ids| {
+                    !ids.is_empty() && ids.iter().all(|n| n.start_byte() != def_start)
+                });
+        let drop = declaring_only
+            || !reads.is_empty()
+                && reads.iter().all(|o| {
+                    (declare_only || !o.storage)
+                        && matches!(&o.binding, BindingId::Declaration(other)
+                        if !built.facts.def_reaches_declaration(def_index, *other)
+                            && !built.params.keeps(
+                                self.parsed,
+                                &built.facts,
+                                def_index,
+                                declare_only,
+                                *other,
+                                o.start,
+                            )
+                            && !(!declare_only
+                                && self.slice_b.names().contains(path.base.as_str())
+                                && built.params.parity_keep(
+                                    self.parsed,
+                                    &built.facts,
+                                    path.base.as_str(),
+                                    def_start,
+                                    o.start,
+                                )))
+                });
         if drop {
             stats.dfg_pruned_scope += 1;
         }
@@ -327,7 +551,9 @@ pub(super) fn is_declaring_name(node: Node<'_>) -> bool {
     };
     match parent.kind() {
         "var_spec" | "const_spec" => in_field(parent, "name"),
-        "parameter_declaration" | "variadic_parameter_declaration" => in_field(parent, "name"),
+        "parameter_declaration" | "variadic_parameter_declaration" => {
+            is_parameter_name(parent, node)
+        }
         "expression_list" => parent.parent().is_some_and(|g| match g.kind() {
             "short_var_declaration" => in_field(g, "left"),
             "range_clause" | "receive_statement" => has_define_token(g) && in_field(g, "left"),
@@ -336,6 +562,53 @@ pub(super) fn is_declaring_name(node: Node<'_>) -> bool {
         }),
         _ => false,
     }
+}
+
+/// A parameter declaration that #694 slice B gives a producer def: a function-literal formal, or
+/// a named result of any callable. The owner's own formals have always had defs (pinned to the
+/// signature) and keep main's treatment.
+fn is_slice_b_declaration(declaration: Node<'_>) -> bool {
+    if !matches!(
+        declaration.kind(),
+        "parameter_declaration" | "variadic_parameter_declaration"
+    ) {
+        return false;
+    }
+    declaration
+        .parent()
+        .and_then(|list| list.parent().map(|callable| (list, callable)))
+        .is_some_and(|(list, callable)| {
+            let real = matches!(
+                callable.kind(),
+                "func_literal" | "function_declaration" | "method_declaration"
+            );
+            real && (callable.kind() == "func_literal"
+                && callable
+                    .child_by_field_name("parameters")
+                    .is_some_and(|p| p.id() == list.id())
+                || callable
+                    .child_by_field_name("result")
+                    .is_some_and(|r| r.id() == list.id()))
+        })
+}
+
+/// The identifier is a name of a parameter declaration. The grammar's `name` field holds every
+/// name of `a, b T`, which `child_by_field_name` would not (it returns the first). Slice B reads
+/// all of them for function-literal formals and for results of any callable; the owner's own
+/// grouped parameters keep main's first-name-only reading (a known limit, `a, b int`).
+fn is_parameter_name(declaration: Node<'_>, node: Node<'_>) -> bool {
+    let contains =
+        |n: Node<'_>| n.start_byte() <= node.start_byte() && node.end_byte() <= n.end_byte();
+    if !is_slice_b_declaration(declaration) {
+        return declaration
+            .child_by_field_name("name")
+            .is_some_and(contains);
+    }
+    let mut cursor = declaration.walk();
+    let found = declaration
+        .children_by_field_name("name", &mut cursor)
+        .any(contains);
+    found
 }
 
 pub(super) fn is_storage_access(node: Node<'_>) -> bool {
@@ -372,8 +645,9 @@ pub(super) fn is_plain_write_site(node: Node<'_>) -> bool {
             .is_some_and(|f| f.start_byte() <= node.start_byte() && node.end_byte() <= f.end_byte())
     };
     match parent.kind() {
-        "var_spec" | "const_spec" | "parameter_declaration" | "variadic_parameter_declaration" => {
-            within(parent, "name")
+        "var_spec" | "const_spec" => within(parent, "name"),
+        "parameter_declaration" | "variadic_parameter_declaration" => {
+            is_parameter_name(parent, node)
         }
         "inc_statement" | "dec_statement" => true,
         "expression_list" => parent.parent().is_some_and(|g| {
@@ -390,11 +664,11 @@ pub(super) fn is_plain_write_site(node: Node<'_>) -> bool {
     }
 }
 
-/// Names among `multi` that rule S must keep: those whose address is taken in
+/// Names among `multi` that rules S and O must keep: those whose address is taken in
 /// `owner` (the operand of a unary `&`, through parentheses, selectors, indexing
-/// and slicing, is rooted at the identifier), and the names of declarations the
-/// producer emits no def for (function-literal formals, named results).
-/// By name, so it covers the def's and the use's binding.
+/// and slicing, is rooted at the identifier). By name, so it covers the def's and the
+/// use's binding. Function-literal formals and named results have producer defs since
+/// #694 slice B; the shapes whose value S cannot see keep per declaration (`scope_params`).
 pub(super) fn address_taken_names<'a>(
     parsed: &'a ParsedFile,
     owner: Node<'a>,
@@ -446,45 +720,6 @@ pub(super) fn address_taken_names<'a>(
                     }
                 }
             }
-        }
-        // Declarations the producer still emits no def for (#694 slice B): function-literal
-        // formals and named results of any function (a `return` assigns them with
-        // no def). Range/receive `:=` targets, type-switch aliases and every
-        // `var`/`const` name now have producer defs, so S may drop the outer pair, except
-        // for a split header or spec (`SplitFacts`).
-        let mut keep = |id: Node<'a>| {
-            if id.kind() == "identifier" {
-                if let Some(found) = multi.get(parsed.node_text(&id)) {
-                    out.insert(*found);
-                }
-            }
-        };
-        match node.kind() {
-            "func_literal" | "function_declaration" | "method_declaration" => {
-                let mut lists = Vec::new();
-                if node.kind() == "func_literal" {
-                    lists.extend(node.child_by_field_name("parameters"));
-                }
-                lists.extend(
-                    node.child_by_field_name("result")
-                        .filter(|r| r.kind() == "parameter_list"),
-                );
-                for list in lists {
-                    let mut cursor = list.walk();
-                    for param in list.named_children(&mut cursor) {
-                        if matches!(
-                            param.kind(),
-                            "parameter_declaration" | "variadic_parameter_declaration"
-                        ) {
-                            let mut names = param.walk();
-                            for name in param.children_by_field_name("name", &mut names) {
-                                keep(name);
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
         }
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {

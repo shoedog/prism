@@ -68,13 +68,19 @@ fn captured_write_admission_counts_admitted_and_refused_fences() {
     }
 }
 
+// The CFG rise scales with the file, the first owner's first-touch rise (code
+// pages, per-owner structures, 1-3 MB on x86_64 Linux) does not (#795). With 10
+// functions the two were within 5% of each other; at 60 the CFG rise is about
+// 4.9 MB against about 1.8 MB.
+const BIG_FNS: usize = 60;
+
 #[test]
 fn rss_intervals_exclude_cfg_in_both_owner_orders() {
     let dir = tempfile::tempdir().unwrap();
     // An empty body keeps `tiny` out of reaching definitions (#599: a one-statement
     // body now runs it, and its first-use init would be charged to the first owner).
     let tiny = "function tiny() { }\n";
-    let big: String = (0..10)
+    let big: String = (0..BIG_FNS)
         .map(|i| {
             format!(
                 "function big{i}() {{\n{}\n}}\n",
@@ -107,8 +113,10 @@ fn rss_intervals_exclude_cfg_in_both_owner_orders() {
             let rise = cfg["rss_rise_bytes"].as_u64().unwrap();
             first_cfg_rise = rise;
             assert!(rise > 262_144, "fixture must raise CFG HWM: {cfg}");
+            // A CFG charged to `tiny` would put its rise above `rise` itself; the
+            // 3/4 bound leaves room for first-touch work without hiding that.
             assert!(
-                tiny["rss_rise_bytes"].as_u64().unwrap() < rise,
+                tiny["rss_rise_bytes"].as_u64().unwrap() * 4 < rise * 3,
                 "CFG charged to tiny: owner={tiny} cfg={cfg}"
             );
             assert_eq!(tiny["file_cfg_rss_rise_bytes"], rise);
@@ -134,7 +142,7 @@ fn rss_intervals_exclude_cfg_in_both_owner_orders() {
         // Both orders remain below the file-CFG rise; moving the tiny owner
         // must never transfer that file-sized charge onto it.
         assert!(
-            rises[0].max(rises[1]) < first_cfg_rise,
+            rises[0].max(rises[1]) * 4 < first_cfg_rise * 3,
             "tiny first/last rises {rises:?}, CFG rise {first_cfg_rise}"
         );
     }

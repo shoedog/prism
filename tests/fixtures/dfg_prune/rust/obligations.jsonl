@@ -1,0 +1,243 @@
+{"case": "00_basic", "path": "x", "def_line": 2, "use_line": 3, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 2, "use_line": 4, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 3, "use_line": 2, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 3, "use_line": 4, "keep": true, "reason": "own"}
+{"case": "00_basic", "path": "x", "def_line": 8, "use_line": 9, "keep": true, "reason": "self_read"}
+{"case": "00_basic", "path": "x", "def_line": 8, "use_line": 10, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 9, "use_line": 8, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 9, "use_line": 10, "keep": true, "reason": "own"}
+{"case": "00_basic", "path": "x", "def_line": 14, "use_line": 15, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 14, "use_line": 16, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 14, "use_line": 17, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 14, "use_line": 18, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 15, "use_line": 14, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 15, "use_line": 16, "keep": true, "reason": "augmented_read"}
+{"case": "00_basic", "path": "x", "def_line": 15, "use_line": 17, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 15, "use_line": 18, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 16, "use_line": 14, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 16, "use_line": 15, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 16, "use_line": 17, "keep": true, "reason": "self_read"}
+{"case": "00_basic", "path": "x", "def_line": 16, "use_line": 18, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 17, "use_line": 14, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 17, "use_line": 15, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 17, "use_line": 16, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 17, "use_line": 18, "keep": true, "reason": "own"}
+{"case": "00_basic", "path": "x", "def_line": 22, "use_line": 27, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 22, "use_line": 28, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 27, "use_line": 22, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 27, "use_line": 28, "keep": true, "reason": "own"}
+{"case": "00_basic", "path": "v", "def_line": 21, "use_line": 23, "keep": true, "reason": "index_write_is_no_write_only"}
+{"case": "00_basic", "path": "r", "def_line": 25, "use_line": 26, "keep": true, "reason": "deref_write_is_no_write_only"}
+{"case": "00_basic", "path": "r", "def_line": 26, "use_line": 25, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 32, "use_line": 33, "keep": true, "reason": "same_line_last_def_keeps"}
+{"case": "00_basic", "path": "x", "def_line": 37, "use_line": 38, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 37, "use_line": 41, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "x", "def_line": 38, "use_line": 37, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 38, "use_line": 41, "keep": true, "reason": "own"}
+{"case": "00_basic", "path": "s.f", "def_line": 46, "use_line": 47, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "s.f", "def_line": 46, "use_line": 48, "keep": true, "reason": "base_assigned_unstable"}
+{"case": "00_basic", "path": "s.f", "def_line": 47, "use_line": 48, "keep": true, "reason": "own"}
+{"case": "00_basic", "path": "s.g", "def_line": 49, "use_line": 51, "keep": true, "reason": "field_not_dominated_by_base_write"}
+{"case": "00_basic", "path": "s", "def_line": 45, "use_line": 51, "keep": false, "reason": "dominated"}
+{"case": "00_basic", "path": "s", "def_line": 45, "use_line": 50, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "s", "def_line": 50, "use_line": 51, "keep": true, "reason": "own"}
+{"case": "00_basic", "path": "s", "def_line": 45, "use_line": 49, "keep": true, "reason": "no_dominator_before_use"}
+{"case": "00_basic", "path": "p", "def_line": 54, "use_line": 55, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "p", "def_line": 54, "use_line": 56, "keep": false, "reason": "dominated_param"}
+{"case": "00_basic", "path": "p", "def_line": 55, "use_line": 56, "keep": true, "reason": "own"}
+{"case": "00_basic", "path": "x", "def_line": 60, "use_line": 61, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 60, "use_line": 62, "keep": false, "reason": "dominated_by_try_write"}
+{"case": "00_basic", "path": "x", "def_line": 61, "use_line": 60, "keep": false, "reason": "write_only"}
+{"case": "00_basic", "path": "x", "def_line": 61, "use_line": 62, "keep": true, "reason": "own"}
+{"case": "01_regions", "path": "x", "def_line": 2, "use_line": 4, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 2, "use_line": 5, "keep": false, "reason": "dominated"}
+{"case": "01_regions", "path": "x", "def_line": 2, "use_line": 7, "keep": true, "reason": "dominating_let"}
+{"case": "01_regions", "path": "x", "def_line": 2, "use_line": 9, "keep": true, "reason": "dominating_let"}
+{"case": "01_regions", "path": "x", "def_line": 4, "use_line": 5, "keep": true, "reason": "own"}
+{"case": "01_regions", "path": "x", "def_line": 4, "use_line": 2, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 4, "use_line": 7, "keep": true, "reason": "inside_statement"}
+{"case": "01_regions", "path": "x", "def_line": 4, "use_line": 9, "keep": true, "reason": "inside_statement"}
+{"case": "01_regions", "path": "x", "def_line": 13, "use_line": 15, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 13, "use_line": 17, "keep": true, "reason": "dominating_let"}
+{"case": "01_regions", "path": "x", "def_line": 15, "use_line": 17, "keep": true, "reason": "inside_statement"}
+{"case": "01_regions", "path": "x", "def_line": 15, "use_line": 13, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 21, "use_line": 23, "keep": true, "reason": "loop"}
+{"case": "01_regions", "path": "x", "def_line": 21, "use_line": 24, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 24, "use_line": 21, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 24, "use_line": 23, "keep": true, "reason": "loop_carried"}
+{"case": "01_regions", "path": "x", "def_line": 29, "use_line": 31, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 29, "use_line": 32, "keep": false, "reason": "dominated"}
+{"case": "01_regions", "path": "x", "def_line": 29, "use_line": 33, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 29, "use_line": 36, "keep": true, "reason": "dominating_let"}
+{"case": "01_regions", "path": "x", "def_line": 31, "use_line": 29, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 31, "use_line": 32, "keep": true, "reason": "own"}
+{"case": "01_regions", "path": "x", "def_line": 31, "use_line": 33, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 31, "use_line": 36, "keep": true, "reason": "inside_statement"}
+{"case": "01_regions", "path": "x", "def_line": 33, "use_line": 36, "keep": true, "reason": "inside_statement"}
+{"case": "01_regions", "path": "x", "def_line": 33, "use_line": 32, "keep": false, "reason": "loop_dominated_by_top_write"}
+{"case": "01_regions", "path": "x", "def_line": 33, "use_line": 31, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 40, "use_line": 42, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 40, "use_line": 46, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 40, "use_line": 47, "keep": false, "reason": "dominated"}
+{"case": "01_regions", "path": "x", "def_line": 40, "use_line": 49, "keep": true, "reason": "dominating_let"}
+{"case": "01_regions", "path": "x", "def_line": 42, "use_line": 46, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 42, "use_line": 47, "keep": false, "reason": "dominated_labeled"}
+{"case": "01_regions", "path": "x", "def_line": 42, "use_line": 49, "keep": true, "reason": "break_path"}
+{"case": "01_regions", "path": "x", "def_line": 46, "use_line": 47, "keep": true, "reason": "own"}
+{"case": "01_regions", "path": "x", "def_line": 46, "use_line": 49, "keep": true, "reason": "inside_statement"}
+{"case": "01_regions", "path": "x", "def_line": 42, "use_line": 40, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 53, "use_line": 54, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 53, "use_line": 59, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 53, "use_line": 61, "keep": false, "reason": "dominated"}
+{"case": "01_regions", "path": "x", "def_line": 54, "use_line": 61, "keep": true, "reason": "break_path"}
+{"case": "01_regions", "path": "x", "def_line": 59, "use_line": 61, "keep": true, "reason": "inside_statement"}
+{"case": "01_regions", "path": "x", "def_line": 54, "use_line": 59, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 65, "use_line": 68, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 65, "use_line": 69, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 65, "use_line": 70, "keep": false, "reason": "dominated"}
+{"case": "01_regions", "path": "x", "def_line": 65, "use_line": 73, "keep": true, "reason": "dominating_let"}
+{"case": "01_regions", "path": "x", "def_line": 68, "use_line": 70, "keep": false, "reason": "dominated"}
+{"case": "01_regions", "path": "x", "def_line": 68, "use_line": 73, "keep": true, "reason": "inside_statement"}
+{"case": "01_regions", "path": "x", "def_line": 69, "use_line": 70, "keep": true, "reason": "own"}
+{"case": "01_regions", "path": "x", "def_line": 69, "use_line": 73, "keep": true, "reason": "inside_statement"}
+{"case": "01_regions", "path": "x", "def_line": 79, "use_line": 81, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 79, "use_line": 82, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 79, "use_line": 83, "keep": false, "reason": "dominated"}
+{"case": "01_regions", "path": "x", "def_line": 81, "use_line": 83, "keep": false, "reason": "dominated"}
+{"case": "01_regions", "path": "x", "def_line": 82, "use_line": 83, "keep": true, "reason": "own"}
+{"case": "01_regions", "path": "x", "def_line": 82, "use_line": 79, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 88, "use_line": 92, "keep": false, "reason": "write_only"}
+{"case": "01_regions", "path": "x", "def_line": 88, "use_line": 93, "keep": false, "reason": "dominated"}
+{"case": "01_regions", "path": "x", "def_line": 92, "use_line": 93, "keep": true, "reason": "own"}
+{"case": "01_regions", "path": "x", "def_line": 92, "use_line": 88, "keep": false, "reason": "write_only"}
+{"case": "02_hazards", "path": "x", "def_line": 3, "use_line": 5, "keep": true, "reason": "let_no_value_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 10, "use_line": 12, "keep": true, "reason": "tuple_pattern_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 17, "use_line": 21, "keep": true, "reason": "if_let_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 17, "use_line": 19, "keep": true, "reason": "if_let_body"}
+{"case": "02_hazards", "path": "x", "def_line": 26, "use_line": 30, "keep": true, "reason": "while_let_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 35, "use_line": 40, "keep": true, "reason": "match_binding_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 45, "use_line": 49, "keep": true, "reason": "for_target_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 54, "use_line": 57, "keep": true, "reason": "closure_param_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 62, "use_line": 64, "keep": true, "reason": "let_else_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 69, "use_line": 72, "keep": true, "reason": "nested_assign_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 77, "use_line": 79, "keep": true, "reason": "macro_write_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 84, "use_line": 87, "keep": true, "reason": "attributed_let_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 92, "use_line": 95, "keep": true, "reason": "attributed_assign_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 99, "use_line": 103, "keep": false, "reason": "dominated"}
+{"case": "02_hazards", "path": "x", "def_line": 100, "use_line": 103, "keep": true, "reason": "captured_writer"}
+{"case": "02_hazards", "path": "x", "def_line": 102, "use_line": 103, "keep": true, "reason": "own"}
+{"case": "02_hazards", "path": "x", "def_line": 99, "use_line": 100, "keep": true, "reason": "use_in_closure"}
+{"case": "02_hazards", "path": "x", "def_line": 107, "use_line": 108, "keep": false, "reason": "write_only"}
+{"case": "02_hazards", "path": "x", "def_line": 108, "use_line": 109, "keep": true, "reason": "use_in_closure"}
+{"case": "02_hazards", "path": "x", "def_line": 107, "use_line": 109, "keep": true, "reason": "use_in_closure"}
+{"case": "02_hazards", "path": "x", "def_line": 114, "use_line": 115, "keep": false, "reason": "write_only"}
+{"case": "02_hazards", "path": "x", "def_line": 114, "use_line": 116, "keep": false, "reason": "println_allowed_no_capture_d_drops"}
+{"case": "02_hazards", "path": "x", "def_line": 115, "use_line": 116, "keep": true, "reason": "macro_read"}
+{"case": "02_hazards", "path": "x", "def_line": 120, "use_line": 127, "keep": false, "reason": "dominated"}
+{"case": "02_hazards", "path": "x", "def_line": 122, "use_line": 127, "keep": true, "reason": "nested_fn_def"}
+{"case": "02_hazards", "path": "x", "def_line": 123, "use_line": 127, "keep": true, "reason": "nested_fn_def"}
+{"case": "02_hazards", "path": "x", "def_line": 126, "use_line": 127, "keep": true, "reason": "own"}
+{"case": "02_hazards", "path": "x", "def_line": 123, "use_line": 124, "keep": true, "reason": "nested_use"}
+{"case": "02_hazards", "path": "x", "def_line": 130, "use_line": 131, "keep": true, "reason": "deref_write"}
+{"case": "02_hazards", "path": "x", "def_line": 130, "use_line": 132, "keep": true, "reason": "deref_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 131, "use_line": 132, "keep": true, "reason": "deref_not_dstar"}
+{"case": "02_hazards", "path": "x", "def_line": 136, "use_line": 139, "keep": false, "reason": "dominated"}
+{"case": "02_hazards", "path": "x", "def_line": 137, "use_line": 139, "keep": true, "reason": "async_writer"}
+{"case": "02_hazards", "path": "x", "def_line": 136, "use_line": 138, "keep": false, "reason": "write_only"}
+{"case": "02_hazards", "path": "x", "def_line": 136, "use_line": 137, "keep": true, "reason": "use_in_async"}
+{"case": "02_hazards", "path": "x", "def_line": 143, "use_line": 144, "keep": false, "reason": "write_only"}
+{"case": "02_hazards", "path": "x", "def_line": 143, "use_line": 145, "keep": false, "reason": "dominated"}
+{"case": "02_hazards", "path": "x", "def_line": 144, "use_line": 145, "keep": true, "reason": "own"}
+{"case": "02_hazards", "path": "x", "def_line": 149, "use_line": 150, "keep": false, "reason": "write_only"}
+{"case": "02_hazards", "path": "x", "def_line": 149, "use_line": 151, "keep": false, "reason": "write_only"}
+{"case": "02_hazards", "path": "x", "def_line": 149, "use_line": 152, "keep": false, "reason": "dominated"}
+{"case": "02_hazards", "path": "x", "def_line": 150, "use_line": 151, "keep": true, "reason": "rvalue_collector_reports_read_in_call_argument"}
+{"case": "02_hazards", "path": "x", "def_line": 150, "use_line": 152, "keep": true, "reason": "own"}
+{"case": "02_hazards", "path": "x", "def_line": 151, "use_line": 152, "keep": true, "reason": "inside_statement"}
+{"case": "02_hazards", "path": "x", "def_line": 156, "use_line": 158, "keep": true, "reason": "loop"}
+{"case": "02_hazards", "path": "x", "def_line": 159, "use_line": 158, "keep": true, "reason": "loop_carried"}
+{"case": "02_hazards", "path": "x", "def_line": 156, "use_line": 159, "keep": false, "reason": "write_only"}
+{"case": "02_hazards", "path": "x", "def_line": 159, "use_line": 156, "keep": false, "reason": "write_only"}
+{"case": "03_fold1", "path": "s.f", "def_line": 3, "use_line": 7, "keep": true, "reason": "repoint_base_reassigned"}
+{"case": "03_fold1", "path": "s.f", "def_line": 12, "use_line": 17, "keep": true, "reason": "box_move_restore"}
+{"case": "03_fold1", "path": "s.f", "def_line": 22, "use_line": 25, "keep": true, "reason": "if_let_rebinds_base"}
+{"case": "03_fold1", "path": "s.f", "def_line": 31, "use_line": 34, "keep": true, "reason": "second_let_rebinds_base"}
+{"case": "03_fold1", "path": "s.f", "def_line": 38, "use_line": 41, "keep": true, "reason": "closure_param_rebinds_base"}
+{"case": "03_fold1", "path": "s.f", "def_line": 46, "use_line": 48, "keep": true, "reason": "stable_let_base_field_path_d_off"}
+{"case": "03_fold1", "path": "s.f", "def_line": 52, "use_line": 54, "keep": true, "reason": "stable_formal_field_path_d_off"}
+{"case": "03_fold1", "path": "s.f", "def_line": 59, "use_line": 62, "keep": true, "reason": "mut_borrow_of_base"}
+{"case": "03_fold1", "path": "self.f", "def_line": 67, "use_line": 69, "keep": true, "reason": "self_unproven"}
+{"case": "03_fold1", "path": "x", "def_line": 74, "use_line": 77, "keep": true, "reason": "hygienic_macro_read"}
+{"case": "03_fold1", "path": "x", "def_line": 81, "use_line": 83, "keep": false, "reason": "println_allowed_no_capture_d_drops"}
+{"case": "03_fold1", "path": "x", "def_line": 88, "use_line": 89, "keep": true, "reason": "u_macro_read_line_kept"}
+{"case": "03_fold1", "path": "x", "def_line": 94, "use_line": 97, "keep": false, "reason": "block_expr_dominated"}
+{"case": "03_fold1", "path": "x", "def_line": 96, "use_line": 97, "keep": true, "reason": "own"}
+{"case": "03_fold1", "path": "x", "def_line": 94, "use_line": 99, "keep": true, "reason": "block_expr_not_dominating_outside"}
+{"case": "03_fold1", "path": "x", "def_line": 96, "use_line": 99, "keep": true, "reason": "own"}
+{"case": "03_fold1", "path": "x", "def_line": 104, "use_line": 107, "keep": false, "reason": "dominated"}
+{"case": "03_fold1", "path": "x", "def_line": 105, "use_line": 107, "keep": true, "reason": "tail_assignment_not_a_write"}
+{"case": "03_fold1", "path": "x", "def_line": 106, "use_line": 107, "keep": true, "reason": "own"}
+{"case": "03_fold1", "path": "x", "def_line": 111, "use_line": 114, "keep": true, "reason": "unknown_macro_refused"}
+{"case": "03_fold1", "path": "x", "def_line": 112, "use_line": 114, "keep": true, "reason": "own_macro_let"}
+{"case": "03_fold1", "owner": "inner", "path": "y", "def_line": 119, "use_line": 121, "keep": false, "reason": "nested_fn_dominated_in_own_owner"}
+{"case": "03_fold1", "owner": "nested_fn_owner", "path": "y", "def_line": 119, "use_line": 121, "keep": true, "reason": "enclosing_owner_keeps_nested_pair"}
+{"case": "04_fold2", "path": "s.f", "def_line": 17, "use_line": 21, "keep": true, "reason": "deref_restore_field_path"}
+{"case": "04_fold2", "path": "s.p.f", "def_line": 26, "use_line": 31, "keep": true, "reason": "prefix_restore_field_path"}
+{"case": "04_fold2", "path": "s.f", "def_line": 37, "use_line": 41, "keep": true, "reason": "auto_ref_field_path"}
+{"case": "04_fold2", "path": "s.g.h", "def_line": 45, "use_line": 49, "keep": true, "reason": "mem_replace_strict_prefix"}
+{"case": "04_fold2", "path": "s.f", "def_line": 53, "use_line": 57, "keep": true, "reason": "mut_mut_formal"}
+{"case": "04_fold2", "path": "s.f", "def_line": 63, "use_line": 67, "keep": true, "reason": "mut_borrow_in_macro_field"}
+{"case": "04_fold2", "path": "s.f", "def_line": 73, "use_line": 77, "keep": true, "reason": "ref_mut_binding_field"}
+{"case": "04_fold2", "path": "s.f", "def_line": 81, "use_line": 83, "keep": true, "reason": "field_path_never_proven_by_d"}
+{"case": "04_fold2", "path": "x", "def_line": 87, "use_line": 89, "keep": true, "reason": "local_macro_rules_u_off"}
+{"case": "04_fold2", "path": "x", "def_line": 102, "use_line": 105, "keep": true, "reason": "macro_generated_local_macro"}
+{"case": "04_fold2", "path": "x", "def_line": 110, "use_line": 112, "keep": false, "reason": "plain_use_line_drops_control"}
+{"case": "04_fold2", "path": "x", "def_line": 116, "use_line": 121, "keep": true, "reason": "swap_before_and_after_w"}
+{"case": "04_fold2", "path": "x", "def_line": 125, "use_line": 129, "keep": true, "reason": "swap_before_w"}
+{"case": "04_fold2", "path": "x", "def_line": 133, "use_line": 137, "keep": true, "reason": "swap_after_w"}
+{"case": "04_fold2", "path": "x", "def_line": 141, "use_line": 146, "keep": true, "reason": "swap_inside_dbg"}
+{"case": "04_fold2", "path": "x", "def_line": 150, "use_line": 154, "keep": true, "reason": "ref_mut_binding_ident"}
+{"case": "04_fold2", "path": "x", "def_line": 158, "use_line": 161, "keep": true, "reason": "raw_mut_borrow"}
+{"case": "04_fold2", "path": "x", "def_line": 165, "use_line": 167, "keep": false, "reason": "unborrowed_control"}
+{"case": "05_fold3", "path": "x", "def_line": 24, "use_line": 26, "keep": true, "reason": "generated_reader_u", "owner": "gen_u"}
+{"case": "05_fold3", "path": "x", "def_line": 31, "use_line": 34, "keep": true, "reason": "generated_reader_d", "owner": "gen_d"}
+{"case": "05_fold3", "path": "x", "def_line": 38, "use_line": 40, "keep": true, "reason": "soup_macro_rules_owner_off", "owner": "soup_macro_rules"}
+{"case": "05_fold3", "path": "x", "def_line": 45, "use_line": 47, "keep": true, "reason": "install_macro_rules_owner_off", "owner": "metavariable_macro_rules"}
+{"case": "05_fold3", "path": "x", "def_line": 52, "use_line": 54, "keep": true, "reason": "generator_transitive", "owner": "generator_transitive"}
+{"case": "05_fold3", "path": "x", "def_line": 59, "use_line": 61, "keep": true, "reason": "metavariable_in_macro_position", "owner": "metavariable_name"}
+{"case": "05_fold3", "path": "x", "def_line": 66, "use_line": 68, "keep": true, "reason": "generator_nested_in_soup", "owner": "generator_nested_in_soup"}
+{"case": "05_fold3", "path": "x", "def_line": 73, "use_line": 75, "keep": true, "reason": "external_refused", "owner": "external_refused"}
+{"case": "05_fold3", "path": "x", "def_line": 80, "use_line": 82, "keep": true, "reason": "unknown_refused", "owner": "unknown_refused"}
+{"case": "05_fold3", "path": "x", "def_line": 87, "use_line": 90, "keep": false, "reason": "clean_in_repo_allowed", "owner": "clean_in_repo"}
+{"case": "05_fold3", "path": "x", "def_line": 94, "use_line": 97, "keep": false, "reason": "std_control", "owner": "std_matches"}
+{"case": "05_fold3", "path": "x", "def_line": 101, "use_line": 103, "keep": false, "reason": "std_qualified_allowed", "owner": "std_qualified"}
+{"case": "05_fold3", "path": "x", "def_line": 107, "use_line": 110, "keep": true, "reason": "conflicting_defs_refused", "owner": "conflicting_defs"}
+{"case": "05_fold3", "path": "x", "def_line": 114, "use_line": 116, "keep": true, "reason": "name_builder_owner_off", "owner": "name_builder"}
+{"case": "05_fold3", "path": "x", "def_line": 121, "use_line": 123, "keep": true, "reason": "expr_fragment_generator", "owner": "expr_fragment"}
+{"case": "05_fold3", "path": "x", "def_line": 128, "use_line": 129, "keep": true, "reason": "format_capture_read", "owner": "format_capture"}
+{"case": "05_fold3", "path": "x", "def_line": 134, "use_line": 135, "keep": true, "reason": "format_capture_debug_spec", "owner": "format_capture_spec"}
+{"case": "05_fold3", "path": "x", "def_line": 140, "use_line": 141, "keep": true, "reason": "format_capture_write_line", "owner": "format_capture_write"}
+{"case": "05_fold3", "path": "x", "def_line": 146, "use_line": 147, "keep": true, "reason": "statement_lines_decide", "owner": "format_capture_multiline"}
+{"case": "05_fold3", "path": "x", "def_line": 154, "use_line": 155, "keep": false, "reason": "escaped_brace_is_no_capture", "owner": "format_escaped_control"}
+{"case": "05_fold3", "path": "x", "def_line": 160, "use_line": 162, "keep": false, "reason": "capture_reads_dominating_def", "owner": "format_capture_dominated"}
+{"case": "06_fold4", "path": "name", "def_line": 32, "use_line": 33, "keep": true, "reason": "capture_in_nested_block", "owner": "label_if_let"}
+{"case": "06_fold4", "path": "name", "def_line": 42, "use_line": 43, "keep": true, "reason": "capture_in_closure_block", "owner": "label_closure"}
+{"case": "06_fold4", "path": "x", "def_line": 50, "use_line": 51, "keep": true, "reason": "capture_in_match_arm", "owner": "label_match"}
+{"case": "06_fold4", "path": "x", "def_line": 61, "use_line": 63, "keep": false, "reason": "capture_dominated_by_later_write", "owner": "label_dominated"}
+{"case": "06_fold4", "path": "x", "def_line": 72, "use_line": 74, "keep": true, "reason": "module_soup_macro_rules", "owner": "soup_def_clean_elsewhere"}
+{"case": "06_fold4", "path": "x", "def_line": 79, "use_line": 81, "keep": true, "reason": "module_soup_defines_std_spelling", "owner": "soup_def_std_spelling"}
+{"case": "06_fold4", "path": "x", "def_line": 86, "use_line": 88, "keep": true, "reason": "cfg_if_soup_macro_rules", "owner": "soup_def_cfg_if"}
+{"case": "06_fold4", "path": "x", "def_line": 93, "use_line": 95, "keep": true, "reason": "comment_before_bang", "owner": "comment_in_owner_soup"}
+{"case": "06_fold4", "path": "x", "def_line": 100, "use_line": 102, "keep": true, "reason": "transitive_comment_before_bang", "owner": "comment_in_definition_body"}
+{"case": "06_fold4", "path": "x", "def_line": 107, "use_line": 109, "keep": true, "reason": "comment_between_bang_and_tree", "owner": "comment_after_bang"}
+{"case": "06_fold4", "path": "x", "def_line": 114, "use_line": 116, "keep": true, "reason": "comment_between_metavariable_and_bang", "owner": "comment_after_metavariable"}
+{"case": "06_fold4", "path": "x", "def_line": 121, "use_line": 123, "keep": true, "reason": "soup_comment_after_bang", "owner": "comment_between_bang_and_tree_in_soup"}
+{"case": "06_fold4", "path": "x", "def_line": 128, "use_line": 129, "keep": true, "reason": "zero_flag_then_named_width", "owner": "format_zero_width"}
+{"case": "06_fold4", "path": "x", "def_line": 134, "use_line": 135, "keep": true, "reason": "full_spec_named_width", "owner": "format_all_flags"}
+{"case": "06_fold4", "path": "x", "def_line": 140, "use_line": 141, "keep": true, "reason": "cooked_escape_decodes_to_capture", "owner": "format_hex_escape"}
+{"case": "06_fold4", "path": "x", "def_line": 146, "use_line": 147, "keep": true, "reason": "unicode_escape_decodes_to_capture", "owner": "format_unicode_escape"}
+{"case": "06_fold4", "path": "x", "def_line": 152, "use_line": 153, "keep": false, "reason": "raw_string_stays_raw", "owner": "format_raw_double_brace"}
+{"case": "06_fold4", "path": "x", "def_line": 158, "use_line": 159, "keep": false, "reason": "numeric_width_names_nothing", "owner": "format_plain_width"}
+{"case": "07_fold4_import", "path": "x", "def_line": 5, "use_line": 7, "keep": true, "reason": "raw_alias_binds_assert", "owner": "raw_alias_import"}
+{"case": "07_fold4_import", "path": "r#type", "def_line": 11, "use_line": 13, "keep": true, "reason": "raw_identifier_refused", "owner": "raw_local"}
+{"case": "08_fold4_extern", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "macro_use_after_comment", "owner": "macro_use_comment"}

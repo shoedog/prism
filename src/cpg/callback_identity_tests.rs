@@ -112,6 +112,8 @@ fn r6_named_seam_fallback_excludes_nonformal_body_locals() {
 
 #[test]
 fn r5_named_seam_rows_equal_frozen_main_goldens() {
+    let u_d_removed: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/js_param_r5_u_d_removed.json")).unwrap();
     let cases: serde_json::Value =
         serde_json::from_str(include_str!("fixtures/js_param_r5_golden.json")).unwrap();
     let mut failures = Vec::new();
@@ -124,6 +126,19 @@ fn r5_named_seam_rows_equal_frozen_main_goldens() {
                 r5_full_binding_rows(&build(language, c["source"].as_str().unwrap()), "h", "f");
             let mut expected = c["main"][ext].as_array().unwrap().clone();
             expected = super::s1d_label_tests::refuse_moved(c["id"].as_str().unwrap(), expected);
+            // #630 slice 5: rows rules U (an anchor into a line that only writes the name) and
+            // D (a dominating write) remove; each is listed per case and must exist in `main`.
+            if let Some(removed) = u_d_removed[c["id"].as_str().unwrap()][ext].as_array() {
+                for row in removed {
+                    let at = expected.iter().position(|r| r == row);
+                    assert!(
+                        at.is_some(),
+                        "{}/{ext}: removed row not in main: {row}",
+                        c["id"]
+                    );
+                    expected.remove(at.unwrap());
+                }
+            }
             expected.sort_by_key(ToString::to_string);
             if actual != expected {
                 failures.push(format!(
@@ -837,8 +852,10 @@ fn synthetic_rows_and_labels_equal_the_named_control() {
     let body = "(x, n) {\n  if (n) {\n    x = n;\n  }\n  let i = 0;\n  while (i < n) {\n    i = i + x;\n  }\n  sink(x, i);\n}";
     let anon = format!("f(function {body});\n");
     let named = format!("f(function g{body});\n");
-    // (def line, use line, path) of the four E4 rows the named pass keeps.
-    let e4 = [(1, 3, "x"), (3, 1, "n"), (3, 1, "x"), (7, 5, "i")];
+    // (def line, use line, path) of the E4 rows the named pass keeps. Rule U (#630 slice 5)
+    // removed the other two, (1,3,x) into `x = n;` and (7,5,i) into `let i = 0;`: both lines
+    // only write the name.
+    let e4 = [(3, 1, "n"), (3, 1, "x")];
     for language in JS_TS {
         let dump = |src: &str| -> BTreeSet<String> {
             crate::navigation::queries::dfg_edge_dump(&build(language, src))
