@@ -1039,9 +1039,15 @@ pub(super) fn write_target_identifier(node: Node<'_>) -> Option<Node<'_>> {
     (!d.exotic).then_some(d.ident)
 }
 
+/// `PRISM_C_PRUNE_TRACE` is set (read once).
+pub(super) fn trace_enabled() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("PRISM_C_PRUNE_TRACE").is_some())
+}
+
 /// `PRISM_C_PRUNE_TRACE=1` names every C owner's verdict on stderr (measurement ledger).
 pub(super) fn trace(parsed: &ParsedFile, owner: Node<'_>, scanned: &Result<COwner, Off>) {
-    if std::env::var_os("PRISM_C_PRUNE_TRACE").is_none() {
+    if !trace_enabled() {
         return;
     }
     let status = match scanned {

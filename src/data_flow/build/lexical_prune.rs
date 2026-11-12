@@ -437,7 +437,7 @@ impl<'a> LexicalFacts<'a> {
                     && occurrences
                         .iter()
                         .all(|node| c.binding(self.parsed, *node).is_some());
-                if !bound && std::env::var_os("PRISM_C_PRUNE_TRACE").is_some() {
+                if !bound && super::c_prune::trace_enabled() {
                     let why = if path.fields.is_empty() {
                         occurrences
                             .iter()
@@ -586,6 +586,12 @@ impl<'a> LexicalFacts<'a> {
     ) -> bool {
         let drop = self.proof(path, line).write_only;
         if drop {
+            if self.c.is_some() && super::c_prune::trace_enabled() {
+                eprintln!(
+                    "c-prune-drop\tU\t{}\t{line}\t{}",
+                    self.parsed.path, path.base
+                );
+            }
             stats.dfg_pruned_write_only += 1;
         }
         drop
@@ -646,6 +652,12 @@ impl<'a> LexicalFacts<'a> {
             })
         });
         if drop {
+            if self.c.is_some() && super::c_prune::trace_enabled() {
+                eprintln!(
+                    "c-prune-drop\tD\t{}\t{line}\t{}",
+                    self.parsed.path, path.base
+                );
+            }
             stats.dfg_pruned_dominated += 1;
         }
         !drop
