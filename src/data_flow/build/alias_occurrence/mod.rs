@@ -49,7 +49,12 @@
 //! macro tokens not adjacent to `.`/`::`/`:`; Python import module names, decorator names and
 //! parameter names of nested defs and lambdas; Go `u = append(u[:0], v)` writes the shared backing array
 //! of the target, Python `import o` is not a def (pre-existing), Rust constants made by a glob import or a
-//! macro, and interior mutability or a call mutating the target (out of model, as for `Exact`).
+//! macro, and interior mutability or a call mutating the target (out of model, as for `Exact`). Rust writes
+//! the DFG cannot see and the borrow refusal does not cover: an autoref `&mut self` method call on the target
+//! (`o.add_assign(3)`), a closure capturing it by unique borrow, struct-pattern shorthand `S { ref mut f }`,
+//! interior mutability and call mutation. Inherited extraction defect (Refs #815): a zero-width line anchor
+//! on a write-only target (`base = None;`) is recorded as a Use, so the def above it reaches it `exact`; main
+//! emits the same edge with no alias involved, and the twin's kill used to hide it in clap `examples/git.rs`.
 //!
 //! Specification: the Java rows `J-01..J-06`, Go rows `G-01..G-04`, Rust rows `R-01..R-05` and
 //! Python rows `Y-01..Y-03` of the slice-0 classifier table (`CLASSIFIER.md`); `*_tests.rs` pin them,

@@ -252,3 +252,67 @@ fn a_mutable_borrow_or_ref_mut_binding_of_the_target_refuses_the_removal() {
         assert_eq!(lines(&src), vec![2, 3], "{body}");
     }
 }
+
+// ---- fold 2 ----
+
+#[test]
+fn a_comment_between_a_macro_argument_name_and_its_equals_does_not_hide_the_refusal() {
+    let block = "fn t(o: i32) {\n let mut u = o;\n u = 4;\n println!(\"{o}\", o /* argument name */ = 7);\n use_(u);\n}\n";
+    assert!(lines(block).is_empty(), "{:?}", lines(block));
+    let line = "fn t(o: i32) {\n let mut u = o;\n u = 4;\n println!(\n  \"{o}\",\n  o // name\n  = 7\n );\n use_(u);\n}\n";
+    assert!(lines(line).is_empty(), "{:?}", lines(line));
+    let nested = "fn t(o: i32) {\n let mut u = o;\n u = 4;\n outer!(inner!(\"{o}\", o /* c */ = 7));\n use_(u);\n}\n";
+    assert!(lines(nested).is_empty(), "{:?}", lines(nested));
+    // Controls: positional argument with a comment, and a non-lone `=` (`==`).
+    let positional =
+        "fn t(o: i32) {\n let mut u = o;\n u = 4;\n println!(\"{}\", o /* c */);\n use_(u);\n}\n";
+    assert_eq!(lines(positional), vec![2, 3]);
+    let eqeq = "fn t(o: i32) {\n let mut u = o;\n u = 4;\n m!(o /* c */ == 7);\n use_(u);\n}\n";
+    assert_eq!(lines(eqeq), vec![2, 3]);
+}
+
+#[test]
+fn items_and_uses_in_enclosing_function_blocks_are_items() {
+    for decl in [
+        "const u: i32 = 1;",
+        "use m::u;",
+        "static u: i32 = 1;",
+        "struct u;",
+    ] {
+        let src = format!(
+            "fn outer() {{\n {decl}\n fn inner(o: i32, n: i32) {{\n  let u = o;\n  let u = n + 0;\n  use_(o);\n }}\n}}\n"
+        );
+        assert!(lines(&src).is_empty(), "{decl}: {:?}", lines(&src));
+    }
+    // Control: the same nesting without the declaration suppresses both bindings.
+    let control = "fn outer() {\n fn inner(o: i32, n: i32) {\n  let u = o;\n  let u = n + 0;\n  use_(o);\n }\n}\n";
+    assert_eq!(lines(control), vec![3, 4]);
+    // Control: a const of a sibling function is not visible.
+    let sibling = "fn a() {\n const u: i32 = 1;\n}\nfn outer() {\n fn inner(o: i32) {\n  let u = o;\n  let u = mk();\n }\n}\n";
+    assert_eq!(lines(sibling), vec![6, 7]);
+}
+
+#[test]
+fn ref_mut_in_a_let_condition_and_addr_of_mut_refuse_the_removal() {
+    for body in [
+        "if let ref mut w = o {\n  *w = 3;\n }",
+        "while let ref mut w = o {\n  *w = 3;\n }",
+        "if c && let ref mut w = o {\n  *w = 3;\n }",
+        "let p = std::ptr::addr_of_mut!(o);",
+        "let p = addr_of_mut!(o);",
+    ] {
+        let src = format!(
+            "fn t(mut o: S, c: bool) {{\n let mut u = o;\n u = mk();\n {body}\n use_(o);\n}}\n"
+        );
+        assert!(lines(&src).is_empty(), "{body}: {:?}", lines(&src));
+    }
+    // Controls: `if let` with a shared binding, and `addr_of!` (shared).
+    for body in [
+        "if let w = o {\n  use_(w);\n }",
+        "let p = std::ptr::addr_of!(o);",
+        "let p = addr_of_mut!(q);",
+    ] {
+        let src = format!("fn t(mut o: S, mut q: S, c: bool) {{\n let mut u = o;\n u = mk();\n {body}\n use_(o);\n}}\n");
+        assert_eq!(lines(&src), vec![2, 3], "{body}");
+    }
+}

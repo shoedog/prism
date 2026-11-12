@@ -35,8 +35,9 @@ pub(super) fn classify(parsed: &ParsedFile, span: &PathSpan) -> Classified {
 /// Spellings that name a non-local item visible to `owner` and so cannot be a fresh binding
 /// where a pattern is matched: `const`, `static`, any `struct` (a unit or tuple struct is a value),
 /// enum variants and the leaf or alias of an explicit `use` item (`use a::b;`, `use a::{c as d};`).
-/// Module-level items come from the module chain without descending into function bodies; the
-/// owner's own subtree is walked in full (local items). Glob imports (`use m::*;`) and items made
+/// Module-level items come from the module chain without descending into function bodies; items
+/// declared in every enclosing block on the way to the module root are added (`fn outer() { const u:
+/// i32 = 1; fn inner(..) { .. } }`), and the owner's own subtree is walked in full (local items). Glob imports (`use m::*;`) and items made
 /// by macros are residuals: a constant pattern performs no write, so suppressing its twin cannot
 /// remove a real write (the row is a contract fix, not an output fix).
 pub(super) fn item_names(parsed: &ParsedFile, owner: &Node<'_>) -> BTreeSet<String> {
@@ -94,6 +95,23 @@ pub(super) fn item_names(parsed: &ParsedFile, owner: &Node<'_>) -> BTreeSet<Stri
             let mut cursor = node.walk();
             stack.extend(node.children(&mut cursor));
         }
+    }
+    // Enclosing function blocks: items and imports declared beside the owner or above it.
+    let mut ancestor = owner.parent();
+    while let Some(a) = ancestor {
+        if matches!(a.kind(), "block" | "declaration_list") {
+            let mut stack: Vec<Node<'_>> = Vec::new();
+            let mut cursor = a.walk();
+            stack.extend(a.children(&mut cursor));
+            while let Some(n) = stack.pop() {
+                visit(n);
+                if matches!(n.kind(), "enum_item" | "enum_variant_list") {
+                    let mut c = n.walk();
+                    stack.extend(n.children(&mut c));
+                }
+            }
+        }
+        ancestor = a.parent();
     }
     walk_owner(owner, visit);
     out
@@ -166,7 +184,11 @@ pub(super) fn member_name_tokens(parsed: &ParsedFile, owner: &Node<'_>) -> BTree
         }
         "token_tree" => {
             let mut cursor = node.walk();
-            let kids: Vec<Node<'_>> = node.children(&mut cursor).collect();
+            // Comments are extras between tokens: adjacency is tested on the non-comment tokens.
+            let kids: Vec<Node<'_>> = node
+                .children(&mut cursor)
+                .filter(|c| !matches!(c.kind(), "line_comment" | "block_comment"))
+                .collect();
             for (i, kid) in kids.iter().enumerate() {
                 if kid.kind() != "identifier" {
                     continue;
@@ -191,9 +213,32 @@ pub(super) fn member_name_tokens(parsed: &ParsedFile, owner: &Node<'_>) -> BTree
                 }
             }
         }
-        "let_declaration" | "match_expression" => {
-            // A `ref mut` binding initialised from, or matched against, the target.
-            let source = if node.kind() == "let_declaration" {
+        "macro_invocation" => {
+            // `addr_of_mut!(o)` (any path ending in it) takes a raw mutable pointer to the target.
+            let name = node.child_by_field_name("macro").map(|m| {
+                let t = parsed.node_text(&m);
+                t.rsplit("::").next().unwrap_or(t).trim().to_string()
+            });
+            if name.as_deref() == Some("addr_of_mut") {
+                let mut cursor = node.walk();
+                let tree = node
+                    .children(&mut cursor)
+                    .find(|c| c.kind() == "token_tree");
+                if let Some(tree) = tree {
+                    let mut cursor = tree.walk();
+                    let first = tree
+                        .children(&mut cursor)
+                        .find(|c| c.kind() == "identifier");
+                    if let Some(first) = first {
+                        out.insert(parsed.node_text(&first).to_string());
+                    }
+                }
+            }
+        }
+        "let_declaration" | "let_condition" | "match_expression" => {
+            // A `ref mut` binding initialised from, or matched against, the target (`let`, `if let`,
+            // `while let`, let chains).
+            let source = if matches!(node.kind(), "let_declaration" | "let_condition") {
                 node.child_by_field_name("pattern")
                     .zip(node.child_by_field_name("value"))
             } else {
