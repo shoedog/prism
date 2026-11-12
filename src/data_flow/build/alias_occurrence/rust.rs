@@ -26,6 +26,7 @@ const fn done(disposition: Disposition, rule: &'static str) -> Classified {
 }
 
 /// Classify with the whole file's non-local item names (for tests and parity checks).
+#[cfg(test)]
 pub(super) fn classify(parsed: &ParsedFile, span: &PathSpan) -> Classified {
     let items = item_names(parsed, &parsed.tree.root_node());
     classify_with(parsed, span, &items)
