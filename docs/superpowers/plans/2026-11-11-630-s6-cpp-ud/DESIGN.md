@@ -255,8 +255,8 @@ identifier-class node in the owner with the base's text, as `LexicalFacts::colle
   the same declaration.
 - E2 The declaration has no `static` / `extern` / `thread_local` / `_Thread_local` storage class and no `volatile`
   / `_Atomic` qualifier. C++ also requires the **scalar gate**: the type is a
-  keyword built-in (`bool char char8_t char16_t char32_t wchar_t short int long float double void signed unsigned`,
-  alone or as a `sized_type_specifier` built only from those), an `enum_specifier`, or any pointer declarator, or `auto`
+  keyword built-in (`bool char wchar_t short int long float double void signed unsigned`,
+  alone or as a `sized_type_specifier` built only from those; `char8_t`/`char16_t`/`char32_t` and enums are not in the gate since fold 3), or any pointer declarator, or `auto`
   with a literal initializer (a user-defined literal is not one). References are excluded. Fold 2: the grammar also
   calls `size_t`, `ptrdiff_t`, `int8_t`, `nullptr_t` and the like `primitive_type`, but any of them can name a class (a
   namespace member, a template parameter, a block typedef), so only the keywords prove a scalar.
@@ -376,12 +376,14 @@ stores recorded under `b`'s spelling are never dropped (F1). Hence d's value can
   - This is narrower than Rust's accepted "macro expanding to a write".
 - **X2 Unparsed in-repo headers.** Generated or excluded headers count as external under X1. Prism's loader parses
   `.h/.hh/.hpp/.hxx` under the root unless excluded.
-- **X3 (C++) Operator convention.** "An overloaded NON-ASSIGNMENT binary or call operator that binds a scalar operand by
-  non-const reference and retains it is out of model": `+ - * / % < > <= >= == != && || [] , <<`, `->*`, and template-shaped
-  relational parses (`a < b > (c)`). Operands go by value or const reference by convention. `<<` is deliberately not an
-  escape, because escaping on it would refuse every logged variable; only `>>` (stream extraction) escapes. Assignment and
-  every compound assignment are NOT in X3 since fold 2: they escape their right operand unless the left side is a scalar
-  local (see E3). The alternative (a positive operand certificate) is in D4; the owner declined it in round 2 (D4, X3).
+- **X3 (C++) Operator convention.** Out of model (round 3 wording): a user-defined operator function (member or free; any overloadable operator, compound assignment included, e.g. `int& operator+=(int&, S)`) whose other operand is class-typed, binding a scalar operand by reference (const or not: `const_cast` may write through a const one) and keeping it; with enums out of the scalar gate every operand that passes it is a keyword arithmetic type or a pointer, so an overloaded operator can meet one only through a class-typed other operand (no unary or increment form remains); `>>` is the one operator escaped by name (`<<` is deliberately not an escape, it would refuse every logged variable); the template-shaped relational parse `a < b > (c)` is in the same class. Dialect assumption: `.cc` is compiled as C++11 or later, and `char8_t`/`char16_t`/`char32_t` are refused (keywords only from C++20/C++11).
+  The convention "operands go by value or const reference" does not hold for compound assignment (`T& operator@=(T&, U)`)
+  and cannot bound a const reference that is cast away. Since fold 3 enums are out of the scalar gate, so no unary or
+  increment form remains in X3 (an overloaded operator needs a class or enum operand). `<<` is deliberately not an
+  escape, because escaping on it would refuse every logged variable; only `>>` (stream extraction) escapes. The RIGHT
+  operand of `=` and of every compound assignment escapes unless the left side is a bindable scalar local (see E3, fix E);
+  the LEFT operand of a compound assignment is in X3. The alternative (a positive operand certificate) is in D4; the owner
+  declined it in rounds 2 and 3 (D4, X3).
 - **X4 Translation language.** "`.c` files are compiled as C." Projects that compile `.c` as C++ get the C rules,
   which treat bare arguments as by-value.
 - Inherited and already settled: the #634 survivor cap.
@@ -389,8 +391,12 @@ stores recorded under `b`'s spelling are never dropped (F1). Hence d's value can
 No disclosure is needed for C++ exceptions, scope-exit destructors, conditional-compilation writes or lexical
 shadowing by an ordinary declaration: each is closed by structure. Unions and anonymous aggregates are NOT (6c fold 2,
 round-2 review): the members of a block-scope anonymous `union` are names of the enclosing scope that share storage,
-and the resolver sees no declarator for them, so their names escape; the resolver is closed-world, so any block-scope
-form it does not model (`MODELLED_BLOCK_CHILD`) escapes the names in it. A qualified name (`N::x`) is never a local.
+and the resolver sees no declarator for them, so their names escape. The resolver itself is NOT closed-world: a form it
+does not model (`MODELLED_BLOCK_CHILD`), a hidden declaration, a `using` name or a vexing-parse `S(y);` is closed only by
+escaping the NAME, while name lookup keeps walking outward to an outer namesake. Fix E's left-side test therefore asks
+`COwner::binding` (which fails on every escape of the owner), decided after the walk as a fixpoint (`cpp_prune::settle`),
+and escapes the right operand's roots when the left side is not a bindable scalar local (round 3, W2). A qualified name
+(`N::x`) is never a local.
 Lambdas and coroutines are NOT closed by structure (6c fold 1, round-1
 review): a lambda with a non-empty capture list reads its captures when the closure is created (on the creating
 statement's line, with no spelled occurrence), so every name inside it escapes; a coroutine owner (`co_await`,
@@ -559,7 +565,14 @@ is the same, with these changes:
 > (`size_t` and friends are not scalars), and the escape set grows by qualified names, casts, every reference-declarator
 > form, assignment into a non-scalar left side, anonymous aggregates and closed-world block forms, fold expressions and
 > coroutine keywords in macro bodies (E2/E3 above). D4 stays "disclose": the full family of overloaded non-assignment
-> operators that bind a scalar by non-const reference (X3) is not folded; assignment and compound assignment left it.
+> operators that bind a scalar by non-const reference (X3) is not folded; the right operand of assignment and compound
+> assignment escapes (fix E).
+>
+> **2026-11-12 (6c fold 3, round-3 reviews):** enums leave the scalar gate (they carry every overloaded operator);
+> fix E's left-side test becomes closed-world and is settled to a fixpoint after the walk; a `?:` with a branch that is not
+> a built-in scalar expression escapes both branches' lvalue roots; `char8_t`/`char16_t`/`char32_t` are not keywords for the
+> proof (dialect-dependent); an owner spelling an in-repo macro named like a C++ keyword is off. X3 is restated as the
+> class-operand user-defined operator residual above (owner D4 unchanged: disclose).
 
 ---
 

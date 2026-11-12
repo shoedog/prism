@@ -51,6 +51,8 @@ pub(super) enum Off {
     UsingDirective,
     /// 6c: a coroutine (implicit promise and awaiter calls can bind a parameter or operand).
     Coroutine,
+    /// 6c: the owner spells an in-repo macro named like a C++ keyword (`#define int IR`).
+    KeywordMacro,
 }
 
 /// Names whose call can return a second time (G4).
@@ -105,6 +107,8 @@ pub(super) struct COwner {
     pub(super) scalar_fail: usize,
     /// 6c ledger: escaped names by C++ escape kind (trace only).
     pub(super) escape_kinds: BTreeMap<&'static str, BTreeSet<String>>,
+    /// 6c: escapes that wait for the owner-wide escaped set to settle (`cpp_prune::settle`).
+    pub(super) deferred: Vec<cpp_prune::Deferred>,
 }
 
 impl COwner {
@@ -276,6 +280,7 @@ pub(super) fn scan(
         template: own_inner.is_some(),
         scalar_fail: 0,
         escape_kinds: BTreeMap::new(),
+        deferred: Vec::new(),
     };
     let mut labels = BTreeSet::new();
     let mut gotos = Vec::new();
@@ -308,6 +313,9 @@ pub(super) fn scan(
     );
     if let Some(off) = off {
         return Err(off);
+    }
+    if out.cpp {
+        cpp_prune::settle(parsed, &mut out);
     }
     if gotos.iter().any(|g| !labels.contains(g)) {
         out.d_ok = false;
@@ -344,6 +352,9 @@ fn note_name(name: &str, census: &CMacroCensus, out: &mut COwner, off: &mut Opti
         // 6c: a coroutine keyword spelled only in a macro body.
         if out.cpp && cpp_prune::coroutine_macro(&facts.free) {
             set_off(Off::Coroutine);
+        }
+        if out.cpp && cpp_prune::is_keyword(name) {
+            set_off(Off::KeywordMacro);
         }
     }
 }
@@ -867,6 +878,7 @@ impl COwner {
             template: false,
             scalar_fail: 0,
             escape_kinds: BTreeMap::new(),
+            deferred: Vec::new(),
             escaped: BTreeSet::new(),
             member_roots: BTreeSet::new(),
             macro_names: self.macro_names.clone(),

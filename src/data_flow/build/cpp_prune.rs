@@ -4,23 +4,32 @@
 //! C++ owners (`function_definition`, and a `template_declaration` holding one) run the C rules
 //! plus (a `.h` file is parsed as C, #529, and stays off: the C grammar parses C++ shapes such
 //! as `T& r = (x);` without an error, so the escapes below cannot see them):
-//! - the scalar gate (E2): the declared type is a `primitive_type`, a `sized_type_specifier`,
-//!   an `enum_specifier`, any pointer declarator, or `auto` initialised by a literal;
-//!   references, class and typedef types, `decltype` and `auto` from anything else fail it;
+//! - the scalar gate (E2): the declared type is a keyword `primitive_type` or
+//!   `sized_type_specifier`, any pointer declarator, or `auto` initialised by a literal;
+//!   references, enums (they can carry every overloaded operator), class and typedef types,
+//!   `decltype`, `auto` from anything else and `char8_t`/`char16_t`/`char32_t` (keywords only
+//!   from C++20/C++11) fail it;
 //! - the C++ escape set (E3), owner-wide by name: every lvalue root (`escape_roots`) of an
 //!   address-of operand and of the range of a range-for, a bare argument of any call, a
 //!   constructor or brace initializer, an operand of `>>`, anything inside the initializer of a
 //!   reference or structured binding, every name inside a lambda with a non-empty capture list
 //!   (captures are read when the closure is created), a block-scope using-declaration's names,
 //!   and the bare initializer of a declaration whose type fails the gate;
-//! - owners that are off: a block-scope `using namespace`, a coroutine (`co_await`, `co_yield`,
+//! - the left side of `=` must itself be a bindable scalar local (closed-world, settled after
+//!   the walk to a fixpoint: `settle`), else the right side's roots escape; a `?:` with a branch
+//!   that is not a built-in scalar expression escapes the lvalue roots of both branches;
+//! - owners that are off: an owner spelling an in-repo macro named like a C++ keyword
+//!   (`#define int IR`), a block-scope `using namespace`, a coroutine (`co_await`, `co_yield`,
 //!   `co_return` outside nested lambdas: promise construction and `await_transform` /
 //!   `yield_value` can bind a parameter or an operand by reference);
 //! - bindings from `catch` parameters, condition and init-statement declarations and range-for
 //!   variables (never dominating writes).
 //!
-//! Out of model (X3, disclosed): an overloaded operator other than `>>` that binds a scalar
-//! operand by non-const reference and keeps it.
+//! Out of model (X3, disclosed): a user-defined operator function (member or free, any
+//! overloadable operator, compound assignment included, e.g. `int& operator+=(int&, S)`) whose
+//! other operand is class-typed, binding a scalar operand by reference (const or not:
+//! `const_cast` may write through it) and keeping it. `>>` is the one operator escaped by name.
+//! Dialect: `.cc` is compiled as C++11 or later, and `char8_t`/`char16_t`/`char32_t` are refused.
 use super::c_prune::COwner;
 use crate::ast::ParsedFile;
 use tree_sitter::Node;
@@ -174,9 +183,90 @@ fn literal_kind(kind: &str) -> bool {
 /// `nullptr_t` and the like `primitive_type`, but a program (or a template parameter, or a block
 /// typedef) can give any of those spellings a class, so only a keyword proves a scalar.
 const SCALAR_KEYWORDS: &[&str] = &[
-    "bool", "char", "char8_t", "char16_t", "char32_t", "wchar_t", "short", "int", "long", "float",
-    "double", "void", "signed", "unsigned",
+    "bool", "char", "wchar_t", "short", "int", "long", "float", "double", "void", "signed",
+    "unsigned",
 ];
+
+/// C++ keywords (and the keyword type spellings, `char8_t`, `char16_t`, `char32_t`, which are
+/// keywords only from C++20 and C++11 and so are never scalar proofs): an in-repo macro of one
+/// of these names rewrites the spelling the scalar proofs read, so an owner spelling it is off.
+const KEYWORDS: &[&str] = &[
+    "bool",
+    "char",
+    "char8_t",
+    "char16_t",
+    "char32_t",
+    "wchar_t",
+    "short",
+    "int",
+    "long",
+    "float",
+    "double",
+    "void",
+    "signed",
+    "unsigned",
+    "auto",
+    "const",
+    "volatile",
+    "static",
+    "extern",
+    "register",
+    "thread_local",
+    "mutable",
+    "struct",
+    "class",
+    "union",
+    "enum",
+    "typename",
+    "decltype",
+    "using",
+    "namespace",
+    "operator",
+    "new",
+    "delete",
+    "this",
+    "static_cast",
+    "dynamic_cast",
+    "const_cast",
+    "reinterpret_cast",
+    "sizeof",
+    "alignof",
+    "template",
+    "typedef",
+    "true",
+    "false",
+    "nullptr",
+    "constexpr",
+    "explicit",
+    "inline",
+    "virtual",
+    "friend",
+    "public",
+    "private",
+    "protected",
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "switch",
+    "case",
+    "default",
+    "return",
+    "break",
+    "continue",
+    "goto",
+    "try",
+    "catch",
+    "throw",
+    "co_await",
+    "co_yield",
+    "co_return",
+];
+
+pub(super) fn is_keyword(name: &str) -> bool {
+    KEYWORDS.contains(&name)
+}
 
 /// A `primitive_type` spelled as a keyword, or a `sized_type_specifier` built only from keywords
 /// (and `const`).
@@ -227,7 +317,6 @@ pub(super) fn scalar_gate(
     };
     match ty.kind() {
         "primitive_type" | "sized_type_specifier" => keyword_scalar(parsed, ty),
-        "enum_specifier" => true,
         "placeholder_type_specifier" => {
             if parsed.node_text(&ty).trim() != "auto" {
                 return false;
@@ -264,17 +353,86 @@ fn names_in<'a>(node: Node<'a>, kinds: &[&str], out: &mut Vec<Node<'a>>) {
     }
 }
 
-/// `occ` resolves to an owner-local scalar or pointer variable (the left side of an assignment
-/// that cannot run user code).
-fn is_scalar_local(parsed: &ParsedFile, occ: Node<'_>) -> bool {
-    use super::c_prune::{declaration_of, declared_of_ident, resolve};
-    let Some(ident) = resolve(parsed, occ) else {
-        return false;
+/// An escape that holds only when every identifier of `needs` (byte ranges) is NOT a bindable
+/// scalar local of the owner: `roots` (names) escape then. The left side of a scalar
+/// assignment, and the identifiers of a `?:` branch proof.
+pub(super) struct Deferred {
+    pub(super) needs: Vec<(usize, usize)>,
+    pub(super) kind: &'static str,
+    pub(super) roots: Vec<String>,
+}
+
+/// Settle the deferred escapes to a fixpoint. `COwner::binding` fails closed on every escape of
+/// the owner (anonymous union, `using`, a hidden declaration, a vexing parse, an escaped name)
+/// and applies E2's storage and macro-specifier checks; an escape added by one record can make
+/// another record's identifier non-bindable, so repeat until none fires.
+pub(super) fn settle(parsed: &ParsedFile, out: &mut COwner) {
+    let root = parsed.tree.root_node();
+    let mut fired = vec![false; out.deferred.len()];
+    loop {
+        let mut firing = Vec::new();
+        for (i, d) in out.deferred.iter().enumerate() {
+            if fired[i] {
+                continue;
+            }
+            let bad = d.needs.iter().any(|&(s, e)| {
+                root.descendant_for_byte_range(s, e)
+                    .is_none_or(|n| n.kind() != "identifier" || out.binding(parsed, n).is_none())
+            });
+            if bad {
+                firing.push(i);
+            }
+        }
+        if firing.is_empty() {
+            return;
+        }
+        for i in firing {
+            fired[i] = true;
+            let (kind, roots) = (out.deferred[i].kind, out.deferred[i].roots.clone());
+            for r in roots {
+                out.escape(kind, &r);
+            }
+        }
+    }
+}
+
+/// A built-in scalar expression: a literal, an identifier (recorded in `needs`, it must be a
+/// bindable scalar local), a cast to a keyword scalar, `sizeof`/`alignof`, or a built-in
+/// operator over these. Anything else (a call, a member access, a dereference) is unknown and
+/// counts as not scalar.
+fn builtin_scalar(parsed: &ParsedFile, node: Node<'_>, needs: &mut Vec<(usize, usize)>) -> bool {
+    let sub = |f: &str, needs: &mut Vec<(usize, usize)>| {
+        node.child_by_field_name(f)
+            .is_some_and(|c| builtin_scalar(parsed, c, needs))
     };
-    let (Some(d), Some((decl, top))) = (declared_of_ident(ident), declaration_of(ident)) else {
-        return false;
-    };
-    !d.exotic && scalar_gate(parsed, decl, top, d.pointer)
+    match node.kind() {
+        "number_literal" | "char_literal" | "true" | "false" | "null" | "nullptr"
+        | "sizeof_expression" | "alignof_expression" => true,
+        "identifier" => {
+            needs.push((node.start_byte(), node.end_byte()));
+            true
+        }
+        "parenthesized_expression" => node
+            .named_child(0)
+            .is_some_and(|c| builtin_scalar(parsed, c, needs)),
+        "cast_expression" => node
+            .child_by_field_name("type")
+            .is_some_and(|t| scalar_cast_type(parsed, t)),
+        "unary_expression" => {
+            node.child_by_field_name("operator")
+                .is_some_and(|op| matches!(parsed.node_text(&op), "-" | "+" | "!" | "~"))
+                && sub("argument", needs)
+        }
+        "binary_expression" | "comma_expression" => sub("left", needs) && sub("right", needs),
+        "conditional_expression" => {
+            if node.child_by_field_name("consequence").is_some() {
+                sub("consequence", needs) && sub("alternative", needs)
+            } else {
+                sub("condition", needs) && sub("alternative", needs)
+            }
+        }
+        _ => false,
+    }
 }
 
 /// An identifier that is (the last component of) a qualified name, `N::x`, `::x`, `S::x`,
@@ -500,16 +658,52 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                         None => break,
                     }
                 }
-                let bare_ident = bare.kind() == "identifier";
-                if !(bare_ident && is_scalar_local(parsed, bare)) {
-                    if !bare_ident {
-                        lvalue_roots(parsed, left, &mut roots);
-                        esc(out, "assign_lhs", &roots);
-                        roots.clear();
-                    }
+                if bare.kind() == "identifier" {
+                    // Whether the left side is a bindable scalar local is known only once
+                    // every escape of the owner is (`settle`).
+                    escape_roots(right, &mut roots);
+                    out.deferred.push(Deferred {
+                        needs: vec![(bare.start_byte(), bare.end_byte())],
+                        kind: "assign_rhs",
+                        roots: roots
+                            .iter()
+                            .map(|n| parsed.node_text(n).to_owned())
+                            .collect(),
+                    });
+                } else {
+                    lvalue_roots(parsed, left, &mut roots);
+                    esc(out, "assign_lhs", &roots);
+                    roots.clear();
                     escape_roots(right, &mut roots);
                     esc(out, "assign_rhs", &roots);
                 }
+            }
+        }
+        // `c ? a : b`: when a branch is not a built-in scalar expression, the other can be
+        // converted to a class through `S(int&)`, which binds it.
+        "conditional_expression" => {
+            let fields: &[&str] = if node.child_by_field_name("consequence").is_some() {
+                &["consequence", "alternative"]
+            } else {
+                &["condition", "alternative"]
+            };
+            let mut needs = Vec::new();
+            let scalar = fields.iter().all(|f| {
+                node.child_by_field_name(f)
+                    .is_some_and(|c| builtin_scalar(parsed, c, &mut needs))
+            });
+            lvalue_roots(parsed, node, &mut roots);
+            if scalar {
+                out.deferred.push(Deferred {
+                    needs,
+                    kind: "cond_branch",
+                    roots: roots
+                        .iter()
+                        .map(|n| parsed.node_text(n).to_owned())
+                        .collect(),
+                });
+            } else {
+                esc(out, "cond_branch", &roots);
             }
         }
         // A cast to anything but a keyword built-in scalar (or a pointer to one), wherever it

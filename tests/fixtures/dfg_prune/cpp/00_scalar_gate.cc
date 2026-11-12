@@ -14,13 +14,13 @@ void size_t_keep() {
     sink(n + 1);              // @st:U:keep:size_t_is_not_a_keyword_scalar
 }
 
-void sized_and_enum_drop() {
+void sized_drop_enum_keep() {
     unsigned long u = src();  // @se:D u
     u = 1;
     sink(u + 1);              // @se:U:drop:sized_type
     enum E2 f2 = src();       // @en:D f2
     f2 = E2(1);
-    sink(f2 + 1);             // @en:U:drop:enum_type
+    sink(f2 + 1);             // @en:U:keep:enum_is_not_scalar_it_can_carry_overloaded_operators
 }
 
 void pointer_drop() {

@@ -139,4 +139,28 @@ void cpp_plain_macro_drop() {
 }
 "####,
     ),
+    (
+        "14_keyword_macro.cc",
+        r####"// An in-repo macro named like a C++ keyword rewrites the spelling the scalar proofs read:
+// `int r = x;` is `IR r = x;`, a reference. An owner spelling the macro is off (fold 3).
+using IR = long&;
+long source();
+#define int IR
+
+long keyword_macro_owner_off() {
+    long x = source();    // @km1:D x
+    long saved = x;
+    int r = x;
+    x = 0;
+    r = saved;
+    return x + 1;         // @km1:U:keep:keyword_macro_int_rewrites_the_type_proof
+}
+
+long keyword_macro_unspelled_drop() {
+    long y = source();    // @km2:D y
+    y = 0;
+    return y + 1;         // @km2:U:drop:owner_does_not_spell_the_macro
+}
+"####,
+    ),
 ];

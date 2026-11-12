@@ -16,9 +16,10 @@ ownerless = set()  # fold2/ enumeration fixtures: any owner may keep the pair
 for ext in ("cc", "h", "cpp", "hpp"):
     for p in sorted(glob.glob(os.path.join(here, "*." + ext))):
         cases.append((os.path.basename(p), open(p).read()))
-    for p in sorted(glob.glob(os.path.join(here, "fold2", "*." + ext))):
-        cases.append((os.path.basename(p), open(p).read()))
-        ownerless.add(os.path.basename(p))
+    for sub in ("fold2", "fold3"):
+        for p in sorted(glob.glob(os.path.join(here, sub, "*." + ext))):
+            cases.append((os.path.basename(p), open(p).read()))
+            ownerless.add(os.path.basename(p))
 inline = open(os.path.join(root, "src/data_flow/build/cpp_prune_inline_cases.rs")).read()
 for m in re.finditer(r'\(\s*"([^"]+\.(?:cc|h|cpp|hpp))",\s*r####"(.*?)"####', inline, re.S):
     cases.append((m.group(1), m.group(2)))
