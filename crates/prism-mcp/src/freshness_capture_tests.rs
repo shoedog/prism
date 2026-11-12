@@ -306,3 +306,133 @@ fn freshness_budget_and_completeness() {
     on("inputs-between", move || fs::remove_file(p).unwrap());
     assert_probe(&repo, true, "completeness changed");
 }
+
+fn census_fixture() -> tempfile::TempDir {
+    let d = fixture();
+    source(
+        d.path(),
+        "m.c",
+        "#include \"t.inl\"\n#include \"u.inc\"\nint f(void){return 1;}\n",
+    );
+    source(d.path(), "t.inl", "#define A 1\n");
+    source(d.path(), "u.inc", "#define B 2\n");
+    d
+}
+
+#[test]
+fn freshness_census_text_edit_marks_stale() {
+    let d = census_fixture();
+    let repo = load_repo(d.path()).unwrap();
+    assert_probe(&repo, false, "unchanged census texts");
+    source(d.path(), "t.inl", "#define A 3\n");
+    assert_probe(&repo, true, "edited .inl");
+    // A probe built before the edit notices it through its own stamps too.
+    source(d.path(), "t.inl", "#define A 1\n");
+    let probe = FreshnessProbe::from_loaded_repo(&repo);
+    assert!(!probe.check().stale);
+    source(d.path(), "t.inl", "#define A 4 /* grown */\n");
+    assert!(probe.check().stale, "stamp watches the text file");
+}
+
+#[test]
+fn freshness_census_text_created_between_load_and_probe_marks_stale() {
+    // Census membership is rediscovered at the probe, not read from the loaded skip list: an
+    // angle-include target (any extension) or a text include created after load is a new
+    // census input.
+    let d = fixture();
+    source(
+        d.path(),
+        "m.c",
+        "#include <generated.payload>\n#include \"later.inc\"\nint f(void){return 1;}\n",
+    );
+    let repo = load_repo(d.path()).unwrap();
+    assert_probe(&repo, false, "nothing created yet");
+    source(
+        d.path(),
+        "inc/generated.payload",
+        "#define RESTORE() x = saved\n",
+    );
+    assert_probe(&repo, true, "created angle-include target");
+    fs::remove_file(d.path().join("inc/generated.payload")).unwrap();
+    assert_probe(&repo, false, "removed again");
+    source(d.path(), "later.inc", "#define LATER 1\n");
+    assert_probe(&repo, true, "created quoted text include");
+}
+
+#[test]
+fn freshness_census_text_removal_marks_stale() {
+    let d = census_fixture();
+    let repo = load_repo(d.path()).unwrap();
+    fs::remove_file(d.path().join("u.inc")).unwrap();
+    assert_probe(&repo, true, "removed .inc");
+}
+
+#[test]
+fn freshness_census_unchanged_with_unreadable_directory_is_not_stale() {
+    let d = census_fixture();
+    fs::create_dir(d.path().join("locked")).unwrap();
+    mode(d.path(), "locked", 0);
+    let repo = load_repo(d.path()).unwrap();
+    assert!(repo.manifest_hashes.contains_key("c-census:aggregate"));
+    assert_probe(&repo, false, "unchanged repo, census texts, unreadable dir");
+    mode(d.path(), "locked", 0o700);
+}
+
+#[test]
+fn freshness_census_unrelated_edit_is_not_stale_but_new_define_file_is() {
+    // A define-bearing C-like file counts included or not (the net), a payload only when an
+    // include resolves to it; an unrelated edit or new file leaves the aggregate unchanged.
+    let d = census_fixture();
+    let repo = load_repo(d.path()).unwrap();
+    source(d.path(), "README.md", "# notes\nno directives here\n");
+    source(d.path(), "docs/more.txt", "plain text\n");
+    assert_probe(&repo, false, "unrelated new files");
+    source(d.path(), "README.md", "# notes edited\n");
+    assert_probe(&repo, false, "unrelated edit");
+    source(
+        d.path(),
+        "include/restore.payload",
+        "#define RESTORE() x = saved\n",
+    );
+    assert_probe(&repo, false, "a payload nothing includes is not read");
+    source(
+        d.path(),
+        "include/restore.inc",
+        "#define RESTORE() x = saved\n",
+    );
+    assert_probe(&repo, true, "new never-included C-like define file");
+    fs::remove_file(d.path().join("include/restore.inc")).unwrap();
+    assert_probe(&repo, false, "removed again");
+}
+
+#[test]
+fn freshness_census_define_bearing_file_edit_and_removal_mark_stale() {
+    let d = census_fixture();
+    source(
+        d.path(),
+        "m.c",
+        "#include \"t.inl\"\n#include \"gen.payload\"\nint f(void){return 1;}\n",
+    );
+    source(d.path(), "x/gen.payload", "#define G() g_free\n");
+    let repo = load_repo(d.path()).unwrap();
+    assert_probe(&repo, false, "unchanged");
+    source(d.path(), "x/gen.payload", "#define G() g_other\n");
+    assert_probe(&repo, true, "edited define changes the facts");
+    source(d.path(), "x/gen.payload", "#define G() g_free\n");
+    fs::remove_file(d.path().join("x/gen.payload")).unwrap();
+    assert_probe(&repo, true, "removed define-bearing file");
+}
+
+#[test]
+fn freshness_repository_without_c_is_not_stale_and_has_no_census_entry() {
+    let d = fixture();
+    source(d.path(), "notes.txt", "#define NOT_C 1\n");
+    let repo = load_repo(d.path()).unwrap();
+    assert!(!repo
+        .manifest_hashes
+        .keys()
+        .any(|k| k.starts_with("c-census:")));
+    assert_probe(&repo, false, "no C/C++, no census");
+    source(d.path(), "notes.txt", "#define NOT_C 2\n");
+    assert_probe(&repo, false, "no C/C++, no census walk");
+}

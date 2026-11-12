@@ -13,6 +13,13 @@ mod aliases;
 mod arrow_body_cap_tests;
 #[cfg(test)]
 mod c_macro_census_tests;
+mod c_prune;
+#[cfg(test)]
+mod c_prune_fold2_tests;
+#[cfg(test)]
+mod c_prune_inline_cases;
+#[cfg(test)]
+mod c_prune_tests;
 #[cfg(test)]
 mod census_cap_tests;
 mod exact_reads;
