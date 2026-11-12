@@ -246,8 +246,8 @@ fn list_tree(root: &Path) -> Listing {
                 }
             } else if kind.is_symlink() {
                 match std::fs::metadata(&path) {
-                    // A directory link into the repository is an alias: the walk lists its
-                    // target's files, and `scan_tree` also indexes them under the link's name
+                    // A directory link into the repository is followed: the walk lists its
+                    // target's files, and `PathIndex::resolve` enters the link at its target
                     // so `#include "link/x.h"` resolves. A link outside the root, or into an
                     // excluded directory, is lost.
                     Ok(m) if m.is_dir() => match dir_link_target(canon_root.as_deref(), &path) {
