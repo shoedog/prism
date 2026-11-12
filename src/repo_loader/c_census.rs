@@ -48,8 +48,8 @@ use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
 
-/// Files up to this size are read whole and classified; larger ones are scanned by
-/// streaming for the `define`/`undef` byte patterns.
+/// Files up to this size are read whole and classified; larger non-C inputs are scanned by
+/// streaming for a directive leader (`#`, `%:`, `??=`, also NUL-interleaved): one is a loss.
 pub(crate) const CENSUS_MAX_BYTES: u64 = 64 * 1024 * 1024;
 
 fn is_c_family_path(path: &str) -> bool {
@@ -194,9 +194,18 @@ fn inside_root(canon_root: Option<&Path>, target: &Path) -> bool {
     }
 }
 
-/// A directory listing: the regular files and the symlinked files (relative paths) and the
-/// losses. No file is read.
-fn list_tree(root: &Path) -> (Vec<String>, Vec<String>, BTreeMap<String, String>) {
+/// A directory listing: the regular files, the symlinked files, the in-repo directory links
+/// `(link, target)` (relative paths) and the losses. No file is read.
+type Listing = (
+    Vec<String>,
+    Vec<String>,
+    Vec<(String, String)>,
+    BTreeMap<String, String>,
+);
+
+fn list_tree(root: &Path) -> Listing {
+    let canon_root = std::fs::canonicalize(root).ok();
+    let mut dir_links: Vec<(String, String)> = Vec::new();
     let mut listed = Vec::new();
     let mut links = Vec::new();
     let mut lost: BTreeMap<String, String> = BTreeMap::new();
@@ -237,12 +246,16 @@ fn list_tree(root: &Path) -> (Vec<String>, Vec<String>, BTreeMap<String, String>
                 }
             } else if kind.is_symlink() {
                 match std::fs::metadata(&path) {
-                    // A directory link is lost wherever it points: an include spelled
-                    // through the link's own name (`link/x.h`) does not suffix-match the
-                    // real path the walk lists, so even an in-repo target is not covered.
-                    Ok(m) if m.is_dir() => {
-                        lost.entry(relp).or_insert_with(|| "SymlinkDir".into());
-                    }
+                    // A directory link into the repository is an alias: the walk lists its
+                    // target's files, and `scan_tree` also indexes them under the link's name
+                    // so `#include "link/x.h"` resolves. A link outside the root, or into an
+                    // excluded directory, is lost.
+                    Ok(m) if m.is_dir() => match dir_link_target(canon_root.as_deref(), &path) {
+                        Some(target) => dir_links.push((relp, target)),
+                        None => {
+                            lost.entry(relp).or_insert_with(|| "SymlinkDir".into());
+                        }
+                    },
                     Ok(_) => links.push(relp),
                     Err(_) => {
                         if is_c_like(&relp) {
@@ -256,7 +269,18 @@ fn list_tree(root: &Path) -> (Vec<String>, Vec<String>, BTreeMap<String, String>
             }
         }
     }
-    (listed, links, lost)
+    (listed, links, dir_links, lost)
+}
+
+/// The in-repo, non-excluded target of a directory link, relative to the root.
+fn dir_link_target(canon_root: Option<&Path>, link: &Path) -> Option<String> {
+    let (r, t) = (canon_root?, std::fs::canonicalize(link).ok()?);
+    let rest = t.strip_prefix(r).ok()?;
+    let rel = rest.to_string_lossy().replace('\\', "/");
+    let excluded = rel == "eval/secbench"
+        || rel.starts_with("eval/secbench/")
+        || rest.components().any(|c| c.as_os_str() == ".git");
+    (!excluded).then_some(rel)
 }
 
 /// Normalize an include target lexically: `\` is `/`, `.` and empty segments go, `..`
@@ -277,9 +301,10 @@ fn normalize_target(target: &str) -> Option<String> {
     (!segs.is_empty()).then(|| segs.join("/"))
 }
 
-/// Every in-repo file a target can name: path equal to it, or ending in `/<target>`.
+/// Every in-repo file a target can name: a path (real, or an alias through an in-repo
+/// directory link) equal to it or ending in `/<target>`. Yields the real paths.
 fn resolve<'a>(
-    by_name: &'a HashMap<&str, Vec<&str>>,
+    by_name: &'a HashMap<&str, Vec<(&'a str, &'a str)>>,
     target: &str,
 ) -> impl Iterator<Item = &'a str> {
     let norm = normalize_target(target);
@@ -290,29 +315,47 @@ fn resolve<'a>(
     base.and_then(|b| by_name.get(b.as_str()))
         .into_iter()
         .flatten()
-        .copied()
-        .filter(move |p| {
+        .filter(move |(p, _)| {
             let n = norm.as_deref().unwrap_or("");
             *p == n || suffix.as_deref().is_some_and(|s| p.ends_with(s))
         })
+        .map(|(_, real)| *real)
 }
 
 /// Discover and read the census inputs under `root` for the parsed `files`.
 fn scan_tree(root: &Path, files: &BTreeMap<String, ParsedFile>) -> Scan {
     TREE_WALKS.with(|c| c.set(c.get() + 1));
-    let (listed, links, lost) = list_tree(root);
+    let (listed, links, dir_links, lost) = list_tree(root);
     let canon_root = std::fs::canonicalize(root).ok();
     let link_set: BTreeSet<&str> = links.iter().map(String::as_str).collect();
     let mut scan = Scan {
         lost,
         ..Scan::default()
     };
-    let mut by_name: HashMap<&str, Vec<&str>> = HashMap::new();
+    // Aliases: a file under an in-repo directory link's target is also named through the
+    // link (one level; links inside links are not chased).
+    let aliases: Vec<(String, &str)> = dir_links
+        .iter()
+        .flat_map(|(link, target)| {
+            let prefix = format!("{target}/");
+            listed.iter().chain(&links).filter_map(move |p| {
+                p.strip_prefix(&prefix)
+                    .map(|rest| (format!("{link}/{rest}"), p.as_str()))
+            })
+        })
+        .collect();
+    let mut by_name: HashMap<&str, Vec<(&str, &str)>> = HashMap::new();
     for p in listed.iter().chain(&links) {
         by_name
             .entry(p.rsplit('/').next().unwrap_or(p))
             .or_default()
-            .push(p);
+            .push((p.as_str(), p.as_str()));
+    }
+    for (alias, real) in &aliases {
+        by_name
+            .entry(alias.rsplit('/').next().unwrap_or(alias))
+            .or_default()
+            .push((alias.as_str(), real));
     }
     let parsed_c = |p: &str| files.get(p).is_some_and(is_c_family_parsed);
     let mut queue: Vec<String> = listed

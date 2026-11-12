@@ -597,16 +597,30 @@ fn f3c_symlinked_include_target_pointing_outside_is_a_loss() {
 
 #[cfg(unix)]
 #[test]
-fn f3c_symlinked_directory_is_a_loss_wherever_it_points() {
+fn f3c_symlinked_directory_in_repo_is_an_alias_outside_is_a_loss() {
     use std::os::unix::fs::symlink;
     let outer = tempfile::tempdir().unwrap();
     let root = outer.path().join("repo");
-    write(&root, "src/a.c", b"int f(void) { return 0; }\n");
-    write(&root, "real/x.txt", b"x\n");
+    // `alias -> real` is in-repo: no loss, and an include spelled through the link name
+    // resolves to the real file (aliased in the index).
+    write(
+        &root,
+        "src/a.c",
+        b"#include \"alias/m.payload\"\nint f(void) { return 0; }\n",
+    );
+    write(&root, "real/m.payload", b"#define RESTORE() x = saved\n");
     write(outer.path(), "shared/y.txt", b"y\n");
     symlink(root.join("real"), root.join("alias")).unwrap();
-    // Even an in-repo target is not covered: `alias/x.h` does not suffix-match `real/x.h`.
-    assert!(loaded(&root).0.incomplete(), "in-repo directory target");
+    let (c, _) = loaded(&root);
+    assert!(
+        !c.incomplete(),
+        "an in-repo directory link is an alias, not a loss"
+    );
+    let r = c
+        .get("RESTORE")
+        .expect("include through the link name reads the real file");
+    assert!(r.free.contains("saved"));
+    // A link outside the repository is still a loss.
     symlink(outer.path().join("shared"), root.join("include")).unwrap();
     assert!(
         loaded(&root).0.incomplete(),
