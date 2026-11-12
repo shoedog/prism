@@ -331,7 +331,8 @@ mod stream;
 /// - v180: the `for` initializer replay hazard is decided by write PATHS, bindings and necessary eager test/update writes, not by root names (#693, #697 slice 4): a sibling-field or deferred/conditional write no longer excuses the replay, an exact-path repeated write does, so loop trees change admission and the stored labels of their owners change
 /// - v181: C rules U and D in the DFG producer for `.c` owners (#630 slice 6b): pairs into write-only statements and pairs overwritten by a dominating assignment or initialised declaration are no longer emitted; the C/C++ macro census (6a) now gates owners and names.
 /// - v182: Go, Rust and Python alias twins only at real writes through the alias (alias-twin lane slice 2a): an occurrence that only declares, initialises or reassigns the alias variable mints no target def and no twin edge, so DataFlow edges and labels of Go, Rust and Python owners change.
-const CACHE_VERSION: u32 = 182;
+/// - v183: C++ and `.h` rules U and D (#630 slice 6c): C++ owners (and templates) and C-grammar owners in `.h` files drop write-only and dominated DataFlow pairs under the scalar gate and the C++ escape set, so their DataFlow edges change.
+const CACHE_VERSION: u32 = 183;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -864,7 +865,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 182);
+        assert_eq!(super::CACHE_VERSION, 183);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

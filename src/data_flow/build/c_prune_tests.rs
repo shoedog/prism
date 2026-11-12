@@ -208,17 +208,18 @@ fn edge_count(name: &str, source: &str, language: Language) -> (usize, usize) {
 
 const PLAIN_OWNER: &str = "int src(void);\nvoid sink(int);\nvoid f(void) {\n    int x = src();\n    x = 1;\n    sink(x);\n}\n";
 
-/// `.c` is the only extension in 6b: a `.h` parsed as C, `.cc` and C++ stay off.
+/// 6b rules for `.c`. Under 6c a `.h` and C++ run the C++ rules, where the bare `sink(x)`
+/// argument is an escape, so this owner still keeps its pairs there; `.cc` parsed as C stays off.
 #[test]
 fn c_prune_only_for_dot_c_files() {
     let (b, a) = edge_count("f.c", PLAIN_OWNER, Language::C);
     assert!(a < b, "the control must prune: {b} -> {a}");
     for name in ["f.h", "f.cc", "f.C", "f.cpp"] {
         let (b, a) = edge_count(name, PLAIN_OWNER, Language::C);
-        assert_eq!(b, a, "{name} parsed as C must stay off");
+        assert_eq!(b, a, "{name}: off, or kept by the bare-argument escape");
     }
     let (b, a) = edge_count("f.c", PLAIN_OWNER, Language::Cpp);
-    assert_eq!(b, a, "C++ must stay off");
+    assert_eq!(b, a, "C++ rules: the bare argument keeps the pairs");
 }
 
 fn with_census(files: &[(&str, &str)], target: &str) -> (usize, usize) {
@@ -289,7 +290,7 @@ fn c_prune_formerly_capped_owner_regains_survivors_per_634() {
         "the owner was capped on the frozen producer: {b} -> {a}"
     );
     let (b, a) = edge_count("cap.cc", &src, Language::Cpp);
-    assert_eq!(a, b, "C++ keeps the cap");
+    assert_eq!(a, b, "C++ keeps the cap (the bare argument escapes)");
     let (b, a) = edge_count("cap.h", &src, Language::C);
     assert_eq!(a, b, "a header keeps the cap");
 }

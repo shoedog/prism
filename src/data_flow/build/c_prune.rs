@@ -1,4 +1,6 @@
 //! C facts for rules U and D (#630 slice 6b): `.c` files, `function_definition` owners.
+//! Slice 6c runs the same rules, plus `cpp_prune`'s scalar gate and escapes, for C++ owners and
+//! for C-grammar owners in `.h` files.
 //! Design of record: `docs/superpowers/plans/2026-11-11-630-s6-cpp-ud/DESIGN.md` §5.1.
 //!
 //! Both rules read unexpanded source and drop only identifier paths (no field paths) of a
@@ -12,12 +14,13 @@
 //! reads and writes only what its arguments spell, takes an address only where an argument
 //! spells `&`, hides no jump); a `.c` file compiled as C++; the survivor-based fallback cap
 //! (#634) lets a formerly capped owner regain its surviving edges.
+use super::cpp_prune;
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::{
     macro_call_arguments, normalized_texts, spelled_identifiers, CMacroCensus,
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
 /// Why an owner is off (the ledger names these).
@@ -90,6 +93,25 @@ pub(super) struct COwner {
     macro_names: BTreeSet<String>,
     /// Declarators found under a wrapper the resolver cannot see (E1; names are in `escaped`).
     pub(super) hidden_decls: usize,
+    /// 6c: the C++ rules (scalar gate, C++ escapes) apply: a C++ owner or a `.h` owner.
+    pub(super) cpp: bool,
+    /// 6c ledger: the owner is a `template_declaration`.
+    pub(super) template: bool,
+    /// 6c ledger: declarations of the owner that fail the scalar gate.
+    pub(super) scalar_fail: usize,
+    /// 6c ledger: escaped names by C++ escape kind (trace only).
+    pub(super) escape_kinds: BTreeMap<&'static str, BTreeSet<String>>,
+}
+
+impl COwner {
+    /// Record a C++ escape of `name` (by name, any binding).
+    pub(super) fn escape(&mut self, kind: &'static str, name: &str) {
+        self.escaped.insert(name.to_owned());
+        self.escape_kinds
+            .entry(kind)
+            .or_default()
+            .insert(name.to_owned());
+    }
 }
 
 fn ident_chars(c: char) -> bool {
@@ -150,7 +172,7 @@ fn callee_last_name<'a>(parsed: &'a ParsedFile, mut f: Node<'a>) -> Option<&'a s
 /// Names declared by a `declaration` that is not a direct child of a block, a direct `case`,
 /// or a `for` header (a declaration under `#if`/`#ifdef`/`#else`/`#elif`, a label or a nested
 /// `case` is invisible to the lexical resolver, so the occurrence could bind an outer local).
-fn hidden_declaration(node: Node<'_>) -> bool {
+fn hidden_declaration(node: Node<'_>, cpp: bool) -> bool {
     if node.kind() != "declaration" {
         return false;
     }
@@ -159,6 +181,8 @@ fn hidden_declaration(node: Node<'_>) -> bool {
             "compound_statement" | "for_statement" | "function_definition" | "translation_unit" => {
                 false
             }
+            // C++: condition and init-statement declarations are resolved (see `resolve`).
+            "init_statement" | "condition_clause" if cpp => false,
             "case_statement" => !p
                 .parent()
                 .is_some_and(|b| b.kind() == "compound_statement" && is_switch_body(b)),
@@ -207,10 +231,26 @@ pub(super) fn scan(
     owner: Node<'_>,
     census: &CMacroCensus,
 ) -> Result<COwner, Off> {
-    if parsed.language != crate::languages::Language::C || !is_dot_c(parsed) {
-        return Err(Off::G1File);
-    }
-    if owner.kind() != "function_definition" {
+    use crate::languages::Language;
+    let cpp = match parsed.language {
+        Language::Cpp => true,
+        Language::C if is_dot_c(parsed) => false,
+        Language::C if cpp_prune::is_dot_h(parsed) => true,
+        _ => return Err(Off::G1File),
+    };
+    // F6: a `template_declaration` owner holds its own inner `function_definition`, which is
+    // not a nested boundary for it.
+    let own_inner = if owner.kind() == "template_declaration" && parsed.language == Language::Cpp {
+        let mut cursor = owner.walk();
+        let inner = owner
+            .named_children(&mut cursor)
+            .find(|c| c.kind() == "function_definition")
+            .map(|c| c.id());
+        inner
+    } else {
+        None
+    };
+    if owner.kind() != "function_definition" && own_inner.is_none() {
         return Err(Off::G1Kind);
     }
     if owner.has_error() {
@@ -229,6 +269,10 @@ pub(super) fn scan(
         member_roots: BTreeSet::new(),
         macro_names: BTreeSet::new(),
         hidden_decls: 0,
+        cpp,
+        template: own_inner.is_some(),
+        scalar_fail: 0,
+        escape_kinds: BTreeMap::new(),
     };
     let mut labels = BTreeSet::new();
     let mut gotos = Vec::new();
@@ -251,7 +295,7 @@ pub(super) fn scan(
     out.escaped.extend(args);
     walk(
         parsed,
-        owner,
+        (owner, own_inner),
         owner,
         census,
         &mut out,
@@ -300,7 +344,7 @@ fn note_name(name: &str, census: &CMacroCensus, out: &mut COwner, off: &mut Opti
 #[allow(clippy::too_many_arguments)]
 fn walk(
     parsed: &ParsedFile,
-    owner: Node<'_>,
+    (owner, own_inner): (Node<'_>, Option<usize>),
     node: Node<'_>,
     census: &CMacroCensus,
     out: &mut COwner,
@@ -314,7 +358,7 @@ fn walk(
             *off = Some(o);
         }
     };
-    if node.id() != owner.id() && kind == "function_definition" {
+    if node.id() != owner.id() && kind == "function_definition" && Some(node.id()) != own_inner {
         // A GNU nested function can write a captured local at a call site.
         set_off(Off::G1Nested);
     }
@@ -332,7 +376,10 @@ fn walk(
     if is_name_kind(kind) {
         note_name(parsed.node_text(&node), census, out, off);
     }
-    if hidden_declaration(node) {
+    if out.cpp {
+        cpp_prune::note_node(parsed, node, out);
+    }
+    if hidden_declaration(node, out.cpp) {
         let mut cursor = node.walk();
         for d in node.children_by_field_name("declarator", &mut cursor) {
             all_identifiers(d, parsed, &mut out.escaped);
@@ -390,7 +437,16 @@ fn walk(
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        walk(parsed, owner, child, census, out, labels, gotos, off);
+        walk(
+            parsed,
+            (owner, own_inner),
+            child,
+            census,
+            out,
+            labels,
+            gotos,
+            off,
+        );
     }
 }
 
@@ -426,6 +482,11 @@ fn declared<'a>(mut node: Node<'a>) -> Option<Declared<'a>> {
                 node = node.child_by_field_name("declarator")?;
             }
             "attributed_declarator" => {
+                exotic = true;
+                node = node.named_child(0)?;
+            }
+            // C++: a reference never names its own storage.
+            "reference_declarator" => {
                 exotic = true;
                 node = node.named_child(0)?;
             }
@@ -509,6 +570,11 @@ fn eligible_declared(parsed: &ParsedFile, owner: &COwner, d: &Declared<'_>) -> O
     if tokens(parsed.node_text(&top)).any(|t| STORAGE_OR_QUALIFIER.contains(&t)) {
         return None;
     }
+    // C++ and `.h` owners: the scalar gate (a class, typedef, template, `decltype` or
+    // non-literal `auto` type, or a reference, may hide operator and constructor effects).
+    if owner.cpp && !cpp_prune::scalar_gate(parsed, decl, top, d.pointer) {
+        return None;
+    }
     Some(d.pointer)
 }
 
@@ -539,6 +605,41 @@ pub(super) fn resolve<'a>(parsed: &ParsedFile, occ: Node<'a>) -> Option<Node<'a>
                 if let Some(init) = parent.child_by_field_name("initializer") {
                     if init.kind() == "declaration" {
                         decl_idents(parsed, init, name, occ, &mut found);
+                    }
+                }
+            }
+            // C++ headers: `if (int v = f(); v)`, `while (T* p = ..)`, `switch (int s = ..)`.
+            "if_statement" | "while_statement" | "switch_statement" => {
+                cpp_prune::condition_decls(parent, &mut found, &|d, f| {
+                    decl_idents(parsed, d, name, occ, f)
+                });
+            }
+            "for_range_loop" => {
+                if let Some(init) = parent.child_by_field_name("initializer") {
+                    let mut cursor = init.walk();
+                    for d in init.named_children(&mut cursor) {
+                        if d.kind() == "declaration" {
+                            decl_idents(parsed, d, name, occ, &mut found);
+                        }
+                    }
+                }
+                // The loop variable is in scope in the body only.
+                if let (Some(var), Some(body)) = (
+                    parent.child_by_field_name("declarator"),
+                    parent.child_by_field_name("body"),
+                ) {
+                    if occ.start_byte() >= body.start_byte() {
+                        decl_name(parsed, var, name, &mut found);
+                    }
+                }
+            }
+            "catch_clause" => {
+                if let Some(params) = parent.child_by_field_name("parameters") {
+                    let mut cursor = params.walk();
+                    for p in params.named_children(&mut cursor) {
+                        if p.kind() == "parameter_declaration" {
+                            decl_idents(parsed, p, name, occ, &mut found);
+                        }
                     }
                 }
             }
@@ -636,10 +737,34 @@ fn decl_idents<'a>(
         } else {
             d
         };
+        if top.kind() == "structured_binding_declarator" {
+            // C++: every name binds into the aggregate; ineligible (see `declaration_of`).
+            if top.start_byte() <= occ.start_byte() {
+                decl_name(parsed, top, name, out);
+            }
+            continue;
+        }
         if let Some(dd) = declared(top) {
             if parsed.node_text(&dd.ident) == name && dd.ident.start_byte() <= occ.start_byte() {
                 out.push(dd.ident);
             }
+        }
+    }
+}
+
+/// Declarator identifiers spelled `name` under a declarator without a declaration around it
+/// (a range-for variable, a structured binding): the binding exists and is never eligible.
+fn decl_name<'a>(parsed: &ParsedFile, top: Node<'a>, name: &str, out: &mut Vec<Node<'a>>) {
+    if top.kind() == "structured_binding_declarator" {
+        let mut cursor = top.walk();
+        for c in top.named_children(&mut cursor) {
+            if c.kind() == "identifier" && parsed.node_text(&c) == name {
+                out.push(c);
+            }
+        }
+    } else if let Some(dd) = declared(top) {
+        if parsed.node_text(&dd.ident) == name {
+            out.push(dd.ident);
         }
     }
 }
@@ -656,6 +781,53 @@ impl COwner {
         let d = declared_of_ident(ident)?;
         eligible_declared(parsed, self, &d)?;
         Some(ident.start_byte())
+    }
+
+    /// Why `binding` refuses an occurrence (ledger trace only; `None` when it accepts).
+    pub(super) fn refusal(&self, parsed: &ParsedFile, occ: Node<'_>) -> Option<String> {
+        let name = parsed.node_text(&occ);
+        if self.macro_names.contains(name) {
+            return Some("macro_name".into());
+        }
+        if self.escaped.contains(name) {
+            let kinds: Vec<&str> = self
+                .escape_kinds
+                .iter()
+                .filter(|(_, v)| v.contains(name))
+                .map(|(k, _)| *k)
+                .collect();
+            return Some(if kinds.is_empty() {
+                "escape:c".to_owned()
+            } else {
+                format!("escape:{}", kinds.join("+"))
+            });
+        }
+        let Some(ident) = resolve(parsed, occ) else {
+            return Some("e1_unresolved".into());
+        };
+        let Some(d) = declared_of_ident(ident) else {
+            return Some("e1_ineligible_decl".into());
+        };
+        let saved = self.cpp;
+        let mut as_c = COwner {
+            cpp: false,
+            template: false,
+            scalar_fail: 0,
+            escape_kinds: BTreeMap::new(),
+            escaped: BTreeSet::new(),
+            member_roots: BTreeSet::new(),
+            macro_names: self.macro_names.clone(),
+            d_ok: true,
+            hidden_decls: 0,
+        };
+        let c_ok = eligible_declared(parsed, &as_c, &d).is_some();
+        as_c.cpp = saved;
+        if !c_ok {
+            return Some("e2_storage".into());
+        }
+        eligible_declared(parsed, &as_c, &d)
+            .is_none()
+            .then(|| "e2_scalar_gate".to_owned())
     }
 
     /// E4: a non-pointer declarator whose name has any member or subscript access in the
@@ -760,10 +932,17 @@ pub(super) fn classify_write<'a>(
                 "init_declarator" if p.child_by_field_name("declarator")?.id() == top.id() => {
                     let decl = p.parent()?;
                     if decl.kind() == "declaration" {
+                        // C++: a condition declaration is read as the condition itself.
+                        if is_condition_declaration(decl) {
+                            return None;
+                        }
                         return Some((decl, true));
                     }
                 }
                 "declaration" => {
+                    if is_condition_declaration(p) {
+                        return None;
+                    }
                     // No initializer: a write that never dominates.
                     return Some((top, true));
                 }
@@ -786,6 +965,13 @@ pub(super) fn classify_write<'a>(
         return Some((statement, plain));
     }
     None
+}
+
+/// `if (int v = f())`: the declaration sits directly in a `condition_clause`, where the declared
+/// variable is also the tested value (not a plain write; never a candidate).
+fn is_condition_declaration(decl: Node<'_>) -> bool {
+    decl.parent()
+        .is_some_and(|p| p.kind() == "condition_clause")
 }
 
 /// The variable-write certificate of a D candidate (F1): the raw span is an identifier (or
@@ -834,10 +1020,13 @@ pub(super) fn certified_candidate(
     }
     let p = top.parent()?;
     let ok = match p.kind() {
-        "init_declarator" => p
-            .child_by_field_name("declarator")
-            .is_some_and(|d| d.id() == top.id()),
-        "declaration" | "parameter_declaration" => true,
+        "init_declarator" => {
+            p.child_by_field_name("declarator")
+                .is_some_and(|d| d.id() == top.id())
+                && !p.parent().is_some_and(is_condition_declaration)
+        }
+        "declaration" => !is_condition_declaration(p),
+        "parameter_declaration" => true,
         _ => false,
     };
     ok.then(|| d.ident.start_byte())
@@ -857,8 +1046,16 @@ pub(super) fn trace(parsed: &ParsedFile, owner: Node<'_>, scanned: &Result<COwne
     }
     let status = match scanned {
         Ok(o) => format!(
-            "{}\tescaped={}\tmacro_names={}\tmember_roots={}\thidden_decls={}",
+            "{}\ttemplate={}\tcpp={}\tscalar_fail={}\tesc_kinds={}\tescaped={}\tmacro_names={}\tmember_roots={}\thidden_decls={}",
             if o.d_ok { "on" } else { "on-no-d:g6" },
+            o.template,
+            o.cpp,
+            o.scalar_fail,
+            o.escape_kinds
+                .iter()
+                .map(|(k, v)| format!("{k}:{}", v.len()))
+                .collect::<Vec<_>>()
+                .join(","),
             o.escaped.len(),
             o.macro_names.len(),
             o.member_roots.len(),

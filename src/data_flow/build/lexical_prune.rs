@@ -67,6 +67,8 @@ pub(super) struct LexicalFacts<'a> {
     rust_refused: BTreeSet<String>,
     /// C owner facts (`c_prune`), present when the owner passes G1-G5.
     c: Option<super::c_prune::COwner>,
+    /// C++ `template_declaration` owner: its own inner `function_definition` (F6).
+    template_inner: Option<usize>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -92,7 +94,7 @@ impl<'a> LexicalFacts<'a> {
             && !super::rust_prune::has_local_macro(owner))
         .then(|| super::rust_prune::scan_macros(parsed, owner, census))
         .filter(|scan| !scan.owner_off);
-        let c_owner = (parsed.language == Language::C)
+        let c_owner = matches!(parsed.language, Language::C | Language::Cpp)
             .then(|| {
                 let scanned = super::c_prune::scan(parsed, owner, c_census);
                 super::c_prune::trace(parsed, owner, &scanned);
@@ -109,7 +111,7 @@ impl<'a> LexicalFacts<'a> {
                         && !super::python_prune::has_hidden_reader(parsed, owner)
                 }
                 Language::Rust => rust_macros.is_some(),
-                Language::C => c_owner.is_some(),
+                Language::C | Language::Cpp => c_owner.is_some(),
                 l if l.is_js_family() => js_enabled,
                 _ => false,
             },
@@ -122,6 +124,7 @@ impl<'a> LexicalFacts<'a> {
             rust_mut_borrowed: BTreeSet::new(),
             rust_refused: BTreeSet::new(),
             c: c_owner,
+            template_inner: None,
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
@@ -158,6 +161,14 @@ impl<'a> LexicalFacts<'a> {
         if parsed.language == Language::Rust {
             boundaries.extend(super::rust_prune::NESTED_ITEMS);
         }
+        // F6: a `template_declaration` owner's own inner function is not a boundary for it.
+        if parsed.language == Language::Cpp && owner.kind() == "template_declaration" {
+            let mut cursor = owner.walk();
+            facts.template_inner = owner
+                .named_children(&mut cursor)
+                .find(|c| c.kind() == "function_definition")
+                .map(|c| c.id());
+        }
         facts.collect(owner, owner.id(), &boundaries);
         for span in rvalues {
             facts
@@ -182,7 +193,10 @@ impl<'a> LexicalFacts<'a> {
     }
 
     fn collect(&mut self, node: Node<'a>, owner_id: usize, boundaries: &[&str]) {
-        if node.id() != owner_id && boundaries.contains(&node.kind()) {
+        if node.id() != owner_id
+            && Some(node.id()) != self.template_inner
+            && boundaries.contains(&node.kind())
+        {
             self.nested.push((node.start_byte(), node.end_byte()));
         }
         if self.parsed.language == Language::Python {
@@ -212,7 +226,7 @@ impl<'a> LexicalFacts<'a> {
     fn pure_path(&self, node: Node<'_>) -> Option<AccessPath> {
         match self.parsed.language {
             Language::Rust => super::rust_prune::pure_path(self.parsed, node),
-            Language::C => super::c_prune::pure_path(self.parsed, node),
+            Language::C | Language::Cpp => super::c_prune::pure_path(self.parsed, node),
             _ => pure_path(self.parsed, node),
         }
     }
@@ -262,7 +276,7 @@ impl<'a> LexicalFacts<'a> {
                 split_spec: false,
             });
         }
-        if self.parsed.language == Language::C {
+        if matches!(self.parsed.language, Language::C | Language::Cpp) {
             let c = self.c.as_ref()?;
             let (statement, plain) = super::c_prune::classify_write(self.parsed, node, c)?;
             return Some(Write {
@@ -423,6 +437,20 @@ impl<'a> LexicalFacts<'a> {
                     && occurrences
                         .iter()
                         .all(|node| c.binding(self.parsed, *node).is_some());
+                if !bound && std::env::var_os("PRISM_C_PRUNE_TRACE").is_some() {
+                    let why = if path.fields.is_empty() {
+                        occurrences
+                            .iter()
+                            .find_map(|n| c.refusal(self.parsed, *n))
+                            .unwrap_or_else(|| "unknown".into())
+                    } else {
+                        "field_path".into()
+                    };
+                    eprintln!(
+                        "c-prune-use\t{}\t{line}\t{}\t{why}",
+                        self.parsed.path, path.base
+                    );
+                }
                 if !bound {
                     proof = UseProof::default();
                 } else if !c.d_ok {
@@ -466,7 +494,7 @@ impl<'a> LexicalFacts<'a> {
                         !is_declaring_kind(write.statement.kind())
                             && !write.split_spec
                             // C: a compound assignment reads the old value and never dominates.
-                            && (self.parsed.language != Language::C || write.plain)
+                            && (self.c.is_none() || write.plain)
                             && (!self.parsed.language.is_js_family()
                                 || matches!(
                                     write.statement.kind(),
@@ -543,7 +571,7 @@ impl<'a> LexicalFacts<'a> {
         match self.parsed.language {
             Language::Python => super::python_prune::is_region(node.kind()),
             Language::Rust => super::rust_prune::is_region(node.kind()),
-            Language::C => super::c_prune::is_region(node),
+            Language::C | Language::Cpp => super::c_prune::is_region(node),
             l if l.is_js_family() => super::js_prune::is_region(node),
             _ => is_region(node.kind()),
         }
