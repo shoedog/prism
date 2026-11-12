@@ -116,9 +116,9 @@ fn diff_of(rel: &str, source: &str, language: Language) -> Option<Value> {
         if off_edges.contains(&k) {
             continue;
         }
-        let attributed = removed_defs
-            .iter()
-            .any(|d| d.0 == k.0 .0 && (k.1 .1 <= k.0 .1 || (k.0 .1..=k.1 .1).contains(&d.1)));
+        let attributed = removed_defs.iter().any(|d| {
+            d.0 == k.0 .0 && d.4 == k.0 .4 && (k.1 .1 <= k.0 .1 || (k.0 .1..=k.1 .1).contains(&d.1))
+        });
         assert!(
             attributed,
             "{rel}: added edge not attributable to a removed twin: {k:?}"

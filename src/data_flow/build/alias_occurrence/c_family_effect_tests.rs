@@ -379,3 +379,93 @@ fn a_hazard_on_a_reference_alias_is_a_hazard_on_its_target() {
     let paren_ctl = "int u = o;\no = 1;\nclear((q));\nu = o;";
     assert!(!lc(paren_ctl).is_empty());
 }
+
+fn cpp_lines(src: &str) -> Vec<usize> {
+    suppressed_lines("a.cc", src, Language::Cpp)
+}
+
+/// `int f(..) { <decl>; int u = o; u = 5; <write>; return o; }` with the hazard lines inserted.
+fn hz(decl: &str, write: &str) -> String {
+    format!("int f(int o, int q, int c) {{\n    {decl}\n    int u = o;\n    u = 5;\n    {write}\n    return o;\n}}\n")
+}
+
+#[test]
+fn a_returned_function_types_parameters_are_not_the_definitions() {
+    // `ret`: `(int u)` belongs to the returned pointer-to-function type.
+    let ret = "int o;\nint& u = o;\n\nint (*f())(int u) {\n    o = 1;\n    u = o;\n    u = 7;\n    int seen = o;\n    return nullptr;\n}\n";
+    let got = cpp_lines(ret);
+    assert!(!got.contains(&6) && !got.contains(&7), "{got:?}");
+    // `ret_ctl`: the parameter renamed behaves the same (the global reference stays unsupported).
+    let got = cpp_lines(&ret.replace("(int u)", "(int w)"));
+    assert!(!got.contains(&6) && !got.contains(&7), "{got:?}");
+    // `p1_fnret`: the definition's own parameter list sits in the inner declarator, the returned type's does not.
+    let fn_ret = "int o;\nint& u = o;\nint g(int);\n\nint (*h(int a))(int u) {\n    o = 1;\n    u = o;\n    u = 7;\n    if (o) return g;\n    return g;\n}\n";
+    let got = cpp_lines(fn_ret);
+    assert!(!got.contains(&7) && !got.contains(&8), "{got:?}");
+    // Positive control: a definition's own parameter, even beside a returned function type, is evidence.
+    let own =
+        "int g(int);\nint o;\nint (*h(int u))(int v) {\n    u = o;\n    u = 7;\n    return g;\n}\n";
+    let got = cpp_lines(own);
+    assert!(got.contains(&4) && got.contains(&5), "{got:?}");
+}
+
+#[test]
+fn reference_initialiser_forms_and_other_hazards_keep_the_twins() {
+    // Controls first: a plain copy leaves the formation twins removable.
+    let ctl = hz("int r = o;", "r = 9;");
+    assert!(!cpp_lines(&ctl).is_empty());
+    for (what, decl, write) in [
+        ("brace-initialised reference", "int& r{o};", "r = 9;"),
+        (
+            "conditional reference initialiser",
+            "int& r = c ? o : q;",
+            "r = 9;",
+        ),
+        (
+            "reference declarator in a pointer chain",
+            "int *&r = o;",
+            "r = 9;",
+        ),
+        (
+            "reference init-capture",
+            "auto l = [&x = o]() { x = 9; };",
+            "l();",
+        ),
+        (
+            "address of a conditional",
+            "int *p = &(c ? o : q);",
+            "*p = 9;",
+        ),
+    ] {
+        let got = cpp_lines(&hz(decl, write));
+        assert!(got.is_empty(), "{what}: {got:?}");
+    }
+    // Controls of the same shapes without the reference.
+    for (decl, write) in [
+        ("auto l = [x = o]() { return x; };", "l();"),
+        ("int *p = (c ? &q : &q);", "*p = 9;"),
+        ("int r = c ? o : q;", "r = 9;"),
+    ] {
+        assert!(!cpp_lines(&hz(decl, write)).is_empty(), "{decl}");
+    }
+}
+
+#[test]
+fn a_reference_declared_outside_the_owner_carries_its_hazard_to_the_target() {
+    let global = "int o;\nint& r = o;\nint f() {\n    o = 1;\n    int u = o;\n    u = 5;\n    ++r;\n    return o;\n}\n";
+    assert!(cpp_lines(global).is_empty(), "{:?}", cpp_lines(global));
+    let member = "struct S {\n    int o;\n    int& r = o;\n    int f() {\n        o = 1;\n        int u = o;\n        u = 5;\n        ++r;\n        return o;\n    }\n};\n";
+    assert!(cpp_lines(member).is_empty(), "{:?}", cpp_lines(member));
+    // Control: the update does not go through the reference.
+    let ctl = "int o;\nint& r = o;\nint f() {\n    o = 1;\n    int u = o;\n    u = 5;\n    r;\n    return o;\n}\n";
+    assert!(!cpp_lines(ctl).is_empty());
+}
+
+#[test]
+fn a_reference_chain_carries_the_hazard_to_the_target() {
+    // `s` refers to `r`, which refers to `o`: the fixpoint reaches `o` from `++s`.
+    let chain = "int f(int o) {\n    int u;\n    u = o;\n    u = 5;\n    int& r = o;\n    int& s = r;\n    ++s;\n    return o;\n}\n";
+    assert!(cpp_lines(chain).is_empty(), "{:?}", cpp_lines(chain));
+    let ctl = chain.replace("++s;", "s;");
+    assert!(!cpp_lines(&ctl).is_empty());
+}

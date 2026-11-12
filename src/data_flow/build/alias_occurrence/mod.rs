@@ -64,8 +64,8 @@
 //! names are unsupported). `*u = ..`, `u->f`, `(*u).f`, `u[i]` through a pointer or array parameter and `*p++ = v` are
 //! storage writes (C-05, C-06, C-08, C-10); `u.f` is unsupported except through a C++ reference (C-07). A `.h` header
 //! (prism parses it as C) takes the C++ rules, and a C++ declaration in a `for` initialiser gives no builtin-keyword evidence (a
-//! pointer declarator in it still does): both are more conservative than the table. Parameters of prototypes and
-//! function types are never visible evidence. R1 and the writes the DFG does not model are refused in `c_family_hazards.rs`
+//! pointer declarator in it still does): both are more conservative than the table. Only the parameter list of a
+//! definition's innermost declarator (or a lambda's) is visible evidence, never a prototype's or a function type's. R1 and the writes the DFG does not model are refused in `c_family_hazards.rs`
 //! (struct fields, labels, enumerators, macros and macro parameters, type and namespace names; `&o` in any form, `o++`,
 //! arrays, an undeclared target passed to a call, arguments of macro-looking or unproven callees, identifiers inside `ERROR`
 //! nodes; an occurrence whose own statement holds a parse error is unsupported; in C++ also every call argument (bare pointers

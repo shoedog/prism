@@ -48,6 +48,37 @@ fn root_ident<'t>(parsed: &ParsedFile, mut node: Node<'t>) -> Option<String> {
     }
 }
 
+/// `int *&r = o;`, `int& r{o}`, `T& r = c ? o : q;`: the reference's name and every identifier its
+/// initialiser can yield, when a `reference_declarator` sits anywhere in the declarator chain.
+fn reference_init(
+    parsed: &ParsedFile,
+    declarator: Node<'_>,
+    value: Node<'_>,
+) -> Option<(String, Vec<String>)> {
+    let mut cur = Some(declarator);
+    let mut by_ref = false;
+    let mut name = None;
+    while let Some(d) = cur {
+        match d.kind() {
+            "identifier" | "field_identifier" => {
+                name = Some(parsed.node_text(&d).to_string());
+                break;
+            }
+            "reference_declarator" => by_ref = true,
+            _ => {}
+        }
+        cur = d
+            .child_by_field_name("declarator")
+            .or_else(|| d.named_child(0));
+    }
+    if !by_ref {
+        return None;
+    }
+    let mut ids = BTreeSet::new();
+    all_idents(parsed, value, &mut ids);
+    Some((name?, ids.into_iter().collect()))
+}
+
 fn all_idents(parsed: &ParsedFile, node: Node<'_>, out: &mut BTreeSet<String>) {
     walk_owner(&node, |n| {
         if n.kind() == "identifier" {
@@ -64,6 +95,9 @@ pub(super) struct FileNames {
     pub macros: BTreeSet<String>,
     /// Functions defined or prototyped in the file.
     pub functions: BTreeSet<String>,
+    /// File-scope and class-member references and the identifiers their initialisers name
+    /// (`int& r = o;`): a hazard on one inside an owner is a hazard on its target.
+    pub ref_pairs: Vec<(String, String)>,
 }
 
 /// Well-known C library names: a call to one cannot assign a by-value argument.
@@ -238,6 +272,7 @@ pub(super) fn file_names(parsed: &ParsedFile) -> FileNames {
         tokens: BTreeSet::new(),
         macros: BTreeSet::new(),
         functions: BTreeSet::new(),
+        ref_pairs: Vec::new(),
     };
     let mut stack = vec![parsed.tree.root_node()];
     while let Some(node) = stack.pop() {
@@ -258,6 +293,18 @@ pub(super) fn file_names(parsed: &ParsedFile) -> FileNames {
                 }
                 if matches!(cur.kind(), "identifier" | "field_identifier") {
                     names.functions.insert(parsed.node_text(&cur).to_string());
+                }
+            }
+            "init_declarator" | "field_declaration" => {
+                let value = node
+                    .child_by_field_name("value")
+                    .or_else(|| node.child_by_field_name("default_value"));
+                if let (Some(d), Some(v)) = (node.child_by_field_name("declarator"), value) {
+                    if let Some((name, ids)) = reference_init(parsed, d, v) {
+                        names
+                            .ref_pairs
+                            .extend(ids.into_iter().map(|t| (name.clone(), t)));
+                    }
                 }
             }
             "function_definition" => {
@@ -328,31 +375,22 @@ pub(super) fn tokens(parsed: &ParsedFile, owner: &Node<'_>, file: &FileNames) ->
                 }
             }
             if cpp && node.kind() == "init_declarator" {
-                // `T& r = o.f`: a reference bound to a part of the target writes it.
-                let by_ref = node
-                    .child_by_field_name("declarator")
-                    .is_some_and(|d| d.kind() == "reference_declarator");
-                // A plain-name initialiser is paired by the alias map: writes through the reference
-                // are storage writes whose twins stay. Anything else is a hidden write.
-                if let (true, Some(value)) = (by_ref, node.child_by_field_name("value")) {
-                    if value.kind() == "identifier" {
-                        // Remember the pairing: a hazard on the reference is a hazard on its target.
-                        let mut cur = node.child_by_field_name("declarator");
-                        while let Some(d) = cur.filter(|d| d.kind() != "identifier") {
-                            cur = d
-                                .child_by_field_name("declarator")
-                                .or_else(|| d.named_child(0));
+                if let (Some(d), Some(value)) = (
+                    node.child_by_field_name("declarator"),
+                    node.child_by_field_name("value"),
+                ) {
+                    if let Some((name, idents)) = reference_init(parsed, d, value) {
+                        // The alias map pairs only the plain `T& r = o;`: writes through that reference
+                        // are storage writes whose twins stay. Every other initialiser form (`{o}`,
+                        // `(o)`, `c ? o : q`, `o.f`) is a hidden write of whatever it can yield.
+                        let plain =
+                            value.kind() == "identifier" && d.kind() == "reference_declarator";
+                        if !plain {
+                            out.extend(idents.iter().cloned());
                         }
-                        if let Some(name) = cur {
-                            ref_aliases.push((
-                                parsed.node_text(&name).to_string(),
-                                parsed.node_text(&value).to_string(),
-                            ));
-                        }
+                        // A hazard on the reference is a hazard on its targets (fixpoint below).
+                        ref_aliases.extend(idents.into_iter().map(|t| (name.clone(), t)));
                         return;
-                    }
-                    if let Some(root) = root_ident(parsed, value) {
-                        out.insert(root);
                     }
                 }
             }
@@ -362,8 +400,12 @@ pub(super) fn tokens(parsed: &ParsedFile, owner: &Node<'_>, file: &FileNames) ->
                 .child_by_field_name("operator")
                 .is_some_and(|op| parsed.node_text(&op).trim() == "&");
             if let (true, Some(arg)) = (addr, node.child_by_field_name("argument")) {
-                if let Some(root) = root_ident(parsed, arg) {
-                    out.insert(root);
+                match root_ident(parsed, arg) {
+                    Some(root) => {
+                        out.insert(root);
+                    }
+                    // `&(c ? o : q)`: no single root; every identifier of the operand may be written
+                    None => all_idents(parsed, arg, &mut out),
                 }
             }
         }
@@ -398,11 +440,14 @@ pub(super) fn tokens(parsed: &ParsedFile, owner: &Node<'_>, file: &FileNames) ->
             }
         }
         "lambda_expression" if cpp => {
-            let by_ref = node
-                .child_by_field_name("captures")
-                .is_some_and(|c| parsed.node_text(&c).contains('&'));
+            let captures = node.child_by_field_name("captures");
+            let by_ref = captures.is_some_and(|c| parsed.node_text(&c).contains('&'));
             if let (true, Some(body)) = (by_ref, node.child_by_field_name("body")) {
                 all_idents(parsed, body, &mut out);
+            }
+            // `[&x = o]`, `[&o]`, `[x = &o]`: the captured expression names what the body may write
+            if let (true, Some(c)) = (by_ref, captures) {
+                all_idents(parsed, c, &mut out);
             }
         }
         _ => {}
@@ -461,7 +506,9 @@ pub(super) fn tokens(parsed: &ParsedFile, owner: &Node<'_>, file: &FileNames) ->
             }
         }
     }
-    // A hazard on a proven reference alias (`++r`, `f(r)`, `r.m()`, `&r`) writes its target (fixpoint).
+    // A hazard on a proven reference alias (`++r`, `f(r)`, `r.m()`, `&r`), local or declared outside the
+    // owner, writes its target (fixpoint).
+    ref_aliases.extend(file.ref_pairs.iter().cloned());
     loop {
         let before = out.len();
         for (r, o) in &ref_aliases {

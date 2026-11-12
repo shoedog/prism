@@ -127,22 +127,46 @@ const SCOPES: [&str; 12] = [
 ];
 
 /// Is `param` a parameter of a function definition or a lambda (not of a prototype or a function type)?
+/// Only the parameter list of the definition's INNERMOST `function_declarator` counts: the one whose
+/// declarator is the function's name. A list nested in a returned function or pointer type
+/// (`int (*h(int a))(int u)`: `u`) is in scope only inside that type.
 fn defines_function(param: Node<'_>) -> bool {
     let mut n = param.parent();
+    let mut seen_declarator = false;
     while let Some(x) = n {
         match x.kind() {
-            "parameter_list"
-            | "function_declarator"
-            | "pointer_declarator"
+            "parameter_list" => {}
+            "function_declarator" | "abstract_function_declarator" => {
+                // the FIRST declarator the parameter list belongs to must reach the name without meeting another function declarator
+                let mut d = if seen_declarator {
+                    None
+                } else {
+                    x.child_by_field_name("declarator")
+                };
+                seen_declarator = true;
+                while let Some(y) = d {
+                    match y.kind() {
+                        "function_declarator" | "abstract_function_declarator" => return false,
+                        "pointer_declarator"
+                        | "reference_declarator"
+                        | "parenthesized_declarator" => {
+                            d = y
+                                .child_by_field_name("declarator")
+                                .or_else(|| y.named_child(0));
+                        }
+                        _ => break,
+                    }
+                }
+                // outer declarators (the returned type's) are only passed through
+            }
+            "pointer_declarator"
             | "reference_declarator"
             | "parenthesized_declarator"
-            | "abstract_function_declarator"
-            | "lambda_declarator" => {
-                n = x.parent();
-            }
+            | "lambda_declarator" => {}
             "function_definition" | "lambda_expression" => return true,
             _ => return false,
         }
+        n = x.parent();
     }
     false
 }
@@ -175,7 +199,7 @@ pub(super) fn visible_sites(
                         return;
                     }
                     // A parameter of a prototype, a function-pointer type or an abstract declarator is in
-                    // scope only inside its own declarator: only a definition's (or a lambda's) is evidence.
+                    // scope only inside its own declarator: only the innermost declarator of a definition (or a lambda) is evidence.
                     if p.kind() == "parameter_declaration" && !defines_function(p) {
                         return;
                     }
