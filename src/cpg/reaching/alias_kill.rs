@@ -128,7 +128,6 @@ impl<'a> AliasKills<'a> {
             owner: s.owner,
             in_sets: s.in_sets,
             mapped_defs: s.mapped_defs,
-            line_index: s.line_index,
         };
         let (mut blockers, mut extra) = (Vec::new(), Vec::new());
         let mut unplaced: BTreeMap<String, Vec<usize>> = BTreeMap::new();

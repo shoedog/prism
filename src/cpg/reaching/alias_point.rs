@@ -15,7 +15,6 @@
 use super::graph::BitSet;
 use super::Line;
 use crate::ast::ParsedFile;
-use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 /// What the proof reads: the solved owner.
@@ -24,7 +23,6 @@ pub(super) struct Reach<'a> {
     pub owner: (usize, usize),
     pub in_sets: &'a [BitSet],
     pub mapped_defs: &'a [Option<usize>],
-    pub line_index: &'a BTreeMap<Line, usize>,
 }
 
 const CLASSES: [&str; 3] = ["class", "class_declaration", "abstract_class_declaration"];
