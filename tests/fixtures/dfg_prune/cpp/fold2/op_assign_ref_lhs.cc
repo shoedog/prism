@@ -1,0 +1,38 @@
+int source();
+int *rp;
+void sink(int);
+void take(int&);
+struct Ret {
+  Ret() {}
+  Ret(int& r) { rp = &r; }
+  Ret(int*& r) { rp = r; }
+  Ret& operator=(int& r) { rp = &r; return *this; }
+  Ret& operator+=(int& r) { rp = &r; return *this; }
+  Ret& operator[](int& r) { rp = &r; return *this; }
+  Ret& operator<<(int& r) { rp = &r; return *this; }
+  Ret& operator,(int& r) { rp = &r; return *this; }
+  Ret& operator==(int& r) { rp = &r; return *this; }
+  Ret& operator>>=(int& r) { rp = &r; return *this; }
+  Ret& operator<<=(int& r) { rp = &r; return *this; }
+  Ret& operator->*(int& r) { rp = &r; return *this; }
+  Ret& operator<(int& r) { rp = &r; return *this; }
+  Ret& operator&&(int& r) { rp = &r; return *this; }
+  Ret& operator-=(int& r) { rp = &r; return *this; }
+  Ret& operator*(int& r) { rp = &r; return *this; }
+  Ret& operator()(int& r) { rp = &r; return *this; }
+  Ret& operator=(int&& r) { return *this; }
+  int member;
+};
+Ret& operator+(Ret& a, int& r) { rp = &r; return a; }
+Ret& operator+(int& r, Ret& a) { rp = &r; return a; }
+Ret& operator<<(int& r, Ret& a) { rp = &r; return a; }
+namespace N { int x; }
+int x_global;
+int f(bool c) {
+    int x = source();   //@D  // @op_assign_ref_lhs:D x
+    int saved = x + 0;
+    Ret w; Ret& rw = w; rw = x;
+    x = 0;
+    *rp = saved;
+    return x + 1;   //@U  // @op_assign_ref_lhs:U:keep:fold2_enum
+}

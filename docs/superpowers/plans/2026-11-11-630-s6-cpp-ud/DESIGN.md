@@ -15,9 +15,9 @@ The full evaluation follows below. Its section 7 decisions were taken by the own
 |---|---|
 | D1 | Macros: an in-repo `#define` census with a cache digest (slice 6a). Names passed to, or named by, an in-repo macro get no U and no D. |
 | D2 | Disclosure accepted: macros defined outside the repository (system and third-party headers) act as functions. |
-| D3 | C++: a scalar type gate (primitive, enum, pointer, or `auto` with a literal). Class-typed locals keep all pairs. |
+| D3 | C++: a scalar type gate (a keyword built-in, enum, pointer, or `auto` with a literal; fold 2: keywords only, so `size_t` and `int8_t` fail it). Class-typed locals keep all pairs. |
 | D4 | Overloaded operators that bind scalars by non-const reference are disclosed. Only `>>` escapes. |
-| D5 | `.h` files: off until 6c, then C++ rules. |
+| D5 | `.h` files: off until they get a C++ parse (#529); C++-grammar headers (`.hpp`, `.hh`, ...) get the C++ rules. |
 | D6 | A `.c` file compiled as C++ is out of model. |
 | D7 | Measurement on redis `src/` (C) and leveldb (C++), with cpython sampled for the macro boundary. redis is source-available, so it goes to the draft corpus release only. |
 | D8 | Slices 6a, 6b, 6c, with a cap of 3 review rounds each. 6d only on measured yield. |
@@ -152,7 +152,7 @@ the recommended design (§5).
 | 28 | Shadowing / declaration identity (both) | yes | – | partial (by name) | common | lexical resolution (F3) |
 | 29 | Same-line coalescing (both) | yes | yes | yes | moderate | settled per raw def span |
 | 30 | Templates: dependent types; duplicate owner pass | yes | – | yes | common in C++ | type gate refuses dependent `T`; template boundary fix (F6) |
-| 31 | `.h` parsed as C (#529) carries C++ semantics | yes | – | yes | common in C++ repos | `.h` owners off until 6c, then C++ rules |
+| 31 | `.h` parsed as C (#529) carries C++ semantics | yes | – | yes | common in C++ repos | `.h` owners off until a C++ parse of headers (#529); C++-grammar headers run the C++ rules |
 | 32 | Value-copy aliases (#632) and twins | yes | – | yes | common | twins are never candidates (F1 certificate) and never dominating |
 | 33 | Multi-declarators, structured bindings, direct-init, VLA, statement expressions | yes | – | yes | mixed | unknown forms keep; structured bindings ineligible |
 | 34 | Parse errors (both) | yes | – | yes | corpus-dependent | `has_error` |
@@ -255,8 +255,11 @@ identifier-class node in the owner with the base's text, as `LexicalFacts::colle
   the same declaration.
 - E2 The declaration has no `static` / `extern` / `thread_local` / `_Thread_local` storage class and no `volatile`
   / `_Atomic` qualifier. C++ also requires the **scalar gate**: the type is a
-  `primitive_type`, a `sized_type_specifier`, an `enum_specifier`, or any pointer declarator, or `auto` with a
-  literal initializer. References are excluded.
+  keyword built-in (`bool char char8_t char16_t char32_t wchar_t short int long float double void signed unsigned`,
+  alone or as a `sized_type_specifier` built only from those), an `enum_specifier`, or any pointer declarator, or `auto`
+  with a literal initializer (a user-defined literal is not one). References are excluded. Fold 2: the grammar also
+  calls `size_t`, `ptrdiff_t`, `int8_t`, `nullptr_t` and the like `primitive_type`, but any of them can name a class (a
+  namespace member, a template parameter, a block typedef), so only the keywords prove a scalar.
 - E3 The spelling has **not escaped** anywhere in the owner (by name, any binding):
   - `&x`, `&(x)`, `&x.f`, `&x[i]`;
   - any occurrence inside the argument list of an in-repo function-like macro invocation;
@@ -273,7 +276,23 @@ identifier-class node in the owner with the base's text, as `LexicalFacts::colle
     initializer, or field initializer list;
   - an operand of `>>`;
   - any occurrence inside the initializer of a reference declarator or a structured-binding declaration;
-  - the bare initializer of a declaration whose type fails the scalar gate (a converting constructor).
+  - the bare initializer of a declaration whose type fails the scalar gate (a converting constructor);
+  - (fold 2) the identifiers and type names of every declarator that contains a reference declarator at any depth,
+    with its initializer (`= e`, `(e)`, `{e}`, `int (&r) = x`, `auto& r(x)`, `int*& rp(p)`, multi-declarators, `for`,
+    `if`, `switch` and condition declarations), because the grammar reads `int& r(x);` as a parameter named by the type
+    `x`;
+  - (fold 2) the lvalue roots of the operand of every cast whose target is not a keyword built-in scalar or a pointer to
+    one (C-style cast, wherever it sits; functional, brace and named casts already escape through the argument list);
+  - (fold 2) the right operand of every `=` and compound assignment (`escape_roots`: an unlisted shape escapes every
+    identifier in it) unless the left side is a bare identifier (through parentheses) resolving to an owner local that
+    passes the scalar gate or a pointer; a left side that is not a bare identifier also escapes its own lvalue roots
+    (`(c ? x : y) += 1`);
+  - (fold 2) every identifier inside a `fold_expression` (`(ts, ..., x)` is `x` for an empty pack);
+  - (fold 2) closed-world block scope: the names of an anonymous `union`/`struct`/`class` (members of the enclosing
+    scope, and an anonymous union's members share storage), and every name in a direct child of a block that is neither
+    a modelled statement nor a declaration (`MODELLED_BLOCK_CHILD`);
+  - (fold 2) an identifier that is the name of a qualified identifier (`N::x`, `::x`, `S::x`, `T::x`) is never an
+    occurrence of a local: it never resolves to one, so its use line cannot bind, and it is never a write target.
 - E4 (D, C grammar) If `x`'s declarator is not a pointer declarator, no recorded def rooted at `x` has fields whose
   raw first hop is `.` or a subscript (F4).
 
@@ -357,18 +376,25 @@ stores recorded under `b`'s spelling are never dropped (F1). Hence d's value can
   - This is narrower than Rust's accepted "macro expanding to a write".
 - **X2 Unparsed in-repo headers.** Generated or excluded headers count as external under X1. Prism's loader parses
   `.h/.hh/.hpp/.hxx` under the root unless excluded.
-- **X3 (C++) Operator convention.** "An overloaded operator other than `>>` that binds a scalar operand by non-const
-  reference and retains it is out of model." Operands go by value or const reference by convention. `<<` is
-  deliberately not an escape, because escaping on it would refuse every logged variable. The alternative is in D4.
+- **X3 (C++) Operator convention.** "An overloaded NON-ASSIGNMENT binary or call operator that binds a scalar operand by
+  non-const reference and retains it is out of model": `+ - * / % < > <= >= == != && || [] , <<`, `->*`, and template-shaped
+  relational parses (`a < b > (c)`). Operands go by value or const reference by convention. `<<` is deliberately not an
+  escape, because escaping on it would refuse every logged variable; only `>>` (stream extraction) escapes. Assignment and
+  every compound assignment are NOT in X3 since fold 2: they escape their right operand unless the left side is a scalar
+  local (see E3). The alternative (a positive operand certificate) is in D4; the owner declined it in round 2 (D4, X3).
 - **X4 Translation language.** "`.c` files are compiled as C." Projects that compile `.c` as C++ get the C rules,
   which treat bare arguments as by-value.
 - Inherited and already settled: the #634 survivor cap.
 
-No disclosure is needed for C++ exceptions, scope-exit destructors, unions, conditional-compilation writes or
-shadowing: each is closed by structure. Lambdas and coroutines are NOT closed by structure (6c fold 1, round-1
+No disclosure is needed for C++ exceptions, scope-exit destructors, conditional-compilation writes or lexical
+shadowing by an ordinary declaration: each is closed by structure. Unions and anonymous aggregates are NOT (6c fold 2,
+round-2 review): the members of a block-scope anonymous `union` are names of the enclosing scope that share storage,
+and the resolver sees no declarator for them, so their names escape; the resolver is closed-world, so any block-scope
+form it does not model (`MODELLED_BLOCK_CHILD`) escapes the names in it. A qualified name (`N::x`) is never a local.
+Lambdas and coroutines are NOT closed by structure (6c fold 1, round-1
 review): a lambda with a non-empty capture list reads its captures when the closure is created (on the creating
 statement's line, with no spelled occurrence), so every name inside it escapes; a coroutine owner (`co_await`,
-`co_yield` or `co_return` outside nested lambdas) is off, because promise construction, `yield_value` and
+`co_yield` or `co_return` outside nested lambdas, or any invoked in-repo macro whose transitive body spells one) is off, because promise construction, `yield_value` and
 `await_transform` can bind a parameter or an operand by reference. A block-scope `using namespace` turns the owner
 off and `using N::x;` escapes `x`.
 
@@ -424,12 +450,12 @@ C++ rows (6c):
 
 - `class_type_keep` (`std::string`), `method_receiver_keep` (`x.append(t)`), `range_for_class_keep`,
   `converting_ctor_keep` (all closed by the type gate)
-- `size_t_drop`, `auto_literal_drop`, `auto_call_keep`
+- `size_t_keep` (fold 2: a typedef or class named `size_t` is not a keyword scalar; was `size_t_drop`), `auto_literal_drop`, `auto_call_keep`
 - `bare_arg_escape_keep`, `stream_extract_keep`, `stream_insert_drop` (X3)
 - `ref_init_keep_U` (`int &r = x; sink(r); x = 0;`), `structured_binding_keep`, `ref_init_capture_keep`
 - `lambda_def_kept`, `try_catch_drop`, `try_body_def_keep`, `coroutine_drop`
 - `member_unqualified_keep`, `this_field_keep`, `local_class_method_keep`
-- `header_cpp_semantics_keep` (a `.h` parsed as C with `f(x)`, `f(int&)` declared elsewhere, keeps)
+- `header_cpp_semantics_keep` (a `.h` parsed as C with `f(x)`, `f(int&)` declared elsewhere, keeps: the owner is off, not escaped by C++ rules)
 
 Evidence rows:
 
@@ -475,8 +501,8 @@ a sample of retained opportunities by refusal reason (this tells which 6d fold p
   - Fixtures under `tests/fixtures/dfg_prune/c/`, and a `c_prune_tests.rs` copying `rust_prune_tests.rs`'s shape,
     including `owner_pairs`.
   - Measure on redis.
-- **6c — C++ and `.h` owners.**
-  - Scalar gate, C++ escape set, template boundary fix (F6), and C++ rules applied to C-grammar `.h` owners. ~200 wl.
+- **6c — C++ owners (`.h` stays off, D5 note).**
+  - Scalar gate, C++ escape set and template boundary fix (F6). C-grammar `.h` owners are NOT given the C++ rules. ~200 wl.
   - Measure on leveldb.
 - **6d — optional folds, each only if 6b/6c's retained-opportunity sample shows the yield.**
   - (i) Loop-corrected positional escapes for C++ (F2's fix).
@@ -518,16 +544,22 @@ is the same, with these changes:
 | D2 | Accept X1/X2 wording (external and unparsed-header macros act as functions) | accept / narrow / reject → D1(c) | accept |
 | D3 | C++ class-typed locals | scalar type gate / "assignment replaces" disclosure (2b, needs receiver escapes per F5) | type gate |
 | D4 | C++ overloaded operators binding scalars by non-const reference (X3) | disclose (escape `>>` only) / positive operand certificate (escape unless every other operand is a literal or eligible local) | disclose; measure the certificate's cost on leveldb if the owner hesitates |
-| D5 | `.h` owners (#529) | off until 6c, then C++ rules on C-grammar owners / fix #529 first / C rules (unsound on C++ headers) | off, then C++ rules |
+| D5 | `.h` owners (#529) | off until headers get a C++ parse / fix #529 first / C rules (unsound on C++ headers) | off until a C++ parse; C++-grammar headers run the C++ rules |
+| D6 | `.c` compiled as C++ (X4) | accept / turn `.c` off where a C++ build is detected | accept |
+| D7 | Corpus publication | upload redis `src/` to `corpora-v1` / keep the measurement local | owner's licence call; local is sufficient for 6b |
+| D8 | Slicing and caps | 6a/6b/6c(/6d) with cap 3 each / merge 6a+6b | 6a/6b/6c, 6d only on measured yield |
+| D9 | Field paths in slice 6 | defer to 6d / include 4a in 6b / 4b strict / 4b disclosed | defer; decide 4b strict vs disclosed only after 6b's opportunity sample |
 
 > **2026-11-12 (6c fold 1, round-1 review W3):** `.h` stays off. A `.h` is parsed with the C grammar, which accepts
 > C++ shapes such as `T& r = (x);` without an error (an assignment to a cast-looking expression), so the C++ escapes,
 > keyed on C++ node kinds, never see them. `.h` owners get the C++ rules only once headers get a C++ parse (#529).
 > C++-grammar headers (`.hpp`, `.hh`, ...) keep the C++ rules.
-| D6 | `.c` compiled as C++ (X4) | accept / turn `.c` off where a C++ build is detected | accept |
-| D7 | Corpus publication | upload redis `src/` to `corpora-v1` / keep the measurement local | owner's licence call; local is sufficient for 6b |
-| D8 | Slicing and caps | 6a/6b/6c(/6d) with cap 3 each / merge 6a+6b | 6a/6b/6c, 6d only on measured yield |
-| D9 | Field paths in slice 6 | defer to 6d / include 4a in 6b / 4b strict / 4b disclosed | defer; decide 4b strict vs disclosed only after 6b's opportunity sample |
+>
+> **2026-11-12 (6c fold 2, round-2 reviews and the exhaustive enumeration):** D3 tightens to keyword built-ins
+> (`size_t` and friends are not scalars), and the escape set grows by qualified names, casts, every reference-declarator
+> form, assignment into a non-scalar left side, anonymous aggregates and closed-world block forms, fold expressions and
+> coroutine keywords in macro bodies (E2/E3 above). D4 stays "disclose": the full family of overloaded non-assignment
+> operators that bind a scalar by non-const reference (X3) is not folded; assignment and compound assignment left it.
 
 ---
 
@@ -545,7 +577,7 @@ resolves lexically to an automatic, unescaped local. Pointer stores are never dr
 writes are whole statements directly inside a single-entry region, with no label or nested `case` between the
 write and the use. The C++ scalar type gate and an owner-wide reference-escape set cover C++. An in-repo `#define`
 census closes the macro residual down to one principled boundary: external macros act as functions. It ships as
-6a (census, behaviour-neutral), 6b (C), 6c (C++ and `.h`), with field paths and finer escapes as optional measured
+6a (census, behaviour-neutral), 6b (C), 6c (C++; `.h` stays off, D5), with field paths and finer escapes as optional measured
 folds. It is measured on redis `src/` and leveldb, with cpython for macro sampling. The fallback is the same design
 without the census: U only on macro-free lines, and the macro boundary widened to all macros. The owner decides
 the macro policy and its wording, the C++ class and operator conventions, `.h` handling, `.c`-as-C++, corpus

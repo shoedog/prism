@@ -7,10 +7,11 @@ int cond();
 std::string mk();
 void use_s(std::string);
 
-void size_t_drop() {
+// `size_t` is a typedef (or any class of that name), not a keyword built-in: fold 2 keeps it.
+void size_t_keep() {
     size_t n = src();         // @st:D n
     n = 1;
-    sink(n + 1);              // @st:U:drop:size_t_is_a_scalar
+    sink(n + 1);              // @st:U:keep:size_t_is_not_a_keyword_scalar
 }
 
 void sized_and_enum_drop() {

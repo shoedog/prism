@@ -107,4 +107,36 @@ static inline int header_clean_drop(void) {
 }
 "####,
     ),
+    (
+        "13_coroutine_macro.cc",
+        r####"// A coroutine keyword spelled only inside an in-repo macro: the parser sees a call, so the
+// owner is turned off by the macro census (fold 2, fix H). The control uses a macro without one.
+int src();
+void sink(int);
+#define PAUSE() co_yield 0
+#define OUTER() PAUSE()
+#define PLAIN() sink(0)
+
+void cpp_coroutine_macro_off() {
+    int x = src();        // @co1:D x
+    PAUSE();
+    x = 1;
+    sink(x + 1);          // @co1:U:keep:co_yield_hidden_in_a_macro
+}
+
+void cpp_coroutine_nested_macro_off() {
+    int x = src();        // @co2:D x
+    OUTER();
+    x = 1;
+    sink(x + 1);          // @co2:U:keep:co_yield_hidden_two_macros_deep
+}
+
+void cpp_plain_macro_drop() {
+    int x = src();        // @co3:D x
+    PLAIN();
+    x = 1;
+    sink(x + 1);          // @co3:U:drop:macro_without_a_coroutine_keyword
+}
+"####,
+    ),
 ];

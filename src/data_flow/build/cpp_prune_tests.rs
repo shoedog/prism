@@ -246,7 +246,7 @@ const TYPEDEF_OWNER: &str =
 /// included: the C grammar parses C++ shapes such as `T& r = (x);` without an error, fold 1)
 /// none.
 #[test]
-fn cpp_rules_apply_to_headers_and_cpp_only() {
+fn cpp_rules_apply_to_cpp_files_only_c_grammar_headers_are_off() {
     for (name, language, scalar, bare, typedef) in [
         ("f.c", Language::C, true, true, true),
         ("f.h", Language::C, false, false, false),

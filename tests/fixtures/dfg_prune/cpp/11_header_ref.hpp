@@ -6,11 +6,11 @@ typedef int T;
 void save(T& r);
 void restore(T& r);
 static inline void header_typedef_ref_paren_cpp_keep() {
-  int x = src();            // @hr:D x
+  int x = src();            // @hh:D x
   T& r = (x);
   save(r);
   x = 0;
   restore(r);
-  int z = x + 1;            // @hr:U:keep:reference_initializer_escapes_x_in_a_cpp_header
+  int z = x + 1;            // @hh:U:keep:reference_initializer_escapes_x_in_a_cpp_header
   sink(z);
 }

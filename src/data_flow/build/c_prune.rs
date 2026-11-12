@@ -341,6 +341,10 @@ fn note_name(name: &str, census: &CMacroCensus, out: &mut COwner, off: &mut Opti
         }
         out.escaped.extend(facts.free.iter().cloned());
         out.escaped.extend(facts.params.iter().cloned());
+        // 6c: a coroutine keyword spelled only in a macro body.
+        if out.cpp && cpp_prune::coroutine_macro(&facts.free) {
+            set_off(Off::Coroutine);
+        }
     }
 }
 
@@ -459,11 +463,11 @@ fn walk(
 }
 
 /// A declarator chain's identifier and shape.
-struct Declared<'a> {
-    ident: Node<'a>,
-    pointer: bool,
+pub(super) struct Declared<'a> {
+    pub(super) ident: Node<'a>,
+    pub(super) pointer: bool,
     /// An array or function declarator, or an unknown wrapper: never eligible.
-    exotic: bool,
+    pub(super) exotic: bool,
 }
 
 /// Unwrap a declarator through pointer and parenthesized declarators to its identifier.
@@ -531,7 +535,7 @@ fn is_plain_declarator_chain(mut node: Node<'_>) -> bool {
 
 /// The declaration (or parameter) a declarator identifier sits in, and the declarator
 /// subtree directly under the declaration or `init_declarator`.
-fn declaration_of<'a>(ident: Node<'a>) -> Option<(Node<'a>, Node<'a>)> {
+pub(super) fn declaration_of<'a>(ident: Node<'a>) -> Option<(Node<'a>, Node<'a>)> {
     let mut top = ident;
     loop {
         let parent = top.parent()?;
@@ -589,6 +593,10 @@ fn eligible_declared(parsed: &ParsedFile, owner: &COwner, d: &Declared<'_>) -> O
 /// The binding an occurrence resolves to: the declarator identifier node, found lexically,
 /// innermost scope first. `None`: unresolved, ambiguous or not an owner-local declaration.
 pub(super) fn resolve<'a>(parsed: &ParsedFile, occ: Node<'a>) -> Option<Node<'a>> {
+    // C++: the name of a qualified identifier (`N::x`) is another scope's entity.
+    if parsed.language == crate::languages::Language::Cpp && cpp_prune::is_qualified_name(occ) {
+        return None;
+    }
     let name = parsed.node_text(&occ);
     let mut child = occ;
     loop {
@@ -892,7 +900,7 @@ impl COwner {
 }
 
 /// Re-derive the declarator chain around a declarator identifier.
-fn declared_of_ident(ident: Node<'_>) -> Option<Declared<'_>> {
+pub(super) fn declared_of_ident(ident: Node<'_>) -> Option<Declared<'_>> {
     let (_, top) = declaration_of(ident)?;
     let d = declared(top)?;
     (d.ident.id() == ident.id()).then_some(d)
