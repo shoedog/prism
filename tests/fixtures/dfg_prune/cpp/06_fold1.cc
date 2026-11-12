@@ -178,7 +178,7 @@ int lambda_empty_capture_drop() {
     int x = source();         // @l4:D x
     x = 1;
     auto l = [] { return 1; };
-    return x + l();           // @l4:U:drop:empty_capture_list_reads_no_local
+    return (x + 1) + l();     // @l4:U:drop:empty_capture_list_reads_no_local
 }
 
 // ---- fix 5: a coroutine owner is off ----
@@ -213,7 +213,7 @@ void using_decl_other_name_drop() {
     int x = src();            // @n1:D x
     x = 1;
     using N::y;
-    sink(x + y);              // @n1:U:drop:using_declaration_escapes_only_its_own_name
+    sink(x + 1 + y);          // @n1:U:drop:using_declaration_escapes_only_its_own_name
 }
 
 void addr_of_other_name_drop(bool c) {
@@ -221,7 +221,7 @@ void addr_of_other_name_drop(bool c) {
     int y = 0;
     int *p = &(c ? y : y);
     x = 1;
-    sink(x + *p);             // @n2:U:drop:address_of_escapes_the_roots_of_its_operand_only
+    sink(x + 1 + *p);         // @n2:U:drop:address_of_escapes_the_roots_of_its_operand_only
 }
 
 void range_for_other_name_drop(int *arr) {

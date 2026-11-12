@@ -62,11 +62,11 @@ void stream_extract_keep(In &in) {
     sink(x + 1);              // @sx:U:keep:shift_right_operand
 }
 
-void stream_insert_drop(Out &out) {
+void stream_insert_keep(Out &out) {
     int x = src();            // @si:D x
     x = 1;
     out << x;
-    sink(x + 1);              // @si:U:drop:shift_left_is_not_an_escape_x3
+    sink(x + 1);              // @si:U:keep:shift_left_operand_certificate
 }
 
 void ref_init_keep_U() {

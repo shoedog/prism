@@ -16,7 +16,7 @@ ownerless = set()  # fold2/ enumeration fixtures: any owner may keep the pair
 for ext in ("cc", "h", "cpp", "hpp"):
     for p in sorted(glob.glob(os.path.join(here, "*." + ext))):
         cases.append((os.path.basename(p), open(p).read()))
-    for sub in ("fold2", "fold3"):
+    for sub in ("fold2", "fold3", "fold4"):
         for p in sorted(glob.glob(os.path.join(here, sub, "*." + ext))):
             cases.append((os.path.basename(p), open(p).read()))
             ownerless.add(os.path.basename(p))

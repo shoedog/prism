@@ -337,7 +337,7 @@ fn survivors(source: &str, name: &str) -> std::collections::BTreeMap<usize, Vec<
 #[test]
 fn t08_template_two_passes_agree() {
     let body =
-        "    int x = src();\n    x = 1;\n    int y = src();\n    take(y);\n    return x + y + 1;\n";
+        "    int x = src();\n    x = 1;\n    int y = src();\n    take(y);\n    return x + 1 + y;\n";
     let two =
         format!("int src();\nvoid take(int&);\ntemplate <typename T>\nint f(T t) {{\n{body}}}\n");
     let one =

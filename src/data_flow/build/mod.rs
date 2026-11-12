@@ -25,6 +25,7 @@ mod census_cap_tests;
 mod cpp_prune;
 #[cfg(test)]
 mod cpp_prune_inline_cases;
+mod cpp_prune_operand;
 #[cfg(test)]
 mod cpp_prune_tests;
 mod exact_reads;

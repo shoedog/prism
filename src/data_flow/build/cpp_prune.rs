@@ -7,30 +7,39 @@
 //! - the scalar gate (E2): the declared type is a keyword `primitive_type` or
 //!   `sized_type_specifier`, any pointer declarator, or `auto` initialised by a literal;
 //!   references, enums (they can carry every overloaded operator), class and typedef types,
-//!   `decltype`, `auto` from anything else and `char8_t`/`char16_t`/`char32_t` (keywords only
-//!   from C++20/C++11) fail it;
+//!   `decltype`, `auto` from anything else and `char8_t`/`char16_t`/`char32_t` (`char8_t` is a
+//!   keyword only from C++20; all three are refused) fail it;
 //! - the C++ escape set (E3), owner-wide by name: every lvalue root (`escape_roots`) of an
 //!   address-of operand and of the range of a range-for, a bare argument of any call, a
-//!   constructor or brace initializer, an operand of `>>`, anything inside the initializer of a
-//!   reference or structured binding, every name inside a lambda with a non-empty capture list
+//!   constructor or brace initializer, anything inside the initializer of a reference or
+//!   structured binding, the names in the template arguments of a call (`a < x > (0)`), every name inside a lambda with a non-empty capture list
 //!   (captures are read when the closure is created), a block-scope using-declaration's names,
 //!   and the bare initializer of a declaration whose type fails the gate;
 //! - the left side of `=` must itself be a bindable scalar local (closed-world, settled after
-//!   the walk to a fixpoint: `settle`), else the right side's roots escape; a `?:` with a branch
-//!   that is not a built-in scalar expression escapes the lvalue roots of both branches;
-//! - owners that are off: an owner spelling an in-repo macro named like a C++ keyword
+//!   the walk to a fixpoint: `settle`, a worklist), else the right side's roots escape; the
+//!   operand certificate (below) covers every operator;
+//! - owners that are off: an owner spelling an in-repo macro named like an entry of `KEYWORDS`
 //!   (`#define int IR`), a block-scope `using namespace`, a coroutine (`co_await`, `co_yield`,
 //!   `co_return` outside nested lambdas: promise construction and `await_transform` /
 //!   `yield_value` can bind a parameter or an operand by reference);
 //! - bindings from `catch` parameters, condition and init-statement declarations and range-for
 //!   variables (never dominating writes).
 //!
-//! Out of model (X3, disclosed): a user-defined operator function (member or free, any
-//! overloadable operator, compound assignment included, e.g. `int& operator+=(int&, S)`) whose
-//! other operand is class-typed, binding a scalar operand by reference (const or not:
-//! `const_cast` may write through it) and keeping it. `>>` is the one operator escaped by name.
-//! Dialect: `.cc` is compiled as C++11 or later, and `char8_t`/`char16_t`/`char32_t` are refused.
+//! Operand certificate (fold 4, `cpp_prune_operand.rs`; 2026-11-12: X3 closed in code, supersedes
+//! D4): a user-defined operator needs a class or enumeration operand, and a converting
+//! constructor of a by-value class parameter can bind a scalar (`S(int&)` with
+//! `S operator+(S, S)`), so an operator is built-in only when every operand is. For every binary
+//! operator (shifts, comparison, logical and comma included), compound assignment, subscript and
+//! `?:`, the lvalue roots of an operand escape unless EVERY OTHER operand is a built-in scalar
+//! expression (a literal, a bindable scalar local, a local array of scalars or pointers, a cast
+//! to a keyword scalar or pointer, `sizeof`/`alignof`, `NULL`/`nullptr` when no in-repo macro has
+//! that name, and arithmetic or logical operators over these). Calls, members, `this`, globals
+//! and unknown names are not scalar. Plain `=` keeps the fix E rule above.
+//! Dialect: every file the C++ grammar parses (`cpp cc cxx hpp hxx hh`) is compiled as C++11 or
+//! later, which makes `nullptr` and `auto x = <literal>` safe; only `char8_t` depends on the
+//! dialect (C++20), and `char8_t`/`char16_t`/`char32_t` are all refused.
 use super::c_prune::COwner;
+use super::cpp_prune_operand::{Deferred, Need};
 use crate::ast::ParsedFile;
 use tree_sitter::Node;
 
@@ -187,9 +196,15 @@ const SCALAR_KEYWORDS: &[&str] = &[
     "unsigned",
 ];
 
-/// C++ keywords (and the keyword type spellings, `char8_t`, `char16_t`, `char32_t`, which are
-/// keywords only from C++20 and C++11 and so are never scalar proofs): an in-repo macro of one
-/// of these names rewrites the spelling the scalar proofs read, so an owner spelling it is off.
+/// The C++ keywords the proofs read (type, storage, qualifier, cast, operator and expression
+/// keywords, the coroutine words) plus the statement keywords and access specifiers, which no
+/// proof reads and which only cost recall. It is NOT every C++ keyword: `noexcept`, `requires`,
+/// `concept`, `consteval`, `constinit`, `static_assert`, `typeid`, `alignas`, `export`, `asm` and
+/// the alternative tokens are absent. `char8_t`, `char16_t` and `char32_t` are listed but are
+/// never scalar proofs. An in-repo macro of one of these names rewrites the spelling the proofs
+/// read, so an owner spelling it is off. The census is repo-wide, so the gate is by spelling
+/// across the repository: a C-only header's `#define bool int` turns off every C++ owner that
+/// spells `bool`.
 const KEYWORDS: &[&str] = &[
     "bool",
     "char",
@@ -283,7 +298,7 @@ pub(super) fn keyword_scalar(parsed: &ParsedFile, ty: Node<'_>) -> bool {
 
 /// A cast target that cannot bind its operand: a keyword built-in scalar, or a pointer to one
 /// (a `type_descriptor` with no reference, function or array declarator).
-fn scalar_cast_type(parsed: &ParsedFile, td: Node<'_>) -> bool {
+pub(super) fn scalar_cast_type(parsed: &ParsedFile, td: Node<'_>) -> bool {
     if !td
         .child_by_field_name("type")
         .is_some_and(|t| keyword_scalar(parsed, t))
@@ -350,88 +365,6 @@ fn names_in<'a>(node: Node<'a>, kinds: &[&str], out: &mut Vec<Node<'a>>) {
     let mut cursor = node.walk();
     for c in node.named_children(&mut cursor) {
         names_in(c, kinds, out);
-    }
-}
-
-/// An escape that holds only when every identifier of `needs` (byte ranges) is NOT a bindable
-/// scalar local of the owner: `roots` (names) escape then. The left side of a scalar
-/// assignment, and the identifiers of a `?:` branch proof.
-pub(super) struct Deferred {
-    pub(super) needs: Vec<(usize, usize)>,
-    pub(super) kind: &'static str,
-    pub(super) roots: Vec<String>,
-}
-
-/// Settle the deferred escapes to a fixpoint. `COwner::binding` fails closed on every escape of
-/// the owner (anonymous union, `using`, a hidden declaration, a vexing parse, an escaped name)
-/// and applies E2's storage and macro-specifier checks; an escape added by one record can make
-/// another record's identifier non-bindable, so repeat until none fires.
-pub(super) fn settle(parsed: &ParsedFile, out: &mut COwner) {
-    let root = parsed.tree.root_node();
-    let mut fired = vec![false; out.deferred.len()];
-    loop {
-        let mut firing = Vec::new();
-        for (i, d) in out.deferred.iter().enumerate() {
-            if fired[i] {
-                continue;
-            }
-            let bad = d.needs.iter().any(|&(s, e)| {
-                root.descendant_for_byte_range(s, e)
-                    .is_none_or(|n| n.kind() != "identifier" || out.binding(parsed, n).is_none())
-            });
-            if bad {
-                firing.push(i);
-            }
-        }
-        if firing.is_empty() {
-            return;
-        }
-        for i in firing {
-            fired[i] = true;
-            let (kind, roots) = (out.deferred[i].kind, out.deferred[i].roots.clone());
-            for r in roots {
-                out.escape(kind, &r);
-            }
-        }
-    }
-}
-
-/// A built-in scalar expression: a literal, an identifier (recorded in `needs`, it must be a
-/// bindable scalar local), a cast to a keyword scalar, `sizeof`/`alignof`, or a built-in
-/// operator over these. Anything else (a call, a member access, a dereference) is unknown and
-/// counts as not scalar.
-fn builtin_scalar(parsed: &ParsedFile, node: Node<'_>, needs: &mut Vec<(usize, usize)>) -> bool {
-    let sub = |f: &str, needs: &mut Vec<(usize, usize)>| {
-        node.child_by_field_name(f)
-            .is_some_and(|c| builtin_scalar(parsed, c, needs))
-    };
-    match node.kind() {
-        "number_literal" | "char_literal" | "true" | "false" | "null" | "nullptr"
-        | "sizeof_expression" | "alignof_expression" => true,
-        "identifier" => {
-            needs.push((node.start_byte(), node.end_byte()));
-            true
-        }
-        "parenthesized_expression" => node
-            .named_child(0)
-            .is_some_and(|c| builtin_scalar(parsed, c, needs)),
-        "cast_expression" => node
-            .child_by_field_name("type")
-            .is_some_and(|t| scalar_cast_type(parsed, t)),
-        "unary_expression" => {
-            node.child_by_field_name("operator")
-                .is_some_and(|op| matches!(parsed.node_text(&op), "-" | "+" | "!" | "~"))
-                && sub("argument", needs)
-        }
-        "binary_expression" | "comma_expression" => sub("left", needs) && sub("right", needs),
-        "conditional_expression" => {
-            if node.child_by_field_name("consequence").is_some() {
-                sub("consequence", needs) && sub("alternative", needs)
-            } else {
-                sub("condition", needs) && sub("alternative", needs)
-            }
-        }
-        _ => false,
     }
 }
 
@@ -556,19 +489,9 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
             };
             esc(out, kind, &roots);
         }
-        // `cin >> x`: operator>> takes its target by reference. `<<` is not an escape (X3).
-        "binary_expression" => {
-            if node
-                .child_by_field_name("operator")
-                .is_some_and(|op| parsed.node_text(&op) == ">>")
-            {
-                for f in ["left", "right"] {
-                    if let Some(c) = node.child_by_field_name(f) {
-                        lvalue_roots(parsed, c, &mut roots);
-                    }
-                }
-                esc(out, "shift", &roots);
-            }
+        // Every operator with operands: the operand certificate (`cpp_prune_operand`).
+        "binary_expression" | "comma_expression" | "subscript_expression" => {
+            super::cpp_prune_operand::certify(parsed, node, out);
         }
         "declaration" => {
             let mut cursor = node.walk();
@@ -663,7 +586,7 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                     // every escape of the owner is (`settle`).
                     escape_roots(right, &mut roots);
                     out.deferred.push(Deferred {
-                        needs: vec![(bare.start_byte(), bare.end_byte())],
+                        needs: vec![Need::Scalar(bare.start_byte(), bare.end_byte())],
                         kind: "assign_rhs",
                         roots: roots
                             .iter()
@@ -678,32 +601,18 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                     esc(out, "assign_rhs", &roots);
                 }
             }
+            // A compound assignment is an operator too: each side against the other.
+            super::cpp_prune_operand::certify(parsed, node, out);
         }
-        // `c ? a : b`: when a branch is not a built-in scalar expression, the other can be
-        // converted to a class through `S(int&)`, which binds it.
-        "conditional_expression" => {
-            let fields: &[&str] = if node.child_by_field_name("consequence").is_some() {
-                &["consequence", "alternative"]
-            } else {
-                &["condition", "alternative"]
-            };
-            let mut needs = Vec::new();
-            let scalar = fields.iter().all(|f| {
-                node.child_by_field_name(f)
-                    .is_some_and(|c| builtin_scalar(parsed, c, &mut needs))
-            });
-            lvalue_roots(parsed, node, &mut roots);
-            if scalar {
-                out.deferred.push(Deferred {
-                    needs,
-                    kind: "cond_branch",
-                    roots: roots
-                        .iter()
-                        .map(|n| parsed.node_text(n).to_owned())
-                        .collect(),
-                });
-            } else {
-                esc(out, "cond_branch", &roots);
+        // `c ? a : b`: a branch that is not a built-in scalar expression can convert the
+        // other to a class through `S(int&)`: the operand certificate over the two branches.
+        "conditional_expression" => super::cpp_prune_operand::certify(parsed, node, out),
+        // `a < x > (0)` parses as a call of the template `a<x>`: the names in the template
+        // arguments of a call are the operands of a relational chain the grammar misread.
+        "template_function" | "template_method" => {
+            if let Some(args) = node.child_by_field_name("arguments") {
+                names_in(args, &["identifier", "type_identifier"], &mut roots);
+                esc(out, "template_arg", &roots);
             }
         }
         // A cast to anything but a keyword built-in scalar (or a pointer to one), wherever it

@@ -23,7 +23,7 @@
 {"case": "01_escapes.cc", "id": "di", "path": "x", "def_line": 45, "use_line": 48, "keep": true, "reason": "direct_init_argument", "owner": "direct_init_escape_keep"}
 {"case": "01_escapes.cc", "id": "fc", "path": "x", "def_line": 52, "use_line": 55, "keep": true, "reason": "call_expression_argument", "owner": "functional_cast_keep"}
 {"case": "01_escapes.cc", "id": "sx", "path": "x", "def_line": 59, "use_line": 62, "keep": true, "reason": "shift_right_operand", "owner": "stream_extract_keep"}
-{"case": "01_escapes.cc", "id": "si", "path": "x", "def_line": 66, "use_line": 69, "keep": false, "reason": "shift_left_is_not_an_escape_x3", "owner": "stream_insert_drop"}
+{"case": "01_escapes.cc", "id": "si", "path": "x", "def_line": 66, "use_line": 69, "keep": true, "reason": "shift_left_operand_certificate", "owner": "stream_insert_keep"}
 {"case": "01_escapes.cc", "id": "ri", "path": "x", "def_line": 73, "use_line": 76, "keep": true, "reason": "reference_initializer", "owner": "ref_init_keep_U"}
 {"case": "01_escapes.cc", "id": "rd", "path": "x", "def_line": 80, "use_line": 84, "keep": true, "reason": "reference_initializer", "owner": "ref_init_keep_D"}
 {"case": "01_escapes.cc", "id": "sb", "path": "x", "def_line": 88, "use_line": 91, "keep": true, "reason": "structured_binding_initializer", "owner": "structured_binding_keep"}
@@ -188,6 +188,36 @@
 {"case": "enum_op_incr.cc", "id": "enum_op_incr", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold3"}
 {"case": "enum_op_postincr.cc", "id": "enum_op_postincr", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold3"}
 {"case": "enum_op_unary.cc", "id": "enum_op_unary", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold3"}
+{"case": "ctl_array_subscript_drop.cc", "id": "ctl_array_subscript_drop_i", "path": "i", "def_line": 4, "use_line": 8, "keep": false, "reason": "operand_control"}
+{"case": "ctl_array_subscript_drop.cc", "id": "ctl_array_subscript_drop_x", "path": "x", "def_line": 5, "use_line": 11, "keep": false, "reason": "operand_control"}
+{"case": "ctl_binary_local_drop.cc", "id": "ctl_binary_local_drop", "path": "x", "def_line": 4, "use_line": 7, "keep": false, "reason": "operand_control"}
+{"case": "ctl_call_init_drop.cc", "id": "ctl_call_init_drop", "path": "x", "def_line": 3, "use_line": 5, "keep": false, "reason": "operand_control"}
+{"case": "ctl_ptr_copy_drop.cc", "id": "ctl_ptr_copy_drop", "path": "p", "def_line": 5, "use_line": 8, "keep": false, "reason": "operand_control"}
+{"case": "ctl_self_mul_drop.cc", "id": "ctl_self_mul_drop", "path": "n", "def_line": 3, "use_line": 6, "keep": false, "reason": "operand_control"}
+{"case": "r4_p01_f.cc", "id": "r4_p01_f", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold4"}
+{"case": "r4_p01_g.cc", "id": "r4_p01_g", "path": "x", "def_line": 17, "use_line": 22, "keep": true, "reason": "fold4"}
+{"case": "r4_p02_f.cc", "id": "r4_p02_f", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold4"}
+{"case": "r4_p04.cc", "id": "r4_p04", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold4"}
+{"case": "r4_p07.cc", "id": "r4_p07", "path": "x", "def_line": 8, "use_line": 13, "keep": true, "reason": "fold4"}
+{"case": "r4_sol_enum_compound.cc", "id": "r4_sol_enum_compound", "path": "x", "def_line": 7, "use_line": 11, "keep": true, "reason": "fold4_sol"}
+{"case": "x3_ambiguous_relational_template_shape.cc", "id": "x3_ambiguous_relational_template_shape", "path": "x", "def_line": 8, "use_line": 13, "keep": true, "reason": "fold4"}
+{"case": "x3_op_call_subscript2.cc", "id": "x3_op_call_subscript2", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_chain_shl.cc", "id": "x3_op_chain_shl", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_comma_class.cc", "id": "x3_op_comma_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_comma_ref.cc", "id": "x3_op_comma_ref", "path": "x", "def_line": 6, "use_line": 11, "keep": true, "reason": "fold4"}
+{"case": "x3_op_eq_class.cc", "id": "x3_op_eq_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_in_call_arg.cc", "id": "x3_op_in_call_arg", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_in_decl_init.cc", "id": "x3_op_in_decl_init", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_land_expr.cc", "id": "x3_op_land_expr", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_lt.cc", "id": "x3_op_lt", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_lt_expr_decl.cc", "id": "x3_op_lt_expr_decl", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_mul_expr.cc", "id": "x3_op_mul_expr", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_plus_class_left.cc", "id": "x3_op_plus_class_left", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_plus_class_right.cc", "id": "x3_op_plus_class_right", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_plus_ref.cc", "id": "x3_op_plus_ref", "path": "x", "def_line": 6, "use_line": 11, "keep": true, "reason": "fold4"}
+{"case": "x3_op_shift_left_class.cc", "id": "x3_op_shift_left_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_shift_left_free.cc", "id": "x3_op_shift_left_free", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_subscript_class.cc", "id": "x3_op_subscript_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
 {"case": "10_header.h", "id": "hs", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "dot_h_owner_is_off", "owner": "header_scalar_drop"}
 {"case": "10_header.h", "id": "hc", "path": "x", "def_line": 14, "use_line": 18, "keep": true, "reason": "dot_h_owner_is_off_bare_argument", "owner": "header_cpp_semantics_keep"}
 {"case": "10_header.h", "id": "ht", "path": "h", "def_line": 22, "use_line": 24, "keep": true, "reason": "dot_h_owner_is_off_typedef", "owner": "header_typedef_keep"}

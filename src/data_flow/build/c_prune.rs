@@ -107,18 +107,40 @@ pub(super) struct COwner {
     pub(super) scalar_fail: usize,
     /// 6c ledger: escaped names by C++ escape kind (trace only).
     pub(super) escape_kinds: BTreeMap<&'static str, BTreeSet<String>>,
-    /// 6c: escapes that wait for the owner-wide escaped set to settle (`cpp_prune::settle`).
-    pub(super) deferred: Vec<cpp_prune::Deferred>,
+    /// 6c: escapes that wait for the owner-wide escaped set to settle (`cpp_prune_operand::settle`).
+    pub(super) deferred: Vec<super::cpp_prune_operand::Deferred>,
 }
 
 impl COwner {
     /// Record a C++ escape of `name` (by name, any binding).
-    pub(super) fn escape(&mut self, kind: &'static str, name: &str) {
-        self.escaped.insert(name.to_owned());
+    /// True when `name` was not escaped before.
+    pub(super) fn escape(&mut self, kind: &'static str, name: &str) -> bool {
+        let fresh = self.escaped.insert(name.to_owned());
         self.escape_kinds
             .entry(kind)
             .or_default()
             .insert(name.to_owned());
+        fresh
+    }
+
+    pub(super) fn is_escaped(&self, name: &str) -> bool {
+        self.escaped.contains(name)
+    }
+
+    pub(super) fn is_macro_name(&self, name: &str) -> bool {
+        self.macro_names.contains(name)
+    }
+
+    /// `binding` without the escaped-set check: what resolution and E2 say about an occurrence,
+    /// which no escape changes (6c `settle` resolves each occurrence once).
+    pub(super) fn binding_unescaped(&self, parsed: &ParsedFile, occ: Node<'_>) -> bool {
+        if self.macro_names.contains(parsed.node_text(&occ)) {
+            return false;
+        }
+        let Some(ident) = resolve(parsed, occ) else {
+            return false;
+        };
+        declared_of_ident(ident).is_some_and(|d| eligible_declared(parsed, self, &d).is_some())
     }
 }
 
@@ -315,7 +337,7 @@ pub(super) fn scan(
         return Err(off);
     }
     if out.cpp {
-        cpp_prune::settle(parsed, &mut out);
+        super::cpp_prune_operand::settle(parsed, &mut out);
     }
     if gotos.iter().any(|g| !labels.contains(g)) {
         out.d_ok = false;
