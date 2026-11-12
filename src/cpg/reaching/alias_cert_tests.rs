@@ -407,11 +407,13 @@ fn a_refused_census_certifies_nothing() {
 // ---- Inert --------------------------------------------------------------------------------------------
 
 #[test]
-fn certificates_are_only_trace_lines() {
+fn an_admitted_certificate_moves_the_label_through_the_refinement_only() {
     use crate::cpg::census_label_tests::labels_of;
     let src = "function g(o) {\n  const u = o;\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}";
-    // The rows' labels are those of the tree without certificates (main: the write through the alias does
-    // not stop `o.x@3`).
-    assert_eq!(labels_of(JS, src, "o.x@3->o.x@5"), ["exact"]);
+    // 4a left this edge `exact` (the certificate alone moves nothing); 4b's refinement demotes it.
+    assert_eq!(
+        labels_of(JS, src, "o.x@3->o.x@5"),
+        ["NameOnly(AliasUnstable)"]
+    );
     assert_eq!(certs(JS, src), [OK]);
 }

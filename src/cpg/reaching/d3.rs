@@ -45,10 +45,15 @@ type EdgeKey = (VarLocation, VarLocation);
 
 /// One owner's D3 state, shared (not copied) by the census facts' clones.
 pub(super) struct D3 {
-    counts: Counts,
+    counts: Rc<Counts>,
+    /// #783 option A: the owner's alias-resolved writes (`u.x = 1` through a certified alias, as the
+    /// aliased path `o.x`) that join `counts.writes` in node order, and the bases of those with no node.
+    /// Empty for the census's own D3; the alias refinement's D3 shares the counts and the read index.
+    extra: Vec<Counting>,
+    extra_unplaced: BTreeSet<String>,
     /// The owner callable (`kind`, byte range): found again by bytes when the reads are first needed.
     owner: (&'static str, usize, usize),
-    reads: OnceCell<ReadIndex>,
+    reads: Rc<OnceCell<ReadIndex>>,
     /// The counting writes by RD's node, built once per owner on the first edge D3 sees.
     nodes: OnceCell<NodeIndex>,
     /// The mechanism of each edge D3 refused, kept only while `PRISM_RD_CENSUS_TRACE` is on.
@@ -57,17 +62,21 @@ pub(super) struct D3 {
 
 /// The counting writes of one owner by the node RD maps their line to.
 pub(super) struct NodeIndex {
-    /// Indices into `Counts::writes`.
+    /// Indices into `Counts::writes`, then (past its length) into `D3::extra`.
     pub(super) by_node: HashMap<usize, Vec<usize>>,
     /// Bases with a counting write on a line RD maps to no node: unknown, like an unplaced write.
     pub(super) unmapped: BTreeSet<String>,
 }
 
 impl NodeIndex {
-    pub(super) fn build(counts: &Counts, statements: &mut StatementLookup<'_>) -> Self {
+    pub(super) fn build(
+        counts: &Counts,
+        extra: &[Counting],
+        statements: &mut StatementLookup<'_>,
+    ) -> Self {
         let mut by_node: HashMap<usize, Vec<usize>> = HashMap::new();
         let mut unmapped = BTreeSet::new();
-        for (i, w) in counts.writes.iter().enumerate() {
+        for (i, w) in counts.writes.iter().chain(extra).enumerate() {
             match statements.get(w.line) {
                 Some(node) => by_node.entry(node).or_default().push(i),
                 None => {
@@ -132,9 +141,11 @@ enum Side {
 impl D3 {
     pub(super) fn new(counts: Counts, owner: &tree_sitter::Node<'_>, trace: bool) -> Option<Self> {
         (!counts.is_empty()).then(|| D3 {
-            counts,
+            counts: Rc::new(counts),
+            extra: Vec::new(),
+            extra_unplaced: BTreeSet::new(),
             owner: (owner.kind(), owner.start_byte(), owner.end_byte()),
-            reads: OnceCell::new(),
+            reads: Rc::new(OnceCell::new()),
             nodes: OnceCell::new(),
             log: trace.then(|| RefCell::new(BTreeMap::new())),
         })
@@ -148,6 +159,29 @@ impl D3 {
     #[cfg(test)]
     pub(super) fn counts(&self) -> &Counts {
         &self.counts
+    }
+
+    /// This owner's D3 with `extra` writes (and `unplaced` bases) added: it shares the counts and the read
+    /// index, so the alias refinement orders the resolved writes against the same reads and anchors.
+    pub(super) fn with_extra(&self, extra: Vec<Counting>, unplaced: BTreeSet<String>) -> D3 {
+        D3 {
+            counts: Rc::clone(&self.counts),
+            extra,
+            extra_unplaced: unplaced,
+            owner: self.owner,
+            reads: Rc::clone(&self.reads),
+            nodes: OnceCell::new(),
+            log: self.log.as_ref().map(|_| RefCell::new(BTreeMap::new())),
+        }
+    }
+
+    fn write(&self, i: usize) -> &Counting {
+        let n = self.counts.writes.len();
+        if i < n {
+            &self.counts.writes[i]
+        } else {
+            &self.extra[i - n]
+        }
     }
 
     /// The edge's finished label, then D3: an `exact` label that is not proven ordered inside its node
@@ -174,7 +208,7 @@ impl D3 {
         };
         let nodes = d3
             .nodes
-            .get_or_init(|| NodeIndex::build(&d3.counts, statements));
+            .get_or_init(|| NodeIndex::build(&d3.counts, &d3.extra, statements));
         let def_line =
             if edge.from.line == function_start && !line_index.contains_key(&function_start) {
                 Some(function_start)
@@ -220,7 +254,7 @@ impl D3 {
         // node the mapping cannot name refuses its base whatever else the nodes hold.
         let mut failures = Failures::default();
         let base = &edge.to.path.base;
-        if nodes.base_is_unknown(&self.counts, base) {
+        if nodes.base_is_unknown(&self.counts, base) || self.extra_unplaced.contains(base) {
             failures.unknown = true;
         }
         self.use_side(
@@ -251,7 +285,7 @@ impl D3 {
             .get(&node)
             .into_iter()
             .flatten()
-            .map(|&i| &self.counts.writes[i])
+            .map(|&i| self.write(i))
             .filter(move |w| super::def_buckets::affects(&w.path, path))
     }
 

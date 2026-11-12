@@ -6,7 +6,8 @@
 //! explicit declaration, and `o` at the declarator resolves to that same declaration. `proven_distinct_at ==
 //! false` and the flat fallback are not identity: either refuses. Alias twins are never consulted.
 //!
-//! Inert (slice 4a): the certificates are read by the trace (`rd-alias-cert`) and the unit tests only.
+//! Slice 4a read them through the trace (`rd-alias-cert`) only; slice 4b's refinement (`alias_kill`) consumes
+//! the admitted ones through `alias_at`.
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use crate::cpg::reaching::DefSite;
@@ -20,12 +21,19 @@ use tree_sitter::Node;
 pub(super) struct Entry {
     pub cand: Candidate,
     pub refusal: Option<Reason>,
+    /// RD def index of `u`'s declarator (set when identity held).
+    pub alias_def: usize,
 }
 
 /// The owner's candidates, admitted or refused.
 #[derive(Debug)]
 pub(super) struct AliasCerts {
     pub entries: Vec<Entry>,
+}
+
+/// `name@line:byte`, the trace's place.
+pub(super) fn at(parsed: &ParsedFile, name: &str, byte: usize) -> String {
+    format!("{name}@{}:{byte}", parsed.line_for_byte(byte))
 }
 
 fn def_at(defs: &[DefSite], base: &str, byte: usize) -> Option<usize> {
@@ -52,14 +60,30 @@ impl AliasCerts {
         let entries = candidates
             .iter()
             .map(|cand| {
-                let refusal = cand.refusal.or_else(|| identity(cand, recorded, facts));
+                let found = identity(cand, recorded, facts);
                 Entry {
                     cand: cand.clone(),
-                    refusal,
+                    refusal: cand.refusal.or(found.err()),
+                    alias_def: found.unwrap_or(0),
                 }
             })
             .collect();
         Some(Rc::new(Self { entries }))
+    }
+
+    /// The admitted relation for the alias spelled `name` at `probe`: the occurrence follows the declarator
+    /// and binds the alias's own declaration (an outer or shadowing `name` does not).
+    pub(super) fn alias_at(&self, facts: &BindingFacts, name: &str, probe: usize) -> Option<usize> {
+        self.entries.iter().position(|e| {
+            e.refusal.is_none()
+                && e.cand.alias == name
+                && probe >= e.cand.alias_end
+                && facts.binding_at(name, probe) == *facts.binding_of_def(e.alias_def)
+        })
+    }
+
+    pub(super) fn any_admitted(&self) -> bool {
+        self.entries.iter().any(|e| e.refusal.is_none())
     }
 
     /// `rd-alias-cert\t<admitted|refused>\t<reason|->\t<file>\t<owner>\t<alias def>\t<source decl>\t<target decl>`,
@@ -89,16 +113,18 @@ impl AliasCerts {
     }
 }
 
-/// Stage 2's refusal of a syntactically admitted candidate.
-fn identity(c: &Candidate, recorded: &[DefSite], facts: &BindingFacts) -> Option<Reason> {
+/// Stage 2: `u`'s def index when the declaration identity of both sides is positive, else the refusal.
+fn identity(c: &Candidate, recorded: &[DefSite], facts: &BindingFacts) -> Result<usize, Reason> {
     let alias = def_at(recorded, &c.alias, c.alias_start).filter(|&d| explicit(facts, d));
-    if alias.is_none() {
-        return Some(Reason::AliasIdentity);
-    }
+    let alias = alias.ok_or(Reason::AliasIdentity)?;
     let same = c
         .target_start
         .and_then(|b| def_at(recorded, &c.target, b))
         .filter(|&d| explicit(facts, d))
         .is_some_and(|d| facts.binding_at(&c.target, c.rhs_start) == *facts.binding_of_def(d));
-    (!same).then_some(Reason::TargetIdentity)
+    if same {
+        Ok(alias)
+    } else {
+        Err(Reason::TargetIdentity)
+    }
 }

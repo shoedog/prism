@@ -72,11 +72,6 @@ impl D2c {
         })
     }
 
-    /// The owner's captured writes (the alias may-kill rule, #783, derives its own from them).
-    pub(super) fn captured_ref(&self) -> &[Captured] {
-        &self.captured
-    }
-
     /// The edge's label after D2-c: an `exact` or `sameline` edge a captured write may reach becomes
     /// `NameOnly(CfgIncomplete)`.
     pub(super) fn refine(

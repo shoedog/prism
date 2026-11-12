@@ -394,7 +394,11 @@ fn reaching_definitions_impl(
     );
     binding_facts.extend_kill_only(&defs[n_recorded..]);
     census.refuse_unmapped(&defs, &mapped_defs);
-    census.certify_aliases(&defs[..n_recorded], &binding_facts);
+    census.certify_aliases(
+        &defs[..n_recorded],
+        &binding_facts,
+        pass == census_pass::Pass::CensusLogged,
+    );
     *facts_out = Some(census.clone());
 
     let mut gen = vec![BitSet::new(defs.len()); node_count];
@@ -433,16 +437,13 @@ fn reaching_definitions_impl(
         defs.len(),
     );
 
-    // #783: a write through an alias takes the label effect of the same write on the aliased path
-    // (label-only); JS/TS/TSX owners.
+    // #783 option A: a write through a certified single-step alias takes the label effect of the same
+    // write on the aliased path (label-only); JS/TS/TSX owners.
     let mut alias_kills = (pass.alias_kills() && parsed.language.is_js_family())
         .then(|| {
             alias_kill::AliasKills::new(
                 &alias_kill::Solved {
                     parsed,
-                    func_node,
-                    defs: &defs,
-                    n_recorded,
                     mapped_defs: &mapped_defs,
                     in_sets: &in_sets,
                     facts: &binding_facts,
@@ -450,6 +451,7 @@ fn reaching_definitions_impl(
                 },
                 &mut statements,
                 &line_index,
+                census.alias_log().cloned(),
             )
         })
         .flatten();
@@ -532,7 +534,6 @@ fn reaching_definitions_impl(
                 line_index: &line_index,
                 function_start,
                 facts: &binding_facts,
-                regions: capture_facts.regions(),
             },
         );
         if label.is_exact()
@@ -609,7 +610,6 @@ fn reaching_definitions_impl(
                 line_index: &line_index,
                 function_start,
                 facts: &binding_facts,
-                regions: capture_facts.regions(),
             },
         );
         exact_labels

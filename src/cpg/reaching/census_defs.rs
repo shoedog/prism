@@ -42,6 +42,8 @@ pub(super) struct CensusFacts {
     classes: Option<Rc<super::refusal_classes::Refusals>>,
     /// #783 option A (slice 4a, inert): the owner's alias certificates; shared by clones.
     alias_certs: Option<Rc<super::alias_cert::AliasCerts>>,
+    /// #783 slice 4b: the traced run's `rd-alias-move` records, filled by the alias refinement.
+    alias_log: Option<super::alias_kill::MoveLog>,
 }
 
 impl CensusFacts {
@@ -50,14 +52,21 @@ impl CensusFacts {
         &mut self,
         recorded: &[DefSite],
         facts: &crate::cpg::binding_facts::BindingFacts,
+        log: bool,
     ) {
         let candidates = self.completion.as_ref().map_or(&[][..], |c| &c.alias[..]);
         self.alias_certs = super::alias_cert::AliasCerts::certify(candidates, recorded, facts);
+        self.alias_log = (log && self.alias_certs.is_some()).then(Default::default);
+    }
+
+    /// The traced run's alias move records (`None` off the trace or with no certificate).
+    pub(super) fn alias_log(&self) -> Option<&super::alias_kill::MoveLog> {
+        self.alias_log.as_ref()
     }
 
     /// The owner's alias certificates (none: no candidate).
-    pub(super) fn alias_certs(&self) -> Option<&super::alias_cert::AliasCerts> {
-        self.alias_certs.as_deref()
+    pub(super) fn alias_certs(&self) -> Option<&Rc<super::alias_cert::AliasCerts>> {
+        self.alias_certs.as_ref()
     }
 
     fn inert(n_recorded: usize) -> Self {
@@ -78,19 +87,6 @@ impl CensusFacts {
             && self.completion.as_ref().is_none_or(|c| {
                 c.refusal.is_none() && c.kill_only.is_empty() && c.refused_bases.is_empty()
             })
-    }
-
-    /// The counting writes and the captured writes of the owner (empty: none), for the alias rule (#783).
-    pub(super) fn alias_inputs(
-        &self,
-    ) -> (
-        Option<&crate::js_write_census::counting::Counts>,
-        &[crate::js_write_census::captured::Captured],
-    ) {
-        (
-            self.d3.as_ref().map(|d| d.counts_ref()),
-            self.d2c.as_ref().map_or(&[], |d| d.captured_ref()),
-        )
     }
 
     /// #674: the recorded def's path equals the census's precise identity for the write at its start byte.
@@ -320,6 +316,7 @@ pub(super) fn complete_with(
         d2c,
         classes,
         alias_certs: None,
+        alias_log: None,
     };
     (recorded, facts)
 }
