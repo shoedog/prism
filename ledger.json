@@ -1,0 +1,200 @@
+{
+ "leveldb": {
+  "owners": {
+   "cpp_source": {
+    "on": 1394,
+    "total": 1426,
+    "owners_with_scalar_gate_failures": 422,
+    "off:G1Nested": 14,
+    "template_owner(on)": 2,
+    "off:G2": 1,
+    "off:G1Error": 17
+   },
+   "dot_h": {
+    "off:G1Error": 167,
+    "total": 233,
+    "on": 62,
+    "off:G1Nested": 4,
+    "owners_with_scalar_gate_failures": 7
+   },
+   "c_source": {
+    "on": 15,
+    "total": 15
+   }
+  },
+  "owners_with_escape_kind": {
+   "cpp_source": {
+    "call_arg": 764,
+    "mem_init": 64,
+    "new_arg": 53,
+    "shift": 12,
+    "direct_init": 36,
+    "ref_init": 24,
+    "ctor_conv": 26,
+    "brace_init": 5
+   },
+   "dot_h": {
+    "call_arg": 10,
+    "shift": 3,
+    "ctor_conv": 1
+   }
+  },
+  "refused_use_lines": {
+   "cpp_source": {
+    "escape:call_arg": 4591,
+    "escape_kind:call_arg": 4591,
+    "escape:c": 1460,
+    "escape_kind:c": 1460,
+    "e2_scalar_gate": 905,
+    "e1_unresolved": 500,
+    "escape:shift": 46,
+    "escape_kind:shift": 57,
+    "e2_storage": 113,
+    "field_path": 105,
+    "escape:new_arg": 181,
+    "escape_kind:new_arg": 256,
+    "escape:direct_init": 75,
+    "escape_kind:direct_init": 104,
+    "escape:ref_init": 56,
+    "escape_kind:ref_init": 86,
+    "e1_ineligible_decl": 111,
+    "escape_kind:ctor_conv": 66,
+    "escape:ctor_conv": 58,
+    "escape:brace_init": 8,
+    "escape_kind:brace_init": 8,
+    "escape_kind:mem_init": 12,
+    "escape:mem_init": 9
+   },
+   "dot_h": {
+    "escape:c": 4,
+    "escape_kind:c": 4,
+    "escape:call_arg": 36,
+    "escape_kind:call_arg": 36,
+    "e2_storage": 8,
+    "escape:shift": 4,
+    "escape_kind:shift": 4,
+    "e2_scalar_gate": 7,
+    "e1_unresolved": 9
+   },
+   "c_source": {
+    "escape:c": 90,
+    "escape_kind:c": 90,
+    "e1_unresolved": 6
+   }
+  },
+  "drop_events": {
+   "cpp_source": {
+    "U": 465,
+    "D": 28
+   },
+   "c_source": {
+    "U": 81,
+    "D": 249
+   }
+  }
+ },
+ "redis": {
+  "owners": {
+   "c_source": {
+    "on": 3986,
+    "total": 4119,
+    "off:G1Error": 47,
+    "off:G3": 2,
+    "off:G5": 69,
+    "off:G2": 10,
+    "on-no-d(G6)": 5
+   },
+   "dot_h": {
+    "off:G5": 56,
+    "total": 57,
+    "off:G1Error": 1
+   }
+  },
+  "owners_with_escape_kind": {},
+  "refused_use_lines": {
+   "c_source": {
+    "e2_storage": 958,
+    "escape:c": 21781,
+    "escape_kind:c": 21781,
+    "field_path": 2952,
+    "e1_unresolved": 1307,
+    "macro_name": 700
+   }
+  },
+  "drop_events": {
+   "c_source": {
+    "U": 22853,
+    "D": 14362
+   }
+  }
+ },
+ "cpython": {
+  "owners": {
+   "dot_h": {
+    "on": 288,
+    "total": 985,
+    "off:G1Error": 102,
+    "owners_with_scalar_gate_failures": 34,
+    "off:G5": 582,
+    "off:G3": 2,
+    "on-no-d(G6)": 8,
+    "off:G3Ms": 1,
+    "off:G2": 2
+   },
+   "c_source": {
+    "off:G5": 2684,
+    "total": 5605,
+    "on": 2653,
+    "off:G1Error": 175,
+    "on-no-d(G6)": 24,
+    "off:G2": 67,
+    "off:G3": 2
+   }
+  },
+  "owners_with_escape_kind": {
+   "dot_h": {
+    "call_arg": 152,
+    "brace_init": 2,
+    "shift": 4,
+    "ctor_conv": 3
+   }
+  },
+  "refused_use_lines": {
+   "dot_h": {
+    "escape:call_arg": 751,
+    "escape_kind:call_arg": 751,
+    "e2_storage": 46,
+    "escape:c": 209,
+    "escape_kind:c": 209,
+    "escape:brace_init": 10,
+    "escape_kind:brace_init": 10,
+    "macro_name": 22,
+    "field_path": 5,
+    "e2_scalar_gate": 119,
+    "escape:shift": 38,
+    "escape_kind:shift": 47,
+    "e1_unresolved": 18,
+    "escape:ctor_conv": 7,
+    "escape_kind:ctor_conv": 7
+   },
+   "c_source": {
+    "escape:c": 7031,
+    "escape_kind:c": 7031,
+    "e2_storage": 112,
+    "e1_unresolved": 151,
+    "field_path": 474,
+    "macro_name": 963
+   }
+  },
+  "drop_events": {
+   "c_source": {
+    "U": 6713,
+    "D": 3318
+   },
+   "dot_h": {
+    "U": 93,
+    "D": 10
+   }
+  }
+ }
+}
