@@ -70,6 +70,9 @@ pub(super) struct LexicalFacts<'a> {
     /// C++ `template_declaration` owner: its own inner `function_definition` (F6).
     template_inner: Option<usize>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
+    /// C/C++ D: the variable-write certificate per raw def span (`certified_candidate`
+    /// resolves the declaration, linear in the block, so it is computed once per span).
+    c_cert: RefCell<BTreeMap<(usize, usize, AccessPath), Option<usize>>>,
 }
 impl<'a> LexicalFacts<'a> {
     pub(super) fn new(
@@ -126,6 +129,7 @@ impl<'a> LexicalFacts<'a> {
             c: c_owner,
             template_inner: None,
             cache: RefCell::new(BTreeMap::new()),
+            c_cert: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
             return facts;
@@ -636,12 +640,23 @@ impl<'a> LexicalFacts<'a> {
         // very declaration the windows resolved to (F1: a dereference store is no def of
         // the pointer variable).
         let mut c_decl = None;
-        if let Some(c) = &self.c {
-            let _ = c;
+        if self.c.is_some() {
             if !path.fields.is_empty() {
                 return true;
             }
-            match super::c_prune::certified_candidate(self.parsed, start, end, path) {
+            // Only a use with dominating windows can drop; ask that cached question before
+            // the certificate (an escaped name has none, whatever the pair).
+            if self.proof(path, line).windows.is_none() {
+                return true;
+            }
+            let cert = *self
+                .c_cert
+                .borrow_mut()
+                .entry((start, end, path.clone()))
+                .or_insert_with(|| {
+                    super::c_prune::certified_candidate(self.parsed, start, end, path)
+                });
+            match cert {
                 Some(d) => c_decl = Some(d),
                 None => return true,
             }
