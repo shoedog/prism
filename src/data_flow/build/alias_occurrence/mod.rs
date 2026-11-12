@@ -1,4 +1,4 @@
-//! Alias-twin occurrence policy (alias-twin lane, slice 1: Java).
+//! Alias-twin occurrence policy (alias-twin lane, slice 1: Java; slice 2a: Go, Rust, Python).
 //!
 //! A DFG alias twin is a fabricated Def of an alias's target, minted at an lvalue occurrence of
 //! the alias name (`u = o` makes `u.f = 1` also a write of `o.f`). The invariant this module
@@ -36,17 +36,60 @@
 //! from the corpora: statement labels, `case` constants, annotation element keys, `this.N` /
 //! `super.N` under a shadowing local, lambda parameters in other scopes.
 //!
-//! Specification: the Java rows `J-01..J-06` of the slice-0 classifier table (`CLASSIFIER.md`);
-//! `java_tests.rs` pins them, including parity with the slice-0 oracle's pinned cases.
+//! Slice 2a applies the same refusal to Go (selector field and method names, keyed literal keys,
+//! labels), Rust (field and method names, scoped-path segments, macro tokens after `.`/`::` or before
+//! a single `:`) and Python (attribute names, keyword-argument names). Residual roles not covered,
+//! un-masked and absent from the corpora unless the ledger says otherwise: Go struct-field
+//! declaration names are covered (`field_identifier`) but package-qualified identifiers
+//! (`pkg.o`) are selector operands, not tokens; Rust `use` path segments, lifetimes and labels,
+//! macro tokens not adjacent to `.`/`::`/`:`; Python import module names, decorator names and
+//! parameter names of nested defs and lambdas.
+//!
+//! Specification: the Java rows `J-01..J-06`, Go rows `G-01..G-04`, Rust rows `R-01..R-05` and
+//! Python rows `Y-01..Y-03` of the slice-0 classifier table (`CLASSIFIER.md`); `*_tests.rs` pin them,
+//! including parity with the slice-0 oracle's pinned cases. Go `G-03`/`G-04` and Rust `R-04` are
+//! `Unsupported` (the oracle's `storage-write` when pointer or reference evidence exists keeps the
+//! twin the same way) and Rust `R-02` is always `Unsupported` (more conservative than the oracle).
 use crate::access_path::AccessPath;
 use crate::ast::{ParsedFile, PathSpan};
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
+mod go;
+#[cfg(test)]
+mod go_tests;
 mod java;
 #[cfg(test)]
 mod java_tests;
+mod python;
+#[cfg(test)]
+mod python_tests;
+mod rust;
+#[cfg(test)]
+mod rust_tests;
+mod shared;
+#[cfg(test)]
+mod test_support;
+
+#[cfg(test)]
+thread_local! {
+    static POLICY_OFF: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Test-only seam: run `f` with the occurrence policy disabled on this thread, so a differential
+/// against the frozen reference isolates what the policy does not touch (the #630 pruning rules).
+#[cfg(test)]
+pub(crate) fn without_policy<R>(f: impl FnOnce() -> R) -> R {
+    struct Reset(bool);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            POLICY_OFF.with(|c| c.set(self.0));
+        }
+    }
+    let _reset = Reset(POLICY_OFF.with(|c| c.replace(true)));
+    f()
+}
 
 /// What an lvalue occurrence does to storage (closed set).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -71,8 +114,8 @@ pub(super) struct TwinPolicy {
 }
 
 impl TwinPolicy {
-    /// Classify every lvalue span of the owner whose base is an alias. Only Java is enabled;
-    /// any other language yields the empty policy without inspecting a single span.
+    /// Classify every lvalue span of the owner whose base is an alias. Java, Go, Rust and Python
+    /// are enabled; any other language yields the empty policy without inspecting a single span.
     pub(super) fn for_owner(
         parsed: &ParsedFile,
         owner: &Node<'_>,
@@ -80,22 +123,40 @@ impl TwinPolicy {
         alias_map: &BTreeMap<String, String>,
     ) -> Self {
         let mut policy = Self::default();
-        if parsed.language != Language::Java || alias_map.is_empty() {
+        #[cfg(test)]
+        if POLICY_OFF.with(|c| c.get()) {
             return policy;
         }
+        let lang = parsed.language;
+        if !matches!(
+            lang,
+            Language::Java | Language::Go | Language::Rust | Language::Python
+        ) || alias_map.is_empty()
+        {
+            return policy;
+        }
+        let classify = |span: &PathSpan| match lang {
+            Language::Go => go::classify(parsed, span),
+            Language::Rust => rust::classify(parsed, span),
+            Language::Python => python::classify(parsed, span),
+            _ => java::classify(parsed, span),
+        };
+        let collect = || match lang {
+            Language::Go => go::member_name_tokens(parsed, owner),
+            Language::Rust => rust::member_name_tokens(parsed, owner),
+            Language::Python => python::member_name_tokens(parsed, owner),
+            _ => java::member_name_tokens(parsed, owner),
+        };
         let mut member_tokens: Option<BTreeSet<String>> = None;
         for span in lvalue_spans {
             let Some(target) = alias_map.get(&span.path.base) else {
                 continue;
             };
-            if !span.path.is_simple()
-                || java::classify(parsed, span).disposition != Disposition::BindingWrite
-            {
+            if !span.path.is_simple() || classify(span).disposition != Disposition::BindingWrite {
                 continue;
             }
             // R1: refuse when a member-name token of the target's spelling exists in the owner.
-            let tokens =
-                member_tokens.get_or_insert_with(|| java::member_name_tokens(parsed, owner));
+            let tokens = member_tokens.get_or_insert_with(collect);
             if !tokens.contains(&AccessPath::from_expr(target).base) {
                 policy.binding_writes.insert(span.start_byte);
             }
@@ -109,8 +170,10 @@ impl TwinPolicy {
         self.binding_writes.contains(&start_byte)
     }
 
-    /// Fallback anchor decision, keyed by the alias line. Anchors exist only for destructuring
-    /// aliases (JS/TS), which no enabled language produces, so no anchor is suppressed.
+    /// Fallback anchor decision, keyed by the alias line. Anchors exist only for aliases whose
+    /// target has fields (JS/TS destructuring); alias discovery for Java, Go, Rust and Python
+    /// only pairs a plain identifier with a plain identifier, so no enabled language produces
+    /// an anchor and none is suppressed.
     pub(super) fn suppresses_anchor(&self, _alias: &str, _line: usize) -> bool {
         false
     }
