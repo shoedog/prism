@@ -53,7 +53,8 @@ pub(super) struct D3 {
     /// For each extra write, the declaration of `o` its certificate proved (a `BindingFacts` index): the write
     /// affects only reads and defs inside that declaration's scope.
     extra_decl: Vec<usize>,
-    extra_unplaced: BTreeSet<String>,
+    /// Aliased bases whose write has no node: per base, the target declarations (an unknown applies to queries inside one).
+    extra_unplaced: BTreeMap<String, Vec<usize>>,
     /// The owner callable (`kind`, byte range): found again by bytes when the reads are first needed.
     owner: (&'static str, usize, usize),
     reads: Rc<OnceCell<ReadIndex>>,
@@ -147,7 +148,7 @@ impl D3 {
             counts: Rc::new(counts),
             extra: Vec::new(),
             extra_decl: Vec::new(),
-            extra_unplaced: BTreeSet::new(),
+            extra_unplaced: BTreeMap::new(),
             owner: (owner.kind(), owner.start_byte(), owner.end_byte()),
             reads: Rc::new(OnceCell::new()),
             nodes: OnceCell::new(),
@@ -170,7 +171,7 @@ impl D3 {
     pub(super) fn with_extra(
         &self,
         extra: Vec<(Counting, usize)>,
-        unplaced: BTreeSet<String>,
+        unplaced: BTreeMap<String, Vec<usize>>,
     ) -> D3 {
         let (extra, extra_decl) = extra.into_iter().unzip();
         D3 {
@@ -264,7 +265,7 @@ impl D3 {
         // node the mapping cannot name refuses its base whatever else the nodes hold.
         let mut failures = Failures::default();
         let base = &edge.to.path.base;
-        if nodes.base_is_unknown(&self.counts, base) || self.extra_unplaced.contains(base) {
+        if nodes.base_is_unknown(&self.counts, base) || self.extra_unknown(edge, facts) {
             failures.unknown = true;
         }
         self.use_side(
@@ -297,6 +298,18 @@ impl D3 {
             .flatten()
             .map(|&i| (i, self.write(i)))
             .filter(move |(_, w)| super::def_buckets::affects(&w.path, path))
+    }
+
+    /// An aliased write with no node leaves the edge's base unknown, for queries inside the certified target's scope.
+    fn extra_unknown(&self, edge: &FlowEdge, facts: &BindingFacts) -> bool {
+        self.extra_unplaced
+            .get(&edge.to.path.base)
+            .is_some_and(|decls| {
+                decls.iter().any(|&d| {
+                    facts.declaration_scope_contains(d, edge.from.start_byte)
+                        || facts.declaration_scope_contains(d, edge.to.start_byte)
+                })
+            })
     }
 
     /// Write `i` can write what the position at `byte` names: a census write always; a resolved alias write

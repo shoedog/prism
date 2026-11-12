@@ -95,6 +95,8 @@ pub(super) struct AliasKills<'a> {
 #[derive(Clone, Copy)]
 pub(super) struct Solved<'a> {
     pub parsed: &'a ParsedFile,
+    /// The owner callable's byte range.
+    pub owner: (usize, usize),
     pub defs: &'a [DefSite],
     pub mapped_defs: &'a [Option<usize>],
     pub in_sets: &'a [BitSet],
@@ -121,7 +123,42 @@ impl<'a> AliasKills<'a> {
                 .get(line)
                 .and_then(|l| s.line_index.get(&l).copied())
         };
-        let (mut blockers, mut extra, mut unplaced) = (Vec::new(), Vec::new(), BTreeSet::new());
+        let reach = super::alias_point::Reach {
+            parsed: s.parsed,
+            owner: s.owner,
+            in_sets: s.in_sets,
+            mapped_defs: s.mapped_defs,
+            line_index: s.line_index,
+        };
+        let (mut blockers, mut extra) = (Vec::new(), Vec::new());
+        let mut unplaced: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        let mut transfers = Vec::new();
+        // A write with no CFG node (a class's static field or block, a node RD cannot name) leaves the aliased
+        // base unknown, as the direct write does, but only where all of it is proven: the base binds the alias's
+        // declaration at the write, the declarator precedes it, and the alias def reaches the write's evaluation
+        // point (`alias_point`). The unknown applies to queries inside the certified target's scope only.
+        let mut transfer =
+            |node_of: &mut dyn FnMut(Line) -> Option<usize>, raw: &str, probe: usize| {
+                let index = certs.alias_at(s.facts, raw, probe)?;
+                let e = &certs.entries[index];
+                let Verdict::Admitted {
+                    alias_def,
+                    target_decl: BindingId::Declaration(decl),
+                    ..
+                } = &e.verdict
+                else {
+                    return None;
+                };
+                if !reach.reaches(probe, *alias_def, &mut |l| node_of(l)) {
+                    return None;
+                }
+                unplaced
+                    .entry(e.cand.target.clone())
+                    .or_default()
+                    .push(*decl);
+                transfers.push((raw.to_string(), probe, index));
+                Some(())
+            };
         for w in base
             .counts_ref()
             .writes
@@ -145,7 +182,7 @@ impl<'a> AliasKills<'a> {
                 fields: w.path.fields.clone(),
             };
             let Some(node) = node_of(w.line) else {
-                unplaced.insert(path.base.clone());
+                transfer(&mut node_of, &w.path.base, w.probe);
                 continue;
             };
             // The declarator's own node is not a place the alias is known to hold; the alias's def must
@@ -170,23 +207,8 @@ impl<'a> AliasKills<'a> {
                 decl: *decl,
             });
         }
-        // A raw write the census could not place leaves the aliased base unknown, as for the direct write, but
-        // only when the alias is proven at it: the base binds the alias's declaration, the declarator precedes
-        // it, and the alias's def reaches the next statement node after the write (the write itself has none).
-        let mut transfers = Vec::new();
-        for (base, probe, line) in &base.counts_ref().unplaced_sites {
-            let Some(index) = certs.alias_at(s.facts, base, *probe) else {
-                continue;
-            };
-            let e = &certs.entries[index];
-            let Verdict::Admitted { alias_def, .. } = &e.verdict else {
-                continue;
-            };
-            let after = s.line_index.range(line + 1..).next().map(|(_, &n)| n);
-            if after.is_some_and(|n| s.in_sets[n].contains(*alias_def)) {
-                unplaced.insert(e.cand.target.clone());
-                transfers.push((base.clone(), *probe, index));
-            }
+        for (raw, probe, _) in &base.counts_ref().unplaced_sites {
+            transfer(&mut node_of, raw, *probe);
         }
         if blockers.is_empty() && unplaced.is_empty() {
             return None;

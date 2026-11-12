@@ -600,3 +600,13 @@ fn a_forwarding_or_unknown_initializer_is_not_a_root() {
     root_row(TS, "this", &["refused:this-alias:u"]);
     root_row(TS, "(this)", &["refused:this-alias:u"]);
 }
+
+/// An alias declared inside a class (static block, field value) is outside A: it runs where the class is
+/// evaluated, which has no CFG node, so no write is proven after it.
+#[test]
+fn an_alias_declared_inside_a_class_is_a_deferred_region() {
+    let src = "function g(o) {\n  o.x = 0;\n  class C {\n    static {\n      var u = o;\n      u.x = 1;\n    }\n  }\n  return sink(o.x);\n}";
+    refused(JS, src, "deferred-region");
+    let field = "function g(o) {\n  class C {\n    static f = (() => 1, o);\n  }\n  return o;\n}";
+    assert!(certs(JS, field).is_empty());
+}

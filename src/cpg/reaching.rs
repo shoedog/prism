@@ -14,6 +14,7 @@ use super::{FlowConfidence, FlowDoubt};
 
 mod alias_cert;
 mod alias_kill;
+mod alias_point;
 mod capture;
 mod capture_regions;
 mod census_defs;
@@ -444,6 +445,7 @@ fn reaching_definitions_impl(
             alias_kill::AliasKills::new(
                 alias_kill::Solved {
                     parsed,
+                    owner: (func_node.start_byte(), func_node.end_byte()),
                     defs: &defs,
                     mapped_defs: &mapped_defs,
                     in_sets: &in_sets,

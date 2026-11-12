@@ -451,3 +451,40 @@ fn an_unplaced_write_through_a_proven_alias_is_demoted_and_recorded() {
         "{lines:?}"
     );
 }
+
+/// The unplaced route (a write with no CFG node: a class static block or field value) meets the same obligations as
+/// the placed one (fold 2, from the 329-row enumeration): the alias def must reach the class's evaluation point
+/// (not only a later node), and the unknown applies only inside the certified target's scope. `(name, source, edge,
+/// label)`; a `SAME` row is the direct write's label, an `EXACT` row the rule-disabled one.
+#[rustfmt::skip]
+const UNPLACED: &[(&str, &str, &str, &str)] = &[
+    // The alias is declared in the other arm: it does not reach the class (p12, controller arms).
+    ("arms_value", "function g(o, c) {\n  if (c) {\n    var u = o;\n  } else {\n    class C {\n      static x = u && (u.x = 1);\n    }\n  }\n  o.x = 0;\n  return sink(o.x);\n}", "o.x@9->o.x@10", EXACT),
+    ("arms_block", "function g(o, c) {\n  if (c) {\n    var u = o;\n  } else {\n    class C { static { u.x = 1; } }\n  }\n  o.x = 0;\n  return sink(o.x);\n}", "o.x@7->o.x@8", EXACT),
+    ("arms_with_a_statement_after_the_alias", "function g(o, c) {\n  if (c) {\n    var u = o;\n    q = 1;\n  } else {\n    class C { static { u.x = 1; } }\n  }\n  o.x = 0;\n  return sink(o.x);\n}", "o.x@8->o.x@9", EXACT),
+    // The aliased spelling names another binding outside the target's scope (p18, p22, s07, s08, controller scoped).
+    ("scoped_target", "function g() {\n  {\n    const o = mk();\n    var u = o;\n  }\n  o.x = 0;\n  {\n    class C { static { u.x = 1; } }\n  }\n  return sink(o.x);\n}", "o.x@6->o.x@10", EXACT),
+    ("scoped_target_later_global", "function g() {\n  {\n    const o = mk();\n    o.x = 0;\n    var u = o;\n    class C { static { u.x = 1; } }\n    sink(o.x);\n  }\n  o.x = 5;\n  return sink(o.x);\n}", "o.x@9->o.x@10", EXACT),
+    ("scoped_target_statement_after", "function g() {\n  {\n    const o = mk();\n    var u = o;\n    class C { static { u.x = 1; } }\n    q = 1;\n  }\n  o.x = 0;\n  return sink(o.x);\n}", "o.x@8->o.x@9", EXACT),
+    ("scoped_target_global_first", "function g() {\n  o.x = 0;\n  {\n    let o = mk();\n    var u = o;\n    class C { static { u.x = 1; } }\n  }\n  return sink(o.x);\n}", "o.x@2->o.x@8", EXACT),
+    // The class is the last statement, or the last of an arm: no node after it, yet the alias reaches it.
+    ("last_statement_before_the_alias_use", "function g(o) {\n  o.x = 0;\n  sink(o.x);\n  const u = o;\n  class C {\n    static { u.x = 1; }\n  }\n}", "o.x@2->o.x@3", SAME),
+    ("last_statement_after_a_read", "function g(o) {\n  const u = o;\n  o.x = 0;\n  sink(o.x);\n  class C {\n    static { u.x = 1; }\n  }\n}", "o.x@3->o.x@4", SAME),
+    ("last_in_an_arm", "function g(o, c) {\n  const u = o;\n  o.x = 0;\n  sink(o.x);\n  if (c) {\n    class C { static { u.x = 1; } }\n  }\n}", "o.x@3->o.x@4", SAME),
+    // Controls: the later-node shape the old proof handled.
+    ("later_node_exists", "function g(o) {\n  const u = o;\n  o.x = 0;\n  {\n    class C { static { u.x = 1; } }\n  }\n  return sink(o.x);\n}", "o.x@3->o.x@7", SAME),
+    // An alias declared inside the class's own static block is outside A (a deferred region): the 4a label.
+    ("alias_inside_the_static_block", "function g(o) {\n  o.x = 0;\n  class C {\n    static {\n      var u = o;\n      u.x = 1;\n    }\n  }\n  return sink(o.x);\n}", "o.x@2->o.x@9", KILLED),
+];
+
+#[test]
+fn an_unplaced_write_is_demoted_only_where_the_alias_is_proven_at_it() {
+    let mut failures = Vec::new();
+    for (name, source, edge, want) in UNPLACED {
+        let got = labels_of(JS, source, edge);
+        if got.is_empty() || got.iter().any(|g| g != want) {
+            failures.push(format!("{name} {edge}: want {want}, got {got:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
