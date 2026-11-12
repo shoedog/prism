@@ -39,6 +39,17 @@ const HAZARDS: &[(&str, &str, &str, &str)] = &[
     ("t1_pattern_leaf", "function f(a, b, more) {\n  for (({p: this.x, a} = {p: 0, a: 0}); more(); ) {\n    ({p: this.x, b} = {p: 1, b: 1});\n  }\n  sink(this.x);\n}\n", "this.x@3->this.x@5", "exact"), // `({p: this.x, a} = ..)`: the leaf `this.x` is its own target
     ("t2_comment_before_bracket", "function f(o, more) {\n  for (o.a /*[*/ .x = 0; more(); ) {\n    o.a /*[*/ .y = 1;\n  }\n  sink(o.a /*[*/ .y);\n}\n", "o.a /*[]@3->o.a /*[]@5", "exact"), // RD records both writes as one garbled path: they affect each other
     ("c9_assignment_as_receiver", "function f(r, n) {\n  let z = 1;\n  let m = 0;\n  for (let i = 0; i < n; i++) {\n    (r ??= [])[i] = g(i);\n    m = i;\n  }\n  sink(m, z);\n}\n", "m@6->m@8", "exact"), // RD records no path for `(r ??= [])[i]`: unknown, fail closed
+    ("f4_a1_array_member_leaf", "function f(o, b, more) {\n  for ([o.x, b] = [0, 0]; more(); ) {\n    o.x = 1;\n  }\n  sink(o.x);\n}\n", "o.x@3->o.x@5", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_a2_obj_default", "function f(o, more) {\n  let a, b;\n  for (({a = 0, b} = o); more(); ) {\n    a = 1;\n  }\n  sink(a, b);\n}\n", "a@4->a@6", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_a3_array_default", "function f(arr, more) {\n  let a, b;\n  for ([a = 0, b] = arr; more(); ) {\n    a = 1;\n  }\n  sink(a, b);\n}\n", "a@4->a@6", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_a5_super", "class C extends B {\n  m(more) {\n    for (super.x = 0; more(); ) {\n      this.x = 1;\n    }\n    sink(this.x);\n  }\n}\n", "this.x@4->this.x@6", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_a6_rest_member", "function f(o, arr, more) {\n  let b;\n  for ([b, ...o.x] = arr; more(); ) {\n    o.x = 1;\n  }\n  sink(o.x, b);\n}\n", "o.x@4->o.x@6", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_a7_obj_rest_member", "function f(o, v, more) {\n  let b;\n  for (({b, ...o.x} = v); more(); ) {\n    o.x = 1;\n  }\n  sink(o.x, b);\n}\n", "o.x@4->o.x@6", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_a10_pair_default_member", "function f(o, v, more) {\n  let b;\n  for (({p: o.x = 0, b} = v); more(); ) {\n    o.x = 1;\n  }\n  sink(o.x, b);\n}\n", "o.x@4->o.x@6", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_a12_this_array_leaf", "class C {\n  m(b, more) {\n    for ([this.x, b] = [0, 0]; more(); ) {\n      this.x = 1;\n    }\n    sink(this.x, b);\n  }\n}\n", "this.x@4->this.x@6", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_b5_super_member_chain", "class C extends B {\n  m(more) {\n    for (super.x.y = 0; more(); ) {\n      this.x.y = 1;\n    }\n    sink(this.x.y);\n  }\n}\n", "this.x.y@4->this.x.y@6", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_b6_super_subscript", "class C extends B {\n  m(k, more) {\n    for (super[k] = 0; more(); ) {\n      this.x = 1;\n    }\n    sink(this.x);\n  }\n}\n", "this.x@4->this.x@6", "exact"), // fold 4: killed on 7371e520, exact (main) now
+    ("f4_s3_default_rhs", "function f(src, more) {\n  for (let {p: a = (x = 0)} = src; more(); ) {\n    var x = 1;\n  }\n  sink(x);\n}\n", "x@3->x@5", "exact"), // fold 4: killed on 7371e520, exact (main) now
 ];
 
 #[test]

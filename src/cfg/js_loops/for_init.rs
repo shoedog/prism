@@ -53,12 +53,12 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         // Binding positions only: the declarator NAMES, never a write inside an initial value.
         if init.kind() == "lexical_declaration" {
             let mut cursor = init.walk();
-            let names: BTreeSet<String> = init
-                .named_children(&mut cursor)
-                .filter_map(|d| d.child_by_field_name("name"))
-                .flat_map(|n| self.parsed.recorded_write_paths(n))
-                .map(|p| p.base)
-                .collect();
+            let mut names = BTreeSet::new();
+            for d in init.named_children(&mut cursor) {
+                if let Some(name) = d.child_by_field_name("name") {
+                    self.binding_names(name, &mut names);
+                }
+            }
             body_writes.retain(|t| {
                 !(t.declares
                     && !t.recorded.is_empty()
@@ -121,7 +121,11 @@ impl<'a, 'tree> Cx<'a, 'tree> {
             };
             if let Some(t) = target {
                 out.push(Target {
-                    recorded: self.parsed.recorded_write_paths(t),
+                    recorded: if self.unrecorded_leaf(t) {
+                        Vec::new()
+                    } else {
+                        self.parsed.recorded_write_paths(t)
+                    },
                     census: self.static_path(t),
                     declares: n.kind() == "variable_declarator"
                         || (n.kind() == "for_in_statement"
@@ -131,6 +135,57 @@ impl<'a, 'tree> Cx<'a, 'tree> {
             let mut cursor = n.walk();
             stack.extend(n.named_children(&mut cursor));
         }
+    }
+
+    /// The names a declarator pattern BINDS: its binding positions only (a default's left side, a pair's value),
+    /// never a write inside a default expression.
+    fn binding_names(&self, n: Node<'tree>, out: &mut BTreeSet<String>) {
+        match n.kind() {
+            "identifier" | "shorthand_property_identifier_pattern" => {
+                out.insert(self.parsed.source[n.start_byte()..n.end_byte()].to_string());
+            }
+            "assignment_pattern" | "object_assignment_pattern" => {
+                if let Some(left) = n.child_by_field_name("left") {
+                    self.binding_names(left, out);
+                }
+            }
+            "pair_pattern" => {
+                if let Some(value) = n.child_by_field_name("value") {
+                    self.binding_names(value, out);
+                }
+            }
+            "array_pattern" | "object_pattern" | "rest_pattern" => {
+                let mut cursor = n.walk();
+                for c in n.named_children(&mut cursor) {
+                    self.binding_names(c, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// A destructuring pattern with a leaf the producer's extraction does not record one by one (a member leaf in
+    /// an array, a default, a rest member): its recorded paths are incomplete, so the target is unknown.
+    fn unrecorded_leaf(&self, t: Node<'tree>) -> bool {
+        let t = peel(t);
+        if !matches!(t.kind(), "object_pattern" | "array_pattern") {
+            return false;
+        }
+        let mut stack = vec![t];
+        while let Some(n) = stack.pop() {
+            if matches!(
+                n.kind(),
+                "assignment_pattern"
+                    | "object_assignment_pattern"
+                    | "member_expression"
+                    | "subscript_expression"
+            ) {
+                return true;
+            }
+            let mut cursor = n.walk();
+            stack.extend(n.named_children(&mut cursor));
+        }
+        false
     }
 
     /// The member or subscript a `delete` removes (`delete o.x`, `delete o[k]`, wrappers peeled); `delete name`
@@ -152,6 +207,8 @@ impl<'a, 'tree> Cx<'a, 'tree> {
         let text = |n: Node<'_>| self.parsed.source[n.start_byte()..n.end_byte()].to_string();
         match t.kind() {
             "identifier" | "this" => Some(vec![text(t)]),
+            // The census normalizes `super` to `this` (`js_write_census/identity.rs`).
+            "super" => Some(vec!["this".to_string()]),
             "parenthesized_expression"
             | "non_null_expression"
             | "as_expression"
