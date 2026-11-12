@@ -188,7 +188,10 @@ fn f3_cache_full_hit_tracks_the_skipped_c_file_aggregate() {
     let (hashes, miss) = probe(dir.path());
     assert_eq!(hashes, clean_hashes, "parsed files unchanged");
     assert!(miss, "a new skipped C file must not replay the old census");
-    assert!(loaded_census(dir.path()).incomplete());
+    // The net reads it permissively: its fact, no loss.
+    let c = loaded_census(dir.path());
+    assert!(!c.incomplete(), "{:?}", c.incomplete_reasons());
+    assert!(c.get("NEXT").is_some());
     save(dir.path());
     // The last skipped file disappears.
     fs::remove_file(dir.path().join("legacy.h")).unwrap();
@@ -199,6 +202,7 @@ fn f3_cache_full_hit_tracks_the_skipped_c_file_aggregate() {
         "removing the last skipped C file must not replay either"
     );
     assert!(!loaded_census(dir.path()).incomplete());
+    assert!(loaded_census(dir.path()).get("NEXT").is_none());
 }
 
 #[test]
@@ -227,6 +231,7 @@ fn f3_text_only_includes_join_the_census_and_the_cache_identity() {
     has(&c, "ROW", "tbl_off");
     has(&c, "FROM_INC", "inc_var");
     has(&c, "FROM_UPPER", "up_var");
+    // Hybrid rule: a `.txt` nothing includes is not a header the census reads.
     assert!(c.get("NOT_SEEN").is_none());
     assert!(!c.incomplete());
     // The loader's set is deterministic.
@@ -335,12 +340,16 @@ fn f3_failed_text_include_joins_the_cache_identity() {
     let before = load_repo(dir.path()).unwrap();
     let key_before = compute_topology_key(&before.file_hashes, &before.manifest_hashes);
     assert!(!CMacroCensus::from_files(&before.files).incomplete());
-    // A data.tbl beyond the census's own read cap appears (sparse: the cap is checked on the
-    // size, the bytes are never read); every parsed file is unchanged. A file over only the
-    // loader's 2 MiB limit is now read as text instead (the `s6b_` oversize tests).
-    let f = std::fs::File::create(dir.path().join("src/data.tbl")).unwrap();
-    f.set_len(crate::repo_loader::c_census::CENSUS_MAX_BYTES + 1)
-        .unwrap();
+    // A data.tbl beyond the census's own read cap appears (sparse, a `define` at its start,
+    // so the streaming scan matches); every parsed file is unchanged. A file over only the
+    // loader's 2 MiB limit is read as text instead (the `s6b_` oversize tests).
+    {
+        use std::io::Write;
+        let mut f = std::fs::File::create(dir.path().join("src/data.tbl")).unwrap();
+        f.write_all(b"#define BIG 1\n").unwrap();
+        f.set_len(crate::repo_loader::c_census::CENSUS_MAX_BYTES + 1)
+            .unwrap();
+    }
     let after = load_repo(dir.path()).unwrap();
     assert_eq!(after.file_hashes, before.file_hashes);
     assert!(CMacroCensus::from_files(&after.files).incomplete());

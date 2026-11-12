@@ -132,8 +132,10 @@ fn body_has_forbidden_directive(text: &str) -> bool {
 }
 
 /// The name a call's callee ends in: the identifier, the field of `a.f` / `a->f`, or either
-/// inside parentheses. A function-like macro can be spelled after `->` or `.`, or in
-/// parentheses, and the preprocessor still expands it.
+/// inside parentheses. A function-like macro can be spelled after `->` or `.` and the
+/// preprocessor still expands it (`s->M(x)`). `(M)(x)` is not an invocation (the name is
+/// not followed by `(`, so the preprocessor does not expand it); the parenthesized spelling
+/// is read as the callee name anyway, which only refuses more.
 fn callee_last_name<'a>(parsed: &'a ParsedFile, mut f: Node<'a>) -> Option<&'a str> {
     loop {
         match f.kind() {

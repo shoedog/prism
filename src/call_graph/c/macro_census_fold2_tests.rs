@@ -85,13 +85,14 @@ fn fold2_macro_call_arguments_are_read_from_tokens() {
 // ---- Item 3: strict UTF-8 census text. ----
 
 #[test]
-fn fold2_non_utf8_census_text_is_a_loss() {
-    // UTF-16LE with a BOM, reached through a quoted include of an unmapped extension.
+fn fold2_non_utf8_census_text_is_decoded_not_lost() {
+    // Hybrid rule: census texts are read permissively. UTF-16LE with a byte-order mark is
+    // decoded as UTF-16 and yields its fact; Shift-JIS is decoded lossily (the trail byte's
+    // backslash cannot hide the define: the scan tracks no comment). Neither is incomplete.
     let mut utf16 = vec![0xFF, 0xFE];
     for u in "#define TRACK() track(&x)\n".encode_utf16() {
         utf16.extend_from_slice(&u.to_le_bytes());
     }
-    // Shift-JIS: the trail byte of a kanji is a backslash, which splices the comment line.
     let sjis = b"// \x95\x5c\n#define TRACK() track(&x)\n";
     for (name, bytes) in [("gen.payload", utf16.as_slice()), ("sj.payload", &sjis[..])] {
         let dir = tempfile::tempdir().unwrap();
@@ -101,20 +102,14 @@ fn fold2_non_utf8_census_text_is_a_loss() {
             format!("#include \"{name}\"\nint f(void) {{ return 0; }}\n").as_bytes(),
         );
         write(dir.path(), name, bytes);
-        let (c, repo) = loaded(dir.path());
-        assert!(c.incomplete(), "{name}");
-        assert_eq!(
-            repo.manifest_hashes
-                .get(&format!("c-census:text-failed:{name}"))
-                .map(String::as_str),
-            Some("not-utf8"),
-            "{name}"
-        );
+        let (c, _) = loaded(dir.path());
+        assert!(!c.incomplete(), "{name}: {:?}", c.incomplete_reasons());
+        assert!(c.get("TRACK").unwrap().free.contains("track"), "{name}");
     }
 }
 
 #[test]
-fn fold2_non_utf8_oversize_header_is_a_loss() {
+fn fold2_non_utf8_c_like_header_is_read_lossily() {
     let dir = tempfile::tempdir().unwrap();
     write(dir.path(), "a.c", OWNER);
     let mut v = b"// \x95\x5c\n#define TRACK() track(&x)\n".to_vec();
@@ -122,11 +117,9 @@ fn fold2_non_utf8_oversize_header_is_a_loss() {
         v.extend_from_slice(b"0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,\n");
     }
     write(dir.path(), "gen.h", &v);
-    let (c, repo) = loaded(dir.path());
-    assert!(c.incomplete());
-    assert!(repo
-        .manifest_hashes
-        .contains_key("c-census:text-failed:gen.h"));
+    let (c, _) = loaded(dir.path());
+    assert!(!c.incomplete(), "{:?}", c.incomplete_reasons());
+    assert!(c.get("TRACK").is_some());
     assert!(v.len() as u64 <= CENSUS_MAX_BYTES);
 }
 
@@ -168,7 +161,9 @@ fn fold2_non_ascii_angle_include_spelling_stamps() {
 }
 
 #[test]
-fn fold2_ascii_angle_include_resolves_against_every_in_repo_directory() {
+fn fold2_an_angle_target_is_matched_against_every_directory() {
+    // Hybrid rule: the target resolves against every in-repo directory (path equal or
+    // ending in `/<target>`); a file that merely shares a basename is not read.
     let dir = tempfile::tempdir().unwrap();
     write(
         dir.path(),
@@ -180,27 +175,19 @@ fn fold2_ascii_angle_include_resolves_against_every_in_repo_directory() {
         "include/cfg/macros.payload",
         b"#define RESTORE() x = saved\n",
     );
-    // A path that merely contains the spelling is not a match.
+    write(
+        dir.path(),
+        "other/lib/cfg/macros.payload",
+        b"#define ALSO_READ 1\n",
+    );
     write(
         dir.path(),
         "include/xcfg/macros.payload",
-        b"#define WRONGLY_READ 1\n",
+        b"#define NOT_READ 1\n",
     );
-    let (c, repo) = loaded(dir.path());
+    let (c, _) = loaded(dir.path());
     assert!(!c.incomplete(), "{:?}", c.incomplete_reasons());
-    assert!(c.get("RESTORE").is_some(), "the angle target is read");
-    assert!(c.get("WRONGLY_READ").is_none());
-    assert!(repo
-        .manifest_hashes
-        .contains_key("c-census:text:include/cfg/macros.payload"));
-    // Transitive: a read text include names another through an angle include.
-    let dir = tempfile::tempdir().unwrap();
-    write(
-        dir.path(),
-        "a.c",
-        b"#include <one.payload>\nint f(void) { return 0; }\n",
-    );
-    write(dir.path(), "x/one.payload", b"#include <two.payload>\n");
-    write(dir.path(), "y/two.payload", b"#define DEEP 1\n");
-    assert!(loaded(dir.path()).0.get("DEEP").is_some());
+    assert!(c.get("RESTORE").is_some());
+    assert!(c.get("ALSO_READ").is_some(), "every directory is searched");
+    assert!(c.get("NOT_READ").is_none(), "basename alone is no match");
 }

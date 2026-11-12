@@ -37,11 +37,15 @@
 //! `incomplete` (checked on the raw logical line in both dialect passes), so a spelling this lexer cannot equate with the compiler's never
 //! loses a fact silently.
 //!
-//! The census reads more than the parsed C/C++ files: the loader hands it, as text only,
-//! the in-repo files the preprocessor can include but the loader never parses (`.inl`,
-//! `.inc`, `.def`, ..., and any quoted include target of another extension), and its cache
-//! identity covers those files and the skipped-file aggregate (see `repo_loader::c_census`).
-//! Review mode parses only the diff's files and fails closed when the repository holds
+//! The census reads more than the parsed C/C++ files: every file of the repository is a
+//! header (the preprocessor reads whatever a `#include` names, through any include path,
+//! `..` or computed spelling, so discovery is not attempted). The loader hands it, as text
+//! only, every in-repo file that is not a parsed C/C++ file and yields a definition or an
+//! `incomplete` trigger (`repo_loader::c_census`: gitignored and hidden files included, a
+//! non-UTF-8 file with the bytes `define`/`undef` in any of ASCII, UTF-16LE or UTF-16BE
+//! stamps `incomplete`); its cache identity is one aggregate entry over the facts of those
+//! texts and the list of contributing files, so an unrelated edit does not move it.
+//! Review mode parses only the diff files and fails closed when the repository holds
 //! unread census inputs.
 //!
 //! Several definitions of one name are unioned and every judgement over-approximates: a
@@ -75,7 +79,7 @@ pub struct MacroFacts {
 
 /// One definition before the closure.
 #[derive(Default)]
-struct RawDef {
+pub(crate) struct RawDef {
     params: BTreeSet<String>,
     free: BTreeSet<String>,
     control: bool,
@@ -664,17 +668,29 @@ pub(crate) fn macro_call_arguments(
                 if !is_macro(name) || seq.get(k + 1) != Some(&Tok::Open) {
                     continue;
                 }
-                let mut depth = 0usize;
-                for t in &seq[k + 1..] {
-                    match t {
-                        Tok::Open => depth += 1,
-                        Tok::Close => {
-                            depth -= 1;
-                            if depth == 0 {
-                                break;
+                // The group, then every group that follows it directly: an argument can
+                // expand to a function-like macro name that takes the next `(` group
+                // (`ID(TRACKED)(x)` is `TRACKED(x)`), repeated for chains.
+                let mut start = k + 1;
+                loop {
+                    let mut depth = 0usize;
+                    let mut end = None;
+                    for (off, t) in seq[start..].iter().enumerate() {
+                        match t {
+                            Tok::Open => depth += 1,
+                            Tok::Close => {
+                                depth -= 1;
+                                if depth == 0 {
+                                    end = Some(start + off);
+                                    break;
+                                }
                             }
+                            Tok::Ident(a) => insert_ident(&mut out, a),
                         }
-                        Tok::Ident(a) => insert_ident(&mut out, a),
+                    }
+                    match end {
+                        Some(e) if seq.get(e + 1) == Some(&Tok::Open) => start = e + 1,
+                        _ => break,
                     }
                 }
             }
@@ -1101,46 +1117,206 @@ fn merge(out: &mut BTreeMap<String, RawDef>, name: String, def: RawDef) {
     e.poisoned |= def.poisoned;
 }
 
-/// Every `#include "x"` (also `include_next` and `import`) target spelled in `source`,
-/// read from the translated, spliced text with comments kept (an include in a comment is
-/// reported too: over-approximation only costs a text read). Used by the loader to find
-/// the in-repo files the census must read as text.
-pub(crate) fn quoted_includes(source: &str) -> BTreeSet<String> {
-    include_targets(source, '"', '"')
+// ---- Census text inputs that are not parsed C/C++ (slice 6b hybrid). ----
+//
+// A file reached by an include discovery, or by the C-like-extension net, is read with a
+// PERMISSIVE scan: no comment or string tracking and no `incomplete` from lexer state, so a
+// Makefile, a script or prose that happens to contain `/*` or a quote cannot make the census
+// incomplete. Every shape it can read as a definition becomes a fact (over-approximation
+// only adds facts).
+
+/// The text variants a permissive scan reads: phase 1 with and without trigraphs, lenient
+/// and strict splices (all unioned), plus the NUL-stripped text when it holds NULs (a
+/// UTF-16 file without a byte-order mark).
+pub(crate) fn permissive_variants(source: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut push = |t: String| {
+        if !out.contains(&t) {
+            out.push(t);
+        }
+    };
+    let mut bases = vec![source.to_owned()];
+    if source.contains('\0') {
+        bases.push(source.replace('\0', ""));
+    }
+    for base in &bases {
+        for trigraphs in [true, false] {
+            let t = translate(base, trigraphs);
+            for lenient in [true, false] {
+                push(String::from_utf8_lossy(&splice(&t, lenient).0).into_owned());
+            }
+        }
+    }
+    out
 }
 
-/// Every `#include <x>` (also `include_next` and `import`) target spelled in `source`, read
-/// like [`quoted_includes`]. The preprocessor looks angle targets up on the include path,
-/// which may name any in-repo directory.
-pub(crate) fn angle_includes(source: &str) -> BTreeSet<String> {
-    include_targets(source, '<', '>')
+/// Text after every directive leader (`#`, `%:`, `??=`) on `line`, wherever it stands.
+fn leader_rests(line: &str) -> impl Iterator<Item = &str> {
+    let b = line.as_bytes();
+    (0..b.len()).filter_map(move |i| {
+        let n = if b[i] == b'#' {
+            1
+        } else if b[i] == b'%' && b.get(i + 1) == Some(&b':') {
+            2
+        } else if b[i] == b'?' && b[i..].starts_with(b"??=") {
+            3
+        } else {
+            return None;
+        };
+        Some(&line[i + n..])
+    })
 }
 
-fn include_targets(source: &str, open: char, close: char) -> BTreeSet<String> {
+fn is_ident_byte(c: u8) -> bool {
+    c.is_ascii_alphanumeric() || c == b'_' || c == b'$' || c >= 0x80
+}
+
+/// One permissive define: the name, the identifier-like runs of the rest of the line as free
+/// names, `##` as poison. `None` when no identifier name follows.
+fn permissive_define(after: &str) -> Option<(String, RawDef)> {
+    let t = skip_blanks(after);
+    let tb = t.as_bytes();
+    if tb.is_empty() || !is_ident_start(tb, 0) {
+        return None;
+    }
+    let end = ident_end(tb, 0);
+    let (name, rest) = t.split_at(end);
+    let mut def = RawDef::default();
+    if is_complex(name) {
+        def.poisoned = true;
+    }
+    if rest.contains("##") || rest.contains("%:%:") {
+        def.poisoned = true;
+    }
+    let rb = rest.as_bytes();
+    let mut i = 0;
+    while i < rb.len() {
+        if is_ident_byte(rb[i]) {
+            let s = i;
+            while i < rb.len() && is_ident_byte(rb[i]) {
+                i += 1;
+            }
+            let run = &rest[s..i];
+            insert_ident(&mut def.free, run);
+            let trimmed = run.trim_start_matches(|c: char| c.is_ascii_digit());
+            if !trimmed.is_empty() && trimmed != run {
+                insert_ident(&mut def.free, trimmed);
+            }
+        } else {
+            i += 1;
+        }
+    }
+    def.control = def.free.iter().any(|t| is_control_name(t));
+    Some((name.to_owned(), def))
+}
+
+/// Collect the definitions of a census text that is not a parsed C/C++ file.
+pub(crate) fn collect_permissive(source: &str, out: &mut BTreeMap<String, RawDef>) {
+    for text in permissive_variants(source) {
+        for line in text.split('\n') {
+            for rest in leader_rests(line) {
+                let r = skip_blanks(rest);
+                let (after, is_define) = match (r.strip_prefix("define"), r.strip_prefix("undef")) {
+                    (Some(a), _) => (a, true),
+                    (None, Some(a)) => (a, false),
+                    _ => continue,
+                };
+                if after.as_bytes().first().is_some_and(|&c| is_ident_byte(c)) {
+                    continue; // another directive spelling, e.g. `#definex`
+                }
+                if let Some((name, mut def)) = permissive_define(after) {
+                    if !is_define {
+                        // An `undef` names a macro without a body: a fact with no names.
+                        def = RawDef {
+                            poisoned: def.poisoned,
+                            ..RawDef::default()
+                        };
+                    }
+                    merge(out, name, def);
+                }
+            }
+        }
+    }
+}
+
+/// Does a permissive read of `text` yield any macro fact?
+pub(crate) fn text_has_facts(text: &str) -> bool {
+    let mut raw = BTreeMap::new();
+    collect_permissive(text, &mut raw);
+    !raw.is_empty()
+}
+
+/// The digest of the facts the census text inputs alone yield, for the aggregate `c-census:`
+/// cache-identity entry. Parsed C/C++ files are covered by their own content hashes.
+pub(crate) fn texts_digest(texts: &BTreeMap<String, String>) -> String {
+    let mut raw = BTreeMap::new();
+    for text in texts.values() {
+        collect_permissive(text, &mut raw);
+    }
+    CMacroCensus::close(raw, Inc::default()).digest()
+}
+
+/// The include targets spelled in `variants`, `(target, quoted)`: `#include`,
+/// `#include_next` and `#import` with a quoted or angle target, found after any directive
+/// leader on a line.
+pub(crate) fn include_targets_in(variants: &[String]) -> BTreeSet<(String, bool)> {
     let mut out = BTreeSet::new();
-    for trigraphs in [true, false] {
-        let (spliced, _) = splice(&translate(source, trigraphs), true);
-        for line in String::from_utf8_lossy(&spliced).split('\n') {
-            let t = skip_blanks(line);
-            let Some(rest) = t.strip_prefix('#').or_else(|| t.strip_prefix("%:")) else {
+    for text in variants {
+        if !text.contains("include") && !text.contains("import") {
+            continue;
+        }
+        for line in text.split('\n') {
+            if !line.contains("include") && !line.contains("import") {
                 continue;
-            };
-            let rest = skip_blanks(rest);
-            let Some(rest) = rest
-                .strip_prefix("include")
-                .map(|r| r.strip_prefix("_next").unwrap_or(r))
-                .or_else(|| rest.strip_prefix("import"))
-            else {
-                continue;
-            };
-            if let Some(q) = skip_blanks(rest).strip_prefix(open) {
-                if let Some(end) = q.find(close) {
-                    out.insert(q[..end].to_owned());
+            }
+            for rest in leader_rests(line) {
+                let r = skip_blanks(rest);
+                let Some(r) = r
+                    .strip_prefix("include")
+                    .map(|r| r.strip_prefix("_next").unwrap_or(r))
+                    .or_else(|| r.strip_prefix("import"))
+                else {
+                    continue;
+                };
+                let t = skip_blanks(r);
+                for (open, close, quoted) in [('"', '"', true), ('<', '>', false)] {
+                    if let Some(q) = t.strip_prefix(open) {
+                        if let Some(end) = q.find(close) {
+                            out.insert((q[..end].to_owned(), quoted));
+                        }
+                    }
                 }
             }
         }
     }
     out
+}
+
+/// The include targets of a census text (permissive variants only).
+pub(crate) fn text_include_targets(source: &str) -> BTreeSet<(String, bool)> {
+    include_targets_in(&permissive_variants(source))
+}
+
+/// The include targets of a parsed C/C++ source, read on the comment-kept and the
+/// comment-stripped variants (both dialects, both splice modes, both trigraph modes).
+pub(crate) fn source_include_targets(source: &str) -> BTreeSet<(String, bool)> {
+    let mut variants: Vec<String> = Vec::new();
+    for trigraphs in [true, false] {
+        let t = translate(source, trigraphs);
+        for lenient in [true, false] {
+            let (spliced, points) = splice(&t, lenient);
+            let mut push = |s: String| {
+                if !variants.contains(&s) {
+                    variants.push(s);
+                }
+            };
+            push(String::from_utf8_lossy(&spliced).into_owned());
+            for cxx in [false, true] {
+                push(strip_comments(&spliced, &points, cxx).text);
+            }
+        }
+    }
+    include_targets_in(&variants)
 }
 
 fn is_c_family(parsed: &ParsedFile) -> bool {
@@ -1166,9 +1342,8 @@ impl CMacroCensus {
                 texts.extend(t.iter().map(|(k, v)| (k.as_str(), v.as_str())));
             }
         }
-        for (path, text) in &texts {
-            incomplete.cur = format!("{path} (text include)");
-            collect(text, &mut raw, &mut incomplete);
+        for text in texts.values() {
+            collect_permissive(text, &mut raw);
         }
         let census = Self::close(raw, incomplete);
         if std::env::var_os("PRISM_C_PRUNE_TRACE").is_some() {
@@ -1189,9 +1364,8 @@ impl CMacroCensus {
                 incomplete.flag("loader_incomplete", 0, "");
             }
             collect(&parsed.source, &mut raw, &mut incomplete);
-            for (path, text) in parsed.c_census_texts().into_iter().flat_map(|t| t.iter()) {
-                incomplete.cur = format!("{path} (text include)");
-                collect(text, &mut raw, &mut incomplete);
+            for text in parsed.c_census_texts().into_iter().flat_map(|t| t.values()) {
+                collect_permissive(text, &mut raw);
             }
         }
         Self::close(raw, incomplete)

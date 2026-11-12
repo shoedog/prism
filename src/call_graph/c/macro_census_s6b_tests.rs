@@ -55,45 +55,51 @@ fn s6b_oversize_generated_header_is_read_and_does_not_stamp_incomplete() {
     write(
         dir.path(),
         "Modules/unicodename_db.h",
-        &big_header("#define UNIDB_TOP 7"),
+        &big_header("#define UNIDB_TOP tbl_a"),
     );
     let (c, repo) = loaded(dir.path());
     assert!(!c.incomplete(), "{:?}", c.incomplete_reasons());
     assert!(c.get("UNIDB_TOP").is_some(), "the oversize define is read");
-    let key = "c-census:text:Modules/unicodename_db.h";
+    let key = "c-census:aggregate";
     let before = repo
         .manifest_hashes
         .get(key)
-        .expect("content hash in the identity")
+        .expect("aggregate census identity")
         .clone();
-    // Same size, different content: the identity moves.
-    let mut edited = big_header("#define UNIDB_TOP 7");
-    let n = edited.len();
-    edited[n - 4] = b'x';
-    write(dir.path(), "Modules/unicodename_db.h", &edited);
+    // Same size, a different fact: the identity moves.
+    write(
+        dir.path(),
+        "Modules/unicodename_db.h",
+        &big_header("#define UNIDB_TOP tbl_b"),
+    );
     let (_, again) = loaded(dir.path());
     assert_ne!(again.manifest_hashes.get(key), Some(&before));
 }
 
 #[test]
-fn s6b_oversize_define_with_a_hazard_still_stamps() {
+fn s6b_oversize_define_with_a_non_ascii_name_is_a_poisoned_fact_not_a_loss() {
     let dir = tempfile::tempdir().unwrap();
     write(dir.path(), "a.c", b"int f(void) { return 0; }\n");
     write(dir.path(), "big.h", &big_header("#define caf\u{e9} 1"));
-    assert!(loaded(dir.path()).0.incomplete());
+    let (c, _) = loaded(dir.path());
+    assert!(!c.incomplete(), "{:?}", c.incomplete_reasons());
+    assert!(c.get("caf\u{e9}").unwrap().poisoned);
 }
 
 #[test]
-fn s6b_oversize_beyond_the_cap_still_stamps_and_joins_the_identity() {
+fn s6b_oversize_beyond_the_cap_with_a_define_stamps_and_without_does_not() {
+    use std::io::Write;
     let dir = tempfile::tempdir().unwrap();
     write(dir.path(), "a.c", b"int f(void) { return 0; }\n");
+    // Sparse, no `define` bytes anywhere: skipped by the streaming scan, census complete.
     let f = fs::File::create(dir.path().join("huge.h")).unwrap();
     f.set_len(CENSUS_MAX_BYTES + 1).unwrap();
-    let (c, repo) = loaded(dir.path());
-    assert!(c.incomplete());
-    assert!(repo
-        .manifest_hashes
-        .contains_key("c-census:text-failed:huge.h"));
+    assert!(!loaded(dir.path()).0.incomplete());
+    // The same size with a `define` at the start: lost.
+    let mut f = fs::File::create(dir.path().join("huge.h")).unwrap();
+    f.write_all(b"#define X 1\n").unwrap();
+    f.set_len(CENSUS_MAX_BYTES + 1).unwrap();
+    assert!(loaded(dir.path()).0.incomplete());
 }
 
 #[cfg(unix)]

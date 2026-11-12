@@ -58,10 +58,10 @@ pub(super) fn validate(repo: &LoadedRepo, tracked: &mut BTreeMap<String, PathSta
         uncertain |= unreadable;
         tracked.insert(rel.clone(), current_stamp);
     }
-    // Census identity (`c-census:` entries of the loaded topology), recomputed from disk with
-    // the loader's own skips and compared with the loaded entries of the same prefix. A
-    // changed, added or removed text include (or a text-failed entry) is stale; the skipped
-    // aggregate depends only on the loaded skip list, so an unchanged repository is not.
+    // Census identity (the aggregate `c-census:` entry of the loaded topology), recomputed
+    // from disk (the discovered and C-like census inputs) and compared with the loaded entry. A new,
+    // edited or removed define-bearing file, or a newly lost input, is stale; an unrelated
+    // edit leaves the aggregate unchanged. A repository without parsed C/C++ is not walked.
     {
         let current = current_c_census_identity(&repo.root, &repo.files, &repo.skipped);
         let loaded: BTreeMap<&String, &String> = repo
@@ -71,13 +71,18 @@ pub(super) fn validate(repo: &LoadedRepo, tracked: &mut BTreeMap<String, PathSta
             .collect();
         for key in loaded.keys().copied().chain(current.keys()) {
             if loaded.get(key).copied() != current.get(key) {
-                changed.insert(
-                    key.strip_prefix("c-census:text:")
-                        .or_else(|| key.strip_prefix("c-census:text-failed:"))
-                        .unwrap_or(key)
-                        .to_string(),
-                );
+                changed.insert(key.to_string());
             }
+        }
+    }
+    // The text inputs the census read, compared byte for byte with the disk: an edit that
+    // leaves the facts unchanged still leaves the loaded snapshot behind the files.
+    for (rel, text) in prism::repo_loader::c_census_input_texts(&repo.files)
+        .iter()
+        .flat_map(|t| t.iter())
+    {
+        if !prism::repo_loader::c_census_text_is_current(&repo.root, rel, text) {
+            changed.insert(rel.clone());
         }
     }
     for attempt in 0..2 {

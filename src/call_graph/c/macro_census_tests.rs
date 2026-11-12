@@ -465,8 +465,8 @@ fn r2_loader_stamps_every_skip_reason_that_loses_a_c_file() {
         CMacroCensus::from_files(&repo.files).incomplete()
     };
     assert!(!census_of(&|_| {}));
-    // Latin-1 copyright sign: NotUtf8.
-    assert!(census_of(&|d| std::fs::write(
+    // Latin-1 copyright sign (NotUtf8): the net reads it permissively, so it is no loss.
+    assert!(!census_of(&|d| std::fs::write(
         d.join("legacy.h"),
         b"/* \xA9 */\n#define NEXT x\n"
     )

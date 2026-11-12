@@ -35,3 +35,18 @@ fn fold2_delimited_ucn_macro_body_keeps_the_owner() {
         assert_eq!(a, b, "{body}: the census is incomplete, nothing is dropped");
     }
 }
+
+// ---- Fold 3: a macro invoked under a name that comes out of an expansion. ----
+
+const CHAINED: &str = "long src(void);\nvoid sink(long);\nvoid track(long *p);\nlong peek(void);\nvoid f(void) {\n    long x = src();\n    ID(TRACKED)(x);\n    x = peek();\n    sink(x);\n}\n";
+
+#[test]
+fn f3_chained_invocation_escapes_the_second_group() {
+    // `ID(TRACKED)(x)` is `TRACKED(x)` is `track(&x)`: `peek()` reads what `track` kept.
+    let hdr = "#define ID(a) a\n#define TRACKED(v) track(&v)\n";
+    let (b, a) = counts(&[("a.c", CHAINED), ("m.h", hdr)], "a.c");
+    assert_eq!(a, b, "x@D -> sink must be kept ({b} -> {a})");
+    // Control: with nothing in-repo naming the macros, the dominating write prunes.
+    let (b, a) = counts(&[("a.c", CHAINED)], "a.c");
+    assert!(a < b, "control prunes ({b} -> {a})");
+}

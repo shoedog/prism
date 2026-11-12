@@ -231,53 +231,54 @@ fn merge_walk_items(
     }
 }
 
-/// The `c-census:` cache-identity entries recomputed from the disk the way `load_repo` computed
-/// them (same files, same loader skips), for a freshness probe to compare with the loaded
-/// `LoadedRepo::manifest_hashes` entries of the same prefix. Like with like: the loaded side
-/// is never rebuilt from `scope_graph_inputs`.
+/// The aggregate `c-census:` cache-identity entry recomputed from the disk the way
+/// `load_repo` computed it (same parsed files, same loader skips), for a freshness probe to
+/// compare with the loaded `LoadedRepo::manifest_hashes` entry of the same prefix. Empty,
+/// with no walk, when the repository has no parsed C/C++ file.
 pub fn current_c_census_identity(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
     skipped: &[SkippedFile],
 ) -> BTreeMap<String, String> {
-    let fresh = fresh_census_skipped(root, skipped);
-    c_census::gather(root, files, &fresh).identity
+    c_census::gather(root, files, skipped).identity
 }
 
-/// The loader's skip list as a fresh walk of `root` finds it, so census membership (a text
-/// include or an angle-include target created after load, an oversize file) is rediscovered
-/// rather than read from the loaded list. A parse refusal needs the parser, so the loaded
-/// `ParseFailed` entries are kept; an unreadable root falls back to the loaded list.
-fn fresh_census_skipped(root: &Path, loaded: &[SkippedFile]) -> Vec<SkippedFile> {
-    let Ok((items, _candidates, _snapshot)) = collect_walk_items(root) else {
-        return loaded.to_vec();
-    };
-    let mut out: Vec<SkippedFile> = items
-        .into_iter()
-        .filter_map(|item| match item {
-            MergeItem::Skip(skip) => Some(skip),
-            MergeItem::Candidate { .. } => None,
-        })
-        .collect();
-    out.extend(
-        loaded
-            .iter()
-            .filter(|s| s.reason == SkipReason::ParseFailed)
-            .cloned(),
-    );
-    out
+/// The census text inputs (`path -> text`) a loaded repository's C/C++ files carry, for a
+/// freshness probe to compare byte for byte with the disk.
+pub fn c_census_input_texts(
+    files: &BTreeMap<String, ParsedFile>,
+) -> Option<std::sync::Arc<BTreeMap<String, String>>> {
+    files
+        .values()
+        .find(|p| matches!(p.language, Language::C | Language::Cpp))
+        .and_then(|p| p.c_census_texts().cloned())
 }
 
-/// Paths of the census-only text files a loaded repository's identity names.
-pub fn c_census_text_paths(manifest_hashes: &BTreeMap<String, String>) -> Vec<String> {
-    manifest_hashes
-        .keys()
-        .filter_map(|k| {
-            k.strip_prefix("c-census:text:")
-                .or_else(|| k.strip_prefix("c-census:text-failed:"))
-        })
-        .map(str::to_string)
-        .collect()
+/// Is a census text still what the disk holds for `rel`, through the census's own decoding?
+pub fn c_census_text_is_current(root: &Path, rel: &str, text: &str) -> bool {
+    c_census::text_is_current(root, rel, text)
+}
+
+/// Paths of the census inputs a loaded repository holds beyond its parsed files (texts that
+/// yield definitions, and inputs lost to the census), as stamped on its C/C++ files.
+pub fn c_census_input_paths(files: &BTreeMap<String, ParsedFile>) -> Vec<String> {
+    let mut out = BTreeSet::new();
+    if let Some(p) = files
+        .values()
+        .find(|p| matches!(p.language, Language::C | Language::Cpp))
+    {
+        out.extend(
+            p.c_census_texts()
+                .into_iter()
+                .flat_map(|t| t.keys().cloned()),
+        );
+        out.extend(
+            p.c_census_lost()
+                .into_iter()
+                .flat_map(|l| l.iter().cloned()),
+        );
+    }
+    out.into_iter().collect()
 }
 
 pub fn scope_graph_build_inputs(
