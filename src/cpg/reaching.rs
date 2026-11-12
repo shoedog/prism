@@ -1029,3 +1029,6 @@ mod refusal_classes_tests;
 
 #[cfg(test)]
 mod alias_cert_tests;
+
+#[cfg(test)]
+mod alias_cert_alloc_tests;
