@@ -496,10 +496,13 @@ pub struct ParsedFile {
     /// fails closed. Absent a loader (tests, single files) it is false.
     c_family_skipped_in_repo: bool,
     /// Stamped by the repository loader on every C/C++ file: the in-repo files the
-    /// preprocessor can include that are never parsed (`.inl`, `.inc`, `.def`, a quoted
-    /// include target of another extension), as `(path, text)`. The macro census reads them
-    /// textually (#630 slice 6a).
+    /// preprocessor can include that are not parsed C/C++ and hold a definition (include
+    /// discovery plus the C-like-extension net, #630 slice 6b hybrid), as `(path, text)`. The
+    /// macro census reads them with its permissive scan (#630 slice 6a).
     c_census_texts: Option<std::sync::Arc<std::collections::BTreeMap<String, String>>>,
+    /// Stamped with the texts: the census inputs the loader could not read (an unreadable
+    /// file, a symlink out of the repository, an oversize non-C input with a directive leader), so a freshness probe can stamp them too.
+    c_census_lost: Option<std::sync::Arc<std::collections::BTreeSet<String>>>,
 }
 
 /// How a formal parameter is used in its callable body (PR-C).
@@ -542,6 +545,19 @@ impl ParsedFile {
         texts: std::sync::Arc<std::collections::BTreeMap<String, String>>,
     ) {
         self.c_census_texts = Some(texts);
+    }
+
+    pub(crate) fn set_c_census_lost(
+        &mut self,
+        lost: std::sync::Arc<std::collections::BTreeSet<String>>,
+    ) {
+        self.c_census_lost = Some(lost);
+    }
+
+    pub(crate) fn c_census_lost(
+        &self,
+    ) -> Option<&std::sync::Arc<std::collections::BTreeSet<String>>> {
+        self.c_census_lost.as_ref()
     }
 
     pub(crate) fn c_census_texts(
@@ -589,6 +605,7 @@ impl ParsedFile {
             python_hidden_hazard: std::sync::OnceLock::new(),
             c_family_skipped_in_repo: false,
             c_census_texts: None,
+            c_census_lost: None,
         };
         pf.functions = pf.build_function_table();
         Ok(pf)

@@ -57,11 +57,15 @@ impl FreshnessProbe {
     }
 
     pub(crate) fn from_loaded_repo_timed(repo: &LoadedRepo) -> (Self, std::time::Duration) {
+        // Census-only text includes are real files the census read: stamp them. The
+        // `c-census:` identity keys themselves are logical, not paths.
+        let census_texts = prism::repo_loader::c_census_input_paths(&repo.files);
         let mut real_paths = BTreeSet::from([".".to_string()]);
         for rel in repo
             .files
             .keys()
             .chain(repo.manifest_snapshot.entries().map(|(path, _)| path))
+            .chain(census_texts.iter())
         {
             real_paths.insert(rel.clone());
             add_ancestors(rel, &mut real_paths);
@@ -69,7 +73,12 @@ impl FreshnessProbe {
         let mut paths = BTreeSet::new();
         paths.insert(".".to_string());
 
-        for rel in repo.files.keys().chain(repo.manifest_hashes.keys()) {
+        for rel in repo
+            .files
+            .keys()
+            .chain(repo.manifest_hashes.keys())
+            .chain(census_texts.iter())
+        {
             paths.insert(rel.clone());
             add_ancestors(rel, &mut paths);
         }

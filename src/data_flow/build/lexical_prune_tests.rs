@@ -261,7 +261,13 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     "exact label changed in {file}: {key:?}"
                 );
             }
-            if language == Language::Python || language == Language::Rust || language.is_js_family()
+            // C rules U and D (#630 slice 6b) run for `.c` files only; a `.h` parsed as C and
+            // C++ stay byte-identical to the frozen reference.
+            let c_pruned = language == Language::C && file.ends_with(".c");
+            if language == Language::Python
+                || language == Language::Rust
+                || language.is_js_family()
+                || c_pruned
             {
                 // Opus F1 invariant: a removed edge into a minted use leaves another
                 // surviving edge from a def of the path into that same use.
@@ -287,6 +293,7 @@ fn prune_subset_and_labels_across_fixture_tree() {
             }
             if !matches!(language, Language::Go | Language::Python | Language::Rust)
                 && !language.is_js_family()
+                && !c_pruned
             {
                 assert_eq!(
                     before.edges, after.edges,
