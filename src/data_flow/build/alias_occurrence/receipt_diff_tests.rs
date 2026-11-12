@@ -1,4 +1,4 @@
-//! Attributed receipt diff of the alias-twin policy over every Go, Rust and Python fixture of
+//! Attributed receipt diff of the alias-twin policy over every Go, Rust, Python, C and C++ fixture of
 //! `tests/fixtures`: policy off (main's behaviour) against policy on, per file. Each changed
 //! expectation is named by occurrence and attributed: a removed Def is an alias twin (another Def
 //! of a different path sits at the same bytes), a removed edge starts at a removed twin Def, and a

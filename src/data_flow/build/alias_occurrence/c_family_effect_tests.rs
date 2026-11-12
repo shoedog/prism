@@ -314,21 +314,68 @@ fn a_bare_target_argument_of_an_unproven_callee_refuses_the_removal() {
 }
 
 #[test]
-fn cpp_bare_pointer_arguments_do_not_refuse_but_other_arguments_do() {
-    // A pointer declared in the owner and passed bare is passed by value (`T*&` parameters are a
-    // residual); a builtin or a member chain can still bind a non-const reference.
+fn cpp_pointer_arguments_refuse_like_any_other_argument() {
+    // A bare pointer passed to a C++ call is no longer exempt: a `T*&` parameter can rebind it and
+    // the exemption could not tell scopes apart (an expired inner `int *o;`).
     let base = "S *p = op;\np = op;";
     assert_eq!(lp(base), vec![1, 2]);
     assert_eq!(
         lp(&format!("{base}\nuse(op);")),
-        vec![1, 2],
-        "pointer passed bare"
+        Vec::<usize>::new(),
+        "bare pointer argument"
     );
     assert_eq!(
         lp(&format!("{base}\nbump(op->f);")),
         Vec::<usize>::new(),
         "member chain"
     );
-    // The parameter `op` is a pointer by its declarator; `m` is a builtin and refuses.
-    assert_eq!(lp("int k = m;\nk = 7;\nbump(m);"), Vec::<usize>::new());
+    // C keeps passing a declared pointer by value: no refusal.
+    assert_eq!(lc("struct S *u = o;\nu = o;\nuse(o);"), vec![1, 2]);
+    // `ptr`: an expired inner pointer declaration must not let a scalar reference argument through.
+    let ptr = "void bump(int&);\nint f(int o) {\n    { int *o; }\n    int u = o;\n    u = 0;\n    bump(o);\n    return o;\n}\n";
+    assert!(
+        suppressed_lines("a.cc", ptr, Language::Cpp).is_empty(),
+        "ptr"
+    );
+    // Control `ptr_ctl`: without the inner declaration the refusal fires the same way.
+    let ptr_ctl = "void bump(int&);\nint f(int o) {\n    int u = o;\n    u = 0;\n    bump(o);\n    return o;\n}\n";
+    assert!(
+        suppressed_lines("a.cc", ptr_ctl, Language::Cpp).is_empty(),
+        "ptr_ctl"
+    );
+}
+
+#[test]
+fn prototype_and_function_type_parameters_are_not_visible_evidence() {
+    // `proto`: the prototype's `int u` is in scope only inside its own declarator; it must not make
+    // the reference `u` an `int` binding write.
+    let proto = "int o;\nint& u = o;\nint f() {\n    o = 1;\n    void decoy(int u);\n    u = o;\n    u = 7;\n    return o;\n}\n";
+    let got = suppressed_lines("a.cc", proto, Language::Cpp);
+    assert!(!got.contains(&6) && !got.contains(&7), "{got:?}");
+    // `proto_ctl`: the parameter renamed behaves the same.
+    let ctl = proto.replace("decoy(int u)", "decoy(int w)");
+    let got = suppressed_lines("a.cc", &ctl, Language::Cpp);
+    assert!(!got.contains(&6) && !got.contains(&7), "{got:?}");
+    // A function-pointer type's parameter is no evidence either.
+    let fp = "int o;\nint& u = o;\nint f() {\n    o = 1;\n    void (*cb)(int u);\n    u = o;\n    u = 7;\n    return o;\n}\n";
+    let got = suppressed_lines("a.cc", fp, Language::Cpp);
+    assert!(!got.contains(&6) && !got.contains(&7), "{got:?}");
+    // Positive control: the owner's own parameter is evidence.
+    let own = "int f(int u, int o) {\n    u = o;\n    u = 7;\n    return o;\n}\n";
+    let got = suppressed_lines("a.cc", own, Language::Cpp);
+    assert!(got.contains(&2) && got.contains(&3), "{got:?}");
+}
+
+#[test]
+fn a_hazard_on_a_reference_alias_is_a_hazard_on_its_target() {
+    // `++r` through `int& r = o;` writes `o`, and `clear((o))` is a parenthesised macro argument.
+    let reference = "o = 1;\nint u = o;\nint& r = o;\n++r;\nu = o;";
+    assert!(lp(reference).is_empty(), "{:?}", lp(reference));
+    // Control: a copy, not a reference, leaves the removal.
+    let copy = "o = 1;\nint u = o;\nint r = o;\n++r;\nu = o;";
+    assert!(!lp(copy).is_empty());
+    let paren = "int u = o;\no = 1;\nclear((o));\nu = o;";
+    assert!(lc(paren).is_empty(), "{:?}", lc(paren));
+    let paren_ctl = "int u = o;\no = 1;\nclear((q));\nu = o;";
+    assert!(!lc(paren_ctl).is_empty());
 }

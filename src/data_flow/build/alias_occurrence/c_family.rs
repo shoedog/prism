@@ -10,8 +10,9 @@
 //! `u.f` through a C++ reference, `C-08` `u[i]` through a pointer or an array parameter, `C-10` a name inside
 //! a `++`/parenthesis/cast wrapper whose value is dereferenced as a target (`*p++ = v`). Everything else is
 //! `Unsupported` and keeps the twin. `X-READ` (the extraction records a read as an lvalue span, such as
-//! `int r = bar(u)`) stays `Unsupported`. A C++ declaration inside a `for` initialiser is `Unsupported` (the
-//! oracle's prefix starts at the `for`; kept, more conservative than a keyword-only prefix). A `.h` header
+//! `int r = bar(u)`) stays `Unsupported`. A C++ declaration inside a `for` initialiser gives no builtin-keyword
+//! evidence (the oracle's prefix starts at the `for`, so a later assignment to a `for`-declared builtin keeps its
+//! twin; a pointer declarator in it still is evidence and the declaration itself is a binding write). A `.h` header
 //! (parsed as C) takes the C++ rules.
 use super::shared::{field_in_parent, is_plain_ident, span_node, walk_owner};
 use super::{Classified, Disposition};
@@ -125,6 +126,27 @@ const SCOPES: [&str; 12] = [
     "namespace_definition",
 ];
 
+/// Is `param` a parameter of a function definition or a lambda (not of a prototype or a function type)?
+fn defines_function(param: Node<'_>) -> bool {
+    let mut n = param.parent();
+    while let Some(x) = n {
+        match x.kind() {
+            "parameter_list"
+            | "function_declarator"
+            | "pointer_declarator"
+            | "reference_declarator"
+            | "parenthesized_declarator"
+            | "abstract_function_declarator"
+            | "lambda_declarator" => {
+                n = x.parent();
+            }
+            "function_definition" | "lambda_expression" => return true,
+            _ => return false,
+        }
+    }
+    false
+}
+
 /// Declarations of `name` inside `owner` whose scope holds `byte` and that precede it.
 pub(super) fn visible_sites(
     parsed: &ParsedFile,
@@ -152,6 +174,11 @@ pub(super) fn visible_sites(
                     if field != "declarator" {
                         return;
                     }
+                    // A parameter of a prototype, a function-pointer type or an abstract declarator is in
+                    // scope only inside its own declarator: only a definition's (or a lambda's) is evidence.
+                    if p.kind() == "parameter_declaration" && !defines_function(p) {
+                        return;
+                    }
                     break p;
                 }
                 _ => return,
@@ -169,7 +196,7 @@ pub(super) fn visible_sites(
         if byte >= scope_end {
             return;
         }
-        // A declaration that is a `for` initialiser: the prefix starts at the `for` (kept unsupported).
+        // A declaration that is a `for` initialiser: the prefix starts at the `for`, so no builtin-keyword evidence.
         let prefix_from = match root.parent() {
             Some(f) if f.kind() == "for_statement" => f.start_byte(),
             _ => root.start_byte(),

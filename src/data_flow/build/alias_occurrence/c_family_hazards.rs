@@ -32,25 +32,6 @@ fn macro_like(name: &str) -> bool {
             .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
 }
 
-/// `*p`, `**p`, `*const p`, `(*p)` (also under an initialiser): the declared name is a pointer.
-fn is_pointer_declarator(mut node: Node<'_>) -> bool {
-    loop {
-        match node.kind() {
-            "pointer_declarator" => return true,
-            "init_declarator" | "parenthesized_declarator" => {
-                match node
-                    .child_by_field_name("declarator")
-                    .or_else(|| node.named_child(0))
-                {
-                    Some(inner) => node = inner,
-                    None => return false,
-                }
-            }
-            _ => return false,
-        }
-    }
-}
-
 /// The root identifier of a place expression (`o`, `o.f`, `o->f`, `o[i]`, `(o)`, `*o`, `(T)o`).
 fn root_ident<'t>(parsed: &ParsedFile, mut node: Node<'t>) -> Option<String> {
     loop {
@@ -300,8 +281,8 @@ pub(super) fn tokens(parsed: &ParsedFile, owner: &Node<'_>, file: &FileNames) ->
     let mut out: BTreeSet<String> = file.tokens.clone();
     // Names declared in the owner, to tell a decaying undeclared (outer) target from a local.
     let mut declared = BTreeSet::new();
-    // Names declared as pointers in the owner: a pointer passed by value cannot be rebound by the callee.
-    let mut pointers = BTreeSet::new();
+    // C++ `T& r = o;` pairs (reference, target), to carry hazards on `r` over to `o`.
+    let mut ref_aliases: Vec<(String, String)> = Vec::new();
     let mut calls: Vec<Node<'_>> = Vec::new();
     walk_owner(owner, |node| match node.kind() {
         "field_identifier"
@@ -344,9 +325,6 @@ pub(super) fn tokens(parsed: &ParsedFile, owner: &Node<'_>, file: &FileNames) ->
                 }
                 if cur.kind() == "identifier" {
                     declared.insert(parsed.node_text(&cur).to_string());
-                    if is_pointer_declarator(first) {
-                        pointers.insert(parsed.node_text(&cur).to_string());
-                    }
                 }
             }
             if cpp && node.kind() == "init_declarator" {
@@ -358,6 +336,19 @@ pub(super) fn tokens(parsed: &ParsedFile, owner: &Node<'_>, file: &FileNames) ->
                 // are storage writes whose twins stay. Anything else is a hidden write.
                 if let (true, Some(value)) = (by_ref, node.child_by_field_name("value")) {
                     if value.kind() == "identifier" {
+                        // Remember the pairing: a hazard on the reference is a hazard on its target.
+                        let mut cur = node.child_by_field_name("declarator");
+                        while let Some(d) = cur.filter(|d| d.kind() != "identifier") {
+                            cur = d
+                                .child_by_field_name("declarator")
+                                .or_else(|| d.named_child(0));
+                        }
+                        if let Some(name) = cur {
+                            ref_aliases.push((
+                                parsed.node_text(&name).to_string(),
+                                parsed.node_text(&value).to_string(),
+                            ));
+                        }
                         return;
                     }
                     if let Some(root) = root_ident(parsed, value) {
@@ -449,21 +440,37 @@ pub(super) fn tokens(parsed: &ParsedFile, owner: &Node<'_>, file: &FileNames) ->
         }
         let mut cursor = args.walk();
         for arg in args.named_children(&mut cursor) {
-            if unproven && arg.kind() == "identifier" {
-                out.insert(parsed.node_text(&arg).to_string());
+            // `clear((o))`: parentheses around the bare name change nothing.
+            let mut bare = arg;
+            while bare.kind() == "parenthesized_expression" {
+                match bare.named_child(0) {
+                    Some(inner) => bare = inner,
+                    None => break,
+                }
+            }
+            if unproven && bare.kind() == "identifier" {
+                out.insert(parsed.node_text(&bare).to_string());
             }
             let Some(root) = root_ident(parsed, arg) else {
                 continue;
             };
-            // C++: any argument can bind a non-const reference (a pointer declared in the owner and
-            // passed bare is passed by value: `T*&` parameters are a residual). C: an undeclared bare
-            // name may be an array (declared arrays are refused at their declarator).
-            let by_value_pointer = arg.kind() == "identifier" && pointers.contains(&root);
-            if (cpp && !by_value_pointer)
-                || (arg.kind() == "identifier" && !declared.contains(&root))
-            {
+            // C++: any argument can bind a non-const reference, a bare pointer included (`T*&` parameter).
+            // C: an undeclared bare name may be an array (declared arrays are refused at their declarator).
+            if cpp || (arg.kind() == "identifier" && !declared.contains(&root)) {
                 out.insert(root);
             }
+        }
+    }
+    // A hazard on a proven reference alias (`++r`, `f(r)`, `r.m()`, `&r`) writes its target (fixpoint).
+    loop {
+        let before = out.len();
+        for (r, o) in &ref_aliases {
+            if out.contains(r) {
+                out.insert(o.clone());
+            }
+        }
+        if out.len() == before {
+            break;
         }
     }
     out
