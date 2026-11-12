@@ -25,6 +25,7 @@
 //!   reaching candidate has such a write on each unflagged route from D to U. A route that bypasses the write
 //!   (`if (c) u.x = 1;` with a fall-through) is a clean route and the edge stays `exact`. Logical
 //!   assignments and `for (u.x of ..)` heads are writes as the direct form is, so they block their node.
+//!
 //! A write whose node RD cannot name makes every D3 query of the base unknown (`SameLine`), as for a direct one.
 //! The write kills a def D by `affects` (its path is a prefix of D's, `[]` matching any component).
 use super::alias_cert::at;
