@@ -41,6 +41,8 @@ fn comprehension_targets_are_unsupported() {
         "{:?}",
         d(src, 3)
     );
+    // Control: a plain assignment of the same name is a binding write.
+    assert_eq!(lines("def t(o, xs):\n    u = o\n    u = xs\n"), vec![2, 3]);
 }
 
 #[test]
