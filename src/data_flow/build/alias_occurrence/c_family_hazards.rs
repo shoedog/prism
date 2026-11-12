@@ -390,7 +390,6 @@ pub(super) fn tokens(parsed: &ParsedFile, owner: &Node<'_>, file: &FileNames) ->
                         }
                         // A hazard on the reference is a hazard on its targets (fixpoint below).
                         ref_aliases.extend(idents.into_iter().map(|t| (name.clone(), t)));
-                        return;
                     }
                 }
             }
