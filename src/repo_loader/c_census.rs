@@ -8,8 +8,8 @@
 //!   `\` read as `/`, repeated separators collapsed) and matched against EVERY in-repo
 //!   directory: a repository file whose path equals the target or ends with `/<target>`
 //!   (quoted targets too, so `-I` directories are covered; over-matching only adds facts).
-//!   An angle target that climbs out of the repository root is external; a quoted one drops
-//!   the leading `..` it cannot resolve (it is relative to the including directory). A
+//!   A leading `..` that cannot be resolved is dropped for quoted and angle targets alike
+//!   (the include directory can be any in-repo directory, so the match is by suffix). A
 //!   resolved target that is not a parsed C/C++ file is read as census text whatever its
 //!   extension or language.
 //! * **The C-like-extension net.** Every in-repo file with a C-like extension (see
@@ -17,9 +17,12 @@
 //!   visibly includes it (computed includes, unresolved spellings).
 //!
 //! Census texts are read with the PERMISSIVE scan (`macro_census::collect_permissive`): no
-//! comment or string tracking, and never `incomplete` from lexer state. Only an unreadable
-//! file or directory, or a file over [`CENSUS_MAX_BYTES`] that contains `define`, is a loss
-//! (`incomplete`). A non-UTF-8 file is decoded lossily, UTF-16 with a byte-order mark as
+//! string tracking (comments are read kept and erased), and never `incomplete` from lexer
+//! state. Only an unreadable file or directory, a symlink that points outside the repository
+//! (or a symlinked directory the walk does not cover), or a non-C input over
+//! [`CENSUS_MAX_BYTES`] that holds any directive leader (`#`, `%:`, `??=`), is a loss
+//! (`incomplete`). A symlink with a C-like extension or that an include resolves to is read
+//! through the link when its target lies in the repository. A non-UTF-8 file is decoded lossily, UTF-16 with a byte-order mark as
 //! UTF-16. A header with an unusual extension reached only through a form prism cannot
 //! resolve (a computed include, a generated header absent from the repository) acts like an
 //! external header (the boundary D2 draws; #813, #812).
@@ -49,9 +52,6 @@ use std::sync::Arc;
 /// streaming for the `define`/`undef` byte patterns.
 pub(crate) const CENSUS_MAX_BYTES: u64 = 64 * 1024 * 1024;
 
-/// The directive words whose bytes make an unreadable file a loss.
-const WORDS: [&[u8]; 2] = [b"define", b"undef"];
-
 fn is_c_family_path(path: &str) -> bool {
     matches!(Language::from_path(path), Some(Language::C | Language::Cpp))
 }
@@ -66,7 +66,8 @@ fn is_c_family_parsed(p: &ParsedFile) -> bool {
 fn is_loss(s: &SkippedFile) -> bool {
     match s.reason {
         SkipReason::Unreadable => true,
-        SkipReason::ParseFailed | SkipReason::Symlink => is_c_family_path(&s.path),
+        SkipReason::ParseFailed => is_c_family_path(&s.path),
+        SkipReason::Symlink => is_c_like(&s.path),
         SkipReason::NotUtf8
         | SkipReason::TooLarge { .. }
         | SkipReason::Unsupported
@@ -91,33 +92,23 @@ fn trace_reason(kind: &str, items: &[String]) {
     }
 }
 
-/// Does `b` hold a directive word as ASCII (`ascii`) or as UTF-16LE/BE (`utf16`)?
-fn has_word(b: &[u8], ascii: bool, utf16: bool) -> bool {
-    for (i, &c) in b.iter().enumerate() {
-        if c != b'd' && c != b'u' {
-            continue;
+/// Does `b` hold a directive leader: `#`, `%:` or `??=`, as ASCII or with NUL bytes
+/// interleaved (UTF-16LE/BE)? Conservative: `%` followed by `:` directly or after a NUL.
+fn has_leader(b: &[u8]) -> bool {
+    b.iter().enumerate().any(|(i, &c)| match c {
+        b'#' => true,
+        b'%' => matches!(
+            (b.get(i + 1), b.get(i + 2)),
+            (Some(b':'), _) | (Some(0), Some(b':'))
+        ),
+        b'?' => {
+            matches!(
+                (b.get(i + 1), b.get(i + 2), b.get(i + 3), b.get(i + 4)),
+                (Some(b'?'), Some(b'='), _, _) | (Some(0), Some(b'?'), Some(0), Some(b'='))
+            )
         }
-        for w in WORDS.iter().filter(|w| w[0] == c) {
-            if ascii && b[i..].starts_with(w) {
-                return true;
-            }
-            if !utf16 {
-                continue;
-            }
-            // LE: `d 0 e 0 ..`; BE: `0 d 0 e ..` (the NUL before the first letter).
-            let le = (0..w.len()).all(|k| {
-                b.get(i + 2 * k) == Some(&w[k])
-                    && (k + 1 == w.len() || b.get(i + 2 * k + 1) == Some(&0))
-            });
-            let be = i >= 1
-                && (0..w.len())
-                    .all(|k| b.get(i - 1 + 2 * k) == Some(&0) && b.get(i + 2 * k) == Some(&w[k]));
-            if le || be {
-                return true;
-            }
-        }
-    }
-    false
+        _ => false,
+    })
 }
 
 /// File extensions (lowercase) of the C-like net.
@@ -155,11 +146,11 @@ pub(crate) fn decode(bytes: &[u8]) -> String {
     }
 }
 
-/// Scan an oversize file in chunks for the directive-word bytes.
-fn stream_has_word(path: &Path) -> std::io::Result<bool> {
+/// Scan an oversize file in chunks for a directive leader.
+fn stream_has_leader(path: &Path) -> std::io::Result<bool> {
     const CHUNK: usize = 1 << 20;
-    // The longest pattern (`define` in UTF-16) is 12 bytes; keep 11 across chunks.
-    const CARRY: usize = 11;
+    // The longest pattern (`??=` in UTF-16, 5 bytes); keep 4 across chunks.
+    const CARRY: usize = 4;
     let mut f = std::fs::File::open(path)?;
     let mut buf = vec![0u8; CHUNK + CARRY];
     let mut carried = 0usize;
@@ -169,7 +160,7 @@ fn stream_has_word(path: &Path) -> std::io::Result<bool> {
             return Ok(false);
         }
         let end = carried + n;
-        if has_word(&buf[..end], true, true) {
+        if has_leader(&buf[..end]) {
             return Ok(true);
         }
         let keep = end.min(CARRY);
@@ -195,9 +186,19 @@ fn excluded_dir(rel: &str, name: &str) -> bool {
     name == ".git" || rel == "eval/secbench"
 }
 
-/// A directory listing: the regular files (relative paths) and the losses. No file is read.
-fn list_tree(root: &Path) -> (Vec<String>, BTreeMap<String, String>) {
+/// Is `target` (an existing path) inside the canonical `canon_root`?
+fn inside_root(canon_root: Option<&Path>, target: &Path) -> bool {
+    match (canon_root, std::fs::canonicalize(target)) {
+        (Some(r), Ok(t)) => t.starts_with(r),
+        _ => false,
+    }
+}
+
+/// A directory listing: the regular files and the symlinked files (relative paths) and the
+/// losses. No file is read.
+fn list_tree(root: &Path) -> (Vec<String>, Vec<String>, BTreeMap<String, String>) {
     let mut listed = Vec::new();
+    let mut links = Vec::new();
     let mut lost: BTreeMap<String, String> = BTreeMap::new();
     let dir_name = |root: &Path, dir: &Path| {
         let p = rel(root, dir);
@@ -235,30 +236,40 @@ fn list_tree(root: &Path) -> (Vec<String>, BTreeMap<String, String>) {
                     stack.push(path);
                 }
             } else if kind.is_symlink() {
-                if is_c_family_path(&relp) {
-                    lost.entry(relp).or_insert_with(|| "Symlink".into());
+                match std::fs::metadata(&path) {
+                    // A directory link is lost wherever it points: an include spelled
+                    // through the link's own name (`link/x.h`) does not suffix-match the
+                    // real path the walk lists, so even an in-repo target is not covered.
+                    Ok(m) if m.is_dir() => {
+                        lost.entry(relp).or_insert_with(|| "SymlinkDir".into());
+                    }
+                    Ok(_) => links.push(relp),
+                    Err(_) => {
+                        if is_c_like(&relp) {
+                            lost.entry(relp.clone()).or_insert_with(|| "Symlink".into());
+                        }
+                        links.push(relp);
+                    }
                 }
             } else if kind.is_file() {
                 listed.push(relp);
             }
         }
     }
-    (listed, lost)
+    (listed, links, lost)
 }
 
 /// Normalize an include target lexically: `\` is `/`, `.` and empty segments go, `..`
-/// pops. A `..` with nothing to pop makes an angle target external (`None`); a quoted target
-/// drops it (it is relative to the including directory, which the match does not know).
-fn normalize_target(target: &str, quoted: bool) -> Option<String> {
+/// pops. A `..` with nothing to pop is dropped, for angle and quoted targets alike: it is
+/// relative to a directory the match does not know (the includer's, or any include directory).
+fn normalize_target(target: &str) -> Option<String> {
     let t = target.replace('\\', "/");
     let mut segs: Vec<&str> = Vec::new();
     for s in t.split('/') {
         match s {
             "" | "." => {}
             ".." => {
-                if segs.pop().is_none() && !quoted {
-                    return None;
-                }
+                segs.pop();
             }
             s => segs.push(s),
         }
@@ -270,9 +281,8 @@ fn normalize_target(target: &str, quoted: bool) -> Option<String> {
 fn resolve<'a>(
     by_name: &'a HashMap<&str, Vec<&str>>,
     target: &str,
-    quoted: bool,
 ) -> impl Iterator<Item = &'a str> {
-    let norm = normalize_target(target, quoted);
+    let norm = normalize_target(target);
     let base = norm
         .as_deref()
         .map(|n| n.rsplit('/').next().unwrap_or(n).to_owned());
@@ -290,13 +300,15 @@ fn resolve<'a>(
 /// Discover and read the census inputs under `root` for the parsed `files`.
 fn scan_tree(root: &Path, files: &BTreeMap<String, ParsedFile>) -> Scan {
     TREE_WALKS.with(|c| c.set(c.get() + 1));
-    let (listed, lost) = list_tree(root);
+    let (listed, links, lost) = list_tree(root);
+    let canon_root = std::fs::canonicalize(root).ok();
+    let link_set: BTreeSet<&str> = links.iter().map(String::as_str).collect();
     let mut scan = Scan {
         lost,
         ..Scan::default()
     };
     let mut by_name: HashMap<&str, Vec<&str>> = HashMap::new();
-    for p in &listed {
+    for p in listed.iter().chain(&links) {
         by_name
             .entry(p.rsplit('/').next().unwrap_or(p))
             .or_default()
@@ -305,13 +317,14 @@ fn scan_tree(root: &Path, files: &BTreeMap<String, ParsedFile>) -> Scan {
     let parsed_c = |p: &str| files.get(p).is_some_and(is_c_family_parsed);
     let mut queue: Vec<String> = listed
         .iter()
+        .chain(&links)
         .filter(|p| is_c_like(p) && !parsed_c(p))
         .cloned()
         .collect();
     let push_targets =
         |targets: BTreeSet<(String, bool)>, queue: &mut Vec<String>, read: &BTreeSet<String>| {
-            for (t, quoted) in targets {
-                for p in resolve(&by_name, &t, quoted) {
+            for (t, _quoted) in targets {
+                for p in resolve(&by_name, &t) {
                     if !parsed_c(p) && !read.contains(p) {
                         queue.push(p.to_owned());
                     }
@@ -330,12 +343,17 @@ fn scan_tree(root: &Path, files: &BTreeMap<String, ParsedFile>) -> Scan {
             scan.lost.entry(path).or_insert_with(|| "Unreadable".into());
             continue;
         };
+        // A symlink is read through the link only when its target lies in the repository.
+        if link_set.contains(path.as_str()) && !inside_root(canon_root.as_deref(), &full) {
+            scan.lost.entry(path).or_insert_with(|| "Symlink".into());
+            continue;
+        }
         if meta.len() > CENSUS_MAX_BYTES {
-            match stream_has_word(&full) {
+            match stream_has_leader(&full) {
                 Ok(true) => {
                     scan.lost
                         .entry(path)
-                        .or_insert_with(|| "OversizeDefine".into());
+                        .or_insert_with(|| "OversizeDirective".into());
                 }
                 Ok(false) => {}
                 Err(_) => {

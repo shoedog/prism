@@ -5,8 +5,10 @@
 //! that is right for the wrong reason fails. `guard-deleted:<hazard>` names the rows whose label
 //! left `NameOnly(CfgIncomplete)` only because the guard no longer refuses the owner.
 use super::super::capture::{capture_facts_with, is_capture_to};
-use super::super::census_defs_tests::{availability, parse, recorded, trace_lines};
-use crate::cpg::census_label_tests::labels_of;
+use super::super::census_defs_tests::{
+    availability, parse, recorded, trace_lines_main_loops as trace_lines,
+};
+use crate::cpg::census_label_tests::labels_of_main_loops as labels_of;
 use crate::cpg::CodePropertyGraph;
 use crate::data_flow::test_support::label_snapshot;
 use crate::data_flow::FlowEdge;

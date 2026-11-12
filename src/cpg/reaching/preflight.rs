@@ -6,6 +6,39 @@ use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+/// The universe an owner's RD availability is decided on, in one place for both seams (the producer preflight and
+/// the solver). Since the final refusal policy a refused loop owner keeps EXACTLY main's geometry (no rewrite, no
+/// admitted `do` condition), so every owner is decided on its standing universe and CFG, as on main.
+pub(super) struct Availability {
+    pub(super) statement_lines: usize,
+    pub(super) lines: BTreeMap<usize, usize>,
+}
+
+impl Availability {
+    pub(super) fn of(
+        _parsed: &ParsedFile,
+        _owner: &Node<'_>,
+        standing: &[(usize, String)],
+    ) -> Self {
+        Self {
+            statement_lines: standing.len(),
+            lines: standing
+                .iter()
+                .enumerate()
+                .map(|(i, (l, _))| (*l, i + 1))
+                .collect(),
+        }
+    }
+
+    /// Whether the universe has no CFG edge; `standing_has_edges` answers for the standing CFG.
+    pub(super) fn no_edges(
+        &self,
+        standing_has_edges: impl FnOnce(&BTreeMap<usize, usize>) -> bool,
+    ) -> bool {
+        !standing_has_edges(&self.lines)
+    }
+}
+
 pub(crate) fn unavailable_before_edges(
     parsed: &ParsedFile,
     owner: &Node<'_>,
@@ -19,21 +52,17 @@ pub(crate) fn unavailable_before_edges(
         return Some(RdUnavailable::DefinitionsCapExceeded { actual: count });
     }
     let (statements, _) = super::rd_statements(parsed, owner);
-    if statements.len() > RD_MAX_LINES {
+    let avail = Availability::of(parsed, owner, &statements);
+    if avail.statement_lines > RD_MAX_LINES {
         return Some(RdUnavailable::StatementLinesCapExceeded {
-            actual: statements.len(),
+            actual: avail.statement_lines,
         });
     }
-    let lines: BTreeMap<_, _> = statements
-        .iter()
-        .enumerate()
-        .map(|(i, (line, _))| (*line, i + 1))
-        .collect();
     // Join classification changes labels only; it never removes selected edges.
-    if !cfg.has_owner_edges(&lines)
+    if avail.no_edges(|lines| cfg.has_owner_edges(lines))
         && !crate::cfg::js_single::single_node_cfg_is_complete(
             parsed,
-            lines.len(),
+            avail.lines.len(),
             &defs
                 .iter()
                 .map(|def| def.path.base.as_str())
@@ -132,6 +161,15 @@ mod tests {
                 "function f(c) {\n  return (c++, exec(c));\n}\n",
                 &["c"],
                 None,
+            ),
+            (
+                // Final refusal policy: the plan refuses this loop tree (SharedBoundaryLine), so the owner keeps
+                // main's availability: main's CFG of a one-line owner has no edge (main 8cc4985d: 1 function
+                // without CFG), no longer the admitted tree's self-loop.
+                "refused loop tree has mains availability",
+                "function f(xs) { let y = 0; for (const x of xs) { y = g(x, y); continue; } }\n",
+                &["y", "y"],
+                Some(RdUnavailable::NoCfgEdges),
             ),
             (
                 "empty body",

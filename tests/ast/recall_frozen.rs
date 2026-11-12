@@ -40,7 +40,8 @@ pub(super) fn labels(graph: &CodePropertyGraph) -> Vec<Value> {
 pub(super) fn stats(graph: &CodePropertyGraph) -> Value {
     let mut stats = serde_json::to_value(&graph.dfg_label_stats).unwrap();
     let object = stats.as_object_mut().unwrap();
-    object.retain(|k, _| !k.starts_with("dfg_recall_"));
+    // `dfg_loop_plan` (#693/#697 slice 2) is JS/TS/TSX loop-plan telemetry: empty for every Go receipt.
+    object.retain(|k, _| !k.starts_with("dfg_recall_") && k != "dfg_loop_plan");
     let mut sub = |key: &str, n: u64| {
         let v = object.get_mut(key).unwrap();
         *v = json!(v.as_u64().unwrap() - n);
@@ -67,7 +68,10 @@ pub(super) fn stats(graph: &CodePropertyGraph) -> Value {
 pub(super) fn availability(graph: &CodePropertyGraph) -> Value {
     let mut all = serde_json::to_value(graph.dfg.rd_function_stats()).unwrap();
     for file in all.as_object_mut().unwrap().values_mut() {
-        file.as_object_mut().unwrap().remove("recall");
+        let file = file.as_object_mut().unwrap();
+        file.remove("recall");
+        // The per-file loop-plan counters (#693/#697 slice 2): empty for every Go file.
+        assert_eq!(file.remove("loop_plan"), Some(json!({})));
     }
     all
 }

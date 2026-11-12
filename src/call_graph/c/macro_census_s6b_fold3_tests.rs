@@ -101,21 +101,22 @@ fn f3b_quoted_include_through_an_include_directory_is_read() {
 }
 
 #[test]
-fn f3b_angle_target_outside_the_root_is_external_quoted_dotdot_is_relative() {
+fn f3b_angle_and_quoted_leading_dotdot_are_suffix_matched() {
     let dir = tempfile::tempdir().unwrap();
     write(
         dir.path(),
         "src/a.c",
-        b"#include <../outside.payload>\n#include \"../common/x.payload\"\nint f(void) { return 0; }\n",
+        b"#include <../include/restore.payload>\n#include \"../common/x.payload\"\nint f(void) { return 0; }\n",
     );
-    write(dir.path(), "outside.payload", b"#define OUTSIDE 1\n");
-    write(dir.path(), "common/x.payload", RESTORE);
+    write(dir.path(), "include/restore.payload", RESTORE);
+    write(dir.path(), "common/x.payload", b"#define OTHER() y\n");
     let (c, _) = loaded(dir.path());
-    assert!(c.get("OUTSIDE").is_none(), "angle `..` out of the root");
     assert!(
         c.get("RESTORE").is_some(),
-        "quoted `..` is includer-relative"
+        "angle `..` is include-dir relative"
     );
+    assert!(c.get("OTHER").is_some(), "quoted `..` is includer-relative");
+    assert!(!c.incomplete(), "{:?}", c.incomplete_reasons());
 }
 
 #[test]
@@ -451,5 +452,164 @@ fn f3b_chained_macro_invocation_escapes_every_group() {
     assert!(
         got("void f(void) { ID(A) (z); }").contains("z"),
         "blank between groups"
+    );
+}
+
+// ---- Confirmation fold: comments in directives, oversize leaders, symlinks. ----
+
+#[test]
+fn f3c_comments_inside_directives_of_a_text_input_are_erased() {
+    for (i, body) in [
+        &b"#/**/define RESTORE() x = saved\n"[..],
+        b"#define/**/RESTORE() x = saved\n",
+        b"#define /*\n*/ RESTORE() x = saved\n",
+        b"#/*\n*/define RESTORE() x = saved\n",
+        b"# /* c */ define /* d */ RESTORE() x = saved // tail\n",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let dir = tempfile::tempdir().unwrap();
+        write(
+            dir.path(),
+            "a.c",
+            b"#include <macros.payload>\nint f(void) { return 0; }\n",
+        );
+        write(dir.path(), "macros.payload", body);
+        assert_reads_restore(dir.path(), &format!("comment form {i}"));
+    }
+}
+
+#[test]
+fn f3c_a_comment_inside_a_forwarding_include_still_discovers_the_target() {
+    for (i, fwd) in [
+        &b"#include /**/ <macros.payload>\n"[..],
+        b"#include/**/<macros.payload>\n",
+        b"#/**/include <macros.payload>\n",
+        b"#include /*\n*/ <macros.payload>\n",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let dir = tempfile::tempdir().unwrap();
+        write(
+            dir.path(),
+            "a.c",
+            b"#include \"forward.payload\"\nint f(void) { return 0; }\n",
+        );
+        write(dir.path(), "forward.payload", fwd);
+        write(dir.path(), "inc/macros.payload", RESTORE);
+        assert_reads_restore(dir.path(), &format!("forward form {i}"));
+    }
+}
+
+fn oversize(dir: &Path, rel: &str, head: &[u8]) {
+    use std::io::Write;
+    let p = dir.join(rel);
+    fs::create_dir_all(p.parent().unwrap()).unwrap();
+    let mut f = fs::File::create(p).unwrap();
+    f.write_all(head).unwrap();
+    f.set_len(crate::repo_loader::c_census::CENSUS_MAX_BYTES + 1)
+        .unwrap();
+}
+
+#[test]
+fn f3c_oversize_non_c_input_with_any_directive_leader_is_a_loss() {
+    for head in [
+        &b"#de\\\nfine RESTORE() x = saved\n"[..],
+        b"#include <macros.payload>\n",
+        b"%:define RESTORE() x\n",
+        b"??=define RESTORE() x\n",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        write(dir.path(), "a.c", b"int f(void) { return 0; }\n");
+        oversize(dir.path(), "huge.inc", head);
+        assert!(
+            loaded(dir.path()).0.incomplete(),
+            "{}",
+            String::from_utf8_lossy(head)
+        );
+    }
+}
+
+#[test]
+fn f3c_oversize_non_c_input_without_a_leader_is_skipped() {
+    let dir = tempfile::tempdir().unwrap();
+    write(dir.path(), "a.c", b"int f(void) { return 0; }\n");
+    oversize(dir.path(), "huge.inc", b"define undef 100% ?? = x\n");
+    assert!(!loaded(dir.path()).0.incomplete());
+}
+
+#[cfg(unix)]
+#[test]
+fn f3c_symlinked_c_like_input_pointing_outside_the_repository_is_a_loss() {
+    use std::os::unix::fs::symlink;
+    let outer = tempfile::tempdir().unwrap();
+    let root = outer.path().join("repo");
+    write(
+        &root,
+        "src/a.c",
+        b"#include \"restore.inl\"\nint f(void) { return 0; }\n",
+    );
+    write(outer.path(), "sdk/restore.inl", RESTORE);
+    symlink(
+        outer.path().join("sdk/restore.inl"),
+        root.join("src/restore.inl"),
+    )
+    .unwrap();
+    assert!(loaded(&root).0.incomplete());
+}
+
+#[cfg(unix)]
+#[test]
+fn f3c_symlinked_include_target_inside_the_repository_is_read_through_the_link() {
+    use std::os::unix::fs::symlink;
+    let dir = tempfile::tempdir().unwrap();
+    write(
+        dir.path(),
+        "src/a.c",
+        b"#include \"restore.payload\"\nint f(void) { return 0; }\n",
+    );
+    write(dir.path(), "gen/macros.txt", RESTORE);
+    symlink("../gen/macros.txt", dir.path().join("src/restore.payload")).unwrap();
+    assert_reads_restore(dir.path(), "in-repo symlink target");
+}
+
+#[cfg(unix)]
+#[test]
+fn f3c_symlinked_include_target_pointing_outside_is_a_loss() {
+    use std::os::unix::fs::symlink;
+    let outer = tempfile::tempdir().unwrap();
+    let root = outer.path().join("repo");
+    write(
+        &root,
+        "src/a.c",
+        b"#include \"restore.payload\"\nint f(void) { return 0; }\n",
+    );
+    write(outer.path(), "sdk/macros.txt", RESTORE);
+    symlink(
+        outer.path().join("sdk/macros.txt"),
+        root.join("src/restore.payload"),
+    )
+    .unwrap();
+    assert!(loaded(&root).0.incomplete());
+}
+
+#[cfg(unix)]
+#[test]
+fn f3c_symlinked_directory_is_a_loss_wherever_it_points() {
+    use std::os::unix::fs::symlink;
+    let outer = tempfile::tempdir().unwrap();
+    let root = outer.path().join("repo");
+    write(&root, "src/a.c", b"int f(void) { return 0; }\n");
+    write(&root, "real/x.txt", b"x\n");
+    write(outer.path(), "shared/y.txt", b"y\n");
+    symlink(root.join("real"), root.join("alias")).unwrap();
+    // Even an in-repo target is not covered: `alias/x.h` does not suffix-match `real/x.h`.
+    assert!(loaded(&root).0.incomplete(), "in-repo directory target");
+    symlink(outer.path().join("shared"), root.join("include")).unwrap();
+    assert!(
+        loaded(&root).0.incomplete(),
+        "directory outside the repository"
     );
 }

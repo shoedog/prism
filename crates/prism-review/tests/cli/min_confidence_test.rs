@@ -408,6 +408,8 @@ fn dfg_stats_empty_repo_emits_all_zero_counters() {
             "dfg_recall_functions_without_cfg": 0,
             "dfg_recall_max_candidates": 0,
             "dfg_recall_receiver_field_refused": 0,
+            // The JS/TS/TSX loop-plan counters (#693/#697 slice 2): an empty map when no file has a loop.
+            "dfg_loop_plan": {},
         })
     );
 }

@@ -186,7 +186,7 @@ impl ParsedFile {
         tests::record(5, node.id(), node.child_count());
         for child in crate::languages::go::statements::children(node, self.language) {
             let kind = child.kind();
-            if self.is_c_do_condition(&node, &child) {
+            if self.is_do_condition(&node, &child) {
                 arms.of_line
                     .entry(child.start_position().row + 1)
                     .or_insert(arm);
@@ -273,13 +273,21 @@ impl ParsedFile {
 
     /// Byte-bearing sibling of `statements_in_function`.
     pub fn statement_spans_in_function(&self, func_node: &Node<'_>) -> Vec<StatementSpan> {
+        let mut stmts = self.statement_spans_before_dedup(func_node);
+        stmts.dedup_by_key(|stmt| stmt.line);
+        stmts
+    }
+
+    /// The statement spans in line order BEFORE start-line deduplication: the stable sort keeps
+    /// traversal order inside one line, so the first span of a line is the one
+    /// `statement_spans_in_function` retains. Observational (the JS CFG ownership records).
+    pub(crate) fn statement_spans_before_dedup(&self, func_node: &Node<'_>) -> Vec<StatementSpan> {
         let func_node = self.unwrap_decorated(*func_node);
         let mut stmts = Vec::new();
         if let Some(body_node) = self.function_body_node(&func_node) {
             self.collect_statement_spans(body_node, &mut Visits::default(), &mut stmts);
         }
         stmts.sort_by_key(|stmt| stmt.line);
-        stmts.dedup_by_key(|stmt| stmt.line);
         stmts
     }
 
@@ -366,7 +374,7 @@ impl ParsedFile {
         tests::record(1, node.id(), node.child_count());
         for child in crate::languages::go::statements::children(node, self.language) {
             let kind = child.kind();
-            if self.is_c_do_condition(&node, &child) {
+            if self.is_do_condition(&node, &child) {
                 out.push((child.start_position().row + 1, "do_condition".to_string()));
                 continue;
             }
@@ -417,7 +425,7 @@ impl ParsedFile {
         tests::record(3, node.id(), node.child_count());
         for child in crate::languages::go::statements::children(node, self.language) {
             let kind = child.kind();
-            if self.is_c_do_condition(&node, &child) {
+            if self.is_do_condition(&node, &child) {
                 out.push(StatementSpan {
                     line: child.start_position().row + 1,
                     kind: "do_condition".to_string(),
@@ -479,19 +487,63 @@ pub(crate) fn is_c_cpp_statement_kind(kind: &str) -> bool {
         || matches!(kind, "declaration" | "for_range_loop")
 }
 
+/// The JS/TS/TSX counterpart: a `*_statement` or `*_declaration` node (not the
+/// call and assignment expressions inside one, not a block or a `case`).
+fn is_js_statement_kind(kind: &str) -> bool {
+    kind.ends_with("_statement") || kind.ends_with("_declaration")
+}
+
+/// The admitted-statement predicate of the do-condition guard for `language`
+/// (C/C++ and the JS family; every other language admits no condition).
+fn is_do_statement_kind(language: crate::languages::Language, kind: &str) -> bool {
+    if language.is_js_family() {
+        is_js_statement_kind(kind)
+    } else {
+        is_c_cpp_statement_kind(kind)
+    }
+}
+
 impl ParsedFile {
-    /// The line of a C/C++ `do`..`while (cond)` condition that is a CFG
-    /// statement of its own (#645): `continue` targets it, the body falls into
-    /// it and it decides between a second iteration and the loop exit. Admitted
-    /// only when the condition line is past every statement of the body and no
-    /// statement after the `do` starts on it (`} while (c); return r;`).
-    /// Otherwise `None` and main's edges for the loop stand. The single
-    /// predicate of the statement collectors, their oracle copies and
-    /// `c_jumps`.
-    pub(crate) fn c_do_condition_line(&self, do_node: &Node<'_>) -> Option<usize> {
+    /// The line of a C/C++ or JS/TS/TSX `do`..`while (cond)` condition that is
+    /// a CFG statement of its own (#645, #697): `continue` targets it, the body
+    /// falls into it and it decides between a second iteration and the loop
+    /// exit. Admitted only when the condition line is past every statement of
+    /// the body and no statement after the `do` starts on it
+    /// (`} while (c); return r;`). Otherwise `None` and main's edges for the
+    /// loop stand. The single predicate of the statement collectors, their
+    /// oracle copies, `c_jumps` and `js_loops`. For the JS family the geometry
+    /// is not enough: the `do` must also sit in a loop tree `js_loops` rewires
+    /// (`do_tree_rewirable`), else main's whole `do` shape stands (an admitted
+    /// but unrewired `do` would leave the header an empty node that main's exit
+    /// edge bypasses the condition from). A JS-family file solved under
+    /// `js_loops::with_main_loop_cfg` (the trace's control) admits none.
+    pub(crate) fn do_condition_line(&self, do_node: &Node<'_>) -> Option<usize> {
+        use crate::languages::Language;
+        match self.language {
+            Language::C | Language::Cpp => self.do_geometry_line(do_node),
+            Language::JavaScript | Language::TypeScript | Language::Tsx => {
+                if crate::cfg::js_loops::main_loop_cfg() {
+                    return None;
+                }
+                self.do_geometry_line(do_node)
+                    .filter(|_| crate::cfg::js_loops::do_tree_rewirable(self, do_node))
+            }
+            _ => None,
+        }
+    }
+
+    /// The admission geometry alone (see `do_condition_line`): the condition
+    /// line when it is past every statement of the body and no statement after
+    /// the `do` starts on it.
+    pub(crate) fn do_geometry_line(&self, do_node: &Node<'_>) -> Option<usize> {
+        use crate::languages::Language;
         if !matches!(
             self.language,
-            crate::languages::Language::C | crate::languages::Language::Cpp
+            Language::C
+                | Language::Cpp
+                | Language::JavaScript
+                | Language::TypeScript
+                | Language::Tsx
         ) || do_node.kind() != "do_statement"
         {
             return None;
@@ -506,7 +558,7 @@ impl ParsedFile {
             if boundaries.contains(&n.kind()) {
                 continue;
             }
-            if is_c_cpp_statement_kind(n.kind()) {
+            if is_do_statement_kind(self.language, n.kind()) {
                 last = last.max(row(&n));
             }
             let mut cursor = n.walk();
@@ -538,7 +590,7 @@ impl ParsedFile {
                 continue;
             }
             if n.start_byte() >= do_node.end_byte()
-                && is_c_cpp_statement_kind(n.kind())
+                && is_do_statement_kind(self.language, n.kind())
                 && n.start_position().row + 1 == line
             {
                 return true;
@@ -549,12 +601,12 @@ impl ParsedFile {
         false
     }
 
-    pub(crate) fn is_c_do_condition(&self, parent: &Node<'_>, child: &Node<'_>) -> bool {
+    pub(crate) fn is_do_condition(&self, parent: &Node<'_>, child: &Node<'_>) -> bool {
         parent.kind() == "do_statement"
             && parent
                 .child_by_field_name("condition")
                 .is_some_and(|c| c.id() == child.id())
-            && self.c_do_condition_line(parent).is_some()
+            && self.do_condition_line(parent).is_some()
     }
 }
 

@@ -24,7 +24,7 @@ mod build;
 #[cfg(test)]
 mod callback_identity_tests;
 #[cfg(test)]
-mod census_label_tests;
+pub(crate) mod census_label_tests;
 mod cfg_queries;
 mod context;
 #[cfg(test)]
@@ -53,6 +53,8 @@ mod js_param_defs_tests;
 mod js_single_statement_tests;
 #[cfg(test)]
 mod loop_header_def_tests;
+#[cfg(test)]
+mod loop_plan_cache_tests;
 #[cfg(test)]
 mod member_only_param_leftflow_tests;
 #[cfg(test)]
@@ -108,10 +110,12 @@ pub use reaching::RdFileStats;
 pub(crate) use reaching::{ReceiverEdge, ReceiverKey};
 mod recall_telemetry;
 #[cfg(test)]
+pub(crate) use reaching::loop_plan_tests;
+#[cfg(test)]
 pub(crate) use reaching::with_recall_cap;
 pub(crate) use reaching::{
-    reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges, DefId,
-    DefSite, FileCfgEdgeIndex, RdOutcome,
+    placed_lines, reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges,
+    DefId, DefSite, FileCfgEdgeIndex, RdOutcome,
 };
 #[cfg(test)]
 pub(crate) use reaching::{RD_MAX_DEFS, RD_MAX_LINES};

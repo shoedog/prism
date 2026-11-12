@@ -15,6 +15,9 @@ pub(super) enum Pass {
     /// The #759 trace's control: production, solved under main's universe for an arrow whose body is a
     /// callable. It repeats none of the capture lines the production pass already wrote.
     ArrowControl,
+    /// The #693 trace's control: production, solved under main's JS/TS/TSX loop CFG and statement
+    /// universe. Like `ArrowControl`, it repeats none of the capture lines.
+    LoopControl,
 }
 
 impl Pass {
@@ -25,12 +28,15 @@ impl Pass {
 
     /// Whether a recorded def of a JS/TS/TSX owner kills by `affects` (#674).
     pub(super) fn recorded_affects(self) -> bool {
-        matches!(self, Pass::Census | Pass::CensusLogged | Pass::ArrowControl)
+        matches!(
+            self,
+            Pass::Census | Pass::CensusLogged | Pass::ArrowControl | Pass::LoopControl
+        )
     }
 
     /// Whether S1a writes its capture lines when the trace is on.
     pub(super) fn traces_capture(self) -> bool {
-        self.census() && self != Pass::ArrowControl
+        self.census() && !matches!(self, Pass::ArrowControl | Pass::LoopControl)
     }
 }
 
@@ -101,6 +107,16 @@ pub(super) fn traced(
         &outcome,
         out,
     );
+    // #693/#697: the owners with a JS/TS/TSX loop name their own moved edges (`loop-exit`, `do-cond`)
+    // against main's loop CFG, ahead of the census mechanisms.
+    let looped = loop_control::trace(
+        parsed,
+        func_node,
+        defs,
+        (dfg_edges, exact_edges),
+        &outcome,
+        out,
+    );
     let RdOutcome::Available(head) = &outcome else {
         return outcome;
     };
@@ -136,7 +152,9 @@ pub(super) fn traced(
             _ => None,
         });
     let mut named = arrow.labels;
+    named.extend(looped.labels);
     let mut named_exact = arrow.exact;
+    named_exact.extend(looped.exact);
     if let Some(equal) = &by_affects {
         for edge in dfg_edges {
             let key = (edge.from.clone(), edge.to.clone());
@@ -195,6 +213,8 @@ pub(super) fn traced(
 mod arrow_control;
 #[path = "guard_control.rs"]
 mod guard_control;
+#[path = "loop_control.rs"]
+mod loop_control;
 
 #[cfg(test)]
 #[path = "guard_deleted_tests.rs"]

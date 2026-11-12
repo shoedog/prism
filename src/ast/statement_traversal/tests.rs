@@ -146,7 +146,7 @@ fn c_like() -> &'static str {
     "int f(int x) {\n if (x) { if (x > 1) { x++; } } else if (x < 0) { x--; } else {}\n while (x) { x--; }\n for (int i=0;i<2;i++) { x++; }\n do { x++; } while (x < 1);\n switch(x) { case 1: x++; break; default: x--; }\n { { x++; } x--; }\n return x;\n}\nint empty() {}"
 }
 fn js_like() -> &'static str {
-    "function f(x) {\n if (x) { if (x > 1) { x++; } } else if (x < 0) { x--; } else {}\n while (x) { x--; }\n for (let i=0;i<2;i++) { x++; }\n switch(x) { case 1: x++; break; default: x--; }\n try { x++; } catch (e) { x--; } finally { x++; }\n { { x++; } x--; }\n if (x) x++; else x--;\n label: while (x) { break label; }\n const nested = () => { if (x) { x++; } };\n return x;\n}\nfunction empty() {}"
+    "function f(x) {\n if (x) { if (x > 1) { x++; } } else if (x < 0) { x--; } else {}\n while (x) { x--; }\n for (let i=0;i<2;i++) { x++; }\n do {\n x++;\n } while (x < 1);\n do { x++; } while (x < 1);\n do\n x--;\n while (x > 5);\n switch(x) { case 1: x++; break; default: x--; }\n try { x++; } catch (e) { x--; } finally { x++; }\n { { x++; } x--; }\n if (x) x++; else x--;\n label: while (x) { break label; }\n const nested = () => { if (x) { x++; } };\n return x;\n}\nfunction empty() {}"
 }
 
 #[test]

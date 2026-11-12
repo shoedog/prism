@@ -21,7 +21,7 @@
 //! (inside an `ERROR` node, an enum body or an initializer list). The census also carries
 //! `incomplete`: some `#define` line (or an unterminated comment, an uncertain raw string, an
 //! unreadable parameter) could not be read, or the loader skipped an in-repo C/C++ file
-//! (non-UTF-8, unparsable, unreadable, too large, a symlink: stamped on every parsed C/C++
+//! (unparsable or unreadable, or a symlink: stamped on every parsed C/C++
 //! file, so full, partial and scoped builds agree). `incomplete` means slice 6b must
 //! disable rules U and D for ALL C/C++; it is part of the digest.
 //!
@@ -37,16 +37,17 @@
 //! `incomplete` (checked on the raw logical line in both dialect passes), so a spelling this lexer cannot equate with the compiler's never
 //! loses a fact silently.
 //!
-//! The census reads more than the parsed C/C++ files: every file of the repository is a
-//! header (the preprocessor reads whatever a `#include` names, through any include path,
-//! `..` or computed spelling, so discovery is not attempted). The loader hands it, as text
-//! only, every in-repo file that is not a parsed C/C++ file and yields a definition or an
-//! `incomplete` trigger (`repo_loader::c_census`: gitignored and hidden files included, a
-//! non-UTF-8 file with the bytes `define`/`undef` in any of ASCII, UTF-16LE or UTF-16BE
-//! stamps `incomplete`); its cache identity is one aggregate entry over the facts of those
-//! texts and the list of contributing files, so an unrelated edit does not move it.
-//! Review mode parses only the diff files and fails closed when the repository holds
-//! unread census inputs.
+//! The census reads more than the parsed C/C++ files (`repo_loader::c_census`, the hybrid
+//! rule): the loader hands it, as text only, the in-repo files a `#include` of any parsed
+//! C/C++ file or census text names (found by lexical target normalization and suffix match
+//! against every in-repo path) and every file with a C-like extension, read with the
+//! PERMISSIVE scan (no lexer state, never `incomplete` from it; comment-kept and
+//! comment-erased variants unioned). Only an unreadable or symlinked-out input, or an oversize
+//! non-C input holding a directive leader, stamps `incomplete`. A header with an unusual
+//! extension reached only through a form prism cannot resolve acts like an external header.
+//! Its cache identity is one aggregate entry over the facts of those texts and the lists of
+//! files read, contributing and lost, so an unrelated edit does not move it. Review mode
+//! parses only the diff files and fails closed when the repository holds unread census inputs.
 //!
 //! Several definitions of one name are unioned and every judgement over-approximates: a
 //! name that is a macro is judged by the union of all its definitions. Nothing consumes the
@@ -1126,7 +1127,7 @@ fn merge(out: &mut BTreeMap<String, RawDef>, name: String, def: RawDef) {
 // only adds facts).
 
 /// The text variants a permissive scan reads: phase 1 with and without trigraphs, lenient
-/// and strict splices (all unioned), plus the NUL-stripped text when it holds NULs (a
+/// and strict splices, each comment-kept and comment-erased (all unioned), plus the NUL-stripped text when it holds NULs (a
 /// UTF-16 file without a byte-order mark).
 pub(crate) fn permissive_variants(source: &str) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
@@ -1143,8 +1144,39 @@ pub(crate) fn permissive_variants(source: &str) -> Vec<String> {
         for trigraphs in [true, false] {
             let t = translate(base, trigraphs);
             for lenient in [true, false] {
-                push(String::from_utf8_lossy(&splice(&t, lenient).0).into_owned());
+                let spliced = splice(&t, lenient).0;
+                push(String::from_utf8_lossy(&spliced).into_owned());
+                // The comment-erased variant: `#/**/define`, `#define/**/N`, a block
+                // comment spanning a newline inside a directive.
+                push(String::from_utf8_lossy(&erase_comments(&spliced)).into_owned());
             }
+        }
+    }
+    out
+}
+
+/// Best-effort comment erasure for the permissive scan: `/* .. */` (newlines inside
+/// included) and `// ..` (to the end of the line) become one space, with no string or
+/// character tracking and no lexer state (an unterminated block comment runs to the end).
+/// Wrong erasures only drop text from this variant; the kept variants are unioned with it.
+fn erase_comments(b: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'/' && b.get(i + 1) == Some(&b'*') {
+            out.push(b' ');
+            i = match b[i + 2..].windows(2).position(|w| w == b"*/") {
+                Some(p) => i + p + 4,
+                None => b.len(),
+            };
+        } else if b[i] == b'/' && b.get(i + 1) == Some(&b'/') {
+            out.push(b' ');
+            while i < b.len() && b[i] != b'\n' {
+                i += 1;
+            }
+        } else {
+            out.push(b[i]);
+            i += 1;
         }
     }
     out
