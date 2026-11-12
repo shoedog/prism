@@ -51,8 +51,22 @@ impl CensusFacts {
         recorded: &[DefSite],
         facts: &crate::cpg::binding_facts::BindingFacts,
     ) {
-        let candidates = self.completion.as_ref().map_or(&[][..], |c| &c.alias[..]);
+        let candidates = self
+            .completion
+            .as_ref()
+            .and_then(|c| c.alias.as_deref())
+            .map_or(&[][..], |v| &v[..]);
         self.alias_certs = super::alias_cert::AliasCerts::certify(candidates, recorded, facts);
+    }
+
+    /// Test seam: these facts without the alias candidates (the clone-cost check of the candidates' sharing).
+    #[cfg(test)]
+    pub(super) fn without_alias_candidates(&self) -> Self {
+        let mut c = self.clone();
+        if let Some(done) = c.completion.as_mut() {
+            done.alias = None;
+        }
+        c
     }
 
     /// The owner's alias certificates (none: no candidate).

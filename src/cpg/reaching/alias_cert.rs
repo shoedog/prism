@@ -7,6 +7,13 @@
 //! false` and the flat fallback are not identity: either refuses. Alias twins are never consulted.
 //!
 //! Inert (slice 4a): the certificates are read by the trace (`rd-alias-cert`) and the unit tests only.
+//!
+//! **A certificate is a fact about the relation, not about a write.** A consumer (slice 4b's refinement) must
+//! still check, for each write W and each candidate def it classifies:
+//! - the base written at W binds `alias_decl` (`BindingFacts::binding_at` at W's probe byte);
+//! - the alias's initialisation `alias_def` reaches W, and W is not in the declarator's statement or CFG node;
+//! - W is an eager, precisely identified census write (a counting write, not a deferred or own-parameter one);
+//! - the candidate def binds `target_decl`.
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use crate::cpg::reaching::DefSite;
@@ -15,11 +22,25 @@ use std::io::Write;
 use std::rc::Rc;
 use tree_sitter::Node;
 
-/// One candidate with its final verdict.
+/// The verdict on one candidate: the identities stage 2 proved, or the reason it was refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Verdict {
+    Admitted {
+        /// RD def index of `u`'s declarator and the explicit declaration it binds.
+        alias_def: usize,
+        alias_decl: BindingId,
+        /// RD def index of `o`'s one declaration and the explicit declaration `o` at the alias resolves to.
+        target_def: usize,
+        target_decl: BindingId,
+    },
+    Refused(Reason),
+}
+
+/// One candidate with its verdict.
 #[derive(Debug)]
 pub(super) struct Entry {
     pub cand: Candidate,
-    pub refusal: Option<Reason>,
+    pub verdict: Verdict,
 }
 
 /// The owner's candidates, admitted or refused.
@@ -52,10 +73,13 @@ impl AliasCerts {
         let entries = candidates
             .iter()
             .map(|cand| {
-                let refusal = cand.refusal.or_else(|| identity(cand, recorded, facts));
+                let verdict = match cand.refusal {
+                    Some(r) => Verdict::Refused(r),
+                    None => identity(cand, recorded, facts),
+                };
                 Entry {
                     cand: cand.clone(),
-                    refusal,
+                    verdict,
                 }
             })
             .collect();
@@ -72,9 +96,9 @@ impl AliasCerts {
         let name = parsed.dfg_owner_name(owner).unwrap_or_default();
         for e in &self.entries {
             let c = &e.cand;
-            let (verdict, reason) = match e.refusal {
-                None => ("admitted", "-"),
-                Some(r) => ("refused", r.as_str()),
+            let (verdict, reason) = match e.verdict {
+                Verdict::Admitted { .. } => ("admitted", "-"),
+                Verdict::Refused(r) => ("refused", r.as_str()),
             };
             let alias = place(&c.alias, c.alias_start);
             let target = c
@@ -89,16 +113,25 @@ impl AliasCerts {
     }
 }
 
-/// Stage 2's refusal of a syntactically admitted candidate.
-fn identity(c: &Candidate, recorded: &[DefSite], facts: &BindingFacts) -> Option<Reason> {
-    let alias = def_at(recorded, &c.alias, c.alias_start).filter(|&d| explicit(facts, d));
-    if alias.is_none() {
-        return Some(Reason::AliasIdentity);
-    }
-    let same = c
+/// Stage 2: the identities of a syntactically admitted candidate, or the refusal.
+fn identity(c: &Candidate, recorded: &[DefSite], facts: &BindingFacts) -> Verdict {
+    let Some(alias_def) = def_at(recorded, &c.alias, c.alias_start).filter(|&d| explicit(facts, d))
+    else {
+        return Verdict::Refused(Reason::AliasIdentity);
+    };
+    let target = c
         .target_start
         .and_then(|b| def_at(recorded, &c.target, b))
         .filter(|&d| explicit(facts, d))
-        .is_some_and(|d| facts.binding_at(&c.target, c.rhs_start) == *facts.binding_of_def(d));
-    (!same).then_some(Reason::TargetIdentity)
+        .map(|d| (d, facts.binding_of_def(d).clone()))
+        .filter(|(_, decl)| facts.binding_at(&c.target, c.rhs_start) == *decl);
+    match target {
+        Some((target_def, target_decl)) => Verdict::Admitted {
+            alias_def,
+            alias_decl: facts.binding_of_def(alias_def).clone(),
+            target_def,
+            target_decl,
+        },
+        None => Verdict::Refused(Reason::TargetIdentity),
+    }
 }
