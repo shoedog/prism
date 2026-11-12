@@ -56,7 +56,8 @@ fn check_subset(name: &str, source: &str) -> (usize, usize) {
     let parsed = ParsedFile::parse(name, source, Language::C).unwrap();
     let file = name.to_owned();
     let before = Producer::file_refs_frozen(&file, &parsed);
-    let after = Producer::file_refs(&file, &parsed);
+    // The alias-twin policy has its own tests and receipt diff; it is off so this differential isolates the rules.
+    let after = super::alias_occurrence::without_policy(|| Producer::file_refs(&file, &parsed));
     let (b, a) = (pairs(&before), pairs(&after));
     assert!(a.is_subset(&b), "{name}: edges_after must be a subset");
     for (key, label) in &after.labels {
@@ -136,7 +137,8 @@ fn c_prune_matrix() {
     for (name, file, source) in matrix_inputs() {
         let parsed = ParsedFile::parse(&file, &source, Language::C).unwrap();
         let before = Producer::file_refs_frozen(&file, &parsed);
-        let after = Producer::file_refs(&file, &parsed);
+        // The alias-twin policy has its own tests and receipt diff; it is off so this differential isolates the rules.
+        let after = super::alias_occurrence::without_policy(|| Producer::file_refs(&file, &parsed));
         let (b, a) = (pairs(&before), pairs(&after));
         let (bo, ao) = (owner_pairs(&before), owner_pairs(&after));
         if std::env::var_os("PRISM_DUMP_PRUNE_BASELINE").is_some() {
@@ -202,7 +204,8 @@ fn edge_count(name: &str, source: &str, language: Language) -> (usize, usize) {
     let parsed = ParsedFile::parse(name, source, language).unwrap();
     let file = name.to_owned();
     let before = Producer::file_refs_frozen(&file, &parsed);
-    let after = Producer::file_refs(&file, &parsed);
+    // The alias-twin policy has its own tests and receipt diff; it is off so this differential isolates the rules.
+    let after = super::alias_occurrence::without_policy(|| Producer::file_refs(&file, &parsed));
     (before.edges.len(), after.edges.len())
 }
 
@@ -234,7 +237,9 @@ fn with_census(files: &[(&str, &str)], target: &str) -> (usize, usize) {
     let file = target.to_owned();
     let p = &parsed[target];
     let before = Producer::file_refs_frozen(&file, p);
-    let after = Producer::file_refs_with_census(&file, p, &census, &c_census);
+    let after = super::alias_occurrence::without_policy(|| {
+        Producer::file_refs_with_census(&file, p, &census, &c_census)
+    });
     (before.edges.len(), after.edges.len())
 }
 

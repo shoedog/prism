@@ -223,9 +223,12 @@ fn the_policy_suppresses_exactly_the_binding_write_occurrences() {
 
 #[test]
 fn other_languages_get_an_empty_policy() {
-    let c = "void t(struct S *o, struct S *q) {\n struct S *u = o;\n u = q;\n u->f = 1;\n}\n";
+    let lua = "local function t(o, q)\n local u = o\n u = q\n u.f = 1\nend\n";
     let js = "function t(o, q) {\n let u = o;\n u = q;\n u.f = 1;\n}\n";
-    for (file, language, source) in [("a.c", Language::C, c), ("a.js", Language::JavaScript, js)] {
+    for (file, language, source) in [
+        ("a.lua", Language::Lua, lua),
+        ("a.js", Language::JavaScript, js),
+    ] {
         let parsed = ParsedFile::parse(file, source, language).unwrap();
         assert!(policy_bytes(&parsed).is_empty(), "{file}");
     }

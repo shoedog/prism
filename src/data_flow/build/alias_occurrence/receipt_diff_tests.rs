@@ -1,4 +1,4 @@
-//! Attributed receipt diff of the alias-twin policy over every Go, Rust and Python fixture of
+//! Attributed receipt diff of the alias-twin policy over every Go, Rust, Python, C and C++ fixture of
 //! `tests/fixtures`: policy off (main's behaviour) against policy on, per file. Each changed
 //! expectation is named by occurrence and attributed: a removed Def is an alias twin (another Def
 //! of a different path sits at the same bytes), a removed edge starts at a removed twin Def, and a
@@ -48,7 +48,10 @@ fn fixture_files(dir: &Path, out: &mut Vec<PathBuf>) {
         if path.is_dir() {
             fixture_files(&path, out);
         } else if let Some(language) = Language::from_path(path.to_str().unwrap()) {
-            if matches!(language, Language::Go | Language::Rust | Language::Python) {
+            if matches!(
+                language,
+                Language::Go | Language::Rust | Language::Python | Language::C | Language::Cpp
+            ) {
                 out.push(path);
             }
         }
@@ -99,6 +102,29 @@ fn diff_of(rel: &str, source: &str, language: Language) -> Option<Value> {
             removed_edges.push(json!([fmt_key(&k.0), fmt_key(&k.1)]));
         }
     }
+    // An edge only the policy-on run has: the removed twin was a dominating write that pruned the
+    // pair (C rules U and D, #811), so a removed twin Def of the same function lies on a line
+    // between the endpoints (or anywhere in the function for a loop-carried pair).
+    let off_edges: BTreeSet<(Key, Key)> = off
+        .edges
+        .iter()
+        .map(|e| (key(&e.from), key(&e.to)))
+        .collect();
+    let mut added_edges = Vec::new();
+    for e in &on.edges {
+        let k = (key(&e.from), key(&e.to));
+        if off_edges.contains(&k) {
+            continue;
+        }
+        let attributed = removed_defs.iter().any(|d| {
+            d.0 == k.0 .0 && d.4 == k.0 .4 && (k.1 .1 <= k.0 .1 || (k.0 .1..=k.1 .1).contains(&d.1))
+        });
+        assert!(
+            attributed,
+            "{rel}: added edge not attributable to a removed twin: {k:?}"
+        );
+        added_edges.push(json!([fmt_key(&k.0), fmt_key(&k.1)]));
+    }
     let twin_lines: BTreeMap<&str, BTreeSet<usize>> =
         removed_defs.iter().fold(BTreeMap::new(), |mut m, d| {
             m.entry(d.0.as_str()).or_default().insert(d.1);
@@ -137,17 +163,24 @@ fn diff_of(rel: &str, source: &str, language: Language) -> Option<Value> {
     if removed_defs.is_empty()
         && removed_uses.is_empty()
         && removed_edges.is_empty()
+        && added_edges.is_empty()
         && relabeled.is_empty()
     {
         return None;
     }
-    Some(json!({
+    let mut row = json!({
         "file": rel,
         "removed_twin_defs": removed_defs.iter().map(|k| fmt_key(k)).collect::<Vec<_>>(),
         "removed_minted_uses": removed_uses.iter().map(fmt_key).collect::<Vec<_>>(),
         "removed_edges": removed_edges,
         "relabeled": relabeled,
-    }))
+    });
+    // Only C and C++ ever add edges (rules U and D, #811); the key is omitted when empty so the
+    // rows of the earlier languages are unchanged.
+    if !added_edges.is_empty() {
+        row["added_edges"] = json!(added_edges);
+    }
+    Some(row)
 }
 
 #[test]

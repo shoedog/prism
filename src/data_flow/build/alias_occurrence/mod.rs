@@ -1,4 +1,4 @@
-//! Alias-twin occurrence policy (alias-twin lane, slice 1: Java; slice 2a: Go, Rust, Python).
+//! Alias-twin occurrence policy (alias-twin lane, slice 1: Java; slice 2a: Go, Rust, Python; slice 2b: C, C++).
 //!
 //! A DFG alias twin is a fabricated Def of an alias's target, minted at an lvalue occurrence of
 //! the alias name (`u = o` makes `u.f = 1` also a write of `o.f`). The invariant this module
@@ -56,8 +56,29 @@
 //! on a write-only target (`base = None;`) is recorded as a Use, so the def above it reaches it `exact`; main
 //! emits the same edge with no alias involved, and the twin's kill used to hide it in clap `examples/git.rs`.
 //!
+//! Slice 2b (C and C++, `c_family.rs`, `c_family_hazards.rs`): rows `C-01..C-10`, `X-READ`, `X-DECL` of the table.
+//! A name written by `=`, a compound operator or `++`/`--`, a declaration or parameter name and declarator syntax
+//! (`*p`, `a[N]`, `&r`) are binding writes (C-01..C-04); C is always so, C++ only with positive evidence (a pointer
+//! declarator or a keyword-only builtin type prefix visible at the occurrence; a `&` in the prefix is a reference and a
+//! storage write; typedef/`using` names including `size_t`, `auto`, class and dependent types, members and undeclared
+//! names are unsupported). `*u = ..`, `u->f`, `(*u).f`, `u[i]` through a pointer or array parameter and `*p++ = v` are
+//! storage writes (C-05, C-06, C-08, C-10); `u.f` is unsupported except through a C++ reference (C-07). A `.h` header
+//! (prism parses it as C) takes the C++ rules, and a C++ declaration in a `for` initialiser gives no builtin-keyword evidence (a
+//! pointer declarator in it still does): both are more conservative than the table. Only the parameter list of a
+//! definition's innermost declarator (or a lambda's) is visible evidence, never a prototype's or a function type's. R1 and the writes the DFG does not model are refused in `c_family_hazards.rs`
+//! (struct fields, labels, enumerators, macros and macro parameters, type and namespace names; `&o` in any form, `o++`,
+//! arrays, an undeclared target passed to a call, arguments of macro-looking or unproven callees, identifiers inside `ERROR`
+//! nodes; an occurrence whose own statement holds a parse error is unsupported; in C++ also every call argument (bare pointers
+//! included), methods, hazards on a proven reference alias, `>>`, reference-bound initialisers and by-reference lambda
+//! captures). Residuals: a header macro that is not all-caps and is passed the target nested in an expression,
+//! array fields decaying inside a call argument, a callee mutating the target through a pointer or global (out of model,
+//! as for `Exact`; library `memcpy(o, ..)` writes the pointee), a typedef'd array target, GNU `asm` outputs, a copy constructor that writes its source, and the inherited X-READ extraction defect (a read
+//! recorded as a Def: an `Exact` edge from the read of `Py_None` at one initialiser to the next, present in main
+//! without any alias, now no longer doubted `sameline` where a twin collapsed the line). C and C++ produce no
+//! fallback anchors (alias discovery pairs plain identifiers).
+//!
 //! Specification: the Java rows `J-01..J-06`, Go rows `G-01..G-04`, Rust rows `R-01..R-05` and
-//! Python rows `Y-01..Y-03` of the slice-0 classifier table (`CLASSIFIER.md`); `*_tests.rs` pin them,
+//! Python rows `Y-01..Y-03` and C/C++ rows `C-01..C-10` of the slice-0 classifier table (`CLASSIFIER.md`); `*_tests.rs` pin them,
 //! including parity with the slice-0 oracle's pinned cases. Go `G-03`/`G-04` and Rust `R-04` are
 //! `Unsupported` (the oracle's `storage-write` when pointer or reference evidence exists keeps the
 //! twin the same way) and Rust `R-02` is always `Unsupported` (more conservative than the oracle).
@@ -67,6 +88,12 @@ use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
+mod c_family;
+#[cfg(test)]
+mod c_family_effect_tests;
+mod c_family_hazards;
+#[cfg(test)]
+mod c_family_tests;
 mod go;
 #[cfg(test)]
 mod go_tests;
@@ -143,13 +170,20 @@ impl TwinPolicy {
         let lang = parsed.language;
         if !matches!(
             lang,
-            Language::Java | Language::Go | Language::Rust | Language::Python
+            Language::Java
+                | Language::Go
+                | Language::Rust
+                | Language::Python
+                | Language::C
+                | Language::Cpp
         ) || alias_map.is_empty()
         {
             return policy;
         }
         // Rust: the non-local item names visible to the owner, computed once on first use.
         let items = std::cell::OnceCell::new();
+        // C and C++: the enumerators, macros and functions the file declares, computed once on first use.
+        let defined = std::cell::OnceCell::new();
         let classify = |span: &PathSpan| match lang {
             Language::Go => go::classify(parsed, span),
             Language::Rust => rust::classify_with(
@@ -158,12 +192,18 @@ impl TwinPolicy {
                 items.get_or_init(|| rust::item_names(parsed, owner)),
             ),
             Language::Python => python::classify(parsed, span),
+            Language::C | Language::Cpp => c_family::classify(parsed, owner, span),
             _ => java::classify(parsed, span),
         };
         let collect = || match lang {
             Language::Go => go::member_name_tokens(parsed, owner),
             Language::Rust => rust::member_name_tokens(parsed, owner),
             Language::Python => python::member_name_tokens(parsed, owner),
+            Language::C | Language::Cpp => c_family_hazards::tokens(
+                parsed,
+                owner,
+                defined.get_or_init(|| c_family_hazards::file_names(parsed)),
+            ),
             _ => java::member_name_tokens(parsed, owner),
         };
         let mut member_tokens: Option<BTreeSet<String>> = None;

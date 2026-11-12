@@ -197,9 +197,14 @@ fn prune_subset_and_labels_across_fixture_tree() {
             let policy_on = without_recall(Producer::file_refs(&file, &parsed));
             let twin_lane = matches!(
                 language,
-                Language::Java | Language::Go | Language::Rust | Language::Python
+                Language::Java
+                    | Language::Go
+                    | Language::Rust
+                    | Language::Python
+                    | Language::C
+                    | Language::Cpp
             );
-            // Alias-twin lane (Java slice 1; Go, Rust, Python slice 2a): the policy removes twins at
+            // Alias-twin lane (Java slice 1; Go, Rust, Python slice 2a; C, C++ slice 2b): the policy removes twins at
             // binding writes, so for these languages the strict differential below runs with the
             // policy off; the policy-on result must stay removal-only (edges and uses).
             let after = if twin_lane && language != Language::Java {
@@ -209,7 +214,13 @@ fn prune_subset_and_labels_across_fixture_tree() {
             } else {
                 policy_on
             };
-            if twin_lane && language != Language::Java {
+            // C and C++ promote and add edges where a removed twin was a dominating write of the
+            // pruning rules (rules U and D, #811): their policy-on additions are attributed by the
+            // receipt diff (`alias_occurrence/receipt_diff_tests.rs`), not asserted away here.
+            if twin_lane
+                && language != Language::Java
+                && !matches!(language, Language::C | Language::Cpp)
+            {
                 let on = without_recall(Producer::file_refs(&file, &parsed));
                 for edge in &on.edges {
                     assert!(

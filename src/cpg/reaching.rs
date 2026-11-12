@@ -12,6 +12,7 @@ use tree_sitter::Node;
 
 use super::{FlowConfidence, FlowDoubt};
 
+mod alias_cert;
 mod capture;
 mod capture_regions;
 mod census_defs;
@@ -392,6 +393,7 @@ fn reaching_definitions_impl(
     );
     binding_facts.extend_kill_only(&defs[n_recorded..]);
     census.refuse_unmapped(&defs, &mapped_defs);
+    census.certify_aliases(&defs[..n_recorded], &binding_facts);
     *facts_out = Some(census.clone());
 
     let mut gen = vec![BitSet::new(defs.len()); node_count];
@@ -1024,3 +1026,9 @@ pub(crate) mod loop_plan_tests;
 
 #[cfg(test)]
 mod refusal_classes_tests;
+
+#[cfg(test)]
+mod alias_cert_tests;
+
+#[cfg(test)]
+mod alias_cert_alloc_tests;

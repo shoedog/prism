@@ -40,9 +40,40 @@ pub(super) struct CensusFacts {
     d2c: Option<Rc<super::d2c::D2c>>,
     /// #660 S1d-1: the refusal classes; shared by clones.
     classes: Option<Rc<super::refusal_classes::Refusals>>,
+    /// #783 option A (slice 4a, inert): the owner's alias certificates; shared by clones.
+    alias_certs: Option<Rc<super::alias_cert::AliasCerts>>,
 }
 
 impl CensusFacts {
+    /// Certify the owner's single-step alias candidates against the binding facts (#783, inert).
+    pub(super) fn certify_aliases(
+        &mut self,
+        recorded: &[DefSite],
+        facts: &crate::cpg::binding_facts::BindingFacts,
+    ) {
+        let candidates = self
+            .completion
+            .as_ref()
+            .and_then(|c| c.alias.as_deref())
+            .map_or(&[][..], |v| &v[..]);
+        self.alias_certs = super::alias_cert::AliasCerts::certify(candidates, recorded, facts);
+    }
+
+    /// Test seam: these facts without the alias candidates (the clone-cost check of the candidates' sharing).
+    #[cfg(test)]
+    pub(super) fn without_alias_candidates(&self) -> Self {
+        let mut c = self.clone();
+        if let Some(done) = c.completion.as_mut() {
+            done.alias = None;
+        }
+        c
+    }
+
+    /// The owner's alias certificates (none: no candidate).
+    pub(super) fn alias_certs(&self) -> Option<&super::alias_cert::AliasCerts> {
+        self.alias_certs.as_deref()
+    }
+
     fn inert(n_recorded: usize) -> Self {
         Self {
             n_recorded,
@@ -289,6 +320,7 @@ pub(super) fn complete_with(
         d3,
         d2c,
         classes,
+        alias_certs: None,
     };
     (recorded, facts)
 }
