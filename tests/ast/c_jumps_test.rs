@@ -186,8 +186,11 @@ fn do_condition_on_last_body_line_keeps_main_edges() {
     );
 }
 
-/// JS and Java switch/loop shapes are outside this slice: edge sets pinned
-/// from main.
+/// The Java switch/loop shape is outside this slice: edge set pinned from main. The JS shape is
+/// rewired by #693/#697 (`cfg/js_loops.rs`): `break` (7->3, to the loop's continue point), `continue`
+/// (10->3) and the `default` arm's completion (12->3) now reach the header; the `switch` header -> header
+/// shortcut (4->3), the body's bypass (12->15) and the `do` shape of main (15->18, 16->15, 16->18) are gone,
+/// the `do` condition (line 17) being its own statement: 16->17, 17->16, 17->18.
 #[test]
 fn js_and_java_edge_sets_are_unchanged() {
     check_pinned(
@@ -197,15 +200,16 @@ fn js_and_java_edge_sets_are_unchanged() {
             (2, 3),
             (3, 4),
             (3, 15),
-            (4, 3),
             (4, 6),
             (6, 7),
+            (7, 3),
             (9, 10),
-            (12, 15),
+            (10, 3),
+            (12, 3),
             (15, 16),
-            (15, 18),
-            (16, 15),
-            (16, 18),
+            (16, 17),
+            (17, 16),
+            (17, 18),
         ],
     );
     check_pinned(

@@ -1,7 +1,7 @@
 //! #660 S1b-2: the matrix rows that name S1b-2 (same-node order relation, D3) as label rows, plus the
 //! placement and position rows the S1b-1 review history asked for. Label-only: no edge moves.
 //! FIX rows are `exact` on base d891f74d and move to `nameonly/sameline`; controls hold on both.
-use super::census_label_tests::labels_of;
+use super::census_label_tests::{labels_of, labels_of_main_loops};
 use crate::js_write_census::matrix_tests::lang_of;
 use crate::languages::Language;
 
@@ -35,6 +35,21 @@ fn rows() -> Vec<Row> {
         .collect()
 }
 
+/// Rows about the #697 loop rewrite itself (a `do` condition that is its own node): they run under the
+/// production plan. Every other row tests D3 under main's loop CFG, the geometry it was written for (a
+/// loop sharing its line with its body is refused by the plan and every label of its owner would be
+/// cfg_incomplete, hiding the mechanism; the refusal is `loop_plan_tests`').
+const PRODUCTION_ROWS: &[&str] = &["a20_for_init_inside_do_while_cond_write"];
+
+fn labels_of_row(r: &Row) -> Vec<String> {
+    let language = lang_of(&r.fixture);
+    if PRODUCTION_ROWS.contains(&r.fixture.as_str()) {
+        labels_of(language, &r.source, &r.edge)
+    } else {
+        labels_of_main_loops(language, &r.source, &r.edge)
+    }
+}
+
 /// Rows whose head label the design's `expected` column cannot yet give (a later slice, or a
 /// contradiction with the design): the head's label is pinned here and the row is listed in the PR.
 const PINNED: &[(&str, &str, &str)] = &[];
@@ -53,7 +68,7 @@ fn matrix_rows_move_to_the_expected_label() {
     let mut failures = Vec::new();
     for r in &all {
         let want = want(r);
-        let got = labels_of(lang_of(&r.fixture), &r.source, &r.edge);
+        let got = labels_of_row(r);
         if got.is_empty() || got.iter().any(|g| *g != want) {
             failures.push(format!(
                 "{} {}: want {want}, got {got:?}",
@@ -69,7 +84,7 @@ fn matrix_rows_move_to_the_expected_label() {
 fn matrix_rows_keep_their_edges() {
     for r in rows() {
         assert!(
-            !labels_of(lang_of(&r.fixture), &r.source, &r.edge).is_empty(),
+            !labels_of_row(&r).is_empty(),
             "{} {}: edge disappeared",
             r.fixture,
             r.edge
@@ -191,7 +206,7 @@ const CASES: &[Case] = &[
 fn placement_and_position_rows() {
     let mut failures = Vec::new();
     for c in CASES {
-        let got = labels_of(c.lang, c.source, c.edge);
+        let got = labels_of_main_loops(c.lang, c.source, c.edge);
         if got.is_empty() || got.iter().any(|g| g != c.expected) {
             failures.push(format!(
                 "{} {}: want {}, got {got:?}",

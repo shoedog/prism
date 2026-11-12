@@ -485,6 +485,9 @@ pub struct ParsedFile {
     /// Lazily-extracted JS/TS export facts: a pure function of the parsed
     /// file, shared by the P1 loader priming and the call-graph build.
     js_export_facts: std::sync::OnceLock<js_ts::exports::JsExportFacts>,
+    /// Lazily-computed JS/TS/TSX loop-tree plan (#693, #697): a pure function of the parsed file, asked
+    /// by the `do` condition admission and the loop edge rewrite (and read for the per-file counters).
+    js_loop_plan: std::sync::OnceLock<crate::cfg::js_loops::LoopPlan>,
     /// Lazily-built: whether a Python run-time local reader can reach any owner of the file
     /// under another name (#630 U/D switch, `python_prune::file_hidden_hazard`).
     python_hidden_hazard: std::sync::OnceLock<bool>,
@@ -508,6 +511,23 @@ pub enum ParameterUse {
 }
 
 impl ParsedFile {
+    /// The loop-tree plan of this JS-family file (never asked in main's loop CFG; see `cfg::js_loops`).
+    pub(crate) fn js_loop_plan(&self) -> &crate::cfg::js_loops::LoopPlan {
+        self.js_loop_plan
+            .get_or_init(|| crate::cfg::js_loops::LoopPlan::compute(self))
+    }
+
+    /// Test seam: this file keeps main's loop CFG and labels (an empty plan admits and refuses nothing).
+    /// Per FILE, so it holds on rayon workers too, unlike the thread-local `with_main_loop_cfg`. Used by the
+    /// census and D3 fixtures that were written for main's geometry and test their own mechanism, not loops.
+    #[cfg(test)]
+    pub(crate) fn with_main_loop_plan(self) -> Self {
+        let _ = self
+            .js_loop_plan
+            .set(crate::cfg::js_loops::LoopPlan::default());
+        self
+    }
+
     /// The file's Python hidden-reader hazard, built once by `build` (`python_prune`).
     pub(crate) fn mark_c_family_skipped_in_repo(&mut self) {
         self.c_family_skipped_in_repo = true;
@@ -565,6 +585,7 @@ impl ParsedFile {
             go_compat: go_compat_types::Cache::default(),
             call_args: std::sync::OnceLock::new(),
             js_export_facts: std::sync::OnceLock::new(),
+            js_loop_plan: std::sync::OnceLock::new(),
             python_hidden_hazard: std::sync::OnceLock::new(),
             c_family_skipped_in_repo: false,
             c_census_texts: None,
