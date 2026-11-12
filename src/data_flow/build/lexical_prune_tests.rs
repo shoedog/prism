@@ -40,7 +40,11 @@ fn go_prune_matrix() {
         let source = std::fs::read_to_string(&path).unwrap();
         let parsed = ParsedFile::parse(&file, &source, Language::Go).unwrap();
         let before = Producer::file_refs_frozen(&file, &parsed);
-        let after = without_recall(Producer::file_refs(&file, &parsed));
+        // The alias-twin policy removes twin edges the frozen reference has; it is switched off so
+        // this differential isolates the pruning rules (the policy has its own tests).
+        let after = without_recall(super::alias_occurrence::without_policy(|| {
+            Producer::file_refs(&file, &parsed)
+        }));
         assert_eq!(
             before.edges.len() - after.edges.len(),
             after.rd_function_stats.dfg_pruned_write_only
@@ -190,7 +194,38 @@ fn prune_subset_and_labels_across_fixture_tree() {
             let language = Language::from_path(&file).unwrap();
             let parsed = ParsedFile::parse(&file, &source, language).unwrap();
             let before = Producer::file_refs_frozen(&file, &parsed);
-            let after = without_recall(Producer::file_refs(&file, &parsed));
+            let policy_on = without_recall(Producer::file_refs(&file, &parsed));
+            let twin_lane = matches!(
+                language,
+                Language::Java | Language::Go | Language::Rust | Language::Python
+            );
+            // Alias-twin lane (Java slice 1; Go, Rust, Python slice 2a): the policy removes twins at
+            // binding writes, so for these languages the strict differential below runs with the
+            // policy off; the policy-on result must stay removal-only (edges and uses).
+            let after = if twin_lane && language != Language::Java {
+                without_recall(super::alias_occurrence::without_policy(|| {
+                    Producer::file_refs(&file, &parsed)
+                }))
+            } else {
+                policy_on
+            };
+            if twin_lane && language != Language::Java {
+                let on = without_recall(Producer::file_refs(&file, &parsed));
+                for edge in &on.edges {
+                    assert!(
+                        after.edges.contains(edge),
+                        "policy added an edge in {file}: {edge:?}"
+                    );
+                }
+                for (key, uses) in &on.uses {
+                    for u in uses {
+                        assert!(
+                            after.uses.get(key).is_some_and(|b| b.contains(u)),
+                            "policy added a use in {file}: {key:?} {u:?}"
+                        );
+                    }
+                }
+            }
             for edge in &after.edges {
                 assert!(
                     before.edges.contains(edge),

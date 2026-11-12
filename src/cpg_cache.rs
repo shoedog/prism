@@ -330,7 +330,8 @@ mod stream;
 /// - v179: final refusal policy (#693, #697): a refused JS/TS/TSX loop owner (any tree refused, so all) keeps EXACTLY main's geometry, labels and availability: no loop rewrite, no wrapper delegation, no drop of a nested admitted tree's copies, no admitted `do` condition, no forced `nameonly/cfg_incomplete` and no all-admitted availability reference; the plan refuses every other tree of a refused owner (`refused.owner_sibling`), so the CFG, the statement universe, the DataFlow labels and the loop-plan counters change.
 /// - v180: the `for` initializer replay hazard is decided by write PATHS, bindings and necessary eager test/update writes, not by root names (#693, #697 slice 4): a sibling-field or deferred/conditional write no longer excuses the replay, an exact-path repeated write does, so loop trees change admission and the stored labels of their owners change
 /// - v181: C rules U and D in the DFG producer for `.c` owners (#630 slice 6b): pairs into write-only statements and pairs overwritten by a dominating assignment or initialised declaration are no longer emitted; the C/C++ macro census (6a) now gates owners and names.
-const CACHE_VERSION: u32 = 181;
+/// - v182: Go, Rust and Python alias twins only at real writes through the alias (alias-twin lane slice 2a): an occurrence that only declares, initialises or reassigns the alias variable mints no target def and no twin edge, so DataFlow edges and labels of Go, Rust and Python owners change.
+const CACHE_VERSION: u32 = 182;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -863,7 +864,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 181);
+        assert_eq!(super::CACHE_VERSION, 182);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
