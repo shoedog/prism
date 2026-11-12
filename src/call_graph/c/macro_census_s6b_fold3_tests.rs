@@ -627,3 +627,87 @@ fn f3c_symlinked_directory_in_repo_is_an_alias_outside_is_a_loss() {
         "directory outside the repository"
     );
 }
+
+/// A directory-link include case: `payload_dir/m.payload` defines RESTORE, `src/a.c` includes
+/// `include`, and `links` are `(link, target)` relative symlinks. The census must be complete
+/// and read RESTORE.
+#[cfg(unix)]
+fn assert_link_include(include: &str, payload_dir: &str, links: &[(&str, &str)], what: &str) {
+    use std::os::unix::fs::symlink;
+    let dir = tempfile::tempdir().unwrap();
+    let src = format!("#include \"{include}\"\nint f(void) {{ return 0; }}\n");
+    write(dir.path(), "src/a.c", src.as_bytes());
+    let payload = if payload_dir.is_empty() {
+        "m.payload".to_owned()
+    } else {
+        format!("{payload_dir}/m.payload")
+    };
+    write(dir.path(), &payload, b"#define RESTORE() x = saved\n");
+    for (link, target) in links {
+        let at = dir.path().join(link);
+        std::fs::create_dir_all(at.parent().unwrap()).unwrap();
+        symlink(target, at).unwrap();
+    }
+    let (c, _) = loaded(dir.path());
+    assert!(
+        !c.incomplete(),
+        "{what}: in-repo directory links are no loss"
+    );
+    let r = c
+        .get("RESTORE")
+        .unwrap_or_else(|| panic!("{what}: the include through the links reads the file"));
+    assert!(r.free.contains("saved"), "{what}");
+}
+
+#[cfg(unix)]
+#[test]
+fn f3c_directory_link_to_the_root_is_followed() {
+    // Fold 4 (Opus W1, sol #2): `proj -> .` gave the alias prefix "/" and no aliases.
+    assert_link_include("proj/m.payload", "", &[("proj", ".")], "link to the root");
+}
+
+#[cfg(unix)]
+#[test]
+fn f3c_directory_link_inside_a_link_target_is_followed() {
+    // Fold 4 (Opus W2, sol #1): `alias -> real`, `real/sub -> ../other`.
+    assert_link_include(
+        "alias/sub/m.payload",
+        "other",
+        &[("alias", "real"), ("real/sub", "../other")],
+        "nested link",
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn f3c_directory_link_cycle_is_followed_and_bounded() {
+    // `src/lib/up -> ..` names `src`: `lib/up/lib/up/m.payload` is `src/m.payload`.
+    assert_link_include(
+        "lib/up/lib/up/m.payload",
+        "src",
+        &[("src/lib/up", "..")],
+        "link cycle",
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn f3c_directory_link_into_git_is_a_loss() {
+    use std::os::unix::fs::symlink;
+    let dir = tempfile::tempdir().unwrap();
+    write(
+        dir.path(),
+        "src/a.c",
+        b"#include \"g/m.payload\"\nint f(void) { return 0; }\n",
+    );
+    write(
+        dir.path(),
+        ".git/hooks/m.payload",
+        b"#define RESTORE() x = saved\n",
+    );
+    symlink(".git/hooks", dir.path().join("g")).unwrap();
+    assert!(
+        loaded(dir.path()).0.incomplete(),
+        "a link into .git is a loss"
+    );
+}

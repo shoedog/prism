@@ -301,25 +301,89 @@ fn normalize_target(target: &str) -> Option<String> {
     (!segs.is_empty()).then(|| segs.join("/"))
 }
 
-/// Every in-repo file a target can name: a path (real, or an alias through an in-repo
-/// directory link) equal to it or ending in `/<target>`. Yields the real paths.
-fn resolve<'a>(
-    by_name: &'a HashMap<&str, Vec<(&'a str, &'a str)>>,
-    target: &str,
-) -> impl Iterator<Item = &'a str> {
-    let norm = normalize_target(target);
-    let base = norm
-        .as_deref()
-        .map(|n| n.rsplit('/').next().unwrap_or(n).to_owned());
-    let suffix = norm.as_ref().map(|n| format!("/{n}"));
-    base.and_then(|b| by_name.get(b.as_str()))
-        .into_iter()
-        .flatten()
-        .filter(move |(p, _)| {
-            let n = norm.as_deref().unwrap_or("");
-            *p == n || suffix.as_deref().is_some_and(|s| p.ends_with(s))
-        })
-        .map(|(_, real)| *real)
+/// A child of a listed directory: a file (named by its listed path), a real directory, or an
+/// in-repo directory link (its target directory).
+enum Child<'a> {
+    File(&'a str),
+    Dir(String),
+    Link(&'a str),
+}
+
+/// The listed tree as directories of named children, for walking an include target's
+/// segments the way path lookup does: a directory link is entered at its target, so links
+/// to the root, links inside link targets and cycles resolve exactly, bounded by the
+/// target's segment count.
+struct PathIndex<'a> {
+    /// `dir` (`""` is the root) -> child name -> child.
+    dirs: HashMap<String, HashMap<&'a str, Child<'a>>>,
+    /// Child name -> the directories that hold a child of that name.
+    parents: HashMap<&'a str, Vec<String>>,
+}
+
+impl<'a> PathIndex<'a> {
+    fn new(files: impl Iterator<Item = &'a str>, dir_links: &'a [(String, String)]) -> Self {
+        let mut index = PathIndex {
+            dirs: HashMap::new(),
+            parents: HashMap::new(),
+        };
+        let entries = files.map(|p| (p, Child::File(p))).chain(
+            dir_links
+                .iter()
+                .map(|(l, t)| (l.as_str(), Child::Link(t.as_str()))),
+        );
+        for (path, child) in entries {
+            let (dir, name) = path.rsplit_once('/').unwrap_or(("", path));
+            index.add(dir, name, child);
+            // Every ancestor directory is a real directory child of its parent.
+            let mut d = dir;
+            while !d.is_empty() {
+                let (parent, name) = d.rsplit_once('/').unwrap_or(("", d));
+                if index.dirs.get(parent).is_some_and(|c| c.contains_key(name)) {
+                    break;
+                }
+                index.add(parent, name, Child::Dir(d.to_owned()));
+                d = parent;
+            }
+        }
+        index
+    }
+
+    fn add(&mut self, dir: &str, name: &'a str, child: Child<'a>) {
+        let children = self.dirs.entry(dir.to_owned()).or_default();
+        if !children.contains_key(name) {
+            children.insert(name, child);
+            self.parents.entry(name).or_default().push(dir.to_owned());
+        }
+    }
+
+    /// Every in-repo file a target can name: starting from any directory (the includer's
+    /// and the include directories are not known), each segment is a real directory or a
+    /// directory link, and the last is a file. Yields the listed paths.
+    fn resolve(&self, target: &str) -> Vec<&'a str> {
+        let Some(norm) = normalize_target(target) else {
+            return Vec::new();
+        };
+        let segs: Vec<&str> = norm.split('/').collect();
+        let Some(starts) = self.parents.get(segs[0]) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for start in starts {
+            let mut cur: &str = start;
+            for (i, seg) in segs.iter().enumerate() {
+                let last = i + 1 == segs.len();
+                match self.dirs.get(cur).and_then(|c| c.get(seg)) {
+                    Some(Child::File(p)) if last => out.push(*p),
+                    Some(Child::Dir(d)) if !last => cur = d,
+                    Some(Child::Link(t)) if !last => cur = t,
+                    _ => break,
+                }
+            }
+        }
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
 }
 
 /// Discover and read the census inputs under `root` for the parsed `files`.
@@ -332,31 +396,7 @@ fn scan_tree(root: &Path, files: &BTreeMap<String, ParsedFile>) -> Scan {
         lost,
         ..Scan::default()
     };
-    // Aliases: a file under an in-repo directory link's target is also named through the
-    // link (one level; links inside links are not chased).
-    let aliases: Vec<(String, &str)> = dir_links
-        .iter()
-        .flat_map(|(link, target)| {
-            let prefix = format!("{target}/");
-            listed.iter().chain(&links).filter_map(move |p| {
-                p.strip_prefix(&prefix)
-                    .map(|rest| (format!("{link}/{rest}"), p.as_str()))
-            })
-        })
-        .collect();
-    let mut by_name: HashMap<&str, Vec<(&str, &str)>> = HashMap::new();
-    for p in listed.iter().chain(&links) {
-        by_name
-            .entry(p.rsplit('/').next().unwrap_or(p))
-            .or_default()
-            .push((p.as_str(), p.as_str()));
-    }
-    for (alias, real) in &aliases {
-        by_name
-            .entry(alias.rsplit('/').next().unwrap_or(alias))
-            .or_default()
-            .push((alias.as_str(), real));
-    }
+    let index = PathIndex::new(listed.iter().chain(&links).map(String::as_str), &dir_links);
     let parsed_c = |p: &str| files.get(p).is_some_and(is_c_family_parsed);
     let mut queue: Vec<String> = listed
         .iter()
@@ -367,7 +407,7 @@ fn scan_tree(root: &Path, files: &BTreeMap<String, ParsedFile>) -> Scan {
     let push_targets =
         |targets: BTreeSet<(String, bool)>, queue: &mut Vec<String>, read: &BTreeSet<String>| {
             for (t, _quoted) in targets {
-                for p in resolve(&by_name, &t) {
+                for p in index.resolve(&t) {
                     if !parsed_c(p) && !read.contains(p) {
                         queue.push(p.to_owned());
                     }
