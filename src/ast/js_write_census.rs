@@ -8,6 +8,8 @@
 //! this slice): use `crate::js_write_census`, and test names are `js_write_census::...` (mutation lane selectors).
 #![allow(dead_code)]
 
+#[path = "js_write_census/alias_cert.rs"]
+pub(crate) mod alias_cert;
 #[path = "js_write_census/captured.rs"]
 pub(crate) mod captured;
 #[cfg(test)]

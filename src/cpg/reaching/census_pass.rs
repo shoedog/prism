@@ -120,6 +120,10 @@ pub(super) fn traced(
     let RdOutcome::Available(head) = &outcome else {
         return outcome;
     };
+    // #783 (slice 4a, inert): the alias certificates of the owner, admitted and refused.
+    if let Some(certs) = facts.as_ref().and_then(|f| f.alias_certs()) {
+        certs.trace(out, parsed, func_node);
+    }
     guard_control::trace(
         parsed,
         func_node,
