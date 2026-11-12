@@ -444,7 +444,6 @@ fn reaching_definitions_impl(
             alias_kill::AliasKills::new(
                 &alias_kill::Solved {
                     parsed,
-                    mapped_defs: &mapped_defs,
                     in_sets: &in_sets,
                     facts: &binding_facts,
                     census: &census,

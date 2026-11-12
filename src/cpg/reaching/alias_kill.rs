@@ -86,7 +86,6 @@ pub(super) struct AliasKills {
 /// What `AliasKills::new` reads: the solved owner.
 pub(super) struct Solved<'a> {
     pub parsed: &'a ParsedFile,
-    pub mapped_defs: &'a [Option<usize>],
     pub in_sets: &'a [BitSet],
     pub facts: &'a BindingFacts,
     pub census: &'a CensusFacts,
