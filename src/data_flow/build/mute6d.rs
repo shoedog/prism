@@ -110,3 +110,62 @@ pub(super) fn clean(s: &str) -> String {
         .take(100)
         .collect()
 }
+
+// ---- 6d-2 prototype: PRISM_6D_ALLOW=<file> gates the c2 and c4 lifts (measurement only) ----
+// Sections: `[c2]` bare spellings, `[c4-strict]` type names, `[c4-structural]` one line `on`.
+// Variable unset: the lifts are unfiltered (as before). Variable set: a lift needs an allowed entry.
+struct Allow {
+    c2: HashSet<String>,
+    c4: HashSet<String>,
+    structural: bool,
+}
+
+fn allow() -> &'static Option<Allow> {
+    static A: OnceLock<Option<Allow>> = OnceLock::new();
+    A.get_or_init(|| {
+        let p = std::env::var("PRISM_6D_ALLOW").ok()?;
+        let text = std::fs::read_to_string(p).expect("PRISM_6D_ALLOW unreadable");
+        let mut a = Allow {
+            c2: HashSet::new(),
+            c4: HashSet::new(),
+            structural: false,
+        };
+        let mut sec = String::new();
+        for l in text.lines().map(str::trim).filter(|l| !l.is_empty()) {
+            if l.starts_with('[') {
+                sec = l.to_string();
+                continue;
+            }
+            match sec.as_str() {
+                "[c2]" => {
+                    a.c2.insert(l.to_string());
+                }
+                "[c4-strict]" => {
+                    a.c4.insert(l.to_string());
+                }
+                "[c4-structural]" => a.structural = l == "on",
+                _ => {}
+            }
+        }
+        Some(a)
+    })
+}
+
+/// c2 lift for the normalized bare spelling.
+pub(super) fn allow_c2(norm: &str) -> bool {
+    match allow() {
+        None => true,
+        Some(a) => a.c2.contains(norm),
+    }
+}
+
+/// c4 lift for a declaration: `ty` = text of a bare `type_identifier` type (else None),
+/// `structural` = the shape cannot be an expression whatever the type names.
+pub(super) fn allow_c4(ty: Option<&str>, structural: bool) -> bool {
+    match allow() {
+        None => true,
+        Some(a) => {
+            (structural && a.structural) || ty.is_some_and(|t| a.c4.contains(t))
+        }
+    }
+}

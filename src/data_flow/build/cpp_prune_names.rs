@@ -56,7 +56,9 @@ pub(super) fn note(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                 };
                 // Pointer declarators count: `ga * x;` is the misparse itself.
                 if !scalar_gate(parsed, node, top, false)
-                    && !(super::mute6d::mute("c4") && is_pointer_chain(top))
+                    && !(super::mute6d::mute("c4")
+                        && is_pointer_chain(top)
+                        && c4_allowed(parsed, node, top))
                 {
                     names_in(top, &["identifier"], &mut found);
                 }
@@ -103,6 +105,52 @@ pub(super) fn is_alignof_keyword(parsed: &ParsedFile, node: Node<'_>) -> bool {
         .node_text(&node)
         .strip_prefix("alignof")
         .is_some_and(|rest| !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+}
+
+/// 6d-2 prototype: the c4 lift is allowed for this declaration (allow file, structural shape).
+fn c4_allowed(parsed: &ParsedFile, decl: Node<'_>, top: Node<'_>) -> bool {
+    let ty = decl.child_by_field_name("type");
+    let bare = ty
+        .filter(|t| t.kind() == "type_identifier")
+        .map(|t| parsed.node_text(&t).to_string());
+    let mut structural = ty.is_some_and(|t| {
+        matches!(
+            t.kind(),
+            "struct_specifier" | "class_specifier" | "union_specifier" | "enum_specifier"
+        )
+    });
+    let mut c = decl.walk();
+    for k in decl.children(&mut c) {
+        if matches!(
+            k.kind(),
+            "type_qualifier" | "storage_class_specifier" | "attribute_specifier"
+        ) {
+            structural = true;
+        }
+    }
+    let mut n = Some(top);
+    while let Some(x) = n {
+        if x.kind() == "pointer_declarator" {
+            let mut c = x.walk();
+            if x.children(&mut c).any(|k| k.kind() == "type_qualifier") {
+                structural = true;
+            }
+        }
+        n = x.child_by_field_name("declarator");
+    }
+    // templates, qualified bases and the like stay out of the structural class
+    let base_ok = ty.is_some_and(|t| {
+        matches!(
+            t.kind(),
+            "type_identifier"
+                | "struct_specifier"
+                | "class_specifier"
+                | "union_specifier"
+                | "enum_specifier"
+                | "placeholder_type_specifier"
+        )
+    });
+    super::mute6d::allow_c4(bare.as_deref(), structural && base_ok)
 }
 
 /// 6d measurement: the declarator is a pointer declarator (through parentheses).

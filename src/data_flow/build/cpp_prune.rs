@@ -410,10 +410,10 @@ pub(super) fn scalar_gate(
     match ty.kind() {
         "primitive_type" | "sized_type_specifier" => {
             keyword_scalar(parsed, ty)
-                || (super::mute6d::mute("c2") && c2_spelling(parsed.node_text(&ty)))
+                || (super::mute6d::mute("c2") && c2_allowed(parsed.node_text(&ty)))
         }
         "type_identifier" | "qualified_identifier" => {
-            super::mute6d::mute("c2") && c2_spelling(parsed.node_text(&ty))
+            super::mute6d::mute("c2") && c2_allowed(parsed.node_text(&ty))
         }
         "placeholder_type_specifier" => {
             if parsed.node_text(&ty).trim() != "auto" {
@@ -896,6 +896,16 @@ fn is_scalar_cast_callee(parsed: &ParsedFile, f: Node<'_>) -> bool {
 
 /// 6d measurement (C2): `size_t`, `ssize_t`, `ptrdiff_t`, `intptr_t`, `uintptr_t`, `intmax_t`,
 /// `uintmax_t`, `[u]intN_t`, `[u]int_leastN_t`, `[u]int_fastN_t`, with or without `std::`.
+fn c2_allowed(text: &str) -> bool {
+    if !c2_spelling(text) {
+        return false;
+    }
+    let t = text.trim();
+    let t = t.strip_prefix("::").unwrap_or(t);
+    let t = t.strip_prefix("std::").unwrap_or(t);
+    super::mute6d::allow_c2(t)
+}
+
 fn c2_spelling(text: &str) -> bool {
     let t = text.trim();
     let t = t.strip_prefix("::").unwrap_or(t);
