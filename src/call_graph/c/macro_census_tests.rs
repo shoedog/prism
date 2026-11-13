@@ -287,7 +287,9 @@ fn r2_sol2_and_opus_w6_splice_inside_raw_string() {
     ] {
         let c = cpp(src);
         has(&c, "M", "hidden");
-        assert!(c.incomplete(), "uncertain raw scan fails closed: {src}");
+        // 6d-1: a splice in a raw string is reverted ([lex.pptoken]/3); the literal ends at
+        // the first `)"` as written, here inside the comment-looking text, so it is complete.
+        assert!(!c.incomplete(), "raw string read as written: {src}");
     }
 }
 

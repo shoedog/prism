@@ -52,8 +52,10 @@
 //! Several definitions of one name are unioned and every judgement over-approximates: a
 //! name that is a macro is judged by the union of all its definitions. Nothing consumes the
 //! census yet; slice 6a only builds it and persists its digest with the cached DFG.
+mod raw_string;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
+use raw_string::raw_string_end;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -378,39 +380,6 @@ fn pp_number_end(b: &[u8], mut i: usize, cxx: bool) -> usize {
 
 fn is_raw_prefix(ident: &str) -> bool {
     matches!(ident, "R" | "u8R" | "uR" | "UR" | "LR")
-}
-
-/// `q` indexes the opening `"` of `R"delim( .. )delim"`; the index after the closing quote.
-/// The delimiter is up to 16 characters other than space, `(`, `)`, `\`, tab, VT, FF and
-/// newline (`"` is allowed). `None` means uncertain: an invalid delimiter, an unterminated
-/// literal, or a line splice inside the literal (`splices` holds the indexes of `b` at
-/// which a splice was removed; the compiler reverts them inside a raw string).
-fn raw_string_end(b: &[u8], q: usize, splices: &[usize]) -> Option<usize> {
-    let start = q + 1;
-    let mut j = start;
-    while j < b.len() && b[j] != b'(' {
-        let c = b[j];
-        if j - start >= 16 || matches!(c, b' ' | b')' | b'\\' | b'\t' | b'\x0b' | b'\x0c' | b'\n') {
-            return None;
-        }
-        j += 1;
-    }
-    if j >= b.len() {
-        return None;
-    }
-    let mut close = vec![b')'];
-    close.extend_from_slice(&b[start..j]);
-    close.push(b'"');
-    let body = j + 1;
-    let end = b[body..]
-        .windows(close.len())
-        .position(|w| w == close.as_slice())
-        .map(|p| body + p + close.len())?;
-    let first = splices.partition_point(|&s| s < q);
-    if splices.get(first).is_some_and(|&s| s < end) {
-        return None;
-    }
-    Some(end)
 }
 
 // ---- Translation phases 1-2. ----
