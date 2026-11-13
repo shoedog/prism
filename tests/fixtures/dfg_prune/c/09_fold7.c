@@ -79,7 +79,7 @@ int comment_declarator_region(int c) {
   return x + 1;                    // @k8:U:keep:the_initial_value_still_reaches_this_path
 }
 
-typedef struct kvobj kvobj;
+typedef struct kvobj { int v; } kvobj;
 kvobj *first(void);
 kvobj *second(void);
 // A pointer declaration whose type name is spelled as an object nowhere (`sizeof(kvobj)` is the

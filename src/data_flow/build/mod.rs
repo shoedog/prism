@@ -21,6 +21,8 @@ mod c_prune_fold2_tests;
 mod c_prune_fold7_tests;
 #[cfg(test)]
 mod c_prune_inline_cases;
+#[cfg(test)]
+mod c_prune_perf_tests;
 mod c_prune_resolve;
 #[cfg(test)]
 mod c_prune_tests;

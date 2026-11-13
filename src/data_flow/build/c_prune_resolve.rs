@@ -8,6 +8,144 @@ use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use tree_sitter::Node;
 
+// Test-only work counter: declarator and node visits of lexical resolution and of the entry
+// walk. A guard test (`c_prune_perf_tests`) bounds its growth with the owner's size, so a
+// resolver that rescans blocks per occurrence fails without a wall-clock assertion.
+#[cfg(test)]
+thread_local! {
+    pub(super) static WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(super) fn count_work(n: usize) {
+    WORK.with(|w| w.set(w.get() + n));
+}
+
+/// One declared name of a scope: `(gate, start, end)`. The name is in scope for an occurrence
+/// at or after `gate`; `start..end` is the identifier node.
+type ScopeEntry = (usize, usize, usize);
+type ScopeIndex = std::collections::HashMap<String, Vec<ScopeEntry>>;
+
+/// Per-owner memo of the declarations of each block scope (#820): a resolution used to rescan
+/// every declaration of every enclosing block per occurrence (quadratic in the statements of
+/// an owner); now each block is read once and each name is looked up by spelling. The result is
+/// the one the scan gave: same entries, same order, same position gate.
+#[derive(Default)]
+pub(super) struct ResolveCache {
+    scopes: std::cell::RefCell<std::collections::HashMap<usize, std::rc::Rc<ScopeIndex>>>,
+    entries: std::cell::RefCell<std::collections::HashMap<usize, std::rc::Rc<Vec<usize>>>>,
+}
+
+impl ResolveCache {
+    fn scope(&self, parsed: &ParsedFile, scope: Node<'_>) -> std::rc::Rc<ScopeIndex> {
+        if let Some(hit) = self.scopes.borrow().get(&scope.id()) {
+            return hit.clone();
+        }
+        let mut index = ScopeIndex::new();
+        let mut cursor = scope.walk();
+        for child in scope.named_children(&mut cursor) {
+            if child.kind() == "declaration" {
+                index_declaration(parsed, child, &mut index);
+            }
+        }
+        let index = std::rc::Rc::new(index);
+        self.scopes.borrow_mut().insert(scope.id(), index.clone());
+        index
+    }
+
+    /// Starts of the labels and non-direct `case`s under `region`, sorted: control can enter a
+    /// window there (what `entry_in_range` finds by walking).
+    pub(super) fn entry_in_window(&self, region: Node<'_>, from: usize, to: usize) -> bool {
+        let starts = {
+            let hit = self.entries.borrow().get(&region.id()).cloned();
+            match hit {
+                Some(h) => h,
+                None => {
+                    let mut v = Vec::new();
+                    entry_starts(region, &mut v);
+                    v.sort_unstable();
+                    let h = std::rc::Rc::new(v);
+                    self.entries.borrow_mut().insert(region.id(), h.clone());
+                    h
+                }
+            }
+        };
+        let i = starts.partition_point(|s| *s < from);
+        starts.get(i).is_some_and(|s| *s < to)
+    }
+}
+
+fn entry_starts(node: Node<'_>, out: &mut Vec<usize>) {
+    #[cfg(test)]
+    count_work(1);
+    match node.kind() {
+        "labeled_statement" => out.push(node.start_byte()),
+        "case_statement" => {
+            let direct = node.parent().is_some_and(|b| {
+                b.kind() == "compound_statement" && super::c_prune_write::is_switch_body(b)
+            });
+            if !direct {
+                out.push(node.start_byte());
+            }
+        }
+        _ => {}
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        entry_starts(child, out);
+    }
+}
+
+/// `decl_idents` for every name at once: the entries each name would get, gated by position.
+fn index_declaration(parsed: &ParsedFile, decl: Node<'_>, index: &mut ScopeIndex) {
+    let mut cursor = decl.walk();
+    for d in decl.children_by_field_name("declarator", &mut cursor) {
+        #[cfg(test)]
+        count_work(1);
+        let top = if d.kind() == "init_declarator" {
+            match d.child_by_field_name("declarator") {
+                Some(t) => t,
+                None => continue,
+            }
+        } else {
+            d
+        };
+        let mut add = |gate: usize, id: Node<'_>| {
+            index
+                .entry(parsed.node_text(&id).to_owned())
+                .or_default()
+                .push((gate, id.start_byte(), id.end_byte()));
+        };
+        if structured_binding_in(top).is_some() || declared(top).is_none() {
+            let mut found = Vec::new();
+            decl_names(top, &mut found);
+            for id in found {
+                add(top.start_byte(), id);
+            }
+            continue;
+        }
+        if let Some(dd) = declared(top) {
+            add(dd.ident.start_byte(), dd.ident);
+        }
+    }
+}
+
+/// Every identifier `decl_name` could return for some name under a declarator `top`.
+fn decl_names<'a>(top: Node<'a>, out: &mut Vec<Node<'a>>) {
+    if let Some(sb) = structured_binding_in(top) {
+        let mut cursor = sb.walk();
+        for c in sb.named_children(&mut cursor) {
+            if c.kind() == "identifier" {
+                out.push(c);
+            }
+        }
+    } else if let Some(dd) = declared(top) {
+        out.push(dd.ident);
+    } else {
+        collect_identifiers(top, out);
+    }
+}
+
 /// A declarator chain's identifier and shape.
 pub(super) struct Declared<'a> {
     pub(super) ident: Node<'a>,
@@ -142,7 +280,11 @@ pub(super) fn eligible_declared(
 
 /// The binding an occurrence resolves to: the declarator identifier node, found lexically,
 /// innermost scope first. `None`: unresolved, ambiguous or not an owner-local declaration.
-pub(super) fn resolve<'a>(parsed: &ParsedFile, occ: Node<'a>) -> Option<Node<'a>> {
+pub(super) fn resolve<'a>(
+    parsed: &ParsedFile,
+    cache: &ResolveCache,
+    occ: Node<'a>,
+) -> Option<Node<'a>> {
     // C++: the name of a qualified identifier (`N::x`) is another scope's entity.
     if parsed.language == crate::languages::Language::Cpp && cpp_prune::is_qualified_name(occ) {
         return None;
@@ -154,7 +296,7 @@ pub(super) fn resolve<'a>(parsed: &ParsedFile, occ: Node<'a>) -> Option<Node<'a>
         let mut found: Vec<Node<'a>> = Vec::new();
         match parent.kind() {
             "compound_statement" => {
-                scope_decls(parsed, parent, name, occ, &mut found);
+                cached_scope_decls(parsed, cache, parent, name, occ, &mut found);
                 if parent
                     .parent()
                     .is_some_and(|p| p.kind() == "switch_statement")
@@ -162,7 +304,7 @@ pub(super) fn resolve<'a>(parsed: &ParsedFile, occ: Node<'a>) -> Option<Node<'a>
                     let mut cursor = parent.walk();
                     for case in parent.named_children(&mut cursor) {
                         if case.kind() == "case_statement" {
-                            scope_decls(parsed, case, name, occ, &mut found);
+                            cached_scope_decls(parsed, cache, case, name, occ, &mut found);
                         }
                     }
                 }
@@ -243,17 +385,20 @@ pub(super) fn resolve<'a>(parsed: &ParsedFile, occ: Node<'a>) -> Option<Node<'a>
     }
 }
 
-fn scope_decls<'a>(
+fn cached_scope_decls<'a>(
     parsed: &ParsedFile,
+    cache: &ResolveCache,
     scope: Node<'a>,
     name: &str,
     occ: Node<'a>,
     out: &mut Vec<Node<'a>>,
 ) {
-    let mut cursor = scope.walk();
-    for child in scope.named_children(&mut cursor) {
-        if child.kind() == "declaration" {
-            decl_idents(parsed, child, name, occ, out);
+    let index = cache.scope(parsed, scope);
+    for (gate, start, end) in index.get(name).into_iter().flatten() {
+        if *gate <= occ.start_byte() {
+            if let Some(n) = scope.descendant_for_byte_range(*start, *end) {
+                out.push(n);
+            }
         }
     }
 }
@@ -269,6 +414,8 @@ fn decl_idents<'a>(
 ) {
     let mut cursor = decl.walk();
     for d in decl.children_by_field_name("declarator", &mut cursor) {
+        #[cfg(test)]
+        count_work(1);
         let top = if d.kind() == "init_declarator" {
             match d.child_by_field_name("declarator") {
                 Some(t) => t,

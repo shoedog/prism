@@ -25,7 +25,9 @@ pub(super) fn is_switch_body(compound: Node<'_>) -> bool {
 }
 
 /// A label, or a `case` that is not a direct child of a switch body, starts in
-/// `[from, to)` at any depth: control can enter the window there.
+/// `[from, to)` at any depth: control can enter the window there. Test oracle of
+/// `ResolveCache::entry_in_window`, which production uses (#820).
+#[cfg(test)]
 pub(super) fn entry_in_range(node: Node<'_>, from: usize, to: usize) -> bool {
     if node.end_byte() <= from || node.start_byte() >= to {
         return false;
@@ -136,6 +138,7 @@ pub(super) fn certified_candidate(
     start: usize,
     end: usize,
     path: &AccessPath,
+    cache: &super::c_prune_resolve::ResolveCache,
 ) -> Option<usize> {
     let node = parsed
         .tree
@@ -156,7 +159,7 @@ pub(super) fn certified_candidate(
         let parent = node.parent()?;
         if parent.kind() == "assignment_expression" {
             return (parent.child_by_field_name("left")?.id() == node.id())
-                .then(|| resolve(parsed, node))
+                .then(|| resolve(parsed, cache, node))
                 .flatten()
                 .map(|n| n.start_byte());
         }

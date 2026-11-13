@@ -526,7 +526,7 @@ impl<'a> LexicalFacts<'a> {
                         // window; W must write the occurrence's own declaration (E1); E4.
                         match self.c_window_decl(c, occurrence, write) {
                             Some(d)
-                                if !super::c_prune::entry_in_range(
+                                if !c.cache.entry_in_window(
                                     region,
                                     write.statement.start_byte(),
                                     child.end_byte(),
@@ -654,7 +654,13 @@ impl<'a> LexicalFacts<'a> {
                 .borrow_mut()
                 .entry((start, end, path.clone()))
                 .or_insert_with(|| {
-                    super::c_prune::certified_candidate(self.parsed, start, end, path)
+                    super::c_prune::certified_candidate(
+                        self.parsed,
+                        start,
+                        end,
+                        path,
+                        &self.c.as_ref().expect("checked above").cache,
+                    )
                 });
             match cert {
                 Some(d) => c_decl = Some(d),
