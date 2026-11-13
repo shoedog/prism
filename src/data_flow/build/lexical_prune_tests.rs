@@ -203,8 +203,11 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     | Language::Python
                     | Language::C
                     | Language::Cpp
+                    | Language::JavaScript
+                    | Language::TypeScript
+                    | Language::Tsx
             );
-            // Alias-twin lane (Java slice 1; Go, Rust, Python slice 2a; C, C++ slice 2b): the policy removes twins at
+            // Alias-twin lane (Java slice 1; Go, Rust, Python slice 2a; C, C++ slice 2b; JS, TS, TSX slice 4c): the policy removes twins at
             // binding writes, so for these languages the strict differential below runs with the
             // policy off; the policy-on result must stay removal-only (edges and uses).
             let after = if twin_lane && language != Language::Java {
