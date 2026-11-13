@@ -126,3 +126,80 @@ fn cloning_the_census_facts_shares_the_candidates() {
         assert_eq!(cost, cost2, "{name}");
     }
 }
+
+/// Slice 4b: the refinement's own allocations, as the difference between the production pass and the same
+/// pass without the refinement (`Pass::NoAliasKill`, which keeps the certificates), per population.
+fn refinement_allocs(src: &str) -> (usize, usize) {
+    use super::census_pass::Pass;
+    let parsed = parse(Language::JavaScript, src);
+    let owner = parsed.all_functions()[0];
+    let (defs, edges) = recorded(&parsed, &owner);
+    let cfg = crate::cfg::build_cfg_edges_with_arms(&parsed);
+    let index = super::FileCfgEdgeIndex::new(&cfg);
+    let mut run = |pass| {
+        measure(|| {
+            super::reaching_definitions_impl(
+                &parsed,
+                &owner,
+                &defs,
+                &edges,
+                &[],
+                &index,
+                pass,
+                &mut None,
+            )
+        })
+        .1
+    };
+    let (with, without) = (run(Pass::Census), run(Pass::NoAliasKill));
+    (
+        with.0.wrapping_sub(without.0),
+        with.1.wrapping_sub(without.1),
+    )
+}
+
+#[test]
+fn the_refinement_allocates_only_for_an_admitted_alias_with_a_write_through_it() {
+    let none = refinement_allocs(NO_ALIAS);
+    let refused = refinement_allocs(ALL_REFUSED);
+    let unaffected = refinement_allocs(ADMITTED_UNAFFECTED);
+    let affected = refinement_allocs(ADMITTED_AFFECTED);
+    eprintln!("refine-alloc none={none:?} refused={refused:?} admitted-unaffected={unaffected:?} admitted-affected={affected:?}");
+    assert_eq!(none, (0, 0));
+    assert_eq!(refused, (0, 0));
+    assert_eq!(unaffected, (0, 0));
+    assert!(affected.0 > 0);
+}
+
+/// The whole production pass's allocations per population, for a before/after receipt against the 4a tip (which
+/// has the certificates but no refinement): the refinement's total cost includes `D3::new`'s two `Rc`s per
+/// owner with counting writes, which the toggle measurement above does not see.
+#[test]
+fn full_pass_allocations_per_population() {
+    use super::census_pass::Pass;
+    for (name, src) in [
+        ("no-alias", NO_ALIAS),
+        ("all-refused", ALL_REFUSED),
+        ("admitted-no-affected-edge", ADMITTED_UNAFFECTED),
+        ("admitted-affected-edges", ADMITTED_AFFECTED),
+    ] {
+        let parsed = parse(Language::JavaScript, src);
+        let owner = parsed.all_functions()[0];
+        let (defs, edges) = recorded(&parsed, &owner);
+        let cfg = crate::cfg::build_cfg_edges_with_arms(&parsed);
+        let index = super::FileCfgEdgeIndex::new(&cfg);
+        let (_, cost) = measure(|| {
+            super::reaching_definitions_impl(
+                &parsed,
+                &owner,
+                &defs,
+                &edges,
+                &[],
+                &index,
+                Pass::Census,
+                &mut None,
+            )
+        });
+        eprintln!("full-pass {name}: {cost:?}");
+    }
+}

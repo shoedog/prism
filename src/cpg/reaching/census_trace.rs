@@ -26,7 +26,7 @@ pub(super) fn enabled() -> bool {
     *ENABLED.get_or_init(|| std::env::var("PRISM_RD_CENSUS_TRACE").is_ok_and(|v| v == "1"))
 }
 
-fn place(loc: &VarLocation) -> String {
+pub(super) fn place(loc: &VarLocation) -> String {
     format!("{}@{}:{}", loc.path, loc.line, loc.start_byte)
 }
 

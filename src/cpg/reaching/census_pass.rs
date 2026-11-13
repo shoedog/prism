@@ -18,6 +18,8 @@ pub(super) enum Pass {
     /// The #693 trace's control: production, solved under main's JS/TS/TSX loop CFG and statement
     /// universe. Like `ArrowControl`, it repeats none of the capture lines.
     LoopControl,
+    /// The #783 trace's control: production without the alias refinement.
+    NoAliasKill,
 }
 
 impl Pass {
@@ -30,13 +32,27 @@ impl Pass {
     pub(super) fn recorded_affects(self) -> bool {
         matches!(
             self,
-            Pass::Census | Pass::CensusLogged | Pass::ArrowControl | Pass::LoopControl
+            Pass::Census
+                | Pass::CensusLogged
+                | Pass::ArrowControl
+                | Pass::LoopControl
+                | Pass::NoAliasKill
         )
+    }
+
+    /// Whether a write through a certified alias may-kills an earlier direct def (#783): every pass but the
+    /// census-free control and its own control.
+    pub(super) fn alias_kills(self) -> bool {
+        !matches!(self, Pass::NoCensus | Pass::NoAliasKill)
     }
 
     /// Whether S1a writes its capture lines when the trace is on.
     pub(super) fn traces_capture(self) -> bool {
-        self.census() && !matches!(self, Pass::ArrowControl | Pass::LoopControl)
+        self.census()
+            && !matches!(
+                self,
+                Pass::ArrowControl | Pass::LoopControl | Pass::NoAliasKill
+            )
     }
 }
 
@@ -159,6 +175,54 @@ pub(super) fn traced(
     named.extend(looped.labels);
     let mut named_exact = arrow.exact;
     named_exact.extend(looped.exact);
+    // #783: a JS/TS/TSX edge whose label changes when the alias refinement is off was moved by it. Named
+    // before the other controls, which keep the rule and so never claim its moves. Only an owner with an
+    // admitted alias can have one.
+    if facts
+        .as_ref()
+        .and_then(|f| f.alias_certs())
+        .is_some_and(|c| c.any_admitted())
+    {
+        if let RdOutcome::Available(plain) = reaching_definitions_impl(
+            parsed,
+            func_node,
+            defs,
+            dfg_edges,
+            exact_edges,
+            file_cfg_edges,
+            Pass::NoAliasKill,
+            &mut None,
+        ) {
+            for edge in dfg_edges {
+                let key = (edge.from.clone(), edge.to.clone());
+                if let (Some(new), old) = (head.labels.get(&key), plain.labels.get(&key)) {
+                    if old != Some(new) && !named.contains(&key) {
+                        census_trace::emit(out, alias_kill::mechanism(*new), edge);
+                        named.insert(key);
+                    }
+                }
+            }
+            for edge in exact_edges {
+                let key = ExactFlowEdge::from_legacy(edge);
+                if let (Some(new), old) =
+                    (head.exact_labels.get(&key), plain.exact_labels.get(&key))
+                {
+                    if old != Some(new) && !named_exact.contains(&key) {
+                        census_trace::emit(out, alias_kill::mechanism(*new), edge);
+                        named_exact.insert(key);
+                    }
+                }
+            }
+        }
+        for line in facts
+            .as_ref()
+            .and_then(|f| f.alias_log())
+            .iter()
+            .flat_map(|l| l.borrow().clone())
+        {
+            let _ = std::io::Write::write_fmt(out, format_args!("{line}\n"));
+        }
+    }
     if let Some(equal) = &by_affects {
         for edge in dfg_edges {
             let key = (edge.from.clone(), edge.to.clone());

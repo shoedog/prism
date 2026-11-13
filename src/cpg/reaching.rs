@@ -13,6 +13,8 @@ use tree_sitter::Node;
 use super::{FlowConfidence, FlowDoubt};
 
 mod alias_cert;
+mod alias_kill;
+mod alias_point;
 mod capture;
 mod capture_regions;
 mod census_defs;
@@ -393,7 +395,11 @@ fn reaching_definitions_impl(
     );
     binding_facts.extend_kill_only(&defs[n_recorded..]);
     census.refuse_unmapped(&defs, &mapped_defs);
-    census.certify_aliases(&defs[..n_recorded], &binding_facts);
+    census.certify_aliases(
+        &defs[..n_recorded],
+        &binding_facts,
+        pass == census_pass::Pass::CensusLogged,
+    );
     *facts_out = Some(census.clone());
 
     let mut gen = vec![BitSet::new(defs.len()); node_count];
@@ -431,6 +437,30 @@ fn reaching_definitions_impl(
         entry,
         defs.len(),
     );
+
+    // #783 option A: a write through a certified single-step alias takes the label effect of the same
+    // write on the aliased path (label-only); JS/TS/TSX owners.
+    let mut alias_kills = (pass.alias_kills() && parsed.language.is_js_family())
+        .then(|| {
+            alias_kill::AliasKills::new(
+                alias_kill::Solved {
+                    parsed,
+                    owner: (func_node.start_byte(), func_node.end_byte()),
+                    defs: &defs,
+                    mapped_defs: &mapped_defs,
+                    in_sets: &in_sets,
+                    kill: &kill,
+                    successors: &successors,
+                    line_index: &line_index,
+                    function_start,
+                    facts: &binding_facts,
+                    census: &census,
+                },
+                &mut statements,
+                census.alias_log().cloned(),
+            )
+        })
+        .flatten();
 
     #[cfg(test)]
     join_kind_tests::record_sets(&in_sets, &flat_in_sets);
@@ -494,6 +524,13 @@ fn reaching_definitions_impl(
             &binding_facts,
             &capture_facts,
         );
+        let label = alias_kill::AliasKills::refine(
+            alias_kills.as_mut(),
+            label,
+            edge,
+            &candidates,
+            &mut statements,
+        );
         if label.is_exact()
             && edge.to.line < edge.from.line
             && (parsed.language != Language::Go || {
@@ -551,6 +588,13 @@ fn reaching_definitions_impl(
             (&mut statements, &line_index, function_start),
             &binding_facts,
             &capture_facts,
+        );
+        let label = alias_kill::AliasKills::refine(
+            alias_kills.as_mut(),
+            label,
+            edge,
+            &candidates,
+            &mut statements,
         );
         exact_labels
             .entry(key)
@@ -1032,3 +1076,6 @@ mod alias_cert_tests;
 
 #[cfg(test)]
 mod alias_cert_alloc_tests;
+
+#[cfg(test)]
+mod alias_kill_tests;
