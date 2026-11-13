@@ -12,14 +12,21 @@
 //! - the C++ escape set (E3), owner-wide by name: every lvalue root (`escape_roots`) of an
 //!   address-of operand and of the range of a range-for, a bare argument of any call, a
 //!   constructor or brace initializer, anything inside the initializer of a reference or
-//!   structured binding, the names in the template arguments of a call (`a < x > (0)`), every name inside a lambda with a non-empty capture list
+//!   structured binding, every name inside a lambda with a non-empty capture list
 //!   (captures are read when the closure is created), a block-scope using-declaration's names,
 //!   and the bare initializer of a declaration whose type fails the gate;
+//! - the name introducers the resolver cannot see (`cpp_prune_names.rs`, fold 5): enumerators of
+//!   any enum, the declarators of a declaration with a non-scalar base type (pointer declarators
+//!   too: `ga * x;` can be an expression read as a declaration), every `type_identifier`, template
+//!   syntax everywhere (every name under a `template_argument_list` and the name of every
+//!   `template_type`, `template_function` and `template_method`, so `a < x > y;`, `a < x > (0)` and
+//!   `ga<x> *y;` all escape `x`), and the names inside `offsetof` and non-keyword `alignof` forms;
 //! - the left side of `=` must itself be a bindable scalar local (closed-world, settled after
 //!   the walk to a fixpoint: `settle`, a worklist), else the right side's roots escape; the
 //!   operand certificate (below) covers every operator;
 //! - owners that are off: an owner spelling an in-repo macro named like an entry of `KEYWORDS`
-//!   (`#define int IR`), a block-scope `using namespace`, a coroutine (`co_await`, `co_yield`,
+//!   (`#define int IR`), a block-scope `using namespace` or `using enum` (the enumerators it
+//!   brings in are not spelled), a coroutine (`co_await`, `co_yield`,
 //!   `co_return` outside nested lambdas: promise construction and `await_transform` /
 //!   `yield_value` can bind a parameter or an operand by reference);
 //! - bindings from `catch` parameters, condition and init-statement declarations and range-for
@@ -32,14 +39,24 @@
 //! operator (shifts, comparison, logical and comma included), compound assignment, subscript and
 //! `?:`, the lvalue roots of an operand escape unless EVERY OTHER operand is a built-in scalar
 //! expression (a literal, a bindable scalar local, a local array of scalars or pointers, a cast
-//! to a keyword scalar or pointer, `sizeof`/`alignof`, `NULL`/`nullptr` when no in-repo macro has
-//! that name, and arithmetic or logical operators over these). Calls, members, `this`, globals
-//! and unknown names are not scalar. Plain `=` keeps the fix E rule above.
+//! to a keyword scalar or pointer, `sizeof`/`alignof`, `nullptr` when no in-repo macro has that
+//! name, and arithmetic or logical operators over these). Only the lowercase keyword spellings
+//! `true`, `false`, `nullptr` and `alignof` count (the grammar reads `TRUE`, `FALSE` and `NULL` as
+//! the same node kinds, and a program can declare them as objects or enumerators): `TRUE`,
+//! `FALSE`, `NULL` and `_alignof` are never built-in, macro or not, nor literals for `auto`. A
+//! local array counts only while its name is unescaped, like a scalar local (a `using` or hidden
+//! declaration can make the same spelling another entity; the check is part of the worklist).
+//! Calls, members, `this`, globals and unknown names are not scalar. Plain `=` keeps the fix E
+//! rule above. Root finders (`lvalue_roots`, `escape_roots`, and the C rules' `chain_roots`) share
+//! `prune_roots.rs`: comments, parentheses, `__extension__` and `_Generic` are peeled by one
+//! helper, and an unrecognized wrapper escapes every identifier in it.
 //! Dialect: every file the C++ grammar parses (`cpp cc cxx hpp hxx hh`) is compiled as C++11 or
 //! later, which makes `nullptr` and `auto x = <literal>` safe; only `char8_t` depends on the
-//! dialect (C++20), and `char8_t`/`char16_t`/`char32_t` are all refused.
+//! dialect (C++20), and `char8_t`/`char16_t`/`char32_t` are all refused. Pre-C++11 code that
+//! declares an object named `nullptr` is outside the model (documented, not closed).
 use super::c_prune::COwner;
 use super::cpp_prune_operand::{Deferred, Need};
+use super::prune_roots::{peel, wrapper_operands};
 use crate::ast::ParsedFile;
 use tree_sitter::Node;
 
@@ -47,13 +64,15 @@ use tree_sitter::Node;
 /// branches of `?:`, a comma sequence, the target of an assignment, an increment, or a cast to
 /// a reference type. A call such as `f(c ? x : y)` binds a reference to `x`.
 pub(super) fn lvalue_roots<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    let mut kids = Vec::new();
+    if wrapper_operands(node, &mut kids) {
+        for k in kids {
+            lvalue_roots(parsed, k, out);
+        }
+        return;
+    }
     match node.kind() {
         "identifier" => out.push(node),
-        "parenthesized_expression" => {
-            if let Some(c) = node.named_child(0) {
-                lvalue_roots(parsed, c, out);
-            }
-        }
         "conditional_expression" => {
             // `c ?: y` (GNU) yields the condition itself when it is true.
             let fields: &[&str] = if node.child_by_field_name("consequence").is_some() {
@@ -102,21 +121,69 @@ pub(super) fn lvalue_roots<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Ve
                 lvalue_roots(parsed, c, out);
             }
         }
+        // A shape not known to yield an rvalue may hand over an lvalue (a wrapper the finder
+        // does not know): every identifier in it is a root.
+        k if !NON_LVALUE.contains(&k) => identifiers_in(node, out),
         _ => {}
     }
 }
+
+/// Expression and leaf kinds whose value is never an lvalue the operand names. Their operands
+/// are judged by the arms that own them (`argument_list`, the operand certificate, `addr_of`),
+/// so `lvalue_roots` yields nothing for them. Any other kind is an unrecognized wrapper and
+/// yields every identifier in it (fail closed).
+const NON_LVALUE: &[&str] = &[
+    "alignof_expression",
+    "argument_list",
+    "binary_expression",
+    "call_expression",
+    "char_literal",
+    "comment",
+    "compound_literal_expression",
+    "concatenated_string",
+    "delete_expression",
+    "false",
+    "field_expression",
+    "field_identifier",
+    "fold_expression",
+    "initializer_list",
+    "lambda_expression",
+    "namespace_identifier",
+    "new_expression",
+    "null",
+    "nullptr",
+    "number_literal",
+    "offsetof_expression",
+    "parameter_pack_expansion",
+    "pointer_expression",
+    "primitive_type",
+    "qualified_identifier",
+    "raw_string_literal",
+    "sizeof_expression",
+    "string_literal",
+    "subscript_expression",
+    "template_function",
+    "template_method",
+    "this",
+    "true",
+    "type_identifier",
+    "unary_expression",
+    "user_defined_literal",
+];
 
 /// Every identifier an address-taking site (`&E`) or a range-for range can bind a pointer or
 /// a reference to: the lvalue roots of `lvalue_roots` (any cast included), plus `.`/`->` and
 /// subscript chains down to their root; a shape not listed escapes every identifier in it.
 pub(super) fn escape_roots<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
+    let mut kids = Vec::new();
+    if wrapper_operands(node, &mut kids) {
+        for k in kids {
+            escape_roots(k, out);
+        }
+        return;
+    }
     match node.kind() {
         "identifier" => out.push(node),
-        "parenthesized_expression" => {
-            if let Some(c) = node.named_child(0) {
-                escape_roots(c, out);
-            }
-        }
         "conditional_expression" => {
             let fields: &[&str] = if node.child_by_field_name("consequence").is_some() {
                 &["consequence", "alternative"]
@@ -176,15 +243,23 @@ fn is_reference_like(declarator: Node<'_>) -> bool {
     }
 }
 
-fn literal_kind(kind: &str) -> bool {
+/// A literal `auto` can be initialised by to a scalar: a number, character or string literal
+/// (user-defined suffixes are another node kind), or the lowercase keyword `true`/`false`. The
+/// grammar also makes `TRUE` and `FALSE` `true`/`false` nodes, so the text is checked.
+fn literal_node(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    match node.kind() {
+        "number_literal" | "char_literal" | "string_literal" | "raw_string_literal" => true,
+        "true" | "false" => keyword_spelling(parsed, node),
+        _ => false,
+    }
+}
+
+/// The node's text is exactly its lowercase keyword spelling (`true`, `false`, `nullptr`): the
+/// grammar reads the identifiers `TRUE`, `FALSE` and `NULL` as the same node kinds.
+pub(super) fn keyword_spelling(parsed: &ParsedFile, node: Node<'_>) -> bool {
     matches!(
-        kind,
-        "number_literal"
-            | "char_literal"
-            | "true"
-            | "false"
-            | "string_literal"
-            | "raw_string_literal"
+        (node.kind(), parsed.node_text(&node)),
+        ("true", "true") | ("false", "false") | ("nullptr" | "null", "nullptr")
     )
 }
 
@@ -341,7 +416,7 @@ pub(super) fn scalar_gate(
                 Some(p) if p.kind() == "declaration" => p.child_by_field_name("value"),
                 _ => None,
             };
-            init.is_some_and(|v| literal_kind(v.kind()))
+            init.is_some_and(|v| literal_node(parsed, v))
         }
         _ => false,
     }
@@ -358,7 +433,7 @@ fn identifiers_in<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
 }
 
 /// Every node of one of `kinds` under `node` (itself included).
-fn names_in<'a>(node: Node<'a>, kinds: &[&str], out: &mut Vec<Node<'a>>) {
+pub(super) fn names_in<'a>(node: Node<'a>, kinds: &[&str], out: &mut Vec<Node<'a>>) {
     if kinds.contains(&node.kind()) {
         out.push(node);
     }
@@ -453,6 +528,7 @@ fn initializer_of<'a>(decl: Node<'a>, declarator: Node<'a>) -> Option<Node<'a>> 
 
 /// Record the C++ escapes one node causes (E3). Called for every node of the owner.
 pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
+    super::cpp_prune_names::note(parsed, node, out);
     let mut roots = Vec::new();
     let esc = |out: &mut COwner, kind: &'static str, nodes: &[Node<'_>]| {
         for n in nodes {
@@ -574,13 +650,7 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                 node.child_by_field_name("left"),
                 node.child_by_field_name("right"),
             ) {
-                let mut bare = left;
-                while bare.kind() == "parenthesized_expression" {
-                    match bare.named_child(0) {
-                        Some(c) => bare = c,
-                        None => break,
-                    }
-                }
+                let bare = peel(left);
                 if bare.kind() == "identifier" {
                     // Whether the left side is a bindable scalar local is known only once
                     // every escape of the owner is (`settle`).
@@ -607,14 +677,6 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
         // `c ? a : b`: a branch that is not a built-in scalar expression can convert the
         // other to a class through `S(int&)`: the operand certificate over the two branches.
         "conditional_expression" => super::cpp_prune_operand::certify(parsed, node, out),
-        // `a < x > (0)` parses as a call of the template `a<x>`: the names in the template
-        // arguments of a call are the operands of a relational chain the grammar misread.
-        "template_function" | "template_method" => {
-            if let Some(args) = node.child_by_field_name("arguments") {
-                names_in(args, &["identifier", "type_identifier"], &mut roots);
-                esc(out, "template_arg", &roots);
-            }
-        }
         // A cast to anything but a keyword built-in scalar (or a pointer to one), wherever it
         // sits: `(Ret)x;`, `f((IR)x)`, `y = (S)x + 1`.
         "cast_expression" => {
@@ -635,7 +697,7 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                 esc(out, "range_for", &roots);
             }
         }
-        // `&E`: every lvalue root of E (the C rule's `chain_root` sees identifiers, `.`,
+        // `&E`: every lvalue root of E (the C rule's `chain_roots` sees identifiers, `.`,
         // subscripts and parentheses only).
         "pointer_expression" => {
             let amp = node
@@ -674,13 +736,17 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
     }
 }
 
+/// `using namespace N;` and `using enum E;`: either brings names into scope without spelling
+/// them (the enumerators of `E`), so the owner is off.
 fn is_using_directive(node: Node<'_>) -> bool {
     let mut cursor = node.walk();
-    let found = node.children(&mut cursor).any(|c| c.kind() == "namespace");
+    let found = node
+        .children(&mut cursor)
+        .any(|c| matches!(c.kind(), "namespace" | "enum"));
     found
 }
 
-fn collect_names<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
+pub(super) fn collect_names<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
     if matches!(
         node.kind(),
         "identifier" | "namespace_identifier" | "type_identifier" | "field_identifier"

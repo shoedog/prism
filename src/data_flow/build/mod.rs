@@ -25,6 +25,7 @@ mod census_cap_tests;
 mod cpp_prune;
 #[cfg(test)]
 mod cpp_prune_inline_cases;
+mod cpp_prune_names;
 mod cpp_prune_operand;
 #[cfg(test)]
 mod cpp_prune_tests;
@@ -86,6 +87,7 @@ mod owner_labels;
 mod param_alias_trace;
 #[cfg(test)]
 mod prune_cap_tests;
+mod prune_roots;
 mod python_prune;
 #[cfg(test)]
 mod python_prune_tests;

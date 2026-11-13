@@ -11,7 +11,9 @@
 //! (`certify`, trace kind `operand_certificate`). Whether an identifier is one depends on the
 //! owner-wide escaped set, so the escape waits as a `Deferred` record until `settle`.
 use super::c_prune::{declaration_of, resolve, COwner};
-use super::cpp_prune::{keyword_scalar, lvalue_roots, scalar_cast_type};
+use super::cpp_prune::{keyword_scalar, keyword_spelling, lvalue_roots, scalar_cast_type};
+use super::cpp_prune_names::is_alignof_keyword;
+use super::prune_roots::operand;
 use crate::ast::ParsedFile;
 use std::collections::HashMap;
 use tree_sitter::Node;
@@ -36,7 +38,8 @@ pub(super) struct Deferred {
 }
 
 /// Bounds the work one built-in-ness check does (a left-deep chain of N terms would otherwise
-/// walk O(N) nodes per level): beyond them the expression counts as not scalar.
+/// walk O(N) nodes per level): more than `MAX_NEEDS` identifiers (the 65th refuses) or
+/// `MAX_NODES` visited nodes count as not scalar.
 const MAX_NEEDS: usize = 64;
 const MAX_NODES: usize = 512;
 
@@ -60,9 +63,15 @@ fn builtin_scalar(
             .is_some_and(|c| builtin_scalar(parsed, c, needs, budget))
     };
     match node.kind() {
-        "number_literal" | "char_literal" | "true" | "false" | "sizeof_expression"
-        | "alignof_expression" => true,
+        "number_literal" | "char_literal" | "sizeof_expression" => true,
+        // The grammar reads `TRUE`, `FALSE` and `NULL` as these node kinds, and a program can
+        // declare any of them as an object or an enumerator: only the lowercase keyword counts.
+        "true" | "false" => keyword_spelling(parsed, node),
+        "alignof_expression" => is_alignof_keyword(parsed, node),
         "null" | "nullptr" => {
+            if !keyword_spelling(parsed, node) {
+                return false;
+            }
             needs.push(Need::Spelling(parsed.node_text(&node).to_owned()));
             true
         }
@@ -70,9 +79,9 @@ fn builtin_scalar(
             needs.push(Need::Value(node.start_byte(), node.end_byte()));
             true
         }
-        "parenthesized_expression" => node
-            .named_child(0)
-            .is_some_and(|c| builtin_scalar(parsed, c, needs, budget)),
+        "parenthesized_expression" => {
+            operand(node).is_some_and(|c| builtin_scalar(parsed, c, needs, budget))
+        }
         "cast_expression" => node
             .child_by_field_name("type")
             .is_some_and(|t| scalar_cast_type(parsed, t)),
@@ -163,7 +172,8 @@ pub(super) fn certify(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
             .iter()
             .enumerate()
             .filter(|(j, _)| *j != i)
-            .all(|(_, o)| builtin_scalar(parsed, *o, &mut needs, &mut budget));
+            .all(|(_, o)| builtin_scalar(parsed, *o, &mut needs, &mut budget))
+            && needs.len() <= MAX_NEEDS;
         if !all_builtin {
             for n in &names {
                 out.escape("operand_certificate", n);
@@ -181,7 +191,10 @@ pub(super) fn certify(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
 /// An owner-local array of keyword scalars (or of pointers): `a[i]` is a built-in subscript
 /// with a scalar or pointer element. A one-dimensional `T a[N]` or `T *a[N]` declarator only.
 fn array_local(parsed: &ParsedFile, out: &COwner, occ: Node<'_>) -> bool {
-    if out.is_macro_name(parsed.node_text(&occ)) {
+    // An escaped name (a `using` or hidden declaration the resolver cannot see, an aliasing
+    // escape, ...) may be another entity than the declaration `resolve` finds.
+    let name = parsed.node_text(&occ);
+    if out.is_macro_name(name) || out.is_escaped(name) {
         return false;
     }
     let Some(ident) = resolve(parsed, occ) else {
@@ -225,10 +238,12 @@ struct Shape {
     array: bool,
 }
 
-/// Settle the deferred escapes to the least fixpoint, near-linearly. Each needed occurrence is
-/// resolved once (the resolution does not depend on the escaped set), the records are indexed by
-/// the names their decision depends on, and a name that escapes re-examines only the records
-/// that depend on it: escaping is monotone, so each record fires at most once.
+/// Settle the deferred escapes to the least fixpoint. Each needed occurrence is resolved once
+/// (a block scan; the resolution does not depend on the escaped set), the records are indexed by
+/// the names their decision depends on (scalars and arrays alike), and a name that escapes
+/// re-examines only the records that depend on it: escaping is monotone, so each record fires at
+/// most once and propagation is near-linear. Shape construction is not: it resolves each
+/// distinct occurrence once, and a resolution scans the enclosing blocks.
 pub(super) fn settle(parsed: &ParsedFile, out: &mut COwner) {
     let root = parsed.tree.root_node();
     let deferred = std::mem::take(&mut out.deferred);
@@ -262,11 +277,17 @@ pub(super) fn settle(parsed: &ParsedFile, out: &mut COwner) {
                 is_dead = true;
                 continue;
             };
-            match want {
-                2 => is_dead |= !shape.array,
-                1 if shape.array => {}
-                _ if !shape.scalar || out.is_escaped(name) => is_dead = true,
-                _ => by_name.entry(name.clone()).or_default().push(i),
+            // An array need and a scalar need both depend on the name staying unescaped: dead
+            // now, or re-examined when the name escapes later.
+            let holds = if want == 2 || (want == 1 && shape.array) {
+                shape.array
+            } else {
+                shape.scalar
+            };
+            if !holds || out.is_escaped(name) {
+                is_dead = true;
+            } else {
+                by_name.entry(name.clone()).or_default().push(i);
             }
         }
         if is_dead {

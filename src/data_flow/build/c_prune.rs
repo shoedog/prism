@@ -15,6 +15,7 @@
 //! spells `&`, hides no jump); a `.c` file compiled as C++; the survivor-based fallback cap
 //! (#634) lets a formerly capped owner regain its surviving edges.
 use super::cpp_prune;
+use super::prune_roots::{chain_roots, operand};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::{
@@ -193,7 +194,7 @@ fn callee_last_name<'a>(parsed: &'a ParsedFile, mut f: Node<'a>) -> Option<&'a s
         match f.kind() {
             "identifier" | "field_identifier" => return Some(parsed.node_text(&f)),
             "field_expression" => f = f.child_by_field_name("field")?,
-            "parenthesized_expression" => f = f.named_child(0)?,
+            "parenthesized_expression" => f = operand(f)?,
             _ => return None,
         }
     }
@@ -227,22 +228,6 @@ fn is_name_kind(kind: &str) -> bool {
         kind,
         "identifier" | "type_identifier" | "field_identifier" | "statement_identifier"
     )
-}
-
-/// Root identifier of an address-of or member chain: parentheses, `.` access and subscripts.
-fn chain_root<'a>(parsed: &ParsedFile, mut node: Node<'a>) -> Option<Node<'a>> {
-    loop {
-        match node.kind() {
-            "identifier" => return Some(node),
-            "parenthesized_expression" => node = node.named_child(0)?,
-            "field_expression" => {
-                node = node.child_by_field_name("argument")?;
-                let _ = parsed;
-            }
-            "subscript_expression" => node = node.child_by_field_name("argument")?,
-            _ => return None,
-        }
-    }
 }
 
 fn all_identifiers(node: Node<'_>, parsed: &ParsedFile, out: &mut BTreeSet<String>) {
@@ -449,7 +434,9 @@ fn walk(
                 .is_some_and(|op| parsed.node_text(&op) == "&");
             if amp {
                 if let Some(arg) = node.child_by_field_name("argument") {
-                    if let Some(root) = chain_root(parsed, arg) {
+                    let mut roots = Vec::new();
+                    chain_roots(arg, &mut roots);
+                    for root in roots {
                         out.escaped.insert(parsed.node_text(&root).to_owned());
                     }
                 }
@@ -471,10 +458,11 @@ fn walk(
             }
         }
         "field_expression" | "subscript_expression" => {
-            if let Some(root) = node
-                .child_by_field_name("argument")
-                .and_then(|a| chain_root(parsed, a))
-            {
+            let mut roots = Vec::new();
+            if let Some(a) = node.child_by_field_name("argument") {
+                chain_roots(a, &mut roots);
+            }
+            for root in roots {
                 out.member_roots.insert(parsed.node_text(&root).to_owned());
             }
         }

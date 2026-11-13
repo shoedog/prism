@@ -177,8 +177,8 @@ int lambda_init_capture_keep() {
 int lambda_empty_capture_drop() {
     int x = source();         // @l4:D x
     x = 1;
-    auto l = [] { return 1; };
-    return (x + 1) + l();     // @l4:U:drop:empty_capture_list_reads_no_local
+    auto l = [](int x) { return x; };
+    return (x + 1) + l(2);    // @l4:U:drop:empty_capture_list_reads_no_local_even_when_it_spells_x
 }
 
 // ---- fix 5: a coroutine owner is off ----

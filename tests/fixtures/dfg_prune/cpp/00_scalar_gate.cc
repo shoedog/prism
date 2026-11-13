@@ -29,10 +29,10 @@ void pointer_drop() {
     sink(*p + 1);             // @pd:U:drop:pointer_declarator
 }
 
-void pointer_to_class_drop() {
+void pointer_to_class_keep() {
     std::string *p = pbuf();  // @pc:D p
     p = pother();
-    sink(p->size());          // @pc:U:drop:pointer_to_class_is_a_pointer
+    sink(p->size());          // @pc:U:keep:pointer_of_class_type_may_be_a_misparsed_declaration_fold5
 }
 
 void auto_literal_drop() {

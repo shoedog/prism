@@ -73,6 +73,9 @@
 {"case": "06_fold1", "id": "t07", "path": "s", "def_line": 105, "use_line": 106, "keep": true, "reason": "own_use_of_whole_copy", "owner": "agg_bare_restore"}
 {"case": "06_fold1", "id": "t07", "path": "s", "def_line": 105, "use_line": 109, "keep": false, "reason": "bare_aggregate_restored_by_whole_copy", "owner": "agg_bare_restore"}
 {"case": "06_fold1", "id": "g8", "path": "ap", "def_line": 116, "use_line": 118, "keep": true, "reason": "va_list_is_escaped", "owner": "va_ap_keep"}
+{"case": "07_fold5", "id": "cm1", "path": "x", "def_line": 6, "use_line": 11, "keep": true, "reason": "comment_child_of_parenthesized_expression", "owner": "comment_in_parens_addr"}
+{"case": "07_fold5", "id": "cm3", "path": "x", "def_line": 15, "use_line": 17, "keep": false, "reason": "control_no_wrapper", "owner": "ctl_plain_drop"}
+{"case": "07_fold5", "id": "cm4", "path": "x", "def_line": 21, "use_line": 26, "keep": true, "reason": "control_paren_without_comment", "owner": "ctl_paren_addr_nocomment"}
 {"case": "10_macros", "id": "m1", "path": "x2", "def_line": 14, "use_line": 15, "keep": true, "reason": "object_macro_hides_a_read", "owner": "macro_free_read_keep"}
 {"case": "10_macros", "id": "m2", "path": "x3", "def_line": 20, "use_line": 22, "keep": true, "reason": "name_passed_to_macro", "owner": "macro_param_read_drop"}
 {"case": "10_macros", "id": "m3", "path": "x4", "def_line": 26, "use_line": 28, "keep": false, "reason": "no_macro_involved", "owner": "macro_param_other_drop"}
