@@ -86,3 +86,48 @@ fn define_inside_a_raw_string_is_counted_only_by_the_unioned_over_approximating_
     reads_m(&c);
     assert!(c.get("INNER").is_some());
 }
+
+// ---- Fold 1: later readers of spliced text cannot see splice points. ----
+
+#[test]
+fn spliced_raw_string_on_a_directive_line_is_incomplete() {
+    for src in [
+        "#define M R\"(a)\\\n\" )\" + x // \"\n",
+        "#define A (R\"(x)\\\n\" /* )\", q + 1)\n",
+    ] {
+        let c = cpp(src);
+        assert!(c.incomplete(), "{src:?} must fail closed: {:?}", c.reasons);
+    }
+}
+
+#[test]
+fn spliced_raw_string_outside_directives_keeps_the_census_complete() {
+    let c = cpp("const char *k = R\"(a)\\\n b)\";\n#define M x\n");
+    assert!(!c.incomplete(), "{:?}", c.reasons);
+    // The directive rule is about the start line: a `#`-looking line INSIDE the literal is text.
+    let c = cpp("const char *k = R\"(\n#define Z R\"(a)\\\n b\n)\";\n#define M x\n");
+    assert!(!c.incomplete(), "{:?}", c.reasons);
+}
+
+#[test]
+fn spliced_raw_string_detector() {
+    use super::macro_census::has_spliced_raw_string as h;
+    assert!(h("int f(){ const char *s = R\"(a\\\nb)\"; }"));
+    assert!(h("int f(){ const char *s = R\"(open; }"));
+    assert!(!h("int f(){ const char *s = R\"(ab)\"; }"));
+    assert!(!h("int f(){ const char *s = \"a\\\nb\"; int R = 1; }"));
+}
+
+#[test]
+fn match_boundaries_against_splice_points() {
+    use super::macro_census::raw_string_end_for_tests as e;
+    // `"(a)"`: the closing `)"` is at 3..5.
+    let b = br#""(a)""#;
+    assert_eq!(e(b, 0, &[]), Some(5));
+    // A splice exactly at the match start (before `)`): outside the match, accepted.
+    assert_eq!(e(b, 0, &[3]), Some(5));
+    // A splice right after the closing quote: accepted.
+    assert_eq!(e(b, 0, &[5]), Some(5));
+    // A splice between `)` and `"`: inside the match, rejected.
+    assert_eq!(e(b, 0, &[4]), None);
+}

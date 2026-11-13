@@ -53,6 +53,10 @@
 //! name that is a macro is judged by the union of all its definitions. Nothing consumes the
 //! census yet; slice 6a only builds it and persists its digest with the cached DFG.
 mod raw_string;
+#[cfg(test)]
+pub(crate) fn raw_string_end_for_tests(b: &[u8], q: usize, s: &[usize]) -> Option<usize> {
+    raw_string_end(b, q, s)
+}
 use crate::ast::ParsedFile;
 use crate::languages::Language;
 use raw_string::raw_string_end;
@@ -462,6 +466,10 @@ struct Stripped {
     text: String,
     unterminated: bool,
     raw_uncertain: bool,
+    /// A raw string with an interior splice (resolved by the as-written rule) was read.
+    spliced_raw: bool,
+    /// ... and it starts on a preprocessor directive's logical line.
+    spliced_raw_directive: bool,
     /// `(output index after a stripped comment, original index after it)`: the only places
     /// where output and input offsets stop agreeing.
     shifts: Vec<(usize, usize)>,
@@ -496,6 +504,8 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
     let mut spans = Vec::new();
     let mut unterminated = false;
     let mut raw_uncertain = false;
+    let mut spliced_raw = false;
+    let mut spliced_raw_directive = false;
     let mut i = 0;
     while i < b.len() {
         let c = b[i];
@@ -555,6 +565,12 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
                 {
                     match raw_string_end(b, i, splices) {
                         Some(end) => {
+                            if raw_string::interior_splice(splices, i, end) {
+                                spliced_raw = true;
+                                let line =
+                                    out.as_slice().rsplit(|&c| c == b'\n').next().unwrap_or(&[]);
+                                spliced_raw_directive |= raw_string::starts_directive(line);
+                            }
                             out.extend_from_slice(&b[i..end]);
                             i = end;
                         }
@@ -576,9 +592,32 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
         text: String::from_utf8_lossy(&out).into_owned(),
         unterminated,
         raw_uncertain,
+        spliced_raw,
+        spliced_raw_directive,
         shifts,
         spans,
     }
+}
+
+/// Does `text` hold a C++ raw string with an interior line splice, or one whose extent is
+/// uncertain (both splice modes, both trigraph modes)? The owner-side token readers see only
+/// spliced text and cannot tell the literal's true end, so an owner with one is off (6d-1).
+pub(crate) fn has_spliced_raw_string(text: &str) -> bool {
+    if !(text.contains('R') && text.contains('"')) {
+        return false;
+    }
+    let mut variants = vec![translate(text, true)];
+    let plain = translate(text, false);
+    if plain != variants[0] {
+        variants.push(plain);
+    }
+    variants.iter().any(|t| {
+        [true, false].into_iter().any(|lenient| {
+            let (spliced, points) = splice(t, lenient);
+            let s = strip_comments(&spliced, &points, true);
+            s.spliced_raw || s.raw_uncertain
+        })
+    })
 }
 
 /// Source text after translation phases 1-2 and comment stripping (a block comment is one
@@ -1017,6 +1056,17 @@ fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut In
             })
         })
     });
+    // A raw string with an interior splice that starts on a directive line: the later
+    // readers of the spliced text cannot see the splice points, so fail closed (6d-1).
+    let dir_splice = texts.iter().any(|text| {
+        [true, false].into_iter().any(|lenient| {
+            let (spliced, points) = splice(text, lenient);
+            strip_comments(&spliced, &points, true).spliced_raw_directive
+        })
+    });
+    if dir_splice {
+        incomplete.flag("raw_string_splice_in_directive", 0, "");
+    }
     let mut acc: BTreeMap<String, RawDef> = BTreeMap::new();
     let mut seen: Vec<Vec<u8>> = Vec::new();
     for (ti, text) in texts.iter().enumerate() {

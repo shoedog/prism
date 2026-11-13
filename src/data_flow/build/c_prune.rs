@@ -60,6 +60,9 @@ pub(super) enum Off {
     Coroutine,
     /// 6c: the owner spells an in-repo macro named like a C++ keyword (`#define int IR`).
     KeywordMacro,
+    /// 6d-1: the owner's text holds a C++ raw string with an interior line splice (or one of
+    /// uncertain extent); the token readers see spliced text and cannot find its true end.
+    RawStringSplice,
 }
 
 /// Names whose call can return a second time (G4).
@@ -289,6 +292,9 @@ pub(super) fn scan(
     let mut off = None;
     // Macro spellings from the owner's preprocessing tokens, whatever node kind the parser
     // gave them (`#define const x = saved;` makes `const` a macro use).
+    if crate::call_graph::c::macro_census::has_spliced_raw_string(text) {
+        return Err(Off::RawStringSplice);
+    }
     let Some(spelled) = spelled_identifiers(text) else {
         return Err(Off::G2);
     };

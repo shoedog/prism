@@ -1,7 +1,8 @@
 //! C++ raw string literals for the macro census (#630 slice 6d-1).
 //!
-//! C++ [lex.pptoken]/3: between the opening `"` and the closing delimiter, the phase 1 and 2
-//! transformations (trigraphs, line splicing) are reverted, so a backslash-newline inside the
+//! C++ [lex.pptoken]/3: between the opening `"` and the closing delimiter, line splicing
+//! (phase 2) is reverted (trigraphs, translated in phase 1, stay translated here: the census
+//! does not revert them), so a backslash-newline inside the
 //! literal is two characters of its text and the closing `)delim"` is found on the text as
 //! written. The census reads the SPLICED buffer, so the closing delimiter is searched there
 //! and a candidate is accepted only when no splice point falls inside it (a splice point
@@ -14,8 +15,10 @@
 /// in the spliced buffer. The delimiter is up to 16 characters other than space, `(`, `)`,
 /// `\`, tab, VT, FF and newline (`"` is allowed). `None` means uncertain: an invalid
 /// delimiter, a splice inside the delimiter or an unterminated literal. `splices` holds the
-/// sorted indexes of `b` at which a splice was removed (empty when unknown: the text then
-/// has no splices left to revert).
+/// sorted indexes of `b` at which a splice was removed; an empty slice means the CALLER
+/// ASSERTS the buffer had no splices (the readers of already-spliced text pass one, so a
+/// closing delimiter that exists only after splicing is not detected there; the census and
+/// the owners refuse such text through `interior_splice` and `has_spliced_raw_string`).
 pub(super) fn raw_string_end(b: &[u8], q: usize, splices: &[usize]) -> Option<usize> {
     let start = q + 1;
     let mut j = start;
@@ -53,4 +56,17 @@ pub(super) fn raw_string_end(b: &[u8], q: usize, splices: &[usize]) -> Option<us
         from = m + 1;
     }
     None
+}
+
+/// Does a splice point fall inside the literal `[q, end)` (strictly after the quote)?
+pub(super) fn interior_splice(splices: &[usize], q: usize, end: usize) -> bool {
+    let k = splices.partition_point(|&s| s <= q);
+    splices.get(k).is_some_and(|&s| s < end)
+}
+
+/// Is this stripped output line (up to and including the raw prefix) a directive line: its
+/// first token is `#` or `%:`?
+pub(super) fn starts_directive(line: &[u8]) -> bool {
+    let t = line.trim_ascii_start();
+    t.starts_with(b"#") || t.starts_with(b"%:")
 }
