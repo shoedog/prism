@@ -9,19 +9,10 @@
 //! pruning while `FILE` is spelled only as a type. An object declared only in a header the
 //! file includes is not seen (disclosed, out of model like any external declaration). C++
 //! escapes the same names through `cpp_prune_names::nonscalar_decl`.
+use super::c_prune::all_identifiers;
 use crate::ast::ParsedFile;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
-
-fn collect(node: Node<'_>, parsed: &ParsedFile, out: &mut BTreeSet<String>) {
-    if node.kind() == "identifier" {
-        out.insert(parsed.node_text(&node).to_owned());
-    }
-    let mut cursor = node.walk();
-    for c in node.named_children(&mut cursor) {
-        collect(c, parsed, out);
-    }
-}
 
 /// The identifiers of the file that spell an object: every `identifier` node except the ones in
 /// the operand of `sizeof`/`alignof`/`offsetof`, where the grammar reads a type name as an
@@ -73,7 +64,7 @@ pub(super) fn escape_phantom(parsed: &ParsedFile, decl: Node<'_>, escaped: &mut 
         .contains(parsed.node_text(&ty))
     {
         for d in declarators {
-            collect(d, parsed, escaped);
+            all_identifiers(d, parsed, escaped);
         }
     }
 }

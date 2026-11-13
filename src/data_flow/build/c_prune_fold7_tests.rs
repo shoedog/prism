@@ -13,6 +13,10 @@ fn fold7_grammar_pins_hold() {
             "int f(double c){double x=c;double*p=&__real__ x;return x;}",
         ),
         (
+            "complex_type_alone",
+            "int f(double c){_Complex double z=c;return z;}",
+        ),
+        (
             "complex_type",
             "int f(double c){_Complex double z=c;double*p=&__real__ z;return z;}",
         ),

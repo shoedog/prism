@@ -197,7 +197,7 @@ fn array_local(parsed: &ParsedFile, out: &COwner, occ: Node<'_>) -> bool {
     if out.is_macro_name(name) || out.is_escaped(name) {
         return false;
     }
-    let Some(ident) = resolve(parsed, occ) else {
+    let Some(ident) = resolve(parsed, &out.cache, occ) else {
         return false;
     };
     let Some((decl, top)) = declaration_of(ident) else {

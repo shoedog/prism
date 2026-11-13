@@ -15,11 +15,11 @@
 //! spells `&`, hides no jump); a `.c` file compiled as C++; the survivor-based fallback cap
 //! (#634) lets a formerly capped owner regain its surviving edges.
 use super::c_phantom::escape_phantom;
-pub(super) use super::c_prune_resolve::{declaration_of, pure_path, resolve};
+pub(super) use super::c_prune_resolve::{declaration_of, pure_path, resolve, ResolveCache};
 use super::c_prune_resolve::{declared_of_ident, eligible_declared};
 use super::c_prune_write::is_switch_body;
 pub(super) use super::c_prune_write::{
-    certified_candidate, classify_write, entry_in_range, is_region, write_target_identifier,
+    certified_candidate, classify_write, is_region, write_target_identifier,
 };
 use super::cpp_prune;
 use super::prune_roots::{callee_last_name, chain_roots};
@@ -101,9 +101,9 @@ pub(super) struct COwner {
     /// G6: every `goto` target is a visible label and no control macro is invoked (D only).
     pub(super) d_ok: bool,
     /// E3: names escaped anywhere in the owner (by name, any binding).
-    pub(super) escaped: BTreeSet<String>,
+    escaped: BTreeSet<String>,
     /// E4: roots of a member or subscript access anywhere in the owner.
-    pub(super) member_roots: BTreeSet<String>,
+    member_roots: BTreeSet<String>,
     /// Names that are in-repo macros (the spelling is ineligible).
     pub(super) macro_names: BTreeSet<String>,
     /// Declarators found under a wrapper the resolver cannot see (E1; names are in `escaped`).
@@ -118,6 +118,8 @@ pub(super) struct COwner {
     pub(super) escape_kinds: BTreeMap<&'static str, BTreeSet<String>>,
     /// 6c: escapes that wait for the owner-wide escaped set to settle (`cpp_prune_operand::settle`).
     pub(super) deferred: Vec<super::cpp_prune_operand::Deferred>,
+    /// #820: memo of block-scope declarations and entry points, read by every resolution.
+    pub(super) cache: ResolveCache,
 }
 
 impl COwner {
@@ -146,7 +148,7 @@ impl COwner {
         if self.macro_names.contains(parsed.node_text(&occ)) {
             return false;
         }
-        let Some(ident) = resolve(parsed, occ) else {
+        let Some(ident) = resolve(parsed, &self.cache, occ) else {
             return false;
         };
         declared_of_ident(ident).is_some_and(|d| eligible_declared(parsed, self, &d).is_some())
@@ -222,7 +224,7 @@ fn is_name_kind(kind: &str) -> bool {
     )
 }
 
-fn all_identifiers(node: Node<'_>, parsed: &ParsedFile, out: &mut BTreeSet<String>) {
+pub(super) fn all_identifiers(node: Node<'_>, parsed: &ParsedFile, out: &mut BTreeSet<String>) {
     if node.kind() == "identifier" {
         out.insert(parsed.node_text(&node).to_owned());
     }
@@ -280,6 +282,7 @@ pub(super) fn scan(
         scalar_fail: 0,
         escape_kinds: BTreeMap::new(),
         deferred: Vec::new(),
+        cache: ResolveCache::default(),
     };
     let mut labels = BTreeSet::new();
     let mut gotos = Vec::new();
@@ -484,7 +487,7 @@ impl COwner {
         if self.escaped.contains(name) || self.macro_names.contains(name) {
             return None;
         }
-        let ident = resolve(parsed, occ)?;
+        let ident = resolve(parsed, &self.cache, occ)?;
         let d = declared_of_ident(ident)?;
         eligible_declared(parsed, self, &d)?;
         Some(ident.start_byte())
@@ -509,7 +512,7 @@ impl COwner {
                 format!("escape:{}", kinds.join("+"))
             });
         }
-        let Some(ident) = resolve(parsed, occ) else {
+        let Some(ident) = resolve(parsed, &self.cache, occ) else {
             return Some("e1_unresolved".into());
         };
         let Some(d) = declared_of_ident(ident) else {
@@ -522,6 +525,7 @@ impl COwner {
             scalar_fail: 0,
             escape_kinds: BTreeMap::new(),
             deferred: Vec::new(),
+            cache: ResolveCache::default(),
             escaped: BTreeSet::new(),
             member_roots: BTreeSet::new(),
             macro_names: self.macro_names.clone(),
