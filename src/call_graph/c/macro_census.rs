@@ -603,7 +603,7 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
 /// uncertain (both splice modes, both trigraph modes)? The owner-side token readers see only
 /// spliced text and cannot tell the literal's true end, so an owner with one is off (6d-1).
 pub(crate) fn has_spliced_raw_string(text: &str) -> bool {
-    if !(text.contains('R') && text.contains('"')) {
+    if !may_hold_raw_string(text.as_bytes()) {
         return false;
     }
     let mut variants = vec![translate(text, true)];
@@ -618,6 +618,35 @@ pub(crate) fn has_spliced_raw_string(text: &str) -> bool {
             s.spliced_raw || s.raw_uncertain
         })
     })
+}
+
+/// Cheap over-approximation for `has_spliced_raw_string`: some variant can hold a raw string
+/// only where an `R` is followed by `"`, possibly across line splices (`\\` or the trigraph
+/// `??/`, then blanks, then a newline) that phase 2 removes. Every raw prefix ends in `R"`.
+fn may_hold_raw_string(b: &[u8]) -> bool {
+    let mut i = 0;
+    while let Some(p) = b[i..].iter().position(|&c| c == b'R') {
+        let mut j = i + p + 1;
+        loop {
+            match b.get(j) {
+                Some(b'"') => return true,
+                Some(b'\\') => j += 1,
+                Some(b'?') if b.get(j + 1) == Some(&b'?') && b.get(j + 2) == Some(&b'/') => j += 3,
+                _ => break,
+            }
+            while matches!(b.get(j), Some(b' ' | b'\t' | b'\x0b' | b'\x0c')) {
+                j += 1;
+            }
+            // Phase 1 maps CRLF and a lone CR to LF.
+            match b.get(j) {
+                Some(b'\n') => j += 1,
+                Some(b'\r') => j += if b.get(j + 1) == Some(&b'\n') { 2 } else { 1 },
+                _ => break,
+            }
+        }
+        i += p + 1;
+    }
+    false
 }
 
 /// Source text after translation phases 1-2 and comment stripping (a block comment is one
@@ -1046,24 +1075,22 @@ fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut In
     if texts[0] != plain {
         texts.push(plain);
     }
-    // Does any variant (both texts, splice modes and dialects) lose its lexer state?
-    let desync = texts.iter().any(|text| {
-        [true, false].into_iter().any(|lenient| {
+    // Does any variant (both texts, splice modes and dialects) lose its lexer state? And
+    // (6d-1) does a raw string with an interior splice start on a directive line: the later
+    // readers of the spliced text cannot see the splice points, so that fails closed. One
+    // pass over the variants answers both.
+    let mut desync = false;
+    let mut dir_splice = false;
+    for text in &texts {
+        for lenient in [true, false] {
             let (spliced, points) = splice(text, lenient);
-            [true, false].into_iter().any(|cxx| {
+            for cxx in [true, false] {
                 let s = strip_comments(&spliced, &points, cxx);
-                s.unterminated || s.raw_uncertain
-            })
-        })
-    });
-    // A raw string with an interior splice that starts on a directive line: the later
-    // readers of the spliced text cannot see the splice points, so fail closed (6d-1).
-    let dir_splice = texts.iter().any(|text| {
-        [true, false].into_iter().any(|lenient| {
-            let (spliced, points) = splice(text, lenient);
-            strip_comments(&spliced, &points, true).spliced_raw_directive
-        })
-    });
+                desync |= s.unterminated || s.raw_uncertain;
+                dir_splice |= cxx && s.spliced_raw_directive;
+            }
+        }
+    }
     if dir_splice {
         incomplete.flag("raw_string_splice_in_directive", 0, "");
     }

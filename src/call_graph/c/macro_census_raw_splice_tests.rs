@@ -116,6 +116,16 @@ fn spliced_raw_string_detector() {
     assert!(h("int f(){ const char *s = R\"(open; }"));
     assert!(!h("int f(){ const char *s = R\"(ab)\"; }"));
     assert!(!h("int f(){ const char *s = \"a\\\nb\"; int R = 1; }"));
+    // The cheap pre-filter must still see a prefix split from its quote by line splices
+    // (LF, CRLF, lone CR, blanks, the `??/` trigraph), each with a spliced body.
+    for split in ["\\\n", "\\\r\n", "\\\r", "\\ \t\n", "??/\n", "\\\n\\\n"] {
+        let src = format!("int f(){{ const char *s = R{split}\"(a\\\nb)\"; }}");
+        assert!(h(&src), "{src:?}");
+    }
+    // An `R` inside an ordinary string passes the pre-filter; the lexer still finds no raw string.
+    assert!(!h(
+        "int f(){ int R = 1; const char *s = \"R\\\n\"; return R; }"
+    ));
 }
 
 #[test]
