@@ -55,7 +55,9 @@ pub(super) fn note(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                     d
                 };
                 // Pointer declarators count: `ga * x;` is the misparse itself.
-                if !scalar_gate(parsed, node, top, false) {
+                if !scalar_gate(parsed, node, top, false)
+                    && !(super::mute6d::mute("c4") && is_pointer_chain(top))
+                {
                     names_in(top, &["identifier"], &mut found);
                 }
             }
@@ -101,4 +103,19 @@ pub(super) fn is_alignof_keyword(parsed: &ParsedFile, node: Node<'_>) -> bool {
         .node_text(&node)
         .strip_prefix("alignof")
         .is_some_and(|rest| !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+}
+
+/// 6d measurement: the declarator is a pointer declarator (through parentheses).
+fn is_pointer_chain(top: Node<'_>) -> bool {
+    let mut n = top;
+    loop {
+        match n.kind() {
+            "pointer_declarator" => return true,
+            "parenthesized_declarator" => match super::prune_roots::operand(n) {
+                Some(x) => n = x,
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
 }

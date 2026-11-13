@@ -35,6 +35,8 @@ pub(super) struct Deferred {
     pub(super) needs: Vec<Need>,
     pub(super) kind: &'static str,
     pub(super) roots: Vec<String>,
+    /// 6d measurement: site info for the log.
+    pub(super) info: String,
 }
 
 /// Bounds the work one built-in-ness check does (a left-deep chain of N terms would otherwise
@@ -156,6 +158,11 @@ pub(super) fn certify(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
     let Some(operands) = operands_of(parsed, node) else {
         return;
     };
+    let family = op_family(parsed, node);
+    if super::mute6d::mute(&format!("c5{family}")) {
+        return;
+    }
+    let line = node.start_position().row + 1;
     for (i, operand) in operands.iter().enumerate() {
         let mut roots = Vec::new();
         lvalue_roots(parsed, *operand, &mut roots);
@@ -175,11 +182,24 @@ pub(super) fn certify(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
             .all(|(_, o)| builtin_scalar(parsed, *o, &mut needs, &mut budget))
             && needs.len() <= MAX_NEEDS;
         if !all_builtin {
+            if super::mute6d::log_enabled() {
+                let why = operands
+                    .iter()
+                    .enumerate()
+                    .filter(|(j, _)| *j != i)
+                    .find_map(|(_, o)| fail_reason(parsed, *o))
+                    .unwrap_or_else(|| "too_large".to_owned());
+                super::mute6d::set_site(
+                    line,
+                    format!("op={family}:{};why={why}", op_text(parsed, node)),
+                );
+            }
             for n in &names {
                 out.escape("operand_certificate", n);
             }
         } else if !needs.is_empty() {
             out.deferred.push(Deferred {
+                info: format!("op={family}:{};line={line}", op_text(parsed, node)),
                 needs,
                 kind: "operand_certificate",
                 roots: names,
@@ -251,12 +271,18 @@ pub(super) fn settle(parsed: &ParsedFile, out: &mut COwner) {
     let mut shapes: HashMap<(usize, usize), Option<(String, Shape)>> = HashMap::new();
     let mut by_name: HashMap<String, Vec<usize>> = HashMap::new();
     let mut dead = Vec::new();
+    let mut dead_why: HashMap<usize, String> = HashMap::new();
     for (i, d) in deferred.iter().enumerate() {
         let mut is_dead = false;
         for need in &d.needs {
             let (s, e, want) = match need {
                 Need::Spelling(name) => {
-                    is_dead |= out.is_macro_name(name);
+                    if out.is_macro_name(name) {
+                        is_dead = true;
+                        dead_why
+                            .entry(i)
+                            .or_insert_with(|| "dead:macro_name".to_owned());
+                    }
                     continue;
                 }
                 Need::Scalar(s, e) => (*s, *e, 0),
@@ -275,6 +301,9 @@ pub(super) fn settle(parsed: &ParsedFile, out: &mut COwner) {
             });
             let Some((name, shape)) = entry else {
                 is_dead = true;
+                dead_why
+                    .entry(i)
+                    .or_insert_with(|| "dead:not_identifier".to_owned());
                 continue;
             };
             // An array need and a scalar need both depend on the name staying unescaped: dead
@@ -286,6 +315,16 @@ pub(super) fn settle(parsed: &ParsedFile, out: &mut COwner) {
             };
             if !holds || out.is_escaped(name) {
                 is_dead = true;
+                let why = if !holds {
+                    match root.descendant_for_byte_range(s, e) {
+                        Some(n) if resolve(parsed, n).is_none() => "dead:global_or_unknown",
+                        Some(_) => "dead:local_nonscalar_type",
+                        None => "dead:?",
+                    }
+                } else {
+                    "dead:escaped_name"
+                };
+                dead_why.entry(i).or_insert_with(|| why.to_owned());
             } else {
                 by_name.entry(name.clone()).or_default().push(i);
             }
@@ -295,10 +334,11 @@ pub(super) fn settle(parsed: &ParsedFile, out: &mut COwner) {
         }
     }
     let mut queue: Vec<String> = Vec::new();
-    let mut fire = |i: usize, out: &mut COwner, queue: &mut Vec<String>| {
+    let mut fire = |i: usize, out: &mut COwner, queue: &mut Vec<String>, why: &str| {
         if std::mem::replace(&mut fired[i], true) {
             return;
         }
+        super::mute6d::set_site(0, format!("{};{why}", deferred[i].info));
         for r in &deferred[i].roots {
             if out.escape(deferred[i].kind, r) {
                 queue.push(r.clone());
@@ -306,11 +346,72 @@ pub(super) fn settle(parsed: &ParsedFile, out: &mut COwner) {
         }
     };
     for i in dead {
-        fire(i, out, &mut queue);
+        let why = dead_why.get(&i).cloned().unwrap_or_default();
+        fire(i, out, &mut queue, &why);
     }
     while let Some(name) = queue.pop() {
         for i in by_name.remove(&name).unwrap_or_default() {
-            fire(i, out, &mut queue);
+            fire(i, out, &mut queue, "cascade");
         }
+    }
+}
+
+/// 6d measurement: operator family of an operand-certificate node.
+fn op_family(parsed: &ParsedFile, node: Node<'_>) -> &'static str {
+    let op = op_text(parsed, node);
+    match node.kind() {
+        "binary_expression" => match op.as_str() {
+            "<" | ">" | "<=" | ">=" | "==" | "!=" | "<=>" => "cmp",
+            "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" => "arith",
+            "<<" | ">>" => "shift",
+            _ => "other",
+        },
+        _ => "other",
+    }
+}
+
+fn op_text(parsed: &ParsedFile, node: Node<'_>) -> String {
+    match node.kind() {
+        "binary_expression" | "assignment_expression" => node
+            .child_by_field_name("operator")
+            .map(|o| parsed.node_text(&o).to_owned())
+            .unwrap_or_default(),
+        k => k.to_owned(),
+    }
+}
+
+/// 6d measurement: why `builtin_scalar` fails on an operand (first failing leaf), mirrored.
+fn fail_reason(parsed: &ParsedFile, node: Node<'_>) -> Option<String> {
+    let sub = |f: &str| {
+        node.child_by_field_name(f)
+            .and_then(|c| fail_reason(parsed, c))
+    };
+    match node.kind() {
+        "number_literal" | "char_literal" | "sizeof_expression" | "identifier" => None,
+        "true" | "false" | "alignof_expression" | "null" | "nullptr" => None,
+        "parenthesized_expression" => operand(node).and_then(|c| fail_reason(parsed, c)),
+        "cast_expression" => node
+            .child_by_field_name("type")
+            .is_some_and(|t| scalar_cast_type(parsed, t))
+            .then_some(())
+            .map_or(Some("cast_nonscalar".to_owned()), |_| None),
+        "unary_expression" => sub("argument"),
+        "binary_expression" | "comma_expression" => sub("left").or_else(|| sub("right")),
+        "conditional_expression" => sub("consequence")
+            .or_else(|| sub("condition"))
+            .or_else(|| sub("alternative")),
+        "subscript_expression" => match node.child_by_field_name("argument") {
+            Some(b) if b.kind() == "identifier" => None,
+            _ => Some("subscript_nonlocal".to_owned()),
+        },
+        "call_expression" => Some("call".to_owned()),
+        "field_expression" => Some("member".to_owned()),
+        "pointer_expression" => Some("deref_or_addr".to_owned()),
+        "qualified_identifier" => Some("qualified_global".to_owned()),
+        "this" => Some("this".to_owned()),
+        "string_literal" | "raw_string_literal" | "concatenated_string" => {
+            Some("string".to_owned())
+        }
+        k => Some(format!("kind:{k}")),
     }
 }

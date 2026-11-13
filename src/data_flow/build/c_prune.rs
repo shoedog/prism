@@ -119,6 +119,7 @@ impl COwner {
     /// Record a C++ escape of `name` (by name, any binding).
     /// True when `name` was not escaped before.
     pub(super) fn escape(&mut self, kind: &'static str, name: &str) -> bool {
+        super::mute6d::log_escape(kind, name);
         let fresh = self.escaped.insert(name.to_owned());
         self.escape_kinds
             .entry(kind)
@@ -260,6 +261,11 @@ pub(super) fn scan(
     if census.incomplete() {
         return Err(Off::Incomplete);
     }
+    super::mute6d::set_owner(
+        &parsed.path,
+        owner.start_position().row + 1,
+        owner.end_position().row + 1,
+    );
     let text = parsed.node_text(&owner);
     if body_has_forbidden_directive(text) {
         return Err(Off::G2);

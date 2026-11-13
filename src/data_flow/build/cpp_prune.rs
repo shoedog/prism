@@ -408,7 +408,13 @@ pub(super) fn scalar_gate(
         return false;
     };
     match ty.kind() {
-        "primitive_type" | "sized_type_specifier" => keyword_scalar(parsed, ty),
+        "primitive_type" | "sized_type_specifier" => {
+            keyword_scalar(parsed, ty)
+                || (super::mute6d::mute("c2") && c2_spelling(parsed.node_text(&ty)))
+        }
+        "type_identifier" | "qualified_identifier" => {
+            super::mute6d::mute("c2") && c2_spelling(parsed.node_text(&ty))
+        }
         "placeholder_type_specifier" => {
             if parsed.node_text(&ty).trim() != "auto" {
                 return false;
@@ -530,6 +536,7 @@ fn initializer_of<'a>(decl: Node<'a>, declarator: Node<'a>) -> Option<Node<'a>> 
 
 /// Record the C++ escapes one node causes (E3). Called for every node of the owner.
 pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
+    super::mute6d::set_site(node.start_position().row + 1, String::new());
     super::cpp_prune_names::note(parsed, node, out);
     let mut roots = Vec::new();
     let esc = |out: &mut COwner, kind: &'static str, nodes: &[Node<'_>]| {
@@ -555,17 +562,48 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
     match node.kind() {
         // A bare argument binds a reference parameter or a constructor parameter.
         "argument_list" | "initializer_list" => {
-            let mut cursor = node.walk();
-            for c in node.named_children(&mut cursor) {
-                lvalue_roots(parsed, c, &mut roots);
-            }
-            let kind = match node.parent().map(|p| p.kind()) {
+            let mut kind = match node.parent().map(|p| p.kind()) {
                 Some("field_initializer") => "mem_init",
                 Some("new_expression") => "new_arg",
                 _ if node.kind() == "initializer_list" => "brace_init",
                 _ => "call_arg",
             };
-            esc(out, kind, &roots);
+            let mut callee = String::new();
+            if let Some(p) = node.parent() {
+                if p.kind() == "call_expression" {
+                    if let Some(f) = p.child_by_field_name("function") {
+                        callee = format!(
+                            "{}:{}",
+                            f.kind(),
+                            super::mute6d::clean(parsed.node_text(&f))
+                        );
+                        if is_scalar_cast_callee(parsed, f) {
+                            kind = "call_arg_cast";
+                        }
+                    }
+                } else {
+                    callee = format!("{}", p.kind());
+                }
+            }
+            let muted = match kind {
+                "call_arg" => super::mute6d::mute("c1call"),
+                "mem_init" | "new_arg" => super::mute6d::mute("c1ctor"),
+                "brace_init" => super::mute6d::mute("c1brace"),
+                "call_arg_cast" => super::mute6d::mute("c3cast"),
+                _ => false,
+            };
+            let mut cursor = node.walk();
+            for (i, c) in node.named_children(&mut cursor).enumerate() {
+                lvalue_roots(parsed, c, &mut roots);
+                if !muted {
+                    super::mute6d::set_site(
+                        node.start_position().row + 1,
+                        format!("callee={callee};argpos={i}"),
+                    );
+                    esc(out, kind, &roots);
+                }
+                roots.clear();
+            }
         }
         // Every operator with operands: the operand certificate (`cpp_prune_operand`).
         "binary_expression" | "comma_expression" | "subscript_expression" => {
@@ -606,8 +644,10 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                     if let Some(params) = top.child_by_field_name("parameters") {
                         identifiers_in_types(params, &mut ids);
                     }
-                    for n in ids {
-                        out.escape("direct_init", parsed.node_text(&n));
+                    if !super::mute6d::mute("c1ctor") {
+                        for n in ids {
+                            out.escape("direct_init", parsed.node_text(&n));
+                        }
                     }
                     continue;
                 }
@@ -653,11 +693,17 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                 node.child_by_field_name("right"),
             ) {
                 let bare = peel(left);
+                let skip_rhs = super::mute6d::mute("c3arith")
+                    && matches!(peel(right).kind(), "binary_expression" | "unary_expression");
                 if bare.kind() == "identifier" {
                     // Whether the left side is a bindable scalar local is known only once
                     // every escape of the owner is (`settle`).
                     escape_roots(right, &mut roots);
+                    if skip_rhs {
+                        roots.clear();
+                    }
                     out.deferred.push(Deferred {
+                        info: format!("line={}", node.start_position().row + 1),
                         needs: vec![Need::Scalar(bare.start_byte(), bare.end_byte())],
                         kind: "assign_rhs",
                         roots: roots
@@ -670,7 +716,9 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                     esc(out, "assign_lhs", &roots);
                     roots.clear();
                     escape_roots(right, &mut roots);
-                    esc(out, "assign_rhs", &roots);
+                    if !skip_rhs {
+                        esc(out, "assign_rhs", &roots);
+                    }
                 }
             }
             // A compound assignment is an operator too: each side against the other.
@@ -825,4 +873,49 @@ pub(super) fn condition_decls<'a>(
             decl_idents(v, found);
         }
     }
+}
+
+/// 6d measurement: `int(x)`, `unsigned(x)`, `static_cast<int>(x)`, `static_cast<char*>(x)`.
+fn is_scalar_cast_callee(parsed: &ParsedFile, f: Node<'_>) -> bool {
+    match f.kind() {
+        "primitive_type" | "sized_type_specifier" => keyword_scalar(parsed, f),
+        "template_function" => {
+            f.child_by_field_name("name")
+                .is_some_and(|n| parsed.node_text(&n) == "static_cast")
+                && f.child_by_field_name("arguments").is_some_and(|a| {
+                    let mut c = a.walk();
+                    let td = a
+                        .named_children(&mut c)
+                        .find(|k| k.kind() == "type_descriptor");
+                    td.is_some_and(|t| scalar_cast_type(parsed, t))
+                })
+        }
+        _ => false,
+    }
+}
+
+/// 6d measurement (C2): `size_t`, `ssize_t`, `ptrdiff_t`, `intptr_t`, `uintptr_t`, `intmax_t`,
+/// `uintmax_t`, `[u]intN_t`, `[u]int_leastN_t`, `[u]int_fastN_t`, with or without `std::`.
+fn c2_spelling(text: &str) -> bool {
+    let t = text.trim();
+    let t = t.strip_prefix("::").unwrap_or(t);
+    let t = t.strip_prefix("std::").unwrap_or(t);
+    if matches!(
+        t,
+        "size_t" | "ssize_t" | "ptrdiff_t" | "intptr_t" | "uintptr_t" | "intmax_t" | "uintmax_t"
+    ) {
+        return true;
+    }
+    let t = t.strip_prefix('u').unwrap_or(t);
+    let Some(rest) = t.strip_prefix("int") else {
+        return false;
+    };
+    let Some(rest) = rest.strip_suffix("_t") else {
+        return false;
+    };
+    let rest = rest
+        .strip_prefix("_least")
+        .or_else(|| rest.strip_prefix("_fast"))
+        .unwrap_or(rest);
+    !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit())
 }

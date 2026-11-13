@@ -97,13 +97,14 @@ impl<'a> LexicalFacts<'a> {
             && !super::rust_prune::has_local_macro(owner))
         .then(|| super::rust_prune::scan_macros(parsed, owner, census))
         .filter(|scan| !scan.owner_off);
-        let c_owner = matches!(parsed.language, Language::C | Language::Cpp)
-            .then(|| {
-                let scanned = super::c_prune::scan(parsed, owner, c_census);
-                super::c_prune::trace(parsed, owner, &scanned);
-                scanned.ok()
-            })
-            .flatten();
+        let c_owner = (matches!(parsed.language, Language::C | Language::Cpp)
+            && !(parsed.language == Language::Cpp && super::mute6d::mute("cpp_off")))
+        .then(|| {
+            let scanned = super::c_prune::scan(parsed, owner, c_census);
+            super::c_prune::trace(parsed, owner, &scanned);
+            scanned.ok()
+        })
+        .flatten();
         let mut facts = Self {
             parsed,
             enabled: match parsed.language {

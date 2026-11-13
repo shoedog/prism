@@ -68,6 +68,20 @@ pub(super) fn escape_phantom(parsed: &ParsedFile, decl: Node<'_>, escaped: &mut 
     if !declarators.iter().any(|d| d.kind() == "pointer_declarator") {
         return;
     }
+    if super::mute6d::log_enabled()
+        && declarators.len() == 1
+        && declarators[0].kind() == "pointer_declarator"
+        && !parsed
+            .c_object_names(object_names)
+            .contains(parsed.node_text(&ty))
+    {
+        super::mute6d::log_p1(
+            &parsed.path,
+            decl.start_position().row + 1,
+            parsed.node_text(&ty),
+            &super::mute6d::clean(parsed.node_text(&declarators[0])),
+        );
+    }
     if parsed
         .c_object_names(object_names)
         .contains(parsed.node_text(&ty))

@@ -83,6 +83,7 @@ mod lexical_prune_round2_tests;
 mod lexical_prune_tests;
 #[cfg(test)]
 mod loop_refusal_cap_tests;
+mod mute6d;
 mod order_prune;
 #[cfg(test)]
 mod order_prune_tests;
