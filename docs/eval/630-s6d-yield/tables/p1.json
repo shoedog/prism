@@ -1,0 +1,94 @@
+{
+ "total": 756,
+ "single_star": 732,
+ "by_class": {
+  "type": 672,
+  "typemacro": 3,
+  "none": 81
+ },
+ "single_by_class": {
+  "type": 650,
+  "typemacro": 3,
+  "none": 79
+ },
+ "examples": {
+  "obj": [],
+  "enum": [],
+  "obj+type": [],
+  "macro": [],
+  "none": [
+   [
+    "P1",
+    "acl.c",
+    "2232",
+    "FILE",
+    "*fp"
+   ],
+   [
+    "P1",
+    "cluster.c",
+    "3866",
+    "clusterMsgSendBlock",
+    "*msgblock"
+   ],
+   [
+    "P1",
+    "cluster.c",
+    "6738",
+    "migrateCachedSocket",
+    "*cs"
+   ],
+   [
+    "P1",
+    "cluster.c",
+    "6785",
+    "migrateCachedSocket",
+    "*cs"
+   ],
+   [
+    "P1",
+    "cluster.c",
+    "6826",
+    "migrateCachedSocket",
+    "*cs"
+   ]
+  ],
+  "type": [
+   [
+    "P1",
+    "modules/hellohook.c",
+    "60",
+    "RedisModuleCallReply",
+    "*reply"
+   ],
+   [
+    "P1",
+    "defrag.c",
+    "149",
+    "dictEntry",
+    "**newtable"
+   ],
+   [
+    "P1",
+    "defrag.c",
+    "332",
+    "quicklistNode",
+    "*node"
+   ],
+   [
+    "P1",
+    "acl.c",
+    "448",
+    "listNode",
+    "*ln"
+   ],
+   [
+    "P1",
+    "defrag.c",
+    "439",
+    "zset",
+    "*newzs"
+   ]
+  ]
+ }
+}

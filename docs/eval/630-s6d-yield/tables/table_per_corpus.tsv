@@ -1,0 +1,148 @@
+corpus	switch	extra_removed_edges	added_edges	pct_of_6c_yield	distinct_vars	generated_pb_edges
+leveldb	cpp_off(6c yield; edges present with C++ rules off)	151	0	100		
+leveldb	c1	668	0	442	16	0
+leveldb	c1call	668	0	442	16	0
+leveldb	c1ctor	0	0	0	0	0
+leveldb	c1brace	0	0	0	0	0
+leveldb	c2	57	0	38	19	0
+leveldb	c3	0	0	0	0	0
+leveldb	c3arith	0	0	0	0	0
+leveldb	c3cast	0	0	0	0	0
+leveldb	c4	20	0	13	7	0
+leveldb	c5	38	0	25	20	0
+leveldb	c5cmp	10	0	7	6	0
+leveldb	c5arith	6	0	4	4	0
+leveldb	c5shift	0	0	0	0	0
+leveldb	c5other	10	0	7	6	0
+leveldb	all	1525	0	1010	154	0
+leveldb	allbut1	199	0	132	72	0
+leveldb	allbut2	1303	0	863	82	0
+leveldb	allbut3	1516	0	1004	150	0
+leveldb	allbut4	1469	0	973	138	0
+leveldb	allbut5	860	0	570	74	0
+re2	cpp_off(6c yield; edges present with C++ rules off)	194	0	100		
+re2	c1	448	0	231	53	0
+re2	c1call	447	0	230	52	0
+re2	c1ctor	1	0	1	1	0
+re2	c1brace	0	0	0	0	0
+re2	c2	28	0	14	19	0
+re2	c3	0	0	0	0	0
+re2	c3arith	0	0	0	0	0
+re2	c3cast	0	0	0	0	0
+re2	c4	32	0	16	10	0
+re2	c5	187	0	96	30	0
+re2	c5cmp	16	0	8	7	0
+re2	c5arith	13	0	7	6	0
+re2	c5shift	8	0	4	2	0
+re2	c5other	100	0	52	11	0
+re2	all	1595	0	822	210	0
+re2	allbut1	453	0	234	78	0
+re2	allbut2	1420	0	732	164	0
+re2	allbut3	1589	0	819	206	0
+re2	allbut4	924	0	476	160	0
+re2	allbut5	601	0	310	91	0
+snappy	cpp_off(6c yield; edges present with C++ rules off)	19	0	100		
+snappy	c1	12	0	63	7	0
+snappy	c1call	12	0	63	7	0
+snappy	c1ctor	0	0	0	0	0
+snappy	c1brace	0	0	0	0	0
+snappy	c2	3	0	16	3	0
+snappy	c3	1	0	5	1	0
+snappy	c3arith	1	0	5	1	0
+snappy	c3cast	0	0	0	0	0
+snappy	c4	0	0	0	0	0
+snappy	c5	114	0	600	8	0
+snappy	c5cmp	65	0	342	6	0
+snappy	c5arith	1	0	5	1	0
+snappy	c5shift	0	0	0	0	0
+snappy	c5other	0	0	0	0	0
+snappy	all	276	0	1453	71	0
+snappy	allbut1	177	0	932	34	0
+snappy	allbut2	194	0	1021	36	0
+snappy	allbut3	217	0	1142	49	0
+snappy	allbut4	274	0	1442	69	0
+snappy	allbut5	97	0	511	31	0
+protobuf	cpp_off(6c yield; edges present with C++ rules off)	0	0	100		
+protobuf	c1	0	0	nan	0	0
+protobuf	c1call	0	0	nan	0	0
+protobuf	c1ctor	0	0	nan	0	0
+protobuf	c1brace	0	0	nan	0	0
+protobuf	c2	0	0	nan	0	0
+protobuf	c3	0	0	nan	0	0
+protobuf	c3arith	0	0	nan	0	0
+protobuf	c3cast	0	0	nan	0	0
+protobuf	c4	0	0	nan	0	0
+protobuf	c5	0	0	nan	0	0
+protobuf	c5cmp	0	0	nan	0	0
+protobuf	c5arith	0	0	nan	0	0
+protobuf	c5shift	0	0	nan	0	0
+protobuf	c5other	0	0	nan	0	0
+protobuf	all	0	0	nan	0	0
+protobuf	allbut1	0	0	nan	0	0
+protobuf	allbut2	0	0	nan	0	0
+protobuf	allbut3	0	0	nan	0	0
+protobuf	allbut4	0	0	nan	0	0
+protobuf	allbut5	0	0	nan	0	0
+protobuf-x	cpp_off(6c yield; edges present with C++ rules off)	628	0	100		
+protobuf-x	c1	4407	0	702	126	3964
+protobuf-x	c1call	4401	0	701	124	3964
+protobuf-x	c1ctor	6	0	1	2	0
+protobuf-x	c1brace	0	0	0	0	0
+protobuf-x	c2	640	0	102	98	583
+protobuf-x	c3	7	0	1	1	0
+protobuf-x	c3arith	0	0	0	0	0
+protobuf-x	c3cast	7	0	1	1	0
+protobuf-x	c4	2697	0	429	78	0
+protobuf-x	c5	328	0	52	61	99
+protobuf-x	c5cmp	127	0	20	21	99
+protobuf-x	c5arith	1	0	0	1	0
+protobuf-x	c5shift	0	0	0	0	0
+protobuf-x	c5other	157	0	25	31	0
+protobuf-x	all	14744	0	2348	700	5675
+protobuf-x	allbut1	4261	0	679	294	683
+protobuf-x	allbut2	12237	0	1949	402	4063
+protobuf-x	allbut3	14597	0	2324	680	5675
+protobuf-x	allbut4	7530	0	1199	532	5675
+protobuf-x	allbut5	12618	0	2009	442	4556
+SUM official (leveldb+re2+snappy+protobuf)	cpp_off(6c yield)	364	0	100		
+SUM official (leveldb+re2+snappy+protobuf)	c1	1128	0	310	76	0
+SUM official (leveldb+re2+snappy+protobuf)	c1call	1127	0	310	75	0
+SUM official (leveldb+re2+snappy+protobuf)	c1ctor	1	0	0	1	0
+SUM official (leveldb+re2+snappy+protobuf)	c1brace	0	0	0	0	0
+SUM official (leveldb+re2+snappy+protobuf)	c2	88	0	24	41	0
+SUM official (leveldb+re2+snappy+protobuf)	c3	1	0	0	1	0
+SUM official (leveldb+re2+snappy+protobuf)	c3arith	1	0	0	1	0
+SUM official (leveldb+re2+snappy+protobuf)	c3cast	0	0	0	0	0
+SUM official (leveldb+re2+snappy+protobuf)	c4	52	0	14	17	0
+SUM official (leveldb+re2+snappy+protobuf)	c5	339	0	93	58	0
+SUM official (leveldb+re2+snappy+protobuf)	c5cmp	91	0	25	19	0
+SUM official (leveldb+re2+snappy+protobuf)	c5arith	20	0	5	11	0
+SUM official (leveldb+re2+snappy+protobuf)	c5shift	8	0	2	2	0
+SUM official (leveldb+re2+snappy+protobuf)	c5other	110	0	30	17	0
+SUM official (leveldb+re2+snappy+protobuf)	all	3396	0	933	435	0
+SUM official (leveldb+re2+snappy+protobuf)	allbut1	829	0	228	184	0
+SUM official (leveldb+re2+snappy+protobuf)	allbut2	2917	0	801	282	0
+SUM official (leveldb+re2+snappy+protobuf)	allbut3	3322	0	913	405	0
+SUM official (leveldb+re2+snappy+protobuf)	allbut4	2667	0	733	367	0
+SUM official (leveldb+re2+snappy+protobuf)	allbut5	1558	0	428	196	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	cpp_off(6c yield)	992	0	100		
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c1	5535	0	558	202	3964
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c1call	5528	0	557	199	3964
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c1ctor	7	0	1	3	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c1brace	0	0	0	0	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c2	728	0	73	139	583
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c3	8	0	1	2	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c3arith	1	0	0	1	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c3cast	7	0	1	1	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c4	2749	0	277	95	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c5	667	0	67	119	99
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c5cmp	218	0	22	40	99
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c5arith	21	0	2	12	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c5shift	8	0	1	2	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	c5other	267	0	27	48	0
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	all	18140	0	1829	1135	5675
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	allbut1	5090	0	513	478	683
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	allbut2	15154	0	1528	684	4063
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	allbut3	17919	0	1806	1085	5675
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	allbut4	10197	0	1028	899	5675
+SUM supplementary (leveldb+re2+snappy+protobuf-x)	allbut5	14176	0	1429	638	4556

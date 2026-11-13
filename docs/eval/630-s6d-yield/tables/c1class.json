@@ -1,0 +1,96 @@
+{
+ "leveldb": [
+  {
+   "C": 20,
+   "A": 27,
+   "F": 1,
+   "D": 8,
+   "E": 1
+  },
+  {
+   "worst_C": 24,
+   "all_A": 622,
+   "worst_F": 6,
+   "worst_D": 14,
+   "worst_E": 2
+  }
+ ],
+ "re2": [
+  {
+   "E": 32,
+   "A": 33,
+   "F": 4,
+   "C": 6,
+   "D": 17
+  },
+  {
+   "worst_E": 107,
+   "all_A": 243,
+   "no_call_arg_event": 5,
+   "worst_F": 8,
+   "worst_C": 37,
+   "worst_D": 48
+  }
+ ],
+ "snappy": [
+  {
+   "C": 4,
+   "D": 3,
+   "A": 1,
+   "B": 1,
+   "E": 1
+  },
+  {
+   "worst_C": 4,
+   "worst_D": 4,
+   "all_A": 1,
+   "worst_B": 1,
+   "worst_E": 2
+  }
+ ],
+ "protobuf-x": [
+  {
+   "E": 204,
+   "A": 175,
+   "C": 113,
+   "D": 57
+  },
+  {
+   "worst_E": 288,
+   "worst_C": 3425,
+   "worst_D": 633,
+   "all_A": 53,
+   "no_call_arg_event": 8
+  }
+ ],
+ "_total": [
+  {
+   "C": 143,
+   "A": 236,
+   "F": 5,
+   "D": 85,
+   "E": 238,
+   "B": 1
+  },
+  {
+   "worst_C": 3490,
+   "all_A": 919,
+   "worst_F": 14,
+   "worst_D": 699,
+   "worst_E": 399,
+   "no_call_arg_event": 13,
+   "worst_B": 1
+  }
+ ],
+ "_sub": {
+  "C:overloaded": 133,
+  "A:byval_scalar_or_ptr": 235,
+  "F:arity/variadic": 5,
+  "D:external": 79,
+  "E:method": 238,
+  "C:template": 10,
+  "D:no-callee-expr:callee=init_declarator": 6,
+  "A:byval_class": 1,
+  "B:byref": 1
+ }
+}

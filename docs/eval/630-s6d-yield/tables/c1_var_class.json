@@ -1,0 +1,32 @@
+{
+ "official3": {
+  "vars": 76,
+  "by": {
+   "has_D_B_F_ctor_or_refC": 30,
+   "all_A": 18,
+   "needs_receiver_typing(E)+A/C": 21,
+   "A_or_overloads_allbyval": 5,
+   "cascade_only(no call-arg event of its own)": 2
+  }
+ },
+ "supp4": {
+  "vars": 202,
+  "by": {
+   "has_D_B_F_ctor_or_refC": 82,
+   "all_A": 31,
+   "needs_receiver_typing(E)+A/C": 80,
+   "A_or_overloads_allbyval": 6,
+   "cascade_only(no call-arg event of its own)": 3
+  }
+ },
+ "supp4_nongenerated": {
+  "vars": 138,
+  "by": {
+   "has_D_B_F_ctor_or_refC": 66,
+   "all_A": 27,
+   "needs_receiver_typing(E)+A/C": 37,
+   "A_or_overloads_allbyval": 5,
+   "cascade_only(no call-arg event of its own)": 3
+  }
+ }
+}
