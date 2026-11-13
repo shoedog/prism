@@ -6,7 +6,8 @@
 //! explicit declaration, and `o` at the declarator resolves to that same declaration. `proven_distinct_at ==
 //! false` and the flat fallback are not identity: either refuses. Alias twins are never consulted.
 //!
-//! Inert (slice 4a): the certificates are read by the trace (`rd-alias-cert`) and the unit tests only.
+//! Slice 4a read them through the trace (`rd-alias-cert`) only; slice 4b's refinement (`alias_kill`) consumes
+//! the admitted ones.
 //!
 //! **A certificate is a fact about the relation, not about a write.** A consumer (slice 4b's refinement) must
 //! still check, for each write W and each candidate def it classifies:
@@ -49,6 +50,11 @@ pub(super) struct AliasCerts {
     pub entries: Vec<Entry>,
 }
 
+/// `name@line:byte`, the trace's place.
+pub(super) fn at(parsed: &ParsedFile, name: &str, byte: usize) -> String {
+    format!("{name}@{}:{byte}", parsed.line_for_byte(byte))
+}
+
 fn def_at(defs: &[DefSite], base: &str, byte: usize) -> Option<usize> {
     defs.iter().position(|d| {
         d.start_byte == byte && d.path.base == base && d.path.fields.is_empty() && !d.alias_derived
@@ -86,13 +92,29 @@ impl AliasCerts {
         Some(Rc::new(Self { entries }))
     }
 
+    /// The admitted relation for the alias spelled `name` at `probe`: the occurrence follows the declarator
+    /// and binds the alias's own declaration (an outer or shadowing `name` does not). Returns its entry index.
+    pub(super) fn alias_at(&self, facts: &BindingFacts, name: &str, probe: usize) -> Option<usize> {
+        self.entries.iter().position(|e| {
+            matches!(&e.verdict, Verdict::Admitted { alias_decl, .. }
+                if e.cand.alias == name
+                    && probe >= e.cand.alias_end
+                    && facts.binding_at(name, probe) == *alias_decl)
+        })
+    }
+
+    pub(super) fn any_admitted(&self) -> bool {
+        self.entries
+            .iter()
+            .any(|e| matches!(e.verdict, Verdict::Admitted { .. }))
+    }
+
     /// `rd-alias-cert\t<admitted|refused>\t<reason|->\t<file>\t<owner>\t<alias def>\t<source decl>\t<target decl>`,
     /// each place `name@line:byte`. The alias def is the declarator's `u`; for a body alias the source
     /// declaration (the declaration the alias spelling binds) is that same name; the target declaration is
     /// `o`'s one declaration (`-` when it has none).
     pub(super) fn trace(&self, out: &mut impl Write, parsed: &ParsedFile, owner: &Node<'_>) {
-        let place =
-            |name: &str, byte: usize| format!("{name}@{}:{byte}", parsed.line_for_byte(byte));
+        let place = |name: &str, byte: usize| at(parsed, name, byte);
         let name = parsed.dfg_owner_name(owner).unwrap_or_default();
         for e in &self.entries {
             let c = &e.cand;

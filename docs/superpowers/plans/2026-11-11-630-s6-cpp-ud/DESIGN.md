@@ -15,9 +15,9 @@ The full evaluation follows below. Its section 7 decisions were taken by the own
 |---|---|
 | D1 | Macros: an in-repo `#define` census with a cache digest (slice 6a). Names passed to, or named by, an in-repo macro get no U and no D. |
 | D2 | Disclosure accepted: macros defined outside the repository (system and third-party headers) act as functions. |
-| D3 | C++: a scalar type gate (primitive, enum, pointer, or `auto` with a literal). Class-typed locals keep all pairs. |
-| D4 | Overloaded operators that bind scalars by non-const reference are disclosed. Only `>>` escapes. |
-| D5 | `.h` files: off until 6c, then C++ rules. |
+| D3 | C++: a scalar type gate (a keyword built-in, pointer, or `auto` with a literal; fold 2: keywords only, so `size_t` and `int8_t` fail it; fold 3: enums fail it too). Class-typed locals keep all pairs. |
+| D4 | Overloaded operators that bind scalars by reference: the operand certificate (fold 4; 2026-11-12: X3 closed in code, supersedes D4). The earlier "disclose, only `>>` escapes" is superseded. |
+| D5 | `.h` files: off until they get a C++ parse (#529); C++-grammar headers (`.hpp`, `.hh`, ...) get the C++ rules. |
 | D6 | A `.c` file compiled as C++ is out of model. |
 | D7 | Measurement on redis `src/` (C) and leveldb (C++), with cpython sampled for the macro boundary. redis is source-available, so it goes to the draft corpus release only. |
 | D8 | Slices 6a, 6b, 6c, with a cap of 3 review rounds each. 6d only on measured yield. |
@@ -152,7 +152,7 @@ the recommended design (§5).
 | 28 | Shadowing / declaration identity (both) | yes | – | partial (by name) | common | lexical resolution (F3) |
 | 29 | Same-line coalescing (both) | yes | yes | yes | moderate | settled per raw def span |
 | 30 | Templates: dependent types; duplicate owner pass | yes | – | yes | common in C++ | type gate refuses dependent `T`; template boundary fix (F6) |
-| 31 | `.h` parsed as C (#529) carries C++ semantics | yes | – | yes | common in C++ repos | `.h` owners off until 6c, then C++ rules |
+| 31 | `.h` parsed as C (#529) carries C++ semantics | yes | – | yes | common in C++ repos | `.h` owners off until a C++ parse of headers (#529); C++-grammar headers run the C++ rules |
 | 32 | Value-copy aliases (#632) and twins | yes | – | yes | common | twins are never candidates (F1 certificate) and never dominating |
 | 33 | Multi-declarators, structured bindings, direct-init, VLA, statement expressions | yes | – | yes | mixed | unknown forms keep; structured bindings ineligible |
 | 34 | Parse errors (both) | yes | – | yes | corpus-dependent | `has_error` |
@@ -182,7 +182,7 @@ measurement. The notes' own ranges are close to mine.
 | **O0 leave off** (A) | sound, trivially | 0 / 0 | none | does not deliver slice 6 |
 | **O1 U only, isolated scalars** (A-A) | U-only proof is short. Residual: macro hidden reads unless the line is macro-free | 5–20 / 3–15 | small, low risk | hooks fit; D windows unpopulated |
 | **O2 owner-wide quarantine U/D** (A-B; B items 3, 5; C-opt1 for C) | Sound once F1, F3, F4 are added; residual is macros | 15–40 / C++ 0 under C-opt1 | ~300 wl; low risk; recall poor on `goto` cleanup code (redis has hundreds of `goto`s in `src/` per note C) | fits per-owner `LexicalFacts` |
-| **O3 C++ via owner-wide escape + scalar gate** (C-2; B items 2, 4; A-A/B's binding restrictions) | Sound for C++ scalars and pointers. Residual: overloaded operators other than `>>` that retain a reference (X3) | – / 15–30 | +150–200 wl; moderate (escape list is syntax enumeration, but each entry fails closed) | fits |
+| **O3 C++ via owner-wide escape + scalar gate** (C-2; B items 2, 4; A-A/B's binding restrictions) | Sound for C++ scalars and pointers. Residual: overloaded operators other than `>>` that retain a reference (X3; closed in fold 4 by the operand certificate) | – / 15–30 | +150–200 wl; moderate (escape list is syntax enumeration, but each entry fails closed) | fits |
 | **O3b "assignment replaces" disclosure** (C-2b) | **WRONG as specified** (F5); repair needs receiver escapes, which cancels the gain | – / (20–35 claimed) | – | not recommended |
 | **O4 localized refusals** (A-C; C-3 positional) | Label positions are sound and simple. Positional escapes are **unsound** (F2) unless loop-corrected; the corrected form is sound but adds an argument | 50–75 / 30–50 | +120 wl; label rule low risk; loop-corrected escape moderate | fits: per-occurrence check inside `window` |
 | **O5 field paths, stable base** (C-4a/4b; A-E subset; B excludes) | 4a (value structs, `.` only) sound; 4b-strict sound up to macros; 4b-disclose adds a Rust-style boundary. U on fields carries the alias-read residual (Python precedent) | +10–30 points in C | +200 wl; moderate-high (operator and stability census, prefix kills) | needs `.`/`->` raw-syntax reads; `AccessPath` has no operator |
@@ -212,7 +212,7 @@ it fails closed).
 
 | Hybrid | Composition | Soundness | Recall C / C++ | Cost, risk | Verdict |
 |---|---|---|---|---|---|
-| **H1** structural core + census, staged | O2's owner gates for rare constructs + O4 label positions + O3 for C++ + O6 census + F1/F3/F4/F7/F11/F12 fixes; field paths later | sound; residual only X1 (external macros) plus X3 (C++ operators) | 50–70 / 15–30 (identifier paths) | 6a census ~250 wl, 6b C ~450 wl, 6c C++ ~200 wl; each slice reviewable | **recommended** |
+| **H1** structural core + census, staged | O2's owner gates for rare constructs + O4 label positions + O3 for C++ + O6 census + F1/F3/F4/F7/F11/F12 fixes; field paths later | sound; residual only X1 (external macros) plus X3 (C++ operators; closed in fold 4) | 50–70 / 15–30 (identifier paths) | 6a census ~250 wl, 6b C ~450 wl, 6c C++ ~200 wl; each slice reviewable | **recommended** |
 | **H2** note C's "C-first positioned", then C++ 2b + 3 | C-3 + 4-U + macro disclosure; then 2b | **WRONG** as specified (F1, F2, F3, F5) | high on paper | moderate | reject unless repaired; repaired, it becomes H1 without the census |
 | **H3** quarantine first, recover classes later (note A's B→C) | O2, then O4 per class | sound with the fixes | 15–40 → 50–75 | smallest first slice | dominated by H1: the label-position rule is as simple as the owner gate and recovers most C `goto` code at once |
 | **H4** disclosure-first H1 | H1 without the census: U only on macro-free lines; macros' hidden writes, escapes and control disclosed | sound under a wider boundary X1-wide | 40–60 (U lower) / 15–30 | ~650 wl over 2 slices | **fallback** |
@@ -233,7 +233,7 @@ identifier-class node in the owner with the base's text, as `LexicalFacts::colle
 **Owner gate.** Both rules are off for the owner unless all of these hold:
 
 - G1 The owner is a C `function_definition` in a `.c` file (6b), or a C++ `function_definition` /
-  `template_declaration`, or a C-grammar owner in a `.h` file under the C++ rules (6c). For a
+  `template_declaration` (6c; a `.h` stays off, see D5). For a
   `template_declaration`, its own inner `function_definition` is not a nested boundary (F6). `!owner.has_error()`.
 - G2 The body contains no `preproc_def`, `preproc_function_def`, `#undef`, `preproc_include`, and no `#pragma`
   whose first token is `omp` or `acc` (F7).
@@ -254,22 +254,46 @@ identifier-class node in the owner with the base's text, as `LexicalFacts::colle
   ineligible. An unresolved, ambiguous or nested-callable binding is ineligible. For D, W's target resolves to
   the same declaration.
 - E2 The declaration has no `static` / `extern` / `thread_local` / `_Thread_local` storage class and no `volatile`
-  / `_Atomic` qualifier. C++ (and `.h` under the C++ rules) also requires the **scalar gate**: the type is a
-  `primitive_type`, a `sized_type_specifier`, an `enum_specifier`, or any pointer declarator, or `auto` with a
-  literal initializer. References are excluded.
+  / `_Atomic` qualifier. C++ also requires the **scalar gate**: the type is a
+  keyword built-in (`bool char wchar_t short int long float double void signed unsigned`,
+  alone or as a `sized_type_specifier` built only from those; `char8_t`/`char16_t`/`char32_t` and enums are not in the gate since fold 3), or any pointer declarator, or `auto`
+  with a literal initializer (a user-defined literal is not one). References are excluded. Fold 2: the grammar also
+  calls `size_t`, `ptrdiff_t`, `int8_t`, `nullptr_t` and the like `primitive_type`, but any of them can name a class (a
+  namespace member, a template parameter, a block typedef), so only the keywords prove a scalar.
 - E3 The spelling has **not escaped** anywhere in the owner (by name, any binding):
   - `&x`, `&(x)`, `&x.f`, `&x[i]`;
   - any occurrence inside the argument list of an in-repo function-like macro invocation;
   - membership in the transitive free-identifier set of any in-repo macro invoked in the owner;
   - the spelling is itself an in-repo macro name.
 
-  C++ and `.h`-as-C++ additionally treat as escapes:
+  C++ owners additionally treat as escapes (fold 1: lvalue roots peel parentheses, both `?:` branches, a comma
+  sequence, an assignment target, `++`/`--` and casts; an address-of operand also `.`/`->`/subscript chains, and an
+  unlisted shape escapes every identifier in it):
+  - every lvalue root of an `&E` operand and of the range of a range-for, whatever the loop variable;
+  - every name inside a lambda with a non-empty capture list;
+  - names of a block-scope using-declaration;
   - a bare or parenthesized `x` as an argument of any `call_expression`, `new_expression`, constructor or brace
     initializer, or field initializer list;
-  - an operand of `>>`;
+  - (fold 4) the operand certificate: the lvalue roots of an operand of a binary operator, compound assignment,
+    subscript or `?:` unless every other operand is a built-in scalar expression (X3);
   - any occurrence inside the initializer of a reference declarator or a structured-binding declaration;
-  - a by-reference capture (`&x`, `&r = …x…`);
-  - the bare initializer of a declaration whose type fails the scalar gate (a converting constructor).
+  - the bare initializer of a declaration whose type fails the scalar gate (a converting constructor);
+  - (fold 2) the identifiers and type names of every declarator that contains a reference declarator at any depth,
+    with its initializer (`= e`, `(e)`, `{e}`, `int (&r) = x`, `auto& r(x)`, `int*& rp(p)`, multi-declarators, `for`,
+    `if`, `switch` and condition declarations), because the grammar reads `int& r(x);` as a parameter named by the type
+    `x`;
+  - (fold 2) the lvalue roots of the operand of every cast whose target is not a keyword built-in scalar or a pointer to
+    one (C-style cast, wherever it sits; functional, brace and named casts already escape through the argument list);
+  - (fold 2) the right operand of every `=` and compound assignment (`escape_roots`: an unlisted shape escapes every
+    identifier in it) unless the left side is a bare identifier (through parentheses) resolving to an owner local that
+    passes the scalar gate or a pointer; a left side that is not a bare identifier also escapes its own lvalue roots
+    (`(c ? x : y) += 1`);
+  - (fold 2) every identifier inside a `fold_expression` (`(ts, ..., x)` is `x` for an empty pack);
+  - (fold 2) closed-world block scope: the names of an anonymous `union`/`struct`/`class` (members of the enclosing
+    scope, and an anonymous union's members share storage), and every name in a direct child of a block that is neither
+    a modelled statement nor a declaration (`MODELLED_BLOCK_CHILD`);
+  - (fold 2) an identifier that is the name of a qualified identifier (`N::x`, `::x`, `S::x`, `T::x`) is never an
+    occurrence of a local: it never resolves to one, so its use line cannot bind, and it is never a write target.
 - E4 (D, C grammar) If `x`'s declarator is not a pointer declarator, no recorded def rooted at `x` has fields whose
   raw first hop is `.` or a subscript (F4).
 
@@ -353,15 +377,31 @@ stores recorded under `b`'s spelling are never dropped (F1). Hence d's value can
   - This is narrower than Rust's accepted "macro expanding to a write".
 - **X2 Unparsed in-repo headers.** Generated or excluded headers count as external under X1. Prism's loader parses
   `.h/.hh/.hpp/.hxx` under the root unless excluded.
-- **X3 (C++) Operator convention.** "An overloaded operator other than `>>` that binds a scalar operand by non-const
-  reference and retains it is out of model." Operands go by value or const reference by convention. `<<` is
-  deliberately not an escape, because escaping on it would refuse every logged variable. The alternative is in D4.
+- **X3 (C++) Operator convention: closed in code (fold 4).** 2026-11-12: X3 closed in code, supersedes D4. The earlier text disclosed a user-defined operator function binding a scalar operand by reference and keeping it. It is replaced by the operand certificate (`cpp_prune_operand.rs`, trace kind `operand_certificate`): an overloaded operator needs a class or enumeration operand, and a converting constructor of a by-value class parameter can bind a scalar (`S(int&)` with `S operator+(S, S)`), so an operator is built-in only when every operand is. For every `binary_expression` (arithmetic, bitwise, shifts including `<<` and `>>`, comparison including `<=>`, logical), comma, compound assignment (each side against the other), `subscript_expression` (base against indices, each index against base) and the two branches of `?:`, the lvalue roots of an operand escape unless EVERY OTHER operand is a built-in scalar expression: a literal other than a user-defined literal; an identifier that is a bindable scalar local (`COwner::binding`); an identifier that is an owner-local one-dimensional array of keyword scalars or pointers whose name is not escaped (fold 5), and `a[i]` of one with a built-in index; a cast to a keyword scalar or a pointer to one; `sizeof`/`alignof`; the keyword `nullptr` when no in-repo macro has that name (the census, `macro_names`); `NULL`, `TRUE` and `FALSE` never count (fold 5: only the lowercase keyword spellings are built-in, `NULL` can name an object); parentheses, a unary `- + ! ~`, or a binary, comma or `?:` expression over these. Anything else (a call, member access, `this`, a global or unknown name, a dereference, an enumerator, a template, a string literal, a compound-assignment or increment operand) is not scalar. The certificate depends on `binding`, which depends on the escaped set, so it is settled in the same worklist fixpoint as fix E (`cpp_prune_operand::settle`). Plain `=` keeps fix E: the right side escapes unless the left is a bound scalar local; the operators inside the right side are certified like any other. This subsumes the `>>` name escape and fold 3's `?:` rule. Cost (recall): `x + f()`, `i < n` with a `size_t n`, `cin >> x` and `out << x` with a reference parameter escape the lvalue operand; an expression of more than 64 identifiers or 512 nodes counts as not scalar. The template-shaped relational parses (`a < b > (c)` as the call `a<b>(c)`, `a < b > y;` and `a < b > *y;` as declarations of a template type) are closed at the source (fold 5): every identifier and type name under any `template_argument_list`, and the name of every `template_type`, `template_function` and `template_method`, escape (`template_arg`, fold 4's call-only rule replaced). Dialect assumption: every file the C++ grammar parses (`cpp cc cxx hpp hxx hh`) is compiled as C++11 or later; that is what makes `nullptr` and `auto x = <literal>` safe (pre-C++11 code could declare an object named `nullptr`). Only `char8_t` depends on the dialect (a keyword only from C++20); `char8_t`, `char16_t` and `char32_t` are all refused, `char16_t`/`char32_t` as extra caution under C++11.
 - **X4 Translation language.** "`.c` files are compiled as C." Projects that compile `.c` as C++ get the C rules,
   which treat bare arguments as by-value.
 - Inherited and already settled: the #634 survivor cap.
 
-No disclosure is needed for C++ exceptions, scope-exit destructors, lambdas, coroutines, unions,
-conditional-compilation writes or shadowing: each is closed by structure.
+No disclosure is needed for C++ exceptions, scope-exit destructors or conditional-compilation writes: each is closed by
+structure. Lexical shadowing by an ordinary declaration is closed only while the declarator peelers can read the declarator
+(6c fold 6: a comment inside `int (/*c*/ x)` hid a declaration from the `.c` resolver, and inside a returned-function
+declarator made the returned type's parameters look like the function's; both are now read through `prune_roots::operand`
+and fail closed). Unions and anonymous aggregates are NOT (6c fold 2,
+round-2 review): the members of a block-scope anonymous `union` are names of the enclosing scope that share storage,
+and the resolver sees no declarator for them, so their names escape. The resolver itself is NOT closed-world: a form it
+does not model (`MODELLED_BLOCK_CHILD`), a hidden declaration, a `using` name, a vexing-parse `S(y);` or a fold-5 introducer
+(enumerators of any `enum_specifier`, `using enum`, declarators of a non-scalar-base declaration, every `type_identifier`,
+template argument lists and template names, `offsetof`/non-keyword `alignof` forms; `cpp_prune_names.rs`) is closed only by
+escaping the NAME (or, for `using enum`, by turning the owner off), while name lookup keeps walking outward to an outer namesake. Fix E's left-side test therefore asks
+`COwner::binding` (which fails on every escape of the owner), decided after the walk as a fixpoint (`cpp_prune_operand::settle`, a worklist since fold 4),
+and escapes the right operand's roots when the left side is not a bindable scalar local (round 3, W2). A qualified name
+(`N::x`) is never a local.
+Lambdas and coroutines are NOT closed by structure (6c fold 1, round-1
+review): a lambda with a non-empty capture list reads its captures when the closure is created (on the creating
+statement's line, with no spelled occurrence), so every name inside it escapes; a coroutine owner (`co_await`,
+`co_yield` or `co_return` outside nested lambdas, or any invoked in-repo macro whose transitive body spells one) is off, because promise construction, `yield_value` and
+`await_transform` can bind a parameter or an operand by reference. A block-scope `using namespace` or `using enum` turns the owner
+off and `using N::x;` escapes `x`.
 
 ### 5.4 First obligation rows (RED-first; each first establishes that the baseline emits the pair)
 
@@ -415,12 +455,12 @@ C++ rows (6c):
 
 - `class_type_keep` (`std::string`), `method_receiver_keep` (`x.append(t)`), `range_for_class_keep`,
   `converting_ctor_keep` (all closed by the type gate)
-- `size_t_drop`, `auto_literal_drop`, `auto_call_keep`
-- `bare_arg_escape_keep`, `stream_extract_keep`, `stream_insert_drop` (X3)
+- `size_t_keep` (fold 2: a typedef or class named `size_t` is not a keyword scalar; was `size_t_drop`), `auto_literal_drop`, `auto_call_keep`
+- `bare_arg_escape_keep`, `stream_extract_keep`, `stream_insert_keep` (fold 4: `out << x` with a reference parameter escapes `x`)
 - `ref_init_keep_U` (`int &r = x; sink(r); x = 0;`), `structured_binding_keep`, `ref_init_capture_keep`
 - `lambda_def_kept`, `try_catch_drop`, `try_body_def_keep`, `coroutine_drop`
 - `member_unqualified_keep`, `this_field_keep`, `local_class_method_keep`
-- `header_cpp_semantics_keep` (a `.h` parsed as C with `f(x)`, `f(int&)` declared elsewhere, keeps)
+- `header_cpp_semantics_keep` (a `.h` parsed as C with `f(x)`, `f(int&)` declared elsewhere, keeps: the owner is off, not escaped by C++ rules)
 
 Evidence rows:
 
@@ -466,8 +506,8 @@ a sample of retained opportunities by refusal reason (this tells which 6d fold p
   - Fixtures under `tests/fixtures/dfg_prune/c/`, and a `c_prune_tests.rs` copying `rust_prune_tests.rs`'s shape,
     including `owner_pairs`.
   - Measure on redis.
-- **6c — C++ and `.h` owners.**
-  - Scalar gate, C++ escape set, template boundary fix (F6), and C++ rules applied to C-grammar `.h` owners. ~200 wl.
+- **6c — C++ owners (`.h` stays off, D5 note).**
+  - Scalar gate, C++ escape set and template boundary fix (F6). C-grammar `.h` owners are NOT given the C++ rules. ~200 wl.
   - Measure on leveldb.
 - **6d — optional folds, each only if 6b/6c's retained-opportunity sample shows the yield.**
   - (i) Loop-corrected positional escapes for C++ (F2's fix).
@@ -508,12 +548,49 @@ is the same, with these changes:
 | D1 | Macro policy | (a) in-repo census + external boundary X1 (H1); (b) disclosure-first X1-wide (H4); (c) U-only floor (H6); (d) configuration-backed facts (O7) | (a): closes hidden reads the way the owner required for Rust (fold 3), with a verifiable boundary |
 | D2 | Accept X1/X2 wording (external and unparsed-header macros act as functions) | accept / narrow / reject → D1(c) | accept |
 | D3 | C++ class-typed locals | scalar type gate / "assignment replaces" disclosure (2b, needs receiver escapes per F5) | type gate |
-| D4 | C++ overloaded operators binding scalars by non-const reference (X3) | disclose (escape `>>` only) / positive operand certificate (escape unless every other operand is a literal or eligible local) | disclose; measure the certificate's cost on leveldb if the owner hesitates |
-| D5 | `.h` owners (#529) | off until 6c, then C++ rules on C-grammar owners / fix #529 first / C rules (unsound on C++ headers) | off, then C++ rules |
+| D4 | C++ overloaded operators binding scalars by non-const reference (X3) | disclose (escape `>>` only) / positive operand certificate (escape unless every other operand is a literal or eligible local) | owner 2026-11-12: certificate (fold 4); the recommendation was to disclose |
+| D5 | `.h` owners (#529) | off until headers get a C++ parse / fix #529 first / C rules (unsound on C++ headers) | off until a C++ parse; C++-grammar headers run the C++ rules |
 | D6 | `.c` compiled as C++ (X4) | accept / turn `.c` off where a C++ build is detected | accept |
 | D7 | Corpus publication | upload redis `src/` to `corpora-v1` / keep the measurement local | owner's licence call; local is sufficient for 6b |
 | D8 | Slicing and caps | 6a/6b/6c(/6d) with cap 3 each / merge 6a+6b | 6a/6b/6c, 6d only on measured yield |
 | D9 | Field paths in slice 6 | defer to 6d / include 4a in 6b / 4b strict / 4b disclosed | defer; decide 4b strict vs disclosed only after 6b's opportunity sample |
+
+> **2026-11-12 (6c fold 1, round-1 review W3):** `.h` stays off. A `.h` is parsed with the C grammar, which accepts
+> C++ shapes such as `T& r = (x);` without an error (an assignment to a cast-looking expression), so the C++ escapes,
+> keyed on C++ node kinds, never see them. `.h` owners get the C++ rules only once headers get a C++ parse (#529).
+> C++-grammar headers (`.hpp`, `.hh`, ...) keep the C++ rules.
+>
+> **2026-11-12 (6c fold 2, round-2 reviews and the exhaustive enumeration):** D3 tightens to keyword built-ins
+> (`size_t` and friends are not scalars), and the escape set grows by qualified names, casts, every reference-declarator
+> form, assignment into a non-scalar left side, anonymous aggregates and closed-world block forms, fold expressions and
+> coroutine keywords in macro bodies (E2/E3 above). D4 stays "disclose": the full family of overloaded non-assignment
+> operators that bind a scalar by non-const reference (X3) was not folded in fold 2 (superseded by fold 4); the right operand of assignment and compound
+> assignment escapes (fix E).
+>
+> **2026-11-12 (6c fold 3, round-3 reviews):** enums leave the scalar gate (they carry every overloaded operator);
+> fix E's left-side test becomes closed-world and is settled to a fixpoint after the walk; a `?:` with a branch that is not
+> a built-in scalar expression escapes both branches' lvalue roots; `char8_t`/`char16_t`/`char32_t` are not keywords for the
+> proof (dialect-dependent); an owner spelling an in-repo macro named like a C++ keyword is off. X3 is restated as the
+> class-operand user-defined operator residual (fold 3 recorded D4 as unchanged; no owner confirmation of that wording was
+> obtained, and fold 4 supersedes it).
+>
+> **2026-11-12 (6c fold 4, round-4 reviews, owner decision):** 2026-11-12: X3 closed in code, supersedes D4. Every operator operand is certified
+> (operand certificate, X3 above): an operand's lvalue roots escape unless every other operand is a built-in scalar
+> expression; `NULL`/`nullptr` count as scalar only when no in-repo macro has that name; `settle` is a worklist (each
+> occurrence resolved once, records indexed by the names they depend on). `KEYWORDS` is an explicit list of the keywords the
+> proofs read plus statement keywords (not every C++ keyword), and the keyword-macro gate is repo-wide by spelling. The
+> dialect assumption covers every C++-grammar extension (`cpp cc cxx hpp hxx hh`).
+>
+> **2026-11-12 (6c fold 5, round-5 reviews and the targeted enumeration, owner direction: close in code):** the resolver is
+> closed over the name introducers listed here (not over every introducer: fold 6 retracts the broader claim), by name (`cpp_prune_names.rs`): enumerators of any enum
+> escape, a block-scope `using enum` turns the owner off, declarators of a non-scalar-base declaration escape (pointer
+> declarators too: `ga * x;` can be a misparsed expression), every `type_identifier` escapes, template syntax everywhere
+> escapes (replacing the call-only `template_arg`), and `offsetof`/non-keyword `alignof` forms escape. Only the lowercase
+> keyword spellings `true`, `false`, `nullptr`, `alignof` count as built-in (`TRUE`/`FALSE`/`NULL` never do). Arrays are
+> checked against the escaped set (`array_local`, both array branches of `settle`, registered in the worklist). The three
+> root finders share `prune_roots.rs`: comments are skipped and `__extension__`/`_Generic` peeled; this fixes a 6b bug on
+> main (`int *p = &(/*c*/ x);` in a `.c` file). The 64-identifier cap refuses at 65. Residual, documented: a pre-C++11
+> object named `nullptr` (outside the C++11+ assumption). Recall cost: pointer locals of class type are ineligible.
 
 ---
 
@@ -531,7 +608,7 @@ resolves lexically to an automatic, unescaped local. Pointer stores are never dr
 writes are whole statements directly inside a single-entry region, with no label or nested `case` between the
 write and the use. The C++ scalar type gate and an owner-wide reference-escape set cover C++. An in-repo `#define`
 census closes the macro residual down to one principled boundary: external macros act as functions. It ships as
-6a (census, behaviour-neutral), 6b (C), 6c (C++ and `.h`), with field paths and finer escapes as optional measured
+6a (census, behaviour-neutral), 6b (C), 6c (C++; `.h` stays off, D5), with field paths and finer escapes as optional measured
 folds. It is measured on redis `src/` and leveldb, with cpython for macro sampling. The fallback is the same design
 without the census: U only on macro-free lines, and the macro boundary widened to all macros. The owner decides
 the macro policy and its wording, the C++ class and operator conventions, `.h` handling, `.c`-as-C++, corpus
@@ -562,3 +639,25 @@ Text-only include files (`.inl .inc .ipp .tcc .def .cu .cuh .H .C .HPP .CPP`, pl
 - Non-parsed census texts use a permissive scan: phase-1 normalization (BOM, CR, trigraphs, both splice modes, unioned; NUL-stripped variant for BOM-less UTF-16), then, on both the comment-kept and a comment-erased variant (best-effort `/* */` incl. multi-line and `//`, no lexer state, round-4 Sol #1/Opus E1; transitive include discovery uses the same variants), any `#`/`%:`/`??=` + blanks + `define`/`undef` + identifier name anywhere on a line is a definition (`undef` a bodiless fact), body identifier runs are free names, `##` poisons, control spellings set control, a non-identifier name is no fact, no comment or string tracking, never `incomplete` from lexer state. Non-UTF-8 is decoded lossily (UTF-16 with a BOM as UTF-16). Only an unreadable file or directory, a symlink pointing outside the repository or unreadable, a symlinked directory pointing outside the root or into an excluded directory (an in-repo directory link is followed: include targets are walked segment by segment, a directory link entered at its target, so links to the root, nested links and cycles resolve), or a non-C input over 64 MiB containing ANY directive leader (`#`, `%:`, `??=`; round-4 Sol #2), is `incomplete`. `list_tree` collects symlinked files; a C-like or include-resolved symlink is read through the link when its target is in the repository (round-4 Opus W2).
 - The walk reads only parsed files, resolved targets and C-like files (a directory listing locates them); `.git/` and `eval/secbench` are never entered. The aggregate identity covers the facts, the files read, the contributors and the lost inputs.
 - Residual (documented, same boundary as D2): a header with an unusual extension reached only through a form prism cannot resolve (a computed include, a generated header absent from the repository) acts like an external header. Precise follow-ups: #813; residual lexing shapes: #812.
+
+> **2026-11-12 (6c fold 6, round-6 reviews):** retracts three claims. (1) "A C unrecognised shape is an rvalue" is false for GNU
+> `__builtin_choose_expr(c, a, b)` (an lvalue of `a` or `b`): `prune_roots::chain_roots` now returns the roots of both, and
+> escapes every identifier of the arguments of any other `__builtin_*` call under an address-of or member chain (a 6b hole,
+> `.c` keeps more edges; fold 7 widens this, see below). (2) "Closed by structure" / "closed-world over every introducer": the declarator peelers read
+> `named_child(0)`, which is a `comment` extra in `int (/*c*/ x)`; every site now uses `operand` (a source-scan unit test
+> forbids the old call in the prune modules), `function_params` fails closed when the chain does not reach the name leaf
+> and its own list (it used to return the returned type's parameter list), `is_reference_like` sees through comments, and
+> the `.c` resolver binds an unwalkable declarator as ineligible like C++ (the Cpp gate on that branch is gone). (3) `.c`
+> output also moves where `(/*c*/ M)(x)` names an in-repo macro (more refusals; fold 5). ~~All `.c` changes only keep more edges.~~ Retracted in fold 7:
+> a `.c` file now also drops pairs where a comment-wrapped declarator or parameter list that main could not read is read
+> correctly (sound removals, rows `k7`/`k8`).
+
+> **2026-11-12 (6c fold 7, round-7 reviews):** (1) `.c` `chain_roots` default: every call except `__builtin_choose_expr`, and every
+> shape outside a closed rvalue list (dereference, operators, casts, assignment, `?:`, comma, literals, compound literals,
+> `sizeof`/`alignof`/`offsetof`), escapes every identifier it contains in an address-of or member-chain position (`&__real__(x)`,
+> `&__imag__(x)`: parsed as calls); C++ keeps its escape finders. A call to `__builtin_addressof` escapes its arguments
+> wherever it appears (C and C++), a fourth address-taking route beside `&`, references and macros (§5.2 U). (2) `.c`
+> phantom pointer declaration (`a * x;`, `c_phantom.rs`): see CLAUDE.md; headers' objects are out of model. (3) The `.c`
+> contract is two-sided: it keeps more edges where hazards are now seen, and drops sound pairs where a previously unreadable
+> declarator is now read. (4) Grammar-bump guard: `fold7_grammar_pins_hold` pins that `__real__ z`, `_Complex` and computed
+> goto still fail to parse (owner off, G1Error).

@@ -282,7 +282,7 @@ fn a_write_on_a_line_no_span_covers_is_unmapped() {
         end_byte: 40,
     }];
     let mut lookup = StatementLookup::new(&spans);
-    let index = NodeIndex::build(&counts, &mut lookup);
+    let index = NodeIndex::build(&counts, &[], &mut lookup);
     assert_eq!(index.by_node.get(&2), Some(&vec![0]));
     assert!(index.unmapped.contains("b") && !index.unmapped.contains("a"));
     // The refusal predicate D3 uses: an unmapped base is unknown, a mapped one is not, an unplaced one is.

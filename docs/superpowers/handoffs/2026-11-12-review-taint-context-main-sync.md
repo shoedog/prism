@@ -1,10 +1,20 @@
 # Handoff — cross-file taint product integration onto current main
 
-**Written:** 2026-11-12 · **By:** /root/feature_scope_audit_sol · **Provider:** Codex
+**Written:** 2026-11-13 · **By:** /root/feature_scope_audit_sol · **Provider:** Codex
 **Workspace:** `/private/tmp/prism-crossfile-602-product-integration-20261112` · `feat/review-crossfile-context-main-sync-20261112` · **Measured state:** [MEASURED] source HEAD `ce46076f9a020d4b4a9267d63cb992dd90a50b14`, clean after twelve source commits; subsequent current-plan/handoff docs added here for local commit. Git status/log observations in external integration report.
 **Predecessor:** root controller; original product worktree retained unchanged.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** [MEASURED] fresh fetch, exact source integration, Git diff/status and source reads; [INHERITED] historical S1/S2 acceptance and old suite totals; [UNKNOWN] integration runtime until delegated execution; [ASSUMPTION] none.
+
+## Current synchronization update — 2026-11-13
+
+[MEASURED] Fresh fetch confirms main `5b769f4a64268a094a692def254e4e07cb6a4890`. Existing integration branch was clean at `e7407e4bc1eeb82670fee4406818fc5edfd9065f`; merge of fresh main into this same branch completed with zero conflicts. All twelve product commit mappings and six planning documents remain ancestors. This update supersedes older base/custody/resume entries below; those remain historical evidence.
+
+[MEASURED] New merge overlap is the CLI registry, which automatically retains `alias_kill_trace_test`, `edges_bytes_test`, and `taint_context_output_test`. The prior loader composition is untouched: captured absolute repo root plus main C census gap observation. No unresolved index entries. Before/after receipts: external integration `resync-2026-11-13/`.
+
+[UNKNOWN] Tests on this freshly synchronized source have NOT run. `VERIFICATION.md` records pending delegated affected checks; historical totals provide no new-base credit. Root source review cap2 remains pending. Full workspace suite remains pending and mandatory before merging into main. No push or merge into main authorized. Preserve all other worktrees, dirty artifacts, pinned refs, and controls; no prune/recreate.
+
+Current owner policy for every provider: affected checks after each slice, sync main at slice closeout and before the final full suite, full workspace suite before merge. Fresh-main-to-feature delta contains no named Tier-A trigger paths and the zero-conflict merge makes no semantic graph edits; upstream already-merged graph changes alone do not create a new Tier-A requirement. Root may require it on semantic review.
 
 ## 0. Gating facts — settle these before starting anything below
 

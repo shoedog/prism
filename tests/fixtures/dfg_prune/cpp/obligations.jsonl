@@ -1,0 +1,317 @@
+{"case": "00_scalar_gate.cc", "id": "st", "path": "n", "def_line": 12, "use_line": 14, "keep": true, "reason": "size_t_is_not_a_keyword_scalar", "owner": "size_t_keep"}
+{"case": "00_scalar_gate.cc", "id": "se", "path": "u", "def_line": 18, "use_line": 20, "keep": false, "reason": "sized_type", "owner": "sized_drop_enum_keep"}
+{"case": "00_scalar_gate.cc", "id": "en", "path": "f2", "def_line": 21, "use_line": 23, "keep": true, "reason": "enum_is_not_scalar_it_can_carry_overloaded_operators", "owner": "sized_drop_enum_keep"}
+{"case": "00_scalar_gate.cc", "id": "pd", "path": "p", "def_line": 27, "use_line": 29, "keep": false, "reason": "pointer_declarator", "owner": "pointer_drop"}
+{"case": "00_scalar_gate.cc", "id": "pc", "path": "p", "def_line": 33, "use_line": 35, "keep": true, "reason": "pointer_of_class_type_may_be_a_misparsed_declaration_fold5", "owner": "pointer_to_class_keep"}
+{"case": "00_scalar_gate.cc", "id": "al", "path": "a", "def_line": 39, "use_line": 41, "keep": false, "reason": "auto_with_literal", "owner": "auto_literal_drop"}
+{"case": "00_scalar_gate.cc", "id": "ac", "path": "a", "def_line": 45, "use_line": 47, "keep": true, "reason": "auto_from_call", "owner": "auto_call_keep"}
+{"case": "00_scalar_gate.cc", "id": "ai", "path": "a", "def_line": 51, "use_line": 53, "keep": true, "reason": "auto_from_name", "owner": "auto_ident_keep"}
+{"case": "00_scalar_gate.cc", "id": "ct", "path": "s", "def_line": 57, "use_line": 59, "keep": true, "reason": "class_type", "owner": "class_type_keep"}
+{"case": "00_scalar_gate.cc", "id": "ty", "path": "h", "def_line": 63, "use_line": 65, "keep": true, "reason": "typedef_name", "owner": "typedef_type_keep"}
+{"case": "00_scalar_gate.cc", "id": "dt", "path": "d", "def_line": 69, "use_line": 71, "keep": true, "reason": "decltype", "owner": "decltype_keep"}
+{"case": "00_scalar_gate.cc", "id": "tt", "path": "v", "def_line": 75, "use_line": 77, "keep": true, "reason": "template_type", "owner": "template_type_keep"}
+{"case": "00_scalar_gate.cc", "id": "mr", "path": "s", "def_line": 81, "use_line": 85, "keep": true, "reason": "receiver_mutation", "owner": "method_receiver_keep"}
+{"case": "00_scalar_gate.cc", "id": "rf", "path": "v", "def_line": 89, "use_line": 91, "keep": true, "reason": "range_for_over_class", "owner": "range_for_class_keep"}
+{"case": "00_scalar_gate.cc", "id": "cc", "path": "x", "def_line": 97, "use_line": 99, "keep": true, "reason": "converting_ctor_reference", "owner": "converting_ctor_keep"}
+{"case": "00_scalar_gate.cc", "id": "rv", "path": "r", "def_line": 104, "use_line": 106, "keep": true, "reason": "reference_declarator", "owner": "reference_variable_keep"}
+{"case": "00_scalar_gate.cc", "id": "pl", "path": "x", "def_line": 110, "use_line": 112, "keep": false, "reason": "plain_int_control", "owner": "plain_control_drop"}
+{"case": "01_escapes.cc", "id": "ba", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "bare_call_argument", "owner": "bare_arg_escape_keep"}
+{"case": "01_escapes.cc", "id": "pa", "path": "x", "def_line": 17, "use_line": 20, "keep": true, "reason": "parenthesized_argument", "owner": "paren_arg_escape_keep"}
+{"case": "01_escapes.cc", "id": "cq", "path": "x", "def_line": 24, "use_line": 27, "keep": true, "reason": "conditional_lvalue_argument", "owner": "cond_arg_escape_keep"}
+{"case": "01_escapes.cc", "id": "na", "path": "x", "def_line": 31, "use_line": 34, "keep": true, "reason": "new_argument", "owner": "new_arg_escape_keep"}
+{"case": "01_escapes.cc", "id": "bi", "path": "x", "def_line": 38, "use_line": 41, "keep": true, "reason": "brace_initializer", "owner": "brace_init_escape_keep"}
+{"case": "01_escapes.cc", "id": "di", "path": "x", "def_line": 45, "use_line": 48, "keep": true, "reason": "direct_init_argument", "owner": "direct_init_escape_keep"}
+{"case": "01_escapes.cc", "id": "fc", "path": "x", "def_line": 52, "use_line": 55, "keep": true, "reason": "call_expression_argument", "owner": "functional_cast_keep"}
+{"case": "01_escapes.cc", "id": "sx", "path": "x", "def_line": 59, "use_line": 62, "keep": true, "reason": "shift_right_operand", "owner": "stream_extract_keep"}
+{"case": "01_escapes.cc", "id": "si", "path": "x", "def_line": 66, "use_line": 69, "keep": true, "reason": "shift_left_operand_certificate", "owner": "stream_insert_keep"}
+{"case": "01_escapes.cc", "id": "ri", "path": "x", "def_line": 73, "use_line": 76, "keep": true, "reason": "reference_initializer", "owner": "ref_init_keep_U"}
+{"case": "01_escapes.cc", "id": "rd", "path": "x", "def_line": 80, "use_line": 84, "keep": true, "reason": "reference_initializer", "owner": "ref_init_keep_D"}
+{"case": "01_escapes.cc", "id": "sb", "path": "x", "def_line": 88, "use_line": 91, "keep": true, "reason": "structured_binding_initializer", "owner": "structured_binding_keep"}
+{"case": "01_escapes.cc", "id": "rc", "path": "x", "def_line": 95, "use_line": 99, "keep": true, "reason": "reference_init_capture", "owner": "ref_init_capture_keep"}
+{"case": "01_escapes.cc", "id": "rf", "path": "x", "def_line": 103, "use_line": 107, "keep": true, "reason": "reference_capture", "owner": "ref_capture_keep"}
+{"case": "01_escapes.cc", "id": "dc", "path": "x", "def_line": 111, "use_line": 115, "keep": true, "reason": "default_reference_capture", "owner": "default_capture_keep"}
+{"case": "01_escapes.cc", "id": "vc", "path": "x", "def_line": 119, "use_line": 122, "keep": true, "reason": "any_capture_reads_x_at_creation", "owner": "value_capture_keep"}
+{"case": "01_escapes.cc", "id": "ad", "path": "x", "def_line": 126, "use_line": 129, "keep": true, "reason": "address_taken", "owner": "address_of_keep"}
+{"case": "01_escapes.cc", "id": "fr", "path": "x", "def_line": 133, "use_line": 136, "keep": true, "reason": "range_for_reference_over_x", "owner": "range_for_ref_keep"}
+{"case": "01_escapes.cc", "id": "un", "path": "x", "def_line": 140, "use_line": 144, "keep": false, "reason": "escape_is_by_name_of_y_only", "owner": "unrelated_name_drop"}
+{"case": "01_escapes.cc", "id": "mi", "path": "a", "def_line": 151, "use_line": 153, "keep": true, "reason": "mem_initializer_argument", "owner": "Ctor"}
+{"case": "01_escapes.cc", "id": "mu", "path": "m_", "def_line": 158, "use_line": 160, "keep": true, "reason": "unqualified_member_is_not_a_local", "owner": "meth"}
+{"case": "01_escapes.cc", "id": "tf", "path": "this.f", "def_line": 164, "use_line": 166, "keep": true, "reason": "field_path_stays_off", "owner": "this_field_keep"}
+{"case": "02_bindings.cc", "id": "cp", "path": "e", "def_line": 8, "use_line": 11, "keep": true, "reason": "conservative_outcome_catch_parameter_is_never_eligible", "owner": "catch_param_conservative_keep"}
+{"case": "02_bindings.cc", "id": "cd", "path": "v", "def_line": 16, "use_line": 18, "keep": true, "reason": "conservative_outcome_condition_declaration_is_no_write", "owner": "cond_decl_conservative_keep"}
+{"case": "02_bindings.cc", "id": "is", "path": "v", "def_line": 23, "use_line": 25, "keep": false, "reason": "init_statement_declaration_is_a_write", "owner": "init_stmt_drop"}
+{"case": "02_bindings.cc", "id": "rk", "path": "k", "def_line": 30, "use_line": 33, "keep": true, "reason": "conservative_outcome_use_binds_an_ineligible_range_for_variable", "owner": "range_for_shadow_conservative_keep"}
+{"case": "02_bindings.cc", "id": "sh", "path": "v", "def_line": 38, "use_line": 41, "keep": true, "reason": "conservative_outcome_use_binds_an_ineligible_condition_declaration", "owner": "shadowed_in_condition_conservative_keep"}
+{"case": "02_bindings.cc", "id": "ld", "path": "y", "def_line": 47, "use_line": 49, "keep": true, "reason": "definition_inside_a_lambda", "owner": "lambda_def_kept"}
+{"case": "02_bindings.cc", "id": "tc", "path": "x", "def_line": 55, "use_line": 58, "keep": false, "reason": "write_dominates_inside_the_try_body", "owner": "try_catch_drop"}
+{"case": "02_bindings.cc", "id": "tb", "path": "x", "def_line": 67, "use_line": 69, "keep": true, "reason": "definition_in_the_try_body_reaches_the_handler", "owner": "try_body_def_keep"}
+{"case": "02_bindings.cc", "id": "co", "path": "x", "def_line": 74, "use_line": 77, "keep": true, "reason": "coroutine_owner_is_off", "owner": "coroutine_await_keep"}
+{"case": "02_bindings.cc", "id": "lc", "path": "x", "def_line": 81, "use_line": 84, "keep": true, "reason": "local_class_owner_is_off", "owner": "local_class_method_keep"}
+{"case": "02_bindings.cc", "id": "gt", "path": "rc", "def_line": 88, "use_line": 91, "keep": false, "reason": "label_after_the_use", "owner": "goto_cleanup_tail_drop"}
+{"case": "02_bindings.cc", "id": "lw", "path": "x", "def_line": 97, "use_line": 102, "keep": true, "reason": "label_between_write_and_use", "owner": "label_in_window_keep"}
+{"case": "02_bindings.cc", "id": "ca", "path": "x", "def_line": 106, "use_line": 108, "keep": true, "reason": "compound_assignment_reads_x", "owner": "compound_assign_keep"}
+{"case": "02_bindings.cc", "id": "sw", "path": "x", "def_line": 112, "use_line": 116, "keep": false, "reason": "write_dominates_inside_the_case", "owner": "switch_case_drop"}
+{"case": "02_bindings.cc", "id": "as", "path": "x", "def_line": 122, "use_line": 125, "keep": true, "reason": "asm_turns_the_owner_off", "owner": "asm_off"}
+{"case": "02_bindings.cc", "id": "sj", "path": "x", "def_line": 129, "use_line": 132, "keep": true, "reason": "returns_twice_turns_the_owner_off", "owner": "setjmp_off"}
+{"case": "03_templates.cc", "id": "t1", "path": "x", "def_line": 6, "use_line": 8, "keep": false, "reason": "template_header_on_the_function_line", "owner": "one_line"}
+{"case": "03_templates.cc", "id": "t2", "path": "x", "def_line": 13, "use_line": 15, "keep": false, "reason": "template_owner_two_lines", "owner": "two_lines"}
+{"case": "03_templates.cc", "id": "t3", "path": "x", "def_line": 20, "use_line": 22, "keep": true, "reason": "dependent_type_fails_the_scalar_gate", "owner": "dependent_keep"}
+{"case": "03_templates.cc", "id": "t4", "path": "x", "def_line": 27, "use_line": 30, "keep": true, "reason": "bare_argument_in_a_template", "owner": "template_escape_keep"}
+{"case": "05_error_owner.cc", "id": "er", "path": "x", "def_line": 6, "use_line": 8, "keep": true, "reason": "parse_error_in_the_owner", "owner": "error_owner_off"}
+{"case": "05_error_owner.cc", "id": "en", "path": "y", "def_line": 13, "use_line": 15, "keep": false, "reason": "the_error_stays_in_its_owner", "owner": "clean_neighbour_drop"}
+{"case": "06_fold1.cc", "id": "a1", "path": "x", "def_line": 22, "use_line": 27, "keep": true, "reason": "address_of_conditional_lvalue", "owner": "addr_conditional_keep"}
+{"case": "06_fold1.cc", "id": "a2", "path": "x", "def_line": 31, "use_line": 36, "keep": true, "reason": "address_of_comma_right_operand", "owner": "addr_comma_keep"}
+{"case": "06_fold1.cc", "id": "a3", "path": "x", "def_line": 40, "use_line": 45, "keep": true, "reason": "address_of_assignment_target", "owner": "addr_assign_keep"}
+{"case": "06_fold1.cc", "id": "a4", "path": "x", "def_line": 49, "use_line": 54, "keep": true, "reason": "address_of_prefix_update", "owner": "addr_update_keep"}
+{"case": "06_fold1.cc", "id": "a5", "path": "x", "def_line": 58, "use_line": 63, "keep": true, "reason": "address_of_cast_to_reference", "owner": "addr_cast_keep"}
+{"case": "06_fold1.cc", "id": "c1", "path": "x", "def_line": 68, "use_line": 71, "keep": true, "reason": "conditional_lvalue_call_argument", "owner": "call_arg_conditional_keep"}
+{"case": "06_fold1.cc", "id": "c2", "path": "x", "def_line": 75, "use_line": 78, "keep": true, "reason": "parenthesized_assignment_call_argument", "owner": "call_arg_assign_keep"}
+{"case": "06_fold1.cc", "id": "c3", "path": "x", "def_line": 82, "use_line": 85, "keep": true, "reason": "prefix_update_call_argument", "owner": "call_arg_update_keep"}
+{"case": "06_fold1.cc", "id": "s1", "path": "x", "def_line": 94, "use_line": 98, "keep": true, "reason": "reference_structured_binding_shadows_the_outer_name", "owner": "structured_binding_ref_shadow_keep"}
+{"case": "06_fold1.cc", "id": "s2", "path": "x", "def_line": 107, "use_line": 111, "keep": true, "reason": "rvalue_reference_structured_binding_shadows", "owner": "structured_binding_rref_shadow_keep"}
+{"case": "06_fold1.cc", "id": "s3", "path": "x", "def_line": 118, "use_line": 122, "keep": true, "reason": "range_for_structured_binding_shadows", "owner": "structured_binding_range_for_keep"}
+{"case": "06_fold1.cc", "id": "u1", "path": "x", "def_line": 132, "use_line": 136, "keep": true, "reason": "using_declaration_names_the_global", "owner": "using_decl_shadow_keep"}
+{"case": "06_fold1.cc", "id": "u2", "path": "x", "def_line": 142, "use_line": 146, "keep": true, "reason": "using_directive_turns_the_owner_off", "owner": "using_directive_owner_off"}
+{"case": "06_fold1.cc", "id": "l1", "path": "x", "def_line": 152, "use_line": 153, "keep": true, "reason": "default_value_capture_reads_x_at_creation", "owner": "lambda_value_capture_creation_keep"}
+{"case": "06_fold1.cc", "id": "l2", "path": "x", "def_line": 160, "use_line": 161, "keep": true, "reason": "explicit_value_capture_reads_x_at_creation", "owner": "lambda_explicit_capture_keep"}
+{"case": "06_fold1.cc", "id": "l3", "path": "x", "def_line": 169, "use_line": 170, "keep": true, "reason": "init_capture_reads_x_at_creation", "owner": "lambda_init_capture_keep"}
+{"case": "06_fold1.cc", "id": "l4", "path": "x", "def_line": 178, "use_line": 181, "keep": false, "reason": "empty_capture_list_reads_no_local_even_when_it_spells_x", "owner": "lambda_empty_capture_drop"}
+{"case": "06_fold1.cc", "id": "k1", "path": "x", "def_line": 185, "use_line": 188, "keep": true, "reason": "coroutine_owner_is_off_promise_may_bind_the_parameter", "owner": "coroutine_param_keep"}
+{"case": "06_fold1.cc", "id": "k2", "path": "x", "def_line": 193, "use_line": 197, "keep": true, "reason": "coroutine_owner_is_off_yield_binds_the_operand", "owner": "co_yield_ref_keep"}
+{"case": "06_fold1.cc", "id": "r1", "path": "x", "def_line": 203, "use_line": 207, "keep": true, "reason": "range_for_range_escapes_by_value_loop_variable", "owner": "range_for_enum_value_keep"}
+{"case": "06_fold1.cc", "id": "n1", "path": "x", "def_line": 213, "use_line": 216, "keep": false, "reason": "using_declaration_escapes_only_its_own_name", "owner": "using_decl_other_name_drop"}
+{"case": "06_fold1.cc", "id": "n2", "path": "x", "def_line": 220, "use_line": 224, "keep": false, "reason": "address_of_escapes_the_roots_of_its_operand_only", "owner": "addr_of_other_name_drop"}
+{"case": "06_fold1.cc", "id": "n3", "path": "x", "def_line": 228, "use_line": 231, "keep": false, "reason": "range_escape_is_by_the_range_name", "owner": "range_for_other_name_drop"}
+{"case": "06_fold1.cc", "id": "n4", "path": "x", "def_line": 235, "use_line": 238, "keep": false, "reason": "a_lambda_is_its_own_callable", "owner": "coroutine_only_in_a_lambda_drop"}
+{"case": "07_fold2.cc", "id": "qa", "path": "x", "def_line": 32, "use_line": 35, "keep": true, "reason": "namespace_qualified_use_is_not_the_local", "owner": "qual_ns_keep"}
+{"case": "07_fold2.cc", "id": "qb", "path": "g", "def_line": 39, "use_line": 42, "keep": true, "reason": "global_qualified_use_is_not_the_local", "owner": "qual_global_keep"}
+{"case": "07_fold2.cc", "id": "qc", "path": "m", "def_line": 46, "use_line": 49, "keep": true, "reason": "static_member_use_is_not_the_local", "owner": "qual_static_member_keep"}
+{"case": "07_fold2.cc", "id": "qd", "path": "x", "def_line": 53, "use_line": 55, "keep": true, "reason": "qualified_write_is_not_a_write_of_the_local", "owner": "qual_write_guard_keep"}
+{"case": "07_fold2.cc", "id": "qe", "path": "x", "def_line": 59, "use_line": 61, "keep": false, "reason": "ordinary_local_control", "owner": "qual_control_drop"}
+{"case": "07_fold2.cc", "id": "c1", "path": "x", "def_line": 66, "use_line": 68, "keep": false, "reason": "plain_int", "owner": "ctl_scalar_drop"}
+{"case": "07_fold2.cc", "id": "c2", "path": "y", "def_line": 72, "use_line": 74, "keep": false, "reason": "keyword_long", "owner": "ctl_long_drop"}
+{"case": "07_fold2.cc", "id": "c3", "path": "p", "def_line": 78, "use_line": 80, "keep": false, "reason": "pointer_assignment", "owner": "ctl_pointer_assign_drop"}
+{"case": "07_fold2.cc", "id": "c4", "path": "y", "def_line": 84, "use_line": 88, "keep": false, "reason": "scalar_left_does_not_escape_the_right", "owner": "ctl_assign_rhs_drop"}
+{"case": "07_fold2.cc", "id": "c5", "path": "u", "def_line": 92, "use_line": 94, "keep": false, "reason": "keyword_sized_type", "owner": "ctl_sized_drop"}
+{"case": "07_fold2.cc", "id": "ca", "path": "x", "def_line": 99, "use_line": 103, "keep": true, "reason": "cast_statement_to_class", "owner": "cast_stmt_keep"}
+{"case": "07_fold2.cc", "id": "cb", "path": "x", "def_line": 107, "use_line": 111, "keep": true, "reason": "cast_to_typedef_reference_argument", "owner": "cast_typedef_ref_arg_keep"}
+{"case": "07_fold2.cc", "id": "cc", "path": "x", "def_line": 115, "use_line": 119, "keep": true, "reason": "cast_to_an_unknown_name", "owner": "cast_unknown_name_keep"}
+{"case": "07_fold2.cc", "id": "cd", "path": "x", "def_line": 123, "use_line": 127, "keep": true, "reason": "cast_inside_a_comma_operand", "owner": "cast_operand_keep"}
+{"case": "07_fold2.cc", "id": "ce", "path": "x", "def_line": 131, "use_line": 135, "keep": true, "reason": "named_cast_guard", "owner": "cast_static_cast_keep"}
+{"case": "07_fold2.cc", "id": "cf", "path": "x", "def_line": 139, "use_line": 143, "keep": true, "reason": "functional_cast_guard", "owner": "cast_functional_keep"}
+{"case": "07_fold2.cc", "id": "cg", "path": "x", "def_line": 147, "use_line": 151, "keep": true, "reason": "brace_cast_guard", "owner": "cast_brace_keep"}
+{"case": "07_fold2.cc", "id": "ch", "path": "x", "def_line": 155, "use_line": 158, "keep": false, "reason": "scalar_cast_is_a_prvalue", "owner": "cast_scalar_drop"}
+{"case": "07_fold2.cc", "id": "da", "path": "x", "def_line": 163, "use_line": 168, "keep": true, "reason": "auto_reference_direct_init", "owner": "ref_auto_direct_keep"}
+{"case": "07_fold2.cc", "id": "db", "path": "x", "def_line": 172, "use_line": 177, "keep": true, "reason": "multi_declarator_direct_init", "owner": "ref_multi_direct_keep"}
+{"case": "07_fold2.cc", "id": "dc", "path": "x", "def_line": 181, "use_line": 186, "keep": true, "reason": "reference_brace_init", "owner": "ref_brace_keep"}
+{"case": "07_fold2.cc", "id": "dd", "path": "x", "def_line": 190, "use_line": 194, "keep": true, "reason": "reference_in_a_switch_init", "owner": "ref_switch_init_keep"}
+{"case": "07_fold2.cc", "id": "de", "path": "p", "def_line": 198, "use_line": 204, "keep": true, "reason": "reference_to_pointer_direct_init", "owner": "ref_to_pointer_keep"}
+{"case": "07_fold2.cc", "id": "df", "path": "x", "def_line": 208, "use_line": 212, "keep": true, "reason": "reference_declared_in_an_if_condition", "owner": "ref_if_cond_keep"}
+{"case": "07_fold2.cc", "id": "ea", "path": "x", "def_line": 217, "use_line": 221, "keep": true, "reason": "global_class_left", "owner": "assign_global_keep"}
+{"case": "07_fold2.cc", "id": "eb", "path": "x", "def_line": 226, "use_line": 230, "keep": true, "reason": "comma_lvalue_left", "owner": "assign_comma_lvalue_keep"}
+{"case": "07_fold2.cc", "id": "ec", "path": "x", "def_line": 234, "use_line": 238, "keep": true, "reason": "compound_assignment_through_a_conditional_lvalue", "owner": "assign_compound_cond_left_keep"}
+{"case": "07_fold2.cc", "id": "fa", "path": "x", "def_line": 246, "use_line": 250, "keep": true, "reason": "anonymous_union_members_alias", "owner": "anon_union_block_keep"}
+{"case": "07_fold2.cc", "id": "fb", "path": "a", "def_line": 259, "use_line": 263, "keep": true, "reason": "anonymous_struct_in_anonymous_union", "owner": "anon_struct_in_union_keep"}
+{"case": "anon_union_toplevel2.cc", "id": "anon_union_toplevel2", "path": "x", "def_line": 32, "use_line": 36, "keep": true, "reason": "fold2_enum"}
+{"case": "block_typedef_size_t.cc", "id": "block_typedef_size_t", "path": "x", "def_line": 34, "use_line": 36, "keep": true, "reason": "fold2_enum"}
+{"case": "block_using_uint32_t.cc", "id": "block_using_uint32_t", "path": "x", "def_line": 34, "use_line": 36, "keep": true, "reason": "fold2_enum"}
+{"case": "cast_cstyle_class_arg.cc", "id": "cast_cstyle_class_arg", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "cast_cstyle_class_stmt.cc", "id": "cast_cstyle_class_stmt", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "cast_cstyle_typedef_ref.cc", "id": "cast_cstyle_typedef_ref", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "cast_ret_class.cc", "id": "cast_ret_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold2_enum"}
+{"case": "cstyle_class_conversion.cc", "id": "cstyle_class_conversion", "path": "x", "def_line": 5, "use_line": 9, "keep": true, "reason": "fold2_enum"}
+{"case": "fold_lvalue_ref.cc", "id": "fold_lvalue_ref", "path": "x", "def_line": 5, "use_line": 9, "keep": true, "reason": "fold2_enum"}
+{"case": "global_class_int8_t.cc", "id": "global_class_int8_t", "path": "x", "def_line": 33, "use_line": 35, "keep": true, "reason": "fold2_enum"}
+{"case": "global_class_nullptr_t.cc", "id": "global_class_nullptr_t", "path": "x", "def_line": 33, "use_line": 35, "keep": true, "reason": "fold2_enum"}
+{"case": "member_typedef_size_t.cc", "id": "member_typedef_size_t", "path": "x", "def_line": 34, "use_line": 36, "keep": true, "reason": "fold2_enum"}
+{"case": "ns_class_size_t_unqual.cc", "id": "ns_class_size_t_unqual", "path": "x", "def_line": 34, "use_line": 36, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_call_lhs.cc", "id": "op_assign_call_lhs", "path": "x", "def_line": 33, "use_line": 38, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_chain.cc", "id": "op_assign_chain", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_cond_both.cc", "id": "op_assign_cond_both", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_cond_rhs.cc", "id": "op_assign_cond_rhs", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_fieldarr.cc", "id": "op_assign_fieldarr", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_member_lhs.cc", "id": "op_assign_member_lhs", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_plain.cc", "id": "op_assign_plain", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_plain_lhs_ptr.cc", "id": "op_assign_plain_lhs_ptr", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_ref_lhs.cc", "id": "op_assign_ref_lhs", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assign_subscript_lhs.cc", "id": "op_assign_subscript_lhs", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold2_enum"}
+{"case": "op_assignment_ref.cc", "id": "op_assignment_ref", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold2_enum"}
+{"case": "op_compound_local_struct.cc", "id": "op_compound_local_struct", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "op_compound_ref.cc", "id": "op_compound_ref", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold2_enum"}
+{"case": "op_minus_assign.cc", "id": "op_minus_assign", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "op_plus_eq_class.cc", "id": "op_plus_eq_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold2_enum"}
+{"case": "op_shl_assign.cc", "id": "op_shl_assign", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "op_shr_assign.cc", "id": "op_shr_assign", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "param_class_named_ptrdiff.cc", "id": "param_class_named_ptrdiff", "path": "x", "def_line": 32, "use_line": 34, "keep": true, "reason": "fold2_enum"}
+{"case": "ref_direct_const.cc", "id": "ref_direct_const", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "ref_direct_int.cc", "id": "ref_direct_int", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "ref_for_init_direct.cc", "id": "ref_for_init_direct", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "ref_if_init_direct.cc", "id": "ref_if_init_direct", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "ref_paren_decl.cc", "id": "ref_paren_decl", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold2_enum"}
+{"case": "ref_paren_whole.cc", "id": "ref_paren_whole", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "rref_paren.cc", "id": "rref_paren", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold2_enum"}
+{"case": "tparam_named_size_t.cc", "id": "tparam_named_size_t", "path": "x", "def_line": 33, "use_line": 35, "keep": true, "reason": "fold2_enum"}
+{"case": "type_char64_t_collision.cc", "id": "type_char64_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_charptr_t_collision.cc", "id": "type_charptr_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_int16_t_collision.cc", "id": "type_int16_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_int32_t_collision.cc", "id": "type_int32_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_int64_t_collision.cc", "id": "type_int64_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_int8_t_collision.cc", "id": "type_int8_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_intptr_t_collision.cc", "id": "type_intptr_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_max_align_t_collision.cc", "id": "type_max_align_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_nullptr_t_collision.cc", "id": "type_nullptr_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_ptrdiff_t_collision.cc", "id": "type_ptrdiff_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_ssize_t_collision.cc", "id": "type_ssize_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_uint16_t_collision.cc", "id": "type_uint16_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_uint32_t_collision.cc", "id": "type_uint32_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_uint64_t_collision.cc", "id": "type_uint64_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_uint8_t_collision.cc", "id": "type_uint8_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "type_uintptr_t_collision.cc", "id": "type_uintptr_t_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold2_enum"}
+{"case": "char16_t_scalar_keep.cc", "id": "char16_t_scalar_keep", "path": "x", "def_line": 3, "use_line": 5, "keep": true, "reason": "fold3"}
+{"case": "char32_t_scalar_keep.cc", "id": "char32_t_scalar_keep", "path": "x", "def_line": 3, "use_line": 5, "keep": true, "reason": "fold3"}
+{"case": "char8_t_class_collision.cc", "id": "char8_t_class_collision", "path": "x", "def_line": 4, "use_line": 6, "keep": true, "reason": "fold3"}
+{"case": "char8_t_scalar_keep.cc", "id": "char8_t_scalar_keep", "path": "x", "def_line": 3, "use_line": 5, "keep": true, "reason": "fold3"}
+{"case": "cond_class_branch.cc", "id": "cond_class_branch", "path": "x", "def_line": 6, "use_line": 11, "keep": true, "reason": "fold3"}
+{"case": "cond_scalar_drop.cc", "id": "cond_scalar_drop", "path": "x", "def_line": 4, "use_line": 8, "keep": false, "reason": "both_branches_builtin_scalar"}
+{"case": "ctl_int_drop.cc", "id": "ctl_int_drop", "path": "x", "def_line": 3, "use_line": 5, "keep": false, "reason": "keyword_scalar_control"}
+{"case": "ctl_long_drop.cc", "id": "ctl_long_drop", "path": "x", "def_line": 3, "use_line": 5, "keep": false, "reason": "keyword_scalar_control"}
+{"case": "ctl_ptr_assign_drop.cc", "id": "ctl_ptr_assign_drop", "path": "p", "def_line": 5, "use_line": 9, "keep": false, "reason": "pointer_assign_control"}
+{"case": "ctl_scalar_assign_drop.cc", "id": "ctl_scalar_assign_drop", "path": "x", "def_line": 3, "use_line": 7, "keep": false, "reason": "scalar_assign_control"}
+{"case": "ctl_ull_drop.cc", "id": "ctl_ull_drop", "path": "x", "def_line": 3, "use_line": 5, "keep": false, "reason": "keyword_scalar_control"}
+{"case": "cw_anon_union.cc", "id": "cw_anon_union", "path": "x", "def_line": 6, "use_line": 15, "keep": true, "reason": "fold3"}
+{"case": "cw_hidden_if.cc", "id": "cw_hidden_if", "path": "x", "def_line": 6, "use_line": 17, "keep": true, "reason": "fold3"}
+{"case": "cw_hidden_label.cc", "id": "cw_hidden_label", "path": "x", "def_line": 6, "use_line": 17, "keep": true, "reason": "fold3"}
+{"case": "cw_using_decl.cc", "id": "cw_using_decl", "path": "x", "def_line": 7, "use_line": 16, "keep": true, "reason": "fold3"}
+{"case": "cw_vexing_parse.cc", "id": "cw_vexing_parse", "path": "x", "def_line": 6, "use_line": 15, "keep": true, "reason": "fold3"}
+{"case": "enum_op_compound.cc", "id": "enum_op_compound", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold3"}
+{"case": "enum_op_compound_sol.cc", "id": "enum_op_compound_sol", "path": "x", "def_line": 6, "use_line": 10, "keep": true, "reason": "fold3"}
+{"case": "enum_op_incr.cc", "id": "enum_op_incr", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold3"}
+{"case": "enum_op_postincr.cc", "id": "enum_op_postincr", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold3"}
+{"case": "enum_op_unary.cc", "id": "enum_op_unary", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold3"}
+{"case": "ctl_array_subscript_drop.cc", "id": "ctl_array_subscript_drop_i", "path": "i", "def_line": 4, "use_line": 8, "keep": false, "reason": "operand_control"}
+{"case": "ctl_array_subscript_drop.cc", "id": "ctl_array_subscript_drop_x", "path": "x", "def_line": 5, "use_line": 11, "keep": false, "reason": "operand_control"}
+{"case": "ctl_binary_local_drop.cc", "id": "ctl_binary_local_drop", "path": "x", "def_line": 4, "use_line": 7, "keep": false, "reason": "operand_control"}
+{"case": "ctl_call_init_drop.cc", "id": "ctl_call_init_drop", "path": "x", "def_line": 3, "use_line": 5, "keep": false, "reason": "operand_control"}
+{"case": "ctl_ptr_copy_drop.cc", "id": "ctl_ptr_copy_drop", "path": "p", "def_line": 5, "use_line": 8, "keep": false, "reason": "operand_control"}
+{"case": "ctl_self_mul_drop.cc", "id": "ctl_self_mul_drop", "path": "n", "def_line": 3, "use_line": 6, "keep": false, "reason": "operand_control"}
+{"case": "r4_p01_f.cc", "id": "r4_p01_f", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold4"}
+{"case": "r4_p01_g.cc", "id": "r4_p01_g", "path": "x", "def_line": 17, "use_line": 22, "keep": true, "reason": "fold4"}
+{"case": "r4_p02_f.cc", "id": "r4_p02_f", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold4"}
+{"case": "r4_p04.cc", "id": "r4_p04", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "fold4"}
+{"case": "r4_p07.cc", "id": "r4_p07", "path": "x", "def_line": 8, "use_line": 13, "keep": true, "reason": "fold4"}
+{"case": "r4_sol_enum_compound.cc", "id": "r4_sol_enum_compound", "path": "x", "def_line": 7, "use_line": 11, "keep": true, "reason": "fold4_sol"}
+{"case": "x3_ambiguous_relational_template_shape.cc", "id": "x3_ambiguous_relational_template_shape", "path": "x", "def_line": 8, "use_line": 13, "keep": true, "reason": "fold4"}
+{"case": "x3_op_call_subscript2.cc", "id": "x3_op_call_subscript2", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_chain_shl.cc", "id": "x3_op_chain_shl", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_comma_class.cc", "id": "x3_op_comma_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_comma_ref.cc", "id": "x3_op_comma_ref", "path": "x", "def_line": 6, "use_line": 11, "keep": true, "reason": "fold4"}
+{"case": "x3_op_eq_class.cc", "id": "x3_op_eq_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_in_call_arg.cc", "id": "x3_op_in_call_arg", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_in_decl_init.cc", "id": "x3_op_in_decl_init", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_land_expr.cc", "id": "x3_op_land_expr", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_lt.cc", "id": "x3_op_lt", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_lt_expr_decl.cc", "id": "x3_op_lt_expr_decl", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_mul_expr.cc", "id": "x3_op_mul_expr", "path": "x", "def_line": 32, "use_line": 37, "keep": true, "reason": "fold4"}
+{"case": "x3_op_plus_class_left.cc", "id": "x3_op_plus_class_left", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_plus_class_right.cc", "id": "x3_op_plus_class_right", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_plus_ref.cc", "id": "x3_op_plus_ref", "path": "x", "def_line": 6, "use_line": 11, "keep": true, "reason": "fold4"}
+{"case": "x3_op_shift_left_class.cc", "id": "x3_op_shift_left_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_shift_left_free.cc", "id": "x3_op_shift_left_free", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "x3_op_subscript_class.cc", "id": "x3_op_subscript_class", "path": "x", "def_line": 23, "use_line": 28, "keep": true, "reason": "fold4"}
+{"case": "ctl_ptr_addr_arr_drop.cc", "id": "ctl_ptr_addr_arr_drop", "path": "p", "def_line": 5, "use_line": 8, "keep": false, "reason": "operand_control_fold5"}
+{"case": "f5l_template_relation_case_declaration.cc", "id": "f5l_template_relation_case_declaration", "path": "x", "def_line": 8, "use_line": 15, "keep": true, "reason": "enum3_luna_area2"}
+{"case": "f5l_template_relation_for_initializer.cc", "id": "f5l_template_relation_for_initializer", "path": "x", "def_line": 8, "use_line": 13, "keep": true, "reason": "enum3_luna_area2"}
+{"case": "f5l_template_relation_if_init_statement.cc", "id": "f5l_template_relation_if_init_statement", "path": "x", "def_line": 8, "use_line": 13, "keep": true, "reason": "enum3_luna_area2"}
+{"case": "f5l_template_relation_labeled_declaration.cc", "id": "f5l_template_relation_labeled_declaration", "path": "x", "def_line": 8, "use_line": 14, "keep": true, "reason": "enum3_luna_area2"}
+{"case": "f5l_template_relation_preprocessor_branch.cc", "id": "f5l_template_relation_preprocessor_branch", "path": "x", "def_line": 8, "use_line": 15, "keep": true, "reason": "enum3_luna_area2"}
+{"case": "f5o_h1.cc", "id": "f5o_h1", "path": "x", "def_line": 6, "use_line": 15, "keep": true, "reason": "r5_opus_h1"}
+{"case": "f5o_h2.cc", "id": "f5o_h2", "path": "x", "def_line": 6, "use_line": 17, "keep": true, "reason": "r5_opus_h2"}
+{"case": "f5o_h4.cc", "id": "f5o_h4", "path": "x", "def_line": 10, "use_line": 15, "keep": true, "reason": "r5_opus_h4"}
+{"case": "f5o_h6.cc", "id": "f5o_h6", "path": "x", "def_line": 6, "use_line": 15, "keep": true, "reason": "r5_opus_h6"}
+{"case": "f5r_sol_array.cc", "id": "f5r_sol_array", "path": "x", "def_line": 8, "use_line": 15, "keep": true, "reason": "r5_sol_array_escape"}
+{"case": "f5r_sol_null.cc", "id": "f5r_sol_null", "path": "x", "def_line": 7, "use_line": 11, "keep": true, "reason": "r5_sol_null_object"}
+{"case": "f5s_FALSE_obj.cc", "id": "f5s_FALSE_obj", "path": "x", "def_line": 16, "use_line": 20, "keep": true, "reason": "enum3_sonnet_area4"}
+{"case": "f5s_TRUE_enum.cc", "id": "f5s_TRUE_enum", "path": "x", "def_line": 16, "use_line": 20, "keep": true, "reason": "enum3_sonnet_area4"}
+{"case": "f5s_TRUE_macro.cc", "id": "f5s_TRUE_macro", "path": "x", "def_line": 16, "use_line": 20, "keep": true, "reason": "enum3_sonnet_area4"}
+{"case": "f5s_TRUE_obj.cc", "id": "f5s_TRUE_obj", "path": "x", "def_line": 16, "use_line": 20, "keep": true, "reason": "enum3_sonnet_area4"}
+{"case": "f5s_alignof_call.cc", "id": "f5s_alignof_call", "path": "x", "def_line": 4, "use_line": 8, "keep": true, "reason": "enum3_sonnet_area4"}
+{"case": "f5s_arr_bare.cc", "id": "f5s_arr_bare", "path": "x", "def_line": 9, "use_line": 14, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_arr_label.cc", "id": "f5s_arr_label", "path": "x", "def_line": 9, "use_line": 14, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_arr_pp.cc", "id": "f5s_arr_pp", "path": "x", "def_line": 9, "use_line": 18, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_arr_using.cc", "id": "f5s_arr_using", "path": "x", "def_line": 10, "use_line": 15, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_autoTRUE_assign.cc", "id": "f5s_autoTRUE_assign", "path": "x", "def_line": 6, "use_line": 10, "keep": true, "reason": "enum3_sonnet_area4"}
+{"case": "f5s_auto_TRUE.cc", "id": "f5s_auto_TRUE", "path": "x", "def_line": 6, "use_line": 10, "keep": true, "reason": "enum3_sonnet_area4"}
+{"case": "f5s_cmt_addr_decl.cc", "id": "f5s_cmt_addr_decl", "path": "x", "def_line": 3, "use_line": 8, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_cmt_addr_decl_line.cc", "id": "f5s_cmt_addr_decl_line", "path": "x", "def_line": 3, "use_line": 9, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_cmt_addr_member.cc", "id": "f5s_cmt_addr_member", "path": "x", "def_line": 3, "use_line": 8, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_cmt_addr_nested.cc", "id": "f5s_cmt_addr_nested", "path": "x", "def_line": 3, "use_line": 8, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_cmt_arg.cc", "id": "f5s_cmt_arg", "path": "x", "def_line": 7, "use_line": 11, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_cmt_ctor.cc", "id": "f5s_cmt_ctor", "path": "x", "def_line": 8, "use_line": 12, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_cmt_line.cc", "id": "f5s_cmt_line", "path": "x", "def_line": 7, "use_line": 12, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_cmt_operand.cc", "id": "f5s_cmt_operand", "path": "x", "def_line": 7, "use_line": 11, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_enum_declr.cc", "id": "f5s_enum_declr", "path": "x", "def_line": 19, "use_line": 24, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_enum_pp.cc", "id": "f5s_enum_pp", "path": "x", "def_line": 19, "use_line": 28, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_enum_typedef.cc", "id": "f5s_enum_typedef", "path": "x", "def_line": 19, "use_line": 24, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_ext_compound.cc", "id": "f5s_ext_compound", "path": "x", "def_line": 11, "use_line": 15, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_ext_cond.cc", "id": "f5s_ext_cond", "path": "x", "def_line": 4, "use_line": 8, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_ext_ctor.cc", "id": "f5s_ext_ctor", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_ext_operand2.cc", "id": "f5s_ext_operand2", "path": "x", "def_line": 11, "use_line": 15, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_ext_paren.cc", "id": "f5s_ext_paren", "path": "x", "def_line": 4, "use_line": 8, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_generic_arg.cc", "id": "f5s_generic_arg", "path": "x", "def_line": 4, "use_line": 8, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_generic_operand.cc", "id": "f5s_generic_operand", "path": "x", "def_line": 6, "use_line": 10, "keep": true, "reason": "enum3_sonnet_area3"}
+{"case": "f5s_offsetof_call.cc", "id": "f5s_offsetof_call", "path": "x", "def_line": 4, "use_line": 8, "keep": true, "reason": "enum3_sonnet_area4"}
+{"case": "f5s_phantom_star.cc", "id": "f5s_phantom_star", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_phantom_star_q.cc", "id": "f5s_phantom_star_q", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_tpl_cond.cc", "id": "f5s_tpl_cond", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_ctor.cc", "id": "f5s_tpl_ctor", "path": "x", "def_line": 12, "use_line": 16, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_d.cc", "id": "f5s_tpl_d", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_fdecl.cc", "id": "f5s_tpl_fdecl", "path": "x", "def_line": 12, "use_line": 16, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_for.cc", "id": "f5s_tpl_for", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_if_init.cc", "id": "f5s_tpl_if_init", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_init.cc", "id": "f5s_tpl_init", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_label.cc", "id": "f5s_tpl_label", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_name_call.cc", "id": "f5s_tpl_name_call", "path": "x", "def_line": 12, "use_line": 16, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_name_decl.cc", "id": "f5s_tpl_name_decl", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_phantom.cc", "id": "f5s_tpl_phantom", "path": "x", "def_line": 8, "use_line": 12, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_tpl_ptr.cc", "id": "f5s_tpl_ptr", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_qual.cc", "id": "f5s_tpl_qual", "path": "x", "def_line": 12, "use_line": 16, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_qual_call.cc", "id": "f5s_tpl_qual_call", "path": "x", "def_line": 12, "use_line": 16, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_ref.cc", "id": "f5s_tpl_ref", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_tpl_while.cc", "id": "f5s_tpl_while", "path": "x", "def_line": 12, "use_line": 17, "keep": true, "reason": "enum3_sonnet_area2"}
+{"case": "f5s_type_amp.cc", "id": "f5s_type_amp", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_type_andand.cc", "id": "f5s_type_andand", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_type_star.cc", "id": "f5s_type_star", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_type_star_case.cc", "id": "f5s_type_star_case", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_type_star_for.cc", "id": "f5s_type_star_for", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_type_star_if.cc", "id": "f5s_type_star_if", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_type_star_label.cc", "id": "f5s_type_star_label", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f5s_type_star_same_scope.cc", "id": "f5s_type_star_same_scope", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f6_fnparams_comment.cc", "id": "f6_fp", "path": "b", "def_line": 5, "use_line": 9, "keep": true, "reason": "comment_in_outer_declarator_phantom_parameter"}
+{"case": "f6_fnparams_nocomment.cc", "id": "f6_fpc", "path": "b", "def_line": 5, "use_line": 9, "keep": true, "reason": "control_outer_declarator_without_comment"}
+{"case": "f6_ref_decl_comment.cc", "id": "f6_ref", "path": "x", "def_line": 2, "use_line": 7, "keep": true, "reason": "comment_in_parenthesized_reference_declarator"}
+{"case": "f6_ref_decl_nocomment.cc", "id": "f6_refc", "path": "x", "def_line": 2, "use_line": 7, "keep": true, "reason": "control_reference_declarator_without_comment"}
+{"case": "f6_ref_ptr_comment.cc", "id": "f6_refp", "path": "p", "def_line": 3, "use_line": 8, "keep": true, "reason": "comment_in_parenthesized_pointer_reference"}
+{"case": "f6_ref_ptr_nocomment.cc", "id": "f6_refpc", "path": "p", "def_line": 3, "use_line": 8, "keep": true, "reason": "control_pointer_reference_without_comment"}
+{"case": "f7_addressof.cc", "id": "f7_aof", "path": "x", "def_line": 2, "use_line": 7, "keep": true, "reason": "builtin_addressof_takes_an_address_without_amp"}
+{"case": "10_header.h", "id": "hs", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "dot_h_owner_is_off", "owner": "header_scalar_drop"}
+{"case": "10_header.h", "id": "hc", "path": "x", "def_line": 14, "use_line": 18, "keep": true, "reason": "dot_h_owner_is_off_bare_argument", "owner": "header_cpp_semantics_keep"}
+{"case": "10_header.h", "id": "ht", "path": "h", "def_line": 22, "use_line": 24, "keep": true, "reason": "dot_h_owner_is_off_typedef", "owner": "header_typedef_keep"}
+{"case": "10_header.h", "id": "hu", "path": "s", "def_line": 28, "use_line": 30, "keep": true, "reason": "dot_h_owner_is_off_struct", "owner": "header_struct_keep"}
+{"case": "10_header.h", "id": "hr", "path": "x", "def_line": 37, "use_line": 42, "keep": true, "reason": "dot_h_is_off_the_c_grammar_hides_the_reference", "owner": "header_typedef_ref_paren_keep"}
+{"case": "11_header_ref.hpp", "id": "hh", "path": "x", "def_line": 9, "use_line": 14, "keep": true, "reason": "reference_initializer_escapes_x_in_a_cpp_header", "owner": "header_typedef_ref_paren_cpp_keep"}
+{"case": "10_macros.cc", "id": "m1", "path": "x2", "def_line": 11, "use_line": 12, "keep": true, "reason": "object_macro_hides_a_read", "owner": "cpp_macro_free_read_keep"}
+{"case": "10_macros.cc", "id": "m2", "path": "x4", "def_line": 17, "use_line": 19, "keep": true, "reason": "name_passed_to_macro", "owner": "cpp_macro_arg_keep"}
+{"case": "10_macros.cc", "id": "m3", "path": "x5", "def_line": 23, "use_line": 26, "keep": true, "reason": "macro_takes_address", "owner": "cpp_macro_address_keep"}
+{"case": "10_macros.cc", "id": "m4", "path": "x7", "def_line": 30, "use_line": 32, "keep": true, "reason": "poisoned_macro_owner_off", "owner": "cpp_macro_paste_off"}
+{"case": "10_macros.cc", "id": "m5", "path": "x9", "def_line": 37, "use_line": 39, "keep": false, "reason": "no_macro_involved", "owner": "cpp_macro_unrelated_drop"}
+{"case": "11_owner_gates.cc", "id": "g1", "path": "x", "def_line": 7, "use_line": 10, "keep": true, "reason": "openmp_pragma_in_the_body", "owner": "cpp_omp_owner_off"}
+{"case": "11_owner_gates.cc", "id": "g2", "path": "x", "def_line": 14, "use_line": 17, "keep": true, "reason": "define_in_the_body", "owner": "cpp_define_in_body_off"}
+{"case": "11_owner_gates.cc", "id": "g3", "path": "x", "def_line": 21, "use_line": 23, "keep": true, "reason": "control_macro_turns_d_off", "owner": "cpp_control_macro_no_d"}
+{"case": "11_owner_gates.cc", "id": "g4", "path": "x", "def_line": 30, "use_line": 32, "keep": false, "reason": "no_gate", "owner": "cpp_clean_drop"}
+{"case": "12_header_macros.h", "id": "h1", "path": "hx", "def_line": 7, "use_line": 8, "keep": true, "reason": "object_macro_names_the_local", "owner": "header_macro_free_name_keep"}
+{"case": "12_header_macros.h", "id": "h2", "path": "hy", "def_line": 13, "use_line": 15, "keep": true, "reason": "dot_h_owner_is_off", "owner": "header_clean_drop"}
+{"case": "13_coroutine_macro.cc", "id": "co1", "path": "x", "def_line": 10, "use_line": 13, "keep": true, "reason": "co_yield_hidden_in_a_macro", "owner": "cpp_coroutine_macro_off"}
+{"case": "13_coroutine_macro.cc", "id": "co2", "path": "x", "def_line": 17, "use_line": 20, "keep": true, "reason": "co_yield_hidden_two_macros_deep", "owner": "cpp_coroutine_nested_macro_off"}
+{"case": "13_coroutine_macro.cc", "id": "co3", "path": "x", "def_line": 24, "use_line": 27, "keep": false, "reason": "macro_without_a_coroutine_keyword", "owner": "cpp_plain_macro_drop"}
+{"case": "14_keyword_macro.cc", "id": "km1", "path": "x", "def_line": 8, "use_line": 13, "keep": true, "reason": "keyword_macro_int_rewrites_the_type_proof", "owner": "keyword_macro_owner_off"}
+{"case": "14_keyword_macro.cc", "id": "km2", "path": "y", "def_line": 17, "use_line": 19, "keep": false, "reason": "owner_does_not_spell_the_macro", "owner": "keyword_macro_unspelled_drop"}

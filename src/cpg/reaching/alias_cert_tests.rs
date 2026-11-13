@@ -407,12 +407,14 @@ fn a_refused_census_certifies_nothing() {
 // ---- Inert --------------------------------------------------------------------------------------------
 
 #[test]
-fn certificates_are_only_trace_lines() {
+fn an_admitted_certificate_moves_the_label_through_the_refinement_only() {
     use crate::cpg::census_label_tests::labels_of;
     let src = "function g(o) {\n  const u = o;\n  o.x = 0;\n  u.x = 1;\n  return sink(o.x);\n}";
-    // The rows' labels are those of the tree without certificates (main: the write through the alias does
-    // not stop `o.x@3`).
-    assert_eq!(labels_of(JS, src, "o.x@3->o.x@5"), ["exact"]);
+    // 4a left this edge `exact` (the certificate alone moves nothing); 4b's refinement demotes it.
+    assert_eq!(
+        labels_of(JS, src, "o.x@3->o.x@5"),
+        ["NameOnly(AliasUnstable)"]
+    );
     assert_eq!(certs(JS, src), [OK]);
 }
 
@@ -597,4 +599,14 @@ fn a_forwarding_or_unknown_initializer_is_not_a_root() {
     }
     root_row(TS, "this", &["refused:this-alias:u"]);
     root_row(TS, "(this)", &["refused:this-alias:u"]);
+}
+
+/// An alias declared inside a class (static block, field value) is outside A: it runs where the class is
+/// evaluated, which has no CFG node, so no write is proven after it.
+#[test]
+fn an_alias_declared_inside_a_class_is_a_deferred_region() {
+    let src = "function g(o) {\n  o.x = 0;\n  class C {\n    static {\n      var u = o;\n      u.x = 1;\n    }\n  }\n  return sink(o.x);\n}";
+    refused(JS, src, "deferred-region");
+    let field = "function g(o) {\n  class C {\n    static f = (() => 1, o);\n  }\n  return o;\n}";
+    assert!(certs(JS, field).is_empty());
 }

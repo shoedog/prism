@@ -223,6 +223,18 @@ fn refusal(
         ) {
             return Some(Reason::Loop);
         }
+        // A declarator inside a class (a static block, a field value, a computed key) runs when the class is
+        // evaluated: the point has no CFG node, so no write is proven after it (a deferred region for A).
+        if matches!(
+            n.kind(),
+            "class_body"
+                | "class_static_block"
+                | "class"
+                | "class_declaration"
+                | "abstract_class_declaration"
+        ) {
+            return Some(Reason::DeferredRegion);
+        }
         cur = n.parent();
     }
     // The binding inventory: every other occurrence with no path components is a (re)binding.

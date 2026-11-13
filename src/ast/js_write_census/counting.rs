@@ -52,6 +52,9 @@ pub(crate) struct Counts {
     /// Bases with a counting write whose node the mapping cannot name: every D3 query of the base
     /// is unknown (`d3-unknown`), as an unmapped kill-only def refuses its base.
     pub unplaced: BTreeSet<String>,
+    /// The unplaced writes themselves: `(base, probe, line)` (#783: the alias refinement proves a base binds a
+    /// certified alias at the probe before it treats the aliased target as unknown).
+    pub unplaced_sites: Vec<(String, usize, usize)>,
 }
 
 impl Counts {
