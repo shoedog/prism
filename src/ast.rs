@@ -491,6 +491,9 @@ pub struct ParsedFile {
     /// Lazily-built: whether a Python run-time local reader can reach any owner of the file
     /// under another name (#630 U/D switch, `python_prune::file_hidden_hazard`).
     python_hidden_hazard: std::sync::OnceLock<bool>,
+    /// Lazily-built: every `identifier` spelling of a C file, the objects a `T * x;` statement's
+    /// `T` can name (#630 slice 6c fold 7, `c_phantom`).
+    c_object_names: std::sync::OnceLock<std::collections::BTreeSet<String>>,
     /// Stamped by the repository loader on every C/C++ file when it skipped some other
     /// in-repo C/C++ file the macro census could not read (#630 slice 6a): the census then
     /// fails closed. Absent a loader (tests, single files) it is false.
@@ -570,6 +573,13 @@ impl ParsedFile {
         *self.python_hidden_hazard.get_or_init(|| build(self))
     }
 
+    pub(crate) fn c_object_names(
+        &self,
+        build: impl FnOnce(&Self) -> std::collections::BTreeSet<String>,
+    ) -> &std::collections::BTreeSet<String> {
+        self.c_object_names.get_or_init(|| build(self))
+    }
+
     /// Parse source code in the given language.
     pub fn parse(path: &str, source: &str, language: Language) -> Result<Self> {
         let mut parser = Parser::new();
@@ -603,6 +613,7 @@ impl ParsedFile {
             js_export_facts: std::sync::OnceLock::new(),
             js_loop_plan: std::sync::OnceLock::new(),
             python_hidden_hazard: std::sync::OnceLock::new(),
+            c_object_names: std::sync::OnceLock::new(),
             c_family_skipped_in_repo: false,
             c_census_texts: None,
             c_census_lost: None,

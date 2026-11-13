@@ -272,9 +272,10 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     "exact label changed in {file}: {key:?}"
                 );
             }
-            // C rules U and D (#630 slice 6b) run for `.c` files only; a `.h` parsed as C and
-            // C++ stay byte-identical to the frozen reference.
-            let c_pruned = language == Language::C && file.ends_with(".c");
+            // C rules U and D (#630 slices 6b, 6c) run for `.c` files and C++ files; every other
+            // C-grammar file (a `.h` included) stays byte-identical to the frozen reference.
+            let c_pruned =
+                language == Language::Cpp || (language == Language::C && file.ends_with(".c"));
             if language == Language::Python
                 || language == Language::Rust
                 || language.is_js_family()

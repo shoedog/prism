@@ -13,15 +13,25 @@ mod aliases;
 mod arrow_body_cap_tests;
 #[cfg(test)]
 mod c_macro_census_tests;
+mod c_phantom;
 mod c_prune;
 #[cfg(test)]
 mod c_prune_fold2_tests;
+#[cfg(test)]
+mod c_prune_fold7_tests;
 #[cfg(test)]
 mod c_prune_inline_cases;
 #[cfg(test)]
 mod c_prune_tests;
 #[cfg(test)]
 mod census_cap_tests;
+mod cpp_prune;
+#[cfg(test)]
+mod cpp_prune_inline_cases;
+mod cpp_prune_names;
+mod cpp_prune_operand;
+#[cfg(test)]
+mod cpp_prune_tests;
 mod exact_reads;
 mod fallback_cap;
 #[cfg(test)]
@@ -80,6 +90,7 @@ mod owner_labels;
 mod param_alias_trace;
 #[cfg(test)]
 mod prune_cap_tests;
+mod prune_roots;
 mod python_prune;
 #[cfg(test)]
 mod python_prune_tests;

@@ -67,7 +67,12 @@ pub(super) struct LexicalFacts<'a> {
     rust_refused: BTreeSet<String>,
     /// C owner facts (`c_prune`), present when the owner passes G1-G5.
     c: Option<super::c_prune::COwner>,
+    /// C++ `template_declaration` owner: its own inner `function_definition` (F6).
+    template_inner: Option<usize>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
+    /// C/C++ D: the variable-write certificate per raw def span (`certified_candidate`
+    /// resolves the declaration, linear in the block, so it is computed once per span).
+    c_cert: RefCell<BTreeMap<(usize, usize, AccessPath), Option<usize>>>,
 }
 impl<'a> LexicalFacts<'a> {
     pub(super) fn new(
@@ -92,7 +97,7 @@ impl<'a> LexicalFacts<'a> {
             && !super::rust_prune::has_local_macro(owner))
         .then(|| super::rust_prune::scan_macros(parsed, owner, census))
         .filter(|scan| !scan.owner_off);
-        let c_owner = (parsed.language == Language::C)
+        let c_owner = matches!(parsed.language, Language::C | Language::Cpp)
             .then(|| {
                 let scanned = super::c_prune::scan(parsed, owner, c_census);
                 super::c_prune::trace(parsed, owner, &scanned);
@@ -109,7 +114,7 @@ impl<'a> LexicalFacts<'a> {
                         && !super::python_prune::has_hidden_reader(parsed, owner)
                 }
                 Language::Rust => rust_macros.is_some(),
-                Language::C => c_owner.is_some(),
+                Language::C | Language::Cpp => c_owner.is_some(),
                 l if l.is_js_family() => js_enabled,
                 _ => false,
             },
@@ -122,7 +127,9 @@ impl<'a> LexicalFacts<'a> {
             rust_mut_borrowed: BTreeSet::new(),
             rust_refused: BTreeSet::new(),
             c: c_owner,
+            template_inner: None,
             cache: RefCell::new(BTreeMap::new()),
+            c_cert: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
             return facts;
@@ -158,6 +165,14 @@ impl<'a> LexicalFacts<'a> {
         if parsed.language == Language::Rust {
             boundaries.extend(super::rust_prune::NESTED_ITEMS);
         }
+        // F6: a `template_declaration` owner's own inner function is not a boundary for it.
+        if parsed.language == Language::Cpp && owner.kind() == "template_declaration" {
+            let mut cursor = owner.walk();
+            facts.template_inner = owner
+                .named_children(&mut cursor)
+                .find(|c| c.kind() == "function_definition")
+                .map(|c| c.id());
+        }
         facts.collect(owner, owner.id(), &boundaries);
         for span in rvalues {
             facts
@@ -182,7 +197,10 @@ impl<'a> LexicalFacts<'a> {
     }
 
     fn collect(&mut self, node: Node<'a>, owner_id: usize, boundaries: &[&str]) {
-        if node.id() != owner_id && boundaries.contains(&node.kind()) {
+        if node.id() != owner_id
+            && Some(node.id()) != self.template_inner
+            && boundaries.contains(&node.kind())
+        {
             self.nested.push((node.start_byte(), node.end_byte()));
         }
         if self.parsed.language == Language::Python {
@@ -212,7 +230,7 @@ impl<'a> LexicalFacts<'a> {
     fn pure_path(&self, node: Node<'_>) -> Option<AccessPath> {
         match self.parsed.language {
             Language::Rust => super::rust_prune::pure_path(self.parsed, node),
-            Language::C => super::c_prune::pure_path(self.parsed, node),
+            Language::C | Language::Cpp => super::c_prune::pure_path(self.parsed, node),
             _ => pure_path(self.parsed, node),
         }
     }
@@ -262,7 +280,7 @@ impl<'a> LexicalFacts<'a> {
                 split_spec: false,
             });
         }
-        if self.parsed.language == Language::C {
+        if matches!(self.parsed.language, Language::C | Language::Cpp) {
             let c = self.c.as_ref()?;
             let (statement, plain) = super::c_prune::classify_write(self.parsed, node, c)?;
             return Some(Write {
@@ -423,6 +441,20 @@ impl<'a> LexicalFacts<'a> {
                     && occurrences
                         .iter()
                         .all(|node| c.binding(self.parsed, *node).is_some());
+                if !bound && super::c_prune::trace_enabled() {
+                    let why = if path.fields.is_empty() {
+                        occurrences
+                            .iter()
+                            .find_map(|n| c.refusal(self.parsed, *n))
+                            .unwrap_or_else(|| "unknown".into())
+                    } else {
+                        "field_path".into()
+                    };
+                    eprintln!(
+                        "c-prune-use\t{}\t{line}\t{}\t{why}",
+                        self.parsed.path, path.base
+                    );
+                }
                 if !bound {
                     proof = UseProof::default();
                 } else if !c.d_ok {
@@ -466,7 +498,7 @@ impl<'a> LexicalFacts<'a> {
                         !is_declaring_kind(write.statement.kind())
                             && !write.split_spec
                             // C: a compound assignment reads the old value and never dominates.
-                            && (self.parsed.language != Language::C || write.plain)
+                            && (self.c.is_none() || write.plain)
                             && (!self.parsed.language.is_js_family()
                                 || matches!(
                                     write.statement.kind(),
@@ -543,7 +575,7 @@ impl<'a> LexicalFacts<'a> {
         match self.parsed.language {
             Language::Python => super::python_prune::is_region(node.kind()),
             Language::Rust => super::rust_prune::is_region(node.kind()),
-            Language::C => super::c_prune::is_region(node),
+            Language::C | Language::Cpp => super::c_prune::is_region(node),
             l if l.is_js_family() => super::js_prune::is_region(node),
             _ => is_region(node.kind()),
         }
@@ -558,6 +590,12 @@ impl<'a> LexicalFacts<'a> {
     ) -> bool {
         let drop = self.proof(path, line).write_only;
         if drop {
+            if self.c.is_some() && super::c_prune::trace_enabled() {
+                eprintln!(
+                    "c-prune-drop\tU\t{}\t{line}\t{}",
+                    self.parsed.path, path.base
+                );
+            }
             stats.dfg_pruned_write_only += 1;
         }
         drop
@@ -602,12 +640,23 @@ impl<'a> LexicalFacts<'a> {
         // very declaration the windows resolved to (F1: a dereference store is no def of
         // the pointer variable).
         let mut c_decl = None;
-        if let Some(c) = &self.c {
-            let _ = c;
+        if self.c.is_some() {
             if !path.fields.is_empty() {
                 return true;
             }
-            match super::c_prune::certified_candidate(self.parsed, start, end, path) {
+            // Only a use with dominating windows can drop; ask that cached question before
+            // the certificate (an escaped name has none, whatever the pair).
+            if self.proof(path, line).windows.is_none() {
+                return true;
+            }
+            let cert = *self
+                .c_cert
+                .borrow_mut()
+                .entry((start, end, path.clone()))
+                .or_insert_with(|| {
+                    super::c_prune::certified_candidate(self.parsed, start, end, path)
+                });
+            match cert {
                 Some(d) => c_decl = Some(d),
                 None => return true,
             }
@@ -618,6 +667,12 @@ impl<'a> LexicalFacts<'a> {
             })
         });
         if drop {
+            if self.c.is_some() && super::c_prune::trace_enabled() {
+                eprintln!(
+                    "c-prune-drop\tD\t{}\t{line}\t{}",
+                    self.parsed.path, path.base
+                );
+            }
             stats.dfg_pruned_dominated += 1;
         }
         !drop
