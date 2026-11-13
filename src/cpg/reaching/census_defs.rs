@@ -42,6 +42,8 @@ pub(super) struct CensusFacts {
     classes: Option<Rc<super::refusal_classes::Refusals>>,
     /// #783 option A (slice 4a, inert): the owner's alias certificates; shared by clones.
     alias_certs: Option<Rc<super::alias_cert::AliasCerts>>,
+    /// #783 slice 4b: the traced run's `rd-alias-move` records, filled by the alias refinement.
+    alias_log: Option<super::alias_kill::MoveLog>,
 }
 
 impl CensusFacts {
@@ -50,6 +52,7 @@ impl CensusFacts {
         &mut self,
         recorded: &[DefSite],
         facts: &crate::cpg::binding_facts::BindingFacts,
+        log: bool,
     ) {
         let candidates = self
             .completion
@@ -57,6 +60,12 @@ impl CensusFacts {
             .and_then(|c| c.alias.as_deref())
             .map_or(&[][..], |v| &v[..]);
         self.alias_certs = super::alias_cert::AliasCerts::certify(candidates, recorded, facts);
+        self.alias_log = (log && self.alias_certs.is_some()).then(Default::default);
+    }
+
+    /// The traced run's alias move records (`None` off the trace or with no certificate).
+    pub(super) fn alias_log(&self) -> Option<&super::alias_kill::MoveLog> {
+        self.alias_log.as_ref()
     }
 
     /// Test seam: these facts without the alias candidates (the clone-cost check of the candidates' sharing).
@@ -70,8 +79,8 @@ impl CensusFacts {
     }
 
     /// The owner's alias certificates (none: no candidate).
-    pub(super) fn alias_certs(&self) -> Option<&super::alias_cert::AliasCerts> {
-        self.alias_certs.as_deref()
+    pub(super) fn alias_certs(&self) -> Option<&Rc<super::alias_cert::AliasCerts>> {
+        self.alias_certs.as_ref()
     }
 
     fn inert(n_recorded: usize) -> Self {
@@ -321,6 +330,7 @@ pub(super) fn complete_with(
         d2c,
         classes,
         alias_certs: None,
+        alias_log: None,
     };
     (recorded, facts)
 }

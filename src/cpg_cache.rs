@@ -332,8 +332,9 @@ mod stream;
 /// - v181: C rules U and D in the DFG producer for `.c` owners (#630 slice 6b): pairs into write-only statements and pairs overwritten by a dominating assignment or initialised declaration are no longer emitted; the C/C++ macro census (6a) now gates owners and names.
 /// - v182: Go, Rust and Python alias twins only at real writes through the alias (alias-twin lane slice 2a): an occurrence that only declares, initialises or reassigns the alias variable mints no target def and no twin edge, so DataFlow edges and labels of Go, Rust and Python owners change.
 /// - v183: C and C++ alias twins only at real writes through the alias (alias-twin lane slice 2b): an occurrence that only declares, initialises or reassigns the alias variable mints no target def and no twin edge, so DataFlow edges and labels of C and C++ owners change.
-/// - v184: C++ rules U and D (#630 slice 6c): C++ owners (and templates; a `.h` stays off) drop write-only and dominated DataFlow pairs under the scalar gate and the C++ escape set, so their DataFlow edges change.
-const CACHE_VERSION: u32 = 184;
+/// - v184: a write through a certified single-step JS/TS/TSX body alias (`const u = o; u.x = 1`, `u.x++`, `for (u.x of ..)`, a destructuring target) takes the label effect of the same write on the aliased path (#783, option A): an `exact` edge becomes `NameOnly(AliasUnstable)` when every unflagged route to the use crosses it, `NameOnly(SameLine)` when D3 cannot order it in the use's or def's node. Labels only, edges identical; chains, rebinding, parameter defaults, captures, member-value aliases, `this`, deferred regions and shadowed spellings keep their labels.
+/// - v185: C++ rules U and D (#630 slice 6c): C++ owners (and templates; a `.h` stays off) drop write-only and dominated DataFlow pairs under the scalar gate and the C++ escape set, so their DataFlow edges change.
+const CACHE_VERSION: u32 = 185;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -866,7 +867,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 184);
+        assert_eq!(super::CACHE_VERSION, 185);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

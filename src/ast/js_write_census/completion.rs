@@ -156,6 +156,14 @@ pub(crate) fn completion(
                     }
                     None => {
                         out.counting.unplaced.insert(site.path.base.clone());
+                        if !site.path.comps.is_empty() {
+                            let probe = binding_probe(parsed, site);
+                            out.counting.unplaced_sites.push((
+                                site.path.base.clone(),
+                                probe,
+                                site.line,
+                            ));
+                        }
                     }
                 }
             }
