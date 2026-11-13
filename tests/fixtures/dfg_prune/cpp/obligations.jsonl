@@ -286,6 +286,12 @@
 {"case": "f5s_type_star_if.cc", "id": "f5s_type_star_if", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
 {"case": "f5s_type_star_label.cc", "id": "f5s_type_star_label", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
 {"case": "f5s_type_star_same_scope.cc", "id": "f5s_type_star_same_scope", "path": "x", "def_line": 9, "use_line": 13, "keep": true, "reason": "enum3_sonnet_area1"}
+{"case": "f6_fnparams_comment.cc", "id": "f6_fp", "path": "b", "def_line": 5, "use_line": 9, "keep": true, "reason": "comment_in_outer_declarator_phantom_parameter"}
+{"case": "f6_fnparams_nocomment.cc", "id": "f6_fpc", "path": "b", "def_line": 5, "use_line": 9, "keep": true, "reason": "control_outer_declarator_without_comment"}
+{"case": "f6_ref_decl_comment.cc", "id": "f6_ref", "path": "x", "def_line": 2, "use_line": 7, "keep": true, "reason": "comment_in_parenthesized_reference_declarator"}
+{"case": "f6_ref_decl_nocomment.cc", "id": "f6_refc", "path": "x", "def_line": 2, "use_line": 7, "keep": true, "reason": "control_reference_declarator_without_comment"}
+{"case": "f6_ref_ptr_comment.cc", "id": "f6_refp", "path": "p", "def_line": 3, "use_line": 8, "keep": true, "reason": "comment_in_parenthesized_pointer_reference"}
+{"case": "f6_ref_ptr_nocomment.cc", "id": "f6_refpc", "path": "p", "def_line": 3, "use_line": 8, "keep": true, "reason": "control_pointer_reference_without_comment"}
 {"case": "10_header.h", "id": "hs", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "dot_h_owner_is_off", "owner": "header_scalar_drop"}
 {"case": "10_header.h", "id": "hc", "path": "x", "def_line": 14, "use_line": 18, "keep": true, "reason": "dot_h_owner_is_off_bare_argument", "owner": "header_cpp_semantics_keep"}
 {"case": "10_header.h", "id": "ht", "path": "h", "def_line": 22, "use_line": 24, "keep": true, "reason": "dot_h_owner_is_off_typedef", "owner": "header_typedef_keep"}

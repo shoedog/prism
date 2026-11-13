@@ -382,12 +382,17 @@ stores recorded under `b`'s spelling are never dropped (F1). Hence d's value can
   which treat bare arguments as by-value.
 - Inherited and already settled: the #634 survivor cap.
 
-No disclosure is needed for C++ exceptions, scope-exit destructors, conditional-compilation writes or lexical
-shadowing by an ordinary declaration: each is closed by structure. Unions and anonymous aggregates are NOT (6c fold 2,
+No disclosure is needed for C++ exceptions, scope-exit destructors or conditional-compilation writes: each is closed by
+structure. Lexical shadowing by an ordinary declaration is closed only while the declarator peelers can read the declarator
+(6c fold 6: a comment inside `int (/*c*/ x)` hid a declaration from the `.c` resolver, and inside a returned-function
+declarator made the returned type's parameters look like the function's; both are now read through `prune_roots::operand`
+and fail closed). Unions and anonymous aggregates are NOT (6c fold 2,
 round-2 review): the members of a block-scope anonymous `union` are names of the enclosing scope that share storage,
 and the resolver sees no declarator for them, so their names escape. The resolver itself is NOT closed-world: a form it
-does not model (`MODELLED_BLOCK_CHILD`), a hidden declaration, a `using` name or a vexing-parse `S(y);` is closed only by
-escaping the NAME, while name lookup keeps walking outward to an outer namesake. Fix E's left-side test therefore asks
+does not model (`MODELLED_BLOCK_CHILD`), a hidden declaration, a `using` name, a vexing-parse `S(y);` or a fold-5 introducer
+(enumerators of any `enum_specifier`, `using enum`, declarators of a non-scalar-base declaration, every `type_identifier`,
+template argument lists and template names, `offsetof`/non-keyword `alignof` forms; `cpp_prune_names.rs`) is closed only by
+escaping the NAME (or, for `using enum`, by turning the owner off), while name lookup keeps walking outward to an outer namesake. Fix E's left-side test therefore asks
 `COwner::binding` (which fails on every escape of the owner), decided after the walk as a fixpoint (`cpp_prune_operand::settle`, a worklist since fold 4),
 and escapes the right operand's roots when the left side is not a bindable scalar local (round 3, W2). A qualified name
 (`N::x`) is never a local.
@@ -577,7 +582,7 @@ is the same, with these changes:
 > dialect assumption covers every C++-grammar extension (`cpp cc cxx hpp hxx hh`).
 >
 > **2026-11-12 (6c fold 5, round-5 reviews and the targeted enumeration, owner direction: close in code):** the resolver is
-> closed-world over every name introducer it does not model, by structure (`cpp_prune_names.rs`): enumerators of any enum
+> closed over the name introducers listed here (not over every introducer: fold 6 retracts the broader claim), by name (`cpp_prune_names.rs`): enumerators of any enum
 > escape, a block-scope `using enum` turns the owner off, declarators of a non-scalar-base declaration escape (pointer
 > declarators too: `ga * x;` can be a misparsed expression), every `type_identifier` escapes, template syntax everywhere
 > escapes (replacing the call-only `template_arg`), and `offsetof`/non-keyword `alignof` forms escape. Only the lowercase
@@ -634,3 +639,13 @@ Text-only include files (`.inl .inc .ipp .tcc .def .cu .cuh .H .C .HPP .CPP`, pl
 - Non-parsed census texts use a permissive scan: phase-1 normalization (BOM, CR, trigraphs, both splice modes, unioned; NUL-stripped variant for BOM-less UTF-16), then, on both the comment-kept and a comment-erased variant (best-effort `/* */` incl. multi-line and `//`, no lexer state, round-4 Sol #1/Opus E1; transitive include discovery uses the same variants), any `#`/`%:`/`??=` + blanks + `define`/`undef` + identifier name anywhere on a line is a definition (`undef` a bodiless fact), body identifier runs are free names, `##` poisons, control spellings set control, a non-identifier name is no fact, no comment or string tracking, never `incomplete` from lexer state. Non-UTF-8 is decoded lossily (UTF-16 with a BOM as UTF-16). Only an unreadable file or directory, a symlink pointing outside the repository or unreadable, a symlinked directory pointing outside the root or into an excluded directory (an in-repo directory link is followed: include targets are walked segment by segment, a directory link entered at its target, so links to the root, nested links and cycles resolve), or a non-C input over 64 MiB containing ANY directive leader (`#`, `%:`, `??=`; round-4 Sol #2), is `incomplete`. `list_tree` collects symlinked files; a C-like or include-resolved symlink is read through the link when its target is in the repository (round-4 Opus W2).
 - The walk reads only parsed files, resolved targets and C-like files (a directory listing locates them); `.git/` and `eval/secbench` are never entered. The aggregate identity covers the facts, the files read, the contributors and the lost inputs.
 - Residual (documented, same boundary as D2): a header with an unusual extension reached only through a form prism cannot resolve (a computed include, a generated header absent from the repository) acts like an external header. Precise follow-ups: #813; residual lexing shapes: #812.
+
+> **2026-11-12 (6c fold 6, round-6 reviews):** retracts three claims. (1) "A C unrecognised shape is an rvalue" is false for GNU
+> `__builtin_choose_expr(c, a, b)` (an lvalue of `a` or `b`): `prune_roots::chain_roots` now returns the roots of both, and
+> escapes every identifier of the arguments of any other `__builtin_*` call under an address-of or member chain (a 6b hole,
+> `.c` keeps more edges). (2) "Closed by structure" / "closed-world over every introducer": the declarator peelers read
+> `named_child(0)`, which is a `comment` extra in `int (/*c*/ x)`; every site now uses `operand` (a source-scan unit test
+> forbids the old call in the prune modules), `function_params` fails closed when the chain does not reach the name leaf
+> and its own list (it used to return the returned type's parameter list), `is_reference_like` sees through comments, and
+> the `.c` resolver binds an unwalkable declarator as ineligible like C++ (the Cpp gate on that branch is gone). (3) `.c`
+> output also moves where `(/*c*/ M)(x)` names an in-repo macro (more refusals; fold 5). All `.c` changes only keep more edges.

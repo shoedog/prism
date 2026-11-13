@@ -56,7 +56,7 @@
 //! declares an object named `nullptr` is outside the model (documented, not closed).
 use super::c_prune::COwner;
 use super::cpp_prune_operand::{Deferred, Need};
-use super::prune_roots::{peel, wrapper_operands};
+use super::prune_roots::{operand, peel, wrapper_operands};
 use crate::ast::ParsedFile;
 use tree_sitter::Node;
 
@@ -233,7 +233,7 @@ fn is_reference_like(declarator: Node<'_>) -> bool {
             | "function_declarator"
             | "attributed_declarator" => match node
                 .child_by_field_name("declarator")
-                .or_else(|| node.named_child(0))
+                .or_else(|| operand(node))
             {
                 Some(n) => node = n,
                 None => return false,
@@ -461,7 +461,7 @@ pub(super) fn coroutine_macro(free: &std::collections::BTreeSet<String>) -> bool
 /// Direct children of a block that introduce no name the resolver misses (a declaration is read
 /// by `scope_decls`, `using` by the `using_decl` escape, a typedef or alias names a type, and
 /// the rest are statements). Anything else (an anonymous union, an enum or class specifier, a
-/// stray type name) escapes every name in it: the resolver is closed-world.
+/// stray type name) escapes every name in it; closure is by name for the listed introducers only (`cpp_prune_names.rs`), not for every possible one.
 const MODELLED_BLOCK_CHILD: &[&str] = &[
     "alias_declaration",
     "attributed_statement",
@@ -621,7 +621,7 @@ pub(super) fn note_node(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
                                     None => break,
                                 }
                             }
-                            "parenthesized_declarator" => match n.named_child(0) {
+                            "parenthesized_declarator" => match operand(n) {
                                 Some(x) => n = x,
                                 None => break,
                             },

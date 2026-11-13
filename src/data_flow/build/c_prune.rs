@@ -15,7 +15,7 @@
 //! spells `&`, hides no jump); a `.c` file compiled as C++; the survivor-based fallback cap
 //! (#634) lets a formerly capped owner regain its surviving edges.
 use super::cpp_prune;
-use super::prune_roots::{chain_roots, operand};
+use super::prune_roots::{chain_roots, function_params, operand};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::{
@@ -435,7 +435,7 @@ fn walk(
             if amp {
                 if let Some(arg) = node.child_by_field_name("argument") {
                     let mut roots = Vec::new();
-                    chain_roots(arg, &mut roots);
+                    chain_roots(parsed, arg, &mut roots);
                     for root in roots {
                         out.escaped.insert(parsed.node_text(&root).to_owned());
                     }
@@ -460,7 +460,7 @@ fn walk(
         "field_expression" | "subscript_expression" => {
             let mut roots = Vec::new();
             if let Some(a) = node.child_by_field_name("argument") {
-                chain_roots(a, &mut roots);
+                chain_roots(parsed, a, &mut roots);
             }
             for root in roots {
                 out.member_roots.insert(parsed.node_text(&root).to_owned());
@@ -508,7 +508,7 @@ fn declared<'a>(mut node: Node<'a>) -> Option<Declared<'a>> {
                 node = node.child_by_field_name("declarator")?;
             }
             "parenthesized_declarator" => {
-                node = node.named_child(0)?;
+                node = operand(node)?;
             }
             "array_declarator" | "function_declarator" => {
                 exotic = true;
@@ -516,12 +516,12 @@ fn declared<'a>(mut node: Node<'a>) -> Option<Declared<'a>> {
             }
             "attributed_declarator" => {
                 exotic = true;
-                node = node.named_child(0)?;
+                node = operand(node)?;
             }
             // C++: a reference never names its own storage.
             "reference_declarator" => {
                 exotic = true;
-                node = node.named_child(0)?;
+                node = operand(node)?;
             }
             _ => return None,
         }
@@ -545,7 +545,7 @@ fn is_plain_declarator_chain(mut node: Node<'_>) -> bool {
                 Some(n) => node = n,
                 None => return false,
             },
-            "parenthesized_declarator" => match node.named_child(0) {
+            "parenthesized_declarator" => match operand(node) {
                 Some(n) => node = n,
                 None => return false,
             },
@@ -714,32 +714,6 @@ pub(super) fn resolve<'a>(parsed: &ParsedFile, occ: Node<'a>) -> Option<Node<'a>
     }
 }
 
-/// The `parameter_list` of a function declarator chain.
-fn function_params(mut declarator: Node<'_>) -> Option<Node<'_>> {
-    loop {
-        match declarator.kind() {
-            "function_declarator" => {
-                // `int (*f(int a))(int b)`: the innermost function declarator holds the
-                // function's own parameters; outer ones belong to the returned type.
-                let inner = declarator.child_by_field_name("declarator")?;
-                if let Some(p) = function_params(inner) {
-                    return Some(p);
-                }
-                return declarator.child_by_field_name("parameters");
-            }
-            "pointer_declarator"
-            | "parenthesized_declarator"
-            | "attributed_declarator"
-            | "array_declarator" => {
-                declarator = declarator
-                    .child_by_field_name("declarator")
-                    .or_else(|| declarator.named_child(0))?;
-            }
-            _ => return None,
-        }
-    }
-}
-
 fn scope_decls<'a>(
     parsed: &ParsedFile,
     scope: Node<'a>,
@@ -777,9 +751,7 @@ fn decl_idents<'a>(
         // C++: a structured binding (also under a reference or other wrapper) binds every name
         // into the aggregate: ineligible (see `declaration_of`). A declarator shape this
         // resolver cannot unwrap fails closed the same way (see `decl_name`).
-        if parsed.language == crate::languages::Language::Cpp
-            && (structured_binding_in(top).is_some() || declared(top).is_none())
-        {
+        if structured_binding_in(top).is_some() || declared(top).is_none() {
             if top.start_byte() <= occ.start_byte() {
                 decl_name(parsed, top, name, out);
             }
@@ -800,7 +772,7 @@ fn structured_binding_in(mut node: Node<'_>) -> Option<Node<'_>> {
         match node.kind() {
             "structured_binding_declarator" => return Some(node),
             "reference_declarator" | "parenthesized_declarator" | "attributed_declarator" => {
-                node = node.named_child(0)?;
+                node = operand(node)?;
             }
             "pointer_declarator" | "array_declarator" => {
                 node = node.child_by_field_name("declarator")?;
