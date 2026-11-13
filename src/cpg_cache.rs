@@ -334,7 +334,7 @@ mod stream;
 /// - v183: C and C++ alias twins only at real writes through the alias (alias-twin lane slice 2b): an occurrence that only declares, initialises or reassigns the alias variable mints no target def and no twin edge, so DataFlow edges and labels of C and C++ owners change.
 /// - v184: a write through a certified single-step JS/TS/TSX body alias (`const u = o; u.x = 1`, `u.x++`, `for (u.x of ..)`, a destructuring target) takes the label effect of the same write on the aliased path (#783, option A): an `exact` edge becomes `NameOnly(AliasUnstable)` when every unflagged route to the use crosses it, `NameOnly(SameLine)` when D3 cannot order it in the use's or def's node. Labels only, edges identical; chains, rebinding, parameter defaults, captures, member-value aliases, `this`, deferred regions and shadowed spellings keep their labels.
 /// - v185: C++ rules U and D (#630 slice 6c): C++ owners (and templates; a `.h` stays off) drop write-only and dominated DataFlow pairs under the scalar gate and the C++ escape set, so their DataFlow edges change.
-/// - v186: census raw strings with line splices (#630 slice 6d-1): a C++ raw string whose body holds a backslash-newline is lexed as written (phases 1-2 reverted inside it) instead of setting the repo-wide `incomplete` flag, so census facts and the C/C++ U and D enablement change.
+/// - v186: census raw strings with line splices (#630 slice 6d-1): a C++ raw string whose body holds a backslash-newline is lexed as written (line splices reverted inside it; trigraphs fail closed) instead of setting the repo-wide `incomplete` flag, so census facts and the C/C++ U and D enablement change.
 const CACHE_VERSION: u32 = 186;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;

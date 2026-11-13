@@ -1,5 +1,5 @@
 //! #630 slice 6d-1: C++ raw string literals with line splices in their body. C++
-//! [lex.pptoken]/3 reverts phases 1-2 (trigraphs, line splicing) between the opening quote
+//! [lex.pptoken]/3 reverts line splicing (and trigraphs, which the census cannot revert: it fails closed) between the opening quote
 //! and the closing delimiter, so the closing `)delim"` is searched as written.
 use super::macro_census::CMacroCensus;
 use crate::ast::ParsedFile;
@@ -140,4 +140,58 @@ fn match_boundaries_against_splice_points() {
     assert_eq!(e(b, 0, &[5]), Some(5));
     // A splice between `)` and `"`: inside the match, rejected.
     assert_eq!(e(b, 0, &[4]), None);
+}
+
+// ---- Fold 2: directive-like leaders and trigraphs. ----
+
+#[test]
+fn directive_leaders_of_any_spelling_fail_closed() {
+    for lead in ["\x0b", "\x0c", " \t", "/*c*/ ", "/* c */\t"] {
+        let src = format!("{lead}#define A (R\"(x)\\\n\" /* )\", q + 1)\n");
+        let c = cpp(&src);
+        assert!(c.incomplete(), "{src:?}: {:?}", c.reasons);
+    }
+    for src in [
+        "%:define A (R\"(x)\\\n\" /* )\", q + 1)\n",
+        "??=define A (R\"(x)\\\n\" /* )\", q + 1)\n",
+    ] {
+        let c = cpp(src);
+        assert!(c.incomplete(), "{src:?}: {:?}", c.reasons);
+    }
+    let c = cpp("\x0b#define A (R\"(x)\\\n\" /* )\", q + 1)\n");
+    let r = &c.incomplete_reasons().first[0];
+    assert_eq!(r.kind, "raw_string_splice_in_directive");
+    assert_eq!(r.line, 1);
+    assert!(r.snippet.contains("define"));
+}
+
+#[test]
+fn lenient_only_splice_in_a_directive_raw_string_fails_closed() {
+    let c = cpp("#define A (R\"(x)\\ \n\" /* )\", q + 1)\n");
+    assert!(c.incomplete(), "{:?}", c.reasons);
+}
+
+#[test]
+fn trigraph_in_a_file_with_a_raw_string_candidate_fails_closed() {
+    // sol W2: `??)` closes the literal in the compiler's text; every census pass misses the
+    // real define after the `/* real */`.
+    let src = "const char *s = R??/\n\"(a\\\nb\nx /* fake\n??)\";\n/* real\n*/ #define M hidden\nconst char *t = \")\";\n";
+    let c = cpp(src);
+    assert!(c.incomplete(), "{:?}", c.reasons);
+    assert_eq!(c.incomplete_reasons().first[0].kind, "raw_string_trigraph");
+    // Without a raw-string candidate a trigraph is no census concern here.
+    let c = cpp("const char *s = \"??)\";\n#define M x\n");
+    assert!(!c.incomplete(), "{:?}", c.reasons);
+    // A trigraph-free protobuf shape stays complete.
+    let c =
+        cpp("void f() {\n  p->Emit(R\"cc(\n#if (a) && \\\n  b\n#endif\n)cc\");\n}\n#define M x\n");
+    assert!(!c.incomplete(), "{:?}", c.reasons);
+}
+
+#[test]
+fn owner_detector_refuses_trigraphs_beside_a_raw_string_candidate() {
+    use super::macro_census::has_spliced_raw_string as h;
+    assert!(h("int f(){ const char *s = R\"(a??)\"; }"));
+    assert!(!h("int f(){ const char *s = R\"(a)\"; int t = 0; }"));
+    assert!(!h("int f(){ const char *s = \"??)\"; }"));
 }

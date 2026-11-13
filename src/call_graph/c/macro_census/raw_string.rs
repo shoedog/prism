@@ -1,8 +1,8 @@
 //! C++ raw string literals for the macro census (#630 slice 6d-1).
 //!
 //! C++ [lex.pptoken]/3: between the opening `"` and the closing delimiter, line splicing
-//! (phase 2) is reverted (trigraphs, translated in phase 1, stay translated here: the census
-//! does not revert them), so a backslash-newline inside the
+//! (phase 2) is reverted (the standard also reverts trigraphs, which the census cannot do: a
+//! text with a raw-string candidate and a trigraph fails closed, see `first_trigraph`), so a backslash-newline inside the
 //! literal is two characters of its text and the closing `)delim"` is found on the text as
 //! written. The census reads the SPLICED buffer, so the closing delimiter is searched there
 //! and a candidate is accepted only when no splice point falls inside it (a splice point
@@ -64,9 +64,25 @@ pub(super) fn interior_splice(splices: &[usize], q: usize, end: usize) -> bool {
     splices.get(k).is_some_and(|&s| s < end)
 }
 
-/// Is this stripped output line (up to and including the raw prefix) a directive line: its
-/// first token is `#` or `%:`?
+/// Could this stripped output line (up to and including the raw prefix) be, or continue, a
+/// directive? Any `#`, `%:` or `??=` before the literal counts, whatever blanks or stripped
+/// comments precede it (over-approximation: the directive readers skip VT, FF and comments
+/// the literal's own line check must not have to mirror).
 pub(super) fn starts_directive(line: &[u8]) -> bool {
-    let t = line.trim_ascii_start();
-    t.starts_with(b"#") || t.starts_with(b"%:")
+    line.contains(&b'#')
+        || line.windows(2).any(|w| w == b"%:")
+        || line.windows(3).any(|w| w == b"??=")
+}
+
+/// Does the text hold a trigraph sequence (`??` and one of `= / ' ( ) ! < > -`)? Returns the
+/// byte offset of the first one.
+pub(super) fn first_trigraph(b: &[u8]) -> Option<usize> {
+    b.windows(3).position(|w| {
+        w[0] == b'?'
+            && w[1] == b'?'
+            && matches!(
+                w[2],
+                b'=' | b'/' | b'\'' | b'(' | b')' | b'!' | b'<' | b'>' | b'-'
+            )
+    })
 }

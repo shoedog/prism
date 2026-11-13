@@ -49,3 +49,17 @@ fn owner_with_a_spliced_raw_string_is_off() {
     let (b, a) = counts(&ctl);
     assert!(a < b, "control prunes ({b} -> {a})");
 }
+
+#[test]
+fn vt_leader_directive_with_a_spliced_raw_string_keeps_the_pair() {
+    for lead in ["\x0b", "\x0c", "/*c*/ "] {
+        let src = format!("int src();\nvoid sink(int);\n{lead}#define A (R\"(x)\\\n\" /* )\", q + 1)\nint f() {{\n    int q = src();\n    q = A;\n    sink(q + 1);\n    return 0;\n}}\n");
+        let (b, a) = run(&src);
+        let pair = ("q".to_string(), 6, 7);
+        assert!(b.contains(&pair));
+        assert!(
+            a.contains(&pair),
+            "{lead:?}: q@6 -> q@7 must survive: {a:?}"
+        );
+    }
+}

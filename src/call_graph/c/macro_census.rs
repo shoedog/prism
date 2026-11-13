@@ -469,7 +469,7 @@ struct Stripped {
     /// A raw string with an interior splice (resolved by the as-written rule) was read.
     spliced_raw: bool,
     /// ... and it starts on a preprocessor directive's logical line.
-    spliced_raw_directive: bool,
+    spliced_raw_directive: Option<(usize, String)>,
     /// `(output index after a stripped comment, original index after it)`: the only places
     /// where output and input offsets stop agreeing.
     shifts: Vec<(usize, usize)>,
@@ -505,7 +505,7 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
     let mut unterminated = false;
     let mut raw_uncertain = false;
     let mut spliced_raw = false;
-    let mut spliced_raw_directive = false;
+    let mut spliced_raw_directive = None;
     let mut i = 0;
     while i < b.len() {
         let c = b[i];
@@ -569,7 +569,13 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
                                 spliced_raw = true;
                                 let line =
                                     out.as_slice().rsplit(|&c| c == b'\n').next().unwrap_or(&[]);
-                                spliced_raw_directive |= raw_string::starts_directive(line);
+                                if spliced_raw_directive.is_none()
+                                    && raw_string::starts_directive(line)
+                                {
+                                    let no = out.iter().filter(|&&c| c == b'\n').count() + 1;
+                                    spliced_raw_directive =
+                                        Some((no, String::from_utf8_lossy(line).into_owned()));
+                                }
                             }
                             out.extend_from_slice(&b[i..end]);
                             i = end;
@@ -605,6 +611,9 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
 pub(crate) fn has_spliced_raw_string(text: &str) -> bool {
     if !may_hold_raw_string(text.as_bytes()) {
         return false;
+    }
+    if raw_string::first_trigraph(text.as_bytes()).is_some() {
+        return true;
     }
     let mut variants = vec![translate(text, true)];
     let plain = translate(text, false);
@@ -1080,19 +1089,34 @@ fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut In
     // readers of the spliced text cannot see the splice points, so that fails closed. One
     // pass over the variants answers both.
     let mut desync = false;
-    let mut dir_splice = false;
+    let mut dir_splice: Option<(usize, String)> = None;
     for text in &texts {
         for lenient in [true, false] {
             let (spliced, points) = splice(text, lenient);
             for cxx in [true, false] {
                 let s = strip_comments(&spliced, &points, cxx);
                 desync |= s.unterminated || s.raw_uncertain;
-                dir_splice |= cxx && s.spliced_raw_directive;
+                if cxx && dir_splice.is_none() {
+                    dir_splice = s.spliced_raw_directive;
+                }
             }
         }
     }
-    if dir_splice {
-        incomplete.flag("raw_string_splice_in_directive", 0, "");
+    if let Some((line, snippet)) = dir_splice {
+        incomplete.flag("raw_string_splice_in_directive", line, &snippet);
+    }
+    // The standard reverts trigraphs inside a raw string too; the census cannot, so a text
+    // with a raw-string candidate and a trigraph fails closed (trigraphs left C++ in C++17).
+    if may_hold_raw_string(source.as_bytes()) {
+        if let Some(at) = raw_string::first_trigraph(source.as_bytes()) {
+            let line = source.as_bytes()[..at]
+                .iter()
+                .filter(|&&c| c == b'\n')
+                .count()
+                + 1;
+            let snippet = source.lines().nth(line - 1).unwrap_or("");
+            incomplete.flag("raw_string_trigraph", line, snippet);
+        }
     }
     let mut acc: BTreeMap<String, RawDef> = BTreeMap::new();
     let mut seen: Vec<Vec<u8>> = Vec::new();
