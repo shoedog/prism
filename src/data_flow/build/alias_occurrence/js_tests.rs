@@ -76,7 +76,7 @@ fn an_alias_the_owner_writes_through_keeps_its_binding_twins() {
         assert_eq!(lines(&src), vec![2, 3], "{read}");
     }
     let two =
-        "function t(o, p, q) {\n  let u = o;\n  let w = p;\n  u = q;\n  w = q;\n  w.f = 1;\n}\n";
+        "function t(o, p, q, r) {\n  let u = o;\n  let w = p;\n  u = q;\n  w = r;\n  w.f = 1;\n}\n";
     assert_eq!(lines(two), vec![2, 4]);
 }
 

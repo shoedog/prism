@@ -8,7 +8,7 @@
 //! else (a default value, a read position, `u.x++`, `for (u.x of ..)`) is `Unsupported`.
 //!
 //! Refusals beyond the table (all keep the twin, none changes the relation): every occurrence
-//! inside a formal parameter list (#761: `function f(o, u = o, v = u.x++)` relies on the binding twin
+//! below a formal parameter list of the owner (#761: `function f(o, u = o, v = u.x++)` relies on the binding twin
 //! to keep `o@1->o@3` off `exact`; option A excludes parameter defaults), and the member-name
 //! tokens of R1 ([`member_name_tokens`]).
 use super::shared::{field_in_parent, is_plain_ident, span_node, walk_owner};
@@ -28,14 +28,29 @@ const PATTERNS: [&str; 4] = [
     "rest_pattern",
 ];
 
-/// True when the node sits in a callable's parameter list (formals, defaults and patterns).
-pub(super) fn in_parameter_list(node: Node<'_>) -> bool {
+const CALLABLES: [&str; 7] = [
+    "function_declaration",
+    "function_expression",
+    "function",
+    "generator_function",
+    "generator_function_declaration",
+    "arrow_function",
+    "method_definition",
+];
+
+/// True when the node sits below a `formal_parameters` list (or an arrow's single parameter) of `owner`, nested
+/// callables inside a default included. With no owner the walk stops at the innermost callable.
+pub(super) fn in_parameter_list(node: Node<'_>, owner: Option<&Node<'_>>) -> bool {
     let mut cur = node;
     while let Some(parent) = cur.parent() {
-        match parent.kind() {
-            "formal_parameters" => return true,
-            "arrow_function" if field_in_parent(cur) == Some("parameter") => return true,
-            "statement_block" | "program" | "class_body" => return false,
+        if parent.kind() == "formal_parameters"
+            || (parent.kind() == "arrow_function" && field_in_parent(cur) == Some("parameter"))
+        {
+            return true;
+        }
+        match owner {
+            Some(o) if parent.id() == o.id() => return false,
+            None if CALLABLES.contains(&parent.kind()) => return false,
             _ => {}
         }
         cur = parent;
@@ -43,12 +58,21 @@ pub(super) fn in_parameter_list(node: Node<'_>) -> bool {
     false
 }
 
+#[cfg(test)]
 pub(super) fn classify(parsed: &ParsedFile, span: &PathSpan) -> Classified {
+    classify_in(parsed, None, span)
+}
+
+pub(super) fn classify_in(
+    parsed: &ParsedFile,
+    owner: Option<&Node<'_>>,
+    span: &PathSpan,
+) -> Classified {
     let unrecognised = done(Disposition::Unsupported, "X-UNRECOGNISED");
     let Some(node) = span_node(parsed, span) else {
         return unrecognised;
     };
-    if in_parameter_list(node) {
+    if in_parameter_list(node, owner) {
         return done(Disposition::Unsupported, "X-PARAM");
     }
     let Some(parent) = node.parent() else {
@@ -146,7 +170,9 @@ pub(super) fn anchor_is_declaration(parsed: &ParsedFile, line: usize) -> bool {
     };
     loop {
         match node.kind() {
-            "lexical_declaration" | "variable_declaration" => return !in_parameter_list(node),
+            "lexical_declaration" | "variable_declaration" => {
+                return !in_parameter_list(node, None)
+            }
             "for_in_statement" => return node.child_by_field_name("kind").is_some(),
             "expression_statement" | "assignment_expression" | "statement_block" | "program" => {
                 return false
@@ -186,109 +212,34 @@ pub(super) fn member_name_tokens(parsed: &ParsedFile, owner: &Node<'_>) -> BTree
     out
 }
 
-/// R2: the root names of every member or subscript chain the owner writes through (an assignment, compound
-/// assignment, `++`/`--`, `delete`, a `for` head or a destructuring-assignment member leaf), nested callables
-/// included, TypeScript wrappers peeled. A binding twin of an alias spelled like one of them stays: the twin's
-/// spurious kill of the target's earlier definitions is, for an alias A (option A, #783) does not certify,
-/// what keeps a write through it from leaving a wrong `exact`, and no syntactic proof is made here that A
-/// certifies the alias, so the whole class keeps the twin.
-pub(super) fn written_through_roots(parsed: &ParsedFile, owner: &Node<'_>) -> BTreeSet<String> {
-    let mut out = BTreeSet::new();
-    walk_owner(owner, |node| {
-        if !matches!(node.kind(), "member_expression" | "subscript_expression") {
-            return;
-        }
-        let Some(root) = chain_root(parsed, node) else {
-            return;
-        };
-        if is_write_target(node) {
-            out.insert(root);
-        }
-    });
-    out
-}
-
-/// The identifier a member chain bottoms out in (parentheses and TypeScript wrappers peeled).
-fn chain_root(parsed: &ParsedFile, node: Node<'_>) -> Option<String> {
-    let mut cur = node;
-    loop {
-        match cur.kind() {
-            "member_expression" | "subscript_expression" => {
-                cur = cur.child_by_field_name("object")?
-            }
-            "parenthesized_expression"
-            | "non_null_expression"
-            | "as_expression"
-            | "satisfies_expression" => cur = cur.named_child(0)?,
-            // `<T>x`: the type arguments come first.
-            "type_assertion" => cur = cur.named_child(cur.named_child_count().checked_sub(1)?)?,
-            "identifier" => return Some(parsed.node_text(&cur).to_string()),
-            _ => return None,
-        }
+/// R2: the root names of every member or subscript path the owner writes through, taken from the write census
+/// itself (`js_write_census`: its target recognition, wrappers, pattern kinds and root kinds), so a form the census
+/// records as a direct write of a path is a write through the alias here. A plain rebinding is no member write; a
+/// default's `right` is a read. `None` when the census refuses the owner (parse error, escaped name, refused kind):
+/// the caller then keeps every twin. A binding twin of an alias whose target some written root resolves to stays: the
+/// twin's spurious kill of the target's earlier defs is what keeps a write through an alias that option A (#783) does
+/// not certify off `exact`, and no proof is made here that A certifies the alias.
+pub(super) fn written_through_roots(
+    parsed: &ParsedFile,
+    owner: &Node<'_>,
+) -> Option<BTreeSet<String>> {
+    let census = crate::js_write_census::walk::census_with(
+        parsed,
+        crate::js_write_census::tables::Tables::shared(),
+        *owner,
+        false,
+    );
+    if census.refused() {
+        return None;
     }
-}
-
-/// True when `node` (a member or subscript expression) is written: the target of an assignment, an
-/// update, a `delete`, a `for` head or a destructuring-assignment leaf. The outermost chain element
-/// decides, so an inner element of `u.a.b = 1` is judged through its parent chain.
-fn is_write_target(node: Node<'_>) -> bool {
-    let mut cur = node;
-    while let Some(parent) = cur.parent() {
-        match parent.kind() {
-            "member_expression" | "subscript_expression" => {
-                if parent.child_by_field_name("object").map(|o| o.id()) != Some(cur.id()) {
-                    return false;
-                }
-            }
-            "parenthesized_expression"
-            | "non_null_expression"
-            | "as_expression"
-            | "satisfies_expression"
-            | "type_assertion" => {}
-            "assignment_expression" | "augmented_assignment_expression" => {
-                return field_in_parent(cur) == Some("left");
-            }
-            "update_expression" => return true,
-            "unary_expression" => {
-                let is_delete = parent
-                    .child_by_field_name("operator")
-                    .is_some_and(|op| op.kind() == "delete");
-                return is_delete;
-            }
-            "for_in_statement" => return field_in_parent(cur) == Some("left"),
-            "pair_pattern" | "array_pattern" | "object_pattern" | "rest_pattern"
-            | "spread_element" => {
-                return pattern_in_assignment(parent);
-            }
-            "array" | "object" | "pair" => return pattern_in_assignment(parent),
-            _ => return false,
-        }
-        cur = parent;
-    }
-    false
-}
-
-/// True when the pattern-like node sits (through patterns, arrays and objects) on the left of an assignment
-/// or a `for` head.
-fn pattern_in_assignment(mut node: Node<'_>) -> bool {
-    while let Some(parent) = node.parent() {
-        match parent.kind() {
-            "pair_pattern"
-            | "array_pattern"
-            | "object_pattern"
-            | "rest_pattern"
-            | "spread_element"
-            | "array"
-            | "object"
-            | "pair"
-            | "parenthesized_expression" => {}
-            "assignment_expression" | "augmented_assignment_expression" => {
-                return field_in_parent(node) == Some("left")
-            }
-            "for_in_statement" => return field_in_parent(node) == Some("left"),
-            _ => return false,
-        }
-        node = parent;
-    }
-    false
+    Some(
+        census
+            .sites
+            .iter()
+            .filter(|s| {
+                s.form != crate::js_write_census::walk::Form::Declare && !s.path.comps.is_empty()
+            })
+            .map(|s| s.path.base.clone())
+            .collect(),
+    )
 }

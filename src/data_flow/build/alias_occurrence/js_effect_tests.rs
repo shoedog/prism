@@ -115,7 +115,7 @@ fn every_write_through_the_alias_keeps_the_binding_twin() {
             js_twins(&src, "u")
         );
         // Control: reading the member instead of writing it leaves nothing to keep.
-        let read = format!("function t(o, xs) {{\n  let u = o;\n  use(u.f);\n  use(o.f);\n}}\n");
+        let read = "function t(o, xs) {\n  let u = o;\n  use(u.f);\n  use(o.f);\n}\n".to_string();
         assert!(js_twins(&read, "u").is_empty(), "{write}");
     }
     let ts = "function t(o: T) {\n  let u: T = o;\n  (u as any).f = 1;\n  use(o.f);\n}\n";
@@ -219,4 +219,104 @@ fn a_parameter_list_alias_keeps_the_formal_off_exact() {
         "{:?}",
         labels_of(JS, quiet, "o@1->o@4")
     );
+}
+
+// ---- fold 1: R2 reads the write census's forms and is keyed by the target ----
+
+const CENSUS_WRITE_FORMS: [&str; 17] = [
+    "w.f = 1;",
+    "w.f += 1;",
+    "w.f++;",
+    "delete w.f;",
+    "for (w.f of xs) {}",
+    "for (w.f in xs) {}",
+    "[w.f] = z;",
+    "({ k: w.f } = z);",
+    "[w.f = 1] = z;",
+    "({ k: w.f = 5 } = z);",
+    "[[w.f = 1]] = z;",
+    "(/* c */ w).f = 1;",
+    "w['f'] = 1;",
+    "w.f ||= 1;",
+    "[...w.f] = z;",
+    "run(() => { w.f = 1; });",
+    "({ k: { m: w.f = 2 } } = z);",
+];
+
+#[test]
+fn every_census_write_form_through_an_alias_keeps_that_aliases_twin_and_a_siblings() {
+    for form in CENSUS_WRITE_FORMS {
+        // `w` is written through; `u` is a second alias of the same target and is never written.
+        let src = format!(
+            "function t(o, xs, z, run) {{\n  let u = o;\n  let w = o;\n  u = o;\n  {form}\n  use(o.f);\n}}\n"
+        );
+        let t = js_twins(&src, "w");
+        assert!(t.contains(&("o".to_string(), 3)), "{form}: w {t:?}");
+        let t = js_twins(&src, "u");
+        assert!(
+            t.contains(&("o".to_string(), 2)) && t.contains(&("o".to_string(), 4)),
+            "{form}: u {t:?}"
+        );
+        // Control: the same owner reading `w.f` mints no twin for either.
+        let read = "function t(o, xs, z, run) {\n  let u = o;\n  let w = o;\n  u = o;\n  use(w.f);\n  use(o.f);\n}\n".to_string();
+        assert!(
+            js_twins(&read, "u").is_empty() && js_twins(&read, "w").is_empty(),
+            "{form}"
+        );
+    }
+}
+
+#[test]
+fn a_second_alias_of_the_same_target_keeps_the_twin_in_every_alias_kind() {
+    for (decl, params) in [
+        ("const v = o;\n  const w = v;", "o"),
+        ("let w = o;\n  if (c) w = o;", "o, c"),
+        ("const w = o;", "o"),
+        ("", "o, w = o"),
+        ("const { p: w } = o;", "o"),
+        ("const {\n    p: w,\n  } = o;", "o"),
+    ] {
+        let src = format!(
+            "function t({params}, c) {{\n  const u = o;\n  {decl}\n  run(() => {{ w.f = 1; }});\n  use(o.f);\n}}\n"
+        );
+        assert!(
+            js_twins(&src, "u").contains(&("o".to_string(), 2)),
+            "{decl}: {:?}",
+            js_twins(&src, "u")
+        );
+    }
+    // Control: an alias of another target, or none written, leaves `u`'s twin removable.
+    let other = "function t(o, p) {\n  const u = o;\n  const w = p;\n  w.f = 1;\n  use(o.f);\n}\n";
+    assert!(
+        js_twins(other, "u").is_empty(),
+        "{:?}",
+        js_twins(other, "u")
+    );
+}
+
+#[test]
+fn a_second_alias_written_through_keeps_the_formal_label_off_exact() {
+    // round-1 head: `u`'s twin removed, `o.x@2->o.x@7` exact although `w.x = 1` may write it.
+    let src = "function g(o) {\n  const v = o;\n  const w = v;\n  o.x = 0;\n  const u = o;\n  w.x = 1;\n  return sink(o.x);\n}";
+    assert!(
+        !labels_of(JS, src, "o.x@4->o.x@7")
+            .iter()
+            .any(|l| l == "exact"),
+        "{:?}",
+        labels_of(JS, src, "o.x@4->o.x@7")
+    );
+    let quiet = "function g(o) {\n  const v = o;\n  const w = v;\n  o.x = 0;\n  const u = o;\n  log(w.x);\n  return sink(o.x);\n}";
+    assert_eq!(labels_of(JS, quiet, "o.x@4->o.x@7"), ["exact"]);
+    let default =
+        "function g(o) {\n  o.x = 0;\n  const u = o;\n  [u.x = 1] = [2];\n  return sink(o.x);\n}";
+    assert!(!labels_of(JS, default, "o.x@2->o.x@5")
+        .iter()
+        .any(|l| l == "exact"));
+}
+
+#[test]
+fn a_parameter_list_nested_callable_body_is_below_the_parameter_list() {
+    let src = "function f(o, g = () => { let u = o; u = mk(); return u; }) {\n  use(o);\n}\n";
+    let r = refs("a.js", src, JS);
+    assert!(!twins(&r, "u").is_empty(), "{:?}", r.defs);
 }
