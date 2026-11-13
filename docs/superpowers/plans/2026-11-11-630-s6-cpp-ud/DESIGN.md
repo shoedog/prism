@@ -643,9 +643,21 @@ Text-only include files (`.inl .inc .ipp .tcc .def .cu .cuh .H .C .HPP .CPP`, pl
 > **2026-11-12 (6c fold 6, round-6 reviews):** retracts three claims. (1) "A C unrecognised shape is an rvalue" is false for GNU
 > `__builtin_choose_expr(c, a, b)` (an lvalue of `a` or `b`): `prune_roots::chain_roots` now returns the roots of both, and
 > escapes every identifier of the arguments of any other `__builtin_*` call under an address-of or member chain (a 6b hole,
-> `.c` keeps more edges). (2) "Closed by structure" / "closed-world over every introducer": the declarator peelers read
+> `.c` keeps more edges; fold 7 widens this, see below). (2) "Closed by structure" / "closed-world over every introducer": the declarator peelers read
 > `named_child(0)`, which is a `comment` extra in `int (/*c*/ x)`; every site now uses `operand` (a source-scan unit test
 > forbids the old call in the prune modules), `function_params` fails closed when the chain does not reach the name leaf
 > and its own list (it used to return the returned type's parameter list), `is_reference_like` sees through comments, and
 > the `.c` resolver binds an unwalkable declarator as ineligible like C++ (the Cpp gate on that branch is gone). (3) `.c`
-> output also moves where `(/*c*/ M)(x)` names an in-repo macro (more refusals; fold 5). All `.c` changes only keep more edges.
+> output also moves where `(/*c*/ M)(x)` names an in-repo macro (more refusals; fold 5). ~~All `.c` changes only keep more edges.~~ Retracted in fold 7:
+> a `.c` file now also drops pairs where a comment-wrapped declarator or parameter list that main could not read is read
+> correctly (sound removals, rows `k7`/`k8`).
+
+> **2026-11-12 (6c fold 7, round-7 reviews):** (1) `.c` `chain_roots` default: every call except `__builtin_choose_expr`, and every
+> shape outside a closed rvalue list (dereference, operators, casts, assignment, `?:`, comma, literals, compound literals,
+> `sizeof`/`alignof`/`offsetof`), escapes every identifier it contains in an address-of or member-chain position (`&__real__(x)`,
+> `&__imag__(x)`: parsed as calls); C++ keeps its escape finders. A call to `__builtin_addressof` escapes its arguments
+> wherever it appears (C and C++), a fourth address-taking route beside `&`, references and macros (§5.2 U). (2) `.c`
+> phantom pointer declaration (`a * x;`, `c_phantom.rs`): see CLAUDE.md; headers' objects are out of model. (3) The `.c`
+> contract is two-sided: it keeps more edges where hazards are now seen, and drops sound pairs where a previously unreadable
+> declarator is now read. (4) Grammar-bump guard: `fold7_grammar_pins_hold` pins that `__real__ z`, `_Complex` and computed
+> goto still fail to parse (owner off, G1Error).

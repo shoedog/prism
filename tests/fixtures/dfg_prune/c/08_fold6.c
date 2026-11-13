@@ -72,16 +72,6 @@ int choose_expr_nested(int c) {
   return x;                        // @h7:U:keep:nested_choose_expr_is_an_lvalue
 }
 
-// Not valid C (a builtin result is an rvalue), parsed as `&call(..)`: the arm is conservative.
-int builtin_other_addr(int c) {
-  int x = c;                       // @h9:D x
-  int *p = &__builtin_expect(x, 1);
-  int t = *p;
-  x = 0;
-  *p = t;
-  return x;                        // @h9:U:keep:builtin_call_arguments_escape
-}
-
 int builtin_drop_control(int c) {
   int x = c;                       // @h8:D x
   x = 1;

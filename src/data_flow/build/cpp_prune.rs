@@ -47,9 +47,11 @@
 //! local array counts only while its name is unescaped, like a scalar local (a `using` or hidden
 //! declaration can make the same spelling another entity; the check is part of the worklist).
 //! Calls, members, `this`, globals and unknown names are not scalar. Plain `=` keeps the fix E
-//! rule above. Root finders (`lvalue_roots`, `escape_roots`, and the C rules' `chain_roots`) share
-//! `prune_roots.rs`: comments, parentheses, `__extension__` and `_Generic` are peeled by one
-//! helper, and an unrecognized wrapper escapes every identifier in it.
+//! rule above. The three root finders (`lvalue_roots`, `escape_roots`, and the C rules' `chain_roots`) share
+//! `prune_roots.rs` for the operand helper: comments, parentheses, `__extension__` and `_Generic` are peeled
+//! by one function. The defaults differ: the C++ finders escape every identifier of an unrecognized wrapper;
+//! `chain_roots` does so for a `.c` file only (calls and shapes off its rvalue list, fold 7), and for C++ files
+//! the shared walk's `chain_roots` call keeps its builtin-only arm beside the C++ finders.
 //! Dialect: every file the C++ grammar parses (`cpp cc cxx hpp hxx hh`) is compiled as C++11 or
 //! later, which makes `nullptr` and `auto x = <literal>` safe; only `char8_t` depends on the
 //! dialect (C++20), and `char8_t`/`char16_t`/`char32_t` are all refused. Pre-C++11 code that

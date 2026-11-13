@@ -6,6 +6,7 @@
 //! `operand` as well; a unit test (`no_first_named_child_reads`) fails on a first-named-child
 //! read in the prune modules.
 use crate::ast::ParsedFile;
+use crate::languages::Language;
 use tree_sitter::Node;
 
 /// The first named child that is not a comment: the real operand of a wrapper node.
@@ -53,12 +54,17 @@ pub(super) fn peel(mut node: Node<'_>) -> Node<'_> {
 }
 
 /// The root identifiers of an address-of or member chain, C rules: the wrappers above, `.`/`->`
-/// access, subscripts, and the GNU builtins. Standard C has no other lvalue-producing
-/// expression, but GNU C does: `__builtin_choose_expr(c, a, b)` yields the lvalue `a` or `b`
-/// unchanged, so it hands out the roots of both; any other `__builtin_*` call in this position
-/// escapes every identifier of its arguments (a builtin may return its argument's lvalue).
-/// Every other unrecognized shape contributes nothing. (C++ has reference-returning shapes and
-/// uses `cpp_prune::escape_roots`, whose default escapes every identifier.)
+/// access, subscripts, and the GNU builtins. Standard C has an lvalue only in those shapes
+/// (dereference and every operator, cast, assignment and `?:` yield rvalues, and a call yields
+/// none), but GNU C adds lvalue-preserving spellings: `__builtin_choose_expr(c, a, b)` yields the
+/// lvalue `a` or `b` unchanged, so it hands out the roots of both, and `__real__(x)` /
+/// `__imag__(x)` parse as calls. Fold 7: in a `.c` file every shape that is not one of those and
+/// not a known rvalue (`is_rvalue_shape`) escapes every identifier it contains, and so does every
+/// call other than `__builtin_choose_expr`: a spelling this finder does not know is never
+/// assumed to leave its operand's storage alone. (C++ has reference-returning shapes and
+/// uses `cpp_prune::escape_roots`, whose default escapes every identifier; here the C++
+/// language keeps the fold-6 behaviour, a builtin-only arm, and the shared `walk` also feeds
+/// this finder for C++ files.)
 pub(super) fn chain_roots<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Vec<Node<'a>>) {
     if node.kind() == "identifier" {
         out.push(node);
@@ -74,20 +80,54 @@ pub(super) fn chain_roots<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Vec
             chain_roots(parsed, a, out);
         }
     } else if node.kind() == "call_expression" {
-        builtin_roots(parsed, node, out);
+        if !builtin_roots(parsed, node, out) && parsed.language != Language::Cpp {
+            all_identifiers(node, out);
+        }
+    } else if parsed.language != Language::Cpp && !is_rvalue_shape(node.kind()) {
+        all_identifiers(node, out);
     }
 }
 
-fn builtin_roots<'a>(parsed: &ParsedFile, call: Node<'a>, out: &mut Vec<Node<'a>>) {
+/// Kinds whose value is an rvalue (or a dereference, whose lvalue is the pointee, not a local)
+/// in standard C and in every GNU form checked (conditional, comma and cast lvalues were
+/// removed in GCC 4 and Clang rejects them): taking their address or a member of them reaches
+/// no local's own storage, so they contribute no root. An inner `&x` is walked by its own arm.
+fn is_rvalue_shape(kind: &str) -> bool {
+    matches!(
+        kind,
+        "pointer_expression"
+            | "cast_expression"
+            | "binary_expression"
+            | "unary_expression"
+            | "update_expression"
+            | "conditional_expression"
+            | "comma_expression"
+            | "assignment_expression"
+            | "compound_literal_expression"
+            | "string_literal"
+            | "concatenated_string"
+            | "number_literal"
+            | "char_literal"
+            | "sizeof_expression"
+            | "alignof_expression"
+            | "offsetof_expression"
+            | "true"
+            | "false"
+            | "null"
+    )
+}
+
+/// True when `call` is a `__builtin_*` call (its roots, if any, are pushed).
+fn builtin_roots<'a>(parsed: &ParsedFile, call: Node<'a>, out: &mut Vec<Node<'a>>) -> bool {
     let (Some(f), Some(args)) = (
         call.child_by_field_name("function"),
         call.child_by_field_name("arguments"),
     ) else {
-        return;
+        return false;
     };
     let callee = peel(f);
     if callee.kind() != "identifier" || !parsed.node_text(&callee).starts_with("__builtin_") {
-        return;
+        return false;
     }
     let mut cursor = args.walk();
     let kids = args
@@ -102,6 +142,7 @@ fn builtin_roots<'a>(parsed: &ParsedFile, call: Node<'a>, out: &mut Vec<Node<'a>
             all_identifiers(k, out);
         }
     }
+    true
 }
 
 fn all_identifiers<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
@@ -111,6 +152,22 @@ fn all_identifiers<'a>(node: Node<'a>, out: &mut Vec<Node<'a>>) {
     let mut cursor = node.walk();
     for c in node.named_children(&mut cursor) {
         all_identifiers(c, out);
+    }
+}
+
+/// The name a call's callee ends in: the identifier, the field of `a.f` / `a->f`, or either
+/// inside parentheses. A function-like macro can be spelled after `->` or `.` and the
+/// preprocessor still expands it (`s->M(x)`). `(M)(x)` is not an invocation (the name is
+/// not followed by `(`, so the preprocessor does not expand it); the parenthesized spelling
+/// is read as the callee name anyway, which only refuses more.
+pub(super) fn callee_last_name<'a>(parsed: &'a ParsedFile, mut f: Node<'a>) -> Option<&'a str> {
+    loop {
+        match f.kind() {
+            "identifier" | "field_identifier" => return Some(parsed.node_text(&f)),
+            "field_expression" => f = f.child_by_field_name("field")?,
+            "parenthesized_expression" => f = operand(f)?,
+            _ => return None,
+        }
     }
 }
 

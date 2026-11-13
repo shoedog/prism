@@ -14,8 +14,9 @@
 //! reads and writes only what its arguments spell, takes an address only where an argument
 //! spells `&`, hides no jump); a `.c` file compiled as C++; the survivor-based fallback cap
 //! (#634) lets a formerly capped owner regain its surviving edges.
+use super::c_phantom::escape_phantom;
 use super::cpp_prune;
-use super::prune_roots::{chain_roots, function_params, operand};
+use super::prune_roots::{callee_last_name, chain_roots, function_params, operand};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::{
@@ -67,8 +68,10 @@ const RETURNS_TWICE: &[&str] = &[
     "vfork",
     "getcontext",
 ];
-/// Builtin varargs macros write or read the list named by their argument.
+/// Builtins that write the list named by their argument (varargs) or take its address without
+/// spelling `&` (`__builtin_addressof`, Clang, C and C++).
 const VA_NAMES: &[&str] = &[
+    "__builtin_addressof",
     "va_start",
     "va_end",
     "va_copy",
@@ -182,22 +185,6 @@ fn body_has_forbidden_directive(text: &str) -> bool {
             }
         })
     })
-}
-
-/// The name a call's callee ends in: the identifier, the field of `a.f` / `a->f`, or either
-/// inside parentheses. A function-like macro can be spelled after `->` or `.` and the
-/// preprocessor still expands it (`s->M(x)`). `(M)(x)` is not an invocation (the name is
-/// not followed by `(`, so the preprocessor does not expand it); the parenthesized spelling
-/// is read as the callee name anyway, which only refuses more.
-fn callee_last_name<'a>(parsed: &'a ParsedFile, mut f: Node<'a>) -> Option<&'a str> {
-    loop {
-        match f.kind() {
-            "identifier" | "field_identifier" => return Some(parsed.node_text(&f)),
-            "field_expression" => f = f.child_by_field_name("field")?,
-            "parenthesized_expression" => f = operand(f)?,
-            _ => return None,
-        }
-    }
 }
 
 /// Names declared by a `declaration` that is not a direct child of a block, a direct `case`,
@@ -442,6 +429,7 @@ fn walk(
                 }
             }
         }
+        "declaration" if !out.cpp => escape_phantom(parsed, node, &mut out.escaped),
         "call_expression" => {
             if let (Some(f), Some(args)) = (
                 node.child_by_field_name("function"),
