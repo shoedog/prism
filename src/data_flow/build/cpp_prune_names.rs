@@ -209,7 +209,7 @@ fn keyword_proves_declaration(parsed: &ParsedFile, decl: Node<'_>) -> bool {
 }
 
 /// A phase-divergence trigger (trigraph, backslash before a line end, lone CR, a UCN escape,
-/// literals included: conservative, or any `#`-line outside the `directive_hazard` allow-list) anywhere in the file up to the end of the outermost function
+/// literals included: conservative, or any `#`-line outside the `directive_hazard` allow-list), or any ERROR or MISSING parse node starting before that end, anywhere in the file up to the end of the outermost function
 /// holding `decl`. A comment a divergence opens in an earlier function can close in this one, so
 /// the owner's own text being clean proves nothing; the exemption then keeps the escape (6d-2s
 /// fold 3; the cross-function mechanism for the other rules is pre-existing and not closed here).
@@ -222,11 +222,31 @@ fn file_prefix_diverges(parsed: &ParsedFile, decl: Node<'_>) -> bool {
         }
         cur = n.parent();
     }
+    // Fold 6: a lexing divergence the text checks do not name (clang's `1'a` pp-number against
+    // tree-sitter's `1` + char literal) leaves an ERROR or MISSING node earlier in the file; the
+    // parse of everything after it is then not evidence of what the compiler reads.
+    if first_error_start(parsed.tree.root_node()).is_some_and(|start| start < end) {
+        return true;
+    }
     let prefix = parsed.source.get(..end).unwrap_or(&parsed.source);
     super::c_prune::phase_divergence(prefix)
         || prefix.contains("\\u")
         || prefix.contains("\\U")
         || directive_hazard(prefix)
+}
+
+/// Start byte of the first ERROR or MISSING node under `node` (the tree's own error flag lets
+/// whole clean subtrees be skipped).
+fn first_error_start(node: Node<'_>) -> Option<usize> {
+    if !node.has_error() {
+        return None;
+    }
+    if node.is_error() || node.is_missing() {
+        return Some(node.start_byte());
+    }
+    let mut cursor = node.walk();
+    let found = node.children(&mut cursor).find_map(first_error_start);
+    found
 }
 
 /// Positive allow-list for preprocessor text (fold 5). Every line of `text` holding a `#` or a

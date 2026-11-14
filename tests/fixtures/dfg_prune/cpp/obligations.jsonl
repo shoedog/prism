@@ -329,6 +329,8 @@
 {"case": "e2x.cc", "id": "e2x", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e2_directive_shape_exemption_refuses"}
 {"case": "e6c.cc", "id": "e6c", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e6_directive_shape_control_no_keyword_proof"}
 {"case": "e6x.cc", "id": "e6x", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e6_directive_shape_exemption_refuses"}
+{"case": "er1c.cc", "id": "er1c", "path": "x", "def_line": 9, "use_line": 11, "keep": true, "reason": "error_node_before_the_owner_refuses_the_exemption"}
+{"case": "er1x.cc", "id": "er1x", "path": "x", "def_line": 9, "use_line": 11, "keep": true, "reason": "error_node_before_the_owner_refuses_the_exemption"}
 {"case": "g1c.cc", "id": "g1c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g1_directive_spelling_control_no_keyword_proof"}
 {"case": "g1x.cc", "id": "g1x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g1_directive_spelling_exemption_refuses"}
 {"case": "g2c.cc", "id": "g2c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g2_directive_spelling_control_no_keyword_proof"}
