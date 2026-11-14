@@ -112,6 +112,38 @@
 {"case": "07_fold2.cc", "id": "ec", "path": "x", "def_line": 234, "use_line": 238, "keep": true, "reason": "compound_assignment_through_a_conditional_lvalue", "owner": "assign_compound_cond_left_keep"}
 {"case": "07_fold2.cc", "id": "fa", "path": "x", "def_line": 246, "use_line": 250, "keep": true, "reason": "anonymous_union_members_alias", "owner": "anon_union_block_keep"}
 {"case": "07_fold2.cc", "id": "fb", "path": "a", "def_line": 259, "use_line": 263, "keep": true, "reason": "anonymous_struct_in_anonymous_union", "owner": "anon_struct_in_union_keep"}
+{"case": "12_structural_ptr.cc", "id": "c1", "path": "p", "def_line": 10, "use_line": 12, "keep": false, "reason": "keyword_proves_declaration_direct_const_lead", "owner": "drop_direct_const_lead"}
+{"case": "12_structural_ptr.cc", "id": "c2", "path": "p", "def_line": 16, "use_line": 18, "keep": false, "reason": "keyword_proves_declaration_direct_const_trail", "owner": "drop_direct_const_trail"}
+{"case": "12_structural_ptr.cc", "id": "c3", "path": "p", "def_line": 22, "use_line": 24, "keep": false, "reason": "keyword_proves_declaration_ptr_const", "owner": "drop_ptr_const"}
+{"case": "12_structural_ptr.cc", "id": "c4", "path": "p", "def_line": 28, "use_line": 30, "keep": false, "reason": "keyword_proves_declaration_const_both", "owner": "drop_const_both"}
+{"case": "12_structural_ptr.cc", "id": "c5", "path": "p", "def_line": 34, "use_line": 36, "keep": false, "reason": "keyword_proves_declaration_const_ptr_ptr", "owner": "drop_const_ptr_ptr"}
+{"case": "12_structural_ptr.cc", "id": "e1", "path": "p", "def_line": 40, "use_line": 42, "keep": false, "reason": "keyword_proves_declaration_elab_struct", "owner": "drop_elab_struct"}
+{"case": "12_structural_ptr.cc", "id": "e2", "path": "p", "def_line": 46, "use_line": 48, "keep": false, "reason": "keyword_proves_declaration_elab_class", "owner": "drop_elab_class"}
+{"case": "12_structural_ptr.cc", "id": "e3", "path": "p", "def_line": 52, "use_line": 54, "keep": false, "reason": "keyword_proves_declaration_elab_union", "owner": "drop_elab_union"}
+{"case": "12_structural_ptr.cc", "id": "e4", "path": "p", "def_line": 58, "use_line": 60, "keep": false, "reason": "keyword_proves_declaration_elab_enum", "owner": "drop_elab_enum"}
+{"case": "12_structural_ptr.cc", "id": "a1", "path": "p", "def_line": 64, "use_line": 66, "keep": false, "reason": "keyword_proves_declaration_auto_ptr", "owner": "drop_auto_ptr"}
+{"case": "12_structural_ptr.cc", "id": "a2", "path": "p", "def_line": 70, "use_line": 72, "keep": false, "reason": "keyword_proves_declaration_const_auto_ptr", "owner": "drop_const_auto_ptr"}
+{"case": "12_structural_ptr.cc", "id": "m1", "path": "p", "def_line": 76, "use_line": 78, "keep": false, "reason": "keyword_proves_declaration_two_declarators", "owner": "drop_two_declarators"}
+{"case": "12_structural_ptr.cc", "id": "c6", "path": "p", "def_line": 82, "use_line": 84, "keep": false, "reason": "keyword_proves_declaration_const_ptr_ptr2", "owner": "drop_const_ptr_ptr2"}
+{"case": "12_structural_ptr.cc", "id": "k1", "path": "p", "def_line": 88, "use_line": 90, "keep": true, "reason": "fold5_plain_pointer_to_class_may_be_misparsed", "owner": "keep_plain_class_ptr"}
+{"case": "12_structural_ptr.cc", "id": "k2", "path": "p", "def_line": 94, "use_line": 96, "keep": true, "reason": "attributed_expression_statement_is_legal", "owner": "keep_attribute"}
+{"case": "12_structural_ptr.cc", "id": "k3", "path": "p", "def_line": 100, "use_line": 102, "keep": true, "reason": "qualified_base_not_exempt", "owner": "keep_qualified_base"}
+{"case": "12_structural_ptr.cc", "id": "k4", "path": "p", "def_line": 106, "use_line": 108, "keep": true, "reason": "qualified_base_not_exempt_even_with_const", "owner": "keep_qualified_const_base"}
+{"case": "12_structural_ptr.cc", "id": "k5", "path": "p", "def_line": 112, "use_line": 114, "keep": true, "reason": "const_inside_template_argument_proves_nothing", "owner": "keep_template_const_arg"}
+{"case": "12_structural_ptr.cc", "id": "k6", "path": "p", "def_line": 118, "use_line": 120, "keep": true, "reason": "a_declarator_without_const_so_no_declaration_level_proof", "owner": "keep_mixed_declarators"}
+{"case": "12_structural_ptr.cc", "id": "k7", "path": "p", "def_line": 124, "use_line": 126, "keep": true, "reason": "volatile_is_not_on_the_list", "owner": "keep_volatile_ptr"}
+{"case": "12_structural_ptr.cc", "id": "k8", "path": "p", "def_line": 130, "use_line": 132, "keep": true, "reason": "parenthesized_declarator_not_exempt", "owner": "keep_paren_declarator"}
+{"case": "12_structural_ptr.cc", "id": "k9", "path": "p", "def_line": 136, "use_line": 138, "keep": true, "reason": "decltype_base_not_exempt", "owner": "keep_decltype_base"}
+{"case": "12_structural_ptr.cc", "id": "k10", "path": "p", "def_line": 142, "use_line": 144, "keep": true, "reason": "auto_without_pointer_not_exempt", "owner": "keep_auto_plain"}
+{"case": "12_structural_ptr.cc", "id": "k11", "path": "p", "def_line": 148, "use_line": 150, "keep": true, "reason": "non_pointer_not_exempt_class_typed_fails_E2", "owner": "keep_const_nonpointer"}
+{"case": "12_structural_ptr.cc", "id": "k13", "path": "p", "def_line": 154, "use_line": 156, "keep": true, "reason": "reference_declarator_not_exempt", "owner": "keep_const_ref"}
+{"case": "12_structural_ptr.cc", "id": "k14", "path": "p", "def_line": 160, "use_line": 162, "keep": true, "reason": "elaborated_with_body_not_exempt", "owner": "keep_struct_body"}
+{"case": "12_structural_ptr.cc", "id": "k15", "path": "p", "def_line": 166, "use_line": 168, "keep": true, "reason": "qualified_elaborated_name_not_exempt", "owner": "keep_struct_qualified"}
+{"case": "12_structural_ptr.cc", "id": "k16", "path": "p", "def_line": 172, "use_line": 174, "keep": true, "reason": "dependent_base_not_exempt", "owner": "keep_typename_base"}
+{"case": "12_structural_ptr.cc", "id": "k17", "path": "p", "def_line": 178, "use_line": 180, "keep": true, "reason": "type_shape_precondition_body_refuses_even_with_const", "owner": "keep_const_struct_body"}
+{"case": "12_structural_ptr.cc", "id": "k18", "path": "p", "def_line": 184, "use_line": 186, "keep": true, "reason": "type_shape_precondition_qualified_elaborated_refuses_even_with_const", "owner": "keep_qualified_elab_const"}
+{"case": "12_structural_ptr.cc", "id": "k19", "path": "p", "def_line": 190, "use_line": 192, "keep": true, "reason": "const_only_in_the_initializer_proves_nothing", "owner": "keep_cast_const_init"}
+{"case": "12_structural_ptr.cc", "id": "k20", "path": "p", "def_line": 196, "use_line": 198, "keep": true, "reason": "const_only_in_the_initializer_proves_nothing", "owner": "keep_static_cast_const_init"}
 {"case": "anon_union_toplevel2.cc", "id": "anon_union_toplevel2", "path": "x", "def_line": 32, "use_line": 36, "keep": true, "reason": "fold2_enum"}
 {"case": "block_typedef_size_t.cc", "id": "block_typedef_size_t", "path": "x", "def_line": 34, "use_line": 36, "keep": true, "reason": "fold2_enum"}
 {"case": "block_using_uint32_t.cc", "id": "block_using_uint32_t", "path": "x", "def_line": 34, "use_line": 36, "keep": true, "reason": "fold2_enum"}
@@ -293,6 +325,37 @@
 {"case": "f6_ref_ptr_comment.cc", "id": "f6_refp", "path": "p", "def_line": 3, "use_line": 8, "keep": true, "reason": "comment_in_parenthesized_pointer_reference"}
 {"case": "f6_ref_ptr_nocomment.cc", "id": "f6_refpc", "path": "p", "def_line": 3, "use_line": 8, "keep": true, "reason": "control_pointer_reference_without_comment"}
 {"case": "f7_addressof.cc", "id": "f7_aof", "path": "x", "def_line": 2, "use_line": 7, "keep": true, "reason": "builtin_addressof_takes_an_address_without_amp"}
+{"case": "e2c.cc", "id": "e2c", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e2_directive_shape_control_no_keyword_proof"}
+{"case": "e2x.cc", "id": "e2x", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e2_directive_shape_exemption_refuses"}
+{"case": "e6c.cc", "id": "e6c", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e6_directive_shape_control_no_keyword_proof"}
+{"case": "e6x.cc", "id": "e6x", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e6_directive_shape_exemption_refuses"}
+{"case": "er1c.cc", "id": "er1c", "path": "x", "def_line": 9, "use_line": 11, "keep": true, "reason": "error_node_before_the_owner_refuses_the_exemption"}
+{"case": "er1x.cc", "id": "er1x", "path": "x", "def_line": 9, "use_line": 11, "keep": true, "reason": "error_node_before_the_owner_refuses_the_exemption"}
+{"case": "g1c.cc", "id": "g1c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g1_directive_spelling_control_no_keyword_proof"}
+{"case": "g1x.cc", "id": "g1x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g1_directive_spelling_exemption_refuses"}
+{"case": "g2c.cc", "id": "g2c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g2_directive_spelling_control_no_keyword_proof"}
+{"case": "g2x.cc", "id": "g2x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g2_directive_spelling_exemption_refuses"}
+{"case": "h1c.cc", "id": "h1c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "h1_directive_shape_control_no_keyword_proof"}
+{"case": "h1x.cc", "id": "h1x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "h1_directive_shape_exemption_refuses"}
+{"case": "n1x.cc", "id": "n1x", "path": "p", "def_line": 9, "use_line": 11, "keep": true, "reason": "hash_in_a_comment_before_the_owner_refuses_the_exemption"}
+{"case": "p2c.cc", "id": "p2c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "p2_directive_shape_control_no_keyword_proof"}
+{"case": "p2x.cc", "id": "p2x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "p2_directive_shape_exemption_refuses"}
+{"case": "q1c.cc", "id": "q1c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "q1_directive_spelling_control_no_keyword_proof"}
+{"case": "q1x.cc", "id": "q1x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "q1_directive_spelling_exemption_refuses"}
+{"case": "q2c.cc", "id": "q2c", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "q2_directive_spelling_control_no_keyword_proof"}
+{"case": "q2x.cc", "id": "q2x", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "q2_directive_spelling_exemption_refuses"}
+{"case": "q3c.cc", "id": "q3c", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "q3_directive_spelling_control_no_keyword_proof"}
+{"case": "q3x.cc", "id": "q3x", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "q3_directive_spelling_exemption_refuses"}
+{"case": "q4c.cc", "id": "q4c", "path": "y", "def_line": 6, "use_line": 10, "keep": true, "reason": "q4_directive_spelling_control_no_keyword_proof"}
+{"case": "q4x.cc", "id": "q4x", "path": "y", "def_line": 6, "use_line": 10, "keep": true, "reason": "q4_directive_spelling_exemption_refuses"}
+{"case": "q5c.cc", "id": "q5c", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "q5_directive_spelling_control_no_keyword_proof"}
+{"case": "q5x.cc", "id": "q5x", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "q5_directive_spelling_exemption_refuses"}
+{"case": "q6c.cc", "id": "q6c", "path": "x", "def_line": 10, "use_line": 14, "keep": true, "reason": "q6_directive_spelling_control_no_keyword_proof"}
+{"case": "q6x.cc", "id": "q6x", "path": "x", "def_line": 10, "use_line": 14, "keep": true, "reason": "q6_directive_spelling_exemption_refuses"}
+{"case": "q7c.cc", "id": "q7c", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "q7_directive_spelling_control_no_keyword_proof"}
+{"case": "q7x.cc", "id": "q7x", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "q7_directive_spelling_exemption_refuses"}
+{"case": "w1c.cc", "id": "w1c", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "w1_directive_shape_control_no_keyword_proof"}
+{"case": "w1x.cc", "id": "w1x", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "w1_directive_shape_exemption_refuses"}
 {"case": "10_header.h", "id": "hs", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "dot_h_owner_is_off", "owner": "header_scalar_drop"}
 {"case": "10_header.h", "id": "hc", "path": "x", "def_line": 14, "use_line": 18, "keep": true, "reason": "dot_h_owner_is_off_bare_argument", "owner": "header_cpp_semantics_keep"}
 {"case": "10_header.h", "id": "ht", "path": "h", "def_line": 22, "use_line": 24, "keep": true, "reason": "dot_h_owner_is_off_typedef", "owner": "header_typedef_keep"}
@@ -315,3 +378,23 @@
 {"case": "13_coroutine_macro.cc", "id": "co3", "path": "x", "def_line": 24, "use_line": 27, "keep": false, "reason": "macro_without_a_coroutine_keyword", "owner": "cpp_plain_macro_drop"}
 {"case": "14_keyword_macro.cc", "id": "km1", "path": "x", "def_line": 8, "use_line": 13, "keep": true, "reason": "keyword_macro_int_rewrites_the_type_proof", "owner": "keyword_macro_owner_off"}
 {"case": "14_keyword_macro.cc", "id": "km2", "path": "y", "def_line": 17, "use_line": 19, "keep": false, "reason": "owner_does_not_spell_the_macro", "owner": "keyword_macro_unspelled_drop"}
+{"case": "15_phase_divergence.cc", "id": "ph0", "path": "x", "def_line": 9, "use_line": 11, "keep": false, "reason": "no_phase_divergence_control", "owner": "phase_control_drop"}
+{"case": "15_phase_divergence.cc", "id": "ph1", "path": "x", "def_line": 14, "use_line": 17, "keep": true, "reason": "trigraph_splice_hides_a_phantom_pointer_declaration", "owner": "phase_trigraph_const_ptr_keep"}
+{"case": "15_phase_divergence.cc", "id": "ph2", "path": "x", "def_line": 20, "use_line": 23, "keep": true, "reason": "backslash_blanks_newline_splice_hides_the_declaration", "owner": "phase_blank_backslash_const_ptr_keep"}
+{"case": "15_phase_divergence.cc", "id": "ph3", "path": "x", "def_line": 26, "use_line": 29, "keep": true, "reason": "trigraph_splice_hides_a_phantom_scalar_declaration", "owner": "phase_trigraph_scalar_keep"}
+{"case": "15_phase_divergence.cc", "id": "ph4", "path": "x", "def_line": 32, "use_line": 35, "keep": true, "reason": "backslash_tab_newline_splice_hides_the_declaration", "owner": "phase_blank_backslash_scalar_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "sp1", "path": "x", "def_line": 8, "use_line": 12, "keep": true, "reason": "backslash_splice_makes_a_comment_only_the_compiler_sees", "owner": "splice_slash_star_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "sp2", "path": "x", "def_line": 15, "use_line": 20, "keep": true, "reason": "splices_inside_comment_delimiters", "owner": "splice_comment_pair_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "sp3", "path": "x", "def_line": 24, "use_line": 26, "keep": false, "reason": "control_without_any_splice_or_cr", "owner": "splice_control_drop"}
+{"case": "16_phase_splice_cr.cc", "id": "cr1", "path": "x", "def_line": 30, "use_line": 33, "keep": true, "reason": "lone_cr_ends_the_comment_so_the_compiler_sees_if_c_x_eq_2", "owner": "cr_comment_hides_if_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "cr2", "path": "x", "def_line": 37, "use_line": 41, "keep": true, "reason": "compiler_view_of_the_previous_row_the_write_is_conditional", "owner": "cr_control_conditional_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "cr3", "path": "x", "def_line": 45, "use_line": 46, "keep": true, "reason": "the_compiler_reads_x_here_tree_sitter_sees_a_comment", "owner": "cr_read_hidden_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "cr4", "path": "x", "def_line": 51, "use_line": 53, "keep": true, "reason": "compiler_view_of_the_cr_row_the_read_is_live", "owner": "cr_read_control_keep"}
+{"case": "17_crlf_control.cc", "id": "cl1", "path": "x", "def_line": 7, "use_line": 9, "keep": false, "reason": "crlf_only_owner_stays_on", "owner": "crlf_control_drop"}
+{"case": "18_ucn_identifier.cc", "id": "u1", "path": "caf\u00e9", "def_line": 10, "use_line": 11, "keep": true, "reason": "ucn_spelling_is_the_same_name_as_the_literal", "owner": "ucn_pointer_keep"}
+{"case": "18_ucn_identifier.cc", "id": "u2", "path": "caf\u00e9", "def_line": 16, "use_line": 17, "keep": true, "reason": "ucn_spelling_is_the_same_name_as_the_literal", "owner": "ucn_scalar_keep"}
+{"case": "18_ucn_identifier.cc", "id": "u3", "path": "caf\u00e9", "def_line": 22, "use_line": 24, "keep": false, "reason": "one_spelling_throughout", "owner": "ucn_consistent_control_drop"}
+{"case": "18_ucn_identifier.cc", "id": "u4", "path": "x", "def_line": 29, "use_line": 31, "keep": false, "reason": "ucn_only_inside_literals", "owner": "ucn_in_string_only_drop"}
+{"case": "19_phase_prefix.cc", "id": "pf1", "path": "x", "def_line": 9, "use_line": 12, "keep": true, "reason": "earlier_function_opened_a_comment_closed_here_exemption_refuses", "owner": "b"}
+{"case": "20_phase_prefix_control.cc", "id": "pf2", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "no_keyword_proof_so_the_escape_stays", "owner": "b"}
+{"case": "21_allowlist_clean.cc", "id": "al1", "path": "p", "def_line": 12, "use_line": 14, "keep": false, "reason": "allow_listed_directives_only", "owner": "allowlist_clean_drop"}

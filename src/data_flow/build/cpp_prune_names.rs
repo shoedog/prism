@@ -9,7 +9,15 @@
 //! - the enumerators of any `enum_specifier` of the owner, wherever it sits (`enumerator`);
 //! - the declarators of a `declaration` whose base type is not a keyword scalar (or `auto` from
 //!   a literal): `ga * x;` and `ga < ga > x;` can be expressions the grammar read as
-//!   declarations, and the phantom declarator would otherwise rebind `x` (`nonscalar_decl`);
+//!   declarations, and the phantom declarator would otherwise rebind `x` (`nonscalar_decl`).
+//!   Exempt (6d-2s, `keyword_proves_declaration`): a declaration whose declarators are all plain
+//!   pointer chains (through `init_declarator`) and that a keyword token proves a declaration,
+//!   whatever the type name denotes: a direct `const` qualifier, an elaborated type specifier
+//!   (`struct`, `class`, `union`, `enum` plus a plain name, no body), `auto` as the type, or a
+//!   `const` inside every declarator's pointer chain (`T* const x`). Each spelling is in
+//!   `cpp_prune::KEYWORDS`, so an in-repo macro of that name turns the owner off. Attributes,
+//!   other qualifiers, storage classes, templates, qualified or `decltype` bases, references,
+//!   arrays, function and parenthesized declarators are not exempt; every other escape applies;
 //! - every `type_identifier`: `x * ga2;` puts the local `x` in a type position (`type_name`);
 //! - template syntax at the source: every name under a `template_argument_list`, and the name
 //!   of every `template_type`, `template_function` and `template_method`, since `a < x > y;`,
@@ -42,6 +50,10 @@ pub(super) fn note(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
         "type_identifier" => {
             found.push(node);
             "type_name"
+        }
+        "declaration" if keyword_proves_declaration(parsed, node) => {
+            // Exempt (6d-2s): a keyword token makes this a declaration, never an expression.
+            "nonscalar_exempt"
         }
         "declaration" => {
             let mut cursor = node.walk();
@@ -101,4 +113,212 @@ pub(super) fn is_alignof_keyword(parsed: &ParsedFile, node: Node<'_>) -> bool {
         .node_text(&node)
         .strip_prefix("alignof")
         .is_some_and(|rest| !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+}
+
+fn is_comment(n: Node<'_>) -> bool {
+    n.kind() == "comment"
+}
+
+/// A declarator that is a chain of `pointer_declarator`s (each holding only the declarator and
+/// `const` qualifiers) ending in a plain identifier. Returns `Some(has_const)` for such a chain.
+fn plain_pointer_chain(parsed: &ParsedFile, top: Node<'_>) -> Option<bool> {
+    let mut d = if top.kind() == "init_declarator" {
+        top.child_by_field_name("declarator")?
+    } else {
+        top
+    };
+    if d.kind() != "pointer_declarator" {
+        return None;
+    }
+    let mut has_const = false;
+    while d.kind() == "pointer_declarator" {
+        let inner = d.child_by_field_name("declarator")?;
+        let mut cursor = d.walk();
+        for c in d.named_children(&mut cursor) {
+            if c.id() == inner.id() || is_comment(c) {
+                continue;
+            }
+            if c.kind() == "type_qualifier" && parsed.node_text(&c) == "const" {
+                has_const = true;
+            } else {
+                return None;
+            }
+        }
+        d = inner;
+    }
+    (d.kind() == "identifier").then_some(has_const)
+}
+
+/// The declaration is one whatever the type name denotes, because a keyword token appears
+/// where an expression has none (module doc, 6d-2s). Positive list only.
+fn keyword_proves_declaration(parsed: &ParsedFile, decl: Node<'_>) -> bool {
+    let Some(ty) = decl.child_by_field_name("type") else {
+        return false;
+    };
+    let mut cursor = decl.walk();
+    let tops: Vec<_> = decl
+        .children_by_field_name("declarator", &mut cursor)
+        .collect();
+    if tops.is_empty() {
+        return false;
+    }
+    let mut chain_const = true;
+    for t in &tops {
+        match plain_pointer_chain(parsed, *t) {
+            Some(c) => chain_const &= c,
+            None => return false,
+        }
+    }
+    // Direct children other than the type and declarators: only `const` qualifiers.
+    let mut direct_const = false;
+    let mut cursor = decl.walk();
+    for c in decl.named_children(&mut cursor) {
+        if c.id() == ty.id() || is_comment(c) {
+            continue;
+        }
+        let is_decl = tops.iter().any(|t| t.id() == c.id());
+        if is_decl {
+            continue;
+        }
+        if c.kind() == "type_qualifier" && parsed.node_text(&c) == "const" {
+            direct_const = true;
+        } else {
+            return false;
+        }
+    }
+    // The type shape is a precondition: anything else refuses before the proofs combine.
+    let type_proof = match ty.kind() {
+        "struct_specifier" | "class_specifier" | "union_specifier" | "enum_specifier" => {
+            if !elaborated_plain(ty) {
+                return false;
+            }
+            true
+        }
+        "placeholder_type_specifier" => {
+            if parsed.node_text(&ty).trim() != "auto" {
+                return false;
+            }
+            true
+        }
+        // A plain `T` / `primitive_type`: only the qualifiers can prove it. Qualified,
+        // template, `decltype` and dependent bases stay escaped.
+        "type_identifier" | "primitive_type" | "sized_type_specifier" => false,
+        _ => return false,
+    };
+    (direct_const || type_proof || chain_const) && !file_prefix_diverges(parsed, decl)
+}
+
+/// A phase-divergence trigger (trigraph, backslash before a line end, lone CR, a UCN escape,
+/// literals included: conservative, or any `#`-line outside the `directive_hazard` allow-list), or any ERROR or MISSING parse node starting before that end, anywhere in the file up to the end of the outermost function
+/// holding `decl`. A comment a divergence opens in an earlier function can close in this one, so
+/// the owner's own text being clean proves nothing; the exemption then keeps the escape (6d-2s
+/// fold 3; the cross-function mechanism for the other rules is pre-existing and not closed here).
+fn file_prefix_diverges(parsed: &ParsedFile, decl: Node<'_>) -> bool {
+    let mut end = decl.end_byte();
+    let mut cur = decl.parent();
+    while let Some(n) = cur {
+        if n.kind() == "function_definition" {
+            end = n.end_byte();
+        }
+        cur = n.parent();
+    }
+    // Fold 6: a lexing divergence the text checks do not name (clang's `1'a` pp-number against
+    // tree-sitter's `1` + char literal) leaves an ERROR or MISSING node earlier in the file; the
+    // parse of everything after it is then not evidence of what the compiler reads.
+    if first_error_start(parsed.tree.root_node()).is_some_and(|start| start < end) {
+        return true;
+    }
+    let prefix = parsed.source.get(..end).unwrap_or(&parsed.source);
+    super::c_prune::phase_divergence(prefix)
+        || prefix.contains("\\u")
+        || prefix.contains("\\U")
+        || directive_hazard(prefix)
+}
+
+/// Start byte of the first ERROR or MISSING node under `node` (the tree's own error flag lets
+/// whole clean subtrees be skipped).
+fn first_error_start(node: Node<'_>) -> Option<usize> {
+    if !node.has_error() {
+        return None;
+    }
+    if node.is_error() || node.is_missing() {
+        return Some(node.start_byte());
+    }
+    let mut cursor = node.walk();
+    let found = node.children(&mut cursor).find_map(first_error_start);
+    found
+}
+
+/// Positive allow-list for preprocessor text (fold 5). Every line of `text` holding a `#` or a
+/// `%:` ANYWHERE (code, comment or literal alike) must be exactly one of: `#include <path>` or
+/// `#include "path"` (path free of `"`, `<`, `>`, `\`, `/*`, `//`), `#pragma once`, or
+/// `#define IDENT` optionally followed by a blank and a body of identifier characters, digits,
+/// blanks and `( ) , + - * & | ^ ~ ! < > = . ? : [ ]` (no `/`, quotes, `\`, `#`, `%`). Blanks
+/// around the line are fine. Anything else refuses, so conditionals, `#undef`, `#line`,
+/// comment-led directives and a `#` in a comment, string or macro body (`// issue #1`) all keep
+/// the escape: a documented conservative cost. A denylist kept missing spellings.
+fn directive_hazard(text: &str) -> bool {
+    text.lines()
+        .filter(|l| l.contains('#') || l.contains("%:"))
+        .any(|l| !allowed_directive_line(l.trim_matches([' ', '\t', '\r'])))
+}
+
+fn allowed_directive_line(l: &str) -> bool {
+    if let Some(rest) = l.strip_prefix("#include") {
+        let rest = rest.trim_start_matches([' ', '\t']);
+        let inner = match (rest.strip_prefix('<'), rest.strip_prefix('"')) {
+            (Some(r), _) => r.strip_suffix('>'),
+            (_, Some(r)) => r.strip_suffix('"'),
+            _ => None,
+        };
+        return inner.is_some_and(|p| {
+            !p.contains(['"', '<', '>', '\\']) && !p.contains("/*") && !p.contains("//")
+        });
+    }
+    if l.strip_prefix("#pragma")
+        .is_some_and(|r| r.trim() == "once")
+    {
+        return l.starts_with("#pragma ") || l.starts_with("#pragma\t");
+    }
+    if let Some(rest) = l.strip_prefix("#define") {
+        let Some(rest) = rest.strip_prefix([' ', '\t']) else {
+            return false;
+        };
+        let rest = rest.trim_start_matches([' ', '\t']);
+        let ident_len = rest
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .unwrap_or(rest.len());
+        let (ident, body) = rest.split_at(ident_len);
+        if ident.is_empty() || ident.starts_with(|c: char| c.is_ascii_digit()) {
+            return false;
+        }
+        return body.is_empty()
+            || (body.starts_with([' ', '\t'])
+                && body.chars().all(|c| {
+                    c.is_ascii_alphanumeric()
+                        || c == '_'
+                        || c == ' '
+                        || c == '\t'
+                        || "(),+-*&|^~!<>=.?:[]".contains(c)
+                }));
+    }
+    false
+}
+
+/// `struct N`, `class N`, ... : the keyword, a plain `type_identifier` name, no body, no
+/// attributes, no base clause.
+fn elaborated_plain(ty: Node<'_>) -> bool {
+    if ty.child_by_field_name("body").is_some() {
+        return false;
+    }
+    let mut cursor = ty.walk();
+    let named: Vec<_> = ty
+        .named_children(&mut cursor)
+        .filter(|c| !is_comment(*c))
+        .collect();
+    named.len() == 1
+        && named[0].kind() == "type_identifier"
+        && ty
+            .child_by_field_name("name")
+            .is_some_and(|n| n.id() == named[0].id())
 }

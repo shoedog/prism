@@ -1,0 +1,11 @@
+// Fold 5: directive spellings the allow-list must refuse (keyword exemption keeps the escape).
+// Control `c`: `T*` has no keyword proof and keeps as base does.
+struct S { int v; S& operator=(int n) { v += n; return *this; } };
+struct T;
+int b(S x) {
+#ident "a//b" /*
+*/ } int c(int x) {   // @q3x:D x
+    { const T* x; }
+    x = 5;               // @q3x:U:keep:q3_directive_spelling_exemption_refuses
+    return x;
+}

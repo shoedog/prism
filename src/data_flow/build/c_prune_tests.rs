@@ -1,7 +1,7 @@
 //! C U/D obligations (#630 slice 6b): frozen-reference differential plus marked rows.
 //! Rows: `tests/fixtures/dfg_prune/c/obligations.jsonl` (generated from the markers in the
 //! fixtures and in `c_prune_inline_cases.rs` by `gen_obligations.py`).
-use super::c_prune_inline_cases::INLINE_CASES;
+use super::c_prune_inline_cases::{inline_source, INLINE_CASES};
 use super::Producer;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
@@ -94,7 +94,7 @@ fn c_prune_is_removal_only_over_fixture_tree() {
     }
     assert!(files > 20, "the fixture sweep found {files} .c files");
     for (name, source) in INLINE_CASES {
-        check_subset(name, source);
+        check_subset(name, &inline_source(source));
     }
 }
 
@@ -115,7 +115,7 @@ fn matrix_inputs() -> Vec<(String, String, String)> {
         (
             n.strip_suffix(".c").unwrap().to_owned(),
             n.to_string(),
-            s.to_string(),
+            inline_source(s),
         )
     }));
     out.sort();

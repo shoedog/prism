@@ -163,4 +163,220 @@ long keyword_macro_unspelled_drop() {
 }
 "####,
     ),
+    (
+        "15_phase_divergence.cc",
+        r####"// The compiler's translation phases hide a line inside a comment that tree-sitter parses as a
+// declaration (a trigraph `??/` is a backslash; GCC and clang splice a backslash followed by
+// blanks). The phantom local would rebind `x`, so the owner is off (PhaseDivergence).
+struct S { int v; S& operator=(int); };
+int src();
+void sink(int);
+
+void phase_control_drop() {
+    int x = src();        // @ph0:D x
+    x = 1;
+    sink(x + 1);          // @ph0:U:drop:no_phase_divergence_control
+}
+
+void phase_trigraph_const_ptr_keep(S x) {   // @ph1:D x
+    // ??/
+    const T* x;
+    x = 1;                // @ph1:U:keep:trigraph_splice_hides_a_phantom_pointer_declaration
+}
+
+void phase_blank_backslash_const_ptr_keep(S x) {   // @ph2:D x
+    // hidden \   
+    const T* x;
+    x = 1;                // @ph2:U:keep:backslash_blanks_newline_splice_hides_the_declaration
+}
+
+void phase_trigraph_scalar_keep(S x) {   // @ph3:D x
+    // ??/
+    int x;
+    x = 1;                // @ph3:U:keep:trigraph_splice_hides_a_phantom_scalar_declaration
+}
+
+void phase_blank_backslash_scalar_keep(S x) {   // @ph4:D x
+    // hidden \ 	
+    int x;
+    x = 1;                // @ph4:U:keep:backslash_tab_newline_splice_hides_the_declaration
+}
+"####,
+    ),
+    (
+        "16_phase_splice_cr.cc",
+        r####"// Fold 2: tree-sitter skips a bare backslash + newline as whitespace and ends a `//` comment
+// only at LF; the compiler splices tokens across it and also ends a comment at a lone CR.
+// The compiler's view is in the comments of each row; PhaseDivergence turns the owner off.
+struct S { int v; S& operator=(int); };
+int src();
+void sink(int);
+
+void splice_slash_star_keep(S x) {   // @sp1:D x
+    int a = 1 /\
+/*gap*/ 1; const T* x;
+    ;
+    x = 1;                // @sp1:U:keep:backslash_splice_makes_a_comment_only_the_compiler_sees
+}
+
+void splice_comment_pair_keep(S x) {   // @sp2:D x
+    int y = 4 /\
+*2; const T* x; int z = 3 *\
+// c
+1;
+    x = 1;                // @sp2:U:keep:splices_inside_comment_delimiters
+}
+
+void splice_control_drop() {
+    int x = src();        // @sp3:D x
+    x = 1;
+    sink(x + 1);          // @sp3:U:drop:control_without_any_splice_or_cr
+}
+
+int cr_comment_hides_if_keep(int c) {
+    int x = src();        // @cr1:D x
+    // note<CR> if (c)
+    x = 2;
+    return x + 1;         // @cr1:U:keep:lone_cr_ends_the_comment_so_the_compiler_sees_if_c_x_eq_2
+}
+
+int cr_control_conditional_keep(int c) {
+    int x = src();        // @cr2:D x
+    // note
+    if (c)
+        x = 2;
+    return x + 1;         // @cr2:U:keep:compiler_view_of_the_previous_row_the_write_is_conditional
+}
+
+int cr_read_hidden_keep(int c) {
+    int x = src();        // @cr3:D x
+    if (c) x = 1; // n<CR> sink(x+0); // @cr3:U:keep:the_compiler_reads_x_here_tree_sitter_sees_a_comment
+    return 0;
+}
+
+int cr_read_control_keep(int c) {
+    int x = src();        // @cr4:D x
+    if (c) x = 1;
+    sink(x + 0);          // @cr4:U:keep:compiler_view_of_the_cr_row_the_read_is_live
+    return 0;
+}
+"####,
+    ),
+    (
+        "17_crlf_control.cc",
+        r####"// <CRLF-FILE>
+// CRLF line endings alone do not turn an owner off: this owner still prunes.
+int src();
+void sink(int);
+
+void crlf_control_drop() {
+    int x = src();        // @cl1:D x
+    x = 1;
+    sink(x + 1);          // @cl1:U:drop:crlf_only_owner_stays_on
+}
+"####,
+    ),
+    (
+        "18_ucn_identifier.cc",
+        r####"// Fold 3: `caf\u00e9` and `café` are one identifier to the compiler, two spellings to prism.
+// An owner with a backslash-spelled identifier node is off (UcnIdentifier); a UCN only inside a
+// string or character literal is not an identifier and leaves the owner on.
+struct T {};
+const T* source();
+int src();
+void sink(int);
+
+const T* ucn_pointer_keep() {
+    const T* café = source();   // @u1:D café
+    café = caf\u00e9;           // @u1:U:keep:ucn_spelling_is_the_same_name_as_the_literal
+    return café;
+}
+
+int ucn_scalar_keep() {
+    int café = src();           // @u2:D café
+    café = caf\u00e9;           // @u2:U:keep:ucn_spelling_is_the_same_name_as_the_literal
+    return 0;
+}
+
+int ucn_consistent_control_drop() {
+    int café = src();           // @u3:D café
+    café = 1;
+    sink(café + 1);             // @u3:U:drop:one_spelling_throughout
+    return 0;
+}
+
+int ucn_in_string_only_drop() {
+    int x = src();              // @u4:D x
+    x = 1;
+    sink(x + 1);                // @u4:U:drop:ucn_only_inside_literals
+    const char* s = "caf\u00e9"; char c = '\u00e9';
+    return s[0] + c;
+}
+"####,
+    ),
+    (
+        "19_phase_prefix.cc",
+        r####"// Fold 3 addition: a splice in `a` opens a comment the compiler closes inside `b`, so `b`'s own
+// text is clean. The keyword exemption refuses when the file prefix holds a phase trigger.
+struct S { int v; S& operator=(int n) { v += n; return *this; } };
+struct T;
+int a(S x) {
+    int y = 4 /\
+* 2;
+}
+int b(int x) {   // @pf1:D x
+    /* c */ ;
+    { const T* x; }
+    x = 5;               // @pf1:U:keep:earlier_function_opened_a_comment_closed_here_exemption_refuses
+    return x;
+}
+"####,
+    ),
+    (
+        "20_phase_prefix_control.cc",
+        r####"// Control of 19_phase_prefix.cc: `T* x` has no keyword proof, so base and this PR both keep.
+struct S { int v; S& operator=(int n) { v += n; return *this; } };
+struct T;
+int a(S x) {
+    int y = 4 /\
+* 2;
+}
+int b(int x) {   // @pf2:D x
+    /* c */ ;
+    { T* x; }
+    x = 5;               // @pf2:U:keep:no_keyword_proof_so_the_escape_stays
+    return x;
+}
+"####,
+    ),
+    (
+        "21_allowlist_clean.cc",
+        r####"// Fold 5: only allow-listed directive lines precede the owner, so the keyword exemption lifts.
+#pragma once
+#include <cstdio>
+#include "x.h"
+#define GUARD_X
+#define LIMIT (1 + 2)
+int sink(int);
+void *pbuf();
+void *pother();
+
+void allowlist_clean_drop() {
+    const T* p = pbuf();  // @al1:D p
+    p = pother();
+    sink(*p + 1);  // @al1:U:drop:allow_listed_directives_only
+}
+"####,
+    ),
 ];
+
+/// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot
+/// hold one) and a source holding `<CRLF-FILE>` has every line end turned into CRLF.
+pub(super) fn inline_source(s: &str) -> String {
+    let crlf = s.contains("<CRLF-FILE>");
+    let mut out = s.replace("<CRLF-FILE>", "").replace("<CR>", "\r");
+    if crlf {
+        out = out.replace('\n', "\r\n");
+    }
+    out
+}
