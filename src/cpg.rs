@@ -89,6 +89,11 @@ mod s1c_label_tests;
 mod s1d_label_tests;
 #[cfg(test)]
 mod statement_calls_tests;
+mod taint_policy;
+#[cfg(test)]
+mod taint_policy_adapter_tests;
+#[cfg(test)]
+mod taint_policy_tests;
 #[cfg(test)]
 mod tests;
 mod trace;
@@ -119,6 +124,7 @@ pub(crate) use reaching::{
 };
 #[cfg(test)]
 pub(crate) use reaching::{RD_MAX_DEFS, RD_MAX_LINES};
+pub use taint_policy::{CrossingCeiling, TaintCrossingPolicy};
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     Relation, ReturnFlowMode, SameLineOrderView, Trace,
