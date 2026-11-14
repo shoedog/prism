@@ -1,0 +1,108 @@
+{
+  "lane": "Captured review context loading authority and bounded reader (#602 S4a)",
+  "lib_test_prefixes": [
+    "api::review_loading::",
+    "repo_loader::context_read_tests::"
+  ],
+  "mutations": {
+    "RC01-private-scope-capture-lost": [
+      "src/api/review_loading.rs",
+      "scope: scope.clone(),",
+      "scope: ScopeGraphBuildInputs::from_files_convention(&Default::default()),",
+      "api::review_loading::tests::public_scope_edits_and_disk_config_changes_do_not_move_the_captured_authority"
+    ],
+    "RC02-listing-membership-bypassed": [
+      "src/repo_loader/context_read.rs",
+      "if !authority.listing.contains(path) {",
+      "if false {",
+      [
+        "api::review_loading::tests::the_captured_listing_decides_membership_not_the_disk_after_capture",
+        "repo_loader::context_read_tests::lexical_table_refuses_every_non_canonical_spelling_before_any_filesystem_access"
+      ]
+    ],
+    "RC03-lexical-separator-rule-lost": [
+      "src/repo_loader/context_read.rs",
+      "path.split('/').any(|part| matches!(part, \"\" | \".\" | \"..\"))",
+      "false",
+      "repo_loader::context_read_tests::lexical_table_refuses_every_non_canonical_spelling_before_any_filesystem_access"
+    ],
+    "RC04-symlink-component-accepted": [
+      "src/repo_loader/context_read.rs",
+      "if file_type.is_symlink() {",
+      "if false {",
+      "api::review_loading::tests::replaced_links_are_refused_with_zero_source_bytes_and_ordinary_chains_load"
+    ],
+    "RC05-sentinel-byte-dropped": [
+      "src/repo_loader/context_read.rs",
+      "reader.take(limit + 1)",
+      "reader.take(limit)",
+      "repo_loader::context_read_tests::per_file_edges_are_decided_by_the_bytes_returned"
+    ],
+    "RC06-equality-becomes-total-bound": [
+      "src/repo_loader/context_read.rs",
+      "return if remaining_source_bytes >= MAX_FILE_BYTES {",
+      "return if remaining_source_bytes > MAX_FILE_BYTES {",
+      "repo_loader::context_read_tests::equality_with_the_per_file_limit_is_a_per_file_skip_never_a_total_bound"
+    ],
+    "RC07-partial-io-count-reset": [
+      "src/repo_loader/context_read.rs",
+      "return skipped(attempted, unreadable(&error));",
+      "return skipped(0, unreadable(&error));",
+      "repo_loader::context_read_tests::partial_and_early_io_errors_count_exactly_the_bytes_returned"
+    ],
+    "RC08-invalid-utf8-count-discarded": [
+      "src/repo_loader/context_read.rs",
+      "Err(_) => return skipped(attempted, ContextSkip::NotUtf8),",
+      "Err(_) => return skipped(0, ContextSkip::NotUtf8),",
+      "repo_loader::context_read_tests::utf8_is_strict_counts_bytes_and_follows_the_overflow_decision"
+    ],
+    "RC09-severe-threshold-inclusive": [
+      "src/repo_loader/context_read.rs",
+      "if parsed.error_rate() > SEVERE_PARSE_ERROR_RATE {",
+      "if parsed.error_rate() >= SEVERE_PARSE_ERROR_RATE {",
+      "repo_loader::context_read_tests::parse_gate_rejects_failures_and_severe_rates_but_admits_exactly_point_three"
+    ],
+    "RC10-severe-parse-admitted": [
+      "src/repo_loader/context_read.rs",
+      "if parsed.error_rate() > SEVERE_PARSE_ERROR_RATE {",
+      "if false {",
+      "repo_loader::context_read_tests::parse_gate_rejects_failures_and_severe_rates_but_admits_exactly_point_three"
+    ],
+    "RC11-post-read-refusal-ignored": [
+      "src/repo_loader/context_read.rs",
+      "if let Err(skip) = recheck() {\n        return skipped(attempted, skip);\n    }",
+      "let _ = recheck();",
+      "repo_loader::context_read_tests::a_post_read_refusal_discards_the_payload_and_keeps_the_attempted_count"
+    ],
+    "RC12-original-file-replaceable": [
+      "src/repo_loader/context_read.rs",
+      "if authority.original.contains(path) {",
+      "if false {",
+      "api::review_loading::tests::a_changed_regular_source_is_read_fresh_while_the_baseline_stays_original"
+    ],
+    "RC13-go-testdata-admitted": [
+      "src/repo_loader/context_read.rs",
+      "!path.split('/').any(|part| part == \"testdata\")",
+      "true",
+      "api::review_loading::tests::language_support_and_exclusions_are_decided_before_any_read"
+    ],
+    "RC14-root-retarget-unchecked": [
+      "src/repo_loader/context_read.rs",
+      "Ok(root) if root == authority.canonical_root => {}",
+      "Ok(_) => {}",
+      "api::review_loading::tests::a_root_symlink_is_accepted_at_capture_and_refused_once_retargeted"
+    ],
+    "RC15-capture-root-recheck-skipped": [
+      "src/api/review_loading.rs",
+      "if observe_root(lexical_root)? != canonical_root {",
+      "if false {",
+      "api::review_loading::tests::unavailable_authority_is_typed_and_never_changes_the_baseline_inputs"
+    ],
+    "RC16-post-read-recheck-wiring-disabled": [
+      "src/repo_loader/context_read.rs",
+      "check_path_state(authority, path).map(drop)",
+      "Ok(())",
+      "repo_loader::context_read_tests::read_refuses_a_link_substituted_at_end_of_stream_with_the_real_attempted_bytes"
+    ]
+  }
+}

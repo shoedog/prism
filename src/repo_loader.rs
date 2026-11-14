@@ -549,6 +549,9 @@ fn has_complete_rust_coverage(
 mod bin_deps_tests;
 mod bin_roots;
 pub(crate) mod c_census;
+pub(crate) mod context_read;
+#[cfg(test)]
+mod context_read_tests;
 #[path = "repo_loader/freshness.rs"]
 mod freshness_paths;
 #[cfg(test)]
