@@ -287,7 +287,9 @@ fn r2_sol2_and_opus_w6_splice_inside_raw_string() {
     ] {
         let c = cpp(src);
         has(&c, "M", "hidden");
-        assert!(c.incomplete(), "uncertain raw scan fails closed: {src}");
+        // 6d-1 fold 3: the as-written end ([lex.pptoken]/3) and the naive end disagree, so
+        // the literal stays uncertain, as on base.
+        assert!(c.incomplete(), "readings disagree, fail closed: {src}");
     }
 }
 
