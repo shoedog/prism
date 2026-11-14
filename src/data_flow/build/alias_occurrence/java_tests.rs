@@ -196,9 +196,9 @@ fn policy_bytes(parsed: &ParsedFile) -> BTreeSet<usize> {
     for func in parsed.all_functions() {
         let (start, end) = parsed.node_line_range(&func);
         let lines: BTreeSet<usize> = (start..=end).collect();
-        let (alias_map, _) = Producer::build_alias_map(parsed, &func, &lines);
+        let (alias_map, raw) = Producer::build_alias_map(parsed, &func, &lines);
         let spans = parsed.assignment_lvalue_spans_on_lines(&func, &lines);
-        let policy = TwinPolicy::for_owner(parsed, &func, &spans, &alias_map);
+        let policy = TwinPolicy::for_owner(parsed, &func, &spans, &alias_map, &raw);
         out.extend(
             spans
                 .iter()
@@ -224,11 +224,7 @@ fn the_policy_suppresses_exactly_the_binding_write_occurrences() {
 #[test]
 fn other_languages_get_an_empty_policy() {
     let lua = "local function t(o, q)\n local u = o\n u = q\n u.f = 1\nend\n";
-    let js = "function t(o, q) {\n let u = o;\n u = q;\n u.f = 1;\n}\n";
-    for (file, language, source) in [
-        ("a.lua", Language::Lua, lua),
-        ("a.js", Language::JavaScript, js),
-    ] {
+    for (file, language, source) in [("a.lua", Language::Lua, lua)] {
         let parsed = ParsedFile::parse(file, source, language).unwrap();
         assert!(policy_bytes(&parsed).is_empty(), "{file}");
     }

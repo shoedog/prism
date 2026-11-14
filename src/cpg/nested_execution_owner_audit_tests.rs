@@ -262,7 +262,8 @@ fn nested_execution_owner_graph_classification() {
                 source.rfind("local;").unwrap(),
                 source.rfind("local;").unwrap() + 5
             ),
-            ("outer", "seed", 1, 0, 0),
+            // #783 slice 4c: the line-1 anchor use was the target of the backward edge from the binding
+            // twin of `seed` at `let local=seed;` (line 7); a binding write mints no twin, so no anchor.
             (
                 "outer",
                 "seed",
@@ -294,7 +295,8 @@ fn nested_execution_owner_graph_classification() {
         .collect();
     assert_eq!(
         zero_width,
-        vec![("seed", 1, 0), ("seed", 5, 71), ("seed", 7, 93)]
+        // #783 slice 4c: no (`seed`, line 1) anchor, the target of the removed binding twin's edge.
+        vec![("seed", 5, 71), ("seed", 7, 93)]
     );
     let nested_seed_anchor = source.find("    return seed;").unwrap();
     let capture_labels: Vec<_> = label_snapshot(&cpg.dfg)
@@ -310,12 +312,10 @@ fn nested_execution_owner_graph_classification() {
         })
         .map(|(_, label)| *label)
         .collect();
+    // #783 slice 4c: the second row came from the binding twin of `seed` at `let local=seed;`.
     assert_eq!(
         capture_labels,
-        vec![
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
-        ]
+        vec![FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)]
     );
     assert!(!capture_labels.contains(&FlowConfidence::Exact));
     assert!(!semantic_dfg_rows(&cpg, "app.js").is_empty());

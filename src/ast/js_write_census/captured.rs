@@ -118,6 +118,11 @@ impl Shadows {
         Self { by_base }
     }
 
+    /// A table built by the caller (the alias-twin hold closure scopes every declaration of the owner).
+    pub(crate) fn from_parts(by_base: BTreeMap<String, Vec<Shadow>>) -> Self {
+        Self { by_base }
+    }
+
     /// The innermost declaration of `base` whose scope holds `at` (scopes nest, so the narrowest), its
     /// scope minus the narrower declarations of `base` nested in it.
     pub(crate) fn innermost(&self, base: &str, at: usize) -> Option<Shadow> {
@@ -152,7 +157,7 @@ fn range(n: Node<'_>) -> (usize, usize) {
 }
 
 /// The byte range a declaration of kind `decl` at `node` scopes, `None` when the design proves nothing.
-fn scope_of(t: &Tables, src: &str, decl: &str, node: Node<'_>) -> Option<Scope> {
+pub(crate) fn scope_of(t: &Tables, src: &str, decl: &str, node: Node<'_>) -> Option<Scope> {
     if decl == "param" {
         return param_scope(t, node);
     }

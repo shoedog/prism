@@ -107,11 +107,13 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
             "REFUSED" => assert_ne!(r.expected, "-", "{} {}", r.fixture, r.edge),
             "ABSENT" => assert_eq!(r.expected, "-", "{} {}", r.fixture, r.edge),
             "TRYFLOW" => assert_ne!(r.expected, "-", "{} {}", r.fixture, r.edge),
+            // #783 slice 4c: a label the removal of a binding twin moved (the row's own loop rule is a HOLD).
+            "TWIN" => assert_ne!(r.main, r.expected, "{} {}", r.fixture, r.edge),
             other => panic!("kind {other}"),
         }
     }
     let moved = all.iter().filter(|r| r.kind == "MOVE").count();
-    assert_eq!(moved, 62, "rows the rule moves");
+    assert_eq!(moved, 57, "rows the rule moves");
     assert_eq!(
         all.iter().filter(|r| r.kind == "REFUSED").count(),
         104,
@@ -119,17 +121,17 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
     );
     assert_eq!(
         all.iter().filter(|r| r.kind == "ABSENT").count(),
-        265,
-        "rows whose pair #788 removed"
+        295,
+        "rows whose pair #788 removed (265) or whose twin def slice 4c removed (30: 5 MOVE, 9 TRYFLOW, 16 HOLD rows of f4_destructuring_head, f5_* and f6_ts_core_shape)"
     );
     assert_eq!(
         all.iter().filter(|r| r.kind == "TRYFLOW").count(),
-        46,
+        37,
         "rows of try-affected owners (T2)"
     );
     for r in all
         .iter()
-        .filter(|r| !matches!(r.kind.as_str(), "REFUSED" | "ABSENT" | "TRYFLOW"))
+        .filter(|r| !matches!(r.kind.as_str(), "REFUSED" | "ABSENT" | "TRYFLOW" | "TWIN"))
     {
         assert_eq!(
             r.fix,
@@ -141,7 +143,7 @@ fn the_rule_moves_the_rows_it_names_and_no_others() {
     }
     assert_eq!(
         all.iter()
-            .filter(|r| r.fix && !matches!(r.kind.as_str(), "ABSENT" | "TRYFLOW"))
+            .filter(|r| r.fix && !matches!(r.kind.as_str(), "ABSENT" | "TRYFLOW" | "TWIN"))
             .count(),
         34,
         "round-1 FIX rows that still have a pair"

@@ -196,8 +196,11 @@ function process(obj) {
     const ref = obj;
     const { name, id } = ref;
     console.log(name);
+    name.seen = 1;
 }
 "#;
+    // #783 slice 4c: a binding write mints no target def, so the owner writes through `name`
+    // (option R2 keeps the binding twin of an alias the owner writes through).
     let path = "src/through.js";
     let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
     let mut files = BTreeMap::new();
@@ -226,6 +229,7 @@ function process(obj) {
     const b = a;
     const { x } = b;
     console.log(x);
+    x.seen = 1;
 }
 "#;
     let path = "src/chain.js";
@@ -254,6 +258,7 @@ function connect(obj) {
     const ref = obj;
     const { config: { host } } = ref;
     open(host);
+    host.seen = 1;
 }
 "#;
     let path = "src/nested_alias.js";
@@ -438,5 +443,32 @@ function process(pairs) {
         b_alias,
         "for-of array destructuring: 'b' should have alias, got {:?}",
         aliases
+    );
+}
+
+#[test]
+fn test_destructuring_binding_mints_no_target_def_js() {
+    // #783 slice 4c: `const { name } = ref` only binds `name`; it writes no storage of `obj`.
+    // The alias relation is unchanged, so a write through the alias still mints its twin.
+    let defs_of = |source: &str| {
+        let path = "src/binding.js";
+        let parsed = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+        let files = BTreeMap::from([(path.to_string(), parsed)]);
+        DataFlowGraph::build(&files)
+            .all_defs_of(path, "obj")
+            .iter()
+            .map(|d| d.path.fields.join("."))
+            .collect::<BTreeSet<_>>()
+    };
+    let quiet = defs_of(
+        "function p(obj) {\n  const ref = obj;\n  const { name } = ref;\n  use(name);\n}\n",
+    );
+    assert!(!quiet.contains("name"), "{quiet:?}");
+    let written = defs_of(
+        "function p(obj) {\n  const ref = obj;\n  const { name } = ref;\n  name.k = 1;\n}\n",
+    );
+    assert!(
+        written.contains("name") && written.contains("name.k"),
+        "{written:?}"
     );
 }
