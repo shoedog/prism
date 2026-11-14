@@ -99,8 +99,8 @@
     ],
     "BP20-dfg-entry-bypassed": [
       "src/data_flow/build/mod.rs",
-      "crate::build_pool::install(|| Self::build_from_refs_on_pool(files))",
-      "Self::build_from_refs_on_pool(files)",
+      "        crate::build_pool::install(|| {\n            let census = RustMacroCensus::from_files(census_files);\n            let c_census = CMacroCensus::from_files(census_files);\n            Self::build_from_refs_on_pool(&refs, &census, &c_census)\n        })",
+      "        let census = RustMacroCensus::from_files(census_files);\n        let c_census = CMacroCensus::from_files(census_files);\n        Self::build_from_refs_on_pool(&refs, &census, &c_census)",
       [
         "build_pool::boundary_tests::dfg_contexts",
         "build_pool::boundary_tests::dfg_subset_contexts"
@@ -183,6 +183,20 @@
       ".get(name)",
       ".get(\"absent\")",
       "ast::member_reference_index::deferred_tests::complete_dfg_fixture_sweep_against_fully_legacy_path"
+    ]
+  },
+  "extra": {
+    "BP20-dfg-entry-bypassed": [
+      [
+        "src/data_flow/build/mod.rs",
+        "        crate::build_pool::install(|| {\n            let census = RustMacroCensus::from_files(files);\n            let c_census = CMacroCensus::from_files(files);\n            Self::build_subset_with_census(files, only_files, &census, &c_census)\n        })",
+        "        let census = RustMacroCensus::from_files(files);\n        let c_census = CMacroCensus::from_files(files);\n        Self::build_subset_with_census(files, only_files, &census, &c_census)"
+      ],
+      [
+        "src/data_flow/build/mod.rs",
+        "crate::build_pool::install(|| Self::build_from_refs_on_pool(&filtered, census, c_census))",
+        "Self::build_from_refs_on_pool(&filtered, census, c_census)"
+      ]
     ]
   }
 }
