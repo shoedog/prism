@@ -1,4 +1,4 @@
-// C++ U/D obligations (#630 slice 6d-2s): structural pointer declarations are exempt from the
+// C++ U/D obligations (slice 6d-2s of issue 630): structural pointer declarations are exempt from the
 // nonscalar_decl escape when a keyword token proves them declarations; look-alikes keep.
 // Rows k7, k10, k11 and k13 are conservative-outcome rows: the scalar gate (E2) refuses those
 // bindings anyway, so they pin that the lift does not widen them.

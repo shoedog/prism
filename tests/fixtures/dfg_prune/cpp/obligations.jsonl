@@ -329,10 +329,29 @@
 {"case": "e2x.cc", "id": "e2x", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e2_directive_shape_exemption_refuses"}
 {"case": "e6c.cc", "id": "e6c", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e6_directive_shape_control_no_keyword_proof"}
 {"case": "e6x.cc", "id": "e6x", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e6_directive_shape_exemption_refuses"}
+{"case": "g1c.cc", "id": "g1c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g1_directive_spelling_control_no_keyword_proof"}
+{"case": "g1x.cc", "id": "g1x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g1_directive_spelling_exemption_refuses"}
+{"case": "g2c.cc", "id": "g2c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g2_directive_spelling_control_no_keyword_proof"}
+{"case": "g2x.cc", "id": "g2x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "g2_directive_spelling_exemption_refuses"}
 {"case": "h1c.cc", "id": "h1c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "h1_directive_shape_control_no_keyword_proof"}
 {"case": "h1x.cc", "id": "h1x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "h1_directive_shape_exemption_refuses"}
+{"case": "n1x.cc", "id": "n1x", "path": "p", "def_line": 9, "use_line": 11, "keep": true, "reason": "hash_in_a_comment_before_the_owner_refuses_the_exemption"}
 {"case": "p2c.cc", "id": "p2c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "p2_directive_shape_control_no_keyword_proof"}
 {"case": "p2x.cc", "id": "p2x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "p2_directive_shape_exemption_refuses"}
+{"case": "q1c.cc", "id": "q1c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "q1_directive_spelling_control_no_keyword_proof"}
+{"case": "q1x.cc", "id": "q1x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "q1_directive_spelling_exemption_refuses"}
+{"case": "q2c.cc", "id": "q2c", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "q2_directive_spelling_control_no_keyword_proof"}
+{"case": "q2x.cc", "id": "q2x", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "q2_directive_spelling_exemption_refuses"}
+{"case": "q3c.cc", "id": "q3c", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "q3_directive_spelling_control_no_keyword_proof"}
+{"case": "q3x.cc", "id": "q3x", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "q3_directive_spelling_exemption_refuses"}
+{"case": "q4c.cc", "id": "q4c", "path": "y", "def_line": 6, "use_line": 10, "keep": true, "reason": "q4_directive_spelling_control_no_keyword_proof"}
+{"case": "q4x.cc", "id": "q4x", "path": "y", "def_line": 6, "use_line": 10, "keep": true, "reason": "q4_directive_spelling_exemption_refuses"}
+{"case": "q5c.cc", "id": "q5c", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "q5_directive_spelling_control_no_keyword_proof"}
+{"case": "q5x.cc", "id": "q5x", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "q5_directive_spelling_exemption_refuses"}
+{"case": "q6c.cc", "id": "q6c", "path": "x", "def_line": 10, "use_line": 14, "keep": true, "reason": "q6_directive_spelling_control_no_keyword_proof"}
+{"case": "q6x.cc", "id": "q6x", "path": "x", "def_line": 10, "use_line": 14, "keep": true, "reason": "q6_directive_spelling_exemption_refuses"}
+{"case": "q7c.cc", "id": "q7c", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "q7_directive_spelling_control_no_keyword_proof"}
+{"case": "q7x.cc", "id": "q7x", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "q7_directive_spelling_exemption_refuses"}
 {"case": "w1c.cc", "id": "w1c", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "w1_directive_shape_control_no_keyword_proof"}
 {"case": "w1x.cc", "id": "w1x", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "w1_directive_shape_exemption_refuses"}
 {"case": "10_header.h", "id": "hs", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "dot_h_owner_is_off", "owner": "header_scalar_drop"}
@@ -376,3 +395,4 @@
 {"case": "18_ucn_identifier.cc", "id": "u4", "path": "x", "def_line": 29, "use_line": 31, "keep": false, "reason": "ucn_only_inside_literals", "owner": "ucn_in_string_only_drop"}
 {"case": "19_phase_prefix.cc", "id": "pf1", "path": "x", "def_line": 9, "use_line": 12, "keep": true, "reason": "earlier_function_opened_a_comment_closed_here_exemption_refuses", "owner": "b"}
 {"case": "20_phase_prefix_control.cc", "id": "pf2", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "no_keyword_proof_so_the_escape_stays", "owner": "b"}
+{"case": "21_allowlist_clean.cc", "id": "al1", "path": "p", "def_line": 12, "use_line": 14, "keep": false, "reason": "allow_listed_directives_only", "owner": "allowlist_clean_drop"}

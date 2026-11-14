@@ -209,7 +209,7 @@ fn keyword_proves_declaration(parsed: &ParsedFile, decl: Node<'_>) -> bool {
 }
 
 /// A phase-divergence trigger (trigraph, backslash before a line end, lone CR, a UCN escape,
-/// literals included: conservative, a conditional directive or an unclosed directive comment) anywhere in the file up to the end of the outermost function
+/// literals included: conservative, or any `#`-line outside the `directive_hazard` allow-list) anywhere in the file up to the end of the outermost function
 /// holding `decl`. A comment a divergence opens in an earlier function can close in this one, so
 /// the owner's own text being clean proves nothing; the exemption then keeps the escape (6d-2s
 /// fold 3; the cross-function mechanism for the other rules is pre-existing and not closed here).
@@ -229,57 +229,58 @@ fn file_prefix_diverges(parsed: &ParsedFile, decl: Node<'_>) -> bool {
         || directive_hazard(prefix)
 }
 
-/// Preprocessor text the compiler reads differently from the parser (fold 4): (a) any
-/// conditional directive (`#if`, `#ifdef`, `#ifndef`, `#elif`, `#elifdef`, `#elifndef`, `#else`,
-/// `#endif`; a `%:` leader, blanks or comments before the name allowed), which can hide or swap
-/// a function header across a boundary, and (b) any directive line that opens a `/*` it does not
-/// close on that line, whose comment swallows the code after the closing `*/` for the compiler
-/// while the parser reads it. A simple line scan; splices are refused by the caller already.
+/// Positive allow-list for preprocessor text (fold 5). Every line of `text` holding a `#` or a
+/// `%:` ANYWHERE (code, comment or literal alike) must be exactly one of: `#include <path>` or
+/// `#include "path"` (path free of `"`, `<`, `>`, `\`, `/*`, `//`), `#pragma once`, or
+/// `#define IDENT` optionally followed by a blank and a body of identifier characters, digits,
+/// blanks and `( ) , + - * & | ^ ~ ! < > = . ? : [ ]` (no `/`, quotes, `\`, `#`, `%`). Blanks
+/// around the line are fine. Anything else refuses, so conditionals, `#undef`, `#line`,
+/// comment-led directives and a `#` in a comment, string or macro body (`// issue #1`) all keep
+/// the escape: a documented conservative cost. A denylist kept missing spellings.
 fn directive_hazard(text: &str) -> bool {
-    for line in text.lines() {
-        let t = line.trim_start_matches([' ', '\t', '\x0b', '\x0c']);
-        let Some(rest) = t.strip_prefix('#').or_else(|| t.strip_prefix("%:")) else {
-            continue;
+    text.lines()
+        .filter(|l| l.contains('#') || l.contains("%:"))
+        .any(|l| !allowed_directive_line(l.trim_matches([' ', '\t', '\r'])))
+}
+
+fn allowed_directive_line(l: &str) -> bool {
+    if let Some(rest) = l.strip_prefix("#include") {
+        let rest = rest.trim_start_matches([' ', '\t']);
+        let inner = match (rest.strip_prefix('<'), rest.strip_prefix('"')) {
+            (Some(r), _) => r.strip_suffix('>'),
+            (_, Some(r)) => r.strip_suffix('"'),
+            _ => None,
         };
-        // Comment state across the line, skipping blanks and comments before the name.
-        let mut in_comment = false;
-        let mut name = String::new();
-        let mut seen_name = false;
-        let b = rest.as_bytes();
-        let mut i = 0;
-        while i < b.len() {
-            if in_comment {
-                if b[i] == b'*' && b.get(i + 1) == Some(&b'/') {
-                    in_comment = false;
-                    i += 2;
-                } else {
-                    i += 1;
-                }
-            } else if b[i] == b'/' && b.get(i + 1) == Some(&b'*') {
-                in_comment = true;
-                i += 2;
-            } else if b[i] == b'/' && b.get(i + 1) == Some(&b'/') {
-                break;
-            } else {
-                if !seen_name {
-                    if b[i].is_ascii_alphanumeric() || b[i] == b'_' {
-                        name.push(b[i] as char);
-                    } else if !name.is_empty() {
-                        seen_name = true;
-                    }
-                }
-                i += 1;
-            }
+        return inner.is_some_and(|p| {
+            !p.contains(['"', '<', '>', '\\']) && !p.contains("/*") && !p.contains("//")
+        });
+    }
+    if l.strip_prefix("#pragma")
+        .is_some_and(|r| r.trim() == "once")
+    {
+        return l.starts_with("#pragma ") || l.starts_with("#pragma\t");
+    }
+    if let Some(rest) = l.strip_prefix("#define") {
+        let Some(rest) = rest.strip_prefix([' ', '\t']) else {
+            return false;
+        };
+        let rest = rest.trim_start_matches([' ', '\t']);
+        let ident_len = rest
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .unwrap_or(rest.len());
+        let (ident, body) = rest.split_at(ident_len);
+        if ident.is_empty() || ident.starts_with(|c: char| c.is_ascii_digit()) {
+            return false;
         }
-        if in_comment {
-            return true;
-        }
-        if matches!(
-            name.as_str(),
-            "if" | "ifdef" | "ifndef" | "elif" | "elifdef" | "elifndef" | "else" | "endif"
-        ) {
-            return true;
-        }
+        return body.is_empty()
+            || (body.starts_with([' ', '\t'])
+                && body.chars().all(|c| {
+                    c.is_ascii_alphanumeric()
+                        || c == '_'
+                        || c == ' '
+                        || c == '\t'
+                        || "(),+-*&|^~!<>=.?:[]".contains(c)
+                }));
     }
     false
 }

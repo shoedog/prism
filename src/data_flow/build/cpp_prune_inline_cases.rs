@@ -349,6 +349,25 @@ int b(int x) {   // @pf2:D x
 }
 "####,
     ),
+    (
+        "21_allowlist_clean.cc",
+        r####"// Fold 5: only allow-listed directive lines precede the owner, so the keyword exemption lifts.
+#pragma once
+#include <cstdio>
+#include "x.h"
+#define GUARD_X
+#define LIMIT (1 + 2)
+int sink(int);
+void *pbuf();
+void *pother();
+
+void allowlist_clean_drop() {
+    const T* p = pbuf();  // @al1:D p
+    p = pother();
+    sink(*p + 1);  // @al1:U:drop:allow_listed_directives_only
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot
