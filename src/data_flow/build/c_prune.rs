@@ -60,9 +60,70 @@ pub(super) enum Off {
     Coroutine,
     /// 6c: the owner spells an in-repo macro named like a C++ keyword (`#define int IR`).
     KeywordMacro,
+    /// 6d-2s: the text holds a trigraph or a backslash followed by blanks and a newline, which
+    /// the compiler's translation phases read differently from the parser (`// ??/` splices the
+    /// next line into the comment).
+    PhaseDivergence,
+    /// 6d-2s fold 3: an identifier-like node is spelled with a backslash (a UCN, `caf\u00e9`).
+    /// C++ reads it as the same name as the literal `café`; prism keys names by raw spelling.
+    UcnIdentifier,
     /// 6d-1: the owner's text holds a C++ raw string with an interior line splice (or one of
     /// uncertain extent); the token readers see spliced text and cannot find its true end.
     RawStringSplice,
+}
+
+/// Text the compiler's translation phases read differently from tree-sitter, so the parser
+/// can see code the compiler does not (or the reverse): a trigraph (`??` + one of
+/// `= / ' ( ) ! < > -`, `??/` being a backslash); ANY backslash followed by optional blanks
+/// (space, tab, VT, FF) and a line terminator (LF, CRLF or lone CR), which the compiler splices
+/// (tree-sitter skips a bare `\` + newline as whitespace between tokens, so `/\` + newline + `*`
+/// is a comment opener only to the compiler, and a blank-padded one is not spliced by it at
+/// all); and any lone CR (a CR not followed by LF), which GCC and clang read as a line end
+/// (it ends a `//` comment) and tree-sitter does not. No exception for string literals or
+/// comments (a trigraph look-alike in a string literal turns the owner off too: accepted, the
+/// gate is closed and simple). CRLF line endings alone are fine.
+pub(super) fn phase_divergence(text: &str) -> bool {
+    let b = text.as_bytes();
+    for (i, &c) in b.iter().enumerate() {
+        match c {
+            b'?' if b.get(i + 1) == Some(&b'?') => {
+                if b.get(i + 2).is_some_and(|t| b"=/'()!<>-".contains(t)) {
+                    return true;
+                }
+            }
+            b'\\' => {
+                let mut j = i + 1;
+                while matches!(b.get(j), Some(b' ' | b'\t' | 0x0b | 0x0c)) {
+                    j += 1;
+                }
+                if matches!(b.get(j), Some(b'\n' | b'\r')) {
+                    return true;
+                }
+            }
+            b'\r' if b.get(i + 1) != Some(&b'\n') => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod phase_divergence_unit_tests {
+    use super::phase_divergence as pd;
+
+    #[test]
+    fn closed_class() {
+        assert!(pd("a ??/\nb"));
+        assert!(pd("a \\\nb"), "bare backslash + LF");
+        assert!(pd("a \\\r\nb"), "backslash + CRLF");
+        assert!(pd("a \\ \t\nb"), "blank-padded backslash");
+        assert!(pd("a \\\rb"), "backslash + lone CR");
+        assert!(pd("// n\rb"), "lone CR");
+        assert!(!pd("int a;\r\nint b;\r\n"), "CRLF alone");
+        assert!(!pd("int a; // c\nint b;\n"));
+        assert!(!pd("a \\ b"), "backslash not at a line end");
+        assert!(!pd("a ?? b ?x"), "no trigraph");
+    }
 }
 
 /// Names whose call can return a second time (G4).
@@ -274,6 +335,9 @@ pub(super) fn scan(
     if body_has_forbidden_directive(text) {
         return Err(Off::G2);
     }
+    if phase_divergence(text) {
+        return Err(Off::PhaseDivergence);
+    }
     let mut out = COwner {
         d_ok: true,
         escaped: BTreeSet::new(),
@@ -398,6 +462,9 @@ fn walk(
         set_off(Off::G3Ms);
     } else if kind.contains("asm") || kind.starts_with("seh_") {
         set_off(Off::G3);
+    }
+    if kind.ends_with("identifier") && parsed.node_text(&node).contains('\\') {
+        set_off(Off::UcnIdentifier);
     }
     if is_name_kind(kind) {
         note_name(parsed.node_text(&node), census, out, off);
