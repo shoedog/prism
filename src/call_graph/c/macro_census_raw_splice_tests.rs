@@ -201,7 +201,7 @@ fn owner_detector_refuses_trigraphs_beside_a_raw_string_candidate() {
 // ---- Fold 3: both readings must agree; trigraph rule needs a recognised raw string. ----
 
 fn parsed(name: &str, src: &str) -> CMacroCensus {
-    let lang = if name.ends_with(".c") {
+    let lang = if name.ends_with(".c") || name.ends_with(".h") {
         Language::C
     } else {
         Language::Cpp
@@ -256,4 +256,32 @@ fn trigraph_text_without_a_raw_string_stays_complete() {
     assert!(h(
         "int f(){ const char *e = R\"(x)\"; const char *d = \"??-\"; }"
     ));
+}
+
+// ---- Fold 4: the as-written acceptance is for files parsed as C++ only. ----
+
+#[test]
+fn c_parsed_files_keep_the_base_behaviour_for_spliced_raw_candidates() {
+    // sol W1 / Opus R4-1: in C `R` expands away and `M` is real; both C++ readings close
+    // inside `t`, but every C pass loses `M` behind `*/ #define`.
+    let src = "#define R\nconst char *s = R\"(a\\\n\"; /* real\n*/ #define M hidden\nconst char *t = \")\";\nint f(int hidden) { hidden = M; return hidden + 1; }\n";
+    for name in ["a.c", "a.h"] {
+        for text in [src.to_string(), src.replace('\n', "\r\n")] {
+            let c = parsed(name, &text);
+            assert!(c.incomplete(), "{name} {text:?}: {:?}", c.reasons);
+        }
+    }
+    // A plain spliced candidate in a C file, no comment trick: incomplete as on base.
+    assert!(parsed("a.c", "const char *s = R\"(a\\\nb)\";\n#define M x\n").incomplete());
+    // The same text as C++: complete, `M` is real and read (the literal is raw content).
+    for text in [src.to_string(), src.replace('\n', "\r\n")] {
+        let c = parsed("a.cpp", &text);
+        assert!(!c.incomplete(), "{:?}", c.reasons);
+    }
+    // The protobuf shape as `.cc` stays complete.
+    let c = parsed(
+        "a.cc",
+        "void f() {\n  p->Emit(R\"cc(\n#if (a) && \\\n  b\n#endif\n)cc\");\n}\n#define M x\n",
+    );
+    assert!(!c.incomplete(), "{:?}", c.reasons);
 }

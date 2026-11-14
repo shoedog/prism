@@ -500,7 +500,7 @@ impl Stripped {
 /// literals intact. A block comment becomes one space. An uncertain raw string sets
 /// `raw_uncertain` and the rest of the text is kept unstripped (the unstripped pass also
 /// reads it). `cxx` selects the dialect: C++ lexing (raw strings, digit separators) or C.
-fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
+fn strip_comments(b: &[u8], splices: &[usize], cxx: bool, precise: bool) -> Stripped {
     let mut out = Vec::with_capacity(b.len());
     let mut shifts = Vec::new();
     let mut spans = Vec::new();
@@ -567,7 +567,11 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
                     && std::str::from_utf8(&b[start..i]).is_ok_and(is_raw_prefix)
                 {
                     raw_seen = true;
-                    match raw_string_end(b, i, splices) {
+                    // `precise` (a file parsed as C++) accepts a raw string with an interior
+                    // splice at its as-written end; otherwise it stays uncertain (base).
+                    match raw_string_end(b, i, splices)
+                        .filter(|&end| precise || !raw_string::interior_splice(splices, i, end))
+                    {
                         Some(end) => {
                             if raw_string::interior_splice(splices, i, end) {
                                 spliced_raw = true;
@@ -626,7 +630,7 @@ pub(crate) fn has_spliced_raw_string(text: &str) -> bool {
     variants.iter().any(|t| {
         [true, false].into_iter().any(|lenient| {
             let (spliced, points) = splice(t, lenient);
-            let s = strip_comments(&spliced, &points, true);
+            let s = strip_comments(&spliced, &points, true, true);
             s.spliced_raw || s.raw_uncertain || (trigraph && s.raw_seen)
         })
     })
@@ -670,7 +674,7 @@ pub(crate) fn normalized_texts(source: &str) -> Vec<String> {
     for lenient in [true, false] {
         let (spliced, points) = splice(&t, lenient);
         for cxx in [false, true] {
-            out.push(strip_comments(&spliced, &points, cxx).text);
+            out.push(strip_comments(&spliced, &points, cxx, false).text);
         }
     }
     out
@@ -1073,7 +1077,7 @@ fn exotic_directive(spliced: &[u8]) -> Option<(&'static str, usize, String)> {
 /// stripped) sets `incomplete` for lexer state; every other pass only adds definitions, so a
 /// lexer divergence cannot lose one. A soft-poisoned definition keeps its poison unless
 /// another pass over the same buffer read that very definition without trouble.
-fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut Inc) {
+fn collect(source: &str, precise: bool, out: &mut BTreeMap<String, RawDef>, incomplete: &mut Inc) {
     let translated = translate(source, true);
     let plain = translate(source, false);
     // Names spelled with non-ASCII bytes, UCNs or trigraphs inside a directive: fail closed.
@@ -1098,7 +1102,7 @@ fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut In
         for lenient in [true, false] {
             let (spliced, points) = splice(text, lenient);
             for cxx in [true, false] {
-                let s = strip_comments(&spliced, &points, cxx);
+                let s = strip_comments(&spliced, &points, cxx, precise);
                 desync |= s.unterminated || s.raw_uncertain;
                 raw_seen |= cxx && s.raw_seen;
                 if cxx && dir_splice.is_none() {
@@ -1134,7 +1138,7 @@ fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut In
                 continue;
             }
             let mut group: Vec<Entry> = Vec::new();
-            let variants = [true, false].map(|cxx| strip_comments(&spliced, &points, cxx));
+            let variants = [true, false].map(|cxx| strip_comments(&spliced, &points, cxx, precise));
             // A comment-kept pass's unreadable define-looking line is a hazard only when a
             // stripped variant of this buffer keeps it, or some variant desynchronised.
             let kept = |pos: usize| desync || variants.iter().any(|v| !v.removed(pos));
@@ -1420,7 +1424,7 @@ pub(crate) fn source_include_targets(source: &str) -> BTreeSet<(String, bool)> {
             };
             push(String::from_utf8_lossy(&spliced).into_owned());
             for cxx in [false, true] {
-                push(strip_comments(&spliced, &points, cxx).text);
+                push(strip_comments(&spliced, &points, cxx, false).text);
             }
         }
     }
@@ -1445,7 +1449,12 @@ impl CMacroCensus {
                 incomplete.flag("loader_incomplete_stamp", 0, "");
             }
             incomplete.cur = parsed.path.clone();
-            collect(&parsed.source, &mut raw, &mut incomplete);
+            collect(
+                &parsed.source,
+                parsed.language == Language::Cpp,
+                &mut raw,
+                &mut incomplete,
+            );
             if let Some(t) = parsed.c_census_texts() {
                 texts.extend(t.iter().map(|(k, v)| (k.as_str(), v.as_str())));
             }
@@ -1471,7 +1480,12 @@ impl CMacroCensus {
             if parsed.c_family_skipped_in_repo() {
                 incomplete.flag("loader_incomplete", 0, "");
             }
-            collect(&parsed.source, &mut raw, &mut incomplete);
+            collect(
+                &parsed.source,
+                parsed.language == Language::Cpp,
+                &mut raw,
+                &mut incomplete,
+            );
             for text in parsed.c_census_texts().into_iter().flat_map(|t| t.values()) {
                 collect_permissive(text, &mut raw);
             }
