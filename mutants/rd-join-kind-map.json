@@ -20,8 +20,8 @@
     ],
     "JK04-drop-arm-short-circuit": [
       "src/cpg/reaching/join_kind.rs",
-      "if provenance.crosses_lexical_arm() || provenance.origin == EdgeOrigin::GoDeferExit {\n        return true;",
-      "if provenance.crosses_lexical_arm() || provenance.origin == EdgeOrigin::GoDeferExit {\n        return provenance.origin == EdgeOrigin::GoDeferExit;",
+      "if provenance.crosses_lexical_arm()\n        || matches!(\n            provenance.origin,\n            EdgeOrigin::GoDeferExit | EdgeOrigin::JsTryJoin\n        )\n    {\n        return true;",
+      "if provenance.crosses_lexical_arm()\n        || matches!(\n            provenance.origin,\n            EdgeOrigin::GoDeferExit | EdgeOrigin::JsTryJoin\n        )\n    {\n        return matches!(\n            provenance.origin,\n            EdgeOrigin::GoDeferExit | EdgeOrigin::JsTryJoin\n        );",
       "cpg::reaching::join_kind_tests::provenance_short_circuits_without_building"
     ],
     "JK05-query-sequential-origins": [
@@ -44,8 +44,8 @@
     ],
     "JK08-eager-map-before-gates": [
       "src/cpg/reaching/join_kind.rs",
-      "    if provenance.crosses_lexical_arm() || provenance.origin == EdgeOrigin::GoDeferExit {",
-      "    let _ = kinds.get();\n    if provenance.crosses_lexical_arm() || provenance.origin == EdgeOrigin::GoDeferExit {",
+      "    if provenance.crosses_lexical_arm()\n        || matches!(",
+      "    let _ = kinds.get();\n    if provenance.crosses_lexical_arm()\n        || matches!(",
       "cpg::reaching::join_kind_tests::provenance_short_circuits_without_building"
     ],
     "JK09-defer-without-return": [
