@@ -285,3 +285,20 @@ fn c_parsed_files_keep_the_base_behaviour_for_spliced_raw_candidates() {
     );
     assert!(!c.incomplete(), "{:?}", c.reasons);
 }
+
+/// C 6.10p2 / C++ [cpp.pre], confirmed with `clang -E` (2026-11-13, #824 rounds 3-9): a block
+/// comment is replaced by one space in phase 3, before directives are recognised, so a `#`
+/// after a comment that began mid-line is NOT a directive (`int a; /* x` newline
+/// `*/ #define M 1` leaves `M` undefined), while a comment that begins at the start of a line
+/// leaves the `#` line-leading (`/* x` newline ` */ #define N 2` defines `N`). The census's
+/// one-space comment replacement matches both. Reading `M` here would only over-approximate
+/// (safe); the second row is the soundness direction.
+#[test]
+fn directive_after_a_multiline_comment_follows_phase_3() {
+    let mid = cpp("int a; /* x\n*/ #define M 1\nint b = M;\n");
+    assert!(mid.get("M").is_none(), "clang: not a directive");
+    let lead = cpp("/* x\n */ #define N two\nint c = N;\n");
+    let n = lead.get("N").expect("clang: a directive");
+    assert!(n.free.contains("two"), "N.free = {:?}", n.free);
+    assert!(!lead.incomplete(), "{:?}", lead.reasons);
+}
