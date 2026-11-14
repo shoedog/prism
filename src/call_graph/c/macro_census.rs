@@ -462,53 +462,28 @@ fn splice(src: &str, lenient: bool) -> (Vec<u8>, Vec<usize>) {
     (out, points)
 }
 
-/// Which rule decides whether a block comment keeps its newlines.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Policy {
-    /// The comment stays one space when ANY `#`, `%:` or `??=` precedes it on the output line.
-    Broad,
-    /// ... only when the line's first token (bytes <= 0x20 and stripped comments skipped) is
-    /// `#`, `%:` or `??=`.
-    Precise,
-}
-
-/// Incremental line facts over the output buffer; each output byte is scanned once.
+/// Incremental "does the current output line hold a `#`, `%:` or `??=` so far" (any blanks,
+/// NUL included): a comment on such a line stays one space. Linear overall: each output byte
+/// is scanned once.
 #[derive(Default)]
 struct LineState {
     scanned: usize,
-    /// A `#`, `%:` or `??=` anywhere so far on the current line.
-    broad: bool,
-    first_seen: bool,
-    /// The first token of the current line is `#`, `%:` or `??=`.
-    first_dir: bool,
+    directive: bool,
 }
 
 impl LineState {
-    fn update(&mut self, out: &[u8]) {
+    fn directive_line(&mut self, out: &[u8]) -> bool {
         for k in self.scanned..out.len() {
-            let c = out[k];
-            if c == b'\n' {
-                self.broad = false;
-                self.first_seen = false;
-                self.first_dir = false;
-                continue;
-            }
-            if !self.first_seen && c > 0x20 {
-                self.first_seen = true;
-                self.first_dir = c == b'#'
-                    || (c == b'%' && out.get(k + 1) == Some(&b':'))
-                    || (c == b'?'
-                        && out.get(k + 1) == Some(&b'?')
-                        && out.get(k + 2) == Some(&b'='));
-            }
-            match c {
-                b'#' => self.broad = true,
-                b':' if k > 0 && out[k - 1] == b'%' => self.broad = true,
-                b'=' if k > 1 && out[k - 1] == b'?' && out[k - 2] == b'?' => self.broad = true,
+            match out[k] {
+                b'\n' => self.directive = false,
+                b'#' => self.directive = true,
+                b':' if k > 0 && out[k - 1] == b'%' => self.directive = true,
+                b'=' if k > 1 && out[k - 1] == b'?' && out[k - 2] == b'?' => self.directive = true,
                 _ => {}
             }
         }
         self.scanned = out.len();
+        self.directive
     }
 }
 
@@ -520,8 +495,6 @@ struct Stripped {
     spliced_raw: bool,
     /// Some raw-string prefix (`R"`) was recognised, readable or not.
     raw_seen: bool,
-    /// The Broad and Precise rules disagreed at some comment: the other variant differs.
-    ambiguous: bool,
     /// ... and it starts on a preprocessor directive's logical line.
     spliced_raw_directive: Option<(usize, String)>,
     /// `(output index after a stripped comment, original index after it)`: the only places
@@ -552,13 +525,7 @@ impl Stripped {
 /// literals intact. A block comment becomes one space. An uncertain raw string sets
 /// `raw_uncertain` and the rest of the text is kept unstripped (the unstripped pass also
 /// reads it). `cxx` selects the dialect: C++ lexing (raw strings, digit separators) or C.
-fn strip_comments(
-    b: &[u8],
-    splices: &[usize],
-    cxx: bool,
-    precise: bool,
-    policy: Policy,
-) -> Stripped {
+fn strip_comments(b: &[u8], splices: &[usize], cxx: bool, precise: bool) -> Stripped {
     let mut out = Vec::with_capacity(b.len());
     let mut shifts = Vec::new();
     let mut spans = Vec::new();
@@ -568,7 +535,6 @@ fn strip_comments(
     let mut raw_seen = false;
     let mut spliced_raw_directive = None;
     let mut line_state = LineState::default();
-    let mut ambiguous = false;
     let mut i = 0;
     while i < b.len() {
         let c = b[i];
@@ -589,13 +555,7 @@ fn strip_comments(
                 // is ever looked up, and it maps exactly through the shift below.
                 // Inside a directive line the comment stays one space (the directive goes on
                 // after it), so a macro body is never cut in two.
-                line_state.update(&out);
-                ambiguous |= line_state.broad != line_state.first_dir;
-                let directive = match policy {
-                    Policy::Broad => line_state.broad,
-                    Policy::Precise => line_state.first_dir,
-                };
-                if !directive {
+                if !line_state.directive_line(&out) {
                     out.extend(b[start..i].iter().filter(|&&c| c == b'\n'));
                 }
                 shifts.push((out.len(), i));
@@ -683,23 +643,9 @@ fn strip_comments(
         raw_uncertain,
         spliced_raw,
         raw_seen,
-        ambiguous,
         spliced_raw_directive,
         shifts,
         spans,
-    }
-}
-
-/// The comment-stripped readings of one spliced buffer: the Broad variant, plus the Precise one
-/// when the two rules disagreed at some comment (rare, so the common path is one pass). Facts
-/// and refusals are read from every returned variant and unioned.
-fn strip_all(b: &[u8], splices: &[usize], cxx: bool, precise: bool) -> Vec<Stripped> {
-    let first = strip_comments(b, splices, cxx, precise, Policy::Broad);
-    if first.ambiguous {
-        let second = strip_comments(b, splices, cxx, precise, Policy::Precise);
-        vec![first, second]
-    } else {
-        vec![first]
     }
 }
 
@@ -719,9 +665,8 @@ pub(crate) fn has_spliced_raw_string(text: &str) -> bool {
     variants.iter().any(|t| {
         [true, false].into_iter().any(|lenient| {
             let (spliced, points) = splice(t, lenient);
-            strip_all(&spliced, &points, true, true)
-                .iter()
-                .any(|s| s.spliced_raw || s.raw_uncertain || (trigraph && s.raw_seen))
+            let s = strip_comments(&spliced, &points, true, true);
+            s.spliced_raw || s.raw_uncertain || (trigraph && s.raw_seen)
         })
     })
 }
@@ -764,11 +709,7 @@ pub(crate) fn normalized_texts(source: &str) -> Vec<String> {
     for lenient in [true, false] {
         let (spliced, points) = splice(&t, lenient);
         for cxx in [false, true] {
-            out.extend(
-                strip_all(&spliced, &points, cxx, false)
-                    .into_iter()
-                    .map(|s| s.text),
-            );
+            out.push(strip_comments(&spliced, &points, cxx, false).text);
         }
     }
     out
@@ -1175,72 +1116,42 @@ fn collect(source: &str, precise: bool, out: &mut BTreeMap<String, RawDef>, inco
     let translated = translate(source, true);
     let plain = translate(source, false);
     // Names spelled with non-ASCII bytes, UCNs or trigraphs inside a directive: fail closed.
-    let mut exotic_flagged = false;
     for lenient in [true, false] {
         if let Some((kind, line, snippet)) = exotic_directive(&splice(&plain, lenient).0) {
             incomplete.flag(kind, line, &snippet);
-            exotic_flagged = true;
             break;
         }
-    }
-    let plain_is_primary = translated == plain;
-    let mut texts = vec![translated];
-    if !plain_is_primary {
-        texts.push(plain);
-    }
-    // Every (text, splice mode) buffer with its stripped readings, computed once: per dialect
-    // the Broad variant, plus the Precise one where the comment rules disagree (fold 7).
-    struct Buf {
-        ti: usize,
-        lenient: bool,
-        spliced: Vec<u8>,
-        /// `(cxx, is the Broad (main) variant, stripped)`.
-        variants: Vec<(bool, bool, Stripped)>,
-    }
-    let mut bufs: Vec<Buf> = Vec::new();
-    for (ti, text) in texts.iter().enumerate() {
-        for lenient in [true, false] {
-            let (spliced, points) = splice(text, lenient);
-            let mut variants = Vec::new();
-            for cxx in [true, false] {
-                for (n, s) in strip_all(&spliced, &points, cxx, precise)
-                    .into_iter()
-                    .enumerate()
-                {
-                    variants.push((cxx, n == 0, s));
-                }
-            }
-            bufs.push(Buf {
-                ti,
-                lenient,
-                spliced,
-                variants,
-            });
-        }
-    }
-    // Fold 6: a directive line seen only after comment stripping (`*/ #define M \u00e9`) is
-    // checked like any other, on the plain text (trigraph-free) of every variant.
-    let plain_ti = texts.len() - 1;
-    'exotic: for buf in bufs.iter().filter(|b| b.ti == plain_ti && !exotic_flagged) {
-        for (_, _, stripped) in &buf.variants {
+        // Fold 6: a directive line seen only after comment stripping (`*/ #define M \u00e9`)
+        // is checked like any other.
+        let (spliced, points) = splice(&plain, lenient);
+        for cxx in [true, false] {
+            let stripped = strip_comments(&spliced, &points, cxx, precise);
             if let Some((kind, line, snippet)) = exotic_directive(stripped.text.as_bytes()) {
                 incomplete.flag(kind, line, &snippet);
-                break 'exotic;
             }
         }
     }
-    // Does any variant lose its lexer state? And (6d-1) does a raw string with an interior
-    // splice start on a directive line: the later readers of the spliced text cannot see the
-    // splice points, so that fails closed.
+    let mut texts = vec![translated];
+    if texts[0] != plain {
+        texts.push(plain);
+    }
+    // Does any variant (both texts, splice modes and dialects) lose its lexer state? And
+    // (6d-1) does a raw string with an interior splice start on a directive line: the later
+    // readers of the spliced text cannot see the splice points, so that fails closed. One
+    // pass over the variants answers both.
     let mut desync = false;
     let mut dir_splice: Option<(usize, String)> = None;
     let mut raw_seen = false;
-    for buf in &bufs {
-        for (cxx, _, s) in &buf.variants {
-            desync |= s.unterminated || s.raw_uncertain;
-            raw_seen |= *cxx && s.raw_seen;
-            if *cxx && dir_splice.is_none() {
-                dir_splice = s.spliced_raw_directive.clone();
+    for text in &texts {
+        for lenient in [true, false] {
+            let (spliced, points) = splice(text, lenient);
+            for cxx in [true, false] {
+                let s = strip_comments(&spliced, &points, cxx, precise);
+                desync |= s.unterminated || s.raw_uncertain;
+                raw_seen |= cxx && s.raw_seen;
+                if cxx && dir_splice.is_none() {
+                    dir_splice = s.spliced_raw_directive;
+                }
             }
         }
     }
@@ -1263,60 +1174,59 @@ fn collect(source: &str, precise: bool, out: &mut BTreeMap<String, RawDef>, inco
     }
     let mut acc: BTreeMap<String, RawDef> = BTreeMap::new();
     let mut seen: Vec<Vec<u8>> = Vec::new();
-    for buf in &bufs {
-        let spliced = &buf.spliced;
-        let buffer_primary = buf.ti == 0 && buf.lenient;
-        if !buffer_primary && seen.contains(spliced) {
-            continue;
-        }
-        let mut group: Vec<Entry> = Vec::new();
-        // A comment-kept pass's unreadable define-looking line is a hazard only when a
-        // stripped variant of this buffer keeps it, or some variant desynchronised.
-        let kept = |pos: usize| desync || buf.variants.iter().any(|(_, _, v)| !v.removed(pos));
-        for (cxx, main, stripped) in &buf.variants {
-            let (cxx, main) = (*cxx, *main);
-            let primary = buffer_primary && cxx && main;
-            if primary {
-                if stripped.unterminated {
-                    incomplete.flag("unterminated_comment", 0, "");
-                }
-                if stripped.raw_uncertain {
-                    incomplete.flag("uncertain_raw_string", 0, "");
-                }
-            }
-            group.extend(defs_in(
-                &stripped.text,
-                &|p| stripped.origin(p),
-                primary,
-                cxx,
-                None,
-                incomplete,
-            ));
-            if !main {
+    for (ti, text) in texts.iter().enumerate() {
+        for lenient in [true, false] {
+            let (spliced, points) = splice(text, lenient);
+            let buffer_primary = ti == 0 && lenient;
+            if !buffer_primary && seen.contains(&spliced) {
                 continue;
             }
-            let unstripped = String::from_utf8_lossy(spliced).into_owned();
-            group.extend(defs_in(
-                &unstripped,
-                &|p| p,
-                false,
-                cxx,
-                Some(&kept),
-                incomplete,
-            ));
-        }
-        let recovered: BTreeSet<(usize, String)> = group
-            .iter()
-            .filter(|e| !e.soft)
-            .map(|e| (e.pos, e.name.clone()))
-            .collect();
-        for mut e in group {
-            if e.soft && recovered.contains(&(e.pos, e.name.clone())) {
-                e.def.poisoned = e.hard;
+            let mut group: Vec<Entry> = Vec::new();
+            let variants = [true, false].map(|cxx| strip_comments(&spliced, &points, cxx, precise));
+            // A comment-kept pass's unreadable define-looking line is a hazard only when a
+            // stripped variant of this buffer keeps it, or some variant desynchronised.
+            let kept = |pos: usize| desync || variants.iter().any(|v| !v.removed(pos));
+            for (cxx, stripped) in [true, false].into_iter().zip(&variants) {
+                let primary = buffer_primary && cxx;
+                if primary {
+                    if stripped.unterminated {
+                        incomplete.flag("unterminated_comment", 0, "");
+                    }
+                    if stripped.raw_uncertain {
+                        incomplete.flag("uncertain_raw_string", 0, "");
+                    }
+                }
+                group.extend(defs_in(
+                    &stripped.text,
+                    &|p| stripped.origin(p),
+                    primary,
+                    cxx,
+                    None,
+                    incomplete,
+                ));
+                let unstripped = String::from_utf8_lossy(&spliced).into_owned();
+                group.extend(defs_in(
+                    &unstripped,
+                    &|p| p,
+                    false,
+                    cxx,
+                    Some(&kept),
+                    incomplete,
+                ));
             }
-            merge(&mut acc, e.name, e.def);
+            let recovered: BTreeSet<(usize, String)> = group
+                .iter()
+                .filter(|e| !e.soft)
+                .map(|e| (e.pos, e.name.clone()))
+                .collect();
+            for mut e in group {
+                if e.soft && recovered.contains(&(e.pos, e.name.clone())) {
+                    e.def.poisoned = e.hard;
+                }
+                merge(&mut acc, e.name, e.def);
+            }
+            seen.push(spliced);
         }
-        seen.push(spliced.clone());
     }
     for (name, def) in acc {
         merge(out, name, def);
@@ -1558,9 +1468,7 @@ pub(crate) fn source_include_targets(source: &str) -> BTreeSet<(String, bool)> {
             };
             push(String::from_utf8_lossy(&spliced).into_owned());
             for cxx in [false, true] {
-                for s in strip_all(&spliced, &points, cxx, false) {
-                    push(s.text);
-                }
+                push(strip_comments(&spliced, &points, cxx, false).text);
             }
         }
     }
