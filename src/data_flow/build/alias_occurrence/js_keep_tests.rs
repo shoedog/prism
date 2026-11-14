@@ -71,7 +71,11 @@ fn k1_a_write_rooted_at_another_name_keeps_the_twin() {
         assert!(kept(b), "{b}");
     }
     // Control: reads only, no write target at all.
-    for b in ["  use(z.x);\n", "  f(o, z);\n", "  const w = mk();\n  use(w.x);\n"] {
+    for b in [
+        "  use(z.x);\n",
+        "  f(o, z);\n",
+        "  const w = mk();\n  use(w.x);\n",
+    ] {
         assert!(!kept(b), "{b}");
     }
 }
@@ -94,7 +98,11 @@ fn k1_a_write_target_with_no_plain_name_root_keeps_the_twin() {
     let meta = "export function g(o) {\n  const u = o;\n  import.meta.x = 1;\n  use(o.x);\n}\n";
     assert!(twins("a.js", meta, Language::JavaScript, "u").contains(&("o".to_string(), 2)));
     // Control: the same shapes read instead of written.
-    for b in ["  use((0, o).x);\n", "  use(f(o).x);\n", "  use(new.target.x);\n"] {
+    for b in [
+        "  use((0, o).x);\n",
+        "  use(f(o).x);\n",
+        "  use(new.target.x);\n",
+    ] {
         assert!(!kept(b), "{b}");
     }
 }

@@ -184,11 +184,7 @@ fn whole_body(parsed: &ParsedFile, owner: &Node<'_>, decl: &str, site: (usize, u
     let body = owner
         .child_by_field_name("body")
         .filter(|b| b.kind() == "statement_block");
-    let in_body = |n: Node<'_>| {
-        n.parent()
-            .zip(body)
-            .is_some_and(|(p, b)| p.id() == b.id())
-    };
+    let in_body = |n: Node<'_>| n.parent().zip(body).is_some_and(|(p, b)| p.id() == b.id());
     match decl {
         "declarator" => {
             while node
@@ -255,8 +251,7 @@ impl Keep {
         for s in &census.sites {
             if s.form == Form::Declare {
                 if s.path.comps.is_empty() {
-                    let own_formal =
-                        s.decl == "param" && s.region.own_params && !s.region.nested;
+                    let own_formal = s.decl == "param" && s.region.own_params && !s.region.nested;
                     let scoped = own_formal
                         || whole_body(parsed, owner, &s.decl, (s.target_start, s.target_end));
                     let e = declares.entry(s.path.base.clone()).or_insert((0, true));
@@ -265,8 +260,8 @@ impl Keep {
                 }
             } else if !s.path.comps.is_empty() {
                 roots.insert(s.path.base.clone());
-                nested_this |= s.path.base == "this"
-                    && in_other_this_context(parsed, owner, s.target_start);
+                nested_this |=
+                    s.path.base == "this" && in_other_this_context(parsed, owner, s.target_start);
             }
         }
         let mut nonname = false;

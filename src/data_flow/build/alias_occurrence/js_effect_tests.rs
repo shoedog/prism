@@ -377,7 +377,11 @@ fn a_write_through_any_name_keeps_the_quiet_aliases_twin() {
     }
     // Control (the gain survives): the only write is rooted at the single target itself.
     let direct = "function t(o) {\n  const u = o;\n  o.f = 1;\n  use(o.f);\n}\n";
-    assert!(js_twins(direct, "u").is_empty(), "{:?}", js_twins(direct, "u"));
+    assert!(
+        js_twins(direct, "u").is_empty(),
+        "{:?}",
+        js_twins(direct, "u")
+    );
 }
 
 // ---- fold 2b: shadowed target spelling and the `arguments` object ----
