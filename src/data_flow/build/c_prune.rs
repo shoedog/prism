@@ -67,6 +67,9 @@ pub(super) enum Off {
     /// 6d-2s fold 3: an identifier-like node is spelled with a backslash (a UCN, `caf\u00e9`).
     /// C++ reads it as the same name as the literal `café`; prism keys names by raw spelling.
     UcnIdentifier,
+    /// 6d-1: the owner's text holds a C++ raw string with an interior line splice (or one of
+    /// uncertain extent); the token readers see spliced text and cannot find its true end.
+    RawStringSplice,
 }
 
 /// Text the compiler's translation phases read differently from tree-sitter, so the parser
@@ -353,6 +356,9 @@ pub(super) fn scan(
     let mut off = None;
     // Macro spellings from the owner's preprocessing tokens, whatever node kind the parser
     // gave them (`#define const x = saved;` makes `const` a macro use).
+    if crate::call_graph::c::macro_census::has_spliced_raw_string(text) {
+        return Err(Off::RawStringSplice);
+    }
     let Some(spelled) = spelled_identifiers(text) else {
         return Err(Off::G2);
     };
