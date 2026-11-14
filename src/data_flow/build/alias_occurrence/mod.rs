@@ -84,11 +84,10 @@
 //! fallback anchor (the line-start def minted for a multi-line destructuring alias, `A-01`) is a binding write when its line starts in a
 //! declaration. Unlike the other languages JS reaching definitions already ignore a twin's field writes for kills, but a binding twin of
 //! the target's own path kills the target's earlier defs and collapses with same-line defs, and that spurious kill is what keeps a write
-//! through an alias that option A (#783) does not certify off `exact`. Two refusals beyond R1 therefore keep the twin: R2, every binding
-//! twin of an alias the owner writes through OR whose resolved target base is the target base of any alias the owner writes through
-//! (the write forms are the write census's own: `js_write_census::walk` sites with a member or subscript path, so destructuring
-//! defaults, comments inside wrappers and every root kind count; a census-refused owner keeps every twin; a write in a `with` body is
-//! no census site, a known gap; a name captured from an enclosing function has no alias-map entry, a pre-existing gap), and `X-PARAM`,
+//! through an alias that option A (#783) does not certify off `exact`. Two refusals beyond R1 therefore keep the twin: R2, the syntactic
+//! may-hold closure of `js_hold.rs` (the target's connected component in the owner's co-occurrence graph; the twins stay iff a write-census
+//! written root other than the target, or a non-name write root, falls in it; a census-refused owner keeps every twin; out of model: module
+//! state through calls, a captured name written in another owner, a `with` body), and `X-PARAM`,
 //! every occurrence below a `formal_parameters` list of the owner (#761: `function f(o, u = o, v = u.x++)` keeps `o@1->o@3` off
 //! `exact` through the binding twin, and option A excludes parameter defaults). R1 collects property names, object keys and shorthand, method and field names, labels
 //! and type names, and import and export specifier names. Residuals: a call that mutates the alias (`Object.assign(u, ..)`, `u.m()`)
@@ -120,6 +119,7 @@ mod java_tests;
 mod js;
 #[cfg(test)]
 mod js_effect_tests;
+mod js_hold;
 #[cfg(test)]
 mod js_tests;
 mod python;
@@ -240,27 +240,17 @@ impl TwinPolicy {
             _ => java::member_name_tokens(parsed, owner),
         };
         let mut member_tokens: Option<BTreeSet<String>> = None;
-        // JS/TS R2, keyed by the TARGET: an alias keeps its binding twins when the owner writes through it or
-        // through any alias of the same target base. The alias map holds every name that can write the target
-        // in-owner (a name declared in an enclosing function and captured has no entry: pre-existing gap).
-        // A census-refused owner keeps every twin.
-        let written = std::cell::OnceCell::new();
+        // JS/TS R2: the syntactic may-hold closure of the alias's target base (`js_hold.rs`); a census-refused
+        // owner keeps every twin.
+        let hold = std::cell::RefCell::new(None::<js_hold::Hold>);
         let written_through = |alias: &str| {
             parsed.language.is_js_family()
-                && match written.get_or_init(|| js::written_through_roots(parsed, owner)) {
-                    None => true,
-                    Some(roots) => {
-                        roots.contains(alias)
-                            || alias_map.get(alias).is_some_and(|t| {
-                                let base = AccessPath::from_expr(t).base;
-                                roots.iter().any(|r| {
-                                    alias_map
-                                        .get(r)
-                                        .is_some_and(|rt| AccessPath::from_expr(rt).base == base)
-                                })
-                            })
-                    }
-                }
+                && alias_map.get(alias).is_some_and(|t| {
+                    let target = AccessPath::from_expr(t).base;
+                    hold.borrow_mut()
+                        .get_or_insert_with(|| js_hold::Hold::new(parsed, owner))
+                        .keeps(&target)
+                })
         };
         for span in lvalue_spans {
             let Some(target) = alias_map.get(&span.path.base) else {

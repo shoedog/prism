@@ -320,3 +320,64 @@ fn a_parameter_list_nested_callable_body_is_below_the_parameter_list() {
     let r = refs("a.js", src, JS);
     assert!(!twins(&r, "u").is_empty(), "{:?}", r.defs);
 }
+
+// ---- fold 2: the may-hold closure is independent of how the written name is formed ----
+
+#[test]
+fn a_write_through_any_holder_of_the_target_keeps_the_quiet_aliases_twin() {
+    for form in [
+        "const w = o;",
+        "const w = (o);",
+        "const w = c ? o : o;",
+        "const w = o || {};",
+        "const w = o ?? {};",
+        "const [w] = [o];",
+        "const { w } = { w: o };",
+        "const w = f(o);",
+        "const k1 = () => o;\n  const w = k1();",
+        "arr.push(o);\n  const w = arr[0];",
+        "this.k = o;\n  const w = this.k;",
+        "let w = z;\n  w = o;",
+        "let w = o;\n  w = z;",
+        "let w1 = z;\n  let w = w1;\n  w1 = o;",
+        "let w = z;\n  for (const t of xs) { w = t; }\n  w = o;",
+    ] {
+        for write in ["w.f = 1;", "const hh = w;\n  hh.f = 1;"] {
+            let src = format!(
+                "function t(o, c, z, xs, f, arr) {{\n  const u = o;\n  {form}\n  {write}\n  use(o.f);\n}}\n"
+            );
+            assert!(
+                js_twins(&src, "u").contains(&("o".to_string(), 2)),
+                "{form} / {write}: {:?}",
+                js_twins(&src, "u")
+            );
+        }
+    }
+    // Callback parameter and member value / non-name roots.
+    for src in [
+        "function t(o) {\n  const u = o;\n  [o].forEach(w => { w.f = 1; });\n  use(o.f);\n}\n",
+        "function t(o, f) {\n  const u = o;\n  f(o).x = 1;\n  use(o.f);\n}\n",
+        "function t(o, c, z) {\n  const u = o;\n  (c ? o : z).x = 1;\n  use(o.f);\n}\n",
+    ] {
+        assert!(
+            js_twins(src, "u").contains(&("o".to_string(), 2)),
+            "{src}: {:?}",
+            js_twins(src, "u")
+        );
+    }
+    let ts = "function t(o: any) {\n  const u: any = o;\n  const w = o as any;\n  w.f = 1;\n  use(o.f);\n}\n";
+    assert!(twins(&refs("a.ts", ts, TS), "u").contains(&("o".to_string(), 2)));
+    // Controls (the gain survives): the written name is unrelated to `o`, or is `o` itself.
+    for src in [
+        "function t(o, z) {\n  const u = o;\n  const w = z;\n  w.f = 1;\n  use(o.f);\n}\n",
+        "function t(o, z) {\n  const u = o;\n  z.f = 1;\n  use(o.f);\n}\n",
+        "function t(o) {\n  const u = o;\n  o.f = 1;\n  use(o.f);\n}\n",
+        "function t(o, f, z) {\n  const u = o;\n  f(z).x = 1;\n  use(o.f);\n}\n",
+    ] {
+        assert!(
+            js_twins(src, "u").is_empty(),
+            "{src}: {:?}",
+            js_twins(src, "u")
+        );
+    }
+}

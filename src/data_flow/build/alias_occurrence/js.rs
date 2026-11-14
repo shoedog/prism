@@ -211,35 +211,3 @@ pub(super) fn member_name_tokens(parsed: &ParsedFile, owner: &Node<'_>) -> BTree
     });
     out
 }
-
-/// R2: the root names of every member or subscript path the owner writes through, taken from the write census
-/// itself (`js_write_census`: its target recognition, wrappers, pattern kinds and root kinds), so a form the census
-/// records as a direct write of a path is a write through the alias here. A plain rebinding is no member write; a
-/// default's `right` is a read. `None` when the census refuses the owner (parse error, escaped name, refused kind):
-/// the caller then keeps every twin. A binding twin of an alias whose target some written root resolves to stays: the
-/// twin's spurious kill of the target's earlier defs is what keeps a write through an alias that option A (#783) does
-/// not certify off `exact`, and no proof is made here that A certifies the alias.
-pub(super) fn written_through_roots(
-    parsed: &ParsedFile,
-    owner: &Node<'_>,
-) -> Option<BTreeSet<String>> {
-    let census = crate::js_write_census::walk::census_with(
-        parsed,
-        crate::js_write_census::tables::Tables::shared(),
-        *owner,
-        false,
-    );
-    if census.refused() {
-        return None;
-    }
-    Some(
-        census
-            .sites
-            .iter()
-            .filter(|s| {
-                s.form != crate::js_write_census::walk::Form::Declare && !s.path.comps.is_empty()
-            })
-            .map(|s| s.path.base.clone())
-            .collect(),
-    )
-}
