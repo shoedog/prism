@@ -556,7 +556,7 @@ void cpp_external_macro_still_prunes(V v) {
 In `c_prune.rs`:
 1. `Off::MacroBrackets` with a doc comment ("an invoked in-repo macro, or a listed external one, has unbalanced brackets in its replacement list: block and statement structure differ from the parse").
 2. `const BLOCK_MACROS: &[&str]` with the 16 names of DESIGN 6.3 and a doc comment that names the D2 boundary and the `clang -E` evidence.
-3. `note_name`: in the name match, `n if BLOCK_MACROS.contains(&n) => set_off(Off::MacroBrackets)`; in the census branch, `if facts.unbalanced { set_off(Off::MacroBrackets); }`.
+3. `note_name`: in the name match, `n if BLOCK_MACROS.contains(&n) => set_off(Off::MacroBrackets)`; in the census branch, `if facts.unbalanced || facts.free.iter().any(|n| BLOCK_MACROS.contains(&n.as_str())) { set_off(Off::MacroBrackets); }` (round-1 enumeration, terra+sol: an in-repo macro wrapping a listed external block macro, directly, through an object-like alias or through several hops, is refused; `MacroFacts::free` is the existing transitive closure and excludes a parsed definition's own parameters, so `#define PASS(pthread_cleanup_push) (pthread_cleanup_push)` stays clean; no census change, no new `Off` variant). Rows: `tests` of `c_prune_brackets_r1_tests.rs` (G-terra-01, G-sol-01, G-sol-08) and `macro_census_brackets_r1_tests.rs` (free-set closure for all 16 names).
 4. Update the module doc (gate list) of `c_prune.rs` and of `macro_census.rs` (facts list).
 5. Run task 3's tests (GREEN), then `-- c_prune cpp_prune` in full: the removal-only sweeps and every older matrix row must still pass.
 

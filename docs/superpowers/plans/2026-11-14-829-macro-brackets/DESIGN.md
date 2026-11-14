@@ -1,6 +1,7 @@
 # #829: in-repo macros that change bracket structure (C/C++ rules U and D): design
 
 **Status:** owner decisions 2026-11-14: OD-1 yes (commit B in scope), OD-2 deferred and filed as issue #831 (not implemented here), OD-3 yes (the 16-name list). Section 9 keeps the original wording.
+**Round-1 enumeration (terra+sol, 2026-11-14):** one WRONG/MATERIAL finding folded into section 6.3 (in-repo macros that wrap a listed external block macro are refused through the free-name closure); the remaining enumerated rows (live argument splits, lexical and census readings, loader discovery, cache) are tests (`TESTS.md`, round-1 section).
 **Test status:** the test matrix was built first and is red on base; see `TESTS.md`. It found that the C scope-shift probes of section 2 do not drop a pair on head (`TESTS.md`, Deviations).
 **Worktree and base:** `fix/829-macro-brackets` at `a0f2c427` (main after #826 and #823). Every "on head" result below was produced by the release binary built from that commit.
 **Goal (for materiality):** rules U and D (`.c` slice 6b, C++ slice 6c) are removal-only. A dropped def→use pair must carry no value at run time. An in-repo macro must not be able to make the compiler's block or statement structure differ from tree-sitter's in a way that drops a live pair. Refusing (keeping pairs) is always acceptable.
@@ -165,11 +166,14 @@ end:   stack not empty: unbalanced
 Texts that are not parsed C/C++ (`collect_permissive`) have no lexer state. For each define line, for each dialect: if the rest of the line (parameter list included; its parentheses are balanced and its commas tight) tokenizes, use the token scan above; if not, use the same automaton over raw bytes with no literal or comment tracking. OR the results. A named variadic (`ident...` in the leading parenthesis group) sets `loose_comma`. Direction: a format-string macro such as `#define PMSG "("` stays clean when the line is readable; anything unreadable is counted as written.
 
 ### 6.3 Owner gates (`c_prune::scan`, `.c` and C++)
-- G7 `Off::MacroBrackets`: the owner spells an in-repo macro with `unbalanced` (closed), or a name of `BLOCK_MACROS` (OD-3):
+- G7 `Off::MacroBrackets`: the owner spells an in-repo macro with `unbalanced` (closed), a name of `BLOCK_MACROS` (OD-3), **or an in-repo macro whose transitive free-name set (`MacroFacts::free`, the census's existing closure) contains a name of `BLOCK_MACROS`** (round-1 amendment, below). The names:
   `pthread_cleanup_push`, `pthread_cleanup_pop`, `pthread_cleanup_push_defer_np`, `pthread_cleanup_pop_restore_np`, `Py_BEGIN_ALLOW_THREADS`, `Py_END_ALLOW_THREADS`, `Py_BEGIN_CRITICAL_SECTION`, `Py_END_CRITICAL_SECTION`, `Py_BEGIN_CRITICAL_SECTION2`, `Py_END_CRITICAL_SECTION2`, `Py_BEGIN_CRITICAL_SECTION_MUTEX`, `Py_BEGIN_CRITICAL_SECTION2_MUTEX`, `Py_TRASHCAN_BEGIN`, `Py_TRASHCAN_END`, `Py_TRASHCAN_SAFE_BEGIN`, `Py_TRASHCAN_SAFE_END`.
 - G8 `Off::MacroComma` (OD-1): the owner spells an in-repo macro with `loose_comma` (closed).
 - G9 `Off::MacroArgSplit` (OD-1): in the owner's token stream, some comma inside the parenthesis group that follows an in-repo macro name (and inside every group chained directly after it, the existing `macro_call_arguments` walk) has `{` or `[` as its innermost enclosing bracket. A mismatched closer or a digraph bracket inside such a group counts too.
 All three apply to U and D. Order among gates is unchanged: the first refusal found is reported.
+
+**Round-1 amendment (round-1 enumeration, terra+sol; WRONG, MATERIAL: G-terra-01 = G-sol-01).** The spelling-only `BLOCK_MACROS` check missed an in-repo macro that wraps a listed external block macro: `#define ENTER(h,p) pthread_cleanup_push(h,p)` / `#define LEAVE(p) pthread_cleanup_pop(p)`, the object-like aliases `#define P pthread_cleanup_push`, and multi-hop chains of either. Every body is balanced and comma-tight and the owner spells neither listed name, so G7 to G9 as first written left the owner on, and rule D dropped a live pair (compiled with Apple clang 21.0.0, C and C++: `if (c) ENTER(h,0); x = 2; LEAVE(0); return x;` prints `41 2`; the alias form prints `1 2`). Rule: G7 also fires for any in-repo macro the owner spells whose transitive free-name set contains a `BLOCK_MACROS` name. The reason name stays `Off::MacroBrackets` (same refusal, same cause class: an expansion that opens or closes a block; no new variant, no new trace name). Parameters: for a parsed definition `free` excludes the macro's own parameters, so `#define PASS(pthread_cleanup_push) (pthread_cleanup_push)` stays clean (G-sol-08, the parameter-shadow control); permissive census texts over-approximate and include parameter names in `free`, which is accepted (an over-refusal, never a drop). The check applies to all 16 names. Consumer code: in the census branch of `note_name`, `if facts.unbalanced || facts.free.iter().any(|n| BLOCK_MACROS.contains(&n.as_str())) { set_off(Off::MacroBrackets); }`; no census change (the closure already exists and is in the digest).
+**Boundary kept (D2):** an *external* macro that wraps a block macro under a name that is not in `BLOCK_MACROS` (a system or third-party header macro, `-D`, `-include`) stays the D2 boundary: its expansion is assumed well-nested and comma-tight.
 
 ### 6.4 Cache and trace
 - `CMacroCensus::digest`: tag `c-macro-census-v3`; the per-macro flag bytes become `[control, poisoned, unbalanced, loose_comma]`. A partial cache hit with a different digest already rebuilds in full; the aggregate `c-census:` identity of the text inputs is computed from the same digest.
@@ -182,7 +186,7 @@ All three apply to U and D. Order among gates is unchanged: the first refusal fo
 
 Terms: a string is *tight* when every comma in it has a parenthesis of that string as its innermost enclosing bracket.
 
-1. Every body that can be expanded belongs to a macro named by an owner token or by a body already reached (no `##`: G5; no recursion: G5). By G7 and G8 and the closure, each such body is well-nested and tight, and every `__VA_ARGS__` in it stands directly inside parentheses.
+1. Every body that can be expanded belongs to a macro named by an owner token or by a body already reached (no `##`: G5; no recursion: G5). By G7 and G8 and the closure, each such body is well-nested and tight, and every `__VA_ARGS__` in it stands directly inside parentheses. A listed external block macro cannot enter through a body: its name is either spelled by the owner (G7) or in the transitive free-name set of a macro the owner spells (G7, round-1 amendment), and a body reached only through a spelled macro's expansion has its names in that set.
 2. Every argument group in the owner is free of brace-held and bracket-held commas (G9). Its arguments are the pieces between commas at parenthesis depth 0, so each argument is well-nested and tight.
 3. Substituting tight, well-nested strings for parameters in a tight, well-nested body gives a tight, well-nested string: a comma that came from the body keeps its parenthesis; a comma from an argument has a parenthesis inside that argument; `__VA_ARGS__` joins arguments with commas at a position that is directly inside parentheses.
 4. On rescan, a nested invocation's group is a parenthesis group of a tight, well-nested string. Splitting it at its depth-0 commas gives well-nested, tight pieces: a piece with an unmatched `{` would put the splitting comma inside that brace, against tightness. Induction over expansion depth finishes the claim.
@@ -193,7 +197,7 @@ Without OD-1 (only G7), step 2 and the comma parts of steps 1 and 3 are missing,
 
 **Not claimed:**
 - statement structure inside or next to a well-nested expansion: the `;` class (4.6, OD-2). Keyword bodies are covered by other gates (4.5);
-- an external macro outside the name list (D2);
+- an external macro outside the name list (D2), including an external macro that wraps a listed one under an unlisted name;
 - an in-repo macro invoked from an external macro's body.
 
 ## 8. Existing gates: what already covers what

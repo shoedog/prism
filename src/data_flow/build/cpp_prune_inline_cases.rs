@@ -429,6 +429,165 @@ void cpp_external_macro_still_prunes(V v) {
 }
 "####,
     ),
+    (
+        "22_macro_wrappers.cc",
+        r####"// In-repo macros that wrap listed external block macros, C++ owners (#829 round 1, G-terra-01,
+// G-sol-01, G-sol-08). One census for the file.
+int src();
+void sink(int);
+int cond;
+#define P pthread_cleanup_push
+#define Q pthread_cleanup_pop
+#define ENTER(h, p) pthread_cleanup_push(h, p)
+#define LEAVE(p) pthread_cleanup_pop(p)
+#define E1(h, p) ENTER(h, p)
+#define E2(h, p) E1(h, p)
+#define L1(p) LEAVE(p)
+#define L2(p) L1(p)
+#define PY_IN(o) Py_BEGIN_CRITICAL_SECTION(o)
+#define PY_OUT() Py_END_CRITICAL_SECTION()
+#define PASS(pthread_cleanup_push) (pthread_cleanup_push)
+
+void cpp_alias_object_like(void (*h)(void *)) {
+    int x = src();            // @w1:D x
+    if (cond) P(h, 0);
+    x = 2;
+    Q(0);
+    sink(x + 1);              // @w1:U:keep:object_like_alias_of_a_listed_macro
+}
+
+void cpp_wrapper_function_like(void (*h)(void *)) {
+    int x = src();            // @w2:D x
+    if (cond) ENTER(h, 0);
+    x = 2;
+    LEAVE(0);
+    sink(x + 1);              // @w2:U:keep:function_like_wrapper_of_a_listed_macro
+}
+
+void cpp_wrapper_multi_hop(void (*h)(void *)) {
+    int x = src();            // @w3:D x
+    if (cond) E2(h, 0);
+    x = 2;
+    L2(0);
+    sink(x + 1);              // @w3:U:keep:multi_hop_wrapper_of_a_listed_macro
+}
+
+void cpp_wrapper_critical_section(void *op) {
+    int x = src();            // @w4:D x
+    if (cond) PY_IN(op);
+    x = 2;
+    PY_OUT();
+    sink(x + 1);              // @w4:U:keep:wrapper_of_a_listed_cpython_macro
+}
+
+void cpp_parameter_shadow_control() {
+    int x = src();            // @w6:D x
+    int n = PASS(4);
+    x = 2;
+    sink(x + n);              // @w6:U:drop:a_parameter_spelled_like_a_listed_name_is_not_free
+}
+"####,
+    ),
+    (
+        "23_macro_args_live.cc",
+        r####"// Square-held splitting commas and held-comma controls, C++ owners (#829 round 1, G-sol-05,
+// G-terra-05, G-terra-06). One census for the file.
+int src();
+void sink(int);
+#define STR2(p, q) #p #q
+#define S(a, b) #a "|" #b
+#define ALIAS S
+#define ONE(v) #v
+
+void lambda_capture_plain() {
+    int x = src();            // @y5:D x
+    const char *s = STR2([a, b] { return 0; });
+    x = 2;
+    sink(x + 1);              // @y5:U:keep:square_held_comma_in_a_capture_list
+}
+
+void lambda_capture_reference() {
+    int x = src();            // @y6:D x
+    const char *s = STR2([&a, &b] { return 0; });
+    x = 2;
+    sink(x + 1);              // @y6:U:keep:square_held_comma_in_a_reference_capture
+}
+
+void lambda_capture_initialized() {
+    int x = src();            // @y7:D x
+    const char *s = STR2([a = 1, b = 2] { return 0; });
+    x = 2;
+    sink(x + 1);              // @y7:U:keep:square_held_comma_in_an_init_capture
+}
+
+void lambda_capture_mixed() {
+    int x = src();            // @y8:D x
+    const char *s = STR2([&a, b = 2] { return 0; });
+    x = 2;
+    sink(x + 1);              // @y8:U:keep:square_held_comma_in_a_mixed_capture
+}
+
+void alias_comment_square_split() {
+    int x = src();            // @y9:D x
+    ALIAS /*c*/ ([a, b]{});
+    x = 2;
+    sink(x + 1);              // @y9:U:keep:object_alias_comment_and_square_split
+}
+
+void subscript_comma_split(int *v) {
+    int x = src();            // @y10:D x
+    const char *s = STR2(v[0, 1]);
+    x = 2;
+    sink(x + 1);              // @y10:U:keep:comma_inside_a_subscript
+}
+
+void capture_comma_inside_parentheses(int a, int b, int c) {
+    int x = src();            // @y11:D x
+    ONE([a = (b, c)]{});
+    x = 2;
+    sink(x + 1);              // @y11:U:drop:innermost_bracket_is_a_parenthesis
+}
+"####,
+    ),
+    (
+        "24_macro_splice.cc",
+        r####"// A macro name assembled by a splice, C++ owner (#829 round 1, G-terra-10).
+int src();
+void sink(int);
+#define OP\
+EN {
+#define CLOSE }
+int cond;
+
+void cpp_spliced_name() {
+    int x = src();            // @s3:D x
+    if (cond) OPEN /* comment */ ;
+    x = 2;
+    CLOSE;
+    sink(x + 1);              // @s3:U:keep:macro_name_assembled_by_a_splice
+}
+"####,
+    ),
+    (
+        "24_macro_splice_crlf.cc",
+        r####"// <CRLF-FILE>
+// A macro name assembled by a splice, C++ owner in a CRLF file (#829 round 1, G-terra-10).
+int src();
+void sink(int);
+#define OP\
+EN {
+#define CLOSE }
+int cond;
+
+void cpp_spliced_name_crlf() {
+    int x = src();            // @s4:D x
+    if (cond) OPEN /* comment */ ;
+    x = 2;
+    CLOSE;
+    sink(x + 1);              // @s4:U:keep:macro_name_assembled_by_a_splice
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

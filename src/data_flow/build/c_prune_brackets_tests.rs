@@ -37,12 +37,12 @@ fn owner_pairs(refs: &super::FileRefs) -> BTreeMap<Key, Owners> {
     out
 }
 
-fn c_case(name: &str) -> String {
+pub(super) fn c_case(name: &str) -> String {
     let (_, s) = C_CASES.iter().find(|(n, _)| *n == name).expect(name);
     c_source(s)
 }
 
-fn cpp_case(name: &str) -> String {
+pub(super) fn cpp_case(name: &str) -> String {
     let (_, s) = CPP_CASES.iter().find(|(n, _)| *n == name).expect(name);
     cpp_source(s)
 }
@@ -61,7 +61,7 @@ fn obligation_rows(cpp: bool) -> Vec<serde_json::Value> {
 /// One obligation row of an inline case, judged like the matrices judge it: the pair must
 /// exist before the rules (else the row is inadmissible) and, for a keep row, every owner that
 /// had it must still have it; for a drop row none may.
-fn check_row(file: &str, id: &str) {
+pub(super) fn check_row(file: &str, id: &str) {
     let cpp = lang_of(file) == Language::Cpp;
     let source = if cpp { cpp_case(file) } else { c_case(file) };
     let case = if cpp {
@@ -125,7 +125,7 @@ rows!("21_macro_args.cc" => row_y1 "y1", row_y2 "y2", row_y3 "y3", row_y4 "y4");
 
 // ---- E01: owner verdicts through `c_prune::scan` ----
 
-fn owner_nodes<'t>(parsed: &'t ParsedFile) -> Vec<(String, Node<'t>)> {
+pub(super) fn owner_nodes<'t>(parsed: &'t ParsedFile) -> Vec<(String, Node<'t>)> {
     fn walk<'t>(n: Node<'t>, parsed: &ParsedFile, out: &mut Vec<(String, Node<'t>)>) {
         if n.kind() == "function_definition" {
             if let Some(d) = n.child_by_field_name("declarator") {
@@ -158,7 +158,7 @@ fn owner_nodes<'t>(parsed: &'t ParsedFile) -> Vec<(String, Node<'t>)> {
 }
 
 /// The gate `scan` names for each owner of `source` (`None` is `Ok`).
-fn verdicts(file: &str, source: &str) -> BTreeMap<String, Option<Off>> {
+pub(super) fn verdicts(file: &str, source: &str) -> BTreeMap<String, Option<Off>> {
     let parsed = ParsedFile::parse(file, source, lang_of(file)).unwrap();
     let census = CMacroCensus::of_file(&parsed);
     owner_nodes(&parsed)
@@ -172,7 +172,7 @@ fn verdicts(file: &str, source: &str) -> BTreeMap<String, Option<Off>> {
         .collect()
 }
 
-fn expect(v: &BTreeMap<String, Option<Off>>, gate: Option<Off>, names: &[&str]) {
+pub(super) fn expect(v: &BTreeMap<String, Option<Off>>, gate: Option<Off>, names: &[&str]) {
     for n in names {
         assert_eq!(v.get(*n), Some(&gate), "owner {n}: {v:?}");
     }
@@ -305,7 +305,11 @@ fn block_macros_list_is_the_design_list() {
 
 /// `(edges before the rules, edges after)` over `target`, with the census of all `files` and
 /// optional census texts stamped on the target (the loader's text-only include files).
-fn counts(files: &[(&str, &str)], target: &str, texts: &[(&str, &str)]) -> (usize, usize) {
+pub(super) fn counts(
+    files: &[(&str, &str)],
+    target: &str,
+    texts: &[(&str, &str)],
+) -> (usize, usize) {
     let mut parsed: BTreeMap<String, ParsedFile> = files
         .iter()
         .map(|(n, s)| (n.to_string(), ParsedFile::parse(n, s, lang_of(n)).unwrap()))

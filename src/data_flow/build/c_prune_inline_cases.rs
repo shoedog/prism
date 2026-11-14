@@ -546,6 +546,239 @@ void non_macro_call_still_prunes(void) {
 }
 "####,
     ),
+    (
+        "22_macro_wrappers.c",
+        r####"// In-repo macros that wrap listed external block macros (#829 round 1, G-terra-01, G-sol-01,
+// G-sol-08, G-terra-07). One census for the file.
+int src(void);
+void sink(int);
+int cond;
+#define P pthread_cleanup_push
+#define Q pthread_cleanup_pop
+#define ENTER(h, p) pthread_cleanup_push(h, p)
+#define LEAVE(p) pthread_cleanup_pop(p)
+#define E1(h, p) ENTER(h, p)
+#define E2(h, p) E1(h, p)
+#define L1(p) LEAVE(p)
+#define L2(p) L1(p)
+#define PY_IN(o) Py_BEGIN_CRITICAL_SECTION(o)
+#define PY_OUT() Py_END_CRITICAL_SECTION()
+#define PY_NT Py_BEGIN_ALLOW_THREADS
+#define PY_NT_END Py_END_ALLOW_THREADS
+#define WHICH() pthread_cleanup_push
+#define WHICH_POP() pthread_cleanup_pop
+#define OPENV(v) {
+#define PASS(pthread_cleanup_push) (pthread_cleanup_push)
+
+void alias_object_like(void (*h)(void *)) {
+    int x = src();            // @w1:D x
+    if (cond) P(h, 0);
+    x = 2;
+    Q(0);
+    sink(x);                  // @w1:U:keep:object_like_alias_of_a_listed_macro
+}
+
+void wrapper_function_like(void (*h)(void *)) {
+    int x = src();            // @w2:D x
+    if (cond) ENTER(h, 0);
+    x = 2;
+    LEAVE(0);
+    sink(x);                  // @w2:U:keep:function_like_wrapper_of_a_listed_macro
+}
+
+void wrapper_multi_hop(void (*h)(void *)) {
+    int x = src();            // @w3:D x
+    if (cond) E2(h, 0);
+    x = 2;
+    L2(0);
+    sink(x);                  // @w3:U:keep:multi_hop_wrapper_of_a_listed_macro
+}
+
+void wrapper_critical_section(void *op) {
+    int x = src();            // @w4:D x
+    if (cond) PY_IN(op);
+    x = 2;
+    PY_OUT();
+    sink(x);                  // @w4:U:keep:wrapper_of_a_listed_cpython_macro
+}
+
+void wrapper_allow_threads(void) {
+    int x = src();            // @w5:D x
+    if (cond) PY_NT;
+    x = 2;
+    PY_NT_END;
+    sink(x);                  // @w5:U:keep:object_like_alias_of_a_listed_cpython_macro
+}
+
+void wrapper_returns_a_callable_name(void (*h)(void *)) {
+    int x = src();            // @w8:D x
+    if (cond) WHICH()(h, 0);
+    x = 2;
+    WHICH_POP()(0);
+    sink(x);                  // @w8:U:keep:wrapper_expanding_to_a_listed_macro_name
+}
+
+void parameter_shadow_control(void) {
+    int x = src();            // @w6:D x
+    int n = PASS(4);
+    x = 2;
+    sink(x + n);              // @w6:U:drop:a_parameter_spelled_like_a_listed_name_is_not_free
+}
+
+void parenthesized_unbalanced_name(void) {
+    int x = src();            // @w7:D x
+    (OPENV)(0);
+    x = 2;
+    sink(x);                  // @w7:U:keep:spelled_unbalanced_name_without_an_invocation
+}
+"####,
+    ),
+    (
+        "23_macro_args_live.c",
+        r####"// Live argument splits, rescans and held-comma controls (#829 round 1, G-sol-02/03/04/06/07,
+// G-terra-02). One census for the file.
+int src(void);
+void sink(int);
+struct P { int a, b; };
+int M(struct P p) { return p.a; }
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define H(p) F(p)
+#define J(p) G(p)
+#define INIT { int a, b; }
+#define AF F
+#define AG G
+#define ID(v) v
+#define TS(p, q) q p
+#define SZ(v) sizeof(v)
+#define M(p, q) q p
+
+int a1_live(int c) {
+    int x = 41;               // @a1:D x
+    int b = 0;
+    {
+        F({ int a, b; });
+        x = 2;
+        G({ int a, b; });
+        return x;             // @a1:U:keep:live_brace_held_comma_moves_the_guard
+    }
+}
+
+int a1_terra(int c) {
+    int x = 1;                // @a1t:D x
+    { {
+    TS({ if (c) { 0, 0; } });
+    x = 2;
+    TS({ 0, 0; });
+    return x;                 // @a1t:U:keep:live_brace_held_comma_moves_the_guard
+    } }
+}
+
+int rescan_split(int c) {
+    int x = 41;               // @a9:D x
+    int b = 0;
+    {
+        H(INIT);
+        x = 2;
+        J(INIT);
+        return x;             // @a9:U:keep:the_split_exists_only_after_rescan
+    }
+}
+
+int split_through_an_object_alias(int c) {
+    int x = 41;               // @a10:D x
+    int b = 0;
+    {
+        AF({ int a, b; });
+        x = 2;
+        AG({ int a, b; });
+        return x;             // @a10:U:keep:object_like_alias_of_a_splitting_macro
+    }
+}
+
+int split_after_a_comment(int c) {
+    int x = 41;               // @a11:D x
+    int b = 0;
+    {
+        F /* c */ ({ int a, b; });
+        x = 2;
+        G /* c */ ({ int a, b; });
+        return x;             // @a11:U:keep:comment_between_name_and_group
+    }
+}
+
+int split_through_a_chained_group(int c) {
+    int x = 41;               // @a12:D x
+    int b = 0;
+    {
+        ID(F)({ int a, b; });
+        x = 2;
+        ID(G)({ int a, b; });
+        return x;             // @a12:U:keep:argument_expanding_to_the_macro_name
+    }
+}
+
+void held_comma_in_a_char_literal(void) {
+    int x = src();            // @k1:D x
+    int n = SZ((char[]){','});
+    x = 2;
+    sink(x + n);              // @k1:U:drop:a_comma_character_is_not_a_comma
+}
+
+void held_comma_inside_parentheses(void) {
+    int x = src();            // @k2:D x
+    int n = SZ((int[]){(1, 2)});
+    x = 2;
+    sink(x + n);              // @k2:U:drop:innermost_bracket_is_a_parenthesis
+}
+
+void inhibited_invocation(void) {
+    int x = src();            // @k3:D x
+    int n = (M)((struct P){1, 2});
+    x = 2;
+    sink(x + n);              // @k3:U:drop:parenthesized_name_is_not_an_invocation
+}
+"####,
+    ),
+    (
+        "24_macro_splice_crlf.c",
+        r####"// <CRLF-FILE>
+// A macro name assembled by a splice, in a CRLF file (#829 round 1, G-terra-10).
+int src(void);
+void sink(int);
+#define OP\
+EN {
+#define CLOSE }
+int cond;
+
+void spliced_name_crlf(void) {
+    int x = src();            // @s1:D x
+    if (cond) OPEN /* comment */ ;
+    x = 2;
+    CLOSE;
+    sink(x);                  // @s1:U:keep:macro_name_assembled_by_a_splice
+}
+"####,
+    ),
+    (
+        "24_macro_splice.c",
+        r####"// A macro name assembled by a splice (#829 round 1, G-terra-10).
+int src(void);
+void sink(int);
+#define OP\
+EN {
+#define CLOSE }
+int cond;
+
+void spliced_name(void) {
+    int x = src();            // @s2:D x
+    if (cond) OPEN /* comment */ ;
+    x = 2;
+    CLOSE;
+    sink(x);                  // @s2:U:keep:macro_name_assembled_by_a_splice
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

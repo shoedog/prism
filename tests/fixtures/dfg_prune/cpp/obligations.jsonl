@@ -342,3 +342,17 @@
 {"case": "21_macro_args.cc", "id": "y2", "path": "x", "def_line": 24, "use_line": 27, "keep": true, "reason": "initializer_list_comma_in_macro_arguments", "owner": "cpp_init_list_in_macro"}
 {"case": "21_macro_args.cc", "id": "y3", "path": "x", "def_line": 31, "use_line": 34, "keep": false, "reason": "commas_directly_inside_parentheses", "owner": "cpp_tight_commas_still_prune"}
 {"case": "21_macro_args.cc", "id": "y4", "path": "x", "def_line": 38, "use_line": 41, "keep": false, "reason": "brace_held_comma_in_an_external_macro", "owner": "cpp_external_macro_still_prunes"}
+{"case": "22_macro_wrappers.cc", "id": "w1", "path": "x", "def_line": 19, "use_line": 23, "keep": true, "reason": "object_like_alias_of_a_listed_macro", "owner": "cpp_alias_object_like"}
+{"case": "22_macro_wrappers.cc", "id": "w2", "path": "x", "def_line": 27, "use_line": 31, "keep": true, "reason": "function_like_wrapper_of_a_listed_macro", "owner": "cpp_wrapper_function_like"}
+{"case": "22_macro_wrappers.cc", "id": "w3", "path": "x", "def_line": 35, "use_line": 39, "keep": true, "reason": "multi_hop_wrapper_of_a_listed_macro", "owner": "cpp_wrapper_multi_hop"}
+{"case": "22_macro_wrappers.cc", "id": "w4", "path": "x", "def_line": 43, "use_line": 47, "keep": true, "reason": "wrapper_of_a_listed_cpython_macro", "owner": "cpp_wrapper_critical_section"}
+{"case": "22_macro_wrappers.cc", "id": "w6", "path": "x", "def_line": 51, "use_line": 54, "keep": false, "reason": "a_parameter_spelled_like_a_listed_name_is_not_free", "owner": "cpp_parameter_shadow_control"}
+{"case": "23_macro_args_live.cc", "id": "y5", "path": "x", "def_line": 11, "use_line": 14, "keep": true, "reason": "square_held_comma_in_a_capture_list", "owner": "lambda_capture_plain"}
+{"case": "23_macro_args_live.cc", "id": "y6", "path": "x", "def_line": 18, "use_line": 21, "keep": true, "reason": "square_held_comma_in_a_reference_capture", "owner": "lambda_capture_reference"}
+{"case": "23_macro_args_live.cc", "id": "y7", "path": "x", "def_line": 25, "use_line": 28, "keep": true, "reason": "square_held_comma_in_an_init_capture", "owner": "lambda_capture_initialized"}
+{"case": "23_macro_args_live.cc", "id": "y8", "path": "x", "def_line": 32, "use_line": 35, "keep": true, "reason": "square_held_comma_in_a_mixed_capture", "owner": "lambda_capture_mixed"}
+{"case": "23_macro_args_live.cc", "id": "y9", "path": "x", "def_line": 39, "use_line": 42, "keep": true, "reason": "object_alias_comment_and_square_split", "owner": "alias_comment_square_split"}
+{"case": "23_macro_args_live.cc", "id": "y10", "path": "x", "def_line": 46, "use_line": 49, "keep": true, "reason": "comma_inside_a_subscript", "owner": "subscript_comma_split"}
+{"case": "23_macro_args_live.cc", "id": "y11", "path": "x", "def_line": 53, "use_line": 56, "keep": false, "reason": "innermost_bracket_is_a_parenthesis", "owner": "capture_comma_inside_parentheses"}
+{"case": "24_macro_splice.cc", "id": "s3", "path": "x", "def_line": 10, "use_line": 14, "keep": true, "reason": "macro_name_assembled_by_a_splice", "owner": "cpp_spliced_name"}
+{"case": "24_macro_splice_crlf.cc", "id": "s4", "path": "x", "def_line": 11, "use_line": 15, "keep": true, "reason": "macro_name_assembled_by_a_splice", "owner": "cpp_spliced_name_crlf"}

@@ -192,16 +192,15 @@ fn has_x_2_to_5(g: &DataFlowGraph) -> bool {
     edge_keys(g).contains(&("a.c".to_owned(), 2, 5, "x".to_owned()))
 }
 
-/// `m.h` goes from a balanced to an unbalanced body: a.c is unchanged, so the partial hit must
+/// `m.h` goes from the `v1` body to the `v2` body: a.c is unchanged, so the partial hit must
 /// notice that the census moved and rebuild in full (the pair `x@2 -> x@5` appears).
-#[test]
-fn cz1_cache_parity_when_a_header_define_becomes_unbalanced() {
-    let src = mark_sources(MARK_V1);
+fn cz_parity(v1: &str, v2: &str, what: &str) {
+    let src = mark_sources(v1);
     let files = parse(&src);
     let cold = CodePropertyGraph::build(&files);
     assert!(
         !has_x_2_to_5(&cold.dfg),
-        "the first build prunes the overwritten def"
+        "{what}: the first build prunes the overwritten def"
     );
     let hashes = cpg_cache::compute_file_hashes(&src);
     let dir = tempfile::tempdir().unwrap();
@@ -211,7 +210,7 @@ fn cz1_cache_parity_when_a_header_define_becomes_unbalanced() {
     };
     assert_eq!(edge_keys(&cold.dfg), edge_keys(&hit.dfg));
 
-    let mut edited_src = mark_sources(MARK_V2);
+    let mut edited_src = mark_sources(v2);
     edited_src.insert("a.c".into(), MARK_OWNER.into());
     let edited = parse(&edited_src);
     let hashes = cpg_cache::compute_file_hashes(&edited_src);
@@ -228,7 +227,7 @@ fn cz1_cache_parity_when_a_header_define_becomes_unbalanced() {
     assert_ne!(
         cached_dfg.c_macro_census_digest(),
         fresh,
-        "built under another census: the digest must carry the bracket fact"
+        "{what}: built under another census: the digest must carry the changed fact"
     );
     let incremental = CodePropertyGraph::build_incremental(
         cached_call_graph,
@@ -241,8 +240,25 @@ fn cz1_cache_parity_when_a_header_define_becomes_unbalanced() {
     assert_eq!(edge_keys(&incremental.dfg), edge_keys(&rebuilt.dfg));
     assert!(
         has_x_2_to_5(&rebuilt.dfg),
-        "an unbalanced MARK turns the owner off: x@2 -> x@5 is kept"
+        "{what}: the changed MARK turns the owner off: x@2 -> x@5 is kept"
     );
     assert!(has_x_2_to_5(&incremental.dfg));
     assert_eq!(incremental.dfg.c_macro_census_digest(), fresh);
+}
+
+#[test]
+fn cz1_cache_parity_when_a_header_define_becomes_unbalanced() {
+    cz_parity(MARK_V1, MARK_V2, "unbalanced");
+}
+
+/// G-terra-15 / G-sol-13 (round 1): only `loose_comma` changes (`(1, 2)` to `1, 2`): no
+/// bracket, free name, control or poison fact moves, so a digest that omits the new byte
+/// replays the old pruning.
+#[test]
+fn cz2_cache_parity_when_a_header_define_gains_a_loose_comma() {
+    cz_parity(
+        "#define MARK (1, 2)\n",
+        "#define MARK 1, 2\n",
+        "loose comma",
+    );
 }
