@@ -462,16 +462,6 @@ fn splice(src: &str, lenient: bool) -> (Vec<u8>, Vec<usize>) {
     (out, points)
 }
 
-/// Does the last line of `out` (comments already replaced by spaces) start with `#` or `%:`?
-fn in_directive_line(out: &[u8]) -> bool {
-    let line = out.rsplit(|&c| c == b'\n').next().unwrap_or(&[]);
-    let t = &line[line
-        .iter()
-        .take_while(|c| matches!(c, b' ' | b'\t' | b'\x0b' | b'\x0c' | b'\r'))
-        .count()..];
-    t.starts_with(b"#") || t.starts_with(b"%:")
-}
-
 struct Stripped {
     text: String,
     unterminated: bool,
@@ -532,15 +522,6 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool, precise: bool) -> Stri
                         unterminated = true;
                         i = b.len();
                     }
-                }
-                // Fold 5 (#812 item 3): the comment keeps its line structure (C phase 3 keeps
-                // newlines), so a directive after `*/` starts its logical line. Positions of
-                // the placeholder map through the previous shift; only text after the comment
-                // is ever looked up, and it maps exactly through the shift below.
-                // Inside a directive line the comment stays one space (the directive goes on
-                // after it), so a macro body is never cut in two.
-                if !in_directive_line(&out) {
-                    out.extend(b[start..i].iter().filter(|&&c| c == b'\n'));
                 }
                 shifts.push((out.len(), i));
                 spans.push((start, i));

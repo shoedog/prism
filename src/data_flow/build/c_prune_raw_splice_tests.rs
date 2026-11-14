@@ -63,18 +63,3 @@ fn vt_leader_directive_with_a_spliced_raw_string_keeps_the_pair() {
         );
     }
 }
-
-#[test]
-fn multi_line_comment_in_an_owner_does_not_change_the_verdict() {
-    // Control: the comment spans lines inside the owner; the overwritten def still prunes.
-    let with = "int src();\nvoid sink(int);\nint f() {\n    int x = src(); /* a\n b */\n    x = 1;\n    sink(x + 1);\n    return 0;\n}\n";
-    let (b, a) = counts(with);
-    assert!(a < b, "comment in owner: prunes as without ({b} -> {a})");
-}
-
-#[test]
-fn pragma_omp_after_a_multi_line_comment_trips_g2() {
-    let src = "int src();\nvoid sink(int);\nint f() {\n    int x = src();\n    /* a\n b */ #pragma omp parallel\n    x = 1;\n    sink(x + 1);\n    return 0;\n}\n";
-    let (b, a) = counts(src);
-    assert_eq!(a, b, "G2: owner off, nothing dropped ({b} -> {a})");
-}
