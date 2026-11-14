@@ -18,6 +18,10 @@ mod c_prune;
 #[cfg(test)]
 mod c_prune_brackets_r1_tests;
 #[cfg(test)]
+mod c_prune_brackets_r2_loader_tests;
+#[cfg(test)]
+mod c_prune_brackets_r2_tests;
+#[cfg(test)]
 mod c_prune_brackets_tests;
 #[cfg(test)]
 mod c_prune_fold2_tests;

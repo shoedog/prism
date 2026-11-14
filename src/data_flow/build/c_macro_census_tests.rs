@@ -24,7 +24,14 @@ fn sources(header: &str) -> BTreeMap<String, String> {
 
 fn parse(src: &BTreeMap<String, String>) -> BTreeMap<String, ParsedFile> {
     src.iter()
-        .map(|(f, s)| (f.clone(), ParsedFile::parse(f, s, Language::C).unwrap()))
+        .map(|(f, s)| {
+            let lang = if f.ends_with(".cc") {
+                Language::Cpp
+            } else {
+                Language::C
+            };
+            (f.clone(), ParsedFile::parse(f, s, lang).unwrap())
+        })
         .collect()
 }
 
@@ -182,25 +189,38 @@ const MARK_V1: &str = "#define MARK {}\n";
 const MARK_V2: &str = "#define MARK {\n";
 
 fn mark_sources(header: &str) -> BTreeMap<String, String> {
+    mark_sources_in("a.c", header)
+}
+
+fn mark_sources_in(owner_file: &str, header: &str) -> BTreeMap<String, String> {
     BTreeMap::from([
-        ("a.c".to_owned(), MARK_OWNER.to_owned()),
+        (owner_file.to_owned(), MARK_OWNER.to_owned()),
         ("m.h".to_owned(), header.to_owned()),
     ])
 }
 
-fn has_x_2_to_5(g: &DataFlowGraph) -> bool {
-    edge_keys(g).contains(&("a.c".to_owned(), 2, 5, "x".to_owned()))
+fn has_x_2_to_5(g: &DataFlowGraph, owner_file: &str) -> bool {
+    edge_keys(g).contains(&(owner_file.to_owned(), 2, 5, "x".to_owned()))
 }
 
 /// `m.h` goes from the `v1` body to the `v2` body: a.c is unchanged, so the partial hit must
 /// notice that the census moved and rebuild in full (the pair `x@2 -> x@5` appears).
 fn cz_parity(v1: &str, v2: &str, what: &str) {
-    let src = mark_sources(v1);
+    cz_parity_in("a.c", v1, v2, what, true);
+}
+
+/// `first_prunes`: the first census prunes the overwritten def and the edited one keeps it
+/// (the forward direction); false is the reverse edit (the first census keeps it, the edited
+/// one prunes it), built from a newly saved cache of the first state.
+fn cz_parity_in(owner_file: &str, v1: &str, v2: &str, what: &str, first_prunes: bool) {
+    let src = mark_sources_in(owner_file, v1);
     let files = parse(&src);
     let cold = CodePropertyGraph::build(&files);
-    assert!(
-        !has_x_2_to_5(&cold.dfg),
-        "{what}: the first build prunes the overwritten def"
+    assert_eq!(
+        has_x_2_to_5(&cold.dfg, owner_file),
+        !first_prunes,
+        "{what}: the first build {} the overwritten def",
+        if first_prunes { "prunes" } else { "keeps" }
     );
     let hashes = cpg_cache::compute_file_hashes(&src);
     let dir = tempfile::tempdir().unwrap();
@@ -210,8 +230,7 @@ fn cz_parity(v1: &str, v2: &str, what: &str) {
     };
     assert_eq!(edge_keys(&cold.dfg), edge_keys(&hit.dfg));
 
-    let mut edited_src = mark_sources(v2);
-    edited_src.insert("a.c".into(), MARK_OWNER.into());
+    let edited_src = mark_sources_in(owner_file, v2);
     let edited = parse(&edited_src);
     let hashes = cpg_cache::compute_file_hashes(&edited_src);
     let CacheResult::PartialHit {
@@ -238,11 +257,13 @@ fn cz_parity(v1: &str, v2: &str, what: &str) {
     );
     let rebuilt = CodePropertyGraph::build(&edited);
     assert_eq!(edge_keys(&incremental.dfg), edge_keys(&rebuilt.dfg));
-    assert!(
-        has_x_2_to_5(&rebuilt.dfg),
-        "{what}: the changed MARK turns the owner off: x@2 -> x@5 is kept"
+    assert_eq!(
+        has_x_2_to_5(&rebuilt.dfg, owner_file),
+        first_prunes,
+        "{what}: after the edit the pair must be {}",
+        if first_prunes { "kept" } else { "pruned" }
     );
-    assert!(has_x_2_to_5(&incremental.dfg));
+    assert_eq!(has_x_2_to_5(&incremental.dfg, owner_file), first_prunes);
     assert_eq!(incremental.dfg.c_macro_census_digest(), fresh);
 }
 
@@ -260,5 +281,49 @@ fn cz2_cache_parity_when_a_header_define_gains_a_loose_comma() {
         "#define MARK (1, 2)\n",
         "#define MARK 1, 2\n",
         "loose comma",
+    );
+}
+
+// ---- #829 chain A round 2, G2-terra-04: the wrapper amendment's input is the free-name set ----
+
+const ALIAS_PLAIN: &str = "#define MARK ALIAS\n#define ALIAS ordinary_name\n";
+const ALIAS_LISTED: &str = "#define MARK ALIAS\n#define ALIAS pthread_cleanup_push\n";
+
+/// Only the transitive free-name set of `MARK` changes (`ordinary_name` to a listed block
+/// macro): the bracket and comma facts of every definition stay false. The owner must be
+/// pruned before the header edit and keep `x@2 -> x@5` after it, in the incremental build
+/// exactly as in a fresh one. `.c` and `.cc`.
+#[test]
+fn cz3_cache_parity_when_a_header_alias_starts_naming_a_listed_macro() {
+    for owner in ["a.c", "a.cc"] {
+        cz_parity_in(owner, ALIAS_PLAIN, ALIAS_LISTED, owner, true);
+    }
+}
+
+/// The reverse edit, from a newly saved cache of the listed state, against a clean build.
+#[test]
+fn cz3_cache_parity_when_a_header_alias_stops_naming_a_listed_macro() {
+    for owner in ["a.c", "a.cc"] {
+        cz_parity_in(owner, ALIAS_LISTED, ALIAS_PLAIN, owner, false);
+    }
+}
+
+/// Premise of the pair above: the two header states differ in no bracket or comma fact, so the
+/// cache must be moved by the free-name set alone (a digest that tracked only the new facts
+/// would replay stale pruning).
+#[test]
+fn cz3_premise_only_the_free_names_differ() {
+    let facts = |header: &str| {
+        let c = CMacroCensus::from_files(&parse(&mark_sources(header)));
+        let m = c.get("MARK").unwrap().clone();
+        (m.unbalanced, m.loose_comma, m.free.clone())
+    };
+    let (u1, l1, f1) = facts(ALIAS_PLAIN);
+    let (u2, l2, f2) = facts(ALIAS_LISTED);
+    assert_eq!((u1, l1, u2, l2), (false, false, false, false));
+    assert_ne!(f1, f2, "MARK's transitive free set must change");
+    assert_ne!(
+        CMacroCensus::from_files(&parse(&mark_sources(ALIAS_PLAIN))).digest(),
+        CMacroCensus::from_files(&parse(&mark_sources(ALIAS_LISTED))).digest()
     );
 }

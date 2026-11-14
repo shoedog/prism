@@ -779,6 +779,297 @@ void spliced_name(void) {
 }
 "####,
     ),
+    (
+        "25_r2_external_alias.c",
+        r####"// Chain A round 2 (#829): an external alias hides an in-repo macro. G2-terra-01 and
+// G2-opus-06, both BOUNDARY. A, B and EXT_APPLY are never defined here: they stand for a header
+// outside the repository (-include, -D, a system header). One census for the file.
+int src(void);
+void sink(int);
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define APPLY(m, ...) m(__VA_ARGS__)
+
+int external_alias_of_in_repo_macro(int c) {
+    int x = 41;               // @g2t01:D x
+    int b = 0;
+    {
+        A({ int a, b; });
+        x = 2;
+        B({ int a, b; });
+        return x;             // @g2t01:U:keep:external_alias_exposes_an_in_repo_split
+    }
+}
+
+int external_apply_forwards_an_in_repo_macro_name(int c) {
+    int x = 41;               // @g2o06:D x
+    int b = 0;
+    {
+        EXT_APPLY(F, { int a, b; });
+        x = 2;
+        EXT_APPLY(G, { int a, b; });
+        return x;             // @g2o06:U:keep:external_variadic_apply_forwards_the_held_comma
+    }
+}
+
+int in_repo_apply_forwards_an_in_repo_macro_name(int c) {
+    int x = 41;               // @g2o06c:D x
+    int b = 0;
+    {
+        APPLY(F, { int a, b; });
+        x = 2;
+        APPLY(G, { int a, b; });
+        return x;             // @g2o06c:U:keep:in_repo_variadic_apply_forwards_the_held_comma
+    }
+}
+"####,
+    ),
+    (
+        "26_r2_external_names.c",
+        r####"// Chain A round 2 (#829): external block macros the repository never defines
+// (G2-sonnet-01 and members, G2-sonnet-02 BOUNDARY, G2-sonnet-03, G2-opus-09 BOUNDARY).
+// No `#define` anywhere in this file: every macro name below is external.
+int src(void);
+void sink(int);
+int g;
+typedef int T;
+void use(int);
+
+int trashcan_begin_condition(void *op, int c) {
+    int x = 41;               // @g2s01:D x
+    if (c) Py_TRASHCAN_BEGIN_CONDITION(op, 1);
+    x = 2;
+    Py_TRASHCAN_END;
+    return x;                 // @g2s01:U:keep:unlisted_cpython_trashcan_macro
+}
+
+int cs_mut(void *m, int c) {
+    int x = 41;               // @g2s01a:D x
+    if (c) Py_BEGIN_CRITICAL_SECTION_MUT(m);
+    x = 2;
+    Py_END_CRITICAL_SECTION();
+    return x;                 // @g2s01a:U:keep:cpython_313_critical_section_mut
+}
+
+int cs2_mut(void *m, void *m2, int c) {
+    int x = 41;               // @g2s01b:D x
+    if (c) Py_BEGIN_CRITICAL_SECTION2_MUT(m, m2);
+    x = 2;
+    Py_END_CRITICAL_SECTION2();
+    return x;                 // @g2s01b:U:keep:cpython_313_critical_section2_mut
+}
+
+int cs_sequence_fast(void *seq, int c) {
+    int x = 41;               // @g2s01c:D x
+    if (c) Py_BEGIN_CRITICAL_SECTION_SEQUENCE_FAST(seq);
+    x = 2;
+    Py_END_CRITICAL_SECTION_SEQUENCE_FAST();
+    return x;                 // @g2s01c:U:keep:cpython_313_critical_section_sequence_fast
+}
+
+int suppress_iph(int c) {
+    int x = 41;               // @g2s01d:D x
+    if (c) _Py_BEGIN_SUPPRESS_IPH;
+    x = 2;
+    _Py_END_SUPPRESS_IPH;
+    return x;                 // @g2s01d:U:keep:cpython_msvc_suppress_iph_pair
+}
+
+int numpy_allow_threads(int c) {
+    int x = 41;               // @g2s02:D x
+    if (c) NPY_BEGIN_ALLOW_THREADS;
+    x = 2;
+    NPY_END_ALLOW_THREADS;
+    return x;                 // @g2s02:U:keep:numpy_alias_of_the_allow_threads_pair
+}
+
+int ext_prefix_deref_store(int *p, int c) {   // @g2s03a:D p
+    M *p = 2;                 // @g2s03a:U:keep:external_prefix_makes_a_declaration_a_store
+    return g;
+}
+
+int ext_prefix_pointer_to_pointer(int **pp, int c) {   // @g2s03b:D pp
+    M **pp = 0;               // @g2s03b:U:keep:external_prefix_pointer_to_pointer_store
+    return g;
+}
+
+int ext_function_like_prefix(int *p, int c) {   // @g2s03c:D p
+    M(c) *p = 2;              // @g2s03c:U:keep:external_function_like_prefix_store
+    return g;
+}
+
+int ext_prefix_with_read(int *p, int *q, int c) {   // @g2s03d:D p
+    M *p = *q;                // @g2s03d:U:keep:external_prefix_store_beside_a_read
+    return g;
+}
+
+int ext_prefix_two_declarators(int *p, int *q, int c) {   // @g2s03e1:D p  @g2s03e2:D q
+    M *p = 2, *q = 3;         // @g2s03e1:U:keep:external_prefix_first_declarator  @g2s03e2:U:keep:external_prefix_second_declarator
+    return g;
+}
+
+int ext_prefix_plain_declaration(int x, int c) {   // @g2s03k1:D x
+    M x = 2;                  // @g2s03k1:U:drop:non_pointer_declaration_is_a_write_only_line
+    return g;
+}
+
+int ext_prefix_declaration_without_value(int x, int c) {   // @g2s03k2:D x
+    M x;                      // @g2s03k2:U:drop:non_pointer_declaration_without_value_is_write_only
+    return g;
+}
+
+int real_nested_redeclaration(int *q) {
+    {
+        T *p = 0;             // @g2s03k6:D p
+        p = 0;                // @g2s03k6:U:drop:overwritten_inside_a_real_inner_declaration
+        use(*p);              // @g2s03k6:U:drop:dominated_by_the_overwrite
+    }
+    return g;
+}
+
+int pg_try_unbraced(void) {
+    int x = src();            // @g2o09:D x
+    PG_TRY();
+    x = 2;
+    PG_CATCH();
+    PG_END_TRY();
+    sink(x);                  // @g2o09:U:keep:unlisted_postgres_try_family_unbraced
+}
+"####,
+    ),
+    (
+        "27_r2_inrepo_prefix.c",
+        r####"// Chain A round 2 (#829): in-repo statement-prefix macros keep the pair today
+// (G2-sonnet-03, control K5). One census for the file.
+int g;
+#define IFC if (c)
+#define NOTHING
+
+int in_repo_if_prefix(int *p, int c) {   // @g2s03k5a:D p
+    IFC *p = 2;               // @g2s03k5a:U:keep:in_repo_prefix_declaration_is_macro_typed
+    return g;
+}
+
+int in_repo_empty_prefix(int *p, int c) {   // @g2s03k5b:D p
+    NOTHING *p = 2;           // @g2s03k5b:U:keep:in_repo_empty_prefix_declaration_is_macro_typed
+    return g;
+}
+"####,
+    ),
+    (
+        "28_r2_listed_name_shim.c",
+        r####"// Chain A round 2 (#829): the repository defines a shim under a listed system name
+// (G2-sonnet-07). The system macro may be the one in effect (include order, #ifdef), so the
+// listed spelling is conservative whatever the repository holds. One census for the file.
+int src(void);
+void sink(int);
+int cond;
+#define pthread_cleanup_push(r, a) do { (r)(a); } while (0)
+#define pthread_cleanup_pop(e) ((void)(e))
+
+void shimmed_listed_name(void (*h)(void *)) {
+    int x = src();            // @g2s07:D x
+    if (cond) pthread_cleanup_push(h, 0);
+    x = 2;
+    pthread_cleanup_pop(0);
+    sink(x);                  // @g2s07:U:keep:listed_name_is_refused_even_when_the_repository_defines_it
+}
+"####,
+    ),
+    (
+        "29_r2_enclosing.c",
+        r####"// Chain A round 2 (#829): the owner sits inside an in-repo macro's argument group at file
+// scope (G2-opus-01). tree-sitter recovers: `J(static int dummy;` and `)` are ERROR nodes and
+// `probe` is a clean owner that spells no macro. One census for the file.
+int b, e;
+#define J(p, q, r) p; if (c) { q; } r
+J(static int dummy;
+int probe(int c) {
+    int x = 41;               // @g2o01:D x
+    int a, b;
+    x = 2;
+    int d, e;
+    return x;                 // @g2o01:U:keep:owner_inside_an_enclosing_invocation
+}
+)
+"####,
+    ),
+    (
+        "30_r2_enclosing_variadic.c",
+        r####"// Chain A round 2 (#829): control for G2-opus-01. A variadic forwarding macro rejoins the
+// pieces with commas, so the compiled program equals the written one and the overwrite
+// dominates: pruning must survive. One census for the file.
+int b, e;
+#define K(...) __VA_ARGS__
+K(static int dummy;
+int probe_forwarded(int c) {
+    int x = 41;               // @g2o01k:D x
+    int a, b;
+    x = 2;
+    int d, e;
+    return x;                 // @g2o01k:U:drop:variadic_forwarding_changes_nothing
+}
+)
+"####,
+    ),
+    (
+        "31_r2_enclosing_file_scope.c",
+        r####"// Chain A round 2 (#829): the enclosing group is opened by a file-scope unbalanced macro
+// (G2-opus-01b). The owner does not spell BEGIN_FNS; its closing parenthesis is written out.
+// One census for the file.
+int b, e;
+#define J(p, q, r) p; if (c) { q; } r
+#define BEGIN_FNS J(
+BEGIN_FNS static int dummy;
+int probe_fs(int c) {
+    int x = 41;               // @g2o01b:D x
+    int a, b;
+    x = 2;
+    int d, e;
+    return x;                 // @g2o01b:U:keep:owner_inside_a_group_opened_by_a_file_scope_macro
+}
+)
+"####,
+    ),
+    (
+        "32_r2_strip_parenthesis.c",
+        r####"// Chain A round 2 (#829): a brace-held comma below an inner parenthesis splits after a rescan
+// strips the parenthesis (G2-opus-02). Parameter names differ from the owner's locals (a
+// parameter of a spelled macro escapes the name). One census for the file.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define SF(v) F v
+#define SG(v) G v
+
+int stripped_parenthesis(int c) {
+    int x = 41;               // @g2o02:D x
+    int b = 0;
+    {
+        SF(({ int a, b; }));
+        x = 2;
+        SG(({ int a, b; }));
+        return x;             // @g2o02:U:keep:rescan_strips_the_parenthesis_that_held_the_comma
+    }
+}
+"####,
+    ),
+    (
+        "33_r2_digit_separator.c",
+        r####"// Chain A round 2 (#829): in the C reading (no digit separators) a pair of `'` swallows the
+// bracket, in C23 and C++ it is exposed (G2-opus-03). The census verdict is the OR of the
+// readings. One census for the file.
+#define OPEN if (c != 1'0) { (void)(2'0);
+#define CLOSE (void)(3'0); } (void)(4'0);
+
+int digit_separator_hides_a_bracket(int c) {
+    int x = 41;               // @g2o03:D x
+    OPEN;
+    x = 2;
+    CLOSE;
+    return x;                 // @g2o03:U:keep:c_reading_hides_the_brackets_of_the_c23_reading
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

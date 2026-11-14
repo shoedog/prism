@@ -189,3 +189,116 @@ Base for these rows = HEAD of this branch (same stubs). Files: `src/call_graph/c
 - **C++ owners must not pass the local to a call as a bare argument.** `sink(x)` escapes `x` in C++ (E3), so the first draft of the C++ rows passed on base without exercising the gate. All C++ cases use `sink(x + 1)` (the convention of the existing C++ rows).
 - w4 and the `Py_BEGIN_CRITICAL_SECTION*` family are C, not S, in this fold: no CPython 3.13 headers were available here. Listing the names can only refuse more.
 - cz1 now calls `cz_parity` (same assertions, messages gained a label).
+
+# Chain A (round 2) (terra, sonnet, sol2, opus; 2026-11-14)
+
+Four enumerators (`.scratch829/chain2/{terra,sonnet,sol,opus}/LIST.md`; ids `G2-terra-01..04`, `G2-sonnet-01..07`, `G2-sol2-01..04`, `G2-opus-01..09`). **The rule of DESIGN.md is tentative and will be redesigned against the complete scenario set, so none of these tests names an `Off::` reason and none depends on a proposed fix**: each asserts the behaviour the goal requires (the live pair is kept; the control pruning survives; the census fact or input is seen). The enumerators' proposed fixes were ignored; only the scenarios count.
+
+Base = HEAD `26f003be` (same stubs). Files:
+- `src/data_flow/build/c_prune_brackets_r2_tests.rs` (owner rows through `check_row`, the real-header excerpts) and `c_prune_brackets_r2_loader_tests.rs` (tempdir loader rows);
+- `src/call_graph/c/macro_census_brackets_r2_tests.rs` (census facts);
+- `src/data_flow/build/c_macro_census_tests.rs` (`cz_parity` became `cz_parity_in`: owner file name and direction are parameters, `parse` picks C++ for `.cc`; cz1/cz2 are unchanged in meaning);
+- inline cases `25_r2_external_alias` to `34_r2_control_unbalanced` (`.c`/`.cc`) appended to the two inline-case files (C 966, C++ 729 weighted lines); 28 C and 14 C++ new obligation rows (additions only, regenerated with both `gen_obligations.py`). `c_prune_matrix` and `cpp_prune_matrix` read them and stay red on base.
+
+**BOUNDARY** (an input or macro the model cannot see: external macros, includes, build flags) is tagged twice: the test name starts `boundary_`, and the table marks it. A later step decides per row whether the fix goes in this PR, in #813, or splits; a row deferred to #813 will be marked `#[ignore = "#813"]`. Nothing is ignored yet.
+
+Source: **obs** = the enumerators compiled the program (value live, `41 2` or equivalent) and ran prism on base with the asm control; **obs+** = the same, and the twin or variant was compiled again here (Apple clang 21.0.0); **rules** = derived from the rules and the expansion, no liveness run (kind C unless noted).
+
+## Totals (new tests only)
+
+- **62 new tests: 53 RED, 9 GREEN on base.** Every RED fails on the assertion it was written for: pair rows report `dropped` (never `inadmissible`: every row's pair exists in the baseline), loader rows report `the live pair ... was dropped`, fact rows fail on the fact (the macro is in the census), cache rows fail on the post-edit pair. The 9 GREEN are controls: 8 pair-row controls (the two variadic-forwarding drops, K3, K1, K2, K5a, K5b, K6) and the free-name premise of cz3.
+- Pair-row tests: 41 (33 RED, 8 GREEN) over 42 new obligation rows (36 keep rows: 33 RED and 3 GREEN controls; 6 drop rows, all GREEN); census facts: 7 RED; cache: 2 RED + 1 GREEN premise; loader: 9 RED; real-header excerpts: 2 tests, RED (see below).
+- Kinds of the 33 RED pair rows: S (live pair dropped, compiled): g2t01 (.c .cc), g2o06 (.c .cc), g2o06c (.c .cc), g2s01 (.c; .cc rules-derived), g2s02 (.c; .cc rules-derived), g2s03a, g2o01 (.c .cc), g2o01b (.c .cc), g2o02 (.c .cc), g2o03 (.c .cc), g2o04, g2o07; C (rules-derived): g2s01a-d, g2s03b-e2, g2o09, g2s07 (.c .cc).
+
+## Pair rows (inline cases, `c_prune_brackets_r2_tests.rs`)
+
+| row | test | case file | kind | BOUNDARY | source | base |
+|---|---|---|---|---|---|---|
+| G2-terra-01 | `boundary_row_g2_terra_01`, `boundary_row_cpp_g2_terra_01` | `25_r2_external_alias.c/.cc` | S | BOUNDARY | obs (terra; `-E` and run, exit 0 both dialects) | RED |
+| G2-opus-06 | `boundary_row_g2_opus_06`, `boundary_row_cpp_g2_opus_06` | same | S | BOUNDARY | obs (opus, c) + obs+ (C++ and C compiled here: `41 2`) | RED |
+| G2-opus-06 control | `row_g2_opus_06_in_repo_apply_control_keeps_the_pair`, `row_cpp_...` | same | S | | obs+ (the in-repo `APPLY` form compiled here, c and c++: `41 2`) | RED (the stub gate is absent; required: kept) |
+| G2-sonnet-01 | `row_g2_sonnet_01`, `row_cpp_g2_sonnet_01` | `26_r2_external_names.c/.cc` | S (.c) / C (.cc) | | obs (CPython 3.12 headers, prints `41`); `.cc` twin rules | RED |
+| G2-sonnet-01 members | `row_g2_sonnet_01a_critical_section_mut`, `01b_..._section2_mut`, `01c_..._sequence_fast`, `01d_suppress_iph` | same | C | | rules (3.13 internal headers and MSVC-only names; no compile evidence) | RED |
+| G2-sonnet-02 | `boundary_row_g2_sonnet_02`, `boundary_row_cpp_g2_sonnet_02` | same | S (.c) / C (.cc) | BOUNDARY | obs (NumPy 2.x headers, `41`); `.cc` rules | RED |
+| G2-sonnet-03 (1) | `row_g2_sonnet_03a` | same | S | | obs (`-DIFC=` and `-DIFC='if (c)'`, prints `2`) | RED |
+| G2-sonnet-03 (2) | `row_g2_sonnet_03b` (`M **pp`), `03c` (`M(c) *p`), `03d` (`M *p = *q`), `03e1`/`03e2` (`M *p = 2, *q = 3`, both params) | same | C | | rules (same mechanism; the expansion shown by `clang -E`, drops by prism, no per-row run) | RED |
+| G2-sonnet-03 (3) | `row_cpp_g2_sonnet_03k3_control` | `26_r2_external_names.cc` | K | | obs (C++ escapes the name already) | GREEN |
+| G2-sonnet-03 (4) | `row_g2_sonnet_03k1_control` (`M x = 2;`), `03k2_control` (`M x;`) | `26_r2_external_names.c` | K | | obs (write-only drops on base) | GREEN |
+| G2-sonnet-03 (5) | `row_g2_sonnet_03k5a_control`, `03k5b_control` | `27_r2_inrepo_prefix.c` | K | | obs (in-repo `IFC`/`NOTHING` keep the pair: the macro-typed declaration is ineligible) | GREEN |
+| G2-sonnet-03 (6) | `row_g2_sonnet_03k6_control` | `26_r2_external_names.c` | K | | obs (a real inner `T *p = 0; p = 0; use(*p);` prunes on base: two drop obligations) | GREEN |
+| G2-sonnet-07 | `row_g2_sonnet_07`, `row_cpp_g2_sonnet_07` | `28_r2_listed_name_shim.c`, `27_r2_listed_name_shim.cc` | C | | rules. **Borderline**: the pair is live only if the system macro, not the repository's balanced shim, is in effect (include order, `#ifdef`); the row asserts kept because that is undecidable from the repository. If the redesign proves the shim is the definition in effect, this row's expectation is the design's call (it is a sonnet "kind C") | RED |
+| G2-opus-09 | `boundary_row_g2_opus_09` | `26_r2_external_names.c` | C | BOUNDARY | rules (PostgreSQL `PG_TRY`/`PG_CATCH`/`PG_END_TRY` unbraced, external; no Postgres headers here) | RED |
+| G2-opus-01 | `row_g2_opus_01`, `row_cpp_g2_opus_01` | `29_r2_enclosing.c/.cc` | S | | obs (opus, both dialects, `41 2`) | RED |
+| G2-opus-01 control | `row_g2_opus_01_variadic_control`, `row_cpp_...` | `30_r2_enclosing_variadic.c/.cc` | K | | obs+ (`K(...) __VA_ARGS__` rejoins the pieces; compiled here `2 2`: `x = 41` is dead, so the drop is correct) | GREEN |
+| G2-opus-01b | `row_g2_opus_01b`, `row_cpp_g2_opus_01b` | `31_r2_enclosing_file_scope.c/.cc` | S | | obs (opus, `41 2`) | RED |
+| G2-opus-02 | `row_g2_opus_02`, `row_cpp_g2_opus_02` | `32_r2_strip_parenthesis.c/.cc` | S | | obs (opus, c, `41 2`) + obs+ (C++ compiled here, `-std=gnu++17`, `41 2`) | RED |
+| G2-opus-03 | `row_g2_opus_03`, `row_cpp_g2_opus_03` | `33_r2_digit_separator.c/.cc` | S | | obs (opus; `-std=c2x` and `-std=c++17`, `41 2`; recompiled here) | RED |
+| G2-opus-04 | `row_cpp_g2_opus_04_owner_side_hide` | `33_r2_digit_separator.cc` | S | | obs (opus, prints `451`) | RED |
+| G2-opus-07 | `row_cpp_g2_opus_07` | `34_r2_control_unbalanced.cc` | S | | obs (opus, prints `451`; base verdict `on-no-d:g6`, U drops the pair) | RED |
+
+## Loader rows (`c_prune_brackets_r2_loader_tests.rs`; real files in a tempdir, never under tests/fixtures)
+
+Each asserts `x = 41` to `return x` exists in the baseline and in the pruned result, for `.c` and `.cc`. Controls assert first that the loader's census holds `OPEN`/`CLOSE`.
+
+| row | test | kind | BOUNDARY | source | base |
+|---|---|---|---|---|---|
+| G2-terra-02 | `boundary_g2_terra_02_computed_include_of_a_non_net_extension` | S | BOUNDARY (documented D2 exception) | obs (terra; `read=0`) | RED |
+| G2-terra-03 | `g2_terra_03_computed_include_of_a_net_file` | C (control: the net reads `defs.inc`) | | obs (terra; `read=1`) | RED (stub facts) |
+| G2-sol2-01 | `boundary_g2_sol2_01_absolute_include_of_an_in_repo_file` | S | BOUNDARY | obs (sol2); the tempdir's canonical absolute path is written into the include | RED |
+| G2-sol2-02 | `boundary_g2_sol2_02_parent_after_a_directory_symlink` | S | BOUNDARY | obs (sol2); layout `a/link -> ../actual/deep`, `actual/defs.payload`; capability check: symlink creation (else prints SKIP and returns) and that the filesystem resolves `link/..` through the target | RED (ran, not skipped, on this macOS host) |
+| G2-sol2-03 | `boundary_g2_sol2_03_include_name_differs_in_case` | S | BOUNDARY | obs (sol2); capability check: `DEFS.PAYLOAD` must resolve to `defs.payload` (else prints SKIP and returns) | RED (ran, not skipped: this host is case-insensitive) |
+| G2-sol2-03 control | `g2_sol2_03_control_exact_case_include` | C | | obs (sol2 `rel` control) | RED (stub facts) |
+| G2-sol2-04 | `boundary_g2_sol2_04_header_injected_by_the_build` | S | BOUNDARY | obs (sol2). **Not expressible as a build input**: prism takes no forced include (the loader and CLI carry none; `--compile-commands` feeds type enrichment only). The row documents the input prism does receive: the source names no header and `defs.payload` sits in the repository. Fix placement is the astra step's call | RED |
+| G2-sol2-04 companion | `g2_sol2_04_companion_net_file_is_collected_without_an_include` | C | | sol2 proposed it, no receipt; the net should collect `defs.inc` | RED (stub facts) |
+| sol2 relative control | `g2_sol2_relative_literal_include_control` | C | | obs (sol2 `rel_c/rel_cc`, `read=1`) | RED (stub facts) |
+
+## Census facts and cache
+
+| row | test | kind | source | base |
+|---|---|---|---|---|
+| G2-sonnet-06 | `g2_sonnet_06_double_quote_in_a_char_literal_does_not_hide_a_brace` (Q1), `..._single_quote_in_a_string_literal_...` (Q2), `..._escaped_backslash_char_literal_...` (Q3), `..._escaped_backslash_string_literal_...` (Q4), `..._quote_characters_do_not_hide_a_loose_comma` (Q5, Q6); each in a parsed `.c`, a parsed `.cpp` and a census text | F, IMMATERIAL unless a second scanner is written | rules | RED (each macro is read; the fact is false) |
+| G2-opus-03 | `g2_opus_03_digit_separator_pairs_do_not_hide_a_bracket`, `g2_opus_03_digit_separator_pairs_do_not_hide_a_loose_comma` (the member: `#define L 1'0, 2'0`) | F | rules (the owner row `row_g2_opus_03` is the compiled S) | RED |
+| G2-terra-04 | `cz3_cache_parity_when_a_header_alias_starts_naming_a_listed_macro` (forward: pruned before the header edit, kept after, incremental = fresh, digest moved; `.c` and `.cc`), `cz3_cache_parity_when_a_header_alias_stops_naming_a_listed_macro` (reverse, from a newly saved cache, against a clean build) | F | rules (no compiler claim) | RED |
+| G2-terra-04 premise | `cz3_premise_only_the_free_names_differ` | K | the two header states differ in no bracket or comma fact, only in `MARK`'s transitive free set | GREEN |
+| G2-sonnet-04 | `g2_sonnet_04_real_block_macro_excerpts_in_a_parsed_header`, `..._as_a_census_text` | S/C | real definitions: glibc and macOS pthread_cleanup, CPython allow-threads, trashcan (condition and wrapper), 3.13 and 3.14 critical sections (default and free-threading spellings), NumPy aliases. macOS, CPython 3.12 and 3.14 texts compared with the local headers; glibc and NumPy from memory. The pair `x@5 -> x@9` is judged (not an edge total: see Discrepancies 2) | RED: 7 of 8 excerpts drop the pair (glibc is a green control: `__sigsetjmp_cancel` makes the macro `control`, so rule D is already off) |
+
+## Design inputs (no assertion)
+
+Not built: the required behaviour is a design choice, or the row exists to record measured numbers. Sources are the lists.
+
+1. **G2-opus-08, a header-position unbalanced pair** (`TEST_BEGIN(f)` = `static void f(void) { p_test_init(#f);` and `TEST_END` = `goto done; done: p_test_fini(); }`, used as `TEST_BEGIN(test_x) { body } TEST_END`, jemalloc `test.h:544-553`). tree-sitter reads it as one function whose body equals the compiler's inner block, so U and D inside the body agree with the compiler; the macro's `{` and `}` lie outside the body. Refusing is acceptable and costs recall; pruning inside may survive. Synthetic minimum: `#define TB(f) static void f(void) { prep();` / `#define TE goto done; done: fini(); }` / `TB(t1) { int x = src(); x = 2; sink(x); } TE`. Yield on base (opus, token-level scan, not the implementation): redis 128 `on` plus 200 `on-no-d` owners spell `TEST_BEGIN` (328 of the 530 below); cpython `BEGIN_CODECS_LIST`/`END_CODECS_LIST` (`Modules/cjkcodecs/cjkcodecs.h:256`); libcheck `START_TEST`/`END_TEST` (external). Opus found no header-position shape that changes the scopes inside a clean body (class-scope wrapper, GNU nested functions opened before the owner, a header macro hiding parameters: unresolved names are kept).
+2. **G2-opus-05, C89/C90 `//` is not a comment** (IMMATERIAL; owner decision: keep the pair, or record C89 as an out-of-model dialect). Source, `.c`:
+   ```c
+   #define OPEN 4 //* c */ 2; if (c) {
+   #define CLOSE 4 //* c */ 2; }
+   int probe(int c) {
+       int x = 41;
+       OPEN;
+       x = 2;
+       CLOSE;
+       return x;
+   }
+   ```
+   `clang -std=c89 -E -P` prints `4 / 2; if (c) {;` / `x = 2;` / `4 / 2; };`; `clang -std=c89 -w` runs and prints `41 2`; `-std=c99` prints `4;`. Base: owner on, `x@4->x@8` absent; the asm twin restores it.
+3. **G2-sonnet-05, a list edit does not invalidate caches by itself** (SMELL, IMMATERIAL). The block-macro list is a code constant, so a list edit moves neither the census digest nor the cached DFG; only the manual `CACHE_VERSION` bump protects a cached graph (the convention of `RETURNS_TWICE`, `KEYWORDS`). Optional row if the list survives the redesign: the census digest depends on the list.
+4. **Yield of the tentative rule (measured, not by the implementation).** opus (token-level scan, owners that are `on` today and spell a flagged name): redis 530 of 8,465 owners (6.3%: `serverPanic` 167, `TEST_BEGIN` 328, `GETKEYS_RESULT_INIT` 13); cpython 362 of 10,815 (3.3%: the critical-section family 108, `EXTRA` 58, `_PyStatus_ERR` 46); protobuf 6 of 7,748 (`PROTOBUF_TC_PARAM_DECL`, a loose-comma parameter list used in function headers). Flagged macro names, unbalanced/loose-comma: redis 26/164, cpython 30/3,101, protobuf 1/32, re2 0/1, leveldb 0, snappy 0. Most loose-comma hits are argument-list or initializer fragments (`EXTRA`, `PySlot_DATA`, `*_INIT`) whose real uses cannot split. sonnet (same automaton over redis): 170 macro names would be flagged (17 unbalanced, the rest loose-comma), 479 `.c` files; `serverPanic` (a top-level comma operator) is spelled in 31 files, `TEST_BEGIN`/`TEST_END` in 118, `ERR` in 42; leveldb 0. The standing "measure cut yield first" rule applies before any of this is folded.
+5. **Corpus observations (opus; no row).** About 80 cpython owners that are `on` and spell `Py_BEGIN_CRITICAL_SECTION`/`2`/`_MUTEX`/`Py_BEGIN_ALLOW_THREADS`/`_Py_BEGIN_SUPPRESS_IPH` drop 0 to 90 pairs each; every drop inspected crosses an unconditional `{ ...; }` wrapper (for example `Objects/exceptions.c:503`: `res@506->res@510`, overwritten inside the critical section), so none is live: the live risk needs a guard (the b rows) or shadowing (b1s), and neither was found in the corpora. A wrapper without a semicolon followed by a call is read as a prototype (`Py_END_ALLOW_THREADS` then `PyObject_Free(buffer);`, `Modules/_testcapi/mem.c:577-580`, owner `on`): the baseline itself never has the pair, so it is a recall gap, not a drop. Conditional and loop openers without a semicolon are off on base: `FOR_EACH_HOOK_BEGIN` (redis `src/hook.c:159`) and `mi_commit_mask_foreach` (cpython `Objects/mimalloc/segment.c:615`) are `G1Error`; Linux `for_nexthops(fi) { } endfor_nexthops(fi);` is `G1Nested`; in `log_do_begin` (`deps/jemalloc/test/unit/log.c:21`) the whole file loses its owners after line 5. The nav call-edge cache (v83) holds no DFG edges, so the `CACHE_VERSION` bump is the only cache that matters.
+6. **Header audit (sonnet).** `scan.py` over CPython 3.11 to 3.14, the cpython checkout, the macOS SDK, Homebrew, Node 24, NumPy, PyTorch and pyarrow headers on that machine. Function-scope unbalanced macros: CPython 3.11/3.12 `Py_BEGIN/END_ALLOW_THREADS`, `Py_TRASHCAN_BEGIN_CONDITION`, `Py_TRASHCAN_END`, `Py_TRASHCAN_SAFE_BEGIN/END`, `_Py_BEGIN/END_SUPPRESS_IPH`; 3.13/3.14 `Py_BEGIN/END_CRITICAL_SECTION[2]`, `_MUTEX`/`_MUT`, `_SEQUENCE_FAST`; macOS SDK only `pthread_cleanup_push/pop` (plus file-scope `*_DECLS`/`*_NAMESPACE`); Homebrew `_XFUNCPROTOBEGIN/END`; NumPy `NPY_BEGIN/END_SUPPRESS_IPH`. Note: `Py_BEGIN_CRITICAL_SECTION_MUTEX` is the 3.14 public spelling; 3.13 spells it `_MUT` (internal). Other unlisted public-library members, header-scan only, no liveness claim (kind C, IMMATERIAL unless the owner wants a wider belt): OpenSSL `OSSL_TRACE_BEGIN`/`OSSL_TRACE_END`, PyTorch `HANDLE_TH_ERRORS`/`END_HANDLE_TH_ERRORS[_RET|_PYBIND]`, pyarrow `BEGIN_PARQUET_CATCH_EXCEPTIONS`/`END_...`; their usual spelling (`BEGIN(x) { ... } END`) parses as a nested function or errors, so the owner is off today. PostgreSQL: `PG_TRY` family in extension code is braced everywhere in 50 GitHub hits (`PG_TRY(); { ... } PG_CATCH(); { ... } PG_END_TRY();`), which keeps every write in its own block; only the unbraced form (row G2-opus-09) is at risk.
+7. **Pre-existing, not macro-specific (sonnet, IMMATERIAL for #829).** Nested external calls `g(g(...(y)...))` cost 0.06 s at depth 250, 2.3 s at 500, 17.7 s at 1000 on base (the in-repo-macro form `F(F(...))` is the same), and 20,000 `y = F(y);` lines exceed 100 s. Not touched by the new gates. GCC versus clang for a directive between a macro name and its group, and `-std=c89`, could not be checked there (no GCC).
+8. **Checked, no row (opus, reasoned from the gate rules).** Dangling `else` bound to a macro's `if`; a macro-made label or `?:`; `_Pragma`/OpenMP in a macro body; C++ `<,>` template-argument splits; a hidden reference declarator `int AMP(r) = x;`; `#if` that splits an `if` and its body; `$` in identifiers. sonnet: census lexing of quote characters, splice before `#`/between `#` and `define`/between name and parameter list, `/* */ #define` (all read correctly on base; `#\<nl>define` gives `off:Incomplete`); in-repo statement-prefix macros over 34 shapes (only legitimate write-only drops); a directive between a macro name and its group (clang does not expand, so "name directly followed by `(`" is right); scoped review builds read the census from `all_files`. sol2: embedded NULs (clang did not join identifier fragments), enclosing macros, template owners, another external wrapper.
+
+## Chain A (round 2): not built, with reasons
+
+- G2-opus-01 members "a positional macro that drops or reorders a piece", "an owner that is a C++ member function inside a class body" (opus: not built there either). The drop shape needs a source whose pieces still parse after dropping (`p r` of the encl2 source gives `int a e;`); not worth a bespoke fixture before the redesign.
+- G2-opus-07 in C: the C scope-shift shapes have no baseline pair (Deviations 1 above), and a guard-shape twin with a `goto` macro already has D off and no U-droppable pair. The C++ row is the compiled one.
+- G2-sol2 `_off` companions and the asm controls of every row: the enumerators' same-environment controls establish removal rather than a missing baseline edge; here the equivalent is the `before` assertion of each row (inadmissible if the baseline has no pair).
+
+## Discrepancies and notes
+
+1. No row's base outcome differs from the list's claim. Every S row's pair exists in the baseline and is dropped on base; every K control is green.
+2. **Edge totals are the wrong oracle when an owner stays `on-no-d`.** The rules legitimately drop other pairs (the one into a write-only line such as `x = 2;`), so `a == b` on edge counts fails for a correct implementation even when the live pair is kept. The glibc excerpt showed it (`on-no-d:g6`: 7 edges, the live pair x@6 -> x@10 kept, three other pairs dropped by U). The round-2 tests judge the specific pair (`has_pair`, `check_row`). The round-1 rows that use `counts(...)` and compare totals (`mf1`, `mf2`, `mf3`, `g_terra_01_*`, `g_sol_03_*`, `g_terra_10_*`, `g_sol_14_*`) are exact only while the redesign turns the owner fully off; if the redesign keeps U on for some of them, those assertions must become pair checks.
+3. G2-sonnet-03 K2 (`M x;`) is kept as the list gives it, but the macro could expand to `if (c)`, in which case `x;` reads the parameter and discards the value; the drop is a write-only drop only in the sense that no value flows anywhere. If the redesign refuses it, K2 goes.
+4. G2-sonnet-07 (`row_g2_sonnet_07`) is borderline between a conservative row and a design choice; see its table row.
+5. The forced include of G2-sol2-04 cannot be expressed to prism (no input carries it); the row documents the input prism receives.
+6. The `.cc` twins of G2-sonnet-01 and G2-sonnet-02 are rules-derived (the enumerators compiled the C probes only); the `.cc` twin of G2-opus-02 was compiled here. `.c` and `.cc` of G2-opus-01k were compiled here only as `.cc`.
+7. `cz_parity` now takes an owner file and a direction (`cz_parity_in`); cz1 and cz2 still call it with `a.c` and the forward direction and are still red on base (their digest assertion).

@@ -588,6 +588,222 @@ void cpp_spliced_name_crlf() {
 }
 "####,
     ),
+    (
+        "25_r2_external_alias.cc",
+        r####"// Chain A round 2 (#829), C++ owners: an external alias hides an in-repo macro
+// (G2-terra-01, G2-opus-06; BOUNDARY). A, B and EXT_APPLY are never defined here. One census.
+int src();
+void sink(int);
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define APPLY(m, ...) m(__VA_ARGS__)
+
+int cpp_external_alias_of_in_repo_macro(int c) {
+    int x = 41;               // @g2t01:D x
+    int b = 0;
+    {
+        A({ int a, b; });
+        x = 2;
+        B({ int a, b; });
+        return x;             // @g2t01:U:keep:external_alias_exposes_an_in_repo_split
+    }
+}
+
+int cpp_external_apply_forwards_an_in_repo_macro_name(int c) {
+    int x = 41;               // @g2o06:D x
+    int b = 0;
+    {
+        EXT_APPLY(F, { int a, b; });
+        x = 2;
+        EXT_APPLY(G, { int a, b; });
+        return x;             // @g2o06:U:keep:external_variadic_apply_forwards_the_held_comma
+    }
+}
+
+int cpp_in_repo_apply_forwards_an_in_repo_macro_name(int c) {
+    int x = 41;               // @g2o06c:D x
+    int b = 0;
+    {
+        APPLY(F, { int a, b; });
+        x = 2;
+        APPLY(G, { int a, b; });
+        return x;             // @g2o06c:U:keep:in_repo_variadic_apply_forwards_the_held_comma
+    }
+}
+"####,
+    ),
+    (
+        "26_r2_external_names.cc",
+        r####"// Chain A round 2 (#829), C++ owners: external block macros the repository never defines
+// (G2-sonnet-01, G2-sonnet-02 BOUNDARY, G2-sonnet-03 control K3). No `#define` in this file.
+int src();
+void sink(int);
+int g;
+
+int cpp_trashcan_begin_condition(void *op, int c) {
+    int x = 41;               // @g2s01:D x
+    if (c) Py_TRASHCAN_BEGIN_CONDITION(op, 1);
+    x = 2;
+    Py_TRASHCAN_END;
+    return x;                 // @g2s01:U:keep:unlisted_cpython_trashcan_macro
+}
+
+int cpp_numpy_allow_threads(int c) {
+    int x = 41;               // @g2s02:D x
+    if (c) NPY_BEGIN_ALLOW_THREADS;
+    x = 2;
+    NPY_END_ALLOW_THREADS;
+    return x;                 // @g2s02:U:keep:numpy_alias_of_the_allow_threads_pair
+}
+
+int cpp_ext_prefix_deref_store(int *p, int c) {   // @g2s03k3:D p
+    M *p = 2;                 // @g2s03k3:U:keep:cpp_escapes_names_of_non_keyword_typed_declarations
+    return g;
+}
+"####,
+    ),
+    (
+        "27_r2_listed_name_shim.cc",
+        r####"// Chain A round 2 (#829), C++ owners: the repository defines a shim under a listed system
+// name (G2-sonnet-07). One census for the file.
+int src();
+void sink(int);
+int cond;
+#define pthread_cleanup_push(r, a) do { (r)(a); } while (0)
+#define pthread_cleanup_pop(e) ((void)(e))
+
+void cpp_shimmed_listed_name(void (*h)(void *)) {
+    int x = src();            // @g2s07:D x
+    if (cond) pthread_cleanup_push(h, 0);
+    x = 2;
+    pthread_cleanup_pop(0);
+    sink(x + 1);              // @g2s07:U:keep:listed_name_is_refused_even_when_the_repository_defines_it
+}
+"####,
+    ),
+    (
+        "29_r2_enclosing.cc",
+        r####"// Chain A round 2 (#829), C++: the owner sits inside an in-repo macro's argument group at
+// file scope (G2-opus-01). One census for the file.
+int b, e;
+#define J(p, q, r) p; if (c) { q; } r
+J(static int dummy;
+int probe(int c) {
+    int x = 41;               // @g2o01:D x
+    int a, b;
+    x = 2;
+    int d, e;
+    return x;                 // @g2o01:U:keep:owner_inside_an_enclosing_invocation
+}
+)
+"####,
+    ),
+    (
+        "30_r2_enclosing_variadic.cc",
+        r####"// Chain A round 2 (#829), C++: control for G2-opus-01. A variadic forwarding macro rejoins
+// the pieces with commas: the overwrite dominates, pruning must survive. One census.
+int b, e;
+#define K(...) __VA_ARGS__
+K(static int dummy;
+int probe_forwarded(int c) {
+    int x = 41;               // @g2o01k:D x
+    int a, b;
+    x = 2;
+    int d, e;
+    return x;                 // @g2o01k:U:drop:variadic_forwarding_changes_nothing
+}
+)
+"####,
+    ),
+    (
+        "31_r2_enclosing_file_scope.cc",
+        r####"// Chain A round 2 (#829), C++: the enclosing group is opened by a file-scope unbalanced
+// macro (G2-opus-01b). One census for the file.
+int b, e;
+#define J(p, q, r) p; if (c) { q; } r
+#define BEGIN_FNS J(
+BEGIN_FNS static int dummy;
+int probe_fs(int c) {
+    int x = 41;               // @g2o01b:D x
+    int a, b;
+    x = 2;
+    int d, e;
+    return x;                 // @g2o01b:U:keep:owner_inside_a_group_opened_by_a_file_scope_macro
+}
+)
+"####,
+    ),
+    (
+        "32_r2_strip_parenthesis.cc",
+        r####"// Chain A round 2 (#829), C++: a brace-held comma below an inner parenthesis splits after a
+// rescan strips the parenthesis (G2-opus-02). One census for the file.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define SF(v) F v
+#define SG(v) G v
+
+int cpp_stripped_parenthesis(int c) {
+    int x = 41;               // @g2o02:D x
+    int b = 0;
+    {
+        SF(({ int a, b; }));
+        x = 2;
+        SG(({ int a, b; }));
+        return x;             // @g2o02:U:keep:rescan_strips_the_parenthesis_that_held_the_comma
+    }
+}
+"####,
+    ),
+    (
+        "33_r2_digit_separator.cc",
+        r####"// Chain A round 2 (#829), C++: digit separators. The macro bodies are read in both
+// dialects (G2-opus-03); the owner's argument group is read in both too (G2-opus-04, the C
+// reading of `'0, b = 2'` is one character literal that hides a brace-held comma). One census.
+#define OPEN if (c != 1'0) { (void)(2'0);
+#define CLOSE (void)(3'0); } (void)(4'0);
+#define F(p, q) q p
+struct S { int v; S& operator=(int i) { v = v * 10 + i; return *this; } };
+
+int cpp_digit_separator_hides_a_bracket(int c) {
+    int x = 41;               // @g2o03:D x
+    OPEN;
+    x = 2;
+    CLOSE;
+    return x;                 // @g2o03:U:keep:c_reading_hides_the_brackets_of_the_c23_reading
+}
+
+int cpp_digit_separator_hides_a_held_comma(S x) {
+    {
+        int *x = nullptr; int b = 0;
+        F([&](int){ int a = 1'0, b = 2'0; });
+        x = 5;                // @g2o04:D x
+        x = 1;                // @g2o04:U:keep:c_reading_hides_the_brace_held_comma_of_a_group
+    }(0);
+    return x.v;
+}
+"####,
+    ),
+    (
+        "34_r2_control_unbalanced.cc",
+        r####"// Chain A round 2 (#829), C++: a macro that is both control (goto) and unbalanced
+// (G2-opus-07). Rule D is already off for a control macro; rule U must still keep the pair.
+// Shape from jemalloc TEST_END. One census for the file.
+#define END goto out; out: }
+#define BEGIN {
+struct S { int v; S& operator=(int i) { v = v * 10 + i; return *this; } };
+
+int control_and_unbalanced(S x) {
+    {
+        int* x = nullptr;
+        END;
+        x = 5;                // @g2o07:D x
+        x = 1;                // @g2o07:U:keep:control_and_unbalanced_macro_still_moves_the_scope
+        BEGIN;
+    }
+    return x.v;
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

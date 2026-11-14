@@ -329,13 +329,13 @@ fn g_terra_10_spliced_name_from_a_header_with_lf_and_crlf() {
 
 // ---- G-terra-14 / G-sol-14: loader discovery drives the new facts ----
 
-mod loaded {
+pub(super) mod loaded {
     use super::*;
     use crate::repo_loader::{current_c_census_identity, load_repo};
     use std::fs;
     use std::path::Path;
 
-    fn write(d: &Path, rel: &str, bytes: &str) {
+    pub(in super::super) fn write(d: &Path, rel: &str, bytes: &str) {
         let p = d.join(rel);
         fs::create_dir_all(p.parent().unwrap()).unwrap();
         fs::write(p, bytes).unwrap();

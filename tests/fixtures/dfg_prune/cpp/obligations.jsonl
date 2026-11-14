@@ -356,3 +356,17 @@
 {"case": "23_macro_args_live.cc", "id": "y11", "path": "x", "def_line": 53, "use_line": 56, "keep": false, "reason": "innermost_bracket_is_a_parenthesis", "owner": "capture_comma_inside_parentheses"}
 {"case": "24_macro_splice.cc", "id": "s3", "path": "x", "def_line": 10, "use_line": 14, "keep": true, "reason": "macro_name_assembled_by_a_splice", "owner": "cpp_spliced_name"}
 {"case": "24_macro_splice_crlf.cc", "id": "s4", "path": "x", "def_line": 11, "use_line": 15, "keep": true, "reason": "macro_name_assembled_by_a_splice", "owner": "cpp_spliced_name_crlf"}
+{"case": "25_r2_external_alias.cc", "id": "g2t01", "path": "x", "def_line": 10, "use_line": 16, "keep": true, "reason": "external_alias_exposes_an_in_repo_split", "owner": "cpp_external_alias_of_in_repo_macro"}
+{"case": "25_r2_external_alias.cc", "id": "g2o06", "path": "x", "def_line": 21, "use_line": 27, "keep": true, "reason": "external_variadic_apply_forwards_the_held_comma", "owner": "cpp_external_apply_forwards_an_in_repo_macro_name"}
+{"case": "25_r2_external_alias.cc", "id": "g2o06c", "path": "x", "def_line": 32, "use_line": 38, "keep": true, "reason": "in_repo_variadic_apply_forwards_the_held_comma", "owner": "cpp_in_repo_apply_forwards_an_in_repo_macro_name"}
+{"case": "26_r2_external_names.cc", "id": "g2s01", "path": "x", "def_line": 8, "use_line": 12, "keep": true, "reason": "unlisted_cpython_trashcan_macro", "owner": "cpp_trashcan_begin_condition"}
+{"case": "26_r2_external_names.cc", "id": "g2s02", "path": "x", "def_line": 16, "use_line": 20, "keep": true, "reason": "numpy_alias_of_the_allow_threads_pair", "owner": "cpp_numpy_allow_threads"}
+{"case": "26_r2_external_names.cc", "id": "g2s03k3", "path": "p", "def_line": 23, "use_line": 24, "keep": true, "reason": "cpp_escapes_names_of_non_keyword_typed_declarations", "owner": "cpp_ext_prefix_deref_store"}
+{"case": "27_r2_listed_name_shim.cc", "id": "g2s07", "path": "x", "def_line": 10, "use_line": 14, "keep": true, "reason": "listed_name_is_refused_even_when_the_repository_defines_it", "owner": "cpp_shimmed_listed_name"}
+{"case": "29_r2_enclosing.cc", "id": "g2o01", "path": "x", "def_line": 7, "use_line": 11, "keep": true, "reason": "owner_inside_an_enclosing_invocation", "owner": "probe"}
+{"case": "30_r2_enclosing_variadic.cc", "id": "g2o01k", "path": "x", "def_line": 7, "use_line": 11, "keep": false, "reason": "variadic_forwarding_changes_nothing", "owner": "probe_forwarded"}
+{"case": "31_r2_enclosing_file_scope.cc", "id": "g2o01b", "path": "x", "def_line": 8, "use_line": 12, "keep": true, "reason": "owner_inside_a_group_opened_by_a_file_scope_macro", "owner": "probe_fs"}
+{"case": "32_r2_strip_parenthesis.cc", "id": "g2o02", "path": "x", "def_line": 9, "use_line": 15, "keep": true, "reason": "rescan_strips_the_parenthesis_that_held_the_comma", "owner": "cpp_stripped_parenthesis"}
+{"case": "33_r2_digit_separator.cc", "id": "g2o03", "path": "x", "def_line": 10, "use_line": 14, "keep": true, "reason": "c_reading_hides_the_brackets_of_the_c23_reading", "owner": "cpp_digit_separator_hides_a_bracket"}
+{"case": "33_r2_digit_separator.cc", "id": "g2o04", "path": "x", "def_line": 21, "use_line": 22, "keep": true, "reason": "c_reading_hides_the_brace_held_comma_of_a_group", "owner": "cpp_digit_separator_hides_a_held_comma"}
+{"case": "34_r2_control_unbalanced.cc", "id": "g2o07", "path": "x", "def_line": 12, "use_line": 13, "keep": true, "reason": "control_and_unbalanced_macro_still_moves_the_scope", "owner": "control_and_unbalanced"}
