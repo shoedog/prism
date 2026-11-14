@@ -286,7 +286,7 @@ fn a_second_alias_of_the_same_target_keeps_the_twin_in_every_alias_kind() {
         );
     }
     // Control: an alias of another target, or none written, leaves `u`'s twin removable.
-    let other = "function t(o, p) {\n  const u = o;\n  const w = p;\n  w.f = 1;\n  use(o.f);\n}\n";
+    let other = "function t(o) {\n  const p = mk();\n  const u = o;\n  const w = p;\n  w.f = 1;\n  use(o.f);\n}\n";
     assert!(
         js_twins(other, "u").is_empty(),
         "{:?}",
@@ -369,10 +369,10 @@ fn a_write_through_any_holder_of_the_target_keeps_the_quiet_aliases_twin() {
     assert!(twins(&refs("a.ts", ts, TS), "u").contains(&("o".to_string(), 2)));
     // Controls (the gain survives): the written name is unrelated to `o`, or is `o` itself.
     for src in [
-        "function t(o, z) {\n  const u = o;\n  const w = z;\n  w.f = 1;\n  use(o.f);\n}\n",
-        "function t(o, z) {\n  const u = o;\n  z.f = 1;\n  use(o.f);\n}\n",
+        "function t(o) {\n  const z = mk();\n  const u = o;\n  const w = z;\n  w.f = 1;\n  use(o.f);\n}\n",
+        "function t(o) {\n  const z = mk();\n  const u = o;\n  z.f = 1;\n  use(o.f);\n}\n",
         "function t(o) {\n  const u = o;\n  o.f = 1;\n  use(o.f);\n}\n",
-        "function t(o, f, z) {\n  const u = o;\n  f(z).x = 1;\n  use(o.f);\n}\n",
+        "function t(o) {\n  const z = mk();\n  const u = o;\n  mk(z).x = 1;\n  use(o.f);\n}\n",
     ] {
         assert!(
             js_twins(src, "u").is_empty(),
@@ -380,4 +380,51 @@ fn a_write_through_any_holder_of_the_target_keeps_the_quiet_aliases_twin() {
             js_twins(src, "u")
         );
     }
+}
+
+// ---- fold 2b: shadowed target spelling and the `arguments` object ----
+
+#[test]
+fn a_written_root_spelled_like_the_target_but_bound_elsewhere_keeps_the_twin() {
+    for src in [
+        "function g(o) {\n  const u = o;\n  {\n    let o = u;\n    o.x = 1;\n  }\n  use(o.x);\n}\n",
+        "function g(o) {\n  const u = o;\n  [o].forEach(o => { o.x = 1; });\n  use(o.x);\n}\n",
+        "function g(o) {\n  const u = o;\n  try { throw o; } catch (o) { o.x = 1; }\n  use(o.x);\n}\n",
+    ] {
+        assert!(js_twins(src, "u").contains(&("o".to_string(), 2)), "{src}: {:?}", js_twins(src, "u"));
+    }
+    // `this`: a nested non-arrow callable writing through its own `this`.
+    let th = "class C {\n  m(arr) {\n    const u = this;\n    arr.forEach(function () { this.x = 1; }, this);\n    use(this.x);\n  }\n}\n";
+    assert!(
+        js_twins(th, "u").contains(&("this".to_string(), 3)),
+        "{:?}",
+        js_twins(th, "u")
+    );
+    // Controls: one binding of the spelling, so the direct write keeps the gain; an arrow shares `this`.
+    let one = "function g(o) {\n  const u = o;\n  o.x = 1;\n  use(o.x);\n}\n";
+    assert!(js_twins(one, "u").is_empty());
+    let arrow = "class C {\n  m(arr) {\n    const u = this;\n    arr.forEach(() => { this.x = 1; });\n    use(this.x);\n  }\n}\n";
+    assert!(
+        js_twins(arrow, "u").is_empty(),
+        "{:?}",
+        js_twins(arrow, "u")
+    );
+}
+
+#[test]
+fn the_arguments_object_holds_the_formals() {
+    for src in [
+        "function g(o) {\n  const u = o;\n  log(u.y, arguments[0].x = 1);\n  use(o.x);\n}\n",
+        "function g(o) {\n  \"use strict\";\n  const u = o;\n  const a = arguments;\n  a[0].x = 1;\n  use(o.x);\n}\n",
+        "function g(o) {\n  const u = o;\n  const h = function (p) { arguments[0].x = 1; };\n  use(o.x);\n}\n",
+    ] {
+        assert!(js_twins(src, "u").iter().any(|(p, _)| p == "o"), "{src}: {:?}", js_twins(src, "u"));
+    }
+    // Control: an arrow has no `arguments` of its own, and a callable without writes through it keeps no twin.
+    let quiet = "function g(o) {\n  const u = o;\n  log(arguments.length);\n  use(o.x);\n}\n";
+    assert!(
+        js_twins(quiet, "u").is_empty(),
+        "{:?}",
+        js_twins(quiet, "u")
+    );
 }

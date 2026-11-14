@@ -9,6 +9,12 @@
 //! or type names). Flow-insensitive and undirected, so it is independent of alias formation syntax, rebinding
 //! order, containers, closures, `this` and callbacks.
 //!
+//! A non-arrow callable's formals and its own `arguments` object hold the same values, so each such callable adds one
+//! unit joining them. The `r != o` exclusion (a write through the target itself is the direct write) applies only when the
+//! target spelling has exactly one binding in the owner subtree (census declarations, formals and catch parameters of
+//! nested callables included) and, for `this`, no nested non-arrow callable writes through `this`; otherwise a written
+//! root spelled like the target may be another binding holding its value and counts like any other held name.
+//!
 //! The twins of `u` are kept iff some written root of the write census (a non-declaration member or subscript write
 //! site) `r != o` is in `Hold(o)`, or a write target whose root is not a plain name (call, sequence, conditional,
 //! literal, `new`) mentions a name of `Hold(o)`. A census-refused owner keeps every twin. Out of model, as for `Exact`:
@@ -184,6 +190,9 @@ pub(super) struct Hold {
 
 struct Facts {
     roots: BTreeSet<String>,
+    /// Names with more than one binding in the owner subtree (a written root spelled like the target may be another
+    /// binding that holds its value), plus `this` when a nested non-arrow callable writes through `this`.
+    multi: BTreeSet<String>,
     /// The names each unit mentions.
     units: Vec<Vec<String>>,
     /// Names mentioned by each write target whose root is not a plain name.
@@ -208,11 +217,79 @@ impl Hold {
             .filter(|s| s.form != Form::Declare && !s.path.comps.is_empty())
             .map(|s| s.path.base.clone())
             .collect();
+        let mut bindings: BTreeMap<&str, usize> = BTreeMap::new();
+        for s in census
+            .sites
+            .iter()
+            .filter(|s| s.form == Form::Declare && s.path.comps.is_empty())
+        {
+            *bindings.entry(s.path.base.as_str()).or_default() += 1;
+        }
+        let mut multi: BTreeSet<String> = bindings
+            .into_iter()
+            .filter(|(_, n)| *n > 1)
+            .map(|(b, _)| b.to_string())
+            .collect();
+        let nested_this = |byte: usize| {
+            let Some(mut cur) = parsed
+                .tree
+                .root_node()
+                .descendant_for_byte_range(byte, byte + 1)
+            else {
+                return true;
+            };
+            while let Some(p) = cur.parent() {
+                if p.id() == owner.id() {
+                    return false;
+                }
+                if matches!(
+                    p.kind(),
+                    "function_declaration"
+                        | "function_expression"
+                        | "function"
+                        | "generator_function"
+                        | "generator_function_declaration"
+                        | "method_definition"
+                        | "class_static_block"
+                        | "field_definition"
+                        | "public_field_definition"
+                ) {
+                    return true;
+                }
+                cur = p;
+            }
+            false
+        };
+        if census.sites.iter().any(|s| {
+            s.form != Form::Declare
+                && !s.path.comps.is_empty()
+                && s.path.base == "this"
+                && s.region.nested
+                && nested_this(s.target_start)
+        }) {
+            multi.insert("this".to_string());
+        }
         let mut nonname = Vec::new();
         let mut units = Vec::new();
         let mut expr_body = false;
         walk_owner(owner, |node| {
             let kind = node.kind();
+            // A non-arrow callable's formals and its own `arguments` object hold the same values.
+            if matches!(
+                kind,
+                "function_declaration"
+                    | "function_expression"
+                    | "function"
+                    | "generator_function"
+                    | "generator_function_declaration"
+                    | "method_definition"
+            ) {
+                if let Some(p) = node.child_by_field_name("parameters") {
+                    let mut names = vec!["arguments".to_string()];
+                    collect(parsed, p, true, &mut names);
+                    units.push(names);
+                }
+            }
             if is_stmt(kind) && node.id() != owner.id() {
                 let mut names = Vec::new();
                 collect(parsed, node, false, &mut names);
@@ -255,6 +332,7 @@ impl Hold {
         }
         Self {
             facts: Some(Facts {
+                multi,
                 roots,
                 units,
                 nonname,
@@ -290,7 +368,9 @@ impl Hold {
             return true;
         };
         let h = Self::hold(f, target);
-        f.roots.iter().any(|r| r != target && h.contains(r))
+        f.roots
+            .iter()
+            .any(|r| (r != target || f.multi.contains(target)) && h.contains(r))
             || f.nonname.iter().any(|ns| ns.iter().any(|n| h.contains(n)))
     }
 }

@@ -66,8 +66,10 @@ fn an_alias_the_owner_writes_through_keeps_its_binding_twins() {
     }
     // Controls: reads and a call on the alias, a write through another name, and another alias.
     for read in ["use(u.f);", "use(u);", "u.m();", "w.f = 1;"] {
-        let src = format!("function t(o, q, w) {{\n  let u = o;\n  u = q;\n  {read}\n}}\n");
-        assert_eq!(lines(&src), vec![2, 3], "{read}");
+        let src = format!(
+            "function t(o, q) {{\n  const w = mk();\n  let u = o;\n  u = q;\n  {read}\n}}\n"
+        );
+        assert_eq!(lines(&src), vec![3, 4], "{read}");
     }
     // A write through the target itself is the direct write: the gain survives (the closure excludes `r == o`).
     assert_eq!(
@@ -75,8 +77,8 @@ fn an_alias_the_owner_writes_through_keeps_its_binding_twins() {
         vec![2, 3]
     );
     let two =
-        "function t(o, p, q, r) {\n  let u = o;\n  let w = p;\n  u = q;\n  w = r;\n  w.f = 1;\n}\n";
-    assert_eq!(lines(two), vec![2, 4]);
+        "function t(o) {\n  const p = mk1();\n  const q = mk2();\n  const r = mk3();\n  let u = o;\n  let w = p;\n  u = q;\n  w = r;\n  w.f = 1;\n}\n";
+    assert_eq!(lines(two), vec![5, 7]);
 }
 
 #[test]
