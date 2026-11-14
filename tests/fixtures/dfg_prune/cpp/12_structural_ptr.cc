@@ -1,5 +1,7 @@
 // C++ U/D obligations (#630 slice 6d-2s): structural pointer declarations are exempt from the
 // nonscalar_decl escape when a keyword token proves them declarations; look-alikes keep.
+// Rows k7, k10, k11 and k13 are conservative-outcome rows: the scalar gate (E2) refuses those
+// bindings anyway, so they pin that the lift does not widen them.
 int sink(int);
 void *pbuf();
 void *pother();
@@ -170,4 +172,28 @@ void keep_typename_base() {
     typename T::U const* p = pbuf();  // @k16:D p
     p = pother();
     sink(*p + 1);  // @k16:U:keep:dependent_base_not_exempt
+}
+
+void keep_const_struct_body() {
+    const struct T { int a; }* p = pbuf();  // @k17:D p
+    p = pother();
+    sink(*p + 1);  // @k17:U:keep:type_shape_precondition_body_refuses_even_with_const
+}
+
+void keep_qualified_elab_const() {
+    struct ns::T* const p = pbuf();  // @k18:D p
+    p = pother();
+    sink(*p + 1);  // @k18:U:keep:type_shape_precondition_qualified_elaborated_refuses_even_with_const
+}
+
+void keep_cast_const_init() {
+    T* p = (const T*)pbuf();  // @k19:D p
+    p = pother();
+    sink(*p + 1);  // @k19:U:keep:const_only_in_the_initializer_proves_nothing
+}
+
+void keep_static_cast_const_init() {
+    T* p = static_cast<const T*>(pbuf());  // @k20:D p
+    p = pother();
+    sink(*p + 1);  // @k20:U:keep:const_only_in_the_initializer_proves_nothing
 }

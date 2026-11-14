@@ -120,3 +120,5 @@
 {"case": "13_fold2_macro_args", "id": "f2", "path": "x2", "def_line": 23, "use_line": 26, "keep": true, "reason": "macro_type_specifier_argument_tracked", "owner": "macro_type_arg_track_keep"}
 {"case": "13_fold2_macro_args", "id": "f3", "path": "x3", "def_line": 30, "use_line": 33, "keep": true, "reason": "macro_declarator_argument", "owner": "macro_declarator_arg_keep"}
 {"case": "13_fold2_macro_args", "id": "f4", "path": "x4", "def_line": 37, "use_line": 39, "keep": false, "reason": "no_macro_spelled_here", "owner": "macro_args_control_drop"}
+{"case": "11_phase_divergence", "id": "ph0", "path": "x", "def_line": 8, "use_line": 10, "keep": false, "reason": "no_phase_divergence_control", "owner": "phase_control_drop"}
+{"case": "11_phase_divergence", "id": "ph1", "path": "x", "def_line": 13, "use_line": 16, "keep": true, "reason": "trigraph_splice_hides_a_phantom_declaration", "owner": "phase_trigraph_scalar_keep"}

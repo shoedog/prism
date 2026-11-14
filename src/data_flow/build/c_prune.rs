@@ -60,6 +60,38 @@ pub(super) enum Off {
     Coroutine,
     /// 6c: the owner spells an in-repo macro named like a C++ keyword (`#define int IR`).
     KeywordMacro,
+    /// 6d-2s: the text holds a trigraph or a backslash followed by blanks and a newline, which
+    /// the compiler's translation phases read differently from the parser (`// ??/` splices the
+    /// next line into the comment).
+    PhaseDivergence,
+}
+
+/// Text the compiler's translation phases read differently from tree-sitter: a trigraph
+/// (`??` + one of `= / ' ( ) ! < > -`, `??/` being a backslash) or a backslash followed by
+/// blanks (space, tab, VT, FF) and then a newline, which GCC and clang splice and the parser
+/// does not. A line the compiler hides inside a comment can look like a declaration to the
+/// parser. Conservative: string literals count too.
+pub(super) fn phase_divergence(text: &str) -> bool {
+    let b = text.as_bytes();
+    for (i, &c) in b.iter().enumerate() {
+        if c == b'?' && b.get(i + 1) == Some(&b'?') {
+            if let Some(&t) = b.get(i + 2) {
+                if b"=/'()!<>-".contains(&t) {
+                    return true;
+                }
+            }
+        }
+        if c == b'\\' {
+            let mut j = i + 1;
+            while matches!(b.get(j), Some(b' ' | b'\t' | 0x0b | 0x0c)) {
+                j += 1;
+            }
+            if j > i + 1 && matches!(b.get(j), Some(b'\n' | b'\r')) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Names whose call can return a second time (G4).
@@ -270,6 +302,9 @@ pub(super) fn scan(
     let text = parsed.node_text(&owner);
     if body_has_forbidden_directive(text) {
         return Err(Off::G2);
+    }
+    if phase_divergence(text) {
+        return Err(Off::PhaseDivergence);
     }
     let mut out = COwner {
         d_ok: true,

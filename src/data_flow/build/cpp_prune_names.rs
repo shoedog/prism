@@ -53,7 +53,7 @@ pub(super) fn note(parsed: &ParsedFile, node: Node<'_>, out: &mut COwner) {
         }
         "declaration" if keyword_proves_declaration(parsed, node) => {
             // Exempt (6d-2s): a keyword token makes this a declaration, never an expression.
-            "nonscalar_decl"
+            "nonscalar_exempt"
         }
         "declaration" => {
             let mut cursor = node.walk();
@@ -186,11 +186,20 @@ fn keyword_proves_declaration(parsed: &ParsedFile, decl: Node<'_>) -> bool {
             return false;
         }
     }
+    // The type shape is a precondition: anything else refuses before the proofs combine.
     let type_proof = match ty.kind() {
         "struct_specifier" | "class_specifier" | "union_specifier" | "enum_specifier" => {
-            elaborated_plain(ty)
+            if !elaborated_plain(ty) {
+                return false;
+            }
+            true
         }
-        "placeholder_type_specifier" => parsed.node_text(&ty).trim() == "auto",
+        "placeholder_type_specifier" => {
+            if parsed.node_text(&ty).trim() != "auto" {
+                return false;
+            }
+            true
+        }
         // A plain `T` / `primitive_type`: only the qualifiers can prove it. Qualified,
         // template, `decltype` and dependent bases stay escaped.
         "type_identifier" | "primitive_type" | "sized_type_specifier" => false,

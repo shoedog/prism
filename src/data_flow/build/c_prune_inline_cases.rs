@@ -203,4 +203,25 @@ void macro_args_control_drop(void) {
 }
 "####,
     ),
+    (
+        "11_phase_divergence.c",
+        r####"// A trigraph `??/` is a backslash: the compiler splices the next line into the comment, the
+// parser sees a declaration (PhaseDivergence turns the owner off, `.c` and C++ alike).
+struct S { int v; };
+int src(void);
+void sink(int);
+
+void phase_control_drop(void) {
+    int x = src();        // @ph0:D x
+    x = 1;
+    sink(x);              // @ph0:U:drop:no_phase_divergence_control
+}
+
+void phase_trigraph_scalar_keep(struct S x) {   // @ph1:D x
+    // ??/
+    int x;
+    x = 1;                // @ph1:U:keep:trigraph_splice_hides_a_phantom_declaration
+}
+"####,
+    ),
 ];

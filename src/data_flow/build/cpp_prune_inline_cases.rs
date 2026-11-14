@@ -163,4 +163,44 @@ long keyword_macro_unspelled_drop() {
 }
 "####,
     ),
+    (
+        "15_phase_divergence.cc",
+        r####"// The compiler's translation phases hide a line inside a comment that tree-sitter parses as a
+// declaration (a trigraph `??/` is a backslash; GCC and clang splice a backslash followed by
+// blanks). The phantom local would rebind `x`, so the owner is off (PhaseDivergence).
+struct S { int v; S& operator=(int); };
+int src();
+void sink(int);
+
+void phase_control_drop() {
+    int x = src();        // @ph0:D x
+    x = 1;
+    sink(x + 1);          // @ph0:U:drop:no_phase_divergence_control
+}
+
+void phase_trigraph_const_ptr_keep(S x) {   // @ph1:D x
+    // ??/
+    const T* x;
+    x = 1;                // @ph1:U:keep:trigraph_splice_hides_a_phantom_pointer_declaration
+}
+
+void phase_blank_backslash_const_ptr_keep(S x) {   // @ph2:D x
+    // hidden \   
+    const T* x;
+    x = 1;                // @ph2:U:keep:backslash_blanks_newline_splice_hides_the_declaration
+}
+
+void phase_trigraph_scalar_keep(S x) {   // @ph3:D x
+    // ??/
+    int x;
+    x = 1;                // @ph3:U:keep:trigraph_splice_hides_a_phantom_scalar_declaration
+}
+
+void phase_blank_backslash_scalar_keep(S x) {   // @ph4:D x
+    // hidden \ 	
+    int x;
+    x = 1;                // @ph4:U:keep:backslash_tab_newline_splice_hides_the_declaration
+}
+"####,
+    ),
 ];
