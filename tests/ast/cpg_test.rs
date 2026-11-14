@@ -546,7 +546,18 @@ fn rust_mut_pattern_def_uses_identifier_span() {
 
 #[test]
 fn alias_resolved_def_keeps_raw_occurrence_span() {
-    let src = "function f(device) {\n    const { name } = device;\n    return name;\n}\n";
+    // #783 slice 4c: a binding write mints no alias-resolved def; the owner writes through `name`
+    // here (option R2), so the binding twin stays and keeps its raw occurrence span.
+    let src = "function f(device) {\n    const { name } = device;\n    name.x = 1;\n    return name;\n}\n";
+    let quiet = "function f(device) {\n    const { name } = device;\n    return name;\n}\n";
+    let is_twin = |cpg: &prism::cpg::CodePropertyGraph| {
+        cpg.nodes_at("test.js", 2).into_iter().any(|n| {
+            matches!(cpg.node(n), CpgNode::Variable { path, access, .. }
+                if path.base == "device" && path.fields.len() == 1
+                    && path.fields[0].as_str() == "name" && *access == prism::cpg::VarAccess::Def)
+        })
+    };
+    assert!(!is_twin(&build_cpg("test.js", quiet, Language::JavaScript)));
     let cpg = build_cpg("test.js", src, Language::JavaScript);
     let (sb, eb) = cpg
         .nodes_at("test.js", 2)

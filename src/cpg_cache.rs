@@ -336,7 +336,8 @@ mod stream;
 /// - v185: C++ rules U and D (#630 slice 6c): C++ owners (and templates; a `.h` stays off) drop write-only and dominated DataFlow pairs under the scalar gate and the C++ escape set, so their DataFlow edges change.
 /// - v186: census raw strings with line splices (#630 slice 6d-1): a C++ raw string whose body holds a backslash-newline is lexed as written (line splices reverted inside it; trigraphs fail closed) instead of setting the repo-wide `incomplete` flag, so census facts and the C/C++ U and D enablement change.
 /// - v187: C/C++ owners whose text holds a trigraph, a backslash before a line end, a lone CR (`Off::PhaseDivergence`), or an identifier spelled with a backslash UCN (`Off::UcnIdentifier`) are off for rules U and D (#630 slice 6d-2s gates), so fewer DataFlow pairs drop there; a trigraph look-alike in a string literal also turns an owner off (accepted).
-const CACHE_VERSION: u32 = 187;
+/// - v188: JS/TS/TSX alias twins only at real writes through the alias (alias-twin lane slice 4c): an occurrence that only declares, initialises or reassigns the alias variable mints no target def and no twin edge, unless the owner's write census is refused, some member or subscript write has a root other than the target, or a write rooted at the target meets a target that is not a single whole-body binding (rule E), so DataFlow edges and labels of JS/TS/TSX owners change.
+const CACHE_VERSION: u32 = 188;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -869,7 +870,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 187);
+        assert_eq!(super::CACHE_VERSION, 188);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

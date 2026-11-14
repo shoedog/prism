@@ -97,8 +97,18 @@ fn rebinding_a_name_inside_the_node_keeps_the_fallback() {
             "{language:?}: {rows:?}"
         );
         assert_eq!(without_cfg, 1, "{language:?}");
-        // An alias def of the parameter's base name counts as a rebinding.
+        // #783 slice 4c: a binding write (`const d = c;`) mints no alias def of the parameter, so it is
+        // no rebinding of `c`: the owner is labelled and the edge is exact.
         let (rows, without_cfg) = labels(language, ext, "function f(c) {\n  const d = c;\n}\n");
+        assert_eq!(rows, ["f:c@1->c@2:Exact"], "{language:?}");
+        assert_eq!(without_cfg, 0, "{language:?}");
+        // An alias def of the parameter's base name still counts as a rebinding where the owner
+        // writes through the alias (option R2 keeps the binding twin).
+        let (rows, without_cfg) = labels(
+            language,
+            ext,
+            "function f(c) {\n  const d = c; d.x = 1;\n}\n",
+        );
         assert!(
             rows.iter()
                 .all(|row| row.ends_with("NameOnly(CfgIncomplete)")),
