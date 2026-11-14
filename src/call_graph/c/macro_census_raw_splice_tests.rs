@@ -29,9 +29,11 @@ fn protobuf_shape_backslash_line_in_raw_string_is_complete() {
 
 #[test]
 fn closing_delimiter_only_on_the_spliced_text_is_not_a_close() {
-    // As written `)` newline `"` is no `)"`: the literal runs on to the real end.
+    // As written `)` newline `"` is no `)"`, but the naive reading closes there: the two
+    // readings disagree, so the literal is uncertain (fold 3). M is still read by the
+    // comment-kept pass.
     let c = cpp("const char *s = R\"(abc)\\\n\" /* )\";\n#define M x\n/* */\n");
-    assert!(!c.incomplete(), "{:?}", c.reasons);
+    assert!(c.incomplete(), "{:?}", c.reasons);
     reads_m(&c);
     // With no later `)"` it is unterminated: fail closed.
     assert!(cpp("const char *s = R\"(abc)\\\n\";\n#define M x\n").incomplete());
@@ -158,7 +160,7 @@ fn directive_leaders_of_any_spelling_fail_closed() {
         let c = cpp(src);
         assert!(c.incomplete(), "{src:?}: {:?}", c.reasons);
     }
-    let c = cpp("\x0b#define A (R\"(x)\\\n\" /* )\", q + 1)\n");
+    let c = cpp("\x0b#define A (R\"(x)\\\n y)\", q + 1)\n");
     let r = &c.incomplete_reasons().first[0];
     assert_eq!(r.kind, "raw_string_splice_in_directive");
     assert_eq!(r.line, 1);
@@ -194,4 +196,64 @@ fn owner_detector_refuses_trigraphs_beside_a_raw_string_candidate() {
     assert!(h("int f(){ const char *s = R\"(a??)\"; }"));
     assert!(!h("int f(){ const char *s = R\"(a)\"; int t = 0; }"));
     assert!(!h("int f(){ const char *s = \"??)\"; }"));
+}
+
+// ---- Fold 3: both readings must agree; trigraph rule needs a recognised raw string. ----
+
+fn parsed(name: &str, src: &str) -> CMacroCensus {
+    let lang = if name.ends_with(".c") {
+        Language::C
+    } else {
+        Language::Cpp
+    };
+    let mut m = BTreeMap::new();
+    m.insert(
+        name.to_string(),
+        ParsedFile::parse(name, src, lang).unwrap(),
+    );
+    CMacroCensus::from_files(&m)
+}
+
+fn safe(c: &CMacroCensus) -> bool {
+    c.incomplete() || c.get("M").is_some_and(|m| m.free.contains("hidden"))
+}
+
+#[test]
+fn readings_that_disagree_fail_closed() {
+    // sol R3-W1: in C an ordinary string, in C++ a raw string whose as-written end is
+    // inside `t`; every C pass misses the define after `*/`.
+    let body = "#define R\nconst char *s = R\"(a)\\\n\"; /* real\n*/ #define M hidden\nconst char *t = \")\";\nint ordinary(int q) { q = 1; return q + 1; }\n";
+    // Opus S11: the compiler might not revert the splice (MSVC unverified).
+    let s11 = "const char *s = R\"x(\"/*)x\\\n\";\n/* )x\";\n*/ #define M hidden\nint ordinary(int q) { q = 1; return q + 1; }\n";
+    for src in [body, s11] {
+        for name in ["a.c", "a.cpp"] {
+            for variant in [src.to_string(), src.replace('\n', "\r\n")] {
+                let c = parsed(name, &variant);
+                assert!(safe(&c), "{name} {variant:?}: {:?}", c.reasons);
+            }
+        }
+    }
+}
+
+#[test]
+fn agreeing_readings_with_an_interior_splice_stay_complete() {
+    // The splice sits in the body; the first `)"` is the same place either way.
+    let c = cpp("const char *k = R\"(a \\\n b\n)\";\nint x;\n#define M x\n");
+    assert!(!c.incomplete(), "{:?}", c.reasons);
+    reads_m(&c);
+}
+
+#[test]
+fn trigraph_text_without_a_raw_string_stays_complete() {
+    let c = cpp("const char *e = \"ERROR\";\nconst char *d = \"????-??-??\";\n#define M x\n");
+    assert!(!c.incomplete(), "{:?}", c.reasons);
+    reads_m(&c);
+    use super::macro_census::has_spliced_raw_string as h;
+    assert!(!h(
+        "int f(){ const char *e = \"ERROR\"; const char *d = \"??-\"; }"
+    ));
+    // With a recognised raw string the trigraph still refuses.
+    assert!(h(
+        "int f(){ const char *e = R\"(x)\"; const char *d = \"??-\"; }"
+    ));
 }

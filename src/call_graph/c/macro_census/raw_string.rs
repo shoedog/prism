@@ -41,6 +41,14 @@ pub(super) fn raw_string_end(b: &[u8], q: usize, splices: &[usize]) -> Option<us
     close.extend_from_slice(&b[start..j]);
     close.push(b'"');
     let body = j + 1;
+    // The NAIVE end: the first closing delimiter of the spliced buffer, as every reader of
+    // spliced text (and a compiler that does not revert splices) would find it. The literal is
+    // accepted only when the as-written end (phase 2 reverted) is the same place; a
+    // disagreement is uncertain (base behaviour), so no reading is trusted over the other.
+    let naive = b[body..]
+        .windows(close.len())
+        .position(|w| w == close.as_slice())
+        .map(|p| body + p + close.len())?;
     let mut from = body;
     while let Some(p) = b[from..]
         .windows(close.len())
@@ -51,7 +59,7 @@ pub(super) fn raw_string_end(b: &[u8], q: usize, splices: &[usize]) -> Option<us
         // A splice point strictly inside the match: not contiguous as written.
         let k = splices.partition_point(|&s| s <= m);
         if !splices.get(k).is_some_and(|&s| s < end) {
-            return Some(end);
+            return (end == naive).then_some(end);
         }
         from = m + 1;
     }
