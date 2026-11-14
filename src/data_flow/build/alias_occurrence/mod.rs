@@ -85,9 +85,10 @@
 //! declaration. Unlike the other languages JS reaching definitions already ignore a twin's field writes for kills, but a binding twin of
 //! the target's own path kills the target's earlier defs and collapses with same-line defs, and that spurious kill is what keeps a write
 //! through an alias that option A (#783) does not certify off `exact`. Two refusals beyond R1 therefore keep the twin: R2, the syntactic
-//! may-hold closure of `js_hold.rs` (the target's connected component in the owner's co-occurrence graph; the twins stay iff a write-census
-//! written root other than the target, or a non-name write root, falls in it; a census-refused owner keeps every twin; out of model: module
-//! state through calls, a captured name written in another owner, a `with` body), and `X-PARAM`,
+//! value-flow closure of `js_hold.rs` (the target identity's connected component in the owner's value-flow graph, `js_hold_flow.rs`, over the
+//! binding identities of `js_hold_resolve.rs`; the twins stay iff a write-census written root other than the target, or a non-name write
+//! root, falls in it; a census-refused owner keeps every twin; out of model: module state through calls, a captured name written in another
+//! owner, a `with` body, a plain call of a free name or formal that stores one argument into another), and `X-PARAM`,
 //! every occurrence below a `formal_parameters` list of the owner (#761: `function f(o, u = o, v = u.x++)` keeps `o@1->o@3` off
 //! `exact` through the binding twin, and option A excludes parameter defaults). R1 collects property names, object keys and shorthand, method and field names, labels
 //! and type names, and import and export specifier names. Residuals: a call that mutates the alias (`Object.assign(u, ..)`, `u.m()`)
@@ -119,7 +120,13 @@ mod java_tests;
 mod js;
 #[cfg(test)]
 mod js_effect_tests;
+#[cfg(test)]
+mod js_flow_tests;
 mod js_hold;
+mod js_hold_fix;
+mod js_hold_flow;
+mod js_hold_resolve;
+mod js_hold_val;
 #[cfg(test)]
 mod js_tests;
 mod python;
