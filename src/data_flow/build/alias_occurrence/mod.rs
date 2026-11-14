@@ -136,6 +136,8 @@ mod rust;
 mod rust_tests;
 mod shared;
 #[cfg(test)]
+mod survey_guard_tests;
+#[cfg(test)]
 mod test_support;
 
 #[cfg(test)]
