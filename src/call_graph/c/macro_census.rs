@@ -52,8 +52,14 @@
 //! Several definitions of one name are unioned and every judgement over-approximates: a
 //! name that is a macro is judged by the union of all its definitions. Nothing consumes the
 //! census yet; slice 6a only builds it and persists its digest with the cached DFG.
+mod raw_string;
+#[cfg(test)]
+pub(crate) fn raw_string_end_for_tests(b: &[u8], q: usize, s: &[usize]) -> Option<usize> {
+    raw_string_end(b, q, s)
+}
 use crate::ast::ParsedFile;
 use crate::languages::Language;
+use raw_string::raw_string_end;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -380,39 +386,6 @@ fn is_raw_prefix(ident: &str) -> bool {
     matches!(ident, "R" | "u8R" | "uR" | "UR" | "LR")
 }
 
-/// `q` indexes the opening `"` of `R"delim( .. )delim"`; the index after the closing quote.
-/// The delimiter is up to 16 characters other than space, `(`, `)`, `\`, tab, VT, FF and
-/// newline (`"` is allowed). `None` means uncertain: an invalid delimiter, an unterminated
-/// literal, or a line splice inside the literal (`splices` holds the indexes of `b` at
-/// which a splice was removed; the compiler reverts them inside a raw string).
-fn raw_string_end(b: &[u8], q: usize, splices: &[usize]) -> Option<usize> {
-    let start = q + 1;
-    let mut j = start;
-    while j < b.len() && b[j] != b'(' {
-        let c = b[j];
-        if j - start >= 16 || matches!(c, b' ' | b')' | b'\\' | b'\t' | b'\x0b' | b'\x0c' | b'\n') {
-            return None;
-        }
-        j += 1;
-    }
-    if j >= b.len() {
-        return None;
-    }
-    let mut close = vec![b')'];
-    close.extend_from_slice(&b[start..j]);
-    close.push(b'"');
-    let body = j + 1;
-    let end = b[body..]
-        .windows(close.len())
-        .position(|w| w == close.as_slice())
-        .map(|p| body + p + close.len())?;
-    let first = splices.partition_point(|&s| s < q);
-    if splices.get(first).is_some_and(|&s| s < end) {
-        return None;
-    }
-    Some(end)
-}
-
 // ---- Translation phases 1-2. ----
 
 /// Phase 1: strip a leading UTF-8 BOM, map CRLF and lone CR to LF and (when `trigraphs`)
@@ -493,6 +466,12 @@ struct Stripped {
     text: String,
     unterminated: bool,
     raw_uncertain: bool,
+    /// A raw string with an interior splice (resolved by the as-written rule) was read.
+    spliced_raw: bool,
+    /// Some raw-string prefix (`R"`) was recognised, readable or not.
+    raw_seen: bool,
+    /// ... and it starts on a preprocessor directive's logical line.
+    spliced_raw_directive: Option<(usize, String)>,
     /// `(output index after a stripped comment, original index after it)`: the only places
     /// where output and input offsets stop agreeing.
     shifts: Vec<(usize, usize)>,
@@ -521,12 +500,15 @@ impl Stripped {
 /// literals intact. A block comment becomes one space. An uncertain raw string sets
 /// `raw_uncertain` and the rest of the text is kept unstripped (the unstripped pass also
 /// reads it). `cxx` selects the dialect: C++ lexing (raw strings, digit separators) or C.
-fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
+fn strip_comments(b: &[u8], splices: &[usize], cxx: bool, precise: bool) -> Stripped {
     let mut out = Vec::with_capacity(b.len());
     let mut shifts = Vec::new();
     let mut spans = Vec::new();
     let mut unterminated = false;
     let mut raw_uncertain = false;
+    let mut spliced_raw = false;
+    let mut raw_seen = false;
+    let mut spliced_raw_directive = None;
     let mut i = 0;
     while i < b.len() {
         let c = b[i];
@@ -584,8 +566,25 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
                     && b.get(i) == Some(&b'"')
                     && std::str::from_utf8(&b[start..i]).is_ok_and(is_raw_prefix)
                 {
-                    match raw_string_end(b, i, splices) {
+                    raw_seen = true;
+                    // `precise` (a file parsed as C++) accepts a raw string with an interior
+                    // splice at its as-written end; otherwise it stays uncertain (base).
+                    match raw_string_end(b, i, splices)
+                        .filter(|&end| precise || !raw_string::interior_splice(splices, i, end))
+                    {
                         Some(end) => {
+                            if raw_string::interior_splice(splices, i, end) {
+                                spliced_raw = true;
+                                let line =
+                                    out.as_slice().rsplit(|&c| c == b'\n').next().unwrap_or(&[]);
+                                if spliced_raw_directive.is_none()
+                                    && raw_string::starts_directive(line)
+                                {
+                                    let no = out.iter().filter(|&&c| c == b'\n').count() + 1;
+                                    spliced_raw_directive =
+                                        Some((no, String::from_utf8_lossy(line).into_owned()));
+                                }
+                            }
                             out.extend_from_slice(&b[i..end]);
                             i = end;
                         }
@@ -607,9 +606,63 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool) -> Stripped {
         text: String::from_utf8_lossy(&out).into_owned(),
         unterminated,
         raw_uncertain,
+        spliced_raw,
+        raw_seen,
+        spliced_raw_directive,
         shifts,
         spans,
     }
+}
+
+/// Does `text` hold a C++ raw string with an interior line splice, or one whose extent is
+/// uncertain (both splice modes, both trigraph modes)? The owner-side token readers see only
+/// spliced text and cannot tell the literal's true end, so an owner with one is off (6d-1).
+pub(crate) fn has_spliced_raw_string(text: &str) -> bool {
+    if !may_hold_raw_string(text.as_bytes()) {
+        return false;
+    }
+    let trigraph = raw_string::first_trigraph(text.as_bytes()).is_some();
+    let mut variants = vec![translate(text, true)];
+    let plain = translate(text, false);
+    if plain != variants[0] {
+        variants.push(plain);
+    }
+    variants.iter().any(|t| {
+        [true, false].into_iter().any(|lenient| {
+            let (spliced, points) = splice(t, lenient);
+            let s = strip_comments(&spliced, &points, true, true);
+            s.spliced_raw || s.raw_uncertain || (trigraph && s.raw_seen)
+        })
+    })
+}
+
+/// Cheap over-approximation for `has_spliced_raw_string`: some variant can hold a raw string
+/// only where an `R` is followed by `"`, possibly across line splices (`\\` or the trigraph
+/// `??/`, then blanks, then a newline) that phase 2 removes. Every raw prefix ends in `R"`.
+fn may_hold_raw_string(b: &[u8]) -> bool {
+    let mut i = 0;
+    while let Some(p) = b[i..].iter().position(|&c| c == b'R') {
+        let mut j = i + p + 1;
+        loop {
+            match b.get(j) {
+                Some(b'"') => return true,
+                Some(b'\\') => j += 1,
+                Some(b'?') if b.get(j + 1) == Some(&b'?') && b.get(j + 2) == Some(&b'/') => j += 3,
+                _ => break,
+            }
+            while matches!(b.get(j), Some(b' ' | b'\t' | b'\x0b' | b'\x0c')) {
+                j += 1;
+            }
+            // Phase 1 maps CRLF and a lone CR to LF.
+            match b.get(j) {
+                Some(b'\n') => j += 1,
+                Some(b'\r') => j += if b.get(j + 1) == Some(&b'\n') { 2 } else { 1 },
+                _ => break,
+            }
+        }
+        i += p + 1;
+    }
+    false
 }
 
 /// Source text after translation phases 1-2 and comment stripping (a block comment is one
@@ -621,7 +674,7 @@ pub(crate) fn normalized_texts(source: &str) -> Vec<String> {
     for lenient in [true, false] {
         let (spliced, points) = splice(&t, lenient);
         for cxx in [false, true] {
-            out.push(strip_comments(&spliced, &points, cxx).text);
+            out.push(strip_comments(&spliced, &points, cxx, false).text);
         }
     }
     out
@@ -1024,7 +1077,7 @@ fn exotic_directive(spliced: &[u8]) -> Option<(&'static str, usize, String)> {
 /// stripped) sets `incomplete` for lexer state; every other pass only adds definitions, so a
 /// lexer divergence cannot lose one. A soft-poisoned definition keeps its poison unless
 /// another pass over the same buffer read that very definition without trouble.
-fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut Inc) {
+fn collect(source: &str, precise: bool, out: &mut BTreeMap<String, RawDef>, incomplete: &mut Inc) {
     let translated = translate(source, true);
     let plain = translate(source, false);
     // Names spelled with non-ASCII bytes, UCNs or trigraphs inside a directive: fail closed.
@@ -1038,16 +1091,43 @@ fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut In
     if texts[0] != plain {
         texts.push(plain);
     }
-    // Does any variant (both texts, splice modes and dialects) lose its lexer state?
-    let desync = texts.iter().any(|text| {
-        [true, false].into_iter().any(|lenient| {
+    // Does any variant (both texts, splice modes and dialects) lose its lexer state? And
+    // (6d-1) does a raw string with an interior splice start on a directive line: the later
+    // readers of the spliced text cannot see the splice points, so that fails closed. One
+    // pass over the variants answers both.
+    let mut desync = false;
+    let mut dir_splice: Option<(usize, String)> = None;
+    let mut raw_seen = false;
+    for text in &texts {
+        for lenient in [true, false] {
             let (spliced, points) = splice(text, lenient);
-            [true, false].into_iter().any(|cxx| {
-                let s = strip_comments(&spliced, &points, cxx);
-                s.unterminated || s.raw_uncertain
-            })
-        })
-    });
+            for cxx in [true, false] {
+                let s = strip_comments(&spliced, &points, cxx, precise);
+                desync |= s.unterminated || s.raw_uncertain;
+                raw_seen |= cxx && s.raw_seen;
+                if cxx && dir_splice.is_none() {
+                    dir_splice = s.spliced_raw_directive;
+                }
+            }
+        }
+    }
+    if let Some((line, snippet)) = dir_splice {
+        incomplete.flag("raw_string_splice_in_directive", line, &snippet);
+    }
+    // The standard reverts trigraphs inside a raw string too; the census cannot, so a text
+    // where a pass recognised a raw string and a trigraph exists fails closed (trigraphs
+    // left C++ in C++17).
+    if raw_seen {
+        if let Some(at) = raw_string::first_trigraph(source.as_bytes()) {
+            let line = source.as_bytes()[..at]
+                .iter()
+                .filter(|&&c| c == b'\n')
+                .count()
+                + 1;
+            let snippet = source.lines().nth(line - 1).unwrap_or("");
+            incomplete.flag("raw_string_trigraph", line, snippet);
+        }
+    }
     let mut acc: BTreeMap<String, RawDef> = BTreeMap::new();
     let mut seen: Vec<Vec<u8>> = Vec::new();
     for (ti, text) in texts.iter().enumerate() {
@@ -1058,7 +1138,7 @@ fn collect(source: &str, out: &mut BTreeMap<String, RawDef>, incomplete: &mut In
                 continue;
             }
             let mut group: Vec<Entry> = Vec::new();
-            let variants = [true, false].map(|cxx| strip_comments(&spliced, &points, cxx));
+            let variants = [true, false].map(|cxx| strip_comments(&spliced, &points, cxx, precise));
             // A comment-kept pass's unreadable define-looking line is a hazard only when a
             // stripped variant of this buffer keeps it, or some variant desynchronised.
             let kept = |pos: usize| desync || variants.iter().any(|v| !v.removed(pos));
@@ -1344,7 +1424,7 @@ pub(crate) fn source_include_targets(source: &str) -> BTreeSet<(String, bool)> {
             };
             push(String::from_utf8_lossy(&spliced).into_owned());
             for cxx in [false, true] {
-                push(strip_comments(&spliced, &points, cxx).text);
+                push(strip_comments(&spliced, &points, cxx, false).text);
             }
         }
     }
@@ -1369,7 +1449,12 @@ impl CMacroCensus {
                 incomplete.flag("loader_incomplete_stamp", 0, "");
             }
             incomplete.cur = parsed.path.clone();
-            collect(&parsed.source, &mut raw, &mut incomplete);
+            collect(
+                &parsed.source,
+                parsed.language == Language::Cpp,
+                &mut raw,
+                &mut incomplete,
+            );
             if let Some(t) = parsed.c_census_texts() {
                 texts.extend(t.iter().map(|(k, v)| (k.as_str(), v.as_str())));
             }
@@ -1395,7 +1480,12 @@ impl CMacroCensus {
             if parsed.c_family_skipped_in_repo() {
                 incomplete.flag("loader_incomplete", 0, "");
             }
-            collect(&parsed.source, &mut raw, &mut incomplete);
+            collect(
+                &parsed.source,
+                parsed.language == Language::Cpp,
+                &mut raw,
+                &mut incomplete,
+            );
             for text in parsed.c_census_texts().into_iter().flat_map(|t| t.values()) {
                 collect_permissive(text, &mut raw);
             }
