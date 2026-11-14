@@ -416,7 +416,7 @@ fn the_arguments_object_holds_the_formals() {
     for src in [
         "function g(o) {\n  const u = o;\n  log(u.y, arguments[0].x = 1);\n  use(o.x);\n}\n",
         "function g(o) {\n  \"use strict\";\n  const u = o;\n  const a = arguments;\n  a[0].x = 1;\n  use(o.x);\n}\n",
-        "function g(o) {\n  const u = o;\n  const h = function (p) { arguments[0].x = 1; };\n  use(o.x);\n}\n",
+        "function g(o) {\n  const u = o;\n  const h = function (p) { arguments[0].x = 1; };\n  h(o);\n  use(o.x);\n}\n",
     ] {
         assert!(js_twins(src, "u").iter().any(|(p, _)| p == "o"), "{src}: {:?}", js_twins(src, "u"));
     }
@@ -426,5 +426,30 @@ fn the_arguments_object_holds_the_formals() {
         js_twins(quiet, "u").is_empty(),
         "{:?}",
         js_twins(quiet, "u")
+    );
+}
+
+#[test]
+fn the_arguments_unit_exists_only_where_arguments_is_mentioned() {
+    // Control: two formals and no `arguments`: the unrelated formal does not share `o`'s component, the gain survives.
+    let two = "function g(o, z) {\n  const u = o;\n  const w = z;\n  w.f = 1;\n  use(o.f);\n}\n";
+    assert!(js_twins(two, "u").is_empty(), "{:?}", js_twins(two, "u"));
+    // `arguments` in the parameter list, in a nested arrow, and a nested non-arrow callable's own `arguments` (not ours).
+    let arrow = "function g(o, z) {\n  const u = o;\n  const w = z;\n  const h = () => arguments[1].f;\n  w.f = 1;\n  use(o.f);\n}\n";
+    assert!(
+        js_twins(arrow, "u").iter().any(|(p, _)| p == "o"),
+        "{:?}",
+        js_twins(arrow, "u")
+    );
+    let own = "function g(o, z) {\n  const u = o;\n  const w = z;\n  const h = function () { return arguments[0]; };\n  w.f = 1;\n  use(o.f);\n}\n";
+    assert!(js_twins(own, "u").is_empty(), "{:?}", js_twins(own, "u"));
+    // eval: the refusal classes demote every exact label of the owner.
+    let ev = "function g(o) {\n  o.x = 0;\n  const u = o;\n  log(u.y);\n  eval(\"arguments[0].x = 1\");\n  return sink(o.x);\n}";
+    assert!(
+        !labels_of(JS, ev, "o.x@2->o.x@6")
+            .iter()
+            .any(|l| l == "exact"),
+        "{:?}",
+        labels_of(JS, ev, "o.x@2->o.x@6")
     );
 }

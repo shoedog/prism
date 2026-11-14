@@ -9,8 +9,8 @@
 //! or type names). Flow-insensitive and undirected, so it is independent of alias formation syntax, rebinding
 //! order, containers, closures, `this` and callbacks.
 //!
-//! A non-arrow callable's formals and its own `arguments` object hold the same values, so each such callable adds one
-//! unit joining them. The `r != o` exclusion (a write through the target itself is the direct write) applies only when the
+//! A non-arrow callable's formals and its own `arguments` object hold the same values, so each such callable that mentions
+//! `arguments` adds one unit joining them. The `r != o` exclusion (a write through the target itself is the direct write) applies only when the
 //! target spelling has exactly one binding in the owner subtree (census declarations, formals and catch parameters of
 //! nested callables included) and, for `this`, no nested non-arrow callable writes through `this`; otherwise a written
 //! root spelled like the target may be another binding holding its value and counts like any other held name.
@@ -89,6 +89,36 @@ fn collect(parsed: &ParsedFile, node: Node<'_>, crossed: bool, out: &mut Vec<Str
         }
         collect(parsed, child, crossed, out);
     }
+}
+
+/// True when the identifier `arguments` occurs in the callable: its parameter list, its body and the arrow functions,
+/// parameter defaults and class field or static positions that inherit its `arguments`; a nested non-arrow callable has
+/// its own and is not entered. (Escaped spellings are refused by the census. A direct `eval("arguments[0].x = 1")`
+/// is covered by the refusal classes, which demote every `exact` or `sameline` label of the owner, so the twin's kill
+/// is not what keeps it off `exact`.)
+fn mentions_arguments(parsed: &ParsedFile, callable: Node<'_>) -> bool {
+    let mut stack = vec![callable];
+    while let Some(n) = stack.pop() {
+        if n.kind() == "identifier" && parsed.node_text(&n).trim() == "arguments" {
+            return true;
+        }
+        let mut c = n.walk();
+        for child in n.children(&mut c) {
+            let nested = matches!(
+                child.kind(),
+                "function_declaration"
+                    | "function_expression"
+                    | "function"
+                    | "generator_function"
+                    | "generator_function_declaration"
+                    | "method_definition"
+            );
+            if !nested {
+                stack.push(child);
+            }
+        }
+    }
+    false
 }
 
 fn chain_root_is_name(node: Node<'_>) -> bool {
@@ -284,7 +314,10 @@ impl Hold {
                     | "generator_function_declaration"
                     | "method_definition"
             ) {
-                if let Some(p) = node.child_by_field_name("parameters") {
+                if let (Some(p), true) = (
+                    node.child_by_field_name("parameters"),
+                    mentions_arguments(parsed, node),
+                ) {
                     let mut names = vec!["arguments".to_string()];
                     collect(parsed, p, true, &mut names);
                     units.push(names);
