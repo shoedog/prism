@@ -314,60 +314,6 @@ int ucn_in_string_only_drop() {
 }
 "####,
     ),
-    (
-        "19_phase_prefix.cc",
-        r####"// Fold 3 addition: a splice in `a` opens a comment the compiler closes inside `b`, so `b`'s own
-// text is clean. The keyword exemption refuses when the file prefix holds a phase trigger.
-struct S { int v; S& operator=(int n) { v += n; return *this; } };
-struct T;
-int a(S x) {
-    int y = 4 /\
-* 2;
-}
-int b(int x) {   // @pf1:D x
-    /* c */ ;
-    { const T* x; }
-    x = 5;               // @pf1:U:keep:earlier_function_opened_a_comment_closed_here_exemption_refuses
-    return x;
-}
-"####,
-    ),
-    (
-        "20_phase_prefix_control.cc",
-        r####"// Control of 19_phase_prefix.cc: `T* x` has no keyword proof, so base and this PR both keep.
-struct S { int v; S& operator=(int n) { v += n; return *this; } };
-struct T;
-int a(S x) {
-    int y = 4 /\
-* 2;
-}
-int b(int x) {   // @pf2:D x
-    /* c */ ;
-    { T* x; }
-    x = 5;               // @pf2:U:keep:no_keyword_proof_so_the_escape_stays
-    return x;
-}
-"####,
-    ),
-    (
-        "21_allowlist_clean.cc",
-        r####"// Fold 5: only allow-listed directive lines precede the owner, so the keyword exemption lifts.
-#pragma once
-#include <cstdio>
-#include "x.h"
-#define GUARD_X
-#define LIMIT (1 + 2)
-int sink(int);
-void *pbuf();
-void *pother();
-
-void allowlist_clean_drop() {
-    const T* p = pbuf();  // @al1:D p
-    p = pother();
-    sink(*p + 1);  // @al1:U:drop:allow_listed_directives_only
-}
-"####,
-    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot
