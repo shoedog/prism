@@ -285,13 +285,9 @@ fn a_second_alias_of_the_same_target_keeps_the_twin_in_every_alias_kind() {
             js_twins(&src, "u")
         );
     }
-    // Control: an alias of another target, or none written, leaves `u`'s twin removable.
-    let other = "function t(o) {\n  const p = mk();\n  const u = o;\n  const w = p;\n  w.f = 1;\n  use(o.f);\n}\n";
-    assert!(
-        js_twins(other, "u").is_empty(),
-        "{:?}",
-        js_twins(other, "u")
-    );
+    // Control: no write through any alias leaves `u`'s twin removable (a write through an unrelated name is K1: kept).
+    let none = "function t(o) {\n  const p = mk();\n  const u = o;\n  const w = p;\n  use(w.f);\n  use(o.f);\n}\n";
+    assert!(js_twins(none, "u").is_empty(), "{:?}", js_twins(none, "u"));
 }
 
 #[test]
@@ -321,10 +317,10 @@ fn a_parameter_list_nested_callable_body_is_below_the_parameter_list() {
     assert!(!twins(&r, "u").is_empty(), "{:?}", r.defs);
 }
 
-// ---- fold 2: the may-hold closure is independent of how the written name is formed ----
+// ---- fold 4: rule E keeps on any other root, however the written name is formed ----
 
 #[test]
-fn a_write_through_any_holder_of_the_target_keeps_the_quiet_aliases_twin() {
+fn a_write_through_any_name_keeps_the_quiet_aliases_twin() {
     for form in [
         "const w = o;",
         "const w = (o);",
@@ -367,19 +363,21 @@ fn a_write_through_any_holder_of_the_target_keeps_the_quiet_aliases_twin() {
     }
     let ts = "function t(o: any) {\n  const u: any = o;\n  const w = o as any;\n  w.f = 1;\n  use(o.f);\n}\n";
     assert!(twins(&refs("a.ts", ts, TS), "u").contains(&("o".to_string(), 2)));
-    // Controls (the gain survives): the written name is unrelated to `o`, or is `o` itself.
+    // K1 (kept, no gain): the written name or root is unrelated to `o` as far as the rule can tell.
     for src in [
         "function t(o) {\n  const z = mk();\n  const u = o;\n  const w = z;\n  w.f = 1;\n  use(o.f);\n}\n",
         "function t(o) {\n  const z = mk();\n  const u = o;\n  z.f = 1;\n  use(o.f);\n}\n",
-        "function t(o) {\n  const u = o;\n  o.f = 1;\n  use(o.f);\n}\n",
         "function t(o) {\n  const z = mk();\n  const u = o;\n  mk(z).x = 1;\n  use(o.f);\n}\n",
     ] {
         assert!(
-            js_twins(src, "u").is_empty(),
+            js_twins(src, "u").contains(&("o".to_string(), 3)),
             "{src}: {:?}",
             js_twins(src, "u")
         );
     }
+    // Control (the gain survives): the only write is rooted at the single target itself.
+    let direct = "function t(o) {\n  const u = o;\n  o.f = 1;\n  use(o.f);\n}\n";
+    assert!(js_twins(direct, "u").is_empty(), "{:?}", js_twins(direct, "u"));
 }
 
 // ---- fold 2b: shadowed target spelling and the `arguments` object ----
@@ -430,10 +428,10 @@ fn the_arguments_object_holds_the_formals() {
 }
 
 #[test]
-fn the_arguments_unit_exists_only_where_arguments_is_mentioned() {
-    // Control: two formals and no `arguments`: the unrelated formal does not share `o`'s component, the gain survives.
+fn another_formal_is_another_root_and_a_nested_callables_own_arguments_is_not_ours() {
+    // Two formals and no `arguments`: a write through the other formal is K1 and keeps (no gain).
     let two = "function g(o, z) {\n  const u = o;\n  const w = z;\n  w.f = 1;\n  use(o.f);\n}\n";
-    assert!(js_twins(two, "u").is_empty(), "{:?}", js_twins(two, "u"));
+    assert!(!js_twins(two, "u").is_empty(), "{:?}", js_twins(two, "u"));
     // `arguments` in the parameter list, in a nested arrow, and a nested non-arrow callable's own `arguments` (not ours).
     let arrow = "function g(o, z) {\n  const u = o;\n  const w = z;\n  const h = () => arguments[1].f;\n  w.f = 1;\n  use(o.f);\n}\n";
     assert!(
@@ -441,7 +439,7 @@ fn the_arguments_unit_exists_only_where_arguments_is_mentioned() {
         "{:?}",
         js_twins(arrow, "u")
     );
-    let own = "function g(o, z) {\n  const u = o;\n  const w = z;\n  const h = function () { return arguments[0]; };\n  w.f = 1;\n  use(o.f);\n}\n";
+    let own = "function g(o, z) {\n  const u = o;\n  const h = function () { return arguments[0]; };\n  use(o.f);\n}\n";
     assert!(js_twins(own, "u").is_empty(), "{:?}", js_twins(own, "u"));
     // eval: the refusal classes demote every exact label of the owner.
     let ev = "function g(o) {\n  o.x = 0;\n  const u = o;\n  log(u.y);\n  eval(\"arguments[0].x = 1\");\n  return sink(o.x);\n}";
