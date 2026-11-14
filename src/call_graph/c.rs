@@ -10,8 +10,6 @@ mod macro_census_fold2_tests;
 #[cfg(test)]
 mod macro_census_fold3_tests;
 #[cfg(test)]
-mod macro_census_fold8_tests;
-#[cfg(test)]
 mod macro_census_raw_splice_tests;
 #[cfg(test)]
 mod macro_census_s6b_fold3_tests;

@@ -52,35 +52,13 @@
 //! Several definitions of one name are unioned and every judgement over-approximates: a
 //! name that is a macro is judged by the union of all its definitions. Nothing consumes the
 //! census yet; slice 6a only builds it and persists its digest with the cached DFG.
-mod line_state;
 mod raw_string;
 #[cfg(test)]
 pub(crate) fn raw_string_end_for_tests(b: &[u8], q: usize, s: &[usize]) -> Option<usize> {
     raw_string_end(b, q, s)
 }
-/// Test seam: does any (trigraph mode, splice mode, dialect) buffer of `source` take a second
-/// comment-stripped variant (a block comment with a newline on a line whose status is not
-/// proven)? The common path must read exactly one.
-#[cfg(test)]
-pub(crate) fn takes_second_comment_variant(source: &str) -> bool {
-    let first = translate(source, true);
-    let plain = translate(source, false);
-    let mut texts = vec![first];
-    if plain != texts[0] {
-        texts.push(plain);
-    }
-    texts.iter().any(|t| {
-        [true, false].into_iter().any(|lenient| {
-            let (spliced, points) = splice(t, lenient);
-            [true, false]
-                .into_iter()
-                .any(|cxx| strip_all(&spliced, &points, cxx, true).len() > 1)
-        })
-    })
-}
 use crate::ast::ParsedFile;
 use crate::languages::Language;
-use line_state::{LineState, Status};
 use raw_string::raw_string_end;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -484,13 +462,54 @@ fn splice(src: &str, lenient: bool) -> (Vec<u8>, Vec<usize>) {
     (out, points)
 }
 
-/// How a block comment holding a newline is read on a line whose status is not PROVEN
-/// (`line_state`): as one space, or as one space plus its newlines. A proven line has one
-/// reading; `strip_all` reads both when some comment was unproven.
+/// Which rule decides whether a block comment keeps its newlines.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Unproven {
-    Space,
-    Newlines,
+enum Policy {
+    /// The comment stays one space when ANY `#`, `%:` or `??=` precedes it on the output line.
+    Broad,
+    /// ... only when the line's first token (bytes <= 0x20 and stripped comments skipped) is
+    /// `#`, `%:` or `??=`.
+    Precise,
+}
+
+/// Incremental line facts over the output buffer; each output byte is scanned once.
+#[derive(Default)]
+struct LineState {
+    scanned: usize,
+    /// A `#`, `%:` or `??=` anywhere so far on the current line.
+    broad: bool,
+    first_seen: bool,
+    /// The first token of the current line is `#`, `%:` or `??=`.
+    first_dir: bool,
+}
+
+impl LineState {
+    fn update(&mut self, out: &[u8]) {
+        for k in self.scanned..out.len() {
+            let c = out[k];
+            if c == b'\n' {
+                self.broad = false;
+                self.first_seen = false;
+                self.first_dir = false;
+                continue;
+            }
+            if !self.first_seen && c > 0x20 {
+                self.first_seen = true;
+                self.first_dir = c == b'#'
+                    || (c == b'%' && out.get(k + 1) == Some(&b':'))
+                    || (c == b'?'
+                        && out.get(k + 1) == Some(&b'?')
+                        && out.get(k + 2) == Some(&b'='));
+            }
+            match c {
+                b'#' => self.broad = true,
+                b':' if k > 0 && out[k - 1] == b'%' => self.broad = true,
+                b'=' if k > 1 && out[k - 1] == b'?' && out[k - 2] == b'?' => self.broad = true,
+                _ => {}
+            }
+        }
+        self.scanned = out.len();
+    }
 }
 
 struct Stripped {
@@ -501,8 +520,7 @@ struct Stripped {
     spliced_raw: bool,
     /// Some raw-string prefix (`R"`) was recognised, readable or not.
     raw_seen: bool,
-    /// Some comment holding a newline started on a line whose status is not proven: the
-    /// other `Unproven` reading differs.
+    /// The Broad and Precise rules disagreed at some comment: the other variant differs.
     ambiguous: bool,
     /// ... and it starts on a preprocessor directive's logical line.
     spliced_raw_directive: Option<(usize, String)>,
@@ -531,9 +549,7 @@ impl Stripped {
 }
 
 /// Comment stripping over spliced text, keeping string, character and (when `cxx`) raw-string
-/// literals intact. A block comment becomes one space, plus its newlines unless it continues
-/// a directive line (decided by `line_state` only where proven, else by `unproven`). An
-/// uncertain raw string sets
+/// literals intact. A block comment becomes one space. An uncertain raw string sets
 /// `raw_uncertain` and the rest of the text is kept unstripped (the unstripped pass also
 /// reads it). `cxx` selects the dialect: C++ lexing (raw strings, digit separators) or C.
 fn strip_comments(
@@ -541,7 +557,7 @@ fn strip_comments(
     splices: &[usize],
     cxx: bool,
     precise: bool,
-    unproven: Unproven,
+    policy: Policy,
 ) -> Stripped {
     let mut out = Vec::with_capacity(b.len());
     let mut shifts = Vec::new();
@@ -572,23 +588,16 @@ fn strip_comments(
                 // the placeholder map through the previous shift; only text after the comment
                 // is ever looked up, and it maps exactly through the shift below.
                 // Inside a directive line the comment stays one space (the directive goes on
-                // after it), so a macro body is never cut in two. Fold 8: that is decided
-                // only for a PROVEN line (`line_state`); otherwise both readings are made.
-                let newlines = b[start..i].iter().filter(|&&c| c == b'\n').count();
+                // after it), so a macro body is never cut in two.
                 line_state.update(&out);
-                let keep = match line_state.status() {
-                    Status::Directive => false,
-                    Status::NotDirective => true,
-                    Status::Unproven => {
-                        ambiguous |= newlines > 0;
-                        unproven == Unproven::Newlines
-                    }
+                ambiguous |= line_state.broad != line_state.first_dir;
+                let directive = match policy {
+                    Policy::Broad => line_state.broad,
+                    Policy::Precise => line_state.first_dir,
                 };
-                if keep && newlines > 0 {
-                    out.extend(std::iter::repeat(b'\n').take(newlines));
-                    line_state.began_inside(&out);
+                if !directive {
+                    out.extend(b[start..i].iter().filter(|&&c| c == b'\n'));
                 }
-                line_state.note_comment(&b[start..i]);
                 shifts.push((out.len(), i));
                 spans.push((start, i));
             }
@@ -652,10 +661,6 @@ fn strip_comments(
                                 }
                             }
                             out.extend_from_slice(&b[i..end]);
-                            if b[i..end].contains(&b'\n') {
-                                // The line after the literal's last newline began inside it.
-                                line_state.began_inside(&out);
-                            }
                             i = end;
                         }
                         None => {
@@ -685,15 +690,13 @@ fn strip_comments(
     }
 }
 
-/// The comment-stripped readings of one spliced buffer: unproven comments as one space, plus
-/// the reading with their newlines kept when some comment was unproven (rare, so the common
-/// path is one pass: the second reading differs only through an unproven comment, which the
-/// first reading met first). One of the readings is always the compiler's; facts and
-/// refusals are read from every returned variant and unioned.
+/// The comment-stripped readings of one spliced buffer: the Broad variant, plus the Precise one
+/// when the two rules disagreed at some comment (rare, so the common path is one pass). Facts
+/// and refusals are read from every returned variant and unioned.
 fn strip_all(b: &[u8], splices: &[usize], cxx: bool, precise: bool) -> Vec<Stripped> {
-    let first = strip_comments(b, splices, cxx, precise, Unproven::Space);
+    let first = strip_comments(b, splices, cxx, precise, Policy::Broad);
     if first.ambiguous {
-        let second = strip_comments(b, splices, cxx, precise, Unproven::Newlines);
+        let second = strip_comments(b, splices, cxx, precise, Policy::Precise);
         vec![first, second]
     } else {
         vec![first]
@@ -1186,12 +1189,12 @@ fn collect(source: &str, precise: bool, out: &mut BTreeMap<String, RawDef>, inco
         texts.push(plain);
     }
     // Every (text, splice mode) buffer with its stripped readings, computed once: per dialect
-    // the one-space variant, plus the newline-keeping one where a comment was unproven (fold 8).
+    // the Broad variant, plus the Precise one where the comment rules disagree (fold 7).
     struct Buf {
         ti: usize,
         lenient: bool,
         spliced: Vec<u8>,
-        /// `(cxx, is the first (one-space) variant, stripped)`.
+        /// `(cxx, is the Broad (main) variant, stripped)`.
         variants: Vec<(bool, bool, Stripped)>,
     }
     let mut bufs: Vec<Buf> = Vec::new();
