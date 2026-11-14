@@ -14,6 +14,8 @@ mod report;
 mod run;
 mod seeds;
 mod sink_match;
+#[allow(dead_code)] // S3a.1s consumes this independently tested primitive.
+mod source_scope;
 mod trace;
 
 pub use go::sinks::{GO_CWE22_SINKS, GO_CWE78_SINKS};

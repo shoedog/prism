@@ -1,0 +1,66 @@
+{
+  "lane": "Loading-trace projection (#602 S3a.1p)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::source_scope::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "PL01-origin-admits-framework-and-ipc": [
+      "crates/prism-review/src/algorithms/taint/source_scope/loading.rs",
+      "matches!(\n                root.origin,\n                TaintRootOrigin::Diff | TaintRootOrigin::Explicit\n            )",
+      "true",
+      "algorithms::taint::source_scope::tests::real::loading_projection_excludes_framework_and_ipc_roots"
+    ],
+    "PL02-explicit-origin-dropped": [
+      "crates/prism-review/src/algorithms/taint/source_scope/loading.rs",
+      "TaintRootOrigin::Diff | TaintRootOrigin::Explicit",
+      "TaintRootOrigin::Diff",
+      "algorithms::taint::source_scope::tests::real::loading_projection_keeps_distinct_origins_and_occurrences"
+    ],
+    "PL03-original-file-check-dropped": [
+      "crates/prism-review/src/algorithms/taint/source_scope/loading.rs",
+      "original_files.contains(&root.seed.file)",
+      "true",
+      "algorithms::taint::source_scope::tests::loading_projection_is_complete_and_evidence_preserving"
+    ],
+    "PL04-loaded-check-dropped": [
+      "crates/prism-review/src/algorithms/taint/source_scope/loading.rs",
+      "loaded_files.contains_key(&root.seed.file)",
+      "true",
+      "algorithms::taint::source_scope::tests::loading_projection_is_complete_and_evidence_preserving"
+    ],
+    "PL05-isolated-roots-lost": [
+      "crates/prism-review/src/algorithms/taint/source_scope/loading.rs",
+      ".cloned()",
+      ".filter(|root| !root.reached.is_empty()).cloned()",
+      "algorithms::taint::source_scope::tests::real::loading_projection_retains_isolated_use"
+    ],
+    "PL06-population-truncated": [
+      "crates/prism-review/src/algorithms/taint/source_scope/loading.rs",
+      ".collect()",
+      ".take(10).collect()",
+      "algorithms::taint::source_scope::tests::loading_projection_is_complete_and_evidence_preserving"
+    ],
+    "PL07-reached-frontier-truncated": [
+      "crates/prism-review/src/algorithms/taint/source_scope/loading.rs",
+      ".cloned()",
+      ".cloned()\n        .map(|mut root| {\n            root.reached.truncate(10);\n            root\n        })",
+      "algorithms::taint::source_scope::tests::loading_projection_is_complete_and_evidence_preserving"
+    ],
+    "PL08-original-check-by-location-file": [
+      "crates/prism-review/src/algorithms/taint/source_scope/loading.rs",
+      "original_files.contains(&root.seed.file)",
+      "original_files.contains(&root.location.file)",
+      "algorithms::taint::source_scope::tests::loading_projection_is_complete_and_evidence_preserving"
+    ],
+    "PL09-loaded-check-by-location-file": [
+      "crates/prism-review/src/algorithms/taint/source_scope/loading.rs",
+      "loaded_files.contains_key(&root.seed.file)",
+      "loaded_files.contains_key(&root.location.file)",
+      "algorithms::taint::source_scope::tests::loading_projection_is_complete_and_evidence_preserving"
+    ]
+  }
+}
