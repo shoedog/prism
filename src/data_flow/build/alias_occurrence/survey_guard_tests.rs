@@ -7,7 +7,8 @@
 //!
 //! C, C++ and Java rows assert twin presence and the policy's suppressed lines only, never edge
 //! labels: those labels depend on the initialiser-as-def extraction defect (#818, X-READ), which
-//! is about to change. Rows whose twin presence itself would depend on an initialiser or operand
+//! is about to change. One exception: the C++ member row pins `M@2->M@3`, whose only `M` def on
+//! line 2 is the twin (a static member operand is no X-READ def), so #818 does not move it. Rows whose twin presence itself would depend on an initialiser or operand
 //! being recorded as a def are not pinned at all.
 use super::test_support::{refs, suppressed_lines, twins};
 use crate::ast::ParsedFile;
@@ -78,8 +79,10 @@ fn go_struct_value_field_write_keeps_the_twin_and_its_alias_unstable_edge() {
 
 #[test]
 fn go_struct_pointer_field_write_keeps_the_twin_and_its_alias_unstable_edge() {
-    // #632 (probe `gptr`): the correct answer, a write through a pointer copy writes `o.f`; same
+    // #632 (probe `gptr`): the twin is correct, a write through a pointer copy writes `o.f`; same
     // twin and labels as the value case, which is why the occurrence table cannot tell them apart.
+    // Pins residual: `o.f@6->o.f@9` exact is wrong here (`u.f = 2` overwrites `o.f`; the twin
+    // never kills, #783-style), so a slice that fixes it should update this assert.
     let src = format!(
         "{GO_STRUCT}func g(o *S) int {{\n\to.f = 1\n\tu := o\n\tu.f = 2\n\treturn o.f\n}}\n"
     );
