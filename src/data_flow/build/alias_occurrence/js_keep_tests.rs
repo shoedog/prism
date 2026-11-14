@@ -202,3 +202,16 @@ fn every_value_flow_channel_row_of_fold_3_is_kept_by_k1_or_k2() {
     let tsw = "function g(o: any) {\n  const u: any = o;\n  (o as any).x = 1;\n  use(o.x);\n}\n";
     assert!(twins("a.ts", tsw, Language::TypeScript, "u").is_empty());
 }
+
+#[test]
+fn k0_an_owner_with_a_with_statement_or_inside_a_with_body_keeps_every_twin() {
+    // Round-4 probe `oom_with_objenv`: `x = 1` in the `with` body may write `o.x`; the census records it with no path.
+    let objenv =
+        "function g(o, q) {\n  const u = o;\n  o.x = 0;\n  with (q) { x = 1; }\n  use(o.x);\n}\n";
+    assert!(kept_src(objenv));
+    let inside = "with (q) {\n  function g(o) {\n    const u = o;\n    o.x = 0;\n    x = 1;\n    use(o.x);\n  }\n}\n";
+    assert!(twins("a.js", inside, Language::JavaScript, "u").contains(&("o".to_string(), 3)));
+    // Control: the same owner without `with` loses the twin (the only write is rooted at the single `o`).
+    let clean = "function g(o, q) {\n  const u = o;\n  o.x = 0;\n  x = 1;\n  use(o.x);\n}\n";
+    assert!(!kept_src(clean));
+}

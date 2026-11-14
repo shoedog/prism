@@ -85,11 +85,11 @@
 //! declaration. Unlike the other languages JS reaching definitions already ignore a twin's field writes for kills, but a binding twin of
 //! the target's own path kills the target's earlier defs and collapses with same-line defs, and that spurious kill is what keeps a write
 //! through an alias that option A (#783) does not certify off `exact`. Two refusals beyond R1 therefore keep the twin: R2, rule E of
-//! `js_keep.rs` (a census-refused owner keeps every twin; otherwise the twins of an alias of target `o` stay iff the owner has a member or
+//! `js_keep.rs` (a census-refused owner, or one with or inside a `with` statement, keeps every twin; otherwise the twins of an alias of target `o` stay iff the owner has a member or
 //! subscript write target rooted at another name or at no plain name (K1), or rooted at `o` where `o` is not single (K2): single means one
 //! census declaration of the spelling in the owner subtree, scoped to the whole owner body, and for `this` no `this`-rooted write in a nested
 //! non-arrow callable, class body, field, static block, computed key or decorator; the module doc has the soundness argument; out of model:
-//! call mutation, module state through calls, a captured name written in another owner, a `with` body), and `X-PARAM`,
+//! call mutation, module state through calls, a captured name written in another owner), and `X-PARAM`,
 //! every occurrence below a `formal_parameters` list of the owner (#761: `function f(o, u = o, v = u.x++)` keeps `o@1->o@3` off
 //! `exact` through the binding twin, and option A excludes parameter defaults). R1 collects property names, object keys and shorthand, method and field names, labels
 //! and type names, and import and export specifier names. Residuals: a call that mutates the alias (`Object.assign(u, ..)`, `u.m()`)

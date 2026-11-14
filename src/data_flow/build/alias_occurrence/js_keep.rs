@@ -3,10 +3,11 @@
 //! The twin of an alias `u` (resolved target base `o`) kills `o`'s earlier defs in JS reaching definitions, and that
 //! kill is what keeps a write through `u` off `exact` where option A (#783) does not certify the alias. A binding twin
 //! of `u` is therefore KEPT (not removed) iff any of:
-//! - K0: the write census refused the owner;
+//! - K0: the write census refused the owner, or the owner holds a `with` statement or lies inside a `with` body;
 //! - K1: a write target of the owner with a member or subscript path has a root other than `o`: a census site whose
 //!   root spelling is not `o`, or a target whose root is not a plain name at all (call, `new`, literal, sequence,
-//!   conditional, `new.target`, `import.meta`, `super`: the census records none of these, so they are read here);
+//!   conditional, `new.target`, `import.meta`: the census records none of these, so they are read here; a
+//!   `super.k` chain is recorded by the census with root `this`, and the syntax walk also sees it as no plain name);
 //! - K2: such a site is rooted at `o` and `o` is not single (see below).
 //!
 //! Soundness. A newly wrong `exact` is an edge the twin's kill used to doubt where some write between the def and
@@ -18,15 +19,18 @@
 //! `super`, with exactly ONE census declaration in the owner subtree and that declaration scoped to the whole owner
 //! body (an owner formal, or a declaration that is a direct child of the owner's body block, never in a nested
 //! callable, class, inner block, loop head, `catch` or `try`), so every occurrence of the spelling in the subtree is
-//! that one variable (no shadowing declaration exists; a TDZ occurrence throws). Otherwise a root spelled `o` may be
+//! that one variable (no shadowing declaration exists; a TDZ occurrence throws). One exception: the owner's own
+//! parameter list does not see a body declaration, so an `o`-rooted write in a callable, getter or field initialiser
+//! written in the parameter list binds an outer `o`; such a write is a captured write of that outer binding, and D2-c
+//! already makes its edges `cfg_incomplete` (round-4 probes `k2_pscope*`). Otherwise a root spelled `o` may be
 //! another binding holding the value: kept. For `o` = `this`, single holds when no `this`-rooted write lies inside a
 //! non-arrow callable, a class body, field, static block, computed key or decorator (each has a `this` of its own or
 //! evaluates in another context). `o.q.x = 1` after `o.q = o` is field-sensitivity the direct form shares.
 //!
 //! Out of model, as for `Exact`: a call that mutates a holder (`Object.assign(u, ..)`, `u.m()`), module state through
-//! calls, a captured name written in another owner (no twin on base), a `with` body. A census-refused owner keeps every
-//! twin. The rule is removal-only relative to OW (keep every twin of an owner with any such write target); deleting K2
-//! gives OW exactly.
+//! calls, a captured name written in another owner (no twin on base). An owner with a `with` statement, or inside a
+//! `with` body, keeps every twin (K0), as does a census-refused owner. The rule is removal-only relative to OW (keep
+//! every twin of an owner with any such write target); deleting K2 gives OW exactly.
 use super::shared::{field_in_parent, walk_owner};
 use crate::ast::ParsedFile;
 use crate::js_write_census::walk::{census_with, Form};
@@ -242,7 +246,9 @@ impl Keep {
             *owner,
             false,
         );
-        if census.refused() {
+        // A `with` statement in the owner, or the owner inside a `with` body: a bare name there may write a property of
+        // any object, `o`'s included (`with (q) { x = 1; }`), and the census records that write with no path.
+        if census.refused() || crate::js_write_census::refusals::inside_with_body(*owner) {
             return Self { facts: None };
         }
         let mut roots = BTreeSet::new();
@@ -265,7 +271,9 @@ impl Keep {
             }
         }
         let mut nonname = false;
+        let mut with = false;
         walk_owner(owner, |node| {
+            with |= node.kind() == "with_statement";
             if !nonname
                 && matches!(node.kind(), "member_expression" | "subscript_expression")
                 && !chain_root_is_name(node)
@@ -274,6 +282,9 @@ impl Keep {
                 nonname = true;
             }
         });
+        if with {
+            return Self { facts: None };
+        }
         Self {
             facts: Some(Facts {
                 roots,
