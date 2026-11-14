@@ -208,8 +208,8 @@ fn keyword_proves_declaration(parsed: &ParsedFile, decl: Node<'_>) -> bool {
     (direct_const || type_proof || chain_const) && !file_prefix_diverges(parsed, decl)
 }
 
-/// A phase-divergence trigger (trigraph, backslash before a line end, lone CR, or a UCN escape,
-/// literals included: conservative) anywhere in the file up to the end of the outermost function
+/// A phase-divergence trigger (trigraph, backslash before a line end, lone CR, a UCN escape,
+/// literals included: conservative, a conditional directive or an unclosed directive comment) anywhere in the file up to the end of the outermost function
 /// holding `decl`. A comment a divergence opens in an earlier function can close in this one, so
 /// the owner's own text being clean proves nothing; the exemption then keeps the escape (6d-2s
 /// fold 3; the cross-function mechanism for the other rules is pre-existing and not closed here).
@@ -223,7 +223,65 @@ fn file_prefix_diverges(parsed: &ParsedFile, decl: Node<'_>) -> bool {
         cur = n.parent();
     }
     let prefix = parsed.source.get(..end).unwrap_or(&parsed.source);
-    super::c_prune::phase_divergence(prefix) || prefix.contains("\\u") || prefix.contains("\\U")
+    super::c_prune::phase_divergence(prefix)
+        || prefix.contains("\\u")
+        || prefix.contains("\\U")
+        || directive_hazard(prefix)
+}
+
+/// Preprocessor text the compiler reads differently from the parser (fold 4): (a) any
+/// conditional directive (`#if`, `#ifdef`, `#ifndef`, `#elif`, `#elifdef`, `#elifndef`, `#else`,
+/// `#endif`; a `%:` leader, blanks or comments before the name allowed), which can hide or swap
+/// a function header across a boundary, and (b) any directive line that opens a `/*` it does not
+/// close on that line, whose comment swallows the code after the closing `*/` for the compiler
+/// while the parser reads it. A simple line scan; splices are refused by the caller already.
+fn directive_hazard(text: &str) -> bool {
+    for line in text.lines() {
+        let t = line.trim_start_matches([' ', '\t', '\x0b', '\x0c']);
+        let Some(rest) = t.strip_prefix('#').or_else(|| t.strip_prefix("%:")) else {
+            continue;
+        };
+        // Comment state across the line, skipping blanks and comments before the name.
+        let mut in_comment = false;
+        let mut name = String::new();
+        let mut seen_name = false;
+        let b = rest.as_bytes();
+        let mut i = 0;
+        while i < b.len() {
+            if in_comment {
+                if b[i] == b'*' && b.get(i + 1) == Some(&b'/') {
+                    in_comment = false;
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            } else if b[i] == b'/' && b.get(i + 1) == Some(&b'*') {
+                in_comment = true;
+                i += 2;
+            } else if b[i] == b'/' && b.get(i + 1) == Some(&b'/') {
+                break;
+            } else {
+                if !seen_name {
+                    if b[i].is_ascii_alphanumeric() || b[i] == b'_' {
+                        name.push(b[i] as char);
+                    } else if !name.is_empty() {
+                        seen_name = true;
+                    }
+                }
+                i += 1;
+            }
+        }
+        if in_comment {
+            return true;
+        }
+        if matches!(
+            name.as_str(),
+            "if" | "ifdef" | "ifndef" | "elif" | "elifdef" | "elifndef" | "else" | "endif"
+        ) {
+            return true;
+        }
+    }
+    false
 }
 
 /// `struct N`, `class N`, ... : the keyword, a plain `type_identifier` name, no body, no

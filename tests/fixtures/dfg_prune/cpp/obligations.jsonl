@@ -325,6 +325,16 @@
 {"case": "f6_ref_ptr_comment.cc", "id": "f6_refp", "path": "p", "def_line": 3, "use_line": 8, "keep": true, "reason": "comment_in_parenthesized_pointer_reference"}
 {"case": "f6_ref_ptr_nocomment.cc", "id": "f6_refpc", "path": "p", "def_line": 3, "use_line": 8, "keep": true, "reason": "control_pointer_reference_without_comment"}
 {"case": "f7_addressof.cc", "id": "f7_aof", "path": "x", "def_line": 2, "use_line": 7, "keep": true, "reason": "builtin_addressof_takes_an_address_without_amp"}
+{"case": "e2c.cc", "id": "e2c", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e2_directive_shape_control_no_keyword_proof"}
+{"case": "e2x.cc", "id": "e2x", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e2_directive_shape_exemption_refuses"}
+{"case": "e6c.cc", "id": "e6c", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e6_directive_shape_control_no_keyword_proof"}
+{"case": "e6x.cc", "id": "e6x", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "e6_directive_shape_exemption_refuses"}
+{"case": "h1c.cc", "id": "h1c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "h1_directive_shape_control_no_keyword_proof"}
+{"case": "h1x.cc", "id": "h1x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "h1_directive_shape_exemption_refuses"}
+{"case": "p2c.cc", "id": "p2c", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "p2_directive_shape_control_no_keyword_proof"}
+{"case": "p2x.cc", "id": "p2x", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "p2_directive_shape_exemption_refuses"}
+{"case": "w1c.cc", "id": "w1c", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "w1_directive_shape_control_no_keyword_proof"}
+{"case": "w1x.cc", "id": "w1x", "path": "y", "def_line": 6, "use_line": 11, "keep": true, "reason": "w1_directive_shape_exemption_refuses"}
 {"case": "10_header.h", "id": "hs", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "dot_h_owner_is_off", "owner": "header_scalar_drop"}
 {"case": "10_header.h", "id": "hc", "path": "x", "def_line": 14, "use_line": 18, "keep": true, "reason": "dot_h_owner_is_off_bare_argument", "owner": "header_cpp_semantics_keep"}
 {"case": "10_header.h", "id": "ht", "path": "h", "def_line": 22, "use_line": 24, "keep": true, "reason": "dot_h_owner_is_off_typedef", "owner": "header_typedef_keep"}
