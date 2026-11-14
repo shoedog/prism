@@ -285,3 +285,49 @@ fn c_parsed_files_keep_the_base_behaviour_for_spliced_raw_candidates() {
     );
     assert!(!c.incomplete(), "{:?}", c.reasons);
 }
+
+// ---- Fold 5: a block comment keeps its newlines outside directive lines (#812 item 3). ----
+
+fn m_hidden(c: &CMacroCensus) {
+    let m = c.get("M").expect("M read");
+    assert!(m.free.contains("hidden"), "M.free = {:?}", m.free);
+}
+
+#[test]
+fn directive_after_a_multi_line_block_comment_is_read() {
+    let src = "int a; /* x\n*/ #define M hidden\n";
+    for name in ["a.c", "a.cpp"] {
+        m_hidden(&parsed(name, src));
+        m_hidden(&parsed(name, &src.replace('\n', "\r\n")));
+    }
+    // A comment inside a directive keeps the body whole.
+    let c = parsed("a.c", "#define N a /* x\ny */ b\n");
+    let n = c.get("N").unwrap();
+    assert!(n.free.contains("a") && n.free.contains("b"), "{:?}", n.free);
+}
+
+#[test]
+fn earlier_round_inputs_read_m_without_relying_on_incomplete() {
+    // r3 (sol R3-W1), r4 (R4-1) and the Opus S11 shapes, as `.c`.
+    let r3 = "#define R\nconst char *s = R\"(a)\\\n\"; /* real\n*/ #define M hidden\nconst char *t = \")\";\n";
+    let s11 = "const char *s = R\"x(\"/*)x\\\n\";\n/* )x\";\n*/ #define M hidden\n";
+    for src in [r3, s11] {
+        m_hidden(&parsed("a.c", src));
+    }
+    // r5: a C++ header holds the define, `a.c` uses `M`; one census.
+    let mut m = BTreeMap::new();
+    m.insert(
+        "shared.hpp".to_string(),
+        ParsedFile::parse("shared.hpp", r3, Language::Cpp).unwrap(),
+    );
+    m.insert(
+        "a.c".to_string(),
+        ParsedFile::parse(
+            "a.c",
+            "int f(int hidden) { hidden = M; return hidden + 1; }\n",
+            Language::C,
+        )
+        .unwrap(),
+    );
+    m_hidden(&CMacroCensus::from_files(&m));
+}
