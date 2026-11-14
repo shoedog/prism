@@ -138,3 +138,16 @@ fn a_write_through_a_sequence_or_call_root_keeps_the_twin() {
         assert!(kept(b), "{b}");
     }
 }
+
+#[test]
+fn a_formal_spelled_like_the_alias_is_another_binding() {
+    // Row o10 of the enumeration replay: the written `u` is the formal of a function the owner never calls.
+    let never = "function g(o) {\n  o.x = 0;\n  const u = o;\n  const f = function (u) { u.x = 1; };\n  return sink(o.x);\n}\n";
+    assert!(
+        !twins("a.js", never, Language::JavaScript, "u").contains(&("o".to_string(), 3)),
+        "{:?}",
+        twins("a.js", never, Language::JavaScript, "u")
+    );
+    let called = "function g(o) {\n  o.x = 0;\n  const u = o;\n  const f = function (u) { u.x = 1; };\n  f(o);\n  return sink(o.x);\n}\n";
+    assert!(twins("a.js", called, Language::JavaScript, "u").contains(&("o".to_string(), 3)));
+}
