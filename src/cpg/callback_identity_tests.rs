@@ -854,8 +854,9 @@ fn synthetic_rows_and_labels_equal_the_named_control() {
     let named = format!("f(function g{body});\n");
     // (def line, use line, path) of the E4 rows the named pass keeps. Rule U (#630 slice 5)
     // removed the other two, (1,3,x) into `x = n;` and (7,5,i) into `let i = 0;`: both lines
-    // only write the name.
-    let e4 = [(3, 1, "n"), (3, 1, "x")];
+    // only write the name. #783 slice 4c: `x = n;` is a binding write, so it mints no twin def of `n`
+    // and the (3, 1, "n") backward row (the twin's edge to the signature anchor) is gone.
+    let e4 = [(3, 1, "x")];
     for language in JS_TS {
         let dump = |src: &str| -> BTreeSet<String> {
             crate::navigation::queries::dfg_edge_dump(&build(language, src))
@@ -1104,11 +1105,13 @@ fn r1_same_line_defs_and_alias_twins_keep_lvalue_bytes() {
             .collect();
         assert_eq!(b.len(), 1, "{language:?}: {r:?}");
         assert_eq!(b[0].4, at(src, "b = c", 0), "{language:?}: {r:?}");
+        // #783 slice 4c: a binding write mints no twin; the twin that remains (the owner writes
+        // through `b`, option R2) keeps the occurrence's own bytes.
         for statement in [
-            "var b = other(); b = a;",
-            "var b = a; b = other();",
-            "var b = c; b = a;",
-            "var b = a; b = a;",
+            "var b = other(); b = a; b.p = 1;",
+            "var b = a; b = other(); b.p = 1;",
+            "var b = c; b = a; b.p = 1;",
+            "var b = a; b = a; b.p = 1;",
         ] {
             let src = format!("f(function(a, c) {{\n  {statement}\n  use(a, c, b);\n}});\n");
             let r = rows(&build(language, &src));
@@ -1119,6 +1122,14 @@ fn r1_same_line_defs_and_alias_twins_keep_lvalue_bytes() {
                 .collect();
             let expected: BTreeSet<_> = src.match_indices("b = a").map(|(b, _)| b).collect();
             assert_eq!(actual, expected, "{language:?}: {r:?}");
+            // Control: with no write through `b` the binding writes mint nothing.
+            let quiet = src.replace(" b.p = 1;", "");
+            let r = rows(&build(language, &quiet));
+            assert!(
+                r.iter()
+                    .all(|r| !(r.0 == "<anon@1:3>" && r.1 == "a" && r.2 == 2)),
+                "{language:?}: {r:?}"
+            );
         }
         let blocks = "f(function() {\n  class C { static { var p = 1; } static { var p = 2;\n    use(p);\n  } }\n});\n";
         let r = rows(&build(language, blocks));

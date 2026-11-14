@@ -1,7 +1,7 @@
 //! C++ and `.h` U/D obligations (#630 slice 6c): frozen-reference differential plus marked rows.
 //! Rows: `tests/fixtures/dfg_prune/cpp/obligations.jsonl` (generated from the markers in the
 //! fixtures and in `cpp_prune_inline_cases.rs` by `gen_obligations.py`).
-use super::cpp_prune_inline_cases::INLINE_CASES;
+use super::cpp_prune_inline_cases::{inline_source, INLINE_CASES};
 use super::Producer;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
@@ -124,7 +124,7 @@ fn removal_only_sweep() {
         "the fixture sweep found {files} C++/header files"
     );
     for (name, source) in INLINE_CASES {
-        check_subset(name, source, language_of(name));
+        check_subset(name, &inline_source(source), language_of(name));
     }
 }
 
@@ -141,7 +141,7 @@ fn matrix_inputs() -> Vec<(String, String, String)> {
     out.extend(
         INLINE_CASES
             .iter()
-            .map(|(n, s)| (n.to_string(), n.to_string(), s.to_string())),
+            .map(|(n, s)| (n.to_string(), n.to_string(), inline_source(s))),
     );
     out.sort();
     out

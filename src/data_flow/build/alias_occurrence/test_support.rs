@@ -94,9 +94,9 @@ pub(super) fn suppressed_lines(file: &str, source: &str, language: Language) -> 
     for func in parsed.all_functions() {
         let (start, end) = parsed.node_line_range(&func);
         let lines: BTreeSet<usize> = (start..=end).collect();
-        let (alias_map, _) = Producer::build_alias_map(&parsed, &func, &lines);
+        let (alias_map, raw) = Producer::build_alias_map(&parsed, &func, &lines);
         let spans = parsed.assignment_lvalue_spans_on_lines(&func, &lines);
-        let policy = TwinPolicy::for_owner(&parsed, &func, &spans, &alias_map);
+        let policy = TwinPolicy::for_owner(&parsed, &func, &spans, &alias_map, &raw);
         out.extend(
             spans
                 .iter()
@@ -131,4 +131,29 @@ pub(super) fn twins(r: &FileRefs, alias: &str) -> Vec<(String, usize)> {
         .filter(|d| d.path.base != alias && starts.contains(&d.start_byte))
         .map(|d| (d.path.to_string(), d.line))
         .collect()
+}
+
+/// Fallback anchors the policy suppresses, as `(alias, line)`.
+pub(super) fn anchors(file: &str, source: &str, language: Language) -> Vec<(String, usize)> {
+    let parsed = parse(file, source, language);
+    let mut out = Vec::new();
+    for func in parsed.all_functions() {
+        let (start, end) = parsed.node_line_range(&func);
+        let lines: BTreeSet<usize> = (start..=end).collect();
+        let (alias_map, raw) = Producer::build_alias_map(&parsed, &func, &lines);
+        let spans = parsed.assignment_lvalue_spans_on_lines(&func, &lines);
+        let policy = TwinPolicy::for_owner(&parsed, &func, &spans, &alias_map, &raw);
+        for (alias, _, line) in &raw {
+            if policy.suppresses_anchor(alias, *line)
+                && !spans
+                    .iter()
+                    .any(|s| s.line == *line && s.path.is_simple() && s.path.base == *alias)
+            {
+                out.push((alias.clone(), *line));
+            }
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
 }

@@ -203,4 +203,90 @@ void macro_args_control_drop(void) {
 }
 "####,
     ),
+    (
+        "11_phase_divergence.c",
+        r####"// A trigraph `??/` is a backslash: the compiler splices the next line into the comment, the
+// parser sees a declaration (PhaseDivergence turns the owner off, `.c` and C++ alike).
+int src(void);
+void sink(int);
+
+void phase_control_drop(void) {
+    int x = src();        // @ph0:D x
+    x = 1;
+    sink(x);              // @ph0:U:drop:no_phase_divergence_control
+}
+
+void phase_trigraph_scalar_keep(int x) {   // @ph1:D x
+    // ??/
+    int x;
+    x = 1;                // @ph1:U:keep:trigraph_splice_hides_a_phantom_declaration
+}
+"####,
+    ),
+    (
+        "12_phase_splice_cr.c",
+        r####"// Fold 2 (`.c`): bare backslash splices and a lone CR, see 16_phase_splice_cr.cc.
+int src(void);
+void sink(int);
+
+void splice_keep(int x) {   // @sp1:D x
+    int a = 1 /\
+/*gap*/ 1; int x;
+    ;
+    x = 1;                // @sp1:U:keep:backslash_splice_makes_a_comment_only_the_compiler_sees
+}
+
+void splice_control_drop(void) {
+    int x = src();        // @sp3:D x
+    x = 1;
+    sink(x);              // @sp3:U:drop:control_without_any_splice_or_cr
+}
+
+int cr_comment_hides_if_keep(int c) {
+    int x = src();        // @cr1:D x
+    // note<CR> if (c)
+    x = 2;
+    return x + 1;         // @cr1:U:keep:lone_cr_ends_the_comment_so_the_compiler_sees_if_c_x_eq_2
+}
+
+int cr_control_conditional_keep(int c) {
+    int x = src();        // @cr2:D x
+    // note
+    if (c)
+        x = 2;
+    return x + 1;         // @cr2:U:keep:compiler_view_of_the_previous_row_the_write_is_conditional
+}
+"####,
+    ),
+    (
+        "13_ucn_identifier.c",
+        r####"// Fold 3 (`.c`): a backslash-spelled identifier turns the owner off.
+int src(void);
+void sink(int);
+
+int ucn_scalar_keep(void) {
+    int café = src();           // @u2:D café
+    café = caf\u00e9;           // @u2:U:keep:ucn_spelling_is_the_same_name_as_the_literal
+    return 0;
+}
+
+int ucn_consistent_control_drop(void) {
+    int café = src();           // @u3:D café
+    café = 1;
+    sink(café);                 // @u3:U:drop:one_spelling_throughout
+    return 0;
+}
+"####,
+    ),
 ];
+
+/// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot
+/// hold one) and a source holding `<CRLF-FILE>` has every line end turned into CRLF.
+pub(super) fn inline_source(s: &str) -> String {
+    let crlf = s.contains("<CRLF-FILE>");
+    let mut out = s.replace("<CRLF-FILE>", "").replace("<CR>", "\r");
+    if crlf {
+        out = out.replace('\n', "\r\n");
+    }
+    out
+}

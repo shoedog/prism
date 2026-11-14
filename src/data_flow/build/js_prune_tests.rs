@@ -59,7 +59,9 @@ fn js_prune_matrix() {
         let source = std::fs::read_to_string(&path).unwrap();
         let parsed = ParsedFile::parse(&file, &source, lang).unwrap();
         let before = Producer::file_refs_frozen(&file, &parsed);
-        let after = Producer::file_refs(&file, &parsed);
+        // The alias-twin policy (#783 slice 4c) removes twin edges the frozen reference has; it is
+        // switched off so this differential isolates the pruning rules.
+        let after = super::alias_occurrence::without_policy(|| Producer::file_refs(&file, &parsed));
         let (b, a) = (pairs(&before), pairs(&after));
         if std::env::var_os("PRISM_DUMP_PRUNE_BASELINE").is_some() {
             for (p, d, u) in &b {
