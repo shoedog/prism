@@ -224,10 +224,8 @@ fn the_policy_suppresses_exactly_the_binding_write_occurrences() {
 #[test]
 fn other_languages_get_an_empty_policy() {
     let lua = "local function t(o, q)\n local u = o\n u = q\n u.f = 1\nend\n";
-    for (file, language, source) in [("a.lua", Language::Lua, lua)] {
-        let parsed = ParsedFile::parse(file, source, language).unwrap();
-        assert!(policy_bytes(&parsed).is_empty(), "{file}");
-    }
+    let parsed = ParsedFile::parse("a.lua", lua, Language::Lua).unwrap();
+    assert!(policy_bytes(&parsed).is_empty(), "a.lua");
 }
 
 fn refs(source: &str) -> FileRefs {
