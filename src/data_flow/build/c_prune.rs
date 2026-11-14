@@ -66,32 +66,58 @@ pub(super) enum Off {
     PhaseDivergence,
 }
 
-/// Text the compiler's translation phases read differently from tree-sitter: a trigraph
-/// (`??` + one of `= / ' ( ) ! < > -`, `??/` being a backslash) or a backslash followed by
-/// blanks (space, tab, VT, FF) and then a newline, which GCC and clang splice and the parser
-/// does not. A line the compiler hides inside a comment can look like a declaration to the
-/// parser. Conservative: string literals count too.
+/// Text the compiler's translation phases read differently from tree-sitter, so the parser
+/// can see code the compiler does not (or the reverse): a trigraph (`??` + one of
+/// `= / ' ( ) ! < > -`, `??/` being a backslash); ANY backslash followed by optional blanks
+/// (space, tab, VT, FF) and a line terminator (LF, CRLF or lone CR), which the compiler splices
+/// (tree-sitter skips a bare `\` + newline as whitespace between tokens, so `/\` + newline + `*`
+/// is a comment opener only to the compiler, and a blank-padded one is not spliced by it at
+/// all); and any lone CR (a CR not followed by LF), which GCC and clang read as a line end
+/// (it ends a `//` comment) and tree-sitter does not. No exception for string literals or
+/// comments (a trigraph look-alike in a string literal turns the owner off too: accepted, the
+/// gate is closed and simple). CRLF line endings alone are fine.
 pub(super) fn phase_divergence(text: &str) -> bool {
     let b = text.as_bytes();
     for (i, &c) in b.iter().enumerate() {
-        if c == b'?' && b.get(i + 1) == Some(&b'?') {
-            if let Some(&t) = b.get(i + 2) {
-                if b"=/'()!<>-".contains(&t) {
+        match c {
+            b'?' if b.get(i + 1) == Some(&b'?') => {
+                if b.get(i + 2).is_some_and(|t| b"=/'()!<>-".contains(t)) {
                     return true;
                 }
             }
-        }
-        if c == b'\\' {
-            let mut j = i + 1;
-            while matches!(b.get(j), Some(b' ' | b'\t' | 0x0b | 0x0c)) {
-                j += 1;
+            b'\\' => {
+                let mut j = i + 1;
+                while matches!(b.get(j), Some(b' ' | b'\t' | 0x0b | 0x0c)) {
+                    j += 1;
+                }
+                if matches!(b.get(j), Some(b'\n' | b'\r')) {
+                    return true;
+                }
             }
-            if j > i + 1 && matches!(b.get(j), Some(b'\n' | b'\r')) {
-                return true;
-            }
+            b'\r' if b.get(i + 1) != Some(&b'\n') => return true,
+            _ => {}
         }
     }
     false
+}
+
+#[cfg(test)]
+mod phase_divergence_unit_tests {
+    use super::phase_divergence as pd;
+
+    #[test]
+    fn closed_class() {
+        assert!(pd("a ??/\nb"));
+        assert!(pd("a \\\nb"), "bare backslash + LF");
+        assert!(pd("a \\\r\nb"), "backslash + CRLF");
+        assert!(pd("a \\ \t\nb"), "blank-padded backslash");
+        assert!(pd("a \\\rb"), "backslash + lone CR");
+        assert!(pd("// n\rb"), "lone CR");
+        assert!(!pd("int a;\r\nint b;\r\n"), "CRLF alone");
+        assert!(!pd("int a; // c\nint b;\n"));
+        assert!(!pd("a \\ b"), "backslash not at a line end");
+        assert!(!pd("a ?? b ?x"), "no trigraph");
+    }
 }
 
 /// Names whose call can return a second time (G4).

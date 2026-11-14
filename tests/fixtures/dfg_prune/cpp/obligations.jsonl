@@ -352,3 +352,11 @@
 {"case": "15_phase_divergence.cc", "id": "ph2", "path": "x", "def_line": 20, "use_line": 23, "keep": true, "reason": "backslash_blanks_newline_splice_hides_the_declaration", "owner": "phase_blank_backslash_const_ptr_keep"}
 {"case": "15_phase_divergence.cc", "id": "ph3", "path": "x", "def_line": 26, "use_line": 29, "keep": true, "reason": "trigraph_splice_hides_a_phantom_scalar_declaration", "owner": "phase_trigraph_scalar_keep"}
 {"case": "15_phase_divergence.cc", "id": "ph4", "path": "x", "def_line": 32, "use_line": 35, "keep": true, "reason": "backslash_tab_newline_splice_hides_the_declaration", "owner": "phase_blank_backslash_scalar_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "sp1", "path": "x", "def_line": 8, "use_line": 12, "keep": true, "reason": "backslash_splice_makes_a_comment_only_the_compiler_sees", "owner": "splice_slash_star_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "sp2", "path": "x", "def_line": 15, "use_line": 20, "keep": true, "reason": "splices_inside_comment_delimiters", "owner": "splice_comment_pair_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "sp3", "path": "x", "def_line": 24, "use_line": 26, "keep": false, "reason": "control_without_any_splice_or_cr", "owner": "splice_control_drop"}
+{"case": "16_phase_splice_cr.cc", "id": "cr1", "path": "x", "def_line": 30, "use_line": 33, "keep": true, "reason": "lone_cr_ends_the_comment_so_the_compiler_sees_if_c_x_eq_2", "owner": "cr_comment_hides_if_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "cr2", "path": "x", "def_line": 37, "use_line": 41, "keep": true, "reason": "compiler_view_of_the_previous_row_the_write_is_conditional", "owner": "cr_control_conditional_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "cr3", "path": "x", "def_line": 45, "use_line": 46, "keep": true, "reason": "the_compiler_reads_x_here_tree_sitter_sees_a_comment", "owner": "cr_read_hidden_keep"}
+{"case": "16_phase_splice_cr.cc", "id": "cr4", "path": "x", "def_line": 51, "use_line": 53, "keep": true, "reason": "compiler_view_of_the_cr_row_the_read_is_live", "owner": "cr_read_control_keep"}
+{"case": "17_crlf_control.cc", "id": "cl1", "path": "x", "def_line": 7, "use_line": 9, "keep": false, "reason": "crlf_only_owner_stays_on", "owner": "crlf_control_drop"}
