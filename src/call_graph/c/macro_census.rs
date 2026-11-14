@@ -82,6 +82,10 @@ pub struct MacroFacts {
     pub free: BTreeSet<String>,
     pub control: bool,
     pub poisoned: bool,
+    // #829 stub: computed in implementation
+    pub unbalanced: bool,
+    // #829 stub: computed in implementation
+    pub loose_comma: bool,
 }
 
 /// One definition before the closure.
@@ -91,6 +95,12 @@ pub(crate) struct RawDef {
     free: BTreeSet<String>,
     control: bool,
     poisoned: bool,
+    // #829 stub: computed in implementation
+    #[allow(dead_code)]
+    unbalanced: bool,
+    // #829 stub: computed in implementation
+    #[allow(dead_code)]
+    loose_comma: bool,
 }
 
 /// The repo-wide census. Cheap to clone; compare with [`CMacroCensus::digest`].
@@ -1537,6 +1547,9 @@ impl CMacroCensus {
                 free: def.free.clone(),
                 control: def.control,
                 poisoned: def.poisoned || cyclic.contains(name),
+                // #829 stub: computed in implementation
+                unbalanced: false,
+                loose_comma: false,
             };
             for m in &reaches[name] {
                 let d = &raw[*m];
@@ -1606,6 +1619,16 @@ impl CMacroCensus {
     /// Number of macros flagged `poisoned`.
     pub fn poisoned_count(&self) -> usize {
         self.macros.values().filter(|f| f.poisoned).count()
+    }
+
+    /// Number of macros flagged `unbalanced`.
+    pub fn unbalanced_count(&self) -> usize {
+        self.macros.values().filter(|f| f.unbalanced).count()
+    }
+
+    /// Number of macros flagged `loose_comma`.
+    pub fn loose_comma_count(&self) -> usize {
+        self.macros.values().filter(|f| f.loose_comma).count()
     }
 
     /// A stable digest of exactly the recorded facts; empty for an empty census. The DFG

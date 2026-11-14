@@ -278,6 +278,274 @@ int ucn_consistent_control_drop(void) {
 }
 "####,
     ),
+    (
+        "20_macro_brackets.c",
+        r####"// Bracket macros (#829). `#define` lines are top-level, so every case shares one census.
+int src(void);
+void sink(int);
+void sink2(const char *);
+#define END }
+#define BEGIN {
+#define LEAVE END
+#define ENTER BEGIN
+#define IF_BEGIN if (cond) {
+#define IF_END }
+#define OPEN_IF(c) if (c) {
+#define RBD %>
+#define LBD <%
+#define P_OPEN for (
+#define P_CLOSE )
+#define LB [
+#define RB ]
+#define BOTH(s) BEGIN s; END
+#define DUAL 0
+#define DUAL {
+#define WRAP(v) { sink(v); }
+#define MSG "{ ( ["
+#define CH '}'
+#define CMT 1 /* { */ + 2 // (
+int cond;
+
+// Scope-shift shape (gate-only, see TESTS.md): no baseline pair exists, E01 pins the gate.
+void brace_scope(int x) {
+    int r = 0;
+    {
+        int *x = 0;
+        END;
+        r = x;
+        BEGIN;
+    }
+    sink(r);
+}
+
+void brace_transitive(int x) {
+    int r = 0;
+    {
+        int *x = 0;
+        LEAVE;
+        r = x;
+        ENTER;
+    }
+    sink(r);
+}
+
+void brace_control(void) {
+    int x = src();            // @b3:D x
+    IF_BEGIN;
+    x = 2;
+    IF_END;
+    sink(x);                  // @b3:U:keep:unbalanced_macro_makes_the_write_conditional
+}
+
+void brace_function_like(int c) {
+    int x = src();            // @b4:D x
+    OPEN_IF(c);
+    x = 2;
+    IF_END;
+    sink(x);                  // @b4:U:keep:function_like_unbalanced_macro
+}
+
+void brace_digraph(int x) {
+    int r = 0;
+    {
+        int *x = 0;
+        RBD;
+        r = x;
+        LBD;
+    }
+    sink(r);
+}
+
+void paren_macro(int c) {
+    int x = src();            // @b6:D x
+    P_OPEN; c; P_CLOSE;
+    x = 2;
+    sink(x);                  // @b6:U:keep:unbalanced_paren_macro_owner_off
+}
+
+void bracket_macro(void) {
+    int x = src();            // @b7:D x
+    LB; RB;
+    x = 2;
+    sink(x);                  // @b7:U:keep:unbalanced_square_macro_owner_off
+}
+
+void balanced_wrapper_of_unbalanced(void) {
+    int x = src();            // @b8:D x
+    BOTH(sink(0));
+    x = 2;
+    sink(x);                  // @b8:U:keep:wrapper_names_unbalanced_macros
+}
+
+void one_definition_unbalanced(void) {
+    int x = src();            // @b9:D x
+    sink(DUAL);
+    x = 2;
+    sink(x);                  // @b9:U:keep:any_unbalanced_definition_taints_the_spelling
+}
+
+void balanced_macros_still_prune(void) {
+    int x = src();            // @b10:D x
+    WRAP(0);
+    sink2(MSG);
+    sink(CH);
+    sink(CMT);
+    x = 2;
+    sink(x);                  // @b10:U:drop:brackets_in_literals_and_comments_do_not_count
+}
+
+void not_spelled_still_prunes(void) {
+    int x = src();            // @b11:D x
+    sink2("END BEGIN");       /* END BEGIN */
+    x = 2;
+    sink(x);                  // @b11:U:drop:macro_named_only_in_a_literal_or_comment
+}
+
+void external_pthread_pair(void (*h)(void *), int x) {
+    int r = 0;
+    {
+        pthread_cleanup_push(h, 0);
+        int *x = 0;
+        pthread_cleanup_pop(0);
+        r = x;
+    }
+    sink(r);
+}
+
+void external_cpython_pair(void *op, int x) {
+    int r = 0;
+    {
+        Py_BEGIN_CRITICAL_SECTION(op);
+        int *x = 0;
+        Py_END_CRITICAL_SECTION();
+        r = x;
+    }
+    sink(r);
+}
+
+// Guard shape of the same macro classes: the write between the pair is conditional for the
+// compiler (`if (cond) {` from the macro) and unconditional for the parser.
+void brace_if_guard(void) {
+    int x = src();            // @b1:D x
+    if (cond) BEGIN;
+    x = 2;
+    END;
+    sink(x);                  // @b1:U:keep:unbalanced_brace_macro_guards_the_write
+}
+
+void brace_transitive_if_guard(void) {
+    int x = src();            // @b2:D x
+    if (cond) ENTER;
+    x = 2;
+    LEAVE;
+    sink(x);                  // @b2:U:keep:macro_naming_an_unbalanced_macro
+}
+
+void brace_digraph_if_guard(void) {
+    int x = src();            // @b5:D x
+    if (cond) LBD;
+    x = 2;
+    RBD;
+    sink(x);                  // @b5:U:keep:digraph_brace_macro
+}
+
+void external_pthread_if_guard(void (*h)(void *)) {
+    int x = src();            // @b12:D x
+    if (cond) pthread_cleanup_push(h, 0);
+    x = 2;
+    pthread_cleanup_pop(0);
+    sink(x);                  // @b12:U:keep:external_block_macro_pair
+}
+
+void external_cpython_if_guard(void *op) {
+    int x = src();            // @b13:D x
+    if (cond) Py_BEGIN_CRITICAL_SECTION(op);
+    x = 2;
+    Py_END_CRITICAL_SECTION();
+    sink(x);                  // @b13:U:keep:external_block_macro_pair
+}
+"####,
+    ),
+    (
+        "21_macro_args.c",
+        r####"// Macro argument lists and comma-carrying macros (#829 part B). One census for the file.
+int src(void);
+void sink(int);
+struct P { int a, b; };
+int fn(struct P p);
+#define F(p, q) q p
+#define ID(v) v
+#define PAIR 1, 2
+#define INIT {0, 0}
+#define FWD(...) __VA_ARGS__
+#define CALL(...) fn2(__VA_ARGS__)
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define USE(v) sink(v)
+int fn2(int, int);
+
+// Scope-shift shape (gate-only, see TESTS.md): no baseline pair exists, E01 pins the gate.
+void arg_split_scope(int x) {
+    int r = 0;
+    {
+        int *x = 0; int bb = 0;
+        F({ int a, bb; })
+        ;
+        r = x;
+    }
+    sink(r);
+}
+
+void arg_split_chain(void) {
+    int x = src();            // @a2:D x
+    ID(F)({ int a, bb; });
+    x = 2;
+    sink(x);                  // @a2:U:keep:brace_held_comma_in_a_chained_group
+}
+
+void arg_split_compound_literal(void) {
+    int x = src();            // @a3:D x
+    USE(fn((struct P){1, 2}));
+    x = 2;
+    sink(x);                  // @a3:U:keep:brace_held_comma_nested_in_parentheses
+}
+
+void loose_top_level_comma(void) {
+    int x = src();            // @a4:D x
+    int arr[] = {PAIR};
+    x = 2;
+    sink(x + arr[0]);         // @a4:U:keep:macro_with_a_top_level_comma
+}
+
+void loose_brace_held_comma(void) {
+    int x = src();            // @a5:D x
+    int arr[2] = INIT;
+    x = 2;
+    sink(x + arr[0]);         // @a5:U:keep:macro_with_a_brace_held_comma
+}
+
+void loose_variadic_top(void) {
+    int x = src();            // @a6:D x
+    sink(fn2(FWD(1, 2)));
+    x = 2;
+    sink(x);                  // @a6:U:keep:variadic_arguments_outside_parentheses
+}
+
+void tight_commas_still_prune(int a, int b) {
+    int x = src();            // @a7:D x
+    sink(MAX(a, fn2(b, a)));
+    sink(CALL(a, b));
+    x = 2;
+    sink(x);                  // @a7:U:drop:commas_directly_inside_parentheses
+}
+
+void non_macro_call_still_prunes(void) {
+    int x = src();            // @a8:D x
+    sink(fn((struct P){1, 2}));
+    x = 2;
+    sink(x);                  // @a8:U:drop:brace_held_comma_in_a_function_call
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

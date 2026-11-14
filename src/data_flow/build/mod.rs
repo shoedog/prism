@@ -16,6 +16,8 @@ mod c_macro_census_tests;
 mod c_phantom;
 mod c_prune;
 #[cfg(test)]
+mod c_prune_brackets_tests;
+#[cfg(test)]
 mod c_prune_fold2_tests;
 #[cfg(test)]
 mod c_prune_fold7_tests;

@@ -332,3 +332,13 @@
 {"case": "18_ucn_identifier.cc", "id": "u2", "path": "caf\u00e9", "def_line": 16, "use_line": 17, "keep": true, "reason": "ucn_spelling_is_the_same_name_as_the_literal", "owner": "ucn_scalar_keep"}
 {"case": "18_ucn_identifier.cc", "id": "u3", "path": "caf\u00e9", "def_line": 22, "use_line": 24, "keep": false, "reason": "one_spelling_throughout", "owner": "ucn_consistent_control_drop"}
 {"case": "18_ucn_identifier.cc", "id": "u4", "path": "x", "def_line": 29, "use_line": 31, "keep": false, "reason": "ucn_only_inside_literals", "owner": "ucn_in_string_only_drop"}
+{"case": "20_macro_brackets.cc", "id": "x1", "path": "x", "def_line": 20, "use_line": 21, "keep": true, "reason": "unbalanced_brace_macro_moves_scope", "owner": "cpp_brace_scope"}
+{"case": "20_macro_brackets.cc", "id": "x2", "path": "x", "def_line": 29, "use_line": 30, "keep": true, "reason": "unbalanced_paren_macro_moves_scope", "owner": "cpp_paren_scope"}
+{"case": "20_macro_brackets.cc", "id": "x3", "path": "x", "def_line": 35, "use_line": 39, "keep": true, "reason": "unbalanced_macro_makes_the_write_conditional", "owner": "cpp_brace_control"}
+{"case": "20_macro_brackets.cc", "id": "x4", "path": "x", "def_line": 44, "use_line": 48, "keep": true, "reason": "template_owner_spells_unbalanced_macro", "owner": "cpp_template_owner"}
+{"case": "20_macro_brackets.cc", "id": "x5", "path": "x", "def_line": 52, "use_line": 56, "keep": false, "reason": "balanced_macros_do_not_turn_the_owner_off", "owner": "cpp_balanced_still_prunes"}
+{"case": "20_macro_brackets.cc", "id": "x6", "path": "x", "def_line": 60, "use_line": 64, "keep": true, "reason": "external_block_macro_pair", "owner": "cpp_external_pthread_pair"}
+{"case": "21_macro_args.cc", "id": "y1", "path": "x", "def_line": 17, "use_line": 18, "keep": true, "reason": "brace_held_comma_in_macro_arguments", "owner": "cpp_arg_split_scope"}
+{"case": "21_macro_args.cc", "id": "y2", "path": "x", "def_line": 24, "use_line": 27, "keep": true, "reason": "initializer_list_comma_in_macro_arguments", "owner": "cpp_init_list_in_macro"}
+{"case": "21_macro_args.cc", "id": "y3", "path": "x", "def_line": 31, "use_line": 34, "keep": false, "reason": "commas_directly_inside_parentheses", "owner": "cpp_tight_commas_still_prune"}
+{"case": "21_macro_args.cc", "id": "y4", "path": "x", "def_line": 38, "use_line": 41, "keep": false, "reason": "brace_held_comma_in_an_external_macro", "owner": "cpp_external_macro_still_prunes"}

@@ -314,6 +314,121 @@ int ucn_in_string_only_drop() {
 }
 "####,
     ),
+    (
+        "20_macro_brackets.cc",
+        r####"// Bracket macros (#829), C++ owners. One census for the file.
+int src();
+void sink(int);
+#define END }
+#define BEGIN {
+#define OPEN for (
+#define CLOSE )
+#define IF_BEGIN if (cond) {
+#define IF_END }
+#define WRAP(v) { sink(v); }
+#define MSG "{ ( ["
+struct S { int v; S& operator=(int i) { v = v * 10 + i; return *this; } };
+int cond;
+void sink2(const char *);
+
+int cpp_brace_scope(S x) {
+    {
+        int* x = nullptr;
+        END;
+        x = 5;                // @x1:D x
+        x = 1;                // @x1:U:keep:unbalanced_brace_macro_moves_scope
+        BEGIN;
+    }
+    return x.v;
+}
+
+int cpp_paren_scope(S x) {
+    OPEN; int* x = nullptr; CLOSE;
+    x = 5;                    // @x2:D x
+    x = 1;                    // @x2:U:keep:unbalanced_paren_macro_moves_scope
+    return x.v;
+}
+
+void cpp_brace_control() {
+    int x = src();            // @x3:D x
+    IF_BEGIN;
+    x = 2;
+    IF_END;
+    sink(x + 1);              // @x3:U:keep:unbalanced_macro_makes_the_write_conditional
+}
+
+template <typename T>
+void cpp_template_owner(T t) {
+    int x = src();            // @x4:D x
+    IF_BEGIN;
+    x = 2;
+    IF_END;
+    sink(x + 1);              // @x4:U:keep:template_owner_spells_unbalanced_macro
+}
+
+void cpp_balanced_still_prunes() {
+    int x = src();            // @x5:D x
+    WRAP(0);
+    sink2(MSG);
+    x = 2;
+    sink(x + 1);              // @x5:U:drop:balanced_macros_do_not_turn_the_owner_off
+}
+
+void cpp_external_pthread_pair(void (*h)(void *)) {
+    int x = src();            // @x6:D x
+    pthread_cleanup_push(h, 0);
+    x = 2;
+    pthread_cleanup_pop(0);
+    sink(x + 1);              // @x6:U:keep:external_block_macro_pair
+}
+"####,
+    ),
+    (
+        "21_macro_args.cc",
+        r####"// Macro argument lists (#829 part B), C++ owners. One census for the file.
+int src();
+void sink(int);
+#define F(p, q) q p
+#define CHECK(...) check_impl(__VA_ARGS__)
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+struct S { int v; S& operator=(int i) { v = v * 10 + i; return *this; } };
+struct V { int a, b; };
+bool check_impl(bool);
+bool operator==(V, V);
+int fn2(int, int);
+
+int cpp_arg_split_scope(S x) {
+    {
+        int* x = nullptr; int b = 0;
+        F([&](int){ int a, b; });
+        x = 5;                // @y1:D x
+        x = 1;                // @y1:U:keep:brace_held_comma_in_macro_arguments
+    }(0);
+    return x.v;
+}
+
+void cpp_init_list_in_macro(V v) {
+    int x = src();            // @y2:D x
+    CHECK(v == V{1, 2});
+    x = 2;
+    sink(x + 1);              // @y2:U:keep:initializer_list_comma_in_macro_arguments
+}
+
+void cpp_tight_commas_still_prune(int a, int b) {
+    int x = src();            // @y3:D x
+    sink(MAX(a, fn2(b, a)));
+    x = 2;
+    sink(x + 1);              // @y3:U:drop:commas_directly_inside_parentheses
+}
+
+void cpp_external_macro_still_prunes(V v) {
+    int x = src();            // @y4:D x
+    EXPECT_TRUE(v == V{1, 2});
+    x = 2;
+    sink(x + 1);              // @y4:U:drop:brace_held_comma_in_an_external_macro
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

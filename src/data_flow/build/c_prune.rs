@@ -70,7 +70,26 @@ pub(super) enum Off {
     /// 6d-1: the owner's text holds a C++ raw string with an interior line splice (or one of
     /// uncertain extent); the token readers see spliced text and cannot find its true end.
     RawStringSplice,
+    /// #829: an invoked in-repo macro, or a listed external one, has unbalanced brackets in its
+    /// replacement list: block and statement structure differ from the parse.
+    // #829 stub: never produced until the implementation lands
+    #[allow(dead_code)]
+    MacroBrackets,
+    /// #829 commit B: an invoked in-repo macro carries a comma outside parentheses.
+    // #829 stub: never produced until the implementation lands
+    #[allow(dead_code)]
+    MacroComma,
+    /// #829 commit B: a comma directly inside `{}` or `[]` within an in-repo macro's argument list.
+    // #829 stub: never produced until the implementation lands
+    #[allow(dead_code)]
+    MacroArgSplit,
 }
+
+/// #829: well-known external block-opening and block-closing macros (OD-3; the 16 names of
+/// DESIGN 6.3). Empty until the implementation lands.
+// #829 stub: computed in implementation
+#[allow(dead_code)]
+pub(super) const BLOCK_MACROS: &[&str] = &[];
 
 /// Text the compiler's translation phases read differently from tree-sitter, so the parser
 /// can see code the compiler does not (or the reverse): a trigraph (`??` + one of

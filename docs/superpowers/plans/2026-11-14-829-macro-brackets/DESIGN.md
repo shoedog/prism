@@ -1,6 +1,7 @@
 # #829: in-repo macros that change bracket structure (C/C++ rules U and D): design
 
-**Status:** proposed 2026-11-14, awaiting owner decisions OD-1 to OD-3 (section 9).
+**Status:** owner decisions 2026-11-14: OD-1 yes (commit B in scope), OD-2 deferred and filed as issue #831 (not implemented here), OD-3 yes (the 16-name list). Section 9 keeps the original wording.
+**Test status:** the test matrix was built first and is red on base; see `TESTS.md`. It found that the C scope-shift probes of section 2 do not drop a pair on head (`TESTS.md`, Deviations).
 **Worktree and base:** `fix/829-macro-brackets` at `a0f2c427` (main after #826 and #823). Every "on head" result below was produced by the release binary built from that commit.
 **Goal (for materiality):** rules U and D (`.c` slice 6b, C++ slice 6c) are removal-only. A dropped def→use pair must carry no value at run time. An in-repo macro must not be able to make the compiler's block or statement structure differ from tree-sitter's in a way that drops a live pair. Refusing (keeping pairs) is always acceptable.
 
@@ -10,7 +11,7 @@
 2. An owner that spells such a macro is **off for both U and D** (`Off::MacroBrackets`). Escaping only names is not enough: section 5, option 2.
 3. A short list of well-known block-opening and block-closing macros from system and CPython headers gets the same refusal by name (OD-3).
 4. Recommended in the same PR, as a separate commit (OD-1): the census also records a **comma or `__VA_ARGS__` outside parentheses** (`loose_comma`), and an owner is off when a comma inside an in-repo macro's argument list sits directly inside `{}` or `[]` (`Off::MacroArgSplit`). This closes a second way a balanced macro body produces an unbalanced expansion.
-5. Not in this PR (OD-2): a macro whose replacement list holds a top-level `;` and is used inside a declaration. It is a real hole on head with a different mechanism; file it.
+5. Not in this PR (OD-2): a macro whose replacement list holds a top-level `;` and is used inside a declaration. It is a real hole on head with a different mechanism; deferred and filed as issue #831.
 
 ## 2. The hole, reproduced on head
 
@@ -214,17 +215,17 @@ No part of the new rule duplicates an existing gate.
 **OWNER-DECISION OD-1: close the argument-split class (4.4) in this PR?**
 Verified hole on head in C and C++ (`a1.c`, `a1.cc`). The macros needed (`#define F(p, q) q p`) are contrived; the fix is small (one more body fact from the same scan, one site check in the existing argument walk) and has the proof in section 7.
 Cost: owners that spell a macro with a comma outside parentheses refuse (`#define VEC(x, y) ((vec2){(x), (y)})`, `#define INIT {0, 0}`, `#define ARGS a, b`, a statement macro declaring `int a, b;`), and owners that pass an initializer list or a multi-declarator block to an in-repo macro. A finer rule (refuse only when such a macro's expansion can land inside another macro's argument group) exists, but needs a predecessor analysis and a longer proof; not proposed.
-**Recommended default: yes, as commit B of the same PR.** If review of commit B has not converged after two rounds, split it into a stacked PR and merge commit A alone. If the owner says no: drop PLAN part B, add the 4.4 text to the "out of model" list in CLAUDE.md and file an issue with `a1.c`/`a1.cc`.
+*Decision 2026-11-14: yes.* **Recommended default: yes, as commit B of the same PR.** If review of commit B has not converged after two rounds, split it into a stacked PR and merge commit A alone. If the owner says no: drop PLAN part B, add the 4.4 text to the "out of model" list in CLAUDE.md and file an issue with `a1.c`/`a1.cc`.
 
 **OWNER-DECISION OD-2: the statement-boundary class (4.6).**
 Verified hole on head (`s1.c`, `s1.cc`), also contrived. A fix would record "top-level `;` in the body" and refuse an owner that spells such a macro anywhere but as a whole expression statement. Multi-statement macros without `do { } while (0)` are common in older C, so the recall cost is unknown and probably larger than OD-1's.
-**Recommended default: not in this PR. File an issue (draft below) and list it in CLAUDE.md as an open hole.** If two more structural classes turn up, take option F6 instead of a fourth flag.
+**Recommended default: not in this PR. File an issue (draft below) and list it in CLAUDE.md as an open hole.** *Decision 2026-11-14: deferred, filed as issue #831.* If two more structural classes turn up, take option F6 instead of a fourth flag.
 
 > Draft issue: *C/C++ U/D: an in-repo macro with a top-level `;` used inside a declaration re-reads later declarators (hole on main).* `#define M 1; if (c) q` and `int x = M, z = 3;`: tree-sitter reads a declaration of `z`, the compiler a conditional write to the outer `z`; rule D drops the outer def (`s1.c` prints `7 3`). Options: a census fact for a top-level `;` plus a position check (the macro must be a whole expression statement), or the shape certificate F6. Refs #829, #630.
 
 **OWNER-DECISION OD-3: the external name list (4.7).**
 `pthread_cleanup_push`/`pop` is a verified hole on head with real system headers. The list is a belt like `RETURNS_TWICE`; it changes the D2 boundary by naming exceptions.
-**Recommended default: include the 16 names of 6.3.** If the owner says no: drop rows `b12`, `b13`, `x6` and the list; keep the D2 wording change.
+*Decision 2026-11-14: yes.* **Recommended default: include the 16 names of 6.3.** If the owner says no: drop rows `b12`, `b13`, `x6` and the list; keep the D2 wording change.
 
 ## 10. Size and shape
 

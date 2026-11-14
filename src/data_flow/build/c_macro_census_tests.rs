@@ -174,3 +174,75 @@ fn cache_parity_cold_full_partial_when_a_header_define_changes() {
         edge_keys(&CodePropertyGraph::build(&files).dfg)
     );
 }
+
+// ---- #829 row cz1: the bracket facts are in the digest ----
+
+const MARK_OWNER: &str = "int f(void) {\n    int x = 1;\n    MARK;\n    x = 2;\n    return x;\n}\n";
+const MARK_V1: &str = "#define MARK {}\n";
+const MARK_V2: &str = "#define MARK {\n";
+
+fn mark_sources(header: &str) -> BTreeMap<String, String> {
+    BTreeMap::from([
+        ("a.c".to_owned(), MARK_OWNER.to_owned()),
+        ("m.h".to_owned(), header.to_owned()),
+    ])
+}
+
+fn has_x_2_to_5(g: &DataFlowGraph) -> bool {
+    edge_keys(g).contains(&("a.c".to_owned(), 2, 5, "x".to_owned()))
+}
+
+/// `m.h` goes from a balanced to an unbalanced body: a.c is unchanged, so the partial hit must
+/// notice that the census moved and rebuild in full (the pair `x@2 -> x@5` appears).
+#[test]
+fn cz1_cache_parity_when_a_header_define_becomes_unbalanced() {
+    let src = mark_sources(MARK_V1);
+    let files = parse(&src);
+    let cold = CodePropertyGraph::build(&files);
+    assert!(
+        !has_x_2_to_5(&cold.dfg),
+        "the first build prunes the overwritten def"
+    );
+    let hashes = cpg_cache::compute_file_hashes(&src);
+    let dir = tempfile::tempdir().unwrap();
+    cpg_cache::save_cache(&cold, &hashes, false, dir.path()).unwrap();
+    let CacheResult::Hit(hit) = cpg_cache::load_cache(&hashes, false, dir.path()) else {
+        panic!("expected full hit");
+    };
+    assert_eq!(edge_keys(&cold.dfg), edge_keys(&hit.dfg));
+
+    let mut edited_src = mark_sources(MARK_V2);
+    edited_src.insert("a.c".into(), MARK_OWNER.into());
+    let edited = parse(&edited_src);
+    let hashes = cpg_cache::compute_file_hashes(&edited_src);
+    let CacheResult::PartialHit {
+        cached_call_graph,
+        cached_dfg,
+        changed_files,
+    } = cpg_cache::load_cache(&hashes, false, dir.path())
+    else {
+        panic!("expected partial hit");
+    };
+    assert_eq!(changed_files, BTreeSet::from(["m.h".to_owned()]));
+    let fresh = CMacroCensus::from_files(&edited).digest();
+    assert_ne!(
+        cached_dfg.c_macro_census_digest(),
+        fresh,
+        "built under another census: the digest must carry the bracket fact"
+    );
+    let incremental = CodePropertyGraph::build_incremental(
+        cached_call_graph,
+        cached_dfg,
+        &changed_files,
+        &edited,
+        None,
+    );
+    let rebuilt = CodePropertyGraph::build(&edited);
+    assert_eq!(edge_keys(&incremental.dfg), edge_keys(&rebuilt.dfg));
+    assert!(
+        has_x_2_to_5(&rebuilt.dfg),
+        "an unbalanced MARK turns the owner off: x@2 -> x@5 is kept"
+    );
+    assert!(has_x_2_to_5(&incremental.dfg));
+    assert_eq!(incremental.dfg.c_macro_census_digest(), fresh);
+}

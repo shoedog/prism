@@ -6,7 +6,7 @@ Worktree: `/Users/wesleyjinks/code/prism-829`, branch `fix/829-macro-brackets`, 
 **Goal of the task (state it in every review brief):** rules U and D for `.c` and C++ owners must not drop a live def→use pair because an in-repo macro (or a listed external one) changes the bracket structure the compiler sees. Removal-only: keeping more pairs is always acceptable; dropping fewer correct pairs in the control rows is a defect.
 
 **Shape:** one PR, two commits. Commit A = tasks 1 to 6 (issue scope plus the external name list). Commit B = tasks 7 to 9 (comma facts and argument split, OD-1). Tasks 10 to 13 close the PR.
-**Owner decisions change the task list:** OD-1 no → skip tasks 7 to 9, do the "if no" text of DESIGN section 9. OD-3 no → drop `BLOCK_MACROS`, rows `b12`, `b13`, `x6`, `E01`. OD-2 is not implemented in either case.
+**Owner decisions (2026-11-14, final): OD-1 yes, OD-2 deferred and filed as issue #831, OD-3 yes; the "no" branches below do not apply.** They would have changed the task list: OD-1 no → skip tasks 7 to 9, do the "if no" text of DESIGN section 9. OD-3 no → drop `BLOCK_MACROS`, rows `b12`, `b13`, `x6`, `E01`. OD-2 is not implemented in either case.
 **Caps (declare before dispatch):** implementer: at most 2 repair attempts per failing task before reporting back. Review: 3 rounds for the PR; if commit B is not converging after 2 rounds, split it into a stacked PR (it then needs its own cache version) and merge commit A.
 
 ## Rules for the implementer
@@ -130,6 +130,8 @@ Counts: M1 26, M2 19, M3 6, M4 12, M5 12 = 75 rows.
 Commit A carries M1, M2 and M3 (51 rows); commit B carries M4 and M5 (24 rows) and extends `E01` to the `21_macro_args` cases.
 
 ## Fixture sources
+
+**Changed after the test build (see `TESTS.md`, Deviations):** the C scope-shift shapes of b1, b2, b5, b12, b13 and a1 have no baseline pair, so their functions below are gate-only (no row markers; E01 pins their gate). The rows b1, b2, b5, b12 and b13 are carried by guard-shape twins (`if (cond) BEGIN; x = 2; END;` and the analogues) added at the end of `20_macro_brackets.c`; a1 is gate-only. The sources in `c_prune_inline_cases.rs` are authoritative.
 
 Add each as a new entry of `INLINE_CASES` (`(file name, r####"…"####)`), verbatim. Line numbers matter only to the generated rows; do not hand-edit `obligations.jsonl`.
 
@@ -589,7 +591,7 @@ As task 6. Commit: `fix(dfg): C/C++ owners off on comma-carrying macros and brac
 ### Task 10. Documentation
 `CLAUDE.md` (keep the existing dense style; plain statements, no history of rounds):
 - **"The C/C++ macro census …" paragraph:** the census also records `unbalanced` (replacement list not well-nested in `()`, `[]`, `{}`; any digraph bracket counts; brackets in literals and comments do not) and `loose_comma` (a comma or `__VA_ARGS__` whose innermost bracket in the body is not a parenthesis; a GNU named variadic counts); both are unioned over definitions, closed over referenced macros, read by token scan in parsed files (a pass that cannot read the body gives no verdict) and by token scan with a raw-byte fallback in permissive texts; both are in the digest (`c-macro-census-v3`).
-- **"C rules U and D …" paragraph:** add the gates to the "An owner is off for …" list: an invoked in-repo macro with `unbalanced` or one of the listed external block macros (`Off::MacroBrackets`), one with `loose_comma` (`Off::MacroComma`), and a comma directly inside `{}` or `[]` within an in-repo macro's argument list (`Off::MacroArgSplit`); name the reason in one sentence each (the compiler's blocks differ from the parse; arguments are split at commas outside parentheses only). In the "Out of model (disclosed, owner D2)" sentence add: an external macro's expansion is well-nested and comma-tight, except the listed names. Add the open hole of OD-2 with its issue number once filed. Point to this design.
+- **"C rules U and D …" paragraph:** add the gates to the "An owner is off for …" list: an invoked in-repo macro with `unbalanced` or one of the listed external block macros (`Off::MacroBrackets`), one with `loose_comma` (`Off::MacroComma`), and a comma directly inside `{}` or `[]` within an in-repo macro's argument list (`Off::MacroArgSplit`); name the reason in one sentence each (the compiler's blocks differ from the parse; arguments are split at commas outside parentheses only). In the "Out of model (disclosed, owner D2)" sentence add: an external macro's expansion is well-nested and comma-tight, except the listed names. Add the open hole of OD-2 with its issue number, #831. Point to this design.
 - **"C++ rules U and D …" paragraph:** one clause: the three gates apply to C++ owners unchanged.
 - "CPG cache (currently v188)" → v189.
 - Trace sentence: the new `off:` verdict names.
