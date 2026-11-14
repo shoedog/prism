@@ -360,3 +360,9 @@
 {"case": "16_phase_splice_cr.cc", "id": "cr3", "path": "x", "def_line": 45, "use_line": 46, "keep": true, "reason": "the_compiler_reads_x_here_tree_sitter_sees_a_comment", "owner": "cr_read_hidden_keep"}
 {"case": "16_phase_splice_cr.cc", "id": "cr4", "path": "x", "def_line": 51, "use_line": 53, "keep": true, "reason": "compiler_view_of_the_cr_row_the_read_is_live", "owner": "cr_read_control_keep"}
 {"case": "17_crlf_control.cc", "id": "cl1", "path": "x", "def_line": 7, "use_line": 9, "keep": false, "reason": "crlf_only_owner_stays_on", "owner": "crlf_control_drop"}
+{"case": "18_ucn_identifier.cc", "id": "u1", "path": "caf\u00e9", "def_line": 10, "use_line": 11, "keep": true, "reason": "ucn_spelling_is_the_same_name_as_the_literal", "owner": "ucn_pointer_keep"}
+{"case": "18_ucn_identifier.cc", "id": "u2", "path": "caf\u00e9", "def_line": 16, "use_line": 17, "keep": true, "reason": "ucn_spelling_is_the_same_name_as_the_literal", "owner": "ucn_scalar_keep"}
+{"case": "18_ucn_identifier.cc", "id": "u3", "path": "caf\u00e9", "def_line": 22, "use_line": 24, "keep": false, "reason": "one_spelling_throughout", "owner": "ucn_consistent_control_drop"}
+{"case": "18_ucn_identifier.cc", "id": "u4", "path": "x", "def_line": 29, "use_line": 31, "keep": false, "reason": "ucn_only_inside_literals", "owner": "ucn_in_string_only_drop"}
+{"case": "19_phase_prefix.cc", "id": "pf1", "path": "x", "def_line": 9, "use_line": 12, "keep": true, "reason": "earlier_function_opened_a_comment_closed_here_exemption_refuses", "owner": "b"}
+{"case": "20_phase_prefix_control.cc", "id": "pf2", "path": "x", "def_line": 8, "use_line": 11, "keep": true, "reason": "no_keyword_proof_so_the_escape_stays", "owner": "b"}

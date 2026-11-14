@@ -64,6 +64,9 @@ pub(super) enum Off {
     /// the compiler's translation phases read differently from the parser (`// ??/` splices the
     /// next line into the comment).
     PhaseDivergence,
+    /// 6d-2s fold 3: an identifier-like node is spelled with a backslash (a UCN, `caf\u00e9`).
+    /// C++ reads it as the same name as the literal `café`; prism keys names by raw spelling.
+    UcnIdentifier,
 }
 
 /// Text the compiler's translation phases read differently from tree-sitter, so the parser
@@ -453,6 +456,9 @@ fn walk(
         set_off(Off::G3Ms);
     } else if kind.contains("asm") || kind.starts_with("seh_") {
         set_off(Off::G3);
+    }
+    if kind.ends_with("identifier") && parsed.node_text(&node).contains('\\') {
+        set_off(Off::UcnIdentifier);
     }
     if is_name_kind(kind) {
         note_name(parsed.node_text(&node), census, out, off);

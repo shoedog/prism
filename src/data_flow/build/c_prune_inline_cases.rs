@@ -258,6 +258,26 @@ int cr_control_conditional_keep(int c) {
 }
 "####,
     ),
+    (
+        "13_ucn_identifier.c",
+        r####"// Fold 3 (`.c`): a backslash-spelled identifier turns the owner off.
+int src(void);
+void sink(int);
+
+int ucn_scalar_keep(void) {
+    int café = src();           // @u2:D café
+    café = caf\u00e9;           // @u2:U:keep:ucn_spelling_is_the_same_name_as_the_literal
+    return 0;
+}
+
+int ucn_consistent_control_drop(void) {
+    int café = src();           // @u3:D café
+    café = 1;
+    sink(café);                 // @u3:U:drop:one_spelling_throughout
+    return 0;
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

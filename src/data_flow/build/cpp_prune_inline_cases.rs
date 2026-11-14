@@ -276,6 +276,79 @@ void crlf_control_drop() {
 }
 "####,
     ),
+    (
+        "18_ucn_identifier.cc",
+        r####"// Fold 3: `caf\u00e9` and `café` are one identifier to the compiler, two spellings to prism.
+// An owner with a backslash-spelled identifier node is off (UcnIdentifier); a UCN only inside a
+// string or character literal is not an identifier and leaves the owner on.
+struct T {};
+const T* source();
+int src();
+void sink(int);
+
+const T* ucn_pointer_keep() {
+    const T* café = source();   // @u1:D café
+    café = caf\u00e9;           // @u1:U:keep:ucn_spelling_is_the_same_name_as_the_literal
+    return café;
+}
+
+int ucn_scalar_keep() {
+    int café = src();           // @u2:D café
+    café = caf\u00e9;           // @u2:U:keep:ucn_spelling_is_the_same_name_as_the_literal
+    return 0;
+}
+
+int ucn_consistent_control_drop() {
+    int café = src();           // @u3:D café
+    café = 1;
+    sink(café + 1);             // @u3:U:drop:one_spelling_throughout
+    return 0;
+}
+
+int ucn_in_string_only_drop() {
+    int x = src();              // @u4:D x
+    x = 1;
+    sink(x + 1);                // @u4:U:drop:ucn_only_inside_literals
+    const char* s = "caf\u00e9"; char c = '\u00e9';
+    return s[0] + c;
+}
+"####,
+    ),
+    (
+        "19_phase_prefix.cc",
+        r####"// Fold 3 addition: a splice in `a` opens a comment the compiler closes inside `b`, so `b`'s own
+// text is clean. The keyword exemption refuses when the file prefix holds a phase trigger.
+struct S { int v; S& operator=(int n) { v += n; return *this; } };
+struct T;
+int a(S x) {
+    int y = 4 /\
+* 2;
+}
+int b(int x) {   // @pf1:D x
+    /* c */ ;
+    { const T* x; }
+    x = 5;               // @pf1:U:keep:earlier_function_opened_a_comment_closed_here_exemption_refuses
+    return x;
+}
+"####,
+    ),
+    (
+        "20_phase_prefix_control.cc",
+        r####"// Control of 19_phase_prefix.cc: `T* x` has no keyword proof, so base and this PR both keep.
+struct S { int v; S& operator=(int n) { v += n; return *this; } };
+struct T;
+int a(S x) {
+    int y = 4 /\
+* 2;
+}
+int b(int x) {   // @pf2:D x
+    /* c */ ;
+    { T* x; }
+    x = 5;               // @pf2:U:keep:no_keyword_proof_so_the_escape_stays
+    return x;
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

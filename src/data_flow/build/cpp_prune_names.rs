@@ -205,7 +205,25 @@ fn keyword_proves_declaration(parsed: &ParsedFile, decl: Node<'_>) -> bool {
         "type_identifier" | "primitive_type" | "sized_type_specifier" => false,
         _ => return false,
     };
-    direct_const || type_proof || chain_const
+    (direct_const || type_proof || chain_const) && !file_prefix_diverges(parsed, decl)
+}
+
+/// A phase-divergence trigger (trigraph, backslash before a line end, lone CR, or a UCN escape,
+/// literals included: conservative) anywhere in the file up to the end of the outermost function
+/// holding `decl`. A comment a divergence opens in an earlier function can close in this one, so
+/// the owner's own text being clean proves nothing; the exemption then keeps the escape (6d-2s
+/// fold 3; the cross-function mechanism for the other rules is pre-existing and not closed here).
+fn file_prefix_diverges(parsed: &ParsedFile, decl: Node<'_>) -> bool {
+    let mut end = decl.end_byte();
+    let mut cur = decl.parent();
+    while let Some(n) = cur {
+        if n.kind() == "function_definition" {
+            end = n.end_byte();
+        }
+        cur = n.parent();
+    }
+    let prefix = parsed.source.get(..end).unwrap_or(&parsed.source);
+    super::c_prune::phase_divergence(prefix) || prefix.contains("\\u") || prefix.contains("\\U")
 }
 
 /// `struct N`, `class N`, ... : the keyword, a plain `type_identifier` name, no body, no

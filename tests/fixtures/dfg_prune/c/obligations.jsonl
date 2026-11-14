@@ -126,3 +126,5 @@
 {"case": "12_phase_splice_cr", "id": "sp3", "path": "x", "def_line": 13, "use_line": 15, "keep": false, "reason": "control_without_any_splice_or_cr", "owner": "splice_control_drop"}
 {"case": "12_phase_splice_cr", "id": "cr1", "path": "x", "def_line": 19, "use_line": 22, "keep": true, "reason": "lone_cr_ends_the_comment_so_the_compiler_sees_if_c_x_eq_2", "owner": "cr_comment_hides_if_keep"}
 {"case": "12_phase_splice_cr", "id": "cr2", "path": "x", "def_line": 26, "use_line": 30, "keep": true, "reason": "compiler_view_of_the_previous_row_the_write_is_conditional", "owner": "cr_control_conditional_keep"}
+{"case": "13_ucn_identifier", "id": "u2", "path": "caf\u00e9", "def_line": 6, "use_line": 7, "keep": true, "reason": "ucn_spelling_is_the_same_name_as_the_literal", "owner": "ucn_scalar_keep"}
+{"case": "13_ucn_identifier", "id": "u3", "path": "caf\u00e9", "def_line": 12, "use_line": 14, "keep": false, "reason": "one_spelling_throughout", "owner": "ucn_consistent_control_drop"}
