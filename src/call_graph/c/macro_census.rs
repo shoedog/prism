@@ -462,14 +462,29 @@ fn splice(src: &str, lenient: bool) -> (Vec<u8>, Vec<usize>) {
     (out, points)
 }
 
-/// Does the last line of `out` (comments already replaced by spaces) start with `#` or `%:`?
-fn in_directive_line(out: &[u8]) -> bool {
-    let line = out.rsplit(|&c| c == b'\n').next().unwrap_or(&[]);
-    let t = &line[line
-        .iter()
-        .take_while(|c| matches!(c, b' ' | b'\t' | b'\x0b' | b'\x0c' | b'\r'))
-        .count()..];
-    t.starts_with(b"#") || t.starts_with(b"%:")
+/// Incremental "does the current output line hold a `#`, `%:` or `??=` so far" (any blanks,
+/// NUL included): a comment on such a line stays one space. Linear overall: each output byte
+/// is scanned once.
+#[derive(Default)]
+struct LineState {
+    scanned: usize,
+    directive: bool,
+}
+
+impl LineState {
+    fn directive_line(&mut self, out: &[u8]) -> bool {
+        for k in self.scanned..out.len() {
+            match out[k] {
+                b'\n' => self.directive = false,
+                b'#' => self.directive = true,
+                b':' if k > 0 && out[k - 1] == b'%' => self.directive = true,
+                b'=' if k > 1 && out[k - 1] == b'?' && out[k - 2] == b'?' => self.directive = true,
+                _ => {}
+            }
+        }
+        self.scanned = out.len();
+        self.directive
+    }
 }
 
 struct Stripped {
@@ -519,6 +534,7 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool, precise: bool) -> Stri
     let mut spliced_raw = false;
     let mut raw_seen = false;
     let mut spliced_raw_directive = None;
+    let mut line_state = LineState::default();
     let mut i = 0;
     while i < b.len() {
         let c = b[i];
@@ -539,7 +555,7 @@ fn strip_comments(b: &[u8], splices: &[usize], cxx: bool, precise: bool) -> Stri
                 // is ever looked up, and it maps exactly through the shift below.
                 // Inside a directive line the comment stays one space (the directive goes on
                 // after it), so a macro body is never cut in two.
-                if !in_directive_line(&out) {
+                if !line_state.directive_line(&out) {
                     out.extend(b[start..i].iter().filter(|&&c| c == b'\n'));
                 }
                 shifts.push((out.len(), i));
@@ -1104,6 +1120,15 @@ fn collect(source: &str, precise: bool, out: &mut BTreeMap<String, RawDef>, inco
         if let Some((kind, line, snippet)) = exotic_directive(&splice(&plain, lenient).0) {
             incomplete.flag(kind, line, &snippet);
             break;
+        }
+        // Fold 6: a directive line seen only after comment stripping (`*/ #define M \u00e9`)
+        // is checked like any other.
+        let (spliced, points) = splice(&plain, lenient);
+        for cxx in [true, false] {
+            let stripped = strip_comments(&spliced, &points, cxx, precise);
+            if let Some((kind, line, snippet)) = exotic_directive(stripped.text.as_bytes()) {
+                incomplete.flag(kind, line, &snippet);
+            }
         }
     }
     let mut texts = vec![translated];

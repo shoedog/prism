@@ -331,3 +331,71 @@ fn earlier_round_inputs_read_m_without_relying_on_incomplete() {
     );
     m_hidden(&CMacroCensus::from_files(&m));
 }
+
+// ---- Fold 6: exotic names after `*/`, NUL leaders, long lines, define-then-comment. ----
+
+#[test]
+fn exotic_name_after_a_block_comment_is_not_missed() {
+    let hdr = |body: &str| {
+        format!("#define R\nconst char *s = R\"(a)\\\n\"; /* real\n*/ #define M {body}\nconst char *t = \")\";\n")
+    };
+    let census_of = |body: &str| {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "shared.hpp".to_string(),
+            ParsedFile::parse("shared.hpp", &hdr(body), Language::Cpp).unwrap(),
+        );
+        m.insert(
+            "a.c".to_string(),
+            ParsedFile::parse(
+                "a.c",
+                "int f(int \u{e9}) { \u{e9} = M; return \u{e9} + 1; }\n",
+                Language::C,
+            )
+            .unwrap(),
+        );
+        CMacroCensus::from_files(&m)
+    };
+    let c = census_of("\u{e9}");
+    assert!(
+        c.incomplete() || c.get("M").is_some_and(|m| m.free.contains("\u{e9}")),
+        "{:?}",
+        c.reasons
+    );
+    assert!(c.incomplete());
+    // Recall control: the ASCII body is read and the census stays complete.
+    let c = census_of("hidden");
+    m_hidden(&c);
+}
+
+#[test]
+fn nul_before_a_directive_keeps_the_comment_one_space() {
+    use super::macro_census::source_include_targets as t;
+    let src = "\0#include /* c\n */ \"defs.tbl\"\n";
+    assert!(t(src).iter().any(|(n, _)| n == "defs.tbl"), "{:?}", t(src));
+}
+
+#[test]
+fn many_comments_on_one_long_line_are_linear() {
+    let mut src = String::new();
+    for _ in 0..8000 {
+        src.push_str("a /* c */ ");
+    }
+    src.push_str("\n#define M x\n");
+    let t = std::time::Instant::now();
+    let c = parsed("a.c", &src);
+    assert!(t.elapsed().as_secs_f64() < 1.0, "{:?}", t.elapsed());
+    assert!(c.get("M").is_some());
+}
+
+#[test]
+fn define_then_comment_then_define_keeps_both_bodies() {
+    let c = parsed("a.c", "#define A x /* c\n*/ #define M hidden\n");
+    let a = c.get("A").unwrap();
+    assert!(
+        a.free.contains("x") && a.free.contains("M") && a.free.contains("hidden"),
+        "{:?}",
+        a.free
+    );
+    // As clang reads it, `M` is part of A's body, not a definition of its own.
+}
