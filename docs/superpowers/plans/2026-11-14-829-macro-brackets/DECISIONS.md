@@ -23,3 +23,4 @@ Redesign (DESIGN-v2.md / PLAN-v2.md, owner 2026-11-14):
 - OD-C: close the A-span two-file form in this PR (not disclose-only).
 - OD-D: G10 cascade over uncorrelated same-condition `#if` branches accepted.
 - Design review by gpt-6.1-sol (xhigh) before implementation, cap 2 rounds; then Sonnet implements; gpt-6.1-terra reviews the code.
+- 2026-11-15, after gpt-6.1-sol design review r1 REJECT (shield lemma V broken by an empty external macro) and the gpt-6-astra amendment: OD-A2 accepted — candidate 12-all-roots (no shields; every identifier followed by a paren group is a potential callee group; 31 names; G10 unchanged). Recall cost 5.95% accepted; a finer comma/parameter-flow certificate may recover recall in a later slice. sol round 2 (final round of the cap) reviews DESIGN-v2 as amended.
