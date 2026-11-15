@@ -24,6 +24,7 @@ use crate::algorithms::taint::report::{
 };
 use crate::algorithms::taint::seeds::{detect_framework_sources, synthesize_target_seed_paths};
 use crate::algorithms::taint::sink_match::{structured_sink_outcome, SinkMatchOutcome};
+use crate::algorithms::taint::source_scope::admission::RunScope;
 use crate::algorithms::taint::{matches_sink, TaintConfig, TaintSeed};
 use crate::algorithms::taint_sinks;
 use anyhow::Result;
@@ -50,6 +51,18 @@ pub(super) fn slice_impl(
     taint_config: &TaintConfig,
     trace: Option<&mut super::trace::TaintTrace>,
 ) -> Result<SliceResult> {
+    slice_scoped_impl(ctx, diff, taint_config, trace, RunScope::default())
+}
+
+/// The taint run under a source scope (#602 S3a.1s). With `RunScope::default()` every
+/// loaded file may start roots, which is the legacy behavior byte for byte.
+pub(super) fn slice_scoped_impl(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    taint_config: &TaintConfig,
+    trace: Option<&mut super::trace::TaintTrace>,
+    scope: RunScope<'_>,
+) -> Result<SliceResult> {
     let mut result = SliceResult::new(SlicingAlgorithm::Taint);
 
     // Collect taint sources. Line-scoped seeds preserve existing behavior;
@@ -57,6 +70,7 @@ pub(super) fn slice_impl(
     let mut taint_seeds: Vec<TaintSeed> = taint_config
         .sources
         .iter()
+        .filter(|(file, _)| scope.admits_source_file(ctx.files, file))
         .map(|(file, line)| TaintSeed::line(file.clone(), *line))
         .collect();
 
@@ -66,6 +80,9 @@ pub(super) fn slice_impl(
             // of `ctx.files`, so they can never be traced; seeding them only
             // produces an untraceable `taint_source` finding (P1 Change 1).
             if !ctx.files.contains_key(&diff_info.file_path) {
+                continue;
+            }
+            if !scope.admits_source_file(ctx.files, &diff_info.file_path) {
                 continue;
             }
             for &line in &diff_info.diff_lines {
@@ -79,7 +96,11 @@ pub(super) fn slice_impl(
     // (e.g. from `g_hash_table_lookup(settings->data, "usercert")`) flows into
     // a privileged sink (e.g. `BUILD_FROM_FILE`) that runs as root.
     // These are additional sources that extend (not replace) diff-line sources.
-    let ipc_sources: Vec<(String, usize)> = detect_ipc_sources(ctx, diff);
+    // The scope filters the discovered lines before BOTH the seeds and the fallback set.
+    let ipc_sources: Vec<(String, usize)> = detect_ipc_sources(ctx, diff)
+        .into_iter()
+        .filter(|(file, _)| scope.admits_source_file(ctx.files, file))
+        .collect();
     for ipc_src in &ipc_sources {
         taint_seeds.push(TaintSeed::line(ipc_src.0.clone(), ipc_src.1));
     }
@@ -89,8 +110,16 @@ pub(super) fn slice_impl(
     // For each Go file with a detected framework, every call to a framework
     // SourcePattern (`c.Query`, `r.URL.Query`, `mux.Vars`, …) is a taint source.
     // These extend (not replace) diff-line and IPC sources.
+    // `framework_sources` stays the FULL fact list: a context file keeps its source
+    // recognition (suppression sets and range maps below read it), and only the
+    // admitted subset in `framework_seeds` starts roots.
     let framework_sources: Vec<TaintSeed> = detect_framework_sources(ctx);
-    for fw_src in &framework_sources {
+    let framework_seeds: Vec<TaintSeed> = framework_sources
+        .iter()
+        .filter(|seed| scope.admits_source_file(ctx.files, &seed.file))
+        .cloned()
+        .collect();
+    for fw_src in &framework_seeds {
         taint_seeds.push(fw_src.clone());
     }
     taint_seeds.sort();
@@ -134,17 +163,15 @@ pub(super) fn slice_impl(
         ctx.cpg.taint_forward_cfg_labeled(&taint_sources)
     };
     if let Some(trace) = trace {
-        *trace = super::trace::capture(
-            ctx,
-            diff,
-            taint_config,
-            &ipc_source_set,
-            &framework_sources,
-            &mut paths,
-            &flow_evidence,
-        );
+        let sources = super::trace::CaptureSources {
+            ipc: &ipc_source_set,
+            framework: &framework_seeds,
+            scope,
+        };
+        *trace =
+            super::trace::capture(ctx, diff, taint_config, sources, &mut paths, &flow_evidence);
     } else {
-        synthesize_target_seed_paths(&framework_sources, ctx, &mut paths);
+        synthesize_target_seed_paths(&framework_seeds, ctx, &mut paths);
     }
 
     let mut evidence_by_lines: BTreeMap<(String, usize, String, usize), EvidencePath> =
@@ -344,6 +371,11 @@ pub(super) fn slice_impl(
     }
 
     for (file, parsed) in ctx.files {
+        // An inline source=sink finding is not an ordinary seed: filtering seeds
+        // alone would still report a context file's own `load(req.body.payload)`.
+        if !scope.admits_source_file(ctx.files, file) {
+            continue;
+        }
         if is_js_ts_language(parsed.language) {
             for line in js_ts_inline_framework_source_yaml_sink_lines(parsed) {
                 sink_lines.insert((file.clone(), line));

@@ -15,7 +15,10 @@ use prism::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+mod cases;
+mod facts;
 mod real;
+mod routes;
 
 use TaintRootOrigin::{Diff, Explicit, Framework, Ipc};
 
