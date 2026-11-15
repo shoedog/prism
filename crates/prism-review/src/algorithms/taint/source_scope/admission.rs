@@ -4,6 +4,7 @@
 //! keep their source-recognition facts) while only original files start roots or
 //! independent inline source=sink findings. Nothing here is public.
 use super::loading::project_loading_trace;
+use crate::algorithms::taint::attribution::EmissionAttribution;
 use crate::algorithms::taint::{TaintConfig, TaintTrace};
 use anyhow::Result;
 use prism::cpg::{CpgContext, TaintCrossingPolicy};
@@ -76,6 +77,8 @@ pub(crate) struct ScopedTaintOutcome {
     /// The roots allowed to cause loading, projected from the COMPLETED `trace`.
     pub(crate) loading: TaintTrace,
     pub(crate) excluded_explicit: Vec<ExcludedExplicit>,
+    /// What the run emitted, sink by sink and source by source (#602 S4d1). Review-private.
+    pub(crate) emission: EmissionAttribution,
 }
 
 /// Explicit requests the scope refuses: loaded is checked first, repeats are kept.
@@ -135,12 +138,14 @@ fn run_scoped(
 ) -> Result<ScopedTaintOutcome> {
     let excluded_explicit = excluded_explicit(ctx, config, original_files);
     let mut trace = TaintTrace::default();
-    let result = crate::algorithms::taint::run::slice_scoped_impl(
+    let mut emission = EmissionAttribution::default();
+    let result = crate::algorithms::taint::run::slice_attributed_impl(
         ctx,
         diff,
         config,
         Some(&mut trace),
         scope,
+        Some(&mut emission),
     )?;
     // Project only from the completed full trace, never from findings or a capped list.
     let loading = project_loading_trace(&trace, original_files, ctx.files);
@@ -149,5 +154,6 @@ fn run_scoped(
         trace,
         loading,
         excluded_explicit,
+        emission,
     })
 }
