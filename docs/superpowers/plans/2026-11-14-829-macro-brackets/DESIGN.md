@@ -1,5 +1,7 @@
 # #829: in-repo macros that change bracket structure (C/C++ rules U and D): design
 
+**Superseded (2026-11-14): `DESIGN-v2.md` is the design of record. This document is the tentative design, kept as history; its rule misses the enclosing-group class and its comma gate costs 10.5% of the sound drops (`L4-SCORES.md`).**
+
 **Status:** owner decisions 2026-11-14: OD-1 yes (commit B in scope), OD-2 deferred and filed as issue #831 (not implemented here), OD-3 yes (the 16-name list). Section 9 keeps the original wording.
 **Round-1 enumeration (terra+sol, 2026-11-14):** one WRONG/MATERIAL finding folded into section 6.3 (in-repo macros that wrap a listed external block macro are refused through the free-name closure); the remaining enumerated rows (live argument splits, lexical and census readings, loader discovery, cache) are tests (`TESTS.md`, round-1 section).
 **Test status:** the test matrix was built first and is red on base; see `TESTS.md`. It found that the C scope-shift probes of section 2 do not drop a pair on head (`TESTS.md`, Deviations).

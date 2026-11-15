@@ -1,5 +1,7 @@
 # #829 implementation plan: macros that change bracket structure
 
+**Superseded (2026-11-14): `PLAN-v2.md` is the plan of record (design `DESIGN-v2.md`). Kept as history.**
+
 Design: `DESIGN.md` in this directory. Read sections 1, 6 and 9 first.
 Worktree: `/Users/wesleyjinks/code/prism-829`, branch `fix/829-macro-brackets`, base `a0f2c427`. Work only there.
 

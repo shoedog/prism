@@ -440,3 +440,7 @@ Inputs (git-excluded, local): `.scratch829/exp2` (row export), `.scratch829/gen/
 (`results.jsonl`), `.scratch829/l3/<corpus>/base` (`rows.tsv`, `T.json.gz`), and the six corpus
 checkouts of `l3_corpora.json`. A new candidate is a function in `xscore_candidates.py` (or in a file
 passed with `--candidates`).
+
+## 8. Addendum (redesign phase): candidates 10 and B1 to B7
+
+`xscore_candidates.py` now also holds the rule of `DESIGN-v2.md` (candidate 10), its variants (10x the 31-name list, 10n without shielded parentheses, 10i, 10f, 10s) and its ablations B1 to B7; `xscore_lex.py` records the paren groups of each macro body (`Facts.groups`), tells a plain `#else` from `#elif` and gives a candidate the owner's file index. The 15 candidates above score exactly as before (150 of 150 cells). Numbers, the premise-coverage reading of the ablations and the finding that **candidate 8 is unsound** (it admits a macro whose own body splits an argument, `#define HI F({ int a, b; })`: oracle CONTRADICTED, outside the generator's grammar) are in `DESIGN-v2.md` sections 2 and 9. Candidate 10: 0 must-keep violations on L1 (113, 30, 98), L2 bound 3 (6,903) and the bound-4 batches (8,566), L3 (50); recall cost 0.9% (332 of 37,777); 108 of 20,274 owners refused. Reproduce: `python3 scripts/dfg_prune/xscore.py run --out .scratch829/redesign/l4v2`.
