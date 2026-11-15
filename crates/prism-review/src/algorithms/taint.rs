@@ -14,7 +14,7 @@ mod report;
 mod run;
 mod seeds;
 mod sink_match;
-#[allow(dead_code)] // S3a.1s consumes this independently tested primitive.
+#[allow(dead_code)] // `slice_scoped` has no production caller until S4.
 mod source_scope;
 mod trace;
 

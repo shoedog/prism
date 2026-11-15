@@ -344,3 +344,74 @@ fn finding_filter_cannot_remove_boundary_diagnostics() {
     );
     assert_eq!((rows[0].2, rows[1].2), (Some(1), Some(1)));
 }
+
+// RS15 (#602 S3a.1s): REAL, public API only. A compatibility control: it is expected to
+// pass on the base too, because the explicit-source suppression predates source scopes.
+#[test]
+fn source_scope_preserves_high_level_explicit_suppression() {
+    // Line 5 is the dangerous diff-line flow (`command` from line 4); line 8 is a safe source.
+    let source = "import os\n\ndef dangerous(user):\n    command = user\n    os.system(command)\n\ndef safe(user):\n    value = user\n    return 42\n";
+    let (_tmp, repo, text) = write_repo(&[("a.py", source)], &[("a.py", &[4][..])]);
+    let opts = ReviewOptions::new(&repo);
+    let inputs = load_review_inputs(&opts, &text).unwrap();
+    let built = build_context(&inputs, &opts).unwrap();
+    let config = SliceConfig::default();
+    let sink_on = |result: &SliceResult, line: usize| {
+        let sinks = result.findings.iter().enumerate();
+        let mut sinks = sinks.filter(|(_, f)| {
+            (f.file.as_str(), f.line, f.category.as_deref()) == ("a.py", line, Some("taint_sink"))
+        });
+        sinks.next().map(|(index, _)| index)
+    };
+    let low_level = |explicit: usize, from_diff: bool| {
+        let taint_config = taint::TaintConfig {
+            sources: vec![("a.py".to_string(), explicit)],
+            taint_from_diff: from_diff,
+            ..taint::TaintConfig::default()
+        };
+        let mut direct = taint::slice(&built.ctx, &inputs.diff, &taint_config).unwrap();
+        // Normalized exactly as `typed_legacy_and_direct_result_have_only_note_delta`.
+        direct.align_evidence();
+        algorithms::finalize_diagrams(&mut direct, config.diagram_node_cap);
+        annotate_finding_parse_quality(&mut direct.findings, &inputs.files);
+        direct
+    };
+
+    // (2) low level, `taint_from_diff: true`: the dangerous sink is present with evidence.
+    let both = low_level(8, true);
+    let index = sink_on(&both, 5).expect("fixture needs the dangerous sink");
+    let evidence = both.evidence[index].as_ref();
+    assert!(
+        evidence.is_some_and(|e| !e.hops.is_empty()),
+        "fixture needs evidence"
+    );
+
+    // (1) safe explicit source, (3) dangerous explicit source: public API versus low level.
+    for (explicit, dangerous) in [(8, false), (4, true)] {
+        let mut params = AlgorithmParams::default();
+        params.taint_sources = vec![format!("a.py:{explicit}")];
+        let run = |algorithm| {
+            run_algorithm_with_diagnostics(algorithm, &built.ctx, &inputs, &config, &params, &repo)
+        };
+        let typed = run(SlicingAlgorithm::Taint).unwrap();
+        assert_eq!(
+            sink_on(&typed.result, 5).is_some(),
+            dangerous,
+            "explicit source {explicit}"
+        );
+        let mut direct = low_level(explicit, false);
+        same_result(&typed.result, &direct);
+        let legacy = run_algorithm(
+            SlicingAlgorithm::Taint,
+            &built.ctx,
+            &inputs,
+            &config,
+            &params,
+            &repo,
+        );
+        if let Some(d) = typed.diagnostics.as_ref() {
+            direct.warnings.extend(d.messages());
+        }
+        same_result(&legacy.unwrap(), &direct);
+    }
+}

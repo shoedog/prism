@@ -1,5 +1,6 @@
 //! Opt-in retained taint roots. Legacy slicing does not collect this payload.
 
+use super::source_scope::admission::RunScope;
 use super::{TaintConfig, TaintSeed};
 use prism::cpg::CpgContext;
 use prism::data_flow::{FlowPath, VarLocation};
@@ -56,18 +57,34 @@ type FlowEvidence = BTreeMap<(VarLocation, VarLocation), EvidencePath>;
 type Frontiers = BTreeMap<(VarLocation, usize, usize), Vec<TaintReached>>;
 type AmbiguousPairs = BTreeSet<(VarLocation, VarLocation)>;
 
+/// Source inputs of `capture`. `ipc` and `framework` arrive already admitted by the
+/// run's scope; `scope` re-admits the explicit and diff roots that `capture` rebuilds.
+#[derive(Clone, Copy)]
+pub(super) struct CaptureSources<'a> {
+    pub(super) ipc: &'a BTreeSet<(String, usize)>,
+    pub(super) framework: &'a [TaintSeed],
+    pub(super) scope: RunScope<'a>,
+}
+
 pub(super) fn capture(
     ctx: &CpgContext,
     diff: &DiffInput,
     config: &TaintConfig,
-    ipc: &BTreeSet<(String, usize)>,
-    framework: &[TaintSeed],
+    sources: CaptureSources<'_>,
     paths: &mut Vec<FlowPath>,
     evidence: &FlowEvidence,
 ) -> TaintTrace {
+    let CaptureSources {
+        ipc,
+        framework,
+        scope,
+    } = sources;
     let mut trace = TaintTrace::default();
     let mut seeds = BTreeSet::new();
     for (file, line) in &config.sources {
+        if !scope.admits_source_file(ctx.files, file) {
+            continue;
+        }
         seeds.insert((
             TaintSeed::line(file.clone(), *line),
             TaintRootOrigin::Explicit,
@@ -75,7 +92,9 @@ pub(super) fn capture(
     }
     if config.taint_from_diff {
         for file in &diff.files {
-            if ctx.files.contains_key(&file.file_path) {
+            if ctx.files.contains_key(&file.file_path)
+                && scope.admits_source_file(ctx.files, &file.file_path)
+            {
                 for &line in &file.diff_lines {
                     seeds.insert((
                         TaintSeed::line(file.file_path.clone(), line),
