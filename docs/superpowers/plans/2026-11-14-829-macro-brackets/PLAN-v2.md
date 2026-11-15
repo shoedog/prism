@@ -12,7 +12,7 @@ Worktree: `/Users/wesleyjinks/code/prism-829`, branch `fix/829-macro-brackets`. 
 - C2 (census facts; no edge changes): tasks 3 to 5.
 - C3 (G7, G8, G9): tasks 6 and 7.
 - C4 (G10, cache version, docs, gates): tasks 8 to 10.
-Fallback, decided by the controller: if the review of C4 has not converged after two rounds, move C4 to a stacked PR; the enclosing-group rows (`enc*` generator families, the round-3 enclosing tests, inline cases 29 and 31, `hull2`) are then `#[ignore = "#829 G10 (stacked PR)"]` in the first PR and un-ignored in the second.
+No stacked fallback (sol design review r2, WRONG/MATERIAL): without G10 the C3 state admits live drops (enc1-enc4 generator rows, `aspan`), so the four commits merge together. If C4's review does not converge, the PR waits; enclosing rows are never ignored to merge early.
 
 **Size (guidance, not a cap).** Product code about 700 to 800 lines: `macro_census.rs` +75, new `macro_census/brackets.rs` about 245, new `data_flow/build/c_file_parens.rs` about 270, `c_prune.rs` +60, `lexical_prune.rs`/`file.rs`/`cpg_cache.rs` about 20. New tests about 900 lines, harness about 200. `macro_census.rs` is at 1,458 weighted lines: over 1,000 and under the 2,000 ceiling; the PR says so, and its split is a separate move-only PR. No file may cross 2,000.
 
@@ -144,7 +144,7 @@ cargo build --release
 cd eval && uv run tier-a --matrix-only --allow-stale-sut
 ```
 
-Run the matrix gate before committing. Before review, repeat an immediate release rebuild and run `cd eval && uv run tier-a --quick --allow-stale-sut` (requires rust-analyzer). Record the exact command, result and regressions/flip candidates in the PR; do not rebaseline. If local facilities cannot run a gate, route it to the controller/CI and report it pending. The design-seat amendment does not execute these implementation gates. Per the current task, no VERIFICATION.md/main-integration amendment is included here.
+Run the matrix gate before committing. Before review, repeat an immediate release rebuild and run `cd eval && uv run tier-a --quick --allow-stale-sut` (requires rust-analyzer). Record the exact command, result and regressions/flip candidates in the PR; do not rebaseline. If local facilities cannot run a gate, route it to the controller/CI and report it pending. The design-seat amendment does not execute these implementation gates. Main integration: before requesting review and again before merge, rebase onto `origin/main`, rebuild, and rerun the targeted tests plus the Tier-A matrix gate; resolve conflicts with the controller. Prism's verify policy is targeted tests locally (no root VERIFICATION.md); the full suite runs in CI.
 
 ## Mutation lane `mutants/c-macro-structure.json`
 
