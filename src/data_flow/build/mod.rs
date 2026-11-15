@@ -11,6 +11,9 @@ mod alias_occurrence;
 mod aliases;
 #[cfg(test)]
 mod arrow_body_cap_tests;
+mod c_file_parens;
+#[cfg(test)]
+mod c_file_parens_tests;
 #[cfg(test)]
 mod c_macro_census_tests;
 mod c_phantom;

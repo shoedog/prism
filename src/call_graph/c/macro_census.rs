@@ -777,6 +777,63 @@ fn may_hold_raw_string(b: &[u8]) -> bool {
     false
 }
 
+// ---- #829 G10 (`data_flow::build::c_file_parens`): file pieces, read leniently. ----
+
+/// One normalization of a whole source: trigraphs on or off, lenient or strict splices.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Norm {
+    trigraphs: bool,
+    lenient: bool,
+}
+
+/// The normalizations of `source` that give different texts (variants with the same text are
+/// one): at most four, usually one.
+pub(crate) fn distinct_norms(source: &str) -> Vec<Norm> {
+    let mut seen: Vec<Vec<u8>> = Vec::new();
+    let mut out = Vec::new();
+    for trigraphs in [true, false] {
+        let t = translate(source, trigraphs);
+        for lenient in [true, false] {
+            let text = splice(&t, lenient).0;
+            if !seen.contains(&text) {
+                seen.push(text);
+                out.push(Norm { trigraphs, lenient });
+            }
+        }
+    }
+    out
+}
+
+/// The text of one source piece after phases 1 and 2 (`norm`) and comment stripping in the
+/// dialect `cxx` (a block comment is one space, literals stay). `None` when a comment or raw
+/// string cannot be read to its end (the caller fails closed). `precise`: the file is parsed
+/// as C++ (a raw string with an interior splice is read at its as-written end).
+pub(crate) fn strip_piece(piece: &str, norm: Norm, cxx: bool, precise: bool) -> Option<String> {
+    let t = translate(piece, norm.trigraphs);
+    let (spliced, points) = splice(&t, norm.lenient);
+    let s = strip_comments(&spliced, &points, cxx, precise);
+    (!s.unterminated && !s.raw_uncertain).then_some(s.text)
+}
+
+/// Lexing helpers of the piece scanner: the end of the C++ raw string whose opening quote is at
+/// `q` (splices are already applied), of the pp-number at `i` and of the identifier at `i`
+/// (`None` when none starts there), and the raw-string prefixes.
+pub(crate) fn lex_raw_string_end(b: &[u8], q: usize) -> Option<usize> {
+    raw_string_end(b, q, &[])
+}
+
+pub(crate) fn lex_number_end(b: &[u8], i: usize, cxx: bool) -> usize {
+    pp_number_end(b, i, cxx)
+}
+
+pub(crate) fn lex_ident_end(b: &[u8], i: usize) -> Option<usize> {
+    is_ident_start(b, i).then(|| ident_end(b, i))
+}
+
+pub(crate) fn lex_is_raw_prefix(ident: &str) -> bool {
+    is_raw_prefix(ident)
+}
+
 /// Source text after translation phases 1-2 and comment stripping (a block comment is one
 /// space), in both lexing dialects: the logical lines a directive reader must see. Slice 6b
 /// reads `#pragma omp` through it, so a comment or a continuation cannot hide the word.

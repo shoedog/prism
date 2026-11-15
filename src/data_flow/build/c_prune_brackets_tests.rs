@@ -160,7 +160,7 @@ pub(super) fn verdicts(file: &str, source: &str) -> BTreeMap<String, Option<Off>
     owner_nodes(&parsed)
         .into_iter()
         .map(|(name, node)| {
-            let v = super::c_prune::scan(&parsed, node, &census)
+            let v = super::c_prune::scan(&parsed, node, &census, &std::cell::OnceCell::new())
                 .map(|_| ())
                 .err();
             (name, v)

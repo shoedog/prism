@@ -85,6 +85,11 @@ pub(super) enum Off {
     /// #829 G9: inside a potential callee group of the owner's own text an in-repo macro with
     /// `loose_comma` is named (its expansion re-splits the argument list on a rescan).
     MacroArgLoose,
+    /// #829 G10: the file's own parentheses (over every branch of conditional compilation)
+    /// can leave a `(` open at the owner's start or a `)` after it unmatched, or the file
+    /// spells a macro with `paren_open` before the owner: an argument list that starts
+    /// outside the owner can hold it (`c_file_parens.rs`).
+    OwnerExposed,
 }
 
 /// #829 G7: well-known external block-opening and block-closing macros: the 16 names of OD-3
@@ -357,6 +362,7 @@ pub(super) fn scan(
     parsed: &ParsedFile,
     owner: Node<'_>,
     census: &CMacroCensus,
+    parens: &std::cell::OnceCell<super::c_file_parens::CFileParens>,
 ) -> Result<COwner, Off> {
     use crate::languages::Language;
     let cpp = match parsed.language {
@@ -447,6 +453,15 @@ pub(super) fn scan(
         Some(Some(GroupHazard::Split)) => return Err(Off::MacroArgSplit),
         Some(Some(GroupHazard::Loose)) => return Err(Off::MacroArgLoose),
         Some(None) => {}
+    }
+    // #829 G10, last: the file is read once (the cell lives beside `declared_types`).
+    let file = parens.get_or_init(|| {
+        super::c_file_parens::CFileParens::for_file(parsed, &|n| {
+            census.get(n).is_some_and(|f| f.paren_open)
+        })
+    });
+    if file.exposed(owner.start_byte(), owner.end_byte()) {
+        return Err(Off::OwnerExposed);
     }
     if out.cpp {
         super::cpp_prune_operand::settle(parsed, &mut out);

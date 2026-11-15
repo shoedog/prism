@@ -1,0 +1,231 @@
+{
+  "lane": "Macros that change bracket structure: census facts and the G7 to G10 gates (#829)",
+  "lib_test_prefixes": [
+    "call_graph::c::",
+    "data_flow::build::"
+  ],
+  "mutations": {
+    "BR-unbalanced-off": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "            Tok::RBrace => match stack.last() {\n                Some(Entry::Brace) => {\n                    stack.pop();\n                }\n                _ => f.unbalanced = true,\n            },",
+      "            Tok::RBrace => match stack.last() {\n                Some(Entry::Brace) => {\n                    stack.pop();\n                }\n                _ => {}\n            },",
+      "call_graph::c::macro_census_brackets_tests::u02_close_brace"
+    ],
+    "BR-end-stack": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "    if !stack.is_empty() {\n        f.unbalanced = true;\n    }",
+      "    if false {\n        f.unbalanced = true;\n    }",
+      "call_graph::c::macro_census_brackets_tests::u01_open_brace"
+    ],
+    "BR-digraph": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "Tok::Digraph(b'{') => &Tok::LBrace,",
+      "Tok::Digraph(b'{') => &Tok::Other,",
+      "call_graph::c::macro_census_brackets_tests::u13_digraph_brackets"
+    ],
+    "BR-closure": [
+      "src/call_graph/c/macro_census.rs",
+      "                facts.unbalanced |= d.unbalanced;\n",
+      "",
+      "call_graph::c::macro_census_brackets_tests::u14_closure_over_referenced_macros"
+    ],
+    "LC-held-is-tight": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                if innermost(&stack) != Some(true) {\n                    f.loose_comma = true;",
+      "                if innermost(&stack).is_none() {\n                    f.loose_comma = true;",
+      "call_graph::c::macro_census_brackets_tests::l02_brace_held_comma"
+    ],
+    "LC-vaopt-opaque": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "            Entry::VaOpt => None,\n",
+      "            Entry::VaOpt => Some(true),\n",
+      "call_graph::c::macro_census_brackets_v2_tests::t4_va_opt_parentheses_are_transparent"
+    ],
+    "AS-held-off": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                if innermost(&stack) != Some(true) {\n                    f.loose_comma = true;\n                    if innermost(&stack) == Some(false) && potential_open > 0 {\n                        f.group_held = true;\n                    }",
+      "                if innermost(&stack) != Some(true) {\n                    f.loose_comma = true;\n                    if false {\n                        f.group_held = true;\n                    }",
+      "call_graph::c::macro_census_brackets_v2_tests::t4_held_commas_in_a_potential_group_set_arg_split"
+    ],
+    "AS-root-param": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                        i > 0 && (matches!(seq[i - 1], Tok::Ident(_)) || last_close == Some(i - 1));",
+      "                        i > 0\n                        && (matches!(&seq[i - 1], Tok::Ident(n) if !params.contains(n))\n                            || last_close == Some(i - 1));",
+      "call_graph::c::macro_census_brackets_v2_tests::t4_held_commas_in_a_potential_group_set_arg_split"
+    ],
+    "AS-vaopt-root": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                    Some(Entry::VaOpt) => {\n                        stack.pop();\n                        last_close = Some(i);\n                    }",
+      "                    Some(Entry::VaOpt) => {\n                        stack.pop();\n                    }",
+      "data_flow::build::c_prune_brackets_v2_tests::row_v2_astra_vaopt_chain"
+    ],
+    "AS-named-variadic": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "    if named_variadic {\n        f.loose_comma = true;\n        f.group_held = true;\n    }",
+      "    if named_variadic && false {\n        f.loose_comma = true;\n        f.group_held = true;\n    }",
+      "call_graph::c::macro_census_brackets_v2_tests::t4_named_variadic_fails_closed"
+    ],
+    "AS-root-chain": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                        i > 0 && (matches!(seq[i - 1], Tok::Ident(_)) || last_close == Some(i - 1));",
+      "                        i > 0 && matches!(seq[i - 1], Tok::Ident(_));",
+      "call_graph::c::macro_census_brackets_v2_tests::t4_held_commas_in_a_potential_group_set_arg_split"
+    ],
+    "AS-root-known-only": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                        i > 0 && (matches!(seq[i - 1], Tok::Ident(_)) || last_close == Some(i - 1));",
+      "                        i > 0\n                        && (matches!(&seq[i - 1], Tok::Ident(n) if params.contains(n))\n                            || last_close == Some(i - 1));",
+      "data_flow::build::c_prune_brackets_v2_tests::row_v2_astra_body_identity"
+    ],
+    "AS-fwd-off": [
+      "src/call_graph/c/macro_census.rs",
+      "                let forwards_loose = d\n                    .group_ids\n                    .iter()\n                    .any(|x| loose_star.get(x).copied().unwrap_or(false));",
+      "                let forwards_loose = false && d\n                    .group_ids\n                    .iter()\n                    .any(|x| loose_star.get(x).copied().unwrap_or(false));",
+      "call_graph::c::macro_census_brackets_v2_tests::t5_forwarding_a_loose_macro_is_closed_through_two_hops"
+    ],
+    "AS-fwd-outside": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                if potential_open > 0\n                    && x != \"__VA_ARGS__\"",
+      "                if x != \"__VA_ARGS__\"",
+      "call_graph::c::macro_census_brackets_v2_tests::t4_forwarded_names_inside_a_potential_group"
+    ],
+    "AS-permissive-forward": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                    && (permissive || !params.contains(x))",
+      "                    && (!permissive && !params.contains(x))",
+      "call_graph::c::macro_census_brackets_v2_tests::t4_permissive_texts"
+    ],
+    "G7-list": [
+      "src/data_flow/build/c_prune.rs",
+      "    if BLOCK_MACROS.contains(&name) {\n        set_off(Off::MacroBrackets);",
+      "    if false && BLOCK_MACROS.contains(&name) {\n        set_off(Off::MacroBrackets);",
+      "data_flow::build::c_prune_brackets_v2_gate_tests::g7_listed_name_spelled_directly"
+    ],
+    "G7-wrapper": [
+      "src/data_flow/build/c_prune.rs",
+      "        if facts.unbalanced\n            || facts\n                .free\n                .iter()\n                .any(|n| BLOCK_MACROS.contains(&n.as_str()))\n        {",
+      "        if facts.unbalanced {",
+      "data_flow::build::c_prune_brackets_v2_gate_tests::g7_wrapper_of_a_listed_name_through_the_free_set"
+    ],
+    "G8-off": [
+      "src/data_flow/build/c_prune.rs",
+      "        if facts.arg_split {\n            set_off(Off::MacroBodySplit);",
+      "        if false && facts.arg_split {\n            set_off(Off::MacroBodySplit);",
+      "data_flow::build::c_prune_brackets_v2_tests::row_v2_bodysplit_c"
+    ],
+    "G9-held-off": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                if callee > 0 && matches!(stack.last(), Some(Slot::Brace | Slot::Bracket)) {",
+      "                if false && callee > 0 && matches!(stack.last(), Some(Slot::Brace | Slot::Bracket)) {",
+      "data_flow::build::c_prune_brackets_v2_gate_tests::g9_held_commas_inside_potential_groups"
+    ],
+    "G9-loose-off": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                if callee > 0 && macro_loose(x) {",
+      "                if false && callee > 0 && macro_loose(x) {",
+      "data_flow::build::c_prune_brackets_v2_gate_tests::g9_loose_macro_inside_a_potential_group"
+    ],
+    "G9-restore-shield": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                if callee > 0 && matches!(stack.last(), Some(Slot::Brace | Slot::Bracket)) {",
+      "                if callee == 1 && matches!(stack.last(), Some(Slot::Brace | Slot::Bracket)) {",
+      "data_flow::build::c_prune_brackets_v2_tests::row_v2_astra_erase"
+    ],
+    "G9-root-known-only": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                    i > 0 && (matches!(seq[i - 1], Tok::Ident(_)) || closed_callee == Some(i - 1));",
+      "                    i > 0\n                    && (matches!(&seq[i - 1], Tok::Ident(n) if macro_loose(n))\n                        || closed_callee == Some(i - 1));",
+      "data_flow::build::c_prune_brackets_v2_tests::row_v2_astra_external_identity"
+    ],
+    "G9-unknown-chain": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                    stack.pop();\n                    callee -= 1;\n                    closed_callee = Some(i);",
+      "                    stack.pop();\n                    callee -= 1;\n                    closed_callee = None;",
+      "data_flow::build::c_prune_brackets_v2_gate_tests::g9_held_commas_inside_potential_groups"
+    ],
+    "G9-chain": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "                    i > 0 && (matches!(seq[i - 1], Tok::Ident(_)) || closed_callee == Some(i - 1));",
+      "                    i > 0 && matches!(seq[i - 1], Tok::Ident(_));",
+      "data_flow::build::c_prune_brackets_v2_gate_tests::g9_held_commas_inside_potential_groups"
+    ],
+    "PP-stringize": [
+      "src/call_graph/c/macro_census.rs",
+      "            b'\"' | b'\\'' => {\n                let quote = c;",
+      "            b'\"' | b'\\'' if false => {\n                let quote = c;",
+      "call_graph::c::macro_census_brackets_v2_tests::t4_stringizing_is_no_structural_token"
+    ],
+    "PP-paste-admit": [
+      "src/call_graph/c/macro_census.rs",
+      "            b'#' if b.get(i + 1) == Some(&b'#') => {\n                out.paste = true;",
+      "            b'#' if b.get(i + 1) == Some(&b'#') => {\n                out.paste = false;",
+      "data_flow::build::c_prune_brackets_r1_tests::g_terra_16_digraph_and_plain_paste_owners_are_g5"
+    ],
+    "G10-open-before": [
+      "src/data_flow/build/c_file_parens.rs",
+      "            v.hi[a] > v.pre_min[a]\n",
+      "            false\n",
+      "data_flow::build::c_file_parens_tests::unclosed_paren_before_the_owner_is_exposed"
+    ],
+    "G10-close-after": [
+      "src/data_flow/build/c_file_parens.rs",
+      "                || v.suf_min[b] < v.hi[b]\n",
+      "",
+      "data_flow::build::c_file_parens_tests::stray_closer_after_the_owner_is_exposed"
+    ],
+    "G10-hull-first": [
+      "src/data_flow/build/c_file_parens.rs",
+      "                    lo = ends.iter().map(|e| e.0).min().unwrap_or(lo);\n                    hi = ends.iter().map(|e| e.1).max().unwrap_or(hi);",
+      "                    lo = ends.first().map_or(lo, |e| e.0);\n                    hi = ends.first().map_or(hi, |e| e.1);",
+      "data_flow::build::c_file_parens_tests::opener_and_closer_under_else_branches_expose_the_owner"
+    ],
+    "G10-directive": [
+      "src/data_flow/build/c_file_parens.rs",
+      "                i = end;\n                continue;",
+      "                i += n;\n                continue;",
+      "data_flow::build::c_file_parens_tests::parentheses_in_directives_comments_strings_and_raw_strings_are_not_counted"
+    ],
+    "G10-hidden-off": [
+      "src/data_flow/build/c_file_parens.rs",
+      "\n                || v.hidden_piece.is_some_and(|k| k <= s)",
+      "",
+      "data_flow::build::c_prune_brackets_v2_tests::row_v2_aspan_c"
+    ],
+    "G10-hidden-after": [
+      "src/data_flow/build/c_file_parens.rs",
+      "v.hidden_piece.is_some_and(|k| k <= s)",
+      "v.hidden_piece.is_some_and(|_| true)",
+      "data_flow::build::c_file_parens_tests::spelled_only_after_the_owner_in_a_define_a_comment_or_a_string_does_not_expose"
+    ],
+    "G10-hidden-directive": [
+      "src/data_flow/build/c_file_parens.rs",
+      "                if let Some(ev) = directive_event(&text[i + n..end]) {\n                    events.push(ev);\n                }",
+      "                if let Some(ev) = directive_event(&text[i + n..end]) {\n                    events.push(ev);\n                }\n                for t in text[i + n..end].split(|c: char| !c.is_alphanumeric() && c != '_') {\n                    ident(t);\n                }",
+      "data_flow::build::c_file_parens_tests::spelled_in_a_define_body_comment_or_string_before_the_owner_does_not_expose"
+    ],
+    "PO-brace": [
+      "src/call_graph/c/macro_census/brackets.rs",
+      "            Tok::LBrace => stack.push(Entry::Brace),",
+      "            Tok::LBrace => {\n                parens_only += 1;\n                stack.push(Entry::Brace)\n            }",
+      "call_graph::c::macro_census_brackets_v2_tests::t4_braces_do_not_take_part_in_the_parenthesis_count"
+    ],
+    "PO-closure": [
+      "src/call_graph/c/macro_census.rs",
+      "                facts.paren_open |= d.paren_open;\n",
+      "",
+      "call_graph::c::macro_census_brackets_v2_tests::t5_paren_open_is_closed_over_reach"
+    ],
+    "DG-flags": [
+      "src/call_graph/c/macro_census.rs",
+      "                u8::from(f.arg_split),\n",
+      "",
+      "call_graph::c::macro_census_brackets_v2_tests::t5_digest_twins_move_one_flag_each"
+    ],
+    "DG-flags-open": [
+      "src/call_graph/c/macro_census.rs",
+      "                u8::from(f.paren_open),\n",
+      "",
+      "call_graph::c::macro_census_brackets_v2_tests::t5_digest_twins_move_one_flag_each"
+    ]
+  }
+}
