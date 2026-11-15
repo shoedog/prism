@@ -16,6 +16,7 @@ use prism::{
 use std::collections::{BTreeMap, BTreeSet};
 
 mod cases;
+mod crossing;
 mod facts;
 mod real;
 mod routes;

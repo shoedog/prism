@@ -6,23 +6,42 @@
 use super::loading::project_loading_trace;
 use crate::algorithms::taint::{TaintConfig, TaintTrace};
 use anyhow::Result;
-use prism::cpg::CpgContext;
+use prism::cpg::{CpgContext, TaintCrossingPolicy};
 use prism::diff::DiffInput;
 use prism::slice::SliceResult;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Per-run scope, passed as ONE parameter so a later slice adds a field, not an
 /// argument. `source: None` is the legacy run: every loaded file may start roots.
+/// `crossing: None` is the legacy walk: no edge into a context file is refused.
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct RunScope<'a> {
     source: Option<&'a BTreeSet<String>>,
+    crossing: Option<&'a TaintCrossingPolicy<'a>>,
 }
 
 impl<'a> RunScope<'a> {
     pub(crate) fn original(original_files: &'a BTreeSet<String>) -> Self {
         Self {
             source: Some(original_files),
+            crossing: None,
         }
+    }
+
+    /// Source admission plus a crossing ceiling for every route that walks the graph (#602 S3b-R).
+    pub(crate) fn in_context(
+        original_files: &'a BTreeSet<String>,
+        crossing: &'a TaintCrossingPolicy<'a>,
+    ) -> Self {
+        Self {
+            source: Some(original_files),
+            crossing: Some(crossing),
+        }
+    }
+
+    /// The crossing policy of the ordinary, return-flow and target-seed routes, if any.
+    pub(crate) fn crossing(&self) -> Option<&'a TaintCrossingPolicy<'a>> {
+        self.crossing
     }
 
     /// The ONE admission predicate: may `file` start a root or an inline finding?
@@ -89,9 +108,33 @@ pub(crate) fn slice_scoped(
     config: &TaintConfig,
     original_files: &BTreeSet<String>,
 ) -> Result<ScopedTaintOutcome> {
+    let scope = RunScope::original(original_files);
+    run_scoped(ctx, diff, config, original_files, scope)
+}
+
+/// `slice_scoped` with a crossing ceiling applied to the ordinary route, the return-flow route
+/// and the target-seed synthesis route, traced or not (#602 S3b-R). The caller states the
+/// ceiling; there is no default. A `NameOnly` ceiling is `slice_scoped`.
+pub(crate) fn slice_in_context(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    config: &TaintConfig,
+    original_files: &BTreeSet<String>,
+    crossing: &TaintCrossingPolicy<'_>,
+) -> Result<ScopedTaintOutcome> {
+    let scope = RunScope::in_context(original_files, crossing);
+    run_scoped(ctx, diff, config, original_files, scope)
+}
+
+fn run_scoped(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    config: &TaintConfig,
+    original_files: &BTreeSet<String>,
+    scope: RunScope<'_>,
+) -> Result<ScopedTaintOutcome> {
     let excluded_explicit = excluded_explicit(ctx, config, original_files);
     let mut trace = TaintTrace::default();
-    let scope = RunScope::original(original_files);
     let result = crate::algorithms::taint::run::slice_scoped_impl(
         ctx,
         diff,
