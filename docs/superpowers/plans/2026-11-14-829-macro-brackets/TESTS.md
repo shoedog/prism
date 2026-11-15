@@ -71,6 +71,21 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_11_includ
 - template owner spells an unbalanced macro
 - paren macros move a declaration scope (C++ owner)
 
+### Generated rows (L2, `xgen.py`, source: generator): 98
+
+Minimal member of each key (effect classes, site family, owner kind) the bounded generator found CONTRADICTED; every row asserts `kept` (red on base while the pair is dropped). Top-level `;` bodies (#831) are excluded.
+
+| family | rows | c | cxx | tpl | method | local |
+|---|---|---|---|---|---|---|
+| arg | 6 | 2 | 2 | 2 | 0 | 0 |
+| arg1 | 6 | 2 | 2 | 2 | 0 | 0 |
+| enc1 | 12 | 4 | 4 | 4 | 0 | 0 |
+| enc2 | 13 | 4 | 5 | 4 | 0 | 0 |
+| enc3 | 12 | 4 | 4 | 4 | 0 | 0 |
+| enc4 | 13 | 4 | 5 | 4 | 0 | 0 |
+| guard | 18 | 6 | 2 | 6 | 2 | 2 |
+| stmt | 18 | 6 | 2 | 6 | 2 | 2 |
+
 ### Inline rows (cases 20 to 34)
 
 | lang | case | id | legacy kind | hand | oracle | assumption | head | assert |

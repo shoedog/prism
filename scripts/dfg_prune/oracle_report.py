@@ -96,6 +96,20 @@ def generate():
     L.append("")
     L += ["- " + r["class"] for r in receipts]
     L.append("")
+    gen = load("generated_rows.jsonl")
+    L.append("### Generated rows (L2, `xgen.py`, source: generator): %d" % len(gen))
+    L.append("")
+    L.append("Minimal member of each key (effect classes, site family, owner kind) the bounded "
+             "generator found CONTRADICTED; every row asserts `kept` (red on base while the "
+             "pair is dropped). Top-level `;` bodies (#831) are excluded.")
+    L.append("")
+    byf = collections.defaultdict(collections.Counter)
+    for r in gen:
+        byf[r["spec"]["family"]][r["spec"]["owner"]] += 1
+    owners = ["c", "cxx", "tpl", "method", "local"]
+    L += table(["family", "rows"] + owners,
+               [[f, sum(c.values())] + [c.get(o, 0) for o in owners] for f, c in sorted(byf.items())])
+    L.append("")
     L.append("### Inline rows (cases 20 to 34)")
     L.append("")
     rows = []

@@ -296,6 +296,30 @@ pub(super) fn judge(what: &str, want: Want, (before, after): (bool, bool)) -> Re
     apply(what, want, &pair, row, after)
 }
 
+/// Judges the row recorded by the last `record_*` of this thread against a row of DATA that
+/// carries its own `assert` (the generated rows, `c_prune_generated_rows`): no policy-table
+/// lookup, the same admissibility rule and the same `apply`.
+pub(super) fn judge_data(
+    what: &str,
+    want: Want,
+    (before, after): (bool, bool),
+    row: &serde_json::Value,
+) -> Result<(), String> {
+    let ctx = LAST
+        .with(|l| l.borrow_mut().take())
+        .expect("a pair row must record its inputs (pair_in) before judging");
+    let pair = format!(
+        "{}@{} -> {}@{} (owner {:?})",
+        ctx.path, ctx.from, ctx.path, ctx.to, ctx.owner
+    );
+    assert!(
+        before,
+        "{what}: inadmissible, the baseline has no {pair} ({:?})",
+        ctx.target
+    );
+    apply(what, want, &pair, row, after)
+}
+
 fn apply(
     what: &str,
     want: Want,
