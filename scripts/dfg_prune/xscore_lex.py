@@ -172,7 +172,7 @@ DEF_RE = re.compile(r"(?m)^[ \t]*(?:#|%:)[ \t]*define[ \t]+")
 class Facts:
     """Facts of one body (own) or of a macro closed over what it names."""
     __slots__ = ("unbalanced", "loose_comma", "semi0", "semi_any", "ctrl", "brace", "decl",
-                 "free", "refs", "linear", "grouped", "groups")
+                 "free", "refs", "linear", "grouped", "groups", "paren_open")
 
     def __init__(self):
         self.unbalanced = self.loose_comma = self.semi0 = self.semi_any = False
@@ -183,6 +183,10 @@ class Facts:
         # paren groups of the body that follow an identifier, a parameter or the `)` of such a
         # group (DESIGN-v2 5.1): [Group]; read by the v2 candidates only
         self.groups = ()
+        # the body holds a `(` that no `)` of the body closes, by parentheses alone (the
+        # parentheses of `__VA_OPT__` aside): its expansion can open an argument list that the
+        # following source text closes (DESIGN-v2 5.3, the hidden opener)
+        self.paren_open = False
         self.linear = True
 
     @property
@@ -190,7 +194,8 @@ class Facts:
         return self.semi_any or self.ctrl or self.brace
 
     def merge(self, o):
-        for a in ("unbalanced", "loose_comma", "semi0", "semi_any", "ctrl", "brace", "decl"):
+        for a in ("unbalanced", "loose_comma", "semi0", "semi_any", "ctrl", "brace", "decl",
+                  "paren_open"):
             setattr(self, a, getattr(self, a) or getattr(o, a))
         self.linear = self.linear and o.linear
         self.free = self.free | o.free
@@ -215,6 +220,7 @@ def scan_body(toks, params, named_variadic, parsed):
     f = Facts()
     stack = []
     gstack = []      # the Group (or None) of every `(` / `T` entry of `stack`, in order
+    pstack = []      # parentheses alone: "(" or "T", whatever braces and brackets do
     groups = []
     last_closed = None  # (token index of the `)`, Group) of the group closed last
     pending_t = False
@@ -269,9 +275,12 @@ def scan_body(toks, params, named_variadic, parsed):
                 if g is not None:
                     groups.append(g)
             stack.append("T" if pending_t else "(")
+            pstack.append("T" if pending_t else "(")
             gstack.append(g)
             pending_t = False
         elif x == ")":
+            if pstack:
+                pstack.pop()
             if stack and stack[-1] in ("(", "T"):
                 stack.pop()
                 g = gstack.pop()
@@ -308,6 +317,7 @@ def scan_body(toks, params, named_variadic, parsed):
     f.free = frozenset(free)
     f.grouped = frozenset(grouped)
     f.groups = tuple(groups)
+    f.paren_open = bool(pstack)   # a `(` (or a `__VA_OPT__(`) that no `)` of the body closes
     f.linear = all(uses[p] == 1 for p in params) and (uses["..."] <= 1)
     return f
 

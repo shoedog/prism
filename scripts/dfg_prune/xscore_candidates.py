@@ -342,6 +342,24 @@ def exposed(owner):
     return None
 
 
+def hidden_opener(owner, db):
+    """DESIGN-v2 5.3, third half of G10 (owner decision OD-C): the owner's file spells, in code
+    before the owner, an in-repo macro whose expansion can open a parenthesis (`paren_open`,
+    closed over the macros a body names). The argument list it opens may hold the owner and be
+    closed in the file that includes this one, where no test on this file can see the `)`."""
+    fx = owner.fx
+    memo = fx.__dict__.setdefault("_v2_hidden", {})
+    first = memo.get(id(db))
+    if first is None:
+        first = (INF, "")
+        for i, t in enumerate(fx.code):
+            if t.kind == "id" and db.defined(t.text) and db.closed(t.text).paren_open:
+                first = (i, t.text)
+                break
+        memo[id(db)] = first
+    return "exposed_hidden_opener:" + first[1] if first[0] < owner.fn.hdr else None
+
+
 def owner_groups(owner, db, held=True, loose=True, shield=True):
     """DESIGN-v2 5.2 (G9), one pass over the owner's tokens with a bracket stack. A paren is a
     CALLEE paren after an in-repo macro name or after the `)` of a callee paren (a chained
@@ -407,7 +425,7 @@ BLOCK_MACROS_ADDED = frozenset((
 
 def sp_certificate(owner, db, mode="macro", body_held=True, body_fwd=True, owner_held=True,
                    owner_loose=True, expose="hull", listed=True, unbalanced=True, shield=True,
-                   names=None):
+                   names=None, hidden=True):
     """10. DESIGN-v2: admit only an owner for which structure preservation is proved."""
     BLOCK_MACROS = names if names is not None else globals()["BLOCK_MACROS"]
     if listed:
@@ -427,10 +445,14 @@ def sp_certificate(owner, db, mode="macro", body_held=True, body_fwd=True, owner
     if r:
         return r
     if expose == "hull":
-        return exposed(owner)
-    if expose == "first":
-        return "enclosing_group" if owner.enclosing_open else None
-    return None
+        r = exposed(owner)
+    elif expose == "first":
+        r = "enclosing_group" if owner.enclosing_open else None
+    else:
+        r = None
+    if r is None and hidden and expose:
+        r = hidden_opener(owner, db)
+    return r
 
 
 def cand_v2(owner, db):
@@ -492,6 +514,7 @@ V2 = collections.OrderedDict([
     ("B5-10-no-body-held", (_abl(body_held=False), "ablation of 10: without the held-comma check of body callee groups")),
     ("B6-10-no-body-fwd", (_abl(body_fwd=False), "ablation of 10: without the loose-macro check of body callee groups")),
     ("B7-10-no-exposed", (_abl(expose=None), "ablation of 10: without the exposed-owner test")),
+    ("B8-10-no-hidden-opener", (_abl(hidden=False), "ablation of 10: without the hidden-opener half of G10 (OD-C)")),
 ])
 
 

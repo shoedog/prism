@@ -204,8 +204,9 @@ expansion. The predicates of `xscore_candidates.py` are the candidates of `L4-SC
 (0 admit-all, 1 tentative, 2 no-closure, 3 spelling-only, 4b with enclosing check, 5 any-macro, 6 and 6b
 certificate, 7 depth-1, 8 fine-G8, 9 refuse-all, ablations A1 to A4). The redesign added candidate 10 (the rule of
 `DESIGN-v2.md`: `sp_certificate`, with `owner_groups` for the owner pass and `exposed` for the interval
-test over `#if` branches), its variants 10x, 10n, 10i, 10f, 10s and its ablations B1 to B7; a body's
-paren groups are in `Facts.groups` (`xscore_lex.Group`).
+test over `#if` branches), its variants 10x, 10n, 10i, 10f, 10s and its ablations B1 to B8; a body's
+paren groups are in `Facts.groups` (`xscore_lex.Group`), and `Facts.paren_open` (a `(` the body does not
+close) feeds `hidden_opener`, the third half of the exposed-owner test (owner decision OD-C).
 
 Limits (full list in `L4-SCORES.md`, section 6): the census is emulated (an approximation of the input
 set, one lexer pass for defines with no C versus C++ dialect pass, no soft poison, no `incomplete`

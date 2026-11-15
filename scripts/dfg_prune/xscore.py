@@ -573,6 +573,17 @@ def selftest():
     got = {fx4.code[f.name_idx].text: C.cand_v2(L.Owner(fx4, f), db4) for f in fx4.fns}
     assert got == {"a0": "exposed_close_after", "a8": "exposed_open_before",
                    "a9": "exposed_open_before"}, got
+    # the hidden opener (OD-C): a macro whose body leaves a `(` open, spelled in the file before
+    # the owner; brace-only block macros and a spelling after the owner do not count
+    v4 = ("#define W3(p, q, r) p; r\n#define BEGIN_IMPL W3(\n#define ALIAS BEGIN_IMPL\n"
+          "#define BLOCK if (c) {\n#define SWAP ) (\n"
+          "int b0(int c) { return c; }\nALIAS\nint z;\nint b1(int c) { return c; }\n")
+    db5, fx5 = L.MacroDb([("a.c", v4)]), L.FileIndex(v4)
+    assert db5.own("BEGIN_IMPL").paren_open and db5.closed("ALIAS").paren_open
+    assert db5.own("SWAP").paren_open and not db5.own("BLOCK").paren_open
+    assert not db5.own("W3").paren_open
+    got = {fx5.code[f.name_idx].text: C.cand_v2(L.Owner(fx5, f), db5) for f in fx5.fns}
+    assert got == {"b0": None, "b1": "exposed_hidden_opener:ALIAS"}, got
     print("selftest ok")
 
 
