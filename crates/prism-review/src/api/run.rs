@@ -333,6 +333,20 @@ pub fn filter_result_findings(
     min_confidence: MinConfidence,
     resolution: ResolutionMode,
 ) {
+    filter_result_findings_in(
+        result,
+        crate::api::map_view::MapView::original(inputs),
+        min_confidence,
+        resolution,
+    );
+}
+
+pub(crate) fn filter_result_findings_in(
+    result: &mut SliceResult,
+    view: crate::api::map_view::MapView<'_>,
+    min_confidence: MinConfidence,
+    resolution: ResolutionMode,
+) {
     if min_confidence == MinConfidence::NameOnly {
         return;
     }
@@ -344,8 +358,8 @@ pub fn filter_result_findings(
         let parse_quality = parse_quality_for_selected_evidence(
             &finding,
             selected_evidence,
-            &inputs.parse_quality,
-            &inputs.files,
+            view.parse_quality,
+            view.files,
         );
         let admitted = admit_finding_for_resolution(
             &finding.algorithm,

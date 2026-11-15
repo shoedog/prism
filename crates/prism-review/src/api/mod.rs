@@ -2,6 +2,7 @@
 //! Same compatibility promise as `prism::api` (see its module doc).
 
 mod diagnostics;
+pub(crate) mod map_view;
 mod run;
 
 pub use crate::algorithms::taint::boundary::{
