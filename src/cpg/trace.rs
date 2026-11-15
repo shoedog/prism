@@ -9,7 +9,7 @@ use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 
-use super::{CodePropertyGraph, CpgEdge, CpgNode, VarAccess};
+use super::{CodePropertyGraph, CpgEdge, CpgNode, TaintCrossingPolicy, VarAccess};
 
 type DescentGateKey = (
     String, // caller file
@@ -205,6 +205,17 @@ impl CodePropertyGraph {
         sources: &[(String, usize)],
         return_flow_mode: ReturnFlowMode,
     ) -> Trace {
+        self.taint_trace_with_mode_policy(sources, return_flow_mode, None)
+    }
+
+    /// [`Self::taint_trace_with_mode`] under an optional crossing policy (#602 S3b-C): the same
+    /// walker, which refuses a context-entering call descent the policy does not admit.
+    pub(crate) fn taint_trace_with_mode_policy(
+        &self,
+        sources: &[(String, usize)],
+        return_flow_mode: ReturnFlowMode,
+        policy: Option<&TaintCrossingPolicy<'_>>,
+    ) -> Trace {
         let has_cfg = self.has_cfg_edges();
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
@@ -282,6 +293,7 @@ impl CodePropertyGraph {
                     &mut depths,
                     &no_exclusions,
                     return_flow_mode,
+                    policy,
                 );
             }
         }
@@ -411,6 +423,7 @@ impl CodePropertyGraph {
                     &mut depths,
                     excluded_hops,
                     return_flow_mode,
+                    None,
                 );
             }
         }
@@ -432,6 +445,7 @@ impl CodePropertyGraph {
         depths: &mut BTreeMap<(NodeIndex, NodeIndex), usize>,
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
         return_flow_mode: ReturnFlowMode,
+        policy: Option<&TaintCrossingPolicy<'_>>,
     ) {
         if !matches!(self.graph[root], CpgNode::Variable { .. }) {
             return;
@@ -510,7 +524,10 @@ impl CodePropertyGraph {
 
                     let can_descend = matches!(boundary_kind, BoundaryKind::CrossFunction)
                         && node_depth < MAX_TAINT_DESCENT_DEPTH
-                        && self.descend_target(node, next, rel, descent_gate_cache);
+                        && self.descend_target(node, next, rel, descent_gate_cache)
+                        && policy.is_none_or(|_| {
+                            self.admitted_data_flow_label(policy, node, next).is_some()
+                        });
 
                     if can_descend {
                         if enqueued.insert(next) {
@@ -1049,7 +1066,18 @@ impl CodePropertyGraph {
         Vec<crate::data_flow::FlowPath>,
         BTreeMap<(crate::data_flow::VarLocation, crate::data_flow::VarLocation), EvidencePath>,
     ) {
-        let trace = self.taint_trace_with_mode(sources, ReturnFlowMode::On);
+        self.taint_forward_cfg_with_return_flow_labeled_policy(sources, None)
+    }
+
+    pub(crate) fn taint_forward_cfg_with_return_flow_labeled_policy(
+        &self,
+        sources: &[(String, usize)],
+        policy: Option<&TaintCrossingPolicy<'_>>,
+    ) -> (
+        Vec<crate::data_flow::FlowPath>,
+        BTreeMap<(crate::data_flow::VarLocation, crate::data_flow::VarLocation), EvidencePath>,
+    ) {
+        let trace = self.taint_trace_with_mode_policy(sources, ReturnFlowMode::On, policy);
         let mut paths = Vec::new();
         let mut evidence = BTreeMap::new();
         for (root, frontier) in &trace.frontier_by_root {
