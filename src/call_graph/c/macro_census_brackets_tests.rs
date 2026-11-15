@@ -1,7 +1,4 @@
-//! QUARANTINED (#829 TEST-FORM section 5): every test here pins the tentative design's census facts
-//! (`unbalanced`, `loose_comma`, digest, name list), not required behaviour. They are `#[ignore]`d
-//! until the redesign chooses its facts; run them with `cargo test -p prism --lib -- --ignored
-//! macro_census_brackets`.
+//! #829 census facts of the amended design (DESIGN-v2 section 5.1): un-quarantined by commit C2.
 //! #829: census facts `unbalanced` (commit A, rows U01..U26) and `loose_comma` (commit B, rows
 //! L01..L12). Row ids are in the test names so the mutation lane can cite them. The tests were
 //! written against stubs (both facts always false) and are red on base until the scan lands.
@@ -68,31 +65,26 @@ fn expect_loose(file: &str, defines: &str, rows: &[(&str, bool)]) {
 // ---- M1: `unbalanced` ----
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u01_open_brace() {
     expect_unbalanced("a.c", "#define BEGIN {\n", &[("BEGIN", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u02_close_brace() {
     expect_unbalanced("a.c", "#define END }\n", &[("END", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u03_open_paren() {
     expect_unbalanced("a.c", "#define OPEN for (\n", &[("OPEN", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u04_close_paren() {
     expect_unbalanced("a.c", "#define CLOSE )\n", &[("CLOSE", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u05_square_brackets() {
     expect_unbalanced(
         "a.c",
@@ -102,25 +94,21 @@ fn u05_square_brackets() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u06_crossing_kinds_with_equal_counts() {
     expect_unbalanced("a.c", "#define CROSS ( { ) }\n", &[("CROSS", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u07_closer_first_with_equal_counts() {
     expect_unbalanced("a.c", "#define FLIP } {\n", &[("FLIP", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u08_function_like_opens_a_block() {
     expect_unbalanced("a.c", "#define OPEN_IF(c) if (c) {\n", &[("OPEN_IF", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u09_well_nested_bodies_are_balanced() {
     expect_unbalanced(
         "a.c",
@@ -135,7 +123,6 @@ fn u09_well_nested_bodies_are_balanced() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u10_brackets_in_literals_do_not_count() {
     expect_unbalanced(
         "a.c",
@@ -150,7 +137,6 @@ fn u10_brackets_in_literals_do_not_count() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u11_brackets_in_comments_do_not_count() {
     expect_unbalanced(
         "a.c",
@@ -160,7 +146,6 @@ fn u11_brackets_in_comments_do_not_count() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u12_cpp_raw_string_and_digit_separator() {
     expect_unbalanced(
         "a.cpp",
@@ -170,7 +155,6 @@ fn u12_cpp_raw_string_and_digit_separator() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u13_digraph_brackets() {
     expect_unbalanced(
         "a.c",
@@ -180,7 +164,6 @@ fn u13_digraph_brackets() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u14_closure_over_referenced_macros() {
     expect_unbalanced(
         "a.c",
@@ -196,7 +179,6 @@ fn u14_closure_over_referenced_macros() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u15_any_definition_taints_the_spelling() {
     // Same file, either order.
     expect_unbalanced("a.c", "#define DUAL 0\n#define DUAL {\n", &[("DUAL", true)]);
@@ -207,7 +189,6 @@ fn u15_any_definition_taints_the_spelling() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u16_line_continuation_in_a_body() {
     expect_unbalanced(
         "a.c",
@@ -217,7 +198,6 @@ fn u16_line_continuation_in_a_body() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u17_multi_line_comment_in_a_body() {
     expect_unbalanced(
         "a.c",
@@ -227,7 +207,6 @@ fn u17_multi_line_comment_in_a_body() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u18_va_opt_parentheses() {
     expect_unbalanced(
         "a.c",
@@ -237,14 +216,12 @@ fn u18_va_opt_parentheses() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u19_unterminated_literal_is_poisoned() {
     let c = census(&[("a.c", "#define BADQ \"abc {\n")]);
     assert!(fact(&c, "BADQ").poisoned, "no assertion on `unbalanced`");
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u20_define_inside_a_block_comment_counts_pinned() {
     // Accepted over-approximation: a readable `#define` in a comment still creates facts.
     expect_unbalanced(
@@ -255,14 +232,12 @@ fn u20_define_inside_a_block_comment_counts_pinned() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u21_trigraph_body_is_the_existing_incomplete_belt() {
     let c = census(&[("a.c", "#define TB ??<\n")]);
     assert!(c.incomplete());
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u22_permissive_census_text() {
     let c = census_with_text(
         "#define PBEGIN {\n#define PMSG \"(\"\n#define PQ \" {\n#define PF(a, b) g(a, b)\n",
@@ -277,13 +252,11 @@ fn u22_permissive_census_text() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u23_undef_does_not_clear() {
     expect_unbalanced("a.c", "#define BEGIN {\n#undef BEGIN\n", &[("BEGIN", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u24_digest_covers_the_bracket_fact() {
     let a = census(&[("a.c", "#define X {}\n")]);
     let b = census(&[("a.c", "#define X {\n")]);
@@ -291,7 +264,6 @@ fn u24_digest_covers_the_bracket_fact() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u25_stringizing_holds_no_bracket() {
     expect_unbalanced(
         "a.c",
@@ -301,7 +273,6 @@ fn u25_stringizing_holds_no_bracket() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn u26_function_like_body_only() {
     expect_unbalanced("a.c", "#define FN(a) (a\n", &[("FN", true)]);
 }
@@ -309,19 +280,16 @@ fn u26_function_like_body_only() {
 // ---- M4: `loose_comma` (commit B) ----
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l01_top_level_comma() {
     expect_loose("a.c", "#define PAIR 1, 2\n", &[("PAIR", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l02_brace_held_comma() {
     expect_loose("a.c", "#define INIT {0, 0}\n", &[("INIT", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l03_commas_directly_inside_parentheses() {
     expect_loose(
         "a.c",
@@ -331,7 +299,6 @@ fn l03_commas_directly_inside_parentheses() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l04_va_args_position() {
     expect_loose(
         "a.c",
@@ -341,7 +308,6 @@ fn l04_va_args_position() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l05_va_opt_parenthesis_is_transparent() {
     expect_loose(
         "a.c",
@@ -351,7 +317,6 @@ fn l05_va_opt_parenthesis_is_transparent() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l06_gnu_named_variadic_fails_closed() {
     expect_loose(
         "a.c",
@@ -361,7 +326,6 @@ fn l06_gnu_named_variadic_fails_closed() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l07_statement_expression_declarators() {
     expect_loose(
         "a.c",
@@ -371,13 +335,11 @@ fn l07_statement_expression_declarators() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l08_comma_inside_square_brackets() {
     expect_loose("a.c", "#define SUB(a, i, j) a[i, j]\n", &[("SUB", true)]);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l09_closure_is_blanket_pinned() {
     expect_loose(
         "a.c",
@@ -387,7 +349,6 @@ fn l09_closure_is_blanket_pinned() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l10_cpp_template_arguments() {
     expect_loose(
         "a.cpp",
@@ -397,7 +358,6 @@ fn l10_cpp_template_arguments() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l11_permissive_census_text() {
     let c = census_with_text(
         "#define PPAIR 1, 2\n#define PG(a, b) g(a, b)\n#define PE(args...) g(args)\n",
@@ -408,7 +368,6 @@ fn l11_permissive_census_text() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn l12_commas_in_literals_do_not_count() {
     expect_loose(
         "a.c",

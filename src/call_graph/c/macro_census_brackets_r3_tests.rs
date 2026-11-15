@@ -1,7 +1,4 @@
-//! QUARANTINED (#829 TEST-FORM section 5): every test here pins the tentative design's census facts
-//! (`unbalanced`, `loose_comma`, digest, name list), not required behaviour. They are `#[ignore]`d
-//! until the redesign chooses its facts; run them with `cargo test -p prism --lib -- --ignored
-//! macro_census_brackets`.
+//! #829 census facts of the amended design (DESIGN-v2 section 5.1): un-quarantined by commit C2.
 //! #829 chain B, round 3: census-fact rows. TENTATIVE-DESIGN FACT TESTS: they pin the
 //! `unbalanced` / `loose_comma` values of the tentative rule (DESIGN.md) and will be revisited
 //! at the redesign; the required BEHAVIOUR of the same inputs is pinned by the pair rows in
@@ -15,7 +12,6 @@ use super::macro_census_brackets_r2_tests::{expect_everywhere, text_census};
 /// `%\<nl>>` and `<\<nl>%` are the digraphs `%>` and `<%`; `<\<nl>:` and `:\<nl>>` are `<:`
 /// and `:>`. The fact must be computed on the spliced text.
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet3_01_digraph_brackets_written_across_a_splice() {
     expect_everywhere(
         "#define CL %\\\n>\n#define OP <\\\n%\n#define SCL :\\\n>\n#define SOP <\\\n:\n",
@@ -31,7 +27,6 @@ fn g2_sonnet3_01_digraph_brackets_written_across_a_splice() {
 /// `/\<nl>*` opens a comment that swallows the `}`; `*\<nl>/` closes one; `/\<nl>/` starts a
 /// line comment. Each body is `{` after comment removal.
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet3_02_03_comment_delimiters_formed_by_a_splice() {
     expect_everywhere(
         "#define O1 { /\\\n* } *\\\n/\n#define O2 { /* } *\\\n/\n#define O3 { /\\\n/ }\n",
@@ -43,9 +38,9 @@ fn g2_sonnet3_02_03_comment_delimiters_formed_by_a_splice() {
     );
 }
 
-/// Controls: balanced bodies around the same splices stay `false`.
+/// Controls: balanced bodies around the same splices stay `false`, `B2` included: the digraphs
+/// `<% %>` it splices are read as the braces they spell (a balanced pair nests).
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet3_01_to_03_balanced_splice_controls() {
     expect_everywhere(
         "#define B1 { /\\\n* } *\\\n/ }\n#define B2 <\\\n% %\\\n>\n#define B3 { } /\\\n/ {\n",
@@ -60,7 +55,6 @@ fn g2_sonnet3_01_to_03_balanced_splice_controls() {
 /// The `...` of a variadic parameter list written across a splice (`.\<nl>..`) reads as a
 /// plain variadic: `VF` has a loose comma, `VG` forwards inside parentheses and has none.
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet3_splice_member_ellipsis_across_a_splice() {
     expect_everywhere(
         "#define VF(a, .\\\n..) a, __VA_ARGS__\n#define VG(a, .\\\n..) f(a, __VA_ARGS__)\n",
@@ -73,7 +67,6 @@ fn g2_sonnet3_splice_member_ellipsis_across_a_splice() {
 /// The lexer must not read a comment out of a literal: each body keeps its brace. In a census
 /// text (no string tracking by design) the comment-kept reading still sees it.
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet3_04_comment_introducers_inside_literals_do_not_hide_a_brace() {
     expect_everywhere(
         "#define U1 \"a//b\" {\n#define U2 \"/*\" {\n#define V2 \"*/\"\n#define U3 '/' {\n#define U4 \"\\\"//\" {\n",
@@ -90,7 +83,6 @@ fn g2_sonnet3_04_comment_introducers_inside_literals_do_not_hide_a_brace() {
 // ---- G2-terra3-01, 02: a string hides a comment start, a real comment holds the other bracket ----
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_terra3_01_string_comment_introducer_then_a_real_brace() {
     expect_everywhere(
         "#define OPEN (void) \"/*\"; if (c) { /* } */\n#define CLOSE }\n#define OPEN2 (void) \"//\"; if (c) { /* } */\n",
@@ -105,7 +97,6 @@ fn g2_terra3_01_string_comment_introducer_then_a_real_brace() {
 /// The braces of `INIT` balance, its comma is brace-held (loose); the parentheses around the
 /// comma sit in real comments and must not tighten it.
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_terra3_02_comma_between_comment_parentheses_after_a_string() {
     expect_everywhere(
         "#define INIT { /* ( */ (void)\"/*\"; int a, b; /* ) */ }\n#define TIGHT { /* ( */ (void)\"/*\"; int a; /* ) */ }\n",
@@ -120,7 +111,6 @@ const DEEP: usize = 100_000;
 /// A body of 10^5 openers is unbalanced; its balanced twin must not crash or be flagged.
 /// (The pair rows of `c_prune_brackets_r3_depth_tests` pin the behaviour at the owner level.)
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet3_08_deep_bodies_in_a_census_text() {
     for (name, o, c) in [("P", '(', ')'), ("B", '{', '}'), ("S", '[', ']')] {
         let open = o.to_string().repeat(DEEP);

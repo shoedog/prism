@@ -14,6 +14,8 @@ mod macro_census_brackets_r3_tests;
 #[cfg(test)]
 mod macro_census_brackets_tests;
 #[cfg(test)]
+mod macro_census_brackets_v2_tests;
+#[cfg(test)]
 mod macro_census_fold2_tests;
 #[cfg(test)]
 mod macro_census_fold3_tests;

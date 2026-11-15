@@ -193,11 +193,22 @@ fn mark_sources(header: &str) -> BTreeMap<String, String> {
 }
 
 fn mark_sources_in(owner_file: &str, header: &str) -> BTreeMap<String, String> {
+    mark_sources_with(owner_file, MARK_OWNER, header)
+}
+
+fn mark_sources_with(owner_file: &str, owner: &str, header: &str) -> BTreeMap<String, String> {
     BTreeMap::from([
-        (owner_file.to_owned(), MARK_OWNER.to_owned()),
+        (owner_file.to_owned(), owner.to_owned()),
         ("m.h".to_owned(), header.to_owned()),
     ])
 }
+
+/// The owner of the loose-comma rows: `MARK` is an argument of an identity wrapper, where a
+/// loose macro re-splits the argument list on a rescan (G9, `Off::MacroArgLoose`); a bare
+/// `MARK;` is no hazard of the amended design, so a loose-comma edit moves no pruning there.
+const MARK_OWNER_ARG: &str =
+    "int f(void) {\n    int x = 1;\n    ID(MARK);\n    x = 2;\n    return x;\n}\n";
+const ID_DEF: &str = "#define ID(v) v\n";
 
 fn has_x_2_to_5(g: &DataFlowGraph, owner_file: &str) -> bool {
     edge_keys(g).contains(&(owner_file.to_owned(), 2, 5, "x".to_owned()))
@@ -227,7 +238,19 @@ fn cz_parity_in(
     first_prunes: bool,
     digest: bool,
 ) {
-    let src = mark_sources_in(owner_file, v1);
+    cz_parity_with(owner_file, MARK_OWNER, v1, v2, what, first_prunes, digest);
+}
+
+fn cz_parity_with(
+    owner_file: &str,
+    owner: &str,
+    v1: &str,
+    v2: &str,
+    what: &str,
+    first_prunes: bool,
+    digest: bool,
+) {
+    let src = mark_sources_with(owner_file, owner, v1);
     let files = parse(&src);
     let cold = CodePropertyGraph::build(&files);
     if has_x_2_to_5(&cold.dfg, owner_file) == first_prunes {
@@ -244,7 +267,7 @@ fn cz_parity_in(
     };
     assert_eq!(edge_keys(&cold.dfg), edge_keys(&hit.dfg));
 
-    let edited_src = mark_sources_in(owner_file, v2);
+    let edited_src = mark_sources_with(owner_file, owner, v2);
     let edited = parse(&edited_src);
     let hashes = cpg_cache::compute_file_hashes(&edited_src);
     let CacheResult::PartialHit {
@@ -299,10 +322,14 @@ fn cz1_cache_parity_when_a_header_define_becomes_unbalanced() {
 /// replays the old pruning.
 #[test]
 fn cz2_cache_parity_when_a_header_define_gains_a_loose_comma() {
-    cz_parity(
-        "#define MARK (1, 2)\n",
-        "#define MARK 1, 2\n",
+    cz_parity_with(
+        "a.c",
+        MARK_OWNER_ARG,
+        &format!("{ID_DEF}#define MARK (1, 2)\n"),
+        &format!("{ID_DEF}#define MARK 1, 2\n"),
         "loose comma",
+        true,
+        false,
     );
 }
 
@@ -333,18 +360,19 @@ fn cz3_cache_parity_when_a_header_alias_stops_naming_a_listed_macro() {
 /// The digest halves of cz1 to cz3: the census digest must move with the bracket and comma
 /// facts and with the free-name set. Quarantined with the facts they hash.
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM section 5)"]
+#[ignore = "needs the C3 gates (#829 PLAN-v2 task 6): the kept-after-edit half reads G7"]
 fn cz1_digest_half() {
     cz_parity_in("a.c", MARK_V1, MARK_V2, "unbalanced", true, true);
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM section 5)"]
+#[ignore = "needs the C3 gates (#829 PLAN-v2 task 6): the kept-after-edit half reads G7"]
 fn cz2_digest_half() {
-    cz_parity_in(
+    cz_parity_with(
         "a.c",
-        "#define MARK (1, 2)\n",
-        "#define MARK 1, 2\n",
+        MARK_OWNER_ARG,
+        &format!("{ID_DEF}#define MARK (1, 2)\n"),
+        &format!("{ID_DEF}#define MARK 1, 2\n"),
         "loose comma",
         true,
         true,
@@ -352,7 +380,7 @@ fn cz2_digest_half() {
 }
 
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM section 5)"]
+#[ignore = "needs the C3 gates (#829 PLAN-v2 task 6): the kept-after-edit half reads G7"]
 fn cz3_digest_half() {
     for owner in ["a.c", "a.cc"] {
         cz_parity_in(owner, ALIAS_PLAIN, ALIAS_LISTED, owner, true, true);
@@ -364,7 +392,6 @@ fn cz3_digest_half() {
 /// cache must be moved by the free-name set alone (a digest that tracked only the new facts
 /// would replay stale pruning).
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM section 5)"]
 fn cz3_premise_only_the_free_names_differ() {
     let facts = |header: &str| {
         let c = CMacroCensus::from_files(&parse(&mark_sources(header)));
