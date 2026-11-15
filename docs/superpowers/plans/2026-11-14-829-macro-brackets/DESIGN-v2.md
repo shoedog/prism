@@ -2,6 +2,7 @@
 
 **Status:** design of record for the implementation. `DESIGN.md` is the tentative design and stays as history; `PLAN-v2.md` is the plan for this document.
 **Base:** branch `fix/829-macro-brackets` at `9da89ed2` (gates still stubs), release binary of 2026-11-14 19:05, Apple clang 21.0.0.
+**Owner decisions on this document (2026-11-14, `DECISIONS.md`):** OD-A candidate 10; OD-B 31 names; OD-C close the two-file form of A-span in this PR (the hidden-opener half of G10, sections 5.1 and 5.3); OD-D accept the interval cascade. Section 12 keeps the options as they were put.
 **Binding decisions** (`DECISIONS.md`): the truth gate is STRICT (no dropped pair may be CONTRADICTED by the expansion-arm oracle, no per-case waiver); recall is a reported guide; boundary policy OD-6; a positive certificate is the direction (OD-7).
 **Goal (for materiality):** rules U and D are removal-only. A dropped def→use pair must also be dropped when the same rules read what the compiler sees. Refusing an owner (keeping its pairs) is always acceptable; its cost is recall.
 **Probes of this phase:** `.scratch829/redesign/` (git-excluded). The sources that matter are reproduced in section 11.
@@ -13,11 +14,11 @@ An owner keeps rules U and D only when prism can prove **structure preservation*
 1. **Brackets (G7, `Off::MacroBrackets`).** The owner spells no in-repo macro whose replacement list, or that of a macro it names, does not nest in `()`, `{}`, `[]`; no listed external block macro; no in-repo macro that names a listed one.
 2. **Body argument lists (G8, `Off::MacroBodySplit`).** No macro the owner spells (closed the same way) has a body in which an argument list holds a comma inside `{}` or `[]`, or a macro whose expansion can carry a comma outside its own parentheses.
 3. **Owner argument lists (G9, `Off::MacroArgSplit`, `Off::MacroArgLoose`).** The same two conditions for the argument lists written in the owner's own text, except inside a function-call parenthesis that is itself inside the argument list.
-4. **Not captured (G10, `Off::OwnerExposed`).** By the file's own parentheses, the owner does not lie inside an argument list opened before it or closed after it.
+4. **Not captured (G10, `Off::OwnerExposed`).** By the file's own parentheses, the owner does not lie inside an argument list opened before it or closed after it; and the file spells, before the owner, no in-repo macro whose expansion can leave a `(` open (the list could then be closed in the file that includes this one).
 
 Compared with the tentative design: check 4 is new (the enclosing-group class); the blanket "the owner spells a macro with a comma outside parentheses" gate (G8 of `DESIGN.md`, 92% of its recall cost) is replaced by checks 2 and 3, which refuse only where such a comma can reach an argument list.
 
-Scores (section 9): 0 must-keep violations on every population; recall cost 0.9% of the sound drops of the six corpora (332 of 37,777 pairs, 108 of 20,274 owners), against 10.5% for candidate 4b and 54.7% for 6b.
+Scores (section 9): 0 must-keep violations on every population; recall cost 1.1% of the sound drops of the six corpora (399 of 37,777 pairs, 214 of 20,274 owners), against 10.5% for candidate 4b and 54.7% for 6b. Of the 399 pairs, 67 (106 owners, three cpython files) are the price of the hidden-opener half of check 4.
 
 ## 2. What the scoring left open, and what was found
 
@@ -42,9 +43,9 @@ Oracle (`probe.py probes/bodysplit`, C and C++): the pair `x@9 -> x@15` is dropp
 | 4b: tentative + enclosing check | 10.5% (3,973) | sound by section 6 (it refuses a superset of what the rule needs) | 3,647 of the 3,973 pairs are owners that merely spell a macro such as `#define INIT {0, 0}` |
 | 8: finer comma rule | 2.4% (912) | **unsound** (above) | rejected |
 | 6b: shape certificate (body must be expression-shaped) | 54.7% (20,658) | also sound for brackets; additionally refuses every body with `;`, a control keyword, a brace or a declaration keyword | buys robustness against statement-level classes nobody has found (section 4.3) |
-| 10: this document | 0.9% (332) | section 6 | chosen |
-| 10 without shielded parentheses | 2.4% (912) | section 6 without lemma V | fallback if lemma V is not accepted (OD-A) |
-| 10 + "a reachable body holds a top-level `;`" | 7.0% (2,663) | closes the #831 shape too | for information; #831 is not this lane |
+| 10: this document | 1.1% (399) | section 6 | chosen |
+| 10 without shielded parentheses | 2.6% (979) | section 6 without lemma V | fallback if lemma V is not accepted (OD-A) |
+| 10 + "a reachable body holds a top-level `;`" | 7.2% (2,730) | closes the #831 shape too | for information; #831 is not this lane |
 
 Hybrids considered and not taken: a certificate whose failure only escapes names or only keeps pairs near the macro (no argument for locality: an unbalanced expansion shifts every enclosing block, `DESIGN.md` option K2); 6b with a looser shape (it would still pay for `;` bodies, 11,697 pairs, without a demonstrated hole).
 
@@ -109,9 +110,12 @@ identifier x that is not a parameter     -> for every Paren on the stack:
                                               root Param -> fwd_param += x;  root Name(t) -> fwd_after += (t, x)
 ```
 
-Raw facts of a definition: `unbalanced`, `loose_comma`, `held_param` (booleans) and `held_after`, `fwd_param`, `fwd_after` (name sets, not exported).
+Beside the stack, the scan matches parentheses alone (a second stack that ignores braces and square brackets: `(` and the `(` of `__VA_OPT__` push, `)` pops when it is not empty); when it is not empty at the end the body has `paren_open`.
+
+Raw facts of a definition: `unbalanced`, `loose_comma`, `held_param`, `paren_open` (booleans) and `held_after`, `fwd_param`, `fwd_after` (name sets, not exported).
 - **`unbalanced`:** the replacement list is not WN. Any digraph bracket sets it (the C++ `<::` exception is not modelled).
 - **`loose_comma`:** some comma or `__VA_ARGS__` of the body is bare or held, so the expansion may not be CC. Same definition as the tentative fact.
+- **`paren_open`:** the replacement list holds a `(` that no later `)` of it closes, counting parentheses alone. Its expansion can leave a parenthesis open for the source text that follows, which is how an argument list comes to start inside a macro (PF4). A stray `)` does not set it: a closer from a macro closes nothing (PF4). `paren_open` implies `unbalanced`.
 - **Body callee group:** a paren group of the body that directly follows a parameter, an in-repo macro name, or the `)` of a body callee group (a chain). Which names are macros is known only at closure time, so the scan records the root of every group that follows an identifier: `held_param` / `held_after` say that such a group holds a held comma or `__VA_ARGS__` (at any depth), `fwd_param` / `fwd_after` name the non-parameter identifiers inside it.
 - A paren after an identifier that is no in-repo macro (`f((T){ a, b })`, `sizeof(..)`, `if (..)`) is no callee group. The wider reading "after any identifier" scores the same on every population (candidate 10i, section 9) and would make the facts independent of the macro set, but it refuses every owner that calls a macro of the named-argument idiom, `#define foo(...) foo_impl((struct foo_opts){ __VA_ARGS__ })`; it is not taken.
 - A GNU named variadic parameter (`args...`) sets `loose_comma` and `held_param` (fail closed; the name is not tracked).
@@ -127,11 +131,12 @@ split(M)       = held_param(M)
                  or some x in fwd_param(M) is an in-repo macro with loose*(x)
                  or some (t, x) in fwd_after(M): t is an in-repo macro, x is an in-repo macro with loose*(x)
 arg_split*(M)  = OR of split over M and reach(M)
+paren_open*(M) = OR of paren_open over M and reach(M)
 ```
 
-`MacroFacts` exports the three closed booleans as `unbalanced`, `loose_comma`, `arg_split`.
+`MacroFacts` exports the four closed booleans as `unbalanced`, `loose_comma`, `arg_split`, `paren_open`.
 
-**Census texts that are not parsed C/C++ (`collect_permissive`).** The text after the name (parameter list included: its parentheses nest, its commas are tight, and it follows no identifier, so it is no callee group) is tokenized in both dialects; each dialect that reads it runs the scan with **every identifier treated as a parameter root** (the parameter list is not parsed, so a group after any identifier is a callee group and every identifier inside one is a forwarded name: an over-approximation, like the existing rule that keeps parameters in `free`), and the results are ORed. A line no dialect can tokenize, or a named variadic in the leading group, sets all three raw booleans (fail closed; this replaces the raw-byte automaton of `DESIGN.md` 6.2, which could miss a bracket next to an unterminated literal).
+**Census texts that are not parsed C/C++ (`collect_permissive`).** The text after the name (parameter list included: its parentheses nest, its commas are tight, and it follows no identifier, so it is no callee group) is tokenized in both dialects; each dialect that reads it runs the scan with **every identifier treated as a parameter root** (the parameter list is not parsed, so a group after any identifier is a callee group and every identifier inside one is a forwarded name: an over-approximation, like the existing rule that keeps parameters in `free`), and the results are ORed. A line no dialect can tokenize sets `unbalanced`, `loose_comma`, `held_param` and `paren_open`; a named variadic in the leading group sets `loose_comma` and `held_param` (fail closed; this replaces the raw-byte automaton of `DESIGN.md` 6.2, which could miss a bracket next to an unterminated literal).
 
 ### 5.2 Owner checks (`c_prune::scan`, `.c` and C++ owners, after the existing gates)
 
@@ -144,7 +149,7 @@ arg_split*(M)  = OR of split over M and reach(M)
   A token inside at least one callee paren and inside no shielded paren is **checked**. A checked comma whose innermost bracket is `{` or `[` refuses (`MacroArgSplit`), as does a closer that does not match its opener or a digraph bracket inside a callee paren. A checked identifier that names an in-repo macro with `loose_comma` refuses (`MacroArgLoose`).
 - **G10 `Off::OwnerExposed`.** Section 5.3.
 
-All four apply to U and D. The first refusal found is reported; the order among gates is otherwise unchanged. `Off::MacroComma` (stub) is removed.
+All four gates apply to U and D. The first refusal found is reported; the order among gates is otherwise unchanged. `Off::MacroComma` (stub) is removed.
 
 What the parser already guarantees, pinned by fact tests and not re-checked: an owner whose text holds a digraph bracket, or a conditional directive inside an argument list, is `G1Error` or no owner (`probes/digraph_owner`, `probes/if_in_args`); an owner without a parse error has nesting brackets in its own text, and each branch of a conditional inside it holds whole items of the list it stands in (statements, declarations, fields, enumerators), so every branch nests by itself. The G9 pass reads directive lines as tokens too, as `macro_call_arguments` does; a conditional's own parentheses nest on its line.
 
@@ -155,9 +160,15 @@ Input: the file's source and the byte ranges of its owner nodes (`parsed.all_fun
 1. **Events.** The file is cut at every owner start and end. Each piece goes through the census's phase code (`translate`, `splice`, `strip_comments`) and a lenient scan that emits, in order: `(` and `)` in code; `If` (`#if`, `#ifdef`, `#ifndef`), `Elif` (`#elif`, `#elifdef`, `#elifndef`), `Else`, `Endif`. Nothing else of a directive line counts (its parentheses, a `#define` body, an `#error` text). A string or character literal that does not end on its line ends there (code the compiler accepts has none; skipped text may). Cutting at owner boundaries gives every owner an exact position in the event list without offset maps; a cut is a token boundary outside comments and literals in tree-sitter's reading.
 2. **Variants.** Trigraphs on and off, lenient and strict splices (variants with identical event lists are merged); dialect: C++ only for a file parsed as C++ (the dialect assumption of slice 6c; a C reading of a multi-line raw string would see stray parentheses), C and C++ for a `.c` file. Any variant that refuses, refuses.
 3. **Intervals.** One forward pass keeps the interval `[lo, hi]` of the running balance (`(` adds 1, `)` subtracts 1, not clamped) over the branches of conditional compilation: at `If` push the current interval; at `Elif`/`Else` record the branch end and restart from the pushed interval; at `Endif` the interval becomes the hull of the branch ends, plus the pushed interval when no plain `#else` was seen (no branch may be taken).
-4. **Test.** With `a` the owner's start and `b` its end: the owner is exposed when `hi(a) > min(0, least lo before a)` (in some configuration a literal `(` before the owner is still open at its start) or `least lo after b < hi(b)` (in some configuration a `)` after the owner closes something no literal `(` after the owner opened). An owner range that is not a cut is exposed (fail closed).
+4. **Interval test.** With `a` the owner's start and `b` its end: the owner is exposed when `hi(a) > min(0, least lo before a)` (in some configuration a literal `(` before the owner is still open at its start) or `least lo after b < hi(b)` (in some configuration a `)` after the owner closes something no literal `(` after the owner opened). An owner range that is not a cut is exposed (fail closed).
 
-Costs, disclosed: the hull does not correlate two conditionals with the same condition. A file that opens a parenthesis under `#ifdef X` and closes it under a later `#ifdef X` gets a wide interval, and every owner before and after the pair is refused (pinned by the scorer's self-test). Text under `#if 0` with unbalanced parentheses does the same to the owners after it. Neither occurs in the six corpora: the test refuses none of the 20,274 `on` owners (candidates 10 and 10f agree on every owner).
+5. **Hidden opener (OD-C: the two-file form of A-span).** The scan also reads the identifiers of code (not of directive lines, comments or literals). The owner is exposed when, in some variant, a piece before its start cut holds an identifier that names an in-repo macro with `paren_open` (closed). `build` takes the census as a predicate; the test compares the ordinal of the first such piece with the ordinal of the owner's start cut. An owner that itself spells the macro is already off (G7); an owner before the first spelling is not affected.
+   - *Why it is needed.* The interval test sees an argument list that a macro opens only through its literal `)` after the owner. When the owner's file is included by another file, that `)` can be in the includer (PF5), where no test on this file sees it (`probes/aspan`, section 11: the program returns 42, head drops the pair).
+   - *What it refuses.* Every owner whose start lies after the first code spelling of such a macro in its file, whatever closes the parenthesis and wherever: also when a literal `)` closes it before the owner, and when the spelling is in a branch the build does not take. The spelling may be at file scope, inside another owner's text (`probes/aspan_sib`) or inside a declaration.
+   - *Census inputs.* The fact is the union over every definition of the name in every census input, as for the other facts. A definition in an input the census does not read is A-inputs (#813). The union has a price: cpython defines a `CASE(NAME)` that opens a function call in one test file (`Modules/_testlimitedcapi/slots.c`, closed by its `ENDCASE()`), and three other files define and use a local, balanced `CASE` inside one function each; the owners after that use are refused (106 owners, 67 sound pairs; the other five corpora hold no `paren_open` macro at all, cpython one more, never spelled in a scoped file).
+   - *Not taken:* applying the half only to files that some `#include` names (a file nothing includes cannot end inside an argument list, so the 67 pairs would return). It would rest on include visibility (computed and forced includes), the A-inputs family; a recall follow-up if wanted. Also not taken: recording only an unmatched `(` that follows a macro name or a parameter. That is not compositional: `N(Z)` with `#define Z (` and `#define N(p) W3 p` opens a list although no body holds "name, then `(`".
+
+Costs of the interval test, disclosed: the hull does not correlate two conditionals with the same condition. A file that opens a parenthesis under `#ifdef X` and closes it under a later `#ifdef X` gets a wide interval, and every owner before and after the pair is refused (pinned by the scorer's self-test). Text under `#if 0` with unbalanced parentheses does the same to the owners after it. Neither occurs in the six corpora: the interval test refuses none of the 20,274 `on` owners (B8, the rule with the interval test and without the hidden-opener half, refuses exactly the 108 owners that B7, the rule without G10, refuses; candidates 10 and 10f agree on every owner).
 
 ### 5.4 External names (`BLOCK_MACROS`)
 
@@ -176,8 +187,8 @@ Added: `Py_TRASHCAN_BEGIN_CONDITION`, `Py_BEGIN_CRITICAL_SECTION_SEQUENCE_FAST`,
 `PRISM_C_PRUNE_TRACE=1`: `c-prune-owner<TAB>off:MacroBrackets|off:MacroBodySplit|off:MacroArgSplit|off:MacroArgLoose|off:OwnerExposed<TAB>file<TAB>line`. The L3 recall ledger groups restored pairs by these names.
 
 ### 5.6 Digest and cache
-- `CMacroCensus::digest`: tag `c-macro-census-v3`; per-macro flag bytes `[control, poisoned, unbalanced, loose_comma, arg_split]`. The name sets are not in the digest: they only feed `arg_split`, which also depends on the macro set, and every macro name is in the digest. The aggregate `c-census:` identity of the text inputs is computed from the same digest, so a census text whose new facts change moves it.
-- `CACHE_VERSION` 188 to 189 in the PR that turns the gates on (a full hit would otherwise replay edges pruned under the old gates), with the changelog line and the pinned asserts. The exposed test reads only the owner's own file, which is already in the cache identity.
+- `CMacroCensus::digest`: tag `c-macro-census-v3`; per-macro flag bytes `[control, poisoned, unbalanced, loose_comma, arg_split, paren_open]`. The name sets are not in the digest: they only feed `arg_split`, which also depends on the macro set, and every macro name is in the digest. The aggregate `c-census:` identity of the text inputs is computed from the same digest, so a census text whose new facts change moves it.
+- `CACHE_VERSION` 188 to 189 in the PR that turns the gates on (a full hit would otherwise replay edges pruned under the old gates), with the changelog line and the pinned asserts. The exposed test reads the owner's own file, which is already in the cache identity, and `paren_open`, which is in the census digest: a partial hit with a different digest already rebuilds in full.
 
 ## 6. Why admitted owners satisfy SP
 
@@ -200,8 +211,11 @@ So whatever happens inside `P` (a held comma, a loose macro, a split) stays insi
 *Proof.* A callee group is the group after a macro name that the preprocessor invokes there (the pass treats every in-repo macro name before a `(` as one, and every chained group as one: both over-approximate, covering an object-like alias and an expansion that ends in a function-like name). By G9 no checked comma is held, so outside shielded units every comma of an argument is tight; the units are WN and opaque (lemma V). Macros named at checked positions have `loose_comma` false, so by lemma 1(c) their expansions are CC. A nested callee group at a checked position is itself a callee group of `O` and satisfies the same conditions. ∎
 Lemma 1 was stated for CC arguments; it holds unchanged for the arguments of lemma 2, with each shielded unit treated as one opaque WN token: the unit brings no comma to any depth-0 position (lemma V(b)).
 
+**Lemma O (no open parenthesis without `paren_open`).** If no body reachable from the macro names spelled in a stretch of code has `paren_open`, no expansion in that stretch leaves a parenthesis open at its end.
+*Proof.* Count parentheses alone and reduce a token string to `)`..`)` `(`..`(`: its unmatched closers, then its unmatched openers. A body without `paren_open` reduces to closers only. The arguments of an invocation are balanced as collected (PF1), and an argument expanded before substitution (PF3) is, by the same count, without unmatched openers. Expansion replaces a name, with its balanced argument groups, by a string built from such bodies and arguments; putting closers-only strings into a string adds no unmatched opener, and removing balanced groups adds none. By induction over the expansion steps, a stretch that starts with no unmatched opener from a macro ends with none. (A rule that looks only for "a macro name, then an unmatched `(`" in one body is not enough: `#define Z (`, `#define N(p) W3 p`, `N(Z)`.) ∎
+
 **Lemma 3 (not captured).** Under A-span, G10 implies SP1.
-*Proof.* Suppose a token of `O` is an argument of an invocation whose name lies outside `O`. Its opening parenthesis is either a literal `(` of `F` before `O`, whose match by raw counting is where the list ends (PF1), so it is still open at `O`'s start: the first half of the test; or it comes from a macro expansion or from the tail of an included file (PF4, PF5), and the list then ends at a literal `)` that no literal `(` after `O` opened: the second half, if that `)` is in `F` (A-span covers the case where it is not). A `)` from a macro cannot end it (PF4). The interval contains the balance of every configuration, and the lexing variants contain the compiler's reading. ∎
+*Proof.* Suppose a token of `O` is an argument of an invocation whose name lies outside `O`. Its opening parenthesis is one of three things. (i) A literal `(` of `F` before `O`: its match by raw counting is where the list ends (PF1), so it is still open at `O`'s start: the first half of the interval test. (ii) A `(` from the expansion of an in-repo macro in the code of `F` before `O`: by lemma O some name spelled there has `paren_open`: the hidden-opener half, wherever the list closes. (iii) A `(` from a macro defined outside the repository, or from the tail of a file that `F` includes (PF5): the list ends at a literal `)` that no literal `(` after `O` opened (a `)` from a macro cannot end it, PF4): the second half of the interval test when that `)` is in `F`; A-span is the assumption that it is. An opener in a file that includes `F`, before the `#include`, is not possible (PF5). The interval contains the balance of every configuration, and the lexing variants contain the compiler's reading. ∎
 
 **Theorem.** If `O` passes the existing gates and G7 to G10, then under the assumptions of section 7 `O` satisfies SP in every valid configuration.
 *Proof.* SP1 is lemma 3. For SP2 take an outermost invocation of `O`. Its name is an in-repo macro spelled by `O` (an external one is covered by A-ext), so `unbalanced` and `arg_split` are false (G7, G8). Its arguments, if any, are clean by lemma 2. By lemma 1(b) its expansion is WN. If the expansion ends in a function-like macro name and the next owner token is `(`, that group is a chained callee group of `O`, and the same argument applies. The invocation consumes exactly the groups the pass treats as its argument groups, so the owner tokens outside invocations are unchanged. ∎
@@ -215,6 +229,7 @@ Lemma 1 was stated for CC arguments; it holds unchanged for the arguments of lem
 | argument split at the owner (S, D) | `F({ int a, bb; })`, `SF(({ int a, b; }))` | G9 held | B3: 1 + 11 rows |
 | loose macro re-split on a rescan | `H(INIT)` | G9 loose | B4: 13 + 1 rows |
 | **split inside a body** (new) | `#define HI F({ int a, b; })` | G8, held comma | B5: none of the frozen rows: new rows required (section 10) |
+| **argument list opened by a macro before the owner, closed in the including file** (new, OD-C) | `BEGIN_IMPL` with `#define BEGIN_IMPL W3(`; the `)` in `unity.c` | G10, hidden opener | B8: none of the frozen rows: new rows required (the oracle cannot judge them: section 10) |
 | **loose macro inside a body's group** (new rows; candidate 8 handled it) | `#define HI H(INIT)`, `#define DF ID(F BR)` | G8, forwarded loose macro | B6: none of the frozen rows: new rows required |
 
 ## 7. Boundary policy per assumption (OD-6)
@@ -226,7 +241,7 @@ Lemma 1 was stated for CC arguments; it holds unchanged for the arguments of lem
 | **A-config** | the definition in effect is one the census read (`-D`, a forced include) | disclosed | guide rows |
 | **A-dialect** | C99 or later, C++11 or later, standard preprocessing | disclosed; the one witness (`33 g2o03`, a digit separator) is closed because the census ORs both dialects | pinned row flips to kept |
 | **A-encoding** | UTF-8 or ASCII-compatible sources | disclosed | |
-| **A-span** (new, OD-C) | for an owner in a file that another file includes: an argument list whose opening parenthesis comes from a macro expansion, or from a file it includes, closes before the end of that file | disclosed, one pinned-hole witness with a runtime receipt (`probes/aspan`: `impl.c` starts with `BEGIN_IMPL`, defined as `W3(` in `defs.h`, and never closes the list; `unity.c` includes it and holds the `)`; the program returns 42 and head drops the live pair). The oracle cannot judge it: it tokenizes `impl.c` alone | a file nothing includes needs no assumption (an open list at its end is a compile error) |
+| **A-span** (new; narrowed by OD-C) | an argument list that a macro defined outside the repository opens, or that is still open at the end of a file the owner's file includes, closes before the end of the owner's file | the form with an in-repo macro spelled in the owner's file is **closed** (section 5.3, step 5). The rest is disclosed, with one pinned-hole witness and its runtime receipt (`probes/aspan3`: `open.h` ends with a literal `W3(`, `impl.c` includes it, `unity.c` includes `impl.c` and holds the `)`; the program returns 42 and head drops the live pair; no candidate refuses it, 6b included) | `aspan`, `aspan_sib` and the C++ twin are must-keep rows by receipt (section 10); a file nothing includes needs no assumption (an open list at its end is a compile error) |
 
 ## 8. Where the scorer's emulation differs from prism, and whether the design depends on it
 
@@ -235,9 +250,10 @@ Lemma 1 was stated for CC arguments; it holds unchanged for the arguments of lem
 | one lexer pass for definitions, no C/C++ dialect split, no soft poison | the real census ORs more passes: it refuses a superset | no violation can appear; recall may be slightly lower than scored |
 | census input set approximated; `incomplete` not emulated | same facts where the inputs agree; `incomplete` turns everything off | no |
 | census texts read by the same lexer, parameter lists parsed; the real rule fails closed on an unreadable line and treats every identifier of a census text as a parameter root | superset of refusals | no |
-| owners located by a token rule; the scorer's owner can start before the real one (it swallowed `W3(` in the first `hull2` probe and reported `arg_split`) | the real owner is the tree-sitter node; such an owner is refused by G10 instead | checked two ways (`cands_diag.py`): with the exposed test alone, every row that needs it is refused (50 of 50 generator rows, 16 pair rows, 4 inline rows, 1,947 L2 programs), and the two groups do not overlap; and candidate 10 on an owner cut down to start after every leading macro token (`10-narrow`, the worst case of the difference) scores the same on every population (0 violations, 332 pairs). The Rust row tests are the final check |
+| owners located by a token rule; the scorer's owner can start before the real one (it swallowed `W3(` in the first `hull2` probe and reported `arg_split`) | the real owner is the tree-sitter node; such an owner is refused by G10 instead | checked two ways (`cands_diag.py`): with the exposed test alone, every row that needs it is refused (50 of 50 generator rows, 16 pair rows, 4 inline rows, 1,947 L2 programs), and the two groups do not overlap; and candidate 10 on an owner cut down to start after every leading macro token (`10-narrow`, the worst case of the difference) scores the same on every population (0 violations, 399 pairs). The Rust row tests are the final check |
 | open group: first-branch-wins for `#if`, parentheses read by one lexer | the real test is the interval hull over all lexing variants: a superset | no (10 and 10f agree on every owner of every population) |
 | callee and shield use `db.defined` over the emulated inputs | same rule on the real census | no |
+| hidden opener: the first code identifier of the file with `paren_open`, compared with the scorer's owner start | the same test on the real pieces and census (more lexing variants: a superset) | no; an owner the scorer starts too early spells the macro itself and is refused by G7, as in prism |
 | verdicts are those of the base binary under one host configuration | unchanged by the design | the L3 compare with the head binary is the gate (PLAN-v2 task 9) |
 
 The scores are evidence for the rows' classes. The argument of section 6 is what covers shapes the rows do not hold; the two new body classes show the difference.
@@ -248,12 +264,12 @@ The scores are evidence for the rows' classes. The argument of section 6 is what
 
 | candidate | L1 pair | L1 inline | L1 generator | L2 bound 3 | L2 bound 4 batches | L3 (6 corpora) | L3 recall cost | owners refused | pinned open | boundary open |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **10 (this design)** | 0 / 113 | 0 / 30 | 0 / 98 | 0 / 6,903 | 0 / 8,566 | 0 / 50 | 0.9% (332 / 37,777) | 108 / 20,274 | 21 / 23 | 17 / 41 |
-| 10x: 10 with the 31 names (OD-B) | 0 | 0 | 0 | 0 | 0 | 0 | 0.9% (332) | 108 | 21 | 13 |
-| 10n: 10 without shielded parens | 0 | 0 | 0 | 0 | 0 | 0 | 2.4% (912) | 126 | 21 | 17 |
-| 10i: body callee groups after any identifier | 0 | 0 | 0 | 0 | 0 | 0 | 0.9% (332) | 108 | 21 | 17 |
-| 10f: first-branch-wins enclosing test | 0 | 0 | 0 | 0 | 0 | 0 | 0.9% (332) | 108 | 21 | 17 |
-| 10s: 10 + top-level `;` in a reachable body | 0 | 0 | 0 | 0 | 0 | 0 | 7.0% (2,663) | 269 | 21 | 17 |
+| **10 (this design)** | 0 / 113 | 0 / 30 | 0 / 98 | 0 / 6,903 | 0 / 8,566 | 0 / 50 | 1.1% (399 / 37,777) | 214 / 20,274 | 21 / 23 | 17 / 41 |
+| 10x: 10 with the 31 names (OD-B) | 0 | 0 | 0 | 0 | 0 | 0 | 1.1% (399) | 214 | 21 | 13 |
+| 10n: 10 without shielded parens | 0 | 0 | 0 | 0 | 0 | 0 | 2.6% (979) | 232 | 21 | 17 |
+| 10i: body callee groups after any identifier | 0 | 0 | 0 | 0 | 0 | 0 | 1.1% (399) | 214 | 21 | 17 |
+| 10f: first-branch-wins enclosing test | 0 | 0 | 0 | 0 | 0 | 0 | 1.1% (399) | 214 | 21 | 17 |
+| 10s: 10 + top-level `;` in a reachable body | 0 | 0 | 0 | 0 | 0 | 0 | 7.2% (2,730) | 374 | 21 | 17 |
 | 4b | 0 | 0 | 0 | 0 | 0 | 0 | 10.5% (3,973) | 474 | 21 | 17 |
 | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 2.4% (912) | 130 | 21 | 17 |
 | 6b | 0 | 0 | 0 | 0 | 0 | 0 | 54.7% (20,658) | 3,724 | 21 | 13 |
@@ -264,18 +280,20 @@ The scores are evidence for the rows' classes. The argument of section 6 is what
 | B5: 10 without G8's held-comma half | 0 | 0 | 0 | 0 | 0 | 0 | | | | |
 | B6: 10 without G8's forwarded-macro half | 0 | 0 | 0 | 0 | 0 | 0 | | | | |
 | B7: 10 without G10 | 16 | 4 | 50 | 1,947 | 1,937 | 0 | | | | |
+| B8: 10 without G10's hidden-opener half | 0 | 0 | 0 | 0 | 0 | 0 | 0.9% (332) | 108 | 21 | 17 |
 
-Candidate 10: recall cost by corpus: cpython 332 of 15,220 (2.2%; `block_list` 275, `unbalanced` 51, `MacroArgLoose` 6), 0 on redis, leveldb, protobuf, re2 and snappy. Owners: cpython 106 of 5,425, redis 1, protobuf 1. The 326 `block_list` and `unbalanced` pairs are critical-section and lock macros around plain blocks; only a rule-D slice that sees through unconditional nested blocks recovers them (`DECISIONS.md` OD-3). Without shields, 580 more pairs are lost in cpython's generated `Parser/parser.c`: `CHECK(.., _PyAST_X(.., EXTRA))`, where `EXTRA` is five comma-separated arguments inside a function-call parenthesis. L1 guide cost: 16 of 30 pair-row and 14 of 33 inline-row CONFIRMED drops are refused (rows built to sit next to hazards); L2: 2,767 of 16,330 (adversarial bodies, not a recall estimate).
+Candidate 10: recall cost by corpus: cpython 399 of 15,220 (2.6%; `block_list` 275, hidden opener 67, `unbalanced` 51, `MacroArgLoose` 6), 0 on redis, leveldb, protobuf, re2 and snappy. Owners: cpython 212 of 5,425 (106 of them by the hidden opener: section 5.3), redis 1, protobuf 1. The 326 `block_list` and `unbalanced` pairs are critical-section and lock macros around plain blocks; only a rule-D slice that sees through unconditional nested blocks recovers them (`DECISIONS.md` OD-3). Without shields, 580 more pairs are lost in cpython's generated `Parser/parser.c`: `CHECK(.., _PyAST_X(.., EXTRA))`, where `EXTRA` is five comma-separated arguments inside a function-call parenthesis. L1 guide cost: 16 of 30 pair-row and 16 of 33 inline-row CONFIRMED drops are refused (rows built to sit next to hazards); L2: 2,767 of 16,330 (adversarial bodies, not a recall estimate).
 
-The probes of section 11 against the candidates (`evalprobe.py`): `bodysplit` (c, cc) CONTRADICTED: 8 admits, 10 refuses, B5 admits. `bodyfwd`, `deferred` (c, cc) CONTRADICTED: 10 refuses, B6 admits. `shield_nested` (c, cc) CONTRADICTED: 10 refuses. `outer_shield` CONTRADICTED: 10 refuses. `shield_safe` all CONFIRMED: 10 admits, 10n and 8 refuse. `hull2` CONTRADICTED, runtime 42: 10 refuses (`exposed_open_before`). `aspan`: every candidate admits, 6b included (section 7).
+The probes of section 11 against the candidates (`evalprobe.py`): `bodysplit` (c, cc) CONTRADICTED: 8 admits, 10 refuses, B5 admits. `bodyfwd`, `deferred` (c, cc) CONTRADICTED: 10 refuses, B6 admits. `shield_nested` (c, cc) CONTRADICTED: 10 refuses. `outer_shield` CONTRADICTED: 10 refuses. `shield_safe` all CONFIRMED: 10 admits, 10n and 8 refuse. `hull2` CONTRADICTED, runtime 42: 10 refuses (`exposed_open_before`). `aspan` (c, cc) and `aspan_sib`: runtime 42, head drops the pair; 10 refuses (`exposed_hidden_opener`), B8, 4b and 6b admit; the oracle says CONFIRMED (section 10). `aspan3`: runtime 42, every candidate admits, 6b included (section 7).
 
 ## 10. Tests that follow from the design
 
 - **New must-keep rows** (red on base; labelled by the oracle, C and C++ twins): `bodysplit`, `bodyfwd`, `deferred`, `shield_nested`, `outer_shield`, `hull2` (an opener and a closer under `#else` branches). They give B5 and B6 a violated row each, which is premise coverage for every premise of section 6.
 - **Guide rows:** `shield_safe` (CONFIRMED and admitted: the recall the shield buys).
-- **Pinned hole:** `aspan` (A-span), with its runtime receipt.
+- **Hidden opener (OD-C).** Must-keep rows `aspan` (C and C++; the opener macro at file scope) and `aspan_sib` (the opener macro inside a sibling owner); a control with the same macro spelled only after the owner (not refused). Pinned hole: `aspan3` (A-span as narrowed).
+  **Why the oracle misjudges these rows, and their truth basis.** The X arm replaces each `.c`/`.cc` file by its own post-expansion tokens, lexed with that file as the main file. `impl.c` alone never sees `defs.h` (only `unity.c` includes it), so `BEGIN_IMPL` is a plain identifier there, the "expansion" equals the source, and the rules drop the pair on it too: CONFIRMED. In `unity.c`'s stream, where the macro does rewrite the function, the tokens spelled in `impl.c` are not written anywhere (only main-file tokens are kept). The verdict describes a compilation that never happens. So: a row may declare its translation unit (`tu`); when the pair's file is not the `tu`, the oracle records `UNJUDGED` (`target-not-a-translation-unit`) instead of judging the file alone, and the existing receipt rule applies (a runtime receipt outranks UNJUDGED, never CONFIRMED or CONTRADICTED): `overrides.json` gives `assert: kept` (for `aspan3`: `pinned_hole`, assumption `A-span`) with `basis: receipt`. The receipt is the program itself: `main` returns `f(0)`, 42 exactly when the first def of `x` reaches the `return` (`xarm_receipts.py`, not run in CI). Optional, not required: judge such a row from the `tu`'s token stream by writing the tokens spelled in the pair's file to that file's X text.
 - **Generator (L2 addendum).** The grammar cannot derive a body that holds an invocation. Add a `nest` family: an outer object or function-like macro whose body is `K(<fragments>)` or `ID(K <macro>)` with an inner macro from the enclosing-macro fragment set, at statement and guard sites. One offline run at bound 3 for the family; new keys are frozen as rows. Budget: two hours of machine time; if it yields a contradicted key that candidate 10 admits, stop and return to design.
-- **Fact tests** for the automaton (group roots, held commas, forwarded names, chained groups, `__VA_OPT__`, named variadic, permissive fail-closed), the closure (`arg_split` through reach, through a forwarded loose macro, and not for a group after a non-macro identifier), the digest, the owner pass (callee, shielded, plain parens; chained groups; a paren after an identifier outside a callee paren), the event scan and the interval test (conditional hull, `#if 0` text, directive lines, the cascade), and the parser guarantees of section 5.2.
+- **Fact tests** for the automaton (group roots, held commas, forwarded names, chained groups, `__VA_OPT__`, named variadic, permissive fail-closed), the closure (`arg_split` through reach, through a forwarded loose macro, and not for a group after a non-macro identifier), the digest, the owner pass (callee, shielded, plain parens; chained groups; a paren after an identifier outside a callee paren), `paren_open` (own, through reach, `) (`, a brace-only block macro, `__VA_OPT__`), the event scan, the interval test (conditional hull, `#if 0` text, directive lines, the cascade) and the hidden opener (before, inside and after the owner; in a directive line; in a comment), and the parser guarantees of section 5.2.
 
 **The 80 quarantined tests.** The facts `unbalanced` and `loose_comma` keep the tentative definitions, so their tests return as fact tests:
 
@@ -284,7 +302,7 @@ The probes of section 11 against the candidates (`evalprobe.py`): `bodysplit` (c
 | `macro_census_brackets_tests.rs` | 38 | un-ignore unchanged (`u22` and `l11` already agree with the fail-closed reading of an unreadable permissive line) |
 | `macro_census_brackets_r1_tests.rs` | 21 | un-ignore; one expectation changes: `g_sol_11_permissive_unreadable_line_with_only_a_comma` now has `unbalanced` true as well (a permissive line no dialect reads sets every fact); the digest tests gain an `arg_split` twin |
 | `macro_census_brackets_r2_tests.rs`, `_r3_tests.rs` | 7 + 8 | un-ignore unchanged (lexical readings of bodies) |
-| `c_macro_census_tests.rs` | 4 | un-ignore; the digest tag is `v3` |
+| `c_macro_census_tests.rs` | 4 | un-ignore; the digest tag is `v3` and the flag bytes are six |
 | `c_prune_brackets_tests.rs`, `c_prune_brackets_r1_tests.rs` | 1 + 1 | un-ignore; both pin the name list: update to the decided list (OD-B) |
 
 None is deleted. A test that fails after un-ignoring for a reason other than the named changes (one expectation, the digest tag, the name list) is a finding for review, not something to re-baseline.
@@ -332,22 +350,35 @@ int f(int c) { int x = 41; int b;                x = 2; d = 0, a = 1; return x +
 )                                            int main(void) { return f(0); }
 #endif
 ```
+```c
+/* aspan_sib: defs.h */                      /* aspan3: defs.h holds W3 only */
+#define W4(o, p, q, r) o p; r                /* open.h */
+#define OPEN_IMPL W4(                        int before829;
+/* impl.c */                                 W3(
+int g(int c) {                               /* impl.c */
+    return c OPEN_IMPL ; }                   #include "open.h"
+, int f(int c) { int x = 41; int b;          int dummy829;
+    int a = 0, d; x = 2; d = 0, a = 1;       int f(int c) { .. as aspan .. }
+    return x + a; }                          /* unity.c: #include "defs.h", #include "impl.c", ")" */
+/* unity.c: #include "defs.h", #include "impl.c", ")", main returns f(0) + g(0) */
+/* aspan C++ twin: the owner is { int x = 41; int b = 0; int a = 0, d; x = 2; int e = 0, b; return x + 1; } */
+```
 (In the probes each statement of an owner is on its own line: a same-line pair is never dropped.)
 
 ## 12. Owner decisions
 
-**OWNER-DECISION OD-A: which rule.** Recommended default: **candidate 10** as specified (0 violations on every population; 0.9% recall cost; the argument of section 6). The trade-offs:
+**OWNER-DECISION OD-A: which rule.** *Decided: candidate 10.* (The percentages below predate the hidden-opener half; section 9 has the current ones.) Recommended default: **candidate 10** as specified (0 violations on every population; 0.9% recall cost; the argument of section 6). The trade-offs:
 - 10 without shielded parens (10n): the argument loses lemma V, the one step that appeals to "a program the compiler accepts"; cost 2.4% instead of 0.9% (580 pairs of one generated cpython file). Take this if the owner wants the proof to rest on token mechanics only.
 - 4b: simplest to state, same soundness (it refuses a superset), 10.5%.
 - 6b, or 10 + top-level `;`: also close statement-level shapes by construction (section 4.3), 54.7% or 7.0%. No hole of those classes is known; #831 is deferred.
 
-**OWNER-DECISION OD-B: external-list additions.** Recommended default: **add the 15 names of section 5.4** (31 in all). Listing a name only refuses more; the six corpora lose nothing. Alternative: add only `Py_TRASHCAN_BEGIN_CONDITION` and the two NumPy allow-threads aliases (the names the rows already use) and leave the rest to D2.
+**OWNER-DECISION OD-B: external-list additions.** *Decided: 31 names.* Recommended default: **add the 15 names of section 5.4** (31 in all). Listing a name only refuses more; the six corpora lose nothing. Alternative: add only `Py_TRASHCAN_BEGIN_CONDITION` and the two NumPy allow-threads aliases (the names the rows already use) and leave the rest to D2.
 
-**OWNER-DECISION OD-C: A-span.** Recommended default: **disclose it and pin the witness.** It needs one macro call split across two files with the opener hidden in a macro; the oracle cannot judge it; no candidate closes it. Alternative (about 40 lines, expected recall cost 0): a census fact "some reachable body has an unmatched `(`" and "the file spells such a macro: its owners are off", which closes the two-file form and leaves the form where an included file's tail opens the list.
+**OWNER-DECISION OD-C: A-span.** *Decided 2026-11-14: close the two-file form in this PR.* Specified in sections 5.1 (`paren_open`), 5.3 step 5, lemma O and lemma 3; cost 67 pairs and 106 owners in cpython; the three-file form and external openers stay the disclosed A-span. The text as it was put: Recommended default: **disclose it and pin the witness.** It needs one macro call split across two files with the opener hidden in a macro; the oracle cannot judge it; no candidate closes it. Alternative (about 40 lines, expected recall cost 0): a census fact "some reachable body has an unmatched `(`" and "the file spells such a macro: its owners are off", which closes the two-file form and leaves the form where an included file's tail opens the list.
 
-**OWNER-DECISION OD-D: the interval test's cascade (section 5.3).** Recommended default: **accept it** (sound, simple, 0 owners on six corpora) and let the L3 ledger show `off:OwnerExposed` counts; correlate equal conditions only if a corpus shows a cost.
+**OWNER-DECISION OD-D: the interval test's cascade (section 5.3).** *Decided: accept.* Recommended default: **accept it** (sound, simple, 0 owners on six corpora) and let the L3 ledger show `off:OwnerExposed` counts; correlate equal conditions only if a corpus shows a cost.
 
 ## 13. Verified and not verified
 
-**Verified by running it here:** PF1 to PF6 with clang; the eight probes with the oracle (C and C++ twins of four) and with every candidate; the header scans; the scores above, the bound-4 batches included; that the scorer changes leave the 15 earlier candidates' 150 cells unchanged; `xscore.py selftest`; that digraph owners and conditionals inside argument lists are `G1Error` on head.
+**Verified by running it here:** PF1 to PF6 with clang; the probes with the oracle (C and C++ twins of five) and with every candidate; the runtime receipts of `hull2`, `aspan` (C and C++), `aspan_sib` and `aspan3` (each returns 42); the header scans; the scores above, the bound-4 batches included; that the scorer changes leave the 15 earlier candidates' 150 cells unchanged; `xscore.py selftest`; that digraph owners and conditionals inside argument lists are `G1Error` on head.
 **Not verified:** GCC's behaviour for PF2 to PF5; PostgreSQL headers (names taken from the fixture preludes); the rule in Rust (the scores are an emulation: section 8); the `nest` generator family (not written); the runtime cost of the exposed test (one extra pass over each C/C++ file with an `on` owner: to be measured, PLAN-v2 task 9); corpora beyond the six.
