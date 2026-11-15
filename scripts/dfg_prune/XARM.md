@@ -168,6 +168,50 @@ directory goes on `-idirafter`. A corpus config file (cpython's `pyconfig.h`) is
   edit and a header edit against the no-cache build of the same tree.
 - Self-test of `compare`: using the base `Tb` run as the head's `T` restores every dropped pair.
 
+## L4 design scoring (`xscore.py`, offline, no prism, no clang)
+
+```bash
+python3 scripts/dfg_prune/xscore.py selftest
+python3 scripts/dfg_prune/xscore.py run --out .scratch829/l4            # L1 + L2 (k3) + L3, about 11 s
+python3 scripts/dfg_prune/xscore.py run --pops l2 --l2dirs .scratch829/gen/k4a .scratch829/gen/k4b --out DIR
+python3 scripts/dfg_prune/xscore.py report .scratch829/l4 [--md | --violations --pops L1-pair --classes MUSTKEEP]
+python3 scripts/dfg_prune/xscore.py run --candidates my_candidates.py --out DIR
+```
+
+A candidate design is an OWNER-REFUSAL PREDICATE, `predicate(owner, db) -> None | reason`
+(`xscore_candidates.py`, registered in `CANDIDATES`): None admits the owner (its pairs are as on the
+T arm), a reason refuses it (its pairs are as on the Tb baseline arm). The score reads the saved
+oracle results, so it needs neither prism nor clang: every head-dropped pair of the three
+populations has a class (MUSTKEEP: CONTRADICTED or a `kept` row; PINNED: a pinned hole; BOUNDARY: an
+A-ext guide row; CONFIRMED: recall; UNJUDGED: reported apart; the #831 programs of the generator,
+whose macro body has a top-level `;`, are MUSTKEEP831) and the predicate's decision on the pair's
+owner is counted per class: MUSTKEEP admitted = a STRICT violation, CONFIRMED refused = recall cost.
+
+Populations: L1 (the frozen rows: pair rows from `--l1-export`, the Rust-test export, which must
+hold every key of `pair_rows.jsonl`, inline rows from its `inline/` files, generator rows), L2 (the
+`results.jsonl` of generator batches, re-rendered from their specs through `xgen.Prog`, so lexical
+variants and channels are included), L3 (the `rows.tsv` and `T.json.gz` of each corpus' `base` sweep;
+sources are re-read from the pinned checkouts of `l3_corpora.json`).
+
+What a predicate sees (`xscore_lex.py`): the owner's tokens, spans and identifiers (`owner.spelled`),
+`owner.enclosing_open` (an unclosed `(` before the owner, or a `)` after it that nothing in the file
+opens), `owner.invocations(db)` (in-repo macro names followed by `(` and their argument groups), and
+per-macro facts from the `#define` lines of the census inputs: `db.own(name)` (the definitions of the
+name ORed) and `db.closed(name)` (also ORed over the macros the body names): `unbalanced` (bracket
+nesting automaton of DESIGN 6.1, digraph brackets set it), `loose_comma`, `semi0`, `semi_any`, `ctrl`,
+`brace`, `decl`, `free`, `grouped`; `BLOCK_MACROS` is the list of the 16 names. Never the clang
+expansion. The predicates of `xscore_candidates.py` are the candidates of `L4-SCORES.md`
+(0 admit-all, 1 tentative, 2 no-closure, 3 spelling-only, 4b with enclosing check, 5 any-macro, 6 and 6b
+certificate, 7 depth-1, 8 fine-G8, 9 refuse-all, ablations A1 to A4).
+
+Limits (full list in `L4-SCORES.md`, section 6): the census is emulated (an approximation of the input
+set, one lexer pass for defines with no C versus C++ dialect pass, no soft poison, no `incomplete`
+handling); owners are located by a token-level rule without a parser and matched to prism's owner by
+start line (98 of 5,523 cpython and 207 of 7,502 protobuf `on` owners unmatched, 18 cpython sound pairs not
+placed); the open-group test is file-scope parenthesis balance with a first-branch-wins `#if`
+heuristic; verdicts are the frozen X-arm verdicts of the base binary under one host configuration.
+A design with 0 violations here is not known sound: the data holds known classes only.
+
 ## Other commands
 
 - `xarm.py corpus ...` forwards to `xarm_l3.py` (the former sweep is its `sweep`).
