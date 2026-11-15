@@ -25,7 +25,8 @@ use super::cpp_prune;
 use super::prune_roots::{callee_last_name, chain_roots};
 use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::{
-    macro_call_arguments, normalized_texts, spelled_identifiers, CMacroCensus,
+    macro_call_arguments, normalized_texts, owner_group_hazard, spelled_identifiers, CMacroCensus,
+    GroupHazard,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
@@ -70,26 +71,60 @@ pub(super) enum Off {
     /// 6d-1: the owner's text holds a C++ raw string with an interior line splice (or one of
     /// uncertain extent); the token readers see spliced text and cannot find its true end.
     RawStringSplice,
-    /// #829: an invoked in-repo macro, or a listed external one, has unbalanced brackets in its
-    /// replacement list: block and statement structure differ from the parse.
-    // #829 stub: never produced until the implementation lands
-    #[allow(dead_code)]
+    /// #829 G7: the owner spells a listed external block macro (`BLOCK_MACROS`), an in-repo
+    /// macro whose closed replacement lists do not nest in `()`, `{}`, `[]`, or one that names
+    /// a listed macro: block and statement structure differ from the parse.
     MacroBrackets,
-    /// #829 commit B: an invoked in-repo macro carries a comma outside parentheses.
-    // #829 stub: never produced until the implementation lands
-    #[allow(dead_code)]
-    MacroComma,
-    /// #829 commit B: a comma directly inside `{}` or `[]` within an in-repo macro's argument list.
-    // #829 stub: never produced until the implementation lands
-    #[allow(dead_code)]
+    /// #829 G8: the owner spells an in-repo macro with `arg_split`: a potential callee group of
+    /// its body (after any identifier, parameter or chained `)`) holds a brace- or
+    /// bracket-held comma, or forwards a macro that emits a loose comma.
+    MacroBodySplit,
+    /// #829 G9: inside a potential callee group of the owner's own text a comma is held by `{}`
+    /// or `[]`, or a closer mismatches (the argument list would be cut apart).
     MacroArgSplit,
+    /// #829 G9: inside a potential callee group of the owner's own text an in-repo macro with
+    /// `loose_comma` is named (its expansion re-splits the argument list on a rescan).
+    MacroArgLoose,
 }
 
-/// #829: well-known external block-opening and block-closing macros (OD-3; the 16 names of
-/// DESIGN 6.3). Empty until the implementation lands.
-// #829 stub: computed in implementation
-#[allow(dead_code)]
-pub(super) const BLOCK_MACROS: &[&str] = &[];
+/// #829 G7: well-known external block-opening and block-closing macros: the 16 names of OD-3
+/// (POSIX threads, CPython) plus the 15 of OD-B (CPython 3.11 to 3.14, NumPy 2.x, PostgreSQL;
+/// DESIGN-v2 5.4). The list is by name: a repository that defines one of them balanced is
+/// refused too, because the system definition may be the one in effect.
+pub(super) const BLOCK_MACROS: &[&str] = &[
+    "pthread_cleanup_push",
+    "pthread_cleanup_pop",
+    "pthread_cleanup_push_defer_np",
+    "pthread_cleanup_pop_restore_np",
+    "Py_BEGIN_ALLOW_THREADS",
+    "Py_END_ALLOW_THREADS",
+    "Py_BEGIN_CRITICAL_SECTION",
+    "Py_END_CRITICAL_SECTION",
+    "Py_BEGIN_CRITICAL_SECTION2",
+    "Py_END_CRITICAL_SECTION2",
+    "Py_BEGIN_CRITICAL_SECTION_MUTEX",
+    "Py_BEGIN_CRITICAL_SECTION2_MUTEX",
+    "Py_TRASHCAN_BEGIN",
+    "Py_TRASHCAN_END",
+    "Py_TRASHCAN_SAFE_BEGIN",
+    "Py_TRASHCAN_SAFE_END",
+    // OD-B additions.
+    "Py_TRASHCAN_BEGIN_CONDITION",
+    "Py_BEGIN_CRITICAL_SECTION_SEQUENCE_FAST",
+    "Py_END_CRITICAL_SECTION_SEQUENCE_FAST",
+    "_Py_BEGIN_SUPPRESS_IPH",
+    "_Py_END_SUPPRESS_IPH",
+    "NPY_BEGIN_ALLOW_THREADS",
+    "NPY_END_ALLOW_THREADS",
+    "NPY_BEGIN_SUPPRESS_IPH",
+    "NPY_END_SUPPRESS_IPH",
+    "PG_TRY",
+    "PG_CATCH",
+    "PG_FINALLY",
+    "PG_END_TRY",
+    "PG_ENSURE_ERROR_CLEANUP",
+    "PG_END_ENSURE_ERROR_CLEANUP",
+];
 
 /// Text the compiler's translation phases read differently from tree-sitter, so the parser
 /// can see code the compiler does not (or the reverse): a trigraph (`??` + one of
@@ -405,6 +440,14 @@ pub(super) fn scan(
     if let Some(off) = off {
         return Err(off);
     }
+    // #829 G9: the owner's own potential callee groups (G7 and G8 precede it, through
+    // `note_name`). A macro is "loose" by the closed census fact; no root is classified.
+    match owner_group_hazard(text, &|n| census.get(n).is_some_and(|f| f.loose_comma)) {
+        None => return Err(Off::G2),
+        Some(Some(GroupHazard::Split)) => return Err(Off::MacroArgSplit),
+        Some(Some(GroupHazard::Loose)) => return Err(Off::MacroArgLoose),
+        Some(None) => {}
+    }
     if out.cpp {
         super::cpp_prune_operand::settle(parsed, &mut out);
     }
@@ -430,6 +473,11 @@ fn note_name(name: &str, census: &CMacroCensus, out: &mut COwner, off: &mut Opti
         n if RETURNS_TWICE.contains(&n) => set_off(Off::G4),
         _ => {}
     }
+    // #829 G7: a listed external block macro is refused by its name, whatever the repository
+    // defines under it.
+    if BLOCK_MACROS.contains(&name) {
+        set_off(Off::MacroBrackets);
+    }
     if let Some(facts) = census.get(name) {
         out.macro_names.insert(name.to_owned());
         if facts.poisoned {
@@ -446,6 +494,21 @@ fn note_name(name: &str, census: &CMacroCensus, out: &mut COwner, off: &mut Opti
         }
         if out.cpp && cpp_prune::is_keyword(name) {
             set_off(Off::KeywordMacro);
+        }
+        // #829 G7: a replacement list that does not nest, or that names a listed macro (the
+        // transitive free set also holds the names of reachable bodies).
+        if facts.unbalanced
+            || facts
+                .free
+                .iter()
+                .any(|n| BLOCK_MACROS.contains(&n.as_str()))
+        {
+            set_off(Off::MacroBrackets);
+        }
+        // #829 G8: a potential callee group of the body holds a held comma or forwards a loose
+        // macro.
+        if facts.arg_split {
+            set_off(Off::MacroBodySplit);
         }
     }
 }

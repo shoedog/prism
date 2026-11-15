@@ -110,13 +110,37 @@ const BLOCK_NAMES: [&str; 16] = [
     "Py_TRASHCAN_SAFE_END",
 ];
 
+/// The 15 names of OD-B (DESIGN-v2 5.4). The pair rows above iterate the 16 names of OD-3 (their
+/// oracle rows are frozen); every one of the 31 names is covered through `scan` by
+/// `c_prune_brackets_v2_gate_tests::g7_every_listed_name_*`.
+const BLOCK_NAMES_ADDED: [&str; 15] = [
+    "Py_TRASHCAN_BEGIN_CONDITION",
+    "Py_BEGIN_CRITICAL_SECTION_SEQUENCE_FAST",
+    "Py_END_CRITICAL_SECTION_SEQUENCE_FAST",
+    "_Py_BEGIN_SUPPRESS_IPH",
+    "_Py_END_SUPPRESS_IPH",
+    "NPY_BEGIN_ALLOW_THREADS",
+    "NPY_END_ALLOW_THREADS",
+    "NPY_BEGIN_SUPPRESS_IPH",
+    "NPY_END_SUPPRESS_IPH",
+    "PG_TRY",
+    "PG_CATCH",
+    "PG_FINALLY",
+    "PG_END_TRY",
+    "PG_ENSURE_ERROR_CLEANUP",
+    "PG_END_ENSURE_ERROR_CLEANUP",
+];
+
 /// The names the closure tests iterate over are the production list (a rename in either
 /// place turns this red, not the loops above silently green).
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_01_test_names_are_the_production_list() {
     let mut have: Vec<&str> = BLOCK_MACROS.to_vec();
-    let mut want: Vec<&str> = BLOCK_NAMES.to_vec();
+    let mut want: Vec<&str> = BLOCK_NAMES
+        .iter()
+        .chain(BLOCK_NAMES_ADDED.iter())
+        .copied()
+        .collect();
     have.sort_unstable();
     want.sort_unstable();
     assert_eq!(have, want);

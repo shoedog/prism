@@ -53,6 +53,7 @@
 //! name that is a macro is judged by the union of all its definitions. Nothing consumes the
 //! census yet; slice 6a only builds it and persists its digest with the cached DFG.
 mod brackets;
+pub(crate) use brackets::{owner_group_hazard, GroupHazard};
 mod raw_string;
 #[cfg(test)]
 pub(crate) fn raw_string_end_for_tests(b: &[u8], q: usize, s: &[usize]) -> Option<usize> {

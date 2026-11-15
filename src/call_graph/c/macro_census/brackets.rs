@@ -202,3 +202,112 @@ pub(super) fn scan_text(
     out
 }
 
+/// The hazard the owner pass found inside a potential callee group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum GroupHazard {
+    /// A comma held by `{}`/`[]`, a mismatched closer or a digraph bracket inside a group: the
+    /// argument list would be cut apart.
+    Split,
+    /// An in-repo macro with `loose_comma` named inside a group: its expansion re-splits the
+    /// list on a rescan.
+    Loose,
+}
+
+enum Slot {
+    Callee,
+    Plain,
+    Brace,
+    Bracket,
+}
+
+/// G9 (DESIGN-v2 5.2), one bracket-stack pass over one token sequence. A `(` is a POTENTIAL
+/// callee paren when it directly follows ANY identifier or the `)` of a potential paren (a
+/// chained group); every other paren is plain. A token is CHECKED whenever any potential paren
+/// is open, at any nesting depth: there is no shield (an unknown name, an identity wrapper or an
+/// empty external macro may erase or return what stands before a group, so no group is exempt).
+fn group_hazard_in(seq: &[Tok], macro_loose: &dyn Fn(&str) -> bool) -> Option<GroupHazard> {
+    let mut stack: Vec<Slot> = Vec::new();
+    let mut callee = 0usize;
+    let mut closed_callee: Option<usize> = None;
+    for (i, t) in seq.iter().enumerate() {
+        match t {
+            Tok::Open => {
+                let potential =
+                    i > 0 && (matches!(seq[i - 1], Tok::Ident(_)) || closed_callee == Some(i - 1));
+                if potential {
+                    callee += 1;
+                }
+                stack.push(if potential { Slot::Callee } else { Slot::Plain });
+            }
+            Tok::Close => match stack.last() {
+                Some(Slot::Callee) => {
+                    stack.pop();
+                    callee -= 1;
+                    closed_callee = Some(i);
+                }
+                Some(Slot::Plain) => {
+                    stack.pop();
+                }
+                _ if callee > 0 => return Some(GroupHazard::Split),
+                _ => {}
+            },
+            Tok::LBrace => stack.push(Slot::Brace),
+            Tok::LBracket => stack.push(Slot::Bracket),
+            Tok::RBrace => match stack.last() {
+                Some(Slot::Brace) => {
+                    stack.pop();
+                }
+                _ if callee > 0 => return Some(GroupHazard::Split),
+                _ => {}
+            },
+            Tok::RBracket => match stack.last() {
+                Some(Slot::Bracket) => {
+                    stack.pop();
+                }
+                _ if callee > 0 => return Some(GroupHazard::Split),
+                _ => {}
+            },
+            Tok::Comma => {
+                if callee > 0 && matches!(stack.last(), Some(Slot::Brace | Slot::Bracket)) {
+                    return Some(GroupHazard::Split);
+                }
+            }
+            Tok::Digraph(_) => {
+                if callee > 0 {
+                    return Some(GroupHazard::Split);
+                }
+            }
+            Tok::Ident(x) => {
+                if callee > 0 && macro_loose(x) {
+                    return Some(GroupHazard::Loose);
+                }
+            }
+            Tok::Other => {}
+        }
+    }
+    None
+}
+
+/// The owner pass of G9 over the owner's text, read in both lexing dialects and every
+/// normalization variant the other owner readers use (any refusal refuses). `None`: some
+/// literal or comment cannot be read (the caller fails closed, as for the other readers);
+/// `Some(None)`: no hazard. `macro_loose` is asked only about identifiers that may name an
+/// in-repo macro with `loose_comma`; it never classifies a root.
+pub(crate) fn owner_group_hazard(
+    text: &str,
+    macro_loose: &dyn Fn(&str) -> bool,
+) -> Option<Option<GroupHazard>> {
+    let mut found = None;
+    for t in super::normalized_texts(text) {
+        for cxx in [false, true] {
+            let mut seq = Vec::new();
+            if !super::tokenize_seq(&t, cxx, Some(&mut seq)).ok {
+                return None;
+            }
+            if found.is_none() {
+                found = group_hazard_in(&seq, macro_loose);
+            }
+        }
+    }
+    Some(found)
+}

@@ -183,9 +183,8 @@ pub(super) fn expect(v: &BTreeMap<String, Option<Off>>, gate: Option<Off>, names
 // `brace_digraph`, `external_pthread_pair`, `external_cpython_pair`, `arg_split_scope`) have no
 // baseline pair: the parser binds `r = x` to the inner `x`, so no live pair exists to keep.
 
-/// OD-3: the 16 names of DESIGN 6.3, exactly.
+/// OD-3 and OD-B: the 16 names of DESIGN 6.3 plus the 15 names of DESIGN-v2 5.4, exactly.
 #[test]
-#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn block_macros_list_is_the_design_list() {
     let mut want = vec![
         "pthread_cleanup_push",
@@ -204,6 +203,21 @@ fn block_macros_list_is_the_design_list() {
         "Py_TRASHCAN_END",
         "Py_TRASHCAN_SAFE_BEGIN",
         "Py_TRASHCAN_SAFE_END",
+        "Py_TRASHCAN_BEGIN_CONDITION",
+        "Py_BEGIN_CRITICAL_SECTION_SEQUENCE_FAST",
+        "Py_END_CRITICAL_SECTION_SEQUENCE_FAST",
+        "_Py_BEGIN_SUPPRESS_IPH",
+        "_Py_END_SUPPRESS_IPH",
+        "NPY_BEGIN_ALLOW_THREADS",
+        "NPY_END_ALLOW_THREADS",
+        "NPY_BEGIN_SUPPRESS_IPH",
+        "NPY_END_SUPPRESS_IPH",
+        "PG_TRY",
+        "PG_CATCH",
+        "PG_FINALLY",
+        "PG_END_TRY",
+        "PG_ENSURE_ERROR_CLEANUP",
+        "PG_END_ENSURE_ERROR_CLEANUP",
     ];
     let mut have: Vec<&str> = super::c_prune::BLOCK_MACROS.to_vec();
     want.sort_unstable();

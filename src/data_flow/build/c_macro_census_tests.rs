@@ -360,13 +360,11 @@ fn cz3_cache_parity_when_a_header_alias_stops_naming_a_listed_macro() {
 /// The digest halves of cz1 to cz3: the census digest must move with the bracket and comma
 /// facts and with the free-name set. Quarantined with the facts they hash.
 #[test]
-#[ignore = "needs the C3 gates (#829 PLAN-v2 task 6): the kept-after-edit half reads G7"]
 fn cz1_digest_half() {
     cz_parity_in("a.c", MARK_V1, MARK_V2, "unbalanced", true, true);
 }
 
 #[test]
-#[ignore = "needs the C3 gates (#829 PLAN-v2 task 6): the kept-after-edit half reads G7"]
 fn cz2_digest_half() {
     cz_parity_with(
         "a.c",
@@ -380,7 +378,6 @@ fn cz2_digest_half() {
 }
 
 #[test]
-#[ignore = "needs the C3 gates (#829 PLAN-v2 task 6): the kept-after-edit half reads G7"]
 fn cz3_digest_half() {
     for owner in ["a.c", "a.cc"] {
         cz_parity_in(owner, ALIAS_PLAIN, ALIAS_LISTED, owner, true, true);
