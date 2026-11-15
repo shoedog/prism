@@ -16,3 +16,10 @@ Test form (TEST-FORM.md, Fable consult; all defaults accepted):
 - OD-9: oracle-confirmed "kept" rows (b6, b8, a3–a6, w7, g2s07) become guide rows; non-compiling rows (b7, b9, mf3) marked "no truth basis".
 - OD-10: baseline gaps from the same mismatch are out of scope, disclosed.
 - #831: re-check its premise (Fable's oracle found no U/D drop in its probes) and amend the issue.
+
+Redesign (DESIGN-v2.md / PLAN-v2.md, owner 2026-11-14):
+- OD-A: candidate 10 (structure preservation, gates G7–G10 with callee-paren shields).
+- OD-B: external block-macro list grows to 31 names.
+- OD-C: close the A-span two-file form in this PR (not disclose-only).
+- OD-D: G10 cascade over uncorrelated same-condition `#if` branches accepted.
+- Design review by gpt-6.1-sol (xhigh) before implementation, cap 2 rounds; then Sonnet implements; gpt-6.1-terra reviews the code.
