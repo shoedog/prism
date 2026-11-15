@@ -15,6 +15,7 @@ use crate::algorithms::taint::js_ts::source_ranges::js_ts_request_source_access_
 use crate::algorithms::taint::python::sources::{
     detect_python_framework_sources, python_is_inner_decorated_function,
 };
+use crate::algorithms::taint::source_scope::admission::RunScope;
 use crate::algorithms::taint::{TaintSeed, TargetSeedSynthesisContext};
 use prism::access_path::AccessPath;
 use prism::ast::tree_helpers::is_js_ts_language;
@@ -46,6 +47,7 @@ pub(super) fn synthesize_target_seed_paths(
     seeds: &[TaintSeed],
     ctx: &CpgContext,
     paths: &mut Vec<FlowPath>,
+    scope: RunScope<'_>,
 ) {
     for seed in seeds {
         let target = match &seed.target {
@@ -87,7 +89,12 @@ pub(super) fn synthesize_target_seed_paths(
             kind: VarAccessKind::Def,
         };
         let mut edges = Vec::new();
-        let reachable_dfg = ctx.cpg.dfg_forward_reachable(&from);
+        // A crossing ceiling refuses the context-entering edges of this plain DFG walk exactly as
+        // it does for the ordinary route; the same-file synthesis below never consults it.
+        let reachable_dfg = match scope.crossing() {
+            Some(policy) => ctx.cpg.dfg_forward_reachable_with_policy(&from, policy),
+            None => ctx.cpg.dfg_forward_reachable(&from),
+        };
         for target_loc in reachable_dfg {
             if !js_ts_seed_scope_contains(seed, target_loc.line) {
                 continue;

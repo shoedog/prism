@@ -156,11 +156,19 @@ pub(super) fn slice_scoped_impl(
         js_ts_framework_source_access_ranges_by_line(ctx.files, &framework_source_set);
 
     // Forward propagation from each source (CFG-constrained when available)
-    let (mut paths, flow_evidence) = if taint_config.return_flow {
-        ctx.cpg
-            .taint_forward_cfg_with_return_flow_labeled(&taint_sources)
-    } else {
-        ctx.cpg.taint_forward_cfg_labeled(&taint_sources)
+    // The two `None` arms are the legacy walks; a crossing ceiling selects the policy-aware form
+    // of the same walk (#602 S3b-R).
+    let (mut paths, flow_evidence) = match (taint_config.return_flow, scope.crossing()) {
+        (true, None) => ctx
+            .cpg
+            .taint_forward_cfg_with_return_flow_labeled(&taint_sources),
+        (true, Some(policy)) => ctx
+            .cpg
+            .taint_forward_cfg_with_return_flow_labeled_with_policy(&taint_sources, policy),
+        (false, None) => ctx.cpg.taint_forward_cfg_labeled(&taint_sources),
+        (false, Some(policy)) => ctx
+            .cpg
+            .taint_forward_cfg_labeled_with_policy(&taint_sources, policy),
     };
     if let Some(trace) = trace {
         let sources = super::trace::CaptureSources {
@@ -171,7 +179,7 @@ pub(super) fn slice_scoped_impl(
         *trace =
             super::trace::capture(ctx, diff, taint_config, sources, &mut paths, &flow_evidence);
     } else {
-        synthesize_target_seed_paths(&framework_seeds, ctx, &mut paths);
+        synthesize_target_seed_paths(&framework_seeds, ctx, &mut paths, scope);
     }
 
     let mut evidence_by_lines: BTreeMap<(String, usize, String, usize), EvidencePath> =

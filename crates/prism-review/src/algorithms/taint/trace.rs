@@ -116,7 +116,7 @@ pub(super) fn capture(
         // Keep each synthetic seed's scope identity before flattening, while
         // preserving the legacy path construction order.
         let start = paths.len();
-        super::seeds::synthesize_target_seed_paths(std::slice::from_ref(seed), ctx, paths);
+        super::seeds::synthesize_target_seed_paths(std::slice::from_ref(seed), ctx, paths, scope);
         target_ranges.push((seed, start..paths.len()));
     }
     // Every frontier, including a single synthetic seed's subset, sees the
