@@ -4,11 +4,9 @@
 //! (chain B conversion: they used to assert a gate reason or edge totals). Written against the
 //! stubs: every keep row is red until the gates exist.
 use super::c_prune::{Off, BLOCK_MACROS};
-use super::c_prune_brackets_r3_support::{line_of, Batch};
+use super::c_prune_brackets_r3_support::{line_of, loader_pair, Batch};
 use super::c_prune_brackets_tests::{check_row, expect, verdicts};
-use super::Producer;
 use crate::call_graph::c::macro_census::CMacroCensus;
-use crate::call_graph::rust::macro_args::RustMacroCensus;
 
 macro_rules! rows {
     ($file:expr => $($name:ident $id:expr),+ $(,)?) => {
@@ -115,6 +113,7 @@ const BLOCK_NAMES: [&str; 16] = [
 /// The names the closure tests iterate over are the production list (a rename in either
 /// place turns this red, not the loops above silently green).
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_01_test_names_are_the_production_list() {
     let mut have: Vec<&str> = BLOCK_MACROS.to_vec();
     let mut want: Vec<&str> = BLOCK_NAMES.to_vec();
@@ -289,35 +288,13 @@ pub(super) mod loaded {
         fs::write(p, bytes).unwrap();
     }
 
-    /// `(before the rules, after the rules)` of `x@from -> x@to` of `owner` in `target`, with
-    /// the census the loader builds.
-    fn loaded_pair(d: &Path, target: &str, owner: &str, from: usize, to: usize) -> (bool, bool) {
-        let repo = load_repo(d).unwrap();
-        let census = CMacroCensus::from_files(&repo.files);
-        let p = &repo.files[target];
-        let file = target.to_owned();
-        let has = |r: &super::super::FileRefs| {
-            r.edges.iter().any(|e| {
-                e.from.path.to_string() == "x"
-                    && e.from.line == from
-                    && e.to.line == to
-                    && e.from.function == owner
-            })
-        };
-        let before = Producer::file_refs_frozen(&file, p);
-        let after = super::super::alias_occurrence::without_policy(|| {
-            Producer::file_refs_with_census(&file, p, &RustMacroCensus::default(), &census)
-        });
-        (has(&before), has(&after))
-    }
-
     /// The two guard owners of a repo (`a.<ext>` and `b.<ext>`): the pair `x = 41` to `return x`
     /// of each, `kept` or (control) `pruned`.
     fn judge(b: &mut Batch, what: &str, d: &Path, ext: &str, kept: bool) {
         for (file, owner) in [(format!("a.{ext}"), "f"), (format!("b.{ext}"), "comma")] {
             let text = fs::read_to_string(d.join(&file)).unwrap();
             let (from, to) = (line_of(&text, "int x = "), line_of(&text, "return x;"));
-            let r = loaded_pair(d, &file, owner, from, to);
+            let r = loader_pair(d, &file, Some(owner), from, to);
             if kept {
                 b.kept_result(&format!("{what} {file}"), r, Some(owner), from, to);
             } else {

@@ -9,6 +9,7 @@
 //! dedicated tests and not inline matrix cases (TESTS.md "Chain B").
 //! Kinds: S live pair dropped on base (obs: compiled), C conservative (rules), K control.
 use super::c_prune_brackets_r3_support::{kept_guard, pruned_guard, Batch};
+use super::c_prune_oracle_rows::declare;
 
 const J: &str = "int b, e;\n#define J(p, q, r) p; if (c) { q; } r\n";
 const BODY_C: &str = "int probe(int c) {\n    int x = 41;\n    int a, b;\n    x = 2;\n    int d, e;\n    return x;\n}\n";
@@ -188,5 +189,10 @@ fn row_g2_opus3_09_namespace_inside_the_group_inner_owner_edge() {
 #[test]
 fn boundary_g2_opus3_10_external_enclosing_macro() {
     let src = format!("int b, e;\nEJ(static int dummy;\n{})\n", BODY_C);
+    declare(
+        "A-ext",
+        &["-include", "{PRELUDE}/ej.h"],
+        &[("ej.h", "#define EJ(p, q, r) p; if (c) { q; } r\n")],
+    );
     kept_guard("opus3-10 extencl", "a.c", &src, Some("probe"));
 }

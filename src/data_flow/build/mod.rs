@@ -40,6 +40,8 @@ mod c_prune_fold7_tests;
 #[cfg(test)]
 mod c_prune_inline_cases;
 #[cfg(test)]
+mod c_prune_oracle_rows;
+#[cfg(test)]
 mod c_prune_perf_tests;
 #[cfg(test)]
 mod c_prune_raw_splice_tests;

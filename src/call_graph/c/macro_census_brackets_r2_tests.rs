@@ -1,3 +1,7 @@
+//! QUARANTINED (#829 TEST-FORM section 5): every test here pins the tentative design's census facts
+//! (`unbalanced`, `loose_comma`, digest, name list), not required behaviour. They are `#[ignore]`d
+//! until the redesign chooses its facts; run them with `cargo test -p prism --lib -- --ignored
+//! macro_census_brackets`.
 //! #829 chain A, round 2: census-fact rows (G2-sonnet-06, G2-opus-03). Same stubs as the other
 //! bracket census tests: every `true` row is red on base. The lexical rows are the HIDE
 //! direction (a literal that must not swallow a bracket or a comma, a reading that hides it);
@@ -56,26 +60,31 @@ pub(super) fn expect_everywhere(src: &str, rows: &[(&str, bool, bool)]) {
 // character inside the other literal kind must not turn the rest of the line into a literal ----
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet_06_double_quote_in_a_char_literal_does_not_hide_a_brace() {
     expect_everywhere("#define Q1 '\"' { '\"'\n", &[("Q1", true, false)]);
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet_06_single_quote_in_a_string_literal_does_not_hide_a_brace() {
     expect_everywhere("#define Q2 \"'\" { \"'\"\n", &[("Q2", true, false)]);
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet_06_escaped_backslash_char_literal_does_not_hide_a_brace() {
     expect_everywhere("#define Q3 '\\\\' {\n", &[("Q3", true, false)]);
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet_06_escaped_backslash_string_literal_does_not_hide_a_brace() {
     expect_everywhere("#define Q4 \"\\\\\" {\n", &[("Q4", true, false)]);
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_sonnet_06_quote_characters_do_not_hide_a_loose_comma() {
     expect_everywhere(
         "#define Q5 '\"' , '\"'\n#define Q6 \"'\" , \"'\"\n",
@@ -89,6 +98,7 @@ fn g2_sonnet_06_quote_characters_do_not_hide_a_loose_comma() {
 /// character literals and both bodies look balanced; C23 and C++ expose `{` and `}`.
 /// Compiled as C23 and C++17: `41 2`.
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_opus_03_digit_separator_pairs_do_not_hide_a_bracket() {
     expect_everywhere(
         "#define OPEN if (c != 1'0) { (void)(2'0);\n#define CLOSE (void)(3'0); } (void)(4'0);\n",
@@ -99,6 +109,7 @@ fn g2_opus_03_digit_separator_pairs_do_not_hide_a_bracket() {
 /// Member: a loose comma hidden the same way. Every loose comma sits between exactly two
 /// quotes, so in the C reading each one is inside a character literal.
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g2_opus_03_digit_separator_pairs_do_not_hide_a_loose_comma() {
     expect_everywhere("#define L 1'0, 2'0\n", &[("L", false, true)]);
 }

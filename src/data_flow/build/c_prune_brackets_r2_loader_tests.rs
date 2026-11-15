@@ -9,32 +9,15 @@
 //! Real files live in a tempdir built from Rust strings, never under `tests/fixtures`.
 //! Host-dependent rows (symlinks, case-insensitive names) skip with a printed reason.
 use super::c_prune_brackets_r1_tests::loaded::write;
-use super::Producer;
+use super::c_prune_brackets_r3_support::loader_pair;
+use super::c_prune_oracle_rows::{declare, judge, Want};
 use crate::call_graph::c::macro_census::CMacroCensus;
-use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::repo_loader::load_repo;
 use std::path::Path;
 
 /// The shared body of the sol2 rows; the prefix is the include line(s).
 const BODY: &str = "int probe(int c) {\n    int x = 41;\n    if (c) OPEN;\n    x = 2;\n    CLOSE;\n    return x;\n}\nint main(void) { return probe(0) != 41 || probe(1) != 2; }\n";
 const PAYLOAD: &str = "#define OPEN {\n#define CLOSE }\n";
-
-/// `(before, after)`: does the pair `x@from -> x@to` exist before the rules and after them,
-/// with the census the loader builds for `d`.
-fn pair(d: &Path, target: &str, from: usize, to: usize) -> (bool, bool) {
-    let repo = load_repo(d).unwrap();
-    let census = CMacroCensus::from_files(&repo.files);
-    let p = &repo.files[target];
-    let file = target.to_owned();
-    let has = |r: &super::FileRefs| {
-        r.edges
-            .iter()
-            .any(|e| e.from.path.to_string() == "x" && e.from.line == from && e.to.line == to)
-    };
-    let before = Producer::file_refs_frozen(&file, p);
-    let after = Producer::file_refs_with_census(&file, p, &RustMacroCensus::default(), &census);
-    (has(&before), has(&after))
-}
 
 /// Premise of the control rows: the loader's census holds the payload's macros.
 fn assert_seen(d: &Path) {
@@ -45,16 +28,12 @@ fn assert_seen(d: &Path) {
     }
 }
 
+/// The pair is judged by the oracle data (`c_prune_oracle_rows::judge`).
 fn assert_kept(d: &Path, target: &str, from: usize, to: usize, what: &str) {
-    let (before, after) = pair(d, target, from, to);
-    assert!(
-        before,
-        "{what}: inadmissible, the baseline has no x@{from} -> x@{to}"
-    );
-    assert!(
-        after,
-        "{what}: the live pair x@{from} -> x@{to} was dropped"
-    );
+    let r = loader_pair(d, target, None, from, to);
+    if let Err(e) = judge(what, Want::Kept, r) {
+        panic!("{e}");
+    }
 }
 
 /// `case.<ext>` = `prefix` + the shared body, plus the extra `(path, contents)` files.
@@ -82,6 +61,7 @@ fn computed(ext: &str, name: &str) -> tempfile::TempDir {
 fn boundary_g2_terra_02_computed_include_of_a_non_net_extension() {
     for ext in ["c", "cc"] {
         let d = computed(ext, "defs.payload");
+        declare("A-inputs", &[], &[]);
         assert_kept(d.path(), &format!("case.{ext}"), 4, 8, ext);
     }
 }
@@ -111,6 +91,7 @@ fn boundary_g2_sol2_01_absolute_include_of_an_in_repo_file() {
             &format!("case.{ext}"),
             &format!("#include \"{}\"\n{BODY}", abs.display()),
         );
+        declare("A-inputs", &[], &[]);
         assert_kept(d.path(), &format!("case.{ext}"), 3, 7, ext);
     }
 }
@@ -134,6 +115,7 @@ fn boundary_g2_sol2_02_parent_after_a_directory_symlink() {
             d.path().join("a/link/../defs.payload").exists(),
             "capability: the filesystem must resolve link/.. through the link target"
         );
+        declare("A-inputs", &[], &[]);
         assert_kept(d.path(), &format!("case.{ext}"), 3, 7, ext);
     }
     #[cfg(not(unix))]
@@ -155,6 +137,7 @@ fn boundary_g2_sol2_03_include_name_differs_in_case() {
             );
             return;
         }
+        declare("A-inputs", &[], &[]);
         assert_kept(d.path(), &format!("case.{ext}"), 3, 7, ext);
     }
 }
@@ -182,6 +165,7 @@ fn g2_sol2_03_control_exact_case_include() {
 fn boundary_g2_sol2_04_header_injected_by_the_build() {
     for ext in ["c", "cc"] {
         let d = repo(ext, "", &[("defs.payload", PAYLOAD)]);
+        declare("A-inputs", &["-include", "defs.payload"], &[]);
         assert_kept(d.path(), &format!("case.{ext}"), 2, 6, ext);
     }
 }

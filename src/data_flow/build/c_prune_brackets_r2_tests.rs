@@ -6,14 +6,9 @@
 //! model cannot see: external macros, includes); the placement of each is decided later and a
 //! row deferred to #813 will be marked `#[ignore = "#813"]`. Kinds: S live pair dropped on
 //! base, C conservative (no liveness run), K control (green on base).
+use super::c_prune_brackets_r3_support::pair_in;
 use super::c_prune_brackets_tests::check_row;
-use super::Producer;
-use crate::ast::ParsedFile;
-use crate::call_graph::c::macro_census::CMacroCensus;
-use crate::call_graph::rust::macro_args::RustMacroCensus;
-use crate::languages::Language;
-use std::collections::BTreeMap;
-use std::sync::Arc;
+use super::c_prune_oracle_rows::{judge, Want};
 
 macro_rules! rows {
     ($file:expr => $($name:ident $id:expr),+ $(,)?) => {
@@ -252,51 +247,6 @@ fn excerpt_rows() -> Vec<(&'static str, &'static str, &'static str, &'static str
     ]
 }
 
-/// `(before, after)`: does `x@from -> x@to` exist in `target` before the rules and after them,
-/// with the census of all `files` and optional census texts stamped on the target. (The pair is
-/// judged, not the edge total: the rules legitimately drop other pairs, such as the one into a
-/// write-only line.)
-fn has_pair(
-    files: &[(&str, &str)],
-    target: &str,
-    texts: &[(&str, &str)],
-    from: usize,
-    to: usize,
-) -> (bool, bool) {
-    let mut parsed: BTreeMap<String, ParsedFile> = files
-        .iter()
-        .map(|(n, s)| {
-            let lang = if n.ends_with(".cc") || n.ends_with(".hpp") {
-                Language::Cpp
-            } else {
-                Language::C
-            };
-            (n.to_string(), ParsedFile::parse(n, s, lang).unwrap())
-        })
-        .collect();
-    if !texts.is_empty() {
-        let t: BTreeMap<String, String> = texts
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect();
-        parsed
-            .get_mut(target)
-            .unwrap()
-            .set_c_census_texts(Arc::new(t));
-    }
-    let census = CMacroCensus::from_files(&parsed);
-    let file = target.to_owned();
-    let p = &parsed[target];
-    let has = |r: &super::FileRefs| {
-        r.edges
-            .iter()
-            .any(|e| e.from.path.to_string() == "x" && e.from.line == from && e.to.line == to)
-    };
-    let before = Producer::file_refs_frozen(&file, p);
-    let after = Producer::file_refs_with_census(&file, p, &RustMacroCensus::default(), &census);
-    (has(&before), has(&after))
-}
-
 /// Every excerpt is judged (a failure of one does not hide the others). Owner lines: `int x =
 /// src();` is line 5, `sink(x + 1);` is line 9.
 fn excerpt_failures(census_text: bool) -> Vec<String> {
@@ -304,14 +254,29 @@ fn excerpt_failures(census_text: bool) -> Vec<String> {
     for (what, excerpt, open, close) in excerpt_rows() {
         let owner = excerpt_owner(open, close);
         for (target, hdr) in [("a.c", "h.h"), ("a.cc", "h.hpp")] {
-            let (before, after) = if census_text {
-                has_pair(&[(target, &owner)], target, &[("defs.inc", excerpt)], 5, 9)
+            let r = if census_text {
+                pair_in(
+                    &[(target, &owner)],
+                    target,
+                    &[("defs.inc", excerpt)],
+                    None,
+                    "x",
+                    5,
+                    9,
+                )
             } else {
-                has_pair(&[(target, &owner), (hdr, excerpt)], target, &[], 5, 9)
+                pair_in(
+                    &[(target, &owner), (hdr, excerpt)],
+                    target,
+                    &[],
+                    None,
+                    "x",
+                    5,
+                    9,
+                )
             };
-            assert!(before, "{what}: inadmissible, no baseline pair x@5 -> x@9");
-            if !after {
-                failed.push(format!("{what} ({target})"));
+            if let Err(e) = judge(&format!("{what} ({target})"), Want::Kept, r) {
+                failed.push(e);
             }
         }
     }

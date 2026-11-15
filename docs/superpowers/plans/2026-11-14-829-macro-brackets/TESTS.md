@@ -5,12 +5,272 @@ Command: `~/prism-evidence/tools/memguard.sh 8 cargo test -p prism --lib -- macr
 
 Kinds: **S** soundness (a live pair is dropped), **C** conservative, **K** control (pruning must survive), **F** census fact (`true` rows are red; `false` rows are green guards against over-approximation), `-` infrastructure.
 
-## Totals
+## Status
 
-- 75 plan rows: **59 RED, 16 GREEN** on base. The 16 green rows are the controls and `false` fact rows the plan predicted: U09, U10, U11, U12, U19, U21, U25, L03, L12, b10, b11, x5, a7, a8, y3, y4. Every outcome matches the plan's expectation.
-- Extras beyond the 75: `block_macros_list_is_the_design_list` (RED), three mf controls (GREEN: `mf1/mf2/mf3 ctl`, the "same owner, no define: prunes" controls the plan asks for, kept as separate tests so the red row does not mask them).
-- 81 distinct tests: 62 RED, 19 GREEN. The aggregate matrices `c_prune_matrix` and `cpp_prune_matrix` read the new obligation rows and are RED on base too (they go green with the implementation). All other `c_prune`, `cpp_prune`, `macro_census`, `c_macro_census`, `cpg_cache`, `dfg_codec` tests pass on base (233 passed in that run; the 64 failures are the 62 new red tests and the two matrices).
-- Row count by table: M1 26, M2 19, M3 6 (mf1 to mf4, cz1, E01), M4 12, M5 12 (a1 is gate-only, see below).
+Hand-kept totals and per-row RED/GREEN tables were removed (#829 test-form conversion, TEST-FORM
+section 5): they went stale with every fold. The generated section below is the status; regenerate it
+with `python3 scripts/dfg_prune/oracle_report.py`. The tables further down are the history of
+the three enumeration chains (base outcomes at the time, kinds as tagged by hand; the kind tags are no
+longer the source of truth: the oracle is).
+
+<!-- BEGIN GENERATED (oracle_report.py) -->
+
+## Generated: oracle results (do not edit; `oracle_report.py`)
+
+Truth is the expansion-arm oracle (`xarm.py label`, clang at authoring time only); the Rust tests read the frozen data. `assert` is derived: **kept** (must-keep, a dropped pair is red), **pinned_hole** (BOUNDARY, today's drop is asserted so a fix flips it), **dropped** (validity control), **guide** (reported, never asserted), **no_basis** (no valid program or the oracle cannot judge).
+
+### Rows by oracle verdict and derived assertion
+
+| rows | n | CONTRADICTED | CONFIRMED | XOFF | UNJUDGED | kept | pinned_hole | dropped | guide | no_basis |
+|---|---|---|---|---|---|---|---|---|---|---|
+| pair rows (Rust sources, C and C++) | 284 | 151 | 30 | 22 | 81 | 125 | 22 | 15 | 17 | 105 |
+| inline cases, C | 67 | 43 | 20 | 3 | 1 | 19 | 1 | 0 | 43 | 4 |
+| inline cases, C++ | 38 | 19 | 13 | 4 | 2 | 11 | 0 | 0 | 21 | 6 |
+| **all** | 389 | 213 | 63 | 29 | 84 | 155 | 23 | 15 | 81 | 115 |
+
+### BOUNDARY rows (computed: the verdict flips under the declared configuration, or clang opens an in-repo file the census does not read)
+
+| assumption | rows | kept | pinned_hole | dropped | guide | no_basis |
+|---|---|---|---|---|---|---|
+| A-dialect | 1 | 0 | 1 | 0 | 0 | 0 |
+| A-ext | 36 | 0 | 1 | 0 | 35 | 0 |
+| A-inputs | 82 | 61 | 21 | 0 | 0 | 0 |
+
+Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_external_enclosing_macro:A-ext, boundary_g2_opus3_11_include_differs_in_unicode_normalization:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs ...
+
+### Quarantined tentative-design tests: 80 `#[ignore]`d
+
+| file | tests |
+|---|---|
+| src/call_graph/c/macro_census_brackets_r1_tests.rs | 21 |
+| src/call_graph/c/macro_census_brackets_r2_tests.rs | 7 |
+| src/call_graph/c/macro_census_brackets_r3_tests.rs | 8 |
+| src/call_graph/c/macro_census_brackets_tests.rs | 38 |
+| src/data_flow/build/c_macro_census_tests.rs | 4 |
+| src/data_flow/build/c_prune_brackets_r1_tests.rs | 1 |
+| src/data_flow/build/c_prune_brackets_tests.rs | 1 |
+
+### Runtime receipts: 15 classes (`xarm_receipts.py run`, needs clang, not run in CI)
+
+- enclosing group opened in a sibling owner
+- macro drops the overwriting piece
+- opener inside a declaration initializer
+- digraph brace formed by a splice
+- comment opener formed by a splice
+- line-comment introducer formed by a splice
+- comment introducer in a string, then a brace
+- comma between comment parentheses
+- alias chain of 1000 to an unbalanced macro
+- Latin-1 byte in the payload
+- transitive non-C include
+- computed include of a net file
+- closer inside a following owner
+- external macro via a forced include (declared)
+- rescan split through a header
+
+### Inline rows (cases 20 to 34)
+
+| lang | case | id | legacy kind | hand | oracle | assumption | head | assert |
+|---|---|---|---|---|---|---|---|---|
+| c | 20_macro_brackets | b1 | S | kept | CONTRADICTED |  | drops | kept |
+| c | 20_macro_brackets | b10 | K | pruned | CONFIRMED |  | drops | guide |
+| c | 20_macro_brackets | b11 | K | pruned | CONFIRMED |  | drops | guide |
+| c | 20_macro_brackets | b12 | S | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 20_macro_brackets | b13 | C | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 20_macro_brackets | b2 | S | kept | CONTRADICTED |  | drops | kept |
+| c | 20_macro_brackets | b3 | S | kept | CONTRADICTED |  | drops | kept |
+| c | 20_macro_brackets | b4 | S | kept | CONTRADICTED |  | drops | kept |
+| c | 20_macro_brackets | b5 | S | kept | CONTRADICTED |  | drops | kept |
+| c | 20_macro_brackets | b6 | C | kept | CONFIRMED |  | drops | guide |
+| c | 20_macro_brackets | b7 | C | kept | XOFF |  | drops | no_basis |
+| c | 20_macro_brackets | b8 | C | kept | CONFIRMED |  | drops | guide |
+| c | 20_macro_brackets | b9 | C | kept | XOFF |  | drops | no_basis |
+| c | 21_macro_args | a2 | C | kept | UNJUDGED |  | drops | no_basis |
+| c | 21_macro_args | a3 | C | kept | CONFIRMED |  | drops | guide |
+| c | 21_macro_args | a4 | C | kept | CONFIRMED |  | drops | guide |
+| c | 21_macro_args | a5 | C | kept | CONFIRMED |  | drops | guide |
+| c | 21_macro_args | a6 | C | kept | CONFIRMED |  | drops | guide |
+| c | 21_macro_args | a7 | K | pruned | CONFIRMED |  | drops | guide |
+| c | 21_macro_args | a8 | K | pruned | CONFIRMED |  | drops | guide |
+| c | 22_macro_wrappers | w1 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 22_macro_wrappers | w2 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 22_macro_wrappers | w3 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 22_macro_wrappers | w4 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 22_macro_wrappers | w5 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 22_macro_wrappers | w6 |  | pruned | CONFIRMED | A-ext | drops | guide |
+| c | 22_macro_wrappers | w7 |  | kept | CONFIRMED | A-ext | drops | guide |
+| c | 22_macro_wrappers | w8 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 23_macro_args_live | a1 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 23_macro_args_live | a10 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 23_macro_args_live | a11 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 23_macro_args_live | a12 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 23_macro_args_live | a1t |  | kept | CONTRADICTED |  | drops | kept |
+| c | 23_macro_args_live | a9 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 23_macro_args_live | k1 |  | pruned | CONFIRMED |  | drops | guide |
+| c | 23_macro_args_live | k2 |  | pruned | CONFIRMED |  | drops | guide |
+| c | 23_macro_args_live | k3 |  | pruned | CONFIRMED |  | drops | guide |
+| c | 24_macro_splice | s2 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 24_macro_splice_crlf | s1 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 25_r2_external_alias | g2o06 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 25_r2_external_alias | g2o06c |  | kept | CONTRADICTED |  | drops | kept |
+| c | 25_r2_external_alias | g2t01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2o09 |  | kept | XOFF (repo CONFIRMED) | A-ext | drops | no_basis |
+| c | 26_r2_external_names | g2s01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s01a |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s01b |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s01c |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s01d |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s02 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s03a |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s03b |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s03c |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s03d |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s03e1 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s03e2 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s03k1 |  | pruned | CONFIRMED | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s03k2 |  | pruned | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 26_r2_external_names | g2s03k6 |  | pruned | CONFIRMED |  | drops | guide |
+| c | 26_r2_external_names | g2s03k6 |  | pruned | CONFIRMED |  | drops | guide |
+| c | 27_r2_inrepo_prefix | g2s03k5a |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 27_r2_inrepo_prefix | g2s03k5b |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 28_r2_listed_name_shim | g2s07 |  | kept | CONFIRMED | A-ext | drops | guide |
+| c | 29_r2_enclosing | g2o01 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 30_r2_enclosing_variadic | g2o01k |  | pruned | CONFIRMED |  | drops | guide |
+| c | 31_r2_enclosing_file_scope | g2o01b |  | kept | CONTRADICTED |  | drops | kept |
+| c | 32_r2_strip_parenthesis | g2o02 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 33_r2_digit_separator | g2o03 |  | kept | CONTRADICTED (repo XOFF) | A-dialect | drops | pinned_hole |
+| cpp | 20_macro_brackets.cc | x1 | S | kept | CONTRADICTED |  | drops | kept |
+| cpp | 20_macro_brackets.cc | x2 | S | kept | UNJUDGED |  | drops | no_basis |
+| cpp | 20_macro_brackets.cc | x3 | S | kept | UNJUDGED |  | drops | no_basis |
+| cpp | 20_macro_brackets.cc | x4 | S | kept | XOFF |  | drops | no_basis |
+| cpp | 20_macro_brackets.cc | x5 | K | pruned | XOFF |  | drops | no_basis |
+| cpp | 20_macro_brackets.cc | x6 | C | kept | XOFF | A-ext | drops | no_basis |
+| cpp | 21_macro_args.cc | y1 | S | kept | CONTRADICTED |  | drops | kept |
+| cpp | 21_macro_args.cc | y2 | C | kept | CONFIRMED |  | drops | guide |
+| cpp | 21_macro_args.cc | y3 | K | pruned | CONFIRMED |  | drops | guide |
+| cpp | 21_macro_args.cc | y4 | K | pruned | CONFIRMED |  | drops | guide |
+| cpp | 22_macro_wrappers.cc | w1 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 22_macro_wrappers.cc | w2 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 22_macro_wrappers.cc | w3 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 22_macro_wrappers.cc | w4 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 22_macro_wrappers.cc | w6 |  | pruned | CONFIRMED | A-ext | drops | guide |
+| cpp | 23_macro_args_live.cc | y10 |  | kept | CONFIRMED |  | drops | guide |
+| cpp | 23_macro_args_live.cc | y11 |  | pruned | CONFIRMED |  | drops | guide |
+| cpp | 23_macro_args_live.cc | y5 |  | kept | CONFIRMED |  | drops | guide |
+| cpp | 23_macro_args_live.cc | y6 |  | kept | CONFIRMED |  | drops | guide |
+| cpp | 23_macro_args_live.cc | y7 |  | kept | CONFIRMED |  | drops | guide |
+| cpp | 23_macro_args_live.cc | y8 |  | kept | CONFIRMED |  | drops | guide |
+| cpp | 23_macro_args_live.cc | y9 |  | kept | CONFIRMED |  | drops | guide |
+| cpp | 24_macro_splice.cc | s3 |  | kept | CONTRADICTED |  | drops | kept |
+| cpp | 24_macro_splice_crlf.cc | s4 |  | kept | CONTRADICTED |  | drops | kept |
+| cpp | 25_r2_external_alias.cc | g2o06 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 25_r2_external_alias.cc | g2o06c |  | kept | CONTRADICTED |  | drops | kept |
+| cpp | 25_r2_external_alias.cc | g2t01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 26_r2_external_names.cc | g2s01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 26_r2_external_names.cc | g2s02 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 26_r2_external_names.cc | g2s03k3 |  | kept | CONTRADICTED | A-ext | keeps | kept |
+| cpp | 27_r2_listed_name_shim.cc | g2s07 |  | kept | CONFIRMED | A-ext | drops | guide |
+| cpp | 29_r2_enclosing.cc | g2o01 |  | kept | CONTRADICTED |  | drops | kept |
+| cpp | 30_r2_enclosing_variadic.cc | g2o01k |  | pruned | CONFIRMED |  | drops | guide |
+| cpp | 31_r2_enclosing_file_scope.cc | g2o01b |  | kept | CONTRADICTED |  | drops | kept |
+| cpp | 32_r2_strip_parenthesis.cc | g2o02 |  | kept | CONTRADICTED |  | drops | kept |
+| cpp | 33_r2_digit_separator.cc | g2o03 |  | kept | CONTRADICTED |  | drops | kept |
+| cpp | 33_r2_digit_separator.cc | g2o04 |  | kept | CONTRADICTED |  | drops | kept |
+| cpp | 34_r2_control_unbalanced.cc | g2o07 |  | kept | XOFF |  | drops | no_basis |
+
+### Pair rows by test
+
+| test | rows | kept | pinned_hole | dropped | guide | no_basis |
+|---|---|---|---|---|---|---|
+| boundary_g2_opus3_10_external_enclosing_macro | 1 | 0 | 1 | 0 | 0 | 0 |
+| boundary_g2_opus3_11_include_differs_in_unicode_normalization | 1 | 0 | 1 | 0 | 0 | 0 |
+| boundary_g2_sol2_01_absolute_include_of_an_in_repo_file | 2 | 0 | 2 | 0 | 0 | 0 |
+| boundary_g2_sol2_02_parent_after_a_directory_symlink | 2 | 0 | 2 | 0 | 0 | 0 |
+| boundary_g2_sol2_03_include_name_differs_in_case | 2 | 0 | 2 | 0 | 0 | 0 |
+| boundary_g2_sol2_04_header_injected_by_the_build | 2 | 0 | 2 | 0 | 0 | 0 |
+| boundary_g2_sol3_01_vfs_mapped_include | 2 | 0 | 2 | 0 | 0 | 0 |
+| boundary_g2_sol3_03_cxx20_header_unit_import | 1 | 0 | 0 | 0 | 0 | 1 |
+| boundary_g2_sonnet3_09_header_outside_the_repo_root | 4 | 0 | 4 | 0 | 0 | 0 |
+| boundary_g2_sonnet3_10_external_macro_supplies_the_split | 2 | 0 | 0 | 0 | 2 | 0 |
+| boundary_g2_terra_02_computed_include_of_a_non_net_extension | 2 | 0 | 2 | 0 | 0 | 0 |
+| g2_sol2_03_control_exact_case_include | 1 | 1 | 0 | 0 | 0 | 0 |
+| g2_sol2_04_companion_net_file_is_collected_without_an_include | 2 | 2 | 0 | 0 | 0 | 0 |
+| g2_sol2_relative_literal_include_control | 1 | 1 | 0 | 0 | 0 | 0 |
+| g2_sonnet_04_real_block_macro_excerpts_as_a_census_text | 16 | 16 | 0 | 0 | 0 | 0 |
+| g2_sonnet_04_real_block_macro_excerpts_in_a_parsed_header | 16 | 16 | 0 | 0 | 0 | 0 |
+| g2_terra_03_computed_include_of_a_net_file | 2 | 2 | 0 | 0 | 0 | 0 |
+| g_sol_01_every_listed_name_keeps_the_pair_through_wrappers | 64 | 0 | 0 | 0 | 8 | 56 |
+| g_sol_01_every_listed_name_keeps_the_pair_when_spelled_directly | 32 | 0 | 0 | 0 | 4 | 28 |
+| g_sol_03_rescan_split_through_a_header | 2 | 1 | 0 | 0 | 0 | 1 |
+| g_sol_14_control_balanced_payload_prunes | 4 | 0 | 0 | 2 | 0 | 2 |
+| g_sol_14_net_file_without_an_include_keeps_the_pairs | 4 | 4 | 0 | 0 | 0 | 0 |
+| g_sol_14_transitive_non_c_include_keeps_the_pairs | 4 | 4 | 0 | 0 | 0 | 0 |
+| g_terra_01_alias_chain_across_two_headers | 2 | 2 | 0 | 0 | 0 | 0 |
+| g_terra_01_wrapper_in_a_census_text_c_and_cpp | 4 | 2 | 0 | 2 | 0 | 0 |
+| g_terra_01_wrapper_in_a_header_c_and_cpp | 4 | 2 | 0 | 2 | 0 | 0 |
+| g_terra_10_spliced_name_from_a_header_with_lf_and_crlf | 4 | 4 | 0 | 0 | 0 | 0 |
+| g_terra_14_quoted_and_angle_transitive_includes | 8 | 8 | 0 | 0 | 0 | 0 |
+| mf1_control_without_defines_prunes | 1 | 0 | 0 | 1 | 0 | 0 |
+| mf1_header_defines_reach_the_owner | 1 | 1 | 0 | 0 | 0 | 0 |
+| mf2_control_balanced_census_text_prunes | 1 | 0 | 0 | 1 | 0 | 0 |
+| mf2_defines_arrive_as_a_census_text | 1 | 1 | 0 | 0 | 0 | 0 |
+| mf3_control_only_the_balanced_definition_prunes | 1 | 0 | 0 | 0 | 1 | 0 |
+| mf3_one_of_two_definitions_in_two_files | 1 | 0 | 0 | 0 | 0 | 1 |
+| mf4_the_issue_files | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_01_lambda_local_class_method_in_a_clean_parse | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_01_variadic_control_prunes | 1 | 0 | 0 | 1 | 0 | 0 |
+| row_g2_opus3_01b_lambda_inside_a_function_inner_owner_edge | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_01c_gnu_nested_function_inner_owner_edge | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_02_a_macro_drops_the_overwriting_piece_c | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_02_a_macro_drops_the_overwriting_piece_cpp | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_02_stringizing_member_c_and_cpp | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_03_opener_inside_a_sibling_owner | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_04_opener_inside_a_declaration_initializer | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_05_closer_inside_a_following_owner | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_06_in_class_member_function | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_07_template_declaration_owner | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_08_template_argument_commas_split_the_group | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_09_namespace_inside_the_group_inner_owner_edge | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_11_control_same_normalization | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_12_control_same_payload_elsewhere | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_g2_opus3_12_include_of_a_file_under_eval_secbench | 2 | 0 | 2 | 0 | 0 | 0 |
+| row_g2_sol3_01_control_direct_include_of_the_same_file | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path | 2 | 0 | 2 | 0 | 0 | 0 |
+| row_g2_sol3_02_control_backslash_file_without_the_decoy | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_01_digraph_brace_formed_across_a_splice | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_01_member_square_digraph_formed_across_a_splice | 2 | 0 | 0 | 0 | 0 | 2 |
+| row_g2_sonnet3_01_to_03_balanced_splice_controls_prune | 4 | 0 | 0 | 4 | 0 | 0 |
+| row_g2_sonnet3_02_comment_opener_formed_by_a_splice | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_02_member_comment_closer_formed_by_a_splice | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_03_line_comment_introducer_formed_by_a_splice | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_05_latin1_payload_and_header | 4 | 4 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_06_control_utf16_header_without_bom_keeps_the_pair | 2 | 0 | 0 | 0 | 0 | 2 |
+| row_g2_sonnet3_06_utf16_payload_and_bom_header | 8 | 0 | 0 | 0 | 0 | 8 |
+| row_g2_sonnet3_07_alias_chain_split_across_headers | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_07_alias_chain_to_a_listed_name | 2 | 0 | 0 | 0 | 2 | 0 |
+| row_g2_sonnet3_07_alias_chain_to_an_unbalanced_macro | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_08_balanced_deep_body_control_prunes | 2 | 0 | 0 | 2 | 0 | 0 |
+| row_g2_sonnet3_08_deep_brace_bodies | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_08_deep_paren_and_square_bodies | 2 | 0 | 0 | 0 | 0 | 2 |
+| row_g2_sonnet3_08_owner_group_nested_deep | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_09_control_analysed_from_the_common_root | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_terra3_01_member_line_comment_introducer_in_a_string | 4 | 4 | 0 | 0 | 0 | 0 |
+| row_g2_terra3_01_string_comment_introducer_then_a_real_brace | 4 | 4 | 0 | 0 | 0 | 0 |
+| row_g2_terra3_02_comma_between_comment_parentheses_after_a_string | 4 | 4 | 0 | 0 | 0 | 0 |
+| row_g2_terra3_02_control_without_the_comma_prunes | 2 | 0 | 0 | 0 | 0 | 2 |
+
+### Hand expectation against the oracle
+
+- hand `kept`, now **guide**: 62 rows
+  boundary_g2_sonnet3_10_external_macro_supplies_the_split, c:20/b12, c:20/b13, c:20/b6, c:20/b8, c:21/a3, c:21/a4, c:21/a5, c:21/a6, c:22/w1, c:22/w2, c:22/w3, c:22/w4, c:22/w5, c:22/w7, c:22/w8, c:25/g2o06, c:25/g2t01, c:26/g2s01, c:26/g2s01a, c:26/g2s01b, c:26/g2s01c, c:26/g2s01d, c:26/g2s02, c:26/g2s03a, c:26/g2s03b, c:26/g2s03c, c:26/g2s03d, c:26/g2s03e1, c:26/g2s03e2, c:28/g2s07, cpp:21/y2, cpp:22/w1, cpp:22/w2, cpp:22/w3, cpp:22/w4, cpp:23/y10, cpp:23/y5, cpp:23/y6, cpp:23/y7, cpp:23/y8, cpp:23/y9, cpp:25/g2o06, cpp:25/g2t01, cpp:26/g2s01, cpp:26/g2s02, cpp:27/g2s07, g_sol_01_every_listed_name_keeps_the_pair_through_wrappers, g_sol_01_every_listed_name_keeps_the_pair_when_spelled_directly, row_g2_sonnet3_07_alias_chain_to_a_listed_name
+- hand `kept`, now **no_basis**: 109 rows
+- hand `kept`, now **pinned_hole**: 23 rows
+  boundary_g2_opus3_10_external_enclosing_macro, boundary_g2_opus3_11_include_differs_in_unicode_normalization, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file, boundary_g2_sol2_02_parent_after_a_directory_symlink, boundary_g2_sol2_03_include_name_differs_in_case, boundary_g2_sol2_04_header_injected_by_the_build, boundary_g2_sol3_01_vfs_mapped_include, boundary_g2_sonnet3_09_header_outside_the_repo_root, boundary_g2_terra_02_computed_include_of_a_non_net_extension, c:33/g2o03, row_g2_opus3_12_include_of_a_file_under_eval_secbench, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path
+- hand `kept`, now **dropped**: 0 rows
+- hand controls (`pruned`): 40 rows -> {'dropped': 15, 'no_basis': 6, 'guide': 19}
+- hand control but the oracle says must-keep: 1 rows
+
+<!-- END GENERATED -->
 
 ## Deviations from PLAN.md (found by running the rows on base)
 
@@ -20,92 +280,10 @@ Kinds: **S** soundness (a live pair is dropped), **C** conservative, **K** contr
 2. The extra test `block_macros_list_is_the_design_list` pins the exact 16 names of DESIGN 6.3 (MB-12 in the plan would otherwise only be caught through b12 and x6).
 3. Row b6/b7 (paren and square macros) pass the admissibility check on base (the owner is on and the pair is dropped), so they stay as specified.
 
-## Per-row outcomes
+## Per-row outcomes (first matrix)
 
-| row | test | file | kind | base | note |
-|---|---|---|---|---|---|
-| U01 | `u01_open_brace` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U02 | `u02_close_brace` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U03 | `u03_open_paren` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U04 | `u04_close_paren` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U05 | `u05_square_brackets` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U06 | `u06_crossing_kinds_with_equal_counts` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U07 | `u07_closer_first_with_equal_counts` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U08 | `u08_function_like_opens_a_block` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U09 | `u09_well_nested_bodies_are_balanced` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | GREEN |  |
-| U10 | `u10_brackets_in_literals_do_not_count` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | GREEN |  |
-| U11 | `u11_brackets_in_comments_do_not_count` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | GREEN |  |
-| U12 | `u12_cpp_raw_string_and_digit_separator` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | GREEN |  |
-| U13 | `u13_digraph_brackets` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U14 | `u14_closure_over_referenced_macros` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U15 | `u15_any_definition_taints_the_spelling` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U16 | `u16_line_continuation_in_a_body` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U17 | `u17_multi_line_comment_in_a_body` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U18 | `u18_va_opt_parentheses` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U19 | `u19_unterminated_literal_is_poisoned` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | GREEN |  |
-| U20 | `u20_define_inside_a_block_comment_counts_pinned` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U21 | `u21_trigraph_body_is_the_existing_incomplete_belt` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | GREEN |  |
-| U22 | `u22_permissive_census_text` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U23 | `u23_undef_does_not_clear` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U24 | `u24_digest_covers_the_bracket_fact` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| U25 | `u25_stringizing_holds_no_bracket` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | GREEN |  |
-| U26 | `u26_function_like_body_only` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L01 | `l01_top_level_comma` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L02 | `l02_brace_held_comma` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L03 | `l03_commas_directly_inside_parentheses` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | GREEN |  |
-| L04 | `l04_va_args_position` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L05 | `l05_va_opt_parenthesis_is_transparent` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L06 | `l06_gnu_named_variadic_fails_closed` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L07 | `l07_statement_expression_declarators` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L08 | `l08_comma_inside_square_brackets` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L09 | `l09_closure_is_blanket_pinned` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L10 | `l10_cpp_template_arguments` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L11 | `l11_permissive_census_text` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | RED |  |
-| L12 | `l12_commas_in_literals_do_not_count` | `src/call_graph/c/macro_census_brackets_tests.rs` | F | GREEN |  |
-| b1 | `row_b1` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED | guard shape (see Deviations) |
-| b2 | `row_b2` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED | guard shape |
-| b3 | `row_b3` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED |  |
-| b4 | `row_b4` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED |  |
-| b5 | `row_b5` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED | guard shape |
-| b6 | `row_b6` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| b7 | `row_b7` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| b8 | `row_b8` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| b9 | `row_b9` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| b10 | `row_b10` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| b11 | `row_b11` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| b12 | `row_b12` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED | guard shape |
-| b13 | `row_b13` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED | guard shape |
-| x1 | `row_x1` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED |  |
-| x2 | `row_x2` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED |  |
-| x3 | `row_x3` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED |  |
-| x4 | `row_x4` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED |  |
-| x5 | `row_x5` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| x6 | `row_x6` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| a1 | `e01_21_macro_args_c` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED | gate-only: E01 `e01_21_macro_args_c` (see Deviations) |
-| a2 | `row_a2` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| a3 | `row_a3` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| a4 | `row_a4` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| a5 | `row_a5` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| a6 | `row_a6` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| a7 | `row_a7` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| a8 | `row_a8` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| y1 | `row_y1` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED |  |
-| y2 | `row_y2` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED |  |
-| y3 | `row_y3` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| y4 | `row_y4` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| mf1 | `mf1_header_defines_reach_the_owner` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED | control `mf1_control_without_defines_prunes` |
-| mf2 | `mf2_defines_arrive_as_a_census_text` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED | control `mf2_control_balanced_census_text_prunes` |
-| mf3 | `mf3_one_of_two_definitions_in_two_files` | `src/data_flow/build/c_prune_brackets_tests.rs` | C | RED | control `mf3_control_only_the_balanced_definition_prunes` |
-| mf4 | `mf4_the_issue_files` | `src/data_flow/build/c_prune_brackets_tests.rs` | S | RED |  |
-| mf1 ctl | `mf1_control_without_defines_prunes` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| mf2 ctl | `mf2_control_balanced_census_text_prunes` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| mf3 ctl | `mf3_control_only_the_balanced_definition_prunes` | `src/data_flow/build/c_prune_brackets_tests.rs` | K | GREEN |  |
-| cz1 | `cz1_cache_parity_when_a_header_define_becomes_unbalanced` | `src/data_flow/build/c_macro_census_tests.rs` | - | RED |  |
-| E01 | `e01_20_macro_brackets_c` | `src/data_flow/build/c_prune_brackets_tests.rs` | - | RED | owner verdicts through `c_prune::scan` |
-| E01 | `e01_20_macro_brackets_cc` | `src/data_flow/build/c_prune_brackets_tests.rs` | - | RED | owner verdicts through `c_prune::scan` |
-| E01 | `e01_21_macro_args_c` | `src/data_flow/build/c_prune_brackets_tests.rs` | - | RED | owner verdicts through `c_prune::scan` |
-| E01 | `e01_21_macro_args_cc` | `src/data_flow/build/c_prune_brackets_tests.rs` | - | RED | owner verdicts through `c_prune::scan` |
-| OD-3 | `block_macros_list_is_the_design_list` | `src/data_flow/build/c_prune_brackets_tests.rs` | - | RED | extra row: the 16 names, exactly |
+Replaced by the generated section above (inline rows b*, a*, x*, y* and the census-fact rows U*, L*,
+which are quarantined `#[ignore]`d tests).
 
 # Round-1 enumeration fold (terra + sol, 2026-11-14)
 
@@ -115,9 +293,7 @@ Base for these rows = HEAD of this branch (same stubs). Files: `src/call_graph/c
 
 ## Totals (new tests only)
 
-- **80 new tests: 63 RED, 17 GREEN on base.** Every GREEN is a control the reports predicted (K) or a premise/contract the design relies on and base already satisfies (free-set closure, token-paste G5, tight `__VA_OPT__`, parameter shadow, held-comma controls). Every RED fails on the assertion it was written for; the probes that could fail for another reason carry a premise assertion (census holds the payload macro: `assert_read`, owner exists on base with verdict `None`, every pair row passes the admissibility check, `dropped` is the failure).
-- Pair rows (obligations): 33 (27 keep rows RED, 6 drop rows GREEN: w6 C and C++, k1, k2, k3, y11). Aggregate matrices `c_prune_matrix` and `cpp_prune_matrix` read them and stay RED on base.
-- Kinds of the 27 RED pair rows: **18 S** (live pair dropped on base: w1, w2, w3, w8 and the C++ w1 to w3 compiled with real pthread.h or the reports' receipts; w5 by `clang -E` expansion with CPython 3.12 headers; a1, a1t, a9, a10, a11, a12; s1 to s4 compiled) and **9 C** (conservative, no liveness claim: w4 C and C++ because no CPython 3.13 headers are installed here, w7, y5 to y10). The other tests are census facts (F), owner verdicts, multi-file/loader/cache rows and K controls.
+Superseded by the generated section at the top (no hand-kept totals).
 
 ## Design amendment tests (WRONG, MATERIAL)
 
@@ -206,9 +382,7 @@ Source: **obs** = the enumerators compiled the program (value live, `41 2` or eq
 
 ## Totals (new tests only)
 
-- **62 new tests: 53 RED, 9 GREEN on base.** Every RED fails on the assertion it was written for: pair rows report `dropped` (never `inadmissible`: every row's pair exists in the baseline), loader rows report `the live pair ... was dropped`, fact rows fail on the fact (the macro is in the census), cache rows fail on the post-edit pair. The 9 GREEN are controls: 8 pair-row controls (the two variadic-forwarding drops, K3, K1, K2, K5a, K5b, K6) and the free-name premise of cz3.
-- Pair-row tests: 41 (33 RED, 8 GREEN) over 42 new obligation rows (36 keep rows: 33 RED and 3 GREEN controls; 6 drop rows, all GREEN); census facts: 7 RED; cache: 2 RED + 1 GREEN premise; loader: 9 RED; real-header excerpts: 2 tests, RED (see below).
-- Kinds of the 33 RED pair rows: S (live pair dropped, compiled): g2t01 (.c .cc), g2o06 (.c .cc), g2o06c (.c .cc), g2s01 (.c; .cc rules-derived), g2s02 (.c; .cc rules-derived), g2s03a, g2o01 (.c .cc), g2o01b (.c .cc), g2o02 (.c .cc), g2o03 (.c .cc), g2o04, g2o07; C (rules-derived): g2s01a-d, g2s03b-e2, g2o09, g2s07 (.c .cc).
+Superseded by the generated section at the top (no hand-kept totals).
 
 ## Pair rows (inline cases, `c_prune_brackets_r2_tests.rs`)
 
@@ -314,12 +488,7 @@ Base = HEAD `fd8e49ac` (same stubs). Files (all new, each under 610 weighted lin
 
 ## Totals (new tests only)
 
-- **59 new tests: 51 RED, 8 GREEN on base.** Every RED fails on the assertion it was written for. Pair rows report `was dropped`; **no row reports `inadmissible`** (every pair exists in the baseline, every iteration of every loop was evaluated through `Batch`). Fact rows fail on the fact (the macro is in the census). Two cache-lifecycle rows fail at their premise (see Discrepancies 3).
-- Per file: enclosing 14 RED / 1 GREEN, lexical 9 / 2, depth 6 / 1, loader 15 / 3, census facts 7 / 1.
-- The 8 GREEN are controls: `row_g2_opus3_01_variadic_control_prunes` (K, rejoining variadic), `row_g2_sonnet3_01_to_03_balanced_splice_controls_prune`, `g2_sonnet3_01_to_03_balanced_splice_controls` (census), `row_g2_terra3_02_control_without_the_comma_prunes`, `row_g2_sonnet3_08_balanced_deep_body_control_prunes`, `row_g2_sol3_02_control_backslash_file_without_the_decoy` (the lists' no-decoy member), `row_g2_sonnet3_06_control_utf16_header_without_bom_keeps_the_pair`, `row_g2_terra3_03_control_a_balanced_include_target_appears` (lifecycle plumbing: a `Miss`, rebuilt, pruned before and after).
-- Full `cargo test -p prism --lib` on this tree: **3,556 passed, 219 failed, 16 ignored**. All 219 failures are bracket rows, census-fact rows, `cz*` rows and the two aggregate matrices (RED on base by design); none outside this lane. Not run: the integration targets, `prism-review`, `prism-mcp`.
-
-Source column: **obs** = the enumerators compiled and ran it and measured base with the asm control; **obs+** = also compiled or run again here (Apple clang 21.0.0); **rules** = derived from the rules, no liveness run (kind C).
+Superseded by the generated section at the top (no hand-kept totals).
 
 ## Pair rows
 

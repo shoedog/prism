@@ -10,10 +10,9 @@
 //! Host-dependent rows (backslash and Unicode file names) check a capability first and print
 //! `SKIP <row>: <reason>` when the host cannot express the input.
 //! The cache lifecycle rows (terra3-03, and the converted g_sol_13) are at the end.
-use super::c_prune_brackets_r3_support::{guard_pair, Batch};
-use super::Producer;
+use super::c_prune_brackets_r3_support::{guard_pair, loader_pair, Batch};
+use super::c_prune_oracle_rows::declare;
 use crate::call_graph::c::macro_census::CMacroCensus;
-use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::cpg::CodePropertyGraph;
 use crate::cpg::CpgContext;
 use crate::cpg_cache::{
@@ -48,28 +47,6 @@ fn owner_text(prefix: &str, cpp: bool) -> String {
     )
 }
 
-/// `(before the rules, after the rules)` of `x@from -> x@to` of `owner` in `target`, with
-/// the census and the census texts the loader builds for `d`.
-fn loader_pair(d: &Path, target: &str, owner: &str, from: usize, to: usize) -> (bool, bool) {
-    let repo = load_repo(d).unwrap();
-    let census = CMacroCensus::from_files(&repo.files);
-    let p = &repo.files[target];
-    let file = target.to_owned();
-    let has = |r: &super::FileRefs| {
-        r.edges.iter().any(|e| {
-            e.from.path.to_string() == "x"
-                && e.from.line == from
-                && e.to.line == to
-                && e.from.function == owner
-        })
-    };
-    let before = Producer::file_refs_frozen(&file, p);
-    let after = super::alias_occurrence::without_policy(|| {
-        Producer::file_refs_with_census(&file, p, &RustMacroCensus::default(), &census)
-    });
-    (has(&before), has(&after))
-}
-
 /// Premise of the control rows: the loader's census holds the payload's macros.
 fn assert_seen(d: &Path) {
     let census = CMacroCensus::from_files(&load_repo(d).unwrap().files);
@@ -81,7 +58,7 @@ fn assert_seen(d: &Path) {
 /// `target` of `root` (the loader root) against the guard pair of its own text.
 fn kept_in(b: &mut Batch, what: &str, root: &Path, target: &str, text: &str) {
     let (from, to) = guard_pair(text);
-    let r = loader_pair(root, target, "probe", from, to);
+    let r = loader_pair(root, target, Some("probe"), from, to);
     b.kept_result(what, r, Some("probe"), from, to);
 }
 
@@ -222,6 +199,11 @@ fn boundary_g2_sonnet3_09_header_outside_the_repo_root() {
             let text = owner_text(include, cpp);
             wb(d.path(), &format!("pkg/a.{ext}"), text.as_bytes());
             wb(d.path(), "common/defs.h", PAYLOAD.as_bytes());
+            declare(
+                "A-inputs",
+                &["-I{PRELUDE}/common"],
+                &[("common/defs.h", PAYLOAD)],
+            );
             kept_in(
                 &mut b,
                 &format!("sonnet3-09 {what} (a.{ext})"),
@@ -271,6 +253,12 @@ fn boundary_g2_sol3_01_vfs_mapped_include() {
         let text = owner_text("#include <api/guard.payload>\n", cpp);
         wb(d.path(), &format!("a.{ext}"), text.as_bytes());
         wb(d.path(), "private/implementation.data", PAYLOAD.as_bytes());
+        // The overlay maps <api/guard.payload> to the data file; a copy under -I is the same view.
+        declare(
+            "A-inputs",
+            &["-I{PRELUDE}/vfs"],
+            &[("vfs/api/guard.payload", PAYLOAD)],
+        );
         kept_in(
             &mut b,
             &format!("sol3-01 (a.{ext})"),
@@ -375,6 +363,7 @@ fn boundary_g2_sol3_03_cxx20_header_unit_import() {
     wb(d.path(), "a.cc", text.as_bytes());
     wb(d.path(), "defs.payload", PAYLOAD.as_bytes());
     let mut b = Batch::new();
+    declare("A-inputs", &["-std=c++20", "-fmodules"], &[]);
     kept_in(&mut b, "sol3-03", d.path(), "a.cc", &text);
     b.finish();
 }
@@ -399,6 +388,7 @@ fn boundary_g2_opus3_11_include_differs_in_unicode_normalization() {
         return;
     }
     let mut b = Batch::new();
+    declare("A-inputs", &[], &[]);
     kept_in(&mut b, "opus3-11 nfd", d.path(), "a.c", &text);
     b.finish();
 }
@@ -430,6 +420,7 @@ fn row_g2_opus3_12_include_of_a_file_under_eval_secbench() {
         let text = owner_text("#include \"eval/secbench/defs.payload\"\n", cpp);
         wb(d.path(), &format!("a.{ext}"), text.as_bytes());
         wb(d.path(), "eval/secbench/defs.payload", PAYLOAD.as_bytes());
+        declare("A-inputs", &[], &[]);
         kept_in(
             &mut b,
             &format!("opus3-12 (a.{ext})"),
@@ -489,11 +480,11 @@ fn lifecycle(
         None,
         repo0.scope_graph_inputs.as_ref(),
     );
-    assert_eq!(
+    expect_state(
+        what,
+        "the first state",
         pair_in_dfg(&ctx0.cpg.dfg, target, from, to),
         kept0,
-        "{what}: the first state must {} x@{from} -> x@{to}",
-        if kept0 { "keep" } else { "prune" }
     );
     save_cache_with_topology(
         &ctx0.cpg,
@@ -512,12 +503,8 @@ fn lifecycle(
         None,
         repo1.scope_graph_inputs.as_ref(),
     );
-    assert_eq!(
-        pair_in_dfg(&fresh.cpg.dfg, target, from, to),
-        kept1,
-        "{what}: after the edit a fresh build must {} x@{from} -> x@{to}",
-        if kept1 { "keep" } else { "prune" }
-    );
+    let fresh_has = pair_in_dfg(&fresh.cpg.dfg, target, from, to);
+    expect_state(what, "after the edit a fresh build", fresh_has, kept1);
     let backed = match load_cache_with_topology(&repo1.file_hashes, &topology1, false, cache.path())
     {
         CacheResult::Hit(hit) => Some(pair_in_dfg(&hit.dfg, target, from, to)),
@@ -546,7 +533,7 @@ fn lifecycle(
     );
     if let Some(has) = backed {
         assert_eq!(
-            has, kept1,
+            has, fresh_has,
             "{what}: the cache-backed load replayed the old graph (a Hit or a partial hit must \
              agree with the fresh build)"
         );
@@ -554,6 +541,18 @@ fn lifecycle(
     // The edit left every parsed file alone: only the text input moved.
     let parsed: BTreeSet<_> = repo0.file_hashes.keys().collect();
     assert_eq!(parsed, repo1.file_hashes.keys().collect::<BTreeSet<_>>());
+}
+
+/// A lifecycle row requires "a cache-backed load equals a fresh build" always, and that the
+/// pair is KEPT where the row says it is live (`want_kept`, compiled by the enumerators). A
+/// row that expects the pair pruned is a recall guide (printed, not asserted; #829 TEST-FORM
+/// section 5: controls stop being assertions).
+fn expect_state(what: &str, when: &str, has: bool, want_kept: bool) {
+    if want_kept {
+        assert!(has, "{what}: {when} must keep the live pair");
+    } else if has {
+        eprintln!("GUIDE {what}: {when} keeps a pair the row expected pruned (recall)");
+    }
 }
 
 const HAS_INCLUDE_OWNER: &str = "#if __has_include(\"defs.payload\")\n#include \"defs.payload\"\n#else\n#define OPEN\n#define CLOSE\n#endif\n";

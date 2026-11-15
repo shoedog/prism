@@ -1,3 +1,7 @@
+//! QUARANTINED (#829 TEST-FORM section 5): every test here pins the tentative design's census facts
+//! (`unbalanced`, `loose_comma`, digest, name list), not required behaviour. They are `#[ignore]`d
+//! until the redesign chooses its facts; run them with `cargo test -p prism --lib -- --ignored
+//! macro_census_brackets`.
 //! #829 round-1 enumeration (terra + sol): census-fact rows added after the first matrix.
 //! Ids are `G-terra-NN` / `G-sol-NN` of the two reports (see TESTS.md for the dedupe map).
 //! Same stubs as `macro_census_brackets_tests.rs`: every `true` row is red on base, every
@@ -73,6 +77,7 @@ const BLOCK_NAMES: [&str; 16] = [
 /// The design reads `MacroFacts::free` for the wrapper rule; this pins that it holds every
 /// listed name through a direct wrapper, an object-like alias and several hops.
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_01_free_set_holds_the_listed_name_through_every_wrapper_shape() {
     for n in BLOCK_NAMES {
         let src = format!(
@@ -97,6 +102,7 @@ fn g_sol_01_free_set_holds_the_listed_name_through_every_wrapper_shape() {
 
 /// G-sol-08: a parsed definition's own parameter is not a free name, whatever it is spelled.
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_08_a_parameter_spelled_like_a_hazard_is_not_free() {
     let c = census(&[(
         "a.c",
@@ -112,6 +118,7 @@ fn g_sol_08_a_parameter_spelled_like_a_hazard_is_not_free() {
 /// `V<::S>`: a `<:` digraph in C before C++11, a template argument list in C++. The body
 /// reader does not model the exception, so the spelling counts (accepted over-refusal).
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_terra_09_cpp_digraph_exception_fails_closed() {
     let c = census(&[("a.cpp", "#define T V<::S>\n")]);
     expect(&c, &[("T", true, false)], "<::");
@@ -120,6 +127,7 @@ fn g_terra_09_cpp_digraph_exception_fails_closed() {
 /// A C++ raw string whose C reading exposes a closer: the verdict is the union of the readable
 /// passes, so the C reading counts (conservative, pinned).
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_terra_08_raw_string_c_reading_exposes_a_closer() {
     let c = census(&[("a.cpp", "#define RAW R\"q(\" } \")q\"\n")]);
     assert!(fact(&c, "RAW").unbalanced);
@@ -127,6 +135,7 @@ fn g_terra_08_raw_string_c_reading_exposes_a_closer() {
 
 /// G-sol-10 (IMMATERIAL): same shape with a `{` and a comma exposed in the C reading.
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_10_raw_string_c_reading_exposes_brace_and_comma() {
     let c = census(&[("a.cpp", "#define RAW R\"z(\" { , \" )z\"\n")]);
     expect(&c, &[("RAW", true, true)], "raw string");
@@ -135,6 +144,7 @@ fn g_sol_10_raw_string_c_reading_exposes_brace_and_comma() {
 // ---- G-terra-11 / G-sol-09: `__VA_OPT__` ----
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_terra_11_va_opt_with_a_comment_before_its_parenthesis() {
     let c = census(&[(
         "a.cpp",
@@ -152,6 +162,7 @@ fn g_terra_11_va_opt_with_a_comment_before_its_parenthesis() {
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_terra_11_va_opt_comment_inside_tight_parentheses_is_tight() {
     let c = census(&[(
         "a.cpp",
@@ -161,6 +172,7 @@ fn g_terra_11_va_opt_comment_inside_tight_parentheses_is_tight() {
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_09_va_opt_under_a_brace_or_bracket_is_loose() {
     let c = census(&[(
         "a.cpp",
@@ -180,6 +192,7 @@ fn g_sol_09_va_opt_under_a_brace_or_bracket_is_loose() {
 
 /// The transparent entry must not hide real depth: every one of these is balanced and tight.
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_09_va_opt_under_parentheses_stays_tight_and_balanced() {
     let c = census(&[(
         "a.cpp",
@@ -200,6 +213,7 @@ fn g_sol_09_va_opt_under_parentheses_stays_tight_and_balanced() {
 // ---- G-terra-12 / G-sol-12: `loose_comma` union and `#undef` ----
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_12_loose_comma_survives_undef_and_a_tight_redefinition() {
     for src in [
         "#define M 1,2\n#undef M\n#define M (1,2)\n",
@@ -211,6 +225,7 @@ fn g_sol_12_loose_comma_survives_undef_and_a_tight_redefinition() {
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_12_loose_and_tight_definitions_in_separate_files() {
     for files in [
         [("x.c", "#define M (1,2)\n"), ("y.c", "#define M 1,2\n")],
@@ -221,6 +236,7 @@ fn g_sol_12_loose_and_tight_definitions_in_separate_files() {
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_terra_12_loose_comma_union_across_files_after_undef_and_alias() {
     for files in [
         [
@@ -241,6 +257,7 @@ fn g_terra_12_loose_comma_union_across_files_after_undef_and_alias() {
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_12_loose_comma_union_in_permissive_texts() {
     let t = census_with_texts(&[
         ("a.inc", "#define M 1,2\n#undef M\n#define M (1,2)\n"),
@@ -253,12 +270,14 @@ fn g_sol_12_loose_comma_union_in_permissive_texts() {
 
 /// An unreadable permissive line is counted as written: a loose comma and an unmatched brace.
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_terra_13_permissive_unreadable_line_sets_both_facts() {
     let t = census_with_texts(&[("defs.inc", "#define BAD(a,b) \"unterminated { ,\n")]);
     expect(&t, &[("BAD", true, true)], "unterminated");
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_11_permissive_unreadable_line_with_only_a_comma() {
     let t = census_with_texts(&[("defs.inc", "#define BAD \"a,b\n")]);
     expect(&t, &[("BAD", false, true)], "comma only");
@@ -267,6 +286,7 @@ fn g_sol_11_permissive_unreadable_line_with_only_a_comma() {
 // ---- G-terra-15 / G-sol-13: the digest carries `loose_comma` alone ----
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_terra_15_digest_changes_when_only_the_comma_fact_changes() {
     for (a, b) in [
         ("#define X 1\n", "#define X 1, 2\n"),
@@ -278,6 +298,7 @@ fn g_terra_15_digest_changes_when_only_the_comma_fact_changes() {
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_13_text_aggregate_digest_changes_when_only_the_comma_fact_changes() {
     let a = census_with_texts(&[("m.inc", "#define M (1,2)\n")]);
     let b = census_with_texts(&[("m.inc", "#define M 1,2\n")]);
@@ -312,6 +333,7 @@ fn norm_variants() -> Vec<(&'static str, String)> {
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_15_split_names_and_digraph_directives_in_a_parsed_file() {
     for (what, src) in norm_variants() {
         for file in ["a.c", "a.cc"] {
@@ -325,6 +347,7 @@ fn g_sol_15_split_names_and_digraph_directives_in_a_parsed_file() {
 }
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_sol_15_split_names_and_digraph_directives_in_a_census_text() {
     for (what, src) in norm_variants() {
         expect(
@@ -338,6 +361,7 @@ fn g_sol_15_split_names_and_digraph_directives_in_a_census_text() {
 // ---- G-terra-10: a name assembled by a splice (census half; the owner half is in the c_prune r1 tests) ----
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_terra_10_name_split_by_a_splice() {
     for src in [
         "#define OP\\\nEN {\n#define CLOSE }\n",
@@ -356,6 +380,7 @@ fn g_terra_10_name_split_by_a_splice() {
 // ---- G-terra-16: digraph and plain token paste stay poisoned (K: green on base) ----
 
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn g_terra_16_token_paste_poisons_whatever_the_new_facts_say() {
     for file in ["a.c", "a.cc"] {
         let c = census(&[(

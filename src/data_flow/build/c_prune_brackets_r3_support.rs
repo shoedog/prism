@@ -3,6 +3,7 @@
 //! (`cfg_incomplete`) that survives on base, so a from/to-only check would pass for the wrong
 //! reason. Every row asserts REQUIRED behaviour (the live pair is kept, or the control pair is
 //! pruned), never a specific `Off::` reason: the rule of DESIGN.md is tentative.
+use super::c_prune_oracle_rows::{judge, record_dir, record_files, Want};
 use super::Producer;
 use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::CMacroCensus;
@@ -77,8 +78,20 @@ pub(super) fn pair_in(
             .set_c_census_texts(Arc::new(t));
     }
     let census = CMacroCensus::from_files(&parsed);
+    record_files(files, texts, target, owner, path, from, to);
+    pair_of(&census, &parsed[target], target, owner, path, from, to)
+}
+
+fn pair_of(
+    census: &CMacroCensus,
+    p: &ParsedFile,
+    target: &str,
+    owner: Option<&str>,
+    path: &str,
+    from: usize,
+    to: usize,
+) -> (bool, bool) {
     let file = target.to_owned();
-    let p = &parsed[target];
     let has = |r: &super::FileRefs| {
         r.edges.iter().any(|e| {
             e.from.path.to_string() == path
@@ -89,14 +102,32 @@ pub(super) fn pair_in(
     };
     let before = Producer::file_refs_frozen(&file, p);
     let after = super::alias_occurrence::without_policy(|| {
-        Producer::file_refs_with_census(&file, p, &RustMacroCensus::default(), &census)
+        Producer::file_refs_with_census(&file, p, &RustMacroCensus::default(), census)
     });
     (has(&before), has(&after))
 }
 
+/// `(before the rules, after the rules)` of `x@from -> x@to` of `owner` (any owner when
+/// `None`) in `target` of the repository at `d`, with the census and the census texts the
+/// loader builds for it. The one loader-row helper (rows of the r1, r2 and r3 loader tests).
+pub(super) fn loader_pair(
+    d: &std::path::Path,
+    target: &str,
+    owner: Option<&str>,
+    from: usize,
+    to: usize,
+) -> (bool, bool) {
+    let repo = crate::repo_loader::load_repo(d).unwrap();
+    let census = CMacroCensus::from_files(&repo.files);
+    record_dir(d, target, owner, "x", from, to);
+    pair_of(&census, &repo.files[target], target, owner, "x", from, to)
+}
+
 /// Collects the failures of a loop of rows so that every iteration runs: an INADMISSIBLE row
-/// (the baseline has no pair, so a removal-only rule could not drop it) panics at once, a
-/// dropped live pair or a kept dead pair is recorded and reported together by `finish`.
+/// (the baseline has no pair, so a removal-only rule could not drop it) panics at once; every
+/// other judgement is the oracle data's (`c_prune_oracle_rows::judge`): a must-keep pair that
+/// was dropped, a pinned hole that closed or a validity control that was kept is recorded and
+/// reported together by `finish`. The row's inputs were recorded by `pair_in` or `loader_pair`.
 #[derive(Default)]
 pub(super) struct Batch {
     failed: Vec<String>,
@@ -133,14 +164,9 @@ impl Batch {
         from: usize,
         to: usize,
     ) {
-        assert!(
-            before,
-            "{what}: inadmissible, the baseline has no x@{from} -> x@{to} (owner {owner:?})"
-        );
-        if !after {
-            self.failed.push(format!(
-                "{what}: the live pair x@{from} -> x@{to} (owner {owner:?}) was dropped"
-            ));
+        let _ = (owner, from, to);
+        if let Err(e) = judge(what, Want::Kept, (before, after)) {
+            self.failed.push(e);
         }
     }
 
@@ -168,14 +194,9 @@ impl Batch {
         from: usize,
         to: usize,
     ) {
-        assert!(
-            before,
-            "{what}: inadmissible, the baseline has no x@{from} -> x@{to} (owner {owner:?})"
-        );
-        if after {
-            self.failed.push(format!(
-                "{what}: control, the dead pair x@{from} -> x@{to} (owner {owner:?}) must be pruned"
-            ));
+        let _ = (owner, from, to);
+        if let Err(e) = judge(what, Want::Pruned, (before, after)) {
+            self.failed.push(e);
         }
     }
 

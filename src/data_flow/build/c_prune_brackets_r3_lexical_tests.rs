@@ -7,6 +7,7 @@
 //! Kinds: S live pair dropped on base (compiled), C conservative (rules), K control.
 //! The depth rows (sonnet3-07, 08) live in `c_prune_brackets_r3_depth_tests.rs`.
 use super::c_prune_brackets_r3_support::{guard_pair, guard_source, Batch};
+use super::c_prune_oracle_rows::declare;
 
 fn ext(cpp: bool) -> &'static str {
     if cpp {
@@ -214,6 +215,11 @@ fn boundary_g2_sonnet3_10_external_macro_supplies_the_split() {
         let ret = if cpp { "x + 1" } else { "x" };
         let src = format!(
             "#include <ext.h>\n#define F(p, q) q if (c) p\n#define G(p, q) q p\n#define H(p) F(p)\n#define J(p) G(p)\nint probe(int c) {{\n    int x = 41;\n    int b = 0;\n    {{\n        H(EXT_INIT);\n        x = 2;\n        J(EXT_INIT);\n        return {ret};\n    }}\n}}\n"
+        );
+        declare(
+            "A-ext",
+            &["-I{PRELUDE}"],
+            &[("ext.h", "#define EXT_INIT { int a, b; }\n")],
         );
         b.kept_guard("sonnet3-10", ext(cpp), &src, Some("probe"));
     }

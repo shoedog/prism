@@ -1,16 +1,18 @@
 //! #829: macros that change bracket structure (commit A) and comma-carrying macros and
 //! brace-split macro arguments (commit B). Per-row tests for the inline cases
 //! `20_macro_brackets` / `21_macro_args` (rows b*, a*, x*, y*) and the multi-file rows mf1 to mf4
-//! (pair-based; the E01 owner-verdict tests were converted, see TESTS.md). Written against stubs: every keep row is red until the
-//! census facts and the owner gates exist. The pair rows read the same `obligations.jsonl` as
-//! the matrices, one test per row so the mutation lane can cite them.
+//! (pair-based; the E01 owner-verdict tests were converted, see TESTS.md). What a row asserts is
+//! the oracle's frozen verdict (`c_prune_oracle_rows`, `scripts/dfg_prune/XARM.md`): a `kept`
+//! row is red while head drops a pair the compiler's token stream needs, a `pinned_hole` row
+//! asserts today's drop, `guide` and `no_basis` rows assert nothing. The pair rows read the same
+//! `obligations.jsonl` as the matrices, one test per row so the mutation lane can cite them.
 use super::c_prune::Off;
 use super::c_prune_inline_cases::{inline_source as c_source, INLINE_CASES as C_CASES};
+use super::c_prune_oracle_rows::judge_inline;
 use super::cpp_prune_inline_cases::{inline_source as cpp_source, INLINE_CASES as CPP_CASES};
 use super::Producer;
 use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::CMacroCensus;
-use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
@@ -93,13 +95,8 @@ pub(super) fn check_row(file: &str, id: &str) {
         };
         let (had, has) = (only(bo.get(&key)), only(ao.get(&key)));
         assert!(!had.is_empty(), "inadmissible: no baseline pair for {row}");
-        if row["keep"].as_bool().unwrap() {
-            assert!(
-                had.is_subset(&has),
-                "{row}: dropped (before={had:?} after={has:?})"
-            );
-        } else {
-            assert!(has.is_empty(), "{row}: kept (before={had:?} after={has:?})");
+        if let Some(failure) = judge_inline(&row, &had, &has) {
+            panic!("{failure}");
         }
     }
 }
@@ -188,6 +185,7 @@ pub(super) fn expect(v: &BTreeMap<String, Option<Off>>, gate: Option<Off>, names
 
 /// OD-3: the 16 names of DESIGN 6.3, exactly.
 #[test]
+#[ignore = "tentative design (#829 TEST-FORM §5)"]
 fn block_macros_list_is_the_design_list() {
     let mut want = vec![
         "pthread_cleanup_push",
@@ -321,23 +319,16 @@ const B1S_CC: &str = "#include \"h.h\"\nstruct S { int v; S& operator=(int i) { 
 
 #[test]
 fn mf4_the_issue_files() {
-    let parsed: BTreeMap<String, ParsedFile> = [("b1s.cc", B1S_CC), ("h.h", B1S_H)]
-        .iter()
-        .map(|(n, s)| (n.to_string(), ParsedFile::parse(n, s, lang_of(n)).unwrap()))
-        .collect();
-    let c_census = CMacroCensus::from_files(&parsed);
-    let file = "b1s.cc".to_owned();
-    let p = &parsed[&file];
-    let before = Producer::file_refs_frozen(&file, p);
-    let after = Producer::file_refs_with_census(&file, p, &RustMacroCensus::default(), &c_census);
-    let key = |r: &super::FileRefs| -> bool {
-        r.edges
-            .iter()
-            .any(|e| e.from.path.to_string() == "x" && e.from.line == 8 && e.to.line == 9)
-    };
-    assert!(key(&before), "admissible: the baseline has x@8 -> x@9");
-    assert!(
-        key(&after),
-        "x@8 -> x@9 is live (prints 451) and must be present"
+    // x@8 -> x@9 is live (prints 451); the baseline has it, so the row is admissible.
+    let mut b = Batch::new();
+    b.kept(
+        "mf4",
+        &[("b1s.cc", B1S_CC), ("h.h", B1S_H)],
+        "b1s.cc",
+        &[],
+        None,
+        8,
+        9,
     );
+    b.finish();
 }

@@ -169,13 +169,8 @@ fn c_prune_matrix() {
             };
             let (had, has) = (only(bo.get(&key)), only(ao.get(&key)));
             let (had, has) = (&had, &has);
-            let ok = if row["keep"].as_bool().unwrap() {
-                !had.is_empty() && had.is_subset(has)
-            } else {
-                !had.is_empty() && has.is_empty()
-            };
-            if !ok {
-                failures.push(format!("{row} owners before={had:?} after={has:?}"));
+            if let Some(failure) = super::c_prune_oracle_rows::judge_inline(row, had, has) {
+                failures.push(failure);
             }
         }
     }
