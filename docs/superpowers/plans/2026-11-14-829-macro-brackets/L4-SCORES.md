@@ -8,6 +8,8 @@ of 2026-11-14 19:05 at `fae6690c`. Instrument: `scripts/dfg_prune/xscore.py` (us
 `scripts/dfg_prune/XARM.md`, "L4 scoring"); candidates in `xscore_candidates.py`; the whole scoring
 run takes 11 s (it reads saved oracle results; it runs neither prism nor clang).
 
+**Amendment notice (2026-11-15):** sections 1–8 are historical scoring records, not current soundness endorsements. Sol refuted candidate 10; current probes also refute 10n. Section 9 records candidate 12 and its higher recall cost.
+
 ## 1. Method
 
 A candidate design is an owner-refusal predicate `owner, db -> None | reason`. For each pair the
@@ -444,3 +446,63 @@ passed with `--candidates`).
 ## 8. Addendum (redesign phase): candidates 10 and B1 to B8
 
 `xscore_candidates.py` now also holds the rule of `DESIGN-v2.md` (candidate 10), its variants (10x the 31-name list, 10n without shielded parentheses, 10i, 10f, 10s) and its ablations B1 to B8; `xscore_lex.py` records the paren groups of each macro body (`Facts.groups`), tells a plain `#else` from `#elif` and gives a candidate the owner's file index. The 15 candidates above score exactly as before (150 of 150 cells). Numbers, the premise-coverage reading of the ablations and the finding that **candidate 8 is unsound** (it admits a macro whose own body splits an argument, `#define HI F({ int a, b; })`: oracle CONTRADICTED, outside the generator's grammar) are in `DESIGN-v2.md` sections 2 and 9. Candidate 10 (with the hidden-opener half of G10 that owner decision OD-C added; ablation B8 is the rule without it): 0 must-keep violations on L1 (113, 30, 98), L2 bound 3 (6,903) and the bound-4 batches (8,566), L3 (50); recall cost 1.1% (399 of 37,777); 214 of 20,274 owners refused (B8: 0.9%, 332 pairs, 108 owners). Reproduce: `python3 scripts/dfg_prune/xscore.py run --out .scratch829/redesign/l4v2`.
+
+## 9. Addendum: rejected-review repair, candidate 12 (2026-11-15)
+
+**Recommendation: 12-all-roots**, pending OWNER-DECISION OD-A2. No shields; every identifier-following group and its chains are potential callees in both bodies and owners; keep the 31-name list and G10. This closes the unstable-predecessor class without assuming census absence means a stable name. The body scan needs no root-name lookup. `11-no-shield-list31` is the 10n+31 control; B9/B10 separately restore old owner/body roots.
+
+The target 2.4% is **not met**: 12 costs 5.95%. Plain 10n at 2.59% is refuted by external `EXT(v) v` plus empty `E`, both satisfying the existing A-ext model, in owner and body contexts. The class must be refused under STRICT. A narrower parameter-flow/comma certificate is a separate proof project; no new A-ext restriction or per-case waiver is proposed. These corpora are a small convenience sample, not prevalence evidence.
+
+### Executed commands and provenance
+
+Checkout `b608adc590efeb376b7ce080a3d3782355cf44cd`; binary `slicing 4.0.0 (0273cf3324cb)`; Apple clang 21.0.0. `.scratch829/astra/provenance.json` and `MANIFEST.sha256` bind tools, sources and receipts. No Rust or fixture data changed; scorer results predict owner refusal. Corpus oracle verdicts are saved data, not regenerated clang/prism runs.
+
+```bash
+python3 scripts/dfg_prune/xscore.py selftest
+python3 scripts/dfg_prune/xscore.py run --out .scratch829/astra/l4
+python3 scripts/dfg_prune/xscore.py run --pops l2 --l2dirs .scratch829/gen/k4a .scratch829/gen/k4b .scratch829/gen/k4c --only 11-no-shield-list31,12-all-roots --out .scratch829/astra/l4k4
+python3 .scratch829/astra/check_scores.py
+```
+
+Outputs: `selftest.log`, `l4.log`, `l4/scores.json`, `l4k4.log`, `l4k4/scores.json`, `check_scores.log`, `l4-probes.json`. Selftest passes; **12 focused candidate checks pass**; **290 historical score cells unchanged**. Default L2 rerenders 30,081 judged programs; bound-4 rerenders 33,538 (overlap is not deduplicated into a combined population).
+
+Final consistency audit: one disclosed verification extension repaired two existing emulation omissions in `xscore_lex.py`: the group following `__VA_OPT__(...)` inherits a potential root, and named variadics force the body split fact. The same written design already required both. `vaopt_chain` is an additional actual CONTRADICTED pair (old scorer admits, corrected scorer refuses); the named-variadic full-program probe was already G1Error, so only its fact test adds coverage. All frozen default/bound-4 scores were rerun after the corrections; all 290 historical cells remain unchanged.
+
+### Truth gates
+
+| population | candidate 12 violations / must-keeps |
+|---|---:|
+| L1 pair | 0 / 113 |
+| L1 inline | 0 / 30 |
+| L1 generator | 0 / 98 |
+| L2 bound 3 | 0 / 6,903 |
+| L2 bound-4 batches | 0 / 8,566 |
+| L3 six corpora | 0 / 50 |
+| new review probes | **0 / 17** |
+
+MUSTKEEP831 is separately 0 / 2,403 at bound 3 and 0 / 5,956 at bound 4. No scope expansion or waiver is inferred. Pinned holes remain 21 / 23 open; historical boundary guides 9 / 41 open (12 closes 32). These disclosed populations are not silently counted as passed must-keeps.
+
+The new 17 pairs all have actual four-arm T/Tb/X/Xb = 0/1/1/1, owners on, accepted clang programs and runtime `probe(0)=41 probe(1)=2`. Candidate 10+31 admits 11; 10n+31 admits 8; B9 admits 5; B10 admits 3. Candidate 12 refuses all. Three additional insertion/named-variadic programs already have T G1Error and contribute **zero** new contradiction/RED credit. The source/header and exact pair table is DESIGN-v2 11.1; PLAN-v2 task 1a freezes these as tests. The admitted conditional compound-block control has three CONFIRMED dropped pairs; the corrected direct-expression conditional is clang-accepted and source G1Error. Stringize/paste, rescan, lookahead, empty expansion, alias/chain and insertion token receipts are in DESIGN-v2 section 3.
+
+### Recall and owner ledger
+
+| corpus | confirmed drops lost / located confirmed | recall cost | refused / located on owners |
+|---|---:|---:|---:|
+| redis | 7 / 21,605 | 0.032% | 2 / 5,062 |
+| cpython | 2,215 / 15,220 | 14.55% | 284 / 5,425 |
+| leveldb | 0 / 473 | 0% | 0 / 1,384 |
+| protobuf | 24 / 422 | 5.69% | 140 / 7,295 |
+| re2 | 0 / 38 | 0% | 5 / 886 |
+| snappy | 0 / 19 | 0% | 1 / 222 |
+| total | **2,246 / 37,777** | **5.95%** | **432 / 20,274** |
+
+Reasons for lost pairs: cpython `block_list` 275, `unbalanced` 51, `exposed_hidden_opener` 67, `loose_in_owner_group` 1,822; redis loose-in-group 7; protobuf held-argument split 24. Other corpora lose no confirmed drops, though some owners with no such drops are refused. Relative to 10n+31: +1,267 pairs / +200 owners; relative to 10+31: +1,847 pairs / +218 owners. B10 equals 12 on all L3 pair cells: body-root broadening costs no additional measured pairs but is required by `body_identity`.
+
+### Limits and exclusions
+
+- 18 unlocated cpython CONFIRMED pairs excluded from recall; 366 unmatched owner starts excluded from owner denominator (cpython 98, leveldb 23, protobuf 207, re2 34, snappy 4). No L1 row was unlocated. No must-keep was excluded as unlocated.
+- 3,361 L3 UNJUDGED/XOFF pairs are not truth or recall evidence; 58 of them are refused. Saved corpora use one host configuration and the existing stubbed-header treatment. Token-level owner/census emulation and lexing limitations remain as section 6; the new rule in Rust is unverified.
+- Current probes use the same unchanged binary for all four arms. They prove the old source drop and the candidate's predicted refusal, not implemented GREEN. Alias rows are conservatively closed even where the older A-ext boundary would disclose them; the identity-wrapper witnesses require the repair without crossing that boundary.
+- No full Rust suite, release rebuild, Tier-A, mutation execution, new generator family, corpus runtime cost or new header/GitHub prevalence survey was run in this design-only task. Tier-A is now explicitly in PLAN-v2. No commit/push; controller owns durable Git custody.
+
+**Verification follow-up:** `python3 scripts/dfg_prune/xscore_revision_tests.py -v` passes all 20 regression tests. The identical assertions against HEAD's exported scorer and prior candidate 10+31 produce 11 failures / 9 passes, covering the changed behavior with tight/literal/outside/ordinary-vararg controls. All population scores above were rerun unchanged. See root `VERIFICATION.md` for exact commands and the environment-limited full Rust attempt (mandatory memguard exit 76 before Cargo; 0 Rust tests executed).

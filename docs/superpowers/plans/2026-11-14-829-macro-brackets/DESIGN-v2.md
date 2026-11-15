@@ -1,68 +1,70 @@
-# #829: macros that change bracket structure (C/C++ rules U and D): final design (v2)
+# #829: macros that change bracket structure (C/C++ rules U and D): amended design (v2, review repair)
 
-**Status:** design of record for the implementation. `DESIGN.md` is the tentative design and stays as history; `PLAN-v2.md` is the plan for this document.
-**Base:** branch `fix/829-macro-brackets` at `9da89ed2` (gates still stubs), release binary of 2026-11-14 19:05, Apple clang 21.0.0.
-**Owner decisions on this document (2026-11-14, `DECISIONS.md`):** OD-A candidate 10; OD-B 31 names; OD-C close the two-file form of A-span in this PR (the hidden-opener half of G10, sections 5.1 and 5.3); OD-D accept the interval cascade. Section 12 keeps the options as they were put.
-**Binding decisions** (`DECISIONS.md`): the truth gate is STRICT (no dropped pair may be CONTRADICTED by the expansion-arm oracle, no per-case waiver); recall is a reported guide; boundary policy OD-6; a positive certificate is the direction (OD-7).
-**Goal (for materiality):** rules U and D are removal-only. A dropped def→use pair must also be dropped when the same rules read what the compiler sees. Refusing an owner (keeping its pairs) is always acceptable; its cost is recall.
-**Probes of this phase:** `.scratch829/redesign/` (git-excluded). The sources that matter are reproduced in section 11.
+**Status:** amended proposal after sol round 1 **REJECT**; candidate **12-all-roots** is recommended. Do not implement rejected candidate 10 or treat 10n as a sound fallback. OWNER-DECISION OD-A2 (section 12) supersedes OD-A only when the owner accepts it; `DECISIONS.md` is unchanged historical authority. `PLAN-v2.md` follows this proposal.
+**Checked checkout:** `b608adc590efeb376b7ce080a3d3782355cf44cd`; unchanged product binary `slicing 4.0.0 (0273cf3324cb)`, Apple clang 21.0.0. The gates remain stubs; scores emulate refusal, not an implemented fix.
+**Binding decisions:** STRICT expansion-arm truth gate, no per-case waivers; OD-B 31 names; OD-C close the two-file A-span form; OD-D accept G10's interval cascade. Existing #813/A-ext/A-span boundaries are retained, not enlarged to excuse the rejection.
+**Goal:** a source def→use pair dropped by rules U/D must also be dropped by the same rules on clang's expansion. Refusing the owner keeps its pairs and is sound; recall is a guide.
+**Evidence:** `.scratch829/astra/` (current execution), `.scratch829/review-sol/` (supplied review), `.scratch829/redesign/` (historical design). Section 13 separates them.
 
-## 1. The rule in brief
+## 1. The amended rule in brief
 
-An owner keeps rules U and D only when prism can prove **structure preservation**: every macro invocation in the owner's text expands to a well-nested token string that stands where the invocation stood, and no token of the owner is an argument of an invocation that starts outside it. Four checks give the proof; a failed check turns the owner off for U and D.
+An owner retains U/D only with a structure-preservation certificate:
 
-1. **Brackets (G7, `Off::MacroBrackets`).** The owner spells no in-repo macro whose replacement list, or that of a macro it names, does not nest in `()`, `{}`, `[]`; no listed external block macro; no in-repo macro that names a listed one.
-2. **Body argument lists (G8, `Off::MacroBodySplit`).** No macro the owner spells (closed the same way) has a body in which an argument list holds a comma inside `{}` or `[]`, or a macro whose expansion can carry a comma outside its own parentheses.
-3. **Owner argument lists (G9, `Off::MacroArgSplit`, `Off::MacroArgLoose`).** The same two conditions for the argument lists written in the owner's own text, except inside a function-call parenthesis that is itself inside the argument list.
-4. **Not captured (G10, `Off::OwnerExposed`).** By the file's own parentheses, the owner does not lie inside an argument list opened before it or closed after it; and the file spells, before the owner, no in-repo macro whose expansion can leave a `(` open (the list could then be closed in the file that includes this one).
+1. **G7:** refuse a spelled/reachable macro with a non-nesting body, a listed external block name, or its in-repo wrapper.
+2. **G8:** refuse a spelled/reachable macro whose body has a **potential callee group** containing a brace/bracket-held comma or a reachable loose-comma macro. A potential group follows **any identifier**, a parameter, or the close of another potential group. Census non-membership is not a stable-name certificate.
+3. **G9:** apply the same checks to **every position** inside potential groups in the owner's text. **No shields.** Groups after unknown identifiers and their chains count too.
+4. **G10:** keep the accepted interval and hidden-opener refusal unchanged: an owner must not be captured by an argument list beginning outside it.
 
-Compared with the tentative design: check 4 is new (the enclosing-group class); the blanket "the owner spells a macro with a comma outside parentheses" gate (G8 of `DESIGN.md`, 92% of its recall cost) is replaced by checks 2 and 3, which refuse only where such a comma can reach an argument list.
+Candidate 12 costs **2,246 / 37,777 = 5.95%** of the six corpora's confirmed drops; **432 / 20,274 owners** refused. All scored must-keep populations have zero violations. This misses the ideal 2.4% target. Plain 10n + 31 names costs 979 pairs (2.59%) but admits the new **external identity-wrapper** witnesses, so cannot be the fallback under STRICT. No corpus frequency claim justifies admitting them.
 
-Scores (section 9): 0 must-keep violations on every population; recall cost 1.1% of the sound drops of the six corpora (399 of 37,777 pairs, 214 of 20,274 owners), against 10.5% for candidate 4b and 54.7% for 6b. Of the 399 pairs, 67 (106 owners, three cpython files) are the price of the hidden-opener half of check 4.
+The implementation is simpler than a stable-identifier or parameter-flow certificate: no external-name allowlist, no compiler dependency, no shield state, and body roots no longer depend on membership in the census. Recovering the cost through a separate proved comma/parameter-flow certificate is deferred, not assumed.
 
-## 2. What the scoring left open, and what was found
+## 2. Rejection, sibling enumeration, and choice
 
-`L4-SCORES.md` left three candidates with no violation: 4b (tentative plus the enclosing check), 8 (4b with a finer comma rule, tuned on the rows) and 6b (a shape certificate). The task was to choose with a mechanism-level argument, because the generator is not complete.
+**WRONG / MATERIAL, inherited and reproduced:** candidate 10 admits sol's `ID(sizeof E({ int a, b; }, c))` when external `E` expands to nothing. Argument prescan erases `E`; the rescan of `ID` invokes the in-repo `sizeof(p,q,r)` on the formerly shielded group. Its brace-held comma splits the argument. Both owners are on; T=0, Tb=1, X=1, Xb=1 for the live `x` pair; runtime prints `probe(0)=41 probe(1)=2`.
 
-**Candidate 8 is unsound.** It refuses a loose-comma macro only where that macro is spelled inside a bracket. A macro whose own body splits an argument is spelled nowhere near a bracket:
+**WRONG / MATERIAL, new:** removing shields alone is insufficient. Make `ID` external as `EXT(v) v`, also keep `E` external/empty, and spell `EXT(sizeof E(...))`. Candidate 10n recognizes no callee group at all. Both external definitions satisfy the written A-ext properties: empty/identity expansion, WN/CC replacement tokens, whole-argument substitution, no introduced in-repo callee. The same contradiction occurs inside an in-repo body `#define HI EXT(sizeof E(...))`, with the owner spelling only `HI`. G8 also needs broader roots. These are not #813 input holes: the outside header is outside the indexed repository and every in-repo definition is present.
 
-```c
-#define F(p, q) q if (c) p
-#define G(p, q) q p
-#define HI F({ int a, b; })
-#define JI G({ int a, b; })
-int body_split(int c) { int x = 41; int b = 0; { HI; x = 2; JI; return x; } }
-```
+The same scan change refuses external object-like aliases to a known function-like macro (`E -> F`) in owner text and macro bodies, including C++ twins. Those aliases additionally cross the existing A-ext no-forwarding boundary; they are useful must-keep regression rows, but **the identity-wrapper witnesses independently require this repair within the existing model**. No decision to admit a contradiction or strengthen A-ext is proposed.
 
-Oracle (`probe.py probes/bodysplit`, C and C++): the pair `x@9 -> x@15` is dropped on head and CONTRADICTED; the expansion is `b ; } if ( c ) { int a ; x = 2 ; b ; } { int a ; return x ; }`. Candidate 8 admits the owner; 4b, 6b and the rule of this document refuse it. The class is outside the generator's grammar (its bodies hold no nested invocation), so the 0 in `L4-SCORES.md` for candidate 8 was a statement about the rows only. This is the reason the rule below is derived from an invariant and not from the rows.
+Two design rounds completed: round 1 reproduced erasure/aliases and measured candidates 11 and 12; round 2 distinguished the in-model identity-wrapper siblings and checked insertion, chains and parser controls. A final consistency audit extended verification once to repair two closed scorer omissions (`__VA_OPT__` chain roots and named-variadic fail-closed facts), without changing the proposed rule. The VaOpt full program was CONTRADICTED and admitted by the old scorer; its corrected result refuses. The named-variadic full program was already G1Error. The defect population is closed by mechanism (section 6), not by a bound on alias depth. The log records predictions, alternatives, falsifiers and results: `.scratch829/astra/hypotheses.md`.
 
-**What each remaining option costs** (L3, CONFIRMED drops lost; all have 0 violations on the scored data):
+| option | six-corpus confirmed drops lost | disposition |
+|---|---:|---|
+| 10 + 31 names | 399 (1.06%) | rejected: unstable shields |
+| 11: 10n + 31 names | 979 (2.59%) | rejected: unknown-root identity rescans, owner and body |
+| **12: all roots, no shields, 31 names** | **2,246 (5.95%)** | recommended, proof below; owner approval needed to supersede OD-A |
+| stable-name shields | unscored | source spelling, keywords, and census absence cannot certify stability in C; obtaining external definitions changes the input model |
+| finer bare-comma / parameter-flow certificate | unscored | possible follow-up; must prove substitution position, erasure and rescans before admitting anything |
 
-| option | recall cost | argument | note |
-|---|---|---|---|
-| 4b: tentative + enclosing check | 10.5% (3,973) | sound by section 6 (it refuses a superset of what the rule needs) | 3,647 of the 3,973 pairs are owners that merely spell a macro such as `#define INIT {0, 0}` |
-| 8: finer comma rule | 2.4% (912) | **unsound** (above) | rejected |
-| 6b: shape certificate (body must be expression-shaped) | 54.7% (20,658) | also sound for brackets; additionally refuses every body with `;`, a control keyword, a brace or a declaration keyword | buys robustness against statement-level classes nobody has found (section 4.3) |
-| 10: this document | 1.1% (399) | section 6 | chosen |
-| 10 without shielded parentheses | 2.6% (979) | section 6 without lemma V | fallback if lemma V is not accepted (OD-A) |
-| 10 + "a reachable body holds a top-level `;`" | 7.2% (2,730) | closes the #831 shape too | for information; #831 is not this lane |
+Historical candidate 8 is also unsound (`#define HI F({ int a, b; })`, CONTRADICTED); 4b and 6b's old zero scores are not proofs or safe fallbacks for newly enumerated classes. The former document's blanket soundness endorsements are withdrawn. The local corpora measure cost only; no search or corpus count establishes wild-code rarity.
 
-Hybrids considered and not taken: a certificate whose failure only escapes names or only keeps pairs near the macro (no argument for locality: an unbalanced expansion shifts every enclosing block, `DESIGN.md` option K2); 6b with a looser shape (it would still pay for `;` bodies, 11,697 pairs, without a demonstrated hole).
+## 3. Preprocessor facts and current clang receipts
 
-## 3. Preprocessor facts the argument uses
+Rules: [argument substitution](https://eel.is/c++draft/cpp.subst), [rescan](https://eel.is/c++draft/cpp.rescan), [stringization](https://eel.is/c++draft/cpp.stringize), [pasting](https://eel.is/c++draft/cpp.concat); C11 6.10.3.1–4. Every compiler mechanism used in the amended lemmas has a synthetic clang check below. These examples test the premises; the induction, not finite examples, gives the general argument.
 
-PF1, PF2 and PF4 to PF6 were checked with Apple clang 21.0.0 (`.scratch829/redesign/probes/clang/`); PF3 is the standard's rule (C11 6.10.3.1 and 6.10.3.4), and the PF6 outputs are what it predicts.
+Run `python3 .scratch829/astra/facts.py` and `python3 .scratch829/astra/facts_more.py`; exact commands/stdout/stderr are in `facts/<name>.json`. For all token-output fixtures the command is `clang -std=gnu2x -E -P .scratch829/astra/facts/<name>.c`. Successful preprocessing is a token-output claim only, not a syntax-acceptance claim.
 
-| # | fact | check | result |
-|---|---|---|---|
-| PF1 | Arguments are collected from unexpanded tokens and split at commas outside **parentheses** only | `DESIGN.md` C9 | `F({ int a, bb; })` gives `bb; } { int a` |
-| PF2 | A function-like macro name is invoked only when the next token is `(`; the look-ahead does not expand macros; a later rescan does invoke it | `pf2.c`: `K E (1, 2)` and `ID(K E (1, 2))` with `#define E` (empty) | `K (1, 2)` (not invoked); `[2 1]` (invoked on the rescan of `ID`'s argument) |
-| PF3 | Each argument is fully macro-expanded before substitution; the result is rescanned with the rest of the source | standard | |
-| PF4 | A `)` that comes from a macro does not close an argument list; a `(` that comes from a macro opens one | `pf5.c`, `pf5b.c` | `BEGIN .. END` with `#define END )`: "unterminated function-like macro invocation"; `BEGIN .. )` with `#define BEGIN W3(`: accepted |
-| PF5 | An argument list may continue from an included file into the file that includes it; `#include` inside an argument list is an error | `spans_file_end.c`, `inc_in_args.c` | accepted (the function between is rewritten); "embedding a #include directive within macro arguments is not supported" |
-| PF6 | Where the commas of an expansion land | `pf7.c` | `K(f(9, PAIR))` -> `<f(9, 1, 2)|>`; `K(PAIR)` -> `<1|2>`; `K(N(PAIR))` with `N(p) { p }` -> `<{ 1|2 }>`; `K(INIT)` -> `<{0|0}>` |
+| fact | synthetic file | observed result |
+|---|---|---|
+| PF1: collect unexpanded arguments; only parens shield separating commas | `collection` | `F({ int a,b; })` -> `b; } { int a` |
+| PF2: lookahead does not expand the next token or backtrack; later rescans may invoke the skipped name | `lookahead`, `body_lookahead` | bare `F E (1,2)` / body expansion -> `F (1,2)`; wrapped in `ID` -> `2 1` |
+| PF3: ordinary parameter occurrences use prescanned arguments; **# and ## are exceptions** | `stringize` | `S(BAD)` -> `"BAD"`; `ID(BAD)` -> `}`; `CAT(BE,GIN)` -> `{` |
+| object aliases and a returned name meet a following group on rescan | `alias_chain` | `ALIAS(1,2)` -> `2 1`; `ID(F)(3,4)` -> `4 3` |
+| unseen insertion can expose a chained group without erasing its literal parens | `insert` | external-style `E -> ()`, `ID(F E(1,2))` -> `2 1` |
+| `__VA_OPT__`'s syntax parens are not emitted; varargs insert separators | `vaopt` | `V()` -> `f(0)`; `V(1,2)` -> `f(0,1,2)` |
+| PF6: tight/loose expansion commas have different argument boundaries | `comma` | `K(f(9,PAIR))` -> `f(9,1,2) |`; `K(PAIR)` -> `1 | 2`; `K(INIT)` -> `{0 | 0}` |
+| a stringized and an ordinary occurrence of the same parameter differ | `mixed_stringize` | `BOTH(V)` -> `"V", 17` |
+| disabled recursive macro names are emitted rather than expanded forever | `disabled_recursion` | `A -> B -> A` emits `A`; `SELF(1)` emits `SELF(1)` |
+| a fixed punctuation token blocks callee adjacency | `fixed_punctuation` | `ID(F + E(1,2))` -> `F + (1,2)` |
+| erasing a whole invocation exposes a chain on later rescan | `empty_consumed` | `ID(F DROP(ignored)(1,2))` -> `2 1` |
+| optional tokens can become a callee root | `vaopt_root` | `PICK(1)` -> `2 1`; `PICK()` -> `(1,2)` |
+| PF4: replacement-list `(` can open a call; a macro-produced `)` cannot close argument collection | `open`, `close` | `BEGIN int x; )` -> `int x;`; `BEGIN int x; END` -> unterminated invocation diagnostic (expected failure) |
+| PF5: argument collection can continue out of an include; clang rejects include directives during collection | `span`, `include_inside` | `clang -std=gnu11 -fsyntax-only .scratch829/astra/facts/<name>.c`: accepts `span`; rejects `include_inside` with the embedding-include diagnostic |
 
-Not checked: GCC (not installed). PF5's second half is clang's behaviour; GCC documents directives inside macro arguments as undefined and may accept `#include` there (section 7, A-span).
+For `#p`, the original argument is replaced by one bracket/comma-free string-literal token; if that parameter also has ordinary occurrences, those occurrences separately use prescan. `##` can synthesize a new macro name and suppress prescan of its operands; the existing reachable-paste poison remains mandatory. `__VA_OPT__` and empty arguments can erase tokens; the certificate never infers identifier survival from them.
+
+No GCC run. PF5's include rejection is specifically clang's behaviour. Accepted full programs, runtime output and the same-binary four-arm oracle for the new structural witnesses are in section 11.1.
 
 ## 4. The property
 
@@ -90,68 +92,50 @@ A design that wants these closed by construction is 6b (54.7%) or "10 + top-leve
 
 ### 5.1 Census facts (`src/call_graph/c/macro_census.rs`, new `macro_census/brackets.rs`)
 
-Per definition, one ordered scan of the replacement list. The body tokenizer (`tokenize_seq`) gains the tokens `{ } [ ] ,` and the four digraph brackets beside identifiers and parentheses; literals, comments and raw strings are read as today, in both dialects.
+Tokenize `{ } [ ] ,` and digraph brackets in addition to current tokens, preserving identifier/literal behaviour. One ordered body scan uses `Paren{potential}`, `VaOpt` (transparent), `Brace`, `Bracket` stack entries:
 
 ```
-stack entries: Paren{root} | VaOpt | Brace | Bracket        root: None | Param | Name(identifier)
-"__VA_OPT__" directly before "(":   that "(" is pushed as VaOpt (transparent)
-"(":   root = Param      when the token before it is a parameter or __VA_ARGS__, or the ")" of a VaOpt
-              Name(t)    when it is any other identifier t
-              the root of the paren that ")" closed, when the token before it is that ")"  (a chained group)
-              None       otherwise                                         -> push Paren{root}
-")":   top is Paren or VaOpt ? pop : unbalanced
-"{" "[":  push          "}" "]":  top is its opener ? pop : unbalanced
-digraph bracket (<% %> <: :>):  unbalanced          end with a non-empty stack: unbalanced
-"," or the identifier __VA_ARGS__  (innermost = the top entry that is not VaOpt):
-       innermost is not a Paren          -> loose_comma
-       innermost is Brace or Bracket     -> for every Paren on the stack:
-                                              root Param -> held_param;  root Name(t) -> held_after += t
-identifier x that is not a parameter     -> for every Paren on the stack:
-                                              root Param -> fwd_param += x;  root Name(t) -> fwd_after += (t, x)
+"__VA_OPT__" directly before "(": push VaOpt (its syntax parens are not emitted)
+"(": potential = previous token is ANY identifier/parameter/__VA_ARGS__
+                  or previous token closes a potential paren or a VaOpt
+     push Paren{potential}
+"{", "[": push; closer: require matching top, otherwise unbalanced
+end with nonempty stack, or any digraph bracket: unbalanced
+"," or __VA_ARGS__ (innermost ignores VaOpt):
+    innermost not Paren -> loose_comma
+    innermost Brace/Bracket and some potential paren open -> group_held
+non-parameter identifier x inside any potential paren -> group_ids += x
 ```
 
-Beside the stack, the scan matches parentheses alone (a second stack that ignores braces and square brackets: `(` and the `(` of `__VA_OPT__` push, `)` pops when it is not empty); when it is not empty at the end the body has `paren_open`.
+A second parentheses-only stack (including `__VA_OPT__` syntax parens) ignores braces/brackets: unmatched `(` at end sets `paren_open`. A stray `)` alone does not. This intentionally over-approximates.
 
-Raw facts of a definition: `unbalanced`, `loose_comma`, `held_param`, `paren_open` (booleans) and `held_after`, `fwd_param`, `fwd_after` (name sets, not exported).
-- **`unbalanced`:** the replacement list is not WN. Any digraph bracket sets it (the C++ `<::` exception is not modelled).
-- **`loose_comma`:** some comma or `__VA_ARGS__` of the body is bare or held, so the expansion may not be CC. Same definition as the tentative fact.
-- **`paren_open`:** the replacement list holds a `(` that no later `)` of it closes, counting parentheses alone. Its expansion can leave a parenthesis open for the source text that follows, which is how an argument list comes to start inside a macro (PF4). A stray `)` does not set it: a closer from a macro closes nothing (PF4). `paren_open` implies `unbalanced`.
-- **Body callee group:** a paren group of the body that directly follows a parameter, an in-repo macro name, or the `)` of a body callee group (a chain). Which names are macros is known only at closure time, so the scan records the root of every group that follows an identifier: `held_param` / `held_after` say that such a group holds a held comma or `__VA_ARGS__` (at any depth), `fwd_param` / `fwd_after` name the non-parameter identifiers inside it.
-- A paren after an identifier that is no in-repo macro (`f((T){ a, b })`, `sizeof(..)`, `if (..)`) is no callee group. The wider reading "after any identifier" scores the same on every population (candidate 10i, section 9) and would make the facts independent of the macro set, but it refuses every owner that calls a macro of the named-argument idiom, `#define foo(...) foo_impl((struct foo_opts){ __VA_ARGS__ })`; it is not taken.
-- A GNU named variadic parameter (`args...`) sets `loose_comma` and `held_param` (fail closed; the name is not tracked).
-- A pass that cannot read the body (`!ok`) contributes no fact; the definition is then soft-poisoned unless another pass read it, and that pass supplies the facts (existing rule).
+Raw fields are `unbalanced`, `loose_comma`, `group_held`, `paren_open`, `group_ids`. Compared with rejected v2, replace `held_param`/`held_after` and `fwd_param`/`fwd_after` by the boolean/set above: **do not resolve roots against the census**. `f((T){a,b})` and `foo_impl((struct opts){__VA_ARGS__})` are now hazardous body groups even if `f`/`foo_impl` has no in-repo definition. A group after punctuation or at the start of the body is plain; why delayed invocation of it is still covered is lemma R.
 
-Union and closure (`merge`, `close`): the booleans are ORed and the name sets are unioned over all definitions of a name (an `#undef` clears nothing). After the existing reach computation:
+Union facts across every definition and `#undef`, as before. A GNU named variadic sets `loose_comma` and `group_held` (fail closed). An unreadable normal pass contributes no facts, and retains existing soft-poison semantics; a successful other pass supplies them.
 
 ```
-unbalanced*(M) = OR of unbalanced over M and reach(M)
-loose*(M)      = OR of loose_comma over M and reach(M)
-split(M)       = held_param(M)
-                 or some t in held_after(M) is an in-repo macro
-                 or some x in fwd_param(M) is an in-repo macro with loose*(x)
-                 or some (t, x) in fwd_after(M): t is an in-repo macro, x is an in-repo macro with loose*(x)
-arg_split*(M)  = OR of split over M and reach(M)
-paren_open*(M) = OR of paren_open over M and reach(M)
+unbalanced*(M) = OR unbalanced over M and reach(M)
+loose*(M)      = OR loose_comma over M and reach(M)
+split(M)       = group_held(M)
+                 or any x in group_ids(M): x is in-repo and loose*(x)
+arg_split*(M)  = OR split over M and reach(M)
+paren_open*(M) = OR paren_open over M and reach(M)
 ```
 
-`MacroFacts` exports the four closed booleans as `unbalanced`, `loose_comma`, `arg_split`, `paren_open`.
+Export the same four closed booleans: `unbalanced`, `loose_comma`, `arg_split`, `paren_open`. Closure over reachable bodies is still needed for all four; unknown roots do not imply unknown forwarded-name facts.
 
-**Census texts that are not parsed C/C++ (`collect_permissive`).** The text after the name (parameter list included: its parentheses nest, its commas are tight, and it follows no identifier, so it is no callee group) is tokenized in both dialects; each dialect that reads it runs the scan with **every identifier treated as a parameter root** (the parameter list is not parsed, so a group after any identifier is a callee group and every identifier inside one is a forwarded name: an over-approximation, like the existing rule that keeps parameters in `free`), and the results are ORed. A line no dialect can tokenize sets `unbalanced`, `loose_comma`, `held_param` and `paren_open`; a named variadic in the leading group sets `loose_comma` and `held_param` (fail closed; this replaces the raw-byte automaton of `DESIGN.md` 6.2, which could miss a bracket next to an unterminated literal).
+**Permissive census texts:** scan the text after the name in both dialects, OR successes; all identifier-following groups are potential, and every identifier inside one is forwarded (parameter identities are unknown). A leading parameter-list group follows no identifier and is plain. If neither dialect reads the line, set all four raw hazard booleans; named variadics fail closed as above. This preserves the prior conservative permissive policy.
 
-### 5.2 Owner checks (`c_prune::scan`, `.c` and C++ owners, after the existing gates)
+### 5.2 Owner checks (`c_prune::scan`, `.c` and C++ owners, after existing gates)
 
-- **G7 `Off::MacroBrackets`.** Some name the owner spells (the existing `spelled_identifiers`, whatever node the parser made of it) is in `BLOCK_MACROS` (section 5.4), or is an in-repo macro with `unbalanced`, or is an in-repo macro whose transitive `free` set holds a `BLOCK_MACROS` name.
-- **G8 `Off::MacroBodySplit`.** Some in-repo macro the owner spells has `arg_split`.
-- **G9 `Off::MacroArgSplit` / `Off::MacroArgLoose`.** One pass over the owner's normalized token stream (every variant `macro_call_arguments` reads today: both dialects, both splice modes; any variant that refuses, refuses) with a bracket stack. A paren is
-  - a **callee paren** when it directly follows an in-repo macro name (object-like or function-like, any definition) or the `)` of a callee paren (a chained group, as `macro_call_arguments` walks them);
-  - a **shielded paren** when it is opened inside a callee paren and directly follows an identifier that is no in-repo macro (a function call, a keyword such as `sizeof`, an external macro);
-  - a plain paren otherwise. A paren after an identifier outside every callee paren shields nothing.
-  A token inside at least one callee paren and inside no shielded paren is **checked**. A checked comma whose innermost bracket is `{` or `[` refuses (`MacroArgSplit`), as does a closer that does not match its opener or a digraph bracket inside a callee paren. A checked identifier that names an in-repo macro with `loose_comma` refuses (`MacroArgLoose`).
-- **G10 `Off::OwnerExposed`.** Section 5.3.
+- **G7 `Off::MacroBrackets`:** unchanged; spelled listed name, spelled in-repo name with `unbalanced`, or its transitive `free` set containing a listed name.
+- **G8 `Off::MacroBodySplit`:** a spelled in-repo macro has `arg_split`.
+- **G9 `Off::MacroArgSplit` / `Off::MacroArgLoose`:** one bracket-stack pass over every normalized token variant used today (both dialects/splice modes; any refusal refuses). A **potential callee paren** directly follows any identifier, or the `)` of a potential group. All other parens are plain. A token is checked whenever **any potential paren is open**, irrespective of nested calls. Refuse a checked comma held by `{`/`[`, a mismatched closer/digraph within a potential group, or a checked identifier naming an in-repo macro with closed `loose_comma`. There is **no shield kind or exemption**. Tokenization failure keeps existing `G2` refusal.
+- **G10 `Off::OwnerExposed`:** unchanged, section 5.3.
 
-All four gates apply to U and D. The first refusal found is reported; the order among gates is otherwise unchanged. `Off::MacroComma` (stub) is removed.
+These gates refuse the entire owner for both U/D. The first refusal is traced; remove the `MacroComma` stub.
 
-What the parser already guarantees, pinned by fact tests and not re-checked: an owner whose text holds a digraph bracket, or a conditional directive inside an argument list, is `G1Error` or no owner (`probes/digraph_owner`, `probes/if_in_args`); an owner without a parse error has nesting brackets in its own text, and each branch of a conditional inside it holds whole items of the list it stands in (statements, declarations, fields, enumerators), so every branch nests by itself. The G9 pass reads directive lines as tokens too, as `macro_call_arguments` does; a conditional's own parentheses nest on its line.
+**Parser scope, corrected:** do not claim every conditional inside an argument list implies G1Error. A direct expression argument interrupted by `#if` is G1Error in the pinned `conditional_direct_valid` fixture (clang accepts it). A compound-statement argument containing complete `#if` block items is admitted: `conditional_block` has T/X owners on, three source-dropped pairs all CONFIRMED, and candidate 12 admits. Read all branch tokens conservatively; whole block items nest independently. These are parser-shape pins, not a universal guarantee for arbitrary directive extensions. Digraph owners keep their existing parser pin. The standard-preprocessing/dialect boundary is unchanged; no extra refusal is justified by the admitted block witness alone.
 
 ### 5.3 The exposed-owner test (new `src/data_flow/build/c_file_parens.rs`)
 
@@ -196,20 +180,23 @@ Premises for an owner `O` in file `F`: the existing gates (no parse error; no `#
 
 **Lemma P (parentheses never unbalance).** Every expansion is balanced in parentheses. Bodies are WN (G7, closed over reach; names that arrive through arguments are spelled by the owner, so G7 covers them too). An argument is a piece between commas at parenthesis depth 0 (PF1), so it is balanced in parentheses whatever its braces do. Substitution and rescanning preserve the balance. So only `{}` and `[]` can go wrong, and only through an argument cut at a held comma.
 
-**Lemma 1 (a clean macro keeps arguments clean).** Let `M` be an in-repo macro with `unbalanced` and `arg_split` false, invoked with arguments that are CC after full expansion. Then (a) every callee group collected while `M`'s expansion is rescanned has arguments that are CC after full expansion; (b) the expansion is WN; (c) if `loose_comma` is also false, the expansion is CC.
-*Proof,* by induction on expansion depth (finite: recursion is poisoned; a name that is not re-expanded stays a plain token, which cannot unbalance anything). After substitution the string is the body with each parameter replaced by a CC string and `__VA_ARGS__` by CC strings joined with commas. A callee group met during the rescan opens at a `(` that directly follows a function-like macro name. That `(` is either
-- a body paren that follows a parameter, an in-repo macro name or a chained `)`: a body callee group. `arg_split` is false, so inside it no body comma and no `__VA_ARGS__` is held, and every comma of the group is either a separator (depth 0) or tight in a nested paren; parameter strings are CC and bring no bare comma. Each argument is CC before expansion. The macros named in it are literal body names inside the group (forwarded names, so `loose*` is false for each, or `split` would be true) or names inside parameter strings (spelled inside a callee group upstream, where the same condition held). By (c) their expansions are CC, so the argument is CC after full expansion; or
-- a paren inside one parameter string. The string is CC and already fully expanded, so the group's arguments are CC and stay so (this is the deferred case of PF2: a name that met its `(` only after a neighbour expanded); or
-- a body paren after any other token (an identifier that is no in-repo macro included), or at the start of the body. The token before it is no macro name, or is a name the scan already passed without invoking it (PF2), so the paren is no callee group in this rescan. It can become one only in a later rescan, that is, when the whole expansion is part of an argument; `M` is then named inside a callee group, `loose_comma` is false, and by (c) the expansion is CC: every paren group of a CC string has CC arguments.
-(b) follows from WN bodies, WN arguments and (b) for nested invocations. For (c): the body's commas are tight, `__VA_ARGS__` stands at tight positions, the substituted strings are CC and nested expansions are CC by induction (`loose_comma` is closed over reach). ∎
+**Lemma R (potential groups cover adjacency changes).** No source identifier is assumed stable. A literal `(` immediately after any identifier or a potential group's `)` is checked even if that predecessor disappears, aliases, is not invoked yet, or eventually denotes an ordinary function. Empty expansion, an identity wrapper, and insertion of balanced `()` cannot turn such a group into an *unchecked* callee group. Rescanning may change the name adjacent to it, but not its checked status.
 
-**Lemma V (a shielded paren is a unit).** Let `P` be a shielded paren of the owner: opened inside a callee paren `G`, directly after an identifier `f` that is no in-repo macro. Then (a) `P` never delimits a macro's arguments, so `f ( .. )` stays in the token stream as part of the argument of `G` it was written in, whole, wherever that argument is substituted, dropped or duplicated; (b) no comma inside `P` is ever at depth 0 of a callee group that contains `P`; (c) in a valid program the tokens between `P`'s parentheses nest.
-*Proof.* (a) and (b): `f` is fixed and is no macro (PF2), and arguments are substituted whole. (c): by lemma P everything that expands inside `P` is balanced in parentheses, so `P`'s `(` still pairs with `P`'s `)`; a C or C++ parser accepts no parenthesized token sequence whose braces or square brackets do not nest. ∎
-So whatever happens inside `P` (a held comma, a loose macro, a split) stays inside `P`, inside `G`'s invocation, whose identifiers are all escaped by E3, and leaves `P` WN. A paren after an identifier **outside** every callee paren is different: an invocation inside it is an outermost invocation of the owner, and a split there re-pairs the owner's own braces (`probes/outer_shield`, section 11: valid, dropped on head, CONTRADICTED). That is why only parens opened inside a callee paren shield.
+A literal `(` after fixed punctuation, or at the start of a replacement body, cannot become a callee on the current left-to-right scan by expanding a previously skipped name: lookahead does not backtrack (PF2). If it is exposed by consuming/dropping an intervening macro invocation, it is a checked chain, or lies within that invocation's checked argument group. If it becomes callable on a later enclosing rescan, the containing argument is required to be CC. A body supplying such a group with held commas has `loose_comma`, so G8/G9 reject its use in that argument. A `(` supplied by an external replacement lies in a WN/CC fragment under A-ext; one supplied by an in-repo body is covered by the same body/argument induction. A parameter used as a root and `__VA_OPT__` activation are explicitly potential roots. Thus no *hazardous* group is justified by a predecessor's spelling or by an absent census entry.
 
-**Lemma 2 (owner groups are clean).** Every argument of a callee group of `O` is, after full expansion, WN, and every comma of it is tight or lies inside a shielded-paren unit.
-*Proof.* A callee group is the group after a macro name that the preprocessor invokes there (the pass treats every in-repo macro name before a `(` as one, and every chained group as one: both over-approximate, covering an object-like alias and an expansion that ends in a function-like name). By G9 no checked comma is held, so outside shielded units every comma of an argument is tight; the units are WN and opaque (lemma V). Macros named at checked positions have `loose_comma` false, so by lemma 1(c) their expansions are CC. A nested callee group at a checked position is itself a callee group of `O` and satisfies the same conditions. ∎
-Lemma 1 was stated for CC arguments; it holds unchanged for the arguments of lemma 2, with each shielded unit treated as one opaque WN token: the unit brings no comma to any depth-0 position (lemma V(b)).
+Checks: `lookahead`, `body_lookahead`, `alias_chain`, `insert`, `vaopt`, plus `erase`, `external_identity`, `body_identity`, `known_chain` (sections 3 and 11.1). This replaces the rejected lemma V; there are no opaque shield units or compiler-validity shortcuts.
+
+**Lemma 1 (clean substitution and rescan).** Let an in-repo macro have false `unbalanced` and `arg_split` and receive CC arguments after ordinary prescan. Its expansion is WN; if `loose_comma` is also false, its expansion is CC. Every nested group that collects arguments receives CC arguments.
+
+*Mechanism.* Induct over actual finite expansion steps. WN bodies with WN substituted strings remain WN until argument collection; the only way a brace/bracket can be cut is a comma held by it (PF1). In every potential body group, G8 prohibits literal held commas/held `__VA_ARGS__`, and every literal forwarded in-repo macro has false `loose*`. CC substitutions introduce no bare or held comma. Separating commas at the group's own parenthesis depth leave each argument CC. Nested expansions therefore preserve the induction. Groups within substituted CC strings have CC pieces; newly adjacent/deferred calls are covered by lemma R. Suppressed recursive names remain tokens; existing recursion poison is conservative, not a premise that all preprocessing recursion diverges.
+
+Ordinary parameter occurrences use full prescan. **Stringized occurrences do not:** `#p` becomes one string-literal token, which has no structural brackets or commas. Dropping or duplicating such a token cannot break WN/CC. Reachable `##` remains poisoned rather than being treated as ordinary substitution. `__VA_OPT__` contributes either nothing or its replacement tokens, with transparent syntax parens in the scan; `__VA_ARGS__` is conservatively treated as a possible comma at each occurrence. When `loose*` is false every emitted comma is tight, proving CC. Unknown external fragments use the existing A-ext WN/CC/whole-argument premise; that premise does **not** say their names survive.
+
+**Lemma 2 (owner arguments are clean).** At any potential owner group, G9 checks all depths. Raw arguments have no brace/bracket-held comma. Each in-repo macro in them has false `loose*`; G7/G8 cover its own body and reach. Lemma 1 therefore keeps them CC during prescan. An enclosing group after an external identity macro is checked just like an in-repo group. Erasing its inner predecessor, returning an alias, or rescanning it later does not escape these conditions (lemma R). No reliance on the compiler accepting a shield's contents is needed.
+
+For external identity wrappers, the proof uses WN/CC preservation **on clean arguments**, just as for in-repo macros; it does not assume the fully rescanned result is already clean on arbitrary unsafe input. Interpreting A-ext as that final-result guarantee would exclude identity-wrapper failures by assumption. OD-A2 recommends refusing the measured shape regardless of that stronger reading; no such interpretation is used to excuse a contradiction.
+
+**Coverage boundary, not a new waiver:** A-ext still excludes an unseen replacement that introduces/forwards to an arbitrary in-repo callee not represented by source/body reach. Otherwise G7/G8 cannot know which hidden body to certify. The alias witnesses in section 11.1 are nonetheless refused by their visible held-comma groups; this does not prove arbitrary hidden aliases safe. The decisive identity-wrapper witnesses introduce **no** such name and are covered without changing A-ext. Likewise this certificate does not close arbitrary unlisted external unbalanced bodies, missing census inputs, or the already pinned three-file A-span form. Claiming universal soundness outside those existing boundaries would be false.
 
 **Lemma O (no open parenthesis without `paren_open`).** If no body reachable from the macro names spelled in a stretch of code has `paren_open`, no expansion in that stretch leaves a parenthesis open at its end.
 *Proof.* Count parentheses alone and reduce a token string to `)`..`)` `(`..`(`: its unmatched closers, then its unmatched openers. A body without `paren_open` reduces to closers only. The arguments of an invocation are balanced as collected (PF1), and an argument expanded before substitution (PF3) is, by the same count, without unmatched openers. Expansion replaces a name, with its balanced argument groups, by a string built from such bodies and arguments; putting closers-only strings into a string adds no unmatched opener, and removing balanced groups adds none. By induction over the expansion steps, a stretch that starts with no unmatched opener from a macro ends with none. (A rule that looks only for "a macro name, then an unmatched `(`" in one body is not enough: `#define Z (`, `#define N(p) W3 p`, `N(Z)`.) ∎
@@ -218,7 +205,7 @@ Lemma 1 was stated for CC arguments; it holds unchanged for the arguments of lem
 *Proof.* Suppose a token of `O` is an argument of an invocation whose name lies outside `O`. Its opening parenthesis is one of three things. (i) A literal `(` of `F` before `O`: its match by raw counting is where the list ends (PF1), so it is still open at `O`'s start: the first half of the interval test. (ii) A `(` from the expansion of an in-repo macro in the code of `F` before `O`: by lemma O some name spelled there has `paren_open`: the hidden-opener half, wherever the list closes. (iii) A `(` from a macro defined outside the repository, or from the tail of a file that `F` includes (PF5): the list ends at a literal `)` that no literal `(` after `O` opened (a `)` from a macro cannot end it, PF4): the second half of the interval test when that `)` is in `F`; A-span is the assumption that it is. An opener in a file that includes `F`, before the `#include`, is not possible (PF5). The interval contains the balance of every configuration, and the lexing variants contain the compiler's reading. ∎
 
 **Theorem.** If `O` passes the existing gates and G7 to G10, then under the assumptions of section 7 `O` satisfies SP in every valid configuration.
-*Proof.* SP1 is lemma 3. For SP2 take an outermost invocation of `O`. Its name is an in-repo macro spelled by `O` (an external one is covered by A-ext), so `unbalanced` and `arg_split` are false (G7, G8). Its arguments, if any, are clean by lemma 2. By lemma 1(b) its expansion is WN. If the expansion ends in a function-like macro name and the next owner token is `(`, that group is a chained callee group of `O`, and the same argument applies. The invocation consumes exactly the groups the pass treats as its argument groups, so the owner tokens outside invocations are unchanged. ∎
+*Proof.* SP1 is lemma 3. For SP2 take an outermost invocation of `O`. Its name is an in-repo macro spelled by `O` (an external one is covered by A-ext), so `unbalanced` and `arg_split` are false (G7, G8). Its arguments, if any, are clean by lemma 2 (and newly adjacent groups by lemma R). By lemma 1(b) its expansion is WN. If the expansion ends in a function-like macro name and the next owner token is `(`, that group is a chained callee group of `O`, and the same argument applies. The actual invocation consumes a subset of the potential groups; the scan may additionally check ordinary function/keyword groups. Every actual consumed group has clean arguments, so tokens outside the actual invocations retain their bracket pairing. ∎
 
 **Which premise each known class breaks** (classes of `L4-SCORES.md` section 4, plus this phase's):
 
@@ -237,7 +224,7 @@ Lemma 1 was stated for CC arguments; it holds unchanged for the arguments of lem
 | assumption | statement | policy | rows |
 |---|---|---|---|
 | **A-inputs** | the census reads every in-repo definition the compiler uses | pinned holes for #813: unchanged, 21 rows assert today's drop | no predicate can close them |
-| **A-ext** | a macro defined outside the repository acts as a function: its expansion is WN and CC, it passes each argument on whole, and it does not forward to an in-repo macro; except the names of `BLOCK_MACROS` | disclosed (D2, wording extended in CLAUDE.md); the listed names are closed in code; an in-repo wrapper of a listed name is closed by the free-name closure | 41 boundary guide rows: 24 closed by the 16 names, 28 by the 31 (OD-B); the rest stay guide rows (external aliases and statement-prefix macros) |
+| **A-ext** | a macro defined outside the repository acts as a function: its expansion is WN and CC, it passes each argument on whole, and it does not forward to an in-repo macro; except the names of `BLOCK_MACROS` | disclosed (D2, wording extended in CLAUDE.md); the listed names are closed in code; an in-repo wrapper of a listed name is closed by the free-name closure. Empty/identity externals are allowed; no stable-name inference | 41 historical boundary guide rows: candidate 12 closes 32, leaves 9 open. The concrete new alias rows are additional must-keeps, all refused |
 | **A-config** | the definition in effect is one the census read (`-D`, a forced include) | disclosed | guide rows |
 | **A-dialect** | C99 or later, C++11 or later, standard preprocessing | disclosed; the one witness (`33 g2o03`, a digit separator) is closed because the census ORs both dialects | pinned row flips to kept |
 | **A-encoding** | UTF-8 or ASCII-compatible sources | disclosed | |
@@ -250,21 +237,21 @@ Lemma 1 was stated for CC arguments; it holds unchanged for the arguments of lem
 | one lexer pass for definitions, no C/C++ dialect split, no soft poison | the real census ORs more passes: it refuses a superset | no violation can appear; recall may be slightly lower than scored |
 | census input set approximated; `incomplete` not emulated | same facts where the inputs agree; `incomplete` turns everything off | no |
 | census texts read by the same lexer, parameter lists parsed; the real rule fails closed on an unreadable line and treats every identifier of a census text as a parameter root | superset of refusals | no |
-| owners located by a token rule; the scorer's owner can start before the real one (it swallowed `W3(` in the first `hull2` probe and reported `arg_split`) | the real owner is the tree-sitter node; such an owner is refused by G10 instead | checked two ways (`cands_diag.py`): with the exposed test alone, every row that needs it is refused (50 of 50 generator rows, 16 pair rows, 4 inline rows, 1,947 L2 programs), and the two groups do not overlap; and candidate 10 on an owner cut down to start after every leading macro token (`10-narrow`, the worst case of the difference) scores the same on every population (0 violations, 399 pairs). The Rust row tests are the final check |
+| owners located by a token rule; the scorer's owner can start before the real one (it swallowed `W3(` in the first `hull2` probe and reported `arg_split`) | the real owner is the tree-sitter node; such an owner is refused by G10 instead | checked two ways (`cands_diag.py`): with the exposed test alone, every row that needs it is refused (50 of 50 generator rows, 16 pair rows, 4 inline rows, 1,947 L2 programs), and the two groups do not overlap; and historical candidate 10 on an owner cut down to start after every leading macro token (`10-narrow`, the worst case of the difference) scores the same on every population (0 violations, 399 pairs). The Rust row tests are the final check |
 | open group: first-branch-wins for `#if`, parentheses read by one lexer | the real test is the interval hull over all lexing variants: a superset | no (10 and 10f agree on every owner of every population) |
-| callee and shield use `db.defined` over the emulated inputs | same rule on the real census | no |
+| potential group roots use every identifier; loose forwarded names still use `db.defined` | the same rule on real tokens/census; no shield or membership-based root | no |
 | hidden opener: the first code identifier of the file with `paren_open`, compared with the scorer's owner start | the same test on the real pieces and census (more lexing variants: a superset) | no; an owner the scorer starts too early spells the macro itself and is refused by G7, as in prism |
 | verdicts are those of the base binary under one host configuration | unchanged by the design | the L3 compare with the head binary is the gate (PLAN-v2 task 9) |
 
 The scores are evidence for the rows' classes. The argument of section 6 is what covers shapes the rows do not hold; the two new body classes show the difference.
 
-## 9. Scores
+## 9. Historical scores (rejected design; not evidence of soundness)
 
 `python3 scripts/dfg_prune/xscore.py run --out .scratch829/redesign/l4v2` (17 s; candidates 10.. and B.. in `xscore_candidates.py`; the 15 earlier candidates score exactly as in `L4-SCORES.md`, 150 of 150 cells). Cells: must-keep pairs still dropped / must-keep pairs head drops; `c` = CONFIRMED drops lost.
 
 | candidate | L1 pair | L1 inline | L1 generator | L2 bound 3 | L2 bound 4 batches | L3 (6 corpora) | L3 recall cost | owners refused | pinned open | boundary open |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **10 (this design)** | 0 / 113 | 0 / 30 | 0 / 98 | 0 / 6,903 | 0 / 8,566 | 0 / 50 | 1.1% (399 / 37,777) | 214 / 20,274 | 21 / 23 | 17 / 41 |
+| **10 (rejected)** | 0 / 113 | 0 / 30 | 0 / 98 | 0 / 6,903 | 0 / 8,566 | 0 / 50 | 1.1% (399 / 37,777) | 214 / 20,274 | 21 / 23 | 17 / 41 |
 | 10x: 10 with the 31 names (OD-B) | 0 | 0 | 0 | 0 | 0 | 0 | 1.1% (399) | 214 | 21 | 13 |
 | 10n: 10 without shielded parens | 0 | 0 | 0 | 0 | 0 | 0 | 2.6% (979) | 232 | 21 | 17 |
 | 10i: body callee groups after any identifier | 0 | 0 | 0 | 0 | 0 | 0 | 1.1% (399) | 214 | 21 | 17 |
@@ -286,14 +273,30 @@ Candidate 10: recall cost by corpus: cpython 399 of 15,220 (2.6%; `block_list` 2
 
 The probes of section 11 against the candidates (`evalprobe.py`): `bodysplit` (c, cc) CONTRADICTED: 8 admits, 10 refuses, B5 admits. `bodyfwd`, `deferred` (c, cc) CONTRADICTED: 10 refuses, B6 admits. `shield_nested` (c, cc) CONTRADICTED: 10 refuses. `outer_shield` CONTRADICTED: 10 refuses. `shield_safe` all CONFIRMED: 10 admits, 10n and 8 refuse. `hull2` CONTRADICTED, runtime 42: 10 refuses (`exposed_open_before`). `aspan` (c, cc) and `aspan_sib`: runtime 42, head drops the pair; 10 refuses (`exposed_hidden_opener`), B8, 4b and 6b admit; the oracle says CONFIRMED (section 10). `aspan3`: runtime 42, every candidate admits, 6b included (section 7).
 
+### 9.1 Current scores (2026-11-15 amendment)
+
+Commands and detailed ledger: `L4-SCORES.md` amendment addendum. `python3 scripts/dfg_prune/xscore.py run --out .scratch829/astra/l4` replays all frozen default populations; the bound-4 batches and new review witnesses have separate receipts. Candidate 12: zero MUSTKEEP violations in L1 pair 113, inline 30, generator 98; L2 bound 3 6,903, bound 4 8,566; L3 50. The new 17 contradicted pairs are all refused. Insertion/named-variadic probes with T already G1Error are controls, not added to the contradiction denominator.
+
+| corpus | confirmed drops lost / located confirmed | cost | owners refused / located on |
+|---|---:|---:|---:|
+| redis | 7 / 21,605 | 0.032% | 2 / 5,062 |
+| cpython | 2,215 / 15,220 | 14.55% | 284 / 5,425 |
+| leveldb | 0 / 473 | 0% | 0 / 1,384 |
+| protobuf | 24 / 422 | 5.69% | 140 / 7,295 |
+| re2 | 0 / 38 | 0% | 5 / 886 |
+| snappy | 0 / 19 | 0% | 1 / 222 |
+| total | **2,246 / 37,777** | **5.95%** | **432 / 20,274** |
+
+The extra cost over 10n is 1,267 pairs / 200 owners; over candidate 10 it is 1,847 pairs / 218 owners. Body-root broadening adds no measured cost over broader owner roots in these six corpora, but `body_identity` requires it. G10 still contributes its 67 pairs / 106 owners. The corpora are small convenience samples, not an estimate of global frequency. Scores retain the unlocated/one-host/frozen-oracle qualifications of section 8 and L4-SCORES.
+
 ## 10. Tests that follow from the design
 
-- **New must-keep rows** (red on base; labelled by the oracle, C and C++ twins): `bodysplit`, `bodyfwd`, `deferred`, `shield_nested`, `outer_shield`, `hull2` (an opener and a closer under `#else` branches). They give B5 and B6 a violated row each, which is premise coverage for every premise of section 6.
-- **Guide rows:** `shield_safe` (CONFIRMED and admitted: the recall the shield buys).
+- **New must-keep rows** (red on base; labelled by the oracle, C and C++ twins): `bodysplit`, `bodyfwd`, `deferred`, `shield_nested`, `outer_shield`, `hull2` (an opener and a closer under `#else` branches). They discriminate the historical B5/B6 ablations. The amendment adds separate root and no-shield obligations; finite rows do not establish complete premise coverage.
+- **Guide rows:** `shield_safe` (CONFIRMED; now conservatively refused). Add an ordinary call with tight arguments and the admitted conditional compound-block case as positive controls.
 - **Hidden opener (OD-C).** Must-keep rows `aspan` (C and C++; the opener macro at file scope) and `aspan_sib` (the opener macro inside a sibling owner); a control with the same macro spelled only after the owner (not refused). Pinned hole: `aspan3` (A-span as narrowed).
   **Why the oracle misjudges these rows, and their truth basis.** The X arm replaces each `.c`/`.cc` file by its own post-expansion tokens, lexed with that file as the main file. `impl.c` alone never sees `defs.h` (only `unity.c` includes it), so `BEGIN_IMPL` is a plain identifier there, the "expansion" equals the source, and the rules drop the pair on it too: CONFIRMED. In `unity.c`'s stream, where the macro does rewrite the function, the tokens spelled in `impl.c` are not written anywhere (only main-file tokens are kept). The verdict describes a compilation that never happens. So: a row may declare its translation unit (`tu`); when the pair's file is not the `tu`, the oracle records `UNJUDGED` (`target-not-a-translation-unit`) instead of judging the file alone, and the existing receipt rule applies (a runtime receipt outranks UNJUDGED, never CONFIRMED or CONTRADICTED): `overrides.json` gives `assert: kept` (for `aspan3`: `pinned_hole`, assumption `A-span`) with `basis: receipt`. The receipt is the program itself: `main` returns `f(0)`, 42 exactly when the first def of `x` reaches the `return` (`xarm_receipts.py`, not run in CI). Optional, not required: judge such a row from the `tu`'s token stream by writing the tokens spelled in the pair's file to that file's X text.
-- **Generator (L2 addendum).** The grammar cannot derive a body that holds an invocation. Add a `nest` family: an outer object or function-like macro whose body is `K(<fragments>)` or `ID(K <macro>)` with an inner macro from the enclosing-macro fragment set, at statement and guard sites. One offline run at bound 3 for the family; new keys are frozen as rows. Budget: two hours of machine time; if it yields a contradicted key that candidate 10 admits, stop and return to design.
-- **Fact tests** for the automaton (group roots, held commas, forwarded names, chained groups, `__VA_OPT__`, named variadic, permissive fail-closed), the closure (`arg_split` through reach, through a forwarded loose macro, and not for a group after a non-macro identifier), the digest, the owner pass (callee, shielded, plain parens; chained groups; a paren after an identifier outside a callee paren), `paren_open` (own, through reach, `) (`, a brace-only block macro, `__VA_OPT__`), the event scan, the interval test (conditional hull, `#if 0` text, directive lines, the cascade) and the hidden opener (before, inside and after the owner; in a directive line; in a comment), and the parser guarantees of section 5.2.
+- **Generator (L2 addendum).** The grammar cannot derive a body that holds an invocation. Add a `nest` family: an outer object or function-like macro whose body is `K(<fragments>)` or `ID(K <macro>)` with an inner macro from the enclosing-macro fragment set, at statement and guard sites. One offline run at bound 3 for the family; new keys are frozen as rows. Budget: two hours of machine time; if it yields a contradicted key that candidate 12 admits, stop and return to design.
+- **Fact tests** for the automaton (group roots, held commas, forwarded names, chained groups, `__VA_OPT__`, named variadic, permissive fail-closed), the closure (`arg_split` through reach, through a forwarded loose macro, and for a group after an unknown identifier), the digest, the owner pass (potential and plain parens; no shields; unknown roots and chained groups), `paren_open` (own, through reach, `) (`, a brace-only block macro, `__VA_OPT__`), the event scan, the interval test (conditional hull, `#if 0` text, directive lines, the cascade) and the hidden opener (before, inside and after the owner; in a directive line; in a comment), and the parser guarantees of section 5.2.
 
 **The 80 quarantined tests.** The facts `unbalanced` and `loose_comma` keep the tentative definitions, so their tests return as fact tests:
 
@@ -306,6 +309,8 @@ The probes of section 11 against the candidates (`evalprobe.py`): `bodysplit` (c
 | `c_prune_brackets_tests.rs`, `c_prune_brackets_r1_tests.rs` | 1 + 1 | un-ignore; both pin the name list: update to the decided list (OD-B) |
 
 None is deleted. A test that fails after un-ignoring for a reason other than the named changes (one expectation, the digest tag, the name list) is a finding for review, not something to re-baseline.
+
+- **Review-repair rows:** every contradicted pair in section 11.1 is must-keep, including sol's erasure, alias depths, external identity wrappers in owner/body, known/unknown aliases and chains. No boundary waiver for these rows. Freeze four-arm and runtime receipts with the base revision; include external headers as oracle preludes outside the indexed file set. Parser-off insertion rows are existing-gate controls, never fabricated REDs. Include # stringization and ## poison fact tests. PLAN-v2 details the row and mutation obligations.
 
 ## 11. Probe sources (git-excluded originals in `.scratch829/redesign/probes/`)
 
@@ -365,20 +370,92 @@ int g(int c) {                               /* impl.c */
 ```
 (In the probes each statement of an owner is on its own line: a same-line pair is never dropped.)
 
+### 11.1 Review amendment probes and exact receipts
+
+Reproduce from this worktree:
+
+```bash
+python3 .scratch829/astra/probe.py
+python3 .scratch829/astra/round2.py
+python3 .scratch829/astra/late_checks.py
+python3 .scratch829/astra/facts.py
+python3 .scratch829/astra/facts_more.py
+python3 .scratch829/astra/parser_direct.py
+python3 .scratch829/astra/check_scores.py
+```
+
+Each structural probe saves its source, outside header, runtime driver, four oracle arm sources/traces, exact command arrays, output and result JSON under `.scratch829/astra/probes/<name>/`. `check_scores.py` checks actual T/Tb/X/Xb counts, runtime output and candidate decisions; its 17-row manifest is `.scratch829/astra/l4-probes.json`. The header is **not in the indexed T/Tb repository**. No product edits intervene between arms. `provenance.json` binds checkout/compiler/binary; `MANIFEST.sha256` binds evidence bytes.
+
+Canonical sol source (the current reproduction adds a blank line before the owner, hence its pair is 6→12):
+
+```c
+#include <external829.h>        /* outside header: #define E */
+#define ID(v) v
+#define sizeof(p,q,r) q if(r) p
+
+int probe(int c) {
+    int x = 41;
+    int b = 0;
+    {
+        ID(sizeof E({ int a, b; }, c));
+        x = 2;
+        ID(sizeof E({ int a, b; }, 1));
+        return x;
+    }
+}
+```
+
+The in-model sibling replaces `ID` with external `EXT`, removes the in-repo ID definition, and adds `#define EXT(v) v` to the outside header. The body twin moves the two call texts into in-repo `HI` and `JI` definitions; the owner spells `HI;` and `JI;`. The compiler still emits the same conditional overwrite. External macro tokens do not introduce an in-repo name: `sizeof` was already in the argument/body.
+
+Exact command form, e.g. `erase` (all expanded absolute argument arrays are in `result.json`):
+
+```bash
+clang -std=gnu11 -I .scratch829/astra/probes/erase -fsyntax-only .scratch829/astra/probes/erase/source.c
+clang -std=gnu11 -I .scratch829/astra/probes/erase -E -P .scratch829/astra/probes/erase/source.c
+clang -std=gnu11 -I .scratch829/astra/probes/erase .scratch829/astra/probes/erase/runtime.c -o .scratch829/astra/probes/erase/program
+.scratch829/astra/probes/erase/program
+```
+
+For `_cc` twins use `.cc` and `-std=gnu++17`. **All 20 programs syntax-check and execute successfully** (unused-expression/variable warnings are retained). All drivers print **`probe(0)=41 probe(1)=2`**; exit status alone is not the liveness evidence. For the following 17 pairs, T=0, Tb=1, X=1, Xb=1, both owners on, oracle **CONTRADICTED**:
+
+| probe | live pair (`x`) | 10+31 / 10n+31 / 12 |
+|---|---|---|
+| `body_alias_c` | `source.c:7 -> 13` | **admit** / **admit** / refuse |
+| `body_alias_cc` | `source.cc:7 -> 13` | **admit** / **admit** / refuse |
+| `body_erase` | `source.c:8 -> 14` | refuse / refuse / refuse |
+| `body_identity` | `source.c:7 -> 13` | **admit** / **admit** / refuse |
+| `erase` | `source.c:6 -> 12` | **admit** / refuse / refuse |
+| `erase_alias1` | `source.c:6 -> 12` | **admit** / refuse / refuse |
+| `erase_alias2` | `source.c:6 -> 12` | **admit** / refuse / refuse |
+| `external_alias_c` | `source.c:5 -> 11` | **admit** / **admit** / refuse |
+| `external_alias_cc` | `source.cc:5 -> 11` | **admit** / **admit** / refuse |
+| `external_identity` | `source.c:5 -> 11` | **admit** / **admit** / refuse |
+| `external_identity_fn` | `source.c:5 -> 11` | **admit** / **admit** / refuse |
+| `external_identity_insert` | `source.c:5 -> 11` | **admit** / **admit** / refuse |
+| `fn_empty` | `source.c:6 -> 12` | refuse / refuse / refuse |
+| `known_alias` | `source.c:6 -> 12` | refuse / refuse / refuse |
+| `known_chain` | `source.c:6 -> 12` | refuse / refuse / refuse |
+| `known_empty` | `source.c:7 -> 13` | refuse / refuse / refuse |
+| `vaopt_chain` | `source.c:6 -> 12` | refuse / refuse / refuse |
+
+`insert_parens` / `external_insert_parens` use external `E -> ()` and known `F() -> K`, exercising insertion and chaining. Both already have T `off:G1Error`: no contradicted source-dropped pair, so no new-gate RED credit. `facts/insert.json` independently shows the expansion `2 1`. The named-variadic program also compiles and prints 41/2 but is T G1Error; retain it as a third existing-gate control. The `vaopt_chain` program is a real CONTRADICTED dropped pair and must-keep: `#define H(...) __VA_OPT__(F)({ int a, b; }, __VA_ARGS__)`, called as `H(c)` / `H(1)`. `late_checks-red.log` records the scorer miss, `late_checks.log` its correction. No noncompiling fixture contributes to the must-keep denominator.
+
+The simple shape variants are closed by one mechanism rather than a growing list: arbitrary empty-alias depth, ordinary argument prescan, unknown identity wrappers, object-like aliases, function-like names not initially followed by `(`, macro invocations erased as a unit, balanced token insertion, and chained groups. `#` discards the original tokens into a literal; `##` remains poisoned where census-visible and remains subject to A-ext where external. No observed result is used to claim arbitrary external body semantics are known.
+
 ## 12. Owner decisions
 
-**OWNER-DECISION OD-A: which rule.** *Decided: candidate 10.* (The percentages below predate the hidden-opener half; section 9 has the current ones.) Recommended default: **candidate 10** as specified (0 violations on every population; 0.9% recall cost; the argument of section 6). The trade-offs:
-- 10 without shielded parens (10n): the argument loses lemma V, the one step that appeals to "a program the compiler accepts"; cost 2.4% instead of 0.9% (580 pairs of one generated cpython file). Take this if the owner wants the proof to rest on token mechanics only.
-- 4b: simplest to state, same soundness (it refuses a superset), 10.5%.
-- 6b, or 10 + top-level `;`: also close statement-level shapes by construction (section 4.3), 54.7% or 7.0%. No hole of those classes is known; #831 is deferred.
+**OWNER-DECISION OD-A2 — supersede rejected OD-A. Recommended default: candidate 12-all-roots.** Remove shields and broaden both owner/body potential-group roots to every identifier, with 31 names and unchanged G10. Cost 5.95% (2,246 pairs, 432 owners), above the ideal target. Plain 10n is no longer a sound fallback: the external identity-wrapper and body twin violate it under the written assumptions. Accept the measured cost for this bounded repair; a separate finer comma/parameter-flow certificate can pursue recall later. No new assumption or per-row waiver is requested. Until accepted, this is a proposal, not a change to `DECISIONS.md`.
 
-**OWNER-DECISION OD-B: external-list additions.** *Decided: 31 names.* Recommended default: **add the 15 names of section 5.4** (31 in all). Listing a name only refuses more; the six corpora lose nothing. Alternative: add only `Py_TRASHCAN_BEGIN_CONDITION` and the two NumPy allow-threads aliases (the names the rows already use) and leave the rest to D2.
+**OD-B, OD-C, OD-D remain decided:** 31 names; close the two-file A-span form with `paren_open`; accept the uncorrelated G10 interval cascade. Preserve the pinned #813 and three-file A-span disclosures. No request to reopen them.
 
-**OWNER-DECISION OD-C: A-span.** *Decided 2026-11-14: close the two-file form in this PR.* Specified in sections 5.1 (`paren_open`), 5.3 step 5, lemma O and lemma 3; cost 67 pairs and 106 owners in cpython; the three-file form and external openers stay the disclosed A-span. The text as it was put: Recommended default: **disclose it and pin the witness.** It needs one macro call split across two files with the opener hidden in a macro; the oracle cannot judge it; no candidate closes it. Alternative (about 40 lines, expected recall cost 0): a census fact "some reachable body has an unmatched `(`" and "the file spells such a macro: its owners are off", which closes the two-file form and leaves the form where an included file's tail opens the list.
-
-**OWNER-DECISION OD-D: the interval test's cascade (section 5.3).** *Decided: accept.* Recommended default: **accept it** (sound, simple, 0 owners on six corpora) and let the L3 ledger show `off:OwnerExposed` counts; correlate equal conditions only if a corpus shows a cost.
+The independent alternatives were recorded before reading `controller-options.md`: no shields; broader potential roots; a finer comma certificate; external-definition certification. The controller options supplied no additional premise. We did not use corpus absence as a proof of safety or claim that high-defect-risk shapes are too rare to refuse.
 
 ## 13. Verified and not verified
 
-**Verified by running it here:** PF1 to PF6 with clang; the probes with the oracle (C and C++ twins of five) and with every candidate; the runtime receipts of `hull2`, `aspan` (C and C++), `aspan_sib` and `aspan3` (each returns 42); the header scans; the scores above, the bound-4 batches included; that the scorer changes leave the 15 earlier candidates' 150 cells unchanged; `xscore.py selftest`; that digraph owners and conditionals inside argument lists are `G1Error` on head.
-**Not verified:** GCC's behaviour for PF2 to PF5; PostgreSQL headers (names taken from the fixture preludes); the rule in Rust (the scores are an emulation: section 8); the `nest` generator family (not written); the runtime cost of the exposed test (one extra pass over each C/C++ file with an `on` owner: to be measured, PLAN-v2 task 9); corpora beyond the six.
+**Current execution:** compiler fact outputs (section 3), 20 structural probe programs (17 with contradicted dropped pairs, three insertion/named-variadic controls already G1Error), runtime output 41/2 for all 20, corrected parser pins, scorer selftest and 12 focused candidate checks, default L1/L2/L3 replay and bound-4 replay, historical score-cell parity. Exact commands/output and provenance are in `.scratch829/astra/`; the score addendum states all exclusions. The compiler probes and four oracle arms use this clone's same unchanged base binary; no product fix was executed.
+
+**Inherited only:** the original header frequency scans, original G10/aspan runtime receipts, original mutation/size projections and old candidate owner-narrowing study. Current L3 scores re-evaluate candidate predicates against saved base verdicts; they do not rerun corpus compilation or prove corpus SUT identity beyond the saved inputs.
+
+**Not verified:** a Rust implementation, Rust targeted/full tests, Tier-A, mutation kills, the new `nest` generator run, GCC, new header/GitHub prevalence research, broader corpora, or runtime overhead of the eventual gates. No release rebuild, main integration, commit or push was attempted in this design-only sandbox. The planned implementation must freeze the new rows and execute its own RED/GREEN and Tier-A/full-suite gates before claiming completion.
+
+**Stop-hook follow-up:** root `VERIFICATION.md` records 20 portable scorer regression tests GREEN against 11 behavioral failures on the exact pre-change scorer, plus rerun population checks. The guarded full Rust suite was attempted but could not start (exit 76: sandbox denies `ps`); it remains **environment-limited**, not passed. No Rust implementation was added.

@@ -172,7 +172,7 @@ DEF_RE = re.compile(r"(?m)^[ \t]*(?:#|%:)[ \t]*define[ \t]+")
 class Facts:
     """Facts of one body (own) or of a macro closed over what it names."""
     __slots__ = ("unbalanced", "loose_comma", "semi0", "semi_any", "ctrl", "brace", "decl",
-                 "free", "refs", "linear", "grouped", "groups", "paren_open")
+                 "free", "refs", "linear", "grouped", "groups", "paren_open", "forced_split")
 
     def __init__(self):
         self.unbalanced = self.loose_comma = self.semi0 = self.semi_any = False
@@ -187,6 +187,7 @@ class Facts:
         # parentheses of `__VA_OPT__` aside): its expansion can open an argument list that the
         # following source text closes (DESIGN-v2 5.3, the hidden opener)
         self.paren_open = False
+        self.forced_split = False  # named variadic: its substituted separators are unknown
         self.linear = True
 
     @property
@@ -195,7 +196,7 @@ class Facts:
 
     def merge(self, o):
         for a in ("unbalanced", "loose_comma", "semi0", "semi_any", "ctrl", "brace", "decl",
-                  "paren_open"):
+                  "paren_open", "forced_split"):
             setattr(self, a, getattr(self, a) or getattr(o, a))
         self.linear = self.linear and o.linear
         self.free = self.free | o.free
@@ -282,8 +283,12 @@ def scan_body(toks, params, named_variadic, parsed):
             if pstack:
                 pstack.pop()
             if stack and stack[-1] in ("(", "T"):
-                stack.pop()
+                kind = stack.pop()
                 g = gstack.pop()
+                if kind == "T":
+                    # __VA_OPT__ may emit a callee name. Its following group is rooted
+                    # even though its own syntax parentheses are not emitted.
+                    g = Group(("param",))
                 if g is not None:
                     last_closed = (i, g)
             else:
@@ -314,6 +319,7 @@ def scan_body(toks, params, named_variadic, parsed):
         f.unbalanced = True
     if named_variadic:
         f.loose_comma = True
+        f.forced_split = True
     f.free = frozenset(free)
     f.grouped = frozenset(grouped)
     f.groups = tuple(groups)

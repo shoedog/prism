@@ -254,7 +254,7 @@ def _split_own(name, db, mode, held=True, fwd=True):
     key = (name, mode, held, fwd)
     r = memo.get(key)
     if r is None:
-        r = False
+        r = held and db.own(name).forced_split
         for g in db.own(name).groups:
             if not _callee(g, db, mode):
                 continue
@@ -360,8 +360,13 @@ def hidden_opener(owner, db):
     return "exposed_hidden_opener:" + first[1] if first[0] < owner.fn.hdr else None
 
 
-def owner_groups(owner, db, held=True, loose=True, shield=True):
-    """DESIGN-v2 5.2 (G9), one pass over the owner's tokens with a bracket stack. A paren is a
+def owner_groups(owner, db, held=True, loose=True, shield=True, any_ident=False):
+    """Historical candidate 10 and amended DESIGN-v2 5.2, sharing a bracket-stack pass.
+
+    Candidate 12 uses any_ident=True, shield=False: EVERY identifier-following group and
+    its chains are potential callees, with no positions exempted. The old shield reasoning
+    below describes the REJECTED candidate only, retained for differential scoring.
+    A paren is a
     CALLEE paren after an in-repo macro name or after the `)` of a callee paren (a chained
     group); a SHIELDED paren when it is opened INSIDE a callee paren directly after an identifier
     that is no in-repo macro (`shield`: it can never delimit a macro's arguments, so it stays in
@@ -383,7 +388,7 @@ def owner_groups(owner, db, held=True, loose=True, shield=True):
                 return "arg_split_digraph"
             if x == "(":
                 if prev is not None and prev.kind == "id":
-                    k = "C" if db.defined(prev.text) else ("S" if shield and ncallee else "(")
+                    k = "C" if any_ident or db.defined(prev.text) else ("S" if shield and ncallee else "(")
                 elif closed is not None and closed[0] is prev and closed[1] == "C":
                     k = "C"
                 else:
@@ -425,8 +430,8 @@ BLOCK_MACROS_ADDED = frozenset((
 
 def sp_certificate(owner, db, mode="macro", body_held=True, body_fwd=True, owner_held=True,
                    owner_loose=True, expose="hull", listed=True, unbalanced=True, shield=True,
-                   names=None, hidden=True):
-    """10. DESIGN-v2: admit only an owner for which structure preservation is proved."""
+                   names=None, hidden=True, any_ident=False):
+    """Shared evaluator for the historical and amended structure-preservation candidates."""
     BLOCK_MACROS = names if names is not None else globals()["BLOCK_MACROS"]
     if listed:
         for n in sorted(owner.spelled & BLOCK_MACROS):
@@ -441,7 +446,8 @@ def sp_certificate(owner, db, mode="macro", body_held=True, body_fwd=True, owner
             return "block_wrapper:" + n
         if (body_held or body_fwd) and _split_closed(n, db, mode, body_held, body_fwd):
             return "body_split:" + n
-    r = owner_groups(owner, db, held=owner_held, loose=owner_loose, shield=shield)
+    r = owner_groups(owner, db, held=owner_held, loose=owner_loose, shield=shield,
+                     any_ident=any_ident)
     if r:
         return r
     if expose == "hull":
@@ -456,7 +462,7 @@ def sp_certificate(owner, db, mode="macro", body_held=True, body_fwd=True, owner
 
 
 def cand_v2(owner, db):
-    """10. The chosen rule of DESIGN-v2 (structure-preservation certificate)."""
+    """10. Rejected historical DESIGN-v2 rule; retained as a regression control."""
     return sp_certificate(owner, db)
 
 
@@ -501,7 +507,7 @@ def _abl(**kw):
 
 
 V2 = collections.OrderedDict([
-    ("10-v2-certificate", (cand_v2, "DESIGN-v2: structure-preservation certificate (chosen)")),
+    ("10-v2-certificate", (cand_v2, "historical DESIGN-v2 certificate (rejected)")),
     ("10i-v2-any-ident", (cand_v2_any, "10 with body callee groups after any identifier")),
     ("10n-v2-no-shield", (cand_v2_noshield, "10 without shielded parentheses in owner groups")),
     ("10f-v2-first-branch", (cand_v2_first, "10 with the first-branch-wins enclosing test")),
@@ -536,3 +542,30 @@ CANDIDATES = collections.OrderedDict([
     ("A4-4b-unbalanced-only", (cand_abl_unbalanced_only, "ablation: unbalanced (closed) + enclosing only")),
 ])
 CANDIDATES.update(V2)
+
+
+def cand_v2_noshield_list(owner, db):
+    """11. Review repair baseline: 10n with OD-B's 31 names."""
+    return sp_certificate(owner, db, shield=False, names=BLOCK_MACROS | BLOCK_MACROS_ADDED)
+
+
+def cand_v2_all_roots(owner, db):
+    """12. No shields; every identifier can introduce a callee, in bodies and owners.
+
+    Non-membership in the census proves neither survival nor non-aliasing. Historical
+    candidates retain their decision rules; shared fact corrections apply to all of them.
+    """
+    return sp_certificate(owner, db, shield=False, mode="any", any_ident=True,
+                          names=BLOCK_MACROS | BLOCK_MACROS_ADDED)
+
+
+CANDIDATES.update([
+    ("11-no-shield-list31", (cand_v2_noshield_list, "10n with 31 names; review repair control")),
+    ("12-all-roots", (cand_v2_all_roots, "no shields, all identifier roots, 31 names")),
+    ("B9-12-known-owner-roots", (
+        _abl(shield=False, mode="any", names=BLOCK_MACROS | BLOCK_MACROS_ADDED),
+        "ablation of 12: only known owner roots; external_identity reopens")),
+    ("B10-12-known-body-roots", (
+        _abl(shield=False, any_ident=True, names=BLOCK_MACROS | BLOCK_MACROS_ADDED),
+        "ablation of 12: only known body roots; body_identity reopens")),
+])
