@@ -71,6 +71,18 @@ EXTRA = {
 }
 
 
+# Hidden-opener rows (#829 DESIGN-v2 section 10): the pair's file is never compiled alone, only the
+# translation unit `unity` includes it, so the oracle cannot judge them (UNJUDGED) and the
+# program itself is the receipt: `unity` returns 42 exactly when the first def of `x` is live.
+# class -> (test-name substring, translation unit, expected exit status).
+UNITY = {
+    "hidden opener at file scope (aspan)": ("row_v2_aspan_c", "unity.c", 42),
+    "hidden opener, C++ owner (aspan twin)": ("row_v2_aspan_cc", "unity.cc", 42),
+    "hidden opener inside a sibling owner (aspan_sib)": ("row_v2_aspan_sib", "unity.c", 42),
+    "opener in an included header (aspan3, A-span pinned)": ("row_v2_aspan3_pinned", "unity.c", 42),
+}
+
+
 def includes_resolve(r):
     """Every quoted include of the target names a file of the row (or a forced include does)."""
     text = r["_files"][r["target"]].decode("latin-1")
@@ -106,6 +118,14 @@ def build(export):
                     "files": {n: d.decode("latin-1") for n, d in r["_files"].items()},
                     "flags": cfg.get("flags", []), "prelude": dict(decl.get("prelude", [])),
                     "links": r["links"]})
+    for cls, (test, tu, code) in UNITY.items():
+        r = next((r for r in rows if r["test"].endswith(test)), None)
+        if not r:
+            print("no row for", cls, file=sys.stderr)
+            continue
+        out.append({"class": cls, "key": r["key"], "target": r["target"], "owner": r["owner"],
+                    "files": {n: d.decode("latin-1") for n, d in r["_files"].items()},
+                    "flags": [], "prelude": {}, "links": r["links"], "tu": tu, "exit": code})
     for cls, (oid, text) in EXTRA.items():
         out.append({"class": cls, "key": "inline:" + oid, "target": "a.cc", "owner": "main",
                     "files": {"a.cc": text}, "flags": [], "prelude": {}, "links": {}})
@@ -131,6 +151,22 @@ def run():
                 p = os.path.join(d, "..", n)
                 os.makedirs(os.path.dirname(os.path.abspath(p)), exist_ok=True)
                 open(p, "w").write(text)
+            if o.get("tu"):
+                cxx = o["tu"].endswith(".cc")
+                exe = os.path.join(d, "prog")
+                cmd = ["clang++" if cxx else "clang", "-w", "-fbracket-depth=100000", "-I.",
+                       "-std=c++17" if cxx else "-std=gnu11", o["tu"], "-o", exe]
+                p = subprocess.run(cmd, cwd=d, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if p.returncode:
+                    print("%-52s COMPILE-FAIL %s" % (o["class"], p.stderr.decode()[:100]))
+                    bad += 1
+                    continue
+                code = subprocess.run([exe]).returncode
+                live = code == o["exit"]
+                bad += not live
+                print("%-52s %-8s exit %d (live iff %d)" % (
+                    o["class"], "LIVE" if live else "NOT-LIVE", code, o["exit"]))
+                continue
             tgt = os.path.join(d, o["target"])
             src = open(tgt, "rb").read().decode("latin-1")
             if "main(" not in src:

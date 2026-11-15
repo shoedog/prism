@@ -804,6 +804,97 @@ int control_and_unbalanced(S x) {
 }
 "####,
     ),
+    (
+        "35_v2_bodysplit.cc",
+        r####"// #829 (C++ twin) DESIGN-v2 section 11 (bodysplit): the held comma sits in a BODY group, not in the owner's
+// text: HI is F({ int a, b; }), so F receives two arguments after the brace-held comma. One census.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define HI F({ int a, b; })
+#define JI G({ int a, b; })
+
+int body_split(int c) {
+    int x = 41; int y829 = 0; // @bs1:D x
+    int b = 0;
+    {
+        HI;
+        x = 2;
+        JI;
+        return x + 1;         // @bs1:U:keep:held_comma_inside_a_body_group
+    }
+}
+"####,
+    ),
+    (
+        "36_v2_bodyfwd.cc",
+        r####"// #829 (C++ twin) DESIGN-v2 section 11 (bodyfwd): a body forwards a loose macro into a group: H(INIT) rescans
+// INIT's expansion, whose comma is brace-held, inside F's argument list. One census.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define H(p) F(p)
+#define J(p) G(p)
+#define INIT { int a, b; }
+#define HI H(INIT)
+#define JI J(INIT)
+
+int body_fwd(int c) {
+    int x = 41; int y829 = 0; // @bf1:D x
+    int b = 0;
+    {
+        HI;
+        x = 2;
+        JI;
+        return x + 1;         // @bf1:U:keep:body_forwards_a_loose_macro_into_a_group
+    }
+}
+"####,
+    ),
+    (
+        "37_v2_deferred.cc",
+        r####"// #829 (C++ twin) DESIGN-v2 section 11 (deferred): ID(F BR) returns the name F, and the rescan applies it
+// to BR's group, whose comma is brace-held. One census.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define ID(v) v
+#define BR ({ int a, b; })
+#define DF ID(F BR)
+#define DG ID(G BR)
+
+int deferred(int c) {
+    int x = 41; int y829 = 0; // @df1:D x
+    int b = 0;
+    {
+        DF;
+        x = 2;
+        DG;
+        return x + 1;         // @df1:U:keep:name_returned_by_a_body_meets_a_later_group
+    }
+}
+"####,
+    ),
+    (
+        "38_v2_shield_nested.cc",
+        r####"// #829 (C++ twin) DESIGN-v2 section 11 (shield_nested): the group BLK(AB) is a nested callee group inside
+// H's group: its brace holds a comma after AB expands. One census.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define H(p) F(p)
+#define J(p) G(p)
+#define BLK(p) { p }
+#define AB int a, b;
+
+int nested_callee(int c) {
+    int x = 41; int y829 = 0; // @sn1:D x
+    int b = 0;
+    {
+        H(BLK(AB));
+        x = 2;
+        J(BLK(AB));
+        return x + 1;         // @sn1:U:keep:nested_callee_group_expands_to_a_brace_held_comma
+    }
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

@@ -1070,6 +1070,159 @@ int digit_separator_hides_a_bracket(int c) {
 }
 "####,
     ),
+    (
+        "35_v2_bodysplit.c",
+        r####"// #829 DESIGN-v2 section 11 (bodysplit): the held comma sits in a BODY group, not in the owner's
+// text: HI is F({ int a, b; }), so F receives two arguments after the brace-held comma. One census.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define HI F({ int a, b; })
+#define JI G({ int a, b; })
+
+int body_split(int c) {
+    int x = 41;               // @bs1:D x
+    int b = 0;
+    {
+        HI;
+        x = 2;
+        JI;
+        return x;             // @bs1:U:keep:held_comma_inside_a_body_group
+    }
+}
+"####,
+    ),
+    (
+        "36_v2_bodyfwd.c",
+        r####"// #829 DESIGN-v2 section 11 (bodyfwd): a body forwards a loose macro into a group: H(INIT) rescans
+// INIT's expansion, whose comma is brace-held, inside F's argument list. One census.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define H(p) F(p)
+#define J(p) G(p)
+#define INIT { int a, b; }
+#define HI H(INIT)
+#define JI J(INIT)
+
+int body_fwd(int c) {
+    int x = 41;               // @bf1:D x
+    int b = 0;
+    {
+        HI;
+        x = 2;
+        JI;
+        return x;             // @bf1:U:keep:body_forwards_a_loose_macro_into_a_group
+    }
+}
+"####,
+    ),
+    (
+        "37_v2_deferred.c",
+        r####"// #829 DESIGN-v2 section 11 (deferred): ID(F BR) returns the name F, and the rescan applies it
+// to BR's group, whose comma is brace-held. One census.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define ID(v) v
+#define BR ({ int a, b; })
+#define DF ID(F BR)
+#define DG ID(G BR)
+
+int deferred(int c) {
+    int x = 41;               // @df1:D x
+    int b = 0;
+    {
+        DF;
+        x = 2;
+        DG;
+        return x;             // @df1:U:keep:name_returned_by_a_body_meets_a_later_group
+    }
+}
+"####,
+    ),
+    (
+        "38_v2_shield_nested.c",
+        r####"// #829 DESIGN-v2 section 11 (shield_nested): the group BLK(AB) is a nested callee group inside
+// H's group: its brace holds a comma after AB expands. One census.
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define H(p) F(p)
+#define J(p) G(p)
+#define BLK(p) { p }
+#define AB int a, b;
+
+int nested_callee(int c) {
+    int x = 41;               // @sn1:D x
+    int b = 0;
+    {
+        H(BLK(AB));
+        x = 2;
+        J(BLK(AB));
+        return x;             // @sn1:U:keep:nested_callee_group_expands_to_a_brace_held_comma
+    }
+}
+"####,
+    ),
+    (
+        "39_v2_outer_shield.c",
+        r####"// #829 DESIGN-v2 section 11 (outer_shield): `one(` sits outside every callee group and shields
+// nothing: the groups F({..}) and G({..}) inside it are the owner's own invocations. One census.
+int one(int);
+void sink(int);
+#define F(p, q) q if (c) p
+#define G(p, q) q p
+#define ID(v) v
+
+int outer_shield(int c) {
+    int x = 41;               // @os1:D x
+    int b = 0;
+    one(({
+        {
+            F({ int a, b; });
+            x = 2;
+            G({ int a, b; });
+            sink(x);          // @os1:U:keep:unknown_call_does_not_shield_the_groups_inside
+        }
+        1;
+    }));
+    return 0;
+}
+
+int inner_shield(int c) {
+    int x = 41;               // @os2:D x
+    int b = 0;
+    ID(one(({
+        {
+            F({ int a, b; });
+            x = 2;
+            G({ int a, b; });
+            sink(x);          // @os2:U:keep:identity_wrapper_does_not_shield_the_groups_inside
+        }
+        1;
+    })));
+    return 0;
+}
+"####,
+    ),
+    (
+        "40_v2_shield_safe.c",
+        r####"// #829 DESIGN-v2 section 11 (shield_safe): the commas sit inside unknown calls' own parentheses
+// and a compound literal's braces inside them; the owner is CONFIRMED safe (guide: candidate 12
+// refuses it, a recall cost). One census.
+int two(int, int);
+int one(int *);
+#define PAIR 1, 2
+#define ARR (int[]){ 3, 4 }
+#define H(p) FIRST(p)
+#define FIRST(p, ...) p
+
+int shielded(int c) {
+    int x = 41;               // @ss1:D x
+    H(two(PAIR));
+    H(one(ARR));
+    x = 2;
+    return x;                 // @ss1:U:drop:commas_stay_inside_unknown_call_parentheses
+}
+"####,
+    ),
 ];
 
 /// The harness view of an inline case: `<CR>` is a lone carriage return (a raw string cannot

@@ -74,9 +74,14 @@ macro_rules! families {
 
 // The `init` and `decl` families (`int y = A;`, `int A;`) produced no CONTRADICTED program that
 // is not a top-level `;` body (#831): no row, no test.
+//
+// The `nest` family (PLAN-v2 task 2: an outer macro whose body invokes an inner macro on a
+// held-comma block, forms `K(<frags>)` and `ID(K <N>)`) found six keys at bound 4 (owner kind C,
+// 1,344 compiled programs of 295,542; the forms `K(<N>)`, `one(K(..))` and `ID(one(<N>))` gave
+// none): `gen_nest`.
 families!(
     gen_stmt "stmt", gen_guard "guard", gen_arg "arg", gen_arg1 "arg1", gen_enc1 "enc1",
-    gen_enc2 "enc2", gen_enc3 "enc3", gen_enc4 "enc4",
+    gen_enc2 "enc2", gen_enc3 "enc3", gen_enc4 "enc4", gen_nest "nest",
 );
 
 /// The data is well formed: no clang, no prune run. Every row is a generator row with the

@@ -52,6 +52,26 @@ CTRL_PREFIX = {"if (c)", "else", "do", "for (;;)"}
 WRITE = {"x = 3", "int x", "int *x"}
 
 FAMILIES = ["stmt", "guard", "init", "decl", "arg", "arg1", "enc1", "enc2", "enc3", "enc4"]
+# #829 PLAN-v2 task 2: the macro-in-macro family (offline, `--families nest`; not in the default
+# set, so the frozen L2 runs stay as they were). Two use sites `A;` / `B;` around `x = 2;`
+# (statement or guard), inner macros `K(p, q)` / `K2(p, q)` with bodies from NEST_K, and outer
+# object-like macros A, B of five forms over the inner macro and a third macro N / N2 (a body
+# of NEST_A fragments):
+#   f1 K(<frags>)   f2 ID(K <N>)   f3 K(<N>)   f4 one(K(<frags>))   f5 ID(one(<N>))
+NEST_FORMS = (1, 2, 3, 4, 5)
+NEST_SITES = ("stmt", "guard")
+NEST_OWNERS = ["c", "cxx"]
+# Fragments are composite: the first run over atomic fragments (the object-macro alphabet, bound 3,
+# 550,920 programs) compiled 228 programs and found no contradicted one, because the hazards of
+# a nested group (`K({ int a, b; }, c)`) need five or more atomic fragments. The composite
+# fragments below put a held-comma block, a tight group and a statement expression each in one
+# fragment, and the whole bodies `q if (c) p` and `q p` of the known contradicted shapes are
+# one fragment each, so the canonical program (two inner macros, two groups) has four fragments:
+# bound 4 over four slots.
+NEST_K = ["p", "q", "p;", "q if (c) p", "q p", "if (c) p"]
+NEST_A = ["{ int a, b; }", "{ a, b }", "(a, b)", "({ int a, b; })", "c"]
+NEST_N_FORMS = (2, 3, 5)     # forms whose argument slots are bodies of N / N2
+NEST_SHIELD_FORMS = (4, 5)   # the group sits inside `one(..)`
 # families that take the macro kind variants (fn0: `A()`; alias: `#define A A0`)
 KINDED = ["stmt", "guard"]
 OWNERS_OBJ = ["c", "cxx", "tpl"]
@@ -200,6 +220,89 @@ def enc_owner(kind):
     raise ValueError(kind)
 
 
+def innermost_commas(frags):
+    """(a comma whose innermost bracket is `{` or `[`, a comma that is not directly inside a
+    parenthesis) of a fragment sequence: the held and the loose commas of a body."""
+    held = loose = False
+    stack = []
+    for t in body_tokens(frags):
+        if t in OPEN:
+            stack.append(t)
+        elif t in CLOSE:
+            if stack:
+                stack.pop()
+        elif t == ",":
+            if not stack or stack[-1] != "(":
+                loose = True
+            if stack and stack[-1] in "{[":
+                held = True
+    return held, loose
+
+
+def nest_effects(s):
+    """Effect classes of a `nest` program: its four bodies and the three nest classes."""
+    form = int(s["kind"].rsplit("_f", 1)[1])
+    kb, k2b, ab, bb = s["bodies"]
+    eff = classify(kb, ("p", "q")) | classify(k2b, ("p", "q")) | classify(ab) | classify(bb)
+    held = innermost_commas(ab)[0] or innermost_commas(bb)[0]
+    loose = innermost_commas(ab)[1] or innermost_commas(bb)[1]
+    if held:
+        eff.add("NEST_HELD")
+    if form in NEST_N_FORMS and loose:
+        eff.add("NEST_FWD")
+    if form in NEST_SHIELD_FORMS:
+        eff.add("NEST_SHIELD")
+    return eff
+
+
+def nest_owner_text(kind, s1, s2):
+    """The owner of a `nest` program, the shape of the review probes (`bodysplit`): `b` is a
+    variable the inner macros can name, and the use sites sit in an inner block that an
+    emitted `}` can close."""
+    cxx = kind != "c"
+    ret = "return sink(x + 1);" if cxx else "return x;"
+    first = "int x = 41; int y829 = 0;" if cxx else "int x = 41;"
+    pre = "int sink(int);\n" if cxx else ""
+    return (pre + "int probe(int c) {\n    %s\n    int b = 0;\n    {\n        %s\n        x = 2;\n"
+            "        %s\n        %s\n    }\n}\n" % (first, s1, s2, ret))
+
+
+def render_nest(s, n, kind_ok, suf, lex):
+    """(defs text, owner text, effect classes) of a `nest` program, or None."""
+    site, form = s["kind"].rsplit("_f", 1)[0], int(s["kind"].rsplit("_f", 1)[1])
+    kb, k2b, ab, bb = s["bodies"]
+    rk, rk2 = render_body(kb, lex), render_body(k2b, lex)
+    if lex not in ("plain", "crlf"):
+        if not kb and not k2b and form not in NEST_N_FORMS:
+            return None
+        rk = rk if rk is not None else " ".join(kb)
+        rk2 = rk2 if rk2 is not None else " ".join(k2b)
+    nm = {x: x + suf for x in ("ID", "K", "K2", "N", "N2", "A", "B", "one")}
+    na = render_body(ab, lex) if form in NEST_N_FORMS else " ".join(ab)
+    nb = render_body(bb, lex) if form in NEST_N_FORMS else " ".join(bb)
+    if lex not in ("plain", "crlf") and form in NEST_N_FORMS:
+        na = na if na is not None else " ".join(ab)
+        nb = nb if nb is not None else " ".join(bb)
+    outer = {
+        1: "{K}({a})", 2: "{ID}({K} {N})", 3: "{K}({N})", 4: "{one}({K}({a}))",
+        5: "{ID}(one({N}))",
+    }[form]
+    def body(k, nn, a):
+        return outer.format(K=nm[k], ID=nm["ID"], one=nm["one"], N=nm[nn], a=a)
+    defs = "int %s(int);\n" % nm["one"]
+    if form in (2, 5):
+        defs += define_line(nm["ID"], ["p"], "p")
+    if form != 5:
+        defs += define_line(nm["K"], ["p", "q"], rk) + define_line(nm["K2"], ["p", "q"], rk2)
+    if form in NEST_N_FORMS:
+        defs += define_line(nm["N"], None, na) + define_line(nm["N2"], None, nb)
+    defs += define_line(nm["A"], None, body("K", "N", " ".join(ab)))
+    defs += define_line(nm["B"], None, body("K2", "N2", " ".join(bb)))
+    t1, t2 = SITES[site]
+    s1, s2 = t1.replace("{A}", nm["A"]), t2.replace("{B}", nm["B"])
+    return defs, nest_owner_text(kind_ok, s1, s2), nest_effects(s)
+
+
 class Prog:
     """One program of the space. `spec` is JSON-able and re-renders the program."""
 
@@ -209,6 +312,8 @@ class Prog:
     def effects(self):
         """Effect classes of the program's macros (from the spec; no rendering)."""
         s = self.spec
+        if s["family"] == "nest":
+            return sorted(nest_effects(s))
         if s["family"].startswith("enc"):
             return sorted(classify(s["bodies"][0], ("p", "q", "r"), enc=True))
         eff = set()
@@ -224,7 +329,12 @@ class Prog:
         cxx = ok != "c"
         suf = "" if n is None else "_%s" % n
         defs, eff = "", set()
-        if fam.startswith("enc"):
+        if fam == "nest":
+            r = render_nest(s, n, ok, suf, lex)
+            if r is None:
+                return None
+            defs, owner_part, eff = r
+        elif fam.startswith("enc"):
             body = render_body(s["bodies"][0], lex)
             if body is None:
                 return None
@@ -407,9 +517,34 @@ def bodies_upto(alpha, k):
         yield from itertools.product(alpha, repeat=n)
 
 
+def enumerate_nest(bound):
+    """Exhaustive `nest` specs of one bound: the four bodies [K, K2, A slot, B slot] hold at
+    most `bound` fragments in total (form 5 has no inner macro: its K bodies stay empty)."""
+    for site in NEST_SITES:
+        for form in NEST_FORMS:
+            for ok in NEST_OWNERS:
+                kmax = 0 if form == 5 else bound
+                for n1 in range(kmax + 1):
+                    for n2 in range(kmax + 1 - n1):
+                        for n3 in range(bound + 1 - n1 - n2):
+                            for n4 in range(bound + 1 - n1 - n2 - n3):
+                                for b1 in itertools.product(NEST_K, repeat=n1):
+                                    for b2 in itertools.product(NEST_K, repeat=n2):
+                                        for b3 in itertools.product(NEST_A, repeat=n3):
+                                            for b4 in itertools.product(NEST_A, repeat=n4):
+                                                yield {"family": "nest", "owner": ok,
+                                                       "kind": "%s_f%d" % (site, form),
+                                                       "lex": "plain", "channel": "same",
+                                                       "bodies": [list(b1), list(b2),
+                                                                  list(b3), list(b4)]}
+
+
 def enumerate_specs(bound, families, owners_override=None):
     """Exhaustive specs of one bound (plain, same file): total body fragments <= bound."""
     for fam in families:
+        if fam == "nest":
+            yield from enumerate_nest(bound)
+            continue
         if fam.startswith("enc"):
             for ok in OWNERS_ENC:
                 for body in bodies_upto(ENC_FR, bound):
@@ -435,6 +570,8 @@ def sample_specs(bound, families, count, seed):
     rng = random.Random(seed)
     cells = []
     for fam in families:
+        if fam == "nest":
+            raise SystemExit("the nest family is enumerated exhaustively (no --sample)")
         if fam.startswith("enc"):
             cells += [(fam, "obj", ok) for ok in OWNERS_ENC]
             continue
@@ -614,6 +751,8 @@ def cmd_run(a):
     out = os.path.abspath(a.out)
     os.makedirs(out, exist_ok=True)
     fams = a.families.split(",") if a.families else FAMILIES
+    if a.nest_owners:
+        NEST_OWNERS[:] = a.nest_owners.split(",")
     t0 = time.time()
     if a.extend_from:
         specs = extension_specs(a.extend_from, a.extend_count, a.seed)
@@ -635,7 +774,10 @@ def cmd_run(a):
         r = Prog(spec).render(None)
         if r is None:
             return None
-        if not spec["family"].startswith("enc") and not prefilter(r):
+        # the prefilter models object macros and identity wrappers only: it cannot see through
+        # a two-parameter inner macro, so a nest program (whose braces K may rebalance) skips it
+        if not spec["family"].startswith("enc") and spec["family"] != "nest" \
+                and not prefilter(r):
             return ("pre", spec)
         return ("ok", spec, compiles(r, scratch))
 
@@ -858,6 +1000,7 @@ def main():
     pr.add_argument("--sample", type=int, default=0)
     pr.add_argument("--seed", type=int, default=1)
     pr.add_argument("--families", default="")
+    pr.add_argument("--nest-owners", default="", help="comma list, family nest only (default c,cxx)")
     pr.add_argument("--extend-from", nargs="+", default=None,
                     help="result dirs: draw the single-fragment insertions of --extend-count of their programs")
     pr.add_argument("--extend-count", type=int, default=3000)

@@ -23,34 +23,27 @@ Truth is the expansion-arm oracle (`xarm.py label`, clang at authoring time only
 
 | rows | n | CONTRADICTED | CONFIRMED | XOFF | UNJUDGED | kept | pinned_hole | dropped | guide | no_basis |
 |---|---|---|---|---|---|---|---|---|---|---|
-| pair rows (Rust sources, C and C++) | 284 | 151 | 30 | 22 | 81 | 119 | 22 | 15 | 23 | 105 |
-| inline cases, C | 67 | 43 | 20 | 3 | 1 | 19 | 1 | 0 | 43 | 4 |
-| inline cases, C++ | 38 | 19 | 13 | 4 | 2 | 14 | 0 | 0 | 21 | 3 |
-| **all** | 389 | 213 | 63 | 29 | 84 | 152 | 23 | 15 | 87 | 112 |
+| pair rows (Rust sources, C and C++) | 314 | 173 | 34 | 22 | 85 | 144 | 23 | 14 | 28 | 105 |
+| inline cases, C | 74 | 49 | 21 | 3 | 1 | 25 | 0 | 0 | 45 | 4 |
+| inline cases, C++ | 42 | 23 | 13 | 4 | 2 | 18 | 0 | 0 | 21 | 3 |
+| **all** | 430 | 245 | 68 | 29 | 88 | 187 | 23 | 14 | 94 | 112 |
 
 ### BOUNDARY rows (computed: the verdict flips under the declared configuration, or clang opens an in-repo file the census does not read)
 
 | assumption | rows | kept | pinned_hole | dropped | guide | no_basis |
 |---|---|---|---|---|---|---|
-| A-dialect | 1 | 0 | 1 | 0 | 0 | 0 |
+| A-dialect | 1 | 0 | 0 | 0 | 1 | 0 |
 | A-ext | 42 | 0 | 1 | 0 | 41 | 0 |
 | A-inputs | 48 | 27 | 21 | 0 | 0 | 0 |
 
-Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_11_include_differs_in_unicode_normalization:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, g_terra_01_wrapper_in_a_header_c_and_cpp:A-ext, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs ...
+Pinned holes: boundary_g2_opus3_11_include_differs_in_unicode_normalization:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_10_external_macro_supplies_the_split:A-ext, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs, row_v2_aspan3_pinned:A-span ...
 
-### Quarantined tentative-design tests: 80 `#[ignore]`d
+### Quarantined tentative-design tests: 0 `#[ignore]`d
 
 | file | tests |
 |---|---|
-| src/call_graph/c/macro_census_brackets_r1_tests.rs | 21 |
-| src/call_graph/c/macro_census_brackets_r2_tests.rs | 7 |
-| src/call_graph/c/macro_census_brackets_r3_tests.rs | 8 |
-| src/call_graph/c/macro_census_brackets_tests.rs | 38 |
-| src/data_flow/build/c_macro_census_tests.rs | 4 |
-| src/data_flow/build/c_prune_brackets_r1_tests.rs | 1 |
-| src/data_flow/build/c_prune_brackets_tests.rs | 1 |
 
-### Runtime receipts: 18 classes (`xarm_receipts.py run`, needs clang, not run in CI)
+### Runtime receipts: 22 classes (`xarm_receipts.py run`, needs clang, not run in CI)
 
 - enclosing group opened in a sibling owner
 - macro drops the overwriting piece
@@ -67,11 +60,15 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_11_includ
 - closer inside a following owner
 - external macro via a forced include (declared)
 - rescan split through a header
+- hidden opener at file scope (aspan)
+- hidden opener, C++ owner (aspan twin)
+- hidden opener inside a sibling owner (aspan_sib)
+- opener in an included header (aspan3, A-span pinned)
 - unbalanced macro makes the write conditional (C++ owner)
 - template owner spells an unbalanced macro
 - paren macros move a declaration scope (C++ owner)
 
-### Generated rows (L2, `xgen.py`, source: generator): 98
+### Generated rows (L2, `xgen.py`, source: generator): 104
 
 Minimal member of each key (effect classes, site family, owner kind) the bounded generator found CONTRADICTED; every row asserts `kept` (red on base while the pair is dropped). Top-level `;` bodies (#831) are excluded.
 
@@ -84,61 +81,62 @@ Minimal member of each key (effect classes, site family, owner kind) the bounded
 | enc3 | 12 | 4 | 4 | 4 | 0 | 0 |
 | enc4 | 13 | 4 | 5 | 4 | 0 | 0 |
 | guard | 18 | 6 | 2 | 6 | 2 | 2 |
+| nest | 6 | 6 | 0 | 0 | 0 | 0 |
 | stmt | 18 | 6 | 2 | 6 | 2 | 2 |
 
 ### Inline rows (cases 20 to 34)
 
 | lang | case | id | legacy kind | hand | oracle | assumption | head | assert |
 |---|---|---|---|---|---|---|---|---|
-| c | 20_macro_brackets | b1 | S | kept | CONTRADICTED |  | drops | kept |
-| c | 20_macro_brackets | b10 | K | pruned | CONFIRMED |  | drops | guide |
-| c | 20_macro_brackets | b11 | K | pruned | CONFIRMED |  | drops | guide |
-| c | 20_macro_brackets | b12 | S | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 20_macro_brackets | b13 | C | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 20_macro_brackets | b2 | S | kept | CONTRADICTED |  | drops | kept |
-| c | 20_macro_brackets | b3 | S | kept | CONTRADICTED |  | drops | kept |
-| c | 20_macro_brackets | b4 | S | kept | CONTRADICTED |  | drops | kept |
-| c | 20_macro_brackets | b5 | S | kept | CONTRADICTED |  | drops | kept |
-| c | 20_macro_brackets | b6 | C | kept | CONFIRMED |  | drops | guide |
-| c | 20_macro_brackets | b7 | C | kept | XOFF |  | drops | no_basis |
-| c | 20_macro_brackets | b8 | C | kept | CONFIRMED |  | drops | guide |
-| c | 20_macro_brackets | b9 | C | kept | XOFF |  | drops | no_basis |
-| c | 21_macro_args | a2 | C | kept | UNJUDGED |  | drops | no_basis |
-| c | 21_macro_args | a3 | C | kept | CONFIRMED |  | drops | guide |
+| c | 20_macro_brackets | b1 | S | kept | CONTRADICTED |  | keeps | kept |
+| c | 20_macro_brackets | b10 | K | pruned | CONFIRMED |  | keeps | guide |
+| c | 20_macro_brackets | b11 | K | pruned | CONFIRMED |  | keeps | guide |
+| c | 20_macro_brackets | b12 | S | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 20_macro_brackets | b13 | C | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 20_macro_brackets | b2 | S | kept | CONTRADICTED |  | keeps | kept |
+| c | 20_macro_brackets | b3 | S | kept | CONTRADICTED |  | keeps | kept |
+| c | 20_macro_brackets | b4 | S | kept | CONTRADICTED |  | keeps | kept |
+| c | 20_macro_brackets | b5 | S | kept | CONTRADICTED |  | keeps | kept |
+| c | 20_macro_brackets | b6 | C | kept | CONFIRMED |  | keeps | guide |
+| c | 20_macro_brackets | b7 | C | kept | XOFF |  | keeps | no_basis |
+| c | 20_macro_brackets | b8 | C | kept | CONFIRMED |  | keeps | guide |
+| c | 20_macro_brackets | b9 | C | kept | XOFF |  | keeps | no_basis |
+| c | 21_macro_args | a2 | C | kept | UNJUDGED |  | keeps | no_basis |
+| c | 21_macro_args | a3 | C | kept | CONFIRMED |  | keeps | guide |
 | c | 21_macro_args | a4 | C | kept | CONFIRMED |  | drops | guide |
 | c | 21_macro_args | a5 | C | kept | CONFIRMED |  | drops | guide |
-| c | 21_macro_args | a6 | C | kept | CONFIRMED |  | drops | guide |
+| c | 21_macro_args | a6 | C | kept | CONFIRMED |  | keeps | guide |
 | c | 21_macro_args | a7 | K | pruned | CONFIRMED |  | drops | guide |
-| c | 21_macro_args | a8 | K | pruned | CONFIRMED |  | drops | guide |
-| c | 22_macro_wrappers | w1 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 22_macro_wrappers | w2 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 22_macro_wrappers | w3 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 22_macro_wrappers | w4 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 22_macro_wrappers | w5 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 21_macro_args | a8 | K | pruned | CONFIRMED |  | keeps | guide |
+| c | 22_macro_wrappers | w1 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 22_macro_wrappers | w2 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 22_macro_wrappers | w3 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 22_macro_wrappers | w4 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 22_macro_wrappers | w5 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
 | c | 22_macro_wrappers | w6 |  | pruned | CONFIRMED | A-ext | drops | guide |
-| c | 22_macro_wrappers | w7 |  | kept | CONFIRMED | A-ext | drops | guide |
-| c | 22_macro_wrappers | w8 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 23_macro_args_live | a1 |  | kept | CONTRADICTED |  | drops | kept |
-| c | 23_macro_args_live | a10 |  | kept | CONTRADICTED |  | drops | kept |
-| c | 23_macro_args_live | a11 |  | kept | CONTRADICTED |  | drops | kept |
-| c | 23_macro_args_live | a12 |  | kept | CONTRADICTED |  | drops | kept |
-| c | 23_macro_args_live | a1t |  | kept | CONTRADICTED |  | drops | kept |
-| c | 23_macro_args_live | a9 |  | kept | CONTRADICTED |  | drops | kept |
+| c | 22_macro_wrappers | w7 |  | kept | CONFIRMED | A-ext | keeps | guide |
+| c | 22_macro_wrappers | w8 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 23_macro_args_live | a1 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 23_macro_args_live | a10 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 23_macro_args_live | a11 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 23_macro_args_live | a12 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 23_macro_args_live | a1t |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 23_macro_args_live | a9 |  | kept | CONTRADICTED |  | keeps | kept |
 | c | 23_macro_args_live | k1 |  | pruned | CONFIRMED |  | drops | guide |
 | c | 23_macro_args_live | k2 |  | pruned | CONFIRMED |  | drops | guide |
 | c | 23_macro_args_live | k3 |  | pruned | CONFIRMED |  | drops | guide |
-| c | 24_macro_splice | s2 |  | kept | CONTRADICTED |  | drops | kept |
-| c | 24_macro_splice_crlf | s1 |  | kept | CONTRADICTED |  | drops | kept |
-| c | 25_r2_external_alias | g2o06 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 25_r2_external_alias | g2o06c |  | kept | CONTRADICTED |  | drops | kept |
-| c | 25_r2_external_alias | g2t01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 26_r2_external_names | g2o09 |  | kept | XOFF (repo CONFIRMED) | A-ext | drops | no_basis |
-| c | 26_r2_external_names | g2s01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 26_r2_external_names | g2s01a |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 26_r2_external_names | g2s01b |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 26_r2_external_names | g2s01c |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 26_r2_external_names | g2s01d |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| c | 26_r2_external_names | g2s02 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| c | 24_macro_splice | s2 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 24_macro_splice_crlf | s1 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 25_r2_external_alias | g2o06 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 25_r2_external_alias | g2o06c |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 25_r2_external_alias | g2t01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 26_r2_external_names | g2o09 |  | kept | XOFF (repo CONFIRMED) | A-ext | keeps | no_basis |
+| c | 26_r2_external_names | g2s01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 26_r2_external_names | g2s01a |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 26_r2_external_names | g2s01b |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 26_r2_external_names | g2s01c |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 26_r2_external_names | g2s01d |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| c | 26_r2_external_names | g2s02 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
 | c | 26_r2_external_names | g2s03a |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
 | c | 26_r2_external_names | g2s03b |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
 | c | 26_r2_external_names | g2s03c |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
@@ -151,50 +149,61 @@ Minimal member of each key (effect classes, site family, owner kind) the bounded
 | c | 26_r2_external_names | g2s03k6 |  | pruned | CONFIRMED |  | drops | guide |
 | c | 27_r2_inrepo_prefix | g2s03k5a |  | kept | CONTRADICTED |  | keeps | kept |
 | c | 27_r2_inrepo_prefix | g2s03k5b |  | kept | CONTRADICTED |  | keeps | kept |
-| c | 28_r2_listed_name_shim | g2s07 |  | kept | CONFIRMED |  | drops | guide |
-| c | 29_r2_enclosing | g2o01 |  | kept | CONTRADICTED |  | drops | kept |
-| c | 30_r2_enclosing_variadic | g2o01k |  | pruned | CONFIRMED |  | drops | guide |
-| c | 31_r2_enclosing_file_scope | g2o01b |  | kept | CONTRADICTED |  | drops | kept |
-| c | 32_r2_strip_parenthesis | g2o02 |  | kept | CONTRADICTED |  | drops | kept |
-| c | 33_r2_digit_separator | g2o03 |  | kept | CONTRADICTED (repo XOFF) | A-dialect | drops | pinned_hole |
-| cpp | 20_macro_brackets.cc | x1 | S | kept | CONTRADICTED |  | drops | kept |
-| cpp | 20_macro_brackets.cc | x2 | S | kept | UNJUDGED |  | drops | kept |
-| cpp | 20_macro_brackets.cc | x3 | S | kept | UNJUDGED |  | drops | kept |
-| cpp | 20_macro_brackets.cc | x4 | S | kept | XOFF |  | drops | kept |
-| cpp | 20_macro_brackets.cc | x5 | K | pruned | XOFF |  | drops | no_basis |
-| cpp | 20_macro_brackets.cc | x6 | C | kept | XOFF | A-ext | drops | no_basis |
-| cpp | 21_macro_args.cc | y1 | S | kept | CONTRADICTED |  | drops | kept |
-| cpp | 21_macro_args.cc | y2 | C | kept | CONFIRMED |  | drops | guide |
+| c | 28_r2_listed_name_shim | g2s07 |  | kept | CONFIRMED |  | keeps | guide |
+| c | 29_r2_enclosing | g2o01 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 30_r2_enclosing_variadic | g2o01k |  | pruned | CONFIRMED |  | keeps | guide |
+| c | 31_r2_enclosing_file_scope | g2o01b |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 32_r2_strip_parenthesis | g2o02 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 33_r2_digit_separator | g2o03 |  | kept | CONTRADICTED (repo XOFF) | A-dialect | keeps | guide |
+| c | 35_v2_bodysplit | bs1 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 36_v2_bodyfwd | bf1 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 37_v2_deferred | df1 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 38_v2_shield_nested | sn1 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 39_v2_outer_shield | os1 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 39_v2_outer_shield | os2 |  | kept | CONTRADICTED |  | keeps | kept |
+| c | 40_v2_shield_safe | ss1 |  | pruned | CONFIRMED |  | keeps | guide |
+| cpp | 20_macro_brackets.cc | x1 | S | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 20_macro_brackets.cc | x2 | S | kept | UNJUDGED |  | keeps | kept |
+| cpp | 20_macro_brackets.cc | x3 | S | kept | UNJUDGED |  | keeps | kept |
+| cpp | 20_macro_brackets.cc | x4 | S | kept | XOFF |  | keeps | kept |
+| cpp | 20_macro_brackets.cc | x5 | K | pruned | XOFF |  | keeps | no_basis |
+| cpp | 20_macro_brackets.cc | x6 | C | kept | XOFF | A-ext | keeps | no_basis |
+| cpp | 21_macro_args.cc | y1 | S | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 21_macro_args.cc | y2 | C | kept | CONFIRMED |  | keeps | guide |
 | cpp | 21_macro_args.cc | y3 | K | pruned | CONFIRMED |  | drops | guide |
-| cpp | 21_macro_args.cc | y4 | K | pruned | CONFIRMED |  | drops | guide |
-| cpp | 22_macro_wrappers.cc | w1 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| cpp | 22_macro_wrappers.cc | w2 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| cpp | 22_macro_wrappers.cc | w3 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| cpp | 22_macro_wrappers.cc | w4 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 21_macro_args.cc | y4 | K | pruned | CONFIRMED |  | keeps | guide |
+| cpp | 22_macro_wrappers.cc | w1 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| cpp | 22_macro_wrappers.cc | w2 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| cpp | 22_macro_wrappers.cc | w3 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| cpp | 22_macro_wrappers.cc | w4 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
 | cpp | 22_macro_wrappers.cc | w6 |  | pruned | CONFIRMED | A-ext | drops | guide |
-| cpp | 23_macro_args_live.cc | y10 |  | kept | CONFIRMED |  | drops | guide |
+| cpp | 23_macro_args_live.cc | y10 |  | kept | CONFIRMED |  | keeps | guide |
 | cpp | 23_macro_args_live.cc | y11 |  | pruned | CONFIRMED |  | drops | guide |
-| cpp | 23_macro_args_live.cc | y5 |  | kept | CONFIRMED |  | drops | guide |
-| cpp | 23_macro_args_live.cc | y6 |  | kept | CONFIRMED |  | drops | guide |
-| cpp | 23_macro_args_live.cc | y7 |  | kept | CONFIRMED |  | drops | guide |
-| cpp | 23_macro_args_live.cc | y8 |  | kept | CONFIRMED |  | drops | guide |
-| cpp | 23_macro_args_live.cc | y9 |  | kept | CONFIRMED |  | drops | guide |
-| cpp | 24_macro_splice.cc | s3 |  | kept | CONTRADICTED |  | drops | kept |
-| cpp | 24_macro_splice_crlf.cc | s4 |  | kept | CONTRADICTED |  | drops | kept |
-| cpp | 25_r2_external_alias.cc | g2o06 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| cpp | 25_r2_external_alias.cc | g2o06c |  | kept | CONTRADICTED |  | drops | kept |
-| cpp | 25_r2_external_alias.cc | g2t01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| cpp | 26_r2_external_names.cc | g2s01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
-| cpp | 26_r2_external_names.cc | g2s02 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
+| cpp | 23_macro_args_live.cc | y5 |  | kept | CONFIRMED |  | keeps | guide |
+| cpp | 23_macro_args_live.cc | y6 |  | kept | CONFIRMED |  | keeps | guide |
+| cpp | 23_macro_args_live.cc | y7 |  | kept | CONFIRMED |  | keeps | guide |
+| cpp | 23_macro_args_live.cc | y8 |  | kept | CONFIRMED |  | keeps | guide |
+| cpp | 23_macro_args_live.cc | y9 |  | kept | CONFIRMED |  | keeps | guide |
+| cpp | 24_macro_splice.cc | s3 |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 24_macro_splice_crlf.cc | s4 |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 25_r2_external_alias.cc | g2o06 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| cpp | 25_r2_external_alias.cc | g2o06c |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 25_r2_external_alias.cc | g2t01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| cpp | 26_r2_external_names.cc | g2s01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
+| cpp | 26_r2_external_names.cc | g2s02 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | keeps | guide |
 | cpp | 26_r2_external_names.cc | g2s03k3 |  | kept | CONTRADICTED | A-ext | keeps | kept |
-| cpp | 27_r2_listed_name_shim.cc | g2s07 |  | kept | CONFIRMED |  | drops | guide |
-| cpp | 29_r2_enclosing.cc | g2o01 |  | kept | CONTRADICTED |  | drops | kept |
-| cpp | 30_r2_enclosing_variadic.cc | g2o01k |  | pruned | CONFIRMED |  | drops | guide |
-| cpp | 31_r2_enclosing_file_scope.cc | g2o01b |  | kept | CONTRADICTED |  | drops | kept |
-| cpp | 32_r2_strip_parenthesis.cc | g2o02 |  | kept | CONTRADICTED |  | drops | kept |
-| cpp | 33_r2_digit_separator.cc | g2o03 |  | kept | CONTRADICTED |  | drops | kept |
-| cpp | 33_r2_digit_separator.cc | g2o04 |  | kept | CONTRADICTED |  | drops | kept |
-| cpp | 34_r2_control_unbalanced.cc | g2o07 |  | kept | XOFF |  | drops | no_basis |
+| cpp | 27_r2_listed_name_shim.cc | g2s07 |  | kept | CONFIRMED |  | keeps | guide |
+| cpp | 29_r2_enclosing.cc | g2o01 |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 30_r2_enclosing_variadic.cc | g2o01k |  | pruned | CONFIRMED |  | keeps | guide |
+| cpp | 31_r2_enclosing_file_scope.cc | g2o01b |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 32_r2_strip_parenthesis.cc | g2o02 |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 33_r2_digit_separator.cc | g2o03 |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 33_r2_digit_separator.cc | g2o04 |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 34_r2_control_unbalanced.cc | g2o07 |  | kept | XOFF |  | keeps | no_basis |
+| cpp | 35_v2_bodysplit.cc | bs1 |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 36_v2_bodyfwd.cc | bf1 |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 37_v2_deferred.cc | df1 |  | kept | CONTRADICTED |  | keeps | kept |
+| cpp | 38_v2_shield_nested.cc | sn1 |  | kept | CONTRADICTED |  | keeps | kept |
 
 ### Pair rows by test
 
@@ -209,11 +218,10 @@ Minimal member of each key (effect classes, site family, owner kind) the bounded
 | boundary_g2_sol3_01_vfs_mapped_include | 2 | 0 | 2 | 0 | 0 | 0 |
 | boundary_g2_sol3_03_cxx20_header_unit_import | 1 | 0 | 0 | 0 | 0 | 1 |
 | boundary_g2_sonnet3_09_header_outside_the_repo_root | 4 | 0 | 4 | 0 | 0 | 0 |
-| boundary_g2_sonnet3_10_external_macro_supplies_the_split | 2 | 0 | 0 | 0 | 2 | 0 |
+| boundary_g2_sonnet3_10_external_macro_supplies_the_split | 2 | 0 | 1 | 0 | 1 | 0 |
 | boundary_g2_terra_02_computed_include_of_a_non_net_extension | 2 | 0 | 2 | 0 | 0 | 0 |
-| g2_sol2_03_control_exact_case_include | 1 | 1 | 0 | 0 | 0 | 0 |
+| g2_sol2_03_control_exact_case_include | 2 | 2 | 0 | 0 | 0 | 0 |
 | g2_sol2_04_companion_net_file_is_collected_without_an_include | 2 | 2 | 0 | 0 | 0 | 0 |
-| g2_sol2_relative_literal_include_control | 1 | 1 | 0 | 0 | 0 | 0 |
 | g2_sonnet_04_real_block_macro_excerpts_as_a_census_text | 16 | 16 | 0 | 0 | 0 | 0 |
 | g2_sonnet_04_real_block_macro_excerpts_in_a_parsed_header | 16 | 16 | 0 | 0 | 0 | 0 |
 | g2_terra_03_computed_include_of_a_net_file | 2 | 2 | 0 | 0 | 0 | 0 |
@@ -225,7 +233,7 @@ Minimal member of each key (effect classes, site family, owner kind) the bounded
 | g_sol_14_transitive_non_c_include_keeps_the_pairs | 4 | 4 | 0 | 0 | 0 | 0 |
 | g_terra_01_alias_chain_across_two_headers | 2 | 0 | 0 | 0 | 2 | 0 |
 | g_terra_01_wrapper_in_a_census_text_c_and_cpp | 4 | 2 | 0 | 2 | 0 | 0 |
-| g_terra_01_wrapper_in_a_header_c_and_cpp | 4 | 0 | 1 | 2 | 1 | 0 |
+| g_terra_01_wrapper_in_a_header_c_and_cpp | 4 | 0 | 0 | 2 | 2 | 0 |
 | g_terra_10_spliced_name_from_a_header_with_lf_and_crlf | 4 | 4 | 0 | 0 | 0 | 0 |
 | g_terra_14_quoted_and_angle_transitive_includes | 8 | 8 | 0 | 0 | 0 | 0 |
 | mf1_control_without_defines_prunes | 1 | 0 | 0 | 1 | 0 | 0 |
@@ -236,7 +244,7 @@ Minimal member of each key (effect classes, site family, owner kind) the bounded
 | mf3_one_of_two_definitions_in_two_files | 1 | 0 | 0 | 0 | 0 | 1 |
 | mf4_the_issue_files | 1 | 1 | 0 | 0 | 0 | 0 |
 | row_g2_opus3_01_lambda_local_class_method_in_a_clean_parse | 1 | 1 | 0 | 0 | 0 | 0 |
-| row_g2_opus3_01_variadic_control_prunes | 1 | 0 | 0 | 1 | 0 | 0 |
+| row_g2_opus3_01_variadic_control_prunes | 1 | 0 | 0 | 0 | 1 | 0 |
 | row_g2_opus3_01b_lambda_inside_a_function_inner_owner_edge | 1 | 1 | 0 | 0 | 0 | 0 |
 | row_g2_opus3_01c_gnu_nested_function_inner_owner_edge | 1 | 1 | 0 | 0 | 0 | 0 |
 | row_g2_opus3_02_a_macro_drops_the_overwriting_piece_c | 1 | 1 | 0 | 0 | 0 | 0 |
@@ -276,16 +284,46 @@ Minimal member of each key (effect classes, site family, owner kind) the bounded
 | row_g2_terra3_01_string_comment_introducer_then_a_real_brace | 4 | 4 | 0 | 0 | 0 | 0 |
 | row_g2_terra3_02_comma_between_comment_parentheses_after_a_string | 4 | 4 | 0 | 0 | 0 | 0 |
 | row_g2_terra3_02_control_without_the_comma_prunes | 2 | 0 | 0 | 0 | 0 | 2 |
+| row_v2_aspan3_pinned | 1 | 0 | 1 | 0 | 0 | 0 |
+| row_v2_aspan_c | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_aspan_cc | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_aspan_control_spelled_after | 1 | 0 | 0 | 0 | 1 | 0 |
+| row_v2_aspan_sib | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_body_alias_c | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_body_alias_cc | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_body_erase | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_body_identity | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_erase | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_erase_alias1 | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_erase_alias2 | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_external_alias_c | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_external_alias_cc | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_external_identity | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_external_identity_fn | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_external_identity_insert | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_fn_empty | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_known_alias | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_known_chain | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_known_empty | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_astra_vaopt_chain | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_control_external_insert_parens | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_control_insert_parens | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_control_named_variadic | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_hull2_c | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_hull2_cc | 1 | 1 | 0 | 0 | 0 | 0 |
+| row_v2_parser_conditional_block | 1 | 0 | 0 | 0 | 1 | 0 |
+| row_v2_parser_conditional_direct | 1 | 0 | 0 | 0 | 1 | 0 |
+| row_v2_tight_call_admitted | 1 | 0 | 0 | 0 | 1 | 0 |
 
 ### Hand expectation against the oracle
 
-- hand `kept`, now **guide**: 68 rows
-  boundary_g2_opus3_10_external_enclosing_macro, boundary_g2_sonnet3_10_external_macro_supplies_the_split, c:20/b12, c:20/b13, c:20/b6, c:20/b8, c:21/a3, c:21/a4, c:21/a5, c:21/a6, c:22/w1, c:22/w2, c:22/w3, c:22/w4, c:22/w5, c:22/w7, c:22/w8, c:25/g2o06, c:25/g2t01, c:26/g2s01, c:26/g2s01a, c:26/g2s01b, c:26/g2s01c, c:26/g2s01d, c:26/g2s02, c:26/g2s03a, c:26/g2s03b, c:26/g2s03c, c:26/g2s03d, c:26/g2s03e1, c:26/g2s03e2, c:28/g2s07, cpp:21/y2, cpp:22/w1, cpp:22/w2, cpp:22/w3, cpp:22/w4, cpp:23/y10, cpp:23/y5, cpp:23/y6, cpp:23/y7, cpp:23/y8, cpp:23/y9, cpp:25/g2o06, cpp:25/g2t01, cpp:26/g2s01, cpp:26/g2s02, cpp:27/g2s07, g_sol_01_every_listed_name_keeps_the_pair_through_wrappers, g_sol_01_every_listed_name_keeps_the_pair_when_spelled_directly, g_terra_01_alias_chain_across_two_headers, g_terra_01_wrapper_in_a_header_c_and_cpp, row_g2_sonnet3_07_alias_chain_split_across_headers, row_g2_sonnet3_07_alias_chain_to_a_listed_name
+- hand `kept`, now **guide**: 70 rows
+  boundary_g2_opus3_10_external_enclosing_macro, boundary_g2_sonnet3_10_external_macro_supplies_the_split, c:20/b12, c:20/b13, c:20/b6, c:20/b8, c:21/a3, c:21/a4, c:21/a5, c:21/a6, c:22/w1, c:22/w2, c:22/w3, c:22/w4, c:22/w5, c:22/w7, c:22/w8, c:25/g2o06, c:25/g2t01, c:26/g2s01, c:26/g2s01a, c:26/g2s01b, c:26/g2s01c, c:26/g2s01d, c:26/g2s02, c:26/g2s03a, c:26/g2s03b, c:26/g2s03c, c:26/g2s03d, c:26/g2s03e1, c:26/g2s03e2, c:28/g2s07, c:33/g2o03, cpp:21/y2, cpp:22/w1, cpp:22/w2, cpp:22/w3, cpp:22/w4, cpp:23/y10, cpp:23/y5, cpp:23/y6, cpp:23/y7, cpp:23/y8, cpp:23/y9, cpp:25/g2o06, cpp:25/g2t01, cpp:26/g2s01, cpp:26/g2s02, cpp:27/g2s07, g_sol_01_every_listed_name_keeps_the_pair_through_wrappers, g_sol_01_every_listed_name_keeps_the_pair_when_spelled_directly, g_terra_01_alias_chain_across_two_headers, g_terra_01_wrapper_in_a_header_c_and_cpp, row_g2_sonnet3_07_alias_chain_split_across_headers, row_g2_sonnet3_07_alias_chain_to_a_listed_name, row_v2_parser_conditional_direct
 - hand `kept`, now **no_basis**: 106 rows
 - hand `kept`, now **pinned_hole**: 23 rows
-  boundary_g2_opus3_11_include_differs_in_unicode_normalization, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file, boundary_g2_sol2_02_parent_after_a_directory_symlink, boundary_g2_sol2_03_include_name_differs_in_case, boundary_g2_sol2_04_header_injected_by_the_build, boundary_g2_sol3_01_vfs_mapped_include, boundary_g2_sonnet3_09_header_outside_the_repo_root, boundary_g2_terra_02_computed_include_of_a_non_net_extension, c:33/g2o03, g_terra_01_wrapper_in_a_header_c_and_cpp, row_g2_opus3_12_include_of_a_file_under_eval_secbench, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path
+  boundary_g2_opus3_11_include_differs_in_unicode_normalization, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file, boundary_g2_sol2_02_parent_after_a_directory_symlink, boundary_g2_sol2_03_include_name_differs_in_case, boundary_g2_sol2_04_header_injected_by_the_build, boundary_g2_sol3_01_vfs_mapped_include, boundary_g2_sonnet3_09_header_outside_the_repo_root, boundary_g2_sonnet3_10_external_macro_supplies_the_split, boundary_g2_terra_02_computed_include_of_a_non_net_extension, row_g2_opus3_12_include_of_a_file_under_eval_secbench, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path, row_v2_aspan3_pinned
 - hand `kept`, now **dropped**: 0 rows
-- hand controls (`pruned`): 40 rows -> {'dropped': 15, 'no_basis': 6, 'guide': 19}
+- hand controls (`pruned`): 44 rows -> {'dropped': 14, 'no_basis': 6, 'guide': 24}
 - hand control but the oracle says must-keep: 1 rows
 
 <!-- END GENERATED -->

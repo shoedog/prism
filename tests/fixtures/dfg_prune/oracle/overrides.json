@@ -1,5 +1,9 @@
 {
   "20_macro_brackets.cc:x2": {"assert": "kept", "receipt": "paren macros move a declaration scope (C++ owner)"},
   "20_macro_brackets.cc:x3": {"assert": "kept", "receipt": "unbalanced macro makes the write conditional (C++ owner)"},
-  "20_macro_brackets.cc:x4": {"assert": "kept", "receipt": "template owner spells an unbalanced macro"}
+  "20_macro_brackets.cc:x4": {"assert": "kept", "receipt": "template owner spells an unbalanced macro"},
+  "8cc735520d644895": {"assert": "kept", "receipt": "hidden opener at file scope (aspan)"},
+  "53d9f7dae8941452": {"assert": "kept", "receipt": "hidden opener, C++ owner (aspan twin)"},
+  "9421640ab9dc0218": {"assert": "kept", "receipt": "hidden opener inside a sibling owner (aspan_sib)"},
+  "0e0ea1fcc1aebc60": {"assert": "pinned_hole", "assumption": "A-span", "receipt": "opener in an included header (aspan3, A-span pinned)"}
 }

@@ -25,6 +25,10 @@ import subprocess
 
 PRISM = os.environ.get("PRISM", os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "../../target/release/prism"))
+# `PRISM_HEAD`: the binary whose own drops a row records (`head_drops`) when the verdicts are
+# made with another one (`PRISM`, the gate-free base): after the #829 gates exist, the head
+# binary refuses owners of the expanded text too (XOFF), so verdicts must come from the base.
+PRISM_HEAD = os.environ.get("PRISM_HEAD")
 # A trigraph on a directive line makes the C macro census `incomplete`: U and D are off
 # repo-wide, which gives the baseline without any code change. Spelled in two pieces so this
 # file itself never holds a directive-looking line.
@@ -267,6 +271,10 @@ class Arms:
             f.write(POISON)
         self.PT = run_prism(self.T, "T", work)
         self.BT = run_prism(self.Tb, "Tb", work)
+        self.PTh = self.BTh = None
+        if PRISM_HEAD:
+            self.PTh = run_prism(self.T, "Th", work, prism=PRISM_HEAD)
+            self.BTh = run_prism(self.Tb, "Tbh", work, prism=PRISM_HEAD)
 
     def expansion(self, tag, flags, prelude):
         """X and Xb for a configuration -> (PX, BX, notes). `prelude` is {name: text} placed
@@ -334,7 +342,8 @@ def verdict(arms, px, bx, notes, file, path, a, b):
 
 
 def head_drops(arms, file, path, a, b):
-    return agg(arms.PT[0], file, path, a, b) < agg(arms.BT[0], file, path, a, b)
+    pt, bt = (arms.PTh, arms.BTh) if arms.PTh else (arms.PT, arms.BT)
+    return agg(pt[0], file, path, a, b) < agg(bt[0], file, path, a, b)
 
 
 def inputs_gap(files, opened):

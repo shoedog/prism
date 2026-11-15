@@ -36,6 +36,14 @@ pub(super) struct Declared {
     pub flags: Vec<String>,
     /// `(file name, contents)` of headers the declared configuration provides outside the repo.
     pub prelude: Vec<(String, String)>,
+    /// #829 PLAN-v2 task 1a: the prelude is an ORACLE prelude of an in-model row (an external
+    /// identity or alias macro under the written A-ext properties): the declared run is the
+    /// row's truth, never a BOUNDARY flip, so no assumption waives the row.
+    pub in_model: bool,
+    /// #829 PLAN-v2 task 1: the translation unit the row's program is compiled as (`unity.c`).
+    /// When the pair's file is another file the oracle cannot judge it alone (UNJUDGED,
+    /// `target-not-a-translation-unit`), and a runtime receipt decides.
+    pub tu: Option<String>,
 }
 
 struct RowCtx {
@@ -147,6 +155,33 @@ pub(super) fn declare(assumption: &'static str, flags: &[&str], prelude: &[(&str
             .iter()
             .map(|(n, c)| (n.to_string(), c.to_string()))
             .collect(),
+        ..Declared::default()
+    };
+    DECL.with(|c| *c.borrow_mut() = Some(d));
+}
+
+/// Declares the oracle prelude of the NEXT judged row as part of the row's model (`-I{PRELUDE}`
+/// names the headers outside the repository): the declared run is the truth and the row is
+/// never a BOUNDARY row.
+pub(super) fn declare_in_model(prelude: &[(&str, &str)]) {
+    let d = Declared {
+        flags: vec!["-I{PRELUDE}".to_owned()],
+        prelude: prelude
+            .iter()
+            .map(|(n, c)| (n.to_string(), c.to_string()))
+            .collect(),
+        in_model: true,
+        ..Declared::default()
+    };
+    DECL.with(|c| *c.borrow_mut() = Some(d));
+}
+
+/// Declares the translation unit of the NEXT judged row (a multi-file row whose pair lies in a
+/// file the program includes: `unity.c`).
+pub(super) fn declare_tu(tu: &str) {
+    let d = Declared {
+        tu: Some(tu.to_owned()),
+        ..Declared::default()
     };
     DECL.with(|c| *c.borrow_mut() = Some(d));
 }
@@ -182,8 +217,10 @@ fn fnv(h: &mut u64, bytes: &[u8]) {
 }
 
 impl RowCtx {
-    /// Content key: every file, link and the pair; the declared configuration is metadata.
-    fn key(&self) -> String {
+    /// Content key: every file, link and the pair; the declared configuration is metadata,
+    /// except an in-model oracle prelude and a translation unit: rows that differ only in the
+    /// outside header (the erasure family of PLAN-v2 task 1a) are different rows.
+    fn key(&self, decl: Option<&Declared>) -> String {
         let mut h = 0xcbf29ce484222325u64;
         for (n, c) in &self.files {
             fnv(&mut h, n.as_bytes());
@@ -205,6 +242,17 @@ impl RowCtx {
             self.to
         );
         fnv(&mut h, pair.as_bytes());
+        if let Some(d) = decl {
+            if d.in_model {
+                for (n, c) in &d.prelude {
+                    fnv(&mut h, n.as_bytes());
+                    fnv(&mut h, c.as_bytes());
+                }
+            }
+            if let Some(tu) = &d.tu {
+                fnv(&mut h, tu.as_bytes());
+            }
+        }
         format!("{h:016x}")
     }
 }
@@ -223,14 +271,20 @@ fn policy_table() -> &'static HashMap<String, serde_json::Value> {
     })
 }
 
-fn export(dir: &std::ffi::OsStr, ctx: &RowCtx, what: &str, want: Want, ba: (bool, bool)) {
+fn export(
+    dir: &std::ffi::OsStr,
+    ctx: &RowCtx,
+    decl: Option<Declared>,
+    what: &str,
+    want: Want,
+    ba: (bool, bool),
+) {
     use std::fs;
-    let key = ctx.key();
+    let key = ctx.key(decl.as_ref());
     let root = Path::new(dir).join("rows").join(&key);
     if root.join("row.json").exists() {
         return;
     }
-    let decl = DECL.with(|c| c.borrow().clone());
     for (n, c) in &ctx.files {
         let p = root.join("f").join(n);
         if let Some(parent) = p.parent() {
@@ -255,6 +309,7 @@ fn export(dir: &std::ffi::OsStr, ctx: &RowCtx, what: &str, want: Want, ba: (bool
         "head_after": ba.1,
         "declared": decl.map(|d| serde_json::json!({
             "assumption": d.assumption, "flags": d.flags, "prelude": d.prelude,
+            "in_model": d.in_model, "tu": d.tu,
         })),
     });
     let _ = fs::create_dir_all(&root);
@@ -271,12 +326,11 @@ pub(super) fn judge(what: &str, want: Want, (before, after): (bool, bool)) -> Re
     let ctx = LAST
         .with(|l| l.borrow_mut().take())
         .expect("a pair row must record its inputs (pair_in / loader_pair) before judging");
+    let decl = DECL.with(|c| c.borrow_mut().take());
     if let Some(dir) = std::env::var_os("PRISM_829_EXPORT_DIR") {
-        export(&dir, &ctx, what, want, (before, after));
-        DECL.with(|c| *c.borrow_mut() = None);
+        export(&dir, &ctx, decl, what, want, (before, after));
         return Ok(());
     }
-    DECL.with(|c| *c.borrow_mut() = None);
     let pair = format!(
         "{}@{} -> {}@{} (owner {:?})",
         ctx.path, ctx.from, ctx.path, ctx.to, ctx.owner
@@ -286,7 +340,7 @@ pub(super) fn judge(what: &str, want: Want, (before, after): (bool, bool)) -> Re
         "{what}: inadmissible, the baseline has no {pair} ({:?})",
         ctx.target
     );
-    let key = ctx.key();
+    let key = ctx.key(decl.as_ref());
     let Some(row) = policy_table().get(&key) else {
         return Err(format!(
             "{what}: unlabeled row {key}: run `python3 scripts/dfg_prune/xarm.py label` \
@@ -477,7 +531,7 @@ mod tests {
     fn the_key_depends_on_content_and_pair() {
         let mk = |body: &str, from: usize| {
             record_files(&[("a.c", body)], &[], "a.c", Some("f"), "x", from, 9);
-            LAST.with(|l| l.borrow_mut().take().unwrap().key())
+            LAST.with(|l| l.borrow_mut().take().unwrap().key(None))
         };
         assert_eq!(mk("int x;", 5), mk("int x;", 5));
         assert_ne!(mk("int x;", 5), mk("int y;", 5));

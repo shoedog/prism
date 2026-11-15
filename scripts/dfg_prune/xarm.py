@@ -136,7 +136,7 @@ def auto_config(files, owner=None):
 
 def merge(*cfgs):
     out = {"flags": [], "prelude": {}, "assumption": None, "texts": [], "missing": [],
-           "declared": False}
+           "declared": False, "in_model": False}
     for c in cfgs:
         if not c:
             continue
@@ -146,6 +146,7 @@ def merge(*cfgs):
         out["missing"] += c.get("missing", [])
         out["assumption"] = out["assumption"] or c.get("assumption")
         out["declared"] = out["declared"] or c.get("declared", False)
+        out["in_model"] = out["in_model"] or c.get("in_model", False)
     return out
 
 
@@ -164,7 +165,9 @@ def judge_pair(arms, repo_x, decl_x, cfg, file, path, a, b, files):
         v1, d1 = v0, d0
     opened = (decl_x or repo_x)[2]["opened"]
     gap = core.inputs_gap(files, opened)
-    flip = bool(decl_x) and v0 != v1 and v1 == "CONTRADICTED"
+    # an in-model row (PLAN-v2 task 1a) declares its outside header as the ORACLE prelude only:
+    # the declared run is the row's truth and never a BOUNDARY flip (no assumption waives it)
+    flip = bool(decl_x) and v0 != v1 and v1 == "CONTRADICTED" and not cfg.get("in_model")
     assumption = cfg["assumption"]
     if gap:
         assumption = "A-inputs"
@@ -283,9 +286,24 @@ def label_pair_rows(export, jobs, work):
             decl = row.get("declared") or {}
             tcfg = {"flags": [x for t in row["texts"] for x in ("-include", t)],
                     "texts": list(row["texts"]), "assumption": "A-inputs" if row["texts"] else None}
+            tu = decl.get("tu")
+            if tu and row["target"] != tu:
+                # The file is never compiled alone (only the translation unit `tu` includes it):
+                # judging it alone has no basis. A runtime receipt decides (overrides.json).
+                rec = {k: row[k] for k in ("key", "test", "what", "want", "target", "owner",
+                                           "path", "from", "to", "files")}
+                rec.update({"seen_input": False, "oracle": "UNJUDGED", "oracle_repo": "UNJUDGED",
+                            "oracle_declared": None, "boundary": False, "inputs_gap": [],
+                            "assumption": None, "config": None, "tu": tu,
+                            "basis": "repo: UNJUDGED target-not-a-translation-unit (tu %s); "
+                                     "declared: UNJUDGED" % tu,
+                            "head_drops": bool(row["head_before"] and not row["head_after"])})
+                out.append(rec)
+                continue
             dcfg = {"flags": decl.get("flags", []),
                     "prelude": {n: c for n, c in decl.get("prelude", [])},
-                    "assumption": decl.get("assumption"), "declared": bool(decl)}
+                    "assumption": decl.get("assumption"), "declared": bool(decl),
+                    "in_model": bool(decl.get("in_model"))}
             orph = [o for o in orphan_headers(row["_files"], row["links"], os.path.join(work, "_o" + row["key"]))
                     if o not in row["texts"]]
             ocfg = {"flags": [x for o in orph for x in ("-include", o)], "texts": orph,
@@ -310,7 +328,7 @@ def obligation_rows():
     for lang, sub in (("c", "c"), ("cpp", "cpp")):
         for line in open(os.path.join(FIX, sub, "obligations.jsonl")):
             r = json.loads(line)
-            if re.match(r"^[23]\d_", r["case"]):
+            if re.match(r"^[2-4]\d_", r["case"]):
                 r["_lang"] = lang
                 rows.append(r)
     return rows
@@ -404,6 +422,8 @@ def derive(pair_rows, inline_rows):
         if ov and v in ("UNJUDGED", "XOFF"):
             a = ov["assert"]
             r["basis"] = "receipt: %s (oracle %s: %s)" % (ov["receipt"], v, r["basis"])
+            if ov.get("assumption"):
+                r["assumption"] = ov["assumption"]
         r["assert"] = a
         r["validity_control"] = False
     # a control guards test validity when a must-keep row of the same module and pair holds at
@@ -414,7 +434,11 @@ def derive(pair_rows, inline_rows):
         if r["assert"] == "kept":
             kept_rows[pair_id(r)].append(set(r["files"]))
     for r in pair_rows:
+        # A control is asserted only while head drops its pair: once an owner is refused (a
+        # recall cost the design accepts) the twin's red-for-the-right-reason argument is moot
+        # and the control stays a guide (#829 task 9.2).
         if r["want"] == "pruned" and r["assert"] == "guide" and r["oracle"] == "CONFIRMED" \
+                and r.get("head_drops") \
                 and any(set(r["files"]) <= k for k in kept_rows.get(pair_id(r), [])):
             r["assert"], r["validity_control"] = "dropped", True
 

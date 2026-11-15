@@ -34,6 +34,8 @@ mod c_prune_brackets_r3_support;
 #[cfg(test)]
 mod c_prune_brackets_tests;
 #[cfg(test)]
+mod c_prune_brackets_v2_tests;
+#[cfg(test)]
 mod c_prune_fold2_tests;
 #[cfg(test)]
 mod c_prune_fold7_tests;

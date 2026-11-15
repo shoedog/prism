@@ -51,17 +51,42 @@ only because the post-expansion text mis-parses in tree-sitter (UNJUDGED `no-pai
 XOFF `G1Error`, e.g. cpp rows x2 to x4 of `20_macro_brackets.cc`, where `for (; int *x = nullptr;)`
 is mis-read), a runtime receipt (`xarm_receipts.py`, the program's own driver exits 0 exactly when
 the pair is live) outranks the verdict and sets `assert: kept` with `basis: receipt`. A receipt
-never outranks CONFIRMED or CONTRADICTED.
+never outranks CONFIRMED or CONTRADICTED. An override may also carry an `assumption` (the
+pinned `aspan3` row: `assert: pinned_hole`, `assumption: A-span`).
+
+Translation units (`tu`). A multi-file row may declare the translation unit its program is
+compiled as (`declare_tu("unity.c")` in the Rust row: the hidden-opener rows `aspan`, its C++
+twin, `aspan_sib` and `aspan3`, where `unity.c` includes `defs.h` and `impl.c` and holds the
+closing `)`). The X arm replaces each file by its own post-expansion tokens, lexed as the main
+file, so `impl.c` alone never sees `defs.h` and the expansion equals the source: the verdict
+would describe a compilation that never happens. When the pair's file is not the `tu`, `label`
+records UNJUDGED `target-not-a-translation-unit` and a runtime receipt decides
+(`xarm_receipts.py`: `unity` returns 42 exactly when the first def of `x` is live).
+
+In-model oracle preludes (`declare_in_model`). A row whose program includes an outside header
+(`#include <external829.h>`, the review-repair rows `erase`, `external_identity`, `body_alias_c`,
+..., PLAN-v2 task 1a) names the header as the ORACLE prelude (`-I{PRELUDE}`); it never enters the
+indexed repository or the census. The declared run is the row's truth: the row is never a BOUNDARY
+row and no assumption waives it (an empty or identity external macro is inside the model, an
+external alias to a known function-like macro is a must-keep row too). The prelude is part of the
+row key.
+
+Two binaries. After the #829 gates exist the head binary refuses owners of the expanded (macro
+free) text as well (XOFF), which would erase must-keep rows from the oracle. So `label` runs with
+`PRISM=<gate-free base binary>` for every verdict and `PRISM_HEAD=<head binary>` for the
+`head_drops` of the inline rows (pair rows record the in-test head result). A validity control
+(`dropped`) is asserted only while head drops its pair.
 
 ## Workflow
 
 ```bash
 cargo build --release                       # xarm uses target/release/prism (or $PRISM)
-export PRISM_829_EXPORT_DIR=/tmp/xarm-export # fresh directory
+export PRISM_829_EXPORT_DIR=/tmp/xarm-export # fresh directory (PRISM_HEAD names the head binary)
 cargo test -p prism --lib -- c_prune_brackets                      # pair rows -> <dir>/rows/<key>/
 cargo test -p prism --lib -- export_inline_cases --ignored         # inline cases -> <dir>/inline/
 unset PRISM_829_EXPORT_DIR
-python3 scripts/dfg_prune/xarm.py label /tmp/xarm-export --jobs 6 --work /tmp/xarm-work
+PRISM=<base binary> PRISM_HEAD=target/release/prism \
+  python3 scripts/dfg_prune/xarm.py label /tmp/xarm-export --jobs 6 --work /tmp/xarm-work
 python3 tests/fixtures/dfg_prune/c/gen_obligations.py              # merges the inline rows
 python3 tests/fixtures/dfg_prune/cpp/gen_obligations.py
 python3 scripts/dfg_prune/xarm_receipts.py build /tmp/xarm-export   # optional
@@ -111,6 +136,19 @@ oracle in batches of 400 programs per repository (names carry a per-program suff
 census is `Incomplete` is bisected). Verdicts: `CONTRADICTED` needs head to drop the pair (T below
 Tb) and the compiler's tokens to keep it with the owner on; `NODROP` (head keeps it already),
 `CONFIRMED`, `XOFF`, `UNJUDGED`, `INCOMPLETE` are not findings.
+
+Family `nest` (PLAN-v2 task 2, `--families nest`, enumerated exhaustively, no `--sample`): two use sites `A;` and `B;`
+around `x = 2;` (statement or guard), inner macros `K(p, q)` and `K2(p, q)` whose bodies come
+from `NEST_K`, and outer object-like macros `A`, `B` of five forms over the inner macro and a
+third macro `N`/`N2` whose body is a sequence of `NEST_A` fragments: `K(<frags>)`, `ID(K <N>)`,
+`K(<N>)`, `one(K(<frags>))`, `ID(one(<N>))` (`ID(p) p`, `one` a declared function). The four
+slots (K body, K2 body, A slot, B slot) hold at most BOUND fragments in total. The key carries the
+site and form (`stmt_f1`..`guard_f5`) and the classes `NEST_HELD` (a comma held by braces inside
+the inner group), `NEST_FWD` (an `N` body with a loose comma) and `NEST_SHIELD` (the group sits
+inside `one(..)`). The prefilter is skipped for it (it cannot see through a two-parameter inner
+macro). Fragments are composite (a held-comma block, a tight group, a statement expression are one
+fragment): the first run over atomic fragments compiled 228 of 550,920 programs and none was
+contradicted, since a nested hazard needs five or more atomic fragments.
 
 KEY = (effect classes, site family + macro kind, owner kind). Effect classes of the macro bodies:
 `BR_UNBAL` (brackets that do not nest within the body), `BR_BAL`, `ARGSPLIT` (a comma outside
