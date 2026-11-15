@@ -186,10 +186,17 @@ pub(super) fn declare_tu(tu: &str) {
     DECL.with(|c| *c.borrow_mut() = Some(d));
 }
 
-/// `bytes` with every occurrence of each root spelling replaced by `<ROOT>`.
+/// `bytes` with every occurrence of each root spelling replaced by `<ROOT>`. The LONGEST root is
+/// replaced first: one spelling can contain another (macOS `/var/folders/..` inside its canonical
+/// `/private/var/folders/..`), and the shorter one first would leave `/private<ROOT>` where a host
+/// whose root equals its canonical path (Linux) gets `<ROOT>`, so the same row would hash to two
+/// keys.
 fn unroot(bytes: &[u8], roots: &[String]) -> Vec<u8> {
+    let mut ordered: Vec<&String> = roots.iter().filter(|r| !r.is_empty()).collect();
+    ordered.sort_by_key(|r| std::cmp::Reverse(r.len()));
+    ordered.dedup();
     let mut out = bytes.to_vec();
-    for r in roots.iter().filter(|r| !r.is_empty()) {
+    for r in ordered {
         let needle = r.as_bytes();
         let mut i = 0;
         let mut next = Vec::with_capacity(out.len());
@@ -525,6 +532,19 @@ mod tests {
         let drop = serde_json::json!({"keep": false});
         assert!(judge_inline(&drop, &had, &owners(&[])).is_none());
         assert!(judge_inline(&drop, &had, &had).is_some());
+    }
+
+    /// Nested root spellings (a tempdir and its longer canonical path): the content hashes the
+    /// same whichever spelling the host's `roots` list holds first.
+    #[test]
+    fn unroot_replaces_the_longest_root_first() {
+        let content = b"#include \"/x/a/b/defs.payload\"\n";
+        let want = b"#include \"<ROOT>/defs.payload\"\n".to_vec();
+        let (short, long) = ("/a/b".to_owned(), "/x/a/b".to_owned());
+        assert_eq!(unroot(content, &[short.clone(), long.clone()]), want);
+        assert_eq!(unroot(content, &[long.clone(), short.clone()]), want);
+        // A host whose root equals its canonical path lists one spelling twice.
+        assert_eq!(unroot(content, &[long.clone(), long]), want);
     }
 
     #[test]
