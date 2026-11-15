@@ -79,11 +79,11 @@ def materialize(files, links, dest, rewrite_abs=True):
             pass
 
 
-def run_prism(repo, tag, out):
+def run_prism(repo, tag, out, prism=None):
     """-> (Counter of (file, path, from line, to line), {(file, owner start line): state})."""
     errp = os.path.join(out, tag + ".err")
     with open(errp, "w") as err:
-        p = subprocess.run([PRISM, "nav", "--no-cache", "dfg-stats", "--repo", repo, "--edges"],
+        p = subprocess.run([prism or PRISM, "nav", "--no-cache", "dfg-stats", "--repo", repo, "--edges"],
                            stdout=subprocess.PIPE, stderr=err, text=True, timeout=300,
                            env=dict(os.environ, PRISM_C_PRUNE_TRACE="1"))
     edges = collections.Counter()
@@ -119,14 +119,45 @@ def clang_cmd(src, flags, extra):
             + extra + (["-std=c++17"] if cxx else ["-std=gnu11"]) + flags + [src])
 
 
+# Builtins the compiler's headers substitute for a source spelling the rules read by name: the
+# expansion arm restores the spelling, so the X arm does not differ from the source in a way
+# no macro of the program caused (`offsetof(T, f)` is a keyword form for the rules, whose type
+# operand is no object name; `__builtin_offsetof(T, f)` is an ordinary call that makes `T` an
+# identifier of the file and trips the phantom-declaration gate). redis `dict.c` and
+# `ebuckets.c` gave 182 such contradictions in the consult.
+BUILTIN_SPELLING = {"__builtin_offsetof": "offsetof", "__builtin_va_start": "va_start",
+                    "__builtin_va_arg": "va_arg", "__builtin_va_end": "va_end",
+                    "__builtin_va_copy": "va_copy"}
+FALLTHROUGH = re.compile(r"__attribute__ \( \( (?:__)?fallthrough(?:__)? \) \) ;")
+RECORD_END = re.compile(rb"Loc=<.*>\s*$", re.S)
+
+
+def main_records(raw, src):
+    """The token records of `raw` (clang `-dump-tokens` stderr, bytes) located in `src`: a
+    record is the lines up to the one ending in `Loc=<...>` (a token may hold a newline).
+    Records of other files are dropped before any parsing, which is what keeps a translation
+    unit that includes a large standard library cheap."""
+    mark = b"Loc=<" + src.encode("utf-8", "replace") + b":"
+    cur = []
+    for line in raw.split(b"\n"):
+        cur.append(line)
+        if RECORD_END.search(line):
+            rec = b"\n".join(cur)
+            cur = []
+            if mark in rec or line.startswith(b"eof"):
+                yield rec.decode("utf-8", "replace")
+        elif len(cur) > 64:
+            cur = []
+
+
 def token_text(src, flags, cwd):
     """Macro-free text of `src` from clang's post-expansion token stream -> (rc, text, error)."""
     cmd = clang_cmd(src, flags, ["-Xclang", "-dump-tokens"])
-    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, timeout=300)
-    raw = p.stderr.decode("utf-8", "replace")
-    fatal = [l for l in raw.splitlines() if re.match(r"^[^\t']+:\d+:\d+: (fatal )?error:", l)]
+    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, timeout=900)
+    fatal = [l for l in p.stderr.decode("utf-8", "replace").splitlines()
+             if re.match(r"^[^\t']+:\d+:\d+: (fatal )?error:", l)]
     out, cur = {}, 1
-    for rec in re.split(r"(?<=>)\n", raw):
+    for rec in main_records(p.stderr, src):
         m = TOK.match(rec)
         if not m:
             continue
@@ -151,9 +182,14 @@ def token_text(src, flags, cwd):
             cur = line
         if text in ("<%", "%>", "<:", ":>", "%:", "%:%:"):
             text = CANON.get(kind, text)
+        text = BUILTIN_SPELLING.get(text, text)
         out.setdefault(cur, []).append(text.replace("\\\n", "").replace("\n", " "))
     n = max(out) if out else 0
     body = "\n".join(" ".join(out.get(i, [])) for i in range(1, n + 1)) + "\n"
+    # `Py_FALLTHROUGH` and the like expand to an attribute statement, which tree-sitter-c does
+    # not parse inside a `switch` (an owner-wide G1Error in the X arm only). It has no data-flow
+    # meaning: a null statement stands in for it.
+    body = FALLTHROUGH.sub(";", body)
     return (1 if fatal else 0), body, (fatal[0] if fatal else "")
 
 

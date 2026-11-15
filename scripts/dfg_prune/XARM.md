@@ -79,18 +79,105 @@ Data (under `tests/fixtures/dfg_prune/oracle/`): `pair_rows.jsonl` (Rust-built r
 `receipts.jsonl`, `legacy_kinds.json`. The scripts live in `scripts/dfg_prune` (not under `tests/fixtures`, whose Python files the alias-twin receipt sweep parses); no data file has a C-like extension, and fixtures
 with macros stay Rust strings: the census of an index of the prism repository must not read them.
 
+## The generator (L2, `xgen.py`, offline, not CI)
+
+```bash
+python3 scripts/dfg_prune/xgen.py run --out DIR --bound 3 --jobs 8      # exhaustive at bound 3
+python3 scripts/dfg_prune/xgen.py run --out DIR2 --bound 4 --sample 150000 --seed 11
+python3 scripts/dfg_prune/xgen.py keys DIR [DIR2 ...]                    # keys and counts
+python3 scripts/dfg_prune/xgen.py freeze DIR [DIR2 ...] --out CANDS      # minimal member per key
+python3 scripts/dfg_prune/xgen.py verify CANDS --out tests/fixtures/dfg_prune/oracle/generated_rows.jsonl
+```
+
+A program is the guard-shaped owner `probe` (`int x = 41; <site 1> x = 2; <site 2> return x;`,
+pair `x@def -> x@return`) over: a site family (statement, guard, initializer, declarator,
+variadic argument, argument, and four enclosing-group forms: the group opened at file scope, in a
+sibling owner, in a declaration, closed in a following owner), an owner kind (C function, C++
+function, template, method, local-class method), a macro kind (object, `A()`, alias chain),
+macro bodies, a lexical variant (plain, splice between fragments, splice inside a token, comments
+holding brackets, CRLF) and a definition channel (same file, header, census text). Bodies are
+sequences of fragments (the three bracket kinds, digraphs, `,`, `;`, `if (c)`, `else`, `do`,
+`while (0)`, `for (;;)`, declarations, `x = 3`, `c`; the enclosing macro `M(p, q, r)` adds the
+parameters, `p;`, `q;` and small wrappers). BOUND K is the total number of body fragments over
+the (at most two) macros. Bound K is enumerated exhaustively for the plain same-file form; a
+larger bound is drawn at random with a fixed seed (`--sample`, `--seed`). The other lexical
+variants and channels are applied to up to `--var-per-key` minimal contradicted programs of every
+key and to a seeded sample (`--var-sample`) of the others.
+
+Pipeline: render, a necessary-condition prefilter (bracket nesting of `{` and `(` after expansion
+of the object macros and identity wrappers; `[` is ignored because clang accepts some
+unterminated `[[` forms), `clang -fsyntax-only` (only programs clang accepts count), then the
+oracle in batches of 400 programs per repository (names carry a per-program suffix; a batch whose
+census is `Incomplete` is bisected). Verdicts: `CONTRADICTED` needs head to drop the pair (T below
+Tb) and the compiler's tokens to keep it with the owner on; `NODROP` (head keeps it already),
+`CONFIRMED`, `XOFF`, `UNJUDGED`, `INCOMPLETE` are not findings.
+
+KEY = (effect classes, site family + macro kind, owner kind). Effect classes of the macro bodies:
+`BR_UNBAL` (brackets that do not nest within the body), `BR_BAL`, `ARGSPLIT` (a comma outside
+parentheses), `SEMI0` (a `;` outside every bracket: statement boundary, **tagged #831 and excluded
+from this lane's gate and from the frozen rows**), `CTRL` (a control fragment), `WRITE` (a body
+that writes or declares `x`), `PARAMS` (a parameter dropped, duplicated or reordered). A lexical
+or channel variant of a program whose key is already contradicted plain counts toward that key;
+a variant-only contradiction is a key of its own (suffixed with the variant). `freeze` writes the
+minimal member of every key (fewest fragments, plain and same file first) to
+`oracle/generated_rows.jsonl` (`source: generator`, `assert: kept`) after re-judging it alone with
+the full oracle (`xgen.py verify`; a candidate that is not CONTRADICTED alone, or whose census inputs gap is non-empty, is dropped and listed); the Rust tests `c_prune_generated_rows` (one per family) read
+them. The generator's own batches are not re-run in CI.
+
+Exit criterion 3 of TEST-FORM: bound k fully judged, and bound k+1 (or two further batches) adds
+no new key. The batches, their sizes and the keys they found are in `L3-BASE.md` (generator
+section).
+
+## L3 corpus tool (`xarm_l3.py`)
+
+```bash
+python3 scripts/dfg_prune/xarm_l3.py corpora
+python3 scripts/dfg_prune/xarm_l3.py sweep redis --out .scratch829/l3/redis --tag base
+python3 scripts/dfg_prune/xarm_l3.py compare .scratch829/l3/redis --base base --head fix
+python3 scripts/dfg_prune/xarm_l3.py parity-langs ~/code/bench-repos/click ... --base-bin B --head-bin H --out DIR
+python3 scripts/dfg_prune/xarm_l3.py cache-modes --repo ~/code/bench-repos/redis/src --prism BIN --out DIR
+```
+
+Corpora are read-only and are never built or run (`l3_corpora.json`: root, scope = the directories
+whose files are tokenized, flags, config files). The files the census reads are copied to
+`DIR/T` and `DIR/Tb` (plus the census-poison file), clang only lexes and preprocesses, outside
+headers that do not exist are stubbed empty (one `-M -MG` pass names them), every in-repo header
+directory goes on `-idirafter`. A corpus config file (cpython's `pyconfig.h`) is placed under
+`DIR/config`, never inside the corpus; its source path and sha256 are recorded in the summary.
+
+- D2 `sweep`: every pair the rules drop on the corpus (T below Tb) gets a verdict. The triage is
+  keyed by the X arm's refusal reason at the pair's use line (the `c-prune-use` trace of the X
+  run) for CONTRADICTED pairs, the owner's off reason for XOFF, and the cause for UNJUDGED
+  (tokenize failure, no pair in the expansion, out of scope). Two X-arm normalizations remove
+  oracle noise that no macro of the program caused: the source spelling of `offsetof`,
+  `va_start`, `va_arg`, `va_end` and `va_copy` is restored (the headers substitute
+  `__builtin_*`, which makes a type operand an identifier of the file in the X arm only), and
+  an expanded `__attribute__((fallthrough));` becomes `;` (tree-sitter-c does not parse it in a
+  `switch`). Known residual X-arm noise (XOFF `off:G1Error`, never CONTRADICTED): abseil's
+  `switch (0) case 0: default: ...` log and check macros, and `sizeof(struct { int : ...; })`
+  static assertions (`Py_ARRAY_LENGTH`), which tree-sitter does not parse.
+- D3 `compare`: owners that were on under the base binary and are off under the head, grouped by
+  the head's off reason; pairs the base drops and the head keeps (restored), grouped by the head's
+  reason and split by the base's verdict: CONFIRMED (pure recall cost), CONTRADICTED (a correct
+  restoration), XOFF, UNJUDGED. Run `sweep` once per binary into the same DIR (the expansion text
+  is shared), then `compare`.
+- D1 (same command): every edge of the base binary exists in the head's output with at least its
+  multiplicity (monotonicity); counts the edges the head adds.
+- D4 `parity-langs`: the edge-set digest of repositories of other languages is identical under
+  both binaries (and across two base runs: determinism). `cache-modes`: cold, full-hit, a source
+  edit and a header edit against the no-cache build of the same tree.
+- Self-test of `compare`: using the base `Tb` run as the head's `T` restores every dropped pair.
+
 ## Other commands
 
-- `xarm.py corpus REPO OUT [--flags ...]`: sweep a corpus. Every pair the rules drop on REPO is
-  judged against the expansion (missing includes stubbed empty, in-repo directories on `-idirafter`).
-  Output: verdict counts and `OUT/rows.tsv`. (L3 corpus differentials build on it.)
-- `xarm_receipts.py run`: compiles and runs 15 receipts (one per class): `owner(0)` returns the
-  first def's value, so the pair is live at run time. Not run in CI. Needs clang.
+- `xarm.py corpus ...` forwards to `xarm_l3.py` (the former sweep is its `sweep`).
+- `xarm_receipts.py run`: compiles and runs 18 receipts (the 15 classes plus the three cpp rows
+  x2 to x4 with their own drivers): `owner(0)` returns the first def's value, so the pair is live
+  at run time. Not run in CI. Needs clang.
 
 ## Limits (disclosed)
 
 One host configuration; code under other `#if` branches is unjudged. The lexer-only action does not
 expand header-unit imports or read UTF-16 files (those rows are `no_basis`). Edges from the CLI carry
 no owner, so a pair judged by the CLI is owner-blind (pair rows also carry the in-test, owner-aware
-head result; the two agreed on all 284 rows). The X arm trips the phantom-declaration gate on
-`__builtin_offsetof` (redis `dict.c`): oracle noise on corpora, not on these fixtures.
+head result; the two agreed on all 284 rows). The X arm restores the source spelling of `offsetof` and the `va_*` builtins (see L3).

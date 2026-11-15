@@ -3,7 +3,7 @@
 
   xarm.py label  EXPORT_DIR [--jobs N] [--work DIR]   label every exported row, write the data
   xarm.py derive                                      re-derive `assert` from stored verdicts
-  xarm.py corpus REPO OUT [--flags "<clang flags>"]    sweep a corpus (every dropped pair)
+  xarm.py corpus ...                                  L3 corpus differentials (xarm_l3.py)
 
 `label` reads the rows `PRISM_829_EXPORT_DIR` collected (pair rows built from Rust sources, plus
 the inline cases) and writes `tests/fixtures/dfg_prune/oracle/pair_rows.jsonl` and `inline_rows.jsonl`, which
@@ -452,44 +452,10 @@ def cmd_derive(a):
     print(dict(collections.Counter(r["assert"] for r in pr + ir)))
 
 
-def cmd_corpus(a):
-    """Sweep: every pair the rules drop on REPO, judged against the expansion of REPO."""
-    repo, out = os.path.realpath(a.repo), os.path.abspath(a.out)
-    os.makedirs(out, exist_ok=True)
-    files = {}
-    for dp, dn, fs in os.walk(repo):
-        dn[:] = [d for d in dn if d != ".git"]
-        for f in fs:
-            p = os.path.join(dp, f)
-            if os.path.islink(p):
-                continue
-            files[os.path.relpath(p, repo)] = open(p, "rb").read()
-    arms = core.Arms(out, files, {})
-    flags = a.flags.split()
-    px, bx, notes = arms.expansion("0", flags + corpus_includes(repo, files), {})
-    counts, rows = collections.Counter(), []
-    for d in arms.BT[0]:
-        if arms.PT[0][d] >= arms.BT[0][d]:
-            continue
-        v, why = core.verdict(arms, px, bx, notes, *d)
-        counts[v + (":" + why.split(":")[0] if why and v != "UNJUDGED" else "")] += 1
-        rows.append((v, d, why))
-    with open(os.path.join(out, "rows.tsv"), "w") as f:
-        for v, d, why in sorted(rows, key=str):
-            f.write("\t".join(map(str, (v,) + d + (why,))) + "\n")
-    print(json.dumps({"verdicts": counts, "failed": len(notes["failed"]),
-                      "stubbed": sorted(set(notes["stubbed"]))[:20]}, indent=1))
-
-
-def corpus_includes(repo, files):
-    """-idirafter every in-repo directory that holds a header (a bundled stdint.h must not
-    shadow the system one, which is what -I would do)."""
-    dirs = sorted({os.path.join(repo, os.path.dirname(r)) for r in files
-                   if r.endswith((".h", ".hpp", ".hh", ".inc"))}, key=len)
-    return [x for d in dirs for x in ("-idirafter", d)]
-
-
 def main():
+    if sys.argv[1:2] == ["corpus"]:
+        import xarm_l3  # L3 corpus differentials (XARM.md)
+        return xarm_l3.main(sys.argv[2:])
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     pl = sub.add_parser("label")
@@ -499,11 +465,6 @@ def main():
     pl.set_defaults(fn=cmd_label)
     pd = sub.add_parser("derive")
     pd.set_defaults(fn=cmd_derive)
-    pc = sub.add_parser("corpus")
-    pc.add_argument("repo")
-    pc.add_argument("out")
-    pc.add_argument("--flags", default="")
-    pc.set_defaults(fn=cmd_corpus)
     a = ap.parse_args()
     a.fn(a)
 
