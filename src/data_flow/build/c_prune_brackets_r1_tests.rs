@@ -4,7 +4,7 @@
 //! (chain B conversion: they used to assert a gate reason or edge totals). Written against the
 //! stubs: every keep row is red until the gates exist.
 use super::c_prune::{Off, BLOCK_MACROS};
-use super::c_prune_brackets_r3_support::{line_of, loader_pair, Batch};
+use super::c_prune_brackets_r3_support::{include_first, line_of, loader_pair, Batch};
 use super::c_prune_brackets_tests::{check_row, expect, verdicts};
 use crate::call_graph::c::macro_census::CMacroCensus;
 
@@ -146,9 +146,10 @@ const WRAP_DEFS_BALANCED: &str = "#define ENTER(h, p) ((void)(h))\n#define LEAVE
 fn g_terra_01_wrapper_in_a_header_c_and_cpp() {
     let mut b = Batch::new();
     for (owner, hdr) in [("a.c", "h.h"), ("a.cc", "h.hpp")] {
+        let src = include_first(WRAP_OWNER, hdr);
         b.kept(
             &format!("{owner}: the wrapper names a listed macro"),
-            &[(owner, WRAP_OWNER), (hdr, WRAP_DEFS)],
+            &[(owner, &src), (hdr, WRAP_DEFS)],
             owner,
             &[],
             Some("f"),
@@ -157,7 +158,7 @@ fn g_terra_01_wrapper_in_a_header_c_and_cpp() {
         );
         b.pruned(
             &format!("{owner}: control, a harmless wrapper"),
-            &[(owner, WRAP_OWNER), (hdr, WRAP_DEFS_BALANCED)],
+            &[(owner, &src), (hdr, WRAP_DEFS_BALANCED)],
             owner,
             &[],
             Some("f"),
@@ -199,10 +200,12 @@ fn g_terra_01_alias_chain_across_two_headers() {
     let owner = "int src(void);\nvoid sink(int);\nint cond;\nvoid f(void (*h)(void *)) {\n    int x = src();\n    if (cond) E2(h, 0);\n    x = 2;\n    L2(0);\n    sink(x + 1);\n}\n";
     let mut b = Batch::new();
     for (target, h1, h2) in [("a.c", "h1.h", "h2.h"), ("a.cc", "h1.hpp", "h2.hpp")] {
+        let src = include_first(owner, h2);
+        let second = format!("#include \"{h1}\"\n#define E2(h, p) E1(h, p)\n#define L2(p) L1(p)\n");
         let files = [
-            (target, owner),
+            (target, src.as_str()),
             (h1, "#define E1(h, p) pthread_cleanup_push(h, p)\n#define L1(p) pthread_cleanup_pop(p)\n"),
-            (h2, "#define E2(h, p) E1(h, p)\n#define L2(p) L1(p)\n"),
+            (h2, second.as_str()),
         ];
         b.kept(
             &format!("{target}: two hops across two headers"),
@@ -223,11 +226,12 @@ fn g_terra_01_alias_chain_across_two_headers() {
 fn g_sol_03_rescan_split_through_a_header() {
     // The live pair is `x = 41` (line 3) to `return x` (line 9).
     let owner = "int src(void);\nint f(int c) {\n    int x = 41;\n    int b = 0;\n    {\n        H(INIT);\n        x = 2;\n        J(INIT);\n        return x;\n    }\n}\n";
+    let owner = include_first(owner, "h.h");
     let defs = "#define F(p, q) q if (c) p\n#define G(p, q) q p\n#define H(p) F(p)\n#define J(p) G(p)\n#define INIT { int a, b; }\n";
     let mut b = Batch::new();
     b.kept(
         "INIT's brace-held comma",
-        &[("a.c", owner), ("h.h", defs)],
+        &[("a.c", &owner), ("h.h", defs)],
         "a.c",
         &[],
         Some("f"),
@@ -237,7 +241,7 @@ fn g_sol_03_rescan_split_through_a_header() {
     let tight = defs.replace("{ int a, b; }", "{ int a; }");
     b.pruned(
         "control: no comma in INIT",
-        &[("a.c", owner), ("h.h", &tight)],
+        &[("a.c", &owner), ("h.h", &tight)],
         "a.c",
         &[],
         Some("f"),
@@ -256,13 +260,14 @@ fn g_terra_10_spliced_name_from_a_header_with_lf_and_crlf() {
     let defs = "#define OP\\\nEN {\n#define CLOSE }\n";
     let mut b = Batch::new();
     for (target, hdr) in [("a.c", "h.h"), ("a.cc", "h.hpp")] {
+        let src = include_first(owner, hdr);
         for (what, d) in [
             ("lf", defs.to_owned()),
             ("crlf", defs.replace('\n', "\r\n")),
         ] {
             b.kept(
                 &format!("{target} {what}: spliced name"),
-                &[(target, owner), (hdr, &d)],
+                &[(target, &src), (hdr, &d)],
                 target,
                 &[],
                 Some("f"),

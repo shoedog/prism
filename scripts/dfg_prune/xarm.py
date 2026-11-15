@@ -69,7 +69,7 @@ PYCS = ("#define Py_BEGIN_CRITICAL_SECTION(op) { PyCriticalSection _py_cs; "
 # define itself: then that definition is the one in effect). The Python and PostgreSQL texts
 # are reproduced from the headers of the versions the fixtures name (approximate whitespace).
 GROUPS = [
-    (r"\bpthread_cleanup_(?:push|pop)", ["-include", "pthread.h"], {}, None),
+    (r"\bpthread_cleanup_(?:push|pop)", ["-include", "pthread.h"], {}, "pthread_cleanup_"),
     (r"\bPy_(?:BEGIN|END)_CRITICAL_SECTION", ["-include", "{PRELUDE}/pycs.h"],
      {"pycs.h": PYCS}, "Py_"),
     (r"\bPy_TRASHCAN", ["-include", "{PRELUDE}/pytrash.h"], {"pytrash.h": PYTRASH}, "Py_"),
@@ -204,11 +204,49 @@ def run_fixture(work, files, links, wants):
 HEADER_EXT = (".h", ".hh", ".hpp", ".hxx", ".inc")
 
 
-def orphan_headers(files):
-    """Header files no main file reaches through an include: the fixture author meant them to
-    be part of the translation unit (the census reads every in-repo header), so the compiler
-    gets them as forced includes."""
+def dynamic_reach(files, links, scratch):
+    """In-repo files clang opens (`-H`, missing outside headers stubbed) for the main files:
+    the include forms a regex cannot read (a computed `#include HEADER`) resolve here."""
+    root = os.path.realpath(os.path.join(scratch, "reach"))
+    core.materialize(files, links, root)
+    stubs = os.path.join(scratch, "reach_stubs")
+    shutil.rmtree(stubs, ignore_errors=True)
+    os.makedirs(stubs)
+    opened = set()
+    for rel in files:
+        if not rel.endswith(core.CEXT + core.CXXEXT):
+            continue
+        src = os.path.join(root, rel)
+        for _ in range(20):
+            cmd = core.clang_cmd(src, ["-I.", "-idirafter", stubs], ["-H"])
+            p = core.subprocess.run(cmd, stdout=core.subprocess.PIPE, stderr=core.subprocess.PIPE,
+                                    cwd=root, timeout=300)
+            err = p.stderr.decode("utf-8", "replace")
+            for line in err.splitlines():
+                m = re.match(r"^\.+ (.+)$", line)
+                if m:
+                    path = os.path.abspath(os.path.join(root, m.group(1)))
+                    if path.startswith(root + os.sep):
+                        opened.add(os.path.relpath(path, root))
+            m = re.search(r"fatal error: '([^']+)' file not found", err)
+            if not m:
+                break
+            sp = os.path.join(stubs, m.group(1))
+            os.makedirs(os.path.dirname(sp), exist_ok=True)
+            open(sp, "w").close()
+    return opened
+
+
+def orphan_headers(files, links=None, scratch=None):
+    """Header files no main file reaches through an include (by regex, or by what clang opens
+    when `scratch` is given): the fixture author meant them to be part of the translation unit
+    only when they model a forced include (the census reads every in-repo header, and a net
+    file of a C-like extension is collected without an include); the compiler then gets them
+    as forced includes. A header the fixture does not include is otherwise a defect of the
+    fixture (the owner file should include it)."""
     reach = set()
+    if scratch:
+        reach |= dynamic_reach(files, links or {}, scratch)
     todo = [r for r in files if r.endswith(core.CEXT + core.CXXEXT)]
     while todo:
         rel = todo.pop()
@@ -248,7 +286,8 @@ def label_pair_rows(export, jobs, work):
             dcfg = {"flags": decl.get("flags", []),
                     "prelude": {n: c for n, c in decl.get("prelude", [])},
                     "assumption": decl.get("assumption"), "declared": bool(decl)}
-            orph = [o for o in orphan_headers(row["_files"]) if o not in row["texts"]]
+            orph = [o for o in orphan_headers(row["_files"], row["links"], os.path.join(work, "_o" + row["key"]))
+                    if o not in row["texts"]]
             ocfg = {"flags": [x for o in orph for x in ("-include", o)], "texts": orph,
                     "assumption": "A-inputs" if orph else None}
             cfg = merge(tcfg, ocfg, dcfg, auto_config(row["_files"]))
@@ -322,11 +361,21 @@ NO_BASIS = {
 }
 
 
+def load_overrides():
+    """`oracle/overrides.json`: {"<case>:<id>" (inline row) or "<key>" (pair row): {"assert",
+    "receipt"}}. A runtime receipt (`xarm_receipts.py`) outranks an oracle verdict of UNJUDGED
+    or XOFF that an expansion mis-parse caused (tree-sitter reads the post-expansion text
+    wrongly, so the oracle's own parse fails); it never outranks CONFIRMED or CONTRADICTED."""
+    p = os.path.join(FIX, "oracle", "overrides.json")
+    return json.load(open(p)) if os.path.exists(p) else {}
+
+
 def derive(pair_rows, inline_rows):
     """Adds `assert` to every record (rules: XARM.md, 'Derived assertions')."""
     def pair_id(r):
         return (r["test"].rsplit("::", 1)[0], r["target"], r["owner"], r["path"], r["from"],
                 r["to"])
+    overrides = load_overrides()
     witness = {}
     for r in sorted(pair_rows + inline_rows, key=lambda r: r.get("key") or r["case"] + r["id"]):
         if r["boundary"] and r["head_drops"] and r["assumption"] not in (None, "A-inputs") \
@@ -351,6 +400,10 @@ def derive(pair_rows, inline_rows):
         if why:
             a = "no_basis"
             r["basis"] = "no truth basis by decision: " + why
+        ov = overrides.get(r["key"]) if "key" in r else overrides.get(r["case"] + ":" + r["id"])
+        if ov and v in ("UNJUDGED", "XOFF"):
+            a = ov["assert"]
+            r["basis"] = "receipt: %s (oracle %s: %s)" % (ov["receipt"], v, r["basis"])
         r["assert"] = a
         r["validity_control"] = False
     # a control guards test validity when a must-keep row of the same module and pair holds at

@@ -43,6 +43,34 @@ CLASSES = {
 }
 
 
+# Receipts of inline rows the oracle cannot judge (tree-sitter-cpp mis-parses the expansion of
+# `for (; int *x = nullptr;)`, or a G1Error follows from it) with the programs' own drivers: the
+# driver exits 0 exactly when the pair is live (the first def's value reaches the use).
+# class -> (override id, source). `oracle/overrides.json` names the receipt by class.
+CPP_BRACKET_DEFS = ("#define IF_BEGIN if (cond) {\n#define IF_END }\n#define OPEN for (\n"
+                    "#define CLOSE )\nint cond;\nstatic int sunk;\nint src() { return 41; }\n"
+                    "void sink(int v) { sunk = v; }\n")
+EXTRA = {
+    "unbalanced macro makes the write conditional (C++ owner)": (
+        "20_macro_brackets.cc:x3",
+        CPP_BRACKET_DEFS + "void cpp_brace_control() {\n    int x = src();\n    IF_BEGIN;\n"
+        "    x = 2;\n    IF_END;\n    sink(x + 1);\n}\n"
+        "int main(void) { cond = 0; cpp_brace_control(); return sunk == 42 ? 0 : 1; }\n"),
+    "template owner spells an unbalanced macro": (
+        "20_macro_brackets.cc:x4",
+        CPP_BRACKET_DEFS + "template <typename T>\nvoid cpp_template_owner(T t) {\n"
+        "    int x = src();\n    IF_BEGIN;\n    x = 2;\n    IF_END;\n    sink(x + 1);\n}\n"
+        "int main(void) { cond = 0; cpp_template_owner(0); return sunk == 42 ? 0 : 1; }\n"),
+    "paren macros move a declaration scope (C++ owner)": (
+        "20_macro_brackets.cc:x2",
+        "#define OPEN for (\n#define CLOSE )\n"
+        "struct S { int v; S& operator=(int i) { v = v * 10 + i; return *this; } };\n"
+        "int cpp_paren_scope(S x) {\n    OPEN; int* x = nullptr; CLOSE;\n    x = 5;\n"
+        "    x = 1;\n    return x.v;\n}\n"
+        "int main(void) { S s{4}; return cpp_paren_scope(s) == 451 ? 0 : 1; }\n"),
+}
+
+
 def includes_resolve(r):
     """Every quoted include of the target names a file of the row (or a forced include does)."""
     text = r["_files"][r["target"]].decode("latin-1")
@@ -78,6 +106,9 @@ def build(export):
                     "files": {n: d.decode("latin-1") for n, d in r["_files"].items()},
                     "flags": cfg.get("flags", []), "prelude": dict(decl.get("prelude", [])),
                     "links": r["links"]})
+    for cls, (oid, text) in EXTRA.items():
+        out.append({"class": cls, "key": "inline:" + oid, "target": "a.cc", "owner": "main",
+                    "files": {"a.cc": text}, "flags": [], "prelude": {}, "links": {}})
     with open(DATA, "w") as f:
         for o in out:
             f.write(json.dumps(o, sort_keys=True) + "\n")

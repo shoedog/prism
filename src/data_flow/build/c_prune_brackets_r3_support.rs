@@ -42,6 +42,14 @@ pub(super) fn guard_pair(src: &str) -> (usize, usize) {
     (from, to)
 }
 
+/// `src` with `#include "hdr"` as its first line, at the cost of no line: the include replaces
+/// the line break after the first line (`int src(void); void sink(int);` on one line), so the
+/// pair's line numbers stay as written. A header-borne row's owner file includes the header
+/// explicitly (the author's intent); the oracle then needs no forced include for it.
+pub(super) fn include_first(src: &str, hdr: &str) -> String {
+    format!("#include \"{hdr}\"\n{}", src.replacen('\n', " ", 1))
+}
+
 /// The guard owner of the splice and external-macro rows: `OPEN`/`CLOSE` arrive from
 /// `defs`. C returns `x`; C++ returns `sink(x + 1)` (no bare call argument).
 pub(super) fn guard_source(defs: &str, cpp: bool) -> String {

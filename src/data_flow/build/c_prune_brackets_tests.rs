@@ -213,7 +213,7 @@ fn block_macros_list_is_the_design_list() {
 
 // ---- M3: multi-file rows (pair-based; the census arrives from a header or a census text) ----
 
-use super::c_prune_brackets_r3_support::Batch;
+use super::c_prune_brackets_r3_support::{include_first, Batch};
 
 const HDR: &str = "#define END }\n#define BEGIN {\n";
 /// The b1 guard owner: BEGIN/END come from elsewhere, so the file holds no `#define`. The live
@@ -223,9 +223,10 @@ const GUARD_OWNER: &str = "int src(void);\nvoid sink(int);\nint cond;\nvoid f(vo
 #[test]
 fn mf1_header_defines_reach_the_owner() {
     let mut b = Batch::new();
+    let owner = include_first(GUARD_OWNER, "h.h");
     b.kept(
         "mf1",
-        &[("a.c", GUARD_OWNER), ("h.h", HDR)],
+        &[("a.c", &owner), ("h.h", HDR)],
         "a.c",
         &[],
         Some("f"),

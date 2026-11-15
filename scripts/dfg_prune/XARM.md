@@ -37,10 +37,21 @@ C-like extensions plus literal include closure, `eval/secbench` excluded). Assum
 - `guide`: CONFIRMED, other controls, A-ext rows. Printed as `GUIDE ...` on stderr, never asserted.
 - `no_basis`: XOFF, UNJUDGED, and `NO_BASIS` by decision (mf3, the header-unit import).
 
-Orphan headers (a `.h`, `.hpp`, `.hh`, `.hxx` or `.inc` no main file includes) are forced includes:
-the fixture author meant the header to be part of the translation unit (the census reads every
-in-repo header). Outside names (`pthread_cleanup_*`, `Py_*`, `NPY_*`, `PG_TRY`, `_Py_*_SUPPRESS_IPH`)
-get `-include pthread.h` or a prelude reproduced from the named version's headers.
+Forced includes. A header-borne row's owner file `#include`s the header explicitly (that is the
+author's intent: `include_first` in `c_prune_brackets_r3_support.rs`), so the compiler needs no
+forced include for it; "orphan" is decided by what clang opens (`-H`), not by a regex, so a
+computed `#include HEADER` counts as reached. A forced include remains only where a row models
+one: a net file (`defs.inc`, a C-like extension nothing includes, collected by the census without
+an include: `g_sol_14`, `g2_sol2_04`) gets `-include`. Outside names (`pthread_cleanup_*`, `Py_*`,
+`NPY_*`, `PG_TRY`, `_Py_*_SUPPRESS_IPH`) get `-include pthread.h` or a prelude reproduced from the
+named version's headers, unless the repository defines the name itself.
+
+Receipt overrides (`oracle/overrides.json`, `xarm.py derive`): when the oracle cannot judge a row
+only because the post-expansion text mis-parses in tree-sitter (UNJUDGED `no-pair-in-expansion` or
+XOFF `G1Error`, e.g. cpp rows x2 to x4 of `20_macro_brackets.cc`, where `for (; int *x = nullptr;)`
+is mis-read), a runtime receipt (`xarm_receipts.py`, the program's own driver exits 0 exactly when
+the pair is live) outranks the verdict and sets `assert: kept` with `basis: receipt`. A receipt
+never outranks CONFIRMED or CONTRADICTED.
 
 ## Workflow
 

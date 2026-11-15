@@ -1,0 +1,5 @@
+{
+  "20_macro_brackets.cc:x2": {"assert": "kept", "receipt": "paren macros move a declaration scope (C++ owner)"},
+  "20_macro_brackets.cc:x3": {"assert": "kept", "receipt": "unbalanced macro makes the write conditional (C++ owner)"},
+  "20_macro_brackets.cc:x4": {"assert": "kept", "receipt": "template owner spells an unbalanced macro"}
+}

@@ -23,20 +23,20 @@ Truth is the expansion-arm oracle (`xarm.py label`, clang at authoring time only
 
 | rows | n | CONTRADICTED | CONFIRMED | XOFF | UNJUDGED | kept | pinned_hole | dropped | guide | no_basis |
 |---|---|---|---|---|---|---|---|---|---|---|
-| pair rows (Rust sources, C and C++) | 284 | 151 | 30 | 22 | 81 | 125 | 22 | 15 | 17 | 105 |
+| pair rows (Rust sources, C and C++) | 284 | 151 | 30 | 22 | 81 | 119 | 22 | 15 | 23 | 105 |
 | inline cases, C | 67 | 43 | 20 | 3 | 1 | 19 | 1 | 0 | 43 | 4 |
-| inline cases, C++ | 38 | 19 | 13 | 4 | 2 | 11 | 0 | 0 | 21 | 6 |
-| **all** | 389 | 213 | 63 | 29 | 84 | 155 | 23 | 15 | 81 | 115 |
+| inline cases, C++ | 38 | 19 | 13 | 4 | 2 | 14 | 0 | 0 | 21 | 3 |
+| **all** | 389 | 213 | 63 | 29 | 84 | 152 | 23 | 15 | 87 | 112 |
 
 ### BOUNDARY rows (computed: the verdict flips under the declared configuration, or clang opens an in-repo file the census does not read)
 
 | assumption | rows | kept | pinned_hole | dropped | guide | no_basis |
 |---|---|---|---|---|---|---|
 | A-dialect | 1 | 0 | 1 | 0 | 0 | 0 |
-| A-ext | 36 | 0 | 1 | 0 | 35 | 0 |
-| A-inputs | 82 | 61 | 21 | 0 | 0 | 0 |
+| A-ext | 42 | 0 | 1 | 0 | 41 | 0 |
+| A-inputs | 48 | 27 | 21 | 0 | 0 | 0 |
 
-Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_external_enclosing_macro:A-ext, boundary_g2_opus3_11_include_differs_in_unicode_normalization:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs ...
+Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_11_include_differs_in_unicode_normalization:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_02_parent_after_a_directory_symlink:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_03_include_name_differs_in_case:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol2_04_header_injected_by_the_build:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sol3_01_vfs_mapped_include:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_sonnet3_09_header_outside_the_repo_root:A-inputs, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, boundary_g2_terra_02_computed_include_of_a_non_net_extension:A-inputs, g_terra_01_wrapper_in_a_header_c_and_cpp:A-ext, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_opus3_12_include_of_a_file_under_eval_secbench:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path:A-inputs ...
 
 ### Quarantined tentative-design tests: 80 `#[ignore]`d
 
@@ -50,7 +50,7 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_extern
 | src/data_flow/build/c_prune_brackets_r1_tests.rs | 1 |
 | src/data_flow/build/c_prune_brackets_tests.rs | 1 |
 
-### Runtime receipts: 15 classes (`xarm_receipts.py run`, needs clang, not run in CI)
+### Runtime receipts: 18 classes (`xarm_receipts.py run`, needs clang, not run in CI)
 
 - enclosing group opened in a sibling owner
 - macro drops the overwriting piece
@@ -67,6 +67,9 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_extern
 - closer inside a following owner
 - external macro via a forced include (declared)
 - rescan split through a header
+- unbalanced macro makes the write conditional (C++ owner)
+- template owner spells an unbalanced macro
+- paren macros move a declaration scope (C++ owner)
 
 ### Inline rows (cases 20 to 34)
 
@@ -133,16 +136,16 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_extern
 | c | 26_r2_external_names | g2s03k6 |  | pruned | CONFIRMED |  | drops | guide |
 | c | 27_r2_inrepo_prefix | g2s03k5a |  | kept | CONTRADICTED |  | keeps | kept |
 | c | 27_r2_inrepo_prefix | g2s03k5b |  | kept | CONTRADICTED |  | keeps | kept |
-| c | 28_r2_listed_name_shim | g2s07 |  | kept | CONFIRMED | A-ext | drops | guide |
+| c | 28_r2_listed_name_shim | g2s07 |  | kept | CONFIRMED |  | drops | guide |
 | c | 29_r2_enclosing | g2o01 |  | kept | CONTRADICTED |  | drops | kept |
 | c | 30_r2_enclosing_variadic | g2o01k |  | pruned | CONFIRMED |  | drops | guide |
 | c | 31_r2_enclosing_file_scope | g2o01b |  | kept | CONTRADICTED |  | drops | kept |
 | c | 32_r2_strip_parenthesis | g2o02 |  | kept | CONTRADICTED |  | drops | kept |
 | c | 33_r2_digit_separator | g2o03 |  | kept | CONTRADICTED (repo XOFF) | A-dialect | drops | pinned_hole |
 | cpp | 20_macro_brackets.cc | x1 | S | kept | CONTRADICTED |  | drops | kept |
-| cpp | 20_macro_brackets.cc | x2 | S | kept | UNJUDGED |  | drops | no_basis |
-| cpp | 20_macro_brackets.cc | x3 | S | kept | UNJUDGED |  | drops | no_basis |
-| cpp | 20_macro_brackets.cc | x4 | S | kept | XOFF |  | drops | no_basis |
+| cpp | 20_macro_brackets.cc | x2 | S | kept | UNJUDGED |  | drops | kept |
+| cpp | 20_macro_brackets.cc | x3 | S | kept | UNJUDGED |  | drops | kept |
+| cpp | 20_macro_brackets.cc | x4 | S | kept | XOFF |  | drops | kept |
 | cpp | 20_macro_brackets.cc | x5 | K | pruned | XOFF |  | drops | no_basis |
 | cpp | 20_macro_brackets.cc | x6 | C | kept | XOFF | A-ext | drops | no_basis |
 | cpp | 21_macro_args.cc | y1 | S | kept | CONTRADICTED |  | drops | kept |
@@ -169,7 +172,7 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_extern
 | cpp | 26_r2_external_names.cc | g2s01 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
 | cpp | 26_r2_external_names.cc | g2s02 |  | kept | CONTRADICTED (repo CONFIRMED) | A-ext | drops | guide |
 | cpp | 26_r2_external_names.cc | g2s03k3 |  | kept | CONTRADICTED | A-ext | keeps | kept |
-| cpp | 27_r2_listed_name_shim.cc | g2s07 |  | kept | CONFIRMED | A-ext | drops | guide |
+| cpp | 27_r2_listed_name_shim.cc | g2s07 |  | kept | CONFIRMED |  | drops | guide |
 | cpp | 29_r2_enclosing.cc | g2o01 |  | kept | CONTRADICTED |  | drops | kept |
 | cpp | 30_r2_enclosing_variadic.cc | g2o01k |  | pruned | CONFIRMED |  | drops | guide |
 | cpp | 31_r2_enclosing_file_scope.cc | g2o01b |  | kept | CONTRADICTED |  | drops | kept |
@@ -182,7 +185,7 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_extern
 
 | test | rows | kept | pinned_hole | dropped | guide | no_basis |
 |---|---|---|---|---|---|---|
-| boundary_g2_opus3_10_external_enclosing_macro | 1 | 0 | 1 | 0 | 0 | 0 |
+| boundary_g2_opus3_10_external_enclosing_macro | 1 | 0 | 0 | 0 | 1 | 0 |
 | boundary_g2_opus3_11_include_differs_in_unicode_normalization | 1 | 0 | 1 | 0 | 0 | 0 |
 | boundary_g2_sol2_01_absolute_include_of_an_in_repo_file | 2 | 0 | 2 | 0 | 0 | 0 |
 | boundary_g2_sol2_02_parent_after_a_directory_symlink | 2 | 0 | 2 | 0 | 0 | 0 |
@@ -205,9 +208,9 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_extern
 | g_sol_14_control_balanced_payload_prunes | 4 | 0 | 0 | 2 | 0 | 2 |
 | g_sol_14_net_file_without_an_include_keeps_the_pairs | 4 | 4 | 0 | 0 | 0 | 0 |
 | g_sol_14_transitive_non_c_include_keeps_the_pairs | 4 | 4 | 0 | 0 | 0 | 0 |
-| g_terra_01_alias_chain_across_two_headers | 2 | 2 | 0 | 0 | 0 | 0 |
+| g_terra_01_alias_chain_across_two_headers | 2 | 0 | 0 | 0 | 2 | 0 |
 | g_terra_01_wrapper_in_a_census_text_c_and_cpp | 4 | 2 | 0 | 2 | 0 | 0 |
-| g_terra_01_wrapper_in_a_header_c_and_cpp | 4 | 2 | 0 | 2 | 0 | 0 |
+| g_terra_01_wrapper_in_a_header_c_and_cpp | 4 | 0 | 1 | 2 | 1 | 0 |
 | g_terra_10_spliced_name_from_a_header_with_lf_and_crlf | 4 | 4 | 0 | 0 | 0 | 0 |
 | g_terra_14_quoted_and_angle_transitive_includes | 8 | 8 | 0 | 0 | 0 | 0 |
 | mf1_control_without_defines_prunes | 1 | 0 | 0 | 1 | 0 | 0 |
@@ -246,7 +249,7 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_extern
 | row_g2_sonnet3_05_latin1_payload_and_header | 4 | 4 | 0 | 0 | 0 | 0 |
 | row_g2_sonnet3_06_control_utf16_header_without_bom_keeps_the_pair | 2 | 0 | 0 | 0 | 0 | 2 |
 | row_g2_sonnet3_06_utf16_payload_and_bom_header | 8 | 0 | 0 | 0 | 0 | 8 |
-| row_g2_sonnet3_07_alias_chain_split_across_headers | 2 | 2 | 0 | 0 | 0 | 0 |
+| row_g2_sonnet3_07_alias_chain_split_across_headers | 2 | 0 | 0 | 0 | 2 | 0 |
 | row_g2_sonnet3_07_alias_chain_to_a_listed_name | 2 | 0 | 0 | 0 | 2 | 0 |
 | row_g2_sonnet3_07_alias_chain_to_an_unbalanced_macro | 2 | 2 | 0 | 0 | 0 | 0 |
 | row_g2_sonnet3_08_balanced_deep_body_control_prunes | 2 | 0 | 0 | 2 | 0 | 0 |
@@ -261,11 +264,11 @@ Pinned holes: 33_r2_digit_separator/g2o03:A-dialect, boundary_g2_opus3_10_extern
 
 ### Hand expectation against the oracle
 
-- hand `kept`, now **guide**: 62 rows
-  boundary_g2_sonnet3_10_external_macro_supplies_the_split, c:20/b12, c:20/b13, c:20/b6, c:20/b8, c:21/a3, c:21/a4, c:21/a5, c:21/a6, c:22/w1, c:22/w2, c:22/w3, c:22/w4, c:22/w5, c:22/w7, c:22/w8, c:25/g2o06, c:25/g2t01, c:26/g2s01, c:26/g2s01a, c:26/g2s01b, c:26/g2s01c, c:26/g2s01d, c:26/g2s02, c:26/g2s03a, c:26/g2s03b, c:26/g2s03c, c:26/g2s03d, c:26/g2s03e1, c:26/g2s03e2, c:28/g2s07, cpp:21/y2, cpp:22/w1, cpp:22/w2, cpp:22/w3, cpp:22/w4, cpp:23/y10, cpp:23/y5, cpp:23/y6, cpp:23/y7, cpp:23/y8, cpp:23/y9, cpp:25/g2o06, cpp:25/g2t01, cpp:26/g2s01, cpp:26/g2s02, cpp:27/g2s07, g_sol_01_every_listed_name_keeps_the_pair_through_wrappers, g_sol_01_every_listed_name_keeps_the_pair_when_spelled_directly, row_g2_sonnet3_07_alias_chain_to_a_listed_name
-- hand `kept`, now **no_basis**: 109 rows
+- hand `kept`, now **guide**: 68 rows
+  boundary_g2_opus3_10_external_enclosing_macro, boundary_g2_sonnet3_10_external_macro_supplies_the_split, c:20/b12, c:20/b13, c:20/b6, c:20/b8, c:21/a3, c:21/a4, c:21/a5, c:21/a6, c:22/w1, c:22/w2, c:22/w3, c:22/w4, c:22/w5, c:22/w7, c:22/w8, c:25/g2o06, c:25/g2t01, c:26/g2s01, c:26/g2s01a, c:26/g2s01b, c:26/g2s01c, c:26/g2s01d, c:26/g2s02, c:26/g2s03a, c:26/g2s03b, c:26/g2s03c, c:26/g2s03d, c:26/g2s03e1, c:26/g2s03e2, c:28/g2s07, cpp:21/y2, cpp:22/w1, cpp:22/w2, cpp:22/w3, cpp:22/w4, cpp:23/y10, cpp:23/y5, cpp:23/y6, cpp:23/y7, cpp:23/y8, cpp:23/y9, cpp:25/g2o06, cpp:25/g2t01, cpp:26/g2s01, cpp:26/g2s02, cpp:27/g2s07, g_sol_01_every_listed_name_keeps_the_pair_through_wrappers, g_sol_01_every_listed_name_keeps_the_pair_when_spelled_directly, g_terra_01_alias_chain_across_two_headers, g_terra_01_wrapper_in_a_header_c_and_cpp, row_g2_sonnet3_07_alias_chain_split_across_headers, row_g2_sonnet3_07_alias_chain_to_a_listed_name
+- hand `kept`, now **no_basis**: 106 rows
 - hand `kept`, now **pinned_hole**: 23 rows
-  boundary_g2_opus3_10_external_enclosing_macro, boundary_g2_opus3_11_include_differs_in_unicode_normalization, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file, boundary_g2_sol2_02_parent_after_a_directory_symlink, boundary_g2_sol2_03_include_name_differs_in_case, boundary_g2_sol2_04_header_injected_by_the_build, boundary_g2_sol3_01_vfs_mapped_include, boundary_g2_sonnet3_09_header_outside_the_repo_root, boundary_g2_terra_02_computed_include_of_a_non_net_extension, c:33/g2o03, row_g2_opus3_12_include_of_a_file_under_eval_secbench, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path
+  boundary_g2_opus3_11_include_differs_in_unicode_normalization, boundary_g2_sol2_01_absolute_include_of_an_in_repo_file, boundary_g2_sol2_02_parent_after_a_directory_symlink, boundary_g2_sol2_03_include_name_differs_in_case, boundary_g2_sol2_04_header_injected_by_the_build, boundary_g2_sol3_01_vfs_mapped_include, boundary_g2_sonnet3_09_header_outside_the_repo_root, boundary_g2_terra_02_computed_include_of_a_non_net_extension, c:33/g2o03, g_terra_01_wrapper_in_a_header_c_and_cpp, row_g2_opus3_12_include_of_a_file_under_eval_secbench, row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path
 - hand `kept`, now **dropped**: 0 rows
 - hand controls (`pruned`): 40 rows -> {'dropped': 15, 'no_basis': 6, 'guide': 19}
 - hand control but the oracle says must-keep: 1 rows

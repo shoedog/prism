@@ -6,7 +6,7 @@
 //! model cannot see: external macros, includes); the placement of each is decided later and a
 //! row deferred to #813 will be marked `#[ignore = "#813"]`. Kinds: S live pair dropped on
 //! base, C conservative (no liveness run), K control (green on base).
-use super::c_prune_brackets_r3_support::pair_in;
+use super::c_prune_brackets_r3_support::{include_first, pair_in};
 use super::c_prune_brackets_tests::check_row;
 use super::c_prune_oracle_rows::{judge, Want};
 
@@ -265,6 +265,7 @@ fn excerpt_failures(census_text: bool) -> Vec<String> {
                     9,
                 )
             } else {
+                let owner = include_first(&owner, hdr);
                 pair_in(
                     &[(target, &owner), (hdr, excerpt)],
                     target,

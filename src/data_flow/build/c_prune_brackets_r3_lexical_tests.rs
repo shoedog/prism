@@ -123,9 +123,11 @@ fn text_and_header_rows(what: &str, defs: &str, owner_with: fn(bool) -> String) 
             from,
             to,
         );
+        // the owner includes the header explicitly (it names the payload for the census text)
+        let owner_h = owner.replace("defs.payload", hdr);
         b.kept(
             &format!("{what} (parsed header, {target})"),
-            &[(target, &owner), (hdr, defs)],
+            &[(target, &owner_h), (hdr, defs)],
             target,
             &[],
             Some("probe"),

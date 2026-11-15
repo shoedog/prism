@@ -11,7 +11,7 @@
 //! few seconds there: `CHAIN_DEPTH` 1,000 (about 3 s per test on base; 3,000 takes 25 s: the
 //! free-name closure is super-linear), `BRACKET_DEPTH` 20,000 (0.2 s), `GROUP_DEPTH` 300.
 //! Required behaviour only, never an `Off::` reason.
-use super::c_prune_brackets_r3_support::{guard_pair, Batch};
+use super::c_prune_brackets_r3_support::{guard_pair, include_first, Batch};
 
 /// Alias hops per chain.
 const CHAIN_DEPTH: usize = 1000;
@@ -113,7 +113,8 @@ fn row_g2_sonnet3_07_alias_chain_split_across_headers() {
                 second.push_str(&format!("#define {p}{i} {p}{}\n", i - 1));
             }
         }
-        let src = owner(&format!("A{n}(h, 0)"), &format!("B{n}(0)"), cpp);
+        let src = include_first(&owner(&format!("A{n}(h, 0)"), &format!("B{n}(0)"), cpp), h2);
+        let second = format!("#include \"{h1}\"\n{second}");
         let (from, to) = guard_pair(&src);
         b.kept(
             &format!("sonnet3-07 split chain {n}"),
