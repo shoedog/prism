@@ -538,6 +538,41 @@ def selftest():
     o2 = L.Owner(fx2, fx2.owner_at(3))
     assert o2.enclosing_open and C.cand_tentative_enclosing(o2, L.MacroDb([("a.c", enc)])) == "enclosing_group"
     assert not C.cand_tentative(o2, L.MacroDb([("a.c", enc)]))
+    assert C.cand_v2(o2, L.MacroDb([("a.c", enc)])) == "exposed_open_before"
+    # DESIGN-v2 (candidate 10): body callee groups, shielded owner positions, the interval test
+    v2 = ("#define K(p, q) q p\n#define ID(v) v\n#define PAIR 1, 2\n#define INIT { 1, 2 }\n"
+          "#define HELD K({ int a, b; })\n#define FWD ID(K INIT)\n#define VEC ((v2){ 1, 2 })\n"
+          "#define TIGHT(a) f((a), 1)\nint two(int, int);\n"
+          "int a1(int c) { HELD; return c; }\n"
+          "int a2(int c) { FWD; return c; }\n"
+          "int a3(int c) { VEC; return TIGHT(c); }\n"
+          "int a4(int c) { return ID(two(PAIR)); }\n"
+          "int a5(int c) { return ID(PAIR); }\n"
+          "int a6(int c) { return ID(ID(INIT)); }\n"
+          "int a7(int c) { return ID(two(1, K({ 1, 2 }))); }\n"
+          "int a71(int c) { K({ 1, 2 }); return ID((INIT)); }\n"
+          "int a72(int c) { return two(1, K({ 1, 2 })); }\n")
+    db3 = L.MacroDb([("a.c", v2)])
+    fx3 = L.FileIndex(v2)
+    got = {fx3.code[f.name_idx].text: C.cand_v2(L.Owner(fx3, f), db3) for f in fx3.fns}
+    assert got["a1"] == "body_split:HELD" and got["a2"] == "body_split:FWD", got
+    assert got["a3"] is None and got["a4"] is None, got          # loose outside a group; shielded
+    assert got["a5"] == "loose_in_owner_group:PAIR", got
+    assert got["a6"] == "loose_in_owner_group:INIT", got
+    assert got["a7"] is None, got      # inside the shielded `two(..)`: must nest in a valid program
+    assert got["a71"] == "arg_split", got
+    assert got["a72"] == "arg_split", got   # `two(` outside every callee paren shields nothing
+    assert C.cand_fine_g8(L.Owner(fx3, fx3.fns[0]), db3) is None  # candidate 8 admits the body split
+    # an opener and a closer under `#else` branches: the first branch sees no parenthesis at all.
+    # The interval is not correlated across the two conditionals, so the owners BEFORE the pair
+    # are refused too (a file-wide cascade, sound, disclosed in DESIGN-v2 5.3).
+    v3 = ("#define ID(v) v\nint a0(int c) { return c; }\n#if defined(X)\n#else\nID(\n#endif\n"
+          "int z;\nint a8(int c) { return c; }\n#if defined(X)\n#else\n)\n#endif\n"
+          "int z2;\nint a9(int c) { return c; }\n")
+    db4, fx4 = L.MacroDb([("a.c", v3)]), L.FileIndex(v3)
+    got = {fx4.code[f.name_idx].text: C.cand_v2(L.Owner(fx4, f), db4) for f in fx4.fns}
+    assert got == {"a0": "exposed_close_after", "a8": "exposed_open_before",
+                   "a9": "exposed_open_before"}, got
     print("selftest ok")
 
 

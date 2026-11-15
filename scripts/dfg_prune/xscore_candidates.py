@@ -222,6 +222,279 @@ def cand_refuse_all(owner, db):
     return "refuse_all"
 
 
+# ---------------------------------------------------------------- DESIGN-v2 (candidate 10)
+# The structure-preservation certificate of DESIGN-v2.md. Facts per macro (closed over the macros
+# a body names, like the tentative facts):
+#   unbalanced*  some reachable body does not nest (as 1)
+#   loose*       some reachable body holds a comma or `__VA_ARGS__` whose innermost bracket is
+#                not a parenthesis: its expansion can carry a comma that is not inside its own
+#                parentheses (not "comma-clean")
+#   split*       some reachable body holds a CALLEE GROUP (a paren group that follows a macro
+#                name, a parameter, or the `)` of a callee group) with a held comma (innermost
+#                bracket `{` or `[`, any depth) or with a macro whose expansion is loose*
+INF = 1 << 60
+
+
+def _callee(g, db, mode):
+    """Is body group `g` a callee group? `mode` "macro": its predecessor is a parameter, an
+    in-repo macro name (any definition) or the `)` of a callee group; "any": any identifier."""
+    while True:
+        if g is None or g.pred is None:
+            return False
+        k = g.pred[0]
+        if k == "param":
+            return True
+        if k == "id":
+            return mode == "any" or db.defined(g.pred[1])
+        g = g.pred[1]   # chain
+
+
+def _split_own(name, db, mode, held=True, fwd=True):
+    memo = db.__dict__.setdefault("_v2_split_own", {})
+    key = (name, mode, held, fwd)
+    r = memo.get(key)
+    if r is None:
+        r = False
+        for g in db.own(name).groups:
+            if not _callee(g, db, mode):
+                continue
+            if held and g.held:
+                r = True
+                break
+            if fwd and any(db.defined(n) and db.closed(n).loose_comma for n in g.ids):
+                r = True
+                break
+        memo[key] = r
+    return r
+
+
+def _split_closed(name, db, mode, held=True, fwd=True):
+    memo = db.__dict__.setdefault("_v2_split_closed", {})
+    key = (name, mode, held, fwd)
+    r = memo.get(key)
+    if r is None:
+        r = any(_split_own(m, db, mode, held, fwd) for m in db.reach(name))
+        memo[key] = r
+    return r
+
+
+def _hull(fx):
+    """Per code token: the interval of the file-level parenthesis balance over the branches of
+    conditional compilation (unclamped; `#if` without a plain `#else` may take no branch)."""
+    h = getattr(fx, "_v2_hull", None)
+    if h is not None:
+        return h
+    n = len(fx.code)
+    lob, hib, loa, hia = [0] * n, [0] * n, [0] * n, [0] * n
+    lo = hi = 0
+    cs = []  # [base lo, base hi, [branch ends], saw a plain else]
+    i = 0
+    for t in fx.lexed.tokens:
+        if t.kind == "cond":
+            if t.text == "if":
+                cs.append([lo, hi, [], False])
+            elif t.text == "else" and cs:
+                cs[-1][2].append((lo, hi))
+                if t.pos == 1:
+                    cs[-1][3] = True
+                lo, hi = cs[-1][0], cs[-1][1]
+            elif t.text == "endif" and cs:
+                b = cs.pop()
+                ends = b[2] + [(lo, hi)]
+                if not b[3]:
+                    ends.append((b[0], b[1]))
+                lo, hi = min(e[0] for e in ends), max(e[1] for e in ends)
+            continue
+        lob[i], hib[i] = lo, hi
+        if t.kind == "p" and t.text == "(":
+            lo += 1
+            hi += 1
+        elif t.kind == "p" and t.text == ")":
+            lo -= 1
+            hi -= 1
+        loa[i], hia[i] = lo, hi
+        i += 1
+    pre = [0] * (n + 1)   # pre[i]: least lower bound before token i (0 at the file start)
+    m = 0
+    for i in range(n):
+        pre[i] = m
+        m = min(m, loa[i])
+    pre[n] = m
+    suf = [INF] * (n + 2)  # suf[i]: least lower bound after any token at or beyond i
+    m = INF
+    for i in range(n - 1, -1, -1):
+        m = min(m, loa[i])
+        suf[i] = m
+    fx._v2_hull = (hib, pre, suf, hia)
+    return fx._v2_hull
+
+
+def exposed(owner):
+    """DESIGN-v2 5.3: the owner may lie inside a macro argument list that starts outside it: in
+    some configuration a literal `(` before the owner is still open at its start, or a `)`
+    after the owner closes something that no literal `(` after the owner opened."""
+    hib, pre, suf, hia = _hull(owner.fx)
+    a, b = owner.fn.hdr, owner.fn.close
+    if hib[a] > pre[a]:
+        return "exposed_open_before"
+    if suf[b + 1] < hia[b]:
+        return "exposed_close_after"
+    return None
+
+
+def owner_groups(owner, db, held=True, loose=True, shield=True):
+    """DESIGN-v2 5.2 (G9), one pass over the owner's tokens with a bracket stack. A paren is a
+    CALLEE paren after an in-repo macro name or after the `)` of a callee paren (a chained
+    group); a SHIELDED paren when it is opened INSIDE a callee paren directly after an identifier
+    that is no in-repo macro (`shield`: it can never delimit a macro's arguments, so it stays in
+    the compiler's token stream as a unit of the enclosing argument, and its contents must nest
+    in every program the compiler accepts); a plain paren otherwise. A token inside at least one
+    callee paren and inside no shielded paren must not be a held comma (innermost bracket `{` or
+    `[`) nor an in-repo macro whose expansion is loose*; a mismatched closer or a digraph
+    bracket inside a callee paren refuses. A paren after an identifier OUTSIDE every callee
+    paren shields nothing: a callee group inside it is an invocation of the owner's own text."""
+    stack = []          # "C" callee paren, "S" shielded paren, "(" plain paren, "{", "["
+    prev = None
+    closed = None       # (token, kind) of the paren closed last
+    ncallee = nshield = 0
+    for t in owner.toks:
+        exposed = ncallee > 0 and nshield == 0
+        if t.kind == "p":
+            x = t.text
+            if ncallee and t.pos in owner.digs:
+                return "arg_split_digraph"
+            if x == "(":
+                if prev is not None and prev.kind == "id":
+                    k = "C" if db.defined(prev.text) else ("S" if shield and ncallee else "(")
+                elif closed is not None and closed[0] is prev and closed[1] == "C":
+                    k = "C"
+                else:
+                    k = "("
+                stack.append(k)
+                ncallee += k == "C"
+                nshield += k == "S"
+            elif x in "{[":
+                stack.append(x)
+            elif x in OPEN:
+                want = OPEN[x]
+                top = stack[-1] if stack else None
+                if top == want or (want == "(" and top in ("C", "S")):
+                    stack.pop()
+                    ncallee -= top == "C"
+                    nshield -= top == "S"
+                    closed = (t, top)
+                elif ncallee:
+                    return "arg_split_mismatch"
+            elif x == "," and held and exposed and stack[-1] in "{[":
+                return "arg_split"
+        elif t.kind == "id" and loose and exposed and db.defined(t.text) \
+                and db.closed(t.text).loose_comma:
+            return "loose_in_owner_group:" + t.text
+        prev = t
+    return None
+
+
+# DESIGN-v2 section 7 (OWNER-DECISION OD-B): names a scan of the public headers found with a
+# replacement list that does not nest (CPython 3.11 to 3.14, NumPy 2.x), plus the PostgreSQL
+# error-handling macros of the fixture preludes; added to the 16 names of OD-3.
+BLOCK_MACROS_ADDED = frozenset((
+    "Py_TRASHCAN_BEGIN_CONDITION Py_BEGIN_CRITICAL_SECTION_SEQUENCE_FAST "
+    "Py_END_CRITICAL_SECTION_SEQUENCE_FAST _Py_BEGIN_SUPPRESS_IPH _Py_END_SUPPRESS_IPH "
+    "NPY_BEGIN_ALLOW_THREADS NPY_END_ALLOW_THREADS NPY_BEGIN_SUPPRESS_IPH NPY_END_SUPPRESS_IPH "
+    "PG_TRY PG_CATCH PG_FINALLY PG_END_TRY PG_ENSURE_ERROR_CLEANUP "
+    "PG_END_ENSURE_ERROR_CLEANUP").split())
+
+
+def sp_certificate(owner, db, mode="macro", body_held=True, body_fwd=True, owner_held=True,
+                   owner_loose=True, expose="hull", listed=True, unbalanced=True, shield=True,
+                   names=None):
+    """10. DESIGN-v2: admit only an owner for which structure preservation is proved."""
+    BLOCK_MACROS = names if names is not None else globals()["BLOCK_MACROS"]
+    if listed:
+        for n in sorted(owner.spelled & BLOCK_MACROS):
+            return "block_list:" + n
+    for n in sorted(owner.spelled):
+        if not db.defined(n):
+            continue
+        f = db.closed(n)
+        if unbalanced and f.unbalanced:
+            return "unbalanced:" + n
+        if listed and f.free & BLOCK_MACROS:
+            return "block_wrapper:" + n
+        if (body_held or body_fwd) and _split_closed(n, db, mode, body_held, body_fwd):
+            return "body_split:" + n
+    r = owner_groups(owner, db, held=owner_held, loose=owner_loose, shield=shield)
+    if r:
+        return r
+    if expose == "hull":
+        return exposed(owner)
+    if expose == "first":
+        return "enclosing_group" if owner.enclosing_open else None
+    return None
+
+
+def cand_v2(owner, db):
+    """10. The chosen rule of DESIGN-v2 (structure-preservation certificate)."""
+    return sp_certificate(owner, db)
+
+
+def cand_v2_any(owner, db):
+    """10i. 10 with a body paren group read as a callee group after ANY identifier (10 itself:
+    after a parameter, an in-repo macro name or a chained callee group), so the facts would not
+    depend on which names are macros."""
+    return sp_certificate(owner, db, mode="any")
+
+
+def cand_v2_noshield(owner, db):
+    """10n. 10 without the shield: every position of an owner callee group is checked."""
+    return sp_certificate(owner, db, shield=False)
+
+
+def cand_v2_first(owner, db):
+    """10f. 10 with the scorer's first-branch-wins enclosing test instead of the interval test."""
+    return sp_certificate(owner, db, expose="first")
+
+
+def cand_v2_semi0(owner, db):
+    """10s. 10 plus: the owner spells a macro (closed) whose body holds a top-level `;` (the
+    #831 shape; measured for the owner's information, not part of the rule)."""
+    r = sp_certificate(owner, db)
+    if r:
+        return r
+    for n in sorted(owner.spelled):
+        if db.defined(n) and db.closed(n).semi0:
+            return "semi0:" + n
+    return None
+
+
+def cand_v2_list(owner, db):
+    """10x. 10 with the extended external list (OD-B: the 16 names plus 15)."""
+    return sp_certificate(owner, db, names=BLOCK_MACROS | BLOCK_MACROS_ADDED)
+
+
+def _abl(**kw):
+    def f(owner, db):
+        return sp_certificate(owner, db, **kw)
+    return f
+
+
+V2 = collections.OrderedDict([
+    ("10-v2-certificate", (cand_v2, "DESIGN-v2: structure-preservation certificate (chosen)")),
+    ("10i-v2-any-ident", (cand_v2_any, "10 with body callee groups after any identifier")),
+    ("10n-v2-no-shield", (cand_v2_noshield, "10 without shielded parentheses in owner groups")),
+    ("10f-v2-first-branch", (cand_v2_first, "10 with the first-branch-wins enclosing test")),
+    ("10x-v2+list31", (cand_v2_list, "10 with the extended external list (16 + 15 names, OD-B)")),
+    ("10s-v2+semi0", (cand_v2_semi0, "10 + a top-level `;` in a reachable body (#831 shape), for information")),
+    ("B1-10-no-unbalanced", (_abl(unbalanced=False), "ablation of 10: without unbalanced*")),
+    ("B2-10-no-list", (_abl(listed=False), "ablation of 10: without the list and wrapper closure")),
+    ("B3-10-no-owner-held", (_abl(owner_held=False), "ablation of 10: without the held-comma check of owner groups")),
+    ("B4-10-no-owner-loose", (_abl(owner_loose=False), "ablation of 10: without the loose-macro check of owner groups")),
+    ("B5-10-no-body-held", (_abl(body_held=False), "ablation of 10: without the held-comma check of body callee groups")),
+    ("B6-10-no-body-fwd", (_abl(body_fwd=False), "ablation of 10: without the loose-macro check of body callee groups")),
+    ("B7-10-no-exposed", (_abl(expose=None), "ablation of 10: without the exposed-owner test")),
+])
+
+
 CANDIDATES = collections.OrderedDict([
     ("0-admit-all", (cand_admit_all, "nothing new: admit every owner (red on base)")),
     ("1-tentative", (cand_tentative, "tentative rule (DESIGN 6 as amended), no enclosing check")),
@@ -239,3 +512,4 @@ CANDIDATES = collections.OrderedDict([
     ("A3-4b-no-list", (cand_abl_no_list, "ablation: 4b without BLOCK_MACROS and the wrapper closure")),
     ("A4-4b-unbalanced-only", (cand_abl_unbalanced_only, "ablation: unbalanced (closed) + enclosing only")),
 ])
+CANDIDATES.update(V2)

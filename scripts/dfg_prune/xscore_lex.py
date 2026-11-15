@@ -159,7 +159,8 @@ def _cond(cur, toks, line):
     if d in ("if", "ifdef", "ifndef"):
         toks.append(Tok("cond", "if", cur[0], 0))
     elif d in ("elif", "else", "elifdef", "elifndef"):
-        toks.append(Tok("cond", "else", cur[0], 0))
+        # pos 1 marks a plain `#else` (the branches are exhaustive); FileIndex never reads it
+        toks.append(Tok("cond", "else", cur[0], 1 if d == "else" else 0))
     elif d == "endif":
         toks.append(Tok("cond", "endif", cur[0], 0))
 
@@ -171,7 +172,7 @@ DEF_RE = re.compile(r"(?m)^[ \t]*(?:#|%:)[ \t]*define[ \t]+")
 class Facts:
     """Facts of one body (own) or of a macro closed over what it names."""
     __slots__ = ("unbalanced", "loose_comma", "semi0", "semi_any", "ctrl", "brace", "decl",
-                 "free", "refs", "linear", "grouped")
+                 "free", "refs", "linear", "grouped", "groups")
 
     def __init__(self):
         self.unbalanced = self.loose_comma = self.semi0 = self.semi_any = False
@@ -179,6 +180,9 @@ class Facts:
         self.free = frozenset()
         self.refs = frozenset()
         self.grouped = frozenset()
+        # paren groups of the body that follow an identifier, a parameter or the `)` of such a
+        # group (DESIGN-v2 5.1): [Group]; read by the v2 candidates only
+        self.groups = ()
         self.linear = True
 
     @property
@@ -191,12 +195,28 @@ class Facts:
         self.linear = self.linear and o.linear
         self.free = self.free | o.free
         self.grouped = self.grouped | o.grouped
+        self.groups = self.groups + o.groups
+
+
+class Group:
+    """One paren group of a macro body. `pred`: ("param",) when the token before its `(` is a
+    parameter or `__VA_ARGS__`, ("id", name) for any other identifier, ("chain", Group) for
+    the `)` of another recorded group, None otherwise. `held`: a comma or `__VA_ARGS__` inside
+    it (any depth) whose innermost enclosing bracket is `{` or `[`. `ids`: the identifiers
+    inside it that are not parameters (any depth)."""
+    __slots__ = ("pred", "held", "ids")
+
+    def __init__(self, pred):
+        self.pred, self.held, self.ids = pred, False, set()
 
 
 def scan_body(toks, params, named_variadic, parsed):
     """The automaton of DESIGN section 6.1 plus the facts the other candidates use."""
     f = Facts()
     stack = []
+    gstack = []      # the Group (or None) of every `(` / `T` entry of `stack`, in order
+    groups = []
+    last_closed = None  # (token index of the `)`, Group) of the group closed last
     pending_t = False
     free = set()
     grouped = set()
@@ -220,6 +240,9 @@ def scan_body(toks, params, named_variadic, parsed):
                 uses["..."] += 1
                 if not tight():
                     f.loose_comma = True
+                    for g in gstack:
+                        if g is not None:
+                            g.held = True
             if x in params:
                 uses[x] += 1
                 if parsed:
@@ -227,15 +250,33 @@ def scan_body(toks, params, named_variadic, parsed):
             free.add(x)
             if stack:
                 grouped.add(x)
+            if x != "__VA_ARGS__" and x != "__VA_OPT__":
+                for g in gstack:
+                    if g is not None:
+                        g.ids.add(x)
         elif t.kind == "dig" and x in DIGRAPH_BRACKETS:
             f.unbalanced = True
             f.brace = True
         elif x == "(":
+            g = None
+            if not pending_t and i > 0:
+                pt = toks[i - 1]
+                if pt.kind == "id":
+                    g = Group(("param",) if (pt.text in params or pt.text == "__VA_ARGS__")
+                              else ("id", pt.text))
+                elif last_closed is not None and last_closed[0] == i - 1:
+                    g = Group(("chain", last_closed[1]))
+                if g is not None:
+                    groups.append(g)
             stack.append("T" if pending_t else "(")
+            gstack.append(g)
             pending_t = False
         elif x == ")":
             if stack and stack[-1] in ("(", "T"):
                 stack.pop()
+                g = gstack.pop()
+                if g is not None:
+                    last_closed = (i, g)
             else:
                 f.unbalanced = True
         elif x in "{[":
@@ -252,6 +293,10 @@ def scan_body(toks, params, named_variadic, parsed):
         elif x == ",":
             if not tight():
                 f.loose_comma = True
+                if [e for e in stack if e != "T"]:   # held: the innermost bracket is `{` or `[`
+                    for g in gstack:
+                        if g is not None:
+                            g.held = True
         elif x == ";":
             f.semi_any = True
             if not stack:
@@ -262,6 +307,7 @@ def scan_body(toks, params, named_variadic, parsed):
         f.loose_comma = True
     f.free = frozenset(free)
     f.grouped = frozenset(grouped)
+    f.groups = tuple(groups)
     f.linear = all(uses[p] == 1 for p in params) and (uses["..."] <= 1)
     return f
 
@@ -532,6 +578,7 @@ class Owner:
 
     def __init__(self, fx, fn, file=""):
         self.file = file
+        self.fx, self.fn = fx, fn
         self.toks = fx.code[fn.hdr: fn.close + 1]
         self.start_line = fx.code[fn.hdr].line
         self.end_line = fx.code[fn.close].line
