@@ -396,6 +396,18 @@ fn tokenize_seq(text: &str, cxx: bool, mut seq: Option<&mut Vec<Tok>>) -> Body {
                     i += 2;
                 }
             }
+            // C++ [lex.pptoken]/3.2: `<::` not followed by `:` or `>` is `<` then `::`, not the
+            // digraph `<:` (C reads the digraph, so the dialects differ and the census unions
+            // both; #829).
+            b'<' if cxx
+                && b[i..].starts_with(b"<::")
+                && !matches!(b.get(i + 3), Some(b':' | b'>')) =>
+            {
+                if let Some(seq) = seq.as_deref_mut() {
+                    seq.push(Tok::Other);
+                }
+                i += 1;
+            }
             // The digraph brackets `<%` `%>` `<:` `:>` (#829).
             b'<' | b'%' | b':'
                 if matches!(

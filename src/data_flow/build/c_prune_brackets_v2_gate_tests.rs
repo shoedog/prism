@@ -134,6 +134,33 @@ fn g7_list_pins() {
     }
 }
 
+/// The C++ reading of `<::` (a plain `<`) leaves a `]` unmatched; the C reading balances it. The
+/// census unions the dialects, so G7 refuses the macro, its wrapper and the owner's pair stays.
+#[test]
+fn g7_less_colon_colon_body_is_refused_through_the_dialect_union() {
+    let defs = "#define BAD <::value]\n#define W BAD\n";
+    gate(defs, "    BAD;\n", Some(Off::MacroBrackets));
+    gate(defs, "    W;\n", Some(Off::MacroBrackets));
+    // Control: the digraph reading in both dialects nests.
+    gate("#define OKD <::>\n", "    OKD;\n", None);
+    // The pair itself (a unit claim: the macro text is not a valid program, so no oracle row).
+    let src = owner(defs, "    BAD;\n");
+    let (from, to) = crate::data_flow::build::c_prune_brackets_r3_support::guard_pair(&src);
+    let (before, after) = crate::data_flow::build::c_prune_brackets_r3_support::pair_in(
+        &[("a.cc", &src)],
+        "a.cc",
+        &[],
+        Some("probe"),
+        "x",
+        from,
+        to,
+    );
+    assert!(
+        before && after,
+        "the pair stays (before={before}, after={after})"
+    );
+}
+
 // ---- G8 ----
 
 const F2: &str = "#define F(p, q) q if (c) p\n#define G(p, q) q p\n";

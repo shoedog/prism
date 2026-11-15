@@ -155,6 +155,63 @@ fn t3_digraphs_are_read_as_their_brackets() {
     }
 }
 
+/// [lex.pptoken]/3.2 (checked with `clang++ -std=c++17 -Xclang -dump-tokens` against `clang -std=gnu11`):
+/// in C++ a `<` followed by `::` and then neither `:` nor `>` is its own token, not the digraph
+/// `<:`. `<::value]` is `less coloncolon identifier r_square` there (an unmatched `]`) and
+/// `l_square colon identifier r_square` in C, so the facts are dialect-dependent and the census
+/// ORs both readings. `<:::` and `<::>` are the digraph in both.
+#[test]
+fn t3_cxx_less_colon_colon_exception() {
+    let cxx = tokens_for_tests("<::value]", true).unwrap();
+    assert_eq!(
+        structural(cxx.clone()),
+        ["id:value", "]"],
+        "C++: a plain `<`"
+    );
+    assert_eq!(cxx[0], "other");
+    let c = tokens_for_tests("<::value]", false).unwrap();
+    assert_eq!(
+        structural(c),
+        ["digraph:[", "id:value", "]"],
+        "C: the digraph"
+    );
+    for text in ["<:::x]", "<::>"] {
+        for dialect in [false, true] {
+            assert_eq!(
+                tokens_for_tests(text, dialect).unwrap()[0],
+                "digraph:[",
+                "{text} cxx={dialect}"
+            );
+        }
+    }
+}
+
+#[test]
+fn t4_cxx_less_colon_colon_exception_sets_the_facts_everywhere() {
+    let defs = "#define BAD <::value]\n#define OK1 <::>\n#define OK2 <:::x]\n#define OK3 <: a :>\n";
+    let rows = [
+        ("BAD", true),
+        ("OK1", false),
+        ("OK2", false),
+        ("OK3", false),
+    ];
+    // A C++ file, a `.c` file, a `.h` header (parsed as C): every parsed file is read in both
+    // dialects, and so is a census text.
+    for file in ["a.cc", "a.c", "a.h"] {
+        let c = census(file, defs);
+        for (n, unb) in rows {
+            assert_eq!(fact(&c, n).unbalanced, unb, "{file}: {n}");
+        }
+    }
+    let c = text_census(defs);
+    for (n, unb) in rows {
+        assert_eq!(fact(&c, n).unbalanced, unb, "census text: {n}");
+    }
+    // The hazard travels through a wrapper.
+    let c = census("a.cc", "#define BAD <::value]\n#define W BAD\n");
+    assert!(fact(&c, "W").unbalanced);
+}
+
 /// `macro_call_arguments` sees identifiers and parentheses only: the structural tokens must not
 /// change which names are adjacent (`F , (x)` still reads `x` as the group of `F`).
 #[test]
