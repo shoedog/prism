@@ -7,17 +7,18 @@
 //! same target is still found. With no policy the walk is the unchanged legacy traversal, and the
 //! policy-aware and policy-free entry points run the same loop.
 //!
-//! Scope: the labeled BFS, the CFG-constrained adapter and the no-CFG fallback. The return-flow
-//! walker (`trace.rs`) is a separate slice.
+//! Scope: the labeled BFS, the CFG-constrained adapter, the no-CFG fallback and (#602 S3b-C) the
+//! call descent of the return-flow walker (`trace.rs`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use petgraph::graph::NodeIndex;
+use petgraph::visit::EdgeRef;
 
 use crate::data_flow::{FlowPath, VarLocation};
 use crate::finding_confidence::EvidencePath;
 
-use super::{CodePropertyGraph, FlowConfidence};
+use super::{CodePropertyGraph, CpgEdge, FlowConfidence};
 
 /// The weakest data-flow label a context-file entry may carry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,6 +72,28 @@ impl CodePropertyGraph {
         })
     }
 
+    /// The worst label among the DataFlow edges `from -> to` that `policy` admits, `None` when no
+    /// DataFlow edge exists or none is admitted. The return walker's neighbor list carries no
+    /// labels, so a call descent asks this instead: one admitted parallel edge is enough, and the
+    /// worst is taken over the admitted edges only, never over all of them (the result does not
+    /// depend on edge insertion order).
+    pub(crate) fn admitted_data_flow_label(
+        &self,
+        policy: Option<&TaintCrossingPolicy<'_>>,
+        from: NodeIndex,
+        to: NodeIndex,
+    ) -> Option<FlowConfidence> {
+        self.graph
+            .edges(from)
+            .filter(|edge| edge.target() == to)
+            .filter_map(|edge| match edge.weight() {
+                CpgEdge::DataFlow(label) => Some(*label),
+                _ => None,
+            })
+            .filter(|&label| self.crossing_admitted(policy, from, to, label))
+            .reduce(FlowConfidence::worst)
+    }
+
     /// The legacy forward walk: the policy-aware loop with no policy.
     pub(crate) fn dfg_forward_reachable_with_evidence(
         &self,
@@ -115,5 +138,19 @@ impl CodePropertyGraph {
         BTreeMap<(VarLocation, VarLocation), EvidencePath>,
     ) {
         self.taint_forward_cfg_labeled_policy(taint_sources, Some(policy))
+    }
+
+    /// `taint_forward_cfg_with_return_flow_labeled` under a crossing policy: a call descent into a
+    /// context file whose parallel DataFlow edges all fail the ceiling is refused and recorded as
+    /// a cross-function boundary.
+    pub fn taint_forward_cfg_with_return_flow_labeled_with_policy(
+        &self,
+        sources: &[(String, usize)],
+        policy: &TaintCrossingPolicy<'_>,
+    ) -> (
+        Vec<FlowPath>,
+        BTreeMap<(VarLocation, VarLocation), EvidencePath>,
+    ) {
+        self.taint_forward_cfg_with_return_flow_labeled_policy(sources, Some(policy))
     }
 }

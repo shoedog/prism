@@ -93,6 +93,10 @@ mod taint_policy;
 #[cfg(test)]
 mod taint_policy_adapter_tests;
 #[cfg(test)]
+mod taint_policy_return_parity_tests;
+#[cfg(test)]
+mod taint_policy_return_tests;
+#[cfg(test)]
 mod taint_policy_tests;
 #[cfg(test)]
 mod tests;
