@@ -22,6 +22,16 @@ mod c_prune_brackets_r2_loader_tests;
 #[cfg(test)]
 mod c_prune_brackets_r2_tests;
 #[cfg(test)]
+mod c_prune_brackets_r3_depth_tests;
+#[cfg(test)]
+mod c_prune_brackets_r3_enclosing_tests;
+#[cfg(test)]
+mod c_prune_brackets_r3_lexical_tests;
+#[cfg(test)]
+mod c_prune_brackets_r3_loader_tests;
+#[cfg(test)]
+mod c_prune_brackets_r3_support;
+#[cfg(test)]
 mod c_prune_brackets_tests;
 #[cfg(test)]
 mod c_prune_fold2_tests;

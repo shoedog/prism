@@ -1,7 +1,7 @@
 //! #829: macros that change bracket structure (commit A) and comma-carrying macros and
 //! brace-split macro arguments (commit B). Per-row tests for the inline cases
-//! `20_macro_brackets` / `21_macro_args` (rows b*, a*, x*, y*), the owner-gate verdicts (E01),
-//! and the multi-file rows mf1 to mf4. Written against stubs: every keep row is red until the
+//! `20_macro_brackets` / `21_macro_args` (rows b*, a*, x*, y*) and the multi-file rows mf1 to mf4
+//! (pair-based; the E01 owner-verdict tests were converted, see TESTS.md). Written against stubs: every keep row is red until the
 //! census facts and the owner gates exist. The pair rows read the same `obligations.jsonl` as
 //! the matrices, one test per row so the mutation lane can cite them.
 use super::c_prune::Off;
@@ -13,7 +13,6 @@ use crate::call_graph::c::macro_census::CMacroCensus;
 use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
 use tree_sitter::Node;
 
 fn lang_of(f: &str) -> Language {
@@ -178,101 +177,14 @@ pub(super) fn expect(v: &BTreeMap<String, Option<Off>>, gate: Option<Off>, names
     }
 }
 
-#[test]
-fn e01_20_macro_brackets_c() {
-    let v = verdicts("20_macro_brackets.c", &c_case("20_macro_brackets.c"));
-    // The scope-shift shapes of b1, b2, b5, b12, b13 (gate-only) and the b1..b9 owners.
-    expect(
-        &v,
-        Some(Off::MacroBrackets),
-        &[
-            "brace_scope",
-            "brace_transitive",
-            "brace_control",
-            "brace_function_like",
-            "brace_digraph",
-            "paren_macro",
-            "bracket_macro",
-            "balanced_wrapper_of_unbalanced",
-            "one_definition_unbalanced",
-            "external_pthread_pair",
-            "external_cpython_pair",
-            "brace_if_guard",
-            "brace_transitive_if_guard",
-            "brace_digraph_if_guard",
-            "external_pthread_if_guard",
-            "external_cpython_if_guard",
-        ],
-    );
-    expect(
-        &v,
-        None,
-        &["balanced_macros_still_prune", "not_spelled_still_prunes"],
-    );
-}
-
-#[test]
-fn e01_20_macro_brackets_cc() {
-    let v = verdicts("20_macro_brackets.cc", &cpp_case("20_macro_brackets.cc"));
-    expect(
-        &v,
-        Some(Off::MacroBrackets),
-        &[
-            "cpp_brace_scope",
-            "cpp_paren_scope",
-            "cpp_brace_control",
-            "cpp_template_owner",
-            "cpp_external_pthread_pair",
-        ],
-    );
-    expect(&v, None, &["cpp_balanced_still_prunes"]);
-}
-
-#[test]
-fn e01_21_macro_args_c() {
-    let v = verdicts("21_macro_args.c", &c_case("21_macro_args.c"));
-    expect(
-        &v,
-        Some(Off::MacroArgSplit),
-        &[
-            "arg_split_scope",
-            "arg_split_chain",
-            "arg_split_compound_literal",
-        ],
-    );
-    expect(
-        &v,
-        Some(Off::MacroComma),
-        &[
-            "loose_top_level_comma",
-            "loose_brace_held_comma",
-            "loose_variadic_top",
-        ],
-    );
-    expect(
-        &v,
-        None,
-        &["tight_commas_still_prune", "non_macro_call_still_prunes"],
-    );
-}
-
-#[test]
-fn e01_21_macro_args_cc() {
-    let v = verdicts("21_macro_args.cc", &cpp_case("21_macro_args.cc"));
-    expect(
-        &v,
-        Some(Off::MacroArgSplit),
-        &["cpp_arg_split_scope", "cpp_init_list_in_macro"],
-    );
-    expect(
-        &v,
-        None,
-        &[
-            "cpp_tight_commas_still_prune",
-            "cpp_external_macro_still_prunes",
-        ],
-    );
-}
+// The four E01 tests of this commit (`e01_20_macro_brackets_c`, `e01_20_macro_brackets_cc`,
+// `e01_21_macro_args_c`, `e01_21_macro_args_cc`) asserted the gate REASON of each owner
+// (`Off::MacroBrackets|MacroComma|MacroArgSplit`, or `None`). They are removed (TESTS.md,
+// "Converted to required-behaviour"): every owner they listed that has a baseline pair is
+// pinned by its pair row above (b*, x*, a*, y*; the controls b10, b11, x5, a7, a8, y3, y4 pin
+// "still prunes"), and the gate-only scope-shift owners (`brace_scope`, `brace_transitive`,
+// `brace_digraph`, `external_pthread_pair`, `external_cpython_pair`, `arg_split_scope`) have no
+// baseline pair: the parser binds `r = x` to the inner `x`, so no live pair exists to keep.
 
 /// OD-3: the 16 names of DESIGN 6.3, exactly.
 #[test]
@@ -301,73 +213,80 @@ fn block_macros_list_is_the_design_list() {
     assert_eq!(have, want);
 }
 
-// ---- M3: multi-file rows ----
+// ---- M3: multi-file rows (pair-based; the census arrives from a header or a census text) ----
 
-/// `(edges before the rules, edges after)` over `target`, with the census of all `files` and
-/// optional census texts stamped on the target (the loader's text-only include files).
-pub(super) fn counts(
-    files: &[(&str, &str)],
-    target: &str,
-    texts: &[(&str, &str)],
-) -> (usize, usize) {
-    let mut parsed: BTreeMap<String, ParsedFile> = files
-        .iter()
-        .map(|(n, s)| (n.to_string(), ParsedFile::parse(n, s, lang_of(n)).unwrap()))
-        .collect();
-    if !texts.is_empty() {
-        let t: BTreeMap<String, String> = texts
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect();
-        parsed
-            .get_mut(target)
-            .unwrap()
-            .set_c_census_texts(Arc::new(t));
-    }
-    let c_census = CMacroCensus::from_files(&parsed);
-    let file = target.to_owned();
-    let p = &parsed[target];
-    let before = Producer::file_refs_frozen(&file, p);
-    let after = Producer::file_refs_with_census(&file, p, &RustMacroCensus::default(), &c_census);
-    (before.edges.len(), after.edges.len())
-}
+use super::c_prune_brackets_r3_support::Batch;
 
 const HDR: &str = "#define END }\n#define BEGIN {\n";
-/// The b1 guard owner: BEGIN/END come from elsewhere, so the file holds no `#define`.
+/// The b1 guard owner: BEGIN/END come from elsewhere, so the file holds no `#define`. The live
+/// pair is `x = src()` (line 5) to `sink(x)` (line 9): the `if (cond) { x = 2; }` is conditional.
 const GUARD_OWNER: &str = "int src(void);\nvoid sink(int);\nint cond;\nvoid f(void) {\n    int x = src();\n    if (cond) BEGIN;\n    x = 2;\n    END;\n    sink(x);\n}\n";
 
 #[test]
 fn mf1_header_defines_reach_the_owner() {
-    let (b, a) = counts(&[("a.c", GUARD_OWNER), ("h.h", HDR)], "a.c", &[]);
-    assert_eq!(
-        a, b,
-        "the header's brackets turn the owner off ({b} -> {a})"
+    let mut b = Batch::new();
+    b.kept(
+        "mf1",
+        &[("a.c", GUARD_OWNER), ("h.h", HDR)],
+        "a.c",
+        &[],
+        Some("f"),
+        5,
+        9,
     );
+    b.finish();
 }
 
 #[test]
 fn mf1_control_without_defines_prunes() {
     // Nothing defines BEGIN/END, so the dominating write prunes.
-    let (b, a) = counts(&[("a.c", GUARD_OWNER)], "a.c", &[]);
-    assert!(a < b, "control prunes ({b} -> {a})");
+    let mut b = Batch::new();
+    b.pruned(
+        "mf1 control",
+        &[("a.c", GUARD_OWNER)],
+        "a.c",
+        &[],
+        Some("f"),
+        5,
+        9,
+    );
+    b.finish();
 }
 
 #[test]
 fn mf2_defines_arrive_as_a_census_text() {
-    let (b, a) = counts(&[("a.c", GUARD_OWNER)], "a.c", &[("defs.inc", HDR)]);
-    assert_eq!(a, b, "a census text's brackets count ({b} -> {a})");
+    let mut b = Batch::new();
+    b.kept(
+        "mf2",
+        &[("a.c", GUARD_OWNER)],
+        "a.c",
+        &[("defs.inc", HDR)],
+        Some("f"),
+        5,
+        9,
+    );
+    b.finish();
 }
 
 #[test]
 fn mf2_control_balanced_census_text_prunes() {
-    let (b, a) = counts(
+    let mut b = Batch::new();
+    b.pruned(
+        "mf2 control",
         &[("a.c", GUARD_OWNER)],
         "a.c",
         &[("defs.inc", "#define OK 1\n")],
+        Some("f"),
+        5,
+        9,
     );
-    assert!(a < b, "control: a balanced text prunes ({b} -> {a})");
+    b.finish();
 }
 
+/// `sink(DUAL)` with `DUAL` defined `0` in one file and `{` in another: no compiled program
+/// shows the pair live (`sink({)` does not compile), so the row is conservative (kind C): when
+/// two definitions of a spelling disagree, the one in effect is undecidable from the
+/// repository, so the pair `x = src()` (line 4) to `sink(x)` (line 7) is kept.
 const DUAL_OWNER: &str = "int src(void);\nvoid sink(int);\nvoid f(void) {\n    int x = src();\n    sink(DUAL);\n    x = 2;\n    sink(x);\n}\n";
 
 #[test]
@@ -377,21 +296,24 @@ fn mf3_one_of_two_definitions_in_two_files() {
         ("x.c", "#define DUAL 0\n"),
         ("y.c", "#define DUAL {\n"),
     ];
-    let (b, a) = counts(&two, "a.c", &[]);
-    assert_eq!(
-        a, b,
-        "any unbalanced definition taints the spelling ({b} -> {a})"
-    );
+    let mut b = Batch::new();
+    b.kept("mf3", &two, "a.c", &[], Some("f"), 4, 7);
+    b.finish();
 }
 
 #[test]
 fn mf3_control_only_the_balanced_definition_prunes() {
-    let (b, a) = counts(
+    let mut b = Batch::new();
+    b.pruned(
+        "mf3 control",
         &[("a.c", DUAL_OWNER), ("x.c", "#define DUAL 0\n")],
         "a.c",
         &[],
+        Some("f"),
+        4,
+        7,
     );
-    assert!(a < b, "control prunes ({b} -> {a})");
+    b.finish();
 }
 
 const B1S_H: &str = "#define END }\n#define BEGIN {\n";

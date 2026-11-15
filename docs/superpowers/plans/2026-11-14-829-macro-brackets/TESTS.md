@@ -302,3 +302,123 @@ Not built: the required behaviour is a design choice, or the row exists to recor
 5. The forced include of G2-sol2-04 cannot be expressed to prism (no input carries it); the row documents the input prism receives.
 6. The `.cc` twins of G2-sonnet-01 and G2-sonnet-02 are rules-derived (the enumerators compiled the C probes only); the `.cc` twin of G2-opus-02 was compiled here. `.c` and `.cc` of G2-opus-01k were compiled here only as `.cc`.
 7. `cz_parity` now takes an owner file and a direction (`cz_parity_in`); cz1 and cz2 still call it with `a.c` and the forward direction and are still red on base (their digest assertion).
+
+# Chain B (round 3) (sonnet3, terra3, opus3, sol3; 2026-11-14)
+
+Four enumerators (`.scratch829/chain3/{sonnet3,terra3,opus3,sol3}/LIST.md`; ids `G2-sonnet3-01..10`, `G2-terra3-01..03`, `G2-opus3-01..13`, `G2-sol3-01..03`). Same owner policy as chain A: **the rule of DESIGN.md is tentative, so no new test names an `Off::` reason or depends on a proposed fix**; each asserts the behaviour the goal requires (the live pair is kept, the control pruning survives, the census fact or input is seen). BOUNDARY rows are tagged twice (test name starts `boundary_`, and the table): sonnet3-09, sonnet3-10, opus3-10, opus3-11, sol3-01, sol3-03. sol3-02 and opus3-12 carry no BOUNDARY label in the lists and are built as ordinary rows. Nothing is ignored yet.
+
+Base = HEAD `fd8e49ac` (same stubs). Files (all new, each under 610 weighted lines):
+- `src/data_flow/build/c_prune_brackets_r3_support.rs`: helpers. `pair_in` judges one pair BY OWNER (`e.from.function`), `Batch` runs every iteration of a loop of rows (an inadmissible row, no baseline pair, panics at once; a dropped live pair or a kept dead pair is collected and reported together), `guard_pair`/`guard_source` build the guard owner.
+- `c_prune_brackets_r3_enclosing_tests.rs` (opus3 class E), `c_prune_brackets_r3_lexical_tests.rs` (sonnet3-01..03, 10, terra3-01, 02), `c_prune_brackets_r3_depth_tests.rs` (sonnet3-07, 08), `c_prune_brackets_r3_loader_tests.rs` (loader and cache-lifecycle rows, real files in a tempdir), `src/call_graph/c/macro_census_brackets_r3_tests.rs` (tentative-design fact tests; `expect_everywhere` and its helpers of the r2 file became `pub(super)`).
+- **No inline matrix cases and no obligation rows.** The chain-A rows are inline cases read by `c_prune_matrix`/`cpp_prune_matrix`; here every shape leaves an invocation group open or closed in a sibling owner (one file per shape), or needs a tempdir, so the rows are dedicated tests. They keep the matrix's admissibility rule (the baseline pair must exist, else the test panics `inadmissible`). They are not seen by the matrices' removal-only check.
+
+## Totals (new tests only)
+
+- **59 new tests: 51 RED, 8 GREEN on base.** Every RED fails on the assertion it was written for. Pair rows report `was dropped`; **no row reports `inadmissible`** (every pair exists in the baseline, every iteration of every loop was evaluated through `Batch`). Fact rows fail on the fact (the macro is in the census). Two cache-lifecycle rows fail at their premise (see Discrepancies 3).
+- Per file: enclosing 14 RED / 1 GREEN, lexical 9 / 2, depth 6 / 1, loader 15 / 3, census facts 7 / 1.
+- The 8 GREEN are controls: `row_g2_opus3_01_variadic_control_prunes` (K, rejoining variadic), `row_g2_sonnet3_01_to_03_balanced_splice_controls_prune`, `g2_sonnet3_01_to_03_balanced_splice_controls` (census), `row_g2_terra3_02_control_without_the_comma_prunes`, `row_g2_sonnet3_08_balanced_deep_body_control_prunes`, `row_g2_sol3_02_control_backslash_file_without_the_decoy` (the lists' no-decoy member), `row_g2_sonnet3_06_control_utf16_header_without_bom_keeps_the_pair`, `row_g2_terra3_03_control_a_balanced_include_target_appears` (lifecycle plumbing: a `Miss`, rebuilt, pruned before and after).
+- Full `cargo test -p prism --lib` on this tree: **3,556 passed, 219 failed, 16 ignored**. All 219 failures are bracket rows, census-fact rows, `cz*` rows and the two aggregate matrices (RED on base by design); none outside this lane. Not run: the integration targets, `prism-review`, `prism-mcp`.
+
+Source column: **obs** = the enumerators compiled and ran it and measured base with the asm control; **obs+** = also compiled or run again here (Apple clang 21.0.0); **rules** = derived from the rules, no liveness run (kind C).
+
+## Pair rows
+
+| row | test(s) | file | kind | BOUNDARY | source | base |
+|---|---|---|---|---|---|---|
+| G2-sonnet3-01 | `row_g2_sonnet3_01_digraph_brace_formed_across_a_splice` (.c, .cc) | lexical | S | | obs (.c); .cc obs+ (`42 3`) | RED |
+| G2-sonnet3-01 member | `row_g2_sonnet3_01_member_square_digraph_formed_across_a_splice` (`<\`+`:` and `:\`+`>`) | lexical | C | | rules | RED |
+| G2-sonnet3-02 | `row_g2_sonnet3_02_comment_opener_formed_by_a_splice` (.c, .cc) | lexical | S | | obs (.c); .cc obs+ | RED |
+| G2-sonnet3-02 member | `row_g2_sonnet3_02_member_comment_closer_formed_by_a_splice` (`*\`+`/`) | lexical | S | | obs+ (C compiled here: `41 2`) | RED |
+| G2-sonnet3-03 | `row_g2_sonnet3_03_line_comment_introducer_formed_by_a_splice` (.c, .cc) | lexical | S | | obs (.c); .cc obs+ | RED |
+| sonnet3-01..03 control | `row_g2_sonnet3_01_to_03_balanced_splice_controls_prune` | lexical | K | | rules (`<% %>` and `{ }` close themselves) | GREEN |
+| G2-sonnet3-05 | `row_g2_sonnet3_05_latin1_payload_and_header` (`defs.payload` and `defs.h`, .c and .cc) | loader | S | | obs | RED |
+| G2-sonnet3-06 | `row_g2_sonnet3_06_utf16_payload_and_bom_header` (LE BOM, BE BOM, LE no BOM payload; LE BOM `.h`) | loader | C | | rules (MSVC reads the BOM forms; clang cannot compile them) | RED |
+| G2-sonnet3-06 control | `row_g2_sonnet3_06_control_utf16_header_without_bom_keeps_the_pair` | loader | K | | obs (base `off:Incomplete`) | GREEN |
+| G2-sonnet3-07 | `row_g2_sonnet3_07_alias_chain_to_a_listed_name`, `..._to_an_unbalanced_macro`, `..._split_across_headers` (.c, .cc) | depth | S | | obs (n up to 20,000, `41 2`); here n = 1,000 | RED |
+| G2-sonnet3-08 | `row_g2_sonnet3_08_deep_brace_bodies` (20,000), `..._deep_paren_and_square_bodies`, `..._owner_group_nested_deep` (300 parens in the owner) | depth | S / C | | obs (2,000 braces, `41 2`); derived for the rest | RED |
+| G2-sonnet3-08 control | `row_g2_sonnet3_08_balanced_deep_body_control_prunes` | depth | K | | rules | GREEN |
+| G2-sonnet3-09 | `boundary_g2_sonnet3_09_header_outside_the_repo_root` (quoted `../common`, angle through `-I`, .c and .cc; loader root `mono/pkg`) | loader | S | BOUNDARY | obs | RED |
+| G2-sonnet3-09 control | `row_g2_sonnet3_09_control_analysed_from_the_common_root` | loader | K | | obs (read=1) | RED (stub facts) |
+| G2-sonnet3-10 | `boundary_g2_sonnet3_10_external_macro_supplies_the_split` (.c, .cc) | lexical | S | BOUNDARY | obs (.c); .cc obs+ (`42 3`, header on `-I`) | RED |
+| G2-terra3-01 | `row_g2_terra3_01_string_comment_introducer_then_a_real_brace`, `..._member_line_comment_introducer_in_a_string` (each: census text and parsed header, .c and .cc) | lexical | S | | rules; compiled by terra3 (.c and .cc, `0`) | RED |
+| G2-terra3-02 | `row_g2_terra3_02_comma_between_comment_parentheses_after_a_string` (text and header, .c and .cc) | lexical | S | | rules; compiled by terra3 | RED |
+| G2-terra3-02 control | `row_g2_terra3_02_control_without_the_comma_prunes` | lexical | K | | rules | GREEN |
+| G2-terra3-03 | `row_g2_terra3_03_a_newly_resolvable_include_target_appears` (.c, .cc) | loader | S | | rules (compiled by terra3 in both states) | RED (fresh build after the edit does not keep the pair) |
+| G2-terra3-03 reverse | `row_g2_terra3_03_a_resolvable_include_target_is_deleted` | loader | S | | rules | RED at the premise (Discrepancies 3) |
+| G2-terra3-03 control | `row_g2_terra3_03_control_a_balanced_include_target_appears` | loader | K | | | GREEN |
+| G2-opus3-01 | `row_g2_opus3_01_lambda_local_class_method_in_a_clean_parse` (C++) | enclosing | S | | obs (`42 3`) | RED |
+| G2-opus3-01 control | `row_g2_opus3_01_variadic_control_prunes` | enclosing | K | | rules | GREEN |
+| G2-opus3-01b | `row_g2_opus3_01b_lambda_inside_a_function_inner_owner_edge` (owner `probe`) | enclosing | S | | obs | RED |
+| G2-opus3-01c | `row_g2_opus3_01c_gnu_nested_function_inner_owner_edge` (owner `probe`) | enclosing | C | | rules (no GCC: clang has no nested functions) | RED |
+| G2-opus3-02 | `row_g2_opus3_02_a_macro_drops_the_overwriting_piece_c`, `..._cpp` | enclosing | S | | obs (`41 41`) | RED |
+| G2-opus3-02 member | `row_g2_opus3_02_stringizing_member_c_and_cpp` (`#q[0]`) | enclosing | C | | rules | RED |
+| G2-opus3-03, 04, 05 | `row_g2_opus3_03_opener_inside_a_sibling_owner`, `..._04_opener_inside_a_declaration_initializer`, `..._05_closer_inside_a_following_owner` (each .c and .cc) | enclosing | S | | obs (`41 2`, `42 3`) | RED |
+| G2-opus3-06, 07, 08, 09 | `row_g2_opus3_06_in_class_member_function`, `..._07_template_declaration_owner`, `..._08_template_argument_commas_split_the_group`, `..._09_namespace_inside_the_group_inner_owner_edge` (C++) | enclosing | S | | obs | RED |
+| G2-opus3-10 | `boundary_g2_opus3_10_external_enclosing_macro` | enclosing | S | BOUNDARY | obs | RED |
+| G2-opus3-11 | `boundary_g2_opus3_11_include_differs_in_unicode_normalization`; capability: the NFC spelling must resolve to the NFD-named file, else prints `SKIP` | loader | S | BOUNDARY | obs (macOS) | RED (ran, not skipped, on this APFS host) |
+| G2-opus3-11 control | `row_g2_opus3_11_control_same_normalization` | loader | K | | obs (nfc, read=1) | RED (stub facts) |
+| G2-opus3-12 | `row_g2_opus3_12_include_of_a_file_under_eval_secbench` (.c, .cc) | loader | S, IMMATERIAL outside prism's own tree | | obs | RED |
+| G2-opus3-12 control | `row_g2_opus3_12_control_same_payload_elsewhere` | loader | K | | obs (secb2, read=1) | RED (stub facts) |
+| G2-sol3-01 | `boundary_g2_sol3_01_vfs_mapped_include` (.c, .cc): **a Clang VFS overlay cannot be expressed to prism** (no loader or CLI input carries VFS overlays, search-path maps or header maps), so the row documents the input prism does receive: an angle include that resolves to nothing and a data file `private/implementation.data` in the repository | loader | S | BOUNDARY | obs (`41 2`) | RED |
+| G2-sol3-01 control | `row_g2_sol3_01_control_direct_include_of_the_same_file` | loader | K | | obs (`vfs_direct`, read=1) | RED (stub facts) |
+| G2-sol3-02 | `row_g2_sol3_02_backslash_include_with_a_balanced_decoy_directory_path` (.c, .cc); capability: the host must hold a file name with a backslash, else `SKIP` | loader | S | | obs | RED (ran, not skipped) |
+| G2-sol3-02 no-decoy | `row_g2_sol3_02_control_backslash_file_without_the_decoy` | loader | K | | obs (`Unreadable`, owner refused) | GREEN |
+| G2-sol3-03 | `boundary_g2_sol3_03_cxx20_header_unit_import`: `import "defs.payload";` parses cleanly and prism has no header-unit import in its include discovery; the row documents the input prism receives | loader | S | BOUNDARY | obs (Clang explicit modules) | RED |
+
+## Tentative-design fact tests (`macro_census_brackets_r3_tests.rs`)
+
+They pin `unbalanced`/`loose_comma` values of the tentative rule and will be revisited at the redesign; the BEHAVIOUR of the same inputs is pinned by the pair rows above. Each runs in a parsed `.c`, a parsed `.cpp` and a census text.
+
+| row | test | base |
+|---|---|---|
+| G2-sonnet3-01..03 (facts) | `g2_sonnet3_01_digraph_brackets_written_across_a_splice`, `g2_sonnet3_02_03_comment_delimiters_formed_by_a_splice`; control `g2_sonnet3_01_to_03_balanced_splice_controls` | RED, RED, GREEN |
+| G2-sonnet3 ellipsis member | `g2_sonnet3_splice_member_ellipsis_across_a_splice` (`.\`+`..` reads as a plain variadic: `VF` loose, `VG` tight) | RED |
+| G2-sonnet3-04 | `g2_sonnet3_04_comment_introducers_inside_literals_do_not_hide_a_brace` (U1..U4 true, V2 false) | RED |
+| G2-terra3-01, 02 (facts) | `g2_terra3_01_string_comment_introducer_then_a_real_brace`, `g2_terra3_02_comma_between_comment_parentheses_after_a_string` | RED |
+| G2-sonnet3-08 (facts) | `g2_sonnet3_08_deep_bodies_in_a_census_text` (10^5 openers flagged, balanced twin not, no panic) | RED |
+
+## Converted to required-behaviour
+
+The round-0 and round-1 tests below asserted a gate REASON (`Off::MacroBrackets|MacroComma|MacroArgSplit`, or `None` for a control) or compared EDGE TOTALS (`counts()`), which is the wrong oracle when an owner stays on-no-d (Chain A, Discrepancies 2). They now judge the specific pair, by owner (`pair_in`, `Batch`). The base outcome is unchanged (RED where it was RED).
+
+| old test | now |
+|---|---|
+| `mf1_header_defines_reach_the_owner`, `mf1_control_without_defines_prunes` | pair `x@5 -> x@9` of `f` kept / pruned |
+| `mf2_defines_arrive_as_a_census_text`, `mf2_control_balanced_census_text_prunes` | same, census text |
+| `mf3_one_of_two_definitions_in_two_files`, `mf3_control_only_the_balanced_definition_prunes` | pair `x@4 -> x@7` kept / pruned. **Borderline (kind C)**: `sink({)` does not compile, so no program shows the pair live; it is kept because the definition in effect is undecidable from the repository |
+| `e01_20_macro_brackets_c`, `e01_20_macro_brackets_cc`, `e01_21_macro_args_c`, `e01_21_macro_args_cc` | **removed**: every owner they listed with a baseline pair is pinned by its pair row (b1..b13, x1..x6, a2..a8, y1..y4; the `None` owners are the controls b10, b11, x5, a7, a8, y3, y4). The gate-only owners `brace_scope`, `brace_transitive`, `brace_digraph`, `external_pthread_pair`, `external_cpython_pair`, `arg_split_scope` have no baseline pair (the parser binds `r = x` to the inner `x`, Deviations 1 above), so there is no behaviour left to assert |
+| `e01_22_wrappers_c` (+ `_control`), `e01_22_wrappers_cc` (+ `_control`), `e01_23_live_c` (+ `_controls`), `e01_23_live_cc` (+ `_control`), `e01_24_splice_names` | **removed**: every owner has a pair row (w1..w8, a1..a12, k1..k3, y5..y11, s1..s4; the controls are w6, k1..k3, y11) |
+| `g_sol_01_every_listed_name_is_refused_through_wrappers`, `..._when_spelled_directly` | `g_sol_01_every_listed_name_keeps_the_pair_through_wrappers` / `..._when_spelled_directly`: 16 names x {function-like multi-hop, object-like alias} / {direct} x {.c, .cc}, owner `if (c) NAME(0); x = 2; return x;`, pair `x = 1` to `return x` kept. Kind C: one listed name alone can open or close a block |
+| `g_terra_01_wrapper_in_a_header_c_and_cpp`, `..._in_a_census_text_c_and_cpp`, `g_terra_01_alias_chain_across_two_headers` | pair `x@5 -> x@9` kept; the harmless-wrapper controls pruned |
+| `g_sol_03_rescan_split_through_a_header` | pair `x@3 -> x@9` kept; the tight `INIT` control pruned |
+| `g_terra_10_spliced_name_from_a_header_with_lf_and_crlf` | pair `x@5 -> x@9` kept (LF and CRLF, .c and .cc) |
+| `loaded::g_sol_14_transitive_non_c_include_reaches_the_owner_gates`, `loaded::g_terra_14_quoted_and_angle_transitive_includes`, `loaded::g_sol_14_net_file_without_an_include_reaches_the_owner_gates`, `loaded::g_sol_14_control_balanced_payload_prunes` | renamed `..._keeps_the_pairs`; judged by pair through the loader's census. The old `comma` owner (`int y = (PAIR);`) is replaced by a live rescan-split owner (`H(INIT)`/`J(INIT)`, `INIT { int a, b; }`): the old pair was DEAD under the compiler (`(1,2)` sits in parentheses and `x = 2` dominates), so asserting it was kept had no required behaviour |
+| `loaded::g_sol_13_aggregate_identity_moves_on_a_loose_only_edit` | **replaced** by `row_g2_sol_13_converted_edit_of_a_split_text_input_forward_and_reverse` (loader file): the identity assertion was a mechanism check. The new row edits a text input on a rescan split (`{ int a; }` to `{ int a, b; }` and back) and asserts the pair follows through a fresh build and a cache-backed load |
+
+Kept as they are (and why): `g_terra_16_digraph_and_plain_paste_owners_are_g5` (asserts the existing `Off::G5`, not a new reason, green on base); `mf4_the_issue_files` (already a pair row); `cz1`/`cz2`/`cz3` (pair rows through the cache; their `assert_ne!` on the persisted digest is a mechanism check of the partial-hit notice and stays until the redesign).
+
+Tentative-design fact tests (census values and list pins, revisit at the redesign): `macro_census_brackets_tests.rs` (U01..U26, L01..L12, the `loose_comma`/`unbalanced` values), `macro_census_brackets_r1_tests.rs` (all), `macro_census_brackets_r2_tests.rs` (G2-sonnet-06, G2-opus-03 facts), `macro_census_brackets_r3_tests.rs` (above), `block_macros_list_is_the_design_list` and `g_sol_01_test_names_are_the_production_list` (the OD-3 name list), `cz3_premise_only_the_free_names_differ` (free-set premise).
+
+## Design inputs (no assertion)
+
+1. **G2-opus3-13, GCC `-traditional-cpp` pastes tokens through comments (IMMATERIAL, rules-only).** `#define CAT(a,b) a/**/b`, then `CAT(OP,EN);` / `x = 2;` / `CAT(CLO,SE);` with in-repo `OPEN` = `if (c) {` and `CLOSE` = `}`. In GCC's traditional mode a comment is removed without a space, so `CAT` builds `OPEN` with no `##` (not poisoned, no free name `OPEN`). clang rejects `-traditional-cpp` for C and does not paste under `-E -traditional-cpp`; no GCC here. Owner decision: keep the pair, or record traditional preprocessing as out of model next to C89 (G2-opus-05).
+2. **G2-sonnet3-01 member `%\`+`:%\`+`:` (digraph paste across a splice).** Already `off:G5` on base (a K, observed `sp/p1`); not built, `g_terra_16_digraph_and_plain_paste_owners_are_g5` pins the unspliced form.
+3. **Corpus observations (sonnet3, no row).** In-repo function-like macros whose invocations hold a comma whose innermost bracket is `{`/`[` (crude scan, sources only): redis 0, leveldb 0, re2 0, cpython 67 invocations of 8 macros (mostly `PySlot_DATA` 30; the real one is brace-held inside extra parentheses, the conservative shape of row a3; `EM_JS_MACROS(void, f, (void), { js })` is a genuine split through a variadic body), protobuf 2 and snappy 3 (raw strings and text, false positives). Prefix-keyword in-repo macros (`if (..)`/`else`/`do`, no `;`): redis `dictFreeKey`, `run_with_period`, `IF`, `luaY_checklimit`, `vecswap`; cpython `WORKSTACK_FOR_EACH` and friends (used with a block, so off); protobuf `DO(STATEMENT)`: none gives a parse-clean drop on its own.
+4. **Corpus (sol3).** `scan.py` read six corpora (2,774 source-like files, 24,919 candidate definition lines; search counts, not an exact census) and found only classes already covered: block open/close (`cpython/Include/ceval.h:117`), nested closure (redis jemalloc `log.h:65`), initializer fragments (`redis/src/config.c:2269`), brace-held initializer commas (`pycore_initconfig.h:53`), argument-list fragments, comma operators, header-position owners (`cjkcodecs.h:256`). No new row.
+5. **Checked clean (no row).** sonnet3: operator-spelling macros (`SET =`, `+=`, `STAR *`: parse error, owner off; `INC ++` is a declaration), `#if`-guarded prefixes and braces (off), a directive inside an argument group (off), OpenMP through a macro (off; `OMP_BARRIER;` alone is harmless), keyword-named macros (self-reference poisons), loader reach of ignored, hidden and builtin skip directories (read), hidden declarations through macros (cannot make a live pair droppable), `static`/`volatile`/`_Atomic` behind a macro, `push_macro`/`pop_macro`, `$` and `\u` brackets (fail closed), GNU raw strings in C (both dialects read), and `NAV_CALL_EDGE_CACHE_VERSION` (call edges only, no bump). opus3: a comma-operator statement as split point, an opener in a header with the group continuing in the main file (clang: unterminated invocation), a `)` from a macro (same), a file-scope unbalanced macro that only changes class or namespace context, NBSP between a macro name and `(` (clang 21 does not expand, no hazard), digraph brackets inside an owner's group (tree-sitter: `G1Error`), a comment between a macro name and `(` in a `#define`, hidden `return`/`break`/`continue`, MSVC traditional `__VA_ARGS__`, pp-number swallowing a macro name.
+
+## Chain B (round 3): not built, with reasons
+
+- G2-opus3 class E control variants beyond the one the list gives (`J(...) __VA_ARGS__` for 01, built); the other eight members have no list-given control.
+- G2-sol3 grouped members "quoted/angle search-path mappings and header maps": the list executed only the VFS member; no separate row and nothing expressible to prism.
+- G2-sonnet3-06 `.h` UTF-16 *with* BOM: built (LE BOM only); BE BOM header is the same code path as the payload BE row.
+
+## Discrepancies and notes (chain B)
+
+1. **No base outcome differs from a list's claim.** Every S row's pair exists in the baseline and is dropped on base (`inadmissible` appears nowhere); every K control is green. The host capability rows (sol3-02 backslash, opus3-11 NFC/NFD) both ran on this macOS host and were RED, not skipped.
+2. **Pair identity (points 1 of the brief).** For nested owners a from/to-only check passes on base through the enclosing owner's copy: probed here for opus3-01b and 01c, `(before, after)` is `(true, true)` with no owner filter and with owner `outer`, and `(true, false)` with owner `probe`. The rows name the owner `probe`, so they are RED on base for the intended reason. opus3-09 and opus3-01 are the same shape (named owner `probe`).
+3. **The cache "delete" and "reverse" rows are RED at their premise on base**, like chain A's cz3 reverse: the first state must KEEP the pair, and base (stub gates) never keeps it, so the failure is the premise, not the stale-replay failure mode, which cannot be exhibited on base. `row_g2_terra3_03_a_resolvable_include_target_is_deleted` and the reverse half of `row_g2_sol_13_converted_...` go green with the implementation. The add/forward halves fail at the fresh build after the edit (the intended assertion). The cache-backed half only runs after those pass: it treats `Miss` as a rebuild and judges a `Hit` or a rebuilt `PartialHit` against the fresh answer (the control row shows the load is a `Miss` when the text input appears: the topology key moves).
+4. **Depth rows run at reduced depths (point 2).** Measured on base in the debug profile of `cargo test`: alias chains cost super-linear time in the free-name closure (1,000 hops about 3 s per test, 3,000 hops 25 s, so `CHAIN_DEPTH` = 1,000; enumerators ran 20,000 in a release build). Bracket bodies are cheap (20,000 per body: 0.2 s). **An owner group nested 3,000 parentheses deep overflows the 2 MiB stack of a test thread on base** (`has overflowed its stack`, an abort that kills the whole test binary) although the release CLI handles 10^5 (main thread stack, release frames); the row uses `GROUP_DEPTH` = 300. That overflow is a harness limit of base code (tree-sitter and the producer recurse over the nesting), not related to the gates; it would need a decision of its own if the owner wants depth coverage in tests.
+5. **terra3-01 and 02 were not compiled here**; the evidence is the enumerator's (terra3 compiled both dialects: exit 0 on `probe(0) == 41 && probe(1) == 2`). The census-text rows stamp the payload with `set_c_census_texts` instead of a `defs.payload` file; the parsed-header variant (`h.h`) is a second reading of the same definitions (the parsed lexer tracks strings, so it is the control for the text reading).
+6. **sonnet3-10 `.cc` twin** compiled here with `clang++ -std=c++17 -Iext` (`42 3`); the list measured `.c` only.
+7. `mf3` is borderline (see the conversion table).

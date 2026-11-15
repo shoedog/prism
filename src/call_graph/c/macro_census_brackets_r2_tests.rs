@@ -8,7 +8,7 @@ use crate::languages::Language;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-fn parsed_census(file: &str, src: &str) -> CMacroCensus {
+pub(super) fn parsed_census(file: &str, src: &str) -> CMacroCensus {
     let lang = if file.ends_with(".cc") || file.ends_with(".cpp") {
         Language::Cpp
     } else {
@@ -19,7 +19,7 @@ fn parsed_census(file: &str, src: &str) -> CMacroCensus {
 }
 
 /// A census where `src` arrives as a census text (the loader's non-C include file).
-fn text_census(src: &str) -> CMacroCensus {
+pub(super) fn text_census(src: &str) -> CMacroCensus {
     let mut p = ParsedFile::parse("a.c", "int f(void) { return 0; }\n", Language::C).unwrap();
     p.set_c_census_texts(Arc::new(BTreeMap::from([(
         "defs.inc".to_owned(),
@@ -28,13 +28,13 @@ fn text_census(src: &str) -> CMacroCensus {
     CMacroCensus::from_files(&BTreeMap::from([("a.c".to_owned(), p)]))
 }
 
-fn fact<'a>(c: &'a CMacroCensus, name: &str) -> &'a MacroFacts {
+pub(super) fn fact<'a>(c: &'a CMacroCensus, name: &str) -> &'a MacroFacts {
     c.get(name).unwrap_or_else(|| panic!("{name} missing"))
 }
 
 /// `(unbalanced, loose_comma)` of each `(name, unbalanced, loose)` row in a parsed `.c`, a
 /// parsed `.cpp` and a census text.
-fn expect_everywhere(src: &str, rows: &[(&str, bool, bool)]) {
+pub(super) fn expect_everywhere(src: &str, rows: &[(&str, bool, bool)]) {
     let readings = [
         ("parsed .c", parsed_census("a.c", src)),
         ("parsed .cpp", parsed_census("a.cpp", src)),
