@@ -32,6 +32,7 @@ mod review;
 mod review_context;
 mod review_loading;
 mod review_occurrences;
+mod review_round;
 
 #[doc(hidden)] // prism-mcp owner runtime; outside the api compatibility promise
 pub use crate::executable_owner::admission::Failure as OwnerFailure;
@@ -43,7 +44,7 @@ pub use owner::OwnerArgs;
 pub use owner::OwnerOptions;
 pub use review::{build_context, load_review_inputs, BuiltContext, ReviewInputs, ReviewOptions};
 pub use review_context::{
-    ReviewBoundaryHints, ReviewHintBasis, ReviewImportHint, ReviewUnresolvedReason,
+    ReviewBarrelHop, ReviewBoundaryHints, ReviewHintBasis, ReviewImportHint, ReviewUnresolvedReason,
 };
 pub use review_loading::{
     ContextFile, ContextReadAttempt, ContextReadOutcome, ContextSkip, ContextUnavailable,
@@ -53,6 +54,7 @@ pub use review_occurrences::{
     ReviewCallOccurrence, ReviewOccurrenceCensus, ReviewOccurrenceFacts, ReviewOccurrenceOwner,
     ReviewValueOccurrence,
 };
+pub use review_round::ReviewContextRound;
 
 /// Runs `op` on prism's large-stack worker pool and returns its result.
 ///
