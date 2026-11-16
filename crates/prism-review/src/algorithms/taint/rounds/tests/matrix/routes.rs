@@ -397,9 +397,14 @@ fn m02_renamed_barrel_continuation_preserves_member() {
             );
             let mut zero = initial(r);
             zero.frontier = plan;
-            let first = run_stage(r, &zero, &mut AttemptCounters::default())
-                .unwrap()
-                .bundle;
+            let first = run_stage(
+                r,
+                &zero,
+                &mut AttemptCounters::default(),
+                &mut RoundStats::default(),
+            )
+            .unwrap()
+            .bundle;
             assert!(first
                 .frontier
                 .open

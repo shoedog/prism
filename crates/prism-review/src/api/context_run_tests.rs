@@ -82,7 +82,7 @@ impl Fixture {
         repo: &Path,
     ) -> (crate::api::AlgorithmOutcome, ContextState) {
         self.with(|ctx| {
-            run_algorithm_prepared(
+            let (outcome, state, _) = run_algorithm_prepared(
                 SlicingAlgorithm::Taint,
                 ctx,
                 &self.inputs,
@@ -91,7 +91,8 @@ impl Fixture {
                 repo,
                 request,
             )
-            .unwrap()
+            .unwrap();
+            (outcome, state)
         })
     }
     fn control(&self) -> (SliceResult, ExpansionOutcome) {

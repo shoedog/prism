@@ -90,13 +90,16 @@ pub(super) struct RunExpansion<'a> {
     request: Option<&'a ContextRequest>,
     cached: Option<SliceResult>,
     state: ContextState,
+    stats: Option<super::context_stats::ContextStats>,
 }
 impl<'a> RunExpansion<'a> {
-    pub(super) fn new(request: Option<&'a ContextRequest>) -> Self {
+    pub(super) fn new(request: Option<&'a ContextRequest>, taint_selected: bool) -> Self {
         Self {
             request,
             cached: None,
             state: ContextState::NotRequested,
+            stats: (request.is_some() && taint_selected)
+                .then(super::context_stats::ContextStats::default),
         }
     }
     pub(super) fn requested(&self) -> bool {
@@ -151,6 +154,17 @@ impl<'a> RunExpansion<'a> {
         algorithm: SlicingAlgorithm,
     ) -> super::map_view::MapView<'b> {
         self.state.view(inputs, algorithm)
+    }
+    pub(super) fn take_stats(&mut self) -> Option<super::context_stats::ContextStats> {
+        let mut stats = self.stats.take()?;
+        match &self.state {
+            ContextState::Expanded(context) => {
+                stats = super::context_stats::ContextStats::from_context(context)
+            }
+            ContextState::Unavailable(_) => stats.context_unavailable = 1,
+            ContextState::NotRequested => {}
+        }
+        Some(stats)
     }
     pub(super) fn into_state(self) -> ContextState {
         self.state

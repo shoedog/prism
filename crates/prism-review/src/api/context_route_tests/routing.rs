@@ -276,7 +276,7 @@ fn o10_legacy_unauthorized_is_baseline() {
         let mut warnings = base.warnings.clone();
         warnings.push(UNAUTHORIZED.into());
         assert_eq!(out.warnings, warnings);
-        let (direct, _) = run_algorithm_prepared(
+        let (direct, _, _) = run_algorithm_prepared(
             SlicingAlgorithm::Taint,
             ctx,
             &f.inputs,
@@ -368,7 +368,7 @@ fn o12_legacy_result_appends_note_once() {
     let f = Fixture::new(B);
     let p = imports();
     f.with(|ctx| {
-        let (direct, _) = run_algorithm_prepared(
+        let (direct, _, _) = run_algorithm_prepared(
             SlicingAlgorithm::Taint,
             ctx,
             &f.inputs,

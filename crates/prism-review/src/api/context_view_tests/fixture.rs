@@ -77,6 +77,7 @@ impl Fixture {
             stats: RoundStats {
                 rounds_started: 2,
                 rounds_completed: 2,
+                ..Default::default()
             },
             stop: Stop::FrontierExhausted,
             attempts: AttemptCounters::default(),
@@ -134,6 +135,7 @@ pub(super) fn single(result: SliceResult, state: ContextState) -> ReviewAlgorith
 pub(super) fn multi(state: ContextState) -> super::super::super::ReviewRun {
     super::super::super::ReviewRun {
         context: state,
+        context_stats: None,
         diagnostics: None,
         results: vec![],
         findings: vec![],

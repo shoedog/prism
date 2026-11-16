@@ -82,8 +82,8 @@
     ],
     "OR13-legacy-single-authorized": [
       "crates/prism-review/src/api/context_route.rs",
-      "single(algorithm, ctx, inputs, config, params, repo, false).map(|(outcome, _)| outcome)",
-      "single(algorithm, ctx, inputs, config, params, repo, true).map(|(outcome, _)| outcome)",
+      "single(algorithm, ctx, inputs, config, params, repo, false).map(|(outcome, _, _)| outcome)",
+      "single(algorithm, ctx, inputs, config, params, repo, true).map(|(outcome, _, _)| outcome)",
       "api::context_route::tests::routing::o10_legacy_unauthorized_is_baseline"
     ],
     "OR14-legacy-multi-authorized": [

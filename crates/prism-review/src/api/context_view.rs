@@ -70,10 +70,22 @@ fn select<'a>(
 pub(crate) struct ReviewAlgorithmRun {
     pub(crate) outcome: AlgorithmOutcome,
     context: ContextState,
+    context_stats: Option<super::context_stats::ContextStats>,
 }
 impl ReviewAlgorithmRun {
     pub(crate) fn new(outcome: AlgorithmOutcome, context: ContextState) -> Self {
-        Self { outcome, context }
+        Self {
+            outcome,
+            context,
+            context_stats: None,
+        }
+    }
+    pub(crate) fn with_stats(mut self, stats: Option<super::context_stats::ContextStats>) -> Self {
+        self.context_stats = stats;
+        self
+    }
+    pub(crate) fn stats(&self) -> Option<&super::context_stats::ContextStats> {
+        self.context_stats.as_ref()
     }
     pub(crate) fn context(&self) -> Option<&ReviewContext> {
         match &self.context {

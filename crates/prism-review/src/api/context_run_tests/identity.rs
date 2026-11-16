@@ -37,7 +37,7 @@ fn n01_no_request_is_todays_run() {
             f.dir.path(),
         )
         .unwrap();
-        let (new, state) = run_algorithm_prepared(
+        let (new, state, _) = run_algorithm_prepared(
             SlicingAlgorithm::Taint,
             ctx,
             &f.inputs,
@@ -124,7 +124,7 @@ fn n04_single_and_multi_agree() {
             exact.dir.path(),
         )
         .unwrap();
-        let (new, _) = run_algorithm_prepared(
+        let (new, _, _) = run_algorithm_prepared(
             SlicingAlgorithm::Taint,
             ctx,
             &exact.inputs,
@@ -165,7 +165,7 @@ fn n07_duplicate_taint_selections_share_one_expansion() {
         let config = TaintConfig::default();
         let (baseline, trace) = taint::slice_with_trace(ctx, &f.inputs.diff, &config).unwrap();
         let request = request(64);
-        let mut expansion = RunExpansion::new(Some(&request));
+        let mut expansion = RunExpansion::new(Some(&request), true);
         let first = expansion.apply(&f.inputs, ctx, &config, baseline.clone(), &trace);
         let first_sources = context(&expansion.state).sources.clone();
         assert_eq!(first_sources["b.js"], B);
