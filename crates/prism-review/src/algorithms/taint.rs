@@ -6,6 +6,8 @@
 
 pub(crate) mod boundary;
 mod cleansing;
+#[allow(dead_code)] // S4c2 is the first production caller.
+mod context_budget;
 mod flat;
 mod go;
 mod js_ts;
