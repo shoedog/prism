@@ -18,6 +18,8 @@ mod python;
 mod report;
 #[allow(dead_code)] // S4d2 supplies the first production caller.
 pub(crate) mod result_union;
+#[allow(dead_code)] // S4d2 is the first production caller.
+mod rounds;
 mod run;
 mod seeds;
 mod sink_match;
