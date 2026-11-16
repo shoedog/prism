@@ -19,6 +19,7 @@ pub const DEFAULT_TEMPORAL_DAYS: usize = 90;
 
 #[non_exhaustive]
 pub struct AlgorithmParams {
+    pub(crate) taint_context: super::context_options::TaintContextOptions,
     pub barrier_depth: usize,
     pub barrier_symbols: Vec<String>,
     pub chop_source: Option<String>,
@@ -38,6 +39,7 @@ pub struct AlgorithmParams {
 impl Default for AlgorithmParams {
     fn default() -> Self {
         Self {
+            taint_context: Default::default(),
             barrier_depth: DEFAULT_BARRIER_DEPTH,
             barrier_symbols: Vec::new(),
             chop_source: None,
@@ -79,8 +81,7 @@ pub fn run_algorithm_with_diagnostics(
     params: &AlgorithmParams,
     repo: &Path,
 ) -> Result<super::AlgorithmOutcome> {
-    run_algorithm_prepared(algorithm, ctx, inputs, config, params, repo, None)
-        .map(|(outcome, _)| outcome)
+    super::context_route::run_algorithm_legacy(algorithm, ctx, inputs, config, params, repo)
 }
 
 pub(crate) fn run_algorithm_prepared(
@@ -452,7 +453,35 @@ pub fn run_review(
     params: &AlgorithmParams,
     repo: &Path,
 ) -> ReviewRun {
-    run_review_prepared(ctx, inputs, algorithms, config, params, repo, None)
+    super::context_route::run_review_legacy(ctx, inputs, algorithms, config, params, repo)
+}
+
+pub(crate) fn run_review_routed(
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    algorithms: &[SlicingAlgorithm],
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+    request: Option<&ContextRequest>,
+    taint_error: Option<&str>,
+) -> ReviewRun {
+    if taint_error.is_some() {
+        run_review_prepared_policy(
+            ctx,
+            inputs,
+            algorithms,
+            config,
+            params,
+            repo,
+            None,
+            taint_error,
+        )
+    } else if let Some(request) = request {
+        run_review_prepared(ctx, inputs, algorithms, config, params, repo, Some(request))
+    } else {
+        run_review_prepared(ctx, inputs, algorithms, config, params, repo, None)
+    }
 }
 
 pub(crate) fn run_review_prepared(
@@ -464,6 +493,19 @@ pub(crate) fn run_review_prepared(
     repo: &Path,
     request: Option<&ContextRequest>,
 ) -> ReviewRun {
+    run_review_prepared_policy(ctx, inputs, algorithms, config, params, repo, request, None)
+}
+
+fn run_review_prepared_policy(
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    algorithms: &[SlicingAlgorithm],
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+    request: Option<&ContextRequest>,
+    taint_error: Option<&str>,
+) -> ReviewRun {
     prism::build_pool::install(|| {
         let mut results = Vec::new();
         let mut errors = Vec::new();
@@ -471,6 +513,15 @@ pub(crate) fn run_review_prepared(
         let mut expansion = RunExpansion::new(request);
 
         for &algorithm in algorithms {
+            if algorithm == SlicingAlgorithm::Taint {
+                if let Some(error) = taint_error {
+                    errors.push(AlgorithmError {
+                        algorithm: algorithm.name().to_string(),
+                        error: error.to_owned(),
+                    });
+                    continue;
+                }
+            }
             let algorithm_config = SliceConfig {
                 algorithm,
                 ..config.clone()
@@ -570,10 +621,20 @@ pub fn review(
     params: &AlgorithmParams,
 ) -> Result<ReviewOutcome> {
     prism::build_pool::install(|| {
+        let request = super::context_route::validate_for_review(params)?;
         let inputs = load_review_inputs(opts, diff_text)?;
         let (run, build_warnings) = {
             let built = build_context(&inputs, opts)?;
-            let run = run_review(&built.ctx, &inputs, algorithms, config, params, &opts.repo);
+            let run = super::context_route::run_review_validated(
+                &built.ctx,
+                &inputs,
+                algorithms,
+                config,
+                params,
+                &opts.repo,
+                request.as_ref(),
+                true,
+            );
             (run, built.warnings)
         };
         let min_confidence = run.min_confidence;
