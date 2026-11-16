@@ -1,4 +1,6 @@
 //! Opt-in build profiling (`PRISM_PROFILE=/path/profile.jsonl`). No AST walks when disabled.
+mod counters;
+pub use counters::counter;
 mod owner;
 #[cfg(test)]
 pub(crate) use owner::COUNTERS as GATE_COUNTERS;
@@ -23,6 +25,7 @@ struct Profile {
     cpu: Option<u64>,
     phases: Vec<PhaseRecord>,
     owners: Vec<owner::OwnerRecord>,
+    counters: counters::Counters,
 }
 fn collector() -> &'static Mutex<Option<Profile>> {
     PROFILE.get_or_init(|| Mutex::new(None))
@@ -54,6 +57,7 @@ impl Session {
                     cpu,
                     phases: Vec::new(),
                     owners: Vec::new(),
+                    counters: counters::Counters::new(),
                 });
                 ACTIVE.store(true, std::sync::atomic::Ordering::Relaxed);
                 Self(true)
@@ -152,6 +156,9 @@ fn finish() {
         }
         for owner in &profile.owners {
             line(writer, owner)?;
+        }
+        for row in counters::rows(&profile.counters) {
+            line(writer, &row)?;
         }
         line(writer, &summary::summarize(&profile.owners, 10))?;
         profile.output.publish()
