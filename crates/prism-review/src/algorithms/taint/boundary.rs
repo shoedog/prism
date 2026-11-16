@@ -9,3 +9,9 @@ pub(super) mod occurrences;
 pub(crate) mod records;
 #[allow(dead_code)]
 pub(super) mod recovery;
+
+#[allow(dead_code)]
+pub(crate) mod context_notes;
+#[cfg(test)]
+#[path = "boundary/context_notes_tests.rs"]
+mod context_notes_tests;

@@ -1,0 +1,142 @@
+{
+  "lane": "Completed context diagnostic reconciliation (#602 S5a D)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::boundary::context_notes",
+      "package": "prism-review",
+      "target": "lib"
+    },
+    {
+      "prefix": "api::diagnostics::context_notes_runner_tests::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "CD01-resolved-kept": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "collection.records.retain(|r| !status(&r.site).0);",
+      "collection.records.retain(|_| true);",
+      "algorithms::taint::boundary::context_notes_tests::d02_resolved_removed"
+    ],
+    "CD02-unresolved-ignored": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "if status(&r.site).1 {",
+      "if false {",
+      "algorithms::taint::boundary::context_notes_tests::d03_loaded_unresolved_wording"
+    ],
+    "CD03-context-call-omitted": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "if p.first_round == 0 || collection.records.iter().any(|r| r.site == p.site) {",
+      "if true || collection.records.iter().any(|r| r.site == p.site) {",
+      "algorithms::taint::boundary::context_notes_tests::d07_context_call_added"
+    ],
+    "CD04-files-limit-default": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "request.limits.max_files",
+      "64",
+      "algorithms::taint::boundary::context_notes_tests::d09_stop_notes_and_limits"
+    ],
+    "CD05-cancelled-mislabeled": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "ContextRunNoteKind::Cancelled",
+      "ContextRunNoteKind::TimeGuard",
+      "algorithms::taint::boundary::context_notes_tests::d09_stop_notes_and_limits"
+    ],
+    "CD06-skip-sort-omitted": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "skips.sort_by(|a, b| a.0.cmp(&b.0));",
+      "",
+      "algorithms::taint::boundary::context_notes_tests::d11_all_skip_reasons_and_cap"
+    ],
+    "CD07-skip-summary-zero": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "skips.len() - 10",
+      "0",
+      "algorithms::taint::boundary::context_notes_tests::d11_all_skip_reasons_and_cap"
+    ],
+    "CD08-warning-prefix-ignored": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      ".skip(original_warnings.len())",
+      ".skip(0)",
+      "algorithms::taint::boundary::context_notes_tests::d12_warning_prefix_and_escape_once"
+    ],
+    "CD09-warning-escape-omitted": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "escape_content(warning)",
+      "warning.clone()",
+      "algorithms::taint::boundary::context_notes_tests::d12_warning_prefix_and_escape_once"
+    ],
+    "CD10-refusal-mislabeled": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "ContextRunNoteKind::UnionRefused",
+      "ContextRunNoteKind::StageFailed",
+      "algorithms::taint::boundary::context_notes_tests::refusal_preserves_baseline"
+    ],
+    "CD11-skip-path-unescaped": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "escape_content(path)",
+      "path",
+      "algorithms::taint::boundary::context_notes_tests::d15_escaped_dynamic_skip"
+    ],
+    "CD12-once-overwritten": [
+      "crates/prism-review/src/api/diagnostics.rs",
+      "if !self.context_applied {",
+      "if true {",
+      "api::diagnostics::context_notes_runner_tests::d16_context_setter_is_once"
+    ],
+    "CD13-notes-only-lost": [
+      "crates/prism-review/src/api/diagnostics.rs",
+      "(!self.notes.is_empty()).then(|| display::BoundaryDisplay {",
+      "false.then(|| display::BoundaryDisplay {",
+      "api::diagnostics::context_notes_runner_tests::d17_notes_only_without_collection"
+    ],
+    "CD14-single-wrapper-omitted": [
+      "crates/prism-review/src/api/run.rs",
+      "diagnostics.reconcile_context(&state, request, &inputs.parse_warnings);",
+      "",
+      "api::diagnostics::context_notes_runner_tests::d18_native_depth_boundary_and_once"
+    ],
+    "CD15-multi-wrapper-omitted": [
+      "crates/prism-review/src/api/run.rs",
+      "diagnostics.reconcile_context(&run.context, request, &inputs.parse_warnings);",
+      "",
+      "api::diagnostics::context_notes_runner_tests::d18_native_depth_boundary_and_once"
+    ],
+    "CD16-unresolved-display-omitted": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "record.kind == BoundaryKind::LoadedUnresolved",
+      "false",
+      "algorithms::taint::boundary::context_notes_tests::d03_loaded_unresolved_wording"
+    ],
+    "CD17-first-provenance-only": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "if indices.contains(origin) {",
+      "if indices.iter().next() == Some(origin) {",
+      "algorithms::taint::boundary::context_notes_tests::d06_resolved_wins"
+    ],
+    "CD18-files-skipped-zero": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "max-files bound {} reached; {skipped} context files not loaded",
+      "max-files bound {} reached; 0 context files not loaded",
+      "algorithms::taint::boundary::context_notes_tests::d09_stop_notes_and_limits"
+    ],
+    "CD19-bytes-skipped-zero": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "context source bound {} bytes reached; {skipped} context files not loaded",
+      "context source bound {} bytes reached; 0 context files not loaded",
+      "algorithms::taint::boundary::context_notes_tests::d09_stop_notes_and_limits"
+    ],
+    "CD20-depth-default": [
+      "crates/prism-review/src/algorithms/taint/boundary/context_notes.rs",
+      "request.limits.depth,sites.len()",
+      "2,sites.len()",
+      "algorithms::taint::boundary::context_notes_tests::d09_stop_notes_and_limits"
+    ]
+  },
+  "excluded": {
+    "cap-before-reconcile": "No direct unique replacement seam without artificial scaffolding; D08 still discriminates behavior.",
+    "preapply-error-trigger": "No native deterministic pre-apply error seam demonstrated; NotRequested+Some state and no-taint intent covered without invented hook.",
+    "first-skipped-target": "Mapping from retained data not proven; no invented target text or mutation."
+  }
+}
