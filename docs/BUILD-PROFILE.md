@@ -30,7 +30,7 @@ collect or create a profile. Sequential sessions are allowed after workers join.
 ## JSONL schema version 1
 
 Every line is one JSON object. Record order is header, command totals, sorted phases, per-file RD
-aggregates, owners sorted by file/start byte/name, summary. Field names and units
+aggregates, owners sorted by file/start byte/name, scalar counters sorted by name, summary. Field names and units
 are stable; measured values and time ranking naturally vary. Additive fields may
 be introduced without changing version 1. Timings are integer nanoseconds; memory
 is bytes. Unknown platform measurements are JSON `null`.
@@ -41,7 +41,15 @@ is bytes. Unknown platform measurements are JSON `null`.
 | `command` | whole session `wall_ns`, process `cpu_ns`, `peak_rss_bytes`, `time_kind: "serial_wall"`; excludes final profile serialization/publication |
 | `phase` | `name`, `instance` (occurrence ordinal), optional `file`, `time_kind`, `aggregation`, `status`, `wall_ns` (or `work_ns` for RD sums), `cpu_ns`, `peak_rss_bytes`, `rss_rise_bytes` |
 | `owner` | `file`, `owner`, `start_line` (1-based), `start_byte` (0-based), `language`, `byte_size`, `ast_nodes`, `definitions`, `assignment_paths`, `total_ns`, `flow_edges_ns`, `flow_search_ns`, `reaching_definitions_ns`, `rd_cpu_ns`, `rd_rss_rise_bytes`, `file_cfg_init_ns`, `file_cfg_rss_rise_bytes`, `peak_rss_bytes`, `rss_rise_bytes`, `time_kind`, `counters` |
+| `counter` | `name` (caller-defined scalar), `value` (u64); keys are `record`, `name`, `value` in that order |
 | `summary` | `time_kind: "summed_owner_work"`, `owner_count`, `total_owner_ns`, `top_owners`, `top_dfg_share`, `other_owners` |
+
+A consumer must ignore a record kind it does not know. Scalar counters accumulate
+by name with saturating addition inside the active session, including calls from
+joined worker tasks. Names follow the dotted lower-case convention; values are
+unitless u64 unless the name ends in `_ns` or `_bytes`. Calls outside a session
+are dropped and sequential sessions start empty. Counter rows use the existing
+staging writer and atomic publication; they do not change other record schemas.
 
 `serial_wall` is a whole-phase interval enclosing any Rayon work. Its CPU is
 process CPU, including all workers. `parallel_work` is an interval on a single
