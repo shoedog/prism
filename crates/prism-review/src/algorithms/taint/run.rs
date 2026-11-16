@@ -1,5 +1,6 @@
 //! The taint slice entry point.
 
+use crate::algorithms::taint::attribution::{EmissionAttribution, LicenseRoute, Recorder};
 use crate::algorithms::taint::cleansing::{
     apply_cleansers, cleansed_structured_sink_call_ranges, flow_path_cleansed_for_sink,
     node_in_ranges, source_line_cleansed_for_sink, structured_sink_line_cleansed_for_path,
@@ -63,6 +64,20 @@ pub(super) fn slice_scoped_impl(
     trace: Option<&mut super::trace::TaintTrace>,
     scope: RunScope<'_>,
 ) -> Result<SliceResult> {
+    slice_attributed_impl(ctx, diff, taint_config, trace, scope, None)
+}
+
+/// The scoped run with an optional review-private emission sidecar (#602 S4d1). The sidecar
+/// records decisions the run makes anyway; it never changes a result. `None` records nothing.
+pub(super) fn slice_attributed_impl(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    taint_config: &TaintConfig,
+    trace: Option<&mut super::trace::TaintTrace>,
+    scope: RunScope<'_>,
+    emission: Option<&mut EmissionAttribution>,
+) -> Result<SliceResult> {
+    let mut rec = Recorder::new(emission);
     let mut result = SliceResult::new(SlicingAlgorithm::Taint);
 
     // Collect taint sources. Line-scoped seeds preserve existing behavior;
@@ -570,6 +585,7 @@ pub(super) fn slice_scoped_impl(
                     .get(&(sf.clone(), *sl, file.clone(), *line))
                     .cloned()
                     .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+                rec.license((sf.as_str(), *sl), &evidence, LicenseRoute::Path);
                 keep_best_evidence(&mut evidence_for_sources, (sf.clone(), *sl), evidence);
             }
         }
@@ -587,10 +603,12 @@ pub(super) fn slice_scoped_impl(
                 if let Some((sf, sl)) = source_location {
                     if taint_sources.iter().any(|(f, l)| f == sf && *l == sl) {
                         sources_with_emitted_sinks.insert((sf.to_string(), sl));
+                        let evidence = EvidencePath::unlabeled_for("taint");
+                        rec.license((sf, sl), &evidence, LicenseRoute::Fallback);
                         keep_best_evidence(
                             &mut evidence_for_sources,
                             (sf.to_string(), sl),
-                            EvidencePath::unlabeled_for("taint"),
+                            evidence,
                         );
                     }
                 }
@@ -663,6 +681,8 @@ pub(super) fn slice_scoped_impl(
             .or_else(|| sink_to_path_evidence.get(&(file.clone(), *line)))
             .cloned()
             .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+        let at = (file.as_str(), *line);
+        rec.sink(result.findings.len(), "taint_sink", at, source_location);
         result.findings.push(finding);
         result.evidence.push(Some(finding_evidence));
     }
@@ -699,6 +719,7 @@ pub(super) fn slice_scoped_impl(
                     .get(&(sf.clone(), *sl, file.clone(), *line))
                     .cloned()
                     .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+                rec.license((sf.as_str(), *sl), &evidence, LicenseRoute::Unquoted);
                 keep_best_evidence(&mut evidence_for_sources, (sf.clone(), *sl), evidence);
             }
 
@@ -707,6 +728,8 @@ pub(super) fn slice_scoped_impl(
                 .and_then(|(sf, sl)| evidence_by_lines.get(&(sf.clone(), *sl, file.clone(), *line)))
                 .cloned()
                 .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+            let at = (file.as_str(), *line);
+            rec.sink(result.findings.len(), "unquoted_expansion", at, None);
             result.findings.push(SliceFinding {
                 algorithm: "taint".to_string(),
                 file: file.clone(),
@@ -742,6 +765,7 @@ pub(super) fn slice_scoped_impl(
         if !sources_with_emitted_sinks.contains(&(file.clone(), *line)) {
             continue;
         }
+        rec.source(result.findings.len(), (file.as_str(), *line));
         result.findings.push(SliceFinding {
             algorithm: "taint".to_string(),
             file: file.clone(),

@@ -4,6 +4,7 @@
 //! propagates taint forward through assignments and function calls. Reports all
 //! paths from taint sources to potential sinks (SQL, exec, file ops, HTTP responses).
 
+mod attribution;
 pub(crate) mod boundary;
 mod cleansing;
 #[allow(dead_code)] // S4c2 is the first production caller.
