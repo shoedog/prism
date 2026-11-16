@@ -1,0 +1,138 @@
+{
+  "lane": "Baseline-preserving taint result union (#602 S4d1-U)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::result_union::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "UU01-baseline-replaced": [
+      "crates/prism-review/src/algorithms/taint/result_union.rs",
+      "let mut included = BTreeSet::new();\n    for (index, finding) in input.expanded.findings.iter().enumerate() {\n        if baseline_keys.contains(&key(finding)) {\n            continue;\n        }",
+      "let mut included = BTreeSet::new();\n    for (index, finding) in input.expanded.findings.iter().enumerate() {\n        if baseline_keys.contains(&key(finding)) {\n            if let Some(at) = result.findings.iter().position(|f| key(f) == key(finding)) { result.findings[at] = finding.clone(); result.evidence[at] = input.expanded.evidence[index].clone(); }\n            continue;\n        }",
+      "algorithms::taint::result_union::tests::u03_baseline_key_is_never_added_twice"
+    ],
+    "UU02-category-omitted": [
+      "crates/prism-review/src/algorithms/taint/result_union.rs",
+      "finding.category.clone(),",
+      "None,",
+      "algorithms::taint::result_union::tests::u03_baseline_key_is_never_added_twice"
+    ],
+    "UU03-hop-context-ignored": [
+      "crates/prism-review/src/algorithms/taint/result_union/describe.rs",
+      "|| evidence.is_some_and(|e| locations(e).iter().any(|(f, _)| context.contains(f)))",
+      "|| false",
+      "algorithms::taint::result_union::tests::u02_only_context_touching_sinks_are_added"
+    ],
+    "UU04-related-context-ignored": [
+      "crates/prism-review/src/algorithms/taint/result_union/describe.rs",
+      "|| finding.related_files.iter().any(|f| context.contains(f))",
+      "|| false",
+      "algorithms::taint::result_union::tests::u02_only_context_touching_sinks_are_added"
+    ],
+    "UU05-diff-only-kept": [
+      "crates/prism-review/src/algorithms/taint/result_union.rs",
+      "if !describe::touches_context(finding, evidence, input.context_files) {",
+      "if false {",
+      "algorithms::taint::result_union::tests::u02_only_context_touching_sinks_are_added"
+    ],
+    "UU06-excluded-license-admitted": [
+      "crates/prism-review/src/algorithms/taint/result_union/sources.rs",
+      "if !included.contains(&sink.finding_index) {",
+      "if false {",
+      "algorithms::taint::result_union::tests::u04_source_needs_an_included_new_sink"
+    ],
+    "UU07-global-source-evidence": [
+      "crates/prism-review/src/algorithms/taint/result_union.rs",
+      "Some(relations.evidence[&at].clone())",
+      "input.expanded.evidence[index].clone()",
+      "algorithms::taint::result_union::tests::u05_source_uses_the_included_pair_not_global_best"
+    ],
+    "UU08-last-wins-tie": [
+      "crates/prism-review/src/algorithms/taint/result_union/sources.rs",
+      "keep_best_evidence(&mut relations.evidence, key, license.evidence.clone());",
+      "relations.evidence.insert(key, license.evidence.clone());",
+      "algorithms::taint::result_union::tests::u06_rank_and_first_emission_ties_preserve_actual_multihop"
+    ],
+    "UU09-rank-inverted": [
+      "crates/prism-review/src/algorithms/taint/result_union/sources.rs",
+      "keep_best_evidence(&mut relations.evidence, key, license.evidence.clone());",
+      "if let Some(old) = relations.evidence.get(&key).cloned() { let mut probe = BTreeMap::new(); keep_best_evidence(&mut probe, key.clone(), old.clone()); keep_best_evidence(&mut probe, key.clone(), license.evidence.clone()); if format!(\"{:?}\", probe[&key]) == format!(\"{:?}\", old) { relations.evidence.insert(key, license.evidence.clone()); } } else { relations.evidence.insert(key, license.evidence.clone()); }",
+      "algorithms::taint::result_union::tests::u06_rank_and_first_emission_ties_preserve_actual_multihop"
+    ],
+    "UU10-qualifier-from-witness": [
+      "crates/prism-review/src/algorithms/taint/result_union/describe.rs",
+      "if context.contains(&finding.file) {",
+      "if !context_witnesses(finding, evidence, context).is_empty() {",
+      "algorithms::taint::result_union::tests::u08_wording_follows_anchor_and_retains_source_text"
+    ],
+    "UU11-original-anchor-outside-wording": [
+      "crates/prism-review/src/algorithms/taint/result_union/describe.rs",
+      " (witness passes through taint context: {})",
+      " (sink file outside the analysed file set; loaded as taint context{})",
+      "algorithms::taint::result_union::tests::u08_wording_follows_anchor_and_retains_source_text"
+    ],
+    "UU12-next-id-from-length": [
+      "crates/prism-review/src/algorithms/taint/result_union/blocks.rs",
+      "let mut last_id = baseline.iter().map(|b| b.block_id).max();",
+      "let mut last_id = baseline.len().checked_sub(1);",
+      "algorithms::taint::result_union::tests::blocks::b01_sparse_baseline_ids_are_respected"
+    ],
+    "UU13-unchecked-add": [
+      "crates/prism-review/src/algorithms/taint/result_union/blocks.rs",
+      "Some(id) => id.checked_add(1).ok_or(UnionError::BlockIdOverflow)?,",
+      "Some(id) => id + 1,",
+      "algorithms::taint::result_union::tests::blocks::b02_id_overflow_is_a_typed_refusal_only_when_needed"
+    ],
+    "UU14-baseline-block-mutated": [
+      "crates/prism-review/src/algorithms/taint/result_union.rs",
+      "result.blocks.extend(new_blocks);",
+      "for block in new_blocks { if let Some(old) = result.blocks.iter_mut().find(|b| b.file == block.file) { for (file, lines) in block.file_line_map { for (line, flag) in lines { old.add_line(&file, line, flag); } } } else { result.blocks.push(block); } }",
+      "algorithms::taint::result_union::tests::blocks::b05_additions_never_enter_baseline_and_true_wins"
+    ],
+    "UU15-expanded-blocks-copied": [
+      "crates/prism-review/src/algorithms/taint/result_union.rs",
+      "result.blocks.extend(new_blocks);",
+      "result.blocks.extend(input.expanded.blocks.clone());",
+      "algorithms::taint::result_union::tests::blocks::b01_sparse_baseline_ids_are_respected"
+    ],
+    "UU16-only-selected-source": [
+      "crates/prism-review/src/algorithms/taint/result_union/sources.rs",
+      "for license in &sink.licensed {\n            let key = (license.file.clone(), license.line);",
+      "for license in sink.licensed.iter().filter(|l| sink.selected_source.as_ref() == Some(&(l.file.clone(), l.line))) {\n            let key = (license.file.clone(), license.line);",
+      "algorithms::taint::result_union::tests::u10_every_licensed_emitted_source_is_added_once"
+    ],
+    "UU17-multihop-forced-unlabeled": [
+      "crates/prism-review/src/algorithms/taint/result_union.rs",
+      "Some(relations.evidence[&at].clone())",
+      "Some({ let mut e = relations.evidence[&at].clone(); if e.hops.len() > 1 { e.crossed_unlabeled = true; } e })",
+      "algorithms::taint::result_union::tests::u06_rank_and_first_emission_ties_preserve_actual_multihop"
+    ],
+    "UU18-excluded-backlink": [
+      "crates/prism-review/src/algorithms/taint/result_union/sources.rs",
+      ".filter(|sink| included.contains(&sink.finding_index))",
+      ".filter(|_| true)",
+      "algorithms::taint::result_union::tests::u09_related_files_and_backlinks_agree_with_admitted_maps"
+    ],
+    "UU19-foreign-membership-bypassed": [
+      "crates/prism-review/src/algorithms/taint/result_union/describe.rs",
+      "original.contains(file) || context.contains(file)",
+      "true",
+      "algorithms::taint::result_union::tests::u09_related_files_and_backlinks_agree_with_admitted_maps"
+    ],
+    "UU20-witness-overwrites-anchor": [
+      "crates/prism-review/src/algorithms/taint/result_union/blocks.rs",
+      "*flag |= is_anchor;",
+      "*flag = is_anchor;",
+      "algorithms::taint::result_union::tests::blocks::b05_additions_never_enter_baseline_and_true_wins"
+    ],
+    "UU21-eager-id-check": [
+      "crates/prism-review/src/algorithms/taint/result_union/blocks.rs",
+      "let mut new_blocks = Vec::new();",
+      "let _next = baseline.iter().map(|b| b.block_id).max().map(|id| id.checked_add(1).ok_or(UnionError::BlockIdOverflow)).transpose()?;\n    let mut new_blocks = Vec::new();",
+      "algorithms::taint::result_union::tests::blocks::b02_id_overflow_is_a_typed_refusal_only_when_needed"
+    ]
+  }
+}

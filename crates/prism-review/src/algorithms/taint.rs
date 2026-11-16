@@ -16,6 +16,8 @@ mod go;
 mod js_ts;
 mod python;
 mod report;
+#[allow(dead_code)] // S4d2 supplies the first production caller.
+pub(crate) mod result_union;
 mod run;
 mod seeds;
 mod sink_match;
