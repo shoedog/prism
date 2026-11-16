@@ -65,7 +65,7 @@ fn guard_after_reads_promotes_nothing_and_attempts_are_not_refunded() {
         pending(&mut old, &[("a.js", "f")]);
         let before = snapshot(&old);
         let mut attempts = AttemptCounters::default();
-        let stage = run_stage(r, &old, &mut attempts);
+        let stage = run_stage(r, &old, &mut attempts, &mut RoundStats::default());
         let (b, stop) = settle(old, stage);
         assert_eq!(snapshot(&b), before);
         assert_eq!(stop, Some(Stop::Guard(StopCause::Time)));
@@ -84,7 +84,7 @@ fn a_stop_at_each_consultation_never_leaks_a_stage() {
                 pending(&mut old, &[("a.js", "f")]);
                 let before = snapshot(&old);
                 let mut attempts = AttemptCounters::default();
-                let stage = run_stage(r, &old, &mut attempts);
+                let stage = run_stage(r, &old, &mut attempts, &mut RoundStats::default());
                 let (b, stop) = settle(old, stage);
                 if stop == Some(Stop::Guard(cause)) {
                     assert_eq!(snapshot(&b), before);
@@ -105,7 +105,12 @@ fn bundle_maps_quality_and_originals_are_consistent() {
         pending(&mut old, &[("a.js", "f")]);
         let original_sources = r.inputs.sources.clone();
         let paths = r.inputs.scope_graph_inputs.all_file_paths.clone();
-        let stage = run_stage(r, &old, &mut AttemptCounters::default());
+        let stage = run_stage(
+            r,
+            &old,
+            &mut AttemptCounters::default(),
+            &mut RoundStats::default(),
+        );
         let (b, _) = settle(old, stage);
         assert!(b.analysis.is_some());
         assert_eq!(
@@ -139,7 +144,7 @@ fn loaded_continuation_advances_without_read_and_preserves_origins() {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
         let mut attempts = AttemptCounters::default();
-        let first = run_stage(r, &old, &mut attempts)
+        let first = run_stage(r, &old, &mut attempts, &mut RoundStats::default())
             .expect("first stage")
             .bundle;
         assert_eq!(attempts.attempted_files, 2);
@@ -151,7 +156,7 @@ fn loaded_continuation_advances_without_read_and_preserves_origins() {
             .iter()
             .any(|p| p.target == "b.js" && p.member.as_deref() == Some("f") && p.origin == 0));
         let before_bytes = first.published.bytes;
-        let second = run_stage(r, &first, &mut attempts)
+        let second = run_stage(r, &first, &mut attempts, &mut RoundStats::default())
             .expect("logical no-read stage")
             .bundle;
         assert_eq!(second.round, 2);
@@ -163,7 +168,7 @@ fn loaded_continuation_advances_without_read_and_preserves_origins() {
             .open
             .iter()
             .any(|p| p.target == "c.js" && p.origin == 0));
-        let third = run_stage(r, &second, &mut attempts)
+        let third = run_stage(r, &second, &mut attempts, &mut RoundStats::default())
             .expect("third stage")
             .bundle;
         assert_eq!(third.round, 3);
@@ -179,7 +184,7 @@ fn no_read_stage_guard_keeps_prior_bundle() {
         pending(&mut old, &[("main.js", "f")]);
         let before = snapshot(&old);
         let mut attempts = AttemptCounters::default();
-        let staged = run_stage(r, &old, &mut attempts);
+        let staged = run_stage(r, &old, &mut attempts, &mut RoundStats::default());
         let (b, stop) = settle(old, staged);
         assert_eq!(snapshot(&b), before);
         assert_eq!(stop, Some(Stop::Guard(StopCause::Cancelled)));
@@ -201,10 +206,14 @@ fn loaded_continuation_depth_boundary_and_no_pending_negative() {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
         let mut attempts = AttemptCounters::default();
-        let first = run_stage(r, &old, &mut attempts).unwrap().bundle;
+        let first = run_stage(r, &old, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
         assert!(first.frontier.load_order.is_empty());
         assert_eq!(attempts.attempted_files, 2);
-        let second = run_stage(r, &first, &mut attempts).unwrap().bundle;
+        let second = run_stage(r, &first, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
         assert!(second
             .frontier
             .dispositions
@@ -236,12 +245,16 @@ fn all_skips_with_loaded_continuation_preserves_attempts_and_refusal() {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
         let mut attempts = AttemptCounters::default();
-        let mut first = run_stage(r, &old, &mut attempts).unwrap().bundle;
+        let mut first = run_stage(r, &old, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
         assert!(first.frontier.load_order.is_empty());
         assert_eq!(attempts.attempted_files, 2);
         pending(&mut first, &[("d.js", "h")]);
         assert_eq!(first.frontier.load_order, ["d.js"]);
-        let second = run_stage(r, &first, &mut attempts).unwrap().bundle;
+        let second = run_stage(r, &first, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
         assert_eq!(second.round, 2);
         assert_eq!(attempts.attempted_files, 3);
         assert!(matches!(attempts.skips[0].1, SkipReason::NotUtf8));
@@ -264,8 +277,12 @@ fn controlled_cycle_never_rereads_loaded_files() {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f")]);
         let mut attempts = AttemptCounters::default();
-        let a = run_stage(r, &old, &mut attempts).unwrap().bundle;
-        let b = run_stage(r, &a, &mut attempts).unwrap().bundle;
+        let a = run_stage(r, &old, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
+        let b = run_stage(r, &a, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
         assert_eq!(attempts.attempted_files, 2);
         assert!(b.frontier.open.is_empty());
         assert!(b
@@ -282,7 +299,7 @@ fn empty_frontier_does_not_start_a_stage() {
         let mut old = initial(r);
         let before = snapshot(&old);
         let mut attempts = AttemptCounters::default();
-        let stage = run_stage(r, &old, &mut attempts);
+        let stage = run_stage(r, &old, &mut attempts, &mut RoundStats::default());
         let (b, stop) = settle(old, stage);
         assert_eq!(snapshot(&b), before);
         assert_eq!(stop, Some(Stop::FrontierExhausted));
@@ -298,8 +315,12 @@ fn guard_every_phase_of_two_rounds_returns_a_completed_snapshot() {
         let mut zero = initial(r);
         pending(&mut zero, &[("a.js", "f")]);
         let mut attempts = AttemptCounters::default();
-        let one = run_stage(r, &zero, &mut attempts).unwrap().bundle;
-        let two = run_stage(r, &one, &mut attempts).unwrap().bundle;
+        let one = run_stage(r, &zero, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
+        let two = run_stage(r, &one, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
         assert!(
             one.context_files.contains("a.js"),
             "inadmissible precondition: first stage admitted a"
@@ -332,7 +353,7 @@ fn guard_every_phase_of_two_rounds_returns_a_completed_snapshot() {
                 pending(&mut bundle, &[("a.js", "f")]);
                 let mut attempts = AttemptCounters::default();
                 for _ in 0..2 {
-                    let stage = run_stage(r, &bundle, &mut attempts);
+                    let stage = run_stage(r, &bundle, &mut attempts, &mut RoundStats::default());
                     let (next, stop) = settle(bundle, stage);
                     bundle = next;
                     if let Some(stop) = stop {
@@ -391,7 +412,9 @@ fn guarded_loaded_continuation_discards_the_logical_stage() {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
         let mut attempts = AttemptCounters::default();
-        let first = run_stage(r, &old, &mut attempts).unwrap().bundle;
+        let first = run_stage(r, &old, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
         let before = snapshot(&first);
         assert!(first.frontier.load_order.is_empty());
         let guard = Guard::at(0, StopCause::Time);
@@ -405,7 +428,7 @@ fn guarded_loaded_continuation_discards_the_logical_stage() {
             ceiling: r.ceiling,
             guard: &guard,
         };
-        let stage = run_stage(&guarded, &first, &mut attempts);
+        let stage = run_stage(&guarded, &first, &mut attempts, &mut RoundStats::default());
         let (b, stop) = settle(first, stage);
         assert_eq!(snapshot(&b), before);
         assert_eq!(stop, Some(Stop::Guard(StopCause::Time)));
@@ -420,7 +443,7 @@ fn guard_after_a_bound_discards_even_the_accepted_prefix() {
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
         let before = snapshot(&old);
         let mut attempts = AttemptCounters::default();
-        let stage = run_stage(r, &old, &mut attempts);
+        let stage = run_stage(r, &old, &mut attempts, &mut RoundStats::default());
         let (b, stop) = settle(old, stage);
         assert_eq!(snapshot(&b), before);
         assert_eq!(stop, Some(Stop::Guard(StopCause::Time)));
@@ -473,9 +496,14 @@ fn driver_advances_loaded_continuation_before_reading_next_file() {
     f.run(limits(3, 8), &Guard::never(), |r| {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
-        let first = run_stage(r, &old, &mut AttemptCounters::default())
-            .unwrap()
-            .bundle;
+        let first = run_stage(
+            r,
+            &old,
+            &mut AttemptCounters::default(),
+            &mut RoundStats::default(),
+        )
+        .unwrap()
+        .bundle;
         assert!(
             first.frontier.load_order.is_empty(),
             "inadmissible precondition: logical no-read stage"

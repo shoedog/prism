@@ -92,11 +92,15 @@ pub(crate) fn run_algorithm_prepared(
     params: &AlgorithmParams,
     repo: &Path,
     request: Option<&ContextRequest>,
-) -> Result<(super::AlgorithmOutcome, ContextState)> {
+) -> Result<(
+    super::AlgorithmOutcome,
+    ContextState,
+    Option<super::context_stats::ContextStats>,
+)> {
     prism::build_pool::install(|| {
         let mut diagnostics = RunDiagnostics::default();
-        let mut expansion = RunExpansion::new(request);
-        let mut result = run_algorithm_raw(
+        let mut expansion = RunExpansion::new(request, algorithm == SlicingAlgorithm::Taint);
+        let result = run_algorithm_raw(
             algorithm,
             ctx,
             inputs,
@@ -105,11 +109,24 @@ pub(crate) fn run_algorithm_prepared(
             repo,
             &mut diagnostics,
             &mut expansion,
-        )?;
+        );
+        let mut result = match result {
+            Ok(result) => result,
+            Err(error) => {
+                if let Some(stats) = expansion.take_stats() {
+                    stats.export();
+                }
+                return Err(error);
+            }
+        };
         annotate_finding_parse_quality(
             &mut result.findings,
             expansion.view(inputs, algorithm).files,
         );
+        let stats = expansion.take_stats();
+        if let Some(stats) = &stats {
+            stats.export();
+        }
         let state = expansion.into_state();
         diagnostics.reconcile_context(&state, request, &inputs.parse_warnings);
         Ok((
@@ -118,6 +135,7 @@ pub(crate) fn run_algorithm_prepared(
                 diagnostics: diagnostics.project(),
             },
             state,
+            stats,
         ))
     })
 }
@@ -425,6 +443,7 @@ pub(crate) fn filter_result_findings_in(
 #[non_exhaustive]
 pub struct ReviewRun {
     pub(crate) context: ContextState,
+    pub(crate) context_stats: Option<super::context_stats::ContextStats>,
     pub diagnostics: Option<super::ReviewBoundaryDiagnostics>,
     pub results: Vec<SliceResult>,
     pub findings: Vec<SliceFinding>,
@@ -437,6 +456,9 @@ pub struct ReviewRun {
 }
 
 impl ReviewRun {
+    pub(crate) fn stats(&self) -> Option<&super::context_stats::ContextStats> {
+        self.context_stats.as_ref()
+    }
     pub(crate) fn context(&self) -> Option<&super::context_run::ReviewContext> {
         match &self.context {
             ContextState::Expanded(context) if context.view().is_some() => Some(context),
@@ -510,7 +532,8 @@ fn run_review_prepared_policy(
         let mut results = Vec::new();
         let mut errors = Vec::new();
         let mut diagnostics = RunDiagnostics::default();
-        let mut expansion = RunExpansion::new(request);
+        let mut expansion =
+            RunExpansion::new(request, algorithms.contains(&SlicingAlgorithm::Taint));
 
         for &algorithm in algorithms {
             if algorithm == SlicingAlgorithm::Taint {
@@ -575,8 +598,13 @@ fn run_review_prepared_policy(
                 expansion.view(inputs, algorithm).files,
             );
         }
+        let context_stats = expansion.take_stats();
+        if let Some(stats) = &context_stats {
+            stats.export();
+        }
         let mut run = ReviewRun {
             context: expansion.into_state(),
+            context_stats,
             diagnostics: None,
             results,
             findings,

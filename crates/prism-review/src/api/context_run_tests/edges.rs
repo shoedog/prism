@@ -22,7 +22,7 @@ fn n05_missing_authority_returns_the_baseline() {
         dir.path(),
     )
     .unwrap();
-    let (new, state) = run_algorithm_prepared(
+    let (new, state, _) = run_algorithm_prepared(
         SlicingAlgorithm::Taint,
         &built.ctx,
         &inputs,

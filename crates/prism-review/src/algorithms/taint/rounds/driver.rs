@@ -31,6 +31,7 @@ pub(super) fn terminal(bundle: &CompletedBundle, depth: u8) -> Stop {
     }
 }
 pub(crate) fn expand(request: ExpansionRequest<'_>) -> ExpansionOutcome {
+    let total_started = std::time::Instant::now();
     let mut bundle = CompletedBundle {
         round: 0,
         files: request.inputs.files.clone(),
@@ -43,17 +44,20 @@ pub(crate) fn expand(request: ExpansionRequest<'_>) -> ExpansionOutcome {
         frontier: FrontierState::default(),
     };
     let attempts = AttemptCounters::default();
-    let stats = RoundStats::default();
+    let mut stats = RoundStats::default();
+    let discovery_started = std::time::Instant::now();
     let originals: BTreeSet<_> = request.inputs.files.keys().cloned().collect();
     let mut hints = match ReviewBoundaryHints::new(request.inputs) {
         Ok(hints) => hints,
         Err(error) => {
+            stats.elapsed_discovery_ns = elapsed_ns(discovery_started);
+            stats.elapsed_total_ns = elapsed_ns(total_started);
             return ExpansionOutcome {
                 bundle,
                 stop: Stop::StageFailed(error.to_string()),
                 attempts,
                 stats,
-            }
+            };
         }
     };
     let loading = project_loading_trace(request.baseline_trace, &originals, &request.inputs.files);
@@ -67,7 +71,10 @@ pub(crate) fn expand(request: ExpansionRequest<'_>) -> ExpansionOutcome {
         &BTreeSet::new(),
         &mut |b, m| hints.follow_barrel(b, m).map(|h| (h.file, h.member)),
     );
-    drive(&request, bundle, attempts, stats)
+    stats.elapsed_discovery_ns = elapsed_ns(discovery_started);
+    let mut outcome = drive(&request, bundle, attempts, stats);
+    outcome.stats.elapsed_total_ns = elapsed_ns(total_started);
+    outcome
 }
 
 pub(super) fn drive(
@@ -86,7 +93,7 @@ pub(super) fn drive(
             break;
         }
         stats.rounds_started += 1;
-        let staged = run_stage(request, &bundle, &mut attempts);
+        let staged = run_stage(request, &bundle, &mut attempts, &mut stats);
         let completed = staged.is_ok();
         let (next, stop) = settle(bundle, staged);
         bundle = next;

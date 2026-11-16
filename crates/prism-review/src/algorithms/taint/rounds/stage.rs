@@ -26,7 +26,9 @@ pub(super) fn run_stage(
     request: &ExpansionRequest<'_>,
     previous: &CompletedBundle,
     attempts: &mut AttemptCounters,
+    stats: &mut RoundStats,
 ) -> Result<Staged, StageStop> {
+    let started = std::time::Instant::now();
     let admission = admit_prefix(
         &previous.frontier.load_order,
         &request.limits,
@@ -35,6 +37,9 @@ pub(super) fn run_stage(
         request.guard,
         &mut |path, remaining| report_from_attempt(request.loader.read(path, remaining)),
     );
+    stats.elapsed_read_parse_ns = stats
+        .elapsed_read_parse_ns
+        .saturating_add(elapsed_ns(started));
     if let Some(cause) = admission.stopped {
         return Err(StageStop::Guard(cause));
     }
@@ -85,19 +90,30 @@ pub(super) fn run_stage(
     let (analysis, frontier) = {
         let round = ReviewContextRound::new(request.loader, &files);
         guard(request)?;
+        let started = std::time::Instant::now();
         let ctx = round.build_context(request.inputs.type_db.as_ref(), &request.baseline_ctx.types);
+        stats.elapsed_build_ns = stats.elapsed_build_ns.saturating_add(elapsed_ns(started));
         guard(request)?;
         let policy = TaintCrossingPolicy::new(&context_files, request.ceiling);
+        let started = std::time::Instant::now();
         let analysis = slice_in_context(
             &ctx,
             &request.inputs.diff,
             request.config,
             &original_files,
             &policy,
-        )
-        .map_err(|error| StageStop::Failed(error.to_string()))?;
+        );
+        stats.elapsed_analysis_ns = stats
+            .elapsed_analysis_ns
+            .saturating_add(elapsed_ns(started));
+        let analysis = analysis.map_err(|error| StageStop::Failed(error.to_string()))?;
         guard(request)?;
-        let frontier = plan_completed(request, previous, &round, &ctx, &analysis, &refused)?;
+        let started = std::time::Instant::now();
+        let frontier = plan_completed(request, previous, &round, &ctx, &analysis, &refused);
+        stats.elapsed_discovery_ns = stats
+            .elapsed_discovery_ns
+            .saturating_add(elapsed_ns(started));
+        let frontier = frontier?;
         guard(request)?;
         (analysis, frontier)
     };

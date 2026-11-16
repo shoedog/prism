@@ -193,7 +193,9 @@ fn f4_bound_precedes_loaded_continuation() {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
         let mut attempts = AttemptCounters::default();
-        let mut first = run_stage(r, &old, &mut attempts).unwrap().bundle;
+        let mut first = run_stage(r, &old, &mut attempts, &mut RoundStats::default())
+            .unwrap()
+            .bundle;
         assert!(
             first.frontier.load_order.is_empty(),
             "inadmissible precondition: loaded continuation without reads"

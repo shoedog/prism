@@ -64,8 +64,8 @@
     ],
     "CV10-constructor-loses-state": [
       "crates/prism-review/src/api/context_view.rs",
-      "Self { outcome, context }",
-      "Self { outcome, context: ContextState::NotRequested }",
+      "Self {\n            outcome,\n            context,\n            context_stats: None,\n        }",
+      "Self {\n            outcome,\n            context: ContextState::NotRequested,\n            context_stats: None,\n        }",
       "api::context_view::tests::v02_applied_context_moves_outcome_and_borrows_maps"
     ],
     "CV11-filter-ignores-floor": [

@@ -45,6 +45,14 @@ pub(crate) enum Stop {
 pub(crate) struct RoundStats {
     pub(crate) rounds_started: u8,
     pub(crate) rounds_completed: u8,
+    pub(crate) elapsed_discovery_ns: u64,
+    pub(crate) elapsed_read_parse_ns: u64,
+    pub(crate) elapsed_build_ns: u64,
+    pub(crate) elapsed_analysis_ns: u64,
+    pub(crate) elapsed_total_ns: u64,
+}
+fn elapsed_ns(started: std::time::Instant) -> u64 {
+    u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
 }
 pub(crate) struct ExpansionOutcome {
     pub(crate) bundle: CompletedBundle,

@@ -35,7 +35,7 @@ fn o13_authorized_single_and_multi_expand() {
             format!("{:?}", direct.diagnostics),
             format!("{:?}", multi.diagnostics)
         );
-        let (expected, _) = run_algorithm_prepared(
+        let (expected, _, _) = run_algorithm_prepared(
             SlicingAlgorithm::Taint,
             ctx,
             &f.inputs,
@@ -155,7 +155,7 @@ fn o15_missing_root_unavailable() {
     assert_eq!(notes.len(), 1);
     assert_eq!(notes[0].kind(), ContextRunNoteKind::Unavailable);
     assert!(notes[0].message().contains("context loading unavailable"));
-    let (direct, _) = run_algorithm_prepared(
+    let (direct, _, _) = run_algorithm_prepared(
         SlicingAlgorithm::Taint,
         &built.ctx,
         &inputs,

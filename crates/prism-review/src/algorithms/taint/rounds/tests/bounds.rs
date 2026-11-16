@@ -17,6 +17,7 @@ fn files_cap_promotes_the_completed_prefix() {
                     b
                 },
                 &mut attempts,
+                &mut RoundStats::default(),
             ),
         );
         assert_eq!(
@@ -43,7 +44,7 @@ fn byte_cap_promotes_the_completed_prefix() {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
         let mut attempts = AttemptCounters::default();
-        let stage = run_stage(r, &old, &mut attempts);
+        let stage = run_stage(r, &old, &mut attempts, &mut RoundStats::default());
         let (b, stop) = settle(old, stage);
         assert_eq!(b.context_files, ["a.js".into()].into_iter().collect());
         assert_eq!(b.published.bytes, BODY.len() as u64);
@@ -83,7 +84,12 @@ fn cap_with_nothing_accepted_keeps_previous_bundle() {
             let mut old = initial(r);
             pending(&mut old, &[("a.js", "f")]);
             let before = snapshot(&old);
-            let stage = run_stage(r, &old, &mut AttemptCounters::default());
+            let stage = run_stage(
+                r,
+                &old,
+                &mut AttemptCounters::default(),
+                &mut RoundStats::default(),
+            );
             let (b, stop) = settle(old, stage);
             assert_eq!(snapshot(&b), before);
             assert_eq!(stop, Some(Stop::Bound(expected)));
@@ -99,7 +105,7 @@ fn all_skips_keep_prior_completed_bundle() {
         pending(&mut old, &[("a.js", "f")]);
         let before = snapshot(&old);
         let mut attempts = AttemptCounters::default();
-        let stage = run_stage(r, &old, &mut attempts);
+        let stage = run_stage(r, &old, &mut attempts, &mut RoundStats::default());
         let (b, stop) = settle(old, stage);
         assert_eq!(snapshot(&b), before);
         assert_eq!(stop, Some(Stop::FrontierExhausted));
@@ -114,7 +120,7 @@ fn per_file_skips_do_not_fail_the_round() {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
         let mut attempts = AttemptCounters::default();
-        let stage = run_stage(r, &old, &mut attempts);
+        let stage = run_stage(r, &old, &mut attempts, &mut RoundStats::default());
         let (b, _) = settle(old, stage);
         assert_eq!(b.context_files, ["b.js".into()].into_iter().collect());
         assert!(matches!(attempts.skips[0].1, SkipReason::NotUtf8));
@@ -133,9 +139,14 @@ fn controlled_depth_one_preserves_all_depth_bound_origins() {
     f.run(limits(1, 8), &Guard::never(), |r| {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
-        let b = run_stage(r, &old, &mut AttemptCounters::default())
-            .unwrap()
-            .bundle;
+        let b = run_stage(
+            r,
+            &old,
+            &mut AttemptCounters::default(),
+            &mut RoundStats::default(),
+        )
+        .unwrap()
+        .bundle;
         assert!(b
             .frontier
             .dispositions
@@ -197,9 +208,14 @@ fn quality_exactly_matches_sparse_reader_results() {
         };
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f"), ("b.js", "g")]);
-        let b = run_stage(r, &old, &mut AttemptCounters::default())
-            .unwrap()
-            .bundle;
+        let b = run_stage(
+            r,
+            &old,
+            &mut AttemptCounters::default(),
+            &mut RoundStats::default(),
+        )
+        .unwrap()
+        .bundle;
         assert_eq!(
             serde_json::to_value(&b.parse_quality["a.js"]).unwrap(),
             serde_json::to_value(expected).unwrap()
@@ -237,7 +253,12 @@ fn round_zero_capture_is_not_mutated_by_completed_or_discarded_stage() {
             let mut old = initial(r);
             pending(&mut old, &[("a.js", "f")]);
             let before = snapshot(&old);
-            let staged = run_stage(r, &old, &mut AttemptCounters::default());
+            let staged = run_stage(
+                r,
+                &old,
+                &mut AttemptCounters::default(),
+                &mut RoundStats::default(),
+            );
             assert_eq!(snapshot(&old), before);
             let _ = settle(old, staged);
             assert_eq!(
@@ -268,9 +289,14 @@ fn analysis_findings_and_evidence_reference_the_promoted_map() {
     f.run(limits(2, 8), &Guard::never(), |r| {
         let mut old = initial(r);
         pending(&mut old, &[("a.js", "f")]);
-        let bundle = run_stage(r, &old, &mut AttemptCounters::default())
-            .unwrap()
-            .bundle;
+        let bundle = run_stage(
+            r,
+            &old,
+            &mut AttemptCounters::default(),
+            &mut RoundStats::default(),
+        )
+        .unwrap()
+        .bundle;
         let analysis = bundle.analysis.as_ref().unwrap();
         assert_eq!(
             analysis.result.findings.len(),
@@ -378,9 +404,14 @@ fn completed_stage_plans_from_loading_not_framework_trace() {
     };
     let mut old = initial(&r);
     pending(&mut old, &[("a.js", "f")]);
-    let mut bundle = run_stage(&r, &old, &mut AttemptCounters::default())
-        .unwrap()
-        .bundle;
+    let mut bundle = run_stage(
+        &r,
+        &old,
+        &mut AttemptCounters::default(),
+        &mut RoundStats::default(),
+    )
+    .unwrap()
+    .bundle;
     let mut analysis = bundle.analysis.take().unwrap();
     let framework = super::super::super::TaintRootOrigin::Framework;
     assert!(

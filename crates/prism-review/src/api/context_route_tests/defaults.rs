@@ -45,7 +45,7 @@ fn o01_default_matches_direct_prepared_none() {
             f.dir.path(),
         );
         same_run(&baseline, &authorized);
-        let (direct, state) = run_algorithm_prepared(
+        let (direct, state, _) = run_algorithm_prepared(
             SlicingAlgorithm::Taint,
             ctx,
             &f.inputs,
@@ -81,7 +81,7 @@ fn o01_default_matches_direct_prepared_none() {
         )
         .unwrap();
         same_result(&direct_legacy, &legacy);
-        let (direct, _) = run_algorithm_prepared(
+        let (direct, _, _) = run_algorithm_prepared(
             SlicingAlgorithm::Taint,
             ctx,
             &f.inputs,
@@ -300,7 +300,7 @@ fn o16_explicit_off_parity() {
         );
         same_run(&direct, &legacy);
         same_run(&direct, &authorized);
-        let (expected, state) = run_algorithm_prepared(
+        let (expected, state, _) = run_algorithm_prepared(
             SlicingAlgorithm::Taint,
             ctx,
             &f.inputs,

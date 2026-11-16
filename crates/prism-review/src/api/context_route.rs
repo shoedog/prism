@@ -74,7 +74,11 @@ fn single(
     params: &AlgorithmParams,
     repo: &Path,
     authorized: bool,
-) -> anyhow::Result<(AlgorithmOutcome, ContextState)> {
+) -> anyhow::Result<(
+    AlgorithmOutcome,
+    ContextState,
+    Option<super::context_stats::ContextStats>,
+)> {
     let request = params.taint_context.validate().map_err(invalid)?;
     let route = decide(
         request.as_ref(),
@@ -85,7 +89,7 @@ fn single(
         Route::Authorized(request) => Some(*request),
         _ => None,
     };
-    let (mut outcome, state) =
+    let (mut outcome, state, stats) =
         run_algorithm_prepared(algorithm, ctx, inputs, config, params, repo, request)?;
     match route {
         Route::Ignored => append_note(
@@ -100,7 +104,7 @@ fn single(
         ),
         _ => {}
     }
-    Ok((outcome, state))
+    Ok((outcome, state, stats))
 }
 pub(crate) fn run_algorithm_legacy(
     algorithm: SlicingAlgorithm,
@@ -110,7 +114,7 @@ pub(crate) fn run_algorithm_legacy(
     params: &AlgorithmParams,
     repo: &Path,
 ) -> anyhow::Result<AlgorithmOutcome> {
-    single(algorithm, ctx, inputs, config, params, repo, false).map(|(outcome, _)| outcome)
+    single(algorithm, ctx, inputs, config, params, repo, false).map(|(outcome, _, _)| outcome)
 }
 pub(crate) fn run_algorithm_authorized(
     algorithm: SlicingAlgorithm,
@@ -120,7 +124,7 @@ pub(crate) fn run_algorithm_authorized(
     params: &AlgorithmParams,
     repo: &Path,
 ) -> anyhow::Result<ReviewAlgorithmRun> {
-    let (outcome, state) = single(
+    let (outcome, state, stats) = single(
         algorithm,
         ctx,
         authority.inputs(),
@@ -129,7 +133,7 @@ pub(crate) fn run_algorithm_authorized(
         repo,
         true,
     )?;
-    Ok(ReviewAlgorithmRun::new(outcome, state))
+    Ok(ReviewAlgorithmRun::new(outcome, state).with_stats(stats))
 }
 pub(crate) fn run_review_validated(
     ctx: &CpgContext<'_>,

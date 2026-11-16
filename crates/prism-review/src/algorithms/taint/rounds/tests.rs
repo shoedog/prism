@@ -185,12 +185,22 @@ fn snapshot(bundle: &CompletedBundle) -> String {
     )
 }
 fn outcome_snapshot(outcome: &ExpansionOutcome) -> String {
+    // Elapsed times vary across independent runs; X tests cover timing transport separately.
+    let RoundStats {
+        rounds_started,
+        rounds_completed,
+        elapsed_discovery_ns: _,
+        elapsed_read_parse_ns: _,
+        elapsed_build_ns: _,
+        elapsed_analysis_ns: _,
+        elapsed_total_ns: _,
+    } = &outcome.stats;
     format!(
         "{}|{:?}|{:?}|{:?}",
         snapshot(&outcome.bundle),
         outcome.stop,
         outcome.attempts,
-        outcome.stats
+        (rounds_started, rounds_completed)
     )
 }
 fn run_owned(req: &ExpansionRequest<'_>) -> ExpansionOutcome {

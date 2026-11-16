@@ -63,7 +63,7 @@ fn d13_real_missing_root_notes_only() {
         "inadmissible precondition: captured root unavailable"
     );
     let built = build_context(&inputs, &options).unwrap();
-    let (out, state) = run_algorithm_prepared(
+    let (out, state, _) = run_algorithm_prepared(
         SlicingAlgorithm::Taint,
         &built.ctx,
         &inputs,
@@ -205,7 +205,7 @@ fn d18_native_depth_boundary_and_once() {
             .count(),
         1
     );
-    let (single, _) = run_algorithm_prepared(
+    let (single, _, _) = run_algorithm_prepared(
         SlicingAlgorithm::Taint,
         &built.ctx,
         &inputs,
