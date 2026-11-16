@@ -11,16 +11,45 @@ mod alias_occurrence;
 mod aliases;
 #[cfg(test)]
 mod arrow_body_cap_tests;
+mod c_file_parens;
+#[cfg(test)]
+mod c_file_parens_tests;
 #[cfg(test)]
 mod c_macro_census_tests;
 mod c_phantom;
 mod c_prune;
 #[cfg(test)]
+mod c_prune_brackets_r1_tests;
+#[cfg(test)]
+mod c_prune_brackets_r2_loader_tests;
+#[cfg(test)]
+mod c_prune_brackets_r2_tests;
+#[cfg(test)]
+mod c_prune_brackets_r3_depth_tests;
+#[cfg(test)]
+mod c_prune_brackets_r3_enclosing_tests;
+#[cfg(test)]
+mod c_prune_brackets_r3_lexical_tests;
+#[cfg(test)]
+mod c_prune_brackets_r3_loader_tests;
+#[cfg(test)]
+mod c_prune_brackets_r3_support;
+#[cfg(test)]
+mod c_prune_brackets_tests;
+#[cfg(test)]
+mod c_prune_brackets_v2_gate_tests;
+#[cfg(test)]
+mod c_prune_brackets_v2_tests;
+#[cfg(test)]
 mod c_prune_fold2_tests;
 #[cfg(test)]
 mod c_prune_fold7_tests;
 #[cfg(test)]
+mod c_prune_generated_rows;
+#[cfg(test)]
 mod c_prune_inline_cases;
+#[cfg(test)]
+mod c_prune_oracle_rows;
 #[cfg(test)]
 mod c_prune_perf_tests;
 #[cfg(test)]

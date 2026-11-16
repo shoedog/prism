@@ -337,7 +337,8 @@ mod stream;
 /// - v186: census raw strings with line splices (#630 slice 6d-1): a C++ raw string whose body holds a backslash-newline is lexed as written (line splices reverted inside it; trigraphs fail closed) instead of setting the repo-wide `incomplete` flag, so census facts and the C/C++ U and D enablement change.
 /// - v187: C/C++ owners whose text holds a trigraph, a backslash before a line end, a lone CR (`Off::PhaseDivergence`), or an identifier spelled with a backslash UCN (`Off::UcnIdentifier`) are off for rules U and D (#630 slice 6d-2s gates), so fewer DataFlow pairs drop there; a trigraph look-alike in a string literal also turns an owner off (accepted).
 /// - v188: JS/TS/TSX alias twins only at real writes through the alias (alias-twin lane slice 4c): an occurrence that only declares, initialises or reassigns the alias variable mints no target def and no twin edge, unless the owner's write census is refused, some member or subscript write has a root other than the target, or a write rooted at the target meets a target that is not a single whole-body binding (rule E), so DataFlow edges and labels of JS/TS/TSX owners change.
-const CACHE_VERSION: u32 = 188;
+/// - v189: C/C++ rules U and D refuse an owner whose macros can change bracket structure (#829): `Off::MacroBrackets` (a spelled or reachable macro whose replacement list does not nest, a listed external block macro or its wrapper), `MacroBodySplit` (a body potential group holds a held comma or forwards a loose macro), `MacroArgSplit`/`MacroArgLoose` (the same hazards inside a potential group of the owner's own text) and `OwnerExposed` (an argument list that starts outside the owner can hold it, or a `paren_open` macro is spelled before it), so DataFlow edges of C/C++ owners that spell such macros are kept; the census digest tag is `c-macro-census-v3` with the closed facts `unbalanced`, `loose_comma`, `arg_split`, `paren_open`.
+const CACHE_VERSION: u32 = 189;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -870,7 +871,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 188);
+        assert_eq!(super::CACHE_VERSION, 189);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

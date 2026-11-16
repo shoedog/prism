@@ -82,6 +82,7 @@ impl<'a> LexicalFacts<'a> {
         rvalues: &[PathSpan],
         census: &RustMacroCensus,
         c_census: &CMacroCensus,
+        c_file_parens: &std::cell::OnceCell<super::c_file_parens::CFileParens>,
     ) -> Self {
         // No lvalue span leaves the write table empty: U cannot prove a write-only line and D has
         // no dominating write (formals still get defs), so the owner switch is not consulted.
@@ -99,7 +100,7 @@ impl<'a> LexicalFacts<'a> {
         .filter(|scan| !scan.owner_off);
         let c_owner = matches!(parsed.language, Language::C | Language::Cpp)
             .then(|| {
-                let scanned = super::c_prune::scan(parsed, owner, c_census);
+                let scanned = super::c_prune::scan(parsed, owner, c_census, c_file_parens);
                 super::c_prune::trace(parsed, owner, &scanned);
                 scanned.ok()
             })

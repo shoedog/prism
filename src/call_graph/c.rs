@@ -6,9 +6,21 @@ pub mod macro_census;
 mod macro_census_tests;
 
 #[cfg(test)]
+mod macro_census_brackets_r1_tests;
+#[cfg(test)]
+mod macro_census_brackets_r2_tests;
+#[cfg(test)]
+mod macro_census_brackets_r3_tests;
+#[cfg(test)]
+mod macro_census_brackets_tests;
+#[cfg(test)]
+mod macro_census_brackets_v2_tests;
+#[cfg(test)]
 mod macro_census_fold2_tests;
 #[cfg(test)]
 mod macro_census_fold3_tests;
+#[cfg(test)]
+mod macro_census_punct_tests;
 #[cfg(test)]
 mod macro_census_raw_splice_tests;
 #[cfg(test)]

@@ -1,0 +1,78 @@
+{
+  "_doc": "L3 corpus table (xarm_l3.py). root: read-only checkout, never built or run. scope: directories whose C/C++ files are tokenized (the translation units); the census and the prism runs see every C-like file of the corpus. flags: clang flags, {CONFIG} is the corpus's config directory (under the L3 output, never inside the corpus). config: files placed there (name -> {from, note}); `from` is a host path, its sha256 is recorded in the sweep summary.",
+  "redis": {
+    "root": "~/code/bench-repos/redis",
+    "scope": [
+      "src"
+    ],
+    "flags": []
+  },
+  "cpython": {
+    "root": "~/code/bench-repos/cpython",
+    "scope": [
+      "Objects",
+      "Python",
+      "Parser"
+    ],
+    "flags": [
+      "-DPy_BUILD_CORE",
+      "-I{CONFIG}",
+      "-IInclude",
+      "-IInclude/internal",
+      "-I."
+    ],
+    "config": {
+      "pyconfig.h": {
+        "from": "~/.local/share/uv/python/cpython-3.14.4-macos-aarch64-none/include/python3.14/pyconfig.h",
+        "note": "configure-generated pyconfig.h of an installed macOS aarch64 CPython 3.14.4 (the corpus is 3.16-dev: macros added since are undefined). The checkout's only pyconfig.h is the Windows one (PC/pyconfig.h) and the host has none from configure."
+      }
+    }
+  },
+  "leveldb": {
+    "root": "~/prism-evidence/perf-437/g23-630-s6-cpp/s6d/corpora/leveldb",
+    "scope": [
+      "."
+    ],
+    "flags": [
+      "-I.",
+      "-Iinclude"
+    ]
+  },
+  "protobuf": {
+    "root": "~/prism-evidence/perf-437/g23-630-s6-cpp/s6d/corpora/protobuf",
+    "scope": [
+      "src"
+    ],
+    "flags": [
+      "-Isrc"
+    ],
+    "flags_late": [
+      "-idirafter",
+      "/opt/homebrew/include"
+    ],
+    "late_note": "installed Homebrew abseil (outside the corpus, read only, searched after every in-repo directory): the corpus names absl headers it does not hold; with them stubbed empty, `ABSL_HAVE_BUILTIN(x)` in an #if makes 309 of 319 protobuf files fatal"
+  },
+  "re2": {
+    "root": "~/prism-evidence/perf-437/g23-630-s6-cpp/s6d/corpora/re2",
+    "scope": [
+      "."
+    ],
+    "flags": [
+      "-I."
+    ],
+    "flags_late": [
+      "-idirafter",
+      "/opt/homebrew/include"
+    ],
+    "late_note": "installed Homebrew abseil (outside the corpus, read only, searched after every in-repo directory): the corpus names absl headers it does not hold; with them stubbed empty, `ABSL_HAVE_BUILTIN(x)` in an #if makes 309 of 319 protobuf files fatal"
+  },
+  "snappy": {
+    "root": "~/prism-evidence/perf-437/g23-630-s6-cpp/s6d/corpora/snappy",
+    "scope": [
+      "."
+    ],
+    "flags": [
+      "-I."
+    ]
+  }
+}

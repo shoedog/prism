@@ -52,6 +52,10 @@
 //! Several definitions of one name are unioned and every judgement over-approximates: a
 //! name that is a macro is judged by the union of all its definitions. Nothing consumes the
 //! census yet; slice 6a only builds it and persists its digest with the cached DFG.
+mod brackets;
+pub(crate) use brackets::{owner_group_hazard, GroupHazard};
+mod punct;
+use punct::{punct_at, Lex, Punct};
 mod raw_string;
 #[cfg(test)]
 pub(crate) fn raw_string_end_for_tests(b: &[u8], q: usize, s: &[usize]) -> Option<usize> {
@@ -62,6 +66,32 @@ use crate::languages::Language;
 use raw_string::raw_string_end;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
+
+/// The token stream of [`tokenize_seq`] for one body as strings (`id:NAME`, `(`, `)`, `{`, `}`,
+/// `[`, `]`, `,`, `digraph`), `None` when the body does not tokenize.
+#[cfg(test)]
+pub(crate) fn tokens_for_tests(text: &str, cxx: bool) -> Option<Vec<String>> {
+    let mut seq = Vec::new();
+    if !tokenize_seq(text, cxx, Some(&mut seq)).ok {
+        return None;
+    }
+    Some(
+        seq.iter()
+            .map(|t| match t {
+                Tok::Ident(x) => format!("id:{x}"),
+                Tok::Open => "(".into(),
+                Tok::Close => ")".into(),
+                Tok::LBrace => "{".into(),
+                Tok::RBrace => "}".into(),
+                Tok::LBracket => "[".into(),
+                Tok::RBracket => "]".into(),
+                Tok::Comma => ",".into(),
+                Tok::Digraph(k) => format!("digraph:{}", *k as char),
+                Tok::Other => "other".into(),
+            })
+            .collect(),
+    )
+}
 
 /// Exact control spellings: jump keywords and `asm` spellings.
 const CONTROL_NAMES: &[&str] = &["goto", "case", "default", "asm", "_asm", "__asm", "__asm__"];
@@ -82,6 +112,18 @@ pub struct MacroFacts {
     pub free: BTreeSet<String>,
     pub control: bool,
     pub poisoned: bool,
+    /// #829: some replacement list of the macro or of a macro it reaches does not nest in
+    /// `()`, `{}`, `[]` (a digraph bracket counts).
+    pub unbalanced: bool,
+    /// #829: the macro or a macro it reaches can emit a comma that is not inside its own
+    /// parentheses (a comma or `__VA_ARGS__` whose innermost bracket is not a parenthesis).
+    pub loose_comma: bool,
+    /// #829: a body potential group (after any identifier or parameter, or a chained `)`) of the
+    /// macro or of a macro it reaches holds a comma held by `{}`/`[]`, or names an in-repo macro
+    /// with `loose_comma`.
+    pub arg_split: bool,
+    /// #829: a body holds a `(` that no later `)` of the same body closes (parentheses alone).
+    pub paren_open: bool,
 }
 
 /// One definition before the closure.
@@ -91,6 +133,22 @@ pub(crate) struct RawDef {
     free: BTreeSet<String>,
     control: bool,
     poisoned: bool,
+    /// #829 raw body facts (`brackets::BodyFacts`), unioned over every definition of the name.
+    unbalanced: bool,
+    loose_comma: bool,
+    group_held: bool,
+    paren_open: bool,
+    group_ids: BTreeSet<String>,
+}
+
+impl RawDef {
+    fn set_body_facts(&mut self, f: brackets::BodyFacts) {
+        self.unbalanced = f.unbalanced;
+        self.loose_comma = f.loose_comma;
+        self.group_held = f.group_held;
+        self.paren_open = f.paren_open;
+        self.group_ids = f.group_ids;
+    }
 }
 
 /// The repo-wide census. Cheap to clone; compare with [`CMacroCensus::digest`].
@@ -253,16 +311,32 @@ fn tokenize(text: &str, cxx: bool) -> Body {
     tokenize_seq(text, cxx, None)
 }
 
-/// One token of the ordered stream [`tokenize_seq`] can record: an identifier, or a
-/// parenthesis.
+/// One token of the ordered stream [`tokenize_seq`] can record: an identifier, a bracket, a
+/// comma, or a digraph (`<%`, `%>`, `<:`, `:>`, carrying the bracket it spells: the compiler
+/// reads `<% %>` exactly as `{ }`). `Other` stands for every other non-blank token (a number, a
+/// string or character literal, any other punctuation): the potential-group rule of #829 asks
+/// whether the token before a `(` is an identifier, so what else sits there must be visible.
+/// Comments and blanks are no token.
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Tok {
     Ident(String),
     Open,
     Close,
+    LBrace,
+    RBrace,
+    LBracket,
+    RBracket,
+    Comma,
+    Digraph(u8),
+    Other,
 }
 
-fn tokenize_seq(text: &str, cxx: bool, mut seq: Option<&mut Vec<Tok>>) -> Body {
+fn tokenize_seq(text: &str, cxx: bool, seq: Option<&mut Vec<Tok>>) -> Body {
+    tokenize_seq_lex(text, if cxx { Lex::Cxx } else { Lex::C17 }, seq)
+}
+
+fn tokenize_seq_lex(text: &str, lex: Lex, mut seq: Option<&mut Vec<Tok>>) -> Body {
+    let cxx = lex.cxx();
     let b = text.as_bytes();
     let mut out = Body {
         idents: BTreeSet::new(),
@@ -309,21 +383,16 @@ fn tokenize_seq(text: &str, cxx: bool, mut seq: Option<&mut Vec<Tok>>) -> Body {
                     out.ok = false;
                     break;
                 }
-            }
-            b'#' if b.get(i + 1) == Some(&b'#') => {
-                out.paste = true;
-                i += 2;
-            }
-            // `%:%:` is the digraph for `##`; `%:` alone is `#` (stringizing).
-            b'%' if b.get(i + 1) == Some(&b':') => {
-                if b.get(i + 2) == Some(&b'%') && b.get(i + 3) == Some(&b':') {
-                    out.paste = true;
-                    i += 4;
-                } else {
-                    i += 2;
+                if let Some(seq) = seq.as_deref_mut() {
+                    seq.push(Tok::Other);
                 }
             }
-            c if c.is_ascii_digit() => i = pp_number_end(b, i, cxx),
+            c if c.is_ascii_digit() => {
+                i = pp_number_end(b, i, cxx);
+                if let Some(seq) = seq.as_deref_mut() {
+                    seq.push(Tok::Other);
+                }
+            }
             _ if is_ident_start(b, i) => {
                 let start = i;
                 i = ident_end(b, i);
@@ -339,6 +408,9 @@ fn tokenize_seq(text: &str, cxx: bool, mut seq: Option<&mut Vec<Tok>>) -> Body {
                             break;
                         }
                     }
+                    if let Some(seq) = seq.as_deref_mut() {
+                        seq.push(Tok::Other);
+                    }
                     continue;
                 }
                 insert_ident(&mut out.idents, ident);
@@ -346,13 +418,35 @@ fn tokenize_seq(text: &str, cxx: bool, mut seq: Option<&mut Vec<Tok>>) -> Body {
                     seq.push(Tok::Ident(ident.to_owned()));
                 }
             }
-            b'(' | b')' => {
+            // Punctuators by maximal munch, digraphs among them (#829, `punct.rs`).
+            b'(' | b')' | b'{' | b'}' | b'[' | b']' | b',' | b';' | b':' | b'?' | b'.' | b'+'
+            | b'-' | b'*' | b'/' | b'%' | b'^' | b'&' | b'|' | b'~' | b'!' | b'=' | b'<' | b'>'
+            | b'#' => {
+                let (len, kind) = punct_at(b, i, lex).unwrap_or((1, Punct::Plain));
+                if kind == Punct::Paste {
+                    out.paste = true;
+                } else if let Some(seq) = seq.as_deref_mut() {
+                    seq.push(match kind {
+                        Punct::Structural(b'(') => Tok::Open,
+                        Punct::Structural(b')') => Tok::Close,
+                        Punct::Structural(b'{') => Tok::LBrace,
+                        Punct::Structural(b'}') => Tok::RBrace,
+                        Punct::Structural(b'[') => Tok::LBracket,
+                        Punct::Structural(b']') => Tok::RBracket,
+                        Punct::Structural(_) => Tok::Comma,
+                        Punct::Digraph(k) => Tok::Digraph(k),
+                        Punct::Paste | Punct::Plain => Tok::Other,
+                    });
+                }
+                i += len;
+            }
+            b' ' | b'\t' | b'\r' | b'\n' | 0x0b | 0x0c => i += 1,
+            _ => {
                 if let Some(seq) = seq.as_deref_mut() {
-                    seq.push(if c == b'(' { Tok::Open } else { Tok::Close });
+                    seq.push(Tok::Other);
                 }
                 i += 1;
             }
-            _ => i += 1,
         }
     }
     out
@@ -665,6 +759,63 @@ fn may_hold_raw_string(b: &[u8]) -> bool {
     false
 }
 
+// ---- #829 G10 (`data_flow::build::c_file_parens`): file pieces, read leniently. ----
+
+/// One normalization of a whole source: trigraphs on or off, lenient or strict splices.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Norm {
+    trigraphs: bool,
+    lenient: bool,
+}
+
+/// The normalizations of `source` that give different texts (variants with the same text are
+/// one): at most four, usually one.
+pub(crate) fn distinct_norms(source: &str) -> Vec<Norm> {
+    let mut seen: Vec<Vec<u8>> = Vec::new();
+    let mut out = Vec::new();
+    for trigraphs in [true, false] {
+        let t = translate(source, trigraphs);
+        for lenient in [true, false] {
+            let text = splice(&t, lenient).0;
+            if !seen.contains(&text) {
+                seen.push(text);
+                out.push(Norm { trigraphs, lenient });
+            }
+        }
+    }
+    out
+}
+
+/// The text of one source piece after phases 1 and 2 (`norm`) and comment stripping in the
+/// dialect `cxx` (a block comment is one space, literals stay). `None` when a comment or raw
+/// string cannot be read to its end (the caller fails closed). `precise`: the file is parsed
+/// as C++ (a raw string with an interior splice is read at its as-written end).
+pub(crate) fn strip_piece(piece: &str, norm: Norm, cxx: bool, precise: bool) -> Option<String> {
+    let t = translate(piece, norm.trigraphs);
+    let (spliced, points) = splice(&t, norm.lenient);
+    let s = strip_comments(&spliced, &points, cxx, precise);
+    (!s.unterminated && !s.raw_uncertain).then_some(s.text)
+}
+
+/// Lexing helpers of the piece scanner: the end of the C++ raw string whose opening quote is at
+/// `q` (splices are already applied), of the pp-number at `i` and of the identifier at `i`
+/// (`None` when none starts there), and the raw-string prefixes.
+pub(crate) fn lex_raw_string_end(b: &[u8], q: usize) -> Option<usize> {
+    raw_string_end(b, q, &[])
+}
+
+pub(crate) fn lex_number_end(b: &[u8], i: usize, cxx: bool) -> usize {
+    pp_number_end(b, i, cxx)
+}
+
+pub(crate) fn lex_ident_end(b: &[u8], i: usize) -> Option<usize> {
+    is_ident_start(b, i).then(|| ident_end(b, i))
+}
+
+pub(crate) fn lex_is_raw_prefix(ident: &str) -> bool {
+    is_raw_prefix(ident)
+}
+
 /// Source text after translation phases 1-2 and comment stripping (a block comment is one
 /// space), in both lexing dialects: the logical lines a directive reader must see. Slice 6b
 /// reads `#pragma omp` through it, so a comment or a continuation cannot hide the word.
@@ -717,6 +868,9 @@ pub(crate) fn macro_call_arguments(
             if !tokenize_seq(&text, cxx, Some(&mut seq)).ok {
                 return None;
             }
+            // This reader sees identifiers and parentheses only (the structural tokens of #829
+            // would change which names are adjacent, so the set it returns would move).
+            seq.retain(|t| matches!(t, Tok::Ident(_) | Tok::Open | Tok::Close));
             for (k, t) in seq.iter().enumerate() {
                 let Tok::Ident(name) = t else { continue };
                 if !is_macro(name) || seq.get(k + 1) != Some(&Tok::Open) {
@@ -740,6 +894,7 @@ pub(crate) fn macro_call_arguments(
                                 }
                             }
                             Tok::Ident(a) => insert_ident(&mut out, a),
+                            _ => {}
                         }
                     }
                     match end {
@@ -764,6 +919,8 @@ struct Parsed<'a> {
     bad_params: bool,
     /// The name or a parameter holds a non-ASCII byte or a UCN.
     complex: bool,
+    /// A GNU named variadic parameter (`args...`): its substituted separators are unknown.
+    named_variadic: bool,
 }
 
 /// `s` without leading blanks and complete in-line `/* .. */` comments (an unclosed one is
@@ -802,6 +959,7 @@ fn parse_define(after: &str) -> Option<Parsed<'_>> {
             malformed: false,
             bad_params: false,
             complex,
+            named_variadic: false,
         });
     };
     let Some(close) = inner.find(')') else {
@@ -812,11 +970,13 @@ fn parse_define(after: &str) -> Option<Parsed<'_>> {
             malformed: true,
             bad_params: false,
             complex,
+            named_variadic: false,
         });
     };
     let list = inner[..close].trim_matches(WS);
     let mut params = Vec::new();
     let mut bad = false;
+    let mut named_variadic = false;
     if !list.is_empty() {
         for p in list.split(',') {
             let p = p.trim_matches(WS);
@@ -836,6 +996,7 @@ fn parse_define(after: &str) -> Option<Parsed<'_>> {
             complex |= is_complex(id);
             params.push(id.to_owned());
             if va {
+                named_variadic = true;
                 params.push("__VA_ARGS__".to_owned());
             }
         }
@@ -847,6 +1008,7 @@ fn parse_define(after: &str) -> Option<Parsed<'_>> {
         malformed: false,
         bad_params: bad,
         complex,
+        named_variadic,
     })
 }
 
@@ -867,12 +1029,29 @@ fn entry(p: &Parsed<'_>, cxx: bool, pos: usize) -> Entry {
         params: p.params.iter().flatten().cloned().collect(),
         ..RawDef::default()
     };
-    let body = tokenize(p.body, cxx);
+    let body = tokenize_seq(p.body, cxx, None);
+    // The C pass also reads `::` as one token (C23): the facts are the union of the readings.
+    let mut facts = None;
+    for &lex in Lex::readings(cxx) {
+        let mut s = Vec::new();
+        if tokenize_seq_lex(p.body, lex, Some(&mut s)).ok {
+            let f = brackets::scan_body(&s, &def.params, false, p.named_variadic);
+            match &mut facts {
+                Some(acc) => brackets::BodyFacts::merge(acc, f),
+                None => facts = Some(f),
+            }
+        }
+    }
     let hard = body.paste || p.complex;
     let soft = !body.ok || p.malformed || p.bad_params;
     def.poisoned = hard || soft;
     def.control = body.idents.iter().any(|t| is_control_name(t));
     def.free = body.idents.difference(&def.params).cloned().collect();
+    // #829: a pass that cannot read the body contributes no bracket facts (another pass over
+    // the same text supplies them; the soft poison above stays until one reads it cleanly).
+    if let Some(f) = facts.filter(|_| body.ok) {
+        def.set_body_facts(f);
+    }
     Entry {
         name: p.name.clone(),
         def,
@@ -1196,6 +1375,11 @@ fn merge(out: &mut BTreeMap<String, RawDef>, name: String, def: RawDef) {
     e.free.extend(def.free);
     e.control |= def.control;
     e.poisoned |= def.poisoned;
+    e.unbalanced |= def.unbalanced;
+    e.loose_comma |= def.loose_comma;
+    e.group_held |= def.group_held;
+    e.paren_open |= def.paren_open;
+    e.group_ids.extend(def.group_ids);
 }
 
 // ---- Census text inputs that are not parsed C/C++ (slice 6b hybrid). ----
@@ -1284,8 +1468,10 @@ fn is_ident_byte(c: u8) -> bool {
 }
 
 /// One permissive define: the name, the identifier-like runs of the rest of the line as free
-/// names, `##` as poison. `None` when no identifier name follows.
-fn permissive_define(after: &str) -> Option<(String, RawDef)> {
+/// names, `##` as poison, and whether some dialect read the body into bracket facts (`false`:
+/// no facts were set; the caller fails closed when no variant of the line reads it either).
+/// `None` when no identifier name follows.
+fn permissive_define(after: &str) -> Option<(String, RawDef, bool)> {
     let t = skip_blanks(after);
     let tb = t.as_bytes();
     if tb.is_empty() || !is_ident_start(tb, 0) {
@@ -1319,12 +1505,34 @@ fn permissive_define(after: &str) -> Option<(String, RawDef)> {
         }
     }
     def.control = def.free.iter().any(|t| is_control_name(t));
-    Some((name.to_owned(), def))
+    // #829: both dialects read the text after the name (every identifier is a possible
+    // parameter, every group after an identifier is potential, every identifier of one is
+    // forwarded); a line no dialect reads sets every hazard, and a GNU named variadic
+    // (`args...` in the parameter list) fails closed.
+    let named_variadic = rest.trim_start_matches(WS).starts_with('(')
+        && rest.find(')').is_some_and(|c| {
+            rest[..c]
+                .split(',')
+                .any(|p| p.trim_matches(WS).len() > 3 && p.trim_matches(WS).ends_with("..."))
+        });
+    let facts = brackets::scan_text(rest, &BTreeSet::new(), true, named_variadic, &[true, false]);
+    let readable = facts.is_some();
+    if let Some(f) = facts {
+        def.set_body_facts(f);
+    }
+    Some((name.to_owned(), def, readable))
 }
 
-/// Collect the definitions of a census text that is not a parsed C/C++ file.
+/// Collect the definitions of a census text that is not a parsed C/C++ file. A define line that
+/// no variant of the text (comment kept or erased, splice modes, trigraphs) and no dialect
+/// reads into bracket facts sets every hazard of its name (#829: fail closed); a variant that
+/// mis-reads a line another variant reads (a `//` inside a string literal, in the comment-erased
+/// text) contributes nothing. Variants are matched by name and ordinal among the defines of the
+/// name, which can only add hazards when they drift.
 pub(crate) fn collect_permissive(source: &str, out: &mut BTreeMap<String, RawDef>) {
+    let mut read: BTreeMap<(String, usize), bool> = BTreeMap::new();
     for text in permissive_variants(source) {
+        let mut ordinal: BTreeMap<String, usize> = BTreeMap::new();
         for line in text.split('\n') {
             for rest in leader_rests(line) {
                 let r = skip_blanks(rest);
@@ -1336,17 +1544,28 @@ pub(crate) fn collect_permissive(source: &str, out: &mut BTreeMap<String, RawDef
                 if after.as_bytes().first().is_some_and(|&c| is_ident_byte(c)) {
                     continue; // another directive spelling, e.g. `#definex`
                 }
-                if let Some((name, mut def)) = permissive_define(after) {
+                if let Some((name, mut def, readable)) = permissive_define(after) {
                     if !is_define {
                         // An `undef` names a macro without a body: a fact with no names.
                         def = RawDef {
                             poisoned: def.poisoned,
                             ..RawDef::default()
                         };
+                    } else {
+                        let k = ordinal.entry(name.clone()).or_insert(0);
+                        *read.entry((name.clone(), *k)).or_insert(false) |= readable;
+                        *k += 1;
                     }
                     merge(out, name, def);
                 }
             }
+        }
+    }
+    for ((name, _), ok) in read {
+        if !ok {
+            let mut hazard = RawDef::default();
+            hazard.set_body_facts(brackets::BodyFacts::unreadable());
+            merge(out, name, hazard);
         }
     }
 }
@@ -1530,6 +1749,28 @@ impl CMacroCensus {
             .filter(|(n, r)| r.contains(*n))
             .map(|(n, _)| *n)
             .collect();
+        // #829 closed facts. `loose*` first: it feeds `split`, which names macros.
+        let loose_star: BTreeMap<&String, bool> = raw
+            .iter()
+            .map(|(n, d)| {
+                (
+                    n,
+                    d.loose_comma || reaches[n].iter().any(|m| raw[*m].loose_comma),
+                )
+            })
+            .collect();
+        // `split(M)`: a body potential group of M holds a held comma, or names an in-repo macro
+        // that is loose after closure. No condition on the group's root name.
+        let split: BTreeMap<&String, bool> = raw
+            .iter()
+            .map(|(n, d)| {
+                let forwards_loose = d
+                    .group_ids
+                    .iter()
+                    .any(|x| loose_star.get(x).copied().unwrap_or(false));
+                (n, d.group_held || forwards_loose)
+            })
+            .collect();
         let mut macros = BTreeMap::new();
         for (name, def) in &raw {
             let mut facts = MacroFacts {
@@ -1537,12 +1778,19 @@ impl CMacroCensus {
                 free: def.free.clone(),
                 control: def.control,
                 poisoned: def.poisoned || cyclic.contains(name),
+                unbalanced: def.unbalanced,
+                loose_comma: loose_star[name],
+                arg_split: split[name],
+                paren_open: def.paren_open,
             };
             for m in &reaches[name] {
                 let d = &raw[*m];
                 facts.free.extend(d.free.iter().cloned());
                 facts.control |= d.control;
                 facts.poisoned |= d.poisoned || cyclic.contains(*m);
+                facts.unbalanced |= d.unbalanced;
+                facts.arg_split |= split[*m];
+                facts.paren_open |= d.paren_open;
             }
             macros.insert(name.clone(), facts);
         }
@@ -1608,6 +1856,26 @@ impl CMacroCensus {
         self.macros.values().filter(|f| f.poisoned).count()
     }
 
+    /// Number of macros flagged `unbalanced`.
+    pub fn unbalanced_count(&self) -> usize {
+        self.macros.values().filter(|f| f.unbalanced).count()
+    }
+
+    /// Number of macros flagged `loose_comma`.
+    pub fn loose_comma_count(&self) -> usize {
+        self.macros.values().filter(|f| f.loose_comma).count()
+    }
+
+    /// Number of macros flagged `arg_split`.
+    pub fn arg_split_count(&self) -> usize {
+        self.macros.values().filter(|f| f.arg_split).count()
+    }
+
+    /// Number of macros flagged `paren_open`.
+    pub fn paren_open_count(&self) -> usize {
+        self.macros.values().filter(|f| f.paren_open).count()
+    }
+
     /// A stable digest of exactly the recorded facts; empty for an empty census. The DFG
     /// storage persists it, and a partial cache hit that finds a different digest rebuilds
     /// in full.
@@ -1622,7 +1890,7 @@ impl CMacroCensus {
             h.update(bytes);
         }
         let mut h = Sha256::new();
-        h.update(b"c-macro-census-v2");
+        h.update(b"c-macro-census-v3");
         h.update((self.macros.len() as u64).to_le_bytes());
         for (name, f) in &self.macros {
             put(&mut h, name.as_bytes());
@@ -1632,7 +1900,14 @@ impl CMacroCensus {
                     put(&mut h, s.as_bytes());
                 }
             }
-            h.update([u8::from(f.control), u8::from(f.poisoned)]);
+            h.update([
+                u8::from(f.control),
+                u8::from(f.poisoned),
+                u8::from(f.unbalanced),
+                u8::from(f.loose_comma),
+                u8::from(f.arg_split),
+                u8::from(f.paren_open),
+            ]);
         }
         h.update([u8::from(self.incomplete)]);
         h.finalize().iter().map(|b| format!("{b:02x}")).collect()

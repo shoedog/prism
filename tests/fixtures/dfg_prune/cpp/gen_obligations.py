@@ -46,6 +46,21 @@ for name, src in cases:
             if name not in ownerless:
                 row["owner"] = downer
             rows.append(row)
+# Oracle fields (xarm.py label, #829): oracle verdicts, config, assumption, boundary and the
+# derived `assert` of the rows of the 2x/3x inline cases. A row without data keeps its old meaning.
+oracle = {}
+op = os.path.join(here, "..", "oracle", "inline_rows.jsonl")
+if os.path.exists(op):
+    for line in open(op):
+        o = json.loads(line)
+        if o["lang"] == "cpp":
+            oracle[(o["case"], o["id"], o["def_line"], o["use_line"])] = o
+KEEP = ("oracle", "oracle_repo", "oracle_declared", "config", "assumption", "boundary",
+        "inputs_gap", "head_drops", "basis", "assert", "validity_control", "seen_input")
+for r in rows:
+    o = oracle.get((r["case"], r["id"], r["def_line"], r["use_line"]))
+    if o:
+        r.update({k: o[k] for k in KEEP if k in o})
 with open(os.path.join(here, "obligations.jsonl"), "w") as f:
     for r in rows:
         f.write(json.dumps(r) + "\n")
