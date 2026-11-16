@@ -22,6 +22,24 @@ pub(crate) fn collect(
         .map_err(|error| error.to_string());
     collect_with(ctx, trace, lookup)
 }
+/// The hints and eligible loading trace belong to the same completed round as the graph.
+pub(crate) fn collect_round(
+    hints: &mut ReviewBoundaryHints<'_>,
+    ctx: &CpgContext<'_>,
+    trace: &TaintTrace,
+) -> BoundaryCollection {
+    collect_with(ctx, trace, Ok(|site: &CallSite| hints.hint_for_call(site)))
+}
+
+/// Only graph resolution against the loaded map establishes callable presence.
+pub(crate) fn site_has_loaded_callable(ctx: &CpgContext<'_>, site: &PhysicalSite) -> bool {
+    ctx.cpg.call_graph.calls.values().flatten().any(|call| {
+        call.caller == site.caller
+            && call.start_byte == site.start_byte
+            && call.end_byte == site.end_byte
+            && loaded_callable(ctx, call)
+    })
+}
 fn collect_with<F: FnMut(&CallSite) -> Option<ReviewImportHint>>(
     ctx: &CpgContext<'_>,
     trace: &TaintTrace,

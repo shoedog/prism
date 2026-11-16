@@ -9,6 +9,8 @@ mod cleansing;
 #[allow(dead_code)] // S4c2 is the first production caller.
 mod context_budget;
 mod flat;
+#[allow(dead_code)] // S4c2 supplies the first production caller.
+mod frontier;
 mod go;
 mod js_ts;
 mod python;
