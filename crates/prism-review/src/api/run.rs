@@ -109,12 +109,14 @@ pub(crate) fn run_algorithm_prepared(
             &mut result.findings,
             expansion.view(inputs, algorithm).files,
         );
+        let state = expansion.into_state();
+        diagnostics.reconcile_context(&state, request, &inputs.parse_warnings);
         Ok((
             super::AlgorithmOutcome {
                 result,
                 diagnostics: diagnostics.project(),
             },
-            expansion.into_state(),
+            state,
         ))
     })
 }
@@ -513,24 +515,25 @@ pub(crate) fn run_review_prepared(
                 expansion.view(inputs, algorithm).files,
             );
         }
-        let diagnostics = diagnostics.project();
-        let mut warnings = inputs.parse_warnings.clone();
-        if let Some(diagnostics) = &diagnostics {
-            warnings.extend(diagnostics.messages());
-        }
-
-        ReviewRun {
+        let mut run = ReviewRun {
             context: expansion.into_state(),
-            diagnostics,
+            diagnostics: None,
             results,
             findings,
             evidence,
             errors,
-            warnings,
+            warnings: inputs.parse_warnings.clone(),
             algorithms_run,
             min_confidence: inputs.min_confidence,
             resolution: inputs.resolution,
+        };
+        diagnostics.reconcile_context(&run.context, request, &inputs.parse_warnings);
+        let diagnostics = diagnostics.project();
+        if let Some(notes) = &diagnostics {
+            run.warnings.extend(notes.messages());
         }
+        run.diagnostics = diagnostics;
+        run
     })
 }
 

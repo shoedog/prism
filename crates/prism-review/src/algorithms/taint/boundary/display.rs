@@ -15,6 +15,7 @@ pub struct BoundaryDisplay {
     pub(crate) located: Vec<LocatedBoundaryNote>,
     pub(crate) omitted_count: usize,
     pub(crate) availability: Availability,
+    pub(crate) run_notes: Vec<ContextRunNote>,
 }
 impl LocatedBoundaryNote {
     pub fn file(&self) -> &str {
@@ -43,6 +44,9 @@ impl LocatedBoundaryNote {
     }
 }
 impl BoundaryDisplay {
+    pub fn run_notes(&self) -> &[ContextRunNote] {
+        &self.run_notes
+    }
     pub fn located(&self) -> &[LocatedBoundaryNote] {
         &self.located
     }
@@ -63,6 +67,12 @@ impl BoundaryDisplay {
 }
 /// Accepts coherent collector records or identical duplicates, preserving input.
 pub(crate) fn project(collection: &BoundaryCollection) -> BoundaryDisplay {
+    project_with_notes(collection, Vec::new())
+}
+pub(crate) fn project_with_notes(
+    collection: &BoundaryCollection,
+    run_notes: Vec<ContextRunNote>,
+) -> BoundaryDisplay {
     let mut ordered: Vec<_> = collection.records.iter().collect();
     ordered.sort_by(|a, b| display_order_key(a).cmp(&display_order_key(b)));
     ordered.dedup_by(|a, b| same_identity(a, b));
@@ -79,6 +89,7 @@ pub(crate) fn project(collection: &BoundaryCollection) -> BoundaryDisplay {
             .collect(),
         omitted_count,
         availability: collection.availability.clone(),
+        run_notes,
     }
 }
 fn raw_targets(record: &BoundaryRecord) -> &[String] {
@@ -100,6 +111,9 @@ fn display_order_key(record: &BoundaryRecord) -> (&str, usize, &str, &[String], 
     )
 }
 fn message(record: &BoundaryRecord) -> String {
+    if record.kind == BoundaryKind::LoadedUnresolved {
+        return format!("taint-context: tainted value reaches {}(...) at {}:{}; context was loaded as taint context but the call did not resolve to a definition", quoted_token(&record.callee), quoted_token(&record.site.caller.file), record.line);
+    }
     let suffix = match &record.hint {
         ReviewImportHint::InRepo {
             files,

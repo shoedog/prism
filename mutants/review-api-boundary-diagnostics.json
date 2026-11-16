@@ -47,7 +47,7 @@
     "RBD08-empty-findings-hide-notes": [
       "crates/prism-review/src/api/run.rs",
       "let diagnostics = diagnostics.project();",
-      "let diagnostics = if findings.is_empty() { None } else { diagnostics.project() };",
+      "let diagnostics = if run.findings.is_empty() { None } else { diagnostics.project() };",
       "api_test::boundary_diagnostics::finding_filter_cannot_remove_boundary_diagnostics"
     ]
   }

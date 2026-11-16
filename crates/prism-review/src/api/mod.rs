@@ -2,7 +2,7 @@
 //! Same compatibility promise as `prism::api` (see its module doc).
 
 #[allow(dead_code)] // S5 supplies the first request-bearing caller.
-mod context_run;
+pub(crate) mod context_run;
 mod diagnostics;
 pub(crate) mod map_view;
 mod run;
