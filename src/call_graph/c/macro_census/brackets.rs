@@ -15,6 +15,7 @@
 //! a rescan. A second, parentheses-only stack (the `__VA_OPT__` parentheses included) answers
 //! `paren_open`: a `(` that no `)` of the body closes can open an argument list the following
 //! source text closes (a stray `)` alone does not set it).
+use super::punct::Lex;
 use super::Tok;
 use std::collections::BTreeSet;
 
@@ -188,9 +189,9 @@ pub(super) fn scan_text(
     dialects: &[bool],
 ) -> Option<BodyFacts> {
     let mut out: Option<BodyFacts> = None;
-    for &cxx in dialects {
+    for &lex in dialects.iter().flat_map(|&cxx| Lex::readings(cxx)) {
         let mut seq = Vec::new();
-        if !super::tokenize_seq(text, cxx, Some(&mut seq)).ok {
+        if !super::tokenize_seq_lex(text, lex, Some(&mut seq)).ok {
             continue;
         }
         let f = scan_body(&seq, params, permissive, named_variadic);
@@ -299,9 +300,9 @@ pub(crate) fn owner_group_hazard(
 ) -> Option<Option<GroupHazard>> {
     let mut found = None;
     for t in super::normalized_texts(text) {
-        for cxx in [false, true] {
+        for lex in [false, true].iter().flat_map(|&cxx| Lex::readings(cxx)) {
             let mut seq = Vec::new();
-            if !super::tokenize_seq(&t, cxx, Some(&mut seq)).ok {
+            if !super::tokenize_seq_lex(&t, *lex, Some(&mut seq)).ok {
                 return None;
             }
             if found.is_none() {

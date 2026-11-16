@@ -352,3 +352,32 @@ fn parser_pin_digraph_owner_keeps_its_verdict() {
     let v = verdicts("a.c", src);
     assert!(v.values().all(|o| o.is_some()), "{v:?}");
 }
+
+// ---- Maximal munch before digraphs (#829 round 2, terra) ----
+//
+// `clang++ -std=c++17 -Xclang -dump-tokens`: `[ ::>` is `l_square coloncolon greater` and
+// `<<% }` is `lessless percent r_brace`, so neither body balances (see
+// `macro_census_punct_tests` for the full table, also `clang -std=c17|c2x`).
+
+#[test]
+fn g7_maximal_munch_bodies_are_refused_and_digraph_controls_admitted() {
+    for body in ["[ ::>", "<<% }", "<<: ]"] {
+        let defs = format!("#define BAD {body}\n#define W BAD\n");
+        gate(&defs, "    BAD;\n", Some(Off::MacroBrackets));
+        gate(&defs, "    W;\n", Some(Off::MacroBrackets));
+    }
+    for body in ["<: :>", "<% %>", "<<<: :>"] {
+        gate(&format!("#define OK {body}\n"), "    OK;\n", None);
+    }
+}
+
+#[test]
+fn g9_owner_text_reads_punctuators_by_maximal_munch() {
+    refuses("f(a [ ::> );", GroupHazard::Split);
+    refuses("f(a <<% } );", GroupHazard::Split);
+    refuses("f(a <<: ] );", GroupHazard::Split);
+    // Controls: a genuine digraph pair inside a group is still read (and refuses, as `<%`
+    // does above); a whole `<<=` is no bracket.
+    refuses("f(a <: b :> );", GroupHazard::Split);
+    admits("f(x <<= 1);");
+}

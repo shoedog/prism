@@ -54,6 +54,8 @@
 //! census yet; slice 6a only builds it and persists its digest with the cached DFG.
 mod brackets;
 pub(crate) use brackets::{owner_group_hazard, GroupHazard};
+mod punct;
+use punct::{punct_at, Lex, Punct};
 mod raw_string;
 #[cfg(test)]
 pub(crate) fn raw_string_end_for_tests(b: &[u8], q: usize, s: &[usize]) -> Option<usize> {
@@ -329,7 +331,12 @@ enum Tok {
     Other,
 }
 
-fn tokenize_seq(text: &str, cxx: bool, mut seq: Option<&mut Vec<Tok>>) -> Body {
+fn tokenize_seq(text: &str, cxx: bool, seq: Option<&mut Vec<Tok>>) -> Body {
+    tokenize_seq_lex(text, if cxx { Lex::Cxx } else { Lex::C17 }, seq)
+}
+
+fn tokenize_seq_lex(text: &str, lex: Lex, mut seq: Option<&mut Vec<Tok>>) -> Body {
+    let cxx = lex.cxx();
     let b = text.as_bytes();
     let mut out = Body {
         idents: BTreeSet::new(),
@@ -380,51 +387,6 @@ fn tokenize_seq(text: &str, cxx: bool, mut seq: Option<&mut Vec<Tok>>) -> Body {
                     seq.push(Tok::Other);
                 }
             }
-            b'#' if b.get(i + 1) == Some(&b'#') => {
-                out.paste = true;
-                i += 2;
-            }
-            // `%:%:` is the digraph for `##`; `%:` alone is `#` (stringizing).
-            b'%' if b.get(i + 1) == Some(&b':') => {
-                if b.get(i + 2) == Some(&b'%') && b.get(i + 3) == Some(&b':') {
-                    out.paste = true;
-                    i += 4;
-                } else {
-                    if let Some(seq) = seq.as_deref_mut() {
-                        seq.push(Tok::Other);
-                    }
-                    i += 2;
-                }
-            }
-            // C++ [lex.pptoken]/3.2: `<::` not followed by `:` or `>` is `<` then `::`, not the
-            // digraph `<:` (C reads the digraph, so the dialects differ and the census unions
-            // both; #829).
-            b'<' if cxx
-                && b[i..].starts_with(b"<::")
-                && !matches!(b.get(i + 3), Some(b':' | b'>')) =>
-            {
-                if let Some(seq) = seq.as_deref_mut() {
-                    seq.push(Tok::Other);
-                }
-                i += 1;
-            }
-            // The digraph brackets `<%` `%>` `<:` `:>` (#829).
-            b'<' | b'%' | b':'
-                if matches!(
-                    (c, b.get(i + 1)),
-                    (b'<', Some(b'%' | b':')) | (b'%', Some(b'>')) | (b':', Some(b'>'))
-                ) =>
-            {
-                if let Some(seq) = seq.as_deref_mut() {
-                    seq.push(Tok::Digraph(match (c, b[i + 1]) {
-                        (b'<', b'%') => b'{',
-                        (b'%', _) => b'}',
-                        (b'<', _) => b'[',
-                        _ => b']',
-                    }));
-                }
-                i += 2;
-            }
             c if c.is_ascii_digit() => {
                 i = pp_number_end(b, i, cxx);
                 if let Some(seq) = seq.as_deref_mut() {
@@ -456,19 +418,27 @@ fn tokenize_seq(text: &str, cxx: bool, mut seq: Option<&mut Vec<Tok>>) -> Body {
                     seq.push(Tok::Ident(ident.to_owned()));
                 }
             }
-            b'(' | b')' | b'{' | b'}' | b'[' | b']' | b',' => {
-                if let Some(seq) = seq.as_deref_mut() {
-                    seq.push(match c {
-                        b'(' => Tok::Open,
-                        b')' => Tok::Close,
-                        b'{' => Tok::LBrace,
-                        b'}' => Tok::RBrace,
-                        b'[' => Tok::LBracket,
-                        b']' => Tok::RBracket,
-                        _ => Tok::Comma,
+            // Punctuators by maximal munch, digraphs among them (#829, `punct.rs`).
+            b'(' | b')' | b'{' | b'}' | b'[' | b']' | b',' | b';' | b':' | b'?' | b'.' | b'+'
+            | b'-' | b'*' | b'/' | b'%' | b'^' | b'&' | b'|' | b'~' | b'!' | b'=' | b'<' | b'>'
+            | b'#' => {
+                let (len, kind) = punct_at(b, i, lex).unwrap_or((1, Punct::Plain));
+                if kind == Punct::Paste {
+                    out.paste = true;
+                } else if let Some(seq) = seq.as_deref_mut() {
+                    seq.push(match kind {
+                        Punct::Structural(b'(') => Tok::Open,
+                        Punct::Structural(b')') => Tok::Close,
+                        Punct::Structural(b'{') => Tok::LBrace,
+                        Punct::Structural(b'}') => Tok::RBrace,
+                        Punct::Structural(b'[') => Tok::LBracket,
+                        Punct::Structural(b']') => Tok::RBracket,
+                        Punct::Structural(_) => Tok::Comma,
+                        Punct::Digraph(k) => Tok::Digraph(k),
+                        Punct::Paste | Punct::Plain => Tok::Other,
                     });
                 }
-                i += 1;
+                i += len;
             }
             b' ' | b'\t' | b'\r' | b'\n' | 0x0b | 0x0c => i += 1,
             _ => {
@@ -1059,8 +1029,19 @@ fn entry(p: &Parsed<'_>, cxx: bool, pos: usize) -> Entry {
         params: p.params.iter().flatten().cloned().collect(),
         ..RawDef::default()
     };
-    let mut seq = Vec::new();
-    let body = tokenize_seq(p.body, cxx, Some(&mut seq));
+    let body = tokenize_seq(p.body, cxx, None);
+    // The C pass also reads `::` as one token (C23): the facts are the union of the readings.
+    let mut facts = None;
+    for &lex in Lex::readings(cxx) {
+        let mut s = Vec::new();
+        if tokenize_seq_lex(p.body, lex, Some(&mut s)).ok {
+            let f = brackets::scan_body(&s, &def.params, false, p.named_variadic);
+            match &mut facts {
+                Some(acc) => brackets::BodyFacts::merge(acc, f),
+                None => facts = Some(f),
+            }
+        }
+    }
     let hard = body.paste || p.complex;
     let soft = !body.ok || p.malformed || p.bad_params;
     def.poisoned = hard || soft;
@@ -1068,13 +1049,8 @@ fn entry(p: &Parsed<'_>, cxx: bool, pos: usize) -> Entry {
     def.free = body.idents.difference(&def.params).cloned().collect();
     // #829: a pass that cannot read the body contributes no bracket facts (another pass over
     // the same text supplies them; the soft poison above stays until one reads it cleanly).
-    if body.ok {
-        def.set_body_facts(brackets::scan_body(
-            &seq,
-            &def.params,
-            false,
-            p.named_variadic,
-        ));
+    if let Some(f) = facts.filter(|_| body.ok) {
+        def.set_body_facts(f);
     }
     Entry {
         name: p.name.clone(),
