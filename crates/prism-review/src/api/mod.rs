@@ -3,6 +3,7 @@
 
 #[allow(dead_code)] // S5 supplies the first request-bearing caller.
 pub(crate) mod context_run;
+pub(crate) mod context_view;
 mod diagnostics;
 pub(crate) mod map_view;
 mod run;
