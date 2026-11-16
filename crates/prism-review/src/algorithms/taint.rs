@@ -8,10 +8,10 @@ mod attribution;
 pub(crate) mod boundary;
 mod cleansing;
 #[allow(dead_code)] // S4c2 is the first production caller.
-mod context_budget;
+pub(crate) mod context_budget;
 mod flat;
 #[allow(dead_code)] // S4c2 supplies the first production caller.
-mod frontier;
+pub(crate) mod frontier;
 mod go;
 mod js_ts;
 mod python;
@@ -19,7 +19,7 @@ mod report;
 #[allow(dead_code)] // S4d2 supplies the first production caller.
 pub(crate) mod result_union;
 #[allow(dead_code)] // S4d2 is the first production caller.
-mod rounds;
+pub(crate) mod rounds;
 mod run;
 mod seeds;
 mod sink_match;

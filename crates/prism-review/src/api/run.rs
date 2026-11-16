@@ -1,3 +1,4 @@
+use super::context_run::{ContextRequest, ContextState, RunExpansion};
 use super::diagnostics::RunDiagnostics;
 use crate::algorithms;
 use anyhow::{Context, Result};
@@ -78,8 +79,22 @@ pub fn run_algorithm_with_diagnostics(
     params: &AlgorithmParams,
     repo: &Path,
 ) -> Result<super::AlgorithmOutcome> {
+    run_algorithm_prepared(algorithm, ctx, inputs, config, params, repo, None)
+        .map(|(outcome, _)| outcome)
+}
+
+pub(crate) fn run_algorithm_prepared(
+    algorithm: SlicingAlgorithm,
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+    request: Option<&ContextRequest>,
+) -> Result<(super::AlgorithmOutcome, ContextState)> {
     prism::build_pool::install(|| {
         let mut diagnostics = RunDiagnostics::default();
+        let mut expansion = RunExpansion::new(request);
         let mut result = run_algorithm_raw(
             algorithm,
             ctx,
@@ -88,12 +103,19 @@ pub fn run_algorithm_with_diagnostics(
             params,
             repo,
             &mut diagnostics,
+            &mut expansion,
         )?;
-        annotate_finding_parse_quality(&mut result.findings, &inputs.files);
-        Ok(super::AlgorithmOutcome {
-            result,
-            diagnostics: diagnostics.project(),
-        })
+        annotate_finding_parse_quality(
+            &mut result.findings,
+            expansion.view(inputs, algorithm).files,
+        );
+        Ok((
+            super::AlgorithmOutcome {
+                result,
+                diagnostics: diagnostics.project(),
+            },
+            expansion.into_state(),
+        ))
     })
 }
 
@@ -105,6 +127,7 @@ fn run_algorithm_raw(
     params: &AlgorithmParams,
     repo: &Path,
     diagnostics: &mut RunDiagnostics,
+    expansion: &mut RunExpansion<'_>,
 ) -> Result<SliceResult> {
     let mut result = match algorithm {
         SlicingAlgorithm::BarrierSlice => {
@@ -137,25 +160,39 @@ fn run_algorithm_raw(
             )
         }
         SlicingAlgorithm::Taint => {
-            let taint_config = crate::algorithms::taint::TaintConfig {
-                sources: params
-                    .taint_sources
-                    .iter()
-                    .filter_map(|s| parse_file_line(s).ok())
-                    .collect(),
-                taint_from_diff: params.taint_sources.is_empty(),
-                extra_sinks: Vec::new(),
-                return_flow: params.taint_return_flow,
-            };
-            if diagnostics.needs_collection() {
-                let (result, trace) =
-                    crate::algorithms::taint::slice_with_trace(ctx, &inputs.diff, &taint_config)?;
-                diagnostics.capture_once(|| {
-                    crate::algorithms::taint::boundary::collect::collect(inputs, ctx, &trace)
-                });
+            if let Some(result) = expansion.cached() {
                 Ok(result)
             } else {
-                crate::algorithms::taint::slice(ctx, &inputs.diff, &taint_config)
+                let taint_config = crate::algorithms::taint::TaintConfig {
+                    sources: params
+                        .taint_sources
+                        .iter()
+                        .filter_map(|s| parse_file_line(s).ok())
+                        .collect(),
+                    taint_from_diff: params.taint_sources.is_empty(),
+                    extra_sinks: Vec::new(),
+                    return_flow: params.taint_return_flow,
+                };
+                if diagnostics.needs_collection() {
+                    let (result, trace) = crate::algorithms::taint::slice_with_trace(
+                        ctx,
+                        &inputs.diff,
+                        &taint_config,
+                    )?;
+                    diagnostics.capture_once(|| {
+                        crate::algorithms::taint::boundary::collect::collect(inputs, ctx, &trace)
+                    });
+                    Ok(expansion.apply(inputs, ctx, &taint_config, result, &trace))
+                } else if expansion.requested() {
+                    let (result, trace) = crate::algorithms::taint::slice_with_trace(
+                        ctx,
+                        &inputs.diff,
+                        &taint_config,
+                    )?;
+                    Ok(expansion.apply(inputs, ctx, &taint_config, result, &trace))
+                } else {
+                    crate::algorithms::taint::slice(ctx, &inputs.diff, &taint_config)
+                }
             }
         }
         SlicingAlgorithm::ConditionedSlice => {
@@ -384,6 +421,7 @@ pub(crate) fn filter_result_findings_in(
 /// map, never via `finding.parse_quality`.
 #[non_exhaustive]
 pub struct ReviewRun {
+    pub(crate) context: ContextState,
     pub diagnostics: Option<super::ReviewBoundaryDiagnostics>,
     pub results: Vec<SliceResult>,
     pub findings: Vec<SliceFinding>,
@@ -403,10 +441,23 @@ pub fn run_review(
     params: &AlgorithmParams,
     repo: &Path,
 ) -> ReviewRun {
+    run_review_prepared(ctx, inputs, algorithms, config, params, repo, None)
+}
+
+pub(crate) fn run_review_prepared(
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    algorithms: &[SlicingAlgorithm],
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+    request: Option<&ContextRequest>,
+) -> ReviewRun {
     prism::build_pool::install(|| {
         let mut results = Vec::new();
         let mut errors = Vec::new();
         let mut diagnostics = RunDiagnostics::default();
+        let mut expansion = RunExpansion::new(request);
 
         for &algorithm in algorithms {
             let algorithm_config = SliceConfig {
@@ -421,11 +472,12 @@ pub fn run_review(
                 params,
                 repo,
                 &mut diagnostics,
+                &mut expansion,
             ) {
                 Ok(mut result) => {
-                    filter_result_findings(
+                    filter_result_findings_in(
                         &mut result,
-                        inputs,
+                        expansion.view(inputs, algorithm),
                         inputs.min_confidence,
                         inputs.resolution,
                     );
@@ -450,7 +502,17 @@ pub fn run_review(
             .iter()
             .flat_map(|result| result.evidence.clone())
             .collect();
-        annotate_finding_parse_quality(&mut findings, &inputs.files);
+        for finding in &mut findings {
+            let algorithm = if finding.algorithm == "taint" {
+                SlicingAlgorithm::Taint
+            } else {
+                SlicingAlgorithm::OriginalDiff
+            };
+            annotate_finding_parse_quality(
+                std::slice::from_mut(finding),
+                expansion.view(inputs, algorithm).files,
+            );
+        }
         let diagnostics = diagnostics.project();
         let mut warnings = inputs.parse_warnings.clone();
         if let Some(diagnostics) = &diagnostics {
@@ -458,6 +520,7 @@ pub fn run_review(
         }
 
         ReviewRun {
+            context: expansion.into_state(),
             diagnostics,
             results,
             findings,

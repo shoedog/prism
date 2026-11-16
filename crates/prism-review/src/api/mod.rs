@@ -1,6 +1,8 @@
 //! The review facade: everything in `prism::api` plus the algorithm runner, SARIF and targets.
 //! Same compatibility promise as `prism::api` (see its module doc).
 
+#[allow(dead_code)] // S5 supplies the first request-bearing caller.
+mod context_run;
 mod diagnostics;
 pub(crate) mod map_view;
 mod run;
