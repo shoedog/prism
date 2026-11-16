@@ -30,6 +30,8 @@ pub mod mapping;
 mod model;
 
 #[cfg(test)]
+mod context_shape_tests;
+#[cfg(test)]
 mod context_view_tests;
 
 pub use model::{

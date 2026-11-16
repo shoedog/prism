@@ -1,0 +1,48 @@
+{
+  "lane": "Context target finding shapes (#602 S5b T)",
+  "test_targets": [
+    {
+      "prefix": "targets::context_shape_tests::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "TS01-sort": [
+      "crates/prism-review/src/targets/mod.rs",
+      "        related_files.sort();",
+      "",
+      "targets::context_shape_tests::t01_related_files_sorted_deduplicated_normalized"
+    ],
+    "TS02-dedup": [
+      "crates/prism-review/src/targets/mod.rs",
+      "        related_files.dedup();",
+      "",
+      "targets::context_shape_tests::t01_related_files_sorted_deduplicated_normalized"
+    ],
+    "TS03-normalize": [
+      "crates/prism-review/src/targets/mod.rs",
+      ".map(|path| normalise_path(path, &mut warnings))",
+      ".map(|path| path.clone())",
+      "targets::context_shape_tests::t01_related_files_sorted_deduplicated_normalized"
+    ],
+    "TS04-related-id": [
+      "crates/prism-review/src/targets/mod.rs",
+      "        related_files_sorted,\n",
+      "",
+      "targets::context_shape_tests::t03_baseline_ids_stable_and_context_id_new"
+    ],
+    "TS05-duplicate": [
+      "crates/prism-review/src/targets/mod.rs",
+      "if !ids.insert(id.clone()) {",
+      "if { ids.insert(id.clone()); false } {",
+      "targets::context_shape_tests::t05_duplicate_targets_warn_and_keep_one"
+    ],
+    "TS06-id-before-filter": [
+      "crates/prism-review/src/targets/mod.rs",
+      "        if !ids.insert(id.clone()) {\n            warnings.push(format!(\n                \"targets: duplicate id {id} dropped ({}/{} {}:{})\",\n                finding.algorithm, category, file, finding.line\n            ));\n            continue;\n        }\n\n        if severity_rank(&severity) < meta.min_severity_rank\n            || (matches!(meta.min_tier, FindingTier::Asserted)\n                && !matches!(tier, FindingTier::Asserted))\n        {\n            continue;\n        }",
+      "        if severity_rank(&severity) < meta.min_severity_rank\n            || (matches!(meta.min_tier, FindingTier::Asserted)\n                && !matches!(tier, FindingTier::Asserted))\n        {\n            continue;\n        }\n\n        if !ids.insert(id.clone()) {\n            warnings.push(format!(\n                \"targets: duplicate id {id} dropped ({}/{} {}:{})\",\n                finding.algorithm, category, file, finding.line\n            ));\n            continue;\n        }",
+      "targets::context_shape_tests::t05_filtered_first_duplicate_reserves_identity"
+    ]
+  }
+}
