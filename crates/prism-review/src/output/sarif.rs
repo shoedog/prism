@@ -298,6 +298,43 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
             boundary_notes.push(notification("note", summary));
         }
     }
+    // Resolve run-note locations before flushing the shared escaping-path warnings.
+    let mut run_notes = Vec::new();
+    if let Some(diagnostics) = inputs.boundary_diagnostics {
+        use crate::algorithms::taint::boundary::records::ContextRunNoteKind;
+        for note in diagnostics.run_notes() {
+            let level = match note.kind() {
+                ContextRunNoteKind::DepthBound
+                | ContextRunNoteKind::FilesBound
+                | ContextRunNoteKind::BytesBound
+                | ContextRunNoteKind::TimeGuard
+                | ContextRunNoteKind::Cancelled => "note",
+                ContextRunNoteKind::Ignored
+                | ContextRunNoteKind::Unauthorized
+                | ContextRunNoteKind::Unavailable
+                | ContextRunNoteKind::StageFailed
+                | ContextRunNoteKind::UnionRefused
+                | ContextRunNoteKind::FileSkipped
+                | ContextRunNoteKind::SkippedSummary
+                | ContextRunNoteKind::ContextParse => "warning",
+            };
+            let locations = note
+                .location()
+                .map(|(path, line)| Location {
+                    physical_location: physical_location(path, Some(line), &mut escaping),
+                    logical_locations: Vec::new(),
+                })
+                .into_iter()
+                .collect();
+            run_notes.push(Notification {
+                level,
+                message: Text {
+                    text: note.message().to_owned(),
+                },
+                locations,
+            });
+        }
+    }
     let mut notifications: Vec<Notification> = Vec::new();
     for error in inputs.errors {
         notifications.push(notification(
@@ -341,6 +378,7 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
     }
 
     notifications.extend(boundary_notes);
+    notifications.extend(run_notes);
 
     let log = SarifLog {
         schema: SCHEMA,

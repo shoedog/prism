@@ -3,6 +3,7 @@ use serde_json::Value;
 
 mod boundary;
 mod context;
+mod run_notes;
 
 fn finding(algorithm: &str, file: &str, line: usize) -> SliceFinding {
     SliceFinding {
