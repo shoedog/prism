@@ -33,6 +33,7 @@ use super::sarif_model::{
 };
 use super::sarif_rules::{attribution, line_text_of, rule_description, Attribution, UNCATEGORIZED};
 use crate::algorithms::taint::boundary::display::escape_content;
+use crate::api::map_view::MapView;
 use crate::api::{ReviewBoundaryAvailability, ReviewBoundaryDiagnostics};
 use prism::ast::ParsedFile;
 use prism::finding_confidence::{
@@ -89,6 +90,7 @@ pub struct SarifInputs<'a> {
     pub sources: &'a BTreeMap<String, String>,
     pub min_confidence: MinConfidence,
     pub resolution: ResolutionMode,
+    pub(crate) context: Option<MapView<'a>>,
 }
 
 /// Empty borrowed maps for the builder's defaults. `const` rather than
@@ -115,6 +117,7 @@ impl<'a> SarifInputs<'a> {
             sources: NO_SOURCES,
             min_confidence: DEFAULT_MIN_CONFIDENCE,
             resolution: DEFAULT_RESOLUTION,
+            context: None,
         }
     }
 
@@ -175,6 +178,11 @@ impl<'a> SarifInputs<'a> {
         self
     }
 
+    pub(crate) fn context_maps(mut self, view: MapView<'a>) -> Self {
+        self.context = Some(view);
+        self
+    }
+
     pub fn resolution(mut self, resolution: ResolutionMode) -> Self {
         self.resolution = resolution;
         self
@@ -197,11 +205,17 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
         .enumerate()
         .filter_map(|(index, finding)| {
             let evidence = inputs.evidence.get(index).and_then(Option::as_ref);
+            let original = MapView::new(inputs.files, inputs.sources, inputs.parse_quality);
+            let view = if finding.algorithm == "taint" {
+                inputs.context.unwrap_or(original)
+            } else {
+                original
+            };
             let quality = parse_quality_for_selected_evidence(
                 finding,
                 evidence,
-                inputs.parse_quality,
-                inputs.files,
+                view.parse_quality,
+                view.files,
             );
             let (confidence, tier) = admit_finding_for_resolution(
                 &finding.algorithm,
@@ -210,7 +224,15 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
                 inputs.min_confidence,
                 inputs.resolution,
             )?;
-            let result = build_result(finding, quality, confidence, tier, inputs, &mut escaping);
+            let result = build_result(
+                finding,
+                quality,
+                confidence,
+                tier,
+                inputs,
+                view.sources,
+                &mut escaping,
+            );
             let category = finding.category.as_deref().unwrap_or(UNCATEGORIZED);
             rule_meta
                 .entry(result.rule_id.clone())
@@ -398,10 +420,11 @@ fn build_result(
     confidence: FindingConfidence,
     tier: FindingTier,
     inputs: &SarifInputs,
+    sources: &BTreeMap<String, String>,
     escaping: &mut BTreeSet<String>,
 ) -> SarifResult {
     let category = finding.category.as_deref().unwrap_or(UNCATEGORIZED);
-    let line_text = line_text_of(inputs.sources, &finding.file, finding.line);
+    let line_text = line_text_of(sources, &finding.file, finding.line);
 
     let region = (finding.line >= 1).then_some(finding.line);
     let primary = physical_location(&finding.file, region, escaping);
