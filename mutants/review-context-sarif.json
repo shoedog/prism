@@ -1,0 +1,54 @@
+{
+  "lane": "Private SARIF context maps (#602 S5b S1)",
+  "test_targets": [
+    {
+      "prefix": "output::sarif::tests::context::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "SC01-nontaint": [
+      "crates/prism-review/src/output/sarif.rs",
+      "            } else {\n                original\n            };",
+      "            } else {\n                inputs.context.unwrap_or(original)\n            };",
+      "output::sarif::tests::context::non_taint_finding_ignores_the_bundle"
+    ],
+    "SC02-taint": [
+      "crates/prism-review/src/output/sarif.rs",
+      "inputs.context.unwrap_or(original)",
+      "original",
+      "output::sarif::tests::context::context_finding_is_graded_from_the_bundle"
+    ],
+    "SC03-quality": [
+      "crates/prism-review/src/output/sarif.rs",
+      "                view.parse_quality,",
+      "                inputs.parse_quality,",
+      "output::sarif::tests::context::poor_context_parse_grades_down"
+    ],
+    "SC04-parsed": [
+      "crates/prism-review/src/output/sarif.rs",
+      "                view.files,",
+      "                inputs.files,",
+      "output::sarif::tests::context::context_finding_is_graded_from_the_bundle"
+    ],
+    "SC05-source": [
+      "crates/prism-review/src/output/sarif.rs",
+      "                view.sources,",
+      "                inputs.sources,",
+      "output::sarif::tests::context::fingerprint_uses_the_context_line"
+    ],
+    "SC06-builder": [
+      "crates/prism-review/src/output/sarif.rs",
+      "        self.context = Some(view);",
+      "        let _ = view;\n        self.context = None;",
+      "output::sarif::tests::context::context_finding_is_graded_from_the_bundle"
+    ],
+    "SC07-category": [
+      "crates/prism-review/src/output/sarif.rs",
+      "if finding.algorithm == \"taint\" {",
+      "if finding.category.as_deref() == Some(\"taint\") {",
+      "output::sarif::tests::context::context_finding_is_graded_from_the_bundle"
+    ]
+  }
+}
