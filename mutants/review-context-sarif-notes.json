@@ -1,0 +1,59 @@
+{
+  "lane": "SARIF context run notes (#602 S5b S2)",
+  "test_targets": [
+    {
+      "prefix": "output::sarif::tests::run_notes::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "SN01-bound-level": [
+      "crates/prism-review/src/output/sarif.rs",
+      "| ContextRunNoteKind::Cancelled => \"note\",",
+      "| ContextRunNoteKind::Cancelled => \"warning\",",
+      "output::sarif::tests::run_notes::n02_each_kind_has_level_text_and_order"
+    ],
+    "SN02-warning-level": [
+      "crates/prism-review/src/output/sarif.rs",
+      "| ContextRunNoteKind::ContextParse => \"warning\",",
+      "| ContextRunNoteKind::ContextParse => \"note\",",
+      "output::sarif::tests::run_notes::n02_each_kind_has_level_text_and_order"
+    ],
+    "SN03-location-dropped": [
+      "crates/prism-review/src/output/sarif.rs",
+      "let locations = note\n                .location()",
+      "let locations = None::<(&str, usize)>",
+      "output::sarif::tests::run_notes::n03_explicit_optional_location_has_a_region"
+    ],
+    "SN04-before-boundary": [
+      "crates/prism-review/src/output/sarif.rs",
+      "notifications.extend(boundary_notes);\n    notifications.extend(run_notes);",
+      "notifications.extend(run_notes);\n    notifications.extend(boundary_notes);",
+      "output::sarif::tests::run_notes::n04_actual_channels_precede_run_notes"
+    ],
+    "SN05-empty-results-suppressed": [
+      "crates/prism-review/src/output/sarif.rs",
+      "for note in diagnostics.run_notes() {",
+      "for note in diagnostics.run_notes().iter().filter(|_| !results.is_empty()) {",
+      "output::sarif::tests::run_notes::n05_notes_without_any_finding"
+    ],
+    "SN06-path-warning-lost": [
+      "crates/prism-review/src/output/sarif.rs",
+      "physical_location: physical_location(path, Some(line), &mut escaping),",
+      "physical_location: physical_location(path, Some(line), &mut BTreeSet::new()),",
+      "output::sarif::tests::run_notes::n07_escaping_paths_share_one_early_warning"
+    ],
+    "SN07-text-reescaped": [
+      "crates/prism-review/src/output/sarif.rs",
+      "run_notes.push(Notification {\n                level,\n                message: Text {\n                    text: note.message().to_owned(),",
+      "run_notes.push(Notification {\n                level,\n                message: Text {\n                    text: escape_content(note.message()),",
+      "output::sarif::tests::run_notes::n02_each_kind_has_level_text_and_order"
+    ]
+  },
+  "excluded": {
+    "executionSuccessful": "Unchanged outside owned notification block; no manufactured seam or credit.",
+    "duplicate-only": "No distinct reachable duplicate-only seam without added scaffolding; N02 asserts duplicate multiplicity.",
+    "late-location": "No clean single-anchor relocation; SN06 tests same escaping-set consequence without claiming literal late-loop mutation."
+  }
+}
