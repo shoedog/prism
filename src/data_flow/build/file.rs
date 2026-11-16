@@ -70,6 +70,8 @@ impl Producer {
         let file_cfg_edge_index = std::cell::OnceCell::new();
         // Type names the file declares, read once per file by the Go callback gate.
         let declared_types = std::cell::OnceCell::new();
+        // The exposed-owner test of the C/C++ rules (#829 G10), read once per file.
+        let c_file_parens = std::cell::OnceCell::new();
         let mut owner_counts = BTreeMap::new();
         for func_node in &function_nodes {
             // js-param-defs PR-B: anonymous JS/TS/TSX callables own a
@@ -486,7 +488,7 @@ impl Producer {
             let unavailable = cap.and_then(|_| crate::cpg::unavailable_before_edges(
                 parsed, &func_node, &rd_defs, cfg_index,
             ));
-            let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans, census, c_census);
+            let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans, census, c_census, &c_file_parens);
             let scope = super::scope_prune::ScopeFacts::new(parsed, func_node, &rd_defs, &declared_types);
             let order = super::order_prune::OrderFacts::new(parsed, func_node, &rd_defs);
             let original_preferred = unavailable.map(|_| preferred_use_locs.clone());
