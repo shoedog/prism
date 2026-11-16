@@ -435,6 +435,15 @@ pub struct ReviewRun {
     pub resolution: ResolutionMode,
 }
 
+impl ReviewRun {
+    pub(crate) fn context(&self) -> Option<&super::context_run::ReviewContext> {
+        match &self.context {
+            ContextState::Expanded(context) if context.view().is_some() => Some(context),
+            _ => None,
+        }
+    }
+}
+
 pub fn run_review(
     ctx: &CpgContext,
     inputs: &ReviewInputs,

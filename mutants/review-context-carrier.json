@@ -1,0 +1,84 @@
+{
+  "lane": "Private context carriers and result views (#602 S5a PART V)",
+  "test_targets": [
+    {
+      "prefix": "api::context_view::tests::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "CV01-result-nontaint-context": [
+      "crates/prism-review/src/api/context_view.rs",
+      "select(context, result.algorithm == SlicingAlgorithm::Taint, inputs)",
+      "select(context, true, inputs)",
+      "api::context_view::tests::v04_non_taint_uses_original_maps"
+    ],
+    "CV02-result-taint-original": [
+      "crates/prism-review/src/api/context_view.rs",
+      "select(context, result.algorithm == SlicingAlgorithm::Taint, inputs)",
+      "select(context, false, inputs)",
+      "api::context_view::tests::v02_applied_context_moves_outcome_and_borrows_maps"
+    ],
+    "CV03-finding-nontaint-context": [
+      "crates/prism-review/src/api/context_view.rs",
+      "select(context, finding.algorithm == \"taint\", inputs)",
+      "select(context, true, inputs)",
+      "api::context_view::tests::v05_finding_algorithm_exactly_taint_not_category"
+    ],
+    "CV04-finding-taint-original": [
+      "crates/prism-review/src/api/context_view.rs",
+      "select(context, finding.algorithm == \"taint\", inputs)",
+      "select(context, false, inputs)",
+      "api::context_view::tests::v05_finding_algorithm_exactly_taint_not_category"
+    ],
+    "CV05-multi-empty-context": [
+      "crates/prism-review/src/api/run.rs",
+      "ContextState::Expanded(context) if context.view().is_some() => Some(context),",
+      "ContextState::Expanded(context) if matches!(context.union, super::context_run::UnionState::Applied { .. }) => Some(context),",
+      "api::context_view::tests::v07_ineligible_states_rechecked_even_when_directly_supplied"
+    ],
+    "CV06-single-refused-context": [
+      "crates/prism-review/src/api/context_view.rs",
+      "ContextState::Expanded(context) if context.view().is_some() => Some(context),",
+      "ContextState::Expanded(context) if !context.context_files.is_empty() => Some(context),",
+      "api::context_view::tests::v07_ineligible_states_rechecked_even_when_directly_supplied"
+    ],
+    "CV07-direct-refused-context": [
+      "crates/prism-review/src/api/context_view.rs",
+      "context.filter(|context| context.view().is_some())",
+      "context.filter(|_| true)",
+      "api::context_view::tests::v07_ineligible_states_rechecked_even_when_directly_supplied"
+    ],
+    "CV08-quality-includes-original": [
+      "crates/prism-review/src/api/context_view.rs",
+      "self.context_files\n                    .is_some_and(|files| files.contains(*file))",
+      "true",
+      "api::context_view::tests::v06_sparse_context_quality_is_owned_and_excludes_originals"
+    ],
+    "CV09-quality-loses-context": [
+      "crates/prism-review/src/api/context_view.rs",
+      "self.context_files\n                    .is_some_and(|files| files.contains(*file))",
+      "false",
+      "api::context_view::tests::v06_sparse_context_quality_is_owned_and_excludes_originals"
+    ],
+    "CV10-constructor-loses-state": [
+      "crates/prism-review/src/api/context_view.rs",
+      "Self { outcome, context }",
+      "Self { outcome, context: ContextState::NotRequested }",
+      "api::context_view::tests::v02_applied_context_moves_outcome_and_borrows_maps"
+    ],
+    "CV11-filter-ignores-floor": [
+      "crates/prism-review/src/api/context_view.rs",
+      "view.maps(),\n            min_confidence,\n            resolution,",
+      "view.maps(),\n            MinConfidence::NameOnly,\n            resolution,",
+      "api::context_view::tests::v10_filter_parity_default_noop_and_negative_floors"
+    ],
+    "CV12-default-filter-forces-exact": [
+      "crates/prism-review/src/api/context_view.rs",
+      "view.maps(),\n            min_confidence,\n            resolution,",
+      "view.maps(),\n            MinConfidence::Exact,\n            resolution,",
+      "api::context_view::tests::v10_filter_parity_default_noop_and_negative_floors"
+    ]
+  }
+}
