@@ -15,6 +15,7 @@ use std::cell::Cell;
 
 mod atomic;
 mod bounds;
+mod matrix;
 mod real;
 
 const MAIN: &str = "import { f } from './a';\nimport { g } from './b';\nimport { h } from './c';\nexport function main(x) { f(x); g(x); h(x); }\n";
