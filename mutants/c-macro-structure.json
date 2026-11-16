@@ -157,8 +157,8 @@
     ],
     "PP-paste-admit": [
       "src/call_graph/c/macro_census.rs",
-      "            b'#' if b.get(i + 1) == Some(&b'#') => {\n                out.paste = true;",
-      "            b'#' if b.get(i + 1) == Some(&b'#') => {\n                out.paste = false;",
+      "                if kind == Punct::Paste {\n                    out.paste = true;",
+      "                if kind == Punct::Paste {\n                    out.paste = false;",
       "data_flow::build::c_prune_brackets_r1_tests::g_terra_16_digraph_and_plain_paste_owners_are_g5"
     ],
     "G10-open-before": [
