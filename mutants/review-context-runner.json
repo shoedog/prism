@@ -1,0 +1,95 @@
+{
+  "lane": "One prepared expansion and truthful context state (#602 S4d2-N)",
+  "test_targets": [
+    {
+      "prefix": "api::context_run::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "NR01-default-wrapper-requests": [
+      "crates/prism-review/src/api/run.rs",
+      "run_review_prepared(ctx, inputs, algorithms, config, params, repo, None)",
+      "run_review_prepared(ctx, inputs, algorithms, config, params, repo, Some(&ContextRequest { limits: Default::default(), ceiling: prism::cpg::CrossingCeiling::NameOnly }))",
+      "api::context_run::tests::identity::n01_no_request_is_todays_run"
+    ],
+    "NR02-cache-bypassed": [
+      "crates/prism-review/src/api/context_run.rs",
+      "self.cached.clone()",
+      "None",
+      "api::context_run::tests::identity::n07_duplicate_taint_selections_share_one_expansion"
+    ],
+    "NR03-baseline-discarded": [
+      "crates/prism-review/src/api/context_run.rs",
+      "baseline: &baseline,",
+      "baseline: &SliceResult::new(SlicingAlgorithm::Taint),",
+      "api::context_run::tests::expansion::n02_expansion_adds_a_context_finding_with_its_maps"
+    ],
+    "NR04-baseline-finalized-early": [
+      "crates/prism-review/src/api/context_run.rs",
+      "baseline: &baseline,",
+      "baseline: &{ let mut value = baseline.clone(); crate::algorithms::finalize_diagrams(&mut value, 40); value },",
+      "api::context_run::tests::edges::n12_diagrams_are_finalized_once"
+    ],
+    "NR05-union-result-ignored": [
+      "crates/prism-review/src/api/context_run.rs",
+      "                    union.result,",
+      "                    baseline,",
+      "api::context_run::tests::expansion::n02_expansion_adds_a_context_finding_with_its_maps"
+    ],
+    "NR06-unavailable-hidden": [
+      "crates/prism-review/src/api/context_run.rs",
+      "self.state = ContextState::Unavailable(unavailable);",
+      "self.state = ContextState::NotRequested; let _ = unavailable;",
+      "api::context_run::tests::edges::n05_missing_authority_returns_the_baseline"
+    ],
+    "NR07-aggregate-annotation-original": [
+      "crates/prism-review/src/api/run.rs",
+      "std::slice::from_mut(finding),\n                expansion.view(inputs, algorithm).files,",
+      "std::slice::from_mut(finding),\n                &inputs.files,",
+      "api::context_run::tests::expansion::n10_filtering_and_annotations_use_the_selected_maps"
+    ],
+    "NR08-context-state-lost": [
+      "crates/prism-review/src/api/run.rs",
+      "context: expansion.into_state(),",
+      "context: ContextState::NotRequested,",
+      "api::context_run::tests::expansion::n02_expansion_adds_a_context_finding_with_its_maps"
+    ],
+    "NR09-round-zero-analysis-unwrapped": [
+      "crates/prism-review/src/api/context_run.rs",
+      "_ => (baseline, UnionState::NotNeeded),",
+      "_ => { bundle.analysis.as_ref().unwrap(); (baseline, UnionState::NotNeeded) },",
+      "api::context_run::tests::edges::n11_nothing_admitted_and_union_refusal_keep_baseline"
+    ],
+    "NR10-union-error-panics": [
+      "crates/prism-review/src/api/context_run.rs",
+      "Err(error) => (baseline, UnionState::Refused(error)),",
+      "Err(error) => panic!(\"union refused: {error:?}\"),",
+      "api::context_run::tests::edges::n11_nothing_admitted_and_union_refusal_keep_baseline"
+    ],
+    "NR11-union-error-empties-baseline": [
+      "crates/prism-review/src/api/context_run.rs",
+      "Err(error) => (baseline, UnionState::Refused(error)),",
+      "Err(error) => (SliceResult::new(SlicingAlgorithm::Taint), UnionState::Refused(error)),",
+      "api::context_run::tests::edges::n11_nothing_admitted_and_union_refusal_keep_baseline"
+    ],
+    "NR12-cached-hit-finalized-twice": [
+      "crates/prism-review/src/api/context_run.rs",
+      "self.cached.clone()",
+      "self.cached.clone().map(|mut result| { crate::algorithms::finalize_diagrams(&mut result, 40); result })",
+      "api::context_run::tests::edges::n12_diagrams_are_finalized_once"
+    ],
+    "NR13-refused-maps-selected": [
+      "crates/prism-review/src/api/context_run.rs",
+      "if self.context_files.is_empty() || !matches!(self.union, UnionState::Applied { .. }) {",
+      "if self.context_files.is_empty() {",
+      "api::context_run::tests::edges::n11_nothing_admitted_and_union_refusal_keep_baseline"
+    ]
+  },
+  "excluded": {
+    "quality-only-floor-map": "Confidence admission ignores parse quality; original-vs-bundle quality substitutions are equivalent for present floor API, no credit.",
+    "repo-read": "No repo/root argument enters coordinator; no reachable read seam, no scaffolding.",
+    "non-taint-map-only": "Original entries are identical in union; map-only substitution for original-only non-taint findings is unobservable. REAL direct full-graph Membrane leakage guard retained."
+  }
+}
