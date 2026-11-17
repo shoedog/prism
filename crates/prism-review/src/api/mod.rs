@@ -1,6 +1,8 @@
 //! The review facade: everything in `prism::api` plus the algorithm runner, SARIF and targets.
 //! Same compatibility promise as `prism::api` (see its module doc).
 
+#[cfg(test)]
+mod context_matrix_tests;
 pub(crate) mod context_options;
 pub(crate) mod context_route;
 #[allow(dead_code)] // S5 supplies the first request-bearing caller.
