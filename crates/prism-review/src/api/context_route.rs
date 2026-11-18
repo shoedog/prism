@@ -1,4 +1,4 @@
-//! Private routing and authority borrowed from one captured review.
+//! Routing and authority borrowed from one captured review.
 use super::{
     context_options::TaintContextMode,
     context_run::{ContextRequest, ContextState},
@@ -13,12 +13,14 @@ use prism::{
 };
 use std::path::Path;
 
+/// Loading authority borrowed from captured review inputs, not from a repository path.
+/// Callers must use a CPG built from these exact inputs in the same review.
 #[non_exhaustive]
-pub(crate) struct ReviewAuthority<'a> {
+pub struct ReviewAuthority<'a> {
     inputs: &'a ReviewInputs,
 }
 impl<'a> ReviewAuthority<'a> {
-    pub(crate) fn capture(inputs: &'a ReviewInputs) -> Self {
+    pub fn capture(inputs: &'a ReviewInputs) -> Self {
         Self { inputs }
     }
     pub(crate) fn inputs(&self) -> &'a ReviewInputs {
@@ -116,7 +118,10 @@ pub(crate) fn run_algorithm_legacy(
 ) -> anyhow::Result<AlgorithmOutcome> {
     single(algorithm, ctx, inputs, config, params, repo, false).map(|(outcome, _, _)| outcome)
 }
-pub(crate) fn run_algorithm_authorized(
+/// Run one algorithm with loading authority from the same captured inputs as `ctx`.
+/// Options are validated first, even when context is Off or taint is not selected.
+/// `repo` supplies history algorithms; it is not a replacement loading authority.
+pub fn run_algorithm_authorized(
     algorithm: SlicingAlgorithm,
     ctx: &CpgContext<'_>,
     authority: ReviewAuthority<'_>,
@@ -216,7 +221,10 @@ pub(crate) fn run_review_legacy(
 ) -> ReviewRun {
     multi(ctx, inputs, algorithms, config, params, repo, false)
 }
-pub(crate) fn run_review_authorized(
+/// Run algorithms with loading authority from the same captured inputs as `ctx`.
+/// Invalid options produce one error per selected taint entry; other algorithms still run.
+/// `repo` supplies history algorithms; it is not a replacement loading authority.
+pub fn run_review_authorized(
     ctx: &CpgContext<'_>,
     authority: ReviewAuthority<'_>,
     algorithms: &[SlicingAlgorithm],

@@ -1,34 +1,44 @@
-//! Validated private options for captured-review context.
+//! Validated options for captured-review taint context.
 use super::context_run::ContextRequest;
+
+/// Default maximum context depth; supported values are 1 through 4.
+pub const DEFAULT_TAINT_CONTEXT_DEPTH: u8 = 2;
+/// Default maximum number of admitted context files; supported values are at least 1.
+pub const DEFAULT_TAINT_CONTEXT_MAX_FILES: usize = 64;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[non_exhaustive]
-pub(crate) enum TaintContextMode {
+pub enum TaintContextMode {
     #[default]
     Off,
     Imports,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[non_exhaustive]
-pub(crate) enum TaintContextEdges {
+pub enum TaintContextEdges {
     Exact,
     #[default]
     NameOnly,
 }
+/// Context loading defaults to Off. Imports permits only supported import-directed taint
+/// continuations, with fixed 8 MiB read and 20 s cooperative time limits. An in-progress
+/// read or build is not interrupted. Hints are loading advice; notes are not findings.
+/// Construct with `Default` and mutate fields; validation also applies while Off.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
-pub(crate) struct TaintContextOptions {
-    pub(crate) mode: TaintContextMode,
-    pub(crate) edges: TaintContextEdges,
-    pub(crate) depth: u8,
-    pub(crate) max_files: usize,
+pub struct TaintContextOptions {
+    pub mode: TaintContextMode,
+    pub edges: TaintContextEdges,
+    pub depth: u8,
+    pub max_files: usize,
 }
 impl Default for TaintContextOptions {
     fn default() -> Self {
         Self {
             mode: TaintContextMode::Off,
             edges: TaintContextEdges::NameOnly,
-            depth: 2,
-            max_files: 64,
+            depth: DEFAULT_TAINT_CONTEXT_DEPTH,
+            max_files: DEFAULT_TAINT_CONTEXT_MAX_FILES,
         }
     }
 }

@@ -19,10 +19,11 @@ pub use sarif::{to_sarif, SarifInputs};
 // Re-export the previous flat-file public API so existing imports keep working.
 pub use review::{
     format_block, format_slice_result, render_review_block, to_callers_output, to_paper_format,
-    to_review_output, CallerRef, CallersOutput, FunctionCallerEntry, MultiReviewOutput,
-    ReviewBlock, ReviewOutput,
+    to_review_output, to_review_output_for, CallerRef, CallersOutput, FunctionCallerEntry,
+    MultiReviewOutput, ReviewBlock, ReviewOutput,
 };
 pub use review_compact::{
     count_below_floor, severity_rank, strip_finding_diagrams, to_compact_review_output,
-    CompactMultiReviewOutput, CompactReviewBlock, CompactReviewOutput,
+    to_compact_review_output_for, CompactMultiReviewOutput, CompactReviewBlock,
+    CompactReviewOutput,
 };

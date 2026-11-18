@@ -178,6 +178,14 @@ impl<'a> SarifInputs<'a> {
         self
     }
 
+    /// Use eligible same-review context for taint findings; other algorithms keep original maps.
+    /// Ineligible context leaves any existing builder selection unchanged.
+    pub fn context(self, context: &'a crate::api::ReviewContext) -> Self {
+        match context.view() {
+            Some(view) => self.context_maps(view),
+            None => self,
+        }
+    }
     pub(crate) fn context_maps(mut self, view: MapView<'a>) -> Self {
         self.context = Some(view);
         self

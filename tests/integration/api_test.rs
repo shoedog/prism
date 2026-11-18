@@ -11,6 +11,9 @@ mod boundary_diagnostics;
 #[path = "api_test/sarif_diagnostics.rs"]
 mod sarif_diagnostics;
 
+#[path = "api_test/context.rs"]
+mod context;
+
 fn write_repo(
     files: &[(&str, &str)],
     diff_files: &[(&str, &[usize])],

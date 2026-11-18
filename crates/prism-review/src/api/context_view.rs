@@ -1,4 +1,4 @@
-//! Private, same-review map selection. Construction preserves the prepared runner's ownership.
+//! Same-review map selection. Construction preserves the prepared runner's ownership.
 //! These views confer no loading authority; inputs and context must belong to the same review.
 use super::context_run::{ContextState, ReviewContext};
 use super::map_view::MapView;
@@ -7,16 +7,38 @@ use prism::finding_confidence::{MinConfidence, ResolutionMode};
 use prism::slice::{FileParseQuality, SliceFinding, SliceResult, SlicingAlgorithm};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Borrowed maps selected for one result or finding; use inputs from the same review.
 #[derive(Clone, Copy)]
-pub(crate) struct ResultView<'a> {
+#[non_exhaustive]
+pub struct ResultView<'a> {
     maps: MapView<'a>,
     context_files: Option<&'a BTreeSet<String>>,
 }
 impl<'a> ResultView<'a> {
+    /// Select completed context only for a taint result, rechecking eligibility.
+    pub fn for_result(
+        context: Option<&'a ReviewContext>,
+        result: &SliceResult,
+        inputs: &'a ReviewInputs,
+    ) -> Self {
+        view_for_result(context, result, inputs)
+    }
+    /// Select completed context only for a taint finding, rechecking eligibility.
+    pub fn for_finding(
+        context: Option<&'a ReviewContext>,
+        finding: &SliceFinding,
+        inputs: &'a ReviewInputs,
+    ) -> Self {
+        view_for_finding(context, finding, inputs)
+    }
+    pub(crate) fn context_files(&self) -> Option<&'a BTreeSet<String>> {
+        self.context_files
+    }
+
     pub(crate) fn maps(&self) -> MapView<'a> {
         self.maps
     }
-    pub(crate) fn sources(&self) -> &'a BTreeMap<String, String> {
+    pub fn sources(&self) -> &'a BTreeMap<String, String> {
         self.maps.sources
     }
     pub(crate) fn context_parse_quality(&self) -> BTreeMap<String, FileParseQuality> {
@@ -66,8 +88,9 @@ fn select<'a>(
     }
 }
 
+/// Single-algorithm outcome with its eligible same-review context, if any.
 #[non_exhaustive]
-pub(crate) struct ReviewAlgorithmRun {
+pub struct ReviewAlgorithmRun {
     pub(crate) outcome: AlgorithmOutcome,
     context: ContextState,
     context_stats: Option<super::context_stats::ContextStats>,
@@ -87,16 +110,27 @@ impl ReviewAlgorithmRun {
     pub(crate) fn stats(&self) -> Option<&super::context_stats::ContextStats> {
         self.context_stats.as_ref()
     }
-    pub(crate) fn context(&self) -> Option<&ReviewContext> {
+    pub fn context(&self) -> Option<&ReviewContext> {
         match &self.context {
             ContextState::Expanded(context) if context.view().is_some() => Some(context),
             _ => None,
         }
     }
-    pub(crate) fn view<'a>(&'a self, inputs: &'a ReviewInputs) -> ResultView<'a> {
+    /// Consume the owner, retaining the outcome and only eligible context.
+    /// Private execution statistics are consumed with this owner, not exposed in the pair.
+    pub fn into_parts(self) -> (AlgorithmOutcome, Option<ReviewContext>) {
+        let eligible = self.context().is_some();
+        let context = match self.context {
+            ContextState::Expanded(context) if eligible => Some(context),
+            _ => None,
+        };
+        (self.outcome, context)
+    }
+    pub fn view<'a>(&'a self, inputs: &'a ReviewInputs) -> ResultView<'a> {
         view_for_result(self.context(), &self.outcome.result, inputs)
     }
-    pub(crate) fn filter_findings(
+    /// Apply the existing confidence policy with the selected same-review maps.
+    pub fn filter_findings(
         &mut self,
         inputs: &ReviewInputs,
         min_confidence: MinConfidence,
