@@ -25,3 +25,20 @@ fn defaults_are_shared_with_clap() {
         &help[start..end]
     );
 }
+
+#[test]
+fn context_defaults_are_the_public_consts() {
+    use prism_review::api::{
+        TaintContextEdges, TaintContextMode, DEFAULT_TAINT_CONTEXT_DEPTH,
+        DEFAULT_TAINT_CONTEXT_MAX_FILES,
+    };
+    let p = AlgorithmParams::default();
+    assert_eq!(p.taint_context.mode, TaintContextMode::Off);
+    assert_eq!(p.taint_context.edges, TaintContextEdges::NameOnly);
+    assert_eq!(p.taint_context.depth, DEFAULT_TAINT_CONTEXT_DEPTH);
+    assert_eq!(p.taint_context.max_files, DEFAULT_TAINT_CONTEXT_MAX_FILES);
+    assert_eq!(
+        (DEFAULT_TAINT_CONTEXT_DEPTH, DEFAULT_TAINT_CONTEXT_MAX_FILES),
+        (2, 64)
+    );
+}

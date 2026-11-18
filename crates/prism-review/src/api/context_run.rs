@@ -25,7 +25,10 @@ pub(crate) enum UnionState {
     },
     Refused(UnionError),
 }
-pub(crate) struct ReviewContext {
+/// Completed same-review maps. Borrowed accessors do not confer loading authority.
+/// Public owners expose this value only after a successful union with admitted context.
+#[non_exhaustive]
+pub struct ReviewContext {
     pub(crate) files: BTreeMap<String, ParsedFile>,
     pub(crate) sources: BTreeMap<String, String>,
     pub(crate) parse_quality: BTreeMap<String, FileParseQuality>,
@@ -40,6 +43,23 @@ pub(crate) struct ReviewContext {
     pub(crate) union: UnionState,
 }
 impl ReviewContext {
+    /// Original and admitted parsed files from this review.
+    pub fn files(&self) -> &BTreeMap<String, ParsedFile> {
+        &self.files
+    }
+    /// Source bytes paired with the parsed files.
+    pub fn sources(&self) -> &BTreeMap<String, String> {
+        &self.sources
+    }
+    /// Sparse per-file parse grades; a clean grade does not prove an import was analysed.
+    pub fn parse_quality(&self) -> &BTreeMap<String, FileParseQuality> {
+        &self.parse_quality
+    }
+    /// Names of files admitted as context, excluding original input files.
+    pub fn context_files(&self) -> &BTreeSet<String> {
+        &self.context_files
+    }
+
     pub(crate) fn view(&self) -> Option<super::map_view::MapView<'_>> {
         if self.context_files.is_empty() || !matches!(self.union, UnionState::Applied { .. }) {
             return None;

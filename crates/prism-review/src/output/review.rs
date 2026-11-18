@@ -195,6 +195,14 @@ pub fn to_review_output(result: &SliceResult, sources: &BTreeMap<String, String>
     }
 }
 
+/// Render one result using the public same-review view selected by the caller.
+pub fn to_review_output_for(
+    result: &SliceResult,
+    view: crate::api::ResultView<'_>,
+) -> ReviewOutput {
+    to_review_output_in(result, view.maps(), view.context_files())
+}
+
 /// Render a result using the caller-selected completed map view.
 #[allow(dead_code)] // S5d supplies the first production caller.
 pub(crate) fn to_review_output_in(

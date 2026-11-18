@@ -19,7 +19,8 @@ pub const DEFAULT_TEMPORAL_DAYS: usize = 90;
 
 #[non_exhaustive]
 pub struct AlgorithmParams {
-    pub(crate) taint_context: super::context_options::TaintContextOptions,
+    /// Import-directed taint context. Default Off; legacy preloaded runners never load it.
+    pub taint_context: super::context_options::TaintContextOptions,
     pub barrier_depth: usize,
     pub barrier_symbols: Vec<String>,
     pub chop_source: Option<String>,
@@ -58,6 +59,13 @@ impl Default for AlgorithmParams {
     }
 }
 
+/// Run a preloaded algorithm without loading taint context.
+///
+/// For a valid `Imports` request, taint runs on the preloaded inputs. On success,
+/// `SliceResult::warnings` includes the text of an `Unauthorized` note naming
+/// `run_review_authorized` and `run_algorithm_authorized` for taint, or an `Ignored`
+/// note for any other algorithm.
+/// Invalid taint-context options return an error before the algorithm runs.
 pub fn run_algorithm(
     algorithm: SlicingAlgorithm,
     ctx: &CpgContext,
@@ -72,7 +80,13 @@ pub fn run_algorithm(
     )
 }
 
-/// Run one algorithm with separate typed boundary diagnostics.
+/// Run one preloaded algorithm with typed boundary diagnostics and no taint-context loading.
+///
+/// For a valid `Imports` request, taint runs on the preloaded inputs and the successful
+/// outcome carries an `Unauthorized` note naming `run_review_authorized` and
+/// `run_algorithm_authorized`. With another algorithm, a successful outcome carries an
+/// `Ignored` note. These notes are in `AlgorithmOutcome::diagnostics`, separate from the
+/// result's warnings. Invalid taint-context options return an error before the algorithm runs.
 pub fn run_algorithm_with_diagnostics(
     algorithm: SlicingAlgorithm,
     ctx: &CpgContext,
@@ -459,14 +473,32 @@ impl ReviewRun {
     pub(crate) fn stats(&self) -> Option<&super::context_stats::ContextStats> {
         self.context_stats.as_ref()
     }
-    pub(crate) fn context(&self) -> Option<&super::context_run::ReviewContext> {
+    /// Completed context is available only after an applied union with admitted files.
+    pub fn context(&self) -> Option<&super::context_run::ReviewContext> {
         match &self.context {
             ContextState::Expanded(context) if context.view().is_some() => Some(context),
             _ => None,
         }
     }
+    /// Move eligible context out before moving public result fields. A failed take preserves
+    /// the state, and optional private execution statistics stay on this owner in every case.
+    pub fn take_context(&mut self) -> Option<super::context_run::ReviewContext> {
+        self.context()?;
+        match std::mem::replace(&mut self.context, ContextState::NotRequested) {
+            ContextState::Expanded(context) => Some(context),
+            _ => None,
+        }
+    }
 }
 
+/// Run preloaded algorithms without loading taint context.
+///
+/// For a valid `Imports` request, selecting taint runs it on the preloaded inputs and adds
+/// one `Unauthorized` note naming `run_review_authorized` and `run_algorithm_authorized`.
+/// Without taint, the request adds one `Ignored` note. The run reports the note in
+/// `ReviewRun::diagnostics` and appends its text to `ReviewRun::warnings`.
+/// Invalid taint-context options produce an error for each selected taint entry while other
+/// algorithms still run.
 pub fn run_review(
     ctx: &CpgContext,
     inputs: &ReviewInputs,

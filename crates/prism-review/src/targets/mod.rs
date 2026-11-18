@@ -79,6 +79,24 @@ pub fn project(
     project_with_context(findings, evidence, inputs, None, meta)
 }
 
+/// Project with eligible context for taint findings, preserving the legacy None path.
+/// `inputs` and `context` must belong to the same captured review.
+pub fn project_in_context(
+    findings: &[SliceFinding],
+    evidence: &[Option<EvidencePath>],
+    inputs: &ReviewInputs,
+    context: Option<&crate::api::ReviewContext>,
+    meta: &TargetsMeta,
+) -> TargetsDocument {
+    project_with_context(
+        findings,
+        evidence,
+        inputs,
+        context.and_then(crate::api::ReviewContext::view),
+        meta,
+    )
+}
+
 pub(crate) fn project_with_context(
     findings: &[SliceFinding],
     evidence: &[Option<EvidencePath>],
