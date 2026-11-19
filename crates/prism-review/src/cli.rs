@@ -8,6 +8,10 @@
 //! byte-identical before and after this move (`scripts/phase0-byte-control.sh`
 //! plus a direct `--help`/`--version` `cmp`).
 
+use crate::api::{
+    TaintContextEdges, TaintContextMode, TaintContextOptions, DEFAULT_TAINT_CONTEXT_DEPTH,
+    DEFAULT_TAINT_CONTEXT_MAX_FILES,
+};
 use clap::Parser;
 use prism::finding_confidence::{MinConfidence, ResolutionMode};
 use std::path::PathBuf;
@@ -83,6 +87,45 @@ impl Cli {
             ));
         }
         Ok(())
+    }
+}
+
+fn parse_max_files(value: &str) -> Result<usize, String> {
+    let count = value.parse::<usize>().map_err(|error| error.to_string())?;
+    if count == 0 {
+        return Err("expected at least one context file".into());
+    }
+    Ok(count)
+}
+
+#[derive(clap::Args, Debug, Clone)]
+#[non_exhaustive]
+pub struct TaintContextArgs {
+    /// Load imported source for taint analysis within fixed 8 MiB and 20 s limits.
+    #[arg(long = "taint-context", value_enum, default_value_t = TaintContextMode::Off)]
+    pub mode: TaintContextMode,
+
+    /// Follow exact edges only or also allow name-only edges, within fixed 8 MiB and 20 s limits.
+    #[arg(long = "taint-context-edges", value_enum, default_value_t = TaintContextEdges::NameOnly)]
+    pub edges: TaintContextEdges,
+
+    /// Maximum import depth (1 to 4), within fixed 8 MiB and 20 s limits.
+    #[arg(long = "taint-context-depth", default_value_t = DEFAULT_TAINT_CONTEXT_DEPTH, value_parser = clap::value_parser!(u8).range(1..=4))]
+    pub depth: u8,
+
+    /// Maximum number of context files (at least 1), within fixed 8 MiB and 20 s limits.
+    #[arg(long = "taint-context-max-files", default_value_t = DEFAULT_TAINT_CONTEXT_MAX_FILES, value_parser = parse_max_files)]
+    pub max_files: usize,
+}
+
+impl TaintContextArgs {
+    pub fn options(&self) -> TaintContextOptions {
+        let mut options = TaintContextOptions::default();
+        options.mode = self.mode;
+        options.edges = self.edges;
+        options.depth = self.depth;
+        options.max_files = self.max_files;
+        options
     }
 }
 
@@ -177,6 +220,9 @@ pub struct ReviewArgs {
     /// Taint: follow singleton-Exact callee return values to caller LHSs.
     #[arg(long, default_value_t = false)]
     pub taint_return_flow: bool,
+
+    #[command(flatten)]
+    pub taint_context: TaintContextArgs,
 
     /// Conditioned slice: condition predicate (e.g., "x==5", "x!=null")
     #[arg(long)]
@@ -309,6 +355,9 @@ pub struct TargetsArgs {
     /// Finding-producing algorithms to project.
     #[arg(long, default_value = "echo,absence,contract,provenance,membrane")]
     pub algorithm: String,
+
+    #[command(flatten)]
+    pub taint_context: TaintContextArgs,
 
     /// Only process these files from the diff (comma-separated paths).
     #[arg(long)]
@@ -552,6 +601,43 @@ pub enum NavQuery {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn taint_context_options_map_every_field() {
+        use crate::api::{TaintContextEdges, TaintContextMode, TaintContextOptions};
+
+        let default = Cli::try_parse_from(["prism", "--list-algorithms"]).unwrap();
+        assert_eq!(
+            default.review.taint_context.options(),
+            TaintContextOptions::default()
+        );
+        for command in [None, Some("targets")] {
+            let cli = Cli::try_parse_from(["prism"].into_iter().chain(command).chain([
+                "--repo",
+                ".",
+                "--diff",
+                "example.diff",
+                "--taint-context",
+                "imports",
+                "--taint-context-edges",
+                "exact",
+                "--taint-context-depth",
+                "3",
+                "--taint-context-max-files",
+                "17",
+            ]))
+            .unwrap();
+            let options = match cli.command {
+                Some(Command::Targets(args)) => args.taint_context.options(),
+                None => cli.review.taint_context.options(),
+                _ => unreachable!(),
+            };
+            assert_eq!(options.mode, TaintContextMode::Imports);
+            assert_eq!(options.edges, TaintContextEdges::Exact);
+            assert_eq!(options.depth, 3);
+            assert_eq!(options.max_files, 17);
+        }
+    }
 
     #[test]
     fn parse_diagram_cap_rejects_too_small() {
