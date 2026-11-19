@@ -6,18 +6,19 @@ pub const DEFAULT_TAINT_CONTEXT_DEPTH: u8 = 2;
 /// Default maximum number of admitted context files; supported values are at least 1.
 pub const DEFAULT_TAINT_CONTEXT_MAX_FILES: usize = 64;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum)]
 #[non_exhaustive]
 pub enum TaintContextMode {
     #[default]
     Off,
     Imports,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum)]
 #[non_exhaustive]
 pub enum TaintContextEdges {
     Exact,
     #[default]
+    #[value(name = "nameonly")]
     NameOnly,
 }
 /// Context loading defaults to Off. Imports permits only supported import-directed taint

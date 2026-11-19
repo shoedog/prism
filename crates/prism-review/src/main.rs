@@ -110,6 +110,7 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
 
     let mut algorithm_params = prism_review::api::AlgorithmParams::default();
     algorithm_params.old_repo = args.old_repo.clone();
+    algorithm_params.taint_context = args.taint_context.options();
     let config = SliceConfig {
         algorithm: algorithms[0],
         scoped_cpg: args.scoped_cpg,
@@ -146,10 +147,11 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
     meta.min_tier = min_tier;
     meta.min_confidence = outcome.min_confidence;
     meta.resolution = outcome.resolution;
-    let document = prism_review::targets::project(
+    let document = prism_review::targets::project_in_context(
         &outcome.run.findings,
         &outcome.run.evidence,
         &outcome.inputs,
+        outcome.run.context(),
         &meta,
     );
 
@@ -184,6 +186,8 @@ fn repo_sha(repo: &std::path::Path) -> Option<String> {
 }
 
 fn run_review(cli: &ReviewArgs) -> Result<()> {
+    use prism_review::api::{ResultView, ReviewAuthority, TaintContextMode};
+
     if cli.list_algorithms {
         println!("Available algorithms:\n");
         println!("  Paper (arXiv:2505.17928):");
@@ -333,12 +337,19 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
     algorithm_params.layers = cli.layers.clone();
     algorithm_params.concern = cli.concern.clone();
     algorithm_params.temporal_days = cli.temporal_days;
+    algorithm_params.taint_context = cli.taint_context.options();
 
     let inputs = prism::api::load_review_inputs(&review_options, &diff_text)?;
     let built = prism::api::build_context(&inputs, &review_options)?;
 
     // --format callers: emit raw call graph without running any algorithm.
     if cli.format == "callers" {
+        if cli.taint_context.mode == TaintContextMode::Imports {
+            cli_output::write_messages(
+                &mut std::io::stderr().lock(),
+                &["taint-context ignored: --format callers runs no algorithm".into()],
+            )?;
+        }
         let callers_output = output::to_callers_output(&built.ctx, &inputs.diff, cli.caller_depth);
         println!("{}", serde_json::to_string_pretty(&callers_output)?);
         return Ok(());
@@ -346,14 +357,15 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
 
     if multi_run {
         // --- Multi-algorithm run ---
-        let run = prism_review::api::run_review(
+        let mut run = prism_review::api::run_review_authorized(
             &built.ctx,
-            &inputs,
+            ReviewAuthority::capture(&inputs),
             &algorithms_to_run,
             &config,
             &algorithm_params,
             repo,
         );
+        let context = run.take_context();
         let diagnostics = run.diagnostics;
         let warnings = run.warnings;
         let results = run.results;
@@ -377,9 +389,9 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 let review_results: Vec<_> = results
                     .iter()
                     .map(|r| {
-                        output::to_compact_review_output(
+                        output::to_compact_review_output_for(
                             r,
-                            &inputs.sources,
+                            ResultView::for_result(context.as_ref(), r, &inputs),
                             min_rank,
                             cli.review_full_slices,
                             cli.review_no_diagrams,
@@ -426,7 +438,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     .collect();
                 let review_results: Vec<_> = results
                     .iter()
-                    .map(|r| output::to_review_output(r, &inputs.sources))
+                    .map(|r| {
+                        output::to_review_output_for(
+                            r,
+                            ResultView::for_result(context.as_ref(), r, &inputs),
+                        )
+                    })
                     .collect();
                 let out = output::MultiReviewOutput {
                     version: "1.0".to_string(),
@@ -469,6 +486,9 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     if let Some(diagnostics) = &diagnostics {
                         sarif = sarif.boundary_diagnostics(diagnostics);
                     }
+                    if let Some(context) = &context {
+                        sarif = sarif.context(context);
+                    }
                     output::to_sarif(&sarif)
                 };
                 println!("{}", serde_json::to_string_pretty(&document)?);
@@ -510,9 +530,10 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 }
                 for result in &results {
                     println!("=== {} ===", result.algorithm.name());
+                    let view = ResultView::for_result(context.as_ref(), result, &inputs);
                     print!(
                         "{}",
-                        output::format_slice_result(&result.blocks, &inputs.sources)
+                        output::format_slice_result(&result.blocks, view.sources())
                     );
                 }
                 let all_diagram_warnings: Vec<_> = results
@@ -529,24 +550,20 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
     } else {
         // --- Single-algorithm run ---
         let algorithm = algorithms_to_run[0];
-        let outcome = prism_review::api::run_algorithm_with_diagnostics(
+        let mut run = prism_review::api::run_algorithm_authorized(
             algorithm,
             &built.ctx,
-            &inputs,
+            ReviewAuthority::capture(&inputs),
             &config,
             &algorithm_params,
             repo,
         )?;
+        run.filter_findings(&inputs, cli.min_confidence, cli.resolution);
+        let (outcome, context) = run.into_parts();
         let diagnostics = outcome.diagnostics;
         let mut result = outcome.result;
         let ordinary_warnings = std::mem::take(&mut result.warnings);
         result.warnings = inputs.parse_warnings.clone();
-        prism_review::api::filter_result_findings(
-            &mut result,
-            &inputs,
-            cli.min_confidence,
-            cli.resolution,
-        );
         if !matches!(cli.format.as_str(), "paper" | "mermaid" | "sarif") {
             result.warnings = cli_output::compose_warnings(
                 &inputs.parse_warnings,
@@ -560,9 +577,9 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 // Compact review-only path (P1 Change 3): severity floor +
                 // block retention + dropped slice_lines/diff_lines.
                 let min_rank = output::severity_rank(&cli.review_min_severity);
-                let review = output::to_compact_review_output(
+                let review = output::to_compact_review_output_for(
                     &result,
-                    &inputs.sources,
+                    ResultView::for_result(context.as_ref(), &result, &inputs),
                     min_rank,
                     cli.review_full_slices,
                     cli.review_no_diagrams,
@@ -577,7 +594,10 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             "json" => {
                 // json retains the old ReviewOutput structure byte-for-byte
                 // (compatibility tests pin this shape — see nav_compat_test.rs).
-                let review = output::to_review_output(&result, &inputs.sources);
+                let review = output::to_review_output_for(
+                    &result,
+                    ResultView::for_result(context.as_ref(), &result, &inputs),
+                );
                 println!("{}", serde_json::to_string_pretty(&review)?);
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
@@ -620,6 +640,9 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     if let Some(diagnostics) = &diagnostics {
                         sarif = sarif.boundary_diagnostics(diagnostics);
                     }
+                    if let Some(context) = &context {
+                        sarif = sarif.context(context);
+                    }
                     output::to_sarif(&sarif)
                 };
                 println!("{}", serde_json::to_string_pretty(&document)?);
@@ -660,9 +683,10 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 for w in &result.warnings {
                     eprintln!("WARNING: {}", w);
                 }
+                let view = ResultView::for_result(context.as_ref(), &result, &inputs);
                 print!(
                     "{}",
-                    output::format_slice_result(&result.blocks, &inputs.sources)
+                    output::format_slice_result(&result.blocks, view.sources())
                 );
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
