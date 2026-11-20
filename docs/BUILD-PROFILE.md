@@ -30,7 +30,7 @@ collect or create a profile. Sequential sessions are allowed after workers join.
 ## JSONL schema version 1
 
 Every line is one JSON object. Record order is header, command totals, sorted phases, per-file RD
-aggregates, owners sorted by file/start byte/name, summary. Field names and units
+aggregates, owners sorted by file/start byte/name, scalar counters sorted by name, summary. Field names and units
 are stable; measured values and time ranking naturally vary. Additive fields may
 be introduced without changing version 1. Timings are integer nanoseconds; memory
 is bytes. Unknown platform measurements are JSON `null`.
@@ -41,7 +41,15 @@ is bytes. Unknown platform measurements are JSON `null`.
 | `command` | whole session `wall_ns`, process `cpu_ns`, `peak_rss_bytes`, `time_kind: "serial_wall"`; excludes final profile serialization/publication |
 | `phase` | `name`, `instance` (occurrence ordinal), optional `file`, `time_kind`, `aggregation`, `status`, `wall_ns` (or `work_ns` for RD sums), `cpu_ns`, `peak_rss_bytes`, `rss_rise_bytes` |
 | `owner` | `file`, `owner`, `start_line` (1-based), `start_byte` (0-based), `language`, `byte_size`, `ast_nodes`, `definitions`, `assignment_paths`, `total_ns`, `flow_edges_ns`, `flow_search_ns`, `reaching_definitions_ns`, `rd_cpu_ns`, `rd_rss_rise_bytes`, `file_cfg_init_ns`, `file_cfg_rss_rise_bytes`, `peak_rss_bytes`, `rss_rise_bytes`, `time_kind`, `counters` |
+| `counter` | `name` (caller-defined scalar), `value` (u64); keys are `record`, `name`, `value` in that order |
 | `summary` | `time_kind: "summed_owner_work"`, `owner_count`, `total_owner_ns`, `top_owners`, `top_dfg_share`, `other_owners` |
+
+A consumer must ignore a record kind it does not know. Scalar counters accumulate
+by name with saturating addition inside the active session, including calls from
+joined worker tasks. Names follow the dotted lower-case convention; values are
+unitless u64 unless the name ends in `_ns` or `_bytes`. Calls outside a session
+are dropped and sequential sessions start empty. Counter rows use the existing
+staging writer and atomic publication; they do not change other record schemas.
 
 `serial_wall` is a whole-phase interval enclosing any Rayon work. Its CPU is
 process CPU, including all workers. `parallel_work` is an interval on a single
@@ -134,3 +142,40 @@ normal output) as the remainder after non-overlapping top-level intervals. Do no
 subtract every inclusive/nested phase or parallel sum from command wall time.
 The command clock ends before profile rendering; normal CLI diagnostics emitted
 by Rust after main returns are outside this guard.
+
+## Taint context counters
+
+With profiling active, an authorized `imports` request with taint selected emits the
+`review.taint_context.` counter family once per run, including zero values. Duplicate
+taint selections share that expansion. Mode `off`, an ignored request and a legacy
+preloaded call without authority produce no rows in this family.
+
+Each name in the table is a suffix of `review.taint_context.`. For example, the full
+attempted-file counter name is `review.taint_context.attempted_files`.
+
+| Counter suffix | Meaning per expansion request |
+| --- | --- |
+| `rounds_started`, `rounds_completed` | Rounds entered and rounds that published a completed graph and analysis. |
+| `attempted_files` | Targeted context read calls, including calls rejected before reading any bytes. |
+| `attempted_read_bytes` | Bytes actually read by those calls, including overflow sentinel bytes, rejected files and work in a discarded round. |
+| `admitted_files`, `admitted_bytes`, `admitted_depth` | Context file count, retained context source bytes and round number in the last completed bundle. Round zero is the baseline. |
+| `eligible_boundary_calls` | Eligible call records tracked by the completed frontier, before the diagnostic display cap. |
+| `loaded_unresolved_calls` | Distinct call sites with a loaded but unresolved target and no resolved target. |
+| `skips.invalid_path`, `skips.not_listed`, `skips.unsupported`, `skips.original_file` | Read attempts skipped for the named path, listing, language or original-input condition. |
+| `skips.unsafe_path`, `skips.not_regular`, `skips.unreadable` | Read attempts refused on path safety, file type or I/O grounds. |
+| `skips.not_utf8`, `skips.too_large`, `skips.parse_failed`, `skips.severe_parse`, `skips.unknown` | Other skipped attempts, by reason. |
+| `bound_depth`, `bound_files`, `bound_bytes`, `bound_time` | One for the bound that stopped the expansion, zero otherwise. |
+| `stage_failed`, `cancelled` | One if a stage failed or the guard reported cancellation, respectively. |
+| `additional_sinks`, `additional_sources` | New sink and source findings accepted into the baseline result, before output filters. |
+| `perturbation_dropped_sinks`, `perturbation_dropped_sources` | New sink candidates lacking a context witness and new source candidates lacking an accepted sink relation, respectively. |
+| `elapsed_discovery_ns`, `elapsed_read_parse_ns`, `elapsed_build_ns`, `elapsed_analysis_ns` | Time spent in each expansion stage, including work attempted before a stop. |
+| `elapsed_total_ns` | Elapsed time for the expansion driver. |
+| `driver_stats_available`, `union_stats_available` | One when driver statistics or a successful result union supplied the corresponding counts. |
+| `context_unavailable` | One when the captured inputs could not supply a context loader. |
+
+The 8 MiB limit covers context source already admitted or staged in the current round.
+Original files and rejected reads consume none of that capacity. Attempt counters retain
+work from partial rounds, so `attempted_read_bytes` can exceed 8 MiB while `admitted_bytes`
+stays within it. Go declaration hints can read additional bytes during discovery. Those
+advisory reads have no targeted-source byte cap and their bytes are excluded from
+`attempted_read_bytes`. Their time contributes to discovery and total elapsed time.

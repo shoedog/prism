@@ -1,5 +1,6 @@
 //! The taint slice entry point.
 
+use crate::algorithms::taint::attribution::{EmissionAttribution, LicenseRoute, Recorder};
 use crate::algorithms::taint::cleansing::{
     apply_cleansers, cleansed_structured_sink_call_ranges, flow_path_cleansed_for_sink,
     node_in_ranges, source_line_cleansed_for_sink, structured_sink_line_cleansed_for_path,
@@ -24,6 +25,7 @@ use crate::algorithms::taint::report::{
 };
 use crate::algorithms::taint::seeds::{detect_framework_sources, synthesize_target_seed_paths};
 use crate::algorithms::taint::sink_match::{structured_sink_outcome, SinkMatchOutcome};
+use crate::algorithms::taint::source_scope::admission::RunScope;
 use crate::algorithms::taint::{matches_sink, TaintConfig, TaintSeed};
 use crate::algorithms::taint_sinks;
 use anyhow::Result;
@@ -41,6 +43,41 @@ pub fn slice(
     diff: &DiffInput,
     taint_config: &TaintConfig,
 ) -> Result<SliceResult> {
+    slice_impl(ctx, diff, taint_config, None)
+}
+
+pub(super) fn slice_impl(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    taint_config: &TaintConfig,
+    trace: Option<&mut super::trace::TaintTrace>,
+) -> Result<SliceResult> {
+    slice_scoped_impl(ctx, diff, taint_config, trace, RunScope::default())
+}
+
+/// The taint run under a source scope (#602 S3a.1s). With `RunScope::default()` every
+/// loaded file may start roots, which is the legacy behavior byte for byte.
+pub(super) fn slice_scoped_impl(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    taint_config: &TaintConfig,
+    trace: Option<&mut super::trace::TaintTrace>,
+    scope: RunScope<'_>,
+) -> Result<SliceResult> {
+    slice_attributed_impl(ctx, diff, taint_config, trace, scope, None)
+}
+
+/// The scoped run with an optional review-private emission sidecar (#602 S4d1). The sidecar
+/// records decisions the run makes anyway; it never changes a result. `None` records nothing.
+pub(super) fn slice_attributed_impl(
+    ctx: &CpgContext,
+    diff: &DiffInput,
+    taint_config: &TaintConfig,
+    trace: Option<&mut super::trace::TaintTrace>,
+    scope: RunScope<'_>,
+    emission: Option<&mut EmissionAttribution>,
+) -> Result<SliceResult> {
+    let mut rec = Recorder::new(emission);
     let mut result = SliceResult::new(SlicingAlgorithm::Taint);
 
     // Collect taint sources. Line-scoped seeds preserve existing behavior;
@@ -48,6 +85,7 @@ pub fn slice(
     let mut taint_seeds: Vec<TaintSeed> = taint_config
         .sources
         .iter()
+        .filter(|(file, _)| scope.admits_source_file(ctx.files, file))
         .map(|(file, line)| TaintSeed::line(file.clone(), *line))
         .collect();
 
@@ -57,6 +95,9 @@ pub fn slice(
             // of `ctx.files`, so they can never be traced; seeding them only
             // produces an untraceable `taint_source` finding (P1 Change 1).
             if !ctx.files.contains_key(&diff_info.file_path) {
+                continue;
+            }
+            if !scope.admits_source_file(ctx.files, &diff_info.file_path) {
                 continue;
             }
             for &line in &diff_info.diff_lines {
@@ -70,7 +111,11 @@ pub fn slice(
     // (e.g. from `g_hash_table_lookup(settings->data, "usercert")`) flows into
     // a privileged sink (e.g. `BUILD_FROM_FILE`) that runs as root.
     // These are additional sources that extend (not replace) diff-line sources.
-    let ipc_sources: Vec<(String, usize)> = detect_ipc_sources(ctx, diff);
+    // The scope filters the discovered lines before BOTH the seeds and the fallback set.
+    let ipc_sources: Vec<(String, usize)> = detect_ipc_sources(ctx, diff)
+        .into_iter()
+        .filter(|(file, _)| scope.admits_source_file(ctx.files, file))
+        .collect();
     for ipc_src in &ipc_sources {
         taint_seeds.push(TaintSeed::line(ipc_src.0.clone(), ipc_src.1));
     }
@@ -80,8 +125,16 @@ pub fn slice(
     // For each Go file with a detected framework, every call to a framework
     // SourcePattern (`c.Query`, `r.URL.Query`, `mux.Vars`, …) is a taint source.
     // These extend (not replace) diff-line and IPC sources.
+    // `framework_sources` stays the FULL fact list: a context file keeps its source
+    // recognition (suppression sets and range maps below read it), and only the
+    // admitted subset in `framework_seeds` starts roots.
     let framework_sources: Vec<TaintSeed> = detect_framework_sources(ctx);
-    for fw_src in &framework_sources {
+    let framework_seeds: Vec<TaintSeed> = framework_sources
+        .iter()
+        .filter(|seed| scope.admits_source_file(ctx.files, &seed.file))
+        .cloned()
+        .collect();
+    for fw_src in &framework_seeds {
         taint_seeds.push(fw_src.clone());
     }
     taint_seeds.sort();
@@ -118,13 +171,31 @@ pub fn slice(
         js_ts_framework_source_access_ranges_by_line(ctx.files, &framework_source_set);
 
     // Forward propagation from each source (CFG-constrained when available)
-    let (mut paths, flow_evidence) = if taint_config.return_flow {
-        ctx.cpg
-            .taint_forward_cfg_with_return_flow_labeled(&taint_sources)
-    } else {
-        ctx.cpg.taint_forward_cfg_labeled(&taint_sources)
+    // The two `None` arms are the legacy walks; a crossing ceiling selects the policy-aware form
+    // of the same walk (#602 S3b-R).
+    let (mut paths, flow_evidence) = match (taint_config.return_flow, scope.crossing()) {
+        (true, None) => ctx
+            .cpg
+            .taint_forward_cfg_with_return_flow_labeled(&taint_sources),
+        (true, Some(policy)) => ctx
+            .cpg
+            .taint_forward_cfg_with_return_flow_labeled_with_policy(&taint_sources, policy),
+        (false, None) => ctx.cpg.taint_forward_cfg_labeled(&taint_sources),
+        (false, Some(policy)) => ctx
+            .cpg
+            .taint_forward_cfg_labeled_with_policy(&taint_sources, policy),
     };
-    synthesize_target_seed_paths(&framework_sources, ctx, &mut paths);
+    if let Some(trace) = trace {
+        let sources = super::trace::CaptureSources {
+            ipc: &ipc_source_set,
+            framework: &framework_seeds,
+            scope,
+        };
+        *trace =
+            super::trace::capture(ctx, diff, taint_config, sources, &mut paths, &flow_evidence);
+    } else {
+        synthesize_target_seed_paths(&framework_seeds, ctx, &mut paths, scope);
+    }
 
     let mut evidence_by_lines: BTreeMap<(String, usize, String, usize), EvidencePath> =
         BTreeMap::new();
@@ -323,6 +394,11 @@ pub fn slice(
     }
 
     for (file, parsed) in ctx.files {
+        // An inline source=sink finding is not an ordinary seed: filtering seeds
+        // alone would still report a context file's own `load(req.body.payload)`.
+        if !scope.admits_source_file(ctx.files, file) {
+            continue;
+        }
         if is_js_ts_language(parsed.language) {
             for line in js_ts_inline_framework_source_yaml_sink_lines(parsed) {
                 sink_lines.insert((file.clone(), line));
@@ -509,6 +585,7 @@ pub fn slice(
                     .get(&(sf.clone(), *sl, file.clone(), *line))
                     .cloned()
                     .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+                rec.license((sf.as_str(), *sl), &evidence, LicenseRoute::Path);
                 keep_best_evidence(&mut evidence_for_sources, (sf.clone(), *sl), evidence);
             }
         }
@@ -526,10 +603,12 @@ pub fn slice(
                 if let Some((sf, sl)) = source_location {
                     if taint_sources.iter().any(|(f, l)| f == sf && *l == sl) {
                         sources_with_emitted_sinks.insert((sf.to_string(), sl));
+                        let evidence = EvidencePath::unlabeled_for("taint");
+                        rec.license((sf, sl), &evidence, LicenseRoute::Fallback);
                         keep_best_evidence(
                             &mut evidence_for_sources,
                             (sf.to_string(), sl),
-                            EvidencePath::unlabeled_for("taint"),
+                            evidence,
                         );
                     }
                 }
@@ -602,6 +681,8 @@ pub fn slice(
             .or_else(|| sink_to_path_evidence.get(&(file.clone(), *line)))
             .cloned()
             .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+        let at = (file.as_str(), *line);
+        rec.sink(result.findings.len(), "taint_sink", at, source_location);
         result.findings.push(finding);
         result.evidence.push(Some(finding_evidence));
     }
@@ -638,6 +719,7 @@ pub fn slice(
                     .get(&(sf.clone(), *sl, file.clone(), *line))
                     .cloned()
                     .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+                rec.license((sf.as_str(), *sl), &evidence, LicenseRoute::Unquoted);
                 keep_best_evidence(&mut evidence_for_sources, (sf.clone(), *sl), evidence);
             }
 
@@ -646,6 +728,8 @@ pub fn slice(
                 .and_then(|(sf, sl)| evidence_by_lines.get(&(sf.clone(), *sl, file.clone(), *line)))
                 .cloned()
                 .unwrap_or_else(|| EvidencePath::unlabeled_for("taint"));
+            let at = (file.as_str(), *line);
+            rec.sink(result.findings.len(), "unquoted_expansion", at, None);
             result.findings.push(SliceFinding {
                 algorithm: "taint".to_string(),
                 file: file.clone(),
@@ -681,6 +765,7 @@ pub fn slice(
         if !sources_with_emitted_sinks.contains(&(file.clone(), *line)) {
             continue;
         }
+        rec.source(result.findings.len(), (file.as_str(), *line));
         result.findings.push(SliceFinding {
             algorithm: "taint".to_string(),
             file: file.clone(),

@@ -202,13 +202,13 @@
    "js_paths_r2b_test::transitive_references_and_cycles"
   ],
   "I27-global-export-priming": [
-   "src/repo_loader.rs",
+   "src/repo_loader/js_priming.rs",
    "let mut pending = BTreeSet::new();",
    "let mut pending: BTreeSet<(String, String)> = files.keys().filter_map(|f| Some((resolver.project(f)?, f.clone()))).collect();",
    "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
   ],
   "I28-no-reachable-export-priming": [
-   "src/repo_loader.rs",
+   "src/repo_loader/js_priming.rs",
    "                    if let Some(target) = resolver.hop(&project, &file, module, &indexed) {\n                        pending.insert((project.clone(), target));\n                    }",
    "                    let _ = resolver.hop(&project, &file, module, &indexed);",
    "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
@@ -736,7 +736,7 @@
    "js_paths_p2_test::nonrelative_hops_reuse_p1_alias_proof"
   ],
   "N07-skip-alias-priming": [
-   "src/repo_loader.rs",
+   "src/repo_loader/js_priming.rs",
    "resolver.hop(&project, &file, module, &indexed)",
    "resolver.relative(&file, module, &indexed, true)",
    "repo_loader::paths_projection_tests::primes_nonrelative_hop_absence_before_topology_hash"

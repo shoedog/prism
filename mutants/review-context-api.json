@@ -1,0 +1,60 @@
+{
+  "lane": "Public cross-file review API forwarding (#602 S5d O)",
+  "test_targets": [
+    {
+      "prefix": "api_test::context::",
+      "package": "prism",
+      "target": "integration"
+    }
+  ],
+  "mutations": {
+    "PA01-review-context-quality": [
+      "crates/prism-review/src/output/review.rs",
+      "to_review_output_in(result, view.maps(), view.context_files())",
+      "to_review_output_in(result, view.maps(), None)",
+      "api_test::context::adapters::a07_public_rendering_adapters"
+    ],
+    "PA02-compact-context-quality": [
+      "crates/prism-review/src/output/review_compact.rs",
+      "        view.context_files(),\n        min_severity_rank,",
+      "        None,\n        min_severity_rank,",
+      "api_test::context::adapters::a07_public_rendering_adapters"
+    ],
+    "PA03-sarif-context-omitted": [
+      "crates/prism-review/src/output/sarif.rs",
+      "Some(view) => self.context_maps(view),",
+      "Some(_view) => self,",
+      "api_test::context::adapters::a07_public_rendering_adapters"
+    ],
+    "PA04-target-context-omitted": [
+      "crates/prism-review/src/targets/mod.rs",
+      "context.and_then(crate::api::ReviewContext::view)",
+      "None",
+      "api_test::context::adapters::a07_public_rendering_adapters"
+    ],
+    "PA05-take-context-dropped": [
+      "crates/prism-review/src/api/run.rs",
+      "ContextState::Expanded(context) => Some(context),",
+      "ContextState::Expanded(_context) => None,",
+      "api_test::context::adapters::a08_take_context_then_views"
+    ],
+    "PA06-parts-context-dropped": [
+      "crates/prism-review/src/api/context_view.rs",
+      "ContextState::Expanded(context) if eligible => Some(context),",
+      "ContextState::Expanded(_context) if eligible => None,",
+      "api_test::context::adapters::a09_single_run_filter_through_the_public_type"
+    ],
+    "PA07-public-result-context-omitted": [
+      "crates/prism-review/src/api/context_view.rs",
+      "view_for_result(context, result, inputs)",
+      "view_for_result(None, result, inputs)",
+      "api_test::context::adapters::a07_public_rendering_adapters"
+    ],
+    "PA08-public-finding-context-omitted": [
+      "crates/prism-review/src/api/context_view.rs",
+      "view_for_finding(context, finding, inputs)",
+      "view_for_finding(None, finding, inputs)",
+      "api_test::context::adapters::a07_public_rendering_adapters"
+    ]
+  }
+}

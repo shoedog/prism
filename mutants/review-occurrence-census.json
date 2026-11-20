@@ -1,0 +1,56 @@
+{
+  "lane": "Conservative review occurrence census (#602 S1b.2a)",
+  "lib_test_prefixes": [
+    "api::review_occurrences::census::"
+  ],
+  "mutations": {
+    "OC01-field-path-projected": [
+      "src/api/review_occurrence_census.rs",
+      "|| !path.fields.is_empty()",
+      "|| false",
+      "api::review_occurrences::census::tests::field_and_nonliteral_requests_stay_unknown"
+    ],
+    "OC02-nonliteral-name-accepted": [
+      "src/api/review_occurrence_census.rs",
+      "|| !literal_name(&path.base)",
+      "|| false",
+      "api::review_occurrences::census::tests::field_and_nonliteral_requests_stay_unknown"
+    ],
+    "OC03-uncertain-line-complete": [
+      "src/api/review_occurrence_census.rs",
+      "if line.uncertain || owner.start > owner.end",
+      "if false || owner.start > owner.end",
+      "api::review_occurrences::census::tests::uncertain_lines_refuse_even_zero_matches_without_poisoning_other_lines"
+    ],
+    "OC04-parse-uncertainty-ignored": [
+      "src/api/review_occurrence_census.rs",
+      "if self.parsed.parse_error_count > 0",
+      "if false",
+      "api::review_occurrences::census::tests::any_file_error_or_missing_syntax_refuses_clean_lines"
+    ],
+    "OC05-competitors-collapsed": [
+      "src/api/review_occurrence_census.rs",
+      ".filter(|span| &self.source[(*span).clone()] == name)",
+      ".filter(|span| &self.source[(*span).clone()] == name).take(1)",
+      "api::review_occurrences::census::tests::competitors_include_bindings_labels_types_comments_strings_and_nested_syntax"
+    ],
+    "OC06-owner-inventory-bypassed": [
+      "src/api/review_occurrence_census.rs",
+      "|| !known_owner",
+      "|| false",
+      "api::review_occurrences::census::tests::exact_owner_envelopes_count_nested_tokens_but_reject_subranges"
+    ],
+    "OC07-boundary-straddling-ignored": [
+      "src/api/review_occurrence_census.rs",
+      ".any(|span| span.start < start || span.end > end)",
+      ".any(|_| false)",
+      "api::review_occurrences::census::tests::whole_tokens_crossing_bounds_refuse_without_becoming_suffixes"
+    ],
+    "OC08-physical-line-shifted": [
+      "src/api/review_occurrence_census.rs",
+      "line.checked_sub(1)",
+      "line.checked_sub(0)",
+      "api::review_occurrences::census::tests::maximal_tokens_and_crlf_keep_actual_multiline_bytes"
+    ]
+  }
+}

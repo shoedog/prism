@@ -1,6 +1,9 @@
 //! Bounded tolerant ambient scan and configuration/occupancy snapshot for P1.
 #[path = "paths_boundary.rs"]
 mod boundary;
+mod detach;
+#[cfg(test)]
+mod detach_tests;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;

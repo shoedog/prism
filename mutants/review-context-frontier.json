@@ -1,0 +1,108 @@
+{
+  "lane": "Private review context frontier (#602 S4c1-P)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::frontier::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "FP01-go-files": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "let paths = if record.language == Language::Go {\n                    declaring\n                } else {\n                    files\n                };",
+      "let paths = files;",
+      "algorithms::taint::frontier::tests::go_loads_declaring_files_only"
+    ],
+    "FP02-go-empty": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "if targets.is_empty() && record.language == Language::Go",
+      "if false",
+      "algorithms::taint::frontier::tests::go_loads_declaring_files_only"
+    ],
+    "FP03-depth": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "for request in candidates {\n        if request.depth > depth",
+      "for request in candidates {\n        if request.depth >= depth",
+      "algorithms::taint::frontier::tests::controlled_depth_and_one_hop_per_pass"
+    ],
+    "FP04-resolution": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "site_has_loaded_callable(ctx, &state.provenance[request.origin].site)",
+      "true",
+      "algorithms::taint::frontier::tests::controlled_loaded_target_without_resolution_is_loaded_unresolved"
+    ],
+    "FP05-hop": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "hop(&request.target, member)",
+      "None",
+      "algorithms::taint::frontier::tests::controlled_depth_and_one_hop_per_pass"
+    ],
+    "FP06-visited": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "request.visited.push(pair.clone());",
+      "",
+      "algorithms::taint::frontier::tests::controlled_barrel_cycle_terminates_without_reread"
+    ],
+    "FP07-refused": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "} else if refused.contains(&request.target) {",
+      "} else if false {",
+      "algorithms::taint::frontier::tests::refused_target_is_not_requested_again"
+    ],
+    "FP08-round-hints": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "Ok(|site: &CallSite| hints.hint_for_call(site))",
+      "Ok(|_: &CallSite| None)",
+      "algorithms::taint::frontier::tests::real::round_collector_sees_a_context_caller"
+    ],
+    "FP09-duplicate-target": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "state.open.push(request);",
+      "if !state.open.iter().any(|r| r.target == request.target) { state.open.push(request); }",
+      "algorithms::taint::frontier::tests::repeated_target_loads_once_with_every_caller"
+    ],
+    "FP10-repeat-hop": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "hop(&request.target, member)",
+      "{ let _ = hop(&request.target, member); hop(&request.target, member) }",
+      "algorithms::taint::frontier::tests::controlled_depth_and_one_hop_per_pass"
+    ],
+    "FP11-forget-carried": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "for mut request in carried.open.clone()",
+      "for mut request in Vec::<Request>::new()",
+      "algorithms::taint::frontier::tests::refused_target_is_not_requested_again"
+    ],
+    "FP12-empty-go-fallback": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "let paths = if record.language == Language::Go {\n                    declaring\n                } else {\n                    files\n                };",
+      "let paths = if record.language == Language::Go && !declaring.is_empty() { declaring } else { files };",
+      "algorithms::taint::frontier::tests::go_loads_declaring_files_only"
+    ],
+    "FP13-unresolvable": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "ReviewImportHint::Unresolvable { .. } => {\n                state\n                    .dispositions\n                    .push((origin, String::new(), Disposition::Unresolvable))",
+      "ReviewImportHint::Unresolvable { .. } => {\n                state\n                    .dispositions\n                    .push((origin, String::new(), Disposition::Requested))",
+      "algorithms::taint::frontier::tests::unresolvable_requests_nothing"
+    ],
+    "FP14-byte-tie": [
+      "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+      "    candidates.sort_by(|a, b| {\n        let x = &state.provenance[a.origin];\n        let y = &state.provenance[b.origin];\n        (\n            a.depth,\n            &x.site.caller.file,\n            x.line,\n            &x.callee,\n            &a.target,\n            &x.site,\n        )\n            .cmp(&(\n                b.depth,\n                &y.site.caller.file,\n                y.line,\n                &y.callee,\n                &b.target,\n                &y.site,\n            ))\n    });",
+      "    candidates.sort_by(|a, b| {\n        let x = &state.provenance[a.origin];\n        let y = &state.provenance[b.origin];\n        (\n            a.depth,\n            &x.site.caller.file,\n            x.line,\n            &x.callee,\n            &a.target,\n        )\n            .cmp(&(\n                b.depth,\n                &y.site.caller.file,\n                y.line,\n                &y.callee,\n                &b.target,\n            ))\n    });",
+      "algorithms::taint::frontier::tests::same_line_calls_keep_byte_identity"
+    ]
+  },
+  "extra": {
+    "FP07-refused": [
+      [
+        "crates/prism-review/src/algorithms/taint/frontier/plan.rs",
+        "} else if refused.contains(&request.target) && !ctx.files.contains_key(&request.target) {",
+        "} else if false {"
+      ]
+    ]
+  },
+  "intent_revisions": {
+    "FP07-refused": "Conceptual refusal bypass disables both the carried-request and candidate-finalization guards. The original early-guard-only mutant is non-discriminating for P07 because finalization repeats the refusal. Keep the carried refusal regression; only a compiled two-guard mutant failing its empty-open assertion earns behavioral kill credit."
+  }
+}

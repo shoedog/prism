@@ -1,0 +1,60 @@
+{
+  "lane": "Source-aware empty boundary recovery (#602 S1b.2b)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::boundary::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "BR01-source-field-base-only": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery/source.rs",
+      "|| target != &loc.path",
+      "|| target.base != loc.path.base",
+      "algorithms::taint::boundary::recovery::tests::synthetic_anchors_require_real_complete_static_syntax"
+    ],
+    "BR02-source-anchor-syntax-ignored": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery/source.rs",
+      "&& syntax_path(p, node, 0).as_ref() == Some(expected)",
+      "&& true",
+      "algorithms::taint::boundary::recovery::tests::synthetic_anchors_require_real_complete_static_syntax"
+    ],
+    "BR03-useful-owner-chosen": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery/source.rs",
+      "let result = candidates.next()?;\n    (candidates.next().is_none() && result.unique && result.function.is_some()).then_some(result)",
+      "candidates.next()",
+      "algorithms::taint::boundary::recovery::tests::synthetic_owner_ambiguity_refuses_before_call_selection"
+    ],
+    "BR04-first-token-selected": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery.rs",
+      "let [span] = spans.as_slice() else",
+      "let Some(span) = spans.first() else",
+      "algorithms::taint::boundary::recovery::tests::real_aliases_preserve_scope_and_count_all_competitors"
+    ],
+    "BR05-exact-source-anchor-lost": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery/source.rs",
+      "effective.start_byte = Some(loc.start_byte);",
+      "effective.start_byte = None;",
+      "algorithms::taint::boundary::recovery::tests::targetless_def_proof_is_not_a_positive_value_requirement"
+    ],
+    "BR06-before-source-line-admitted": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery.rs",
+      "if value.line < seed.line",
+      "if false",
+      "algorithms::taint::boundary::recovery::tests::synthetic_before_source_and_sibling_branch_refuse"
+    ],
+    "BR07-property-label-recovered": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery.rs",
+      "|| !matches!(node.kind(), \"identifier\" | \"shorthand_property_identifier\")",
+      "|| false",
+      "algorithms::taint::boundary::recovery::tests::synthetic_unique_labels_and_callees_never_become_values"
+    ],
+    "BR08-exact-fallback-suppressed": [
+      "crates/prism-review/src/algorithms/taint/boundary/recovery.rs",
+      "if original.start_byte < original.end_byte",
+      "if false",
+      "algorithms::taint::boundary::recovery::tests::failed_empty_proof_preserves_exact_cross_file_values_and_isolated_root_uses"
+    ]
+  }
+}

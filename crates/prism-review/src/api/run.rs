@@ -1,3 +1,5 @@
+use super::context_run::{ContextRequest, ContextState, RunExpansion};
+use super::diagnostics::RunDiagnostics;
 use crate::algorithms;
 use anyhow::{Context, Result};
 use prism::api::{build_context, load_review_inputs, ReviewInputs, ReviewOptions};
@@ -17,6 +19,8 @@ pub const DEFAULT_TEMPORAL_DAYS: usize = 90;
 
 #[non_exhaustive]
 pub struct AlgorithmParams {
+    /// Import-directed taint context. Default Off; legacy preloaded runners never load it.
+    pub taint_context: super::context_options::TaintContextOptions,
     pub barrier_depth: usize,
     pub barrier_symbols: Vec<String>,
     pub chop_source: Option<String>,
@@ -36,6 +40,7 @@ pub struct AlgorithmParams {
 impl Default for AlgorithmParams {
     fn default() -> Self {
         Self {
+            taint_context: Default::default(),
             barrier_depth: DEFAULT_BARRIER_DEPTH,
             barrier_symbols: Vec::new(),
             chop_source: None,
@@ -54,6 +59,13 @@ impl Default for AlgorithmParams {
     }
 }
 
+/// Run a preloaded algorithm without loading taint context.
+///
+/// For a valid `Imports` request, taint runs on the preloaded inputs. On success,
+/// `SliceResult::warnings` includes the text of an `Unauthorized` note naming
+/// `run_review_authorized` and `run_algorithm_authorized` for taint, or an `Ignored`
+/// note for any other algorithm.
+/// Invalid taint-context options return an error before the algorithm runs.
 pub fn run_algorithm(
     algorithm: SlicingAlgorithm,
     ctx: &CpgContext,
@@ -62,10 +74,83 @@ pub fn run_algorithm(
     params: &AlgorithmParams,
     repo: &Path,
 ) -> Result<SliceResult> {
+    Ok(
+        run_algorithm_with_diagnostics(algorithm, ctx, inputs, config, params, repo)?
+            .into_legacy_result(),
+    )
+}
+
+/// Run one preloaded algorithm with typed boundary diagnostics and no taint-context loading.
+///
+/// For a valid `Imports` request, taint runs on the preloaded inputs and the successful
+/// outcome carries an `Unauthorized` note naming `run_review_authorized` and
+/// `run_algorithm_authorized`. With another algorithm, a successful outcome carries an
+/// `Ignored` note. These notes are in `AlgorithmOutcome::diagnostics`, separate from the
+/// result's warnings. Invalid taint-context options return an error before the algorithm runs.
+pub fn run_algorithm_with_diagnostics(
+    algorithm: SlicingAlgorithm,
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+) -> Result<super::AlgorithmOutcome> {
+    super::context_route::run_algorithm_legacy(algorithm, ctx, inputs, config, params, repo)
+}
+
+pub(crate) fn run_algorithm_prepared(
+    algorithm: SlicingAlgorithm,
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+    request: Option<&ContextRequest>,
+) -> Result<(
+    super::AlgorithmOutcome,
+    ContextState,
+    Option<super::context_stats::ContextStats>,
+)> {
     prism::build_pool::install(|| {
-        let mut result = run_algorithm_raw(algorithm, ctx, inputs, config, params, repo)?;
-        annotate_finding_parse_quality(&mut result.findings, &inputs.files);
-        Ok(result)
+        let mut diagnostics = RunDiagnostics::default();
+        let mut expansion = RunExpansion::new(request, algorithm == SlicingAlgorithm::Taint);
+        let result = run_algorithm_raw(
+            algorithm,
+            ctx,
+            inputs,
+            config,
+            params,
+            repo,
+            &mut diagnostics,
+            &mut expansion,
+        );
+        let mut result = match result {
+            Ok(result) => result,
+            Err(error) => {
+                if let Some(stats) = expansion.take_stats() {
+                    stats.export();
+                }
+                return Err(error);
+            }
+        };
+        annotate_finding_parse_quality(
+            &mut result.findings,
+            expansion.view(inputs, algorithm).files,
+        );
+        let stats = expansion.take_stats();
+        if let Some(stats) = &stats {
+            stats.export();
+        }
+        let state = expansion.into_state();
+        diagnostics.reconcile_context(&state, request, &inputs.parse_warnings);
+        Ok((
+            super::AlgorithmOutcome {
+                result,
+                diagnostics: diagnostics.project(),
+            },
+            state,
+            stats,
+        ))
     })
 }
 
@@ -76,6 +161,8 @@ fn run_algorithm_raw(
     config: &SliceConfig,
     params: &AlgorithmParams,
     repo: &Path,
+    diagnostics: &mut RunDiagnostics,
+    expansion: &mut RunExpansion<'_>,
 ) -> Result<SliceResult> {
     let mut result = match algorithm {
         SlicingAlgorithm::BarrierSlice => {
@@ -108,17 +195,40 @@ fn run_algorithm_raw(
             )
         }
         SlicingAlgorithm::Taint => {
-            let taint_config = crate::algorithms::taint::TaintConfig {
-                sources: params
-                    .taint_sources
-                    .iter()
-                    .filter_map(|s| parse_file_line(s).ok())
-                    .collect(),
-                taint_from_diff: params.taint_sources.is_empty(),
-                extra_sinks: Vec::new(),
-                return_flow: params.taint_return_flow,
-            };
-            crate::algorithms::taint::slice(ctx, &inputs.diff, &taint_config)
+            if let Some(result) = expansion.cached() {
+                Ok(result)
+            } else {
+                let taint_config = crate::algorithms::taint::TaintConfig {
+                    sources: params
+                        .taint_sources
+                        .iter()
+                        .filter_map(|s| parse_file_line(s).ok())
+                        .collect(),
+                    taint_from_diff: params.taint_sources.is_empty(),
+                    extra_sinks: Vec::new(),
+                    return_flow: params.taint_return_flow,
+                };
+                if diagnostics.needs_collection() {
+                    let (result, trace) = crate::algorithms::taint::slice_with_trace(
+                        ctx,
+                        &inputs.diff,
+                        &taint_config,
+                    )?;
+                    diagnostics.capture_once(|| {
+                        crate::algorithms::taint::boundary::collect::collect(inputs, ctx, &trace)
+                    });
+                    Ok(expansion.apply(inputs, ctx, &taint_config, result, &trace))
+                } else if expansion.requested() {
+                    let (result, trace) = crate::algorithms::taint::slice_with_trace(
+                        ctx,
+                        &inputs.diff,
+                        &taint_config,
+                    )?;
+                    Ok(expansion.apply(inputs, ctx, &taint_config, result, &trace))
+                } else {
+                    crate::algorithms::taint::slice(ctx, &inputs.diff, &taint_config)
+                }
+            }
         }
         SlicingAlgorithm::ConditionedSlice => {
             let cond_str = params
@@ -295,6 +405,20 @@ pub fn filter_result_findings(
     min_confidence: MinConfidence,
     resolution: ResolutionMode,
 ) {
+    filter_result_findings_in(
+        result,
+        crate::api::map_view::MapView::original(inputs),
+        min_confidence,
+        resolution,
+    );
+}
+
+pub(crate) fn filter_result_findings_in(
+    result: &mut SliceResult,
+    view: crate::api::map_view::MapView<'_>,
+    min_confidence: MinConfidence,
+    resolution: ResolutionMode,
+) {
     if min_confidence == MinConfidence::NameOnly {
         return;
     }
@@ -306,8 +430,8 @@ pub fn filter_result_findings(
         let parse_quality = parse_quality_for_selected_evidence(
             &finding,
             selected_evidence,
-            &inputs.parse_quality,
-            &inputs.files,
+            view.parse_quality,
+            view.files,
         );
         let admitted = admit_finding_for_resolution(
             &finding.algorithm,
@@ -332,6 +456,9 @@ pub fn filter_result_findings(
 /// map, never via `finding.parse_quality`.
 #[non_exhaustive]
 pub struct ReviewRun {
+    pub(crate) context: ContextState,
+    pub(crate) context_stats: Option<super::context_stats::ContextStats>,
+    pub diagnostics: Option<super::ReviewBoundaryDiagnostics>,
     pub results: Vec<SliceResult>,
     pub findings: Vec<SliceFinding>,
     pub evidence: Vec<Option<EvidencePath>>,
@@ -342,6 +469,36 @@ pub struct ReviewRun {
     pub resolution: ResolutionMode,
 }
 
+impl ReviewRun {
+    pub(crate) fn stats(&self) -> Option<&super::context_stats::ContextStats> {
+        self.context_stats.as_ref()
+    }
+    /// Completed context is available only after an applied union with admitted files.
+    pub fn context(&self) -> Option<&super::context_run::ReviewContext> {
+        match &self.context {
+            ContextState::Expanded(context) if context.view().is_some() => Some(context),
+            _ => None,
+        }
+    }
+    /// Move eligible context out before moving public result fields. A failed take preserves
+    /// the state, and optional private execution statistics stay on this owner in every case.
+    pub fn take_context(&mut self) -> Option<super::context_run::ReviewContext> {
+        self.context()?;
+        match std::mem::replace(&mut self.context, ContextState::NotRequested) {
+            ContextState::Expanded(context) => Some(context),
+            _ => None,
+        }
+    }
+}
+
+/// Run preloaded algorithms without loading taint context.
+///
+/// For a valid `Imports` request, selecting taint runs it on the preloaded inputs and adds
+/// one `Unauthorized` note naming `run_review_authorized` and `run_algorithm_authorized`.
+/// Without taint, the request adds one `Ignored` note. The run reports the note in
+/// `ReviewRun::diagnostics` and appends its text to `ReviewRun::warnings`.
+/// Invalid taint-context options produce an error for each selected taint entry while other
+/// algorithms still run.
 pub fn run_review(
     ctx: &CpgContext,
     inputs: &ReviewInputs,
@@ -350,20 +507,94 @@ pub fn run_review(
     params: &AlgorithmParams,
     repo: &Path,
 ) -> ReviewRun {
+    super::context_route::run_review_legacy(ctx, inputs, algorithms, config, params, repo)
+}
+
+pub(crate) fn run_review_routed(
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    algorithms: &[SlicingAlgorithm],
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+    request: Option<&ContextRequest>,
+    taint_error: Option<&str>,
+) -> ReviewRun {
+    if taint_error.is_some() {
+        run_review_prepared_policy(
+            ctx,
+            inputs,
+            algorithms,
+            config,
+            params,
+            repo,
+            None,
+            taint_error,
+        )
+    } else if let Some(request) = request {
+        run_review_prepared(ctx, inputs, algorithms, config, params, repo, Some(request))
+    } else {
+        run_review_prepared(ctx, inputs, algorithms, config, params, repo, None)
+    }
+}
+
+pub(crate) fn run_review_prepared(
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    algorithms: &[SlicingAlgorithm],
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+    request: Option<&ContextRequest>,
+) -> ReviewRun {
+    run_review_prepared_policy(ctx, inputs, algorithms, config, params, repo, request, None)
+}
+
+fn run_review_prepared_policy(
+    ctx: &CpgContext,
+    inputs: &ReviewInputs,
+    algorithms: &[SlicingAlgorithm],
+    config: &SliceConfig,
+    params: &AlgorithmParams,
+    repo: &Path,
+    request: Option<&ContextRequest>,
+    taint_error: Option<&str>,
+) -> ReviewRun {
     prism::build_pool::install(|| {
         let mut results = Vec::new();
         let mut errors = Vec::new();
+        let mut diagnostics = RunDiagnostics::default();
+        let mut expansion =
+            RunExpansion::new(request, algorithms.contains(&SlicingAlgorithm::Taint));
 
         for &algorithm in algorithms {
+            if algorithm == SlicingAlgorithm::Taint {
+                if let Some(error) = taint_error {
+                    errors.push(AlgorithmError {
+                        algorithm: algorithm.name().to_string(),
+                        error: error.to_owned(),
+                    });
+                    continue;
+                }
+            }
             let algorithm_config = SliceConfig {
                 algorithm,
                 ..config.clone()
             };
-            match run_algorithm_raw(algorithm, ctx, inputs, &algorithm_config, params, repo) {
+            match run_algorithm_raw(
+                algorithm,
+                ctx,
+                inputs,
+                &algorithm_config,
+                params,
+                repo,
+                &mut diagnostics,
+                &mut expansion,
+            ) {
                 Ok(mut result) => {
-                    filter_result_findings(
+                    filter_result_findings_in(
                         &mut result,
-                        inputs,
+                        expansion.view(inputs, algorithm),
                         inputs.min_confidence,
                         inputs.resolution,
                     );
@@ -388,9 +619,25 @@ pub fn run_review(
             .iter()
             .flat_map(|result| result.evidence.clone())
             .collect();
-        annotate_finding_parse_quality(&mut findings, &inputs.files);
-
-        ReviewRun {
+        for finding in &mut findings {
+            let algorithm = if finding.algorithm == "taint" {
+                SlicingAlgorithm::Taint
+            } else {
+                SlicingAlgorithm::OriginalDiff
+            };
+            annotate_finding_parse_quality(
+                std::slice::from_mut(finding),
+                expansion.view(inputs, algorithm).files,
+            );
+        }
+        let context_stats = expansion.take_stats();
+        if let Some(stats) = &context_stats {
+            stats.export();
+        }
+        let mut run = ReviewRun {
+            context: expansion.into_state(),
+            context_stats,
+            diagnostics: None,
             results,
             findings,
             evidence,
@@ -399,7 +646,14 @@ pub fn run_review(
             algorithms_run,
             min_confidence: inputs.min_confidence,
             resolution: inputs.resolution,
+        };
+        diagnostics.reconcile_context(&run.context, request, &inputs.parse_warnings);
+        let diagnostics = diagnostics.project();
+        if let Some(notes) = &diagnostics {
+            run.warnings.extend(notes.messages());
         }
+        run.diagnostics = diagnostics;
+        run
     })
 }
 
@@ -427,10 +681,20 @@ pub fn review(
     params: &AlgorithmParams,
 ) -> Result<ReviewOutcome> {
     prism::build_pool::install(|| {
+        let request = super::context_route::validate_for_review(params)?;
         let inputs = load_review_inputs(opts, diff_text)?;
         let (run, build_warnings) = {
             let built = build_context(&inputs, opts)?;
-            let run = run_review(&built.ctx, &inputs, algorithms, config, params, &opts.repo);
+            let run = super::context_route::run_review_validated(
+                &built.ctx,
+                &inputs,
+                algorithms,
+                config,
+                params,
+                &opts.repo,
+                request.as_ref(),
+                true,
+            );
             (run, built.warnings)
         };
         let min_confidence = run.min_confidence;

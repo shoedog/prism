@@ -1,0 +1,57 @@
+{
+  "lane": "Exact review boundary occurrences (#602 S1b.1)",
+  "lib_test_prefixes": ["api::review_occurrences::"],
+  "test_targets": [
+    {"prefix": "algorithms::taint::boundary::", "package": "prism-review", "target": "lib"}
+  ],
+  "mutations": {
+    "BO01-incomplete-callable-census": [
+      "src/api/review_occurrences.rs",
+      "let boundaries = parsed.language.callable_boundary_node_types();",
+      "let boundaries = parsed.language.function_node_types();",
+      "api::review_occurrences::tests::full_boundary_census_retains_unindexed_callables"
+    ],
+    "BO02-ambiguous-owner-admitted": [
+      "src/api/review_occurrences.rs",
+      ".is_some_and(|id| counts[&(id.name.clone(), id.start_line)] == 1);",
+      ".is_some_and(|_| true);",
+      "api::review_occurrences::tests::repeated_named_and_inferred_arrow_identities_are_ambiguous"
+    ],
+    "BO03-callback-owner-lost": [
+      "crates/prism-review/src/algorithms/taint/boundary/occurrences.rs",
+      "&& fact.owner.as_ref() == Some(owner)",
+      "&& true",
+      "algorithms::taint::boundary::occurrences::tests::callback_values_do_not_belong_to_outer_calls"
+    ],
+    "BO04-semantic-label-admitted": [
+      "crates/prism-review/src/algorithms/taint/boundary/occurrences.rs",
+      "fact.semantic_value",
+      "true",
+      "algorithms::taint::boundary::occurrences::tests::semantic_arguments_exclude_callees_types_and_keyword_labels"
+    ],
+    "BO05-access-path-ignored": [
+      "crates/prism-review/src/algorithms/taint/boundary/occurrences.rs",
+      "&& fact.occurrence.path == value.path",
+      "&& true",
+      "algorithms::taint::boundary::occurrences::tests::exact_arguments_distinguish_adjacent_nested_multiline_and_field_uses"
+    ],
+    "BO06-argument-containment-ignored": [
+      "crates/prism-review/src/algorithms/taint/boundary/occurrences.rs",
+      ".any(|arg| arg.start <= value.start_byte && value.end_byte <= arg.end)",
+      ".any(|_| true)",
+      "algorithms::taint::boundary::occurrences::tests::exact_arguments_distinguish_adjacent_nested_multiline_and_field_uses"
+    ],
+    "BO07-call-end-ignored": [
+      "src/api/review_occurrences.rs",
+      "self.calls.get(&(span.start, span.end))",
+      "self.calls.values().find(|call| call.span.start == span.start)",
+      "algorithms::taint::boundary::occurrences::tests::malformed_identity_and_empty_spans_never_match"
+    ],
+    "BO08-caller-identity-ignored": [
+      "crates/prism-review/src/algorithms/taint/boundary/occurrences.rs",
+      "if function != &call.caller",
+      "if false",
+      "algorithms::taint::boundary::occurrences::tests::malformed_identity_and_empty_spans_never_match"
+    ]
+  }
+}

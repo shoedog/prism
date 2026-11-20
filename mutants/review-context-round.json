@@ -1,0 +1,69 @@
+{
+  "lane": "Round-bound hints, one-hop barrel facade and uncached context adapter (#602 S4b2)",
+  "lib_test_prefixes": [
+    "api::review_round::tests::",
+    "api::review_context::"
+  ],
+  "mutations": {
+    "RR01-captured-listing-dropped": [
+      "src/api/review_round.rs",
+      "listing: loader.listing().clone(),",
+      "listing: Default::default(),",
+      "api::review_round::tests::round_hints_follow_a_context_caller"
+    ],
+    "RR02-loaded-identities-forgotten": [
+      "src/api/review_context.rs",
+      "ImportTargets::new(scope, &listing, files.keys().cloned().collect())",
+      "ImportTargets::new(scope, &listing, Default::default())",
+      "api::review_round::tests::round_hints_follow_a_context_caller"
+    ],
+    "RR03-scope-inputs-not-rebased": [
+      "src/api/review_round.rs",
+      "scope: rebase_scope_inputs(loader.captured_scope(), files),",
+      "scope: loader.captured_scope().clone(),",
+      "api::review_round::tests::round_hints_use_rebased_js_alias_inputs"
+    ],
+    "RR04-barrel-parse-not-from-the-map": [
+      "src/api/review_context.rs",
+      "let parsed = self.files.get(barrel)?;",
+      "let parsed = self.files.values().next()?;",
+      "api::review_round::tests::barrel_hop_follows_one_named_reexport"
+    ],
+    "RR05-hop-ignores-renamed-member": [
+      "src/api/review_context.rs",
+      "member: hop.member,",
+      "member: member.to_string(),",
+      "api::review_round::tests::barrel_hop_follows_one_named_reexport"
+    ],
+    "RR06-barrel-method-recurses-a-second-hop": [
+      "src/api/review_context.rs",
+      "let hop = self.targets.follow_barrel(barrel, parsed, member)?;",
+      "let first = self.targets.follow_barrel(barrel, parsed, member)?;\n        let hop = match self.files.get(&first.file) {\n            Some(next) => self\n                .targets\n                .follow_barrel(&first.file, next, &first.member)\n                .unwrap_or(first),\n            None => first,\n        };",
+      "api::review_round::tests::barrel_hop_is_one_hop_per_call"
+    ],
+    "RR07-context-built-through-the-scoped-path": [
+      "src/api/review_round.rs",
+      "CpgContext::build_with_scope_graph_inputs(self.files, type_db, Some(&self.scope))",
+      "CpgContext::build_scoped(self.files, &crate::diff::DiffInput::from_json(r#\"{\"files\":[{\"file_path\":\"main.js\",\"modify_type\":\"Modified\",\"diff_lines\":[]}]}\"#).unwrap(), type_db)",
+      "api::review_round::tests::round_context_is_full_and_uncached"
+    ],
+    "RR08-baseline-mode-not-copied": [
+      "src/api/review_round.rs",
+      "ctx.types.mode = baseline.mode;",
+      "let _ = baseline.mode;",
+      "api::review_round::tests::round_context_keeps_baseline_registry_settings"
+    ],
+    "RR09-baseline-target-versions-not-copied": [
+      "src/api/review_round.rs",
+      "ctx.types.target_versions = baseline.target_versions.clone();",
+      "let _ = &baseline.target_versions;",
+      "api::review_round::tests::round_context_keeps_baseline_registry_settings"
+    ],
+    "RR10-wrapper-passes-a-different-map": [
+      "src/api/review_context.rs",
+      "files: &inputs.files,",
+      "files: &*Box::leak(Box::new(BTreeMap::<String, ParsedFile>::new())),",
+      "api::review_context::tests::review_hints_bind_captured_listing_and_exact_argument_spans"
+    ]
+  }
+}

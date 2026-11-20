@@ -1,0 +1,114 @@
+{
+  "lane": "Private context statistics and counters (#602 S5c PART X)",
+  "test_targets": [
+    {
+      "prefix": "api::context_stats::tests::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "XS01-attempted-published": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "attempted_files: context.attempts.attempted_files,",
+      "attempted_files: u64::try_from(context.published.files).unwrap_or(u64::MAX),",
+      "api::context_stats::tests::assembly::x01_attempted_and_admitted_are_distinct"
+    ],
+    "XS02-attempted-bytes-published": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "attempted_read_bytes: context.attempts.attempted_read_bytes,",
+      "attempted_read_bytes: context.published.bytes,",
+      "api::context_stats::tests::assembly::x02_rejected_sentinel_bytes_remain_attempted"
+    ],
+    "XS03-round-completed-started": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "rounds_completed: u64::from(context.stats.rounds_completed),",
+      "rounds_completed: u64::from(context.stats.rounds_started),",
+      "api::context_stats::tests::assembly::x03_discard_retains_attempts_prior_bundle_and_durations"
+    ],
+    "XS04-unknown-lost": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "SkipReason::Unknown => &mut result.skips_unknown,",
+      "SkipReason::Unknown => &mut result.skips_not_listed,",
+      "api::context_stats::tests::assembly::x04_all_skip_variants"
+    ],
+    "XS05-stop": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "Stop::DepthReached => result.bound_depth = 1,",
+      "Stop::DepthReached => result.bound_depth = 0,",
+      "api::context_stats::tests::assembly::x05_stop_flags_and_exhaustion"
+    ],
+    "XS06-stop": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "Stop::Bound(AdmissionBound::Files { .. }) => result.bound_files = 1,",
+      "Stop::Bound(AdmissionBound::Files { .. }) => result.bound_files = 0,",
+      "api::context_stats::tests::assembly::x05_stop_flags_and_exhaustion"
+    ],
+    "XS07-stop": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "Stop::Bound(AdmissionBound::SourceBytes { .. }) => result.bound_bytes = 1,",
+      "Stop::Bound(AdmissionBound::SourceBytes { .. }) => result.bound_bytes = 0,",
+      "api::context_stats::tests::assembly::x05_stop_flags_and_exhaustion"
+    ],
+    "XS08-stop": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "Stop::Guard(StopCause::Time) => result.bound_time = 1,",
+      "Stop::Guard(StopCause::Time) => result.bound_time = 0,",
+      "api::context_stats::tests::assembly::x05_stop_flags_and_exhaustion"
+    ],
+    "XS09-stop": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "Stop::Guard(StopCause::Cancelled) => result.cancelled = 1,",
+      "Stop::Guard(StopCause::Cancelled) => result.bound_time = 1,",
+      "api::context_stats::tests::assembly::x05_stop_flags_and_exhaustion"
+    ],
+    "XS10-stop": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "Stop::StageFailed(_) => result.stage_failed = 1,",
+      "Stop::StageFailed(_) => result.stage_failed = 0,",
+      "api::context_stats::tests::assembly::x05_stop_flags_and_exhaustion"
+    ],
+    "XS11-resolved-not-winning": [
+      "crates/prism-review/src/api/context_stats.rs",
+      ".filter(|(resolved, unresolved)| !resolved && *unresolved)",
+      ".filter(|(_, unresolved)| *unresolved)",
+      "api::context_stats::tests::assembly::x06_resolved_wins_grouped_before_cap_even_on_refusal"
+    ],
+    "XS12-union-unavailable": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "if let Some(stats) = context.union_stats() {",
+      "if let Some(stats) = context.union_stats().filter(|_| false) {",
+      "api::context_stats::tests::assembly::x07_union_availability_and_retained_facts"
+    ],
+    "XS13-union-sink-source": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "result.additional_sinks = u64::try_from(stats.additional_sinks).unwrap_or(u64::MAX);",
+      "result.additional_sinks = u64::try_from(stats.additional_sources).unwrap_or(u64::MAX);",
+      "api::context_stats::tests::assembly::x07_union_availability_and_retained_facts"
+    ],
+    "XS14-skip-zero-export": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "prism::profile::counter(name, value);",
+      "if value != 0 { prism::profile::counter(name, value); }",
+      "api::context_stats::tests::profile::x09_authorized_profile_has_all_rows_and_actual_admission"
+    ],
+    "XS15-time-retention": [
+      "crates/prism-review/src/api/context_stats.rs",
+      "elapsed_analysis_ns: context.stats.elapsed_analysis_ns,",
+      "elapsed_analysis_ns: 0,",
+      "api::context_stats::tests::profile::x13_elapsed_values_forward_and_native_parts_bounded"
+    ],
+    "XS16-no-request-stats": [
+      "crates/prism-review/src/api/context_run.rs",
+      "(request.is_some() && taint_selected)",
+      "(request.is_none() && taint_selected)",
+      "api::context_stats::tests::profile::x11_off_and_no_taint_emit_nothing"
+    ],
+    "XS17-unavailable-not-marked": [
+      "crates/prism-review/src/api/context_run.rs",
+      "stats.context_unavailable = 1",
+      "stats.context_unavailable = 0",
+      "api::context_stats::tests::profile::x14_non_authorized_and_unavailable_distinguished"
+    ]
+  }
+}

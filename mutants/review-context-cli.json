@@ -1,0 +1,144 @@
+{
+  "lane": "Binary taint-context grammar, authority and rendering (#602 S5d C)",
+  "test_targets": [
+    {
+      "prefix": "taint_context_cli_test::",
+      "package": "prism-review",
+      "target": "cli"
+    }
+  ],
+  "mutations": {
+    "CC01-review-mapping-off": [
+      "crates/prism-review/src/main.rs",
+      "algorithm_params.taint_context = cli.taint_context.options();",
+      "algorithm_params.taint_context = Default::default();",
+      "taint_context_cli_test::formats::c07_on_single_each_format"
+    ],
+    "CC02-targets-mapping-off": [
+      "crates/prism-review/src/main.rs",
+      "algorithm_params.taint_context = args.taint_context.options();",
+      "algorithm_params.taint_context = Default::default();",
+      "taint_context_cli_test::formats::c09_on_targets_stdout_out_and_strict"
+    ],
+    "CC03-callers-always-warn": [
+      "crates/prism-review/src/main.rs",
+      "if cli.taint_context.mode == TaintContextMode::Imports {",
+      "if true {",
+      "taint_context_cli_test::routing::c15_callers_with_imports"
+    ],
+    "CC04-callers-never-warn": [
+      "crates/prism-review/src/main.rs",
+      "if cli.taint_context.mode == TaintContextMode::Imports {",
+      "if false {",
+      "taint_context_cli_test::routing::c15_callers_with_imports"
+    ],
+    "CC05-callers-warn-stdout": [
+      "crates/prism-review/src/main.rs",
+      "&mut std::io::stderr().lock(),\n                &[\"taint-context ignored: --format callers runs no algorithm\".into()]",
+      "&mut std::io::stdout().lock(),\n                &[\"taint-context ignored: --format callers runs no algorithm\".into()]",
+      "taint_context_cli_test::routing::c15_callers_with_imports"
+    ],
+    "CC06-legacy-multi": [
+      "crates/prism-review/src/main.rs",
+      "let mut run = prism_review::api::run_review_authorized(\n            &built.ctx,\n            ReviewAuthority::capture(&inputs)",
+      "let mut run = prism_review::api::run_review(\n            &built.ctx,\n            &inputs",
+      "taint_context_cli_test::formats::c08_on_multi_each_format_and_review_suite"
+    ],
+    "CC07-legacy-single": [
+      "crates/prism-review/src/main.rs",
+      "let mut run = prism_review::api::run_algorithm_authorized(\n            algorithm,\n            &built.ctx,\n            ReviewAuthority::capture(&inputs),\n            &config,\n            &algorithm_params,\n            repo,\n        )?;\n        run.filter_findings(&inputs, cli.min_confidence, cli.resolution);\n        let (outcome, context) = run.into_parts();",
+      "let mut outcome = prism_review::api::run_algorithm_with_diagnostics(\n            algorithm,\n            &built.ctx,\n            &inputs,\n            &config,\n            &algorithm_params,\n            repo,\n        )?;\n        prism_review::api::filter_result_findings(&mut outcome.result, &inputs, cli.min_confidence, cli.resolution);\n        let context = None;",
+      "taint_context_cli_test::formats::c07_on_single_each_format"
+    ],
+    "CC08-multi-compact-original-maps": [
+      "crates/prism-review/src/main.rs",
+      "output::to_compact_review_output_for(\n                            r,\n                            ResultView::for_result(context.as_ref(), r, &inputs)",
+      "output::to_compact_review_output_for(\n                            r,\n                            ResultView::for_result(None, r, &inputs)",
+      "taint_context_cli_test::formats::c08_on_multi_each_format_and_review_suite"
+    ],
+    "CC09-multi-json-original-maps": [
+      "crates/prism-review/src/main.rs",
+      "output::to_review_output_for(\n                            r,\n                            ResultView::for_result(context.as_ref(), r, &inputs)",
+      "output::to_review_output_for(\n                            r,\n                            ResultView::for_result(None, r, &inputs)",
+      "taint_context_cli_test::formats::c08_on_multi_each_format_and_review_suite"
+    ],
+    "CC10-multi-text-original-maps": [
+      "crates/prism-review/src/main.rs",
+      "let view = ResultView::for_result(context.as_ref(), result, &inputs)",
+      "let view = ResultView::for_result(None, result, &inputs)",
+      "taint_context_cli_test::formats::c08_on_multi_each_format_and_review_suite"
+    ],
+    "CC11-single-compact-original-maps": [
+      "crates/prism-review/src/main.rs",
+      "output::to_compact_review_output_for(\n                    &result,\n                    ResultView::for_result(context.as_ref(), &result, &inputs)",
+      "output::to_compact_review_output_for(\n                    &result,\n                    ResultView::for_result(None, &result, &inputs)",
+      "taint_context_cli_test::formats::c07_on_single_each_format"
+    ],
+    "CC12-single-json-original-maps": [
+      "crates/prism-review/src/main.rs",
+      "output::to_review_output_for(\n                    &result,\n                    ResultView::for_result(context.as_ref(), &result, &inputs)",
+      "output::to_review_output_for(\n                    &result,\n                    ResultView::for_result(None, &result, &inputs)",
+      "taint_context_cli_test::formats::c07_on_single_each_format"
+    ],
+    "CC13-single-text-original-maps": [
+      "crates/prism-review/src/main.rs",
+      "let view = ResultView::for_result(context.as_ref(), &result, &inputs)",
+      "let view = ResultView::for_result(None, &result, &inputs)",
+      "taint_context_cli_test::formats::c10_text_block_is_not_header_only"
+    ],
+    "CC14-multi-sarif-no-context": [
+      "crates/prism-review/src/main.rs",
+      ".resolution(resolution);\n                    if let Some(diagnostics) = &diagnostics {\n                        sarif = sarif.boundary_diagnostics(diagnostics);\n                    }\n                    if let Some(context) = &context {\n                        sarif = sarif.context(context);\n                    }\n                    output::to_sarif(&sarif)",
+      ".resolution(resolution);\n                    if let Some(diagnostics) = &diagnostics {\n                        sarif = sarif.boundary_diagnostics(diagnostics);\n                    }\n                    output::to_sarif(&sarif)",
+      "taint_context_cli_test::formats::c08_on_multi_each_format_and_review_suite"
+    ],
+    "CC15-single-sarif-no-context": [
+      "crates/prism-review/src/main.rs",
+      ".resolution(cli.resolution);\n                    if let Some(diagnostics) = &diagnostics {\n                        sarif = sarif.boundary_diagnostics(diagnostics);\n                    }\n                    if let Some(context) = &context {\n                        sarif = sarif.context(context);\n                    }\n                    output::to_sarif(&sarif)",
+      ".resolution(cli.resolution);\n                    if let Some(diagnostics) = &diagnostics {\n                        sarif = sarif.boundary_diagnostics(diagnostics);\n                    }\n                    output::to_sarif(&sarif)",
+      "taint_context_cli_test::formats::c11_sarif_grade_and_fingerprint"
+    ],
+    "CC16-single-confidence-floor-ignored": [
+      "crates/prism-review/src/main.rs",
+      "run.filter_findings(&inputs, cli.min_confidence, cli.resolution);",
+      "run.filter_findings(&inputs, prism::finding_confidence::MinConfidence::NameOnly, cli.resolution);",
+      "taint_context_cli_test::formats::c12_resolution_and_floor"
+    ],
+    "CC17-targets-original-maps": [
+      "crates/prism-review/src/main.rs",
+      "        outcome.run.context(),\n        &meta,",
+      "        None,\n        &meta,",
+      "taint_context_cli_test::formats::c09_on_targets_stdout_out_and_strict"
+    ],
+    "CC18-clap-depth-zero": [
+      "crates/prism-review/src/cli.rs",
+      "clap::value_parser!(u8).range(1..=4)",
+      "clap::value_parser!(u8).range(0..=4)",
+      "taint_context_cli_test::grammar::malformed_and_out_of_range_are_rejected_before_loading"
+    ],
+    "CC19-clap-depth-five": [
+      "crates/prism-review/src/cli.rs",
+      "clap::value_parser!(u8).range(1..=4)",
+      "clap::value_parser!(u8).range(1..=5)",
+      "taint_context_cli_test::grammar::malformed_and_out_of_range_are_rejected_before_loading"
+    ],
+    "CC20-clap-max-files-zero": [
+      "crates/prism-review/src/cli.rs",
+      "if count == 0 {",
+      "if false {",
+      "taint_context_cli_test::grammar::malformed_and_out_of_range_are_rejected_before_loading"
+    ],
+    "CC21-clap-default-imports": [
+      "crates/prism-review/src/cli.rs",
+      "default_value_t = TaintContextMode::Off",
+      "default_value_t = TaintContextMode::Imports",
+      "taint_context_cli_test::grammar::help_lists_four_flags_with_shared_defaults"
+    ],
+    "CC22-clap-default-exact": [
+      "crates/prism-review/src/cli.rs",
+      "default_value_t = TaintContextEdges::NameOnly",
+      "default_value_t = TaintContextEdges::Exact",
+      "taint_context_cli_test::grammar::help_lists_four_flags_with_shared_defaults"
+    ]
+  }
+}

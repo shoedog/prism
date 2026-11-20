@@ -4,15 +4,28 @@
 //! propagates taint forward through assignments and function calls. Reports all
 //! paths from taint sources to potential sinks (SQL, exec, file ops, HTTP responses).
 
+mod attribution;
+pub(crate) mod boundary;
 mod cleansing;
+#[allow(dead_code)] // S4c2 is the first production caller.
+pub(crate) mod context_budget;
 mod flat;
+#[allow(dead_code)] // S4c2 supplies the first production caller.
+pub(crate) mod frontier;
 mod go;
 mod js_ts;
 mod python;
 mod report;
+#[allow(dead_code)] // S4d2 supplies the first production caller.
+pub(crate) mod result_union;
+#[allow(dead_code)] // S4d2 is the first production caller.
+pub(crate) mod rounds;
 mod run;
 mod seeds;
 mod sink_match;
+#[allow(dead_code)] // `slice_scoped` has no production caller until S4.
+mod source_scope;
+mod trace;
 
 pub use go::sinks::{GO_CWE22_SINKS, GO_CWE78_SINKS};
 pub use js_ts::sink_tables::{
@@ -22,6 +35,7 @@ pub use js_ts::sink_tables::{
 pub use python::sink_tables::{PY_CWE502_SINKS, PY_CWE79_SINKS, PY_CWE89_SINKS, PY_CWE918_SINKS};
 pub use run::slice;
 pub(crate) use sink_match::{line_matches_structured_sink, SinkMatchOutcome};
+pub use trace::{slice_with_trace, TaintReached, TaintRoot, TaintRootOrigin, TaintTrace};
 
 use go::sanitizers::PathSanitizerKind;
 use prism::access_path::AccessPath;
@@ -67,14 +81,17 @@ impl Default for TaintConfig {
     }
 }
 
+/// A source descriptor retained by the opt-in trace. Optional scopes identify
+/// framework targets; a missing byte offset does not establish an occurrence.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct TaintSeed {
-    file: String,
-    line: usize,
-    target: Option<AccessPath>,
-    start_byte: Option<usize>,
-    scope: Option<(usize, usize)>,
-    byte_scope: Option<(usize, usize)>,
+#[non_exhaustive]
+pub struct TaintSeed {
+    pub file: String,
+    pub line: usize,
+    pub target: Option<AccessPath>,
+    pub start_byte: Option<usize>,
+    pub scope: Option<(usize, usize)>,
+    pub byte_scope: Option<(usize, usize)>,
 }
 
 impl TaintSeed {

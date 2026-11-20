@@ -1,0 +1,78 @@
+{
+  "lane": "Complete private boundary collection (#602 S1b.3a)",
+  "test_targets": [{"prefix": "algorithms::taint::boundary::", "package": "prism-review", "target": "lib"}],
+  "mutations": {
+    "BC01-isolated-root-omitted": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "std::iter::once(&root.location)",
+      "std::iter::empty::<&VarLocation>()",
+      "algorithms::taint::boundary::collect::tests::isolated_roles_and_adjacent_calls_keep_exact_bytes"
+    ],
+    "BC02-source-context-used-at-destination": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "contexts.get(site.caller.file.as_str())",
+      "contexts.get(trace.roots.first().unwrap().location.file.as_str())",
+      "algorithms::taint::boundary::collect::tests::policy::injected_cross_file_reach_keeps_destination_exact_when_source_proof_fails"
+    ],
+    "BC03-loaded-suppression-omitted": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "group.iter().any(|call| loaded_callable(ctx, call))",
+      "false",
+      "algorithms::taint::boundary::collect::tests::policy::real_nameonly_full_presence_suppresses_even_when_wrapper_is_empty"
+    ],
+    "BC04-filtered-wrapper-presence": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      ".resolve_call_site_full(call)\n        .resolved",
+      ".resolve_call_site(call)",
+      "algorithms::taint::boundary::collect::tests::policy::real_nameonly_full_presence_suppresses_even_when_wrapper_is_empty"
+    ],
+    "BC05-nameonly-not-present": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "ctx.files.contains_key(&resolved.target.file)",
+      "resolved.confidence == prism::resolution::ResolutionConfidence::Exact && ctx.files.contains_key(&resolved.target.file)",
+      "algorithms::taint::boundary::collect::tests::policy::real_nameonly_full_presence_suppresses_even_when_wrapper_is_empty"
+    ],
+    "BC06-only-qualified-records-suppress": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "group.iter().any(|call| loaded_callable(ctx, call))",
+      "group.iter().any(|call| qualifies(call) && loaded_callable(ctx, call))",
+      "algorithms::taint::boundary::collect::tests::policy::controlled_alias_groups_use_all_records_and_agreeing_ordinary_tuples"
+    ],
+    "BC07-hint-looked-up-twice": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "let Some(hint) = lookup(representative) else",
+      "let Some(hint) = (lookup(representative), lookup(representative)).1 else",
+      "algorithms::taint::boundary::collect::tests::policy::complete_population_and_none_memo_survive_duplicate_reversed_roots"
+    ],
+    "BC08-go-declaration-uncertainty-lost": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "BoundaryKind::GoDeclarationUnknown",
+      "BoundaryKind::InRepo",
+      "algorithms::taint::boundary::collect::tests::go_declaring_sets_remain_distinct_from_package_candidates"
+    ],
+    "BC09-listing-failure-hidden": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "Availability::ListingUnavailable(message)",
+      "Availability::Available",
+      "algorithms::taint::boundary::collect::tests::policy::typed_failure_and_hints_preserve_successful_result_and_evidence"
+    ],
+    "BC10-display-cap-applied-to-collection": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "        records,\n    }",
+      "        records: records.into_iter().take(10).collect(),\n    }",
+      "algorithms::taint::boundary::collect::tests::policy::complete_population_and_none_memo_survive_duplicate_reversed_roots"
+    ],
+    "BC11-synthetic-only-hint-authorized": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      "site.origin == CallSiteOrigin::Source && site.source_callee_name.is_none()",
+      "true",
+      "algorithms::taint::boundary::collect::tests::policy::controlled_alias_groups_use_all_records_and_agreeing_ordinary_tuples"
+    ],
+    "BC12-conflicting-ordinary-tuples-accepted": [
+      "crates/prism-review/src/algorithms/taint/boundary/collect.rs",
+      ".all(|call| source_tuple(call) == source_tuple(first))",
+      ".all(|_| true)",
+      "algorithms::taint::boundary::collect::tests::policy::controlled_alias_groups_use_all_records_and_agreeing_ordinary_tuples"
+    ]
+  }
+}

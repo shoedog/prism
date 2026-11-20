@@ -1,0 +1,149 @@
+{
+  "lane": "Private atomic completed context rounds (#602 S4c2 D)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::rounds::tests::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "RD01-promote-bound": [
+      "crates/prism-review/src/algorithms/taint/rounds/driver.rs",
+      "Ok(staged) => (staged.bundle, staged.bound.map(Stop::Bound)),",
+      "Ok(staged) => (previous, staged.bound.map(Stop::Bound)),",
+      "algorithms::taint::rounds::tests::atomic::settle_drops_failed_and_empty_stages"
+    ],
+    "RD02-preserve-bound": [
+      "crates/prism-review/src/algorithms/taint/rounds/driver.rs",
+      "staged.bound.map(Stop::Bound)",
+      "None",
+      "algorithms::taint::rounds::tests::atomic::settle_drops_failed_and_empty_stages"
+    ],
+    "RD03-empty-bound": [
+      "crates/prism-review/src/algorithms/taint/rounds/driver.rs",
+      "Err(StageStop::NothingAccepted(Some(bound))) => (previous, Some(Stop::Bound(bound))),",
+      "Err(StageStop::NothingAccepted(Some(_bound))) => (previous, Some(Stop::FrontierExhausted)),",
+      "algorithms::taint::rounds::tests::bounds::cap_with_nothing_accepted_keeps_previous_bundle"
+    ],
+    "RD04-guard-stop": [
+      "crates/prism-review/src/algorithms/taint/rounds/driver.rs",
+      "Err(StageStop::Guard(cause)) => (previous, Some(Stop::Guard(cause))),",
+      "Err(StageStop::Guard(_cause)) => (previous, Some(Stop::FrontierExhausted)),",
+      "algorithms::taint::rounds::tests::atomic::guard_after_reads_promotes_nothing_and_attempts_are_not_refunded"
+    ],
+    "RD05-failed-stop": [
+      "crates/prism-review/src/algorithms/taint/rounds/driver.rs",
+      "Err(StageStop::Failed(message)) => (previous, Some(Stop::StageFailed(message))),",
+      "Err(StageStop::Failed(_message)) => (previous, Some(Stop::FrontierExhausted)),",
+      "algorithms::taint::rounds::tests::atomic::settle_drops_failed_and_empty_stages"
+    ],
+    "RD06-published": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "files: previous.published.files + accepted_count,",
+      "files: attempts.attempted_files as usize,",
+      "algorithms::taint::rounds::tests::bounds::per_file_skips_do_not_fail_the_round"
+    ],
+    "RD07-skipped-context": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "let published = Published {",
+      "context_files.extend(attempts.skips.iter().map(|(p, _)| p.clone()));\n    let published = Published {",
+      "algorithms::taint::rounds::tests::bounds::per_file_skips_do_not_fail_the_round"
+    ],
+    "RD10-staged-map": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "ReviewContextRound::new(request.loader, &files)",
+      "ReviewContextRound::new(request.loader, &previous.files)",
+      "algorithms::taint::rounds::tests::real::admitted_context_changes_analysis_and_produces_evidence"
+    ],
+    "RD12-loading": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "collect_round(&mut hints, ctx, &analysis.loading)",
+      "collect_round(&mut hints, ctx, &analysis.trace)",
+      "algorithms::taint::rounds::tests::bounds::completed_stage_plans_from_loading_not_framework_trace"
+    ],
+    "RD13-baseline-project": [
+      "crates/prism-review/src/algorithms/taint/rounds/driver.rs",
+      "project_loading_trace(request.baseline_trace, &originals, &request.inputs.files)",
+      "request.baseline_trace.clone()",
+      "algorithms::taint::rounds::tests::atomic::round_zero_projects_away_framework_roots"
+    ],
+    "RD14-loaded-continuation": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "if admission.accepted.is_empty() && !loaded_continuation",
+      "if admission.accepted.is_empty()",
+      "algorithms::taint::rounds::tests::atomic::loaded_continuation_advances_without_read_and_preserves_origins"
+    ],
+    "RD16-depth-bound": [
+      "crates/prism-review/src/algorithms/taint/rounds/driver.rs",
+      "*disposition == Disposition::DepthBound",
+      "false",
+      "algorithms::taint::rounds::tests::atomic::loaded_continuation_depth_boundary_and_no_pending_negative"
+    ],
+    "RD17-refused": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "        refused,\n        &mut |barrel, member|",
+      "        &BTreeSet::new(),\n        &mut |barrel, member|",
+      "algorithms::taint::rounds::tests::atomic::all_skips_with_loaded_continuation_preserves_attempts_and_refusal"
+    ],
+    "RD18-loop-continuation": [
+      "crates/prism-review/src/algorithms/taint/rounds/driver.rs",
+      "bundle.frontier.load_order.is_empty() && !loaded_continuation",
+      "bundle.frontier.load_order.is_empty()",
+      "algorithms::taint::rounds::tests::atomic::driver_advances_loaded_continuation_before_reading_next_file"
+    ],
+    "RM01-original-set": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "let original_files: BTreeSet<_> = request.inputs.files.keys().cloned().collect();",
+      "let original_files: BTreeSet<_> = files.keys().cloned().collect();",
+      "algorithms::taint::rounds::tests::matrix::routes::m05_context_sources_do_not_start_roots"
+    ],
+    "RM02-explicit-diff": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "            request.config,",
+      "            &TaintConfig { taint_from_diff: true, ..(*request.config).clone() },",
+      "algorithms::taint::rounds::tests::matrix::routes::m03_explicit_mode_suppresses_diff_and_context_roots"
+    ],
+    "RM03-return-flow": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "            request.config,",
+      "            &TaintConfig { return_flow: false, ..(*request.config).clone() },",
+      "algorithms::taint::rounds::tests::matrix::ceilings::m08_return_flow_through_actual_driver_both_ceilings"
+    ],
+    "RM04-renamed-hop": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      ".map(|hop| (hop.file, hop.member))",
+      ".map(|hop| (hop.file, member.to_string()))",
+      "algorithms::taint::rounds::tests::matrix::routes::m02_renamed_barrel_continuation_preserves_member"
+    ],
+    "RM05-stale-round-zero": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "let ctx = round.build_context(request.inputs.type_db.as_ref(), &request.baseline_ctx.types);",
+      "let ctx = request.baseline_ctx;",
+      "algorithms::taint::rounds::tests::matrix::controls::m07_round_zero_plain_scoped_and_native_cache_hit"
+    ],
+    "RM06-bound-priority": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "if admission.accepted.is_empty() && admission.bound.is_some() {",
+      "if admission.accepted.is_empty() && admission.bound.is_some() && !loaded_continuation {",
+      "algorithms::taint::rounds::tests::matrix::controls::f4_bound_precedes_loaded_continuation"
+    ],
+    "RM07-driver-stats": [
+      "crates/prism-review/src/algorithms/taint/rounds/driver.rs",
+      "if completed {",
+      "if !completed {",
+      "algorithms::taint::rounds::tests::matrix::controls::f5_actual_driver_guard_returns_completed_snapshot"
+    ],
+    "RD11-staged-policy": [
+      "crates/prism-review/src/algorithms/taint/rounds/stage.rs",
+      "TaintCrossingPolicy::new(&context_files, request.ceiling)",
+      "TaintCrossingPolicy::new(&context_files, prism::cpg::CrossingCeiling::NameOnly)",
+      "algorithms::taint::rounds::tests::matrix::ceilings::m06_actual_stage_ceiling_weak_and_exact_routes"
+    ]
+  },
+  "deferred": {
+    "RD08-guard-build": "Removed from executable D lane: current deterministic guard oracle observes only consultation count, not a behavioral distinction; no mutation credit.",
+    "RD09-guard-analysis": "Removed from executable D lane: current deterministic guard oracle observes only consultation count, not a behavioral distinction; no mutation credit.",
+    "RD15-no-read-guard": "Removed from executable D lane: deleting this first no-read consultation is unobservable in the existing always-firing guard oracle because a later guard returns the same stop; no mutation credit."
+  }
+}

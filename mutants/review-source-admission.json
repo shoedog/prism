@@ -1,0 +1,102 @@
+{
+  "lane": "Review source admission and private scoped outcome (#602 S3a.1s)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::source_scope::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "SA01-predicate-drops-original-check": [
+      "crates/prism-review/src/algorithms/taint/source_scope/admission.rs",
+      "loaded.contains_key(file) && original.contains(file)",
+      "loaded.contains_key(file)",
+      "algorithms::taint::source_scope::tests::routes::source_scope_filters_diff_files_and_capture"
+    ],
+    "SA02-predicate-drops-loaded-check": [
+      "crates/prism-review/src/algorithms/taint/source_scope/admission.rs",
+      "loaded.contains_key(file) && original.contains(file)",
+      "original.contains(file)",
+      "algorithms::taint::source_scope::tests::routes::source_scope_accounts_for_explicit_requests"
+    ],
+    "SA03-capture-explicit-roots-unscoped": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      "if !scope.admits_source_file(ctx.files, file) {",
+      "if false {",
+      "algorithms::taint::source_scope::tests::routes::source_scope_accounts_for_explicit_requests"
+    ],
+    "SA04-capture-diff-roots-unscoped": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      "&& scope.admits_source_file(ctx.files, &file.file_path)",
+      "&& true",
+      "algorithms::taint::source_scope::tests::routes::source_scope_filters_diff_files_and_capture"
+    ],
+    "SA05-full-framework-list-seeded": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "for fw_src in &framework_seeds {",
+      "for fw_src in &framework_sources {",
+      "algorithms::taint::source_scope::tests::routes::source_scope_filters_targetless_framework_seeds"
+    ],
+    "SA06-full-framework-list-given-to-capture": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "framework: &framework_seeds,",
+      "framework: &framework_sources,",
+      "algorithms::taint::source_scope::tests::routes::source_scope_retains_original_targeted_framework_seeds"
+    ],
+    "SA07-source-set-from-admitted-list": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "let framework_source_set: BTreeSet<(String, usize)> = framework_sources",
+      "let framework_source_set: BTreeSet<(String, usize)> = framework_seeds",
+      "algorithms::taint::source_scope::tests::facts::source_scope_keeps_full_source_recognition_and_global_sinks_go"
+    ],
+    "SA08-target-ranges-from-admitted-list": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "js_ts_framework_source_target_ranges_by_line(ctx.files, &framework_sources)",
+      "js_ts_framework_source_target_ranges_by_line(ctx.files, &framework_seeds)",
+      "algorithms::taint::source_scope::tests::facts::source_scope_keeps_full_source_recognition_and_global_sinks_js"
+    ],
+    "SA10-ipc-seeds-unfiltered": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "        .filter(|(file, _)| scope.admits_source_file(ctx.files, file))\n        .collect();",
+      "        .filter(|_| true)\n        .collect();",
+      "algorithms::taint::source_scope::tests::routes::source_scope_filters_ipc_roots_and_fallback"
+    ],
+    "SA11-explicit-seeds-unfiltered": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "        .filter(|(file, _)| scope.admits_source_file(ctx.files, file))\n        .map(|(file, line)| TaintSeed::line(file.clone(), *line))",
+      "        .filter(|_| true)\n        .map(|(file, line)| TaintSeed::line(file.clone(), *line))",
+      "algorithms::taint::source_scope::tests::routes::source_scope_accounts_for_explicit_requests"
+    ],
+    "SA12-diff-seeds-unscoped": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "if !scope.admits_source_file(ctx.files, &diff_info.file_path) {",
+      "if false {",
+      "algorithms::taint::source_scope::tests::routes::source_scope_filters_diff_files_and_capture"
+    ],
+    "SA13-inline-yaml-guard-removed": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "if !scope.admits_source_file(ctx.files, file) {",
+      "if false {",
+      "algorithms::taint::source_scope::tests::routes::source_scope_guards_independent_inline_yaml"
+    ],
+    "SA14-exclusion-precedence-swapped": [
+      "crates/prism-review/src/algorithms/taint/source_scope/admission.rs",
+      "let reason = if !ctx.files.contains_key(file) {\n            ExclusionReason::NotLoaded\n        } else if !original_files.contains(file) {\n            ExclusionReason::OutsideOriginalFiles",
+      "let reason = if !original_files.contains(file) {\n            ExclusionReason::OutsideOriginalFiles\n        } else if !ctx.files.contains_key(file) {\n            ExclusionReason::NotLoaded",
+      "algorithms::taint::source_scope::tests::routes::source_scope_accounts_for_explicit_requests"
+    ],
+    "SA15-exclusion-repeats-dropped": [
+      "crates/prism-review/src/algorithms/taint/source_scope/admission.rs",
+      "        excluded.push(ExcludedExplicit {\n            file: file.clone(),\n            line: *line,\n            reason,\n        });",
+      "        let seen = |e: &ExcludedExplicit| e.file == *file && e.line == *line;\n        if !excluded.iter().any(seen) {\n            excluded.push(ExcludedExplicit {\n                file: file.clone(),\n                line: *line,\n                reason,\n            });\n        }",
+      "algorithms::taint::source_scope::tests::routes::source_scope_accounts_for_explicit_requests"
+    ],
+    "SA16-loading-projected-from-empty-trace": [
+      "crates/prism-review/src/algorithms/taint/source_scope/admission.rs",
+      "project_loading_trace(&trace, original_files, ctx.files)",
+      "project_loading_trace(&TaintTrace::default(), original_files, ctx.files)",
+      "algorithms::taint::source_scope::tests::facts::source_scope_preserves_absent_and_all_original_results"
+    ]
+  }
+}

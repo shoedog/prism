@@ -1,0 +1,54 @@
+{
+  "lane": "Selected-source rendering and context-only result quality (#602 S5b-R)",
+  "test_targets": [
+    {
+      "prefix": "output::review::context_render_tests::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "RR01-json-empty-sources": [
+      "crates/prism-review/src/output/review.rs",
+      "let mut output = to_review_output(result, view.sources);",
+      "let mut output = to_review_output(result, &BTreeMap::new());",
+      "output::review::context_render_tests::r02_context_block_text_is_the_context_source"
+    ],
+    "RR02-compact-empty-sources": [
+      "crates/prism-review/src/output/review_compact.rs",
+      "let mut output = to_compact_review_output(\n        result,\n        view.sources,",
+      "let mut output = to_compact_review_output(\n        result,\n        &BTreeMap::new(),",
+      "output::review::context_render_tests::r02_context_block_text_is_the_context_source"
+    ],
+    "RR03-context-quality-includes-original": [
+      "crates/prism-review/src/output/review.rs",
+      ".filter(|(file, _)| context_files.is_some_and(|files| files.contains(*file)))",
+      ".filter(|_| context_files.is_some())",
+      "output::review::context_render_tests::r07_per_result_parse_quality_is_context_only"
+    ],
+    "RR04-none-quality-leaks": [
+      "crates/prism-review/src/output/review.rs",
+      ".filter(|(file, _)| context_files.is_some_and(|files| files.contains(*file)))",
+      ".filter(|(file, _)| context_files.is_none_or(|files| files.contains(*file)))",
+      "output::review::context_render_tests::r07_per_result_parse_quality_is_context_only"
+    ],
+    "RR05-compact-quality-dropped": [
+      "crates/prism-review/src/output/review_compact.rs",
+      "output.parse_quality = super::review::context_parse_quality(view, context_files);",
+      "output.parse_quality = BTreeMap::new();",
+      "output::review::context_render_tests::r07_per_result_parse_quality_is_context_only"
+    ],
+    "RR06-compact-floor-bypassed": [
+      "crates/prism-review/src/output/review_compact.rs",
+      "view.sources,\n        min_severity_rank,",
+      "view.sources,\n        0,",
+      "output::review::context_render_tests::r09_compact_floor_and_retention_see_context_blocks"
+    ],
+    "RR07-compact-annotations-dropped": [
+      "crates/prism-review/src/output/review_compact.rs",
+      "output.parse_quality = super::review::context_parse_quality(view, context_files);\n    output",
+      "output.parse_quality = super::review::context_parse_quality(view, context_files);\n    for block in &mut output.slices { block.source_lines.clear(); block.sink_lines.clear(); }\n    output",
+      "output::review::context_render_tests::r06_source_and_sink_line_annotations"
+    ]
+  }
+}

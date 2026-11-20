@@ -34,3 +34,4 @@ mod taint_sink_strength_sqla_a4_test;
 mod taint_sink_strength_sqla_test;
 mod taint_sink_strength_test;
 mod taint_sink_test;
+mod taint_trace_test;

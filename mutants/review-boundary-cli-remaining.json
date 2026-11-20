@@ -1,0 +1,42 @@
+{
+  "lane": "Remaining CLI boundary diagnostics (#602 S2c.2)",
+  "test_targets": [{"prefix": "taint_context_output_test::", "package": "prism-review", "target": "cli"}],
+  "mutations": {
+    "RCR01-single-paper-omitted": [
+      "crates/prism-review/src/main.rs",
+      "                let paper_output = output::to_paper_format(&result.blocks);\n                println!(\"{}\", serde_json::to_string_pretty(&paper_output)?);\n                if let Some(diagnostics) = &diagnostics {\n                    cli_output::write_messages(\n                        &mut std::io::stderr().lock(),\n                        &diagnostics.messages(),\n                    )?;\n                }",
+      "                let paper_output = output::to_paper_format(&result.blocks);\n                println!(\"{}\", serde_json::to_string_pretty(&paper_output)?);\n                if let Some(diagnostics) = diagnostics.as_ref().filter(|_| false) {\n                    cli_output::write_messages(\n                        &mut std::io::stderr().lock(),\n                        &diagnostics.messages(),\n                    )?;\n                }",
+      "taint_context_output_test::remaining::remaining_formats_keep_stdout_and_emit_once"
+    ],
+    "RCR02-single-mermaid-omitted": [
+      "crates/prism-review/src/main.rs",
+      "                    parse_quality: BTreeMap::new(),\n                    diagram_warnings: vec![],\n                };\n                let report = output::format_mermaid_report(&multi_result);\n                println!(\"{}\", report);\n                if let Some(diagnostics) = &diagnostics {\n                    cli_output::write_messages(\n                        &mut std::io::stderr().lock(),\n                        &diagnostics.messages(),\n                    )?;\n                }",
+      "                    parse_quality: BTreeMap::new(),\n                    diagram_warnings: vec![],\n                };\n                let report = output::format_mermaid_report(&multi_result);\n                println!(\"{}\", report);\n                if let Some(diagnostics) = diagnostics.as_ref().filter(|_| false) {\n                    cli_output::write_messages(\n                        &mut std::io::stderr().lock(),\n                        &diagnostics.messages(),\n                    )?;\n                }",
+      "taint_context_output_test::remaining::remaining_formats_keep_stdout_and_emit_once"
+    ],
+    "RCR03-multi-mermaid-omitted": [
+      "crates/prism-review/src/main.rs",
+      "                    warnings: inputs.parse_warnings.clone(),\n                    parse_quality: inputs.parse_quality.clone(),\n                    diagram_warnings: vec![],\n                };\n                let report = output::format_mermaid_report(&multi_result);\n                println!(\"{}\", report);\n                if let Some(diagnostics) = &diagnostics {\n                    cli_output::write_messages(\n                        &mut std::io::stderr().lock(),\n                        &diagnostics.messages(),\n                    )?;\n                }",
+      "                    warnings: inputs.parse_warnings.clone(),\n                    parse_quality: inputs.parse_quality.clone(),\n                    diagram_warnings: vec![],\n                };\n                let report = output::format_mermaid_report(&multi_result);\n                println!(\"{}\", report);\n                if let Some(diagnostics) = diagnostics.as_ref().filter(|_| false) {\n                    cli_output::write_messages(\n                        &mut std::io::stderr().lock(),\n                        &diagnostics.messages(),\n                    )?;\n                }",
+      "taint_context_output_test::remaining::remaining_formats_keep_stdout_and_emit_once"
+    ],
+    "RCR04-multi-text-duplicated": [
+      "crates/prism-review/src/main.rs",
+      "for w in &warnings {",
+      "for w in warnings.iter().chain(&warnings) {",
+      "taint_context_output_test::remaining::remaining_formats_keep_stdout_and_emit_once"
+    ],
+    "RCR05-targets-parse-duplicated": [
+      "crates/prism-review/src/main.rs",
+      "run_warnings.extend(diagnostics.messages());",
+      "run_warnings.extend(outcome.run.warnings.clone());",
+      "taint_context_output_test::remaining::targets_facade_prefix_filter_out_and_strict"
+    ],
+    "RCR06-message-summary-truncated": [
+      "crates/prism-review/src/cli_output.rs",
+      "for message in messages {",
+      "for message in messages.iter().take(10) {",
+      "taint_context_output_test::remaining::remaining_formats_keep_stdout_and_emit_once"
+    ]
+  }
+}

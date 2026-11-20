@@ -11,7 +11,7 @@ use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use super::var_index::VarKeyRef;
-use super::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, VarAccess};
+use super::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, TaintCrossingPolicy, VarAccess};
 
 /// Confidence filter for node-seeded traversal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -704,9 +704,10 @@ impl CodePropertyGraph {
         (reachable, labels)
     }
 
-    pub(crate) fn dfg_forward_reachable_with_evidence(
+    pub(crate) fn dfg_forward_reachable_with_evidence_policy(
         &self,
         from: &VarLocation,
+        policy: Option<&TaintCrossingPolicy<'_>>,
     ) -> (
         BTreeSet<VarLocation>,
         BTreeMap<NodeIndex, FlowConfidence>,
@@ -755,7 +756,9 @@ impl CodePropertyGraph {
                 .collect();
             data_flow_targets.sort_by_key(|(target, _)| target.index());
             for (target, confidence) in data_flow_targets {
-                if !visited.contains(&target) {
+                if !visited.contains(&target)
+                    && self.crossing_admitted(policy, node, target, confidence)
+                {
                     queue.push_back((
                         target,
                         path_confidence.worst(confidence),
@@ -1011,9 +1014,10 @@ impl CodePropertyGraph {
         self.taint_forward_labeled(taint_sources).0
     }
 
-    pub(crate) fn taint_forward_labeled(
+    pub(crate) fn taint_forward_labeled_policy(
         &self,
         taint_sources: &[(String, usize)],
+        policy: Option<&TaintCrossingPolicy<'_>>,
     ) -> (
         Vec<crate::data_flow::FlowPath>,
         BTreeMap<(VarLocation, VarLocation), EvidencePath>,
@@ -1032,7 +1036,7 @@ impl CodePropertyGraph {
                     None => continue,
                 };
                 let (reachable, _, evidence_by_node) =
-                    self.dfg_forward_reachable_with_evidence(&src_loc);
+                    self.dfg_forward_reachable_with_evidence_policy(&src_loc, policy);
                 if !reachable.is_empty() {
                     for target in &reachable {
                         let path = self

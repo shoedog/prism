@@ -1,11 +1,14 @@
+mod cli_nav;
+mod cli_output;
+
 use anyhow::{Context, Result};
 use clap::Parser;
+use cli_output::{determine_exit_code, emit_warnings_to_stderr, targets_exit_code};
 use prism::slice::{MultiSliceResult, SliceConfig};
-use prism_review::cli::{Cli, Command, NavArgs, NavQuery, ReviewArgs, TargetsArgs};
+use prism_review::cli::{Cli, Command, ReviewArgs, TargetsArgs};
 use prism_review::output;
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::Write;
 
 // #437: the `prism` CLI uses jemalloc on Linux; glibc arenas retain several GiB
 // under the parallel CPG build. `prism-mcp` deliberately stays on the system
@@ -13,25 +16,6 @@ use std::io::Write;
 #[cfg(target_os = "linux")]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
-
-/// Parse `file:line` CLI seed specs into `SeedSpec::Loc`, delegating to
-/// `reasoning::seeds::parse_file_line_spec` for the actual normalization and
-/// minimum-line validation. This stays a small wrapper here (rather than
-/// calling `mcp::input::parse_taint_reaches` directly) because the whole
-/// `mcp` module lives behind the `mcp` feature, while `nav` subcommands (and
-/// the `reasoning` layer they call into) are built by default with no
-/// feature flag -- but `parse_file_line_spec` itself is the single
-/// implementation MCP's loc-seed parser also calls into, so `./app.py:2` and
-/// line `0` are handled identically on both paths (F3, P6bc review). See
-/// CLAUDE.md's MCP Adapter section.
-fn parse_loc_seeds(
-    specs: &[String],
-) -> std::result::Result<Vec<prism::reasoning::seeds::SeedSpec>, String> {
-    specs
-        .iter()
-        .map(|spec| prism::reasoning::seeds::parse_file_line_spec(spec))
-        .collect()
-}
 
 fn main() -> Result<()> {
     let _profile = prism::profile::Session::start();
@@ -52,309 +36,10 @@ fn main() -> Result<()> {
     // all of run_nav/run_review (incl. direct changed-file / delta / contract
     // parses) in one place. See prism::build_pool.
     prism::build_pool::install(|| match &cli.command {
-        Some(Command::Nav(nav)) => run_nav(nav),
+        Some(Command::Nav(nav)) => cli_nav::run_nav(nav),
         Some(Command::Targets(targets)) => run_targets(targets),
         None => run_review(&cli.review),
     })
-}
-
-fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
-    let mut nav_options = prism::api::NavOptions::default();
-    nav_options.no_cache = nav.no_cache;
-    nav_options.cache_dir = nav.cache_dir.clone();
-    nav_options.owner = nav.owner.options()?;
-    match &nav.query {
-        NavQuery::NodesAt {
-            repo,
-            location,
-            format,
-        } => {
-            let (file, line) = location
-                .rsplit_once(':')
-                .and_then(|(f, l)| l.parse::<usize>().ok().map(|n| (f.to_string(), n)))
-                .ok_or_else(|| anyhow::anyhow!("--location must be file:line"))?;
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            let ev = prism::navigation::queries::nodes_at(&session, &file, line);
-            println!("{}", prism_review::output::navigation::render(&ev, format));
-            Ok(())
-        }
-        NavQuery::SymbolSpans {
-            repo,
-            symbol,
-            file,
-            location,
-            format,
-        } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            match prism::navigation::queries::symbol_spans(
-                &session,
-                symbol.as_deref(),
-                file.as_deref(),
-                location.as_deref(),
-            ) {
-                Ok(result) => {
-                    println!(
-                        "{}",
-                        prism_review::output::navigation::render_symbol_spans(&result, format)
-                    );
-                    Ok(())
-                }
-                Err(error) => {
-                    let (rendered, code) =
-                        prism_review::output::navigation::render_err(&error, format);
-                    println!("{rendered}");
-                    prism::profile::exit(code);
-                }
-            }
-        }
-        NavQuery::Callers {
-            repo,
-            symbol,
-            file,
-            location,
-            depth,
-            confidence,
-            format,
-        } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            let exact = confidence == "exact";
-            match prism::navigation::queries::callers_with_confidence(
-                &session,
-                symbol.as_deref(),
-                file.as_deref(),
-                location.as_deref(),
-                *depth,
-                exact,
-            ) {
-                Ok(ev) => {
-                    println!("{}", prism_review::output::navigation::render(&ev, format));
-                    Ok(())
-                }
-                Err(e) => {
-                    let (s, code) = prism_review::output::navigation::render_err(&e, format);
-                    println!("{s}");
-                    prism::profile::exit(code);
-                }
-            }
-        }
-        NavQuery::Callees {
-            repo,
-            symbol,
-            file,
-            location,
-            depth,
-            confidence,
-            format,
-        } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            let exact = confidence == "exact";
-            match prism::navigation::queries::callees_with_confidence(
-                &session,
-                symbol.as_deref(),
-                file.as_deref(),
-                location.as_deref(),
-                *depth,
-                exact,
-            ) {
-                Ok(ev) => {
-                    println!("{}", prism_review::output::navigation::render(&ev, format));
-                    Ok(())
-                }
-                Err(e) => {
-                    let (s, code) = prism_review::output::navigation::render_err(&e, format);
-                    println!("{s}");
-                    prism::profile::exit(code);
-                }
-            }
-        }
-        NavQuery::Ego {
-            repo,
-            symbol,
-            file,
-            location,
-            hops,
-            edges,
-            format,
-        } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            let edge_kinds: Vec<&str> = edges.split(',').collect();
-            match prism::navigation::queries::ego_graph(
-                &session,
-                symbol.as_deref(),
-                file.as_deref(),
-                location.as_deref(),
-                *hops,
-                &edge_kinds,
-            ) {
-                Ok(ev) => {
-                    println!("{}", prism_review::output::navigation::render(&ev, format));
-                    Ok(())
-                }
-                Err(e) => {
-                    let (s, code) = prism_review::output::navigation::render_err(&e, format);
-                    println!("{s}");
-                    prism::profile::exit(code);
-                }
-            }
-        }
-        NavQuery::ModuleDeps { repo, file, format } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            let ev = prism::navigation::module_graph::module_deps(&session, file);
-            println!("{}", prism_review::output::navigation::render(&ev, format));
-            Ok(())
-        }
-        NavQuery::RepoMap { repo, format } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            let ev = prism::navigation::module_graph::repo_map(&session);
-            println!("{}", prism_review::output::navigation::render(&ev, format));
-            Ok(())
-        }
-        NavQuery::Onboard { repo, format, out } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            let report = prism::navigation::onboarding::build_report(&session)?;
-            let rendered = prism_review::output::onboarding::render(&report, format)?;
-            if let Some(path) = out {
-                let mut file = match std::fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .open(path)
-                {
-                    Ok(file) => file,
-                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                        anyhow::bail!(
-                            "onboarding report target already exists: {}",
-                            path.display()
-                        )
-                    }
-                    Err(error) => {
-                        return Err(error).with_context(|| {
-                            format!("failed to create onboarding report {}", path.display())
-                        })
-                    }
-                };
-                if let Err(error) = file
-                    .write_all(rendered.as_bytes())
-                    .and_then(|_| file.sync_all())
-                {
-                    drop(file);
-                    if let Err(cleanup_error) = std::fs::remove_file(path) {
-                        anyhow::bail!(
-                            "failed to write onboarding report {}: {error}; failed to remove partial report: {cleanup_error}",
-                            path.display()
-                        );
-                    }
-                    return Err(error).with_context(|| {
-                        format!("failed to write onboarding report {}", path.display())
-                    });
-                }
-            } else {
-                print!("{rendered}");
-            }
-            Ok(())
-        }
-        NavQuery::CallStats { repo, dump_sites } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            if *dump_sites {
-                for site in
-                    prism::navigation::queries::call_site_dump_iter(session.index.call_graph())
-                {
-                    println!("{}", serde_json::to_string(&site)?);
-                }
-            } else {
-                let mut stats = prism::navigation::queries::call_stats(session.index.call_graph());
-                stats.as_object_mut().expect("call-stats object").insert(
-                    "return_flow".into(),
-                    serde_json::to_value(&session.index.cpg().return_flow_stats)?,
-                );
-                stats.as_object_mut().expect("call-stats object").insert(
-                    "dfg_labels".into(),
-                    serde_json::to_value(&session.index.cpg().dfg_label_stats)?,
-                );
-                println!("{}", serde_json::to_string_pretty(&stats)?);
-            }
-            Ok(())
-        }
-        NavQuery::DfgStats { repo, edges } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            if *edges {
-                for edge in prism::navigation::queries::dfg_edge_dump(session.index.cpg()) {
-                    println!("{}", serde_json::to_string(&edge)?);
-                }
-            } else {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&session.index.cpg().dfg_label_stats)?
-                );
-            }
-            Ok(())
-        }
-        NavQuery::InterfaceManifest { repo } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            let manifest =
-                prism::navigation::queries::interface_dispatch_manifest(session.index.call_graph());
-            println!("{}", serde_json::to_string_pretty(&manifest)?);
-            Ok(())
-        }
-        NavQuery::Functions { repo, format } => {
-            let recs = prism::navigation::inventory::functions_inventory(repo)?;
-            if format == "json" {
-                println!("{}", serde_json::to_string_pretty(&recs)?);
-            } else {
-                for r in &recs {
-                    println!(
-                        "{}:{}-{} {} [{}]",
-                        r.file,
-                        r.start_line,
-                        r.end_line,
-                        r.name.as_deref().unwrap_or("<anon>"),
-                        r.kind
-                    );
-                }
-            }
-            Ok(())
-        }
-        NavQuery::TaintReaches {
-            repo,
-            source,
-            sink,
-            format,
-        } => {
-            let session = prism::api::nav_session(repo, &nav_options)?;
-            let sources = match parse_loc_seeds(source) {
-                Ok(seeds) => seeds,
-                Err(msg) => {
-                    eprintln!("error: {msg}");
-                    prism::profile::exit(2);
-                }
-            };
-            let sinks = if sink.is_empty() {
-                None
-            } else {
-                match parse_loc_seeds(sink) {
-                    Ok(seeds) => Some(seeds),
-                    Err(msg) => {
-                        eprintln!("error: {msg}");
-                        prism::profile::exit(2);
-                    }
-                }
-            };
-            match prism::reasoning::taint_reaches::taint_reaches(
-                &session,
-                &sources,
-                sinks.as_deref(),
-            ) {
-                Ok(ev) => {
-                    println!("{}", prism_review::output::navigation::render(&ev, format));
-                    Ok(())
-                }
-                Err(e) => {
-                    let (s, code) = prism_review::output::navigation::render_err(&e, format);
-                    println!("{s}");
-                    prism::profile::exit(code);
-                }
-            }
-        }
-    }
 }
 
 fn run_targets(args: &TargetsArgs) -> Result<()> {
@@ -425,6 +110,7 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
 
     let mut algorithm_params = prism_review::api::AlgorithmParams::default();
     algorithm_params.old_repo = args.old_repo.clone();
+    algorithm_params.taint_context = args.taint_context.options();
     let config = SliceConfig {
         algorithm: algorithms[0],
         scoped_cpg: args.scoped_cpg,
@@ -441,6 +127,9 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
     let mut run_warnings = outcome.inputs.parse_warnings.clone();
     run_warnings.extend(outcome.inputs.load_warnings.clone());
     run_warnings.extend(outcome.build_warnings.clone());
+    if let Some(diagnostics) = &outcome.run.diagnostics {
+        run_warnings.extend(diagnostics.messages());
+    }
     let min_tier = if args.min_tier == "asserted" {
         prism::api::FindingTier::Asserted
     } else {
@@ -458,10 +147,11 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
     meta.min_tier = min_tier;
     meta.min_confidence = outcome.min_confidence;
     meta.resolution = outcome.resolution;
-    let document = prism_review::targets::project(
+    let document = prism_review::targets::project_in_context(
         &outcome.run.findings,
         &outcome.run.evidence,
         &outcome.inputs,
+        outcome.run.context(),
         &meta,
     );
 
@@ -495,15 +185,9 @@ fn repo_sha(repo: &std::path::Path) -> Option<String> {
     (!sha.is_empty()).then(|| sha.to_string())
 }
 
-fn targets_exit_code(strict: bool, errors: &[prism::slice::AlgorithmError]) -> i32 {
-    if strict && !errors.is_empty() {
-        3
-    } else {
-        0
-    }
-}
-
 fn run_review(cli: &ReviewArgs) -> Result<()> {
+    use prism_review::api::{ResultView, ReviewAuthority, TaintContextMode};
+
     if cli.list_algorithms {
         println!("Available algorithms:\n");
         println!("  Paper (arXiv:2505.17928):");
@@ -653,12 +337,19 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
     algorithm_params.layers = cli.layers.clone();
     algorithm_params.concern = cli.concern.clone();
     algorithm_params.temporal_days = cli.temporal_days;
+    algorithm_params.taint_context = cli.taint_context.options();
 
     let inputs = prism::api::load_review_inputs(&review_options, &diff_text)?;
     let built = prism::api::build_context(&inputs, &review_options)?;
 
     // --format callers: emit raw call graph without running any algorithm.
     if cli.format == "callers" {
+        if cli.taint_context.mode == TaintContextMode::Imports {
+            cli_output::write_messages(
+                &mut std::io::stderr().lock(),
+                &["taint-context ignored: --format callers runs no algorithm".into()],
+            )?;
+        }
         let callers_output = output::to_callers_output(&built.ctx, &inputs.diff, cli.caller_depth);
         println!("{}", serde_json::to_string_pretty(&callers_output)?);
         return Ok(());
@@ -666,14 +357,17 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
 
     if multi_run {
         // --- Multi-algorithm run ---
-        let run = prism_review::api::run_review(
+        let mut run = prism_review::api::run_review_authorized(
             &built.ctx,
-            &inputs,
+            ReviewAuthority::capture(&inputs),
             &algorithms_to_run,
             &config,
             &algorithm_params,
             repo,
         );
+        let context = run.take_context();
+        let diagnostics = run.diagnostics;
+        let warnings = run.warnings;
         let results = run.results;
         let all_errors = run.errors;
         let algorithms_run = run.algorithms_run;
@@ -695,9 +389,9 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 let review_results: Vec<_> = results
                     .iter()
                     .map(|r| {
-                        output::to_compact_review_output(
+                        output::to_compact_review_output_for(
                             r,
-                            &inputs.sources,
+                            ResultView::for_result(context.as_ref(), r, &inputs),
                             min_rank,
                             cli.review_full_slices,
                             cli.review_no_diagrams,
@@ -724,7 +418,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     all_findings: filtered_all_findings,
                     findings_below_floor,
                     errors: all_errors,
-                    warnings: inputs.parse_warnings.clone(),
+                    warnings,
                     parse_quality: inputs.parse_quality.clone(),
                     diagram_warnings: all_diagram_warnings.clone(),
                 };
@@ -744,7 +438,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     .collect();
                 let review_results: Vec<_> = results
                     .iter()
-                    .map(|r| output::to_review_output(r, &inputs.sources))
+                    .map(|r| {
+                        output::to_review_output_for(
+                            r,
+                            ResultView::for_result(context.as_ref(), r, &inputs),
+                        )
+                    })
                     .collect();
                 let out = output::MultiReviewOutput {
                     version: "1.0".to_string(),
@@ -752,7 +451,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     results: review_results,
                     all_findings,
                     errors: all_errors,
-                    warnings: inputs.parse_warnings.clone(),
+                    warnings,
                     parse_quality: inputs.parse_quality.clone(),
                     diagram_warnings: all_diagram_warnings.clone(),
                 };
@@ -771,8 +470,8 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     .iter()
                     .flat_map(|r| r.diagram_warnings.iter().cloned())
                     .collect();
-                let document = output::to_sarif(
-                    &output::SarifInputs::new(&all_findings)
+                let document = {
+                    let mut sarif = output::SarifInputs::new(&all_findings)
                         .evidence(&all_evidence)
                         .errors(&all_errors)
                         .parse_warnings(&inputs.parse_warnings)
@@ -783,8 +482,15 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                         .files(&inputs.files)
                         .sources(&inputs.sources)
                         .min_confidence(min_confidence)
-                        .resolution(resolution),
-                );
+                        .resolution(resolution);
+                    if let Some(diagnostics) = &diagnostics {
+                        sarif = sarif.boundary_diagnostics(diagnostics);
+                    }
+                    if let Some(context) = &context {
+                        sarif = sarif.context(context);
+                    }
+                    output::to_sarif(&sarif)
+                };
                 println!("{}", serde_json::to_string_pretty(&document)?);
                 emit_warnings_to_stderr(&all_diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
@@ -805,6 +511,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 };
                 let report = output::format_mermaid_report(&multi_result);
                 println!("{}", report);
+                if let Some(diagnostics) = &diagnostics {
+                    cli_output::write_messages(
+                        &mut std::io::stderr().lock(),
+                        &diagnostics.messages(),
+                    )?;
+                }
                 let warnings = multi_result.aggregate_diagram_warnings();
                 emit_warnings_to_stderr(&warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);
@@ -813,14 +525,15 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 }
             }
             _ => {
-                for w in &inputs.parse_warnings {
+                for w in &warnings {
                     eprintln!("WARNING: {}", w);
                 }
                 for result in &results {
                     println!("=== {} ===", result.algorithm.name());
+                    let view = ResultView::for_result(context.as_ref(), result, &inputs);
                     print!(
                         "{}",
-                        output::format_slice_result(&result.blocks, &inputs.sources)
+                        output::format_slice_result(&result.blocks, view.sources())
                     );
                 }
                 let all_diagram_warnings: Vec<_> = results
@@ -837,30 +550,36 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
     } else {
         // --- Single-algorithm run ---
         let algorithm = algorithms_to_run[0];
-        let mut result = prism_review::api::run_algorithm(
+        let mut run = prism_review::api::run_algorithm_authorized(
             algorithm,
             &built.ctx,
-            &inputs,
+            ReviewAuthority::capture(&inputs),
             &config,
             &algorithm_params,
             repo,
         )?;
+        run.filter_findings(&inputs, cli.min_confidence, cli.resolution);
+        let (outcome, context) = run.into_parts();
+        let diagnostics = outcome.diagnostics;
+        let mut result = outcome.result;
+        let ordinary_warnings = std::mem::take(&mut result.warnings);
         result.warnings = inputs.parse_warnings.clone();
-        prism_review::api::filter_result_findings(
-            &mut result,
-            &inputs,
-            cli.min_confidence,
-            cli.resolution,
-        );
+        if !matches!(cli.format.as_str(), "paper" | "mermaid" | "sarif") {
+            result.warnings = cli_output::compose_warnings(
+                &inputs.parse_warnings,
+                &ordinary_warnings,
+                diagnostics.iter().flat_map(|d| d.messages()),
+            );
+        }
 
         match cli.format.as_str() {
             "review" => {
                 // Compact review-only path (P1 Change 3): severity floor +
                 // block retention + dropped slice_lines/diff_lines.
                 let min_rank = output::severity_rank(&cli.review_min_severity);
-                let review = output::to_compact_review_output(
+                let review = output::to_compact_review_output_for(
                     &result,
-                    &inputs.sources,
+                    ResultView::for_result(context.as_ref(), &result, &inputs),
                     min_rank,
                     cli.review_full_slices,
                     cli.review_no_diagrams,
@@ -875,7 +594,10 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             "json" => {
                 // json retains the old ReviewOutput structure byte-for-byte
                 // (compatibility tests pin this shape — see nav_compat_test.rs).
-                let review = output::to_review_output(&result, &inputs.sources);
+                let review = output::to_review_output_for(
+                    &result,
+                    ResultView::for_result(context.as_ref(), &result, &inputs),
+                );
                 println!("{}", serde_json::to_string_pretty(&review)?);
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
@@ -886,6 +608,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             "paper" => {
                 let paper_output = output::to_paper_format(&result.blocks);
                 println!("{}", serde_json::to_string_pretty(&paper_output)?);
+                if let Some(diagnostics) = &diagnostics {
+                    cli_output::write_messages(
+                        &mut std::io::stderr().lock(),
+                        &diagnostics.messages(),
+                    )?;
+                }
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
                 if exit_code != 0 {
@@ -895,13 +623,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
             "sarif" => {
                 // Single-run: no AlgorithmError can exist (a failing algorithm
                 // is a hard `?` above), so `errors` keeps the builder's empty
-                // default; `result.warnings` already carries the parse warnings
-                // assigned at the top of this branch.
+                // default. Keep original warning channels separate from notes.
                 let algorithms_run = vec![algorithm.name().to_string()];
-                let document = output::to_sarif(
-                    &output::SarifInputs::new(&result.findings)
+                let document = {
+                    let mut sarif = output::SarifInputs::new(&result.findings)
                         .evidence(&result.evidence)
-                        .parse_warnings(&result.warnings)
+                        .parse_warnings(&inputs.parse_warnings)
                         .load_warnings(&inputs.load_warnings)
                         .build_warnings(&built.warnings)
                         .algorithms_run(&algorithms_run)
@@ -909,8 +636,15 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                         .files(&inputs.files)
                         .sources(&inputs.sources)
                         .min_confidence(cli.min_confidence)
-                        .resolution(cli.resolution),
-                );
+                        .resolution(cli.resolution);
+                    if let Some(diagnostics) = &diagnostics {
+                        sarif = sarif.boundary_diagnostics(diagnostics);
+                    }
+                    if let Some(context) = &context {
+                        sarif = sarif.context(context);
+                    }
+                    output::to_sarif(&sarif)
+                };
                 println!("{}", serde_json::to_string_pretty(&document)?);
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
@@ -932,6 +666,12 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 };
                 let report = output::format_mermaid_report(&multi_result);
                 println!("{}", report);
+                if let Some(diagnostics) = &diagnostics {
+                    cli_output::write_messages(
+                        &mut std::io::stderr().lock(),
+                        &diagnostics.messages(),
+                    )?;
+                }
                 let warnings = multi_result.aggregate_diagram_warnings();
                 emit_warnings_to_stderr(&warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);
@@ -943,9 +683,10 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 for w in &result.warnings {
                     eprintln!("WARNING: {}", w);
                 }
+                let view = ResultView::for_result(context.as_ref(), &result, &inputs);
                 print!(
                     "{}",
-                    output::format_slice_result(&result.blocks, &inputs.sources)
+                    output::format_slice_result(&result.blocks, view.sources())
                 );
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
@@ -957,29 +698,6 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn emit_warnings_to_stderr(warnings: &[prism::slice::DiagramWarning]) {
-    use std::io::Write;
-    let mut err = std::io::stderr().lock();
-    for w in warnings {
-        let title = w.graph_title.as_deref().unwrap_or("(no title)");
-        let _ = writeln!(
-            err,
-            "prism: diagram warning: {}/{} - {:?}: {}",
-            w.algorithm, title, w.kind, w.detail
-        );
-    }
-}
-
-fn determine_exit_code(strict: bool, warnings: &[prism::slice::DiagramWarning]) -> i32 {
-    if !strict {
-        return 0;
-    }
-    if warnings.iter().any(|w| w.kind.is_bug()) {
-        return 2;
-    }
-    0
 }
 
 #[cfg(test)]
@@ -1005,55 +723,5 @@ mod cli_parse_tests {
                 &prism::diff::DiffInput,
                 &prism::slice::SliceConfig,
             ) -> anyhow::Result<prism::slice::SliceResult>;
-    }
-}
-
-#[cfg(test)]
-mod exit_tests {
-    use super::*;
-    use prism::slice::{DiagramWarning, DiagramWarningKind};
-
-    fn warn(kind: DiagramWarningKind) -> DiagramWarning {
-        DiagramWarning {
-            algorithm: "Taint".to_string(),
-            graph_title: None,
-            kind,
-            detail: "x".to_string(),
-        }
-    }
-
-    #[test]
-    fn determine_exit_code_strict_with_bug_warning() {
-        let warns = vec![warn(DiagramWarningKind::DanglingEdge)];
-        assert_eq!(determine_exit_code(true, &warns), 2);
-    }
-
-    #[test]
-    fn determine_exit_code_strict_with_only_informational() {
-        let warns = vec![warn(DiagramWarningKind::NodeCapExceeded)];
-        assert_eq!(determine_exit_code(true, &warns), 0);
-    }
-
-    #[test]
-    fn determine_exit_code_strict_off() {
-        let warns = vec![warn(DiagramWarningKind::DanglingEdge)];
-        assert_eq!(determine_exit_code(false, &warns), 0);
-    }
-
-    #[test]
-    fn determine_exit_code_strict_no_warnings() {
-        let warns: Vec<DiagramWarning> = vec![];
-        assert_eq!(determine_exit_code(true, &warns), 0);
-    }
-
-    #[test]
-    fn targets_strict_exit_code_tracks_algorithm_errors() {
-        let errors = vec![prism::slice::AlgorithmError {
-            algorithm: "DeltaSlice".to_string(),
-            error: "fixture error".to_string(),
-        }];
-        assert_eq!(targets_exit_code(true, &errors), 3);
-        assert_eq!(targets_exit_code(false, &errors), 0);
-        assert_eq!(targets_exit_code(true, &[]), 0);
     }
 }
