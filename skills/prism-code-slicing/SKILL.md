@@ -57,6 +57,28 @@ this change depend on / affect." Reach for a specific one only when the question
 
 When unsure, run a small set (`leftflow,fullflow,absence`) and read the union — cheaper than guessing.
 
+### Follow a tainted argument across an import
+
+Use `--taint-context imports` when a tainted argument reaches an imported function and you
+want to inspect where it goes in the same repository. Select `taint` explicitly for a
+single-algorithm review or for `prism targets`. Context loading defaults to off. It supports
+JavaScript (including JSX), TypeScript (including TSX), Python and Go. In Go, expansion
+loads only identified declaring files.
+
+```bash
+prism --repo . --diff /tmp/change.patch --algorithm taint --taint-context imports --format review
+```
+
+Read a boundary note as a place where the analysis could not follow the call. A suggested
+file is a loading hint. Even if Prism loads it, the callee can remain unresolved. To inspect
+a reported sink, open the finding's `file` at its `line`, read the `description`, and check
+`related_files` when present. A note alone establishes neither a resolved target nor a vulnerability.
+
+Check diagnostics for skipped files and depth, file, source-byte or time bounds before
+interpreting an absent sink. The analysis covers the original review files and admitted
+context. A clean grade describes one file's parse, and an unloaded sanitizer is invisible.
+Other algorithms in the same run still use the original files.
+
 ## Output formats
 
 `--format text` (default, human) · `json` (machine — pipe to `jq` or an LLM, full uncompacted shape)
