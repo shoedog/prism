@@ -408,7 +408,7 @@ prism --repo . --diff /tmp/diff.patch -a delta --old-repo /path/to/old/version
 |---|---|---|
 | Text (default) | `text` | Human-readable, line-numbered output with `+` marking changed lines and `...` for gaps |
 | JSON | `json` | Full `SliceResult`/`MultiReviewOutput` — algorithm name, blocks, line maps, diff metadata |
-| Paper | `paper` | Matches the `diff_outputs.json` format from the original paper |
+| Paper | `paper` | Paper-format JSON for a single algorithm. Multiple algorithms use the per-algorithm text output. |
 | Review | `review` | Compact, findings-first JSON for code-review agents (severity floor + block retention; see `--review-*` flags) |
 | Callers | `callers` | Raw call graph for the diff's changed functions — no algorithm runs |
 | Mermaid | `mermaid` | Mermaid flowchart diagrams of the slice graph |
@@ -423,11 +423,29 @@ prism --repo . --diff changes.patch --format callers
 prism --repo . --diff changes.patch --format mermaid
 ```
 
+**Taint context diagnostics.** A boundary note identifies a tainted argument whose call Prism
+could not follow. An import hint suggests a file to inspect. Neither establishes a finding, a
+resolved callee or a vulnerability. With `--taint-context imports`, a note can also explain
+that Prism loaded the file but still could not resolve the call.
+
+- `json` and `review` put notes in `warnings` on the single result or the multi-algorithm run.
+  In multi-algorithm output, the run-level `parse_quality` describes the original inputs.
+  The taint result's own `parse_quality` lists only admitted context files whose parse error
+  rate exceeds 1%. Empty maps are omitted. A clean grade describes that file's parse only.
+- `sarif` puts notes in `invocations[].toolExecutionNotifications`. Results keep the same
+  rule IDs and schema. For taint findings, grading and fingerprint line text can use admitted files.
+- `text`, `paper` and `mermaid` print the notes on stderr. With `callers`, Prism runs no
+  algorithm and loads no taint context. Requesting `imports` adds one stderr warning,
+  `taint-context ignored: --format callers runs no algorithm`, with the usual callers graph on stdout.
+
+Severity and confidence filters apply to findings. Notes remain visible and do not change exit status.
+
 ### SARIF and GitHub code scanning
 
 `--format sarif` maps findings to [SARIF 2.1](https://sarifweb.azurewebsites.net/) results —
 one rule per `<algorithm>/<category>` pair, severity/confidence/tier/parse-quality carried as
-result `properties`. Byte-identical for the same input; safe to diff across runs.
+result `properties`. When comparing runs with taint context enabled, check notifications for
+bounds, including the machine-dependent time guard.
 
 ```bash
 prism --repo . --diff change.patch --algorithm review --format sarif > prism.sarif
@@ -509,6 +527,10 @@ git show abc123 --format="" > changes.patch
 | `--chop-sink file:line` | chop | Sink location |
 | `--taint-source file:line` | taint | Explicit taint source (repeatable) |
 | `--taint-return-flow` | taint | Follow singleton-Exact callee return values to caller LHSs |
+| `--taint-context MODE` | taint | `off` (default) or `imports` |
+| `--taint-context-edges LEVEL` | taint | Weakest edge allowed when crossing into a context file. `exact` requires an Exact edge. `nameonly` (default) also accepts NameOnly. |
+| `--taint-context-depth N` | taint | Maximum import depth, 1 through 4 inclusive (default 2) |
+| `--taint-context-max-files N` | taint | Maximum admitted context files across all rounds (default 64). Accepts positive values representable as `usize`. Zero is invalid. |
 | `--condition "var==val"` | conditioned | Value assumption predicate |
 | `--old-repo path` | delta | Path to old version of repo |
 | `--spiral-max-ring N` | spiral | Maximum ring level 1-6 (default: 4) |
@@ -525,6 +547,29 @@ git show abc123 --format="" > changes.patch
 | | phantom | No additional flags (requires git history) |
 | | membrane | No additional flags |
 | | echo | No additional flags |
+
+With `--algorithm taint --taint-context imports`, Prism starts from the original review files.
+When a tainted argument reaches a call with an eligible import hint, Prism tries to load the
+indicated repository file, rebuilds the graph and follows the flow in bounded rounds.
+Other algorithms in the same run see only the original files. With no taint selection,
+`imports` produces one note, `taint-context ignored: taint not selected`. The CLI checks all
+four options even when the mode is `off`.
+
+**What stops expansion.** The fixed capacity is 8 MiB of retained context source across
+rounds, including files staged for the current round. Original files are outside this budget.
+Each targeted read takes at most the smaller of 2 MiB and the remaining capacity, plus one
+byte to detect overflow. With at least 2 MiB left, a file larger than 2 MiB is skipped and
+the next file can still fit. With less left, an overflow stops admission at that file. Rejected reads
+consume no retained capacity. A completed round can therefore contain just the files that fit.
+
+A cooperative 20 s guard checks between steps. A read or graph build already in progress
+runs to completion, so elapsed time and the last completed round can vary by machine. If the
+guard stops a round, Prism uses the previous completed round, or baseline taint if none
+completed. Bounds and file skips appear in diagnostics. Prism shows the first ten skipped files
+in path order and a count of the rest. The separate ten-note display limit for boundary calls
+does not limit which eligible calls Prism considers for loading. If block IDs overflow while
+combining results, Prism returns baseline taint and reports the overflow in place of the
+expansion's bound and skip details.
 
 ---
 
@@ -580,6 +625,19 @@ without it, failures are still recorded in `errors[]` but the exit code stays 0.
 and `--min-tier` filter the emitted targets; `--out <file>` writes the document to a file instead
 of stdout.
 
+To include taint context in instrumentation targets, select taint explicitly:
+
+```bash
+prism targets --repo . --diff change.patch --algorithm taint --taint-context imports
+```
+
+The same four context flags apply. A taint target can use admitted files for its enclosing
+site and dependency hint. Its `parse_quality` is the worst parse grade among the finding's
+file, its related files, and any data-flow endpoint or call-site caller files on the selected
+evidence path. Diff metadata still identifies the original diff.
+Context notes appear in the document's `warnings` on stdout or in the `--out` file. The
+default algorithm selection with `imports` produces the taint-not-selected note.
+
 The document is validated against
 [`docs/contracts/targets.schema.json`](docs/contracts/targets.schema.json) (JSON Schema Draft
 2020-12; `schema_version` is the const `"1.0"`). Excerpt (fields elided — see the schema for the
@@ -610,8 +668,9 @@ two library crates, and you depend on the one whose facade covers what you need:
   (`nav_session`, `callers`, `callees`), the owner options, the review inputs and graph context
   (`load_review_inputs`, `build_context`, `ReviewOptions`), the finding-confidence classification and `with_build_pool`.
 - **`prism-review`, facade `prism_review::api`**: everything in `prism::api` (it re-exports it) plus
-  the review runner (`review`, `run_review`, `run_algorithm`), SARIF (`to_sarif`) and the targets
-  projection (`project`). The `prism` CLI binary is built from this crate.
+  the one-shot runner (`review`), the preloaded runners (`run_review`, `run_algorithm`,
+  `run_review_authorized`, `run_algorithm_authorized`), SARIF (`to_sarif`) and the targets
+  projection (`project`, `project_in_context`). The `prism` CLI binary is built from this crate.
 
 ```toml
 # Embed navigation, build info and the review inputs only:
@@ -657,10 +716,62 @@ assert_eq!(
 );
 ```
 
-`review()` is the one-shot entry point; `load_review_inputs`/`build_context`/`run_review`/
-`run_algorithm` expose the same pipeline in two phases for callers that want to build once and
-run many algorithms. `nav_session`/`callers`/`callees` (in `prism::api`) expose whole-repo
-navigation the same way `prism nav` does. See the module docs of
+To build once and run several analyses on the original files, call `load_review_inputs`
+and `build_context`, then reuse those inputs and that graph with `run_review` or `run_algorithm`.
+
+**Loading taint context from Rust.** Set `params.taint_context.mode = TaintContextMode::Imports` on
+`AlgorithmParams`.
+The one-shot `review` captures loading authority itself. For preloaded reviews, build the
+graph from the same `ReviewInputs` passed to `ReviewAuthority::capture`, then call
+`run_review_authorized` or `run_algorithm_authorized`. The repository path argument serves
+history algorithms. The following example from the `run_review_authorized` doctest follows
+a tainted argument from `main.js` through `a.js` to a sink in `b.js`:
+
+```rust
+use prism_review::api::{load_review_inputs, build_context, run_review_authorized,
+    AlgorithmParams, ReviewAuthority, ReviewOptions, TaintContextMode};
+use prism::slice::{SliceConfig, SlicingAlgorithm};
+use tempfile::TempDir;
+let repo = TempDir::new()?;
+std::fs::write(repo.path().join("main.js"),
+    "import { h } from './a';\nexport function baseline(z) { eval(z); }\nexport function main(x) { h(x); }\n")?;
+std::fs::write(repo.path().join("a.js"),
+    "import { g } from './b';\nexport function h(x) { g(x); }\n")?;
+std::fs::write(repo.path().join("b.js"), "export function g(x) { eval(x); }\n")?;
+let mut options = ReviewOptions::new(repo.path());
+options.no_cache = true;
+let inputs = load_review_inputs(&options,
+    r#"{"files":[{"file_path":"main.js","modify_type":"Modified","diff_lines":[2,3]}]}"#)?;
+let built = build_context(&inputs, &options)?;
+let mut params = AlgorithmParams::default();
+params.taint_context.mode = TaintContextMode::Imports;
+let run = run_review_authorized(&built.ctx, ReviewAuthority::capture(&inputs),
+    &[SlicingAlgorithm::Taint], &SliceConfig::default(), &params, repo.path());
+assert!(run.findings.iter().any(|f| f.file == "b.js"
+    && f.category.as_deref() == Some("taint_sink")));
+assert!(run.context().is_some());
+assert!(!inputs.sources.contains_key("b.js"));
+```
+
+The legacy preloaded entries `run_review`, `run_algorithm` and `run_algorithm_with_diagnostics`
+have no loading authority. With valid `Imports` and taint selected, they return baseline taint
+with an `Unauthorized` note naming both authorized entries. Without a taint selection, valid
+`Imports` gives an `Ignored` note on either path. `run_algorithm` exposes the message in result
+warnings, `run_algorithm_with_diagnostics` in typed diagnostics, and `run_review` in both
+run warnings and diagnostics. If the captured loader is unavailable, an authorized taint run
+reports the reason and uses baseline taint.
+
+`review` and the single-algorithm entries return an error for invalid options, even with
+mode `Off`. The preloaded multi-algorithm entries record an error for each selected taint
+entry and run the remaining algorithms on the original inputs. With no taint selected they
+produce the ignored note for `Imports` and no context run note for `Off`.
+
+`ReviewRun::context()` exposes the completed context after a successful union with admitted
+files. Use `ResultView::for_result` for source text, `SarifInputs::context` for SARIF or
+`project_in_context` for targets. `ReviewOutcome.inputs` keeps the original review inputs.
+
+`nav_session`/`callers`/`callees` (in `prism::api`) expose whole-repo navigation the same way
+`prism nav` does. See the module docs of
 [`prism::api`](src/api/mod.rs) and [`prism_review::api`](crates/prism-review/src/api/mod.rs) for the
 full surface.
 
@@ -879,6 +990,15 @@ Every algorithm is tested against every supported language (330/330 cells). Some
 ---
 
 ## Limitations
+
+- **Taint context follows selected imports.** Supported languages are JavaScript (including JSX),
+  TypeScript (including TSX), Python and Go. Go expansion considers only the identified declaring
+  files. Package-entry resolution, dynamic `require` or `import`, callbacks and methods on
+  imported classes fall outside this analysis.
+- **Taint starts in the original review inputs.** Context files never seed a new source. The
+  analysed files are the original diff inputs selected for review plus the admitted context
+  files. A sanitizer in an unloaded file is invisible. Even a clean parse grade says nothing
+  about whether the file's own imports were analysed.
 
 - **Name-based variable tracking.** Variables matched by name within function
   scope. Same-named variables in nested scopes may cause extra context
