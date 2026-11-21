@@ -80,7 +80,8 @@ ORCHESTRATION section 5 concern Rust product code and do not apply.
 Task order and estimates: F-0 (0.25 day), F-1 (1), F-2 (0.5), F-3 (1), F-9 (0.5), F-5 (1.5), F-6 (2),
 F-8 (0.5). F-6 comes after F-5 because its cross-repository replay uses F-5's follow and adjudication code;
 its other steps may start as soon as F-3 has merged into the branch. Task F-4 moved to slice P5; Task F-7 is dropped. Task ids are kept stable so earlier references
-stay readable; measure ids (F1 to F8) are DESIGN's and differ from task ids.
+stay readable; measure ids (F1 to F8) are DESIGN's and differ from task ids. Mapping: Task F-2 measures
+F1, F-3 F2, F-4 F3 (in slice P5), F-5 F4, F-6 F5, F-8 F6, F-9 F8.
 
 ### Task F-0: workspace, corpus, issue
 
@@ -101,7 +102,8 @@ stay readable; measure ids (F1 to F8) are DESIGN's and differ from task ids.
   `eval/schema_impact/schema.py`
 - Create: `eval/tests/schema_impact/test_si_ids.py`, `eval/tests/schema_impact/test_si_schema.py`,
   `eval/tests/schema_impact/fixtures/` (`mini.swagger.json`, `recursive.json`, `collision.json`,
-  `duplicate.json`, `diff_old.json`, `diff_new.json`, `rename_old.json`, `rename_new.json`; test file names
+  `duplicate.json`, `diff_old.json`, `diff_new.json`, `rename_old.json`, `rename_new.json`,
+  `allof_ab.json`, `allof_ba.json`; test file names
   must stay unique across `eval/tests/`, which has no package files; the existing `test_boundary.py` belongs
   to another tool)
 - Modify: `eval/pyproject.toml` (dependency group `schema-impact = ["pyyaml>=6", "tree-sitter>=0.23",
@@ -182,6 +184,13 @@ def test_diff_kinds():
 
 def test_wire_neutral_rename_has_no_change():
     assert diff(load(RENAME_OLD), load(RENAME_NEW)) == []   # schema.A {x, y} renamed schema.B, same wire tree
+
+def test_allof_member_order_and_property_wrapper():
+    a, b = load(ALLOF_AB), load(ALLOF_BA)     # GET /b: two allOf members both declare `mode` (enums differ),
+                                              # in both orders; plus `level: {description, allOf: [{$ref: Level}]}`
+    assert diff(a, b) == []
+    assert any("allof_overlap" in w for w in a.warnings)
+    assert "field:resp:GET /b:200#/level" in a.fields
 ```
 
 - [ ] Run `cd eval && uv run --group schema-impact pytest tests/schema_impact -q`; expect import failures.
@@ -347,8 +356,9 @@ def test_calls_fixture():
       per pre-match reason; unique, several, none; the reasons for none; and a statement that every unique
       match on P is a string equality (P has no path parameters).
 - [ ] `f2-sample.md`: sort the unique matches by (file, line), then take 50 with `random.Random(20261120)`
-      (all of them if fewer). Run reader task R1 (one Sonnet-5.5 seat, medium; DESIGN 6.2). Record the tally
-      in `feasibility/F2.md` with the matching-matrix result.
+      (all of them if fewer). Run reader task R1 (one Sonnet-5.5 seat, medium; DESIGN 6.2). If the sample is
+      not *decided* (DESIGN 6.2), extend it once as that section says. Record the tally, with the decided
+      count, in `feasibility/F2.md` with the matching-matrix result.
 
 ### Task F-4: moved to slice P5
 
@@ -400,13 +410,15 @@ Measure F3 and this task's procedure now run at the start of slice P5 (Part 2, "
       denominator, per-class counts, bound, candidate and unbound by reason, and G4's pattern share.
 - [ ] The standing join: the four lists of DESIGN 6.1 in their R form. Reader task R2 on every row of list 4
       and up to 30 rows of list 1 (DESIGN 6.2).
-- [ ] Reader task R1 on 50 `bound` joins (sorted by (file, line), drawn with `random.Random(20261120)`).
+- [ ] Reader task R1 on 50 `bound` joins (sorted by (file, line), drawn with `random.Random(20261120)`),
+      extended once if not *decided* (DESIGN 6.2).
 - [ ] The two counts: route entries whose `handler_site` is not `None`; route entries with a validation
       object. `outbound_http.count` on both repositories.
 - [ ] The cross-repository replay of DESIGN 6.1 with `replay.replay_cross` (Task F-5 provides the follow and
       adjudication machinery; run this step after F-5's unit tests pass). Reader task R3 on every
       `within_14_days`, `later` and `present_at_head` location up to the cap. Render five reports chosen by
-      the rule of DESIGN 6.4 into `private/reports/`.
+      the rule of DESIGN 6.4 into `private/reports/`; record how many exist (G4 fails with "R payoff
+      unmeasured" when none does).
 - [ ] Private `F5.md`: everything above. Public memo input (`feasibility/F5-public.md`): aggregate counts,
       percentages and class names only, G2's R figure, G4's figures, the counted locations and rows.
 - [ ] Run the private-name check of ORCHESTRATION section 9 on the staged diff before committing the public
@@ -429,8 +441,9 @@ Measure F3 and this task's procedure now run at the start of slice P5 (Part 2, "
 - `replay.usable(changes_by_commit) -> dict[str, list[Change]]`: applies the reverted-change and restoration
   rule (10 first-parent commits) and keeps the *usable* kinds.
 - `replay.select_config(repo, p0, configs_dir) -> Path`: the *era configuration*.
-- `replay.follow(repo, p0, file, line, pin) -> Outcome(kind, touched_in, lag_commits, lag_days)`: the
-  *touched* procedure and *outcome* (`same_commit`, `later`, `present_at_pin`).
+- `replay.follow(repo, p0, lines: list[(file, line)], pin) -> Outcome(kind, touched_in, lag_commits,
+  lag_days)`: the *touched* procedure over a location's *followed lines* and its *outcome* (`same_commit`,
+  `later`, `present_at_pin`).
 - `replay.replay_one(repo, commit, usable_changes, config, root, pin) -> ReplayResult` with `changes`,
   `predicted` (each with its outcome and `field_spelled`), `control` (the *control sample* with outcomes),
   `skipped_reason` (`config_missing`, `no_client_import`).
@@ -453,11 +466,13 @@ Measure F3 and this task's procedure now run at the start of slice P5 (Part 2, "
       (7) a parent whose import uses an alias only the older configuration maps: predictions made with that
       configuration; a parent with no import resolving to the client file: `skipped_reason =
       "no_client_import"`;
-      (8) the control sample is drawn with the seed, at least five sites, and followed.
+      (8) the control sample is drawn with the seed, at least five sites, and followed;
+      (9) a field removed in commit 2, whose client call sits in a wrapper file and whose field is spelled
+      only in a form that imports the wrapper function, and commit 3 edits only the form: outcome `later`.
       Implement. Commit.
 - [ ] Count usable commits (no extraction) and record the number, split into operation and field changes.
 - [ ] Write the prediction, then replay every usable commit. Each replayed commit uses a detached scratch
-      worktree of the clone at the first parent, removed afterwards.
+      worktree of the clone at the first parent, removed afterwards. Record the replay's wall time (F6).
 - [ ] Reader task R3 on every `later` and `present_at_pin` location up to the adjudication cap (DESIGN 6.1).
 - [ ] `feasibility/F4.md`: first-parent commits examined; usable, by kind; skipped by reason; elements with
       a non-empty prediction; outcomes; late fixes with commit ids; lift per commit and pooled; adjudicated
@@ -473,6 +488,11 @@ Measure F7 (an external differ check) is dropped; it changes no decision.
 **Files:**
 - Create: `docs/superpowers/plans/2026-11-20-lanes/lane5-schema-impact/FEASIBILITY.md`
 
+- [ ] Measure F6: non-blank, non-comment lines per prototype module (producer: `producer_go.py`,
+      `producer_route_table.py`; consumer: `consumer_ts.py`, `config.py`, `match.py`; schema: `schema.py`,
+      `ids.py`; `mismatch.py`; `replay.py`, `render.py`); wall time on P of `schema-impact producer`,
+      `consumer` and `mismatch` (run once each under `/usr/bin/time`) and of the replay (Task F-5's ledger
+      entry); reader-seat runs per task from the ledger. Write `feasibility/F6.md`.
 - [ ] Write the memo per DESIGN 6.4: the measures table (with the prism build's commit where one was used),
       gates G1 to G4 with pass or fail and the pair each figure comes from, the F8 lists and R's class
       counts, the ten reports (linked from the evidence directory; quote three in full), the recommended
@@ -481,7 +501,8 @@ Measure F7 (an external differ check) is dropped; it changes no decision.
       than 2 counted locations or rows, write "owner rating pending" beside it.
 - [ ] Ask the owner, in the session and never on the issue, to read the five private reports at their local
       paths and say for each whether it "would have helped the review of the producer change"; record the
-      ratings privately and the count in the memo. The G3 owner arm and the pilot-order rule use that count.
+      ratings privately and the count in the memo. G4, the G3 owner arm and the pilot-order rule use that
+      count. If the study passed 8 days, the memo names the work cut by DESIGN 6.5's cut line.
 - [ ] Write `~/prism-evidence/boundary-impact/roadmap-corrections.md` for the owner: the statements in the
       tooling roadmap's boundary and language-status sections that the research record (section C) found
       stale, each with the current fact and its code reference. The tooling repository itself is not edited
@@ -720,7 +741,7 @@ CLI: `prism-boundary bind --role consumer --api <name> --repo <dir> --schema <fi
 | c15 | a client shape the grammar cannot express | in the denominator, `unbound`, reason `unconfigured_client_form` |
 
 **Gate:** on P, unique matches at least F2's figure minus 2 points; a fresh 50-row sample of `bound`
-bindings has at most 2 wrong (reader task R1); every row of Task E-2 passes or is an accepted loss named at
+bindings has at most 2 wrong (reader task R1, on a *decided* sample, DESIGN 6.2); every row of Task E-2 passes or is an accepted loss named at
 stage D. Private-first order only: on R (local, Claude seats), a fresh 50-row sample of `bound` joins has at
 most 2 wrong. Tier-A does not apply (no resolution change).
 
@@ -735,7 +756,8 @@ pub fn impact(changes: &[ElementChange], old: &SchemaIndex, new: &SchemaIndex,
 ```
 
 CLI: `prism-boundary diff --old <a.json> --new <b.json>`;
-`prism-boundary impact (--old <a.json> --new <b.json> | --changed <elements.json>) --bindings <file>... --format json|md`.
+`prism-boundary impact --old <a.json> --new <b.json> [--changed <elements.json>] --bindings <file>... --format json|md`
+(`--changed` replaces the built-in diff; both schemas are still required, DESIGN 5.2).
 
 **Rows:** removed operation with a bound consumer → listed with its callers; changed field → the operation
 whose wire tree holds it, its consumer bindings marked `scope: "operation"`, and field-read bindings marked
@@ -743,8 +765,10 @@ whose wire tree holds it, its consumer bindings marked `scope: "operation"`, and
 meet); per changed element and consumer document, `binding_current`, `binding_stale` or `element_unknown`
 by DESIGN 5.6, including a consumer bound against an older producer revision in another repository (dates
 compared) and a consumer bound before the element existed; a formatting-only schema regeneration gives no
-`schema_mismatch`; a bindings document with another content hash → `schema_mismatch` warning naming both
-hashes; a route-table-derived schema source (no `sha256`) joins by content hash; `repo.dirty` → `rev_dirty`
+`schema_mismatch`; a bindings document whose content hash is neither the old nor the new one →
+`schema_mismatch` warning naming the hashes, and one bound against the new schema → no warning; a
+definition-level change in `--changed` expands to the field ids of every operation reaching it
+(`operations_reaching`); a route-table-derived schema source (no `sha256`) joins by content hash; `repo.dirty` → `rev_dirty`
 warning; `inputs` repeats each input document's api, repository, revision, date, schema source and tool
 build; a changed element with no binding in any document → listed under `unobserved`, never omitted;
 `candidate` bindings appear in a separate list from `bound`.
@@ -773,8 +797,8 @@ as the prototype's reports.
   call site of that function that `prism nav callers --symbol <function> --file <file> --format json`
   reports (depth 1).
 - `fields.reads_from_edges(edges_jsonl, start_lines, response_root, max_hops=6) -> set[(file, line, path)]`:
-  start from every edge endpoint that is a definition on a start line; follow edges forward, of any label,
-  across functions, up to `max_hops`; collect use endpoints whose access path has at least one field,
+  start from every edge endpoint that is a definition on a start line; follow edges forward, of any label
+  except `doubt: "killed"` (the definition does not reach that use), across functions, up to `max_hops`; collect use endpoints whose access path has at least one field,
   rendered `f1.f2` from the record's `path` object (base dropped). `response_root` is the configured root:
   empty when the client already returns the part under it.
 - `oracle/field_refs.mjs <tsconfig> <type name> <property>`: prints `file:line` of every reference to that
@@ -792,9 +816,9 @@ fields.
       fails, write "F3 oracle: reader-labelled" in the ledger; a Sonnet-5.5 reader then lists the reads of
       each field by reading the call's file and its callers.
 - [ ] Unit-test `reads_from_edges` on a hand-written JSONL in the shape `nav dfg-stats --edges` prints
-      (`{"from":{"file","line","path":{"base","fields"},"access"},"to":{…},"confidence":…}`): a call-line
-      definition, a reassignment, two member reads, one cross-function edge, one unrelated edge; expect the
-      member paths. Implement. Commit.
+      (`{"from":{"file","line","path":{"base","fields"},"access"},"to":{…},"confidence":…,"doubt":…}`): a
+      call-line definition, a reassignment, two member reads, one cross-function edge, one unrelated edge,
+      one read reached only by a `killed` edge; expect the member paths, without the killed one. Implement. Commit.
 - [ ] Build prism for the dump: `~/prism-evidence/tools/memguard.sh 8 cargo build --release` in the
       worktree; `target/release/prism --version` must show the worktree's `git rev-parse --short HEAD`.
 - [ ] Dump edges once: `memguard.sh 8 target/release/prism nav --no-cache dfg-stats --repo <P clone>

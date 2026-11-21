@@ -172,7 +172,8 @@ Id: `field:<root>#/<pointer>`, for example
 | the items of an array | `/[]` |
 | `additionalProperties` holding an object | `/*` |
 | a `$ref` | expanded in place: the referenced definition's properties continue the pointer |
-| `allOf` | members flattened in order into the same node; a later member's property replaces an earlier one of the same name; the swaggo envelope `allOf: [{$ref: RespBody}, {properties: {data: …}}]` gives `…#/code`, `…#/msg`, `…#/data`, `…#/data/…` |
+| `allOf` | members flattened into the same node; the swaggo envelope `allOf: [{$ref: RespBody}, {properties: {data: …}}]` gives `…#/code`, `…#/msg`, `…#/data`, `…#/data/…`. Member order never matters: a property that two members declare is one field whose shape signature is the sorted list of the members' signatures, with a warning `allof_overlap` (stage D may replace this with intersection semantics) |
+| a property whose schema is `allOf` with one `$ref` member (swaggo's property wrapper: 9 properties in 8 definitions of P, e.g. `schema.BadgeListInfo.level`) | the property keeps its name and is read as that `$ref`; sibling keys (`description`, `minimum`) do not change the id |
 | `oneOf` / `anyOf` | the union of the members' properties, with a warning |
 
 Expansion stops at a cycle: when a `$ref` names a definition already on the current expansion path, the
@@ -238,11 +239,14 @@ source and tool build), `change` (old and new schema source and content hash, an
 elements with a change class), `impacts` (per changed element: producer bindings and consumer bindings with
 their recorded callers, each consumer document's binding status for that element, section 5.6), `unobserved`
 (changed elements with no binding in any document), and `warnings` (`schema_mismatch` when a bindings
-document's content hash differs from the change's old content hash, `rev_dirty`, and a note that gives the
-change's date and each consumer document's binding date).
+document's content hash differs from both the change's old and new content hashes, `rev_dirty`, and a note
+that gives the change's date and each consumer document's binding date).
 
 The impact step takes the changed elements from its own structural diff of two schema sources, or from a
-caller-supplied list (`--changed elements.json`), so `oasdiff` or `buf` can be the differ.
+caller-supplied list (`--changed elements.json`, ids in the form of 5.1), so `oasdiff` or `buf` can be the
+differ. Both schema sources are required in either mode: a field id names its operation (its root), but a
+definition-level change is expanded to field ids, the old-side signatures and the schema dates of 5.6 are
+read, from the two indices.
 
 ### 5.3 Producer adapters
 
@@ -404,7 +408,8 @@ outputs under `~/prism-evidence/boundary-impact/private/`, public text carries a
 names only). One prototype, the measures below, one memo. On P, F2 exercises literal paths only (string
 equality after the query string is cut: P has no path parameters). The matching rules of 5.4 are exercised
 by the synthetic matching matrix of Task F-3 and by pair R's reader-checked joins (F5), and G2 depends on
-both.
+both. Measure ids (F1 to F8) differ from `PLAN.md`'s task ids (F-0 to F-9); the mapping is: F1 by Task F-2,
+F2 by F-3, F3 by F-4 (now in slice P5), F4 by F-5, F5 by F-6, F6 by F-8, F8 by F-9.
 
 | Id | Question | Measure | Oracle or control |
 |---|---|---|---|
@@ -456,12 +461,17 @@ Every term below is defined here and only here; `PLAN.md` refers to it.
   graded `bound` to the removed operation, or to the operation whose wire tree holds the changed field. Each
   carries the attribute `field_spelled` (the call's file, or a file that imports its enclosing function by
   name, spells the field name as a property), shown to the reader and never used as a filter.
-- *Touched*: a location (file, line at P0) is followed forward with `git blame --reverse --first-parent -M
+- *Followed lines* of a location: its call line; for a field change also every line of the `field_spelled`
+  files that spells the field name as a property. A fix can sit in the importing form, not the wrapper:
+  73cfbace removes `default_avatar` and `gravatar_base_url`, and 630ac20a (+3) removes them from
+  `ui/src/pages/Admin/Interface/index.tsx` with no edit near the wrapper call `settings.ts:91`.
+- *Touched*: a line (file, line at P0) is followed forward with `git blame --reverse --first-parent -M
   -C P0..6744295f -L <line>,<line> -- <file>` run at P0. The reported commit L is the last first-parent
   commit in which the line exists unchanged. The line is touched (modified, deleted, or moved beyond what
-  `-M -C` follows) in L's first-parent successor.
-- *Outcome* of a location: `same_commit` when it is touched in C; `present_at_pin` when L is 6744295f;
-  otherwise `later`, with the lag in first-parent commits and in days from C.
+  `-M -C` follows) in L's first-parent successor. A location is touched at the first touch of any of its
+  followed lines.
+- *Outcome* of a location: `same_commit` when it is touched in C; `present_at_pin` when no followed line is
+  touched before 6744295f; otherwise `later`, with the lag in first-parent commits and in days from C.
 - *Late fix*: a location with outcome `later`. Reported as a raw count; it does not gate (a later touch is
   as often workflow lag as a caught mistake).
 - *Control sample*: for each usable commit, `bound` call sites at P0 that are not predicted for it, sorted by
@@ -492,7 +502,7 @@ Every term below is defined here and only here; `PLAN.md` refers to it.
 | `coordinated` | `later`, `within_14_days` | the touching commit responds to the change and both first appear in the same release (the earliest tag containing each, by `git tag --contains`; on R, a release of either repository) as part of the same feature (the same pull request or branch named in the subjects, or subjects that name the same feature) |
 | `fix_after_release` | `later`, `within_14_days` | the touching commit responds to the change, and either a release contains C but not the touching commit, or the touching commit's message says it fixes something and cites an issue |
 | `dead_code` | any | the call's enclosing function has no caller in the client (checked by searching for its name) at the time it is touched, or at the pin or head |
-| `real_mismatch` | `present_at_pin`, `present_at_head` | the enclosing function has a caller at the pin or head, and the element is not served there (no annotation and no registration with that method and suffix, or no route entry; a field absent from the wire tree) |
+| `real_mismatch` | `present_at_pin`, `present_at_head` | the enclosing function has a caller at the pin or head, and the element is not served there (no annotation and no registration with that method and suffix, or no route entry; a field absent from the wire tree and still spelled at a followed line) |
 | `unrelated_edit` | `later`, `within_14_days` | the touch does not respond to the change (a move, a reformat, an unrelated refactor) |
 | `false_prediction` | any | the call does not address the changed element, or the change does not affect it |
 | `cannot_tell` | any | reported, counted nowhere |
@@ -526,7 +536,11 @@ evidence named below and asks one question; the reader answers with one label an
 
 - **R1, binding check.** Shown: the call's source line, its URL pattern and method, the operation id and the
   schema's summary line (on R, the route entry's line). Asked: "Does this call address this operation?
-  yes / no / cannot tell." "no" counts as wrong; "cannot tell" is reported and left out.
+  yes / no / cannot tell." "no" counts as wrong; "cannot tell" is reported and left out. A sample is
+  *decided* when at least 40 of its 50 answers are yes or no. Every gate that counts wrong R1 answers (G2,
+  G4, the P3 gate) holds only on a decided sample: an undecided sample is extended once by 50 rows drawn by
+  the same rule (at most 4 wrong in the 100), and if fewer than 80 of the 100 are decided the gate fails as
+  `inconclusive`.
 - **R2, mismatch classification.** Shown: the row, the code lines on both sides that exist, and `git log -S`
   output for the path. Asked: "Which class of section 6.1 (mismatch classes) does this row belong to?" On P
   every row is classified. On R: every row of list 4, and up to 30 rows of list 1 drawn with
@@ -544,9 +558,9 @@ Go/no-go defaults (the owner may set others; the memo reports the numbers either
 | Gate | Threshold | If it fails |
 |---|---|---|
 | G1 | at least 90% of schema operations are bound to exactly one handler by annotation and are not contradicted by drift: not in a residue row labelled `stale_annotation`, not in the method-disagreement list, and not in a cross-check name disagreement. The memo states that G1 has no bearing on a code-first producer such as R | the pilot adds the `gin_registration` adapter with cross-function prefix resolution (+3 to 4 days), and the memo recommends go only if annotations together with suffix-matched registrations reach 90% |
-| G2 | on P: at least 70% of the denominator bound uniquely, and at most 2 wrong in the 50 checked (R1); every row of the synthetic matching matrix passes; on R: at most 2 wrong in R's 50 checked `bound` joins. If R is not measured, G2 reads "pass on literal paths only" and the memo says parameter matching is untested on a real pair | if dynamic URLs are the cause: the memo reports the dynamic residue grouped by shape (helper callee, configuration value, string building) with the unique-match share that resolving each of the top three shapes would give; no URL-builder rule is designed in the study (if a funded pilot needs one, the design seat writes it at stage D). Below 50% even with the top three shapes resolved: recommend no-go |
-| G3 | at least 15 usable commits replayed on P, and at least 2 counted locations or rows in all: counted locations of F4 and counted rows of F8 on P, or counted locations of F5's replay and counted rows of F5's standing join on R. If fewer than 2, the memo records "owner rating pending": the owner reads the five private reports of F5 and G3 passes if at least 3 "would have helped the review of the producer change" | recommend parking the lane; the measured tooling stays in `eval/schema_impact/` |
-| G4 | on R: at least 60% of the denominator has a recoverable URL pattern (literal or template after `const` replacement), and at most 2 wrong in R's 50 checked `bound` joins | the memo states that a pilot on R needs the URL-builder work first and prices it from the dynamic-shape counts; and what else pair R needs (which adapter, what configuration) and its cost |
+| G2 | on P: at least 70% of the denominator bound uniquely, and at most 2 wrong in the 50 checked (R1); every row of the synthetic matching matrix passes; on R: at most 2 wrong in R's 50 checked `bound` joins. If R is not measured, G2 reads "pass on literal paths only" and the memo says parameter matching is untested on a real pair | if dynamic URLs are the cause: the memo reports the dynamic residue grouped by shape (helper callee, configuration value, string building) with the unique-match share that resolving each of the top three shapes would give; no URL-builder rule is designed in the study (if a funded pilot needs one, the design seat writes it at stage D). Below 50% even with the top three shapes resolved: recommend no-go; from 50% to 70%: the memo prices the builder as a pilot slice and the owner decides at the memo. If wrong answers or `inconclusive` cause the failure (whatever the yield): the memo lists the wrong rows by cause and recommends no-go; the owner decides whether a stage-E row per cause and a fresh R1 sample in the pilot (P3 gate) are enough |
+| G3 | at least 15 usable commits replayed on P, and at least 2 counted locations or rows in all: counted locations of F4 and counted rows of F8 on P, or counted locations of F5's replay and counted rows of F5's standing join on R. If fewer than 2, the memo records "owner rating pending": the owner reads the five private reports of F5 and G3 passes if at least 3 "would have helped the review of the producer change". The owner arm replaces only the count of 2, never the 15 usable commits | recommend parking the lane; the measured tooling stays in `eval/schema_impact/` |
+| G4 | on R: at least 60% of the denominator has a recoverable URL pattern (literal or template after `const` replacement), at most 2 wrong in R's 50 checked `bound` joins, and the owner rates at least one of R's rendered reports useful. If R's replay renders no report, G4 fails and the memo writes "R payoff unmeasured" | the memo states that a pilot on R needs the URL-builder work first and prices it from the dynamic-shape counts; and what else pair R needs (which adapter, what configuration) and its cost; if the reports cause the failure, that payoff on R is not shown |
 
 ### 6.4 The memo
 
@@ -575,6 +589,10 @@ About 7 days (the task estimates in `PLAN.md` sum to 7.25). The study was framed
 added the standing-mismatch measure, adjudication and a control for the replay, and the private-pair
 measurements that make the memo decisive for the owner's pair (about 3 days in all); moving the field-read
 measurement to the pilot and dropping the external-differ check recovered about 1.25 days.
+
+Cut line: if the study passes 8 days, work that feeds no gate is cut in this order, and the memo names what
+was cut: the roadmap-corrections file, per-commit lift (pooled lift stays),
+rendered P reports beyond the counted classes. The inputs of G1 to G4, the F8 lists and F6 are never cut.
 
 ## 7. Pilot scope by outcome
 
