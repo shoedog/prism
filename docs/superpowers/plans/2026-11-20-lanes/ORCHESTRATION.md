@@ -161,7 +161,8 @@ and the CI result. Deferred findings are written to an issue before the merge.
 
 Every brief is self-contained: the worker sees nothing else.
 
-**Implementer brief** contains: the slice's section of `PLAN.md` verbatim; the worktree path and branch; the
+**Implementer brief** contains: the slice's section of `PLAN.md` verbatim, and verbatim every `DESIGN.md`
+section that the slice's text cites by number (as amended at stage D); the worktree path and branch; the
 rows that must turn GREEN and the rows that must stay as they are; the gates of section 5 that apply; "do not
 run mutgate; run tests through memguard; do not read `eval/secbench`; do not push" (when the slice edits
 the benchmark harness itself, the implementer is a Claude seat, the worktree keeps that directory, and the
