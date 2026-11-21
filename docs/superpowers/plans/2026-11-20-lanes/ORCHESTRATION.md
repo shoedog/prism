@@ -11,7 +11,8 @@ Read in this order: this file, the lane's `DESIGN.md`, the lane's `PLAN.md`, the
 
 The orchestrator dispatches work, runs gates, reads results, folds review findings and merges. It does not
 design. Every design choice in a lane is either made in `DESIGN.md`, listed there as a parameter that a
-named measurement fills in, or listed as an owner decision with a default.
+named measurement fills in, marked tentative and settled by the design seat at stage D, or listed as an
+owner decision with a default.
 
 If a situation is not covered by the lane plan:
 
@@ -32,7 +33,7 @@ If a situation is not covered by the lane plan:
 | Enumerator, tier 2 | Opus-5.5 high, then gpt-6.1-sol high | Agent tool; sol by `codex exec` | variant rows the first tier missed |
 | Reviewer A | Opus-5.5, xhigh | Agent tool, `model: opus`, `effort: xhigh`, read-only | spec and code review |
 | Reviewer B | gpt-6.1-sol, xhigh | `codex exec -m gpt-6.1-sol -c model_reasoning_effort=xhigh -s read-only -C <review clone> "$(cat brief.md)" < /dev/null` (the `< /dev/null` is required: with stdin open a backgrounded codex waits forever) | spec and code review |
-| Design seat | Fable-5.2 (Agent tool, `model: fable`) or gpt-6-astra | only under section 8 | design-of-record, re-plan after a rejected design |
+| Design seat | Fable-5.2 (Agent tool, `model: fable`, `effort: high`) or gpt-6-astra | stage D of every lane, and section 8 | drafts the design-of-record amendment from the full row set; re-plans after a rejected design |
 | Cloud runner | Haiku-5.5 in a Claude Code cloud session | `~/prism-evidence/tools/cloud-tests.sh`, `cloud-probes.sh` | targeted tests at `RAYON_NUM_THREADS` 1 and 4, RED-on-base control, reviewer probes |
 
 Rules for the seats:
@@ -58,9 +59,9 @@ Every lane runs these stages in order. A stage has an exit gate; the lane plan g
 | Stage | Output | Exit gate |
 |---|---|---|
 | M. Measure first | a census with counts per shape, on the named corpora, by a script kept in the evidence directory | the lane's go/no-go threshold. Below it, stop the lane and write the result to its issue |
-| T. Tests first | the variant matrix as fixtures plus tests that record main's behaviour and a truth label per row | every census class has a row and every row maps to a class; tests that state the wanted behaviour are RED on base |
+| T. Tests first | the variant matrix as fixtures with a truth label per row, plus a data-driven test where the code under test already compiles | every census class has a row and every row maps to a class; rows that state new behaviour were shown RED once on base; the lane branch still compiles and CI is green (see the rule below) |
 | E. Enumeration | more rows, found by the enumerator tiers run serially (section 6) | a full tier round adds no row |
-| D. Design of record | `DESIGN.md` amended: the rule set, stated against the complete row set, and the accepted-loss list | both reviewers APPROVE the amended design (cap: 2 rounds, then section 8) |
+| D. Design of record | `DESIGN.md` amended by the design seat: the rule set, stated against the complete row set, and the accepted-loss list; the implementer then updates the rows' expectations to match | both reviewers APPROVE the amended design (cap: 2 rounds, then section 8) |
 | I. Implement | one slice per PR, in the order the plan gives | the slice's tests GREEN, gates of section 5 pass |
 | R. Review | both reviewers on the PR | no open MATERIAL WRONG finding (cap: 3 rounds per slice, then section 7) |
 | G. Gate | corpus differential and the lane's acceptance numbers on the final head | numbers meet the plan's gate; regressions are listed in the PR body, never re-baselined away |
@@ -69,6 +70,16 @@ Every lane runs these stages in order. A stage has an exit gate; the lane plan g
 Stage M and stage T may reveal that a design parameter in `DESIGN.md` is wrong for the measured population.
 That is expected. The census result overrides the parameter; record the change in the design's change log.
 A census result that contradicts a design *premise* (the mechanism cannot work as described) goes to section 8.
+
+Stage T must leave the branch compiling. A matrix is data (fixture files and a rows file) read by one
+data-driven test with a constant that says which row groups are enabled; a slice enables its group in its
+first commit and shows the test RED before implementing. Where the module under test does not exist yet,
+stage T commits the data only and the slice adds the test. A stage-T commit never adds `#[ignore]` rows that
+cannot compile, and never names an item that does not exist.
+
+The stage D brief for the design seat contains the lane's tentative rules, the complete rows file with
+truths, the census, and the accepted-loss candidates. It asks for rules stated against every row, and it
+does not contain the orchestrator's opinion of which rule to choose.
 
 Rules during stages T and E (owner rules, 2026-11-14):
 
@@ -80,15 +91,19 @@ Rules during stages T and E (owner rules, 2026-11-14):
 
 ## 4. Workspaces
 
-For each lane, once:
+For each lane, once (the lane plan names the worktree directory):
 
 ```bash
 df -h /                                  # stop if less than 20 GiB is free
 git -C ~/code/slicing fetch origin
-git -C ~/code/slicing worktree add -b <lane-branch> ~/code/prism-<lane> origin/main
+git -C ~/code/slicing worktree add -b <branch> ~/code/prism-<lane> origin/main
 cd ~/code/prism-<lane>
 git sparse-checkout set --no-cone '/*' '!/eval/secbench/'    # not for the lane 4 measurement worktree
 ```
+
+Branch names: `<type>/<lane>-<stage or slice>`, for example `test/targets-inventory-matrix`,
+`feat/targets-inventory-s2`, `eval/schema-impact-feasibility`. One branch and one PR per slice; each new
+slice branches from the updated `main`.
 
 - One worktree per lane, one build per worktree. Delete `target/` when the lane pauses for more than a day.
 - A codex reviewer works in a disposable clone of the pushed branch, never in the implementer's worktree.
@@ -108,8 +123,12 @@ git sparse-checkout set --no-cone '/*' '!/eval/secbench/'    # not for the lane 
 
 1. `cargo fmt --all --check`.
 2. Targeted tests for the touched code, at `RAYON_NUM_THREADS=1` and `4`, with a RED-on-base control for new
-   tests (run in the cloud with `cloud-tests.sh WORKTREE RESULT_BRANCH SPEC BASE OVERLAY`; local is the
-   fallback).
+   tests. In the cloud: `~/prism-evidence/tools/cloud-tests.sh WORKTREE RESULT_BRANCH SPEC BASE OVERLAY`,
+   where WORKTREE is the lane worktree with its head pushed, RESULT_BRANCH is a new name such as
+   `test-results/<lane>-<slice>-<n>`, SPEC is a file with one `cargo test` argument list per line (for
+   example `--test cli targets_inventory_test::`), BASE is the merge base with `main`, and OVERLAY is a file
+   listing the new or changed test and fixture paths, one per line. Read `summary.json` on the result
+   branch, then delete the result and input branches. Local runs through memguard are the fallback.
 3. Every behaviour added or fixed has a test that fails on the pre-change code, and each new code path has a
    negative or edge row.
 4. CI on the pushed head: wait until the full check set has appeared, then require every check to pass and

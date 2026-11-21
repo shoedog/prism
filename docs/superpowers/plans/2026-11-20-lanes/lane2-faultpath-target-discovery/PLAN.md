@@ -30,7 +30,8 @@ G-byte), routes R1 to R5 and the row shape are defined there.
   `<resolved callee>: dependency call site`.
 - `kind` in a hint only with proven identity; never from a name match.
 - The public facade keeps its signatures: `prism_review::api::project`, `TargetsDocument`, `TargetsMeta`
-  (new data goes in new `TargetsMeta` fields, which is `#[non_exhaustive]` and built from `Default`).
+  are not changed. The inventory adds new functions beside them.
+- The inventory is AST-only: no call graph, no code property graph, no review runner.
 - PR #841 also edits `cli.rs` and `main.rs`; rebase over it if it merges first.
 - httpie is pinned at `2105caa49bae87c5809c274e407619a0de2639d1`.
 
@@ -60,7 +61,7 @@ G-byte), routes R1 to R5 and the row shape are defined there.
       non-test code (count with `rg -l "^(import|from) (requests|httpx)" --glob '!**/test*'`); record the
       choice and the counts. `black` is the third standard-library corpus for G-parity.
 - [ ] Export faultpath: `git -C ~/code/faultpath fetch origin` then
-      `git -C ~/code/faultpath archive origin/main | tar -x -C ~/prism-evidence/faultpath-targets/faultpath-main`;
+      `mkdir -p ~/prism-evidence/faultpath-targets/faultpath-main && git -C ~/code/faultpath archive origin/main | tar -x -C ~/prism-evidence/faultpath-targets/faultpath-main`;
       create a virtual environment beside it and install the exported tree into it. Record the commit. If
       installation needs packages the machine cannot fetch, record that; tasks marked "needs faultpath" then
       fall back as each task states.
@@ -92,15 +93,22 @@ that covers under 2% everywhere may be dropped in stage D.
 ### Task T-1: fixtures and tests that record today's behaviour and the wanted rows
 
 **Files:**
-- Create: `crates/prism-review/src/targets/inventory_matrix_tests.rs` (declared from `targets/mod.rs` under
-  `#[cfg(test)]`), `tests/fixtures/targets_inventory/py/` (one small file per row group)
-- Create: `tests/fixtures/targets_inventory/rows.jsonl` (one line per row: `id`, `fixture`, `line`, `class`,
-  `want`, `truth`)
+- Create: `tests/fixtures/targets_inventory/py/` at the repository root (one small Python file per row
+  group, laid out as a repository), `tests/fixtures/targets_inventory/rows.jsonl` (one line per row: `id`,
+  `fixture`, `line`, `class`, `want`, `truth`)
+- Create: `crates/prism-review/tests/cli/targets_inventory_matrix_test.rs` and its `mod` line in
+  `crates/prism-review/tests/cli/main.rs` (after `mod targets_test;`)
+
+The matrix test is a command-line test, like the existing targets tests: it runs
+`prism targets --repo tests/fixtures/targets_inventory/py --inventory python-deps` once, reads
+`rows.jsonl`, and for each row checks the document's row at (`fixture`, `line`). It is data-driven with a
+constant `ENABLED_FAMILIES` (HTTP only until slice S3); rows of other families are skipped, not failed. On
+main the command fails with an unknown-argument error, so the test compiles and is RED.
 
 `want` is one of `site(<family>,<resolved callee>,<grade>)`, `unsupported(<reason>)`, `none`. `truth` says
 where the label comes from: `python-semantics`, `faultpath-guard` (obtained by calling faultpath's site
-guard and resolver on the fixture from the exported copy; if faultpath could not be installed, the row is
-written with `truth: pending-faultpath` and listed for S4), or `design`.
+guard and resolver on the fixture from the exported copy), `pending-faultpath` (faultpath could not be
+installed; the row carries the default of DESIGN section 6 and is listed for S4), or `design`.
 
 Seed rows (the implementer writes these first; stage E adds more):
 
@@ -114,7 +122,7 @@ Seed rows (the implementer writes these first; stage E adds more):
 | h06 | `with requests.Session() as s:` … `s.get(u)` | site(http, requests.Session.get, exact) |
 | h07 | `self.s = requests.Session()` in `__init__`, `self.s.get(u)` in a method | site(http, requests.Session.get, exact) |
 | h08 | `def f(s: requests.Session): s.get(u)` | site(http, requests.Session.get, nameonly) |
-| h09 | `s = make()` where `def make() -> requests.Session:` in the same file | site(http, requests.Session.send, nameonly) |
+| h09 | `s = make()` then `s.send(req)`, where `def make() -> requests.Session:` is in the same file | site(http, requests.Session.send, nameonly) |
 | h10 | `requests.Session().get(u)` | site(http, requests.Session.get, exact) |
 | h11 | `async def f(): async with httpx.AsyncClient() as c: await c.get(u)` | site(http, httpx.AsyncClient.get, exact) |
 | n01 | `s = requests.Session()` (the constructor call itself) | none |
@@ -139,12 +147,12 @@ Seed rows (the implementer writes these first; stage E adds more):
 | f01 | `open(p)` / `json.loads(t)` / `os.getenv("X")` / `configparser.ConfigParser().read(p)` / `Path(p).read_text()` | one site each, families filesystem / parse / config / parse / filesystem |
 | f02 | `os.environ["X"]` (a subscript, not a call) | none |
 
-- [ ] Write the fixtures, `rows.jsonl`, and a test `matrix_rows_match` that runs
-      `inventory::collect` on each fixture and compares with `want`. It does not compile yet (no
-      `inventory` module): that is the RED state. Also add `today_no_external_call_rows_for_dependency_calls`
-      in `crates/prism-review/tests/cli/targets_test.rs`, which runs the current CLI on fixture h01 with an
-      all-lines diff and asserts zero `external_call` rows; it passes on main and is deleted in S2 when the
-      behaviour changes (its deletion is named in the S2 PR body).
+- [ ] Write the fixtures, `rows.jsonl` and the matrix test `matrix_rows_match`. Confirm it is RED on main
+      for the reason above. Also add `today_no_external_call_rows_for_dependency_calls` to
+      `crates/prism-review/tests/cli/targets_test.rs`: it runs the current command on fixture h01 with a
+      JSON diff spec naming every line (`{"files":[{"file_path":…,"modify_type":"Modified","diff_lines":[…]}]}`,
+      the format of `tests/fixtures/targets/diff.json`) and asserts zero `external_call` rows. It passes on
+      main and is deleted in S2, with the deletion named in the S2 PR body.
 - [ ] Obtain the `faultpath-guard` truths (needs faultpath) with a script in the evidence directory that
       loads each fixture and a candidate row into faultpath's resolver and site guard and prints the
       refusal reason or "accepted". Record the outputs beside `rows.jsonl`.
@@ -160,15 +168,16 @@ Seed rows (the implementer writes these first; stage E adds more):
 
 ## Stage D: design of record (half a day)
 
-- [ ] Amend DESIGN section 6: final tables, route admissions, symbol spelling, context rules, reason list,
-      and the accepted-loss list (rows marked `none` that a stronger analysis could list). Both reviewers
-      review the amendment and `rows.jsonl` (cap 2 rounds).
+- [ ] The design seat (ORCHESTRATION section 3, stage D) amends DESIGN section 6: final tables, route admissions, symbol spelling, context rules, the reason
+      list (stage T and E rows may add reasons to the closed list of DESIGN 5.2; each new reason is named
+      here), and the accepted-loss list (rows marked `none` that a stronger analysis could list). Both
+      reviewers review the amendment and `rows.jsonl` (cap 2 rounds).
 
 ---
 
 ## Stage I: slices
 
-### Slice S1: call-level identity entry point (behaviour-preserving; half a day)
+### Slice S1: root identity for any call node (behaviour-preserving; half a day)
 
 **Files:**
 - Modify: `crates/prism-review/src/targets/dependency_hint.rs`, `dependency_identity.rs`
@@ -177,33 +186,43 @@ Seed rows (the implementer writes these first; stage E adds more):
 **Interfaces (produced):**
 
 ```rust
-/// Resolve one call node: callee text as written, the dotted path its root resolves to through imports
-/// (None when identity is not proven), and the library-prefix kind used for echo rows.
-pub(super) struct CallIdentity { pub source_callee: String, pub resolved_path: Option<String>, pub kind: Option<&'static str> }
-pub(super) fn resolve_call(parsed: &ParsedFile, call: tree_sitter::Node<'_>, ctx: &SiteContext<'_>) -> Option<CallIdentity>;
+/// What the root of a call's callee chain is bound to at the call site.
+pub(super) struct RootIdentity {
+    pub source_callee: String,             // callee text as written, e.g. "r.get"
+    pub resolved_path: Option<String>,     // dotted path through a proven import, e.g. "requests.get"; None when
+                                           // the root is shadowed, unimported, or names a repository-local module
+    pub root_is_library_spelling: bool,    // the root's text equals the first segment of a visible import or of a
+                                           // table library, whether or not identity was proven (for the unproven count)
+}
+pub(super) fn root_identity(parsed: &ParsedFile, call: tree_sitter::Node<'_>, ctx: &SiteContext<'_>) -> Option<RootIdentity>;
+pub(super) fn sole_receiver_constructor(/* today's private helper, signature unchanged */);
 ```
 
-`resolve(parsed, line, ctx)` keeps its signature and result and is rewritten to call `resolve_call` on the
-candidate it selects.
+`resolve(parsed, line, ctx)` keeps its signature and its results; internally it may use `root_identity`.
+No receiver route is added in this slice.
 
-- [ ] Add tests `resolve_call_reports_resolved_path_for_alias_import` (`import requests as r; r.get(u)` →
-      `source_callee == "r.get"`, `resolved_path == Some("requests.get")`, `kind == Some("http")`) and
-      `resolve_call_reports_no_path_for_shadowed_root`. Run: they fail to compile.
-- [ ] Implement. Run the two tests and the whole `dependency_hint` test modules: all pass.
+- [ ] Add tests `root_identity_reports_resolved_path_for_alias_import` (`import requests as r; r.get(u)` →
+      `source_callee == "r.get"`, `resolved_path == Some("requests.get")`),
+      `root_identity_reports_no_path_for_shadowed_root` and `…_for_repository_local_module`. They fail to
+      compile: RED.
+- [ ] Implement. The new tests and the whole `dependency_hint` test modules pass.
 - [ ] Gate: `cargo test -p prism-review --test cli targets_test::` passes unchanged (G-byte for this slice).
-      One reviewer (test and refactor only).
+      One reviewer (refactor with tests).
 
-### Slice S2: inventory core, HTTP family, command line, schema 1.1 (3 days)
+### Slice S2: inventory core, HTTP family, command line, schema 1.1 (3 to 4 days)
 
 **Files:**
 - Create: `crates/prism-review/src/targets/inventory/{mod.rs,python.rs,py_tables.rs,py_receiver.rs,rows.rs}`
 - Create: `docs/contracts/targets-1.1.schema.json` (copied byte for byte from the contract authority; the
   private bindings file gives its location and SHA-256)
-- Create: `crates/prism-review/tests/cli/targets_inventory_test.rs`, fixtures under
-  `tests/fixtures/targets_inventory/`
-- Modify: `crates/prism-review/src/targets/mod.rs` (merge, `schema_version` as a value, `TargetsMeta.inventory`),
-  `crates/prism-review/src/cli.rs` (`TargetsArgs`), `crates/prism-review/src/main.rs` (`run_targets`),
-  `crates/prism-review/tests/cli/main.rs` (module line), `CLAUDE.md`, `README.md` (targets section)
+- Create: `crates/prism-review/tests/cli/targets_inventory_test.rs`,
+  `crates/prism-review/tests/cli/schema_support.rs` (the schema walker moved out of `targets_test.rs`, taking
+  the schema file name as a parameter; `targets_test.rs` then uses it)
+- Modify: `crates/prism-review/src/targets/mod.rs` (two new functions; `project` untouched),
+  `crates/prism-review/src/api/` (re-export the new public items), `crates/prism-review/src/cli.rs`
+  (`TargetsArgs`), `crates/prism-review/src/main.rs` (`run_targets`),
+  `crates/prism-review/tests/cli/main.rs` (module lines), `CLAUDE.md` (the `targets/` paragraph),
+  `README.md` (targets section)
 
 **Interfaces (produced):**
 
@@ -211,55 +230,76 @@ candidate it selects.
 // inventory/mod.rs
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Family { Http, Filesystem, Parse, Config }
-impl Family { pub fn as_str(self) -> &'static str; pub fn parse(s: &str) -> Option<Family>; }
+impl Family { pub fn as_str(self) -> &'static str; pub fn parse(s: &str) -> Option<Family>;
+              pub fn supported() -> &'static [Family]; }             // [Http] in this slice
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Grade { Exact, AnnotationTyped }
 #[derive(Clone, Debug, Default)]
-pub struct InventoryOptions { pub families: BTreeSet<Family> }      // empty = every supported family
+pub struct InventoryOptions { pub families: BTreeSet<Family> }       // empty = every supported family
 pub struct InventorySite { pub file: String, pub line: usize, pub symbol: String,
     pub function_start_line: usize, pub function_end_line: usize, pub family: Family,
     pub resolved_callee: String, pub source_callee: String, pub grade: Grade }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnsupportedReason { ModuleLevel, MultilineCallee, NotOutermostCallOnLine,
     SeveralTableCallsOnLine, LambdaFrame, ParseErrorInFunction }
-impl UnsupportedReason { pub fn as_str(self) -> &'static str }       // snake_case names of DESIGN 5.2
+impl UnsupportedReason { pub fn as_str(self) -> &'static str }        // snake_case names of DESIGN 5.2
 pub struct UnsupportedSite { pub file: String, pub line: usize, pub symbol: Option<String>,
     pub family: Family, pub resolved_callee: String, pub source_callee: String, pub reason: UnsupportedReason }
 pub struct InventoryOutput { pub sites: Vec<InventorySite>, pub unsupported: Vec<UnsupportedSite>,
-    pub identity_unproven: usize, pub files: Vec<String> }           // files: sorted, every inventoried file
-pub fn collect(files: &BTreeMap<String, prism::ast::ParsedFile>, opts: &InventoryOptions) -> InventoryOutput;
+    pub identity_unproven: usize, pub files: Vec<String> }            // files: sorted, every inventoried file
+/// `files`: the Python files to inventory, keyed by repository-relative path. `repo_root` is needed by the
+/// repository-local-module check.
+pub fn collect(files: &BTreeMap<String, prism::ast::ParsedFile>, repo_root: &Path,
+               opts: &InventoryOptions) -> InventoryOutput;
+/// The Python files of DESIGN 5.5 ("Which files"): whole-repository load, exclusions, optional `--files` filter.
+pub fn load_python_files(repo_root: &Path, only: Option<&BTreeSet<String>>)
+    -> anyhow::Result<BTreeMap<String, prism::ast::ParsedFile>>;
 
 // targets/mod.rs
-pub struct TargetsMeta { /* existing fields */ pub inventory: Option<InventoryOptions> }
+/// An inventory-only document (schema 1.1): no findings, `diff` built from `out.files`.
+pub fn inventory_document(meta: &TargetsMeta, out: &InventoryOutput) -> TargetsDocument;
+/// Adds inventory rows to a projected document: sets schema 1.1, appends "prism.inventory/1" to
+/// producer.algorithms, drops duplicate ids against the rows already present, applies the severity and tier
+/// filters of `meta`, re-sorts by the existing key, appends the identity-unproven warning.
+pub fn merge_inventory(doc: TargetsDocument, meta: &TargetsMeta, out: &InventoryOutput) -> TargetsDocument;
 ```
 
-Command line: `--inventory <NAME>` (value `python-deps`); `--inventory-kinds <LIST>`; `--diff` becomes
-`required_unless_present = "inventory"`. Rules: `--inventory` without `--diff` forbids an explicit
-`--algorithm` other than `none`; an inventory-only run builds no code property graph.
+The family of a call comes from `py_tables.rs` applied to the resolved callee; `root_identity` supplies only
+the root's path. Receiver routes R1 to R5 live in `py_receiver.rs` and build `<class path>.<method>`.
 
-- [ ] Make `matrix_rows_match` compile against the interfaces (HTTP rows and the `none` and `unsupported`
-      rows; rows of the three standard-library families are marked `#[ignore = "S3"]`). Confirm RED.
-- [ ] Add CLI tests, RED first:
+Command line: `--inventory <NAME>` (value `python-deps`); `--inventory-kinds <LIST>`; `--diff` becomes
+optional in clap. `run_targets` then enforces: no `--diff` and no `--inventory` → the same error text clap
+gives today for a missing `--diff` (check `validation_test.rs` and `targets_test.rs` for a pinned message and
+keep it passing); no `--diff` with `--inventory` → the inventory-only path (`load_python_files`, `collect`,
+`inventory_document`), which never calls the review runner; an explicit `--algorithm` on that path
+(detected with clap's `value_source`) → an error; both given → today's path, then `load_python_files`,
+`collect`, `merge_inventory`.
+
+- [ ] CLI tests, RED first, in `targets_inventory_test.rs`:
 
 ```rust
-#[test] fn inventory_only_run_needs_no_diff_and_writes_schema_1_1()   // exit 0; schema_version "1.1"; validates against targets-1.1.schema.json; producer.algorithms == ["prism.inventory/1"]; diff.files == sorted inventoried files
+#[test] fn inventory_only_run_needs_no_diff_and_writes_schema_1_1()   // exit 0; schema_version "1.1"; passes schema_support against targets-1.1.schema.json; producer.algorithms == ["prism.inventory/1"]; diff.files == sorted inventoried files
 #[test] fn inventory_row_has_the_documented_shape()                   // fixture h05: kind external_call, category dependency_call.http, hint {kind http, callee requests.Session.send}, expected.detail "source callee: s.send", severity info, bounds, symbol
 #[test] fn unsupported_site_is_an_other_row_with_a_reason()           // fixture u01: kind other, category dependency_call_unsupported, expected.detail "module_level"
 #[test] fn inventory_ids_are_stable_across_runs_and_thread_counts()   // two runs, RAYON_NUM_THREADS 1 and 4: identical bytes
-#[test] fn inventory_merges_with_projected_findings()                 // --diff and --inventory: both row sources present, sorted by the existing key
+#[test] fn inventory_merges_with_projected_findings()                 // --diff and --inventory: both row sources present, sorted by the existing key, no duplicate id
 #[test] fn without_inventory_the_document_is_schema_1_0()             // existing fixture: schema_version "1.0", no prism.inventory rows
-#[test] fn inventory_without_diff_rejects_a_finding_algorithm()       // --inventory python-deps --algorithm echo, no --diff: clap error
+#[test] fn inventory_without_diff_rejects_an_explicit_algorithm()     // --inventory python-deps --algorithm echo, no --diff: error
+#[test] fn inventory_kinds_rejects_an_unsupported_family()            // --inventory-kinds filesystem before S3: error naming the supported families
+#[test] fn inventory_skips_virtualenv_and_dot_directories()           // a fixture with .venv/lib/x.py and pkg/x.py: only pkg/x.py in diff.files
+#[test] fn files_filter_narrows_the_inventory()                       // --files pkg/a.py: only that file's rows and only it in diff.files
 #[test] fn vendored_1_1_schema_matches_its_recorded_hash()            // SHA-256 of docs/contracts/targets-1.1.schema.json equals a constant in the test
 ```
 
 - [ ] Implement `py_tables.rs` (HTTP entries only), `py_receiver.rs` (R1 to R5 as fixed in stage D),
-      `python.rs` (call walk, enclosing definition, site rules), `rows.rs`, then the merge in `mod.rs` and
-      the CLI wiring. The inventory calls `dependency_hint::resolve_call` for identity; it adds no second
-      import resolver.
+      `python.rs` (call walk, enclosing definition, site rules), `rows.rs`, `load_python_files`, the two
+      document functions and the CLI wiring.
+- [ ] `matrix_rows_match` GREEN for the HTTP, `none` and `unsupported` rows.
 - [ ] Review focus items 1 to 5: one test each, named after the item.
 - [ ] Delete `today_no_external_call_rows_for_dependency_calls` and say so in the PR body.
-- [ ] GREEN. Gates of ORCHESTRATION section 5: items 1 to 4, 8, 9, 10 (no cache, data-flow or resolution
-      change: 5 to 7 do not apply).
+- [ ] Gates of ORCHESTRATION section 5: items 1 to 4, 8, 9, 10 (no cache, data-flow or resolution change:
+      5 to 7 do not apply). `main.rs` is near 1,000 weighted lines: put the inventory branch in a new
+      function in a new file if it would pass that.
 - [ ] Measure before review: run the built binary on httpie; record rows per family and per unsupported
       reason, the identity-unproven count, and whether the two HTTP overlay sites are rows with the
       overlay's file, line, bounds and kind (**G-overlay**). Put the table in the PR body.
@@ -269,11 +309,14 @@ Command line: `--inventory <NAME>` (value `python-deps`); `--inventory-kinds <LI
 
 **Files:**
 - Modify: `crates/prism-review/src/targets/inventory/py_tables.rs`, `py_receiver.rs` (constructors such as
-  `configparser.ConfigParser`, `pathlib.Path`), `inventory_matrix_tests.rs` (un-ignore the S3 rows)
+  `configparser.ConfigParser`, `pathlib.Path`), `inventory/mod.rs` (`Family::supported`),
+  `crates/prism-review/tests/cli/targets_inventory_matrix_test.rs` (`ENABLED_FAMILIES`)
 - Create (evidence directory): `parity/compare.py`
 
-- [ ] Un-ignore the S3 matrix rows: RED. Add the three families' entries. GREEN.
-- [ ] `parity/compare.py <prism.json> <scan.json>`: key each injectable row by (file, line,
+- [ ] Add the three families to `ENABLED_FAMILIES` in the matrix test and to `Family::supported()`: the
+      matrix is RED for their rows. Add the three families' table entries. GREEN.
+- [ ] `parity/compare.py <prism.json> <scan.json>`: restrict both sides to the files in the scan
+      document's `diff.files` (scan leaves out test areas); key each injectable row by (file, line,
       function_start_line, function_end_line, family, resolved callee); print the two set differences.
 - [ ] Run `faultpath scan` (needs faultpath) and `prism targets --inventory python-deps --inventory-kinds
       filesystem,parse,config` on httpie, black and one more corpus, each on a clean checkout. Classify
@@ -310,7 +353,7 @@ routes, the unsupported reasons, what is out of scope).
 - [ ] `e2e/funnel.py` joins the independent census, the prism document, faultpath's census output and the
       run results into the funnel of DESIGN section 8. `e2e/REPORT.md` holds the funnel for httpie, the
       loss reasons per step, and the sites prism found beyond the overlay with their outcomes.
-- [ ] Write `docs/features/targets-inventory.md`; update the `targets/` paragraph of `CLAUDE.md`.
+- [ ] Write `docs/features/targets-inventory.md`.
 - [ ] Close #613 with the funnel. File: (a) an issue in the faultpath repository proposing how prism rows
       and scan rows should coexist, with the parity numbers (DESIGN decision 7); (b) a prism issue for the
       provenance noise on `requests.*` lines (the `request` substring match and the `fetch` → database

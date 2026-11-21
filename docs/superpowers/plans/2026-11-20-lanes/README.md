@@ -19,7 +19,7 @@ because the rules are fixed against an executed test matrix first.
 
 ## What the research changed
 
-Each plan starts from facts verified on main at 1179055f, and three of them differ from the premises the
+Each plan starts from facts verified on `origin/main` at 1179055f. Several differ from the premises the
 lanes were proposed with:
 
 - **Lane 2.** `kind: external_call` has one source, an algorithm that only sees in-repository callers of
@@ -28,8 +28,9 @@ lanes were proposed with:
   parsing and configuration calls; HTTP is the uncovered family. A targets contract minor (1.1) that prism
   may emit already exists.
 - **Lane 3.** Destructured props, the dominant component shape (194 of 230 component-like definitions in
-  Excalidraw by a rough count), have no definition in the data-flow graph at all today. That is the first
-  slice. Edges into destructured props end at a definition, which is what the trace engine behind
+  Excalidraw by a rough count), have no definition in the data-flow graph today. That is the first slice,
+  and it is done through a new accessor so that positional slots and the other readers of parameter lists
+  do not change. Edges into destructured props end at a definition, which is what the trace engine behind
   `taint_reaches` requires; the existing object-literal edges (#594) end at a use and stop that engine.
 - **Lane 4.** The issue's premise is out of date: `target[key] = value` is already a definition and key
   taint already reaches the write line (41 of 95 benchmark cases with ground truth traced on an older
@@ -60,6 +61,17 @@ start. The decisions with the most consequence:
 | 4 | Is the experiment's result enough to fund implementation? | pre-stated: 25 or more converted cases continues; 15 to 24 asks; fewer stops |
 | 5 | Start the pilot after the feasibility memo? | **wait for an explicit go-ahead** |
 | 5 | Pilot pair | the public pair first; the private pair's adapter last |
+
+## How the plans were checked
+
+One round: for each lane a fresh Sonnet-5.5 agent read `ORCHESTRATION.md`, the design and the plan as the
+orchestrator who would have to run them, verified the code references against the worktree, and listed
+every point where it would have had to guess, every wrong fact and every step that could not run as
+written. All four reports were folded (the largest changes: lane 2 gained an explicit file-loading and
+inventory-only path; lane 3's first slice was narrowed so it cannot change other algorithms; lane 4's sink
+got a concrete carrier for its rule tag; lane 5's field-read and replay procedures were made exact). The
+designs have not had the two-reviewer design review; each lane runs that at its stage D, after its census
+and test matrix.
 
 ## Evidence
 

@@ -15,14 +15,15 @@ stated rule or is counted as refused with a reason. State and context propagatio
 Success is measured by correct end-to-end paths and by review examples a reader finds useful, not by the
 number of edges added.
 
-## 2. What exists today (verified on main at 1179055f)
+## 2. What exists today (verified on `origin/main` at 1179055f)
 
 | Fact | Reference |
 |---|---|
 | A JSX opening or self-closing element is an ordinary call site with `jsx_element = true`. Its span covers the whole opening element. Lowercase tags are dropped as intrinsic. Capitalised tags resolve like calls: same-file `local_def`, imports `import_member`, namespace members `import_qualified`, all Exact in the probes. | `src/queries.rs:150-166`, `src/call_graph.rs:176`, `src/resolution.rs:2158` |
 | `memo(fn)` and `forwardRef(fn)` resolve to the inner function when the wrapper is a named import of `react` around a function expression in a `const`. `React.memo(Identifier)`, class components and `lazy` from another file do not resolve. A same-file `React.lazy(() => import(..))` binds the element to the loader arrow (a wrong target with no formals). | `src/ast/js_wrapped_export.rs` |
 | Attributes are not arguments. A JSX site has an empty argument list, and the argument-binding loop skips it. No edge leaves any attribute value. Children are not represented. | `src/cpg/build.rs:1603` |
-| **Destructured formals have no definition at all.** `function C({ html })`, arrows, `React.FC` arrows and `memo(({html}) => ..)` give `html` no Def and no positional slot; the body's use of `html` has no incoming edge. Plain `props` formals have a Def, and a member-only formal has projection edges `props → props.html`. | `src/parameter_slots.rs:75-77`, `:481-520`; probes |
+| **Destructured formals have no definition.** `function C({ html })`, arrows, `React.FC` arrows and `memo(({html}) => ..)` give `html` no Def and no positional slot; the body's use of `html` has no incoming edge. Plain `props` formals have a Def, and a member-only formal has projection edges `props → props.html`. One exception exists: a pattern whose default is another formal (`({ a } = other)`, `[u] = o`) already gets Defs at its identifiers from the parameter-default alias code. | `src/parameter_slots.rs:75-77`, `:481-520`; `src/ast/js_ts/param_alias.rs:184`; probes |
+| Parameter occurrences and positional slots have many readers besides the data-flow producer: `FunctionInfo.param_names`, the call graph, the `peer_consistency`, `primitive` and `quantum` algorithms, and the reasoning layer's parameter seeds. JavaScript reference search is already fenced by binding scope, and that fence already understands object patterns. | `src/ast/tree_access.rs:226`, `src/call_graph.rs:1872`, `src/reasoning/seeds.rs:267`, `src/ast/parameters.rs:12`; `js_ts_binding_pattern_may_bind` |
 | Object-literal arguments already bind field by field (#594): `f({ k: v })` adds `Use(v) → Use(p.k read)` for plain formals of an Exact-singleton callee. Destructured, rest and bare-arrow formals are refused. The pass runs inside the argument-binding loop and is mirrored in two test-only twins. | `src/cpg/object_literal_args.rs`, `src/cpg/callee_legacy.rs`, `src/cpg/step5b_reference.rs` |
 | Review taint (default) follows every data-flow edge. The trace engine behind `taint_reaches` and `--taint-return-flow` crosses a function boundary only when the edge **ends at a Def**, exactly one call site matches the source occurrence, and that site resolves Exact. The #594 edges end at a Use, so the trace engine stops at them today. | `src/cpg/trace.rs:712-800`; probes |
 | The `dangerouslySetInnerHTML` sink needs the taint path to end at a use named like the identifier on the sink line. | `crates/prism-review/src/algorithms/taint/js_ts/sinks.rs:129-175` |
@@ -98,20 +99,43 @@ binding element: the key path it reads and the local it binds.
 | `{ [k]: v }` | unknown | `v` gets a Def and no incoming binding |
 | an array pattern anywhere inside | — | that subtree gets nothing |
 
-Each local gets a Def exactly as an identifier formal would: at the function's first line with the binding
-identifier's bytes, subject to the same classification (no Def when unused; a base Def with projection
-edges when only read through members, as in `({ user }) => user.name`) and the same refusals. Defaults
-follow the existing policy for identifier formals: an element with no default or an inert default is
-admitted; another default leaves that element without a Def. The pattern occupies one positional slot that
-binds nothing positionally, and slot numbering continues after it, so a later identifier formal
-(`forwardRef(({ a }, ref) => …)`) keeps its slot.
+**A new accessor, not a wider one.** Pattern elements come from a new function
+(`ParsedFile::js_ts_pattern_params`). The existing parameter occurrences, parameter names and positional
+slots are not changed, so every other reader of them (section 2) behaves exactly as today, and a formal
+after a pattern stays positionally unbound, as today. The only consumer in the first slice is the data-flow
+producer, which registers a Def for each admitted pattern local in the same loop, and with the same
+classification, as an identifier formal: at the function's first line with the binding identifier's bytes;
+no Def when the local is unused; a base Def with projection edges when it is only read through members, as
+in `({ user }) => user.name`.
 
-`callee_params` exposes, per callee, the positional targets as today plus a pattern map:
+Admission of an element (each rule has matrix rows):
+
+- the local is a plain identifier, spelled without escapes, and no other formal or element of the list
+  binds the same name;
+- it has no default, or an inert default by the existing test (`is_inert_default_value`);
+- the pattern formal itself has no default or the default `{}`. A pattern whose default is another formal
+  is already handled by the parameter-default alias code; this lane adds nothing for locals that code
+  defines, so nothing is registered twice;
+- the owner-level refusals identifier formals get (`eval`, `arguments`, recovery nodes in the parameter
+  list) apply unchanged.
+
+Sibling identifier formals keep exactly what they get today. The pattern's position is its index in the
+syntactic parameter list (a TypeScript `this` parameter not counted).
+
+For binding (section 5.3) the facts per callee are the positional targets, unchanged, plus a pattern map.
+It is generic over the target representation because the argument-binding step has a production path
+(cached `ParamTarget`s) and two test-only twins that work on graph node indices:
 
 ```rust
-pub(super) struct PatternEntry { pub key: Vec<String>, pub target: Option<ParamTarget>, pub defaulted: bool, pub rest: bool, pub key_known: bool }
-pub(super) struct PatternFormal { pub slot: usize, pub entries: Vec<PatternEntry> }
+pub(super) struct PatternEntry<T> { pub key: Vec<String>, pub key_known: bool, pub target: Option<T>,
+                                    pub defaulted: bool, pub rest: bool }
+pub(super) struct PatternFormal<T> { pub position: usize, pub entries: Vec<PatternEntry<T>> }
 ```
+
+A wrapped component whose inner function is anonymous (`const C = memo(({ html }) => …)`) resolves by span,
+while today's parameter facts are looked up by name and line range. The required behaviour is that it binds
+like the named form; if the lookup cannot be made by span in this lane, it is an accepted loss with its
+census count.
 
 ### 5.2 Props sources — *rules tentative where marked*
 
@@ -143,45 +167,58 @@ written after it bind; of duplicate keys the last one decides.
 ### 5.3 Binding
 
 The site must resolve to exactly one Exact callee in the JavaScript family, and the target is the callee's
-first formal (slot 0). For object-literal arguments the target is the formal at the argument's position, as
+first formal (position 0). For object-literal arguments the target is the formal at the argument's position, as
 today.
 
 - **Plain formal:** unchanged from #594. `Use(value) → Use(p.<read>)` for each read whose member chain is a
   prefix of, or extends, the entry's key path, with the callee's flow-insensitive write suppression. Label:
-  the worse of Exact and the read's definition-edge label.
+  the worse of Exact and the read's definition-edge label. This includes #594's rule that a *bare* read of
+  the formal (`const { a } = props`, `fn(props)`, `{...props}`) receives every key: the props object does
+  hold every attribute, but everything after that read is no longer field-selective. Those edges are
+  counted separately (`edges_to_bare_use` in the counters of 5.4) so their share is visible; follow-up F3 is
+  the refinement.
 - **Pattern formal:** `Use(value) → Def(local)` for each pattern entry whose key path is a prefix of, or
   extends, the entry's key path; a rest entry receives every key no sibling names; an entry with an unknown
   key receives nothing. Label: Exact (the call is an Exact singleton and the key match is syntactic).
 - Dedupe by (from, to). The source occurrence is found by byte span, as for arguments, so the attribute
   name's own use node is never taken for the value.
+- The binder keeps the existing generic shape: it takes the targets in any representation together with a
+  function that resolves one to a graph node.
 
 `Exact` here states a static binding, as everywhere in prism: this attribute name is this prop key of this
 component. It does not say when React renders the component.
 
 ### 5.4 Counters
 
-Added to `nav dfg-stats` and to `call-stats.dfg_labels`: `props_sites_jsx`, `props_sites_literal`,
-`props_edges_to_def`, `props_edges_to_use`, and refusals by reason: `props_refused_not_exact_singleton`,
-`props_refused_no_props_formal`, `props_refused_value_not_data`, `props_refused_overwritten`,
-`props_refused_key_not_read`, `props_refused_key_unknown`, `props_spread_sources_unbound`. They are the
-"handled explicitly" record for unresolved components, wrappers and spreads.
+One new field on the existing statistics record, `dfg_props: BTreeMap<String, usize>` (the same shape as
+`dfg_loop_plan`), printed by `nav dfg-stats` and under `call-stats.dfg_labels`. Keys: `sites_jsx`,
+`sites_literal`, `edges_to_def`, `edges_to_use`, `edges_to_bare_use`, and refusals by reason:
+`refused_not_exact_singleton`, `refused_no_props_formal`, `refused_value_not_data`, `refused_overwritten`,
+`refused_key_not_read`, `refused_key_unknown`, `spread_sources_unbound`. They are computed where the
+argument-binding step runs (at graph assembly, on every build: cold, full cache hit, partial hit), returned
+beside the edges per caller and merged in a fixed order. They are the "handled explicitly" record for
+unresolved components, wrappers and spreads.
 
 ### 5.5 Where the code goes
 
 ```
-src/ast/js_ts/pattern_params.rs    pattern elements of a formal: key path, local, default, rest
-src/parameter_slots.rs             occurrences include pattern locals; slots continue past a pattern
-src/cpg/callee_params.rs           PatternFormal / PatternEntry beside the positional targets
-src/cpg/props_binding.rs           PropsEntry, PropsValue, the binder, the counters
+src/ast/js_ts/pattern_params.rs    pattern elements of a formal (declared in src/ast/js_ts.rs)
+src/ast/parameters.rs              unchanged accessors; the JavaScript path gains nothing here
+src/data_flow/build/file.rs        registers Defs for admitted pattern locals beside identifier formals
+src/cpg/callee_params.rs           compute_pattern_formal_nodes and the cached ParamTarget form
+src/cpg/props_binding.rs           PropsEntry, PropsValue, the generic binder, the counters
 src/cpg/object_literal_args.rs     becomes the object-literal source; pairing moves to props_binding.rs
 src/cpg/jsx_props.rs               the JSX attribute source
-src/cpg/build.rs                   one call for JSX sites before the empty-argument skip (the file is at
-                                   1,777 weighted lines: wiring only)
-src/cpg/callee_legacy.rs, src/cpg/step5b_reference.rs   the same call, so the parity tests keep agreeing
+src/cpg/build.rs                   module lines (`#[path]`, like callee_params and object_literal_args), the
+                                   call for JSX sites, the counters' merge, the `dfg_props` field. The file
+                                   is at 1,777 weighted lines: wiring only.
+src/cpg/callee_legacy.rs, src/cpg/step5b_reference.rs   the same calls at the same position, so the parity
+                                   tests keep agreeing
+src/cpg.rs                         `#[cfg(test)] mod` lines for the new test files
 ```
 
-Each slice that changes the graph bumps `CACHE_VERSION` (189 on main today) and adds its line to the list
-in `src/cpg_cache.rs`.
+Each slice that changes the graph or the statistics record bumps `CACHE_VERSION` (189 on main today) and
+adds its line to the list in `src/cpg_cache.rs`.
 
 ### 5.6 Effect on the taint engines
 
@@ -202,10 +239,15 @@ relative to a spread; the callee's first-formal shape (object pattern: flat, ali
 computed; plain identifier: member-only, mixed, destructured in the body; none); and the predicted number
 of bindable (attribute, key) pairs. The model for the script is `~/prism-evidence/js-args/census.cjs`.
 
-**Oracle.** For every cross-function edge the lane adds, the TypeScript checker decides: the element's
-resolved signature is the target function, and the attribute's property symbol is the one the binding
-element (or member read) names. Verdicts CORRECT, WRONG, UNDECIDED (the checker cannot resolve, for example
-untyped JavaScript), INADMISSIBLE (the probe failed). A sample of UNDECIDED rows is read by hand.
+**Oracle.** The corpora are checked without their dependencies installed, so the oracle uses only what the
+TypeScript checker can decide from the project's own files. For every cross-function edge the lane adds:
+(1) component identity: the symbol of the element's tag name, with aliases followed, has a declaration that
+is the edge's target function, or a `const` whose initialiser is an admitted wrapper call around it;
+(2) key match, from syntax: the attribute's name (or the literal's key path) equals the property name of the
+binding element the edge ends at, or is comparable with the member chain of the read it ends at. CORRECT
+when both hold; WRONG when the tag resolves to another declaration or the keys do not match; UNDECIDED when
+the tag's symbol cannot be resolved; INADMISSIBLE when the probe failed. A sample of UNDECIDED rows is read
+by hand.
 
 **Differential.** Base and head `nav dfg-stats --edges` and `nav call-stats` on each corpus, every change
 attributed to a named class, exit non-zero on an unattributed change. The comparator model is
@@ -215,17 +257,20 @@ attributed to a named class, exit non-zero on an unattributed change. The compar
 component hops, split into chains ending at a sink line, chains ending at another element's attribute, and
 others; each hop must be CORRECT.
 
-**Review examples.** Thirty commits from the corpus history whose diff changes a JSX attribute value or a
-variable that flows into one. For each, run `leftflow` and `fullflow` with the base and the head binary and
-show a reader (Opus-5.5, high) the context that only the head binary adds. The reader labels each example
-useful, neutral or noise against one question: would a reviewer of this change need to look at this code?
+**Review examples.** Thirty commits whose diff changes a line inside a JSX attribute's value expression on a
+capitalised element, in a non-test file (decided with the TypeScript parser on the commit's version of the
+file). They come from a corpus with full history: the second corpus has it; the pinned Excalidraw copy has
+no history and the local clone is shallow, so Excalidraw contributes only if a full clone can be fetched.
+For each commit, run `leftflow` and `fullflow` with the base and the head binary and show a reader
+(Opus-5.5, high) the context that only the head binary adds. The reader labels each example useful, neutral
+or noise against one question: would a reviewer of this change need to look at this code?
 
 ## 7. Gates
 
 | Gate | Threshold (default) |
 |---|---|
 | Census go | predicted bindable pairs ≥ 1,000 across Excalidraw and the second corpus; otherwise stop and report |
-| Slice S1 | differential: only additions, plus removals that are each a use newly shadowed by a pattern local; no label change on an untouched edge without an attributed reason |
+| Slice S1 | differential: only additions (new Defs for pattern locals and their intra-function edges). No removal is expected, because reference search is already fenced by scope; any removal or label move on an existing edge is read and explained one by one. No counter outside the data-flow statistics moves. A Go or Python corpus shows no change at all |
 | Oracle | 0 WRONG among added props edges; UNDECIDED reported with its hand-read sample |
 | Volume (#604) | ≥ 1,000 props edges ending at JSX attribute values on the public corpora |
 | Taint | the issue's example produces the `dangerouslySetInnerHTML` finding in default review taint and a Reached verdict from `taint-reaches` |
@@ -241,26 +286,31 @@ useful, neutral or noise against one question: would a reviewer of this change n
 | 3 | Review-example thresholds | section 7 | none | at stage G |
 | 4 | Follow-ups F1 to F6 | none starts without the stated census number being met; then the orchestrator proposes it to the owner | — | after S4 |
 | 5 | Attribute-name uses in the caller | left as they are; an issue is filed | removing them later is its own differential | — |
-| 6 | Positional slots continuing past a pattern formal | included in S1 | it can be split into its own PR if it is the only review blocker | during S1 review |
+| 6 | Positional slots continuing past a pattern formal, and pattern locals as parameter names or seeds | not changed: both have readers outside this lane (two review algorithms, the reasoning layer's seeds) | follow-ups F7 and F8 | — |
 
 ## 9. Follow-ups, each with the number that would justify it
 
 | Id | Follow-up | Justified when the census shows |
 |---|---|---|
-| F1 | Spread pass-through: bind `{...x}` sources to the callee's props | spread attributes on ≥ 5% of JSX sites with attributes, on either corpus |
+| F1 | Whole-object sources: a spread `{...x}` in an element or literal, and an identifier passed where the callee has a pattern formal (`D(obj)`) | spread attributes on ≥ 5% of JSX sites with attributes, on either corpus |
 | F2 | `children` as a prop | ≥ 100 components that read `children` and are given an identifier or member expression as a child |
 | F3 | Plain `props` destructured in the body (`const { a } = props`) | ≥ 10% of bound attributes target such components (the zero-width-read limit of #594) |
 | F4 | Resolution of `React.memo(Identifier)`, `export default memo(..)`, compound components | ≥ 10% of capitalised JSX sites unresolved for these reasons |
 | F5 | Trace-engine descent across edges that end at a formal's member read | plain-formal targets ≥ 10% of bound attributes; and PR #841 merged |
 | F6 | `href` and `src` sinks; `useState` and `useContext` provenance | after this lane's review examples show reader value |
+| F7 | Positional binding of identifier formals that follow a pattern formal | ≥ 100 such call sites on a corpus |
+| F8 | Pattern locals as parameter seeds for `taint_reaches` and as parameter names for the algorithms that read them | a user request, or a seed-based measurement that needs it |
 
 ## 10. Risks and accepted limits
 
 - **The producer change (S1) sits in heavily proven code** (reaching definitions, the write census, alias
   twins, pruning rules, parameter refusals). The differential's prediction is written before each run, and
-  any label movement on existing edges is a finding to explain, not to re-baseline. The frozen legacy
-  producer used by parity tests is not updated; tests that compare against it are adjusted only by
-  excluding pattern-formal owners, each exclusion named in the PR.
+  any label movement on existing edges is a finding to explain, not to re-baseline. Known interactions: a
+  one-line owner's edges are labelled by the single-node rules, so a pattern local there may get `sameline`
+  or `cfg_incomplete`, not `exact`; an owner that gains definitions can change its reaching-definition
+  availability counters. The test-only legacy producer reads the unchanged accessors and is not updated;
+  tests that compare the live producer with it are adjusted only by excluding owners with pattern formals,
+  each exclusion named in the PR.
 - **A wrong component target gives wrong edges.** Edges require an Exact singleton, and the oracle checks
   the resolved signature. The known wrong target (`React.lazy` loader arrow) has no formals and receives
   nothing.

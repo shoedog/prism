@@ -12,7 +12,7 @@ of sites someone typed into an overlay. The first population is bounded: Python,
 filesystem, parsing, configuration). The lane ends with one demonstrated pipeline on a real project: site
 discovered by prism → resolved live by faultpath → reached by the project's tests → fault injected → verdict.
 
-## 2. What exists today (verified on main at 1179055f; faultpath at 8e5070a)
+## 2. What exists today (verified on `origin/main` at 1179055f; faultpath at 8e5070a)
 
 **Prism.**
 
@@ -29,8 +29,12 @@ discovered by prism → resolved live by faultpath → reached by the project's 
   module, and in a library table (`PYTHON_LIBRARIES`, `:536`: requests, httpx, urllib3, aiohttp,
   urllib.request as `http`; pathlib and shutil as `filesystem`; and others). One receiver hop exists
   (`s = requests.Session(); s.send(..)`). Today this code only decorates rows echo already produced.
-- `prism targets` requires `--diff`; a repository-wide run needs a synthetic diff that lists every line. It
-  emits and validates schema 1.0 only. A row id is the SHA-256 of nine fields: file, line, symbol,
+- `prism targets` requires `--diff`, and only the files the diff names are loaded
+  (`load_review_inputs`, `src/api/review.rs:69`); a repository-wide run needs a synthetic diff that lists
+  every line. `run_targets` always goes through the review runner, which builds the code property graph.
+  The command writes schema 1.0 only; documents are checked against the schema file by tests, not at run
+  time. Prism's copy of the 1.0 schema differs from the contract authority's in description text only (a
+  known drift, not changed by this lane). A row id is the SHA-256 of nine fields: file, line, symbol,
   source algorithm, category, description, severity, related lines, related files (`targets/mod.rs:279`).
 
 **Faultpath** (read, not run).
@@ -143,17 +147,23 @@ emitted as a row with `kind: "other"`, `category: "dependency_call_unsupported"`
 only through the matrix): `module_level`, `multiline_callee`, `not_outermost_call_on_line`,
 `several_table_calls_on_line`, `lambda_frame`, `parse_error_in_function`.
 
-A call that only *resembles* a table entry (a method name on a receiver whose type is not proven, a root
-that is shadowed or not imported) produces no row. It is counted in a document-level warning
-(`inventory: <n> calls skipped, identity unproven`) and listed by the census script, not in the document.
+A call that only *resembles* a table entry produces no row. Two kinds of such calls are counted in a
+document-level warning (`inventory: <n> calls skipped, identity unproven`): (a) a callee chain whose root is
+spelled like a table library's import root but is shadowed, not imported, or names a repository-local
+module; (b) a method from the callee tables called on a receiver that has at least one binding from a
+listed constructor, or from a same-file helper that returns one, but fails its route's uniqueness or
+annotation requirement. A method call on a receiver with no tie to a table library (`d.get(k)`) is neither
+a row nor counted.
 
 ### 5.3 Identity proof
 
 One proof, the existing one, extended. `dependency_hint.rs` and `dependency_identity.rs` are refactored so
-that the per-call resolution is callable for any call node (today it starts from a finding's line), and the
-inventory and the echo-row decoration both use it. The library-prefix table that decorates echo rows keeps
-its behaviour; the inventory adds a **callee-level** table, because an inventory must not list
-`requests.Session()` or `requests.utils.quote()` as HTTP calls.
+that root identity is available for any call node (today the code starts from a finding's line and returns
+only a kind): which import the callee chain's root is bound to at the site, and the dotted path that gives
+(`r.get` under `import requests as r` is `requests.get`). The inventory and the echo-row decoration both use
+it. The library-prefix table that decorates echo rows keeps its behaviour and is not consulted by the
+inventory. The inventory decides the family from its own **callee-level** tables, because an inventory must
+not list `requests.Session()` or `requests.utils.quote()` as HTTP calls.
 
 Callee tables (final contents are fixed in stage D against the census):
 
@@ -177,11 +187,14 @@ Receiver typing for method entries, in order; the first that applies decides:
 | R2 local | the receiver is a local with exactly one binding in its function, initialised by a listed constructor call, or a `with <constructor>() as v` target | exact |
 | R3 attribute | `self.x` with exactly one assignment in the class, from a listed constructor call | exact |
 | R4 annotation | a parameter or local annotated with a listed class | nameonly |
-| R5 helper | a single-binding local initialised by a call to an in-repository function that prism resolves `Exact` and whose return annotation names a listed class | nameonly |
+| R5 helper | a single-binding local initialised by a call to a function defined exactly once at module level in the same file, never rebound there, whose return annotation names a listed class | nameonly |
 
-R1 to R3 exist today for the constructor hop; R4 and R5 are new. R5 is what the httpie site
-`requests_session.send(..)` needs (its session comes from a helper with an annotated return). A receiver
-with two bindings, a non-call initialiser, or an unannotated helper is unproven: no row.
+Today's hint code has the plain-assignment forms of R2 and R3 (`x = Ctor()`, `self.x = Ctor()`). R1, the
+`with` form of R2, R4 and R5 are new, and so is building the resolved callee for a method
+(`<class path>.<method>`). The routes need no call graph: an inventory-only run builds none. R5 is what the
+httpie site `requests_session.send(..)` needs (its session comes from a same-file helper with an annotated
+return); a helper in another file is an accepted loss unless the census shows it matters. A receiver with
+two bindings, a non-call initialiser, or an unannotated helper is unproven: no row.
 
 ### 5.4 Site rules
 
@@ -199,17 +212,23 @@ with two bindings, a non-call initialiser, or an unannotated helper is unproven:
 
 - `--inventory <name>` turns the row source on; the only name in this lane is `python-deps`.
   `--inventory-kinds http,filesystem,parse,config` narrows it (default: every family the build supports).
-- `--diff` stays required unless `--inventory` is given. An inventory-only run takes no `--algorithm`
-  (or `--algorithm none`) and inventories every loaded Python file (`--files` narrows). Its `diff` envelope
-  follows the convention `faultpath scan` uses: `files` is the sorted list of inventoried files and
-  `sha256` is the SHA-256 of that list's compact JSON encoding.
-- With `--diff` and `--inventory` both given, findings are projected as today and inventory rows for the
-  whole loaded repository are merged in.
+- **Which files.** The inventory reads the repository with the whole-repository loader the navigation
+  commands use (`prism::repo_loader::load_repo`, which skips `.git`, `target`, `node_modules` and `vendor`),
+  keeps the Python files, and also skips any path with a component named `.venv`, `venv` or `site-packages`
+  or starting with a dot. Test directories are included; a consumer filters them. `--files` (repository-
+  relative paths, as today) narrows the set. The file set does not depend on the diff.
+- `--diff` stays required unless `--inventory` is given. An inventory-only run does not call the review
+  runner and builds no code property graph; giving `--algorithm` explicitly without `--diff` is an error.
+  Its `diff` envelope follows the convention `faultpath scan` uses: `files` is the sorted list of
+  inventoried files and `sha256` is the SHA-256 of that list's compact JSON encoding.
+- With `--diff` and `--inventory` both given, findings are projected as today from the diff's files, and
+  inventory rows for the whole repository are merged in before dedupe and sort.
+- `--inventory-kinds` naming a family the build does not support is an error that lists the supported ones.
 - `producer.algorithms` gains `prism.inventory/1` when the inventory ran.
-- **Schema version.** A document produced with `--inventory` is written as schema 1.1 and validated against
-  a vendored `docs/contracts/targets-1.1.schema.json` that must be byte-identical to the contract
-  authority's file. A document produced without `--inventory` stays 1.0 and byte-identical to today's
-  output. No new contract version is created by this lane.
+- **Schema version.** A document produced with `--inventory` is written as schema 1.1. Tests check such
+  documents against a vendored `docs/contracts/targets-1.1.schema.json`, which must be byte-identical to
+  the contract authority's file. A document produced without `--inventory` stays 1.0 and byte-identical to
+  today's output. No new contract version is created by this lane.
 
 ### 5.6 Code layout
 
@@ -220,8 +239,8 @@ crates/prism-review/src/targets/
   inventory/py_tables.rs    callee-level tables per family
   inventory/py_receiver.rs  receiver routes R1 to R5
   inventory/rows.rs         InventorySite / UnsupportedSite → Target rows
-  dependency_hint.rs        gains resolve_call(parsed, call_node, ctx); resolve(parsed, line, ctx) calls it
-  mod.rs                    project() merges inventory rows; schema_version becomes a value
+  dependency_hint.rs        gains root_identity(parsed, call_node, ctx); resolve(parsed, line, ctx) uses it
+  mod.rs                    inventory_document() and merge_inventory(); project() is unchanged
 docs/contracts/targets-1.1.schema.json   vendored, byte-identical to the authority
 ```
 
@@ -235,6 +254,11 @@ how many helper hops: one); the qualified-name spelling for nested functions; wh
 count as an enclosing function; the unsupported-reason list. Each is pinned by matrix rows with a truth
 label before stage D fixes it. Where faultpath's behaviour is the truth (does its guard accept this
 symbol, these bounds, this line), the label is obtained by calling faultpath's own resolver on the fixture.
+If faultpath cannot be installed, the defaults are: the symbol is Python's `__qualname__` spelling
+(`Class.method`, `outer.<locals>.inner`); calls in nested functions and comprehensions are supported sites
+of the nearest enclosing `def`; calls in decorator arguments, default-argument expressions and class bodies
+are unsupported with reason `module_level` when no `def` encloses them. Those rows stay marked
+`pending-faultpath` and are settled by gate G-accept.
 
 ## 7. Gates
 

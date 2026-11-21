@@ -21,7 +21,7 @@ The lane is funded in two steps. First a short experiment on the existing benchm
 cases the planned sink would report and how often it would fire on ordinary code. Implementation starts only
 if that number is meaningful.
 
-## 2. What exists today (verified on main at 1179055f)
+## 2. What exists today (verified on `origin/main` at 1179055f)
 
 The issue's premise is out of date, which changes what has to be built.
 
@@ -32,7 +32,8 @@ The issue's premise is out of date, which changes what has to be built.
 | Value and key taint already reach the write line. `taint-reaches` from an Express handler's `req.body` reports the `key` use at `target[key] = …` as Reached in the recursive merge, and the path array at the path setter's final write. | probe 7.3 |
 | `for (const key in source)` carries taint from `source` to `key` (same-line propagation). `Object.keys(source).forEach(key => …)` does not: callback parameters are not bound (#434). | probe; `src/cpg/query.rs:731-767` |
 | There is no prototype-pollution sink and no guard recognition. A merge guarded by `if (key === '__proto__' \|\| key === 'constructor') continue;` is still Reached. Guard machinery accepts only `return` as a rejecting branch. | `crates/prism-review/src/algorithms/taint/cleansing.rs:271-273` |
-| Review sinks are matched per identifier on a tainted line; the only assignment sinks (`innerHTML`, `location`) are decided by a property name. No sink depends on which operand (key, value, receiver) is tainted. | `crates/prism-review/src/algorithms/taint/run.rs:213-292`, `taint_sinks/js.rs:449-493` |
+| Review sinks are matched per identifier on a tainted line; the only assignment sinks (`innerHTML`, `location`) are decided by a property name. No sink depends on which operand (key, value, receiver) is tainted. A flow path's end does carry the variable's access path and byte span. | `crates/prism-review/src/algorithms/taint/run.rs:213-292`, `taint_sinks/js.rs:449-493`, `src/data_flow/types.rs:7` |
+| A finding has no field for a rule tag or a CWE. The sink classifier's tag and CWE are read only by its unit tests; `taint_sink` findings are emitted per line with a fixed description, and SARIF rules are keyed by category. Severity comes from a per-line strength grade that can be Weak when the line also holds a weak SQL call. | `src/slice.rs:24`, `taint/run.rs:456-590`, `taint_sinks/strength.rs:38`, `crates/prism-review/src/output/sarif_rules.rs` |
 | The benchmark harness measures reach, not findings: `nav taint-reaches --source <API formal> --sink <ground-truth write line>`, crediting any reached occurrence on that line. It has no guarded or fixed-version negatives. | `eval/secbench/run.py:290-346` |
 | Benchmark numbers (baseline of 2026-10-05, an older build): 192 prototype-pollution entries, 190 acquired, ground truth derivable for 95; of those 41 traced, 26 reach the function only, 8 partial, 3 not reached, 17 errors. | `docs/superpowers/plans/2026-10-04-secbench-ground-truth/R1.md` |
 | Shape of the cases: 145 of 148 recorded sinks are subscript assignments; none is `Object.assign` or a spread. By exploit payload: path setters 52 (31 traced), object merges 46 (5 traced), flatten/unflatten 7 (4 traced). Merge cases fail before the write: rest parameters and `arguments` (#595), callbacks (#434), `dist` directories the loader skips. | research section 3.5 |
@@ -109,15 +110,18 @@ non-literal index. It is pollution-capable when one of these holds:
 | Class | Shape | Why it can pollute |
 |---|---|---|
 | `nested_keys` | the target has two or more non-literal index levels (`a[k1][k2] = v`) | `k1 = "__proto__"` selects the prototype, `k2` names the polluted property |
-| `path_walk` | the target's base is a cursor: a variable that the same function reassigns from a dynamic read (`o = o[k]`, `o = o[k] = o[k] \|\| {}`, `o = o[k] ?? …`), in a loop, a `reduce`/`forEach` callback, or recursion | an earlier step can move the cursor onto the prototype |
-| `recursive_merge` | the target's base is a parameter (or a single alias of one) of a function that calls itself, directly or through one same-file helper, passing a dynamic read of that base in the same parameter position (`merge(target[key], source[key])`) | the recursive call makes the callee's base the prototype |
+| `path_walk` | the target's base is a cursor: (a) a variable that the same function reassigns from a dynamic read (`o = o[k]`, `o = o[k] = o[k] \|\| {}`, `o = o[k] ?? …`), in a loop, an array-method callback, or recursion; or (b) the result of a `reduce` call whose callback returns a dynamic read of, or a dynamic-key assignment through, its accumulator | an earlier step can move the cursor onto the prototype |
+| `recursive_merge` | the target's base is a parameter (or a single alias of one) of a function that calls itself, directly or through one same-file helper, and the recursive call passes a dynamic read of that base (`target[key]`) at the base's parameter position; the other arguments are not examined | the recursive call makes the callee's base the prototype |
 
 Not in any class, and therefore never a finding: a one-level copy (`for (k in s) t[k] = s[k]`) with no
-walk and no recursion; a write whose every index is a counter of a numeric `for` loop or a numeric
-literal; a write to a `Map` or `Set` through methods.
+walk and no recursion; a write whose every index is a numeric literal or a numeric loop counter; a write to
+a `Map` or `Set` through methods. A *numeric loop counter* is a variable declared in the initialiser of a
+`for (init; test; update)` statement and changed nowhere except by `++`, `--`, or `+=`/`-=` of a numeric
+literal in that statement's update.
 
-Each fact names its **key operands**: the identifiers inside the index expressions of the write and of the
-walk or recursion step, excluding numeric loop counters.
+Each fact names its **key operands**: the identifiers and member chains inside the index expressions of the
+write, excluding numeric loop counters. A walk step that is itself a dynamic-key write
+(`o = o[k] = o[k] || {}`) is a fact of its own with its own operands.
 
 ### 5.2 Guards
 
@@ -132,18 +136,34 @@ executable matrix, not by this table*; the table is the starting hypothesis.
 | the root created by `Object.create(null)` | not sufficient for a path walk (an intermediate `{}` has a prototype) |
 | a key validated by a regular expression or an allow-list | none, unless a row proves a specific form |
 
+Placement, also a hypothesis for the matrix: a guard counts when it is in the same function as the write,
+tests an expression that is the write's key expression or a `const` initialised once from it, and lies on
+every path from where that key is bound (the loop iteration's start, the callback's entry, the function's
+entry) to the write.
+
 A `sufficient` guard means no finding. A `partial` guard keeps the finding and adds a note to its
 description. This follows the taint sinks' existing policy: only proven non-sinks are suppressed.
 
 ### 5.3 The sink
 
-In review taint, for JavaScript, TypeScript and TSX: when a tainted flow path ends on a line that holds a
-pollution-capable write, and the path's end variable is one of that write's key operands, and the guard is
-not `sufficient`, emit a `taint_sink` finding with rule tag `js-proto-write` and `CWE-1321`, strength
-Strong. A tainted value or receiver alone does not fire it.
+In review taint, for JavaScript, TypeScript and TSX: when a tainted flow path's end occurrence lies inside
+a key operand of a pollution-capable write (matched by byte span; the path's end carries one), and that
+write's guard is not `sufficient`, the line becomes a sink line.
 
-The check is one call from the sink-matching loop in `taint/run.rs` into a new module; everything else is
-new files. PR #841 edits the same loop, so that slice is rebased over #841 or lands after it.
+- **Where the check sits.** Once per flow-path edge in the sink-matching loop of `taint/run.rs`, outside the
+  per-identifier loop, and before the skip that loop applies to framework-source lines (a key such as
+  `req.body[k]` sits on such a line). It records the line in a side set that the emission block reads.
+- **What is emitted.** A finding of the existing category `taint_sink`, severity `warning`, with the
+  description "tainted key from {source} reaches a prototype-capable write at line N (CWE-1321,
+  js-proto-write)" and " (partial key guard)" appended when the guard is partial. The tag and the CWE travel
+  in the description because a finding has no field for them (decision 9 in section 10 is the alternative).
+- **Strength.** A line with such a hit is Strong whatever else is on the line; the per-line grade must not
+  turn it into a `suggestion`.
+- A tainted value or receiver alone does not make the line a sink.
+
+PR #841 edits the same loop, so that slice is rebased over #841 or lands after it. Review taint keeps
+findings in the diff's file today (#602, PR #841); a helper in another file is reported once that lands, and
+`taint-reaches` plus the listing cover it meanwhile.
 
 ### 5.4 The listing
 
@@ -156,13 +176,14 @@ measures the sink's benchmark yield without synthesising diffs for review taint.
 ### 5.5 Where the code goes
 
 ```
+src/ast/js_ts.rs                         module lines (the directory's module file)
 src/ast/js_ts/proto_writes.rs            facts and the public entry point (ParsedFile::js_ts_proto_writes)
 src/ast/js_ts/proto_writes/classes.rs    nested_keys, path_walk, recursive_merge
 src/ast/js_ts/proto_writes/guards.rs     guard state
 src/navigation/proto_writes.rs           the listing (queries.rs is over the size ceiling: no logic there)
 crates/prism-review/src/cli.rs, main.rs  NavQuery::ProtoWrites and its arm
 crates/prism-review/src/algorithms/taint_sinks/proto_write.rs   the operand-aware sink check
-crates/prism-review/src/algorithms/taint/run.rs                 one call into it
+crates/prism-review/src/algorithms/taint/run.rs                 the per-edge check, the side set, the emission changes
 tests/fixtures/proto_writes/             matrix fixtures (one function per file) and the Node truth runner
 ```
 
@@ -175,9 +196,9 @@ Four measurements on the current build, then a memo.
 | Id | Question | Method |
 |---|---|---|
 | E1 | How many prototype-pollution cases trace today? | re-run the harness for that class on a main build (the harness gains a class filter and recorded pin overrides; eval-only change) |
-| E2 | In traced cases, is the reached occurrence the key? | from each case's witness: is a Reached occurrence inside an index expression of the ground-truth write or of its walk step |
-| E3 | How many ground-truth writes fall in a class of 5.1, and how are they guarded? | a prototype classifier script over the ground-truth sink functions (syntax only) |
-| E4 | How often do the classes occur in ordinary code? | the same script on Excalidraw, the TypeScript compiler sources, express and two Node applications from `bench-repos`; a reader labels up to 40 sampled hits: can pollute if the key is attacker-controlled / cannot / guarded |
+| E2 | In traced cases, is the reached occurrence the key? | from each row's `trace_detail.parameter_results` (a verdict per occurrence on the sink line) and a parse of the sink file: is a Reached occurrence's byte span inside an index expression of the write at the ground-truth line and column |
+| E3 | How many ground-truth writes fall in a class of 5.1, and how are they guarded? | a prototype classifier script over the ground-truth sink functions (syntax only), judged by 5.1 as written; a write the script cannot place is counted as no class |
+| E4 | How often do the classes occur in ordinary code? | the same script on Excalidraw, the TypeScript compiler sources, `express`, `directus-directus/api` and `calcom-cal.com/apps/api` from `bench-repos`; a reader labels up to 40 hits, sampled after sorting by file and line: can pollute if the key is attacker-controlled / cannot / guarded |
 
 **Conversions** C = cases that are traced (E1) with the key reached (E2) and a class assigned (E3).
 **Potential** P = cases that reach the function only or partially and have a class: what upstream fixes
@@ -217,7 +238,7 @@ Only fixtures written for this lane are executed. Benchmark packages are never e
 | Matrix | every `pollutes` row has a non-sufficient fact; every `safe` row has none or a sufficient guard; exceptions are named accepted losses |
 | Benchmark yield | finding-equivalents (5.4) ≥ 0.9 × C on the same build |
 | Ordinary code | on the E4 corpora, every fact outside test directories is listed in the slice's PR; the E4 sample re-labelled against the final rules shows at least 80% able to pollute |
-| Sink | matrix rows in the sink-rule tests: fires on key taint, silent on value-only and receiver-only taint, silent under a sufficient guard |
+| Sink | the sink rows: fires on key taint, silent on value-only and receiver-only taint, silent under a sufficient guard, `warning` severity even beside a weak call on the same line |
 | No regression | review-taint output on the existing taint fixtures is unchanged except for new `js-proto-write` findings; no change to any data-flow statistic |
 
 ## 9. Follow-ups, not started by this lane
@@ -243,6 +264,7 @@ Only fixtures written for this lane are executed. Benchmark packages are never e
 | 6 | Executing lane-written fixtures under Node for truth labels | yes: child process per row, 5 s limit, no network | without it, labels come from reading | before stage T |
 | 7 | Fixed versions of benchmark packages as negatives | downloaded with `npm pack` (archive only, never installed or run), at most 20, if the network allows | skipping it leaves guards tested only on lane fixtures | stage M |
 | 8 | The sink slice and PR #841 | proceed and rebase; if #841 is still open when the sink slice is ready, do the merge-class slice first | — | at S2 |
+| 9 | How a finding says it is this rule | category `taint_sink`, with the CWE and the tag in the description | a category of its own (for example `prototype_pollution`) needs a SARIF rule entry and a targets mapping arm, and changes what consumers of `taint_sink` see | before S2 |
 
 ## 11. Risks and accepted limits
 

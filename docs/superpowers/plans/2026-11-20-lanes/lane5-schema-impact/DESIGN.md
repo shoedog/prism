@@ -15,7 +15,7 @@ This is the least certain of the four lanes. The lane therefore has two funded p
 between them: a 3 to 5 day feasibility study that measures whether the bindings can be recovered and whether
 history shows the report would have helped, and a 15 to 25 day pilot that only starts on an owner go-ahead.
 
-## 2. What exists today (verified on main at 1179055f)
+## 2. What exists today (verified on `origin/main` at 1179055f)
 
 | Need | State in prism | Reference |
 |---|---|---|
@@ -62,7 +62,8 @@ Goals:
 
 Non-goals (this lane): graph federation, a manifest of many repositories, MCP tools, new `Evidence`
 variants, protobuf and gRPC, event schemas, semantic judgement of whether a change is safe, notifications to
-consumer repositories, YANG/NETCONF/gNMI.
+consumer repositories, YANG/NETCONF/gNMI (to follow demonstrated demand), and closed vendor device firmware
+(the roadmap places that in an acceptance and fault harness outside prism).
 
 Anti-goals: a report that looks complete while silently dropping dynamic URLs; a binding grade that reuses
 the word `Exact` (that grade means static call binding in prism and must not be diluted); product-crate
@@ -101,16 +102,41 @@ consumer repo @ rev ──► bind ──► bindings document (role: consumer, 
 
 ### 5.1 Element identity
 
-An element id is a string, stable across repositories:
+An element id is a string, stable across repositories. Two implementations (the Python prototype and the
+pilot crate) must produce identical ids; the prototype writes a golden `ids.tsv` for the pinned schema and
+the pilot's tests reproduce it byte for byte.
 
-- Operation: `op:<METHOD> <path>`, where `<path>` is the schema's path template with the base path
-  prefixed (`basePath` in Swagger 2.0; the path part of the first server URL in OpenAPI 3), no trailing
-  slash, and every parameter written `{}`. Parameter names are dropped because producer and consumer name
-  them differently. Example: `op:GET /answer/api/v1/question/{}`. `operationId` is carried as an attribute.
-- Field: `field:<definition>#/<property path>`, for example `field:schema.GetAPIKeyResp#/access_key`. A
-  field belongs to a schema definition; the index also records which operations reach each definition
-  through request and response references, with `allOf` compositions flattened.
-- Reserved for a later format, not built: `rpc:<package.Service>/<Method>`, `msgfield:<package.Message>#<number>`.
+**Operations:** `op:<METHOD> <path>`.
+
+| Rule | Example |
+|---|---|
+| Only the keys `get`, `put`, `post`, `delete`, `options`, `head`, `patch`, `trace` of a path item are operations; the method is upper-cased | `op:GET /a` |
+| The base is `basePath` (Swagger 2.0) or the path part of the first server URL after dropping scheme, host and any `{variable}` segments (OpenAPI 3). A base of `/` or empty adds nothing. Base and path are joined with exactly one `/`; repeated slashes collapse | base `/api`, path `/x` → `/api/x` |
+| No trailing slash, except the root path, which is `/` | `/a/` → `/a`; `/` → `/` |
+| Every `{name}` becomes `{}`; a segment that mixes text and a parameter keeps its text | `/a/{id}` → `/a/{}`; `/f/{id}.json` → `/f/{}.json` |
+| No percent-decoding and no case change in the path | |
+| Two paths with the same id: keep the one whose original path string sorts first, and warn | `/a/{id}`, `/a/{name}` |
+
+`operationId` is carried as an attribute, never as identity.
+
+**Fields:** `field:<owner>#/<property path>`. Field ids are scoped to an owner and a property path never
+crosses a `$ref`, so recursive schemas need no special case.
+
+| Schema shape | Id |
+|---|---|
+| property `b` of named definition `A` | `field:A#/b` |
+| property `c` of an inline object under `b` | `field:A#/b/c` |
+| property `x` of the objects in array property `items` | `field:A#/items/[]/x` |
+| `additionalProperties` holding an object with property `x` | `field:A#/*/x` |
+| property `b` whose schema is `$ref: B` | `field:A#/b` only; `B`'s own properties are `field:B#/…` |
+| `allOf`: members flattened in order into the owner; a later member's property replaces an earlier one of the same name; a `$ref` member contributes the referenced definition's properties under the owner | the swaggo envelope `allOf: [{$ref: RespBody}, {properties: {data: {$ref: X}}}]` gives `…#/code`, `…#/data` |
+| `oneOf` / `anyOf` | the union of the members' properties, with a warning |
+| an inline (unnamed) response or request body | owner `resp:<METHOD> <path>:<status>` or `req:<METHOD> <path>`, for example `field:resp:GET /a/{}:200#/data` |
+
+`definitions_of(operation)` is the set of named definitions reachable through `$ref` (transitively) from the
+operation's request body and its 2xx response bodies. Path, query and header parameters are not fields.
+
+Reserved for a later format, not built: `rpc:<package.Service>/<Method>`, `msgfield:<package.Message>#<number>`.
 
 ### 5.2 Documents
 
@@ -180,7 +206,9 @@ an option the memo evaluates, not a commitment.
   methods = { get = "GET", post = "POST", put = "PUT", delete = "DELETE", patch = "PATCH" }
   url_arg = 0
   base_path = ""                  # prefixed to every URL before matching
-  envelope = "data"               # response wrapper to skip when matching field reads
+  response_root = "data"          # the part of the schema's response body the client hands to callers:
+                                  # here the wrapper returns body.data, so client reads are matched against
+                                  # the fields under `data`; "" when the client returns the whole body
 
   [[client]]
   hook = "useSWR"                 # key-first hooks: argument 0 is the URL, method is GET
@@ -201,9 +229,13 @@ an option the memo evaluates, not a commitment.
 - **Callers.** Each consumer binding records the functions that reach its call site through prism's call
   graph (`prism::api::callers`, depth 2 by default, Exact edges only), so the impact step needs no
   repository.
+- **Hooks and fetchers.** For a key-first hook the hook call is the binding. A client call inside the
+  hook's inline fetcher argument, and a client method passed as the fetcher, are not separate call sites.
 - **Field reads** (scope decided by F3). From the call result, forward along prism's data-flow edges to
-  member reads; a read `x.a.b` after the configured envelope is matched to `field:<definition>#/a/b` for
-  the definitions of the bound operation's success response.
+  member reads; a read `x.a.b` is matched to the field `a/b` under the configured `response_root` of the
+  bound operation's 2xx response. The pilot crate reads edges through a new facade function in the core
+  crate (`prism::api::dfg_edges`, the records `nav dfg-stats --edges` prints): the graph itself is not
+  public outside the core crate.
 
 ### 5.5 Grades
 
@@ -220,13 +252,14 @@ consumer that vendors no schema is always bound against a schema taken from the 
 
 ### 5.7 Where the code lives
 
-- Feasibility: `eval/boundary/` (a package in the existing `eval` uv project, entry point `boundary`).
+- Feasibility: `eval/schema_impact/` (a package in the existing `eval` uv project, entry point `schema-impact`).
   No product crate changes.
 - Pilot: `crates/prism-boundary` (library `prism_boundary`, binary `prism-boundary`), a workspace member
   outside `default-members`, depending on `prism`. JSON schema files only in the pilot (a YAML schema is
   converted by the caller), which avoids choosing a YAML dependency now. It uses `prism::api::nav_session`
-  and `prism::api::callers`; where it needs parsed files or data-flow edges that the facade does not expose,
-  it uses the public modules directly and lists them in its README as facade candidates.
+  and `prism::api::callers`, and reads parsed files through the session (they are public). Data-flow edges
+  are not reachable from another crate today; the field-read slice adds a facade function for them
+  (section 5.4). Any non-facade public module it uses is listed in its README as a facade candidate.
 
 ## 6. Feasibility study
 
@@ -235,21 +268,21 @@ measures below, one memo.
 
 | Id | Question | Measure | Oracle or control |
 |---|---|---|---|
-| F1 | Can operations be bound to handlers? | of the schema's operations: bound to exactly one function by annotation, to none, to several | cross-check against gin registrations matched by path suffix: share of operations where both name the same function |
+| F1 | Can operations be bound to handlers? | of all the schema's operations: bound to exactly one function by annotation, to none, to several | cross-check against gin registrations matched by path suffix and method: share of matched operations where the registration's handler name equals the annotated function's name. On P the registrations build their prefix from configuration, so only suffixes are available |
 | F2 | Can client calls be bound to operations? | of client call sites: URL literal, template with whole-segment parameters, dynamic; then unique match, several, none | a reader checks 50 unique matches by hand (call text beside the operation) |
-| F3 | Can response-field reads be attributed? | for 12 operations (4 list, 4 detail, 4 mutation), each top-level response field: reads found through prism's data-flow edges from the call site | TypeScript 5.9.3 find-references on the client's interface properties where the service function is typed; hand labels elsewhere |
-| F4 | Would the report have helped in real history? | replay every commit that changed the schema file: predicted consumer locations at the parent commit for removed, renamed and type-changed elements | client files touched in the same commit and in the next 10 commits whose changed lines mention the element; count "late fixes" (a consumer location fixed after the schema change landed) |
+| F3 | Can response-field reads be attributed? | for 12 operations whose client call names its response type explicitly, each top-level response field: reads found through prism's data-flow edges, by the procedure of PLAN Task F-4 | TypeScript 5.9.3 find-references on the properties of that response type (needs the client's dependencies installed); a reader's labels if they cannot be installed |
+| F4 | Would the report have helped in real history? | replay first-parent commits that changed the schema file: predicted consumer locations at the parent commit for removed and changed elements (a rename is a removal plus an addition) | whether each predicted location was touched in the same commit or in the next 10 first-parent commits (PLAN Task F-5 defines "touched"); a **late fix** is a predicted location touched later and not in the schema commit itself |
 | F5 | Does the real pair behave like the public one? | pair R: route entries extracted with method and path; client calls with a recoverable pattern; unique joins | counts only, kept private |
 | F6 | What does it cost? | prototype lines per adapter; run time on P | — |
-| F7 | Is an external differ usable? | run one existing differ on five replay changes if it installs in 15 minutes; else skip and say so | the prototype's own structural diff |
+| F7 | Is an external differ usable? | run `oasdiff` on five replay changes if a release binary can be fetched in 15 minutes; else skip and say so | the prototype's own structural diff |
 
 Go/no-go defaults (the owner may set others; the memo reports the numbers either way):
 
 | Gate | Threshold | If it fails |
 |---|---|---|
-| G1 | F1: at least 90% of operations bound to exactly one handler | add the `gin_registration` adapter with cross-function prefix resolution to the pilot (+3 to 4 days) and re-measure before recommending go |
+| G1 | F1: at least 90% of all schema operations bound to exactly one handler by annotation | the memo adds the `gin_registration` adapter with cross-function prefix resolution to the pilot (+3 to 4 days), and recommends go only if annotations together with suffix-matched registrations reach 90% |
 | G2 | F2: at least 70% of client calls bound uniquely, and at most 2 wrong in the 50 checked | if dynamic URLs are the cause, estimate a one-step URL-builder rule; below 50% after it, recommend no-go |
-| G3 | F4: at least 15 usable schema changes replayed, and at least 2 late fixes found, or the owner marks at least 3 of the 10 rendered reports as "would have helped the review" | recommend parking the lane; the measured tooling stays in `eval/boundary/` |
+| G3 | F4: at least 15 usable schema changes replayed (a usable change has at least one removed operation or field, type change, newly required field or enum change), and at least 2 late fixes found. If fewer than 2, the memo records "owner rating pending": the owner reads the ten rendered reports and G3 passes if at least 3 "would have helped the review" | recommend parking the lane; the measured tooling stays in `eval/schema_impact/` |
 | G4 | F5 is reported; no threshold | the memo states what pair R needs (which adapter, what configuration) and its cost |
 
 F3 does not gate. At least 50% of oracle reads found with at most 10% wrong puts field-level consumer
@@ -290,7 +323,7 @@ changes, the recommended pilot pair and adapters, and a refreshed day estimate p
   They are counted and listed as `unbound: dynamic_url`; the configuration can map known builders later.
 - **Annotation drift.** A swaggo annotation can be stale relative to the registration. F1's cross-check
   measures how often; the pilot reports disagreement as a warning when both adapters are enabled.
-- **Field names are matched by spelling** after the configured envelope. A client that renames fields in a
+- **Field names are matched by spelling** under the configured `response_root`. A client that renames fields in a
   mapper is out of model; such reads are missed, not mis-bound.
 - **Parameter-position literals** (`/user/me` against `/user/{}`) can match the wrong operation when a
   literal route also exists; the matcher prefers the literal operation and grades ties `candidate`.
