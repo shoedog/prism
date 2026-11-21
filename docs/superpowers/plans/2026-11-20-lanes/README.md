@@ -21,8 +21,7 @@ checked"): the reviews added measurements, enumeration passes and larger execute
 
 ## Lanes 6 to 12
 
-Status on 2026-11-21: designs written for all seven; the plans are being drafted against the code, and the
-design review of these lanes has not run yet. A row without a day figure has no finished plan.
+Status on 2026-11-21: designs and plans written for all seven; the design review of these lanes is running.
 
 | Lane | Directory | Issue | First deliverable | Days (estimate) | Depends on |
 |---|---|---|---|---|---|
@@ -30,7 +29,7 @@ design review of these lanes has not run yet. A row without a day figure has no 
 | 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE (JSON and review output), then a registry and opt-in SARIF rule ids with CWE tags | 12 to 13 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice waits for it |
 | 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and a committed parity matrix for review taint and `taint-reaches`, then a named reason on every refused hop | 31 to 35 | PR #841 merged; the benchmark pin task of lane 4 (or it does that task itself); lane 3's props slice for one matrix row; rule ids from lane 7 when available |
 | 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument misbinding | 9 if only the spread fix runs; up to 31 if every slice passes its census gate | nothing; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; hands handler-registration cases to lane 12 |
-| 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census, then a node-based path builder that changes no output | plan in drafting | nothing; coordinates with lane 4, which reads subscript writes |
+| 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go, then a node-based path builder that changes no output | 21 to 28, plus 3 to 4 each for two slices the design review may admit | nothing; takes the next free cache version; leaves the object-literal binder to lane 3 and the trace engine to PR #841 |
 | 11. Shared measurement kit | `lane11-measurement-kit/` | to be filed | `scripts/measure/` reproducing an existing lane gate from pinned inputs | 25 to 29 | nothing; a lane can adopt it if its measurement stage starts after the comparator slice merges |
 | 12. Routes as a first-class fact | `lane12-route-model/` | to be filed | `prism nav routes` for Flask, FastAPI and Express with mounts composed across files | 24.5 for waves 1 and 2 plus object-literal tables; 2.5 more per further framework | nothing; lane 5 can consume the listing |
 

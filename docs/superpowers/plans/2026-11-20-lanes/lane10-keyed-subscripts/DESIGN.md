@@ -27,7 +27,7 @@ flooding.
 | Killed edges are still followed by taint; a correct kill changes a label, not a verdict. | research |
 | Readers of path spellings: reaching definitions and kills (exact equality, except JavaScript, where `[]` is a wildcard in the kill relation in both directions by an earlier design decision), the JavaScript write census (any index is `[]`, pinned by tests), the object-literal binder (which already has a static-key policy), argument binding, navigation output and five MCP golden files, 116 census fixture rows and 105 alias-matrix rows. The path is stored in the cached graph. | research sections 3 and 8 |
 | Corpus counts, by regular expression on non-test files: string-literal subscripts 3,984 (1,447 writes) in one Python corpus and 2,653 (760 writes) in another; 5 to 6% of their functions use two or more different literal keys on one base. Excalidraw 736 (32 writes). One Go corpus 200. Python's `.get("k")`, `.pop("k")`, `.setdefault("k")` are about as frequent as subscripts. | research section 6 |
-| An earlier architecture note chose to ignore index values and to revisit "if false positives from array collapsing become a problem". | `docs/architecture.md:313` |
+| An earlier architecture note chose to ignore index values and to revisit "if false positives from array collapsing become a problem". | `docs/features/cpg/architecture.md:313` |
 
 ## 3. Goals, non-goals, anti-goals
 
@@ -83,9 +83,12 @@ interpolation or escapes.
 | Python | keyed `["k"]` | field `k` | no: items and attributes are different namespaces |
 | Go | keyed `["k"]` for a map or slice index that is a string literal | field `k` | no |
 
-Integer literals, variables, constants and expressions give `[]`. Paths are built from syntax nodes by one
-shared function, not from text, and keep every component (`d["u"]["n"]` is `d.["u"].["n"]`;
-`d["a"].c` is `d.["a"].c`).
+Integer literals, variables, constants and expressions give `[]`. A chain that holds at least one static
+key is built from syntax nodes by one shared function, not from text, and keeps every component
+(`d["u"]["n"]` is `d.["u"].["n"]`; `d["a"].c` is `d.["a"].c`). A chain with no static key keeps today's
+text-derived path exactly (`d[k].c` stays `d.[]`), so code without static-key subscripts does not change.
+The JavaScript identifier-like test is the object-literal binder's rule; that function is private to a file
+another lane owns, so the rule is repeated in the new module and unifying the two is a follow-up.
 
 ### 5.2 Definitions and uses
 
@@ -107,7 +110,10 @@ Within a function, on top of the existing equality rule (a definition reaches us
 ### 5.4 Kills
 
 A keyed write kills earlier definitions of the same keyed path and of paths below it, and nothing else. A
-dynamic-key write kills nothing with certainty. For JavaScript, where `[]` is today a wildcard in the kill
+dynamic-key write cannot be known to overwrite a keyed definition, so it does not kill one; an edge from a
+keyed definition across such a write is not `exact`. Between two dynamic-key writes, today's code outside
+JavaScript kills by path equality (`d[i] = ..` kills an earlier `d[j]` definition); whether that stays, as
+goal 4 reads, or becomes a may-kill is fixed at stage D. For JavaScript, where `[]` is today a wildcard in the kill
 relation in both directions, an identifier-like static key becomes an ordinary field write and takes the
 field rules; the wildcard rule keeps applying to dynamic keys only. That narrows an earlier design decision
 and is listed for review as such.
@@ -116,7 +122,10 @@ and is listed for review as such.
 
 A dictionary, map or object literal with static keys defines the keyed (or field) paths of its entries
 instead of tainting the whole container. This is a separate slice with its own census, because it changes
-existing edges.
+existing edges. The trace engine also carries taint from a use to every definition on the same line, so for
+a literal written on one line the false positive survives in `taint-reaches` whatever the definitions are;
+that propagation lives in a file other work owns (PR #841, lane 8), and this lane reports the case instead
+of changing it.
 
 ### 5.6 Where the code goes
 
@@ -156,8 +165,8 @@ path or a path whose label is not `exact`.
 | Differential | per slice, only its own classes of change; every removed or relabelled existing edge is read and explained |
 | No flood | edges added between different literal keys of one base: zero |
 | Sample | of 200 added edges sampled from the corpora, at least 95% are real flows on a reader's check |
-| Engines | `taint-reaches` verdicts on the matrix match the truths; review taint's verdicts are recorded for the same rows and are not required to change |
-| Spellings | every changed fixture row and golden file is listed in the PR; paths of code without static-key subscripts are byte-identical |
+| Engines | `taint-reaches` reaches every row whose truth is `reaches`; for a `does not` row no path made only of `exact` edges exists (the engine follows killed edges, so a verdict alone cannot be required); review taint's verdicts are recorded for the same rows and are not required to change |
+| Spellings | every changed fixture row and golden file is listed in the PR; paths of code without static-key subscripts are byte-identical. Keyed definitions and the reference index that connects them change in the same slice, because keyed definitions alone would lose edges that exist today |
 
 ## 8. Follow-ups, not started by this lane
 
