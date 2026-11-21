@@ -29,7 +29,7 @@ Status on 2026-11-21: designs and plans written for all seven, and one design re
 | 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE for each reached sink occurrence (JSON and review output), with identities audited at its design review; then a closed registry and opt-in SARIF rule ids with CWE tags | 15.5 to 16 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice reads the rule from the field when this lane's taint slice has merged first, and is migrated by this lane otherwise |
 | 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and an occurrence-level parity matrix, then a reason on every lost sink and the trace engine's return and depth repairs | 43.5 to 44.5 | PR #841 merged; lane 4's benchmark pin task (or it does that task itself); lane 3's props slice for one row; rule ids from lane 7 when available; Lane 9's callback and argument-follow slices wait for this lane's walk-repair slice |
 | 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument and chained-call misbinding | 12 if only that fix runs; up to 37 if every slice passes its census gate | nothing to start; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; its callback and argument-follow slices wait for lane 8's descent check; hands handler-registration cases to lane 12 |
-| 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go, then a node-based path builder that changes no output | 28 to 33, plus 3 to 4 each for two slices the design review may admit | nothing to start; takes the next free cache version; edits one lookup in lane 3's object-literal binder and the argument-binding path lookups, coordinated with lanes 3 and 9; leaves the trace engine to PR #841 and lane 8 |
+| 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go per language, then a node-based path builder and a seam that change no output | 23.5 to 31 (19 to 25 if only Python passes its gate), plus 4 to 4.5 for a dynamic-key slice with its own gate and 3 to 4 each for two slices the design review may admit | nothing to start; takes the next free cache version; edits one lookup in lane 3's object-literal binder and the argument-binding path lookups, coordinated with lanes 3 and 9; leaves the trace engine to PR #841 and lane 8 |
 | 11. Shared measurement kit | `lane11-measurement-kit/` | to be filed | an executed truth matrix, then `scripts/measure/` reproducing an existing lane gate and a labelled fixture pair from pinned inputs | about 32.5 | a consuming lane named before its formats are fixed; otherwise they ship as provisional and adoption is reported as not met |
 | 12. Routes as a first-class fact | `lane12-route-model/` | to be filed | `prism nav routes` for Flask, FastAPI and Express with mounts composed across files | 31.5 for waves 1 and 2 plus object-literal tables; 2.5 more per further framework | nothing; lane 5 can consume the listing |
 
@@ -85,7 +85,9 @@ lanes were proposed with:
   recall fix from connecting every key to every other. The design review added the distinction the
   lane now rests on: two paths are the same storage for certain only when every step is static and the base
   is proven the same; anything else is possible overlap, which gives an edge that is not `exact` and kills
-  nothing.
+  nothing. A second review found that static-key writes are overwhelmingly a Python shape (about 2,200
+  in two Python corpora against 32 and 51 in the JavaScript and Go ones), so the lane now decides per
+  language.
 - **Lane 12.** Inline Express handlers already have graph identities; they are unresolved in the route
   records only because of an older assumption. Handler arguments are value references, so the call-site
   resolver does not apply to them as it stands.
@@ -144,7 +146,9 @@ pinned as known-wrong test rows and filed at each lane's close-out. A calibratio
 this reviewer with the Fable-5.2 reviewer on the same documents: neither produced a false finding, the
 Fable reviewer found more (seven valid findings the other missed, against two), and the astra reviewer
 over-stated severity, so its tags were re-graded. Its valid findings that the first folds of lanes 3 and 5
-had not seen were applied to those lanes as well.
+had not seen were applied to those lanes as well. At the owner's request lanes 8 and 10 then had a second
+review by the Fable-5.2 reviewer, on the documents as folded; each found six further material defects,
+folded as well.
 
 ## Evidence
 
