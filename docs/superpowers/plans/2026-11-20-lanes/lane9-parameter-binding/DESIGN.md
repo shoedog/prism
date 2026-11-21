@@ -84,11 +84,11 @@ no wrong Exact edge.
 
 | Slice | Change | Edge and label |
 |---|---|---|
-| A. Spread arguments | positional binding stops at the first spread argument: arguments after it bind nothing, the spread itself binds nothing | removes wrong edges; adds none |
+| A. Spread arguments | positional binding stops at the first spread argument: arguments after it bind nothing, the spread itself binds nothing. The spread is detected in the binding step from the argument's syntax; the call site's spread flag is not set for JavaScript, because arity-based resolution reads it | removes wrong edges; adds none directly. Removing a misbound edge can lift an existing per-edge refusal elsewhere (the one that guards new parameter sources), so a few edges can reappear; each is listed |
 | B. Rest parameters | every argument at or after the rest parameter's position binds to the rest parameter's definition; a spread at that position binds its source | the call's label, as for other arguments |
 | C. Unparenthesised arrow parameters | the D12 hole is lifted; the per-edge refusal for name-inferred targets stays | the call's label |
-| D. Built-in higher-order methods | table of section 4 B; the callback is the inline function or a named function resolved Exact in the same file | `NameOnly`, with a doubt kind of its own (`builtin_callback`) |
-| E. Calls through a parameter | the #434 design: a derived index of what Exact callers pass to that parameter gives `cb(x)` its targets; argument binding then follows as for any resolved call | name-only resolution kind `argument_follow`; edges inherit it |
+| D. Built-in higher-order methods | table of section 4 B; the callback is the inline function or a named function resolved Exact in the same file. An inline callback is located by its graph identity: the parameter lookup finds callees by name today and never finds an anonymous one. Whether an unparenthesised arrow callback binds here while slice C's refusal stands is fixed at stage D | `NameOnly`, with a doubt kind of its own (`builtin_callback`) |
+| E. Calls through a parameter | the #434 design: a derived index of what Exact callers pass to that parameter gives `cb(x)` its targets; argument binding then follows, through the same identity lookup as slice D for anonymous targets. Three steps: a move-only split that takes the indirect-call code out of the oversized call-graph file, then the facts (read from parsed files, not stored on call sites), then the route | name-only resolution kind `argument_follow`; edges inherit it |
 
 Slices D and E add edges that the trace engine will not cross (it requires Exact resolution) but that
 default review taint and the slicing algorithms follow. That asymmetry is lane 8's subject, not this
@@ -96,7 +96,9 @@ lane's.
 
 Code goes in new modules under `src/cpg/` (`spread_args.rs`, `rest_params.rs`, `builtin_callbacks.rs`) and,
 for slice E, under `src/resolution/js_ts/` as the #434 plan lays out; `src/cpg/build.rs` and
-`src/call_graph.rs` take calls only. Each slice that changes the graph bumps the cache version.
+`src/call_graph.rs` take calls only. Where a slice needs lines in a file over the size ceiling
+(`src/call_graph.rs`, `src/navigation/queries.rs`), it first moves code out, so the file ends smaller than
+it started. Each slice that changes the graph bumps the cache version.
 
 ## 6. The census (stage M)
 
@@ -124,14 +126,15 @@ Go or no-go per slice (defaults):
 
 The parent issue's gate for parameter work (at least 30 benchmark traces or 500 sites, with no
 checker-wrong row) applies to the lane as a whole: if the slices that pass their own gates do not reach it
-together, the lane stops after slice A and reports.
+together, the lane stops after slice A and reports. A site counts toward the 500 only when every edge added
+at it is graded correct.
 
 ## 7. Gates for the slices that run
 
 | Gate | Statement |
 |---|---|
-| Oracle | every added cross-function edge is graded; no WRONG among edges labelled `exact`; for name-only edges the WRONG rate is reported and at most 5% |
-| Differential | only the slice's own classes of change; slice A's removals are each a spread-misbound edge |
+| Oracle | every added cross-function edge is graded; no WRONG among edges labelled `exact`; for name-only edges the WRONG rate is reported and at most 5%. The existing adjudicator grades every rest-parameter edge as wrong, cannot type receivers and cannot grade edges through a parameter, so the lane extends it with one mode per slice, each checked against hand-labelled rows before it gates anything |
+| Differential | only the slice's own classes of change; slice A's removals are each a spread-misbound edge; edges that reappear or disappear through the new-source refusal are classes of their own, listed edge by edge |
 | Counters | call-resolution counters move only in slice E |
 | Benchmark | traced cases do not decrease in any class |
 
