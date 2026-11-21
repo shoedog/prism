@@ -27,7 +27,7 @@ a sink catalog.
 | Probe matrix, 26 fixtures in three languages: default review and `taint-reaches` agree on 20 and disagree on 6. Five are descent refusals: an object-literal argument bound to a member read (the edge ends at a use; two fixtures), two call sites of the callee on one line, a name-only callee, a call chain three deep. One is sink granularity (a use that shares the sink's line). Review in trace mode agrees with `taint-reaches` on 25 of 26. Both engines miss a captured variable read in a nested function. | research section 6 |
 | In trace mode, findings that are `exact` in default mode become `unlabeled`, because descent and assignment hops mark the evidence as crossing unlabelled edges. | `src/finding_confidence.rs:348-379` |
 | The trace engine has no notion of a sanitizer; the reasoning layer adds one on the witness chain. Review uses category presence in the source function's body. | `src/reasoning/sanitizer_walk.rs`; `crates/prism-review/src/algorithms/taint/cleansing.rs` |
-| PR #841 adds an optional crossing policy (a confidence ceiling of Exact or name-only) threaded through the walk functions; the descent test gains one policy term; the descent rule, the depth cap and review's choice of engine are unchanged, and the reasoning layer passes no policy. With its defaults, every difference above remains. | PR #841 |
+| PR #841 adds an optional crossing policy threaded through the walk functions. It limits only edges that enter a context file (a file added by import depth) to a confidence ceiling of Exact or name-only; `--taint-context-depth` is that import depth. The descent rule still requires Exact whatever the policy says, the depth cap and review's choice of engine are unchanged, and the reasoning layer passes no policy and has no context files. With its defaults, every difference above remains. | PR #841 (`src/cpg/taint_policy.rs` at 493ab5ee) |
 | The sink catalog lives in the review crate: the flat pattern list, the positional classifier with its scope resolvers and module tables (23 files, about 7,000 lines with tests), the per-language structured tables, the matchers. It imports core types and two review helpers. The core crate holds the sink pattern type, the sanitizer recognisers and nearly empty per-framework sink lists that nothing reads. | research section 5 |
 | The `prism` binary is built from the review crate, so `prism nav taint-reaches` can reach the catalog. The MCP server is a separate crate that depends on core only, and a layering test forbids it to name the review crate. | `tests/integration/layering_test.rs`; `crates/prism-mcp/Cargo.toml` |
 | On real diffs, the cross-file sinks that issue #602's measurement added were right 10 to 23% of the time, against 13 to 17% for in-diff sinks. | issue #602, M2 |
@@ -94,7 +94,7 @@ code shows.
 | Change | Today | After |
 |---|---|---|
 | Binding edges that end at a use | refused: the target must be a definition | also crossed when the edge's target is a read of a formal of the callee and its source occurrence lies inside exactly one call site that resolves Exact to that callee (the same proof a definition target needs) |
-| Two call sites on one line | refused: both match by line | the site whose byte range contains the source occurrence is chosen; refused only when none or several contain it |
+| Two call sites on one line | among the sites on the line, exactly one must resolve Exact to the target: `log(t); g(t)` descends into `g` today, `g(t); g(u)` is refused | one resolving site descends, as today; when several resolve to the target, the one whose byte range contains the source occurrence is chosen, and the hop is refused only when containment does not single one out. The use node is keyed by line, so which bytes it carries when a name occurs twice is part of what stage D fixes |
 | Spelling differs from the definition's name | refused in the cases lane 3's review found (aliased or default import under another name, wrapper around a differently named function) | the site is matched to the callee through its resolved target, not through the name |
 
 The depth cap stays 2 by default. A name-only callee stays refused by default.
@@ -102,14 +102,17 @@ The depth cap stays 2 by default. A name-only callee stays refused by default.
 ### 5.3 Boundary reasons
 
 A closed list reported on every refused hop: `target_not_binding` (the edge ends at a use that is not a
-formal's read), `no_matching_site`, `ambiguous_site`, `not_exact`, `depth_cap`, `policy_ceiling`, and the
-existing return-flow reasons. `taint-reaches` shows the reason with the boundary.
+formal's read), `no_matching_site`, `ambiguous_site`, `not_exact`, `depth_cap`, `policy_ceiling`, and reasons
+for refused return flow. Today a boundary carries only a kind (cross-function, own parameter, own return)
+and no reason, so every name in the list is new and is fixed at stage D. `taint-reaches` shows the reason
+with the boundary.
 
 ### 5.4 Knobs
 
-`taint-reaches` gains `--edges exact|nameonly` (default `exact`) and `--depth <n>` (default 2), implemented
-with PR #841's crossing policy; the MCP tool gains the same optional inputs. Review taint already has the
-corresponding options after PR #841. With the same knob values, trace-mode review and `taint-reaches` must
+`taint-reaches` gains `--edges exact|nameonly` (default `exact`) and `--depth <n>` (default 2); the MCP tool
+gains the same optional inputs, and review taint gains the same two options for its trace mode. PR #841's
+policy cannot carry them (it governs context files only), so the lane adds a descent policy of its own beside
+it, reusing that PR's ceiling type. With the same knob values, trace-mode review and `taint-reaches` must
 agree on every matrix row.
 
 ### 5.5 Confidence in trace mode
@@ -135,7 +138,9 @@ mode the reasoning layer walks forward from the sources as in frontier mode, ask
 line that holds a tainted use, keeps the sinks whose required operands are tainted, and reports each with
 verdict, witness and sanitizer result, under the existing result caps. CLI: `prism nav taint-reaches
 --source … --sinks catalog`. Rule ids come from lane 7's registry when that lane has merged; until then the
-classifier's tag is used as is.
+classifier's tag is used as is, and a structured sink, which has no tag, is named `structured-<category>` as
+lane 7 spells it. The classifier holds interior state that cannot be shared between threads, so the
+implementation builds one per call; a per-file cache is a stage D option if the census shows the cost.
 
 ### 5.7 Where the code goes
 
@@ -164,7 +169,7 @@ sample of 100 checked by a reader for whether the path is real.
 | Recovered | the share of default-review sinks confirmed by the trace engine rises; the classes fixed in 5.2 account for the rise |
 | Sound | at least 95 of the 100 sampled newly reached paths are real |
 | Benchmark | traced cases through `taint-reaches` do not decrease in any class |
-| Catalog | on the matrix, catalog mode reports exactly the sinks review taint reports for the same source, less the rows whose boundary reason is listed |
+| Catalog | on the matrix, catalog mode reports exactly the sinks review taint reports for the same source, less the rows whose boundary reason is listed and the rows marked with one of two named model differences: the sanitizer model (review suppresses when a sanitizer is present in the function body; the reasoning layer needs one proven on the path) and operand granularity (the graph keeps one use per name and line) |
 | Defaults | with default knobs, review taint's findings are unchanged on the population |
 
 ## 8. Owner decisions
