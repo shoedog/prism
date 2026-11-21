@@ -207,8 +207,9 @@ paths and revisions, the prediction to write down before the run, and where the 
   the same fold. A fold whose yield line drops materially is not merged; port the reference behaviour
   (the language's own rule) in preference to a blanket refusal.
 - A WRONG verdict from an oracle that the lane believes is an oracle error is not waived by the orchestrator.
-  It is written up (the input, the oracle's output, why it is believed wrong), the case is added to the
-  oracle's self-check, and a reviewer confirms before the row is reclassified.
+  It is written up (the input, the oracle's raw row, why it is believed wrong), the case is added to the
+  oracle's self-check, and both reviewers see the raw row and confirm before it is reclassified. An override
+  for a whole class of rows needs that proof for each row.
 - When the orchestrator thinks a reviewer finding is wrong or not worth its cost, it does not decide. It
   records the finding, its own counter-argument and the options as an owner question (section 9), and
   continues with other slices.
