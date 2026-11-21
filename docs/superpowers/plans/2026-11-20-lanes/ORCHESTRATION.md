@@ -61,7 +61,7 @@ Every lane runs these stages in order. A stage has an exit gate; the lane plan g
 | M. Measure first | a census with counts per shape, on the named corpora, by a script kept in the evidence directory | the lane's go/no-go threshold. Below it, first list why each case missed: if the misses come from how the measurement matches things and not from what the product can do, go to section 8; otherwise stop the lane and write the result to its issue |
 | T. Tests first | the variant matrix as fixtures with a truth label per row, plus a data-driven test where the code under test already compiles | every census class has a row and every row maps to a class; rows that state new behaviour were shown RED once on base; the lane branch still compiles and CI is green (see the rule below) |
 | E. Enumeration | more rows, found by the enumerator tiers run serially (section 6) | a full tier round adds no row |
-| D. Design of record | `DESIGN.md` amended by the design seat: the rule set, stated against the complete row set, and the accepted-loss list; the implementer then updates the rows' expectations to match | both reviewers APPROVE the amended design (cap: 2 rounds, then section 8) |
+| D. Design of record | `DESIGN.md` amended by the design seat: the rule set, stated against the complete row set, and the accepted-loss list; the implementer then updates the rows' expectations to match. Every slice section of `PLAN.md` that the amendment contradicts is amended in the same change, so that a slice brief, which quotes the plan, never carries a rule the design has replaced | both reviewers APPROVE the amended design (cap: 2 rounds, then section 8) |
 | I. Implement | one slice per PR, in the order the plan gives | the slice's tests GREEN, gates of section 5 pass |
 | R. Review | the reviewers the seats table assigns to the PR (both for a product change, one for a test-only or docs-only change) | no open MATERIAL WRONG finding (cap: 3 rounds per slice, then section 7) |
 | G. Gate | corpus differential and the lane's acceptance numbers on the final head | numbers meet the plan's gate; regressions are listed in the PR body, never re-baselined away |
@@ -100,7 +100,7 @@ df -h /                                  # stop if less than 20 GiB is free
 git -C ~/code/slicing fetch origin
 git -C ~/code/slicing worktree add -b <branch> ~/code/prism-<lane> origin/main
 cd ~/code/prism-<lane>
-git sparse-checkout set --no-cone '/*' '!/eval/secbench/'    # not for the lane 4 measurement worktree
+git sparse-checkout set --no-cone '/*' '!/eval/secbench/'    # not for a worktree whose task edits or runs the benchmark harness
 ```
 
 Branch names: `<type>/<lane>-<stage or slice>`, for example `test/targets-inventory-matrix`,
@@ -163,7 +163,10 @@ Every brief is self-contained: the worker sees nothing else.
 
 **Implementer brief** contains: the slice's section of `PLAN.md` verbatim; the worktree path and branch; the
 rows that must turn GREEN and the rows that must stay as they are; the gates of section 5 that apply; "do not
-run mutgate; run tests through memguard; do not read `eval/secbench`; do not push"; "commit after each green
+run mutgate; run tests through memguard; do not read `eval/secbench`; do not push" (when the slice edits
+the benchmark harness itself, the implementer is a Claude seat, the worktree keeps that directory, and the
+sentence becomes "read and edit the harness code under `eval/secbench`; never install, import or run
+benchmark package code"); "commit after each green
 step with a message that names the slice"; the report format (what changed, test totals, what was not
 verified, anything outside scope that failed).
 
