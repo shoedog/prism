@@ -26,7 +26,7 @@ findings, and has no negatives.
 | The benchmark harness runs review taint for every case as a "comparison channel" and discards the output. Ground truth is usable for 192 of 583 acquired packages. Its metadata names a fixed version or a fix commit for 294 of 600 entries (prototype pollution 125, ReDoS 82, command injection 47, code injection 22, path traversal 18); only vulnerable versions are acquired. | `eval/secbench/run.py`; research section 4 |
 | Corpora: pinned with receipts are Excalidraw, the benchmark packages, the accuracy-harness anchors, TypeScript 5.9.3 and a cloud store of public corpora. Of 49 local clones, 42 are shallow; seven have full history, and six of those are the repositories of the 120-diff population. | research section 3 |
 | Reports from three lanes share one structure: a binding receipt (binary hash, commits, corpus and oracle pins), a prediction written before the run, explicit denominators, disjoint named classes with a certificate that nothing is unattributed, verdicts CORRECT / WRONG / UNDECIDED / INADMISSIBLE, controls, limits. | research section 5 |
-| Draft PR #841 still has to build a comparison over the same 120 diffs (previous, off, on) before it merges. | PR #841 |
+| Draft PR #841 compares review output over the same 120 diffs (previous, off, on) with a coordinator of its own, and has run its primary rows. The kit's comparison is an independent cross-check for it, not a replacement. | PR #841 |
 | Cloud sessions have 4 vCPUs and 15 GB with no swap; result pushes over 100 MB fail silently. | research section 6 |
 
 ## 3. Goals, non-goals, anti-goals
@@ -106,10 +106,10 @@ contain nothing machine-specific or private.
 
 | Gate | Statement |
 |---|---|
-| G-repro | with binaries built at the base and head commits of one finished gate (the alias-kill slice, #783, whose scripts and summaries survive), `run` plus `diff-edges` with a classifier ported from that lane reproduce its recorded class counts on Excalidraw and the TypeScript sources exactly |
+| G-repro | with binaries built at the base and head commits of one finished gate (the alias-kill slice, #783, whose scripts and summaries survive), `run` plus `diff-edges` with a classifier ported from that lane reproduce its recorded class counts on Excalidraw and the TypeScript sources exactly. The recorded comparison keyed edges by line, so the comparator has a line-key mode for this gate. Every recorded class count of that gate is zero (the slice moved no edge on the corpora), so the gate shows that the run, the keys and the trace join work, not that a real change is attributed; a second reproduction of a slice that did move edges (the first #660 slice: 1,398, 49 and 722 moved edges on the three corpora) is run as well, and every difference from its recorded counts is explained. Whether that second reproduction gates is owner decision 6 |
 | G-selfcheck | the oracle's self-check fixtures pass (authored cases for each verdict, including a deliberately wrong edge) |
 | G-hermetic | the kit's unit tests run in CI without network, a prism binary or a corpus |
-| G-adopt | one lane of this plan set that needs an edge differential (lane 3, 9 or 10, whichever starts first) runs its stage M and stage G with the kit and adds only a classifier file |
+| G-adopt | one lane of this plan set that needs an edge differential (lane 3, 9 or 10, whichever starts first) runs its stage M and stage G with the kit and adds only a classifier file. This needs that lane's stage M to start after the comparator slice has merged; a lane plan that builds its own comparator is told so by a sentence the last slice adds to the shared manual |
 | G-findings | on the benchmark at the current baseline build, finding-level outcomes are produced for every case with ground truth, and the reach outcomes are unchanged from a run without the change |
 | G-negatives | for at least 100 entries with a named fixed version, the fixed package is acquired and scored, or the reason it could not be is recorded per entry |
 
@@ -120,8 +120,9 @@ contain nothing machine-specific or private.
 | 1 | Where the kit lives | `scripts/measure/`, standard-library Python, CI unit tests | moving into the `eval` project is a packaging change | before S1 |
 | 2 | Download fixed benchmark versions from the package registry | yes: archives only, never installed or run, into the evidence inputs directory, pinned by hash | without it there are no negatives | before S6 |
 | 3 | Move the cloud launchers and memory guard into the public repository | yes, after the check for machine-specific content | they stay in the evidence directory | before S7 |
-| 4 | Serve PR #841's pending 120-diff comparison with `review-diff` | offer it: build that subcommand early and tell that lane; do not block on it | — | at S4 |
+| 4 | Offer `review-diff` to PR #841 as an independent cross-check of its own comparison | offer it and tell that lane; do not block on it | — | at S4 |
 | 5 | Retire the forked scripts | no deletion of evidence; new lanes use the kit, old evidence stays as it is | — | — |
+| 6 | Does the second reproduction (a slice that moved edges) gate the kit | no: it runs, and each difference from the recorded counts is explained in the PR | making it gate risks an unreachable gate if the old trace cannot be regenerated | before S2 |
 
 ## 8. Risks and accepted limits
 
