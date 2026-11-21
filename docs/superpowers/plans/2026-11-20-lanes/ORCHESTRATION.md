@@ -63,7 +63,7 @@ Every lane runs these stages in order. A stage has an exit gate; the lane plan g
 | E. Enumeration | more rows, found by the enumerator tiers run serially (section 6) | a full tier round adds no row |
 | D. Design of record | `DESIGN.md` amended by the design seat: the rule set, stated against the complete row set, and the accepted-loss list; the implementer then updates the rows' expectations to match | both reviewers APPROVE the amended design (cap: 2 rounds, then section 8) |
 | I. Implement | one slice per PR, in the order the plan gives | the slice's tests GREEN, gates of section 5 pass |
-| R. Review | both reviewers on the PR | no open MATERIAL WRONG finding (cap: 3 rounds per slice, then section 7) |
+| R. Review | the reviewers the seats table assigns to the PR (both for a product change, one for a test-only or docs-only change) | no open MATERIAL WRONG finding (cap: 3 rounds per slice, then section 7) |
 | G. Gate | corpus differential and the lane's acceptance numbers on the final head | numbers meet the plan's gate; regressions are listed in the PR body, never re-baselined away |
 | H. Handoff | the lane ledger and handoff file refreshed, evidence summarised and offloaded | written at every stable point, not only at the end |
 
@@ -152,7 +152,8 @@ slice branches from the updated `main`.
     `docs/features/language-coverage/js-ts-known-gaps.md`.
 11. No mutation gate per PR (owner, 2026-10-31). Briefs tell implementers not to run `mutgate`.
 
-Merge rule (standing): both reviewers APPROVE with no open MATERIAL WRONG, CI green on the final head, branch
+Merge rule (standing): every reviewer assigned to the PR APPROVEs (both for a product change, the one
+reviewer for a test-only or docs-only change) with no open MATERIAL WRONG, CI green on the final head, branch
 up to date with `main` → `gh pr merge --squash --delete-branch`, then report the merge with the review record
 and the CI result. Deferred findings are written to an issue before the merge.
 
