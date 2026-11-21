@@ -27,7 +27,7 @@ Status on 2026-11-21: designs and plans written for all seven; the design review
 |---|---|---|---|---|---|
 | 6. Provenance findings by proven identity | `lane6-provenance-identity/` | to be filed | a census memo: precision of today's findings on 180 real diffs (300 labelled), with a go gate; then structural fixes for every language | about 23.5 | lane 2's first slice for the shared identity entry point, or this lane carries it; its edits in `targets/` are additive and follow lane 2 |
 | 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE (JSON and review output), then a registry and opt-in SARIF rule ids with CWE tags | 12 to 13 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice waits for it |
-| 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and a committed parity matrix for review taint and `taint-reaches`, then a named reason on every refused hop | 31 to 35 | PR #841 merged; the benchmark pin task of lane 4 (or it does that task itself); lane 3's props slice for one matrix row; rule ids from lane 7 when available |
+| 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and an occurrence-level parity matrix, then a reason on every lost sink and the trace engine's return and depth repairs | 37 to 44.5, by how the MCP server gets the catalog | PR #841 merged; lane 4's benchmark pin task (or it does that task itself); lane 3's props slice for one row; rule ids from lane 7 when available; the owner's answer on the catalog question before the MCP slice. Lane 9's callback and argument-follow slices wait for this lane's walk-repair slice |
 | 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument and chained-call misbinding | 12 if only that fix runs; up to 37 if every slice passes its census gate | nothing to start; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; its callback and argument-follow slices wait for lane 8's descent check; hands handler-registration cases to lane 12 |
 | 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go, then a node-based path builder that changes no output | 21 to 28, plus 3 to 4 each for two slices the design review may admit | nothing; takes the next free cache version; leaves the object-literal binder to lane 3 and the trace engine to PR #841 |
 | 11. Shared measurement kit | `lane11-measurement-kit/` | to be filed | an executed truth matrix, then `scripts/measure/` reproducing an existing lane gate and a labelled fixture pair from pinned inputs | about 32.5 | a consuming lane named before its formats are fixed; otherwise they ship as provisional and adoption is reported as not met |
@@ -67,6 +67,9 @@ lanes were proposed with:
   across the file. On three decoy-heavy fixtures 14 to 31% of its findings were right.
 - **Lane 8.** Default review taint and `taint-reaches` disagree on 6 of 26 probe fixtures; five come from
   the trace engine's rule for entering a callee. Making review use the trace engine would remove findings.
+  The design review also found defects of that engine on today's code (a return crossing into an unrelated
+  caller, depth accounting that depends on exploration order); the lane repairs them before it relaxes
+  anything.
 - **Lane 9.** The benchmark numbers behind the proposal were partly stale and partly about HTTP handler
   registration, which belongs to lane 12. The benchmark alone does not justify rest-parameter or
   `arguments` work, so each slice has its own census gate. Two defects are certain today: `f(...list, v)`
@@ -105,7 +108,8 @@ start. The decisions with the most consequence:
 | 5 | Start the pilot after the feasibility memo? | **wait for an explicit go-ahead** |
 | 5 | Pilot pair order (public or private pair first) | **undecided (2026-11-21)**: taken at the memo, which presents the evidence; the go-ahead names the order |
 | 6 | Remove provenance from the default review suite and targets set until it is rebuilt? | no; defaults unchanged |
-| 8 | How the MCP server gets the sink catalog | move the sink classifier into the core crate by move-only changes, as the lane's last slices; the alternative changes the crate layering rule |
+| 7 | Does the new `rules` key appear by default in JSON and review output? | yes: an additive key, golden files re-recorded once; the alternative keeps every existing byte by putting it behind an option |
+| 8 | How the MCP server gets the sink catalog | **no default; asked at the lane's stage D.** Moving the classifier into the core crate needs helpers factored out first; the alternatives are letting the MCP crate depend on the review crate (a change to the layering rule) or shipping the catalog in the CLI only |
 | 9 | Which slices run | each by its own census threshold; the spread-argument fix always |
 | 10 | JavaScript: do identifier-like string keys unify with dot fields (`o["x"]` and `o.x`)? | yes |
 | 12 | Which frameworks beyond Flask, FastAPI, Express, gin, net/http and chi | by census counts, one slice each |

@@ -165,7 +165,7 @@ Every brief is self-contained: the worker sees nothing else.
 
 **Implementer brief** contains: the slice's section of `PLAN.md` verbatim, and verbatim every `DESIGN.md`
 section that the slice's text cites by number, both cut from the revision approved at stage D (the brief
-names that commit); the worktree path and branch; the
+names that commit and the revision of the rows file); the worktree path and branch; the
 rows that must turn GREEN and the rows that must stay as they are; the gates of section 5 that apply; "do not
 run mutgate; run tests through memguard; do not read `eval/secbench`; do not push" (when the task edits
 or has to read the benchmark harness itself, the worker is a Claude seat, the worktree keeps that directory, and the
