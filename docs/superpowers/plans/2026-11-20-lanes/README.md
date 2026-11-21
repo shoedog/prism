@@ -21,12 +21,12 @@ checked"): the reviews added measurements, enumeration passes and larger execute
 
 ## Lanes 6 to 12
 
-Status on 2026-11-21: designs and plans written for all seven; the design review of these lanes is running.
+Status on 2026-11-21: designs and plans written for all seven, and one design review folded into each.
 
 | Lane | Directory | Issue | First deliverable | Days (estimate) | Depends on |
 |---|---|---|---|---|---|
 | 6. Provenance findings by proven identity | `lane6-provenance-identity/` | to be filed | a census memo: today's precision per origin class and recall against a 400-line source census on 240 real diffs, with a go gate; then structural fixes for every language | about 29.5 | lane 2's first slice for the shared identity entry point, or this lane carries it (one owner, whichever starts first); its edits in `targets/` are additive and follow lane 2 |
-| 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE (JSON and review output), then a registry and opt-in SARIF rule ids with CWE tags | 12 to 13 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice waits for it |
+| 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE for each reached sink occurrence (JSON and review output), with identities audited at its design review; then a closed registry and opt-in SARIF rule ids with CWE tags | 15.5 to 16 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice reads the rule from the field when this lane's taint slice has merged first, and is migrated by this lane otherwise |
 | 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and an occurrence-level parity matrix, then a reason on every lost sink and the trace engine's return and depth repairs | 37 to 44.5, by how the MCP server gets the catalog | PR #841 merged; lane 4's benchmark pin task (or it does that task itself); lane 3's props slice for one row; rule ids from lane 7 when available; the owner's answer on the catalog question before the MCP slice. Lane 9's callback and argument-follow slices wait for this lane's walk-repair slice |
 | 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument and chained-call misbinding | 12 if only that fix runs; up to 37 if every slice passes its census gate | nothing to start; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; its callback and argument-follow slices wait for lane 8's descent check; hands handler-registration cases to lane 12 |
 | 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go, then a node-based path builder that changes no output | 21 to 28, plus 3 to 4 each for two slices the design review may admit | nothing; takes the next free cache version; leaves the object-literal binder to lane 3 and the trace engine to PR #841 |
@@ -131,10 +131,16 @@ runner has a positive control; lane 5 measures value on the private pair and its
 a reader. Each lane still runs the two-reviewer design review at its stage D, after its census and test
 matrix.
 
-**Lanes 6 to 12.** For each lane: a research agent with probes; the design; then a plan drafted by an
+**Lanes 6 to 12.** For each lane: a research agent with probes; the design; a plan drafted by an
 Opus-5.5 agent that verified every path and interface against the code and reported where the design
-contradicted it (those corrections are applied to the designs as they arrive). The design review of these
-lanes has not run yet.
+contradicted it (applied to the designs); then one design review by gpt-6.2-astra with probes, folded by an
+agent that verified and re-graded each finding. All seven reviews came back "fix" for both documents. Every
+finding that was checked held, and several were defects of today's code rather than of the plans: those are
+pinned as known-wrong test rows and filed at each lane's close-out. A calibration on lanes 3 and 5 compared
+this reviewer with the Fable-5.2 reviewer on the same documents: neither produced a false finding, the
+Fable reviewer found more (seven valid findings the other missed, against two), and the astra reviewer
+over-stated severity, so its tags were re-graded. Its valid findings that the first folds of lanes 3 and 5
+had not seen were applied to those lanes as well.
 
 ## Evidence
 

@@ -21,6 +21,13 @@ experiment 6, truth 7, gates 8, owner decisions 10). Every rule is stated there;
 
 ## Global constraints
 
+- Rule tag carrier: this plan's tasks are written for the case where a finding has no rule field (the tag
+  travels in the description). Before dispatching the sink slice, check whether lane 7's taint slice has
+  merged; if it has, DESIGN 5.3 ("If lane 7's taint slice has merged…") replaces the description-tag steps:
+  the emission step writes `rules`, the benchmark join and the real-diff filter read membership of
+  `js-proto-write` in `rules`, the matrix row that asserts the tag reads `rules`, and the slice adds this
+  lane's rows to lane 7's expected-rules table. The slice brief quotes that paragraph.
+
 - Two worktrees: `~/code/prism-pp` for product slices (sparse-checkout excludes `eval/secbench/`), and
   `~/code/prism-pp-meas` for everything under `eval/secbench/` and for measurement (full checkout). Changes
   to the harness are separate eval-only PRs made in the second worktree. Evidence `~/prism-evidence/pp/`.
