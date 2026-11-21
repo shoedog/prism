@@ -95,7 +95,11 @@ else. The field is additive under the API's handle promise.
 ### 5.2 Taint emission
 
 The sink loop keeps what it already computes: for each sink line, the set of rule references from every
-flat hit (`SinkHit.rule`, `SinkHit.cwe`) and every structured match. A structured match's rule id is
+flat hit (`SinkHit.rule`, `SinkHit.cwe`) and the structured match of each edge (the matcher returns the
+first matching pattern per edge; that one is kept, and reporting all of them is a follow-up). The loop also
+adds sink lines that have no hit: YAML sinks, Python inline Flask sinks and Go source lines take the
+structured rule of their category; lines added through caller-supplied or wrapper sink names get the rule
+fixed at stage D. A structured match's rule id is
 `structured-<category>` (`structured-xss`, `structured-sqli`, `structured-ssrf`, `structured-deserialization`,
 `structured-os-command`, `structured-path-traversal`) with the CWE of its category (79, 89, 918, 502, 78,
 22), from one function. A hit from a language without positional rules is `legacy`, no CWE. The emission
@@ -108,9 +112,10 @@ then reports its rule through this field instead of the description (lane 4 DESI
 ### 5.3 The registry
 
 `crates/prism-review/src/output/rule_registry.rs`: one table of
-`RuleInfo { id, cwe, name, short, help, algorithms }`, sorted by id. Tests: every `SinkHit::new` tag and CWE
-in `taint_sinks/` matches a registry row (found by a source scan in the test, so a new rule cannot be added
-without a row); every structured id and `legacy` are rows; every primitive category is a row; ids are unique
+`RuleInfo { id, cwe, name, short, help, algorithms }`, sorted by id. Tests: every rule tag literal
+in `taint_sinks/` (the `js-…`, `py-…` and `go-…` strings, which reach `SinkHit` through local helper
+functions and tuples, not only through `SinkHit::new`) matches a registry row, found by a source scan in the
+test, so a new rule cannot be added without a row; every structured id and `legacy` are rows; every primitive category is a row; ids are unique
 and CWE strings are `CWE-<digits>`. `docs/rules.md` is generated from the table by a test-checked generator
 (the test fails when the page is stale).
 
@@ -120,7 +125,8 @@ and CWE strings are `CWE-<digits>`. `docs/rules.md` is generated from the table 
   recognised weakness (weak hash, hash truncation, disabled certificate validation, hard-coded secret,
   shell interpolation).
 - **absence:** one rule id per pair, a slug of the pair's description, with a CWE only for the standard
-  resource classes (missing release, double close, missing unlock). The pair table gains an id column; the
+  resource classes (missing release, missing unlock). `double_close` fires for any pair, so its id and CWE,
+  and the mapping of the six primitive categories to weakness classes, are fixed at stage D. The pair table gains an id column; the
   description text does not change.
 - Everything else keeps an empty list.
 
@@ -137,8 +143,10 @@ and CWE strings are `CWE-<digits>`. `docs/rules.md` is generated from the table 
 
 ### 5.6 Review and JSON
 
-JSON shows the field through serialisation. The review format prints the rule ids and CWEs after the
-category on a finding's line, and the compact form adds a `rules` key only when non-empty.
+`--format json` and `--format review` both serialise the finding, so the `rules` key appears in both and is
+omitted when empty. No text output prints findings line by line, so there is no separate review rendering.
+One byte-golden that holds a taint finding (`tests/fixtures/review_no_diagrams/golden/review_unflagged.json`)
+changes in the taint slice and is re-recorded there.
 
 ### 5.7 Targets
 
@@ -149,8 +157,8 @@ main's on the targets fixtures.
 
 | Gate | Statement |
 |---|---|
-| G-additive | on a fixed fixture set, `--format json` and `--format review` output with the `rules` keys removed equals main's output byte for byte |
-| G-fingerprint | the multiset of SARIF fingerprints in default mode equals main's; default-mode SARIF with `properties.rules` removed equals main's byte for byte |
+| G-additive | on a fixed fixture set, `--format json` and `--format review` output with the `rules` keys removed equals main's output byte for byte, after dropping the keys that differ between any two builds (the build identity, git revision and dirty flag) |
+| G-fingerprint | the multiset of SARIF fingerprints in default mode equals main's; default-mode SARIF with `properties.rules` and the per-build run properties removed equals main's byte for byte |
 | G-targets | target ids on the targets fixtures equal main's |
 | G-closed | registry tests of 5.3 pass; in `specific` mode every result's rule id has a descriptor, and every descriptor with a CWE has the tag |
 | G-coverage | every row of the existing sink-rule test tables (`tests/algo/taxonomy/taint_sink_rules_*`) asserts the finding's rule id and CWE, not only that a sink fired |

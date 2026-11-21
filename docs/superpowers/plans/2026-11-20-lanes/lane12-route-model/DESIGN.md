@@ -76,6 +76,7 @@ pub struct RouteRecord {
     pub router: Option<RouterRef>,         // the router or app object the registration is made on
     pub full_path: PathStatus,             // Full(String) | Suffix(String) | Dynamic
     pub handler: RouteHandler,             // Resolved(FunctionId) | Anonymous(FunctionId) | Unresolved { text, reason }
+    pub wrapper: Option<String>,           // name of a wrapper call around the handler (`asyncHandler`)
     pub site: FrameworkEntrySite,          // file, line, bytes of the registration
 }
 pub struct MountRecord {
@@ -92,8 +93,11 @@ pub struct RouterRef { pub file: String, pub binding: String }   // the declarin
   have literal prefixes and the chain is unique; `Suffix` when some prefix is missing or the router is
   mounted in more than one place; `Dynamic` when the registration's own path is not a literal.
 - Handler resolution reuses what exists: a bare identifier goes through the same binding rules the entry
-  records use, extended to imported names through the call graph's resolution for that site; an inline
-  function gets its anonymous identity; a wrapper call with exactly one function argument
+  records use. A handler argument is a value reference, not a call, so the call-site resolver does not
+  apply to it as it stands; how imported names and members are resolved (which existing binding facts are
+  read) is fixed at stage D. An inline JavaScript or TypeScript function gets its anonymous identity; Go
+  function literals and Python lambdas have no anonymous identity today and are `Unresolved` with their own
+  reason until one exists; a wrapper call with exactly one function argument
   (`asyncHandler(fn)`) resolves to that argument and records the wrapper's name; a member expression
   (`controller.method`) resolves when the call graph resolves that member, else it is `Unresolved` with
   reason `member_handler`. Reasons are a closed list fixed at stage D.
@@ -130,7 +134,8 @@ unresolved reason. Mount records are listed with `--mounts`.
 ### 5.5 Where the code goes
 
 ```
-src/framework_entries/routes.rs            records, the entry point `routes(session) -> RouteTable`
+src/framework_entries/routes.rs            records, the entry point `routes(files, call_graph) -> RouteTable` (no dependency on navigation)
+src/framework_entries/routes/handler.rs    handler resolution shared by the frameworks
 src/framework_entries/routes/python.rs     Flask and FastAPI
 src/framework_entries/routes/express.rs
 src/framework_entries/routes/go.rs
@@ -139,8 +144,11 @@ src/navigation/routes.rs                   the listing (no logic in queries.rs)
 crates/prism-review/src/cli.rs, main.rs    NavQuery::Routes and its arm
 ```
 
-The existing candidate extractors in `src/framework_entries/python.rs` and `express.rs` are reused for
-finding registration sites; they are not changed in behaviour. No cache version change.
+The existing extractors in `src/framework_entries/python.rs` and `express.rs` are not changed in behaviour.
+Their matching helpers are reused, but registration sites are found by a new scan: the Express candidate
+extractor drops any call whose arguments hold no identifier or function, so member, wrapped and `require`d
+handlers never reach it. Gin registrations are recognised by the gin import, not by the presence of
+`*gin.Context` in the file (router files take `*gin.RouterGroup`). No cache version change.
 
 ## 6. Measurement
 
@@ -150,7 +158,8 @@ prefix comes from (none, literal on the router, literal at a mount in another fi
 configuration), and for the wave 3 candidates the counts that decide the order.
 
 **Schema oracle.** Three corpora commit an API description next to their code (`apache-answer`, `directus`,
-`cal.com`); FastAPI applications can print theirs. For these, the extracted set of (method, normalised full
+`cal.com`, whose API is NestJS and so is checked only if wave 3 admits that framework); FastAPI schemas
+come from lane-written fixtures only, because corpus applications are never run. For these, the extracted set of (method, normalised full
 path) is compared with the schema's operations: recall (operations the listing found) and precision (listed
 routes that are operations), with every difference classified (dynamic prefix, unsupported shape, schema
 drift, non-API route).
