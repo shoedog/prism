@@ -292,9 +292,9 @@ limits:
 | Shared resource | Who touches it | Rule |
 |---|---|---|
 | CPG cache version constant | lanes 3 and 4, and the unrelated C/C++ data-flow lane (#818) | section 5 item 7 |
-| `crates/prism-review/src/algorithms/taint*` and `taint_sinks/` | lane 4 (new sink), lane 3 (end-to-end check only), the open cross-file taint PR #841 | lane 4 adds new modules, a module line in `taint_sinks/mod.rs`, and edits the sink loop and emission block of `taint/run.rs`; rebase over #841 when it merges; lane 3 changes no taint code |
+| `crates/prism-review/src/algorithms/taint*` and `taint_sinks/` | lane 4 (new sink), lane 3 (end-to-end check only), the open cross-file taint PR #841 | lane 4 adds new modules, a module line in `taint_sinks/mod.rs`, and edits the sink loop and emission block of `taint/run.rs`; lane 7 edits the same loop to attach rules (lane 4's sink slice follows lane 7's taint slice when lane 7 runs; if lane 4's merges first it writes its rule tag in the description and lane 7's taint slice migrates that producer and its reader); lane 6 adds one module (`taint/request_sources.rs`) and a module line; rebase over #841 when it merges; lane 3 changes no taint code |
 | `src/cpg/object_literal_args.rs` | lane 3 | lane 4 reads its facts, does not edit it |
-| `crates/prism-review/src/targets/`, `docs/contracts/targets.schema.json` and `docs/contracts/targets-1.1.schema.json` | lane 2 | no other lane edits them, except lane 6's additive edits (visibility, an optional field) after lane 2's first slice |
+| `crates/prism-review/src/targets/`, `docs/contracts/targets.schema.json` and `docs/contracts/targets-1.1.schema.json` | lane 2 | no other lane edits them, except lane 6's additive edits (visibility, an optional repository root in the site context) after lane 2's first slice. The shared identity extraction has one owner: the lane whose slice starts first does it and records the commit on both issues; the other rebases onto it and never repeats it |
 | The host | every measurement | section 4: one measurement process at a time across all lanes |
 | `CLAUDE.md`, the known-gaps doc | every lane | each PR edits only its own paragraph; conflicts are resolved by rebasing |
 

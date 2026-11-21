@@ -25,7 +25,7 @@ Status on 2026-11-21: designs and plans written for all seven; the design review
 
 | Lane | Directory | Issue | First deliverable | Days (estimate) | Depends on |
 |---|---|---|---|---|---|
-| 6. Provenance findings by proven identity | `lane6-provenance-identity/` | to be filed | a census memo: precision of today's findings on 180 real diffs (300 labelled), with a go gate; then structural fixes for every language | about 23.5 | lane 2's first slice for the shared identity entry point, or this lane carries it; its edits in `targets/` are additive and follow lane 2 |
+| 6. Provenance findings by proven identity | `lane6-provenance-identity/` | to be filed | a census memo: today's precision per origin class and recall against a 400-line source census on 240 real diffs, with a go gate; then structural fixes for every language | about 29.5 | lane 2's first slice for the shared identity entry point, or this lane carries it (one owner, whichever starts first); its edits in `targets/` are additive and follow lane 2 |
 | 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE (JSON and review output), then a registry and opt-in SARIF rule ids with CWE tags | 12 to 13 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice waits for it |
 | 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and an occurrence-level parity matrix, then a reason on every lost sink and the trace engine's return and depth repairs | 37 to 44.5, by how the MCP server gets the catalog | PR #841 merged; lane 4's benchmark pin task (or it does that task itself); lane 3's props slice for one row; rule ids from lane 7 when available; the owner's answer on the catalog question before the MCP slice. Lane 9's callback and argument-follow slices wait for this lane's walk-repair slice |
 | 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument and chained-call misbinding | 12 if only that fix runs; up to 37 if every slice passes its census gate | nothing to start; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; its callback and argument-follow slices wait for lane 8's descent check; hands handler-registration cases to lane 12 |
@@ -64,7 +64,10 @@ lanes were proposed with:
   owner's code.
 - **Lane 6.** The noise is structural, not a matter of tuning: the algorithm classifies whole source lines
   by substring, tags names that are not variables (modules, callees), and looks definitions up by name
-  across the file. On three decoy-heavy fixtures 14 to 31% of its findings were right.
+  across the file. On three decoy-heavy fixtures 14 to 31% of its findings were right. The design review
+  added that a call into a database or HTTP library proves nothing about its result
+  (`sqlite3.complete_statement`), so origin tables are per call, and that module-level code has no use nodes
+  in the graph, so it is examined from syntax.
 - **Lane 8.** Default review taint and `taint-reaches` disagree on 6 of 26 probe fixtures; five come from
   the trace engine's rule for entering a callee. Making review use the trace engine would remove findings.
   The design review also found defects of that engine on today's code (a return crossing into an unrelated
