@@ -59,7 +59,7 @@ Every lane runs these stages in order. A stage has an exit gate; the lane plan g
 | Stage | Output | Exit gate |
 |---|---|---|
 | M. Measure first | a census with counts per shape, on the named corpora, by a script kept in the evidence directory | the lane's go/no-go threshold. Below it, first list why each case missed: if the misses come from how the measurement matches things and not from what the product can do, go to section 8; otherwise stop the lane and write the result to its issue |
-| T. Tests first | the variant matrix as fixtures with a truth label per row, plus a data-driven test where the code under test already compiles | every census class has a row and every row maps to a class; rows that state new behaviour were shown RED once on base; the lane branch still compiles and CI is green (see the rule below) |
+| T. Tests first | the variant matrix as fixtures with a truth label per row, plus a data-driven test where the code under test already compiles | every census class has a row and every row maps to a class; rows that state new behaviour were shown RED once on base (a row whose command does not exist yet is recorded as "command missing", which is not a behavioural RED: it is shown RED again on the binary of the slice that adds the command); the lane branch still compiles and CI is green (see the rule below) |
 | E. Enumeration | more rows, found by the enumerator tiers run serially (section 6) | a full tier round adds no row |
 | D. Design of record | `DESIGN.md` amended by the design seat: the rule set, stated against the complete row set, and the accepted-loss list; the implementer then updates the rows' expectations to match. Every slice section of `PLAN.md` that the amendment contradicts is amended in the same change, so that a slice brief, which quotes the plan, never carries a rule the design has replaced | both reviewers APPROVE the amended design (cap: 2 rounds, then section 8) |
 | I. Implement | one slice per PR, in the order the plan gives | the slice's tests GREEN, gates of section 5 pass |
@@ -89,7 +89,8 @@ Rules during stages T and E (owner rules, 2026-11-14):
   number, or listed as an accepted loss in stage D.
 - Corpora are samples. Enumerators also derive shapes from the language grammar and semantics.
 - Rows whose truth comes from executing a lane-written fixture run contained as that lane's design states,
-  and the orchestrator reads each new fixture before its first run.
+  and the orchestrator reads each new fixture before its first run. The runner checks its own containment at
+  launch and refuses to run when the check fails.
 
 ## 4. Workspaces
 
@@ -163,7 +164,8 @@ and the CI result. Deferred findings are written to an issue before the merge.
 Every brief is self-contained: the worker sees nothing else.
 
 **Implementer brief** contains: the slice's section of `PLAN.md` verbatim, and verbatim every `DESIGN.md`
-section that the slice's text cites by number (as amended at stage D); the worktree path and branch; the
+section that the slice's text cites by number, both cut from the revision approved at stage D (the brief
+names that commit); the worktree path and branch; the
 rows that must turn GREEN and the rows that must stay as they are; the gates of section 5 that apply; "do not
 run mutgate; run tests through memguard; do not read `eval/secbench`; do not push" (when the task edits
 or has to read the benchmark harness itself, the worker is a Claude seat, the worktree keeps that directory, and the

@@ -3,9 +3,9 @@
 > **For agentic workers:** this plan is run by an orchestrator under `../ORCHESTRATION.md`. Each task is
 > dispatched to an implementer (Sonnet-5.5, high) with its section as the brief. Steps use checkbox syntax.
 
-**Goal:** `prism nav routes` lists a repository's web routes (methods, path as written, composed path when
-every prefix is static, handler identity or why it is unresolved, registration site, framework) and its
-mounts: Flask, FastAPI and Express first, then Go, then the wave 3 frameworks the census picks. Nothing the
+**Goal:** `prism nav routes` lists a repository's web routes (methods, path as written, every composed path,
+full where every prefix on its chain is static, the registered callbacks in order with their identities or
+why each is unresolved, a delegate where proven, registration site, framework) and its mounts: Flask, FastAPI and Express first, then Go, then the wave 3 frameworks the census picks. Nothing the
 extractor sees is dropped silently.
 
 **Architecture:** a route table computed on demand from parsed files and the call graph
@@ -31,29 +31,41 @@ gates 7, follow-ups 8, owner decisions 9).
 - Allowed edits to existing files: `pub(crate)` on the helpers each slice names (no behaviour change); one
   `pub mod routes;` line in `src/framework_entries/mod.rs` and in `src/navigation/mod.rs` (1,148.5 lines; the
   PR body says that line is the only addition); `NavQuery::Routes` in `crates/prism-review/src/cli.rs`; a
-  `run_nav` arm of at most 10 lines in `crates/prism-review/src/main.rs` (990.5 lines; rendering is in core).
+  `run_nav` arm of at most 10 lines in `crates/prism-review/src/main.rs` (990.5 lines; rendering is in core);
+  one `mod` line in `tests/navigation/main.rs`, in `crates/prism-review/tests/cli/main.rs` and (S3) in
+  `src/ast.rs` (600.5 lines); the docs each task names (`CLAUDE.md`,
+  `docs/features/query-layer/navigation/README.md`, `docs/features/language-coverage/js-ts-known-gaps.md`).
 - Sizes: `python3 scripts/file_size.py <files>`; new files aim for 600 weighted lines. Only lane-written
-  fixtures are executed, never a corpus (owner decision 5); fixture apps export their app and never listen.
+  fixtures are executed, never a corpus (owner decision 5), under DESIGN 6's containment and pinned offline
+  dependencies; fixture apps export their app and never listen.
 - The census may count the object-literal table shape on lane 5's `pilot-producer` locally, Claude seat,
   aggregate counts only (ORCHESTRATION section 9). No row, fixture or text derives from it.
 
 ## Review focus
 
-1. A router mounted from another file through a default export (`export default router`, imported under
-   another name) or a package import (`from . import auth`, `auth.bp`) composes to `full`. Test
-   `mount_through_default_export_and_package_import_composes` (S3).
-2. The join (`"/items"+"/"`, `""+"/x"`, `"/a/"+"/b"`) keeps one `/` and agrees with executed truth. Test
-   `join_keeps_one_slash_and_matches_rows` (S3).
-3. A router mounted twice, or a variable prefix on the chain, never yields `full` (anti-goal). Test
-   `multiply_mounted_or_dynamic_prefix_is_never_full` (S3).
-4. Member, call, array, spread and missing handler arguments are listed with a reason; today
-   `express_route_candidates` drops them (`src/framework_entries/express.rs:139`). Test
-   `every_seen_registration_is_counted` (S2).
-5. A Go file importing gin without `*gin.Context` (`parsed.framework()` is not gin there,
-   `src/frameworks/gin.rs:16`) still extracts; gin handler identity equals `CallGraph::go_registrations`.
-   Tests `gin_router_file_without_context_type_extracts`, `gin_handler_identity_matches_callback_registration` (S4).
+1. A router imported from another file is proven, not looked up by file (DESIGN 5.2): `export default
+   router` imported under another name and `from . import auth` + `auth.bp` compose to `full`; `from
+   .routers import admin as u` never takes `public`'s routes from the same file. Tests
+   `package_import_mount_composes`, `imported_member_selects_its_own_router` (S2),
+   `default_export_mount_composes` (S3).
+2. Every known mount prefix yields a `full` exposure; only a chain with an unknown prefix is a suffix, and no
+   chain with a dynamic prefix is `full` (anti-goals). Tests `every_known_mount_prefix_is_a_full_path`,
+   `dynamic_prefix_branch_is_a_suffix_beside_full_branches`, `mount_cycle_and_expansion_bound_terminate` (S1).
+3. A route is never attached to a router it was not registered on: a rebound or function-local receiver is
+   another `RouterId` or unproven. Tests `function_local_lookalike_receiver_is_unproven` (S2),
+   `rebound_router_routes_stay_unmounted` (S3).
+4. Every callback position is recorded in order; a wrapper call is unresolved and a delegate needs a proven
+   forwarder; a handler resolves in its argument's own scope (an imported `serve` beside a nested `serve`).
+   Tests `every_callback_position_is_recorded`, `wrapper_call_delegate_needs_a_proven_forwarder`,
+   `handler_resolves_in_argument_scope` (S3).
+5. Every builder verb leg and the pinned method table are registrations; `app.get('env')` is not. Test
+   `builder_legs_and_pinned_methods_extract_and_settings_read_does_not` (S3).
+6. A Go file importing gin without `*gin.Context` (`parsed.framework()` is not gin there,
+   `src/frameworks/gin.rs:16`) still extracts; each bare gin callback equals the `CallGraph::go_registrations`
+   target at its own bytes. Tests `gin_router_file_without_context_type_extracts`,
+   `gin_callback_identity_matches_callback_registration` (S4).
 
-## Stage M: measure first (2 days)
+## Stage M: measure first (2.5 days)
 
 ### Task M-1: tracking issue and workspace
 
@@ -76,7 +88,7 @@ gates 7, follow-ups 8, owner decisions 9).
 
 ### Task M-2: census
 
-**Files (evidence):** `m/census.py`, `m/census.json`, `m/CENSUS.md`; census seat (Sonnet-5.5, medium),
+**Files (evidence):** `m/census.py`, `m/census.json`, `m/ledger.jsonl`, `m/CENSUS.md`; census seat (Sonnet-5.5, medium),
 prediction first. `census.py <corpus>...` skips `node_modules`, `vendor`, `dist`, `build`, `.git` and counts
 each shape twice, by regular expression and by syntax (the installed Python tree-sitter bindings
 `tree_sitter_python`, `_javascript`, `_typescript`, `_go`, written independently of prism), split test /
@@ -86,127 +98,178 @@ shapes (Flask `@x.route`, `@x.<verb>`, `add_url_rule`; FastAPI verbs, `api_route
 and without a method in the pattern; chi verbs, `Route`, `Mount`; wave 3: NestJS decorators, Fastify, Koa,
 Django `path`/`re_path`/`include`, DRF routers, `[{ method, path, handler }]`); handler form (named, inline,
 wrapped, member, imported); prefix source (none, literal on the router, literal at a mount in another file,
-variable, configuration); and each shape whose two counts differ by over 5%, with five examples.
+variable, configuration); and each shape whose two counts differ by over 5%, with five examples. The syntax
+pass writes `ledger.jsonl` (DESIGN 6: corpus, revision, file, start and end byte of the decorator, call or
+builder-leg node, line, `registration` or `mount`, shape, test or non-test). It counts every Express builder
+verb leg and every verb of the pinned Express method table (read from the installed `express@4.22.3`'s
+`methods` dependency), and excludes settings reads (`app.get` with one string and no callback) by a stated rule. Self-checks first:
+toy files with a two-leg builder, a settings read, a lookalike receiver and two registrations on one line give
+the predicted ledger lines. The ledger is frozen (sha256 in `LEDGER.md`) before stage T.
 
 ### Task M-3: wave decisions
 
-- [ ] Wave go (DESIGN section 7): a wave proceeds with at least 200 registrations of its frameworks (syntax
-      count, test and non-test together) on the corpora; otherwise it is skipped and reported.
-- [ ] Wave 3: each candidate with at least 200 joins, in descending count order; object-literal tables join
-      regardless (owner decision 3), last unless their count is higher. Candidates may also be counted on
-      other `bench-repos` corpora that use them (name and commit recorded). Below 200: recorded, not built.
+- [ ] Apply DESIGN 7's census-go row; every branch, written out:
+
+| Result | Built | Not built |
+|---|---|---|
+| always (object tables are forced) | S1 (shared records, listing, composer) | — |
+| wave 1 ≥ 200 (exactly 200 goes) | S2, S3; wave 1 gate | — |
+| wave 1 < 200 | — | S2, S3; the wave 1 schema and completeness gates; directus rows not run |
+| wave 2 ≥ 200 | S4 (gin), S5 (net/http, chi: each built only if it has a ledger site) | — |
+| wave 2 < 200 | — | S4, S5; close-out promises lane 5 no Go records |
+| wave 3 candidate ≥ 200 | one slice each, descending count, ties by name | — |
+| object-literal tables | always (owner decision 3), last unless their count is higher; zero public sites: positive and negative rows are lane-written | — |
+
+- [ ] Candidates may also be counted on other `bench-repos` corpora that use them (name and commit
+      recorded). A wave whose corpora carry no schema runs its gates without the schema oracle, and says so.
 - [ ] Post counts and decisions on the issue; the stage T PR adds the wave 3 list to `DESIGN.md`.
 
 ### Task M-4: schema oracle
 
 **Files (evidence):** `m/schema_oracle.py`, `m/test_schema_oracle.py` (`python3 -m unittest discover -s m`).
 
-`schema_oracle.py --schema <file> --listing <routes.jsonl> --out <dir>`. Operations: the method keys
-(`get put post delete options head patch trace`) of each `paths` entry, a relative `$ref` path item loaded
-from its file; base path from Swagger `basePath` or the path of a relative `servers[0].url` (absolute URLs
-ignored, recorded). Normalisation, both sides: upper-case method; schema `{name}` → `{}` (the listing's
-`normalized` already is); collapse `//`; drop a trailing `/` except `/`; drop a query. `full` routes match
-exactly; `suffix` routes match a schema path ending with them, reported apart. Precision = matched `full` /
-all `full`; recall = operations matched by either / all. Differences go to `misses.jsonl`/`extras.jsonl`,
-pre-classed `dynamic_prefix` (a suffix match exists), `unsupported_shape` (the literal occurs in code, no
-record lists it), `schema_drift` (no occurrence), `non_api_route` (static, UI, health, metrics), else
-`unclassified`; a Sonnet-5.5 reader confirms each from the code, and no gate report keeps `unclassified`.
-Unit tests: one toy row per class, a base path, a `$ref` path item. Then record the denominators by running
-it with an empty listing on the three schema files.
+`schema_oracle.py --schema <file> --scope <scope.json> --listing <routes.jsonl> --out <dir>` implements
+DESIGN 6's schema oracle. `scope.json` (written per corpus at M, before any listing exists) names the
+application root file and binding, the revision, the API base (Swagger `basePath`, or the path of
+`servers[0].url`, absolute URLs included) and the inclusion rule. Operations: the method keys (`get put post
+delete options head patch trace`) of each `paths` entry, a relative `$ref` path item loaded from its file,
+one key per method; schema `{name}` → `{}` for the key only, paths otherwise exact. Unsupported schema
+constructs are reported as such, never matched. Binding input: for `apache-answer`, a self-contained reader
+maps each `@Router <path> [<method>]` comment to the function it documents (file, name, line span), written
+to `bindings.jsonl`; the oracle compares it with each matched operation's callbacks and delegate. Outputs:
+`report.json` with numerator and denominator per class (exact full, unique suffix, ambiguous suffix, `Any`,
+unsupported, binding agree / contradict / unresolved), `misses.jsonl`, `extras.jsonl`, pre-classed
+`dynamic_prefix`, `unsupported_shape` (the literal occurs in code, no record lists it), `schema_drift` (no
+occurrence, confirmed by a reader, since a composed path's literals can sit in several files), `out_of_scope`
+(outside the bound root or base), else `unclassified`; a Sonnet-5.5 reader confirms each from the code, and
+no gate report keeps `unclassified`. Unit tests (negative controls first): `/exact/` never matches `/exact`;
+one suffix against `/a/u` and `/b/u` is ambiguous and credits neither; two handlers swapped on correct paths
+give two binding contradictions; one operation dropped and one lookalike added changes the class counts; a
+100-operation schema with 10 out-of-scope UI routes keeps precision 1.0; `Any` against explicit methods;
+repeated operations across two roots; a base path; a `$ref` path item. Then record the denominators by
+running it with an empty listing on the three schema files (precision is reported as undefined there, not 0
+or 1).
 
-## Stage T and E: the matrix (3.5 days)
+## Stage T and E: the matrix (4.5 days)
 
 ### Task T-1: fixtures, rows, truth runner, data-driven test
 
 **Files:**
 - Create: `tests/fixtures/routes/<row>/` (one small application per row; `go.mod` in Go rows),
   `tests/fixtures/routes/rows.jsonl`, `tests/fixtures/routes/README.md`,
-  `tests/fixtures/routes/truth/{run_truth.py,flask_routes.py,fastapi_routes.py,express_routes.mjs,gin_routes.go,truth.jsonl,check.sh}`,
+  `tests/fixtures/routes/truth/{run_truth.py,stage.py,flask_routes.py,fastapi_routes.py,express_routes.mjs,truth.jsonl,ENV.md,check.sh}`,
   `crates/prism-review/tests/cli/routes_matrix_test.rs`
 - Modify: `crates/prism-review/tests/cli/main.rs` (`mod routes_matrix_test;`)
 
-`rows.jsonl` fields: `id`; `dir`; `group` (`w1-decorators`, `w1-express`, `w1-mounts`, `w2-gin`,
-`w2-nethttp`, `w3-<framework>`); `class`; `truth_source` (`executed` or `hand`); `entry` (executed rows:
+`rows.jsonl` fields: `id`; `dir`; `group` (`core`, `w1-python`, `w1-express`, `w2-gin`, `w2-nethttp`,
+`w3-<framework>`); `class`; `truth_source` (`executed` or `hand`); `entry` (executed rows:
 `module:attr`, `module:factory()`, or the JS file exporting the app); `expect` (route objects in DESIGN 5.4's
-JSON shape, only the fields the row pins: `methods`, `path`, `full_path`, `handler`, `wrapper`, `site`,
-`router`); `expect_mounts`; `accepted_loss` (optional reason); `ignore` (optional issue number). After stage
-D the implementer updates `expect` in the same commit as the design; truth never changes by hand.
+JSON shape, only the fields the row pins: `methods`, `path`, `paths`, `callbacks`, `receiver`, `site`);
+`expect_mounts`; `accepted_loss` (optional reason); `ignore` (optional issue number). After stage D the
+implementer updates `expect` in the same commit as the design; truth never changes by hand.
 
 ```rust
 // crates/prism-review/tests/cli/routes_matrix_test.rs: drives the binary, so it names no Rust item that
 // does not exist yet, and compares nothing while no group is enabled
 const ENABLED_GROUPS: &[&str] = &[];  // each slice adds its groups in its first commit
-#[test] fn routes_matrix_rows_are_well_formed();  // unique ids, dirs exist, closed value sets; an executed
-                                                  // row's truth.jsonl entry agrees with its `expect`
+#[test] fn routes_matrix_rows_are_well_formed();  // unique ids, dirs are real directories under the fixture
+                                                  // root, closed value sets; an executed row's truth.jsonl
+                                                  // entry agrees with its `expect` under DESIGN 6's projection
 #[test] fn routes_matrix_matches_rows();  // per enabled, non-ignored row: `crate::prism_bin()` runs
     // `nav --no-cache routes --repo tests/fixtures/routes/<dir> --mounts --format json`; projected route and
     // mount lines equal `expect`/`expect_mounts` exactly; the summary keeps the completeness invariant
 ```
 
-Truth runner (orchestrator only, never `cargo test`): one child process per row on a temporary copy, 10 s
-limit; per route it records the framework's methods, composed path, registration line, handler name or
-`anonymous`. Flask and FastAPI: `uv venv ~/prism-evidence/routes/truth/venv; uv pip install --offline flask
-fastapi` (both cached; versions recorded); `app.url_map.iter_rules()` with `view_functions`, and `app.routes`
-with `endpoint.__name__`, `__code__.co_firstlineno`. Express: `npm install --offline --prefix
-~/prism-evidence/routes/truth/node express@4.22.3` (cached); walk `app._router.stack`, taking a mount prefix
-only from Express 4's literal-prefix layer pattern (otherwise the row is `hand`); lines from wrapping the
-verb, `route` and `use` methods before loading `entry`; `.ts` rows use erasable TypeScript under Node 24's
-type stripping. gin and chi: `engine.Routes()` / `chi.Walk` if the module can be fetched (it is not in the
-module cache; offline the rows are `hand`); net/http has no route table: `hand`. `check.sh` re-runs and
-diffs `truth.jsonl`, before stage D and before each merge. The runner beats a seed expectation; note it.
+Truth runner (orchestrator only, never `cargo test`), implementing DESIGN 6's executed truth and its
+containment: `stage.py` validates each row (canonical path under `tests/fixtures/routes/`, no links, relative
+imports inside the row, bare imports in the pinned set), stages the row and the pinned dependency tree into a
+fresh temporary directory, and runs one child per row with a 10 s limit, a temporary `HOME`, and no
+`PYTHONPATH`, `NODE_PATH` or `GOPATH` inherited. Environments, built once with versions written to
+`truth/ENV.md`: `uv venv ~/prism-evidence/routes/truth/venv` then `uv pip install --python
+~/prism-evidence/routes/truth/venv/bin/python --offline flask==3.1.3 fastapi==0.115.12` (both in the uv cache on
+2026-11-21; a missing transitive wheel fails the install, and that group is hand-labelled and recorded),
+children run as `venv/bin/python -I`; `npm install --offline --prefix ~/prism-evidence/routes/truth/node
+express@4.22.3` (cached), its `node_modules` copied into each staged root, Node 24 (`.ts` rows use erasable
+TypeScript under type stripping). The instrumented adapters (`flask_routes.py`, `fastapi_routes.py`,
+`express_routes.mjs`) record per registration call its site, ordinal, arguments and callback identities and
+per served route its path, declared and effective methods and the calls it came from (DESIGN 6); Express
+mount prefixes come only from Express 4's literal-prefix layer pattern, otherwise the row is `hand`. gin, chi
+(not in the Go module cache) and net/http rows are `hand`; Go never fetches. Runner self-checks, before the
+first row: a valid multi-file row passes; an out-of-root `dir`, an `entry` through a link, an undeclared
+transitive helper and an ambient `PYTHONPATH` module each refuse; two anonymous Express callbacks swapped in a
+copy change the truth. `check.sh` re-runs, diffs `truth.jsonl` and fails if a row's `truth_source` no longer
+matches what the runner can do, before stage D and before each merge. The runner beats a seed expectation;
+note it.
 
 Seed rows ("Expect" is the hypothesis; "D" is settled at stage D; other wave 3 rows are written only for
 the frameworks the census admitted):
 
 | Rows | Input | Expect |
 |---|---|---|
+| e01–e02 | no web framework; a Flask import and no registration | empty listing, zero summary |
 | fl01–fl04 | `@app.route("/items", methods=["GET","POST"])`; `@app.get("/x")`; `@app.route("/x")`; two decorators on one def | full; methods as written; fl03 implicit methods D; two records |
-| fl05–fl10 | `Blueprint(url_prefix="/auth")` + `@bp.route("/<int:id>/u")` registered in another file; prefix only at `register_blueprint(bp, url_prefix="/v1")`; both; `url_prefix=prefix`; registered twice; nested `/p` + `/c` | `/auth/<int:id>/u` (normalised `/auth/{}/u`); `/v1/…`; override per truth; suffix; suffix; `/p/c/x` |
+| fl05–fl10 | `Blueprint(url_prefix="/auth")` + `@bp.route("/<int:id>/u")` registered in another file; prefix only at `register_blueprint(bp, url_prefix="/v1")`; both; `url_prefix=prefix`; registered twice (distinct `name=`); nested `/p` + `/c` | `/auth/<int:id>/u` (normalised `/auth/{}/u`); `/v1/…`; override per truth; suffix; both full paths; `/p/c/x` |
 | fl11–fl13 | `add_url_rule("/r", view_func=h)`; `add_url_rule("/", endpoint="i")`; `view_func=V.as_view("i")` | resolved; unresolved, D; unresolved, D |
 | fl14–fl19 | `@app.route(PATH)`; `@self.app.route("/x")`; `url_prefix="/a"` + `"/"`; `methods=M`; routes in `create_app()`; `app = flask.Flask(…)` | dynamic; D (seen or loss); per truth; D; full; full |
 | fa01–fa06 | `@app.get("/items/{id}")`; `APIRouter(prefix="/items")` + `include_router(items.router)`; both prefixes; `@app.api_route(…, methods=[…])`; `add_api_route("/x", h, methods=["PUT"])`; `@app.websocket("/ws")` | full; `/items/` per truth; `/admin/items/…`; as written; resolved; D |
-| fa07–fa13 | `@app.get(app.url)`; included twice; nested include; `include_router(r, prefix=P)`; `from .routers import users as u` + `include_router(u.router)`; `app.mount("/s", StaticFiles(…))`; a non-router included | dynamic; suffix; full; suffix; full; D; D |
-| ex01–ex08 | `app.get('/x', named)`; inline arrow; `asyncHandler(async (req, res) => {})`; `asyncHandler(named)`; `wrap(a, b)`; `site.index` with `const site = require('./site')`; `import { list } from './users'`; `const h = asyncHandler(…)` then `get('/', h)` | resolved; `<anon@L:C>`; anonymous + wrapper; resolved + wrapper; D; resolved or `member_handler`; resolved; D |
-| ex09–ex13 | `get('/', validate('r'), h, respond)`; `app.route('/r').get(h1).post(h2)`; `app.all`; template literal with/without `${}`; regex or array path | D; two records `/r`; D; literal / dynamic; D |
+| fa07–fa13 | `@app.get(app.url)`; included twice; nested include; `include_router(r, prefix=P)`; `from .routers import users as u` + `include_router(u.router)`; `app.mount("/s", StaticFiles(…))`; a non-router included | dynamic; both full paths; full; suffix; full; D; D |
+| ex01–ex08 | `app.get('/x', named)`; inline arrow; `asyncHandler(async (req, res) => {})`; `asyncHandler(named)`; `wrap(a, b)`; `site.index` with `const site = require('./site')`; `import { list } from './users'`; `const h = asyncHandler(…)` then `get('/', h)` | resolved; `<anon@L:C>`; callback `wrapper_call`, delegate the anonymous function only if D lists the forwarder; same with a resolved delegate; `wrapper_call`, no delegate; resolved or `member_handler`; resolved; D |
+| ex09–ex13 | `get('/', validate('r'), h, respond)`; `app.route('/r').get(h1).post(h2)`; `app.all`; template literal with/without `${}`; regex or array path | callbacks `wrapper_call`, `h`, `respond` in order; two records `/r`; D; literal / dynamic; D |
 | ex14–ex17 | `(app) => { app.get(…) }`; `:id?` and `*`; `app.use(mw)`; `app.options`/`app.head` | unresolved, D; normalisation D; not a route; D |
-| ex18–ex26 | TypeScript `import express`; same-file `app.use('/api', r)`; `app.use('/v1', require('./v1'))`; `module.exports = router` + `require`; `export default router` imported elsewhere; `app.use(PREFIX, r)`; mounted twice; nested `router.use('/sub', sub)`; `app.use('/u', r)` + `r.get('/', h)` | as JS; full; full; full; full; suffix; suffix; full; per truth |
+| ex18–ex26 | TypeScript `import express`; same-file `app.use('/api', r)`; `app.use('/v1', require('./v1'))`; `module.exports = router` + `require`; `export default router` imported elsewhere; `app.use(PREFIX, r)`; mounted twice; nested `router.use('/sub', sub)`; `app.use('/u', r)` + `r.get('/', h)` | as JS; full; full; full; full; suffix; both full paths; full; per truth |
 | gn01–gn06 | `r := gin.Default(); r.GET("/x", list)`; `g.POST("/y", func(c *gin.Context){})`; `a.ctrl.Get`; `register(r.Group("/api"))` with `g *gin.RouterGroup`; two function levels; `r.Group(conf.Base + "/api")` | resolved (callback-registration id); D (no Go anonymous identity); D; full within the D bound; suffix beyond; suffix |
-| gn07–gn10 | `r.Handle("GET", "/x", h)`, `r.Any`; `r.GET("/x", auth(), h)`; gin import without `*gin.Context`; `r.Group("", mw)` | D; D; extracted; full |
+| gn07–gn10 | `r.Handle("GET", "/x", h)`, `r.Any`; `r.GET("/x", auth(), h)`; gin import without `*gin.Context`; `r.Group("", mw)` | D; callbacks `wrapper_call`, `h`; extracted; full |
 | nh01–nh08 | `mux.HandleFunc("POST /v1/u", h.create)`; `http.HandleFunc("/w", func(w, r){})`; `mux.Handle("/x", v)`; `"GET /x"` (serves HEAD too); `"example.com/x"`; `{p...}`, `{$}`; `HandleFunc(versionPath, h)`; `root.Handle(b+"/", http.StripPrefix(b, a))` | POST; any, handler D; D; D; D; normalisation D; dynamic; D (mount?) |
 | ch01–ch04 | `r.Get`; `r.Route("/api", func(r chi.Router){…})`; `r.Mount("/adm", adm())`; `r.With(mw).Get` | full; full; D; full |
-| ol01–ol04 | `route([{ method: 'GET', path: '/x', handler: h }])`; exported array used in another file; inline handler; `method: ['GET','POST']` | listed; framework label D |
+| ol01–ol04 | `route([{ method: 'GET', path: '/x', handler: h }])` with `route` a grounded consumer; exported array used in another file; inline handler; `method: ['GET','POST']` | listed; consumer list and framework label D |
+| ol05–ol07 | the same array passed to `function route(rows) { return rows.length; }`; an unused exported array; a client request descriptor of the same shape | candidate `table_consumer_unproven`, no credit; nothing; nothing |
+| fl20–fl21, fa14 | `@app.get("/w")` above `@replace` whose function returns another function; a function-local `app = Sink()` whose `get` returns an identity decorator, in a file importing Flask; `from .routers import admin as u` with `admin` and `public` in one file | callback `inner_decorator`; receiver unproven, no path; only `admin`'s routes |
+| ex27–ex30 | `import { serve }` beside an unrelated nested `function serve`, `app.get('/users', serve)` at module scope; `app.get('env')` and `app.route('/c').get(a).post(b).head(c)`; `let r = express.Router()`, `r.get('/live')`, `app.use('/api', r)`, then `r = express.Router()`, `r.get('/ghost')`; `app.use(['/v1', '/v2'], r)` | resolved to the export; no record, then three records; `/api/live` full, `/ghost` suffix `no_known_mount`; two full paths (D confirms arrays) |
 
-- [ ] Write fixtures, rows, runner and test; run the runner; commit `truth.jsonl`. One reviewer
-      (test-only). CI green.
+- [ ] Write fixtures, rows, runner and test; run the runner's self-checks, then the runner; commit
+      `truth.jsonl`. One reviewer (test-only). CI green. With no group enabled the matrix compares nothing:
+      base RED for behaviour is shown per slice (stage I), not here.
 
 ### Task T-2: enumeration
 
-- [ ] Tiers on `rows.jsonl` (ORCHESTRATION section 6). Axes: registration form; receiver (bare, attribute
-      chain, call result, parameter, imported, aliased, rebound, shadowed); path (literal, concatenation,
-      f-string or template, constant, variable, regex, array, empty, trailing slash, parameter syntaxes);
-      methods (list, tuple, variable, any, websocket, implicit); handler (named, imported, default, namespace
-      member, class method, inline, wrappers, nested wrappers, middleware chain, wrapper result, class-based
-      view, missing); mounts (constructor, mount, both, override, variable, configuration, nested, twice,
-      cross-file by import, `require` or package import, cycle, non-router child); scope (module, factory,
-      nested callable, `if DEBUG:`, loop over data); module forms (CJS, ESM, TypeScript, Python packages,
-      multi-file Go packages, `_test.go`). Out of model shapes are `accepted_loss` rows. Runner truth first.
+- [ ] Tiers on `rows.jsonl` (ORCHESTRATION section 6). Axes: registration form (pinned verb table, builder
+      legs saved in a variable or repeated, settings reads, middleware-only `use`, pathless and multi-child
+      mounts, bracket verbs); receiver (bare, attribute chain, call result, parameter, imported, aliased,
+      rebound, shadowed, live and unmounted routers of one name, two factory scopes, a sub-app both mounted
+      and a root); path (literal, escaped literal, concatenation, f-string or template, constant, variable,
+      regex, array, empty leaf versus `/`, trailing slash, literal colons and braces, parameter syntaxes,
+      typed and tail converters, host patterns); methods (list, tuple, duplicates, mixed literal and unknown,
+      variable, any versus unknown, websocket, implicit, framework-added HEAD/OPTIONS); callbacks (named,
+      imported, renamed or re-exported, default, namespace member, class method, bound method, inline,
+      nested decoy of the same name, wrappers, nested and branch-selecting wrappers, a discarding wrapper,
+      arrays and spreads, terminal versus continuing middleware, error middleware, replacing and stacked
+      decorators on either side, method-dispatched views, one callable at two sites on one line, swapped
+      anonymous callbacks); mounts (constructor, mount, both, override, variable, configuration, nested,
+      twice, static plus unknown, a diamond, a cycle, cross-file by import, `require` or package import,
+      barrels and star conflicts, non-router child); scope (module, factory, nested callable, `if DEBUG:`,
+      loop over data); module forms (CJS, ESM, TypeScript, Python packages, multi-file Go packages,
+      `_test.go`). Out of model shapes are `accepted_loss` rows. Runner truth first.
 
-## Stage D: design of record (1 day)
+## Stage D: design of record (1.5 days)
 
-- [ ] Inputs: DESIGN 5's tentative rules, `rows.jsonl` with `truth.jsonl`, `CENSUS.md`, the oracle
-      denominators, the D cells as accepted-loss candidates. The design seat amends DESIGN 5.1 to 5.3 and
-      fixes, per framework: which calls and decorators are registrations or mounts; method derivation; which
-      argument is the handler among several; admitted wrappers; how imported and member handlers resolve (a
-      handler argument is a value reference, not a call site); Go function literals and method values;
-      normalisation of optional, wildcard, regex and host forms; the closed `UnresolvedReason` list (with
-      `member_handler`); the bound for groups passed as parameters; accepted losses. The implementer updates
-      `rows.jsonl`. Both reviewers; cap 2 rounds.
+- [ ] Inputs: DESIGN 5's tentative rules, `rows.jsonl` with `truth.jsonl`, `CENSUS.md`, the frozen ledger,
+      the oracle denominators, the D cells as accepted-loss candidates. The design seat amends DESIGN 5.1 to
+      5.3 and fixes, per framework: which calls and decorators are registrations or mounts; method
+      derivation; the forwarder list for delegates; how imported and member callbacks resolve (a callback is
+      a value reference, not a call site); Go function literals and method values; per-framework joins and
+      comparison keys for optional, wildcard, regex and host forms; the closed `Reason` list; the bound for
+      groups passed as parameters; accepted losses; the ledger exclusion rules and the recall floor (DESIGN
+      7). In the same change it amends every slice section below that the amendment contradicts (rules, test
+      names and assertions, rows to enable, files), as ORCHESTRATION section 3 requires; a slice brief is cut
+      only from the approved revision. The implementer updates `rows.jsonl`. Both reviewers; cap 2 rounds.
 
 ## Stage I: slices
 
 The orchestrator pastes this paragraph and the no-regression gate into every slice brief. Each slice: its
 first commit adds its groups to `ENABLED_GROUPS` (`crates/prism-review/tests/cli/routes_matrix_test.rs`) and
-shows `routes_matrix_matches_rows` RED; ORCHESTRATION section 5 items 1 to 5 (item 5 because
+shows `routes_matrix_matches_rows` RED. S1's RED is bringing up the command (base has no `routes`); from S2
+on, RED is the previous slice's merged binary on the newly enabled rows, row by row (the command exists, so
+each row's failure is behavioural). ORCHESTRATION section 5 items 1 to 5 (item 5 because
 `src/navigation/` is touched: Tier-A matrix and quick, regressions in the PR body), 8, 9, 10; two reviewers,
 cap 3 rounds. Commands, through memguard:
 `cargo test -p prism-review --test cli routes_matrix_test::`, `cargo test -p prism --lib framework_entries::routes`,
@@ -214,139 +277,153 @@ cap 3 rounds. Commands, through memguard:
 
 **No-regression gate, every slice, final head:** release builds of merge base and head; on the slice's
 corpora `prism nav --no-cache call-stats --repo <c>` identical, and `nav --no-cache callers --format json`
-identical for the head listing's first 20 resolved handlers per corpus; `cargo test -p prism-mcp --test mcp
+identical for the head listing's first 20 resolved callbacks per corpus; `cargo test -p prism-mcp --test mcp
 golden_transcript_test` passes unre-recorded; `git diff <base>..HEAD -- src/call_graph.rs src/cpg_cache.rs
 src/navigation/{queries,types,call_edge_cache}.rs` empty.
 
-### Slice S1: records, listing, Flask and FastAPI decorators (3 days)
+### Slice S1: records, listing and composer, shared by every wave (3 days)
 
-First because the handler is the decorated function: review is about the record and listing, not resolution.
+First and always built (M-3), because every later slice extends its records, listing and composer; it holds
+no framework extractor, so skipping a wave never removes what another wave needs.
 
-**Files:** create `src/framework_entries/routes.rs`, `src/framework_entries/routes/{python,tests}.rs`,
-`src/navigation/routes.rs`, `tests/navigation/routes_test.rs`, `docs/features/query-layer/navigation/routes.md`;
-modify `src/framework_entries/mod.rs`, `src/navigation/mod.rs`, `tests/navigation/main.rs`
-(`mod routes_test;`), `crates/prism-review/src/{cli,main}.rs`, `src/frameworks/python/{flask,fastapi}.rs`
-(`decorator_receiver_and_method`, `first_decorator_target` → `pub(crate)`), the navigation docs
-`README.md` (a row), `CLAUDE.md`.
+**Files:** create `src/framework_entries/routes.rs`, `src/framework_entries/routes/{mounts,tests}.rs`,
+`src/navigation/routes.rs`, `tests/navigation/routes_test.rs`, `docs/features/query-layer/navigation/routes.md`
+(one example line per record kind and status, DESIGN 5.4); modify `src/framework_entries/mod.rs`,
+`src/navigation/mod.rs`, `tests/navigation/main.rs` (`mod routes_test;`), `crates/prism-review/src/{cli,main}.rs`,
+the navigation docs `README.md` (a row), `CLAUDE.md`.
 
 ```rust
-// src/framework_entries/routes.rs: declares `mod python;` (S1), `mod express; mod handler;` (S2),
-// `mod mounts;` (S3), `mod go;` (S4), `#[cfg(test)] mod tests;`. All records derive
-// Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize.
-pub struct RouterRef { pub file: String, pub binding: String }
-pub enum PathStatus { Full(String), Suffix(String), Dynamic }
-#[serde(rename_all = "snake_case")]
-pub enum UnresolvedReason { MemberHandler /* , the rest of stage D's closed list */ }
-pub enum RouteHandler { Resolved(FunctionId), Anonymous(FunctionId),
-    Unresolved { text: String, reason: UnresolvedReason } }
-pub struct RouteRecord { pub framework: String, pub methods: Vec<String>, pub path: String,
-    pub router: Option<RouterRef>, pub full_path: PathStatus, pub handler: RouteHandler,
-    pub wrapper: Option<String>,   // DESIGN 5.1: "records the wrapper's name"
-    pub site: FrameworkEntrySite }
-pub struct MountRecord { pub parent: Option<RouterRef>, pub child: RouterRef,
-    pub prefix: Option<String>, pub site: FrameworkEntrySite }
-#[derive(Default)] pub struct RouteTable { pub routes: Vec<RouteRecord>, pub mounts: Vec<MountRecord>,
-    pub registrations_seen: usize }
+// src/framework_entries/routes.rs: declares `mod mounts;` (S1), `mod receivers; mod handler;` (created by
+// the first framework slice that runs), `mod python;` (S2), `mod express;` (S3), `mod go;` (S4),
+// `#[cfg(test)] mod tests;`. DESIGN 5.1's records verbatim (RouteRecord, Methods, RoutePath, Receiver,
+// Exposure, PathStatus, Callback, CallbackValue, MountRecord, MountPrefix, RouterId); all derive Debug,
+// Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, enums with a snake_case `status` tag.
+pub enum Reason { ReceiverUnproven, MemberHandler, WrapperCall, InnerDecorator, ClassView,
+    ImportedUnproven, MountChildUnproven, VariablePrefix, NoKnownMount, MountCycle, ExpansionTruncated,
+    NonLiteralPath, TableConsumerUnproven /* , stage D's additions */ }
+#[derive(Default)] pub struct RouteTable { pub routes: Vec<RouteRecord>, pub mounts: Vec<MountRecord> }
 /// Takes the session's parts: this module sits below `navigation`.
 pub fn routes(files: &BTreeMap<String, ParsedFile>, call_graph: &CallGraph) -> RouteTable;
-/// `<int:id>`, `<id>`, `{id}`, `{id:path}`, `:id`, `{id...}` → `{}`; other forms per stage D.
-pub fn normalize_path(path: &str) -> String;
+/// DESIGN 5.1's comparison key; `None` for a template the framework's grammar entry cannot classify.
+pub fn normalize_path(framework: &str, path: &str) -> Option<String>;
 
-// src/navigation/routes.rs (serde::Serialize rows: RouteRow = DESIGN 5.4 fields, `wrapper` skipped when
-// None; MountRow = parent, child, prefix, site; RouteSummary = registrations_seen, routes, mounts and the
-// BTreeMap<String, usize> counts by_framework, by_full_path, by_handler, by_reason)
+// src/framework_entries/routes/mounts.rs: DESIGN 5.2 (one exposure per chain, cycles, the 64 bound)
+pub(super) fn compose(routes: &mut [RouteRecord], mounts: &[MountRecord], roots: &BTreeSet<RouterId>);
+pub(super) fn join(framework: &str, prefix: &str, path: &str) -> String;   // per-framework table, extended per slice
+
+// src/navigation/routes.rs (serde::Serialize rows in DESIGN 5.4's shape; RouteSummary = registrations,
+// proven, mounts and the BTreeMap<String, usize> counts by_framework, by_path_status, by_callback_status,
+// by_reason)
 pub struct RouteListing { pub routes: Vec<RouteRow>, pub mounts: Vec<MountRow>, pub summary: RouteSummary }
 pub fn routes_listing(session: &NavigationSession) -> RouteListing; // routes(&session.repo.files, session.index.call_graph())
 pub fn render(listing: &RouteListing, format: &str, include_mounts: bool) -> String;
 ```
 
-JSON: DESIGN 5.4 route lines sorted by (normalised full path or suffix, first method, file, line); with
-`--mounts` one `{"mount":{…}}` line each; last `{"summary":{…}}`. Text: `GET,POST /users/:id -> handler
-(routes/users.js:12) [express] full`. CLI: `NavQuery::Routes { repo: PathBuf, format: String (default
-"json"; json|text), mounts: bool }`.
+JSON: DESIGN 5.4 lines and order; with `--mounts` one `{"mount":{…}}` line each; last `{"summary":{…}}`.
+Text: one line per registration, `GET,POST /v1/users/:id | /users/:id (suffix) -> auth, <anon@12:24>
+(routes/users.js:12) [express]`. CLI: `NavQuery::Routes { repo: PathBuf, format: String (default "json";
+json|text), mounts: bool }`.
 
-In S1, `full_path` is `Full` on an application object (`Flask(…)`, `FastAPI(…)`) and `Suffix` on a
-`Blueprint`/`APIRouter` (S3 composes). Decorator sites come from `python::python_route_candidates` (site
-bytes, handler identity, framework); the decorator node is found from the site bytes and re-read for
-receiver, method and arguments. `add_url_rule` and `add_api_route` are found by a scan over calls on
-`flask::route_receivers` / `fastapi::route_receivers`. The Python string-literal helper is new (none exists).
-
-- [ ] Enable `w1-decorators`; RED. Tests in `routes/tests.rs`: `normalize_path_rewrites_each_parameter_form`,
-      `flask_decorator_reads_methods_and_path`, `python_registration_without_literal_path_is_dynamic`,
-      `blueprint_route_is_suffix_before_composition`; in `routes_test.rs`:
-      `listing_is_sorted_and_ends_with_summary`, `text_format_has_one_line_per_route`,
+- [ ] Enable `core` (rows `e01` no web framework, `e02` a framework import and no registration); RED (the
+      command is new). Tests in `routes/tests.rs`, on synthetic records: `every_known_mount_prefix_is_a_full_path`
+      (one router under one root at `/v1` and `/v2`: two `Full`), `dynamic_prefix_branch_is_a_suffix_beside_full_branches`
+      (one literal and one `Unevaluated` mount: one `Full`, one `Suffix`), `mount_cycle_and_expansion_bound_terminate`
+      (a cycle closes as `mount_cycle`; 65 chains give 64 exposures and one `expansion_truncated`),
+      `unmounted_router_is_a_suffix_no_known_mount`, `unproven_receiver_has_no_paths`,
+      `normalize_path_is_framework_specific` (Express `/p/:id` → `/p/{}`; Flask `/p/:id` unchanged; Flask
+      `<path:p>` → `None`); in `routes_test.rs`: `listing_is_sorted_and_ends_with_summary`,
+      `json_lines_carry_status_discriminants`, `text_format_has_one_line_per_registration`,
       `other_languages_list_nothing`. GREEN. No-regression gate. PR body: rows enabled, no-regression
       result, sizes of new files and of `main.rs`.
 
-### Slice S2: Express registrations and handler forms (3.5 days)
+### Slice S2: Flask and FastAPI registrations, callbacks and mounts (3.5 days)
 
-Second because handler resolution is the riskiest rule and must reuse the entry records' binding rules.
+Second: Python callbacks are mostly the decorated function, so review is about receiver identity, imports and
+composition. Built only if wave 1 goes.
 
-**Files:** create `src/framework_entries/routes/express.rs`, `src/framework_entries/routes/handler.rs`
-(shared handler-form classifier: bare name, inline, wrapper, member, imported); modify
-`src/framework_entries/express.rs` (`express_call_match_kind`, `express_call_method_name`,
-`is_js_ts_string_like_node`, `express_receiver_is_shadowed`, `enclosing_named_function_facts` →
-`pub(crate)`), `routes.rs`, `routes/tests.rs`, `CLAUDE.md`, the user page,
+**Files:** create `src/framework_entries/routes/{python,receivers,handler}.rs`; modify `routes.rs`,
+`routes/mounts.rs` (Flask and FastAPI joins), `routes/tests.rs`, `src/frameworks/python/{flask,fastapi}.rs`
+(`decorator_receiver_and_method`, `is_flask_module`, `is_fastapi_module` → `pub(crate)`), the user page,
+`CLAUDE.md`.
+
+Sites: a new scan over the decorators and calls of Python files whose imports name Flask or FastAPI
+(decorators, `add_url_rule`, `add_api_route`, `api_route`, `websocket`, `register_blueprint`,
+`include_router`); neither `python::python_route_candidates` nor the file-wide `route_receivers` sets are
+used. Receivers are grounded by DESIGN 5.1's rule (`receivers.rs`; `review_context/import_targets/shadow.rs`
+shows the scope walk). Callbacks by DESIGN 5.1 (`handler.rs`): the decorated function unless a non-route
+decorator sits below the route decorator; `view_func=`, `endpoint`. Mounts carry the effective prefix
+(DESIGN 5.2); imported routers through `CallGraph::import_bindings` and `call_graph::file_matches_module`
+(exactly one file), then the grounded binding there. The Python string-literal helper is new (none exists).
+
+- [ ] Enable `w1-python`; RED (S1's binary on these rows). Tests in `routes/tests.rs`:
+      `flask_decorator_reads_methods_and_path`, `python_registration_without_literal_path_is_dynamic`,
+      `function_local_lookalike_receiver_is_unproven` (fl21: a function-local `app = Sink()` in a Flask file
+      gives an unproven receiver and no path), `replacing_decorator_below_the_route_is_inner_decorator`
+      (fl20), `stacked_route_decorators_give_two_records_for_one_function`, `package_import_mount_composes`
+      (`from . import auth`, `register_blueprint(auth.bp, url_prefix="/a")`: `full`),
+      `imported_member_selects_its_own_router` (fa14: only `admin`'s routes under the mount),
+      `registered_twice_yields_both_full_paths` (fl09, fa08),
+      `flask_registration_prefix_replaces_and_fastapi_prefixes_add` (fl07, fa03),
+      `flask_empty_rule_under_prefix_is_the_prefix`. GREEN. No-regression gate on `flask` and `fastapi`;
+      PR body: the summary on both beside the ledger's counts.
+
+### Slice S3: Express registrations, callbacks and mounts, closing wave 1 (4.5 days)
+
+Third: the riskiest callback rules (scope, imports, wrappers) and the builder matcher. Built only if wave 1
+goes.
+
+**Files:** create `src/framework_entries/routes/express.rs`, `src/ast/js_router_binding.rs` (declared by one
+`mod` line in `src/ast.rs`); modify `routes/{receivers,handler}.rs` (JS/TS parts), `routes/mounts.rs` (Express join), `routes.rs`, `routes/tests.rs`, `CLAUDE.md`, the user page,
 `docs/features/language-coverage/js-ts-known-gaps.md`.
 
-The site scan is new: every call from `collect_js_ts_call_nodes` that `express_call_match_kind` accepts,
-whatever its arguments. A bare same-file name resolves by the entry records' rule
-(`express::is_bare_binding_function`, exactly one match, local-shadow check); an inline function gets
-`anon_owner::identity`; imported and member handlers follow stage D; a `.route(p)` chain takes `p` from the
-inner call (`js_ts_literal_string_value`).
+Sites: a route-specific matcher over `collect_js_ts_call_nodes` (`express_call_match_kind` and the entry
+extractor stay as they are): verb calls on a grounded receiver, the pinned Express method table (M-2), every
+verb leg of a builder walked back to its grounded `.route(p)`, `app.get` with one string and no callback
+excluded as a settings read, `use` split into middleware and mounts (a path or array of paths and a router
+child). Receivers by DESIGN 5.1: `js_router_binding.rs` adds `pub(crate) fn js_ts_unique_declarator(&self,
+ident: Node<'_>, name: &str, cache: &mut JsBindingCache<'_>) -> Option<Node<'_>>` on `ParsedFile`, the
+nearest declaring scope's single, unwritten declarator, built on `js_ts_binding_walk`, `js_ts_scope_lookup`
+and `js_ts_scoped_written` (the walk is not exported today); its value must be a recognised constructor.
+Callbacks by DESIGN 5.1: every argument after the path in order, `ParsedFile::js_ts_site_binding` at each
+identifier, imports through `CallGraph::import_bindings` and the target's `js_ts_exports`, inline functions
+by `anon_owner::identity`; path literals by DESIGN 5.1 (not `js_ts_literal_string_value`). Imported routers
+through `call_graph::js_ts_relative_module_candidates` and the target file's export entry or `module.exports`,
+then the grounded binding there.
 
-- [ ] Enable `w1-express`; RED. Tests: `every_seen_registration_is_counted` (member, call, array, spread
-      and missing handler arguments each give a record; `registrations_seen == resolved + anonymous +
-      unresolved`), `inline_handler_gets_its_anonymous_identity`,
-      `wrapper_with_one_function_argument_records_wrapper`, `same_file_handler_matches_the_entry_record`
-      (equal to the `CallGraph::framework_entries` handler for the same site),
-      `shadowed_receiver_is_unresolved_with_reason`. GREEN. No-regression gate. PR body: the summary on
-      `express` and `directus-directus` beside the census's handler forms.
-
-### Slice S3: mounts and composition, closing wave 1 (3 days)
-
-Third because composition needs both extractors and holds the anti-goal (no false `full`).
-
-**Files:** create `src/framework_entries/routes/mounts.rs`; modify `routes/python.rs` (`register_blueprint`,
-`include_router`, constructor `url_prefix=`/`prefix=`), `routes/express.rs` (`use(prefix, router)`),
-`routes.rs`, `routes/tests.rs`, docs.
-
-```rust
-// src/framework_entries/routes/mounts.rs
-pub(super) fn compose(routes: &mut [RouteRecord], mounts: &[MountRecord], roots: &BTreeSet<RouterRef>);
-pub(super) fn join(prefix: &str, path: &str) -> String;   // exactly one `/` at the join
-```
-
-An imported router is identified through `CallGraph::imports` (file → local → module): JS/TS by
-`call_graph::js_ts_relative_module_candidates` then `CallGraph::js_ts_exports[file].named` (`"default"` or
-the name); Python by `call_graph::file_matches_module` over the indexed Python files, exactly one match. A
-child that cannot be identified keeps the mounting file and its text and connects to nothing.
-
-- [ ] Enable `w1-mounts`; RED. Tests: `mount_through_default_export_and_package_import_composes` (an
-      `export default router` imported under another name and mounted with `app.use('/users', …)`, and a
-      blueprint registered as `auth.bp` after `from . import auth`, both `full`);
-      `join_keeps_one_slash_and_matches_rows` (`"/items"+"/"`, `""+"/x"`, `"/a/"+"/b"`);
-      `multiply_mounted_or_dynamic_prefix_is_never_full`; `mount_cycle_terminates_as_suffix`. GREEN.
-- [ ] Wave 1 gate: schema oracle on `directus-directus` (precision ≥ 0.95 of `full`, recall with every miss
-      classified); completeness on the five wave 1 corpora (the invariant, and the census syntax count beside
-      `registrations_seen`, differences classified); no-regression gate. Results in the PR body, raw in `g/`.
+- [ ] Enable `w1-express`; RED (S2's binary on these rows). Tests: `every_callback_position_is_recorded`
+      (member, call, array, spread and missing callbacks each recorded in order with a status; records =
+      proven + unproven receivers), `inline_handler_gets_its_anonymous_identity`,
+      `wrapper_call_delegate_needs_a_proven_forwarder` (ex03 to ex05: `wrapper_call` callbacks; a delegate only
+      for a listed forwarder; `choose(save)` with `choose = ignored => maintenance` gets none),
+      `handler_resolves_in_argument_scope` (ex27: the imported `serve`, not the nested one), and
+      `handler_matches_the_entry_record_on_overlap` (equal to the `CallGraph::framework_entries` handler for the
+      same site where the binding is unique, visible and unwritten),
+      `builder_legs_and_pinned_methods_extract_and_settings_read_does_not` (ex10, ex17, ex28),
+      `rebound_router_routes_stay_unmounted` (ex29), `default_export_mount_composes` (ex22),
+      `array_mount_yields_each_path` (ex30), `escaped_or_concatenated_path_is_not_a_literal`. GREEN.
+- [ ] Wave 1 gate (DESIGN 7): schema oracle on `directus-directus`; reconciled completeness against the
+      frozen ledger on the five wave 1 corpora, with the positive-yield check; no-regression gate with cold
+      session time, table time and peak RSS. Results in the PR body, raw in `g/`.
 
 ### Slice S4: Go gin (3 days)
 
-Fourth: gin is the larger Go family (237 registrations in `apache-answer`) and reuses the mount graph.
+Fourth: gin is the larger Go family (237 registrations in `apache-answer`) and reuses S1's composer; it needs
+no wave 1 code. Built only if wave 2 goes.
 
-**Files:** create `src/framework_entries/routes/go.rs`; modify `routes.rs`, `routes/tests.rs`, docs.
+**Files:** create `src/framework_entries/routes/go.rs`, and `routes/{receivers,handler}.rs` if wave 1 was
+skipped (else modify them); modify `routes.rs`, `routes/mounts.rs` (gin join), `routes/tests.rs`, docs.
 
 Routers: `gin.Default()`/`gin.New()` results, `Group` results (a mount), parameters typed `*gin.Engine`,
 `*gin.RouterGroup` or `gin.IRoutes` within stage D's bound. A file qualifies by importing
-`github.com/gin-gonic/gin` (`parsed.extract_imports()`), never by `parsed.framework()`. A bare identifier
-handler takes the target of the `CallGraph::go_registrations` record whose `site.file` and
-`site.start_byte` equal the argument's; none: unresolved with stage D's reason.
+`github.com/gin-gonic/gin` (`parsed.extract_imports()`), never by `parsed.framework()`. Every handler argument
+is a callback, in order (DESIGN 5.1); a bare identifier takes the target of the `CallGraph::go_registrations`
+record whose `site.file` and `site.start_byte` equal that argument's own; none (a selector, a call): unresolved
+with stage D's reason.
 
 - [ ] Enable `w2-gin`; RED. Tests: `gin_router_file_without_context_type_extracts` (a file that takes
-      `r *gin.RouterGroup` and never names `*gin.Context`); `gin_handler_identity_matches_callback_registration`
-      (the route's `FunctionId` equals the `go_registrations` target for the same bytes);
-      `group_passed_beyond_the_bound_is_suffix`. GREEN. No-regression gate on `apache-answer` and `gin`; PR
+      `r *gin.RouterGroup` and never names `*gin.Context`); `gin_callback_identity_matches_callback_registration`
+      (`r.GET("/x", auth, endpoint)`: callbacks `auth` then `endpoint`, each equal to the `go_registrations`
+      target at its own bytes; `r.GET("/y", s.List)`: unresolved); `group_passed_beyond_the_bound_is_suffix`. GREEN. No-regression gate on `apache-answer` and `gin`; PR
       body: the summary on both.
 
 ### Slice S5: net/http and chi, closing wave 2 (2.5 days)
@@ -358,40 +435,49 @@ Fifth: it reuses S4's Go module and handler identity; chi's `Route` closure reus
 
 - [ ] Enable `w2-nethttp`; RED. Tests: `method_in_pattern_is_split_from_the_path`,
       `plain_pattern_accepts_any_method`, `chi_route_closure_composes`. GREEN.
-- [ ] Wave 2 gate: schema oracle on `apache-answer`; completeness on `apache-answer`, `miniflux-v2`,
-      `prometheus`, `gin`; no-regression gate.
+- [ ] Wave 2 gate (DESIGN 7): schema oracle on `apache-answer`, with its `@Router` bindings; reconciled
+      completeness against the ledger on `apache-answer`, `miniflux-v2`, `prometheus`, `gin`, chi's ledger
+      sites included; no-regression gate with session time, table time and peak RSS.
 
 ### Slices S6 onward: wave 3, one framework per slice (2 to 3 days each)
 
 In stage M's order. Each: enable `w3-<framework>`; RED; `src/framework_entries/routes/<framework>.rs`
-declared in `routes.rs`; one test per rule stage D fixed; GREEN; completeness on its corpora; schema oracle
-on `calcom-cal.com` when NestJS is built; no-regression gate.
+declared in `routes.rs` (and `receivers.rs`/`handler.rs` parts for its language if no earlier slice made
+them); one test per rule stage D fixed; GREEN; reconciled completeness on its corpora; schema oracle on
+`calcom-cal.com` when NestJS is built; no-regression gate. Object-literal tables (DESIGN 5.3): tests
+`grounded_table_consumer_lists_rows` and `ungrounded_table_is_a_candidate_without_credit` (ol05 to ol07,
+lane-written positives and same-shape negatives).
 
 ## Close-out (1 day)
 
 - [ ] `CLAUDE.md` Architecture paragraph (route table, listing, statuses, reasons, out of model) and the
       user page final. Comments on #600 (records exist; the request-source follow-up and its evidence) and
       PR #606 (the CLI listing exists; `nav_routes` is a DESIGN section 8 follow-up).
-- [ ] Note on lane 5's issue: the JSON line shape, `normalized` for matching operations, bind only on `full`,
-      the Go registration adapter from wave 2. File DESIGN section 8's four follow-ups with their evidence,
-      and the stage D accepted losses that have a fix.
+- [ ] Note on lane 5's issue, for the waves that shipped: the JSON line shape, `normalized` for matching
+      operations, DESIGN 8's binding rule (a `full` exposure with a resolved callback or delegate; callbacks
+      ordered), the measured bindings and losses, Go registration records if wave 2 shipped (adapter input,
+      not a wired adapter). The same position semantics on #600. File DESIGN section 8's four follow-ups with
+      their evidence, and the stage D accepted losses that have a fix.
 - [ ] Run `truth/check.sh`; refresh `HANDOFF.md` and `LEDGER.md`; offload raw evidence; delete `target/`.
 
 ## Acceptance for the lane
 
 Each built wave passed its census gate; the matrix holds for every enabled group; schema-oracle precision on
-`full` ≥ 0.95 on each schema-bearing corpus of a finished wave, every difference classified; completeness
-and no-regression hold on each slice's final head; both reviewers approved each slice; follow-ups filed.
+in-scope `full` exposures ≥ 0.95 on each schema-bearing corpus of a finished wave, every difference and
+binding contradiction classified; reconciled completeness (no unexplained ledger site, recall at or above the
+stage D floor, nonempty yield) and no-regression hold on each slice's final head; both reviewers approved
+each slice; follow-ups filed.
 
 ## Estimates (working days)
 
 | Stage or slice | Days |
 |---|---|
-| M: issue, census, wave decisions, oracle | 2 |
-| T and E: fixtures, runner, test, enumeration | 3.5 |
-| D | 1 |
-| S1 records, listing, Python decorators; S2 Express handlers; S3 mounts and wave 1 gate | 3 + 3.5 + 3 |
+| M: issue, census and ledger, wave decisions, oracle | 2.5 |
+| T and E: fixtures, instrumented runner, test, enumeration | 4.5 |
+| D | 1.5 |
+| S1 records, listing, composer | 3 |
+| S2 Flask and FastAPI; S3 Express and wave 1 gate | 3.5 + 4.5 |
 | S4 gin; S5 net/http, chi and wave 2 gate | 3 + 2.5 |
-| S6+ wave 3: object-literal tables, then each admitted framework | 2, then 2.5 each |
+| S6+ wave 3: object-literal tables, then each admitted framework | 2.5, then 2.5 each |
 | Close-out | 1 |
-| Total, waves 1 and 2 plus object-literal tables | 24.5 |
+| Total, waves 1 and 2 plus object-literal tables | 28.5 |
