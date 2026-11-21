@@ -55,10 +55,10 @@ start. The decisions with the most consequence:
 
 | Lane | Decision | Default |
 |---|---|---|
-| 2 | Should prism's inventory also cover the standard-library families faultpath's scanner already covers? | yes, as the second slice, with a row-for-row parity gate against the scanner |
+| 2 | Should prism's inventory also cover the standard-library families faultpath's scanner already covers? | yes, as the second slice, with a row-for-row parity gate against the scanner (**confirmed 2026-11-20**) |
 | 2 | Who runs the live httpie proof? | the lane's orchestrator, using faultpath read-only, one day at most |
 | 3 | Which follow-ups run after the first four slices (spread pass-through, `children`, wrapper resolution, trace-engine descent for plain `props`)? | none without the census number stated beside each |
-| 4 | Is the experiment's result enough to fund implementation? | pre-stated: 25 or more converted cases continues; 15 to 24 asks; fewer stops |
+| 4 | Is the experiment's result enough to fund implementation? | pre-stated: 25 or more converted cases continues; 15 to 24 asks; fewer stops (**confirmed 2026-11-20**) |
 | 5 | Start the pilot after the feasibility memo? | **wait for an explicit go-ahead** |
 | 5 | Pilot pair | the public pair first; the private pair's adapter last |
 

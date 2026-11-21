@@ -289,7 +289,7 @@ mock).
 | # | Question | Default applied | Cost of changing later | Latest cheap point |
 |---|---|---|---|---|
 | 1 | Where the inventory lives | a row source inside targets (approach B) | moving to a nav query is a move-only change of four files | before lane 5's pilot |
-| 2 | Families | HTTP first (slice S2), then filesystem, parse, config with scan parity (slice S3) | stopping after S2 leaves standard-library discovery to `faultpath scan`; nothing built in S2 is wasted | after S2 merges |
+| 2 | Families | **Confirmed by the owner, 2026-11-20:** HTTP first (slice S2), then filesystem, parse, config with scan parity (slice S3) | stopping after S2 leaves standard-library discovery to `faultpath scan`; nothing built in S2 is wasted | after S2 merges |
 | 3 | Schema version of an inventory document | 1.1, the already-promoted minor | emitting 1.0 would forbid the `parse` and `config` kinds | before S2 |
 | 4 | Callee in the hint | resolved dotted callee; text as written in `expected.detail` (issue #613 asked for source text in the hint) | swapping the two fields changes every inventory id once | before S2 merges |
 | 5 | Unsupported sites | rows of kind `other` with a reason | moving them to warnings removes rows; consumers that count them change | before S2 merges |

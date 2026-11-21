@@ -256,7 +256,7 @@ Only fixtures written for this lane are executed. Benchmark packages are never e
 
 | # | Question | Default applied | Cost of changing later | Latest cheap point |
 |---|---|---|---|---|
-| 1 | Experiment thresholds | 25 / 15 as in section 6 | none | at the memo |
+| 1 | Experiment thresholds | **Confirmed by the owner, 2026-11-20:** 25 / 15 as in section 6 | none | at the memo |
 | 2 | One-level copies | not reported | reporting them as a weak finding is one class and one strength rule | stage D |
 | 3 | A sufficient guard | no finding | a weak (`suggestion`) finding instead is a strength rule | stage D |
 | 4 | A partial guard | finding stays, with a note | — | stage D |
