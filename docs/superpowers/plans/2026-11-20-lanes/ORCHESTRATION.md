@@ -107,7 +107,8 @@ Branch names: `<type>/<lane>-<stage or slice>`, for example `test/targets-invent
 `feat/targets-inventory-s2`, `eval/schema-impact-feasibility`. One branch and one PR per slice; each new
 slice branches from the updated `main`.
 
-- One worktree per lane, one build per worktree. Delete `target/` when the lane pauses for more than a day.
+- One worktree per lane, one build per worktree; a second worktree only where the lane plan names it (two
+  slices that must be built side by side). Delete `target/` when the lane pauses for more than a day.
 - A codex reviewer works in a disposable clone of the pushed branch, never in the implementer's worktree.
 - Every `cargo test`, test binary, `prism` corpus run and checker run goes through
   `~/prism-evidence/tools/memguard.sh 8 <command>`. If memguard refuses (exit 75), a measurement holds the
@@ -164,8 +165,8 @@ Every brief is self-contained: the worker sees nothing else.
 **Implementer brief** contains: the slice's section of `PLAN.md` verbatim, and verbatim every `DESIGN.md`
 section that the slice's text cites by number (as amended at stage D); the worktree path and branch; the
 rows that must turn GREEN and the rows that must stay as they are; the gates of section 5 that apply; "do not
-run mutgate; run tests through memguard; do not read `eval/secbench`; do not push" (when the slice edits
-the benchmark harness itself, the implementer is a Claude seat, the worktree keeps that directory, and the
+run mutgate; run tests through memguard; do not read `eval/secbench`; do not push" (when the task edits
+or has to read the benchmark harness itself, the worker is a Claude seat, the worktree keeps that directory, and the
 sentence becomes "read and edit the harness code under `eval/secbench`; never install, import or run
 benchmark package code"); "commit after each green
 step with a message that names the slice"; the report format (what changed, test totals, what was not
