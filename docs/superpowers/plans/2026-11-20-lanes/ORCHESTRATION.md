@@ -195,8 +195,11 @@ paths and revisions, the prediction to write down before the run, and where the 
 
 ## 7. Convergence
 
-- Declare the cap before each loop: design review 2 rounds; slice review 3 rounds; enumeration has no cap
-  but ends when a full tier round is dry.
+- Declare the cap before each loop: design review 2 rounds; slice review 3 rounds; enumeration ends when a
+  full tier round is dry, and a tier that still adds rows of one class after 5 rounds is an open class: stop
+  and go to section 8.
+- When stage D changes what a row requires, the row is run again against the base build and its RED or GREEN
+  record is replaced before the slice that enables it starts.
 - A cap belongs to the blocker, not to the artifact. A renamed PR or a successor slice for the same blocker
   inherits the rounds already spent.
 - At a cap, classify. Converging (each round has fewer, smaller, non-repeating findings): fold the valid
@@ -226,6 +229,9 @@ Used when stage D is rejected twice, when a census contradicts a design premise,
 3. Keep the orchestrator's and the original design's options in a separate file. Pool both sets and ask the
    design seat to evaluate them, including combinations of options.
 4. The result amends `DESIGN.md`. Both reviewers review the amendment once.
+5. If they reject it again, or a requested cap extension is refused, the orchestrator stops the lane at that
+   slice and reports to the owner: the rows, both designs and the reviewers' reasons. It does not try a third
+   design.
 
 ## 9. Owner decisions
 

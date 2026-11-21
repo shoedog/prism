@@ -19,7 +19,7 @@ number of edges added.
 
 | Fact | Reference |
 |---|---|
-| A JSX opening or self-closing element is an ordinary call site with `jsx_element = true`. Its span covers the whole opening element. Lowercase tags are dropped as intrinsic. Capitalised tags resolve like calls: same-file `local_def`, imports `import_member`, Exact in the probes. A member tag `<Q.M>` resolves `import_qualified`, Exact, whenever `Q` is any imported binding: through the namespace proof when `Q` is a namespace import (the site's `local_binding` is `JsLocalBinding::NamespaceImport`), otherwise by the module's file stem and the member's spelling. So `<Ctx.Provider>` with `import { Ctx }`, and `<Menu.Item>` with `import { Menu }` (named or default) where the module holds `const Menu = { Item: Impl }`, bind to whatever function of that module is spelled `Provider` or `Item`, a wrong target; the same rung gives `api.send(a)` a wrong Exact argument edge. A local `const` object, `props.X` or `this.X` qualifier gives `UnknownName`. | `src/queries.rs:150-166`, `src/call_graph.rs:176`, `src/resolution.rs:2158`, `:2372-2420`; probes `res2`, `res3` of the review |
+| A JSX opening or self-closing element is an ordinary call site with `jsx_element = true`. Its span covers the whole opening element. Lowercase tags are dropped as intrinsic. Capitalised tags resolve like calls: same-file `local_def`, imports `import_member`, Exact in the probes. A member tag `<Q.M>` resolves `import_qualified`, Exact, whenever `Q` is any imported binding: through the namespace proof when `Q` is a namespace import (the site's `local_binding` is `JsLocalBinding::NamespaceImport`), otherwise by the module's file stem and the member's spelling. So `<Ctx.Provider>` with `import { Ctx }`, and `<Menu.Item>` with `import { Menu }` (named or default) where the module holds `const Menu = { Item: Impl }`, bind to whatever function of that module is spelled `Provider` or `Item`, a wrong target; the same rung gives `api.send(a)` a wrong Exact argument edge. A namespace import is not enough either: the namespace proof matches the target against the module's export of that name (`CallGraph::js_ts_namespace_exports`, built by `resolve_js_namespace_exports` in `src/ast/js_ts/exports/`), and when the module has no such export the proof returns nothing and the stem-and-spelling match above decides, so `<UI.Item>` with `import * as UI from "./table"` binds Exact to an object member `Other.Item` or an unrelated `Item` of that module. A local `const` object, `props.X` or `this.X` qualifier gives `UnknownName`. | `src/queries.rs:150-166`, `src/call_graph.rs:176`, `src/resolution.rs:2158`, `:2372-2420`, `src/resolution/js_ts/namespace.rs` (`js_ts_namespace_proof`); probes `res2`, `res3`, `k1` of the reviews |
 | `memo(fn)` and `forwardRef(fn)` resolve to the inner function when the wrapper is React's (a named import of exactly `"react"`, or a member of its default or namespace import, `React.memo`) around a function expression that is the value of a `const` (`ParsedFile::js_ts_wrapped_export`, rules R2 to R12). Such a target is recorded as a wrapped callable (`JsTerminal.wrapped` in the file, `JsExportTarget::SpannedLocal` across files), and a non-JSX site to it drops `WrappedExportNonJsx`. `React.memo(Identifier)`, class components and `lazy` from another file do not resolve. Any other call around an inline function (`observer(fn)`, `styled(fn)`, `withRouter(fn)`, `useMemo(() => fn)`, a same-file `React.lazy(() => import(..))`) is a may-call binding and falls back to name search, which binds the element `local_def`, Exact, to the inner function under the declarator's name; for `lazy` that is the loader arrow, a wrong target with no formals. The resolution result carries no wrapper flag: both routes give the same resolution kind. | `src/ast/js_wrapped_export.rs`, `src/ast/js_binding_values.rs` (`js_ts_classify_call`, `js_ts_call_may_call`), `src/ast/js_binding.rs:28`, `src/resolution.rs:3428`, `:3583`; `docs/features/language-coverage/js-ts-known-gaps.md` §1.1 |
 | Attributes are not arguments. A JSX site has an empty argument list, and the argument-binding loop skips it. No edge leaves any attribute value. Children are not represented. | `src/cpg/build.rs:1603` |
 | A JSX attribute value has a Use node with its own bytes only when the element sits under a `return`, the right side of an assignment, or a call's arguments. Elsewhere (a declarator, an object-literal value, a conditional, a JSX child outside those) the line has one zero-width Use at its start, and a reference on a function's signature line (a one-line expression-bodied arrow) has none. A value captured from an enclosing function inside a callback has its def-use edge end at a node owned by the enclosing function. | `src/ast/rvalues.rs:291-372`, `src/data_flow/build/file.rs:567-569`; review probes `jsx`, `jsx2`, `jsx3` |
@@ -63,7 +63,8 @@ the census number that would justify a follow-up.
 
 Anti-goals: a whole-object edge from an attribute value into `props` (it would taint every sibling prop);
 edges from a component that is not an Exact singleton; edges into a target the lane cannot show is the
-rendered component (a non-namespace member qualifier, an unadmitted wrapper); a second copy of the
+rendered component (a non-namespace member qualifier, a namespace member that is not the module's export,
+an unadmitted wrapper); a second copy of the
 object-literal key rules.
 
 ## 4. Approaches considered
@@ -113,9 +114,17 @@ binding element: the key path it reads and the local it binds.
 | `{ a = 1 }`, `{ a: b = 1 }` | `a` | `a` / `b`, marked defaulted |
 | `{ a: { c } }` | `a.c` | `c` |
 | `{ 'aria-label': l }` | `aria-label` | `l` |
-| `{ ...rest }` | every key no sibling names | `rest`, marked rest |
+| `{ ...rest }` | every key at its own pattern level that no sibling consumes (below) | `rest`, marked rest |
 | `{ [k]: v }` | unknown | `v` gets a Def and no incoming binding |
 | an array pattern anywhere inside | — | that subtree gets nothing |
+
+A rest element's residual is computed per object pattern from the keys its siblings consume, whether or
+not a sibling yields an admitted local: a renamed, defaulted, refused or unused sibling, an array-valued
+one (`{ list: [first], ...rest }`) and a nested pattern (`{ style: { color }, ...rest }` consumes all of
+`style`) each consume their key, and a rest nested in `style` (`{ style: { color, ...r }, title }`)
+receives only keys under `style` that `color` does not name. When a sibling at that level has a computed
+key (`{ [k]: v, ...rest }`), no residual key is provable and the rest entry is treated as an entry with an
+unknown key. The rest decision uses the source key, the original key of a rename.
 
 **A new accessor, not a wider one.** Pattern elements come from a new function
 (`ParsedFile::js_ts_pattern_params`). The existing parameter occurrences, parameter names and positional
@@ -197,7 +206,11 @@ pub(super) enum PropsEntry {
   - Child content produces no entry; a `children` key in the callee receives nothing from it.
 
 Overwrite order is the object-literal rule: a Spread or Wildcard refuses every key written before it; keys
-written after it bind; of duplicate keys the last one decides.
+written after it bind; of duplicate keys the last one decides. A parent key decides before its nested
+leaves, as `collect_leaves` does for literals today: a later attribute of the same name replaces every
+entry an earlier one produced, nested leaves included (`style={{ color: x }} style={{ size: y }}` binds
+only `y`; a later `style={{}}` or `style={s()}` leaves nothing from the first), and a spread inside a
+nested literal overwrites only keys under its own parent.
 
 ### 5.3 Binding
 
@@ -208,7 +221,12 @@ written after it bind; of duplicate keys the last one decides.
    a member expression when the target is a pattern formal, binds only when the site's qualifier is a
    namespace import, that is when the site's `local_binding` is `JsLocalBinding::NamespaceImport` (set by
    `ParsedFile::js_ts_namespace_binding`). Every other qualifier (a named or default import of a value, a
-   re-export of one, a type-only import) is refused (`refused_member_qualifier`). The call half exists
+   re-export of one, a type-only import) is refused (`refused_member_qualifier`). For a namespace import the
+   binder also proves that the target is the module's export named `M`: the module the import names
+   resolves to a file whose entry in `CallGraph::js_ts_namespace_exports` under `M` has the target's file,
+   local name and line span (the comparison `js_ts_namespace_proof` makes; a read-only query beside it, no
+   resolution outcome changes). Otherwise the site is refused (`refused_member_not_export`): the module has
+   no export `M` that is the target, and resolution fell back to the spelling. The call half exists
    because a pattern target is new in this lane and the same resolver rung would give it the wrong callee
    (`api.send({ a: x })` into an unrelated `export function send({ a })`); a plain-formal target of a member
    call keeps #594's behaviour unchanged.
@@ -240,9 +258,14 @@ written after it bind; of duplicate keys the last one decides.
   receives nothing, as in #594 today and in this lane (`refused_zero_width_read`); follow-up F3 is the
   refinement.
 - **Pattern formal:** `Use(value) → Def(local)` for each pattern entry whose key path is a prefix of, or
-  extends, the entry's key path; a rest entry receives every key no sibling names (counted `edges_to_rest`:
+  extends, the entry's key path; a rest entry receives its residual keys (5.1; counted `edges_to_rest`:
   a rest local is not field-selective); an entry with an unknown key receives nothing. Label: Exact (the
-  call is an Exact singleton and the key match is syntactic).
+  call is an Exact singleton and the key match is syntactic). An entry whose key path extends the pattern
+  entry's (`style={{ color: dirty, size: clean }}` into `({ style })`) makes the local a container: the
+  edge is right, but the member-only projection then carries every leaf to every `style.<field>` read, so
+  `dirty` reaches `style.size` (the accepted cost of a seed on a whole parameter, CLAUDE.md). Such edges
+  are counted `edges_to_container`, and the end-to-end path table (section 6) gives no credit to a chain
+  that enters a container or rest local by one key and leaves it through a member read of another.
 - Dedupe by (from, to).
 - The binder keeps the existing generic shape: it takes the targets in any representation together with a
   function that resolves one to a graph node.
@@ -284,18 +307,21 @@ argument-binding step runs (at graph assembly, on every build: cold, full cache 
 beside the edges per caller and merged in a fixed order. They are the "handled explicitly" record for
 unresolved components, wrappers, qualifiers, missing sources and spreads. A site-unit refusal is counted
 once per site, by the first admission check of 5.3 that fails; entry-unit keys count each entry of an
-admitted site.
+admitted site. The site keys and check 1 are decided once per site from the whole resolution result,
+before any per-target work, so a site whose component resolution dropped (no target at all) is counted.
 
 | Key | Unit | Counts |
 |---|---|---|
 | `sites_jsx` | site | JSX element sites with at least one attribute in a JavaScript-family caller, before admission |
 | `sites_literal` | site | call sites with at least one object-literal argument, before admission |
 | `edges_to_def` | edge | edges into a pattern local that is not a rest local |
+| `edges_to_container` | edge | the subset of `edges_to_def` whose entry's key path is longer than the pattern entry's (a leaf `style.color` into the local `style`) |
 | `edges_to_rest` | edge | edges into a rest local |
 | `edges_to_use` | edge | edges into a plain formal's member read |
 | `edges_to_bare_use` | edge | edges into a bare read of a plain formal with its own bytes |
 | `refused_not_exact_singleton` | site | admission check 1 |
-| `refused_member_qualifier` | site | admission check 2 |
+| `refused_member_qualifier` | site | admission check 2, qualifier not a namespace import |
+| `refused_member_not_export` | site | admission check 2, namespace import whose module export `M` is not the target |
 | `refused_unknown_wrapper` | site | admission check 3 |
 | `refused_no_props_formal` | site | admission check 4, no formal |
 | `refused_alias_pattern` | site | admission check 4, alias-skipped pattern formal |
@@ -313,6 +339,8 @@ admitted site.
 ```
 src/ast/js_ts/pattern_params.rs    pattern elements of a formal (declared in src/ast/js_ts.rs)
 src/ast/js_ts/component_route.rs   admission check 3: direct, admitted wrapper, or other wrapper
+src/resolution/js_ts/namespace.rs  admission check 2's export proof: a read-only query reusing
+                                   js_ts_namespace_proof, reached through CpgCallResolver; no outcome changes
 src/ast/parameters.rs              unchanged accessors; the JavaScript path gains nothing here
 src/data_flow/build/file.rs        registers Defs for admitted pattern locals beside identifier formals
 src/cpg/callee_params.rs           compute_pattern_formal_nodes and the cached ParamTarget form
@@ -356,7 +384,8 @@ adds its line to the list in `src/cpg_cache.rs`.
 **Census (stage M, before any design rule is fixed).** A Node script with the pinned TypeScript 5.9.3
 joins `prism nav call-stats --dump-sites` records with the syntax tree and reports, for Excalidraw and one
 more public React corpus: JSX sites by resolution outcome; member elements by qualifier kind (namespace
-import, named import, default import, other); targets by route (direct, admitted wrapper, other wrapper);
+import whose module exports the member, namespace import without that export, named import, default
+import, other); targets by route (direct, admitted wrapper, other wrapper);
 sites whose tag spelling differs from the target function's name; attributes by value shape and by position
 relative to a spread; elements by statement context and owner kind (the axis of PLAN Task T-3); the callee's
 first-formal shape (object pattern: flat, alias, default, rest, nested, computed; plain identifier:
@@ -375,7 +404,8 @@ own files. For every cross-function edge the lane adds:
    admitted wrapper call around it. When the declaration is a `const` initialiser, an object-literal
    property or an expando assignment (`Tabs.Tab = X`) whose right side is an identifier or a function
    expression, the oracle follows that one step before comparing. A member tag whose qualifier is not a
-   namespace import is WRONG unless that step reaches the target.
+   namespace import is WRONG unless that step reaches the target; a namespace member that the module's
+   exports (read by the checker from the module's own file) do not contain is WRONG, not UNDECIDED.
 2. Key match, from syntax: the attribute's name (or the literal's key path) equals the property name of the
    binding element the edge ends at, or is comparable with the member chain of the read it ends at.
 3. Attribution, from the TypeScript tree: some attribute of an element on the source's line (or of a
@@ -401,7 +431,8 @@ attributed to a named class, exit non-zero on an unattributed change. The compar
 
 **End-to-end paths.** From the head graph: chains that cross at least one props edge, by number of
 component hops, split into chains ending at a sink line, chains ending at another element's attribute, and
-others; each hop must be CORRECT. Also the connected share: among bound JSX props edges whose value's root
+others; each hop must be CORRECT, and a chain that enters a container or rest local by one key and leaves
+it through a member read of another key is not counted (5.3). Also the connected share: among bound JSX props edges whose value's root
 the checker binds to a parameter or local of a function, the share whose source node has an incoming
 data-flow edge.
 
@@ -416,7 +447,10 @@ forward results only in the diff's own function:
   definitions in another file) with the base and the head binary; the reader sees the lines only the head
   adds.
 
-Both in non-test files, decided with the TypeScript parser on the commit's version of the file, 15 per
+An example gains context only through a line that the head reaches across a props edge (forward: the
+head's witness from the changed line to it crosses a props edge; backward: the head's slice reaches it
+through one); a head-only line reached without one (for example through an S1 definition alone) is
+listed apart and not rated. Both in non-test files, decided with the TypeScript parser on the commit's version of the file, 15 per
 direction. They come from a corpus with full history: the second corpus has it; the pinned Excalidraw copy
 has no history and the local clone is shallow, so Excalidraw contributes only if a full clone can be
 fetched. `private-corpus` contributes up to 10 per direction if it has history, run locally under the
@@ -431,7 +465,7 @@ reported.
 | Gate | Threshold (default) |
 |---|---|
 | Census go | predicted connected bindable pairs ≥ 1,000 across Excalidraw and the second corpus, and on each of the two the rate (connected bindable pairs over identifier- or member-valued attributes on Exact-resolved capitalised elements) ≥ 30%; otherwise stop and report |
-| Slice S1 | differential: only additions (new Defs for pattern locals and their intra-function edges). No removal is expected, because reference search is already fenced by scope; any removal or label move on an existing edge is read and explained one by one. No counter outside the data-flow statistics moves. A Go or Python corpus shows no change at all. Binding-identity oracle: 0 WRONG; hand-read sample: 0 wrong |
+| Slice S1 | differential: only additions (new Defs for pattern locals and their intra-function edges), plus one expected change class: in a one-node owner, an existing sibling edge moves from `exact` to `cfg_incomplete` when the new local is written or updated in the owner (section 10). No removal is expected, because reference search is already fenced by scope; any removal, and any other label move on an existing edge, is read and explained one by one. No counter outside the data-flow statistics moves. A Go or Python corpus shows no change at all. Binding-identity oracle: 0 WRONG; hand-read sample: 0 wrong |
 | Oracle | 0 WRONG among added props edges, the attribution checks included; UNDECIDED ≤ 25% of added props edges on each corpus; the hand-read UNDECIDED sample has 0 WRONG |
 | Volume (#604) | ≥ 1,000 CORRECT props edges starting at JSX attribute values on the public corpora |
 | End-to-end | connected share ≥ 90% on each public corpus; ≥ 25 chains with two or more component hops, every hop CORRECT, on the public corpora |
@@ -471,15 +505,22 @@ reported.
   twins, pruning rules, parameter refusals). The differential's prediction is written before each run, and
   any label movement on existing edges is a finding to explain, not to re-baseline. Known interactions: a
   one-line owner's edges are labelled by the single-node rules, so a pattern local there may get `sameline`
-  or `cfg_incomplete`, not `exact`; an owner that gains definitions can change its reaching-definition
+  or `cfg_incomplete`, not `exact`; in such an owner, a new local that the owner writes or updates
+  (`function C({ p }, safe) {` / `return report(++p, safe, p);` / `}`) makes the write census complete its
+  base, the completed bases repeat on the single node, and the single-node admission refuses the owner, so
+  the unrelated sibling edge `safe → safe` moves from `exact` to `cfg_incomplete`, exactly as it does today
+  for the identifier twin `(p, safe)` and the alias-defaulted `({ p } = fallback, safe)` (review probe
+  `k3`); this is the S1 gate's expected change class, pinned by row p35; an owner that gains definitions can change its reaching-definition
   availability counters. The test-only legacy producer reads the unchanged accessors and is not updated;
   tests that compare the live producer with it are adjusted only by excluding owners with pattern formals,
   each exclusion named in the PR.
 - **A wrong component target gives wrong edges.** Edges require an Exact singleton, and the oracle checks
   the resolved signature. The known wrong targets are refused before binding: member elements whose
-  qualifier is not a namespace import (check 2), and targets reached through any call other than an
+  qualifier is not a namespace import, or whose namespace member is not the module's export (check 2), and
+  targets reached through any call other than an
   admitted React wrapper, the `React.lazy` loader arrow among them (check 3). The resolver defect behind
-  check 2 (a wrong Exact target for member calls and member elements through an imported value) is filed as
+  check 2 (a wrong Exact target for member calls and member elements through an imported value, or through
+a namespace import when the module has no export of the member's name) is filed as
   its own issue at close-out; fixing it belongs to a resolution slice with Tier-A.
 - **A source node that the caller's definitions do not reach gives a disconnected edge.** The 5.3 rule takes
   the node the line's def-use edges end at; the `path` rows and the end-to-end connected share check it.

@@ -32,7 +32,8 @@ comparators.
 - **Not changed by this lane:** `function_parameter_occurrences`, `function_parameter_names`,
   `function_parameter_slots`, `function_parameter_slot_occurrences`, the slot builders in
   `src/parameter_slots.rs`, `compute_param_def_nodes` and its return type, the reasoning layer's seeds, any
-  taint code, call resolution, `src/cpg/trace.rs` (PR #841 is editing it).
+  taint code, call resolution outcomes (DESIGN 5.5's read-only export query for admission check 2 is the
+  one addition to `src/resolution/`), `src/cpg/trace.rs` (PR #841 is editing it).
 - `src/cpg/build.rs` is at 1,777 weighted lines: add module lines, calls and one field there; put logic in
   new modules.
 - New `src/cpg/` modules that use the build's private items are declared in `src/cpg/build.rs` with
@@ -66,8 +67,8 @@ comparators.
    `dfg_props` counters, at `RAYON_NUM_THREADS` 1 and 4. (S2, S3)
 6. Every bound JSX edge is reached from the value's definition: `title={title}`, guarded elements, one value
    in two attributes, `key` beside a bound attribute (rows j25 to j28, `path` assertions). (S3)
-7. Admission: a member tag through an imported value and a component behind a non-React wrapper bind
-   nothing and are counted (rows j34, j36). (S3)
+7. Admission: a member tag through an imported value, a namespace member the module does not export, and a
+   component behind a non-React wrapper bind nothing and are counted (rows j34, j39, j36). (S3)
 
 ---
 
@@ -90,7 +91,8 @@ comparators.
       locate the element and, when resolved, the target function by byte span. Emit one JSON line per
       attribute with: site file and line; the site's caller (name and start line, from the dump); resolution
       outcome (exact singleton, name-only, several targets, unresolved with the drop reason); for a member
-      tag, the qualifier's kind (namespace import, named import, default import, local, other); the target's
+      tag, the qualifier's kind (namespace import whose module exports the member as the target, namespace
+      import without that export, named import, default import, local, other); the target's
       route by DESIGN 5.3 check 3 (direct, admitted React wrapper, other wrapper); whether the tag's spelling
       differs from the target function's name; attribute name; value shape (identifier, member path, object
       literal, string, bare, call, conditional, template, function, element, other); whether a spread
@@ -111,10 +113,12 @@ comparators.
       access and bytes; otherwise `unconnected`); failing that, a Use node of that path in a function whose
       span encloses the caller (`in_enclosing_owner`); otherwise `not_found`.
 - [ ] A **predicted connected bindable pair** is one (attribute or object-literal leaf, target) such that:
-      the site is an exact singleton; a member tag's qualifier is a namespace import; the route is direct
-      or an admitted React wrapper; the value is an identifier or member path (each leaf of an
-      object-literal value counts once); its source outcome is `connected`; no spread follows the
-      attribute; and the target's first formal is a pattern (not alias-skipped) with an entry whose key path
+      the site is an exact singleton; a member tag's qualifier is a namespace import whose module exports
+      the member as the target; the route is direct or an admitted React wrapper; the value is an
+      identifier or member path (each leaf of an object-literal value counts once); its source outcome is
+      `connected`; the attribute or leaf is the last writer of its key under DESIGN 5.2 (no later spread,
+      computed key or attribute of the same name, the parent attribute included for a nested leaf; not
+      `key` or `ref`; a `children` attribute only on an element with no child content); and the target's first formal is a pattern (not alias-skipped) with an entry whose key path
       is comparable with the attribute's, or an identifier formal with a member read of that key or a bare
       read with its own bytes.
 - [ ] Run on X and on the three candidates for R2 (`calcom-cal.com`, `apache-superset`, `apache-answer`).
@@ -138,7 +142,10 @@ plus R2, and a rate ≥ 30% on each). Below it: stop, post the tables on #596, a
       classes: `pattern-def-intra` (a new edge that starts at a Def absent from the base, inside one
       function), `props-literal` (a new cross-function edge whose source is in the caller of an
       object-literal argument site), `props-jsx` (the same for a JSX element site), `removed` and
-      `label-move` (each listed in full: none is expected); prints every counter delta of both stats files;
+      `label-move` (each listed in full: none is expected), and `s1-one-node-relabel` (an existing edge whose
+      label moves from `exact` to `cfg_incomplete` in a one-node owner that gains a pattern Def written or
+      updated in that owner: the expected change class of DESIGN section 7 "Slice S1", listed in full and
+      counted; any other label move stays `label-move`); prints every counter delta of both stats files;
       exits 1 on an unclassified change. Model: `~/prism-evidence/jsts-lane/783/scripts/compare761.py`.
 - [ ] `oracle_props_edges.cjs <corpus> <added-edges.jsonl>`: verdicts per DESIGN section 6 "Oracle",
       checks 1 to 3 (component identity with aliases and the one-step follow; key match; attribution from
@@ -146,14 +153,17 @@ plus R2, and a rate ≥ 30% on each). Below it: stop, post the tables on #596, a
       before use on a fixture with one correct edge and one edge for each WRONG kind: wrong component, wrong
       key, an attribute overwritten by a later spread, the first of two duplicate attributes, a `key`
       attribute, a `children` attribute on an element with child content, a source that belongs to another
-      attribute, a member tag through a named import, plus one correct expando component (`Tabs.Tab = X`
-      through a namespace import).
+      attribute, a member tag through a named import, a namespace member the module does not export
+      (`<UI.Item>` resolved to an object member `Other.Item`), a leaf of an object value that a later
+      attribute of the same name replaces (`x` in `style={{ color: x }} style={{ size: y }}`), plus one
+      correct expando component (`Tabs.Tab = X` through a namespace import).
 - [ ] `oracle_pattern_defs.cjs <corpus> <added-edges.jsonl>`: the slice S1 binding-identity oracle of
       DESIGN section 6, and a list of added `exact` edges whose local has a write reference in its function.
       Self-test on a fixture with one correct edge and one edge from a shadowed outer binding.
 - [ ] `undecided_sample.py <verdicts> <n> <seed>`: the seeded sample of UNDECIDED rows for the hand read.
 - [ ] `paths.py <head edges> <oracle verdicts> <corpus>`: the end-to-end path table and the connected share
-      of DESIGN section 6 (the value's root binding decided with the checker).
+      of DESIGN section 6 (the value's root binding decided with the checker; no credit for a chain that
+      changes key inside a container or rest local, DESIGN 5.3).
 
 ---
 
@@ -166,7 +176,9 @@ plus R2, and a rate ≥ 30% on each). Below it: stop, post the tables on #596, a
 - Create: `src/cpg/props_matrix_tests.rs` (declared with `#[cfg(test)] mod` in `src/cpg.rs`)
 
 Each row: `id`, `group` (`control`, `S1`, `S2`, `S3`), `langs` (which of `js`, `ts`, `tsx`, `jsx`), `files`
-(name → source text), `expect` (a list of assertions), `class`, `truth`. Assertion kinds, all evaluable on
+(name → source text), `expect` (a list of assertions), `class`, `truth`, `base` (`red` when the row states
+behaviour main does not have, `green` when its expectations already hold on main, as for p04, p07, l10, l14
+and j09). Assertion kinds, all evaluable on
 main with the helpers `src/cpg/object_literal_arg_tests.rs` already has (`build`, node spelling
 `function:path@line`) plus a traversal of the built graph's data-flow edges: `def`, `no_def`, `edge`
 (optionally with a label), `no_edge`, `no_edge_into`, `path` and `no_path` (a chain of data-flow edges from
@@ -182,8 +194,9 @@ assertion alone cannot see a source node that the caller's definitions do not re
 
 `props_matrix_tests.rs` holds one test, `props_matrix_rows`, with a constant
 `ENABLED: &[&str] = &["control"]`. It runs the rows of enabled groups and skips the rest. On main the
-control rows pass. For every other row the implementer records, once, that it fails when its group is
-enabled by hand (the RED record, in the ledger). A seeded row whose stated premise about main proves false in
+control rows pass. For every row with `base: red` the implementer records, once, that it fails when its
+group is enabled by hand (the RED record, in the ledger); a `base: green` row is recorded passing in the same
+run, as a preservation row. The branch stays green throughout: only enabled groups run in CI. A seeded row whose stated premise about main proves false in
 the RED run (for example that a read has its own bytes on main) is listed in the RED record with the
 observation and goes to stage D unchanged.
 
@@ -230,6 +243,7 @@ admits only React's wrappers.
 | p32 | `const html = ({ html }) => {` / `return use(html);` / `};` | Def of the pattern local `html` in the arrow owner named `html`, and its edge into `use(html)` |
 | p33 | `const One = ({ title }) => <D title={title} />;` | Def `One:title@1`; outgoing edges not asserted here (row j31) |
 | p34 | `function C({ a }: P = {} as P) {` / `return use(a);` / `}` | Def `a` (assertion wrappers around the default are removed before the inert test) |
+| p35 | `function C({ p }, safe) {` / `return report(++p, safe, p);` / `}` (one-node owner) | Def `C:p@1`; the existing sibling edge `C:safe@1 → C:safe@2` is `cfg_incomplete` (`exact` on main), as the identifier twin `function C(p, safe)` gets today; the differential classes it `s1-one-node-relabel` (DESIGN 10) |
 
 **Group control:** the p01, p05 and p19 sources rewritten as Python and Go functions (no Def changes); a call
 `f({ a: x }, r)` into `const f = ({ a }, ref) => { … }` has no edge into `ref` (positional slots still stop
@@ -260,6 +274,9 @@ at a pattern); `D({ other: t })`-style rows that already hold.
 | l19 | `D({ a: x })` into `function D({ a } = defaults) {` / `return use(a);` / `}` (`defaults` an outer variable) | no edge from `x`; counter `refused_alias_pattern` = 1 |
 | l20 | `D({ 'aria-label': l })` into `function D({ 'aria-label': a }) { … }`; the same literal into `function D(p) { … }` reading `p.label` | `l → a`; none, as on main |
 | l21 | `import { api } from "./ctx"; api.send({ a: x })` where `ctx` has an unrelated `export function send({ a })`; the same call with `import * as api from "./ctx"` and `export function send({ a })` | none, counter `refused_member_qualifier` = 1; `x → send:a@…(def)` |
+| l22 | `import * as api from "./ctx"; api.send({ a: x })` where `ctx` has no export `send` but holds `export const Other = { send: ({ a }) => use(a) }`; the same with an unexported `function send({ a })` in `ctx` | none, `refused_member_not_export` = 1 each |
+| l23 | rest residuals: `D({ title: t, b: y })` into `{ [k]: v, ...rest }`; `D({ list: x, b: y })` into `{ list: [first], ...rest }`; `D({ a: x, b: y })` into `{ a: aa, ...rest }`; `D({ style: { color: c, size: s }, title: t })` into `{ style: { color, ...r }, title }` | nothing into `v` or `rest`; `y → rest` only; `x → aa` and `y → rest` only; `c → color`, `s → r`, `t → title`, nothing else into `r` |
+| l24 | `D({ style: { color: c, size: s } })` into `function D({ style }) {` / `return draw(style.size);` / `}` | `c → D:style@1(def)` and `s → D:style@1(def)`; `edges_to_container` = 2; the `path` from `c` to `D:style.size@2(use)` exists (accepted limit, DESIGN 5.3, pinned) |
 
 **Group S3 (JSX attributes; TSX and JSX only):**
 
@@ -289,7 +306,7 @@ at a pattern); `D({ other: t })`-style rows that already hold.
 | j22 | `{items.map(i => <D a={i.x} />)}`; `{cond && <D a={x} />}` | bound; in the first, the source is the use in the arrow passed to `map` (an anonymous owner, spelled as the harness prints it) and the `path` starts at that arrow's formal `i` |
 | j23 | `.jsx` file; `<C<T> x={v} />` | as j01 |
 | j24 | `<P a={x} />` into `function P(props) {` / `const { a } = props;` / `return use(a);` / `}` | no edge into `P`; counter `refused_zero_width_read` = 1 |
-| j25 | attribute named like its value, in a function declaration, a const-bound block arrow and a method: `function Outer({ title }) {` / `return <Inner title={title} />;` / `}`; the same with `const title = get();` in the body; the same with the element over several lines | `path` from the value's definition (`Outer:title@1(def)` or the local's Def) to `Inner:title@1(def)`; `trace_reaches` from that definition's line to `Inner`'s use |
+| j25 | attribute named like its value, in a function declaration, a const-bound block arrow and a method: `function Outer({ title }) {` / `return <Inner title={title} />;` / `}`; the same with `const title = get();` in the body; the same with the element over several lines | `path` from the value's definition (`Outer:title@1(def)` or the local's Def) to `Inner:title@1(def)`; `trace_reaches` from that definition's line to `Inner`'s use; the props edge leaves the very graph node at which the def-use edge from that definition ends (on main the controls `function Named(html)` and `function Alias({ html } = fallback)` returning `<Other html={html} />` show, under `PRISM_EDGES_BYTES=1`, that this node has the attribute name's bytes), so the row joins by node, not by `function:path@line` spelling |
 | j26 | in an owner with a branch: `{user && <Avatar user={user} />}`; `cond ? <D a={x} /> : <E a={x} />` under `return` | each binding has a `path` from the value's definition; both `D` and `E` are bound |
 | j27 | in an owner with a branch: `<D a={x} b={x} />` | `x → D:a`, `x → D:b`; a `path` from `x`'s definition to each |
 | j28 | `{items.map((it) => <Row key={it.id} item={it} />)}`; the same with `item={it}` before `key` | `it → Row:item`, with a `path` from the arrow's formal `it` to `Row:item@…(def)`; nothing from `key` |
@@ -303,6 +320,8 @@ at a pattern); `D({ other: t })`-style rows that already hold.
 | j36 | wrappers: `const C = observer(({ a }) => {…})` with `observer` imported from a package; `styled(({ className }) => …)`; `withRouter(…)`; `memo(observer(fn))`; `export default observer(function X({ a }) {…})`; `const M = React.memo(function M2({ html }) {…})` with `import React from "react"` | none, `refused_unknown_wrapper` = 1 each, for the first five; the last binds like j04 |
 | j37 | one-line component: `function Card({ title, body }) { return <div title={title} dangerouslySetInnerHTML={{ __html: body }} />; }` with `<Card title={t} body={safe} />`, `t` from a source; the same component over several lines | one-line: `trace_reaches` from `t`'s definition to the sink line (accepted limit, DESIGN 5.6); several lines: `trace_misses` for the sink line |
 | j38 | `<C children={x}>{y}</C>`; `<C children={x} />` | nothing from `x`, `refused_overwritten` = 1; `x → C:children` |
+| j39 | `import * as UI from "./table"; <UI.Item html={a} />` where `table` has no export `Item` but holds `export const Other = { Item: ({ html }) => … }`; the same with an unexported `function Item({ html })` in `table` | no edge; `refused_member_not_export` = 1 each (contrast: j03's `<UI.Html>` binds) |
+| j40 | `<C style={{ color: x }} style={{ size: y }} />` and `<C style={{ color: x }} style={s()} />` into `function C({ style: { color, size } })` and into `function C({ style })` | only `y → size` and `y → style` in the first; nothing from `x` in either, `refused_overwritten` = 1 for `x` each |
 
 - [ ] Write the rows file, the README (row schema and assertion kinds) and the test. Confirm: control rows
       green on main; record the RED run for the other groups.
@@ -400,7 +419,8 @@ destructuring and default helpers where they fit (`extract_destructuring_def_spa
 - [ ] Review focus items 1 and 2 are rows p14, p15, p16, p26, p27: confirm they pass.
 - [ ] Write the differential prediction (DESIGN section 7, "Slice S1"), then measure X, R2, T and G with
       `measure.sh` and `compare_props.py`. Read every `removed` and `label-move` row; each needs an
-      explanation in the PR or a fix. Counters outside the data-flow statistics must not move; G must show
+      explanation in the PR or a fix. Sample `s1-one-node-relabel` rows (20 per corpus, all when fewer) and
+      confirm each is row p35's mechanism. Counters outside the data-flow statistics must not move; G must show
       no change. Run `oracle_pattern_defs.cjs` on the `pattern-def-intra` additions of X and R2 and the hand
       read of 30 listed `exact` edges (a Claude seat).
 - [ ] Tier-A matrix and quick runs; cloud tests at 1 and 4 threads with a RED-on-base control; two reviewers.
@@ -420,6 +440,7 @@ Two PRs: S2a is a pure move and is reviewed as one; S2b adds behaviour.
   `src/cpg/callee_params.rs` (pattern facts), `src/cpg/build.rs` (module line; pass pattern facts; merge
   counters; the `dfg_props` field on `DfgLabelStats`), `src/cpg/callee_legacy.rs`,
   `src/cpg/step5b_reference.rs`, `src/cpg/props_matrix_tests.rs` (`ENABLED` gains `"S2"`),
+  `src/resolution/js_ts/namespace.rs` and `src/resolution/go/satisfiers.rs` (the read-only export query),
   `src/cpg/object_literal_arg_tests.rs` (`destructured_rest_and_bare_arrow_formals_are_out_of_scope`: its
   destructured case moves to the matrix with the new expectation; the rest and bare-arrow cases stay),
   `src/cpg/callee_param_cache_tests.rs` and any test that names the cache's types, if they change,
@@ -475,7 +496,11 @@ them in caller order into `dfg_props`.
       DESIGN 5.2 (plain targets unchanged). A differential on X and T shows zero edge changes and only the
       new `dfg_props` keys.
 - [ ] **S2b, step 2:** pattern facts (`compute_pattern_formal_nodes`, the cache method), admission checks 1,
-      2 and 4 of DESIGN 5.3 for literal sites, and the pattern target in `bind`. Enable group `S2`: RED,
+      2 and 4 of DESIGN 5.3 for literal sites (check 1 and the site key counted before the target loop, as
+      in S3's site-level count; check 2's export proof through a read-only query in
+      `src/resolution/js_ts/namespace.rs` and a second method on `CpgCallResolver` in
+      `src/resolution/go/satisfiers.rs`, delegating to the call graph for both resolvers), and the pattern
+      target in `bind`. Enable group `S2`: RED,
       implement, GREEN.
 - [ ] Update the three tests named under Files; say in the PR which assertions moved or changed.
 - [ ] Differential on X, R2, T: only `props-literal` additions. Oracle on the additions: 0 WRONG.
@@ -518,11 +543,20 @@ pub(super) fn collect<T>(out: &mut Vec<PendingArgumentFlow>, counters: &mut Prop
     resolve: impl Fn(&T) -> Option<NodeIndex>);
 ```
 
+**Site-level count.** Once per site, right after `resolved_site` and `literal_ok`
+(`object_literal_args::exact_singleton`) are computed and **before** the loop over resolved targets: for a
+JSX site with at least one attribute, count `sites_jsx`, and when the result is not an Exact singleton,
+count `refused_not_exact_singleton` and go to the next site (DESIGN 5.4: a dropped component has no
+target, so the loop would run zero times and nothing inside it could count it). Literal sites get the same
+pre-loop count for `sites_literal` and check 1 in S2b (their positional binding is unchanged). A JSX site
+that reaches the loop is an Exact singleton, one iteration, so checks 2 to 4 and the entry keys are counted
+once per site.
+
 **The branch.** In the loop over a site's resolved targets, after the skip for `R6MultiOwnerCandidate` and
 after `callee_id` and `caller_parsed` are known, and **before** the site's arguments are fetched (a JSX site
-has none, and the code after that point skips it): if `site.jsx_element`, then apply the target admission of
-DESIGN 5.3 in its order (check 2 reads `site.local_binding`; check 3 calls `js_ts_component_route` on the
-callee's function node), and for an admitted site whose callee file is loaded, obtain the callee's
+has none, and the code after that point skips it): if `site.jsx_element`, then apply checks 2 to 4 of the
+target admission of DESIGN 5.3 in its order (check 2 reads `site.local_binding` and, for a namespace import,
+asks the resolver's export query; check 3 calls `js_ts_component_route` on the callee's function node), and for an admitted site whose callee file is loaded, obtain the callee's
 positional and pattern facts exactly as the call path does and call `jsx_props::collect`; in every case
 `continue`. The source node of each Leaf comes from `jsx_props::source_node`, never from the call path's
 byte-span lookup. The same branch goes at the same position in the two twins (each with its own index
@@ -532,8 +566,8 @@ representation). `SiteInputs.args` is empty for a JSX site.
       wrapper of row j36, the `lazy` loader, a wrapper declared inside a function); skeleton returning
       `Direct` in the same commit so they are RED. Implement; GREEN.
 - [ ] Enable group `S3`: RED. Implement `entries`, `source_node`, then `collect`, then the branch in the
-      three copies. GREEN row group by row group: sources (j06 to j14, j17, j20 to j23, j38), source nodes
-      (j25 to j33, with the stage D outcomes), admission (j15, j16, j34, j36), targets (j01 to j05, j24),
+      three copies. GREEN row group by row group: sources (j06 to j14, j17, j20 to j23, j38, j40), source nodes
+      (j25 to j33, with the stage D outcomes), admission (j15, j16, j34, j36, j39), targets (j01 to j05, j24),
       engines (j01's and j18's `trace_reaches`, j19's and j35's `trace_boundary`, j37).
 - [ ] `taint_jsx_props_test.rs`: the issue's example in one TSX file with an explicit source line; default
       review taint reports a `taint_sink` finding on the `dangerouslySetInnerHTML` line. RED before the
@@ -542,7 +576,7 @@ representation). `SiteInputs.args` is empty for a JSX site.
 - [ ] Differential on X and R2: only `props-jsx` additions. Oracle with checks 1 to 3: 0 WRONG; UNDECIDED
       share within the gate; hand read of the `undecided_sample.py` sample (50 per corpus, all when fewer)
       by a Claude seat; `paths.py` connected share.
-- [ ] Review focus items 3, 4, 6 and 7 are rows j21, j18, j25 to j28, j34 and j36: confirm they pass.
+- [ ] Review focus items 3, 4, 6 and 7 are rows j21, j18, j25 to j28, j34, j36 and j39: confirm they pass.
       Tier-A; cloud tests; two reviewers.
 
 **Gate:** the oracle, volume and end-to-end rows of DESIGN section 7 (on X plus R2: ≥ 1,000 CORRECT edges
@@ -566,6 +600,9 @@ chains with two or more component hops).
         its props (a pattern local of its first formal, or a member read of a plain first formal). Run
         `prism --repo … --diff … --algorithm fullflow --format json` with both binaries; write the lines
         only the head adds to `g/examples/bwd-NN.md`.
+      In both directions keep only head-only lines reached across a props edge (the head's witness or
+      slice crosses an edge that `compare_props.py` classes `props-jsx` or `props-literal`) and list the
+      others apart, unrated (DESIGN section 6).
       Run 15 per direction on R2. If a full clone of Excalidraw can be fetched
       (`git clone https://github.com/excalidraw/excalidraw`), take 8 per direction from R2 and 7 from
       Excalidraw instead; record which.
@@ -581,8 +618,10 @@ chains with two or more component hops).
 - [ ] Post the report on #596 and close it if every gate holds. File issues for: the trace-engine stop at
       edges that end at a member read and at name-mismatched tags (F5); the attribute-name uses in the
       caller; the resolver defect of DESIGN 10 (a wrong Exact target for member calls and member elements
-      whose qualifier is an imported value), with the inputs of rows j34 and l21 and the review's
-      reproductions in `~/prism-evidence/lanes-2026-11-20/reviews/lane3-fable-r1-probes/` (`res2`, `res3`),
+      whose qualifier is an imported value, or a namespace import whose module has no export of the
+      member's name), with the inputs of rows j34, j39, l21 and l22 and the reviews'
+      reproductions in `~/prism-evidence/lanes-2026-11-20/reviews/lane3-fable-r1-probes/` (`res2`, `res3`) and
+      `~/prism-evidence/lanes-2026-11-20/reviews/astra-cal/lane3/cmp-scratch/k1`,
       copied into the issue as code; and each follow-up whose threshold is met.
 - [ ] Refresh the handoff; offload raw dumps; delete `target/`.
 
