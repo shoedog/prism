@@ -286,14 +286,23 @@ Private code (the private corpus, and lane 5's private pair):
 
 ## 11. Running lanes side by side
 
-The four lanes touch different subsystems and may run in parallel, one orchestrator per lane, with these
-limits:
+Lanes 2 to 5 touch mostly different subsystems; lanes 6 to 12 overlap more with them and with each other.
+Lanes may run in parallel, one orchestrator per lane, within these limits. Before a slice that touches a
+shared file is dispatched, the orchestrator checks the other lanes' issues for an open PR on that file and
+rebases after it; two lanes never have open PRs on the same shared file at once.
 
 | Shared resource | Who touches it | Rule |
 |---|---|---|
-| CPG cache version constant | lanes 3 and 4, and the unrelated C/C++ data-flow lane (#818) | section 5 item 7 |
+| CPG cache version constant | lanes 3, 4, 9 and 10, and the unrelated C/C++ data-flow lane (#818) | section 5 item 7: each PR takes the next free version at rebase time |
 | `crates/prism-review/src/algorithms/taint*` and `taint_sinks/` | lane 4 (new sink), lane 3 (end-to-end check only), the open cross-file taint PR #841 | lane 4 adds new modules, a module line in `taint_sinks/mod.rs`, and edits the sink loop and emission block of `taint/run.rs`; lane 7 edits the same loop to attach rules (lane 4's sink slice follows lane 7's taint slice when lane 7 runs; if lane 4's merges first it writes its rule tag in the description and lane 7's taint slice migrates that producer and its reader); lane 6 adds one module (`taint/request_sources.rs`) and a module line; rebase over #841 when it merges; lane 3 changes no taint code |
-| `src/cpg/object_literal_args.rs` | lane 3 | lane 4 reads its facts, does not edit it |
+| `src/cpg/object_literal_args.rs` | lane 3 | lane 4 reads its facts, does not edit it; lane 10 edits one path lookup there, in the slice that changes path spellings, after agreeing the change on lane 3's issue |
+| Argument binding (`src/cpg/build.rs` step 5b, `src/cpg/callee_params.rs`) | lanes 3 and 9; lane 10 changes the path lookups | each lane adds modules and call lines; a lane rebases over the other's merged slice and re-runs its matrix |
+| `src/cpg/trace.rs` and the reasoning layer | PR #841, then lane 8 | lanes 3, 9 and 10 do not edit it; what they need from it (descent rules, the check that a name-only binding edge is never crossed) is lane 8's, and the slices that depend on it wait for lane 8's walk-repair slice |
+| `src/call_graph.rs`, `src/navigation/queries.rs` (over the size ceiling) | lane 9 (move-only splits first), lane 12 (calls only) | no lane adds logic there; move-only PRs are not combined with feature PRs |
+| `SliceFinding` and its struct literals | lane 7, PR #841 | lane 7's field slice rebases over PR #841 |
+| The benchmark harness options (`eval/secbench`) | lanes 4, 8, 9 and 11 | one eval-only PR adds the pin and class options (lane 4's task); the others reuse it or do that task themselves if it has not merged, never a second variant |
+| Measurement scripts | lane 11 builds the shared kit; lanes 3, 6, 8, 9, 10 measure | a lane whose measurement stage starts after the kit's comparator has merged uses the kit and adds only a classifier |
+| `src/framework_entries/` | lane 12 | lanes 5 and 9 consume the route listing; they do not add route extraction of their own once lane 12 has started |
 | `crates/prism-review/src/targets/`, `docs/contracts/targets.schema.json` and `docs/contracts/targets-1.1.schema.json` | lane 2 | no other lane edits them, except lane 6's additive edits (visibility, an optional repository root in the site context) after lane 2's first slice. The shared identity extraction has one owner: the lane whose slice starts first does it and records the commit on both issues; the other rebases onto it and never repeats it |
 | The host | every measurement | section 4: one measurement process at a time across all lanes |
 | `CLAUDE.md`, the known-gaps doc | every lane | each PR edits only its own paragraph; conflicts are resolved by rebasing |

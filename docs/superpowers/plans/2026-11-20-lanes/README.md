@@ -29,7 +29,7 @@ Status on 2026-11-21: designs and plans written for all seven, and one design re
 | 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE for each reached sink occurrence (JSON and review output), with identities audited at its design review; then a closed registry and opt-in SARIF rule ids with CWE tags | 15.5 to 16 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice reads the rule from the field when this lane's taint slice has merged first, and is migrated by this lane otherwise |
 | 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and an occurrence-level parity matrix, then a reason on every lost sink and the trace engine's return and depth repairs | 37 to 44.5, by how the MCP server gets the catalog | PR #841 merged; lane 4's benchmark pin task (or it does that task itself); lane 3's props slice for one row; rule ids from lane 7 when available; the owner's answer on the catalog question before the MCP slice. Lane 9's callback and argument-follow slices wait for this lane's walk-repair slice |
 | 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument and chained-call misbinding | 12 if only that fix runs; up to 37 if every slice passes its census gate | nothing to start; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; its callback and argument-follow slices wait for lane 8's descent check; hands handler-registration cases to lane 12 |
-| 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go, then a node-based path builder that changes no output | 21 to 28, plus 3 to 4 each for two slices the design review may admit | nothing; takes the next free cache version; leaves the object-literal binder to lane 3 and the trace engine to PR #841 |
+| 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go, then a node-based path builder that changes no output | 28 to 33, plus 3 to 4 each for two slices the design review may admit | nothing to start; takes the next free cache version; edits one lookup in lane 3's object-literal binder and the argument-binding path lookups, coordinated with lanes 3 and 9; leaves the trace engine to PR #841 and lane 8 |
 | 11. Shared measurement kit | `lane11-measurement-kit/` | to be filed | an executed truth matrix, then `scripts/measure/` reproducing an existing lane gate and a labelled fixture pair from pinned inputs | about 32.5 | a consuming lane named before its formats are fixed; otherwise they ship as provisional and adoption is reported as not met |
 | 12. Routes as a first-class fact | `lane12-route-model/` | to be filed | `prism nav routes` for Flask, FastAPI and Express with mounts composed across files | 28.5 for waves 1 and 2 plus object-literal tables; 2.5 more per further framework | nothing; lane 5 can consume the listing |
 
@@ -82,14 +82,17 @@ lanes were proposed with:
   and no slice binds into such a target.
 - **Lane 10.** The first defect is recall, not precision: a value written through a subscript
   (`d["a"] = t`) reaches no later read, in Python, JavaScript and Go. Key-sensitive paths are what keep the
-  recall fix from connecting every key to every other.
+  recall fix from connecting every key to every other. The design review added the distinction the
+  lane now rests on: two paths are the same storage for certain only when every step is static and the base
+  is proven the same; anything else is possible overlap, which gives an edge that is not `exact` and kills
+  nothing.
 - **Lane 12.** Inline Express handlers already have graph identities; they are unresolved in the route
   records only because of an older assumption. Handler arguments are value references, so the call-site
   resolver does not apply to them as it stands.
 
 ## Order and parallelism
 
-The lanes touch different subsystems (ORCHESTRATION section 11 lists the shared resources). With one
+ORCHESTRATION section 11 lists the files and resources the lanes share and the rule for each. With one
 orchestrator, for lanes 2 to 5: lane 2 first; then the censuses of lanes 3 and 4 together; lane 3's
 slices; lane 4's slices if its gate passes; lane 5's feasibility study in the waits. Of lanes 6 to 12,
 lane 11 (the kit other lanes measure with) and lane 7 (rule identity, which lanes 4 and 8 use) pay off most
