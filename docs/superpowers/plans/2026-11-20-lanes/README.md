@@ -26,7 +26,7 @@ design review of these lanes has not run yet. A row without a day figure has no 
 
 | Lane | Directory | Issue | First deliverable | Days (estimate) | Depends on |
 |---|---|---|---|---|---|
-| 6. Provenance findings by proven identity | `lane6-provenance-identity/` | to be filed | a precision measurement of today's findings on real diffs, then structural fixes for every language | plan in drafting | nothing; shares an import-identity entry point with lane 2 |
+| 6. Provenance findings by proven identity | `lane6-provenance-identity/` | to be filed | a census memo: precision of today's findings on 180 real diffs (300 labelled), with a go gate; then structural fixes for every language | about 23.5 | lane 2's first slice for the shared identity entry point, or this lane carries it; its edits in `targets/` are additive and follow lane 2 |
 | 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE (JSON and review output), then a registry and opt-in SARIF rule ids with CWE tags | 12 to 13 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice waits for it |
 | 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and a committed parity matrix for review taint and `taint-reaches` | plan in drafting | PR #841 merged; rule ids from lane 7 when available |
 | 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument misbinding | 9 if only the spread fix runs; up to 31 if every slice passes its census gate | nothing; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; hands handler-registration cases to lane 12 |

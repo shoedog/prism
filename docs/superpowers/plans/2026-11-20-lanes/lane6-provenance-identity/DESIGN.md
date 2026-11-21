@@ -82,7 +82,7 @@ as today.
 | Origin | Proven when the defining expression is |
 |---|---|
 | `function_param` | a formal parameter that is not a recognised request parameter |
-| `user_input` | a read of a request accessor on a recognised handler parameter (the recogniser the taint engine uses for framework sources), or of a command-line or standard-input source by its built-in or imported name (`sys.argv`, `input()`, `process.argv`, `os.Args`, `flag.*`) |
+| `user_input` | a read of a request accessor on a recognised handler parameter (the recogniser the taint engine uses for framework sources), or of a command-line or standard-input source by its built-in or imported name (`sys.argv`, `input()`, `process.argv`, `os.Args`, `flag.*`). Two cases the taint recogniser does not cover are fixed at stage D: a framework's module-level request object proven by import but read outside a route-decorated function (Flask's `request` in a helper; tentative: user input), and browser sources read from an unshadowed global (`document.cookie`, `location`; tentative: user input) |
 | `database` | a call whose callee root is an import-proven database library, or a method call on a handle whose single definition is such a call (one or two hops: connection, cursor) |
 | `external_call` | a call into an import-proven HTTP client library, or a method on its response or session handle |
 | `env_var` | `os.environ[...]`, `os.environ.get`, `os.getenv`, `process.env.X`, `os.Getenv`, `os.LookupEnv`, by built-in or import identity |
@@ -99,14 +99,19 @@ repository-local module of the same name) is `unknown`.
 The existing tables stay, with five structural fixes that apply to every language: variables only; scoped
 definition lookup; the defining statement's text, not any line of the same name; no text inside comments or
 strings; tables gated by language; word boundaries on both sides. The fallback that hands a line's class to
-every identifier on it is removed.
+every identifier on it is removed. It is today the only route by which some forms are classified at all
+(shell `read x` and positional parameters); stage D gives each such form a defining-statement rule or lists
+it as an accepted loss.
 
 ### 5.4 Shared identity
 
 The import-identity proof and library tables are used from where they are, made visible within the review
 crate. Lane 2 extracts a call-level entry point from the same code (`root_identity`); this lane uses that
 entry point and adds tables only for classes it lacks (configuration libraries, environment reads,
-command-line sources). The request-read recogniser is exposed from the taint module by a function, without
+command-line sources). That entry point proves call nodes only; environment and command-line reads are
+subscripts and member reads, so this lane adds a sibling for non-call paths. The proof's site context needs
+a repository root, which a review run does not always have; the root becomes optional there, and the
+local-module check is skipped, never run against the working directory. The request-read recogniser is exposed from the taint module by a function, without
 moving it. If lane 2 has not merged, this lane's first slice carries the same small extraction, and the two
 lanes are told so.
 
@@ -114,7 +119,9 @@ lanes are told so.
 
 Category, severity mapping and description format are unchanged, so the targets projection and SARIF keep
 working. The targets hint for a database origin is attached only when the origin was proven by library
-identity; `external_call` origins get the `network` hint that the mapping already defines. The number of
+identity. The projection sees only the description, so the rule is applied by language: Python,
+JavaScript/TypeScript and Go never fall back to patterns, so a database or external-call origin there is
+always identity-proven, and other languages get no hint; `external_call` origins get the `network` hint that the mapping already defines. The number of
 findings changes; that is the point, and it is measured.
 
 ### 5.6 Where the code goes
@@ -171,4 +178,9 @@ must yield a `user_input` finding for the variable it defines, when that variabl
   deleted without a replacement that states the intended behaviour.
 - **The labelled sample is small and human-judged.** Two readers and stratification reduce, not remove,
   that; the cross-check is the mechanical part.
+- **Target ids change once.** The lines a provenance finding relates to change, and target ids hash them.
+- **The real-diff population is Python, JavaScript/TypeScript and Go.** The structural fixes for other
+  languages are checked by matrix rows only.
+- **The targets module is lane 2's.** This lane's edits there are additive (visibility, an optional field),
+  alter no existing result, and rebase over lane 2's first slice.
 - **Out of model:** origins that cross files, values assembled through containers, reflection.

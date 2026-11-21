@@ -280,7 +280,7 @@ limits:
 | CPG cache version constant | lanes 3 and 4, and the unrelated C/C++ data-flow lane (#818) | section 5 item 7 |
 | `crates/prism-review/src/algorithms/taint*` and `taint_sinks/` | lane 4 (new sink), lane 3 (end-to-end check only), the open cross-file taint PR #841 | lane 4 adds new modules, a module line in `taint_sinks/mod.rs`, and edits the sink loop and emission block of `taint/run.rs`; rebase over #841 when it merges; lane 3 changes no taint code |
 | `src/cpg/object_literal_args.rs` | lane 3 | lane 4 reads its facts, does not edit it |
-| `crates/prism-review/src/targets/`, `docs/contracts/targets.schema.json` and `docs/contracts/targets-1.1.schema.json` | lane 2 | no other lane edits them |
+| `crates/prism-review/src/targets/`, `docs/contracts/targets.schema.json` and `docs/contracts/targets-1.1.schema.json` | lane 2 | no other lane edits them, except lane 6's additive edits (visibility, an optional field) after lane 2's first slice |
 | The host | every measurement | section 4: one measurement process at a time across all lanes |
 | `CLAUDE.md`, the known-gaps doc | every lane | each PR edits only its own paragraph; conflicts are resolved by rebasing |
 
