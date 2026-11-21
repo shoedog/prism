@@ -15,17 +15,19 @@ one CLI arm. No cache change; `FrameworkEntryRecord` and the `framework_entry` n
 **Tech stack:** Rust (core and prism-review crates); Python 3 (census, schema oracle); uv, Node and Go for
 the truth runner.
 
-**Spec:** `DESIGN.md` here (records 5.1, composition 5.2, waves 5.3, listing 5.4, layout 5.5, measurement 6,
-gates 7, follow-ups 8, owner decisions 9).
+**Spec:** `DESIGN.md` here (records 5.1, composition 5.2, waves 5.3, listing 5.4, layout 5.5, Go method-value
+handlers 5.6, measurement 6, gates 7, follow-ups 8, owner decisions 9).
 
 ## Global constraints
 
 - Worktree `~/code/prism-routes` (ORCHESTRATION section 4). Evidence `~/prism-evidence/routes/` (`m/` census
   and oracle, `truth/` venv and runner logs, `g/` gate runs, `LEDGER.md`, `HANDOFF.md`). Branches
   `test/routes-matrix`, then `feat/routes-s1` … `feat/routes-s<n>`.
-- Must not change: `src/call_graph.rs` (5,653 weighted lines: not one line), `src/navigation/queries.rs`
-  (2,502.5), `src/navigation/types.rs`, `FrameworkEntryRecord`, `framework_entries::apply`, `CACHE_VERSION`
-  (`src/cpg_cache.rs`), `NAV_CALL_EDGE_CACHE_VERSION` (`src/navigation/call_edge_cache.rs`), taint code,
+- Must not change: `src/call_graph.rs` (5,653 weighted lines: not one line), `src/resolution.rs` (4,171.5:
+  not one line), everything under `src/resolution/` and `src/call_graph/go/` (DESIGN 5.6 M4: the Go
+  method-value lookup reads their facts, all already `pub` or `pub(crate)`, and changes none),
+  `src/navigation/queries.rs` (2,502.5), `src/navigation/types.rs`, `FrameworkEntryRecord`,
+  `framework_entries::apply`, `CACHE_VERSION` (`src/cpg_cache.rs`), `NAV_CALL_EDGE_CACHE_VERSION` (`src/navigation/call_edge_cache.rs`), taint code,
   `crates/prism-mcp`, and the tests `tests/navigation/framework_entry_test.rs`,
   `src/call_graph/framework_entry_tests.rs` (the stale inline-arrow test stays: entry edges are a follow-up).
 - Allowed edits to existing files: `pub(crate)` on the helpers each slice names (no behaviour change); one
@@ -64,8 +66,13 @@ gates 7, follow-ups 8, owner decisions 9).
    `src/frameworks/gin.rs:16`) still extracts; each bare gin callback equals the `CallGraph::go_registrations`
    target at its own bytes. Tests `gin_router_file_without_context_type_extracts`,
    `gin_callback_identity_matches_callback_registration` (S4).
+7. A Go method value resolves only from a declared type and one method of the owner index (DESIGN 5.6): the
+   field's own package decides between two same-named controllers, a shadowed receiver and an interface-typed
+   one never resolve, and a resolved method value agrees with the call resolver wherever both type the same
+   receiver. Tests `same_named_controllers_in_two_packages_stay_apart`, `shadowed_receiver_is_refused`,
+   `interface_typed_receiver_is_counted_never_resolved`, `method_value_agrees_with_call_resolution` (S4b).
 
-## Stage M: measure first (2.5 days)
+## Stage M: measure first (2.75 days)
 
 ### Task M-1: tracking issue and workspace
 
@@ -106,6 +113,23 @@ verb leg and every verb of the pinned Express method table (read from the instal
 toy files with a two-leg builder, a settings read, a lookalike receiver and two registrations on one line give
 the predicted ledger lines. The ledger is frozen (sha256 in `LEDGER.md`) before stage T.
 
+Go callback shapes (DESIGN 5.6; owner decision 6): for every Go registration on the wave 2 corpora (and, as a
+second look, `prometheus` and `caddy`), each callback position and the terminal one apart, classified from
+the syntax and a per-package table of the corpus's own declarations (functions, methods per type, struct
+field types, package `var`s, interface types), written independently of prism: bare function, function
+variable, function literal (forwarding or not), wrapper call (with or without a method value among its
+arguments), package function `pkg.F`, method expression, and method values by receiver form: the enclosing
+method's receiver, one or two field hops from a receiver, parameter or local, a typed parameter, a local with a
+composite-literal or constructor initialiser, a call-initialised local, a local bound once to a field chain, a
+package `var`, an interface-typed field or parameter, a call result, three or more hops. For each method value
+the table also records whether the corpus declares the method exactly once on the receiver's type (directly,
+or promoted through a non-pointer embedded field). Output: `m/go_callback_shapes.json` and a table in
+`CENSUS.md`, per corpus with counts and shares of non-test registrations, in the shape of DESIGN 5.6's table.
+Prediction (DESIGN 5.6, research run of 2026-11-21): `apache-answer` 211 enclosing-receiver field values, 6
+locals bound to a field, 9 bare functions, 3 literals, 3 wrapper calls of 232; `miniflux-v2` 150 composite
+locals, 1 call-initialised local, 14 wrapped method values of 179. The shares become the denominators of
+DESIGN 7's Go handler binding row and each 5.6 shape gets a ledger example for stage T.
+
 ### Task M-3: wave decisions
 
 - [ ] Apply DESIGN 7's census-go row; every branch, written out:
@@ -115,8 +139,8 @@ the predicted ledger lines. The ledger is frozen (sha256 in `LEDGER.md`) before 
 | always (object tables are forced) | S1 (shared records, listing, composer) | — |
 | wave 1 ≥ 200 (exactly 200 goes) | S2, S3; wave 1 gate | — |
 | wave 1 < 200 | — | S2, S3; the wave 1 schema and completeness gates; directus rows not run |
-| wave 2 ≥ 200 | S4 (gin), S5 (net/http, chi: each built only if it has a ledger site) | — |
-| wave 2 < 200 | — | S4, S5; close-out promises lane 5 no Go records |
+| wave 2 ≥ 200 | S4 (gin), S4b (Go method values, owner decision 6), S5 (net/http, chi: each built only if it has a ledger site) | — |
+| wave 2 < 200 | — | S4, S4b, S5; close-out promises lane 5 no Go records |
 | wave 3 candidate ≥ 200 | one slice each, descending count, ties by name | — |
 | object-literal tables | always (owner decision 3), last unless their count is higher; zero public sites: positive and negative rows are lane-written | — |
 
@@ -150,7 +174,7 @@ repeated operations across two roots; a base path; a `$ref` path item. Then reco
 running it with an empty listing on the three schema files (precision is reported as undefined there, not 0
 or 1).
 
-## Stage T and E: the matrix (4.5 days)
+## Stage T and E: the matrix (4.75 days)
 
 ### Task T-1: fixtures, rows, truth runner, data-driven test
 
@@ -161,8 +185,8 @@ or 1).
   `crates/prism-review/tests/cli/routes_matrix_test.rs`
 - Modify: `crates/prism-review/tests/cli/main.rs` (`mod routes_matrix_test;`)
 
-`rows.jsonl` fields: `id`; `dir`; `group` (`core`, `w1-python`, `w1-express`, `w2-gin`, `w2-nethttp`,
-`w3-<framework>`); `class`; `truth_source` (`executed` or `hand`); `entry` (executed rows:
+`rows.jsonl` fields: `id`; `dir`; `group` (`core`, `w1-python`, `w1-express`, `w2-gin`, `w2-method-value`,
+`w2-nethttp`, `w3-<framework>`); `class`; `truth_source` (`executed` or `hand`); `entry` (executed rows:
 `module:attr`, `module:factory()`, or the JS file exporting the app); `expect` (route objects in DESIGN 5.4's
 JSON shape, only the fields the row pins: `methods`, `path`, `paths`, `callbacks`, `receiver`, `site`);
 `expect_mounts`; `accepted_loss` (optional reason); `ignore` (optional issue number). After stage D the
@@ -217,9 +241,14 @@ the frameworks the census admitted):
 | ex09–ex13 | `get('/', validate('r'), h, respond)`; `app.route('/r').get(h1).post(h2)`; `app.all`; template literal with/without `${}`; regex or array path | callbacks `wrapper_call`, `h`, `respond` in order; two records `/r`; D; literal / dynamic; D |
 | ex14–ex17 | `(app) => { app.get(…) }`; `:id?` and `*`; `app.use(mw)`; `app.options`/`app.head` | unresolved, D; normalisation D; not a route; D |
 | ex18–ex26 | TypeScript `import express`; same-file `app.use('/api', r)`; `app.use('/v1', require('./v1'))`; `module.exports = router` + `require`; `export default router` imported elsewhere; `app.use(PREFIX, r)`; mounted twice; nested `router.use('/sub', sub)`; `app.use('/u', r)` + `r.get('/', h)` | as JS; full; full; full; full; suffix; both full paths; full; per truth |
-| gn01–gn06 | `r := gin.Default(); r.GET("/x", list)`; `g.POST("/y", func(c *gin.Context){})`; `a.ctrl.Get`; `register(r.Group("/api"))` with `g *gin.RouterGroup`; two function levels; `r.Group(conf.Base + "/api")` | resolved (callback-registration id); D (no Go anonymous identity); D; full within the D bound; suffix beyond; suffix |
+| gn01–gn06 | `r := gin.Default(); r.GET("/x", list)`; `g.POST("/y", func(c *gin.Context){})`; `a.ctrl.Get`; `register(r.Group("/api"))` with `g *gin.RouterGroup`; two function levels; `r.Group(conf.Base + "/api")` | resolved (callback-registration id); D (no Go anonymous identity); resolved by DESIGN 5.6 (gn03 is in group `w2-method-value`); full within the D bound; suffix beyond; suffix |
 | gn07–gn10 | `r.Handle("GET", "/x", h)`, `r.Any`; `r.GET("/x", auth(), h)`; gin import without `*gin.Context`; `r.Group("", mw)` | D; callbacks `wrapper_call`, `h`; extracted; full |
-| nh01–nh08 | `mux.HandleFunc("POST /v1/u", h.create)`; `http.HandleFunc("/w", func(w, r){})`; `mux.Handle("/x", v)`; `"GET /x"` (serves HEAD too); `"example.com/x"`; `{p...}`, `{$}`; `HandleFunc(versionPath, h)`; `root.Handle(b+"/", http.StripPrefix(b, a))` | POST; any, handler D; D; D; D; normalisation D; dynamic; D (mount?) |
+| nh01–nh08 | `mux.HandleFunc("POST /v1/u", h.create)` with `h := &handler{…}`; `http.HandleFunc("/w", func(w, r){})`; `mux.Handle("/x", v)`; `"GET /x"` (serves HEAD too); `"example.com/x"`; `{p...}`, `{$}`; `HandleFunc(versionPath, h)`; `root.Handle(b+"/", http.StripPrefix(b, a))` | POST, callback resolved by DESIGN 5.6; any, handler D; D; D; D; normalisation D; dynamic; D (mount?) |
+| gm01–gm04 | `a.questionController.List` in a method of `*AnswerAPIRouter` whose field is `questionController *ctrl.QuestionController`, `ctrl` another package of the row (the corpus shape); `a.siteInfo.Get` and `a.adminSiteInfo.Get` with fields `*ctrl.SiteInfoController` and `*admin.SiteInfoController`; `c := pr.connector` then `r.GET("/c", c.Info)`; `handler := &handler{…}` then `mux.HandleFunc("GET /x", handler.show)` (a variable named like its type) | resolved to `ctrl`'s `List`; each to its own package's `Get`; resolved; resolved |
+| gm05–gm08 | `func reg(r *gin.RouterGroup, c *Ctrl) { r.GET("/x", c.List) }`; a package `var defaultCtrl *Ctrl` and `defaultCtrl.List`; value-receiver `func (c Ctrl) List` and pointer-receiver `func (c *Ctrl) Show` both registered through a `*Ctrl` field; `Ctrl` embeds `Base` (non-pointer, in-repo), `Base` declares `Health`, `a.ctrl.Health` | resolved; resolved; both resolved; resolved through the existing promotion facts (D confirms the route) |
+| gm09–gm12 | a field `svc Lister` with `type Lister interface{ List(*gin.Context) }` and `a.svc.List`; a parameter `l Lister` and `l.List`; `a := other` in an inner block, then `a.ctrl.List`; a closure `func(a *Other) { r.GET("/x", a.ctrl.List) }` inside a method whose receiver is `a` | `method_value_interface` twice, no callback identity; `method_value_receiver_shadowed` twice |
+| gm13–gm17 | `newCtrl().List`, `a.x.y.z.List` (three hops), `m["k"].List`; a field `onList func(*gin.Context)` and `a.onList`; `middleware.Ban` (package function) and `(*Ctrl).List` (method expression); `a.engine.HandleContext` with `engine *gin.Engine`; `a.Base.ctrl.List` through an embedded `*Base` field named explicitly | `method_value_receiver_unproven` three times; `func_field_value`; `qualified_function_value`, `method_expression`; `method_value_external`; `method_value_receiver_unproven` (no field-target proof) |
+| gm18–gm19 | `r.GET("/x", c.List)` and the call `c.List(ctx)` in one function, `c` a typed parameter, then a field chain `p.f.List` from a parameter; `withApiKeyAuth(h.tokenHandler)` | each method value's target equals the call's Exact target; callback `wrapper_call`, a delegate only if stage D lists the forwarder, then resolved by 5.6 |
 | ch01–ch04 | `r.Get`; `r.Route("/api", func(r chi.Router){…})`; `r.Mount("/adm", adm())`; `r.With(mw).Get` | full; full; D; full |
 | ol01–ol04 | `route([{ method: 'GET', path: '/x', handler: h }])` with `route` a grounded consumer; exported array used in another file; inline handler; `method: ['GET','POST']` | listed; consumer list and framework label D |
 | ol05–ol07 | the same array passed to `function route(rows) { return rows.length; }`; an unused exported array; a client request descriptor of the same shape | candidate `table_consumer_unproven`, no credit; nothing; nothing |
@@ -244,7 +273,13 @@ the frameworks the census admitted):
       nested decoy of the same name, wrappers, nested and branch-selecting wrappers, a discarding wrapper,
       arrays and spreads, terminal versus continuing middleware, error middleware, replacing and stacked
       decorators on either side, method-dispatched views, one callable at two sites on one line, swapped
-      anonymous callbacks); mounts (constructor, mount, both, override, variable, configuration, nested,
+      anonymous callbacks); Go selector callbacks (DESIGN 5.6: method values on the enclosing receiver, field
+      chains of one, two and three hops, typed parameters, constructor, composite and call-initialised locals,
+      a local bound to a field chain, package `var`s, interface fields, parameters and aliases to interfaces,
+      embedded value and pointer hops, promoted methods, a shadowing local or closure parameter, same-named
+      types in two packages, value and pointer receivers, methods split by build tags, generic receiver types,
+      external types, function-typed fields, package functions, method expressions, method values inside
+      wrappers); mounts (constructor, mount, both, override, variable, configuration, nested,
       twice, static plus unknown, a diamond, a cycle, cross-file by import, `require` or package import,
       barrels and star conflicts, non-router child); scope (module, factory, nested callable, `if DEBUG:`,
       loop over data); module forms (CJS, ESM, TypeScript, Python packages, multi-file Go packages,
@@ -256,7 +291,9 @@ the frameworks the census admitted):
       the oracle denominators, the D cells as accepted-loss candidates. The design seat amends DESIGN 5.1 to
       5.3 and fixes, per framework: which calls and decorators are registrations or mounts; method
       derivation; the forwarder list for delegates; how imported and member callbacks resolve (a callback is
-      a value reference, not a call site); Go function literals and method values; per-framework joins and
+      a value reference, not a call site); Go function literals (Go method values are settled by owner
+      decision 6: DESIGN 5.6's rules and reasons are confirmed, renamed, or narrowed by a row that shows a wrong
+      binding, never reopened); per-framework joins and
       comparison keys for optional, wildcard, regex and host forms; the closed `Reason` list; the bound for
       groups passed as parameters; accepted losses; the ledger exclusion rules and the recall floor (DESIGN
       7). In the same change it amends every slice section below that the amendment contradicts (rules, test
@@ -279,7 +316,7 @@ cap 3 rounds. Commands, through memguard:
 corpora `prism nav --no-cache call-stats --repo <c>` identical, and `nav --no-cache callers --format json`
 identical for the head listing's first 20 resolved callbacks per corpus; `cargo test -p prism-mcp --test mcp
 golden_transcript_test` passes unre-recorded; `git diff <base>..HEAD -- src/call_graph.rs src/cpg_cache.rs
-src/navigation/{queries,types,call_edge_cache}.rs` empty.
+src/resolution.rs src/resolution/ src/call_graph/go/ src/navigation/{queries,types,call_edge_cache}.rs` empty.
 
 ### Slice S1: records, listing and composer, shared by every wave (3 days)
 
@@ -295,12 +332,17 @@ the navigation docs `README.md` (a row), `CLAUDE.md`.
 ```rust
 // src/framework_entries/routes.rs: declares `mod mounts;` (S1), `mod receivers; mod handler;` (created by
 // the first framework slice that runs), `mod python;` (S2), `mod express;` (S3), `mod go;` (S4),
+// `mod go_method_value;` (S4b),
 // `#[cfg(test)] mod tests;`. DESIGN 5.1's records verbatim (RouteRecord, Methods, RoutePath, Receiver,
 // Exposure, PathStatus, Callback, CallbackValue, MountRecord, MountPrefix, RouterId); all derive Debug,
 // Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, enums with a snake_case `status` tag.
 pub enum Reason { ReceiverUnproven, MemberHandler, WrapperCall, InnerDecorator, ClassView,
     ImportedUnproven, MountChildUnproven, VariablePrefix, NoKnownMount, MountCycle, ExpansionTruncated,
-    NonLiteralPath, TableConsumerUnproven /* , stage D's additions */ }
+    NonLiteralPath, TableConsumerUnproven,
+    // DESIGN 5.6 (owner decision 6), produced from S4b on
+    MethodValueReceiverUnproven, MethodValueReceiverShadowed, MethodValueMethodUnproven,
+    MethodValueInterface, MethodValueExternal, FuncFieldValue, QualifiedFunctionValue, MethodExpression
+    /* , stage D's additions */ }
 #[derive(Default)] pub struct RouteTable { pub routes: Vec<RouteRecord>, pub mounts: Vec<MountRecord> }
 /// Takes the session's parts: this module sits below `navigation`.
 pub fn routes(files: &BTreeMap<String, ParsedFile>, call_graph: &CallGraph) -> RouteTable;
@@ -417,27 +459,95 @@ Routers: `gin.Default()`/`gin.New()` results, `Group` results (a mount), paramet
 `*gin.RouterGroup` or `gin.IRoutes` within stage D's bound. A file qualifies by importing
 `github.com/gin-gonic/gin` (`parsed.extract_imports()`), never by `parsed.framework()`. Every handler argument
 is a callback, in order (DESIGN 5.1); a bare identifier takes the target of the `CallGraph::go_registrations`
-record whose `site.file` and `site.start_byte` equal that argument's own; none (a selector, a call): unresolved
-with stage D's reason.
+record whose `site.file` and `site.start_byte` equal that argument's own; a call is `wrapper_call`; a selector
+is `member_handler` in this slice (DESIGN 5.1's default), replaced by S4b. The `w2-method-value` rows are not
+enabled here, so no S4 row or test pins a selector's reason.
 
 - [ ] Enable `w2-gin`; RED. Tests: `gin_router_file_without_context_type_extracts` (a file that takes
       `r *gin.RouterGroup` and never names `*gin.Context`); `gin_callback_identity_matches_callback_registration`
       (`r.GET("/x", auth, endpoint)`: callbacks `auth` then `endpoint`, each equal to the `go_registrations`
-      target at its own bytes; `r.GET("/y", s.List)`: unresolved); `group_passed_beyond_the_bound_is_suffix`. GREEN. No-regression gate on `apache-answer` and `gin`; PR
-      body: the summary on both.
+      target at its own bytes); `group_passed_beyond_the_bound_is_suffix`. GREEN. No-regression gate on
+      `apache-answer` and `gin`; PR body: the summary on both (on `apache-answer` about 217 `member_handler`
+      callbacks are expected here, DESIGN 5.6's census).
+
+### Slice S4b: Go method-value handlers (2.5 days)
+
+Between S4 and S5 (owner decision 6): S4 gives the Go extractor whose selector callbacks this slice resolves,
+and S5's net/http rows (`nh01`) and the wave 2 gate need it. Its own slice because it is the only Go typing
+logic in the lane: review is about DESIGN 5.6's receiver proof and nothing else. Built only if wave 2 goes.
+
+**Files:** create `src/framework_entries/routes/go_method_value.rs` (DESIGN 5.6; aim under 600 weighted
+lines) and `src/framework_entries/routes/go_method_value_tests.rs` (declared `#[cfg(test)] mod` from
+`go_method_value.rs`); modify `routes.rs` (`mod go_method_value;`), `routes/go.rs` (a selector callback, and
+a selector forwarded through a delegate, call `go_selector_callback`), the user page (one example line per
+5.6 reason), `CLAUDE.md` (one sentence in the route paragraph). Nothing under `src/call_graph*`,
+`src/resolution*` or `src/ast*` changes (global constraints; every item below is already `pub` or
+`pub(crate)`).
+
+```rust
+// src/framework_entries/routes/go_method_value.rs: DESIGN 5.6, read only by the route table
+/// M3 first (`pkg.F`, method expressions), then M1 and M2. `fn_node` is the enclosing
+/// `function_declaration` or `method_declaration`; `selector` is the callback argument.
+pub(super) fn go_selector_callback(parsed: &ParsedFile, fn_node: Node<'_>, selector: Node<'_>,
+    file: &str, call_graph: &CallGraph) -> CallbackValue;    // Resolved(FunctionId) | Unresolved { text, reason }
+/// M1: (a) enclosing receiver via `Language::go_receiver_var` and the receiver parameter's type,
+/// (b) `call_graph::go::receiver_index::classify_go_receiver_expanded_with_partition` +
+/// `screen_go_receiver_prerequisites` with a `GoReceiverCtx` at the selector's bytes, a `GoReceiverFacts`
+/// borrowed from `CallGraph` fields and an empty field-target map, `ReceiverRecoveryConfig::default()`,
+/// (c) hops by `call_graph::go::receiver_index_visibility::resolve_go_struct_field_owner`,
+/// (d) one `short_var_declaration` read from the syntax.
+fn receiver_owner(parsed: &ParsedFile, fn_node: Node<'_>, operand: Node<'_>, file: &str,
+    call_graph: &CallGraph) -> Result<(String, GoOwnerIdentity), Reason>;
+/// M2: `CallGraph::go_concrete_receiver_route`, then the package-dir and
+/// `owner_partition::exact_declaration_visibility` filter over `CallGraph::methods` (or
+/// `promoted_aliases`, or `promoted_snapshot::consult_promoted_snapshot`); exactly one target.
+fn method_target(call_graph: &CallGraph, static_type: &str, owner: &GoOwnerIdentity, method: &str,
+    file: &str) -> Result<FunctionId, Reason>;
+```
+
+- [ ] Enable `w2-method-value` (gm01 to gm19 and gn03); RED (S4's binary gives `member_handler` on every
+      row but gm19, whose `wrapper_call` already holds there; gm19 pins that a wrapped method value gains a
+      delegate only through stage D's forwarder list). Tests in `go_method_value_tests.rs`, written first,
+      each with a negative twin, building a `CallGraph` from in-memory Go files the way
+      `src/call_graph/go_receiver_typing_tests.rs` does:
+      `method_value_on_receiver_field_resolves` (gm01; twin: the same field typed by an interface),
+      `same_named_controllers_in_two_packages_stay_apart` (gm02), `method_value_on_local_bound_to_a_field_resolves`
+      (gm03; twin: the local declared twice), `method_value_on_composite_local_resolves` (gm04),
+      `method_value_on_typed_parameter_and_package_var_resolves` (gm05, gm06),
+      `value_and_pointer_receiver_methods_both_resolve` (gm07), `promoted_method_resolves_only_through_the_index`
+      (gm08; twin: the name supplied by an embedded interface field, `method_value_interface`),
+      `interface_typed_receiver_is_counted_never_resolved`
+      (gm09, gm10), `shadowed_receiver_is_refused` (gm11, gm12), `call_result_and_deep_receivers_are_unproven`
+      (gm13), `func_typed_field_is_not_a_method` (gm14), `package_function_and_method_expression_are_counted` (gm15),
+      `external_receiver_type_is_method_value_external` (gm16), `embedded_pointer_hop_refuses` (gm17),
+      `method_value_agrees_with_call_resolution` (gm18: for receiver forms (b) and (c), the method value's
+      target equals `CallGraph::resolve_call_site_full`'s single Exact target for `X.M(…)` at the same place),
+      `method_declared_in_two_build_profiles_is_method_unproven` (the outcome of the visibility filter for
+      `//go:build linux` and `windows` twins; stage D confirms it). RED, on the first commit (rows enabled,
+      tests written, `go_selector_callback` returning `member_handler`), and GREEN, through memguard:
+      `cargo test -p prism-review --test cli routes_matrix_test::` and
+      `cargo test -p prism --lib framework_entries::routes::go_method_value`, then the other Stage I commands.
+- [ ] Measure on `apache-answer` (and `gin`): terminal callbacks by status and reason beside DESIGN 5.6's
+      census table; every refused method value of an admitted shape is classified by a reader (`g/s4b/`).
+      No-regression gate (in particular `call-stats` identical: this slice must not move call resolution).
+      PR body: the counts, the classified refusals, sizes of the two new files.
 
 ### Slice S5: net/http and chi, closing wave 2 (2.5 days)
 
-Fifth: it reuses S4's Go module and handler identity; chi's `Route` closure reuses the mount graph.
+Fifth: it reuses S4's Go module, S4b's method-value lookup and the handler identity; chi's `Route` closure
+reuses the mount graph.
 
 **Files:** modify `routes/go.rs`, or create `src/framework_entries/routes/go_nethttp.rs` (declared in
 `routes.rs`) if `go.rs` would pass 600 weighted lines; `routes/tests.rs`; docs.
 
 - [ ] Enable `w2-nethttp`; RED. Tests: `method_in_pattern_is_split_from_the_path`,
-      `plain_pattern_accepts_any_method`, `chi_route_closure_composes`. GREEN.
-- [ ] Wave 2 gate (DESIGN 7): schema oracle on `apache-answer`, with its `@Router` bindings; reconciled
-      completeness against the ledger on `apache-answer`, `miniflux-v2`, `prometheus`, `gin`, chi's ledger
-      sites included; no-regression gate with session time, table time and peak RSS.
+      `plain_pattern_accepts_any_method`, `chi_route_closure_composes`,
+      `nethttp_method_value_handler_resolves` (nh01: `h.create` on a composite local, through
+      `go_selector_callback`). GREEN.
+- [ ] Wave 2 gate (DESIGN 7): schema oracle on `apache-answer`, with its `@Router` bindings; the Go handler
+      binding row on `apache-answer` and `miniflux-v2`; reconciled completeness against the ledger on
+      `apache-answer`, `miniflux-v2`, `prometheus`, `gin`, chi's ledger sites included; no-regression gate
+      with session time, table time and peak RSS.
 
 ### Slices S6 onward: wave 3, one framework per slice (2 to 3 days each)
 
@@ -456,7 +566,7 @@ lane-written positives and same-shape negatives).
 - [ ] Note on lane 5's issue, for the waves that shipped: the JSON line shape, `normalized` for matching
       operations, DESIGN 8's binding rule (a `full` exposure with a resolved callback or delegate; callbacks
       ordered), the measured bindings and losses, Go registration records if wave 2 shipped (adapter input,
-      not a wired adapter). The same position semantics on #600. File DESIGN section 8's four follow-ups with
+      not a wired adapter). The same position semantics on #600. File DESIGN section 8's six follow-ups with
       their evidence, and the stage D accepted losses that have a fix.
 - [ ] Run `truth/check.sh`; refresh `HANDOFF.md` and `LEDGER.md`; offload raw evidence; delete `target/`.
 
@@ -465,19 +575,20 @@ lane-written positives and same-shape negatives).
 Each built wave passed its census gate; the matrix holds for every enabled group; schema-oracle precision on
 in-scope `full` exposures ≥ 0.95 on each schema-bearing corpus of a finished wave, every difference and
 binding contradiction classified; reconciled completeness (no unexplained ledger site, recall at or above the
-stage D floor, nonempty yield) and no-regression hold on each slice's final head; both reviewers approved
+stage D floor, nonempty yield), the Go handler binding row when wave 2 is built, and no-regression hold on
+each slice's final head; both reviewers approved
 each slice; follow-ups filed.
 
 ## Estimates (working days)
 
 | Stage or slice | Days |
 |---|---|
-| M: issue, census and ledger, wave decisions, oracle | 2.5 |
-| T and E: fixtures, instrumented runner, test, enumeration | 4.5 |
+| M: issue, census and ledger (with Go callback shapes), wave decisions, oracle | 2.75 |
+| T and E: fixtures (with the `w2-method-value` rows), instrumented runner, test, enumeration | 4.75 |
 | D | 1.5 |
 | S1 records, listing, composer | 3 |
 | S2 Flask and FastAPI; S3 Express and wave 1 gate | 3.5 + 4.5 |
-| S4 gin; S5 net/http, chi and wave 2 gate | 3 + 2.5 |
+| S4 gin; S4b Go method values; S5 net/http, chi and wave 2 gate | 3 + 2.5 + 2.5 |
 | S6+ wave 3: object-literal tables, then each admitted framework | 2.5, then 2.5 each |
 | Close-out | 1 |
-| Total, waves 1 and 2 plus object-literal tables | 28.5 |
+| Total, waves 1 and 2 plus object-literal tables | 31.5 |

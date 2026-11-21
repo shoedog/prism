@@ -31,7 +31,7 @@ Status on 2026-11-21: designs and plans written for all seven, and one design re
 | 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument and chained-call misbinding | 12 if only that fix runs; up to 37 if every slice passes its census gate | nothing to start; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; its callback and argument-follow slices wait for lane 8's descent check; hands handler-registration cases to lane 12 |
 | 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go, then a node-based path builder that changes no output | 28 to 33, plus 3 to 4 each for two slices the design review may admit | nothing to start; takes the next free cache version; edits one lookup in lane 3's object-literal binder and the argument-binding path lookups, coordinated with lanes 3 and 9; leaves the trace engine to PR #841 and lane 8 |
 | 11. Shared measurement kit | `lane11-measurement-kit/` | to be filed | an executed truth matrix, then `scripts/measure/` reproducing an existing lane gate and a labelled fixture pair from pinned inputs | about 32.5 | a consuming lane named before its formats are fixed; otherwise they ship as provisional and adoption is reported as not met |
-| 12. Routes as a first-class fact | `lane12-route-model/` | to be filed | `prism nav routes` for Flask, FastAPI and Express with mounts composed across files | 28.5 for waves 1 and 2 plus object-literal tables; 2.5 more per further framework | nothing; lane 5 can consume the listing |
+| 12. Routes as a first-class fact | `lane12-route-model/` | to be filed | `prism nav routes` for Flask, FastAPI and Express with mounts composed across files | 31.5 for waves 1 and 2 plus object-literal tables; 2.5 more per further framework | nothing; lane 5 can consume the listing |
 
 ## What the research changed
 
@@ -119,6 +119,7 @@ start. The decisions with the most consequence:
 | 9 | Which slices run | each by its own census threshold; the spread-argument fix always |
 | 10 | JavaScript: do identifier-like string keys unify with dot fields (`o["x"]` and `o.x`)? | yes |
 | 12 | Which frameworks beyond Flask, FastAPI, Express, gin, net/http and chi | by census counts, one slice each |
+| 12 | Go method values as handlers (`r.GET("/x", c.List)`) | in scope (**owner, 2026-11-21**): 91% of the public Go corpus's registrations are method values on a field of the registering method's receiver; resolved by declared field types, in a slice of their own |
 
 ## How the plans were checked
 
