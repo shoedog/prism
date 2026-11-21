@@ -28,7 +28,7 @@ Status on 2026-11-21: designs and plans written for all seven; the design review
 | 6. Provenance findings by proven identity | `lane6-provenance-identity/` | to be filed | a census memo: precision of today's findings on 180 real diffs (300 labelled), with a go gate; then structural fixes for every language | about 23.5 | lane 2's first slice for the shared identity entry point, or this lane carries it; its edits in `targets/` are additive and follow lane 2 |
 | 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE (JSON and review output), then a registry and opt-in SARIF rule ids with CWE tags | 12 to 13 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice waits for it |
 | 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and a committed parity matrix for review taint and `taint-reaches`, then a named reason on every refused hop | 31 to 35 | PR #841 merged; the benchmark pin task of lane 4 (or it does that task itself); lane 3's props slice for one matrix row; rule ids from lane 7 when available |
-| 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument misbinding | 9 if only the spread fix runs; up to 31 if every slice passes its census gate | nothing; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; hands handler-registration cases to lane 12 |
+| 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument and chained-call misbinding | 12 if only that fix runs; up to 37 if every slice passes its census gate | nothing to start; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; its callback and argument-follow slices wait for lane 8's descent check; hands handler-registration cases to lane 12 |
 | 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go, then a node-based path builder that changes no output | 21 to 28, plus 3 to 4 each for two slices the design review may admit | nothing; takes the next free cache version; leaves the object-literal binder to lane 3 and the trace engine to PR #841 |
 | 11. Shared measurement kit | `lane11-measurement-kit/` | to be filed | an executed truth matrix, then `scripts/measure/` reproducing an existing lane gate and a labelled fixture pair from pinned inputs | about 32.5 | a consuming lane named before its formats are fixed; otherwise they ship as provisional and adoption is reported as not met |
 | 12. Routes as a first-class fact | `lane12-route-model/` | to be filed | `prism nav routes` for Flask, FastAPI and Express with mounts composed across files | 28.5 for waves 1 and 2 plus object-literal tables; 2.5 more per further framework | nothing; lane 5 can consume the listing |
@@ -69,8 +69,11 @@ lanes were proposed with:
   the trace engine's rule for entering a callee. Making review use the trace engine would remove findings.
 - **Lane 9.** The benchmark numbers behind the proposal were partly stale and partly about HTTP handler
   registration, which belongs to lane 12. The benchmark alone does not justify rest-parameter or
-  `arguments` work, so each slice has its own census gate. One defect is certain: `f(...list, v)` binds
-  `v` to the wrong parameter today.
+  `arguments` work, so each slice has its own census gate. Two defects are certain today: `f(...list, v)`
+  binds `v` to the wrong parameter, and a chained call (`a.m(x).m(w, z)`) hands the inner call the outer
+  call's arguments as `exact`. The design review also found that an export named like a global
+  (`parseInt`) becomes the Exact target of unimported calls to the global; that resolver defect is filed,
+  and no slice binds into such a target.
 - **Lane 10.** The first defect is recall, not precision: a value written through a subscript
   (`d["a"] = t`) reaches no later read, in Python, JavaScript and Go. Key-sensitive paths are what keep the
   recall fix from connecting every key to every other.
