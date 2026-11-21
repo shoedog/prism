@@ -204,6 +204,9 @@ paths and revisions, the prediction to write down before the run, and where the 
 - Before folding a cut that refuses or removes results, measure how often it fires on the lane's corpora in
   the same fold. A fold whose yield line drops materially is not merged; port the reference behaviour
   (the language's own rule) in preference to a blanket refusal.
+- A WRONG verdict from an oracle that the lane believes is an oracle error is not waived by the orchestrator.
+  It is written up (the input, the oracle's output, why it is believed wrong), the case is added to the
+  oracle's self-check, and a reviewer confirms before the row is reclassified.
 - When the orchestrator thinks a reviewer finding is wrong or not worth its cost, it does not decide. It
   records the finding, its own counter-argument and the options as an owner question (section 9), and
   continues with other slices.
@@ -248,6 +251,8 @@ Private code (the private corpus, and lane 5's private pair):
   (`git diff --cached | grep -n -F -f <names file>` after `git add`; `git grep` misses untracked files).
 - Briefs that tell a worker which directory not to open must say that the sentence is not to be copied into
   repository files.
+- The sibling fault-injection product's source and the tooling repository are private too: tasks that read
+  or run them use Claude seats; a codex seat that needs their behaviour is given recorded oracle outputs.
 
 ## 10. Evidence and handoff
 
@@ -272,7 +277,7 @@ limits:
 | CPG cache version constant | lanes 3 and 4, and the unrelated C/C++ data-flow lane (#818) | section 5 item 7 |
 | `crates/prism-review/src/algorithms/taint*` and `taint_sinks/` | lane 4 (new sink), lane 3 (end-to-end check only), the open cross-file taint PR #841 | lane 4 adds new modules and one registration line; rebase over #841 when it merges; lane 3 changes no taint code |
 | `src/cpg/object_literal_args.rs` | lane 3 | lane 4 reads its facts, does not edit it |
-| `crates/prism-review/src/targets/` and `docs/contracts/targets.schema.json` | lane 2 | no other lane edits them |
+| `crates/prism-review/src/targets/`, `docs/contracts/targets.schema.json` and `docs/contracts/targets-1.1.schema.json` | lane 2 | no other lane edits them |
 | The host | every measurement | section 4: one measurement process at a time across all lanes |
 | `CLAUDE.md`, the known-gaps doc | every lane | each PR edits only its own paragraph; conflicts are resolved by rebasing |
 
