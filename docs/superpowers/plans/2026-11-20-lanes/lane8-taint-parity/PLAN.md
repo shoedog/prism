@@ -527,9 +527,11 @@ the pattern's category. Once lane 7 merges, ids come from its registry. CLI: `na
 - [ ] Catalog-mode wall time and file-scan counts against frontier mode on A's largest JS repository and one
       Python and one Go repository, in the PR body (over 3× is a follow-up). Two reviewers.
 
-### Slice I-9: the catalog in MCP — owner answer required (DESIGN decision 2; no default)
+### Slice I-9: the catalog in MCP — branch A, chosen by the owner on 2026-11-21 (DESIGN decision 2)
 
-The lane stops before this slice until the owner has answered decision 2 (asked at stage D).
+The owner chose branch A on 2026-11-21, so the lane does not stop here. Branches B and C stay below as what
+the lane proposes to the owner if branch A's first step meets its stop rule; neither is started without a
+new answer.
 
 **Branch A: shared functions into core (I-9a move and factoring, 5 days; I-9b exposure, 2 days).**
 - [ ] I-9a step 0: diagram the function-level closure of the catalog implementation (start from
