@@ -58,7 +58,7 @@ Every lane runs these stages in order. A stage has an exit gate; the lane plan g
 
 | Stage | Output | Exit gate |
 |---|---|---|
-| M. Measure first | a census with counts per shape, on the named corpora, by a script kept in the evidence directory | the lane's go/no-go threshold. Below it, stop the lane and write the result to its issue |
+| M. Measure first | a census with counts per shape, on the named corpora, by a script kept in the evidence directory | the lane's go/no-go threshold. Below it, first list why each case missed: if the misses come from how the measurement matches things and not from what the product can do, go to section 8; otherwise stop the lane and write the result to its issue |
 | T. Tests first | the variant matrix as fixtures with a truth label per row, plus a data-driven test where the code under test already compiles | every census class has a row and every row maps to a class; rows that state new behaviour were shown RED once on base; the lane branch still compiles and CI is green (see the rule below) |
 | E. Enumeration | more rows, found by the enumerator tiers run serially (section 6) | a full tier round adds no row |
 | D. Design of record | `DESIGN.md` amended by the design seat: the rule set, stated against the complete row set, and the accepted-loss list; the implementer then updates the rows' expectations to match | both reviewers APPROVE the amended design (cap: 2 rounds, then section 8) |
@@ -88,6 +88,8 @@ Rules during stages T and E (owner rules, 2026-11-14):
 - A row that hits a documented model boundary is still written; it is marked `#[ignore]` with the issue
   number, or listed as an accepted loss in stage D.
 - Corpora are samples. Enumerators also derive shapes from the language grammar and semantics.
+- Rows whose truth comes from executing a lane-written fixture run contained as that lane's design states,
+  and the orchestrator reads each new fixture before its first run.
 
 ## 4. Workspaces
 
@@ -275,7 +277,7 @@ limits:
 | Shared resource | Who touches it | Rule |
 |---|---|---|
 | CPG cache version constant | lanes 3 and 4, and the unrelated C/C++ data-flow lane (#818) | section 5 item 7 |
-| `crates/prism-review/src/algorithms/taint*` and `taint_sinks/` | lane 4 (new sink), lane 3 (end-to-end check only), the open cross-file taint PR #841 | lane 4 adds new modules and one registration line; rebase over #841 when it merges; lane 3 changes no taint code |
+| `crates/prism-review/src/algorithms/taint*` and `taint_sinks/` | lane 4 (new sink), lane 3 (end-to-end check only), the open cross-file taint PR #841 | lane 4 adds new modules, a module line in `taint_sinks/mod.rs`, and edits the sink loop and emission block of `taint/run.rs`; rebase over #841 when it merges; lane 3 changes no taint code |
 | `src/cpg/object_literal_args.rs` | lane 3 | lane 4 reads its facts, does not edit it |
 | `crates/prism-review/src/targets/`, `docs/contracts/targets.schema.json` and `docs/contracts/targets-1.1.schema.json` | lane 2 | no other lane edits them |
 | The host | every measurement | section 4: one measurement process at a time across all lanes |
