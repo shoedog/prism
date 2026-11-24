@@ -32,6 +32,9 @@ use super::sarif_model::{
     RunProperties, SarifLog, SarifResult, Text, Tool,
 };
 use super::sarif_rules::{attribution, line_text_of, rule_description, Attribution, UNCATEGORIZED};
+use crate::algorithms::taint::boundary::display::escape_content;
+use crate::api::map_view::MapView;
+use crate::api::{ReviewBoundaryAvailability, ReviewBoundaryDiagnostics};
 use prism::ast::ParsedFile;
 use prism::finding_confidence::{
     admit_finding_for_resolution, parse_quality_for_selected_evidence, EvidencePath,
@@ -76,6 +79,8 @@ pub struct SarifInputs<'a> {
     /// fallback). One `warning` notification each, text verbatim, so what the
     /// run printed to stderr is also in the document a consumer reads.
     pub build_warnings: &'a [String],
+    /// Invocation-owned boundary notes and availability, separate from findings.
+    pub boundary_diagnostics: Option<&'a ReviewBoundaryDiagnostics>,
     pub algorithms_run: &'a [String],
     /// SPARSE authoritative per-file grade map (a file appears only when its
     /// error rate exceeds 1%). Absent from it + present in `files` = clean;
@@ -85,6 +90,7 @@ pub struct SarifInputs<'a> {
     pub sources: &'a BTreeMap<String, String>,
     pub min_confidence: MinConfidence,
     pub resolution: ResolutionMode,
+    pub(crate) context: Option<MapView<'a>>,
 }
 
 /// Empty borrowed maps for the builder's defaults. `const` rather than
@@ -104,12 +110,14 @@ impl<'a> SarifInputs<'a> {
             parse_warnings: &[],
             load_warnings: &[],
             build_warnings: &[],
+            boundary_diagnostics: None,
             algorithms_run: &[],
             parse_quality: NO_PARSE_QUALITY,
             files: NO_FILES,
             sources: NO_SOURCES,
             min_confidence: DEFAULT_MIN_CONFIDENCE,
             resolution: DEFAULT_RESOLUTION,
+            context: None,
         }
     }
 
@@ -140,6 +148,11 @@ impl<'a> SarifInputs<'a> {
         self
     }
 
+    pub fn boundary_diagnostics(mut self, diagnostics: &'a ReviewBoundaryDiagnostics) -> Self {
+        self.boundary_diagnostics = Some(diagnostics);
+        self
+    }
+
     pub fn algorithms_run(mut self, algorithms_run: &'a [String]) -> Self {
         self.algorithms_run = algorithms_run;
         self
@@ -165,6 +178,19 @@ impl<'a> SarifInputs<'a> {
         self
     }
 
+    /// Use eligible same-review context for taint findings; other algorithms keep original maps.
+    /// Ineligible context leaves any existing builder selection unchanged.
+    pub fn context(self, context: &'a crate::api::ReviewContext) -> Self {
+        match context.view() {
+            Some(view) => self.context_maps(view),
+            None => self,
+        }
+    }
+    pub(crate) fn context_maps(mut self, view: MapView<'a>) -> Self {
+        self.context = Some(view);
+        self
+    }
+
     pub fn resolution(mut self, resolution: ResolutionMode) -> Self {
         self.resolution = resolution;
         self
@@ -187,11 +213,17 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
         .enumerate()
         .filter_map(|(index, finding)| {
             let evidence = inputs.evidence.get(index).and_then(Option::as_ref);
+            let original = MapView::new(inputs.files, inputs.sources, inputs.parse_quality);
+            let view = if finding.algorithm == "taint" {
+                inputs.context.unwrap_or(original)
+            } else {
+                original
+            };
             let quality = parse_quality_for_selected_evidence(
                 finding,
                 evidence,
-                inputs.parse_quality,
-                inputs.files,
+                view.parse_quality,
+                view.files,
             );
             let (confidence, tier) = admit_finding_for_resolution(
                 &finding.algorithm,
@@ -200,7 +232,15 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
                 inputs.min_confidence,
                 inputs.resolution,
             )?;
-            let result = build_result(finding, quality, confidence, tier, inputs, &mut escaping);
+            let result = build_result(
+                finding,
+                quality,
+                confidence,
+                tier,
+                inputs,
+                view.sources,
+                &mut escaping,
+            );
             let category = finding.category.as_deref().unwrap_or(UNCATEGORIZED);
             rule_meta
                 .entry(result.rule_id.clone())
@@ -243,6 +283,66 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
         })
         .collect();
 
+    // Build locations before the shared path-warning group; append notes after it.
+    let mut boundary_notes = Vec::new();
+    if let Some(diagnostics) = inputs.boundary_diagnostics {
+        for note in diagnostics.located() {
+            boundary_notes.push(Notification {
+                level: "note",
+                message: Text {
+                    text: note.message().to_owned(),
+                },
+                locations: vec![Location {
+                    physical_location: physical_location(
+                        note.file(),
+                        Some(note.line()),
+                        &mut escaping,
+                    ),
+                    logical_locations: Vec::new(),
+                }],
+            });
+        }
+        if let Some(summary) = diagnostics.summary() {
+            boundary_notes.push(notification("note", summary));
+        }
+    }
+    // Resolve run-note locations before flushing the shared escaping-path warnings.
+    let mut run_notes = Vec::new();
+    if let Some(diagnostics) = inputs.boundary_diagnostics {
+        use crate::algorithms::taint::boundary::records::ContextRunNoteKind;
+        for note in diagnostics.run_notes() {
+            let level = match note.kind() {
+                ContextRunNoteKind::DepthBound
+                | ContextRunNoteKind::FilesBound
+                | ContextRunNoteKind::BytesBound
+                | ContextRunNoteKind::TimeGuard
+                | ContextRunNoteKind::Cancelled => "note",
+                ContextRunNoteKind::Ignored
+                | ContextRunNoteKind::Unauthorized
+                | ContextRunNoteKind::Unavailable
+                | ContextRunNoteKind::StageFailed
+                | ContextRunNoteKind::UnionRefused
+                | ContextRunNoteKind::FileSkipped
+                | ContextRunNoteKind::SkippedSummary
+                | ContextRunNoteKind::ContextParse => "warning",
+            };
+            let locations = note
+                .location()
+                .map(|(path, line)| Location {
+                    physical_location: physical_location(path, Some(line), &mut escaping),
+                    logical_locations: Vec::new(),
+                })
+                .into_iter()
+                .collect();
+            run_notes.push(Notification {
+                level,
+                message: Text {
+                    text: note.message().to_owned(),
+                },
+                locations,
+            });
+        }
+    }
     let mut notifications: Vec<Notification> = Vec::new();
     for error in inputs.errors {
         notifications.push(notification(
@@ -250,12 +350,22 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
             format!("{}: {}", error.algorithm, error.error),
         ));
     }
-    for warning in inputs
-        .parse_warnings
-        .iter()
-        .chain(inputs.load_warnings)
-        .chain(inputs.build_warnings)
-    {
+    for warning in inputs.parse_warnings.iter().chain(inputs.load_warnings) {
+        notifications.push(notification("warning", warning.clone()));
+    }
+    if let Some(diagnostics) = inputs.boundary_diagnostics {
+        if let ReviewBoundaryAvailability::ListingUnavailable(message) = diagnostics.availability()
+        {
+            notifications.push(notification(
+                "warning",
+                format!(
+                    "taint-context: boundary diagnostics unavailable: {}",
+                    escape_content(message)
+                ),
+            ));
+        }
+    }
+    for warning in inputs.build_warnings {
         notifications.push(notification("warning", warning.clone()));
     }
     if inputs.findings.len() != inputs.evidence.len() {
@@ -274,6 +384,9 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
             format!("path escapes repo root: {path}"),
         ));
     }
+
+    notifications.extend(boundary_notes);
+    notifications.extend(run_notes);
 
     let log = SarifLog {
         schema: SCHEMA,
@@ -314,6 +427,7 @@ fn notification(level: &'static str, text: String) -> Notification {
     Notification {
         level,
         message: Text { text },
+        locations: Vec::new(),
     }
 }
 
@@ -352,10 +466,11 @@ fn build_result(
     confidence: FindingConfidence,
     tier: FindingTier,
     inputs: &SarifInputs,
+    sources: &BTreeMap<String, String>,
     escaping: &mut BTreeSet<String>,
 ) -> SarifResult {
     let category = finding.category.as_deref().unwrap_or(UNCATEGORIZED);
-    let line_text = line_text_of(inputs.sources, &finding.file, finding.line);
+    let line_text = line_text_of(sources, &finding.file, finding.line);
 
     let region = (finding.line >= 1).then_some(finding.line);
     let primary = physical_location(&finding.file, region, escaping);

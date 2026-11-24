@@ -1,0 +1,107 @@
+{
+ "lane": "Ordinary taint crossing policy (#602 S3a.2)",
+ "source": "docs/superpowers/specs/2026-11-08-review-taint-context-s3-brief.md, Crossing policy",
+ "lib_test_prefixes": [
+  "cpg::taint_policy"
+ ],
+ "mutations": {
+  "CX01-predicate-bypassed": [
+   "src/cpg/taint_policy.rs",
+   "same_file || !enters_context || !refuses_edge",
+   "same_file || !enters_context || !refuses_edge || true",
+   [
+    "cpg::taint_policy_tests::ordinary_policy_gates_only_context_entry"
+   ]
+  ],
+  "CX02-context-test-inverted": [
+   "src/cpg/taint_policy.rs",
+   "let enters_context = self.context_files.contains(to_file);",
+   "let enters_context = !self.context_files.contains(to_file);",
+   [
+    "cpg::taint_policy_tests::ordinary_policy_gates_only_context_entry"
+   ]
+  ],
+  "CX03-same-file-exemption-removed": [
+   "src/cpg/taint_policy.rs",
+   "let same_file = from_file == to_file;",
+   "let same_file = false;",
+   [
+    "cpg::taint_policy_tests::ordinary_policy_gates_only_context_entry"
+   ]
+  ],
+  "CX04-accumulated-label-tested": [
+   "src/cpg/query.rs",
+   "&& self.crossing_admitted(policy, node, target, confidence)",
+   "&& self.crossing_admitted(policy, node, target, path_confidence.worst(confidence))",
+   [
+    "cpg::taint_policy_tests::ordinary_policy_uses_current_edge_not_accumulated_label"
+   ]
+  ],
+  "CX05-nameonly-ceiling-refuses": [
+   "src/cpg/taint_policy.rs",
+   "let refuses_edge = self.ceiling == CrossingCeiling::Exact && !edge.is_exact();",
+   "let refuses_edge = !edge.is_exact();",
+   [
+    "cpg::taint_policy_tests::ordinary_policy_gates_only_context_entry",
+    "cpg::taint_policy_tests::ordinary_policy_filters_parallel_edges_before_parent_selection"
+   ]
+  ],
+  "CX06-source-file-tested-for-context": [
+   "src/cpg/taint_policy.rs",
+   "let enters_context = self.context_files.contains(to_file);",
+   "let enters_context = self.context_files.contains(from_file);",
+   [
+    "cpg::taint_policy_tests::ordinary_policy_gates_only_context_entry"
+   ]
+  ],
+  "CX07-refused-edge-marks-target-visited": [
+   "src/cpg/query.rs",
+   "&& self.crossing_admitted(policy, node, target, confidence)",
+   "&& (self.crossing_admitted(policy, node, target, confidence) || { visited.insert(target); false })",
+   [
+    "cpg::taint_policy_tests::ordinary_policy_keeps_allowed_route_after_denied_short_route"
+   ]
+  ],
+  "CX08-policy-dropped-in-cfg-walk": [
+   "src/cpg/cfg_queries.rs",
+   "self.dfg_forward_reachable_with_evidence_policy(&src_loc, policy);",
+   "self.dfg_forward_reachable_with_evidence_policy(&src_loc, policy.filter(|_| false));",
+   [
+    "cpg::taint_policy_adapter_tests::ordinary_policy_cfg_adapter_forwards_and_still_prunes"
+   ]
+  ],
+  "CX09-policy-dropped-in-no-cfg-fallback": [
+   "src/cpg/cfg_queries.rs",
+   "return self.taint_forward_labeled_policy(taint_sources, policy);",
+   "return self.taint_forward_labeled_policy(taint_sources, policy.filter(|_| false));",
+   [
+    "cpg::taint_policy_adapter_tests::ordinary_policy_no_cfg_fallback_forwards"
+   ]
+  ],
+  "CX10-policy-dropped-in-line-seed-adapter": [
+   "src/cpg/query.rs",
+   "self.dfg_forward_reachable_with_evidence_policy(&src_loc, policy);",
+   "self.dfg_forward_reachable_with_evidence_policy(&src_loc, policy.filter(|_| false));",
+   [
+    "cpg::taint_policy_adapter_tests::ordinary_policy_no_cfg_fallback_forwards"
+   ]
+  ],
+  "CX11-public-dfg-sibling-ignores-policy": [
+   "src/cpg/taint_policy.rs",
+   "self.dfg_forward_reachable_with_evidence_policy(from, Some(policy))",
+   "self.dfg_forward_reachable_with_evidence_policy(from, Some(policy).filter(|_| false))",
+   [
+    "cpg::taint_policy_tests::ordinary_policy_public_dfg_entry_uses_same_gate"
+   ]
+  ],
+  "CX12-public-cfg-sibling-ignores-policy": [
+   "src/cpg/taint_policy.rs",
+   "self.taint_forward_cfg_labeled_policy(taint_sources, Some(policy))",
+   "self.taint_forward_cfg_labeled_policy(taint_sources, Some(policy).filter(|_| false))",
+   [
+    "cpg::taint_policy_adapter_tests::ordinary_policy_cfg_adapter_forwards_and_still_prunes",
+    "cpg::taint_policy_adapter_tests::ordinary_policy_no_cfg_fallback_forwards"
+   ]
+  ]
+ }
+}

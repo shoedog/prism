@@ -1,0 +1,93 @@
+{
+  "lane": "Detached JS bookkeeping and captured-input rebase (#602 S4b1)",
+  "lib_test_prefixes": [
+    "resolution::js_ts::paths_snapshot::detach_tests::",
+    "repo_loader::context_rebase_tests::"
+  ],
+  "mutations": {
+    "RB01-probes-cell-left-shared": [
+      "src/resolution/js_ts/paths_snapshot/detach.rs",
+      "copy.probes = Arc::new(Mutex::new(self.probes.lock().unwrap().clone()));",
+      "copy.probes = Arc::clone(&self.probes);",
+      "resolution::js_ts::paths_snapshot::detach_tests::detached_cells_are_independent_both_ways"
+    ],
+    "RB02-first-pass-facts-cell-left-shared": [
+      "src/resolution/js_ts/paths_snapshot/detach.rs",
+      "copy.first_pass_facts = Arc::new(Mutex::new(self.first_pass_facts.lock().unwrap().clone()));",
+      "copy.first_pass_facts = Arc::clone(&self.first_pass_facts);",
+      "resolution::js_ts::paths_snapshot::detach_tests::detached_cells_are_independent_both_ways"
+    ],
+    "RB03-absent-inputs-cell-left-shared": [
+      "src/resolution/js_ts/paths_snapshot/detach.rs",
+      "copy.absent_inputs = Arc::new(Mutex::new(self.absent_inputs.lock().unwrap().clone()));",
+      "copy.absent_inputs = Arc::clone(&self.absent_inputs);",
+      "resolution::js_ts::paths_snapshot::detach_tests::detached_cells_are_independent_both_ways"
+    ],
+    "RB04-unsafe-inputs-cell-left-shared": [
+      "src/resolution/js_ts/paths_snapshot/detach.rs",
+      "copy.unsafe_inputs = Arc::new(Mutex::new(self.unsafe_inputs.lock().unwrap().clone()));",
+      "copy.unsafe_inputs = Arc::clone(&self.unsafe_inputs);",
+      "resolution::js_ts::paths_snapshot::detach_tests::detached_cells_are_independent_both_ways"
+    ],
+    "RB05-closure-memo-cell-left-shared": [
+      "src/resolution/js_ts/paths_snapshot/detach.rs",
+      "copy.closure_memo = Arc::new(Mutex::new(self.closure_memo.lock().unwrap().clone()));",
+      "copy.closure_memo = Arc::clone(&self.closure_memo);",
+      "resolution::js_ts::paths_snapshot::detach_tests::detached_cells_are_independent_both_ways"
+    ],
+    "RB06-detached-cell-replaced-by-an-empty-one": [
+      "src/resolution/js_ts/paths_snapshot/detach.rs",
+      "copy.first_pass_facts = Arc::new(Mutex::new(self.first_pass_facts.lock().unwrap().clone()));",
+      "copy.first_pass_facts = Arc::new(Mutex::new(Default::default()));",
+      "resolution::js_ts::paths_snapshot::detach_tests::detached_preserves_every_memo_value"
+    ],
+    "RB07-rebase-clones-instead-of-detaching": [
+      "src/repo_loader/context_rebase.rs",
+      "let js_paths_snapshot = captured.js_paths_snapshot.detached();",
+      "let js_paths_snapshot = captured.js_paths_snapshot.clone();",
+      "repo_loader::context_rebase_tests::rebase_leaves_original_bookkeeping_unchanged"
+    ],
+    "RB08-union-priming-skipped": [
+      "src/repo_loader/context_rebase.rs",
+      "prime_js_paths(union_files, &js_paths_snapshot);",
+      "let _ = union_files;",
+      "repo_loader::context_rebase_tests::rebase_primes_union_alias_and_export_facts"
+    ],
+    "RB09-all-file-paths-left-as-captured": [
+      "src/repo_loader/context_rebase.rs",
+      "all_file_paths: union_files.keys().cloned().collect(),",
+      "all_file_paths: captured.all_file_paths.clone(),",
+      "repo_loader::context_rebase_tests::rebase_sets_union_paths_and_recomputes_js_topology"
+    ],
+    "RB10-rust-config-recomputed-from-union": [
+      "src/repo_loader/context_rebase.rs",
+      "cfg: captured.cfg.clone(),",
+      "cfg: crate::name_resolution::rust_populator::RustCrateConfig::from_convention(union_files),",
+      "repo_loader::context_rebase_tests::rebase_preserves_rust_and_root_inputs"
+    ],
+    "RB11-rust-coverage-flag-defaulted": [
+      "src/repo_loader/context_rebase.rs",
+      "complete: captured.complete,",
+      "complete: true,",
+      "repo_loader::context_rebase_tests::rebase_preserves_rust_and_root_inputs"
+    ],
+    "RB12-js-topology-not-re-extended": [
+      "src/repo_loader/context_rebase.rs",
+      "manifest_hashes.extend(js_paths_snapshot.topology());",
+      "let _ = js_paths_snapshot.topology();",
+      "repo_loader::context_rebase_tests::rebase_sets_union_paths_and_recomputes_js_topology"
+    ],
+    "RB13-manifest-snapshot-re-read-from-disk": [
+      "src/repo_loader/context_rebase.rs",
+      "manifest_snapshot: captured.manifest_snapshot.clone(),",
+      "manifest_snapshot: super::collect_manifest_snapshot(&captured.repo_root),",
+      "repo_loader::context_rebase_tests::rebase_uses_captured_manifests_and_config"
+    ],
+    "RB14-skipped-testdata-count-defaulted": [
+      "src/repo_loader/context_rebase.rs",
+      "skipped_go_testdata_files: captured.skipped_go_testdata_files,",
+      "skipped_go_testdata_files: 0,",
+      "repo_loader::context_rebase_tests::rebase_preserves_rust_and_root_inputs"
+    ]
+  }
+}

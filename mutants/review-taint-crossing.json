@@ -1,0 +1,62 @@
+{
+  "lane": "Review combined crossing entry (#602 S3b-R)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::source_scope::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "RC01-ordinary-arm-calls-policy-free-walk": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      ".taint_forward_cfg_labeled_with_policy(&taint_sources, policy)",
+      ".taint_forward_cfg_labeled(&taint_sources)",
+      "algorithms::taint::source_scope::tests::crossing::crossing_gates_ordinary_context_entry_through_combined_entry"
+    ],
+    "RC02-return-arm-calls-policy-free-walk": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      ".taint_forward_cfg_with_return_flow_labeled_with_policy(&taint_sources, policy)",
+      ".taint_forward_cfg_with_return_flow_labeled(&taint_sources)",
+      "algorithms::taint::source_scope::tests::crossing::crossing_gates_return_flow_route_through_combined_entry"
+    ],
+    "RC03-synthesis-walk-ignores-crossing": [
+      "crates/prism-review/src/algorithms/taint/seeds.rs",
+      "Some(policy) => ctx.cpg.dfg_forward_reachable_with_policy(&from, policy),",
+      "Some(_) => ctx.cpg.dfg_forward_reachable(&from),",
+      "algorithms::taint::source_scope::tests::crossing::crossing_refuses_nameonly_synthetic_entry_in_both_paths"
+    ],
+    "RC04-untraced-synthesis-gets-default-scope": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "synthesize_target_seed_paths(&framework_seeds, ctx, &mut paths, scope);",
+      "synthesize_target_seed_paths(&framework_seeds, ctx, &mut paths, RunScope::default());",
+      "algorithms::taint::source_scope::tests::crossing::crossing_refuses_nameonly_synthetic_entry_in_both_paths"
+    ],
+    "RC05-traced-synthesis-gets-default-scope": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      "super::seeds::synthesize_target_seed_paths(std::slice::from_ref(seed), ctx, paths, scope);",
+      "super::seeds::synthesize_target_seed_paths(std::slice::from_ref(seed), ctx, paths, RunScope::default());",
+      "algorithms::taint::source_scope::tests::crossing::crossing_refuses_nameonly_synthetic_entry_in_both_paths"
+    ],
+    "RC06-combined-entry-builds-source-only-scope": [
+      "crates/prism-review/src/algorithms/taint/source_scope/admission.rs",
+      "RunScope::in_context(original_files, crossing)",
+      "RunScope::original(original_files)",
+      [
+        "algorithms::taint::source_scope::tests::crossing::crossing_refuses_nameonly_synthetic_entry_in_both_paths",
+        "algorithms::taint::source_scope::tests::crossing::crossing_gates_ordinary_context_entry_through_combined_entry",
+        "algorithms::taint::source_scope::tests::crossing::crossing_gates_return_flow_route_through_combined_entry"
+      ]
+    ],
+    "RC07-in-context-constructor-drops-crossing": [
+      "crates/prism-review/src/algorithms/taint/source_scope/admission.rs",
+      "crossing: Some(crossing),",
+      "crossing: None,",
+      [
+        "algorithms::taint::source_scope::tests::crossing::crossing_refuses_nameonly_synthetic_entry_in_both_paths",
+        "algorithms::taint::source_scope::tests::crossing::crossing_gates_ordinary_context_entry_through_combined_entry",
+        "algorithms::taint::source_scope::tests::crossing::crossing_gates_return_flow_route_through_combined_entry"
+      ]
+    ]
+  }
+}

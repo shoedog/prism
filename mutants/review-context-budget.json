@@ -1,0 +1,78 @@
+{
+  "lane": "Private context admission budget (#602 S4c1 A)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::context_budget::tests::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "CB01-file-bound": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      "published.files.saturating_add(stage.accepted.len()) >= limits.max_files",
+      "published.files.saturating_add(stage.accepted.len()) > limits.max_files",
+      "algorithms::taint::context_budget::tests::files_prefix_stops_before_the_extra_read"
+    ],
+    "CB02-bound-index": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      "first_skipped: index,\n                skipped: targets.len() - index,",
+      "first_skipped: index + 1,\n                skipped: targets.len() - index,",
+      "algorithms::taint::context_budget::tests::files_prefix_stops_before_the_extra_read"
+    ],
+    "CB03-published-bytes": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      ".saturating_sub(published.bytes)",
+      ".saturating_sub(0)",
+      "algorithms::taint::context_budget::tests::published_totals_carry_across_rounds"
+    ],
+    "CB04-accepted-bytes": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      ".saturating_sub(stage.accepted_bytes)",
+      ".saturating_sub(0)",
+      "algorithms::taint::context_budget::tests::rejected_reads_do_not_spend_capacity"
+    ],
+    "CB05-skipped-capacity": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      "ReadKind::Skipped(reason) => counters.skips.push((path.clone(), reason)),",
+      "ReadKind::Skipped(reason) => { stage.accepted_bytes = stage.accepted_bytes.saturating_add(report.attempted_bytes); counters.skips.push((path.clone(), reason)); },",
+      "algorithms::taint::context_budget::tests::rejected_reads_do_not_spend_capacity"
+    ],
+    "CB06-attempted-bytes": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      ".saturating_add(report.attempted_bytes)",
+      ".saturating_add(stage.accepted_bytes)",
+      "algorithms::taint::context_budget::tests::sentinel_is_attempted_never_admitted"
+    ],
+    "CB07-bound-attempt": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      "counters.attempted_files = counters.attempted_files.saturating_add(1);",
+      "if !matches!(&report.kind, ReadKind::CapacityBound) { counters.attempted_files = counters.attempted_files.saturating_add(1); }",
+      "algorithms::taint::context_budget::tests::byte_bound_seals_the_prefix"
+    ],
+    "CB08-bound-continue": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      "ReadKind::Loaded { .. } | ReadKind::CapacityBound => {\n                stage.bound = Some(AdmissionBound::SourceBytes {\n                    first_skipped: index,\n                    skipped: targets.len() - index,\n                });\n                return stage;\n            }",
+      "ReadKind::Loaded { .. } | ReadKind::CapacityBound => { stage.bound = Some(AdmissionBound::SourceBytes { first_skipped: index, skipped: targets.len() - index }); }",
+      "algorithms::taint::context_budget::tests::byte_bound_seals_the_prefix"
+    ],
+    "CB09-run-clock": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      "self.started.elapsed() >= self.limit",
+      "Instant::now().elapsed() >= self.limit",
+      "algorithms::taint::context_budget::tests::limits_validate_depth"
+    ],
+    "CB10-depth": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      "!(1..=4).contains(&depth)",
+      "!(0..=5).contains(&depth)",
+      "algorithms::taint::context_budget::tests::limits_validate_depth"
+    ],
+    "CB11-guard-before-read": [
+      "crates/prism-review/src/algorithms/taint/context_budget.rs",
+      "if let Some(cause) = guard.stop() {",
+      "if let Some(cause) = guard.stop().filter(|_| index > 0) {",
+      "algorithms::taint::context_budget::tests::guard_stops_between_reads"
+    ]
+  }
+}

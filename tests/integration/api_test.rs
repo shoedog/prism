@@ -5,6 +5,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
+#[path = "api_test/boundary_diagnostics.rs"]
+mod boundary_diagnostics;
+
+#[path = "api_test/sarif_diagnostics.rs"]
+mod sarif_diagnostics;
+
+#[path = "api_test/context.rs"]
+mod context;
+
 fn write_repo(
     files: &[(&str, &str)],
     diff_files: &[(&str, &[usize])],
@@ -279,6 +288,8 @@ fn api_types_are_non_exhaustive() {
     paths.push(root.join("crates/prism-review/src/targets/model.rs"));
     paths.push(root.join("crates/prism-review/src/targets/mod.rs"));
     paths.push(root.join("crates/prism-review/src/output/sarif.rs"));
+    paths.push(root.join("crates/prism-review/src/algorithms/taint/boundary/display.rs"));
+    paths.push(root.join("crates/prism-review/src/algorithms/taint/boundary/records.rs"));
 
     let mut checked = 0usize;
     for path in paths {

@@ -1,0 +1,66 @@
+{
+  "lane": "Private boundary display projection (#602 S1b.3b)",
+  "test_targets": [{"prefix": "algorithms::taint::boundary::", "package": "prism-review", "target": "lib"}],
+  "mutations": {
+    "BD01-display-cap-removed": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "let shown = ordered.len().min(10);",
+      "let shown = ordered.len();",
+      "algorithms::taint::boundary::display::tests::population::population_cap_uses_complete_unique_count_without_mutation"
+    ],
+    "BD02-omitted-count-discarded": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "let omitted_count = ordered.len() - shown;",
+      "let omitted_count = 0;",
+      "algorithms::taint::boundary::display::tests::population::population_cap_uses_complete_unique_count_without_mutation"
+    ],
+    "BD03-physical-byte-identity-lost": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "a.site == b.site",
+      "a.site.caller == b.site.caller",
+      "algorithms::taint::boundary::display::tests::population::identity_preserves_full_owner_bytes_and_ordered_raw_targets"
+    ],
+    "BD04-raw-target-identity-ignored": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "&& raw_targets(a) == raw_targets(b)",
+      "&& true",
+      "algorithms::taint::boundary::display::tests::population::identity_preserves_full_owner_bytes_and_ordered_raw_targets"
+    ],
+    "BD05-multiple-candidates-promoted": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "ReviewHintBasis::Candidates => \"suggests the callee may be in one of\"",
+      "ReviewHintBasis::Candidates => \"suggests the callee is likely in\"",
+      "algorithms::taint::boundary::display::tests::eleven_literal_messages_keep_complete_typed_records"
+    ],
+    "BD06-empty-go-declarers-treated-known": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "if declaring.is_empty()",
+      "if false",
+      "algorithms::taint::boundary::display::tests::eleven_literal_messages_keep_complete_typed_records"
+    ],
+    "BD07-unresolved-reason-replaced": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "let reason = match why {",
+      "let reason = match ReviewUnresolvedReason::NoFile {",
+      "algorithms::taint::boundary::display::tests::eleven_literal_messages_keep_complete_typed_records"
+    ],
+    "BD08-control-escaping-bypassed": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "c if c.is_control() || extra_control(c)",
+      "c if extra_control(c)",
+      "algorithms::taint::boundary::display::tests::all_controls_and_extra_unicode_marks_are_visible"
+    ],
+    "BD09-explicit-bidi-escaping-omitted": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "|| extra_control(c)",
+      "|| false",
+      "algorithms::taint::boundary::display::tests::all_controls_and_extra_unicode_marks_are_visible"
+    ],
+    "BD10-unavailability-discarded": [
+      "crates/prism-review/src/algorithms/taint/boundary/display.rs",
+      "availability: collection.availability.clone()",
+      "availability: Availability::Available",
+      "algorithms::taint::boundary::display::tests::population::availability_is_typed_separate_and_preserves_original_error"
+    ]
+  }
+}

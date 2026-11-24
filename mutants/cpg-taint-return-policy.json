@@ -1,0 +1,85 @@
+{
+ "lane": "Return-flow walker crossing policy (#602 S3b-C)",
+ "source": "docs/superpowers/specs/2026-11-08-review-taint-context-s3-brief.md, Crossing policy",
+ "lib_test_prefixes": [
+  "cpg::taint_policy_return_tests::",
+  "cpg::taint_policy_return_parity_tests::"
+ ],
+ "mutations": {
+  "RP01-helper-ignores-policy": [
+   "src/cpg/taint_policy.rs",
+   ".filter(|&label| self.crossing_admitted(policy, from, to, label))",
+   ".filter(|&label| self.crossing_admitted(policy.filter(|_| false), from, to, label))",
+   [
+    "cpg::taint_policy_return_tests::return_policy_gates_descent_into_context",
+    "cpg::taint_policy_return_tests::return_policy_keeps_allowed_route_after_refused_descent"
+   ]
+  ],
+  "RP02-helper-decides-on-worst-of-all-labels": [
+   "src/cpg/taint_policy.rs",
+   ".filter(|&label| self.crossing_admitted(policy, from, to, label))",
+   ".filter(|_| true)",
+   [
+    "cpg::taint_policy_return_tests::return_policy_admits_parallel_exact_edge_in_either_order"
+   ]
+  ],
+  "RP03-helper-returns-first-edge-label": [
+   "src/cpg/taint_policy.rs",
+   ".reduce(FlowConfidence::worst)",
+   ".reduce(|first, _| first)",
+   [
+    "cpg::taint_policy_return_tests::return_policy_admits_parallel_exact_edge_in_either_order"
+   ]
+  ],
+  "RP04-descent-condition-dropped": [
+   "src/cpg/trace.rs",
+   "self.admitted_data_flow_label(policy, node, next).is_some()",
+   "true",
+   [
+    "cpg::taint_policy_return_tests::return_policy_gates_descent_into_context",
+    "cpg::taint_policy_return_tests::return_policy_keeps_allowed_route_after_refused_descent"
+   ]
+  ],
+  "RP05-line-seeded-trace-passes-none": [
+   "src/cpg/trace.rs",
+   "return_flow_mode,\n                    policy,",
+   "return_flow_mode,\n                    policy.filter(|_| false),",
+   [
+    "cpg::taint_policy_return_tests::return_policy_gates_descent_into_context"
+   ]
+  ],
+  "RP06-labeled-adapter-passes-none": [
+   "src/cpg/trace.rs",
+   "let trace = self.taint_trace_with_mode_policy(sources, ReturnFlowMode::On, policy);",
+   "let trace = self.taint_trace_with_mode_policy(sources, ReturnFlowMode::On, policy.filter(|_| false));",
+   [
+    "cpg::taint_policy_return_parity_tests::return_policy_public_entry_uses_same_gate"
+   ]
+  ],
+  "RP07-public-sibling-passes-none": [
+   "src/cpg/taint_policy.rs",
+   "self.taint_forward_cfg_with_return_flow_labeled_policy(sources, Some(policy))",
+   "self.taint_forward_cfg_with_return_flow_labeled_policy(sources, Some(policy).filter(|_| false))",
+   [
+    "cpg::taint_policy_return_parity_tests::return_policy_public_entry_uses_same_gate"
+   ]
+  ],
+  "RP08-refused-descent-skips-boundary-record": [
+   "src/cpg/trace.rs",
+   "trace.boundary.insert(BoundaryEdge {\n                        root,\n                        from: node,\n                        to: next,\n                        kind: boundary_kind,\n                    });\n                    continue;\n                }\n\n                // S3:",
+   "if policy.is_none() {\n                        trace.boundary.insert(BoundaryEdge {\n                            root,\n                            from: node,\n                            to: next,\n                            kind: boundary_kind,\n                        });\n                    }\n                    continue;\n                }\n\n                // S3:",
+   [
+    "cpg::taint_policy_return_tests::return_policy_gates_descent_into_context"
+   ]
+  ]
+ },
+ "extra": {
+  "RP02-helper-decides-on-worst-of-all-labels": [
+   [
+    "src/cpg/taint_policy.rs",
+    ".reduce(FlowConfidence::worst)",
+    ".reduce(FlowConfidence::worst).filter(|&worst| self.crossing_admitted(policy, from, to, worst))"
+   ]
+  ]
+ }
+}

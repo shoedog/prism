@@ -1,0 +1,104 @@
+{
+  "lane": "Review boundary hints and retained taint roots (#602 S1a)",
+  "lib_test_prefixes": [
+    "api::review_context::"
+  ],
+  "test_targets": [
+    {
+      "prefix": "taint_trace_test::",
+      "package": "prism",
+      "target": "algo_taxonomy"
+    },
+    {
+      "prefix": "algorithms::taint::trace::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "RT01-explicit-origin-lost": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      "TaintRootOrigin::Explicit,",
+      "TaintRootOrigin::Diff,",
+      "taint_trace_test::taint_trace_keeps_explicit_and_diff_origins_and_isolated_use_roots"
+    ],
+    "RT02-disabled-diff-roots-admitted": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      "if config.taint_from_diff {",
+      "if true {",
+      "taint_trace_test::taint_trace_keeps_explicit_and_diff_origins_and_isolated_use_roots"
+    ],
+    "RT03-isolated-roots-lost": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      ".filter_map(|node| ctx.cpg.to_var_location(node))",
+      ".filter_map(|node| ctx.cpg.to_var_location(node)).filter(|_| false)",
+      "taint_trace_test::taint_trace_keeps_explicit_and_diff_origins_and_isolated_use_roots"
+    ],
+    "RT04-frontier-key-ignores-bytes": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      "(location.clone(), location.start_byte, location.end_byte)",
+      "(location.clone(), 0, 0)",
+      "algorithms::taint::trace::tests::trace_preserves_occurrence_and_seed_scope_collisions"
+    ],
+    "RT05-root-dedup-ignores-bytes": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      "a.cmp(b)\n        .then_with(|| (a.start_byte, a.end_byte).cmp(&(b.start_byte, b.end_byte)))",
+      "a.cmp(b)",
+      "algorithms::taint::trace::tests::trace_preserves_occurrence_and_seed_scope_collisions"
+    ],
+    "RT06-evidence-borrows-other-occurrence": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      ".filter(|((from, to), _)| {\n                        occurrence_cmp(from, &edge.from).is_eq()\n                            && occurrence_cmp(to, &edge.to).is_eq()\n                    })",
+      ".filter(|_| true)",
+      "algorithms::taint::trace::tests::trace_preserves_occurrence_and_seed_scope_collisions"
+    ],
+    "RT07-source-scope-lost": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      "seed: seed.clone(),",
+      "seed: TaintSeed::line(seed.file.clone(), seed.line),",
+      "taint_trace_test::taint_trace_framework_roots_keep_target_and_scope_without_diff_roots"
+    ],
+    "RT08-argument-call-start-shifted": [
+      "src/api/review_context.rs",
+      "call.start_byte,\n                call.source_callee_name",
+      "call.start_byte + 1,\n                call.source_callee_name",
+      "api::review_context::tests::review_hints_bind_captured_listing_and_exact_argument_spans"
+    ],
+    "RT09-loaded-targets-forgotten": [
+      "src/api/review_context.rs",
+      "inputs.files.keys().cloned().collect(),",
+      "Default::default(),",
+      "api::review_context::tests::review_hints_keep_unknown_loaded_and_external_silent_and_missing_visible"
+    ],
+    "RT10-relative-root-reinterpreted": [
+      "src/api/review.rs",
+      "let repo_root = std::path::absolute(&opts.repo).context(\"Failed to bind review repository\")?;",
+      "let repo_root = opts.repo.clone();",
+      "api::review_context::tests::review_hints_bind_relative_root_before_cwd_changes"
+    ],
+    "RT11-overwritten-witness-accepted": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      ".filter(|_| !ambiguous.contains(&pair))",
+      ".filter(|_| true)",
+      [
+        "algorithms::taint::trace::tests::trace_rejects_overwritten_pair_weak_then_exact",
+        "algorithms::taint::trace::tests::trace_rejects_overwritten_pair_exact_then_weak"
+      ]
+    ],
+    "RT12-subset-forgets-shared-ambiguity": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      ".filter(|_| !ambiguous.contains(&pair))",
+      ".filter(|_| !ambiguous_pairs(paths).contains(&pair))",
+      [
+        "algorithms::taint::trace::tests::trace_rejects_overwritten_pair_weak_then_exact",
+        "algorithms::taint::trace::tests::trace_rejects_overwritten_pair_exact_then_weak"
+      ]
+    ],
+    "RT13-trace-result-drops-evidence": [
+      "crates/prism-review/src/algorithms/taint/trace.rs",
+      "let result = super::run::slice_impl(ctx, diff, config, Some(&mut trace))?;",
+      "let mut result = super::run::slice_impl(ctx, diff, config, Some(&mut trace))?;\n    result.evidence.clear();",
+      "taint_trace_test::taint_trace_preserves_legacy_result_bytes_for_positive_and_negative_controls"
+    ]
+  }
+}

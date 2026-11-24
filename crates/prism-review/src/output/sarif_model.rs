@@ -78,6 +78,8 @@ pub struct Invocation {
 pub struct Notification {
     pub level: &'static str,
     pub message: Text,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub locations: Vec<Location>,
 }
 
 #[derive(Serialize)]

@@ -1,9 +1,38 @@
 //! Deterministic projection of annotated findings into targets contract v1.0.
+//!
+//! Invocation diagnostics are independent of findings: a run can have boundary
+//! notes without producing any target. When using the review facade, pass its
+//! diagnostics through [`TargetsMeta::run_warnings`] before calling [`project`].
+//! Preserve the ordinary parse, load and build warning prefix in that order:
+//!
+//! ```text
+//! let mut meta = TargetsMeta::default();
+//! // Set repository identity, algorithms, errors and admission policy as usual.
+//! meta.run_warnings = outcome.inputs.parse_warnings.clone();
+//! meta.run_warnings.extend(outcome.inputs.load_warnings.clone());
+//! meta.run_warnings.extend(outcome.build_warnings.clone());
+//! if let Some(diagnostics) = &outcome.run.diagnostics {
+//!     meta.run_warnings.extend(diagnostics.messages());
+//! }
+//! let document = project(
+//!     &outcome.run.findings, &outcome.run.evidence, &outcome.inputs, &meta,
+//! );
+//! ```
+//!
+//! Do not also append `outcome.run.warnings`: it already includes parse warnings
+//! and rendered diagnostics. Projection preserves the supplied prefix and adds
+//! its own finding warnings before severity/tier filtering; it cannot recover
+//! boundary diagnostics from findings alone.
 
 mod dependency_hint;
 mod dependency_identity;
 pub mod mapping;
 mod model;
+
+#[cfg(test)]
+mod context_shape_tests;
+#[cfg(test)]
+mod context_view_tests;
 
 pub use model::{
     DependencyHint, Diff, Expected, Producer, Related, Repo, Site, Target, TargetsDocument,
@@ -47,6 +76,34 @@ pub fn project(
     inputs: &ReviewInputs,
     meta: &TargetsMeta,
 ) -> TargetsDocument {
+    project_with_context(findings, evidence, inputs, None, meta)
+}
+
+/// Project with eligible context for taint findings, preserving the legacy None path.
+/// `inputs` and `context` must belong to the same captured review.
+pub fn project_in_context(
+    findings: &[SliceFinding],
+    evidence: &[Option<EvidencePath>],
+    inputs: &ReviewInputs,
+    context: Option<&crate::api::ReviewContext>,
+    meta: &TargetsMeta,
+) -> TargetsDocument {
+    project_with_context(
+        findings,
+        evidence,
+        inputs,
+        context.and_then(crate::api::ReviewContext::view),
+        meta,
+    )
+}
+
+pub(crate) fn project_with_context(
+    findings: &[SliceFinding],
+    evidence: &[Option<EvidencePath>],
+    inputs: &ReviewInputs,
+    context: Option<crate::api::map_view::MapView<'_>>,
+    meta: &TargetsMeta,
+) -> TargetsDocument {
     let mut warnings = meta.run_warnings.clone();
     let mut targets = Vec::new();
     let mut ids = HashSet::new();
@@ -60,6 +117,12 @@ pub fn project(
     }
 
     for (index, finding) in findings.iter().enumerate() {
+        let original = crate::api::map_view::MapView::original(inputs);
+        let view = if finding.algorithm == "taint" {
+            context.unwrap_or(original)
+        } else {
+            original
+        };
         if finding.line == 0 {
             warnings.push(format!(
                 "targets: dropped finding with line 0: {}/{} in {}",
@@ -98,8 +161,8 @@ pub fn project(
         let parse_quality = parse_quality_for_selected_evidence(
             &normalized_finding,
             selected_evidence,
-            &inputs.parse_quality,
-            &inputs.files,
+            view.parse_quality,
+            view.files,
         );
         let admission = admit_finding_for_resolution(
             &finding.algorithm,
@@ -110,16 +173,16 @@ pub fn project(
         );
         let mut mapped = map_finding(finding);
         if mapped.kind == "external_call" {
-            let context = dependency_hint::SiteContext {
+            let site_context = dependency_hint::SiteContext {
                 file: &file,
                 repo_root: &meta.repo_root,
-                known_files: &inputs.files,
+                known_files: view.files,
                 resolved_name: mapped.hint.as_ref().and_then(|hint| hint.callee.as_deref()),
             };
-            match inputs
+            match view
                 .files
                 .get(&file)
-                .and_then(|parsed| dependency_hint::resolve(parsed, finding.line, &context))
+                .and_then(|parsed| dependency_hint::resolve(parsed, finding.line, &site_context))
             {
                 // AST-recovered callee text (verbatim, dotted chain as
                 // written) supersedes the description-derived fallback in
@@ -151,7 +214,7 @@ pub fn project(
             continue;
         };
         let (symbol, function_start_line, function_end_line) =
-            enclosing_site(&file, finding, inputs, &mut warnings);
+            enclosing_site(&file, finding, view.files, &mut warnings);
         let language = Language::from_path(&file)
             .map(language_tag)
             .map(str::to_string);
@@ -328,10 +391,10 @@ fn normalize_severity(finding: &SliceFinding, warnings: &mut Vec<String>) -> Str
 fn enclosing_site(
     file: &str,
     finding: &SliceFinding,
-    inputs: &ReviewInputs,
+    files: &std::collections::BTreeMap<String, prism::ast::ParsedFile>,
     warnings: &mut Vec<String>,
 ) -> (Option<String>, Option<usize>, Option<usize>) {
-    let Some(parsed) = inputs.files.get(file) else {
+    let Some(parsed) = files.get(file) else {
         warnings.push(format!(
             "targets: function bounds omitted for {file}:{}: file not parsed",
             finding.line

@@ -1,0 +1,125 @@
+{
+  "lane": "Private context authority and routing (#602 S5a O)",
+  "test_targets": [
+    {
+      "prefix": "api::context_route::tests::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "OR01-depth-lower": [
+      "crates/prism-review/src/api/context_options.rs",
+      "if !(1..=4).contains(&self.depth) {",
+      "if self.depth > 4 {",
+      "api::context_route::tests::defaults::o03_invalid_ranges"
+    ],
+    "OR02-depth-upper": [
+      "crates/prism-review/src/api/context_options.rs",
+      "if !(1..=4).contains(&self.depth) {",
+      "if self.depth < 1 {",
+      "api::context_route::tests::defaults::o03_invalid_ranges"
+    ],
+    "OR03-max-files-zero": [
+      "crates/prism-review/src/api/context_options.rs",
+      "if self.max_files == 0 {",
+      "if false {",
+      "api::context_route::tests::defaults::o03_invalid_ranges"
+    ],
+    "OR04-off-skips-validation": [
+      "crates/prism-review/src/api/context_options.rs",
+      "if !(1..=4).contains(&self.depth) {",
+      "if self.mode == TaintContextMode::Off { return Ok(None); }\n        if !(1..=4).contains(&self.depth) {",
+      "api::context_route::tests::defaults::o04_invalid_off_result"
+    ],
+    "OR05-exact-mapped-nameonly": [
+      "crates/prism-review/src/api/context_options.rs",
+      "TaintContextEdges::Exact => prism::cpg::CrossingCeiling::Exact,",
+      "TaintContextEdges::Exact => prism::cpg::CrossingCeiling::NameOnly,",
+      "api::context_route::tests::defaults::o02_valid_ranges_and_ceiling"
+    ],
+    "OR06-imports-request-lost": [
+      "crates/prism-review/src/api/context_options.rs",
+      "Ok(Some(ContextRequest { limits, ceiling }))",
+      "Ok(None)",
+      "api::context_route::tests::defaults::o02_valid_ranges_and_ceiling"
+    ],
+    "OR07-ignored-plain": [
+      "crates/prism-review/src/api/context_route.rs",
+      "Some(_) if !taint => Route::Ignored,",
+      "Some(_) if !taint => Route::Plain,",
+      "api::context_route::tests::routing::o20_decision_total"
+    ],
+    "OR08-unauthorized-plain": [
+      "crates/prism-review/src/api/context_route.rs",
+      "Some(_) if !authorized => Route::Unauthorized,",
+      "Some(_) if !authorized => Route::Plain,",
+      "api::context_route::tests::routing::o20_decision_total"
+    ],
+    "OR09-authorized-plain": [
+      "crates/prism-review/src/api/context_route.rs",
+      "Some(request) => Route::Authorized(request),",
+      "Some(_) => Route::Plain,",
+      "api::context_route::tests::routing::o20_decision_total"
+    ],
+    "OR10-invalid-taint-runs": [
+      "crates/prism-review/src/api/run.rs",
+      "if algorithm == SlicingAlgorithm::Taint {",
+      "if false {",
+      "api::context_route::tests::routing::o07_invalid_per_taint_errors"
+    ],
+    "OR11-invalid-nontaint-skipped": [
+      "crates/prism-review/src/api/run.rs",
+      "if algorithm == SlicingAlgorithm::Taint {",
+      "if true {",
+      "api::context_route::tests::routing::o07_invalid_per_taint_errors"
+    ],
+    "OR12-multi-warning-lost": [
+      "crates/prism-review/src/api/context_route.rs",
+      "run.warnings.push(text.into());",
+      "",
+      "api::context_route::tests::routing::o08_no_taint_ignored_once"
+    ],
+    "OR13-legacy-single-authorized": [
+      "crates/prism-review/src/api/context_route.rs",
+      "single(algorithm, ctx, inputs, config, params, repo, false).map(|(outcome, _, _)| outcome)",
+      "single(algorithm, ctx, inputs, config, params, repo, true).map(|(outcome, _, _)| outcome)",
+      "api::context_route::tests::routing::o10_legacy_unauthorized_is_baseline"
+    ],
+    "OR14-legacy-multi-authorized": [
+      "crates/prism-review/src/api/context_route.rs",
+      "multi(ctx, inputs, algorithms, config, params, repo, false)",
+      "multi(ctx, inputs, algorithms, config, params, repo, true)",
+      "api::context_route::tests::routing::o10_legacy_unauthorized_is_baseline"
+    ],
+    "OR15-invalid-imports-no-ignored": [
+      "crates/prism-review/src/api/context_route.rs",
+      "if params.taint_context.mode == TaintContextMode::Imports {",
+      "if false {",
+      "api::context_route::tests::routing::o09_invalid_no_taint_distinguishes_mode"
+    ],
+    "OR16-invalid-off-ignored": [
+      "crates/prism-review/src/api/context_route.rs",
+      "if params.taint_context.mode == TaintContextMode::Imports {",
+      "if true {",
+      "api::context_route::tests::routing::o09_invalid_no_taint_distinguishes_mode"
+    ],
+    "OR17-review-unauthorized": [
+      "crates/prism-review/src/api/run.rs",
+      "&opts.repo,\n                request.as_ref(),\n                true,",
+      "&opts.repo,\n                request.as_ref(),\n                false,",
+      "api::context_route::tests::authority::o14_high_level_review_authorized"
+    ],
+    "OR18-review-validation-omitted": [
+      "crates/prism-review/src/api/run.rs",
+      "let request = super::context_route::validate_for_review(params)?;",
+      "let request = None;",
+      "api::context_route::tests::defaults::o04_invalid_off_result"
+    ]
+  },
+  "excluded": {
+    "alternate_repo_as_loader": "No alternate loader authority enters route; no invented seam.",
+    "preapply-error-hook": "No deterministic native taint preapply error established; no hook or credit.",
+    "separate-duplicate-note-scaffold": "No standalone duplicate-only seam without artificial scaffolding; actual duplicate/once behavior tested."
+  }
+}

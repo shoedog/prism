@@ -1,0 +1,117 @@
+{
+  "lane": "Review taint emission attribution (#602 S4d1 part E)",
+  "test_targets": [
+    {
+      "prefix": "algorithms::taint::attribution::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "EA01-path-license-dropped": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.license((sf.as_str(), *sl), &evidence, LicenseRoute::Path);",
+      "",
+      [
+        "algorithms::taint::attribution::tests::sites::every_emitted_finding_is_indexed",
+        "algorithms::taint::attribution::tests::sites::per_sink_evidence_survives_a_better_global_witness"
+      ]
+    ],
+    "EA02-path-license-records-global-best": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.license((sf.as_str(), *sl), &evidence, LicenseRoute::Path);",
+      "rec.license(\n                    (sf.as_str(), *sl),\n                    evidence_for_sources\n                        .get(&(sf.clone(), *sl))\n                        .unwrap_or(&evidence),\n                    LicenseRoute::Path,\n                );",
+      "algorithms::taint::attribution::tests::sites::per_sink_evidence_survives_a_better_global_witness"
+    ],
+    "EA03-fallback-license-dropped": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.license((sf, sl), &evidence, LicenseRoute::Fallback);",
+      "",
+      "algorithms::taint::attribution::tests::sites::fallback_license_is_recorded_unlabeled"
+    ],
+    "EA04-fallback-evidence-not-unlabeled": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.license((sf, sl), &evidence, LicenseRoute::Fallback);",
+      "rec.license((sf, sl), &EvidencePath::default(), LicenseRoute::Fallback);",
+      "algorithms::taint::attribution::tests::sites::fallback_license_is_recorded_unlabeled"
+    ],
+    "EA05-fallback-route-mislabelled": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.license((sf, sl), &evidence, LicenseRoute::Fallback);",
+      "rec.license((sf, sl), &evidence, LicenseRoute::Path);",
+      "algorithms::taint::attribution::tests::sites::fallback_license_is_recorded_unlabeled"
+    ],
+    "EA06-sink-index-taken-after-push": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.sink(result.findings.len(), \"taint_sink\", at, source_location);",
+      "rec.sink(result.findings.len() + 1, \"taint_sink\", at, source_location);",
+      "algorithms::taint::attribution::tests::sites::every_emitted_finding_is_indexed"
+    ],
+    "EA07-selected-source-from-path-derived-pick": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.sink(result.findings.len(), \"taint_sink\", at, source_location);",
+      "rec.sink(result.findings.len(), \"taint_sink\", at, path_derived_source);",
+      [
+        "algorithms::taint::attribution::tests::sites::fallback_license_is_recorded_unlabeled",
+        "algorithms::taint::attribution::tests::sites::selected_source_matches_the_description"
+      ]
+    ],
+    "EA08-unquoted-license-dropped": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.license((sf.as_str(), *sl), &evidence, LicenseRoute::Unquoted);",
+      "",
+      "algorithms::taint::attribution::tests::sites::unquoted_expansion_is_attributed"
+    ],
+    "EA09-unquoted-category-lost": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.sink(result.findings.len(), \"unquoted_expansion\", at, None);",
+      "rec.sink(result.findings.len(), \"taint_sink\", at, None);",
+      [
+        "algorithms::taint::attribution::tests::sites::unquoted_expansion_is_attributed",
+        "algorithms::taint::attribution::tests::sites::every_emitted_finding_is_indexed"
+      ]
+    ],
+    "EA10-source-emission-index-off-by-one": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "rec.source(result.findings.len(), (file.as_str(), *line));",
+      "rec.source(result.findings.len() + 1, (file.as_str(), *line));",
+      "algorithms::taint::attribution::tests::sites::every_emitted_finding_is_indexed"
+    ],
+    "EA11-wrapper-passes-a-sidecar": [
+      "crates/prism-review/src/algorithms/taint/run.rs",
+      "slice_attributed_impl(ctx, diff, taint_config, trace, scope, None)",
+      "slice_attributed_impl(ctx, diff, taint_config, trace, scope, Some(&mut EmissionAttribution::default()))",
+      "algorithms::taint::attribution::tests::none_records_nothing"
+    ],
+    "EA12-run-scoped-passes-none": [
+      "crates/prism-review/src/algorithms/taint/source_scope/admission.rs",
+      "Some(&mut emission),",
+      "None,",
+      [
+        "algorithms::taint::attribution::tests::sites::every_emitted_finding_is_indexed",
+        "algorithms::taint::attribution::tests::sites::per_sink_evidence_survives_a_better_global_witness"
+      ]
+    ],
+    "EA13-licenses-leak-across-sinks": [
+      "crates/prism-review/src/algorithms/taint/attribution.rs",
+      "licensed: std::mem::take(&mut self.licensed),",
+      "licensed: self.licensed.clone(),",
+      "algorithms::taint::attribution::tests::sites::per_sink_evidence_survives_a_better_global_witness"
+    ],
+    "EA14-selected-source-dropped": [
+      "crates/prism-review/src/algorithms/taint/attribution.rs",
+      "selected_source: selected.map(|(file, line)| (file.to_string(), line)),",
+      "selected_source: None,",
+      [
+        "algorithms::taint::attribution::tests::sites::fallback_license_is_recorded_unlabeled",
+        "algorithms::taint::attribution::tests::sites::selected_source_matches_the_description"
+      ]
+    ],
+    "EA15-license-buffers-without-a-sidecar": [
+      "crates/prism-review/src/algorithms/taint/attribution.rs",
+      "        if self.sidecar.is_none() {\n            return;\n        }\n",
+      "",
+      "algorithms::taint::attribution::tests::none_records_nothing"
+    ]
+  }
+}

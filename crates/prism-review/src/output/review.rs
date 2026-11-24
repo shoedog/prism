@@ -195,6 +195,40 @@ pub fn to_review_output(result: &SliceResult, sources: &BTreeMap<String, String>
     }
 }
 
+/// Render one result using the public same-review view selected by the caller.
+pub fn to_review_output_for(
+    result: &SliceResult,
+    view: crate::api::ResultView<'_>,
+) -> ReviewOutput {
+    to_review_output_in(result, view.maps(), view.context_files())
+}
+
+/// Render a result using the caller-selected completed map view.
+#[allow(dead_code)] // S5d supplies the first production caller.
+pub(crate) fn to_review_output_in(
+    result: &SliceResult,
+    view: crate::api::map_view::MapView<'_>,
+    context_files: Option<&std::collections::BTreeSet<String>>,
+) -> ReviewOutput {
+    let mut output = to_review_output(result, view.sources);
+    output.parse_quality = context_parse_quality(view, context_files);
+    output
+}
+
+/// Per-result quality is sparse and restricted to admitted context files.
+/// A clean file parsed cleanly; its imports are not thereby analysed. The universe
+/// remains the original files plus admitted files. Run-level quality stays original.
+pub(super) fn context_parse_quality(
+    view: crate::api::map_view::MapView<'_>,
+    context_files: Option<&std::collections::BTreeSet<String>>,
+) -> BTreeMap<String, FileParseQuality> {
+    view.parse_quality
+        .iter()
+        .filter(|(file, _)| context_files.is_some_and(|files| files.contains(*file)))
+        .map(|(file, quality)| (file.clone(), quality.clone()))
+        .collect()
+}
+
 /// Format a slice block as the paper's line-numbered output.
 pub fn format_block(block: &DiffBlock, sources: &BTreeMap<String, String>) -> String {
     let mut output = String::new();
@@ -528,3 +562,7 @@ pub fn to_paper_format(blocks: &[DiffBlock]) -> serde_json::Value {
 
     serde_json::Value::Array(output)
 }
+
+#[cfg(test)]
+#[path = "context_render_tests.rs"]
+mod context_render_tests;

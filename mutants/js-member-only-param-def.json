@@ -16,8 +16,8 @@
  "mutations": {
   "MO-01-bare-check-off": [
    "src/ast/js_ts/params.rs",
-   "        if self.has_bare_references(func_node, var_name) {\n            return ParameterUse::Bare;",
-   "        if false && self.has_bare_references(func_node, var_name) {\n            return ParameterUse::Bare;",
+   "        if self.has_bare_references(func_node, var_name)\n            || self.js_ts_parameter_list_reads_bare(func_node, var_name)",
+   "        if (false && self.has_bare_references(func_node, var_name))\n            || self.js_ts_parameter_list_reads_bare(func_node, var_name)",
    [
     "cpg::member_only_param_tests::classifier_distinguishes_bare_member_only_and_unused",
     "cpg::member_only_param_tests::computed_member_and_bare_uses_keep_the_old_behaviour"

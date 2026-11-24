@@ -1,0 +1,83 @@
+{
+  "lane": "Borrowed context map views and unchanged review wrappers (#602 S4d2 PART V)",
+  "test_targets": [
+    {
+      "prefix": "api::map_view::tests::",
+      "package": "prism-review",
+      "target": "lib"
+    },
+    {
+      "prefix": "targets::context_view_tests::",
+      "package": "prism-review",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "MV01-wrapper-ignores-exact-floor": [
+      "crates/prism-review/src/api/run.rs",
+      "crate::api::map_view::MapView::original(inputs),\n        min_confidence,",
+      "crate::api::map_view::MapView::original(inputs),\n        MinConfidence::NameOnly,",
+      "api::map_view::tests::v01_wrappers_equal_the_view_forms"
+    ],
+    "MV02-nameonly-repairs-misalignment": [
+      "crates/prism-review/src/api/run.rs",
+      "if min_confidence == MinConfidence::NameOnly {",
+      "if false {",
+      "api::map_view::tests::v09_nameonly_keeps_malformed_evidence_untouched"
+    ],
+    "MV03-projection-uses-original-quality": [
+      "crates/prism-review/src/targets/mod.rs",
+      "view.parse_quality,\n            view.files,",
+      "&inputs.parse_quality,\n            view.files,",
+      "api::map_view::tests::v03_poor_context_parse_is_graded_from_the_bundle"
+    ],
+    "MV04-projection-uses-original-parsed-map": [
+      "crates/prism-review/src/targets/mod.rs",
+      "view.parse_quality,\n            view.files,",
+      "view.parse_quality,\n            &inputs.files,",
+      "api::map_view::tests::v02_clean_context_witness_survives_an_exact_floor"
+    ],
+    "MV05-context-leaks-into-non-taint": [
+      "crates/prism-review/src/targets/mod.rs",
+      "if finding.algorithm == \"taint\" {",
+      "if true {",
+      "targets::context_view_tests::v05_non_taint_keeps_original_maps"
+    ],
+    "MV06-taint-context-ignored": [
+      "crates/prism-review/src/targets/mod.rs",
+      "if finding.algorithm == \"taint\" {",
+      "if false {",
+      "api::map_view::tests::v02_clean_context_witness_survives_an_exact_floor"
+    ],
+    "MV07-non-taint-hint-known-files-leak": [
+      "crates/prism-review/src/targets/mod.rs",
+      "known_files: view.files,",
+      "known_files: context.unwrap_or(view).files,",
+      "targets::context_view_tests::v05_non_taint_keeps_original_maps"
+    ],
+    "MV08-non-taint-hint-site-parse-leak": [
+      "crates/prism-review/src/targets/mod.rs",
+      "match view\n                .files",
+      "match context.unwrap_or(view)\n                .files",
+      "targets::context_view_tests::v10_non_taint_dependency_site_does_not_use_context_parse"
+    ],
+    "MV09-taint-site-uses-original-parse": [
+      "crates/prism-review/src/targets/mod.rs",
+      "enclosing_site(&file, finding, view.files, &mut warnings);",
+      "enclosing_site(&file, finding, &inputs.files, &mut warnings);",
+      "targets::context_view_tests::v04_targets_site_and_grade_use_the_bundle_for_taint"
+    ],
+    "MV10-context-drops-original-diff-hash": [
+      "crates/prism-review/src/targets/mod.rs",
+      "sha256: Some(inputs.diff_text_sha256.clone()),",
+      "sha256: context.is_none().then(|| inputs.diff_text_sha256.clone()),",
+      "targets::context_view_tests::v06_diff_metadata_is_original"
+    ],
+    "MV11-diff-files-from-union": [
+      "crates/prism-review/src/targets/mod.rs",
+      "files: inputs\n                .diff\n                .files\n                .iter()\n                .map(|file| file.file_path.clone())\n                .collect(),",
+      "files: context.map(|view| view.files.keys().cloned().collect()).unwrap_or_else(|| inputs.diff.files.iter().map(|file| file.file_path.clone()).collect()),",
+      "targets::context_view_tests::v06_diff_metadata_is_original"
+    ]
+  }
+}

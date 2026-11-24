@@ -64,9 +64,15 @@ pub struct ReviewInputs {
     pub min_confidence: MinConfidence,
     pub resolution: ResolutionMode,
     build_warnings: Vec<String>,
+    /// The original root, listing and scope inputs for later context reads (#602 S4a).
+    pub(super) context_capture: super::review_loading::ContextCapture,
 }
 
 pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<ReviewInputs> {
+    // Bind relative library inputs before any later advisory reads. Preserve
+    // lexical/symlink behavior; canonicalization belongs to the CLI policy.
+    let repo_root = std::path::absolute(&opts.repo).context("Failed to bind review repository")?;
+    let observed_root = super::review_loading::observe_root(&repo_root);
     crate::build_pool::install(|| {
         let profile_load = crate::profile::Phase::serial("load_parse");
         let mut diff_input = if diff_text.trim_start().starts_with('{') {
@@ -88,7 +94,7 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
         let mut load_warnings: Vec<String> = Vec::new();
 
         for diff_info in &diff_input.files {
-            let file_path = opts.repo.join(&diff_info.file_path);
+            let file_path = repo_root.join(&diff_info.file_path);
             let language = match Language::from_path(&diff_info.file_path) {
                 Some(l) => l,
                 None => {
@@ -167,12 +173,12 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
             crate::ast::parse_quality::check_parse_quality(&files);
         drop(profile_load);
         let (mut scope_graph_inputs, source_listing) =
-            crate::repo_loader::scope_graph_build_inputs_with_listing(&opts.repo, &files);
+            crate::repo_loader::scope_graph_build_inputs_with_listing(&repo_root, &files);
         // #630 slice 6a: review parses only the diff's files. When the repository holds C/C++
         // census inputs it did not read, the macro census fails closed (stamped on every
         // parsed C/C++ file) and the gap joins the review topology key.
         if let Some(gap) = crate::repo_loader::c_census::review_gap(
-            &opts.repo,
+            &repo_root,
             &files,
             source_listing.as_ref().ok().map(|l| l.as_ref()),
         ) {
@@ -185,6 +191,13 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
                 .manifest_hashes
                 .insert("c-census:review-incomplete".into(), gap);
         }
+        // Taken after the census block so the private manifest hashes equal the published ones.
+        let context_capture = super::review_loading::capture(
+            &repo_root,
+            observed_root,
+            &scope_graph_inputs,
+            &source_listing,
+        );
         let diff_text_sha256 = format!("{:x}", Sha256::digest(diff_text.as_bytes()));
 
         Ok(ReviewInputs {
@@ -201,6 +214,7 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
             min_confidence: opts.min_confidence,
             resolution: opts.resolution,
             build_warnings,
+            context_capture,
         })
     })
 }

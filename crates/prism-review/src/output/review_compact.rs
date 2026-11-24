@@ -234,6 +234,45 @@ pub fn to_compact_review_output(
     }
 }
 
+/// Render compact output through the selected same-review view, preserving existing filters.
+pub fn to_compact_review_output_for(
+    result: &SliceResult,
+    view: crate::api::ResultView<'_>,
+    min_severity_rank: u8,
+    full_slices: bool,
+    no_diagrams: bool,
+) -> CompactReviewOutput {
+    to_compact_review_output_in(
+        result,
+        view.maps(),
+        view.context_files(),
+        min_severity_rank,
+        full_slices,
+        no_diagrams,
+    )
+}
+
+/// Compact rendering using the caller-selected completed map view.
+#[allow(dead_code)] // S5d supplies the first production caller.
+pub(crate) fn to_compact_review_output_in(
+    result: &SliceResult,
+    view: crate::api::map_view::MapView<'_>,
+    context_files: Option<&BTreeSet<String>>,
+    min_severity_rank: u8,
+    full_slices: bool,
+    no_diagrams: bool,
+) -> CompactReviewOutput {
+    let mut output = to_compact_review_output(
+        result,
+        view.sources,
+        min_severity_rank,
+        full_slices,
+        no_diagrams,
+    );
+    output.parse_quality = super::review::context_parse_quality(view, context_files);
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,0 +1,58 @@
+{
+  "lane": "Process-wide generic scalar profiler counters (#602 S5c-P)",
+  "source": "docs/BUILD-PROFILE.md",
+  "test_targets": [
+    {
+      "prefix": "profile::counters::",
+      "package": "prism",
+      "target": "lib"
+    }
+  ],
+  "mutations": {
+    "PC01-replace-not-add": [
+      "src/profile/counters.rs",
+      "*total = total.saturating_add(value);",
+      "*total = value;",
+      "profile::counters::tests::p02_same_name_accumulates"
+    ],
+    "PC02-wrap-not-saturate": [
+      "src/profile/counters.rs",
+      "*total = total.saturating_add(value);",
+      "*total = total.wrapping_add(value);",
+      "profile::counters::tests::p04_saturates_instead_of_wrapping"
+    ],
+    "PC03-before-owners": [
+      "src/profile/mod.rs",
+      "        for owner in &profile.owners {\n            line(writer, owner)?;\n        }\n        for row in counters::rows(&profile.counters) {\n            line(writer, &row)?;\n        }\n",
+      "        for row in counters::rows(&profile.counters) {\n            line(writer, &row)?;\n        }\n        for owner in &profile.owners {\n            line(writer, owner)?;\n        }\n",
+      "profile::counters::tests::p01_counters_are_written_between_owners_and_summary"
+    ],
+    "PC04-after-summary": [
+      "src/profile/mod.rs",
+      "        for row in counters::rows(&profile.counters) {\n            line(writer, &row)?;\n        }\n        line(writer, &summary::summarize(&profile.owners, 10))?;\n",
+      "        line(writer, &summary::summarize(&profile.owners, 10))?;\n        for row in counters::rows(&profile.counters) {\n            line(writer, &row)?;\n        }\n",
+      "profile::counters::tests::p01_counters_are_written_between_owners_and_summary"
+    ],
+    "PC05-reverse-name-order": [
+      "src/profile/counters.rs",
+      "counters.iter().map(|(&name, &value)| CounterRow {",
+      "counters.iter().rev().map(|(&name, &value)| CounterRow {",
+      "profile::counters::tests::p03_rows_are_in_name_order"
+    ],
+    "PC06-counter-key-order": [
+      "src/profile/counters.rs",
+      "    name: &'static str,\n    value: u64,",
+      "    value: u64,\n    name: &'static str,",
+      "profile::counters::tests::p01_counters_are_written_between_owners_and_summary"
+    ],
+    "PC07-session-collector-retained": [
+      "src/profile/mod.rs",
+      "let Some(mut profile) = slot.take() else {",
+      "let Some(profile) = slot.as_mut() else {",
+      "profile::counters::tests::p07_next_session_starts_empty"
+    ]
+  },
+  "excluded": {
+    "enabled-check-removed": "Unobservable when no profile is present: locking a None collector records nothing; no scaffolding or mutation credit."
+  }
+}
