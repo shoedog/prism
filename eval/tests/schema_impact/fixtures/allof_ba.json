@@ -1,0 +1,13 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/b": {"get": {"responses": {"200": {"schema": {"allOf": [
+      {"properties": {
+        "mode": {"type": "string", "enum": ["c"]},
+        "level": {"description": "Item level", "minimum": 0, "allOf": [{"$ref": "#/definitions/Level"}]}
+      }},
+      {"properties": {"mode": {"type": "string", "enum": ["a", "b"]}}}
+    ]}}}}}
+  },
+  "definitions": {"Level": {"type": "integer", "format": "int32"}}
+}

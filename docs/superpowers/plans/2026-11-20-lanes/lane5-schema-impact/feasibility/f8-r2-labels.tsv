@@ -1,0 +1,44 @@
+f8-1-0001	cannot_tell	The server registers POST /answer/api/v1/chat/completions, but the evidence does not establish why it lacks a schema operation.
+f8-1-0002	cannot_tell	The server registers POST /answer/api/v1/chat/completions, but the evidence does not establish why it lacks a schema operation.
+f8-1-0003	cannot_tell	getLoginConf has a caller, but dynamically registered agent routes leave the availability of the WeCom endpoint unresolved.
+f8-1-0004	real_mismatch	The report modal calls putReport, while the built-in router has no PUT /answer/admin/api/report registration.
+f8-1-0005	dead_client_code	setNotice has no caller in the client, and the built-in router does not register POST /answer/api/v1/user/notice/set.
+f8-1-0006	outside_schema	GET /answer/api/v1/user-center/agent is registered by the plugin router under the public API group.
+f8-1-0007	outside_schema	GET /answer/admin/api/user-center/agent is registered by the plugin router under the admin API group.
+f8-1-0008	outside_schema	GET /answer/api/v1/user-center/user/settings is registered by the plugin router under the authenticated API group.
+f8-2-0001	stale_annotation	SendUserActivation is registered at POST /answer/admin/api/user/activation, while its annotation says users/activation.
+f8-2-0002	stale_annotation	GetUserNotificationConfig is registered with GET at the annotated path, while its annotation says POST.
+f8-2-0003	extractor_miss	The installation server registers InitBaseInfo with a computed API base prefix followed by /installation/base-info.
+f8-2-0004	extractor_miss	The installation server registers CheckConfigFile with a computed API base prefix followed by /installation/config-file/check.
+f8-2-0005	extractor_miss	The installation server registers CheckDatabase with a computed API base prefix followed by /installation/db/check.
+f8-2-0006	extractor_miss	The installation server registers InitEnvironment with a computed API base prefix followed by /installation/init.
+f8-3-0001	outside_schema	The main server registers /healthz as a health check.
+f8-3-0002	outside_schema	The installation server registers /healthz as a health check.
+f8-3-0003	stale_annotation	GetUserNotificationConfig is registered with GET, but its annotation documents POST at that path.
+f8-3-0004	cannot_tell	ChatCompletions is registered under the authenticated API group without an annotation, but the evidence does not establish the intended schema coverage.
+f8-3-0005	stale_annotation	SendUserActivation is registered at POST /answer/admin/api/user/activation, while its annotation says users/activation.
+f8-3-0006	cannot_tell	The server registers an MCP SSE endpoint, but the evidence does not establish whether its omission from the schema is intentional.
+f8-3-0007	cannot_tell	The server registers an MCP message endpoint, but the evidence does not establish whether its omission from the schema is intentional.
+f8-3-0008	outside_schema	UserCenterAgent is registered as a user-center plugin route.
+f8-3-0009	outside_schema	UserCenterPersonalBranding is registered as a user-center plugin route.
+f8-3-0010	outside_schema	UserCenterLoginCallback is registered as a user-center plugin route.
+f8-3-0011	outside_schema	UserCenterSignUpCallback is registered as a user-center plugin route.
+f8-3-0012	outside_schema	GetCaptchaConfig is registered as a captcha plugin route.
+f8-3-0013	outside_schema	GetSidebarConfig is registered as a sidebar plugin route.
+f8-3-0014	outside_schema	UserCenterUserSettings is registered as a user-center plugin route.
+f8-3-0015	outside_schema	UserCenterAdminFunctionAgent is registered as an admin user-center plugin route.
+f8-3-0016	outside_schema	The conditional /swagger/*any registration serves the Swagger documentation interface.
+f8-3-0017	outside_schema	Sitemap is registered by the template router for SEO output.
+f8-3-0018	outside_schema	SitemapPage is registered by the template router for SEO output.
+f8-3-0019	outside_schema	Page404 is registered by the template router as a page route.
+f8-3-0020	outside_schema	OpenSearch is registered by the template router for SEO output.
+f8-3-0021	outside_schema	QuestionList is registered by the template router as a page route.
+f8-3-0022	outside_schema	QuestionInfo is registered by the template router for the question page.
+f8-3-0023	outside_schema	QuestionInfo is registered by the template router for the question page with a title.
+f8-3-0024	outside_schema	QuestionInfo is registered by the template router for the question page with a title and answer ID.
+f8-3-0025	outside_schema	TagInfo is registered by the template router as a page route.
+f8-3-0026	outside_schema	UserInfo is registered by the template router as a page route.
+f8-4-0001	stale_annotation	GetUserNotificationConfig is registered with GET at the annotated path, while its annotation says POST.
+f8-4-0002	stale_annotation	The client’s POST is served at /answer/admin/api/user/activation, while SendUserActivation documents the plural users/activation path.
+f8-4-0003	stale_annotation	The client’s GET is served by GetUserNotificationConfig, whose annotation incorrectly specifies POST.
+counts: outside_schema=24 stale_annotation=7 dead_client_code=1 extractor_miss=4 real_mismatch=1 cannot_tell=6

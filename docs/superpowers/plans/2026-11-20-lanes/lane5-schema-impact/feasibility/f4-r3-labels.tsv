@@ -1,0 +1,149 @@
+7a036f2118e25292a2cae1d9f2b6ec8a6f31d6de:pred:1	dead_code	At the pin, setNotice has no client caller.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:1	real_mismatch	putReport is called, but neither the router nor annotations serve PUT /answer/admin/api/report at the pin.
+f05f1eb80d10124c252b1b3f812aa26e95aad8f8:pred:1	coordinated	The client replaces the removed write-settings GET during the same menu adjustment, with both commits first in v2.0.0-RC1.
+f05f1eb80d10124c252b1b3f812aa26e95aad8f8:pred:2	coordinated	The client replaces the removed write-settings PUT during the same menu adjustment, with both commits first in v2.0.0-RC1.
+3264fdd1d90f8845dac1632b772bc86d2d61a554:pred:3	false_prediction	The followed line now belongs to getPoliciesSetting and requests policies rather than the removed legal endpoint.
+3264fdd1d90f8845dac1632b772bc86d2d61a554:pred:4	coordinated	The client removes the legal-settings PUT as part of the corresponding settings adjustment, with both commits first in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:26	coordinated	The client removes the write-settings form that submitted min_tags in the same menu feature, with both commits first in v2.0.0-RC1.
+3264fdd1d90f8845dac1632b772bc86d2d61a554:pred:6	coordinated	The client removes login_required from the login-settings form during the related settings adjustment, with both commits first in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:45	false_prediction	The followed getAppSettings call does not identify a use of site_write.min_content.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:26	false_prediction	The followed queryTags call does not identify a use of main_tag_slug_name.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:13	false_prediction	The followed timeline request does not identify a use of timeline item id.
+1dba13a278a0a56ce2e0fd82b21ebd35ef73d538:pred:7	false_prediction	The followed account-activation request does not identify a use of is_admin.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:19	false_prediction	The followed write-settings request does not identify a use of the response reason field.
+f93fb6b7093d6b70628a36ee489bd6e5d7d9710e:pred:9	unrelated_edit	The later edit wraps answer submission in a CAPTCHA flow while retaining the html field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:21	coordinated	The client removes the write-settings form that submitted authorized_image_extensions in the same menu feature, with both commits first in v2.0.0-RC1.
+1dba13a278a0a56ce2e0fd82b21ebd35ef73d538:pred:5	unrelated_edit	The later commit removes the registration CAPTCHA request without addressing the predicted is_admin response field.
+1dba13a278a0a56ce2e0fd82b21ebd35ef73d538:pred:3	false_prediction	The followed login request does not identify a use of is_admin.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:30	false_prediction	The followed occurrences of type concern other service code, not queryTags member_actions.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:14	false_prediction	The followed timeline request does not identify a use of user_display_name.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:32	false_prediction	The followed write-settings request does not identify a use of reserved_tags display_name.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:7	coordinated	The client removes the write-settings form that consumed max_image_size in the same menu feature, with both commits first in v2.0.0-RC1.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:35	false_prediction	The followed queryTags call does not identify a use of updated_at.
+61b10a854ff6ea5bf5eedbc81d4a373aecbeac9e:pred:3	unrelated_edit	The later privilege edit adds custom-privilege request handling rather than responding to the earlier level enum restriction.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:27	false_prediction	The followed queryTags call does not identify a use of member_actions.
+f93fb6b7093d6b70628a36ee489bd6e5d7d9710e:pred:1	real_mismatch	modifyTag is called and still submits parsed_text, but the registered PUT handler binds UpdateTagReq, whose parsed_text is excluded from JSON.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:49	false_prediction	The followed getAppSettings call does not identify a use of site_write.recommend_tags slug_name.
+661d8a7f8fec684a4b07fe5f4b67a53642fdf4d3:pred:4	unrelated_edit	The touched e_mail line changes the separate changeEmail request, not the login request.
+da4be341f2f7b89a1404a1080dc39bd27e693dbf:pred:1	false_prediction	The followed personal-info request does not identify a use of the response field has.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:1	false_prediction	The followed write-settings request does not identify a use of the response code field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:15	false_prediction	The followed write-settings request does not identify a use of reserved_tags display_name.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:52	false_prediction	The followed getAppSettings call does not identify a use of site_write.reserved_tags display_name.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:31	false_prediction	The followed original_text access is in the tag-creation modal callback, not the queryTags response.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:9	coordinated	The client removes the write-settings form that consumed min_tags in the same menu feature, with both commits first in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:44	false_prediction	The followed getAppSettings call does not identify a use of site_write.max_image_size.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:5	false_prediction	The client already sends answer_id, so making that field required does not affect this call.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:6	false_prediction	The client already sends status, with callers using the allowed available and deleted values.
+e2adc9b88703023de07afbc16f3f4db62a7f6f0f:pred:2	false_prediction	The followed revisions request does not identify a use of user_info.status.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:12	false_prediction	The followed slug_name access compares reserved_tags, not the predicted recommend_tags field.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:21	false_prediction	The followed queryTags call does not identify a use of created_at.
+3264fdd1d90f8845dac1632b772bc86d2d61a554:pred:7	false_prediction	The followed getAppSettings call does not identify a use of general.check_update.
+1dba13a278a0a56ce2e0fd82b21ebd35ef73d538:pred:1	false_prediction	The followed personal-info request does not identify a use of info.ip_info.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:4	false_prediction	The followed search-plugin request does not identify a use of object.user_info.website.
+73cfbace7090b233a51571dabdd26ec47c62c890:pred:1	coordinated	The client removes default_avatar from interface settings in the related menu adjustment, with both commits first in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:54	coordinated	The client replaces its site_write.restrict_answer access during the same menu feature, with both commits first in v2.0.0-RC1.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:22	false_prediction	The followed logged-user request does not identify a use of ip_info.
+5e89f4031b3c9357698dee450205f973e16243cb:pred:1	false_prediction	The followed user-info request does not identify an avatar value or a dependency on its changed type.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:6	coordinated	The client removes the write-settings form that consumed max_image_megapixel in the same menu feature, with both commits first in v2.0.0-RC1.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:12	false_prediction	The followed search request does not identify a use of object.user_info.website.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:37	false_prediction	The followed msg occurrence is a local toast property, not the PUT response field.
+07d3d3525ba5c2248bafa7ea6812d811dff476b3:pred:2	false_prediction	The client sends `flagged_type`, not the removed spelling `flaged_type`.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:29	cannot_tell	The followed client lines do not establish a use of the removed nested `name` field.
+82fdfc77636d8d1ce28710d929a8c22bb52834ef:pred:1	cannot_tell	The client uses `object_collection_count`, but the evidence does not establish whether its type change affects that use.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:2	false_prediction	Adding `TLS` to the accepted encryption values does not invalidate the existing `SSL` value.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:50	cannot_tell	The followed line calls siteinfo but does not establish a use of `site_write.required_tag`.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:20	cannot_tell	The followed login call does not establish a use of the removed `ip_info` field.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:17	cannot_tell	The followed timeline call does not establish a use of the removed `user_display_name` field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:18	coordinated	The write-settings endpoint migration is part of the same menu branch, and both commits first appear in v2.0.0-RC1.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:8	false_prediction	The client already supplies `status` in the request that made it required.
+c2a0bee7dc5e6066ab20c6417fe9f89f6c553a86:pred:3	cannot_tell	The followed siteinfo call does not establish a use of the removed `interface.default_avatar` field.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:10	cannot_tell	The followed search call does not establish a use of the removed nested `ip_info` field.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:32	real_mismatch	`queryTags` has callers, its registered and annotated route returns `GetTagBasicResp` without `parsed_text`, and a followed client line still spells `parsed_text`.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:24	coordinated	The client moves write settings including `max_image_size` as part of the same menu branch, first released in v2.0.0-RC1.
+e2adc9b88703023de07afbc16f3f4db62a7f6f0f:pred:1	unrelated_edit	The later change replaces the search hook’s fetching mechanism and does not address `user_info.status`.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:42	cannot_tell	The followed siteinfo call does not establish a use of `site_write.max_attachment_size`.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:24	cannot_tell	The followed tag-search call does not establish a use of `follow_count`.
+3b6f981b81ca4376138734e4039eab59b1fea63c:pred:1	false_prediction	The client supplies `require_email_verification` in the login-settings request.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:17	coordinated	The client moves write settings including `restrict_answer` as part of the same menu branch, first released in v2.0.0-RC1.
+07d3d3525ba5c2248bafa7ea6812d811dff476b3:pred:1	false_prediction	The client sends `flagged_content`, not the removed spelling `flaged_content`.
+c2a0bee7dc5e6066ab20c6417fe9f89f6c553a86:pred:4	cannot_tell	The followed siteinfo call does not establish a use of `interface.gravatar_base_url`.
+61b10a854ff6ea5bf5eedbc81d4a373aecbeac9e:pred:2	unrelated_edit	The later edit wraps `selected_level` in form state and does not respond to the earlier enum change.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:51	cannot_tell	The followed siteinfo call does not establish a use of `site_write.reserved_tags`.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:46	cannot_tell	The followed siteinfo call does not establish a use of `site_write.min_tags`.
+f93fb6b7093d6b70628a36ee489bd6e5d7d9710e:pred:7	unrelated_edit	The later edit fixes form-state resetting and retains the `parsed_text` initialization.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:25	cannot_tell	The followed tag-search call does not establish a use of `is_follower`.
+7085cfa7ed54c1ce397d0a1d605fa6f3442838c9:pred:2	cannot_tell	The followed interface-settings call does not establish whether the removed `theme` request field affected its caller.
+2b1ad94791631c35ebe684d6b3b5e05271859d76:pred:1	false_prediction	`useInterfaceSetting` sends the interface URL without a `mention_username_list` query parameter.
+b64b5e61b4356eeb4526d43ac73b96fe2a110f58:pred:5	cannot_tell	The followed siteinfo call does not establish a use of the removed top-level `site_url` field.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:1	cannot_tell	The followed search-description call does not establish a use of the removed nested `avatar` field.
+8d421ae5d5ac24171053493414a7fb247d4ba4f3:pred:3	unrelated_edit	The later touch moves `modifyPassword` unchanged within the service file.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:2	cannot_tell	The followed search-description call does not establish a use of the removed nested `ip_info` field.
+73cfbace7090b233a51571dabdd26ec47c62c890:pred:2	coordinated	The client removes `gravatar_base_url` from interface settings on the same menu branch, first released in v2.0.0-RC1.
+b64b5e61b4356eeb4526d43ac73b96fe2a110f58:pred:2	cannot_tell	The followed siteinfo call does not establish a use of the removed top-level `description` field.
+69c6b22b418b6420c71c4d3efec07785449c8910:pred:2	cannot_tell	The client sends `username` at the pin, where the packet reports it served, but the effect of its historical removal is not established.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:23	coordinated	The client moves write settings including `max_image_megapixel` as part of the same menu branch, first released in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:28	coordinated	The write-settings endpoint and its tag settings move together on the same menu branch, first released in v2.0.0-RC1.
+1dba13a278a0a56ce2e0fd82b21ebd35ef73d538:pred:4	unrelated_edit	The later registration edit adds a response type for email-verification work rather than addressing `is_admin`.
+69c6b22b418b6420c71c4d3efec07785449c8910:pred:1	false_prediction	The profile client supplies `display_name` in the user-info request.
+3264fdd1d90f8845dac1632b772bc86d2d61a554:pred:5	coordinated	The client removes `login_required` from login settings alongside the security-settings refactor on the same branch, first released in v2.0.0-RC1.
+2b1ad94791631c35ebe684d6b3b5e05271859d76:pred:2	false_prediction	`useInterfaceSetting` sends the interface URL without an `object_id` query parameter.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:48	cannot_tell	The followed siteinfo call does not establish a use of `site_write.recommend_tags[].display_name`.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:36	coordinated	The write-settings endpoint is replaced as part of the same menu branch, first released in v2.0.0-RC1.
+2b1ad94791631c35ebe684d6b3b5e05271859d76:pred:3	false_prediction	`useInterfaceSetting` sends the interface URL without an `original_text` query parameter.
+a613315f4fc84a85a2abc90813ff678fb46e7d41:pred:1	unrelated_edit	The later touch adds a request configuration argument and does not address the avatar type.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:23	cannot_tell	The followed tag-search call does not establish a use of `excerpt`.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:7	false_prediction	The client already supplies `question_id` in the request that made it required.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:53	cannot_tell	The followed siteinfo call does not establish a use of `site_write.reserved_tags[].slug_name`.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:3	coordinated	The client moves write settings including `authorized_attachment_extensions` as part of the same menu branch, first released in v2.0.0-RC1.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:28	false_prediction	The followed `action` lines belong to other requests and do not address tag-search `member_actions`.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:34	coordinated	The client moves `restrict_answer` from write settings as part of the same menu branch, first released in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:4	coordinated	The menu change and the client’s replacement of the write-settings endpoint both first appear in v2.0.0-RC1 as part of the admin menu adjustments.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:21	unrelated_edit	The later registration edit changes the response type annotation for email-verification work, not the removed ip_info field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:2	coordinated	The admin menu change and removal of the old write-settings client endpoint first appear together in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:20	coordinated	The admin menu change and replacement of the write-settings request first appear together in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:8	coordinated	The admin menu change and removal of the old write-settings client endpoint first appear together in v2.0.0-RC1.
+f93fb6b7093d6b70628a36ee489bd6e5d7d9710e:pred:2	unrelated_edit	The touching hunk rearranges the tag information display and its response parsed_text, rather than changing the synonym request field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:10	coordinated	The admin menu change and removal of the old write-settings client endpoint first appear together in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:39	coordinated	The menu change and corresponding replacement of site_write consumption first appear together in v2.0.0-RC1.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:10	false_prediction	The client already supplied type before it became required, with inbox as the default and achievement as the other navigation option.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:14	coordinated	The admin menu change and removal of the old write-settings client endpoint first appear together in v2.0.0-RC1.
+c2a0bee7dc5e6066ab20c6417fe9f89f6c553a86:pred:1	coordinated	The users-settings restructuring and removal of default_avatar from the interface settings UI first appear together in v2.0.0-RC1.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:23	false_prediction	The followed activation call does not consume or spell the removed ip_info response field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:13	coordinated	The admin menu change and removal of the old write-settings client endpoint first appear together in v2.0.0-RC1.
+f93fb6b7093d6b70628a36ee489bd6e5d7d9710e:pred:4	fix_after_release	The client stopped sending parsed_text after its removal, with the server change in v1.0.4 and the client touch in v1.0.6.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:33	false_prediction	The followed queryTags call does not use or spell question_count.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:34	false_prediction	The followed queryTags call does not use or spell status.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:24	unrelated_edit	The touching hunk rearranges answer-page presentation and does not change the acceptance request’s question_id.
+c2a0bee7dc5e6066ab20c6417fe9f89f6c553a86:pred:2	coordinated	The users-settings restructuring and removal of gravatar_base_url from the interface settings UI first appear together in v2.0.0-RC1.
+f723d120d924dcf7e65b969ce18f8111cac40343:pred:1	real_mismatch	EditAnswer calls modifyAnswer with question_id, but the registered and annotated PUT answer handler binds AnswerUpdateReq, which has no such field.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:19	false_prediction	The followed revisions call does not consume or spell the removed nested ip_info field.
+7085cfa7ed54c1ce397d0a1d605fa6f3442838c9:pred:1	false_prediction	The followed interface-settings call does not consume or spell the removed theme field.
+3264fdd1d90f8845dac1632b772bc86d2d61a554:pred:2	coordinated	The site-settings restructuring and removal of check_update from the general settings request first appear together in v2.0.0-RC1.
+8d421ae5d5ac24171053493414a7fb247d4ba4f3:pred:4	false_prediction	The followed siteinfo call does not consume or spell interface.default_avatar.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:30	coordinated	The admin menu change and replacement of the write-settings request first appear together in v2.0.0-RC1.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:15	false_prediction	The followed timeline call does not consume or spell the removed timeline username field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:27	coordinated	The admin menu change and replacement of the write-settings request first appear together in v2.0.0-RC1.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:3	false_prediction	The followed search plugin information call does not consume or spell the removed nested location field.
+ff61e91fe662ef0d39f5ea8488b7f00f8fc1165c:pred:1	real_mismatch	The search page calls getSearchResult and reads extra, but the registered and annotated GET search response uses SearchResp, which contains count and list without extra.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:5	coordinated	The admin menu change and removal of the old write-settings client endpoint first appear together in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:29	coordinated	The admin menu change and replacement of the write-settings request first appear together in v2.0.0-RC1.
+2b1ad94791631c35ebe684d6b3b5e05271859d76:pred:5	false_prediction	The interface-settings GET call does not send or spell a reply_comment_id request field.
+661d8a7f8fec684a4b07fe5f4b67a53642fdf4d3:pred:5	unrelated_edit	The later login-page hunk changes login presentation and plugin choices rather than responding to the password requirement.
+f93fb6b7093d6b70628a36ee489bd6e5d7d9710e:pred:12	unrelated_edit	The later edit preserves parsed_text while changing form-state updates to fix editor resets.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:16	false_prediction	The followed timeline-detail call does not consume or spell the removed timeline id field.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:36	false_prediction	The followed siteinfo call does not consume or spell site_write.recommend_tags.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:11	false_prediction	The followed search call does not consume or spell the removed nested location field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:47	false_prediction	The followed siteinfo call does not consume or spell site_write.recommend_tags at the pin.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:11	false_prediction	The client already supplied type before it became required, with inbox as the default and achievement as the other navigation option.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:31	coordinated	The admin menu change and replacement of the write-settings request first appear together in v2.0.0-RC1.
+f93fb6b7093d6b70628a36ee489bd6e5d7d9710e:pred:5	fix_after_release	The client stopped sending parsed_text after its removal, with the server change in v1.0.4 and the client touch in v1.0.6.
+b64b5e61b4356eeb4526d43ac73b96fe2a110f58:pred:1	false_prediction	The followed siteinfo call does not consume or spell the removed top-level contact_email field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:25	coordinated	The admin menu change and replacement of the write-settings request first appear together in v2.0.0-RC1.
+530812f81097cbab0c2b42b163539bf03b5aa54f:pred:22	false_prediction	The followed queryTags call does not consume or spell description.
+b64b5e61b4356eeb4526d43ac73b96fe2a110f58:pred:3	false_prediction	The followed siteinfo call does not consume or spell the removed top-level name field.
+2b1ad94791631c35ebe684d6b3b5e05271859d76:pred:4	false_prediction	The interface-settings GET call does not send or spell a parsed_text request field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:40	false_prediction	The followed siteinfo call does not consume or spell site_write.authorized_attachment_extensions at the pin.
+3264fdd1d90f8845dac1632b772bc86d2d61a554:pred:1	coordinated	The site-settings restructuring and removal of check_update from the general settings UI first appear together in v2.0.0-RC1.
+fd0b62c1f1cb9bd7c95a54d6f8bfcf2689b00275:pred:9	false_prediction	The followed search call does not consume or spell the removed nested avatar field.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:33	coordinated	The admin menu change and replacement of the write-settings request first appear together in v2.0.0-RC1.
+9efa9471bd841ddcad2f5e97bf5def12ad96756e:pred:38	coordinated	The admin menu change and removal of the old write-settings client endpoint first appear together in v2.0.0-RC1.
