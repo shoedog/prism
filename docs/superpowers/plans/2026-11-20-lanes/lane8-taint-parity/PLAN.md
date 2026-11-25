@@ -72,7 +72,7 @@ in `~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane8/probes/`.
    catalog lines equal trace-mode review's on real code. I-7, I-8, `parity_catalog`.
 7. A sink one or more functions past a refused hop keeps the parent verdict in I-1. The ledger records the
    refused hop and reason (`f01` to `f03`). Option B owns the distal BoundaryExited targets and their attribution.
-   A walk cell aggregates every node that intersects the operand (`m01`). T-1.
+   A walk cell aggregates every node that intersects the operand (`m01`). I-1, T-1.
 
 ## Stage M: issue and parity census (4 days)
 
@@ -338,7 +338,7 @@ The 2026-11-25 option B table below supersedes the earlier distal verdict and at
 
 Start with I-1 (option A, live-hop ledger), then I-guard (lane 9 waits for it) and I-walk (repairs the
 engine's own wrong answers). Option B follows I-walk and uses its evidence and state for distal verdicts
-and attribution. Next come the owner-retained descent slices by the ordering rule, then I-5 so
+and attribution; its place relative to the owner-retained descent slices is set when it is sized. The descent slices follow by the ordering rule, then I-5 so
 `parity_knobs_agree` runs on the final rules. Follow with I-7 (it takes `TaintReachesOptions`), I-8 and
 I-9.0 to I-9.4 in that order (branch A2, DESIGN decision 2). A slice starts only when the DESIGN sections
 it cites are approved and the types it names have merged.
