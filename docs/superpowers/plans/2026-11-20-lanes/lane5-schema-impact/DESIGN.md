@@ -678,27 +678,33 @@ and `ids.tsv` is regenerated from the amended rules.
 
 ## 10. Amendments
 
-**A1 (2026-11-24), round 1 fold.** [REPORT-DESIGN.md](REPORT-DESIGN.md) governs the eval renderer and P4's
+**A1 (2026-11-24), round 2 fold.** [REPORT-DESIGN.md](REPORT-DESIGN.md) governs the eval renderer and P4's
 Markdown and impact JSON. It keeps one section per operation, service evidence above client calls, and includes
 added, removed and retained-but-edited declarations. Its **First cut for the prototype** defines what the eval
 inputs can support in both directions. Stage D reviews the change kinds and document fields for both pilot orders.
 
-- **§5.1, response identity.** Keep the status in each response field ID. Compare success roots before diffing
-  their relative field paths. A 200 → 201 status edit with the same measured body gets one status row.
-- **§§5.2 and 5.4, documents and matching.** Producer inputs carry the operation authority, versioned
-  declarations, sites, field properties and limits. Client inputs carry every observed call, including unmatched
-  requests, original and mapped addresses, grades, reasons and revision-local locations. Both roles carry per-file
-  and per-entry extraction status. Unknown coverage yields **Not checked** for dependent claims. Impact validates
-  every input's API, role and revision, then matches the full inventories at the selected pairs. A service edit
-  uses two service sets with one client. A client edit uses two client states with one fixed service. Proved
-  correspondence links calls across versions. Candidates remain review evidence under §5.5's bound-only
-  notification rule.
-- **§5.6, versions.** Live reviews select the counterpart at report time. Historical as-of reviews require
-  evidence of its availability at change time. Date-based reconstructions and explicit later pins use the separate
-  **Comparison of selected versions** mode. A live pull request behind its target uses the observed target and
-  clean merge result. A mixed commit gets one report with before/before and after/after plus both one-side-first
-  comparisons. Saved matches use actual element presence and measured properties in the named schema and
-  comparison side.
-- **§6.1, evaluation.** The study can still select subjects and grade predictions by later events. Build the
-  entire review from its frozen inputs. Join later line edits, release evidence, reader judgments and study
-  filters only in a separately identified evaluation companion.
+- **§5.1, status and method identity.** Keep the status in each response field ID. At a retained operation emit
+  independent added and removed success-status rows, including bodyless statuses. Group a unique comparable
+  replacement and diff its fields by relative path. A route-table method `*` has ID `op:* <canonical path>`.
+- **§§5.2 and 5.4, documents and matching.** Record versioned authorities, declaration sites, status sets, body
+  media and field evidence, every observed client call, original and mapped addresses, mapping entry and source,
+  and per-file/per-entry coverage. Validate each document's API, role, tree and dependencies. Match both service
+  sets to the same client inventory, or both client inventories to the service held unchanged. Link edited calls
+  across versions only with evidence of correspondence. Print claims only from their frozen evidence records.
+  A missing record yields **Not checked** with the record named in each dependent cell.
+- **§§5.1, 5.4 and 5.5, all-method declarations.** In the product `op:* /petals` is eligible for a request of
+  any known method with a compatible path. Score exact-method and wildcard declarations together by the §5.4
+  path rule. A tie or a client variable facing a literal at the unique best match is a candidate. A unique best
+  with no such constraint can be bound. Dispatch priority needs separate evidence. Only supported bound matches
+  may notify. The prototype reports a relevant wildcard as **Method coverage: Not checked — the matcher compares
+  exact methods only** and withholds dependent grades, negatives, totals and notifications.
+- **§5.6, admission and versions.** Admit files from named trees of admitted snapshots or records independently
+  evidenced at the cutoff, including the dependencies of any earlier binding and its actual schema inventory.
+  Live reviews use report time, historical reviews use change time. Study-supplied configuration and route specs,
+  date-only reconstructions and deliberate later pins use **Comparison of selected versions** in the prototype.
+  On a behind-target PR in either repository setup compare target to merge result in the changing repository.
+  Record proposed and target commit metadata separately. A computed tree has its own ID, no commit/date,
+  and exact-blob links or a tree/blob/path/line excerpt. A joint change shows both actual pairs and both rollout orders.
+- **§6.1, evaluation.** Test admission before freezing and renderer byte identity after freezing. Live Markdown
+  delivery contains only the review and its full appendix. Study selection, follow-up evidence and adjudications
+  belong to the separate evaluation companion.

@@ -1,6 +1,6 @@
 # Lane 5 impact report, design amendment A1
 
-Round 1 fold, 2026-11-24, for owner review. This amends DESIGN §§5.1, 5.2, 5.4, 5.6 and 6.1. In issue #848 the owner asked for plain words
+Round 2 fold, 2026-11-24, for owner review. This amends DESIGN §§5.1, 5.2, 5.4, 5.6 and 6.1. In issue #848 the owner asked for plain words
 (R1), tables (R2), additions and changes as well as removals (R3), a review without hindsight (R4) and support for either side changing
 first (R5). All examples are invented. [First cut for the prototype](#first-cut-for-the-prototype)
 
@@ -18,22 +18,26 @@ beside a path that uses it. These captions precede **Review first**.
 
 ## Versions checked
 
-Print the mode, change subject, repositories, before and after commit IDs and UTC committer dates, the fixed revision and its date, and
-why it was chosen. Show the branch, cutoff and evidence for its tip when a branch is used. Link code to the exact tree that supplied it.
-Print **Checked revision is {duration} earlier/later than the change** or **Both commits have the same time**. These are commit dates.
-Deployment order across repositories is unknown.
+Print the mode, change subject, repositories, selected trees and why each was chosen. For each commit print ID and UTC committer date.
+For the counterpart print **Checked revision is {duration} earlier/later than the change** or **Both commits have the same time**, using the subject commit's date. Across repositories deployment order is unknown.
 
 | Mode on the report | Cutoff and selection |
 |---|---|
 | **Live review** | Cut off at **Report time**. Capture the configured counterpart integration branch tip at that instant, or use a record of ref updates through that instant. Freeze its ID. A client added after the service commit but present at report time belongs in this review. |
-| **Historical review at the change** | Cut off at **Change time**, the after commit's UTC committer date, including for a multi-commit range. Establish the tip at that cutoff from a snapshot or a ref-update history that covers the cutoff. For a supplied pin, a contemporaneous review record can establish its availability then. Show the record and time. Tree membership in a named commit establishes its contents. A commit date alone cannot establish branch arrival. |
-| **Comparison of selected versions** | Compare the named trees. Show who supplied a release pin, or the rule and frozen history tip used to reconstruct it. For date-only selection use the last commit along that tip's main line of history with a committer date at or before change time. Print **Selected by commit date. When this revision reached {branch} is unknown.** An explicitly newer pin reads **This comparison uses code from after the change.** |
+| **Historical review at the change** | Cut off at **Change time**, the subject head commit’s UTC committer date, including for a range or a computed merge tree. Establish the tip at that cutoff from a snapshot or a ref-update history that covers the cutoff. For a supplied pin, a contemporaneous review record can establish its availability then. Show the record and time. Tree membership in a named commit establishes its contents. A commit date alone cannot establish branch arrival. |
+| **Comparison of selected versions** | Freeze the named trees and supplied inputs at **Selection time**. Show who supplied a release pin, or the rule and frozen history tip used to reconstruct it. For date-only selection use the last commit along that tip's main line of history with a committer date at or before change time. Print **Selected by commit date. When this revision reached {branch} is unknown.** An explicitly newer pin reads **This comparison uses code from after the change.** |
 
-A release pin used for a version-specific comparison, an explicitly later pin and any pin with unproved availability use the third mode. A
-normally observed live tip can be newer than the change. If cutoff evidence is missing, print **Not checked — which revision was available
-on {branch} at {time} is unknown.** Keep the subject's known facts. A dated fallback is a separately titled version comparison. Equal
-times, backdated commits and a branch moved today supply no retrospective proof. An unreadable pin gets **Not checked** with the requested
-revision and read failure.
+**Input admission.** Admit an input only when it is **(a)** a file read from a named tree of the admitted snapshots, or **(b)** a record with independent evidence that it existed at the cutoff. Bind each snapshot identity to its mode’s cutoff evidence. Read its tree blobs directly, excluding dirty or untracked substitutes. Check every dependency by the same rule. Compute diffs, inventories and matches afresh from those inputs. For anything else, every dependent claim prints **Not checked — {required record} has no evidence of availability at {cutoff}**. An excluded input cannot select the report, supply an ID or link, change a count, or supply the text of its own warning.
+
+| Prototype input inventory (closed) | Origin and use |
+|---|---|
+| Snapshot files (a) | The named service trees supply route-table and handler source, Go annotations and any registration source examined, and the committed schema and local definitions where present. Client trees supply source calls, wrappers, imports, enclosing functions and the files searched for direct callers. Record tree, path and blob for every read. |
+| Cutoff records (b) | Subject/range and roles identified by a cutoff record, commit/parent/tree metadata, and any supplied observed ref, review pin or target/head/merge receipt. A later query may name the subject to look up. The subject and trees must independently qualify at the requested cutoff. Commit objects supply subject, parents and dates. The replay supplies no independent historical branch-tip log, historical merge receipt, saved binding or saved schema inventory. A commit timestamp alone proves none of these. |
+| **Study-supplied** | The client configuration file(s) supply aliases, client file/export, method/call rules, URL and method argument positions, strip/add prefixes, response root and hook/fetcher entries. The route spec supplies the registration callee, method/path/handler/validation keys, mount and lookup containers (`handler_under`, `validation_under`). The study invocation supplies the consumer root. Driver defaults include `DEFAULT_SCHEMA`, the era boundary commits in `select_config` and the primary-client rule in `replay_one` (`request.ts` when configured). |
+
+**Default for a prototype using study inputs: Comparison of selected versions.** Pin the study files and driver in a separately named study-input tree (a) for that comparison, or capture them with independent records (b) at its selection time. Under **Versions checked** print **Client configuration: {file} from {study tree or receipt}, supplied by the study** and **Route specification: {file} from {study tree or receipt}, supplied by the study** where used. Print the driver revision and how it chose the era from the named revision’s own ancestry, the consumer root, primary-client rule and schema path. Identify a mapping by file and numbered client entry. A client or service checkout cannot establish the origin of a study file. A historical or live request keeps its requested mode and marks dependencies of unadmitted configuration unchecked. A selected-version comparison has its own identity and makes no claim of availability at change time.
+
+A release-specific or deliberately later pin belongs in a selected-version comparison. An observed live tip can postdate the change. When an as-of request lacks a ref record, keep the known subject facts and print **Not checked — no record of the tip of {branch} at {time}**. A date-based fallback needs a separate comparison. Equal dates, backdated commits and a ref moved today cannot establish earlier availability. For an unreadable admitted pin, name the revision and read failure.
 
 For a single commit the default before revision is its first parent. For a range print the supplied base and head. Both **Before** and
 **After** compare the changing side with the *same* named counterpart. The before column of a range makes no assertion about what the
@@ -45,16 +49,16 @@ counterpart contained on the base date.
 | **Client change checked against service code** | Compare the two client inventories. Match both against the same service declarations, locations and schema where available. |
 | **Service and client changed together** | One report, one versions block, service section first and client section second. Compare service-before/client-before and service-after/client-after. Also check each side shipping alone as shown below. |
 
-In one repository, use the change's before and after trees for coordinated edits. For a live pull request behind its target, record the
-proposed base and head, the observed target tip and the clean merge result. Compare **target → merge result** for the effective change,
-with the unchanged role at the target for a one-sided edit. The same rule uses the recorded target at a historical cutoff. If a merge
-result cannot be established, retain the observed source edits and print **Combined result: Not checked — {reason}**. Do not substitute
-the topic head for a merge. Determine which roles changed from their input trees, including configuration. An unreadable role gets a
-section with its limit. An empty extractor result cannot make a mixed change one-sided.
+**Behind-target pull request, in either repository setup.** In the changing repository compare **target → merge result**. Record proposed base, proposed head and target commit IDs, subjects and dates separately. In one repository read the unchanged role at target, or both roles at target and result for a joint edit. In two repositories hold the independently selected counterpart tree unchanged. Use the target and proposed inputs observed at the live or historical cutoff.
+
+Admit an immutable merge commit with cutoff evidence and use its own metadata and links. For a clean computed result, bind base, target, head, merge procedure and resulting tree ID in a cutoff receipt (for historical use, require independent evidence of that exact result at the cutoff). Print **After: computed merge tree {tree} (no commit or commit date)**. Keep computation time separate. At each site link the exact tree that supplied it. For a computed result link only the exact result blob at that path. If the host cannot serve it, print tree ID, blob ID, relative path, line range and the excerpt from that blob. Never borrow a topic-head date, subject or link for the result.
+On conflict, absent receipt or unavailable tree, show the observed proposal separately and **Combined result: Not checked — {specific missing record or conflict}**. Determine changed roles from the trees including configuration. An unreadable role keeps its own section and reason.
 
 ## What counts as evidence
 
-**One rule for every comparison.** A claim may use absence, uniqueness, sameness or a total only when *every source region that could
+**Rule for every cell.** Print a sentence only if its required evidence record exists in the frozen input. Otherwise that cell reads **Not checked — {missing record and what it would establish}**. This applies to headings with claims, actions, warnings, links, counts and empty states as well as table rows. The first-cut table below identifies the records.
+
+A claim may use absence, uniqueness, sameness or a total only when *every source region that could
 change that conclusion* is accounted for at each required revision and under the named authority. Inventory the expected tree, changed
 paths (including moves), configuration and source dependencies independently of what the recognizer emits. Record extraction status per
 file **and per entry or region**. A complete region has positive evidence that each relevant construct was read or falls outside the
@@ -66,7 +70,7 @@ checked — {file or scope} at {revision}: {reason in words}.** Apply this befor
 empty-report decision. If the gap cannot be localized, widen it to the enclosing operation, file or entire check. Keep independently
 observed declarations and calls with their locations. An unknown side contributes neither an addition/removal nor a zero. A confirmed file
 deletion establishes absence from that file only. For each service, schema and client reader, test the rule by marking a file or entry
-unknown on either side. Every dependent change or zero must render **Not checked** with its reason and stay out of confirmed counts.
+unknown on either side. Remove each required evidence record in the first-cut table in turn. Every dependent change or zero must render **Not checked** with its reason and stay out of confirmed counts.
 
 Name the **Source of operations** beside the result. A route table lists declarations, an annotation documents a handler, a registration
 connects a path and method to code, and the committed schema describes fields. Show each source separately when they disagree. For
@@ -77,7 +81,7 @@ forms, mounted prefixes and verified address mappings through the named routing 
 ## What appears on the change
 
 1. **Review first** states one evidenced result and one action. Surface a gap that prevents a decision. Give counts for operations,
-   changed fields, client calls shown, calls with possible matches only, known requests with no match in the declarations read, and calls
+   changed fields, client calls shown, calls with possible matches only, requests whose method and address were read but matched no declaration, and calls
    whose target is unknown. Mark each count's scope and version. An unmeasured total reads **Not checked — {reason}**. A partial report
    can still say **{n} observed**.
 2. **Versions checked** and **Coverage** name the snapshots, operation authority, client scope and measured field properties. For
@@ -88,10 +92,9 @@ forms, mounted prefixes and verified address mappings through the named routing 
    handles the request), **Handler named in a comment**, **Schema entry for this operation** or **Field declaration**, according to the
    evidence. Use **Possible handler — {reason}** or **Handler location: Not checked — only the declaration was found** when applicable.
 4. The client table gives **Client call and function**, **Request as written → path checked**, **Match before**, **Match after**, **What
-   to check**. Show the client's own URL text, HTTP method, mapped service path and the name and revision of the mapping, including an
+   to check**. Show the client's own URL text, HTTP method, mapped service path and the mapping's source file, revision and entry, including an
    explicitly unchanged path. Attach each cell to its service and client versions. A changed call with an unknown method or address has
-   one home, **Changed client calls with an unknown target**. Link to that row from limits. Known unmatched requests keep their own
-   method/path heading.
+   one home, **Changed client calls with an unknown target**. Link to that row from limits. Requests with a readable method and address that matched no declaration keep their own method/path heading.
 5. **Who calls this code** gives **Client call**, **Possible caller found by name** for a one-level search, or **Calling function** and
    **Directly / Through {function}** for resolved source links. Give revision and line. When the product checks two levels, explain **Only
    calls whose destination the code analysis could identify were followed, directly or through one other function.** Distinguish **No
@@ -111,11 +114,11 @@ The following product examples show the evidence each action requires. The proto
 requests GET. Keep the GET registration until that client is updated.
 
 **Versions checked** — Service `91be101` (2 Jun, 09:00) → `91be102` (4 Jun, 12:00). Client `73ad202` (5 Jun, 08:00) was the observed tip
-of `main` at report time, 5 Jun 2026, 10:00 UTC. The client revision is newer than the service change. **Coverage** — All registrations
-and client call sites in the configured scope were checked in this product example. **Changed fields: Not checked — this service has no
+of `main` at report time, 5 Jun 2026, 10:00 UTC. The checked client revision is 20 hours later than the service change. **Coverage** — All registrations
+under `press/` and production client calls under `desk/` were checked, including the mount and address mapping. **Changed fields: Not checked — this service has no
 committed field schema.**
 
-1 operation · 1 client call shown · 0 with possible matches only · known requests without a matching registration, 0 before and 1 after ·
+1 operation · 1 client call shown · 0 with possible matches only · requests whose method and address were read but matched no registration, 0 before and 1 after ·
 0 calls with an unknown target.
 
 | What changed | Before | After | Service code |
@@ -124,13 +127,12 @@ committed field schema.**
 
 | Client call and function | Request as written → path checked | Match before | Match after | What to check |
 |---|---|---|---|---|
-| `desk/list.ts:18` · `openFolios` | GET `/edge/lunar-folios` → `/lunar-folios`, `desk-prefix` at `73ad202` | Matches GET /lunar-folios | No GET registration matches. The path still lists POST. | This code reads the list. Check how long the old client needs GET. |
+| `desk/list.ts:18` · `openFolios` | GET `/edge/lunar-folios` → `/lunar-folios`, `desk/map.toml` entry 1 at `73ad202` | Matches GET /lunar-folios | No GET registration matches. The path still lists POST. | This code reads the list. Check how long the old client needs GET. |
 
 ### Service change, with a schema
 
 **GET /ink-cards · Field declaration changed.** The committed JSON schema changed at `81cc431` → `81cc432`. **1 changed field** among the
-named properties read in JSON request and successful response bodies. Compared type, format, required in its parent, listed values and
-list item type. Parameters, error responses and other constraints were outside this check.
+named properties read. Both schema versions declare `application/json` in document-level `consumes` and `produces`. This operation inherits both. Compared type, format, required in its parent, listed values and list item type in JSON request and successful response bodies. Parameters, error responses and other constraints were outside this check.
 
 | What changed | Before | After | Service code |
 |---|---|---|---|
@@ -138,13 +140,12 @@ list item type. Parameters, error responses and other constraints were outside t
 
 | Client call and function | Request as written → path checked | Match before | Match after | What to check |
 |---|---|---|---|---|
-| `desk/cards.ts:22` · `loadCards` | GET `/ink-cards` → `/ink-cards`, unchanged by `desk-prefix` at `73ad202` | Matches GET /ink-cards | Matches GET /ink-cards | Check whether the client does arithmetic with inkCount. **Client use of this field: Not checked — only the operation was matched.** |
+| `desk/cards.ts:22` · `loadCards` | GET `/ink-cards` → `/ink-cards`, unchanged by `desk/map.toml` entry 1 at `73ad202` | Matches GET /ink-cards | Matches GET /ink-cards | Check whether the client does arithmetic with inkCount. **Client field use: Not checked — the call was matched by method and path.** |
 
 ### Client change, checked against the service
 
-**Client change checked against service code · Live review.** Chartdesk `73ad211` → `73ad212` adds a submission call. Service `91be111`
-was the observed tip of `main` at report time, 4 Jul 2026, 12:00 UTC. **Review first** — The new call requests POST. The checked
-registrations for this path list only GET. Confirm when the service will accept submissions.
+**Client change checked against service code · Live review.** Chartdesk `73ad211` (2 Jul, 09:00) → `73ad212` (4 Jul, 10:00) adds a call. Service `91be111` (3 Jul, 10:00) was the observed tip of `main` at report time, 4 Jul 2026, 12:00 UTC. The checked service revision is one day earlier than the change.
+**Coverage** — Checked the insertion in `desk/`, every registration under `press/`, and the mount and address mapping for this call. **Review first** — The new call requests POST. Only GET is registered here. Confirm the intended method before enabling this call.
 
 | What changed | Before | After | Service code |
 |---|---|---|---|
@@ -152,7 +153,7 @@ registrations for this path list only GET. Confirm when the service will accept 
 
 | Client call and function | Request as written → path checked | Match before | Match after | What to check |
 |---|---|---|---|---|
-| After · `desk/submit.ts:14` · `sendProof` | POST `/edge/star-proofs` → `/star-proofs`, `desk-prefix` at `73ad212` | No call at this site | No matching POST registration. GET is registered at this path. | Confirm the intended method. If POST is required, provide it before enabling this call. |
+| After · `desk/submit.ts:14` · `sendProof` | POST `/edge/star-proofs` → `/star-proofs`, `desk/map.toml` entry 1 at `73ad212` | No call at this site | No matching POST registration. GET is registered at this path. | Confirm the intended method. If POST is required, provide it before enabling this call. |
 
 When the service subsequently adds POST, its own report can say **Existing client call gains a matching registration** and link this same
 call, fixed at `73ad212`. If the service adds POST first, its review can list the addition with zero observed matches and the search
@@ -184,23 +185,23 @@ identifies a declaration in the checked code. Report runtime use only with separ
 
 | Evidence | Cell or review wording and action |
 |---|---|
-| One highest-ranked match under §5.4, with no client variable forced to one literal value | **Matches {method path} in {source}.** For partial inputs say **Best match among declarations read: {method path}**. Only a substantiated `bound` result can notify under §5.5. |
+| One highest-ranked match under §5.4, with no client variable forced to one literal value | **Matches {method path} in {source}.** For partial inputs say **Closest match among the declarations read: {method path}**. Only a substantiated `bound` result can notify under §5.5. |
 | Tied best matches or a client variable facing a literal | **Possible match — several declarations fit: {list}** or **Possible match — the value in this address would have to be {value}.** Check that value before assigning the work. |
 | Another pattern could receive the call | Keep the §5.4 top grade. List a lower-ranked overlap beside the changed route as **Could also reach {path} when {condition}. Check which route takes priority.** If overlaps were not checked, say so next to every apparent zero. A call that falls through to a different handler ranks with newly unsupported requests. |
-| Known request has no same-method match among the entries read | **No {method} match in {source} read at {revision}.** If mapping, route coverage or precedence could change the answer, append **Not checked — {reason}** for whether the service registers this request. For complete routing evidence use **No matching {method} registration in {scope}**. Ask about a needed version or retention of the old route. |
+| Method and address were read, no same-method match | **No {method} match among {source} declarations read at {revision}.** If mapping, route coverage or precedence could change the answer, append **Registration: Not checked — {reason}**. For complete routing evidence use **No matching {method} registration in {named directories and mounts}**. Ask about a needed version or retention of the old route. |
 | Other methods | Show a method-specific finding only for a **new or retargeted client call**, or for a fixed call whose method was removed while another was **added by this change** at the same path. Require a checked absence for the requested method, verified mapping and an unambiguous same-path alternate graded `bound`. Name the alternate and source. A possible alternate gets **{method path} might fit if {reason}**. Multiple alternatives keep their own grades and reasons. An existing POST beside a removed GET is a note on the lost GET. It gives no reason to switch methods. |
-| Declaration with method `*` | At a verified matching path use **This registration accepts every method here, including {method}.** With a declaration only, say **This entry lists every method.** If its path, authority or priority is uncertain, mark the effect **Not checked** with that reason. A wildcard cannot be an alternative-method suggestion or support a missing-method claim. |
+| All-method declaration | In the product, `op:* {path}` is eligible for every known request method. Pool exact-method and wildcard declarations before §5.4 path scoring. Equal best scores remain candidates, including an exact/wildcard tie. A unique best with no client variable forced to a literal is bound, subject to coverage. Dispatch priority requires separate evidence. The first cut prints **This declaration lists every method. Method coverage: Not checked — the matcher compares exact methods only.** Where a wildcard could fit, withhold dependent grades, unmatched counts, alternate-method advice and notifications before summarizing. |
 | Method or address unreadable | **Target unknown** means the method or address could not be read. Say **The address is built while the program runs**, **The address depends on a condition**, **The first argument does not give a text address**, **The method is chosen while the program runs**, **This client function has no configured HTTP method**, or **This form of request could not be read** at the call. |
 | Site absent or unavailable | **No call at this site** requires evidence of absence. Otherwise **Not checked — {reason}**. An import failure reads **Not checked — no import could be linked to the configured client. Uses of this client could have been missed.** Name a missing source directory or configuration when that blocked the scan. |
-| Zero matches to an added or removed operation | Report **No top-ranked client match among the {n} calls read at {revision}** for the after or before operation respectively. Beside it give **{k} known requests had no match** and **{u} calls had an unknown target**, with links. List known requests whose path ends with the operation's path on segment boundaries as **Possible match under another prefix — the leading part of the address differs**. Give the original URL and mapping. Include lower-ranked overlaps or **Not checked — only the highest-ranked matches were retained**. An addition prompts for its intended client. A removal prompts for other users. A claim of no users in the checked sources requires all relevant targets, mappings and overlaps to be resolved. |
+| Every added or removed operation, including one with confirmed users | Beside the after (addition) or before (removal) row, link **{k} requests whose method and address were read had no match** and **{u} calls had an unknown target** for that comparison. Show these beside one-sided observations too. When no call selected the declaration, say **None of the {n} calls compared had this declaration among its closest matches**. Give possible overlaps or **Not checked — the scan kept only the closest matches**. Ask who needs an addition or still uses a removal. |
+| Other-prefix hints on each such row | For each request use any verified mapping. Where differing leading parts remain unexplained, compare method-compatible request and declaration paths by trailing segments. Include a whole-path suffix or even one shared literal final segment after different prefixes, e.g. `/edge/ink-cards` and `/internal/ink-cards`. Print **Possible match under another prefix — both addresses end in {suffix}. Check the leading parts.** Show original URL, path compared, mapping source and call site, even if another call matched exactly. Hints never change a grade, unmatched count or notification. |
 | Remaining inputs disagree or a reason is unfamiliar | Point to each declaration. Say, for example, **Two declarations reduce to {method path}. Which one applies is not checked.** For an untranslated reason use **Not checked — the reader could not interpret {construct} at {location}. Inspect this source.** Preserve its original diagnostic in JSON. |
 
-**Saved matches.** The product can reuse a source location previously matched to an operation or field. Label the saved schema revision
-and the comparison basis in that row, **before service**, **after service** or **fixed service**. Compare the properties saved with that
-location against the same element in that basis. Use **The saved type and other measured properties agree with {basis}** or **The saved
+**Saved matches.** Label **Earlier scan {scan ID} of client {tree} used schema {source, tree, hash}**. Admit the binding document, scan provenance, mapping and exact schema dependencies independently at the cutoff before using any saved fact, including in selection, a count or `unobserved`. The prototype rematches fresh. A lost dependency leaves the comparison **Not checked — {record} from the earlier scan lacks cutoff evidence**.
+Label the basis **service before the change**, **service after the change** or **service held unchanged at {revision}**. Compare the properties from the earlier scan to the same element in that version. Use **The saved type and other measured properties agree with {basis}** or **The saved
 properties differ at {basis}: {old} → {new}. Recheck this location.** For an operation compare its collection of recorded field
 properties. For a whole-schema mismatch say **This location was saved using schema {S}. Its list of operations and measured field
-properties differs from {both service revisions / the fixed service revision}.** State the comparison for this element separately.
+properties differs from {named comparison versions}.** State the comparison for this element separately.
 
 When no location was saved, look in the actual schema used by that scan. Use **No match was saved for this element** if it was present,
 **The schema used by this scan did not list this element** for established absence, or **Not checked — the schema used by this scan is
@@ -214,6 +215,7 @@ service.
 | **Operation added / Operation removed** | Compare the named authority's before and after sets with the coverage rule above. Show calls against both versions. A previously unmatched call that now matches gains a declaration. A call that loses its registration needs a rollout check. With only possible users, show why each might use it. |
 | **Route declaration changed / Handler code changed** | For a retained method/path compare the entry text, validation declaration, handler reference and, when identified, handler source at both revisions. Link the changed part. A line-number shift alone is no source edit. **Check whether this edit changes what requests the handler accepts or returns.** The row is informational until there is evidence of an interface change. |
 | **Operation fields changed** | A retained method/path has at least one measured field edit. Show each changed declaration once under the operation. Fields belonging to a whole-operation addition/removal are details of that operation. |
+| **Successful response status added / removed** | Compare the operation's complete sets of declared success keys independently of field edits or media. Link each added or removed key to its own side, including a response with no body. Check clients that branch on that status. |
 | **Client call added / Client call removed / Client target changed** | A proved insertion, deletion or corresponding edit changes what this client requests. Show the after match for a new call, before use and any remaining after uses for a deletion, and both targets for a retarget. Ask which service version the client needs or which users still need the old method. A call may also change target through a configuration edit. |
 | **Client target needs confirmation** | A possible match or a switch to another matching operation needs its runtime value or routing priority checked. Leave both targets visible. A difference already present at both versions belongs with standing differences unless it explains a change row. |
 
@@ -234,7 +236,8 @@ very same inventory row.
 
 ## Fields on a service with a schema
 
-Beside the count print **Named fields in JSON request bodies and successful JSON response bodies. Compared type, format, required in its
+Establish the media type for each counted body first. In Swagger 2 read operation-level `consumes` for requests and `produces` for responses. Inherit each document-level list only when the operation omits that key. For OpenAPI 3 inspect the actual message's `content` entry. Record declared types, their source and which schema was read. Count a JSON body only for an explicit applicable `application/json` entry. An XML-only body reads **JSON fields: Not checked — this body declares application/xml**. For missing or ambiguous evidence print the precise reason, e.g. **JSON fields: Not checked — neither the operation nor the document declares response media types** or **JSON fields: Not checked — the request media list could not be read**. JSON file syntax alone establishes no message type.
+Beside the count for the verified bodies print **Named fields in JSON request bodies and successful JSON response bodies. Compared type, format, required in its
 parent, listed values and list item type.** Name the actual message and media type read. Path, query, header, cookie and form parameters,
 non-success and default responses, other media types, and constraints such as numeric bounds are outside this count. A fallback to another
 media type gets **Not checked — this body is {media}** for JSON coverage. Scalar bodies and individual scalar map/list values have no
@@ -264,12 +267,7 @@ field use: Not checked — the call was matched by method and path** beside its 
 | Formats | `date` → **calendar date**, `date-time` → **date and time**, `int32` / `int64` → **32-bit / 64-bit integer**. Keep the literal alongside its meaning. For an opaque format use **Format changed from {old} to {new}. Not checked — the schema gives no meaning the reader recognizes for {value}.** |
 | Body paths | **Request body** is data sent by the client. **Response body (201)** is data returned with status 201. **2XX** means any success status from 200 through 299. Use **each list item** and **each map value (the value under each key)** at the applicable path segment. |
 
-**Successful response status changed.** Keep §5.1's status-bearing field IDs. Compare status keys separately at each retained operation
-and media type, including bodies with no named fields. With complete status lists, readable bodies and exactly one outgoing and one
-incoming comparable success root, show **Successful response status changed, 200 → 201** once. Compare their measured fields by relative
-body path and list only actual shape or membership differences. Ask whether clients check for 200. Keep both root IDs in JSON. If several
-pairings fit, or a status range overlaps, list the observed statuses, mark the pairing **Not checked** with its reason and keep both trees
-as details. A change of root alone never counts as a removal and addition of every child.
+**Status and body are separate comparisons.** Emit independent added/removed status rows first. With 200 and bodyless 204 before, and the same 200 alone after, print **Successful response status removed · 204** even with zero changed fields. Preserve each row when exactly one outgoing and one incoming status have comparable bodies for the same media type. Group those rows under **Successful response status changed, 200 → 201** and compare fields by relative path. Retain §5.1's two status-bearing IDs in JSON. If several pairings fit, or a status range overlaps, keep each status row and print **Body comparison: Not checked — {several bodies could correspond / the status range overlaps}**. A root change alone adds no child-field edits.
 
 ## Empty and long reports
 
@@ -278,7 +276,7 @@ say **No method or path was added, removed or changed in the checked declaration
 properties say **No difference in the measured field declarations.** For a complete, empty client comparison say **No client calls were
 added, removed or retargeted in the checked source.** A retained declaration edit, handler edit or entry observed on only one side gets a
 row even when the confirmed change count is zero or unknown. If the comparable inventories agree but coverage is partial, say **No
-difference among the entries read. Additional changes: Not checked — {gap}.** Unexamined behavior and client field use get their own
+difference among the declarations read. Additional changes: Not checked — {gap}.** Unexamined behavior and client field use get their own
 **Not checked** reasons. With no usable input say **Not checked — {reason}**. An unavailable reference still permits independent facts
 on the changing side.
 
@@ -290,8 +288,7 @@ standing differences linked to a change appear in the preview.
 
 Group identical edits from one shared schema definition once and say **Same change in {n} more operations**, retaining each operation,
 client and canonical field ID in the full tables. For *each* shortened group print **Showing {shown} of {total} · See all {kind}** with a
-direct, stable anchor to that group's complete table in the same Markdown appendix. Include all limits, callers and standing differences
-there, including for a single `--format md` output stream.
+direct, stable anchor to that group's complete table in the same Markdown appendix. The same rule applies to **every list inside a preview cell**: show at most three entries and link the exact complete list, including ties, alternate methods, lower-ranked overlaps, prefix hints, values/statuses, source links, caller paths, and limits. Reserve the evidence for **Review first** inside those slots. For an incomplete population, count recorded entries and label the total in scope **Not checked**. On a review surface that may truncate, attach the complete live Markdown and target its appendix from the preview.
 
 Count operations by API/method/path and fields by owning operation and field, after status grouping. Count each observed client call once
 across groups and caller paths. **Possible matches only** counts a call with at least one possible match to a reviewed operation, no
@@ -302,69 +299,67 @@ change give both counts per client version. Counts of visible records are measur
 
 ## First cut for the prototype
 
-This is the rendering contract for the first eval prototype. Its input builder reads the selected snapshots for the requested change,
-including when the study supplies the IDs of five past changes. The existing replay result contains a filtered list of changes and
-old-side predictions. Build the review input before opening that result.
+Build the input for the requested subject before opening any replay result. For a service change scan the selected client once and compare it to both service trees. For a client change scan both client trees against one service. For a joint change build all four pairs. The table distinguishes records the extractors return today (**Available**), records the first-cut builder must add (**Builder**), and claims requiring additional evidence (**Product**). Partial records license only the observed part of a cell.
 
-| Part | Render from the prototype's inputs | Product-only evidence or wording |
+**Declaration coverage.** Call `producer_route_table.extract()` on each route-table service snapshot. `routes()` drops the unparsed files, substituted-template locations and wildcard diagnostics. Freeze those records and the declaration sites. Inventory expected files from each tree and changed paths from the diff. Record parsed files and every skipped entry with its location and reason: nonliteral/missing method or path, empty or holed method arrays, non-object registration items (including spreads), registration calls without an array argument, unknown spreads/computed keys, and changed code no longer recognizable as a registration. Unexplained changes, moves, renamed callees, symlinks or unreadable bytes leave the affected scope unknown. A missing diagnostics record differs from a recorded clean scan.
+
+For **Declaration removed from {file}**, require the file parsed at both revisions, a complete entry inventory and no skips in that file on either side, the before site and blob diff deleting or replacing those lines, and no remaining matching declaration there. Apply the reverse proof to an addition. Repeated sites or moves retain their individual evidence. The proof concerns that file under the named spec. A system-wide removal needs the full routing and mapping records. A proved whole-file deletion establishes only loss from that file.
+
+Record client parse errors, unreadable imports, symlinks, missing roots/primary client and test-file exclusions against the tree. For Go, distinguish adjacent recognized annotation comments from unattached, malformed or error-region comments. A method/path suffix and handler name alone cannot certify a registration: dynamic group paths, unsupported verbs, missing handlers and unreadable arguments leave gaps. For a schema read the actual blob or record the read failure. Never use `_schema_at`'s empty-schema substitute.
+
+| First-cut cell | Required frozen evidence | Prototype supply | Text when the required record is missing |
+|---|---|---|---|
+| Versions, direction, cutoff, duration, combined result | Subject/role, selected pair IDs and commit metadata, availability and target/result receipts as applicable | Available commit objects. Builder binds selections and computes commit offsets. Historical receipts need an independent source. | **Not checked — no record of the tip of {branch} at {time}** or **Combined result: Not checked — {missing result or conflict}**. A computed tree has no commit date. |
+| Coverage, operation source, configuration | Source authority, roots, file selection, exclusions, input origin, config/driver/spec tree and entry IDs, era selection | Builder freezes the named sources under Versions checked. | **Not checked — {client configuration / route specification / source root} for {revision} is missing.** |
+| Before/after operation, source link and action on a declaration | Method and normalized path, named authority, site at its own tree/blob/line. File-level change additionally needs the two inventories, diagnostics and diff above. | Available route and Go annotation sites. Builder adds entry ranges, original text, tree links or exact blob excerpts, and checks scoped changes. | **Listed only before [or after] among the declarations read. Removal [or addition]: Not checked — {file} has no complete {side} scan.** Without any after scan, say **Observed before at {site}. After: Not checked — {file} could not be read**. For a missing link name the unreadable path and tree. |
+| Handler, validation, retained edit | Resolved function and site, or comment naming it. Entry/validation/handler edits need comparable source bytes at both versions. | Available handler text, optional resolved site, validation-presence flag and annotation. Builder may compare captured entry text. Product checks separate validation and handler bodies. | **Handler location: Not checked — only the declaration was found** or **Validation or handler edits: Not checked — the two source bodies were not compared.** A presence flag alone cannot establish an edit. |
+| Client call, function, request as written and path compared | Tree, file/line, local occurrence, function, method, URL text, derived path, and identity of the mapping actually applied | Available call observations including unbound calls. Builder records the active client spec file, revision and entry at extraction (both hook and delegated rule if applicable), or the built-in rule. | **Mapping: Not checked — the scan did not record which rule produced this path.** Show the observed address. Use **Enclosing function: Not checked — the scan recorded no function name**. If the target is unreadable give the local reason from the match table. |
+| Corresponding, inserted or deleted call | One-to-one diff of file, function and complete call plus scan coverage on both sides | Builder numbers occurrences per snapshot. Link only a uniquely mapped, unchanged line with one complete call in the same uniquely mapped function. Product records start/end positions for edited calls. | **Corresponding call: Not checked — the scan recorded line numbers only.** Show before and after separately. A missing deletion proof gives **Removal: Not checked — {source region} could not be compared.** |
+| Matches, alternate methods, overlaps, registration and notification | Per-side matched IDs, grades and reasons, rule and authority. Stronger advice needs complete applicable methods, mapping, dispatch and overlap evidence. | Available exact-method best matches/ties from fresh matching. Builder checks for relevant wildcards, duplicate declarations and optional segments before attributing any grade. Product checks alternative methods, lower-ranked overlaps and dispatch. | **Method coverage: Not checked — the matcher compares exact methods only and this declaration lists every method.** Or **Not checked — {two declarations have the same method and path / this path segment may be omitted / the scan kept only the closest matches / no gateway mapping was checked}.** Name the affected fact. Only a supported bound match may notify. |
+| Other-prefix hints and unmatched requests | Full observed request inventory, original and compared paths, method, shared trailing segments and per-side match or unknown outcome | Builder compares all observed paths for each added or removed declaration and links matching requests and hints separately. | **Other prefixes: Not checked — {request paths / declaration paths} were unavailable**. **Unmatched requests: Not checked — {specific coverage gap}.** |
+| Status and JSON coverage | Complete per-operation response key sets on both sides including bodyless keys, request/response media declarations and source, identified body roots | Builder reads the keys and their source locations, media and roots from the raw schema. The field index omits the full status/media inventories. Status rows survive missing or non-JSON bodies. | **Status change: Not checked — {side} response status list is missing.** For media use the specific JSON-fields reason under Fields. |
+| Field change, location and schema limits | Two comparable body roots, complete region for presence, both five-property records, expansion stops, schema operation site or exact field site | Available indexed shapes and some diagnostics for the schema pair, and operation-level locations when resolved. Builder compares both directions including required → optional and mixed value edits. Product adds exact field sites. | **Changed fields: Not checked — no committed field schema**, **Field location: Not checked — only the operation was located**, or **Not checked — {field path} stops at {unreadable definition / depth limit / alternative shapes}**. |
+| Client field use | A specific read of a response field or send of a request field linked to this call, schema and revision | Product. An operation match identifies the request. | **Client field use: Not checked — the call was matched by method and path.** Without an operation match use **Not checked — no recorded read or send links this call to the field**. |
+| Who calls this code | Revision, enclosing function, searched files, search completion, depth and results. A resolved path needs evidence for each call. | Available one-level name search in the same file and identified importers. Builder runs it at the checked client revision and records its scope. | **Not checked — {the function name is missing / the caller search did not run at this revision}.** A completed empty search says **No direct call found by this name in the searched files**. For deeper callers: **Not checked — the search followed direct names only**. |
+| Earlier scan comparison and element membership | Admitted binding and scan ID, exact schema dependency and inventory including elements with no binding, saved signature and named comparison side | Product. First cut uses fresh matches. | **Earlier match: Not checked — {the earlier scan’s binding record / the schema used by that scan / its element inventory} is unavailable.** |
+| Standing differences, limits and time labels | Comparable source and match records for each pair, affected site/scope, file or entry diagnostics | Builder compares observed declarations and calls. Two observations support timing only with coverage of both sides. | **Seen at {versions}. When this difference began: Not checked — {side} comparison is missing.** For limits name the file, revision, missed construct and affected check. |
+| Counts, empty results and unobserved elements | Per-version distinct occurrences, grades, unknowns, membership in admitted binding inventories, coverage of each stated population | Builder counts observed records. A producer binding alone counts for §5.2 membership. | **{n} observed. Total: Not checked — {missing inventory or unresolved comparison}.** A missing membership inventory gives **Not checked — {binding inventory} is incomplete** for claims requiring it. |
+| Review first and rollout recommendation | Supported before/after change, affected call, supporting row IDs and compared pair. An observation needs its own site and scan record. | Builder chooses one supported action. With nothing confirmed, lead with the observed fact and the check that would settle it. | **Observed: {operation} was listed before at {site} and was not among the declarations read after. {call} requests it. Removal: Not checked — {missing record}. Confirm the removal, then check whether this client still needs it.** Omit ungrounded clauses. With neither observation nor proof use **Not checked — {missing record}. Check {source}.** |
+| Preview, source lists and appendix | Complete ordered row/list IDs and counts, action evidence and resolvable anchors to the full delivered tables | Builder reserves action evidence and applies the same caps to every list. | **Not checked — the complete {list} was unavailable** for an incomplete inventory. Report the number actually observed. |
+
+Use one shared limit per repeated cause and a short linked **Not checked — {missing record}** in each dependent cell. A fully checked empty inventory uses the empty-report wording above. An observed match never settles a missing declaration proof. For an addition observed only after, ask the reader to confirm it and check the intended client. For a client-only observation, ask the reader to check the service version that call needs.
+
+**Comparison of selected versions** · Service held unchanged at `91be111`. The study supplied client configuration `study/desk.toml` and route spec `study/press-routes.json`, both at study revision `aa4e203`. Both call records identify client entry 1, which leaves their addresses unchanged.
+
+| Client version and call | Request as written → path compared | Match among the declarations read |
 |---|---|---|
-| Versions and both directions | Render the versions block, coverage, action, service and client tables, limits and full appendix. For a service change, read both operation sets and scan the chosen client once. For a client change, run the same client inventory at base **and** head against one chosen service revision. For a mixed change reuse those inventories for all four comparisons in one report. A dated replay gets the version-comparison title unless cutoff evidence was supplied. | Automatic collection of branch-tip records and verified merge results. With no cutoff record or usable merge tree, print **Not checked** and say which comparison it prevents. |
-| Service operations and sites | Diff the method/path sets in both directions. Show **Listed only before** or **Listed only after** in the *entries read*, and link the route or annotation sites at their own revisions. Show a handler only if the input actually identifies it. Show the observed calls that lose or gain a match among these entries. | Certified additions/removals, complete registration and gateway coverage, and retained-entry, validation and handler-source comparisons. For a retained method/path print **Declaration or handler edits: Not checked — only the method and path were compared.** |
-| Extraction limits | There is **no per-file or per-entry extraction status**. For example, show **GET /lunar-folios listed before at press/routes.ts:27. Removal: Not checked — the after scan did not record which entries it could read.** Apply the same rule to an apparent addition, field disappearance, client deletion or zero. Report counts of observations under that label. Keep unverified changes out of confirmed counts. | A complete source inventory and the per-file/per-entry records described below. Missing extraction evidence cannot be supplied by a later restoration or a clean exit. |
-| Schema fields | Only the public schema pair has field inputs. Compare the two pinned JSON field inventories directly, including required → optional and both sets of listed values. Show observed values/paths, the five-property coverage caption, available limits and the operation's schema location when known. For a status-only shift show the observed statuses together and align comparable body paths. If the status keys cannot be verified on both sides, print **Status change: Not checked — the full response status lists were not recorded**. The code-declared pair prints **Changed fields: Not checked — no committed field schema.** | Confirmed field presence/absence and response roots, exact declaration lines, saved-schema comparisons and field uses where a product pass identifies a particular read or send. Use **Not checked** with the missing source or pass for each relevant claim. |
-| Client calls and identity | Keep every observed `bound`, `candidate` and `unbound` record with method, original address, mapped pattern when known, reason, file, line and enclosing function. Re-run §5.4 matching in the impact step. Number occurrences in source order within a frozen inventory so two calls on one line retain separate rows. In a client diff show observations on changed lines and changes in matches/targets across the full inventories. Link revisions only for a uniquely mapped unchanged source line containing the complete, single call within the same uniquely mapped function. Otherwise show each side's observation and **Corresponding call: Not checked — the scan has no expression spans**. | Expression spans and proved correspondence for edited calls. A cross-revision total for ambiguous rows reads **Not checked**. Keep their per-revision counts. |
-| Matches and differences | Show the highest-ranked operation(s) with their grades and reasons in plain words, including former misses. Show known unmatched requests, unknown targets and possible alternate prefixes beside an apparent zero. Report a wildcard as “every method” at its declaration. Name each actual gap, e.g. **Not checked — this scan did not check overlapping routes**. Other methods may be listed as declarations. Advice to change methods is outside this cut. | Lower-ranked overlap and dispatch checks, verified prefix/registration evidence for negatives and graded alternate-method advice. Declaration-only results cannot establish what a deployed service accepts. |
-| Callers and evaluation | At the **checked client revision**, list direct uses of the enclosing function found by a **one-level name search** in its file and identified importers. Say **No direct call found by this name in the searched files** when it ran with no hits, or **Not checked — {no function name / search did not run here}**. Attach the separate evaluation only for observations the study actually followed. | Resolved caller paths at one and two levels. For a second level in the first cut print **Not checked — the search followed direct names only**. |
+| Before · `73ad211` · `desk/queue.ts:12` · `openQueue` | GET `/proof-queue` → `/proof-queue` | Closest match · GET /proof-queue |
+| After · `73ad212` · `desk/queue.ts:13` · `openQueue` | POST `/proof-queue` → `/proof-queue` | No POST match among the declarations read. Registration: **Not checked — the scan did not record routing coverage.** |
 
-The prototype can show both sides of an edited client line against the same service even when it cannot prove the calls correspond.
-
-| Client version and call | Request as written → path checked | Match to service declarations at `91be111` |
-|---|---|---|
-| Before · `73ad211` · `desk/queue.ts:12` · `openQueue` | GET `/proof-queue` → `/proof-queue` | Best match among declarations read · GET /proof-queue |
-| After · `73ad212` · `desk/queue.ts:13` · `openQueue` | POST `/proof-queue` → `/proof-queue` | No POST match in the declarations read. Registration: **Not checked — the scan did not record routing coverage.** |
-
-**Corresponding call: Not checked — the edited line cannot be linked across revisions.** Inspect the two source lines before treating this
-as a switch to POST. The `queue-prefix` mapping in each named client revision leaves this address unchanged.
+**Corresponding call: Not checked — the scan recorded line numbers only.** Inspect the two source lines before treating this as a switch to POST.
 
 ## Replay evaluation (uses later history)
 
-Build and serialize the entire review from the frozen inputs first. Join a separate companion *to* its report, element and unambiguous
-call occurrence. The companion can supply an endpoint, followed lines, edits, release evidence, controls and reader judgments. It cannot
-select live rows. An ambiguous historical line link gets **Not checked — more than one call shares this line**. A client-change report
-needs no invented follow-up result.
+Build and serialize the review before joining any study result. Verify any admitted external change list against the fresh diff. Neither `History.detail` (later containing tags), `usable` (later restorations), nor a stripped `ReplayResult` supplies live rows. The study may request examples by ID. For a given independently admitted review request, selection by the study cannot create, suppress or change its live report. Join later observations only in a separate companion by report, element and unambiguous call occurrence. Otherwise print **Not checked — more than one call shares this line**.
 
-Read commit ID, date and subject directly from the selected commits. The replay's `History.detail` also consults later containing tags.
-Its `usable` list excludes later reversions and restorations. Neither that object nor a stripped `ReplayResult` is a review input.
-Bind source links and source bytes to the named trees. Exclude dirty or untracked substitutions. For live and historical reviews, use
-configuration and mappings from the admitted snapshots or with independent evidence of availability at the cutoff. A hash of today's
-configuration alone leaves the mapping **Not checked**. Verify any external change list against the fresh, cutoff-scoped diff. Determine
-inclusion from the snapshots even for study-selected subjects.
+**Admission acceptance test (before freezing).** Fix the query, clock, independent cutoff receipts, bytes in the trees they identify, and analysis version. Re-run subject selection, reference resolution, admission and extraction from raw inputs each time. Withhold, then vary each unadmitted source: moved refs and backdated/equal-time commits, later pins and merge results or metadata, dirty/untracked file substitutes, study configuration/route specs and mappings, later saved bindings and their schema dependencies, external change lists, study subject lists and restoration filters, later release tags/endpoints, followed lines, property searches, controls and adjudications. Include a later binding as the only apparent binding for a changed field. Include an unselected change and a change restored later so the report set itself is checked. Compare which reports are emitted as well as their bytes. A separate positive control changes an admitted declaration and must change its supported row.
 
-**Renderer acceptance test.** For the same subject and frozen inputs, first withhold all evaluation data. Then change later history, ref
-movements, restorations, releases, line searches, judgments, controls and study selection. Require byte-identical complete review JSON and
-Markdown, including identity, references, links, warnings, standing differences, grades, counts, ordering, preview, appendix and
-`unobserved`. The companion may differ. This test applies in both directions and to empty and partial reports.
+**Renderer byte-identity test (after freezing).** Feed identical frozen inputs with the companion withheld and with changed later evidence. In both tests require identical complete live JSON and Markdown, including report identity and inclusion, versions, links, rows, grades, warnings, standing differences, counts, ordering, preview, appendix and `unobserved`. Exercise both directions, a joint edit, and empty and partial reports in live and historical modes. Inspect the delivered live Markdown stream, comment and attachment: each contains only the review, with no companion section, payload, attachment or link. Deliver the companion separately to the study.
 
-Give the companion its own heading **Replay evaluation (uses later history)** and the last revision and date examined. The example follows
-a call for two days.
+Title the companion **Replay evaluation (uses later history)** and give the last revision and date examined. **Lines the study tracked** include the client call site and, for a field, lines spelling the property in that file or in files identified as importing its enclosing function. An edit to any such line can be the first recorded edit. The **study adjudicator** is the model that assessed the later evidence separately from the change review.
 
-| Client line followed | First recorded edit | Time from the service change | Reader's assessment and evidence |
+| Lines the study tracked | First recorded edit | Time from service change | Study adjudicator’s assessment and evidence |
 |---|---|---|---|
-| `desk/list.ts:18` | `73ad207` · 6 Jun 2026 · Reindent list call | 2 days | **Unrelated edit.** The change adjusted indentation. |
+| `desk/list.ts:18` | `73ad207` · 6 Jun 2026 · Reindent list call | 2 days | **Unrelated edit.** Only the indentation changed. |
 
 | Study value (JSON only) | Words and evidence in the companion |
 |---|---|
-| `same_commit`, `within_14_days`, `later` | **A followed line changed in the same commit / within 14 days / later.** Name the line, commit, subject and elapsed days. An edit includes deletion or a move history tracking lost. Use dates as observed if clocks disagree. Omit commit-distance jargon. |
-| `present_at_pin`, `present_at_head` | **Followed lines remained unchanged through {revision, date}** when tracking establishes that. If the trace is missing, name the missing evidence. |
-| `coordinated`, `fix_after_release` | **Reader judged the edits part of the same feature** or **Reader identified a follow-up fix**. Show the feature link, issue-citing fix message or release evidence actually available. Say **same release** or **release before the fix** only with identified releases establishing that relation. |
-| `dead_code`, `real_mismatch` | **The reader found no direct call by name in {files} at {revision}**, or **The reader found a source call by name and could not find {element} in {sources} at {revision}**. For a field, identify the property-name occurrence. These searches leave runtime reach and actual field use unknown. |
-| `unrelated_edit`, `false_prediction`, `cannot_tell`, missing assessment | **Unrelated edit**, **Reader judged this call unaffected**, **Reader could not determine the effect**, or **No reader assessment recorded**. Include the reader's reason where available. |
-| `field_spelled` | For a field only, **Property name found / No such property name found in the searched files**. Name the call's file and files identified as importing its enclosing function by name. A spelling gives the reviewer a place to look. **Actual use of this field: Not checked.** |
-
-Only a defined, ordered release set or release record can identify the first release containing a commit. For a cross-repository release
-claim also establish which versions that release contained. An arbitrary containing tag can be labeled **Tag containing this commit**. If
-the release set or correspondence is missing, print **Release: Not checked — {reason}**. A time interval alone measures when a line was
-touched.
+| `same_commit`, `within_14_days`, `later` | **A tracked line changed in the same commit / within 14 days / later.** Name the line, commit, subject and elapsed days. Identify deletion or a move where tracking stopped. Show dates as observed if clocks disagree. |
+| `present_at_pin`, `present_at_head` | **Tracked lines remained unchanged through {revision, date}** when tracking establishes that. Identify missing tracking evidence. |
+| `coordinated`, `fix_after_release` | **The study adjudicator linked the edits to the same feature** or **identified a follow-up fix**. Show the feature, issue-citing fix message or release evidence. A release claim requires a defined ordered release set, and across repositories, the versions it contained. An arbitrary tag gets **Tag containing this commit**. Otherwise **Release: Not checked — {missing release record}**. |
+| `dead_code`, `real_mismatch` | **The study adjudicator found no direct call by name in {files} at {revision}** or **found a source call by name and could not find {element} in {sources} at {revision}**. For a field identify the property occurrence. Runtime reach and field use remain unknown. |
+| `unrelated_edit`, `false_prediction`, `cannot_tell`, missing assessment | **Unrelated edit**, **The study adjudicator judged this call unaffected**, **The study adjudicator could not determine the effect**, or **No study assessment recorded**. Give the recorded reason. |
+| `field_spelled` | **Property name found / No such property name found in the searched files**. Name the files. **Actual field use: Not checked — the search recorded spelling only.** |
 
 ## Input documents and machine-readable form
 
@@ -374,11 +369,11 @@ expected {revision}, received {revision}** for the affected check. Preserve inde
 
 | Input | Fields needed beyond the original join |
 |---|---|
-| Each snapshot | `input_id`, `api`, `role`, `repo`, `rev`, `tree`, `committed_at`, `dirty`, `tool`, `schema.source`, `sha256` where applicable, `content_hash`, `config_sources[]` (name, repo, rev, path, hash, mapping/mount), `operation_authority`, `scope`. Record the actual file tree and configuration used. |
+| Each snapshot | `input_id`, `api`, `role`, `repo`, `snapshot_kind`, `rev`, `tree`, `committed_at`, `dirty`, `tool`, `schema.source`, `sha256` where applicable, `content_hash`, `operation_authority`, `scope`. For a computed tree, commit ID/date/subject are null. Each admitted input has `origin`, tree/path/blob or an independent cutoff receipt, and dependency IDs. `config_sources[]` identifies each source, revision, entry, mount/mapping, driver defaults and selected era. |
 | Extraction for each input | `expected_files[]`, `file_status[]` (path, blob, expected/moved/deleted evidence, scope, status, reason), `entries[]` per file (source span or enclosing region, kind, possible keys/scope, status, reason), `dependencies[]`, `unaccounted_scopes[]`. Status distinguishes complete, partial, unreadable, skipped and unknown. Include missing expected files and regions without an element ID. A missing status defaults to unknown. |
-| Producer | `operations[]` with original method/path, canonical ID, authority and per-version `sites[]` (kind, span, grade, reason, function, evidence). Keep registration, annotation, handler and schema locations distinct. `entry_digest`, `validation_digest`, `handler_ref`, `handler_digest` support retained edits. `message_roots[]` records operation, status, media and coverage. `fields[]` records ID, definition, path, declaration site when known, before/after-comparable properties and limits. |
-| Consumer | `calls[]` includes unbound calls. Each has `site` (file, blob, line, byte span or local occurrence), `enclosing_function`, `function_span`, `requested_method`, `original_url_text`, `mapped_path`, `mapping_source`, `target_reason`. Optional `saved_match` carries `service_input_id`, grade, all candidate IDs/reasons, schema identity, element presence and recorded signature. `callers_status`, `caller_method`, `depth`, scope and `callers[]` give the revision, sites and any intervening functions. |
-| Change and cutoff | `subject_role` (service, client, both), `before_input_id` and `after_input_id` per changed role, fixed `reference_input_id` for one-sided changes, `report_time`, `cutoff_at`, `mode`, `branch`, `observed_tip`, `observed_at`, `selection_history_tip`, `availability_evidence`, `availability_status`, `requested_rev`, `selected_by`, `selection_reason`, dates/offset and comparison basis. Keep base/head/target/merge tree IDs and optional before/after file, function and call correspondence with evidence. |
+| Producer | `operations[]` with original method/path, canonical ID, authority and per-version `sites[]` (kind, span, grade, reason, function, evidence). Keep registration, annotation, handler and schema locations distinct. `entry_digest`, `validation_digest`, `handler_ref`, `handler_digest` support retained edits. `success_statuses[]` includes bodyless declarations. `message_roots[]` records operation, status, body presence, declared media, where each was declared/inherited, selected schema and coverage. `fields[]` records ID, definition, path, site when known, comparable properties and limits. |
+| Consumer | `calls[]` includes unbound calls. Each has `site` (file, blob, line, byte span or local occurrence), `enclosing_function`, `function_span`, `requested_method`, `original_url_text`, `mapped_path`, `mapping_source`, `target_reason`. An optional earlier scan document carries its ID, client tree, schema inventory ID, configuration and admission receipts even for a lookup with no saved match. Each `saved_match` carries the service input ID, grade, candidates/reasons and signature. `callers_status`, `caller_method`, `depth`, scope and `callers[]` give revision, sites and intervening functions. A field-use record names the read/send site, call, field and supporting evidence. |
+| Change and cutoff | `subject_role` (service, client, both), per-role `before_input_id` and `after_input_id`, `reference_input_id`, `report_time`, `cutoff_at`, `mode`, `branch`, `observed_tip`, `observed_at`, `selection_history_tip`, `availability_evidence`, `availability_status`, `requested_rev`, `selected_by`, `selection_reason`, dates/offset and comparison basis. Bind base/head/target metadata, merge procedure and tree receipt, exact-source link or blob excerpt, and any evidenced call correspondence. |
 
 With these documents, **impact** runs §5.4 matching for each pair under **Versions checked**. The product can perform this comparison from
 the documents alone. Use the raw requested target of every call, including calls the saved document could not bind. A service change needs
@@ -389,8 +384,8 @@ missing schema cannot be replaced with an empty schema.
 | Live JSON | Contents |
 |---|---|
 | Envelope | `schema_version`, `report_id`, `api`, `mode` (`live`, `historical_as_of`, `version_comparison`), `report_time`, `cutoff_at`, `inputs`, `reference`, `comparisons[]` (purpose, service/client input IDs). Date-only or explicitly later comparisons cannot serialize as historical as-of or live. |
-| `change`, `impacts[]` | `elements[]`, `operation_id`, `change_kinds[]`, `before_presence`, `after_presence` (present/absent/unknown), `before_shape`, `after_shape` (type, format, required in parent, allowed values, item type), `response_root_pairs[]`, `call_changes[]`, `producer_sites[]`, `risks[]` and `review_action` with supporting row IDs. Include declaration-only observations separately from confirmed changes. |
-| `usages[]` | Revision-local `site_id`, `before_site`, `after_site`, optional shared `usage_id` and `correspondence_evidence`, `requested_target`, `match_before`, `match_after`. Each match carries service/client input IDs, mapping, status, primary grade/reason, target IDs and `alternates[]`/`overlaps[]` with operation, method, grade and reason. Include `field_use_status` and caller evidence. |
+| `change`, `impacts[]` | `elements[]`, `operation_id`, `change_kinds[]`, `before_presence`, `after_presence` (present/absent/unknown), `before_shape`, `after_shape` (type, format, required in parent, allowed values, item type), `status_additions[]`, `status_removals[]`, `response_root_pairs[]`, `call_changes[]`, `producer_sites[]`, `risks[]` and `review_action` with supporting row IDs. Distinguish a certified change in one file from a one-sided observation. |
+| `usages[]` | Revision-local `site_id`, `before_site`, `after_site`, optional shared `usage_id` and `correspondence_evidence`, `requested_target`, `match_before`, `match_after`. Each match carries service/client input IDs, mapping, status, primary grade/reason, target IDs and `alternates[]`/`overlaps[]` with operation, method, grade and reason. `prefix_hints[]` records both paths and the common suffix. Include field-use status/evidence and caller evidence. |
 | `binding_status`, `coverage[]`, `warnings`, `standing_mismatches[]` | Saved schema identity, actual element presence, recorded properties and comparison basis. Per-claim input/file/entry references, authority, scope, status, reason code and observed versions support both change and standing rows. Warnings name their affected claims. |
 | `summary`, `unobserved` | `operation_count`, `changed_field_count`, `listed_usage_count`, `possible_only_usage_count`, `known_unmatched_count`, `unknown_target_count`, with version, scope, observed count and null plus reason for an unmeasured total. `unobserved` retains §5.2's meaning: a changed element has **no binding in any admitted live binding document**. A producer binding alone keeps it out even when no client matches. |
 
@@ -438,3 +433,26 @@ The separate evaluation JSON carries `live_report_id`, `observation_end`, `eleme
 | Opus S6 · SMELL | [Input documents](#input-documents-and-machine-readable-form) validates revisions and rematches raw calls. [Call identity](#operation-and-client-changes) and [replay evaluation](#replay-evaluation-uses-later-history) settle correspondence and hindsight inputs. |
 | Opus S7 · SMELL | [Long reports](#empty-and-long-reports) caps limits, callers and standing rows and groups shared definitions and prefix moves. |
 | Opus S8 · SMELL | [Worked reviews](#service-change-operations-only) show an unchecked field count and a JSON schema. [Report layout](#what-appears-on-the-change) gives unknown targets one home and [match wording](#from-evidence-to-review-wording) limits notifications to bound facts. |
+
+## Review round 2: disposition
+
+Both review rounds are spent. The 27 first-round findings narrowed to 16, mostly in the amended text. This fold applies the two recurring rules across the report.
+
+| Finding | Disposition |
+|---|---|
+| Opus A · WRONG | Versions checked enumerates the study inputs, prints their origin and selects the comparison title. First cut identifies the mapping entry at extraction. |
+| Sol 1 · WRONG | Input admission and Saved matches require cutoff evidence for the earlier binding and its schema dependencies before selection, counts or membership. |
+| Sol 2 · WRONG | Versions checked and §10 distinguish the computed tree from its constituent commits and specify exact-blob links and excerpts. |
+| Sol 3 · WRONG | Match wording and §10 give product wildcard eligibility, priority and grading, plus the exact-method prototype fallback before totals or notification. |
+| Sol 4 · WRONG | Fields and First cut read request/response media declarations and inheritance before counting a JSON field. |
+| Sol 5 · WRONG | Operation and client changes and Fields emit independent success-status rows even for a bodyless removal with zero field edits. |
+| Opus B · SMELL | First cut retains diagnostics, accounts for skipped declarations, certifies a file-local change and gives Review first an observation and action when nothing is confirmed. |
+| Opus C · SMELL | Match wording puts other-prefix hints and unmatched-request counts beside each addition and removal, including rows with confirmed users. |
+| Opus D · SMELL | Versions checked and §10 compare target to merge result in the changing repository in either setup. |
+| Opus E · SMELL | Replay evaluation identifies the model adjudicator and explains tracked call and property lines, including lines in importing files. |
+| Opus F · SMELL | Saved matches, worked reviews and First cut identify the earlier scan, name the service held unchanged, use consistent cell wording, and align duration, coverage and action with the example evidence. |
+| Opus G · SMELL | §10 amends §§5.1 and 5.4 for all-method IDs and matching. |
+| Sol SMELL 1 · Cell evidence | What counts as evidence and the First cut table require a frozen record and give supply and fallback for each cell. |
+| Sol SMELL 2 · Prefix hints | Match wording compares shared trailing segments even when both addresses have a prefix. Hints keep their own label. |
+| Sol SMELL 3 · Local wording | Examples, match wording, Fields and First cut name the search, scope and concrete reason wherever a partly checked claim appears. |
+| Sol SMELL 4 · Preview lists | Empty and long reports caps each in-cell list, links its complete table and specifies a complete Markdown attachment on truncating surfaces. |
