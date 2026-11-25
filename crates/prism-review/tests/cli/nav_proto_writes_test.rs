@@ -1,0 +1,76 @@
+use prism::api::{nav_session, NavOptions};
+use prism::navigation::proto_writes;
+use serde_json::{json, Value};
+use std::{fs, path::Path};
+
+fn listing(root: &Path) -> Value {
+    let out = crate::prism_bin()
+        .unwrap()
+        .args(["nav", "proto-writes", "--repo"])
+        .arg(root)
+        .args(["--format", "json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    serde_json::from_slice(&out).unwrap()
+}
+
+#[test]
+fn json_matches_core_query_in_file_line_and_target_order() {
+    let root = tempfile::tempdir().unwrap();
+    fs::write(root.path().join("z.ts"), "function put(o: any, k: string, p: string, v: any) {\n const child = o[k];\n child[p] = v;\n}\n").unwrap();
+    fs::write(
+        root.path().join("a.js"),
+        "function put(a, k, p) {\n a[k][p] = external; a[k][p] = 1;\n}\n",
+    )
+    .unwrap();
+    let got = listing(root.path());
+    let mut options = NavOptions::default();
+    options.no_cache = true;
+    let session = nav_session(root.path(), &options).unwrap();
+    assert_eq!(
+        got,
+        serde_json::to_value(proto_writes::proto_writes(&session)).unwrap()
+    );
+    let facts = got["facts"].as_array().unwrap();
+    assert_eq!(facts.len(), 3);
+    assert_eq!(facts[0]["file"], "a.js");
+    assert_eq!(facts[1]["file"], "a.js");
+    assert_eq!(facts[2]["file"], "z.ts");
+    assert!(facts[0]["start_byte"].as_u64() < facts[1]["start_byte"].as_u64());
+    let lines = got["name_reads"].as_array().unwrap();
+    assert_eq!(
+        lines
+            .iter()
+            .map(|line| (
+                line["file"].as_str().unwrap(),
+                line["line"].as_u64().unwrap()
+            ))
+            .collect::<Vec<_>>(),
+        [("a.js", 2), ("z.ts", 2), ("z.ts", 3)]
+    );
+    let unknown = lines[0]["reads"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|read| read["base"] == "external")
+        .unwrap();
+    assert_eq!(unknown["binding"], Value::Null);
+    assert_eq!(unknown["resolution_complete"], false);
+}
+
+#[test]
+fn json_has_two_empty_arrays_for_other_languages() {
+    let root = tempfile::tempdir().unwrap();
+    fs::write(
+        root.path().join("app.py"),
+        "def put(o, k, p):\n    o[k][p] = 1\n",
+    )
+    .unwrap();
+    assert_eq!(
+        listing(root.path()),
+        json!({ "facts": [], "name_reads": [] })
+    );
+}

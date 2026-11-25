@@ -238,6 +238,37 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             }
             Ok(())
         }
+        NavQuery::ProtoWrites { repo, format } => {
+            let listing = prism::navigation::proto_writes::repo_proto_writes(repo)?;
+            if format == "json" {
+                println!("{}", serde_json::to_string_pretty(&listing)?);
+            } else {
+                for row in &listing.facts {
+                    let write = &row.write;
+                    println!(
+                        "{}:{} [{}..{}] {} {:?} guard={:?}",
+                        row.file,
+                        write.line,
+                        write.start_byte,
+                        write.end_byte,
+                        write.function,
+                        write.class,
+                        write.guard
+                    );
+                    for operand in &write.key_operands {
+                        println!(
+                            "  {:?} {}:{} [{}..{}]",
+                            operand.role,
+                            operand.name,
+                            operand.line,
+                            operand.start_byte,
+                            operand.end_byte
+                        );
+                    }
+                }
+            }
+            Ok(())
+        }
         NavQuery::DfgStats { repo, edges } => {
             let session = prism::api::nav_session(repo, &nav_options)?;
             if *edges {

@@ -11,6 +11,7 @@ pub mod onboarding;
 #[cfg(test)]
 mod owner_cache_tests;
 mod partition_site_dump;
+pub mod proto_writes;
 pub mod queries;
 pub mod render;
 pub mod seed;
