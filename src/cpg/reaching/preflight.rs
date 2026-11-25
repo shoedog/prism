@@ -63,6 +63,19 @@ pub(crate) fn pattern_one_node_refusal(
     }) && completed.len() != count
 }
 
+/// Whether the census-completed definition list overflows the cap although the recorded list fits:
+/// the solver then forces every edge of the owner to `cfg_incomplete` (`owner-refuse:def-cap`).
+pub(crate) fn census_def_cap_overflow(
+    parsed: &ParsedFile,
+    owner: &Node<'_>,
+    defs: &[DefSite],
+) -> bool {
+    let (mut completed, mut census) =
+        super::census_defs::complete_for(true, false, parsed, owner, deduplicate_definitions(defs));
+    census.cap_defs(&mut completed, RD_MAX_DEFS);
+    census.def_cap_forced()
+}
+
 pub(crate) fn unavailable_before_edges(
     parsed: &ParsedFile,
     owner: &Node<'_>,

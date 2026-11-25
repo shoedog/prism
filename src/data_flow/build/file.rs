@@ -483,7 +483,7 @@ impl Producer {
 
             // Reuse the selected endpoint across count, replay and interning.
             let pattern_values = super::pattern_values::Values::new(parsed, func_node);
-            if !pattern_formals.is_empty() {
+            if pattern_formals.iter().any(|formal| !formal.guarded()) {
                 if let Some(evidence) = evidence.as_deref_mut() {
                     for site in pattern_values.unresolved_sites() {
                         evidence.signature_write_sites.push(([func_node.start_byte(), func_node.end_byte()], site));
@@ -546,7 +546,8 @@ impl Producer {
             }).flatten();
             let one_node = cap.is_some() && augmented.is_none() && !pattern_increment.is_empty()
                 && crate::cpg::pattern_one_node_refusal(parsed, &func_node, &rd_defs, cfg_index);
-            let legacy_defs = (!pattern_increment.is_empty() && (augmented.is_some() || one_node)).then(|| {
+            let census_cap = pattern_increment.census_overflow(parsed, &func_node, &rd_defs, augmented.is_none() && !one_node);
+            let legacy_defs = (!pattern_increment.is_empty() && (augmented.is_some() || one_node || census_cap)).then(|| {
                 pattern_increment.legacy_rd(&rd_defs)
             });
             let legacy = legacy_defs.as_ref().and_then(|defs| {
@@ -558,10 +559,10 @@ impl Producer {
                 augmented = Some(crate::cpg::RdUnavailable::NoCfgEdges);
             }
             let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans, census, c_census, &c_file_parens);
-            let mut withheld = None;
-            let mut cap_pairs = Vec::new();
-            if !pattern_increment.is_empty() && augmented.is_some_and(|reason| reason.is_def_cap())
-                && !legacy.is_some_and(|reason| reason.is_def_cap())
+            let (mut withheld, mut cap_pairs) = (None, Vec::new());
+            let census_only = census_cap && legacy.is_none() && !pattern_increment.census_overflow(parsed, &func_node, legacy_defs.as_deref().unwrap_or(&[]), true);
+            if !pattern_increment.is_empty() && (census_only || augmented.is_some_and(|reason| reason.is_def_cap())
+                && !legacy.is_some_and(|reason| reason.is_def_cap()))
             {
                 withheld = Some(CapKind::Definitions);
                 if evidence.is_some() {
@@ -576,8 +577,7 @@ impl Producer {
                 }
             }
             let mut use_pattern = withheld.is_none();
-            let mut owner_capped = false;
-            let mut emitted_patterns = Vec::new();
+            let (mut owner_capped, mut emitted_patterns) = (false, Vec::new());
             'select_owner: loop {
                 let selected_rd = if use_pattern { rd_defs.as_slice() } else { legacy_defs.as_deref().expect("cap comparison prepared legacy definitions") };
                 let unavailable = if cap.is_none() { None } else if use_pattern { augmented } else { legacy };

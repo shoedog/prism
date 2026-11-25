@@ -92,6 +92,21 @@ impl CompactDfg {
         from: &VarLocation,
         to: &VarLocation,
     ) -> Option<FlowConfidence> {
+        // A pair whose endpoints are stored occurrences (they carry bytes) has its
+        // own label; the line-group label answers only callers without them.
+        if let (Some(f), Some(t)) = (self.arena.exact(from), self.arena.exact(to)) {
+            if let Some(confidence) = self.exact_labels.get(&(f, t)) {
+                return Some(*confidence);
+            }
+        }
+        self.legacy_label(from, to)
+    }
+    /// The line-group label of the pair, whatever occurrence bytes the endpoints carry.
+    pub(in crate::data_flow) fn legacy_label(
+        &self,
+        from: &VarLocation,
+        to: &VarLocation,
+    ) -> Option<FlowConfidence> {
         self.labels
             .get(&(self.arena.legacy(from)?, self.arena.legacy(to)?))
             .map(|v| v.confidence)

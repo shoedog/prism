@@ -18,10 +18,14 @@ use super::pattern_execution as execution;
 #[path = "pattern_signature.rs"]
 mod signature;
 
+use super::pattern_reads::reads_value;
 use super::pattern_values::Values;
 
 pub(super) struct PatternFormal {
     pub(super) def: VarLocation,
+    /// A producer guard (eval, mapped `arguments`, seam) refuses the formal: its reads
+    /// stay in the ledger as refusals, and it supplies no Def or endpoint.
+    guarded: bool,
     decl_line: usize,
     reads: BTreeMap<(AccessPath, usize), Vec<Read>>,
 }
@@ -125,9 +129,10 @@ impl PatternFormal {
             .into_iter()
             .flat_map(|p| p.elements)
         {
-            if !element.admitted || refused.contains(&element.name) {
+            if !element.admitted {
                 continue;
             }
+            let guarded = refused.contains(&element.name);
             let start_byte = element.bytes.start;
             let end_byte = element.bytes.end;
             let def = VarLocation {
@@ -144,6 +149,7 @@ impl PatternFormal {
                 element.name,
                 Self {
                     def,
+                    guarded,
                     decl_line: parsed.line_for_byte(start_byte),
                     reads: BTreeMap::new(),
                 },
@@ -171,6 +177,7 @@ impl PatternFormal {
         };
         let eligible = formals
             .values()
+            .filter(|formal| !formal.guarded)
             .map(|formal| formal.def.start_byte)
             .collect();
         let signature = signature::Signature::certify(parsed, owner, &eligible);
@@ -235,7 +242,11 @@ impl PatternFormal {
                     let copied_body_var = in_body_var
                         && scope == Some(owner.id())
                         && copied_vars.contains(&path.base);
-                    let admission = admit(&signature, operand, ancestry, binding, copied_body_var);
+                    let mut admission =
+                        admit(&signature, operand, ancestry, binding, copied_body_var);
+                    if formal.guarded && admission.admits() {
+                        admission = Admission::Refused(Refusal::WriteEffect);
+                    }
                     formal
                         .reads
                         .entry((path, parsed.line_for_byte(operand.start_byte())))
@@ -270,6 +281,10 @@ impl PatternFormal {
             stack[first..].reverse();
         }
         formals.into_values().collect()
+    }
+
+    pub(super) fn guarded(&self) -> bool {
+        self.guarded
     }
 
     pub(super) fn produces_def(&self) -> bool {
@@ -431,7 +446,7 @@ impl PatternFormal {
                     || reads
                         .iter()
                         .any(|read| representative_span(read) == (start, end))
-                    || representative_name(parsed, &representative))
+                    || representative_name(parsed, &representative, &body_reads))
                 && representative_in_body(parsed, *owner, &representative, first.region)
                 && values.same_version(
                     selected_path,
@@ -653,7 +668,7 @@ fn read_operand<'a>(
             "subscript_expression"
                 if operand == root && parent.child_by_field_name("object") == Some(receiver) =>
             {
-                if parsed.member_is_write_target(parent) {
+                if parsed.member_is_write_target(parent) && !reads_value(parent) {
                     return None;
                 }
                 break;
@@ -663,13 +678,15 @@ fn read_operand<'a>(
         }
         receiver = parent;
     }
-    if operand != root && parsed.member_is_write_target(operand) {
+    if operand != root && parsed.member_is_write_target(operand) && !reads_value(operand) {
         return None;
     }
     Some((operand, path))
 }
 
-fn representative_name(parsed: &ParsedFile, loc: &VarLocation) -> bool {
+/// A JSX attribute name stands for a read only when that attribute's own
+/// value holds a certified read (`x={x}`), never a sibling attribute's read.
+fn representative_name(parsed: &ParsedFile, loc: &VarLocation, reads: &[&Read]) -> bool {
     loc.start_byte < loc.end_byte
         && parsed
             .tree
@@ -679,7 +696,13 @@ fn representative_name(parsed: &ParsedFile, loc: &VarLocation) -> bool {
                 node.kind() == "property_identifier"
                     && node
                         .parent()
-                        .is_some_and(|parent| parent.kind() == "jsx_attribute")
+                        .filter(|parent| parent.kind() == "jsx_attribute")
+                        .is_some_and(|attribute| {
+                            reads.iter().any(|read| {
+                                attribute.start_byte() <= read.root.0
+                                    && read.root.1 <= attribute.end_byte()
+                            })
+                        })
             })
 }
 

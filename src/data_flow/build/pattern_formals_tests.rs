@@ -477,7 +477,8 @@ fn jsx_attribute_representative_contains_its_own_read() {
         ("<D x={x}/>", "x={"),
     ] {
         let source = format!("function C({{x}}) {{\n  return {jsx};\n}}\n");
-        let start = source.find(endpoint).unwrap();
+        let body = source.find("return ").unwrap();
+        let start = body + source[body..].find(endpoint).unwrap();
         let actual: Vec<_> = refs(&source, Language::Tsx)
             .edges
             .iter()
@@ -631,5 +632,26 @@ fn computed_parameter_key_replaces_the_entry_value_before_the_body() {
             disposition == "emitted",
             "{key}/{read}",
         );
+    }
+}
+
+/// The ledger's candidate count must equal an independent syntax count of the same
+/// reads, whichever path (admitted, guard-refused, read-modify-write) each one takes.
+#[test]
+fn ledger_candidates_equal_the_syntax_read_count() {
+    for source in [
+        "function C({a}) { return a + a }",
+        "function C({a}) { return a.k + a.j }",
+        "function C({a}) { a.k = 1; return a.j }",
+        "function C({a}) { a.k++; return a.j + a.k }",
+        "function C({a}) { a[0] += 1; return a }",
+        "function C({a}) { a.k ??= 1; return 0 }",
+        "function C({a}) { eval(\"0\"); return a }",
+        "({a}) => { eval(\"0\"); return a + a }",
+        "({a}) => { eval?.(\"0\"); return a }",
+    ] {
+        let expected = syntax_read_count(source, "a");
+        let receipt = evidence(source, Language::JavaScript);
+        assert_eq!(receipt.counters()["candidates"], expected, "{source}");
     }
 }

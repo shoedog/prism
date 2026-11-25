@@ -3,6 +3,7 @@
 use super::pattern_formals::{PatternFormal, Selected};
 use super::Producer;
 use crate::access_path::AccessPath;
+use crate::ast::ParsedFile;
 use crate::cpg::{DefId, DefSite};
 use crate::data_flow::s1_evidence::{
     CapDefinition, CapKind, CapPair, CapWithholding, FileEvidence,
@@ -34,6 +35,19 @@ impl<'a> Increment<'a> {
             .push((loc, defs.get(&key(loc)).map_or(0, Vec::len)));
         self.rd_positions.insert(rd.len());
         Producer::push_rd_def(rd, loc, false);
+    }
+
+    /// The solver completes the definition list with census-only defs (and an S1 entry def can make
+    /// a write census-eligible): whether this list alone overflows the cap there, which forces every
+    /// edge of the owner to `cfg_incomplete`. `applies` is false when the owner is unavailable anyway.
+    pub(super) fn census_overflow(
+        &self,
+        parsed: &ParsedFile,
+        owner: &Node<'_>,
+        defs: &[DefSite],
+        applies: bool,
+    ) -> bool {
+        applies && !self.is_empty() && crate::cpg::census_def_cap_overflow(parsed, owner, defs)
     }
 
     pub(super) fn add_rd_only(&mut self, position: usize) {

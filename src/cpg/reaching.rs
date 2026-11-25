@@ -25,7 +25,9 @@ mod d3;
 mod preflight;
 mod read_index;
 mod refusal_classes;
-pub(crate) use preflight::{pattern_one_node_refusal, unavailable_before_edges};
+pub(crate) use preflight::{
+    census_def_cap_overflow, pattern_one_node_refusal, unavailable_before_edges,
+};
 mod cfg_edge_index;
 mod compact_wire;
 mod contribution;

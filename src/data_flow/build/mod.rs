@@ -126,6 +126,7 @@ mod param_alias_trace;
 mod pattern_caps;
 mod pattern_execution;
 mod pattern_formals;
+mod pattern_reads;
 pub(crate) use pattern_formals::is_signature_pair;
 #[cfg(test)]
 mod pattern_formals_tests;

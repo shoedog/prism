@@ -2,6 +2,7 @@
 
 use super::pattern_execution as execution;
 use super::pattern_formals::{decoded_name, in_body_seam};
+use super::pattern_reads;
 use crate::access_path::AccessPath;
 use crate::ast::js_ts::{formal_binding, props_keys::strip_transparent_wrappers};
 use crate::ast::ParsedFile;
@@ -121,7 +122,12 @@ impl<'a> Values<'a> {
         {
             return Some(Refusal::ValueVersion);
         }
-        let mut replaced = false;
+        let mut replaced = !path.has_fields()
+            && census.sites.iter().any(|site| {
+                site.moment > binding_end
+                    && pattern_reads::unconditional_key_write(self.parsed, site)
+                    && self.bound_write(&path.base, site, true)
+            });
         let mut uncertain = false;
         for site in census
             .sites
@@ -361,6 +367,7 @@ fn collect_signature_effects<'a>(parsed: &'a ParsedFile, owner: Node<'a>) -> Sig
             // The site retains its exact syntax range independently of timing.
             effects.fields.insert(span(node), at);
             if node.kind() == "call_expression"
+                && !call_is_optional(node)
                 && node
                     .child_by_field_name("function")
                     .and_then(strip_transparent_wrappers)
@@ -399,6 +406,15 @@ fn collect_signature_effects<'a>(parsed: &'a ParsedFile, owner: Node<'a>) -> Sig
             Some(span(value))
         }));
     effects
+}
+
+/// `eval?.(..)` and `(eval)?.(..)` are indirect calls, never direct eval.
+fn call_is_optional(call: Node<'_>) -> bool {
+    let mut cursor = call.walk();
+    let optional = call
+        .children(&mut cursor)
+        .any(|child| matches!(child.kind(), "optional_chain" | "?."));
+    optional
 }
 
 fn possible_aliases(value: Node<'_>) -> Vec<Node<'_>> {
