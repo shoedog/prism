@@ -159,8 +159,8 @@ line, rule, operand, verdict}`, possibly empty); `reasons` (per level, DESIGN 5.
 it); `pending` (null, or the issue whose producer the row needs; the group test skips the row and prints the
 issue, so no row is `#[ignore]`d); `class`; `note` (free text; it never waives a check). `expect` is the
 target behaviour after all named admissions ship. For staged or deferred answers, assert the build's `current` cell as specified in STAGE_D_ROWS.md, including rows outside the enabled target group. Rows true on main are `control`; a slice that moves a control cell
-   edits the row in its PR and names it. For the ten DEFERRED option B rows below, use this plan's CURRENT
-   overlay and assert the refused-hop reason at the hop.
+edits the row in its PR and names it. For the ten DEFERRED option B rows below, use this plan's CURRENT
+overlay and assert the refused-hop reason at the hop.
 
 Harness: copy the fixture to a temp directory; `prism::repo_loader::load_repo`. **review** / **trace_review**:
 `CpgContext::build_with_scope_graph_inputs(&repo.files, repo.type_db.as_ref(), repo.scope_graph_inputs.as_ref())`
