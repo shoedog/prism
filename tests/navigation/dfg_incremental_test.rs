@@ -259,9 +259,10 @@ fn partial_hit_javascript_exact_labels() {
 /// read once; the oracle in `partial_hit_multifile_edit_retain_delete` relies on that.
 ///
 /// The comparison is over the serialized graph (spans, bindings, both label maps, per-file
-/// statistics, counters and both census digests), not edge identities, and the sample holds one
-/// Rust file and one C file whose graph depends on a macro defined in ANOTHER file, so a census
-/// read from the sample or a singleton instead of the whole tree fails it (#856).
+/// statistics, counters and both census digests), not edge identities. The sample holds one Rust
+/// file and one C file whose graph depends on a macro defined in ANOTHER file that is in the tree
+/// but not in the sample, so a census read from the sample or a singleton instead of the whole
+/// tree fails it through those files' edges as well as through the digests (#856).
 #[test]
 fn build_each_file_matches_per_file_builds_under_the_tree_census() {
     prism::build_pool::install(|| {
@@ -272,34 +273,46 @@ fn build_each_file_matches_per_file_builds_under_the_tree_census() {
             }
         });
         let mut files = tree.unwrap();
-        // Cross-file macro users. `show!(x)` / `SHOW(x)` is a macro invocation only when the
-        // census has seen the definition in `xfile_macros/{a.rs,m.h}`; without it `x = 1` looks
-        // overwritten and its pairs are pruned (Rust) or the call looks external (C).
-        let synthetic = [
-            ("xfile_macros/a.rs", "macro_rules! show { ($e:expr) => { $e + 1 }; }\n", Language::Rust),
+        // A stride sample of the fixture tree, taken before the synthetic files exist.
+        let mut sample: BTreeMap<_, _> = files
+            .iter()
+            .step_by(37)
+            .map(|(p, f)| (p.clone(), f.clone()))
+            .collect();
+        // Cross-file macro users. The definitions (`xfile_macros/{a.rs,m.h}`) are in the tree but
+        // NOT in the sample, so a census read from the sample or from the file alone does not know
+        // them. Rust: with the definition `show!(x)` is an Allowed macro, `x = 2` dominates its
+        // read and the `x = 1` pairs are pruned; without it the invocation is Refused and they are
+        // kept. C: with `#define SHOW` the argument `x` escapes and the pairs are kept; without it
+        // `SHOW(x)` is an ordinary call and they are pruned.
+        let definers = [
+            (
+                "xfile_macros/a.rs",
+                "macro_rules! show { ($e:expr) => { $e + 1 }; }\n",
+                Language::Rust,
+            ),
+            (
+                "xfile_macros/m.h",
+                "#define SHOW(v) ((v) + 1)\n",
+                Language::C,
+            ),
+        ];
+        let users = [
             (
                 "xfile_macros/b.rs",
                 "fn f() -> i32 {\n    let mut x = 1;\n    x = 2;\n    let y = show!(x);\n    y\n}\n",
                 Language::Rust,
             ),
-            ("xfile_macros/m.h", "#define SHOW(v) ((v) + 1)\n", Language::C),
             (
                 "xfile_macros/c.c",
                 "int f(void) {\n    int x = 1;\n    x = 2;\n    return SHOW(x);\n}\n",
                 Language::C,
             ),
         ];
-        for (path, src, lang) in synthetic {
+        for (path, src, lang) in definers.into_iter().chain(users) {
             files.insert(path.into(), ParsedFile::parse(path, src, lang).unwrap());
         }
-        // A stride sample of the fixture tree plus the macro users. (It is mostly Go, C++, C and
-        // Python; the equivalence does not depend on the language mix.)
-        let mut sample: BTreeMap<_, _> = files
-            .iter()
-            .step_by(37)
-            .map(|(p, f)| (p.clone(), f.clone()))
-            .collect();
-        for (path, _, _) in synthetic {
+        for (path, _, _) in users {
             sample.insert(path.into(), files[path].clone());
         }
         assert!(sample.len() > 20, "sample too small: {}", sample.len());
@@ -326,9 +339,17 @@ fn build_each_file_matches_per_file_builds_under_the_tree_census() {
             let graph = &each.iter().find(|(p, _)| p == path).unwrap().1;
             let edges =
                 |g: &DataFlowGraph| g.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>();
+            let (tree_n, own_n) = (edges(graph).len(), edges(&own_census).len());
+            // Rust: the Allowed macro lets the dominating write prune pairs (fewer edges); C: the
+            // known macro escapes its argument (more edges).
+            let expected = if path.ends_with(".rs") {
+                tree_n < own_n
+            } else {
+                tree_n > own_n
+            };
             assert!(
-                edges(graph) != edges(&own_census),
-                "{path}: the whole-tree census must change its edges, or the test cannot see a wrong census"
+                expected,
+                "{path}: the whole-tree census must change its edges ({tree_n} vs {own_n} with its own census), or the test cannot see a wrong census"
             );
         }
         assert!(
