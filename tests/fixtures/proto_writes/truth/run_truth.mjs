@@ -561,6 +561,8 @@ function resultRecord(kind, r) {
   };
 }
 
+const EXTENDED_ROOTS = new Set(['object_ctor', 'global_this']);
+
 export async function runAll({
   casesDir,
   rowsPath,
@@ -686,21 +688,31 @@ export async function runAll({
 
     for (const rec of records) {
       if (rec.truth !== null) continue;
-      const reasons = [];
-      const badControl = rec.control.filter((c) => !c.ok);
-      for (const c of badControl) {
-        reasons.push(`control failed (${c.root}, ${c.mode}): ${c.status !== 'ok' ? c.status : c.threw ? 'threw ' + c.error : c.polluted ? 'polluted' : 'effect not observed'}`);
-      }
-      const unknown = rec.results.filter((r) => r.status !== 'ok');
-      for (const r of unknown) reasons.push(`payload run ${r.status} (${r.family}${r.wrapped ? '+array' : ''}, ${r.root}, ${r.mode})`);
+      // `truth` is judged over the design's four root kinds; roots in EXTENDED_ROOTS (a function that
+      // is handed a built-in constructor or the global object as its root) only feed `truth_extended`.
+      const core = (x) => !EXTENDED_ROOTS.has(x.root);
+      const ext = (x) => EXTENDED_ROOTS.has(x.root);
+      const judge = (results, control) => {
+        const reasons = [];
+        for (const c of control.filter((c) => !c.ok)) {
+          reasons.push(`control failed (${c.root}, ${c.mode}): ${c.status !== 'ok' ? c.status : c.threw ? 'threw ' + c.error : c.polluted ? 'polluted' : 'effect not observed'}`);
+        }
+        for (const r of results.filter((r) => r.status !== 'ok')) {
+          reasons.push(`payload run ${r.status} (${r.family}${r.wrapped ? '+array' : ''}, ${r.root}, ${r.mode})`);
+        }
+        const polluted = results.some((r) => r.polluted === true);
+        return { reasons, polluted, truth: reasons.length > 0 ? 'inadmissible' : polluted ? 'pollutes' : 'safe' };
+      };
+      const coreJ = judge(rec.results.filter(core), rec.control.filter(core));
       rec.polluted_observed = rec.results.some((r) => r.polluted === true);
-      if (reasons.length > 0) {
-        rec.truth = 'inadmissible';
-        rec.reasons = reasons;
-      } else if (rec.polluted_observed) {
-        rec.truth = 'pollutes';
-      } else {
-        rec.truth = 'safe';
+      rec.truth = coreJ.truth;
+      rec.reasons = coreJ.reasons;
+      if (rec.results.some(ext)) {
+        const extJ = judge(rec.results.filter(ext), rec.control.filter(ext));
+        rec.truth_extended = coreJ.truth === 'inadmissible' ? 'inadmissible'
+          : extJ.truth === 'inadmissible' ? 'inadmissible'
+          : coreJ.polluted || extJ.polluted ? 'pollutes' : 'safe';
+        if (extJ.reasons.length > 0) rec.reasons_extended = extJ.reasons;
       }
     }
     return { header, records, spawned: counters.spawned };
