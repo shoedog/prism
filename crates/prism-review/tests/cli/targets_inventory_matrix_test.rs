@@ -9,7 +9,7 @@ const ROWS: &str = include_str!(concat!(
     "/../../tests/targets_inventory/rows.jsonl"
 ));
 const GROUPS: &[&str] = &["http.root", "http.receiver", "stdlib"];
-const ENABLED_GROUPS: &[&str] = &[];
+const ENABLED_GROUPS: &[&str] = &["http.root"];
 const FAMILIES: &[&str] = &["http", "filesystem", "parse", "config"];
 const REASONS: &[&str] = &[
     "parse_error_in_function",

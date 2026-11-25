@@ -23,6 +23,7 @@ anyhow = "1"
 petgraph = "0.7"
 sha2 = "0.10"
 rayon = "1"
+icu_normalizer = { version = "2.2", default-features = false, features = ["compiled_data"] }
 
 # Global allocator for the `prism` CLI only (src/main.rs); see #437.
 [target.'cfg(target_os = "linux")'.dependencies]

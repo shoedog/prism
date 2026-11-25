@@ -638,7 +638,7 @@ evidence path. Diff metadata still identifies the original diff.
 Context notes appear in the document's `warnings` on stdout or in the `--out` file. The
 default algorithm selection with `imports` produces the taint-not-selected note.
 
-The document is validated against
+The review-only document is validated against
 [`docs/contracts/targets.schema.json`](docs/contracts/targets.schema.json) (JSON Schema Draft
 2020-12; `schema_version` is the const `"1.0"`). Excerpt (fields elided — see the schema for the
 full required-field list per object):
@@ -655,6 +655,28 @@ Finding `confidence` is one of `exact`, `nameonly`, or `unlabeled`. A target is 
 only when its confidence is `exact` and every evidence-bearing file parsed cleanly; `asserted`
 describes the evidence path, not whether the heuristic's defect claim is true. All other targets
 are `candidate`.
+
+### Python dependency inventory
+
+```bash
+prism targets --repo . --inventory python-deps
+prism targets --repo . --diff change.patch --inventory python-deps --inventory-kinds http
+```
+
+The AST inventory discovers calls through proven Python import identities. It currently supports
+the `http` family. It scans Python files throughout the repository, including tests, and
+`--files pkg/client.py,pkg/worker.py` limits inventory selection. It excludes `.git`, `target`,
+`node_modules`, `vendor`, `venv`, `site-packages`, dot directories, and root-level `build` and `dist`.
+
+Inventory rows use `prism.inventory/1` and severity `info`. An exact call in a clean file is
+`asserted`. Exact calls in recovered files are `candidate`, and a parse error within the owning
+definition produces an unsupported row. The confidence, tier, and severity filters apply to
+inventory rows. Warnings report unproven identities, selected files the loader skipped, and
+rows removed by the severity floor.
+
+Both inventory commands produce [schema 1.1](docs/contracts/targets-1.1.schema.json). With a diff,
+the document keeps the review's diff metadata. In an inventory-only run, the file list and
+its digest describe the inventoried files.
 
 ---
 

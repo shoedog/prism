@@ -1,11 +1,12 @@
 mod cli_nav;
 mod cli_output;
+mod cli_targets;
 
 use anyhow::{Context, Result};
-use clap::Parser;
-use cli_output::{determine_exit_code, emit_warnings_to_stderr, targets_exit_code};
+use clap::{CommandFactory, FromArgMatches};
+use cli_output::{determine_exit_code, emit_warnings_to_stderr};
 use prism::slice::{MultiSliceResult, SliceConfig};
-use prism_review::cli::{Cli, Command, ReviewArgs, TargetsArgs};
+use prism_review::cli::{Cli, Command, ReviewArgs};
 use prism_review::output;
 use std::collections::BTreeMap;
 use std::fs;
@@ -25,7 +26,11 @@ fn main() -> Result<()> {
                 .to_str()
                 .is_some_and(|argument| argument.starts_with("--min-confidence="))
     });
-    let cli = Cli::try_parse().unwrap_or_else(|error| prism::profile::clap_exit(error));
+    let matches = Cli::command()
+        .try_get_matches()
+        .unwrap_or_else(|error| prism::profile::clap_exit(error));
+    let cli =
+        Cli::from_arg_matches(&matches).unwrap_or_else(|error| prism::profile::clap_exit(error));
     if let Err(error) = cli.validate_min_confidence(min_confidence_explicit) {
         prism::profile::clap_exit(error);
     }
@@ -37,152 +42,11 @@ fn main() -> Result<()> {
     // parses) in one place. See prism::build_pool.
     prism::build_pool::install(|| match &cli.command {
         Some(Command::Nav(nav)) => cli_nav::run_nav(nav),
-        Some(Command::Targets(targets)) => run_targets(targets),
+        Some(Command::Targets(targets)) => {
+            cli_targets::run_targets(targets, matches.subcommand_matches("targets").unwrap())
+        }
         None => run_review(&cli.review),
     })
-}
-
-fn run_targets(args: &TargetsArgs) -> Result<()> {
-    const FINDING_ALGORITHMS: &[&str] = &[
-        "echo",
-        "absence",
-        "contract",
-        "provenance",
-        "membrane",
-        "taint",
-        "symmetry",
-        "peer_consistency",
-        "callback_dispatcher",
-        "primitive",
-    ];
-    const EMPTY_ALGORITHMS: &[&str] = &["angle", "delta"];
-    const ACCEPTED: &str = "echo, absence, contract, provenance, membrane, taint, symmetry, peer_consistency, callback_dispatcher, primitive, angle, delta";
-
-    // The acceptance table is deliberately evaluated before canonicalizing the
-    // repo, reading the diff, or building a CPG.
-    let requested: Vec<String> = args
-        .algorithm
-        .split(',')
-        .map(|name| name.trim().to_lowercase())
-        .collect();
-    for name in &requested {
-        if name == "chop" || name == "conditioned" {
-            anyhow::bail!(
-                "targets: algorithm {name} requires --chop-source/--chop-sink (or --condition); use the top-level command"
-            );
-        }
-        if !FINDING_ALGORITHMS.contains(&name.as_str())
-            && !EMPTY_ALGORITHMS.contains(&name.as_str())
-        {
-            anyhow::bail!(
-                "targets: algorithm {name} produces slice blocks, not findings; accepted: {ACCEPTED}"
-            );
-        }
-        if name == "delta" && args.old_repo.is_none() {
-            anyhow::bail!("targets: delta requires --old-repo");
-        }
-    }
-    for name in &requested {
-        if EMPTY_ALGORITHMS.contains(&name.as_str()) {
-            eprintln!("targets: {name} produces no findings at this version");
-        }
-    }
-
-    let algorithms = prism_review::api::parse_algorithms(&requested.join(","))?;
-    let repo = fs::canonicalize(&args.repo)
-        .with_context(|| format!("Failed to canonicalize repo: {:?}", args.repo))?;
-    let diff_text = fs::read_to_string(&args.diff)
-        .with_context(|| format!("Failed to read diff: {:?}", args.diff))?;
-
-    let mut review_options = prism::api::ReviewOptions::new(&repo);
-    review_options.files_filter = args.files.as_ref().map(|files| {
-        files
-            .split(',')
-            .map(|file| file.trim().to_string())
-            .collect()
-    });
-    review_options.compile_commands = args.compile_commands.clone();
-    review_options.scoped_cpg = args.scoped_cpg;
-    review_options.cache_dir = args.cache_dir.clone();
-    review_options.no_cache = args.no_cache;
-    review_options.min_confidence = args.min_confidence;
-    review_options.resolution = args.resolution;
-
-    let mut algorithm_params = prism_review::api::AlgorithmParams::default();
-    algorithm_params.old_repo = args.old_repo.clone();
-    algorithm_params.taint_context = args.taint_context.options();
-    let config = SliceConfig {
-        algorithm: algorithms[0],
-        scoped_cpg: args.scoped_cpg,
-        ..SliceConfig::default()
-    };
-    let outcome = prism_review::api::review(
-        &review_options,
-        &diff_text,
-        &algorithms,
-        &config,
-        &algorithm_params,
-    )?;
-
-    let mut run_warnings = outcome.inputs.parse_warnings.clone();
-    run_warnings.extend(outcome.inputs.load_warnings.clone());
-    run_warnings.extend(outcome.build_warnings.clone());
-    if let Some(diagnostics) = &outcome.run.diagnostics {
-        run_warnings.extend(diagnostics.messages());
-    }
-    let min_tier = if args.min_tier == "asserted" {
-        prism::api::FindingTier::Asserted
-    } else {
-        prism::api::FindingTier::Candidate
-    };
-    // `TargetsMeta` is `#[non_exhaustive]` (§2.3.1): Default + field assignment,
-    // the same shape an embedder must use.
-    let mut meta = prism_review::targets::TargetsMeta::default();
-    meta.algorithms_run = outcome.run.algorithms_run.clone();
-    meta.repo_root = repo.clone();
-    meta.repo_sha = repo_sha(&repo);
-    meta.errors = outcome.run.errors.clone();
-    meta.run_warnings = run_warnings;
-    meta.min_severity_rank = output::severity_rank(&args.min_severity);
-    meta.min_tier = min_tier;
-    meta.min_confidence = outcome.min_confidence;
-    meta.resolution = outcome.resolution;
-    let document = prism_review::targets::project_in_context(
-        &outcome.run.findings,
-        &outcome.run.evidence,
-        &outcome.inputs,
-        outcome.run.context(),
-        &meta,
-    );
-
-    let mut bytes = serde_json::to_vec_pretty(&document)?;
-    bytes.push(b'\n');
-    if let Some(path) = &args.out {
-        fs::write(path, &bytes).with_context(|| format!("Failed to write targets: {path:?}"))?;
-    } else {
-        use std::io::Write;
-        std::io::stdout().lock().write_all(&bytes)?;
-    }
-
-    let exit_code = targets_exit_code(args.strict, &document.errors);
-    if exit_code != 0 {
-        prism::profile::exit(exit_code);
-    }
-    Ok(())
-}
-
-fn repo_sha(repo: &std::path::Path) -> Option<String> {
-    let output = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(repo)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let sha = String::from_utf8(output.stdout).ok()?;
-    let sha = sha.trim();
-    (!sha.is_empty()).then(|| sha.to_string())
 }
 
 fn run_review(cli: &ReviewArgs) -> Result<()> {

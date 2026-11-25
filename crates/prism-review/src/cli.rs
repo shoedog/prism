@@ -349,8 +349,16 @@ pub struct TargetsArgs {
     pub repo: PathBuf,
 
     /// Diff input: path to a unified diff file, or a JSON diff spec.
-    #[arg(long)]
-    pub diff: PathBuf,
+    #[arg(long, required_unless_present = "inventory")]
+    pub diff: Option<PathBuf>,
+
+    /// Add an AST inventory of Python dependency calls.
+    #[arg(long, value_parser = ["python-deps"])]
+    pub inventory: Option<String>,
+
+    /// Inventory families to include (comma-separated).
+    #[arg(long, requires = "inventory")]
+    pub inventory_kinds: Option<String>,
 
     /// Finding-producing algorithms to project.
     #[arg(long, default_value = "echo,absence,contract,provenance,membrane")]

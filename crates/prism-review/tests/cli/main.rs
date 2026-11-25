@@ -25,11 +25,13 @@ mod review_no_diagrams_test;
 mod routes_matrix_test;
 mod sarif_shape_test;
 mod sarif_test;
+mod schema_support;
 mod skills_test;
 mod taint_context_cli_test;
 mod taint_context_output_test;
 mod taint_reaches_test;
 mod taint_sink_strength_view_test;
+mod targets_inventory_test;
 mod targets_test;
 
 mod targets_inventory_matrix_test;

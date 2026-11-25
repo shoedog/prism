@@ -71,9 +71,14 @@ struct ParseOutcome {
     hash: String,
 }
 
+mod source_files;
+mod walk;
+pub use source_files::load_ast_sources;
+use walk::walk;
+
 pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
     let _profile = crate::profile::Phase::serial("load_parse");
-    let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
+    let (items, candidates, manifest_snapshot) = collect_walk_items(root, None)?;
     // The ambient scan reads only the filesystem. Taking it before the source
     // parse lets the parse reuse the pages its dropped parse trees freed.
     let js_paths_snapshot =
@@ -90,7 +95,7 @@ pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
 
 #[cfg_attr(not(test), allow(dead_code))] // parity twin: used by the in-module loader test
 pub(crate) fn load_repo_serial_reference(root: &Path) -> Result<LoadedRepo> {
-    let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
+    let (items, candidates, manifest_snapshot) = collect_walk_items(root, None)?;
     let js_paths_snapshot =
         crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(root);
     let outcomes = parse_candidates_serial(candidates);
@@ -105,6 +110,7 @@ pub(crate) fn load_repo_serial_reference(root: &Path) -> Result<LoadedRepo> {
 
 fn collect_walk_items(
     root: &Path,
+    selection: Option<source_files::Selection<'_>>,
 ) -> Result<(Vec<MergeItem>, Vec<CandidateData>, ManifestSnapshot)> {
     let mut items = Vec::new();
     let mut candidates = Vec::new();
@@ -115,6 +121,7 @@ fn collect_walk_items(
         &mut items,
         &mut candidates,
         &mut manifest_snapshot,
+        selection,
     )
     .with_context(|| format!("failed to read repository root {}", root.display()))?;
     Ok((items, candidates, manifest_snapshot))
@@ -928,178 +935,6 @@ fn rel_dir(root: &Path, path: &Path) -> String {
         path.push('/');
     }
     path
-}
-
-fn walk(
-    root: &Path,
-    dir: &Path,
-    items: &mut Vec<MergeItem>,
-    candidates: &mut Vec<CandidateData>,
-    manifest_snapshot: &mut ManifestSnapshot,
-) -> Result<()> {
-    let entries = std::fs::read_dir(dir)?;
-
-    for entry in entries {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(_) => {
-                let mut path = rel_dir(root, dir);
-                if path == "/" {
-                    path = ".".into();
-                }
-                items.push(MergeItem::Skip(SkippedFile {
-                    path,
-                    reason: SkipReason::Unreadable,
-                }));
-                continue;
-            }
-        };
-        let path = entry.path();
-        let name = entry.file_name().to_string_lossy().to_string();
-        let file_type = match entry.file_type() {
-            Ok(file_type) => file_type,
-            Err(_) => {
-                items.push(MergeItem::Skip(SkippedFile {
-                    path: rel(root, &path),
-                    reason: SkipReason::Unreadable,
-                }));
-                continue;
-            }
-        };
-
-        if skip_dir(&name, dir == root) && (file_type.is_dir() || file_type.is_symlink()) {
-            items.push(MergeItem::Skip(SkippedFile {
-                path: rel_dir(root, &path),
-                reason: SkipReason::Ignored,
-            }));
-            continue;
-        }
-
-        if is_manifest_name(&name) {
-            let relp = rel(root, &path);
-            if file_type.is_symlink() {
-                manifest_snapshot.insert_symlink_refused(relp.clone());
-                items.push(MergeItem::Skip(SkippedFile {
-                    path: relp,
-                    reason: SkipReason::Symlink,
-                }));
-                continue;
-            }
-            if file_type.is_file() {
-                match std::fs::read(&path) {
-                    Ok(bytes) => {
-                        manifest_snapshot.insert_regular(relp.clone(), bytes);
-                        items.push(MergeItem::Skip(SkippedFile {
-                            path: relp,
-                            reason: SkipReason::Unsupported,
-                        }));
-                    }
-                    Err(_) => items.push(MergeItem::Skip(SkippedFile {
-                        path: relp,
-                        reason: SkipReason::Unreadable,
-                    })),
-                }
-                continue;
-            }
-        }
-
-        if file_type.is_symlink() {
-            items.push(MergeItem::Skip(SkippedFile {
-                path: rel(root, &path),
-                reason: SkipReason::Symlink,
-            }));
-            continue;
-        }
-
-        if file_type.is_dir() {
-            if name.starts_with('.') {
-                items.push(MergeItem::Skip(SkippedFile {
-                    path: rel_dir(root, &path),
-                    reason: SkipReason::Hidden,
-                }));
-                continue;
-            }
-            if walk(root, &path, items, candidates, manifest_snapshot).is_err() {
-                items.push(MergeItem::Skip(SkippedFile {
-                    path: rel_dir(root, &path),
-                    reason: SkipReason::Unreadable,
-                }));
-            }
-            continue;
-        }
-
-        let relp = rel(root, &path);
-        let meta = match entry.metadata() {
-            Ok(meta) => meta,
-            Err(_) => {
-                items.push(MergeItem::Skip(SkippedFile {
-                    path: relp,
-                    reason: SkipReason::Unreadable,
-                }));
-                continue;
-            }
-        };
-
-        if meta.len() > MAX_FILE_BYTES {
-            items.push(MergeItem::Skip(SkippedFile {
-                path: relp,
-                reason: SkipReason::TooLarge { bytes: meta.len() },
-            }));
-            continue;
-        }
-
-        if Language::from_path(&relp) == Some(Language::Go)
-            && relp.split('/').any(|component| component == "testdata")
-        {
-            items.push(MergeItem::Skip(SkippedFile {
-                path: relp,
-                reason: SkipReason::GoTestdata,
-            }));
-            continue;
-        }
-
-        let bytes = match std::fs::read(&path) {
-            Ok(bytes) => bytes,
-            Err(_) => {
-                items.push(MergeItem::Skip(SkippedFile {
-                    path: relp,
-                    reason: SkipReason::Unreadable,
-                }));
-                continue;
-            }
-        };
-
-        let source = match String::from_utf8(bytes) {
-            Ok(source) => source,
-            Err(_) => {
-                items.push(MergeItem::Skip(SkippedFile {
-                    path: relp,
-                    reason: SkipReason::NotUtf8,
-                }));
-                continue;
-            }
-        };
-
-        let language = match Language::from_path(&relp) {
-            Some(language) => language,
-            None => {
-                items.push(MergeItem::Skip(SkippedFile {
-                    path: relp,
-                    reason: SkipReason::Unsupported,
-                }));
-                continue;
-            }
-        };
-
-        items.push(MergeItem::Candidate { rel: relp.clone() });
-        candidates.push(CandidateData {
-            rel: relp,
-            source,
-            language,
-        });
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]
