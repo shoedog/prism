@@ -13,6 +13,8 @@ import tempfile
 from stage import EnvironmentError, HandRequired, HERE, Refusal, methods, stage
 
 DEFAULT = Path.home() / "prism-evidence" / "routes" / "truth"
+# The 64-exposure cap and truncation marker are static. The runtime serves all 65 prefixes.
+HAND_ROWS_THAT_EXECUTE = frozenset({"es2-34"})
 PYTHON_BOOT = "import runpy, sys; runpy.run_path(sys.argv.pop(1))['python_child'](*sys.argv[1:])"
 
 
@@ -184,6 +186,8 @@ def main():
                     if status != "executed":
                         print(f"{name}: {status}: {result['error']}", file=sys.stderr)
                         failed = True
+                elif status == "executed" and name in HAND_ROWS_THAT_EXECUTE:
+                    continue
                 elif status != "hand_required" and not (
                         status == "error" and str(result.get("error", "")).startswith("untraced ")):
                     # an untraced registration is a shape the runner cannot observe: the hand label is justified
