@@ -432,6 +432,53 @@ fn rest_review_parameter_default_in_enclosing_callable() {
 }
 
 #[test]
+fn rest_review_parameter_pattern_computed_key() {
+    for (key, expected) in [
+        (
+            "(Array.prototype[Symbol.iterator] = function* () {}, \"k\")",
+            false,
+        ),
+        ("\"k\"", true),
+    ] {
+        let source = format!(
+            "function take(...r: unknown[]) {{ return r; }}\n\
+             export function main({{ [{key}]: a }}: any) {{ const xs = [1]; return take(...xs); }}"
+        );
+        assert_review_rest(&source, "m.ts", Language::TypeScript, "xs", expected);
+    }
+}
+
+#[test]
+fn rest_review_enclosing_callable_body() {
+    for (outer_body, expected) in [
+        (
+            "Array.prototype[Symbol.iterator] = function* () {};\n\
+             function main() { const xs = [1]; return take(...xs); }\n\
+             return main();",
+            false,
+        ),
+        (
+            "function main() { const xs = [1]; return take(...xs); }\n\
+             Array.prototype[Symbol.iterator] = function* () {};\n\
+             return main();",
+            false,
+        ),
+        (
+            "function main() { const xs = [1]; return take(...xs); }\n\
+             const unused = 0;\n\
+             return main;",
+            true,
+        ),
+    ] {
+        let source = format!(
+            "function take(...r) {{ return r; }}\n\
+             export function outer() {{\n{outer_body}\n}}"
+        );
+        assert_review_rest(&source, "m.js", Language::JavaScript, "xs", expected);
+    }
+}
+
+#[test]
 fn rest_review_escaped_captured_write() {
     assert_review_rest_body(r"function reset(){\u0072=[]} reset();", false);
     assert_review_rest_body(r"\u0072=[];", false);

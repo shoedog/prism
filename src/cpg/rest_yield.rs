@@ -47,9 +47,21 @@ pub(super) fn at_spread(
                     .language
                     .callable_boundary_node_types()
                     .contains(&node.kind())
-                    && !inert_parameters(parsed, node, &mut budget, true)
                 {
-                    return None;
+                    if !inert_parameters(parsed, node, &mut budget, true) {
+                        return None;
+                    }
+                    // The owner's own block is checked up to the call below; an
+                    // enclosing callable can invoke the owner from any of its
+                    // statements, so its whole body must be inert.
+                    if node != owner {
+                        let body = node.child_by_field_name("body")?;
+                        if body.kind() == "statement_block" {
+                            literal_prefix(parsed, body, None, &mut budget)?;
+                        } else if !inert_expression(parsed, body, &mut budget) {
+                            return None;
+                        }
+                    }
                 }
                 enclosing = node.parent();
             }
@@ -182,6 +194,13 @@ fn literal_prefix<'a>(
             | "interface_declaration"
             | "empty_statement" => {}
             "class_declaration" if inert_class(parsed, node, budget) => {}
+            "return_statement" => {
+                let mut cursor = node.walk();
+                let value = node.named_children(&mut cursor).find(|c| !c.is_extra());
+                if value.is_some_and(|value| !inert_expression(parsed, value, budget)) {
+                    return None;
+                }
+            }
             "expression_statement" => {
                 let mut cursor = node.walk();
                 let value = node.named_children(&mut cursor).find(|c| !c.is_extra())?;
@@ -229,6 +248,16 @@ fn inert_parameters(
     budget: &mut usize,
     defaults: bool,
 ) -> bool {
+    // A computed method name is evaluated when the enclosing class is defined.
+    if defaults
+        && callable.kind() == "method_definition"
+        && callable
+            .child_by_field_name("name")
+            .is_some_and(|name| name.kind() == "computed_property_name")
+        && !inert_computed_name(parsed, callable.child_by_field_name("name"), budget)
+    {
+        return false;
+    }
     let Some(params) = parsed.find_parameters_node(&callable) else {
         return true;
     };
@@ -239,6 +268,13 @@ fn inert_parameters(
         }
         if node.kind() == "decorator" {
             return false;
+        }
+        // A computed key in a destructuring pattern runs at call time, before the body.
+        if defaults && node.kind() == "computed_property_name" {
+            if !inert_computed_name(parsed, Some(node), budget) {
+                return false;
+            }
+            continue;
         }
         let initializer = match node.kind() {
             "assignment_pattern" | "object_assignment_pattern" => node.child_by_field_name("right"),
@@ -256,6 +292,18 @@ fn inert_parameters(
         );
     }
     true
+}
+
+fn inert_computed_name(parsed: &ParsedFile, name: Option<Node<'_>>, budget: &mut usize) -> bool {
+    let Some(name) = name else {
+        return false;
+    };
+    let mut cursor = name.walk();
+    let mut inner = name.named_children(&mut cursor).filter(|c| !c.is_extra());
+    match (inner.next(), inner.next()) {
+        (Some(expr), None) => inert_expression(parsed, expr, budget),
+        _ => false,
+    }
 }
 
 fn value_yield(parsed: &ParsedFile, value: Node<'_>, values: &BTreeMap<&str, Yield>) -> Yield {
