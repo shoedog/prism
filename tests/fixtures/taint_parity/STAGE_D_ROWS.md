@@ -350,7 +350,7 @@ All rows have group `walk`, default knobs, findings **none / none** on the marke
 | `d-return-py-percent` | a.py | `"ls %s" % v` | P | consumed string field |
 | `d-return-py-percent-zero` | a.py | `"%.0s" % v` | X | precision discards all characters |
 | `d-return-py-percent-width` | a.py | `"ls%4s" % v` | P | fixed minimum width pads, no truncation (reviewer B round 3) |
-| `d-return-js-composed-occurrence` | a.js | `("a" + v).slice(0, 1) + v` | P (second read) / X (first read) | two occurrences of `v` (two queries): seeded at the second read, Reached depth 1 with the witness through the second read; seeded at the first read, a cut at the first edge (NotReached, `unproven_return_input`) (reviewer B round 3 smell) |
+| `d-return-js-composed-occurrence` | a.js | `("a" + v).slice(0, 1) + v` | P (second read) / X (first read) | two occurrences of `v` (two queries): seeded at the second read (inside `f`, ascending only), Reached with descent_depth 0 and the witness through the second read; seeded at the first read, a cut at the first edge (NotReached, `unproven_return_input`) (reviewer B round 3 smell) |
 | `d-return-py-format` | a.py | `"ls {}".format(v)` | P | automatic positional field |
 | `d-return-py-format-keyword` | a.py | `"ls {x}".format(x=v)` | P | named field consumes this value |
 | `d-return-py-format-unused` | a.py | `"fixed".format(v)` | X | no consuming field |
@@ -371,7 +371,7 @@ All rows have group `walk`, default knobs, findings **none / none** on the marke
 | `d-return-py-str` | a.py | `str(v)` | P | identity conversion of a primitive string (R4) |
 | `d-return-js-String` | a.js | `String(v)` | P | identity conversion of a primitive string (R4) |
 | `d-return-py-strip` | a.py | `v.strip()` | P | native trim; also `lower()` / `upper()` (R4) |
-| `d-return-js-and-fixed` | a.js | `v && 'fixed'` | X | the formal is a primitive string (TS `v: string`), where `''` is the only falsy value and carries no data; truth no_flow. An untyped formal would pass `0` or `-0` through, so the fixture must type it (R4 smell, reviewer B round 4) |
+| `d-return-js-and-fixed` | a.ts | `v && 'fixed'` | X | the formal is a primitive string (TS `v: string`), where `''` is the only falsy value and carries no data; truth no_flow. An untyped formal would pass `0` or `-0` through, so the fixture must type it (R4 smell, reviewer B round 4) |
 | `d-return-go-sprintf-zero` | a.go | `fmt.Sprintf("%.0s", v)` | X | zero-byte output |
 | `d-return-go-sprintf-quote` | a.go | `fmt.Sprintf("%q", v)` | P | standard quoting emits the string’s data |
 | `d-return-go-sprintf-precision` | a.go | `fmt.Sprintf("%.*s", limit(), v)` | U | the dynamic precision can select zero characters |
