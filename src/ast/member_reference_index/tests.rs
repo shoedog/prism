@@ -128,36 +128,25 @@ fn differential(parsed: &ParsedFile, exhaustive: bool) -> usize {
 
 #[test]
 fn member_index_differential_all_fixtures() {
-    fn visit(dir: &std::path::Path, files: &mut usize, comparisons: &mut usize) {
-        let mut entries: Vec<_> = std::fs::read_dir(dir)
-            .unwrap()
-            .map(Result::unwrap)
-            .collect();
-        entries.sort_by_key(|e| e.path());
-        for entry in entries {
-            let path = entry.path();
-            if entry.file_type().unwrap().is_dir() {
-                let name = entry.file_name();
-                let name = name.to_string_lossy();
-                if name == "private-corpus"
-                    || name.starts_with("f-")
-                    || name.starts_with("F-private")
-                    || name.contains("SecBench")
-                {
-                    continue;
-                }
-                visit(&path, files, comparisons);
-            } else if entry.file_type().unwrap().is_file() {
-                let Some(language) = Language::from_path(&path.to_string_lossy()) else {
-                    continue;
-                };
-                let Ok(source) = std::fs::read_to_string(&path) else {
-                    continue;
-                };
-                let parsed = ParsedFile::parse(&path.to_string_lossy(), &source, language).unwrap();
-                *comparisons += differential(&parsed, false);
-                *files += 1;
-            }
+    fn visit(files: &mut usize, comparisons: &mut usize) {
+        let paths = crate::fixture_corpus::legacy_fixture_files(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
+            |p| Language::from_path(&p.to_string_lossy()).is_some(),
+        );
+        crate::fixture_corpus::assert_visited_within(
+            "member_index_differential_all_fixtures",
+            paths.len(),
+            // Language-recognised files of the legacy corpus at 9d1a7d06f: 1,297.
+            1_500,
+        );
+        for path in paths {
+            let language = Language::from_path(&path.to_string_lossy()).unwrap();
+            let Ok(source) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            let parsed = ParsedFile::parse(&path.to_string_lossy(), &source, language).unwrap();
+            *comparisons += differential(&parsed, false);
+            *files += 1;
         }
     }
     // The existing deep C parse fixture needs the same generous stack as
@@ -166,11 +155,7 @@ fn member_index_differential_all_fixtures() {
         .stack_size(64 * 1024 * 1024)
         .spawn(|| {
             let (mut files, mut comparisons) = (0, 0);
-            visit(
-                &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
-                &mut files,
-                &mut comparisons,
-            );
+            visit(&mut files, &mut comparisons);
             for n in [256, 512, 1024] {
                 for distinct in [false, true] {
                     let source = member_fixture(n, distinct);

@@ -144,8 +144,9 @@ pub fn assert_visited_within(sweep: &str, visited: usize, max: usize) {
         visited <= max,
         "fixture sweep `{sweep}` visited {visited} files, over its bound of {max}. Its cost grows \
          with every file it reads. If a new fixture matrix reached it, keep the matrix out of \
-         its input: read it only from the matrix's own runner and leave it out of \
-         LEGACY_FIXTURE_DIRS (tests/common/fixture_corpus.rs). If the sweep should now cover \
+         its input: put it in its own top-level tests/fixtures directory, read it only from the \
+         matrix's own runner and leave that directory out of LEGACY_FIXTURE_DIRS \
+         (tests/common/fixture_corpus.rs). If the sweep should now cover \
          more, raise its bound deliberately in the same change and say why."
     );
 }
