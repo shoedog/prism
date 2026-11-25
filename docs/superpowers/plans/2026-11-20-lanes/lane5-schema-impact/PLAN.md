@@ -1112,18 +1112,20 @@ misses below, which the frozen reader labelled false predictions. They are outsi
 The frozen replay accounts for 15 `later` and five `present_at_pin` among the removals, and five `same_commit`,
 five `later` and three `present_at_pin` among the unchecked. The share of later client edits moves from 36.08%
 to 31.06%, a drop of 5.02 points between the displayed percentages (5.03 from exact ratios), which exceeds the five-point tolerance against the original 194
-shares. `same_commit` rises 0.38 points and `present_at_pin` rises 4.64 points between displayed percentages (4.65 exactly).
+shares. `same_commit` rises 0.38 points and `present_at_pin` rises 4.64 points between displayed percentages (4.65 from exact ratios).
 
 **Open owner question with default (DESIGN §8).** Which reference and tolerance should P6 use for P?
 
 Every share comparison uses exact count ratios (count over denominator), never the rounded displayed percentages;
 the 5.02-point figures above are differences of displayed values. Under every option the product's share
-denominator is the 161 scored locations.
+denominator is all locations the product predicts on the frozen cohort (product-only ones included, unresolved
+follow-ups as unknown), excluding the 20 removed and 13 unchecked rows; it can therefore differ from 161, and the
+counts are compared as ratios over that denominator.
 
 - **A (default).** Re-base the five-point band on the frozen scored-group shares (17.39%, 31.06%, 51.55%) and
   print the original 194-based shares and the deltas beside them in the report.
 - **B.** Keep the original 194-based shares. A product that reproduces the scored group exactly fails the
-  `later` check by construction, with a difference of 5.02 points.
+  `later` check by construction, with a difference of 5.02 points between displayed percentages (5.03 from exact ratios).
 - **C.** Keep the original reference and widen the tolerance to six points for `later` only.
 
 Changing the choice later requires re-scoring only. No implementation depends on it. The latest cheap point
