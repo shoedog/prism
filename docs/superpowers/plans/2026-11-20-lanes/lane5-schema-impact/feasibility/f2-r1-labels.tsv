@@ -1,0 +1,51 @@
+1	yes	GET uses `/answer/api/v1/question/tags` with a query parameter, matching the annotated operation.
+2	yes	POST uses `/installation/db/check`, matching the annotated operation.
+3	yes	POST uses `/answer/api/v1/follow`, matching the annotated operation.
+4	yes	POST uses `/answer/api/v1/tag/recover`, matching the annotated operation.
+5	yes	When enabled, the SWR fetcher GETs `/answer/api/v1/personal/user/info` with a username query, matching the annotated operation.
+6	yes	POST uses `/answer/admin/api/users`, matching the annotated operation.
+7	yes	PUT uses `/answer/admin/api/siteinfo/theme`, matching the annotated operation.
+8	yes	When enabled, the SWR fetcher GETs `/answer/api/v1/revisions` with an object ID query, matching the annotated operation.
+9	yes	`apiUrl` is `/answer/admin/api/language/options`, which the call GETs as annotated.
+10	yes	PUT uses `/answer/api/v1/comment`, matching the annotated operation.
+11	yes	GET uses `/answer/admin/api/siteinfo/theme`, matching the annotated operation.
+12	yes	GET uses `/answer/admin/api/siteinfo/seo`, matching the annotated operation.
+13	yes	POST uses `/answer/api/v1/answer/recover`, matching the annotated operation.
+14	yes	PUT uses `/answer/admin/api/user/password`, matching the annotated operation.
+15	yes	GET uses `/answer/api/v1/user/logout`, matching the annotated operation.
+16	yes	POST uses `/answer/api/v1/tag/merge`, matching the annotated operation.
+17	yes	`apiUrl` is `/answer/api/v1/revisions/audit`, which the call PUTs as annotated.
+18	yes	GET uses `/answer/admin/api/siteinfo/users`, matching the annotated operation.
+19	yes	When enabled, the SWR fetcher GETs `/answer/api/v1/personal/qa/top` with a username query, matching the annotated operation.
+20	yes	`apiUrl` is `/answer/admin/api/siteinfo/general`, which the call PUTs as annotated.
+21	yes	DELETE uses `/answer/api/v1/question`, matching the annotated operation.
+22	yes	The SWR array key supplies `/answer/admin/api/dashboard` to the GET fetcher, matching the annotated operation.
+23	yes	PUT uses `/answer/admin/api/siteinfo/branding`, matching the annotated operation.
+24	yes	PUT uses `/answer/api/v1/user/interface`, matching the annotated operation.
+25	yes	`apiUrl` is `/answer/api/v1/user/info/search`, which the call GETs with query parameters as annotated.
+26	yes	POST uses `/answer/api/v1/user/email/change/code`, matching the annotated operation.
+27	yes	POST uses `/answer/api/v1/question/recover`, matching the annotated operation.
+28	yes	GET uses `/answer/admin/api/siteinfo/tag`, matching the annotated operation.
+29	yes	POST uses `/answer/api/v1/answer`, matching the annotated operation.
+30	yes	GET uses `/answer/admin/api/siteinfo/security`, matching the annotated operation.
+31	yes	PUT uses `/answer/admin/api/siteinfo/security`, matching the annotated operation.
+32	yes	The SWR GET fetcher uses `/answer/api/v1/connector/info`, matching the annotated operation.
+33	yes	GET uses `/answer/api/v1/activity/timeline` with serialized query parameters, matching the annotated operation.
+34	yes	The SWR GET fetcher uses `/answer/api/v1/siteinfo/legal` with an `info_type` query, matching the annotated operation.
+35	yes	GET uses `/installation/language/options`, matching the annotated operation.
+36	yes	GET uses `/answer/admin/api/siteinfo/advanced`, matching the annotated operation.
+37	yes	PUT uses `/answer/admin/api/siteinfo/polices`, matching the annotated operation.
+38	yes	POST uses `/answer/api/v1/collection/switch`, matching the annotated operation.
+39	yes	GET uses `/answer/api/v1/siteinfo`, matching the annotated operation.
+40	yes	When enabled, the SWR array key supplies `/answer/api/v1/follow` and parameters to the POST fetcher, matching the annotated operation.
+41	yes	DELETE uses `/answer/admin/api/ai/conversation`, matching the annotated operation.
+42	yes	PUT uses `/answer/api/v1/tag`, matching the annotated operation.
+43	yes	POST uses `/answer/admin/api/user`, matching the annotated operation.
+44	yes	PUT uses `/answer/api/v1/user/password`, matching the annotated operation.
+45	yes	PUT uses `/answer/admin/api/ai-config`, matching the annotated operation.
+46	yes	`apiUrl` is `/answer/api/v1/question/invite`, which the call PUTs as annotated.
+47	yes	POST uses `/answer/api/v1/ai/conversation/vote`, matching the annotated operation.
+48	yes	The SWR GET fetcher uses `/answer/api/v1/badges`, matching the annotated operation.
+49	yes	DELETE uses `/answer/api/v1/answer`, matching the annotated operation.
+50	yes	The SWR GET fetcher uses `/answer/api/v1/connector/user/info`, matching the annotated operation.
+counts: yes=50 no=0 cannot_tell=0

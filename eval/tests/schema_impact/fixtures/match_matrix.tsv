@@ -1,0 +1,16 @@
+id	operations	method	pattern	grade	operation_ids	reason	class
+same-literal	op:GET /user/me	GET	'/user/me'	bound	op:GET /user/me		literal
+same-parameter	op:GET /user/{}	GET	`/user/${id}`	bound	op:GET /user/{}		template
+literal-to-parameter	op:GET /user/{}	GET	'/user/you'	bound	op:GET /user/{}		literal
+literal-wins	op:GET /user/{}|op:GET /user/me	GET	'/user/me'	bound	op:GET /user/me		literal
+parameter-to-literal	op:GET /user/me	GET	`/user/${id}`	candidate	op:GET /user/me	client_parameter_on_literal	template
+parameter-to-two-literals	op:GET /vote/up|op:GET /vote/down	GET	`/vote/${vote}`	candidate	op:GET /vote/down|op:GET /vote/up	ambiguous_operation	template
+one-version	op:GET /api/v1/item	GET	`/api/${version}/item`	candidate	op:GET /api/v1/item	client_parameter_on_literal	template
+two-versions	op:GET /api/v2/item|op:GET /api/v1/item	GET	`/api/${version}/item`	candidate	op:GET /api/v1/item|op:GET /api/v2/item	ambiguous_operation	template
+different-lengths	op:GET /api/v1/item	GET	'/api/item'	unbound		no_operation	literal
+different-methods	op:POST /api/item	GET	'/api/item'	unbound		no_operation	literal
+prefix	op:GET /api/item	GET	'/legacy/item'	bound	op:GET /api/item		literal
+trailing-slash	op:GET /api/item	GET	'/api/item/'	bound	op:GET /api/item		literal
+repeated-slash	op:GET /api/item	GET	'/api//item'	bound	op:GET /api/item		literal
+root	op:GET /	GET	'/'	bound	op:GET /		literal
+literal-case	op:GET /user/me	GET	'/user/ME'	unbound		no_operation	literal
