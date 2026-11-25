@@ -455,9 +455,10 @@ covering the private fields, accessors and review re-export.
       synthetic values now so zero producer refs cannot make their controls pass vacuously.
 - [ ] In `output::rule_pin_tests`, run the synthetic reader controls in ordinary CI. Mark only
       the host capture test `check_stage_m_pins` with `#[ignore]`. From the workspace root, set
-      `m_dir` and `head_out` to absolute paths for the Stage M script and captured head output directories.
+      `input_root` and `head_out` to the absolute paths for the pinned input tree passed to
+      `run_outputs.sh` (its `inputs.tsv`, header `name`, `repo`, `diff`, is the manifest) and the captured head outputs.
       Invoke the slice gate with
-      `PRISM_RULE_PIN_MANIFEST="$m_dir/inputs.tsv" PRISM_RULE_PIN_OUTPUTS="$head_out" cargo test -p prism-review --lib output::rule_pin_tests::check_stage_m_pins -- --ignored --exact --nocapture`.
+      `PRISM_RULE_PIN_MANIFEST="$input_root/inputs.tsv" PRISM_RULE_PIN_INPUT_ROOT="$input_root" PRISM_RULE_PIN_OUTPUTS="$head_out" cargo test -p prism-review --lib output::rule_pin_tests::check_stage_m_pins -- --ignored --exact --nocapture`.
       Require that exact test to run. Fail on missing manifest, capture, input or expected format.
       Reconcile all 35 input entries and report the shared-gate per-format totals, including zero refs.
 - [ ] Shared gates with empty scope. Require byte equality on all Stage M outputs after only the

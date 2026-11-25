@@ -34,30 +34,13 @@ fn all_uses(refs: &FileRefs) -> BTreeSet<Key> {
     refs.uses.values().flatten().map(key).collect()
 }
 
-fn fixture_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).unwrap() {
-        let path = entry.unwrap().path();
-        let name = path.file_name().unwrap().to_str().unwrap().to_owned();
-        if name.starts_with("f-")
-            || name.starts_with("F-private")
-            || name == "private-corpus"
-            || name == "secbench"
-            // route-matrix rows (lane 12): lane-written apps for `prism nav routes`, not alias-twin inputs
-            || (name == "routes" && dir.ends_with("tests/fixtures"))
-        {
-            continue;
-        }
-        if path.is_dir() {
-            fixture_files(&path, out);
-        } else if let Some(language) = Language::from_path(path.to_str().unwrap()) {
-            if matches!(
-                language,
-                Language::Go | Language::Rust | Language::Python | Language::C | Language::Cpp
-            ) {
-                out.push(path);
-            }
-        }
-    }
+fn is_alias_twin_input(path: &Path) -> bool {
+    Language::from_path(path.to_str().unwrap()).is_some_and(|language| {
+        matches!(
+            language,
+            Language::Go | Language::Rust | Language::Python | Language::C | Language::Cpp
+        )
+    })
 }
 
 fn fmt_key(k: &Key) -> Value {
@@ -189,10 +172,14 @@ fn diff_of(rel: &str, source: &str, language: Language) -> Option<Value> {
 fn the_alias_twin_receipt_diff_over_the_fixture_tree_matches_the_golden() {
     crate::build_pool::install(|| {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
-        let mut files = Vec::new();
-        fixture_files(&root, &mut files);
-        files.sort();
+        let files = crate::fixture_corpus::legacy_fixture_files(&root, is_alias_twin_input);
         assert!(files.len() > 100, "fixture walk selected too little");
+        crate::fixture_corpus::assert_visited_within(
+            "the_alias_twin_receipt_diff_over_the_fixture_tree_matches_the_golden",
+            files.len(),
+            // Go, Rust, Python, C and C++ files of the legacy corpus at 9d1a7d06f: 1,255.
+            1_500,
+        );
         let mut rows = Vec::new();
         for path in &files {
             let Ok(source) = std::fs::read_to_string(path) else {
