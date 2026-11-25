@@ -34,7 +34,8 @@ in DESIGN 5–6. `row-verdicts.jsonl` in this directory supplies the Stage D wan
   orchestrator or a Claude agent (implementer, measurement runner). Codex seats (reviewer B, terra and sol
   enumerators and the Stage D design seat) use the supplied oracle answers and DESIGN. Faultpath source
   and the private bindings file are outside their packet. The Stage D external packet is the census
-  report and site lines, `enum/open-questions.md` and `oracle/site-oracle.jsonl`.
+  report and site lines, `enum/open-questions.md` and `oracle/site-oracle.jsonl`. The round-1 fold
+  also uses the supplied reviews, focused enumeration and the original ledger copied into this directory.
 - Without `--inventory`, `prism targets` output stays as today (G-byte).
 - Row values are exactly those of DESIGN 5.1 and 5.2.
 - `kind` in a hint only when library identity is proven (DESIGN 5.3: root identity, or a receiver route;
@@ -48,8 +49,9 @@ in DESIGN 5–6. `row-verdicts.jsonl` in this directory supplies the Stage D wan
 
 ## Review focus
 
-1. A function whose body has a parse error: its table calls become `parse_error_in_function` unsupported
-   rows; other functions in the file are unaffected; no panic. (S2a)
+1. Test errors in the owning definition, including nested syntax and the signature. Proven calls with
+   clean owning subtrees keep the file parse quality. sl2-14 diagnoses the outer call for a nested error.
+   o23a, sl1-24 and as4-09 retain candidate tier at exact confidence. (S2a)
 2. A decorated function: `function_start_line` is the `def` line, not the decorator line; a trailing comment
    line indented under the body does not move `function_end_line`. (S2a)
 3. `await client.get(u)` inside `async def` with an `httpx.AsyncClient` or `aiohttp.ClientSession`
@@ -141,16 +143,24 @@ the two eligible for the cut (R1 and R3).
 in a `want` is in DESIGN 5.2's closed lists. The test `matrix_rows_match` returns early when
 `ENABLED_GROUPS` is empty; otherwise it runs
 `prism targets --repo tests/targets_inventory/py --inventory python-deps` once and, for each row
-of an enabled group, finds the document rows with the row's `fixture`, `line` and resolved callee and
-checks:
+of an enabled group, compares the expected and actual multisets on the asserted fixture lines.
+Record independent expected bare symbols (or absent) for unsupported IDs in the test expectations,
+including `outer` for sl2-12 and `inner` for sl2-13. Match the following fields:
 
-- `site(…)`: exactly one row of kind `external_call` with that family, callee and confidence (`exact` or
-  `nameonly`), and the symbol and bounds when given;
-- `unsupported(<reason>,<count>)`: exactly one row of kind `other` whose `expected.detail` is `<reason>` for
-  count 1 or `<reason>; <count> calls` otherwise;
-- `none`: no inventory row with that callee on the line (`*`: no inventory row on the line at all);
-- `none(unproven:<cause>)`: as `none`, and the document's identity-unproven warning for that fixture names
-  `<cause>` with a count of at least 1.
+- `site(…)` requires one `external_call` with matching file, line, family, resolved callee and grade,
+  plus the expected symbol and bounds when specified.
+- `unsupported(reason,count)` requires one `other` with matching file, line, symbol (including absence),
+  resolved callee, `dependency_call_unsupported`, and exact reason/count in `expected.detail`.
+  Consume one actual row per positive or unsupported expectation. Compare multiplicities for the
+  asserted keys and reject extras or missing occurrences. Deleting either of the two same-line groups
+  in the matcher test must fail.
+- `none` forbids inventory rows with that callee on the line (`*` forbids every inventory row there).
+  Check absence against the full actual result, including consumed rows. For **each plain-none
+  fixture** assert zero identity-unproven warnings unless a row for that
+  fixture explicitly expects a counted omission. In a mixed fixture check the declared cause totals
+  so that a plain-none row cannot silently add a warning.
+- `none(unproven:<cause>)` makes the same absence assertion and requires a fixture warning with the
+  named cause. Keep the exact total and ordered histogram test for sl1-67/68/69 in S2a.
 
 A line may carry several rows of the rows file (one per expected document row). With `ENABLED_GROUPS` empty
 the test passes on `main`; the branch compiles and CI is green.
@@ -231,7 +241,8 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
       main and stays after S2a as the witness that a run without `--inventory` is unchanged.
 - [ ] Fill the `consumer` column (needs faultpath; Claude seat) with a script in the evidence directory,
       `oracle/site_oracle.py`, run under the lane's interpreter. For each fixture and candidate row it
-      prints, as one JSON line in `oracle/site-oracle.jsonl`: the source text of the callee of the call
+      records the actual bound call and callee spans in measurement evidence (§6.8). The supplied
+      Stage D JSONL has text/bounds only. Its per-line records give the source text of the callee of the call
       faultpath binds at `site.line`, that callee qualified the consumer's way, and the site guard's answer
       with strict line checking (`accepted` or the reason). The private bindings file names the faultpath
       functions to call. The script exits non-zero, records nothing, and is fixed before any belief update
@@ -242,7 +253,7 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 ### Task T-2: enumeration
 
 - [ ] Add these rows first (group `http.receiver` unless stated; truth `python-semantics`, e07 `design`).
-      They follow DESIGN 5.3's closed-world rule; enumerators get that rule's text with them.
+      They follow the binding positions of DESIGN 6.2 and the R3 ownership boundary of 6.3.
 
 | Row | Input | Want |
 |---|---|---|
@@ -253,7 +264,7 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 | e04b | (http.root) as e04a with `except E as requests:` | none(unproven:shadowed_root) |
 | e05a–e | `s = requests.Session()`, then one of `with other() as s:`, `for s in pool:`, `(s := other())`, `s, t = a, b`, `except E as s:`; then `s.get(u)` | none(unproven:receiver_not_unique), each |
 | e06 | `self.s = requests.Session()` in `__init__` and `self.s, self.t = other, None` in another method; `self.s.get(u)` | none(unproven:receiver_not_unique) |
-| e07 | as h07, plus `obj.s = other()` in another module, `setattr(self, name, x)` with a computed name, and an override in a subclass in another file | site(http,requests.Session.get,exact) (out of model, DESIGN 5.3) |
+| e07 | as h07, plus `obj.s = other()` in another module, `setattr(self, name, x)` with a computed name, and an override in a subclass in another file | site(http,requests.Session.get,exact) (out of model, DESIGN 6.3 and the numbered exclusions in 6.2) |
 | e08a | (http.root) `requests` imported at module level and assigned in another function under `global requests` | none(unproven:shadowed_root) |
 | e08b | `s = requests.Session()` in `outer`, an inner function assigns it under `nonlocal s`, `s.get(u)` in `outer` | none(unproven:receiver_not_unique) |
 | e08c | (http.root) `del requests` in the module, or a `match` arm `case requests:` in the calling function | none(unproven:shadowed_root) |
@@ -268,7 +279,7 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 
 - [ ] Run the enumerator tiers (ORCHESTRATION section 6) on `rows.jsonl`. Axes to hand them: import form;
       callee form; receiver route; binding count and binding kind of the receiver (the closed-world binding
-      positions of DESIGN 5.3); enclosing frame (DESIGN 5.4); line layout and the line anchor; function end
+      positions of DESIGN 6.2); enclosing frame (DESIGN 5.4); line layout and the line anchor; function end
       line (trailing comments, strings, continuation lines); shadowing source; family and canonical callee;
       Python syntax that changes scoping (`global`, `nonlocal`, walrus, `match` capture, class scope,
       conditional import, import inside the function, `try`/`except ImportError` fallbacks,
@@ -281,14 +292,19 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 
 - [x] DESIGN 6 records the ten HTTP table paths, all five receiver routes, the targets-owned binding
       census, diagnostic precedence, accepted losses, G-parity classes P1–P5 and the per-line oracle
-      reconciliation. `row-verdicts.jsonl` records all 631 IDs. The design seat leaves the matrix intact.
-- [ ] Both reviewers review DESIGN, this plan and the verdicts against the original rows and supplied
-      evidence. Cap **two rounds**, then ORCHESTRATION section 8 on rejection. Stage D exits on two approvals.
-- [ ] After approval the implementer applies the nine changed wants by ID. Set tr4-03's positive selector
-      to `requests.Session.get` and transcribe its recorded `accepted` observation. Clear the site-only
-      consumer field on the six sites becoming omissions. Their observations remain in the oracle.
-      Extend the matrix's allowed cause vocabulary by
-      `binding_unavailable` and `member_rebound` in the same change. Run `rows_file_is_well_formed`.
+      reconciliation. The sibling `row-verdicts.jsonl` covers all 730 IDs, including wf01–99. Verify
+      its SHA-256 and the current matrix/oracle digests against DESIGN 6 before transcription.
+- [x] Both reviewers rejected round 1. Folded the findings in place. The fixed multiline rule and
+      its two accepted counterexamples are an OWNER OPTION in DESIGN 6.8.
+- [ ] Both reviewers review the fold. Cap **two rounds**. On a second rejection use ORCHESTRATION
+      section 8. Stage D exits on two approvals.
+- [ ] After approval apply all 51 changed wants by ID. For the five promoted site rows (tr4-03,
+      sl1-03, wf96–98) replace `*` with the canonical callee in the want and transcribe the joined
+      guard observation. Clear the site-only consumer field on the 40 sites becoming omissions.
+      Set omission selectors to forbid the intended site (use `*` where the line must be empty).
+      The oracle preserves observations for all IDs. The four counted-to-silent changes implement
+      warning eligibility. Add `binding_unavailable`, `member_rebound` and `annotation_conflict` to
+      the original seven allowed causes. Run `rows_file_is_well_formed`.
       The empty → HTTP root → HTTP receiver → stdlib `ENABLED_GROUPS` sequence stays in force.
 
 ---
@@ -298,23 +314,30 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 ### Slice S1: root identity for any call node (behaviour-preserving; half a day)
 
 **Files:**
-- Modify: `crates/prism-review/src/targets/dependency_hint.rs`, `dependency_identity.rs`
+- Modify: `crates/prism-review/src/targets/dependency_hint.rs`, `dependency_identity.rs`, and the `dependency_hint` module visibility in `targets/mod.rs`
 - Test: `crates/prism-review/src/targets/dependency_hint_tests.rs`
 
 **Interfaces (produced):**
 
 ```rust
+// SiteContext keeps its existing lifetime and fields.
+pub(crate) struct SiteContext<'a> { /* existing fields */ }
 /// What the root of a call's callee chain is bound to at the call site.
-pub(super) struct RootIdentity {
+pub(crate) struct RootIdentity {
     pub source_callee: String,             // callee text as written, e.g. "r.get"
     pub resolved_path: Option<String>,     // dotted path through a proven import, e.g. "requests.get"; None when
                                            // the root is shadowed, unimported, or names a repository-local module
     pub root_is_library_spelling: bool,    // spelling evidence only. The inventory also checks actual scoped import
                                            // aliases and constructor/helper ties under DESIGN 6.5.
 }
-pub(super) fn root_identity(parsed: &ParsedFile, call: tree_sitter::Node<'_>, ctx: &SiteContext<'_>) -> Option<RootIdentity>;
+pub(crate) fn root_identity(parsed: &ParsedFile, call: tree_sitter::Node<'_>, ctx: &SiteContext<'_>) -> Option<RootIdentity>;
 pub(super) fn sole_receiver_constructor(/* today's private helper, signature unchanged */);
 ```
+
+| S1 visibility decision | Consequence |
+|---|---|
+| Chosen | Expose `SiteContext`, `RootIdentity` and `root_identity` as `pub(crate)` on a reachable crate path. Declare `pub(crate) mod dependency_hint` in `targets/mod.rs`. Compile a sibling-module import of all three via `crate::targets::dependency_hint`. |
+| Declined | `pub(super)` or an inaccessible private module prevents the other lane from importing the three items. A public external API exceeds the required visibility. |
 
 `resolve(parsed, line, ctx)` keeps its signature and its results; internally it may use `root_identity`.
 Share the decomposition of Python imports and the repository-local lookup with the later inventory
@@ -369,11 +392,12 @@ pub enum UnsupportedReason { ParseErrorInFunction, ModuleLevel, ClassBodyFrame, 
 impl UnsupportedReason { pub fn as_str(self) -> &'static str }        // snake_case names of DESIGN 5.2
 pub struct UnsupportedSite { pub file: String, pub line: usize, pub symbol: Option<String>,
     pub family: Family, pub resolved_callee: String, pub reason: UnsupportedReason,
-    pub count: usize }                                                 // one per DESIGN 5.2 group
+    pub grade: Grade }                                                 // one per occurrence until projection
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnprovenCause { StarImport, ShadowedRoot, NotImported, RepositoryLocalModule,
-    BindingUnavailable, MemberRebound, ReceiverNotUnique, HelperUnannotated, HelperNotAdmissible } // DESIGN 5.2 order
+    BindingUnavailable, MemberRebound, ReceiverNotUnique, AnnotationConflict, HelperUnannotated, HelperNotAdmissible } // DESIGN 5.2 order
 pub struct InventoryOutput { pub sites: Vec<InventorySite>, pub unsupported: Vec<UnsupportedSite>,
+    pub parse_quality: BTreeMap<String, prism::finding_confidence::ParseQuality>, // every inventoried file, keyed as in sites
     pub unproven: BTreeMap<String, BTreeMap<UnprovenCause, usize>>,    // file → cause → count
     pub skipped: Vec<(String, String)>,                                // skipped Python file, loader reason
     pub files: Vec<String> }                                           // sorted, every inventoried file
@@ -395,17 +419,25 @@ pub fn load_python_files(repo_root: &Path, only: Option<&BTreeSet<String>>)
 /// `meta.repo_sha`, the warnings of DESIGN 5.2.
 pub fn inventory_document(meta: &TargetsMeta, out: &InventoryOutput) -> TargetsDocument;
 /// Adds inventory rows to a projected document: sets schema 1.1, appends "prism.inventory/1" to
-/// producer.algorithms, drops duplicate ids against the rows already present, applies the confidence, tier
-/// and severity filters of `meta` (DESIGN 5.5), re-sorts by the existing key, appends the warnings of
+/// producer.algorithms, filters occurrences by confidence/tier, groups diagnostics, deduplicates row ids,
+/// applies the severity floor (DESIGN 5.5/6.5), re-sorts by the existing key and appends the warnings of
 /// DESIGN 5.2 and 5.5.
 pub fn merge_inventory(doc: TargetsDocument, meta: &TargetsMeta, out: &InventoryOutput) -> TargetsDocument;
 ```
 
 The family of a call comes from `py_tables.rs` applied to the resolved callee; `root_identity` supplies only
-the root's path, and the closed-world census of `py_receiver.rs` decides whether it is proven. Site rules,
+the root's path. The closed-world census of `py_receiver.rs` decides whether it is proven. Both projections get
+file parse quality from `InventoryOutput` for every site and unsupported occurrence. Populate the map
+at collection from the parser, including recovered files. A missing entry is an invariant failure.
+Apply occurrence confidence and derived tier before grouping unsupported calls, aggregate by the full
+DESIGN 5.2 key and serialize the surviving count and highest surviving grade (DESIGN 6.5). Site rules,
 frames, bounds and the line anchor follow DESIGN 5.4/6.6 in `python.rs`. Use the same newline-normalised
 parse and original-byte mapping for rows and the bounds example. The slice includes source-order and
-type-only import refusals, alias ties, NFKC identity and literal namespace/member writes.
+type-only import refusals, alias ties, NFKC identity and the write checks in DESIGN 6.2. Index
+canonical imported paths, bare builtin namespace members, literal mapping keys and one-hop assignment
+aliases for vetoes. Check site ancestors and repository `src/` on disk, including files outside
+`--files`. Keep the legacy echo admission policy for G-byte. Implement narrow same-package import
+coalescing and the sole table-import cause rule (sl3-02, as1-18, sl1-03, wf96–99).
 
 Command line: `--inventory <NAME>` (value `python-deps`); `--inventory-kinds <LIST>`; `--diff` becomes
 optional in clap. `run_targets` then enforces: no `--diff` and no `--inventory` → the same error text clap
@@ -441,11 +473,22 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       `python.rs`, `rows.rs`, `function_bounds`, `load_python_files`, the two document functions, the CLI
       wiring and `examples/inventory_bounds.rs` (arguments: a repository path; prints one JSON line per
       function of every inventoried file: file, start line, end line, name).
+- [ ] Check the sibling `src/requests/__init__.py` collision from `app/main.py` with only the
+      importing file selected, and an unrelated sibling package as a negative. Test direct false
+      `TYPE_CHECKING`, the proven `typing_extensions` alias and a shadowing parameter (DESIGN 6.2).
+      Test attribute and subscript annotated assignments in function scope: omit calls in their
+      annotations while retaining evaluated target operands and RHS. Include a same-text duplicate
+      span mismatch in the G-accept evidence runner.
 - [ ] `matrix_rows_match` GREEN for every `http.root` row.
 - [ ] Review focus items 1, 2, 4, 5 and 6: one test each, named after the item.
 - [ ] Gates of ORCHESTRATION section 5: items 1 to 4, 8, 9, 10 (no cache, data-flow or resolution change:
       5 to 7 do not apply). `main.rs` is near 1,000 weighted lines: put the inventory branch in a new
       function in a new file if it would pass that.
+- [ ] Before S2a measurement, run the DESIGN 6.8 source preflight on all four census corpora for the
+      eight empty-qualifier root shapes and bare builtins. Record counts including zero, occurrences,
+      consumer qualifiers and any canonical builtin evidence. Check the M-1 declared roots against
+      DESIGN 6.2's lookup set. Record any nonstandard-root collision. Escalate missing/conflicting
+      evidence to the owner under ORCHESTRATION §8 and leave the affected family gate unmet.
 - [ ] Measure before review (measurement runner; G-accept steps on a Claude seat):
   - **G-bounds:** run the example on every census corpus and compare with `census/functions-<corpus>.jsonl`
     (`census/bounds_compare.py`); required difference: zero. A difference is a defect of `function_bounds`:
@@ -458,7 +501,10 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
     overlay's file, line, bounds and kind and the bare symbol (the S2a half of **G-overlay**).
   - **G-accept**, HTTP rows of this slice: `oracle/accept.py` (Claude seat) loads each document with
     faultpath's loader, runs `oracle/site_oracle.py` on every injectable row, runs `faultpath plan` with the
-    corpus's import root, and checks DESIGN section 7's four conditions. Follow DESIGN 6.8 for bare
+    corpus's import root, and checks DESIGN section 7's four conditions. Use a test-only sidecar
+    keyed to the projected site ID and source revision for the Prism-discovered `Call.func` and
+    whole-call spans. Extract the same spans from the actual consumer-bound occurrence, check both
+    ranges and text, and fail condition (2) on missing or unequal evidence. Follow DESIGN 6.8 for bare
     builtins, empty qualifiers and recovered sites. Report any unmet identity/binding check. Tabulate
     other guard answers and planner notes per reason.
   - Put the tables in the PR body.
@@ -474,10 +520,15 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 - Create (evidence directory): `precision/sample.py`, `precision/PRECISION.md`
 
 - [ ] Enable `"http.receiver"` as the first commit; `matrix_rows_match` RED for its rows.
-- [ ] Implement R1–R3 constructor proofs and R4/R5 annotation proofs of DESIGN 6.3–6.4. Count literal
-      attribute deletion, use the closed nullable/forward annotation grammar, and require one visible
-      same-file module helper. Carry failed constructor ties to the warning counts. `matrix_rows_match`
-      GREEN for every enabled row.
+- [ ] Implement R1–R5 under DESIGN 6.2–6.5. Apply the common write veto to the constructor, selected
+      class method, receiver method and R3 field. Check same-owner and one-hop alias writes and unrelated
+      member/owner controls (wf29–53). Test a write to `self.client.get` as well as to `self.client`.
+      Prefer R2 direct construction, then check R4/R5 declarations against defaults, initializers and
+      same-file helper return witnesses (wf54–73). Count failed inline R1. Require an eligible position
+      for other receiver ties, including context pairing. Test a failed inline constructor against
+      a rejected context (async Path is checked in S3) and wf74–95. Check as1-19's count 2 unfiltered,
+      count 1 under exact or asserted, and its absence above info. `matrix_rows_match` GREEN for
+      every enabled row.
 - [ ] Review focus item 3: one test.
 - [ ] Gates of ORCHESTRATION section 5, as for S2a.
 - [ ] Measure before review: re-run the S2a measurements (G-bounds unchanged, G-byte) on every census corpus;
@@ -502,7 +553,9 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       is RED for their rows. Add every canonical entry with its 5.3 family, including `Path.home` as
       config, and enable the same R4/R5 proofs for the three classes. GREEN.
 - [ ] Add a unit test that the standard-library table in `py_tables.rs` equals DESIGN 5.3's list, entry for
-      entry, with each entry's family.
+      entry, with each entry's family. Test `async with Path(...) as p` alone gives plain none at
+      `p.read_text()`. Check bare/qualified builtin mutation and the Path class member write across
+      root, constructor, annotation and helper proofs.
 - [ ] `parity/compare.py <prism.json> <scan.json>` (lane interpreter): restrict both sides to the files in the
       scan document's `diff.files`; key each injectable row by (file, line, function_start_line,
       function_end_line, family, resolved callee); compare prism's `module_level` unsupported rows with
@@ -515,7 +568,9 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       with its import root) and `prism targets --inventory python-deps --inventory-kinds
       filesystem,parse,config` on every census corpus. Classify every difference in `parity/PARITY.md`:
       prism misses a site scan lists (name the exact P1–P5 class from DESIGN 6.7, its key, the source
-      witness and prism outcome, retaining the miss in that corpus's denominator); prism lists a site scan
+      witness, independent replay of all applicable proof routes and shape, and prism outcome.
+      Keep every scan key in the denominator, including files prism omitted. A representable multiline
+      scan key or differing anchor needs a matrix regression and fix or owner escalation); prism lists a site scan
       does not (confirm against the source); the two disagree on bounds, line or callee (decide by the
       source and faultpath's guard; a prism defect gets a matrix row and a fix). A table entry may be added
       in this slice only when DESIGN 5.3's list (the consumer's table) has it. A miss that belongs to no
@@ -575,6 +630,12 @@ routes and the closed-world rule, the unsupported reasons and unproven causes, w
       the tree-sitter function node, which includes decorators and trailing indented comments and can
       cause `stale_function_bounds`. Inventory `function_bounds` supplies the reference behaviour.
 - [ ] Refresh the handoff; delete the worktree's `target/`.
+
+## Change log
+
+- 2026-11-24. Folded Stage D round 1. T-1 now consumes complete group keys and checks silent
+  fixtures. S1 exposes the shared crate interface. S2a–S3 carry parse quality and occurrence evidence,
+  apply the revised identity rules and measure the stricter acceptance and parity gates.
 
 ## Acceptance for the lane
 

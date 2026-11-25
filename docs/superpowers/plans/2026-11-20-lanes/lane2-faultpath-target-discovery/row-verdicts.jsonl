@@ -1,0 +1,730 @@
+{"id": "h01", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "h02", "verdict": "keep", "want": "site(http,requests.post,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "h03", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "h04", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "h05", "verdict": "keep", "want": "site(http,requests.Session.send,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "h06", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "h07", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "h08", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "h09", "verdict": "keep", "want": "site(http,requests.Session.send,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "h10", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R1 and §6.8 (receiver qualification absent)"}
+{"id": "h11", "verdict": "keep", "want": "site(http,httpx.AsyncClient.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "n01", "verdict": "keep", "want": "none", "rule": "§6.1 HTTP table and §6.8 (guard accepted, outside inventory)"}
+{"id": "n02", "verdict": "keep", "want": "none", "rule": "§6.1 HTTP table and §6.8 (guard accepted, outside inventory)"}
+{"id": "n03", "verdict": "keep", "want": "none", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, outside inventory)"}
+{"id": "n04", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "n05", "verdict": "keep", "want": "none(unproven:repository_local_module)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "n06", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "n07", "verdict": "keep", "want": "none(unproven:helper_unannotated)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "n08", "verdict": "keep", "want": "none", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, outside inventory)"}
+{"id": "u01", "verdict": "keep", "want": "unsupported(module_level,1)", "rule": "§5.2 module_level and §6.8 (frame refusal on the line anchor)"}
+{"id": "u02", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "u03", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Line anchor"}
+{"id": "u04a", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Line anchor"}
+{"id": "u04b", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "u05", "verdict": "keep", "want": "unsupported(multiline_callee,1)", "rule": "§6.6 Semantic callee span and §6.8 (multiline target accepted)"}
+{"id": "u06", "verdict": "keep", "want": "unsupported(lambda_frame,1)", "rule": "§5.2 lambda_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "u07", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Line anchor"}
+{"id": "w01", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "w02", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "w03", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "w04", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "w05", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "w06a", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "w06b", "verdict": "keep", "want": "site(filesystem,builtins.open,exact)", "rule": "§6.6 Line anchor and §6.8 (bare builtin qualification absent)"}
+{"id": "w07", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "w08", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Line anchor"}
+{"id": "s01", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=method,bounds=5-6)", "rule": "§6.6 Symbol and bounds"}
+{"id": "s02", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=inner,bounds=5-6)", "rule": "§5.4 Frame and enclosing function"}
+{"id": "s03", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=fetch_all)", "rule": "§5.4 Frame and enclosing function and §6.8 (consumer frame refusal)"}
+{"id": "s04", "verdict": "keep", "want": "site(http,requests.get,exact,bounds=5-6)", "rule": "§6.6 Symbol and bounds and §6.8 (consumer frame refusal)"}
+{"id": "s05", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=m)", "rule": "§6.6 Symbol and bounds"}
+{"id": "s06", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=helper)", "rule": "§6.6 Symbol and bounds"}
+{"id": "s07", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=m)", "rule": "§6.6 Symbol and bounds"}
+{"id": "b01", "verdict": "keep", "want": "site(http,requests.get,exact,bounds=4-5)", "rule": "§6.6 Symbol and bounds"}
+{"id": "b02", "verdict": "keep", "want": "site(http,requests.get,exact,bounds=4-5)", "rule": "§6.6 Symbol and bounds"}
+{"id": "b03", "verdict": "keep", "want": "site(http,requests.get,exact,bounds=5-6)", "rule": "§6.6 Symbol and bounds"}
+{"id": "b04", "verdict": "keep", "want": "site(http,requests.get,exact,bounds=7-8)", "rule": "§6.6 Symbol and bounds and §6.8 (consumer frame refusal)"}
+{"id": "c01", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=outer,bounds=4-8)", "rule": "§5.4 Frame and enclosing function"}
+{"id": "c02", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=outer,bounds=4-10)", "rule": "§5.4 Frame and enclosing function and §6.8 (consumer frame refusal)"}
+{"id": "c03", "verdict": "keep", "want": "unsupported(module_level,1)", "rule": "§5.2 module_level and §6.8 (frame refusal on the line anchor)"}
+{"id": "c04", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "c05", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=fetch)", "rule": "§5.4 Frame and enclosing function"}
+{"id": "c06", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=fetch)", "rule": "§5.4 Frame and enclosing function and §6.8 (consumer frame refusal)"}
+{"id": "f01a", "verdict": "keep", "want": "site(filesystem,builtins.open,exact)", "rule": "§6.2 Root identity and lexical scope and §6.8 (bare builtin qualification absent)"}
+{"id": "f01b", "verdict": "keep", "want": "site(parse,json.loads,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "f01c", "verdict": "keep", "want": "site(config,os.getenv,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "f01d", "verdict": "keep", "want": "site(parse,configparser.ConfigParser.read,exact)", "rule": "§6.3 R1 and §6.8 (receiver qualification absent)"}
+{"id": "f01e", "verdict": "keep", "want": "site(filesystem,pathlib.Path.read_text,exact)", "rule": "§6.3 R1 and §6.8 (receiver qualification absent)"}
+{"id": "f02", "verdict": "keep", "want": "none", "rule": "§6.6 Call expressions and §6.8 (no bound call)"}
+{"id": "f03", "verdict": "keep", "want": "site(config,pathlib.Path.home,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "f04a", "verdict": "keep", "want": "site(parse,json.load,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "f04b", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "e01", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "e02", "verdict": "keep", "want": "none(unproven:star_import)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "e03", "verdict": "keep", "want": "none(unproven:star_import)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "e04a", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "e04b", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "e05a", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "e05b", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "e05c", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "e05d", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "e05e", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "e06", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "e07", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.2/6.3 R3 computed key and other-file writes outside the enumerated model and §6.8 (receiver qualification absent)"}
+{"id": "e08a", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "e08b", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "e08c", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "e09a", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "e09b", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "e09c", "verdict": "keep", "want": "site(http,httpx.AsyncClient.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "e09d", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "e10a", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "e10b", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "e10c", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "e10d", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "o01", "verdict": "keep", "want": "site(http,urllib.request.urlopen,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "o02", "verdict": "keep", "want": "site(http,urllib.request.urlopen,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "o03", "verdict": "keep", "want": "site(http,urllib.request.urlopen,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "o04", "verdict": "keep", "want": "site(http,urllib.request.urlopen,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "o05", "verdict": "keep", "want": "site(http,urllib3.PoolManager.request,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "o06", "verdict": "keep", "want": "site(http,urllib3.request,exact)", "rule": "§6.1 HTTP table"}
+{"id": "o07", "verdict": "keep", "want": "site(http,aiohttp.ClientSession.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "o08", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "o09", "verdict": "keep", "want": "none(unproven:repository_local_module)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "o10", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "o11", "verdict": "change", "want": "none(unproven:binding_unavailable)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "o12", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "o13", "verdict": "keep", "want": "unsupported(module_level,1)", "rule": "§5.2 module_level and §6.8 (frame refusal on the line anchor)"}
+{"id": "o14", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=fetch,bounds=6-7)", "rule": "§6.6 Symbol and bounds"}
+{"id": "o15", "verdict": "keep", "want": "site(config,os.environ.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "o16", "verdict": "keep", "want": "site(filesystem,os.path.getsize,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "o17", "verdict": "keep", "want": "site(filesystem,pathlib.Path.read_text,exact)", "rule": "§6.3 R1 and §6.8 (receiver qualification absent)"}
+{"id": "o18", "verdict": "keep", "want": "site(filesystem,io.open,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "o19", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "o20", "verdict": "keep", "want": "site(parse,json.loads,exact)", "rule": "§5.4 Frame and enclosing function and §6.8 (consumer frame refusal)"}
+{"id": "o21", "verdict": "keep", "want": "unsupported(module_level,1)", "rule": "§5.2 module_level and §6.8 (frame refusal on the line anchor)"}
+{"id": "o22", "verdict": "keep", "want": "unsupported(lambda_frame,1)", "rule": "§5.2 lambda_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "o23a", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "o23b", "verdict": "keep", "want": "unsupported(parse_error_in_function,1)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "o24a", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§5.1 Row identity"}
+{"id": "o24b", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§5.1 Row identity"}
+{"id": "o25", "verdict": "keep", "want": "unsupported(module_level,1)", "rule": "§5.2 module_level and §6.8 (frame refusal on the line anchor)"}
+{"id": "o26", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-01", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-02", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-03", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-04", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-06", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-07", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-08", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-09", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-10", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-11", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-12", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-13", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr1-14", "verdict": "keep", "want": "none", "rule": "§6.6 Unevaluated annotations and §6.8 (winning call has no position)"}
+{"id": "tr1-15", "verdict": "keep", "want": "site(http,requests.post,exact)", "rule": "§6.6 Line anchor"}
+{"id": "tr1-16", "verdict": "keep", "want": "unsupported(not_line_anchor,2)", "rule": "§6.6 Line anchor and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "tr1-17", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-7)", "rule": "§6.6 Symbol and bounds"}
+{"id": "tr1-18", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-5)", "rule": "§6.6 Symbol and bounds"}
+{"id": "tr1-19", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Call expressions"}
+{"id": "tr1-20", "verdict": "keep", "want": "none", "rule": "§6.6 Call expressions and §6.8 (no bound call)"}
+{"id": "tr1-21", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Call expressions"}
+{"id": "tr1-22", "verdict": "keep", "want": "unsupported(multiline_callee,1)", "rule": "§6.6 Semantic callee span and §6.8 (multiline target accepted)"}
+{"id": "tr1-23", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f)", "rule": "§6.6 Symbol and bounds and §6.8 (consumer frame refusal)"}
+{"id": "tr1-24", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=value,bounds=4-5)", "rule": "§6.6 Symbol and bounds and §6.8 (consumer frame refusal)"}
+{"id": "tr1-25", "verdict": "keep", "want": "site(filesystem,pathlib.Path.open,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-26", "verdict": "keep", "want": "site(filesystem,pathlib.Path.read_bytes,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-27", "verdict": "keep", "want": "site(filesystem,pathlib.Path.stat,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-28", "verdict": "keep", "want": "site(filesystem,pathlib.Path.exists,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-29", "verdict": "keep", "want": "site(filesystem,pathlib.Path.is_file,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-30", "verdict": "keep", "want": "site(filesystem,pathlib.Path.is_dir,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-31", "verdict": "keep", "want": "site(filesystem,pathlib.Path.write_text,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-32", "verdict": "keep", "want": "site(filesystem,pathlib.Path.write_bytes,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-33", "verdict": "keep", "want": "site(filesystem,pathlib.Path.mkdir,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-34", "verdict": "keep", "want": "site(filesystem,pathlib.Path.touch,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-35", "verdict": "keep", "want": "site(filesystem,pathlib.Path.rename,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-36", "verdict": "keep", "want": "site(filesystem,pathlib.Path.replace,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-37", "verdict": "keep", "want": "site(filesystem,pathlib.Path.unlink,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-38", "verdict": "keep", "want": "site(filesystem,pathlib.Path.rmdir,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-39", "verdict": "keep", "want": "site(filesystem,pathlib.Path.symlink_to,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-40", "verdict": "keep", "want": "site(filesystem,os.stat,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-41", "verdict": "keep", "want": "site(filesystem,os.listdir,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-42", "verdict": "keep", "want": "site(filesystem,os.scandir,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-43", "verdict": "keep", "want": "site(filesystem,os.pathconf,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-44", "verdict": "keep", "want": "site(filesystem,os.mkdir,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-45", "verdict": "keep", "want": "site(filesystem,os.makedirs,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-46", "verdict": "keep", "want": "site(filesystem,os.remove,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-47", "verdict": "keep", "want": "site(filesystem,os.unlink,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-48", "verdict": "keep", "want": "site(filesystem,os.rename,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-49", "verdict": "keep", "want": "site(filesystem,os.replace,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-50", "verdict": "keep", "want": "site(filesystem,os.rmdir,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-51", "verdict": "keep", "want": "site(filesystem,os.write,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-52", "verdict": "keep", "want": "site(filesystem,os.fsync,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-53", "verdict": "keep", "want": "site(filesystem,os.symlink,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-54", "verdict": "keep", "want": "site(filesystem,os.link,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-55", "verdict": "keep", "want": "site(filesystem,os.path.getmtime,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-56", "verdict": "keep", "want": "site(filesystem,shutil.copy,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-57", "verdict": "keep", "want": "site(filesystem,shutil.copy2,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-58", "verdict": "keep", "want": "site(filesystem,shutil.copyfile,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-59", "verdict": "keep", "want": "site(filesystem,shutil.copytree,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-60", "verdict": "keep", "want": "site(filesystem,shutil.move,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-61", "verdict": "keep", "want": "site(filesystem,tempfile.mkstemp,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-62", "verdict": "keep", "want": "site(filesystem,tempfile.mkdtemp,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-63", "verdict": "keep", "want": "site(filesystem,tempfile.NamedTemporaryFile,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-64", "verdict": "keep", "want": "site(filesystem,tempfile.TemporaryFile,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-65", "verdict": "keep", "want": "site(filesystem,tempfile.TemporaryDirectory,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-66", "verdict": "keep", "want": "site(parse,tomllib.load,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-67", "verdict": "keep", "want": "site(parse,tomllib.loads,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-68", "verdict": "keep", "want": "site(parse,tomli.load,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-69", "verdict": "keep", "want": "site(parse,tomli.loads,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-70", "verdict": "keep", "want": "site(parse,pickle.load,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-71", "verdict": "keep", "want": "site(parse,pickle.loads,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-72", "verdict": "keep", "want": "site(parse,configparser.ConfigParser.read_file,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-73", "verdict": "keep", "want": "site(parse,configparser.ConfigParser.read_string,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-74", "verdict": "keep", "want": "site(parse,configparser.RawConfigParser.read,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-75", "verdict": "keep", "want": "site(parse,configparser.RawConfigParser.read_file,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-76", "verdict": "keep", "want": "site(parse,configparser.RawConfigParser.read_string,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr1-77", "verdict": "keep", "want": "site(parse,xml.etree.ElementTree.parse,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-78", "verdict": "keep", "want": "site(parse,xml.etree.ElementTree.fromstring,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-79", "verdict": "keep", "want": "site(parse,xml.dom.minidom.parse,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-80", "verdict": "keep", "want": "site(parse,xml.dom.minidom.parseString,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-81", "verdict": "keep", "want": "site(parse,defusedxml.minidom.parse,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-82", "verdict": "keep", "want": "site(parse,defusedxml.minidom.parseString,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-83", "verdict": "keep", "want": "site(config,importlib.metadata.version,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-84", "verdict": "keep", "want": "site(config,importlib.metadata.metadata,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-85", "verdict": "keep", "want": "site(config,importlib.metadata.distribution,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-86", "verdict": "keep", "want": "site(config,importlib.metadata.files,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-87", "verdict": "keep", "want": "site(config,importlib.metadata.entry_points,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-88", "verdict": "keep", "want": "site(config,importlib_metadata.version,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-89", "verdict": "keep", "want": "site(config,importlib_metadata.metadata,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-90", "verdict": "keep", "want": "site(config,importlib_metadata.distribution,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-91", "verdict": "keep", "want": "site(config,importlib_metadata.files,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-92", "verdict": "keep", "want": "site(config,importlib_metadata.entry_points,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-93", "verdict": "keep", "want": "site(config,locale.getpreferredencoding,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-94", "verdict": "keep", "want": "site(config,locale.getencoding,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr1-95", "verdict": "keep", "want": "site(http,requests.put,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr1-96", "verdict": "keep", "want": "site(http,requests.patch,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr1-97", "verdict": "keep", "want": "site(http,requests.delete,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr1-98", "verdict": "keep", "want": "site(http,requests.head,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr1-99", "verdict": "keep", "want": "site(http,aiohttp.request,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr1-05", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-01", "verdict": "keep", "want": "site(http,requests.options,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-02", "verdict": "keep", "want": "site(http,requests.request,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-03", "verdict": "keep", "want": "site(http,httpx.get,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-04", "verdict": "keep", "want": "site(http,httpx.post,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-05", "verdict": "keep", "want": "site(http,httpx.put,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-06", "verdict": "keep", "want": "site(http,httpx.patch,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-07", "verdict": "keep", "want": "site(http,httpx.delete,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-08", "verdict": "keep", "want": "site(http,httpx.head,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-09", "verdict": "keep", "want": "site(http,httpx.options,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-10", "verdict": "keep", "want": "site(http,httpx.request,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-11", "verdict": "keep", "want": "site(http,httpx.stream,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-12", "verdict": "keep", "want": "site(http,urllib.request.urlretrieve,exact)", "rule": "§6.1 HTTP table"}
+{"id": "tr2-13", "verdict": "keep", "want": "site(http,requests.Session.post,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-14", "verdict": "keep", "want": "site(http,requests.Session.put,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-15", "verdict": "keep", "want": "site(http,requests.Session.patch,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-16", "verdict": "keep", "want": "site(http,requests.Session.delete,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-17", "verdict": "keep", "want": "site(http,requests.Session.head,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-18", "verdict": "keep", "want": "site(http,requests.Session.options,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-19", "verdict": "keep", "want": "site(http,requests.Session.request,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-20", "verdict": "keep", "want": "site(http,httpx.Client.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-21", "verdict": "keep", "want": "site(http,httpx.Client.post,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-22", "verdict": "keep", "want": "site(http,httpx.Client.request,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-23", "verdict": "keep", "want": "site(http,httpx.Client.send,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-24", "verdict": "keep", "want": "site(http,httpx.Client.stream,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-25", "verdict": "keep", "want": "site(http,httpx.AsyncClient.post,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-26", "verdict": "keep", "want": "site(http,httpx.AsyncClient.request,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-27", "verdict": "keep", "want": "site(http,httpx.AsyncClient.send,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-28", "verdict": "keep", "want": "site(http,httpx.AsyncClient.stream,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-29", "verdict": "keep", "want": "site(http,aiohttp.ClientSession.post,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-30", "verdict": "keep", "want": "site(http,aiohttp.ClientSession.request,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-31", "verdict": "keep", "want": "site(http,urllib3.PoolManager.urlopen,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-32", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-33", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-34", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-35", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-36", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-37", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-38", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-39", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-40", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-41", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-42", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-43", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-44", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-45", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-46", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-47", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-48", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-49", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-50", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-51", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-52", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "tr2-53", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope and §6.8 (import qualification absent)"}
+{"id": "tr2-54", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope and §6.8 (import qualification absent)"}
+{"id": "tr2-55", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "tr2-56", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-57", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-58", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "tr2-59", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-60", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-61", "verdict": "keep", "want": "unsupported(module_level,1)", "rule": "§5.2 module_level and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr2-62", "verdict": "keep", "want": "unsupported(lambda_frame,1)", "rule": "§5.2 lambda_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr2-63", "verdict": "keep", "want": "unsupported(lambda_frame,1)", "rule": "§5.2 lambda_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr2-64", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr2-65", "verdict": "keep", "want": "unsupported(module_level,1)", "rule": "§5.2 module_level and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr2-66", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=outer,bounds=2-5)", "rule": "§5.4 Frame and enclosing function"}
+{"id": "tr2-67", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=outer,bounds=2-5)", "rule": "§5.4 Frame and enclosing function"}
+{"id": "tr2-68", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§5.4 Frame and enclosing function"}
+{"id": "tr2-69", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr2-70", "verdict": "keep", "want": "none(unproven:star_import)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-71", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-3)", "rule": "§6.6 Symbol and bounds"}
+{"id": "tr2-72", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr2-73", "verdict": "keep", "want": "site(filesystem,builtins.open,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "tr2-74", "verdict": "keep", "want": "none", "rule": "§5.3 Standard-library table and §6.8 (guard accepted, outside inventory)"}
+{"id": "tr2-75", "verdict": "keep", "want": "site(config,pathlib.Path.home,exact)", "rule": "§5.3 Standard-library table"}
+{"id": "tr2-76", "verdict": "keep", "want": "site(parse,xml.etree.ElementTree.fromstring,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "tr2-77", "verdict": "keep", "want": "site(config,importlib.metadata.version,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "tr3-01", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr3-02", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope and §6.8 (import qualification absent)"}
+{"id": "tr3-03", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr3-04", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr3-05", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-4)", "rule": "§5.4 Frame and enclosing function"}
+{"id": "tr3-06", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-3)", "rule": "§5.4 Frame and enclosing function and §6.8 (consumer frame refusal)"}
+{"id": "tr3-07", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-5)", "rule": "§5.4 Frame and enclosing function and §6.8 (consumer frame refusal)"}
+{"id": "tr3-08", "verdict": "keep", "want": "unsupported(parse_error_in_function,1)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "tr3-09", "verdict": "keep", "want": "unsupported(parse_error_in_function,1)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "tr3-10", "verdict": "keep", "want": "unsupported(lambda_frame,1)", "rule": "§5.2 lambda_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr3-11", "verdict": "keep", "want": "unsupported(multiline_callee,1)", "rule": "§6.6 Semantic callee span and §6.8 (another call occurrence accepted)"}
+{"id": "tr3-12", "verdict": "keep", "want": "none", "rule": "§6.6 Unevaluated annotations and §6.8 (winning call has no position)"}
+{"id": "tr3-13", "verdict": "keep", "want": "none", "rule": "§6.6 Unevaluated annotations and §6.8 (winning call has no position)"}
+{"id": "tr3-14", "verdict": "keep", "want": "site(http,requests.post,exact)", "rule": "§6.6 Line anchor"}
+{"id": "tr3-15", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Line anchor"}
+{"id": "tr3-16", "verdict": "keep", "want": "site(http,requests.post,exact)", "rule": "§6.6 Line anchor"}
+{"id": "tr3-17", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr3-18", "verdict": "keep", "want": "none(unproven:star_import)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr3-19", "verdict": "keep", "want": "site(http,requests.Session.get,exact,symbol=inner,bounds=4-5)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr3-20", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.2/6.3 R3 setter uses a computed field name and §6.8 (receiver qualification absent)"}
+{"id": "tr3-21", "verdict": "change", "want": "none(unproven:receiver_not_unique)", "rule": "§6.2 literal namespace store to R3 field (§6.3) and §6.8 (accepted, identity unproven)"}
+{"id": "tr3-22", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr3-23", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr3-24", "verdict": "keep", "want": "site(filesystem,pathlib.Path.read_text,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "tr3-25", "verdict": "keep", "want": "site(parse,configparser.ConfigParser.read,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "tr3-26", "verdict": "keep", "want": "site(filesystem,pathlib.Path.read_text,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "tr3-27", "verdict": "keep", "want": "site(parse,json.loads,exact,symbol=f,bounds=2-4)", "rule": "§6.6 Symbol and bounds"}
+{"id": "tr3-28", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-5)", "rule": "§6.6 Symbol and bounds"}
+{"id": "tr3-29", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-7)", "rule": "§6.6 Symbol and bounds"}
+{"id": "tr3-30", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr3-31", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr3-32", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Line anchor"}
+{"id": "tr3-33", "verdict": "keep", "want": "unsupported(not_line_anchor,2)", "rule": "§6.6 Line anchor and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "tr4-01", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr4-02", "verdict": "keep", "want": "none(unproven:helper_unannotated)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr4-03", "verdict": "change", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "tr4-04", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr4-05", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr4-06", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=5-6)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "tr4-07", "verdict": "keep", "want": "unsupported(lambda_frame,1)", "rule": "§5.2 lambda_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr4-08", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "tr4-09", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "tr4-10", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr4-11", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "tr5-01", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=outer,bounds=2-5)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "tr5-02", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-3)", "rule": "§6.2 Root identity and lexical scope and §6.8 (import qualification absent)"}
+{"id": "tr5-03", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "tr5-04", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "tr6-01", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr6-02", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-4)", "rule": "§6.6 Line anchor"}
+{"id": "tr7-01", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "tr7-02", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "sl1-01", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=inner,bounds=5-6)", "rule": "§6.2 Root identity and lexical scope and §6.8 (import qualification absent)"}
+{"id": "sl1-02", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl1-03", "verdict": "change", "want": "site(http,urllib.request.urlopen,exact)", "rule": "§6.2 Q12 unconditional unaliased imports of the same top-level package"}
+{"id": "sl1-04", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope and §6.8 (import qualification absent)"}
+{"id": "sl1-05", "verdict": "keep", "want": "none(unproven:star_import)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-06", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-07", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-08", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "sl1-09", "verdict": "keep", "want": "none", "rule": "§6.6 Call expressions and §6.8 (no bound call)"}
+{"id": "sl1-10", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-5)", "rule": "§6.6 Call expressions"}
+{"id": "sl1-11", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-12", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-13", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "sl1-14", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-15", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Call expressions"}
+{"id": "sl1-16", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (multiline anchor refused)"}
+{"id": "sl1-17", "verdict": "keep", "want": "unsupported(module_level,1)", "rule": "§5.2 module_level and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl1-18", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl1-19", "verdict": "keep", "want": "unsupported(not_line_anchor,2)", "rule": "§6.6 Line anchor and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "sl1-20", "verdict": "keep", "want": "unsupported(not_line_anchor,2)", "rule": "§6.6 Line anchor and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "sl1-21", "verdict": "keep", "want": "unsupported(not_line_anchor,2)", "rule": "§6.6 Line anchor and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "sl1-22", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl1-23", "verdict": "keep", "want": "unsupported(lambda_frame,1)", "rule": "§5.2 lambda_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl1-24", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=inner,bounds=3-4)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "sl1-25", "verdict": "keep", "want": "unsupported(parse_error_in_function,1)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "sl1-26", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-4)", "rule": "§6.6 Symbol and bounds"}
+{"id": "sl1-27", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Call expressions"}
+{"id": "sl1-28", "verdict": "keep", "want": "unsupported(multiline_callee,1)", "rule": "§6.6 Semantic callee span and §6.8 (another call occurrence accepted)"}
+{"id": "sl1-29", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-30", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-31", "verdict": "keep", "want": "site(http,aiohttp.ClientSession.post,exact,symbol=f,bounds=3-6)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-32", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-33", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-34", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-35", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-36", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-37", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl1-38", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-39", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-40", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-41", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-42", "verdict": "keep", "want": "none", "rule": "§6.4 R5 and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl1-43", "verdict": "keep", "want": "none", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl1-44", "verdict": "keep", "want": "none", "rule": "§6.1 HTTP table and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl1-45", "verdict": "keep", "want": "site(http,httpx.Client.put,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-46", "verdict": "keep", "want": "site(http,httpx.Client.patch,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-47", "verdict": "keep", "want": "site(http,httpx.Client.delete,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-48", "verdict": "keep", "want": "site(http,httpx.Client.head,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-49", "verdict": "keep", "want": "site(http,httpx.Client.options,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-50", "verdict": "keep", "want": "site(http,httpx.AsyncClient.put,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-51", "verdict": "keep", "want": "site(http,httpx.AsyncClient.patch,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-52", "verdict": "keep", "want": "site(http,httpx.AsyncClient.delete,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-53", "verdict": "keep", "want": "site(http,httpx.AsyncClient.head,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-54", "verdict": "keep", "want": "site(http,httpx.AsyncClient.options,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-55", "verdict": "keep", "want": "site(http,aiohttp.ClientSession.put,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-56", "verdict": "keep", "want": "site(http,aiohttp.ClientSession.patch,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-57", "verdict": "keep", "want": "site(http,aiohttp.ClientSession.delete,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-58", "verdict": "keep", "want": "site(http,aiohttp.ClientSession.head,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-59", "verdict": "keep", "want": "site(http,aiohttp.ClientSession.options,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-60", "verdict": "keep", "want": "site(filesystem,builtins.open,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "sl1-61", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl1-62", "verdict": "keep", "want": "none", "rule": "§6.6 Unevaluated annotations and §6.8 (winning call has no position)"}
+{"id": "sl1-63", "verdict": "keep", "want": "site(filesystem,pathlib.Path.open,exact)", "rule": "§6.3 R1 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-64", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl1-65", "verdict": "keep", "want": "site(config,pathlib.Path.home,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "sl1-66", "verdict": "keep", "want": "site(parse,json.loads,exact,symbol=f,bounds=2-5)", "rule": "§5.4 Frame and enclosing function"}
+{"id": "sl1-67", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-68", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-69", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl1-70", "verdict": "keep", "want": "none", "rule": "§6.6 Call expressions and §6.8 (no bound call)"}
+{"id": "sl2-01", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl2-02", "verdict": "keep", "want": "site(http,httpx.get,exact,symbol=fetch,bounds=7-8)", "rule": "§6.2 Root identity and lexical scope and §6.8 (import qualification absent)"}
+{"id": "sl2-03", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl2-04", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope and §6.8 (import qualification absent)"}
+{"id": "sl2-05", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl2-06", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "sl2-07", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "sl2-08", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl2-09", "verdict": "keep", "want": "none(unproven:star_import)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl2-10", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl2-11", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (multiline anchor refused)"}
+{"id": "sl2-12", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "sl2-13", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "sl2-14", "verdict": "keep", "want": "unsupported(parse_error_in_function,1)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "sl2-15", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-3)", "rule": "§6.6 Symbol and bounds"}
+{"id": "sl2-16", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "sl2-17", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl2-18", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "sl2-19", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl2-20", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "sl2-21", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl2-22", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R4 declaration disagrees with the initializer helper class; veto R4 and R5 and §6.8 (accepted, identity unproven)"}
+{"id": "sl2-23", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl2-24", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl2-25", "verdict": "keep", "want": "site(http,httpx.AsyncClient.get,nameonly,symbol=f,bounds=2-3)", "rule": "§6.4 R4 and §6.8 (consumer frame refusal, receiver qualification absent)"}
+{"id": "sl2-26", "verdict": "keep", "want": "site(filesystem,io.open,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "sl3-01", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl3-02", "verdict": "change", "want": "none(unproven:binding_unavailable)", "rule": "§6.2/6.5 sole later table import has binding_unavailable precedence and §6.8 (accepted, identity unproven)"}
+{"id": "sl3-03", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl3-04", "verdict": "keep", "want": "unsupported(module_level,1)", "rule": "§5.2 module_level and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl3-05", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl3-06", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl3-07", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-4)", "rule": "§6.6 Symbol and bounds"}
+{"id": "sl3-09", "verdict": "keep", "want": "none(unproven:repository_local_module)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl3-10", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "sl3-11", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl3-12", "verdict": "keep", "want": "none", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl3-13", "verdict": "keep", "want": "site(http,requests.Session.get,exact,symbol=f,bounds=2-5)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl3-14", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl3-15", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "sl3-16", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl3-17", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "sl3-18", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl3-19", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl3-20", "verdict": "keep", "want": "site(config,os.environ.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "sl4-01", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl4-02", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl4-03", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl4-04", "verdict": "change", "want": "none(unproven:star_import)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl4-05", "verdict": "keep", "want": "none", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl4-06", "verdict": "keep", "want": "none", "rule": "§6.6 Call expressions and §6.8 (no bound call)"}
+{"id": "sl4-07", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "sl4-08", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl4-09", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.2/6.3 write to R3 sibling headers leaves selected get intact and §6.8 (receiver qualification absent)"}
+{"id": "sl4-10", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl4-11", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly,symbol=fetch,bounds=4-5)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "sl4-12", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl4-13", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl4-14", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "sl5-01", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=f,bounds=2-3)", "rule": "§6.6 Line anchor"}
+{"id": "sl5-02", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "sl5-03", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl5-04", "verdict": "change", "want": "none(unproven:repository_local_module)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "sl5-05", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl5-06", "verdict": "keep", "want": "unsupported(lambda_frame,1)", "rule": "§5.2 lambda_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "sl5-07", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "sl5-08", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=value,bounds=7-8)", "rule": "§6.6 Symbol and bounds and §6.8 (consumer frame refusal)"}
+{"id": "sl5-09", "verdict": "keep", "want": "none", "rule": "§6.3 R3 and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl5-10", "verdict": "keep", "want": "none", "rule": "§6.3 R2 and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl5-11", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "sl5-12", "verdict": "keep", "want": "none", "rule": "§6.4 R5 and §6.8 (guard accepted, outside inventory)"}
+{"id": "sl5-13", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "sl5-14", "verdict": "keep", "want": "none", "rule": "§6.7 Accepted losses and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-01", "verdict": "keep", "want": "site(http,httpx.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "as1-02", "verdict": "keep", "want": "none", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-03", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as1-04", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=fetch,bounds=2-5)", "rule": "§6.6 Call expressions"}
+{"id": "as1-05", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as1-06", "verdict": "keep", "want": "none", "rule": "§6.7 Accepted losses and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-07", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=build,bounds=2-4)", "rule": "§6.6 Line anchor"}
+{"id": "as1-08", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as1-09", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=fetch,bounds=2-5)", "rule": "§6.6 Call expressions"}
+{"id": "as1-11", "verdict": "keep", "want": "none", "rule": "§6.7 Accepted losses and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-12", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-13", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-14", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "as1-15", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-16", "verdict": "keep", "want": "site(http,httpx.Client.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "as1-17", "verdict": "keep", "want": "none(unproven:helper_unannotated)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "as1-18", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "as1-19", "verdict": "keep", "want": "unsupported(not_line_anchor,2)", "rule": "§6.6 Line anchor and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "as1-20", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.2/6.3 R3 field owner excludes override in a separate subclass file and §6.8 (receiver qualification absent)"}
+{"id": "as1-21", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "as1-22", "verdict": "keep", "want": "site(http,requests.Session.get,exact,symbol=fetch,bounds=4-6)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "as1-23", "verdict": "keep", "want": "none", "rule": "§6.3 R1 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-24", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as1-25", "verdict": "keep", "want": "none", "rule": "§5.3 Standard-library table and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-26", "verdict": "keep", "want": "site(filesystem,builtins.open,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "as1-27", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R5 RawConfigParser and returned ConfigParser have distinct canonical paths and §6.8 (accepted, identity unproven)"}
+{"id": "as1-28", "verdict": "keep", "want": "site(filesystem,pathlib.Path.exists,nameonly,symbol=read,bounds=6-8)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "as1-29", "verdict": "keep", "want": "none", "rule": "§6.6 Call expressions and §6.8 (no bound call)"}
+{"id": "as1-30", "verdict": "keep", "want": "site(config,os.getenv,exact,symbol=read,bounds=2-4)", "rule": "§6.6 Symbol and bounds"}
+{"id": "as1-31", "verdict": "keep", "want": "site(filesystem,builtins.open,exact,symbol=read,bounds=2-4)", "rule": "§6.2 Root identity and lexical scope and §6.8 (bare builtin qualification absent)"}
+{"id": "as1-32", "verdict": "keep", "want": "unsupported(module_level,2)", "rule": "§5.2 module_level and §5.2 Grouping and §6.8 (frame refusal on the line anchor)"}
+{"id": "as1-33", "verdict": "keep", "want": "none", "rule": "§6.7 Accepted losses and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-34", "verdict": "keep", "want": "none", "rule": "§5.3 Standard-library table and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-35", "verdict": "keep", "want": "none", "rule": "§6.1 HTTP table and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-36", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as1-37", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as1-38", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=__fetch,bounds=3-4)", "rule": "§6.6 Symbol and bounds"}
+{"id": "as1-39", "verdict": "keep", "want": "none", "rule": "§6.3 R3 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as1-40", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as1-41", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "as1-10", "verdict": "keep", "want": "unsupported(parse_error_in_function,2)", "rule": "§6.6 Parse errors in the owning definition and §5.2 Grouping and §6.8 (whole-file syntax error)"}
+{"id": "as2-01", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "as2-02", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "as2-03", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as2-04", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as2-05", "verdict": "keep", "want": "none(unproven:star_import)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "as2-06", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "as2-07", "verdict": "keep", "want": "unsupported(not_line_anchor,2)", "rule": "§6.6 Line anchor and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "as2-08", "verdict": "keep", "want": "unsupported(lambda_frame,2)", "rule": "§5.2 lambda_frame and §5.2 Grouping and §6.8 (frame refusal on the line anchor)"}
+{"id": "as2-09", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (whole-file syntax error)"}
+{"id": "as2-10", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=fetch,bounds=3-4)", "rule": "§6.6 Symbol and bounds"}
+{"id": "as2-11", "verdict": "keep", "want": "none", "rule": "§6.1 HTTP table and §6.8 (guard accepted, outside inventory)"}
+{"id": "as2-12", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.6 Call expressions"}
+{"id": "as2-13", "verdict": "keep", "want": "site(http,httpx.Client.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "as2-14", "verdict": "keep", "want": "none", "rule": "§6.3 R2 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as2-15", "verdict": "keep", "want": "none", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, outside inventory)"}
+{"id": "as2-16", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "as2-17", "verdict": "keep", "want": "none", "rule": "§6.3 R3 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as2-18", "verdict": "change", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "as2-19", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R4 parameter annotation conflicts with the constructed default and §6.8 (accepted, identity unproven)"}
+{"id": "as2-20", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 Optional wrapper resolved at annotation site and §6.8 (receiver qualification absent)"}
+{"id": "as2-21", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "as2-22", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "as2-23", "verdict": "keep", "want": "none(unproven:helper_unannotated)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "as2-24", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R5 definition-site annotation and return-site constructor resolve to different classes and §6.8 (accepted, identity unproven)"}
+{"id": "as2-25", "verdict": "keep", "want": "none", "rule": "§6.3 R3 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as2-26", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as2-27", "verdict": "keep", "want": "unsupported(multiline_callee,2)", "rule": "§6.6 Semantic callee span and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "as2-28", "verdict": "keep", "want": "none(unproven:repository_local_module)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as2-29", "verdict": "keep", "want": "none", "rule": "§6.7 Accepted losses and §6.8 (guard accepted, outside inventory)"}
+{"id": "as2-30", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as2-31", "verdict": "keep", "want": "unsupported(not_line_anchor,2)", "rule": "§6.6 Line anchor and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "as2-32", "verdict": "keep", "want": "site(config,os.getenv,exact,symbol=read,bounds=2-4)", "rule": "§6.6 Symbol and bounds"}
+{"id": "as2-33", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "as3-01", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "as3-02", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as3-03", "verdict": "keep", "want": "none", "rule": "§6.7 Accepted losses and §6.8 (guard accepted, outside inventory)"}
+{"id": "as3-04", "verdict": "keep", "want": "none", "rule": "§6.7 Accepted losses and §6.8 (guard accepted, outside inventory)"}
+{"id": "as3-05", "verdict": "keep", "want": "none", "rule": "§6.1 HTTP table and §6.8 (guard accepted, outside inventory)"}
+{"id": "as3-06", "verdict": "change", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as3-07", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as3-08", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (winning call has no position)"}
+{"id": "as3-09", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as3-10", "verdict": "keep", "want": "none", "rule": "§6.6 Unevaluated annotations and §6.8 (frame refusal on the line anchor)"}
+{"id": "as3-11", "verdict": "keep", "want": "unsupported(parse_error_in_function,1)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "as3-12", "verdict": "keep", "want": "site(http,requests.Session.get,exact,symbol=fetch,bounds=4-6)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "as3-13", "verdict": "keep", "want": "site(http,httpx.Client.get,exact,symbol=fetch,bounds=8-10)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "as3-14", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as3-15", "verdict": "keep", "want": "none(unproven:helper_not_admissible)", "rule": "§6.4 R5 and §6.8 (guard accepted, identity unproven)"}
+{"id": "as3-16", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly,symbol=make,bounds=2-7)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "as3-17", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "as3-18", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "as3-19", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as3-20", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "as3-21", "verdict": "keep", "want": "none", "rule": "§6.3 R3 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as3-22", "verdict": "keep", "want": "site(http,httpx.Client.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "as3-23", "verdict": "keep", "want": "none", "rule": "§6.3 R1 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as3-24", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as3-25", "verdict": "keep", "want": "none(unproven:repository_local_module)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as3-26", "verdict": "keep", "want": "none", "rule": "§6.7 Accepted losses and §6.8 (guard accepted, outside inventory)"}
+{"id": "as3-27", "verdict": "keep", "want": "site(config,os.getenv,exact,symbol=read,bounds=2-6)", "rule": "§6.6 Symbol and bounds"}
+{"id": "as3-28", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as3-29", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as3-30", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as3-31", "verdict": "keep", "want": "unsupported(not_line_anchor,2)", "rule": "§6.6 Line anchor and §5.2 Grouping and §6.8 (another call occurrence accepted)"}
+{"id": "as3-32", "verdict": "keep", "want": "site(parse,json.loads,exact,symbol=configure,bounds=2-4)", "rule": "§5.4 Frame and enclosing function"}
+{"id": "as3-33", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as3-34", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "as4-01", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=fetch,bounds=4-6)", "rule": "§6.2 Root identity and lexical scope and §6.8 (consumer frame refusal)"}
+{"id": "as4-02", "verdict": "keep", "want": "site(http,httpx.get,exact,symbol=fetch,bounds=8-9)", "rule": "§6.2 Root identity and lexical scope and §6.8 (consumer frame refusal)"}
+{"id": "as4-03", "verdict": "keep", "want": "none(unproven:not_imported)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "as4-04", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "as4-05", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=fetch,bounds=2-5)", "rule": "§6.6 Line anchor"}
+{"id": "as4-06", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as4-07", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as4-08", "verdict": "keep", "want": "unsupported(parse_error_in_function,1)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "as4-09", "verdict": "keep", "want": "site(http,requests.get,exact,symbol=inner,bounds=6-7)", "rule": "§6.6 Parse errors in the owning definition and §6.8 (whole-file syntax error)"}
+{"id": "as4-10", "verdict": "keep", "want": "none(unproven:repository_local_module)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as4-11", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "as4-12", "verdict": "keep", "want": "none", "rule": "§6.3 R2 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as4-13", "verdict": "keep", "want": "none", "rule": "§6.3 R3 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as4-14", "verdict": "keep", "want": "site(http,requests.Session.get,exact,symbol=fetch,bounds=6-7)", "rule": "§6.3 R3 and §6.8 (receiver qualification absent)"}
+{"id": "as4-15", "verdict": "change", "want": "none(unproven:receiver_not_unique)", "rule": "§6.2 one-hop alias of owning self writes R3 field (§6.3) and §6.8 (accepted, identity unproven)"}
+{"id": "as4-16", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as4-17", "verdict": "keep", "want": "none", "rule": "§6.4 R4 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as4-18", "verdict": "keep", "want": "none", "rule": "§6.4 R5 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as4-19", "verdict": "keep", "want": "site(filesystem,builtins.open,exact)", "rule": "§6.2 Root identity and lexical scope and §6.8 (bare builtin qualification absent)"}
+{"id": "as4-20", "verdict": "change", "want": "none(unproven:shadowed_root)", "rule": "§6.2 Root identity and lexical scope and §6.8 (guard accepted, identity unproven)"}
+{"id": "as4-21", "verdict": "keep", "want": "none", "rule": "§6.6 Call expressions and §6.8 (guard accepted, outside inventory)"}
+{"id": "as4-22", "verdict": "keep", "want": "site(parse,json.loads,exact,symbol=schema,bounds=4-6)", "rule": "§6.6 Call expressions"}
+{"id": "as4-23", "verdict": "keep", "want": "site(parse,json.loads,exact,symbol=parse,bounds=1-5)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "as4-24", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "as5-01", "verdict": "keep", "want": "none(unproven:star_import)", "rule": "§6.5 Warning eligibility and precedence and §6.8 (guard accepted, identity unproven)"}
+{"id": "as5-02", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 Root identity and lexical scope"}
+{"id": "as5-03", "verdict": "keep", "want": "unsupported(not_line_anchor,1)", "rule": "§6.6 Line anchor and §6.8 (another call occurrence accepted)"}
+{"id": "as5-04", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 and §6.8 (receiver qualification absent)"}
+{"id": "as5-05", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 R3 and §6.8 (guard accepted, identity unproven)"}
+{"id": "as5-06", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly,symbol=fetch,bounds=2-6)", "rule": "§6.4 R5 and §6.8 (receiver qualification absent)"}
+{"id": "as5-07", "verdict": "keep", "want": "none", "rule": "§6.4 R5 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as5-08", "verdict": "keep", "want": "none", "rule": "§6.3 R1 and §6.8 (guard accepted, outside inventory)"}
+{"id": "as5-09", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "as5-10", "verdict": "keep", "want": "site(config,pathlib.Path.home,nameonly)", "rule": "§6.4 R4 and §6.8 (receiver qualification absent)"}
+{"id": "as5-11", "verdict": "keep", "want": "none", "rule": "§6.7 Accepted losses and §6.8 (guard accepted, outside inventory)"}
+{"id": "as5-12", "verdict": "keep", "want": "unsupported(class_body_frame,1)", "rule": "§5.2 class_body_frame and §6.8 (frame refusal on the line anchor)"}
+{"id": "as5-13", "verdict": "keep", "want": "none", "rule": "§6.2 Root identity and lexical scope and §6.8 (frame refusal on the line anchor)"}
+{"id": "as5-14", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§5.2 receiver_not_unique and §6.8 (guard accepted, identity unproven)"}
+{"id": "as5-15", "verdict": "keep", "want": "site(filesystem,builtins.open,exact)", "rule": "§6.2 Root identity and lexical scope and §6.8 (bare builtin qualification absent)"}
+{"id": "wf01", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical imported member or prefix write and §6.8 (accepted, identity unproven)"}
+{"id": "wf02", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical imported member or prefix write and §6.8 (accepted, identity unproven)"}
+{"id": "wf03", "verdict": "keep", "want": "site(filesystem,os.stat,exact)", "rule": "§6.2 sibling os.path write leaves os.stat intact"}
+{"id": "wf04", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical imported member or prefix write and §6.8 (accepted, identity unproven)"}
+{"id": "wf05", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 one direct assignment alias of the written object and §6.8 (accepted, identity unproven)"}
+{"id": "wf06", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 literal object namespace member and §6.8 (accepted, identity unproven)"}
+{"id": "wf07", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 literal object namespace member and §6.8 (accepted, identity unproven)"}
+{"id": "wf08", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 literal globals key binds or deletes the module name and §6.8 (accepted, identity unproven)"}
+{"id": "wf09", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 literal module globals lookup names the written object and §6.8 (accepted, identity unproven)"}
+{"id": "wf10", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical imported member or prefix write and §6.8 (accepted, identity unproven)"}
+{"id": "wf11", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical imported member or prefix write and §6.8 (accepted, identity unproven)"}
+{"id": "wf12", "verdict": "keep", "want": "site(http,requests.get,exact)", "rule": "§6.2 shadowed setter supplies no explicit write"}
+{"id": "wf13", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical builtin member, qualified and bare reads and §6.8 (accepted, identity unproven)"}
+{"id": "wf14", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical builtin member, qualified and bare reads and §6.8 (accepted, identity unproven)"}
+{"id": "wf15", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical builtin member, qualified and bare reads and §6.8 (accepted, identity unproven)"}
+{"id": "wf16", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical builtin member, qualified and bare reads and §6.8 (accepted, identity unproven)"}
+{"id": "wf17", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical builtin member, qualified and bare reads and §6.8 (accepted, identity unproven)"}
+{"id": "wf18", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 canonical builtin member, qualified and bare reads and §6.8 (accepted, identity unproven)"}
+{"id": "wf19", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 literal object namespace member and §6.8 (accepted, identity unproven)"}
+{"id": "wf20", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 literal object namespace member and §6.8 (accepted, identity unproven)"}
+{"id": "wf21", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 literal globals key binds or deletes the module name and §6.8 (accepted, identity unproven)"}
+{"id": "wf22", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 implicit builtin namespace literal member and §6.8 (accepted, identity unproven)"}
+{"id": "wf23", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 implicit builtin namespace literal member and §6.8 (accepted, identity unproven)"}
+{"id": "wf24", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 reserved namespace replacement or local builtin-name binder and §6.8 (accepted, identity unproven)"}
+{"id": "wf25", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 reserved namespace replacement or local builtin-name binder and §6.8 (accepted, identity unproven)"}
+{"id": "wf26", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 from-import canonical path veto independent of capture order and §6.8 (accepted, identity unproven)"}
+{"id": "wf27", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 from-import canonical path veto independent of capture order and §6.8 (accepted, identity unproven)"}
+{"id": "wf28", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2 literal globals key binds or deletes the module name and §6.8 (accepted, identity unproven)"}
+{"id": "wf29", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 constructor/class prefix write across R1–R5 and §6.8 (accepted, identity unproven)"}
+{"id": "wf30", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 constructor/class prefix write across R1–R5 and §6.8 (accepted, identity unproven)"}
+{"id": "wf31", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 constructor/class prefix write across R1–R5 and §6.8 (accepted, identity unproven)"}
+{"id": "wf32", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 constructor/class prefix write across R1–R5 and §6.8 (accepted, identity unproven)"}
+{"id": "wf33", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 constructor/class prefix write across R1–R5 and §6.8 (accepted, identity unproven)"}
+{"id": "wf34", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 constructor/class prefix write across R1–R5 and §6.8 (accepted, identity unproven)"}
+{"id": "wf35", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 selected instance member store or literal setter and §6.8 (accepted, identity unproven)"}
+{"id": "wf36", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 one direct assignment alias of the written object and §6.8 (accepted, identity unproven)"}
+{"id": "wf37", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 selected instance member store or literal setter and §6.8 (accepted, identity unproven)"}
+{"id": "wf38", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.2 deciding receiver binding deleted or redirected and §6.8 (accepted, identity unproven)"}
+{"id": "wf39", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.2 deciding receiver binding deleted or redirected and §6.8 (accepted, identity unproven)"}
+{"id": "wf40", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.2/6.3 outside function writes an unrelated receiver binding and §6.8 (receiver qualification absent)"}
+{"id": "wf41", "verdict": "change", "want": "none(unproven:receiver_not_unique)", "rule": "§6.2 one-hop alias of owning self writes R3 field (§6.3) and §6.8 (accepted, identity unproven)"}
+{"id": "wf42", "verdict": "change", "want": "none(unproven:receiver_not_unique)", "rule": "§6.2 literal namespace store to R3 field (§6.3) and §6.8 (accepted, identity unproven)"}
+{"id": "wf43", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.3 second field write including later conditional deletion and §6.8 (accepted, identity unproven)"}
+{"id": "wf44", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 selected instance member store or literal setter and §6.8 (accepted, identity unproven)"}
+{"id": "wf45", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 one direct assignment alias of the written object and §6.8 (accepted, identity unproven)"}
+{"id": "wf46", "verdict": "keep", "want": "none(unproven:receiver_not_unique)", "rule": "§6.2 deciding receiver binding deleted or redirected and §6.8 (accepted, identity unproven)"}
+{"id": "wf47", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 literal object namespace member and §6.8 (accepted, identity unproven)"}
+{"id": "wf48", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 selected class method write for qualified and inferred calls and §6.8 (accepted, identity unproven)"}
+{"id": "wf49", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 selected class method write for qualified and inferred calls and §6.8 (accepted, identity unproven)"}
+{"id": "wf50", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 selected class method write for qualified and inferred calls and §6.8 (accepted, identity unproven)"}
+{"id": "wf51", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 selected class method write for qualified and inferred calls and §6.8 (accepted, identity unproven)"}
+{"id": "wf52", "verdict": "keep", "want": "none(unproven:member_rebound)", "rule": "§6.2 selected class method write for qualified and inferred calls and §6.8 (accepted, identity unproven)"}
+{"id": "wf53", "verdict": "change", "want": "none(unproven:member_rebound)", "rule": "§6.2 one direct assignment alias of the written object and §6.8 (accepted, identity unproven)"}
+{"id": "wf54", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R4 Optional parameter conflicts with its constructed default and §6.8 (accepted, identity unproven)"}
+{"id": "wf55", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R4 nullable parameter conflicts with the default helper class and §6.8 (accepted, identity unproven)"}
+{"id": "wf56", "verdict": "keep", "want": "none", "rule": "§6.4 inadmissible parameter annotation, default alone supplies no tie and §6.8 (accepted, outside inventory)"}
+{"id": "wf57", "verdict": "keep", "want": "none", "rule": "§6.4 inadmissible parameter annotation, default alone supplies no tie and §6.8 (accepted, outside inventory)"}
+{"id": "wf58", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R4 forward parameter conflicts with its constructed default and §6.8 (accepted, identity unproven)"}
+{"id": "wf59", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 postponed parameter conflicts with the default helper class and §6.8 (accepted, identity unproven)"}
+{"id": "wf60", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 direct assigned constructor precedes annotation and §6.8 (receiver qualification absent)"}
+{"id": "wf61", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R4 local declaration conflicts with the initializer helper class and §6.8 (accepted, identity unproven)"}
+{"id": "wf62", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 direct assigned constructor precedes annotation and §6.8 (receiver qualification absent)"}
+{"id": "wf63", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R4 nullable local conflicts with the initializer helper class and §6.8 (accepted, identity unproven)"}
+{"id": "wf64", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 helper RHS remains eligible under an inadmissible local annotation and §6.8 (receiver qualification absent)"}
+{"id": "wf65", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 direct assigned constructor precedes annotation and §6.8 (receiver qualification absent)"}
+{"id": "wf66", "verdict": "keep", "want": "site(http,requests.Session.get,nameonly)", "rule": "§6.4 R5 helper RHS remains eligible under an inadmissible local annotation and §6.8 (receiver qualification absent)"}
+{"id": "wf67", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 forward local annotation conflicts with the initializer helper class and §6.8 (accepted, identity unproven)"}
+{"id": "wf68", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 direct assigned constructor precedes annotation and §6.8 (receiver qualification absent)"}
+{"id": "wf69", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R5 Optional return declaration conflicts with the direct return constructor and §6.8 (accepted, identity unproven)"}
+{"id": "wf70", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R5 nullable return declaration conflicts with the direct return constructor and §6.8 (accepted, identity unproven)"}
+{"id": "wf71", "verdict": "keep", "want": "none(unproven:helper_unannotated)", "rule": "§6.4–6.5 returned constructor ties helper with inadmissible wrapper and §6.8 (accepted, identity unproven)"}
+{"id": "wf72", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 R5 RawConfigParser and returned ConfigParser have distinct canonical paths and §6.8 (accepted, identity unproven)"}
+{"id": "wf73", "verdict": "change", "want": "none(unproven:annotation_conflict)", "rule": "§6.4 postponed forward R5 declaration conflicts with the direct return constructor and §6.8 (accepted, identity unproven)"}
+{"id": "wf74", "verdict": "change", "want": "none", "rule": "§6.5 R4 requires a local annotated assignment with a value; the local has no stored value and §6.8 (accepted, outside inventory)"}
+{"id": "wf75", "verdict": "keep", "want": "none", "rule": "§6.3/6.5 augmented target has no preceding R2 binding and §6.8 (accepted, outside inventory)"}
+{"id": "wf76", "verdict": "keep", "want": "none", "rule": "§6.3/6.5 unpacking a tuple is outside R2 and §6.8 (accepted, outside inventory)"}
+{"id": "wf77", "verdict": "keep", "want": "none", "rule": "§6.4/6.5 list unpacking is outside R5 and §6.8 (accepted, outside inventory)"}
+{"id": "wf78", "verdict": "keep", "want": "none", "rule": "§6.3/6.5 starred target collects a list and provides no constructor tie and §6.8 (accepted, outside inventory)"}
+{"id": "wf79", "verdict": "keep", "want": "none", "rule": "§6.3/6.5 walrus assignment is outside R2 and §6.8 (accepted, outside inventory)"}
+{"id": "wf80", "verdict": "keep", "want": "none", "rule": "§6.4/6.5 walrus assignment is outside R5 and §6.8 (accepted, outside inventory)"}
+{"id": "wf81", "verdict": "change", "want": "none", "rule": "§6.5 walrus supplies no R2 tie on which the wildcard cause could act and §6.8 (accepted, outside inventory)"}
+{"id": "wf82", "verdict": "keep", "want": "none", "rule": "§6.3/6.5 for target receives an iterable element and §6.8 (accepted, outside inventory)"}
+{"id": "wf83", "verdict": "keep", "want": "none", "rule": "§6.4/6.5 comprehension target receives an element and hides outer names and §6.8 (unsupported frame guard, outside inventory)"}
+{"id": "wf84", "verdict": "change", "want": "none", "rule": "§6.5 helper call in a with-item supplies no R2 or R5 position and §6.8 (accepted, outside inventory)"}
+{"id": "wf85", "verdict": "keep", "want": "none", "rule": "§6.3/6.5 handler binds the exception; constructor is only its payload and §6.8 (accepted, outside inventory)"}
+{"id": "wf86", "verdict": "keep", "want": "none", "rule": "§6.2/6.5 imported receiver object has no same-file constructor or eligible helper tie and §6.8 (accepted, outside inventory)"}
+{"id": "wf87", "verdict": "keep", "want": "none", "rule": "§6.3/6.5 function definition binds the function, not its constructor default and §6.8 (accepted, outside inventory)"}
+{"id": "wf88", "verdict": "keep", "want": "none", "rule": "§6.4/6.5 class definition binds the class, not a helper result in its suite and §6.8 (accepted, outside inventory)"}
+{"id": "wf89", "verdict": "keep", "want": "none", "rule": "§6.4/6.5 helper default alone supplies no parameter annotation and §6.8 (accepted, outside inventory)"}
+{"id": "wf90", "verdict": "keep", "want": "none", "rule": "§6.2/6.5 local deletion hides the module constructor binding and §6.8 (accepted, outside inventory)"}
+{"id": "wf91", "verdict": "keep", "want": "none", "rule": "§6.4/6.5 pattern capture has no R5 assignment position and §6.8 (accepted, outside inventory)"}
+{"id": "wf92", "verdict": "keep", "want": "site(http,requests.Session.get,exact)", "rule": "§6.3 R2 unique module constructor assignment and §6.8 (receiver qualification absent)"}
+{"id": "wf93", "verdict": "keep", "want": "none", "rule": "§6.4/6.5 R5 requires a function-local assignment, not a module binding and §6.8 (accepted, outside inventory)"}
+{"id": "wf94", "verdict": "keep", "want": "none", "rule": "§6.3/6.5 constructor assignment in class namespace is outside R2 and §6.8 (unsupported frame guard, outside inventory)"}
+{"id": "wf95", "verdict": "change", "want": "none", "rule": "§6.4/6.5 class assignment offers no R5 position for a returned-constructor tie and §6.8 (unsupported frame guard, outside inventory)"}
+{"id": "wf96", "verdict": "change", "want": "site(filesystem,os.path.getsize,exact)", "rule": "§6.2 Q12 unconditional unaliased imports of the same top-level package"}
+{"id": "wf97", "verdict": "change", "want": "site(http,urllib.request.urlopen,exact)", "rule": "§6.2 Q12 unconditional unaliased imports of the same top-level package"}
+{"id": "wf98", "verdict": "change", "want": "site(parse,xml.etree.ElementTree.parse,exact)", "rule": "§6.2 Q12 unconditional unaliased imports of the same top-level package"}
+{"id": "wf99", "verdict": "keep", "want": "none(unproven:shadowed_root)", "rule": "§6.2/6.5 alternate from-imports of distinct classes compete and §6.8 (accepted, identity unproven)"}
