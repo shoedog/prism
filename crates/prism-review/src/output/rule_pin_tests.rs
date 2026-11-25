@@ -106,10 +106,12 @@ fn read_stage_m_pins(
     let mut keys = BTreeSet::new();
     let mut sources = BTreeSet::new();
     let mut totals = BTreeMap::<&str, Counts>::new();
-    for line in input
-        .lines()
-        .filter(|line| !line.is_empty() && !line.starts_with('#') && *line != "id\trepo\tdiff" && *line != "name\trepo\tdiff")
-    {
+    for line in input.lines().filter(|line| {
+        !line.is_empty()
+            && !line.starts_with('#')
+            && *line != "id\trepo\tdiff"
+            && *line != "name\trepo\tdiff"
+    }) {
         let fields: Vec<_> = line.split('\t').collect();
         let [id, repo, diff] = fields.as_slice() else {
             return Err(format!("invalid pin manifest row: {line:?}"));
