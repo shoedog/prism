@@ -1,0 +1,11 @@
+schema_retrieval_url = "https://sable-quay.invalid/schema.json"
+
+# Built-in clients only.
+
+[selectors.query]
+path = "/dispatch"
+key = "action"
+
+[selectors.body]
+path = "/query"
+key = "query"

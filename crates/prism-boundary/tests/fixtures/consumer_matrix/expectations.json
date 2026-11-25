@@ -1,0 +1,1691 @@
+{
+  "c05": {
+    "coverage": "partial",
+    "uncovered_arm": "change is truthy; replacement is opaque"
+  },
+  "c11": {
+    "whole_component_string": "non_empty"
+  },
+  "control-axios-named-verb-origin-withheld": {
+    "baseline": "axios-named-verb",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-axios-object-default-origin-withheld": {
+    "baseline": "axios-object-default",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-axios-object-origin-withheld": {
+    "baseline": "axios-object",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-axios-promise-chain-origin-withheld": {
+    "baseline": "axios-promise-chain",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-axios-verb-origin-withheld": {
+    "baseline": "axios-verb",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-backend-relative-axios-origin-withheld": {
+    "baseline": "backend-relative-axios",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable request site and method"
+  },
+  "control-backend-relative-fetch-origin-withheld": {
+    "baseline": "backend-relative-fetch",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable request site and method"
+  },
+  "control-c01-mapping-withheld": {
+    "baseline": "c01",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-c04-mapping-withheld": {
+    "baseline": "c04",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-c05-const-abrupt-completion": {
+    "baseline": "c05",
+    "excluded_arm": "change is truthy; const assignment throws before call"
+  },
+  "control-c06-mapping-withheld": {
+    "baseline": "c06",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-c07-get-origin-withheld": {
+    "baseline": "c07-get",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-c07-origin-withheld": {
+    "baseline": "c07",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-c08-mapping-withheld": {
+    "baseline": "c08",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-c09-mapping-withheld": {
+    "baseline": "c09",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-c15-mapping-withheld": {
+    "baseline": "c15",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 6,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-counting-hook-default-mapping": {
+    "baseline": "count-passed-fetcher-hook",
+    "mapping_entry": 2
+  },
+  "control-counting-hook-default-mapping-withheld": {
+    "baseline": "control-counting-hook-default-mapping",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 2,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-different-lengths-mapping-withheld": {
+    "baseline": "different-lengths",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-different-methods-mapping-withheld": {
+    "baseline": "different-methods",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-empty-component-optional": {
+    "method": "GET",
+    "path": "/orchards/",
+    "retain_separator": true,
+    "inventory": "route-inventory.json"
+  },
+  "control-empty-component-required": {
+    "method": "GET",
+    "path": "/orchards/",
+    "retain_separator": true,
+    "inventory": "route-inventory.json"
+  },
+  "control-empty-component-tail": {
+    "method": "GET",
+    "path": "/orchards/",
+    "retain_separator": true,
+    "inventory": "route-inventory.json"
+  },
+  "control-exact-wildcard-method-tie": {
+    "notifications": 0,
+    "inventory": "route-inventory.json"
+  },
+  "control-fallback-designated-entry": {
+    "coverage": "checked",
+    "role": "fallback",
+    "overlaps": [
+      "op:GET /{*0+}"
+    ],
+    "notifications": 0,
+    "inventory": "route-inventory.json"
+  },
+  "control-fallback-designated-span": {
+    "coverage": "checked",
+    "role": "fallback",
+    "overlaps": [
+      "op:GET /{*0+}"
+    ],
+    "notifications": 0,
+    "inventory": "route-inventory.json"
+  },
+  "control-fallback-ordinary-api-tail": {
+    "coverage": "checked",
+    "role": "ordinary_api",
+    "overlaps": [],
+    "notifications": null,
+    "inventory": "route-inventory.json"
+  },
+  "control-fallback-possible": {
+    "coverage": "partial",
+    "role": "unknown",
+    "overlaps": [
+      "op:GET /{*0+}"
+    ],
+    "notifications": 0,
+    "inventory": "route-inventory.json"
+  },
+  "control-fallback-stale-selector": {
+    "coverage": "partial",
+    "role": "unknown",
+    "overlaps": [
+      "op:GET /{*0+}"
+    ],
+    "notifications": 0,
+    "inventory": "route-inventory.json"
+  },
+  "control-fallback-unplaced-suffix": {
+    "coverage": "not_checked",
+    "role": "unknown",
+    "overlaps": [
+      "op:GET /{*0+}"
+    ],
+    "notifications": 0,
+    "inventory": "route-inventory.json"
+  },
+  "control-fetch-global-property-origin-withheld": {
+    "baseline": "fetch-global-property",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-fetch-init-default-origin-withheld": {
+    "baseline": "fetch-init-default",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-fetch-known-options-origin-withheld": {
+    "baseline": "fetch-known-options",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-fetch-known-verb-origin-withheld": {
+    "baseline": "fetch-known-verb",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-fetch-undefined-init-origin-withheld": {
+    "baseline": "fetch-undefined-init",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-grammar-await-mapping-withheld": {
+    "baseline": "grammar-await",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-grammar-client-template-tag-mapping-withheld": {
+    "baseline": "grammar-client-template-tag",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 2,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-hook-default-get-mapping-withheld": {
+    "baseline": "hook-default-get",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 2,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-hook-default-get-withheld": {
+    "baseline": "hook-default-get",
+    "coverage": "partial",
+    "counted": true,
+    "notifications": 0
+  },
+  "control-identity-index-js-mapping-withheld": {
+    "baseline": "identity-index-js",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 5,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-identity-js-mapping-withheld": {
+    "baseline": "identity-js",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 3,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-identity-jsx-mapping-withheld": {
+    "baseline": "identity-jsx",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 4,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-identity-tsx-mapping-withheld": {
+    "baseline": "identity-tsx",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 2,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-literal-case-mapping-withheld": {
+    "baseline": "literal-case",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-literal-to-parameter-mapping-withheld": {
+    "baseline": "literal-to-parameter",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-literal-wins-mapping-withheld": {
+    "baseline": "literal-wins",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-matching-whole-literal-tie": {
+    "baseline": "matching-tie-without-parameter-on-literal",
+    "primary_literal_score": 2,
+    "affix_scores": 0,
+    "notifications": 0
+  },
+  "control-member-positional-mapping-withheld": {
+    "baseline": "member-positional",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 5,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-method-nested-put-mapping-withheld": {
+    "baseline": "method-nested-put",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-numeric-operand-opaque": {
+    "baseline": "url-concat-parenthesized",
+    "method": "GET",
+    "opaque": "opaque + 1"
+  },
+  "control-one-version-mapping-withheld": {
+    "baseline": "one-version",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-parameter-to-literal-mapping-withheld": {
+    "baseline": "parameter-to-literal",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-parameter-to-two-literals-mapping-withheld": {
+    "baseline": "parameter-to-two-literals",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-parameter-wins-mapping-withheld": {
+    "baseline": "parameter-wins",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-prefix-mapping-withheld": {
+    "baseline": "prefix",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-readable-get-opaque-method-matched": {
+    "coverage": "partial",
+    "notifications": 0,
+    "opaque_arm": "!flag",
+    "readable_arm": {
+      "condition": "flag",
+      "method": "GET",
+      "path": "/wicks"
+    }
+  },
+  "control-readable-get-opaque-method-unmatched": {
+    "coverage": "partial",
+    "notifications": 0,
+    "opaque_arm": "!flag",
+    "readable_arm": {
+      "condition": "flag",
+      "method": "GET",
+      "path": "/wicks"
+    }
+  },
+  "control-repeated-slash-mapping-withheld": {
+    "baseline": "repeated-slash",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-root-mapping-withheld": {
+    "baseline": "root",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-rpc-body-control-origin-withheld": {
+    "baseline": "rpc-body-control",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-rpc-body-selector-origin-withheld": {
+    "baseline": "rpc-body-selector",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-rpc-query-control-origin-withheld": {
+    "baseline": "rpc-query-control",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-rpc-query-selector-origin-withheld": {
+    "baseline": "rpc-query-selector",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-s01-mapping-withheld": {
+    "baseline": "s01",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s02-mapping-withheld": {
+    "baseline": "s02",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s03-mapping-withheld": {
+    "baseline": "s03",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s04-2-mapping-withheld": {
+    "baseline": "s04-2",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s04-mapping-withheld": {
+    "baseline": "s04",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s05-mapping-withheld": {
+    "baseline": "s05",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s05-whole-component": {
+    "baseline": "s05",
+    "whole_component_string": "non_empty",
+    "unmatched": []
+  },
+  "control-s06-mapping-withheld": {
+    "baseline": "s06",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s07-mapping-withheld": {
+    "baseline": "s07",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s08-mapping-withheld": {
+    "baseline": "s08",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s09-2-literal-empty": {
+    "baseline": "s09-2",
+    "path": "/mothbank/crates/-ridge-gold",
+    "overlaps": []
+  },
+  "control-s09-2-literal-wax": {
+    "baseline": "s09-2",
+    "path": "/mothbank/crates/wax-ridge-gold",
+    "overlaps": [
+      "op:GET /mothbank/crates/{}"
+    ],
+    "primary_literal_score": 2,
+    "affix_scores": {
+      "op:GET /mothbank/crates/{}-ridge-gold": 1,
+      "op:GET /mothbank/crates/{}": 0
+    }
+  },
+  "control-s09-2-mapping-withheld": {
+    "baseline": "s09-2",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s09-2-numeric-nonempty": {
+    "baseline": "s09-2",
+    "overlaps": [
+      "op:GET /mothbank/crates/{}"
+    ],
+    "basis": "structural_pattern_equality",
+    "numeric_domain": "non_empty"
+  },
+  "control-s09-literal-empty": {
+    "baseline": "s09",
+    "path": "/mothbank/crates/%2F",
+    "overlaps": []
+  },
+  "control-s09-literal-wax": {
+    "baseline": "s09",
+    "path": "/mothbank/crates/%2Fwax",
+    "overlaps": [
+      "op:GET /mothbank/crates/{}"
+    ],
+    "primary_literal_score": 2,
+    "affix_scores": {
+      "op:GET /mothbank/crates/%2F{}": 1,
+      "op:GET /mothbank/crates/{}": 0
+    }
+  },
+  "control-s09-mapping-withheld": {
+    "baseline": "s09",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s09-numeric-nonempty": {
+    "baseline": "s09",
+    "overlaps": [
+      "op:GET /mothbank/crates/{}"
+    ],
+    "basis": "structural_pattern_equality",
+    "numeric_domain": "non_empty"
+  },
+  "control-s10-mapping-withheld": {
+    "baseline": "s10",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s11-mapping-withheld": {
+    "baseline": "s11",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s12-mapping-withheld": {
+    "baseline": "s12",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s13-mapping-withheld": {
+    "baseline": "s13",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s14-2-mapping-withheld": {
+    "baseline": "s14-2",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s14-mapping-withheld": {
+    "baseline": "s14",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s15-mapping-withheld": {
+    "baseline": "s15",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s16-2-mapping-withheld": {
+    "baseline": "s16-2",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s16-mapping-withheld": {
+    "baseline": "s16",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s17-mapping-withheld": {
+    "baseline": "s17",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s18-mapping-withheld": {
+    "baseline": "s18",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s19-mapping-withheld": {
+    "baseline": "s19",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s20-mapping-withheld": {
+    "baseline": "s20",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s21-2-mapping-withheld": {
+    "baseline": "s21-2",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s21-3-mapping-withheld": {
+    "baseline": "s21-3",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s21-mapping-withheld": {
+    "baseline": "s21",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s22-3-mapping-withheld": {
+    "baseline": "s22-3",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s23-mapping-withheld": {
+    "baseline": "s23",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s24-mapping-withheld": {
+    "baseline": "s24",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s25-2-mapping-withheld": {
+    "baseline": "s25-2",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s25-mapping-withheld": {
+    "baseline": "s25",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s26-mapping-withheld": {
+    "baseline": "s26",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s27-mapping-withheld": {
+    "baseline": "s27",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s28-mapping-withheld": {
+    "baseline": "s28",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s29-2-mapping-withheld": {
+    "baseline": "s29-2",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s29-mapping-withheld": {
+    "baseline": "s29",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s30-3-mapping-withheld": {
+    "baseline": "s30-3",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s31-3-mapping-withheld": {
+    "baseline": "s31-3",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s32-mapping-withheld": {
+    "baseline": "s32",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s33-mapping-withheld": {
+    "baseline": "s33",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s34-2-mapping-withheld": {
+    "baseline": "s34-2",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s34-mapping-withheld": {
+    "baseline": "s34",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s35-mapping-withheld": {
+    "baseline": "s35",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s36-mapping-withheld": {
+    "baseline": "s36",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s37-2-mapping-withheld": {
+    "baseline": "s37-2",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-s37-mapping-withheld": {
+    "baseline": "s37",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-same-literal-mapping-withheld": {
+    "baseline": "same-literal",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-same-parameter-mapping-withheld": {
+    "baseline": "same-parameter",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-t1-axios-spread-url-origin-withheld": {
+    "baseline": "t1-axios-spread-url",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-t1-axios-url-config-origin-withheld": {
+    "baseline": "t1-axios-url-config",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable request site and method"
+  },
+  "control-t1-axios-url-last-origin-withheld": {
+    "baseline": "t1-axios-url-last",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-t1-call-verb-mapping-withheld": {
+    "baseline": "t1-call-verb",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-t1-expand-optional-table-mapping-withheld": {
+    "baseline": "t1-expand-optional-table",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-t1-extra-fetch-override-spread-origin-withheld": {
+    "baseline": "t1-extra-fetch-override-spread",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable request site and method"
+  },
+  "control-t1-extra-frozen-property-mapping-withheld": {
+    "baseline": "t1-extra-frozen-property",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-t1-fetch-lowercase-method-origin-withheld": {
+    "baseline": "t1-fetch-lowercase-method",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable request site and method"
+  },
+  "control-t1-fetch-undefined-method-origin-withheld": {
+    "baseline": "t1-fetch-undefined-method",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable request site and method"
+  },
+  "control-t1-spread-last-origin-withheld": {
+    "baseline": "t1-spread-last",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-t1-spread-override-origin-withheld": {
+    "baseline": "t1-spread-override",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-t1-url-document-relative-origin-withheld": {
+    "baseline": "t1-url-document-relative",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable request site and method"
+  },
+  "control-t1-url-fragment-origin-withheld": {
+    "baseline": "t1-url-fragment",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable method/path and request selector"
+  },
+  "control-t1-url-known-table-mapping-withheld": {
+    "baseline": "t1-url-known-table",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-t1-url-protocol-relative-origin-withheld": {
+    "baseline": "t1-url-protocol-relative",
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "retain": "readable request site and method"
+  },
+  "control-tail-bare-parent-evidenced": {
+    "inventory": "route-inventory.json",
+    "method": "GET",
+    "path": "/mugs",
+    "bare_parent_evidenced": true,
+    "checked": true
+  },
+  "control-tail-bare-parent-unproved": {
+    "inventory": "route-inventory.json",
+    "method": "GET",
+    "path": "/mugs",
+    "bare_parent_evidenced": false,
+    "checked": true
+  },
+  "control-trailing-slash-mapping-withheld": {
+    "baseline": "trailing-slash",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-two-versions-mapping-withheld": {
+    "baseline": "two-versions",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-unread-file": {
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "inventory": "route-inventory.json"
+  },
+  "control-unread-region": {
+    "coverage": "not_checked",
+    "counted": true,
+    "notifications": 0,
+    "inventory": "route-inventory.json"
+  },
+  "control-url-concat-parenthesized-mapping-withheld": {
+    "baseline": "url-concat-parenthesized",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-variant-version-mapping-withheld": {
+    "baseline": "variant-version",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 1,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-wrapper-fixed-mapping-withheld": {
+    "baseline": "wrapper-fixed",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 2,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-wrapper-option-key-mapping-withheld": {
+    "baseline": "wrapper-option-key",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 4,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "control-wrapper-positional-mapping-withheld": {
+    "baseline": "wrapper-positional",
+    "coverage": "not_checked",
+    "comparison_reason": "origin_unchecked",
+    "counted": true,
+    "notifications": 0,
+    "withheld_mapping": 3,
+    "retain": "site, readable method/path, prefix policy, and paired schema"
+  },
+  "hook-default-get": {
+    "hook_file": "key.ts",
+    "hook_export": "useQuayKey",
+    "key_arg": 0,
+    "fetcher_arg": 1
+  },
+  "matching-parameter-score": {
+    "overlaps": [
+      "op:GET /base/{}/{}"
+    ]
+  },
+  "one-version": {
+    "unmatched": [
+      "/api/v2/item"
+    ]
+  },
+  "rpc-body-selector": {
+    "coverage": "partial",
+    "reason": "selector_unchecked"
+  },
+  "rpc-query-selector": {
+    "coverage": "partial",
+    "reason": "selector_unchecked"
+  },
+  "s01": {
+    "mapping_entry": 1,
+    "config": "shape-s01/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s02": {
+    "mapping_entry": 1,
+    "config": "shape-s02/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s03": {
+    "mapping_entry": 1,
+    "config": "shape-s03/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s04": {
+    "mapping_entry": 1,
+    "config": "shape-s04/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s04-2": {
+    "mapping_entry": 1,
+    "config": "shape-s04/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s05": {
+    "whole_component_string": "non_empty",
+    "mapping_entry": 1,
+    "config": "shape-s05/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s06": {
+    "whole_component_string": "non_empty",
+    "mapping_entry": 1,
+    "config": "shape-s06/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s07": {
+    "whole_component_string": "non_empty",
+    "mapping_entry": 1,
+    "config": "shape-s07/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s08": {
+    "whole_component_string": "non_empty",
+    "mapping_entry": 1,
+    "config": "shape-s08/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s09": {
+    "notifications": 0,
+    "empty_path": "/mothbank/crates/%2F",
+    "empty_target": "op:GET /mothbank/crates/{}",
+    "conditional_overlap": {
+      "id": "op:GET /mothbank/crates/{}-ridge-gold",
+      "condition": "substitution ends with -ridge-gold"
+    },
+    "mapping_entry": 1,
+    "config": "shape-s09/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s09-2": {
+    "notifications": 0,
+    "empty_path": "/mothbank/crates/-ridge-gold",
+    "empty_target": "op:GET /mothbank/crates/{}",
+    "conditional_overlap": {
+      "id": "op:GET /mothbank/crates/%2F{}",
+      "condition": "substitution starts with %2F"
+    },
+    "mapping_entry": 1,
+    "config": "shape-s09/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s10": {
+    "whole_component_string": "non_empty",
+    "mapping_entry": 1,
+    "config": "shape-s10/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s11": {
+    "mapping_entry": 1,
+    "config": "shape-s11/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s12": {
+    "mapping_entry": 1,
+    "config": "shape-s12/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s13": {
+    "mapping_entry": 1,
+    "config": "shape-s13/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s14": {
+    "unmatched": [
+      "/mothbank/pebbles/"
+    ],
+    "mapping_entry": 1,
+    "config": "shape-s14/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s14-2": {
+    "unmatched": [
+      "/mothbank/pebbles/"
+    ],
+    "mapping_entry": 1,
+    "config": "shape-s14/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s15": {
+    "unmatched": [
+      "/mothbank/bookletsfalse",
+      "/mothbank/bookletsnull",
+      "/mothbank/bookletsundefined"
+    ],
+    "mapping_entry": 1,
+    "config": "shape-s15/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s16": {
+    "mapping_entry": 1,
+    "config": "shape-s16/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s16-2": {
+    "mapping_entry": 1,
+    "config": "shape-s16/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s17": {
+    "whole_component_string": "non_empty",
+    "mapping_entry": 1,
+    "config": "shape-s17/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s18": {
+    "mapping_entry": 1,
+    "config": "shape-s18/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s19": {
+    "mapping_entry": 1,
+    "config": "shape-s19/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s20": {
+    "method": "GET",
+    "coverage": "partial",
+    "reason": "dynamic_url",
+    "mapping_entry": 1,
+    "config": "shape-s20/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s21": {
+    "mapping_entry": 1,
+    "config": "shape-s21/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s21-2": {
+    "mapping_entry": 1,
+    "config": "shape-s21/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s21-3": {
+    "mapping_entry": 1,
+    "config": "shape-s21/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s22": {
+    "counted": false,
+    "reason": "bind_creation_only"
+  },
+  "s22-2": {
+    "counted": false,
+    "reason": "bind_creation_only"
+  },
+  "s22-3": {
+    "secondary_reasons": [
+      "dynamic_url"
+    ],
+    "method_alternatives": [
+      "PUT",
+      "POST"
+    ],
+    "mapping_entry": 1,
+    "config": "shape-s22/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s23": {
+    "whole_component_string": "non_empty",
+    "mapping_entry": 1,
+    "config": "shape-s23/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s24": {
+    "whole_component_string": "non_empty",
+    "mapping_entry": 1,
+    "config": "shape-s24/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s25": {
+    "mapping_entry": 1,
+    "config": "shape-s25/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s25-2": {
+    "mapping_entry": 1,
+    "config": "shape-s25/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s26": {
+    "mapping_entry": 1,
+    "config": "shape-s26/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s27": {
+    "mapping_entry": 1,
+    "config": "shape-s27/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s28": {
+    "mapping_entry": 1,
+    "config": "shape-s28/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s29": {
+    "mapping_entry": 1,
+    "config": "shape-s29/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s29-2": {
+    "mapping_entry": 1,
+    "config": "shape-s29/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s30-3": {
+    "mapping_entry": 1,
+    "config": "shape-s30/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s31-3": {
+    "mapping_entry": 1,
+    "config": "shape-s31/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s32": {
+    "mapping_entry": 1,
+    "config": "shape-s32/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s33": {
+    "mapping_entry": 1,
+    "config": "shape-s33/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s34": {
+    "mapping_entry": 1,
+    "config": "shape-s34/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s34-2": {
+    "mapping_entry": 1,
+    "config": "shape-s34/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s35": {
+    "mapping_entry": 1,
+    "config": "shape-s35/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s36": {
+    "whole_component_string": "non_empty",
+    "mapping_entry": 1,
+    "config": "shape-s36/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s37": {
+    "mapping_entry": 1,
+    "config": "shape-s37/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "s37-2": {
+    "mapping_entry": 1,
+    "config": "shape-s37/prism-boundary.toml",
+    "mapping_sources": [
+      "alderfen/kiln-courier.ts:2-6",
+      "alderfen/kiln-settings.ts:1-2"
+    ]
+  },
+  "t1-expand-got-prefix": {
+    "counted": false,
+    "coverage": "excluded",
+    "reason": "excluded_transport"
+  },
+  "t1-expand-jquery-ajax": {
+    "counted": false,
+    "coverage": "excluded",
+    "reason": "excluded_transport"
+  },
+  "t1-expand-ky-prefix": {
+    "counted": false,
+    "coverage": "excluded",
+    "reason": "excluded_transport"
+  },
+  "t1-expand-superagent-query": {
+    "counted": false,
+    "coverage": "excluded",
+    "reason": "excluded_transport"
+  },
+  "t1-extra-literal-schema-tie": {
+    "whole_component_string": "non_empty"
+  },
+  "t1-extra-repeated-param": {
+    "whole_component_string": "non_empty"
+  },
+  "t1-extra-xhr-send": {
+    "counted": false,
+    "coverage": "excluded",
+    "reason": "excluded_transport"
+  },
+  "url-concat-parenthesized": {
+    "method": "GET",
+    "numeric_expression": "mark + 1"
+  }
+}

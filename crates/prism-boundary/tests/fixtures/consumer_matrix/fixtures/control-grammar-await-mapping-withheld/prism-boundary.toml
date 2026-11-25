@@ -1,0 +1,30 @@
+schema_api = "grammar"
+schema_path = "schema.json"
+
+[[client]]
+file = "quay.ts"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+
+[[client]]
+file = "page.ts"
+export = "openLeaf"
+call = { "method" = "POST" }
+url_arg = 0
+
+# Factory or wrapper: page.ts:1-7.
+[[api_mapping]]
+entry = 2
+client_entry = 2
+file = "page.ts"
+export = "openLeaf"
+api = "grammar"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "page.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "e654b25b57596495761e9dda4d0f7b4b3d6b58a4", start_line = 1, end_line = 7 }]

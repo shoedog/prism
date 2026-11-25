@@ -1,0 +1,18 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay match-different-methods",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/item": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

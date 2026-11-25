@@ -1,0 +1,9 @@
+{
+  "role": "producer",
+  "coverage": [
+    {
+      "path": "routes.js",
+      "status": "unreadable"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Loom Workshop",
+    "version": "1"
+  },
+  "paths": {
+    "/mugs": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Sample",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/lantern.Tile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rims": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Sample",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/lantern.Rim"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/slips": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Sample",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/lantern.Slip"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "lantern.Tile": {
+        "type": "object",
+        "properties": {
+          "shade": {
+            "type": "string"
+          }
+        }
+      },
+      "lantern.Rim": {
+        "type": "object",
+        "properties": {
+          "shade": {
+            "type": "string"
+          }
+        }
+      },
+      "lantern.Slip": {
+        "type": "object",
+        "properties": {
+          "shade": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

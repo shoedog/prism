@@ -1,0 +1,81 @@
+{"versions": {"python": "3.12.13", "node": "v24.15.0", "go": "go version go1.26.2 darwin/arm64"}}
+{"id": "A01.js", "truth": "reaches"}
+{"id": "A02.js", "truth": "reaches"}
+{"id": "C01.c", "truth": "n/a"}
+{"id": "C01.java", "truth": "n/a"}
+{"id": "C01.rs", "truth": "n/a"}
+{"id": "K01.py", "truth": "not"}
+{"id": "K22.js", "truth": "not"}
+{"id": "L01.go", "truth": "reaches", "case_sha256": "ba5c2ae25b2c0ca9d9a807ac969fd0e90e346caa08e5a55273eb043f5df049d0"}
+{"id": "L01.js", "truth": "reaches", "case_sha256": "06ab7a3d7e5db806ee99ed23e018129efbe1e8f13f8b5dfda17b982aac7a8ba3"}
+{"id": "L01.py", "truth": "reaches", "case_sha256": "e7ab6d827603bcfa65d892836388bc3f7c392f74bcbe1a7c8d5fb299c3bd0855"}
+{"id": "M01.py", "truth": "not"}
+{"id": "M02.py", "truth": "not"}
+{"id": "M03.py", "truth": "not"}
+{"id": "M04.js", "truth": "not"}
+{"id": "N01.py", "truth": "not", "case_sha256": "7c884142333aa150e2a13773376524f07127260583f85c2650a2b3a12b7bf7eb"}
+{"id": "N02.go", "truth": "not", "case_sha256": "5573e840b26ea23e52620dde6ad75b2854625ff54f6917399b50e376e43feaab"}
+{"id": "N02.py", "truth": "not", "case_sha256": "bdbc3a0896311319104f2cdd2ae522464d9fa8c31587aeb68559409713109891"}
+{"id": "N03.js", "truth": "not", "case_sha256": "311283fb7f43b8ef124b70b1752b9856e69abd5e932fe0c798c3cc80fdae3969"}
+{"id": "O01.js", "truth": "not", "case_sha256": "396f10cb7cf1d75959a57cad31a31a18f805a85f8715bfbb85cc82666e1bcb30"}
+{"id": "O01.py", "truth": "not", "case_sha256": "5301e90801aebda71c794c602c6f2a07cf98ab5e4e5ab615b789ba70b45b9f62"}
+{"id": "O03.js", "truth": "not"}
+{"id": "P01.go", "truth": "not", "case_sha256": "86983bc69302c494bd0d275fa5a20833ecafcab70f2dfd876461da1b57e04fb7"}
+{"id": "P01.js", "truth": "not", "case_sha256": "2211f50b0060a2328834568b4d9f6b0ded816314f1a69fed489c169bc552b59e"}
+{"id": "P01.py", "truth": "not", "case_sha256": "838cae6ba7e95adcfa7855a8747a0212da3800fa76b90e64b9e9a49c73c89e32"}
+{"id": "P03.go", "truth": "not", "case_sha256": "17e10ce7b03c3c27915fbe779b723351f3c369668960742b71e8b492d6a4e718"}
+{"id": "P03.js", "truth": "not", "case_sha256": "05394aa34985b87f91284e439ef3f707cddd8f34b3037120cfb14ed29f936b3d"}
+{"id": "P03.py", "truth": "not", "case_sha256": "5c577d8b1c3c4782c6950aba7021fa33d23e762590eb7208f510828b1e60f92e"}
+{"id": "P08.js", "truth": "not"}
+{"id": "P09.js", "truth": "not"}
+{"id": "P14.go", "truth": "reaches"}
+{"id": "P14.js", "truth": "reaches"}
+{"id": "P14.py", "truth": "reaches"}
+{"id": "P15.go", "truth": "reaches"}
+{"id": "P15.js", "truth": "reaches"}
+{"id": "P15.py", "truth": "reaches"}
+{"id": "P16.py", "truth": "reaches", "case_sha256": "8f2dbba7ee48169f76f34c9e6b25f1e16696465a1ccb39aa4d375ea076c40f87"}
+{"id": "P21.go", "truth": "reaches", "case_sha256": "f46e5c3647982ea7819df197a05ff1f7c485d73c913553c85af857083cf54ffc"}
+{"id": "P21.js", "truth": "reaches", "case_sha256": "76c14e2a2fbfb0eebbf407c70bf62e08b4f8da737335dc930db7532b88b2ba28"}
+{"id": "P21.py", "truth": "reaches", "case_sha256": "c7daf72d289570b2907409bb0effdc7718cb22f55b669ff4890e8602e8c698c4"}
+{"id": "P23.go", "truth": "reaches"}
+{"id": "P24.js", "truth": "reaches"}
+{"id": "P24.py", "truth": "reaches"}
+{"id": "P26.py", "truth": "not"}
+{"id": "P27.go", "truth": "reaches"}
+{"id": "P27.js", "truth": "reaches"}
+{"id": "P27.py", "truth": "reaches"}
+{"id": "P28.js", "truth": "reaches"}
+{"id": "P28.py", "truth": "reaches"}
+{"id": "P29.py", "truth": "reaches"}
+{"id": "P30.py", "truth": "reaches"}
+{"id": "P31.go", "truth": "reaches", "case_sha256": "1a740c404f2e83d4ea2de3e3f4447ec82b50b8ab251854793bc4be8d1c224934"}
+{"id": "P31.js", "truth": "reaches", "case_sha256": "cb6a079de9f10e97931e9dd059ca7b1bc3647c1f8922c021b3aa4f483befe553"}
+{"id": "P31.py", "truth": "reaches", "case_sha256": "8092bf27d2db556444025166c53d6c65625e4168acb2b44e4395ac2fd96b02df"}
+{"id": "R03.go", "truth": "not"}
+{"id": "R03.js", "truth": "not"}
+{"id": "R03.py", "truth": "not"}
+{"id": "R04.go", "truth": "reaches", "case_sha256": "200cf643e9e58171fc2382a747cd37f405f45f9e6271de0bba59a96e37f4ccd5"}
+{"id": "R04.js", "truth": "reaches", "case_sha256": "b47cb16b9b5327626691ac1183916ef099f3e39ac2e24b9b2f604ffcd6767cef"}
+{"id": "R04.py", "truth": "reaches", "case_sha256": "c42be18c34d4cba643f0bd8dca39e304950f865eac5f97fc36419113e6933d64"}
+{"id": "R06.js", "truth": "reaches", "case_sha256": "47c113a4f3b87dbeaa75672c97b827cda9c1dd41ac75fd724549cd321edf5c4d"}
+{"id": "R06.py", "truth": "reaches", "case_sha256": "1414eb1577429b9261a2ba0ee5d8f0dc5998e1de038014f84c221dfc2d23bf05"}
+{"id": "R07.js", "truth": "reaches", "case_sha256": "bda9493a062c7bc9fd8c221ba7cbf4170a8e745f86588924b42488d3d350ec39"}
+{"id": "R07.py", "truth": "reaches", "case_sha256": "a0f2cce1a5543c46b40c86143bbd07c6acf4902bc5d6285339bb4383773a635e"}
+{"id": "R08.go", "truth": "reaches", "case_sha256": "d3e157332b00414cd92e8367629157d0670f0ae875090f9db45226c8901b0213"}
+{"id": "R08.js", "truth": "reaches", "case_sha256": "15e173f6162872ce3e61026753d9f760b703b4932dc33cba817cf447dd4c3ecd"}
+{"id": "R08.py", "truth": "reaches", "case_sha256": "1acd372626f222618ba20e5f35f1874f421454e65d7346a4399abc4c074c2581"}
+{"id": "R09.py", "truth": "not", "case_sha256": "bd784405b2b34617bc13a5335ae2a62458c938f30e99d81a697f0fd75891b248"}
+{"id": "T01.js", "truth": "reaches", "case_sha256": "6822287a3a205c3a38366439c8cabc62c512fdd8697dc17ac1ca3334368aae91"}
+{"id": "T02.js", "truth": "reaches", "case_sha256": "51498250c2949a2dc476aed0d7162738fe8bc8781a33462018fb43f03579b7c5"}
+{"id": "T03.js", "truth": "reaches", "case_sha256": "881fe28ef9fab76e2acc0e9bd902fe2f80f2fdcbd2bf82c89f12920e2e636fb4"}
+{"id": "T04.py", "truth": "reaches", "case_sha256": "196d8042c65a390c6014293685a9f23ab8e33eff9849a4365426d5282ebc208b"}
+{"id": "T05.py", "truth": "reaches", "case_sha256": "3fbee588f2801757ade20599ea832d9803cd77f9c865295be5581d5b86805b4b"}
+{"id": "X01.js", "truth": "not", "case_sha256": "fbd6cb9374ddca0c8e9943fcff0252f3ad67617af429d11f9f08bdcc6e38671c"}
+{"id": "X02.py", "truth": "not"}
+{"id": "X03.go", "truth": "not", "case_sha256": "82ddcce8cb82dd3784949a4bb015c643f5dfd818319bcd7fb74eee207077df5e"}
+{"id": "Y09.go", "truth": "reaches", "case_sha256": "61058b426ee5cb929417449cf23db64a41b0df8342c800276339633811ab88b7"}
+{"id": "Y09.js", "truth": "reaches", "case_sha256": "d49e7467951b2b9face66ccc81061b67ed66754b529c356a374b6fe658170aed"}
+{"id": "Y09.py", "truth": "reaches", "case_sha256": "1b371091fd5a303a9146da2af8e1c3e8952c4970ffe2da1a84603f2d13f7a599"}
+{"id": "Y12.js", "truth": "not"}
+{"id": "Y12.py", "truth": "not"}

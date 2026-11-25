@@ -1,0 +1,13 @@
+{
+  "api": "sable-quay",
+  "origin": "https://sable-quay.invalid",
+  "coverage": "partial",
+  "unknown": [
+    {
+      "scope": "region",
+      "method": "GET",
+      "path": "/mugs"
+    }
+  ],
+  "routes": []
+}
