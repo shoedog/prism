@@ -1,0 +1,48 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Moonspindle Exchange",
+    "version": "1.0.0"
+  },
+  "components": {
+    "pathItems": {
+      "Wisp": {
+        "servers": [
+          {
+            "url": "rev"
+          }
+        ],
+        "get": {
+          "responses": {
+            "200": {
+              "description": "Successful exchange",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "wax": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/outside": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful exchange"
+          }
+        }
+      }
+    }
+  }
+}
