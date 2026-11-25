@@ -11,10 +11,11 @@ pub(crate) struct PythonUse<'a, 'context> {
     pub context: &'context SetupContext<'a>,
 }
 
-pub(crate) fn python_callback(
-    bindings: &PythonBindings<'_>,
-    use_site: PythonUse<'_, '_>,
+pub(crate) fn python_callback<'a>(
+    bindings: &PythonBindings<'a>,
+    use_site: PythonUse<'a, '_>,
     position: usize,
+    transparent: impl FnMut(PythonUse<'a, '_>) -> bool,
 ) -> Callback {
     let PythonUse {
         file,
@@ -26,10 +27,7 @@ pub(crate) fn python_callback(
         PythonValue::Definition(PythonMember { file, node })
             if node.kind() == "function_definition" =>
         {
-            if node
-                .parent()
-                .is_some_and(|parent| parent.kind() == "decorated_definition")
-            {
+            if has_opaque_decorator(PythonMember { file, node }, None, context, transparent) {
                 Reason::InnerDecorator
             } else {
                 return callback(
@@ -59,6 +57,29 @@ pub(crate) fn python_callback(
         _ => Reason::CallbackUnproven,
     };
     callback(position, CallbackStatus::Unresolved { text, reason })
+}
+
+pub(crate) fn has_opaque_decorator<'a>(
+    member: PythonMember<'a>,
+    above: Option<Node<'a>>,
+    context: &SetupContext<'a>,
+    mut transparent: impl FnMut(PythonUse<'a, '_>) -> bool,
+) -> bool {
+    member
+        .node
+        .parent()
+        .filter(|parent| parent.kind() == "decorated_definition")
+        .is_some_and(|parent| {
+            children(parent).into_iter().any(|node| {
+                node.kind() == "decorator"
+                    && above.is_none_or(|above| node.start_byte() > above.start_byte())
+                    && !transparent(PythonUse {
+                        file: member.file,
+                        node,
+                        context,
+                    })
+            })
+        })
 }
 
 pub(crate) fn python_decorated_callback(

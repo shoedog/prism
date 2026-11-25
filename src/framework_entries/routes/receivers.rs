@@ -215,6 +215,11 @@ use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+mod mutations;
+mod writes;
+use mutations::AttributeWrites;
+use writes::{targets, LexicalWrites};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PythonKind {
     FlaskApp,
@@ -259,6 +264,8 @@ pub(crate) struct SetupContext<'a> {
 pub(crate) struct PythonBindings<'a> {
     pub files: BTreeMap<&'a str, &'a ParsedFile>,
     nodes: BTreeMap<&'a str, Vec<Node<'a>>>,
+    writes: BTreeMap<&'a str, LexicalWrites<'a>>,
+    mutations: Option<AttributeWrites<'a>>,
 }
 
 pub(crate) fn index_python(files: &BTreeMap<String, ParsedFile>) -> PythonBindings<'_> {
@@ -267,11 +274,22 @@ pub(crate) fn index_python(files: &BTreeMap<String, ParsedFile>) -> PythonBindin
         .filter(|(_, file)| file.language == Language::Python)
         .map(|(path, file)| (path.as_str(), file))
         .collect();
-    let nodes = files
+    let nodes: BTreeMap<_, _> = files
         .iter()
         .map(|(&path, file)| (path, walk(file.tree.root_node())))
         .collect();
-    PythonBindings { files, nodes }
+    let writes = files
+        .iter()
+        .map(|(&path, file)| (path, LexicalWrites::index(file, &nodes[path])))
+        .collect();
+    let mut bindings = PythonBindings {
+        files,
+        nodes,
+        writes,
+        mutations: None,
+    };
+    bindings.mutations = Some(AttributeWrites::index(&bindings));
+    bindings
 }
 
 pub(crate) fn python_scope(node: Node<'_>) -> Node<'_> {
@@ -297,22 +315,6 @@ fn direct(node: Node<'_>, scope: Node<'_>) -> bool {
     statement.parent() == scope.child_by_field_name("body").or(Some(scope))
 }
 
-fn targets(node: Node<'_>) -> Vec<Node<'_>> {
-    match node.kind() {
-        "identifier" => vec![node],
-        "pattern_list"
-        | "tuple_pattern"
-        | "list_pattern"
-        | "list_splat_pattern"
-        | "dictionary_splat_pattern"
-        | "as_pattern_target" => children(node).into_iter().flat_map(targets).collect(),
-        "default_parameter" | "typed_default_parameter" | "typed_parameter" => {
-            node.named_child(0).map_or_else(Vec::new, targets)
-        }
-        _ => vec![],
-    }
-}
-
 fn import_parts(import: Node<'_>) -> Option<(Node<'_>, Option<Node<'_>>)> {
     match import.kind() {
         "dotted_name" => Some((import, None)),
@@ -324,39 +326,11 @@ fn import_parts(import: Node<'_>) -> Option<(Node<'_>, Option<Node<'_>>)> {
     }
 }
 
-fn writes(file: &ParsedFile, node: Node<'_>, name: &str) -> bool {
-    let matches = |child: Node<'_>| file.node_text(&child) == name;
-    match node.kind() {
-        "function_definition" | "class_definition" => {
-            node.child_by_field_name("name").is_some_and(matches)
-        }
-        "assignment"
-        | "augmented_assignment"
-        | "named_expression"
-        | "for_statement"
-        | "for_in_clause"
-        | "as_pattern" => node
-            .child_by_field_name("left")
-            .or_else(|| node.child_by_field_name("name"))
-            .or_else(|| node.child_by_field_name("alias"))
-            .is_some_and(|target| targets(target).into_iter().any(matches)),
-        "import_from_statement" | "import_statement" => children(node)
-            .into_iter()
-            .filter(|child| Some(*child) != node.child_by_field_name("module_name"))
-            .any(|child| {
-                child.kind() == "wildcard_import"
-                    || import_parts(child).is_some_and(|(path, alias)| {
-                        file.node_text(&alias.unwrap_or(path)).split('.').next() == Some(name)
-                    })
-            }),
-        "delete_statement" | "global_statement" | "nonlocal_statement" => {
-            children(node).into_iter().flat_map(targets).any(matches)
-        }
-        _ => false,
-    }
-}
-
 impl<'a> PythonBindings<'a> {
+    pub(super) fn assignment_targets(&self, node: Node<'a>) -> Vec<Node<'a>> {
+        writes::write_targets(node)
+    }
+
     pub(crate) fn nodes(&self, file: &str) -> &[Node<'a>] {
         self.nodes.get(file).map_or(&[], Vec::as_slice)
     }
@@ -403,9 +377,9 @@ impl<'a> PythonBindings<'a> {
         name: &str,
         before: usize,
     ) -> Option<Node<'a>> {
-        self.nodes(&file.path).iter().copied().rev().find(|node| {
-            node.end_byte() <= before && python_scope(*node) == scope && writes(file, *node, name)
-        })
+        self.writes
+            .get(file.path.as_str())?
+            .reaching(scope, name, before)
     }
 
     pub(crate) fn module_member(
@@ -415,6 +389,9 @@ impl<'a> PythonBindings<'a> {
     ) -> Option<PythonMember<'a>> {
         let file = self.module_file(&self.absolute_module(origin, import.module)?)?;
         let root = file.tree.root_node();
+        if self.uncertain_global(file, import.member) {
+            return None;
+        }
         let node = self.reaching(file, root, import.member, root.end_byte())?;
         (direct(node, root)
             && matches!(
@@ -434,6 +411,13 @@ impl<'a> PythonBindings<'a> {
         let Some(module) = self.absolute_module(&file.path, import.module) else {
             return unknown;
         };
+        if self
+            .mutations
+            .as_ref()
+            .is_some_and(|writes| writes.modules.contains(&module))
+        {
+            return unknown;
+        }
         let package_path = module.replace('.', "/");
         let local = self
             .files
@@ -479,7 +463,7 @@ impl<'a> PythonBindings<'a> {
     ) -> PythonValue<'a> {
         let unknown = PythonValue::Unknown(Reason::ReceiverUnproven);
         let scope = python_scope(use_node);
-        if depth == 0 || scope.kind() == "lambda" {
+        if depth == 0 || scope.kind() == "lambda" || self.uncertain_global(file, name) {
             return unknown;
         }
         if let Some(node) = self.reaching(file, scope, name, use_node.start_byte()) {
@@ -505,26 +489,40 @@ impl<'a> PythonBindings<'a> {
         if outer != root {
             return unknown;
         }
-        let before = context
-            .frames
-            .iter()
-            .find_map(|frame| match frame {
-                Invocation::Call {
-                    file: path,
-                    start_byte,
-                    ..
-                } if *path == file.path => Some(*start_byte),
-                _ => None,
-            })
-            .unwrap_or(root.end_byte());
+        let before = self.module_before(file, context);
         let first = self.reaching(file, root, name, before);
-        if context.frames.is_empty() && first != self.reaching(file, root, name, scope.start_byte())
+        if self.mutations.is_some()
+            && context.frames.is_empty()
+            && first != self.reaching(file, root, name, scope.start_byte())
         {
             return unknown;
         }
         first.map_or(unknown, |node| {
             self.bound(PythonMember { file, node }, name, context, depth - 1)
         })
+    }
+
+    fn uncertain_global(&self, file: &ParsedFile, name: &str) -> bool {
+        self.writes[file.path.as_str()].uncertain_global(name)
+    }
+
+    pub(super) fn module_before(&self, file: &ParsedFile, context: &SetupContext<'_>) -> usize {
+        let root = file.tree.root_node();
+        if let Some(Invocation::Call {
+            file: path,
+            start_byte,
+            end_byte,
+        }) = context.frames.first()
+        {
+            if path == &file.path
+                && root
+                    .descendant_for_byte_range(*start_byte, *end_byte)
+                    .is_some_and(|call| python_scope(call) == root)
+            {
+                return *start_byte;
+            }
+        }
+        root.end_byte()
     }
 
     fn bound(
@@ -584,7 +582,8 @@ impl<'a> PythonBindings<'a> {
                 let Some(value) = node.child_by_field_name("right") else {
                     return unknown;
                 };
-                if matches!(value.kind(), "identifier" | "attribute")
+                if self.mutations.is_some()
+                    && matches!(value.kind(), "identifier" | "attribute")
                     && !self.unwritten_alias(file, node, scope, name)
                 {
                     return unknown;
@@ -648,6 +647,10 @@ impl<'a> PythonBindings<'a> {
                             })
                         {
                             context.frames.clone()
+                        } else if self.mutations.is_none() {
+                            // During mutation indexing only, a local allocation identifies
+                            // the source site shared by every invocation.
+                            vec![]
                         } else {
                             return unknown;
                         };
@@ -692,7 +695,7 @@ impl<'a> PythonBindings<'a> {
         let Some(&file) = self.files.get(file) else {
             return PythonValue::Unknown(Reason::ReceiverUnproven);
         };
-        self.evaluate(file, value, file.node_text(&value), context, 24)
+        self.checked_router(self.evaluate(file, value, file.node_text(&value), context, 24))
     }
 
     fn factory(
@@ -755,6 +758,7 @@ impl<'a> PythonBindings<'a> {
             node: factory,
         };
         self.factory(member, frames.to_vec(), 24)
+            .filter(|router| !self.router_mutated(router))
             .map(|router| router.identity)
     }
 
@@ -765,6 +769,9 @@ impl<'a> PythonBindings<'a> {
         scope: Node<'a>,
         name: &str,
     ) -> bool {
+        if self.reaching(file, scope, name, scope.end_byte()) != Some(definition) {
+            return false;
+        }
         self.nodes(&file.path)
             .iter()
             .copied()
@@ -772,9 +779,6 @@ impl<'a> PythonBindings<'a> {
                 node.start_byte() >= definition.end_byte() && python_scope(*node) == scope
             })
             .all(|node| {
-                if writes(file, node, name) {
-                    return false;
-                }
                 if node.kind() != "identifier" || file.node_text(&node) != name {
                     return true;
                 }
@@ -856,13 +860,10 @@ impl<'a> PythonBindings<'a> {
                 continue;
             }
             let root = file.tree.root_node();
-            let names: std::collections::BTreeSet<_> = self
-                .nodes(path)
-                .iter()
-                .filter(|n| python_scope(**n) == root && n.kind() == "identifier")
-                .map(|n| file.node_text(n))
-                .collect();
-            for name in names {
+            for name in self.writes[path].names(root) {
+                if self.uncertain_global(file, name) {
+                    continue;
+                }
                 let Some(node) = self.reaching(file, root, name, root.end_byte()) else {
                     continue;
                 };
@@ -886,9 +887,9 @@ impl<'a> PythonBindings<'a> {
                     PythonValue::Router(router) => Some((router, false)),
                     _ => None,
                 };
-                if let Some((router, factory)) =
-                    value.filter(|(router, _)| router.kind == PythonKind::FlaskApp)
-                {
+                if let Some((router, factory)) = value.filter(|(router, _)| {
+                    router.kind == PythonKind::FlaskApp && !self.router_mutated(router)
+                }) {
                     roots.push(RootEvidence {
                         identity: router.identity,
                         selectors: vec![selector(factory)],

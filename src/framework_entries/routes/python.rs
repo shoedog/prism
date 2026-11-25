@@ -1,5 +1,6 @@
 //! Source-only Python syntax helpers for route adapters.
 use crate::ast::ParsedFile;
+use std::{borrow::Cow, collections::BTreeSet};
 use tree_sitter::Node;
 
 pub(crate) fn literal_string(file: &ParsedFile, node: Node<'_>) -> Option<String> {
@@ -37,8 +38,13 @@ fn decode_string(text: &str) -> Option<String> {
         &rest[..1]
     };
     let body = rest.strip_prefix(delimiter)?.strip_suffix(delimiter)?;
+    let body = if body.contains('\r') {
+        Cow::Owned(body.replace("\r\n", "\n").replace('\r', "\n"))
+    } else {
+        Cow::Borrowed(body)
+    };
     if prefix == "r" {
-        return Some(body.to_owned());
+        return Some(body.into_owned());
     }
     let mut chars = body.chars().peekable();
     let mut result = String::new();
@@ -50,9 +56,6 @@ fn decode_string(text: &str) -> Option<String> {
         let escaped = chars.next()?;
         match escaped {
             '\n' => (),
-            '\r' if chars.peek() == Some(&'\n') => {
-                chars.next();
-            }
             '\\' | '\'' | '"' => result.push(escaped),
             'a' => result.push('\x07'),
             'b' => result.push('\x08'),
@@ -106,24 +109,106 @@ pub(crate) fn arguments(call: Node<'_>) -> PythonArgs<'_> {
     PythonArgs(call.child_by_field_name("arguments"))
 }
 
-impl<'tree> PythonArgs<'tree> {
-    pub(crate) fn keyword(&self, file: &ParsedFile, key: &str) -> Option<Node<'tree>> {
-        self.nodes().into_iter().find_map(|arg| {
-            let name = arg.child_by_field_name("name")?;
-            (arg.kind() == "keyword_argument" && file.node_text(&name) == key)
-                .then(|| arg.child_by_field_name("value"))
-                .flatten()
-        })
+#[derive(Clone, Copy)]
+pub(crate) enum PythonArg<'tree> {
+    Written(Node<'tree>),
+    Absent,
+    Unknown(Node<'tree>),
+}
+
+impl<'tree> PythonArg<'tree> {
+    pub(crate) fn written(self) -> Option<Node<'tree>> {
+        match self {
+            Self::Written(node) => Some(node),
+            _ => None,
+        }
     }
 
-    pub(crate) fn get(&self, file: &ParsedFile, key: &str, position: usize) -> Option<Node<'tree>> {
-        self.keyword(file, key).or_else(|| {
-            self.nodes()
-                .into_iter()
-                .take_while(|node| !matches!(node.kind(), "list_splat" | "dictionary_splat"))
-                .filter(|node| node.kind() != "keyword_argument")
-                .nth(position)
-        })
+    pub(crate) fn none_as_absent(self) -> Self {
+        match self {
+            Self::Written(node) if ungroup(node).kind() == "none" => Self::Absent,
+            _ => self,
+        }
+    }
+}
+
+impl<'tree> PythonArgs<'tree> {
+    pub(crate) fn keyword(&self, file: &ParsedFile, key: &str) -> PythonArg<'tree> {
+        let mut hidden = PythonArg::Absent;
+        for arg in self.nodes() {
+            match arg.kind() {
+                "keyword_argument"
+                    if arg
+                        .child_by_field_name("name")
+                        .is_some_and(|name| file.node_text(&name) == key) =>
+                {
+                    return arg
+                        .child_by_field_name("value")
+                        .map_or(PythonArg::Unknown(arg), PythonArg::Written);
+                }
+                "dictionary_splat" => hidden = PythonArg::Unknown(arg),
+                _ => {}
+            }
+        }
+        hidden
+    }
+
+    pub(crate) fn get(&self, file: &ParsedFile, key: &str, position: usize) -> PythonArg<'tree> {
+        let keyword = self.keyword(file, key);
+        if matches!(keyword, PythonArg::Written(_)) {
+            return keyword;
+        }
+        for (index, arg) in self
+            .nodes()
+            .into_iter()
+            .filter(|arg| !matches!(arg.kind(), "keyword_argument" | "dictionary_splat"))
+            .enumerate()
+        {
+            if arg.kind() == "list_splat" {
+                return PythonArg::Unknown(arg);
+            }
+            if index == position {
+                return PythonArg::Written(arg);
+            }
+        }
+        keyword
+    }
+
+    pub(crate) fn accepts(&self, file: &ParsedFile, slots: &[&str], extra_keywords: bool) -> bool {
+        if self.0.is_none_or(|args| args.has_error()) {
+            return false;
+        }
+        let mut names = BTreeSet::new();
+        let mut count = 0;
+        let mut splat = false;
+        for arg in self.nodes() {
+            match arg.kind() {
+                "keyword_argument" => {
+                    let Some(key) = arg.child_by_field_name("name") else {
+                        return false;
+                    };
+                    let key = file.node_text(&key);
+                    if key == "self"
+                        || (!extra_keywords && !slots.contains(&key))
+                        || !names.insert(key)
+                    {
+                        return false;
+                    }
+                }
+                "dictionary_splat" => (),
+                "list_splat" => splat = true,
+                _ => {
+                    if count == slots.len() {
+                        return false;
+                    }
+                    if !splat && !names.insert(slots[count]) {
+                        return false;
+                    }
+                    count += 1;
+                }
+            }
+        }
+        true
     }
 
     pub(crate) fn unpacked(&self) -> bool {
@@ -153,9 +238,20 @@ pub(crate) fn walk(root: Node<'_>) -> Vec<Node<'_>> {
     nodes
 }
 
+pub(crate) fn ungroup(mut node: Node<'_>) -> Node<'_> {
+    while node.kind() == "parenthesized_expression" {
+        let Some(inner) = children(node).first().copied() else {
+            break;
+        };
+        node = inner;
+    }
+    node
+}
+
 pub(crate) fn literal_methods(file: &ParsedFile, node: Node<'_>) -> MethodSet {
-    if matches!(node.kind(), "list" | "tuple" | "set") {
-        if let Some(methods) = children(node)
+    let expression = ungroup(node);
+    if matches!(expression.kind(), "list" | "tuple" | "set") {
+        if let Some(methods) = children(expression)
             .into_iter()
             .map(|item| literal_string(file, item))
             .collect::<Option<Vec<_>>>()

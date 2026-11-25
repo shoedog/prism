@@ -1,12 +1,17 @@
 use super::super::python::{
     arguments,
-    flask::{flask_facts, flask_methods, flask_path_tokens, FlaskEvent, FlaskViewMetadata},
+    flask::{
+        flask_facts, flask_methods, flask_path_tokens, EffectiveEndpoint, FlaskEvent,
+        FlaskViewMetadata,
+    },
     literal_methods, literal_string,
 };
 use super::super::receivers::{index_python, PythonMember, SetupContext};
 use super::*;
 use crate::{ast::ParsedFile, languages::Language};
 use tree_sitter::Node;
+
+mod review;
 
 fn parsed(sources: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
     sources
@@ -24,7 +29,19 @@ fn parsed(sources: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
 fn function_local_lookalike_receiver_is_unproven() {
     let source = include_str!("../../../../tests/routes_matrix/fl21/app.py");
     let files = parsed(&[("app.py", source)]);
-    let facts = flask_facts(&index_python(&files), "app.py", &SetupContext::default());
+    let file = &files["app.py"];
+    let context = SetupContext {
+        factory: Some(PythonMember {
+            file,
+            node: file.tree.root_node().named_child(3).unwrap(),
+        }),
+        frames: vec![Invocation::Call {
+            file: "app.py".into(),
+            start_byte: source.rfind("configure_preview()").unwrap(),
+            end_byte: source.trim_end().len(),
+        }],
+    };
+    let facts = flask_facts(&index_python(&files), "app.py", &context);
     let [FlaskEvent::Rule(fact)] = facts.as_slice() else {
         panic!("expected one source declaration")
     };
@@ -50,7 +67,7 @@ fn endpoint_only_has_no_registered_callback() {
         panic!("expected only the URL rule as a declaration and one view-map write")
     };
     assert_eq!(rule.route.endpoint.as_deref(), Some("stock-index"));
-    assert_eq!(endpoint.as_deref(), Some("stock-index"));
+    assert_eq!(endpoint, &EffectiveEndpoint::Known("stock-index".into()));
     assert!(rule.route.callbacks.is_empty());
 }
 
@@ -87,10 +104,10 @@ fn arguments_use_the_written_slot_and_preserve_literals() {
     for (index, path) in ["/first", "/second"].into_iter().enumerate() {
         let args = arguments(call(index));
         assert_eq!(
-            literal_string(file, args.get(file, "rule", 0).unwrap()).as_deref(),
+            literal_string(file, args.get(file, "rule", 0).written().unwrap()).as_deref(),
             Some(path)
         );
-        let methods = args.keyword(file, "methods").unwrap();
+        let methods = args.keyword(file, "methods").written().unwrap();
         assert_eq!(
             literal_methods(file, methods),
             if index == 0 {
@@ -100,7 +117,10 @@ fn arguments_use_the_written_slot_and_preserve_literals() {
             }
         );
     }
-    assert!(arguments(call(2)).get(file, "rule", 0).is_none());
+    assert!(matches!(
+        arguments(call(2)).get(file, "rule", 0),
+        super::super::python::PythonArg::Unknown(_)
+    ));
 }
 
 #[test]
@@ -320,7 +340,10 @@ fn local_facts_cover_view_metadata_deferred_rules_and_loss_diagnostics() {
         match (expected, facts.as_slice()) {
             ("class", [FlaskEvent::Rule(rule)]) => {
                 assert_eq!(rule.route.endpoint, None);
-                assert_eq!(rule.effective_endpoint.as_deref(), Some("preferences"));
+                assert_eq!(
+                    rule.effective_endpoint,
+                    EffectiveEndpoint::Known("preferences".into())
+                );
                 assert_eq!(
                     rule.effective_methods,
                     MethodSet::known(["GET", "HEAD", "OPTIONS", "PATCH"])
@@ -394,13 +417,7 @@ fn factory_sites_keep_invocation_identity_and_do_not_merge_instances() {
     );
     assert!(bindings.factory_return("app.py", factory, &[]).is_none());
     let source_facts = flask_facts(&bindings, "app.py", &SetupContext::default());
-    let [FlaskEvent::Rule(source_fact)] = source_facts.as_slice() else {
-        panic!("expected one source site");
-    };
-    assert!(matches!(
-        source_fact.route.receiver,
-        Receiver::Unproven { .. }
-    ));
+    assert!(source_facts.is_empty());
     let context = SetupContext {
         factory: Some(PythonMember {
             file,
@@ -412,7 +429,10 @@ fn factory_sites_keep_invocation_identity_and_do_not_merge_instances() {
     let [FlaskEvent::Rule(selected)] = selected.as_slice() else {
         panic!("expected a selected factory fact");
     };
-    assert_eq!(selected.route.site, source_fact.route.site);
+    assert_eq!(
+        selected.route.site.start_byte,
+        source.find("@app.get").unwrap()
+    );
     assert!(
         matches!(&selected.route.receiver, Receiver::Router { identity, .. } if identity == second)
     );
