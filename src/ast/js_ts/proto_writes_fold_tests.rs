@@ -466,12 +466,14 @@ fn bounded_parse(source: String) -> ParsedFile {
         file.js_ts_proto_writes();
         send.send(file).unwrap();
     });
-    // The probe asserts the work budget holds, not speed. On the coverage-instrumented CI
-    // runner it took 31.2 s at c21952a8 and 30.1 to 31.6 s on fold 3 before the byte scan,
-    // and 23.4 s on 136ddee0; 30 s leaves a margin of 6.6 s over that last measurement.
+    // The probe asserts the work budget holds, not speed. CI (coverage build) samples from the
+    // job logs: 31.2 s (c21952a8), 31.6 s (pass) and 30.1 s (fail, twice) on fold 3 before the
+    // byte scan, 23.4 s (pass) and then a fail at the 30 s limit after it: the runner varies by
+    // more than 30%. 60 s is about 1.9 times the slowest pass seen (31.6 s) and still bounds a
+    // runaway (the budgeted work finishes locally in about 12 s).
     receive
-        .recv_timeout(std::time::Duration::from_secs(30))
-        .expect("prototype-write analysis did not finish within 30 seconds")
+        .recv_timeout(std::time::Duration::from_secs(60))
+        .expect("prototype-write analysis did not finish within 60 seconds")
 }
 
 #[test]
