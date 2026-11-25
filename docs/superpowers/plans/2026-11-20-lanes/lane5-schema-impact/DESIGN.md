@@ -678,13 +678,27 @@ and `ids.tsv` is regenerated from the amended rules.
 
 ## 10. Amendments
 
-- **A1 (2026-11-24), the impact report.** `REPORT-DESIGN.md` in this directory is the design of record for how a
-  report reads (the prototype's renderer and, in slice P4, the product's `--format md`): one section per operation
-  with before/after and service code above one row per client use; added and changed operations and fields beside
-  removals, each with a named risk class; the other side held at one named reference revision, with a title that
-  says which direction the change runs (service change checked against client code, or the reverse); nothing from
-  later history in a live report (later edits, release tags and reader judgments go in a separate replay evaluation,
-  clearly marked); plain-word labels with the study's evaluation labels translated. It also extends the impact
-  document of 5.2 (its "Machine-readable form"). Stage D states the both-pairs order, how P4 renders this design and
-  the element-diff kinds it needs (`OpAdded`, `FieldAdded` and the field changes of its "Fields on a service with a
-  schema" table); stage D may amend it, the reviewers of stage D see it.
+**A1 (2026-11-24), round 1 fold.** [REPORT-DESIGN.md](REPORT-DESIGN.md) governs the eval renderer and P4's
+Markdown and impact JSON. It keeps one section per operation, service evidence above client calls, and includes
+added, removed and retained-but-edited declarations. Its **First cut for the prototype** defines what the eval
+inputs can support in both directions. Stage D reviews the change kinds and document fields for both pilot orders.
+
+- **§5.1, response identity.** Keep the status in each response field ID. Compare success roots before diffing
+  their relative field paths. A 200 → 201 status edit with the same measured body gets one status row.
+- **§§5.2 and 5.4, documents and matching.** Producer inputs carry the operation authority, versioned
+  declarations, sites, field properties and limits. Client inputs carry every observed call, including unmatched
+  requests, original and mapped addresses, grades, reasons and revision-local locations. Both roles carry per-file
+  and per-entry extraction status. Unknown coverage yields **Not checked** for dependent claims. Impact validates
+  every input's API, role and revision, then matches the full inventories at the selected pairs. A service edit
+  uses two service sets with one client. A client edit uses two client states with one fixed service. Proved
+  correspondence links calls across versions. Candidates remain review evidence under §5.5's bound-only
+  notification rule.
+- **§5.6, versions.** Live reviews select the counterpart at report time. Historical as-of reviews require
+  evidence of its availability at change time. Date-based reconstructions and explicit later pins use the separate
+  **Comparison of selected versions** mode. A live pull request behind its target uses the observed target and
+  clean merge result. A mixed commit gets one report with before/before and after/after plus both one-side-first
+  comparisons. Saved matches use actual element presence and measured properties in the named schema and
+  comparison side.
+- **§6.1, evaluation.** The study can still select subjects and grade predictions by later events. Build the
+  entire review from its frozen inputs. Join later line edits, release evidence, reader judgments and study
+  filters only in a separately identified evaluation companion.
