@@ -12,14 +12,14 @@ JavaScript/TypeScript and Go; gated code-only patterns elsewhere), measured befo
 occurrences, reaching definitions, join, pattern tables, identity rules per family). Identity comes from the import
 proof in `targets/dependency_identity.rs` (made visible in the crate, plus a non-call entry point, plus site
 refusals on the provenance side) and from the taint request-source recogniser (exposed by one function, matched by
-position). The review entry point passes the repository root. The targets mapping keeps parsing the unchanged
+position). One proposed JS/TS exception uses the repository root to read a single relative registration adapter and prove its argument mapping. Decision 7 must be settled before that work. The review entry point passes the repository root. The targets mapping keeps parsing the unchanged
 description and attaches a hint only for identity languages. No change under `src/` or the cache.
 
 **Tech stack:** Rust (prism-review crate, tree-sitter); Python 3 for the population scripts.
 
 **Spec:** `DESIGN.md` here (5.1 examined set and reaching definitions, 5.2 origins, tables and propagation, 5.3
 other languages, 5.4 shared identity, 5.5 output and cross-check, 5.6 layout, 5.7 losses, 5.8 changed legacy
-assertions, 6 measurement, 7 gates, 8 owner decisions). Use `D-rows.tsv` and `D-groups.tsv` in this directory.
+assertions, 5.9 new fixtures, 6 measurement, 7 frozen keys and gates, 8 owner decisions). Use `D-rows.tsv` and `D-groups.tsv` in this directory.
 
 ## Global constraints
 
@@ -32,7 +32,7 @@ assertions, 6 measurement, 7 gates, 8 owner decisions). Use `D-rows.tsv` and `D-
   `review_suite()`, `all()` and the `prism targets` default set; the public items
   `provenance_slice::{slice, Origin, ProvenanceFinding}` (`slice(ctx, diff)` keeps its signature and runs with no
   repository root).
-- Deliberate, disclosed in each PR body: `<name>` is the use's `path.base`; `related_lines` are the selected
+- Deliberate, disclosed in each PR body: `<name>` is the use's `path.base`, except for the qualified HCL binding address in DESIGN 5.1.1; `related_lines` are the selected
   definitions' lines plus the proving chain's def lines (provenance `targets[].id` hashes them, so ids change with
   each slice that changes them, the description or the severity); blocks are emitted for examined variables only.
 - Weighted sizes: `provenance_slice.rs` 616, `taint.rs` 323, `dependency_identity.rs` 537, `dependency_hint.rs`
@@ -153,7 +153,7 @@ directory per row, outside the golden walker over `tests/fixtures/`), `tests/pro
 `tests/algo/novel/main.rs` (`mod provenance_matrix_test;`) and the three coverage lists.
 
 Row fields: `id`, `group`, `class`, `files` (under the row's directory; several for repository-local shadowing),
-`diff` (file → lines; only these files are parsed, as the review loader does), `want` (`[{file, line, var,
+`diff` (file → lines used to build the review CPG; S4b may separately parse the one permitted adapter for a registration), `want` (`[{file, line, var,
 origin}]`, `origin` an `Origin::name()` or `none`: the expected product output, always executed), `exact_lines` (no
 other provenance finding on those lines, always executed), `truth` (what the value really is), `accepted_loss`
 (null or the L-entry for a genuine gap between `want` and projected `truth`), `source` (`probe`, `corpus`, `grammar`,
@@ -172,15 +172,9 @@ const ENABLED_GROUPS: &[&str] = &["control"];
 fn test_provenance_matrix_rows() { /* rows.jsonl; skips disabled groups only; accepted-loss rows run */ }
 ```
 
-The original T checkout contains 220 rows. D applies to all 893 enumerated fixtures in `d/rows-flat.jsonl`.
-`D-groups.tsv` assigns each input ID exactly once. A control already satisfies the final vector on base including
-all exact-line negatives. S1 owns `structural`, S3 `py`, S4 `js` and S5 `go`. S2 and S6 have no matrix group.
-For a retired assertion preserve the key-to-successor mapping and verify the corrected fixture on base. Keep already-green corrected sites in `control` and give any
-additional payload twin a separate base-gradeable key. A retirement is never behavioural RED. Matrix axes and operations are specified in DESIGN 5.1–5.5. The authoritative
-tentative-row and additional expectation decisions are `D-rows.tsv`. In particular a bare HTTP response or cursor
-is silent, a fetched value is payload, and source selectors are judged at the read. Input checks, comparisons,
-status flags and producer handles have their own slots. Java, C/C++, Rust, Lua, Bash and Terraform use the
-language-specific receiver/output rules in DESIGN 5.3.
+The original T checkout contains 220 rows. Apply the two D ledgers to the 893 enumerated fixtures. Materialize the 22 independently keyed fixtures in DESIGN 5.9 in addition (915 specified rows). `want_origin` sets the original sites in order; append each explicit `add_sites` entry and retain original select/drop negatives and exact lines. `rename_sites` applies HCL binding-address probes. Record each confirmed positive or loss at its qualified address in the settled truth vector and the bare root as a negative. Preserve raw labels and historical keys. Keep per-site evidence and both reviewers' confirmations for oracle corrections, including pg envelopes and HCL. A corrected vector must pin both its supported and silent slots. Never count a retired assertion as a RED.
+
+`D-groups.tsv` predicts one group per original ID. Enable `control` continuously. Noncontrols `py/js/go` exercise complete family activation including structure; `pattern-c/cpp/java/rust/lua/bash/hcl` each exercise one structural language (full names carry the `pattern-` prefix). S1a, S1b, S2 and S6 have no product matrix group of their own. Assign each of the 22 additional fixtures after base replay, to control if already exact, otherwise its responsible family or the JS forwarding unit. Always execute adapter/native-resolver positives and their negatives on the candidate activation head even if assigned to control. HCL names affect the public target key, so a base finding on bare `var` cannot satisfy `var.x`. Selected payloads, bare envelopes, Go request direction and deferred language operations follow DESIGN 5.1–5.7.
 
 - [ ] Write rows and fixtures (sources: `~/prism-evidence/lanes-2026-11-20/probes/lane6/`, `research/lane6-data/`,
       the design review's probe cases under `~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane6/probes/cases/`;
@@ -206,102 +200,41 @@ language-specific receiver/output rules in DESIGN 5.3.
       (ordinary and `~`, suffixes, overlapping tables, embedded expansions, foreign-library calls); parse errors;
       joins. M-3's causes are rows. Every new row carries a truth.
 
-## Stage D: design of record (1.5 days)
+## Stage D • section 8 amendment
 
-- [x] The design seat reconciled 893 fixtures and their supplied base outputs against the frozen v1.1 labels.
-      DESIGN 5 covers occurrence kinds, reaching writes, callable/argument/return contracts, parser input,
-      data and handle depths, handler formals, browser and receiver rules, code-only language tables, identity,
-      trace, legacy fixtures, cross-check exceptions and accepted losses. The two D ledgers are the implementer's
-      per-row instructions. DESIGN 7 records the measured gate conflict. Every tier was still adding cases at
-      its cap. Preserve this open-class limitation for the reviewers and controller under ORCHESTRATION §§7–8.
-- [ ] Both reviewers independently decide the amended record. Design review cap is two rounds. Route the
-      frozen-recall premise conflict under ORCHESTRATION §8. Keep the numerical gates and the M labels in custody.
-- [ ] After D approval the implementer materializes the full `tests/provenance_matrix/rows.jsonl` and fixtures
-      from the enumeration and ledgers, sets `want` and `accepted_loss`, settles all tentative flags and retains the
-      evidence for every retired assertion. Replace the provisional two-step text in the matrix README with both
-      three-step budgets and their boundary pairs. Run all groups on the exact M/T base with a harness that accepts
-      projected truths. Record `t/red-on-base-final.txt` with the final file SHA-256, binary identity, per-ID
-      output and exact-line differences. Reclassify already-green expectations as controls and reconcile any
-      difference from the D group ledger. Each slice cites only actual REDs from that receipt. The recorded
-      252 green / 641 red counts describe the previous vectors.
+- [x] Write independent alternatives before reading the held sheet, then pool and compare them in `S8-OPTIONS.md`. DESIGN 7 joins every one of the 180 decided source tokens to the final census and supplied base outputs. The ledgers retain all 893 original IDs and the old base receipt.
+- [ ] One more round, two independent reviewers, under ORCHESTRATION §8. Review the lower-than-base classes, per-key authority, four false-seed predicates and unsupported genuine reads, relative-source budget, new fixture text and all amended assertions. A second rejection goes to the owner with the two designs, rows and reasons. No third design.
+- [ ] Get an explicit owner disposition on decision 5 **before a merge that changes default findings**, and decision 7 before adapter implementation. The default unconditional 95% recall gate is unmet. The owner may elect the separately named limited release in DESIGN 7 or retain the original gate. A refusal of the file exception brings the smaller same-file claim back for decision. Issue approval for coding or a green precision sample cannot waive a yield loss.
+- [ ] Materialize, hash and run the **final** 915-row matrix on the exact M/T base. Record the base binary, fixture/harness hashes, per-site actuals, unexpected exact-line names and ID/grade changes in `t/red-on-base-final.txt`. Publish the base regrade separately from the supplied 252/641 old vectors and the 303 predicted controls amongst the 893. Settle tentative flags; retain any accepted loss that now improves for independent adjudication. Keep each new ID separate from the D group inventory.
 
-## Stage I: slices
+## Stage I • slices and activation
 
-Order: S1 removes most noise in every language without identity; S2 makes identity reachable with no behaviour
-change; S3 to S5 move one family each to proofs (Python first: largest share of the population and of the noise);
-S6 changes the hint once all three are on proofs. Each slice branches from updated `main`. S1 and S3–S5 enable their
-group in the first commit and cite behavioural REDs from `t/red-on-base-final.txt`. S2 and S6 use the unit and
-projection checks in their own sections. Before review, write the prediction and run the
-population with merge base and head (the previous slice's head run serves as base only when
-`git diff --quiet <previous head> <merge base> -- src crates/prism-review/src Cargo.lock vendor` holds; otherwise
-build and run the merge base); put `m/compare.py`'s tables, its reconciliation sums and each removed class with its
-count in the PR body. **Precision check before merge** (DESIGN 7): a slice that changes default output for a
-language labels a sample of its head's findings for that language (M-3's sampler, cells and readers; S1 for every
-measured family, S3 Python, S4 JS/TS, S5 Go) and scores the census recall per class; a cell under the Precision gate
-blocks the merge and goes to the design seat. Each slice publishes its actual recall and all misses. DESIGN 7
-documents why the original final recall gate is blocked on all six populated classes. Route that premise conflict
-under ORCHESTRATION §8 before treating an implementation result as acceptance. Each slice also covers ORCHESTRATION section 5 items 1 to 4,
-8, 9, 10 (`CLAUDE.md` provenance paragraph, `ALGORITHMS.md` entry 23), 11; two reviewers.
+S1a and S1b build the shared reader with a test entry point. S2 exposes identity and freezes raw request keys **before** activating the new origin readers. Activate one structural pattern family at a time in S1c. S3, S4 and S5 activate Python, JS/TS and Go with their structural corrections together. S6 changes the hint guard after all three. An integration branch may collect evidence while default publication is blocked. Enabling a partial proof reader on main creates a default-output merge and must meet the same gates.
 
-### Slice S1: structural fixes for every language (4 days)
+For every behaviour slice compare its merge-base and head on the affected population with `m/compare.py`. Reuse an earlier run only when binary/source, corpus trees, options and diff specs still match. Publish all key dispositions, lost base-correct keys, raw weighted class recalls and 85% head-cell precision checks. In identity families compare the production entry point against that family's frozen R keys in DESIGN 7 at activation; findings on the wrong name or origin do not count. For default publication either the original gates pass, or **all** limited-release conditions (owner's key list, supported positives, cell precision, raw/approved cross-check accounting, applicable contract/hint checks) pass. A new loss, failed cell or unexplained key blocks the merge. Record a fresh same-environment behavioural RED where the complete base already had an expectation green and an intermediate slice changed it. Apply ORCHESTRATION §5 to every product PR, including two reviewers, and §7 to material yield drops. Matrix-only languages keep decision 6's stated evidence limit.
 
-**Files:** create `crates/prism-review/src/algorithms/provenance/mod.rs`, `provenance/occurrence.rs`,
-`provenance/patterns.rs`, `provenance/patterns_tests.rs`, `provenance/occurrence_tests.rs`,
-`crates/prism-review/tests/cli/provenance_trace_test.rs`; modify `crates/prism-review/src/algorithms/mod.rs`
-(`mod provenance;`), `provenance_slice.rs` (tables and classification move out; `slice()` delegates;
-`selected_origin_evidence` is replaced by the selected edge), `crates/prism-review/tests/cli/main.rs`
-(`mod provenance_trace_test;`), coverage lists, the re-fixtured tests below.
+### Slice S1a • value-read occurrences, no default-output switch
 
-Implement DESIGN 5.1, 5.2.1, 5.3 and 5.5. Select runtime AST occurrences per grammar, resolve lexical bindings
-and pair expression, result and destination slots before joining anything. Keep value-bearing imported objects
-and ordinary receiver formals. Drop declaration positions, syntax, selector spellings and callees. Attribute the
-actual selected accessor to its receiver at the read. Emit one public finding per name and line and trace all
-contributing and excluded occurrences.
+Create `provenance/{mod,occurrence}.rs` and the occurrence tests under the review crate. Keep the public algorithm delegating to the old output path while building the new reader. Implement DESIGN 5.1.1 roles, byte spans, execution owners, binding identity and HCL qualified names. Cover each grammar incrementally; use the AST for interpolations and code-only segments. Preserve lexical iterator names, separately evaluated indexes and HCL traversals sharing a line.
 
-Use a graph Use only for the matching nonempty bytes, path and execution owner. Inspect individual predecessor
-edges with `dfg.label` and temporal/path feasibility, including must-overwrites, output arguments, loop exits
-and deferred or eager evaluation. Use syntax when semantic evidence is absent and preserve explicit kills.
-Never infer a loop-carried write from lexical containment alone. Respect same-file module/class scopes, captures,
-structured assignments and branches, per-slot overwrites and actual exceptions. Join by DESIGN 5.1.2's stable
-risk and write/operand ordering. Use the selected edge's evidence grade. A propagated chain or syntax-only proof
-is unlabeled.
+- [ ] Pin a one-byte read, same-spelling binder/selector, method base, direct callee, declaration, import-value versus namespace, malformed sibling and escaped interpolation on the baseline. Assert the exact admitted/dropped bytes and name. Include `var.a` and `var.b` on one line and a lexical binder named `var`. Keep old public outputs identical on controls.
+- [ ] Separate AST-role work into grammar-sized changes if needed; a single review may not introduce all grammar-specific flow models.
 
-Set `PROPAGATION_DEPTH = 3`. Implement only the value-preserving forms in DESIGN 5.2.1 and the applicable
-language tables, with an explicit boundary twin. Match gated code tokens on the supplying operation/slot, using
-both boundaries, real substitutions and the operation's actual value/destination semantics. S1 owns the complete
-C/C++, Java, Rust, Lua, Bash and Terraform tables, including JDBC cursor versus column, Rust/Lua explicit C FFI,
-Bash read/fd state and HCL traversal-root selection. Its provisional Python/JS/Go patterns use only their own
-families. The public origin, category and severity contract stays in force.
+### Slice S1b • live definitions, transfers, joins and trace
 
-- [ ] Enable `structural`: RED. Unit tests in `patterns_tests.rs`: `boundary_rejects_format_for_form`,
-      `boundary_rejects_fetch_config_for_fetch`, `boundary_checks_every_occurrence` (`formatted form`),
-      `call_entry_needs_whole_callee_token` (`spread(9, 5)` does not match `read(`),
-      `classifier_reads_value_not_defined_name` (`args = sorted(tokens)` → none),
-      `code_text_blanks_comments_and_strings`, `code_text_keeps_shell_substitution`,
-      `terraform_tables_do_not_run_on_python`, `join_prefers_concern_over_info`, a tie on reaching write order and a user-input/hardware risk pair. In `occurrence_tests.rs`:
-      `zero_width_use_is_not_examined` (the `occ-py-attr-same-name` shape: no `label` occurrence on line 15),
-      `local_shadowing_an_import_is_examined`, `callee_is_dropped_with_role`, `killed_predecessor_contributes_nothing`
-      (`branch.py` shape → no origin, reason `killed-only`), `later_definition_without_loop_contributes_nothing`,
-      `loop_carried_definition_contributes`, `module_level_read_takes_syntax_route`. CLI tests:
-      `trace_reconciles_every_examined_occurrence` (each examined occurrence has exactly one `prov-var` or
-      `prov-unknown`), `no_trace_without_the_variable`.
-- [ ] Implement; GREEN for `control` and `structural`.
-- [ ] Apply the existing-fixture inventory in DESIGN 5.8 to S1's affected tests. For confidence delivery, prove
-      the Django request by type or same-file registration and give the nameonly case an actual surviving
-      `CfgIncomplete` edge. Check the emitted `user_input` origin as well as the category and grade. Check the selected DFG output, an exact edge, a propagated same-function alias and
-      a both-arms kill. Preserve taint's own tests. Generic ioctl status, recv's count and Rust read_line's
-      result are payload negatives. Pair each with the read of its true destination. Tighten C/C++ getenv, cin, recv, fgets and copy_from_user to the actual changed value read. Record the source, old false assertion and
-      replacement for each changed test.
+Implement DESIGN 5.1.2, 5.2.1 and 5.5 using the S1a occurrences. Add trace and route tests before family activation. Reuse the selected edge's actual grade. Syntax and propagated evidence remain unlabeled. Pure helper tests need a compiling behavioural RED and a counterexample.
 
-- [ ] Run (memguard, `RAYON_NUM_THREADS` 1 and 4): `cargo test --test algo_novel provenance`;
-      `cargo test --test integration -- dfg_label_parity_test:: targets_mapping_test:: coverage_test::`;
-      `cargo test --test cli -- min_confidence provenance_trace_test:: targets_test:: validation_test::`;
-      `cargo test -p prism-review --lib provenance`; and filter `provenance` in `lang_c`, `lang_cpp`, `lang_bash`,
-      `lang_terraform`, `lang_java`, `lang_go`, `lang_typescript`, `lang_tsx`.
-- [ ] Gates include Contract, accumulated matrix groups, precision on all seven measured families and census
-      recall on Python, JS/TS and Go. Lua, Bash and Terraform have matrix coverage only (DESIGN 8 decision 6).
-      Report cell sizes, every genuine loss and every changed control. A bare API spelling is insufficient to
-      predict a green check.
+- [ ] Bind nonempty graph Uses at the correct bytes. Account for path feasibility, must-writes, projection kills, loop zero-iteration/back edges and exits. Pair a repeated unchanged truthiness test with a version that writes to the guarded field between tests (c0207). Syntax can supply missing semantics but cannot resurrect a killed graph value. Pair tuple/destructuring/output slots and test earlier-write and same-write operand tie ordering, including an ordinary formal versus a config alternative.
+- [ ] Keep independent value and handle counters on each path bounded by distinct normalized states. Terminate a cycle without losing an independent reaching terminal. Test a fourth acyclic alias, four distinct handle-producing transitions and mixed alias/handle edges. Record distinct states, visit counts, peak memory and elapsed time. Avoid an arbitrary alias count chosen from matrix IDs.
+- [ ] Test `prov-var/unknown/drop` reconciliation, exact-line deduplication, both counts, winning/dropped alternatives and selected Def lines. Test default trace off; maintain an output-identical production comparison. Split binding/flow work at grammar boundaries if it cannot fit the review cap.
+
+### Slice S1c • structural pattern activations, one family per review
+
+After S2, activate the AST/flow machinery and **only the gated legacy surface** in DESIGN 5.3. Ship C, C++, Java, Rust, Lua, Bash and Terraform as separate small activations with their respective `pattern-*` groups. Add only the applicable grammar adapters and tests for that activation. This is owner decision 4. JDBC, new stream/FFI/device protocols, shell implicit outputs and provider catalogs need later owner-authorised slices. The L7 vectors and raw truths remain executable and measurable in this lane. Python/JS/Go keep the existing default until their proof reader activates.
+
+- [ ] Match code tokens on the determining value or paired data slot, both boundaries, comments/literals shielded, no line inheritance. Couple every retained operation with a metadata/handle/suffix/local-shadow negative. Check scoped formals, a later write, a reachable competing branch and a failed/discarded operation. Check the qualified HCL namespace negatives as well as each named binding.
+- [ ] Apply DESIGN 5.8 to changed legacy tests. Keep the evidence for deferred true reads. Direct C recv buffer and fgets, supported stdin read and C/C++ getenv need a changed **value** site. Generic ioctl status is silent; command-specific device outputs remain L7. Give each class removed on real diffs a trace count.
+- [ ] Run affected provenance, language, CLI trace/threshold, integration mapping/DFG and coverage checks at thread counts 1 and 4 (ORCHESTRATION §5). Reconcile controls and enabled groups. Sample C/C++/Java/Rust at their own activation. Lua/Bash/HCL use matrix evidence only. No M-4 denominator exists for pattern languages. A failed applicable precision cell or an unapproved material loss blocks default activation.
 
 ### Slice S2: shared identity access and the repository root, no behaviour change (2 days)
 
@@ -364,10 +297,9 @@ binding and data slot under DESIGN 5.2.3. Framework-spec strings alone cannot id
 - [ ] Build `IdCx` per diff file. Trace every raw `prov-request-source` to every candidate changed read of its
       binding, retaining refused keys, per-slot results, byte ranges and independently observable witnesses.
       Freeze `g/request-uses.tsv` before S3 and publish raw, missing-target and augmented inventories separately.
-      The provenance classifier cannot choose its own denominator. Follow DESIGN 5.5 for the four permitted
-      false-seed predicates and the empty genuine-payload exception set.
+      The provenance classifier cannot choose its denominator. Apply DESIGN 5.5's four false-seed predicates separately from genuine payload losses. Retain a wrapper parent call, unresolved request direction or detached binding, its raw span, and all candidate keys. A genuine loss needs its own witness and owner disposition for limited release.
 - [ ] Gates include accumulated matrix groups, `--test cli targets_test::`, `--lib targets::dependency_hint`
-      and identical product findings to S1 on the population. Trace-only additions supply the independent
+      and identical product findings to the S1b baseline on the population. Trace-only additions supply the independent
       request cross-check, which is scored separately from the M-4 census.
 
 ### Slice S3: Python origins by proof (3.5 days)
@@ -378,31 +310,31 @@ stage D named for Python.
 
 ```rust
 // provenance/identity.rs
-pub(crate) const HANDLE_HOP_DEPTH: usize = 3;
+pub(crate) struct ProofSteps { value_steps: usize, handle_steps: usize }
+// ProofGraph owns the per-root finite value/handle state sets, worklist and cycle checks.
 pub(crate) trait DefReader {
     /// The value node a definition binds (the slot paired with it); None when the binding form is not modelled.
     fn value_of<'t>(&self, parsed: &'t ParsedFile, def: &VarLocation) -> Option<Node<'t>>;
-    fn origin_of_value(&self, cx: &IdCx<'_>, parsed: &ParsedFile, value: Node<'_>, target: Node<'_>)
+    fn origin_of_value(&self, cx: &IdCx<'_>, parsed: &ParsedFile, value: Node<'_>, target: Node<'_>,
+        states: &mut ProofGraph, steps: ProofSteps)
         -> Result<(Origin, Route), &'static str>;
 }
 pub(crate) fn origin_by_proof(ctx: &CpgContext, cx: &IdCx<'_>, env: &FileEnv<'_>, reader: &dyn DefReader,
-    def: &VarLocation, depth: usize) -> Result<Verdict, &'static str>;
+    def: &VarLocation, states: &mut ProofGraph, steps: ProofSteps) -> Result<Verdict, &'static str>;
 // provenance/python.rs
 pub(crate) struct PythonReader;   // impl DefReader
 ```
 
 Apply DESIGN 5.2.1–5.2.3 and 5.4. On Python enable only proven built-in/library/framework operations.
-Use `HANDLE_HOP_DEPTH = 3` including constructor and handle transitions, with separate three-transfer alias
-budget and one live receiver definition (or a specified concrete formal). Keep database cursors and HTTP
+Use S1b's two finite-state budgets. Each constructor/handle transition increments handle_steps, each data or handle alias increments value_steps. Copy counters per branch. A receiver needs one live producer or a specified concrete formal. Keep database cursors and HTTP
 responses as internal handles. Fetch/iteration, selected body, remote headers and status text are payload.
 Bind imported Flask request in and outside routes. Use actual typed/registered Django request, registered
 FastAPI parameter/dependency position and canonical Django settings. Generic parses preserve argument 0 and
 the exact supplied origin, including proven config-file inputs. Python built-ins, argv/stdin, environment,
-ORM/DB and HTTP operations and transfer exceptions are enumerated in DESIGN 5.2.2.
+ORM/DB and HTTP operations and transfers are enumerated in DESIGN 5.2.2. Pair a documented mixed envelope with its actual payload selection. Add the native Graphene mutate/Arguments/Field/Schema proof and the project BaseMutation.perform_mutation ordinary-formal twin in DESIGN 5.2.3 and 5.9. Use the known Python mapping representation and key/default/overwrite semantics on both c0095 reads. Preserve L2 on project JSON parsers and virtual request-helper calls.
 
 - [ ] Enable `py` against the final base receipt. Pair sqlite cursor/scan materialization and HTTP body with
-      bare connection, cursor, session and response negatives. Cover the third/fourth handle and alias
-      boundaries, constructor under `with`, one killed versus two live receiver definitions, local runtime
+      bare connection, cursor, session and response negatives. Cover the fourth acyclic alias, sessionmaker → session → execute → scalars → all, mapping rows versus result keys, cycles with and without a seed, constructor under `with`, one killed versus two live receiver definitions, local runtime
       shadow versus `.pyi`, decorators/handlers, Django metadata, ignored arguments, parser literals and an
       HTTP-fed parser. Include original-member import, no-root refusal, opaque helper and factory cases.
       Verify every enabled group and the recorded accepted-loss reason.
@@ -414,10 +346,9 @@ ORM/DB and HTTP operations and transfer exceptions are enumerated in DESIGN 5.2.
 - [ ] Preserve `test_provenance_python_request_form_origin` and `test_provenance_python_cursor_execute_origin`
       as payload positives via a repo-aware entry. Add a dedicated no-root negative for the compatibility
       entry. See DESIGN 5.8 for the corrected Django evidence fixtures and their expected grades.
-      Gates include the per-cell precision check and weighted class recall on the 100 Python diffs,
-      the Python request cross-check, and Contract. Report DESIGN 7's actual affected keys.
+      Activate the Python structural and proof reader together. Check the affected precision cells over the 100 diffs, both c0095 keys, the full family R ledger, actual retention including below-base config, the Python raw cross-check, accumulated groups and Contract. Apply the chosen DESIGN 7 release path before default merge.
 
-### Slice S4: JavaScript/TypeScript origins by proof (3.5 days)
+### Slice S4a • JavaScript/TypeScript reader and native registration, integration first
 
 **Files:** create `provenance/js_ts.rs`, `provenance/js_ts_tests.rs`; modify `provenance/mod.rs`,
 `docs/features/language-coverage/js-ts-known-gaps.md` (a provenance entry: what is proven, what is not).
@@ -428,24 +359,27 @@ key, rest and comma-expression value semantics. Bind Express, Fastify, Koa and N
 and exact request slot, including error middleware, decorators and renamed formals. Request/context objects,
 writers and metadata are silent. Proven inbound fields are input. Browser cookie, URL text, prompt and
 actual form values are input. Process environment/argv require an unshadowed global or canonical import.
-A fetch/Axios response is a handle. Its wire payload is external. A pg materialized query result/row is
-database. A cursor, status, helper, replaced parser/adapter or callback error is not a payload.
+A fetch/Axios response and a pg Result are mixed envelopes. Their selected wire data and rows are the reportable payloads. Bind native tRPC input only at the proven builder, transparent parser and installed callback. A detached handler or project-imported procedure retains ordinary-formal semantics as specified in DESIGN 5.2.3. A cursor, status, helper, replaced parser/adapter or callback error is not a payload.
 
 - [ ] Enable `js` against the final base receipt. Pair each library's positive payload with its same-library
       negative. Include browser-global shadowing, an unregistered form versus registered renamed or
       destructured formal, both middleware error slots, static named CJS/ESM imports and replacement cases,
-      pg row vs rowCount, HTTP body vs bare response, metadata, config file vs literal/reviver and the limits
-      of data/handle transfer. Keep the genuine cookie and process.env existing fixtures.
-- [ ] Gates include the per-cell precision check and weighted class recall on the 40 JS/TS diffs,
-      the JS/TS request cross-check, accumulated matrix groups and Contract.
+      pg rows vs whole Result/rowCount, Axios data vs whole response, metadata, config file vs literal/reviver, and the independent data/handle work bounds. Apply the pg envelope corrections to awaited and callback variants and verify the facade-result twin has no finding or hint. Keep the genuine cookie and process.env existing fixtures.
+- [ ] Compare S4a on the 40 JS/TS diffs and the raw request inventory. Keep this a preparatory integration result while the promised wrapper keys are missing. Preserve controls and publish its precision sample and raw recall beside S4b.
+
+### Slice S4b • verified forwarding and JS/TS default activation
+
+Implement DESIGN 5.2.3's single forwarding edge in the existing JS/TS and identity modules after owner decision 7. Reuse the S2 raw registration/accessor candidates. Recognise the installed expression and immutable named result, the relative module's actual exported binding, and the one argument-preserving callback invocation. Apply source-field and live-alias checks on the use side. Implement the source-tree lookup guard, same-root/immutable-byte checks, per-file 16-module / 64-KiB limits and run-local reuse. No adapter is executed or inserted in the diff CPG. Keep native taint and targets identity unchanged.
+
+- [ ] Base-grade the five forwarding fixtures in DESIGN 5.9, test scoped shadowing, changed bytes, escaped root, nested/oversize adapter, unknown registration and replaced slot. Trace the module digest and both byte ranges for a positive and the specific refusal for a negative. Exercise both the product repo entry and the missing-root compatibility entry.
+- [ ] Measure counts of attempted/resolved/refused adapters, actual bytes, parses and elapsed time on the same population and hardware at S4a and S4b. Inspect all 20 Directus labels. Require all twelve R keys, count the eight residuals, and keep c0207/c0208 response objects silent. Account for the five tRPC misses independently. Gate the family on all applicable DESIGN 7 conditions, including the full JS/TS cell sample, raw recall and cross-check before any default merge.
 
 ### Slice S5: Go origins by proof (3 days)
 
 **Files:** create `provenance/go.rs`, `provenance/go_tests.rs`; modify `provenance/mod.rs`.
 
 Implement DESIGN 5.1, 5.2.1, 5.2.3, 5.2.5 and 5.4. Bind `:=`, var specs, package initializers, blank/error
-slots, receiver formals and actual output addresses. Type or registered position proves the inbound net/http
-request or gin context, including non-call fields. Pair every accessor with its own RHS, argument or changed
+slots, receiver formals and actual output addresses. Bind the net/http request only through the server installation in DESIGN 5.2.3, including non-call fields. A concrete *http.Request alone, even beside a writer, does not prove direction. A typed gin.Context has the separate gin contract. Pair every accessor with its own RHS, argument or changed
 receiver occurrence. Use per-operation CLI/flag parse, os environment, Viper and JSON input rules. Go
 `database/sql` and pgx `Query`/`QueryRow` give cursor/row handles. Only an actual addressable `Scan` destination
 on its write route is database. Traditional GORM writes output arguments. Generic `Find` returns records in
@@ -458,9 +392,8 @@ writer state and control metadata have independent slots.
       lookup/presence and parse/error pairs, stdin or request-body decoder versus local bytes, gin output
       arguments, Viper instance input and ignored fields. Pair a one-byte request value with another
       assignment on the same line, and a true request accessor with block-local shadowing. Keep the real
-      FormValue and Viper payload fixtures. Verify all groups.
-- [ ] Gates include the per-cell precision check and weighted class recall on the 40 Go diffs, the Go
-      request cross-check, accumulated groups and Contract.
+      FormValue in a registered twin and the Viper payload fixtures. Assert silence for RoundTrip, CheckRedirect and an unregistered signing helper, and check a still-live environment branch. Keep project route helpers/BindAndCheck distinct from direct net/http and gin outputs. Verify all enabled groups.
+- [ ] Publish all affected head cells, raw weighted recall on the 40 Go diffs, every R key, the Go cross-check and genuine unknown-direction cases. Apply the DESIGN 7 release decision, accumulated groups and Contract before default merge.
 
 ### Slice S6: the targets hint rule (0.5 day)
 
@@ -488,21 +421,20 @@ built-in identity, and the pattern languages never do. Detail text unchanged.
       reason). Report that the M-4 frame did not count definition-only changes. Label any later separate tally with its own frame.
 - [ ] Head samples (DESIGN 6): M-3's sampler, cells, seed and readers over every severity (`g/labels/head-*.jsonl`).
       **Precision** per DESIGN 7 in every cell, with intervals; small cells labelled in full and listed.
-      **Recall** per origin class against `census-final.jsonl`, weighted, ≥ 95%, every loss listed with its
+      **Unconditional recall** per origin class against `census-final.jsonl`, weighted, ≥95% as the original target. List every loss with its
       `prov-unknown`, `prov-drop` or actual wrong-origin trace and stage-D accepted losses marked. Base retention
       reported beside it. Include class denominators, the object-negative ledger, and insufficient/unresolved
       counts. Preserve the original gate and raw labels. DESIGN 7 bounds every populated class below 95% under
       the frozen frame and proof scope. Re-scoring requires the per-key evidence and independent review in
       ORCHESTRATION §§7–8. Publish any authorised successor score alongside the original.
-- [ ] **Cross-check.** Each genuine live payload read in the frozen `g/request-uses.tsv` has a `user_input` finding.
-      Reconcile all raw entries and only exclude the four independently witnessed false-seed predicates in
-      DESIGN 5.5. List exact keys, bytes and witnesses. **Hints**, **Contract** on the final head. Post the tables on the tracking issue.
+- [ ] Score the predeclared 98 R keys separately and show the full denominator beside each cohort. Report actual retained and lost base hits, all wrong-origin traces and the owner-approved exception set. For zero-reachable classes publish the raw zero and the independent positive/negative matrix receipt. There is no numerical pass for 0/0.
+- [ ] **Cross-check.** Reconcile every raw key. Publish strict coverage of genuine payloads, four distinct false-seed predicates, each accepted genuine loss with its key/bytes/owner disposition, and all unexpected residuals. Strict success requires every genuine read; scoped success requires every supported read and no unapproved or unexplained residual. Apply Hints and Contract to the final head. Post both unconditional and scoped tables on the tracking issue.
 
 ## Close-out (1 day)
 
 - [ ] Final docs check: the `CLAUDE.md` provenance paragraph (examined set, regimes, proofs, trace, losses), the
       algorithm-map line, `ALGORITHMS.md` entry 23, the S4 known-gaps entry. Optional
-      `mutants/provenance-identity.json` (boundary, join, kill and later-definition rules, hop depth, hint; not run
+      `mutants/provenance-identity.json` (boundary, join, kill and later-definition rules, value/handle cycle guards, hint; not run
       per PR).
 - [ ] File the main defects the review found, each with its probe and the row that pins it (`t/main-defects.txt`):
       a Python attribute read `obj.label` gives a zero-width `Use(label)` fed by an `exact` edge from a same-named
@@ -520,9 +452,8 @@ built-in identity, and the pattern languages never do. Detail text unchanged.
 
 ## Acceptance for the lane
 
-`CENSUS.md` merged with the go gate passed; S1 to S6 merged with both reviewers approving and each behaviour slice's
-precision check passed; on the final head every DESIGN 7 gate holds (Precision, Recall, Cross-check, Hints, Contract)
-with losses listed. Post the report on the tracking issue and refresh the docs and handoff. The original Recall gate is
-unmet under DESIGN 7's frozen-census bounds. An approved design or a passing matrix cannot close that gate.
+The base M gate is GO. Deliver a base-graded 915-row matrix, the family and final measurements, the 180-key census comparison and raw request reconciliation, all affected-test receipts and two reviewers' dispositions. Publish target hints and contract evidence and keep the original recall verdict in the final report.
 
-**Estimates:** M 4.5, T and E 3.5, D 1.5, S1 4, S2 2, S3 3.5, S4 3.5, S5 3, S6 0.5, G 2.5, close-out 1; total 29.5 days.
+**The default decision remains blocked.** Original release requires 85% head-cell precision and 95% raw recall per populated class, plus strict cross-check, Hints and Contract. No design, passing matrix or interim family merge can certify that recall result. Before a default-output merge, the owner may instead explicitly approve the DESIGN 7 limited release and its file/coverage boundaries. Then require all 98 specified R keys on the final head, the affected R keys at each family activation, 85% precision in every applicable head cell, no unapproved retention or cross-check loss, the required zero-coverage controls, Hints and Contract. Preserve full raw scores and actual lost base hits. Close as **owner-accepted limited scope; original recall objective unmet** only after those measurements and decisions. With approval absent or a required check failing, report the blocker and keep default publication on hold.
+
+**Scheduling.** The previous 29.5-day estimate predates the split and the bounded adapter reader. Size S1c per family and estimate S4b separately after the owner decisions. No timing or head-gate receipt exists for the amendment.
