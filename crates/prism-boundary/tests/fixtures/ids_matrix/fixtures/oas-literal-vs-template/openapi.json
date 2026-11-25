@@ -1,0 +1,37 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/kiln/warm": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      }
+    },
+    "/kiln/{heat}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "parameters": [
+          {
+            "name": "heat",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ]
+      }
+    }
+  }
+}

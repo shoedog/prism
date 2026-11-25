@@ -1,0 +1,39 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "definitions": {
+    "Fitting": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "lower": {
+                  "$ref": "#/definitions/Fitting"
+                },
+                "upper": {
+                  "$ref": "#/definitions/Fitting"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

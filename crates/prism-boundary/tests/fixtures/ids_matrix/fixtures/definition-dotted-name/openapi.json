@@ -1,0 +1,37 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "components": {
+    "schemas": {
+      "Kiln.Vessel-Outer_2": {
+        "type": "object",
+        "properties": {
+          "tone": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Kiln.Vessel-Outer_2"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
