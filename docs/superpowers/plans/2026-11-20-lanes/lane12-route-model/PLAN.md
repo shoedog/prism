@@ -16,7 +16,7 @@ one CLI arm. No cache change; `FrameworkEntryRecord` and the `framework_entry` n
 the truth runner.
 
 **Spec:** `DESIGN.md` here (records 5.1, composition 5.2, waves 5.3, listing 5.4, layout 5.5, Go method-value
-handlers 5.6, measurement 6, gates 7, follow-ups 8, owner decisions 9).
+handlers 5.6, measurement 6, gates 7, follow-ups 8, owner decisions 9, Hapi plugin adapter 11).
 
 ## Global constraints
 
@@ -40,8 +40,9 @@ handlers 5.6, measurement 6, gates 7, follow-ups 8, owner decisions 9).
 - Sizes: `python3 scripts/file_size.py <files>`; new files aim for 600 weighted lines. Only lane-written
   fixtures are executed, never a corpus (owner decision 5), under DESIGN 6's containment and pinned offline
   dependencies; fixture apps export their app and never listen.
-- The census may count the object-literal table shape on lane 5's `pilot-producer` locally, Claude seat,
-  aggregate counts only (ORCHESTRATION section 9). No row, fixture or text derives from it.
+- The census may count the object-literal table shape and the Hapi plugin shapes (DESIGN 11.4) on lane 5's
+  `pilot-producer` locally, Claude seat, aggregate counts only (ORCHESTRATION section 9); slice SH's gate is
+  measured there the same way. No row, fixture or text derives from it.
 
 ## Review focus
 
@@ -92,6 +93,7 @@ handlers 5.6, measurement 6, gates 7, follow-ups 8, owner decisions 9).
 | `prometheus` | 505095b64b43 | 2 (net/http) | `web/api/v1/testdata/openapi_3.1_golden.yaml` (not a gate input: own `route.Router`) |
 | `gin` | d75fcd4c9ab2 | 2 | none |
 | `saleor-saleor` | cc4aea76e397 | 3 (Django) | none |
+| a public Hapi application, chosen at M-2 (none under `bench-repos` on 2026-11-24) | recorded when cloned | 3 (Hapi plugin adapter, slice SH) | as found |
 
 ### Task M-2: census
 
@@ -103,7 +105,9 @@ non-test (`test`, `tests`, `__tests__`, `*_test.go`, `*.test.*`, `*.spec.*`). Pe
 shapes (Flask `@x.route`, `@x.<verb>`, `add_url_rule`; FastAPI verbs, `api_route`, `add_api_route`,
 `websocket`; Express verbs, `.route(p).<verb>`, `use`; gin verbs, `Handle`, `Any`, `Group`; net/http with
 and without a method in the pattern; chi verbs, `Route`, `Mount`; wave 3: NestJS decorators, Fastify, Koa,
-Django `path`/`re_path`/`include`, DRF routers, `[{ method, path, handler }]`); handler form (named, inline,
+Django `path`/`re_path`/`include`, DRF routers, `[{ method, path, handler }]`; Hapi: `server.route` calls and
+row objects by form and handler spelling, plugin objects by shape and export form, `server.register` calls by
+argument form and prefix source, DESIGN 11.4); handler form (named, inline,
 wrapped, member, imported); prefix source (none, literal on the router, literal at a mount in another file,
 variable, configuration); and each shape whose two counts differ by over 5%, with five examples. The syntax
 pass writes `ledger.jsonl` (DESIGN 6: corpus, revision, file, start and end byte of the decorator, call or
@@ -143,6 +147,7 @@ DESIGN 7's Go handler binding row and each 5.6 shape gets a ledger example for s
 | wave 2 < 200 | — | S4, S4b, S5; close-out promises lane 5 no Go records |
 | wave 3 candidate ≥ 200 | one slice each, descending count, ties by name | — |
 | object-literal tables | always (owner decision 3), last unless their count is higher; zero public sites: positive and negative rows are lane-written | — |
+| Hapi plugin adapter | always (owner decision 7), slice SH right after the object-literal table slice | — |
 
 - [ ] Candidates may also be counted on other `bench-repos` corpora that use them (name and commit
       recorded). A wave whose corpora carry no schema runs its gates without the schema oracle, and says so.
@@ -186,7 +191,7 @@ or 1).
 - Modify: `crates/prism-review/tests/cli/main.rs` (`mod routes_matrix_test;`)
 
 `rows.jsonl` fields: `id`; `dir`; `group` (`core`, `w1-python`, `w1-express`, `w2-gin`, `w2-method-value`,
-`w2-nethttp`, `w3-<framework>`); `class`; `truth_source` (`executed` or `hand`); `entry` (executed rows:
+`w2-nethttp`, `w3-<framework>`, `w3-hapi`); `class`; `truth_source` (`executed` or `hand`); `entry` (executed rows:
 `module:attr`, `module:factory()`, or the JS file exporting the app); `expect` (route objects in DESIGN 5.4's
 JSON shape, only the fields the row pins: `methods`, `path`, `paths`, `callbacks`, `receiver`, `site`);
 `expect_mounts`; `accepted_loss` (optional reason); `ignore` (optional issue number). After stage D the
@@ -253,6 +258,7 @@ the frameworks the census admitted):
 | ol01–ol04 | `route([{ method: 'GET', path: '/x', handler: h }])` with `route` a grounded consumer; exported array used in another file; inline handler; `method: ['GET','POST']` | listed; consumer list and framework label D |
 | ol05–ol07 | the same array passed to `function route(rows) { return rows.length; }`; an unused exported array; a client request descriptor of the same shape | candidate `table_consumer_unproven`, no credit; nothing; nothing |
 | fl20–fl21, fa14 | `@app.get("/w")` above `@replace` whose function returns another function; a function-local `app = Sink()` whose `get` returns an identity decorator, in a file importing Flask; `from .routers import admin as u` with `admin` and `public` in one file | callback `inner_decorator`; receiver unproven, no path; only `admin`'s routes |
+| hp01–hp22 | the Hapi plugin rows of slice SH (DESIGN 11.3) | as listed there |
 | ex27–ex30 | `import { serve }` beside an unrelated nested `function serve`, `app.get('/users', serve)` at module scope; `app.get('env')` and `app.route('/c').get(a).post(b).head(c)`; `let r = express.Router()`, `r.get('/live')`, `app.use('/api', r)`, then `r = express.Router()`, `r.get('/ghost')`; `app.use(['/v1', '/v2'], r)` | resolved to the export; no record, then three records; `/api/live` full, `/ghost` suffix `no_known_mount`; two full paths (D confirms arrays) |
 
 - [ ] Write fixtures, rows, runner and test; run the runner's self-checks, then the runner; commit
@@ -558,6 +564,89 @@ them); one test per rule stage D fixed; GREEN; reconciled completeness on its co
 `grounded_table_consumer_lists_rows` and `ungrounded_table_is_a_candidate_without_credit` (ol05 to ol07,
 lane-written positives and same-shape negatives).
 
+### Slice SH: Hapi plugin adapter (2.5 days)
+
+Owner decision 7 (2026-11-24): built whatever the census count, right after the object-literal table slice,
+whose row reader it uses; added after the design review, its rules (DESIGN section 11) are settled at stage D
+with the rest. Its goal is that routes registered with `server.route` inside plugin `register(server, options)`
+functions, the shape of lane 5's `pilot-producer`, are proven records rather than `table_consumer_unproven`
+candidates.
+
+**Files:** create `src/framework_entries/routes/hapi.rs` (DESIGN 11.2; aim under 600 weighted lines) and
+`src/framework_entries/routes/hapi_tests.rs` (declared `#[cfg(test)] mod` from `hapi.rs`); modify
+`routes.rs` (`mod hapi;`, and the table entry point calls `hapi_routes`), `routes/mounts.rs` (the Hapi join),
+`routes/receivers.rs` (a plugin's server parameter as a router), the object-literal table module (its row
+reader made `pub(super)` if it is not), `tests/fixtures/routes/rows.jsonl` (hp01 to hp22),
+`crates/prism-review/tests/cli/routes_matrix_test.rs` (`ENABLED_GROUPS` gains `w3-hapi`), the user page (one
+example line per Hapi reason), `CLAUDE.md` (one sentence in the route paragraph),
+`docs/features/language-coverage/js-ts-known-gaps.md`. If wave 1 was skipped, this slice also adds
+`src/ast/js_router_binding.rs` (`js_ts_unique_declarator`) as S3 describes. Nothing under `src/call_graph*` or
+`src/resolution*` changes; the items it reads (`ParsedFile::js_ts_site_binding`, `CallGraph::import_bindings`,
+`CallGraph::js_ts_exports`, `call_graph::js_ts_relative_module_candidates`,
+`frameworks::js_ts::call_classify::collect_js_ts_call_nodes`, `anon_owner::identity`) are already `pub` or
+`pub(crate)`.
+
+```rust
+// src/framework_entries/routes/hapi.rs: DESIGN section 11, read only by the route table
+/// Roots, registrations and mounts, plugin objects, server parameters, route rows and candidates, in that
+/// order; records carry framework "hapi" and are composed by `mounts::compose` with the other frameworks'.
+pub(super) fn hapi_routes(files: &BTreeMap<String, ParsedFile>, call_graph: &CallGraph, table: &mut RouteTable);
+/// Root: `Hapi.server(…)`, `new Hapi.Server(…)`, `Hapi.Server(…)` on a proven `@hapi/hapi` (or `hapi`) import.
+fn hapi_roots(parsed: &ParsedFile, file: &str, call_graph: &CallGraph) -> Vec<RouterId>;
+/// Plugin object: an object literal with `register` and `name` or `pkg`, in place or named by an export.
+fn plugin_object(files: &BTreeMap<String, ParsedFile>, call_graph: &CallGraph, file: &str,
+    item: Node<'_>) -> Result<PluginRef, Reason>;
+/// The server parameter: the plain, unwritten first formal of `register`.
+fn server_parameter(parsed: &ParsedFile, file: &str, register: Node<'_>) -> Result<RouterId, Reason>;
+// Reason gains (stage D may rename): HapiPluginUnproven, HapiPluginUnregistered, HapiRegistrationUnproven,
+// HapiServerParamUnproven, HapiRouteNotLiteral, HapiHandlerObject, HapiHandlerConflict
+```
+
+Rows (group `w3-hapi`; "D" is settled at stage D):
+
+| Rows | Input | Expect |
+|---|---|---|
+| hp01–hp02 | plugin `{ name: 'users', register: async (server, options) => { server.route([{ method: 'GET', path: '/users', handler: list }, { method: 'POST', path: '/users', config: { handler: create } }]) } }` registered by `await server.register(plugin)` on `const server = Hapi.server()`, `const Hapi = require('@hapi/hapi')`; the single-object form `server.route({ method: 'GET', path: '/x', options: { handler: h } })` | two records, full `/users`, `list` and `create` resolved; one record, full `/x`, `h` resolved |
+| hp03 | hp01 registered with `server.register(plugin, { routes: { prefix: '/api' } })` | full `/api/users` |
+| hp04–hp06 | `exports.plugin = { name, register }` in `users.js` and `server.register(require('./users'))`; `module.exports = { name: 'u', register }` with a module-level `async function register(server, options)` and `server.register({ plugin: require('./users'), routes: { prefix: '/v1' } })`; ESM `export const plugin = {…}` and `import { plugin as users } from './users.js'` | full paths through each export form |
+| hp07 | `method: '*'`; `method: ['GET', 'POST']` | `Any`; `Known` GET, POST |
+| hp08 | one plugin registered under `/v1` and `/v2` | two full paths on one record |
+| hp09 | plugin A registered under `/a` calls `server.register(B, { routes: { prefix: '/b' } })` on its own parameter | B's `/x` at `/a/b/x` per truth |
+| hp10 | `routes: { prefix: base }` with `base` a variable; `path: PATH` | suffix `variable_prefix`; dynamic |
+| hp11 | handlers: an inline arrow; `controller.list`; `wrap(h)`; `{ directory: { path: '.' } }`; `options.pre: [{ method: check }]` | anonymous; `member_handler`; `wrapper_call`; `hapi_handler_object`; D |
+| hp12 | `const server = makeFake(); server.route([{ method: 'GET', path: '/x', handler: h }])` in a file with no Hapi import | candidate `table_consumer_unproven`, no credit |
+| hp13 | `fastify.register(async (server, opts) => { server.route({ method: 'GET', url: '/x', handler: h }) }, { prefix: '/p' })` with `fastify = require('fastify')()` | no `hapi` record |
+| hp14–hp15 | `module.exports = { register(server) { server.route(…) } }` (no `name` or `pkg`); `module.exports = function register(server, options) { server.route(…) }` passed to `container.register(…)` | candidates, `hapi_plugin_unproven` |
+| hp16 | a plugin object passed only to `registry.register(plugin)`, `registry` not a Hapi server | candidates, `hapi_plugin_unregistered` |
+| hp17–hp18 | inside `register`, `const server = other; server.route(…)` in an inner block, and a nested callback `(server) => server.route(…)`; `register({ route }, options)` and `register(server) { server = wrap(server); … }` | `hapi_server_param_unproven` |
+| hp19 | `server.route(require('./routes'))` with `routes.js` exporting an array literal of route objects | D (one level through a proven binding, as ol02) |
+| hp20 | a row with both `handler` and `config.handler`; a row with no handler | `hapi_handler_conflict` twice |
+| hp21 | legacy `exports.register = function (server, options, next) {…}` with `exports.register.attributes = { name }` | D (admitted, or an accepted loss) |
+| hp22 | plugins registered only by `for (const p of plugins) await server.register(p)` | candidates, `hapi_plugin_unregistered`; the count goes to stage D (DESIGN 11.2, the weaker rule) |
+
+- [ ] Rows: hp01 to hp22 are written at stage T with the other rows, so that stage D sees them (the slice's
+      2.5 days include them; `truth_source` `hand` unless an offline install of a pinned `@hapi/hapi`
+      succeeds, then `executed` through a `truth/hapi_routes.mjs` adapter that instruments `server.route` and
+      `server.register` and reads `server.table()`; DESIGN 11.3). Enable `w3-hapi`; RED (the previous slice's
+      binary lists these rows as candidates or not at all). Tests in `hapi_tests.rs`, written first, each with
+      a negative twin: `plugin_route_table_rows_are_records` (hp01, hp02), `registration_prefix_composes`
+      (hp03), `exported_plugin_shapes_ground_through_imports` (hp04 to hp06), `star_and_array_methods` (hp07),
+      `plugin_registered_twice_yields_both_paths` (hp08), `nested_plugin_prefixes_compose` (hp09),
+      `dynamic_prefix_and_path` (hp10), `handler_forms_follow_the_callback_rules` (hp11),
+      `lookalike_route_on_a_non_hapi_object_is_a_candidate` (hp12), `fastify_register_is_not_a_hapi_plugin`
+      (hp13), `register_function_that_is_not_a_plugin_is_a_candidate` (hp14, hp15),
+      `plugin_not_registered_on_a_hapi_server_is_unregistered` (hp16, hp22),
+      `shadowed_or_written_server_parameter_is_refused` (hp17, hp18),
+      `handler_spelled_twice_or_missing_refuses` (hp20). GREEN, through memguard: `cargo test -p prism-review
+      --test cli routes_matrix_test::` and `cargo test -p prism --lib framework_entries::routes::hapi`, then
+      the other Stage I commands.
+- [ ] Gate (DESIGN 11.4): reconciled completeness over the public Hapi corpus's ledger sites; on
+      `pilot-producer`, locally by a Claude seat, the share of route entries in plugin `server.route` calls
+      that are records with a proven receiver and at least one exposure, against stage D's floor, every other
+      entry with a reason classified by a reader, aggregate counts only (outputs under `~/prism-evidence/`,
+      never in this repository, an issue or a PR body beyond the aggregates); no-regression gate. PR body:
+      the public corpus summary, the `pilot-producer` aggregates, sizes of the two new files.
+
 ## Close-out (1 day)
 
 - [ ] `CLAUDE.md` Architecture paragraph (route table, listing, statuses, reasons, out of model) and the
@@ -590,5 +679,6 @@ each slice; follow-ups filed.
 | S2 Flask and FastAPI; S3 Express and wave 1 gate | 3.5 + 4.5 |
 | S4 gin; S4b Go method values; S5 net/http, chi and wave 2 gate | 3 + 2.5 + 2.5 |
 | S6+ wave 3: object-literal tables, then each admitted framework | 2.5, then 2.5 each |
+| SH Hapi plugin adapter (owner decision 7) | 2.5 |
 | Close-out | 1 |
-| Total, waves 1 and 2 plus object-literal tables | 31.5 |
+| Total, waves 1 and 2 plus object-literal tables and the Hapi plugin adapter | 34 |

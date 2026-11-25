@@ -4,7 +4,8 @@ Status: architecture final; the per-framework extraction rules are tentative unt
 matrix and enumeration (PLAN stages M, T, E). Design review round 1 (2026-11-21) folded: one record per
 registration with every composed path, router identity grounded at the use, every callback recorded,
 gates reconciled against an independent site ledger. Owner decision 6 (2026-11-21) folded: Go method-value
-handlers are in scope (section 5.6). Related: issue #600, the `nav_routes` gap in draft PR #606.
+handlers are in scope (section 5.6). Owner decision 7 (2026-11-24), after the design review: a Hapi plugin
+adapter is in scope (section 11). Related: issue #600, the `nav_routes` gap in draft PR #606.
 The plan files a tracking issue. Research record:
 `~/prism-evidence/lanes-2026-11-20/research/lane12-route-model.md`.
 
@@ -167,7 +168,7 @@ second candidate file, a re-export chain or a star import leaves the child `Unpr
 |---|---|---|
 | 1 | Flask, FastAPI, Express | decorators and registration calls already recognised, now with method and path; `add_url_rule`, `add_api_route`; every verb leg of `app.route(p).get(h).post(h2)`; Express verbs from the pinned Express's own method table (HEAD and OPTIONS included), not the entry matcher's seven names; `app.get('env')` with no callback is a settings read, not a registration; `use` split into middleware and mounts; inline, wrapped and imported callbacks; mounts (`register_blueprint` with `url_prefix`, `include_router` with `prefix`, `app.use(prefix, router)`) |
 | 2 | Go | gin (`r.GET`, `Group`, groups passed as parameters within one function chain where the argument is the group variable itself), `net/http` including method-in-pattern strings, chi; reusing the existing callback-registration facts for bare-identifier handlers, and method-value handlers by 5.6 |
-| 3 | decided at stage M by count | from: NestJS decorators, Fastify, Koa routers, Django `path`/`re_path`/`include`, DRF routers, object-literal route tables (`route([{ method, path, handler }])`). A table is a route only when its consumer is grounded: a framework API or a stage D adapter, proven by its import binding, that installs the rows it is passed; an ungrounded table is listed as a candidate with reason `table_consumer_unproven` and earns no path or binding credit |
+| 3 | decided at stage M by count | from: NestJS decorators, Fastify, Koa routers, Django `path`/`re_path`/`include`, DRF routers, object-literal route tables (`route([{ method, path, handler }])`). A table is a route only when its consumer is grounded: a framework API or a stage D adapter, proven by its import binding, that installs the rows it is passed; an ungrounded table is listed as a candidate with reason `table_consumer_unproven` and earns no path or binding credit. A Hapi plugin adapter is built whatever the count (owner decision 7, section 11) |
 
 ### 5.4 The listing
 
@@ -202,6 +203,7 @@ src/framework_entries/routes/express.rs
 src/framework_entries/routes/go.rs
 src/framework_entries/routes/go_method_value.rs  Go selector callbacks (5.6); reads call-graph facts, adds none
 src/framework_entries/routes/mounts.rs     mount graph and composition
+src/framework_entries/routes/hapi.rs       Hapi plugin adapter (section 11, owner decision 7)
 src/navigation/routes.rs                   the listing (no logic in queries.rs)
 crates/prism-review/src/cli.rs, main.rs    NavQuery::Routes and its arm
 ```
@@ -365,6 +367,7 @@ module in `sys.modules` must come from the row, the venv or the standard library
 | Schema oracle | on each schema-bearing corpus in a finished wave: precision at least 0.95 of in-scope `full` exposures, each matching an exact operation; ambiguous suffixes credit nothing; recall reported with every miss classified; every listed binding that contradicts a schema-named handler is classified by a reader, and an unexplained contradiction fails |
 | Completeness (reconciled) | every ledger site of a built framework is extracted (by start and end byte), excluded by a rule stated independently of the extractor, an accepted stage-D loss, or unexplained; unexplained sites fail the gate, as does a supported shape class with no extracted site; extracted sites missing from the ledger are listed apart and classified. Recall over the ledger (sites extracted with a proven receiver and at least one exposure) is reported against a floor fixed at stage D. Each eligible corpus needs a nonempty, reviewed yield of `full` exposures and resolved bindings; a zero denominator fails unless the ledger has no applicable site. The listing's own invariant still holds: registrations = records with a proven receiver + records with an unproven one, and every callback has a status |
 | Go handler binding (wave 2) | on `apache-answer` and `miniflux-v2`: every ledger registration whose terminal callback is a selector carries a resolved handler or one of 5.6's reasons, none unexplained; at least 0.95 of the terminal method values of 5.6's admitted shapes resolve (census: 217 of 232 registrations on `apache-answer`, 151 of 179 on `miniflux-v2`), and each refused one is classified by a reader; on `apache-answer`, of the schema operations matched by a `full` exposure or a unique suffix, at least 0.90 have a resolved terminal callback that agrees with the operation's `@Router` function, and no contradiction is unexplained (the schema oracle row still applies). Stage D may lower a threshold only with the census rows that explain the loss |
+| Hapi plugin adapter | section 11.4 |
 | No regression | `nav callers`, `call-stats` and the navigation goldens are unchanged; the cache version is unchanged. Each wave gate also records cold session time, table time and peak RSS on its corpora |
 
 ## 8. Follow-ups, not started by this lane
@@ -388,6 +391,7 @@ module in `sys.modules` must come from the row, the venv or the standard library
 | 4 | Flask-AppBuilder and similar class-based frameworks | out of scope | each is its own extractor | — |
 | 5 | Executing fixture applications for truth | yes where the framework is already installed or installable offline; never anything from a corpus | hand-written truths only | stage T |
 | 6 | Go method-value handlers (`r.GET("/x", a.questionController.List)`) | **decided by the owner, 2026-11-21: in scope.** Resolved by 5.6 from declared types (receiver, parameter, local, package `var`, up to two field hops) and the existing owner index; interface-typed receivers are counted, never a single handler; slice S4b. Replaces "unresolved until stage D decides otherwise" | resolving interface receivers to candidate lists is a later slice with its own consumer | — |
+| 7 | A Hapi plugin adapter: routes registered with `server.route` inside plugin `register(server, options)` functions become proven records (the shape of lane 5's `pilot-producer`) | **decided by the owner, 2026-11-24: in scope**, about 2.5 days (PLAN slice SH); section 11, added after the design review and reviewed with the rest of the design at stage D | none if it is built; without it those routes stay candidates (`table_consumer_unproven`) | — |
 
 ## 10. Risks and accepted limits
 
@@ -414,3 +418,127 @@ module in `sys.modules` must come from the row, the venv or the standard library
 - **Strict receiver and import proof costs recall** (factory apps, re-exported routers); each refusal is a
   counted reason, and the stage D recall floor is set knowing it.
 - **Out of model:** routes added at run time in loops over data, plugin systems, reflection.
+
+## 11. Hapi plugin adapter (owner decision 7)
+
+Added on the owner's decision of 2026-11-24, after the design review; it is reviewed with the rest of the
+design at the lane's stage D. Rules are tentative in the same sense as section 5's.
+
+### 11.1 Why
+
+Lane 5's producer, `pilot-producer`, is a Hapi application. Its routes are registered with
+`server.route([{ method, path, config: { handler } }, …])`, and with the single-object form, inside per-feature
+plugin `register(server, options)` functions, where `server` is a parameter. No import proves the consumer at
+the call, so under section 5.3's table rule every such table is a candidate (`table_consumer_unproven`) with no
+path and no binding credit. The census counted about 58 `server.route([...])` calls holding about 401 route
+entries there (aggregate counts, Claude seat, ORCHESTRATION section 9). The adapter carries the import proof
+from the application's server root, through each `server.register(...)` call, to the plugin's `server`
+parameter, so these rows become proven records. It extends 5.3's wave 3 rule (a table's consumer is grounded by
+a framework API or a stage D adapter, proven by its import binding): here the import binding proves the root,
+and the registration chain proves the parameter.
+
+### 11.2 Proof rule
+
+Framework label `hapi`. Each step is a positive certificate; anything it does not establish is refused with a
+reason and counted, never guessed.
+
+- **Root.** A Hapi server root is a binding grounded by 5.1's rule (one binding in its own lexical scope,
+  never written afterwards) whose value is `Hapi.server(…)`, `new Hapi.Server(…)` or `Hapi.Server(…)`, where
+  `Hapi` is a proven import of `@hapi/hapi` (or the legacy `hapi` package): an ESM default or namespace
+  import, or a top-level `const|let|var Hapi = require('@hapi/hapi')` bound once and unwritten, with `require`
+  unshadowed; a destructured `const { server } = require('@hapi/hapi')` with the call `server(…)` counts too.
+  The root's `RouterId` is that binding, as for an `express()` result.
+- **Registration.** A call `S.register(arg)` or `S.register(arg, opts)` whose receiver `S` is a grounded
+  Hapi server (a root, or a server parameter as defined below). `arg` is one plugin item or an array literal of
+  items, flattened in order; an item is a plugin object (defined below), a registration object `{ plugin: P, options,
+  routes: { prefix } }` whose `plugin` is a plugin object, or a reference that resolves to one of these: a
+  local bound once and unwritten, or an import proven as 5.2 proves an imported router (the importing file's
+  `CallGraph::import_bindings` entry leads to one target file; `require('./x')`, `require('./x').plugin`,
+  `import x from './x'`, `import { plugin as x } from './x'`, `ns.plugin` for `import * as ns`). A module
+  object whose `plugin` export is a plugin object is a registration object. Each resolved plugin gives one
+  `MountRecord`: parent the registering server, child the plugin's server parameter, prefix the literal
+  of `routes.prefix` in the registration object or in `opts` (`Literal`), `Absent` when neither has one, and
+  `Unevaluated { text }` otherwise. A spread, a call, a loop over data, or a reference that does not resolve so
+  gives no mount and is counted (`hapi_registration_unproven`).
+- **Plugin object.** An object literal, written in place or named by an export of its module (read from
+  the syntax, as 5.2 reads `module.exports = r`, because the CommonJS export facts hold callables only):
+  `exports.plugin = {…}`, `module.exports.plugin = {…}`, `module.exports = {…}`, `export const plugin = {…}`,
+  `export default {…}`. It is a plugin only when it has a `register` property and a `name` or `pkg` property
+  (Hapi refuses a plugin without one, so an object without either is not a plugin, `hapi_plugin_unproven`).
+  The `register` value is a function or arrow expression written in place, a method `register(server,
+  options) {…}`, or an identifier (shorthand included) that resolves in its own scope to one unwritten function
+  declaration or `const` function. `module.exports = { name, register }` is the module-object form. The
+  legacy form `exports.register = function (server, options, next) {…}` with `exports.register.attributes` is
+  a stage D item (admitted, or an accepted loss), refused until then.
+- **The server parameter.** The `register` function's first formal is a plain identifier with no default
+  and is never written in the function (assignment, update, destructuring target). Its `RouterId` is
+  (file, the parameter's spelling, the parameter's start byte), so one plugin registered twice is one router
+  under two mounts and gets one exposure per chain (5.2). A `server.route(…)` call is grounded on it when its
+  receiver resolves in its own lexical scope to that formal; a shadowing declaration or a nested callable's
+  parameter of that spelling refuses (`hapi_server_param_unproven`), as does a destructured, defaulted or
+  written first formal. A call inside a nested callable of `register` is grounded by scope alone, as a
+  callback runs on the same server; stage D may narrow this with a row. A helper that receives the server as
+  an argument is followed only within the bound stage D fixes for routers passed as parameters (the gin
+  bound), else unproven. A plugin object that no grounded `S.register(…)` reaches proves nothing about its
+  parameter: its routes are candidates (`hapi_plugin_unregistered`). Stage D decides, with the census count of
+  this reason on `pilot-producer` and the public corpus, whether a weaker rule (the plugin shape and an
+  `@hapi/hapi` dependency in the nearest `package.json`) may ground the parameter; such a router would have no
+  mount, so its exposures stay `Suffix` (`no_known_mount`), never `full`.
+- **Route rows.** On a grounded receiver, `server.route(x)` where `x` is an object literal or an array
+  literal of object literals, flattened in order; each object is one `RouteRecord` whose site is the object
+  literal's bytes (a table call is many registrations, as each verb leg of a builder is one). A row that is not
+  an object literal (a variable, a spread, a call) is listed as `hapi_route_not_literal`; an argument that is
+  an imported or local array is a stage D item (one level through a proven binding, as for row ol02).
+  `method`: a string literal or an array of string literals is `Known`, `'*'` is `Any`, anything else
+  `Unknown`. `path`: 5.1's literal rule. The handler is the value of exactly one of `handler`,
+  `options.handler` and `config.handler` (`options` and `config` object literals; Hapi reads `config` as the
+  older spelling of `options`); none, or more than one, refuses (`hapi_handler_conflict`). The value resolves
+  by 5.1's callback rules (`Resolved`, `Anonymous`, `member_handler`, `wrapper_call`); an object value
+  (`{ directory }`, `{ file }`, `{ proxy }`, `{ view }`) is `Unresolved` (`hapi_handler_object`). Whether
+  `options.pre` methods are callback positions before the handler, and how `vhost` is shown, are stage D
+  items.
+- **What is refused.** A `server.route(…)` whose receiver is neither a grounded root nor a proven server parameter is not
+  a Hapi record: a table-shaped argument is listed as a candidate under 5.3's rule (`table_consumer_unproven`,
+  no credit), anything else is not listed. A look-alike on another framework (Fastify's
+  `fastify.register(async (server, opts) => { server.route({ method, url, handler }) }, { prefix })`) gets
+  nothing from this adapter, since its root is not a Hapi import.
+
+Composition is 5.2's: the mount graph composes registration prefixes, nested plugins (a plugin's `register`
+calling `server.register(…)` on its own parameter) included. Hapi's join is settled at stage D against truth
+(seed: under the prefix `/api`, a route path `/` is served at `/api`).
+
+Code: `src/framework_entries/routes/hapi.rs`, declared in `routes.rs`; it uses the JS/TS parts of
+`routes/receivers.rs` and `routes/handler.rs` and the object-literal table slice's row reader, and adds the
+Hapi join to `routes/mounts.rs`. No cache change, nothing under `src/call_graph*` or `src/resolution*`.
+
+### 11.3 Test rows
+
+Group `w3-hapi`, rows `hp01` to `hp22` in `tests/fixtures/routes/rows.jsonl` (PLAN slice SH lists them),
+positive and negative: the array and single-object forms; each handler spelling; registration with and
+without `routes.prefix`, twice, and nested; each exported plugin shape (CommonJS `exports.plugin`,
+`module.exports = { name, register }`, ESM named and default); methods `'*'` and arrays; dynamic prefixes and
+paths; inline, member, wrapped and object handlers; and as negatives a look-alike `server.route` on a non-Hapi
+object, a Fastify plugin, a `register` function that is not a plugin (no `name` or `pkg`; a bare exported
+function), a plugin passed to a non-Hapi `register`, a shadowed or written server parameter, a handler
+spelled twice, the legacy `attributes` form, and a plugin registered only through a loop. `@hapi/hapi` is not in
+the local npm cache (checked 2026-11-24), so rows are `hand` unless an offline install of a pinned version
+succeeds at stage T, in which case the truth runner instruments `server.route` and `server.register` and reads
+`server.table()` (DESIGN 6's containment applies).
+
+### 11.4 Measurement and gate
+
+**Census (stage M).** No corpus under `bench-repos` depends on `@hapi/hapi` (checked 2026-11-24), so stage M
+chooses a public Hapi application whose routes are registered in plugins, clones it into `bench-repos`, and
+records its name and commit; the ledger gains its Hapi sites (each `server.route` row object, each
+`server.register` call). Counted per corpus: `server.route` calls and row objects, by form (array or single),
+handler spelling and handler form; plugin objects by shape and export form; `server.register` calls by
+argument form and prefix source; and the share of `server.route` calls whose plugin a grounded registration
+reaches. On `pilot-producer` the same counts are taken locally by a Claude seat, aggregate only; no row,
+fixture or text derives from it.
+
+**Gate.** The matrix rows hold. On the public corpus, reconciled completeness (section 7) over its Hapi
+ledger sites. On `pilot-producer`: of the route entries in `server.route` calls inside plugin `register`
+functions, the share that are records with a proven receiver and at least one exposure is reported against a
+floor fixed at stage D from the census (default 0.95 of the entries in the shapes the rules above admit), every other
+entry carries a reason and is classified by a reader, and the counts are published as aggregates only. A
+`full` exposure is required wherever the chain of registration prefixes is literal.

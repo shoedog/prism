@@ -21,17 +21,18 @@ checked"): the reviews added measurements, enumeration passes and larger execute
 
 ## Lanes 6 to 12
 
-Status on 2026-11-21: designs and plans written for all seven, and one design review folded into each.
+Status on 2026-11-24: designs and plans written for all seven, one design review folded into each (two for
+lanes 8 and 10), and the owner's answers of 2026-11-24 recorded; no lane waits for an owner decision to start.
 
 | Lane | Directory | Issue | First deliverable | Days (estimate) | Depends on |
 |---|---|---|---|---|---|
 | 6. Provenance findings by proven identity | `lane6-provenance-identity/` | to be filed | a census memo: today's precision per origin class and recall against a 400-line source census on 240 real diffs, with a go gate; then structural fixes for every language | about 29.5 | lane 2's first slice for the shared identity entry point, or this lane carries it (one owner, whichever starts first); its edits in `targets/` are additive and follow lane 2 |
 | 7. Rule identity on findings | `lane7-rule-identity/` | to be filed | taint findings carry rule id and CWE for each reached sink occurrence (JSON and review output), with identities audited at its design review; then a closed registry and opt-in SARIF rule ids with CWE tags | 15.5 to 16 | nothing; its taint slice rebases over PR #841 if merged; lane 4's sink slice reads the rule from the field when this lane's taint slice has merged first, and is migrated by this lane otherwise |
-| 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and an occurrence-level parity matrix, then a reason on every lost sink, the name-only guard, and the trace engine's return and depth repairs | 40 before the MCP slices; then 0.5 to 9 more by how the MCP server gets the catalog (40.5 to 49 in all) | PR #841 merged; lane 4's benchmark pin task (or it does that task itself); lane 3's props slice for one row; rule ids from lane 7 when available; the owner's answer on the catalog question before the MCP slices. Lane 9's callback and argument-follow slices wait for this lane's name-only guard slice |
+| 8. One taint answer from both engines | `lane8-taint-parity/` | to be filed | a parity census and an occurrence-level parity matrix, then a reason on every lost sink, the name-only guard, and the trace engine's return and depth repairs | 47.5: 40 before the MCP slices, then 7.5 for moving the taint module into a new crate below both binaries (owner, 2026-11-24) | PR #841, which has merged; lane 4's benchmark pin task (or it does that task itself); lane 3's props slice for one row; rule ids from lane 7 when available. Lane 9's callback and argument-follow slices wait for this lane's name-only guard slice |
 | 9. JavaScript parameter binding | `lane9-parameter-binding/` | #595, #434 | a census on the current build and the fix for spread-argument and chained-call misbinding | 12 if only that fix runs; up to 37 if every slice passes its census gate | nothing to start; shares a harness-options change with lane 4; its arrow-parameter slice rebases over lane 3; its callback and argument-follow slices wait for lane 8's descent check; hands handler-registration cases to lane 12 |
 | 10. Subscripts in the data-flow graph | `lane10-keyed-subscripts/` | to be filed | a census memo with a go or no-go per language, then a node-based path builder and a seam that change no output | 23.5 to 31 (19 to 25 if only Python passes its gate), plus 4 to 4.5 for a dynamic-key slice with its own gate and 3 to 4 each for two slices the design review may admit | nothing to start; takes the next free cache version; edits one lookup in lane 3's object-literal binder and the argument-binding path lookups, coordinated with lanes 3 and 9; leaves the trace engine to PR #841 and lane 8 |
-| 11. Shared measurement kit | `lane11-measurement-kit/` | to be filed | an executed truth matrix, then `scripts/measure/` reproducing an existing lane gate and a labelled fixture pair from pinned inputs | about 32.5 | a consuming lane named before its formats are fixed; otherwise they ship as provisional and adoption is reported as not met |
-| 12. Routes as a first-class fact | `lane12-route-model/` | to be filed | `prism nav routes` for Flask, FastAPI and Express with mounts composed across files | 31.5 for waves 1 and 2 plus object-literal tables; 2.5 more per further framework | nothing; lane 5 can consume the listing |
+| 11. Shared measurement kit | `lane11-measurement-kit/` | to be filed | an executed truth matrix, then `scripts/measure/` reproducing an existing lane gate and a labelled fixture pair from pinned inputs | about 32.5 | nothing; it starts before its consumers, lane 10 (adopts the comparator) and lane 9 (adopts the oracle), named by the owner on 2026-11-24 |
+| 12. Routes as a first-class fact | `lane12-route-model/` | to be filed | `prism nav routes` for Flask, FastAPI and Express with mounts composed across files | 34 for waves 1 and 2, object-literal tables and the Hapi plugin adapter; 2.5 more per further framework | nothing; lane 5 can consume the listing |
 
 ## What the research changed
 
@@ -95,16 +96,19 @@ lanes were proposed with:
 ## Order and parallelism
 
 ORCHESTRATION section 11 lists the files and resources the lanes share and the rule for each. With one
-orchestrator, for lanes 2 to 5: lane 2 first; then the censuses of lanes 3 and 4 together; lane 3's
-slices; lane 4's slices if its gate passes; lane 5's feasibility study in the waits. Of lanes 6 to 12,
-lane 11 (the kit other lanes measure with) and lane 7 (rule identity, which lanes 4 and 8 use) pay off most
-when they run early; lane 8 waits for PR #841; lane 12 is best finished before lane 5's pilot. With several
+orchestrator, for lanes 2 to 5: lane 2 first; then the censuses of lanes 3 and 4 together; lane 3's slices;
+lane 4's slices if its gate passes; lane 5's feasibility study in the waits. Of lanes 6 to 12, lane 11 (the
+kit other lanes measure with; lanes 10 and 9 adopt it, owner 2026-11-24) and lane 7 (rule identity, which
+lanes 4 and 8 use) pay off most when they run early, and lane 11 starts before lanes 9 and 10; lane 8's
+prerequisite, PR #841, has merged; lane 12 is best finished before lane 5's pilot. With several
 orchestrators the lanes can run side by side, subject to "one measurement process at a time" on the host.
 
-## Decisions waiting for the owner
+## Owner decisions
 
 Every design has an "Owner decisions" table with the default the plan applies. Nothing blocks a lane's
-start. The decisions with the most consequence:
+start: the owner answered the open questions on 2026-11-24 (lanes 3, 5, 8, 11 and 12). Two decisions are
+still taken later by design, both in lane 5: the pilot go-ahead and the pilot pair order, at the feasibility
+memo. The decisions with the most consequence:
 
 | Lane | Decision | Default |
 |---|---|---|
@@ -113,15 +117,17 @@ start. The decisions with the most consequence:
 | 3 | Which follow-ups run after the first four slices (spread pass-through, `children`, wrapper resolution, trace-engine descent for plain `props` and for renamed tags, props through non-React wrappers)? | none without the census number stated beside each; props through unknown wrappers are refused and counted |
 | 4 | Is the experiment's result enough to fund implementation? | pre-stated: 25 or more converted cases continues; 15 to 24 asks; fewer stops (**confirmed 2026-11-20**); applied to the strict reading, with the liberal reading shown beside it |
 | 5 | Measure the private pair in the feasibility study? | yes, locally (**confirmed 2026-11-21**) |
-| 5 | Start the pilot after the feasibility memo? | **wait for an explicit go-ahead** |
-| 5 | Pilot pair order (public or private pair first) | **undecided (2026-11-21)**: taken at the memo, which presents the evidence; the go-ahead names the order. The private pair is confirmed as the real pair the lane is for (2026-11-21) |
+| 5 | Start the pilot after the feasibility memo? | **wait for an explicit go-ahead** (this reading of "proceed as described" **confirmed 2026-11-24**) |
+| 5 | Pilot pair order (public or private pair first) | **undecided (2026-11-21)**: taken at the memo, which presents the evidence; the go-ahead names the order; that both wait for the memo was **confirmed 2026-11-24**. The private pair is confirmed as the real pair the lane is for (2026-11-21) |
 | 6 | Remove provenance from the default review suite and targets set until it is rebuilt? | no; defaults unchanged |
 | 7 | Does the new `rules` key appear by default in JSON and review output? | yes: an additive key, golden files re-recorded once (**confirmed 2026-11-21**) |
-| 8 | How the MCP server gets the sink catalog | **put to the owner again.** The owner chose "factor out and move into the core crate" on 2026-11-21, before the second review measured what that takes: nearly the whole taint module (about 18,300 lines, 51 of 53 files), because sink matching calls source discovery. Options with their cost for the MCP slices: move the module into core (9 days); a new small crate below both binaries that holds it (7.5); the MCP crate depends on the review crate through one adapter (2.5); CLI only (0.5). The lane stops before those slices until the owner answers |
+| 8 | How the MCP server gets the sink catalog | **A2, confirmed 2026-11-24**: a new small crate below both binaries (`crates/prism-taint`) holds the taint module (about 18,300 lines, 51 of 53 files, because sink matching calls source discovery); the MCP slices cost 7.5 days, 47.5 for the lane. The owner's earlier choice, moving the module into the core crate (2026-11-21), was made before the size was measured; the other options were the MCP crate depending on the review crate through one adapter (2.5) and CLI only (0.5) |
 | 9 | Which slices run | each by its own census threshold; the spread-argument fix always |
 | 10 | JavaScript: do identifier-like string keys unify with dot fields (`o["x"]` and `o.x`)? | yes |
+| 11 | Which lanes adopt the kit before its formats are fixed? | lane 10 the comparator, lane 9 the oracle; lane 11 starts first (**confirmed 2026-11-24**) |
 | 12 | Which frameworks beyond Flask, FastAPI, Express, gin, net/http and chi | by census counts, one slice each |
 | 12 | Go method values as handlers (`r.GET("/x", c.List)`) | in scope (**owner, 2026-11-21**): 91% of the public Go corpus's registrations are method values on a field of the registering method's receiver; resolved by declared field types, in a slice of their own |
+| 12 | A Hapi plugin adapter (routes registered with `server.route` inside plugin `register(server, options)` functions, the shape of lane 5's `pilot-producer`) | in scope (**owner, 2026-11-24**): about 2.5 days, lane total 34 |
 
 ## How the plans were checked
 

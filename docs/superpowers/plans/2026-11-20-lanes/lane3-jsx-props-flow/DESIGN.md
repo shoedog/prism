@@ -484,6 +484,7 @@ reported.
 | 5 | Attribute-name uses in the caller | left as they are (the 5.3 source rule does not depend on them); an issue is filed | removing them later is its own differential and moves edge endpoints in every TSX file | — |
 | 6 | Positional slots continuing past a pattern formal, and pattern locals as parameter names or seeds | not changed: both have readers outside this lane (two review algorithms, the reasoning layer's seeds) | follow-ups F7 and F8 | — |
 | 7 | Props through wrappers other than React's `memo` and `forwardRef` (state-management or styling wrappers that pass props through, such as `observer(fn)`, `styled(fn)`) | refuse and count (`refused_unknown_wrapper`, 5.3 check 3) | an allow-list of pass-through wrappers proven by import identity is one table and its rows (follow-up F9); revisit with the census count | after the census; any time before F9 |
+| 8 | One read-only export query added under `src/resolution/` for admission check 2 (5.3 check 2, 5.5: `src/resolution/js_ts/namespace.rs`, reusing `js_ts_namespace_proof`, reached through `CpgCallResolver`; no resolution outcome changes) | yes (**confirmed, owner 2026-11-24**) | the export proof would otherwise be a copy of the namespace comparison outside the resolver | before S3 |
 
 ## 9. Follow-ups, each with the number that would justify it
 

@@ -6,6 +6,8 @@ matrix (PLAN stages M, T, E). Round 1 of the design review is folded (2026-11-21
 the same day (its probes, cited as "r2 probe", are in `~/prism-evidence/lanes-2026-11-20/reviews/fable-r2/lane8/probes/`). Starts after
 draft PR #841 merges (it edits the same three files and adds the crossing-policy type this lane uses). The
 plan files a tracking issue. Research record: `~/prism-evidence/lanes-2026-11-20/research/lane8-taint-parity.md`.
+Owner decision 2 was settled on 2026-11-24: the MCP server gets the catalog through a new crate below both
+binaries (branch A2, section 4).
 
 ## 1. Intent
 
@@ -87,20 +89,27 @@ For the catalog:
 
 **A trait in core, implemented in the review crate and passed in** (chosen for the CLI). The `prism` binary
 gets catalog mode with no move. How the MCP server gets an implementation is decision 2 (section 8), the
-last slice, with four branches:
+last slices of the lane. The owner chose A2 on 2026-11-24; the four branches considered:
 
-- **A. Move into the core crate.** The matchers call into source discovery, so nothing smaller than the
-  module closure can move: nearly the whole taint module (about 18,300 of 19,146 lines, 51 of 53 files,
-  section 2), into a core module not named `algorithms` (the MCP layering patterns forbid that spelling).
-  Untangling: 12 items out of `taint.rs`, two functions out of `seeds.rs` and one out of `flat.rs`, source
-  detection taking the graph and files instead of `&CpgContext`, restricted visibility rewritten. Core then
-  holds review's sink rules; lane 7's registry, which `SinkHit` names once that lane merges, moves with them.
-- **A2. A small crate below both binaries** (`crates/prism-taint`) holding the taint module whole (`report.rs`
-  stays in review); `prism-review` and `prism-mcp` depend on it, core is unchanged, the layering test gains
-  one allowed crate name and a rule that the new crate never names `prism_review`, and the documented layout
-  becomes four crates. The same move with fewer partial moves.
-- **B.** The MCP crate depends on the review crate through one adapter file and a narrow layering exception.
-- **C.** CLI only; MCP pending.
+- **A2. A small crate below both binaries** (chosen, owner 2026-11-24). A new workspace crate
+  `crates/prism-taint` (package `prism-taint`, library `prism_taint`, depending on `prism`) holds the taint
+  module's closure: the matchers call into source discovery, so nothing smaller than the module closure can
+  move, which is nearly the whole taint module (about 18,300 of 19,146 lines, 51 of 53 files, section 2),
+  with the catalog implementation. `run.rs` (orchestration), `report.rs` (the one file naming
+  `crate::output`) and the IPC detection of `flat.rs` stay in review. `prism-review` and `prism-mcp` depend
+  on the new crate, core is unchanged, and the documented layout becomes four crates. The layering test gains
+  one allowed crate name for the MCP crate, a rule that the new crate never names `prism_review` or the
+  review crate's `algorithms` module, and a rule that core never names `prism_taint`. Untangling, done in
+  the review crate before the move: the `taint.rs` items the closure names into a closure module, the
+  format-wrapper detection out of `flat.rs`, I-8's sink loop out of `run.rs`, source detection taking the
+  graph and files instead of `&CpgContext` (I-8), and restricted visibility rewritten to `pub`, so that the
+  move itself rewrites only `use` paths. Lane 7's registry, which `SinkHit` names once that lane merges,
+  moves with the closure. Cost of the MCP slices: 7.5 days (PLAN I-9).
+- **A. Move into the core crate.** The same closure into a core module not named `algorithms`; core then holds
+  review's sink rules. The owner's earlier choice (2026-11-21), made before the closure was measured; 9 days.
+- **B.** The MCP crate depends on the review crate through one adapter file and a narrow layering exception;
+  2.5 days.
+- **C.** CLI only, MCP pending; 0.5 day.
 
 ## 5. Architecture — *crossing rules tentative*
 
@@ -285,7 +294,9 @@ reports, a check on real code compares them (gate Catalog, section 7).
 remaining budget, re-expansion); `src/reasoning/` (catalog mode, knobs, the syntax view beside `order.rs`'s
 `AstOrderView`, the boundary-target test in `shape.rs`), `crates/prism-review/src/` (the
 trait's implementation, CLI flags), `crates/prism-mcp/src/` (inputs; the golden transcripts change and are
-re-recorded with the reason in the commit), tests under `tests/` for the matrix.
+re-recorded with the reason in the commit), tests under `tests/` for the matrix. In the I-9 slices (decision
+2, branch A2) the trait's implementation and the closure it calls move to `crates/prism-taint/src/`, and
+review keeps re-exports so its paths hold.
 
 ## 6. Measurement
 
@@ -338,7 +349,7 @@ real" (reported; old line-granular hops can fail it), adjudications kept.
 | # | Question | Default applied | Cost of changing later | Latest cheap point |
 |---|---|---|---|---|
 | 1 | Start before PR #841 merges | no; wait for it | starting early means rebasing three files | at start |
-| 2 | How the MCP server gets the catalog | **Owner, 2026-11-21: branch A (factor the shared functions out of the review crate, then move them into the core crate).** The choice was made before the closure was measured; it is put to the owner again with the measured size (section 2: the matchers call into source discovery, so branch A moves nearly the whole taint module, about 18,300 of 19,146 lines in 51 of 53 files), and the lane stops before the MCP slices (PLAN I-9) until the owner re-confirms A or picks A2, B or C (section 4). Estimates: A 9 days, A2 7.5, B 2.5, C 0.5 (PLAN I-9) | A, A2 and B are structural changes to the crate layout; A2 adds a crate | stage D, with I-9's step-0 closure measured on the stage-D head, so the answer is in before I-9 |
+| 2 | How the MCP server gets the catalog | **Owner, 2026-11-24: branch A2, a new crate `crates/prism-taint` below both binaries that holds the taint module's closure (section 4).** Chosen with the measured size in hand (section 2: the matchers call into source discovery, so the closure is nearly the whole taint module, about 18,300 of 19,146 lines in 51 of 53 files). It replaces the owner's earlier choice of branch A (2026-11-21), made before the closure was measured. Estimates of the alternatives, recorded: A 9 days, B 2.5, C 0.5; A2 is 7.5 (PLAN I-9) | A2 is a structural change to the crate layout and adds a crate; moving back means a second move-only sequence | decided |
 | 3 | Default of `--edges` for `taint-reaches` | `exact`, as today | flipping to name-only changes agents' answers | — |
 | 4 | Grade of trace-mode findings | `unlabeled`, as today; stage D records the histogram, and a change is a follow-up (5.5) | one slice and every trace-review cell | any time |
 | 5 | Depth cap | 2, adjustable by flag up to 3 | — | — |

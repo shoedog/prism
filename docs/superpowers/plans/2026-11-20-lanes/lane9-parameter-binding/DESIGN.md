@@ -180,6 +180,10 @@ The definitive count is taken on the merged head at close-out; a failure there g
 | Counters | per slice, a listed set may move: call-resolution counters only in E2; return-flow certification (`return_flow_suppression_*`) in A to E when a binding it depends on is added or removed, each change reconstructed; the slice's own label counter in D. Every other movement fails |
 | Benchmark | traced cases do not decrease in any class; gains and losses listed by case id |
 
+The Oracle gate's grading uses lane 11's oracle: lane 9 adopts the measurement kit's oracle (owner,
+2026-11-24), and until that oracle has merged the lane grades with its own checker, migrating when a bound
+replay of its baseline agrees (lane 11 DESIGN section 6, G-adopt).
+
 ## 8. Owner decisions
 
 | # | Question | Default applied | Cost of changing later | Latest cheap point |

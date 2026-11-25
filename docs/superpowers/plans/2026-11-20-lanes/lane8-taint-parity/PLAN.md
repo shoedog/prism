@@ -13,7 +13,9 @@ emitting site of each hop from a syntax view passed through the walk (DESIGN 5.2
 of a boolean; the reason rides on `BoundaryEdge` into the reasoning warnings. The walk state (entered sites,
 remaining budget) lives in `src/cpg/trace_frames.rs`. A descent policy (ceiling, depth) is threaded beside PR
 #841's crossing policy. A `SinkCatalog` trait in core is implemented in the review crate by review's own sink
-loop over each root's fan, and passed in.
+loop over each root's fan, and passed in. For the MCP server (DESIGN decision 2, branch A2, owner
+2026-11-24) that implementation and the taint module's closure then move into a new crate,
+`crates/prism-taint`, below both binaries (slices I-9.0 to I-9.4).
 
 **Tech stack:** Rust; Python 3 for census scripts; the SecBench harness (`eval/secbench`). **Spec:**
 `DESIGN.md` in this directory (5.1 to 5.6 rules, 7 gates, 8 owner decisions). Review probes cited by name are
@@ -40,7 +42,7 @@ in `~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane8/probes/`.
   `main.rs`). `src/reasoning/taint_reaches.rs` is 583: catalog mode goes in `src/reasoning/sink_catalog.rs`.
   `src/cpg/tests.rs` is 2,636, over the hard ceiling: a slice may edit an expectation there, never add a test.
 - **MCP goldens** (`tests/fixtures/mcp/golden/*.jsonl`) hold `taint_reaches`'s schema and description. Only
-  I-5 and I-9 re-record them: `PRISM_MCP_BLESS_GOLDEN=1 cargo test -p prism-mcp --test mcp
+  I-5 and I-9.4 re-record them: `PRISM_MCP_BLESS_GOLDEN=1 cargo test -p prism-mcp --test mcp
   golden_transcript_test`, with the reason in the commit message.
 - **Tier-A** (ORCHESTRATION 5 item 5) for every slice touching `src/cpg/` (I-1 to I-5). Its two taint cases
   that expect `BoundaryExited` (`eval/fixtures/python/taint_boundary_negative`, `taint_descent_depth_bound`)
@@ -329,19 +331,19 @@ today's values on a0f2c427):
       the slot certificate; 5.2 Returns and Depth (rows w01 to w10; the parent store per state and boundary
       retraction, with the two-site row `const a = id(t); const b = id(\n t\n);` asserting source and return
       bytes); 5.3 names and precedence; 5.6 operand kinds and the unsupported families. The implementer
-      updates rows. Both reviewers; cap 2. The orchestrator then puts DESIGN decision 2 to the owner again with
-      I-9 step 0's closure, measured on the stage-D head.
+      updates rows. Both reviewers; cap 2. DESIGN decision 2 is settled (branch A2, owner 2026-11-24); stage D
+      does not reopen it.
 
 ## Stage I: slices
 
 Order: I-1 first (every later row asserts a reason; gate Explained reads them); I-guard (lane 9 waits for
 it); I-walk (repairs the engine's own wrong answers before any slice widens what it crosses); the descent
 slices by the ordering rule; I-5 after them, so `parity_knobs_agree` runs on the final rules; I-7 after I-5
-(it takes `TaintReachesOptions`); I-8; I-9 only after the owner re-confirms decision 2. A slice starts only
+(it takes `TaintReachesOptions`); I-8; then I-9.0 to I-9.4 in that order (branch A2, DESIGN decision 2). A slice starts only
 when the DESIGN sections it cites are approved and the types it names have merged.
 
 **Gates per slice** (DESIGN 7): Matrix and Defaults (all); Benchmark (I-guard); Sound and Benchmark (I-walk
-and the descent slices); Catalog (I-8, I-9); Recovered and Explained (close-out). ORCHESTRATION 5 items 1 to 4, 8 to 10; two
+and the descent slices); Catalog (I-8, I-9.4); Recovered and Explained (close-out). ORCHESTRATION 5 items 1 to 4, 8 to 10; two
 reviewers. No slice adds or relabels graph edges, so item 6 does not apply; the census rerun replaces it.
 
 ### Slice I-1: reasons and the crossing trace (3.5 days)
@@ -631,69 +633,152 @@ operand `None`. Structured: rule `structured-<category>` with lane 7 DESIGN 5.2'
 - [ ] Catalog-mode wall time and file-scan counts against frontier mode on A's largest JS repository and one
       Python and one Go repository, in the PR body (over 3× is a follow-up). Two reviewers.
 
-### Slice I-9: the catalog in MCP (DESIGN decision 2)
+### Slices I-9.0 to I-9.4: the catalog in MCP through a crate below both binaries (DESIGN decision 2, 7.5 days)
 
-The owner chose branch A on 2026-11-21, before the closure was measured. The lane stops here until the owner
-re-confirms A or picks A2, B or C with step 0's measured closure (put at stage D); nothing below starts without
-that answer. Step 0 is common to A and A2.
+The owner chose branch A2 on 2026-11-24 (DESIGN section 4 and decision 2): a new crate `crates/prism-taint`
+(package `prism-taint`, library `prism_taint`) holds the taint module's closure and the catalog
+implementation; `prism-review` and `prism-mcp` depend on it; core is unchanged. The slices run in order after
+I-8 merges, one PR each. The closure cannot be moved in parts: its modules form one cycle of references
+(verified at 57f7b8cf: `taint_sinks/` names `matches_sink`, `line_matches_structured_sink`,
+`SinkMatchOutcome` and the Go sink tables through `taint.rs`; `taint/js_ts/` names `taint_sinks`; and
+`cleansing.rs`, `sink_match.rs`, `seeds.rs` and the `js_ts/`, `python/` and `go/` directories name each
+other), and a crate below review cannot name review, so any subset left behind breaks the build. So the
+preparation that needs judgement (I-9.1) lands in the review crate first, in small reviewable commits, and the
+move itself (I-9.3) is one generated PR that changes only `use` paths, checked byte for byte. No moved file
+gains a line, and every new file stays under 600 weighted lines, so no file approaches the 2,000 ceiling.
 
-**Step 0 (0.5 day, before the stage-D question).** `census/closure.py` (kept in the evidence directory)
-computes the module closure mechanically from the catalog implementation and the sink loop (`use` trees,
-qualified and child-module paths, re-exports; a module's private children move with it, since `impl` blocks
-need no import) and records files, raw lines and every item imported from a module outside the closure.
-Measured 2026-11-21 at 9ba4249d (before I-8): `taint_sinks/` 23 files, 7,322 lines; from `taint/sink_match.rs`
-25 files, 9,919 lines (`cleansing.rs`, all of `js_ts/`, `python/`, `go/`); 12 items of `taint.rs`
-(`TaintSeed`, `JsTsAliasDef`, `JsTsAliasDefs`, `JsTsAliasKill`, `JsTsRequestDataSource`, `JsTsParam`,
-`UrlSanitizerBinding`, `PathSanitizerBinding`, `SafeFormatHtmlBinding`, `JsTsPathSanitizerBinding`,
-`TargetSeedSynthesisContext`, `matches_sink`), `seeds.rs::reference_line_cfg_reachable`; with I-8's sink loop
-also `seeds.rs::detect_framework_sources` and `flat.rs::detect_format_string_wrappers`: about 18,300 of 19,146
-lines, 51 of 53 files. Left in review: `run.rs` (orchestration), `report.rs` (the one file naming
-`crate::output`), `flat.rs`'s IPC detection.
+**Stop rule (every I-9 slice).** Stop and ask the owner when (a) a closure module names an item of the review
+crate outside `algorithms/taint*` and `taint_sinks/` (none today; once lane 7 merges, `SinkHit` names its
+registry row, and `crates/prism-review/src/output/rule_registry.rs` joins the closure as the one expected
+entry, so CLI and MCP name rules alike); (b) the untangling needs an edit other than moving an item, rewriting
+visibility (`pub(super)`, `pub(in crate::algorithms::taint)`, `pub(crate)`), rewriting a `use` path, or I-8's
+signature change of `detect_framework_sources`; (c) the closure exceeds 20,000 raw lines or 55 files; (d)
+another lane has an open PR on a closure file (ORCHESTRATION's shared table: lanes 4, 6 and 7 finish their
+taint slices first or rebase after; the move is announced on their issues as a move-only window that lasts
+from I-9.1's dispatch to I-9.3's merge).
 
-**Stop rule (A and A2).** Stop and ask the owner when (a) a closure module names an item of the review crate
-outside `algorithms/taint*` and `taint_sinks/` (none today; once lane 7 merges, `SinkHit` names its registry
-row, and `crates/prism-review/src/output/rule_registry.rs` joins the closure as the one expected entry, so CLI
-and MCP name rules alike); (b) the untangling needs an edit other than moving an item, rewriting visibility
-(`pub(super)`, `pub(in crate::algorithms::taint)`), rewriting a `use` path, or I-8's signature change of
-`detect_framework_sources`; (c) the closure exceeds 20,000 raw lines or 55 files; (d) another lane has an
-open PR on a closure file (ORCHESTRATION's shared table: lanes 4, 6 and 7 finish their taint slices first or
-rebase after; the move is announced on their issues as a move-only window).
+#### Slice I-9.0: closure measurement (0.5 day)
 
-**Branch A: the closure into core (I-9a 7 days; I-9b 2 days).**
-- [ ] I-9a: review-only commits move the 12 items and three functions into closure modules (behaviour
-      unchanged; `cargo test --test algo_taxonomy taint_sink` and `--test cli` unchanged); then move-only PRs
-      move the closure into a core module not named `algorithms` (`src/taint_rules/`, with the catalog
-      implementation as `src/taint_rules/catalog.rs`), review keeping re-exports so its paths and tests hold,
-      moved bytes checked identical. `CLAUDE.md`: the code-organisation and layering sections, and every path in
-      the `taint_sinks/` paragraph. Run the `macos-footprint` idle guard (`cargo test --release -p prism-mcp
-      --test mcp footprint_guard -- --ignored --nocapture --test-threads=1`, `docs/MCP.md`); report binary
-      size and idle footprint against main.
-- [ ] I-9b: MCP input `sink_catalog: true` (rejected with `sinks`); `tools_reasoning.rs` calls
-      `taint_reaches_catalog` with the core implementation; `max_results` clips `per_sink` and reports the
-      omitted count; goldens re-recorded; tests `taint_reaches_catalog_mode_reports_rules` over c01, c02, c08
-      and an input test.
+- [ ] `census/closure.py` (kept in the evidence directory) computes the module closure mechanically from the
+      catalog implementation and the sink loop (`use` trees, qualified and child-module paths, re-exports; a
+      module's private children move with it, since `impl` blocks need no import) on the head I-9.1 will start
+      from (I-8 and any taint slice of lanes 4, 6 and 7 merged), and records files, raw lines, external crates
+      and every item imported from a module outside the closure. Measured 2026-11-21 at 9ba4249d (before
+      I-8): `taint_sinks/` 23 files, 7,322 lines; from `taint/sink_match.rs` 25 files, 9,919 lines
+      (`cleansing.rs`, all of `js_ts/`, `python/`, `go/`); 12 items of `taint.rs` (`TaintSeed`, `JsTsAliasDef`,
+      `JsTsAliasDefs`, `JsTsAliasKill`, `JsTsRequestDataSource`, `JsTsParam`, `UrlSanitizerBinding`,
+      `PathSanitizerBinding`, `SafeFormatHtmlBinding`, `JsTsPathSanitizerBinding`,
+      `TargetSeedSynthesisContext`, `matches_sink`), `seeds.rs::reference_line_cfg_reachable`; with I-8's sink
+      loop also `seeds.rs::detect_framework_sources` and `flat.rs::detect_format_string_wrappers`: about 18,300
+      of 19,146 lines, 51 of 53 files. A reading of the code at 57f7b8cf adds three `taint.rs` items that
+      `taint/python/sources.rs` names (`PythonDjangoRequestDataSources`, `PythonFlaskRequestDataSources`,
+      `PythonParam`), so the item list is taken from the script, not from this paragraph. The only external
+      crates the closure names at 57f7b8cf are `prism` and `tree_sitter` (`anyhow` only in `run.rs`, which
+      stays). Left in review: `run.rs` (orchestration), `report.rs` (the one file naming `crate::output`),
+      `flat.rs`'s IPC detection, and the `taint.rs` items the closure does not name (`TaintConfig`, `slice`'s
+      re-export, its inline tests).
+- [ ] Apply the stop rule; record the closure list (files, items, the rewrite counts I-9.3 will expect) in
+      `LEDGER.md` and in I-9.1's brief.
 
-**Branch A2: a crate below both binaries (I-9a 5.5 days; I-9b 2 days).**
-- [ ] I-9a: create `crates/prism-taint` (package `prism-taint`, library `prism_taint`, depends on `prism`),
-      add it to the workspace members and `default-members`; `prism-review` and `prism-mcp` depend on it.
-      Move-only PRs move the closure whole (`taint/` without `run.rs`, `report.rs` and the IPC part of
-      `flat.rs`; `taint_sinks/`; the catalog implementation), review keeping re-exports, moved bytes checked
-      identical. `tests/integration/layering_test.rs`: `prism_taint` is allowed in `crates/prism-mcp/src/`,
-      `crates/prism-taint/src/` must never name `prism_review` (a scan beside the core one), core never names
-      `prism_taint`; module doc and tests. `CLAUDE.md`: the workspace becomes four crates (layout and
-      layering sections, `taint_sinks/` paths). Footprint guard as in A.
-- [ ] I-9b as in A, calling `prism_taint`'s implementation.
+#### Slice I-9.1: untangle the closure inside the review crate (1.5 days)
 
-**Branch B: the MCP crate depends on the review crate (2.5 days).**
-- [ ] `crates/prism-mcp/Cargo.toml` gains `prism-review = { path = "../prism-review" }`; only a new
-      `crates/prism-mcp/src/catalog.rs` names it (`prism_review::api::ReviewSinkCatalog`).
-      `tests/integration/layering_test.rs`: `MCP_REVIEW_PATTERNS` stay for every other file; in
-      `catalog.rs` only that path is allowed; add `mcp_catalog_file_may_name_only_the_catalog`; update its
-      module doc and the `CLAUDE.md` layering paragraph. Then I-9b's input, call, goldens and tests.
-- [ ] Footprint guard as in A.
+Review-only, behaviour unchanged. Every edit is one the stop rule allows. After it, the closure is a set of
+whole files in which every item another module uses is `pub`, so the move needs no edit but its paths.
 
-**Branch C: CLI only (0.5 day).** `docs/MCP.md` and the tool description say catalog mode is CLI-only; a
-follow-up issue records branches A, A2 and B with this lane's numbers.
+**Files:** Create `crates/prism-review/src/algorithms/taint/model.rs` (the `taint.rs` items the closure names,
+moved verbatim), `taint/format_wrappers.rs` (`detect_format_string_wrappers` and the helpers only it uses, out
+of `flat.rs`), `taint/sink_loop.rs` (I-8's `sink_decisions` and `SinkRunFacts`, out of `run.rs`); Modify
+`algorithms/taint.rs` (`mod` lines for the three; `pub(crate) use model::{…}` so every `crate::algorithms::taint::X`
+path still resolves), `taint/flat.rs`, `taint/run.rs`, `taint/catalog.rs` (its `use` of the sink loop), and the
+visibility of every closure file.
+
+- [ ] Commit 1: move the closure items of `taint.rs` into `model.rs`, with the re-export. Commit 2: move the
+      format-wrapper detection into `format_wrappers.rs`. Commit 3: move the sink loop into `sink_loop.rs`.
+      Each commit compiles; moved lines byte-identical except their own `use` lines, which the PR body lists.
+- [ ] Commit 4: in every closure file, `pub(super)`, `pub(in crate::algorithms::taint)` and `pub(crate)` become
+      `pub`, and every child `mod` line of a closure module becomes `pub mod` (a crate boundary needs both).
+      `grep -rn "pub(" <closure files>` returns nothing afterwards; the PR body gives the counts (57f7b8cf:
+      257 `pub(super)`, 46 `pub(in crate::algorithms::taint)`, 12 `pub(crate)`).
+- [ ] `cargo test --test algo_taxonomy taint`, `cargo test -p prism-review --lib algorithms::taint` (the
+      inline `taint_sinks/` tests included) and `cargo test --test cli` unchanged; Defaults gate on
+      population A byte-identical; `python3 scripts/file_size.py` on every touched file (the three new files
+      under 600; `taint.rs`, `flat.rs` and `run.rs` shrink). Two reviewers: the review is of the item lists and
+      the visibility diff, not of behaviour.
+
+#### Slice I-9.2: the crate and the layering test (0.5 day)
+
+**Files:** Create `crates/prism-taint/Cargo.toml` (`name = "prism-taint"`, `publish = false`, workspace
+version, edition and license; dependencies `prism = { path = "../.." }` and `tree-sitter = "0.25"`, plus any
+crate I-9.0 lists), `crates/prism-taint/src/lib.rs` (module doc only: what the crate holds and that it never
+names `prism_review`); Modify the root `Cargo.toml` (`members` and `default-members` gain
+`crates/prism-taint`, so a root `cargo test` runs the moved unit tests), `crates/prism-review/Cargo.toml` and
+`crates/prism-mcp/Cargo.toml` (`prism-taint = { path = "../prism-taint" }`), `tests/integration/layering_test.rs`.
+
+Layering test: a third scan, over `crates/prism-taint/src/`, reports any non-comment line naming
+`prism_review`, `crate::algorithms`, `algorithms::` or `prism::algorithms` (test files get no exemption, as for
+core); the core scan of `src/` also reports `prism_taint`; the MCP patterns (`MCP_REVIEW_PATTERNS`) are
+unchanged, and the moved code's paths (`prism_taint::taint::…`, `prism_taint::taint_sinks::…`) contain none of
+them, so the MCP crate may name the new crate without an exception. The module doc says so.
+
+- [ ] Tests first, beside the existing ones: `the_taint_crate_naming_the_review_crate_is_reported`,
+      `the_taint_crate_naming_review_algorithms_is_reported`, `core_naming_the_taint_crate_is_reported`,
+      `the_mcp_crate_may_name_the_taint_crate`, and the walk over `crates/prism-taint/src` (non-empty once
+      `lib.rs` exists). RED, then GREEN.
+- [ ] `cargo build --workspace`; `cargo test --test integration layering_test::`. Reviewers as ORCHESTRATION
+      section 2 assigns. No product behaviour changes.
+
+#### Slice I-9.3: the generated move (3 days)
+
+One move-only PR, generated and checked by a script, never edited by hand.
+
+**Files:** Create `scripts/move/taint_crate.py` (the generator and its check, with a test file beside it that
+runs under `python3 -m unittest`), `crates/prism-taint/src/taint.rs` (glue: `pub mod` lines for the moved
+children of `taint/`, and the re-exports the moved code names through `crate::taint::…`: the `model` items,
+`line_matches_structured_sink`, `SinkMatchOutcome` and the sink tables that review's `taint.rs` re-exported);
+Move every closure file from `crates/prism-review/src/algorithms/taint/…` to `crates/prism-taint/src/taint/…`
+and from `algorithms/taint_sinks/…` to `crates/prism-taint/src/taint_sinks/…`, keeping the directory shape so
+every `super::` path holds; Modify `crates/prism-taint/src/lib.rs` (`pub mod taint; pub mod taint_sinks;`),
+`crates/prism-review/src/algorithms/taint.rs` (the `mod` lines of moved modules become
+`pub(crate) use prism_taint::taint::{…};`, so `run.rs`, `report.rs`, `flat.rs` and the tests keep their
+`crate::algorithms::taint::…` paths), `crates/prism-review/src/algorithms/mod.rs` (`pub(crate) mod taint_sinks;`
+becomes `pub(crate) use prism_taint::taint_sinks;`), `CLAUDE.md`.
+
+- [ ] The check, run by the script (its own unit tests first, on a toy tree with one planted extra byte that
+      must fail): for every moved file, the new bytes
+      equal the old bytes after the rewrite map `crate::algorithms::taint_sinks` → `crate::taint_sinks`, then
+      `crate::algorithms::taint` → `crate::taint`, and nothing else; the number of rewrites per file equals
+      I-9.0's expected counts (57f7b8cf: 161 and 2 occurrences); no closure file is left under
+      `crates/prism-review/src/algorithms/` and no other file moves; the glue files are listed and are the only
+      new bytes. The script's report (files, rewrites, glue) goes in the PR body. `git diff -M` shows every
+      moved file as a rename.
+- [ ] `cargo build --workspace`; `cargo test --test algo_taxonomy taint`, `cargo test --test cli`,
+      `cargo test -p prism-taint` (the moved unit tests, the same number that `cargo test -p prism-review --lib
+      algorithms::taint` ran before the move) and `cargo test --test integration layering_test::`, all unchanged; Defaults gate on population A
+      byte-identical; Tier-A does not apply (nothing under `src/` changes).
+- [ ] `CLAUDE.md`: the workspace becomes four crates (the code-organisation and "Layering and file layout"
+      sections, the dependency direction `prism` ← `prism-taint` ← `prism-review`, `prism-mcp`), the layering
+      test's third scan, and every path in the `taint_sinks/` paragraph.
+- [ ] Footprint: the `macos-footprint` idle guard (`cargo test --release -p prism-mcp --test mcp
+      footprint_guard -- --ignored --nocapture --test-threads=1`, `docs/MCP.md`); release binary sizes of
+      `prism` and `prism-mcp` against main, in the PR body. Two reviewers: the review covers the generator, the rewrite map, the
+      glue and the check's report, not the moved lines.
+
+#### Slice I-9.4: the catalog in the MCP tool (2 days)
+
+- [ ] MCP input `sink_catalog: true` (rejected with `sinks`); `crates/prism-mcp/src/tools_reasoning.rs` calls
+      `taint_reaches_catalog` with `prism_taint`'s implementation (the type I-8 named `ReviewSinkCatalog`, now
+      exported from `prism_taint`; review re-exports it from `prism_review::api` under the same name);
+      `max_results` clips `per_sink` and reports the omitted count; the tool description covers catalog mode;
+      goldens re-recorded with the reason in the commit; tests `taint_reaches_catalog_mode_reports_rules`
+      over c01, c02, c08 and an input test (accepted, combined with `sinks`, wrong type). Catalog gate
+      (DESIGN 7) on the MCP path for the matrix rows. Footprint guard and MCP binary size against main in the
+      PR body. `docs/MCP.md` (the `taint_reaches` row). Two reviewers.
+
+**Alternatives not run** (DESIGN section 4, recorded): branch A, the same closure into a core module
+`src/taint_rules/` with review keeping re-exports (9 days; the owner's earlier choice, made before the closure
+was measured); branch B, `prism-mcp` depends on `prism-review` and only a new `crates/prism-mcp/src/catalog.rs`
+names `prism_review::api::ReviewSinkCatalog` under a narrow layering exception (2.5 days); branch C, catalog
+mode stays CLI-only and the MCP description says so (0.5 day).
 
 ## Close-out (2 days)
 
@@ -729,6 +814,9 @@ owner; the orchestrator does not adjust thresholds.
 | I-binding, I-same-line, I-spelling | 3 each (9) |
 | I-5 knobs | 1.5 |
 | I-7 catalog core; I-8 review catalog and CLI | 3.5; 5 |
-| I-9 branch A / A2 / B / C | 9 / 7.5 / 2.5 / 0.5 |
+| I-9.0 closure; I-9.1 untangle; I-9.2 crate and layering; I-9.3 move; I-9.4 MCP (branch A2) | 0.5; 1.5; 0.5; 3; 2 (7.5) |
 | Close-out | 2 |
-| **Total** | **49** (A), **47.5** (A2), **42.5** (B), **40.5** (C) |
+| **Total** | **47.5** (40 before the MCP slices, plus 7.5) |
+
+The alternatives not run would have cost 9 days (A), 2.5 (B) or 0.5 (C) for the MCP slices, totals 49, 42.5
+and 40.5.

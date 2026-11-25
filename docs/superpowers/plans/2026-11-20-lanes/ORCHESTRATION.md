@@ -52,6 +52,17 @@ Rules for the seats:
   give that seat's work to the Claude seat of the same tier (sol → Opus-5.5 xhigh, terra → Sonnet-5.5 high)
   and record the substitution in the lane ledger.
 
+> **Run of 2026-11-24 (owner).** For the run that starts the lanes the owner assigned OpenAI seats: the
+> implementer and the census runner are gpt-6.2-sol (xhigh) by `codex exec`; the design seat and reviewer B
+> are gpt-6.2-astra (xhigh); reviewer A stays Opus-5.5 (xhigh); the orchestrator stays Sonnet-5.5. The
+> orchestrator makes every commit and every push, because a codex seat's sandbox cannot write git metadata: a
+> codex implementer leaves its changes in the working tree and reports. Enumerator tiers for that run, in
+> order: the orchestrator's own pass, gpt-6.1-terra, gpt-6.2-sol, and gpt-6.2-astra last. Private code stays
+> with Claude seats as section 9 says. The run's operating details (the job launcher, the build and
+> measurement slots, the claims on shared files) are in the controller's runbook,
+> `~/prism-evidence/lanes-run-2026-11-24/RUNBOOK.md`. Where this note and the table above disagree, the note
+> applies to that run.
+
 ## 3. Lane lifecycle
 
 Every lane runs these stages in order. A stage has an exit gate; the lane plan gives the gate's numbers.
@@ -103,6 +114,9 @@ git -C ~/code/slicing worktree add -b <branch> ~/code/prism-<lane> origin/main
 cd ~/code/prism-<lane>
 git sparse-checkout set --no-cone '/*' '!/eval/secbench/'    # not for a worktree whose task edits or runs the benchmark harness
 ```
+
+The plan directory is on `main` from 2026-11-24, so a lane worktree carries its own plan; a stage D amendment
+is committed on the lane's branch and merged as a docs PR.
 
 Branch names: `<type>/<lane>-<stage or slice>`, for example `test/targets-inventory-matrix`,
 `feat/targets-inventory-s2`, `eval/schema-impact-feasibility`. One branch and one PR per slice; each new
@@ -294,7 +308,7 @@ rebases after it; two lanes never have open PRs on the same shared file at once.
 | Shared resource | Who touches it | Rule |
 |---|---|---|
 | CPG cache version constant | lanes 3, 4, 9 and 10, and the unrelated C/C++ data-flow lane (#818) | section 5 item 7: each PR takes the next free version at rebase time |
-| `crates/prism-review/src/algorithms/taint*` and `taint_sinks/` | lane 4 (new sink), lane 3 (end-to-end check only), the open cross-file taint PR #841 | lane 4 adds new modules, a module line in `taint_sinks/mod.rs`, and edits the sink loop and emission block of `taint/run.rs`; lane 7 edits the same loop to attach rules (lane 4's sink slice follows lane 7's taint slice when lane 7 runs; if lane 4's merges first it writes its rule tag in the description and lane 7's taint slice migrates that producer and its reader); lane 6 adds one module (`taint/request_sources.rs`) and a module line; lane 8 implements its sink catalog over this code and extracts the sink loop of `taint/run.rs` into a function (the same loop lanes 4 and 7 edit: whichever merges later rebases). Depending on the owner's answer on how the MCP server gets the catalog, lane 8 then moves nearly the whole taint module (about 18,300 of 19,146 lines, 51 of 53 files) into the core crate or into a new fourth crate below both binaries: that move is a move-only PR sequence that no other lane's taint PR may overlap, so lanes 4, 6 and 7 finish their taint slices first or rebase after it; rebase over #841 when it merges; lane 3 changes no taint code |
+| `crates/prism-review/src/algorithms/taint*` and `taint_sinks/` | lane 4 (new sink), lane 3 (end-to-end check only), the open cross-file taint PR #841 | lane 4 adds new modules, a module line in `taint_sinks/mod.rs`, and edits the sink loop and emission block of `taint/run.rs`; lane 7 edits the same loop to attach rules (lane 4's sink slice follows lane 7's taint slice when lane 7 runs; if lane 4's merges first it writes its rule tag in the description and lane 7's taint slice migrates that producer and its reader); lane 6 adds one module (`taint/request_sources.rs`) and a module line; lane 8 implements its sink catalog over this code and extracts the sink loop of `taint/run.rs` into a function (the same loop lanes 4 and 7 edit: whichever merges later rebases). For the MCP server, lane 8 then moves nearly the whole taint module (about 18,300 of 19,146 lines, 51 of 53 files) into a new fourth crate, `crates/prism-taint`, below both binaries (owner, 2026-11-24; lane 8 slices I-9.1 to I-9.3): that move is a move-only PR sequence that no other lane's taint PR may overlap, so lanes 4, 6 and 7 finish their taint slices first or rebase after it; rebase over #841 when it merges; lane 3 changes no taint code |
 | `src/cpg/object_literal_args.rs` | lane 3 | lane 4 reads its facts, does not edit it; lane 10 edits one path lookup there, in the slice that changes path spellings, after agreeing the change on lane 3's issue |
 | Argument binding (`src/cpg/build.rs` step 5b, `src/cpg/callee_params.rs`) | lanes 3 and 9; lane 10 changes the path lookups | each lane adds modules and call lines; a lane rebases over the other's merged slice and re-runs its matrix |
 | `src/cpg/trace.rs` and the reasoning layer | PR #841, then lane 8 | lanes 3, 9 and 10 do not edit it; what they need from it (descent rules, the check that a name-only binding edge is never crossed) is lane 8's, and the slices that depend on it wait for lane 8's name-only guard slice |

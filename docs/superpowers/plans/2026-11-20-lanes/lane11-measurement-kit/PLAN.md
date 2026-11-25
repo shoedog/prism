@@ -138,12 +138,13 @@ pair cannot serve: its serializers emit no bytes (DESIGN section 2).
 
 ### Task M-4: the consuming lane (G-adopt)
 
-- [ ] Before stage D, the orchestrator asks the owner and the orchestrators of lanes 3, 9 and 10 which lane
-      measures its next differential with the kit (lane 10's plan already prefers the kit's `run` and
-      population when merged). `LEDGER.md` records the named lane, that differential (its plan task), the
+- [ ] The owner named the consuming lanes on 2026-11-24: lane 10 adopts the comparator and lane 9 adopts the
+      oracle, and lane 11 starts first. Before stage D, the orchestrator agrees with the orchestrators of lanes
+      10 and 9 which differential each measures with the kit (lane 10's plan already prefers the kit's `run`
+      and population when merged). `LEDGER.md` records, per lane, that differential (its plan task), the
       inputs and classes it needs, its existing comparator (for the baseline parity replay) and who hands the
-      kit over. Its classes and inputs go to stage D. If no lane is secured, record that: FORMATS.md is then
-      marked provisional and G-adopt is reported not met at close-out.
+      kit over. Their classes and inputs go to stage D. If neither lane has taken a decision on kit output by
+      the close, FORMATS.md stays provisional and G-adopt is reported not met, as the close-out says.
 
 **Exit gate:** INVENTORY.md covers every file listed; TARGET.md names commits, binaries, numbers and the
 labelled pair's rows; PREDICTION.md exists; M-4's outcome is in LEDGER.md.

@@ -336,6 +336,10 @@ orchestrator reads each new fixture before its first run.
 | Engines | `taint-reaches` reaches every row whose truth is `reaches`; for a `does not` row no `exact`-only route exists as defined above (the engine follows killed edges, so a verdict alone cannot be required); review taint's verdicts are recorded for the same rows and are not required to change |
 | Spellings | every changed fixture row and golden file is listed in the PR; paths of code without static-key subscripts are byte-identical, checked on the node inventory, not only the edge dump |
 
+The Differential and No flood gates are measured with lane 11's comparator: lane 10 adopts the measurement
+kit's comparator (owner, 2026-11-24), and until it has merged the lane uses its own differential script,
+migrating when a bound replay of its baseline agrees (lane 11 DESIGN section 6, G-adopt).
+
 ## 8. Follow-ups, not started by this lane
 
 Dictionary and map methods as keyed reads and writes; integer indices; element paths across calls;
