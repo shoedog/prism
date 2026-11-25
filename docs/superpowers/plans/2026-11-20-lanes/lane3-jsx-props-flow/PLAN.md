@@ -11,21 +11,20 @@ end-to-end path counts and rated review examples.
 that leaves parameter occurrences and positional slots untouched; the #594 object-literal binder is split
 into props sources (object literal, JSX attributes) and props targets (plain formal reads, pattern-formal
 definitions), keeping its generic shape; JSX sites enter the argument-binding step through one new branch,
-take their source from the line-keyed Use node their caller's def-use edges end at, and are admitted only
-for a direct component, a React `memo`/`forwardRef` wrapper, and a namespace-import member tag.
+take one connected, binding-correct caller Use per leaf, and require an existing Exact singleton. A member site also proves the namespace export and a wrapper site proves the React render operand.
 
 **Tech stack:** Rust (core crate: `src/ast`, `src/data_flow`, `src/cpg`), tree-sitter
 JavaScript/TypeScript/TSX; Node with the pinned TypeScript 5.9.3 for the census and oracle; Python 3 for the
 comparators.
 
-**Spec:** `DESIGN.md` in this directory (sections 5.1 to 5.4 are the rules; section 7 the gates).
+**Spec:** `DESIGN.md` sections 5.1–5.4 define the rules and counters, 5.7–5.9 record losses, generators and amendments, and section 7 defines the gates. [ROW-DISPOSITIONS.md](ROW-DISPOSITIONS.md) covers the pinned 311 rows.
 
 ## Global constraints
 
 - Worktree `~/code/prism-jsx-props`; evidence `~/prism-evidence/jsx-props/`.
 - Corpora: X = Excalidraw at `0642e72c` (`~/prism-evidence/inputs/excalidraw-0642e72c/source`, no git
   history); T = `~/code/bench-repos/TypeScript/src` (regression only); G = `~/code/bench-repos/gin` (control:
-  a non-JavaScript corpus must show no change); R2 = the second React corpus chosen in Task M-2 (full
+  a non-JavaScript corpus must show no change); R2 = cal.com, chosen in Task M-2 (full
   history); `private-corpus` locally under ORCHESTRATION section 9.
 - TypeScript for scripts: `~/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js`.
 - Edges only for a site that passes the target admission of DESIGN 5.3.
@@ -187,10 +186,7 @@ the `dfg_props` map read from the serialised statistics; an absent key reads as 
 `trace_misses` and `trace_boundary` (through the trace engine, as the existing plain-call trace tests do;
 each names its seed line and its target line).
 
-**Binding rows assert reachability from the definition.** Every S3 row that expects a binding also asserts
-a `path` from the value's definition (a local's Def, or the caller's own formal Def) to the edge's target,
-and, when the target is a pattern formal, a `trace_reaches` seeded at that definition's line. An `edge`
-assertion alone cannot see a source node that the caller's definitions do not reach (DESIGN 5.3).
+**Binding rows assert reachability from the definition.** Join the path through the concrete connected caller Use. For a pattern target assert trace descent where DESIGN 5.3.5 admits it, or the specified boundary/miss for a spelling or site collision. Test a refused leaf with no incoming props edge and a negative path from an existing seed.
 
 `props_matrix_tests.rs` holds one test, `props_matrix_rows`, with a constant
 `ENABLED: &[&str] = &["control"]`. It runs the rows of enabled groups and skips the rest. On main the
@@ -223,7 +219,7 @@ admits only React's wrappers.
 | p12 | `({ a } = {})` | Def `a` |
 | p13 | `({ a } = other)` with `other` an earlier formal | exactly the Defs main has today (the parameter-default alias code); no second Def at the same bytes |
 | p14 | outer `const title = 1;` then inner `({ title }) => { return use(title); }` | no edge from the outer Def into the inner use; an edge from the pattern Def |
-| p15 | `({ a }) => { a = 1; return use(a); }` | the edge from the pattern Def to `use(a)` is not `exact` |
+| p15 | `({ a }) => { a = 1; return use(a); }` | no entry edge to the final read; line-2 assignment Def → final Use, exact (identifier twin) |
 | p16 | pattern local read inside a nested arrow | the label an identifier formal gets in that position |
 | p17 | the function uses `arguments`; the function calls `eval` | the refusals an identifier formal gets in that function |
 | p18 | method, class method, object method, async function, generator | as p01 |
@@ -231,11 +227,11 @@ admits only React's wrappers.
 | p20 | `(x = 1, { b }) => { … }` | `b` gets a Def; `x` exactly as on main |
 | p21 | one-line owner `const C = ({ a, b }) => use(a, b);` | Defs `a` and `b`; edges present, label not asserted |
 | p22 | `function C({ html }) {` / `function html() {}` / `return use(html);` / `}` (a hoisted function replaces the formal) | the edge from `C:html@1` into `use(html)` is `killed`, as the identifier twin `function C(html)` gets |
-| p23 | `function C({ a }, b = (a = 1)) {` / `return use(a);` / `}` | the edge from `C:a@1` is labelled as the identifier twin `(a, b = (a = 1))` gets (`killed`) |
+| p23 | `function C({ a }, b = (a = 1)) {` / `return use(a);` / `}` | formal-bytes edge into the body read is the identifier twin’s `cfg_incomplete` in the TSX control; locate the two line-1 Defs by bytes |
 | p24 | `function C({ o }, x = (o.k = 1)) {` / `return use(o.k);` / `}` | the edge from `C:o@1` to `o.k` gets what the identifier twin `(o, x = (o.k = 1))` gets (the own-parameter member-write refusal) |
 | p25 | `function C({ a = 1 }) {` / `var a;` / `return use(a);` / `}`; the same as an anonymous function passed to a call | as the identifier twin `(a = 1)` with `var a`, named and anonymous |
 | p26 | `function L({ id }) {` / `return xs.map(({ id }) => {` / `return use(id);` / `});` / `}` | no edge from `L:id@1` into the inner use; the inner arrow's pattern Def feeds it |
-| p27 | `function C({ a }) {` / `run(() => { a = 2; });` / `return use(a);` / `}` | the edge from `C:a@1` to `use(a)` is labelled as the identifier twin gets (`cfg_incomplete`, the captured-write rule) |
+| p27 | `function C({ a }) {` / `run(() => { a = 2; });` / `return use(a);` / `}` | entry Def → final Use `killed`; captured-write Def → final Use `cfg_incomplete` in the TSX twin |
 | p28 | `{ a: { c } = make() }`; `{ a: { c } = other }`; `{ a: { c } = {} }` | no Def for `c`; no Def for `c`; Def `c` |
 | p29 | `function f({ a } = outer) {` / `return use(a);` / `}` with `outer` an outer variable, not a formal | exactly the Defs main has today (the alias code's `a` and its twin); no second Def at the same bytes |
 | p30 | `({ a } = make())` | no Def for `a` |
@@ -278,7 +274,7 @@ at a pattern); `D({ other: t })`-style rows that already hold.
 | l23 | rest residuals: `D({ title: t, b: y })` into `{ [k]: v, ...rest }`; `D({ list: x, b: y })` into `{ list: [first], ...rest }`; `D({ a: x, b: y })` into `{ a: aa, ...rest }`; `D({ style: { color: c, size: s }, title: t })` into `{ style: { color, ...r }, title }` | nothing into `v` or `rest`; `y → rest` only; `x → aa` and `y → rest` only; `c → color`, `s → r`, `t → title`, nothing else into `r` |
 | l24 | `D({ style: { color: c, size: s } })` into `function D({ style }) {` / `return draw(style.size);` / `}` | `c → D:style@1(def)` and `s → D:style@1(def)`; `edges_to_container` = 2; the `path` from `c` to `D:style.size@2(use)` exists (accepted limit, DESIGN 5.3, pinned) |
 
-**Group S3 (JSX attributes; TSX and JSX only):**
+**Group S3 (JSX attributes in TSX and JavaScript with JSX syntax, including .js):**
 
 | Row | Shape | Required |
 |---|---|---|
@@ -286,12 +282,12 @@ at a pattern); `D({ other: t })`-style rows that already hold.
 | j02 | `<HtmlP html={text} />` into `function HtmlP(props)` reading `props.html` and `props.other` | edge into `HtmlP:props.html(use)`; no edge into `props.other` |
 | j03 | arrow component; named import `{ Html }`; default import `Html` of a file whose default export is `function Html`; `<UI.Html>` with `import * as UI` | as j01 (in each form the site's recorded callee name equals the function's name; forms where they differ are j35) |
 | j04 | `memo(function M({ html }) {…})`; `forwardRef((props, ref) => …)` with `ref={r}` | binds to the inner function's first formal; nothing into `ref` |
-| j05 | `const C = memo(({ html }) => {…})` (anonymous inner function) | binds like j04 (if stage D records it as an accepted loss, the row asserts no edge and counter `refused_no_props_formal` = 1) |
+| j05 | `const C = memo(({ html }) => {…})` (anonymous inner function) | bind and trace through the admitted anonymous first-argument function’s pattern Def, located by callable and local bytes |
 | j06 | `<Html {...p} html={text} />`; `<Html html={text} {...p} />` | binds; none with `refused_overwritten` = 1; `spread_sources_unbound` = 1 each |
 | j07 | the same attribute twice | the last binds |
 | j08 | `key={k}`, `ref={r}`; a pattern that names `key` | nothing bound |
 | j09 | `title="x"`; bare `disabled` | none (control) |
-| j10 | value `user.name`; `(text)`; `text as string`; `text!` | bound (member value: the full path and its base, as arguments do) |
+| j10 | value `user.name`; `(text)`; `text as string`; `text!` | member: use the connected full `user.name` node once, with a path from `user`’s Def; no extra base edge. Parentheses, `as` and `!` bind their operand |
 | j11 | value is a call, conditional, template, arrow, element | none; `refused_value_not_data` = 1 each |
 | j12 | `style={{ color: c }}` into `{ style: { color } }`, `{ style }`, `props.style.color` | `c → color`; `c → style`; `c → props.style.color` |
 | j13 | `aria-label={l}` into `{ 'aria-label': a }` | `l → a` |
@@ -312,16 +308,18 @@ at a pattern); `D({ other: t })`-style rows that already hold.
 | j28 | `{items.map((it) => <Row key={it.id} item={it} />)}`; the same with `item={it}` before `key` | `it → Row:item`, with a `path` from the arrow's formal `it` to `Row:item@…(def)`; nothing from `key` |
 | j29 | element in a declarator: `const el = <D title={title} />;`; the multi-line `const a = (` / `<D` / `title={title}` / `/>` / `);`; an assignment `el = <D title={title} />;` | bound, with a `path` from `title`'s definition |
 | j30 | multi-line expression-bodied arrow: `const Card = (item) => (` / `<div>` / `<Row item={item} />` / `</div>` / `);` | bound, with a `path` from `Card:item@1(def)` |
-| j31 | one-line expression-bodied arrow: `const One = ({ title }) => <D title={title} />;` | bound, with a `path` from `One:title@1(def)` (stage D: mint the signature-line use, or accept the loss; if accepted, no edge and `refused_source_not_found` = 1) |
+| j31 | one-line expression-bodied arrow: `const One = ({ title }) => <D title={title} />;` | keep the S1 Def, no props edge/path/descent; `refused_source_not_found` = 1 |
 | j32 | element as an object-literal value, a conditional branch and a JSX child, each in a declarator: `const o = { icon: <D title={title} /> };`; `const g = c ? <D title={title} /> : null;`; `const h = <div><D title={title} /></div>;` | bound, with a `path` from `title`'s definition |
-| j33 | a value captured from the enclosing component inside a callback: `{items.map((it) => <Row onPick={onPick} />)}`; the block-bodied `{items.map((it) => {` / `return <Row onPick={onPick} />;` / `})}`, with `onPick` a local or prop of the component | bound, with a `path` from the component's `onPick` definition (stage D: bind from the enclosing owner's node, or accept the loss; if accepted, no edge and `refused_source_in_enclosing_owner` = 1 for the expression-bodied form, and the stage D outcome for the block-bodied form) |
+| j33 | a value captured from the enclosing component inside a callback: `{items.map((it) => <Row onPick={onPick} />)}`; the block-bodied `{items.map((it) => {` / `return <Row onPick={onPick} />;` / `})}`, with `onPick` a local or prop of the component | no props edge/path/descent in either case; `refused_source_in_enclosing_owner` = 1 in expression, `refused_source_unconnected` = 1 in block |
 | j34 | member tags through an imported value: `import { Ctx } from "./ctx"; <Ctx.Provider value={a}>` with `ctx` declaring `export function Provider({ value })`; `import { Menu } from "./table"; <Menu.Item html={a} />` with `table` holding `export const Menu = { Item: Impl }` and an unrelated function `Item`; the same through a default import; `<Tabs.Tab html={a} />` with `Tabs.Tab = function TabImpl(…)` and an unrelated `export function Tab` | no edge; `refused_member_qualifier` = 1 each |
 | j35 | tag spelling differs from the function's name: `import { Html as RichText } from "./ui"; <RichText html={text} />`; `import View from "./ui"` with `export default function Html`; `const Button = memo(function ButtonInner({ label }) {…}); <Button label={t} />` | the edge into the target's pattern Def exists with a `path` from the value's definition; `trace_boundary` (DESIGN 5.6 limit) |
-| j36 | wrappers: `const C = observer(({ a }) => {…})` with `observer` imported from a package; `styled(({ className }) => …)`; `withRouter(…)`; `memo(observer(fn))`; `export default observer(function X({ a }) {…})`; `const M = React.memo(function M2({ html }) {…})` with `import React from "react"` | none, `refused_unknown_wrapper` = 1 each, for the first five; the last binds like j04 |
+| j36 | wrappers: `const C = observer(({ a }) => {…})` with `observer` imported from a package; `styled(({ className }) => …)`; `withRouter(…)`; `memo(observer(fn))`; `export default observer(function X({ a }) {…})`; `const M = React.memo(function M2({ html }) {…})` with `import React from "react"` | observer, styled and withRouter Exact fallbacks count `refused_unknown_wrapper` = 1 each; nested and default-export have no target and count `refused_not_exact_singleton` = 1 each. The admitted React default-import wrapper binds with the name-mismatch trace boundary |
 | j37 | one-line component: `function Card({ title, body }) { return <div title={title} dangerouslySetInnerHTML={{ __html: body }} />; }` with `<Card title={t} body={safe} />`, `t` from a source; the same component over several lines | one-line: `trace_reaches` from `t`'s definition to the sink line (accepted limit, DESIGN 5.6); several lines: `trace_misses` for the sink line |
 | j38 | `<C children={x}>{y}</C>`; `<C children={x} />` | nothing from `x`, `refused_overwritten` = 1; `x → C:children` |
 | j39 | `import * as UI from "./table"; <UI.Item html={a} />` where `table` has no export `Item` but holds `export const Other = { Item: ({ html }) => … }`; the same with an unexported `function Item({ html })` in `table` | no edge; `refused_member_not_export` = 1 each (contrast: j03's `<UI.Html>` binds) |
 | j40 | `<C style={{ color: x }} style={{ size: y }} />` and `<C style={{ color: x }} style={s()} />` into `function C({ style: { color, size } })` and into `function C({ style })` | only `y → size` and `y → style` in the first; nothing from `x` in either, `refused_overwritten` = 1 for `x` each |
+
+The tables above describe the seed cases. Every enumerator row and amended expectation, including mixed cases and counters, is in [ROW-DISPOSITIONS.md](ROW-DISPOSITIONS.md). The complete groups contain 11 control, 62 S1, 69 S2 and 169 S3 rows.
 
 - [ ] Write the rows file, the README (row schema and assertion kinds) and the test. Confirm: control rows
       green on main; record the RED run for the other groups.
@@ -351,16 +349,15 @@ so this axis gets its own pass, run with the same tiers and rules as Task T-2.
       getters and setters, generators, `switch` arms, `try`, `catch` and `finally` blocks, default-parameter
       values, elements nested in template literals, and a value whose spelling occurs earlier on its line in
       any of these.
-- [ ] For each new row, record in the row's `class` whether the DESIGN 5.3 rule is expected to bind it
+- [ ] For each new row, record in the row's `class` the pre-D prediction for whether the original line-index lookup finds a caller Use
       (a node of the caller under the line key exists on main, by `nav nodes-at`) or not. Rows the rule does
       not cover go to stage D as decisions (fix in this lane, or accepted loss with its census count).
 
 ## Stage D: design of record (1 to 1.5 days)
 
-- [ ] The design seat amends DESIGN sections 5.1 to 5.3 against the full row set: removes "tentative",
-      states each rule, lists accepted losses (including the outcomes for j05, j31, j33 and every Task T-3
-      row the 5.3 rule does not cover, each with its census count). The implementer updates the rows'
-      expectations to match. Both reviewers; cap 2 rounds.
+- [x] Record the decisions in DESIGN 5.1–5.9 and the disposition of all 311 rows. E closed with two open classes; use the generators in 5.8.
+- [ ] Before the slice that enables a changed row starts, the implementer applies its revised expectation and records its new RED/GREEN receipt on the same base (ORCHESTRATION 7). Preserve the prior receipts as historical evidence. The supplied 06157400a run reports 272 failures and 39 passes. p13, p29, p30, j08, j14, terra-1-09 and terra-1-10 passed despite red seeds. Correct their base metadata independently of behavioral disposition. A passed negative is a preservation check.
+- [ ] Both reviewers approve the amendment; cap two rounds under ORCHESTRATION 7–8.
 
 ---
 
@@ -369,10 +366,11 @@ so this axis gets its own pass, run with the same tiers and rules as Task T-2.
 ### Slice S1: definitions for pattern formals (4.5 to 5 days)
 
 **Files:**
-- Create: `src/ast/js_ts/pattern_params.rs`, `src/ast/js_ts/pattern_params_tests.rs`
+- Create: `src/ast/js_ts/pattern_params.rs`, `src/ast/js_ts/pattern_params_tests.rs` and the shared AST key/wrapper helper (`src/ast/js_ts/props_keys.rs`). Expose `is_inert_default_value` in `src/parameter_slots.rs` with its existing callers’ behavior.
 - Modify: `src/ast/js_ts.rs` (module lines), `src/data_flow/build/file.rs` (register Defs for admitted
-  pattern locals in the loop that handles `function_parameter_occurrences`, with the same classification
-  and refusals), `src/cpg/props_matrix_tests.rs` (`ENABLED` gains `"S1"`), `src/cpg_cache.rs` (version), docs
+  pattern locals in the loop that handles `function_parameter_occurrences`. Filter candidate reads by
+  binding identity under 5.1.2 before applying the existing producer's classifications and refusals),
+  `src/cpg/props_matrix_tests.rs` (`ENABLED` gains `"S1"`), `src/cpg_cache.rs` (version), docs
 - Tests to re-run and, where they compare the live producer with the test-only legacy producer
   (`src/data_flow/build/legacy_producer.rs`), to adjust by excluding owners that have a pattern formal, each
   exclusion named in the PR: find them with `rg -l "file_refs_frozen" src/` (the command's list is
@@ -384,33 +382,11 @@ so this axis gets its own pass, run with the same tiers and rules as Task T-2.
 
 **Interfaces (produced):**
 
-```rust
-// src/ast/js_ts/pattern_params.rs
-pub(crate) struct PatternElement { pub key: Vec<String>, pub key_known: bool, pub local: String,
-    pub local_start: usize, pub local_end: usize,       // bytes of the binding identifier token
-    pub defaulted: bool, pub rest: bool, pub admitted: bool }
-pub(crate) struct PatternParam { pub position: usize, pub alias_skipped: bool,
-    pub elements: Vec<PatternElement> }                  // no elements when alias_skipped
-impl ParsedFile {
-    /// Object-pattern formals of a JavaScript, TypeScript or TSX callable. Empty for other languages and
-    /// for a parameter list with recovery nodes. A pattern the parameter-default alias code defines is
-    /// returned with `alias_skipped` and no elements.
-    pub(crate) fn js_ts_pattern_params(&self, function: &tree_sitter::Node<'_>) -> Vec<PatternParam>;
-    /// The admitted locals as (name, start, end): the shape `function_parameter_occurrences` returns.
-    pub(crate) fn js_ts_pattern_local_occurrences(&self, function: &tree_sitter::Node<'_>) -> Vec<ParameterOccurrence>;
-}
-```
+Produce per-position pattern facts under DESIGN 5.1. Preserve empty/alias-skipped positions. Keep the per-object consumed-key set and unknown-sibling flag even for empty, unused, excluded or array-valued children. Each element carries its structured path or unknown status, a rest-level exclusion predicate if applicable, local name and identifier bytes, default state and admission. Index positions excluding TypeScript's `this`. Put shared key and erased-wrapper classification in the AST layer. Expose the existing inert-default predicate and alias accessor internally where needed. Pair the facts with the exact callable syntax node.
 
-`admitted` is DESIGN 5.1's admission. `alias_skipped` is the alias code's own predicate
-(`param_alias_of_entry`, reached through a `pub(crate)` wrapper in `src/ast/js_ts/param_alias.rs` if
-needed). `position` counts the formals before the pattern in the syntactic list. The local's bytes are the
-identifier token's (`shorthand_property_identifier_pattern` for `{ a }`, the `value` identifier of a
-`pair_pattern`, the left identifier of a default, the identifier of a rest pattern). Reuse the existing
-destructuring and default helpers where they fit (`extract_destructuring_def_spans`,
-`is_inert_default_value`) and say in the PR which were reused.
+`ParsedFile::js_ts_pattern_params(&Node) -> Vec<PatternParam>` returns these facts. The data-flow-only occurrence adapter carries each eligible local's bytes through the existing Def, reference, write and projection paths. Screen new pattern locals for runtime binding identity, including parameter-initializer uses, type/JSX name positions, shadows and captures. Keep existing general-purpose parameter and slot accessors. The same-shaped identifier control decides absence, label and concrete source Def. See DESIGN 5.1.1–5.1.3, 5.7–5.8 and the S1 dispositions. Include the pinned row data and disposition lines in this slice's brief. Exercise the pattern half of the shape generator, including a refused/empty subtree beside an eligible sibling.
 
-- [ ] Unit tests for `js_ts_pattern_params` first, in `pattern_params_tests.rs`: one per row of DESIGN 5.1's
-      element table, one per admission rule (the intermediate-default rule and the assertion-wrapper removal
+- [ ] Unit tests for `js_ts_pattern_params` first, in `pattern_params_tests.rs`: one per binding/default/rest form in DESIGN 5.1 and 5.8, one per admission rule (the intermediate-default rule and the assertion-wrapper removal
       included), and the alias-default exclusion for an earlier formal and for an outer variable (p13,
       p29). They do not compile until the module exists: add the module skeleton returning empty lists in
       the same commit, so the tests are RED, not broken.
@@ -435,7 +411,7 @@ destructuring and default helpers where they fit (`extract_destructuring_def_spa
 Two PRs: S2a is a pure move and is reviewed as one; S2b adds behaviour.
 
 **Files:**
-- Create: `src/cpg/props_binding.rs`
+- Create: `src/cpg/props_binding.rs` (move in S2a; extend in S2b). Use the S1 AST facts and shared key helpers. Add literal writer/matcher generated cases to the existing props tests in S2b.
 - Modify: `src/cpg/object_literal_args.rs` (becomes the literal source and calls the binder),
   `src/cpg/callee_params.rs` (pattern facts), `src/cpg/build.rs` (module line; pass pattern facts; merge
   counters; the `dfg_props` field on `DfgLabelStats`), `src/cpg/callee_legacy.rs`,
@@ -450,60 +426,22 @@ Two PRs: S2a is a pure move and is reviewed as one; S2b adds behaviour.
 
 **Interfaces (produced):**
 
-```rust
-// src/cpg/callee_params.rs  (compute_param_def_nodes and its return type are unchanged)
-pub(super) struct PatternEntry<T> { pub key: Vec<String>, pub key_known: bool, pub target: Option<T>,
-                                    pub defaulted: bool, pub rest: bool }
-pub(super) struct PatternFormal<T> { pub position: usize, pub alias_skipped: bool,
-                                     pub entries: Vec<PatternEntry<T>> }
-/// Graph nodes of the callee's admitted pattern locals. The twins call this directly.
-pub(super) fn compute_pattern_formal_nodes(parsed: &ParsedFile, callee: &FunctionId,
-    var_index: &VarIndex, graph: &DiGraph<CpgNode, CpgEdge>) -> Vec<PatternFormal<NodeIndex>>;
-impl<'a> ParamCache<'a> {
-    /// The same facts as cached `ParamTarget`s, memoised per callee beside the positional cell.
-    pub(super) fn patterns(&self, callee: &FunctionId, parsed: &ParsedFile, index: &VarIndex,
-        graph: &DiGraph<CpgNode, CpgEdge>) -> std::sync::Arc<Vec<PatternFormal<ParamTarget>>>;
-}
+Attach the 69 S2 disposition lines and their pinned row data to the S2b brief. S2a moves the existing plain-target pairing code verbatim where possible. Keep public/internal callers, representation, traversal, labels and byte-keyed source behavior identical. Introduce the following behavior-bearing interfaces in **S2b**, after the S2a differential.
 
-// src/cpg/props_binding.rs
-pub(super) enum PropsValue { Leaf(std::ops::Range<usize>), Constant, Opaque }
-pub(super) enum PropsEntry { Key { keys: Vec<String>, value: PropsValue }, Spread, Wildcard }
-pub(super) enum PropsTarget<'a, T> { Plain(&'a T), Pattern(&'a PatternFormal<T>) }
-#[derive(Default, Clone, PartialEq, Eq, Debug)]
-pub(super) struct PropsCounters(pub BTreeMap<&'static str, usize>);      // keys of DESIGN 5.4
-pub(super) fn bind<T>(out: &mut Vec<PendingArgumentFlow>, counters: &mut PropsCounters,
-    site: &SiteInputs<'_>, entries: &[PropsEntry], target: PropsTarget<'_, T>,
-    source: impl Fn(&AccessPath, &std::ops::Range<usize>) -> Result<NodeIndex, &'static str>,
-    resolve: impl Fn(&T) -> Option<NodeIndex>);
-
-// src/cpg/build.rs
-pub struct DfgLabelStats { /* existing fields */ pub dfg_props: BTreeMap<String, usize> }
-```
-
-`source` is the source-node lookup of DESIGN 5.3 for the site kind, for one path of a Leaf value and the
-value's span: the literal's byte-span lookup here (its `Err` is never counted, as #594 counts nothing), the
-JSX line-keyed lookup `jsx_props::source_node` in S3 (its `Err` is the refusal key to count). `object_literal_args::collect<T>` keeps its generic signature and gains
-two parameters: the callee's pattern formals in the same representation `T`, and `&mut PropsCounters`. For
-the argument at position `i` it binds to the positional target `i` as today, or, when a pattern formal has
-`position == i`, to that pattern. The step returns the counters beside the flows per caller; assembly merges
-them in caller order into `dfg_props`.
+- `compute_pattern_formal_nodes` joins the unique callable syntax span and each binding's exact bytes to a Def. Cache per-callee pattern positions beside the existing positional cell. Retain empty and alias-skipped positions and all levels' exclusions. Cached targets carry owner and binding geometry; on a line with multiple same-name Defs resolve the correct one by bytes (use the exact occurrence index). Direct twins use concrete node indices for the same facts. Keep `compute_param_def_nodes` and the positional cache's clients intact.
+- `PropsEntry` represents one ordered writer **at one object level**: named leaf (operand bytes), named object (ordered children, possibly empty), constant/opaque named terminal, numeric opaque writer, unknown writer or spread. Keep legacy #594 visibility on the same parsed writes. `PropsTarget<T>` is a plain target or a pattern position with per-level exclusions and optional local targets.
+- `collect<T>` takes the existing positional targets, pattern positions, resolver/query, caller site and per-caller counters. `bind<T>` joins surviving leaves to eligible destinations. Its source callback resolves a **whole leaf**, returning concrete source node(s) or one refusal. S2b keeps #594's full/base byte-contained candidates; S3 returns one connected caller node or one reason for the entire leaf. A missing literal byte lookup supplies no JSX source counter. Resolve generic targets with the existing cache/twin adapters.
+- Pre-loop, count a direct-literal site once and apply the Exact-singleton gate to the whole resolution. Preserve ordinary argument flow. At Exact sites skip each literal after an argument spread, counting `refused_argument_after_spread` per position. Apply member admission on pattern positions only, so a refused pattern and a successful plain argument can coexist. Merge admission reasons in DESIGN 5.4 order. Share a stable per-caller dedupe by concrete endpoints for props counters and emissions; recursive edges qualify by site/position even when both owners coincide.
+- Production, legacy and reference traversals return counters beside pending edges. Merge in caller order into `DfgLabelStats.dfg_props`. Do not serialize graph indices. DESIGN 5.1–5.4 and 5.8 define all states and generated cases for this slice.
 
 - [ ] **S2a (its own PR), no behaviour change:** move the pairing from `object_literal_args.rs` into `bind`
       (plain targets only, no counters, no statistics field). The existing object-literal tests stay green;
       a base-versus-head differential on X and T shows zero changes in edges and statistics. No cache bump.
       Both reviewers, briefed that it is a pure move; merge before S2b branches.
-- [ ] **S2b, step 1:** the counters, the `dfg_props` field and the string-key representation change of
-      DESIGN 5.2 (plain targets unchanged). A differential on X and T shows zero edge changes and only the
-      new `dfg_props` keys.
-- [ ] **S2b, step 2:** pattern facts (`compute_pattern_formal_nodes`, the cache method), admission checks 1,
-      2 and 4 of DESIGN 5.3 for literal sites (check 1 and the site key counted before the target loop, as
-      in S3's site-level count; check 2's export proof through a read-only query in
-      `src/resolution/js_ts/namespace.rs` and a second method on `CpgCallResolver` in
-      `src/resolution/go/satisfiers.rs`, delegating to the call graph for both resolvers), and the pattern
-      target in `bind`. Enable group `S2`: RED,
-      implement, GREEN.
+- [ ] **S2b, step 1:** introduce the counters, statistics field and ordered writer tree. Apply the legacy projection for every old plain-literal target, including bare reads of odd string keys. X and T must show zero edge changes at this step. Exercise empty parent replacement, scoped wildcard, and byte-distinct literal sources.
+- [ ] **S2b, step 2:** implement pattern facts and position-local admission (DESIGN 5.3.1–5.3.3, 5.4). Expose the read-only namespace/export equality query through `CpgCallResolver` for both resolvers; do not extend the candidate set. Run all 69 S2 dispositions, including mixed-target calls, recursive literal sites, empty patterns, residuals and unsafe spread positions. Run the shape generator cases against both projections. Enable the group after recording its RED controls.
 - [ ] Update the three tests named under Files; say in the PR which assertions moved or changed.
-- [ ] Differential on X, R2, T: only `props-literal` additions. Oracle on the additions: 0 WRONG.
+- [ ] Differential on X, R2, T: only `props-literal` edge additions; report the new counters. Extend `tools/compare_props.py` and `tools/oracle_props_edges.cjs` in the evidence workspace as needed for recursive same-owner sites. Use site/argument evidence before owner equality and self-check a recursive hop beside an ordinary intra-owner edge. Oracle on the additions: 0 WRONG.
 - [ ] Review focus item 5: extend `object_literal_parity_tests.rs` with a pattern-formal case (production,
       legacy twin, serial reference, cache round trip, incremental rebuild: identical edges and counters).
 - [ ] Tier-A; cloud tests; two reviewers.
@@ -512,68 +450,29 @@ them in caller order into `dfg_props`.
 
 **Files:**
 - Create: `src/cpg/jsx_props.rs`, `src/ast/js_ts/component_route.rs`, `src/ast/js_ts/component_route_tests.rs`,
-  `tests/algo/taxonomy/taint_jsx_props_test.rs` (with its `mod` line in `tests/algo/taxonomy/main.rs`)
+  `tests/algo/taxonomy/taint_jsx_props_test.rs` (with its `mod` line in `tests/algo/taxonomy/main.rs`), plus JSX source/owner generator cases in the props tests
 - Modify: `src/ast/js_ts.rs` (module lines), `src/cpg/build.rs` (module line and the JSX branch),
   `src/cpg/callee_legacy.rs`, `src/cpg/step5b_reference.rs`, `src/cpg/props_matrix_tests.rs` (`ENABLED`
   gains `"S3"`), `src/cpg/object_literal_parity_tests.rs`, `src/cpg_cache.rs`, docs
 
 **Interfaces (produced):**
 
-```rust
-// src/ast/js_ts/component_route.rs
-pub(crate) enum ComponentRoute { Direct, ReactWrapper, OtherWrapper }
-impl ParsedFile {
-    /// DESIGN 5.3 check 3 for the function node of a JSX target.
-    pub(crate) fn js_ts_component_route(&self, function: &tree_sitter::Node<'_>) -> ComponentRoute;
-}
+- `js_ts_component_route` classifies the actual function node and JSX tag binding. Return direct, admitted React first operand, other wrapper, or unproved identity. Compare the selected body with the unique syntax span; an anonymous first operand is supported (j05). Use the existing wrapper proof and namespace query from S2b.
+- `jsx_props::entries(caller, opening_span)` produces the S2b writer tree for this opening, including emitted-child overwrite. Extract nested sites independently. Match namespace tags, erased wrappers, reserved top-level names and child trivia per DESIGN 5.2.
+- `jsx_props::source_node(site, leaf) -> Result<NodeIndex, SourceRefusal>` consumes the operand's structured path, bytes and value-token lines. Use the immutable pre-Step-5b graph and first-wins VarIndex. Try full path then base; choose **one** connected caller Use. Verify its incoming definition/projection, execution owner, and binding/version equivalence for a line representative. Report ambiguous, unconnected, enclosing-only or missing in DESIGN 5.3.4 priority. Do not require a nonzero-width source. Do not create a Use or use an ancestor as the source. Reuse the AST scope walk and write facts in the JSX module; no DFG producer or trace changes in S3.
+- `jsx_props::collect<T>` calls the binder with one JSX target at runtime position zero, the ordered entries, the whole-leaf source callback and the same target adapter and counters as S2b. There are no positional arguments at a JSX site.
 
-// src/cpg/jsx_props.rs
-/// Entries of the JSX element whose opening tag spans [site_start, site_end), in source order.
-/// None when the node at that span is not a JSX opening or self-closing element.
-pub(super) fn entries(caller: &ParsedFile, site_start: usize, site_end: usize) -> Option<Vec<PropsEntry>>;
-/// The DESIGN 5.3 source node of one JSX Leaf value: the line-keyed Use in the site's caller, with the
-/// enclosing-owner check that picks the refusal counter (`Err` is the counter key). `site` already carries
-/// the caller's id, parsed file, `var_index` and graph.
-pub(super) fn source_node(site: &SiteInputs<'_>, path: &AccessPath, value_span: &std::ops::Range<usize>)
-    -> Result<NodeIndex, &'static str>;
-/// Binds the element's entries to the callee's first formal: the positional target 0, or the pattern
-/// formal at position 0.
-pub(super) fn collect<T>(out: &mut Vec<PendingArgumentFlow>, counters: &mut PropsCounters,
-    site: &SiteInputs<'_>, site_span: (usize, usize), positional: &[Option<T>], patterns: &[PatternFormal<T>],
-    resolve: impl Fn(&T) -> Option<NodeIndex>);
-```
-
-**Site-level count.** Once per site, right after `resolved_site` and `literal_ok`
-(`object_literal_args::exact_singleton`) are computed and **before** the loop over resolved targets: for a
-JSX site with at least one attribute, count `sites_jsx`, and when the result is not an Exact singleton,
-count `refused_not_exact_singleton` and go to the next site (DESIGN 5.4: a dropped component has no
-target, so the loop would run zero times and nothing inside it could count it). Literal sites get the same
-pre-loop count for `sites_literal` and check 1 in S2b (their positional binding is unchanged). A JSX site
-that reaches the loop is an Exact singleton, one iteration, so checks 2 to 4 and the entry keys are counted
-once per site.
-
-**The branch.** In the loop over a site's resolved targets, after the skip for `R6MultiOwnerCandidate` and
-after `callee_id` and `caller_parsed` are known, and **before** the site's arguments are fetched (a JSX site
-has none, and the code after that point skips it): if `site.jsx_element`, then apply checks 2 to 4 of the
-target admission of DESIGN 5.3 in its order (check 2 reads `site.local_binding` and, for a namespace import,
-asks the resolver's export query; check 3 calls `js_ts_component_route` on the callee's function node), and for an admitted site whose callee file is loaded, obtain the callee's
-positional and pattern facts exactly as the call path does and call `jsx_props::collect`; in every case
-`continue`. The source node of each Leaf comes from `jsx_props::source_node`, never from the call path's
-byte-span lookup. The same branch goes at the same position in the two twins (each with its own index
-representation). `SiteInputs.args` is empty for a JSX site.
+**Site admission and branch.** Count `sites_jsx` once per recorded attributed opening, before target iteration; check 1 may return no callee. For the Exact singleton, branch before fetching the site's arguments. Apply member qualifier/export checks, wrapper/target identity, then formal presence/alias state in that order. Count the first site refusal once and continue; otherwise pair surviving entries in DESIGN 5.4 order. Insert the same branch and stable emission order in all three traversals.
 
 - [ ] Unit tests for `js_ts_component_route` first (a direct function, both admitted wrapper forms, each
       wrapper of row j36, the `lazy` loader, a wrapper declared inside a function); skeleton returning
       `Direct` in the same commit so they are RED. Implement; GREEN.
-- [ ] Enable group `S3`: RED. Implement `entries`, `source_node`, then `collect`, then the branch in the
-      three copies. GREEN row group by row group: sources (j06 to j14, j17, j20 to j23, j38, j40), source nodes
-      (j25 to j33, with the stage D outcomes), admission (j15, j16, j34, j36, j39), targets (j01 to j05, j24),
-      engines (j01's and j18's `trace_reaches`, j19's and j35's `trace_boundary`, j37).
+- [ ] Attach the 169 S3 disposition lines and their pinned row data to the brief. Record updated controls and enable the group. Implement entries, source proof and the three collection paths. Exercise DESIGN 5.7's mixed outcomes for j31, j33 and the remaining callback, catch, signature and collision cases. Run the DESIGN 5.8 context matrix against the evidence-state table and retain binding/trace witnesses for positive fixtures, including patterns first connected by S1.
 - [ ] `taint_jsx_props_test.rs`: the issue's example in one TSX file with an explicit source line; default
       review taint reports a `taint_sink` finding on the `dangerouslySetInnerHTML` line. RED before the
       branch exists, GREEN after.
 - [ ] Parity: add a JSX case to `object_literal_parity_tests.rs` (Review focus item 5).
-- [ ] Differential on X and R2: only `props-jsx` additions. Oracle with checks 1 to 3: 0 WRONG; UNDECIDED
+- [ ] Before the differential, remeasure the 5.7 source/refusal cells on the S1/S2 graph and split earlier-spelling cases by true binding/version conflict. Compare predicted pairs, edge deduplication and realized connected edges with stage M. Extend the evidence oracle's current spelling/line check to verify binding/version at a borrowed representative independently. Self-check a safe earlier read, an attribute-name token, a shadow collision, a same-line write and a zero-width continuation. Cover recursive props edges and per-key rest/container witnesses in `tools/paths.py` and the comparator as needed. Differential on X and R2: only `props-jsx` edge additions. Oracle with checks 1 to 3: 0 WRONG; UNDECIDED
       share within the gate; hand read of the `undecided_sample.py` sample (50 per corpus, all when fewer)
       by a Claude seat; `paths.py` connected share.
 - [ ] Review focus items 3, 4, 6 and 7 are rows j21, j18, j25 to j28, j34, j36 and j39: confirm they pass.
@@ -587,7 +486,7 @@ chains with two or more component hops).
 
 **Files (evidence directory):** `g/paths-{X,R2}.md`, `g/examples/`, `g/REPORT.md`; `tools/examples.py`.
 
-- [ ] `paths.py` on X and R2: the path table, the multi-hop chain count and the connected share.
+- [ ] `paths.py` on X and R2: the path table, the multi-hop chain count and the connected share. Report first failures and post-S1 recoveries separately from baseline predictions. For recursive props require the same site proof as for cross-owner props; for each credited container/rest hop retain the incoming key restriction.
 - [ ] `examples.py <repo with history> <base binary> <head binary> <direction> <n> <out dir>`: list
       first-parent commits, newest first; parse each candidate file at the commit with the pinned
       TypeScript; take the first `n` qualifying commits in non-test `.tsx` or `.jsx` files. For each, check

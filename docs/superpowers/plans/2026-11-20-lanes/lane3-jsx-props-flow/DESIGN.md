@@ -1,7 +1,6 @@
 # Lane 3: React value flow across JSX props — design
 
-Status: architecture final; every rule marked *tentative* is fixed only after the census, the test matrix
-and enumeration (PLAN stages M, T, E). Design review round 1 (2026-11-21) is folded into this text.
+Status: Stage D design of record for the 311-row matrix at `dfe75ad226de`. Implementation and corpus acceptance are pending. The Stage D decisions and evidence are in sections 5.1–5.9.
 Tracking issue: #596 (parent #604). Research record: `~/prism-evidence/lanes-2026-11-20/research/lane3-jsx-props.md`.
 
 ## 1. Intent
@@ -33,9 +32,7 @@ number of edges added.
 
 Size, by a regular-expression count on Excalidraw (not a census): 2,061 `name={…}` attributes on
 capitalised elements, 20 spread attributes, 892 capitalised elements of which 209 are member elements;
-component-like definitions with a destructured first parameter 194, with a plain identifier 36. How many
-member elements have a namespace-import qualifier, and how many targets sit behind a wrapper other than
-React's, are census numbers.
+component-like definitions with a destructured first parameter 194, with a plain identifier 36. The subsequent X census proved zero member exports matching the target on its pinned build. It classified three non-test target routes as other wrappers. F9 counts only otherwise eligible sites with attributes (5.7).
 
 ## 3. Goals, non-goals, anti-goals
 
@@ -86,12 +83,7 @@ code that already handles formals. **A side table without Defs** (reads of patte
 syntactically) would avoid touching the producer but would leave the body's uses without any definition,
 which is the defect itself.
 
-For the caller side's source node, three options were weighed. **The line-keyed Use node** (chosen, 5.3):
-the node the line's def-use edges already end at, with the value's span used only as proof. **Exact-span
-nodes** (the call path's rule) disconnect every value whose spelling occurs earlier on its line, which JSX
-makes the normal case (`title={title}`), and find nothing where the element is not under a `return`, an
-assignment or a call. **Def-use edges to every occurrence on a line** would change the producer's
-one-use-per-line model and every label proof; not for this lane.
+For the caller-side JSX source, use the first-wins line index with an incoming-edge and binding-identity proof (5.3.4). An exact-span-only lookup can pick the disconnected value token in `title={title}`. Changing the producer to link every occurrence would change reaching-definition labels outside this lane. The binder can retain a connected line anchor without either change.
 
 ## 5. Architecture
 
@@ -102,251 +94,91 @@ object-literal argument ─┐                     ┌─ plain formal: its memb
 JSX element attributes ──┘   (ordered)         └─ pattern formal: binding elements (edge ends at a Def)
 ```
 
-### 5.1 Pattern formals (callee side) — *rules tentative*
+### 5.1 Pattern formals
 
-For JavaScript, TypeScript and TSX, an object pattern in a formal position contributes one entry per
-binding element: the key path it reads and the local it binds.
+**5.1.1 — Syntactic positions and admission.** Walk each JS-family callable's own formal list, in order, ignoring comments, types and TypeScript's pseudo-parameter `this`. Record an object pattern at its runtime argument position even if it is empty or has no eligible leaves. A root array or a rest *formal* destructures a different value and supplies no object-pattern target. An ordinary identifier after a pattern keeps its existing positional hole. Python and Go use their existing producers. The new `js_ts_pattern_params` accessor is private to data flow and pattern-target discovery. Other consumers of parameter names, occurrences and slots keep their current inputs. Examples include p07, p11, p18–p20, sol-1-01, sol-1-03, sol-1-04, astra-2-04 and c-positional-stop.
 
-| Pattern element | Key path | Local |
-|---|---|---|
-| `{ a }` | `a` | `a` |
-| `{ a: b }` | `a` | `b` |
-| `{ a = 1 }`, `{ a: b = 1 }` | `a` | `a` / `b`, marked defaulted |
-| `{ a: { c } }` | `a.c` | `c` |
-| `{ 'aria-label': l }` | `aria-label` | `l` |
-| `{ ...rest }` | every key at its own pattern level that no sibling consumes (below) | `rest`, marked rest |
-| `{ [k]: v }` | unknown | `v` gets a Def and no incoming binding |
-| an array pattern anywhere inside | — | that subtree gets nothing |
+At each object level, descend through shorthand, renaming, defaults, nested objects and object rest. The property path is a vector of keys; the local's identity is its binding identifier token and byte interval. A computed key can introduce a local with an unknown path. An array subtree introduces no new local here. For a binding to qualify, its unescaped identifier must be unique among **bound names** of the entire formal list, including excluded subtrees. Property names in renames do not compete. Recovered lists supply no new facts. An escape that may alias a bound name precludes a uniqueness proof. Preserve the producer's owner and scope guards.
 
-A rest element's residual is computed per object pattern from the keys its siblings consume, whether or
-not a sibling yields an admitted local: a renamed, defaulted, refused or unused sibling, an array-valued
-one (`{ list: [first], ...rest }`) and a nested pattern (`{ style: { color }, ...rest }` consumes all of
-`style`) each consume their key, and a rest nested in `style` (`{ style: { color, ...r }, title }`)
-receives only keys under `style` that `color` does not name. When a sibling at that level has a computed
-key (`{ [k]: v, ...rest }`), no residual key is provable and the rest entry is treated as an entry with an
-unknown key. The rest decision uses the source key, the original key of a rename.
+Run the existing `js_ts_param_pattern_alias_target` predicate on the original syntax first. A whole-pattern plain-identifier default that it owns is present but `alias_skipped`, with no new elements or Defs. Preserve the existing local and alias twin, including their byte identity. Otherwise every default from the formal through the leaf must pass `is_inert_default_value` after peeling parentheses and erased `as`, angle assertion (where legal), `satisfies` and non-null wrappers from the **value**. The allowlist is number, string, boolean, null and genuinely empty object/array literals (comments allowed, holes excluded). A failure excludes that subtree. It does not exclude siblings or make its property available to rest. Do not reclassify a wrapped identifier as a legacy alias. See p03–p04, p12–p13, p28–p31, p34, terra-4-04, sol-1-02, sol-2-03, astra-1-03.
 
-**A new accessor, not a wider one.** Pattern elements come from a new function
-(`ParsedFile::js_ts_pattern_params`). The existing parameter occurrences, parameter names and positional
-slots are not changed, so every other reader of them (section 2) behaves exactly as today, and a formal
-after a pattern stays positionally unbound, as today. The only consumer in the first slice is the data-flow
-producer, which registers a Def for each admitted pattern local in the same loop, and with the same
-classification, as an identifier formal: at the function's first line with the binding identifier's bytes;
-no Def when the local is unused; a base Def with projection edges when it is only read through members, as
-in `({ user }) => user.name`.
+**5.1.2 — Definitions and reference identity.** Register one used, eligible local at the callable's start line with the local's actual token bytes, even for multiline formals. Use data-flow owner identity, including synthetic callbacks. Find *value references to this binding* in its parameter and body environments. Include reads in computed names/defaults, callable tag names, constructors and captures. Exclude type positions, labels, property-name tokens, `new.target`, and reads resolved to shadowing declarations (including hoisted declarations, switch/loop scopes, catch bindings and private function-expression names). Pattern-specific filtering at admission must not change ordinary identifiers' output. A write to an admitted formal uses the existing identifier write/kill machinery. A local used only through members gets the base Def and its existing member projections. A truly unused local gets no Def. This does not require removing existing attribute-name Use nodes from the CPG.
 
-Admission of an element (each rule has matrix rows):
+Use the identifier twin's reaching definitions, labels, member writes, `var` handling, direct/indirect `eval`, and ownership of `arguments`. Use a non-simple identifier list for a control that depends on mapped arguments. Preserve the distinction between an absent edge, a killed edge and an edge from a *later* Def with the same name. p15's unconditional assignment replaces the formal. In the recorded TSX twins p23's entry edge is `cfg_incomplete` and p27's is `killed` (the captured write supplies the `cfg_incomplete` edge). p35 retains its documented one-node sibling relabel. A Def alone is not proof of a Use on its line (p21, p33, j31). See also p14–p17, p22–p27, astra-1-01/02, astra-3-01/02/03, astra-5-01/02 and sol-4-02/03.
 
-- the local is a plain identifier, spelled without escapes, and no other formal or element of the list
-  binds the same name;
-- it has no default, or an inert default by the existing test (`is_inert_default_value`);
-- every pattern on the path from the formal to the local has no default or an inert one: `{ a: { c } = {} }`
-  admits `c`; `{ a: { c } = make() }` and `{ a: { c } = other }` do not, because the default runs code or
-  reads another binding before `c` is bound;
-- the pattern formal itself has no default or an inert one, tested after removing TypeScript assertion
-  wrappers around the default (`{} as P`, `<P>{}`, `{} satisfies P`, `{}!`), which run no code;
-- the pattern formal is not one the parameter-default alias code defines. That code's own predicate
-  (`param_alias_of_entry`, `src/ast/js_ts/param_alias.rs`: the entry's default is a plain identifier that no
-  formal at or after the entry binds, whatever the identifier names, an earlier formal or an outer variable)
-  decides; such a formal is skipped whole, so `({ a } = other)` and `({ a } = outer)` keep exactly the Defs
-  main gives them and nothing is registered twice. A pattern whose identifier default names a later formal
-  fails the previous rule;
-- the owner-level refusals identifier formals get (`eval`, `arguments`, recovery nodes in the parameter
-  list) apply unchanged.
+**5.1.3 — Consumed keys and rest.** At each pattern level record *all* definite sibling source keys and whether any sibling key is unknown, independently of Def admission. A nested pattern, an empty object/array, a rename, an array subtree, an unused local and a refused default each consume their entire named property once. Repeated keys may bind multiple different locals. A rest entry carries its parent path and the level's exclusion set. It accepts a leaf strictly below that parent whose **first remaining segment** is outside the exclusion set. A parent-only value does not prove any individual residual key. An unknown sibling disables rest only at that level. An unknown ancestor makes descendant entries unknown. Known siblings still bind; a nested unknown does not disable an outer rest whose sibling's name is known. See l23, terra-2-06/08, terra-4-02, terra-5-01/02/03/04, astra-1-17/18, astra-2-04/05, sol-1-14.
 
-Sibling identifier formals keep exactly what they get today. The pattern's position is its index in the
-syntactic parameter list (a TypeScript `this` parameter not counted).
+The AST returns per-position state, per-level consumed keys and source order, plus local name/bytes, path or unknown, residual predicate if any, default flag and admission for each element. The CPG substitutes an optional graph target for the local, keeping those predicates even when the target is absent. Resolve an admitted callable to its unique syntax node and binding Def by file, callable span and local token bytes. Use identical coordinates in cached and direct discovery. This includes the anonymous first argument of an admitted React wrapper (j05). A same-named function, or another Def on the same line, cannot substitute.
 
-For binding (section 5.3) the facts per callee are the positional targets, unchanged, plus a pattern map.
-A formal skipped by the alias rule is recorded in the map as skipped, with no entries, so the binder can
-count it (5.4). The map is generic over the target representation because the argument-binding step has a
-production path (cached `ParamTarget`s) and two test-only twins that work on graph node indices:
+### 5.2 Props sources
 
-```rust
-pub(super) struct PatternEntry<T> { pub key: Vec<String>, pub key_known: bool, pub target: Option<T>,
-                                    pub defaulted: bool, pub rest: bool }
-pub(super) struct PatternFormal<T> { pub position: usize, pub alias_skipped: bool,
-                                     pub entries: Vec<PatternEntry<T>> }
-```
+**5.2.1 — Literal keys and values.** Parse the direct object argument after the transparent wrappers of 5.1.1. A source is an ordered **tree of writes**, retained until overwrite decisions at that level are complete. Each definite key is one segment: unescaped ASCII identifier/shorthand spelling or the entire contents of an unescaped ASCII quoted key. Empty string, `'a.b'`, `'0'` and `'aria-label'` each occupy one segment. Compare vectors, never strings joined by dots. On the pattern side a bare nonnegative safe decimal integer with canonical digits also names its decimal string. Other numeric pattern spellings are unknown. A numeric literal **source** is never a leaf. Treat its write as opaque at a known canonical safe-decimal key, otherwise as a possible overwrite of earlier numeric keys (conservatively, any segment starting with an ASCII digit, or `Infinity`). Thus `1e0` can replace `'1'`, while an ordinary following field survives. A computed, escaped or non-ASCII source key is a wildcard, including on methods; the corresponding pattern key is unknown. No escape decoding or computed-constant evaluation. See l20, sol-2-06, sol-3-03, terra-2-07, terra-4-05 and astra-1-18.
 
-A wrapped component whose inner function is anonymous (`const C = memo(({ html }) => …)`) resolves by span,
-while today's parameter facts are looked up by name and line range. The required behaviour is that it binds
-like the named form; if the lookup cannot be made by span in this lane, it is an accepted loss with its
-census count.
+A shorthand or a statically spelled identifier/dotted member value is a leaf with its operand bytes. Peel transparent wrappers where they wrap an operand, including within a member chain. Optional dot segments keep their path for the evaluated branch; preserve private `#` and receiver identity. Subscripts (including quoted indexes), calls, function/method/accessor values, arrays, conditionals and other expressions contribute no leaf. Literal object values recurse. Accessors, methods and `__proto__` (even shorthand) can determine the final writer but cannot supply a bound value. Reject recovered literal subtrees conservatively; on a recovered ordinary literal preserve #594's whole-literal refusal. Inspect nested call/element sites independently of whether their value supplies a leaf to a parent. Incoming edges describe syntactic initializer provenance; they do not simulate getters mutating siblings, generator resumption, heap mutation or abrupt completion during binding (astra-3-14, astra-4-03/04).
 
-### 5.2 Props sources — *rules tentative where marked*
+**5.2.2 — JSX entries.** Read only the attributes of this opening or self-closing tag, in byte order. A named expression uses 5.2.1's value grammar, including object literals. A quoted JSX value or bare boolean is constant. An element-valued attribute (braced or unbraced) is opaque; its inner site is independent. A namespaced attribute and `__proto__` are opaque named writes; a non-ASCII attribute name uses the wildcard rule. Top-level, case-sensitive `key` and `ref` are skipped, without suppressing evaluation of their expressions or nested sites. These spellings in a literal, including a nested literal in JSX, are ordinary keys. Spreads are unknown writers even when their operand is an inline object.
 
-An ordered list of entries:
+An explicit `children` is an ordinary attribute unless the paired element has an emitted child. Use JSX text's line trimming/joining semantics: a same-line space survives, an indentation-only multiline node does not. Empty/comment-only expression containers contribute no child. A nonempty expression (including one that evaluates to null), text surviving normalization, element, fragment or spread child supplies a final overwrite of `children`. A spread child conservatively counts as content regardless of emit mode or runtime arity. Child content itself supplies no props source. See j08–j14, j17, j20, j38, sol-1-13/15/24, sol-4-09/11/12, astra-1-26 and astra-4-11.
 
-```rust
-pub(super) enum PropsEntry {
-    Key { keys: Vec<String>, value: PropsValue },   // value: Leaf(span) | Constant | Opaque
-    Spread,                                          // {...x}: may write any key
-    Wildcard,                                        // computed key
-}
-```
+**5.2.3 — Last writer.** Decide a parent's winning write before visiting its leaves. A later write of the same key replaces the whole earlier subtree, including when the later value is empty, constant, opaque or an accessor. A spread/wildcard masks preceding candidate keys at its own level; later named entries survive. A nested wildcard cannot mask another top-level prop. A spread never supplies its own source. No traversal of an overwritten value on behalf of its parent may suppress a separately recorded call/JSX site inside that value. See l07–l09, j06–j07, j40, sol-1-09/12, sol-3-04, sol-4-04, terra-4-01 and astra-2-21.
 
-- **Object literal:** today's rules, moved behind this type (shorthand, nested literals flattened,
-  accessors and `__proto__` never bound, escaped and non-ASCII keys as wildcards), with one change of
-  representation: a string key that is not an identifier spelling (`'aria-label'`) keeps its content as the
-  key instead of being dropped. No static member read can spell such a key, so every plain-formal target
-  binds exactly as today; a pattern entry with the same string key (`{ 'aria-label': a }`) binds, for literals
-  and JSX alike. These are the one set of key rules for both sources.
-- **JSX attributes,** in source order:
-  - `name={expr}`: a Leaf when `expr`, after parentheses and TypeScript assertions are removed, is an
-    identifier or a member path; nested Key entries when it is an object literal (`style={{ color: c }}`
-    gives `style.color`); otherwise Opaque (calls, conditionals, templates, functions, elements).
-  - `name="text"` and a bare `name`: Constant.
-  - `{...x}`: Spread. The spread's own source is not bound in this lane.
-  - `key` and `ref`: skipped. They are not props, bind nothing and overwrite nothing.
-  - A namespaced attribute name, and `__proto__`: Opaque with that key.
-  - `children={expr}`: an ordinary Key on a self-closing element or an element with no child content. On an
-    element with child content, the children replace it at run time, so the entry is overwritten (counted
-    `refused_overwritten`).
-  - Child content produces no entry; a `children` key in the callee receives nothing from it.
-
-Overwrite order is the object-literal rule: a Spread or Wildcard refuses every key written before it; keys
-written after it bind; of duplicate keys the last one decides. A parent key decides before its nested
-leaves, as `collect_leaves` does for literals today: a later attribute of the same name replaces every
-entry an earlier one produced, nested leaves included (`style={{ color: x }} style={{ size: y }}` binds
-only `y`; a later `style={{}}` or `style={s()}` leaves nothing from the first), and a spread inside a
-nested literal overwrites only keys under its own parent.
+**Compatibility projection.** For ordinary calls into plain formals retain #594's original writer/leaf visibility and exact-span source algorithm, including for a bare read. Simply exposing a newly representable `'aria-label'` leaf to a bare `wrap(p)` would change existing ordinary-call edges. Carry legacy key eligibility on each segment/writer or use an equivalent projection of the same tree. Partial or full cache hits and both test twins must use it too. The richer key domain serves pattern targets and the new JSX source.
 
 ### 5.3 Binding
 
-**Target admission.** Checked in this order; the first check that fails is the site's one refusal (5.4):
+**5.3.1 — Site and target admission (numbered checks for 5.4).**
 
-1. The site resolves to exactly one Exact callee in the JavaScript family (`refused_not_exact_singleton`).
-2. Member qualifier: a JSX site whose tag is a member expression (`<Q.M>`), and a call site whose callee is
-   a member expression when the target is a pattern formal, binds only when the site's qualifier is a
-   namespace import, that is when the site's `local_binding` is `JsLocalBinding::NamespaceImport` (set by
-   `ParsedFile::js_ts_namespace_binding`). Every other qualifier (a named or default import of a value, a
-   re-export of one, a type-only import) is refused (`refused_member_qualifier`). For a namespace import the
-   binder also proves that the target is the module's export named `M`: the module the import names
-   resolves to a file whose entry in `CallGraph::js_ts_namespace_exports` under `M` has the target's file,
-   local name and line span (the comparison `js_ts_namespace_proof` makes; a read-only query beside it, no
-   resolution outcome changes). Otherwise the site is refused (`refused_member_not_export`): the module has
-   no export `M` that is the target, and resolution fell back to the spelling. The call half exists
-   because a pattern target is new in this lane and the same resolver rung would give it the wrong callee
-   (`api.send({ a: x })` into an unrelated `export function send({ a })`); a plain-formal target of a member
-   call keeps #594's behaviour unchanged.
-3. Wrapper (JSX sites only; a call keeps today's behaviour, where a `debounce`-like wrapper is right): let
-   `F` be the callee's function node. When `F`'s parent, after `parenthesized_expression`
-   nodes, is the `arguments` of a `call_expression`, the component is reached through that call. It binds
-   only when the call is an admitted React wrapper: the call is the value of a declarator in a `const`
-   declaration that is a statement of the program (directly or under an `export` statement), and
-   `ParsedFile::js_ts_wrapped_export` returns `Ok` for that declaration with the line span of `F` (the same
-   predicate, R2 to R12, that records `memo` and `forwardRef` targets for resolution; `useCallback` is not
-   admitted). Any other call (`observer(fn)`, `styled(fn)`, `withRouter(fn)`, a nested `memo(observer(fn))`,
-   `export default observer(function X() {…})`, `useMemo(() => fn)`, the `lazy` loader arrow, a wrapper
-   declared inside a function) is refused (`refused_unknown_wrapper`). Resolution gives both routes the same
-   kind, so this syntactic test on the target is how the binder tells them apart. The test lives in a
-   `ParsedFile` accessor beside the pattern accessor (5.5).
-4. A props formal exists at the target position. For JSX sites the position is 0; for object-literal
-   arguments it is the argument's position, as today. No formal there: `refused_no_props_formal`. A pattern
-   formal the alias rule skips (5.1): `refused_alias_pattern`.
+1. Start from a recorded JS-family source site, with at least one JSX attribute or a direct object-literal argument, and the whole existing resolution result. Require exactly one Exact JS-family callable (`refused_not_exact_singleton`). No record means no site and no counter. Preserve intrinsic drops for unqualified lowercase, hyphenated and colon tags. Qualified lowercase members and `_`/`$`/non-ASCII callable names use the ordinary resolver. TS overloads bind to a body, erased declarations supply no function. A type assertion on a component value cannot select the asserted signature's declaration.
+2. For member JSX and for *pattern positions* of member literal calls require a single simple qualifier that is a value namespace import (`refused_member_qualifier`), then prove that module's export under the spelled member equals the resolved file, local name and function span (`refused_member_not_export`). Reuse `js_ts_namespace_proof` and its module lookup read-only. A re-export must meet the same comparison. Matching the export is an additional test on the singleton already returned. It cannot manufacture a candidate the resolver's name and module filter excluded. Plain positions of ordinary member calls keep #594.
+3. For JSX locate the unique resolved callable syntax node. If the function is an argument of a call (through parentheses), admit only the first function operand of a program-scope `const` initializer (possibly exported) that `js_ts_wrapped_export` proves is React's `memo` or `forwardRef`. Compare the function node/bytes as well as its registered identity; a comparator cannot receive these props. Other call parents are `refused_unknown_wrapper`, including a local wrapper and hooks. No candidate at check 1 takes precedence even when the syntax looks like a wrapper (j36). Use the span-selected anonymous function's first formal for j05. For a direct function require the site's selected lexical value to identify that function, using the callable/import/alias identity and matching file and syntax span. Compare the value namespace in the site's evaluation environment (including parameter defaults). A same-block reference before a const initializer, an erased import, a reassigned or parameter-shadowed spelling with no unique callable proof, a missing body or ambiguous syntax identity fails `refused_target_identity` if check 1 has passed. A hoisted declaration can pass. Direct member sites already have the export identity proof from check 2. This check can only veto the selected target.
+4. JSX selects position zero. A literal selects its safely positional argument (5.3.3). An absent/unsupported formal at that position is `refused_no_props_formal`, a whole alias-skipped object pattern is `refused_alias_pattern`. A present empty or fully leaf-refused object pattern is still a formal.
 
-**Entries into targets.**
+j03–j05, j15–j16, j34–j36, j39, l19, l21–l22 and astra-1-22 cover these distinctions. Apply checks 2–4 independently to eligible positions at a literal call. A refused pattern position must not erase the existing plain position or another admitted pattern position. Resolve a site only once. See 5.4 for mixed-site accounting.
 
-- **Plain formal:** unchanged from #594. `Use(value) → Use(p.<read>)` for each read whose member chain is a
-  prefix of, or extends, the entry's key path, with the callee's flow-insensitive write suppression. Label:
-  the worse of Exact and the read's definition-edge label. A bare read of the formal with its own bytes
-  (`fn(props)`, `<Inner {...props} />`, `return props`) receives every key: the props object does hold every
-  attribute, but everything after that read is no longer field-selective. Those edges are counted
-  separately (`edges_to_bare_use`) so their share is visible. A bare read with a zero-width Use (a
-  declarator initialiser such as `const { a } = props`, a condition, a `for-in` head, an `in` test)
-  receives nothing, as in #594 today and in this lane (`refused_zero_width_read`); follow-up F3 is the
-  refinement.
-- **Pattern formal:** `Use(value) → Def(local)` for each pattern entry whose key path is a prefix of, or
-  extends, the entry's key path; a rest entry receives its residual keys (5.1; counted `edges_to_rest`:
-  a rest local is not field-selective); an entry with an unknown key receives nothing. Label: Exact (the
-  call is an Exact singleton and the key match is syntactic). An entry whose key path extends the pattern
-  entry's (`style={{ color: dirty, size: clean }}` into `({ style })`) makes the local a container: the
-  edge is right, but the member-only projection then carries every leaf to every `style.<field>` read, so
-  `dirty` reaches `style.size` (the accepted cost of a seed on a whole parameter, CLAUDE.md). Such edges
-  are counted `edges_to_container`, and the end-to-end path table (section 6) gives no credit to a chain
-  that enters a container or rest local by one key and leaves it through a member read of another.
-- Dedupe by (from, to).
-- The binder keeps the existing generic shape: it takes the targets in any representation together with a
-  function that resolves one to a graph node.
+**5.3.2 — Matching and graph identity.** For a surviving literal/JSX leaf, one key path matches an ordinary pattern entry when either vector is a prefix of the other. Emit `Use(value) → Def(local)`, Exact, to each matched, uniquely identified Def. Rest uses only 5.1.3. An unknown path or missing Def receives nothing. A deeper source feeding a shorter ordinary pattern path enters a container. Projection from that Def or a rest Def can carry a sibling field downstream. Section 6 excludes such mismatched hops from credited chains.
 
-**Source node.**
+For a plain target, take reached reads and flow-insensitive write suppression from #594, including a computed write to the formal and prefix/deeper member-write suppression. Use the worse of Exact and the callee's definition-edge label, retaining kill information. A member read must have a comparable path. A reached bare read with proven operand bytes takes every visible key (a bracket read can be bare); a zero-width bare *target* takes none. Member reads can still bind at that site. No edge goes to the plain formal's Def. Dedupe final emitted props edges by concrete `(from NodeIndex, to NodeIndex)`, including multiple sites of the same caller, in stable site/argument/source order. Different byte-specific nodes with the same displayed spelling remain different. Recursive calls can bind within the same owner; classify by site witness and endpoints, not inequality of owner names. See l01–l06, l16–l18, l24, j02, j12, j19, astra-1-07/08, astra-2-08/09 and astra-5-04.
 
-- **Object-literal leaves:** as #594, the Variable node whose bytes lie inside the leaf's span
-  (`argument_var_node_in_span_with_exact`), unchanged. (Calls keep main's limit: a value whose spelling
-  also occurs earlier on the line, `g(x) + h(x)`, binds from a node the line's def-use edge does not reach.)
-- **JSX values:** for each path `P` a Leaf value contributes (the full member path and its base, as for
-  arguments), the source is the Use node that the variable index returns for the key (caller file, the
-  site's caller function and its start line, `L`, `P`, Use), where `L` is the line of the value's first
-  byte (for a value spanning lines, its lines in order, the first that has a node). This is the node the
-  line's def-use edges end at and the node both taint engines start from. The value's byte span is used
-  only as proof that this attribute's value spells `P` (the Leaf test of 5.2); the node's own bytes are
-  never compared with it, and may be the attribute name's token (`title={title}`), another attribute's
-  value (`<D a={x} b={x} />`, `<Row key={it.id} item={it} />`) or a zero-width anchor at the line's start
-  (an element in a declarator). The `path` and `trace_reaches` assertions of the matrix check, on every
-  binding row, that the source is reached from the value's definition. When the site's caller has no node
-  under the key, the entry binds nothing and is counted: `refused_source_in_enclosing_owner` when a function
-  enclosing the caller has a node under the same key with its own name and start line (looked up outward),
-  else `refused_source_not_found`.
+**5.3.3 — Literal sources and position.** Use #594's byte-contained Variable lookup for the full path and its base. It can select a disconnected exact occurrence (sol-1-08); this contract is specific to ordinary calls. Only direct literal arguments qualify, including through the transparent wrappers. A preceding *argument* spread makes the literal's position unsafe, regardless of the spread operand or whether a formal exists at the syntactic index. Refuse this literal (`refused_argument_after_spread`); earlier safe arguments remain eligible. An object *property* spread instead uses 5.2.3. Do not unwrap `call`/`apply`, setters, tagged templates, conditional arguments or whole-object identifiers into new calls/positions. See l13–l14, sol-1-04/05/06, sol-4-05, astra-3-04/05 and astra-5-03.
 
-Two members of the second class are stage D decisions, with their rows and census counts: a reference on
-a signature line, which has no node (`const One = ({ title }) => <D title={title} />;`: mint the use or
-accept the loss), and a value captured from an enclosing function inside a callback (bind from the
-enclosing owner's node or accept the loss; for a block-bodied callback the caller's own node exists but has
-no incoming edge). The element-context enumeration (PLAN Task T-3) may add members; each goes to stage D the
-same way.
+**5.3.4 — JSX source proof, for every statement context × owner.** Take the graph after S1's local Defs/projections and ordinary intra-owner flow have been assembled, before Step 5b adds props or ordinary argument edges. Prove a path expression at the surviving leaf's operand bytes. Identify the source site's **execution owner** from its recorded caller and syntax; callable bodies and parameters, enclosing class-definition expressions and private names must keep their own binding environments. A function that happens to contain the line is insufficient. Apply the following decision to each leaf independently.
 
-`Exact` here states a static binding, as everywhere in prism: this attribute name is this prop key of this
-component. It does not say when React renders the component.
+1. Use the full structured path first, then its base for a member. For each path search the operand's value-token lines in source order, looking up the first-wins Use under (file, caller name, caller start line, value line, path, Use). Consider only the actual operand, excluding surrounding type syntax. A candidate must be the concrete destination of an existing intra-owner DataFlow definition/projection edge for this value's binding. Incoming label need not be Exact. Any path used as a fallback must pass the same proof. Emit from the **first proven** candidate only. A full projection beats a base read; a disconnected projection does not hide a connected base (j10, sol-3-10, sol-4-08/09).
+2. A real value occurrence, an earlier representative token and a zero-width line anchor can all qualify. For a representative other than the leaf's own occurrence, prove the line represents the same binding and value version: collect reads of that path/root in the owner's evaluation region on the line using the scope walk, ignoring JSX attribute-name/property tokens as reads. Require one binding identity and no intervening write/update to the root or overlapping member path between the represented read and the leaf (for an anchor, across the possible represented reads). For every candidate, including one at the operand bytes, require the contributing Defs to denote the operand's lexical binding. A lower-confidence edge from a different binding still contaminates a raw graph path. A proved conflict makes the representative ambiguous. Distinct possible versions from control flow on earlier lines keep the producer's labels. A name-token representative can stand for the proved read in `title={title}`. A read in another arm with the same binding and no intervening write can stand for it as well. If owner identity collides, bindings differ, or an intervening write makes the line representative stale, refuse the leaf. Do not try another byte occurrence or a coarser base to escape a failed identity proof. See j21, j25–j28, terra-1-08, astra-5-11, sol-2-14 and sol-3-08/09.
+3. If there is no proven candidate, emit no edge. Count **once per leaf**, in order: a detected identity/version conflict (`refused_source_ambiguous`), any caller candidate with no qualifying incoming edge (`refused_source_unconnected`), a Use for the same binding and value-line path only in a lexically enclosing callable (`refused_source_in_enclosing_owner`), otherwise `refused_source_not_found`. The enclosing lookup is diagnostic. Never mint a signature-line Use, jump from the Def in its place or use another owner's node as the edge source. A disconnected callback Use takes precedence over a connected enclosing Use. No incoming props edge may bootstrap the proof. A local field/parameter may gain its ordinary Def-to-Use edge in S1, so the base census is not the acceptance oracle.
+
+The required outcomes for mixed and lost context rows are in 5.7. All other positive context rows require the connected caller binding by this same rule, including zero-width declarators, independent nested JSX, callback-owned formals, accessors, generators, switch arms, loops and `try`/`finally`. No dispatch by statement kind. The open-class generator in 5.8 exercises both successful and failing source evidence in each class.
+
+**5.3.5 — Graph paths and trace.** A binding assertion joins the caller's definition to the emitted source by concrete node identity. For pattern targets assert descent where the existing trace can select this one Exact site by caller, callee lookup name and line or containing span. For a name mismatch or two matching sites require the graph path and trace boundary. A plain-target edge ends at a Use, where trace stops. Preserve inherited same-line sibling propagation and separate syntactic origin from execution order. See j01, j18–j19, j35, j37 and l12. Keep the trace engine's existing traversal.
 
 ### 5.4 Counters
 
-One new field on the existing statistics record, `dfg_props: BTreeMap<String, usize>` (the same shape as
-`dfg_loop_plan`), printed by `nav dfg-stats` and under `call-stats.dfg_labels`. They are computed where the
-argument-binding step runs (at graph assembly, on every build: cold, full cache hit, partial hit), returned
-beside the edges per caller and merged in a fixed order. They are the "handled explicitly" record for
-unresolved components, wrappers, qualifiers, missing sources and spreads. A site-unit refusal is counted
-once per site, by the first admission check of 5.3 that fails; entry-unit keys count each entry of an
-admitted site. The site keys and check 1 are decided once per site from the whole resolution result,
-before any per-target work, so a site whose component resolution dropped (no target at all) is counted.
+`dfg_props: BTreeMap<String, usize>` is assembled with Step 5b on cold, partial and full cache hits. Production and both test twins count against the same immutable input graph, return per-caller facts and merge them in deterministic order. Site identity includes the caller and site bytes. Count site inventory before iterating resolution targets, including a recorded site resolving to none.
 
-| Key | Unit | Counts |
-|---|---|---|
-| `sites_jsx` | site | JSX element sites with at least one attribute in a JavaScript-family caller, before admission |
-| `sites_literal` | site | call sites with at least one object-literal argument, before admission |
-| `edges_to_def` | edge | edges into a pattern local that is not a rest local |
-| `edges_to_container` | edge | the subset of `edges_to_def` whose entry's key path is longer than the pattern entry's (a leaf `style.color` into the local `style`) |
-| `edges_to_rest` | edge | edges into a rest local |
-| `edges_to_use` | edge | edges into a plain formal's member read |
-| `edges_to_bare_use` | edge | edges into a bare read of a plain formal with its own bytes |
-| `refused_not_exact_singleton` | site | admission check 1 |
-| `refused_member_qualifier` | site | admission check 2, qualifier not a namespace import |
-| `refused_member_not_export` | site | admission check 2, namespace import whose module export `M` is not the target |
-| `refused_unknown_wrapper` | site | admission check 3 |
-| `refused_no_props_formal` | site | admission check 4, no formal |
-| `refused_alias_pattern` | site | admission check 4, alias-skipped pattern formal |
-| `refused_zero_width_read` | site | admitted sites whose plain target formal has a zero-width bare read that its Def reaches |
-| `refused_value_not_data` | entry | Constant or Opaque values |
-| `refused_overwritten` | entry | entries a later Spread, Wildcard, duplicate key or child content overwrites |
-| `refused_key_not_read` | entry | Leaf entries no read or pattern entry of the target matches |
-| `refused_key_unknown` | entry | pattern entries with an unknown key, once per admitted site |
-| `refused_source_not_found` | entry | Leaf JSX entries with no source node in the caller or an enclosing function |
-| `refused_source_in_enclosing_owner` | entry | Leaf JSX entries whose source node is in an enclosing function only |
-| `spread_sources_unbound` | entry | Spread entries |
+| Keys | Unit and counting rule |
+|---|---|
+| `sites_jsx`, `sites_literal` | Once per recorded JS-family JSX site with attributes or ordinary site with at least one syntactically direct literal argument. A later unsafe argument spread decision does not change the inventory. |
+| `refused_not_exact_singleton`, `refused_member_qualifier`, `refused_member_not_export`, `refused_target_identity`, `refused_unknown_wrapper`, `refused_no_props_formal`, `refused_alias_pattern` | One admission reason at most per site. Check 1 short-circuits the entire site. At a mixed literal site, bind every admitted safe position. If any position is refused by checks 2–4, count the earliest failed check among those positions once, breaking ties by argument index. A qualifier refusal on a pattern position can therefore coexist with an emitted plain edge (astra-1-22). |
+| `refused_argument_after_spread` | Per direct literal position following an argument spread at an Exact site. Such a position does not participate in formal admission. |
+| `refused_zero_width_read` | Once per admitted site with any reached zero-width bare plain-formal read, independently of successful member/other reads. |
+| `spread_sources_unbound`, `refused_overwritten`, `refused_value_not_data` | Per admitted source position/JSX opening. Count each spread evaluated by the source tree once. Count each displaced leaf/terminal once, including the leaves under a replaced parent (j40); never count one leaf again for a second masking write. Count each surviving constant/opaque named terminal once. An empty object is a parent write with zero leaves. Skip reserved attributes before entry counts. Unknown writers mask without supplying a named leaf. |
+| `refused_key_unknown`, `refused_key_not_read` | Count each unknown pattern entry (including an indeterminate rest) once per admitted position, irrespective of the number of leaves. For each surviving data leaf with no eligible matching destination, count one `refused_key_not_read`. This includes a present empty pattern. |
+| `refused_source_ambiguous`, `refused_source_unconnected`, `refused_source_in_enclosing_owner`, `refused_source_not_found` | Per surviving JSX leaf with a matching destination, one reason in 5.3.4 order. No multiplication by candidate paths, lines, reads or locals. A failed literal byte lookup emits nothing, as in #594. |
+| `edges_to_def`, `edges_to_rest`, `edges_to_use`, `edges_to_bare_use` | Disjoint counts of distinct emitted props edges to non-rest pattern Def, rest Def, member Use or bare Use. Count once even with several witnesses. `edges_to_container` is the subset of `edges_to_def` with at least one deeper-leaf witness. In measurement, reconstruct the distinct syntax witnesses/restrictions even when two keys share endpoints. |
 
 ### 5.5 Where the code goes
 
 ```
-src/ast/js_ts/pattern_params.rs    pattern elements of a formal (declared in src/ast/js_ts.rs)
+src/ast/js_ts/pattern_params.rs    pattern levels, consumed keys and binding spans (declared in src/ast/js_ts.rs)
 src/ast/js_ts/component_route.rs   admission check 3: direct, admitted wrapper, or other wrapper
 src/resolution/js_ts/namespace.rs  admission check 2's export proof: a read-only query reusing
                                    js_ts_namespace_proof, reached through CpgCallResolver; no outcome changes
 src/ast/parameters.rs              unchanged accessors; the JavaScript path gains nothing here
 src/data_flow/build/file.rs        registers Defs for admitted pattern locals beside identifier formals
 src/cpg/callee_params.rs           compute_pattern_formal_nodes and the cached ParamTarget form
-src/cpg/props_binding.rs           PropsEntry, PropsValue, the generic binder, admission, the counters
+src/cpg/props_binding.rs           ordered writer tree, shared binder, admission and counters
 src/cpg/object_literal_args.rs     becomes the object-literal source; pairing moves to props_binding.rs
-src/cpg/jsx_props.rs               the JSX attribute source and its line-keyed source lookup
+src/cpg/jsx_props.rs               JSX extraction, connected caller lookup and ambiguity/refusal classification
 src/cpg/build.rs                   module lines (`#[path]`, like callee_params and object_literal_args), the
                                    call for JSX sites, the counters' merge, the `dfg_props` field. The file
                                    is at 1,777 weighted lines: wiring only.
@@ -358,11 +190,12 @@ src/cpg.rs                         `#[cfg(test)] mod` lines for the new test fil
 Each slice that changes the graph or the statistics record bumps `CACHE_VERSION` (189 on main today) and
 adds its line to the list in `src/cpg_cache.rs`.
 
+The four implementation slices have separate boundaries. S1 supplies pattern facts and registers local Defs in the existing producer. S2a moves the existing #594 binder without changing its behavior. S2b consumes the S1 facts, models ordered literal writes, and queries the existing resolver proof. S3 reuses that binder and the pre-step-5b graph to select JSX sources. The generators in 5.8 exercise combinations at those boundaries. They require no separate resolver or data-flow implementation slice.
+
 ### 5.6 Effect on the taint engines
 
 - Default review taint follows both edge kinds.
-- The trace engine crosses pattern-formal edges: they end at a Def, and the line-keyed source of 5.3 matches
-  its element by line, or by byte containment in a multi-line opening element. It still stops at
+- The trace engine can cross a pattern-formal edge when its Def and caller Use satisfy 5.3.5. Match the site's own line or source bytes contained in the opening span, including on a continuation line. It still stops at
   plain-formal edges, as it does today for #594.
 - Limit: the trace engine does not descend when the tag's spelling differs from the target function's own
   name (`import { Html as RichText }`, `import View from` a file whose default export is `function Html`,
@@ -379,9 +212,178 @@ adds its line to the list in `src/cpg_cache.rs`.
 - Closing the plain-formal stop and the name-keyed descent is follow-up F5 (section 9), after PR #841, which
   is editing the same file.
 
+### 5.7 Accepted losses and their census units
+
+All public numbers below are non-test, in the order **Excalidraw / cal.com / apache-superset / apache-answer**. M used Prism `9d1a7d06f653` and TypeScript 5.9.3, before S1. A leaf's first failed prediction rule, all candidate leaves of a source class, sites and distinct components are different units. The figures below are baseline observations and predictions. S1 can give a previously disconnected pattern-bound caller a Def and a reached Use; measure the residual on the S1 graph and again on the implementation head.
+
+| Lost flow or precision | Row decision and count |
+|---|---|
+| No caller Use, including signature-line reads | **j31 loses** the props edge; p33 still defines `title`. sol-2-13 and sol-5-05 bind their split forms and lose the compact signature. sol-5-06 loses the iteration-local default and binds the outer-formal control. astra-5-08 loses both catch defaults and binds the body-local control. sol-1-22 accepts no edge for module initialization, non-callable field and static block in its three fixtures. `not_found` all leaves **82 / 275 / 1,127 / 2**; first failures **65 / 70 / 199 / 0**. The explicit signature-miss cell has **0 / 7 / 14 / 0** leaves, **0 / 3 / 7 / 0** first failures. The exact loop/catch/initializer fixtures are not measured separately. Recover those AST regions at the attribute bytes and group `source_miss` by region. |
+| Enclosing-owner-only value, or disconnected capture with its own caller Use | **j33 expression loses** (enclosing only); **j33 block loses** (caller Use unconnected). Do not use the connected enclosing Use for either. astra-1-20, astra-4-07 and astra-4-09 lose the disconnected capture only; their locals and the method control bind. In astra-2-10, astra-3-06 and astra-5-05 the callback's local leaf binds, the enclosing capture loses. The last row establishes no capture path without requiring a second, disconnected node to exist. All enclosing-only leaves **12 / 123 / 588 / 1**; first failures **7 / 26 / 137 / 0**. A capture-specific split of disconnected block Uses is not measured. Join the operand's lexical declaration owner to the caller and group by `owner_kind` and leaf outcome. |
+| Caller Use exists but has no incoming definition/projection | sol-1-23 loses the catch-value leaf; the shadowed outer formal supplies nothing. astra-5-06 loses both receiver getter leaves and binds `note`. Full-path and base candidates compete per leaf (j10, sol-4-09). All disconnected leaves **664 / 1,871 / 2,534 / 474**; first failures **439 / 687 / 365 / 48**. Of the private-corpus first failures, **655** were source-unconnected. The catch and receiver subtypes are not measured. astra-1-14, astra-2-11 and astra-2-20 are positive post-S1 obligations for the explicit pattern-bound value, not permanent losses inferred from M. The spread relay in astra-2-20 still stops. |
+| Ambiguous line representative or colliding owner identity | sol-2-14 and sol-3-08 lose the compact shadow/write case and bind the split control. sol-3-09 loses both sites: the call graph skips identical named owner IDs before emitting sites; byte-distinct local edges remain. Measure identity conflicts by comparing candidate and operand binding spans/versions in the S3 matcher; measure missing sites by syntax-to-site join. Neither exact count was measured. Earlier-spelling *connected* leaves **251 / 1,180 / 1,409 / 185** include safe cases like j25; blanket refusal would discard good paths. |
+| Unresolved component, imported-value member, export or wrapper proof missing | First failures: not Exact **514 / 3,809 / 7,230 / 1,319**, member qualifier **1 / 10 / 18 / 0**, unknown wrapper **0 / 52 / 12 / 0**, no formal **1 / 5 / 0 / 0**. The private-corpus not-Exact cell is **913**. Namespace qualifiers lacking a matching target export include **0 / 113 / 0 / 0** sites in M's qualifier inventory. sol-2-16, sol-4-13, astra-2-15 and astra-3-08 lose the default/renamed/barrel positive variants. sol-4-10 loses the specialized alias only. Their exact subtype counts are not measured. Join the syntax's export/alias declaration to the recorded target pool and compare terminal identities. Capitalised elements lacking a joined site: **0 / 49 / 13 / 0**. **j05 binds** by callable span: the anonymous-in-admitted-wrapper target inventory is **132 / 67 / 55 / 0**, with **101 / 6 / 36 / 0** predicted pairs from those targets. |
+| Plain target destructured in its body or other zero-width bare target read (F3) | l16, j24, astra-1-08. First-failed leaves **8 / 148 / 52 / 17**. F3's otherwise-eligible site counts are **4/73, 53/306, 34/101, 15/16**. Private-corpus first failures: **1,997** zero-width reads, the dominant refusal. The source-side zero-width rule does not repair this callee loss. |
+| Spread, overwrite, child content, reserved or opaque values (F1/F2) | Spread sites **37 / 845 / 463 / 22**. First failures for later spread/wildcard **1 / 94 / 38 / 0**, reserved attributes **25 / 71 / 40 / 3**. Distinct components reading a path-valued child **12 / 28 / 8 / 0**. Counts by `value_shapes` include call-valued attributes **449 / 2,048 / 1,734 / 212** and function-valued **388 / 1,315 / 1,051 / 246**. An opaque or overwritten parent does not cost a nested recorded site. Separate counts for spread-child syntax, getter effects, inherited keys and bracket-valued attributes are not measured. Subdivide the source syntax at the attribute/argument bytes. Runtime spread arity has no static census cell. |
+| Excluded pattern or literal shapes and lost positions | Unknown keys/rest, non-inert or alias defaults, array patterns, rest formals, unused/refused locals, unsafe spread positions, opaque arrays, whole-object calls and unread keys use 5.1–5.3. First-failed nonmatching keys **6 / 20 / 18 / 0**. F7 counts ordinary calls supplying an identifier formal after a pattern: **50 / 10 / 9 / 1**. Alias-default and complex-default formals have overlapping shape inventories in M; loss per rejected binding or ordinary call is not measured. Use the pattern facts and S2 position/leaf counters on the corpus. Ordinary exact-span literal sources can be disconnected; this JSX census did not measure them. |
+| Container/rest or bare-read coarsening, inherited graph/trace limits | l24, sol-3-07 and astra-4-03/04 pin static projection/initializer limits. Bare whole-object and container/rest edges can reach a different field; use `paths.py` witness restrictions. Flow-insensitive member writes can also lose pre-write reads. Those precise path losses are not measured. F5 plain-target bound attributes **36 / 125 / 35 / 2** and differently **spelled** bound sites **6 / 3 / 9 / 13** are proxies, not observed trace boundaries. j19's multiple matching sites and wrong-key downstream paths have no measured count. j37's one-line sites with two known keys: **0 / 0 / 0 / 0**. Sibling flow, conditional evaluation, exceptions and inherited killed/uncertain CFG labels remain visible in raw outputs; no claim of render-time execution follows. |
+
+For the callback rows, M also has narrower context cells. The following counts filter non-test capitalised tags in `attributes.jsonl`, use nearest `context`, and pool ordinary and JSX-hosted callbacks of the indicated body kind. They include every resolution level. Each cell is **unconnected / enclosing-only / missing**. They give context for a row; they do not identify the row's exact runtime subtype.
+
+| Context and representative losses | X | cal.com | Superset | Answer |
+|---|---:|---:|---:|---:|
+| Block return (j33 block, astra-1-20) | 32/0/0 | 133/0/7 | 238/0/0 | 24/0/0 |
+| Block JSX child (astra-4-09) | 68/1/0 | 93/0/0 | 218/1/13 | 58/0/0 |
+| Expression-body nested attribute (astra-2-10) | 0/0/2 | 0/9/0 | 0/6/4 | 0/0/0 |
+| Expression-body guard (astra-3-06) | 0/1/0 | 0/2/9 | 0/54/37 | 0/0/0 |
+| Expression-body JSX child (astra-5-05) | 0/5/11 | 0/40/88 | 0/127/119 | 0/0/0 |
+| One-line expression-body callback (j33 expression) | 0/0/0 | 0/11/7 | 0/0/12 | 0/0/0 |
+
+The remaining statement/owner examples require a binding under 5.3.4, including these groups:
+
+- j21–j22, j25–j30 and j32; terra-1-01 through terra-1-08, terra-2-01 through terra-2-04, terra-3-01 through terra-3-05 and terra-4-03. A switch, loop, yield, throw, template, declarator or return does not by itself approve or refuse a leaf.
+- sol-1-21, sol-2-07 through sol-2-12, sol-3-10 through sol-3-14, sol-4-06 through sol-4-08. A class heritage expression, computed method name or decorator runs in its defining environment. A callback or field arrow's body has its own owner. Do not borrow the constructor parameter or a same-named outer formal.
+- astra-1-07, astra-1-13 through astra-1-16, astra-1-19, astra-1-21, astra-1-24/25, astra-2-11/12/13/17/18, astra-3-07/12, astra-4-08/10/12, astra-5-07/10/11. A represented source in unreachable code or on an uncertain edge still gives a static prop binding. The normal CFG labels remain visible. For mixed rows only the values specified above and in the row can supply a source.
+
+### 5.8 Mechanical coverage of the two open classes
+
+E stopped with new rows in every fifth round. The fixtures are witnesses to rules, not an exhaustive syntax inventory. The following Python generator runs from the repository root. The first family enumerates grammar routes upward from an element through every named parent slot, crossing execution owner with the evidence that 5.3.4 inspects. It includes anonymous and nested owners, class fields and defaults. Supertype transitions are expanded without consuming a syntax level. Increase `depth` to enumerate longer routes, including recursive occurrences of the same production. Syntax context has no voting weight in the decision. Invalid combinations are not positive program fixtures.
+
+```python
+from collections import defaultdict
+from itertools import product
+from pathlib import Path
+
+
+def parent_slots(language):
+    grammar = Path("src/ast/js_write_census/data/signatures") / (language + ".sig")
+    supers, parents = defaultdict(set), defaultdict(set)
+    for line in grammar.read_text().splitlines():
+        parts = line.split("\t")
+        if parts[0] == "SUPER":
+            supers[parts[2]].add(parts[1])
+        if parts[0] == "ALT" and parts[-1] == "named":
+            parents[parts[3]].add((parts[1], parts[2]))
+    def slots(kind):
+        seen, todo = set(), [kind]
+        while todo:
+            child = todo.pop()
+            if child in seen:
+                continue
+            seen.add(child)
+            todo.extend(supers[child])
+        return sorted({slot for child in seen for slot in parents[child]})
+    return slots
+
+
+def routes(slots, child, depth):
+    if depth:
+        for parent, field in slots(child):
+            frame = (parent, field, child)
+            yield (frame,)
+            for rest in routes(slots, parent, depth - 1):
+                yield (frame,) + rest
+
+
+owners = ("module function const_arrow property_arrow named_callback anonymous_callback "
+          "jsx_callback class_method object_method getter setter constructor field_arrow "
+          "field_initializer static_block generator async_generator").split()
+# Evidence and expected result, independent of the statement's syntactic name.
+evidence = {
+    "connected_full": "full", "full_dead_base_connected": "base",
+    "connected_zero_width": "bind", "earlier_same_binding_version": "bind",
+    "both_full_and_base_connected": "full", "after_S1_local_projection": "full",
+    "shadow_collision": "ambiguous", "intervening_write": "ambiguous",
+    "ambiguous_index_owner": "ambiguous", "caller_dead_outer_live": "unconnected",
+    "caller_dead": "unconnected", "outer_only": "enclosing_owner",
+    "missing_including_signature": "not_found", "no_site_record": "no_site",
+}
+
+
+def context_cases(language, depth):
+    slots = parent_slots(language)
+    for kind in ("jsx_element", "jsx_self_closing_element"):
+        for route in routes(slots, kind, depth):
+            for owner, (state, expected) in product(owners, evidence.items()):
+                yield route, owner, state, expected
+
+
+def shape_cases(language):
+    # Tokens are source spellings, including the quotes around string keys.
+    keys = ["a", "'a'", "'a.b'", "''", "'aria-label'", "'0'", "0", "1e0",
+            r"'\u0061'", "café", "[k]", "['a']", "__proto__"]
+    patterns = ["K: v", "K: v = 0", "K: v = make()", "K: {}", "K: []",
+                "K: [v]", "K: { a: v, ...inner }", "K: { a: v } = {}",
+                "K: { a: v } = make()", "K: v, K: w"]
+    sources = ["K: x", "K: [x]", "K: {}", "K: { a: x, b: y }",
+               "get K() { return x }", "K() { return x }"]
+    wrappers = ["V", "(V)"]
+    if language != "javascript":
+        wrappers += ["V as P", "V satisfies P", "(V)!"]
+    if language == "typescript":
+        wrappers += ["<P>V"]
+    for key, pattern, source, wrap, order in product(
+            keys, patterns, sources, wrappers, ("before", "after", "duplicate")):
+        entry = source.replace("K", key)
+        writes = {"before": "...o, " + entry, "after": entry + ", ...o",
+                  "duplicate": entry + ", " + key + ": {}"}
+        # Each case supplies an actual formal and an expression for the argument.
+        yield ("{" + pattern.replace("K", key) + ", ...rest}",
+               wrap.replace("V", "({" + writes[order] + ", keep: y})"))
+
+
+def pattern_tail_cases(language, depth):
+    # Each terminal supplies a real formal fragment. Recursive steps wrap the
+    # current subtree and test exclusions at both the inner and outer levels.
+    wrappers = ["V", "(V)"]
+    if language != "javascript":
+        wrappers += ["V as P", "V satisfies P", "(V)!"]
+    if language == "typescript":
+        wrappers += ["<P>V"]
+    def defaults():
+        yield ""
+        for value, wrapper in product(("{}", "[]", "0", "null", "[,]", "other",
+                                       "make()"), wrappers):
+            yield " = " + wrapper.replace("V", value)
+    def patterns(level):
+        yield from ("{}", "[]", "[,v,...tail]", "{a}", "{a: v, b: v}",
+                    "{a: v, a: w}", "{...rest}", r"{a: \u0076}")
+        if level:
+            for child in patterns(level - 1):
+                for default, sibling in product(defaults(),
+                        ("", ", unused: u", ", [k]: dynamic", ", ...outer",
+                         ", skip: [item], ...outer", ", empty: {}, ...outer",
+                         ", [k]: dynamic, ...outer")):
+                    yield "{box: " + child + default + sibling + "}"
+    for pattern in patterns(depth):
+        for formal_default in defaults():
+            yield pattern + formal_default
+
+```
+
+Run the generated decision vectors against the lookup/matcher units. Use the checked-in fixtures for the full CPG path. Increasing depth enumerates additional grammar routes. For the source proof, generate the structural input graph independently of the lookup: include a wrong-owner node, two byte-distinct same-spelling Uses, a disconnected full path and a connected base. Check exact node identity or the single refusal reason against `evidence`. Pair with the real CPG matrix to exercise site discovery and syntax-to-owner mapping. For syntax tests, generate the formal/argument pairs above and mirror each applicable argument object as a nested JSX attribute value. `pattern_tail_cases` enumerates empty/array terminals, rest siblings, escaped and repeated bindings, plus own and intermediate defaults with wrapper variants. Each recursion adds an object level. Include legacy alias/TDZ and later-formal controls from the matrix when materializing the formal in a callable. The reference test first materializes each level's final writer map, then removes every sibling key for rest. Compare paths as segment vectors, including the empty-string segment, and compare refusal and edge counts. Do not calculate expected outcomes with the production extractor. Syntax that a particular grammar cannot parse exercises recovery, or is excluded from the valid-source run with the grammar reason.
+
+### 5.9 Stage D change log
+
+| Input | Decision and consequence |
+|---|---|
+| Frozen X prediction 500–850 vs 308, including 439 post-admission unconnected leaves. The endpoint audit found 33 connected zero-width path Uses in X. | A caller Use's existence is insufficient. Require a connected caller-owned source; retain zero-width representatives with a binding proof. Distinguish missing, disconnected, enclosing and ambiguous. Measure again after S1. Compare both graphs under the same first-failure ordering as well as reporting the new counters, since a key miss can precede a source miss in S3. |
+| X 308/854 (36.07%); candidate non-test pairs 710, 630, 47. | Select cal.com at 710/1,852 (38.34%). The public census gate passed at **1,018** vs 1,000. M counted predicted pairs. Several can share one emitted edge. The 1,000-edge, 90%-connected and multi-hop implementation gates retain their original thresholds. Earlier-spelling occurrences account for 154 / 388 / 273 / 9 predicted pairs. Recheck ambiguity and full/base selection on the head. |
+| Public first formals favor patterns on X (525 object, 73 identifier, 33 absent) and cal.com (831, 313, 160). Private-corpus has 1,518 identifier, 157 object pattern, 115 absent. | Limit the public reach premise to the sampled public sites. The private prediction is **373/3,321 (11.2%)**, with 1,997 zero-width-read and 913 not-Exact first failures. This does not apply a public census threshold to the private corpus. Record F3 volume without adding a callee-side zero-width binder. |
+| Anonymous admitted wrappers contribute 101 X and 6 cal.com predicted pairs. | j05 is a required binding. Use the wrapper's first-argument function span to discover pattern facts. Count unproved identity separately; do not equate an anonymous inner function with a missing formal. |
+| p15, p23, p27 vs the T1 identifier-twin receipts; signature/callback and lexical-identity rows. | Pin the actual Def and label, distinguish definition registration from use materialization, filter new locals by runtime binding identity, and retain non-simple-formal controls. |
+| Empty, repeated, numeric, dotted, escaped, non-ASCII, default and rest shapes; l23, sol-1-09, sol-2-06, astra-1-17/18, astra-2-04/05, terra-5-01–04. | Carry per-level exclusions and parent writes across the interfaces. Expand erased wrappers at every eligible default. Preserve legacy plain-literal visibility, including bare reads. |
+| JSX trivia, nested/overwritten sites and literal call positions; sol-1-13/15/24, astra-2-17/21, astra-4-11, astra-5-03. | Define child-content overwrite at JSX emit granularity and preserve evaluation of independent sites. A preceding argument spread has no safe literal slot. |
+| j36, sol-2-16, sol-4-10/13, astra-2-15, astra-3-08 and mixed-position astra-1-22. | Admission uses the existing resolution result first. Export proof can only filter, and a refusal on a pattern position preserves the plain position. Count site/position failures in a fixed order. |
+| j10, j31, j33, sol-1-23, sol-2-14, sol-3-08/09, astra-1-20, astra-4-07/09 and astra-5-06. | Select one connected, binding-correct representative per JSX leaf with full-path priority. Do not mint a Use, borrow an enclosing owner, or count syntax absent from the site inventory. |
+| astra-1-07, astra-2-08/09, astra-5-04 and j19. | Identify recursive props by a site witness even when both endpoints have the same owner; count distinct concrete edge endpoints even when presentation spellings coincide. |
+| E stopped after new-row counts 10/8/5/5/4 (Terra), 27/19/17/13/9 (Sol), 26/21/14/12/10 (Astra). | Neither class has a dry-round receipt. Section 5.8 replaces a presumed finite syntax list with generators. The four implementation PRs remain S1, S2a (pure move), S2b and S3. |
+
+Each row has one primary deciding rule in fixture order. The ledger changes 21 behavioral expectations and corrects seven base-color seeds only. The other 283 rows keep their assertions and seeds. The 311-row behavioral inventory reconciles to 25, 44, 16 rows under 5.1.1–3; 16, 22, 16 under 5.2.1–3; and 45, 27, 11, 83, 6 under 5.3.1–5. [Row dispositions](ROW-DISPOSITIONS.md)
+
 ## 6. Measurement
 
-**Census (stage M, before any design rule is fixed).** A Node script with the pinned TypeScript 5.9.3
+**Census (stage M, on the pre-S1 product).** A Node script with the pinned TypeScript 5.9.3
 joins `prism nav call-stats --dump-sites` records with the syntax tree and reports, for Excalidraw and one
 more public React corpus: JSX sites by resolution outcome; member elements by qualifier kind (namespace
 import whose module exports the member, namespace import without that export, named import, default
@@ -390,14 +392,14 @@ sites whose tag spelling differs from the target function's name; attributes by 
 relative to a spread; elements by statement context and owner kind (the axis of PLAN Task T-3); the callee's
 first-formal shape (object pattern: flat, alias, default, rest, nested, computed; plain identifier:
 member-only, mixed, destructured in the body, other zero-width bare read; none); one-line components with
-two or more props; the source-node outcome per Leaf value under the 5.3 rule (connected: the caller has the
+two or more props; the source-node outcome per Leaf value under M's original line-index lookup (connected: the caller has the
 node and a def-use edge ends at it; found but unconnected; in an enclosing function only; not found); and
 the predicted number of connected bindable (attribute, key) pairs. The model for the script is
 `~/prism-evidence/js-args/census.cjs`.
 
 **Oracle.** The corpora are checked without their dependencies installed, so the oracle uses only what the
 TypeScript checker and the TypeScript syntax tree (independent of tree-sitter) can decide from the project's
-own files. For every cross-function edge the lane adds:
+own files. Check every new props edge, including recursive same-owner hops, against an independently recovered site:
 
 1. Component identity: the symbol of the element's tag name (or of the call's callee), with aliases
    followed, has a declaration that is the edge's target function, or a `const` whose initialiser is an
@@ -412,7 +414,7 @@ own files. For every cross-function edge the lane adds:
    multi-line opening element containing it) whose tag resolves to the target has that key and a value that
    spells the source's path; that attribute is the key's last writer (no later attribute of the same name,
    no later spread); it is not `key` or `ref`; a `children` attribute is on an element with no child
-   content. For a literal the same checks apply to the argument's properties.
+   content. For a literal the same checks apply to the argument's properties. For JSX also verify incoming intra-owner definition evidence for the operand's binding and the absence of a binding/version conflict in any earlier representative (5.3.4). Use TypeScript binding identity and incoming endpoints with bytes, including for a zero-width representative. If identity cannot be decided, record UNDECIDED. Retain the distinct key restrictions of multiple valid witnesses. Verify recursive edges by the site and the formal's binding bytes.
 
 CORRECT when all three hold; WRONG when the tag resolves to another declaration or a check fails;
 UNDECIDED when the tag's symbol cannot be resolved; INADMISSIBLE when the probe failed. UNDECIDED rows are
@@ -426,7 +428,7 @@ if the line has none). A hand-read sample of 30 added `exact` edges whose local 
 function completes it.
 
 **Differential.** Base and head `nav dfg-stats --edges` and `nav call-stats` on each corpus, every change
-attributed to a named class, exit non-zero on an unattributed change. The comparator model is
+attributed to a named class (check literal/JSX site witnesses for recursive edges before classifying a same-owner edge as intra-function), exit non-zero on an unattributed change. The comparator model is
 `~/prism-evidence/jsts-lane/783/scripts/compare761.py`.
 
 **End-to-end paths.** From the head graph: chains that cross at least one props edge, by number of
@@ -523,13 +525,12 @@ reported.
   check 2 (a wrong Exact target for member calls and member elements through an imported value, or through
 a namespace import when the module has no export of the member's name) is filed as
   its own issue at close-out; fixing it belongs to a resolution slice with Tier-A.
-- **A source node that the caller's definitions do not reach gives a disconnected edge.** The 5.3 rule takes
-  the node the line's def-use edges end at; the `path` rows and the end-to-end connected share check it.
+- **Caller-source identity.** A disconnected or ambiguous JSX source is a refused leaf under 5.3.4. Confirm the shared node on each positive path and measure the share independently on the head.
 - **Opaque values dominate some attributes** (callbacks, inline objects from calls). They are counted, not
   bound; the census decides whether a later rule is worth it.
-- **Accepted limits, each counted:** a bare read of a plain formal with a zero-width Use receives nothing
+- **Accepted limits (units and unmeasured subtypes in 5.7):** a bare read of a plain formal with a zero-width Use receives nothing
   (F3); name-keyed trace descent (5.6, F5); two sites of one component on a line (5.6); same-line
-  propagation in one-line components (5.6); the element-context members stage D accepts as losses (5.3).
+  propagation in one-line components (5.6); the element-context losses in 5.7.
 - **Out of model:** props added at run time (`cloneElement`), what an unadmitted wrapper does to props (it
   is refused, not modelled), `defaultProps`, and render timing.
 - **Review taint across files** is the subject of #602 and PR #841. This lane changes no taint code;
