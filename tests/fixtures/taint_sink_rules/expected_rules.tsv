@@ -1,0 +1,541 @@
+table	label	rules	observed	class	note
+taint_sink_rules_identity_test	ri01	?	js-eval@CWE-95;js-response@CWE-79;structured:deserialization	flat+structured	Keep both flat rules. The eval operand is code text, so stage D must resolve the structured deserialization label.
+taint_sink_rules_identity_test	ri02	?	js-child-process@CWE-78;js-dom-html@CWE-79;structured:os-command	flat+structured	Keep both flat rules. Stage D fixes the structured identity for the command operand of cp.exec.
+taint_sink_rules_identity_test	ri03	?	structured:ssrf	structured	fetch takes the tainted URL. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri04	?	structured:deserialization	structured	pickle.loads consumes a serialized payload. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri05	?	go-file-op@CWE-22;structured:path-traversal	flat+structured	Keep go-file-op@CWE-22 for the removed path. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri05b	?	structured:path-traversal	structured	os.ReadFile reads the tainted path and has no flat rule. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri06	?	py-db-call@CWE-89;structured:sqli	flat+structured	Keep py-db-call@CWE-89 for the SQL statement. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri07	js-response@CWE-79	=	flat-dup	Both response body occurrences have the same rule id, counted once.
+taint_sink_rules_identity_test	ri08	py-os-command@CWE-78	py-db-call@CWE-89;py-os-command@CWE-78	sibling	The flat classifier also sees the weak constant SQL call. Only the shell command takes taint.
+taint_sink_rules_identity_test	ri09	legacy	=	legacy	C system takes a command. The legacy matcher records no CWE.
+taint_sink_rules_identity_test	ri10	legacy	=	legacy	Bash eval takes shell code even with a quoted argument. The legacy matcher records no CWE.
+taint_sink_rules_identity_test	ri11	?	structured:path-traversal	source-line	Gin c.Param supplies c.File's path inline. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri12	?	structured:deserialization	source-line	Flask request.args supplies the serialized payload inline. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri13	?	structured:deserialization	yaml-inline	Express req.body supplies yaml.load's serialized payload inline. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri14	?	-	wrapper	The wrapper detector exact-matches report after it finds vprintf. This path has no current tag or CWE. Stage D sets the identity.
+taint_sink_rules_identity_test	ri15	go-format-string@CWE-134	=	cleansed-structured	The Clean and HasPrefix guard suppress the WriteFile path match and its flat fallback. The validated path still serves as the printf format string.
+taint_sink_rules_identity_test	ri16	legacy	=	legacy	Java Runtime.exec takes a command. The legacy matcher records no CWE.
+taint_sink_rules_identity_test	ri17	legacy	=	legacy	Rust Command::new takes a program name. The legacy matcher records no CWE.
+taint_sink_rules_identity_test	ri18	legacy	=	legacy	Lua os.execute takes a shell command. The legacy matcher records no CWE.
+taint_sink_rules_identity_test	ri19	?	js-eval@CWE-95;js-response@CWE-79;structured:deserialization	flat+structured	Keep both flat rules in TSX. The eval operand is code text, so stage D must resolve the structured deserialization label.
+taint_sink_rules_identity_test	ri20	?	structured:sqli	continued	Flat admission scans the finding line and misses the execute callee on the preceding line. Expect py-db-call@CWE-89 for the SQL operand and the structured identity from stage D.
+taint_sink_rules_identity_test	ri21a	?	structured:ssrf	structured-multi	The borrowed value reaches both the URL and serialized payload. The first-match loop checks SSRF before deserialization. Stage D fixes both identities.
+taint_sink_rules_identity_test	ri21b	?	structured:ssrf	structured-multi	The serialized payload call comes first in source. The first-match loop still checks SSRF before deserialization. Stage D fixes both identities.
+taint_sink_rules_identity_test	ri22	?	py-os-command@CWE-78	cleansed-structured	HTML escaping suppresses mark_safe, the first structured match. The URL operand is still live and stage D fixes its SSRF identity. Keep py-os-command@CWE-78 for the shell operand.
+taint_sink_rules_identity_test	ri23a	?	-	caller-sink	The configured substring audit matches audit_payload. Configured name matches have no current tag or CWE. Stage D sets the identity.
+taint_sink_rules_identity_test	ri23b	?	-	wrapper	Only the detected report wrapper matches with empty extra_sinks. No current tag or CWE. Stage D sets the identity.
+taint_sink_rules_identity_test	ri23c	?	-	caller-sink	The configured name and the vprintf wrapper both match their respective calls. Their matches carry no current tag or CWE. Stage D sets the identities.
+taint_sink_rules_identity_test	ri23d	?	legacy	caller-sink	The configured exact name overlaps the built-in C system match. Legacy is the only current tag. Stage D sets the configured identity.
+taint_sink_rules_identity_test	ri23e	?	-	negative	Exact =audit rejects audit_payload, which the substring option in ri23a accepts. The config row's identity disposition is deferred to stage D.
+taint_sink_rules_identity_test	ri23f	?	-	negative	The same audit_payload call has no matching name with empty extra_sinks. The config row's identity disposition is deferred to stage D.
+taint_sink_rules_identity_test	ri24	?	js-db-call@CWE-89;structured:os-command	flat+structured	The SQLite operand is SQL, so keep js-db-call@CWE-89 and resolve the structured command label in stage D.
+taint_sink_rules_identity_test	ri25	go-html-render@CWE-79!suggestion	go-exec-command@CWE-78;go-html-render@CWE-79!suggestion	weak-mixed	The literal command makes the finding a warning. Only the weak Gin HTML data operand takes taint.
+taint_sink_rules_identity_test	ri26	js-dom-html@CWE-79	js-dom-html@CWE-79;js-response@CWE-79	sibling	Only the DOM assignment receives tainted HTML. The legacy line scan sees the response with a constant body too.
+taint_sink_rules_identity_test	ri27	legacy	-	legacy	Recorded limit: user_data is a legacy name, but the review taint graph does not connect the locals payload definition to local.payload in the resource block. This fixture does not reach the matcher.
+taint_sink_rules_js_test	direct eval	?	js-eval@CWE-95+structured:deserialization	flat+structured	flat: js-eval@CWE-95; structured: deserialization. The argument is JavaScript code text (CWE-95).
+taint_sink_rules_js_test	indirect eval (0, eval)	js-eval@CWE-95	=	flat	The structured matcher sees the textual callee (0, eval), which does not match eval.
+taint_sink_rules_js_test	window.eval	?	js-eval@CWE-95+structured:deserialization	flat+structured	flat: js-eval@CWE-95; structured: deserialization. The argument is JavaScript code text (CWE-95).
+taint_sink_rules_js_test	globalThis.eval	?	js-eval@CWE-95+structured:deserialization	flat+structured	flat: js-eval@CWE-95; structured: deserialization. The argument is JavaScript code text (CWE-95).
+taint_sink_rules_js_test	new Function	js-function-ctor@CWE-95	=	flat	The constructor takes code text. Structured call-path extraction requires a function field.
+taint_sink_rules_js_test	Function call	?	js-function-ctor@CWE-95+structured:deserialization	flat+structured	flat: js-function-ctor@CWE-95; structured: deserialization. The argument is a function body (CWE-95).
+taint_sink_rules_js_test	require alias	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_js_test	arbitrary alias execSync	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_js_test	node: prefix	js-child-process@CWE-78	=	flat	The operand selects the executable.
+taint_sink_rules_js_test	destructured exec	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_js_test	destructured rename	js-child-process@CWE-78	=	flat	The operand selects the executable.
+taint_sink_rules_js_test	esm namespace	js-child-process@CWE-78	=	flat	The operand selects the executable.
+taint_sink_rules_js_test	esm default	js-child-process@CWE-78	=	flat	The operand selects the module for the child Node process.
+taint_sink_rules_js_test	esm named	js-child-process@CWE-78	=	flat	The operand selects the executable.
+taint_sink_rules_js_test	bare exec wrapper import elsewhere	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78; structured: os-command. The fixture describes an external exec wrapper and supplies no child_process binding.
+taint_sink_rules_js_test	inline require	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_js_test	promisified exec	js-child-process@CWE-78	=	flat	The alias executes a child_process command. Its local name has no structured pattern.
+taint_sink_rules_js_test	db.query	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument is SQL text.
+taint_sink_rules_js_test	knex.raw	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument is SQL text.
+taint_sink_rules_js_test	prisma raw unsafe	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument is SQL text.
+taint_sink_rules_js_test	pool.execute	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument is SQL text.
+taint_sink_rules_js_test	sqlite db.exec	?	js-db-call@CWE-89+structured:os-command	flat+structured	flat: js-db-call@CWE-89; structured: os-command. SQLite exec consumes a SQL statement (CWE-89).
+taint_sink_rules_js_test	res.send	js-response@CWE-79	=	flat	
+taint_sink_rules_js_test	res.redirect	js-redirect@CWE-601	=	flat	
+taint_sink_rules_js_test	bare redirect call	js-redirect@CWE-601	=	flat	
+taint_sink_rules_js_test	res.write	js-response@CWE-79	=	flat	
+taint_sink_rules_js_test	disk.write	js-storage-write@CWE-22	=	flat	The first operand selects the storage destination.
+taint_sink_rules_js_test	res.setHeader Location	js-location@CWE-601	=	flat	The operand supplies the Location header destination. Redirect behavior depends on the response status.
+taint_sink_rules_js_test	res.set lowercase location	js-location@CWE-601	=	flat	The operand supplies the Location header destination. Redirect behavior depends on the response status.
+taint_sink_rules_js_test	res.writeHead Location	js-location@CWE-601	=	flat	
+taint_sink_rules_js_test	location.replace	js-location@CWE-601	=	flat	
+taint_sink_rules_js_test	res.location	js-location@CWE-601	=	flat	The operand supplies the Location header destination. Redirect behavior depends on the response status.
+taint_sink_rules_js_test	window.location.href assignment	js-location@CWE-601	=	flat	
+taint_sink_rules_js_test	location assignment	js-location@CWE-601	=	flat	
+taint_sink_rules_js_test	innerHTML assignment	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_js_test	insertAdjacentHTML	?	js-dom-html@CWE-79+structured:xss	flat+structured	flat: js-dom-html@CWE-79; structured: xss. Taint reaches the second argument, which is HTML.
+taint_sink_rules_js_test	appendFileSync	?	js-fs@CWE-22	flat	Taint reaches only the appended bytes. The fixed path a gives no path-traversal weakness and the fixture supplies no later interpretation of the bytes.
+taint_sink_rules_js_test	writeFileSync path	?	js-fs@CWE-22+structured:path-traversal	flat+structured	flat: js-fs@CWE-22; structured: path-traversal. Taint selects the destination path.
+taint_sink_rules_js_test	unlinkSync	js-fs@CWE-22	=	flat	Taint selects the path to unlink. The structured table lists unlink.
+taint_sink_rules_js_test	sanitizedQuery name	-	=	negative	
+taint_sink_rules_js_test	readByQuery call	-	=	negative	
+taint_sink_rules_js_test	InvalidQueryError ctor	-	=	negative	
+taint_sink_rules_js_test	req.query read	-	=	negative	
+taint_sink_rules_js_test	destructured query binding	-	=	negative	
+taint_sink_rules_js_test	revalidate (eval substring)	-	=	negative	
+taint_sink_rules_js_test	evaluate (eval substring)	-	=	negative	
+taint_sink_rules_js_test	Array.find	-	=	negative	
+taint_sink_rules_js_test	regex literal exec	-	=	negative	
+taint_sink_rules_js_test	variable named source	-	=	negative	
+taint_sink_rules_js_test	variable named raw	-	=	negative	
+taint_sink_rules_js_test	variable named run	-	=	negative	
+taint_sink_rules_js_test	variable named redirect	-	=	negative	
+taint_sink_rules_js_test	redirectUrl variable	-	=	negative	
+taint_sink_rules_js_test	property named redirect (read)	-	=	negative	
+taint_sink_rules_js_test	removed flag	-	=	negative	
+taint_sink_rules_js_test	list.remove	-	=	negative	
+taint_sink_rules_js_test	res.render dropped	-	=	negative	
+taint_sink_rules_js_test	emitter send on a non-response receiver	-	=	negative	
+taint_sink_rules_js_test	sendEvent helper	-	=	negative	
+taint_sink_rules_js_test	write to a non-sink receiver	-	=	negative	
+taint_sink_rules_js_test	Rewrite / system key	-	=	negative	
+taint_sink_rules_js_test	Function in a type position	-	=	negative	
+taint_sink_rules_js_test	freeze (free substring)	-	=	negative	
+taint_sink_rules_js_test	widgets (gets substring)	-	=	negative	
+taint_sink_rules_js_test	innerHTML read	-	=	negative	
+taint_sink_rules_js_test	location read	-	=	negative	
+taint_sink_rules_js_test	Map.set with a location key	-	=	negative	
+taint_sink_rules_js_test	str.replace	-	=	negative	
+taint_sink_rules_js_test	member named location on data object	-	=	negative	
+taint_sink_rules_js_test	setHeader for a non-Location header	-	=	negative	
+taint_sink_rules_hybrid_js_test	res.status().send	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	res.status().send concat	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	reply.code().send (fastify)	?	js-response@CWE-79	flat	Fastify sends strings as text/plain by default and objects as JSON. The fixture supplies no HTML content type.
+taint_sink_rules_hybrid_js_test	res.type().send	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	res.status().write	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	parenthesised chain	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	optional-chain receiver	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	optional-chain call on a chain	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	this.res.send	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	res.status().set Location	js-location@CWE-601	=	flat	
+taint_sink_rules_hybrid_js_test	TSX res.status().send	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	unknown receiver send	?	js-response@CWE-79	flat	The client receives a message. Its protocol and interpretation as HTML are unspecified.
+taint_sink_rules_hybrid_js_test	unknown receiver write	?	js-write@CWE-79	flat	The receiver takes a write payload. Its destination and interpretation as HTML are unspecified.
+taint_sink_rules_hybrid_js_test	socket.send	-	=	negative	
+taint_sink_rules_hybrid_js_test	ws.send	-	=	negative	
+taint_sink_rules_hybrid_js_test	socket.to(room).send chain	-	=	negative	
+taint_sink_rules_hybrid_js_test	process.send ipc	-	=	negative	
+taint_sink_rules_hybrid_js_test	process.stdout.write	-	=	negative	
+taint_sink_rules_hybrid_js_test	console.write	-	=	negative	
+taint_sink_rules_hybrid_js_test	logger.send	-	=	negative	
+taint_sink_rules_hybrid_js_test	logger.write	-	=	negative	
+taint_sink_rules_hybrid_js_test	Buffer.write	-	=	negative	
+taint_sink_rules_hybrid_js_test	document.write	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	document.writeln	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	window.document.write	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	document?.write	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	TSX document.write	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	promisify(require(cp).exec)	js-child-process@CWE-78	=	flat	The promisified alias receives a child_process command.
+taint_sink_rules_hybrid_js_test	promisify(require(cp).execFile)	js-child-process@CWE-78	=	flat	The promisified alias receives the executable path.
+taint_sink_rules_hybrid_js_test	dynamic import namespace	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	destructure from namespace	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument controls shell-enabled process execution.
+taint_sink_rules_hybrid_js_test	namespace alias const shell = cp	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	this.cp.exec injected	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78 if the injected receiver runs commands; structured: os-command. The label describes injection of the receiver. The fixture leaves its implementation unspecified.
+taint_sink_rules_hybrid_js_test	execaCommand	js-child-process@CWE-78	=	flat	The Execa argument is the command line.
+taint_sink_rules_hybrid_js_test	execa default	js-child-process@CWE-78	=	flat	The Execa argument selects the process executable.
+taint_sink_rules_hybrid_js_test	cross-spawn	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument controls shell-enabled process execution.
+taint_sink_rules_hybrid_js_test	optional chain cp?.exec	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	TS (cp as any).exec	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	TS cp!.exec	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	TS import = require	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	TSX cp.exec	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	untyped param named re (unknown receiver keeps firing)	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78 if the receiver runs commands; structured: os-command. An unspecified exec receiver could use the argument as regex input or as a command.
+taint_sink_rules_hybrid_js_test	exec on an unbound receiver	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78 if the receiver runs commands; structured: os-command. An unspecified exec receiver could use the argument as regex input or as a command.
+taint_sink_rules_hybrid_js_test	other.execSync with an unrelated cp import	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78 if the receiver runs commands; structured: os-command. The unrelated import establishes nothing about the other receiver.
+taint_sink_rules_hybrid_js_test	param shadows a cp namespace	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78 if the receiver runs commands; structured: os-command. The parameter shadows the child_process import. Its operation is unspecified.
+taint_sink_rules_hybrid_js_test	bare spawn, no binding	?	js-child-process@CWE-78	flat	The bare name has no binding. It takes an executable operand only if it denotes a process launcher.
+taint_sink_rules_hybrid_js_test	bare fork, no binding	?	js-child-process@CWE-78	flat	The bare name has no binding. It takes a child module path only if it denotes Node fork.
+taint_sink_rules_hybrid_js_test	regex literal exec	-	=	negative	
+taint_sink_rules_hybrid_js_test	new RegExp exec	-	=	negative	
+taint_sink_rules_hybrid_js_test	RegExp(..) call exec	-	=	negative	
+taint_sink_rules_hybrid_js_test	local const regex	-	=	negative	
+taint_sink_rules_hybrid_js_test	module const regex	-	=	negative	
+taint_sink_rules_hybrid_js_test	module const new RegExp	-	=	negative	
+taint_sink_rules_hybrid_js_test	local regex shadows a cp namespace	-	=	negative	
+taint_sink_rules_hybrid_js_test	TS param typed RegExp	-	=	negative	
+taint_sink_rules_hybrid_js_test	TSX regex literal exec	-	=	negative	
+taint_sink_rules_hybrid_js_test	local helper named exec	-	=	negative	
+taint_sink_rules_hybrid_js_test	spawn property read	-	=	negative	
+taint_sink_rules_hybrid_js_test	computed member is not an identifier (unchanged vs base)	-	=	negative	
+taint_sink_rules_hybrid_js_test	page.eval unknown receiver	?	js-eval@CWE-95+structured:deserialization	flat+structured	flat: js-eval@CWE-95 if the method evaluates code; structured: deserialization. The page receiver is unspecified. An actual evaluator consumes JavaScript code text.
+taint_sink_rules_hybrid_js_test	optional-chain eval	?	js-eval@CWE-95+structured:deserialization	flat+structured	flat: js-eval@CWE-95; structured: deserialization. The argument is JavaScript code text (CWE-95).
+taint_sink_rules_hybrid_js_test	window['eval'] computed (unchanged vs base)	-	=	negative	
+taint_sink_rules_hybrid_js_test	local helper named eval	-	=	negative	
+taint_sink_rules_hybrid_js_test	db.queryAsync	js-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_js_test	typeorm createQueryBuilder	js-db-call@CWE-89	=	flat	Taint reaches the SQL clause in where. The current line scan gets this tag from createQueryBuilder, which receives only the literal alias.
+taint_sink_rules_hybrid_js_test	mssql request.query	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument supplies SQL text.
+taint_sink_rules_hybrid_js_test	unknown receiver query	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89 if the operand is SQL; structured: sqli. The unknown receiver could implement a query whose operand is not SQL text.
+taint_sink_rules_hybrid_js_test	bare imported query	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument supplies SQL text.
+taint_sink_rules_hybrid_js_test	optional-chain query	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument supplies SQL text.
+taint_sink_rules_hybrid_js_test	TSX db.query	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument supplies SQL text.
+taint_sink_rules_hybrid_js_test	String.raw	-	=	negative	
+taint_sink_rules_hybrid_js_test	fs-extra remove	js-fs@CWE-22	=	flat	
+taint_sink_rules_hybrid_js_test	fs-extra removeSync	js-fs@CWE-22	=	flat	
+taint_sink_rules_hybrid_js_test	fs.open	js-fs@CWE-22	=	flat	
+taint_sink_rules_hybrid_js_test	fs.promises.open	js-fs@CWE-22	=	flat	
+taint_sink_rules_hybrid_js_test	window.open	?	js-location@CWE-601	flat	Taint supplies the URL for a new browsing context. Untrusted window navigation and scheme handling need a Stage D mapping.
+taint_sink_rules_hybrid_js_test	bare open	?	js-fs@CWE-22	flat	The open package hands the target to the operating system default handler for a URL, file, or executable. The operation is external target launching.
+taint_sink_rules_hybrid_js_test	document.location assignment	js-location@CWE-601	=	flat	
+taint_sink_rules_hybrid_js_test	location.href through optional chain	js-location@CWE-601	=	flat	
+taint_sink_rules_hybrid_js_test	nested innerHTML assignment	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	TSX dangerouslySetInnerHTML	?	js-dom-html@CWE-79+structured:xss	flat+structured	flat: js-dom-html@CWE-79; structured: xss. The JSX attribute supplies tainted HTML.
+taint_sink_rules_hybrid_js_test	TSX innerHTML ref	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	res.sendFile (structured)	?	structured:path-traversal	structured	flat: none; structured: path-traversal. The argument selects the file served by the response.
+taint_sink_rules_hybrid_js_test	vm.runInNewContext (structured)	?	structured:deserialization	structured	flat: none; structured: deserialization. The VM executes JavaScript source (CWE-95).
+taint_sink_rules_hybrid_js_test	koa ctx.redirect	js-redirect@CWE-601	=	flat	
+taint_sink_rules_hybrid_js_test	el.remove() DOM	-	=	negative	
+taint_sink_rules_hybrid_js_test	Handlebars.compile (deliberate drop)	-	=	negative	
+taint_sink_rules_hybrid_js_test	setTimeout string (not a base sink)	-	=	negative	
+taint_sink_rules_hybrid_js_test	xhr.open is not fs/window	-	=	negative	
+taint_sink_rules_hybrid_js_test	local redirect helper	-	=	negative	
+taint_sink_rules_hybrid_js_test	imported redirect	js-redirect@CWE-601	=	flat	
+taint_sink_rules_hybrid_js_test	probe: control: re.exec	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78 if the receiver runs commands; structured: os-command. An unspecified exec receiver could use the argument as regex input or as a command.
+taint_sink_rules_hybrid_js_test	probe: control: res.send	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	probe: res.status(400).send	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	probe: res.status(200).send input param	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	probe: reply.code(400).send fastify	?	js-response@CWE-79	flat	Fastify sends strings as text/plain by default and objects as JSON. The fixture supplies no HTML content type.
+taint_sink_rules_hybrid_js_test	probe: res.type(html).send	js-response@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	probe: document.write	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	probe: document.writeln	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	probe: promisify(require(cp).exec) -> execAsync	js-child-process@CWE-78	=	flat	The promisified alias receives a child_process command.
+taint_sink_rules_hybrid_js_test	probe: promisify(require(cp).execFile)	js-child-process@CWE-78	=	flat	The promisified alias receives the executable path.
+taint_sink_rules_hybrid_js_test	probe: dynamic import namespace	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	probe: destructure from cp namespace: spawn	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument controls shell-enabled process execution.
+taint_sink_rules_hybrid_js_test	probe: this.cp.exec injected	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78 if the injected receiver runs commands; structured: os-command. The label describes injection of the receiver. The fixture leaves its implementation unspecified.
+taint_sink_rules_hybrid_js_test	probe: execa execaCommand	js-child-process@CWE-78	=	flat	The Execa argument is the command line.
+taint_sink_rules_hybrid_js_test	probe: cross-spawn	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument controls shell-enabled process execution.
+taint_sink_rules_hybrid_js_test	probe: db.queryAsync bluebird	js-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_js_test	probe: typeorm createQueryBuilder().where concat	js-db-call@CWE-89	=	flat	Taint reaches the SQL clause in where. The current line scan gets this tag from createQueryBuilder, which receives only the literal alias.
+taint_sink_rules_hybrid_js_test	probe: fs-extra remove	js-fs@CWE-22	=	flat	
+taint_sink_rules_hybrid_js_test	probe: fs.open	js-fs@CWE-22	=	flat	
+taint_sink_rules_hybrid_js_test	probe: window.open	?	js-location@CWE-601	flat	Taint supplies the URL for a new browsing context. Untrusted window navigation and scheme handling need a Stage D mapping.
+taint_sink_rules_hybrid_js_test	probe: Handlebars.compile	-	=	negative	
+taint_sink_rules_hybrid_js_test	probe: res.sendFile (structured)	?	structured:path-traversal	structured	flat: none; structured: path-traversal. The argument selects the file served by the response.
+taint_sink_rules_hybrid_js_test	probe: optional chain cp?.exec	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	probe: TS (cp as any).exec	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	probe: TSX dangerouslySetInnerHTML	?	js-dom-html@CWE-79+structured:xss	flat+structured	flat: js-dom-html@CWE-79; structured: xss. The JSX attribute supplies tainted HTML.
+taint_sink_rules_hybrid_js_test	probe: TSX innerHTML ref	js-dom-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_js_test	probe: TSX cp.exec	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
+taint_sink_rules_hybrid_js_test	probe: document.location assign	js-location@CWE-601	=	flat	
+taint_sink_rules_hybrid_js_test	probe: mssql request.query	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument supplies SQL text.
+taint_sink_rules_hybrid_js_test	probe: vm.runInNewContext (structured)	?	structured:deserialization	structured	flat: none; structured: deserialization. The VM executes JavaScript source (CWE-95).
+taint_sink_rules_hybrid_js_test	probe: setTimeout string	-	=	negative	
+taint_sink_rules_hybrid_js_test	probe: ctx.response.redirect koa	js-redirect@CWE-601	=	flat	
+taint_sink_rules_hybrid_js_test	r2: reassigned regex receiver to child_process	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The assignment makes runner a child_process namespace before the call. The classifier checks the original regex initializer.
+taint_sink_rules_hybrid_js_test	r2: conditionally reassigned regex receiver	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. On the command-running branch the receiver is child_process. The other branch accepts regex input.
+taint_sink_rules_hybrid_js_test	r2d: for-of rebinds a regex receiver	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78 if the iteration supplies a command runner; structured: os-command. The loop can supply an arbitrary receiver, and an empty iterable leaves the regex in place.
+taint_sink_rules_hybrid_js_test	r2: unchanged let regex receiver	-	=	negative	
+taint_sink_rules_py_test	eval	py-eval@CWE-95	=	flat	
+taint_sink_rules_py_test	exec	py-eval@CWE-95	=	flat	
+taint_sink_rules_py_test	os.system	py-os-command@CWE-78	=	flat	
+taint_sink_rules_py_test	os.popen	py-os-command@CWE-78	=	flat	
+taint_sink_rules_py_test	subprocess.run	py-subprocess@CWE-78	=	flat	
+taint_sink_rules_py_test	aliased subprocess module	py-subprocess@CWE-78	=	flat	
+taint_sink_rules_py_test	from subprocess import run	py-subprocess@CWE-78	=	flat	
+taint_sink_rules_py_test	Popen	py-subprocess@CWE-78	=	flat	
+taint_sink_rules_py_test	check_output	py-subprocess@CWE-78	=	flat	
+taint_sink_rules_py_test	cursor.execute	?	py-db-call@CWE-89+structured:sqli	flat+structured	flat: py-db-call@CWE-89; structured: sqli. The tainted argument is the SQL statement.
+taint_sink_rules_py_test	objects.raw	?	py-db-call@CWE-89+structured:sqli	flat+structured	flat: py-db-call@CWE-89; structured: sqli. The tainted argument is the raw SQL statement.
+taint_sink_rules_py_test	orm .filter clause	py-sql-clause@CWE-89	=	flat	
+taint_sink_rules_py_test	orm .filter with an expression	py-sql-clause@CWE-89!suggestion	=	flat	The tainted operand is a value in a column comparison.
+taint_sink_rules_py_test	orm .where clause	py-sql-clause@CWE-89	=	flat	
+taint_sink_rules_py_test	sqlalchemy text with f-string	py-sql-clause@CWE-89	=	flat	
+taint_sink_rules_py_test	sa.text with concatenation	py-sql-clause@CWE-89	=	flat	
+taint_sink_rules_py_test	mark_safe	?	py-html@CWE-79+structured:xss	flat+structured	flat: py-html@CWE-79; structured: xss. The call marks tainted HTML as safe.
+taint_sink_rules_py_test	Markup	?	py-html@CWE-79+structured:xss	flat+structured	flat: py-html@CWE-79; structured: xss. The constructor marks tainted HTML as safe.
+taint_sink_rules_py_test	render_template_string	?	py-template@CWE-1336+structured:xss	flat+structured	flat: py-template@CWE-1336; structured: xss. The special matcher accepts tainted argument 0, which is template source and can cause template injection.
+taint_sink_rules_py_test	getattr with a computed name	py-dynamic-attr@CWE-470	=	flat	
+taint_sink_rules_py_test	redirect	py-redirect@CWE-601	=	flat	
+taint_sink_rules_py_test	open call	py-file-open@CWE-22	=	flat	
+taint_sink_rules_py_test	os.remove	py-file-remove@CWE-22	=	flat	
+taint_sink_rules_py_test	get_user_id call (kernel pattern)	-	=	negative	
+taint_sink_rules_py_test	get_user call outside C	-	=	negative	
+taint_sink_rules_py_test	def get_user_id signature	-	=	negative	
+taint_sink_rules_py_test	getattr with a literal name	-	=	negative	
+taint_sink_rules_py_test	setattr with a literal name	-	=	negative	
+taint_sink_rules_py_test	compile	-	=	negative	
+taint_sink_rules_py_test	run name without subprocess binding	-	=	negative	
+taint_sink_rules_py_test	run call without subprocess binding	-	=	negative	
+taint_sink_rules_py_test	variable named source	-	=	negative	
+taint_sink_rules_py_test	variable named raw	-	=	negative	
+taint_sink_rules_py_test	revalidate (eval substring)	-	=	negative	
+taint_sink_rules_py_test	evaluate (eval substring)	-	=	negative	
+taint_sink_rules_py_test	render helper	-	=	negative	
+taint_sink_rules_py_test	data.find	-	=	negative	
+taint_sink_rules_py_test	socket send	-	=	negative	
+taint_sink_rules_py_test	text with a literal	-	=	negative	
+taint_sink_rules_py_test	text without sqlalchemy binding	-	=	negative	
+taint_sink_rules_py_test	execution_result variable	-	=	negative	
+taint_sink_rules_py_test	django filter with keyword lookups	-	=	negative	
+taint_sink_rules_py_test	filter_by with keyword lookups	-	=	negative	
+taint_sink_rules_py_test	lookup_where helper	-	=	negative	
+taint_sink_rules_py_test	redirect_url variable	-	=	negative	
+taint_sink_rules_py_test	freeze (free substring)	-	=	negative	
+taint_sink_rules_hybrid_py_test	import os as o	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	from os import popen	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	from os import system as sh	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	os.execvp	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	os.spawnlp	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	from os import execv	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	asyncio.create_subprocess_exec	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	asyncio.create_subprocess_shell	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	pty.spawn	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	cursor.executescript	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	conn.exec_driver_sql	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	client.query f-string	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	client.query concatenation	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	client.query percent format	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	client.query .format	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	session.query(sql_var)	py-db-call@CWE-89	=	flat	The fixture labels the argument as SQL text.
+taint_sink_rules_hybrid_py_test	pd.read_sql_query	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	pd.read_sql	py-db-call@CWE-89	=	flat	The SQL-reading API accepts a query or table name at this position.
+taint_sink_rules_hybrid_py_test	aiofiles.open	py-file-open@CWE-22	=	flat	
+taint_sink_rules_hybrid_py_test	Path(x).open	py-file-open@CWE-22	=	flat	The tainted path reaches open through the Path receiver.
+taint_sink_rules_hybrid_py_test	Path(x).unlink	py-file-remove@CWE-22	=	flat	The tainted path reaches unlink through the Path receiver.
+taint_sink_rules_hybrid_py_test	webbrowser.open	?	py-file-open@CWE-22	flat	The operand controls browser navigation to a URL. The call shows no file-path operation or HTTP redirect.
+taint_sink_rules_hybrid_py_test	shutil.rmtree	py-file-remove@CWE-22	=	flat	
+taint_sink_rules_hybrid_py_test	tornado self.write	py-output@CWE-79	=	flat	The fixture identifies the call as writing a Tornado response body.
+taint_sink_rules_hybrid_py_test	unknown receiver send	?	py-output@CWE-79	flat	The operand is a message. The untyped receiver supplies no evidence of HTML output.
+taint_sink_rules_hybrid_py_test	untyped file param write	?	py-output@CWE-79	flat	The fixture describes a file writer. Taint reaches the contents and no HTML interpretation or path control is shown.
+taint_sink_rules_hybrid_py_test	jinja2 Template(x)	py-template@CWE-1336	=	flat	
+taint_sink_rules_hybrid_py_test	list.remove on an untyped param	?	py-file-remove@CWE-22	flat	For the list operation named by the fixture, the operand selects an element to delete. The receiver is untyped and the fixture shows no filesystem path.
+taint_sink_rules_hybrid_py_test	obj.eval(x)	?	py-eval@CWE-95	flat	The untyped receiver leaves the method semantics unknown. CWE-95 needs the operand to be evaluated as code.
+taint_sink_rules_hybrid_py_test	builtins.exec	py-eval@CWE-95	=	flat	
+taint_sink_rules_hybrid_py_test	owner decision: orm .filter(expression) stays a weak TP	py-sql-clause@CWE-89!suggestion	=	flat	The tainted operand is a value in a column comparison.
+taint_sink_rules_hybrid_py_test	owner decision: select().where(expr)	py-sql-clause@CWE-89!suggestion	=	flat	The imported select builds a statement and the tainted operand is a comparison value.
+taint_sink_rules_hybrid_py_test	owner decision: django filter positional	py-sql-clause@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	owner decision: df.filter positional is accepted	?	py-sql-clause@CWE-89	flat	For the DataFrame operation named by the fixture, the operand selects labels and there is no SQL clause.
+taint_sink_rules_hybrid_py_test	logger.filter	-	=	negative	
+taint_sink_rules_hybrid_py_test	builtin filter(fn, xs)	-	=	negative	
+taint_sink_rules_hybrid_py_test	model.eval() zero args	-	=	negative	
+taint_sink_rules_hybrid_py_test	platform.system() zero args	-	=	negative	
+taint_sink_rules_hybrid_py_test	Image.open	-	=	negative	
+taint_sink_rules_hybrid_py_test	session.query(Model attr)	-	=	negative	
+taint_sink_rules_hybrid_py_test	session.query(Model)	-	=	negative	
+taint_sink_rules_hybrid_py_test	list literal remove	-	=	negative	
+taint_sink_rules_hybrid_py_test	list() constructor remove	-	=	negative	
+taint_sink_rules_hybrid_py_test	set annotation remove	-	=	negative	
+taint_sink_rules_hybrid_py_test	with open as f write	-	=	negative	
+taint_sink_rules_hybrid_py_test	StringIO write	-	=	negative	
+taint_sink_rules_hybrid_py_test	sys.stdout.write	-	=	negative	
+taint_sink_rules_hybrid_py_test	sock.send	-	=	negative	
+taint_sink_rules_hybrid_py_test	logger.write	-	=	negative	
+taint_sink_rules_hybrid_py_test	re.compile (deliberate drop)	-	=	negative	
+taint_sink_rules_hybrid_py_test	subprocess.call with an alias-resolved module	py-subprocess@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	text with constant argument	-	=	negative	
+taint_sink_rules_hybrid_py_test	probe: py control: os.system	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py import os as o	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py os.execvp	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py os.spawnlp	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py asyncio.create_subprocess_exec	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py asyncio.create_subprocess_shell	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py subprocess.call shell	py-subprocess@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py cursor.executescript	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py conn.exec_driver_sql	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py bigquery client.query	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py pd.read_sql_query	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py aiofiles.open	py-file-open@CWE-22	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py Path(x).open	py-file-open@CWE-22	=	flat	The tainted path reaches open through the Path receiver.
+taint_sink_rules_hybrid_py_test	probe: py Path(x).unlink	py-file-remove@CWE-22	=	flat	The tainted path reaches unlink through the Path receiver.
+taint_sink_rules_hybrid_py_test	probe: py tornado self.write	py-output@CWE-79	=	flat	The fixture identifies the call as writing a Tornado response body.
+taint_sink_rules_hybrid_py_test	probe: py jinja2 Template(x).render	py-template@CWE-1336	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py from os import popen	py-os-command@CWE-78	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py shutil.rmtree	py-file-remove@CWE-22	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py django filter positional Q (expected sink per rule)	py-sql-clause@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	probe: py builtin filter(fn, xs) FP check	-	=	negative	
+taint_sink_rules_hybrid_py_test	probe: py pandas df.filter(items) FP check	?	py-sql-clause@CWE-89	flat	The Pandas operand selects DataFrame labels and there is no SQL clause.
+taint_sink_rules_hybrid_py_test	probe: py logging Filter: logger.filter(record) FP	-	=	negative	
+taint_sink_rules_hybrid_py_test	probe: py re.compile(x).search FP?	-	=	negative	
+taint_sink_rules_hybrid_py_test	r2: reassigned list to os	py-file-remove@CWE-22	=	flat	
+taint_sink_rules_hybrid_py_test	r2: conditionally reassigned list	py-file-remove@CWE-22	=	flat	On the branch that assigns os, the operand is a filesystem path.
+taint_sink_rules_hybrid_py_test	r2: reassigned file-like to a socket-less client	?	py-output@CWE-79	flat	Taint reaches the write payload. The initial stream and the unknown replacement establish no HTML output.
+taint_sink_rules_hybrid_py_test	r2: unchanged list remove (single binding)	-	=	negative	
+taint_sink_rules_hybrid_py_test	r2: query keyword f-string	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	r2: query reordered keywords	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	r2: query sql= keyword percent	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	r2: query lower var percent	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	r2: query CONST percent	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	r2: query CONST plus var	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	r2: AssetStore annotation remove	?	py-file-remove@CWE-22	flat	The AssetStore annotation leaves the remove operand's meaning unknown. It could name an asset by key rather than by filesystem path.
+taint_sink_rules_hybrid_py_test	r2d: query keyword parameterized (tainted job_config)	-	=	negative	
+taint_sink_rules_hybrid_py_test	r2d: query attribute arithmetic (tainted attribute operand)	-	=	negative	
+taint_sink_rules_hybrid_py_test	r2d: with-as then plain rebinding	?	py-output@CWE-79	flat	The rebound connection receives the write payload. Its interpretation as HTML is unspecified.
+taint_sink_rules_hybrid_py_test	r2d: two with-as on the same name	?	py-output@CWE-79	flat	The second context manager supplies an unknown session writer. HTML interpretation is unspecified.
+taint_sink_rules_hybrid_py_test	r2d: tuple unpacking rebinds a list	py-file-remove@CWE-22	=	flat	
+taint_sink_rules_hybrid_py_test	r2d: walrus rebinds a list	py-file-remove@CWE-22	=	flat	
+taint_sink_rules_hybrid_py_test	r2d: single with-as file write stays suppressed	-	=	negative	
+taint_sink_rules_hybrid_py_test	r2d: parenthesized implicit-concat SQL keyword	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	r2d: parenthesized concatenation SQL	py-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_py_test	r2d: generic argument is not the base (Storage[list])	?	py-file-remove@CWE-22	flat	Storage[list] does not identify the backend or show that remove takes a filesystem path.
+taint_sink_rules_hybrid_py_test	r2d: union with a non-collection alternative	?	py-file-remove@CWE-22	flat	The list alternative removes an element, and the Store alternative has no demonstrated filesystem path semantics.
+taint_sink_rules_hybrid_py_test	r2d: list[str] | None annotation remove	-	=	negative	
+taint_sink_rules_hybrid_py_test	r2d: Optional[set] annotation remove	-	=	negative	
+taint_sink_rules_hybrid_py_test	r2: set[str] annotation remove	-	=	negative	
+taint_sink_rules_hybrid_py_test	r2: typing Set[str] annotation remove	-	=	negative	
+taint_sink_rules_go_test	db.Exec	go-db-call@CWE-89!suggestion	=	flat	The SQL is constant and x is a bound parameter.
+taint_sink_rules_go_test	field handle s.db.Exec	go-db-call@CWE-89!suggestion	=	flat	The SQL is constant and x is a bound parameter.
+taint_sink_rules_go_test	tx.QueryRow	go-db-call@CWE-89!suggestion	=	flat	The SQL is constant and x is a bound parameter.
+taint_sink_rules_go_test	QueryContext on any receiver	go-db-call@CWE-89	=	flat	The call uses the SQL QueryContext shape with x in the statement position after ctx.
+taint_sink_rules_go_test	Fprintf to http.ResponseWriter with constant format	go-writer-output@CWE-79	=	flat	The constant format writes x unescaped to the HTTP response body.
+taint_sink_rules_go_test	Fprintln to an io.Writer parameter	go-writer-output	go-writer-output@CWE-79	flat	The operation writes raw data to a generic writer. The fixture does not establish an HTML destination.
+taint_sink_rules_go_test	Sprintf with a non-constant format	?	go-format-string@CWE-134	flat	The seed reaches a substitution value. The separate format parameter has no shown taint flow.
+taint_sink_rules_go_test	Sprintf fed the tainted value as the format	go-format-string@CWE-134	=	flat	
+taint_sink_rules_go_test	Sprintf with a format read from a request field	?	go-format-string@CWE-134	flat	The seed reaches a substitution value. The separate req.Format field has no shown taint flow.
+taint_sink_rules_go_test	template.HTML	go-template-html@CWE-79	=	flat	The conversion marks x as trusted HTML.
+taint_sink_rules_go_test	exec.Command	?	go-exec-command@CWE-78+structured:os-command	flat+structured	flat: go-exec-command@CWE-78; structured: os-command. x selects the executable.
+taint_sink_rules_go_test	os.Chmod	go-file-op@CWE-22	=	flat	The package function takes x as the path and has a fixed mode.
+taint_sink_rules_go_test	http.Redirect	go-redirect@CWE-601	=	flat	
+taint_sink_rules_go_test	constant-format Sprintf	-	=	negative	
+taint_sink_rules_go_test	package-const format Sprintf	-	=	negative	
+taint_sink_rules_go_test	imported-package constant format Sprintf	-	=	negative	
+taint_sink_rules_go_test	versioned import package constant format	-	=	negative	
+taint_sink_rules_go_test	constant-format Fprintf to a file	-	=	negative	
+taint_sink_rules_go_test	sanitizedQuery name	-	=	negative	
+taint_sink_rules_go_test	InvalidQueryError name	-	=	negative	
+taint_sink_rules_go_test	URL.Query() call is a source, not a sink	-	=	negative	
+taint_sink_rules_go_test	variable named source	-	=	negative	
+taint_sink_rules_go_test	variable named raw	-	=	negative	
+taint_sink_rules_go_test	variable named run	-	=	negative	
+taint_sink_rules_go_test	variable named redirect	-	=	negative	
+taint_sink_rules_go_test	removeUser helper	-	=	negative	
+taint_sink_rules_go_test	Find on a list	-	=	negative	
+taint_sink_rules_go_test	sendEvent helper	-	=	negative	
+taint_sink_rules_go_test	field HTML read	-	=	negative	
+taint_sink_rules_go_test	func signature naming a sink word	-	=	negative	
+taint_sink_rules_go_test	freeze (free substring)	-	=	negative	
+taint_sink_rules_go_test	Writer-less Fprintln to a buffer	-	=	negative	
+taint_sink_rules_go_test	generic structured path	?	+structured:path-traversal	structured	flat: -; structured: path-traversal. The semantic callee resolves to os.ReadFile and x is its path.
+taint_sink_rules_go_test	generic flat callee	go-db-call@CWE-89	=	flat	The semantic callee is Queryx and x occupies the SQL statement position.
+taint_sink_rules_go_test	generic file constructor	go-file-op@CWE-22	=	flat	The fixture models an afero filesystem constructor. x is the removal path.
+taint_sink_rules_go_test	slice and map of sink-named functions	-	=	negative	
+taint_sink_rules_go_test	generic enclosing Exec is strong	go-db-call@CWE-89	=	weak-mixed	x reaches a bound parameter of the inner QueryRow. The enclosing Exec has independent SQL text on the prior line and makes the finding a warning.
+taint_sink_rules_go_test	non-generic enclosing Exec is strong	go-db-call@CWE-89	=	weak-mixed	x reaches a bound parameter of the inner QueryRow. The enclosing Exec has independent SQL text on the prior line and makes the finding a warning.
+taint_sink_rules_go_test	generic constant query stays weak	go-db-call@CWE-89!suggestion	=	continued	Both SQL statements are constant. The marked line passes x as a bound parameter to QueryRow.
+taint_sink_rules_hybrid_go_test	sqlx Queryx	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	sqlx MustExec	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	sqlx NamedExec	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	sqlx QueryRowx	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	dbConn.Exec	go-db-call@CWE-89	=	flat	The fixture models a SQL connection executing x as the statement.
+taint_sink_rules_hybrid_go_test	handle *sql.DB Query	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	pgx r.pg.Exec	go-db-call@CWE-89	=	flat	x occupies the pgx statement position after ctx.
+taint_sink_rules_hybrid_go_test	gorm chain Exec	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	method value query := db.Query	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	Query on a non-db-named receiver	?	go-db-call@CWE-89	flat	The Cache method has no definition in the fixture. x could be a cache lookup key and SQL text is unestablished.
+taint_sink_rules_hybrid_go_test	aliased os/exec	go-exec-command@CWE-78	=	flat	The flat classifier resolves the alias. The structured matcher uses the written call path.
+taint_sink_rules_hybrid_go_test	exec.CommandContext	?	go-exec-command@CWE-78+structured:os-command	flat+structured	flat: go-exec-command@CWE-78; structured: os-command. x selects the executable after ctx.
+taint_sink_rules_hybrid_go_test	syscall.Exec	?	go-exec-command@CWE-78+structured:os-command	flat+structured	flat: go-exec-command@CWE-78; structured: os-command. x is the executable path.
+taint_sink_rules_hybrid_go_test	aliased html/template	go-template-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_go_test	template.HTML	go-template-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_go_test	response.HTML helper keeps firing	go-writer-output@CWE-79	go-template-html@CWE-79	flat	The HTTP writer, request and x suggest an HTML response helper. Its implementation is absent.
+taint_sink_rules_hybrid_go_test	os.Remove	?	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; structured: path-traversal. x is the removal path.
+taint_sink_rules_hybrid_go_test	os.RemoveAll	?	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; structured: path-traversal. x is the removal path.
+taint_sink_rules_hybrid_go_test	os.Rename	?	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; structured: path-traversal. x is the old path.
+taint_sink_rules_hybrid_go_test	aliased os Chmod	go-file-op@CWE-22	=	flat	The package function takes x as the path and has a fixed mode.
+taint_sink_rules_hybrid_go_test	afero WriteFile	go-file-op@CWE-22	=	flat	x is the filename after the filesystem argument.
+taint_sink_rules_hybrid_go_test	store.Remove unknown receiver	?	go-file-op@CWE-22	flat	The Store method has no definition in the fixture. x could be a record key and a filesystem path is unestablished.
+taint_sink_rules_hybrid_go_test	Sprintf where a local shadows a const	go-format-string@CWE-134	=	flat	x flows into the local format string.
+taint_sink_rules_hybrid_go_test	Sprintf where a param shadows a const	?	go-format-string@CWE-134	flat	The seed reaches a substitution value. The shadowing format parameter has no shown taint flow.
+taint_sink_rules_hybrid_go_test	Sprintf with a const not shadowed	-	=	negative	
+taint_sink_rules_hybrid_go_test	Sprintf with a function-local const	-	=	negative	
+taint_sink_rules_hybrid_go_test	Sprintf through aliased fmt with a literal	-	=	negative	
+taint_sink_rules_hybrid_go_test	u.Query() zero args	-	=	negative	
+taint_sink_rules_hybrid_go_test	r.URL.Query() zero args	-	=	negative	
+taint_sink_rules_hybrid_go_test	gin ctx.Query	-	=	negative	
+taint_sink_rules_hybrid_go_test	echo c.QueryParam is another name	-	=	negative	
+taint_sink_rules_hybrid_go_test	cobra.Command (imported package other than os/exec)	-	=	negative	
+taint_sink_rules_hybrid_go_test	container/list Remove	-	=	negative	
+taint_sink_rules_hybrid_go_test	lru cache Remove	-	=	negative	
+taint_sink_rules_hybrid_go_test	imported helper package HTML keeps firing	?	go-template-html@CWE-79	flat	The imported helper has no visible body or return type. Its name alone does not establish raw HTML output or a trusted HTML conversion.
+taint_sink_rules_hybrid_go_test	gin ctx.HTML template render fires (weak-pending)	go-html-render@CWE-79!suggestion	=	flat	x is render data. The typed Gin receiver is the classifier's weak render shape.
+taint_sink_rules_hybrid_go_test	echo c.HTML raw string fires	go-writer-output@CWE-79	go-template-html@CWE-79	flat	Echo writes x as the raw HTTP response body.
+taint_sink_rules_hybrid_go_test	iris ctx.HTML raw markup fires	go-writer-output@CWE-79	go-template-html@CWE-79	flat	The one-argument Iris call writes x as raw HTML.
+taint_sink_rules_hybrid_go_test	gin ctx.Query(x) stays suppressed	-	=	negative	
+taint_sink_rules_hybrid_go_test	field .HTML read	-	=	negative	
+taint_sink_rules_hybrid_go_test	Writer-less Fprintln to a buffer	-	=	negative	
+taint_sink_rules_hybrid_go_test	gorm Raw (not a base sink)	-	=	negative	
+taint_sink_rules_hybrid_go_test	sqlx db.Select (not a base sink)	-	=	negative	
+taint_sink_rules_hybrid_go_test	probe: go control: db.Query	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	probe: go sqlx db.Queryx	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	probe: go sqlx db.MustExec	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	probe: go sqlx db.Select	-	=	negative	
+taint_sink_rules_hybrid_go_test	probe: go dbConn.Exec	go-db-call@CWE-89	=	flat	The fixture models a SQL connection executing x as the statement.
+taint_sink_rules_hybrid_go_test	probe: go gorm db.WithContext(ctx).Exec	go-db-call@CWE-89	=	flat	
+taint_sink_rules_hybrid_go_test	probe: go gorm db.Raw	-	=	negative	
+taint_sink_rules_hybrid_go_test	probe: go pgx r.pg.Exec	go-db-call@CWE-89	=	flat	x occupies the pgx statement position after ctx.
+taint_sink_rules_hybrid_go_test	probe: go syscall.Exec (structured)	?	go-exec-command@CWE-78+structured:os-command	flat+structured	flat: go-exec-command@CWE-78; structured: os-command. x is the executable path.
+taint_sink_rules_hybrid_go_test	probe: go aliased osexec.Command	go-exec-command@CWE-78	=	flat	The flat classifier resolves the alias. The structured matcher uses the written call path.
+taint_sink_rules_hybrid_go_test	probe: go os.RemoveAll (structured)	?	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; structured: path-traversal. x is the removal path.
+taint_sink_rules_hybrid_go_test	probe: go fmt.Fprintf(w) writer	go-writer-output@CWE-79	=	flat	The constant format places x inside an HTML paragraph in the response.
+taint_sink_rules_hybrid_go_test	probe: go w.Write([]byte(x))	-	=	negative	
+taint_sink_rules_hybrid_go_test	probe: go io.WriteString(w,x)	-	=	negative	
+taint_sink_rules_hybrid_go_test	probe: go c.String gin	-	=	negative	
+taint_sink_rules_hybrid_go_test	probe: go template.HTML via alias htmpl	go-template-html@CWE-79	=	flat	
+taint_sink_rules_hybrid_go_test	r2: afero.Fs Remove named cache	go-file-op@CWE-22	=	flat	
+taint_sink_rules_hybrid_go_test	r2: afero.Fs Rename named cache	go-file-op@CWE-22	=	flat	
+taint_sink_rules_hybrid_go_test	r2: os.File typed named list	?	go-file-op@CWE-22	flat	x controls the permission mode of an open file. The available file rule describes path traversal.
+taint_sink_rules_hybrid_go_test	r2d: var-declared afero.Fs named cache	go-file-op@CWE-22	=	flat	
+taint_sink_rules_hybrid_go_test	r2d: afero.NewOsFs() local named cache	go-file-op@CWE-22	=	flat	
+taint_sink_rules_hybrid_go_test	r2d: os.Open() local named list	?	go-file-op@CWE-22	flat	The file path is fixed in os.Open. x controls only the permissions on that file.
+taint_sink_rules_hybrid_go_test	r2d: var-declared container type named cache	-	=	negative	
+taint_sink_rules_hybrid_go_test	r2: untyped-name container Remove	-	=	negative	
+taint_sink_rules_hybrid_go_test	r2: init-stmt shadows package const format	go-format-string@CWE-134	=	flat	x flows into the local format string.
+taint_sink_rules_hybrid_go_test	r2: range var shadows package const format	?	go-format-string@CWE-134	flat	The seed reaches a substitution value. The format comes independently from names.
+taint_sink_rules_hybrid_go_test	r2: unshadowed package const format	-	=	negative	
+taint_sink_rules_other_test	C get_user	legacy	=	legacy	The kernel user-space read uses x as its output destination.
+taint_sink_rules_other_test	C get_user_id	-	=	negative	The C kernel name get_user requires an exact match.
+taint_sink_rules_other_test	bash eval	legacy	=	legacy	eval interprets x as shell code.
+taint_sink_rules_other_test	bash source	legacy	=	legacy	source reads and executes the shell file selected by x.
+taint_sink_rules_other_test	bash find	legacy	=	legacy	x supplies the search root to find.
+taint_sink_rules_other_test	java variable named source	-	=	negative	source is a Java local. The exact source pattern is Bash-only.
+taint_sink_rules_other_test	strcpy	legacy	=	legacy	strcpy copies the bytes of x into d without a destination size argument.
+taint_sink_rules_other_test	system	legacy	=	legacy	system takes x as a shell command.
+taint_sink_rules_hybrid_other_test	C sqlite3_prepare_v2	legacy	=	legacy	x is the SQL statement prepared by SQLite.
+taint_sink_rules_hybrid_other_test	C++ sqlite3_prepare_v2	legacy	=	legacy	x is the SQL statement prepared by SQLite.
+taint_sink_rules_hybrid_other_test	C chmod	legacy	=	legacy	x selects the path whose permissions are changed.
+taint_sink_rules_hybrid_other_test	C chown	legacy	=	legacy	x selects the path whose owner and group are changed.
+taint_sink_rules_hybrid_other_test	C libcurl setopt URL	legacy	=	legacy	x sets the transfer URL through CURLOPT_URL.
+taint_sink_rules_hybrid_other_test	C fw_setenv	legacy	=	legacy	x sets the value of a U-Boot environment variable.
+taint_sink_rules_hybrid_other_test	C mtd	legacy	=	legacy	x is passed to flash. The fixture leaves the parameter's role unspecified, and the mtd identifier supplies the legacy hit.
+taint_sink_rules_hybrid_other_test	C system	legacy	=	legacy	system takes x as a shell command.
+taint_sink_rules_hybrid_other_test	C++ chmod	legacy	=	legacy	x selects the path whose permissions are changed.
+taint_sink_rules_hybrid_other_test	C get_user	legacy	=	legacy	The kernel user-space read uses x as its output destination.
+taint_sink_rules_hybrid_other_test	Lua uci:set	legacy	=	legacy	x is the value written to the network.lan.ipaddr configuration key.
+taint_sink_rules_hybrid_other_test	Lua os.execute	legacy	=	legacy	x is concatenated into the shell command passed to os.execute.
+taint_sink_rules_hybrid_other_test	Lua loadstring	legacy	=	legacy	x is Lua source text compiled by loadstring.
+taint_sink_rules_hybrid_other_test	Rust Command::new	legacy	=	legacy	x selects the executable launched by spawn.
+taint_sink_rules_hybrid_other_test	Rust curl handle	legacy	=	legacy	x is passed to fetch. The fixture leaves the parameter's role unspecified, and the curl identifier supplies the legacy hit.
+taint_sink_rules_hybrid_other_test	Bash eval	legacy	=	legacy	eval interprets x as shell code.
+taint_sink_rules_hybrid_other_test	Bash uci	legacy	=	legacy	x is the value written to the network.lan.ipaddr configuration key.
+taint_sink_rules_hybrid_other_test	Bash sed	legacy	=	legacy	x is the editing script interpreted by sed.
+taint_sink_rules_hybrid_other_test	Bash xargs	legacy	=	legacy	x reaches xargs through stdin and supplies arguments to rm.
+taint_sink_rules_hybrid_other_test	Bash sudo	legacy	=	legacy	x supplies the command operand to sudo.
+taint_sink_rules_hybrid_other_test	Bash chmod	legacy	=	legacy	x supplies the permissions mode for the fixed path f.
+taint_sink_rules_hybrid_other_test	Bash sqlite3	legacy	=	legacy	x is interpolated into the SQL statement sent to sqlite3.
+taint_sink_rules_hybrid_other_test	Bash curl	legacy	=	legacy	x supplies the transfer URL to curl.
+taint_sink_rules_hybrid_other_test	Bash wget	legacy	=	legacy	x supplies the download URL to wget.
+taint_sink_rules_hybrid_other_test	Bash ip	legacy	=	legacy	x supplies the address operand for a network interface change.
+taint_sink_rules_hybrid_other_test	Rust variable named source	-	=	negative	The exact source pattern is Bash-only.
+taint_sink_rules_hybrid_other_test	Rust variable named ip	-	=	negative	The exact ip pattern is Bash-only.
+taint_sink_rules_hybrid_other_test	C variable named find	-	=	negative	The exact find pattern is Bash-only.
+taint_sink_rules_hybrid_other_test	Lua variable named sed	-	=	negative	The exact sed pattern is Bash-only.
+taint_sink_rules_hybrid_other_test	Java variable named source	-	=	negative	The exact source pattern is Bash-only.
+taint_sink_rules_hybrid_other_test	C get_user_id	-	=	negative	The C kernel name get_user requires an exact match.
+taint_sink_rules_hybrid_other_test	C get_user_pages (deliberate: not a sink)	-	=	negative	The C kernel name get_user requires an exact match.
+taint_sink_rules_hybrid_other_test	probe: c control: system	legacy	=	legacy	system takes x as a shell command.
+taint_sink_rules_hybrid_other_test	probe: c sqlite3_prepare_v2	legacy	=	legacy	x is the SQL statement prepared by SQLite.
+taint_sink_rules_hybrid_other_test	probe: c chmod	legacy	=	legacy	x selects the path whose permissions are changed.
+taint_sink_rules_hybrid_other_test	probe: c chown	legacy	=	legacy	x selects the path whose owner and group are changed.
+taint_sink_rules_hybrid_other_test	probe: c libcurl setopt URL	legacy	=	legacy	x sets the transfer URL through CURLOPT_URL.
+taint_sink_rules_hybrid_other_test	probe: c get_user (kernel)	legacy	=	legacy	The kernel user-space read uses x as its output destination.
+taint_sink_rules_hybrid_other_test	probe: c get_user_pages	-	=	negative	The C kernel name get_user requires an exact match.
+taint_sink_rules_hybrid_other_test	probe: lua uci:set	legacy	=	legacy	x is the value written to the network.lan.ipaddr configuration key.
+taint_sink_rules_hybrid_other_test	probe: lua os.execute	legacy	=	legacy	x is concatenated into the shell command passed to os.execute.
+taint_sink_rules_hybrid_other_test	probe: rust Command::new	legacy	=	legacy	x selects the executable launched by spawn.
+taint_sink_rules_hybrid_other_test	probe: java Runtime.exec	-	legacy	negative	The legacy classifier matches the exec identifier, while the fixture asserts no SINK-line finding. The reason for that absence is unverified.
+taint_sink_rules_hybrid_other_test	probe: bash eval	legacy	=	legacy	eval interprets x as shell code.
+taint_sink_rules_hybrid_other_test	probe: bash uci	legacy	=	legacy	x is the value written to the network.lan.ipaddr configuration key.

@@ -5,6 +5,103 @@
 //! `taint_sink` finding lands on the sink line.
 
 use crate::common::*;
+use prism_review::algorithms::taint::{self, TaintConfig};
+
+const EXPECTATION_HEADER: &str = "table\tlabel\trules\tobserved\tclass\tnote";
+
+#[derive(Debug)]
+pub struct Expectation {
+    pub table: String,
+    pub label: String,
+    /// `None` defers the rule list to stage D. An empty list records `-`.
+    pub rules: Option<Vec<String>>,
+    pub observed: String,
+    pub class: String,
+}
+
+/// Parse the identity ledger and validate the rule tokens and row keys.
+pub fn parse_expected_rules(tsv: &str) -> Result<Vec<Expectation>, String> {
+    let mut expectations = Vec::new();
+    let mut keys = BTreeSet::new();
+    for (index, line) in tsv.lines().enumerate() {
+        if index == 0 && line == EXPECTATION_HEADER {
+            continue;
+        }
+        let number = index + 1;
+        let columns: Vec<_> = line.split('\t').collect();
+        let [table, label, rules, observed, class, _note] = columns.as_slice() else {
+            return Err(format!(
+                "line {number}: expected 6 columns, got {}",
+                columns.len()
+            ));
+        };
+        if [table, label, observed, class]
+            .iter()
+            .any(|value| value.is_empty())
+        {
+            return Err(format!(
+                "line {number}: empty table, label, observed, or class"
+            ));
+        }
+        if !keys.insert((*table, *label)) {
+            return Err(format!(
+                "line {number}: duplicate table and label {table}/{label}"
+            ));
+        }
+        let rules = parse_rule_list(rules).map_err(|error| format!("line {number}: {error}"))?;
+        expectations.push(Expectation {
+            table: (*table).to_string(),
+            label: (*label).to_string(),
+            rules,
+            observed: (*observed).to_string(),
+            class: (*class).to_string(),
+        });
+    }
+    Ok(expectations)
+}
+
+fn parse_rule_list(rules: &str) -> Result<Option<Vec<String>>, String> {
+    match rules {
+        "?" => return Ok(None),
+        "-" => return Ok(Some(Vec::new())),
+        _ => {}
+    }
+
+    let mut previous = None;
+    let mut parsed = Vec::new();
+    for rule in rules.split(';') {
+        let identity = match rule.split_once('!') {
+            Some((identity, "suggestion")) => identity,
+            Some((_, severity)) => return Err(format!("invalid severity mark !{severity}")),
+            None => rule,
+        };
+        let (id, cwe) = match identity.split_once('@') {
+            Some((id, cwe)) => (id, Some(cwe)),
+            None => (identity, None),
+        };
+        if id.is_empty()
+            || !id
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        {
+            return Err(format!("invalid rule id {id:?}"));
+        }
+        if let Some(cwe) = cwe {
+            let valid = cwe.strip_prefix("CWE-").is_some_and(|digits| {
+                !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
+            });
+            if !valid {
+                return Err(format!("invalid CWE {cwe:?}"));
+            }
+        }
+        if previous.is_some_and(|preceding| preceding >= id) {
+            return Err(format!("unsorted or duplicate rule id {id:?}"));
+        }
+        previous = Some(id);
+        parsed.push(rule.to_string());
+    }
+    Ok(Some(parsed))
+}
 
 pub struct Case {
     pub label: &'static str,
@@ -19,7 +116,11 @@ pub fn marker_line(source: &str, marker: &str) -> usize {
         + 1
 }
 
-pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::SliceResult {
+fn fixture_inputs(
+    path: &str,
+    language: Language,
+    source: &str,
+) -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let parsed = ParsedFile::parse(path, source, language).unwrap();
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
@@ -30,6 +131,11 @@ pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::S
             diff_lines: BTreeSet::from([marker_line(source, "SEED")]),
         }],
     };
+    (files, diff)
+}
+
+pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::SliceResult {
+    let (files, diff) = fixture_inputs(path, language, source);
     algorithms::run_slicing_compat(
         &files,
         &diff,
@@ -37,6 +143,21 @@ pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::S
         None,
     )
     .unwrap()
+}
+
+/// Run taint with caller-supplied sink names on the same inputs as the compatibility runner.
+pub fn findings_with_sinks(
+    path: &str,
+    language: Language,
+    source: &str,
+    extra_sinks: &[&str],
+) -> prism::slice::SliceResult {
+    let (files, diff) = fixture_inputs(path, language, source);
+    let config = TaintConfig {
+        extra_sinks: extra_sinks.iter().map(|&name| name.to_string()).collect(),
+        ..TaintConfig::default()
+    };
+    taint::slice(&CpgContext::build(&files, None), &diff, &config).unwrap()
 }
 
 pub fn sink_on_marker(path: &str, language: Language, source: &str) -> bool {
