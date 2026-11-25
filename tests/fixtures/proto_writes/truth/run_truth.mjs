@@ -484,6 +484,7 @@ function validateRow(row) {
     if (!Array.isArray(c.root.kinds) || c.root.kinds.length === 0 || c.root.kinds.some((k) => !known.includes(k))) {
       return 'call.root.kinds is empty or names an unknown kind';
     }
+    if (c.root.kinds.every((k) => k === 'object_ctor' || k === 'global_this')) return 'call.root.kinds has no design root kind';
     if (c.root.arg === c.arg) return 'call.root.arg equals call.arg';
   }
   return null;

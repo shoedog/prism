@@ -370,3 +370,26 @@ test('--only restricts the rows and the CLI writes the node version first', asyn
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('an extended-root failure cannot make `truth` inadmissible; it only marks truth_extended', async () => {
+  const fn = `
+module.exports = function f(root, path) {
+  if (typeof root === 'function') throw new Error('no constructor roots');
+  const s = String(path).split('.');
+  if (s.some((x) => x === '__proto__' || x === 'constructor' || x === 'prototype')) return;
+  root[s[0]] = root[s[0]] || {};
+  root[s[0]][s[1]] = 1;
+};
+`;
+  const r = row('x', 'x.js', { call: { ...PLAIN_PATH_ROW.call, root: { arg: 0, kinds: ['plain', 'object_ctor'] } } });
+  const { records } = await run({ 'x.js': fn }, [r]);
+  assert.equal(records[0].truth, 'safe');
+  assert.equal(records[0].truth_extended, 'inadmissible');
+});
+
+test('a row whose roots are all extended kinds is rejected', async () => {
+  const r = row('y', 'y.js', { call: { ...PLAIN_PATH_ROW.call, root: { arg: 0, kinds: ['object_ctor'] } } });
+  const { records } = await run({ 'y.js': GUARDED }, [r]);
+  assert.equal(records[0].truth, 'inadmissible');
+  assert.match(JSON.stringify(records[0].reasons), /no design root/);
+});
