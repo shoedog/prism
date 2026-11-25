@@ -349,6 +349,8 @@ All rows have group `walk`, default knobs, findings **none / none** on the marke
 | `d-return-py-arm` | a.py | `v if True else 'fixed'` | P | value arm |
 | `d-return-py-percent` | a.py | `"ls %s" % v` | P | consumed string field |
 | `d-return-py-percent-zero` | a.py | `"%.0s" % v` | X | precision discards all characters |
+| `d-return-py-percent-width` | a.py | `"ls%4s" % v` | P | fixed minimum width pads, no truncation (reviewer B round 3) |
+| `d-return-js-composed-occurrence` | a.js | `("a" + v).slice(0, 1) + v` | P (second read) / X (first read) | two occurrences of `v`: the witness must use the second read; the first cannot contribute (reviewer B round 3 smell) |
 | `d-return-py-format` | a.py | `"ls {}".format(v)` | P | automatic positional field |
 | `d-return-py-format-keyword` | a.py | `"ls {x}".format(x=v)` | P | named field consumes this value |
 | `d-return-py-format-unused` | a.py | `"fixed".format(v)` | X | no consuming field |
