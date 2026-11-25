@@ -472,6 +472,9 @@ function validateRow(row) {
   if (typeof row.id !== 'string' || row.id === '') return 'row has no id';
   const c = row.call;
   if (!c || typeof c !== 'object') return 'row has no call';
+  if (row.extra_payloads !== undefined && (!Array.isArray(row.extra_payloads) || row.extra_payloads.some((x) => typeof x?.id !== 'string' || !Array.isArray(x.segments)))) {
+    return 'extra_payloads must be a list of {id, segments}';
+  }
   if (!Number.isInteger(c.arg) || c.arg < 0) return 'call.arg is not a position';
   const t = c.template;
   if (!t || !['path_string', 'path_array', 'flat_object', 'nested_object', 'text'].includes(t.kind)) {
@@ -643,6 +646,11 @@ export async function runAll({
       for (const f of fam.families) {
         attack.push({ family: f.id, wrapped: false, segments: f.segments });
         if (useWrapped && f.array_wrapping === true) attack.push({ family: f.id, wrapped: true, segments: f.segments });
+      }
+      // Row-specific payloads: segment lists that name something only this row's function has
+      // (an application key, a reversed order, an encoded name). Same containment, same detection.
+      for (const x of row.extra_payloads ?? []) {
+        attack.push({ family: `extra:${x.id}`, wrapped: false, segments: x.segments });
       }
       const cSegs = call.control?.segments ?? controlSegs;
       const cValue = call.control?.value ?? controlValue;
