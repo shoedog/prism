@@ -9,3 +9,7 @@ pub mod api;
 pub mod cli;
 pub mod output;
 pub mod targets;
+
+#[cfg(test)]
+#[path = "targets/dependency_hint_visibility_tests.rs"]
+mod dependency_hint_visibility_tests;
