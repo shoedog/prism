@@ -1,9 +1,12 @@
 //! Source registrations and their query-local projection.
+pub mod mounts;
 mod receivers;
+mod table;
 #[cfg(test)]
 mod tests;
 
 pub use receivers::{EntryKind, Invocation, RootEvidence, RootSelector, RouterId};
+pub use table::RouteTable;
 
 use crate::ast::ParsedFile;
 use crate::call_graph::CallGraph;
@@ -96,7 +99,7 @@ pub enum Protocol {
     Websocket,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum Receiver {
     Router {
@@ -110,7 +113,7 @@ pub enum Receiver {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReceiverProof {
     PluginContract,
@@ -340,10 +343,15 @@ pub enum CallbackStatus {
     Resolved {
         #[serde(flatten)]
         identity: CallableId,
+        /// Argument spelling retained until the table checks the receiver.
+        #[serde(skip)]
+        argument_text: String,
     },
     Anonymous {
         #[serde(flatten)]
         identity: CallableId,
+        #[serde(skip)]
+        argument_text: String,
     },
     Unresolved {
         text: String,
@@ -451,7 +459,7 @@ impl Route {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum MountPrefix {
     Literal { value: String },
@@ -459,7 +467,7 @@ pub enum MountPrefix {
     Unevaluated { text: String },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct RealmFrame {
     pub file: String,
     pub start_byte: usize,
@@ -475,7 +483,7 @@ pub struct MountChild {
     pub realm: Option<Vec<RealmFrame>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MountTransform {
     Identity,
@@ -504,6 +512,30 @@ pub struct Mount {
     pub child_ordinal: usize,
 }
 
+impl Mount {
+    fn sort_key(&self) -> impl Ord + '_ {
+        (
+            &self.site,
+            self.alternative_ordinal,
+            self.child_ordinal,
+            &self.parent,
+            &self.child.receiver,
+            &self.child.realm,
+            // Every other serialized field, so records that agree on the
+            // fields above order the same whatever the inventory order.
+            (
+                &self.setup_guard,
+                &self.prefix,
+                &self.guard_pattern,
+                self.end_guard,
+                &self.method_guard,
+                &self.host,
+                self.transform,
+            ),
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Diagnostic {
     pub site: Site,
@@ -527,82 +559,6 @@ pub struct Summary {
     pub mounts: usize,
     pub diagnostics: Vec<Diagnostic>,
     pub failed_roots: Vec<FailedRoot>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RouteTable {
-    routes: Vec<Route>,
-    mounts: Vec<Mount>,
-    summary: Summary,
-}
-
-impl RouteTable {
-    pub fn new(
-        mut routes: Vec<Route>,
-        mut mounts: Vec<Mount>,
-        mut diagnostics: Vec<Diagnostic>,
-        mut failed_roots: Vec<FailedRoot>,
-        enabled_adapters: impl IntoIterator<Item = Framework>,
-    ) -> Self {
-        let failed: BTreeSet<_> = failed_roots.iter().map(|event| &event.root).collect();
-        let mut unproven = 0;
-        let mut candidates = 0;
-        for route in &mut routes {
-            if matches!(route.receiver, Receiver::Unproven { .. }) {
-                route.candidate = Some(true);
-                route.paths.clear();
-                unproven += 1;
-            }
-            candidates += usize::from(route.candidate == Some(true));
-            for exposure in &mut route.paths {
-                if exposure
-                    .root
-                    .as_ref()
-                    .is_some_and(|root| failed.contains(root))
-                {
-                    exposure.binding_blocked = Some(MethodSet::ANY);
-                }
-            }
-            route.paths.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
-        }
-        routes.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
-        mounts.sort_by(|a, b| {
-            (&a.site, a.alternative_ordinal, a.child_ordinal).cmp(&(
-                &b.site,
-                b.alternative_ordinal,
-                b.child_ordinal,
-            ))
-        });
-        diagnostics.sort();
-        failed_roots.sort();
-        let summary = Summary {
-            enabled_adapters: enabled_adapters.into_iter().collect(),
-            registrations: routes.len(),
-            proven: routes.len() - unproven,
-            unproven,
-            candidates,
-            mounts: mounts.len(),
-            diagnostics,
-            failed_roots,
-        };
-        Self {
-            routes,
-            mounts,
-            summary,
-        }
-    }
-
-    pub fn routes(&self) -> &[Route] {
-        &self.routes
-    }
-
-    pub fn mounts(&self) -> &[Mount] {
-        &self.mounts
-    }
-
-    pub fn summary(&self) -> &Summary {
-        &self.summary
-    }
 }
 
 /// Compute a listing from the current parsed sources and immutable repository facts.
