@@ -173,6 +173,16 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             println!("{}", prism_review::output::navigation::render(&ev, format));
             Ok(())
         }
+        NavQuery::Routes(args) => {
+            let session = prism::api::nav_session(&args.repo, &nav_options)?;
+            let table = prism::navigation::routes::list(&session, args.entry.as_deref());
+            let refused = table.is_err();
+            print!("{}", args.format.render(table, args.mounts));
+            if refused {
+                prism::profile::exit(2);
+            }
+            Ok(())
+        }
         NavQuery::Onboard { repo, format, out } => {
             let session = prism::api::nav_session(repo, &nav_options)?;
             let report = prism::navigation::onboarding::build_report(&session)?;

@@ -49,14 +49,23 @@ class ProjectionTests(unittest.TestCase):
     def assert_fields(self, *fields):
         self.assertEqual([diff.field for diff in self.compare().differences], list(fields))
 
-    def test_accepted_loss_with_no_expectation_skips_runtime_only_registrations(self):
+    def test_runtime_loss_is_scoped_to_an_approved_diagnostic_site(self):
         row, truth = example()
         row["expect"] = []
         self.assertTrue(compare_row(row, truth).differences)
         row["accepted_loss"] = "runtime_generated_registration"
-        self.assertFalse(compare_row(row, truth).differences)
-        row["expect"] = [{"framework": "express", "site": {"file": "app.js", "line": 99}}]
         self.assertTrue(compare_row(row, truth).differences)
+        row["id"] = "et1-10"
+        row["expect_diagnostics"] = [{"reason": row["accepted_loss"], "site": {
+            "file": "app.js", "line": 7, "text": "app[method]('/items', show)",
+        }}]
+        self.assertFalse(compare_row(row, truth).differences)
+        truth["calls"][0]["site"]["line"] = 8
+        self.assertTrue(compare_row(row, truth).differences)
+
+    def test_linked_exposure_is_consumed_once(self):
+        self.pin["paths"].append(dict(self.pin["paths"][0]))
+        self.assert_fields("paths[1].value")
 
     def test_full_is_exact_even_with_a_matching_suffix(self):
         self.pin["paths"] = [{"status": "full", "value": "/:id"}]
@@ -76,6 +85,8 @@ class ProjectionTests(unittest.TestCase):
         self.pin["paths"] = [{"status": "full", "value": "/missing/:id"}]
         self.assert_fields("paths[0].value")
         self.pin["paths"][0]["value"] = "/also/:id"
+        self.assert_fields("paths")
+        self.pin["paths"].append({"status": "full", "value": "/api/:id"})
         self.assert_fields()
 
     def test_suffix_and_normalized_suffix(self):

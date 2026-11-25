@@ -19,14 +19,7 @@ pub(super) fn compare_row(row: &Value, entry: Option<&Value>, errors: &mut Vec<S
             truth["status"]
         )),
         (Some("executed"), Some(truth)) if truth["status"] == "executed" => {
-            // a runtime-only registration the static listing cannot name is an accepted loss
-            let accepted_loss = row["accepted_loss"].as_str().is_some_and(|s| !s.is_empty())
-                && row["expect"]
-                    .as_array()
-                    .is_some_and(|expect| expect.is_empty());
-            if !accepted_loss {
-                compare_executed(&row["expect"], truth, errors);
-            }
+            compare_executed(row, truth, errors);
         }
         (Some("executed"), Some(truth)) => errors.push(format!(
             "truth.status: expected executed, got {}",
@@ -137,13 +130,73 @@ fn pair_records(
     (pairs, remaining)
 }
 
-fn path_matches(want: &Value, got: &Value, suffix: bool) -> bool {
-    want == got
-        || (suffix
-            && want
-                .as_str()
-                .zip(got.as_str())
-                .is_some_and(|(want, got)| got.ends_with(want)))
+fn identifier(text: &str) -> bool {
+    let mut chars = text.bytes();
+    chars
+        .next()
+        .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
+        && chars.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+}
+
+fn native_tokens(framework: &str, path: &str) -> Option<Vec<Value>> {
+    let mut tokens = Vec::new();
+    let mut literal_start = 0;
+    let (open, close) = match framework {
+        "flask" => ('<', '>'),
+        "fastapi" => ('{', '}'),
+        "express" if !path.contains(['*', '?', '+', '(', ')', '[', ']', '\\']) => (':', '/'),
+        _ => return None,
+    };
+    for (start, _) in path.match_indices(open) {
+        if start < literal_start {
+            continue;
+        }
+        let after = &path[start + 1..];
+        let end = if framework == "express" {
+            let end = after
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                .count();
+            if end == 0 {
+                continue;
+            }
+            end + start + 1
+        } else {
+            let Some(length) = after.find(close) else {
+                continue;
+            };
+            let parameter = &after[..length];
+            let (name, converter) =
+                parameter
+                    .split_once(':')
+                    .map_or((parameter, None), |(left, right)| {
+                        if framework == "flask" {
+                            (right, Some(left))
+                        } else {
+                            (left, Some(right))
+                        }
+                    });
+            if !identifier(name) {
+                continue;
+            }
+            if let Some(converter) = converter {
+                let kind = converter.split('(').next().unwrap();
+                if !matches!(kind, "string" | "str" | "int" | "float" | "uuid" | "any") {
+                    return None;
+                }
+            }
+            length + start + 2
+        };
+        if start > literal_start {
+            tokens.push(json!(["literal", &path[literal_start..start]]));
+        }
+        tokens.push(json!(["parameter"]));
+        literal_start = end;
+    }
+    if literal_start < path.len() {
+        tokens.push(json!(["literal", &path[literal_start..]]));
+    }
+    Some(tokens)
 }
 
 fn compare_paths(
@@ -158,22 +211,18 @@ fn compare_paths(
         let linked = route["call_ids"]
             .as_array()
             .is_some_and(|ids| ids.contains(&observed.projected["call_id"]));
-        if linked && route["path"].is_string() && !paths.contains(&&route["path"]) {
-            paths.push(&route["path"]);
+        if let Some(path) = route["path"].as_str().filter(|_| linked) {
+            paths.push(path);
         }
     }
-    let normalized: BTreeMap<_, _> = observed.projected["paths"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|path| Some((path["value"].as_str()?, &path["normalized"])))
-        .collect();
+    let observed_count = paths.len();
+    let unattached = observed_count == 0;
 
     for (index, pin) in pins.iter().enumerate() {
         let suffix = pin["status"] == "suffix";
         if pin["status"] == "dynamic"
             || (suffix
-                && paths.is_empty()
+                && unattached
                 && matches!(
                     pin["reason"].as_str(),
                     Some("no_known_mount" | "mount_cycle" | "expansion_truncated")
@@ -181,30 +230,44 @@ fn compare_paths(
         {
             continue;
         }
-        let Some(value) = pin.get("value") else {
+        let Some(value) = pin["value"].as_str() else {
             continue;
         };
-        let matched: Vec<_> = paths
+        let Some(index_in_served) = paths
             .iter()
-            .copied()
-            .filter(|got| path_matches(value, got, suffix))
-            .collect();
-        if matched.is_empty() {
+            .position(|path| *path == value || (suffix && path.ends_with(value)))
+        else {
             errors.push(format!(
                 "{field}[{index}].value: expected {} {value}, got {paths:?}",
                 pin["status"]
             ));
-        } else if let Some(want) = pin.get("normalized") {
-            let keys: Vec<_> = matched
-                .iter()
-                .filter_map(|path| normalized.get(path.as_str()?).copied())
-                .collect();
-            if !keys.iter().any(|key| path_matches(want, key, suffix)) {
-                errors.push(format!(
-                    "{field}[{index}].normalized: expected {want}, got {keys:?}"
-                ));
-            }
+            continue;
+        };
+        paths.remove(index_in_served);
+        if pin.get("normalized").is_some() || pin.get("path_tokens").is_some() {
+            let framework = observed.projected["framework"].as_str().unwrap_or_default();
+            let tokens = native_tokens(framework, value);
+            let normalized = tokens.as_ref().map(|tokens| {
+                tokens
+                    .iter()
+                    .map(|token| token[1].as_str().unwrap_or("{}"))
+                    .collect::<String>()
+            });
+            compare_fields(
+                pin,
+                &json!({"path_tokens": tokens, "normalized": normalized}),
+                &["normalized", "path_tokens"],
+                &format!("{field}[{index}]"),
+                errors,
+            );
         }
+    }
+    let exact = !pins.is_empty()
+        && pins
+            .iter()
+            .all(|pin| pin["status"] == "full" && pin["value"].is_string());
+    if exact && observed_count - paths.len() == pins.len() && !paths.is_empty() {
+        errors.push(format!("{field}: unexpected linked served paths {paths:?}"));
     }
 }
 
@@ -263,8 +326,23 @@ fn compare_callbacks(
     }
 }
 
-fn compare_executed(expected: &Value, truth: &Value, errors: &mut Vec<String>) {
-    let Some(expected) = expected.as_array() else {
+fn runtime_only(row: &Value, call: &Value) -> bool {
+    let reason = match row["id"].as_str() {
+        Some("et1-10" | "es1-20") => "runtime_generated_registration",
+        Some("es3-07") => "unsupported_registration",
+        _ => return false,
+    };
+    row["expect_diagnostics"]
+        .as_array()
+        .is_some_and(|diagnostics| {
+            diagnostics.iter().any(|item| {
+                item["reason"] == reason && site_key(&item["site"]) == site_key(&call["site"])
+            })
+        })
+}
+
+fn compare_executed(row: &Value, truth: &Value, errors: &mut Vec<String>) {
+    let Some(expected) = row["expect"].as_array() else {
         return;
     };
     let (Some(projection), Some(calls), Some(served)) = (
@@ -348,9 +426,22 @@ fn compare_executed(expected: &Value, truth: &Value, errors: &mut Vec<String>) {
             }
         }
         if let Some(path) = pin.get("path") {
+            let mut written = observation
+                .call
+                .get("path")
+                .unwrap_or(&actual["path"])
+                .clone();
+            if written["literal"].is_null() && path["literal"].is_string() {
+                let key = if actual["framework"] == "flask" {
+                    "rule"
+                } else {
+                    "path"
+                };
+                written["literal"] = observation.call["args"][key].clone();
+            }
             compare_fields(
                 path,
-                &actual["path"],
+                &written,
                 &["raw", "literal"],
                 &format!("{field}.path"),
                 errors,
@@ -375,6 +466,9 @@ fn compare_executed(expected: &Value, truth: &Value, errors: &mut Vec<String>) {
         }
     }
     for index in remaining {
+        if runtime_only(row, observed[index].call) {
+            continue;
+        }
         errors.push(format!(
             "truth.projection[{index}].registrations: unexpected registration at {}",
             observed[index].call["site"]
@@ -479,6 +573,11 @@ fn checks_linked_served_paths_and_normalized_suffixes() {
     truth["served"][0]["path"] = json!("/api/:id/");
     assert_fields(&row, Some(&truth), &["expect[0].paths[0].value"]);
     row["expect"][0]["paths"] = json!([{"status": "full", "value": "/also"}]);
+    assert_fields(&row, Some(&truth), &["expect[0].paths"]);
+    row["expect"][0]["paths"] = json!([
+        {"status": "full", "value": "/also"},
+        {"status": "full", "value": "/api/:id/"}
+    ]);
     assert_fields(&row, Some(&truth), &[]);
 }
 
@@ -566,16 +665,18 @@ fn checks_missing_and_extra_registrations_with_static_exception() {
 }
 
 #[test]
-fn accepted_loss_with_no_expectation_skips_runtime_only_registrations() {
-    let (mut row, truth) = example();
+fn runtime_only_registrations_require_approved_diagnostic_sites() {
+    let (mut row, mut truth) = example();
     row["expect"] = json!([]);
     assert_fields(&row, Some(&truth), &["truth.projection[0].registrations"]);
     row["accepted_loss"] = json!("runtime_generated_registration");
+    assert_fields(&row, Some(&truth), &["truth.projection[0].registrations"]);
+    row["id"] = json!("et1-10");
+    row["expect_diagnostics"] =
+        json!([{"site": {"file":"app.js","line":7},"reason":"runtime_generated_registration"}]);
     assert_fields(&row, Some(&truth), &[]);
-    row["expect"] = json!([{"framework": "express", "site": {"file": "app.js", "line": 99}}]);
-    let mut errors = Vec::new();
-    compare_row(&row, Some(&truth), &mut errors);
-    assert!(!errors.is_empty());
+    truth["calls"][0]["site"]["line"] = json!(8);
+    assert_fields(&row, Some(&truth), &["truth.projection[0].registrations"]);
 }
 
 #[test]

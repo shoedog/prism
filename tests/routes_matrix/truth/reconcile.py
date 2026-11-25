@@ -8,8 +8,10 @@ Any, and disagrees with a Known pin. Explicit app.all also matches Any.
 Unknown methods describe a static expression, leaving the runtime set unpinned.
 
 Full and suffix pins constrain linked served paths, with exact and endswith
-matching respectively. Extra exposures are unpinned. Dynamic classifications
-and unserved suffixes with a static reachability reason are static only.
+matching respectively. Each pinned alternative consumes one served entry.
+Fully pinned literal lists also check for extra served entries. Dynamic
+classifications and unserved suffixes with a static reachability reason are
+static only.
 Lexical receiver identities, source span metadata, callback resolution status
 and delegates, and the full mount listing also belong to the static oracle.
 
@@ -23,6 +25,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+import re
 
 HERE = Path(__file__).resolve().parent
 MISSING = object()
@@ -103,16 +106,44 @@ def pair_records(expected, observed, calls):
     return pairs, remaining
 
 
-def compare_paths(result, index, pins, projected, served):
-    normalized = {path["value"]: path.get("normalized") for path in projected}
-    actual = list(dict.fromkeys(route["path"] for route in served if isinstance(route["path"], str)))
+def path_tokens(framework, value):
+    if framework == "express":
+        if any(char in value for char in "*?+()[]\\"):
+            return None
+        parameters = re.finditer(r":[A-Za-z0-9_]+", value)
+    else:
+        name = r"[A-Za-z_][A-Za-z0-9_]*"
+        if framework == "flask":
+            parameters = re.finditer(rf"<(?:(?P<converter>{name})(?:\([^>]*\))?:)?{name}>", value)
+        elif framework == "fastapi":
+            parameters = re.finditer(rf"\{{{name}(?::(?P<converter>{name}))?\}}", value)
+        else:
+            raise ValueError(f"no runtime path grammar for {framework}")
+    tokens = []
+    offset = 0
+    for match in parameters:
+        converter = match.groupdict().get("converter")
+        if converter not in (None, "string", "str", "int", "float", "uuid", "any"):
+            return None
+        if match.start() > offset:
+            tokens.append(["literal", value[offset:match.start()]])
+        tokens.append(["parameter"])
+        offset = match.end()
+    if offset < len(value):
+        tokens.append(["literal", value[offset:]])
+    return tokens
+
+
+def compare_paths(result, index, pins, framework, served):
+    actual = [route["path"] for route in served if isinstance(route["path"], str)]
+    remaining = actual.copy()
     for position, pin in enumerate(pins):
         prefix = f"paths[{position}]"
         status = pin["status"]
         if status == "dynamic":
             result.static_pins(prefix, pin, ())
             continue
-        result.static_pins(prefix, pin, ("status", "value", "normalized"))
+        result.static_pins(prefix, pin, ("status", "value", "normalized", "path_tokens"))
         if not actual and status == "suffix" and pin.get("reason") in {
             "no_known_mount", "mount_cycle", "expansion_truncated",
         }:
@@ -121,19 +152,22 @@ def compare_paths(result, index, pins, projected, served):
         if "value" not in pin:
             continue
         value = pin["value"]
-        if status == "suffix":
-            matches = [path for path in actual if path.endswith(value)]
-        else:
-            matches = [path for path in actual if path == value]
-        result.check(index, f"{prefix}.value", value, value if matches else actual)
-        if matches and "normalized" in pin:
-            keys = [normalized[path] for path in matches if path in normalized]
-            key = pin["normalized"]
-            agrees = key in keys or (
-                status == "suffix" and isinstance(key, str)
-                and any(item is not None and item.endswith(key) for item in keys)
-            )
-            result.check(index, f"{prefix}.normalized", key, key if agrees else keys)
+        match = next((path for path in remaining
+                      if path == value or (status == "suffix" and path.endswith(value))), None)
+        result.check(index, f"{prefix}.value", value, value if match is not None else remaining)
+        if match is None:
+            continue
+        remaining.remove(match)
+        if "path_tokens" in pin or "normalized" in pin:
+            tokens = path_tokens(framework, value if status == "suffix" else match)
+            key = None if tokens is None else "".join(t[1] if t[0] == "literal" else "{}" for t in tokens)
+            result.pins(index, prefix, pin, {"path_tokens": tokens, "normalized": key},
+                        ("path_tokens", "normalized"))
+    exact = bool(pins) and all(pin["status"] == "full" and "value" in pin for pin in pins)
+    if exact and len(actual) - len(remaining) == len(pins):
+        result.check(index, "paths", [], remaining)
+    elif remaining and not exact:
+        result.static_only.add("withheld runtime exposures")
 
 
 def compare_callbacks(result, index, pins, projected, callbacks):
@@ -154,15 +188,26 @@ def compare_callbacks(result, index, pins, projected, callbacks):
         result.pins(index, prefix, pin, actual, CALLBACK_FIELDS)
 
 
+RUNTIME_ONLY = {
+    "et1-10": "runtime_generated_registration",
+    "es1-20": "runtime_generated_registration",
+    "es3-07": "unsupported_registration",
+}
+
+
+def runtime_only(row, call):
+    reason = RUNTIME_ONLY.get(row["id"])
+    return reason is not None and any(
+        diagnostic["reason"] == reason and site_key(diagnostic["site"]) == site_key(call["site"])
+        for diagnostic in row.get("expect_diagnostics", ())
+    )
+
+
 def compare_row(row, truth):
     if truth["status"] != "executed":
         raise ValueError(f"{row['id']}: truth is {truth['status']}")
     result = Comparison()
     expected, observed = row["expect"], truth["projection"]
-    if row.get("accepted_loss") and not expected:
-        # runtime registers routes no static listing can name: an accepted loss lists nothing
-        result.static_only.add("registrations")
-        return result
     calls = {call["id"]: call for call in truth["calls"]}
     served = defaultdict(list)
     for route in truth["served"]:
@@ -207,16 +252,24 @@ def compare_row(row, truth):
                     runtime = declared
                 result.check(index, "methods", declared, runtime)
         if "path" in pin:
-            result.pins(index, "path", pin["path"], actual.get("path", {}), ("raw", "literal"))
+            written = dict(call.get("path", actual.get("path", {})))
+            if written.get("literal") is None and isinstance(pin["path"].get("literal"), str):
+                argument = "rule" if actual["framework"] == "flask" else "path"
+                written["literal"] = call.get("args", {}).get(argument, MISSING)
+            result.pins(index, "path", pin["path"], written, ("raw", "literal"))
         if "paths" in pin:
             if not pin["paths"] and pin.get("receiver", {}).get("status") == "unproven":
                 result.static_only.add("paths")
-            compare_paths(result, index, pin["paths"], actual["paths"], served[call_id])
+            compare_paths(result, index, pin["paths"], actual["framework"], served[call_id])
         if "callbacks" in pin:
             compare_callbacks(result, index, pin["callbacks"], actual.get("callbacks", []), call["callbacks"])
     for index in sorted(extra):
         actual = observed[index]
-        result.check(None, "registrations", MISSING, calls[actual["call_id"]]["site"])
+        call = calls[actual["call_id"]]
+        if runtime_only(row, call):
+            result.static_only.add("runtime-only registration at a pinned diagnostic site")
+        else:
+            result.check(None, "registrations", MISSING, call["site"])
     return result
 
 

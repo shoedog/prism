@@ -184,6 +184,9 @@ def main():
                     if status != "executed":
                         print(f"{name}: {status}: {result['error']}", file=sys.stderr)
                         failed = True
+                elif status == "executed" and row.get("hand_reason"):
+                    # a hand row the runner could execute, kept hand on purpose (its truth is static, not a runtime fact)
+                    continue
                 elif status != "hand_required" and not (
                         status == "error" and str(result.get("error", "")).startswith("untraced ")):
                     # an untraced registration is a shape the runner cannot observe: the hand label is justified

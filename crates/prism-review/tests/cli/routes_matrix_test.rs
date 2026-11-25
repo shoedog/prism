@@ -3,11 +3,25 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+mod binding;
+mod listing;
+mod pins;
 mod truth;
 
-const ENABLED_GROUPS: &[&str] = &[];
+const ENABLED_IDS: &[&str] = &["e01", "e02"];
 const ROUTE_FIELDS: &[&str] = &[
     "framework",
+    "protocol",
+    "element_site",
+    "install_site",
+    "element_ordinal",
+    "origin_plugin",
+    "default_methods",
+    "endpoint",
+    "candidate",
+    "reason",
+    "superseded_keys",
+    "conflicts",
     "methods",
     "path",
     "paths",
@@ -17,37 +31,6 @@ const ROUTE_FIELDS: &[&str] = &[
 ];
 const CALLBACK_STATUSES: &[&str] = &["resolved", "anonymous", "unresolved"];
 const PATH_STATUSES: &[&str] = &["full", "suffix", "dynamic"];
-const REASONS: &[&str] = &[
-    "class_view",
-    "expansion_truncated",
-    "func_field_value",
-    "hapi_handler_conflict",
-    "hapi_handler_object",
-    "hapi_plugin_unproven",
-    "hapi_plugin_unregistered",
-    "hapi_registration_unproven",
-    "hapi_route_not_literal",
-    "hapi_server_param_unproven",
-    "imported_unproven",
-    "inner_decorator",
-    "member_handler",
-    "method_expression",
-    "method_value_external",
-    "method_value_interface",
-    "method_value_method_unproven",
-    "method_value_receiver_shadowed",
-    "method_value_receiver_unproven",
-    "mount_child_unproven",
-    "mount_cycle",
-    "no_known_mount",
-    "non_literal_path",
-    "qualified_function_value",
-    "receiver_unproven",
-    "table_consumer_unproven",
-    "variable_prefix",
-    "wrapper_call",
-];
-
 fn fixture_root() -> PathBuf {
     let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     checked_path(&workspace, &json!("tests/routes_matrix"), true)
@@ -192,10 +175,11 @@ fn validate_reasons(value: &Value, field: &str, errors: &mut Vec<String>) {
         Value::Object(object) => {
             for (key, child) in object {
                 let field = format!("{field}.{key}");
-                if key == "reason"
-                    && !child
-                        .as_str()
-                        .is_some_and(|reason| REASONS.contains(&reason))
+                if matches!(key.as_str(), "reason" | "mount_refusal" | "expect_error")
+                    && serde_json::from_value::<prism::framework_entries::routes::Reason>(
+                        child.clone(),
+                    )
+                    .is_err()
                 {
                     errors.push(format!("{field}: unknown reason {child}"));
                 }
@@ -223,8 +207,8 @@ fn validate_records(row: &Value, dir: Option<&Path>, errors: &mut Vec<String>) {
                 errors.push(format!("{field}: expected an object"));
                 continue;
             };
-            if let Some(site) = object.get("site") {
-                validate_site(site, dir, &format!("{field}.site"), errors);
+            for (key, site) in object.iter().filter(|(key, _)| pins::is_site(key)) {
+                validate_site(site, dir, &format!("{field}.{key}"), errors);
             }
             validate_reasons(record, &field, errors);
             if key != "expect" {
@@ -348,6 +332,12 @@ fn routes_matrix_rows_are_well_formed() {
             violations.push(format!("group: invalid group {}", row["group"]));
         }
         validate_records(row, dir.as_deref(), &mut violations);
+        for key in ["expect_diagnostics", "expect_failed_roots", "entry_queries"] {
+            validate_reasons(&row[key], key, &mut violations);
+        }
+        if let Some(dir) = dir.as_deref() {
+            pins::validate(row, dir, &mut violations);
+        }
         if row["truth_source"] == "executed" && nonempty_str(&row["entry"]).is_none() {
             violations.push("entry: executed row needs a nonempty entry".to_owned());
         }
@@ -375,105 +365,10 @@ fn routes_matrix_rows_are_well_formed() {
     assert!(errors.is_empty(), "{}", errors.join("\n"));
 }
 
-// Materialize fixture-only source anchors as the byte offsets the listing exposes.
-fn resolve_pins(
-    want: &mut Value,
-    got: &Value,
-    sources: &BTreeMap<String, String>,
-    field: &str,
-    errors: &mut Vec<String>,
-) {
-    if field.ends_with(".site") && want.is_object() {
-        if want.get("text").is_some() {
-            let range = want["file"]
-                .as_str()
-                .and_then(|file| sources.get(file))
-                .ok_or_else(|| format!("missing source for {}", want["file"]))
-                .and_then(|source| site_range(want, source));
-            match range {
-                Ok((start, end)) => {
-                    want["start_byte"] = json!(start);
-                    want["end_byte"] = json!(end);
-                }
-                Err(err) => errors.push(format!("{field}.text: {err}")),
-            }
-            let site = want.as_object_mut().unwrap();
-            site.remove("text");
-            site.remove("occurrence");
-        }
-        // The ordinal identifies a raw runtime call. The static listing uses byte offsets.
-        want.as_object_mut().unwrap().remove("ordinal");
-    }
-    match want {
-        Value::Object(object) => {
-            if let Some(text) = object.remove("construction_text") {
-                let found = object
-                    .get("file")
-                    .and_then(Value::as_str)
-                    .and_then(|file| sources.get(file))
-                    .zip(
-                        got["construction_byte"]
-                            .as_u64()
-                            .and_then(|n| usize::try_from(n).ok()),
-                    )
-                    .and_then(|(source, start)| source.get(start..))
-                    .zip(nonempty_str(&text))
-                    .is_some_and(|(tail, text)| tail.starts_with(text));
-                if !found {
-                    errors.push(format!(
-                        "{field}.construction_byte: expected {text} at byte {}",
-                        got["construction_byte"]
-                    ));
-                }
-            }
-            for (key, child) in object {
-                resolve_pins(child, &got[key], sources, &format!("{field}.{key}"), errors);
-            }
-        }
-        Value::Array(items) => {
-            for (i, child) in items.iter_mut().enumerate() {
-                resolve_pins(child, &got[i], sources, &format!("{field}[{i}]"), errors);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn collect_sources(
-    dir: &Path,
-    value: &Value,
-    sources: &mut BTreeMap<String, String>,
-) -> Result<(), String> {
-    match value {
-        Value::Object(object) => {
-            if object.contains_key("construction_text")
-                || (object.contains_key("line") && object.contains_key("text"))
-            {
-                let file = nonempty_str(&value["file"]).ok_or("source anchor needs a filename")?;
-                if !sources.contains_key(file) {
-                    let path = checked_path(dir, &value["file"], false)?;
-                    let source = fs::read_to_string(&path)
-                        .map_err(|err| format!("{}: {err}", path.display()))?;
-                    sources.insert(file.to_owned(), source);
-                }
-            }
-            for child in object.values() {
-                collect_sources(dir, child, sources)?;
-            }
-        }
-        Value::Array(items) => {
-            for child in items {
-                collect_sources(dir, child, sources)?;
-            }
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-fn check_summary(routes: &[Value], summary: &Value, errors: &mut Vec<String>) {
+fn check_summary(routes: &[Value], mounts: &[Value], summary: &Value, errors: &mut Vec<String>) {
     let mut proven = 0;
     let mut unproven = 0;
+    let mut candidates = 0;
     for (i, route) in routes.iter().enumerate() {
         match route["receiver"]["status"].as_str() {
             Some("router") => proven += 1,
@@ -482,6 +377,7 @@ fn check_summary(routes: &[Value], summary: &Value, errors: &mut Vec<String>) {
                 "route[{i}].receiver.status: expected router or unproven"
             )),
         }
+        candidates += usize::from(route["candidate"] == true);
         if let Some(callbacks) = route["callbacks"].as_array() {
             for (j, callback) in callbacks.iter().enumerate() {
                 if !callback["status"]
@@ -497,15 +393,76 @@ fn check_summary(routes: &[Value], summary: &Value, errors: &mut Vec<String>) {
             errors.push(format!("route[{i}].callbacks: expected an array"));
         }
     }
-    if summary["registrations"] != proven + unproven || summary["registrations"] != routes.len() {
-        errors.push(format!("summary.registrations: got {}, listed {} routes ({proven} proven, {unproven} unproven)", summary["registrations"], routes.len()));
+    for (field, count) in [
+        ("registrations", routes.len()),
+        ("proven", proven),
+        ("unproven", unproven),
+        ("candidates", candidates),
+        ("mounts", mounts.len()),
+    ] {
+        if summary[field] != count {
+            errors.push(format!(
+                "summary.{field}: expected {count}, got {}",
+                summary[field]
+            ));
+        }
     }
-    if summary["proven"] != proven {
-        errors.push(format!(
-            "summary.proven: expected {proven}, got {}",
-            summary["proven"]
-        ));
+}
+
+struct Listing {
+    routes: Vec<Value>,
+    mounts: Vec<Value>,
+    summary: Value,
+}
+
+fn read_listing(output: &str) -> Result<Listing, String> {
+    let mut lines: Vec<Value> = output
+        .lines()
+        .enumerate()
+        .map(|(i, line)| {
+            serde_json::from_str(line).map_err(|err| format!("listing line {}: {err}", i + 1))
+        })
+        .collect::<Result<_, _>>()?;
+    let mut last = lines.pop().ok_or("listing is missing its summary")?;
+    let summary = last
+        .as_object_mut()
+        .filter(|line| line.len() == 1)
+        .and_then(|line| line.remove("summary"))
+        .ok_or("the last listing line must be a summary")?;
+    let mut listing = Listing {
+        routes: Vec::new(),
+        mounts: Vec::new(),
+        summary,
+    };
+    for (index, mut line) in lines.into_iter().enumerate() {
+        if line.get("summary").is_some() || line.get("error").is_some() {
+            return Err(format!(
+                "listing line {}: unexpected summary or error",
+                index + 1
+            ));
+        }
+        if let Some(mount) = line
+            .as_object_mut()
+            .filter(|line| line.len() == 1)
+            .and_then(|line| line.remove("mount"))
+        {
+            if !mount.is_object() {
+                return Err(format!(
+                    "listing line {}: expected a mount object",
+                    index + 1
+                ));
+            }
+            listing.mounts.push(mount);
+        } else if listing.mounts.is_empty() && line.get("mount").is_none() {
+            listing.routes.push(line);
+        } else {
+            return Err(format!(
+                "listing line {}: malformed mount or route after mounts",
+                index + 1
+            ));
+        }
     }
+    Ok(listing)
 }
 
 fn compare_listing(
@@ -514,97 +471,240 @@ fn compare_listing(
     output: &str,
     sources: &BTreeMap<String, String>,
 ) -> Vec<String> {
-    let lines: Result<Vec<Value>, _> = output
-        .lines()
-        .enumerate()
-        .map(|(i, line)| {
-            serde_json::from_str(line).map_err(|err| format!("listing line {}: {err}", i + 1))
-        })
-        .collect();
-    let lines = match lines {
-        Ok(lines) => lines,
-        Err(err) => return vec![err],
-    };
-    let Some((last, records)) = lines.split_last() else {
-        return vec!["listing is missing its summary".to_owned()];
-    };
-    let Some(summary) = last
-        .get("summary")
-        .filter(|_| last.as_object().is_some_and(|line| line.len() == 1))
-    else {
-        return vec!["the last listing line must be a summary".to_owned()];
+    let listing = match read_listing(output) {
+        Ok(listing) => listing,
+        Err(error) => return vec![error],
     };
     let mut errors = Vec::new();
-    let mut routes = Vec::new();
-    let mut mounts = Vec::new();
-    for (i, line) in records.iter().enumerate() {
-        if line.get("summary").is_some() {
-            errors.push(format!(
-                "listing line {}: summary precedes the last line",
-                i + 1
-            ));
-        } else if let Some(mount) = line.get("mount") {
-            if !line.as_object().is_some_and(|object| object.len() == 1) || !mount.is_object() {
-                errors.push(format!("listing line {}: expected a mount object", i + 1));
+    check_summary(
+        &listing.routes,
+        &listing.mounts,
+        &listing.summary,
+        &mut errors,
+    );
+    listing::compare_collection(expected, &listing.routes, sources, "expect", &mut errors);
+    listing::compare_collection(
+        expected_mounts,
+        &listing.mounts,
+        sources,
+        "expect_mounts",
+        &mut errors,
+    );
+    errors
+}
+
+fn query(dir: &Path, entry: Option<&str>, format: &str) -> std::process::Output {
+    let mut command = crate::prism_std();
+    command
+        .args(["nav", "--no-cache", "routes", "--repo"])
+        .arg(dir);
+    command.args(["--mounts", "--format", format]);
+    if let Some(entry) = entry {
+        command.args(["--entry", entry]);
+    }
+    command.output().unwrap()
+}
+
+fn check_roots(routes: &[Value], root: &Value, errors: &mut Vec<String>) {
+    for (index, route) in routes.iter().enumerate() {
+        for (position, path) in route["paths"].as_array().into_iter().flatten().enumerate() {
+            if path["status"] == "full" && path["root"] != *root {
+                errors.push(format!(
+                    "route[{index}].paths[{position}].root: expected {root}, got {}",
+                    path["root"]
+                ));
             }
-            mounts.push(mount.clone());
-        } else {
-            routes.push(line.clone());
         }
     }
-    check_summary(&routes, summary, &mut errors);
-    for (field, want, got) in [
-        ("expect", expected, Value::Array(routes)),
-        ("expect_mounts", expected_mounts, Value::Array(mounts)),
-    ] {
-        let mut want = want.clone();
-        resolve_pins(&mut want, &got, sources, field, &mut errors);
-        compare_pins(&want, Some(&got), field, &mut errors);
+}
+
+fn successful_query(dir: &Path, entry: Option<&str>) -> Result<Listing, String> {
+    let output = query(dir, entry, "json");
+    if !output.status.success() {
+        return Err(format!(
+            "entry {entry:?}: {}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
     }
-    errors
+    let text = std::str::from_utf8(&output.stdout).map_err(|error| error.to_string())?;
+    read_listing(text)
+}
+
+fn compare_row_listing(dir: &Path, row: &Value, errors: &mut Vec<String>) -> Result<(), String> {
+    let mut sources = BTreeMap::new();
+    for key in [
+        "expect",
+        "expect_mounts",
+        "expect_diagnostics",
+        "expect_failed_roots",
+        "entry_queries",
+    ] {
+        pins::collect_sources(dir, &row[key], &mut sources)
+            .map_err(|error| format!("{key}: {error}"))?;
+    }
+    let entry = row.get("query_entry").unwrap_or(&row["entry"]).as_str();
+    let root = entry
+        .map(|entry| pins::selected_root(dir, entry))
+        .transpose()?;
+    let primary = successful_query(dir, entry)?;
+    check_summary(&primary.routes, &primary.mounts, &primary.summary, errors);
+    listing::validate(
+        &primary.routes,
+        &primary.mounts,
+        &primary.summary,
+        Some(dir),
+        errors,
+    );
+    listing::compare_collection(&row["expect"], &primary.routes, &sources, "expect", errors);
+    listing::compare_collection(
+        &row["expect_mounts"],
+        &primary.mounts,
+        &sources,
+        "expect_mounts",
+        errors,
+    );
+    listing::check_events(row, &primary.summary, &sources, errors);
+    if let Some(root) = &root {
+        check_roots(&primary.routes, root, errors);
+    }
+    binding::check_bindings(row, dir, root.as_ref(), &primary.routes, errors);
+    for secondary in row["entry_queries"].as_array().into_iter().flatten() {
+        let entry = secondary["entry"]
+            .as_str()
+            .ok_or("secondary entry is missing its selector")?;
+        if let Some(reason) = secondary.get("expect_error") {
+            check_query_error(dir, entry, reason, errors);
+            continue;
+        }
+        let root = pins::selected_root(dir, entry)?;
+        let result = successful_query(dir, Some(entry))?;
+        check_summary(&result.routes, &result.mounts, &result.summary, errors);
+        listing::validate(
+            &result.routes,
+            &result.mounts,
+            &result.summary,
+            Some(dir),
+            errors,
+        );
+        check_roots(&result.routes, &root, errors);
+        for (index, pin) in secondary["expect_paths"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .enumerate()
+        {
+            let mut pin = pin.clone();
+            let field = format!("{entry}.expect_paths[{index}]");
+            pins::resolve_pins(&mut pin, &sources, &field, errors);
+            let found = result
+                .routes
+                .iter()
+                .filter(|route| route["site"] == pin["site"])
+                .collect::<Vec<_>>();
+            if let [route] = found.as_slice() {
+                compare_pins(&pin["paths"], route.get("paths"), &field, errors);
+            } else {
+                errors.push(format!(
+                    "{field}: expected one origin at {}, got {}",
+                    pin["site"],
+                    found.len()
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn check_query_error(dir: &Path, entry: &str, reason: &Value, errors: &mut Vec<String>) {
+    let output = query(dir, Some(entry), "json");
+    let expected = json!({"error": {"entry": entry, "reason": reason}});
+    if output.status.success()
+        || serde_json::from_slice::<Value>(&output.stdout)
+            .ok()
+            .as_ref()
+            != Some(&expected)
+        || String::from_utf8_lossy(&output.stdout).lines().count() != 1
+    {
+        errors.push(format!(
+            "entry {entry:?}: expected {expected}, got {}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
 }
 
 #[test]
 fn routes_matrix_matches_rows() {
-    if ENABLED_GROUPS.is_empty() {
-        return;
-    }
     let root = fixture_root();
     let mut errors = Vec::new();
     let rows = read_rows(&root.join("rows.jsonl"), &mut errors);
     assert!(errors.is_empty(), "{}", errors.join("\n"));
-    for (id, row) in rows {
-        if row.get("ignore").is_some()
-            || !row["group"]
-                .as_str()
-                .is_some_and(|group| ENABLED_GROUPS.contains(&group))
-        {
-            continue;
-        }
+    for id in ENABLED_IDS {
+        let row = &rows[*id];
         let dir =
             checked_path(&root, &row["dir"], true).unwrap_or_else(|err| panic!("{id}.dir: {err}"));
-        let mut sources = BTreeMap::new();
-        for key in ["expect", "expect_mounts"] {
-            collect_sources(&dir, &row[key], &mut sources)
-                .unwrap_or_else(|err| panic!("{id}.{key}: {err}"));
+        let mut differences = Vec::new();
+        if let Err(error) = compare_row_listing(&dir, row, &mut differences) {
+            differences.push(error);
         }
-        let out = crate::prism_bin()
-            .unwrap()
-            .args(["nav", "--no-cache", "routes", "--repo"])
-            .arg(&dir)
-            .args(["--mounts", "--format", "json"])
-            .output()
-            .unwrap_or_else(|err| panic!("{id}: {err}"));
-        assert!(
-            out.status.success(),
-            "{id}: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        let output = std::str::from_utf8(&out.stdout).unwrap_or_else(|err| panic!("{id}: {err}"));
-        let differences = compare_listing(&row["expect"], &row["expect_mounts"], output, &sources);
-        errors.extend(differences.into_iter().map(|err| format!("{id}.{err}")));
+        errors.extend(differences.into_iter().map(|error| format!("{id}.{error}")));
     }
     assert!(errors.is_empty(), "{}", errors.join("\n"));
+}
+
+#[test]
+fn core_routes_text_json_and_explicit_refusals() {
+    let root = fixture_root();
+    for (id, selectors) in [
+        ("e01", &["../outside.js", "app:bad(", ""][..]),
+        ("e02", &["app:app", "app:factory()", "app.js#default"][..]),
+    ] {
+        let dir = root.join(id);
+        let run = |format: &str, entry: Option<&str>| {
+            let mut command = crate::prism_std();
+            command
+                .args(["nav", "--no-cache", "routes", "--repo"])
+                .arg(&dir);
+            command.args(["--format", format]);
+            if let Some(entry) = entry {
+                command.args(["--entry", entry]);
+            }
+            command.output().unwrap()
+        };
+        let output = run("json", None);
+        assert!(
+            output.status.success(),
+            "{id}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let output = String::from_utf8(output.stdout).unwrap();
+        assert_eq!(output.lines().count(), 1);
+        assert_eq!(
+            serde_json::from_str::<Value>(&output).unwrap(),
+            json!({
+                "summary": {"enabled_adapters": [], "registrations": 0, "proven": 0,
+                    "unproven": 0, "candidates": 0, "mounts": 0, "diagnostics": [], "failed_roots": []}
+            })
+        );
+        let output = run("text", None);
+        assert!(
+            output.status.success(),
+            "{id}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(String::from_utf8(output.stdout).unwrap(),
+            "summary candidates=0 diagnostics=[] enabled_adapters=[] failed_roots=[] mounts=0 proven=0 registrations=0 unproven=0\n");
+        for entry in selectors {
+            let output = run("json", Some(entry));
+            assert!(!output.status.success(), "{id} {entry:?}");
+            assert_eq!(String::from_utf8_lossy(&output.stdout).lines().count(), 1);
+            assert_eq!(
+                serde_json::from_slice::<Value>(&output.stdout).unwrap(),
+                json!({"error": {"entry": entry, "reason": "entry_unproven"}})
+            );
+        }
+    }
 }
 
 fn listing_example() -> Value {
@@ -622,7 +722,7 @@ fn listing_example() -> Value {
 fn compare_example(expected: Value, actual: Value) -> Vec<String> {
     let output = format!(
         "{actual}\n{}",
-        json!({"summary": {"registrations": 1, "proven": 1}})
+        json!({"summary": {"registrations": 1, "proven": 1, "unproven": 0, "candidates": 0, "mounts": 0}})
     );
     compare_listing(&json!([expected]), &json!([]), &output, &BTreeMap::new())
 }
@@ -636,6 +736,41 @@ fn rejects_swapped_callbacks() {
     assert!(compare_example(expected, actual)
         .iter()
         .any(|error| error.starts_with("expect[0].callbacks[0].name:")));
+}
+
+#[test]
+fn matches_by_object_qualified_origin_before_comparing_roles_and_roots() {
+    let mut first = listing_example();
+    first["origin_plugin"] = json!({"file":"plugins.js","object_byte":5});
+    first["paths"][0]["root"] = json!({"file":"app.js","binding":"first"});
+    first["callbacks"][0]["role"] = json!("handler");
+    let mut second = first.clone();
+    second["origin_plugin"]["object_byte"] = json!(9);
+    second["paths"][0]["root"]["binding"] = json!("second");
+    second["callbacks"][0]["role"] = json!("pre");
+    let summary =
+        json!({"summary":{"registrations":2,"proven":2,"unproven":0,"candidates":0,"mounts":0}});
+    let compare = |a: &Value, b: &Value| {
+        compare_listing(
+            &json!([first, second]),
+            &json!([]),
+            &format!("{a}\n{b}\n{summary}\n"),
+            &BTreeMap::new(),
+        )
+    };
+    assert!(compare(&second, &first).is_empty());
+    let mut wrong = first.clone();
+    wrong["paths"][0]["root"] = second["paths"][0]["root"].clone();
+    wrong["callbacks"][0]["role"] = json!("pre");
+    let errors = compare(&second, &wrong);
+    for field in ["paths[0].root.binding", "callbacks[0].role"] {
+        assert!(
+            errors.iter().any(|error| error.contains(field)),
+            "{errors:?}"
+        );
+    }
+    wrong["origin_plugin"]["object_byte"] = json!(9);
+    assert!(!compare(&second, &wrong).is_empty());
 }
 
 #[test]
@@ -673,7 +808,7 @@ fn compares_mount_site_using_byte_offsets_and_occurrence() {
         json!([{"site": {"file": "app.js", "line": 2, "text": "use(r)", "occurrence": 2}}]);
     let mut mount =
         json!({"mount": {"site": {"file": "app.js", "line": 2, "start_byte": 10, "end_byte": 16}}});
-    let summary = json!({"summary": {"registrations": 0, "proven": 0}});
+    let summary = json!({"summary": {"registrations": 0, "proven": 0, "unproven": 0, "candidates": 0, "mounts": 1}});
     let check = |mount: &Value| {
         compare_listing(
             &json!([]),
