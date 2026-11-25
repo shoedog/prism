@@ -1,0 +1,56 @@
+"a"
+'a'
+r"a"
+R'a'
+u"a"
+U'a'
+b"a"
+B'a'
+br"a"
+rb'a'
+"\x61"
+"\141"
+"\u0061"
+"\U00000061"
+"\N{LATIN SMALL LETTER A}"
+r"\x61"
+"""a"""
+'''a'''
+"a" "b"
+"ab"
+"a" r"b"
+"é"
+"é"
+"\u00e9"
+"\u0065\u0301"
+"雪"
+"$"
+"$x"
+"class"
+"constructor"
+"__proto__"
+"toString"
+"1"
+1
+0x1
+1.0
+True
+"01"
+0
+"0"
+"a.b"
+""
+''
+"a b"
+"\n"
+"\x0a"
+r"\n"
+"a\"b"
+'a"b'
+"long-key-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789"
+# setup: p = "a"
+f"{p}"
+# setup: p = "a"
+rf'{p}'
+# setup: p = "a"
+p
