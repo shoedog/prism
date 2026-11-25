@@ -122,6 +122,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
+pub(crate) use reaching::element_recall::FileTrace as ElementTrace;
 pub use reaching::RdFileStats;
 pub(crate) use reaching::{ReceiverEdge, ReceiverKey};
 mod recall_telemetry;

@@ -1,10 +1,15 @@
 //! Opt-in element-recall diagnostics (lane 10, #847). I0 syntax inventory:
 //! indexed-store sources (W) and whole-operand consumers (R) of one Python owner.
+mod join;
+#[cfg(test)]
+mod join_tests;
 mod python;
 #[cfg(test)]
 mod syntax_tests;
+mod trace;
 
 pub(crate) use python::scan_file;
+pub(crate) use trace::FileTrace;
 
 /// Half-open UTF-8 byte span of a node plus its 1-indexed start line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

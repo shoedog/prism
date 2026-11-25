@@ -23,7 +23,7 @@ mod census_trace;
 mod d2c;
 mod d3;
 #[allow(dead_code, unused_imports)] // wired by the opt-in trace (lane 10)
-mod element_recall;
+pub(super) mod element_recall;
 mod preflight;
 mod read_index;
 mod refusal_classes;

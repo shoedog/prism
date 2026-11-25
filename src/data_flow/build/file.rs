@@ -5,8 +5,8 @@ use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::CMacroCensus;
 use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::cpg::{
-    reaching_definitions_with_exact, FileCfgEdgeIndex, FlowConfidence, FlowDoubt, RdFileStats,
-    RdOutcome,
+    reaching_definitions_with_exact, ElementTrace, FileCfgEdgeIndex, FlowConfidence, FlowDoubt,
+    RdFileStats, RdOutcome,
 };
 use crate::data_flow::{ExactFlowEdge, FlowEdge, VarAccessKind, VarLocation};
 use std::collections::{BTreeMap, BTreeSet};
@@ -72,6 +72,8 @@ impl Producer {
         let declared_types = std::cell::OnceCell::new();
         // The exposed-owner test of the C/C++ rules (#829 G10), read once per file.
         let c_file_parens = std::cell::OnceCell::new();
+        // Lane 10 diagnostics: Some only for Python with PRISM_ELEMENT_RECALL_TRACE=1.
+        let mut element_trace = ElementTrace::begin(file_path, parsed);
         let mut owner_counts = BTreeMap::new();
         for func_node in &function_nodes {
             // js-param-defs PR-B: anonymous JS/TS/TSX callables own a
@@ -411,6 +413,9 @@ impl Producer {
                         && !parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
                         && !refused_occurrence(&span.path, span.start_byte)
                 });
+            }
+            if let Some(trace) = element_trace.as_mut() {
+                trace.owner(&func_name, start, &lvalue_spans, &rvalue_spans);
             }
             let mut preferred_use_locs: BTreeMap<(AccessPath, usize), VarLocation> =
                 BTreeMap::new();
@@ -867,6 +872,9 @@ impl Producer {
             }
         }
 
+        if let Some(trace) = element_trace {
+            trace.finish(file_path, parsed, &defs, &uses);
+        }
         FileRefs {
             file_path: file_path.clone(),
             defs,
