@@ -1,6 +1,6 @@
 //! Shared typed contract for Tier-2 reasoning evidence.
 
-use crate::cpg::OrderingUnavailableReason;
+use crate::cpg::{LossReason, OrderingUnavailableReason};
 use crate::data_flow::VarLocation;
 use crate::navigation::types::{Location, SymbolRef};
 use std::cmp::Ordering;
@@ -32,6 +32,7 @@ pub enum ReasoningWarning {
     /// variable reached at an interprocedural crossing.
     InterproceduralBoundary {
         sink: String,
+        reason: LossReason,
     },
     Cleansed {
         source_function: String,

@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use petgraph::graph::NodeIndex;
 use petgraph::Direction;
 
+pub(crate) use super::boundary_targets::{BoundaryAttribution, BoundaryTargets};
 use crate::cpg::{
     CodePropertyGraph, CpgEdge, CpgNode, OrderingWarning, Relation, SameLineOrderView, StmtKind,
     Trace, VarAccess,
@@ -89,25 +90,31 @@ pub fn reachability_for_node_from_ordered(
     order: Option<&dyn SameLineOrderView>,
     ordering_warnings: &mut Vec<OrderingWarning>,
 ) -> Reachability {
+    let mut targets = BoundaryTargets::new(cpg, trace, order);
+    reachability_and_boundary(trace, &mut targets, root, sink, ordering_warnings).0
+}
+
+pub(crate) fn reachability_and_boundary<'a>(
+    trace: &Trace,
+    targets: &mut BoundaryTargets<'a>,
+    root: NodeIndex,
+    sink: NodeIndex,
+    ordering_warnings: &mut Vec<OrderingWarning>,
+) -> (Reachability, BoundaryAttribution<'a>) {
     if trace
         .frontier_by_root
         .get(&root)
         .is_some_and(|frontier| frontier.contains(&sink))
     {
-        return Reachability::Reached;
+        return (Reachability::Reached, BoundaryAttribution::None);
     }
-    for b in trace.boundary.iter().filter(|b| b.root == root) {
-        if b.to == sink {
-            return Reachability::BoundaryExited;
-        }
-        if cpg
-            .forward_reachable_in_function_ordered(b.to, order, ordering_warnings)
-            .contains(&sink)
-        {
-            return Reachability::BoundaryExited;
-        }
-    }
-    Reachability::NotReached
+    let attribution = targets.find(root, sink, ordering_warnings);
+    let verdict = if matches!(attribution, BoundaryAttribution::Matched(_)) {
+        Reachability::BoundaryExited
+    } else {
+        Reachability::NotReached
+    };
+    (verdict, attribution)
 }
 
 pub fn sink_nodes_at(cpg: &CodePropertyGraph, file: &str, line: usize) -> Vec<NodeIndex> {

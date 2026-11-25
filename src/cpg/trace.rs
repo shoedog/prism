@@ -6,20 +6,21 @@ use crate::finding_confidence::{EvidenceHop, EvidencePath};
 
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
-use petgraph::Direction;
 
-use super::trace_descent::DescentGateKey;
+use super::trace_cuts::{self, CrossingSite, TraceCut};
+use super::trace_descent::{DescentGateKey, LossReason};
 use super::{CodePropertyGraph, CpgEdge, CpgNode, TaintCrossingPolicy, VarAccess};
 
 pub const MAX_TAINT_DESCENT_DEPTH: usize = 2;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ReturnFlowMode {
+    #[default]
     Off,
     On,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Relation {
     DataFlow,
     /// Cross-variable same-line assignment propagation: `x = y` — the use of `y` flows to the def of
@@ -60,6 +61,11 @@ pub struct BoundaryEdge {
     pub from: NodeIndex,
     pub to: NodeIndex,
     pub kind: BoundaryKind,
+    pub reason: LossReason,
+    pub relation: Relation,
+    pub site: Option<CrossingSite>,
+    pub depth: usize,
+    pub edge_own_not_exact: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,6 +91,16 @@ pub struct OrderingWarning {
 }
 
 pub trait SameLineOrderView {
+    /// Byte-proven slot in the optional syntax view, used for crossing diagnostics.
+    fn crossing_slot(
+        &self,
+        _node: NodeIndex,
+        _site: &crate::call_graph::CallSite,
+        _relation: Relation,
+    ) -> Option<usize> {
+        None
+    }
+
     fn admit_same_line_recovered_def_use(
         &self,
         def: NodeIndex,
@@ -105,6 +121,9 @@ pub struct Trace {
     /// Set (not Vec) so repeated `(root, from, to)` triples from parallel edges / multi-root
     /// traversal collapse — Plan B counts `InterproceduralBoundary` warnings off this.
     pub boundary: BTreeSet<BoundaryEdge>,
+    pub cuts: BTreeSet<TraceCut>,
+    pub(crate) return_flow_mode: ReturnFlowMode,
+    pub(crate) excluded_hops: BTreeSet<(NodeIndex, NodeIndex)>,
     pub degraded: bool,
     pub warnings: Vec<String>,
     pub ordering_warnings: Vec<OrderingWarning>,
@@ -162,7 +181,7 @@ impl CodePropertyGraph {
 
     /// Total, deterministic same-line ordering key (S2 §3): byte range, then access (Def<Use),
     /// then build-order NodeIndex. Non-Variable nodes sort last.
-    fn node_sort_key(&self, idx: NodeIndex) -> (usize, usize, u8, usize) {
+    pub(super) fn node_sort_key(&self, idx: NodeIndex) -> (usize, usize, u8, usize) {
         match &self.graph[idx] {
             CpgNode::Variable {
                 start_byte,
@@ -206,7 +225,10 @@ impl CodePropertyGraph {
         policy: Option<&TaintCrossingPolicy<'_>>,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
-        let mut trace = Trace::default();
+        let mut trace = Trace {
+            return_flow_mode,
+            ..Trace::default()
+        };
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();
 
@@ -348,7 +370,11 @@ impl CodePropertyGraph {
         return_flow_mode: ReturnFlowMode,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
-        let mut trace = Trace::default();
+        let mut trace = Trace {
+            return_flow_mode,
+            excluded_hops: excluded_hops.clone(),
+            ..Trace::default()
+        };
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();
 
@@ -430,7 +456,7 @@ impl CodePropertyGraph {
         cfg_scope: Option<&BTreeSet<(String, usize)>>,
         has_cfg: bool,
         order: Option<&dyn SameLineOrderView>,
-        descent_gate_cache: &mut BTreeMap<DescentGateKey, bool>,
+        descent_gate_cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
         depths: &mut BTreeMap<(NodeIndex, NodeIndex), usize>,
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
         return_flow_mode: ReturnFlowMode,
@@ -447,119 +473,129 @@ impl CodePropertyGraph {
             queue.push_back(root);
         }
 
+        let log_crossings = trace_cuts::enabled();
+        let mut logged_crossings = BTreeSet::new();
         while let Some(node) = queue.pop_front() {
-            let node_depth = *depths.get(&(root, node)).unwrap_or(&0);
-            for (next, rel, binding_label) in self.taint_neighbors(node, return_flow_mode) {
-                // P14 fix-wave BLOCKER fix: an excluded hop is simply not taken — no ordering
-                // check, no boundary/descent/CFG handling, no `BoundaryEdge` record. Checked first
-                // so `taint_trace_nodes_excluding`'s re-walk (used to bypass-prove a `Sanitized`
-                // downgrade, `reasoning::sanitizer_walk::sanitizer_bypass_exclusions`) behaves as
-                // if the excluded edge did not exist at all.
+            let depth = depths[&(root, node)];
+            for (next, rel, label, shortcut) in self.taint_neighbors(node, return_flow_mode) {
                 if excluded_hops.contains(&(node, next)) {
                     continue;
                 }
-                if !self.ordering_admits(node, next, rel, order, trace) {
-                    continue;
-                }
-                let Some(node_fn) = self.node_file_fn(node) else {
-                    continue;
-                };
-                let Some(next_fn) = self.node_file_fn(next) else {
-                    continue;
-                };
-
-                // Return ascent is handled before the generic cross-function
-                // branch: it has its own singleton-Exact gate and consumes the
-                // same bounded interprocedural depth budget as call descent.
-                if rel == Relation::ReturnFlow {
-                    let boundary_kind = if next_fn == node_fn {
-                        BoundaryKind::SelfFunctionReturn
-                    } else {
-                        BoundaryKind::CrossFunction
-                    };
-                    let can_ascend = next_fn != node_fn
-                        && node_depth < MAX_TAINT_DESCENT_DEPTH
-                        && self.return_flow_ascent_allowed(node, next);
-                    if can_ascend {
-                        if enqueued.insert(next) {
-                            trace.frontier_by_root.entry(root).or_default().insert(next);
-                            trace
-                                .parents_by_root
-                                .insert((root, next), (node, Relation::ReturnFlow));
-                            depths.insert((root, next), node_depth + 1);
-                            queue.push_back(next);
-                        }
-                    } else {
-                        trace.boundary.insert(BoundaryEdge {
-                            root,
-                            from: node,
-                            to: next,
-                            kind: boundary_kind,
-                        });
-                    }
-                    continue;
-                }
-
-                // A neighbor is a boundary (taint exits into a callee in v1) if it crosses into a
-                // different function, or if a recursive/self call's arg→param DataFlow edge lands back in
-                // the same function. The edge-sensitive parameter test avoids classifying one-line body
-                // locals as call boundaries.
-                // A `call_nameonly` binding edge is a call-binding hop whichever function it lands in: a
-                // name-only callback that resolves back into the function being walked must not become
-                // local flow (reviewer finding, I-guard round 1).
-                if next_fn != node_fn
-                    || self.is_parameter_binding_from(node, next, rel)
-                    || binding_label
-                        == Some(super::FlowConfidence::NameOnly(
-                            super::FlowDoubt::CallNameOnly,
-                        ))
-                {
-                    let boundary_kind = if next_fn != node_fn {
-                        BoundaryKind::CrossFunction
-                    } else {
-                        BoundaryKind::SelfFunctionParam
-                    };
-
-                    let can_descend = matches!(boundary_kind, BoundaryKind::CrossFunction)
-                        && node_depth < MAX_TAINT_DESCENT_DEPTH
-                        && self.descend_target(node, next, binding_label, descent_gate_cache)
-                        && policy.is_none_or(|_| {
-                            self.admitted_data_flow_label(policy, node, next).is_some()
-                        });
-
-                    if can_descend {
-                        if enqueued.insert(next) {
-                            let next_depth = node_depth + 1;
-                            trace.frontier_by_root.entry(root).or_default().insert(next);
-                            trace
-                                .parents_by_root
-                                .insert((root, next), (node, Relation::CallDescent));
-                            depths.insert((root, next), next_depth);
-                            queue.push_back(next);
-                        }
-                        continue;
-                    }
-
-                    trace.boundary.insert(BoundaryEdge {
+                let record_cut = |trace: &mut Trace, reason| {
+                    let site = shortcut.map(|site| CrossingSite {
+                        start_byte: site.start_byte,
+                        end_byte: site.end_byte,
+                        slot: order.and_then(|order| {
+                            order.crossing_slot(node, site, Relation::CallDescent)
+                        }),
+                    });
+                    if trace.cuts.insert(TraceCut {
                         root,
                         from: node,
                         to: next,
-                        kind: boundary_kind,
-                    });
+                        reason,
+                        relation: rel,
+                        site,
+                        depth,
+                    }) && log_crossings
+                    {
+                        self.log_trace_attempt(
+                            root,
+                            node,
+                            next,
+                            rel,
+                            site,
+                            label,
+                            depth,
+                            Some(reason),
+                        );
+                    }
+                };
+                if shortcut.is_some() {
+                    record_cut(trace, LossReason::ShortcutSuppressed);
                     continue;
                 }
-
-                // S3: CFG pruning is depth-rooted. Any descended hop is walked pure-taint.
-                if node_depth == 0 && !self.cfg_valid(src_file, src_line, cfg_scope, has_cfg, next)
+                if !self.ordering_admits(node, next, rel, order, trace)
+                    || !matches!(
+                        self.node(next),
+                        CpgNode::Variable { .. } | CpgNode::ReturnValue { .. }
+                    )
                 {
+                    continue;
+                }
+                let mut relation = rel;
+                let mut next_depth = depth;
+                let mut site = None;
+                if let Some(kind) = self.crossing_kind(node, next, rel, label) {
+                    if rel != Relation::ReturnFlow {
+                        relation = Relation::CallDescent;
+                    }
+                    let gate = self.crossing_gate(
+                        kind,
+                        relation,
+                        node,
+                        next,
+                        label,
+                        depth,
+                        descent_gate_cache,
+                        policy,
+                    );
+                    if gate.is_err() || log_crossings {
+                        site = self.crossing_site(node, next, relation, order);
+                    }
+                    if let Err(reason) = gate {
+                        let edge_own_not_exact = label
+                            == Some(super::FlowConfidence::NameOnly(
+                                super::FlowDoubt::CallNameOnly,
+                            ));
+                        let first = trace.record_refusal(BoundaryEdge {
+                            root,
+                            from: node,
+                            to: next,
+                            kind,
+                            reason,
+                            relation,
+                            site,
+                            depth,
+                            edge_own_not_exact,
+                        });
+                        if first && log_crossings {
+                            self.log_trace_attempt(
+                                root,
+                                node,
+                                next,
+                                relation,
+                                site,
+                                label,
+                                depth,
+                                Some(reason),
+                            );
+                        }
+                        continue;
+                    }
+                    if log_crossings && logged_crossings.insert((node, next, relation, site)) {
+                        self.log_trace_attempt(
+                            root, node, next, relation, site, label, depth, None,
+                        );
+                    }
+                    next_depth += 1;
+                } else if depth == 0
+                    && !self.cfg_valid(src_file, src_line, cfg_scope, has_cfg, next)
+                {
+                    record_cut(trace, LossReason::CfgPruned);
                     continue;
                 }
 
                 if enqueued.insert(next) {
                     trace.frontier_by_root.entry(root).or_default().insert(next);
-                    trace.parents_by_root.insert((root, next), (node, rel));
-                    depths.insert((root, next), node_depth);
+                    trace.parents_by_root.insert((root, next), (node, relation));
+                    depths.insert((root, next), next_depth);
                     queue.push_back(next);
+                    if log_crossings && rel == Relation::ReturnInput {
+                        self.log_trace_attempt(
+                            root, node, next, relation, site, label, depth, None,
+                        );
+                    }
                 }
             }
         }
@@ -579,7 +615,7 @@ impl CodePropertyGraph {
         admitted
     }
 
-    fn ordering_admits_collect(
+    pub(super) fn ordering_admits_collect(
         &self,
         from: NodeIndex,
         to: NodeIndex,
@@ -671,166 +707,6 @@ impl CodePropertyGraph {
                             || !crate::anon_owner::is_anonymous_owner_name(name))
             )
         })
-    }
-
-    fn assignment_shortcut_suppressed(&self, use_idx: NodeIndex, def_idx: NodeIndex) -> bool {
-        let CpgNode::Variable {
-            file: caller_file,
-            function: caller_name,
-            function_start_line: caller_start,
-            start_byte: use_start,
-            end_byte: use_end,
-            ..
-        } = &self.graph[use_idx]
-        else {
-            return false;
-        };
-
-        self.graph
-            .edges_directed(def_idx, Direction::Incoming)
-            .filter(|edge| {
-                matches!(
-                    edge.weight(),
-                    CpgEdge::ReturnFlow {
-                        suppress_shortcut: true
-                    }
-                )
-            })
-            .any(|edge| {
-                let Some((callee_file, callee_name, callee_start)) =
-                    self.node_file_fn(edge.source())
-                else {
-                    return false;
-                };
-                self.call_graph
-                    .calls
-                    .iter()
-                    .filter(|(id, _)| {
-                        id.file == *caller_file
-                            && id.name == *caller_name
-                            && id.start_line == *caller_start
-                    })
-                    .flat_map(|(_, sites)| sites)
-                    .any(|site| {
-                        site.start_byte <= *use_start
-                            && *use_end <= site.end_byte
-                            && super::build::singleton_exact(
-                                &self.call_graph.resolve_call_site_full(site),
-                            )
-                            .is_some_and(|resolved| {
-                                resolved.target.file == callee_file
-                                    && resolved.target.name == callee_name
-                                    && resolved.target.start_line == callee_start
-                            })
-                    })
-            })
-    }
-
-    fn taint_neighbors(
-        &self,
-        node: NodeIndex,
-        return_flow_mode: ReturnFlowMode,
-    ) -> Vec<(NodeIndex, Relation, Option<super::FlowConfidence>)> {
-        let mut out: Vec<_> = self
-            .graph
-            .edges(node)
-            .filter_map(|edge| match edge.weight() {
-                CpgEdge::DataFlow(label) => Some((edge.target(), Relation::DataFlow, Some(*label))),
-                _ => None,
-            })
-            .collect();
-        // General DFG neighbors can cross lines; NodeIndex order is build-deterministic.
-        out.sort_by_key(|(target, _, _)| target.index());
-
-        if return_flow_mode == ReturnFlowMode::On {
-            let mut returned: Vec<_> = self
-                .graph
-                .edges(node)
-                .filter_map(|edge| match edge.weight() {
-                    CpgEdge::ReturnInput => Some((edge.target(), Relation::ReturnInput, None)),
-                    CpgEdge::ReturnFlow { .. } => Some((edge.target(), Relation::ReturnFlow, None)),
-                    _ => None,
-                })
-                .collect();
-            returned.sort_by_key(|(target, relation, _)| {
-                (
-                    match relation {
-                        Relation::ReturnInput => 0,
-                        Relation::ReturnFlow => 1,
-                        _ => 2,
-                    },
-                    target.index(),
-                )
-            });
-            out.extend(returned);
-        }
-
-        match &self.graph[node] {
-            // Use → same-line same-function `Def`s (assignment propagation: `x = y`, the use of `y`
-            // flows to the def of `x`). Must stay within the SAME function — keying on (file,line)
-            // alone leaks across functions (minified one-line-per-file JS/TS degenerates to
-            // everything-taints-everything). Statement/byte-range scoping within a function is a
-            // tracked follow-up (line-granular over-approximation).
-            CpgNode::Variable {
-                access: VarAccess::Use,
-                file,
-                line,
-                function,
-                function_start_line,
-                ..
-            } => {
-                if let Some(at) = self.location_index.get(&(file.clone(), *line)) {
-                    let mut same: Vec<NodeIndex> = at
-                        .iter()
-                        .copied()
-                        .filter(|&o| {
-                            matches!(
-                                &self.graph[o],
-                                CpgNode::Variable {
-                                    access: VarAccess::Def,
-                                    function: def_fn,
-                                    function_start_line: def_start_line,
-                                    ..
-                                } if def_fn == function && def_start_line == function_start_line
-                            ) && (return_flow_mode == ReturnFlowMode::Off
-                                || !self.assignment_shortcut_suppressed(node, o))
-                        })
-                        .collect();
-                    same.sort_by_key(|&i| self.node_sort_key(i));
-                    out.extend(
-                        same.into_iter()
-                            .map(|t| (t, Relation::AssignmentPropagation, None)),
-                    );
-                }
-            }
-            // `Def` → same-function SAME-PATH `Use`s, re-supplying def→use edges `data_flow.rs` drops:
-            //  - SIMPLE path (`x`): the DFG carries cross-line def-use, but the variable's *same-line*
-            //    edge is dropped (param `ref_line == start`; regular `ref_line == def_line`), so a
-            //    same-line `y = u; sink(y)` / `q = p; sink(q)` would dead-end. Recover same-line uses.
-            //  - FIELD path (`o.data`): the DFG filters a field's refs to lines AFTER the def
-            //    (`collect_path_refs`, `line > def_line`), so a loop-carried `def@N → use@M (M<N)` edge
-            //    never exists and the loop's earlier use is a false negative. Recover ALL same-path uses
-            //    on ANY line; the back-edge-aware `cfg_valid` prunes the CFG-infeasible ones (loop
-            //    back-edges keep the loop-carried use). Same composition simple paths get from the DFG.
-            // Same-path only (the variable's own def-use chain, not an assignment), so no cross-variable
-            // leak; the safe over-approximation is consistent with the line-granular stance.
-            CpgNode::Variable {
-                access: VarAccess::Def,
-                path,
-                ..
-            } => {
-                let uses = if path.fields.is_empty() {
-                    self.same_line_same_path_uses(node)
-                } else {
-                    self.same_function_same_path_uses_any_line(node)
-                };
-                for u in uses {
-                    out.push((u, Relation::RecoveredDefUse, None));
-                }
-            }
-            _ => {}
-        }
-        out
     }
 
     /// Function-scoped forward reachability over the SAME edges [`CodePropertyGraph::taint_trace`]
@@ -929,7 +805,7 @@ impl CodePropertyGraph {
             if !visited.insert(node) {
                 continue;
             }
-            for (next, rel, _) in self.taint_neighbors(node, ReturnFlowMode::Off) {
+            for (next, rel, _, _) in self.taint_neighbors(node, ReturnFlowMode::Off) {
                 if !self.ordering_admits_collect(node, next, rel, order, ordering_warnings) {
                     continue;
                 }
@@ -946,7 +822,7 @@ impl CodePropertyGraph {
     /// edges `data_flow.rs` drops (a field path's refs are filtered to lines after the def, so
     /// loop-carried / earlier uses have no edge). `cfg_valid` (back-edge aware) prunes the
     /// CFG-infeasible ones. Empty unless `def` is a Variable `Def`.
-    fn same_function_same_path_uses_any_line(&self, def: NodeIndex) -> Vec<NodeIndex> {
+    pub(super) fn same_function_same_path_uses_any_line(&self, def: NodeIndex) -> Vec<NodeIndex> {
         let CpgNode::Variable {
             access: VarAccess::Def,
             file,
@@ -983,7 +859,7 @@ impl CodePropertyGraph {
     /// `data_flow.rs` drops for a variable's own same-line references (param `ref_line == start`;
     /// regular `ref_line == def_line`). Empty unless `def` is a Variable `Def`. Used by
     /// [`Self::taint_neighbors`] so every hop (not just a boundary target) recovers these edges.
-    fn same_line_same_path_uses(&self, def: NodeIndex) -> Vec<NodeIndex> {
+    pub(super) fn same_line_same_path_uses(&self, def: NodeIndex) -> Vec<NodeIndex> {
         let CpgNode::Variable {
             access: VarAccess::Def,
             file,
@@ -1054,7 +930,7 @@ impl CodePropertyGraph {
     /// Once a node enters via a CallDescent edge, BFS intentionally walks callee-side flow in
     /// pure-taint mode to avoid falsely pruning legitimate re-entries into the seed function (e.g.
     /// mutual recursion). Stage B can refine this if a callee-scoped CFG strategy is introduced.
-    fn cfg_valid(
+    pub(super) fn cfg_valid(
         &self,
         src_file: &str,
         src_line: usize,

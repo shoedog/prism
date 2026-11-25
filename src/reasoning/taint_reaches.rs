@@ -4,16 +4,14 @@ use std::collections::BTreeMap;
 
 use petgraph::graph::NodeIndex;
 
-use crate::cpg::{
-    BoundaryKind, CodePropertyGraph, OrderingWarning, Relation, ReturnFlowMode, SameLineOrderView,
-    Trace,
-};
+use crate::cpg::{OrderingWarning, Relation, ReturnFlowMode, SameLineOrderView, Trace};
 use crate::data_flow::VarLocation;
 use crate::navigation::types::{
     Evidence, EvidenceItem, GraphEdge, GraphNode, GraphPayload, Location, QueryError, Reason,
     Source, SymbolRef, Warning, WarningKind,
 };
 use crate::navigation::NavigationSession;
+use crate::reasoning::boundary_warnings::{attribution_warning, boundary_warnings};
 use crate::reasoning::order::AstOrderView;
 use crate::reasoning::sanitizer_walk::{
     sanitized_hits_on_chain, sanitizer_bypass_exclusions, SanitizerHit,
@@ -21,8 +19,8 @@ use crate::reasoning::sanitizer_walk::{
 use crate::reasoning::scope_honesty;
 use crate::reasoning::seeds::{resolve, ResolvedSeed, SeedRole, SeedSpec};
 use crate::reasoning::shape::{
-    node_to_graph_node, reachability_for_node_from_ordered, window_relations, witness_chain_for,
-    witness_graph_for_chain,
+    node_to_graph_node, reachability_and_boundary, window_relations, witness_chain_for,
+    witness_graph_for_chain, BoundaryAttribution, BoundaryTargets,
 };
 use crate::reasoning::types::{
     Reachability, ReasoningReason, ReasoningSummary, ReasoningWarning, SanitizerSite, SinkResult,
@@ -152,7 +150,7 @@ fn witness_mode(
 ) -> Result<Evidence, QueryError> {
     let mut warnings = seed_warnings.to_vec();
     warnings.extend(trace_warnings(trace));
-    warnings.extend(boundary_warnings(&session.index.cpg, trace));
+    let mut boundary_targets = BoundaryTargets::new(&session.index.cpg, trace, order);
     warnings.extend(scope_honesty::warnings_for_trace(
         &session.repo.files,
         &session.index.cpg,
@@ -170,14 +168,19 @@ fn witness_mode(
         let mut source_results = Vec::new();
         for source in sources {
             let mut ordering_warnings = Vec::new();
-            let raw_reachability = reachability_for_node_from_ordered(
-                &session.index.cpg,
+            let (raw_reachability, attribution) = reachability_and_boundary(
                 trace,
+                &mut boundary_targets,
                 source.node,
                 sink.node,
-                order,
                 &mut ordering_warnings,
             );
+            warnings.extend(attribution_warning(
+                &session.index.cpg,
+                &source.loc,
+                &sink.loc,
+                attribution,
+            ));
             warnings.extend(ordering_warnings.iter().map(ordering_warning));
 
             // P10: derive the ordered chain first, run the sanitizer-window check and settle the
@@ -229,14 +232,22 @@ fn witness_mode(
                             ReturnFlowMode::On,
                         );
                         let mut bypass_ordering_warnings = Vec::new();
-                        let bypass_reachability = reachability_for_node_from_ordered(
-                            &session.index.cpg,
+                        let mut bypass_targets =
+                            BoundaryTargets::new(&session.index.cpg, &rewalk, order);
+                        let (bypass_reachability, attribution) = reachability_and_boundary(
                             &rewalk,
+                            &mut bypass_targets,
                             source.node,
                             sink.node,
-                            order,
                             &mut bypass_ordering_warnings,
                         );
+                        let incomplete = matches!(attribution, BoundaryAttribution::Incomplete);
+                        warnings.extend(attribution_warning(
+                            &session.index.cpg,
+                            &source.loc,
+                            &sink.loc,
+                            attribution,
+                        ));
                         warnings.extend(bypass_ordering_warnings.iter().map(ordering_warning));
                         match bypass_reachability {
                             // Bypass exists: verdict stays `Reached`, `sanitized_by` stays empty
@@ -251,6 +262,7 @@ fn witness_mode(
                                 descent_depth = 0;
                                 skip_graph = true;
                             }
+                            Reachability::NotReached if incomplete => {}
                             Reachability::NotReached => {
                                 reachability = Reachability::Sanitized;
                                 sanitized_by = hits.iter().map(|hit| hit.site.clone()).collect();
@@ -552,28 +564,6 @@ fn ordering_warning(warning: &OrderingWarning) -> Warning {
     }
 }
 
-fn boundary_warnings(cpg: &CodePropertyGraph, trace: &Trace) -> Vec<Warning> {
-    trace
-        .boundary
-        .iter()
-        .filter_map(|boundary| {
-            let loc = cpg.to_var_location(boundary.to)?;
-            let kind = match boundary.kind {
-                BoundaryKind::CrossFunction => "cross-function",
-                BoundaryKind::SelfFunctionParam => "self-function parameter",
-                BoundaryKind::SelfFunctionReturn => "self-function return",
-            };
-            Some(Warning {
-                kind: WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary {
-                    sink: loc.path.to_string(),
-                }),
-                message: format!("taint reached a {kind} boundary at {}", loc.path),
-                location: Some(location_for_var(&loc)),
-            })
-        })
-        .collect()
-}
-
 fn sanitizers_for_source(session: &NavigationSession, source: &VarLocation) -> Vec<String> {
     cleansed_categories_for_source(&session.repo.files, source)
 }
@@ -595,7 +585,7 @@ fn symbol_for_var_location(loc: &VarLocation) -> SymbolRef {
     }
 }
 
-fn location_for_var(loc: &VarLocation) -> Location {
+pub(super) fn location_for_var(loc: &VarLocation) -> Location {
     Location {
         file: loc.file.clone(),
         start_line: loc.line,

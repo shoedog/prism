@@ -14,13 +14,15 @@ use std::path::{Component, Path};
 use std::sync::Arc;
 use tempfile::TempDir;
 
+#[path = "taint_parity_test/reason_checks.rs"]
+mod reason_checks;
 mod rows;
 use rows::{
     rows, validate_labels, Bytes, Expectations, Finding, Level, Row, Slot, Verdict, Walk, GROUPS,
 };
 
-const ENABLED: &[&str] = &["control", "guard"];
-const SHIPPED_SLICES: &[&str] = &["guard"];
+const ENABLED: &[&str] = &["control", "guard", "reasons"];
+const SHIPPED_SLICES: &[&str] = &["guard", "reasons"];
 
 /// `PARITY_ENABLED=control,binding` replaces `ENABLED` at run time (a worker's hand-enabled RED record);
 /// the committed constant is what CI runs.
@@ -38,6 +40,10 @@ struct Fixture {
 
 impl Fixture {
     fn load(row: &Row) -> Self {
+        Self::load_with(row, |_, _| {})
+    }
+
+    fn load_with(row: &Row, edit: impl Fn(&str, &mut String)) -> Self {
         let fixture = Path::new(&row.fixture);
         assert_eq!(fixture.components().count(), 1, "{}", row.id);
         assert!(
@@ -50,7 +56,10 @@ impl Fixture {
         for entry in fs::read_dir(&path).unwrap_or_else(|err| panic!("{}: {err}", path.display())) {
             let entry = entry.unwrap();
             assert!(entry.file_type().unwrap().is_file(), "{}", row.id);
-            fs::copy(entry.path(), dir.path().join(entry.file_name())).unwrap();
+            let name = entry.file_name();
+            let mut source = fs::read_to_string(entry.path()).unwrap();
+            edit(name.to_str().unwrap(), &mut source);
+            fs::write(dir.path().join(name), source).unwrap();
         }
         let repo = Arc::new(load_repo(dir.path()).unwrap());
         assert_eq!(
@@ -195,12 +204,11 @@ fn syntax_node(file: &ParsedFile, bytes: Bytes) -> tree_sitter::Node<'_> {
 }
 
 fn review(row: &Row, fixture: &Fixture, return_flow: bool) -> Finding {
-    let result = slice(
-        &fixture.context(),
-        &fixture.diff(),
-        &row.config(return_flow),
-    )
-    .unwrap();
+    review_with(row, fixture, &row.config(return_flow))
+}
+
+fn review_with(row: &Row, fixture: &Fixture, config: &TaintConfig) -> Finding {
+    let result = slice(&fixture.context(), &fixture.diff(), config).unwrap();
     assert_eq!(result.findings.len(), result.evidence.len(), "{}", row.id);
     let mut findings = result
         .findings
@@ -280,6 +288,12 @@ fn walk(row: &Row, fixture: &Fixture) -> Walk {
     }
     // In a tie, choose the first terminal by byte span.
     pairs.sort_by_key(|(sink, _)| symbol_bytes(&sink.sink));
+    if let Some((sink, _)) = pairs
+        .iter()
+        .find(|(_, source)| source.reachability == reaches)
+    {
+        reason_checks::check_walk_warning(row, reaches, &evidence.warnings, &sink.sink);
+    }
     for (sink, source) in pairs {
         if source.reachability == reaches {
             if let Some(endpoint) = source.graph_node {
@@ -306,6 +320,27 @@ fn walk(row: &Row, fixture: &Fixture) -> Walk {
     Walk::no_witness(reaches.into())
 }
 
+fn active_cell(row: &Row, group_enabled: bool) -> Option<(&Expectations, Option<&rows::Reasons>)> {
+    match &row.current {
+        Some(current)
+            if !group_enabled
+                || current
+                    .until
+                    .iter()
+                    .any(|slice| !SHIPPED_SLICES.contains(&slice.as_str())) =>
+        {
+            Some((&current.expect, current.reasons.as_ref()))
+        }
+        _ if group_enabled => Some((
+            row.expect
+                .as_ref()
+                .expect("enabled row has no expectations"),
+            row.reasons.as_ref(),
+        )),
+        _ => None,
+    }
+}
+
 fn check_cells<T: std::fmt::Debug + PartialEq>(
     level: Level,
     expected: impl Fn(&Expectations) -> &T,
@@ -324,21 +359,8 @@ fn check_cells<T: std::fmt::Debug + PartialEq>(
         let mut executed = 0;
         let mut pending = 0;
         for row in rows.iter().filter(|row| &row.group == group) {
-            let expect = match &row.current {
-                Some(current)
-                    if !group_enabled
-                        || current
-                            .until
-                            .iter()
-                            .any(|slice| !SHIPPED_SLICES.contains(&slice.as_str())) =>
-                {
-                    &current.expect
-                }
-                _ if group_enabled => row
-                    .expect
-                    .as_ref()
-                    .unwrap_or_else(|| panic!("{}: enabled row has no expectations", row.id)),
-                _ => continue,
+            let Some((expect, _)) = active_cell(row, group_enabled) else {
+                continue;
             };
             if let Some(issue) = row.pending_issue(level) {
                 eprintln!("{}: pending {level:?} ({issue})", row.id);

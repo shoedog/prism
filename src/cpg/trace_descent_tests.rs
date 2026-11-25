@@ -1,14 +1,17 @@
 use petgraph::graph::NodeIndex;
 
 use super::object_literal_arg_tests::build;
-use super::trace::{BoundaryEdge, BoundaryKind, Relation, Trace};
-use super::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
+use super::trace::{BoundaryKind, Relation, Trace};
+use super::{
+    CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, FlowDoubt, LossReason, ReturnFlowMode,
+    VarAccess,
+};
 use crate::languages::Language;
 
 const L01: &str = include_str!("../../tests/taint_parity/l01/a.js");
 const NAMEONLY: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::CallNameOnly);
 
-fn occurrence(cpg: &CodePropertyGraph, start: usize, access: VarAccess) -> NodeIndex {
+pub(super) fn occurrence(cpg: &CodePropertyGraph, start: usize, access: VarAccess) -> NodeIndex {
     let mut nodes = cpg.graph.node_indices().filter(|&id| {
         matches!(cpg.node(id), CpgNode::Variable { start_byte, access: actual, .. }
             if *start_byte == start && *actual == access)
@@ -26,19 +29,17 @@ fn add_binding(cpg: &mut CodePropertyGraph, from: NodeIndex, to: NodeIndex, labe
     cpg.graph.add_edge(from, to, CpgEdge::DataFlow(label));
 }
 
-fn assert_boundary(trace: &Trace, from: NodeIndex, to: NodeIndex, reason: &str) {
+fn assert_boundary(trace: &Trace, from: NodeIndex, to: NodeIndex, reason: LossReason) {
     assert!(
         !trace.frontier_by_root[&from].contains(&to),
-        "{reason}: crossed {from:?} → {to:?}"
+        "{reason:?}: crossed {from:?} → {to:?}"
     );
     assert!(
-        trace.boundary.contains(&BoundaryEdge {
-            root: from,
-            from,
-            to,
-            kind: BoundaryKind::CrossFunction,
-        }),
-        "{reason}: missing refused crossing"
+        trace.boundary.iter().any(
+            |edge| (edge.root, edge.from, edge.to, edge.kind, edge.reason)
+                == (from, from, to, BoundaryKind::CrossFunction, reason)
+        ),
+        "{reason:?}: missing refused crossing"
     );
 }
 
@@ -49,7 +50,12 @@ fn nameonly_callback_edge_not_crossed_through_same_line_exact_site() {
     let from = occurrence(&cpg, source.find("cb(x)").unwrap() + 3, VarAccess::Use);
     let to = occurrence(&cpg, source.find("handler(p)").unwrap() + 8, VarAccess::Def);
     add_binding(&mut cpg, from, to, NAMEONLY);
-    assert_boundary(&cpg.taint_trace_nodes(&[from], None), from, to, "not_exact");
+    assert_boundary(
+        &cpg.taint_trace_nodes(&[from], None),
+        from,
+        to,
+        LossReason::NotExact,
+    );
 }
 
 #[test]
@@ -62,7 +68,7 @@ fn byte_carrying_occurrence_matches_by_containment_only() {
         &cpg.taint_trace_nodes(&[from], None),
         from,
         to,
-        "no_matching_site",
+        LossReason::NoMatchingSite,
     );
 }
 
@@ -102,7 +108,7 @@ fn exact_sibling_cache_cannot_admit_not_exact_binding() {
         trace.parents_by_root[&(exact, to)],
         (exact, Relation::CallDescent)
     );
-    assert_boundary(&trace, nameonly, to, "not_exact");
+    assert_boundary(&trace, nameonly, to, LossReason::NotExact);
 }
 
 #[test]
@@ -122,11 +128,11 @@ fn proof_cache_distinguishes_occurrence_end() {
         trace.parents_by_root[&(exact, to)],
         (exact, Relation::CallDescent)
     );
-    assert_boundary(&trace, wider, to, "no_matching_site");
+    assert_boundary(&trace, wider, to, LossReason::NoMatchingSite);
 }
 
 #[test]
-fn two_same_spelling_sites_still_refuse_as_ambiguous_site() {
+fn two_sites_report_ambiguous_site() {
     for (language, ext, source, formal) in [
         (
             Language::Python,
@@ -148,7 +154,7 @@ fn two_same_spelling_sites_still_refuse_as_ambiguous_site() {
             &cpg.taint_trace_nodes(&[from], None),
             from,
             to,
-            "ambiguous_site",
+            LossReason::AmbiguousSite,
         );
     }
 }
@@ -176,7 +182,7 @@ fn empty_occurrence_at_the_exclusive_end_of_a_call_is_not_inside_it() {
         &cpg.taint_trace_nodes(&[empty], None),
         empty,
         to,
-        "no_matching_site",
+        LossReason::NoMatchingSite,
     );
 }
 
@@ -202,16 +208,23 @@ fn nameonly_binding_edge_into_the_walked_function_is_a_boundary_not_local_flow()
         !trace.frontier_by_root[&from].contains(&local),
         "name-only edge became local flow"
     );
-    assert!(trace.boundary.contains(&BoundaryEdge {
-        root: from,
+    assert!(trace.boundary.iter().any(|edge| (
+        edge.root,
+        edge.from,
+        edge.to,
+        edge.kind,
+        edge.reason
+    ) == (
         from,
-        to: local,
-        kind: BoundaryKind::SelfFunctionParam,
-    }));
+        from,
+        local,
+        BoundaryKind::SelfFunctionParam,
+        LossReason::SelfParam
+    )));
 }
 
 #[test]
-fn nameonly_binding_edge_with_a_containing_site_is_refused_without_any_exact_sibling() {
+fn nameonly_site_reports_not_exact() {
     let mut cpg = build(Language::JavaScript, &[("a", L01)], "js");
     let exact = occurrence(&cpg, 166, VarAccess::Use);
     let to = occurrence(&cpg, L01.find("g(x)").unwrap() + 2, VarAccess::Def);
@@ -222,7 +235,7 @@ fn nameonly_binding_edge_with_a_containing_site_is_refused_without_any_exact_sib
         &cpg.taint_trace_nodes(&[nameonly], None),
         nameonly,
         to,
-        "not_exact",
+        LossReason::NotExact,
     );
 }
 
@@ -259,6 +272,319 @@ fn nomination_keeps_the_inclusive_base_predicate_so_an_outer_call_still_makes_it
         &cpg.taint_trace_nodes(&[empty], None),
         empty,
         to,
-        "ambiguous_site",
+        LossReason::AmbiguousSite,
     );
+}
+
+#[test]
+fn use_target_reports_target_not_binding() {
+    let mut cpg = build(Language::JavaScript, &[("a", L01)], "js");
+    let from = occurrence(&cpg, 166, VarAccess::Use);
+    let to = occurrence(&cpg, 97, VarAccess::Use);
+    add_binding(&mut cpg, from, to, FlowConfidence::Exact);
+    assert!(cpg
+        .taint_trace_nodes(&[from], None)
+        .boundary
+        .iter()
+        .any(|edge| (edge.root, edge.from, edge.to, edge.reason)
+            == (from, from, to, LossReason::TargetNotBinding)));
+}
+
+#[test]
+fn no_site_reports_no_matching_site() {
+    let mut cpg = build(Language::JavaScript, &[("a", L01)], "js");
+    cpg.call_graph.callers.remove("g").unwrap();
+    let from = occurrence(&cpg, 166, VarAccess::Use);
+    let to = occurrence(&cpg, L01.find("g(x)").unwrap() + 2, VarAccess::Def);
+    assert_boundary(
+        &cpg.taint_trace_nodes(&[from], None),
+        from,
+        to,
+        LossReason::NoMatchingSite,
+    );
+}
+
+#[test]
+fn third_descent_reports_depth_cap() {
+    let source = include_str!("../../tests/taint_parity/f01/a.js");
+    let cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let root = occurrence(&cpg, 180, VarAccess::Def);
+    let from = occurrence(&cpg, source.find("c(y)").unwrap() + 2, VarAccess::Use);
+    let to = occurrence(&cpg, source.find("c(z)").unwrap() + 2, VarAccess::Def);
+    let trace = cpg.taint_trace_nodes(&[root], None);
+    assert!(trace.frontier_by_root[&root].contains(&from));
+    assert!(!trace.frontier_by_root[&root].contains(&to));
+    assert!(trace
+        .boundary
+        .iter()
+        .any(|edge| (edge.root, edge.from, edge.to, edge.reason)
+            == (root, from, to, LossReason::DepthCap)));
+}
+
+#[test]
+fn context_policy_refusal_reports_policy_ceiling() {
+    use super::taint_policy_return_tests as fixture;
+    use super::{CrossingCeiling, TaintCrossingPolicy};
+    let cpg = &mut fixture::build(&[
+        (fixture::MAIN, fixture::MAIN_SRC),
+        (fixture::LIB, fixture::LIB_SRC),
+    ]);
+    let from = fixture::var_at(cpg, fixture::MAIN, 3, "user", VarAccess::Use);
+    let to = fixture::var_at(cpg, fixture::LIB, 1, "p", VarAccess::Def);
+    fixture::relabel(cpg, from, to, FlowConfidence::NameOnly(FlowDoubt::SameLine));
+    let files = [fixture::LIB.to_string()].into();
+    let policy = TaintCrossingPolicy::new(&files, CrossingCeiling::Exact);
+    let unrestricted = fixture::trace(cpg, &fixture::sources(fixture::MAIN, 3), None);
+    assert!(unrestricted.frontier_by_root[&from].contains(&to));
+    let restricted = fixture::trace(cpg, &fixture::sources(fixture::MAIN, 3), Some(&policy));
+    assert_boundary(&restricted, from, to, LossReason::PolicyCeiling);
+}
+
+#[test]
+fn self_call_reports_self_param() {
+    let src = "function f(x) {\n  f(x);\n}\n";
+    let cpg = build(Language::JavaScript, &[("a", src)], "js");
+    let from = occurrence(&cpg, src.rfind("f(x)").unwrap() + 2, VarAccess::Use);
+    let to = occurrence(&cpg, src.find("f(x)").unwrap() + 2, VarAccess::Def);
+    let trace = cpg.taint_trace_nodes(&[from], None);
+    assert!(trace.boundary.iter().any(|edge| (
+        edge.root,
+        edge.from,
+        edge.to,
+        edge.kind,
+        edge.reason
+    ) == (
+        from,
+        from,
+        to,
+        BoundaryKind::SelfFunctionParam,
+        LossReason::SelfParam
+    )));
+}
+
+#[test]
+fn self_return_reports_self_return() {
+    let source = include_str!("../../tests/taint_parity/s1-js-self-return/a.js");
+    let cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let root = occurrence(&cpg, 83, VarAccess::Def);
+    let from = occurrence(&cpg, source.find("return t").unwrap() + 7, VarAccess::Use);
+    let to = occurrence(&cpg, 132, VarAccess::Def);
+    let trace = cpg.taint_trace_nodes_with_mode(&[root], None, ReturnFlowMode::On);
+    assert!(trace.boundary.iter().any(|edge| (
+        edge.root,
+        edge.from,
+        edge.to,
+        edge.kind,
+        edge.reason
+    ) == (
+        root,
+        from,
+        to,
+        BoundaryKind::SelfFunctionReturn,
+        LossReason::SelfReturn
+    )));
+}
+
+#[test]
+fn depth_zero_cfg_cut_is_recorded() {
+    let source = include_str!("../../tests/taint_parity/w05/a.js");
+    let cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let root = occurrence(&cpg, source.find("v = p").unwrap(), VarAccess::Def);
+    let from = occurrence(&cpg, source.find("return v").unwrap() + 7, VarAccess::Use);
+    let trace = cpg.taint_trace_nodes_with_mode(&[root], None, ReturnFlowMode::On);
+    assert!(trace.frontier_by_root[&root].contains(&from));
+    assert!(trace.cuts.iter().any(|cut| cut.root == root
+        && cut.from == from
+        && matches!(cpg.node(cut.to), CpgNode::ReturnValue { child_slot: 0, .. })
+        && cut.reason == LossReason::CfgPruned));
+}
+
+#[test]
+fn suppressed_shortcut_is_recorded() {
+    let source = include_str!("../../tests/taint_parity/x01/a.js");
+    let cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let root = occurrence(&cpg, 82, VarAccess::Def);
+    let from = occurrence(&cpg, source.find("forget(t)").unwrap() + 7, VarAccess::Use);
+    let to = occurrence(&cpg, source.find("z=forget").unwrap(), VarAccess::Def);
+    let trace = cpg.taint_trace_nodes_with_mode(&[root], None, ReturnFlowMode::On);
+    assert!(!trace.frontier_by_root[&root].contains(&to));
+    assert!(trace
+        .cuts
+        .iter()
+        .any(|cut| (cut.root, cut.from, cut.to, cut.reason)
+            == (root, from, to, LossReason::ShortcutSuppressed)));
+    assert!(!trace
+        .boundary
+        .iter()
+        .any(|edge| edge.root == root && edge.to == to));
+}
+
+#[test]
+fn return_not_entered_site_is_a_cut_not_a_boundary() {
+    let mut trace = Trace::default();
+    let [root, from, to] = [0, 1, 2].map(NodeIndex::new);
+    use super::{BoundaryEdge, CrossingSite};
+    let entered = CrossingSite {
+        start_byte: 10,
+        end_byte: 20,
+        slot: Some(0),
+    };
+    let receiving = CrossingSite {
+        start_byte: 30,
+        end_byte: 40,
+        slot: Some(0),
+    };
+    let identity = |site: CrossingSite| ("a.js".into(), site.start_byte, site.end_byte);
+    let compare = super::ContinuationFrames::check_return;
+    let reason = compare(Some(identity(entered)), Some(identity(receiving))).unwrap_err();
+    assert!(compare(Some(identity(entered)), Some(identity(entered))).is_ok());
+    assert_eq!(
+        compare(Some(identity(entered)), Some(("b.js".into(), 10, 20))),
+        Err(LossReason::ReturnNotEnteredSite)
+    );
+    trace.record_refusal(BoundaryEdge {
+        root,
+        from,
+        to,
+        kind: BoundaryKind::CrossFunction,
+        reason,
+        relation: Relation::ReturnFlow,
+        depth: 1,
+        site: Some(receiving),
+        edge_own_not_exact: false,
+    });
+    assert!(trace.boundary.is_empty());
+    assert_eq!(
+        trace
+            .cuts
+            .iter()
+            .map(|cut| (cut.root, cut.from, cut.to, cut.reason))
+            .collect::<Vec<_>>(),
+        [(root, from, to, LossReason::ReturnNotEnteredSite)]
+    );
+}
+
+#[test]
+fn added_loss_reasons_use_their_wire_names() {
+    for (reason, name) in [
+        (LossReason::UncertifiedFlow, "uncertified_flow"),
+        (LossReason::MatcherAdmission, "matcher_admission"),
+        (LossReason::UnprovenReturnInput, "unproven_return_input"),
+    ] {
+        assert_eq!(serde_json::to_value(reason).unwrap(), name);
+    }
+}
+
+#[test]
+fn crossing_trace_lists_accepted_and_refused_hops() {
+    const CHILD: &str = "PRISM_I1_CROSSING_TRACE_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        let source =
+            "function g(x) { sink(x); }\nfunction f(t) {\n  g(t);\n  g(t); g('fixed');\n}\n";
+        let cpg = build(Language::JavaScript, &[("a", source)], "js");
+        let first = occurrence(&cpg, source.find("g(t)").unwrap() + 2, VarAccess::Use);
+        let second = occurrence(&cpg, source.rfind("g(t)").unwrap() + 2, VarAccess::Use);
+        let trace = cpg.taint_trace_nodes(&[first, second], None);
+        assert_eq!(trace.boundary.len(), 1);
+        return;
+    }
+    for on in [false, true] {
+        let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+        command.args([
+            "--exact",
+            "cpg::trace_descent_tests::crossing_trace_lists_accepted_and_refused_hops",
+            "--nocapture",
+        ]);
+        command
+            .env(CHILD, "1")
+            .env_remove("PRISM_TAINT_CROSSING_TRACE");
+        if on {
+            command.env("PRISM_TAINT_CROSSING_TRACE", "1");
+        }
+        let child = command.output().unwrap();
+        assert!(
+            child.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&child.stdout),
+            String::from_utf8_lossy(&child.stderr)
+        );
+        let stderr = String::from_utf8(child.stderr).unwrap();
+        let lines: Vec<_> = stderr.lines().collect();
+        assert_eq!(lines.len(), if on { 2 } else { 0 }, "{stderr}");
+        if on {
+            for line in &lines {
+                for field in [
+                    "root=",
+                    "from=",
+                    "to=",
+                    "relation=CallDescent",
+                    "site=",
+                    "grades=",
+                    "depth=0",
+                ] {
+                    assert!(line.contains(field), "{line}");
+                }
+            }
+            assert!(lines[0].starts_with("taint-crossing "));
+            assert!(lines[0].contains("grades=[Exact]"));
+            assert!(lines[1].starts_with("taint-refusal "));
+            assert!(lines[1].contains("reason=ambiguous_site"));
+        }
+    }
+}
+
+#[test]
+fn crossing_trace_separates_traversed_return_input_from_crossings() {
+    const CHILD: &str = "PRISM_I1_RETURN_INPUT_TRACE_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        let source = include_str!("../../tests/taint_parity/w05/a.js");
+        let cpg = build(Language::JavaScript, &[("a", source)], "js");
+        let root = occurrence(&cpg, source.find("f(y)").unwrap() + 2, VarAccess::Use);
+        let parsed = crate::ast::ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+        let files = [("a.js".into(), parsed)].into();
+        let order = crate::reasoning::order::AstOrderView::new(&cpg, &files);
+        let trace = cpg.taint_trace_nodes_with_mode(&[root], Some(&order), ReturnFlowMode::On);
+        assert!(trace
+            .parents_by_root
+            .values()
+            .any(|(_, relation)| *relation == Relation::ReturnInput));
+        assert!(trace
+            .parents_by_root
+            .values()
+            .any(|(_, relation)| *relation == Relation::ReturnFlow));
+        return;
+    }
+    let child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "cpg::trace_descent_tests::crossing_trace_separates_traversed_return_input_from_crossings", "--nocapture"])
+        .env(CHILD, "1")
+        .env("PRISM_TAINT_CROSSING_TRACE", "1")
+        .output().unwrap();
+    assert!(
+        child.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&child.stdout),
+        String::from_utf8_lossy(&child.stderr)
+    );
+    let stderr = String::from_utf8(child.stderr).unwrap();
+    let crossings = stderr
+        .lines()
+        .filter(|line| line.starts_with("taint-crossing "))
+        .collect::<Vec<_>>();
+    assert_eq!(crossings.len(), 2, "{stderr}");
+    assert!(
+        crossings[0].contains("relation=CallDescent") && crossings[0].contains(" slot=0 "),
+        "{stderr}"
+    );
+    assert!(
+        crossings[1].contains("relation=ReturnFlow") && crossings[1].contains(" slot=0 "),
+        "{stderr}"
+    );
+    let inputs = stderr
+        .lines()
+        .filter(|line| line.starts_with("taint-return-input "))
+        .collect::<Vec<_>>();
+    assert_eq!(inputs.len(), 1, "{stderr}");
+    for field in ["relation=ReturnInput", "component=0", "return=", "depth=1"] {
+        assert!(inputs[0].contains(field), "{stderr}");
+    }
 }

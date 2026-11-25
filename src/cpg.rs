@@ -105,6 +105,8 @@ mod taint_policy_tests;
 #[cfg(test)]
 mod tests;
 mod trace;
+mod trace_continuation;
+mod trace_cuts;
 mod trace_descent;
 #[cfg(test)]
 mod trace_descent_tests;
@@ -140,4 +142,8 @@ pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     Relation, ReturnFlowMode, SameLineOrderView, Trace,
 };
+pub(crate) use trace_continuation::{relaxation, ContinuationConstraints, ContinuationFrames};
+pub(crate) use trace_cuts::{byte_span as trace_byte_span, enabled as crossing_trace_enabled};
+pub use trace_cuts::{CrossingSite, TraceCut};
+pub use trace_descent::LossReason;
 pub use types::{CpgEdge, CpgNode, StmtKind, VarAccess};

@@ -11,7 +11,7 @@ The harness reads `rows.jsonl` (T-1), `rows-t2a.jsonl`, `rows-t2b.jsonl`, and
 `PARITY_ROWS=rows.jsonl,rows-t2b.jsonl` replaces the file list at run time, in
 the order given. Use comma-separated filenames relative to this directory.
 `PARITY_ENABLED=control,binding` replaces the enabled groups at run time.
-By default `control` and `guard` are enabled. For a row with `current`, the
+By default `control`, `guard` and `reasons` are enabled. For a row with `current`, the
 engine tests select that cell while its group is disabled or any slice in
 `current.until` is absent from `SHIPPED_SLICES`. Otherwise they select the
 target `expect` of an enabled row. The runtime group override does not alter
@@ -102,9 +102,9 @@ are listed, using the reached decisions on the marked sink line.
   `shortcut_suppressed`, `cfg_pruned`, `sanitizer_model`,
   `operand_granularity`, and `unmodelled`.
 - Review-side reasons are `review_no_return_flow`, `review_no_recovered_def_use`,
-  `review_cfg_filter`, and `review_context_policy`.
+  `review_cfg_filter`, `review_context_policy`, `uncertified_flow`, and `matcher_admission`.
 
-The harness validates catalog, knobs, and reasons as data. Their runtime assertions
-arrive with I-8, I-5, and I-1, respectively. Both review modes use the default
+The harness asserts active boundary reasons at the selected sink and pins comparison
+reasons with paired fixtures. Catalog and knob runtime assertions arrive with I-8 and I-5. Both review modes use the default
 crossing policy even on rows with explicit walk knobs. Update the matching
 expectations when an enabled group's required behavior changes.
