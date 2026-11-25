@@ -99,3 +99,141 @@ fn line(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::{nav_session, NavOptions};
+    use crate::framework_entries::routes::{Framework, Reason, Summary};
+    use serde_json::json;
+
+    #[test]
+    fn renders_routes_mounts_and_summary_in_both_formats() {
+        let site = json!({"file":"app.js","start_byte":10,"end_byte":22,"line":3});
+        let route = json!({
+            "framework":"object-table","protocol":"http","site":site,
+            "receiver":{"status":"unproven","reason":"table_consumer_unproven"},
+            "candidate":true,"paths":[],"callbacks":[]
+        });
+        let mount = json!({
+            "parent":{"status":"router","file":"app.js","binding":"app",
+                      "construction_byte":2,"invocations":[]},
+            "child":{"status":"unproven","reason":"mount_child_unproven"},
+            "site":site,"prefix":{"status":"absent"},"alternative_ordinal":0,"child_ordinal":0
+        });
+        let diagnostic = json!({"site":site,"reason":"unsupported_registration"});
+        let table = RouteTable::new(
+            vec![serde_json::from_value(route.clone()).unwrap()],
+            vec![serde_json::from_value(mount.clone()).unwrap()],
+            vec![serde_json::from_value(diagnostic.clone()).unwrap()],
+            vec![],
+            [Framework::ObjectTable],
+        );
+        let summary = json!({"summary":{
+            "enabled_adapters":["object-table"],"registrations":1,"proven":0,"unproven":1,
+            "candidates":1,"mounts":1,"diagnostics":[diagnostic],"failed_roots":[]
+        }});
+        let json_with_mounts = [route.clone(), json!({"mount":mount}), summary.clone()];
+        let json_without_mounts = [route, summary];
+        let render_json = |mounts| {
+            let output = RouteFormat::Json.render(Ok(table.clone()), mounts);
+            assert!(output.ends_with('\n'));
+            output
+                .lines()
+                .map(|line| serde_json::from_str::<Value>(line).unwrap())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(render_json(true), json_with_mounts);
+        assert_eq!(render_json(false), json_without_mounts);
+
+        let route_text = concat!(
+            "route callbacks=[] candidate=true framework=\"object-table\" paths=[] protocol=\"http\"",
+            " receiver={\"reason\":\"table_consumer_unproven\",\"status\":\"unproven\"}",
+            " site={\"end_byte\":22,\"file\":\"app.js\",\"line\":3,\"start_byte\":10}\n",
+        );
+        let mount_text = concat!(
+            "mount alternative_ordinal=0 child={\"reason\":\"mount_child_unproven\",\"status\":\"unproven\"}",
+            " child_ordinal=0 parent={\"binding\":\"app\",\"construction_byte\":2,\"file\":\"app.js\",\"invocations\":[],\"status\":\"router\"}",
+            " prefix={\"status\":\"absent\"} site={\"end_byte\":22,\"file\":\"app.js\",\"line\":3,\"start_byte\":10}\n",
+        );
+        let summary_text = concat!(
+            "summary candidates=1 diagnostics=[{\"reason\":\"unsupported_registration\",",
+            "\"site\":{\"end_byte\":22,\"file\":\"app.js\",\"line\":3,\"start_byte\":10}}]",
+            " enabled_adapters=[\"object-table\"] failed_roots=[] mounts=1 proven=0 registrations=1 unproven=1\n",
+        );
+        assert_eq!(
+            RouteFormat::Text.render(Ok(table.clone()), true),
+            [route_text, mount_text, summary_text].concat()
+        );
+        assert_eq!(
+            RouteFormat::Text.render(Ok(table), false),
+            [route_text, summary_text].concat()
+        );
+    }
+
+    #[test]
+    fn malformed_entry_skips_opening_and_renders_only_the_error() {
+        let entry = "app:factory(\"args\")";
+        let refused = list_with_session(Some(entry), || -> Result<_, ()> {
+            panic!("an invalid selector must not open a navigation session")
+        })
+        .unwrap()
+        .unwrap_err();
+        assert_eq!(
+            refused,
+            EntryError {
+                reason: Reason::EntryUnproven,
+                entry: entry.into()
+            }
+        );
+        assert_eq!(
+            RouteFormat::Json.render(Err(refused.clone()), true),
+            "{\"error\":{\"reason\":\"entry_unproven\",\"entry\":\"app:factory(\\\"args\\\")\"}}\n"
+        );
+        assert_eq!(
+            RouteFormat::Text.render(Err(refused), false),
+            "error entry=\"app:factory(\\\"args\\\")\" reason=\"entry_unproven\"\n"
+        );
+    }
+
+    #[test]
+    fn session_open_failure_is_distinct_from_an_unproven_root() {
+        let entry = "app:app";
+        assert_eq!(
+            list_with_session(Some(entry), || Err("cannot open repo")),
+            Err("cannot open repo")
+        );
+
+        let repo = tempfile::tempdir().unwrap();
+        let options = NavOptions {
+            no_cache: true,
+            ..NavOptions::default()
+        };
+        let open = || nav_session(repo.path(), &options);
+        let refusal = list_with_session(Some(entry), open).unwrap().unwrap_err();
+        assert_eq!(
+            refusal,
+            EntryError {
+                reason: Reason::EntryUnproven,
+                entry: entry.into()
+            }
+        );
+
+        let table = list_with_session(None, open).unwrap().unwrap();
+        assert!(table.routes().is_empty());
+        assert!(table.mounts().is_empty());
+        assert_eq!(
+            table.summary(),
+            &Summary {
+                enabled_adapters: Default::default(),
+                registrations: 0,
+                proven: 0,
+                unproven: 0,
+                candidates: 0,
+                mounts: 0,
+                diagnostics: vec![],
+                failed_roots: vec![],
+            }
+        );
+    }
+}
