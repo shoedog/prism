@@ -182,7 +182,8 @@ The definitive count is taken on the merged head at close-out; a failure there g
 
 The Oracle gate's grading uses lane 11's oracle: lane 9 adopts the measurement kit's oracle (owner,
 2026-11-24), and until that oracle has merged the lane grades with its own checker, migrating when a bound
-replay of its baseline agrees (lane 11 DESIGN section 6, G-adopt).
+replay of its baseline agrees (lane 11 DESIGN section 6, G-adopt). The formats to write the question module
+against are in `lane11-measurement-kit/FORMATS-PROVISIONAL.md` until lane 11's stage D writes `FORMATS.md`.
 
 ## 8. Owner decisions
 

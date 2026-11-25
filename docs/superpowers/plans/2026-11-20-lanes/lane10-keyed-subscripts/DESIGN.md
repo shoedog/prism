@@ -338,7 +338,9 @@ orchestrator reads each new fixture before its first run.
 
 The Differential and No flood gates are measured with lane 11's comparator: lane 10 adopts the measurement
 kit's comparator (owner, 2026-11-24), and until it has merged the lane uses its own differential script,
-migrating when a bound replay of its baseline agrees (lane 11 DESIGN section 6, G-adopt).
+migrating when a bound replay of its baseline agrees (lane 11 DESIGN section 6, G-adopt). The formats to
+write the classifier against are in `lane11-measurement-kit/FORMATS-PROVISIONAL.md` until lane 11's stage D
+writes `FORMATS.md`.
 
 ## 8. Follow-ups, not started by this lane
 

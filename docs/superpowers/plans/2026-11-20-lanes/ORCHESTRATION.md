@@ -58,7 +58,8 @@ Rules for the seats:
 > orchestrator makes every commit and every push, because a codex seat's sandbox cannot write git metadata: a
 > codex implementer leaves its changes in the working tree and reports. Enumerator tiers for that run, in
 > order: the orchestrator's own pass, gpt-6.1-terra, gpt-6.2-sol, and gpt-6.2-astra last. Private code stays
-> with Claude seats as section 9 says. The run's operating details (the job launcher, the build and
+> with Claude seats as section 9 says, and so does every task that reads, edits or runs the benchmark harness
+> under `eval/secbench`, including its censuses (section 6 and the lane plans say which). The run's operating details (the job launcher, the build and
 > measurement slots, the claims on shared files) are in the controller's runbook,
 > `~/prism-evidence/lanes-run-2026-11-24/RUNBOOK.md`. Where this note and the table above disagree, the note
 > applies to that run.

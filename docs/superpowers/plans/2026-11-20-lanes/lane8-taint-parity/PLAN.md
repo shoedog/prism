@@ -659,6 +659,13 @@ from I-9.1's dispatch to I-9.3's merge).
 
 #### Slice I-9.0: closure measurement (0.5 day)
 
+The numbers below were measured before PR #841 merged. On `main` at 9d1a7d06 the taint module is about twice
+as many files, `taint/seeds.rs` names `source_scope::admission`, and `source_scope/admission.rs` calls
+`run::slice_attributed_impl`, so the closure may now reach `run.rs`, which this plan keeps in the review crate.
+I-9.0 re-measures on its own head and decides whether that module joins the closure and whether `run`'s entry
+points move or the call is inverted; if the closure no longer fits the 7.5-day estimate, the stop rules below
+apply and the orchestrator reports to the controller.
+
 - [ ] `census/closure.py` (kept in the evidence directory) computes the module closure mechanically from the
       catalog implementation and the sink loop (`use` trees, qualified and child-module paths, re-exports; a
       module's private children move with it, since `impl` blocks need no import) on the head I-9.1 will start
@@ -747,7 +754,8 @@ becomes `pub(crate) use prism_taint::taint_sinks;`), `CLAUDE.md`.
       must fail): for every moved file, the new bytes
       equal the old bytes after the rewrite map `crate::algorithms::taint_sinks` → `crate::taint_sinks`, then
       `crate::algorithms::taint` → `crate::taint`, and nothing else; the number of rewrites per file equals
-      I-9.0's expected counts (57f7b8cf: 161 and 2 occurrences); no closure file is left under
+      I-9.0's expected counts (the whole taint module before PR #841 had 161 `crate::algorithms::taint` and 2
+      `taint_sinks` occurrences; the counts for the moved files come from I-9.0); no closure file is left under
       `crates/prism-review/src/algorithms/` and no other file moves; the glue files are listed and are the only
       new bytes. The script's report (files, rewrites, glue) goes in the PR body. `git diff -M` shows every
       moved file as a rename.

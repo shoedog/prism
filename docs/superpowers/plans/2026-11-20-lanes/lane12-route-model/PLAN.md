@@ -93,7 +93,7 @@ handlers 5.6, measurement 6, gates 7, follow-ups 8, owner decisions 9, Hapi plug
 | `prometheus` | 505095b64b43 | 2 (net/http) | `web/api/v1/testdata/openapi_3.1_golden.yaml` (not a gate input: own `route.Router`) |
 | `gin` | d75fcd4c9ab2 | 2 | none |
 | `saleor-saleor` | cc4aea76e397 | 3 (Django) | none |
-| a public Hapi application, chosen at M-2 (none under `bench-repos` on 2026-11-24) | recorded when cloned | 3 (Hapi plugin adapter, slice SH) | as found |
+| `screwdriver` and `hapipal-realworld-example-app` (already under `bench-repos`; the gate corpus is chosen at M-2) | recorded at M-2 | 3 (Hapi plugin adapter, slice SH) | as found |
 
 ### Task M-2: census
 

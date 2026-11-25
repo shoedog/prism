@@ -417,7 +417,8 @@ module in `sys.modules` must come from the row, the venv or the standard library
   change with its own corpus measurement).
 - **Strict receiver and import proof costs recall** (factory apps, re-exported routers); each refusal is a
   counted reason, and the stage D recall floor is set knowing it.
-- **Out of model:** routes added at run time in loops over data, plugin systems, reflection.
+- **Out of model:** routes added at run time in loops over data, plugin systems other than the Hapi plugin
+  adapter (section 11), reflection.
 
 ## 11. Hapi plugin adapter (owner decision 7)
 
@@ -527,9 +528,11 @@ succeeds at stage T, in which case the truth runner instruments `server.route` a
 
 ### 11.4 Measurement and gate
 
-**Census (stage M).** No corpus under `bench-repos` depends on `@hapi/hapi` (checked 2026-11-24), so stage M
-chooses a public Hapi application whose routes are registered in plugins, clones it into `bench-repos`, and
-records its name and commit; the ledger gains its Hapi sites (each `server.route` row object, each
+**Census (stage M).** Two public Hapi applications are already under `bench-repos` (checked 2026-11-24):
+`screwdriver` (`@hapi/hapi` ^21.1.0, `server.route` calls in `plugins/`) and `hapipal-realworld-example-app`
+(`@hapi/hapi` 20.x). Stage M counts both, records their commits, and picks the gate corpus by the share of
+`server.route` calls inside plugin `register` functions; it clones another public application only if neither
+fits. The ledger gains its Hapi sites (each `server.route` row object, each
 `server.register` call). Counted per corpus: `server.route` calls and row objects, by form (array or single),
 handler spelling and handler form; plugin objects by shape and export form; `server.register` calls by
 argument form and prefix source; and the share of `server.route` calls whose plugin a grounded registration

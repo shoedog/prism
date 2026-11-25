@@ -194,7 +194,9 @@ case directory referenced). Each row states the required behaviour and its truth
 ## Stage D: formats of record (1.5 days)
 
 The design seat (Fable-5.2, high) gets DESIGN.md, INVENTORY.md, TARGET.md, the complete rows file with
-truths, the census, the drafts of S1 to S6b, and the consuming lane's classes and inputs (M-4). It writes
+truths, the census, the drafts of S1 to S6b, the consuming lane's classes and inputs (M-4), and
+`FORMATS-PROVISIONAL.md` (the formats handed to the two adopters on 2026-11-24), whose change-log entries
+stage D accepts, changes or refuses. It writes
 `FORMATS.md` here, stated against every row: every subcommand's flags; the manifest, receipt, run-directory
 layout, `changes.jsonl`, certificate, classifier contract (record kinds, stray policy, `validate`),
 allow-list, gate file, report skeleton, population manifest, `review-diff` outputs, verdict file; exit codes;
@@ -291,6 +293,9 @@ first on `PATH`): above the limit → 137 and one log line; below → the comman
 
 ### S2: `diff-edges`, `diff-stats`, classifiers, G-repro (5 days; G-repro, G-hermetic)
 
+S2 also implements the `node` record kind that `FORMATS-PROVISIONAL.md` adds for lane 10, in the form
+stage D settles.
+
 **Files:** create `scripts/measure/{edges,diff_edges,diff_stats,classifier,trace}.py`,
 `examples/classify_783_4b.py`, `fixtures/repro-4b/` (M-3's fixture corpus, truth and control generator),
 `tests/{test_edges,test_diff_edges,test_diff_stats,test_examples}.py`; enable `comparator` and `join` in
@@ -369,6 +374,9 @@ def test_783_classifier_attributes_kill_alias_and_alias_d3_and_refuses_untagged_
       control results; formats as built.
 
 ### S3: TypeScript oracle and self-check (4 days; G-selfcheck, G-hermetic)
+
+S3 also implements `ctx.enclosing_call` and `program_with_default_lib()`, which `FORMATS-PROVISIONAL.md` adds
+for lane 9, in the form stage D settles.
 
 **Files:** create `scripts/measure/oracle/{ts_oracle,bytes,selfcheck}.cjs`, `oracle/questions/{argument_binding,
 lexical_binding,calls}.cjs`, `oracle/selfcheck/<case>/{repo/,input.jsonl,expected.jsonl}`,

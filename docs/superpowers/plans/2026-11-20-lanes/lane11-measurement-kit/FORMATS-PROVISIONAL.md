@@ -1,7 +1,7 @@
 # Lane 11 measurement kit: provisional formats for the two adopters
 
 Status: PROVISIONAL (2026-11-24). A consolidation of what `DESIGN.md` section 5 and `PLAN.md` slices S1 to S3
-already fix, written so that lane 10 (comparator) and lane 9 (oracle) can write their classifier and question
+already fix, plus the additions listed in the change log at the end of this file, written so that lane 10 (comparator) and lane 9 (oracle) can write their classifier and question
 module now. Stage D (`FORMATS.md`) supersedes it and states every difference in its change log; until then a
 name or field here may change only by an entry at the end of this file. Nothing here is built yet: the commands
 exist after S1 (`run`), S2 (`diff-edges`, `diff-stats`) and S3 (`oracle`) merge. Run from `scripts/` as
