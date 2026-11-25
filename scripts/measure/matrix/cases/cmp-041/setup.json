@@ -1,5 +1,4 @@
 {
   "repeat_distinct_keys": 100000,
-  "vary": "to.line",
-  "peak_mib": 96
+  "vary": "to.line"
 }

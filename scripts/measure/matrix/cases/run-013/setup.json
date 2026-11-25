@@ -13,11 +13,5 @@
   "fake_binary": {
     "version": "9d1a7d06f653",
     "commands_exit": 0
-  },
-  "environment": {
-    "call_stats_cache_choices": [
-      "--no-cache",
-      "--cache-dir fresh"
-    ]
   }
 }

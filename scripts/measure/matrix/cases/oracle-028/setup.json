@@ -1,7 +1,0 @@
-{
-  "delta": "confidence-only",
-  "denominator": {
-    "sites": 1,
-    "head_nonexact_sites": 1
-  }
-}

@@ -14,17 +14,5 @@
   "allow": [
     "dfg_labels.x",
     "dfg_labels.y"
-  ],
-  "check_deltas": {
-    "dfg_labels.x": [
-      1,
-      2,
-      1
-    ],
-    "dfg_labels.y": [
-      2,
-      1,
-      -1
-    ]
-  }
+  ]
 }

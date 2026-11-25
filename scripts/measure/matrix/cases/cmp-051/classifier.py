@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-CLASSES = ["fixture-change"]
+CLASSES = []
 
 
 def classify(change, context):
-    return "fixture-change"
+    return None

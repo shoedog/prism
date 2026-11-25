@@ -26,8 +26,9 @@ EXPECTED = {"alias_unstable": "kill:alias", "cfg_incomplete": "alias-d3"}
 
 
 def classify(change, context):
-    expected = EXPECTED.get(change["head_bag"][0]["doubt"])
+    expected = {EXPECTED.get(label["doubt"]) for label in change["head_bag"]}
     mechanisms = {record["mechanism"] for record in context.records(change)}
-    if expected and mechanisms == {expected}:
-        return expected
+    if mechanisms == expected and len(mechanisms) == 1:
+        mechanism, = mechanisms
+        return mechanism
     return None

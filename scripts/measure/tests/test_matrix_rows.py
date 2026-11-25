@@ -20,6 +20,26 @@ PREFIXES = {
 }
 SOURCES = {"probe", "product", "synthetic"}
 
+TRUTH_KEYS = {
+    "run": {"exit", "binary_ran", "receipt_status"},
+    "comparator": {"exit", "changes", "unattributed"},
+    "join": {"exit", "changes", "unattributed", "records"},
+    "oracle": {"verdicts"},
+    "review": {"presence_changes", "payload_changes", "ambiguous_bags", "rule_transitions"},
+    "gate": {"exit", "reason"},
+}
+OPERATION_TRUTH_KEYS = {
+    ("run", "output admission"): {"exit"},
+    ("run", "python syntax"): {"parses_as_python_39"},
+    ("comparator", "diff-stats"): {"exit", "deltas"},
+    ("review", "row accounting"): {"row_accounting"},
+    ("review", "population spec"): {"spec"},
+}
+FILE_INPUTS = {
+    "base", "base_transport", "classifier", "evidence", "external", "file",
+    "generator", "head", "head_transport", "setup", "trace",
+}
+
 
 def unique_object(pairs):
     result = {}
@@ -63,6 +83,38 @@ class MatrixRowsTests(unittest.TestCase):
                 self.assertTrue(row["required"].strip())
                 self.assertIsInstance(row["truth"], dict)
 
+    def test_determined_rows_have_required_truth_keys(self):
+        for row in self.rows:
+            with self.subTest(case=row["id"]):
+                truth = row["truth"]
+                if "undetermined" in truth:
+                    self.assertIsInstance(truth["undetermined"], str)
+                    self.assertTrue(truth["undetermined"].strip())
+                    continue
+                group = row["group"]
+                operation = row["input"].get("operation")
+                required = OPERATION_TRUTH_KEYS.get((group, operation), TRUTH_KEYS[group])
+                if group == "comparator" and truth.get("exit") == 2:
+                    required = {"exit"}
+                missing = required - truth.keys()
+                self.assertFalse(missing, f"missing truth keys: {sorted(missing)}")
+
+    def test_named_inputs_exist_under_the_case_directory(self):
+        for row in self.rows:
+            inputs = row["input"]
+            case = (CASES / inputs["case"]).resolve()
+            for field in sorted(inputs.keys() & (FILE_INPUTS | {"repo"})):
+                with self.subTest(case=row["id"], field=field):
+                    name = inputs[field]
+                    self.assertIsInstance(name, str)
+                    self.assertFalse(Path(name).is_absolute(), name)
+                    path = (case / name).resolve()
+                    self.assertIn(case, path.parents, name)
+                    if field == "repo":
+                        self.assertTrue(path.is_dir(), name)
+                    else:
+                        self.assertTrue(path.is_file(), name)
+
     def test_case_directories_match_the_rows_and_contain_files(self):
         referenced = {row["input"]["case"] for row in self.rows}
         actual = {path.name for path in CASES.iterdir() if path.is_dir()}
@@ -78,6 +130,7 @@ class MatrixRowsTests(unittest.TestCase):
                     pass
 
     def test_product_rows_retain_fixture_source_and_raw_output(self):
+        # Stage T has zero product rows. Keep this check for future captures.
         for row in self.rows:
             if row["source"] != "product":
                 continue

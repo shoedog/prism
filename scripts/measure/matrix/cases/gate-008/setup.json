@@ -21,15 +21,5 @@
       "sha256": "def6242ecf18779072eca006fc2cc09caed1a5320557d4a20a28aeb5ed8df493"
     }
   },
-  "retrospective": false,
-  "check_report_sections": [
-    "Receipt",
-    "Prediction",
-    "Population and denominators",
-    "Classes and certificate",
-    "Verdicts",
-    "Controls",
-    "Limits",
-    "Result"
-  ]
+  "retrospective": false
 }
