@@ -140,8 +140,8 @@ in `~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane8/probes/`.
 
 ### Task T-1: rows, fixtures, data-driven tests
 
-**Files:** Create `tests/fixtures/taint_parity/rows.jsonl`, `tests/fixtures/taint_parity/README.md`, one
-directory per fixture under `tests/fixtures/taint_parity/` (source and sink lines marked `@SRC` and `@SINK`
+**Files:** Create `tests/taint_parity/rows.jsonl`, `tests/taint_parity/README.md`, one
+directory per fixture under `tests/taint_parity/` (source and sink lines marked `@SRC` and `@SINK`
 in comments, as `~/prism-evidence/lanes-2026-11-20/probes/lane8/make_fixtures.py` does),
 `tests/algo/taxonomy/taint_parity_test.rs`; Modify `tests/algo/taxonomy/main.rs` (`mod` line),
 `tests/integration/coverage_test.rs` (all three lists).
@@ -306,7 +306,7 @@ E is closed. Its historical assignments follow. The remaining classes and the en
 
 ## Stage D: design of record (2 days)
 
-**Design delivered.** DESIGN §§5.1–5.7, 6–9 and [STAGE_D_ROWS.md](../../../../../tests/fixtures/taint_parity/STAGE_D_ROWS.md) are the implementation brief. The ledger resolves every `tbd` row and records the other changed contracts. Apply the row edits in the owning product slices, including the affected shards, witness assertions, `walk_comparable` flags for genuinely identical single roots, and documented level-specific dependencies. Designate the slice that first changes each control or intermediate reason in its receipt. E closed with open JSX ownership/formal reads and route-handler classes; the generators and exclusions in DESIGN §9 apply to future members. The review cap is two rounds. Design delivery does not attest those reviews or owner decision 6.
+**Design delivered.** DESIGN §§5.1–5.7, 6–9 and [STAGE_D_ROWS.md](../../../../../tests/taint_parity/STAGE_D_ROWS.md) are the implementation brief. The ledger resolves every `tbd` row and records the other changed contracts. Apply the row edits in the owning product slices, including the affected shards, witness assertions, `walk_comparable` flags for genuinely identical single roots, and documented level-specific dependencies. Designate the slice that first changes each control or intermediate reason in its receipt. E closed with open JSX ownership/formal reads and route-handler classes; the generators and exclusions in DESIGN §9 apply to future members. The review cap is two rounds. Design delivery does not attest those reviews or owner decision 6.
 
 - [x] Brief the design seat with DESIGN 5.2, 5.3, 5.5, 5.6, the rows, `CENSUS.md`, `catalog-inventory.md`,
       the accepted-loss candidates (js06, js07, go04, census `other`/`unknown`), the known wrong rows, and these facts:
@@ -348,7 +348,7 @@ reviewers. No slice adds or relabels graph edges, so item 6 does not apply; the 
 `src/cpg/trace.rs`, `src/reasoning/types.rs`, `src/reasoning/taint_reaches.rs` (`boundary_warnings`),
 `src/reasoning/shape.rs` (`reachability_for_node_from_ordered`: the boundary-target test of DESIGN 5.3),
 `src/navigation/render.rs`, `tests/algo/taxonomy/taint_parity_test.rs` (`ENABLED` gains `"reasons"`),
-the affected `tests/fixtures/taint_parity/rows*.jsonl` shards (including f01–f03), `CLAUDE.md`. Rule: DESIGN 5.3; the crossing trace of
+the affected `tests/taint_parity/rows*.jsonl` shards (including f01–f03), `CLAUDE.md`. Rule: DESIGN 5.3; the crossing trace of
 DESIGN 6.
 
 ```rust
@@ -398,7 +398,7 @@ Under Exact, inspect the binding edge’s own label before site lookup or a proo
 Report the following default answers in the I-guard PR. `n01` and `n02` are NotReached on the base fixtures, which lack the lane-9 edges. With those edges present the guard returns `BoundaryExited / not_exact`. Pin this on constructed edges until the producers land. `s2-js-alias-same-line`, `s2-js-alias-multiline-overlap` and `s3-ts-optional-default-competitor` move from Reached d1 to `BoundaryExited / no_matching_site` until I-spelling. In each, the alias is the only site for the target that contains the tainted actual. Assert these intermediate cells in I-guard. Keep l01’s positive witness at its second `t` and l06’s refusal. The guard needs only the edge label and existing site bytes, so lane 9 can depend on it before I-walk.
 
 **Files:** Modify `src/cpg/trace_descent.rs`, `src/cpg/trace_descent_tests.rs`,
-the guard and alias rows in `tests/fixtures/taint_parity/{rows,rows-t2b,rows-t2c}.jsonl`, `tests/algo/taxonomy/taint_parity_test.rs` (`ENABLED` gains
+the guard and alias rows in `tests/taint_parity/{rows,rows-t2b,rows-t2c}.jsonl`, `tests/algo/taxonomy/taint_parity_test.rs` (`ENABLED` gains
 `"guard"`), `CLAUDE.md`.
 
 - [ ] Tests first: `nameonly_callback_edge_not_crossed_through_same_line_exact_site` (n01),
@@ -427,7 +427,7 @@ re-walk), `src/reasoning/shape.rs`, `src/reasoning/sanitizer_walk.rs`, review's
 `crates/prism-review/src/algorithms/taint/run.rs`, and the test callers (`src/cpg/tests.rs` expectations only,
 `src/cpg/multiline_call_arg_tests.rs`, `src/data_flow/build/field_recall*_tests.rs`,
 `tests/integration/dfg_label_parity_test.rs`, `tests/reasoning/{smoke,scope_honesty}_test.rs`);
-`tests/algo/taxonomy/taint_parity_test.rs` (`ENABLED` gains `"walk"`), the affected `tests/fixtures/taint_parity/rows*.jsonl` shards,
+`tests/algo/taxonomy/taint_parity_test.rs` (`ENABLED` gains `"walk"`), the affected `tests/taint_parity/rows*.jsonl` shards,
 `CLAUDE.md`.
 
 ```rust
@@ -466,7 +466,7 @@ sample, and merging them would make the Sound sample unattributable. Each needs 
 
 **Files:** Modify `src/cpg/trace_descent.rs`, `src/cpg/trace_descent_tests.rs`,
 `tests/algo/taxonomy/taint_parity_test.rs` (`ENABLED`),
-the affected `tests/fixtures/taint_parity/rows*.jsonl` shards (STAGE_D_ROWS), `CLAUDE.md`; I-same-line also `src/cpg/tests.rs`
+the affected `tests/taint_parity/rows*.jsonl` shards (STAGE_D_ROWS), `CLAUDE.md`; I-same-line also `src/cpg/tests.rs`
 (split the graph-only refusal from the view-equipped first-site witness on l05; no test is
 added to that file, which is over the size ceiling);
 I-binding covers computed/written/nested reads and unique versus ambiguous line-key reconstruction, including nonzero token and zero-width anchors. I-spelling also `docs/features/language-coverage/js-ts-known-gaps.md` (section 3, taint descent entry).
