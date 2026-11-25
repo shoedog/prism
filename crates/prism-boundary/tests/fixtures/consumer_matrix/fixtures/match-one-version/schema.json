@@ -1,0 +1,18 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay match-one-version",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/item": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

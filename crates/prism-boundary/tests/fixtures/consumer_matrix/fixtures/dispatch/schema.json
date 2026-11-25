@@ -1,0 +1,29 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay dispatch",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/dispatch": {
+      "get": {
+        "description": "Default status operation. Requests with an action selector dispatch to separate operations.",
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/query": {
+      "post": {
+        "description": "Default receipt operation. Requests with a query document dispatch to separate operations.",
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}
