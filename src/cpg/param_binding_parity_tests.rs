@@ -110,6 +110,81 @@ fn fixture_bindings(cpg: &CodePropertyGraph) -> Vec<String> {
     edges
 }
 
+fn assert_step5b_parity(
+    files: &BTreeMap<String, ParsedFile>,
+    cold: &CodePropertyGraph,
+    cold_edges: &[String],
+) {
+    let cg = CallGraph::build(files);
+    let dfg = DataFlowGraph::build(files);
+    let legacy = with_legacy(|| CodePropertyGraph::assemble_graph(cg, dfg, files, None));
+    assert_eq!(edge_multiset(&legacy), cold_edges, "legacy twin");
+
+    let parallel = CodePropertyGraph::collect_step5b_edges(
+        &cold.call_graph,
+        &cold.var_index,
+        &cold.graph,
+        files,
+    );
+    let serial = CodePropertyGraph::collect_step5b_edges_reference(
+        &cold.call_graph,
+        &cold.var_index,
+        &cold.graph,
+        files,
+    );
+    assert_eq!(parallel, serial, "serial reference and emission order");
+}
+
+fn assert_spread_bindings(path: &str, source: &str, language: Language, expected: &str) {
+    let parsed = ParsedFile::parse(path, source, language).unwrap();
+    assert_eq!(parsed.parse_error_count, 0, "{path}: {source}");
+    let files = BTreeMap::from([(path.to_string(), parsed)]);
+    let cold = CodePropertyGraph::build(&files);
+    assert_eq!(fixture_bindings(&cold), [expected], "{path}: {source}");
+    assert_step5b_parity(&files, &cold, &edge_multiset(&cold));
+}
+
+fn assert_js_comment_binding(comment: &str) {
+    let source = format!(
+        "function f(a, b, c, d = 0) {{ use(a, b, c, d); }}\nfunction spread(x) {{ f(...[0, 1],\n{comment}\nx); }}"
+    );
+    assert_spread_bindings(
+        "fixture.js",
+        &source,
+        Language::JavaScript,
+        "spread:x -> f:c [Exact]",
+    );
+}
+
+#[test]
+fn html_open_comment_does_not_shift_spread_binding() {
+    assert_js_comment_binding("<!-- ignored");
+}
+
+#[test]
+fn html_close_comment_does_not_shift_spread_binding() {
+    assert_js_comment_binding("--> ignored");
+}
+
+fn assert_instantiation_binding(path: &str, language: Language) {
+    for type_args in ["", "<number>"] {
+        let source = format!(
+            "type G = [number] & (<T>() => T);\nfunction f(a = 11, b = 22) {{ use(a, b); }}\nfunction spread(x: number) {{ f(...([0] as G){type_args}, x); }}"
+        );
+        assert_spread_bindings(path, &source, language, "spread:x -> f:b [Exact]");
+    }
+}
+
+#[test]
+fn ts_instantiation_preserves_spread_binding() {
+    assert_instantiation_binding("fixture.ts", Language::TypeScript);
+}
+
+#[test]
+fn tsx_instantiation_preserves_spread_binding() {
+    assert_instantiation_binding("fixture.tsx", Language::Tsx);
+}
+
 #[test]
 fn spread_and_rest_graph_is_identical_across_every_route() {
     let mut sources = BTreeMap::from([
@@ -143,25 +218,7 @@ fn spread_and_rest_graph_is_identical_across_every_route() {
         "positional binding edges"
     );
     let cold_edges = edge_multiset(&cold);
-
-    let cg = CallGraph::build(&files);
-    let dfg = DataFlowGraph::build(&files);
-    let legacy = with_legacy(|| CodePropertyGraph::assemble_graph(cg, dfg, &files, None));
-    assert_eq!(edge_multiset(&legacy), cold_edges, "legacy twin");
-
-    let parallel = CodePropertyGraph::collect_step5b_edges(
-        &cold.call_graph,
-        &cold.var_index,
-        &cold.graph,
-        &files,
-    );
-    let serial = CodePropertyGraph::collect_step5b_edges_reference(
-        &cold.call_graph,
-        &cold.var_index,
-        &cold.graph,
-        &files,
-    );
-    assert_eq!(parallel, serial, "serial reference and emission order");
+    assert_step5b_parity(&files, &cold, &cold_edges);
 
     let dir = tempfile::tempdir().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);

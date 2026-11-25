@@ -82,3 +82,66 @@ fn array_spread_length(caller: &ParsedFile, span: &Range<usize>) -> Option<usize
     }
     Some(length)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::languages::Language;
+
+    fn assert_offsets(source: &str, language: Language, slot: &[Option<usize>], least: &[usize]) {
+        let caller = ParsedFile::parse("fixture", source, language).unwrap();
+        assert_eq!(caller.parse_error_count, 0, "{source}");
+        let args = caller.call_argument_texts_and_spans_of_call(0, source.len(), "f");
+        let actual = offsets(&caller, &args);
+        assert_eq!(actual.slot, slot, "slot for {source}");
+        assert_eq!(actual.least, least, "least for {source}");
+    }
+
+    #[test]
+    fn dense_spreads_count_elements() {
+        assert_offsets(
+            "f(prefix, ...[0, /* ignored */ 1,], ...[], ...[[...items]], tail)",
+            Language::JavaScript,
+            &[Some(0), None, None, None, Some(4)],
+            &[0, 1, 3, 3, 4],
+        );
+    }
+
+    #[test]
+    fn unknown_spreads_keep_only_a_lower_bound() {
+        for operand in ["[, 1]", "[...items]", "items"] {
+            assert_offsets(
+                &format!("f(prefix, ...{operand}, middle, ...[0, 1], tail)"),
+                Language::JavaScript,
+                &[Some(0), None, None, None, None],
+                &[0, 1, 1, 2, 4],
+            );
+        }
+    }
+
+    #[test]
+    fn typescript_wrappers_preserve_spread_length() {
+        assert_offsets(
+            "f(...((([0] as G)!) satisfies G), x)",
+            Language::TypeScript,
+            &[None, Some(1)],
+            &[0, 1],
+        );
+        assert_offsets(
+            "f(...(<G>[0]), x)",
+            Language::TypeScript,
+            &[None, Some(1)],
+            &[0, 1],
+        );
+    }
+
+    #[test]
+    fn wrapped_instantiation_preserves_spread_length() {
+        assert_offsets(
+            "f(...((([0] as G)<number>)!), x)",
+            Language::Tsx,
+            &[None, Some(1)],
+            &[0, 1],
+        );
+    }
+}

@@ -21,20 +21,18 @@ impl ParsedFile {
             if let Some(name_node) = self.call_function_name(&node) {
                 let start = node.start_byte();
                 let name = self.node_text(&name_node).to_string();
-                // First pre-order occurrence wins — mirrors the legacy first-match.
                 if self.language.is_js_family() {
-                    let spans = self.named_arg_spans(&node);
-                    index
-                        .by_call
-                        .entry((start, name.clone()))
-                        .or_insert_with(|| spans.clone());
-                    index.by_span.insert((start, node.end_byte(), name), spans);
-                } else {
-                    index
-                        .by_call
-                        .entry((start, name))
-                        .or_insert_with(|| self.named_arg_spans(&node));
+                    // Named extras such as HTML comments do not have runtime slots.
+                    index.by_span.insert(
+                        (start, node.end_byte(), name.clone()),
+                        self.named_arg_spans(&node, true),
+                    );
                 }
+                // First pre-order occurrence wins for the legacy start-byte lookup.
+                index
+                    .by_call
+                    .entry((start, name))
+                    .or_insert_with(|| self.named_arg_spans(&node, false));
             }
         }
         let mut cursor = node.walk();
@@ -43,12 +41,12 @@ impl ParsedFile {
         }
     }
 
-    fn named_arg_spans(&self, call_node: &Node<'_>) -> Vec<CallArg> {
+    fn named_arg_spans(&self, call_node: &Node<'_>, ignore_extras: bool) -> Vec<CallArg> {
         let mut args = Vec::new();
         if let Some(args_node) = self.language.call_arguments(call_node) {
             let mut cursor = args_node.walk();
             for child in args_node.children(&mut cursor) {
-                if self.is_positional_argument_node(child) {
+                if self.is_positional_argument_node(child) && !(ignore_extras && child.is_extra()) {
                     args.push(CallArg {
                         start_byte: child.start_byte(),
                         end_byte: child.end_byte(),
@@ -207,10 +205,20 @@ impl ParsedFile {
             return None;
         }
         let mut cursor = node.walk();
-        let operand = node
+        let mut operand = node
             .named_children(&mut cursor)
             .find(|child| !child.is_extra())?;
-        super::member_projection::strip_transparent_wrappers(operand)
+        loop {
+            operand = super::member_projection::strip_transparent_wrappers(operand)?;
+            if operand.kind() != "instantiation_expression" {
+                return Some(operand);
+            }
+            // The value precedes the erased type arguments and can be unfielded.
+            let mut cursor = operand.walk();
+            operand = operand
+                .named_children(&mut cursor)
+                .find(|child| !child.is_extra())?;
+        }
     }
 
     #[cfg(test)]

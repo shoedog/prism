@@ -12,23 +12,27 @@ use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
 const ACTIVE_SLICES: &[&str] = &["control", "A"];
-/// Rows the design of record (DESIGN section 9) keeps mandatory and RED through slice A:
-/// (row id, why it is red and the issue that turns it green). Their RED outcomes do not fail
-/// the suite; the suite fails if one of them has no RED assertion any more (an unexpected
-/// green means the list must be updated and the row re-pinned).
-const EXPECTED_RED: &[(&str, &str)] = &[
+type AssertionKey<'a> = (&'a str, &'a str, usize);
+type ExpectedRed<'a> = (AssertionKey<'a>, &'a str);
+
+const X2_2_RED_REASON: &str = "DESIGN §9 line 314: both step sites resolve only as r6_multi_owner_candidate, excluded from Step 5b. #893 tracks the candidate-binding decision. Green also needs unfiled resolver work to resolve super.m() to the base method and type a receiver through a method that returns this";
+const X5_2_RED_REASON: &str = "DESIGN §9 line 315: the constructor site is absent (#892) and the take targets are navigation-only candidates. #893 tracks the candidate-binding decision. Green also needs unfiled resolver work to type the receiver from the constructor's explicit return";
+
+/// Mandatory RED assertions from DESIGN §9, keyed by row, language and ordinal.
+/// Every pin must remain RED, and every unpinned RED fails the suite.
+const EXPECTED_RED: &[ExpectedRed<'_>] = &[
     (
-        "x1-4",
-        "DESIGN 9 sentinel: an unimported builtin spelling resolves Exact free_single to an unrelated export; fixed by #891",
+        ("x1-4", "js", 3),
+        "DESIGN §9 line 313: an unimported builtin spelling resolves Exact free_single to an unrelated export; fixed by #891",
     ),
-    (
-        "x2-2",
-        "DESIGN 9 sentinel: both step sites resolve only as r6_multi_owner_candidate, excluded from Step 5b; decision tracked in #893",
-    ),
-    (
-        "x5-2",
-        "DESIGN 9 sentinel: the constructor site is absent and the take targets are navigation-only candidates; #892 and #893",
-    ),
+    (("x2-2", "js", 1), X2_2_RED_REASON),
+    (("x2-2", "js", 2), X2_2_RED_REASON),
+    (("x2-2", "ts", 1), X2_2_RED_REASON),
+    (("x2-2", "ts", 2), X2_2_RED_REASON),
+    (("x2-2", "tsx", 1), X2_2_RED_REASON),
+    (("x2-2", "tsx", 2), X2_2_RED_REASON),
+    (("x5-2", "js", 1), X5_2_RED_REASON),
+    (("x5-2", "js", 2), X5_2_RED_REASON),
 ];
 /// Doubt kinds as `dfg-stats --edges` spells them; `builtin_callback` is added by slice D.
 const LABEL_DOUBTS: &[&str] = &[
@@ -697,19 +701,13 @@ fn evaluate(
     }
 }
 
-#[test]
-fn param_binding_matrix_rows() {
-    let rows = read_rows(ROWS).unwrap();
-    let seen: BTreeSet<_> = rows
-        .iter()
-        .flat_map(|row| row.selected(ACTIVE_SLICES).map(|(_, slice, _)| slice))
-        .collect();
+fn matrix_failures(rows: &[Row], active: &[&str], expected_red: &[ExpectedRed<'_>]) -> Vec<String> {
     let mut failures = Vec::new();
-    let mut still_red = BTreeSet::new();
-    for row in &rows {
+    let mut pending = expected_red.to_vec();
+    for row in rows {
         evaluate(
             row,
-            ACTIVE_SLICES,
+            active,
             |ext, ordinal, slice, assertion, outcome, actual| {
                 let actual = actual.replace(['\t', '\n', '\r'], " ");
                 let loss = assertion
@@ -730,33 +728,40 @@ fn param_binding_matrix_rows() {
                     loss
                 );
                 println!("MATRIX\t{record}");
-                if outcome.fails() {
-                    if matches!(outcome, Outcome::Red)
-                        && EXPECTED_RED.iter().any(|(id, _)| *id == row.id)
-                    {
+                if outcome == Outcome::Red {
+                    let key = (row.id.as_str(), ext, ordinal);
+                    if let Some(index) = pending.iter().position(|(pin, _)| *pin == key) {
+                        pending.remove(index);
                         println!("MATRIX-EXPECTED-RED\t{}", row.id);
-                        still_red.insert(row.id.clone());
-                    } else {
-                        failures.push(record);
+                        return;
                     }
+                }
+                if outcome.fails() {
+                    failures.push(record);
                 }
             },
         );
     }
+    for ((id, ext, ordinal), why) in pending {
+        failures.push(format!(
+            "{id}/{ext} #{ordinal}: expected RED ({why}); update EXPECTED_RED"
+        ));
+    }
+    failures
+}
+
+#[test]
+fn param_binding_matrix_rows() {
+    let rows = read_rows(ROWS).unwrap();
+    let failures = matrix_failures(&rows, ACTIVE_SLICES, EXPECTED_RED);
+    let seen: BTreeSet<_> = rows
+        .iter()
+        .flat_map(|row| row.selected(ACTIVE_SLICES).map(|(_, slice, _)| slice))
+        .collect();
     assert!(
         ACTIVE_SLICES.iter().all(|slice| seen.contains(slice)),
         "empty active slice"
     );
-    for (id, why) in EXPECTED_RED {
-        let selected = rows
-            .iter()
-            .any(|row| row.id == *id && row.selected(ACTIVE_SLICES).next().is_some());
-        if selected && !still_red.contains(*id) {
-            failures.push(format!(
-                "{id}: expected RED but no assertion is red any more ({why}); update EXPECTED_RED"
-            ));
-        }
-    }
     assert!(
         failures.is_empty(),
         "matrix failures:\n{}",
@@ -783,6 +788,53 @@ mod harness {
             actual.push((n, outcome))
         });
         actual
+    }
+
+    fn synthetic_matrix_failures(kinds: &[&str], langs: &[&str]) -> Vec<String> {
+        let checks: Vec<_> = kinds
+            .iter()
+            .map(|kind| {
+                json!({
+                    "kind": kind, "from": "m.js:g:v@2:19", "to": "m.js:f:a@1:12", "slice": "A"
+                })
+            })
+            .collect();
+        let mut fixture = row(json!(checks));
+        fixture["langs"] = json!(langs);
+        let rows = read_rows(&fixture.to_string()).unwrap();
+        matrix_failures(
+            &rows,
+            &["A"],
+            &[
+                (("synthetic", "js", 1), "known RED"),
+                (("synthetic", "js", 2), "known RED"),
+            ],
+        )
+    }
+
+    #[test]
+    fn expected_red_passes() {
+        let failures = synthetic_matrix_failures(&["no_edge", "no_edge", "edge"], &["js"]);
+        assert!(failures.is_empty(), "{failures:?}");
+    }
+
+    #[test]
+    fn expected_red_turning_green_fails_with_a_sibling_still_red() {
+        let failures = synthetic_matrix_failures(&["no_edge", "edge"], &["js"]);
+        assert_eq!(failures.len(), 1, "{failures:?}");
+        assert!(failures[0].contains("synthetic/js #2"));
+        assert!(failures[0].contains("update EXPECTED_RED"));
+    }
+
+    #[test]
+    fn unexpected_red_siblings_fail_in_the_same_row() {
+        let ordinal = synthetic_matrix_failures(&["no_edge", "no_edge", "no_edge"], &["js"]);
+        let language = synthetic_matrix_failures(&["no_edge", "no_edge"], &["js", "ts"]);
+        assert_eq!([ordinal.len(), language.len()], [1, 2]);
+        assert!(ordinal[0].starts_with("synthetic\tE\tRED\tjs\t3\t"));
+        for (index, failure) in language.iter().enumerate() {
+            assert!(failure.starts_with(&format!("synthetic\tE\tRED\tts\t{}\t", index + 1)));
+        }
     }
 
     #[test]
