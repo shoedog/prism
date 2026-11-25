@@ -424,38 +424,35 @@ fn compare(source: &str, path: &str, language: Language) -> Vec<Counts> {
     })
 }
 
-pub(super) fn fixture_files(root: &Path, files: &mut Vec<std::path::PathBuf>) {
-    for entry in std::fs::read_dir(root).unwrap() {
-        let entry = entry.unwrap();
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if name == "private-corpus"
-            || name.starts_with("f-")
-            || name.starts_with("F-private")
-            || name.to_lowercase().contains("secbench")
-        {
-            continue;
-        }
-        let kind = entry.file_type().unwrap();
-        if kind.is_dir() {
-            fixture_files(&entry.path(), files);
-        } else if kind.is_file() && Language::from_path(entry.path().to_str().unwrap()).is_some() {
-            files.push(entry.path());
-        }
-    }
+/// Language-recognised files of the sweep corpus at 9d1a7d06f: 1,297 in the legacy
+/// `tests/fixtures` directories plus 285 under `eval/fixtures` (the sweeps below share it).
+pub(super) const FIXTURE_SWEEP_BOUND: usize = 1_800;
+
+/// The corpus of the repository-fixture sweeps of reaching definitions: the legacy fixture
+/// directories and `eval/fixtures`, language-recognised files only, in path order. The caller
+/// applies [`FIXTURE_SWEEP_BOUND`] under its own name.
+pub(super) fn repository_fixture_files() -> Vec<std::path::PathBuf> {
+    let recognised = |p: &Path| Language::from_path(&p.to_string_lossy()).is_some();
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files =
+        crate::fixture_corpus::legacy_fixture_files(&manifest.join("tests/fixtures"), recognised);
+    files.extend(crate::fixture_corpus::tree_files(
+        &manifest.join("eval/fixtures"),
+        recognised,
+    ));
+    files.sort();
+    files
 }
 
 #[test]
 fn differential_repository_fixtures() {
-    let mut files = Vec::new();
-    for relative in ["tests/fixtures", "eval/fixtures"] {
-        fixture_files(
-            &Path::new(env!("CARGO_MANIFEST_DIR")).join(relative),
-            &mut files,
-        );
-    }
-    files.sort();
+    let files = repository_fixture_files();
     assert!(files.len() >= 100, "fixture selection unexpectedly empty");
+    crate::fixture_corpus::assert_visited_within(
+        "differential_repository_fixtures",
+        files.len(),
+        FIXTURE_SWEEP_BOUND,
+    );
     let mut passes = 0;
     let mut languages = BTreeSet::new();
     for file in &files {

@@ -7,20 +7,15 @@ dependencies = ["deepeval>=4,<5", "tomli-w>=1.0"]
 
 [dependency-groups]
 dev = ["pytest>=8"]
-schema-impact = ["pyyaml>=6", "tree-sitter>=0.23", "tree-sitter-go", "tree-sitter-typescript", "tree-sitter-javascript"]
 
 [project.scripts]
 tier-a = "tier_a_entrypoint:main"
 tier-c = "tier_c.cli:main"
 secbench = "secbench.run:main"
-schema-impact = "schema_impact.cli:main"
-
-[tool.uv]
-default-groups = ["dev", "schema-impact"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["tier_a", "tier_c", "adoption", "secbench", "schema_impact"]
+packages = ["tier_a", "tier_c", "adoption", "secbench"]

@@ -50,7 +50,7 @@ const REASONS: &[&str] = &[
 
 fn fixture_root() -> PathBuf {
     let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    checked_path(&workspace, &json!("tests/fixtures/routes"), true)
+    checked_path(&workspace, &json!("tests/routes_matrix"), true)
         .unwrap_or_else(|err| panic!("fixture root: {err}"))
 }
 

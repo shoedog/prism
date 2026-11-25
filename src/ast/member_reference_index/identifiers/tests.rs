@@ -599,31 +599,23 @@ fn identifier_index_gates_edges_and_all_languages() {
 
 #[test]
 fn identifier_index_differential_all_fixtures_and_generated() {
-    fn visit(dir: &std::path::Path, files: &mut usize, comparisons: &mut usize) {
-        let mut entries: Vec<_> = std::fs::read_dir(dir)
-            .unwrap()
-            .map(Result::unwrap)
-            .collect();
-        entries.sort_by_key(|e| e.path());
-        for entry in entries {
-            let path = entry.path();
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            if name == "private-corpus"
-                || name.starts_with("f-")
-                || name.starts_with("F-private")
-                || name.contains("SecBench")
-            {
-                continue;
-            }
-            if entry.file_type().unwrap().is_dir() {
-                visit(&path, files, comparisons);
-            } else if let Some(lang) = Language::from_path(&path.to_string_lossy()) {
-                if let Ok(source) = std::fs::read_to_string(&path) {
-                    let parsed = ParsedFile::parse(&path.to_string_lossy(), &source, lang).unwrap();
-                    *comparisons += differential(&parsed, false);
-                    *files += 1;
-                }
+    fn visit(files: &mut usize, comparisons: &mut usize) {
+        let paths = crate::fixture_corpus::legacy_fixture_files(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
+            |p| Language::from_path(&p.to_string_lossy()).is_some(),
+        );
+        crate::fixture_corpus::assert_visited_within(
+            "identifier_index_differential_all_fixtures_and_generated",
+            paths.len(),
+            // Language-recognised files of the legacy corpus at 9d1a7d06f: 1,297.
+            1_500,
+        );
+        for path in paths {
+            let lang = Language::from_path(&path.to_string_lossy()).unwrap();
+            if let Ok(source) = std::fs::read_to_string(&path) {
+                let parsed = ParsedFile::parse(&path.to_string_lossy(), &source, lang).unwrap();
+                *comparisons += differential(&parsed, false);
+                *files += 1;
             }
         }
     }
@@ -631,11 +623,7 @@ fn identifier_index_differential_all_fixtures_and_generated() {
         .stack_size(64 * 1024 * 1024)
         .spawn(|| {
             let (mut files, mut comparisons) = (0, 0);
-            visit(
-                &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
-                &mut files,
-                &mut comparisons,
-            );
+            visit(&mut files, &mut comparisons);
             for family in ["locals", "statements", "nested", "locals-nocall"] {
                 for n in [16, 32, 64] {
                     let source = fixture(family, n);

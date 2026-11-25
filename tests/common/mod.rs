@@ -9,6 +9,7 @@
 pub mod dfg_cases;
 pub mod dfg_roundtrip;
 mod dfg_views;
+pub mod fixture_corpus;
 pub use dfg_views::dfg_labels;
 
 pub use prism::access_path::AccessPath;
