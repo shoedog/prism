@@ -1,0 +1,13 @@
+{
+  "base_stats": {
+    "enabled": false,
+    "x": 1
+  },
+  "head_stats": {
+    "enabled": true,
+    "x": 1
+  },
+  "allow": [
+    "x"
+  ]
+}

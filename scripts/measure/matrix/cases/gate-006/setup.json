@@ -1,0 +1,27 @@
+{
+  "gate": {
+    "schema": "prism.measure.gate/1",
+    "lane": "matrix",
+    "prediction": "prediction.md",
+    "steps": [
+      {
+        "id": "compare",
+        "do": "diff-edges",
+        "expect": {
+          "unattributed": 0
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "path": "prediction.md",
+    "contents": "Predict zero unattributed changes.\n"
+  },
+  "reused_receipt": null,
+  "retrospective": false,
+  "step_results": {
+    "compare": {
+      "unattributed": 1
+    }
+  }
+}

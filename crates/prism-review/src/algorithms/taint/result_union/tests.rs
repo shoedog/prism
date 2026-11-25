@@ -70,6 +70,7 @@ fn finding(category: &str, file: &str, line: usize) -> SliceFinding {
         category: Some(category.into()),
         parse_quality: Some("degraded".into()),
         diagrams: vec![],
+        rules: Vec::new(),
     }
 }
 fn block(id: usize, file: &str, line: usize) -> DiffBlock {

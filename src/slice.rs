@@ -15,12 +15,27 @@ pub struct FileParseQuality {
     pub error_lines: Vec<usize>,
 }
 
+/// A reference from a finding to the rule it is an instance of: the rule id, the rule's CWE when it
+/// has one, and the rule's own severity when that is lower than the finding's.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct RuleRef {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwe: Option<String>,
+    /// The rule's own severity, only when lower than the finding's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub severity: Option<String>,
+}
+
 /// A structured finding from a slicing algorithm.
 /// Findings carry the *semantics* of what an algorithm detected.
 /// DiffBlocks carry the *lines* to show. They're consumed at different
 /// stages: blocks go into the reviewer's code context, findings go
 /// into the reviewer's analysis hints.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// `Default` is for tests and struct update; production code builds a finding with every field
+/// spelled out and sets `algorithm`, `file`, `line`, `severity` and `description` itself.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SliceFinding {
     pub algorithm: String,
     pub file: String,
@@ -41,6 +56,9 @@ pub struct SliceFinding {
     pub parse_quality: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagrams: Vec<SliceGraph>,
+    /// Rules this finding is an instance of, sorted by id, at most one per id.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rules: Vec<RuleRef>,
 }
 
 /// All slicing strategies.
@@ -541,6 +559,73 @@ pub struct DiagramWarning {
     pub graph_title: Option<String>,
     pub kind: DiagramWarningKind,
     pub detail: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const LEGACY_FINDING: &str = r#"{"algorithm":"taint","file":"example.js","line":4,"severity":"warning","description":"finding"}"#;
+
+    #[test]
+    fn finding_without_rules_serializes_without_the_key() {
+        let finding = SliceFinding {
+            algorithm: "taint".into(),
+            file: "example.js".into(),
+            line: 4,
+            severity: "warning".into(),
+            description: "finding".into(),
+            function_name: None,
+            related_lines: Vec::new(),
+            related_files: Vec::new(),
+            category: None,
+            parse_quality: None,
+            diagrams: Vec::new(),
+            rules: Vec::new(),
+        };
+
+        assert_eq!(serde_json::to_string(&finding).unwrap(), LEGACY_FINDING);
+    }
+
+    #[test]
+    fn rules_serialize_as_id_and_optional_cwe() {
+        let mut finding = SliceFinding::default();
+        finding.rules.extend([
+            RuleRef {
+                id: "js-dom-html".into(),
+                cwe: Some("CWE-79".into()),
+                severity: None,
+            },
+            RuleRef {
+                id: "legacy".into(),
+                cwe: None,
+                severity: None,
+            },
+        ]);
+
+        assert_eq!(
+            serde_json::to_string(&finding).unwrap(),
+            r#"{"algorithm":"","file":"","line":0,"severity":"","description":"","rules":[{"id":"js-dom-html","cwe":"CWE-79"},{"id":"legacy"}]}"#
+        );
+        let json = serde_json::to_value(&finding).unwrap();
+        assert_eq!(
+            json["rules"],
+            serde_json::json!([{"id": "js-dom-html", "cwe": "CWE-79"}, {"id": "legacy"}])
+        );
+        let round_trip: SliceFinding = serde_json::from_value(json).unwrap();
+        assert_eq!(round_trip.rules, finding.rules);
+    }
+
+    #[test]
+    fn missing_rules_key_deserializes_to_empty() {
+        let finding: SliceFinding = serde_json::from_str(LEGACY_FINDING).unwrap();
+        assert!(finding.rules.is_empty());
+    }
+
+    #[test]
+    fn default_finding_has_empty_rules() {
+        assert!(SliceFinding::default().rules.is_empty());
+    }
 }
 
 #[cfg(test)]

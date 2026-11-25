@@ -1,0 +1,18 @@
+{
+  "base_stats": {
+    "dfg_labels": {
+      "x": 1,
+      "y": 2
+    }
+  },
+  "head_stats": {
+    "dfg_labels": {
+      "x": 2,
+      "y": 1
+    }
+  },
+  "allow": [
+    "dfg_labels.x",
+    "dfg_labels.y"
+  ]
+}

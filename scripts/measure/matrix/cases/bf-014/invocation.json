@@ -1,0 +1,4 @@
+{
+  "note": "harness returns before the taint channel when ground truth is unavailable",
+  "taint": null
+}

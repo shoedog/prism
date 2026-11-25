@@ -1,0 +1,17 @@
+{
+  "ordinal": 1,
+  "manifest_spec": {
+    "files": []
+  },
+  "computed_spec": {
+    "files": [
+      {
+        "file_path": "src/a.ts",
+        "modify_type": "Modified",
+        "diff_lines": [
+          3
+        ]
+      }
+    ]
+  }
+}

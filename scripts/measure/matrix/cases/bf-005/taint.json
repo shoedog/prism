@@ -1,0 +1,36 @@
+{
+  "algorithm": "Taint",
+  "slices": [
+    {
+      "block_id": 0,
+      "file": "lib/index.js",
+      "modify_type": "M",
+      "diff_lines": [
+        2,
+        4
+      ],
+      "slice_lines": [
+        2,
+        3,
+        4
+      ],
+      "slice_text": "+   2|function run(cmd) {\n    3|  const full = 'echo ' + cmd;\n+   4|  cp.execSync(full);\n",
+      "source_lines": [
+        2
+      ],
+      "sink_lines": [
+        4
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 2,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 2",
+      "category": "taint_source"
+    }
+  ]
+}

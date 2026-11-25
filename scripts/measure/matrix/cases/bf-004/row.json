@@ -1,0 +1,28 @@
+{
+  "class": "code-injection",
+  "entry": "bf-004-fixture_1.0.0",
+  "gt_reason": null,
+  "gt_status": "available",
+  "id": "CVE-0000-0004",
+  "sink": {
+    "column": 1,
+    "file": "bin/run.sh",
+    "line": 3,
+    "original": "bin/run.sh:3:1",
+    "source_lines": [
+      "cp $f out.txt"
+    ]
+  },
+  "source": {
+    "data_parameters": [
+      {
+        "line": 3
+      }
+    ],
+    "file": "bin/run.sh",
+    "seed": [
+      "bin/run.sh:3"
+    ],
+    "start_line": 3
+  }
+}

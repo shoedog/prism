@@ -805,6 +805,7 @@ fn make_finding(
         category: Some(rule_id.to_string()),
         parse_quality: None,
         diagrams: vec![],
+        rules: Vec::new(),
     }
 }
 

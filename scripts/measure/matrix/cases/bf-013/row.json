@@ -1,0 +1,28 @@
+{
+  "class": "code-injection",
+  "entry": "bf-013-fixture_1.0.0",
+  "gt_reason": null,
+  "gt_status": "available",
+  "id": "CVE-0000-0013",
+  "sink": {
+    "column": 3,
+    "file": "lib/index.js",
+    "line": 4,
+    "original": "lib/index.js:4:3",
+    "source_lines": [
+      "  cp.execSync('echo ' + cmd);"
+    ]
+  },
+  "source": {
+    "data_parameters": [
+      {
+        "line": 2
+      }
+    ],
+    "file": "lib/index.js",
+    "seed": [
+      "lib/index.js:2"
+    ],
+    "start_line": 2
+  }
+}

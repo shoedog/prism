@@ -1,0 +1,22 @@
+{
+  "taint": {
+    "argv": [
+      "prism",
+      "--repo",
+      "<pkg>",
+      "--diff",
+      "<case>/seed.json",
+      "--format",
+      "json",
+      "--algorithm",
+      "taint",
+      "--taint-return-flow",
+      "--taint-source",
+      "lib/index.js:2"
+    ],
+    "error": null,
+    "returncode": 0,
+    "stderr": "",
+    "stdout_sha256": "d11dd6fa85b4ac94976d898f880033370e7c960db4ffb3bc53ea528ede20dfc3"
+  }
+}
