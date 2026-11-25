@@ -1,0 +1,61 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Clockpetal Exchange",
+    "version": "1.0.0"
+  },
+  "parameters": {
+    "SapEnvelope": {
+      "name": "parcel",
+      "in": "body",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sap": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PithEnvelope": {
+      "name": "parcel",
+      "in": "body",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "pith": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/reed": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/SapEnvelope"
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Successful exchange"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Successful exchange"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/parameters/PithEnvelope"
+          }
+        ]
+      }
+    }
+  }
+}

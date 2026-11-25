@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Shard": {
+      "type": "object",
+      "properties": {
+        "grain/size": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "components": {
+    "requestBodies": {
+      "Slip": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "tone": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/cast": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Slip"
+        }
+      }
+    }
+  }
+}

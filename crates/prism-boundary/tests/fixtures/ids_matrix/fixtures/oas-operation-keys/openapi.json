@@ -1,0 +1,67 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/clay": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "options": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "head": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "trace": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      }
+    }
+  }
+}

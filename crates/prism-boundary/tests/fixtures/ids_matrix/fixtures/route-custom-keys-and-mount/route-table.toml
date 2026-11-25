@@ -1,0 +1,6 @@
+callee = "registerTiles"
+method_key = "action"
+path_key = "pattern"
+handler_key = "handler"
+validation_key = "validate"
+mount = "/atelier/"

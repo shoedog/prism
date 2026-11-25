@@ -1,0 +1,26 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/chisel/{mark}/pair/{mark}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "mark",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ]
+    }
+  }
+}

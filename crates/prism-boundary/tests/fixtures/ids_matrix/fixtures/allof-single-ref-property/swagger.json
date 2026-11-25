@@ -1,0 +1,53 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "definitions": {
+    "KilnRank": {
+      "type": "integer"
+    },
+    "Staining": {
+      "type": "object",
+      "properties": {
+        "shade": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "rank": {
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/KilnRank"
+                    }
+                  ],
+                  "description": "Firing scale",
+                  "minimum": 1
+                },
+                "slip": {
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/Staining"
+                    }
+                  ],
+                  "description": "Liquid coat"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

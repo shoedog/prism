@@ -1,0 +1,106 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "layer01": {
+                  "type": "object",
+                  "properties": {
+                    "layer02": {
+                      "type": "object",
+                      "properties": {
+                        "layer03": {
+                          "type": "object",
+                          "properties": {
+                            "layer04": {
+                              "type": "object",
+                              "properties": {
+                                "layer05": {
+                                  "type": "object",
+                                  "properties": {
+                                    "layer06": {
+                                      "type": "object",
+                                      "properties": {
+                                        "layer07": {
+                                          "type": "object",
+                                          "properties": {
+                                            "layer08": {
+                                              "type": "object",
+                                              "properties": {
+                                                "layer09": {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "layer10": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "layer11": {
+                                                          "type": "object",
+                                                          "properties": {
+                                                            "layer12": {
+                                                              "type": "object",
+                                                              "properties": {
+                                                                "layer13": {
+                                                                  "type": "object",
+                                                                  "properties": {
+                                                                    "layer14": {
+                                                                      "type": "object",
+                                                                      "properties": {
+                                                                        "layer15": {
+                                                                          "type": "object",
+                                                                          "properties": {
+                                                                            "layer16": {
+                                                                              "type": "object",
+                                                                              "properties": {
+                                                                                "layer17": {
+                                                                                  "type": "string"
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
