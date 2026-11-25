@@ -385,6 +385,26 @@ function main(xs, early, late) {
 }
 
 #[test]
+fn rest_template_substitution_controls_argument_edge() {
+    for (value, expected) in [("`${a}`", false), ("`a`", true)] {
+        let source = format!("function take(...r) {{ use(r); }}\nfunction main(a) {{ const xs = {value}; return take(...xs); }}");
+        let files = parsed_files(&[("m.js", &source)], Language::JavaScript);
+        for cpg in build_both(&files) {
+            let site = call_site(&cpg.call_graph, "main", "take");
+            assert!(object_literal_args::exact_singleton(
+                &cpg.call_graph.resolve_call_site(site)
+            ));
+            let want = if expected {
+                vec![("xs".into(), FlowConfidence::Exact)]
+            } else {
+                vec![]
+            };
+            assert_eq!(bindings(&cpg, "main", "r"), want, "{source}");
+        }
+    }
+}
+
+#[test]
 fn rest_review_parameter_decorator() {
     for (member, decorator, expected) in [
         ("m", "@drain ", false),
@@ -595,7 +615,18 @@ fn rest_def_node_requires_one_verifiable_js_implementation() {
         name: "elsewhere".into(),
         ..pack.clone()
     };
-    assert_eq!(compute(&js, &renamed, &cpg.var_index, &cpg.graph), None);
+    let overlay = VarIndex::from_map(BTreeMap::from([(
+        (
+            pack.file.clone(),
+            renamed.name.clone(),
+            pack.start_line,
+            pack.start_line,
+            AccessPath::simple("items"),
+            VarAccess::Def,
+        ),
+        def,
+    )]));
+    assert_eq!(compute(&js, &renamed, &overlay, &cpg.graph), None);
 
     // No recorded Def for the formal.
     assert_eq!(
@@ -644,20 +675,9 @@ fn rest_def_node_requires_one_verifiable_js_implementation() {
     .is_some());
 
     // Only the JS family has runtime rest slots.
-    let py = parsed_files(
-        &[("m.js", "def pack(*items):\n    use(items)\n")],
-        Language::Python,
-    );
-    let py_cpg = CodePropertyGraph::build(&py);
-    assert_eq!(
-        compute(
-            &py,
-            &py_cpg.call_graph.functions["pack"][0],
-            &py_cpg.var_index,
-            &py_cpg.graph
-        ),
-        None
-    );
+    let mut non_js = js.clone();
+    non_js.get_mut("m.js").unwrap().language = Language::Python;
+    assert_eq!(compute(&non_js, &pack, &cpg.var_index, &cpg.graph), None);
 }
 
 #[test]
@@ -666,8 +686,7 @@ fn rest_namespace_export_match_requires_a_namespace_import() {
         &[
             (
                 "main.js",
-                "import * as api from './lib';\nimport { project as named } from './lib';\n\
-                 function main(v) { api.project(v); named(v); }",
+                "import * as api from './lib';\nfunction main(v) { api.project(v); }",
             ),
             (
                 "lib.js",
@@ -677,13 +696,28 @@ fn rest_namespace_export_match_requires_a_namespace_import() {
         Language::JavaScript,
     );
     let cpg = CodePropertyGraph::build(&files);
-    let target = &cpg.call_graph.functions["project"][0];
-    let qualified = call_site(&cpg.call_graph, "main", "project");
-    assert!(cpg
-        .call_graph
-        .js_ts_namespace_export_matches(qualified, target));
-    let named = call_site(&cpg.call_graph, "main", "named");
-    assert!(!cpg.call_graph.js_ts_namespace_export_matches(named, target));
+    let site = call_site(&cpg.call_graph, "main", "project");
+    let pool = cpg.call_graph.resolve_call_site(site);
+    assert!(object_literal_args::exact_singleton(&pool));
+    assert_eq!(pool[0].kind, ResolutionKind::ImportQualified);
+    let mut non_namespace = site.clone();
+    non_namespace.local_binding = crate::call_graph::JsLocalBinding::AliasNamespaceMember {
+        module_path: "./lib".into(),
+        member: "project".into(),
+    };
+    for (site, expected) in [(site, true), (&non_namespace, false)] {
+        assert_eq!(
+            cpg.call_graph
+                .js_ts_namespace_export_matches(site, pool[0].target),
+            expected
+        );
+        let edges = run_site(&cpg, &files, site, pool.clone(), spread_args::for_call);
+        let names: Vec<_> = edges
+            .iter()
+            .map(|e| cpg.to_var_location(e.edge.0).unwrap().path.to_string())
+            .collect();
+        assert_eq!(names, if expected { vec!["v"] } else { vec![] });
+    }
 }
 
 #[test]

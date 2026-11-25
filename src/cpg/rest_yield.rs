@@ -493,9 +493,9 @@ mod tests {
                 "take(...xs)",
                 Yield::Unknown,
             ),
-            // A call nested in another call's arguments is not a statement of its own.
+            // An unsupported statement directly inside the accepted block.
             (
-                "function main() { const xs = [1]; wrap(take(...xs)); }",
+                "function main() { const xs = [1]; throw take(...xs); }",
                 "take(...xs)",
                 Yield::Unknown,
             ),
@@ -589,18 +589,58 @@ mod tests {
                 .collect::<Vec<_>>()
                 .join(", ")
         };
-        for (n, want) in [(3, Yield::Nonempty), (100, Yield::Unknown)] {
-            let source = format!(
-                "function main({}) {{ const xs = [1]; take(...xs); }}",
-                params(n)
+        for (n, want) in [(3, true), (100, false)] {
+            let source = format!("function main({}) {{}}", params(n));
+            let parsed = ParsedFile::parse("fixture", &source, Language::JavaScript).unwrap();
+            let function = parsed.all_functions()[0];
+            assert_eq!(
+                inert_parameters(&parsed, function, &mut 96, true),
+                want,
+                "{n}"
             );
-            assert_eq!(classify(&source, Language::JavaScript), want, "{n}");
         }
         for (n, want) in [(10, Yield::Nonempty), (120, Yield::Unknown)] {
             let zeros = vec!["0"; n].join(", ");
             let source =
-                format!("function main() {{ const ys = [{zeros}]; const xs = [1]; take(...xs); }}");
+                format!("function main() {{ const xs = [1]; const ys = [{zeros}]; take(...xs); }}");
             assert_eq!(classify(&source, Language::JavaScript), want, "{n}");
+        }
+    }
+
+    #[test]
+    fn rest_yield_computed_method_parameter_guard() {
+        for (key, want) in [("[side()]", false), ("[`m`]", true), ("['m']", true)] {
+            let source = format!("class C {{ {key}() {{}} }}");
+            let parsed = ParsedFile::parse("fixture", &source, Language::JavaScript).unwrap();
+            let method = parsed
+                .all_functions()
+                .into_iter()
+                .find(|n| n.kind() == "method_definition")
+                .unwrap();
+            assert_eq!(
+                inert_parameters(&parsed, method, &mut 96, true),
+                want,
+                "{key}"
+            );
+        }
+    }
+
+    #[test]
+    fn rest_yield_enclosing_expression_body_inertness() {
+        for (body, want) in [("({ main() {} })", false), ("0", true)] {
+            let source = format!("const outer = () => {body};");
+            let parsed = ParsedFile::parse("fixture", &source, Language::JavaScript).unwrap();
+            let arrow = parsed
+                .all_functions()
+                .into_iter()
+                .find(|n| n.kind() == "arrow_function")
+                .unwrap();
+            let expression = arrow.child_by_field_name("body").unwrap();
+            assert_eq!(
+                inert_expression(&parsed, expression, &mut 96),
+                want,
+                "{body}"
+            );
         }
     }
 
