@@ -1,747 +1,156 @@
-# Lane 10: subscripts in the data-flow graph — implementation plan
+# Lane 10 · Plan for subscript-write recall
 
-> **For agentic workers:** this plan is run by an orchestrator under `../ORCHESTRATION.md`. Each task is
-> dispatched to an implementer (Sonnet-5.5, high) with its section as the brief. Steps use checkbox syntax.
+**Goal.** Let a value stored through `d[k]` reach a later whole `d` used as an argument, return operand or assignment RHS. Measure newly served owners on the six language corpora and enforce the edge limits in [DESIGN.md](DESIGN.md).
 
-**Goal:** a value written through a string-literal subscript reaches later reads of the same element in
-Python, JavaScript/TypeScript and Go; a write to one key neither reaches nor kills a read of another; dynamic
-keys keep today's may-meaning; every rule is checked against executed truth and a labelled corpus sample.
+**Architecture.** An owner-local contribution pass shares reaching definitions' CFG, binding facts and mapped DefIds. It joins genuine target Defs to existing whole-operand Uses, carries earlier sibling writes, and emits a bounded set of `nameonly/cfg_incomplete` edges. One PR activates the passing languages and changes the cache. Earlier slices expose the exact inputs and a dry prediction under an opt-in trace.
 
-**Architecture:** one node-based path builder (`src/ast/subscript_paths.rs`) answers unaffected, admitted or
-refused for every subscript chain; producers use it for chains that hold a static key and keep today's text
-path otherwise. First every producer and consumer moves behind one path function that still returns today's
-paths (zero difference); then subscript reads become real-span uses (nearly inert); then keyed definitions,
-the extension rule, the definite-identity label rule and the consumers' switch; then kills; then, behind its own
-go, a wildcard reach rule for dynamic keys; container reads and initialisers are conditional. Every go is per
-language (DESIGN 6).
-
-**Tech stack:** Rust (core crate: `src/access_path.rs`, `src/ast`, `src/data_flow/build`, `src/cpg`);
-tree-sitter Python 0.23.6, JavaScript 0.23.1, TypeScript 0.23.2 and Go 0.25.0 + PR #193 (both vendored);
-Python 3.12 (uv), Node 24.15 and Go 1.26.2 for the truth runner. The census runs on Prism's own parser.
-
-**Spec:** `DESIGN.md` here (5.1 to 5.7 the rules: 5.3 identity, overlap and the base predicates fixed, the
-alias policy and the rest tentative until stage D; 6 the census; 7 the gates, the spelling pairs and the
-containment; 9 the owner decisions, whose defaults this plan applies).
+**Stage status.** M census complete, old go failed. The C3 admission audit remains. T has a pushed, baseline-RED draft (`1dc74573e`), E remains, and this amendment is D's design of record awaiting the independent pair. I, G and H follow the gates below. The design seat does not review the amendment.
 
 ## Global constraints
 
-- Worktree `~/code/prism-subscripts`; evidence `~/prism-evidence/subscripts/`.
-- Corpora (`~/code/bench-repos`): P1 `apache-superset` at `7519fa8b6f`, P2 `saleor-saleor` at `cc4aea76e3`
-  (Python); X Excalidraw at `0642e72c` (`~/prism-evidence/inputs/excalidraw-0642e72c/source`); T
-  `TypeScript/src` at `7964e22f2b`; G1 `caddy` at `77e9ce7404`, G2 `etcd` at `61d518f55e` (Go); control R
-  `ripgrep` at `82313cf958` (Rust, unchanged by the lane: zero edge and counter change on every slice).
-- **Not changed:** `AccessPath::from_expr` and its tests; the path of any chain without a static-key subscript
-  (byte-identical); integer indices and slices; languages other than Python, JS, TS, TSX, Go;
-  `src/cpg/trace.rs` (PR #841, lane 8); review taint (`crates/prism-review/src/algorithms/taint*`,
-  `taint_sinks/`); the Go field-recall pass (`src/cpg/reaching/contribution.rs`, `go_aggregate.rs`: S6's
-  model, not edited); `src/reasoning/seeds.rs` (compares an argument's base only; S3 adds a test that proves it
-  unaffected); `src/cfg/js_loops/for_init.rs` (spells every bracket `[]` from syntax, stays conservative; S3
-  pins it); `src/ast/member_projection.rs` (stays on text, DESIGN 5.6; S3 pins it).
-- **Per-language enablement:** the stage-M memo names the passing languages; the seam (`path_at`, S1) answers
-  today's path for every chain of a language that did not pass, and S2 and S5 skip it, so its output never
-  changes; its rows are regrouped as accepted misses with the count.
-- **Shared with other lanes (coordinate before the PR, record on both issues):** `src/cpg/object_literal_args.rs`
-  (lane 3): S1 routes the one lookup at line ~497 through the seam, S3 changes its answer; the Step 5b triplet
-  (lane 9): the same for the argument path lookup only; the CPG cache version (every semantic lane). The
-  orchestrator's section 11 table lists these.
-- Weighted sizes (`python3 scripts/file_size.py`): `src/access_path.rs` 396, `src/ast/lvalues.rs` 564.5,
-  `src/ast/rvalue_identifiers.rs` 594, `src/ast/member_reference_index.rs` 327.5, `src/ast.rs` 600.5,
-  `src/ast/assignments.rs` 506, `src/ast/member_projection.rs` 291, `src/data_flow/build/file.rs` 850.5,
-  `src/data_flow/build/aliases.rs` 96, `src/cpg/object_literal_args.rs` 469, `src/cpg/step5c.rs` 283,
-  `src/cpg/step5c_reference.rs` 325, `src/cpg/reaching/capture_regions.rs` 524, `src/cpg/reaching/def_buckets.rs`
-  319, `src/cpg/reaching.rs` 990, `src/cpg_cache.rs` 1,544, **`src/cpg/build.rs` 1,777** (call-site edits only).
-  Logic goes in new modules.
-- Module lines: `src/ast/` modules in `src/ast.rs` (tests `#[cfg(test)] mod x_tests;`), `src/data_flow/build/`
-  modules in `src/data_flow/build/mod.rs`, `src/cpg/reaching/` modules in `src/cpg/reaching.rs`.
-- A slice that changes stored DataFlow nodes, edges, labels or statistics bumps `CACHE_VERSION` (189 at
-  planning) to the next free number at merge, with a `/// - vNNN:` line and the pin test
-  `cache_versions_are_pinned_for_cpg_semantics`; S0 and S1 bump nothing. Tier-A applies to S0 to S7, the corpus
-  differential to S1 to S7. Executed fixtures are lane-written only and run contained (DESIGN 7).
-- Differentials (DESIGN 7): each slice is compared with the previous slice's binary (`bin/prism-S<n-1>`;
-  `prism-base` for S0; when main moved under the slice, the binary of its actual merge parent) for attribution,
-  and with `prism-base` for cumulative impact. Every gate names its comparison. Each receipt records both product
-  SHAs, the corpus hashes and the class counts.
-- The member index and its oracle change together (`Index::build` in `src/ast/member_reference_index.rs`;
-  `collect_path_refs` and `collect_fenced_path_refs` in `member_reference_index/oracle.rs`), or
-  `member_index_differential_edges_and_non_js` fails.
+- Worktree `~/code/prism-subscripts`, branch `test/subscripts-matrix`. Evidence and compressed raw receipts under `~/prism-evidence/subscripts/`. Record source SHA, binary version/hash, corpus tree/input hash, comparator SHA, options and prediction. Historical `prism-base` is `~/code/prism-lanes-base/target/release/prism` at `06157400a3be`; the census used `9d1a7d06f`. Bind a fresh actual merge-parent binary for each product comparison, and retain the frozen base for cumulative impact.
+- P1 `~/code/bench-repos/apache-superset` `7519fa8b6f`, P2 `~/code/bench-repos/saleor-saleor` `cc4aea76e3`, X `~/prism-evidence/inputs/excalidraw-0642e72c/source` `0642e72c`, T `~/code/bench-repos/TypeScript/src` `7964e22f2b`, G1 `~/code/bench-repos/caddy` `77e9ce7404`, G2 `~/code/bench-repos/etcd` `61d518f55e`, R `~/code/bench-repos/ripgrep` `82313cf958`. R is the all-zero control. Keep the census file filter and the product's full corpus extent distinguishable.
+- Rust core uses the worktree's pinned tree-sitter Python, JS, TS/TSX and Go parsers. Stage-T native truth has receipts for Python 3.12.13, Node 24.15.0 and Go 1.26.2. Workers use the [orchestration protocol](../ORCHESTRATION.md) and the 2026-11-24 seat assignments. The controller owns Git writes, host measurement slots, issue tracking, handoffs and final integration. Use one corpus run at a time through the 8 GiB memguard. Compress large dumps.
+- Shared ownership. Lane 8 owns `src/cpg/trace.rs` and reasoning. Lane 3 owns `src/cpg/object_literal_args.rs`. Step 5b and `src/cpg/callee_params.rs` are shared with lanes 3/9. Lane 7's `SliceFinding` has `rules`; measure the current output schema. `src/cpg/build.rs` is 1,777 weighted lines, call-site changes only. This plan uses existing assembly; no changes to those components, path producers, review taint or Go's field-recall pass are required. Coordinate any shared-file overlap on both issues under orchestration §11.
+- **Every product slice (I0–I2).** Tests first on the exact parent with the test overlay, GREEN on head at `RAYON_NUM_THREADS=1` and `4`. Use `cloud-tests.sh WORKTREE RESULT_BRANCH SPEC BASE OVERLAY` and read the result summary, or run the same checks through memguard. A missing command/module is not a behavioural RED. Use the production entry point or an already compiling data/diagnostics harness to obtain it. Include a negative/edge row for each new path. Run `cargo fmt --all --check`. Rebuild release in the same worktree immediately before each applicable Tier-A invocation, `cd eval && uv run tier-a --matrix-only --allow-stale-sut` before commit and `uv run tier-a --quick --allow-stale-sut` before review. List flips/regressions explicitly. No mutation gate.
+- Keep core independent of `prism-review`, and MCP independent of algorithms. Run `python3 scripts/file_size.py <changed files>` at each slice. New source modules aim at ≤600 weighted lines; split at a responsibility boundary above 1,000 or explain an existing large file. No source passes 2,000 and already oversized files do not grow. Put the tests and ledger arithmetic in their own modules. Sizes below were measured on this worktree.
+- At product closeout the controller fetches and integrates main, preserves the historical controls, and reruns affected gates after conflicts. Before merging to main, integrate current main and run the full project suite on that head via CI. Require the full check set, green results and `MERGEABLE`. Record exact commands, RED/GREEN counts, concrete coverage, pending full suite or actual full-suite totals and exclusions in `VERIFICATION.md` (22 weighted lines at design). Report failures with the same-environment parent control. The assigned product reviewers are Opus-5.5 xhigh and gpt-6.2-astra xhigh in separate sessions, cap three rounds declared before dispatch. One reviewer for test-only work. At cap follow orchestration §§7–8. Keep the earlier artifact and its evidence.
+
+## M · Census and admission (1–2 additional days)
+
+- [x] C1 checked the old 150-owner gate. Python 48/82 raw, 47/80 confirmed; JS-family 0/0; Go 2/5. M's C3 counts are Python 787 (517/270), JS-family 142 (66/76), Go 182 (87/95). The old C1 sample gives no C3 precision. Custody is `CENSUS.md`, `census/COUNTS.md` and `census/CENSUS-TOOL.md` under lane evidence.
+- [ ] Freeze the sorted C3 owner frame and seed 10. Draw 60 owners per family, inspect the code, baseline nodes/edges and feasible contribution, and publish each scored owner and reason. Audit the four JS and ten TSX owners separately. Apply DESIGN §6 exactly: ≥100 raw owners, two-sided Wilson 95% lower precision ≥.85, and `floor(N × addressable lower bound) ≥ 100`. Example: for 142 owners, an addressable lower bound below `100/142` fails. Publish the two numerators, denominators, bounds, supported modes, cap estimates and unknowns. Excluding a mode requires a fresh frame and draw as specified there.
+- [ ] Partition failures by census matching, missing/misbound bytes, route/binding refusals, existing edges and budgets. Escalate a broken measurement premise per §8. A family below go retains its baseline and a counted deferred row group. No family admitted ends product work here. The later G gate measures actual yield.
+
+## T · Move the draft, establish truth and baseline (2–3 days)
+
+- [ ] **Tests first.** Start with `subscript_matrix_rows_have_truth`, `subscript_matrix_rows`, and the seven existing `subscript_matrix_routes` self-tests. `C2-VERIFICATION.md` records 46/69 controls failing on the baseline, plus R01.js/py's missing base verdict in the truth-coverage test. Preserve the draft at its custody commit. Reproduce the inherited failures at that revision before altering expectations. Capture the input hash and named failures. A `SymbolNotFound` is neither a negative verdict nor a missing runtime truth.
+- [ ] Relocate the entire draft tree once from `tests/fixtures/subscript_matrix/` to **`tests/data/subscript_matrix/`**, including `cases/`, `rows.jsonl`, `gen_rows.py`, `README.md`, `truth/` and the existing `spellings/` assets. First compare path-relative file lists and SHA-256s across the move. `receipt_diff_tests.rs` walks `tests/fixtures/` for other language goldens; do not update that golden. Set `matrix_dir()` to the new path. Change repository-root invocations in README/docs and the truth/check commands, check relative case paths, generator outputs, runner/prelude discovery and checker defaults from both root and matrix directory. Several already derive paths from `__file__`. Check active references with `rg` and verify identical inheritance before rebuilding rows. Remove the spelling oracle from the active generation and check commands. The relocated spelling assets and 9,463-pair receipt are historical data. Preserve their bytes and the custody commit.
+- [ ] Apply the disposition table to the active generator, fixtures, rows and truth. Prune dropped cases from the active list. Keep original truth for unchanged cases; execute every rebuilt/new program and bind truth to its actual bytes. Add `observation` fields for `baseline-gap`, role, markers and expected lane-edge policy. Adapt `truth/check.sh`, `check_truth.py`, `test_run_truth.py` and the matrix README to require exactly one admitted row/receipt per ID. Report baseline VERDICT, direct marked edge, whole route and runtime observation separately. Handle missing endpoints only in the explicit structural observations below.
+- [ ] Preflight reviewed lane-authored cases and preludes, disallow imports/ambient I/O per `truth/containment.py`, isolate each process in a fresh temp/home, allow the existing Go stdlib prelude and enforce the 10-second timeout and one deep, cycle-safe sink observation. Keep exception, timeout and multiple/missing observations inadmissible. The runner currently recognizes `py/js/ts/go`. Add `tsx` truth for value-only, JSX-free seed programs by staging the very same bytes as `.ts` for Node's type stripping; keep the `.tsx` source for Prism's native TSX parser and record both modes. Syntax-only JSX/type exclusion probes stay structural and receive no runtime precision credit. `tsx_value_case_uses_ts_runtime_and_tsx_graph` and a refusing JSX execution case pin this boundary.
+- [ ] Before each enabling slice run every future required new-behaviour row once against the parent with its group temporarily enabled. Store actual RED reason, then restore the stage's `ENABLED` constant. Regression controls already green on base stay green. `missing_sink_use_fails_behaviour` and `structural_gap_cannot_pass_a_behavioural_row` cover the previous false-negative hazard. Check no unused/doubled IDs, stale path, stray receipt, or `#[ignore]` placeholder. One test reviewer. PR body records move digest, old/new counts, truth versions, disposition and base receipt.
+
+### Disposition of all 211 draft rows
+
+The draft contains 69 `control`, 86 S3, 25 S5, 15 S7, 10 S4, four S6 and two S2 rows, with 134 `reaches`, 74 `not`, three `n/a`. Of the controls, 23 were green, 43 lack the complete sink-argument Use, three have the other failures below. Each ID occurs once in this table. “Rebuild” is a regroup with a changed fixture or marker and fresh evidence. `recall-L` expands by file to `recall-py`, `recall-js` (JS/TS/TSX) or `recall-go`.
+
+<!-- old-rows -->
+| Draft group and base state | Existing row IDs | Disposition and destination | Reason |
+|---|---|---|---|
+| control · green | `A02.js` `C01.c` `C01.rs` `K01.py` `K22.js` `O03.js` `P08.js` `P09.js` `P23.go` `P24.js` `P24.py` `P27.go` `P27.js` `P27.py` `R03.go` `R03.js` `R03.py` | reuse → control | Existing argument, field, language and runtime-boundary baselines guard ordinary edges. C and Rust have structural truth only. |
+| control · green | `M01.py` `M02.py` `M03.py` | regroup → baseline-gap | Pin existing dynamic-tail and Python field/alias exact routes with their original labels. |
+| control · green | `P28.js` `P28.py` `P29.py` | regroup → boundary | Keep the Python/JS field-only and Python alias-read losses at their recorded verdict. |
+| control · RED verdict/route | `A01.js` | regroup → baseline-gap | Preserve BoundaryExited for the literal-leaf argument and its bound graph observation. |
+| control · RED verdict/route | `P26.py` | regroup → baseline-gap | Runtime observed not, yet an all-exact route exists. Pin that route and its byte endpoints. |
+| control · RED verdict/route | `P30.py` | regroup → baseline-gap | Reached bypasses W. Pin both the verdict and absence of a route through W to the precise sink. |
+| control · RED span | `C01.java` `M04.js` | regroup → baseline-gap | Pin missing complete sink Use, the nearby node inventory and the base outcome. Java is structural. M04 retains its separate literal-binder observation. |
+| control · RED span | `P01.go` `P01.js` `P01.py` | rebuild → boundary | Keep the different-slot program, extract the projected read into x and sink the bare x. Forbid a lane edge to its receiver. |
+| control · RED span | `P03.go` `P03.js` `P03.py` | rebuild → recall-L | Use sink(d) after the same-slot clean write. Runtime not, possible stale weak edge from W, no all-exact source route. |
+| control · RED span | `O01.js` `O01.py` | rebuild → recall-L | Keep mutate(d) and then sink(d). Bind each whole argument separately. Unknown mutation can leave a stale weak route. |
+| control · RED span | `Y09.go` `Y09.js` `Y09.py` | rebuild → recall-L | Keep the integer write to the list, array or slice and consume the whole xs at an actual Use. |
+| control · RED span | `R01.js` `R01.py` | drop | Unresolved sink on the base (SymbolNotFound). R09 and Q12 cover call roots with an observable sink. |
+| control · RED span | `P04.js` `P04.py` `P10.go` `P12.js` `P12.py` `Y02.go` `Y02.js` `Y02.py` `Y04.go` `Y04.js` `Y04.py` `Y07.py` `Y08.go` `Y08.js` `Y08.py` | drop | Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read. |
+| control · RED span | `I03.py` `P17.go` `P17.js` `P17.py` `P20.go` `P20.js` `P20.py` | drop | Missing projected sink Use for initializer or spread. Q12 has a real whole sink and no element-write Def. |
+| control · RED span | `K02.py` `K05.js` `K12.py` `O02.py` `O04.py` `X04.py` | drop | Missing projected sink Use for spelling, overloaded/aliased item or delete. X02 and Q08/Q13 exercise whole-value boundaries. |
+| S6 | `P14.go` `P14.js` `P14.py` | reuse → recall-L | Direct argument of the whole container. Require the marked new weak edge. |
+| S3 | `P15.go` `P15.js` `P15.py` | regroup → boundary | Executable element-read reaches truth, but no lane edge into d on the projection. Keep the existing miss. |
+| S5 | `Y12.js` `Y12.py` | regroup → boundary | Keep observed not in both programs. Mark both receiver bytes, both argument positions and q at the sink. |
+| S6 | `X02.py` | regroup → boundary | Retain whole sink after deletion. Require no new W→R of any label. |
+| S4 | `X01.js` `X03.go` | rebuild → boundary | Switch the projected sink to the whole object to test JS delete and Go delete barriers. |
+| S3 | `P16.py` | rebuild → recall-L | e = d is a real whole RHS. Mark it and sink(e), without an edge from W directly to e. |
+| S3, S4 | `L01.go` `L01.js` `L01.py` `P21.go` `P21.js` `P21.py` `P31.go` `P31.js` `P31.py` | rebuild → recall-L | Use a whole sink to exercise the earlier sibling, a later augmentation and an augmented W carrying t. |
+| S3 | `R04.go` `R04.js` `R04.py` | rebuild → recall-L | Use a named local/formal with a static member prefix (replace JS this), then consume that prefix whole. |
+| S3, S4 | `N02.go` `N02.py` `R06.js` `R06.py` `R07.js` `R07.py` | rebuild → boundary | Mark the whole argument/RHS after replacement, on a backward iteration or inside a nested owner. Assert no direct contribution. |
+| S3 | `R08.go` `R08.js` `R08.py` | rebuild → recall-L | Read the whole value after the join. The branch containing W has a surviving route. |
+| S3 | `R09.py` `T01.js` `T02.js` `T03.js` `T04.py` `T05.py` | rebuild → boundary | Give the real sink a bare local. Check no source at a computed root, loop-head or pattern target. |
+| S3 | `N01.py` `N03.js` | rebuild → recall-L | Use a whole sink after alias mutation. Mark legitimate RHS reads separately and pin the possible stale weak edge from the original W. |
+| S3 | `E01.go` `E01.js` `E01.py` `E02.go` `E02.js` `E02.py` `E03.go` `E03.js` `E03.py` `E04.go` `E04.js` `E04.py` `E05.js` `E06.go` `E06.js` `E06.py` `E07.go` `E07.js` `E07.py` `R02.go` `R02.js` `R02.py` | drop | Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use. |
+| S7 | `I01.go` `I01.js` `I01.py` `I02.go` `I02.js` `I02.py` `I04.go` `I04.js` `I04.py` `P18.go` `P18.js` `P18.py` `P19.go` `P19.js` `P19.py` | drop | Initializer leaf has no subscript assignment. Q12 exercises the whole-container version. |
+| S3, S5 | `K04.js` `K06.js` `K07.js` `K08.js` `K09.go` `K09.py` `K10.js` `K11.js` `K11.py` `K13.py` `K14.go` `K15.js` `K16.py` `K18.go` `K19.js` `K19.ts` `K20.js` `K20.ts` `K21.js` `K21.ts` `K23.js` | drop | Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints. |
+| S3, S4 | `L02.js` `L02.py` `L03.js` `L04.go` `L04.js` `L04.py` `L05.go` `L05.js` `L05.py` `L06.js` `L07.js` `L08.js` `P25.py` | drop | Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write. |
+| S2, S3, S5 | `P02.go` `P02.js` `P02.py` `P05.js` `P05.py` `P06.js` `P06.ts` `P07.js` `P07.ts` `P11.go` `P13.js` `P22.js` `P22.py` `R05.js` `R05.ts` | drop | Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary. |
+| S3, S5 | `Y01.go` `Y01.js` `Y01.py` `Y03.go` `Y03.js` `Y03.py` `Y05.js` `Y05.py` `Y06.js` `Y06.py` `Y10.js` `Y10.py` `Y11.js` `Y11.py` `Y13.js` | drop | Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer. |
+<!-- /old-rows -->
+
+The `baseline-gap` assertion for C01.java pins `NotReached` plus the missing complete Use; M04.js pins `BoundaryExited` plus the missing complete Use. Neither counts as a passing negative. For Y12, `k="b"` and only `d["a"]` receives the token. Both actual arguments read `b`; `q` is the second formal. Preserve each executed `not`, check the existing argument-binding observation and forbid any added edge to either receiver or formal. Across all draft groups, 20 rows are reused, 17 regrouped without rebuilding the program, 43 rebuilt and 131 dropped. Of the 46 failing controls, 11 are rebuilt, five become explicit baseline observations and 30 are dropped. Preserve their IDs and original receipts in the ledger.
+
+### New seed matrix and group activation
+
+T instantiates **each** applicable parser mode below as separate data, using IDs such as `Q01.return.tsx` and `Q06.exclusive.go`. The `Q` prefix denotes a seed family, each variant has its own ID, source, W/R bytes, exact sink bytes and truth. Set `H = py, js, ts, tsx, go` in this table. Keep census counts by family; run TS and TSX separately. Use a native valid equivalent of the example in each language (e.g. Go `:=` and typed containers).
+
+| Seed and modes | Required programs and observations | Group |
+|---|---|---|
+| Q01 · H | `d[k]=t` then `sink(d)`; `return d` to a caller that sinks the result; `e=d` then `sink(e)`. Each fixture observes `reaches` through its own role/bytes. Vary literal/variable/expression indices, Python keyword argument and f-string, JS template and typed TS/TSX value syntax, Go string map, array and slice. Add a computed-key side effect with a separately marked key variable. | recall-L |
+| Q02 · H | A direct call `take(clean,d)` sinks the second formal. Verify W→the complete `d` argument, ordinary argument transfer and clean first formal. Companion with reversed parameters and one with a clean returned container. | recall-L positive; boundary negative |
+| Q03 · H | Replace `sink(d)` with a projected read assigned to `x`, length/identity, membership, method/receiver or literal-wrapped operand. Use a real sink argument, e.g. `sink(x)`. Go adds `cap` and a conversion; Python/JS cover an excluded callee spelling shadowed by a user binding. Forbid a new edge at the inner receiver/key. | boundary |
+| Q04 · H | On one line mix a projected and a whole argument in each order, repeat a whole argument, or put two candidate writes with the same endpoint key on one line. Forbid contribution to either ambiguous endpoint; include same-line W/R and an unambiguous different-line control. | boundary; control in recall-L |
+| Q05 · H | For `o.items[i][j]=t`, consume `o.items` and `o` in separate rows. Refuse `o.items[i]`, unrelated selector or a write with a field after the bracket. Replacing `o.items` before `sink(o)` kills; writing `o.other` leaves the contribution. | recall-L positive; boundary refusals |
+| Q06 · H | Branch W→join with one arm rebinding, opposite-arm W/R, unconditional root overwrite, early return, forward same-iteration use, backward-only use, loop break/continue and a loop-head root rebind. Add `d = take(d)` with one R inside the call and another after rebinding. Pin feasible forward bytes and absence across barriers. Include correlated tests with a CFG route but no runtime witness. Execute both outcomes separately when truth depends on the branch. | recall-L positive; boundary refusals |
+| Q07 · H | W outside a closure with only an inner R, a shadowed local, global/free root, deferred or exceptional-only path. JS-family also tests `this`, conditional update and a TS indexed-access type; Go tests `defer`/`go`, explicit fallthrough and pointer root. Use structural tests for type-only/unstable execution; bind behavioural sinks in outer code. | boundary |
+| Q08 · applicable modes | `e=d` after W versus reading through an alias established before W, alias overwrite, a mutator call then `sink(d)`, Python overridden item storage, JS proxy/setter or length truncation, Go aliased slice/map or value copy. Include unaffected sibling and names used as keys. Record true/clean by execution and whether a stale weak route is allowed. | recall-L where W/R qualify; boundary otherwise |
+| Q09 · H | 8/9 distinct eligible stores to one R, plus another R or owner that remains admissible. Use runtime marker in the first surviving slot so the 9-store case is an observable loss. | limits (instantiated per admitted mode) |
+| Q10 · H | 256/257 otherwise admitted owner edges and exactly 1,000,000/1,000,001 prospective raw pairs. Use small injected limits for matrix timing plus production-constant, duplicate-count and checked-overflow unit tests. Pin all-or-none refusal and independent neighbouring owner. | limits |
+| Q11 · H | Def-cap, line-cap, without-CFG and early fallback-capped owners containing W/R. Inject unavailable outcomes in unit tests where a compact source cannot produce one reliably. Verify separate skip counts, zero local contribution and agreement after cache replacement of the maximum owner. | limits |
+| Q12 · applicable modes | Call-result root, initializer with token but no indexed store, slices/ranges, destructuring and loop-head targets, JS/Go update, JS logical assignment, Go field-only write, TS/TSX non-value positions and deferred evaluation. Each has a genuine control sink or an explicitly structural parser observation. | boundary |
+| Q13 · H | Same-slot clean overwrite before `sink(d)` (observed `not`, eligible earlier W must have a weak edge); different-slot overwrite (observed `reaches`); delete same/sibling slot or clear (no new edge even for a surviving sibling). Add indexed ancestor replacement and Python direct `.clear()`/Go `clear`. | recall-L stores; boundary delete/clear |
+
+Use a membership list of enabled parser modes in addition to the groups. `boundary` checks the forbidden **marked addition** and appropriate truth/base pin, including on a fixture that has another genuine whole read. `baseline-gap` checks named observations at the parent and head. A cap fixture may have an executed `reaches` with a documented graph miss. Keep that truth and assert the refusal and counters instead of claiming recall credit.
+
+| Stage/slice | Data-driven test `ENABLED` at its green closeout |
+|---|---|
+| Draft | `control` (baseline RED, custody only) |
+| T, E, D | `control`, `baseline-gap`, `boundary` |
+| I0 and I1 | Same three public groups. Enable `syntax-preview` at I0 and `route-preview` at I1 in the opt-in diagnostic test. Neither group asserts published additions. |
+| I2 and G | Union with `recall-py`, `recall-js`, `recall-go` for the passing families and `limits` for their enabled parser modes. Store failed-mode positives as `deferred-L` with baseline expectation and count; verify zero additions in them in every slice. |
+
+T edits the existing Rust test (318), routes helper (212) and module declarations in `tests/ast/main.rs` (38) only as needed. Moved files previously measured `gen_rows.py` 616, matrix README 53, `truth/run_truth.py` 270, `truth/containment.py` 167, `truth/check_truth.py` 97, `truth/check.sh` 4, `truth/test_run_truth.py` 299.5, truth README 48. Split new seed construction into a separate module; avoid growing the legacy generator with retired cases. New test modules cover budget and diagnostic assertions. Row/receipt data have a bijection and all new cases remain small.
+
+## E and D · Enumerate and freeze (1–2 days plus 0.5–1 day)
+
+- [ ] Enumerate serially: controller, gpt-6.1-terra, gpt-6.2-sol, gpt-6.2-astra last. Each tier sees the cumulative ledger. Cover grammar nodes and value contexts, physical endpoint collisions, write/binding lifetime, forward/blocked routes, owner boundaries, earlier surviving writes, cap boundaries, parser modes, and independent call-flow effects. Map each C3 role/index and each omitted form to a row. Add only distinct missing behaviours with observed truth or an identified structural oracle. Continue until a full tier round adds no row; at five rounds still adding members of one class, stop for §8. One test reviewer on matrix folds.
+- [ ] This rewrite supplies D's rules. The controller binds the revision, disposition and cumulative rows to the independent amendment review, once per reviewer (Opus and Astra, independent sessions from different families). No second design exercise is planned. E rows that expose a premise failure or conflict with a rule go to the owner under §8. If the pair rejects this amendment, report the rows, competing designs and reviewers' reasons; no third design attempt. Rerun any changed row expectations on the same-environment base before enabling them.
 
-## Review focus
+## I · Product slices in merge order
 
-1. A key with an escape or interpolation (`d["\x61"]`, `o["\x78"]`, `d[f"{p}"]`, `` o[`${p}`] ``), or a JS
-   non-ASCII key (`o["é"]`), is never a keyed component; it connects only through the dynamic rule, never
-   `exact`. Rows K08, K09, K11, K22 (S5); the spelling-pair test (S0).
-2. `d["a"]` and `d.a` on one Python object (a `dict` subclass) stay apart both ways. Rows K01, K02 (control,
-   confirmed in S3).
-3. Augmented assignment through a subscript: `d["a"] = t; d["a"] += "x"; sink(d["a"])` reaches; so does
-   `d["a"] = ""; d["a"] += t`. Rows P21, P31 (S3).
-4. A subscript on a call result (`make()["a"]`) gets no path, definition or edge, and no definition of any name
-   in it. Rows R01, R09 and the S0 test `refused_chains_are_refused`.
-5. A nested subscript with a dynamic key (`d[k]["a"]`, `d["u"][k]`, `d[i]["a"]` against `d[j]["a"]`) never
-   gives an `exact` edge or a kill. Rows Y05, Y06, Y10, Y11.
-6. Definite identity (DESIGN 5.3): a rebound, loop-bound or (under the stage-D alias policy) aliased base gives
-   no `exact` keyed edge. Rows N01 to N03.
-7. Consumers move with producers: the existing `exact` literal-leaf transfer into `p.slot` survives, and a
-   prefix definition still reaches an extension read at its bytes across a call. Rows A01, P23, E01 to E07.
+Each PR body includes actual parent/head/overlay SHAs, new and standing row results, both thread counts, receipt hashes, predicted and observed changes by class/corpus, refused candidates/owner counts, Tier-A flips, file sizes, cache status, docs, reviewer decisions and exclusions. Apply the global gates to **each** slice. Write the same-PR `CLAUDE.md` paragraph (891 weighted lines) and JS/TS known-gaps entry (213) describing the actual stage, including opt-in status before activation.
 
----
+### I0 · Recognize and bind existing occurrences (2–3 days)
 
-## Stage M: census (3 to 4 days)
+- [ ] **Tests first.** `element_inventory_rejects_projected_argument`, `element_inventory_uses_outer_lhs_and_full_bytes`, `element_inventory_refuses_collapsed_same_line_use`, `tsx_value_operand_excludes_indexed_access_type`. Drive the baseline binary with the opt-in inventory request plus normal node/edge reads. Record absent diagnostics separately from the P14 behavioural RED; compare real occurrences for Q01/Q03–Q05/Q12. Positive/negative rows use the actual parser for each mode.
+- [ ] New `src/cpg/reaching/element_recall/` modules for target/operand recognition, owner-fenced discovery, physical joins and trace; unit tests in sibling modules. Small module declaration in `src/cpg/reaching.rs` (990), bridge in `src/cpg.rs` (123.5), and owner/file hook in `src/data_flow/build/file.rs` (850.5). Pass the original def/use records, syntax and binding context to the join. Validate projected Python locals independently of a projected `DefSite`. Keep added logic out of `ast/lvalues.rs` (564.5), `rvalue_identifiers.rs` (594), `member_reference_index.rs` (327.5) and `access_path.rs` (396).
+- [ ] With `PRISM_ELEMENT_RECALL_TRACE=1` emit candidate `write`, `node`, `owner` records with owner span, binding, role, paths and exact bytes on stderr. Keep trace default off and avoid the analysis on the default build. Baseline and head node inventory, DataFlow multiset and stats are identical, including isolated nodes and `call-stats` outside `dfg_labels`. No cache change. Comparator allowed classes empty; sample zero additions. `ENABLED` per table. Both product reviewers.
 
-### Task M-1: workspace, base binary, issue, baseline
+### I1 · Bound the feasible contributions (2–3 days)
 
-- [ ] Worktree (ORCHESTRATION 4). `~/prism-evidence/tools/memguard.sh 8 cargo build --release`; copy to
-      `~/prism-evidence/subscripts/bin/prism-base`; record `--version`.
-- [ ] File the issue "Data flow through subscripts: keyed paths (lane 10)", linking DESIGN and PLAN.
-- [ ] `tools/measure.sh <binary> <corpus> <outdir>` (lane 11's `scripts/measure/` instead if merged): through
-      memguard, `prism nav --no-cache dfg-stats --repo C`, `prism nav --no-cache call-stats --repo C` and
-      `PRISM_EDGES_BYTES=1 prism nav --no-cache dfg-stats --repo C --edges`; from S0 on also the node inventory
-      `PRISM_SUBSCRIPT_TRACE=all` (S0). Run on the seven corpora with `prism-base` into `base/<corpus>/`.
-- [ ] `tools/compare_subscripts.py <parent dir> <head dir> <corpus>` (model
-      `~/prism-evidence/jsts-lane/783/scripts/compare761.py`): edges keyed by file, path and bytes at both ends;
-      the node inventories when both sides have one; every counter delta of both stats files; the zero-gates
-      `cross-key`, `spelling-leak` and `orphan-anchor` (definitions in S2 and S3); the `dynamic-edge` bound
-      (S5); the classes each slice names, each a mechanical predicate over the joined records (no class needs
-      reading); exit 1 on an unclassified change. Self-test `tools/test_compare_subscripts.py` on hand-made
-      dumps: a cross-key edge into the second argument of `f(d["a"], d["b"])` fails; `o["x"] → o.x` passes; a
-      wrong edge through a local, a respelled dynamic-only node on a static-key line, an unjoinable endpoint and
-      a zero-width lane-path use are each caught; a removed `exact` edge whose endpoints get different static
-      keys is counted as `cross-key-removed`, not failed; a `dynamic-edge` count over its bound fails.
+- [ ] **Tests first.** `element_preview_respects_branch_rebind_and_loop_order`, `element_preview_keeps_earlier_sibling_and_cuts_delete`, `element_preview_counts_duplicate_candidates_before_allocation`, `element_preview_omits_entire_read_or_owner_at_cap`. Check Q05–Q11/Q13 on the I0 trace and run through the available/unavailable public RD paths. Add injected-cap and arithmetic boundary tests for equality/one-over, skip-before-allocation, maximum and duplicates. A missing preview record alone does not establish a baseline graph failure.
+- [ ] New `element_recall/route.rs`, `limits.rs` and preview tests. Pass existing CFG, bindings and mapped DefIds at the reaching call site (990). Keep discovery and file-wide collision checks in the I0 modules, outside the ordinary RD classification loop. Keep `go_aggregate.rs` (532) and `contribution.rs` (604.5) as compatibility controls. If wiring would take `reaching.rs` above 1,000 weighted lines, keep related glue in the child module and limit the parent to dispatch/field/merge lines, or document the existing file's responsibility and measured size.
+- [ ] Emit opt-in `owner` and **prediction** records (distinct from published `edge` records). Include P, all three caps, filtered binding/route, omitted reads and pairs. Run the independent per-corpus syntax/byte inventory in the measurement slot and freeze the predicted addition set by owner, W, R and role. Reconcile differences between preview and inventory against code before activation. If measured headroom/yield would fail DESIGN §§6–7, publish attrition and stop for the owner. Remaining graph/public stats/ordinary output deltas zero on all seven; no cache change; sample zero additions. Both product reviewers.
 
-### Task M-2: inventory and counts C1 to C4, C6, C7
+### I2 · Publish and persist (2–3 days)
 
-**Files (evidence):** `census/subscript_census.rs` (copied into the worktree as `examples/subscript_census.rs`
-for the run and never committed, like `examples/dfg_census.rs`), `census/count.py`, `census/golden/`,
-`census/CENSUS.md`. The census uses Prism's own parser (`ParsedFile::parse`, the pinned and vendored grammars),
-not PyPI grammars.
+- [ ] **Tests first.** Enable admitted `recall-L` and `limits` groups on I1. `p14_reaches_through_marked_weak_edge`, `element_recall_keeps_distinct_writes_and_only_whole_operands`, `element_recall_never_merges_an_existing_exact_label`, `element_recall_preserves_go_field_and_call_edges`, `element_recall_does_not_change_d12_or_return_flow`, `element_recall_stats_on_cold_full_and_partial_hit`. Include two source stores with distinct markers, mixed arguments, supplemental label collision, shadowed owners, and the old `baseline-gap` routes. Show actual pre-change absent W→R and the post-change source→W→R→precise sink route.
+- [ ] Publish file-final candidates after all legacy/Go edges/labels exist, using the same I1 survivor logic and original occurrences. Add `element_recall/publish.rs`, `stats.rs`, independent cache/assembly tests. Wire in `data_flow/build/file.rs` (850.5), test declarations in `data_flow/build/mod.rs` (294.5), `cpg/reaching.rs` (990), `cpg.rs` (123.5), `cpg/reaching/compact_wire.rs` (85.5), and document the doubt in `cpg/flow_confidence.rs` (158). A small core aggregation helper consumes `rd_function_stats()` and merges maxima correctly. A common CLI projection extends the existing serialized label stats in both branches of `crates/prism-review/src/cli_nav.rs` (314.5). Assert the full public objects and their equality; do not mix element counts into Go's `dfg_recall_*`.
+- [ ] Compare cold, genuine full-cache hit, and a partial hit (unchanged file restored, other file rebuilt), then fresh cold at the modified contents. Cover file deletion/disappearing max, skipped owner, ordinary and Go-only owners, edge bytes and both counter views. Prove the actual cache paths were taken. Under `job.py claim cache-version --lane 10` after final rebase, change `CACHE_VERSION` in `src/cpg_cache.rs` (1,544) to the next free value, add its history entry and update `cache_versions_are_pinned_for_cpg_semantics`. Release claim immediately after merge. This is the one semantic cache bump.
+- [ ] Update `CLAUDE.md`, JS/TS known gaps and the existing architecture/gaps entries where they describe this case (`docs/features/cpg/architecture.md` 298.5, `docs/features/language-coverage/language-analysis-gaps.md` 226). Name modes, roles, labels, caps, counter units and losses. Run the three positive comparator classes and every zero-gate below. Inspect the 100-edge sample and require ≥95% per populated family/role. Both product reviewers. PR body also lists all refused groups, emitted counts by corpus, baseline misses repaired, actual version and cache equality receipts.
 
-- [ ] Grammar classes: from `vendor/tree-sitter-go/src/node-types.json`,
-      `vendor/tree-sitter-typescript/{typescript,tsx}/src/node-types.json` and the locked registry sources of
-      `tree-sitter-python-0.23.6` and `tree-sitter-javascript-0.23.1`, list every node kind that can hold a
-      subscript as write, augmented, update, read, delete, pattern leaf or loop head; the census dispatches on
-      each listed kind and counts any other parent as `unknown`.
-- [ ] `cargo run --release --example subscript_census -- <corpus> <out.jsonl>`. File filter: the `TESTPATH`
-      regex copied from `~/prism-evidence/lanes-2026-11-20/probes/lane10/sizing/size.py` (do not import it: it
-      runs its corpus loop and writes `sizing_results.json` on import). One record per subscript node (Python
-      `subscript`, JS/TS/TSX `subscript_expression`, Go `index_expression`): file, owner, line, bytes, role,
-      full base chain, index kind (`str_ident`, `str_other`, `str_escape`, `str_interp`, `int`, `name`,
-      `go_const`, `other`), key text, enclosing loop, enclosing exclusive arm, and for each pair candidate the
-      feasibility facts of DESIGN 6 (exclusive arms, early exit, base rebinding, definite overwrite, Go binding).
-      Plus eligible container literals (DESIGN 5.5 layout), whole-container value reads (DESIGN 5.3 roles), JS
-      dot writes paired with identifier-key bracket reads, and per base the facts of C6: the language predicate
-      of DESIGN 5.3 (Python bound-once by the `is_binding_occurrence` forms, JS `stable_bases` shape, Go one
-      declaration, no other plain write, not address-taken), an alias-map input (`ParsedFile::
-      collect_alias_assignments` gives `x = b` and the owner writes through `x`) for policy C, and a bare
-      occurrence of `b` other than its binding or as a subscript, attribute or call object for policy A.
-- [ ] `census/bracket_edges.py <edges.jsonl> <sites.jsonl>` (C7): every edge of the base edge dump with `[]` in
-      either endpoint's path, joined by bytes to the census's subscript records, classified by the paths it will
-      have under the census's key classification: equal, prefix → extension, different static key or tail,
-      static ↔ dynamic, refused chain (definitions and uses), dynamic-only. Reclassified with S0's trace before
-      S3's prediction.
-- [ ] Golden: `census/golden/` small Python, JS and Go files with exact expected per-owner counts (mutually
-      exclusive arms give no pair, a rebinding or an early return between W and R gives none, a JS dot read
-      counts, a receiver-only read is no whole-container read); the census must match exactly.
-- [ ] Validation, both directions: 200 sampled reported sites against `prism-base nav --cache-dir
-      ~/prism-evidence/subscripts/navcache nodes-at --repo C --location f:l --format json` (a write needs a Def
-      at the target bytes; a read is confirmed only by a node whose bytes lie in the subscript, never by a
-      receiver Use alone); every subscript node of 30 sampled files by an independent tree walk against the
-      census records; 100 sampled C1 same-key pairs read against the code for pair precision (Wilson lower
-      bound). Agreement ≥ 95% on sites and files, else fix the census.
-- [ ] `count.py`: C1 to C4 and C6 as DESIGN 6 defines them, per language, each owner once per class; C6's
-      `exact` yield under policies C, A and B.
+## Comparator, prediction and zero-gates
 
-### Task M-3: the memo
+- [ ] Use lane 11's [measurement formats](../lane11-measurement-kit/FORMATS-PROVISIONAL.md) and adopt the released kit at G-adopt. From `scripts/` use `python3 -m measure run --binary BIN --corpus KEY --out DIR --expect-version SHA --prediction FILE` for each arm, adding `--trace-env PRISM_ELEMENT_RECALL_TRACE=1` on the supported arm. Keep the kit's byte-enabled default. Use `python3 -m measure diff-edges BASE_RUN HEAD_RUN --key bytes --classifier FILE --out OUT` and `python3 -m measure diff-stats BASE_RUN HEAD_RUN --which both --allow FILE`. Write only lane-specific prediction/classification, sampling and inventories. Until S1/S2 of the kit are available, keep bound raw captures and use fixtures for classifier development. Certification requires the real kit and replay of the same inputs/digests and counts against its final format.
+- [ ] Before running the emitting head, freeze independent eligible sites and predicted pairs on the merge-parent input. Use pinned parser/source, the parent node inventory including isolated nodes, legible owner/binding/route evidence, ordinary edge keys, and the cap calculation. Cross-check the dry preview (I1) and explain disagreements. For comparisons to a binary without lane diagnostics, use the same read-only inventory reader on each arm's CPG to enumerate **all** variable nodes with bytes; bind the reader/build to each binary's source. `--edges` alone omits isolated nodes. Handle the census's exclusion of test paths by reporting matching C3 and full-loader denominators separately.
+- [ ] `classify(change,context)` returns exactly `element-recall-arg`, `element-recall-return` or `element-recall-assign-rhs` only for `kind=added`, `count=1`, previously empty byte key. `head_bag` is a singleton `(def,use,nameonly,cfg_incomplete,null)`. Require exactly one `parse_trace` emission keyed by both endpoints, uniquely joined to independent owner/binding, indexed W, complete operand R, barrier-free route, availability/budget and the frozen predicted set. `STRAYS="fail"`; `validate(bound)` checks complete prediction/observed equality, unjoined node/write/owner inventories, counters and caps. Reject unexpected roles, zero bytes, projection consumers, pre-existing keys with an extra occurrence, duplicates, any removal, label move, ambiguity, missing/stray trace, or any change outside those classes. Preview records use non-edge kinds to avoid spurious trace attachments.
+- [ ] For each corpus record `P_c`, `R_c`, `O_c` (DESIGN §7), predicted and actual additions by role, max per read/owner, cap and RD skips, unknowns and newly served C3 owners. Gate `A_c ≤ min(P_c, 8 × R_c, 256 × O_c, 4 × R_c)` on each full corpus, per-read ≤8, per-owner ≤256, and report the two census-extent splits. R/ripgrep, non-passing modes, other languages, input node inventory and existing edge attributes have zero delta. I0/I1 allow zero changes of any kind. Publish a seven-row table with actual counts, including zeros, for each slice and cumulative G.
+- [ ] `diff-stats` allowlist names each DESIGN §5 counter individually, bare and prefixed by `dfg_labels.`, and `dfg_label_nameonly_cfg_incomplete` in both positions. A separate `validate` check enforces precisely `+A` for its delta and reconciles each ledger sum/max/skip with prediction and assembled pairs. Missing new keys on an all-zero input mean zero. Require all old Go recall, Exact, loop-carried, other doubt, prune/fallback, call and return counters to match. Publish all counter deltas, the multiplier of added edges per eligible read and total DFG size before/after. If intervening changes to main exist, compare head to an otherwise identical main integration without lane changes, and separately account for main-only differences against the frozen base.
 
-- [ ] `CENSUS.md`: C1 to C4, C6 and C7 per corpus and language with the validation figures and one decision
-      line per language and per conditional slice, posted on the issue.
+## G and H · Acceptance and custody (2–3 days)
 
-**Exit gate (per language, DESIGN 6):** a language whose scaled C1 same-key owners are below 150 is dropped
-(builder and seam only, its count stated); JS's part of S4 needs its different-key-kill count ≥ 50; S5 needs, per
-passing language, dynamic pairs ≤ same-key pairs and a per-owner 99th percentile ≤ 50; C3 ≥ 300 makes S6 a
-candidate, C4 ≥ 300 makes S7 one; stage D decides with the rows. No language passing: post, stop, wait for the
-owner.
+- [ ] **G.** Rerun the entire active matrix, controls, known gaps, parser-mode deferrals and cold/full/partial cache checks on the final head. Compare final cumulative graphs on all seven inputs using the admitted classifier and receipts. Require ≥100 newly served distinct C3 owners per admitted family in the original measured file frame and all zero/flood gates above. Report before/after counts of genuine subscript-write Defs with no outgoing DataFlow edge by exact W bytes; list absent Defs separately. A repaired edge, a newly served read and a newly served owner are different counts.
+- [ ] Draw 200 cumulative additions using seed 10 (all when fewer), stratified by family/role with coverage across owner, key shape and fan-in. Publish the 100-edge slice sample separately. Read source context for the actual data stored, intervening effects and feasible consumer. Count unknown/stale as failures, publish each numerator/denominator and require ≥95% in each populated family/role. Record row-level `taint-reaches`, route/label assertions, executed truth, and `prism --repo ROW --diff UNRELATED_ONE_LINE_DIFF --algorithm taint --format json` applicability and outcome. Report independently any baseline defect. Only DFG additions earn lane credit.
+- [ ] **H.** At every stable point update the lane evidence `LEDGER.md` and `HANDOFF.md` from the controller's handoff template. Close with a `g/REPORT.md` linking receipts, actual counts, deferred languages/modes, accepted losses by ID, CI/full-suite totals, cache version and reviewer decisions. Offload large compressed runs. Record follow-ups from DESIGN §8 without starting them. A failed gate or rejected amendment ends at the owner with the measurements and remaining work. The controller posts the outcome on the lane issue.
 
----
+## Remaining working-day estimates
 
-## Stage T and E: executed matrix (4.5 to 5.5 days; one language 3 to 3.5)
+| M audit | T | E | D independent check | I0 inventory | I1 preview | I2 activation | G/H | Total |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1–2 | 2–3 | 1–2 | 0.5–1 | 2–3 | 2–3 | 2–3 | 2–3 | **12.5–20** |
 
-### Task T-1: rows, truth runner, data-driven test
-
-**Files:**
-- Create under `tests/fixtures/subscript_matrix/`: `rows.jsonl`, `cases/<id>.{py,js,ts,go,rs,java,c}`,
-  `README.md`, `truth/run_truth.py`, `truth/prelude.{py,mjs,go}`, `truth/test_run_truth.py`,
-  `truth/truth.jsonl` (committed output), `truth/check.sh`, `spellings/{py,js,go}.txt` (one key spelling per
-  line, DESIGN 7), `truth/spelling_truth.jsonl` (committed output: `lang`, `s1`, `s2`, `same`). Create
-  `tests/ast/subscript_matrix_test.rs`.
-- Modify: `tests/ast/main.rs` (`mod subscript_matrix_test;`)
-
-Cases: Python `def case():`, JS/TS `function caseFn() { … }`, Go `package main` with `func caseFn()`. Each starts
-with `t = src()` (`const t = src();`, `t := src()`) on its own line, calls `sink(…)` exactly once (one
-observation), one statement per line; a trailing comment `W` marks the subscript write that matters and `R` the
-read line. TS uses erasable syntax only. Containers start with every key the row reads set to `"s0"`
-(`d = {"a": "s0", "b": "s0"}`; nested `{"u": {"n": "s0", "m": "s0"}}`), Go maps are typed
-(`map[string]string`, `map[string]map[string]string`, `map[string]S` for a struct value), so no read raises and
-`+=` compiles. `C` is a small class.
-
-`run_truth.py <cases> <rows.jsonl>`: per row, a fresh process (10 s timeout) runs prelude, case and a call of
-the case function: `uv run --python 3.12 python`, `node` (24, type stripping on) for `.js`/`.ts`, `go run case.go
-prelude.go`. `src()` returns `"TAINT-7f3a"`; `sink(v)` prints whether any string reachable from `v` contains it
-(deep and cycle-safe: Python dict, list, tuple, set, `__dict__`; JS own properties, arrays, `Map`, `Set`; Go
-`reflect` over map, slice, array, struct, pointer, interface). Truth: `reaches`, `not`, or `inadmissible`
-(exception, timeout, no output, more than one observation). First line: the three interpreter versions.
-`check.sh` fails on an empty, truncated or duplicated `truth.jsonl`, on a row with no truth and on any
-`inadmissible` row: such a row is repaired, never mapped to `not`. Containment is DESIGN 7's, checked by the
-runner at launch. `run_truth.py --spellings` runs DESIGN 7's spelling pairs from `spellings/<lang>.txt` under the
-same containment and writes `spelling_truth.jsonl`. `test_run_truth.py` (`python3 -m unittest`): reaching row → `reaches`; throwing row →
-`inadmissible`; two observations → `inadmissible`; nested marker found; a case with an `import`, `require`,
-`__import__`, `open`, `process` or `fetch` is refused before any case runs; a prelude whose import set differs is
-refused; `'a'` and `"a"` are one key in Python; `"é"` and `.é` are one key in JS. Runs locally through memguard.
-
-`rows.jsonl`: `id` unique per program and language (`P01.py`), `group` (`control`, `S2` … `S7`), `lang`, `file`,
-`class`, `census` (C1 to C4 class), `expect` for truth `not` (`no_route` when W and R name different static
-keys, else `no_exact_route`), `base_verdict` (the base build's `taint-reaches` verdict, required on `control`
-rows), optional `label` (`exact`, `killed`, `nonexact`: on the edge between the W and R occurrences, joined by
-bytes; a row whose label depends on the alias policy gives it per policy, `{"C": .., "A": .., "B": ..}`, until
-stage D), optional `pinned_main` (main's verdict and route: known-wrong rows and accepted losses; an
-out-of-model row pins the answer its contract gives, DESIGN 5.7), optional `accepted_loss` (reason, issue).
-Truth comes only from `truth.jsonl`. A `control` row is one where main's answer already agrees with truth; a row
-where they disagree is RED and belongs to the first slice that can make it green.
-
-`subscript_matrix_test.rs`: `const ENABLED: &[&str] = &["control"];` and `#[test] fn subscript_matrix_rows()`.
-Per enabled row it writes the case to a temp repo and builds a `NavigationSession` (copy the `fixture` helper
-of `tests/reasoning/taint_reaches_test.rs`) and a `DataFlowGraph` (labels via `crate::common::dfg_labels`).
-Required (DESIGN 7), with the marked definition at the `t = src()` target bytes and the sink use at the sink
-argument's bytes; a row whose sink use is not found at those bytes fails, whatever its truth:
-- truth `reaches` → `taint_reaches` from the `src()` line to the `sink(` line is `Reached`, and
-  `route_through(dfg, marked, w_bytes, sink_use)` holds (any labels);
-- truth `not` → `no_exact_route(dfg, marked, sink_use)` (no route over `exact` DataFlow and argument edges plus
-  same-owner same-line use-to-definition transfers) or, for `expect: no_route`, `no_route(dfg, marked,
-  sink_use)` over every edge;
-- `control` rows: `taint_reaches` equals `base_verdict`;
-- `label` checked on the W→R edge pair (per the active policy from stage D on); `pinned_main` takes precedence
-  over truth for the assertion and the row is listed in the test output.
-
-The route helpers sit in `tests/ast/subscript_matrix_routes.rs` (declared in `tests/ast/main.rs`) with
-self-tests on synthetic edge lists: `no_exact_route_rejects_an_indirect_all_exact_route` (the review's
-`t → o.x → tmp → sink` shape), `route_through_rejects_a_route_that_skips_w`, `routes_bind_by_bytes_not_line`
-(two uses on one line), `an_anchored_use_does_not_stand_in_for_the_sink_argument`,
-`no_exact_route_finds_an_alternative_clean_route`, `no_route_rejects_a_nonexact_route`,
-`a_missing_sink_use_fails_the_row` (a `not` row with no node at the sink bytes fails, it is not vacuously
-green). `#[test] fn subscript_matrix_rows_have_truth()`: every row has a non-`inadmissible` truth, and every
-`control` row a `base_verdict`. The RED record (rows failing when each group is enabled by hand on main) goes in
-the ledger.
-
-Seed rows (`/` separates lines):
-
-| Row | Langs | Body | Truth | Group |
-|---|---|---|---|---|
-| P01 | py js go | `d["a"]=t W / d["b"]="safe" / sink(d["b"]) R` | not (`no_route`) | control |
-| P02 | py js go | same, `sink(d["a"])` | reaches | S3 |
-| P03 | py js go | `d["a"]=t W / d["a"]="clean" / sink(d["a"]) R` | not | control |
-| P04 | py js | `d["u"]={"n":"s0","m":"s0"} / d["u"]["n"]=t W / d["u"]["m"]="safe" / sink(d["u"]["m"]) R`; P05 `sink(d["u"]["n"])` | not (`no_route`); reaches | control; S3 |
-| P06 | js ts | `o["x"]=t / sink(o.x)` | reaches | S3 |
-| P07 | js ts | `o.x=t / sink(o["x"])` | reaches | S2 |
-| P08 | js | `o.x=t W / o["x"]="clean" / sink(o.x) R`; P09 `o.x=t W / o.y="safe" / sink(o.y) R` | not (P09 `no_route`) | control |
-| P10 | go | `m["k"]=t W / sink(m["j"]) R`; P11 `sink(m["k"])` | not (`no_route`); reaches | control; S3 |
-| P12 | py js | `k="q" / d[k]=t W / d["b"]="safe" / sink(d["b"]) R` | not (verdict may change in S5 only under `dynamic-edge`) | control |
-| P13 | js | `k="q" / o[k]=t / sink(o.q)` | reaches | S5 (stage D item 6) |
-| P14 | py js go | `d["a"]=t / sink(d)` | reaches | S6 |
-| P15 | py js go | `d["a"]=t / x=d["a"] / sink(x)` | reaches | S3 |
-| P16 | py | `d["a"]=t / e=d / sink(e["a"])` | reaches | S3; accepted-loss candidate (alias read) |
-| P17 | py js go | `d={"a":t} / sink(d["a"])`; P20 `xs=[t] / sink(xs[0])` | reaches | control |
-| P18 | py js go | `d={` / `"a":t,` / `"b":"safe"}` / `sink(d["b"])` | not | S7 |
-| P19 | py js go | `d={"a":t,"b":"safe"} / sink(d["b"])` | not | S7; accepted-loss candidate (same-line propagation) |
-| P21 | py js go | `d["a"]=t / d["a"]+="x" / sink(d["a"])`; P31 `d["a"]="" / d["a"]+=t / sink(d["a"])` | reaches | S3 |
-| P22 | py js | `d["u"]=C() / d["u"].n=t W / d["u"].m="safe" / sink(d["u"].m) R` | not (`no_route`) | S3 |
-| P23 | go | `s.x=t / m["k"]=s / sink(m["k"].x)` (`map[string]S`) | reaches | control |
-| P24 | py js | `d["u"]=C() / d["u"].n=t / sink(d["u"].n)` | reaches | control |
-| P25 | py | `d["a"]=C() / d["b"]=C() / d["a"].c=t W / d["b"].c="x" / sink(d["a"].c) R`, label `exact` | reaches | S3 |
-| P26 | py | `d["a"]=C() / d["a"].c=t W / d["a"].c="clean" / sink(d["a"].c) R` | not | control |
-| P27 | py js go | `o.a=t / sink(o.a)` (Go struct); P30 py `o=C(t) / sink(o.a)` (`C(v)` stores `v` in `.a`) | reaches | control |
-| P28 | py js | `o.a=t / sink(o)`; P29 py `o.a=t / p=o / sink(p.a)` | reaches | accepted loss, pinned (DESIGN 8) |
-| K01 | py | `d=D()` (`class D(dict)`) `/ d["a"]=t W / d.a="safe" / sink(d.a) R`; K02 `d.a=t W / d["a"]="safe" / sink(d["a"]) R` | not | control |
-| K04 | js | `o["a-b"]=t / sink(o["a-b"])`; K05 `o["a-b"]=t W / o["a b"]="s" / sink(o["a b"]) R` | reaches; not (`no_route`) | S3; control |
-| K06 | js | `o["1"]=t / sink(o[1])`; K07 `o[1]=t / sink(o["1"])` | reaches | S5 |
-| K08 | js | `o["\x78"]=t / sink(o.x)` | reaches | S5 (item 6) |
-| K09 | py go | `d["\x61"]=t / sink(d["a"])`; Go `m["\x6b"]=t / sink(m["k"])` | reaches | S5 |
-| K10 | js | `` o[`x`]=t / sink(o.x) ``; K14 go `` m[`k`]=t / sink(m["k"]) ``; K13 py `d[r"a"]=t / sink(d["a"])`; K16 py `d["a" "b"]=t / sink(d["ab"])`; K15 js `o["__proto__"]=t / sink(o.__proto__)` | runner | key rule (S3 or S5) |
-| K11 | py js | `p="a" / d[f"{p}"]=t / sink(d["a"])`; JS `` o[`${p}`] `` | reaches | S5 |
-| K12 | py | `d[b"a"]=t W / d["a"]="s" / sink(d["a"]) R` | not | control |
-| K18 | go | `const k = "a"` `/ m[k]=t / sink(m["a"])` | reaches | S5 |
-| K19 | ts js | `o["x"]=t / sink(o?.["x"])`; K20 `o["$x"]=t / sink(o.$x)`; K21 `$o["x"]=t / sink($o.x)` | reaches | S3 (K21: refused root, accepted loss if DESIGN 5.1 refuses it) |
-| L01 | py go; js | `d["a"]=t W / d["b"]="x" / sink(d["a"]) R`, label `exact` | reaches | S3; S4 |
-| L02 | py js | `d["u"]={"n":"s0"} / d["u"]["n"]=t W / d["u"]={"n":"s0"} / sink(d["u"]["n"]) R` | not | S4 |
-| L03 | js | `d["u"]={v:t} W / d["u"].w="x" / sink(d["u"]) R`, label `exact` | reaches | S4 |
-| L04 | py js go | `k="a" / d["a"]=t W / d[k]="clean" / sink(d["a"]) R`, label `nonexact`; L05 `k="b"` | not; reaches | S3 |
-| L06 | js | `o.x=t W / o["y"]="c" / sink(o.x) R`; L07 `o["a-b"]=t W / o.x="c" / sink(o["a-b"]) R`; label `exact` | reaches | S4 |
-| L08 | js | `k="z" / o[k]=t W / o.x="c" / sink(o[k]) R` | reaches | item 4 |
-| N01 | py | `d["a"]=t W / e=d / e["a"]="safe" / sink(d["a"]) R` | not | S3 (alias policy, DESIGN 5.3: `no_exact_route` under C and A; under B a pinned accepted loss) |
-| N02 | py go | `d["a"]=t W / d={"a":"s0"} / sink(d["a"]) R` | not | S3; S4 (root kill) |
-| N03 | js | `const u=o / o["x"]=t W / u["x"]="safe" / sink(o["x"]) R` | not | S3 (certified alias, `alias_unstable`) |
-| Y01 | py js go | `k="a" / d[k]=t W / sink(d["a"]) R`; Y03 `k="a" / d["a"]=t W / sink(d[k]) R`; label `nonexact`; Y02, Y04 the same with `k="b"` | reaches; not | S5; control |
-| Y05 | py js | `k="x" / d[k]["a"]=t / sink(d["x"]["a"])`; Y06 `k="n" / d["u"][k]=t / sink(d["u"]["n"])` | reaches | S5 |
-| Y10 | py js | `i="x" / j="y" / d[i]["a"]=t W / sink(d[j]["a"]) R`; Y11 `j="x"`, label `nonexact` | not; reaches | S3 |
-| Y12 | py js | `k="b" / d["a"]=t / f(d["b"], d[k])`, `f(p, q)` calls `sink(q)`; Y13 js `k="x" / o.x=t / sink(o[k])` | reaches | S5 |
-| Y07 | py | `d[0]=t W / sink(d["0"]) R` | not | control |
-| Y08 | py js go | `xs=["s0","s0"] / xs[0]=t / sink(xs[1])`; Y09 `sink(xs[0])` | not; reaches | control; accepted loss, pinned |
-| X01 | js; go | `o["k"]=t W / delete o["k"] / sink(o["k"]) R`; X03 Go `m["k"]=t W / delete(m, "k") / sink(m["k"]) R` | not | S4; accepted-loss candidate |
-| X02 | py | `d["k"]=t / del d["k"] / sink(d)`; X04 `d["k"]=t W / del d["k"] / d["k"]="c" / sink(d["k"]) R` | not | S6; control |
-| T01 | js | `for (o["a"] of [t]) {} / sink(o["a"])`; T02 `[o["a"]]=[t] / sink(o["a"])`; T03 `({v:o["a"]}={v:t}) / sink(o["a"])` | reaches | S3 |
-| T04 | py | `for d["a"] in [t]: pass / sink(d["a"])`; T05 `d["a"], x = t, 1 / sink(d["a"])` | reaches | S3 |
-| A01 | js | `d["u"]={n:"s0"} / d["u"].n=t W / consume({slot:d["u"].n})`, `consume(p)` calls `sink(p.slot)`; A02 `consume2(d["u"].n)` | reaches | control (must stay green from S3) |
-| E01 | py js go | extension rule (DESIGN 5.3), each with `d["u"]=C(t) W` (`C(v)` stores `v` in `.n`; JS `{n:t}`; Go `map[string]S`, `S{n: t}`): `f(d["u"].n)`, `f` calls `sink(p)`; E02 `x=d["u"].n / sink(x)`; E03 `h(t)` writes and `return d["u"].n`, `sink(h(t))`; E04 `sink(d["u"].get("n"))` (Python `{"n":t}`, JS a `Map`, Go a method on `S`) | reaches | S3 |
-| E05 | js | `d["u"]={n:t} W / consume({slot:d["u"].n})`; E06 py js go `d["u"]={"n":t} W / sink(d["u"]["n"])`; E07 py js go `d["u"]=C(t) W / sink(d["w"].n)` (`d["w"]` starts as `C("s0")`) | reaches; reaches; not (`no_route`) | S3 |
-| K22 | js | `o.é=t W / o["é"]="clean" / sink(o.é) R` (main `killed`); K23 `o["é"]=t / sink(o.é)` | not; reaches | control; S5 (stage D item 6) |
-| I01 | py js go | multi-line literal, `"a": t,` on its own line, `sink(d["a"])` | reaches | S7 (control if main passes) |
-| I02 | py js go | same, `"b": "s",` on its own line, `sink(d["b"])`; I04 `"a": (` / `t` / `),` split value, `sink(d["a"])` | not; reaches | S7 |
-| I03 | py | `base={"a":t} / d={**base, "b":"s"} / sink(d["a"])` | reaches | control |
-| R01 | py js | `d=make() / d["a"]=t W / sink(make()["a"]) R` | not | control |
-| R09 | py | `a="s0" / make()["a"]=t / sink(a)` | not | S3 (main: known wrong, `Def(a)`) |
-| R02 | py js go | `d["a"]=t / f(d["a"])` with `f` calling `sink(p)`; R03 `d["b"]="s" / f(d["b"])` | reaches; not (`no_route`) | S3; control |
-| R04 | py js go | `self.d["a"]=t / sink(self.d["a"])` (JS `this.d`); R05 js ts `(d)["a"]=t`, `(d as any)["a"]=t`; R08 `if c: d["a"]=t / else: d["a"]="s" / sink(d["a"])`, `c` true | reaches | S3 |
-| R06 | py js | `for i in range(2): / x=d["a"] / d["a"]=t W` then `sink(x) R` after the loop; R07 `d["a"]=t / def g(): sink(d["a"]) / g()` | reaches | S3 (R07: stage D may accept the loss) |
-| M01 | py | `o={"x":C(),"y":C()} / i="x" / j="y" / o[j].z="safe" / o[i].z=t / sink(o[j].z)` | not | pinned known wrong (main `exact`), not widened |
-| M02 | py | `o.x=t / o=C() / sink(o.x)`; M03 `p=o / o.x=t / p.x="safe" / sink(o.x)` | not | pinned known wrong (dot fields) |
-| M04 | js | `put({a:t,b:"safe"})`, `put(q)` calls `sink(q["b"])` | not | pinned known wrong (lane 3's binder) |
-| O01 | py js | `d["a"]=t / mutate(d) / sink(d["a"])` (`mutate` overwrites `"a"`) | not | out of model, pinned |
-| O02 | py | `class R(dict)` whose `__setitem__` and `__getitem__` use one slot; `d["a"]=t / sink(d["b"])` | runner | out of model, pinned |
-| O03 | js | setter `x`, Proxy, array `length=0`; `o["x"]=t / sink(o.x)` each | runner | out of model, pinned |
-| O04 | py | `v={} / d={"a":v,"b":v} / d["a"]["x"]=t / sink(d["b"]["x"])` | reaches | out of model, pinned miss |
-| C01 | rust java c | `v[0].x=t; sink(v[0].x)`; `a[0]=t; sink(a[0])`; `buf[i].x=t; sink(buf[i].x)`; Rust `m["k"]` read | n/a | control, pinned |
-
-- [ ] Write rows, cases, runner, preludes, README (schema, markers, rules), route helpers and test. Run the
-      preflight: every row executes once with one observation (`check.sh` green); every `control` row is green
-      on main, else it is regrouped. RED record for the rest; commit; CI green with only `control` enabled. One
-      reviewer (test-only).
-
-### Task T-2: enumeration
-
-- [ ] Tiers per ORCHESTRATION 6. Axes: language; role (write, augmented, logical, update, read, delete,
-      destructuring and loop-head targets, receiver, key evaluation); key form by grammar (string kinds,
-      prefixes, quote delimiters, escapes, interpolation, concatenation, templates, numbers, names, constants,
-      expressions, slices, tuples, special JS keys); base (identifier, `self`/`this`, member chain, call,
-      parentheses, TS wrappers, optional chain, `$` roots, comments inside the chain); order and position of
-      field, keyed and dynamic components, paired static and dynamic at the same level; flow (direct, local,
-      alias, augmented, loop-carried, branch, closure, whole read, argument, literal leaf, return); kills (same,
-      other, prefix, root rebinding, deeper, dynamic, delete, alias write, captured write); identity (rebound,
-      aliased, unproven base); multiplicity (many keys on one base with one wildcard, two reads on one line);
-      initialisers (layouts, duplicates, spreads); semantics (ToPropertyKey, item versus attribute, overloaded
-      access, maps versus slices, map aliasing); extension reads of a prefix definition (argument, local,
-      return, receiver, literal leaf, nested, other key). Each census class gets a row. Two classes are not
-      enumerated by hand: key spellings (closed by the spelling-pair table, DESIGN 7) and alias forms (enumerated
-      after stage D chooses the alias policy, as rows O05 onward).
-
-## Stage D: design of record (2 days)
-
-The design seat amends DESIGN 5 from DESIGN, `rows.jsonl` with `truth.jsonl`, `CENSUS.md`, the research record,
-the review and the accepted-loss candidates, and fixes against every row:
-
-1. The keyed component's encoding under DESIGN 5.1's two conditions (injective with legacy field strings such
-   as `["x"]` from `(o)?.["x"].f`; no existing output changes), its `Display`, `Debug` and JSON forms, and the
-   key characters admitted (quotes, `]`, `.`, empty key, newline, control characters).
-2. The per-language key rule: Python prefixes `r`, `u`, `b`, `f`, concatenation, triple quotes, non-ASCII; JS
-   escapes, templates without substitution, numeric strings, `__proto__` (inside DESIGN 5.1's three classes);
-   Go raw and interpreted literals; the refused roots (DESIGN 5.1, row K21). Every choice must keep
-   `spelling_truth.jsonl` and the builder in agreement (S0's pair test).
-3. The overlap label: `NameOnly(AliasUnstable)` or a new `FlowDoubt` (owner decision 4).
-4. `replaces` and `may_overlap` for JavaScript (DESIGN 5.4, owner decision 3) and the label o28 takes. Pinned
-   tests it changes: `semantic_tests.rs::ident_on_every_target_shape` ("any index is []"),
-   `semantic_tests.rs::affects_and_eq_relations`, `census_defs_tests.rs::
-   affects_is_prefix_with_a_wildcard_on_either_side`, `affects_tests.rs` (`the_trie_yields_exactly_the_affected_defs`,
-   `bucketed_recorded_affects_matches_the_all_pairs_scan`, `writer_flags_by_receiver_and_binding`),
-   `recorded_kill_tests.rs` with `variant-matrix.tsv` o27 and o28, `sites.tsv` rows whose source has a static
-   key, and the 660 design's §4.4 note.
-5. The alias policy (DESIGN 5.3: C default, A, B) on C6's `exact` yield under each, with rows N01 to N03 and M02;
-   the base predicates of DESIGN 5.3 confirmed on N01, N02 and M02; root and prefix kills of keyed definitions;
-   each policy-dependent `label` collapsed to the chosen policy, and the alias-form enumeration briefed.
-6. Whether, in JavaScript, `[]` matches field components in the reach rule (P13, K08, K23, Y13), with C1's count.
-7. Whether S6 and S7 run (C3, C4; P14, X02, P18, I01, I02, I04), their labels, S6's JS field-origin sources and
-   S7's container-definition edges (DESIGN 5.3, 5.5). The passing languages and S5's go are the stage-M memo's.
-8. Deletes (X01 to X03); whether a closed list of container mutators (Python `d.pop`, `d.popitem`, `d.clear`,
-   `d.update`, `d.setdefault`; Go `clear(m)`) is a possible overwrite (review r2 I8); the accepted-loss list.
-9. Dynamic-only `d[i] = t; sink(d[j])`: a promised may-flow or an accepted miss (DESIGN 5.3).
-
-The exit is one revision that amends DESIGN, this plan's slice sections, gate predicates and differential
-classes, and each row's `group` and `label`; implementer briefs are cut from that revision (ORCHESTRATION 6).
-Both reviewers; cap 2 rounds.
-
----
-
-## Stage I: slices
-
-Order: S0 builds the tool with no behaviour change. S1 routes every producer and consumer through one path
-function that still returns today's paths (zero difference). S2 adds real-span uses for admitted subscript
-reads (isolated nodes, except JS dot definitions reaching identifier-key reads). S3 flips the path function:
-keyed definitions, the respelled field-access reads, the extension rule, the definite-identity label rule and
-every consumer change together, onto S2's real spans, so the matrix and the no-flood gate bind by bytes from the
-first keyed edge. S4 changes kills and refines S3's owner-wide overlap labels to routes. S5 (its own go, stage
-M) adds wildcard reach for dynamic keys. S6 and S7 wait for stage D's go. Each slice applies only to the passing
-languages. If the lane stops before S5 merges, the owner accepts S3's `mixed-key-interim` and
-`prefix-overwrite-interim` losses by name or S3 is reverted. **Gates of every slice (DESIGN 7):** Matrix (its
-group, every earlier group and `control`, with `control` verdicts pinned), Differential (against the previous
-slice: its own mechanical classes only; against `prism-base`: cumulative classes listed), No flood (`cross-key`
-0; `orphan-anchor` 0 from S2), Spellings (changed fixture rows and golden files listed; `spelling-leak` 0),
-Sample on each slice that adds or relabels edges (S2, S3, S4, S5, S6, S7), before merge. Engines run at
-stage G.
-
-### Slice S0: node-based path builder, used by a trace only (1 to 2 days)
-
-**Files:** create `src/ast/subscript_paths.rs`, `src/ast/subscript_paths_tests.rs`,
-`src/data_flow/build/subscript_trace.rs`, `src/data_flow/build/subscript_trace_tests.rs`; modify `src/ast.rs`
-and `src/data_flow/build/mod.rs` (module lines), `src/access_path.rs` (helpers and unit tests),
-`src/data_flow/build/file.rs` (one `subscript_trace::trace` call per owner beside `param_alias_trace::trace`,
-gated before any traversal when the variable is unset).
-
-```rust
-// src/access_path.rs — encoding per stage D item 1
-pub fn keyed_component(key: &str) -> String;
-pub fn keyed_key(component: &str) -> Option<&str>;   // None for a field, for `[]` and for every legacy string
-
-// src/ast/subscript_paths.rs
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum IndexComponent { Field(String), Keyed(String), Dynamic }
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ChainPath { pub path: AccessPath, pub static_keys: usize, pub dynamic: usize }
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Chain { Unaffected, Admitted(ChainPath), Refused(&'static str) }
-impl ParsedFile {
-    /// Python `subscript`, JS/TS/TSX `subscript_expression`, Go `index_expression`, or a field access over one.
-    /// Unaffected without a static key; Refused with one when the root is not a plain identifier, `self` or
-    /// `this` (parentheses, TS `!`/`as`/`satisfies` peeled) or the chain is one DESIGN 5.1 refuses.
-    pub(crate) fn subscript_chain(&self, node: tree_sitter::Node<'_>) -> Chain;
-    pub(crate) fn subscript_chain_at(&self, start: usize, end: usize) -> Chain;
-    /// The admitted path, else None (callers keep today's text path only for Unaffected).
-    pub(crate) fn static_key_path_at(&self, start: usize, end: usize) -> Option<AccessPath>;
-    pub(crate) fn index_component(&self, subscript: tree_sitter::Node<'_>) -> IndexComponent;
-}
-```
-
-The JS key rule copies the three classes of `literal_key` in `src/cpg/object_literal_args.rs` (DESIGN 5.1:
-ASCII `plain_identifier` other than `__proto__` → field; ASCII without backslash that fails the identifier test →
-keyed; non-ASCII, backslash, template, `__proto__` → `Dynamic`), as amended at stage D. With `PRISM_SUBSCRIPT_TRACE=1`,
-`trace` prints one stderr line per subscript-bearing def or use span:
-`subscript-site\t<file>\t<owner>\t<line>\t<start>\t<end>\t<def|use>\t<recorded path>\t<chain path|refused|->`;
-with `PRISM_SUBSCRIPT_TRACE=all` it prints every def and use span (the node inventory the gates diff, isolated
-nodes included). The logic sits in a pure `trace_lines(…) -> Vec<String>`.
-
-- [ ] Tests first, against a skeleton returning `Unaffected` (RED): `key_rule_table` (one row per language and
-      key form of item 2); `chains_keep_every_component` (`d["u"]["n"]`, `d["a"].c`, `o.items["k"]`,
-      `d[k]["a"]`, JS `o["x"].y` → `o.x.y`, Go `m["k"].x`); `no_static_key_is_unaffected` (`d[k]`, `d[0]`,
-      `d[k].c`, `o.x`, Rust, Java and C subscripts); `refused_chains_are_refused` (`make()["a"]`,
-      `make()["b"].field`, `(a or b)["k"]`, `$o["x"]`, a comment inside the chain);
-      `chain_outcome_matches_an_independent_check` (every field-access and subscript node of every
-      `.py .js .ts .tsx .go` file under `tests/fixtures/`: Admitted exactly when an independent check finds a
-      string-literal index and an admitted root, Refused when it finds the index and a refused root);
-      `at_requires_exact_span`; `js_non_ascii_key_is_dynamic` (`o["é"]` → `Dynamic`, `o["a-b"]` → keyed,
-      `o["x"]` → field); `spelling_pairs_agree_with_runtime` (reads
-      `tests/fixtures/subscript_matrix/truth/spelling_truth.jsonl` through `CARGO_MANIFEST_DIR`: for every pair,
-      the two components are equal exactly when `same`, or one is `Dynamic`; a missing or empty file fails);
-      in `access_path.rs` `keyed_component_round_trips`,
-      `keyed_key_is_none_for_legacy_strings` (`["x"]`, `[]`, `"[]"`, embedded dots, quotes and brackets),
-      `display_debug_and_json_of_keyed_component`; `trace_lines_names_def_and_use_sites`,
-      `trace_all_lists_isolated_nodes`, `trace_off_allocates_nothing`.
-- [ ] Implement; GREEN. Differential against `prism-base` on the seven corpora: zero change in edges, counters
-      and `nav nodes-at`/`taint-reaches`/MCP golden output. Tier-A; two reviewers.
-
-### Slice S1: one path function for every producer and consumer, zero difference (2 to 3 days)
-
-**Files:** create `src/ast/path_seam.rs` and `src/ast/path_seam_tests.rs` (module lines in `src/ast.rs`); modify
-the producers `src/ast/lvalues.rs` (`extract_lvalue_spans_from_node`, `extract_for_in_lvalue_spans`,
-`extract_for_in_lvalues`, `extract_destructuring_def_spans`, `extract_destructuring_defs`: the field/index
-branch), `src/ast/rvalue_identifiers.rs` (the field-access branch of the four walkers),
-`src/ast/member_reference_index.rs` (`Index::build`) and `member_reference_index/oracle.rs` (`collect_path_refs`,
-`collect_fenced_path_refs`), and the consumers `src/cpg/build.rs` ~1639 (`full_arg_path`, call-site edit only),
-`src/cpg/callee_legacy.rs` ~105, `src/cpg/step5b_reference.rs` ~81, `src/cpg/object_literal_args.rs` ~497 (lane
-3, one lookup), `src/cpg/step5c.rs` ~172, `src/cpg/step5c_reference.rs` ~174, `src/cpg/reaching/capture.rs`
-~169 (`collect_reference_identities`), `src/cpg/reaching/capture_regions.rs` ~446. Each site keeps its own
-fallback chain inside the `today` closure. No cache bump.
-
-```rust
-// src/ast/path_seam.rs
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum PathSite { Lvalue, ForHead, Destructuring, Rvalue, MemberIndex, MemberIndexOracle, Step5b,
-    Step5bLegacy, Step5bReference, ObjectLiteralLeaf, Step5c, Step5cReference, CaptureIdentity, CaptureRegion }
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum PathAnswer { Path(AccessPath), Refused, Absent }
-impl ParsedFile {
-    /// The path recorded or looked up for the expression at exactly `start..end`. S1: `today()` as is
-    /// (`Absent` for `None`). S3: the admitted chain path in a passing language, `Refused` for a refused chain,
-    /// `today()` otherwise.
-    pub(crate) fn path_at(&self, site: PathSite, start: usize, end: usize,
-        today: impl FnOnce() -> Option<AccessPath>) -> PathAnswer;
-}
-```
-
-Under `cfg(test)` the seam logs `(PathSite, start, end)` in a thread-local. Alias resolution composes paths and
-looks nothing up at bytes; it changes structurally in S3.
-
-- [ ] Tests first (RED against a skeleton that is never called): `every_site_calls_the_seam` (one fixture per
-      language with a subscript and a field chain in every position: assignment target, augmented target, `for`
-      head, destructuring leaf, read, argument, literal leaf, return, capture; building the DFG and the CPG logs
-      every `PathSite` variant at least once); `seam_returns_today_for_every_site` (each logged call's answer
-      equals its `today()`).
-- [ ] Implement; GREEN. Differential against `prism-S0` on the seven corpora: zero change in edges, counters,
-      the node inventory and `nav nodes-at`/`taint-reaches`/MCP golden output. Tier-A; two reviewers.
-
-### Slice S2: subscript reads as real-span uses (2 to 2.5 days, sample included)
-
-**Files:** create `src/ast/subscript_reads.rs` (declared in `src/ast.rs`) with `fn push_static_key_read(&self,
-node, out)`: for the outermost admitted node of a chain that is a plain subscript read (a field access over a
-subscript keeps today's recorded path until S3) it pushes the path span over the node with the builder's path,
-and the walker then recurses into the children as today (base and index uses stay); inner nodes of the same chain
-are not pushed; a write-only target is never registered as a read, in every language. Modify
-`src/ast/rvalue_identifiers.rs` (one call per walker), `src/ast/member_reference_index.rs` and
-`member_reference_index/oracle.rs` (register these reads), matrix `"S2"`, `src/cpg_cache.rs`, docs. No definition
-is respelled, so a new use is isolated except where an existing JS dot definition has the same path (P07).
-
-- [ ] Tests first (RED): matrix `S2`; in `src/ast/subscript_paths_tests.rs` `outermost_chain_node_is_the_read`
-      (`d["u"]["n"]` gives one use, `d.["u"].["n"]`, at the outer bytes), `write_only_subscript_target_is_not_a_read`
-      (py, js, go), `field_access_over_subscript_keeps_today_until_s3` (`d["a"].c` still `d.[]`).
-- [ ] Implement. GREEN. `cargo test -p prism-mcp --test mcp golden_transcript_test` must not change; if it does,
-      re-record with `PRISM_MCP_BLESS_GOLDEN=1` and name each changed assertion in the PR.
-- [ ] Differential against `prism-S1`, classes: `subscript-use-added` (a new real-span use with a lane-built path
-      and no edge), `js-field-read-edge` (an edge from an existing JS dot-field definition into a new
-      identifier-key read use, labelled by today's rule); zero-gates `cross-key`, `spelling-leak`,
-      `orphan-anchor`. Sample on the `js-field-read-edge` edges. Tier-A; cloud tests; two reviewers.
-
-### Slice S3: keyed definitions, the extension rule, definite identity, consumers (4 to 5 days, sample included)
-
-**Files:**
-- Modify `src/ast/path_seam.rs`: `path_at` answers DESIGN 5.1 for the passing languages. The producers act on
-  the answer: `src/ast/lvalues.rs` pushes one `PathSpan` over the node for `Path`, nothing for `Refused` (the
-  target is consumed; its inputs stay reads of the rvalue walkers), today's branch for the `today` fallback, in
-  every entry point S1 routed (both `assignment_lvalue_paths_on_lines` and `assignment_lvalue_spans_on_lines` in
-  `src/ast/assignments.rs` reach it, a test each); `src/ast/rvalue_identifiers.rs` gives a field access over a
-  subscript its admitted path and no path use for `Refused`; the index and its oracle key field-access nodes by
-  the same answer. Every S1 consumer follows through the seam.
-- Modify `src/data_flow/build/aliases.rs` (`resolve_path`, `resolve_on_alias_span`: append keyed components
-  structurally, never by reparsing).
-- Create `src/data_flow/build/subscript_occurrences.rs` (declared in `src/data_flow/build/mod.rs`) with
-  `subscript_occurrences_tests.rs`: per owner, the admitted read occurrences (path, start, end) indexed by
-  `(base binding, depth)` and per position by static component, with a prefix lookup; the extension rule of
-  DESIGN 5.3 emits, for each lane-built definition of `p`, an edge to every admitted read occurrence that strictly
-  extends `p`, through the same use lookup and prune checks as exact ones, deduplicated per edge pair. S5 adds the
-  wildcard bucket to the same table.
-- Create `src/data_flow/build/subscript_overlap.rs` (declared in `src/data_flow/build/mod.rs`) with
-  `subscript_overlap_tests.rs`: the per-language base predicates of DESIGN 5.3 (Python a bound-once census over
-  `python_prune::is_binding_occurrence`, made `pub(super)`, plus `stable_receivers`; JS `js_prune::stable_bases`
-  and the `affects_writers.rs` eligibility; Go `BindingFacts`, `scope_prune::is_plain_write_site` and
-  `scope_prune::address_taken_names`), the alias policy (stage D; default C: an alias-derived definition,
-  `push_rd_def(.., true)`, whose resolved path is identical or may overlap is a possible overwrite; JS
-  `alias_cert.rs`), and the S3 overlap rule, flow-insensitive: an edge from or to a lane-built path is joined
-  (`worst`) with the overlap label (stage D item 3) when either endpoint fails definite identity or the owner holds
-  any write in possible overlap with the definition's path, a possible overwrite of the alias policy, or (for an
-  extension edge `p` → `q`) a write of a path `r` with `p` a prefix of `r` and `r` a prefix of `q`, or a strict
-  static prefix of `p`. Applied after either RD arm in the producer's label maps (`src/data_flow/build/file.rs`,
-  one call). S4 refines it to routes.
-- `src/cpg/multiline_call_arg_parity_tests.rs` (a keyed-argument case: production, legacy twin and serial
-  reference give identical edges in identical order); `tests/ast/subscript_matrix_test.rs` (`ENABLED` gains
-  `"S3"`); `src/cpg_cache.rs`; docs.
-
-JS `o["x"] = v` now records `o.x`; the census still says `o.[]`, so the site stays uncovered and its kill-only
-`o.[]` def keeps today's wildcard kills until S4 (o27 and L01-js unchanged here).
-
-- [ ] Tests first (RED): matrix `S3`; `subscript_overlap_tests.rs`: `dynamic_selector_pair_is_never_exact`
-      (Y10, Y11), `rebound_base_is_never_exact` (N02), `python_bound_once_census` (a local bound once by `=`
-      outside loops is definite; a second binding, a `for`, `with`, walrus or `except` target, a `global` or
-      `nonlocal`, a binding inside a loop or comprehension is not), `go_definite_base_needs_one_declaration`
-      (a reassignment, a flat-fallback binding or `&m` fails), `alias_map_twin_is_a_possible_overwrite` (N01 under
-      policy C), `certified_js_alias_stays_alias_unstable` (N03), `owner_dynamic_write_downgrades_keyed_edge`
-      (L04), `owner_prefix_write_downgrades_keyed_edge` (L02's shape, labelled overlap until S4);
-      `subscript_occurrences_tests.rs`: `prefix_definition_reaches_extension_read_at_its_bytes` (E01 to E06,
-      py, js, go: the edge ends at the argument's, local's, return value's, receiver's, leaf's and nested read's
-      own bytes, never at a zero-width use), `prefix_definition_skips_other_key_extension` (E07);
-      in `src/ast/subscript_paths_tests.rs`: `refused_call_root_records_no_definition` (R09: no `Def(a)`, no
-      `Def(make)`, `Use(make)` kept; and no whole-text use for `make(a)["k"].c`),
-      `for_of_head_subscript_target_defines_path` (T01), `array_pattern_subscript_leaf_defines_path` (T02),
-      `python_for_and_tuple_targets_define_path` (T04, T05); consumer tests:
-      `object_literal_leaf_keeps_exact_edge_after_rekey` (A01: `d.["u"].n` → `p.slot` `exact`, from the leaf's
-      bytes), `plain_argument_keeps_exact_edge_after_rekey` (A02), `go_map_value_field_crosses_the_call` (P23),
-      `keyed_return_keeps_its_return_value_shape` (Step 5c and its reference agree, return-flow counters equal);
-      pins of readers left on text: `seed_base_comparison_unaffected_by_keyed_fields` (`seeds.rs`),
-      `member_projection_unchanged_by_keyed_reads` (a formal read only as `p["x"]` stays mixed, `p["x"] = v` stays
-      a computed write, M04 unchanged), `lexical_prune_never_drops_a_cross_key_pair` (`d["a"] = t; d["b"] = 1;
-      sink(d["a"])`: rules U, D, S and O keep the `d.["a"]` pair, py, js, go),
-      `for_init_hazard_unchanged_by_keyed_recorded_paths` (a `for (o["a"] = 0; …)` initializer keeps today's
-      hazard verdict).
-- [ ] Implement the seam's answer and the producers, then index and oracle, then walkers and consumers, then
-      aliases, then the occurrence table and the overlap rule. GREEN.
-- [ ] Prediction from C7 (reclassified with S0's trace), then differential on the seven corpora (`measure.sh`,
-      `compare_subscripts.py`, against `prism-S2`). Classes, each mechanical: `keyed-def-respelled` (same bytes,
-      `x.[]` → keyed or field path), `consumer-respelled` (argument, literal-leaf, return and capture endpoints,
-      same bytes, label unchanged), `prefix-extension` (an edge main had, same bytes at both ends, now from a
-      prefix definition to an extension read), `anchor-to-real` (an edge main had into a zero-width `x.[]` use now
-      ends at the real span of that line's admitted occurrence), `keyed-edge-added` (each `exact` one under
-      definite identity, every other one with the overlap label), `keyed-label-move` (Python/Go `killed` →
-      `exact` where the killer wrote another static key, under definite identity), `cross-key-removed` (a removed
-      edge whose endpoints are both admitted occurrences by bytes and whose component sequences differ at a static
-      position), `identity-downgrade` (an `exact` edge at the same bytes now labelled overlap because its base
-      fails the DESIGN 5.3 predicate or the alias policy; the trace names the failing clause),
-      `refused-node-removed` (definitions and uses of whole-text or unrelated names on refused chains, R09),
-      `into-overwrite-line` (as dot fields today), `mixed-key-interim` (edges main had between a keyed write and a
-      dynamic read or the reverse through `x.[]`: listed in full, restored as overlap edges by S5, a row each),
-      `prefix-overwrite-interim` (edges labelled overlap by the owner-wide prefix-write rule, `killed` by S4),
-      `census-cap-interim` (JS owners that cross the completed-definition cap, 2,048, because a static-key write
-      keeps a kill-only `o.[]` def beside its recorded def), `prune-counter`, `loop-plan`. Zero-gates (DESIGN 7):
-      `cross-key`, `spelling-leak` (a changed path at bytes that hold no static-key subscript occurrence, on the
-      node inventory) and `orphan-anchor`. Anything else exits 1. R: no change. Sample on the slice's added and
-      relabelled edges.
-- [ ] Rows K01, K02, P21, P23, R01, R09, A01, E01 to E07 (review focus 2 to 4, 7) pass. Tier-A; cloud tests at 1
-      and 4 threads with a RED-on-base control; two reviewers. PR body: prediction against C7, class counts,
-      `mixed-key-interim` and `prefix-overwrite-interim` lists, changed pinned rows, the lane 3 and lane 9
-      coordination notes, Tier-A, the sample.
-
-### Slice S4: kills and route-based overlap (3 to 4 days; Python and Go only 2 to 2.5)
-
-JS's part (the census identity and `kill-narrowed`) runs only when the stage-M memo passes JS and its
-different-key-kill count (DESIGN 6); otherwise S4 changes the non-JS kills and the route rule only.
-
-**Files:** modify `src/ast/js_write_census/identity.rs` (`Comp` gains a keyed variant; `ident` gives a
-static-key subscript `Comp::Name` or the keyed variant by the S0 rule, `Comp::Index` otherwise; `render` and the
-two relations per item 4), `src/ast/js_write_census/completion.rs` (`access_path` maps the keyed variant with
-`keyed_component`), `src/cpg/reaching/def_buckets.rs` (`affects` splits into `replaces` and `may_overlap`
-(DESIGN 5.4); `Trie::affected` and `legacy_kill_sets_with` kill by `replaces`; in non-JS owners a recorded def
-with a keyed component is killed by a `replaces` write of its path or any static prefix, the root included, and
-an extension edge also by a write between its two paths (DESIGN 5.3), through a per-base trie built only when the
-owner has one), the interference consumers `d3.rs`, `d2c.rs`, `refusal_classes.rs`, `alias_kill.rs`,
-`census_defs.rs` (switch to `may_overlap`), `subscript_overlap.rs` (the owner-wide rule becomes the route rule of
-DESIGN 5.3, reusing the may-kill route check of `alias_kill.rs`), the pinned tests of item 4, matrix `"S4"`,
-`src/cpg_cache.rs`, docs (`CLAUDE.md` #674 and write-census paragraphs).
-
-- [ ] Tests first (RED): matrix `S4`; `src/cpg/reaching/keyed_relation_tests.rs` (declared in
-      `src/cpg/reaching.rs`): `replaces_and_may_overlap_tables` (must, may and unrelated pairs for every
-      consumer above, same and different bindings, equal dynamic selectors), `trie_matches_the_all_pairs_scan`
-      for both relations, `possible_overwrite_on_every_route_downgrades` and `one_clean_route_keeps_exact`,
-      `root_rebinding_kills_keyed_def` (N02), `write_between_prefix_and_extension_kills` (L02, E-shapes),
-      `o27_still_kills`, `o28_never_exact`, `js_non_ascii_bracket_write_still_kills_the_dot_def` (K22).
-- [ ] Implement. GREEN. Pinned-test updates in one commit that lists every changed assertion and fixture row.
-- [ ] Differential against `prism-S3`: labels only, edge multiset identical. Classes `kill-narrowed` (JS
-      `killed` → `exact`, each killer on the route a static-key write of another key; under definite identity
-      when an endpoint is lane-built, unconditionally for a dot-def to dot-use edge, whose kill came only from the
-      wildcard), `kill-prefix` (Python/Go `exact` or overlap → `killed` by a prefix, root or in-between write,
-      `prefix-overwrite-interim` resolved), `overlap-route` (S3's owner-wide overlap label lifted to `exact` where
-      no route crosses a possible overwrite), `killed-to-overlap` (a former kill by a possible-overlap write: o28,
-      a `[]` write over a keyed def), `census-covered` (trace `PRISM_RD_CENSUS_TRACE=1`, `kill:affects`),
-      `census-shift` (labels moved by census coverage, refusal, same-line, captured or alias doubt, or the
-      completed-definition cap after site changes, each traced). Sample on the relabelled edges. Tier-A; cloud
-      tests; two reviewers.
-
-### Slice S5 (stage M go): dynamic-key reach (4 to 4.5 days, sample included)
-
-Runs per passing language whose C1 dynamic class meets DESIGN 6's go. The rule is DESIGN 5.3's third row and the
-dynamic-read paragraph: a dynamic-only write reaches admitted keyed reads of its base binding at its depth with
-equal static components before the dynamic position (dot fields only if stage D item 6 admits them), only in an
-owner where the base has a lane-built occurrence; no edge into a lane-registered dynamic read is `exact`.
-
-**Files:** extend `src/data_flow/build/subscript_occurrences.rs` with the wildcard bucket, so a definition is
-compared only with candidates of its own keys and of the wildcard bucket (JS members too if item 6 says so), and
-`find_wildcard(owner, path, def_line, def_byte, reads_only) -> Vec<(AccessPath, usize, usize)>`: every
-admitted occurrence (path, start, end) in possible overlap (DESIGN 5.3; never two different static components
-at one position), whether or not an exact match exists on the same line. Create
-`src/data_flow/build/subscript_wildcard.rs` (declared in `src/data_flow/build/mod.rs`): for a def span whose
-`subscript_chain_at` is admitted with a dynamic component, or a dynamic-only def (`Unaffected`) whose base has a
-lane-built occurrence in the owner, the occurrences become edges through the same use lookup and prune checks as
-exact ones, deduplicated per edge pair and labelled by `subscript_overlap.rs`, never `exact`; a dynamic subscript
-read of a base that has a lane-built definition gets a real-span use, and every edge into it, an existing
-dynamic-only definition's included, takes the overlap label. Bound: at most 1,000,000 compared pairs per owner;
-an owner over it gets no wildcard edges and is counted in persisted `RdFileStats` counters
-`dfg_subscript_wildcard_pairs` and `dfg_subscript_wildcard_owners_capped` (in `nav dfg-stats` and
-`call-stats.dfg_labels`). Modify `src/data_flow/build/file.rs` (two calls), matrix
-`"S5"`, `src/cpg_cache.rs`. If
-item 3 adds a `FlowDoubt`: `src/cpg/flow_confidence.rs` and every file `rg -l
-dfg_label_nameonly_alias_unstable src crates tests` lists (counter, `--edges` name, stats goldens).
-
-- [ ] Tests first (RED): matrix `S5`; `src/data_flow/build/subscript_wildcard_tests.rs`:
-      `exact_and_overlap_reads_on_one_line_both_bind` (Y12), `many_keys_one_wildcard_is_linear` (1,000 keys and
-      one wildcard on one base: compared pairs ≤ 2,000 by a work counter), `over_budget_owner_gets_no_wildcard_edges`,
-      `wildcard_matches_the_all_pairs_scan`, `dynamic_read_gets_a_use_only_beside_a_keyed_def`,
-      `dynamic_write_reaches_keyed_reads_of_its_depth_only`
-      (Y01, Y05; `d[k] = t` reaches neither `d["a"]["b"]` at another depth nor `d.f`),
-      `dynamic_write_without_lane_occurrence_is_unchanged` (an owner with `arr[i] = v` and no static key: today's
-      nodes and edges), `edge_into_registered_dynamic_read_is_never_exact` (an existing `d[i] = v` def into
-      `d[k]` beside a keyed def). Rows Y05, Y06, K08, K09, K11 (review focus 1, 5) and one row per S3
-      `mixed-key-interim` shape pass.
-- [ ] Implement. GREEN.
-- [ ] Differential against `prism-S4`: `dynamic-edge` (added, never `exact`; count per corpus at most 1.5 times
-      the C1 prediction and no owner over the cap, else the slice stops for the owner), `mixed-key-restored`
-      (each S3 interim loss back as an overlap edge), `control-verdict-dynamic` (a `control` row's verdict moved
-      only through a `dynamic-edge`, P12), `wildcard-counter`; `cross-key` 0; owner fan-out distribution of added
-      edges in the receipt. Sample on the added edges. Tier-A; cloud tests; two reviewers.
-
-### Slice S6 (stage D go): element write to whole-container read (3 to 4 days)
-
-Create `src/cpg/reaching/element_recall.rs` (declared in `src/cpg/reaching.rs`, called beside
-`contribution::analyze` at line ~605); emit beside `recall.emit` in `src/data_flow/build/file.rs` (~811); add
-persisted `RdFileStats` counters `dfg_element_recall_*` (in `nav dfg-stats` and `call-stats.dfg_labels`);
-matrix `"S6"`; cache version; docs. Modelled on `contribution.rs`: Python, JS/TS/TSX and Go owners with RD
-(passing languages only); sources and consumers as DESIGN 5.3 (container reads) and stage D item 7 define them:
-the source is the definition occurrence, the consumer a maximal value operand (the whole container or an
-enclosing subcontainer), never a receiver, key, membership, length, identity, method or nested projection; a
-write of the source path or a prefix, a delete or a root rebinding kills the contribution, a descendant write
-weakens it; the 1,000,000-candidate budget and skip counters; cold, full-hit and partial-hit builds agree (a cache
-test). Label per item 7. Tests first in `src/cpg/reaching/element_recall_tests.rs` (declared in
-`src/cpg/reaching.rs`): `element_write_reaches_later_bare_read`, `receiver_of_sibling_read_is_not_a_consumer`
-(`sink(d["b"])`), `enclosing_subcontainer_is_a_consumer`, `killed_element_gives_no_recall`,
-`over_budget_owner_is_skipped`, `cold_full_and_partial_hits_agree`; then `"S6"` RED → GREEN. Class
-`element-recall` against `prism-S5` (or the last merged slice); sample; Tier-A; cloud tests; two reviewers; PR
-body as S3.
-
-### Slice S7 (stage D go): static-key initialisers (3 to 4 days)
-
-Create `src/ast/static_key_literals.rs` (declared in `src/ast.rs`); one call in `src/ast/lvalues.rs`; matrix
-`"S7"`; cache version; docs. Eligibility and binding as DESIGN 5.5: per eligible entry a def of the entry's
-keyed (JS: field) path whose input is the value expression's span, located from the assignment's initializer;
-duplicate keys, last wins; the container's def and its edges as stage D item 7 decides; single-line literals
-stay an accepted loss unless stage D says otherwise. Tests first in `src/ast/static_key_literals_tests.rs`:
-`own_line_entries_get_keyed_defs`, `split_value_entry_is_ineligible` (I04), `entry_on_opening_line_refuses`,
-`duplicate_key_last_wins`, `spread_or_computed_key_refuses`, `single_line_literal_unchanged`; then `"S7"` RED →
-GREEN, with P18 or I02 a pre-change false positive removed. Class `initialiser-def` against the previous slice;
-sample; Tier-A; cloud tests; two reviewers; PR body as S3.
-
----
-
-## Stage G and H: gates and close-out (2 to 3 days)
-
-- [ ] Final head: full matrix; differential against `prism-base` (cumulative) on the seven corpora, with
-      intervening main changes isolated by the merge-base binary; `cross-key` 0; R unchanged.
-- [ ] Sample: 200 added or relabelled edges of the cumulative change by `tools/sample_edges.py` (seed 10,
-      stratified by rule, language, label, fan-out and owner; the same tool draws each slice's 100), five lines of
-      context each, read by Opus-5.5 (high) under DESIGN 7's per-stratum criteria; unknowns and denominators
-      reported. Gate ≥ 95% per stratum.
-- [ ] Engines: per row, `taint_reaches` verdict and the route checks beside truth; `tools/review_taint_rows.py`
-      records review taint per row (`prism --repo <row dir> --diff <one-line unrelated diff> --algorithm taint
-      --format json`, research caveat 10), reporting applicability (whether any source and sink applied); no
-      change required.
-- [ ] Dead writes, base and head (DESIGN 6): `g/dead_writes.py <edges.jsonl> <sites.jsonl>` per concrete
-      subscript write (target bytes from the census), dead when the definition at those bytes has no outgoing
-      DataFlow edge in the same build's edge dump; counted by bytes, never by spelling; a census write with no
-      Def at its bytes is `unobservable` and counted apart. The benchmark leg only from a benchmark run bound to
-      the head build (lane 11's route, or one the controller produces), classified as the research's
-      `writer-only`/`unattributed`, else reported as not measured. A change of spelling is never counted as a
-      repair. `g/REPORT.md`: every gate with its numbers, per language, and the dropped languages with their
-      census counts.
-- [ ] Docs: `CLAUDE.md` (a keyed-subscript paragraph; #674 and write-census paragraphs),
-      `docs/features/cpg/architecture.md:313` (resolved question 3), `js-ts-known-gaps.md` (§6 `p.x[k] = 1`,
-      ~245, and a subscript entry), `docs/features/language-coverage/language-analysis-gaps.md`.
-- [ ] Follow-up issues: DESIGN 8's items; the main defects of DESIGN 2 with the review's probes (rows R09, M01
-      to M04): call-root targets defining unrelated names (fixed by S3 for static keys), dynamic-only `exact`
-      across different runtime keys, Python dot fields `exact` across root rebinding and uncertified alias
-      writes, the object-literal binder's `q["b"]` edge (lane 3); statement-scoped same-line propagation in
-      `trace.rs` (P19); alias reads (P16, P29); one static-key policy shared with `object_literal_args::literal_key`.
-      Report on the issue (close it if every gate holds); refresh `HANDOFF.md` (`~/.claude/handoff-template.md`)
-      and `LEDGER.md`; offload raw dumps; delete `target/`.
-
-## Acceptance for the lane
-
-Every gate of DESIGN 7 holds on the merged head (matrix, per-slice differentials, no flood, sample ≥ 95%,
-engines recorded, spellings listed); both reviewers approved every slice that ran; the
-report is posted. A failing gate is reported with its numbers and the lane stops for the owner.
-
-## Estimates (working days, review rounds included)
-
-| Languages | M | T and E | D | S0 | S1 | S2 | S3 | S4 | G and H | Total | S5 (stage-M go) | S6, S7 (each, stage-D go) |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| all three pass | 3–4 | 4.5–5.5 | 2 | 1–2 | 2–3 | 2–2.5 | 4–5 | 3–4 | 2–3 | **23.5–31** | 4–4.5 | 3–4 |
-| Python only | 3–4 | 3–3.5 | 1.5–2 | 1–2 | 2–3 | 1.5 | 3–4 | 2–2.5 | 2–2.5 | **19–25** | 3 | 2.5–3 |
-
-No language passing stops the lane after M (3–4 days). S0 and S1 are the same work whatever passes (the builder
-and the seam cover all three languages).
+These estimates include review and sampling for a run with admitted families. The completed census and historical draft are sunk work. If all families miss admission, the remaining measurement/closeout is 1–2 days. Host-slot or comparator-release waiting time is additional.
