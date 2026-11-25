@@ -8,7 +8,7 @@ Each line of `rows.jsonl` is one JSON object with six fields.
 | `group` | `run`, `comparator`, `join`, `oracle`, `review`, or `gate` |
 | `input` | `case` names the directory under `cases/`. File selectors are relative to that directory. Other fields select options. `inventory` lists numbered inventory disagreements. |
 | `required` | One sentence describing the inputs and the observed behavior or open alternatives |
-| `truth` | Expected results for the dimensions the row pins. An `undetermined` label records what remains open for Stage D. The other truth fields still apply. |
+| `truth` | Expected results for the dimensions the row pins. An `undetermined` label records what remains open for Stage D. Fields other than the open dimension are checked when present. |
 | `source` | `probe` retains raw bytes from a named probe, `product` requires a guarded baseline capture, and `synthetic` is adjudicated from the case facts. |
 
 For probe cases, `input.probe` identifies the raw source. Some cases use a
