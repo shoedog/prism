@@ -108,7 +108,7 @@ fn read_stage_m_pins(
     let mut totals = BTreeMap::<&str, Counts>::new();
     for line in input
         .lines()
-        .filter(|line| !line.is_empty() && !line.starts_with('#') && *line != "id\trepo\tdiff")
+        .filter(|line| !line.is_empty() && !line.starts_with('#') && *line != "id\trepo\tdiff" && *line != "name\trepo\tdiff")
     {
         let fields: Vec<_> = line.split('\t').collect();
         let [id, repo, diff] = fields.as_slice() else {
@@ -126,7 +126,7 @@ fn read_stage_m_pins(
             return Err(format!("duplicate pin input: {line:?}"));
         }
         for format in FORMATS.split_whitespace() {
-            let path = outputs.join(id).join(format!("{format}.json"));
+            let path = outputs.join(id).join(format);
             let raw = fs::read(&path).map_err(|error| format!("{path:?}: {error}"))?;
             let document =
                 serde_json::from_slice(&raw).map_err(|error| format!("{path:?}: {error}"))?;
@@ -182,7 +182,7 @@ fn check_bad_pin_input(repo: &str, diff: &str, invalid_field: &str) {
         let dir = outputs.join(i.to_string());
         fs::create_dir_all(&dir).unwrap();
         for format in FORMATS.split_whitespace() {
-            fs::write(dir.join(format!("{format}.json")), empty_capture).unwrap();
+            fs::write(dir.join(format), empty_capture).unwrap();
         }
     }
     fs::write(&manifest, &rows).unwrap();
