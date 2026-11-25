@@ -53,7 +53,14 @@ def calls(repo: Path, config: Config, root: str) -> list[ClientCall]:
     # Config paths are project-relative, e.g. src/utils/request.ts when scanning ui/src.
     base = source_root.parent if source_root.name == "src" and source_root != repo else source_root
     resolver = Resolver(repo, base, config)
-    result = []
+    return [
+        call for path in source_paths(source_root)
+        for call in _File(path, resolver).calls(path.relative_to(repo).as_posix())
+    ]
+
+
+def source_paths(source_root: Path):
+    """Yield the production JavaScript and TypeScript inputs of the adapter."""
     for path in sorted(source_root.rglob("*")):
         if path.suffix not in ts.EXTENSIONS or path.is_symlink() or not path.is_file():
             continue
@@ -61,8 +68,7 @@ def calls(repo: Path, config: Config, root: str) -> list[ClientCall]:
             "__tests__" in path.relative_to(source_root).parts
         ):
             continue
-        result.extend(_File(path, resolver).calls(path.relative_to(repo).as_posix()))
-    return result
+        yield path
 
 
 def _method(rule: MethodSpec, args: list[Node]) -> str | None:
