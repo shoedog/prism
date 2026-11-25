@@ -41,18 +41,18 @@ def _export_names(statement):
 
 
 class ClientSources:
-    def __init__(self, repo: Path, config: Config, root: str):
+    def __init__(self, repo: Path, config: Config, root: str, *, files=None, resolver=None):
         repo = repo.resolve()
         self.repo = repo
         source_root = (repo / root).resolve()
         base = source_root.parent if source_root.name == "src" and source_root != repo else source_root
-        self.resolver = Resolver(repo, base, config)
+        self.resolver = resolver if resolver is not None else Resolver(repo, base, config)
         self.trees = {}
         self.imports = {}
         self.sources = {}
         self.importers = defaultdict(lambda: defaultdict(set))
         self.properties = {}
-        for path in source_paths(source_root):
+        for path in source_paths(source_root) if files is None else files:
             source = path.read_bytes()
             tree = ts.parse(source, path)
             self.trees[path] = tree
@@ -159,7 +159,7 @@ class ClientSources:
         target = self.repo / file
         importers = self.importers[target, function]
         result = []
-        for path in sorted({target} | importers.keys()):
+        for path in self.caller_scope(file, function):
             if path not in self.trees:
                 continue
             bindings = Bindings(self.trees[path])
@@ -182,3 +182,7 @@ class ClientSources:
                 callers.add(node.start_point.row)
             result.extend(self._line(path, row) for row in sorted(callers))
         return result
+
+    def caller_scope(self, file: str, function: str) -> list[Path]:
+        target = self.repo / file
+        return sorted({target} | self.importers[target, function].keys())

@@ -59,6 +59,8 @@ class Extraction:
     unextracted: list[_Unextracted]
     unparsed: list[str]
     handler_inline: int = 0
+    entries: list[dict] = field(default_factory=list)
+    outside_registration: list[dict] = field(default_factory=list)
 
 
 _EXTENSIONS = (".js", ".mjs", ".cjs", ".jsx")
@@ -486,7 +488,7 @@ def _handler_site(units: dict[str, _Unit], unit: _Unit, handler: Node | None) ->
     return HandlerSite(value.unit.file, value.node.start_point.row + 1, value.name)
 
 
-def _entries(root: Node, registration: str) -> Iterator[Node]:
+def _entries(root: Node, registration: str) -> Iterator[tuple[Node, str | None]]:
     for call in _walk(root):
         if call.type != "call_expression":
             continue
@@ -498,15 +500,18 @@ def _entries(root: Node, registration: str) -> Iterator[Node]:
         if _text(callee) != registration:
             continue
         args = call.child_by_field_name("arguments")
-        if args is None:
-            continue
-        for argument in _children(args):
-            array = _unwrap(argument)
-            if array is not None and array.type == "array":
-                for item in _children(array):
-                    entry = _unwrap(item)
-                    if entry is not None and entry.type == "object":
-                        yield entry
+        arrays = [_unwrap(arg) for arg in _children(args)] if args is not None else []
+        arrays = [arg for arg in arrays if arg is not None and arg.type == "array"]
+        if not arrays:
+            yield call, "registration call has no literal array argument"
+        for array in arrays:
+            tokens = [child for child in array.children[1:-1] if child.type != "comment"]
+            for item in tokens[::2]:
+                entry = _unwrap(item)
+                if entry is not None and entry.type == "object":
+                    yield entry, None
+                else:
+                    yield item, "registration item is not an object declaration"
 
 
 def _methods(node: Node | None) -> list[str]:
@@ -553,14 +558,38 @@ def extract(repo: str | Path, spec: RouteSpec) -> Extraction:
         _index_exports(unit)
 
     rows = []
+    entries = []
+    outside = []
     template_locations: list[dict[str, str | int]] = []
     handler_inline = 0
     for unit in units.values():
-        for entry in _entries(unit.root, spec.callee):
+        registrations = list(_entries(unit.root, spec.callee))
+        accepted = {node for node, _ in registrations}
+        for node in _walk(unit.root):
+            if (node.type == "object" and node not in accepted
+                    and _property(node, spec.method_key) is not None
+                    and _property(node, spec.path_key) is not None):
+                outside.append({"file": unit.file, "line": node.start_point.row + 1,
+                                "byte_span": [node.start_byte, node.end_byte], "text": _text(node)})
+        for entry, issue in registrations:
+            record = {
+                "file": unit.file, "line": entry.start_point.row + 1, "end_line": entry.end_point.row + 1,
+                "byte_span": [entry.start_byte, entry.end_byte], "text": _text(entry),
+                "reason": issue, "operation_ids": [], "original_path": None,
+            }
+            entries.append(record)
+            if issue:
+                continue
+            if any(child.type == "spread_element" or
+                   any(key is not None and key.type == "computed_property_name"
+                       for key in (child.child_by_field_name("key"), child.child_by_field_name("name")))
+                   for child in _children(entry)):
+                record["reason"] = "registration entry has a spread or computed key"
             path_node = _unwrap(_property(entry, spec.path_key))
             if path_node is not None and path_node.type == "template_string":
                 if any(child.type == "template_substitution" for child in _children(path_node)):
                     template_locations.append({"file": unit.file, "line": path_node.start_point.row + 1})
+                    record["reason"] = "route path template contains a substitution"
                     continue
                 source = _text(path_node)[1:-1].replace("\r\n", "\n").replace("\r", "\n")
                 path = _decode_string(source)
@@ -568,6 +597,8 @@ def extract(repo: str | Path, spec: RouteSpec) -> Extraction:
                 path = _string(path_node)
             methods = _methods(_property(entry, spec.method_key))
             if path is None or not methods:
+                record["reason"] = ("route path is missing or not literal" if path is None else
+                                    "route method is missing, not literal, or an empty or holed array")
                 continue
             handler = _nested_property(entry, spec.handler_key, spec.handler_under)
             handler_text = _text(handler) if handler is not None else None
@@ -578,6 +609,8 @@ def extract(repo: str | Path, spec: RouteSpec) -> Extraction:
             has_validation, validation_unknown = _validation(entry, spec)
             optional = bool(_OPTIONAL_PARAM.search(path) or _OPTIONAL_PARAM.search(spec.mount))
             normalized = normalize_path(path, spec.mount)
+            record["original_path"] = path
+            record["operation_ids"] = [f"op:{method} {normalized}" for method in methods]
             rows.extend(
                 Route(method, normalized, handler_text, site, has_validation,
                       unit.file, entry.start_point.row + 1, optional, validation_unknown)
@@ -591,7 +624,7 @@ def extract(repo: str | Path, spec: RouteSpec) -> Extraction:
             "count": len(template_locations),
             "locations": template_locations,
         })
-    return Extraction(rows, unextracted, unparsed, handler_inline)
+    return Extraction(rows, unextracted, unparsed, handler_inline, entries, outside)
 
 
 def routes(repo: str | Path, spec: RouteSpec) -> list[Route]:

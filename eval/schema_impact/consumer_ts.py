@@ -31,6 +31,20 @@ class ClientCall:
 
 
 @dataclass(frozen=True)
+class CallObservation:
+    call: ClientCall
+    start: int
+    end: int
+    end_line: int
+    expression: str
+    function_span: tuple[int, int] | None
+    mapping: ClientSpec | None
+    client: ClientSpec | None
+    delegated: ClientSpec | None
+    builtin: str | None
+
+
+@dataclass(frozen=True)
 class _Target:
     kind: str
     members: tuple[str | None, ...]
@@ -201,7 +215,7 @@ class _File:
         hook = self.resolver.hooks.get(hook_name)
         return _Target("hook", (), hook) if hook is not None and not members else None
 
-    def _hook(self, target: _Target, args: list[Node]) -> tuple[_Request, Node | None]:
+    def _hook(self, target: _Target, args: list[Node]) -> tuple[_Request, Node | None, ClientSpec | None]:
         hook = target.spec
         url = ts.argument(args, hook.url_arg)
         fetcher = ts.unwrap(ts.argument(args, hook.fetcher_arg))
@@ -216,19 +230,21 @@ class _File:
                 if request is not None and (request.method, request.spec, request.reason) != (
                     delegated.method, delegated.spec, delegated.reason
                 ):
-                    return _Request(None, url, hook, "dynamic_method"), inline
+                    return _Request(None, url, hook, "dynamic_method"), inline, None
                 request = delegated
         else:
             reference = self.target(fetcher)
             if reference is not None and reference.kind != "hook":
                 request = _request(reference, [])
         if request is None:
-            return _Request("GET", url, hook), inline
+            return _Request("GET", url, hook), inline, None
         spec = hook if hook.strip_prefix or hook.add_prefix else request.spec or hook
-        return _Request(request.method, url, spec, request.reason), inline
+        return _Request(request.method, url, spec, request.reason), inline, request.spec
 
     def calls(self, file: str) -> list[ClientCall]:
-        result = []
+        return [observation.call for observation in self.observations(file)]
+
+    def observations(self, file: str):
         fetchers = []
         for node in ts.walk(self.tree):
             if node.type != "call_expression":
@@ -242,8 +258,9 @@ class _File:
                 continue
             args = ts.children(node.child_by_field_name("arguments"))
             hook_key = target.kind == "hook"
+            delegated = None
             if hook_key:
-                request, inline = self._hook(target, args)
+                request, inline, delegated = self._hook(target, args)
                 if inline is not None:
                     fetchers.append(inline)
             else:
@@ -252,12 +269,18 @@ class _File:
                 request.url, self.bindings.constant, request.spec, hook_key=hook_key,
             )
             type_args = ts.children(node.child_by_field_name("type_arguments"))
-            result.append(ClientCall(
+            call = ClientCall(
                 file, node.start_point.row + 1, request.method, ts.text(request.url), path, url_class,
                 request.reason or url_reason, ts.text(type_args[0]) if type_args else None,
                 self.bindings.enclosing_function(node),
-            ))
-        return result
+            )
+            function = node.parent
+            while function is not None and function.type not in ts.FUNCTIONS:
+                function = function.parent
+            span = (function.start_byte, function.end_byte) if function is not None else None
+            yield CallObservation(call, node.start_byte, node.end_byte, node.end_point.row + 1,
+                                  ts.text(node), span, request.spec, target.spec, delegated,
+                                  target.kind if target.spec is None else None)
 
 
 def _returned_calls(function: Node):
