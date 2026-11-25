@@ -37,42 +37,26 @@ fn compare(path: &str, source: &str) -> usize {
     }
 }
 
-fn fixtures(dir: &Path, count: &mut (usize, usize)) {
-    let mut entries = std::fs::read_dir(dir)
-        .unwrap()
-        .map(Result::unwrap)
-        .collect::<Vec<_>>();
-    entries.sort_by_key(|e| e.path());
-    for entry in entries {
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if name == "private-corpus"
-            || name.starts_with("f-")
-            || name.starts_with("F-private")
-            || name.to_ascii_lowercase().contains("secbench")
-        {
-            continue;
-        }
-        let path = entry.path();
-        if entry.file_type().unwrap().is_dir() {
-            fixtures(&path, count);
-        } else if path.extension().is_some_and(|e| e == "go") {
-            count.0 += 1;
-            count.1 += compare(
-                &path.to_string_lossy(),
-                &std::fs::read_to_string(&path).unwrap(),
-            );
-        }
-    }
-}
-
 #[test]
 fn context_index_matches_ancestor_oracle_all_go_fixtures() {
-    let mut count = (0, 0);
-    fixtures(
+    let files = crate::fixture_corpus::legacy_fixture_files(
         &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
-        &mut count,
+        |p| p.extension().is_some_and(|e| e == "go"),
     );
+    crate::fixture_corpus::assert_visited_within(
+        "context_index_matches_ancestor_oracle_all_go_fixtures",
+        files.len(),
+        // `.go` files of the legacy corpus at 9d1a7d06f: 866.
+        1_000,
+    );
+    let mut count = (0, 0);
+    for path in &files {
+        count.0 += 1;
+        count.1 += compare(
+            &path.to_string_lossy(),
+            &std::fs::read_to_string(path).unwrap(),
+        );
+    }
     assert!(
         count.0 > 20 && count.1 > 100,
         "nonempty fixture coverage: {count:?}"

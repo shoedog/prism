@@ -104,10 +104,20 @@ fn cpp_prune_is_removal_only_over_fixture_tree() {
 
 fn removal_only_sweep() {
     let mut files = 0;
-    for path in fixtures("tests/fixtures", SWEEP_EXTS) {
-        if path.to_string_lossy().contains("secbench") {
-            continue;
-        }
+    let paths = crate::fixture_corpus::legacy_fixture_files(
+        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
+        |p| {
+            p.extension()
+                .is_some_and(|e| SWEEP_EXTS.iter().any(|x| e == *x))
+        },
+    );
+    crate::fixture_corpus::assert_visited_within(
+        "removal_only_sweep (cpp_prune_tests)",
+        paths.len(),
+        // C++ and header files of the legacy corpus at 9d1a7d06f: 211.
+        280,
+    );
+    for path in paths {
         let Ok(source) = std::fs::read_to_string(&path) else {
             continue;
         };

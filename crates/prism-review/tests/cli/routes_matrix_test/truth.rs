@@ -1,4 +1,4 @@
-//! Executed-truth comparison follows `tests/fixtures/routes/truth/reconcile.py`.
+//! Executed-truth comparison follows `tests/routes_matrix/truth/reconcile.py`.
 
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};

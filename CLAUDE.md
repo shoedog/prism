@@ -110,6 +110,8 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `diff.rs` — Diff parsing and `DiffInput`/`DiffInfo` types.
 - `slice.rs` — `SlicingAlgorithm` enum (30 variants), `SliceConfig`, and `SliceResult`.
   `SliceFinding.rules` contains `RuleRef` entries sorted by id, with at most one entry per id. The field is skipped when empty and additive under the API handle promise.
+- `rule_registry.rs` and `rule_registry/` own the named finding rules, `RuleInfo`, and `RuleRef`.
+  Both types have private fields and borrowed read accessors. Named rows make references via `rule_ref()`. `prism::slice::RuleRef` and `prism_review::output::rule_registry` re-export the core API.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
 - `api/` — `prism::api`: the stable, `#[non_exhaustive]` core facade of the `prism` library (`build_info`, `nav_session`/`callers`/`callees`, `OwnerOptions`, `load_review_inputs`, `build_context`, `ReviewOptions`, the finding-confidence items, `with_build_pool`). The review runner, SARIF and targets items are not in it: they live in `prism_review::api` (see "Review crate" below). See the module doc for the compatibility promise.
   `review_loading.rs` captures the root and listing used by `ReviewContextLoader` for targeted reads.

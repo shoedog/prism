@@ -268,6 +268,33 @@ jobs:
           --deselect secbench/test_repair.py::RepairTests::test_admission_keeps_terminal_line_identity_after_metadata_formatting
           --deselect secbench/test_repair.py::RepairTests::test_admission_relocation_preserves_original_and_endpoint_bytes
 
+  # The lane 5 (schema impact) prototype is its own uv project (eval/schema_impact/pyproject.toml and
+  # uv.lock), not part of the shared eval harness: the Tier-A lock pins eval/uv.lock, so these
+  # dependencies (tree-sitter grammars, pyyaml) must not enter it.
+  schema-impact-python:
+    name: Schema-impact prototype tests (Python)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.eval != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.0"
+          enable-cache: true
+          cache-dependency-glob: eval/schema_impact/uv.lock
+
+      - name: Install prototype dependencies
+        working-directory: eval/schema_impact
+        run: uv sync --locked
+
+      - name: Run prototype tests
+        working-directory: eval/schema_impact
+        run: uv run --locked pytest -q
+
   language-coverage:
     name: Language Coverage Matrix
     runs-on: ubuntu-latest
