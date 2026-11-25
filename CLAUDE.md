@@ -344,6 +344,16 @@ cross-package concrete-asserted keys, and package-level `var` receivers.
 classification; `prism nav interface-manifest --repo <dir>` emits the PR-2 in-scope
 interface-dispatch manifest (the §8a denominator for the precision gate report).
 
+`prism nav proto-writes --repo <dir> [--format json|text]` is an unstable JS/TS/TSX
+syntax listing. It reports each nested-key or walked write by target byte span and
+includes the selector sites that supply its receiver. JSON also includes the value
+reads on each target and live selector line, including unresolved reads. Read
+completeness requires proven binding identity and member versions. JSON and text
+show new `incomplete_reason` values for identity escapes, implicit arguments,
+direct eval, possible member aliases, opaque calls, deferred evaluation, accessors
+and unproven control flow. Text prints facts and refusal reasons without expanding
+candidate histories. This slice reports guard state `none` for every fact.
+
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
 two reaching-definition availability counters. RD-unavailable functions with more than
