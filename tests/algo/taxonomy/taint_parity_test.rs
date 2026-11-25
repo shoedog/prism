@@ -20,6 +20,15 @@ use rows::{
 };
 
 const ENABLED: &[&str] = &["control"];
+
+/// `PARITY_ENABLED=control,binding` replaces `ENABLED` at run time (a worker's hand-enabled RED record);
+/// the committed constant is what CI runs.
+fn enabled_groups() -> Vec<String> {
+    match std::env::var("PARITY_ENABLED") {
+        Ok(list) => list.split(',').map(str::to_string).collect(),
+        Err(_) => ENABLED.iter().map(|group| group.to_string()).collect(),
+    }
+}
 const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/taint_parity");
 struct Fixture {
     _dir: TempDir,
@@ -303,7 +312,7 @@ fn check_cells<T: std::fmt::Debug + PartialEq>(
 ) {
     let mut failures = Vec::new();
     let rows = rows();
-    for &group in ENABLED {
+    for group in enabled_groups() {
         let mut executed = 0;
         for row in rows.iter().filter(|row| row.group == group) {
             let expect = row
@@ -442,10 +451,14 @@ fn validate_row(row: &Row) {
 
 #[test]
 fn parity_rows_are_well_formed() {
-    assert!(!ENABLED.is_empty(), "at least one group must be enabled");
-    for group in ENABLED {
-        assert!(GROUPS.contains(group), "unknown enabled group {group}");
-        assert_ne!(*group, "tbd", "tbd rows cannot be enabled");
+    let enabled = enabled_groups();
+    assert!(!enabled.is_empty(), "at least one group must be enabled");
+    for group in &enabled {
+        assert!(
+            GROUPS.contains(&group.as_str()),
+            "unknown enabled group {group}"
+        );
+        assert_ne!(group, "tbd", "tbd rows cannot be enabled");
     }
     let mut ids = BTreeSet::new();
     let mut invalid = Vec::new();
