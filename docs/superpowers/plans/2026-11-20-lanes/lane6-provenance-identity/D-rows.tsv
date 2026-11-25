@@ -1,0 +1,127 @@
+id	decision	want_origin	rule	note
+py-prop-limit	adopt_truth	user_input	5.2.1	Three binding transfers reach input. A fourth alias is the cutoff.
+js-ext-axios	drop_row	none	5.2.4	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+pos-java-declarator	drop_row	none	5.3.2	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+st-java-jdbc-separated	drop_row	none	5.3.2	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+val-go-db-error-slot	drop_row	none;none	5.2.5	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+rq-go-atoi	adopt_truth	user_input;none	5.2.5	strconv.Atoi preserves the selected input in slot 0. Slot 1 is its error.
+hops-py-sqlite-limit	adopt_truth	database	5.2.2	connect, cursor and execute are three handle-producing steps before fetchone.
+hops-py-factory	accepted_loss	none	5.7	L2. A caller-local factory result would require a return summary for get_conn.
+hops-py-redefined-handle	adopt_truth	database	5.1.2	Only the second unconditional constructor reaches the use. The earlier handle is dead.
+hops-py-httpx-with	drop_row	none	5.2.2	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+hops-py-self-client	adopt_want	none	5.2.2	The changed expression returns an HTTP response object. Even a proven Client would yield no payload here. An instance field written in another method also lacks a local handle proof.
+py-helper-request-param	accepted_loss	none	5.7	L2. Recognizing req.args.get as a request method needs caller-to-helper actual/formal flow. An arbitrary .get call has no transfer.
+js-unproven-unregistered-handler	adopt_truth	function_param	5.2.3	An unregistered ordinary formal supplies a plain projected field. A request-shaped name gives no framework proof.
+go-unproven-pgx-v5	adopt_want	none;none	5.2.5	pgx.Rows is a cursor and queryErr is a control slot. Neither is database payload even with a proven import.
+go-unproven-dot-import	accepted_loss	none	5.7	L1. A dot import has no bound package root at the Getenv site.
+control-c-ioctl	adopt_truth	none	5.3.1	TIOCGPTPEER returns an opened peer descriptor. There is no device-value output at this site.
+control-c-recv	adopt_truth	none	5.3.1	recv returns a byte count. The data goes into buffer.
+control-rust-stdin	adopt_truth	none	5.3.2	stdin() constructs the reader. A subsequent byte/line read is the source.
+st-bash-quoted-curl	adopt_truth	external_call	5.3.4	The value is stdout from a network curl in command substitution.
+census-go-line-inheritance-return	drop_row	none;user_input;none	5.1.1	Both vectors suppress the request root at its own FormValue accessor. Count and the method spelling are valid negatives.
+decoy-py-foreign-c-read	drop_row	function_param;none;none;none;none	5.1.1	self is an ordinary bound method parameter. Its plain data.x projection carries function_param. The local read(fd) and module.exports decoys stay silent.
+xfer-py-closure-handle	drop_row	none	5.2.2	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+census-go-precedence-db	drop_row	none	5.2.5	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+eterra-r1-js-pg-client-query	adopt_truth	database	5.2.4	Static CJS destructuring recovers pg.Client. The completed query materializes a result.
+eterra-r1-js-axios-get-vs-helper	drop_row	none;none	5.2.4	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r1-js-dynamic-import-axios	adopt_want	none	5.2.4	A bare Axios response is a handle. Dynamic import also lacks the shared static import proof.
+eterra-r1-go-sql-query-rows	drop_row	none;none	5.2.5	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+eterra-r1-go-http-get-vs-status	drop_row	none;none;none	5.2.5	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r1-go-http-client-get	drop_row	none	5.2.5	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r1-java-jdbc-query	drop_row	none	5.3.2	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+eterra-r2-ts-express-metadata	adopt_want	none	5.2.3	The route object is routing metadata.
+eterra-r2-js-axios-create-get	drop_row	none	5.2.4	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r2-js-axios-named-alias	adopt_want	none	5.2.4	Even with a static original-member proof the entire HTTP response is a handle.
+eterra-r2-go-sql-exec-vs-query	drop_row	none;none	5.2.5	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+eterra-r2-go-http-post	drop_row	none	5.2.5	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r3-js-pg-query-destructured-import	adopt_truth	database	5.4	The static destructuring key is Client. DBClient names that exported constructor.
+eterra-r3-js-axios-root-write-later	adopt_want	none	5.2.4	The changed read passes the response object. A runtime write to the imported root also defeats identity.
+eterra-r3-go-sql-ping-vs-query	adopt_want	none;none	5.2.5	Query/QueryContext returns *sql.Rows. A bare cursor carries no finding. Scan destinations are the data.
+eterra-r3-go-sql-querycontext	adopt_want	none;none	5.2.5	Query/QueryContext returns *sql.Rows. A bare cursor carries no finding. Scan destinations are the data.
+eterra-r3-go-http-response-body	adopt_truth	external_call	5.2.5	ReadAll selects response.Body bytes in slot 0.
+eterra-r3-go-gorm-find	adopt_truth	database	5.2.5	The concrete imported *gorm.DB formal identifies Find. Its writable destination receives the records.
+eterra-r3-py-httpx-get-vs-url-helper	drop_row	none;none	5.2.2	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r3-py-with-stdin-read	adopt_truth	user_input	5.2.2	The with binder retains sys.stdin identity. readline extracts its bytes.
+eterra-r3-js-logical-or-join	adopt_truth	env_var	5.1.2	Both operands can supply the result. At one assignment the earlier equal-severity alternative is the environment operand.
+eterra-r3-go-handle-parameter-vs-local-constructor	adopt_want	none	5.2.5	Query/QueryContext returns *sql.Rows. A bare cursor carries no finding. Scan destinations are the data.
+eterra-r4-ts-express-params-two-fields	adopt_want	user_input;none	5.2.3	params.id is outside data. method has the rubric metadata label.
+eterra-r4-js-axios-delete	drop_row	none	5.2.4	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r4-js-config-named-import-alias	adopt_truth	config	5.4	The static original-member binding identifies the catalogued config.get operation under its local alias.
+eterra-r4-go-http-head-vs-status	drop_row	none;none;none	5.2.5	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r4-go-pgx-v5-alias-explicit-refusal	adopt_want	none;none	5.2.5	An explicit pgx import alias does not turn pgx.Rows into payload. The second result is an error.
+eterra-r4-py-httpx-session-post	drop_row	none	5.2.2	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r5-ts-koa-request-body-field	adopt_want	none	5.2.3	The Koa method selector is metadata.
+eterra-r5-js-axios-get-vs-uri-helper	drop_row	none;none	5.2.4	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r5-go-pgx-dot-import-query	adopt_want	none;none	5.2.5	The returned cursor and error have no payload slot. Dot-import refusal independently prevents a pgx proof.
+eterra-r5-go-http-newrequest-vs-get	drop_row	none;none	5.2.5	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r5-go-http-aliased-import-postform	drop_row	none;none	5.2.5	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r6-ts-koa-cookies-get	adopt_want	none;user_input	5.2.3	Writing ctx.body addresses the Koa context. token is the inbound cookie value.
+eterra-r6-js-axios-create-vs-get	drop_row	none;none	5.2.4	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r6-js-axios-dynamic-import	adopt_want	none	5.2.4	The returned Axios response is a source object. Its dynamic import also has no static package proof.
+eterra-r6-go-http-client-do-vs-close	drop_row	none;none;none	5.2.5	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r6-java-jdbc-column-label-vs-metadata	adopt_want	database;none	5.3.2	JDBC getString reads a column. ResultSetMetaData is a handle.
+eterra-r7-ts-koa-header-vs-method	adopt_want	user_input;none	5.2.3	The incoming header value is data. ctx.method is metadata.
+eterra-r7-js-axios-patch-vs-cancel-check	drop_row	none;none	5.2.4	Both vectors label the entire returned or passed HTTP response as external_call. The response itself is source_object. Retain the handle negative beside a body/header read.
+eterra-r7-go-sql-prepare-query-context	drop_row	none;none	5.2.5	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+eterra-r7-py-django-files-vs-method	adopt_want	user_input;none	5.2.3	The selected uploaded file is inbound data. The request method is metadata.
+eterra-r7-java-jdbc-prepared-statement-parameter-vs-query	drop_row	none;none	5.3.2	Both vectors label a bare cursor as database. A fetch, column accessor or Scan destination supplies the payload. Preserve the binding shape in a corrected handle/read pair.
+esol-r1-ts-express-route-builder-named-handler	adopt_want	none;user_input	5.2.3	The registered handler receives the route key. The response writer supplies no payload.
+esol-r1-ts-koa-nested-request-destructure	adopt_want	none;user_input	5.2.3	The nested inbound query supplies tag. The context is addressed to write an outbound field.
+esol-r1-js-config-create-require-refusal	accepted_loss	none	5.7	L1. createRequire is a separately bound loader outside the static import proof.
+esol-r1-go-http-json-decoder-outside-payload-proof	adopt_truth	external_call	5.2.5	Decode writes the successful decoder input to its argument. Its reader is response.Body.
+esol-r1-go-gin-shouldbindquery-output	adopt_want	none;user_input;none	5.2.5	ShouldBindQuery writes options. The context receiver is used to send a response and Label is a selector.
+esol-r1-py-os-star-import-refusal	accepted_loss	none	5.7	L1. A star import does not establish a unique callable binding at getenv.
+esol-r1-rust-sqlx-query-builder-vs-fetched-value	adopt_want	database;none	5.3.2	The completed fetch returns a payload. The sqlx query builder remains a handle.
+esol-r1-bash-sourced-config-binding-outside-diff	accepted_loss	none	5.7	L2. The shell binding is supplied by a sourced sibling. Do not load or execute it.
+esol-r1-terraform-local-source-in-unchanged-file	accepted_loss	none;none	5.7	L2. The HCL local is defined in another file. Its RHS is outside same-file value flow.
+esol-r2-ts-express-original-url-vs-route-pattern	adopt_want	none;none;user_input;none	5.2.3	originalUrl is the inbound URL. route.path is the local route pattern.
+esol-r2-ts-express-mounted-middleware-registration	adopt_want	none;none;user_input	5.2.3	The mounted Router.use callback is registered. Its request query supplies phrase.
+esol-r2-ts-koa-incoming-vs-outgoing-header-getter	adopt_want	none;none;user_input;none	5.2.3	The incoming getter reads request data. The response getter reads a locally set header.
+esol-r2-ts-nest-custom-decorator-factory-header	accepted_loss	none	5.7	L2. A user-created parameter decorator requires a user-function return summary.
+esol-r2-ts-fastify-error-handler-request-second-slot	adopt_want	none;none;none;function_param;user_input	5.2.3	setErrorHandler gives request slot 1. Slot 0 is an ordinary error parameter. The logger is a service object.
+esol-r2-ts-request-satisfies-keeps-accessor-value	adopt_want	none;none;user_input	5.2.3	satisfies preserves its runtime left operand. The response send site supplies no inbound data.
+esol-r2-js-pg-submittable-query-vs-promised-payload	adopt_want	none;database	5.2.4	Submitting a Query object returns an event handle. Awaiting an ordinary SQL query materializes results.
+esol-r2-js-axios-awaited-response-object-pattern	adopt_want	external_call;none	5.2.4	The data property is remote payload. The request property is transport metadata.
+esol-r2-js-config-module-require-member-loader	accepted_loss	none	5.7	L1. module.require is a member loader outside the shared static import forms.
+esol-r2-js-fetch-async-iterator-body-chunk	adopt_truth	none;none;external_call	5.2.4	The async iteration element of a proven Fetch response body consists of remote bytes.
+esol-r2-js-node-http-callback-stream-data	adopt_truth	none;none;external_call	5.2.4	The incoming response callback and its data event identify the chunk slot.
+esol-r2-go-net-http-servemux-pathvalue	adopt_want	none;none;none;user_input	5.2.5	ServeMux binds the request. PathValue reads its route parameter. The writer and type conversion add no outputs.
+esol-r2-go-viper-global-singleton-transition	adopt_want	none;config	5.2.5	GetViper yields the singleton handle. Its value getter reads configuration.
+esol-r2-go-http-request-limited-body-reader	adopt_truth	user_input;none	5.2.5	MaxBytesReader limits a proven request body. ReadAll returns selected bytes, then an error.
+esol-r2-cpp-fopen-file-handle-is-not-config-payload	adopt_want	none	5.3.1	fopen returns a file handle even when the filename denotes configuration.
+esol-r2-rust-format-string-implicit-value-capture	accepted_loss	none;none	5.7	L6. The implicit format capture is inside a Rust string. There is no explicit value operand in the syntax tree.
+esol-r2-terraform-http-data-source-payload	adopt_truth	none;external_call;none;none;none	5.3.4	The same-file http data block selects the hashicorp/http response_body. data is the traversal root.
+esol-r3-ts-express-body-field-write-leaves-sibling	adopt_want	none;none;none;user_input	5.2.3	A write replaces just the named request field. The other body key retains its input.
+esol-r3-ts-koa-node-request-destructure-raw-headers	adopt_want	none;none;user_input;none	5.2.3	ctx.req.rawHeaders selects incoming data. ctx.res.headersSent is server state.
+esol-r3-js-switch-fallthrough-kills-request-definition	adopt_want	none;none;env_var	5.1.2	All surviving switch paths reach the environment write. The response receiver has no payload.
+esol-r3-go-flag-func-callback-formal	adopt_truth	none;none;user_input	5.2.5	FlagSet.Func binds the parser operand to callback slot 0 when parsing command-line arguments.
+esol-r3-go-select-joins-request-and-environment	adopt_want	none;none;none;user_input	5.1.2	The live request definition wins the join. The response writer is a handle.
+esol-r3-java-existing-try-resource-is-a-value-read	adopt_want	none;user_input	5.3.2	The resource expression reads the existing reader handle. BufferedReader.readLine supplies the data.
+esol-r3-c-recvmsg-writes-indirect-iovec-buffer	accepted_loss	none	5.7	L5. recvmsg reaches bytes through msghdr and iovec pointers. There is no direct destination slot for bytes.
+eastra-r1-ts-express-unregistered-static-handler-twin	adopt_want	function_param;user_input;none;none	5.2.3	Only the mounted class method is a handler. The other method projects an ordinary formal.
+eastra-r1-go-http-formfile-file-handle-filename-and-error	adopt_want	none;none;user_input	5.2.5	FormFile returns stream, file header and error. The header filename is submitted data.
+eastra-r1-go-package-init-dependency-on-later-variable	adopt_truth	none;env_var	5.1.2	A package initializer reads its same-file initialization dependency even when declared later.
+eastra-r1-go-registered-json-decoder-writes-request-body-output	adopt_truth	none;user_input	5.2.5	The decoder reads req.Body and writes label. Its return value is an error.
+eastra-r1-py-sqlalchemy-mapping-result-vs-result-column-keys	accepted_loss	none;none	5.7	L3. engine, connection, execution result and mappings view require four handle-producing steps before one(). The key list is metadata.
+eastra-r1-lua-loadfile-compile-before-config-chunk-invocation	accepted_loss	none;none	5.7	L2. loadfile compiles another Lua chunk. Invoking its result would require cross-file execution.
+eastra-r2-ts-express-erased-this-parameter-before-request	adopt_want	none;none;user_input	5.2.3	An erased TS this parameter consumes no runtime slot in the Express handler.
+eastra-r2-ts-express-response-backreference-to-request	adopt_truth	none;none;user_input;none	5.2.3	The registered response backreference selects the incoming request. The outgoing header was set locally.
+eastra-r2-ts-koa-rewritten-url-and-original-url	adopt_want	none;none;none;user_input	5.2.3	A write replaces the current URL. originalUrl holds the original request target.
+eastra-r2-go-http-clone-isolates-header-map-from-later-write	adopt_truth	none;user_input;none	5.2.5	Request.Clone takes a distinct header-map snapshot. A later write invalidates only the original map key.
+eastra-r2-go-select-receive-comma-ok-from-closed-buffer	accepted_loss	none;none	5.7	L5. Channel send/receive and closed-buffer state have no local value-slot edge.
+eastra-r2-py-generator-expression-captures-outer-iterator-at-construction	accepted_loss	none	5.7	L5. A suspended generator captures an iterator at creation. Its yielded slot needs a deferred producer summary.
+eastra-r2-rs-nested-macro-definition-shadows-source-macro	accepted_loss	none;none	5.7	L6. A user macro supplies the callee after expansion. Macro expansion is outside the Rust pattern table.
+eastra-r2-lua-resume-arguments-return-from-suspended-yield	accepted_loss	none;none	5.7	L5. The first payload crosses a suspended Lua coroutine. resume status and the second constant are not data sources.
+eastra-r2-lua-rawget-bypasses-index-metamethod	accepted_loss	none;none	5.7	L2. The property value would require execution of a user __index callback. rawget bypasses it.
+eastra-r2-c-register-read-over-two-buses-and-negative-error	adopt_truth	none;none;none;hardware;none;hardware	5.3.1	The negative i2c return is an error. The nonnegative return and readb carry hardware data.
+eastra-r2-cpp-token-paste-splits-real-callee-and-builds-prefix-decoys	accepted_loss	none;env_var;none;none;none	5.7	L6. Token pasting creates the real callee after preprocessing. Only the directly spelled getenv is admitted.
+eastra-r3-ts-express-parent-parameter-requires-router-merge	adopt_want	none;none;user_input;none;none;none	5.2.3	Mounted router parameters inherit a parent key only with mergeParams. The isolated branch selects its fallback.
+eastra-r3-ts-koa-middleware-resumption-observes-downstream-header-write	adopt_want	none;none;user_input;none	5.2.3	The first read precedes next(). The registered downstream write invalidates that key on resumption.
+eastra-r3-ts-nest-http-exception-filter-arguments-host	adopt_want	none;none;none;none;user_input;none	5.2.3	The installed filter reads the inbound header through the HTTP host. The response status is local metadata.
+eastra-r3-ts-fastify-not-found-handler-receives-unmatched-url	adopt_want	none;none;user_input	5.2.3	The not-found callback receives the unmatched incoming URL in its first formal.
+eastra-r3-ts-express-app-query-parser-replaces-query-only	adopt_want	none;none;user_input;none	5.2.3	The application query parser replaces query data. The wire header survives.
+eastra-r3-go-sql-scan-conversion-failure-commits-earlier-output	accepted_loss	none;none	5.7	L4. An unsuccessful multi-column Scan has no proven failing column index at this Go site. Inferring it from SQL text is outside the callable contract. Preserve the earlier/later possibilities as unknown.
+eastra-r3-go-gin-getpostformmap-presence-and-input-entry	adopt_want	none;none;none;user_input	5.2.5	GetPostFormMap supplies a map and a presence flag. Only an entry in the map is input.
+eastra-r3-py-stub-only-sibling-does-not-shadow-runtime-package	adopt_truth	external_call;external_call	5.4	A .pyi is not a runtime package. The proven typing.TYPE_CHECKING guard makes the replacement unreachable at runtime.
+eastra-r3-py-fastapi-backgroundtasks-injected-service-and-formal	adopt_want	none;none;none;user_input	5.2.3	BackgroundTasks is framework infrastructure. The Query default binds a payload formal.
+eastra-r3-sh-dynamic-scope-writes-callers-local	accepted_loss	none;none	5.7	L2. The assignment in a shell function resolves a caller-local binding through dynamic scope.
