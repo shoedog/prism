@@ -1,0 +1,44 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Indigo Beacon",
+    "version": "1"
+  },
+  "paths": {
+    "/beacon": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mark": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mark": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  ],
+                  "items": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

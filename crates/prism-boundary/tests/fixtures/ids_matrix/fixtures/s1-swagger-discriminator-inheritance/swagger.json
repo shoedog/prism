@@ -1,0 +1,53 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Clockpetal Exchange",
+    "version": "1.0.0"
+  },
+  "definitions": {
+    "CloudReed": {
+      "type": "object",
+      "properties": {
+        "family": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "family"
+      ],
+      "discriminator": "family"
+    },
+    "CopperReed": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/CloudReed"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ridge": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "ridge"
+          ]
+        }
+      ]
+    }
+  },
+  "paths": {
+    "/reed": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful exchange",
+            "schema": {
+              "$ref": "#/definitions/CloudReed"
+            }
+          }
+        }
+      }
+    }
+  }
+}

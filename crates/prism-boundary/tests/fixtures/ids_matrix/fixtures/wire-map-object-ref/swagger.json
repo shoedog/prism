@@ -1,0 +1,39 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "definitions": {
+    "ColorSlip": {
+      "type": "object",
+      "properties": {
+        "shade": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "byCoat": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/definitions/ColorSlip"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

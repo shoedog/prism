@@ -1,0 +1,33 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/mix": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "name": "shade",
+            "in": "formData",
+            "type": "string"
+          },
+          {
+            "name": "binder",
+            "in": "formData",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  }
+}

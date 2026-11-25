@@ -1,0 +1,59 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/glaze": {
+      "get": {
+        "responses": {
+          "199": {
+            "description": "Documented response",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "low": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Documented response",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "first": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "299": {
+            "description": "Documented response",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "last": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "300": {
+            "description": "Documented response",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "high": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Amber Anvil",
+    "version": "1"
+  },
+  "paths": {
+    "/forge": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Round"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Square"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "round": "#/components/schemas/Round",
+                      "square": "#/components/schemas/Square"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Round": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "round"
+            ]
+          },
+          "radius": {
+            "type": "number"
+          }
+        }
+      },
+      "Square": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "square"
+            ]
+          },
+          "edge": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

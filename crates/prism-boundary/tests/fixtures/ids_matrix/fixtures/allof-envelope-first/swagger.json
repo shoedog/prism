@@ -1,0 +1,51 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "definitions": {
+    "KilnEnvelope": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/KilnEnvelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "shade": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
