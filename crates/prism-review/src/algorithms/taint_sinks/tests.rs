@@ -14,7 +14,7 @@ pub(super) fn hit(language: Language, source: &str, line: usize, name: &str) -> 
 }
 
 pub(super) fn tag(h: Option<SinkHit>) -> Option<(&'static str, &'static str)> {
-    h.map(|h| (h.rule, h.cwe.unwrap_or("none")))
+    h.map(|h| (h.rule(), h.cwe().unwrap_or("none")))
 }
 
 #[test]
@@ -428,9 +428,14 @@ fn legacy_languages_keep_library_names() {
         let parsed = ParsedFile::parse("t", src, lang).unwrap();
         let ids = parsed.identifiers_on_line(1);
         let id = ids.iter().find(|n| parsed.node_text(n) == name).unwrap();
-        SinkClassifier::default()
-            .classify("t", &parsed, *id, name, &legacy)
-            .is_some()
+        let hit = SinkClassifier::default().classify("t", &parsed, *id, name, &legacy);
+        if let Some(hit) = hit {
+            assert_eq!(
+                (hit.rule(), hit.cwe(), hit.strength()),
+                ("legacy", None, Strength::Strong)
+            );
+        }
+        hit.is_some()
     };
     // Library entry points keep firing outside Bash.
     assert!(c(

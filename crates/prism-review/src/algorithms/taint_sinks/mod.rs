@@ -21,6 +21,7 @@
 mod callee;
 mod go;
 mod go_scope;
+mod hit;
 mod js;
 mod js_binding;
 mod js_modules;
@@ -38,6 +39,7 @@ mod sqla_value;
 mod strength;
 mod structured;
 
+pub(crate) use hit::SinkHit;
 pub(crate) use js::exec_call_is_command as js_exec_call_is_command;
 pub(crate) use strength::Strength;
 
@@ -48,40 +50,6 @@ use std::cell::{OnceCell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use tree_sitter::Node;
-
-/// A matched sink rule and its strength (#636).
-///
-/// The finding structure has no slot for the rule tag (`category` stays `taint_sink`
-/// and the description is pinned by consumers), so the tag lives here for the
-/// unit tests; `strength` drives the finding severity (`strength::line_strength`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct SinkHit {
-    /// Rule name (`js-eval`, `go-db-call`, `legacy`, ...).
-    pub rule: &'static str,
-    /// CWE tag, absent for the legacy substring list.
-    pub cwe: Option<&'static str>,
-    /// `Weak` when the rule recognised the call but its argument shape defuses it.
-    pub strength: Strength,
-}
-
-impl SinkHit {
-    const fn new(rule: &'static str, cwe: &'static str) -> Self {
-        Self {
-            rule,
-            cwe: Some(cwe),
-            strength: Strength::Strong,
-        }
-    }
-
-    /// The same hit, graded weak when `weak` holds.
-    fn weak_if(mut self, weak: bool) -> Self {
-        if weak {
-            self.strength = Strength::Weak;
-        }
-        self
-    }
-}
 
 #[derive(Default)]
 struct FileFacts {

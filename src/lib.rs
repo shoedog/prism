@@ -76,6 +76,7 @@ pub mod resolution_disproof;
 pub mod resolution_identity;
 pub mod resolution_receiver;
 mod review_context;
+pub mod rule_registry;
 pub mod sanitizers;
 pub mod slice;
 pub mod type_db;
