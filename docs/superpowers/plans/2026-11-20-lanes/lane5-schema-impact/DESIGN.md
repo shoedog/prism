@@ -1,8 +1,7 @@
 # Lane 5: schema-aware service impact — design
 
-Status: design for the feasibility study is final (folded with design review round 1, 2026-11-21); the pilot
-design is provisional until the feasibility memo (`FEASIBILITY.md`, section 6.4) exists and is settled at
-stage D (section 7.1). Research record: `~/prism-evidence/lanes-2026-11-20/research/lane5-schema-impact.md`.
+Stage D design of record for the both-pair pilot. Section 6 records the feasibility protocol. Sections 5, 7 and 9
+specify the product. Amendment A1 governs the report and its evidence requirements.
 
 ## 1. Intent
 
@@ -70,10 +69,9 @@ Goals:
    handlers and to consumer call sites, and report the code locations affected by a schema change.
 2. Every binding states how it was established and whether it is unique. Everything that could not be bound
    is listed with a reason. The report never implies coverage it does not have.
-3. Every artifact records the repository, revision and commit date it was computed from, and the schema
-   source it used (repository, revision, date, and a file path or "derived from the route table") with a
-   content hash. The impact step says, per changed element and per consumer document, whether the consumer's
-   binding is current, stale or unknown against the change (section 5.6).
+3. Every artifact identifies its source trees, commit metadata when applicable, authority and schema provenance.
+   The impact step rematches admitted inventories and reports the basis of any earlier binding comparison (sections
+   5.2 and 5.6).
 4. The feasibility study produces numbers, the list of integration inconsistencies standing today, and
    rendered example reports chosen by adjudicated class, from real history on the public pair and, locally
    and privately, on the owner's pair, so the owner can judge payoff before funding the pilot.
@@ -113,140 +111,236 @@ A fourth idea, delegating everything to existing tools, does not answer the ques
 breaking` and Pact compare schemas or contracts but do not locate handler and client code. They can be the
 source of the changed-element list, which is why the impact step accepts one from outside (5.2).
 
-## 5. Architecture (pilot; provisional)
+## 5. Architecture of the pilot
 
-```
-schema source @ rev ──► SchemaIndex ─┬──────────────► diff(old,new) ──► changed elements ─┐
-(file, or route table)               │                                                     │
-producer repo @ rev ──► bind ──► bindings document (role: producer) ──────────────────────┤──► impact document
-consumer repo @ rev ──► bind ──► bindings document (role: consumer, with callers) ────────┘
-```
+Extract each role at a named tree. The impact step compares admitted producer and consumer inventories and renders
+the result from a frozen evidence record. Every input names its API (a caller-supplied name, defaulting to the
+producer repository's name). Identity joins use the pair (API, element ID).
 
-Every document names the API it describes (`api`, a caller-supplied name, default the producer repository's
-name). The join key of the impact step is the pair (api, element id), so two producers that both serve
-`GET /health` never meet; the id string itself carries no API name.
+**Evidence rule for every row.** Name the admitted input record that makes each decision possible. Bind it to the
+tree, blob/span or numbered config entry, API, authority and effective scope. When the record is absent, mark the
+dependent claim **Not checked** and its coverage partial, retaining observed declarations, calls and readable arms.
+A missing policy, inventory or dependency cannot yield a confident grade, negative, total or notification. The
+matrix ledger below assigns these records by fixture column and rule family. Run the same rule on product inputs.
 
 ### 5.1 Element identity
 
-An element id is a string. Two implementations (the Python prototype and the pilot crate) must produce
-identical ids. The prototype writes `ids.tsv` for the pinned schema in Part 1; the rules below are tentative
-until stage D (section 7.1), which states them against the enumerated rows of Task E-1; `ids.tsv` is then
-regenerated and only that regenerated file is the pilot's golden file, reproduced byte for byte by the
-pilot's tests.
+An operation ID is `op:<METHOD> <canonical path>` (for example, `op:* /tiles`). A field ID is
+`field:req:<METHOD> <path>#/<pointer>` or `field:resp:<METHOD> <path>:<status>#/<pointer>`. A definition rename,
+parameter rename or change of `operationId` preserves identity. Retain original text, typed path tokens, definition
+associations, site, source dialect, authority and normalization policy beside the ID. Use these rules for
+extraction, the regenerated golden and both sides of matching. Section 9 gives the disposition of every E-1 class.
 
-**Canonical path.** The path of an operation is the path the schema (or, for a derived schema, the route
-table) declares, joined with its base and normalised by the table below. Consumers reach it through a
-client-side prefix map (5.4: strip, then add); route-table producers reach it through a producer-side mount
-(5.3). Nothing else adds or removes a prefix.
+**Method and address.** In Swagger 2 read only the lowercase path-item keys get, put, post, delete, options, head
+and patch. OpenAPI 3 also admits trace. Resolve a static Path Item reference at its referring path. For route
+declarations read explicit literal methods, including extension verbs, and expand a known list to distinct methods.
+Uppercase the schema keys and the verbs of a registrar that normalizes them. Preserve the spelling of a
+case-sensitive extension method. A genuine all-method route has ID `op:* <path>`. Expand a closed registrar's star
+only under evidence of its finite method set. Omit internal-only routes from the public authority. An
+invalid/dynamic entry is an extraction diagnostic. A partially known list gives observed declarations and
+incomplete method coverage.
 
-**Operations:** `op:<METHOD> <path>`.
+- **Schema bases.** Read Swagger `basePath`, document `host` (including port) and the operation's effective
+  `schemes` (operation override, otherwise document). For omitted host or schemes inherit the corresponding part
+  of the admitted retrieval URI. Freeze the resulting origin set with the schema inventory. An unresolved part
+  limits origin comparisons while leaving an observed path available. In OpenAPI 3 take the nearest applicable servers list (operation, path
+  item, document). The implicit document server is `/` for an absent or empty document list. Expand **all**
+  applicable URLs independently of order. Substitute variable defaults, including embedded variables, and enumerate
+  declared finite values. For an open variable keep the default as a known deployment and mark other deployments
+  unchecked. Resolve a relative server URI against the admitted retrieval URI of the document declaring it,
+  including referenced Path Items. A leading `//` introduces an authority. Keep scheme/authority evidence for API
+  selection. An unknown retrieval base affecting the result leaves that base unchecked.
+- Append the declared schema path to the server path as the format specifies. An absent base or the root base
+  alone adds nothing. A non-root server path ending in a slash followed by a declared leading slash retains both.
+  For example, `/studio` plus `/` gives `/studio/`. Preserve significant interior and trailing slashes (including
+  Swagger base plus root), case and percent escapes. Distinguish encoded slashes/braces from separators/captures.
+  Use the router's own evidenced join, case and slash options for registrations, including Gin's group join and
+  Hapi's prefix plus child root. For a case-insensitive declaration use its ASCII-folded key and match under that
+  policy. Never fold case across an entire API because one route permits it.
+- Parse captures only in their source dialect. OpenAPI braces, Gin/Express colon captures (including quoted names)
+  and Hapi required captures become `{}` wherever they occur. Keep fixed text and adjacent captures. Simple scalar
+  label serialization adds the literal dot. Retain equality of repeated parameter names and supported
+  serialization/constraint facts as attributes for matching. A literal schema colon stays literal.
+- `{}` matches one non-empty component when it occupies the whole segment. Within a mixed segment its capture
+  must consume non-empty text between the fixed parts. An empty capture is admitted only by `{?}` or `{*0+}`.
+  Model a whole-component string variable as a non-empty segment parameter (§5.4). Score a possible empty
+  spelling separately only if the substitution shares its segment with fixed text and that spelling changes
+  capture eligibility. Keep the fixed text when scoring it.
+  Use `{*}` for one or more nonempty segments, `{*N}` for exactly N and `{*0+}` for zero or more after the
+  retained separator. Gin `/mugs/*trail`, Express 4 `/mugs/*` and Hapi `/mugs/{trail*}` under the empty-tail
+  policy project to `/mugs/{*0+}`. The empty tail consumes no segment after `/mugs/`. Accept a bare parent only
+  if the versioned router policy independently admits it. The Express 5 optional root wildcard includes `/`.
+  Keep separator presence, empty-tail policy and slash aliases on the tokens. Emit `{?}` for an optional capture,
+  including its separator in the option only for a whole segment. Expand finite literal groups and mounts to
+  distinct paths. `/tiles/{p*2}` gives `/tiles/{*2}`. Mixed optional captures keep fixed text. Retain constraints
+  and dispatch evidence per source version. Pool eligible methods in the declaration matcher (§5.4).
 
-| Rule | Example |
+- Compose only evidenced prefixes. Nested literal groups concatenate in order. A versioned configuration
+  identifies the plugin or router to which its mount applies. An admitted mount declaration or config entry
+  supplies exactly the scoped prefix, once. Retain the suffix, plugin or router, mount and source. A suffix alone
+  gives a local declaration. Different API authorities use distinct API keys. Within one API show ambiguous
+  virtual-host, selector or constrained-route declarations at their sites without certifying one handler. Compare
+  annotations and registrations under their own authorities. Disagreement records drift. A suffix or a stale
+  annotation cannot establish what serves the public address.
+- Group collisions by method **and** canonical path. Disjoint methods survive. For a duplicate schema key retain
+  the lexically first original path as the deterministic index representative, all original declarations as
+  evidence and `duplicate_operation`. Do not combine the two wire trees or certify a unique producer. Distinct
+  sites on route-table entries remain individually visible. Repeated server alternatives of the same declaration
+  deduplicate with their provenance.
+
+**Messages and status keys.** A request has one declared body root. Resolve Swagger parameter references **before**
+merging the inherited path-level list with operation entries by (name, location). A matching operation entry
+replaces the inherited one. Select the effective `in: body` schema and omit the parameter name from the pointer.
+Multiple effective bodies leave the root ambiguous. OpenAPI uses the resolved requestBody. Observe dialect
+restrictions including 3.0's ignored GET body and 3.1's explicit GET body. Responses resolve at each use, including
+a shared response object under two codes.
+
+Keep the set of explicitly declared success keys independent of the presence of a schema or body. Accept exact
+200–299 and, in OpenAPI 3 only, uppercase `2XX`. An exact key overrides a range for that code. HEAD, 204 and other
+HTTP responses that cannot carry content have no body fields even if a schema is written. A `default` covers
+otherwise unspecified codes and can describe a successful response. It establishes neither a particular success
+code nor an explicit success range. Keep the fallback declaration and coverage limit. A1 excludes default bodies
+from the success-field count. The three explicit-key controls exercise this rule. The witnessed 202 served through a fallback is an accepted
+loss for field coverage.
+[OpenAPI 3 Responses](https://spec.openapis.org/oas/v3.1.1.html#responses-object) ·
+[Swagger 2 Responses](https://spec.openapis.org/oas/v2.0.html#responses-object)
+
+Read Swagger 2 `consumes` for requests and `produces` for responses. Use the operation list when present,
+including an empty list. Otherwise inherit the document list. Select only an applicable `application/json`
+entry (case-insensitive type/subtype). OpenAPI 3 uses the specific JSON entry in the message's `content`.
+
+When both Swagger scopes are readable and omit the directional key, a producer record may establish that the
+body schema describes `application/json`. Bind its numbered entry to the API, producer tree, schema blob,
+operation, direction and response status where applicable. An empty, unreadable or explicitly non-JSON list
+cannot use this omission rule. A generator name, JSON document syntax or Go struct tag alone supplies no
+media evidence. The record must establish wire media by one of the following routes.
+
+- **Server-codec generator contract.** Pin the generator version, settings and inputs that produced the schema
+  blob and generated or configured the server codec. Cite the contract and its installation at this root.
+  It must guarantee the JSON body and wire media type through final dispatch, including applicable overrides.
+  Swaggo generates documentation. The public pair P therefore uses the source route below.
+- **Producer source.** For the operation, direction and applicable status, trace route registration through
+  handler body reads/writes, delegated helpers, wrappers, middleware and early/abort writers, including
+  negotiation, render calls and header overrides. Inventory the paths from the admitted route and middleware
+  configuration independently of which codecs extraction recognizes. Record each region's file, blob, span,
+  extraction status and evidence of its effect or why it cannot serve this root. Every applicable request path
+  must select `application/json` by request Content-Type and decode the body as JSON. Every applicable response
+  path must emit JSON bytes with final Content-Type `application/json` for that status. Compare the media
+  type/subtype case-insensitively, apart from parameters. An unresolved path, an alternate representation or a
+  wrapper committing `text/plain` over JSON bytes leaves the root media-unverified.
+
+The comparison manifest may name a producer-media catalog by study/config input ID, tree, path and blob.
+The builder reads its numbered entries from that pinned tree, admits it like client configuration under §5.6
+and validates each entry and dependency against its producer root. In historical mode the catalog needs its own
+cutoff evidence, even if compiled today entirely from old blobs. Alternatively, the builder may derive numbered
+entries afresh by applying the frozen extraction rules to admitted source and dependencies for that revision.
+For this route the source alone must determine the inventory and decision without later catalog selections or
+labels. Freeze the derived inventory with its input IDs, source spans and extraction version. In either case
+`message_roots[].producer_media_ref` identifies the frozen catalog or derived inventory by input ID and entry
+number. The entry resolves to the proof route, source locations or contract, coverage and dependency receipts.
+
+For A1 product reports and replay, verify media on **both sides** of a historical field comparison, each at
+its own revision. Save the original declaration or omission and cite the effective JSON source beside the
+comparison. Without a valid record for an omitted key, or with conflicting evidence about that omission, keep
+structural fields media-unverified and print **Not checked** for dependent claims. Losing media evidence on one side of a diff
+cannot establish a field addition or removal. Preserve body presence and status evidence. Path, query, header,
+cookie, form and multipart members have no JSON-body field ID. Scalar bodies have no named field.
+
+**Wire-tree grammar.** The input is a dialect-tagged message root, its media/status authority, schema blobs and
+reference dependencies. Project comparable fields only after the media and status checks above.
+The grammar at each typed pointer is `schema = false | true | atom | object | array |
+ref | allOf(schema+) | anyOf(schema+) | oneOf(schema+) | unsupported`. A node may contain several productions.
+Normalize references and conjunctive siblings first, apply constraints to the effective container, then emit named
+edges. Carry separate sets for observed declarations and comparable fields. An unknown can preserve a spelling
+without certifying its presence, absence or type. Apply the following transitions in order.
+
+| Production or boundary | Deterministic transition |
 |---|---|
-| Only the keys `get`, `put`, `post`, `delete`, `options`, `head`, `patch`, `trace` of a path item are operations; the method is upper-cased | `op:GET /a` |
-| The base is `basePath` (Swagger 2.0). For OpenAPI 3 the base is the path part of the first document-level server URL after dropping scheme, host and any `{variable}` segments; this OpenAPI 3 rule is **provisional** (no OpenAPI 3 input is in the study), is pinned by a unit test only, and stays out of `ids.tsv` until an OpenAPI 3 corpus is measured. A base of `/` or empty adds nothing. Base and path are joined with exactly one `/`; repeated slashes collapse | base `/api`, path `/x` → `/api/x` |
-| No trailing slash, except the root path, which is `/` | `/a/` → `/a`; `/` → `/` |
-| Every `{name}` becomes `{}`; a segment that mixes text and a parameter keeps its text. A route-table or gin colon parameter (`:id`) also becomes `{}` | `/a/{id}` → `/a/{}`; `/f/{id}.json` → `/f/{}.json` |
-| No percent-decoding and no case change in the path | |
-| Collisions are detected per operation id, not per path. Two path items that normalise to one path are merged when their methods are disjoint. Only a true duplicate (the same method on two paths with one normalised path) keeps the operation whose original path string sorts first, and warns | `/a/{id}` with `get` and `/a/{name}` with `post` → `op:GET /a/{}` and `op:POST /a/{}`, no warning; `get` on both → `op:GET /a/{}` from `/a/{id}`, warning `duplicate_operation` |
+| Reference or composition back-edge | Resolve static JSON pointers and relative admitted JSON documents, decode fragment escapes and pointer tokens once. Track (resource, pointer) on the current expansion stack. At re-entry stop this branch, retain the referring field if present and attach `recursive` to the current typed pointer. At a root or composition-only cycle attach it to the root or composition site, mark expansion there partial and emit no synthetic field. Pop on return so sibling uses expand. Missing blob, anchor, dynamic reference or nested resource base outside this resolver gives partial at the affected reference. OpenAPI 3.0 Reference Objects ignore siblings. Apply 3.1 schema siblings as a conjunction. |
+| Effective conjunction | Intersect types, simple finite scalar domains, scalar bounds and container limits. A false schema or a proven empty intersection eliminates that branch. For objects use the greatest `minProperties` and least `maxProperties` across conjuncts (defaults 0 and unbounded). Union the declared required names, then apply OpenAPI directional annotations before testing feasibility or visiting edges. Exclude `readOnly` names from the request required set and `writeOnly` names from the response required set. Each remains eligible as an optional field in that direction. For arrays a minimum above the effective maximum eliminates the branch and a zero maximum withholds all item edges. Nullable branches retain their separate non-null possibilities. |
+| Positive composition | Keep each `allOf` member's declared names and remainder policy through intersection, including on referenced members. Keep sorted origins for repeated names and `allof_overlap`. Apply the per-name rule below to open and closed objects. An intersection outside the supported grammar gives partial at the shared container. For `anyOf` union feasible branches with their conditions. For `oneOf` require disjointness for a confirmed branch claim (e.g. disjoint types or required discriminant values). Otherwise keep branch observations and mark the affected union partial. Keep union warnings and discriminator mappings. Drop a proven impossible arm before walking it. An unresolved arm can affect sibling claims at the same pointer. |
+| Object names and remainder | Take the union of literal property and required names. For each name, intersect what **each** conjunct permits at that name. A member supplies its local property schema if declared there, otherwise its own `additionalProperties` (true/omitted permits any value, false forbids the name, a schema constrains its value). For a fresh name outside the union, intersect all remainder policies. A forbidden or provably empty value domain removes an optional name and makes a required name impossible. Unsupported applicators or undecidable intersections give partial where they could affect feasibility. |
+| Object feasibility and residual capacity | For this direction reserve one slot per distinct name in its effective required set. An impossible required name, a minimum above the maximum, or more required names than slots eliminates the object branch in this direction. If the effective remainder forbids fresh names, count the distinct feasible literal names, including feasible required-only names. Fewer than `minProperties` eliminates the branch. An unknown key or value domain affecting this test gives partial. Otherwise residual capacity is the effective maximum minus the size of this direction's required set (unbounded without a maximum). |
+| Object edges | On a feasible branch emit required names. Emit a feasible optional name or descend through a schema-valued fresh-name map edge only if residual capacity is positive. Test each optional edge independently against the same residual capacity so every field feasible in some valid object of this direction survives the capacity check. Map traversal excludes all literal names accounted for above, including required-only names. With zero spare slots only required names can appear. At each emitted literal carry branch, directional requiredness, readOnly/writeOnly and effective shape and recurse. |
+| Field declaration with a readably empty enum | Preserve the declared element ID, the enum-list presence bit and the empty member set for the declaration diff. The empty value domain contributes no feasible wire values. Compare an absent list with this record even where wire feasibility is empty. |
+| Array, true or atom | Recurse on homogeneous schema-valued items through `[]`. Map and array edges never emit a field on their own. Scalars, true, empty schema and boolean map policy introduce no named descendants. Serialize at most 16 edges and give `depth_cut` at the parent only for a withheld deeper edge. |
+| Unsupported or unresolved | Tuple/prefix items, contains, conditionals, negative/dependent schemas, pattern/property-name restrictions, object enum/const, evaluated properties/items and unknown assertion vocabularies give partial at the smallest container whose children can change. Keep local declaration observations separately, without certifying fields or comparison under that boundary. Preserve unaffected siblings outside it. A descriptive annotation alone has no effect. Any combination without a preceding transition takes this fallback. |
 
-`operationId` is carried as an attribute, never as identity.
-
-**Fields** are computed on the operation-rooted wire tree, so that a producer type rename that leaves every
-byte on the wire unchanged changes no field id. The producer's definition name is an attribute.
-
-The wire tree of an operation has one root per message: the request body (`req:<METHOD> <path>`) and each
-2xx response body (`resp:<METHOD> <path>:<status>`), where `<METHOD> <path>` is the operation id without
-`op:`. The request body is the schema of the Swagger 2.0 parameter with `in: body`, or OpenAPI 3
-`requestBody.content["application/json"].schema` (another media type only when `application/json` is
-absent: the first in sorted order, with a warning). A 2xx response is a response whose key is a three-digit
-code from 200 to 299, or the OpenAPI 3 range key `2XX`; `default` and every other key are not read. Path,
-query, header and `formData` parameters are not fields.
-
-Id: `field:<root>#/<pointer>`, for example
-`field:resp:GET /answer/admin/api/api-key/all:200#/data/[]/access_key`.
-
-| Schema shape | Pointer segment |
+| Additional P1 controls (outside the pinned 217) | Required result |
 |---|---|
-| property `b` | `/b` |
-| the items of an array | `/[]` |
-| `additionalProperties` holding an object | `/*` |
-| a `$ref` | expanded in place: the referenced definition's properties continue the pointer |
-| `allOf` | members flattened into the same node; the swaggo envelope `allOf: [{$ref: RespBody}, {properties: {data: …}}]` gives `…#/code`, `…#/msg`, `…#/data`, `…#/data/…`. Member order never matters: a property that two members declare is one field whose shape signature is the sorted list of the members' signatures, with a warning `allof_overlap` (stage D may replace this with intersection semantics) |
-| a property whose schema is `allOf` with one `$ref` member (swaggo's property wrapper: 9 properties in 8 definitions of P, e.g. `schema.BadgeListInfo.level`) | the property keeps its name and is read as that `$ref`; sibling keys (`description`, `minimum`) do not change the id |
-| `oneOf` / `anyOf` | the union of the members' properties, with a warning |
+| `composition-only-cycle`, a message schema referencing itself at the root, and the two-node allOf/ref variant | Operation retained, partial at the root with `recursive`, no field ID. A separately reachable acyclic sibling still expands at its own site. |
+| Object with one slot, declared string properties `kept` and `extra`, and an object remainder with field `tag`. Add required `kept`. | Before, `#/kept`, `#/extra` and `#/*/tag` are feasible. After, only `#/kept` is feasible. In the same comparable JSON root emit `FieldRequiredAdded` for `kept` and `FieldRemoved` for both lost fields. Raising the maximum to two restores both optional possibilities. |
+| Add `maxProperties: 2` to `Record` in `t1-directional-annotations` | Only `secret` is required in a request and only `serial` in a response. The spare slot admits `label` in either direction. The object with both `secret` and `serial` is also feasible in either direction, so each root retains all three field IDs. |
+| Closed object with `minProperties=2`, one feasible name and one false-valued optional name | Eliminate this branch. Lower the minimum to one and the feasible field returns. |
+| One conjunct declares a name and another constrains it through a schema-valued remainder | Intersect both value schemas. An integer remainder narrows a declared number to integer, a string remainder forbids that numeric property, and requiring the forbidden name eliminates the object branch. The two closed members in `t1-allof-closed-intersection` permit only the empty object. |
 
-Expansion stops at a cycle: when a `$ref` names a definition already on the current expansion path, the
-field that holds the reference is kept (its id exists, with attribute `recursive: <definition>`) and nothing
-below it is listed. Expansion also stops at a pointer depth of 16 segments, with a warning `depth_cut`.
+Serialize **property** segments by replacing `~` with `~0`, then `/` with `~1`, then percent-encoding UTF-8 bytes
+other than ASCII unreserved characters using uppercase hex. Do this once, including for literal percent, star,
+brackets, control characters, spaces and question marks. Structural `[]` and `*` tokens are emitted raw. Thus
+literal `*`, `?`, `#` and `%23` become `%2A`, `%3F`, `%23` and `%2523`. Apply this even inside a name. No Unicode
+normalization or `unescaped_property_name` warning. Regeneration tests distinguishability and round trips as well
+as exact bytes. The original gap examples were witnesses of distinct names, not prior authority for a particular
+encoding.
 
-Attributes of a field: `definition`, the named definition whose `properties` declared the property (the
-innermost `$ref` target, or none for an inline schema), used for grouping changes and for producer struct
-binding; `recursive` as above; and the shape signature of section 5.6.
+The innermost declaring definition, `recursive`, directions, branch conditions and source sites are attributes.
+`definitions_of` collects the reached named definitions and `operations_reaching` is its inverse. Both terminate at
+the same stops. Check this generator against **all 43 wire-tree rows**, including `wire-map-of-arrays`,
+`t1-array-of-map`, the reference-sibling pair and every advanced-keyword stop named in §9, plus the composition,
+depth, cycle, punctuation and media classes. Array-of-map and `s1-swagger-response-ref-two-statuses` are direct
+rule cases.
 
-Property names that contain `/`, `~`, `#`, `*` or the text `[]` have no escaping rule yet; the prototype
-writes them as they are and warns `unescaped_property_name`. None occurs in P's schema. Task E-1 and stage D
-settle the rule (JSON Pointer escaping, `~0` and `~1`, is the starting candidate).
-
-`definitions_of(operation)` is the set of named definitions reached by the operation's wire tree. A
-definition-level change is the set of operation-rooted field changes it expands to.
-
-Reserved for a later format, not built: `rpc:<package.Service>/<Method>`, `msgfield:<package.Message>#<number>`.
+**Element diff.** Emit additions and removals for operations and named fields on established presence/absence at
+the stated authority and scope. Independently emit added and removed success keys at retained operations, even for
+bodyless responses. Compare like message roots. When exactly one outgoing and one incoming success root have
+comparable bodies of the same media and no range overlap, group their status rows and compare relative field paths
+while retaining both original IDs. Otherwise give the pairing limit and no inferred child edits from a root move.
+Fields of a whole operation addition/removal are detail. For retained comparable fields compare type, format,
+required in parent (both directions), enum values added **and** removed, and list item type. Emit all applicable
+kinds and both values. Record `EnumDeclarationChanged` when the enum list changes between absent and declared, including
+absent ↔ empty with no member delta. Record member deltas independently for comparable sets. An unreadable side
+yields a property comparison limit. List declaration is part of the signature even when its member set is empty. A retained route entry, validation,
+handler reference or handler body edit has its own evidence row. A moved line alone contributes no edit.
 
 ### 5.2 Documents
 
-Two JSON documents, each with a schema kept inside the pilot crate (`crates/prism-boundary/schemas/`:
-`boundary-bindings.schema.json`, `boundary-impact.schema.json`), versioned `0.x` while the lane is a pilot.
-They move to `docs/contracts/` only if the pilot graduates; `docs/contracts/` holds contracts shared with
-other products.
+The pilot publishes two 0.x JSON schemas in the boundary crate, `schemas/boundary-bindings.schema.json` for one
+repository/role snapshot and `schemas/boundary-impact.schema.json` for one review. The following records are
+required wherever a conclusion uses them. A snapshot is identified by `input_id`, `role`, `snapshot_kind`, `repo`,
+`rev` and `tree`. Sources include `origin`, `dependencies[]`, `operation_authority`, `config_sources[]`, `scope`
+and tool/build identity. A1's **Input documents and machine-readable form** specifies the field names and its
+evidence tables govern every cell of the Markdown rendering.
+[Report amendment A1](REPORT-DESIGN.md#input-documents-and-machine-readable-form)
 
-Bindings document (one per repository and role):
+| Bindings document record | What the extractor freezes |
+|---|---|
+| Snapshot and authority | Schema version, tool/build, input ID, API, role, repository, kind, commit/date when present, tree, dirty flag, scope, operation authority, schema source/format, byte hash for a file, structural content hash and schema version when known. Record config file, tree, blob, numbered entry, mapping/mount, defaults, era and dependency IDs. Each input has tree/path/blob origin or an independent cutoff receipt. |
+| Extraction coverage | Inventory expected files, dependencies and changed paths independently of emitted records. `file_status[]` includes missing files, moves/deletions and evidence. `entries[]` covers spans or enclosing regions including those with no ID. Record scope, possible keys, complete/partial/unreadable/skipped/unknown, reason and unaccounted scopes. Missing status means unknown. Every region capable of changing a negative, uniqueness or total must be accounted for. |
+| Producer | `operations[]` has original and canonical method/path, tokens/constraints, authority and sites by kind (declaration, registration, annotation, handler, schema). Keep grade, source span, function if resolved, evidence, refusal, provenance (`proven` or `configured` for mount claims), entry/validation and handler digests/reference. Keep all status keys, message roots, original media declarations or omissions, their sources, selected schema and coverage. A root using §5.1 producer evidence retains `producer_media_ref` alongside its effective media. Fields carry typed paths, definition, measured properties, signature, branch/limits and site when known. Distinguish a declaration from an independently located handler. |
+| Consumer | `calls[]` contains every counted occurrence, including unbound calls. Store `site` with tree/file/blob/span, `enclosing_function`, `function_span`, `requested_method`, `original_url_text`, recoverable alternatives/tokens, `mapped_path`, `mapping_source`, `target_reason` and coverage. An optional saved match records service input, grade, IDs, alternatives, reasons and signature. Freeze `saved_scan` with scan ID, client tree, config and dependency IDs and `schema_inventory_id`. Embed or reference the admitted inventory's element IDs, signatures, per-region presence/coverage, API, source tree, byte/structural hashes and authority even for a scan with zero saved matches. Missing inventory bytes or coverage gives `not_checked`. Record caller-search completion, method, depth, scope and paths. Field-use evidence links the read/send to the call and element. |
+| Admissions and slots | Record change direction, per-role before/after IDs, reference ID, mode and cutoff evidence, branch/ref selection, requested and observed revisions and time, merge metadata/receipt, comparison basis and any call-correspondence evidence. Validate these slots under §5.6. |
 
-```json
-{
-  "schema_version": "0.1",
-  "tool": { "name": "prism-boundary", "version": "…", "build_identity": "…" },
-  "api": "apache-answer",
-  "repo": { "name": "apache-answer", "rev": "<git sha>", "committed_at": "<ISO 8601>", "dirty": false },
-  "schema": {
-    "source": { "repo": "apache-answer", "rev": "<git sha>", "committed_at": "<ISO 8601>", "path": "docs/swagger.json" },
-    "format": "swagger-2.0", "sha256": "…", "content_hash": "…", "info_version": "…" },
-  "role": "producer",
-  "bindings": [
-    { "element": "op:GET /answer/admin/api/api-key/all",
-      "via": "swaggo_annotation",
-      "grade": "bound",
-      "shape": "…",
-      "site": { "file": "internal/controller_admin/e_api_key_controller.go", "line": 49 },
-      "function": { "file": "…", "name": "AdminAPIKeyController.GetAllAPIKeys", "start_line": 50, "end_line": 53 },
-      "evidence": "@Router /answer/admin/api/api-key/all [get]",
-      "callers": [] }
-  ],
-  "unbound": [
-    { "kind": "operation_without_producer", "element": "op:…" },
-    { "kind": "client_call_without_operation", "site": { "file": "…", "line": 0 }, "reason": "dynamic_url" }
-  ],
-  "warnings": [ "schema_stale_against_code" ],
-  "counts": { "operations": 0, "bound": 0, "candidate": 0, "unbound": 0 }
-}
-```
+**Impact runs the matcher.** For a service change, match the entire fixed client inventory, including its
+previously unmatched requests, to each service set. For a client change, match both call inventories to one service
+held unchanged. For a joint edit check before/before, after/after and both single-side rollout pairs. A saved match
+is optional evidence. Bind a changed-list override to its admitted sources and scope. Expand a definition through
+the applicable old/new indices. A client-only review requires one service source. A route-table review can compare
+operation declarations without a schema file. Missing schema evidence blocks field claims.
 
-For a schema derived from a route table, `schema.source` is `{ "repo", "rev", "committed_at", "derived":
-"route_table" }` and `sha256` is absent; `content_hash` is the only hash.
+| Impact JSON record | Contents |
+|---|---|
+| Envelope and change | `schema_version`, `report_id`, `api`, `mode` (live, historical_as_of, version_comparison), `report_time`, `cutoff_at`, `inputs`, `reference`, `comparisons[]` with service/client IDs and purpose. Each comparison stores `matches[revision_local_site_id]` for every occurrence in that client input, with the full match payload below or a scoped unchecked record. `change.elements[]` and `impacts[]` name `operation_id`, `before_element_id`, `after_element_id` (side-local, null if absent or unknown, distinguished by presence), `change_kinds[]`, `before_presence`/`after_presence` (present, absent, unknown), `before_shape`/`after_shape`, `status_additions[]`, `status_removals[]`, `response_root_pairs[]`, `call_changes[]`, `producer_sites[]`, `risks[]` and `review_action` citing supporting row IDs. |
+| `usages[]` | `site_id`, `before_site`, `after_site`, optional `usage_id` and `correspondence_evidence`, `requested_target`, references to the actual-pair `match_before` and `match_after`. For a joint edit look up (old service, old client), (new service, new client), (new service, old client) and (old service, new client) in `comparisons[].matches`, using the occurrence from that pair's client revision. Store each result with both input IDs, mapping, primary grade/reason, target IDs, `alternates[]`, `overlaps[]` and `prefix_hints[]` with their own conditions and evidence. A shared usage ID requires a uniquely mapped file, function and call expression (unique unchanged span or single target edit in mapped context). For an added or removed call, store the two comparisons using the revision where it exists and identify the missing occurrence in the other client inventory. Without correspondence keep independent one-sided observations and counts. Include caller and field-use evidence separately. |
+| `binding_status`, `coverage[]`, `warnings`, `standing_mismatches[]` | Per-element saved-binding status and named service side, coverage by file/entry/authority, warnings naming affected claims and standing differences with observed versions. Keep confirmed absence separate from unknown. An unaccounted region makes every dependent claim **Not checked** with the missing record. |
+| `summary`, `unobserved` | `operation_count`, `changed_field_count`, `listed_usage_count`, `possible_only_usage_count`, `known_unmatched_count` and `unknown_target_count` have explicit version and scope. Count one occurrence once across groups and callers. Preserve observed counts. An unknown total is null with a reason. `unobserved` requires a changed element with no binding in any admitted live bindings document, including producers, and complete membership evidence. |
 
-Impact document: `inputs` (for each input document: its api, repository, revision, commit date, schema
-source and tool build), `change` (old and new schema source and content hash, and the list of changed
-elements with a change class), `impacts` (per changed element: producer bindings and consumer bindings with
-their recorded callers, each consumer document's binding status for that element, section 5.6), `unobserved`
-(changed elements with no binding in any document), and `warnings` (`schema_mismatch` when a bindings
-document's content hash differs from both the change's old and new content hashes, `rev_dirty`, and a note
-that gives the change's date and each consumer document's binding date).
+For same-source comparisons between engines, the evaluation receipt identifies a client invocation by the exact
+(client tree, repository-relative path, blob, half-open byte span of the call expression). Join one-to-one within
+the frozen report and comparison. Retain the prototype and product site IDs beside that key. Each engine assigns
+its own ordinals. Cross-revision correspondence still requires the separate evidence above.
 
-The impact step takes the changed elements from its own structural diff of two schema sources, or from a
-caller-supplied list (`--changed elements.json`, ids in the form of 5.1), so `oasdiff` or `buf` can be the
-differ. Both schema sources are required in either mode: a field id names its operation (its root), but a
-definition-level change is expanded to field ids, the old-side signatures and the schema dates of 5.6 are
-read, from the two indices.
+Only the review and full appendix belong to live delivery. A separate evaluation document keyed by report and
+occurrence IDs holds later touches, outcomes, releases and adjudications. Re-rendering a frozen review is
+independent of the evaluation document.
 
 ### 5.3 Producer adapters
 
@@ -254,13 +348,50 @@ read, from the two indices.
 |---|---|---|---|
 | `swaggo_annotation` (Go) | a `@Router <path> [<method>]` line in the comment block directly above a function or method declaration | `bound`: the annotation is what the schema was generated from | yes |
 | `go_struct_field` (Go) | a field with tag `json:"name"` in struct `T` of package `p` ↔ every wire field whose `definition` attribute is `p.T` and whose last pointer segment is `name`. A property that the schema lists under `p.T` but whose Go field is promoted from an embedded struct `E` (swaggo flattens embedding; no definition in P uses `allOf` for it) binds under every outer definition that lists it, with the site at `E`'s field, and also under `E` when `E` is itself a definition | `bound` | yes, in P2, whatever the field-read outcome: producer locations of field changes need it |
+| P2 registration evidence reader (Go) | Admitted literal Gin method registrations, final handler argument, same-function literal group prefixes, original tokens, site and known scope. Retain a suffix with its prefix uncertainty. Compare linked registration, annotation and schema at their own authorities. | Evidence and drift only. Produces no binding. | always on P in P2 |
 | `gin_registration` (Go) | `<group>.<METHOD>("<literal>", <handler>)`; the group prefix is resolved only through string literals in the same function; colon parameters become `{}` | `bound` with a full literal path, else `candidate` on a path-suffix match | only if G1 fails |
 | `python_decorator` | the Flask and FastAPI decorator sites prism already finds, with the path and method read from the decorator arguments | `bound` | only if the pilot pair has a Python producer |
-| `route_table` | route entries declared as data: an object literal with string-valued method and path keys inside an array argument of a registration call; the key names and the registration callee are configured per producer, and a configured `mount` prefix is prepended to every path | `bound` | slice P2 when the owner picks the private-first order; slice P6 otherwise |
+| `route_table` | Declared method and path inside the configured registrar or the route-model listing described below. Keep declaration, inline expression and resolved endpoint sites distinct. | Unique eligible endpoint under a proven path or a configured mount. Record the basis and count each separately. | P2-R, alongside P2 |
 
-A producer bindings document carries the warning `schema_stale_against_code` when its `unbound` list holds
-any `annotation_without_operation` or `operation_without_producer` row: the committed schema then does not
-describe the code at that revision.
+P2-R adapts the existing prototype reader behind the route-source interface while the lane 12 listing lacks its
+S1/Hapi contract. This is the staged exception to ORCHESTRATION §11 for the boundary crate. Lane 12 owns new
+framework extraction and the shared listing. Switch inputs at that interface when the listing qualifies.
+
+| Route-source spec or source record | Decision it supports |
+|---|---|
+| Resolved registrar (defining binding, package/version or scoped custom entry), entry collection and method/path/handler/validation lookup keys | Select entries in this registrar. Read literal method/path/list, original tokens and source span. |
+| `star` = all, finite method list, or unknown. `method_normalization` = uppercase or preserve. `path_dialect`, `join_policy`, `empty_tail` and separator policy | Expand only the listed verbs for a closed star. All alone permits an any-method ID. Keep literal parts and captures through the evidenced join. |
+| `router_options` with bound receiver and case sensitivity, trailing slash and repeated-slash policies. `entry_options` with key paths for vhost, isInternal, constraints, priority and fallback role | Read effective values per entry. Exclude internal routes, keep host/constraint competitors distinct, mark a non-API fallback at its site. An admitted scoped spec can also designate a non-API fallback by registrar entry tree/path/blob/byte span or by numbered entry in a pinned collection with a unique link to its declaration. Freeze the selector, matched site and role. A stale or ambiguous selector leaves the role unresolved. |
+| `plugin_selector`, defining site, mount/aliases, prefix source/era and evidence for root or suffix | Compose once only for a unique scoped mount. Keep unmatched plugin suffixes and possible scope for negative checks. |
+
+Read explicit options at the bound source/config entry. For an omitted policy use the documented behaviour of the
+resolved framework **version** and record its source. Otherwise the affected coverage is incomplete. An unresolved
+star policy never mints `op:*`. An unreadable override, conflicting policy or unknown option capable of changing
+exposure prevents a dependent public claim. A custom wrapper needs a scoped explicit spec for its transformations.
+
+Index the source's declarations by API, authority, method and tokenized path. An actual function or arrow literal
+directly in handler position is its own endpoint (tree, blob, literal span). A name needs a resolved definition. A
+factory call, delegate or imported reference needs separately certified endpoint evidence. Keep declaration-only
+sites and validation coverage, including unavailable imported validators. R has no field-schema source.
+
+The route-model listing is a second source after its S1 and Hapi slice deliver the provisional contract (PR #882
+§11.5). A full root chain and resolved endpoint can earn `proven`. For `receiver.status=router`,
+`receiver.proof=plugin_contract`, select exactly one `receiver.plugin` by defining file, object_byte and effective
+name when known. Require `paths[].status=suffix`, `root=null`, `reason=no_known_mount`. Compose the configured
+mount with `paths[].value` and path_tokens, select exactly one compatible operation in the derived declaration index by tokens, method/protocol and
+constraints, and require a resolved endpoint or certified delegate. Ambiguous plugins, dynamic leaves, competing
+endpoints and pre-only callbacks earn no binding. Keep the config source/entry, mount, plugin identity, original
+suffix and `mount_refusal` (`hapi_registration_unproven` or `no_known_mount`). Record this basis as `configured` in
+its own count. The listing still describes a suffix. The current cross-lane result gives zero root-proven bindings
+on R and no measurement of configured yield. Apply the same provenance and endpoint requirements to the first
+adapter. Listing records join that index at the same interface. Deduplicate the same source entry by tree, blob,
+span and authority across readers. Count distinct candidate endpoints and configurations once.
+
+Record annotation/registration drift when independent records identify the same handler/route scope and
+demonstrate a method or path disagreement. Emit `schema_stale_against_code` only when a comparable schema
+claim is contradicted by admitted code evidence. Record a missing/detached annotation, missing registration,
+unresolved prefix or suffix-only agreement with its own coverage. On a detached annotation plus an agreeing
+registration the product reports a missing annotation binding and no stale warning.
 
 For a code-first producer with no committed schema (pair R), the route table acts as the schema source:
 operations come from the producer's route entries at each revision, and the change list is the difference
@@ -269,125 +400,273 @@ no fields unless a later slice reads the route entries' validation objects (coun
 
 ### 5.4 Consumer adapters (TypeScript and JavaScript)
 
-- **Client identity.** A client is identified by the file that defines it, never by an import spelling.
-  An import is resolved to a file by the configuration's alias table (prefix → directory under the consumer
-  root), by relative paths (with the extensions `.ts`, `.tsx`, `.js`, `.jsx` and `index.*`), and by one
-  level of re-export (`export { default as request } from './request'` in a barrel file). The alias table
-  can differ by era of history (section 6.1).
-- **Client calls.** A call is an HTTP client call when its callee chain is rooted at a binding of an import
-  that resolves to a configured client file and that the file never rebinds, or when it is one of the
-  built-ins `fetch(url, init)` and `axios.<verb>(url)` / `axios(config)`. The configuration says which
-  members are methods and which HTTP method each uses:
+**Recognize the sender before reading its arguments.** Resolve the defining file **and export** at the client tree.
+Use its versioned aliases (longest matching prefix), relative paths, admitted jsconfig/tsconfig `baseUrl` for bare
+local specifiers, the .ts/.tsx/.js/.jsx and index variants, then linked imports and re-exports. Follow named,
+default, renamed, namespace and unambiguous star re-exports to a fixed point with cycle detection. Resolve literal
+dynamic imports when their namespace binding is statically known. Multiple distinct resolutions or missing files
+leave coverage unknown. Respect lexical scope, shadowing, assignment and destructuring. A proved single-value
+alias, a stable readonly receiver field, optional access/call, static bracket member, parentheses, TS type
+arguments and casts retain identity. Keep member **components**: a string key containing a dot is one component.
 
-  ```toml
-  # prism-boundary.toml in the consumer repository, or passed with --config
-  aliases = { "@/" = "src/" }              # import prefix → directory under the consumer root
+The admitted consumer config identifies the defining file/export or resolved package/export, receiver/member
+components, `url_arg`, fixed method or zero-based `method_arg`, or `options_arg` plus `method_key`. For a
+variable verb specify `method_normalization` (preserve or uppercase). Record the strip/add map, service-relative
+API when applicable, and response root. A service-relative client export reaches the selected API only through an
+admitted mapping record. Bind the resolved export, config tree/path/blob and entry to the API key, prefix policy,
+applicable revision and supporting factory/settings sources. An export identity, path prefix or matching schema
+alone leaves the backend unchecked. Withhold the record and the occurrence retains its readable method and path,
+with **Not checked** (`origin_unchecked`), zero confirmed IDs and no notification for that API. Apply the same
+admission test to every fixture and production era using such a client. Hook records identify the resolved file/export or package/export,
+`key_arg`, `fetcher_arg`, and `default_fetcher` (a resolved client member or a fixed method and address policy).
+An omitted default leaves a defaulted invocation counted with `unconfigured_client_form`. A matching local name
+alone cannot establish hook identity. Record import-resolution coverage in that case.
 
-  [[client]]
-  file = "src/utils/request.ts"            # the client is the export of this file
-  export = "default"
-  methods = { get = "GET", post = "POST", put = "PUT", delete = "DELETE",
-              "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }  # member paths allowed
-  url_arg = 0
-  strip_prefix = ""                        # removed from the start of a URL that has it, before matching
-  add_prefix = ""                          # then prepended to every URL, before matching
-  response_root = "data"                   # the part of the response body the client hands to callers:
-                                           # here the wrapper returns body.data, so client reads are matched
-                                           # against the fields under `data`; "" when it returns the whole body
+For browser-relative fetch/axios, freeze `document_url` (scheme, host, port and retrieval path) at the client
+tree or in a scoped deployment/fixture entry. Freeze the selected service's effective server origins (§5.1).
+An origin-only entry suffices for root-relative references. A path-relative reference also needs the document
+path. Record both sources, or a mapping establishing the API, on the comparison. Resolve built-in fetch through
+the unshadowed global, window or globalThis, and axios through its resolved package export, named verb or
+factory instance with its own effective base.
 
-  [[client]]
-  file = "src/utils/requestAi.ts"          # a function export with a fixed method
-  export = "default"
-  call = { method = "POST" }               # or { method_arg = 1 }, or { method_key = "method", options_arg = 1 }
-  url_arg = 0
-  response_root = ""
+**Counting.** The denominator is the number of distinct request or potential request invocations in production
+JS/TS source under the selected root. Include generated source. Exclude files matching `*.test.*`, `*.spec.*` or a
+directory component `__tests__`. Count a verb invocation, supported function call, configured hook that can fetch,
+and any attempted call on an otherwise unknown member of an identified client. A missing verb entry on a client
+object yields `unknown_client_method`. A recognized client/export used through a calling convention the entry
+cannot describe yields `unconfigured_client_form`, including a callback-built address with no configured request
+convention. Both stay in the denominator. Unresolved imports and unsupported transports leave coverage records.
 
-  [[client]]
-  hook = "useSWR"                          # key-first hook: argument 0 is the key
-  url_arg = 0
-  fetcher_arg = 1                          # when this argument is a configured client method, its method applies
-  ```
+- Count the request invocation once by file/blob and expression span. Factory creation, interceptor member reads,
+  interceptor registration/ejection, Promise continuations, `bind` creation, module/URL/Request construction, XHR
+  initialization and passing a method value create no request site. Follow a known verb through `call`, `apply`
+  with known arguments, or a saved `bind` invocation with the correct receiver and prearguments. A conditional
+  bound sender still counts at invocation (`s22-3`).
+- A hook with a passed client method is the sole site. Its URL is the text key or the first array element.
+  Disabled arms (null, undefined, false, empty string) make no request. A hole, empty array, opaque first element
+  or object key is `unbound/non_string_key` under the key-first convention (`hook-object-key`). Ignore subsequent
+  array elements. Use a default GET only for a configured default GET fetcher. For an inline or uniquely resolved
+  named forwarder with one recognizable send, substitute the key for its formal and read the **actual**
+  method/address, including a fixed address that differs from the key. A proved local value-only fetcher is outside
+  the denominator. An unknown fetcher remains counted and unconfigured. Suppress the inline send as a second site.
+  A named implementation may separately contain a production invocation at its own span. Ordinary callbacks inside
+  an unconfigured query/thunk still contribute their actual client calls.
+- A local wrapper caller, JSX destination, link, Markdown image and opaque SDK constructor are outside the
+  denominator unless they themselves invoke a configured transport. Keep caller provenance separately, using Exact
+  call graph edges to depth two by default, with intervening functions, revision, search status and scope. A
+  field-use claim needs a linked read/send at an admitted operation and a comparable §5.1 field. A client
+  header, parser or `response_root` cannot establish producer media. A producer media record supplies no
+  export-to-API mapping. P5 measures whether reads under `response_root` can be linked before building them.
 
-  Expressible shapes: a client object with verb methods, including member paths (`request.instance.put`); a
-  function with a fixed method; a function or method that takes the method as a positional argument or as a
-  key of an options object; any import spelling, alias, relative path or barrel that resolves to the file; a
-  key-first hook, with its method taken from its fetcher. Every other client shape found is not
-  configured ad hoc: its call sites are counted in the denominator as `unconfigured_client_form` and listed
-  (for example a URL returned by a callback and resolved against a base URL at run time).
-- **Counting rule (the denominator of F2 and of every consumer percentage).** Every call in a non-test file
-  under the consumer root whose callee chain is rooted at an import that resolves to a configured client
-  file (any member, any depth), every configured hook call, and every `fetch` and `axios` call. A call that
-  is in the denominator but cannot be bound stays in it with its reason (`unknown_client_method`,
-  `non_string_key`, `unconfigured_client_form`, `dynamic_url`, `conditional_url`, `no_operation`). For a
-  hook, the hook call is the site; a client call inside the hook's inline fetcher, and a client method
-  passed as the fetcher, are not sites. Test files match `*.test.*`, `*.spec.*` or lie under `__tests__`.
-- **URL pattern.** A string literal is taken as written. In a template literal, a `${name}` whose name is a
-  `const` initialised once (in the same function or at module level) with a string literal or a
-  substitution-free template is replaced by that text, in any position. After that, a `${…}` that fills a
-  whole path segment becomes `{}`; a `${…}` inside a segment or before the first `/` makes the URL
-  `dynamic`. Concatenations of literals and expressions follow the same rule. The query string is cut. A
-  URL argument that is such a `const` as a whole is followed the same way. In a conditional URL with a
-  `null`, `undefined`, `false` or empty-string arm (the key idiom of data-fetching hooks), the other arm is
-  the URL; a conditional with two URL arms is `unbound`, reason `conditional_url` (pending stage D). For an
-  array hook key, the first element is the URL when it is a string, a template or such a `const`, and the
-  other elements are ignored; any other array key is `unbound`, reason `non_string_key`.
-- **Method.** A client method's configured method; a configured function's fixed or argument-supplied
-  method (a non-literal method argument makes the call `unbound`, reason `dynamic_method`); `fetch`'s
-  `init.method` literal, GET when `init` is absent, `dynamic_method` when `init` is present but its method is
-  not a literal; for a hook, the method of its fetcher argument when that is a configured client method,
-  else GET.
-- **Prefix map.** Before matching, `strip_prefix` is removed from a URL that starts with it, then
-  `add_prefix` is prepended. The result is normalised by the path rules of 5.1 (trailing slash, repeated
-  slashes) and compared with canonical paths.
-- **Matching.** Segment by segment against operations with the same method and the same number of segments.
-  Two literal segments must be equal; a client `{}` matches any schema segment; a client literal matches a
-  schema `{}`. A match's score is the number of positions where both sides are equal literals or both are
-  `{}`. Take the matches with the highest score. Exactly one, with no position where a client `{}` faces a
-  schema literal → `bound`. Exactly one with such a position → `candidate`, reason
-  `client_parameter_on_literal` (a client parameter can never be proven to equal one literal). Several →
-  every top match as `candidate`. None → `unbound` with a reason. So `/user/${id}` binds to `/user/{}` when
-  that operation exists and is only a `candidate` for `/user/me` when it does not; `/user/me` binds to
-  `/user/me` when both exist, and to `/user/{}` when only that one exists.
-- **Callers.** Each consumer binding records the functions that reach its call site through prism's call
-  graph (`prism::api::callers`, depth 2 by default, Exact edges only), so the impact step needs no
-  repository.
-- **Field reads** (scope decided by the measurement at the start of slice P5). From the call result, forward
-  along prism's data-flow edges to member reads; a read `x.a.b` is matched to the wire field `…#/<root>/a/b`
-  of the bound operation's 2xx response under the configured `response_root`. The pilot crate reads edges
-  through a new function in the core crate, `prism::api::dfg_edges` (the records `nav dfg-stats --edges`
-  prints), exported `#[doc(hidden)]` outside the facade's compatibility promise, as `OwnerFailure` and
-  `OwnerArgs` already are; it is promoted only when a second consumer exists.
+**URL and method generator.** Evaluate source expressions without running application code. Carry either a finite
+set of correlated alternatives of method, origin and path tokens, or an unknown with reason and source span.
+Preserve path/query/fragment boundaries until selectors, origin and mappings have been checked. Apply the following
+productions recursively. Any expression or dependency outside them reaches the unknown branch. This rule is checked
+against all 59 `url-pattern` rows, all 33 `method` rows, the wrapper, hook and options classes and every occurrence
+in neutral shapes s01–s45. The disposition table in §9 also covers the grammar, producer and matching controls.
+
+1. Read literals (including cooked templates), transparent parentheses/casts, statically known tuple spreads,
+   string enums, and single-assignment locals initialized with any supported expression, including a template.
+   Follow enclosing scopes, immutable object/array tables, known own-property chains, destructuring and finite
+   keys. Require observed initializers, absence of mutation/escape that can change the result, and a known reaching
+   value. Resolve an explicit conditional, nullish/falsy choice or acyclic local if/else assignment per feasible
+   arm. Keep the branches correlated. Fold query-only appends and literal encodings, including
+   `encodeURIComponent`. Compute Cartesian products only of independent alternatives. On cycles, unknown
+   spreads/writes, unbounded helpers or more than 64 live alternatives, retain the site and mark its affected
+   component unknown (`conditional_url` for unresolved choices, `dynamic_url` otherwise). Never sample alternatives
+   to award a bound grade.
+
+   The value grammar is `value = primitive | segment | immutable lookup | concat | guarded choice | reaching
+   assignment | known URL/Request construction`, with `segment` also admitting a numeric sum. A lookup may traverse an unshadowed `Object.freeze(literal)`
+   (shallow freeze, prove stability at each deeper edge) or optional access (nullish receiver yields undefined,
+   otherwise read the known own key). Defaults on formal parameters, user helper calls, unknown getters and
+   mutations outside these productions produce unknown at the affected value. An unknown full-URL argument is
+   dynamic. A simple primitive parameter embedded in an already delimited path yields a symbolic segment under
+   rule 2. For `+=` evaluate the prior reaching value plus the right operand on that branch. Carry guard
+   identity through joins including method, origin, URL and options. Discard an arm proved to throw before the
+   call (e.g. an executed write to a const). Unproved control flow keeps an unknown arm. For overflow retain
+   recorded observations, mark the choice incomplete and award no unique target.
+   For binary `+`, evaluate both operands before choosing addition or string concatenation. Numeric addition
+   requires evidence that both operands on this live arm are JS Numbers (e.g. a number parameter and a number
+   literal). Fold known values with Number semantics. Otherwise carry a numeric result tied to the expression
+   and its guard. When the enclosing string operation converts it, its spelling occupies one non-empty component.
+   Thus `(mark + 1)` with evidenced numeric `mark` is one numeric hole. A cast alone supplies no operand proof.
+   A proved string concatenation follows rule 2. An opaque operand that could change coercion or introduce a
+   separator gives `dynamic_url` for that arm.
+2. Concatenate literal text and symbolic substitutions for string concatenation and templates. A variable value
+   occupying a path component is a segment parameter under the syntactic path model. A simple substitution
+   **within** a segment keeps the fixed prefix/suffix and the parameter, even next to an encoded slash. Preserve
+   multiple holes, their order and repeated-variable constraints. For a substitution sharing its segment with fixed
+   text, score its empty spelling separately if the domain admits it and capture eligibility changes. Reduce the readable
+   alternatives by the table below. At `s09` and `s09-2` the mixed template wins on the non-empty arm. On the
+   empty arm the fixed prefix or suffix alone fills the component and only the generic template matches. Each site
+   is therefore `candidate/ambiguous_operation`. With a typed substitution whose domain excludes the empty string
+   or a known non-empty literal, the mixed template at each site is bound with the generic overlap.
+   Apply JS string conversion to known substitutions, including numeric literals, empty string, false, null
+   and undefined. Short-circuit operators return their selected operand before that conversion. A numeric hole
+   accepts only its numeric string domain. Encoded substitutions retain their encoded segment boundaries. A known slash-producing transform (as in `s20`),
+   unresolved base before the first slash, or opaque value that determines the number of segments is dynamic.
+   Record two limits of the syntactic path model. It treats an unrestricted string substitution as confined to one
+   component even if its runtime value contains an unescaped separator. When the variable occupies the whole
+   component, the model assumes it is non-empty. Handle multiline templates using URL parsing (strip ASCII TAB/CR/LF,
+   preserve meaningful encoded whitespace). Keep escaped separators intact. Evaluate the path before opaque query/fragment text. A conditional
+   with two readable URLs is a set of alternatives. Equal mapped targets can coalesce.
+3. Resolve `URL`/Request inputs and relative browser URLs with their evidenced document base, including dot
+   segments, network-path references, fragment before query and UTF-8 encoding. Record a missing base needed to
+   establish the target. Axios combines the effective instance/request `baseURL` and relative URL under its own
+   join semantics. Absolute URLs override the base under the default policy. For a service-relative client
+   export, require its admitted export-to-API mapping. For a browser call, compare the resolved scheme, host
+   and port to the selected API's admitted origins, or use its admitted mapping. A known other backend yields `unbound/other_api`, excluded from F8 list 1 and
+   `known_unmatched_count`. Unknown backend selection yields **Not checked** with `origin_unchecked`. A fixture's stated document context supplies test input. Production needs an admitted
+   source.
+4. Record query/body selectors before cutting query and fragment for the path comparison. A plain call can match
+   the default HTTP declaration. Where the authority dispatches on a query, body or header, preserve the selector
+   and withhold a logical-operation grade unless it is represented by this API. A prefix or selector hint supplies
+   no binding.
+5. For a configured wrapper read its fixed verb, member mapping, positional verb or effective options key. Fold
+   static method values under the wrapper's declared normalization. Fold the Request constructor's own input and init first
+   (a Request input inherits its URL/method), then apply fetch init to that result. A string input starts at GET. A known literal/options object lacking the key or with undefined
+   preserves the inherited method. An opaque init can override it. Process properties and object spreads in source
+   order, so a final known assignment overrides an earlier unknown for that key. Fetch normalizes DELETE, GET,
+   HEAD, OPTIONS, POST and PUT case-insensitively. Preserve other method tokens, including lowercase `patch`. An
+   invalid or forbidden method cannot earn a request match. For axios accept verb members, `request(config)`,
+   `axios(config)` and `axios(url, config)`, with the known request override then instance defaults then GET. Keep
+   uppercased axios verbs, effective URL and base. Query params, positional payloads and download options do not
+   set the verb. Apply a readable request-interceptor rewrite in its evidenced effective order only when it
+   reduces to the same property/overwrite grammar. A possible active opaque interceptor makes the components it
+   can rewrite unknown. Setup/ejection alone contributes no invocation. [Fetch method normalization](https://fetch.spec.whatwg.org/#concept-method-normalize)
+6. Retain distinct diagnostics for both components. After resolving the client convention and hook key, an unknown
+   method has primary reason `dynamic_method` ahead of `dynamic_url` or `conditional_url`. Several known verbs with
+   known URLs can produce candidates. If a live method is opaque, match only complete readable method/URL
+   arms. Their feasible targets give `candidate/dynamic_method`. Without a readable match give
+   `unbound/dynamic_method`. Retain each opaque guard/span and any secondary URL reason. When the verb depends on selecting a sender and the opaque prebound URL
+   prevents resolving the alternatives as complete pairs, use the unresolved-method reason first. At `s22-3`
+   differently bound verbs and opaque prebound addresses leave the request pair unresolved: record the verb
+   alternatives, primary `dynamic_method` and secondary `dynamic_url`. A readable method with an unreadable URL
+   keeps its URL reason. `no_operation` requires a readable target and a checked comparison.
+
+For implementation, dispatch on the outer production below, then recurse into its operands under rules 1–6.
+Each result carries its selecting guard and input span. Unknown applies to the component that can change the
+request. For example an opaque query value after a proven delimiter cannot alter a path, but can affect a
+selector-dependent comparison.
+
+| Invocation or expression production | Result and fallback |
+|---|---|
+| Resolved member, function, hook, global fetch or axios call, including known call/apply/bind forwarding | Select the convention by resolved identity and evaluate its declared operands. A foreign sender gives no client site. Keep a recognized sender with an unknown member or convention in the denominator under its specific reason. |
+| Literal, primitive segment, evidenced numeric sum, immutable own-property lookup, transparent wrapper, concatenation or template | Apply rules 1–2 to each operand. Preserve the JS value until a string conversion occurs. A changeable key, unknown spread or getter invalidates only dependent values. Unsupported URL transformation gives dynamic_url. |
+| Conditional, short circuit, assignment, guarded append or sequence of writes | Resolve the latest reaching definition per feasible arm. Preserve shared guards through the join. Drop provably dead/throwing arms. Reduce mixed results by the live-alternatives table below. Opaque path writes in a choice leave the affected arm uncovered. |
+| URL or Request construction, fetch init, axios config/instance, wrapper call | Resolve the effective origin and ordered per-key assignments before the target comparison. Follow defined Request init overrides. For axios merge supported instance defaults then request overrides, preserve verb-member semantics, and account for active interceptor writes. Missing origin gives origin_unchecked. An unreadable required verb gives dynamic_method. |
+| Other syntax, missing record or overflow | Unrecognized transport gives excluded transport coverage. An identified request with an unsupported expression retains its span and reason. An absent dependency yields partial coverage. A choice exceeding 64 alternatives has no exhaustive result, even if the first 64 agree. |
+
+**Prefix mapping.** Strip a configured prefix once at the start, then prepend the configured addition, joining the
+boundary with one slash. Never remove an interior repetition. Record the original text and path, selected mapping
+file/revision/entry, strip and add values and resulting path even for identity. Apply only normalization supported
+by the authority (case, trailing or repeated slashes). Preserve strict schema paths. A change of mapping can
+retarget an otherwise unchanged call.
+
+**Matching.** Filter by API, compatible origin, protocol/constraints and method (exact token or service `*` for a
+known method). Pool exact and wildcard declarations with equal priority. Compare tokenized paths, admitting equal
+literals, compatible single-component captures (including their fixed text), optional branches and multi-segment
+tails of the specified width. Enforce repeated capture equality where the same schema name recurs. Keep a known
+caller domain such as a numeric representation or a finite literal union. Reject infeasible literal values. A cast
+alone cannot establish a runtime value.
+
+For literal patterns without a variable, compare the exact mapped path before testing variable routes. For mixed
+patterns, compatible means a nonempty intersection of segment spellings under their literal pieces and capture
+domains. A read of only a possible subset is conditional. For each feasible path alternative, the primary score
+counts equal literal segment pairs or structurally equal parameter patterns. Compare affix points as a secondary
+key only when the primary counts are equal. Count one affix point per concrete caller segment that matches all
+literal pieces of a mixed declaration segment and satisfies every capture constraint. An optional component scores only when
+present, and a variable-length tail consumes the suffix without credit for each absorbed segment. Take the highest
+compatible score over all valid alignments for each declaration. Retain every tied best. A sole best that needs a
+caller variable to take a particular literal, or needs an unproved width/constraint, is a candidate. Keep the
+reason for each restriction. Several bests give `candidate/ambiguous_operation`. Otherwise a unique best is bound
+for that alternative. Keep other compatible declarations as conditional overlaps. Include other methods with their
+own grades and differing-prefix suffix hints separately under A1.
+
+Before scoring a caller with a finite domain, instantiate each attainable value, including values that cross
+a literal segment inside a competing template. Apply the same 64-alternative budget to these partitions. Reuse the concrete call's scores and any evidenced dispatch
+priority for that value. For an open segment domain split attainable full literal declarations out of the
+remainder. `me` is outside the numeric domain in `parameter-to-literal`. In `matching-only-top`, copper reaches
+two tied GET templates and ash reaches one. In `matching-parameter-score`, flint reaches two best templates,
+amber reaches one. Both sites are candidates. Keep lower overlaps and their conditions.
+
+Apply this reduction to each occurrence after scoring correlated arms. The input includes the scoped operation
+index, its coverage, unresolved plugin suffixes and the role evidence from §5.3. Keep a designated non-API
+fallback only as an overlap. Without evidence of either role or API scope, treat an unbounded tail at the server
+root or outside all evidenced API mounts as a possible fallback. Keep its site as an overlap and mark role
+coverage partial. If only designated or possible fallbacks match, give `unbound/fallback_only` with zero target
+IDs. A tail with evidenced API scope and no fallback designation enters ordinary scoring. Before a negative, check every unresolved mount in the possible API:
+if a method-compatible suffix could cover this path at a mount, supersede any fallback-only or missing-operation result with **Not checked** and `mount_unchecked`,
+suffix and plugin. Also withhold uniqueness when a possible unplaced competitor could change the positive result.
+
+| Live alternatives after hook disabling and abrupt completion | Result |
+|---|---|
+| All select the same unrestricted unique declaration, with complete relevant inputs | `bound`. Preserve lower overlaps. |
+| At least one live opaque-method arm | For an admitted API and complete relevant inventory, keep the union of feasible matches on readable method/URL arms as `candidate/dynamic_method`. With known GET plus an opaque method on the same URL, only the GET arm can supply a target. With no readable-arm match give `unbound/dynamic_method`. Record the opaque guard/span, zero notifications and no checked missing-operation claim. |
+| At least one unknown URL arm and at least one readable arm | `candidate/conditional_url` over matches of readable arms, or `unbound/conditional_url` if none match. List all uncovered arm conditions and spans. Unknown method takes precedence under rule 6. |
+| Readable branches select different targets or have tied bests | `candidate/ambiguous_operation`, union of feasible best IDs. List any unmatched spells as well. |
+| One matched target plus known unmatched alternatives | `candidate/conditional_url` with the unmatched alternatives. A sole symbolic-to-literal restriction with no finite choice keeps `client_parameter_on_literal`. |
+| Missing admission, authority, coverage or dispatch evidence needed to decide | **Not checked** with reason, retaining observations and partial candidates. Unsupported query/body selection gives `selector_unchecked`. A known different API and a fallback-only result have their own reasons. |
+| No compatible target on any readable live arm, with the relevant population complete | `unbound/no_operation`. All-opaque URLs use `dynamic_url` or `conditional_url` for an opaque choice. No live request yields no counted invocation. |
+
+Check the evidence rule before claiming a grade or negative. A fallback-only or other-API result cannot notify,
+enter list 1 or increment the known missing-operation count. A1 scopes every declaration match to its authority.
 
 ### 5.5 Grades
 
-`bound`: static syntax identifies exactly one element, under the rules of 5.3 and 5.4 (for a consumer call:
-a unique top match with no client parameter facing a schema literal). `candidate`: more than one element
-fits, or the one element that fits needs a client parameter to equal a schema literal. Anything else is
-`unbound` and listed with its reason. A consumer of the report notifies only on `bound`. These words are
-separate from `Exact`/`NameOnly`, which keep their meaning for call edges.
+`bound` identifies one element under §§5.3–5.4. `candidate` carries its possible elements and the condition or tie.
+`unbound` retains the site and reason. Coverage can additionally make a comparison unknown. Mount provenance is a
+separate dimension. Display and count configured-mount results separately from root-proven results. Only a
+substantiated bound result qualifies for notification. A suffix, partial scan or configured assumption alone cannot
+establish proven dispatch. Exact and NameOnly describe call graph edges.
 
 ### 5.6 Revisions, schema sources and staleness
 
-- `repo.rev` is `git rev-parse HEAD`; `repo.committed_at` is that commit's committer date; `repo.dirty` is
-  true when `git status --porcelain --untracked-files=no` is non-empty (untracked scratch files do not count).
-- `schema.source` names the repository, revision and committer date the schema came from, and either the
-  file path or `derived: "route_table"`. In one repository it repeats `repo`; for a consumer bound against
-  a schema taken from a producer it names the producer's revision.
-- `schema.sha256` is the hash of the schema file's bytes (absent for a derived schema).
-  `schema.content_hash` is the SHA-256 of the sorted lines `<element id> TAB <shape signature>` of every
-  element, so formatting-only regeneration (a licence header, reordered output) does not change it.
-- The **shape signature** of a field is the string `<type>|<format>|<required>|<sorted enum values>|<items
-  type>` taken from its schema after `$ref` expansion; the definition name is not part of it (5.1 makes it
-  an attribute). The shape signature of an operation is the SHA-256 of the sorted `<field id> TAB <field
-  signature>` lines of its wire tree. Each binding records its element's signature at bind time (`shape`).
-- `schema.info_version` is the schema's own version string when present.
-- The impact step refuses nothing. Per changed element and per consumer document it reports one status:
-  `binding_current` (the binding's recorded signature equals the change's old-side signature),
-  `binding_stale` (it differs: re-bind before trusting the location), or `element_unknown` (the document
-  has no binding and was bound against a schema source older than the element: the consumer was bound before
-  the element existed). "Older" compares committer dates, because two repositories' revisions have no
-  ancestry relation. The document-level note gives both dates. `schema_mismatch` remains as a document-level
-  warning when content hashes differ.
+Select the subject, roles and trees explicitly. For a single change compare first parent to head and for a range
+compare supplied base to head. **Live review** freezes the configured counterpart integration tip observed at
+report time. That tip can postdate the subject commit. **Historical review at the change** requires a
+snapshot/ref-update history or contemporaneous pin receipt at the subject head's UTC committer date. **Comparison
+of selected versions** freezes the named inputs at selection time, including deliberate later pins and date-only
+reconstructions. Record who selected them, how, history tip where relevant, branch, commit IDs, dates and offsets.
+For date-only selection take the last first-parent commit on the frozen history tip whose committer date is at or
+before change time. Identify study-supplied config, route spec and driver at their own tree or cutoff receipt.
+Dates alone establish neither availability nor cross-repository deployment order. Missing cutoff evidence keeps the
+requested check unknown.
+
+Admit only blobs read from a named tree of an admitted snapshot, or records independently evidenced at the cutoff.
+Recursively validate every dependency, including config, driver defaults, route spec, mapping, saved scan and its
+actual schema inventory. Verify each document's API, role, repository, version/tree, scope and configuration
+against its slot. Excluded records supply no IDs, links, selection, counts or warnings. Preserve independent
+observations and identify the missing record in each dependent cell. Record tracked dirtiness
+(`git status --porcelain --untracked-files=no`) as context. Always read the admitted tree's blobs.
+
+For a behind-target PR in either repository compare target to merge result in the changing repository. In one
+repository read an unchanged role at target. In two hold the independently admitted counterpart fixed. For a joint
+edit compare both real pairs and both rollout orders. Record proposed base/head and target metadata separately. A
+computed result needs a receipt binding those inputs, procedure and exact result tree and, historically,
+independent evidence of that result at cutoff. It has **no commit, subject or committer date**. Keep computation
+time separate. Link the exact result blob or print its tree/blob/path/line and excerpt. Conflict, absent receipt or
+unreadable tree leaves the combined result unchecked.
+
+Keep `schema.source` (repository, tree, originating revision/date if any, file or derived route table), JSON byte
+SHA-256 where applicable and `info_version`. A field's shape is the canonical JSON tuple of type, format,
+directional requiredness in parent, sorted typed enum values and item type. Distinguish missing, empty,
+branch-dependent and unknown. Sort set members by canonical JSON bytes, keep the declaring type name outside the
+signature. For a saved operation match, the comparable shape is its sorted collection of field-ID/signature
+records. Keep the explicit success keys and message coverage as separate records, so a bodyless status change can
+be reported with zero field-property edits. Hash canonical UTF-8 records in ID order for `content_hash`. A
+whitespace-only edit changes only the byte hash. Configuration, authority, cutoffs and source coverage have
+independent provenance.
+
+For a saved match, name **service before**, **service after** or **service held unchanged** as basis. Compare the
+same element's recorded properties (the collection for an operation). Use `binding_current` or `binding_stale` only
+for an admitted, comparable pair. With no saved location, inspect the actual scan schema: `no_saved_match` when
+present, `element_absent_from_scan_schema` on established absence. Use `not_checked` for an unavailable/incomplete
+inventory, incomparable basis, wrong slot or unadmitted dependency, with a reason. Preserve distinct observed
+presence on the selected side, including deletion. A whole-document `schema_mismatch` names the differing content
+hashes and versions. It cannot decide an element's status. The fresh comparison always runs from admitted raw
+inventories independently of any saved match.
 
 ### 5.7 Where the code lives
 
@@ -424,7 +703,9 @@ F2 by F-3, F3 by F-4 (now in slice P5), F4 by F-5, F5 by F-6, F6 by F-8, F8 by F
 
 ### 6.1 Definitions
 
-Every term below is defined here and only here; `PLAN.md` refers to it.
+The following definitions reproduce the feasibility measures. The F4 selection kinds and their names belong to the
+evaluation companion. The live product uses the broader structural diff in §5.1 and never filters a review by the
+F4 selection.
 
 **Replay on P (F4).** Commits are first-parent commits of 6744295f; P0 is a commit C's first parent.
 
@@ -540,7 +821,9 @@ evidence named below and asks one question; the reader answers with one label an
   *decided* when at least 40 of its 50 answers are yes or no. Every gate that counts wrong R1 answers (G2,
   G4, the P3 gate) holds only on a decided sample: an undecided sample is extended once by 50 rows drawn by
   the same rule (at most 4 wrong in the 100), and if fewer than 80 of the 100 are decided the gate fails as
-  `inconclusive`.
+  `inconclusive`. For the product P3 check with 1–49 bound joins on a pair, inspect every join once. Require
+  at least 80% decided (round up) and at most two wrong, with no extension. Zero joins supply no precision
+  evidence and the check is `inconclusive`.
 - **R2, mismatch classification.** Shown: the row, the code lines on both sides that exist, and `git log -S`
   output for the path. Asked: "Which class of section 6.1 (mismatch classes) does this row belong to?" On P
   every row is classified. On R: every row of list 4, and up to 30 rows of list 1 drawn with
@@ -579,9 +862,10 @@ Go/no-go defaults (the owner may set others; the memo reports the numbers either
 5. **the pilot-order evidence**, a short section that puts the two orders side by side: for each order,
    which adapters and slices are built first and how many days pass before the first report on the owner's
    own pair (from the refreshed estimates); pair R's F5 and G4 results; the standing-mismatch results on
-   each pair; and the recommendation by this default rule: **recommend private-first when pair R passes G4
-   and the owner rates at least three of its five private reports useful; otherwise recommend
-   public-first.** The rule makes a recommendation only; the order is the owner's (section 8, decision 2).
+   each pair; and the historical recommendation. With a recorded rating, recommend private-first when R passes G4 and
+   the owner rates at least three of the five reports useful. Otherwise recommend public-first on complete data.
+   With the rating unrecorded the recommendation is pending, as in the memo.
+   The owner subsequently approved both pairs and left their delivery order open (§7.2).
 
 ### 6.5 Size of the study
 
@@ -596,46 +880,97 @@ rendered P reports beyond the counted classes. The inputs of G1 to G4, the F8 li
 
 ## 7. Pilot scope by outcome
 
-| Feasibility outcome | Pilot |
-|---|---|
-| G1 to G4 pass | stage T/E tasks E-1 and E-2, stage D, then slices P1 to P6 in the order the owner names (about 24 to 31 days) |
-| field-read measurement at the start of P5 negative (fewer than 50% of oracle reads found, or more than 10% wrong) | P5 stops after its measurement; the pilot is operation-level with producer struct fields only (about 20 to 26 days) |
-| G1 fails | the public pair's producer slice gains the registration adapter (+3 to 4 days) |
-| G4 fails | the private-first order is not recommended; a private-first go-ahead first funds the priced URL-builder work |
-| G3 fails | no pilot |
-
-The estimate grew from 15 to 25 days because the review added stage D and two enumeration tasks before P1
-(about 4 to 5 days), moved the field-read measurement into P5 (about 1 day), and added wire-tree ids and
-revision provenance to P1 and P4 (about 1 to 2 days).
+The owner approved both pairs. G1–G3 passed. The measured arms of G4 passed. The memo did not record an owner
+rating of the five reports. Keep the rating unmeasured. P's public producer uses annotation and struct-field bindings plus an evidence-only registration reader. P5 still has its own decision gate.
 
 ### 7.1 Before P1
 
-After the go-ahead and before P1: Task E-1 (stage T and E on element identity, seeded with the open classes
-of section 9) and Task E-2 (stage T and E on client recognition and matching), then stage D: the design seat
-amends sections 5.1, 5.2, 5.4 and 5.6 against the complete row sets, both reviewers review (cap 2 rounds),
-and `ids.tsv` is regenerated from the amended rules.
+E-1 has 217 rows and E-2 has 306. Section 9 records every disposition. After stage D review (two-round cap), update
+matrix expectations including explicit accepted-loss diagnostics and regenerate `ids.tsv` from §5.1 on the public
+pin. Only that regenerated file is the byte-for-byte P1 golden. D-census recorded 59 cuts per pair. Before P1
+recount S04 (schema field coverage) and P02 (frozen replay locations) in §7.2 and apply the feasibility check in PLAN P6.
 
 ### 7.2 Pilot slices against pairs
 
-| Slice | Public-first order | Private-first order | Serves |
-|---|---|---|---|
-| P1 schema reader, ids, diff, documents | first | first (the reader is P's regression gate) | both pairs; the route-table schema source is added in private-first P2 |
-| P2 producer | `swaggo_annotation`, `go_struct_field` | `route_table` adapter and route-table schema source | P only / R only |
-| P3 consumer | P's configuration | P's and R's configurations | both (adapted per configuration) |
-| P4 diff and impact | as planned | as planned | both |
-| P5 field level | P | P (R has no field source) | P only |
-| P6 replay gate, docs | plus `route_table` for R | plus `swaggo_annotation` and `go_struct_field` for P | the pair not served in P2 |
+The public study found 199 of 199 operations with an annotation, but only 162 registration cross-checks, with 161
+handler-name agreements. Its 154 unique client matches out of 200 were all literal equalities. F8's 43 rows
+included 24 outside schema scope, seven stale annotations, four extractor misses and two counted mismatches/dead
+sites. These results justify separate declaration authorities and the P3 matrix gate. P's 37 replay changes
+included substantial field-only coverage, but 63 of 149 adjudicated locations were false predictions. P5 therefore
+measures linked reads before adding them.
+
+On R, F2/F5 recovered 265 of 316 patterns and 236 bound calls with zero wrong in 50. Single-assignment URLs (28),
+mixed segments (16), constant tables (2–3), a bound method (1) and interceptor setup (4) exercise different parts
+of §5.4. Of the 27 calls without a route in F8, 19 involved multi-segment route tails and three involved multiline
+addresses. These are study figures. The new route-source contract has its own denominator and provenance split.
+
+The owner approved both pairs without prescribing an order. The orchestrator scheduled both producers in parallel after P1, R configuration first in P3 and the first
+reports for both pairs together in P4.
+
+| Order | Slice | Pair and result |
+|---|---|---|
+| Before P1 | D-census | Both. Pin the per-cut firing rates, checked zeros and net loss under the final design. |
+| 1 | P1 | Both. Identity, schema reader, structural diff, admission records and document schemas. P's regenerated IDs are the regression golden. |
+| 2, parallel | P2 | P. Bind annotations and struct fields. Read literal Gin registrations for drift and missing evidence. |
+| 2, parallel | P2-R | R. Start with the prototype-derived route-table adapter and configured mount. Add the route-listing source at the same interface once its S1 and Hapi plugin contract are available. Report proven and configured yields separately. |
+| 3 | P3 | R's configuration first, then P's. One consumer inventory and matcher implementation, separate measurements and binding checks on both pairs under §6.2. Report R's retained configured joins out of 236 (§8). |
+| 4 | P4 | First A1 product review on **both** pairs. R has operation-level coverage. P has schema and producer field evidence. |
+| 5 | P5 | P only. Measure F3, continue to field reads at ≥50% oracle reads found and ≤10% unmatched or wrong among all submitted reads. Otherwise retain operation-level client links and producer field sites. |
+| 6 | P6 | Both. Recover every reader-counted replay location (8 P, 5 R), retain at least 95% of each full reference location set (185/194 P, 60/63 R), and reproduce each pair's outcome shares within five percentage points. PLAN P6 defines the three independent checks. |
+
+#### Firing rates on the pinned populations
+
+Task **D-census** measures the incidence of the final rules before P1 on P at `6744295f` and R at the F5
+producer/client pins held by the authorized local seat. For replay, use the reference versions selected by the
+gate. For each condition below, inventory the eligible population independently of successful extraction. On
+the same occurrences compare the reference result to the result under the design, by source inspection or a
+measurement-only projection. Record the pair, cut, unit, eligible denominator, affected count/share, affected
+grade/field/declaration or location transitions, and overlaps. Deduplicate net losses by source key. A checked
+zero needs the searched scope and receipt. An inapplicable population needs its basis. An unreadable population
+stays unknown and holds the measurement gate open. Publish only R aggregates.
+
+| Cuts to measure separately before P1 | P and R reference context for the measurement |
+|---|---|
+| Direct YAML, fields outside verified JSON request/success bodies (non-body parameters, non-JSON or unverified media, non-success or bodyless responses), default-response fields | Count files, roots and excluded fields. For missing Swagger media record fields with and without §5.1 producer evidence. P has a committed JSON schema and 199 operations. R's route source has no field schema. |
+| Pointer depth over 16, indexed tuples, unsupported schema assertions/composition, unresolved references/resource scope, cycles, infeasible or saturated objects and cross-conjunct remainder policies | Count affected regions and fields on P. Record the inapplicable schema population on R. |
+| Implicit methods, unresolved registrar/star/method normalization or router options, internal routes, vhost/constraint dispatch | F1 saw 218 literal registrations and zero Any/Handle/Match on P. F5 extracted 399 of 400 method entries on R. Check each cut against the pinned entries. |
+| Missing root or applicable mount, incomplete prefix, unproved slash alias, competing endpoints | F1 found 30 registrations with multiple suffix matches outside its 162 cross-checks and four configuration-dependent installation calls. R's F5 mount window starts in May 2023. Count proven and configured effects separately. |
+| Handler position (direct literal, unresolved reference, factory, delegate) | F1 annotation sites covered 199/199 operations. F5 resolved zero handlers and recorded 393 inline functions in 399 declarations. Count endpoint sites and unique admitted bindings separately. |
+| Designated non-API fallback, possible unscoped fallback, unresolved plugin suffix | Count declarations and affected client positives, uniqueness and negatives. F5 reported one non-API catch-all. Of 27 F8 misses on R, 19 involved multi-segment tails and three multiline URLs. |
+| Unsupported transports and template tags, missing hook identity/default, non-string key, unsupported wrapper/options or client member | Include excluded files/forms in the census. P had six non-string keys and one unconfigured form in 200 calls. R had six unknown methods and one dynamic method in 316. |
+| Formal-parameter defaults, URL helper evaluation, unknown writes/spreads/interceptors, choice overflow, opaque arithmetic, mixed URL or method arms | Count each production at its source occurrence. The prototype had 28 dynamic URLs on P and 44 on R. R shapes included 28 single assignments, 16 mixed segments, 2–3 constant tables, one bound method and four interceptor setups. |
+| Unadmitted export-to-API mapping, unresolved document/service origin or mount, other API, unproved slash equivalence, logical query/body/header selectors without a distinct operation | Count affected comparisons and withheld negatives. F2 had ten no-operation calls on P and 27 on R. |
+| Concrete-literal partitions, finite crossing, typed-domain exclusion, competing bests | Compare joins on the original occurrences. P had 154 unique joins, all literal equalities, in 200 calls. R had 236 bound, two candidate and 78 unbound in 316. |
+| Unavailable saved schema inventory, reference location lost to coverage | Inspect the selected report/reference populations and source receipts for dependent lookups and locations. P4 repeats the reconciliation with the implemented engines. |
+| Unavailable exact result definition, unlinked or wrongly attributed field read | Inspect the P5 sample's source evidence on P for incidence. P5 still measures the implementation's precision and recall. R has no F3 field population. |
+
+At P pin `6744295f`, S04 found missing media on 26/290 roots or response keys. The declaration-only rule
+withheld 140/2,421 standing fields (5.78%). Across 69 F4 source revisions it withheld 4,041/90,388 field
+observations at 849/12,761 roots or keys. P02 found 33/194 frozen replay locations (17.01%) blocked by missing
+media at the original versions. Apply §5.1 to P's Go codec and wire-media handling at each corresponding tree.
+For each of the 140 fields and 33 locations record the original key and the evidence or refusal. If `f` of the
+140 standing fields have that evidence, S04 withholds
+`(140 − f)/2,421`. Full coverage of each affected set would reduce these measured media losses to 0/2,421
+and 0/194 respectively. Actual recovery is pending. The supplied configs separately withhold all 154 P and
+236 R prior unique positives. P3 supplies scoped export-to-API records and rematches both pairs.
+
+The study figures provide reference denominators and observations. D-census supplies the baseline rates.
+Reconcile them with actual P1–P5 results at the corresponding slice gates. Return a material loss to the design
+seat before implementation proceeds.
 
 ## 8. Owner decisions
 
 | # | Question | Default applied | Cost of changing later | Latest cheap point |
 |---|---|---|---|---|
 | 1 | Schema format | OpenAPI and Swagger 2.0, JSON files | protobuf is a second `SchemaIndex` reader and a stub-call consumer adapter; nothing else changes | before P1 |
-| 2 | Pilot pair order | The owner confirmed on 2026-11-21 that pair R is the pair meant by "one real producer/consumer pair". The order is still **undecided (owner, 2026-11-21); taken at the feasibility memo, not before.** Both orders are fully planned (`PLAN.md` Part 2, public-first and private-first). The memo recommends one by the rule of 6.4; design review round 1 recommends reconsidering the public-first order. The orchestrator applies neither order: the owner's go-ahead names it. The owner confirmed on 2026-11-24 that the lane proceeds as described, with the order still taken at the memo (**confirmed 2026-11-24**) | choosing later than the go-ahead moves about 4 days between P2 and P6 | at the memo |
+| 2 | Pilot pair order | Both pairs approved, order left open by the owner. The orchestrator applied the order in §7.2. | P2 and P2-R run in parallel | settled at stage D |
 | 3 | Measure pair R locally in F5, including the standing join, the 50-row binding check, the cross-repository replay, the handler and validation-object counts and five private reports | yes, locally, Claude seats only, outputs private (**confirmed 2026-11-21**) | none | before F5 |
-| 4 | Start the pilot | **wait for an explicit owner go-ahead after the memo** (this reading of the owner's "go ahead" **confirmed 2026-11-24**: the lane proceeds as described, and the pilot go-ahead is still taken at the memo) | — | — |
+| 4 | Start the pilot | Owner approved both pairs after the memo. | — | settled |
 | 5 | Where the pilot lives | separate crate `crates/prism-boundary`, own binary | moving into the `prism` binary later is a CLI wiring change | before P1 |
 | 6 | Thresholds G1 to G4 and the replay parameters (10-commit revert and lift windows, R's 14 days, the 150-location adjudication cap, G4's 60%) | as in section 6 | none | at the memo |
+| 7 | Require a minimum number of P3 configured joins retained from R's 236 baseline joins? | **Report, no floor.** Report the same-target numerator/236 and all losses and changes. The precision check and P4 evidenced join still apply. | Reassess P3 yield against the chosen threshold. | before P3 sees product results |
+| 8 | Should the missing-media cut change the P6 benchmark? | Keep **95% per full frozen pair** (185/194 P, 60/63 R), all reader-counted locations and the five-point outcome bands. Keep all 33 affected P locations in the denominator. | Re-score both frozen cohorts. | before P6 sees product results |
+| 9 | May the producer establish JSON when Swagger 2 omits media? | Yes, under §5.1 with evidence for the root at its own revision. Return an insufficient public ceiling to the owner before P1. | Recount S04 and P02 and revise field coverage. | before P1 |
 
 ## 9. Risks and accepted limits
 
@@ -647,31 +982,377 @@ and `ids.tsv` is regenerated from the amended rules.
 - **Field changes lag the annotations.** Operation changes are anchored on the annotations; field changes
   come from the committed schema file and inherit its lag (a regeneration commits after the code change),
   so a client already fixed before the regeneration is not predicted.
-- **Dynamic URLs.** URLs built by helper functions or from configuration cannot be matched statically.
-  They are counted and listed as `unbound: dynamic_url`; the configuration can map known builders later.
-- **Annotation drift.** A swaggo annotation can be stale relative to the registration (three on P at the
-  pin). F1's residues and F8 measure it; the pilot reports disagreement as a warning when both adapters are
-  enabled, and a producer document whose schema does not describe the code carries
-  `schema_stale_against_code`.
+- **Dynamic URLs.** The grammar in §5.4 accounts for symbolic and finite patterns. A computed address outside the
+  grammar remains a counted occurrence with an explicit reason.
+- **Annotation drift.** P2 always reads registrations for evidence. A contradiction is scoped to its
+  authorities and linked sites. Missing annotation or registration evidence alone gives a coverage limit (§5.3).
+
 - **Field names are matched by spelling** under the configured `response_root`. A client that renames fields in a
-  mapper is out of model; such reads are missed, not mis-bound.
-- **Parameter-position matches.** A client parameter facing a schema literal is never `bound` (5.4); a
-  client literal facing a schema `{}` is `bound` only as the unique top match.
-- **Open classes handed to enumeration** (Tasks E-1 and E-2 seed their rows with these):
-  - a call graded `bound` to the wrong operation: a hook whose fetcher fixes a non-GET method; `fetch` with a
-    non-literal options object or method, and function wrappers with a fixed or argument-supplied method;
-    built-in `axios`/`fetch` with a relative URL in a consumer that talks to more than one backend; a client
-    created locally (`axios.create({ baseURL })`) with another base; single-endpoint routing by query
-    string or body (`/rpc?action=…`, GraphQL); a version or tenant segment interpolated in the client;
-    conditional URLs with two URL arms;
-  - two operations with one id: `/a` and `/a/` on a router that distinguishes them; OpenAPI 3 per-path or
-    per-operation `servers`; server variables dropped from the base; host- or header-based routing; one
-    response status with two media types;
-  - one operation with two ids: an annotation whose path or method differs from the registration; a mount
-    prefix added outside the route declaration (plugin or router prefix, reverse-proxy rewrite, gateway
-    stage, a configuration-supplied base on either side); reordering OpenAPI 3 `servers`;
-  - no id for a served operation: a route whose method is a list or a wildcard; an optional trailing
-    parameter; multi-segment parameters (`{p*}`, gin `*filepath`); case-insensitive routers;
-  - field ids: property or definition names with path punctuation (5.1).
-- **Out of model, as everywhere in prism:** URLs assembled at run time, reflection, generated clients not
-  present in the repository.
+  mapper is outside the field-read model. Record the missing linkage for the affected call.
+
+### Matrix decisions and accepted losses
+
+E-1 and E-2 both stopped while enumerators were still finding new cases. For a new **wire-tree** shape, apply §5.1
+recursively and mark the affected region unknown at an unsupported construct. For a new **url-pattern/method**
+shape, apply §5.4's expression and invocation rules, including its finite alternatives, reason precedence and
+unknown result. Future syntax takes those transitions even without a fixture. Overflow of the 64-alternative budget
+marks the affected target unknown and keeps the site in the denominator. A runtime or generated client absent from
+source is outside the static inventory.
+
+The tables partition all **523** rows (458 rule, 65 accepted loss) by their original `class` column. A rule row tests the amended decision,
+including correct exclusions, negative grades and new spellings. An accepted loss means the pilot cannot recover
+all the semantics witnessed by that row. Test the supported observations and the named limit. Keep the semantic
+witness in the fixture. The enumeration inputs have SHA-256
+`b7617d8537c238ef5271ec4c65778e57336e76b2a56495b7341d91a22dd60ba9` (E-1) and
+`eb1988f64200552892351e93e580fec5819776def804919cccb47850fb018dc2` (E-2). Align their expectations with these
+decisions after design review. A row appears once in its disposition column, even when more than one rule applies.
+
+**Input records for the ledger.** The following keys are inherited by *every* row in the tables. In alignment,
+materialize them by row ID in the fixture projection or manifest. Each cited input resolves to bytes or a typed
+record, with the field values and provenance used. A truth label or expected ID is never an input.
+
+| Rows | Required record selected for the individual row |
+|---|---|
+| E-1 JSON/schema | `fixture` → schema tree/blob, dialect, original operation and message/field node, retrieval URI/dependencies for references or server bases, media/status origin and API. Confirm JSON fields from the applicable declaration or the §5.1 producer record for omitted Swagger media. An omission without that record preserves only structural observations. |
+| E-1 routes/annotations | `fixture` → declaration span, authority and dialect/version. Select the §5.3 spec, scoped policy keys, plugin/mount or Gin registration/annotation sites used by that row. P1 exercises typed projections. P2/P2-R must obtain corresponding evidence for their supported adapters from admitted sources. Other framework projections exercise identity only. |
+| E-2, all classes including s01–s45 | `fixture` → revision-local expression span, reaching values, binding/transport identity and coverage. `config` → effective §5.4 client/hook entry, convention, mapping and API. A target or completed negative also requires the paired schema/route inventory, relevant scope and origin records. Record individual alternatives, reasons and exclusion for a non-call. |
+| Saved matches, changes and coverage controls | Key by scan/service inventory and side-local element ID, or by comparison input pair and client occurrence (§5.2). Apply §5.6 to every dependency. |
+
+For each augmented input below also test withholding that record. Keep any readable call/declaration and show the
+dependent cell as **Not checked**. This makes rule rows executable through an adapter with its declared inputs.
+
+#### E-1 element identity
+
+| Accepted-loss reason and required pilot result | Matrix row IDs |
+|---|---|
+| Only explicit success keys contribute A1 status rows and field roots. A fallback can describe a success, including the witnessed 202. Retain its declaration and disclose the excluded coverage. | `s1-oas31-default-success-witness` |
+| Compare only the JSON representation. Preserve every media declaration and its source. Omit fields exclusive to other representations, including XML wire names and forms. | `oas-body-fallback-single`, `oas-body-fallback-sorted`, `oas-body-fallback-sorted-control`, `oas-body-media-distinct`, `oas-form-request-body`, `oas-response-media-disjoint`, `oas-response-media-same-pointer`, `swagger-formdata-multipart`, `swagger-formdata-urlencoded`, `t1-request-media-same-pointer`, `s1-oas31-response-media-range`, `s1-swagger-xml-wire-name` |
+| The product reads JSON documents. A caller can convert this YAML fixture and retain its source and conversion receipt. Direct YAML extraction is out of scope. | `s1-oas31-yaml-status-keys` |
+| A finite field beyond the 16-edge pointer limit is omitted with `depth_cut` at its parent. | `wire-depth-17` |
+| Indexed tuple positions and evaluated tails require distinct position semantics. Mark the affected array's descendants unchecked. | `t1-tuple-prefix-items`, `t1-array-prefix-index-collision`, `s1-oas31-tuple-unevaluated-tail` |
+| Conditional, negative, dependent, pattern, enumerated-object and evaluated-location constraints can introduce or exclude names. Record the enclosing region as partial. The pilot has no general JSON Schema satisfiability or enumeration engine. | `t1-not-required-field`, `t1-conditional-branches`, `t1-pattern-exact-property`, `t1-oneof-overlap-exclusion`, `t1-dependent-schema`, `t1-contains-items`, `t1-unevaluated-properties`, `t1-pattern-excluded-by-property`, `s1-oas31-enum-object-shape`, `s1-oas31-property-names-finite-map` |
+| Nested resource bases, plain anchors and dynamic scope need a schema-resource resolver. Preserve the reference and mark the affected path unchecked. | `t1-ref-id-base`, `t1-anchor-ref`, `s1-oas31-dynamic-ref-override` |
+| Discovering derived Swagger definitions by their discriminator requires a reverse inheritance index. Record the base fields and incomplete alternatives. | `s1-swagger-discriminator-inheritance` |
+| Runtime group arguments, arbitrary registration wrappers, gateway programs and reverse proxies need a separately evidenced public mapping. The fixtures do not declare one in the adapter configuration. Keep local/suffix evidence only. | `gin-group-supplied-prefix`, `route-configured-external-base`, `route-gateway-stage`, `route-proxy-rewrite` |
+| Implicit framework operations require dispatch evidence. Retain the explicit method/path declarations or helper site and mark generated-method coverage unchecked. | `t1-express-implicit-head`, `s1-express4-generated-options`, `s1-gin-static-file-methods`, `s1-express5-mount-aliases`, `s1-express5-optional-literal-group`, `s1-express5-quoted-parameter`, `s1-express5-root-inclusive-wildcard` |
+| The API/method/path key cannot distinguish host-, header-, query- or regex-selected competing handlers inside one API. Keep the discriminators and sites as evidence and refuse a unique join. | `route-hapi-vhosts`, `route-header-dispatch`, `s1-express4-query-dispatch`, `s1-express4-constrained-captures` |
+
+| Matrix class | Rule | Accepted loss | Rule row IDs |
+|---|---:|---:|---|
+| allof | 7 | 2 | `allof-compatible-overlap`, `allof-envelope-first`, `allof-envelope-last`, `allof-nested-overlap`, `allof-single-ref-property`, `t1-required-allof`, `t1-allof-closed-intersection` |
+| oneof-anyof | 4 | 1 | `s1-oas31-anyof-impossible-branch`, `anyof-choice`, `oneof-choice`, `t1-discriminator-mapping` |
+| field-punctuation | 16 | 0 | `definition-dotted-name`, `definition-pointer-punctuation`, `field-embedded-brackets`, `field-embedded-star`, `field-empty-name`, `field-exact-brackets-vs-item`, `field-exact-star-vs-map`, `field-hash`, `field-slash-vs-nesting`, `field-tilde-escape-lookalike`, `t1-names-ascii-keys`, `t1-fragment-percent-collision`, `t1-unicode-normalization`, `t1-property-names-uri`, `t1-external-pointer-escaped`, `s1-field-control-characters` |
+| no-id-for-served-op | 14 | 5 | `gin-catchall`, `gin-handle-custom-method`, `gin-match-list`, `route-closed-wildcard`, `route-express4-bare-star`, `route-express4-optional`, `route-hapi-catchall`, `route-hapi-fixed-catchall`, `route-hapi-insensitive`, `route-hapi-optional`, `route-hapi-wildcard-method`, `route-method-list`, `t1-express-array-paths`, `s1-hapi-optional-mixed-segment` |
+| path-normalisation | 22 | 0 | `gin-clean-slash-join`, `oas-absolute-server`, `oas-authority-only`, `oas-encoded-slash`, `oas-implicit-server`, `oas-path-case`, `oas-relative-server`, `oas-server-host-variable`, `oas-server-trailing-join`, `oas-significant-repeated-slash`, `oas-significant-trailing-slash`, `route-hapi-strip-trailing`, `swagger-base`, `swagger-encoded-braces`, `swagger-no-base`, `swagger-root`, `swagger-root-base`, `swagger-root-with-base`, `t1-relative-server-document-base`, `s1-gin-raw-encoded-slash`, `s1-oas31-empty-server-list`, `s1-oas31-network-path-server` |
+| parameters | 12 | 1 | `gin-colon`, `gin-mixed-segment`, `oas-adjacent-braces`, `oas-braces`, `oas-colon-literal`, `oas-in-segment-braces`, `oas-literal-vs-template`, `route-colon-required`, `route-hapi-braces`, `swagger-braces`, `swagger-repeated-name`, `s1-oas31-label-path-parameter` |
+| methods | 12 | 0 | `gin-distinct-head-options`, `oas-operation-keys`, `oas-operationid-attribute`, `oas-path-item-metadata`, `oas-uppercase-key`, `route-method-head-options`, `route-method-lowercase`, `swagger-operation-keys`, `swagger-path-item-metadata`, `swagger-trace-key`, `t1-path-item-reference`, `s1-hapi-internal-route` |
+| one-op-two-ids | 5 | 4 | `oas-server-order-north-first`, `oas-server-order-south-first`, `route-plugin-mount`, `swag-method-drift`, `swag-path-drift` |
+| prefixes | 6 | 1 | `gin-literal-nested-groups`, `route-custom-keys-and-mount`, `route-mount-parameter`, `route-mount-root`, `s1-hapi-prefix-on-plugin-root`, `s1-oas31-external-path-item-server` |
+| two-ops-one-id | 8 | 9 | `gin-strict-trailing-slash`, `oas-operation-server-overrides`, `oas-path-server-overrides`, `oas-server-partial-variable`, `oas-server-path-variable`, `oas-server-variable-collapse`, `oas-server-variable-distinct-operations`, `s1-oas31-authority-dispatch` |
+| request-body | 11 | 4 | `oas-body-component-ref`, `oas-body-json`, `oas-body-json-preferred`, `oas-nonbody-parameters`, `swagger-body-name-not-on-wire`, `swagger-body-path-inheritance`, `swagger-nonbody-parameters`, `s1-oas30-get-request-body`, `s1-oas31-get-request-body`, `s1-oas31-request-media-case-range`, `s1-swagger-body-parameter-ref-override` |
+| status-keys | 11 | 2 | `oas-default-only`, `oas-default-exclusion`, `swagger-default-exclusion`, `oas-lowercase-range`, `oas-no-content`, `oas-range-and-exact-status`, `swagger-range-key`, `swagger-success-boundaries`, `s1-oas31-204-response-body`, `s1-oas31-head-response-body`, `s1-swagger-response-ref-two-statuses` |
+| formdata | 0 | 3 | — |
+| wire-tree | 29 | 14 | `oas-response-component-ref`, `wire-array-of-arrays`, `wire-array-property`, `wire-empty-object`, `wire-map-boolean`, `wire-map-object`, `wire-map-object-ref`, `wire-map-of-arrays`, `wire-map-primitive`, `wire-named-ref-inline`, `wire-nested-properties`, `wire-primitive-array`, `wire-root-array`, `wire-root-map`, `wire-scalar-root`, `wire-sibling-ref-reuse`, `t1-ref-inline-pointer`, `t1-ref-external-relative`, `t1-ref-siblings-31`, `t1-ref-siblings-30`, `t1-nullable-object`, `t1-null-union-31`, `t1-array-of-map`, `t1-defs-reference`, `t1-directional-annotations`, `t1-array-zero-maximum`, `t1-false-property`, `t1-max-properties-zero`, `s1-oas31-required-only-name` |
+| annotations | 3 | 0 | `swag-detached-annotation`, `swag-method-doc-comment`, `swag-two-annotations` |
+| collision | 2 | 0 | `swagger-disjoint-collision`, `swagger-duplicate-collision` |
+| cycle | 3 | 0 | `wire-container-cycle`, `wire-direct-cycle`, `wire-mutual-cycle` |
+| depth-cut | 1 | 1 | `wire-depth-16` |
+| wire-neutral-rename | 4 | 0 | `wire-neutral-rename-clayreceipt`, `wire-neutral-rename-pressedreceipt`, `t1-enum-format-before`, `t1-enum-format-after` |
+| **Total** | **170** | **47** | **217 rows** |
+
+#### E-2 consumer
+
+| Accepted-loss reason and required pilot result | Matrix row IDs |
+|---|---|
+| These library or stateful transports need another client adapter. Record excluded transport coverage. Count an invocation only if rooted in a configured client, then use `unconfigured_client_form` until its request convention is known. | `t1-expand-ky-prefix`, `t1-expand-got-prefix`, `t1-expand-superagent-query`, `t1-expand-jquery-ajax`, `t1-extra-xhr-send` |
+| A callable template tag receives a strings array and substitutions. A normal function call configuration supplies no tag contract. Count the configured client invocation as `unconfigured_client_form`. | `grammar-client-template-tag`, `grammar-parameter-template-tag` |
+| Default parameters require proof about all callers. User-defined URL helpers require interpreting code. Retain the client site with `dynamic_url` and any readable method. | `grammar-default-param`, `t1-extra-default-explicit-undefined`, `t1-expand-helper-literal`, `t1-extra-helper-finite-table` |
+| Selector-specific RPC operations share the method/path ID. Record the enclosing HTTP declaration and the unchecked selector, withholding a binding to the logical operation. | `rpc-query-selector`, `rpc-body-selector` |
+| The wrapper or schema supplies no rule equating distinct slash spellings. Keep the actual mapped path. Affected empty alternatives can stay unmatched even when the nonempty alternative matches. A supplied, versioned slash policy can recover these joins. | `prefix-normalize-after-map`, `repeated-slash`, `trailing-slash`, `s14`, `s14-2` |
+
+| Matrix class | Rule | Accepted loss | Rule row IDs |
+|---|---:|---:|---|
+| client-identity | 37 | 5 | `c01`, `identity-old-alias`, `c13-relative`, `c13`, `identity-namespace`, `identity-two-reexports`, `identity-tsx`, `identity-js`, `identity-jsx`, `identity-index-js`, `identity-same-spelling`, `c02`, `c02-local`, `identity-after-block`, `identity-destructured`, `identity-two-star-reexports`, `fetch-global-property`, `axios-named-verb`, `fetch-shadow`, `axios-shadow`, `grammar-optional-receiver`, `grammar-optional-method`, `grammar-static-subscript`, `grammar-ts-cast`, `grammar-class-client-field`, `grammar-dynamic-client-import`, `t1-call-verb`, `t1-bind-invoke`, `t1-alias-client`, `t1-destructure-client`, `t1-finite-computed-key`, `t1-expand-axios-instance-prefix`, `t1-expand-method-apply`, `t1-extra-renamed-barrel`, `t1-extra-namespace-barrel`, `t1-extra-rebound-alias`, `t1-extra-bound-preargument` |
+| counting | 38 | 2 | `c03`, `count-deep-member`, `count-dotted-property`, `count-passed-fetcher-hook`, `c03-fetcher`, `c06`, `count-inline-hook`, `count-inline-inner`, `count-test-infix`, `count-spec`, `count-test-directory`, `count-test-lookalike`, `c10`, `hook-named-fetcher-implementation`, `hook-inline-put-inner`, `hook-inline-different-path-inner`, `hook-local-fetcher`, `c15`, `axios-promise-chain`, `grammar-promise-inner`, `grammar-promise-then`, `grammar-await`, `grammar-default-wrapper`, `grammar-class-method`, `grammar-ordinary-template-tag`, `grammar-url-constructor`, `grammar-dynamic-module-load`, `t1-query-inner`, `t1-thunk-inner`, `t1-bind-creation`, `t1-request-construction`, `t1-axios-create-only`, `t1-url-searchparams-only`, `t1-generated-file`, `t1-test-suffix-lookalike`, `t1-test-exact-suffix`, `t1-extra-xhr-open`, `t1-extra-bind-preargument-creation` |
+| url-pattern | 55 | 4 | `url-const-argument`, `url-const-any-position`, `c14`, `url-query-delimiter-in-const`, `url-two-segments`, `url-concat-segment`, `url-concat-parenthesized`, `url-concat-const`, `url-query-after-segment`, `url-query-concat`, `url-in-segment`, `url-leading`, `url-two-values-in-one-segment`, `url-concat-in-segment`, `url-percent-encoded`, `url-shadowed-const`, `url-closure-const`, `url-later-module-const`, `c05`, `c04`, `hook-null-arm`, `hook-undefined-arm`, `hook-false-arm`, `hook-empty-arm`, `hook-array-template`, `hook-array-first-only`, `hook-object-key`, `hook-array-unknown-first`, `hook-array-hole`, `hook-empty-array`, `grammar-known-spread`, `grammar-inline-spread`, `grammar-unknown-spread`, `grammar-fixed-table`, `grammar-runtime-table`, `grammar-new-url`, `t1-url-parent`, `t1-url-base-file`, `t1-url-fragment`, `t1-nullish-url`, `t1-enum-url`, `t1-url-dot-segments`, `t1-url-document-relative`, `t1-url-protocol-relative`, `t1-url-unicode`, `t1-url-encoded-literal`, `t1-url-double-encoding`, `t1-url-hash-before-query`, `t1-url-known-table`, `t1-url-or-default`, `t1-expand-optional-table`, `t1-expand-nullish-live-choice`, `t1-extra-frozen-property`, `t1-extra-url-searchparams`, `t1-extra-url-object` |
+| prefix-map | 4 | 1 | `c09`, `prefix-add-without-strip`, `prefix-strip-only-at-start`, `prefix` |
+| hook with non-GET fetcher | 5 | 0 | `c12`, `hook-post`, `hook-inline-put`, `hook-inline-different-path`, `hook-named-put` |
+| method | 33 | 0 | `hook-default-get`, `member-positional`, `member-option-key`, `method-nested-put`, `method-nested-get`, `method-nested-post`, `c07`, `c07-get`, `fetch-init-default`, `fetch-undefined-init`, `axios-verb`, `axios-object`, `axios-object-default`, `axios-dynamic-method`, `grammar-computed-verb`, `t1-spread-override`, `t1-spread-last`, `t1-axios-spread-url`, `t1-axios-url-last`, `t1-request-override`, `t1-request-inherits-method`, `t1-request-options-inherit`, `t1-fetch-undefined-method`, `t1-fetch-lowercase-method`, `t1-axios-url-config`, `t1-axios-base-path`, `t1-axios-absolute-over-base`, `t1-expand-fetch-lower-get`, `t1-expand-fetch-lower-delete`, `t1-expand-axios-config-params`, `t1-expand-axios-request-member`, `t1-extra-axios-config-constant`, `t1-extra-fetch-override-spread` |
+| conditional URLs with two URL arms | 3 | 0 | `hook-two-url-arms`, `two-url-arms`, `same-path-url-arms` |
+| function wrappers with fixed or argument-supplied method | 6 | 0 | `wrapper-fixed`, `wrapper-positional`, `wrapper-option-key`, `wrapper-dynamic-positional`, `wrapper-dynamic-option`, `wrapper-const-method` |
+| fetch with non-literal options | 4 | 0 | `c07-options`, `fetch-runtime-method`, `fetch-known-options`, `fetch-known-verb` |
+| a locally created client with another base | 3 | 0 | `factory-created`, `backend-local-client`, `backend-inline-client` |
+| built-in axios/fetch with a relative URL in a consumer that talks to more than one backend | 3 | 0 | `backend-relative-fetch`, `backend-relative-axios`, `backend-absolute-fetch` |
+| single-endpoint routing by query string or body | 2 | 2 | `rpc-query-control`, `rpc-body-control` |
+| a version or tenant segment interpolated in the client | 3 | 0 | `variant-version`, `variant-fixed-version`, `variant-tenant` |
+| matching | 25 | 2 | `c08`, `c11`, `matching-tie-without-parameter-on-literal`, `matching-only-top`, `matching-parameter-score`, `same-literal`, `same-parameter`, `literal-to-parameter`, `literal-wins`, `parameter-to-literal`, `parameter-to-two-literals`, `one-version`, `two-versions`, `different-lengths`, `different-methods`, `root`, `literal-case`, `parameter-wins`, `t1-match-middle-parameters`, `t1-match-adjacent-parameters`, `t1-match-adjacent-literal`, `t1-method-same-path-post`, `t1-method-same-path-get`, `t1-extra-repeated-param`, `t1-extra-literal-schema-tie` |
+| shape:s01 | 1 | 0 | `s01` |
+| shape:s02 | 1 | 0 | `s02` |
+| shape:s03 | 2 | 0 | `s03`, `s03-2` |
+| shape:s04 | 2 | 0 | `s04`, `s04-2` |
+| shape:s05 | 1 | 0 | `s05` |
+| shape:s06 | 1 | 0 | `s06` |
+| shape:s07 | 1 | 0 | `s07` |
+| shape:s08 | 1 | 0 | `s08` |
+| shape:s09 | 2 | 0 | `s09`, `s09-2` |
+| shape:s10 | 1 | 0 | `s10` |
+| shape:s11 | 1 | 0 | `s11` |
+| shape:s12 | 1 | 0 | `s12` |
+| shape:s13 | 1 | 0 | `s13` |
+| shape:s14 | 0 | 2 | — |
+| shape:s15 | 1 | 0 | `s15` |
+| shape:s16 | 2 | 0 | `s16`, `s16-2` |
+| shape:s17 | 1 | 0 | `s17` |
+| shape:s18 | 1 | 0 | `s18` |
+| shape:s19 | 1 | 0 | `s19` |
+| shape:s20 | 1 | 0 | `s20` |
+| shape:s21 | 3 | 0 | `s21`, `s21-2`, `s21-3` |
+| shape:s22 | 3 | 0 | `s22`, `s22-2`, `s22-3` |
+| shape:s23 | 1 | 0 | `s23` |
+| shape:s24 | 1 | 0 | `s24` |
+| shape:s25 | 2 | 0 | `s25`, `s25-2` |
+| shape:s26 | 1 | 0 | `s26` |
+| shape:s27 | 1 | 0 | `s27` |
+| shape:s28 | 1 | 0 | `s28` |
+| shape:s29 | 2 | 0 | `s29`, `s29-2` |
+| shape:s30 | 3 | 0 | `s30`, `s30-2`, `s30-3` |
+| shape:s31 | 3 | 0 | `s31`, `s31-2`, `s31-3` |
+| shape:s32 | 2 | 0 | `s32`, `s32-2` |
+| shape:s33 | 1 | 0 | `s33` |
+| shape:s34 | 4 | 0 | `s34`, `s34-2`, `s34-3`, `s34-4` |
+| shape:s35 | 2 | 0 | `s35`, `s35-2` |
+| shape:s36 | 2 | 0 | `s36`, `s36-2` |
+| shape:s37 | 2 | 0 | `s37`, `s37-2` |
+| shape:s38 | 1 | 0 | `s38` |
+| shape:s39 | 2 | 0 | `s39`, `s39-2` |
+| shape:s40 | 1 | 0 | `s40` |
+| shape:s41 | 1 | 0 | `s41` |
+| shape:s42 | 1 | 0 | `s42` |
+| shape:s43 | 1 | 0 | `s43` |
+| shape:s44 | 2 | 0 | `s44`, `s44-2` |
+| shape:s45 | 1 | 0 | `s45` |
+| **Total** | **288** | **18** | **306 rows** |
+
+#### Alignment list
+
+Apply these grouped edits to the hashed E-1/E-2 inputs after review. Preserve the original semantic witness
+and its source. Record the §9 disposition separately from the witness. For each affected row replace its base
+RED/GREEN receipt using the amended assertion and inputs. For missing evidence assert coverage status and reason
+beside the ID/grade cell. A blank ID cell by itself cannot distinguish a refused comparison from a checked empty
+result. If a TSV cannot represent authority, typed scope, branches or coverage, key companion expectations by
+the same row ID. The 523-row census (458 rule, 65 accepted loss) counts each pinned witness once. Additional
+controls, including withheld-input variants, sit outside that census.
+
+**E-1 identity, source records and warnings.** Operations in the result column have the `op:` prefix. A pointer
+names a field under that row's original request/response operation and explicit status. Lists are sets.
+
+| Row IDs | Replacement expectation or required fixture input |
+|---|---|
+| `field-embedded-brackets`, `field-embedded-star` | Replace the property suffixes by `#/tone%5B%5Dwet`, `#/tone%2Awet`, respectively. |
+| `field-embedded-brackets`, `field-embedded-star`, `field-exact-brackets-vs-item`, `field-exact-star-vs-map`, `field-hash`, `field-slash-vs-nesting`, `field-tilde-escape-lookalike`, `t1-fragment-percent-collision`, `t1-external-pointer-escaped` | Remove only `unescaped_property_name`. The remaining warning set and other encoded property bytes follow §5.1. |
+| `oas-operation-server-overrides`, `oas-path-server-overrides` | Keep both operation IDs and remove `duplicate_operation`. The nearest server lists put the keys on distinct paths. |
+| `s1-oas31-authority-dispatch` | Project each JSON document with a distinct API key from its server authority. Both get GET /reed. Wax authority gets only `field:resp:GET /reed:200#/wax`, pith only `field:resp:GET /reed:200#/pith`. |
+| `gin-catchall`, `route-express4-bare-star`, `route-hapi-catchall`, `route-hapi-fixed-catchall` | GET /mugs/{*0+}, POST /mugs/{*0+}, POST /mugs/{*0+}, POST /mugs/{*2} respectively. Freeze version/dialect and retained separator. Test empty, one and two segments, with bare-parent acceptance separately evidenced. |
+| `route-express4-optional`, `route-hapi-optional`, `s1-hapi-optional-mixed-segment` | POST /mugs/{?}, POST /mugs/{?}, POST /fletch/wax-{?}/proof. Record whether the separator belongs to the optional branch. |
+| `route-closed-wildcard`, `route-hapi-wildcard-method` | Add scoped `star=[POST, OPTIONS]` to the custom registrar → OPTIONS /mugs and POST /mugs. Resolve Hapi/version or set `star=all` → * /mugs. Remove either policy and version evidence → unchecked method coverage, zero wildcard IDs. |
+| `route-method-lowercase`, `route-custom-keys-and-mount`, `route-mount-parameter`, `route-mount-root` | Add `method_normalization=uppercase`, the literal entry-key mapping, brace capture dialect and single-separator/root join policy as applicable. Expect PATCH /mugs, GET /atelier/mugs/{}, POST /atelier/{}/mugs, GET /. |
+| `route-plugin-mount`, `s1-hapi-prefix-on-plugin-root`, `route-hapi-insensitive`, `route-hapi-strip-trailing`, `s1-hapi-internal-route` | Supply resolved version and scoped mount/plugin site, router options or isInternal key respectively. Expect POST /atelier/mugs, POST /fletch, ASCII-folded POST /mugs, POST /mugs with trailing alias, only public POST /fletch/public. P2-R tests extraction with each governing input withheld. |
+| `route-hapi-vhosts`, `route-header-dispatch` | Read entry-option host/constraint keys, retain competing sites with their discriminator, no unique public target in this API. |
+| `swag-method-drift`, `swag-path-drift` | Both have registration evidence POST /mugs. Annotation evidence is GET /mugs and POST /cups respectively. Expect linked method/path drift and both source sites. Registration supplies zero bindings. |
+| `gin-group-supplied-prefix`, `route-configured-external-base`, `route-gateway-stage`, `route-proxy-rewrite` | Keep observed local POST /mugs only. No public ID under the fixture's supplied/runtime prefix without an admitted scoped mapping. |
+| `t1-express-implicit-head`, `s1-express4-generated-options`, `s1-gin-static-file-methods` | Keep GET /forge, keep POST and PUT /fletch, and keep only the helper site respectively. Mark implicit-method coverage partial. |
+| `s1-express5-mount-aliases`, `s1-express5-optional-literal-group`, `s1-express5-quoted-parameter`, `s1-express5-root-inclusive-wildcard` | Only POST. In order the path sets are {/amber/proof, /ochre/proof}, {/fletch/proof, /fletch/draft/proof}, {/fletch/{}}, and /{*0+}. Preserve the root separator and excluded generated OPTIONS coverage. |
+| `s1-express4-constrained-captures`, `s1-express4-query-dispatch`, `s1-oas31-yaml-status-keys` | First two retain the competing declaration sites/conditions and no unique public ID. Direct YAML gives no IDs, with a format limit. |
+
+**E-1 message roots and wire trees.** In the next table, “operation only” retains the operation in the fixture.
+Keep every excluded media/status declaration as evidence. For partial schema regions keep raw observations in
+their own collection. Compare no fields inside the indicated region.
+
+The media amendment changes zero pinned expectations. No pinned input supplies the §5.1 producer record.
+E-1 has 170 rule and 47 accepted-loss rows. E-2 has 288 and 18. In a companion to `swagger-default-exclusion`,
+give the 200 response of `GET /cone` a producer record, testing the generator contract and the encoder separately.
+Only `field:resp:GET /cone:200#/fired` becomes comparable. Withhold the record, change its tree or direction,
+inherit an XML-only list, or set an empty operation override, and the 200 field comparison is **Not checked**.
+With proof on the new side only, infer no field addition. Withhold confirmation for a documentation-only
+generator, a middleware writer with unknown extraction status, and a wrapper that serves JSON bytes as
+`text/plain`. The 404 and default bodies stay outside the success comparison.
+
+| Row IDs | Replacement expectation or control |
+|---|---|
+| `oas-body-fallback-single`, `oas-body-fallback-sorted`, `oas-body-fallback-sorted-control`, `oas-form-request-body`, `swagger-formdata-multipart`, `swagger-formdata-urlencoded`, `s1-swagger-xml-wire-name` | Operation only in the JSON-field projection. Record `non_json_media` for the excluded representation. Remove the old `media_type_fallback` warning wherever present. |
+| `oas-body-media-distinct`, `oas-response-media-disjoint`, `oas-response-media-same-pointer`, `t1-request-media-same-pointer`, `s1-oas31-response-media-range`, `s1-oas31-default-success-witness` | Operation plus only the applicable field under the original root. In order: `#/jsonMark`, `#/jsonMark`, `#/mark` (integer), `#/mark` (integer), `#/cerulean`, `#/finished` (200). Record excluded media or fallback coverage. No 202 root from the witness. |
+| `s1-oas31-request-media-case-range` | Keep `#/cerulean` and the operation, remove `media_type_fallback`. The case-equivalent JSON media entry is an exact match. |
+| `oas-default-only`, `oas-default-exclusion`, `swagger-default-exclusion` | Rule controls. Keep the stored IDs, record fallback separately. The last two already assert only the explicit 200 field. The pinned Swagger fixture omits media and supplies no producer record, so that structural field is media-unverified. |
+| `wire-depth-17`, `t1-tuple-prefix-items`, `t1-array-prefix-index-collision`, `s1-oas31-tuple-unevaluated-tail` | Retain layers 1–16 and `depth_cut` at 16 in the first. For each tuple retain the operation and partial array region, no indexed descendants. |
+| `t1-ref-id-base`, `t1-anchor-ref`, `s1-oas31-dynamic-ref-override`, `s1-swagger-discriminator-inheritance` | First three keep operation only with unresolved reference scope. Last keeps the operation and base `#/family`, drops `#/ridge` and marks derived alternatives partial. |
+| `t1-not-required-field`, `t1-conditional-branches`, `t1-pattern-exact-property`, `t1-oneof-overlap-exclusion` | Operation only in confirmed IDs. Mark the response object partial for not/conditional/pattern/exclusivity respectively. Record literal declarations and branches, the triggering keyword and the oneOf union observation. A pattern spelling alone establishes no literal field. |
+| `t1-allof-closed-intersection` | Rule. Keep `op:GET /loom`. Each member's false remainder forbids the other's optional key (`bolt` or `nut`). The empty object is feasible and the field set is checked empty. Add the saturated literal/map, closed minimum and schema-valued cross-conjunct controls in §5.1. |
+| `t1-directional-annotations` | Keep the pinned rule row and add the §5.1 two-slot control. Require both `field:req:POST /forge#/label` and `field:resp:POST /forge:200#/label` after adding `maxProperties: 2`. Neither root emits a `FieldRemoved`. |
+| `t1-dependent-schema`, `t1-contains-items`, `t1-unevaluated-properties`, `t1-pattern-excluded-by-property`, `s1-oas31-enum-object-shape`, `s1-oas31-property-names-finite-map` | Operation only in confirmed IDs. Mark the affected response container partial under its unsupported keyword. Preserve declarations/constraints including trigger/bobbin, contains/weave, warp/weft, false bolt plus pattern, object values, and the map's `*/glint` observation respectively. |
+| `s1-oas31-anyof-impossible-branch`, `t1-max-properties-zero`, `s1-oas31-required-only-name` | The first arm's required false-valued gate proves that whole arm impossible. Keep only the feasible `#/wax`, its operation and `anyOf_union`. Zero capacity gives operation only. Required-only wax inherits additionalProperties (unconstrained in this fixture). Add integer and false controls: integer shape, or no feasible object fields, respectively. |
+
+**E-2 counted calls and comparisons.** Each target below is an operation ID. For a refused comparison the
+target-ID set is empty and coverage partial. For an excluded transport use grade `none` and exclude the call
+from the adapter denominator. Keep diagnostics, including secondary reasons, in the coverage projection.
+
+| Row IDs | Replacement result or input |
+|---|---|
+| `s01`, `s02`, `s03`, `s04`, `s04-2`, `s05`, `s06`, `s07`, `s08`, `s09`, `s09-2`, `s10`, `s11`, `s12`, `s13`, `s14`, `s14-2`, `s15`, `s16`, `s16-2`, `s17`, `s18`, `s19`, `s20`, `s21`, `s21-2`, `s21-3`, `s22-3`, `s23`, `s24`, `s25`, `s25-2`, `s26`, `s27`, `s28`, `s29`, `s29-2`, `s30-3`, `s31-3`, `s32`, `s33`, `s34`, `s34-2`, `s35`, `s36`, `s37`, `s37-2` | These 47 occurrences require one admitted service-relative mapping in each of their 37 fixture configs. Use the record below before applying the row's grade, limits or target expectations. |
+| `url-concat-parenthesized` | With the default export of `urls/quay.ts` mapped by the fixture config to the fixture API at its identity prefix, numeric parameter plus numeric literal gives bound `op:GET /reels/{}/ends`. Replace the parameter operand with a value of unknown type and coercion. Keep GET, give `unbound/dynamic_url` and zero targets. |
+| `url-in-segment`, `url-concat-in-segment`, `url-two-values-in-one-segment` | Bound GET /reels/{} for all three. |
+| `s05`, `s06`, `s07`, `s08`, `s10`, `s17`, `s23`, `s24`, `s36`, `c11`, `t1-extra-repeated-param`, `t1-extra-literal-schema-tie` | Keep the pinned grades, target IDs and reasons. Each whole-component string hole models a non-empty segment parameter. |
+| `s09` | Declared string gives `candidate/ambiguous_operation` with `op:GET /mothbank/crates/%2F{}` and `op:GET /mothbank/crates/{}`. Record `op:GET /mothbank/crates/{}-ridge-gold` as a conditional overlap when the substitution ends in `-ridge-gold`. With `"wax"`, `%2Fwax` binds the mixed route on its literal prefix, with the generic route as an overlap. With `""`, `%2F` binds only the generic route. |
+| `s09-2` | Declared string gives `candidate/ambiguous_operation` with `op:GET /mothbank/crates/{}-ridge-gold` and `op:GET /mothbank/crates/{}`. Record `op:GET /mothbank/crates/%2F{}` as a conditional overlap when the substitution starts with `%2F`. With `"wax"`, `wax-ridge-gold` binds the mixed route on its literal suffix, with the generic route as an overlap. With `""`, `-ridge-gold` binds only the generic route. |
+| `c05` | Align the mixed live-branch witness by changing the declaration to let in the aligned projection. Candidate GET /reels, primary `conditional_url`, opaque replacement arm uncovered. Retain original const bytes as an abrupt-completion control: bound GET /reels on the sole reaching arm. |
+| `s15` | Candidate GET /mothbank/booklets and GET /mothbank/booklets/{}, `ambiguous_operation`. Empty string reaches the base, truthy string reaches the segment. Suffixes false, null and undefined stringify without a slash and are unmatched. |
+| `parameter-to-literal`, `matching-only-top`, `matching-parameter-score` | Numeric domain excludes me: unbound/no_operation. Next two become candidate/ambiguous_operation. GET /press/{}/leaf and GET /press/copper/{} tie for copper. GET /base/{}/top and GET /base/flint/{} tie for flint (GET /base/{}/{} overlaps). |
+| `one-version` | The finite v1/v2 domain gives candidate GET /api/v1/item with reason `conditional_url` and an unmatched /api/v2/item. |
+| `hook-two-url-arms`, `two-url-arms`, `same-path-url-arms` | Different readable bests give candidate/ambiguous_operation with both stored IDs. Equal readable bests coalesce to the stored bound result. |
+| `hook-default-get`, `t1-extra-frozen-property` | Bind the hook to key.ts export useQuayKey, key 0/fetcher 1, use a fixed GET on the service-relative key, as evidenced by the hook's omitted-fetcher branch. Bound GET /cairns. Without default, unbound/unconfigured_client_form, partial. Stable own route of the shallow-frozen literal gives bound GET /copper. Materialize resolved hook entries throughout hook fixtures and each public config era. |
+| `wrapper-positional`, `wrapper-option-key`, `member-positional`, `member-option-key`, `wrapper-const-method` | Declare uppercase normalization. Take verb at argument 0, options argument 2 key verb, verb at argument 1, options argument 1 key verb, verb at argument 0 respectively. Bound PATCH, DELETE, PUT, GET, PATCH on /wicks. Opaque values in the dynamic controls still give dynamic_method. |
+| `c07`, `c07-get`, `fetch-init-default`, `fetch-known-options`, `fetch-known-verb`, `fetch-undefined-init`, `fetch-global-property` | Supply scoped document URL and service retrieval origin for methods fixtures (same neutral origin). Preserve bound POST, GET, GET, PUT, PATCH, GET, GET on /wicks. Opaque opts in c07-options gives dynamic_method. |
+| `axios-verb`, `axios-named-verb`, `axios-object`, `axios-object-default`, `axios-promise-chain` | Same methods origin records. Preserve bound PATCH, PATCH, POST, GET, DELETE on /seals. |
+| `t1-url-fragment`, `t1-spread-override`, `t1-spread-last`, `t1-axios-spread-url`, `t1-axios-url-last` | Set the t1-semantics document URL on the declared HTTPS quartz.invalid service. Bound GET, PUT, DELETE, POST, POST on /fables. |
+| `rpc-query-control`, `rpc-body-control`, `rpc-query-selector`, `rpc-body-selector` | Supply same-origin document and schema retrieval URLs plus selector evidence in dispatch config. Controls bind GET /dispatch and POST /query. Selector rows are unbound with partial logical coverage, `selector_unchecked`, no target ID. Withhold the origin on all relative built-in controls above: retain method/path, **Not checked**/origin_unchecked and no confirmed target. |
+| `backend-relative-fetch`, `backend-relative-axios`, `backend-local-client`, `backend-inline-client`, `backend-absolute-fetch` | Freeze the fixture document URL on reed-vault.invalid and the Swagger HTTPS host on sable-quay.invalid. First four change to unbound/other_api. Absolute call remains bound GET /seals. Scope equivalent origin inputs to each fixture that states a document context. |
+| `grammar-default-param`, `t1-extra-default-explicit-undefined`, `t1-expand-helper-literal`, `t1-extra-helper-finite-table`, `grammar-client-template-tag`, `grammar-parameter-template-tag` | First four unbound/dynamic_url. Both tags unbound/unconfigured_client_form. Count all six, empty target IDs. |
+| `t1-expand-ky-prefix`, `t1-expand-got-prefix`, `t1-expand-superagent-query`, `t1-expand-jquery-ajax`, `t1-extra-xhr-send` | No counted call or target under these configs. Record excluded_transport. |
+| `prefix-normalize-after-map`, `trailing-slash`, `repeated-slash`, `s14`, `s14-2` | Strict paths give the first three unbound/no_operation. Last two give candidate/conditional_url with only GET /mothbank/pebbles/{} and unmatched /mothbank/pebbles/. |
+
+Of the 76 pinned E-2 fixture schemas, only `shape-s09` declares a segment containing both literal text and a
+capture. Every alignment scores zero affix points in the other 304 rows, including `match-*`, `scores`,
+`t1-boundaries`, `urls/*` and the remaining template cases.
+
+**Configured-client mappings.** In every E-2 configured-client config, give each service-relative export a
+numbered identity-prefix mapping from its prefix-adjusted path to its own fixture schema API, and withhold just
+that record to require **Not checked** (`origin_unchecked`), zero confirmed IDs and zero notifications for the comparison.
+
+For the 47 listed template-client calls, this record in the shape's `prism-boundary.toml` maps the resolved
+`alderfenCourier` export to the API key of that fixture's `schema.json`.
+Cite the local factory export and base construction in `alderfen/kiln-courier.ts` and the origin and mount
+definitions in `alderfen/kiln-settings.ts`, with their tree, blobs and spans. The entry declares service
+origin `https://alderfen.invalid`, root mount, empty strip and add-prefix `/mothbank/` applied once. Record
+the config entry and both dependencies with each occurrence. The admission supplies the factory's API selection
+without evaluating its string replacement. With the entry present apply the amended row expectations, including
+the strict-slash limits on `s14` and `s14-2`. Withhold just the API mapping while keeping the export, method
+convention, prefix and paired schema. Preserve each counted site and its readable components, mark the API
+comparison **Not checked** (`origin_unchecked`), and require zero confirmed IDs and zero notifications.
+With that same record in the `s20` and `s22` configs, `s20` is `unbound/dynamic_url`, `s22` and `s22-2` only
+create bound senders, and the invocation `s22-3` is `unbound/dynamic_method` with secondary `dynamic_url`.
+
+**Additional matching controls.** Against a complete admitted inventory, a readable URL with a known GET arm
+and a live opaque-method arm gives only the GET match as `candidate/dynamic_method`. With the GET operation
+absent it gives `unbound/dynamic_method`. For a mounted GET /api/a and an undesignated unbounded root tail,
+GET /api/b gives `unbound/fallback_only`, partial role coverage and an overlap. Designating the same site as
+a non-API fallback records its role. With evidence for an ordinary API tail at the relevant mount, score it
+normally. A possible unplaced suffix still takes precedence for affected negatives (§5.4).
+
+Regenerate the public `ids.tsv` from the pinned schema and its admitted sources using the aligned §5.1 reader.
+Write one ID per line, operations first then fields, sorted within each group. Include structural names
+from media-unspecified Swagger schemas. Record their §5.1 producer evidence or media-unverified status in the
+companion inventory. Exclude fields exclusive to explicitly non-JSON media, fallback status or partial regions.
+Record typed paths and status roots in the inventory and publish old/new golden digests and the per-class diff.
+Synthetic route and consumer rows govern their own fixtures and contribute no invented public elements.
+
+## 10. Amendments
+
+**A1 (2026-11-24), round 2 fold.** [REPORT-DESIGN.md](REPORT-DESIGN.md) governs the eval renderer and P4's
+Markdown and impact JSON. It keeps one section per operation, service evidence above client calls, and includes
+added, removed and retained-but-edited declarations. Its **First cut for the prototype** defines what the eval
+inputs can support in both directions. Sections 5.1–5.6 and PLAN P1/P4 implement this contract for the both-pair order in §7.2.
+
+- **§5.1, status and method identity.** Keep the status in each response field ID. At a retained operation emit
+  independent added and removed success-status rows, including bodyless statuses. Group a unique comparable
+  replacement and diff its fields by relative path. A route-table star with evidenced all-method semantics has ID `op:* <canonical path>`.
+- **§§5.2 and 5.4, documents and matching.** Record versioned authorities, declaration sites, status sets, body
+  media and field evidence, every observed client call, original and mapped addresses, mapping entry and source,
+  and per-file/per-entry coverage. Validate each document's API, role, tree and dependencies. Match both service
+  sets to the same client inventory, or both client inventories to the service held unchanged. Link edited calls
+  across versions only with evidence of correspondence. Print claims only from their frozen evidence records.
+  A missing record yields **Not checked** with the record named in each dependent cell.
+- **§§5.1, 5.4 and 5.5, all-method declarations.** In the product `op:* /petals` is eligible for a request of
+  any known method with a compatible path. Score exact-method and wildcard declarations together by the §5.4
+  path rule. A tie or a client variable facing a literal at the unique best match is a candidate. A unique best
+  with no such constraint can be bound. Dispatch priority needs separate evidence. Only supported bound matches
+  may notify. The prototype reports a relevant wildcard as **Method coverage: Not checked — the matcher compares
+  exact methods only** and withholds dependent grades, negatives, totals and notifications.
+- **§5.6, admission and versions.** Admit files from named trees of admitted snapshots or records independently
+  evidenced at the cutoff, including the dependencies of any earlier binding and its actual schema inventory.
+  Live reviews use report time, historical reviews use change time. Study-supplied configuration and route specs,
+  date-only reconstructions and deliberate later pins use **Comparison of selected versions** in the prototype.
+  On a behind-target PR in either repository setup compare target to merge result in the changing repository.
+  Record proposed and target commit metadata separately. A computed tree has its own ID, no commit/date,
+  and exact-blob links or a tree/blob/path/line excerpt. A joint change shows both actual pairs and both rollout orders.
+- **§6.1, evaluation.** Test admission before freezing and renderer byte identity after freezing. Live Markdown
+  delivery contains only the review and its full appendix. Study selection, follow-up evidence and adjudications
+  belong to the separate evaluation companion.
+
+## Review round 1: disposition
+
+- sol-1 · WRONG folded. §5.1 applies effective capacity, property and required-only constraints before emission.
+- sol-2 · WRONG folded. §§5.1–5.4 and the alignment list name the hook/default, document base, service origins and wrapper policies each comparison consumes.
+- sol-3 · WRONG folded. §5.2 stores results by comparison and revision-local occurrence. P4 checks four independent matches from frozen JSON.
+- sol-4 · WRONG folded. P1 adds EnumDeclarationChanged, both declaration directions and explicit before/after element IDs.
+- sol-5 · WRONG folded. P2 reads literal registrations for evidence and warns only on demonstrated disagreement at the relevant authority.
+- sol-6 · WRONG folded. P5 seeds the exact request result, matches typed paths and occurrences, and scores every submitted read.
+- sol-7 · WRONG folded. P6 freezes separate F4 and F5 populations, buckets, denominators and tolerances.
+- sol-8 · SMELL folded. §§5.1 and 5.4 define recursive productions, precedence, branch reduction, overlap and scoped fallbacks.
+- sol-9 · SMELL folded. §7.2 lists published baselines and assigns each missing cut count to a named slice gate.
+- sol-10 · SMELL folded. P4 pins the full reference population and reconciles it in both directions. P3 measures retained R joins and P4 requires an evidenced cross-side location.
+- opus-W1 · WRONG folded using option (a). The P2 evidence reader supplies registration sites independently of the annotation binding adapter.
+- opus-W2 · WRONG folded. §5.3 admits version defaults or explicit scoped registrar, star, normalization, router and entry-option evidence.
+- opus-W3 · WRONG folded. A live unknown URL arm gives conditional_url and readable matches only. Alternate readable bests give ambiguous_operation. P3 distinguishes the throwing const control.
+- opus-S1 · SMELL folded. §5.3 admits a direct callable literal as the endpoint and joins both sources to the same deduplicated index. P2-R states the conditional yield prediction.
+- opus-S2 · SMELL folded. §5.4 separates fallback overlaps and missing-mount suffixes. P2-R and P3 measure their declaration and call incidence.
+- opus-S3 · SMELL folded. P4 gate 4 fixes the prototype revision, evidence directory, class-selected subjects and receipts before product runs.
+- opus-S4 · SMELL folded. §5.1 defines the retained separator and zero-width tail with Gin, Express and Hapi projections.
+- opus-S5 · SMELL folded. §§6.4 and 7.2 distinguish the pending rating from the applied parallel order. P2-R documents the bounded lane 12 exception and F-8 records the go-ahead.
+- opus-S6 · SMELL folded using the finite-domain option. §5.4 scores crossing literals per attainable value, including copper and flint.
+- opus-S7 · SMELL folded. §5.1 attaches a composition-only back-edge to its pointer or root and adds a P1 row outside the pinned census.
+- opus-S8 · SMELL folded. A known different backend has reason other_api and contributes neither a missing-operation count nor an F8 list-1 row.
+
+## Review round 2: disposition
+
+Round 2 of 2 closed at the cap. Sol rejected on four material WRONG findings. Opus approved with four notes.
+The finding counts fell from 10 and 11 in round 1. EVIDENCE-INPUT and GRAMMAR recurred across fixtures, so this
+design-seat fold amends the class rules and their controls. The pre-implementation measurement is pending.
+
+- sol2-1 · WRONG folded (EVIDENCE-INPUT). §5.4 requires an admitted export-to-API mapping. The Alignment list names all 45 rows, their per-config factory/settings sources and the withheld-mapping control.
+- sol2-2 · WRONG folded (GRAMMAR). §5.1 reserves required slots, tests the closed minimum and intersects each member's per-name and fresh-name policies. The closed-intersection witness moves to rule.
+- sol2-3 · WRONG folded (GRAMMAR). Evidenced Number addition preserves the existing bound row. An opaque operand exercises the URL fallback.
+- sol2-4 · WRONG folded. P4 joins on client tree, path, blob and byte span, retains both engine IDs and tests a shifted ordinal.
+- sol2-5 · SMELL folded. D-census measures each §7.2 cut with checked zeros before P1. Product gates reconcile their results to that receipt.
+- sol2-method-arms · SMELL folded (GRAMMAR). §5.4 preserves matches on the known arm as candidates and records the uncovered method arm under `dynamic_method`.
+- sol2-buckets-3 · SMELL folded. P6 requires the per-pair retained-location floor as well as every reader-counted location and all three outcome-share checks.
+- opus2-N1 · SMELL folded (EVIDENCE-INPUT). §5.3 admits a fallback designation by span or numbered entry. §5.4 keeps an unscoped, undesignated unbounded root or out-of-mount tail as a possible fallback overlap.
+- opus2-N2 · SMELL folded. P3 checks every bound join below 50 and reports R's retained configured joins out of 236. The owner default is report, no floor.
+- opus2-N3 · SMELL folded. §5.1 requires a non-empty component for `{}` and specifies the captures that admit empty.
+- opus2-N4 · SMELL folded. P4 names the pull ref, exact renderer commit and public v2 report directory.
+
+## Review round 3
+
+- Sol · WRONG · MATERIAL folded. §5.1 reserves capacity per direction, and P1 and the Alignment list require both `label` IDs in the two-slot control.
+- Sol · WRONG · MATERIAL folded. §5.4, P3 and the Alignment list change both `s09` grades from bound to candidate because the empty spelling selects the generic route.
+- Opus · SMELL · IMMATERIAL folded. The Alignment list requires a numbered identity-prefix mapping to each configured client's fixture API and a withheld-record control.
+- Opus · SMELL · IMMATERIAL folded. The `s20` and `s22` configs carry the same template-client record, covering 47 listed invocations across 37 configs.
+
+Both changed grades remain E-2 rule rows. D-census is pending before P1.
+
+## Review round 4
+
+- WRONG folded. §5.4 breaks the concrete `"wax"` tie at `s09` and `s09-2`. P3 checks both affix scores and the existing two-way GET tie at `/press/copper/leaf`.
+
+## Review round 5
+
+- WRONG 1 and SMELLs 2–4 folded. §5.1 and §5.4 scope the empty arm to mixed segments. P3 checks `s05`, and the Alignment list preserves all 12 pinned results. §5.4 makes affix points secondary and qualifies the non-empty controls. Both `s09` companion expectations name the conditional overlap. Rule/accepted-loss counts are 170/47 for E-1 and 288/18 for E-2.
+
+## Media amendment review dispositions
+
+| Finding | Disposition |
+|---|---|
+| Sol WRONG (material) · A1 Fields and evidence table | Both now accept §5.1 producer proof when Swagger omits media. The P4 replay control requires a field type change and a media citation at each revision. |
+| Sol SMELL (material) · Record provenance and Opus 3 (immaterial) · Historical admission | §5.1 and A1 identify the pinned catalog and numbered entry, require its own cutoff evidence, and specify how a source-derived entry can be reproduced and cited from the root. |
+| Sol SMELL (material) · Wire media and Opus 1 SMELL (material) · Path completeness and acceptance | §5.1 requires per-region coverage through wire Content-Type and limits generator contracts to installed server codecs. P uses Go source. PLAN D-census requires an independent check of all 33 location records before freeze. |
+| Opus 2 · Printable attribution | A1 Fields gives the sentence naming the entry, codec site or contract, revision and schema omission. |
+| Opus 4 · Historical sides | §5.1 and PLAN P6 require evidence on both sides of the historical field comparison. |
+| Opus 5 · Undefined references | §7.1 names S04 and P02. P4/P6 track unresolved fields by their original replay records, retaining the field ID when known. |

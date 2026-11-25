@@ -1,0 +1,3 @@
+{
+  "receipt_source": "const value = 0;\nconsole.log(value);\n"
+}

@@ -1,0 +1,17 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Moonspindle Exchange",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/entry"
+    }
+  ],
+  "paths": {
+    "/reed": {
+      "$ref": "branch/parts.json#/components/pathItems/Wisp"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+schema_api = "match-prefix"
+schema_path = "schema.json"
+
+[[client]]
+file = "quay.ts"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+strip_prefix = "/legacy"
+add_prefix = "/api"
+
+# Factory or wrapper: quay.ts:1-23.
+[[api_mapping]]
+entry = 1
+client_entry = 1
+file = "quay.ts"
+export = "default"
+api = "match-prefix"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = "/legacy"
+add_prefix = "/api"
+sources = [{ path = "quay.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "7521570d0f6e8de5d917fde37d669b90cb35524b", start_line = 1, end_line = 23 }]

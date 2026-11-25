@@ -1,0 +1,7 @@
+{
+  "question_result": {
+    "verdict": "UNKNOWN",
+    "property": "custom",
+    "why": "fixture-response"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay match-repeated-slash",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/item": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

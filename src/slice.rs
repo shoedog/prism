@@ -1,5 +1,6 @@
 use crate::diff::DiffBlock;
 use crate::finding_confidence::EvidencePath;
+pub use crate::rule_registry::RuleRef;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -20,7 +21,10 @@ pub struct FileParseQuality {
 /// DiffBlocks carry the *lines* to show. They're consumed at different
 /// stages: blocks go into the reviewer's code context, findings go
 /// into the reviewer's analysis hints.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// `Default` is for tests and struct update; production code builds a finding with every field
+/// spelled out and sets `algorithm`, `file`, `line`, `severity` and `description` itself.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SliceFinding {
     pub algorithm: String,
     pub file: String,
@@ -41,6 +45,9 @@ pub struct SliceFinding {
     pub parse_quality: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagrams: Vec<SliceGraph>,
+    /// Rules this finding is an instance of, sorted by id, at most one per id.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rules: Vec<RuleRef>,
 }
 
 /// All slicing strategies.
@@ -541,6 +548,65 @@ pub struct DiagramWarning {
     pub graph_title: Option<String>,
     pub kind: DiagramWarningKind,
     pub detail: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const LEGACY_FINDING: &str = r#"{"algorithm":"taint","file":"example.js","line":4,"severity":"warning","description":"finding"}"#;
+
+    #[test]
+    fn finding_without_rules_serializes_without_the_key() {
+        let finding = SliceFinding {
+            algorithm: "taint".into(),
+            file: "example.js".into(),
+            line: 4,
+            severity: "warning".into(),
+            description: "finding".into(),
+            function_name: None,
+            related_lines: Vec::new(),
+            related_files: Vec::new(),
+            category: None,
+            parse_quality: None,
+            diagrams: Vec::new(),
+            rules: Vec::new(),
+        };
+
+        assert_eq!(serde_json::to_string(&finding).unwrap(), LEGACY_FINDING);
+    }
+
+    #[test]
+    fn rules_serialize_as_id_and_optional_cwe() {
+        use crate::rule_registry::{JS_DOM_HTML, LEGACY};
+        let mut finding = SliceFinding::default();
+        finding
+            .rules
+            .extend([JS_DOM_HTML.rule_ref(), LEGACY.rule_ref()]);
+
+        assert_eq!(
+            serde_json::to_string(&finding).unwrap(),
+            r#"{"algorithm":"","file":"","line":0,"severity":"","description":"","rules":[{"id":"js-dom-html","cwe":"CWE-79"},{"id":"legacy"}]}"#
+        );
+        let json = serde_json::to_value(&finding).unwrap();
+        assert_eq!(
+            json["rules"],
+            serde_json::json!([{"id": "js-dom-html", "cwe": "CWE-79"}, {"id": "legacy"}])
+        );
+        let round_trip: SliceFinding = serde_json::from_value(json).unwrap();
+        assert_eq!(round_trip.rules, finding.rules);
+    }
+
+    #[test]
+    fn missing_rules_key_deserializes_to_empty() {
+        let finding: SliceFinding = serde_json::from_str(LEGACY_FINDING).unwrap();
+        assert!(finding.rules.is_empty());
+    }
+
+    #[test]
+    fn default_finding_has_empty_rules() {
+        assert!(SliceFinding::default().rules.is_empty());
+    }
 }
 
 #[cfg(test)]

@@ -1,0 +1,26 @@
+{
+  "all_unique_string_equal": true,
+  "denominator": 200,
+  "none": 45,
+  "none_reasons": {
+    "dynamic_url": 28,
+    "no_operation": 10,
+    "non_string_key": 6,
+    "unconfigured_client_form": 1
+  },
+  "pre_match_reasons": {
+    "dynamic_url": 28,
+    "non_string_key": 6,
+    "unconfigured_client_form": 1
+  },
+  "schema_parameter_operations": 0,
+  "schema_sha256": "e9c2980e65712c2eb154d2bcd76e7644801aaa7d126f955e2c677ab2bf3ba30c",
+  "several": 1,
+  "unique": 154,
+  "unique_match_statement": "Every unique match uses string equality on the canonical path.",
+  "url_class": {
+    "dynamic": 35,
+    "literal": 164,
+    "template": 1
+  }
+}

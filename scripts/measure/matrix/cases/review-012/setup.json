@@ -1,0 +1,32 @@
+{
+  "changes": [
+    {
+      "file": "src/a.ts",
+      "kind": "modified",
+      "added_lines": [
+        4,
+        3,
+        4
+      ]
+    },
+    {
+      "file": "src/a.test.ts",
+      "kind": "modified",
+      "added_lines": [
+        1
+      ]
+    },
+    {
+      "file": "README.md",
+      "kind": "modified",
+      "added_lines": [
+        2
+      ]
+    },
+    {
+      "file": "src/deleted.ts",
+      "kind": "deleted",
+      "added_lines": []
+    }
+  ]
+}

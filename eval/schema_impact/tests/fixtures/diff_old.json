@@ -1,0 +1,12 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/a": {"get": {"responses": {"200": {"schema": {"properties": {
+      "value": {"type": "integer"},
+      "obsolete": {"type": "boolean"}
+    }}}}}},
+    "/gone": {"get": {"responses": {"200": {"schema": {"properties": {
+      "label": {"type": "string"}
+    }}}}}}
+  }
+}

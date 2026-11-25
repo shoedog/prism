@@ -1,0 +1,977 @@
+{
+  "algorithm": "Taint",
+  "slices": [
+    {
+      "block_id": 0,
+      "file": "lib/index.js",
+      "modify_type": "M",
+      "diff_lines": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "slice_lines": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "slice_text": "+   2|function run(a) {\n+   3|  cp.execSync('echo ' + a + 1);\n+   4|  cp.execSync('echo ' + a + 2);\n+   5|  cp.execSync('echo ' + a + 3);\n+   6|  cp.execSync('echo ' + a + 4);\n+   7|  cp.execSync('echo ' + a + 5);\n+   8|  cp.execSync('echo ' + a + 6);\n+   9|  cp.execSync('echo ' + a + 7);\n+  10|  cp.execSync('echo ' + a + 8);\n+  11|  cp.execSync('echo ' + a + 9);\n+  12|  cp.execSync('echo ' + a + 10);\n+  13|  cp.execSync('echo ' + a + 11);\n+  14|  cp.execSync('echo ' + a + 12);\n+  15|  cp.execSync('echo ' + a + 13);\n+  16|  cp.execSync('echo ' + a + 14);\n+  17|  cp.execSync('echo ' + a + 15);\n+  18|  cp.execSync('echo ' + a + 16);\n+  19|  cp.execSync('echo ' + a + 17);\n+  20|  cp.execSync('echo ' + a + 18);\n+  21|  cp.execSync('echo ' + a + 19);\n+  22|  cp.execSync('echo ' + a + 20);\n+  23|  cp.execSync('echo ' + a + 21);\n",
+      "source_lines": [
+        2
+      ],
+      "sink_lines": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 3,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 3",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_3",
+              "label": "lib/index.js:3\ncp.execSync('echo ' + a + 1);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 3
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_3",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_3[\"lib/index.js:3<br/>cp.execSync('echo ' + a + 1);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_3\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 4,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 4",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_4",
+              "label": "lib/index.js:4\ncp.execSync('echo ' + a + 2);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 4
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_4",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_4[\"lib/index.js:4<br/>cp.execSync('echo ' + a + 2);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_4\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 5,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 5",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_5",
+              "label": "lib/index.js:5\ncp.execSync('echo ' + a + 3);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 5
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_5",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_5[\"lib/index.js:5<br/>cp.execSync('echo ' + a + 3);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_5\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 6,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 6",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_6",
+              "label": "lib/index.js:6\ncp.execSync('echo ' + a + 4);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 6
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_6",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_6[\"lib/index.js:6<br/>cp.execSync('echo ' + a + 4);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_6\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 7,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 7",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_7",
+              "label": "lib/index.js:7\ncp.execSync('echo ' + a + 5);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 7
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_7",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_7[\"lib/index.js:7<br/>cp.execSync('echo ' + a + 5);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_7\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 8,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 8",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_8",
+              "label": "lib/index.js:8\ncp.execSync('echo ' + a + 6);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 8
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_8",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_8[\"lib/index.js:8<br/>cp.execSync('echo ' + a + 6);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_8\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 9,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 9",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_9",
+              "label": "lib/index.js:9\ncp.execSync('echo ' + a + 7);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 9
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_9",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_9[\"lib/index.js:9<br/>cp.execSync('echo ' + a + 7);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_9\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 10,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 10",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_10",
+              "label": "lib/index.js:10\ncp.execSync('echo ' + a + 8);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 10
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_10",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_10[\"lib/index.js:10<br/>cp.execSync('echo ' + a + 8);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_10\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 11,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 11",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_11",
+              "label": "lib/index.js:11\ncp.execSync('echo ' + a + 9);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 11
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_11",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_11[\"lib/index.js:11<br/>cp.execSync('echo ' + a + 9);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_11\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 12,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 12",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_12",
+              "label": "lib/index.js:12\ncp.execSync('echo ' + a + 10);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 12
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_12",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_12[\"lib/index.js:12<br/>cp.execSync('echo ' + a + 10);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_12\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 13,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 13",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_13",
+              "label": "lib/index.js:13\ncp.execSync('echo ' + a + 11);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 13
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_13",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_13[\"lib/index.js:13<br/>cp.execSync('echo ' + a + 11);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_13\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 14,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 14",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_14",
+              "label": "lib/index.js:14\ncp.execSync('echo ' + a + 12);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 14
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_14",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_14[\"lib/index.js:14<br/>cp.execSync('echo ' + a + 12);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_14\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 15,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 15",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_15",
+              "label": "lib/index.js:15\ncp.execSync('echo ' + a + 13);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 15
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_15",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_15[\"lib/index.js:15<br/>cp.execSync('echo ' + a + 13);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_15\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 16,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 16",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_16",
+              "label": "lib/index.js:16\ncp.execSync('echo ' + a + 14);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 16
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_16",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_16[\"lib/index.js:16<br/>cp.execSync('echo ' + a + 14);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_16\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 17,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 17",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_17",
+              "label": "lib/index.js:17\ncp.execSync('echo ' + a + 15);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 17
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_17",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_17[\"lib/index.js:17<br/>cp.execSync('echo ' + a + 15);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_17\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 18,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 18",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_18",
+              "label": "lib/index.js:18\ncp.execSync('echo ' + a + 16);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 18
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_18",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_18[\"lib/index.js:18<br/>cp.execSync('echo ' + a + 16);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_18\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 19,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 19",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_19",
+              "label": "lib/index.js:19\ncp.execSync('echo ' + a + 17);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 19
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_19",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_19[\"lib/index.js:19<br/>cp.execSync('echo ' + a + 17);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_19\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 20,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 20",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_20",
+              "label": "lib/index.js:20\ncp.execSync('echo ' + a + 18);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 20
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_20",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_20[\"lib/index.js:20<br/>cp.execSync('echo ' + a + 18);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_20\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 21,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 21",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_21",
+              "label": "lib/index.js:21\ncp.execSync('echo ' + a + 19);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 21
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_21",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_21[\"lib/index.js:21<br/>cp.execSync('echo ' + a + 19);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_21\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 22,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 22",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_22",
+              "label": "lib/index.js:22\ncp.execSync('echo ' + a + 20);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 22
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_22",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_22[\"lib/index.js:22<br/>cp.execSync('echo ' + a + 20);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_22\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 23,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 23",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(a) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_23",
+              "label": "lib/index.js:23\ncp.execSync('echo ' + a + 21);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 23
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_23",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(a) {\"]:::source\n    n_lib_index_js_23[\"lib/index.js:23<br/>cp.execSync('echo ' + a + 21);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_23\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 2,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 2",
+      "category": "taint_source"
+    }
+  ]
+}

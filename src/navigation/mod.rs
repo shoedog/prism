@@ -13,6 +13,7 @@ mod owner_cache_tests;
 mod partition_site_dump;
 pub mod queries;
 pub mod render;
+pub mod routes;
 pub mod seed;
 pub mod types;
 

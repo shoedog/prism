@@ -1,0 +1,38 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/cast/{tile}": {
+      "parameters": [
+        {
+          "name": "tile",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "parameters": [
+          {
+            "name": "finish",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "x-furnace",
+            "in": "header",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  }
+}

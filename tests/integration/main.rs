@@ -87,6 +87,7 @@ mod r6_candidate_test;
 mod receiver_self_binding_test;
 mod resolution_family_cpg_test;
 mod resolution_test;
+mod rule_registry_test;
 mod rust_self_calls_test;
 mod scoped_cpg_test;
 #[path = "../lang/rust/std_review_test.rs"]

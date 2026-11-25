@@ -1,0 +1,13 @@
+{
+  "receipt_variations": {
+    "declared_arm_difference": [
+      "binary",
+      "trace_env"
+    ],
+    "base_binary": "control",
+    "head_binary": "treatment",
+    "head_trace_env": {
+      "PRISM_RD_CENSUS_TRACE": "1"
+    }
+  }
+}

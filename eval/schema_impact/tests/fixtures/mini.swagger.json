@@ -1,0 +1,46 @@
+{
+  "swagger": "2.0",
+  "info": {"version": "1.2.3"},
+  "basePath": "/api/v1",
+  "paths": {
+    "/item/{id}": {
+      "parameters": [{"in": "path", "name": "id", "type": "integer"}],
+      "get": {
+        "operationId": "getItem",
+        "responses": {
+          "200": {"schema": {"allOf": [
+            {"$ref": "#/definitions/schema.Reply"},
+            {"properties": {"data": {"$ref": "#/definitions/schema.ItemInfo"}}}
+          ]}},
+          "400": {"schema": {"properties": {"error": {"type": "string"}}}}
+        }
+      }
+    },
+    "/item": {
+      "get": {"responses": {"200": {"schema": {"properties": {
+        "data": {"type": "array", "items": {"$ref": "#/definitions/schema.ItemInfo"}}
+      }}}}},
+      "post": {
+        "parameters": [
+          {"in": "query", "name": "hint", "type": "string"},
+          {"in": "body", "name": "item", "schema": {
+            "properties": {"title": {"type": "string"}},
+            "required": ["title"]
+          }}
+        ],
+        "responses": {"204": {"description": "Created"}}
+      }
+    },
+    "/status": {"head": {"responses": {"204": {"description": "Available"}}}}
+  },
+  "definitions": {
+    "schema.Reply": {"properties": {
+      "code": {"type": "integer"},
+      "message": {"type": "string"}
+    }},
+    "schema.ItemInfo": {"properties": {
+      "title": {"type": "string"},
+      "id": {"type": "integer"}
+    }}
+  }
+}

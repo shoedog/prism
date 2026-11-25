@@ -1,0 +1,18 @@
+callee = "route"
+method_key = "method"
+path_key = "path"
+handler_key = "handler"
+validation_key = "validate"
+
+framework = "@hapi/hapi"
+version = "21.3.12"
+path_dialect = "hapi"
+
+[plugin_selector]
+file = "routes.js"
+binding = "plugin"
+name = "pottery"
+receiver = "pluginServer"
+mount = "/atelier"
+source = "routes.js:13"
+join_policy = "hapi_plugin"

@@ -15,7 +15,7 @@ fn at_end(source: &str, name: &str) -> Option<SinkHit> {
 }
 
 fn shape(h: Option<SinkHit>) -> Option<(&'static str, &'static str, Strength)> {
-    h.map(|h| (h.rule, h.cwe.unwrap_or("none"), h.strength))
+    h.map(|h| (h.rule(), h.cwe().unwrap_or("none"), h.strength()))
 }
 
 const CMD: &str = "py-module-command";

@@ -5,6 +5,133 @@
 //! `taint_sink` finding lands on the sink line.
 
 use crate::common::*;
+use prism_review::algorithms::taint::{self, TaintConfig};
+
+pub(super) const EXPECTATION_HEADER: &str = "table\tlabel\trules\tobserved\tclass\tnote";
+
+#[derive(Debug)]
+pub struct Expectation {
+    pub table: String,
+    pub label: String,
+    /// `None` defers the rule list to stage D. An empty list records `-`.
+    pub rules: Option<Vec<String>>,
+    pub observed: String,
+    pub class: String,
+}
+
+/// Parse and validate the identity ledger rows.
+pub fn parse_expected_rules(tsv: &str) -> Result<Vec<Expectation>, String> {
+    let mut expectations = Vec::new();
+    let mut keys = BTreeSet::new();
+    for (index, line) in tsv.lines().enumerate() {
+        if index == 0 && line == EXPECTATION_HEADER {
+            continue;
+        }
+        let number = index + 1;
+        let columns: Vec<_> = line.split('\t').collect();
+        let [table, label, rules, observed, class, _note] = columns.as_slice() else {
+            return Err(format!(
+                "line {number}: expected 6 columns, got {}",
+                columns.len()
+            ));
+        };
+        if [table, label, observed, class]
+            .iter()
+            .any(|value| value.is_empty())
+        {
+            return Err(format!(
+                "line {number}: empty table, label, observed, or class"
+            ));
+        }
+        if !matches!(
+            *class,
+            "flat"
+                | "flat-multi"
+                | "flat-dup"
+                | "structured"
+                | "structured-multi"
+                | "flat+structured"
+                | "cleansed-structured"
+                | "continued"
+                | "sibling"
+                | "legacy"
+                | "source-line"
+                | "yaml-inline"
+                | "wrapper"
+                | "caller-sink"
+                | "weak-mixed"
+                | "negative"
+        ) {
+            return Err(format!("line {number}: invalid class {class:?}"));
+        }
+        if (*rules == "?" && *observed == "=")
+            || observed.contains(";structured:")
+            || observed.starts_with('+')
+        {
+            return Err(format!(
+                "line {number}: invalid observed value {observed:?}"
+            ));
+        }
+        if !keys.insert((*table, *label)) {
+            return Err(format!(
+                "line {number}: duplicate table and label {table}/{label}"
+            ));
+        }
+        let rules = parse_rule_list(rules).map_err(|error| format!("line {number}: {error}"))?;
+        expectations.push(Expectation {
+            table: (*table).to_string(),
+            label: (*label).to_string(),
+            rules,
+            observed: (*observed).to_string(),
+            class: (*class).to_string(),
+        });
+    }
+    Ok(expectations)
+}
+
+fn parse_rule_list(rules: &str) -> Result<Option<Vec<String>>, String> {
+    match rules {
+        "?" => return Ok(None),
+        "-" => return Ok(Some(Vec::new())),
+        _ => {}
+    }
+
+    let mut previous = None;
+    let mut parsed = Vec::new();
+    for rule in rules.split(';') {
+        let identity = match rule.split_once('!') {
+            Some((identity, "suggestion")) => identity,
+            Some((_, severity)) => return Err(format!("invalid severity mark !{severity}")),
+            None => rule,
+        };
+        let (id, cwe) = match identity.split_once('@') {
+            Some((id, cwe)) => (id, Some(cwe)),
+            None => (identity, None),
+        };
+        if !id.split('-').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        }) {
+            return Err(format!("invalid rule id {id:?}"));
+        }
+        if let Some(cwe) = cwe {
+            let valid = cwe.strip_prefix("CWE-").is_some_and(|digits| {
+                !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
+            });
+            if !valid {
+                return Err(format!("invalid CWE {cwe:?}"));
+            }
+        }
+        if previous.is_some_and(|preceding| preceding >= id) {
+            return Err(format!("unsorted or duplicate rule id {id:?}"));
+        }
+        previous = Some(id);
+        parsed.push(rule.to_string());
+    }
+    Ok(Some(parsed))
+}
 
 pub struct Case {
     pub label: &'static str,
@@ -19,7 +146,11 @@ pub fn marker_line(source: &str, marker: &str) -> usize {
         + 1
 }
 
-pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::SliceResult {
+fn fixture_inputs(
+    path: &str,
+    language: Language,
+    source: &str,
+) -> (BTreeMap<String, ParsedFile>, DiffInput) {
     let parsed = ParsedFile::parse(path, source, language).unwrap();
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
@@ -30,13 +161,60 @@ pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::S
             diff_lines: BTreeSet::from([marker_line(source, "SEED")]),
         }],
     };
-    algorithms::run_slicing_compat(
+    (files, diff)
+}
+
+pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::SliceResult {
+    let (files, diff) = fixture_inputs(path, language, source);
+    let result = algorithms::run_slicing_compat(
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
         None,
     )
-    .unwrap()
+    .unwrap();
+    assert_unactivated_rules(&result);
+    result
+}
+
+/// Run taint with caller-supplied sink names. This skips evidence alignment and diagram
+/// finalisation, so only the presence of `taint_sink` findings is comparable to the
+/// compatibility runner.
+pub fn findings_with_sinks(
+    path: &str,
+    language: Language,
+    source: &str,
+    extra_sinks: &[&str],
+) -> prism::slice::SliceResult {
+    let (files, diff) = fixture_inputs(path, language, source);
+    let config = TaintConfig {
+        extra_sinks: extra_sinks.iter().map(|&name| name.to_string()).collect(),
+        ..TaintConfig::default()
+    };
+    let result = taint::slice(&CpgContext::build(&files, None), &diff, &config).unwrap();
+    assert_unactivated_rules(&result);
+    result
+}
+
+#[track_caller]
+fn assert_unactivated_rules(result: &prism::slice::SliceResult) {
+    check_matrix_rules(&result.findings).unwrap_or_else(|error| panic!("{error}"));
+}
+
+fn check_matrix_rules(findings: &[prism::slice::SliceFinding]) -> Result<(), String> {
+    for finding in findings {
+        for rule in &finding.rules {
+            prism::rule_registry::check_emitted(&finding.algorithm, rule)
+                .map_err(|error| format!("{}:{}: {error}", finding.file, finding.line))?;
+        }
+        if !finding.rules.is_empty() {
+            return Err(format!(
+                "{}:{}: rules in unactivated fixture",
+                finding.file, finding.line
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub fn sink_on_marker(path: &str, language: Language, source: &str) -> bool {
@@ -96,4 +274,24 @@ pub fn assert_rows(rows: &[Row]) {
         wrong.len(),
         wrong.join("\n")
     );
+}
+
+#[test]
+fn matrix_rule_reader_checks_unmarked_findings_and_empty_partitions() {
+    use prism::slice::SliceFinding;
+    let mut findings = vec![SliceFinding::default()];
+    assert!(check_matrix_rules(&findings).is_ok());
+    findings.push(
+        serde_json::from_value(serde_json::json!({
+            "algorithm":"taint","file":"unmarked.js","line":99,"severity":"warning",
+            "description":"control","rules":[{"id":"legacy"}]
+        }))
+        .unwrap(),
+    );
+    let error = check_matrix_rules(&findings).unwrap_err();
+    assert!(error.contains("unmarked.js:99") && error.contains("unactivated"));
+    findings[1].rules = serde_json::from_str(r#"[{"id":"unknown"}]"#).unwrap();
+    assert!(check_matrix_rules(&findings)
+        .unwrap_err()
+        .contains("unknown rule id"));
 }

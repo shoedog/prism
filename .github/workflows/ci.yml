@@ -173,6 +173,9 @@ jobs:
           python3 -m unittest discover -s scripts/perf -p 'test_*.py'
           python3 -m unittest discover -s scripts/perf/cloud -p 'test_*.py'
 
+      - name: Measurement kit tests (Python)
+        run: python3 -m unittest discover -s scripts/measure -t scripts -p 'test_*.py'
+
       - name: Mutgate quiet wait tests (Python)
         run: python3 -m unittest discover -s scripts/mutgate -p 'test_quiet_wait.py'
 
@@ -225,6 +228,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The harness is bound to the cargo recorded in eval/tier-a.lock.toml (1.94.0): it reads
+      # cargo's build-directory layout (`.fingerprint`, `deps`, `build/*/output`), and a few tests
+      # run the real cargo against fixtures. cargo 1.100 moved to a new layout
+      # (`build/<pkg>/<hash>/{fingerprint,out,run}`), so those tests fail on a newer cargo than the
+      # runner image's default. Pin it here instead of inheriting whatever the image ships.
+      - name: Install Rust toolchain (the cargo pinned by eval/tier-a.lock.toml)
+        uses: dtolnay/rust-toolchain@1.94.0
+
+      - name: Show cargo version
+        run: cargo --version
+
       # Python version from eval/.python-version, dependencies from eval/uv.lock.
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -253,6 +267,33 @@ jobs:
           --deselect tests/test_r1_repair.py::test_native_sut_interior_seed_avoids_inline_default_callback
           --deselect secbench/test_repair.py::RepairTests::test_admission_keeps_terminal_line_identity_after_metadata_formatting
           --deselect secbench/test_repair.py::RepairTests::test_admission_relocation_preserves_original_and_endpoint_bytes
+
+  # The lane 5 (schema impact) prototype is its own uv project (eval/schema_impact/pyproject.toml and
+  # uv.lock), not part of the shared eval harness: the Tier-A lock pins eval/uv.lock, so these
+  # dependencies (tree-sitter grammars, pyyaml) must not enter it.
+  schema-impact-python:
+    name: Schema-impact prototype tests (Python)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.eval != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.0"
+          enable-cache: true
+          cache-dependency-glob: eval/schema_impact/uv.lock
+
+      - name: Install prototype dependencies
+        working-directory: eval/schema_impact
+        run: uv sync --locked
+
+      - name: Run prototype tests
+        working-directory: eval/schema_impact
+        run: uv run --locked pytest -q
 
   language-coverage:
     name: Language Coverage Matrix

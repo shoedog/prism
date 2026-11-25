@@ -1,0 +1,41 @@
+{
+  "algorithm": "Taint",
+  "slices": [
+    {
+      "block_id": 0,
+      "file": "bin/run.sh",
+      "modify_type": "M",
+      "diff_lines": [
+        3
+      ],
+      "slice_lines": [
+        3
+      ],
+      "slice_text": "+   3|cp $f out.txt\n",
+      "source_lines": [
+        3
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "algorithm": "taint",
+      "file": "bin/run.sh",
+      "line": 3,
+      "severity": "warning",
+      "description": "unquoted expansion $f in command argument \u2014 word splitting / injection risk",
+      "related_lines": [
+        3
+      ],
+      "category": "unquoted_expansion"
+    },
+    {
+      "algorithm": "taint",
+      "file": "bin/run.sh",
+      "line": 3,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 3",
+      "category": "taint_source"
+    }
+  ]
+}

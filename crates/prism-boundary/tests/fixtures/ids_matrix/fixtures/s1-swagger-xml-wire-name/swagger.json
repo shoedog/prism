@@ -1,0 +1,32 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Clockpetal Exchange",
+    "version": "1.0.0"
+  },
+  "produces": [
+    "application/xml"
+  ],
+  "paths": {
+    "/reed": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful exchange",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "innerCut": {
+                  "type": "string",
+                  "xml": {
+                    "name": "clay-cut"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

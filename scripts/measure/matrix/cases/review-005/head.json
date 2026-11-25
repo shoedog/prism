@@ -1,0 +1,54 @@
+{
+  "algorithm": "Taint",
+  "slices": [],
+  "findings": [
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 3,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 3",
+      "related_lines": [
+        1,
+        2
+      ],
+      "category": "taint_sink",
+      "related_files": [
+        "a.py",
+        "z.py"
+      ],
+      "rules": [
+        "input-validation",
+        "sql-query"
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 3,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 3",
+      "related_lines": [
+        1,
+        2
+      ],
+      "category": "taint_sink",
+      "related_files": [
+        "a.py",
+        "z.py"
+      ],
+      "rules": [
+        "input-validation",
+        "sql-query"
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 2,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 2",
+      "category": "taint_source"
+    }
+  ]
+}

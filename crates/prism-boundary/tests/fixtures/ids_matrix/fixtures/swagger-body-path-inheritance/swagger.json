@@ -1,0 +1,58 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "parameters": {
+    "CastBody": {
+      "name": "body",
+      "in": "body",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "slip": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/cast": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/CastBody"
+        }
+      ],
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "receipt": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

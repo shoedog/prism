@@ -1,0 +1,18 @@
+{
+  "client_input": "client-before",
+  "scope": "/",
+  "calls": [
+    {
+      "id": "call-before",
+      "file": "sender.js",
+      "line": 1,
+      "method": "GET",
+      "path": "/kiln"
+    }
+  ],
+  "saved_matches": [],
+  "schema_inventory_id": "inventory-before",
+  "dependencies": [
+    "inventory.json"
+  ]
+}

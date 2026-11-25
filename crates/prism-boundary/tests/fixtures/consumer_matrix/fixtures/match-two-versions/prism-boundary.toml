@@ -1,0 +1,24 @@
+schema_api = "match-two-versions"
+schema_path = "schema.json"
+
+[[client]]
+file = "quay.ts"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+
+# Factory or wrapper: quay.ts:1-23.
+[[api_mapping]]
+entry = 1
+client_entry = 1
+file = "quay.ts"
+export = "default"
+api = "match-two-versions"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "quay.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "171bd8a524216e39a7536b8cf676d76cf472e8b0", start_line = 1, end_line = 23 }]

@@ -1,0 +1,61 @@
+"a"
+'a'
+`a`
+# dot: a
+"\x61"
+# dot: a
+"\u0061"
+# dot: a
+"\u{61}"
+# dot: ab
+"a" + "b"
+# dot: ab
+'a' + 'b'
+"ab"
+`ab`
+"é"
+'é'
+"é"
+# dot: é
+"\u00E9"
+# dot: é
+"e\u0301"
+"雪"
+"$"
+"$x"
+"_"
+"a9"
+"a‌b"
+"class"
+"default"
+"constructor"
+"__proto__"
+"toString"
+"hasOwnProperty"
+"1"
+1
+0x1
+1n
+"01"
+0
+-0
+"0"
+"a.b"
+""
+''
+"a b"
+"\n"
+"\x0a"
+`\n`
+String.raw`\n`
+"a\"b"
+'a"b'
+"a-b"
+"😀"
+"long-key-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789"
+# setup: const p = "a";
+# dot: a
+`${p}`
+# setup: const p = "a";
+# dot: a
+p
