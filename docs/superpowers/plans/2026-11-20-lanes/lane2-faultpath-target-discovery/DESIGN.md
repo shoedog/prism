@@ -1,6 +1,6 @@
 # Lane 2: faultpath target discovery — design
 
-**Status (2026-11-25).** The owner directed the r4 fold and selected K for declaration-only standard-library receivers. Both d3 reviewers rejected `ffcbe8fa`. Both reviewers will review this owner-directed revision once. Tracking issue #613.
+**Status (2026-11-25, r5).** The owner said "lane 2 - another pass with runtime mutation out of model. since opus-5.5 approved just have sol review fold." Sol review of this fold is pending. Tracking issue #613.
 
 ## 1. Intent
 
@@ -386,17 +386,17 @@ docs/contracts/targets-1.1.schema.json             vendored, byte-identical to t
 
 ## 6. Stage D amendment
 
-The sibling `row-verdicts.jsonl` records the owner-directed r4 `want` and governing `rule` for 772 IDs.
-Of these, 738 join the materialised matrix (644 keep, 94 change). The 34 `add` records supply fixture source.
-There are 305 HTTP root, 287 HTTP receiver and 180 standard-library IDs. §6.8 reconciles the 738 IDs
-with the supplied oracle. §6.9 checks the pins and Superset shapes. §§6.10–6.11 record the owner's
-decision and its eleven ledger substitutions.
+The sibling `row-verdicts.jsonl` records the r5 `want` and governing `rule` for 783 IDs, including the
+rule-derived emission for KNOWN LIMIT pin09. Of these, 738 join the materialised matrix (644 keep,
+94 change). The 45 `add` records supply fixture source. There are 305 HTTP root, 288 HTTP receiver
+and 190 standard-library IDs. §6.8 reconciles the 738 IDs with the supplied oracle. §6.9 checks the
+pins and Superset shapes. §§6.10–6.11 give the current counts and the earlier K substitutions.
 
 | Pinned input or verdict ledger | SHA-256 |
 |---|---|
 | `tests/targets_inventory/rows.jsonl` at `9e43bbec` | `f3f8927ee594cf0fb8737b6df97a0aa0e4f5391d62bed91afbaef7e040cdaafd` |
 | Supplied `oracle/site-oracle.jsonl` (722 fixture lines) | `ee80f583ec150ea52ebe70899703ad4beaaaa31a73d56b2c98beab0e92922b32` |
-| Sibling `row-verdicts.jsonl` (K, 772 IDs) | `f49c094cc597689da02c6a88518cdf8e78d1b8c134d22af89c5c903a8e264159` |
+| Sibling `row-verdicts.jsonl` (r5, 783 IDs) | `28f2ee11c3871e7e9e55464270fba2e55ab2520088b12c6a0fc56c9dd4fd7fa8` |
 
 ### 6.1 HTTP table and route retention
 
@@ -593,6 +593,16 @@ and `PoolManager.request` reaches urllib3's `RequestMethods.request` on versions
 Apply the same owner search to protocol methods. Bind the class and owner paths to the supported
 library layout when specifying that metadata. The scanner does no target import or method execution.
 
+For an instance proved by a `pathlib.Path` construction or a `Path` annotation, retain the canonical
+`pathlib.Path` lookup and also check `pathlib.PosixPath` and `pathlib.WindowsPath`. Apply the existing
+instance lookup checks to each concrete class's own MRO, including the prefix through the defining
+owner of the selected method. This applies to direct, named, context-bound and helper-backed
+receivers. A reachable write to the selected slot on either chain gives `member_rebound` under the
+same write forms and ordering below. The scanner has no target platform at scan time, so a write
+only on the other platform can withhold a valid site. The canonical hint stays `pathlib.Path.m`,
+and a class-qualified root read starts at its named class. esc35–38 cover direct, named and helper
+refusals and an unrelated write in the context case.
+
 | Slot or event | Same-file write that invalidates this lookup, subject to §6.2 ordering |
 |---|---|
 | Live module attribute or from-import capture | Check the module's `__class__` and member/key at each module hop, e.g. `requests.__class__ = M` before `requests.get`. A completed from-import severs later exporter replacements (wf27). |
@@ -773,6 +783,16 @@ set or tuple display, string, bytes or numeric literal, boolean or None). For nu
 None is consistent but supplies no instance witness. An absent default, opaque value or unanalysed
 call supplies no contradiction. For helpers, inspect returns only in their own compiler scope.
 
+**Known `None` receiver.** Refuse a tied R4 or R5 method call when its reaching receiver is known to
+be `None`. Use the sole, available function-local or visible same-file module initializer when
+it is literal `None`. For an otherwise admissible same-file helper at an eligible R4 or R5 binding,
+including matching await, the result is known to be `None` when every return in its own compiler
+scope is explicit `return None` or bare `return`. Implicit fallthrough also supplies `None`,
+including a body with no own returns. A path that raises or never completes supplies no result.
+Count `receiver_is_none` in §6.5 order. A nullable declaration alone still qualifies under K,
+including with an opaque initializer or helper result. An overridable parameter default cannot
+prove the reaching value. esc39–44 cover the refusals and opaque control. No inherited verdict changes.
+
 **Construction takes precedence.** R1/R2 keep their existing priority and grade. For an eligible
 R4 local or R5 binding, an independently resolved listed class from the helper's sole final
 construction witness below determines the receiver. Resolve the annotation at its declaration and
@@ -788,6 +808,8 @@ An off-table method of both classes gives plain `none` absent an independent tie
 | sl2-22, as2-24, wf61, wf63, wf67, wf69, wf70, wf73 | `http, requests.Session.get` | `httpx.Client` (in as2-24 the helper's body-local import resolves the constructor to `requests.Session`) |
 | as1-27 | `parse, configparser.ConfigParser.read` | `configparser.RawConfigParser` |
 | wf72 | `parse, configparser.ConfigParser.read_file` | `configparser.RawConfigParser` |
+
+S2b requires the eight HTTP promotions. S3 adds the `parse` table and requires as1-27 and wf72.
 
 The five overridable defaults (as2-19, wf54/55/58/59) and three known non-instance cases
 (esc01/02/24, including an alternative dictionary return) still give `annotation_conflict`.
@@ -821,15 +843,17 @@ Prefixes may raise. An alternative return, fallthrough, second factory hop or op
 no construction proof. The public fixture pin01 and the source at `httpie/client.py:114` satisfy
 the returned-local rule. The three `mount` receivers, including the loop receiver, read the same
 binding. esc31–34 exercise receiver-only setup, passing the local, aliasing it and replacing `send`.
+Namespace and bound-method escapes through member reads are covered by the known limit in §10.
 
 **Declaration-only standard-library receivers (K).** After checking stronger routes, use the
 declared class and its listed method at `nameonly` for `filesystem`, `parse` and `config`. R4
 accepts the sole annotated parameter or value-bearing simple assignment above, including a
 visible same-file module binding. R5 accepts a sole function-local binding to the result of an
-otherwise admissible annotated helper, including an opaque return (as1-28). Require the §6.2 binding, availability and
-lookup checks. A known contradiction, failed returned-local escape or rebinding check, or
-inadmissible helper still takes its §5.2 cause. Apply the ordinary shape and anchor rules to the
-admitted occurrence. HTTP R4/R5 require the construction witness above. R3 remains diagnostic.
+otherwise admissible annotated helper, including an opaque return (as1-28). Require the §6.2
+binding, availability and lookup checks. A known `None` receiver, known contradiction, failed
+returned-local escape or rebinding check, or inadmissible helper takes the first applicable
+cause under §6.5. Apply ordinary shape and anchor rules to admitted occurrences. HTTP R4/R5
+require the construction witness above. R3 remains diagnostic.
 
 | Annotation evidence | r4 disposition |
 |---|---|
@@ -899,15 +923,19 @@ The standard-library module annotation in sl1-64 supplies the §6.4 R4 `pathlib.
 | Chosen | A sole absolute table-library import that maps the call to a listed path supplies a candidate of **that** library. Hiding an outer import is normal lookup. Failure of its availability gives `binding_unavailable` (sl3-02), after any earlier applicable wildcard or repository-local veto. An off-table path under a table library supplies no root tie even before the import is available. Independent receiver routes still run. |
 | Declined | Count any hidden outer binding as shadowing. That misdiagnoses the later local import in sl3-02. A deciding unrelated binder or multiple non-equivalent binders still gives `shadowed_root` on a table spelling (as1-18). |
 
-On ties use the **5.2 table order**, after attempting applicable proofs. Thus sl2-21 admits
+On ties use the **§5.2 table order with the r5 insertion below**, after attempting applicable proofs. Thus sl2-21 admits
 `requests` as a constructor-typed receiver, while as1-18 takes `shadowed_root` over
 `receiver_not_unique`. A non-import value binding, including `requests = import_module(...)`,
 is `shadowed_root`. An absent binding is `not_imported`, even if a file of that name exists (as2-04).
 A star import wins over both. An extra receiver binding wins over helper faults (tr4-01). Missing
 admissible return annotation wins over a decorator on the same tied helper (tr4-02). Identity failure
 wins over a frame or parse failure (as2-09). The unsupported reasons retain the §5.2 order.
-For a tied annotation conflict, competing receiver writes take precedence, followed by
-`annotation_conflict`, the two helper causes, then `receiver_value_unproven`.
+
+For r5, insert the closed cause `receiver_is_none` immediately after `receiver_not_unique` and
+before `annotation_conflict`. It requires the reaching-value evidence in §6.4 for a tied
+receiver call. This gives a diagnosed omission before any shape test. The other causes keep
+their relative order, ending with `annotation_conflict`, the two helper causes and
+`receiver_value_unproven`.
 
 Grouping a proven unsupported call uses the 5.2 key, including the **bare symbol string**, independently
 of grade and source alias. Keep each occurrence's grade and file parse quality through confidence
@@ -927,9 +955,9 @@ in that order, with no zero causes. as4-03/04 contribute two occurrences on a si
 |---|---|---|
 | Failed proofs (Q5, Q11) | Count all method spellings. Dictionary lookups would dominate the warning. | Declined |
 | Failed proofs (Q5, Q11) | Discard explicitly tied aliases and failed constructors. A known provenance failure would disappear from the counts. | Declined |
-| Failed proofs (Q5, Q11) | Require the ties above, propagate the earliest applicable 5.2 cause and distinguish an absent root from a bound one. This requires carrying evidence through a failed route. | Chosen |
+| Failed proofs (Q5, Q11) | Require the ties above, use the first applicable cause in the order above and distinguish an absent root from a bound one. This requires carrying evidence through a failed route. | Chosen |
 | Diagnostic vocabulary | Reuse one shadowing bucket for time-of-use and member writes. It cannot explain whether the import or its callable failed. | Declined |
-| Diagnostic vocabulary | Keep six unsupported reasons. T-1 and the producer use the eleven ordered §5.2 causes, ending in `receiver_value_unproven`. | Chosen |
+| Diagnostic vocabulary | Keep six unsupported reasons. T-1 and the producer use the twelve ordered identity-unproven causes from §5.2 and the insertion above. | Chosen |
 | Warning totals (Q10) | Use the per-row lower bound alone. It cannot detect a duplicate warning or double counting. | Declined |
 | Warning totals (Q10) | Retain the row test and check the exact histogram in the existing aggregate test. It needs one multi-cause fixture assertion. | Chosen |
 
@@ -1005,19 +1033,21 @@ binder, never as a listed class. There is no PEP 695 matrix row or interpreter-p
 
 ### 6.7 Accepted losses and G-parity
 
-The K ledger has 338 site IDs. The remaining IDs form the per-ID loss register. Including the proposed fixtures, 91 unsupported expectations represent groups, with
-multiplicity in `want`. Ten lack a function body, 15 are in a class frame, nine in a lambda frame,
+The r5 ledger has 340 positive site IDs and one site-shaped KNOWN LIMIT (pin09). The remaining
+IDs form the per-ID loss register. The 91 unsupported expectations include proposed fixtures
+and represent groups, with multiplicity in `want`. Ten lack a function body, 15 are in a class frame, nine in a lambda frame,
 five have a multiline callee, 44 lose the line anchor, and eight have an error in the owning definition.
 Keep their diagnostics. The frame, competing occurrence and parse-error cases lack a usable
 frame, line or bounds. §6.8 records the two bindable multiline exceptions for the owner. Runtime
 refusals of otherwise representable rows belong in the funnel.
 
-The 253 counted-omission verdicts comprise 9 `star_import`, 67 `shadowed_root`, 11 `not_imported`,
-7 `repository_local_module`, 2 `binding_unavailable`, 47 `member_rebound`, 46 `receiver_not_unique`,
-8 `annotation_conflict`, 5 `helper_unannotated`, 14 `helper_not_admissible` and 37 `receiver_value_unproven`.
-These are IDs. The mixed groups in §6.5 also have omitted occurrences. Each row's cause identifies the missing evidence
-in 5.2. Proving branch-specific values, trusting local shims or inferring undeclared returns would
-admit sites outside the chosen identity proof.
+The 261 counted-omission verdicts comprise 9 `star_import`, 67 `shadowed_root`, 11 `not_imported`,
+7 `repository_local_module`, 2 `binding_unavailable`, 50 `member_rebound`, 46 `receiver_not_unique`,
+5 `receiver_is_none`, 8 `annotation_conflict`, 5 `helper_unannotated`, 14 `helper_not_admissible`
+and 37 `receiver_value_unproven`.
+These are IDs. The mixed groups in §6.5 also have omitted occurrences. Each row records the
+first applicable cause in §6.5 order. Proving branch-specific values, trusting local shims or
+inferring undeclared returns would admit sites outside the chosen identity proof.
 
 The 90 plain `none` decisions are accounted for below. Some are negative controls, where there is
 no executable table call to recover.
@@ -1048,6 +1078,8 @@ the denominator. A missing key admitted by K remains unresolved.
 | P4. Unrepresentable call or frame | Demonstrate an inner class or lambda body frame and record its owner. Scan already skips non-anchors. A different winner or a representable multiline scan key gets a matrix regression and fix, or owner escalation under §6.8. Neither earns P4. |
 | P5. Unevaluated annotation | Show that the recorded call occurs exclusively in an unevaluated annotation under 6.6 on 3.11. |
 
+The owner approves P3 credit for a same-file helper that fails §6.4 eligibility, including an unused alias that fails the returned-local check, subject to the listed witness and replay requirements and with the key still in the full scan denominator.
+
 A missing table member, missed ordinary import, wrong bounds/symbol/line, wrong canonical hint,
 failure to parse valid supported Python, missing scan run or unexplained difference fails the gate.
 `module_level` pairs with scan's bounds-less set. A genuine syntax error is reported with the scan's
@@ -1068,7 +1100,7 @@ section 8.
 
 Join on **(fixture, line)** and check the ID in the oracle's `rows`. Several IDs may share one binder
 answer. The supplied oracle covers 722 distinct fixture lines for the 738 materialised IDs. This
-join uses their K wants. The 34 proposed IDs lack observations and are excluded from this table. “Syntax” denotes an error record without a bound call or guard answer.
+join uses their inherited K wants. The 45 proposed IDs lack observations and are excluded from this table. “Syntax” denotes an error record without a bound call or guard answer.
 
 | Want | accepted | unsupported_frame_guard | unsupported_multiline_callee | call_position_unavailable | site_call_unavailable | Syntax | IDs |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -1133,7 +1165,7 @@ occurrence in a fixture. Duplicate text by itself cannot certify G-accept (u04a/
   annotations. The six no-call negatives have no call at the line. The remaining frame refusals and
   accepted negatives follow the same per-ID rule.
 - Against the pinned matrix, 83 design wants and eleven Python-semantics wants change. All 24
-  faultpath-guard wants stand. The ledger distinguishes the 34 pending fixtures from the 94 changes
+  faultpath-guard wants stand. The ledger distinguishes the 45 pending fixtures from the 94 changes
   to existing IDs. Promoted `*` selectors take the callee from the site want. Consumer evidence for
   the additions requires a qualified oracle run.
 
@@ -1238,6 +1270,7 @@ on line 6. Pin08 also selects `exists` at `exact` on line 9.
 | J | esc13 keeps `unsupported(class_body_frame,1)` because the conditional import and fallback agree. esc11/12/26 keep `shadowed_root`. Blanket refusal fails esc13 and is declined. |
 | F | o15/16/18, sl2-26, wf96 and esc18 keep exact identities. as2-28/as3-25 retain their relative-import cause. The d3 startup-precedence finding identifies zero affected census sites. |
 | K | Pin03–06 and sl1-64 admit the declared `Path` at `nameonly`. sl4-14 admits the declared method but loses its anchor. §6.11 gives the exact wants and selectors. |
+| pin09 · KNOWN LIMIT | The esc34 variant writes `d["send"] = replacement` after `d = v.__dict__`. The bounded rules emit `site(http,requests.Session.send,nameonly)`. Actual dispatch reaches `replacement`. This records the inventory result under §10 without endorsing the hint. |
 
 The Superset census supplies the corresponding source locations. Parameter examples include
 `config_path.read_text` (scripts/extract_feature_flags.py:60) and `pot_path.write_text`
@@ -1630,32 +1663,42 @@ the proven-key selection. HTTP ties, including `client.py:114`, belong to the HT
 S3 measures actual per-corpus recall against every injectable scan key in scan's files, using
 scan's function bounds. The 95% floor uses that full denominator.
 
-| Ledger count | K (772 IDs) |
-|---|---:|
-| Sites | 338 |
-| Unsupported groups | 91 |
-| Plain `none` | 90 |
-| Counted omissions | 253 |
-| `star_import` | 9 |
-| `shadowed_root` | 67 |
-| `not_imported` | 11 |
-| `repository_local_module` | 7 |
-| `binding_unavailable` | 2 |
-| `member_rebound` | 47 |
-| `receiver_not_unique` | 46 |
-| `annotation_conflict` | 8 |
-| `helper_unannotated` | 5 |
-| `helper_not_admissible` | 14 |
-| `receiver_value_unproven` | 37 |
+The r5 refusal yield is **unmeasured** for both rules. Filtering all 3,235 rows in the four site
+ledgers to `proven == true` and a canonical `pathlib.Path.*` hint gives 60 Superset, 14 Black,
+three httpie and zero Saleor records. No recorded callee text names either concrete platform
+class. The ledgers record calls, so this does not test for writes to their lookup slots. Filtering
+proven standard-library records to local-annotation or annotated-helper ties gives 17 Superset,
+three Black and zero each for httpie and Saleor. These tie labels omit reaching initializers
+and helper bodies. The K projection above assumes neither refusal is triggered.
 
-These counts tally one primary `want` per ID. The additional omitted HTTP occurrences on the
+| Ledger count | r4 K (772 IDs) | r5 (783 IDs) |
+|---|---:|---:|
+| Sites | 338 | 340 |
+| Site-shaped KNOWN LIMIT | 0 | 1 |
+| Unsupported groups | 91 | 91 |
+| Plain `none` | 90 | 90 |
+| Counted omissions | 253 | 261 |
+| `star_import` | 9 | 9 |
+| `shadowed_root` | 67 | 67 |
+| `not_imported` | 11 | 11 |
+| `repository_local_module` | 7 | 7 |
+| `binding_unavailable` | 2 | 2 |
+| `member_rebound` | 47 | 50 |
+| `receiver_not_unique` | 46 | 46 |
+| `receiver_is_none` | 0 | 5 |
+| `annotation_conflict` | 8 | 8 |
+| `helper_unannotated` | 5 | 5 |
+| `helper_not_admissible` | 14 | 14 |
+| `receiver_value_unproven` | 37 | 37 |
+
+These counts tally one ledger outcome per ID. The additional omitted HTTP occurrences on the
 two mixed lines in §6.5 remain separate runtime warning assertions.
 
 ### 6.11 Ledger substitutions adopted under K
 
 These eleven records replace the declaration-only omissions in `becb5c6d`. The verdict compares
 the K want with the pinned matrix. Use the site want's canonical callee for the `sl1-64` selector.
-The remaining 761 ledger lines match that revision byte for byte.
+The other 761 r4 ledger lines matched that revision byte for byte.
 
 | ID | K want | K verdict |
 |---|---|---|
@@ -1671,7 +1714,7 @@ The remaining 761 ledger lines match that revision byte for byte.
 | pin05 | `site(filesystem,pathlib.Path.mkdir,nameonly)` | change |
 | pin06 | `site(filesystem,pathlib.Path.touch,nameonly)` | change |
 
-K gives 644 keep, 94 change and 34 add. `as5-11` (the result of `seed.home()`) stays untied,
+At r4, K gave 644 keep, 94 change and 34 add. `as5-11` (the result of `seed.home()`) stays untied,
 and `wf50/51` still count the selected member deletion. This choice changes neither HTTP
 declarations nor constructed-class precedence.
 
@@ -1726,6 +1769,22 @@ limits, not reached, patch shadowed by a mock).
   source algorithm), which faultpath already tolerates for overlay rows.
 - **Receiver typing is shallow.** R3 field hints are deferred. §6.4 prefers a sole witnessed construction. §6.10 admits eligible standard-library declarations at `nameonly`. A supplied value can differ from its declaration. Sessions passed
   through several functions or stored in containers are missed. Only the explicit ties in 6.5 enter the identity-unproven counts.
+- **OUT OF MODEL — runtime mutation through returned-local namespace or bound-method escapes.**
+  The root `CLAUDE.md` contract states that runtime mutation of module objects (monkey-patching,
+  reflective writes, `eval`, host globals, re-acquisition through `require`/`import()`), from the
+  same file or another, is out of model for every rung and every language. A slice that models
+  runtime mutation needs a new contract. The returned-local rule inherits the bounded §6.2
+  source checks. The following cases remain outside that model:
+  - Alias a namespace with `d = v.__dict__` or `d = vars(v)`, then replace or delete a key via
+    the alias (pin09). Use namespace mapping methods such as `update`, `pop`, `clear`,
+    `setdefault`, or `__setitem__`, or acquire the namespace through reflective member access.
+  - Recover the receiver through `v.send.__self__` or a saved bound method's `__self__`, then
+    write to a selected slot. Reach the underlying function through `__func__` and change its
+    `__code__`, defaults or globals.
+  - Invoke `v.__setattr__` or `v.__delattr__` directly or through a saved callable, or reach the
+    mutation via `object.__setattr__`, `object.__delattr__`, `v.__class__` or `type(v)`.
+  - Pass a namespace, bound method or derived receiver/class through another call, closure,
+    container, descriptor or further alias hops that the §6.2 index does not resolve.
 - **The closed-world rule costs recall** where Python code rebinds a name it does not use at the call
   (`try`/`except ImportError` fallbacks, a parameter defaulted and then assigned). Faultpath's own binding
   check can report a different identity or no qualification. Section 6.8 defines how to compare them.
@@ -1760,3 +1819,14 @@ limits, not reached, patch shadowed by a mock).
   review round remained at that revision. Both reviewers subsequently rejected it.
 - 2026-11-25. Proposed the d3 closed-item fold to the owner. §§6.2–6.7 cover receiver-only setup, lookup-slot invalidation, constructed-class precedence, P1 evidence, remapped ties, class fallback and startup precedence. §§6.9–6.11 check all 772 proposed decisions and present the K/W recall and ledger deltas. The eight pins are materialised. esc31–34 are proposed. That proposal awaited the owner’s choice.
 - 2026-11-25. The owner directed the r4 fold with K. §§6.4 and 6.7 admit eligible standard-library declarations at `nameonly` and retain the full per-corpus parity floor. §§6.8–6.11 reconcile the K ledger, pins, oracle and census. Both reviewers review this revision once.
+
+## Changes in r5
+
+| Fold item | Sections and ledger entries |
+|---|---|
+| 1 · Concrete `Path` lookup | DESIGN §§6.2, 6.10 and PLAN S3. esc35–38. |
+| 2 · Known `None` receiver | DESIGN §§6.4–6.5, 6.7, 6.10 and PLAN T-1 and S2a–S3. esc39–44. |
+| 3 · Constructed-class promotion staging | DESIGN §6.4 and PLAN S2b–S3. |
+| 4 · Runtime mutation and P3 | DESIGN §§6.4, 6.7, 6.9, 10 and PLAN Stage D and S2b. pin09. |
+| 5 · Preserve owner defaults and K | DESIGN §§5.2–5.4 and the owner options in §6.8 are unchanged. §6.9 adds only pin09. K still admits eligible declarations. |
+| 6 · Status and accounting | DESIGN and PLAN status, DESIGN §§6, 6.7–6.8, 6.10–6.11, PLAN Stage D and the sibling verdict ledger. |

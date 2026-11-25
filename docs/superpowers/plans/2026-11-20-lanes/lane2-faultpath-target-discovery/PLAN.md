@@ -3,7 +3,7 @@
 > **For agentic workers:** this plan is run by an orchestrator under `../ORCHESTRATION.md`. Each task is
 > dispatched to an implementer (Sonnet-5.5, high) with its section as the brief. Steps use checkbox syntax.
 
-**Stage D status (2026-11-25).** Both d3 reviewers rejected `ffcbe8fa`. The owner directed the r4 fold with K. The ledger records K, and both reviewers will review this revision once.
+**Stage D status (2026-11-25, r5).** The owner said "lane 2 - another pass with runtime mutation out of model. since opus-5.5 approved just have sol review fold." Sol review is pending.
 
 **Goal:** `prism targets --inventory python-deps` lists Python dependency call sites (HTTP, then filesystem,
 parsing, configuration) as rows faultpath can inject at, and faultpath plans and runs faults at the httpie
@@ -142,7 +142,7 @@ cannot prove the return body. DESIGN 6.1 keeps R1 and defers positive R3. The pu
 `ENABLED_GROUPS: &[&str]` lists the groups that run; it is **empty** in this task. The test
 `rows_file_is_well_formed` always runs: every line parses, every field is present, ids are unique, every
 `want` matches the grammar above, every `group` is one of the three names, and every reason and cause named
-in a `want` is in DESIGN 5.2's closed lists. The test `matrix_rows_match` returns early when
+in a `want` is in the closed lists in DESIGN §§5.2 and 6.5. The test `matrix_rows_match` returns early when
 `ENABLED_GROUPS` is empty; otherwise it runs
 `prism targets --repo tests/targets_inventory/py --inventory python-deps` once and, for each row
 of an enabled group, compares the expected and actual multisets on the asserted fixture lines.
@@ -306,19 +306,24 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
       both reviewers rejected round 1. §6.8 records the pooled options, admission default and
       owner decisions, including the fixed multiline-policy conflict.
 - [x] Folded the closed d3 findings and the owner's K decision into DESIGN and the 772-ID verdict ledger.
-- [ ] Both reviewers review the owner-directed r4 revision once.
+- [x] Both reviewers reviewed r4. Opus approved and Sol rejected.
+- [x] Folded the bounded d4 findings and the owner's scope decision into DESIGN and the 783-ID verdict ledger.
+- [ ] Sol reviews the owner-directed r5 fold once.
 - [ ] After Stage D review approval, verify the three digests in DESIGN §6. Apply the ledger by ID
-      (644 keep, 94 change, 34 add). The eight pins already exist.
-      Materialise the 34 `add` records at `tests/targets_inventory/py/<fixture_path>` with the exact
+      (644 keep, 94 change, 45 add). pin01–08 already exist.
+      Materialise the 45 `add` records at `tests/targets_inventory/py/<fixture_path>` with the exact
       `fixture_source` bytes; set `fixture` to that relative path and copy its selector, line,
       class, group, truth and want. Preserve package neighbours for esc17 and esc18. Verify a
-      unique ID-to-row join and the resulting 772 rows. Refresh the qualified oracle on the
+      unique ID-to-row join and the resulting 783 rows. Keep pin09's KNOWN LIMIT label with
+      its rule-derived emission in the `want` field. Refresh the qualified oracle on the
       additions before claiming a consumer result, leaving the site observation pending meanwhile.
       On promoted sites (n06, tr4-03, sl1-03, wf27/38/96–98) use the site's canonical selector
-      and the joined guard observation. For all ten §6.4 constructed-class promotions replace the old declared-class selector with the emitted canonical callee. Follow §6.11's selectors and preserve as1-28's symbol and bounds. Clear site-only consumer fields on omissions. Preserve
-      targeted negative selectors on mixed lines. For as1-19 and as2-27 assert one surviving
+      and the joined guard observation. Set the emitted canonical selector for the §6.4
+      promotions, eight under `http.receiver` for S2b and two under `stdlib` for S3.
+      Follow §6.11's selectors and preserve as1-28's symbol and bounds. Clear site-only consumer
+      fields on omissions. Preserve targeted negative selectors on mixed lines. For as1-19 and as2-27 assert one surviving
       group member and a separate warning count, without forbidding the surviving member.
-      Use all eleven ordered §5.2 causes including `receiver_value_unproven`. Run
+      Use all twelve causes in DESIGN §§5.2 and 6.5 order. Run
       `rows_file_is_well_formed`.
       The empty → HTTP root → HTTP receiver → stdlib `ENABLED_GROUPS` sequence stays in force.
 
@@ -412,8 +417,8 @@ pub struct UnsupportedSite { pub file: String, pub line: usize, pub symbol: Opti
     pub grade: Grade }                                                 // one per occurrence until projection
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnprovenCause { StarImport, ShadowedRoot, NotImported, RepositoryLocalModule,
-    BindingUnavailable, MemberRebound, ReceiverNotUnique, AnnotationConflict, HelperUnannotated, HelperNotAdmissible,
-    ReceiverValueUnproven } // DESIGN 5.2 order
+    BindingUnavailable, MemberRebound, ReceiverNotUnique, ReceiverIsNone, AnnotationConflict,
+    HelperUnannotated, HelperNotAdmissible, ReceiverValueUnproven } // DESIGN §§5.2 and 6.5 order
 pub struct InventoryOutput { pub sites: Vec<InventorySite>, pub unsupported: Vec<UnsupportedSite>,
     pub parse_quality: BTreeMap<String, prism::finding_confidence::ParseQuality>, // every inventoried file, keyed as in sites
     pub unproven: BTreeMap<String, BTreeMap<UnprovenCause, usize>>,    // file → cause → count
@@ -554,13 +559,19 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 - [ ] Implement HTTP R1/R2, diagnostic R3 and constructor-backed R4/R5 (DESIGN 6.2–6.5).
       Check the HTTP parameter-only h08 omission alongside the constructor-backed pin01 site.
       S3 enables declaration-only R4/R5 for the three standard-library families.
-      Exercise each lookup slot in DESIGN §6.2 and its read time for direct, context-bound and helper-backed objects. Include receiver and module `__class__`, whole `__dict__` versus a sibling key, the MRO prefix through the defining owner, `__bases__`, inherited lookup/construction protocols and the two context exit protocols. Compare a read inside the first suite with a post-exit read on the same object. A later exit replacement after capture cannot affect that exit. Keep esc06–10/20/25/28/30 as controls.
+      Exercise the HTTP lookup slots in DESIGN §6.2 and their read times for direct, context-bound and helper-backed objects. Include receiver and module `__class__`, whole `__dict__` versus a sibling key, the MRO prefix through the defining owner, `__bases__`, inherited lookup/construction protocols and the two context exit protocols. Compare a read inside the first suite with a post-exit read on the same object. A later exit replacement after capture cannot affect that exit. Keep esc06–10/20/25/28/30 as controls.
       Verify wf26 versus wf27, fresh n06/wf38/esc29 versus persistent wf10/wf43/esc21, and alias
       writes in wf29–53. A field store never yields an R3 positive. Check setter, subclass and
       function-parameter cases e07, tr3-20, as1-20, wf40 and esc27, plus h07 as the recall cost.
       Distinguish parameter/default and literal conflicts from missing value evidence; test R4
       priority over R5, the unique unconditional return, a returned local with a single construction,
-      and an alternate return or fallthrough (esc01–05/23/24). For pin01 and esc31–34 check loop/branch receiver-only setup, alias/argument escape and a selected slot write. Add del, rebind, container and nested capture checks. Confirm all ten constructed-class callees in DESIGN §6.4 and log the conflicting declaration alongside each route. The eight remaining conflicts still count once. Preserve the earlier warning order.
+      and an alternate return or fallthrough (esc01–05/23/24). Apply the known-`None` refusal to
+      tied HTTP receiver calls in DESIGN §§6.4–6.5 order. For pin01 and esc31–34 check loop/branch
+      receiver-only setup, alias/argument escape and a selected slot write. Add del, rebind,
+      container and nested capture checks. Record the pin09 emission as a KNOWN LIMIT under
+      DESIGN §10. Confirm the eight HTTP constructed-class promotions in DESIGN §6.4 and log
+      each conflicting declaration alongside its route. S3 checks the two `ConfigParser`
+      promotions. Each of the eight remaining HTTP conflicts still counts once.
       Count failed inline R1 and eligible receiver ties (wf74–95). Check mixed filters with esc22
       (two unfiltered, one exact/asserted, zero above info); as1-19 and as2-27 each have one surviving
       member plus one unproven occurrence. Require GREEN on every enabled row.
@@ -575,7 +586,8 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       empty R3 stratum and tied losses. Publish source-witnessed exceptions and count demonstrated
       mismatches under the original gate. At `httpie/client.py:114` record the actual return, constructor and
       relevant writes. Require the R5 `requests.Session.send` row at `nameonly` and root `requests.get` at `exact` at `update_warnings.py:44`. Missing either fails G-overlay.
-      Each wrong row becomes a matrix row and is fixed; the gate fails when a stratum has more than one wrong row.
+      Add a matrix regression and fix for each in-model wrong row. Record out-of-model mismatches
+      under DESIGN §10. The gate fails when a stratum has more than one wrong row.
 - [ ] Two reviewers. Merge.
 
 ### Slice S3: standard-library families and scan parity (2.5 to 3 days)
@@ -594,12 +606,19 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       Check the opaque helper in as1-28, preserve its symbol and bounds, and require the
       `not_line_anchor` group for `pathlib.Path.stat` in sl4-14. Verify pin07/08 at `exact`,
       including pin08's second `exists` call. Check `RawConfigParser.read` writes against
-      derived `ConfigParser` lookup. GREEN.
+      derived `ConfigParser` lookup. Require the as1-27 and wf72 constructed-class promotions
+      with the `parse` table enabled. Check the constructed canonical callee and conflicting
+      declaration in each route. GREEN.
 - [ ] Add a unit test that the standard-library table in `py_tables.rs` equals DESIGN 5.3's list, entry for
       entry, with each entry's family. Test `async with Path(...) as p` alone gives plain none at
       `p.read_text()`. Check bare/qualified builtin mutation and the Path class member write across
       root, constructor, annotation and helper proofs. Check esc18/19 and the census-positive
       `json.loads` at `httpie/output/formatters/colors.py:183`.
+- [ ] Run esc35–38 for platform lookup. Repeat the context case with the selected method written,
+      and check a declaration-only `Path` parameter with a selected method write on either
+      platform class. Require `member_rebound` independently of the host platform. Run esc39–44
+      for the known-`None` cause and opaque control, and verify a nullable declaration alone
+      still admits an eligible `nameonly` site.
 - [ ] `parity/compare.py <prism.json> <scan.json>` (lane interpreter): restrict both sides to the files in the
       scan document's `diff.files`; key each injectable row by (file, line, function_start_line,
       function_end_line, family, resolved callee); compare prism's `module_level` unsupported rows with
