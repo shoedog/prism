@@ -1,13 +1,7 @@
 # Lane 12: routes as a first-class fact — design
 
-Status: architecture final; the per-framework extraction rules are tentative until the census, the test
-matrix and enumeration (PLAN stages M, T, E). Design review round 1 (2026-11-21) folded: one record per
-registration with every composed path, router identity grounded at the use, every callback recorded,
-gates reconciled against an independent site ledger. Owner decision 6 (2026-11-21) folded: Go method-value
-handlers are in scope (section 5.6). Owner decision 7 (2026-11-24), after the design review: a Hapi plugin
-adapter is in scope (section 11). Related: issue #600, the `nav_routes` gap in draft PR #606.
-The plan files a tracking issue. Research record:
-`~/prism-evidence/lanes-2026-11-20/research/lane12-route-model.md`.
+Stage D design of record for the 420-row matrix at b924b349 and the additions in STAGE-D-ROWS.md. Owner decision of 2026-11-25 allows this targeted fold and one final review by two fresh reviewers. Either rejection stops lane 12.
+The admitted lane is estimated at **59.5 working days** (original plan 34, prior draft 71.5). PLAN lists every slice. The common conflict rule removes five days of native dispatch work. A shared source sample and reuse of the Go and Hapi oracles remove seven evidence days.
 
 ## 1. Intent
 
@@ -37,7 +31,7 @@ handlers (lane 5), and request sources keyed on registration instead of on a per
 Goals:
 
 1. A route record per registration site: methods, the path as written, every composed path through which
-   it is served (full when every prefix on that chain is static), the registered callbacks in order with
+   it is installed (full for an eligible literal chain, with its dispatch constraints), the registered callbacks in order with
    their identities (named or anonymous) or why each is unresolved, a delegate where one is proven, the
    registration site, the framework.
 2. A mount record, so prefixes compose across files: which router is mounted on which, with what prefix.
@@ -74,139 +68,328 @@ graph build, the table can be cached then.
 a function argument). Broad, but it cannot know methods or prefixes and would list non-routes. Rejected in
 favour of per-framework extractors behind one record type.
 
-## 5. Architecture — *extraction rules tentative*
+## 5. Architecture
 
-### 5.1 Records
+### 5.1 Records and proofs
 
-```rust
-// src/framework_entries/routes.rs; `Reason` is one closed enum for every reason, fixed at stage D
-pub struct RouteRecord {                   // one per registration site (decorator node, call node, builder verb leg)
-    pub framework: String,                 // "flask", "fastapi", "express", "gin", "net/http", …
-    pub methods: Methods,                  // Known(Vec<String>) upper-case, sorted, deduplicated | Any | Unknown { text }
-    pub path: RoutePath,                   // { raw: String, literal: Option<String> }: spelling, and the evaluated literal
-    pub receiver: Receiver,                // Router(RouterId) | Unproven(Reason)
-    pub paths: Vec<Exposure>,              // every composed path (5.2); empty only for an unproven receiver
-    pub callbacks: Vec<Callback>,          // every callback position as written, in order
-    pub site: FrameworkEntrySite,          // file, line, start_byte, end_byte of the registration
-}
-pub struct Exposure { pub root: Option<RouterId>, pub status: PathStatus }
-pub enum PathStatus { Full(String), Suffix { known: String, reason: Reason }, Dynamic(Reason) }
-pub struct Callback { pub position: usize, pub value: CallbackValue, pub delegate: Option<FunctionId> }
-pub enum CallbackValue { Resolved(FunctionId), Anonymous(FunctionId), Unresolved { text: String, reason: Reason } }
-pub struct MountRecord {
-    pub parent: Receiver, pub child: Receiver,
-    pub prefix: MountPrefix,               // Literal(String) | Absent (framework default) | Unevaluated { text }
-    pub site: FrameworkEntrySite,
-}
-pub struct RouterId { pub file: String, pub binding: String, pub construction_byte: usize }
-```
+The unit is a source registration, including each decorator, builder verb leg or consumed table element. Its
+source origin is (framework, file, start byte, end byte, installation site and element ordinal where applicable). For a Hapi plugin route, qualify that origin by the defining plugin object (file, object_byte), on strong, weak and refused associations alike. Serialize it as route.origin_plugin whenever the defining object is identified, including on retained object-table candidates. The effective name, register function and formal are never substitutes for the object. A copy
+or second mount adds an exposure to its origin. Two declarations with identical arguments and handler remain two
+records. Include test sources, preserving their package/build partition.
 
-- `path.raw` and prefixes keep the framework's own spelling (`<int:id>`, `{id}`, `:id`). `path.literal` is
-  set only for an evaluated literal node: a string without escapes or interpolation (decoding escapes and
-  concatenating literals are stage D choices); text that merely starts with a quote is not a literal
-  (`js_ts_literal_string_value` is not used: it strips quotes from `"/a" + "/b"` and leaves
-  `"/\u0078"` undecoded). The listing adds a comparison key, `normalize_path(framework, path) -> Option<String>`,
-  which writes each parameter `{}` by that framework's grammar and is `None` for a template it cannot
-  classify (a typed tail such as `<path:p>` or `{p...}`, a regex, an optional); a Flask `:id` is literal text.
-- `methods`: `Known` when every method is a literal; `Any` for registrations that accept every method
-  (`all`, `Any`, a net/http pattern without a method); `Unknown` otherwise. Framework-added HEAD and OPTIONS
-  are not listed (stage D may add an effective set).
-- Receiver identity is grounded at the use: the receiver name must resolve in its own lexical scope
-  (innermost function, else module) to exactly one binding, never written afterwards, whose value is a
-  recognised constructor (`Flask(…)`, `Blueprint(…)`, `FastAPI(…)`, `APIRouter(…)`, `express()`,
-  `express.Router()`, `gin.Default()`, `gin.New()`, a `Group` result), a proven import of one (5.2), or a Go
-  parameter within the stated bound. `RouterId` is that binding with its constructor's start byte, so two
-  bindings of one name, or a rebinding to a fresh router, are two routers. Anything else is
-  `Unproven(reason)`: the record is listed and counted, with no path and no binding credit. (A
-  file-and-name key would attach an unmounted router's routes to a mounted one of the same name, and
-  today's Python receiver set is file-wide: a function-local `app = Sink()` decorator gets a Flask entry.)
-- Callbacks: every callback position, in order (Express arguments after the path, arrays flattened in order,
-  a spread unresolved; gin handler arguments; a decorator's function; `view_func=`; `endpoint`). Each
-  value resolves in its own lexical scope: JS/TS through `ParsedFile::js_ts_site_binding` (a callable
-  terminal is `Resolved`; an import is followed through `CallGraph::import_bindings` to the target file's
-  `js_ts_exports` entry and accepted only for a proven callable terminal); Python through the name's binding
-  in its scope; Go: a bare identifier through the `CallGraph::go_registrations` record whose site bytes are
-  the argument's own, a selector (method value, package function, method expression) by section 5.6.
-  The entry records' file-and-name rule is not reused: at module scope it ignores imports, and a probe gave an
-  imported `serve` handler's edge to an unrelated nested `serve`. An inline JS/TS function is `Anonymous`
-  (`anon_owner::identity`); Go function literals and Python lambdas are `Unresolved` (no anonymous identity
-  yet). A Python decorated function is the registered value only when every decorator between the route
-  decorator and the `def` is itself a route decorator (those return the function unchanged); any other
-  decorator below may replace it (`inner_decorator`). A call in a callback position (`asyncHandler(fn)`,
-  `validate('r')`) is `Unresolved` (`wrapper_call`, its text kept); its `delegate` is set only when the callee
-  is a forwarder on stage D's closed list, proven by its import binding, and the forwarded argument resolves
-  by these rules. Arity and position never select a delegate or a handler. JS/TS and Python members
-  (`controller.method`) are `member_handler` until stage D admits a resolution; Go method values follow 5.6
-  (owner decision 6); class views (`as_view`) are `class_view`.
+| Record | Fields and meaning |
+|---|---|
+| Route | framework, site, receiver, protocol (http or websocket), methods, path, paths, callbacks. Keep a literal endpoint name for endpoint-only rules. Table records also carry the installation site and element origin. A candidate keeps its source, receiver status and reason. |
+| Receiver | router (file, binding, construction byte) or unproven(reason). Anonymous constructor expressions use their expression text and first byte. A framework parameter, controller decorator, URLconf list or default mux may supply the identity as specified below. |
+| Methods | `{"known":[…]}` sorted unique, `"any"`, `{"status":"unknown","text":…}`, or `null` for an omitted declaration or a WebSocket. Preserve case for ServeMux. An explicit empty list remains known empty. |
+| Path | `raw` is the expression as written, `literal` its single decoded path if known. Arrays retain raw spelling and null scalar literal. Regex retains its source and flags. A ServeMux pattern retains the original method/host in raw. |
+| Exposure | root identity (nullable), status full(value), suffix(value,reason), or dynamic(reason), normalized path or null. Store effective mount constraints on the individual exposure (host, method guard, active version selector where present). Full describes a certified installation in that root at the listing epoch. Binding also checks root health and effective dispatch (§5.2). |
+| Callback | position (zero-based), resolved or anonymous identity (file, name, span), or unresolved(text,reason). Optional delegate identifies a forwarded argument. Hapi prerequisites also have role and group. An endpoint-only registration has zero written callbacks. |
+| Mount | parent, child, site, one prefix (literal, absent, unevaluated with text), and any request guard/strip transform. One site can supply several edges. Object alternatives, branches and child arguments have stable source ordinals. |
 
-### 5.2 Composition
+**Values at a use.** Walk the lexical scope, including captures, to the reaching declaration. A straight-line assignment of a fresh router starts a new lifetime (ex29). A use before or after that assignment retains the corresponding identity. Resolve a direct, unwritten alias to that object. Distinguish factories and scopes, imports and package partitions. A conditional merge of different identities, a write of unknown order, an unknown alias mutation or an escaping mutable value cannot prove a single target. Only propagate an object through a factory with a unique direct return of a grounded local construction and a distinguishable invocation. Do not merge separate instances at one allocation site: qualify by the invocation when distinguishable, otherwise refuse. Retain a recognisable but unproven site with empty paths and no binding credit. Proven-absent execution, a settings read and ordinary middleware emit nothing.
 
-A mount graph per repository: nodes are routers (`RouterId`), edges are mounts with their effective prefix,
-computed by the framework's rule (Flask: a `url_prefix` at `register_blueprint` replaces the constructor's;
-FastAPI: the include's prefix is prepended to the router's own; Express and gin: the mount's path). Roots are
-application objects (a Flask or FastAPI app, an `express()` result, a gin engine, a `ServeMux` or the
-default mux). Each registration gets one exposure per chain from a root to its router: `Full` when every
-prefix on that chain is literal, `Suffix { known, reason }` when one is not (`known` is the literal part
-below it), so a router mounted at `/v1` and `/v2` yields both full paths, and one literal plus one variable
-mount yields one full path and one suffix. A router no mount reaches gives one `Suffix` (`no_known_mount`);
-a cycle closes its branch as `Suffix` (`mount_cycle`); past 64 exposures per registration the rest is one
-`Suffix` (`expansion_truncated`). `Dynamic` is the registration's own non-literal path. Joins follow each
-framework's rule, settled at stage D against executed truth (seeds: Flask `/api` with rule `""` is `/api`;
-FastAPI `/items` with `/` is `/items/`).
+Use direct named/default/namespace ES imports, unshadowed literal CJS require (including destructuring, property and
+default interop), Python from/qualified/relative imports including package initializers. Require one eligible target
+module and the requested *member* in it. Validate the export's reaching value and callable or router type. Follow
+local export specifiers, direct module.exports and its own properties, observing replacement/detachment of exports.
+A second module forwarding the value, star import, ambiguous export, or shadowed require supplies no proof. If such
+a value controls a conditional mount, retain the syntactic unproven mount unless the condition is independently
+decidable (es1-06). Do not use a file basename as an owner. An initializer declaring a router differs from one
+re-exporting it (cx02, es1-15).
 
-A router imported from another file is proven, not looked up by file: the importing file's
-`CallGraph::import_bindings` entry (local name, module, imported member, eligibility) leads to one target
-file, and the imported member (JS/TS: the local spelling its `js_ts_exports` entry names, `default`
-included, or a top-level `module.exports = r` read from the syntax, since the CJS export facts hold
-callables only; an entry is a spelling, never proof; Python: `from m import x as u`, or
-`from . import auth` then `auth.bp` through the submodule) must be a binding that the table grounded as a router in that file. An ineligible binding, a
-second candidate file, a re-export chain or a star import leaves the child `Unproven` (`mount_child_unproven`).
+For path and method arguments decode native literal nodes (JS literal/template without substitutions, Python
+string/raw and adjacent tokens, Go raw/interpreted). Fold only literal string concatenation; preserve interpolation,
+value references and configuration as expressions. Literal arrays/tuples/slices expand where the API accepts them. A
+mixed method set is wholly unknown. Separately, table keys, explicit bootstrap metadata and known router/callback
+references have the narrowly typed binding rules below. Never run application expressions.
 
-### 5.3 Frameworks, in waves
+Resolve a callback **value at the argument**, never a fabricated CallSite. Same-scope declaration, direct proven
+import/member of a module, or a bound-once local alias of that value may resolve. Use
+ParsedFile::js_ts_site_binding, CallGraph::import_bindings and the actual js_ts_exports/local CJS terminal. A class
+or object instance member, getter, computed lookup or bound function supplies no unique callable by name. Python
+routes record the def (qualified name, first decorator line for runtime comparison) unless a non-route decorator
+*below* can replace it. An outer decorator cannot change the registered value. A lambda and a Go func literal retain
+their entire source/argument site as unresolved(anonymous_unindexed); only JS/TS inline functions use
+anon_owner::identity. For Go bare arguments prefer the go_registrations fact at those exact bytes. Where no fact exists for a bare element of an immutable expanded slice or a package-initializer argument (including inside a proved immediately invoked func literal, never a stored closure), resolve at the original identifier in its defining file and lexical interval. Require a unique same-package, profile-visible free function declaration with its FunctionId. A shadow, non-alias variable, multiple visible definitions or uncertain build partition gives callback_unproven. An unwritten one-name alias may follow one explicit RHS under the same checks. Never borrow a fact from another argument or call (es5-06). Preserve ordered positions
+even for unresolved middleware and error callbacks. Array flattening uses source order. A proved immutable literal
+list spread or variadic slice expands; otherwise emit one spread_callback slot and retain subsequent arguments
+(static positions count slots).
 
-| Wave | Frameworks | Shapes |
-|---|---|---|
-| 1 | Flask, FastAPI, Express | decorators and registration calls already recognised, now with method and path; `add_url_rule`, `add_api_route`; every verb leg of `app.route(p).get(h).post(h2)`; Express verbs from the pinned Express's own method table (HEAD and OPTIONS included), not the entry matcher's seven names; `app.get('env')` with no callback is a settings read, not a registration; `use` split into middleware and mounts; inline, wrapped and imported callbacks; mounts (`register_blueprint` with `url_prefix`, `include_router` with `prefix`, `app.use(prefix, router)`) |
-| 2 | Go | gin (`r.GET`, `Group`, groups passed as parameters within one function chain where the argument is the group variable itself), `net/http` including method-in-pattern strings, chi; reusing the existing callback-registration facts for bare-identifier handlers, and method-value handlers by 5.6 |
-| 3 | decided at stage M by count | from: NestJS decorators, Fastify, Koa routers, Django `path`/`re_path`/`include`, DRF routers, object-literal route tables (`route([{ method, path, handler }])`). A table is a route only when its consumer is grounded: a framework API or a stage D adapter, proven by its import binding, that installs the rows it is passed; an ungrounded table is listed as a candidate with reason `table_consumer_unproven` and earns no path or binding credit. A Hapi plugin adapter is built whatever the count (owner decision 7, section 11) |
+Closed delegate list: unshadowed imported `net/http.HandlerFunc(f)` (conversion, argument 0), and the default
+callable export of the package `express-async-handler` (argument 0). Require one argument and a resolved or
+anonymous terminal. Even there the callback is the wrapper_call and the delegate a separate identity. A local file
+named async-handler, withApiKeyAuth, bind, a discarding/branching/nested wrapper, an arbitrary Python decorator and
+a forwarding literal earn no delegate. A unique local bound to a wrapper result retains the wrapper classification.
+Preserve its argument spelling at the use. Do not follow another call through a wrapper. Missing or ambiguous free
+names use callback_unproven (import failures use imported_unproven), and instance members use member_handler.
+Unproven receivers suppress callback identity but retain the callback slots and the receiver's refusal reason. For
+Go selector values see 5.6.
+
+**Reason** is one closed snake_case enum shared by records, exposure cuts, diagnostics and matrix validation. Its variants are
+`receiver_unproven imported_unproven mount_child_unproven table_consumer_unproven no_known_mount variable_prefix
+non_literal_path regex_path mount_cycle expansion_truncated`,
+`callback_unproven member_handler wrapper_call inner_decorator class_view anonymous_unindexed spread_callback handler_object`,
+`method_value_receiver_unproven method_value_receiver_shadowed method_value_method_unproven method_value_interface
+method_value_external func_field_value qualified_function_value method_expression`,
+`hapi_registration_unproven hapi_plugin_unproven hapi_plugin_unregistered hapi_server_param_unproven
+hapi_route_not_literal hapi_handler_object hapi_handler_conflict`,
+and `runtime_generated_registration unsupported_registration build_only superseded dispatch_conflict entry_unproven`. All query errors, including malformed selectors, missing exports and ambiguous roots, use entry_unproven. A diagnostic has a site and reason, not a
+fabricated path. Accepted-loss descriptions in the matrix are audit notes; the enum is the wire contract.
+
+### 5.2 Composition, ordering and comparison
+
+Start from the selected application/URLconf/module root, or independent outermost application constructors when no
+entry is selected. The optional CLI/API entry in 5.4 selects one statically bound app, factory return or URLconf. A mounted sub-app is seen through its parent; select it separately to query it as a root. Count a
+framework controller or plugin with only local route proof as such. A literal leaf on an unattached router yields a
+suffix with null root and no_known_mount. Unknown prefix retains the longest literal tail below it; an unknown leaf
+is dynamic. A determinate non-dispatching declaration (build_only) has no paths. Distinguish a known impossible
+chain from an unknown one. Never promote a disconnected suffix to a served path. Keep the root when a known root has
+an unknown prefix.
+
+Use a literal exported app, bootstrap/factory return, selected URLconf or externally bound oracle root to select
+setup context. A unique unmounted constructor can root a standalone registration fixture; several independently
+evidenced roots stay distinct. Importing a callable as a callback never executes its body during setup. A literal
+assignment to a framework settings key may establish a boolean setup guard (et3-02, es6-07). An unknown setup
+condition on an otherwise grounded route can yield a possible registration. Carry its text as setup_guard and
+exclude it from unconditional schema credit. This differs from unknown root or module membership, which yields only
+a suffix. A copied router's source app is not another served root merely because the constructor appears in the
+repository (es3-09). A root on the wire is {file,binding,construction_byte,invocations}. invocations is an ordered outer-to-inner list of {file,start_byte,end_byte} call sites; the selected factory's implicit call uses {entry:"module:factory()"} as the first frame. Module-scope allocations use []. A uniquely inferred setup function can be analyzed once as its declaration context; distinguish subsequent source calls by their frames. Ambiguous instantiation never earns a shared full root. Use the same identity on receivers and mount endpoints when instance qualification is needed.
+
+Apply mount semantics to a registration *event*, not just a pair of router names. Express live routers see later
+declarations. Flask replays blueprint setup at registration (record_once once per blueprint identity per parent
+app); FastAPI include copies the source's then-current entries with origin site and ordinal, including nested
+copies. ASGI mount delegates live. Django include of a list captures that object; a module resolves its current
+urlpatterns. Nest discovers metadata after bootstrap. Hapi registers a plugin in its realm and schedules only known
+lifecycle hooks. Use source order inside a setup invocation, import initialization and uniquely ordered setup calls
+across files. If order or membership affects installation and cannot be proved, retain the source and only independently justified partial facts. A copy can never
+acquire later origin sites. Each declared origin survives even when the installation policy below removes its last exposure.
+
+The **one-call bound** transfers the exact router argument at a direct, statically selected installer call to its
+plain unwritten formal, for a named router or inline grounded construction (gn04 also admits the plan's inline
+variant). Alternatives from distinct proven callers compose independently. A second helper does not transfer a
+prefix. A typed gin group then retains the local suffix (gn05); an untyped argument needs its own receiver proof.
+API-defined registration callbacks (chi.Route, Hapi register, Nest module imports) are framework edges, separate
+from the single user helper. An indefinitely deferred closure cannot install a route merely by capturing the server.
+
+Compose every supported literal alternative, retaining parallel static and dynamic branches. Visit live mounts
+backward per chain, stopping a repeated identity with mount_cycle and the accumulated suffix; snapshot edges visit
+earlier event versions. Retain at most 64 distinct exposures plus one expansion_truncated suffix, with all mounts
+retained. Traverse in stable root/file/site/alternative order, exact literal branches first, breaking ties by byte
+range; avoid materializing the Cartesian product past the bound. Equal exposures (root, status, value, constraints)
+coalesce only within one object-qualified origin, and only when their setup, dispatch and binding restrictions agree. Tables can be installed twice at different sites.
+
+| Framework | Join and comparison grammar |
+|---|---|
+| Flask | Registration prefix overrides blueprint default, None/absent inherits, empty string overrides. Compose nested prefixes, strip boundary slashes and insert one unless leaf empty (prefix alone); slash leaf retains slash. Subdomain override composes child.parent under the configured server name. Keep host and strict-slash metadata, only the written pattern. Single-segment Werkzeug converters normalize to {}, tail/custom grammar gets null. Colons and braces are literal. |
+| FastAPI/Starlette | Concatenate include prefix + router prefix + leaf verbatim, honoring the empty leaf and final slash. Root path is ASGI deployment metadata. Only valid named Starlette parameters, including built-in single-segment converters, normalize to {}; path tails give null. |
+| Express/Nest | Join at the mount boundary, keep a slash leaf for Express. Nest inserts one slash between nonempty global, URI version, module, controller and method segments, defaults to /, strips terminal slash as Nest does. Keep raw patterns. A simple :name maps to {}; optional, repetition, wildcard, inline regex or Express string-pattern metacharacters give null. Regex leaf is dynamic(regex_path); regex mount retains the child suffix. Never collapse interior slashes to score. |
+| gin/chi | Gin uses path.Join cleaning with the framework's terminal-slash preservation; empty relative path leaves the base. :name is one segment, *tail is unkeyed. Chi composes Route/Mount at a boundary, Group/With add no segment. {name} keys as {}, {name:regex} and * have null keys. |
+| net/http | Parse Go 1.22 [method SP/HTAB] [host]/path, split segments before unescaping; preserve encoded slash/braces and CONNECT path spelling. {id} → {}, {tail...} and trailing subtree / → null, final {$} → exact trailing slash. Intersect host and method conditions through mux delegation; invert StripPrefix with its actual first argument and then apply the outer pattern (es5-09, es7-01). A direct mux child receives the original URL. Store the outer pattern as guard_pattern. A router delegated without stripping has absent prefix; StripPrefix stores the strip operand as prefix, independently of the outer subtree guard. If two dynamic pieces cannot be compared, retain a suffix with variable_prefix. |
+| Django | Consume parent match, append child remainder verbatim, prepend the request's leading /. Preserve trailing slash; str/int/slug/uuid placeholders → {}, path and custom converters → null. Anchored regex made solely of literal path characters (escapes decoded as regex literals) may contribute an exact prefix; an end-anchored include permits only an empty-matching remainder. Only an exact anchored literal terminal gets an exact key. Record the regex source in guard_pattern, decoded literal prefix in prefix.value, and end_guard=true only for a terminal anchor. A known nonmatching remainder yields zero exposures along that edge; retain its declared URLPattern and callbacks (es3-24). Other regex leaves are dynamic(regex_path), unanchored/complex regex mounts keep a suffix with an unevaluated prefix. |
+| Hapi / object-table | With a valid literal realm prefix (empty or a Hapi prefix beginning with / and without a trailing slash), concatenate prefix and route verbatim, except a slash-only child under a nonempty prefix gives the prefix. Empty prefix preserves the leaf including /. {id} keys as {}, optional, wildcard and counted wildcard are unkeyed. Object-table's certified dispatcher has literal key semantics; concatenate its proven prefix as its code spells it. |
+
+**Setup completes.** Exposures describe the declared setup conditional on completion. Keep every registration record, written callback and origin. Compare events on the same dispatcher at the same epoch using native installation resources (e.g. a Flask endpoint name) and effective request sets. A proved rejection removes the rejected key and adds the root, event site and reason to failed_roots. Preserve other installed keys as historical exposures. Every exposure on a failed root carries binding_blocked="any" and earns zero served-schema or binding credit. Independent setups retain their evidence.
+
+An undecidable installation or overwrite withholds full and binding only on keys that could collide. Keep the source spelling and record conflicts on the affected origins. A known earlier install on an append-or-reject dispatcher survives a later attempted insert. If co-installation is proved but dispatch is undecidable, keep both paths and block only the contested methods. A proved overwrite removes only the superseded slot. Disjoint keys, roots and later events keep their own outcomes. Within the same config-prefixed gin group, compare known method and segment boundaries below the shared prefix before marking a potential collision. A proved skip or a sibling beyond a definite rejection in the same native call has no installation through that item. There is no speculative startup timeline, catch/await analysis or root-wide penalty for uncertainty.
+
+Use cheap native equality, disjoint method/host/literal checks and three priority proofs where applicable: static over parameter, known first successful match in order, and GET fallback on an Express Route lacking explicit HEAD. Keep declared operations separate from effective methods. Set shadowed=true only for an entire losing request set. If a contested subset cannot be represented, block that method over the affected pattern. The [adapter inventory](STAGE-D-ROWS.md#dispatcher-interactions) defines the closed list of implicit events, their scopes and the cheap checks. An internal event can reserve a key without producing a listing record. Withhold binding on overlap unless the native facts settle the winner.
+
+For scorable paths emit path_tokens as a sequence of ["literal",text] and ["parameter"] entries, coalescing adjacent
+literal text, or null for an unscorable grammar. Render that sequence as normalized for display (substitute {} for a
+parameter). The oracle uses path_tokens and validates it against value with the adapter grammar. Schema tokens are
+parsed with the schema grammar independently. Literal braces do not become parameters on a second parse. The
+comparison tuple is (root, protocol, method, host selector, active version selector, path tokens). Path templates
+that cannot be expressed as single segments have null normalized even when their spelling is full. For host
+matching, represent absence as unconstrained, a literal host or list as exact alternatives, and a
+parameterized/regex/unknown selector as constrained and unscorable by this oracle. For ServeMux compare the native host strings case-sensitively after native request-side port handling (ordinary requests strip the port, CONNECT retains the native lookup spelling). Preserve pattern spelling. A DNS-only authority cannot establish a host-qualified binding. Other adapters use their native host comparison.
+Restrict Flask explicit host/subdomain, Hapi vhost and Nest @Controller host to a matching authority in the frozen
+schema scope. ServeMux's host comes from the pattern, never from splitting a slash inside an escaped segment. Other
+adapters have no intrinsic host selector in these rows. A header version requires explicit matching header/value
+evidence; media/custom or dynamic selectors without scope evidence are unscorable. Inactive Nest metadata serializes
+as null version. Without matching scope for a constraint, report unsupported; do not strip it to get credit.
+Comparison is of registered patterns, not generated redirects, fallback handlers or language equivalence between
+regexes.
+
+### 5.3 Registration and mount adapters
+
+#### Flask
+
+Import-bound Flask/Blueprint. route, get/post/put/patch/delete decorators, add_url_rule positional or keyword
+rule/view_func, register_blueprint including keyword child and record_once setup-state add_url_rule. Shortcut
+declares its verb. Omitted methods remain null (usual effective GET/HEAD/OPTIONS); as_view, required_methods and
+provide_automatic_options may alter dispatch. Endpoint text alone adds no callback; a later @endpoint is no second
+registration. Preserve a build_only declaration with empty exposures. Stored decorator application and
+data-generated registrations are accepted losses.
+
+#### FastAPI
+
+FastAPI/APIRouter and the app's built-in .router. GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS and TRACE decorators,
+api_route/add_api_route, websocket/add_api_websocket_route, compatibility route/add_route, include_router and mount
+of a grounded ASGI app. Known empty method set has a registered path and zero HTTP operations. Omitted defaults are
+reported separately from declaration. WebSocket protocol and null methods. Dependencies and include_in_schema do not
+add/remove declarations. StaticFiles mounts, constructor routes and enabled documentation URLs contribute internal claims (§5.2).
+
+#### Express 4
+
+express() and Router() (including direct imports). Use the 36 spellings from the Stage M method table: acl, all,
+bind, checkout, connect, copy, delete, get, head, link, lock, m-search, merge, mkactivity, mkcalendar, mkcol, move,
+notify, options, patch, post, propfind, proppatch, purge, put, query, rebind, report, search, source, subscribe,
+trace, unbind, unlink, unlock, unsubscribe. Accept literal bracket spellings and the del→DELETE alias.
+
+Represent all as framework Any. Every verb leg, repeated/saved Route, router-returning verb chain, bound verb with
+same proven receiver and optional call on non-null receiver. A definitely null receiver, empty builder, get setting
+read, param, static and middleware-only use add no route. use overload inspects its first flattened item, supports
+pathless lists, path arrays and several children mixed with middleware. Function use layers are non-competing pre-handlers. A terminal function use (including a static responder) can intercept a listed binding and is a disclosed coverage loss. Verb registrations including all, and mounted routers/apps, compete. The binding names the route terminal conditional on its pre-handlers continuing. Count observed interception separately in actual request yield. At router exhaustion implicit OPTIONS can intercept a later parent OPTIONS.
+
+Emit one mount per (child, prefix alternative) at the same site. A router as a verb callback is a handler_object;
+secondary dispatch through it is an accepted loss.
+
+#### gin
+
+gin.New/Default, their embedded RouterGroup and chained Group expressions. Uppercase GET, POST, PUT, PATCH, DELETE,
+HEAD, OPTIONS; Handle(method,path,…), Match(method slice,path,…). Any expands gin's finite
+GET/POST/PUT/PATCH/HEAD/OPTIONS/DELETE/CONNECT/TRACE set. Group is a mount. Use, NoRoute, NoMethod and static-file
+helper internals add no written verb registration.
+
+#### net/http
+
+An unevaluated pattern has unknown methods and a dynamic leaf. A parsed pattern with no method is Any.
+
+Package Handle/HandleFunc, DefaultServeMux, or a proven ServeMux, tracking straight-line replacements at use. DefaultServeMux has one stable repo-local anchor per program, shared by package helper calls and implicit `init` claims (stdlib packages that register on it); replacement muxes are constructor-anchored.
+Handle(func object) keeps one handler_object slot; explicit HandlerFunc conversion follows 5.1. A grounded mux child
+(direct or through StripPrefix) emits a guarded mount only. GET on a mount admits GET and HEAD; path guards with
+empty intersection yield no child exposure. Omit implicit redirects.
+
+#### chi
+
+github.com/go-chi/chi including versioned imports. NewRouter/NewMux,
+Connect/Delete/Get/Head/Options/Patch/Post/Put/Trace, Handle/HandleFunc (Any), Method/MethodFunc (literal method,
+including registered extensions), Route, Mount, Group and With. Group/Route closure parameters ground to their
+lexical child, With retains the receiver. A single-return mux factory may ground a child. Opaque http.Handler under
+Mount retains an unproven child, no invented subtree.
+
+#### Django
+
+Proven django.urls path/re_path (including aliases) selected into urlpatterns; a nested include is a mount at its
+enclosing path/re_path. Follow literal module names/imports, actual list identities including +=, inline lists,
+(patterns,app_name) include and resolver triples. Namespace has no path effect. Each URLPattern accepts Any at this
+layer, including guarded views and as_view. Omit discarded descriptors.
+
+Take explicit ROOT_URLCONF (settings.configure or bound settings module), else the unique outer urls.py as a URLconf
+root in a standalone fixture. Ambiguous outer roots give suffixes. Evaluate literal DEBUG guards and i18n_patterns
+with fixed USE_I18N, LANGUAGES, LANGUAGE_CODE and prefix_default_language; enumerate distinct locale paths, no
+synthetic mount. Unknown locale prefix gives suffix; translated leaf dynamic.
+
+Request-time URLconf selection and settings chosen by environment have no certified additional root/mount.
+APPEND_SLASH and view opt-out add no records.
+
+#### NestJS
+
+Import-bound @nestjs/common and @nestjs/core. NestFactory.create(module) reaches @Module imports/controllers,
+literal DynamicModule result (also async direct return), and forwardRef(()=>M); visit each module/context once. A
+conditional controllers array retains possible controller as suffix, a definitely unused controller is omitted.
+RouterModule.register paths/children compose per module context. Effective @Controller string, array or
+{path,host,version}, nearest inherited method unless overridden, @Get/Post/Put/Delete/Patch/Head/Options/All/Sse
+(GET) and @RequestMapping using literal RequestMethod.
+
+Last metadata write in decorator application order wins. A local decorator factory and redirect metadata create no
+separate route. Cross-product of literal paths, setGlobalPrefix and method-sensitive exclusions; apply active URI
+version (method > controller > default, neutral omits, explicit prefix or false), or active header/media/custom
+constraint without a path segment. Inactive @Version adds nothing.
+
+Dynamic global prefix gives suffix. Controller mounts carry effective module/controller path; expansion for
+versions/global exclusions belongs to the exposure.
+
+#### Object tables
+
+Label object-table. Recognize a literal row only at a consumer: Hapi via 11, or an in-repo direct installer with a
+structural certificate. Follow the installer binding, verify rows iterated/destructured or mapped into a native Map
+of (method + space + optional literal call prefix + path) → that row's handler, and verify lookup on that same map
+with the corresponding method/path key invokes the retrieved value in its dispatch function.
+
+Includes per-method array iteration and Map(entries). Require a matching dispatch lookup. An unmodelled mutation, reset or escape invalidates the keys it may change, including all keys for an unbounded clear. This is a small syntax matcher, not general interprocedural flow. Read one local or direct-import table
+literal at its definition scope. Replay static own properties/spreads in JS evaluation order. An opaque write
+poisons only properties it may override. A passive read alongside a certified installation does not duplicate it.
+
+For a recognised route-shaped call (bare or member route/install with method, path and handler fields), failure to
+prove the consumer yields an object-table candidate. Unused data, client request descriptors and unrelated count
+calls are silent. An adapter may claim a site only once: Hapi first if grounded, otherwise the generic candidate.
+For object-table the public site is the installer call plus element_site and element_ordinal.
+
+For Hapi the site is the element plus install_site and element ordinal. This also specifies the ledger crosswalk for imported rows.
+
+#### Hapi
+
+Direct server rows share the object reader. Plugin realm/admission, callbacks and lifecycle are specified in 11.
+
+S1b exercises the event algebra on synthetic relations with two origins, epochs, guards and independent roots. Each adapter owns its native relation and corresponding rows. Vary live/copy/deferred installation, order and identity against an independent reference. Retain each grounded origin even where it has no eligible exposure.
 
 ### 5.4 The listing
 
-`prism nav routes --repo <dir> [--format json|text]`, CLI only, like `dfg-stats` and `call-stats`: its own
-JSON, one object per registration per line, sorted by (first path's comparison key or spelling, first
-method, file, start byte); a consumer that wants one row per served path expands `paths`:
+`prism nav routes --repo <dir> [--entry <entry>] [--mounts] [--format json|text]`. Accept the fixture entry forms (Python module:binding or module:factory(), JS/TS repo-relative file selecting its default/app export, or file#export for a named app) and a URLconf module:binding. An entry may also be a serialized 5.2 root identity for a statically evidenced app/dispatcher instance in any adapter. Resolve within the repository without executing setup. Invalid or uncertifiable explicit selections return a query error (entry_unproven for a binding without an app proof). Selection cannot ground an unregistered plugin formal or fabricate an invocation. The selection fixes served-root context while independently known orphan declarations remain reportable. One JSON line per record, optional wrapped mount
+lines and a final wrapped summary. Explicit selection failure returns one query error and no successful listing. S1a gives lane 5 the typed operation and callback fields and lane 9 the listing, origin and mount identities for navigation. At S1a and S1b the enabled adapter set is empty (core e01/e02 only). An empty listing carries no evidence of route absence. Expose the enabled adapter names in the listing summary at every checkpoint.
 
-```json
-{"framework":"express","methods":{"known":["GET"]},"path":{"raw":"'/:id'","literal":"/:id"},
- "paths":[{"status":"full","value":"/v1/users/:id","normalized":"/v1/users/{}","root":{"file":"app.js","binding":"app","construction_byte":40}},
-          {"status":"suffix","value":"/users/:id","reason":"variable_prefix","root":{"file":"app.js","binding":"app","construction_byte":40}}],
- "callbacks":[{"position":0,"status":"resolved","file":"auth.js","name":"auth","start_line":3,"end_line":9},
-              {"position":1,"status":"anonymous","file":"routes/users.js","name":"<anon@12:24>","start_line":12,"end_line":20}],
- "receiver":{"status":"router","file":"routes/users.js","binding":"router","construction_byte":61},
- "site":{"file":"routes/users.js","line":12,"start_byte":310,"end_byte":420}}
-```
+**Wire fields.** Every row below gives the JSON type and its absence rule. Required arrays may be empty. A site is {file,line,start_byte,end_byte} in the repository (one-based line, zero-based half-open UTF-8 bytes).
+A router identity is {file,binding,construction_byte,invocations}, with 5.2's ordered call-site frames or initial {entry} frame. An identity for a callable is {file,name,start_line,end_line,start_byte,end_byte} at its declaration or anonymous expression. Byte spans distinguish same-line functions.
+A method set is `{"known":[strings]}` (sorted, unique), `"any"` or `{"status":"unknown","text":string}`. Reason always uses 5.1's closed enum.
 
-Every enum is a discriminated `status` field; an unresolved callback adds `text` and `reason`, a proven
-delegate adds `delegate`, an unproven receiver adds `reason` and has `"paths":[]`. A summary object
-follows: registrations, routes with a proven receiver, counts per framework, per path status, per callback
-status and per reason. Mount records are listed with `--mounts`; the user page (PLAN S1) shows one example line per
-record kind and status.
+| Field | Type and values | Absent or null | Emitter |
+|---|---|---|---|
+| route.framework, protocol, site | adapter name from 5.3, http/websocket, Site | required | all |
+| route.element_site, install_site, element_ordinal | Site, Site, uint (zero-based). Object-table site is install, Hapi site is element. | include ordinal and complementary site for table elements, omit elsewhere | object-table, Hapi |
+| receiver.status, receiver identity or reason | router + router identity, or unproven + Reason | disjoint required variants | all, also mount endpoints |
+| route.origin_plugin | {file:string,object_byte:uint,name:string or null} | required for each identified plugin-object association, even with receiver.status=unproven. Omit when no defining object is identified. Null name means unknown effective name. | Hapi and its retained candidates |
+| receiver.proof | plugin_contract | weak only, omit on strong and unproven receivers | Hapi |
+| methods, default_methods, endpoint | method set or null declaration, known default set, endpoint name string | methods required on a known row shape, null for omitted/WS. Omit default unless independently proved and endpoint unless written. | all, defaults on defaulting HTTP APIs, endpoint on Flask |
+| path.raw, path.literal | expression string (regex includes spelling/flags), decoded string or null | required on a known row shape, null literal for array/regex/dynamic. Omit path and methods on opaque items with no path/method fields. | all |
+| candidate, reason | boolean, Reason | candidate omitted means false. Reason present on invalid, withheld or fully superseded records as applicable. | all |
+| superseded_keys, conflicts | arrays of {root,method_guard,path,site,reason}. Root identity or null, method set, native pattern string or null if unknown, competing write/event Site, superseded or dispatch_conflict. | omit empty arrays. Preserve partial cuts alongside surviving paths. | Map/chi writes, all contested installs respectively |
+| paths, callbacks | ordered arrays of Exposure and Callback | required, including [] | all |
+| exposure.root, status, value, reason | router identity or null, full/suffix/dynamic, string, Reason | root required (null for an orphan), value on full/suffix, omit on dynamic. Reason required for partial/dynamic, omit on full. | all |
+| exposure.path_tokens, normalized | array of literal/parameter tokens (5.2), display string | both required, both null for unscorable path grammar | all |
+| exposure.host_kind, hosts | unconstrained/literal/parameterized/regex/unknown, array of written host strings | required. [] means no known strings. Only unconstrained proves no host restriction. | all, constrained on Flask/Hapi/Nest/ServeMux |
+| exposure.method_guard, binding_blocked | method set for effective mount/write restriction, known method set or "any" ineligible for binding by 5.2 | method_guard required, "any" when unrestricted. Use "any" on every exposure of a failed root. Otherwise omit for no contest and use "any" for an unrepresentable blocked subset. | all |
+| exposure.version | {kind,header,value} for header (strings), {kind,value} for media/custom/unknown (text or null) | null when no active non-URI selector, URI version already in path | Nest, null elsewhere |
+| exposure.strict_slashes, setup_guard | boolean or null for unknown policy, source expression string for a conditional install | strict_slashes on Flask, setup_guard only when conditional. Guarded exposures earn no unconditional credit. | Flask, any conditional adapter |
+| exposure.shadowed | true/false for proved first-match loser/winner, null when priority unknown | omit when no priority comparison applies | ordered adapters |
+| exposure.mount_refusal | hapi_registration_unproven for linked failed item, no_known_mount for no known chain | required on weak exposures only, distinct from path reason | Hapi (§11.5) |
+| callback.position, status, identity, text, reason, delegate | uint, resolved/anonymous/unresolved, callable identity fields, source string, Reason, callable identity or null | position/status/delegate required. Identity on resolved/anonymous, text/reason on unresolved. Null delegate means no certified forwarding. | all |
+| callback.role, group | pre/handler, zero-based stage uint | roles on Hapi callbacks, group only on pre | Hapi |
+| mount.parent, child, site, prefix | receiver, receiver, Site, {status:literal,value:string}, {status:absent} or {status:unevaluated,text:string} | required on each wrapped mount | all mounting adapters |
+| mount.child.realm | ordered array of {file,start_byte,end_byte,item_ordinal}, outermost first | required for admitted plugin realm, omit otherwise | Hapi |
+| mount.guard_pattern, end_guard, method_guard | original pattern string, boolean for terminal anchor, method set | pattern on guarded mount, end_guard on Django regex, method_guard on method-filtered delegation | Django, ServeMux |
+| mount.host_kind, hosts, setup_guard, transform | same host classification and conditional expression as on an exposure; transform is identity or strip_prefix | emit host pair on host-aware mounts and setup_guard on conditional edges. Emit transform on ServeMux delegations; with strip_prefix, prefix is its actual argument. | Hapi, ServeMux and Flask host-aware edges; conditional mounts across adapters |
+| mount.alternative_ordinal, child_ordinal | uint, zero-based source order | use 0 for singleton | mounting adapters |
+| summary.enabled_adapters | sorted unique array of adapter names available in this build | required, [] at S1a and S1b | all |
+| summary.registrations, proven, unproven, candidates, mounts | uint counts. registrations = proven + unproven = route lines. candidates is the candidate:true subset, mounts counts edges regardless of display. | required, zero allowed | all |
+| summary.diagnostics, failed_roots | arrays of {site,reason} and {root,site,reason}. Each failed entry identifies a proved native rejection at its event on that router instance. | required, [] when clear | all |
+| error.reason, error.entry | entry_unproven, original selector | required on query error only | CLI/API |
+
+Methods on the route are declarations. Compute a GET default only on a defaulting API when view metadata allows it. For Flask inspect literal methods, required_methods and automatic-options settings. Native fallback affects selection even where it creates no schema operation. Count only independently declared/default operations. Section 11.5 specifies downstream use of weak evidence.
+
+Sort routes by first path key/spelling, method, file, site offsets, install site, element ordinal and plugin object identity. Sort mounts by source site and alternative/child ordinal, paths by full/suffix/dynamic then spelling, root and constraints. Compare collections by origin and test sorting independently. Count every unproven receiver as a candidate, along with grounded invalid/opaque elements. Each failed register item has a distinct diagnostic. Unsupported source shapes may have only a diagnostic. Text output preserves the same statuses, reasons and constraints.
 
 ### 5.5 Where the code goes
 
 ```
-src/framework_entries/routes.rs            records, the entry point `routes(files, call_graph) -> RouteTable` (no dependency on navigation)
+src/framework_entries/routes.rs            records, `routes(files, call_graph, manifests, entry: Option<RootSelector>) -> Result<RouteTable>` (no dependency on navigation)
 src/framework_entries/routes/receivers.rs  receiver grounding and `RouterId`
 src/framework_entries/routes/handler.rs    callback resolution shared by the frameworks
 src/framework_entries/routes/python.rs     Flask and FastAPI
 src/framework_entries/routes/express.rs
-src/framework_entries/routes/go.rs
+src/framework_entries/routes/go.rs          gin and shared Go arguments
+src/framework_entries/routes/{go_nethttp,chi}.rs   ServeMux and chi installation
+src/ast/js_router_binding.rs                route-specific JS/TS declarator lookup (S3)
 src/framework_entries/routes/go_method_value.rs  Go selector callbacks (5.6); reads call-graph facts, adds none
 src/framework_entries/routes/mounts.rs     mount graph and composition
+src/framework_entries/routes/{django,nestjs,tables}.rs   wave 3 adapters and shared literal row reader
 src/framework_entries/routes/hapi.rs       Hapi plugin adapter (section 11, owner decision 7)
 src/navigation/routes.rs                   the listing (no logic in queries.rs)
-crates/prism-review/src/cli.rs, main.rs    NavQuery::Routes and its arm
+crates/prism-review/src/cli.rs, cli_nav.rs    NavQuery::Routes and its arm
 ```
+
+The navigation adapter has the repository root in `NavigationSession.repo.root` (LoadedRepo.root). For a prospective weak Hapi plugin it walks from the source directory up to that root to read the nearest package.json, once per directory per listing. Supply immutable manifest facts to the route-table entry point. A missing, malformed or out-of-root manifest cannot certify that dependency. LoadedRepo.manifest_snapshot presently admits Cargo.toml, go.mod and go.work. The SH reader supplies the missing package.json evidence without expanding the loader snapshot or changing its cache key. Keep this input local to the query and out of the CPG/cache.
 
 The existing extractors in `src/framework_entries/python.rs` and `express.rs` are not changed in behaviour,
 and their site and receiver logic is not reused for routes: the Express candidate extractor drops any call
@@ -227,39 +410,20 @@ method at run time. So the proof is about `X`'s declared type, and "nothing rebi
 the spelling of `X`'s base resolves to one declaration in scope at the site; a shadowing local or closure
 parameter of that spelling refuses.
 
-Measured shapes (research run of 2026-11-21 with a tree-sitter script written independently of prism,
-`~/prism-evidence/lanes-2026-11-20/research/scratch/lane12-go/shapes.py`; PLAN M-2 re-counts them; terminal
-callback of each non-test registration):
+Stage M counted the following non-test terminals. Apache Answer 232 (211 enclosing-receiver field, six locals bound to a field, nine bare functions, three literals, three wrappers). Miniflux 179 (150 composite locals, one interface-typed call-initialized local, 14 immediate wrapped method values, five other wrappers including one nested method value, two bare functions, three function variables/fields, one literal, three other handler values). All 217 and 150 admitted terminal selectors have a unique direct declaration in the independent census. Three package functions and one wrapper also occur in non-terminal Apache positions. The five-corpus second look includes 80 registrations on Prometheus's own router. The 199 Apache annotations have distinct schema keys and spans. These are shape counts, not binding receipts.
 
-| Shape of the terminal callback | `apache-answer` 6744295fa888 (gin, 232) | `miniflux-v2` faecfa2fac61 (net/http, 179) |
-|---|---|---|
-| method value on a field of the enclosing method's receiver (`a.questionController.List`) | 211 (90.9%) | 0 |
-| method value on a local bound once to such a field (`c := pr.connectorController; c.Info`) | 6 (2.6%) | 0 |
-| method value on a local with a composite-literal or constructor initialiser (`handler := &handler{…}; handler.show`) | 0 | 150 (83.8%) |
-| method value on a local initialised by an in-repo call (`h := googlereader.NewHandler(…); h.ServeHTTP`) | 0 | 1 |
-| method value on a typed parameter, a package `var`, an interface-typed value, a call result; method expression | 0 | 0 |
-| method value inside a wrapper call (`withApiKeyAuth(h.tokenHandler)`) | 0 | 14 (7.8%) |
-| bare function or function variable | 9 | 8 |
-| function literal (forwarding or not) | 3 | 1 |
-| other wrapper call (`gin.WrapH(…)`) | 3 | 5 |
-
-On `apache-answer`, 192 of the 199 swag `@Router` comments sit on methods that are registered as method
-values, so without this section the wave 2 binding comparison can cover at most 7 operations. Non-terminal
-positions there are four middleware arguments (three `middleware.BanAPIForUserCenter`, one
-`authUserMiddleware.Auth()`). A second look: `prometheus` (its own `route.Router`, not a wave 2 framework)
-has 3 method values on the enclosing method's receiver, 5 on composite locals and 51 inside `wrapAgent(…)`
-of 80 registrations; `caddy` registers 3 handlers, none a method value.
-
-Rules (owner decision 6 puts these shapes in scope; stage D may rename a reason, or narrow a rule only with a
-matrix row that shows a wrong binding):
+**Scope refinements at D.** Confirm M1–M4. First determine which declaration Go binds *at the selector*: check package path/declaring directory, receiver, block, closure, if/switch initializer lifetime and package/test visibility.
+A package qualifier must actually denote the import at this use (es1-47), an expired if shadow cannot poison the outer declaration (es7-03), and two identical package basenames cannot substitute for the import-path owner (es7-04). Same-block short redeclaration preserves the old variable; a new inner declaration triggers the shadow refusal (es5-07). The route-local scope check qualifies the classifier's evidence; a whole-function count alone cannot establish lifetime.
+Prefer explicit static type to initializer (es4-09): an interface never acquires the concrete initializer's method. An alias follows the type it denotes. A distinct defined type has its own method set (es5-08).
+Refuse instantiated owners at the base, an explicit field, or a potentially supplying embedding (et3-03, et4-01, es4-10), and type parameters (es1-46), with method_value_receiver_unproven. Raw declaration keys retain type arguments. The census found zero generic terminals. Consult exactly one visible method at minimum embedding depth, or refuse.
+Production, same-package test and external test partitions stay distinct; incomparable build-tag alternatives give method_value_method_unproven (et4-02/03, es1-48).
+Local proofs may read the exact Go declaration, return slot or asserted type from syntax where the summarized fact omits that detail (es1-37, es2-19, es3-13); a multi-type switch case keeps its interface type (es3-16). Read inferred var-composite types and direct concrete return slots at their declarations.
+Parenthesized/unary operands, arbitrary conversions, anonymous-struct field bases, range-variable inference and a concrete type-switch implicit variable remain outside M1 (es1-42, es3-14/15, es2-18/16). No general Go inference is introduced.
 
 - **M1, receiver.** `X` is one of:
   (a) the enclosing method's own receiver, typed by the receiver parameter of its `method_declaration`
   (`Language::go_receiver_var` names it; the type is read from the same parameter, pointer peeled) and
-  placed by `resolve_go_receiver_owner_identity`; refused when `ParsedFile::receiver_type_in_fn` counts a
-  local binding of that spelling before the site or `ParsedFile::go_func_literal_parameter_binds_receiver`
-  finds a function-literal parameter of that spelling around it (new: the existing classifier gates the
-  receiver out, section 2);
+  placed by `resolve_go_receiver_owner_identity`; screened for a live shadow as above using declaration spans and the literal-parameter check (the general classifier gates the enclosing receiver out, section 2);
   (b) a parameter, a local or a package-level `var` typed by the existing classifier,
   `classify_go_receiver_expanded_with_partition` followed by `screen_go_receiver_prerequisites`, called with a
   `GoReceiverCtx` at the selector's own bytes and `ReceiverRecoveryConfig::default()` (typed parameters,
@@ -268,47 +432,26 @@ matrix row that shows a wrong binding):
   (c) one or two field hops `b.f`, `b.f.g` from a base admitted by (a) or (b), each hop typed by the field's
   declared type through `resolve_go_struct_field_owner` over `CallGraph::go_field_types` (for a (b) base the
   classifier's own nested-selector walk does this; for an (a) base the new module runs the same per-hop
-  call). The route table passes an empty field-target map, so a hop through an embedded `*T` or `pkg.T` field,
-  which needs that proof, refuses;
+  call). Explicitly test the selected field on **both** base paths: embedded && (pointer spelling || qualified spelling) refuses method_value_receiver_unproven before advancing. The field-owner helper alone does not enforce the classifier's requires_local_struct_proof check (gm17, es1-40). Ordinary named pointer/qualified fields remain eligible; implicit promotion is M2;
   (d) a local declared exactly once (the count `receiver_type_in_fn` reports) by a one-name
   `x := <(a), (b) or (c) form>`, typed as that form; one level, never a chain of locals (new: the classifier
   recovers a local only from a constructor, `var` or call initialiser, so a field-chain initialiser has no
   fact today; the new module reads that one `short_var_declaration` from the syntax).
-  (a) and (d) are the only new typing steps; both read declarations the code spells.
+  These steps and the local scope/declared-slot checks above read only declarations the source spells.
   Anything else (a call result `f().M`, an index `m[k].M`, three or more hops, a local declared by another
   form or more than once, a type parameter, a prerequisite drop) is `method_value_receiver_unproven`, and a
   refused shadow is `method_value_receiver_shadowed`.
-- **M2, method.** The owner from M1 goes to `CallGraph::go_concrete_receiver_route(type, Some(&owner), false,
-  false, M, file)`, the router the call resolver uses:
-  `ConcreteDirect` resolves to the one `FunctionId` of `CallGraph::methods[(owner.name, M)]` whose file is in
-  `owner.package_dir` and passes `go::owner_partition::exact_declaration_visibility` (the filter the call
-  resolver's private `go_field_target_lookup` applies, restated in the new module because `resolution.rs`
-  does not change); `ConcretePromoted` resolves to the one such entry of `CallGraph::promoted_aliases`, and
-  `ConcretePromotedDeferred` to a `go::promoted_snapshot::consult_promoted_snapshot` hit; zero or several
-  targets, `ConcreteNoSelector` and `Unproven` are `method_value_method_unproven`; `InterfaceDispatch`,
-  `EmbeddedInterfaceDispatch` and `R2OnDemandNameCollisionBail` are `method_value_interface` (no handler and
-  no candidates); `FuncValueField` is `func_field_value` (`X.F` reads a function-typed field; its value is not
-  followed); `ExternalNewRecoveryDrop` is `method_value_external`, and so is an M1 type (receiver
-  declaration, field type or classifier result) qualified by an import whose directory key
-  (`resolution::go_import_path_dir_key`) is absent from `CallGraph::go_package_basenames` (gin's own types),
-  checked before the hop or route that would otherwise refuse it as unproven. Pointer and value receivers
-  need no case: the method index keys both under `T`, and the compiler accepts `x.M` only where it is legal.
+- **M2, method.** Resolve direct methods through go_method_declarations[GoOwnerIdentity] by name, declaring file, exact_declaration_visibility, pointer/value method-set applicability and addressability. Return the unique declaration's function_id. Read field, struct and interface declarations under the same package clause, import path and file profile. Require exported access when crossing package boundaries, including the selected member. Consult go_concrete_receiver_route for supported direct lanes; a bare-name promotion bucket, a snapshot hit or a missing router lane cannot prove the declaring owner.
+- For promotion, use a route-local breadth-first walk of visible declared embedded fields. Resolve each type in the embedding declaration's file/imports; look up the method in the **embedded owner's** package/profile. Admit local value (gm08), local pointer (es1-39) and qualified non-generic embedding (es1-40); ordinary named fields never promote. Preserve distinct embedding paths at each depth, cut cycles per path. A visible direct member ends the search at depth zero. A unique shallowest selector wins over deeper names (es1-41). Consider fields and methods together, including interface suppliers. Two paths at the winning depth, uncertain visibility, an unknown competitor at that or a shallower depth, or no selector cannot certify a function. Never skip an unknown branch in favor of a known sibling. Use method_value_method_unproven for ambiguity/missing method and the receiver refusal above for an unresolved instantiated type.
+- Refusals in order after lexical selection: a proven external package owner (import directory absent locally) gives method_value_external, including Miniflux's http.Handler; a local interface or promoted interface lane gives method_value_interface, and a function-valued field gives func_field_value. No implementer candidates. Apply external precedence also to declared return slots/field hops. A qualified type imported from another local directory uses that directory's declarations (gm01/02, es1-38, es7-04). Build/test alternatives must resolve uniquely in the caller's partition.
+  If the router skipped a qualified or instantiated embedding, run the complete minimum-depth declaration walk **before** accepting any router refusal, including EmbeddedInterfaceDispatch. A shallower qualified concrete supplier wins; an unresolved generic competitor at or above the winning depth refuses. Where the router considered all possible suppliers preserve its refusal lanes: InterfaceDispatch, EmbeddedInterfaceDispatch and R2OnDemandNameCollisionBail withhold identity with method_value_interface; FuncValueField gives func_field_value and ExternalNewRecoveryDrop gives method_value_external. ConcretePromoted/Deferred are hints. A missing promotion lane can be recovered only by the complete declaration walk above; otherwise ConcreteNoSelector/Unproven gives method_value_method_unproven.
 - **M3, the other selectors.** `pkg.F` is `qualified_function_value` and a method expression is
-  `method_expression`: both are listed and counted, never resolved by this lane (a method expression takes
-  the receiver as its first argument, so it is not a gin or `http.HandlerFunc` handler in compiling code).
+  `method_expression`: both are listed unresolved by M3. A method expression takes an explicit receiver and **can** have a valid handler signature (gm15, (*Ctrl).Abort with Ctrl an alias of gin.Context). The refusal describes the proof boundary, not a compile error.
 - **M4, scope.** The lookup is read only by the route table: it creates no `CallSite`, no edge and no cached
   fact, leaves `go_registrations` and call resolution as they are, and adds nothing to `src/call_graph.rs`
-  or `src/resolution.rs` (every item it reads is already `pub` or `pub(crate)`). A forwarded argument of a
-  delegate (5.1) resolves by M1 to M3 as well, so `withApiKeyAuth(h.tokenHandler)` gains a delegate only if
-  stage D lists the forwarder.
+  or `src/resolution.rs` (every item it reads is already `pub` or `pub(crate)`). A forwarded argument of 5.1's closed list resolves by M1–M3; gm19's local wrapper has no delegate.
 
-Left out, each counted by its reason: interface-typed receivers (resolving them to their implementers is a
-candidate list, not a handler; follow-up only if a consumer asks), call-result and deeper receivers, embedded
-pointer or qualified hops, function-typed fields, package function values and method expressions. On the two
-census corpora no terminal method value has a left-out shape (all 217 and 151 are admitted shapes); outside
-5.6 the census puts only the 3 package-function middleware arguments on `apache-answer` (none terminal) and
-the 14 wrapped method values on `miniflux-v2` (7.8% of its registrations), which wait on stage D's forwarder
-list. Whether each admitted site resolves is measured by the gate (section 7), not assumed from its shape.
+The exclusion counts and admitted-shape gates are in 7. Comparison to a real call on the same concrete receiver is a differential test, never the method-value lookup itself.
 
 ## 6. Measurement
 
@@ -321,7 +464,7 @@ the decorator, call or builder-leg node, kind, shape), frozen at stage M. It is 
 prism and is the completeness denominator (section 7).
 
 **Schema oracle.** Three corpora commit an API description next to their code (`apache-answer`, `directus`,
-`cal.com`, whose API is NestJS and so is checked only if wave 3 admits that framework). Each schema is bound
+`cal.com`, checked by the admitted NestJS slice). Each schema is bound
 before scoring to its application root, revision, API base and inclusion rule; only exposures under that
 root and base are scored. Operations are (method, exact path) keys from the expanded method sets; a `full`
 exposure matches only an identical path (no trailing-slash or `//` collapsing, unless the framework is
@@ -331,8 +474,7 @@ reports each numerator and denominator (exact full, unique suffix, ambiguous, un
 every difference (dynamic prefix, unsupported shape, schema drift, outside the bound scope). Schema keys
 cannot see a handler swap, so where the schema names its handlers the bindings are compared too:
 `apache-answer`'s swag `@Router` comments (199) sit on the handler functions (192 of them methods registered
-as method values, 5.6), so each operation's annotated function is checked against the listing's callbacks
-and delegate for that operation. FastAPI fixtures need no
+as method values, 5.6), so each matched operation’s annotation is checked against its terminal callback or certified terminal delegate, independently of the all-selector declaration join in section 7. FastAPI fixtures need no
 generated schema: their executed truth already binds each route to its endpoint.
 
 **Executed truth for the matrix.** Matrix rows are small lane-written applications, run only with the pinned
@@ -341,15 +483,15 @@ registration calls themselves (Flask's and `Blueprint`'s `add_url_rule`, through
 passes; FastAPI `APIRouter.add_api_route`; Express verb, `route` and `use` methods) before loading the row,
 recording per call its site (the first stack frame in the row's files, with its ordinal on the line), the
 method and path arguments, whether a mount made the call (`register_blueprint` and `include_router` re-register
-copies, linked to the original by callback identity), and each callback object's source identity
+copies, linked by the captured source call, ordered copy event and callback identity), and each callback object's source identity
 (Python: code object file, first line and qualified name; JS: the function's source text located in the row's
-files, which maps an anonymous callback to its `<anon@L:C>`); the framework's own table then gives the served
-paths and effective methods, linked to those calls. A function's first line is never used as a site. Fixtures
+files, disambiguated by argument span/column for identical function text on one line); the framework's own table then gives the served
+paths and effective methods, linked to those calls. A function's first line is never used as a site. Historical executed fixtures
 disable framework-added routes (Flask `static_folder=None`, FastAPI `docs_url`, `redoc_url`, `openapi_url` set to
 `None`); any route without an instrumented call fails the row. Truth is kept as raw observations; the
 comparison projects each field explicitly (a static `suffix` agrees with a runtime full path ending in it; a
 static `full` must equal it; declared and effective methods are kept apart). Containment: the staged copy holds
-only the row's directory (a real directory under `tests/fixtures/routes/`, no links) and the pinned dependency
+only the row's directory (a real directory under `tests/routes_matrix/`, no links) and the pinned dependency
 tree; a static check before each run requires every relative import to stay inside the row and every bare
 import to be in the pinned set; Python children run with `-I` and no `PYTHONPATH`, and after loading every
 module in `sys.modules` must come from the row, the venv or the standard library; Node children run with no
@@ -360,15 +502,40 @@ module in `sys.modules` must come from the row, the venv or the standard library
 
 ## 7. Gates
 
-| Gate | Threshold (default) |
+| Gate | Population and pass condition |
 |---|---|
-| Census go | waves 1 and 2: at least 200 ledger registrations of the wave's frameworks together (syntax count, test and non-test), and then every framework of the wave with any registration is built; wave 3: per framework, at least 200, in descending order; object-literal tables are built whatever their count (owner decision 3). Below the threshold, or zero: skipped and reported. The shared slice (PLAN S1) is always built |
-| Matrix | every row's records equal its truth under the stated projection, sites and callback identities included, so a swapped handler or a wrong site fails; unsupported rows carry the stated reason |
-| Schema oracle | on each schema-bearing corpus in a finished wave: precision at least 0.95 of in-scope `full` exposures, each matching an exact operation; ambiguous suffixes credit nothing; recall reported with every miss classified; every listed binding that contradicts a schema-named handler is classified by a reader, and an unexplained contradiction fails |
-| Completeness (reconciled) | every ledger site of a built framework is extracted (by start and end byte), excluded by a rule stated independently of the extractor, an accepted stage-D loss, or unexplained; unexplained sites fail the gate, as does a supported shape class with no extracted site; extracted sites missing from the ledger are listed apart and classified. Recall over the ledger (sites extracted with a proven receiver and at least one exposure) is reported against a floor fixed at stage D. Each eligible corpus needs a nonempty, reviewed yield of `full` exposures and resolved bindings; a zero denominator fails unless the ledger has no applicable site. The listing's own invariant still holds: registrations = records with a proven receiver + records with an unproven one, and every callback has a status |
-| Go handler binding (wave 2) | on `apache-answer` and `miniflux-v2`: every ledger registration whose terminal callback is a selector carries a resolved handler or one of 5.6's reasons, none unexplained; at least 0.95 of the terminal method values of 5.6's admitted shapes resolve (census: 217 of 232 registrations on `apache-answer`, 151 of 179 on `miniflux-v2`), and each refused one is classified by a reader; on `apache-answer`, of the schema operations matched by a `full` exposure or a unique suffix, at least 0.90 have a resolved terminal callback that agrees with the operation's `@Router` function, and no contradiction is unexplained (the schema oracle row still applies). Stage D may lower a threshold only with the census rows that explain the loss |
-| Hapi plugin adapter | section 11.4 |
-| No regression | `nav callers`, `call-stats` and the navigation goldens are unchanged; the cache version is unchanged. Each wave gate also records cold session time, table time and peak RSS on its corpora |
+| Admission | Frozen M: 3,020 wave 1 and 681 wave 2 registration sites in the primary sets, both ≥200. Include chi (one mount in Caddy). Wave 3 uses all syntax sites incl. mounts: Django 996 (832 registrations), NestJS 297 (241), then forced table 150, forced Hapi. Fastify/Koa/DRF zero. |
+| Matrix | Every enabled row after the STAGE-D-ROWS patch. Compare site spans, per-origin multiplicity, mount alternatives, callbacks and reasons, including controls with an empty listing. Preserve all 158 executed observations. Hand truths and the generator's synthetic cases are separate evidence. |
+| Ledger reconciliation | Freeze SHA-256 867a441dc2c127c5f8428b7b52fc1f45c13dc524a2df98c969cba18bb5966d58: 5,607 sites, 4,984 registrations + 623 mounts. Match (corpus,revision,framework,kind,file,start,end); both ends distinguish builder legs. A table object can be matched through its element origin. A many-to-one mount alias needs its own ledger disposition. For every site record extracted, independently excluded, accepted loss with rule/row, or unexplained. Zero unexplained; classify all extras separately and fail a supported nonempty class with zero representatives. Mount-only classes can pass by a mount. |
+| Site recall | Population is actual non-test registrations **in the frozen ledger**, per corpus for the enabled wave, including actual registrations missed or listed only as candidates. Require ≥0.80 site recall for N≥25. A site hit needs a proved receiver, candidate:false, and an exposure. Reconcile those spans exhaustively with the ledger. For recall credit the exposure must be independently correct; estimate that numerator by the weighted source audit where no field oracle exists. Report test, non-test and gross yield separately. For 1–24 eligible sites audit all, report exact numerator and denominator, and classify each miss without a percentage recall veto (one site changes the rate by more than four points). Before eligibility decisions Prometheus has 6, gin 13 and Flask 22. Zero needs independent evidence. Retain positive registration/mount controls and report binding yield wherever independently possible. Opaque out-of-ledger elements get a separate opportunity denominator (§11.4). |
+| Schema | Frozen scope reports: Directus 136/136 operations, Cal.com 121/121, Apache Answer 191/199 (seven installer keys and one reviewed drift). Use validated path_tokens and effective per-exposure constraints under the bound root/base. Precision ≥0.95 per scope on scorable full method/path pairs; never use ambiguous suffixes, Any, unknown, WebSocket, or unbound host/version for exact credit. Require exact-full recall ≥0.80 of independently full-scorable keys per positive scope (including a positive Directus literal-chain denominator), and ≥0.80 of independently full-or-unique-suffix-scorable keys recovered in the appropriate class per scope. Freeze denominators before extraction, report raw recall on all 136/121/191 as well, and classify every exclusion/miss/extra. A suffix never satisfies a full requirement. Where all prefixes are unknown, zero full precision is undefined and needs independent evidence of that fact plus positive unique-suffix yield; a missing positive control fails. An observed false full fails even above the precision floor. |
+| Go | Non-test Apache Answer ≥207/217 (95%) and Miniflux ≥143/150 (95%) admitted terminals with the **exact census method.declaration** in the frozen go_callback_shapes.json. Join by pinned revision, registration/selector site and terminal position; compare FunctionId's repo-relative declaring file + declaration line (and method name). Join all 217/150, including schema-unmatched sites. Report equal / unresolved / contradicted / missing per corpus, list contradictions and apply the false-certainty veto below. The other 15 Miniflux concrete values are wrapper arguments. Report its separate external http.Handler refusal outside the 150. On Apache, ≥90% of distinct matched in-scope operations (full or unique suffix) must agree with their annotated **terminal** callback or certified terminal delegate; matched denominator must be positive. The annotation check compares terminal callbacks and ignores `binding_blocked`. "Same config-prefixed gin group" means the same prefix expression, so the separate `Group(APIBaseURL+"/answer/api/v1")` calls count as one. A wrong binding, even at the correct pathname, cannot earn credit; any observed false binding must be corrected or withdrawn and rescored. |
+| Hapi | 11.4; report the private aggregate separately. |
+| No regression | Unchanged callers, call-stats, navigation goldens and cache versions. Record cold session time, table time and peak RSS per gate corpus. |
+
+**Accuracy gate.** Freeze eligibility, comparators and inclusion probabilities before the product run. Exhaustively compare a field when its independent oracle exists: ledger for site membership, frozen schema scopes for operation keys, Go declarations for selector identity, saved executed truth for fixture observations, and the authorized entry oracle in §11.4. An oracle for a span says nothing about its parent, path or callback.
+Audit the following dimensions separately: origin/receiver, root, path status/value/tokens with effective guards, installation/dispatch outcome, and terminal or certified delegate identity. Compare complete expected and emitted sets on selected sites (additional, missing, downgraded and refused claims included). A wrong positive is an FP and leaves the correct expected fact missed. Independently justified refusals get their own disposition and never count as positive endpoints.
+
+Without a field oracle, freeze one stratified source sample per corpus across all dimensions. Label every applicable field at each selected site, including implicit claims in its setup. Rank by SHA-256 of the UTF-8 compact JSON array ["lane12-D3",corpus,revision,split,framework,kind,file,start_byte,end_byte] (no ASCII escaping or whitespace). Break ties by the tuple in byte order.
+Draw up to 48 non-test and 16 test sites per corpus, splitting by adapter, registration/mount, and source form (direct, composed, dynamic/guarded, opaque or interacting). Take at least one per occupied stratum, expanding the budget if needed, then allocate remaining places proportionally by largest remainder, breaking ties by stratum name. Audit the whole stratum when its allocation reaches N, then redistribute unused places. Audit every member of a frame below 25.
+Freeze source-derived eligibility and labels blind to output. Deduplicate shared reads, record N, n, seed, spans and labels, and weight sampled totals by N/n within each stratum. Give independently classified out-of-ledger extras their own certainty stratum (weight 1), so each false positive is counted once. Publish the selected IDs, unsampled counts and weighted estimates with stratified finite-population uncertainty (enumerated strata have zero sampling variance).
+Full-population site coverage and sampled field correctness have separate denominators. Classify every ledger disposition, every extra site and **every** discrepancy in each scored population, with reason and evidence. Inspect extras lacking a ledger key independently so false positives also enter precision.
+
+Gate each corpus and claimed dimension on precision TP/(TP+FP) ≥0.95, both overall and for the non-test split when defined. Gate non-test recall TP/(TP+FN) ≥0.80 per eligible dimension with N≥25. Also report tests separately. Every instance in the scored joins/samples needs a disposition. Unexplained discrepancies fail; a source-backed unknown has the stated refusal cost.
+An empty positive prediction has undefined precision, still owes recall and the positive control. Schema and Go keep their dedicated floors. Any independently observed false claim of certainty, inside or outside the sample (including a false full, root, terminal, mount or binding), vetoes the gate even if explained and above both rate floors. Fix or withdraw the claim in the listing and rerun the same frozen comparison. Preserve the original discrepancy and count any resulting miss/refusal in recall. Freeze full-scorable schema keys by root, native method, static chain, comparable tokens and proved compatible constraints; a suffix-scorable key needs a unique matching tail. Demonstrate any zero denominator independently. Mutate enough roots/handlers or downgrade enough true full paths to cross each threshold; 47 correct full paths and one known false full must fail despite 47/48 precision.
+
+**Mount semantics.** Before scoring enumerate every (corpus, adapter, split) with mounts only and every edge with zero independently scorable descendants, including opaque children, blocked/empty subtrees and register calls with no grounded chain. Freeze a small independent oracle for **every** such site and its zero-or-more edges. The census totals have exactly one mount-only (corpus, adapter, split) cell: Caddy/chi non-test, one Route and zero route rows; screwdriver has six non-test and 75 test register sites to classify.
+For other mounts use existing truth or the stratified protocol. Compare the exact alternative multiset at each selected site by parent and child identity (including instance/realm), prefix status and value/text, guard/transform and alternative count, independently of the span or downstream route. Missing/extra edges enter recall/precision. Mount-only controls require exact agreement on every field and edge count, including zero. Replacing Caddy's child with its parent, changing only its prefix, dropping a guard or duplicating an edge must fail the corresponding control.
+
+**Independent exclusions and costs.** Before comparison a separate reader freezes a source-based classification at the ledger revisions. Exclude a middleware-only use or settings read by its actual arguments, a client or non-framework receiver by tracing its import/construction, a descriptor outside an installed dispatcher or inactive metadata by the framework's lookup semantics. Exclude the redundant inner Django include from the mount denominator only after pairing it to the enclosing path/re_path span (88 include spans: 74 lie inside one outer mount span, two inside two, and 12 inside none. Use the nearest enclosing path/re_path after checking the syntax, and disposition the 12 independently). Never exclude by absence from the listing, by `lookalike_possible`, by test status, or by a low schema score. A dynamic route remains eligible. Record the evidence span and reason; if there is insufficient evidence leave the site eligible and investigate.
+
+* 695 Express use.middleware entries (124 non-test) need the argument test; 236 receiver flags (159 Express, 52 Directus, 25 Cal.com) need actual source classification. The 25 include client calls; their true exclusion count is unmeasured. In fxa 150 literal objects are candidates before checking their consumers. Prometheus's 80 own-router sites are in the Go second look, not 80 deletions from the frozen net/http ledger. Classify gin's 13 non-test internal delegations by receiver/use and seven zero-callback test calls by signature, not by directory.
+* M's variable-prefix observations: Django 4, Express 3, FastAPI 1, Flask 2. A method/path can remain useful when a binding refuses. Callback-position populations exposed to the rules: 468 Express, 277 Django, 18 Flask wrapper forms; 10, 337, 2 member forms respectively; Django 31 inline and Flask 2. These are shape counts before member/import/forwarder proof. Non-test Go literal losses on the two primary application corpora are 3 and 1; the Miniflux wrappers include 14 immediate method values. See 11 for Hapi.
+* Directus has 295 non-test asyncHandler call sites through its local forwarder (Opus S5); each such route callback remains wrapper_call without delegate. These calls are not 295 distinct schema operations. Census non-test Express wrapped positions excluding use.middleware: Directus 353, Express 2, Cal.com 0 (separate middleware 43/32/2). Before S3 gate join each terminal/delegate to its registration and operation, and report bound/eligible and wrapper losses **per corpus**. Other local-forwarder counts and final binding yield are unmeasured. Keep a consumer-visible binding opportunity denominator alongside the scorable-proof denominator.
+* Before dispatching S4/S5 classify immutable slice expansions and package-initializer bare arguments by their syntax and exact-fact availability per corpus; M's bare terminal tally (9/2 on Apache/Miniflux) does not identify these positions. Use the shared sample to identify actual collision, blocked-remainder and uncertain Hapi item/config losses. Record the affected sites, paths and binding losses per corpus; M did not join those dimensions.
+* M has no per-site result for reaching assignments, one-helper overflow, snapshot/lifecycle order, unsupported generators, language-specific template cuts, object installer proof, constraint conflicts, max-expansion cuts, or the other fine-grained refusal predicates. Their frequencies are **unknown**. Use the §7 source audit to tag each sampled site, callback and edge by predicate, estimate distinct losses / eligible sites by corpus and report lost full keys and bindings for the selected rule. For an independently enumerated population report exact counts. Zero observed in a sample is a sample result; reserve a population zero for an exhaustive oracle or source proof. Use the row-linked loss inventory, never infer incidence from fixture frequency. Failure of the floor or a material yield drop returns to design; do not rebaseline.
+
+The frozen populations, binding floors and ledger dispositions above govern each wave. The fixture-level changes and the limits of the census evidence are in STAGE-D-ROWS.md.
 
 ## 8. Follow-ups, not started by this lane
 
@@ -378,8 +545,8 @@ module in `sys.modules` must come from the row, the venv or the standard library
 | Entry edges derived from route records (inline and wrapped handlers visible to `nav callers`) | agent sessions that ask for callers of a handler and get nothing; also the probe in which a module-level registration's entry edge goes to an unrelated nested function instead of the imported handler |
 | An MCP tool `nav_routes` | a decision on the navigation specs in PR #606 |
 | Go receiver typing from a method's own receiver (`a.f.M()`) in call resolution, reusing 5.6 M1 (a) | the wave 2 counts of method values the route table binds and `nav callees` misses; needs a Tier-A and call-stats measurement of its own |
-| Go interface-typed handlers as candidate lists | a nonzero `method_value_interface` count on a corpus a consumer cares about |
-| Lane 5's producer adapters reading route records | lane 5's pilot being funded; this lane gives it registration records (adapter input, not a wired adapter) for the waves that ship, with the binding rule: bind an operation only to a `full` exposure with a resolved callback or delegate, and treat the callback list as ordered (#600 gets the same position semantics) |
+| Go interface-typed handlers as candidate lists | an independently verified interface population on a consumer corpus, including externally declared interfaces reported as method_value_external |
+| Lane 5's producer adapters reading route records | lane 5's pilot being funded; this lane gives it registration records (adapter input, not a wired adapter) for the waves that ship, with the binding rule: bind only a uniquely compatible full exposure with its constraints satisfied and a proved named or anonymous endpoint identity or certified terminal delegate; a middleware or Hapi prerequisite alone earns no endpoint credit, and the callback list is ordered (#600 gets the same position semantics). Section 11.5 defines the separate configured join |
 
 ## 9. Owner decisions
 
@@ -390,8 +557,12 @@ module in `sys.modules` must come from the row, the venv or the standard library
 | 3 | Wave 3 membership and order | by census count; object-literal route tables are included regardless of count because the private producer of lane 5 uses that shape | — | stage M |
 | 4 | Flask-AppBuilder and similar class-based frameworks | out of scope | each is its own extractor | — |
 | 5 | Executing fixture applications for truth | yes where the framework is already installed or installable offline; never anything from a corpus | hand-written truths only | stage T |
-| 6 | Go method-value handlers (`r.GET("/x", a.questionController.List)`) | **decided by the owner, 2026-11-21: in scope.** Resolved by 5.6 from declared types (receiver, parameter, local, package `var`, up to two field hops) and the existing owner index; interface-typed receivers are counted, never a single handler; slice S4b. Replaces "unresolved until stage D decides otherwise" | resolving interface receivers to candidate lists is a later slice with its own consumer | — |
-| 7 | A Hapi plugin adapter: routes registered with `server.route` inside plugin `register(server, options)` functions become proven records (the shape of lane 5's `pilot-producer`) | **decided by the owner, 2026-11-24: in scope**, about 2.5 days (PLAN slice SH); section 11, added after the design review and reviewed with the rest of the design at stage D | none if it is built; without it those routes stay candidates (`table_consumer_unproven`) | — |
+| 6 | Go method-value handlers (`r.GET("/x", a.questionController.List)`) | **decided by the owner, 2026-11-21: in scope.** Resolved by 5.6 from declared types (receiver, parameter, local, package `var`, up to two field hops) and package/profile-qualified declaration and promotion proof. Instantiated generic owners are an accepted zero-measured-terminal loss. Interface-typed receivers keep a refusal; slice S4b. Replaces "unresolved until stage D decides otherwise" | resolving interface receivers to candidate lists is a later slice with its own consumer | — |
+| 7 | Hapi plugin adapter | **In scope.** Without decision 8, SH (8 days including preflight and corpus gates) buys lane 5 plugin-local routes, methods, ordered callbacks and typed suffixes. Pilot: **0/400 operations bindable from a proven root chain**. Under decision 11 a per-pair declared mount can yield separately labelled configured bindings (§11.5); their count is unmeasured. | Authorized seat must measure the per-file nearest-manifest join, weighted by entries, **before any SH dispatch**. If the ≥380/400 gate is infeasible, return to owner before building. | pre-SH |
+| 8 | Indirect Hapi loading | Open after SH. Keep the strict root-chain rule. The owner can fund loader analysis. A proved loader edge still requires a static prefix for a full path. Configured joins do not require decision 8. | Mutable aggregators require separate data-flow proof. | SH gate |
+| 9 | Dispatch across overlapping patterns/middleware/deployments | Use §5.2’s key-local conflict rule, closed implicit claims and named priority checks. Revisit only on measured loss. | A general dispatch simulator needs separate truth. | lane 5 integration |
+| 10 | Admit a structural local Express forwarder? | Keep the closed delegate list. Owner may fund a one-formal wrapper returning a function that forwards its own arguments to that formal, with lexical, return and escape checks. Directus's 295 calls motivate measuring the gain. | New positive/negative adapter evidence. | S3 gate, before promising binding yield |
+| 11 | May lane 5 supplement the owner’s full-only binding rule with a per-pair declared plugin mount? | Proposed default: permit an explicit opt-in **configured** result under §11.5; ordinary producer-proven bindings still require full. Alternative: keep lane 5 full-only, exposing weak rows for inspection. | Consumer policy and separate yield accounting; zero producer-proven pilot operations under either choice. | owner confirmation before lane 5 enables configured binding |
 
 ## 10. Risks and accepted limits
 
@@ -403,14 +574,13 @@ module in `sys.modules` must come from the row, the venv or the standard library
   D's closed forwarder list. Decorators that may replace the handler, dependency injection and class-based
   views are unresolved with a reason. Request-source coverage built on the listing pays for this.
 - **Two registration facts for Go.** The existing callback-registration edges and the new records describe
-  the same calls; the records read those facts at the argument's own bytes, so the two cannot disagree. A Go
+  the same calls; the records prefer those facts at the argument's own bytes. Only the two unindexed bare-function positions in 5.1 use the declaration fallback. A Go
   method value (`c.List`) has no such fact; the records resolve it by 5.6 (owner decision 6), and nothing
   else in prism sees that result: `nav callers` still shows no edge into a method registered only as a
   method value (entry edges from route records are a section 8 follow-up).
 - **Go method values left out** (5.6): interface-typed receivers, call-result and deeper receivers, embedded
-  pointer or qualified hops, function-typed fields, package function values and method expressions, each a
-  counted reason. None of them is a terminal callback on the census corpora; a corpus written against
-  interfaces (handlers held as `http.Handler` fields) would show its cost in `method_value_interface`.
+  pointer or qualified explicit hops, instantiated generic owners, function-typed fields, package function values and method expressions, each a
+  counted reason. The independent Miniflux census found one such terminal on an external http.Handler local, reported as method_value_external.
 - **Typing the enclosing receiver is new** (5.6 M1 (a)): the call resolver does not type `a.f.M()` from a
   method's own receiver `a` either, so the route table can bind handlers that `nav callees` cannot. The rule
   reads only the method's declaration; carrying it into call resolution is outside this lane (a resolution
@@ -422,126 +592,55 @@ module in `sys.modules` must come from the row, the venv or the standard library
 
 ## 11. Hapi plugin adapter (owner decision 7)
 
-Added on the owner's decision of 2026-11-24, after the design review; it is reviewed with the rest of the
-design at the lane's stage D. Rules are tentative in the same sense as section 5's.
+### 11.1 Why and what is proven
 
-### 11.1 Why
+A direct register-chain certificate and a plugin-contract certificate answer different questions. On the private aggregate, 58 calls contain 400 literal rows, all inside register, with 59 plain unwritten first formals in 59 plugin objects. The original root-chain rule reaches **0/400**. One mutable factory list accounts for 115 entries/27 plugins and an aggregator list for 285/32; the final root-to-factory link is unresolved. Prefixes on 57/59 plugins come from variables. The adapter can identify the server formal, entries and callbacks without inventing a deployed base.
 
-Lane 5's producer, `pilot-producer`, is a Hapi application. Its routes are registered with
-`server.route([{ method, path, config: { handler } }, …])`, and with the single-object form, inside per-feature
-plugin `register(server, options)` functions, where `server` is a parameter. No import proves the consumer at
-the call, so under section 5.3's table rule every such table is a candidate (`table_consumer_unproven`) with no
-path and no binding credit. The census counted about 58 `server.route([...])` calls holding about 401 route
-entries there (aggregate counts, Claude seat, ORCHESTRATION section 9). The adapter carries the import proof
-from the application's server root, through each `server.register(...)` call, to the plugin's `server`
-parameter, so these rows become proven records. It extends 5.3's wave 3 rule (a table's consumer is grounded by
-a framework API or a stage D adapter, proven by its import binding): here the import binding proves the root,
-and the registration chain proves the parameter.
+### 11.2 Rules
 
-### 11.2 Proof rule
+1. Root: bound @hapi/hapi or legacy hapi namespace/default/require, including an unshadowed destructured and renamed constructor, with server(), Server() or new Server(). A grounded server's register accepts one item, a literal array, or one direct local/imported binding; unwrap {plugin,options,routes} and a module's plugin property.
+   A mount records entry into one proved register invocation. Use item routes.prefix before call options and inherit an absent prefix. An unvalidated prefix can fail before entry (hp10). Refuse that mount, retain the object-qualified origins and diagnose the item. Apply weak proof only if independently eligible.
+   On a given server use the effective name (own name or pkg.name). Admit an ordinary first registration or a legal multiple=true repeat. A proved once skip produces no mount or diagnostic. A proved disallowed repeat fails at that item. Unknown repeat, realm or option interactions withhold the disputed mount. A preceding opaque item can claim the literal sibling’s name (d1-09). Ground a spread of an unwritten literal plugin list by the same bounded item reader, otherwise treat it as opaque. An unrelated later event has no possible-failure penalty. Key an admitted realm by its parent and register span/item ordinal (hp08, es1-34). Retain the defining plugin object on every associated origin, including a refused or skipped one.
+2. Object contract: own name or pkg, and a unique inline method/arrow/function or a directly resolved function reference for register (includes shorthand, local export list, one direct imported function, es7-06). Accept CJS exports.plugin, module.exports.plugin or whole module, named/default ESM export, or an in-place object.
+   First formal is a single identifier, unwritten in its binding scope; for proven strong invocation a default on a plain identifier is harmless because Hapi supplies the actual server (et7-02). Refuse destructured/written formals and shadowed uses. A stable alias retains the same realm. A dynamic register property and legacy register.attributes are accepted losses.
+3. **Weak receiver proof.** Without a strong mount, admit the plain, non-defaulted formal of a contract-shaped plugin when the nearest package.json declares @hapi/hapi or hapi as a runtime dependency (dependencies or peerDependencies), and the object is exported as a plugin or flows into a grounded server's registration argument via local collection/factory syntax. For the latter require the actual plugin object in the literal list or factory return; this is evidence for parameter type only.
+   A demonstrated non-Hapi invocation or contradictory binding defeats the weak proof. Never inherit a dependency from an enclosing package past the nearest manifest.
+   Emit receiver.proof=plugin_contract, a null root and no_known_mount suffix for a static leaf, or dynamic for an unknown leaf; never a synthetic mount. hp22/cx07 qualify. d2-06–09 isolate the export/flow, contradictory invocation and manifest boundaries. A strong proof replaces the orphan only for that same plugin object. Its sibling object can still have a weak suffix from the same function. A provably skipped or rejected registration does not create a weak exposure for that event.
+4. Registration phase: accept the register body, a uniquely invoked captured local installer or one direct helper transfer (5.2). Admit captured onPreStart and dependency-after closures only on the proven realm, with an observed initialize/start setup call and, for dependency-after, all named dependencies installed. Preserve the parent realm.
+   Merely exposing/storing a function does not invoke it (es4-14); an external manifest loader supplies no direct registration evidence (es6-03).
+5. Route: grounded server.route accepts a literal object/list or one direct binding/import to such an object/list; resolve values where defined. Literal site, install site/ordinal and the owning plugin object identify the row (§5.1). A static spread of a visible, immutable row array expands in order (es1-28). An opaque call/spread element becomes one candidate, at the argument/element bytes, reason hapi_route_not_literal, no exposures/callbacks (cx47/48). Inspect each sibling independently for source facts and apply §5.2 before claiming its installation.
+   String or string-array methods uppercase/deduplicate, '*' is Any. Carry effective route and enclosing register/item routes.vhost through every strong realm. A single literal source with no rival setting is exact; differing or dynamic settings without a certified precedence result are unknown.
+   A weak association has host_kind=unknown unless the linked call set is nonempty, complete for that association and every item, call and ancestor realm is proved vhost-free. Only then use route-level vhost or unconstrained. An absent link gives unknown, including on an exported orphan. Evaluate known own property names (literal/bracket or unique string-constant key), same-key last write wins.
+   Read exactly one handler location after this step: handler, options.handler, or config.handler. Missing/competing handlers give hapi_handler_conflict and no dispatch credit for a provably invalid literal. For either options or config follow one unwritten local binding or direct import/require to its object literal, including a statically named own-property chain on that object; evaluate properties and pre in their definition scope. If exactly one valid handler location is proved, its identity may remain callback_unproven on an installed path (e.g. a conditional choosing between two proved functions in the same handler field). An opaque options/config value can leave presence or uniqueness undecided. Retain the raw path, candidate and one callback_unproven slot, with paths=[] and no root failure. A proved missing or conflicting handler rejects that key.
+   An object handler yields hapi_handler_object. Keep options/config.pre before the handler, role=pre and zero-based group (nested parallel entries share the stage; source order is display order); final role=handler. No pres counted as a terminal handler. Non-Hapi route-shaped candidates use object-table and no credit; the Fastify url-shaped lookalike is silent.
+6. On a grounded register call diagnose each failed item exactly once at the argument expression (array element/spread including its dots). Use hapi_registration_unproven for opaque items/imports, unvalidated prefixes or repeat refusals, hapi_plugin_unproven for unsupported contract shape, hapi_server_param_unproven for an inadmissible formal.
+   A failure inside an already-entered plugin is attributed once at the failing native event in the root summary. No extra item-resolution diagnostic is due on that admitted call. A valid formal shadowed only at a use retains the mount; that route alone refuses. A non-Hapi .register emits no register diagnostic. Keep the route-site candidate separately. Missing, extra and duplicate diagnostics fail the matrix.
+   Nonliteral table elements do not stand for a known number of routes. Treat the legacy API, general push/factory/aggregator mount proof, Glue manifests, opaque option factories and arbitrary escaped callbacks as measured limits. Row ids and individual dispositions are in STAGE-D-ROWS.md.
 
-Framework label `hapi`. Each step is a positive certificate; anything it does not establish is refused with a
-reason and counted, never guessed.
+### 11.3 Matrix
 
-- **Root.** A Hapi server root is a binding grounded by 5.1's rule (one binding in its own lexical scope,
-  never written afterwards) whose value is `Hapi.server(…)`, `new Hapi.Server(…)` or `Hapi.Server(…)`, where
-  `Hapi` is a proven import of `@hapi/hapi` (or the legacy `hapi` package): an ESM default or namespace
-  import, or a top-level `const|let|var Hapi = require('@hapi/hapi')` bound once and unwritten, with `require`
-  unshadowed; a destructured `const { server } = require('@hapi/hapi')` with the call `server(…)` counts too.
-  The root's `RouterId` is that binding, as for an `express()` result.
-- **Registration.** A call `S.register(arg)` or `S.register(arg, opts)` whose receiver `S` is a grounded
-  Hapi server (a root, or a server parameter as defined below). `arg` is one plugin item or an array literal of
-  items, flattened in order; an item is a plugin object (defined below), a registration object `{ plugin: P, options,
-  routes: { prefix } }` whose `plugin` is a plugin object, or a reference that resolves to one of these: a
-  local bound once and unwritten, or an import proven as 5.2 proves an imported router (the importing file's
-  `CallGraph::import_bindings` entry leads to one target file; `require('./x')`, `require('./x').plugin`,
-  `import x from './x'`, `import { plugin as x } from './x'`, `ns.plugin` for `import * as ns`). A module
-  object whose `plugin` export is a plugin object is a registration object. Each resolved plugin gives one
-  `MountRecord`: parent the registering server, child the plugin's server parameter, prefix the literal
-  of `routes.prefix` in the registration object or in `opts` (`Literal`), `Absent` when neither has one, and
-  `Unevaluated { text }` otherwise. A spread, a call, a loop over data, or a reference that does not resolve so
-  gives no mount and is counted (`hapi_registration_unproven`).
-- **Plugin object.** An object literal, written in place or named by an export of its module (read from
-  the syntax, as 5.2 reads `module.exports = r`, because the CommonJS export facts hold callables only):
-  `exports.plugin = {…}`, `module.exports.plugin = {…}`, `module.exports = {…}`, `export const plugin = {…}`,
-  `export default {…}`. It is a plugin only when it has a `register` property and a `name` or `pkg` property
-  (Hapi refuses a plugin without one, so an object without either is not a plugin, `hapi_plugin_unproven`).
-  The `register` value is a function or arrow expression written in place, a method `register(server,
-  options) {…}`, or an identifier (shorthand included) that resolves in its own scope to one unwritten function
-  declaration or `const` function. `module.exports = { name, register }` is the module-object form. The
-  legacy form `exports.register = function (server, options, next) {…}` with `exports.register.attributes` is
-  a stage D item (admitted, or an accepted loss), refused until then.
-- **The server parameter.** The `register` function's first formal is a plain identifier with no default
-  and is never written in the function (assignment, update, destructuring target). Its `RouterId` is
-  (file, the parameter's spelling, the parameter's start byte), so one plugin registered twice is one router
-  under two mounts and gets one exposure per chain (5.2). A `server.route(…)` call is grounded on it when its
-  receiver resolves in its own lexical scope to that formal; a shadowing declaration or a nested callable's
-  parameter of that spelling refuses (`hapi_server_param_unproven`), as does a destructured, defaulted or
-  written first formal. A call inside a nested callable of `register` is grounded by scope alone, as a
-  callback runs on the same server; stage D may narrow this with a row. A helper that receives the server as
-  an argument is followed only within the bound stage D fixes for routers passed as parameters (the gin
-  bound), else unproven. A plugin object that no grounded `S.register(…)` reaches proves nothing about its
-  parameter: its routes are candidates (`hapi_plugin_unregistered`). Stage D decides, with the census count of
-  this reason on `pilot-producer` and the public corpus, whether a weaker rule (the plugin shape and an
-  `@hapi/hapi` dependency in the nearest `package.json`) may ground the parameter; such a router would have no
-  mount, so its exposures stay `Suffix` (`no_known_mount`), never `full`.
-- **Route rows.** On a grounded receiver, `server.route(x)` where `x` is an object literal or an array
-  literal of object literals, flattened in order; each object is one `RouteRecord` whose site is the object
-  literal's bytes (a table call is many registrations, as each verb leg of a builder is one). A row that is not
-  an object literal (a variable, a spread, a call) is listed as `hapi_route_not_literal`; an argument that is
-  an imported or local array is a stage D item (one level through a proven binding, as for row ol02).
-  `method`: a string literal or an array of string literals is `Known`, `'*'` is `Any`, anything else
-  `Unknown`. `path`: 5.1's literal rule. The handler is the value of exactly one of `handler`,
-  `options.handler` and `config.handler` (`options` and `config` object literals; Hapi reads `config` as the
-  older spelling of `options`); none, or more than one, refuses (`hapi_handler_conflict`). The value resolves
-  by 5.1's callback rules (`Resolved`, `Anonymous`, `member_handler`, `wrapper_call`); an object value
-  (`{ directory }`, `{ file }`, `{ proxy }`, `{ view }`) is `Unresolved` (`hapi_handler_object`). Whether
-  `options.pre` methods are callback positions before the handler, and how `vhost` is shown, are stage D
-  items.
-- **What is refused.** A `server.route(…)` whose receiver is neither a grounded root nor a proven server parameter is not
-  a Hapi record: a table-shaped argument is listed as a candidate under 5.3's rule (`table_consumer_unproven`,
-  no credit), anything else is not listed. A look-alike on another framework (Fastify's
-  `fastify.register(async (server, opts) => { server.route({ method, url, handler }) }, { prefix })`) gets
-  nothing from this adapter, since its root is not a Hapi import.
-
-Composition is 5.2's: the mount graph composes registration prefixes, nested plugins (a plugin's `register`
-calling `server.register(…)` on its own parameter) included. Hapi's join is settled at stage D against truth
-(seed: under the prefix `/api`, a route path `/` is served at `/api`).
-
-Code: `src/framework_entries/routes/hapi.rs`, declared in `routes.rs`; it uses the JS/TS parts of
-`routes/receivers.rs` and `routes/handler.rs` and the object-literal table slice's row reader, and adds the
-Hapi join to `routes/mounts.rs`. No cache change, nothing under `src/call_graph*` or `src/resolution*`.
-
-### 11.3 Test rows
-
-Group `w3-hapi`, rows `hp01` to `hp22` in `tests/fixtures/routes/rows.jsonl` (PLAN slice SH lists them),
-positive and negative: the array and single-object forms; each handler spelling; registration with and
-without `routes.prefix`, twice, and nested; each exported plugin shape (CommonJS `exports.plugin`,
-`module.exports = { name, register }`, ESM named and default); methods `'*'` and arrays; dynamic prefixes and
-paths; inline, member, wrapped and object handlers; and as negatives a look-alike `server.route` on a non-Hapi
-object, a Fastify plugin, a `register` function that is not a plugin (no `name` or `pkg`; a bare exported
-function), a plugin passed to a non-Hapi `register`, a shadowed or written server parameter, a handler
-spelled twice, the legacy `attributes` form, and a plugin registered only through a loop. `@hapi/hapi` is not in
-the local npm cache (checked 2026-11-24), so rows are `hand` unless an offline install of a pinned version
-succeeds at stage T, in which case the truth runner instruments `server.route` and `server.register` and reads
-`server.table()` (DESIGN 6's containment applies).
+Enable all w3-hapi rows after the literal reader (PLAN SH). Include direct, weak and unregistered receivers, overwrite/conflict, same-plugin registrations, direct import and re-export controls, nested helper and dormant callbacks, lifecycle installation and host/pre metadata. Use the hand labels in the frozen matrix. The security/custody boundary for measurement is aggregate-only.
 
 ### 11.4 Measurement and gate
 
-**Census (stage M).** Two public Hapi applications are already under `bench-repos` (checked 2026-11-24):
-`screwdriver` (`@hapi/hapi` ^21.1.0, `server.route` calls in `plugins/`) and `hapipal-realworld-example-app`
-(`@hapi/hapi` 20.x). Stage M counts both, records their commits, and picks the gate corpus by the share of
-`server.route` calls inside plugin `register` functions; it clones another public application only if neither
-fits. The ledger gains its Hapi sites (each `server.route` row object, each
-`server.register` call). Counted per corpus: `server.route` calls and row objects, by form (array or single),
-handler spelling and handler form; plugin objects by shape and export form; `server.register` calls by
-argument form and prefix source; and the share of `server.route` calls whose plugin a grounded registration
-reaches. On `pilot-producer` the same counts are taken locally by a Claude seat, aggregate only; no row,
-fixture or text derives from it.
+**Before any SH dispatch**, the authorized seat joins each pilot plugin file to its nearest package.json, checks the runtime/peer dependency, formal and export/use, and joins the plugin to its entries. Freeze plugin and entry counts by strong/weak/ineligible and reason, plus attainable literal-path and inline-handler counts. Return only aggregates. Run the same independent classification on the public corpora. An infeasible floor returns to the owner before SHa.
 
-**Gate.** The matrix rows hold. On the public corpus, reconciled completeness (section 7) over its Hapi
-ledger sites. On `pilot-producer`: of the route entries in `server.route` calls inside plugin `register`
-functions, the share that are records with a proven receiver and at least one exposure is reported against a
-floor fixed at stage D from the census (default 0.95 of the entries in the shapes the rules above admit), every other
-entry carries a reason and is classified by a reader, and the counts are published as aggregates only. A
-`full` exposure is required wherever the chain of registration prefixes is literal.
+| Corpus | Pass condition |
+|---|---|
+| Starterkit | All 11 calls are inside plugin register, with 29 non-test literal rows and zero grounded chains. Require ≥24/29 correct weak records and ≥95% of independently weak-eligible rows, with a positive denominator. Reconcile all 29. Trace the 24 referenced configs and five other member forms. Report object hits and opaque references. Keep an installed path only when valid handler presence is independently proved. |
+| Screwdriver | Reconcile 28 literal rows, 37 calls (26 inside register) and 81 register sites. Account for all 134 opaque elements individually. Require a candidate per grounded element and independent evidence for any ungrounded site. Match each failed register item to its diagnostic. The §7 registration floor counts the 11 non-test ledger literals (17 test literals reported separately). Below N=25 classify each miss. Separately report factory-element exposure recall as correctly exposed elements / 134 non-test call-shaped elements, with grounded candidates and unknown factory expansion counts shown apart. The proposed reader can expose 0/134 factory elements; even 11/11 literal recovery covers only 11/145 (7.6%) of these site/element opportunities. Report this design loss to the owner for acceptance at SH preflight. The factory output cardinalities remain unknown. |
+| Hapipal | The zero-call control yields zero Hapi registrations. |
+| Pilot (private aggregates) | ≥380/400 with the independently correct receiver, root and exposure. Require ≥365/384 correct literal-path exposures and ≥374/393 correct inline identities at their source span. Each numerator counts distinct correct **entries** in the frozen population. |
+
+The pilot has 384 literal paths, 15 templates and one identifier. Compare status, value and typed tokens per entry.
+Of 400 handlers, 399 are in config.handler and one is top-level. Beyond the 393 inline handlers, four are wrappers, two members and one an object. The aggregate counts zero route-level pre/vhost forms; register-level realm constraints still require proof.
+The authorized seat uses the independently labelled entry oracle to join all 400 positions before aggregation and reports each disposition, with zero unexplained.
+Apply the §7 false-certainty veto to each observed false identity, wrong root and false full. Report strong/weak and full/suffix/dynamic separately.
+A certified surviving strong all-literal chain requires full. The weak-only population has no positive full-path minimum.
+
+### 11.5 Lane 5 configured mounts
+
+Under question 11’s proposed opt-in, lane 5 may join a plugin_contract record to a per-pair declaration naming a root, valid literal Hapi mount and the same origin_plugin (defining file and object byte). Require a null-root static suffix with validated path_tokens and mount_refusal, a unique compatible protocol/method and known realm host/version, setup and dispatch constraints. Binding needs one proved terminal (resolved or anonymous) or certified delegate.
+Lane 5 owns composition and its tests. Use §5.2’s Hapi join (/api plus / gives /api), preserve token boundaries, and refuse ambiguity or unknown constraints. Label the result **configured** with configuration provenance, plugin, original suffix and refusal. Producer gates count only producer evidence.
+
+Without a configured match the record remains plugin-local. Decision 7 alone gives the pilot zero producer-proven bindings. The controller's prototype bound 236/316 client calls with zero wrong in 50 checked. That measurement does not establish SH's configured yield.
