@@ -11,7 +11,7 @@ use petgraph::visit::EdgeRef;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-const ENABLED: &[&str] = &["control"];
+const ACTIVE_SLICES: &[&str] = &["control"];
 /// Doubt kinds as `dfg-stats --edges` spells them; `builtin_callback` is added by slice D.
 const LABEL_DOUBTS: &[&str] = &[
     "killed",
@@ -52,9 +52,68 @@ enum Endpoint {
     Spanned { at: String, text: String },
 }
 
+#[derive(Deserialize)]
+struct Assertion {
+    #[serde(default, deserialize_with = "present_string")]
+    slice: Option<String>,
+    #[serde(default, deserialize_with = "present_string")]
+    loss: Option<String>,
+    #[serde(flatten)]
+    check: Check,
+}
+
+fn present_string<'de, D: serde::Deserializer<'de>>(de: D) -> Result<Option<String>, D::Error> {
+    String::deserialize(de).map(Some)
+}
+
+const SLICES: &[&str] = &["control", "A", "B", "C", "D", "E2"];
+
+impl Row {
+    fn default_slice(&self) -> &str {
+        if self.group == "E" {
+            "E2"
+        } else {
+            &self.group
+        }
+    }
+
+    fn assertions(&self) -> impl Iterator<Item = (usize, &str, &Assertion)> {
+        self.expect.iter().enumerate().map(|(i, assertion)| {
+            (
+                i + 1,
+                assertion
+                    .slice
+                    .as_deref()
+                    .unwrap_or_else(|| self.default_slice()),
+                assertion,
+            )
+        })
+    }
+
+    fn selected<'a>(
+        &'a self,
+        active: &'a [&str],
+    ) -> impl Iterator<Item = (usize, &'a str, &'a Assertion)> + 'a {
+        self.assertions()
+            .filter(move |&(_, slice, _)| active.contains(&slice))
+    }
+
+    fn fixture<'a>(&'a self, ext: &'a str) -> Fixture<'a> {
+        let files: Vec<_> = self
+            .files
+            .iter()
+            .map(|(name, source)| (name.rsplit_once('.').unwrap().0, source.as_str()))
+            .collect();
+        Fixture {
+            cpg: build(language(ext).unwrap(), &files, ext),
+            files: &self.files,
+            ext,
+        }
+    }
+}
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-enum Assertion {
+enum Check {
     Def {
         at: Endpoint,
     },
@@ -200,9 +259,9 @@ impl Fixture<'_> {
         })
     }
 
-    fn node(&self, endpoint: &Endpoint, access: VarAccessKind) -> Result<NodeIndex, String> {
+    fn nodes(&self, endpoint: &Endpoint, access: VarAccessKind) -> Result<Vec<NodeIndex>, String> {
         let occurrence = self.occurrence(endpoint)?;
-        let nodes: Vec<_> = self
+        Ok(self
             .cpg
             .nodes_at(&occurrence.file, occurrence.line)
             .into_iter()
@@ -211,7 +270,11 @@ impl Fixture<'_> {
                     .to_var_location(index)
                     .is_some_and(|loc| occurrence.matches(&loc) && access == loc.kind)
             })
-            .collect();
+            .collect())
+    }
+
+    fn node(&self, endpoint: &Endpoint, access: VarAccessKind) -> Result<NodeIndex, String> {
+        let nodes = self.nodes(endpoint, access)?;
         match nodes.as_slice() {
             [node] => Ok(*node),
             _ => Err(format!(
@@ -280,10 +343,13 @@ impl Fixture<'_> {
         }
     }
 
-    fn check(&self, assertion: &Assertion) -> Result<(), String> {
+    fn check(&self, assertion: &Check) -> Result<(bool, String), String> {
         match assertion {
-            Assertion::Def { at } => self.node(at, VarAccessKind::Def).map(|_| ()),
-            Assertion::Edge {
+            Check::Def { at } => {
+                let count = self.nodes(at, VarAccessKind::Def)?.len();
+                Ok((count == 1, format!("Def count {count}")))
+            }
+            Check::Edge {
                 from,
                 to,
                 label,
@@ -295,17 +361,13 @@ impl Fixture<'_> {
                     .filter(|got| label.as_ref().is_none_or(|want| *got == want))
                     .count();
                 let ok = multiplicity.map_or(count > 0, |want| count == want);
-                require(ok, || {
-                    format!("expected binding edge {from:?} -> {to:?} ({label:?}, multiplicity {multiplicity:?}); found {labels:?}")
-                })
+                Ok((ok, format!("binding labels {labels:?}")))
             }
-            Assertion::NoEdge { from, to, label } => {
+            Check::NoEdge { from, to, label } => {
                 self.check_absent(Some(from), to.as_ref(), label.as_deref())
             }
-            Assertion::NoEdgeInto { to, label } => {
-                self.check_absent(None, Some(to), label.as_deref())
-            }
-            Assertion::Resolves {
+            Check::NoEdgeInto { to, label } => self.check_absent(None, Some(to), label.as_deref()),
+            Check::Resolves {
                 call,
                 targets,
                 confidence,
@@ -338,33 +400,27 @@ impl Fixture<'_> {
                     ));
                 }
                 want.sort_unstable();
-                require(got == want, || {
-                    format!(
-                        "{call:?}: expected {want:?}, got {got:?} (drop {:?})",
-                        actual.drop
-                    )
-                })
+                Ok((
+                    got == want,
+                    format!("targets {got:?}, drop {:?}", actual.drop),
+                ))
             }
-            Assertion::Drop { call, reason } => {
+            Check::Drop { call, reason } => {
                 let actual = self.cpg.call_graph.resolve_call_site_full(self.site(call)?);
                 let got = actual.drop.map(|drop| format!("{drop:?}"));
-                require(
+                Ok((
                     actual.resolved.is_empty() && got.as_ref() == Some(reason),
-                    || {
-                        format!(
-                            "{call:?}: expected drop {reason}, got {got:?} with {} targets",
-                            actual.resolved.len()
-                        )
-                    },
-                )
+                    format!("drop {got:?}, targets {:?}", actual.resolved),
+                ))
             }
-            Assertion::Reaches { from, to } | Assertion::NotReaches { from, to } => {
+            Check::Reaches { from, to } | Check::NotReaches { from, to } => {
                 let seed_node = self.node(from, VarAccessKind::Def)?;
                 let seed = self.cpg.to_var_location(seed_node).unwrap();
-                require(
-                    self.cpg.var_node_for_location(&seed) == Some(seed_node),
-                    || format!("the forward-reachability seed lookup aliases {from:?}"),
-                )?;
+                if self.cpg.var_node_for_location(&seed) != Some(seed_node) {
+                    return Err(format!(
+                        "the forward-reachability seed lookup aliases {from:?}"
+                    ));
+                }
                 let target = self.occurrence(to)?;
                 // The public reachability set deduplicates locations on the same line.
                 // Read the visited node indices from the same walk to retain byte identity.
@@ -376,12 +432,10 @@ impl Fixture<'_> {
                     .filter(|node| visited.contains_key(node))
                     .filter_map(|node| self.cpg.to_var_location(node))
                     .any(|loc| target.matches(&loc));
-                let want = matches!(assertion, Assertion::Reaches { .. });
-                require(reached == want, || {
-                    format!("{from:?} -> {to:?}: expected reachable={want}, got {reached}")
-                })
+                let want = matches!(assertion, Check::Reaches { .. });
+                Ok((reached == want, format!("reachable={reached}")))
             }
-            Assertion::TraceBoundary { root, from, to } => {
+            Check::TraceBoundary { root, from, to } => {
                 let seed = self.node(root, VarAccessKind::Def)?;
                 let seed_loc = self.cpg.to_var_location(seed).unwrap();
                 let source = self.node(from, VarAccessKind::Use)?;
@@ -395,11 +449,12 @@ impl Fixture<'_> {
                     .frontier_by_root
                     .get(&seed)
                     .is_some_and(|frontier| frontier.contains(&target));
-                require(stopped && !crossed, || {
-                    format!("trace from {root:?} at {from:?} -> {to:?}: boundary={stopped}, crossed={crossed}")
-                })
+                Ok((
+                    stopped && !crossed,
+                    format!("boundary={stopped}, crossed={crossed}"),
+                ))
             }
-            Assertion::Counter { key, value } => {
+            Check::Counter { key, value } => {
                 let stats = if key.starts_with("dfg_labels.") {
                     serde_json::json!({ "dfg_labels": self.cpg.dfg_label_stats })
                 } else {
@@ -417,9 +472,7 @@ impl Fixture<'_> {
                         .ok_or_else(|| format!("{key}: not an unsigned counter: {got}"))?,
                     None => 0,
                 };
-                require(got == *value, || {
-                    format!("{key}: expected {value}, got {got}")
-                })
+                Ok((got == *value, got.to_string()))
             }
         }
     }
@@ -429,22 +482,12 @@ impl Fixture<'_> {
         from: Option<&Endpoint>,
         to: Option<&Endpoint>,
         label: Option<&str>,
-    ) -> Result<(), String> {
+    ) -> Result<(bool, String), String> {
         let labels = self.edge_labels(from, to, from.is_none() || to.is_none())?;
-        require(
-            !labels
-                .iter()
-                .any(|got| label.is_none_or(|want| got == want)),
-            || format!("expected no binding edge {from:?} -> {to:?} ({label:?}); found {labels:?}"),
-        )
-    }
-}
-
-fn require(ok: bool, message: impl FnOnce() -> String) -> Result<(), String> {
-    if ok {
-        Ok(())
-    } else {
-        Err(message())
+        let absent = !labels
+            .iter()
+            .any(|got| label.is_none_or(|want| got == want));
+        Ok((absent, format!("binding labels {labels:?}")))
     }
 }
 
@@ -473,125 +516,210 @@ fn flow_label(label: FlowConfidence) -> String {
     }
 }
 
-fn evaluate(row: &Row) -> Vec<String> {
-    let mut failures = Vec::new();
-    for ext in &row.langs {
-        let language = match ext.as_str() {
-            "js" => Language::JavaScript,
-            "ts" => Language::TypeScript,
-            "tsx" => Language::Tsx,
-            "go" => Language::Go,
-            "py" => Language::Python,
-            _ => panic!("{}: unknown language {ext}", row.id),
-        };
-        let files: Vec<_> = row
-            .files
-            .iter()
-            .map(|(name, source)| {
-                let (stem, _) = name.rsplit_once('.').expect("fixture filename extension");
-                (stem, source.as_str())
-            })
-            .collect();
-        let fixture = Fixture {
-            cpg: build(language, &files, ext),
-            files: &row.files,
-            ext,
-        };
-        for (index, assertion) in row.expect.iter().enumerate() {
-            if let Err(error) = fixture.check(assertion) {
-                failures.push(format!("[{ext}] assertion {}: {error}", index + 1));
+fn language(ext: &str) -> Option<Language> {
+    Some(match ext {
+        "js" => Language::JavaScript,
+        "ts" => Language::TypeScript,
+        "tsx" => Language::Tsx,
+        "go" => Language::Go,
+        "py" => Language::Python,
+        _ => return None,
+    })
+}
+
+fn read_rows(input: &str) -> Result<Vec<Row>, String> {
+    let mut ids = BTreeSet::new();
+    input
+        .lines()
+        .enumerate()
+        .map(|(index, line)| {
+            let row: Row = serde_json::from_str(line)
+                .map_err(|error| format!("rows.jsonl:{}: {error}", index + 1))?;
+            let invalid = |message: &str| format!("{}: {message}", row.id);
+            if row.id.trim().is_empty() || !ids.insert(row.id.clone()) {
+                return Err(invalid("empty or duplicate id"));
             }
+            if row.langs.is_empty()
+                || row.files.is_empty()
+                || row.expect.is_empty()
+                || row.class.is_empty()
+            {
+                return Err(invalid("incomplete row"));
+            }
+            let stems: BTreeSet<_> = row
+                .files
+                .keys()
+                .filter_map(|name| name.rsplit_once('.'))
+                .map(|(stem, _)| stem)
+                .collect();
+            if stems.len() != row.files.len() || stems.contains("") {
+                return Err(invalid("invalid or duplicate fixture filename stem"));
+            }
+            if row.langs.iter().any(|ext| language(ext).is_none())
+                || row.langs.iter().collect::<BTreeSet<_>>().len() != row.langs.len()
+            {
+                return Err(invalid("unknown or duplicate language"));
+            }
+            if !matches!(row.group.as_str(), "control" | "A" | "B" | "C" | "D" | "E") {
+                return Err(invalid("invalid row group"));
+            }
+            if matches!(row.truth, Truth::Wrong)
+                && row
+                    .issue
+                    .as_ref()
+                    .is_none_or(|issue| issue.trim().is_empty())
+            {
+                return Err(invalid("wrong row needs an issue"));
+            }
+            if row
+                .unexecuted
+                .as_ref()
+                .is_some_and(|reason| reason.trim().is_empty())
+            {
+                return Err(invalid("empty unexecuted reason"));
+            }
+            for (ordinal, slice, assertion) in row.assertions() {
+                if !SLICES.contains(&slice)
+                    || assertion
+                        .loss
+                        .as_ref()
+                        .is_some_and(|reason| reason.trim().is_empty())
+                {
+                    return Err(invalid(&format!("#{ordinal}: invalid slice or loss")));
+                }
+                let label = match &assertion.check {
+                    Check::Edge { label, .. }
+                    | Check::NoEdge { label, .. }
+                    | Check::NoEdgeInto { label, .. } => label.as_deref(),
+                    _ => None,
+                };
+                if let Some(label) = label {
+                    if label != "exact"
+                        && !label
+                            .strip_prefix("nameonly/")
+                            .is_some_and(|doubt| LABEL_DOUBTS.contains(&doubt))
+                    {
+                        return Err(invalid(&format!("#{ordinal}: unknown label {label}")));
+                    }
+                }
+            }
+            Ok(row)
+        })
+        .collect()
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Outcome {
+    Pass,
+    Red,
+    Loss,
+    UnexpectedPass,
+    Error,
+    Skipped,
+}
+
+impl Outcome {
+    fn fails(self) -> bool {
+        matches!(self, Self::Red | Self::UnexpectedPass | Self::Error)
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Pass => "pass",
+            Self::Red => "RED",
+            Self::Loss => "LOSS",
+            Self::UnexpectedPass => "unexpected pass",
+            Self::Error => "error",
+            Self::Skipped => "skipped",
         }
     }
-    failures
+}
+
+fn catching<T>(
+    run: impl FnOnce() -> Result<T, String> + std::panic::UnwindSafe,
+) -> Result<T, String> {
+    std::panic::catch_unwind(run).unwrap_or_else(|panic| {
+        let message = panic
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| panic.downcast_ref::<&str>().copied())
+            .unwrap_or("unknown panic");
+        Err(format!("panic: {message}"))
+    })
+}
+
+fn evaluate(
+    row: &Row,
+    active: &[&str],
+    mut emit: impl FnMut(&str, usize, &str, &Assertion, Outcome, &str),
+) {
+    for ext in &row.langs {
+        let mut fixture = None;
+        for (ordinal, slice, assertion) in row.selected(active) {
+            let (outcome, observation) = if let Some(reason) = &row.unexecuted {
+                (Outcome::Skipped, reason.clone())
+            } else {
+                let fixture = fixture.get_or_insert_with(|| catching(|| Ok(row.fixture(ext))));
+                match fixture
+                    .as_ref()
+                    .map_err(Clone::clone)
+                    .and_then(|fixture| catching(|| fixture.check(&assertion.check)))
+                {
+                    Ok((true, actual)) if assertion.loss.is_some() => {
+                        (Outcome::UnexpectedPass, actual)
+                    }
+                    Ok((true, actual)) => (Outcome::Pass, actual),
+                    Ok((false, actual)) if assertion.loss.is_some() => (Outcome::Loss, actual),
+                    Ok((false, actual)) => (Outcome::Red, actual),
+                    Err(error) => (Outcome::Error, error),
+                }
+            };
+            emit(ext, ordinal, slice, assertion, outcome, &observation);
+        }
+    }
 }
 
 #[test]
 fn param_binding_matrix_rows() {
-    let mut ids = BTreeSet::new();
-    let mut groups = BTreeSet::new();
+    let rows = read_rows(ROWS).unwrap();
+    let seen: BTreeSet<_> = rows
+        .iter()
+        .flat_map(|row| row.selected(ACTIVE_SLICES).map(|(_, slice, _)| slice))
+        .collect();
     let mut failures = Vec::new();
-    for (index, line) in ROWS.lines().enumerate() {
-        let row: Row = serde_json::from_str(line)
-            .unwrap_or_else(|error| panic!("rows.jsonl:{}: {error}", index + 1));
-        assert!(ids.insert(row.id.clone()), "duplicate row {}", row.id);
-        assert!(
-            !row.langs.is_empty()
-                && !row.files.is_empty()
-                && !row.expect.is_empty()
-                && !row.class.is_empty(),
-            "incomplete row {}",
-            row.id
-        );
-        assert!(
-            matches!(row.group.as_str(), "control" | "A" | "B" | "C" | "D" | "E"),
-            "{}: invalid group {}",
-            row.id,
-            row.group
-        );
-        if matches!(row.truth, Truth::Wrong) {
-            assert!(
-                row.issue.as_ref().is_some_and(|issue| !issue.is_empty()),
-                "{}: wrong row needs an issue",
-                row.id
-            );
-        }
-        // Static pass over every row, enabled or not: label vocabulary (a misspelt label can
-        // never match, which a group that is not enabled yet would hide).
-        for assertion in &row.expect {
-            let label = match assertion {
-                Assertion::Edge { label, .. }
-                | Assertion::NoEdge { label, .. }
-                | Assertion::NoEdgeInto { label, .. } => label.as_deref(),
-                _ => None,
-            };
-            if let Some(label) = label {
-                assert!(
-                    label == "exact"
-                        || label
-                            .strip_prefix("nameonly/")
-                            .is_some_and(|doubt| LABEL_DOUBTS.contains(&doubt)),
-                    "{}: unknown label {label}",
-                    row.id
-                );
-            }
-        }
-        if !ENABLED.contains(&row.group.as_str()) {
-            continue;
-        }
-        groups.insert(row.group.clone());
-        if let Some(reason) = &row.unexecuted {
-            println!("MATRIX\t{}\t{}\tunexecuted\t{reason}", row.id, row.group);
-            continue;
-        }
-        let result = std::panic::catch_unwind(|| evaluate(&row));
-        match result {
-            Ok(errors) if errors.is_empty() => {
-                println!("MATRIX\t{}\t{}\talready correct", row.id, row.group);
-            }
-            Ok(errors) => {
-                println!("MATRIX\t{}\t{}\tRED\t{}", row.id, row.group, errors[0]);
-                failures.push(format!("{}\n  {}", row.id, errors.join("\n  ")));
-            }
-            Err(panic) => {
-                let message = panic
-                    .downcast_ref::<String>()
-                    .map(String::as_str)
-                    .or_else(|| panic.downcast_ref::<&str>().copied())
-                    .unwrap_or("unknown panic");
-                println!(
-                    "MATRIX\t{}\t{}\terror\t{}",
+    for row in &rows {
+        evaluate(
+            row,
+            ACTIVE_SLICES,
+            |ext, ordinal, slice, assertion, outcome, actual| {
+                let actual = actual.replace(['\t', '\n', '\r'], " ");
+                let loss = assertion
+                    .loss
+                    .as_deref()
+                    .unwrap_or("")
+                    .replace(['\t', '\n', '\r'], " ");
+                let record = format!(
+                    "{}\t{}\t{}\t{}\t{}\t{}\t{:?}\t{}\t{}",
                     row.id,
                     row.group,
-                    message.replace('\n', " ")
+                    outcome.label(),
+                    ext,
+                    ordinal,
+                    slice,
+                    assertion.check,
+                    actual,
+                    loss
                 );
-                failures.push(format!("{}: fixture failed: {message}", row.id));
-            }
-        }
+                println!("MATRIX\t{record}");
+                if outcome.fails() {
+                    failures.push(record);
+                }
+            },
+        );
     }
     assert!(
-        ENABLED.iter().all(|group| groups.contains(*group)),
-        "empty enabled matrix group"
+        ACTIVE_SLICES.iter().all(|slice| seen.contains(slice)),
+        "empty active slice"
     );
     assert!(
         failures.is_empty(),
@@ -599,3 +727,207 @@ fn param_binding_matrix_rows() {
         failures.join("\n")
     );
 }
+
+mod harness {
+    use super::*;
+    use serde_json::json;
+
+    fn row(checks: serde_json::Value) -> serde_json::Value {
+        json!({
+            "id": "synthetic", "group": "E", "langs": ["js"], "class": "test",
+            "truth": "correct", "files": {"m.js": "function f(a) { use(a); }\nfunction g(v) { f(v); }\n"},
+            "expect": checks
+        })
+    }
+
+    fn outcomes(row: &serde_json::Value, active: &[&str]) -> Vec<(usize, Outcome)> {
+        let rows = read_rows(&row.to_string()).unwrap();
+        let mut actual = Vec::new();
+        evaluate(&rows[0], active, |_, n, _, _, outcome, _| {
+            actual.push((n, outcome))
+        });
+        actual
+    }
+
+    #[test]
+    fn outcomes_keep_running_siblings() {
+        use Outcome::*;
+        let row = row(json!([
+            {"kind":"no_edge", "from":"m.js:g:v@2:19", "to":"m.js:f:a@1:12", "slice":"D", "loss":"known excess"},
+            {"kind":"edge", "from":"m.js:g:v@2:19", "to":"m.js:f:a@1:12", "slice":"D", "loss":"obsolete"},
+            {"kind":"edge", "from":"m.js:g:v@2:19", "to":"m.js:f:a@1:12", "slice":"D", "label":"nameonly/builtin_callback"},
+            {"kind":"edge", "from":"m.js:g:v@2:1", "to":"m.js:f:a@1:12", "slice":"D", "loss":"invalid source"},
+            {"kind":"resolves", "call":{"site":"m.js@2:17","callee":"missing"}, "targets":[], "confidence":"exact","route":"local_def","slice":"D","loss":"missing site"},
+            {"kind":"edge", "from":"m.js:g:v@2:19", "to":"m.js:f:a@1:12", "slice":"D", "label":"exact"},
+            {"kind":"no_edge", "from":"m.js:g:v@2:19", "to":"m.js:f:a@1:12", "label":"nameonly/builtin_callback"}
+        ]));
+        let d = [
+            (1, Loss),
+            (2, UnexpectedPass),
+            (3, Red),
+            (4, Error),
+            (5, Error),
+            (6, Pass),
+        ];
+        assert_eq!(outcomes(&row, &["D"]), d);
+        assert_eq!(
+            outcomes(&row, &["D", "E2"]),
+            [d.as_slice(), &[(7, Pass)]].concat()
+        );
+        for outcome in [UnexpectedPass, Red, Error] {
+            assert!(outcome.fails());
+        }
+        for outcome in [Pass, Loss, Skipped] {
+            assert!(!outcome.fails());
+        }
+        let mut broken = row.clone();
+        broken["files"]["m.js"] = json!("function {");
+        assert_eq!(
+            outcomes(&broken, &["D"]),
+            (1..=6).map(|n| (n, Error)).collect::<Vec<_>>()
+        );
+        broken["unexecuted"] = json!("historical boundary");
+        assert_eq!(outcomes(&broken, &["E2"]), [(7, Skipped)]);
+    }
+
+    #[test]
+    fn validates_inactive_metadata() {
+        for (field, value) in [
+            ("slice", json!("E")),
+            ("slice", json!(null)),
+            ("loss", json!(" ")),
+            ("loss", json!(null)),
+            ("label", json!("nameonly/call_name_only")),
+            ("unexpected", json!(true)),
+        ] {
+            let mut row = row(json!([{"kind":"no_edge_into","to":"m.js:f:a@1:12"}]));
+            row["expect"][0][field] = value;
+            row["unexecuted"] = json!("even skipped rows must validate");
+            assert!(read_rows(&row.to_string()).is_err(), "{field}");
+        }
+        let mut row = row(json!([{"kind":"def","at":"m.js:f:a@1:12"}]));
+        assert!(read_rows(&format!("{row}\n{row}")).is_err());
+        row["group"] = json!("E2");
+        assert!(read_rows(&row.to_string()).is_err());
+    }
+
+    #[test]
+    fn staged_ordinals_and_integrated_coverage() {
+        let rows = read_rows(ROWS).unwrap();
+        assert_eq!(rows.len(), 425);
+        let ordinals = |id, slices: &[&str]| {
+            rows.iter()
+                .find(|row| row.id == id)
+                .unwrap()
+                .selected(slices)
+                .map(|(n, _, _)| n)
+                .collect::<Vec<_>>()
+        };
+        for (id, expected) in [("k06a", 2), ("k07a", 1), ("k07b", 1)] {
+            assert_eq!(ordinals(id, &["B"]), [expected], "{id}");
+            assert_eq!(ordinals(id, &["B", "C"]), [1, 2], "{id}");
+        }
+        for (id, d, both) in [
+            ("s3-14", &[1, 3, 5][..], 5),
+            ("s4-12", &[1][..], 4),
+            ("s4-13", &[3, 4][..], 4),
+            ("x2-11", &[1, 2, 3][..], 7),
+            ("x4-9", &[1, 2][..], 6),
+            ("s2-15", &[1, 2, 3][..], 5),
+        ] {
+            assert_eq!(ordinals(id, &["D"]), d, "{id}");
+            assert_eq!(
+                ordinals(id, &["D", "E2"]),
+                (1..=both).collect::<Vec<_>>(),
+                "{id}"
+            );
+        }
+        for row in &rows {
+            let expected = (1..=row.expect.len()).collect::<Vec<_>>();
+            assert_eq!(ordinals(row.id.as_str(), SLICES), expected, "{}", row.id);
+        }
+    }
+
+    #[derive(Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+    #[serde(deny_unknown_fields)]
+    struct Record {
+        id: String,
+        ordinal: usize,
+        slice: String,
+        kind: String,
+        reason: String,
+    }
+
+    #[test]
+    fn manifest_reconciles() {
+        let manifest = include_str!("../../tests/fixtures/param_binding_matrix/manifest.jsonl");
+        let rows = read_rows(ROWS).unwrap();
+        let by_id: BTreeMap<_, _> = rows.iter().map(|row| (row.id.as_str(), row)).collect();
+        let mut records = BTreeSet::new();
+        let mut metadata = BTreeSet::new();
+        let mut ledger_rows = BTreeSet::new();
+        for line in manifest.lines() {
+            let r: Record = serde_json::from_str(line).unwrap();
+            let row = by_id[r.id.as_str()];
+            let (_, slice, assertion) = row.assertions().find(|(n, _, _)| *n == r.ordinal).unwrap();
+            assert_eq!(r.slice, slice, "{r:?}");
+            assert!(!r.reason.trim().is_empty());
+            assert!(
+                records.insert((r.id.clone(), r.ordinal, r.kind.clone())),
+                "{r:?}"
+            );
+            match r.kind.as_str() {
+                "slice" | "loss" => assert!(metadata.insert(r)),
+                "loss-row" | "set-row" => assert!(ledger_rows.insert((r.id, r.kind))),
+                "skip" => assert_eq!(row.unexecuted.as_deref(), Some(r.reason.as_str())),
+                "blocked" | "sentinel" => {
+                    assert!(assertion.loss.is_none() && row.unexecuted.is_none())
+                }
+                "corrected" => (),
+                _ => panic!("unknown manifest record {r:?}"),
+            }
+        }
+        let mut actual = BTreeSet::new();
+        for row in &rows {
+            for (ordinal, slice, assertion) in row.assertions() {
+                let mut record = |kind: &str, reason: String| {
+                    actual.insert(Record {
+                        id: row.id.clone(),
+                        ordinal,
+                        slice: slice.to_owned(),
+                        kind: kind.to_owned(),
+                        reason,
+                    });
+                };
+                if let Some(reason) = &assertion.loss {
+                    record("loss", reason.clone());
+                }
+                if assertion.slice.is_some() {
+                    record("slice", format!("Explicit slice {slice}"));
+                }
+                if row.unexecuted.is_some() {
+                    assert!(records.contains(&(row.id.clone(), ordinal, "skip".to_owned())));
+                }
+            }
+        }
+        assert_eq!(actual, metadata);
+        assert_eq!(
+            ledger_rows
+                .iter()
+                .filter(|(_, kind)| kind == "loss-row")
+                .count(),
+            132
+        );
+        assert_eq!(rows.iter().filter(|r| r.unexecuted.is_some()).count(), 20);
+        for id in ["x1-4", "x2-2", "x5-2"] {
+            for (n, slice, a) in by_id[id].assertions() {
+                assert_eq!(slice, "A");
+                assert!(a.loss.is_none() && by_id[id].unexecuted.is_none());
+                assert!(records.contains(&(id.to_owned(), n, "sentinel".to_owned())));
+            }
+        }
+    }
+}
+
+#[path = "../../tests/support/param_binding_matrix_prerequisites.rs"]
+mod prerequisites;

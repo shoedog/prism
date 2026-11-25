@@ -44,31 +44,21 @@ fn complete_dfg_fixture_sweep_against_fully_legacy_path() {
         .build()
         .unwrap();
     pool.install(|| {
-        let mut pending =
-            vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")];
+        let paths = crate::fixture_corpus::legacy_fixture_files(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
+            |p| Language::from_path(&p.to_string_lossy()).is_some(),
+        );
+        crate::fixture_corpus::assert_visited_within(
+            "complete_dfg_fixture_sweep_against_fully_legacy_path",
+            paths.len(),
+            // Language-recognised files of the legacy corpus at 9d1a7d06f: 1,297.
+            1_500,
+        );
         let mut files_checked = 0;
         let mut owners_checked = 0;
         let mut oracle_runs = 0;
-        while let Some(path) = pending.pop() {
-            if path.is_dir() {
-                for entry in std::fs::read_dir(path).unwrap() {
-                    let entry = entry.unwrap();
-                    let name = entry.file_name();
-                    let name = name.to_string_lossy();
-                    if name == "private-corpus"
-                        || name.starts_with("f-")
-                        || name.starts_with("F-private")
-                        || name.contains("SecBench")
-                    {
-                        continue;
-                    }
-                    pending.push(entry.path());
-                }
-                continue;
-            }
-            let Some(lang) = Language::from_path(&path.to_string_lossy()) else {
-                continue;
-            };
+        for path in paths {
+            let lang = Language::from_path(&path.to_string_lossy()).unwrap();
             let Ok(source) = std::fs::read_to_string(&path) else {
                 continue;
             };
