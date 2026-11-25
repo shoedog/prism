@@ -289,8 +289,8 @@ Guard rows (DESIGN 5.2; placements are stated against selectors):
 | g21 | pw01 with a regular expression on the whole path before splitting | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
 | g22 | pw01 whose segments pass a `filter` that drops the three names | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
 | g23 | pw01 with a sanitiser that renames a forbidden segment before the step | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
-| g24 | rm01 with `if (!Object.prototype.hasOwnProperty.call(target, key))` guarding the recursive descent | safe, `recursive_merge`, guard `sufficient`, silent |
-| g25 | rm01 with a composite predicate (`Object.hasOwn(target, key) && Object.prototype.propertyIsEnumerable.call(target, key)`) before the descent | safe, `recursive_merge`, guard `sufficient`, silent |
+| g24 | rm01 with `if (!Object.prototype.hasOwnProperty.call(target, key))` guarding the recursive descent | safe, `recursive_merge`, guard `partial`, fires (R-CHILD) |
+| g25 | rm01 with a composite predicate (`Object.hasOwn(target, key) && Object.prototype.propertyIsEnumerable.call(target, key)`) before the descent | safe, `recursive_merge`, guard `partial`, fires (R-CHILD) |
 | g26 | a setter with `typeof k === 'string' && k !== '__proto__' && k !== 'constructor' && k !== 'prototype'` on each walk key, array paths accepted | safe, `path_walk`, guard `sufficient`, silent |
 | g27 | pw01 whose final write is `Object.defineProperty(o, last, { value: v, enumerable: true, writable: true, configurable: true })` | pollutes, `none`, guard `none`, silent (M-CALL-WRITE) |
 | g28 | an ini-style section writer that redirects to a scratch object when the section name is `__proto__` | safe, `path_walk`, guard `sufficient`, silent |
@@ -410,7 +410,9 @@ selector-provenance variants enter as rows inside the slice fixing the gap.
       E4 coordinates. Decisions are in DESIGN 12.
 - [ ] Refresh changed rows' base RED/GREEN receipts before enabling each slice under ORCHESTRATION 7. A missing
       listing command supplies no behavioural RED.
-- [ ] Obtain both design approvals. The next review is round 2 of 2. At the cap apply ORCHESTRATION 7 and 8.
+- [x] Fold the round-2 findings under the controller's one-round extension. DESIGN 12 records each decision.
+- [ ] Obtain both design approvals in the single verification review of the amended artifact. Return its
+      disposition to the controller under ORCHESTRATION 7 and 8.
 
 ---
 
@@ -420,6 +422,7 @@ selector-provenance variants enter as rows inside the slice fixing the gap.
 
 **Files:**
 - Create: `src/ast/js_ts/proto_writes.rs`, `src/ast/js_ts/proto_writes/classes.rs`,
+  `src/ast/js_ts/proto_writes/name_reads.rs` (shared read resolver),
   `src/ast/js_ts/proto_writes_tests.rs`, `src/navigation/proto_writes.rs`,
   `crates/prism-review/tests/cli/nav_proto_writes_test.rs`
 - Modify: `src/ast/js_ts.rs` (the `mod proto_writes;` and `#[cfg(test)] mod proto_writes_tests;` lines),
@@ -453,6 +456,11 @@ pub struct KeyOperand {
     pub line: usize, pub start_byte: usize, pub end_byte: usize,
 }
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct NameRead {
+    pub path: String, pub base: String, pub span: AstSpan, pub owner: AstSpan,
+    pub binding: Option<AstSpan>, pub reaching_versions: Vec<AstSpan>, pub resolution_complete: bool,
+}
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct ProtoWrite { pub line: usize, pub end_line: usize, pub start_byte: usize, pub end_byte: usize,
     pub function: String, pub owner: AstSpan, pub function_start_line: usize, pub function_end_line: usize,
     pub class: ProtoWriteClass, pub key_operands: Vec<KeyOperand>, pub guard: GuardState }
@@ -460,61 +468,92 @@ impl ParsedFile {
     /// Pollution-capable dynamic-key writes of this file, sorted by (line, start_byte).
     /// Empty for languages other than JavaScript, TypeScript and TSX.
     pub fn js_ts_proto_writes(&self) -> Vec<ProtoWrite>;
+    /// All JS-family value reads on this one-based line, including unresolved reads, in byte order.
+    pub fn js_ts_name_reads(&self, line: usize) -> Vec<NameRead>;
 }
 
 // src/navigation/proto_writes.rs
 #[derive(serde::Serialize)]
 pub struct ProtoWriteRow { pub file: String, #[serde(flatten)] pub write: ProtoWrite }
-pub fn proto_writes(session: &NavigationSession) -> Vec<ProtoWriteRow>;   // sorted by (file, line, start_byte)
+#[derive(serde::Serialize)]
+pub struct LineReads { pub file: String, pub line: usize, pub reads: Vec<NameRead> }
+#[derive(serde::Serialize)]
+pub struct ProtoWriteListing { pub facts: Vec<ProtoWriteRow>, pub name_reads: Vec<LineReads> }
+pub fn proto_writes(session: &NavigationSession) -> ProtoWriteListing;
 ```
 
-The target and operand carry separate half-open AST owner byte intervals within the file. Function lines are for
+The write span covers the written member itself, excluding the assignment operator and RHS. The target and
+operand carry separate half-open AST owner byte intervals within the file. Function lines are for
 presentation. The operand has its own line and span, canonical base/path, lexical declaration span and all
 possible reaching definition spans (a formal starts at its declaration). Use the smallest owning function node
 or the program node for top-level code. A missing or ambiguous binding cannot justify name fallback. Keep the
 dependency from the actual selector site to the write, including through an inline callback.
 
-Document `prism nav proto-writes --repo <dir> [--format json|text]` as unstable in CLI help and `CLAUDE.md`. Its
-JSON output lists one object per fact. In the measurement worktree, `pp_join.py <harness out dir> <packages dir>
-<prism binary>` joins to the designated target at its column. Emit E2's historical by-name/strict flags
-separately from structural class/selector coverage, the write-line `finding_equivalent` diagnostic and actual
-`sink_finding` (DESIGN 5.4). Resolve retained occurrences against the source AST and owner/binding/version rule
-in 5.3. Log the first failed condition, selector site and any competing spans. Use the rule carrier from the
-global constraints. Test the join on an exact selector, an unambiguous zero-width Use, an earlier selector
-absent from the saved line, and a rebound/shadowed name. Run against the slice binary before its gate.
+Resolve value reads from the full syntax of the line, including RHS reads, tests, siblings, callback
+owners, and member chains such as `keyPath.length`. Preserve one occurrence per span and path. Record the
+canonical path and file-local half-open spans of the read, owner, declaration and reaching definitions.
+Unknown bindings, incomplete reaching sets and unresolved mutations must remain visible. Index reads once per
+parsed file so collecting many lines does not rescan the file per target. S2 consumes the same resolution.
+S1a-1 tests must distinguish a stable shared RHS, a same-line rebind, a same-name sibling owner and an
+unresolved competitor, including reads outside every fact. Exercise a predicate read of the key on the same line as the write.
+Test that a final element and a previously consumed element cannot share selector credit just because the
+path spelling matches (DESIGN 5.1).
+
+Document `prism nav proto-writes --repo <dir> [--format json|text]` as unstable in CLI help and `CLAUDE.md`.
+JSON lists facts sorted by file, line and target start byte. It also gives the resolved reads once for every
+distinct target or live selector line (including earlier sites), sorted by file, line and read span. Emit both
+arrays even for an empty listing. Test the JSON against the core query including zero reads and unknown binding.
+
+In the measurement worktree, `pp_join.py <harness out dir> <packages dir> <prism binary>` joins to the
+designated target at its column. Keep the E2 by-name/strict flags, structural coverage, frozen write-line
+`finding_equivalent` and actual `sink_finding` separately. Resolve matching Uses against the listing's
+complete read inventory. Write one record per DESIGN 5.4 case, including the expected route, selector site,
+any competing spans, first failed condition and whether only the property was reached. Mark actual route
+credit unmeasured before S2. From S2 read its per-target match trace alongside the actual finding. Record
+both flags and count each case once (route 1 first). Exercise an exact selector, unique zero-width anchor,
+earlier site absent from the frozen line, stable shared RHS, final-property-only reach and rebound/shadowed
+name. Run the join with the slice binary before the gate.
 
 - [ ] In the first commit the orchestrator extends the Stage T `proto_key_use_test` with both DESIGN 2 read
       forms. Assert a Use of the loop key on its step line with its exact operand span and a Use of the
       declarator key at its zero-width line anchor. Check spelling, owner and line in both. Keep the existing
       write tests.
-- [ ] Start with the empty listing. Enable the 133 `pollutes` rows outside the recursive class (58 nested, 59
-      walked, 16 named no-fact misses). Assert class and selector witness at each designated write, including
-      the empty intersection at t3-051. Guards are disabled and read `None`. Show behavioural RED for required
-      facts.
+- [ ] Start with the empty listing. Enable the 134 nonrecursive `pollutes` rows (59 nested, 59 walked and
+      16 named no-fact misses). Assert class and supplied selector at the designated AST target, before any
+      line deduplication. For `pw04`, pin the outer reduce-result member's file-byte span **[31, 114)** on
+      line 2. Check its own class, guard and matched operand against the row. The inner `o[k]` at [67, 71)
+      is an independent qualifying store. An inner-only result must fail the outer assertion. Apply the
+      span rule to chained, nested and destructuring targets on every designated line (ROW_REQUIREMENTS).
+      Require the `req` selector on `t3-051` and the corrected `t3-037` fact. Guards read `None`.
+      Show behavioural RED for the required facts.
 - [ ] Implement target/operand roles, fixed leaves, aliases, temporaries, ternaries, destructured cursors,
       callback owners, reducers and replacement of the cursor. Review focus items 1, 2, 3 and 5 get tests.
       Exercise the listing's JSON order and empty output on other languages.
 - [ ] Document the CLI and the existing reduce access-path rendering for pw04 in the known-gaps document.
-      Capture the pre-exclusion E4 listing, including non-test fact coordinates and per-class totals, for the
-      S1a-2 differential.
+      Save the pre-exclusion E4 listing with all non-test coordinates and class counts. Project the S4 ratio
+      now under DESIGN 8.1. Apply the proposed cuts to individual sites, include new walk shapes and add
+      recursive hits 12–20 once. Use the ordered reserves and report the proof-retained subtotal by label.
+      Compare projected C/N with 80% and send a shortfall to the owner. Proceed under DESIGN decision 11.
 - [ ] Apply ORCHESTRATION 5 items 1–5, 8–10 and the project AST checks. Two reviewers for this slice.
 
-**Gate.** All 133 enabled row decisions pass their class/operand checks. On the 21 nonrecursive strict
+**Gate.** All 134 enabled row decisions pass their class/operand checks. On the 21 nonrecursive strict
 conversions require at least 19 structurally matched targets in aggregate with per-class counts. Record the
-frozen write-line finding-equivalents as diagnostics, including the six cases that need an earlier selector and
-minimist's binding coincidence. The yield threshold begins at S2.
+frozen write-line finding-equivalents as diagnostics against the 4 route-1 and 17 route-2 assignments.
+At most four can earn frozen credit under the final role/version rule. S2 needs at least 15 earlier-site
+cases for 19/21 without guard exclusions. The S4 projection and any shortfall disclosure are due here.
 
 ### Slice S1a-2: value domains and private receivers (2 to 3 days, after S1a-1)
 
 **Files.** Extend the core fact module and its data-driven test. Put value-domain and receiver proofs in
 separate modules beside `classes.rs` as needed. The two S1a slices total 5–7 days.
 
-- [ ] Enable the 169 `safe` nonrecursive rows and keep all 133 earlier rows enabled (302 total). Require the
+- [ ] Enable the 168 `safe` nonrecursive rows and keep all 134 earlier rows enabled (302 total). Require the
       class, selector roles and witnesses for each, including safe reports and scope rows. Use the final row
       table with guards still disabled. Show pre-change failures for the new exclusions.
 - [ ] Implement DESIGN 5.1 numeric/native and finite-domain proofs, anchored fragments, private null-table
       children, closed-data write-back, stable installed slots and fixed interior fields. Preserve candidate
-      facts when the proof fails, including t3-001, 007, 011, 012 and 037. Compare both sides of every E4 pair
+      facts when the proof fails, including t3-001, 011 and 012. Keep the anchored template rule. It retains
+      t3-007 (safe report) and t3-037 (detection). Compare both sides of every E4 pair
       available to the enabled classes.
 - [ ] Re-run the E4 listing on the same corpus revisions as S1a-1. Attach every non-test fact and per-cut
       candidate, excluded and retained counts. Trace the original coordinates, document new facts and label the
@@ -523,8 +562,10 @@ separate modules beside `classes.rs` as needed. The two S1a slices total 5–7 d
 
 **Gate.** All 302 class/operand rows pass, the 19/21 aggregate structural benchmark threshold still holds and
 each E4 removal has the specified source proof and executed controls. Apply the E4 gate to the enabled classes
-under DESIGN 8.1. Require ≥80% capable at 20 or more sampled facts. Below 20 after the ordered reserves, record
-insufficient evidence without a percentage. S4 repeats the gate with all classes.
+under DESIGN 8.1. At 20 or more sampled facts record pass or below target against 80%. Below 20 after
+the ordered reserves record insufficient evidence without a percentage. Publish the proof-retained subtotal
+and compare this partial population with the S1a-1 projection. Apply decision 11 and repeat at S4 with all
+classes.
 
 ### Slice S1b: guards (3 to 4 days, after S1a-2)
 
@@ -540,8 +581,11 @@ insufficient evidence without a percentage. S4 repeats the gate with all classes
       and the bounded finite-name, helper and receiver proofs. Exercise the incomplete, stale, wrong-binding and
       control-flow neighbours. The JSON-safe loose comparison in `g14` stays partial, and the nested-key range
       check in `t2-045` has no guard. In `t2-062` the catch protects no feasible write and also has guard none.
-      Check all 16 sufficient witnesses when their classes are enabled. Every split-only downgrade in DESIGN 5.2
-      must stay partial.
+      Check all 14 sufficient witnesses when their classes are enabled. For an own-slot guard require both
+      stable property-key identity and local private-child proof. Assert the closed-table, stable diagonal and
+      closed-clone proofs in t2-120/166/170. Keep g24/g25 partial at S3, and t3-039/040 unguarded. The four
+      sufficient rows with newly supplied selectors (g28, t2-118/121/153) must stay silent on a matching
+      witness. Every split-only downgrade in DESIGN 5.2 must stay partial.
 - [ ] E5 found all 20 fixed versions. List sufficient facts and suppress their findings, retain partial
       warnings, and use the three-prototype observations for the four-root contract. Extended-root neighbours go
       in the receipt.
@@ -566,6 +610,9 @@ per-class counts.
   `crates/prism-review/src/algorithms/taint/run.rs` (the per-edge check, the source-line check, the side set,
   the emission block's description and strength), `CLAUDE.md` (the `taint_sinks/` paragraph), the
   known-gaps doc
+- Consume the S1a-1 core queries in `src/ast/js_ts/proto_writes.rs` and its `name_reads.rs` resolver.
+- Measurement support (separate eval-only change in `prism-pp-meas`): `eval/secbench/run.py` collects the
+  optional S2 match trace with the case's ordinary review run. `pp_join.py` and `test_pp_join.py` consume it.
 
 **Interfaces (produced):**
 
@@ -573,9 +620,12 @@ per-class counts.
 // crates/prism-review/src/algorithms/taint_sinks/proto_write.rs
 pub(crate) const RULE: &str = "js-proto-write";
 pub(crate) const CWE: &str = "CWE-1321";
-pub(crate) struct ProtoWriteIndex { /* built once per file from js_ts_proto_writes() */ }
+pub(crate) struct ProtoWriteIndex { /* built from js_ts_proto_writes() and js_ts_name_reads(line) */ }
+pub(crate) enum MatchRoute { TargetLine, EarlierSelection }
 pub(crate) struct ProtoHit {
     pub write_line: usize,
+    pub target: AstSpan, pub selector: AstSpan, pub evidence: AstSpan,
+    pub route: MatchRoute,
     pub owner: AstSpan,
     pub partial_guard: bool,
 }
@@ -587,12 +637,23 @@ impl ProtoWriteIndex {
 ```
 
 In `run.rs`, check reached Uses and framework-source ranges against DESIGN 5.3. Index the target and earlier
-selector in their own AST owners. For a zero-width anchor, shared RHS or retained representative outside the
-operand, require a single compatible owner, binding and version among all indistinguishable reads on that line.
+selector in their own AST owners. For each candidate line, index all `js_ts_name_reads(line)` results,
+including reads outside targets and incomplete resolutions. For a zero-width anchor, shared RHS or retained
+representative outside the operand, require a single compatible owner, binding and version among all
+indistinguishable reads on that line.
 Include both sides of a rebind and shadowed names. A representative exact span cannot resolve conflation across
 versions. Check each dependent live write and its guard before deduplicating the target line. Carry the source
-even when the leaf line has no reached Use. Disclose unresolved evidence under M-AMBIG, including its effect on
-yield.
+even when the leaf line has no reached Use. Use M-AMBIG as a reporting code. Enter an observed miss only
+with its case ID, target and competing spans after checking independent evidence.
+
+For the optional measurement trace, `run.rs` retains the actual route and operand identity for each matched
+target/source before line deduplication. Record ambiguous candidates at match time with their competing spans,
+and mark which target hits survive the ordinary emission filters. Write the
+trace only when requested by the measurement harness, alongside its usual review output. Include target,
+selector and reached Use or framework-range spans, owner, binding and reaching-definition spans. Test two
+qualifying routes on one target (two flags, one credited case) and a finding from a different same-line target
+(zero credit for the designated target). A rule finding with missing route evidence is unverified for the
+case join. No second run at an earlier selector is needed.
 
 Emit one `taint_sink` per target line under the existing diff/seed rules. Use the DESIGN 5.3 rule carrier and
 co-located-sink convention. Force `warning` even beside a weak call. A partial hit carries the guard note, a
@@ -610,10 +671,10 @@ Preserve the known `sk03b` warning (#854).
 - [ ] Drive the enabled row decisions with supplied selector Uses and the immutable attacker-name sets.
       If S2 lands first, assert final outcomes for guard-`none` rows. S1b enables the partial/sufficient rows.
       Run the seeded fixtures separately. Test the t3-047–050 earlier selectors and t3-014–018 decoys, including
-      an exact step, a unique zero-width declarator and a stable shared RHS outside the operand. For t3-051 keep
-      the named receiver decision silent and supply the selector's source range separately for a positive
-      target-line test. Exercise two writes with a same-line rebind, same-line sibling owners and a retained RHS
-      spanning another binding. Assert silence for ambiguous evidence and for killed cursors, isolated
+      an exact step, a unique zero-width declarator and a stable shared RHS outside the operand. For t3-051
+      require a named-input hit on `req`, then independently require a hit from the framework selector
+      range. Keep t3-017 silent on its isolated receiver. Exercise two writes with a same-line rebind,
+      same-line sibling owners and a retained RHS spanning another binding. Assert silence for ambiguous evidence and for killed cursors, isolated
       properties and values. Keep sk16a/b as the stable-version controls. Show RED then GREEN at the designated
       line.
 
@@ -630,8 +691,10 @@ Preserve the known `sk03b` warning (#854).
 
 **Gate.** All enabled sink decisions pass. Count actual findings on the designated benchmark line in default
 same-file review. Require at least ceil(0.9 × (N − G)) aggregate hits, with N = 21 or 29 if S3 has landed and G
-the human-approved sufficient-guard exclusions. Without exclusions this is 19/21 or 27/29. Report both raw and
-adjusted counts by class, each approved guard and each ambiguous miss.
+the human-approved sufficient-guard exclusions. Without exclusions this is 19/21 or 27/29. Log expected
+and observed routes per case in the join with the actual S2 match trace, designated target span, competing
+evidence or missing-witness reason. Record both flags, count each case once, and report raw and adjusted
+counts by class and route, each approved guard and each ambiguous miss.
 
 ### Slice S3: `recursive_merge` (3 to 4 days, after the fact and guard slices)
 
@@ -645,12 +708,14 @@ adjusted counts by class, each approved guard and each ambiguous miss.
       destination-position matching, statically bound property calls, bound/literal-apply forms, and aliased or
       wrapped child arguments under DESIGN 5.1. Apply the closed-data proof for destination-only write-back.
       Retain recursion on opaque destinations (t3-002, E4 12–20). Exclude source-only descent and ambiguous
-      property dispatch. Include the guards on the recursive destination step.
+      property dispatch. Check g24/g25 against a partial guard and R-CHILD, including the local private-child
+      proof required for suppression.
 - [ ] Recheck all 326 class, guard and operand decisions, including fresh-copy and method-identity controls
       t3-019–021/052–053. If S2 is present, assert all named-input sink decisions and the separate seeded rows
       sk09 (fires), sk10 (silent) and sk11 (silent, M-BIND). Otherwise S2 owns those sink checks.
 - [ ] Measure the E4 listing with all classes, including the retained recursive hits and per-cut counts. Re-run
-      E1 and the join, reporting the eight recursive cases and the potential set P. Two reviewers.
+      E1 and the join, reporting all eight recursive routes and the potential set P. Replace the nine
+      projected recursive E4 sites with the measured listing and reconcile each difference. Two reviewers.
 
 **Gate.** Before S2 require at least 27/29 **structural** matches across all classes (frozen finding-equivalents
 diagnostic only). With S2 require aggregate actual findings ≥ ceil(0.9 × (29 − G)), or 27/29 before any approved
@@ -677,14 +742,16 @@ evidence.
       the tally; state percentages only on 20 or more findings.
 - [ ] Run E1 and the join on the final build in default same-file mode. Count actual findings at the designated
       line on all 29 strict conversions. Gate on the aggregate ≥ ceil(0.9 × (29 − G)), 27/29 with no exclusions.
-      Record the 19 walk, two nested and eight recursive denominators, both raw and adjusted by class. Publish
+      Record both route flags per case and the 19 walk, two nested and eight recursive denominators, raw and
+      adjusted by class and credited route. Publish
       every human-approved guard removed from both sides, and each ambiguity still counted against yield.
 - [ ] Re-label the 32 original E4 coordinates and all final class shapes under DESIGN 8.1. Include sufficient
       facts in the sample denominator. After the original five corpora add Superset frontend, Answer UI, then
       Screwdriver in order while the final population contains fewer than 20 hits. Pin revisions and list
-      per-cut counts. At 20 or more sampled facts require at least 80% capable. After exhausting the reserves
-      with fewer than 20, record counts and **insufficient evidence**, omit the percentage and accept that gate
-      disposition.
+      per-cut counts. Reconcile the S1a-1 projection. Cross-tabulate proof-retained facts by the four
+      reader labels in DESIGN 8.1 and keep them in the denominator. At 20 or more sampled facts report the
+      measured ratio and pass or **below target** against 80%. With fewer than 20 after the reserves,
+      report counts and **insufficient evidence** without a percentage. Disclose the outcome under decision 11.
 - [ ] Reconcile the 326 frozen rows plus any executed additions made inside their fixing slice, both directions
       of loss, the scope rows and the separate seeded and ambiguity ledger.
 
@@ -701,6 +768,6 @@ evidence.
 ## Acceptance for the lane
 
 The experiment memo and slice results are merged, both reviewers approved S1a-1, S1a-2, S1b, S2 and S3, and the
-report is posted on #603. Require the DESIGN 8 thresholds on the final head. For ordinary code, the
-preregistered insufficient-evidence result after all reserves also satisfies acceptance. A measured failure at
-20 or more hits remains a failed gate.
+report is posted on #603. Apply DESIGN 8 to the final head. For ordinary code, publish the measured pass,
+below-target result, or insufficient evidence after all reserves. Under decision 11 the lane may close on a
+disclosed shortfall unless the owner changes the default. Preserve the numeric gate status in the report.

@@ -1,6 +1,6 @@
 # Stage D row requirements
 
-The 326 rows follow fixture order. Each target is its recorded file and write line. The saved Node 24.15.0
+The 326 rows follow fixture order. Each requirement identifies an individual write target in the recorded file. The saved Node 24.15.0
 observations supply the truth for the ordinary roots exercised by each call, including calls that construct
 their own root. [Fixture metadata](../../../../../tests/fixtures/proto_writes/rows.jsonl) ·
 [Recorded execution](../../../../../tests/fixtures/proto_writes/truth/truth.jsonl) ·
@@ -14,15 +14,24 @@ including `sk11` from a source-only seed. Product measurements begin in Stage I.
 
 | Recorded truth and scope | Fires | Silent | Total |
 |---|---:|---:|---:|
-| In scope, `pollutes` | 136 | 17 | 153 |
-| In scope, `safe` | 44 | 96 | 140 |
+| In scope, `pollutes` | 138 | 16 | 154 |
+| In scope, `safe` | 47 | 92 | 139 |
 | Outside lane scope, `safe` with a scope note | 22 | 11 | 33 |
-| **All rows** | **202** | **124** | **326** |
+| **All rows** | **207** | **119** | **326** |
 
-Of the 124 silent rows, 96 require no fact, 16 have a sufficient guard and 12 have an insufficiently guarded
-fact with no matching selector base. All 33 scope rows have individual decisions. The frozen names in `t3-051`
-supply only the receiver. Its independent source-range test belongs to S2.
+Of the 119 silent rows, 96 require no fact, 14 have a sufficient guard and nine have a fact with an
+insufficient guard and no matching selector base. All 33 scope rows have individual decisions. The named
+selector `req` fires in `t3-051`. S2 independently tests its selector source range. The receiver-only
+control `t3-017` stays silent.
 [Losses and scope](DESIGN.md#11-accepted-losses-and-scope)
+
+Match the designated AST target by file and half-open UTF-8 byte span before deduplicating findings by line.
+For `pw04` line 2 the outer reduce-result member occupies **[31, 114)** and must itself produce
+`path_walk`, guard `none` and a matching selector. The inner callback store at [67, 71) gets its own
+decision. The outer assertion must fail if only the inner fact survives. Across all 326 designated lines
+this is the only pair of qualifying targets on one line. The inner replacement in `t2-110` is a one-level
+store. For chained assignments, loop bindings and destructuring, bind the asserted member target
+individually, including the second pattern target on its designated line in `t2-127`.
 
 | Row ID | Truth | Required fact class | Required guard | Required sink | Selector witness | Accepted loss or scope |
 |---|---|---|---|---|---|---|
@@ -89,11 +98,11 @@ supply only the receiver. Its independent source-range test belongs to S2.
 | g21 | safe | path_walk | partial | fires | k | R-KEY-PROOF |
 | g22 | safe | path_walk | partial | fires | k | R-KEY-PROOF |
 | g23 | safe | path_walk | partial | fires | k | R-KEY-PROOF |
-| g24 | safe | recursive_merge | sufficient | silent | key | — |
-| g25 | safe | recursive_merge | sufficient | silent | key | — |
+| g24 | safe | recursive_merge | partial | fires | key | R-CHILD |
+| g25 | safe | recursive_merge | partial | fires | key | R-CHILD |
 | g26 | safe | path_walk | sufficient | silent | k | — |
 | g27 | pollutes | none | none | silent | — | M-CALL-WRITE |
-| g28 | safe | path_walk | sufficient | silent | — | — |
+| g28 | safe | path_walk | sufficient | silent | name | — |
 | g29 | pollutes | path_walk | partial | fires | k | — |
 | g30 | pollutes | path_walk | none | fires | k | — |
 | g31 | pollutes | path_walk | none | fires | k | — |
@@ -235,10 +244,10 @@ supply only the receiver. Its independent source-range test belongs to S2.
 | t2-115 | safe | none | none | silent | — | — |
 | t2-116 | safe | none | none | silent | — | — |
 | t2-117 | safe | none | none | silent | — | — |
-| t2-118 | safe | path_walk | sufficient | silent | — | — |
+| t2-118 | safe | path_walk | sufficient | silent | section | — |
 | t2-119 | safe | path_walk | none | fires | section | R-TARGET |
 | t2-120 | safe | nested_keys | sufficient | silent | key | — |
-| t2-121 | safe | path_walk | sufficient | silent | — | — |
+| t2-121 | safe | path_walk | sufficient | silent | section | — |
 | t2-122 | safe | nested_keys | none | fires | section | O-APP |
 | t2-123 | safe | nested_keys | none | fires | section | O-APP |
 | t2-124 | safe | path_walk | none | fires | section | R-TARGET |
@@ -270,7 +279,7 @@ supply only the receiver. Its independent source-range test belongs to S2.
 | t2-150 | safe | none | none | silent | — | — |
 | t2-151 | safe | path_walk | none | fires | key | R-SCHEMA |
 | t2-152 | safe | nested_keys | sufficient | silent | section | — |
-| t2-153 | safe | path_walk | sufficient | silent | — | — |
+| t2-153 | safe | path_walk | sufficient | silent | key | — |
 | t2-154 | safe | none | none | silent | — | O-APP |
 | t2-155 | safe | none | none | silent | — | — |
 | t2-156 | safe | nested_keys | none | fires | section | R-TARGET |
@@ -284,8 +293,8 @@ supply only the receiver. Its independent source-range test belongs to S2.
 | t2-164 | safe | none | none | silent | — | — |
 | t2-165 | safe | none | none | silent | — | — |
 | t2-166 | safe | nested_keys | sufficient | silent | side | — |
-| t2-167 | safe | path_walk | partial | silent | — | — |
-| t2-168 | safe | path_walk | partial | silent | — | — |
+| t2-167 | safe | path_walk | partial | fires | parts, key | R-KEY-PROOF |
+| t2-168 | safe | path_walk | partial | fires | key | R-KEY-PROOF |
 | t2-169 | safe | nested_keys | none | fires | result | R-ASYNC |
 | t2-170 | safe | nested_keys | sufficient | silent | section | — |
 | t2-171 | safe | none | none | silent | — | — |
@@ -332,7 +341,7 @@ supply only the receiver. Its independent source-range test belongs to S2.
 | t3-034 | pollutes | nested_keys | none | fires | position | — |
 | t3-035 | safe | none | none | silent | — | — |
 | t3-036 | pollutes | nested_keys | none | fires | startIdx | — |
-| t3-037 | safe | nested_keys | none | fires | group | R-TEMPLATE |
+| t3-037 | pollutes | nested_keys | none | fires | group | — |
 | t3-038 | safe | none | none | silent | — | — |
 | t3-039 | pollutes | nested_keys | none | fires | type | — |
 | t3-040 | pollutes | nested_keys | none | fires | group | — |
@@ -346,7 +355,7 @@ supply only the receiver. Its independent source-range test belongs to S2.
 | t3-048 | pollutes | path_walk | none | fires | section | — |
 | t3-049 | pollutes | path_walk | none | fires | id | — |
 | t3-050 | pollutes | path_walk | none | fires | section | — |
-| t3-051 | pollutes | path_walk | none | silent | — | M-ROW-SELECTOR |
+| t3-051 | pollutes | path_walk | none | fires | req | — |
 | t3-052 | pollutes | recursive_merge | none | fires | key | — |
 | t3-053 | pollutes | recursive_merge | none | fires | key | — |
 | t3-054 | pollutes | path_walk | partial | fires | pending, key | — |
