@@ -817,11 +817,14 @@ unknown file/region coverage. Record excluded syntactic forms separately from co
 Check `url-concat-parenthesized` on numeric and opaque operands, and a readable GET alternative paired with
 an opaque method on the same readable URL. Require the GET candidate with `dynamic_method`, or unbound with
 that reason if GET has no match. Exercise an empty component against `{}`, `{?}` and `{*0+}` with the
-separator policy fixed. At the mapped `s09` and `s09-2` sites, the declared string domain gives
-`candidate/ambiguous_operation` with the two IDs in the Alignment list and zero notifications. Substitute
+separator policy fixed. At mapped `s05`, require bound `op:GET /mothbank/orchards/{}` with no unmatched arm.
+The whole-component string variable is assumed non-empty under the syntactic path model.
+At mapped `s09` and `s09-2`, the declared string domain gives `candidate/ambiguous_operation` with the two
+candidate IDs in each Alignment list entry and zero notifications. Check the conditional overlap with the other
+mixed declaration at each site under the suffix or prefix condition in that entry. Substitute
 the literal `""` to bind only the generic route. Substitute `"wax"` to get `%2Fwax` and `wax-ridge-gold`,
-respectively. At each site both routes match the two whole literals. Require one affix point for the mixed route
-and zero for the generic route, giving a bound mixed route with the generic overlap. With a symbolic numeric
+respectively. At each site both routes match the two whole literals. With these primary counts equal, require
+one affix point for the mixed route and zero for the generic route, giving a bound mixed route with the generic overlap. With a symbolic numeric
 substitution, require the same binding by structural pattern equality. In `matching-tie-without-parameter-on-literal`,
 both compatible GET declarations for `/press/copper/leaf` score two whole literals and zero affix points.
 Require `candidate/ambiguous_operation` with both IDs.

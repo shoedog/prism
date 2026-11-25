@@ -163,7 +163,9 @@ incomplete method coverage.
   serialization/constraint facts as attributes for matching. A literal schema colon stays literal.
 - `{}` matches one non-empty component when it occupies the whole segment. Within a mixed segment its capture
   must consume non-empty text between the fixed parts. An empty capture is admitted only by `{?}` or `{*0+}`.
-  A client substitution can produce empty text. Score the resulting component with its fixed parts intact (§5.4).
+  Model a whole-component string variable as a non-empty segment parameter (§5.4). Score a possible empty
+  spelling separately only if the substitution shares its segment with fixed text and that spelling changes
+  capture eligibility. Keep the fixed text when scoring it.
   Use `{*}` for one or more nonempty segments, `{*N}` for exactly N and `{*0+}` for zero or more after the
   retained separator. Gin `/mugs/*trail`, Express 4 `/mugs/*` and Hapi `/mugs/{trail*}` under the empty-tail
   policy project to `/mugs/{*0+}`. The empty tail consumes no segment after `/mugs/`. Accept a bare parent only
@@ -458,19 +460,20 @@ in neutral shapes s01–s45. The disposition table in §9 also covers the gramma
 2. Concatenate literal text and symbolic substitutions for string concatenation and templates. A variable value
    occupying a path component is a segment parameter under the syntactic path model. A simple substitution
    **within** a segment keeps the fixed prefix/suffix and the parameter, even next to an encoded slash. Preserve
-   multiple holes, their order and repeated-variable constraints. If the substitution domain includes the empty
-   string, score that spelling separately wherever it changes capture eligibility, then reduce the readable
+   multiple holes, their order and repeated-variable constraints. For a substitution sharing its segment with fixed
+   text, score its empty spelling separately if the domain admits it and capture eligibility changes. Reduce the readable
    alternatives by the table below. At `s09` and `s09-2` the mixed template wins on the non-empty arm. On the
    empty arm the fixed prefix or suffix alone fills the component and only the generic template matches. Each site
-   is therefore `candidate/ambiguous_operation`. A typed parameter with an evidenced non-empty domain or a known
-   non-empty literal excludes the empty arm. In these controls the mixed template is bound with the generic overlap.
+   is therefore `candidate/ambiguous_operation`. With a typed substitution whose domain excludes the empty string
+   or a known non-empty literal, the mixed template at each site is bound with the generic overlap.
    Apply JS string conversion to known substitutions, including numeric literals, empty string, false, null
    and undefined. Short-circuit operators return their selected operand before that conversion. A numeric hole
    accepts only its numeric string domain. Encoded substitutions retain their encoded segment boundaries. A known slash-producing transform (as in `s20`),
    unresolved base before the first slash, or opaque value that determines the number of segments is dynamic.
-   Record that an unrestricted string parameter assumes a single component. A possible unescaped separator is a
-   routing limit. Handle multiline templates using URL parsing (strip ASCII TAB/CR/LF, preserve meaningful encoded
-   whitespace). Keep escaped separators intact. Evaluate the path before opaque query/fragment text. A conditional
+   Record two limits of the syntactic path model. It treats an unrestricted string substitution as confined to one
+   component even if its runtime value contains an unescaped separator. When the variable occupies the whole
+   component, the model assumes it is non-empty. Handle multiline templates using URL parsing (strip ASCII TAB/CR/LF,
+   preserve meaningful encoded whitespace). Keep escaped separators intact. Evaluate the path before opaque query/fragment text. A conditional
    with two readable URLs is a set of alternatives. Equal mapped targets can coalesce.
 3. Resolve `URL`/Request inputs and relative browser URLs with their evidenced document base, including dot
    segments, network-path references, fragment before query and UTF-8 encoding. Record a missing base needed to
@@ -534,10 +537,10 @@ alone cannot establish a runtime value.
 
 For literal patterns without a variable, compare the exact mapped path before testing variable routes. For mixed
 patterns, compatible means a nonempty intersection of segment spellings under their literal pieces and capture
-domains. A read of only a possible subset is conditional. For each feasible path alternative, score the count of
-equal literal segment pairs or structurally equal parameter patterns. Break ties in that count by awarding one
-point per concrete caller segment that matches all literal pieces of a mixed declaration segment and satisfies
-every capture constraint. An optional component scores only when
+domains. A read of only a possible subset is conditional. For each feasible path alternative, the primary score
+counts equal literal segment pairs or structurally equal parameter patterns. Compare affix points as a secondary
+key only when the primary counts are equal. Count one affix point per concrete caller segment that matches all
+literal pieces of a mixed declaration segment and satisfies every capture constraint. An optional component scores only when
 present, and a variable-length tail consumes the suffix without credit for each absorbed segment. Take the highest
 compatible score over all valid alignments for each declaration. Retain every tied best. A sole best that needs a
 caller variable to take a particular literal, or needs an unproved width/constraint, is a candidate. Keep the
@@ -1141,8 +1144,9 @@ from the adapter denominator. Keep diagnostics, including secondary reasons, in 
 | `s01`, `s02`, `s03`, `s04`, `s04-2`, `s05`, `s06`, `s07`, `s08`, `s09`, `s09-2`, `s10`, `s11`, `s12`, `s13`, `s14`, `s14-2`, `s15`, `s16`, `s16-2`, `s17`, `s18`, `s19`, `s20`, `s21`, `s21-2`, `s21-3`, `s22-3`, `s23`, `s24`, `s25`, `s25-2`, `s26`, `s27`, `s28`, `s29`, `s29-2`, `s30-3`, `s31-3`, `s32`, `s33`, `s34`, `s34-2`, `s35`, `s36`, `s37`, `s37-2` | These 47 occurrences require one admitted service-relative mapping in each of their 37 fixture configs. Use the record below before applying the row's grade, limits or target expectations. |
 | `url-concat-parenthesized` | With the default export of `urls/quay.ts` mapped by the fixture config to the fixture API at its identity prefix, numeric parameter plus numeric literal gives bound `op:GET /reels/{}/ends`. Replace the parameter operand with a value of unknown type and coercion. Keep GET, give `unbound/dynamic_url` and zero targets. |
 | `url-in-segment`, `url-concat-in-segment`, `url-two-values-in-one-segment` | Bound GET /reels/{} for all three. |
-| `s09` | Declared string gives `candidate/ambiguous_operation` with `op:GET /mothbank/crates/%2F{}` and `op:GET /mothbank/crates/{}`. With `"wax"`, `%2Fwax` binds the mixed route on its literal prefix, with the generic route as an overlap. With `""`, `%2F` binds only the generic route. |
-| `s09-2` | Declared string gives `candidate/ambiguous_operation` with `op:GET /mothbank/crates/{}-ridge-gold` and `op:GET /mothbank/crates/{}`. With `"wax"`, `wax-ridge-gold` binds the mixed route on its literal suffix, with the generic route as an overlap. With `""`, `-ridge-gold` binds only the generic route. |
+| `s05`, `s06`, `s07`, `s08`, `s10`, `s17`, `s23`, `s24`, `s36`, `c11`, `t1-extra-repeated-param`, `t1-extra-literal-schema-tie` | Keep the pinned grades, target IDs and reasons. Each whole-component string hole models a non-empty segment parameter. |
+| `s09` | Declared string gives `candidate/ambiguous_operation` with `op:GET /mothbank/crates/%2F{}` and `op:GET /mothbank/crates/{}`. Record `op:GET /mothbank/crates/{}-ridge-gold` as a conditional overlap when the substitution ends in `-ridge-gold`. With `"wax"`, `%2Fwax` binds the mixed route on its literal prefix, with the generic route as an overlap. With `""`, `%2F` binds only the generic route. |
+| `s09-2` | Declared string gives `candidate/ambiguous_operation` with `op:GET /mothbank/crates/{}-ridge-gold` and `op:GET /mothbank/crates/{}`. Record `op:GET /mothbank/crates/%2F{}` as a conditional overlap when the substitution starts with `%2F`. With `"wax"`, `wax-ridge-gold` binds the mixed route on its literal suffix, with the generic route as an overlap. With `""`, `-ridge-gold` binds only the generic route. |
 | `c05` | Align the mixed live-branch witness by changing the declaration to let in the aligned projection. Candidate GET /reels, primary `conditional_url`, opaque replacement arm uncovered. Retain original const bytes as an abrupt-completion control: bound GET /reels on the sole reaching arm. |
 | `s15` | Candidate GET /mothbank/booklets and GET /mothbank/booklets/{}, `ambiguous_operation`. Empty string reaches the base, truthy string reaches the segment. Suffixes false, null and undefined stringify without a slash and are unmatched. |
 | `parameter-to-literal`, `matching-only-top`, `matching-parameter-score` | Numeric domain excludes me: unbound/no_operation. Next two become candidate/ambiguous_operation. GET /press/{}/leaf and GET /press/copper/{} tie for copper. GET /base/{}/top and GET /base/flint/{} tie for flint (GET /base/{}/{} overlaps). |
@@ -1280,3 +1284,7 @@ Both changed grades remain E-2 rule rows. D-census is pending before P1.
 ## Review round 4
 
 - WRONG folded. §5.4 breaks the concrete `"wax"` tie at `s09` and `s09-2`. P3 checks both affix scores and the existing two-way GET tie at `/press/copper/leaf`.
+
+## Review round 5
+
+- WRONG 1 and SMELLs 2–4 folded. §5.1 and §5.4 scope the empty arm to mixed segments. P3 checks `s05`, and the Alignment list preserves all 12 pinned results. §5.4 makes affix points secondary and qualifies the non-empty controls. Both `s09` companion expectations name the conditional overlap. Rule/accepted-loss counts are 170/47 for E-1 and 288/18 for E-2.
