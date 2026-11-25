@@ -586,7 +586,7 @@ fn declaration<'a>(
             reason: Reason::RuntimeGeneratedRegistration,
         }));
     }
-    let (native_name, metadata) = view_metadata(
+    let (native_name, mut metadata) = view_metadata(
         bindings,
         file,
         context,
@@ -595,6 +595,9 @@ fn declaration<'a>(
         def,
         callbacks.first(),
     );
+    if matches!(&parent, Receiver::Router { identity, .. } if bindings.config_replaced(identity)) {
+        metadata.app_automatic = Some(Err("unproved app.config".into()));
+    }
     let shortcut = (route_method(method) && method != "route").then_some(method);
     let (methods, default_methods, effective_methods) =
         flask_methods(file, &options, &metadata, shortcut);

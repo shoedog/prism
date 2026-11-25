@@ -71,77 +71,10 @@ fn function_metadata<'a>(
         node: origin,
         context,
     } = use_site;
-    let mut writes = Vec::new();
-    let registration_scope = python_scope(origin);
-    let source_files = [
-        Some(member.file),
-        (member.file.path != file.path).then_some(file),
-    ];
-    for source in source_files.into_iter().flatten() {
-        let same_file = source.path == file.path;
-        let module_before = if same_file && registration_scope.kind() == "module" {
-            origin.start_byte()
-        } else if same_file && context.frames.is_empty() {
-            // A record_once callback can run during module setup, after its
-            // definition but before the end of the module.
-            registration_scope.start_byte()
-        } else {
-            bindings.module_before(source, context)
-        };
-        for &write in bindings.nodes(&source.path) {
-            for lhs in bindings.assignment_targets(write) {
-                let Some((object, field)) = attribute(lhs) else {
-                    continue;
-                };
-                let field = source.node_text(&field);
-                if !matches!(
-                    field,
-                    "methods" | "required_methods" | "provide_automatic_options" | "__name__"
-                ) {
-                    continue;
-                }
-                let value = match bindings.value_at(&source.path, object, context) {
-                    PythonValue::Definition(target)
-                        if target.file.path == member.file.path && target.node == member.node =>
-                    {
-                        (write.kind() == "assignment"
-                            && write.child_by_field_name("left") == Some(lhs))
-                        .then(|| write.child_by_field_name("right"))
-                        .flatten()
-                    }
-                    PythonValue::Unknown(_) | PythonValue::Opaque(_) => None,
-                    _ => continue,
-                };
-                let scope = python_scope(write);
-                let direct = write.parent().and_then(|parent| parent.parent())
-                    == scope.child_by_field_name("body").or(Some(scope));
-                let order =
-                    if direct && scope.kind() == "module" && write.end_byte() <= module_before {
-                        Some(if same_file { 1 } else { 0 })
-                    } else if direct
-                        && same_file
-                        && scope == registration_scope
-                        && write.end_byte() <= origin.start_byte()
-                    {
-                        Some(2)
-                    } else {
-                        None
-                    };
-                writes.push((
-                    order.unwrap_or(3),
-                    write.start_byte(),
-                    field,
-                    order.and(value),
-                    source,
-                    write,
-                ));
-            }
-        }
-    }
-    writes.sort_by_key(|(order, byte, ..)| (*order, *byte));
     let mut endpoint = EffectiveEndpoint::Known(name.into());
     let mut metadata = FlaskViewMetadata::default();
-    for (_, _, field, value, source, write) in writes {
+    for write in bindings.view_metadata_writes(member, file, origin, context) {
+        let (source, field, value, write) = (write.file, write.field, write.value, write.node);
         let text = source.node_text(&value.unwrap_or(write));
         let methods = || {
             value.map_or_else(

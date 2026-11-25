@@ -327,10 +327,6 @@ fn import_parts(import: Node<'_>) -> Option<(Node<'_>, Option<Node<'_>>)> {
 }
 
 impl<'a> PythonBindings<'a> {
-    pub(super) fn assignment_targets(&self, node: Node<'a>) -> Vec<Node<'a>> {
-        writes::write_targets(node)
-    }
-
     pub(crate) fn nodes(&self, file: &str) -> &[Node<'a>] {
         self.nodes.get(file).map_or(&[], Vec::as_slice)
     }

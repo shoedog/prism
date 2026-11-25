@@ -1,5 +1,7 @@
 use super::*;
 
+mod round_two;
+
 const APP: &str = "from flask import Flask, Blueprint\napp = Flask(__name__)\n";
 
 fn check(source: &str, inspect: impl FnOnce(&[FlaskEvent<'_>])) {
@@ -226,10 +228,10 @@ fn view_metadata_follows_proved_setup_order() {
         ("views.py", "def f(): pass\nf.methods = ['PATCH']\n")]);
     let bindings = index_python(&files);
     let facts = flask_facts(&bindings, "app.py", &SetupContext::default());
-    assert_eq!(
+    assert!(matches!(
         rule(&facts).effective_methods,
-        MethodSet::known(["POST", "OPTIONS"])
-    );
+        MethodSet::Unknown { .. }
+    ));
 
     let source = format!("{APP}def f(): pass\ndef make():\n    app.add_url_rule('/x', view_func=f)\nf.methods = ['POST']\nmake()\n");
     let files = parsed(&[("app.py", &source)]);

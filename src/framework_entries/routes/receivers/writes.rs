@@ -18,7 +18,7 @@ impl<'a> LexicalWrites<'a> {
     pub(super) fn index(file: &'a ParsedFile, nodes: &[Node<'a>]) -> Self {
         let mut result = Self::default();
         let mut globals = BTreeSet::new();
-        let mut function_writes = BTreeSet::new();
+        let mut nested_writes = BTreeSet::new();
         for &node in nodes {
             let (names, wildcard) = written_names(file, node);
             if names.is_empty() && !wildcard {
@@ -28,9 +28,9 @@ impl<'a> LexicalWrites<'a> {
             let writes = result.scopes.entry(scope.id()).or_default();
             for name in names {
                 if node.kind() == "global_statement" {
-                    globals.insert(name);
-                } else if scope.kind() == "function_definition" {
-                    function_writes.insert(name);
+                    globals.insert((scope.id(), name));
+                } else if matches!(scope.kind(), "function_definition" | "class_definition") {
+                    nested_writes.insert((scope.id(), name));
                 }
                 writes.names.entry(name).or_default().push(node);
             }
@@ -38,7 +38,10 @@ impl<'a> LexicalWrites<'a> {
                 writes.wildcard.push(node);
             }
         }
-        result.uncertain_globals = globals.intersection(&function_writes).copied().collect();
+        result.uncertain_globals = globals
+            .intersection(&nested_writes)
+            .map(|&(_, name)| name)
+            .collect();
         for scope in result.scopes.values_mut() {
             for writes in scope.names.values_mut().chain([&mut scope.wildcard]) {
                 writes.sort_by_key(|node| (node.end_byte(), node.start_byte()));
