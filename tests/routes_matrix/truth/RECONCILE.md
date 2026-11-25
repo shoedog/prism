@@ -16,7 +16,7 @@ compared pin in that field. Registrations include the check for extra calls.
 | Site | 58 | 2 | 60 |
 
 The two method edits remove pins, which is why the final method count stays at
-47. Run `python3 -B tests/fixtures/routes/truth/reconcile.py` to see the compared
+47. Run `python3 -B tests/routes_matrix/truth/reconcile.py` to see the compared
 result and the static-only fields for each row.
 
 ## Expectation changes
