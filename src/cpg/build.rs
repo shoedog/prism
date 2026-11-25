@@ -2,11 +2,17 @@
 //! building the unified graph from parsed files, assembling nodes/edges, and
 //! statement classification.
 
+#[path = "argument_nodes.rs"]
+mod argument_nodes;
+
 #[path = "callee_params.rs"]
 mod callee_params;
 
 #[path = "callee_returns.rs"]
 mod callee_returns;
+
+#[path = "e5_trace.rs"]
+mod e5_trace;
 
 #[path = "object_literal_args.rs"]
 mod object_literal_args;
@@ -381,6 +387,7 @@ impl CodePropertyGraph {
         if new_sources.is_empty() || argument_seeds.is_empty() {
             return;
         }
+        let trace_seeds = e5_trace::enabled().then(|| argument_seeds.clone());
         let mut reached = BTreeSet::new();
         let mut stack = argument_seeds;
         while let Some(node) = stack.pop() {
@@ -401,6 +408,11 @@ impl CodePropertyGraph {
         }).collect();
         if refused.is_empty() {
             return;
+        }
+        if let Some(seeds) = trace_seeds {
+            e5_trace::for_each_witness(graph, seeds, &refused, |source, seed, path| {
+                e5_trace::report(graph, source, seed, path);
+            });
         }
         let mut remove: Vec<_> = graph
             .edge_references()
@@ -1632,36 +1644,15 @@ impl CodePropertyGraph {
                         break;
                     }
                     let (arg_text, arg_span) = &args[i];
-                    // Field-sensitive arg binding (from PR #113): prefer the full access path
-                    // (e.g. `o.data`) so interproc taint flows from the specific field, falling
-                    // back to the base (`o`) — the pre-change behavior — when no field-path var
-                    // node exists (recall-preserving).
-                    let full_arg_path = caller_parsed
-                        .bounded_argument_member_path_at(arg_span.start, arg_span.end)
-                        .unwrap_or_else(|| AccessPath::from_expr(arg_text));
-                    let mut arg_paths = vec![full_arg_path.clone()];
-                    let base_arg_path = AccessPath::simple(&full_arg_path.base);
-                    if base_arg_path != full_arg_path {
-                        arg_paths.push(base_arg_path);
-                    }
-                    // Supplement, not replace: emit an edge from EACH resolved arg node (the
-                    // field path AND the base) so both field-rooted and whole-object taint cross
-                    // the boundary. prism's DFG does not propagate base taint into field nodes, so
-                    // binding only the field would drop object-level taint the base edge carries.
-                    let arg_idxs: Vec<NodeIndex> = arg_paths
-                        .into_iter()
-                        .filter_map(|arg_path| {
-                            Self::argument_var_node_in_span_with_exact(
-                                caller_id,
-                                caller_parsed,
-                                &arg_path,
-                                arg_span,
-                                var_index,
-                                exact_var_index,
-                                graph,
-                            )
-                        })
-                        .collect();
+                    let arg_idxs = Self::argument_nodes(
+                        caller_id,
+                        caller_parsed,
+                        arg_text,
+                        arg_span,
+                        var_index,
+                        exact_var_index,
+                        graph,
+                    );
                     if let Some(to) = param_target
                         .as_ref()
                         .and_then(|t| t.resolve(var_index, graph))
