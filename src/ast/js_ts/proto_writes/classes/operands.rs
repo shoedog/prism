@@ -15,7 +15,7 @@ impl<'a> Classifier<'a, '_> {
         // step can prove that the final property reused the selected value.
         let selectors: BTreeSet<_> = steps
             .values()
-            .filter_map(|node| self.primitive_identity(&AstSpan::from(*node)))
+            .filter_map(|step| self.primitive_identity(&AstSpan::from(step.key)))
             .collect();
         for (span, operand) in operands {
             if operand.role == KeyRole::Property
@@ -28,7 +28,7 @@ impl<'a> Classifier<'a, '_> {
         }
     }
 
-    fn primitive_identity(&self, span: &AstSpan) -> Option<(AstSpan, AstSpan)> {
+    pub(super) fn primitive_identity(&self, span: &AstSpan) -> Option<(AstSpan, AstSpan)> {
         let read = self.analysis.read_at(span)?;
         let [site] = read.reaching_versions.as_slice() else {
             return None;
@@ -44,10 +44,9 @@ impl<'a> Classifier<'a, '_> {
             || self.fixed_key(value).is_some()
             || (value.kind() == "call_expression"
                 && field(value, "function").is_some_and(|callee| {
-                    matches!(
-                        self.file.node_text(&callee),
-                        "String" | "Number" | "Boolean" | "BigInt"
-                    ) && !self.analysis.has_binding(callee)
+                    ["String", "Number", "Boolean", "BigInt"]
+                        .iter()
+                        .any(|name| self.intrinsic(callee, name))
                 }));
         if !primitive || self.analysis.may_repeat(value) {
             return None;

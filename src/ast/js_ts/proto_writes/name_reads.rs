@@ -441,6 +441,22 @@ impl<'a> Analysis<'a> {
             .is_some_and(|binding| self.lexical.namespaces.contains(&binding.start_byte))
     }
 
+    pub(super) fn proof_writes(&self, binding: &AstSpan) -> Option<&BTreeSet<AstSpan>> {
+        let id = binding.start_byte;
+        if self.effects.direct_eval
+            || self.effects.refused_file
+            || self.effects.captured.contains_key(&id)
+            || self.effects.mapped.contains_key(&id)
+        {
+            return None;
+        }
+        self.effects.known.get(&id)
+    }
+
+    pub(super) fn dynamic_eval(&self) -> bool {
+        self.effects.direct_eval
+    }
+
     fn read_path(
         &mut self,
         node: Node<'a>,

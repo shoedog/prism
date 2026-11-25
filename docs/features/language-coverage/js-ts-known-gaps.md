@@ -277,6 +277,20 @@ callback store at `[67, 71)`. Captured-cursor transfer uses synchronous
 callback literals in supported iteration calls. Guard recognition, recursive
 descent and review-taint matching are later slices.
 
+Receiver exclusions require local source evidence. The listing checks numeric and
+finite key domains, anchored template fragments, private children of a local
+null-prototype table, and an earlier own-slot installation with the same primitive
+key. An interior-only template remains eligible. A fixed interior field breaks a
+receiver chain except for the explicit shared-base links. Numeric property operands
+are omitted, and the fact can still carry an earlier receiver selector.
+
+The proofs use a bounded set of standard intrinsic calls and local allocations.
+Shadowing and visible direct rebinding disable their intrinsic proofs. Unknown
+receivers, opaque child stores, escaping children, and unsupported builder or
+key-coercion paths leave the candidate eligible. Own-key enumeration of an opaque
+object alone supplies no private-child proof. Recursion through own slots is handled
+with the recursive class.
+
 The name-read inventory certifies a reaching set for straight-line evaluation,
 plain assignments, if/else, short-circuit and conditional joins
 (`&&`, `||`, `??`, `?:`), plain loops with back-edge widening, simple
