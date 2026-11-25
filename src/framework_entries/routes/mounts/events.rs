@@ -113,30 +113,44 @@ pub(super) fn replay<K>(
         diagnostics: vec![],
     };
     let mut dispatchers: BTreeMap<&RouterId, Vec<usize>> = BTreeMap::new();
-    let mut rejected_calls = BTreeMap::new();
+    // Per call: (slot, reason, setup guard) of each proved within-call abort.
+    let mut rejected_calls: BTreeMap<usize, Vec<(usize, Reason, Option<String>)>> = BTreeMap::new();
     for (i, event) in events.iter().enumerate() {
         let at = replay.slots[i].start;
         if !admitted(event, routes, mounts) {
             replay.slots[i].end = at;
             continue;
         }
-        if let Some(&(rejected_at, reason)) = event
-            .call
-            .as_ref()
-            .and_then(|call| rejected_calls.get(call))
-        {
-            if rejected_at < at {
+        let guard = setup_guard(event, mounts);
+        let mut aborted_maybe = false;
+        if let Some(aborts) = event.call.and_then(|call| rejected_calls.get(&call)) {
+            // An earlier abort of the call stops this slot when it runs under
+            // the same guard (or none); under another guard it only might.
+            let earlier = aborts
+                .iter()
+                .find(|(rejected_at, _, abort_guard)| {
+                    *rejected_at < at && (abort_guard.is_none() || *abort_guard == guard)
+                })
+                .map(|&(_, reason, _)| reason);
+            if let Some(reason) = earlier {
                 replay.slots[i].end = at;
                 replay.slots[i].refusal = Some(reason);
                 continue;
             }
+            aborted_maybe = aborts.iter().any(|(rejected_at, ..)| *rejected_at < at);
         }
         if let Some(reason) = event.rejection {
             replay.slots[i].end = at;
             replay.slots[i].refusal = Some(reason);
             if !replay.slots[i].guarded {
                 replay.reject(roots, event, reason);
-                rejected_calls.extend(event.call.map(|call| (call, (at, reason))));
+            }
+            // A guarded abort is recorded under its guard and fails no root.
+            if let Some(call) = event.call {
+                rejected_calls
+                    .entry(call)
+                    .or_default()
+                    .push((at, reason, guard));
             }
             continue;
         }
@@ -159,7 +173,12 @@ pub(super) fn replay<K>(
                     replay.slots[i].end = at;
                     replay.slots[i].refusal = Some(reason);
                     replay.reject(roots, event, reason);
-                    rejected_calls.extend(event.call.map(|call| (call, (at, reason))));
+                    if let Some(call) = event.call {
+                        rejected_calls
+                            .entry(call)
+                            .or_default()
+                            .push((at, reason, guard.clone()));
+                    }
                     replay.slots[i]
                         .cuts
                         .push(cut(roots, event, &events[prior], methods, reason));
@@ -180,7 +199,7 @@ pub(super) fn replay<K>(
         if replay.slots[i].end == at {
             continue;
         }
-        if uncertain_admission {
+        if uncertain_admission || aborted_maybe {
             replay.slots[i].withhold_installation(at);
         }
         let conditional_write = replay.slots[i].possibly_absent(at);
@@ -351,6 +370,14 @@ impl Replay {
                 }
             }
         }
+    }
+}
+
+fn setup_guard<K>(event: &Event<K>, mounts: &[Mount]) -> Option<String> {
+    match &event.target {
+        Target::Route { path, .. } => path.setup_guard.clone(),
+        Target::Mount { record, .. } => mounts[*record].setup_guard.clone(),
+        Target::Internal => None,
     }
 }
 

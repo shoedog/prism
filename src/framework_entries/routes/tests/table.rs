@@ -252,3 +252,47 @@ fn table_suppresses_callable_identity_for_unproven_receivers() {
         );
     }
 }
+
+#[test]
+fn mount_wire_order_ignores_inventory_order_for_every_serialized_field() {
+    let base = mount(10, 0, 0);
+    let variants: Vec<Mount> = vec![
+        Mount {
+            setup_guard: Some("a".into()),
+            ..base.clone()
+        },
+        Mount {
+            setup_guard: Some("b".into()),
+            ..base.clone()
+        },
+        Mount {
+            prefix: MountPrefix::Literal { value: "/p".into() },
+            ..base.clone()
+        },
+        Mount {
+            guard_pattern: Some("^/g".into()),
+            ..base.clone()
+        },
+        Mount {
+            end_guard: Some(true),
+            ..base.clone()
+        },
+        Mount {
+            method_guard: Some(MethodSet::known(["GET"])),
+            ..base.clone()
+        },
+        Mount {
+            transform: Some(MountTransform::StripPrefix),
+            ..base.clone()
+        },
+        base.clone(),
+    ];
+    let render = |mounts: Vec<Mount>| {
+        let table = RouteTable::new(vec![], mounts, vec![], vec![], []);
+        serde_json::to_string(table.mounts()).unwrap()
+    };
+    let forward = render(variants.clone());
+    let mut reversed = variants;
+    reversed.reverse();
+    assert_eq!(forward, render(reversed));
+}

@@ -459,7 +459,7 @@ impl Route {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum MountPrefix {
     Literal { value: String },
@@ -483,7 +483,7 @@ pub struct MountChild {
     pub realm: Option<Vec<RealmFrame>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MountTransform {
     Identity,
@@ -521,6 +521,17 @@ impl Mount {
             &self.parent,
             &self.child.receiver,
             &self.child.realm,
+            // Every other serialized field, so records that agree on the
+            // fields above order the same whatever the inventory order.
+            (
+                &self.setup_guard,
+                &self.prefix,
+                &self.guard_pattern,
+                self.end_guard,
+                &self.method_guard,
+                &self.host,
+                self.transform,
+            ),
         )
     }
 }
