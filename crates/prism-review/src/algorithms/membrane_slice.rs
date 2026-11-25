@@ -248,6 +248,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                                         category: Some("unprotected_caller".to_string()),
                                         parse_quality: None,
                                         diagrams: vec![],
+                                        rules: Vec::new(),
                                     });
                                     result.evidence.push(Some(EvidencePath::from_hops(vec![
                                         EvidenceHop::Call {

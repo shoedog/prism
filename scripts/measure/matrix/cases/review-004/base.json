@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "algorithms_run": [
+    "Taint"
+  ],
+  "results": [
+    {
+      "algorithm": "Taint",
+      "slices": [],
+      "findings": [
+        {
+          "algorithm": "taint",
+          "file": "views.py",
+          "line": 3,
+          "severity": "warning",
+          "description": "tainted value from line 2 reaches sink at line 3",
+          "related_lines": [
+            2
+          ],
+          "category": "taint_sink"
+        },
+        {
+          "algorithm": "taint",
+          "file": "views.py",
+          "line": 2,
+          "severity": "info",
+          "description": "taint source: origin of tainted data at line 2",
+          "category": "taint_source"
+        }
+      ]
+    }
+  ],
+  "all_findings": [
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 3,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 3",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink"
+    },
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 2,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 2",
+      "category": "taint_source"
+    }
+  ],
+  "findings": [
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 3,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 3",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink"
+    },
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 2,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 2",
+      "category": "taint_source"
+    }
+  ]
+}

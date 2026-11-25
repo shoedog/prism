@@ -1116,6 +1116,7 @@ mod tests {
                 clusters: vec![],
                 mermaid: "flowchart TD\n    n1[\"src\"]:::source\n".to_string(),
             }],
+            rules: Vec::new(),
         });
         let multi = MultiSliceResult {
             version: "test".to_string(),

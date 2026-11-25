@@ -42,6 +42,7 @@ fn finding(file: &str, line: usize, category: &str, severity: &str) -> SliceFind
         category: Some(category.into()),
         parse_quality: None,
         diagrams: vec![],
+        rules: Vec::new(),
     }
 }
 fn block(id: usize, file: &str, lines: &[(usize, bool)]) -> DiffBlock {

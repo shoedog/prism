@@ -1,0 +1,18 @@
+{
+  "command": "corpora verify",
+  "corpus": {
+    "git": false,
+    "pin": "perf-manifest",
+    "tracked": {
+      "a.ts": "export {};\n",
+      "sub/b.ts": "export const n = 2;\n"
+    },
+    "untracked": {},
+    "tracked_ignore": null,
+    "ignored": {}
+  },
+  "fake_binary": {
+    "version": "9d1a7d06f653",
+    "commands_exit": 0
+  }
+}

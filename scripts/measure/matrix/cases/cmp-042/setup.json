@@ -1,0 +1,7 @@
+{
+  "transport_edit": {
+    "arm": "head",
+    "truncate_gzip_bytes": 8,
+    "after_receipt": true
+  }
+}

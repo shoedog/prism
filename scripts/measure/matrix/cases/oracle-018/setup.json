@@ -1,0 +1,6 @@
+{
+  "selfcheck_receipt": {
+    "status": "ok",
+    "fixture_contents": "const value = 0;\nconsole.log(value);\n"
+  }
+}
