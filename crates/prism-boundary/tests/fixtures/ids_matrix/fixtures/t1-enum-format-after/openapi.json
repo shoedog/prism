@@ -1,0 +1,34 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Copper Finch",
+    "version": "1"
+  },
+  "paths": {
+    "/forge": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stamp": {
+                      "type": "string",
+                      "enum": [
+                        "2026-01-01T00:00:00Z"
+                      ],
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
