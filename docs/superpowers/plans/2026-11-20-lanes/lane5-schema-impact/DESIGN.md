@@ -211,17 +211,38 @@ entry (case-insensitive type/subtype). OpenAPI 3 uses the specific JSON entry in
 
 When both Swagger scopes are readable and omit the directional key, a producer record may establish that the
 body schema describes `application/json`. Bind its numbered entry to the API, producer tree, schema blob,
-operation, direction and response status where applicable. For a generated document, identify the generator
-version, settings and inputs that produced the schema blob and the producer contract guaranteeing JSON for each
-listed root. Alternatively, cite producer source tying that root to a request decoder or response encoder that
-uses JSON on every applicable path. Admit the dependencies under §5.6 at each revision used by the comparison.
-A generator name, JSON document syntax or Go struct tag alone supplies no media evidence. An empty, unreadable
-or explicitly non-JSON list cannot use this omission rule.
+operation, direction and response status where applicable. An empty, unreadable or explicitly non-JSON list
+cannot use this omission rule. A generator name, JSON document syntax or Go struct tag alone supplies no
+media evidence. The record must establish wire media by one of the following routes.
 
-For A1 product reports and replay this supplements the declaration-only media check in A1's **Fields** section.
-Save the original declaration or omission and cite the effective JSON source beside the comparison. Without a
-valid record for an omitted key, or with conflicting evidence about that omission, retain structural fields as
-media-unverified and print **Not checked** for dependent claims. Losing media evidence on one side of a diff
+- **Server-codec generator contract.** Pin the generator version, settings and inputs that produced the schema
+  blob and generated or configured the server codec. Cite the contract and its installation at this root.
+  It must guarantee the JSON body and wire media type through final dispatch, including applicable overrides.
+  Swaggo generates documentation. The public pair P therefore uses the source route below.
+- **Producer source.** For the operation, direction and applicable status, trace route registration through
+  handler body reads/writes, delegated helpers, wrappers, middleware and early/abort writers, including
+  negotiation, render calls and header overrides. Inventory the paths from the admitted route and middleware
+  configuration independently of which codecs extraction recognizes. Record each region's file, blob, span,
+  extraction status and evidence of its effect or why it cannot serve this root. Every applicable request path
+  must select `application/json` by request Content-Type and decode the body as JSON. Every applicable response
+  path must emit JSON bytes with final Content-Type `application/json` for that status. Compare the media
+  type/subtype case-insensitively, apart from parameters. An unresolved path, an alternate representation or a
+  wrapper committing `text/plain` over JSON bytes leaves the root media-unverified.
+
+The comparison manifest may name a producer-media catalog by study/config input ID, tree, path and blob.
+The builder reads its numbered entries from that pinned tree, admits it like client configuration under §5.6
+and validates each entry and dependency against its producer root. In historical mode the catalog needs its own
+cutoff evidence, even if compiled today entirely from old blobs. Alternatively, the builder may derive numbered
+entries afresh by applying the frozen extraction rules to admitted source and dependencies for that revision.
+For this route the source alone must determine the inventory and decision without later catalog selections or
+labels. Freeze the derived inventory with its input IDs, source spans and extraction version. In either case
+`message_roots[].producer_media_ref` identifies the frozen catalog or derived inventory by input ID and entry
+number. The entry resolves to the proof route, source locations or contract, coverage and dependency receipts.
+
+For A1 product reports and replay, verify media on **both sides** of a historical field comparison, each at
+its own revision. Save the original declaration or omission and cite the effective JSON source beside the
+comparison. Without a valid record for an omitted key, or with conflicting evidence about that omission, keep
+structural fields media-unverified and print **Not checked** for dependent claims. Losing media evidence on one side of a diff
 cannot establish a field addition or removal. Preserve body presence and status evidence. Path, query, header,
 cookie, form and multipart members have no JSON-body field ID. Scalar bodies have no named field.
 
@@ -294,7 +315,7 @@ evidence tables govern every cell of the Markdown rendering.
 |---|---|
 | Snapshot and authority | Schema version, tool/build, input ID, API, role, repository, kind, commit/date when present, tree, dirty flag, scope, operation authority, schema source/format, byte hash for a file, structural content hash and schema version when known. Record config file, tree, blob, numbered entry, mapping/mount, defaults, era and dependency IDs. Each input has tree/path/blob origin or an independent cutoff receipt. |
 | Extraction coverage | Inventory expected files, dependencies and changed paths independently of emitted records. `file_status[]` includes missing files, moves/deletions and evidence. `entries[]` covers spans or enclosing regions including those with no ID. Record scope, possible keys, complete/partial/unreadable/skipped/unknown, reason and unaccounted scopes. Missing status means unknown. Every region capable of changing a negative, uniqueness or total must be accounted for. |
-| Producer | `operations[]` has original and canonical method/path, tokens/constraints, authority and sites by kind (declaration, registration, annotation, handler, schema). Keep grade, source span, function if resolved, evidence, refusal, provenance (`proven` or `configured` for mount claims), entry/validation and handler digests/reference. Keep all status keys, message roots, body/media declarations and their sources, selected schema and coverage. Fields carry typed paths, definition, measured properties, signature, branch/limits and site when known. Distinguish a declaration from an independently located handler. |
+| Producer | `operations[]` has original and canonical method/path, tokens/constraints, authority and sites by kind (declaration, registration, annotation, handler, schema). Keep grade, source span, function if resolved, evidence, refusal, provenance (`proven` or `configured` for mount claims), entry/validation and handler digests/reference. Keep all status keys, message roots, original media declarations or omissions, their sources, selected schema and coverage. A root using §5.1 producer evidence retains `producer_media_ref` alongside its effective media. Fields carry typed paths, definition, measured properties, signature, branch/limits and site when known. Distinguish a declaration from an independently located handler. |
 | Consumer | `calls[]` contains every counted occurrence, including unbound calls. Store `site` with tree/file/blob/span, `enclosing_function`, `function_span`, `requested_method`, `original_url_text`, recoverable alternatives/tokens, `mapped_path`, `mapping_source`, `target_reason` and coverage. An optional saved match records service input, grade, IDs, alternatives, reasons and signature. Freeze `saved_scan` with scan ID, client tree, config and dependency IDs and `schema_inventory_id`. Embed or reference the admitted inventory's element IDs, signatures, per-region presence/coverage, API, source tree, byte/structural hashes and authority even for a scan with zero saved matches. Missing inventory bytes or coverage gives `not_checked`. Record caller-search completion, method, depth, scope and paths. Field-use evidence links the read/send to the call and element. |
 | Admissions and slots | Record change direction, per-role before/after IDs, reference ID, mode and cutoff evidence, branch/ref selection, requested and observed revisions and time, merge metadata/receipt, comparison basis and any call-correspondence evidence. Validate these slots under §5.6. |
 
@@ -867,7 +888,7 @@ rating of the five reports. Keep the rating unmeasured. P's public producer uses
 E-1 has 217 rows and E-2 has 306. Section 9 records every disposition. After stage D review (two-round cap), update
 matrix expectations including explicit accepted-loss diagnostics and regenerate `ids.tsv` from §5.1 on the public
 pin. Only that regenerated file is the byte-for-byte P1 golden. D-census recorded 59 cuts per pair. Before P1
-recount the two media cuts in §7.2 under the amended rule and apply the feasibility check in PLAN P6.
+recount S04 (schema field coverage) and P02 (frozen replay locations) in §7.2 and apply the feasibility check in PLAN P6.
 
 ### 7.2 Pilot slices against pairs
 
@@ -926,7 +947,7 @@ stays unknown and holds the measurement gate open. Publish only R aggregates.
 At P pin `6744295f`, S04 found missing media on 26/290 roots or response keys. The declaration-only rule
 withheld 140/2,421 standing fields (5.78%). Across 69 F4 source revisions it withheld 4,041/90,388 field
 observations at 849/12,761 roots or keys. P02 found 33/194 frozen replay locations (17.01%) blocked by missing
-media at the original versions. Apply §5.1 to P's swaggo generation inputs or Go codec at the corresponding tree.
+media at the original versions. Apply §5.1 to P's Go codec and wire-media handling at each corresponding tree.
 For each of the 140 fields and 33 locations record the original key and the evidence or refusal. If `f` of the
 140 standing fields have that evidence, S04 withholds
 `(140 − f)/2,421`. Full coverage of each affected set would reduce these measured media losses to 0/2,421
@@ -1152,7 +1173,9 @@ E-1 has 170 rule and 47 accepted-loss rows. E-2 has 288 and 18. In a companion t
 give the 200 response of `GET /cone` a producer record, testing the generator contract and the encoder separately.
 Only `field:resp:GET /cone:200#/fired` becomes comparable. Withhold the record, change its tree or direction,
 inherit an XML-only list, or set an empty operation override, and the 200 field comparison is **Not checked**.
-With proof on the new side only, infer no field addition. The 404 and default bodies stay outside the success comparison.
+With proof on the new side only, infer no field addition. Withhold confirmation for a documentation-only
+generator, a middleware writer with unknown extraction status, and a wrapper that serves JSON bytes as
+`text/plain`. The 404 and default bodies stay outside the success comparison.
 
 | Row IDs | Replacement expectation or control |
 |---|---|
@@ -1322,3 +1345,14 @@ Both changed grades remain E-2 rule rows. D-census is pending before P1.
 ## Review round 5
 
 - WRONG 1 and SMELLs 2–4 folded. §5.1 and §5.4 scope the empty arm to mixed segments. P3 checks `s05`, and the Alignment list preserves all 12 pinned results. §5.4 makes affix points secondary and qualifies the non-empty controls. Both `s09` companion expectations name the conditional overlap. Rule/accepted-loss counts are 170/47 for E-1 and 288/18 for E-2.
+
+## Media amendment review dispositions
+
+| Finding | Disposition |
+|---|---|
+| Sol WRONG (material) · A1 Fields and evidence table | Both now accept §5.1 producer proof when Swagger omits media. The P4 replay control requires a field type change and a media citation at each revision. |
+| Sol SMELL (material) · Record provenance and Opus 3 (immaterial) · Historical admission | §5.1 and A1 identify the pinned catalog and numbered entry, require its own cutoff evidence, and specify how a source-derived entry can be reproduced and cited from the root. |
+| Sol SMELL (material) · Wire media and Opus 1 SMELL (material) · Path completeness and acceptance | §5.1 requires per-region coverage through wire Content-Type and limits generator contracts to installed server codecs. P uses Go source. PLAN D-census requires an independent check of all 33 location records before freeze. |
+| Opus 2 · Printable attribution | A1 Fields gives the sentence naming the entry, codec site or contract, revision and schema omission. |
+| Opus 4 · Historical sides | §5.1 and PLAN P6 require evidence on both sides of the historical field comparison. |
+| Opus 5 · Undefined references | §7.1 names S04 and P02. P4/P6 track unresolved fields by their original replay records, retaining the field ID when known. |

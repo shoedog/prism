@@ -621,8 +621,16 @@ Root `Cargo.toml`: add the member; do not add it to `default-members`.
       inspected population, an inapplicable population cites its basis, and unknown incidence stays pending.
       Use reference evidence and source inspection to apply the final rules before product code exists. Freeze
       the receipt before P1, refer material loss to the design seat, and reconcile later slice results against
-      it. The declaration-only receipt is summarized in DESIGN 7.2. Before P1, freeze the producer evidence
-      independently of replay outcomes, recount S04 and P02 on their original keys, and apply the P6 ceiling below.
+      it. The declaration-only receipt is summarized in DESIGN 7.2. Prepare the producer evidence independently
+      of replay outcomes.
+- [ ] Before freezing the P02 media decisions, have an independent reader check all 33 original location
+      keys against both historical producer trees without seeing later replay outcomes. For each side, reopen
+      the schema and verify the applicable declaration. For omitted media, check admission and trace the cited
+      Go source inventory through final wire media under DESIGN 5.1. Record the reader's decision and source
+      spans or gap. Reconcile disagreements against those blobs. Freeze a location as cleared only when both
+      sides pass and the independent check agrees.
+      Keep each refusal and its reason. Account for all 33 original keys exactly once, then recount S04 and
+      P02 on their original populations and apply the P6 ceiling below.
 
 ### Slice P1: crate, element ids, schema reader, diff, documents (3 to 4 days)
 
@@ -895,8 +903,12 @@ same coverage checks.
    versions and coverage, one group per operation with service evidence first, both client matches, callers,
    limits, standing differences, bounded preview and complete linked Markdown appendix. Check the exact source/side
    of each link, all preview limits including lists inside cells, and one count per comparable site. Produce a
-   separate evaluation companion. Change or remove hindsight records after freezing and require byte-identical live
-   Markdown and JSON.
+   separate evaluation companion. On the omitted-media companion from DESIGN 9, change the 200 field's type.
+   With an admitted producer record on both sides, require the type change and both revision-specific media
+   citations. Withhold one side's record and require a scoped **Not checked**. A historical run relying on
+   a catalog created after cutoff must also print **Not checked**. Derive the same proof solely from admitted
+   source on both sides and require the type change and citations again.
+   Change or remove hindsight records after freezing and require byte-identical live Markdown and JSON.
 4. **Three-report replay gate.** Before any product run for these subjects, produce and pin the public A1
    version-2 renders from prototype PR #886. Resolve `refs/pull/886/head` in `shoedog/prism` and pin the
    reachable renderer commit `028c7d1bf3200ced0a8fa53c7a4155c2eba45231` (renderer change `11f06c91`).
@@ -1018,13 +1030,16 @@ aggregates, without attributing lift where there were no controls.
 **Public feasibility before P1.** P02 identifies 33 frozen field locations blocked by the old media rule.
 All eight reader-counted locations survive that cut, but the retention ceiling is 161/194 (82.99%).
 Removing just the 33 also lowers the `later` share by 5.03 percentage points. For each of the 33, record the
-§5.1 media evidence on every historical side needed for its field change, or record the missing evidence.
+§5.1 media evidence on **both sides** of the historical field comparison, or record which side lacks what proof.
 If `k` of them clear the media check, the ceiling from this cut is `(161 + k)/194`. At least **24 of 33**
 must clear it even if all other 161 are retained. With all 33 covered the ceiling is 194/194. If it stays
 below 185/194, return the gate to the owner under ORCHESTRATION §8 before collecting toward it. If the only
 change is omitting at most nine original locations, each bucket share moves by at most 9/194 (4.64 percentage
-points). Report the revised projection and carry the two unresolved historical field IDs into P4/P6. The product
-replay measures actual retention and shares. R has no field schema. P3 handles both pairs' scoped API mappings.
+points). Report the revised projection. Carry any unresolved historical field into P4/P6 by its frozen replay
+record (change commit, operation, direction/status, field path and original client occurrence). Retain the
+original field ID when known and identify the missing evidence when it cannot be resolved. Such a row stays
+in the denominator and earns no field-location credit while unresolved. The product replay measures actual
+retention and shares. R has no field schema. P3 handles both pairs' scoped API mappings.
 
 - [ ] Add `--engine product` to the replay driver. Freeze the memo's original usable-change cohorts, pins,
       prediction rule and outcome observation window per pair. Require every reader-counted replay location
