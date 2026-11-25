@@ -53,19 +53,27 @@ pub(super) fn report(
     if !enabled() {
         return;
     }
+    // A stderr write failure must leave the guard free to remove the edges.
+    let _ = writeln!(io::stderr().lock(), "{}", line(graph, source, seed, path));
+}
+
+fn line(
+    graph: &DiGraph<CpgNode, CpgEdge>,
+    source: NodeIndex,
+    seed: NodeIndex,
+    path: &[NodeIndex],
+) -> String {
     let path = path
         .iter()
         .map(|&index| site(graph, index))
         .collect::<Vec<_>>()
         .join(" <- ");
-    // A stderr write failure must leave the guard free to remove the edges.
-    let _ = writeln!(
-        io::stderr().lock(),
+    format!(
         "PRISM_E5_TRACE source={} seed={} reverse_dataflow=[{}]",
         site(graph, source),
         site(graph, seed),
         path,
-    );
+    )
 }
 
 fn site(graph: &DiGraph<CpgNode, CpgEdge>, index: NodeIndex) -> String {
@@ -141,6 +149,31 @@ mod tests {
                 (source, seed, vec![seed, via, source]),
                 (other_source, seed, vec![seed, other_source]),
             ]
+        );
+    }
+
+    #[test]
+    fn the_trace_line_names_source_seed_and_path_by_bytes_and_node() {
+        let mut graph = DiGraph::new();
+        let mut add = |start, access| {
+            graph.add_node(CpgNode::variable_occurrence(
+                AccessPath::simple("v"),
+                "m.js".into(),
+                "main".into(),
+                1,
+                1,
+                access,
+                start,
+                start + 2,
+            ))
+        };
+        let source = add(10, VarAccess::Def);
+        let seed = add(20, VarAccess::Use);
+        let line = line(&graph, source, seed, &[seed, source]);
+        assert_eq!(
+            line,
+            "PRISM_E5_TRACE source=\"m.js\":10..12#0 seed=\"m.js\":20..22#1 \
+             reverse_dataflow=[\"m.js\":20..22#1 <- \"m.js\":10..12#0]"
         );
     }
 }

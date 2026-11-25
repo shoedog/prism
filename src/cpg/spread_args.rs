@@ -144,4 +144,15 @@ mod tests {
             &[0, 1],
         );
     }
+
+    #[test]
+    fn other_languages_keep_positional_slots() {
+        let source = "f(a, *rest, b)";
+        let caller = ParsedFile::parse("fixture", source, Language::Python).unwrap();
+        let args = caller.call_argument_texts_and_spans_at(0, "f");
+        assert_eq!(args.len(), 3, "{args:?}");
+        let actual = offsets(&caller, &args);
+        assert_eq!(actual.slot, [Some(0), Some(1), Some(2)]);
+        assert_eq!(actual.least, [0, 1, 2]);
+    }
 }
