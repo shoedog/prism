@@ -1,0 +1,6 @@
+{
+  "vulnerable": {
+    "finding_line_hit": "none",
+    "reach": "not_reached"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "error": {
+    "SymbolNotFound": {
+      "seed": "lib/index.js:5"
+    }
+  }
+}

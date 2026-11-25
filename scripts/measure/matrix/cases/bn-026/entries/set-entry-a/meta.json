@@ -1,0 +1,13 @@
+{
+  "class": "code-injection",
+  "entry": "set-entry-a_1.0.0",
+  "id": "CVE-0000-026",
+  "name": "bn-026-fixture",
+  "sink": "lib/index.js:4:3",
+  "source": {
+    "file": "lib/index.js",
+    "line": 2,
+    "name": "run"
+  },
+  "vulnerableVersion": "1.0.0"
+}
