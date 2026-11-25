@@ -246,18 +246,38 @@ class _File:
         spec = hook if hook.strip_prefix or hook.add_prefix else request.spec or hook
         return _Request(request.method, url, spec, request.reason), inline, request.spec
 
-    def unsupported_aliases(self):
+    def unaccounted_client_references(self):
+        accounted = set()
+        for node, scope in self.bindings.scopes.items():
+            if node.type == "variable_declarator":
+                name = node.child_by_field_name("name")
+                binding = scope.find(ts.text(name))
+                if binding and binding.constant and not binding.written:
+                    initializer = ts.unwrap(binding.initializer)
+                    if initializer is not None and initializer.type == "identifier":
+                        accounted.add(initializer)
+            if node.type == "call_expression":
+                callee = node.child_by_field_name("function")
+                root, _ = ts.member_chain(callee)
+                if self.target(callee) is not None:
+                    accounted.add(root)
+                elif ts.text(callee) == "require" and scope.find("require") is None:
+                    module = ts.literal(ts.argument(ts.children(node.child_by_field_name("arguments")), 0))
+                    if module and self.resolver.reaches_client(self.path, Import(module, "*")):
+                        yield node.start_point.row + 1, "a CommonJS client reference was not used as a recognised callee"
         for node in ts.walk(self.tree):
-            if node.type != "call_expression":
+            if node in accounted or not self.bindings.reference(node):
                 continue
-            callee = node.child_by_field_name("function")
-            root, _ = ts.member_chain(callee)
-            if root is None or root.type != "identifier" or self.target(callee) is not None:
-                continue
-            binding = self.bindings.find(root)
-            initializer = ts.unwrap(binding.initializer) if binding else None
-            if initializer is not None and self.target(initializer) is not None:
-                yield node.start_point.row + 1
+            root = node
+            while (binding := self.bindings.find(root)) is not None:
+                if binding.imported:
+                    if self.resolver.reaches_client(self.path, binding.imported):
+                        yield node.start_point.row + 1, "a configured client reference was not used as a recognised callee"
+                    break
+                alias = ts.unwrap(binding.initializer)
+                if not binding.constant or alias is None or alias.type != "identifier" or alias.start_byte >= root.start_byte:
+                    break
+                root = alias
 
     def calls(self, file: str) -> list[ClientCall]:
         return [observation.call for observation in self.observations(file)]

@@ -12,6 +12,7 @@ from .consumer_ts import ClientCall
 from .replay import Outcome, ReplayResult, _locations
 from .report_inputs import _source_tree, _tree
 from .report_layout import _code, label, table
+from .report_proof import measured_operation_sides
 from .schema import Change
 
 
@@ -101,12 +102,13 @@ def join_evaluation(live, replay_result, observation_end, assessments=None, mode
         site = call["site"]
         sites[site["file"], site["line"]].append(call)
     elements = defaultdict(set)
+    removed_operations = {row["element"] for row in result["changes"] if row["kind"] == "op_removed"}
     for group in live["impacts"]:
         operation = group["operation_id"]
-        if group["change_kinds"]:
-            for side in ("before", "after"):
-                if group[f"{side}_presence"] == "present":
-                    elements[operation].add((operation, side))
+        for side in measured_operation_sides(group):
+            if operation in removed_operations and not group["claims"].get("Operation removed", {}).get("confirmed"):
+                continue
+            elements[operation].add((operation, side))
         for field in group["fields"]:
             for side in ("before", "after"):
                 if field[side]:

@@ -9,6 +9,7 @@ import yaml
 from . import schema
 from .ids import op_id
 from .producer_go import _entries
+from .report_claims import Record, decide, reasons
 from .report_sources import site
 from .report_proof import explain, failed
 
@@ -86,10 +87,12 @@ def _empty(snapshot, file, reason, status):
 def schema_inventory(snapshot, file, source, *, omitted=False):
     if omitted:
         return _empty(snapshot, file, "schema comparison was omitted by request", "omitted")
-    if file is None or file not in snapshot["tree_files"]:
-        return _empty(snapshot, file, "no committed field schema", "missing")
+    if file is None:
+        return _empty(snapshot, file, "no field schema path was selected", "unselected")
+    if file not in snapshot["tree_files"]:
+        return _empty(snapshot, file, "no committed field schema at the selected path", "path_absent")
     if source is None:
-        return _empty(snapshot, file, "the committed schema file could not be read", "not_checked")
+        return _empty(snapshot, file, "the committed schema file could not be read", "unreadable")
     encoded = source.encode("utf-8")
     try:
         document, openapi = schema._parse(encoded)
@@ -100,7 +103,7 @@ def schema_inventory(snapshot, file, source, *, omitted=False):
         return _read(snapshot, file, source, document, openapi, index, tree)
     except (ValueError, TypeError, KeyError, AttributeError, RecursionError, yaml.YAMLError):
         result = _empty(snapshot, file, "the committed schema could not be parsed or contains ambiguous entries",
-                        "not_checked")
+                        "unreadable")
         result["schema"]["sha256"] = sha256(encoded).hexdigest()
         return result
 
@@ -212,15 +215,26 @@ def _read(snapshot, file, source, document, openapi, index, tree):
     }
 
 
-def compare_schema(before, after):
+def schema_record(document, label, check="Changed fields"):
+    if document["status"] == "complete":
+        return True
+    return _schema_failure(check, document, label, document["reason"])
+
+
+def compare_schema(before, after, *, fixed=False):
     old, new = before["schema"], after["schema"]
+    sides = ("fixed service",) if fixed else ("before", "after")
     if old["status"] != "complete" or new["status"] != "complete":
-        if old["status"] == new["status"] == "missing":
+        if old["status"] == new["status"] == "path_absent":
             return {}, ["Changed fields: Not checked — no committed field schema"]
-        return {}, [explain(_schema_failure("Changed fields", side, label, side["reason"]))
-                    for label, side in (("before", old), ("after", new)) if side["status"] != "complete"]
+        if old["status"] == new["status"] == "omitted":
+            return {}, ["Changed fields: Not checked — schema comparison was omitted by request"]
+        if old["status"] == new["status"] == "unselected":
+            return {}, ["Changed fields: Not checked — no field schema path was selected"]
+        return {}, [explain(schema_record(side, label))
+                    for label, side in zip(sides, (old, new)) if side["status"] != "complete"]
     groups, limits = {}, []
-    for label, side in (("before", old), ("after", new)):
+    for label, side in zip(sides, (old, new)):
         limits.extend(explain(_schema_failure("Schema path item", side, label,
                                              f"{row['source_path']}: {row['reason']}"))
                       for row in side["path_gaps"].values())
@@ -242,11 +256,17 @@ def compare_schema(before, after):
             continue
         a = old["success_statuses"].get(identifier) if old_op else {}
         b = new["success_statuses"].get(identifier) if new_op else {}
+        schema_evidence = {Record("schema inventory", side): schema_record(doc, side)
+                           for side, doc in (("before", old), ("after", new))}
+        status_evidence = schema_evidence | {
+            Record("response status inventory", side): statuses is not None
+            for side, statuses in (("before", a), ("after", b))
+        }
         group = {"fields": [], "status_additions": [], "status_removals": [], "response_root_pairs": [],
                  "limits": [], "schema_sites": [old_op["site"] if old_op else None,
                                                 new_op["site"] if new_op else None], "message_coverage": []}
         changed_scope = (a is None) != (b is None)
-        for label, statuses in (("before", a), ("after", b)):
+        for label, statuses in zip(sides, (a, b)):
             if statuses is None:
                 group["limits"].append(f"Status change: Not checked — {label} response status list is missing.")
         if a is None or b is None:
@@ -255,10 +275,22 @@ def compare_schema(before, after):
                     record = side["message_roots"][status["root"]]
                     group["limits"].extend(_message_limits(status["root"], record))
         pairs = [(f"req:{suffix}", f"req:{suffix}")]
-        if a is not None and b is not None:
+        status_claims = {kind: decide(kind, status_evidence) for kind in
+                         ("Successful response status removed", "Successful response status added")}
+        if a is not None and b is not None and a.keys() != b.keys():
+            group["limits"].extend(reasons(proof) for proof in status_claims.values() if not proof["confirmed"])
+        if all(proof["confirmed"] for proof in status_claims.values()):
             removed, added = sorted(a.keys() - b.keys()), sorted(b.keys() - a.keys())
-            group["status_removals"] = [{"status": status, **a[status]} for status in removed]
-            group["status_additions"] = [{"status": status, **b[status]} for status in added]
+            group["status_removals"] = [{"status": status, **a[status],
+                                         "claim": status_claims["Successful response status removed"]}
+                                        for status in removed]
+            group["status_additions"] = [{"status": status, **b[status],
+                                          "claim": status_claims["Successful response status added"]}
+                                         for status in added]
+            for status in removed:
+                group["limits"].extend(_message_limits(a[status]["root"], old["message_roots"][a[status]["root"]]))
+            for status in added:
+                group["limits"].extend(_message_limits(b[status]["root"], new["message_roots"][b[status]["root"]]))
             pairs.extend((a[status]["root"], b[status]["root"]) for status in sorted(a.keys() & b.keys()))
             range_overlaps = ("2XX" in a or "2XX" in b) and any(
                 status != "2XX" for status in removed + added
@@ -268,13 +300,20 @@ def compare_schema(before, after):
             elif len(removed) == len(added) == 1:
                 ra, rb = a[removed[0]]["root"], b[added[0]]["root"]
                 bodies = old["message_roots"][ra], new["message_roots"][rb]
-                if all(rec["body_present"] and rec["coverage"] == "complete" for rec in bodies):
+                proof = decide("Response bodies correspond", schema_evidence | {
+                    Record("body root", side): rec["body_present"] and rec["coverage"] == "complete" and not rec["stops"]
+                    for side, rec in zip(("before", "after"), bodies)
+                })
+                if proof["confirmed"]:
                     group["response_root_pairs"].append({"before": ra, "after": rb,
-                                                         "before_status": removed[0], "after_status": added[0]})
+                                                         "before_status": removed[0], "after_status": added[0],
+                                                         "claim": proof})
                     pairs.append((ra, rb))
                 elif any(rec["body_present"] for rec in bodies):
                     group["limits"].append("Body comparison: Not checked — the removed and added status bodies "
                                            "do not both have comparable JSON schemas")
+                    if all(rec["body_present"] and rec["coverage"] == "complete" and not rec["stops"] for rec in bodies):
+                        group["limits"].append(reasons(proof))
                     group["limits"].extend(_message_limits(ra, old["message_roots"][ra]))
                     group["limits"].extend(_message_limits(rb, new["message_roots"][rb]))
             elif removed and added:
@@ -289,8 +328,15 @@ def compare_schema(before, after):
             changed = records[0] != records[1] or af != bf
             changed_scope |= changed
             gaps = [message for root, record in zip((ra, rb), records) for message in _message_limits(root, record)]
-            if gaps:
+            proof = decide("Field declaration changed", schema_evidence | {
+                Record(name, side): not bool(_message_limits(root, record))
+                for name in ("body root", "field region")
+                for side, root, record in zip(("before", "after"), (ra, rb), records)
+            })
+            if not proof["confirmed"]:
                 group["limits"].extend(gaps)
+                if not gaps and af != bf:
+                    group["limits"].append(reasons(proof))
                 continue
             if changed:
                 for label, record in zip(("before", "after"), records):
@@ -301,7 +347,7 @@ def compare_schema(before, after):
                 previous, following = lhs["shape"] if lhs else None, rhs["shape"] if rhs else None
                 if previous != following:
                     group["fields"].append({"before": lhs, "after": rhs, "before_shape": previous,
-                                            "after_shape": following, "path": path})
+                                            "after_shape": following, "path": path, "claim": proof})
         group["limits"] = sorted(set(group["limits"]))
         if any(group[key] for key in ("fields", "status_additions", "status_removals")) or (
                 changed_scope and group["limits"]):

@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 from . import _ts_syntax as ts, config, producer_go as go, producer_route_table as routes
 from ._replay_git import changed_files, git, parent, revision
-from .replay import DEFAULT_SCHEMA, select_config
+from .config import DEFAULT_SCHEMA, select_config
 from .report_schema import _empty, schema_inventory
 from .schema import _hash_shapes
 from .report_sources import account_changed_route_regions, client_calls, diagnostic, in_root, inventory, operations
@@ -122,17 +122,18 @@ def _source_receipt(path, data, captured_at, error=None):
             "tree": None, "blob": None, "error": error}
 
 
-def _driver(captured_at):
+def _driver(captured_at, *, include_checkout=True):
     directory = Path(__file__).resolve().parent
     hashes = {path.name: sha256(path.read_bytes()).hexdigest() for path in sorted(directory.glob("*.py"))
               if path.name not in {"render.py", "report_evaluation.py", "report_batch.py",
                                    "report_batch_evaluation.py", "_replay_measure.py"}}
     version = sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
-    try:
-        base = revision(directory, "HEAD")
-        commit = _metadata(directory, base)
-    except subprocess.CalledProcessError:
-        commit = dict.fromkeys(("rev", "committed_at", "subject"))
+    commit = dict.fromkeys(("rev", "committed_at", "subject"))
+    if include_checkout:
+        try:
+            commit = _metadata(directory, revision(directory, "HEAD"))
+        except subprocess.CalledProcessError:
+            pass
     return {"name": "schema-impact", "version": "2", "rev": commit["rev"], "committed_at": commit["committed_at"],
             "subject": commit["subject"], "build_identity": f"sha256:{version}",
             "source_hashes": hashes, "origin": CAPTURE_WORDING, "captured_at": captured_at}
@@ -344,7 +345,7 @@ def _unavailable_counterpart(request, role, driver, reason):
     snapshot = _role_record(request, dict(common, origin=None, tree_files={}), role)
     snapshot.update(inventory(snapshot, [], [], [diagnostic(snapshot["scope"], reason, status="unknown")]))
     if role == "service":
-        snapshot.update(_empty(snapshot, request.schema, reason, "not_checked"), operations={},
+        snapshot.update(_empty(snapshot, request.schema, reason, "unreadable"), operations={},
                         registration_inventory=None, outside_registration=None)
     else:
         snapshot.update(calls=[], functions={})
@@ -440,7 +441,16 @@ def build_inputs(request):
                 or receipt.get("subject") != head):
             raise ValueError("the requested mode requires an independent receipt for the exact subject and cutoff")
         request = replace(request, selection_time=datetime.fromisoformat(cutoff).astimezone(timezone.utc).isoformat())
-    driver = _driver(None)
+    invocation = effective_invocation(request)
+    if request.mode != "version_comparison":
+        recorded = receipt.get("invocation")
+        defaults = effective_invocation(ReportRequest(request.repo, request.subject, request.role,
+                                                      request.configs, route_spec=request.route_spec))
+        defaults["schema"] = selected_schema(None, request.route_spec)
+        if (recorded is not None and recorded != invocation) or (recorded is None and invocation != defaults):
+            raise ValueError("the requested study invocation has no matching cutoff record")
+    captured_at = request.selection_time if request.mode == "version_comparison" else None
+    driver = _driver(captured_at, include_checkout=request.mode == "version_comparison")
     if (request.study_repo is None) != (request.study_rev is None):
         raise ValueError("a named study tree requires both --study-repo and --study-rev")
     study_tree = None
@@ -458,9 +468,11 @@ def build_inputs(request):
             return None, None
         if request.mode != "version_comparison" and study_tree is None:
             return None, {"file": None, "revision": None,
+                          "kind": kind,
                           "error": f"{kind} has no evidence of availability at the cutoff"}
-        return (_route_spec(source, None, study_tree) if repo is None else
-                _config(repo, rev, source, None, study_tree))
+        result, evidence = (_route_spec(source, captured_at, study_tree) if repo is None else
+                            _config(repo, rev, source, captured_at, study_tree))
+        return result, {**evidence, "kind": kind}
 
     changes = tuple(changed_files(request.repo, base, head))
     if request.counterpart_repo is not None:
@@ -488,3 +500,12 @@ def build_inputs(request):
         account_changed_route_regions(before["service"], after["service"], changes, before_sources, after_sources)
         account_changed_route_regions(after["service"], before["service"], changes, after_sources, before_sources)
     return FrozenReport(request, before, after, changes, before_sources, after_sources)
+
+
+def effective_invocation(request):
+    return {key: getattr(request, key) for key in ("root", "service_root", "schema", "schema_omitted",
+                                                 "source_url", "counterpart_source_url")} | {
+        "configs": request.configs.as_posix() if request.study_repo else request.configs.name,
+        "route_spec": ((request.route_spec.as_posix() if request.study_repo else request.route_spec.name)
+                       if request.route_spec else None),
+    }

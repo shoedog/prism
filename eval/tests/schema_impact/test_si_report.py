@@ -220,7 +220,7 @@ def test_missing_inputs_are_explicit(tmp_path):
     md, doc = report(repo, head, tmp_path, "producer", "--root", "missing", "--configs", str(tmp_path / "missing"),
                      "--route-spec", str(tmp_path / "missing.json"))
     for text in ("client configuration", "route specification", "source root", "is missing",
-                 "Changed fields: Not checked — no committed field schema", "Earlier match: Not checked",
+                 "Changed fields: Not checked — no field schema path was selected", "Earlier match: Not checked",
                  "the binding inventory is incomplete"):
         assert text in md
     assert doc["summary"]["known_unmatched_count"]["before"]["total"] is None

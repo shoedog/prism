@@ -13,18 +13,15 @@ from ._replay_git import (
     Commit, History, LineFollower, SourceLine, blob, changed_files, first_parents as first_parents,
     materialize, parent, regular_files, revision, touch_hunk,
 )
-from .config import Config
+from .config import CURRENT_ERA_START, EARLY_ERA_START, Config, DEFAULT_SCHEMA as DEFAULT_SCHEMA
 from .consumer_ts import ClientCall
 from .ids import op_id
 from .match import bind
 from .schema import Change, SchemaIndex
 
 
-EARLY_ERA_START = "8e6c49a5"
-CURRENT_ERA_START = "2b1ad947"
 SEED = 20261120
 REVERT_WINDOW = 10
-DEFAULT_SCHEMA = "docs/swagger.json"
 USABLE_KINDS = frozenset({
     "op_removed", "field_removed", "field_type_changed", "field_required_added", "enum_values_changed",
 })
@@ -206,13 +203,7 @@ def usable(changes_by_commit: dict[str, list[Change]]) -> dict[str, list[Change]
 
 
 def select_config(repo: Path, p0: str, configs_dir: Path) -> Path:
-    # Resolve the era by first-parent ancestry, independent of clock skew.
-    for commit in reversed(first_parents(repo, p0)):
-        if commit.startswith(CURRENT_ERA_START):
-            break
-        if commit.startswith(EARLY_ERA_START):
-            return Path(configs_dir) / "apache-answer-2022.toml"
-    return Path(configs_dir) / "apache-answer.toml"
+    return client_config.select_config(repo, p0, configs_dir, early=EARLY_ERA_START, current=CURRENT_ERA_START)
 
 
 def _outcome(history: History, change: str, touched: str | None) -> Outcome:

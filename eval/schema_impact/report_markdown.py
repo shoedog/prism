@@ -4,13 +4,14 @@ from collections import defaultdict
 import json
 
 from .report_analysis import EARLIER, FIELD_USE, NO_FIELD_USE
+from .report_claims import Record, decide
 from .report_layout import (
     MODES, Limits, _code, appendix_section, compact_html, counterpart_sites, coverage, provenance, request_counts,
     review_first, site_link, source_site as _site, table, versions_line,
 )
-from .report_matches import GATEWAY, MAPPING, OVERLAPS, match_text
+from .report_matches import GATEWAY, OVERLAPS, match_text
 from .report_operations import OperationTables, risk_label
-from .report_proof import explain
+from .report_proof import explain, failed
 
 
 _PAIR_LABELS = {"before": "Before both edits", "after": "Both edits included",
@@ -47,7 +48,10 @@ class Markdown(OperationTables):
                 self.receipts.setdefault(key, f"configuration-{len(self.receipts) + 1}")
         for warning in doc["warnings"]:
             if warning["rev"]:
-                self.limits.warning(warning["reason"], f"{_code(warning['file'])} at {_code(warning['rev'][:8])}")
+                path = warning["file"] or "source scope"
+                if warning["line"]:
+                    path += f":{warning['line']}"
+                self.limits.warning(warning["reason"], f"{_code(path)} at {_code(warning['rev'][:8])}")
             else:
                 self.mark(warning["reason"])
 
@@ -95,9 +99,14 @@ class Markdown(OperationTables):
         summary = self.counts()
         for reason in self.limits.warning_locations:
             self.mark(reason)
-        for reason in (EARLIER, GATEWAY, OVERLAPS, doc["unobserved_reason"], *doc["field_limits"]):
+        for reason in (EARLIER, GATEWAY, OVERLAPS, doc["unobserved_reason"]):
             if reason:
                 self.mark(reason)
+        for notice in doc["body_notices"]:
+            self.mark(notice)
+        empty = doc["summary"]["empty"][role]
+        if not client_changes and not any(group["change_kinds"] for group in operations) and not empty["confirmed"]:
+            self.mark(empty)
         lines = ["## Coverage", *coverage(doc, self.mark), "## Changes by operation"]
         if role == "both":
             lines.append("### Service changes")
@@ -117,11 +126,10 @@ class Markdown(OperationTables):
                         details.append(" ".join(appendix_section(anchor, name, [content]).splitlines()))
                 self._fill(link, [compact_html(table(["Operation"], index)), *details])
             if not operations:
-                count = doc["summary"]["operation_count"]
-                gap = count["proof_failure"] or count["reason"]
+                proof = doc["summary"]["empty"]["service"]
                 lines.append(
-                    "Additional changes " + self.mark(gap)
-                    if gap else "No method or path was added, removed or changed in the checked declarations."
+                    "Additional changes " + self.mark(proof)
+                    if not proof["confirmed"] else "No method or path was added, removed or changed in the checked declarations."
                 )
                 if doc["summary"]["changed_field_count"]["total"] == 0:
                     lines.append("No difference in the measured field declarations.")
@@ -154,7 +162,8 @@ class Markdown(OperationTables):
 
     def counts(self):
         doc = self.doc
-        labels = (("operation_count", "Operations changed", "Checked service code and schema"),
+        operation_scope = doc["summary"]["operation_count"]["scope"]
+        labels = (("operation_count", "Operations changed", operation_scope.capitalize()),
                   ("changed_field_count", "Fields changed", "Measured properties in JSON bodies"),
                   ("listed_usage_count", "Distinct client calls shown", "Recorded call sites, including possible matches"),
                   ("possible_only_usage_count", "Possible matches only", "Shown calls with possible matches only"))
@@ -162,6 +171,8 @@ class Markdown(OperationTables):
         if doc["change"]["subject_role"] != "service":
             counts = doc["summary"]["listed_usage_by_version"]
             rows[2] = (rows[2][0], f"Before {counts['before']} · After {counts['after']}", rows[2][2])
+            rows.append(("Client calls changed", self.count_text(doc["summary"]["client_change_count"]),
+                         "Proved client call edits"))
         for key, name in (("known_unmatched_count", "Requests with no match"),
                           ("unknown_target_count", "Calls with an unknown target")):
             value = " · ".join(f"{side.title()} {self.count_text(doc['request_counts'][side][key], side)}"
@@ -176,14 +187,16 @@ class Markdown(OperationTables):
         if purpose:
             number = f"[{number}](#requests-{purpose})"
         if row["total"] is None:
-            return f"{number} observed · {self.mark(row['proof_failure'] or row['reason'])}"
+            proof = row["claim"]
+            return f"{number} observed · {self.mark(proof if proof and not proof['confirmed'] else row['reason'])}"
         return number
 
     def request(self, call):
         method, original, path = call["requested_method"], call["original_url_text"], call["mapped_path"]
         mapping = call["mapping_source"]
-        if not mapping:
-            source = "Mapping " + self.mark(MAPPING, site_link(call["site"]))
+        proof = decide("Address mapping", {Record("request mapping"): bool(mapping)})
+        if not proof["confirmed"]:
+            source = "Mapping " + self.mark(proof, site_link(call["site"]))
         elif "builtin" in mapping:
             source = f"built-in {mapping['builtin']} rule"
         else:
@@ -197,9 +210,15 @@ class Markdown(OperationTables):
             source += " · path unchanged"
         return f"{method or 'Method unknown'} {_code(original)} → {_code(path)} · {source}".replace("\n", " ")
 
-    def match_cell(self, match, complete, fallback=None):
+    def match_cell(self, match, complete, presence=None, side=None):
         if not match:
-            return self.mark(fallback) if fallback else match_text(None)
+            row = presence or {}
+            absent = row.get(f"{side}_presence") == "absent"
+            failures = row.get("proof_failures", [])
+            matching = [failure for failure in failures if failure["side"] == side]
+            evidence = absent or matching or failures
+            proof = decide("No call at this site", {Record("proved occurrence absence"): evidence})
+            return "No call at this site" if proof["confirmed"] else self.mark(proof)
         basic = match_text(match)
         targets = match["target_ids"]
         if len(targets) > 3:
@@ -212,9 +231,13 @@ class Markdown(OperationTables):
             basic = basic.removesuffix(match["registration_reason"] + ".") + "Registration " + self.mark(
                 match["registration_reason"])
         elif match["status"] == "partial":
-            basic = basic.rsplit("Not checked — ", 1)[0] + self.mark(match["proof_failure"])
+            observed = "Closest match among the declarations read: " + ", ".join(
+                key.removeprefix("op:") for key in targets) + ". " if targets else ""
+            if len(targets) > 3:
+                observed = "Closest matches among the declarations read: " + shown + ". "
+            basic = observed + self.mark(match["claim"])
         elif match["status"] == "not_checked":
-            basic = self.mark(match["proof_failure"])
+            basic = self.mark(match["claim"])
         alternates = [
             row["operation"].removeprefix("op:") +
             (" might fit if the address value agrees" if row["grade"] == "candidate" else
@@ -229,10 +252,11 @@ class Markdown(OperationTables):
             return basic
         return f"Client {_code(match['client_rev'][:8])} with service {_code(match['service_rev'][:8])} · {basic}"
 
-    def call_row(self, call, old, new, action, complete=False, missing=None, prior=None):
-        where = _site(call["site"]) + " · " + (_code(call["enclosing_function"]) if call["enclosing_function"] else
-                    "Enclosing function " + self.mark("Enclosing function: Not checked — the scan recorded no function name",
-                                                       site_link(call["site"])))
+    def call_row(self, call, old, new, action, complete=False, presence=None, prior=None):
+        proof = decide("Enclosing function", {Record("enclosing function"): bool(call["enclosing_function"]) or failed(
+            "Enclosing function", None, None, "Enclosing function: Not checked — the scan recorded no function name")})
+        where = _site(call["site"]) + " · " + (_code(call["enclosing_function"]) if proof["confirmed"] else
+                    "Enclosing function " + self.mark(proof, site_link(call["site"])))
         request = self.request(call)
         if prior:
             before_site = prior["site"]
@@ -240,7 +264,8 @@ class Markdown(OperationTables):
                 before_site = dict(before_site, text=None)
             where = "Before · " + _site(before_site) + "<br>After · " + where
             request = "Before · " + self.request(prior) + "<br>After · " + request
-        return where, request, self.match_cell(old, complete, missing), self.match_cell(new, complete, missing), action
+        return (where, request, self.match_cell(old, complete, presence, "before"),
+                self.match_cell(new, complete, presence, "after"), action)
 
     def changed_call(self, edit, complete):
         a, b = edit["before_site_id"], edit["after_site_id"]
@@ -253,13 +278,12 @@ class Markdown(OperationTables):
             action += "<br>Other calls after this edit · " + self.list("remaining calls", [
                 _site(self.calls[key]["site"]) for key in edit["remaining_after_site_ids"]
             ], complete=complete)
-        return self.call_row(current, old, new, action, complete, edit["reason"], prior)
+        return self.call_row(current, old, new, action, complete, edit, prior)
 
     def client_changes(self, edits, limit):
         if not edits:
-            count = self.doc["summary"]["client_change_count"]
-            gap = count["proof_failure"] or count["reason"]
-            return ["Additional client calls " + self.mark(gap) if gap else
+            proof = self.doc["summary"]["empty"]["client"]
+            return ["Additional client calls " + self.mark(proof) if not proof["confirmed"] else
                     "No client calls were added, removed or retargeted in the checked source."]
         groups = defaultdict(list)
         for edit in edits:
@@ -320,8 +344,8 @@ class Markdown(OperationTables):
     def callers(self):
         # Reserve the caller evidence for the lead operation or client change.
         keys = []
-        if self.doc["impacts"]:
-            lead = self.doc["impacts"][0]
+        lead = next((group for group in self.doc["impacts"] if group["change_kinds"]), None)
+        if lead:
             keys.extend([*(risk["site_id"] for risk in lead["risks"]), *lead["client_site_ids"]])
         elif self.doc["call_changes"]:
             lead = self.doc["call_changes"][0]
@@ -336,8 +360,15 @@ class Markdown(OperationTables):
             rows = []
             for key in items:
                 call = self.calls[key]
-                if call["callers_status"] != "complete":
-                    result = self.mark(call["callers_reason"], site_link(call["site"]))
+                known_function = bool(call["enclosing_function"]) or failed(
+                    "Caller search", call["site"]["file"], call["site"]["rev"], "the function name is missing")
+                proof = decide("Caller search", {
+                    Record("enclosing function"): known_function,
+                    Record("caller search scope"): call["caller_scope"] is not None,
+                    Record("caller search result"): call["callers_status"] == "complete" and call["callers"] is not None,
+                })
+                if not proof["confirmed"]:
+                    result = self.mark(proof, site_link(call["site"]))
                 else:
                     result = (self.list("possible callers", [_site(site) for site in call["callers"]], complete=complete)
                               if call["callers"] else "No direct call found by this name in the searched files")
@@ -360,11 +391,15 @@ class Markdown(OperationTables):
             heading = _PAIR_LABELS[purpose] if "service_first" in self.pairs else purpose.title()
             content = (table(_CLIENT[:2] + ["Match"], rows) if rows else
                        "No unmatched request or unknown target was observed among the rows checked.")
-            if not rows and (reason := self.doc["reference"].get("unavailable_reason")):
-                content = self.mark(reason)
+            incomplete = [counts[key]["claim"] for key in ("known_unmatched_count", "unknown_target_count")
+                          if not counts[key]["claim"]["confirmed"]]
+            if incomplete:
+                notes = " · ".join(dict.fromkeys(self.mark(proof) for proof in incomplete))
+                content = f"{content}\n\nAdditional requests {notes}" if rows else f"Request totals {notes}"
             self.appendix.append([f"requests-{purpose}", f"Requests compared · {heading}", content])
 
     def standing(self):
+        limits = [self.mark(proof) for proof in self.doc["standing_limits"]]
         rows = []
         for mismatch in self.doc["standing_mismatches"]:
             site_id = mismatch["after_site_id"] or mismatch["before_site_id"]
@@ -378,6 +413,8 @@ class Markdown(OperationTables):
                 timing += " When this difference began " + self.list("timing checks", gaps)
             rows.append(((source, kind, timing), mismatch["linked_to_change"]))
         if not rows:
+            if limits:
+                return "Standing differences " + " · ".join(dict.fromkeys(limits))
             if reason := self.doc["reference"].get("unavailable_reason"):
                 return self.mark(reason)
             return "No difference of this kind was observed among the declarations and calls read."

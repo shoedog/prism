@@ -577,7 +577,8 @@ def extract(repo: str | Path, spec: RouteSpec, *, allow_uncertain=False) -> Extr
     for unit in units.values():
         calls = list(_registrations(unit.root, spec.callee))
         regions.extend({"file": unit.file, "line": call.start_point.row + 1,
-                        "end_line": call.end_point.row + 1} for call in calls)
+                        "end_line": call.end_point.row + 1,
+                        "byte_span": [call.start_byte, call.end_byte]} for call in calls)
         registrations = [(node, issue) for call in calls for node, issue in _registration_entries(call)]
         accepted = {node for node, _ in registrations}
         for node in _walk(unit.root):

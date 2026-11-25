@@ -181,23 +181,44 @@ def account_changed_route_regions(previous, current, paths, previous_sources, cu
     for file in sorted(set(prior) & set(paths) & status.keys()):
         if status[file]["status"] != "complete":
             continue
-        _, after, opcodes = diff(previous_sources.get(file), current_sources.get(file))
-        covered = {line for region in following[file] for line in range(region["line"], region["end_line"] + 1)}
-        for tag, lo, hi, start, stop in opcodes:
-            if tag != "replace" or not any(lo < row["end_line"] and row["line"] - 1 < hi for row in prior[file]):
+        _, _, opcodes = diff(previous_sources.get(file), current_sources.get(file))
+        if not any(tag != "equal" and lo < row["end_line"] and row["line"] - 1 < hi
+                   for tag, lo, hi, _, _ in opcodes for row in prior[file]):
+            continue
+        source = (current_sources.get(file) or "").encode()
+        regions = [row["byte_span"] for row in following[file]]
+        changed = [(lo, hi) for tag, _, _, lo, hi in opcodes if tag != "equal"]
+        candidates = {"call_expression", "new_expression", "assignment_expression", "variable_declarator",
+                      "return_statement", "export_statement"}
+        original = ts.parse((previous_sources.get(file) or "").encode(), Path(file))
+        existing = Counter((node.type, ts.text(node)) for node in ts.walk(original) if node.type in candidates)
+        recorded_until = 0
+        for node in ts.walk(ts.parse(source, Path(file))):
+            if node.type not in candidates:
                 continue
-            unaccounted = next((i + 1 for i in range(start, stop)
-                                if i + 1 not in covered and after[i].strip()
-                                and not after[i].lstrip().startswith(("//", "/*", "*"))), None)
-            if unaccounted is not None:
-                gap(file, {"file": file, "line": unaccounted},
+            key = node.type, ts.text(node)
+            if existing[key]:
+                existing[key] -= 1
+                continue
+            if node.start_byte < recorded_until or any(
+                lo <= node.start_byte and node.end_byte <= hi for lo, hi in regions
+            ):
+                continue
+            if node.type not in {"call_expression", "new_expression"} and any(
+                node.start_byte <= lo and hi <= node.end_byte for lo, hi in regions
+            ):
+                continue
+            if any(lo < hi and lo <= node.end_point.row and node.start_point.row < hi for lo, hi in changed):
+                gap(file, {"file": file, "line": node.start_point.row + 1,
+                           "byte_span": [node.start_byte, node.end_byte]},
                     "replacement source is outside the configured registration call")
-                break
+                recorded_until = node.end_byte
 
 
 class RecordingResolver(Resolver):
-    def __init__(self, repo, base, config, readable):
+    def __init__(self, repo, base, config, readable, tree_files):
         self.readable = readable
+        self.tree_files = tree_files
         self.dependencies = {}
         self.parse_errors = {}
         super().__init__(repo, base, config)
@@ -209,6 +230,8 @@ class RecordingResolver(Resolver):
             reason = None
             if path is None:
                 reason = "the local import could not be resolved to a readable file"
+            elif path not in self.tree_files:
+                reason = "the resolved path is absent from the selected tree"
             elif self.readable.get(path) is None:
                 reason = "the imported file could not be read"
             elif self.parse_errors.setdefault(path, None) is None:
@@ -229,6 +252,17 @@ def _test_file(file, root):
 
 def function_inventory(tree):
     def identity(node):
+        if node.type == "object":
+            parent = node.parent
+            if parent.type == "variable_declarator":
+                name = parent.child_by_field_name("name")
+            elif parent.type == "pair":
+                name = parent.child_by_field_name("key")
+            else:
+                return None
+            if name is None or name.type not in {"identifier", "property_identifier", "string", "number"}:
+                return None
+            return f"object:{ts.text(name)}"
         if node.type in ts.FUNCTIONS | {"class_declaration", "class", "namespace_declaration"}:
             name = node.child_by_field_name("name")
             if name is None and node.parent.type == "variable_declarator":
@@ -273,7 +307,7 @@ def client_calls(snapshot, root, client_root, selected, config, config_source):
                 "calls": records, "dependencies": [], "functions": {}}
     directory = root / client_root
     base = directory.parent if directory.name == "src" and directory != root else directory
-    resolver = RecordingResolver(root, base, config, selected)
+    resolver = RecordingResolver(root, base, config, selected, snapshot["tree_files"])
     files = []
     scans = {}
     for file in expected:
@@ -297,14 +331,17 @@ def client_calls(snapshot, root, client_root, selected, config, config_source):
         gaps.append(diagnostic(client_root, "no import could be linked to the configured client. "
                                "Uses of this client could have been missed"))
     for file, scan in scans.items():
-        gaps.extend(diagnostic(file, "a client alias could not be resolved to a stable request target", line,
-                               check="client call inventory") for line in scan.unsupported_aliases())
+        gaps.extend(diagnostic(file, reason, line, check="client call inventory")
+                    for line, reason in dict.fromkeys(scan.unaccounted_client_references()))
         observations = list(scan.observations(file))
         same_line = Counter(row.call.line for row in observations)
+        line_occurrences = Counter()
         for occurrence, observation in enumerate(observations, start=1):
             call = observation.call
+            line_occurrences[call.line] += 1
             source = site(snapshot, file, call.line, end_line=observation.end_line,
-                          occurrence=occurrence, same_line_occurrences=same_line[call.line], byte_span=[observation.start, observation.end],
+                          occurrence=line_occurrences[call.line], same_line_occurrences=same_line[call.line],
+                          byte_span=[observation.start, observation.end],
                           text=observation.expression)
             spec = observation.mapping
             mapping = None
@@ -344,11 +381,13 @@ def client_calls(snapshot, root, client_root, selected, config, config_source):
                       depth=1 if function else None, caller_scope=scope, callers=callers)
     dependencies = []
     for (file, imported), (resolved, reason) in sorted(resolver.dependencies.items()):
+        tracked = snapshot["tree_files"].get(resolved, {})
         dependencies.append({"importer": file, "import": imported, "path": resolved,
-                             "blob": snapshot["tree_files"][resolved]["blob"] if resolved else None,
+                             "blob": tracked.get("blob"),
                              "status": "unknown" if reason else "complete", "reason": reason})
         if reason and (resolved or not Path(imported).suffix or Path(imported).suffix in ts.EXTENSIONS):
-            gaps.append(diagnostic(resolved or file, f"{reason} (import {imported} from {file})", check="client import"))
+            gaps.append(diagnostic(resolved if tracked else file, f"{reason} (import {imported} from {file})",
+                                   check="client import"))
     return {**inventory(snapshot, expected, entries, gaps, excluded),
             "calls": records, "dependencies": dependencies,
             "functions": {file: list(function_inventory(scan.tree)) for file, scan in scans.items()}}

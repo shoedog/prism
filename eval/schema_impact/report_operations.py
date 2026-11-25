@@ -133,17 +133,18 @@ class OperationTables:
                     group["operation_id"].removeprefix("op:"))
             before = "Listed at this site" if file_changes and file_changes[0]["kind"] == "removal" else (
                 "No declaration at this site" if file_changes else
-                self.presence(group["before_presence"], group["proof_failures"]))
+                self.presence(group["before_presence"], group["presence_claims"]["before"]))
             after = "Listed at this site" if file_changes and file_changes[0]["kind"] == "addition" else (
                 "No declaration at this site" if file_changes else
-                self.presence(group["after_presence"], group["proof_failures"]))
+                self.presence(group["after_presence"], group["presence_claims"]["after"]))
             rows.append((kind, before, after, source))
         return rows, whole_operation
 
-    def presence(self, value, failures):
+    def presence(self, value, proof):
+        if not proof["confirmed"]:
+            return self.mark(proof)
         if value == "unknown":
-            return self.mark(explain(failures[0]) if failures else
-                             "the service has no recorded declaration for this schema operation")
+            return self.mark("the operation presence record is incomplete")
         return "Listed" if value == "present" else "Absent from the checked operations"
 
     def source_site(self, site, kind=None):
@@ -217,9 +218,9 @@ class OperationTables:
         for checked in group["declaration_comparisons"]:
             context = [f"**{checked['side'].title()} requests** · " + request_counts(checked["purpose"], checked, self.mark)]
             if not checked["closest_site_ids"]:
-                reason = checked["inventory_reason"] or checked["known_unmatched_count"]["reason"]
-                if reason:
-                    context.append("Closest matches " + self.mark(reason, name))
+                proof = checked["closest_match_claim"]
+                if not proof["confirmed"]:
+                    context.append("Closest matches " + self.mark(proof, name))
                 else:
                     context.append(f"None of the {checked['compared']} calls compared had this declaration among its closest matches")
             context.append("Other matching paths " + self.mark(OVERLAPS))
@@ -250,12 +251,16 @@ class OperationTables:
             prior, call = (self.calls[use[f"{side}_site_id"]] for side in ("before", "after"))
         old = use["match_before"] if use else self.pairs["before"]["matches"].get(key)
         new = use["match_after"] if use else self.pairs["after"]["matches"].get(key)
-        risks = [risk_label(row["kind"]) for row in group["risks"]
-                 if self.usage_keys.get(row["site_id"], row["site_id"]) == key]
-        if risks and "service_first" in self.pairs:
-            risks = ["If the service ships first · " + risk for risk in risks]
-        absence = use and "absent" in (use["before_presence"], use["after_presence"])
-        missing = use["presence_reason"] if use and not absence else None
+        risks = []
+        for row in group["risks"]:
+            if self.usage_keys.get(row["site_id"], row["site_id"]) != key:
+                continue
+            risk = risk_label(row["kind"])
+            _, pair = row["comparison_purposes"]
+            if pair == "service_first":
+                service_first = self.pairs[pair]["matches"][row["site_id"]]
+                risk = "If the service ships first · " + risk + "<br>" + self.match_cell(service_first, complete)
+            risks.append(risk)
         return self.call_row(call, old, new, " · ".join(risks) or "See below", complete,
-                             missing=missing, prior=prior)
+                             presence=use, prior=prior)
 

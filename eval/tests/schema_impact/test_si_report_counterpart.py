@@ -81,7 +81,7 @@ def test_service_compares_one_fixed_client(tmp_path, old, new, risks):
                  doc["reference"]["selection_reason"],
                  "2024-01-04T00:00:00+00:00", "2024-01-05T00:00:00+00:00",
                  "Checked revision is 1 day earlier than the change",
-                 "Changed fields: Not checked — no committed field schema",
+                 "Changed fields: Not checked — no field schema path was selected",
                  "**Client configuration** · `synthetic.toml`", "**Route specification** · `routes.json`",
                  "supplied by the study", f"{CLIENT_URL}/blob/{selected}/{CALL}#L2",
                  f"{SERVICE_URL}/blob/{base if old else head}/{ROUTES}#L2"):
@@ -122,7 +122,7 @@ def test_client_compares_one_fixed_service_and_can_pin_newer_service(tmp_path):
     assert doc["call_changes"][0]["risk"] == "Client calls a missing route"
     assert f"{CLIENT_URL}/blob/{head}/{CALL}#L3" in md
     assert fixed["operations"][OP]["sites"][0]["url"] == f"{SERVICE_URL}/blob/{ref}/{ROUTES}#L2"
-    assert "Changed fields: Not checked — no committed field schema" in md
+    assert "Changed fields: Not checked — no field schema path was selected" in md
 
     md, pinned = report(client, head, tmp_path, "consumer", *args, "--counterpart-rev", later)
     assert "Revision supplied for this review" in md

@@ -41,6 +41,15 @@ def _look(document):
     return "Versions checked and the limits on the observations."
 
 
+def _index_report(index, name, doc):
+    direction = {"both": "Service and client", "service": "Service change", "client": "Client change"}
+    subject = doc["change"]["subject"]
+    role = direction[doc["change"]["subject_role"]]
+    description = f"{subject['committed_at'][:10]} · {label(subject['subject'])} · {role}"
+    index.append(f"- [{name}.md]({name}.md) · {description} · {_look(doc)}")
+    index.append(f"- [{name}.json.gz]({name}.json.gz) · {description} · Snapshot and match evidence.")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
@@ -85,35 +94,29 @@ def main(argv=None):
         name = f"{number}-{commit[:8]}"
         doc = make(commit, "producer")
         _live(out, name, doc)
-        direction = "Service and client" if doc["change"]["subject_role"] == "both" else "Service change"
-        subject = doc["change"]["subject"]
-        description = f"{subject['committed_at'][:10]} · {label(subject['subject'])} · {direction}"
-        index.append(f"- [{name}.md]({name}.md) · {description} · {_look(doc)}")
-        index.append(f"- [{name}.json.gz]({name}.json.gz) · {description} · Snapshot and match evidence.")
+        _index_report(index, name, doc)
         live[commit] = name
 
     for i, commit in enumerate(clients, 1):
         doc = make(commit, "consumer")
         name = f"client-{i}-{commit[:8]}"
         _live(out, name, doc)
-        subject = doc["change"]["subject"]
-        description = f"{subject['committed_at'][:10]} · {label(subject['subject'])} · Client change"
-        index.append(f"- [{name}.md]({name}.md) · {description} · {_look(doc)}")
-        index.append(f"- [{name}.json.gz]({name}.json.gz) · {description} · Snapshot and match evidence.")
+        _index_report(index, name, doc)
 
     index_path = out / "index.md"
     index_path.write_text("\n".join(index) + "\n", encoding="utf-8")
 
     from .report_batch_evaluation import evaluate
 
-    index.extend(["", "## Evaluation companions (uses later history)", ""])
+    companions = ["# Evaluation companions (uses later history)", ""]
+    companion_path = out / "evaluation-index.md"
     try:
-        evaluate(args, subjects, live, index)
+        evaluate(args, subjects, live, companions)
     except subprocess.CalledProcessError as error:
-        index.append(f"Not checked — the evaluation command failed with status {error.returncode}.")
-        index_path.write_text("\n".join(index) + "\n", encoding="utf-8")
+        companions.append(f"Not checked — the evaluation command failed with status {error.returncode}.")
+        companion_path.write_text("\n".join(companions) + "\n", encoding="utf-8")
         return 1
-    index_path.write_text("\n".join(index) + "\n", encoding="utf-8")
+    companion_path.write_text("\n".join(companions) + "\n", encoding="utf-8")
     return 0
 
 

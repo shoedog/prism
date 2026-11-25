@@ -5,6 +5,8 @@ import re
 
 from markdown_it import MarkdownIt
 
+from .report_claims import Record, decide, reasons
+from .report_proof import source_record
 
 _GFM = MarkdownIt("commonmark", {"html": True}).enable("table")
 
@@ -29,12 +31,15 @@ class Limits:
 
     def add(self, reason, where=None):
         if isinstance(reason, dict):
+            if "confirmed" in reason:
+                return " · ".join(dict.fromkeys(self.add(failure, where) for failure in reason["failures"]))
             file = reason["file"]
+            location = reason["side"] or ""
             if file:
-                location = _code(file + (f":{reason['line']}" if reason["line"] else ""))
+                location = " ".join(filter(None, (location, _code(file + (f":{reason['line']}" if reason["line"] else "")))))
                 if reason["rev"]:
                     location += f" at {_code(reason['rev'][:8])}"
-                where = " · ".join(filter(None, (where, location)))
+            where = " · ".join(filter(None, (where, location)))
             reason = reason["reason"]
         # Schema readers supply the affected operation/body before the diagnostic.
         if " · Not checked — " in reason:
@@ -91,8 +96,8 @@ def table(headers, rows):
 
 def review_first(doc, calls):
     groups, edits = doc["impacts"], doc["call_changes"]
-    if groups:
-        group = groups[0]
+    group = next((group for group in groups if group["change_kinds"]), None)
+    if group:
         target = _code(group["operation_id"].removeprefix("op:"))
         kind = next(iter(group["change_kinds"]), "")
         finding = {
@@ -103,25 +108,27 @@ def review_first(doc, calls):
             "Route declaration changed": f"The route entry for {target} changes",
         }.get(kind, f"The checked code shows {target} only {'before' if group['before_presence'] == 'present' else 'after'} the change"
               if kind.startswith("Listed only") else f"The comparison for {target} has incomplete evidence")
-        removals = {row["site"]["file"] for row in group["file_changes"] if row["kind"] == "removal"}
-        additions = {row["site"]["file"] for row in group["file_changes"] if row["kind"] == "addition"}
-        if len(removals) == len(additions) == 1 and removals != additions and not group["proof_failures"]:
-            finding = f"The declaration of {target} moves from {_code(next(iter(removals)))} to {_code(next(iter(additions)))}"
+        if group["claims"].get("Declaration moved", {}).get("confirmed"):
+            old, new = (next(row["site"]["file"] for row in group["file_changes"] if row["kind"] == kind)
+                        for kind in ("removal", "addition"))
+            finding = f"The declaration of {target} moves from {_code(old)} to {_code(new)}"
         elif kind.startswith("Declaration "):
             finding = f"{target} · {kind}"
-        elif not kind and group["limits"]:
-            finding = next(iter(group["limits"])).rstrip(".")
+        if kind.startswith("Listed only") and group["proof_failures"]:
+            finding += ". " + " ".join(dict.fromkeys(group["limits"])).rstrip(".")
         ids = list(dict.fromkeys([*(risk["site_id"] for risk in group["risks"]), *group["client_site_ids"]]))
         if ids:
             site = calls[ids[0]]["site"]
             location = site_link(site)
-            risk = group["risks"][0]["kind"] if group["risks"] else None
+            risk = group["risks"][0] if group["risks"] else {}
+            service_first = risk.get("comparison_purposes", [])[-1:] == ["service_first"]
             context = {
                 "Client calls a missing route": "which loses its match" + (
-                    " if the service ships first" if doc["change"]["subject_role"] == "both" else " in the checked operations"),
-                "Existing client call gains a matching declaration": "which gains a match in the checked operations",
+                    " if the service ships first" if service_first else " in the checked operations"),
+                "Existing client call gains a matching declaration": "which gains a match" + (
+                    " if the service ships first" if service_first else " in the checked operations"),
                 "Client target needs confirmation": "whose target needs confirmation",
-            }.get(risk, "which appears in the client comparisons below")
+            }.get(risk.get("kind"), "which appears in the client comparisons below")
             action = group["review_action"]["text"].rstrip(".")
             return f"{finding}. For the call at {location} {context}, {action[:1].lower()}{action[1:]}."
         action = group["review_action"]["text"]
@@ -140,10 +147,9 @@ def review_first(doc, calls):
             "Observed before": "The check found a call before the edit", "Observed after": "The check found a call after the edit",
         }[edit["kind"]]
         return f"{finding}{target} at {site_link(call['site'])}. {edit['review_action']}"
-    key = "client_change_count" if doc["change"]["subject_role"] == "client" else "operation_count"
-    summary = doc["summary"][key]
-    if summary["reason"]:
-        return summary["reason"].rstrip(".") + ". Check the affected source."
+    proof = doc["summary"]["empty"][doc["change"]["subject_role"]]
+    if not proof["confirmed"]:
+        return reasons(proof) + " Check the affected source."
     return "The checked source shows no measured change. Check the coverage before relying on this comparison."
 
 
@@ -153,8 +159,11 @@ def site_location(site):
 
 
 def source_site(site, kind=None, *, excerpt=True):
-    if not site:
-        return "Not checked — source location was unavailable"
+    proof = decide("Source location", {
+        Record("tree source location"): bool(site and all(site.get(key) for key in ("tree", "blob", "file", "line"))),
+    })
+    if not proof["confirmed"]:
+        return reasons(proof)
     location = site_location(site)
     if site.get("url"):
         location = f"[{location}]({site['url']})"
@@ -181,9 +190,9 @@ def request_counts(purpose, counts, mark):
     unknown = counts["unknown_target_count"]
     return (
         f"[{no_match['observed']} requests whose method and address were read had no match](#requests-{purpose})"
-        + (f" observed · {mark(no_match['proof_failure'] or no_match['reason'])}" if no_match["reason"] else "")
+        + (f" observed · {mark(no_match['claim'])}" if not no_match["claim"]["confirmed"] else "")
         + f" · [{unknown['observed']} calls had an unknown target](#requests-{purpose})"
-        + (f" observed · {mark(unknown['proof_failure'] or unknown['reason'])}" if unknown["reason"] else "")
+        + (f" observed · {mark(unknown['claim'])}" if not unknown["claim"]["confirmed"] else "")
     )
 
 
@@ -274,7 +283,7 @@ def provenance(doc, receipts, mark):
             result.append(f'<a id="{anchor}"></a>**{kind}** · {mark(source["error"], _code(file))}.')
     driver_revision = (_code(driver["rev"]) + f" · {driver['committed_at']} · {label(driver['subject'])}"
                        if driver.get("committed_at") else
-                       mark("driver commit date and subject were unavailable"))
+                       mark("driver commit provenance was not admitted for this report"))
     result.append(
         f"**Driver revision** · {driver_revision} · source hash {_code(driver['build_identity'])} · "
         f"{driver['origin']}. The configuration era comes from each selected client revision’s first-parent ancestry. "
@@ -302,11 +311,19 @@ def coverage(doc, mark):
         "We compare the HTTP method and the path after applying the address mapping shown here. "
         "Among paths that fit, the check prefers those with more matching fixed or variable parts.",
     ]
-    if doc["summary"]["changed_field_count"]["reason"]:
-        fields = doc["summary"]["changed_field_count"]
-        scope = fields["reason"]
-        result[2] = (f"**Schema path** · {_code(service['schema']['source']['path'])}. "
-                     f"Changed fields {mark(scope)}.")
+    scope = doc["summary"]["schema_coverage"]
+    if not scope["confirmed"]:
+        location = _code(service["schema"]["source"]["path"])
+        result[2] = f"**Schema path** · {location}. Changed fields: Not checked. {mark(scope)}."
+        if len(doc["field_limits"]) == 1 and service["schema"]["status"] in {"path_absent", "unselected", "omitted"}:
+            result[2] = f"**Schema path** · {_code(service['schema']['source']['path'])}. {doc['field_limits'][0]}. {mark(scope)}."
+    for index, role in enumerate(("service", "client")):
+        snapshots = {change[f"{side}_input_id"][role]: side for side in ("before", "after")}
+        for key, side in snapshots.items():
+            snapshot = doc["inputs"][key]
+            proof = decide("Source coverage", {Record("source inventory"): source_record("Source coverage", snapshot, side)})
+            if not proof["confirmed"]:
+                result[index] += " " + mark(proof) + "."
     if reason := doc["reference"].get("unavailable_reason"):
         limit = mark(reason)
         if service["snapshot_kind"] == "unavailable":

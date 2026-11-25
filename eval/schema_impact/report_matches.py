@@ -6,11 +6,13 @@ from functools import cache
 
 from .consumer_ts import ClientCall
 from .match import _segments, bind
-from .report_proof import failed, source_gap
+from .report_claims import Record, decide, reasons
+from .report_proof import failed, route_record, source_record
 
 
 WILDCARD = ("Method coverage: Not checked — the matcher compares exact methods only and "
             "this declaration lists every method.")
+_WILDCARD_REASON = "the matcher compares exact methods only and this declaration lists every method"
 OVERLAPS = "Not checked — the scan kept only the closest matches"
 GATEWAY = "Registration: Not checked — no gateway mapping was checked"
 MAPPING = "Mapping: Not checked — the scan did not record which rule produced this path."
@@ -47,41 +49,50 @@ def compare(service, client, purpose):
     per_method = defaultdict(dict)
     for identifier, op in service["operations"].items():
         per_method[parts(identifier)[0]][identifier] = op
-    coverage = service["unaccounted_scopes"]
     source = service["operation_authority"]
+    declaration_inventory = source_record("Request match", service)
+    route_spec = route_record(service)
 
     @cache
     def outcome(method, path, reason, mapped):
         result = {"authority": source, "target_ids": [], "primary_grade": None, "reason": reason,
                   "alternates": [], "overlaps": None, "overlaps_reason": OVERLAPS,
                   "registration": "not_checked", "registration_reason": GATEWAY}
-        def unchecked(status, text, gap=None):
-            proof = gap or failed("Request match", service["scope"], service["rev"], text)
-            return dict(result, status=status, reason=text, proof_failure=proof)
-
         if reason or not method or not path:
             return dict(result, status="target_unknown", primary_grade="unbound")
-        if service["snapshot_kind"] == "unavailable":
-            return unchecked("not_checked", coverage[0]["reason"], source_gap("Request match", service))
         matches = per_method.get(method, {})
+        blocking = []
         for identifier, op in (matches | per_method.get("*", {})).items():
             optional = any(s["optional_param"] for s in op["sites"])
             if not _compatible(path, parts(identifier)[1], optional):
                 continue
             if identifier in per_method.get("*", {}):
-                return unchecked("not_checked", WILDCARD)
-            if optional:
-                return unchecked("not_checked", "Not checked — this path segment may be omitted")
+                blocking.append(failed("Method coverage", op["sites"][0]["file"],
+                                       service["rev"], _WILDCARD_REASON))
+            elif optional:
+                blocking.append(failed("Path coverage", op["sites"][0]["file"],
+                                       service["rev"], "this path segment may be omitted"))
         call = ClientCall("", 0, method, "", path, "", None, None, None)
         grade, ids, why = bind(call, _Index(matches))
         result.update(target_ids=ids, reason=why)
-        if not mapped:
-            return unchecked("not_checked", MAPPING)
-        if any(len(matches[identifier]["sites"]) != 1 for identifier in ids):
-            return unchecked("not_checked", "Not checked — two declarations have the same method and path")
-        if coverage:
-            return unchecked("partial", f"{coverage[0]['file']}: {coverage[0]['reason']}",
-                             source_gap("Request match", service))
+        matching = {"bound": ("Matches declaration", "match"), "candidate": ("Possible match", "possible"),
+                    "unbound": ("No matching declaration", "no_match")}
+        claim, status = matching[grade]
+        duplicate = next((matches[identifier]["sites"][0] for identifier in ids
+                          if len(matches[identifier]["sites"]) != 1), None)
+        proof = decide(claim, {
+            Record("declaration inventory"): declaration_inventory,
+            Record("route specification"): route_spec,
+            Record("request mapping"): mapped or failed(
+                "Mapping", None, None, "the scan did not record which rule produced this path"),
+            Record("applicable method and path"): blocking or True,
+            Record("match result"): True if not duplicate else failed(
+                "Request match", duplicate["file"], service["rev"], "two declarations have the same method and path"),
+        })
+        if not proof["confirmed"]:
+            partial = declaration_inventory is not True and service["snapshot_kind"] != "unavailable" and not blocking
+            return dict(result, status="partial" if partial else "not_checked", reason=reasons(proof),
+                        proof_failure=proof["failures"][0], claim=proof)
         if not ids:
             for other_method, operations in sorted(per_method.items()):
                 if other_method in {method, "*"}:
@@ -98,8 +109,7 @@ def compare(service, client, purpose):
                         if optional or len(op["sites"]) != 1:
                             alternative.update(grade=None, reason="the alternate declaration is ambiguous")
                         result["alternates"].append(alternative)
-        return dict(result, status={"bound": "match", "candidate": "possible", "unbound": "no_match"}[grade],
-                    primary_grade=grade)
+        return dict(result, status=status, primary_grade=grade, claim=proof)
 
     matches = {}
     for row in client["calls"]:
@@ -129,14 +139,17 @@ def prefix_hints(identifier, client):
                 break
             suffix.append(left)
         if suffix:
+            proof = decide("Possible match under another prefix", {
+                Record("request mapping"): bool(call["mapping_source"]),
+                Record("shared address suffix"): bool(suffix),
+            })
             hints.append({"site_id": call["site_id"], "declaration_path": path,
-                          "request_path": compared, "common_suffix": "/" + "/".join(reversed(suffix))})
+                          "request_path": compared, "common_suffix": "/" + "/".join(reversed(suffix)),
+                          "claim": proof})
     return hints
 
 
 def match_text(match):
-    if match is None:
-        return "No call at this site"
     status, reason = match["status"], match["reason"]
     ids = [identifier.removeprefix("op:") for identifier in match["target_ids"]]
     if status == "target_unknown":
@@ -146,7 +159,7 @@ def match_text(match):
     source, revision = match["authority"], match["service_rev"][:8]
     if status == "partial":
         observation = "Closest match among the declarations read: " + ", ".join(ids) + ". " if ids else ""
-        return f"{observation}Not checked — {reason}"
+        return f"{observation}{reason}"
     if status == "match":
         return f"Matches {ids[0]} in {source} at {revision}."
     if status == "possible":

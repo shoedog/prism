@@ -266,10 +266,11 @@ def test_single_repo_writes_live_set_even_with_unreadable_replay_pin(tmp_path):
                   "--client-subject", client, "--out-dir", str(out), "--configs", str(CONFIGS)])
     assert code == 1
     assert sorted(path.name for path in out.glob("*.md")) == [
-        f"01-{service[:8]}.md", f"client-1-{client[:8]}.md", "index.md"]
+        f"01-{service[:8]}.md", f"client-1-{client[:8]}.md", "evaluation-index.md", "index.md"]
     assert "github.com/apache/answer" not in (out / f"01-{service[:8]}.md").read_text()
     index = (out / "index.md").read_text()
-    assert index.index("## Live reports") < index.index("## Evaluation companions")
+    assert "## Live reports" in index and "Evaluation companions" not in index
+    assert "# Evaluation companions" in (out / "evaluation-index.md").read_text()
 
 
 def test_live_import_graph_forbids_replay_bypasses():
@@ -281,26 +282,37 @@ def test_live_import_graph_forbids_replay_bypasses():
             return
         visited.add(module)
         tree = ast.parse((source / f"{module}.py").read_text())
-        # Only the call after serializing the live index crosses into evaluation.
-        excluded = {node for node in ast.walk(tree) if module == "report_batch" and isinstance(node, ast.ImportFrom)
-                    and node.module == "report_batch_evaluation" and node.col_offset > 0}
+        excluded = set()
+        if module == "report_batch":
+            main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
+            boundary, = [node for node in main.body if isinstance(node, ast.ImportFrom)
+                         and node.module == "report_batch_evaluation"]
+            assert any(isinstance(node, ast.Expr) and ast.unparse(node).startswith("index_path.write_text(")
+                       and node.lineno < boundary.lineno for node in main.body)
+            excluded.add(boundary)
+        if module == "cli":
+            for node in ast.walk(tree):
+                if isinstance(node, ast.If) and ast.unparse(node.test) == "args.command == 'replay'":
+                    excluded.update(part for part in node.body if isinstance(part, ast.ImportFrom)
+                                    and part.module == "_replay_measure")
         for node in ast.walk(tree):
             if node in excluded:
                 continue
-            if isinstance(node, ast.ImportFrom) and node.level == 1:
-                names = {name.name for name in node.names}
-                if node.module == "replay":
-                    assert names <= {"DEFAULT_SCHEMA", "select_config"}, (module, names)
-                elif node.module:
-                    visit(node.module)
-                else:
-                    assert "replay" not in names, module
-                    for name in names:
-                        visit(name)
-            if isinstance(node, ast.Import):
-                assert all(not name.name.endswith(".replay") for name in node.names)
+            imported = []
+            if isinstance(node, ast.ImportFrom):
+                origin = node.module or ""
+                if node.level or origin == "schema_impact" or origin.startswith("schema_impact."):
+                    submodule = origin.removeprefix("schema_impact.").removeprefix("schema_impact")
+                    imported = [submodule] if submodule else [name.name for name in node.names]
+            elif isinstance(node, ast.Import):
+                imported = [name.name.removeprefix("schema_impact.") for name in node.names
+                            if name.name.startswith("schema_impact.")]
+            for name in imported:
+                name = name.split(".")[0]
+                assert name not in {"replay", "report_batch_evaluation", "report_evaluation", "_replay_measure"}
+                visit(name)
 
-    for root in ("report_batch", "report_inputs", "report_analysis", "report_markdown"):
+    for root in ("cli", "report_batch", "report_inputs", "report_analysis", "report_markdown"):
         visit(root)
 
 
@@ -341,8 +353,6 @@ def test_frozen_report_set_excludes_later_artifacts_in_both_modes(tmp_path, mode
     (repo.path / CALL).write_text(call("/dirty"))
     (repo.path / "untracked.go").write_text(HANDLER)
     study.commit(4, **{config: "[corrupt", "saved-bindings.json": "later"})
-    for artifact in ("run.json", "followed-lines.json", "judgments.json", "subjects.tsv", "restorations.json"):
-        (tmp_path / artifact).write_text("later evidence")
     joint_live = json.loads(before["joint"][0])
     base = joint_live["change"]["before"]
     evidence = replay.replay_one(repo.path, joint, [replay.Change("op_removed", OP)],
@@ -357,12 +367,18 @@ def test_frozen_report_set_excludes_later_artifacts_in_both_modes(tmp_path, mode
     assert render_all(frozen) == before
     assert render_all({name: build_inputs(request) for name, request in requests.items()}) == before
     # A different admitted declaration changes the result even when the same study tree is used.
+    (repo.path / CALL).write_text(call("/later"))
+    (repo.path / "untracked.go").unlink()
+    assert git(repo.path, "status", "--porcelain") == ""
     control = repo.commit(5, **{"handler.go": HANDLER.replace("/fern", "/new")})
     stamp = git(repo.path, "show", "-s", "--format=%cI", control)
     request = ReportRequest(repo.path, control, "producer", Path(config), mode=mode, selection_time=stamp,
                             study_repo=study.path, study_rev=study_rev,
                             cutoff_receipt={"subject": control, "observed_at": stamp, "study_rev": study_rev})
-    assert b"op:GET /new" in render_all({"control": build_inputs(request)})["control"][0]
+    document = json.loads(render_all({"control": build_inputs(request)})["control"][0])
+    row = next(group for group in document["impacts"] if group["operation_id"] == "op:GET /new")
+    assert row["change_kinds"] == ["Operation added"]
+    assert (row["before_presence"], row["after_presence"]) == ("absent", "present")
 
 
 def test_configuration_read_error_is_distinct_from_missing(tmp_path, monkeypatch):

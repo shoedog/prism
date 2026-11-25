@@ -4,6 +4,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import tomllib
 
+from ._replay_git import first_parents
+
+
+DEFAULT_SCHEMA = "docs/swagger.json"
+EARLY_ERA_START = "8e6c49a5"
+CURRENT_ERA_START = "2b1ad947"
+
+
+def select_config(repo: Path, p0: str, configs_dir: Path, *,
+                  early: str = EARLY_ERA_START, current: str = CURRENT_ERA_START) -> Path:
+    for commit in reversed(first_parents(repo, p0)):
+        if commit.startswith(current):
+            break
+        if commit.startswith(early):
+            return Path(configs_dir) / "apache-answer-2022.toml"
+    return Path(configs_dir) / "apache-answer.toml"
+
 
 MethodSpec = str | dict[str, str | int]
 
