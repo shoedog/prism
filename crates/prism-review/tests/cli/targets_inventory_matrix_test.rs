@@ -31,6 +31,7 @@ const CAUSES: &[&str] = &[
     "helper_unannotated",
     "helper_not_admissible",
     "receiver_value_unproven",
+    "receiver_is_none",
 ];
 
 #[derive(Deserialize)]
