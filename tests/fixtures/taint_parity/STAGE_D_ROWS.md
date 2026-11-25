@@ -365,6 +365,11 @@ All rows have group `walk`, default knobs, findings **none / none** on the marke
 | `d-return-go-string` | a.go | `string(v)` | P | predeclared conversion |
 | `d-return-go-bytes-string` | a.go | `string(v)` | P | change the formal type to `[]byte` |
 | `d-return-go-sprintf` | a.go | `fmt.Sprintf("ls %s", v)` | P | standard `fmt`, bare string directive |
+| `d-return-go-sprintf-v` | a.go | `fmt.Sprintf("ls %v", v)` | P | standard `fmt`, `%v` on a plain string (reviewer A R4) |
+| `d-return-py-str` | a.py | `str(v)` | P | identity conversion of a primitive string (R4) |
+| `d-return-js-String` | a.js | `String(v)` | P | identity conversion of a primitive string (R4) |
+| `d-return-py-strip` | a.py | `v.strip()` | P | native trim; also `lower()` / `upper()` (R4) |
+| `d-return-js-and-fixed` | a.js | `v && 'fixed'` | X | returns `v` only when falsy, which carries no data; truth no_flow (R4 smell) |
 | `d-return-go-sprintf-zero` | a.go | `fmt.Sprintf("%.0s", v)` | X | zero-byte output |
 | `d-return-go-sprintf-quote` | a.go | `fmt.Sprintf("%q", v)` | P | standard quoting emits the string’s data |
 | `d-return-go-sprintf-precision` | a.go | `fmt.Sprintf("%.*s", limit(), v)` | U | the dynamic precision can select zero characters |
