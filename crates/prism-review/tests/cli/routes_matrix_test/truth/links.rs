@@ -4,6 +4,14 @@ use super::{compare_pin, site_key, Observation};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub(super) fn runtime_only_count(row: &Value) -> Option<usize> {
+    match row["id"].as_str()? {
+        "et1-10" | "es1-20" => Some(2),
+        "es3-07" => Some(1),
+        _ => None,
+    }
+}
+
 pub(super) fn runtime_only(row: &Value, call: &Value) -> bool {
     // Known calls at the Stage D diagnostic anchors. Express reports a
     // one-based stack column. Python reports a zero-based UTF-8 byte span.

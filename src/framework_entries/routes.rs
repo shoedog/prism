@@ -1,4 +1,5 @@
 //! Source registrations and their query-local projection.
+pub mod mounts;
 mod receivers;
 #[cfg(test)]
 mod tests;
@@ -340,10 +341,15 @@ pub enum CallbackStatus {
     Resolved {
         #[serde(flatten)]
         identity: CallableId,
+        /// Argument spelling retained until the table checks the receiver.
+        #[serde(skip)]
+        argument_text: String,
     },
     Anonymous {
         #[serde(flatten)]
         identity: CallableId,
+        #[serde(skip)]
+        argument_text: String,
     },
     Unresolved {
         text: String,
@@ -537,6 +543,12 @@ pub struct RouteTable {
 }
 
 impl RouteTable {
+    /// Build the listing and enforce receiver and callback proof together.
+    ///
+    /// # Panics
+    ///
+    /// A callable slot on an unproven receiver requires its written argument
+    /// text. Callable identities recovered from the wire lack that text.
     pub fn new(
         mut routes: Vec<Route>,
         mut mounts: Vec<Mount>,
@@ -548,9 +560,27 @@ impl RouteTable {
         let mut unproven = 0;
         let mut candidates = 0;
         for route in &mut routes {
-            if matches!(route.receiver, Receiver::Unproven { .. }) {
+            if let Receiver::Unproven { reason } = route.receiver {
                 route.candidate = Some(true);
                 route.paths.clear();
+                for callback in &mut route.callbacks {
+                    let text = match &mut callback.status {
+                        CallbackStatus::Resolved { argument_text, .. }
+                        | CallbackStatus::Anonymous { argument_text, .. } => {
+                            assert!(
+                                !argument_text.is_empty(),
+                                "callable callback on an unproven receiver needs written argument text"
+                            );
+                            argument_text
+                        }
+                        CallbackStatus::Unresolved { text, .. } => text,
+                    };
+                    callback.status = CallbackStatus::Unresolved {
+                        text: std::mem::take(text),
+                        reason,
+                    };
+                    callback.delegate = None;
+                }
                 unproven += 1;
             }
             candidates += usize::from(route.candidate == Some(true));

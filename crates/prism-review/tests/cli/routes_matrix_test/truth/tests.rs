@@ -14,6 +14,7 @@ fn example() -> (Value, Value) {
     let truth = json!({
         "status": "executed", "projection": [projected],
         "calls": [{"id": 1, "site": {"file": "app.js", "line": 7, "ordinal": 2},
+            "args": {"path": "/:id"},
             "callbacks": [{"file": "app.js", "name": "handler", "first_line": 3}]}],
         "served": [{"call_ids": [1], "path": "/api/:id", "effective_methods": ["GET", "HEAD"]}]
     });
@@ -121,7 +122,7 @@ fn skips_only_static_paths_and_static_metadata() {
     row["expect_unlisted"] = json!(true);
     assert_fields(&row, Some(&truth), &[]);
 
-    truth["served"][0]["call_ids"] = json!([99]);
+    let served = std::mem::replace(&mut truth["served"], json!([]));
     for reason in ["no_known_mount", "mount_cycle", "expansion_truncated"] {
         row["expect"][0]["paths"][0] =
             json!({"status": "suffix", "value": "/wrong", "reason": reason});
@@ -130,7 +131,7 @@ fn skips_only_static_paths_and_static_metadata() {
     row["expect"][0]["paths"][0]["reason"] = json!("variable_prefix");
     assert_fields(&row, Some(&truth), &["expect[0].paths[0].value"]);
     row["expect"][0]["paths"][0]["reason"] = json!("no_known_mount");
-    truth["served"][0]["call_ids"] = json!([1]);
+    truth["served"] = served;
     assert_fields(&row, Some(&truth), &["expect[0].paths[0].value"]);
 }
 
@@ -190,19 +191,10 @@ fn checks_missing_and_extra_registrations_with_static_exception() {
 
 #[test]
 fn runtime_only_registrations_require_approved_diagnostic_sites() {
-    let (mut row, mut truth) = example();
-    row["expect"] = json!([]);
-    assert_fields(&row, Some(&truth), &["truth.projection[0].registrations"]);
-    row["accepted_loss"] = json!("runtime_generated_registration");
-    assert_fields(&row, Some(&truth), &["truth.projection[0].registrations"]);
-    row["id"] = json!("et1-10");
-    row["expect_diagnostics"] =
-        json!([{"site": {"file":"app.js","line":5},"reason":"runtime_generated_registration"}]);
-    truth["calls"][0]["kind"] = json!("verb");
-    truth["calls"][0]["site"] = json!({"file":"app.js","line":5,"column":14,"ordinal":1});
+    let (row, mut truth) = saved_case("et1-10");
     assert_fields(&row, Some(&truth), &[]);
     truth["calls"][0]["site"]["line"] = json!(8);
-    assert_fields(&row, Some(&truth), &["truth.projection[0].registrations"]);
+    assert_fields(&row, Some(&truth), &["truth.runtime_only"]);
 }
 
 #[test]
@@ -310,7 +302,7 @@ fn runtime_loss_does_not_cover_another_column_on_the_same_line() {
         assert_fields(&row, Some(&truth), &[]);
         let site = &mut truth["calls"][0]["site"];
         site[column] = json!(site[column].as_u64().unwrap() + 1);
-        assert_fields(&row, Some(&truth), &["truth.projection[0].registrations"]);
+        assert_fields(&row, Some(&truth), &["truth.runtime_only"]);
     }
 }
 
@@ -327,4 +319,78 @@ fn native_path_keys_match_shared_grammar_vectors() {
             "{framework} {path}"
         );
     }
+}
+
+#[test]
+fn receipt_rejects_corrupted_links_evaluated_paths_and_erased_loss_evidence() {
+    let mut accepted = Vec::new();
+    for (id, changes) in [
+        (
+            "ex01",
+            vec![
+                ("/served/0/call_ids", json!([1, 1])),
+                ("/served/0/call_ids", json!([1, 9999])),
+            ],
+        ),
+        ("fl01", vec![("/calls/0/args/rule", json!("/wrong"))]),
+        (
+            "et1-10",
+            vec![
+                ("/calls", json!([])),
+                ("/projection", json!([])),
+                ("/served", json!([])),
+            ],
+        ),
+        (
+            "es1-20",
+            vec![
+                ("/calls", json!([])),
+                ("/projection", json!([])),
+                ("/served", json!([])),
+            ],
+        ),
+        (
+            "es3-07",
+            vec![
+                ("/calls", json!([])),
+                ("/projection", json!([])),
+                ("/served", json!([])),
+            ],
+        ),
+    ] {
+        let (row, truth) = saved_case(id);
+        for (field, bad) in changes {
+            let mut changed = truth.clone();
+            *changed.pointer_mut(field).unwrap() = bad;
+            let mut errors = Vec::new();
+            compare_row(&row, Some(&changed), &mut errors);
+            if errors.is_empty() {
+                accepted.push((id, field));
+            }
+        }
+        if ["et1-10", "es1-20", "es3-07"].contains(&id) {
+            let mut changed = truth;
+            for field in ["calls", "projection", "served"] {
+                changed[field] = json!([]);
+            }
+            let mut errors = Vec::new();
+            compare_row(&row, Some(&changed), &mut errors);
+            if errors.is_empty() {
+                accepted.push((id, "all evidence"));
+            }
+        }
+    }
+    assert!(accepted.is_empty(), "accepted {accepted:?}");
+}
+
+#[test]
+fn overlapping_suffixes_consume_the_most_specific_match_first() {
+    let (mut row, mut truth) = example();
+    row["expect"][0]["paths"] = json!([
+        {"status":"suffix","value":"/b"}, {"status":"suffix","value":"/x/b"},
+    ]);
+    truth["served"] = json!([
+        {"call_ids":[1],"path":"/r/x/b"}, {"call_ids":[1],"path":"/s/b"},
+    ]);
+    assert_fields(&row, Some(&truth), &[]);
 }

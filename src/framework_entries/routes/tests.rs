@@ -1,6 +1,7 @@
 use super::*;
 use serde_json::json;
 
+mod composition;
 mod wire;
 
 fn router(byte: usize) -> RouterId {
@@ -574,5 +575,62 @@ fn shorthand_matches_duplicate_evidence_but_filters_invalid_identities() {
         ":factory()",
     ] {
         assert_eq!(EntryKind::parse(invalid), None, "{invalid}");
+    }
+}
+
+#[test]
+fn table_suppresses_callable_identity_for_unproven_receivers() {
+    let mut route = literal_route("'/x'", "/x", 12);
+    route.receiver = Receiver::Unproven {
+        reason: Reason::ImportedUnproven,
+    };
+    let identity = CallableId {
+        file: "app.js".into(),
+        name: "handler".into(),
+        start_line: 1,
+        end_line: 1,
+        start_byte: 0,
+        end_byte: 7,
+    };
+    route.callbacks = [
+        CallbackStatus::Resolved {
+            identity: identity.clone(),
+            argument_text: "alias".into(),
+        },
+        CallbackStatus::Anonymous {
+            identity: identity.clone(),
+            argument_text: "() => 1".into(),
+        },
+        CallbackStatus::Unresolved {
+            text: "wrap(h)".into(),
+            reason: Reason::WrapperCall,
+        },
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(position, status)| Callback {
+        position,
+        status,
+        delegate: Some(identity.clone()),
+        role: Some(CallbackRole::Handler),
+    })
+    .collect();
+    let table = RouteTable::new(vec![route], vec![], vec![], vec![], []);
+    use crate::navigation::routes::RouteFormat;
+    for format in [RouteFormat::Json, RouteFormat::Text] {
+        let listing = format.render(Ok(table.clone()), false);
+        assert!(listing.contains("wrap(h)") && listing.contains("imported_unproven"));
+        assert!(!listing.contains("\"name\"") && !listing.contains("\"identity\""));
+    }
+    let callbacks = serde_json::to_value(&table.routes()[0].callbacks).unwrap();
+    let expected = ["alias", "() => 1", "wrap(h)"];
+    for (position, text) in expected.into_iter().enumerate() {
+        assert_eq!(
+            callbacks[position],
+            json!({
+                "position":position,"status":"unresolved","text":text,"reason":"imported_unproven",
+                "delegate":null,"role":"handler"
+            })
+        );
     }
 }

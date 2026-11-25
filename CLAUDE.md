@@ -245,12 +245,17 @@ output and must never overwrite an existing file.
 
 `prism nav routes --repo <dir> [--entry <selector>] [--mounts] [--format json|text]`
 lists source registrations, optional mount edges, and a final summary. The
-summary names the enabled adapters. S1a has an empty adapter set, so an empty
-listing carries no evidence of route absence. Explicit entries require a
-unique, statically evidenced root and otherwise return `entry_unproven`.
+summary names the enabled adapters. S1b adds composition behind an adapter
+interface. Its adapter set is empty, so an empty listing carries no evidence
+of route absence. Explicit entries require a unique, statically evidenced root and otherwise return `entry_unproven`.
 The wire contract distinguishes router and unproven receivers, full, suffix
 and dynamic exposures, and resolved, anonymous and unresolved callbacks.
-A closed snake_case reason enum records refusal and dispatch outcomes. See
+Live mounts see later registrations, and copies use the source installation
+at capture. Suffix reasons include `no_known_mount`, `variable_prefix`,
+`mount_cycle`, `dispatch_conflict` and `expansion_truncated`. Dynamic leaves
+carry `non_literal_path` or `regex_path`. Dispatch cuts retain the source
+origin. A proved rejection records a failed root and blocks all bindings on
+that instance. See
 [the routes wire contract](docs/features/query-layer/navigation/routes.md).
 
 Navigation and CPG call resolution share one ordered ladder (S3),

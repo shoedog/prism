@@ -206,6 +206,7 @@ fn callbacks_preserve_identity_role_order_and_forwarding() {
                 position: 0,
                 status: CallbackStatus::Resolved {
                     identity: identity.clone(),
+                    argument_text: String::new(),
                 },
                 delegate: None,
                 role: Some(CallbackRole::Pre { group: 1 }),
@@ -214,6 +215,7 @@ fn callbacks_preserve_identity_role_order_and_forwarding() {
                 position: 1,
                 status: CallbackStatus::Anonymous {
                     identity: anonymous,
+                    argument_text: String::new(),
                 },
                 delegate: Some(identity),
                 role: Some(CallbackRole::Handler),

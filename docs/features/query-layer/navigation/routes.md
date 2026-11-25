@@ -4,7 +4,7 @@
 prism nav routes --repo <dir> [--entry <selector>] [--mounts] [--format json|text]
 ```
 
-S1a provides the listing contract with `enabled_adapters: []`. With no
+S1b provides the listing and composition core with `enabled_adapters: []`. With no
 `--entry`, the query infers from the available adapter evidence and emits the
 empty summary in this build. An empty listing carries no evidence of route
 absence. Explicit selection requires one grounded app, factory result, URLconf,
@@ -36,7 +36,9 @@ one-based lines and zero-based, half-open UTF-8 byte spans.
   also be a candidate. `registrations = proven + unproven`, and `candidates`
   counts the subset whose candidate flag is true.
 - Full exposures have an evidenced root and path. Suffix exposures carry a
-  literal tail and a reason. Dynamic exposures carry a reason. Each exposure
+  literal tail and a reason such as `no_known_mount` for a detached router or
+  `variable_prefix` for an unknown prefix. Dynamic exposures carry a reason
+  such as `non_literal_path` or `regex_path`. Each exposure
   carries host and method constraints, a version selector or null, and any
   binding restrictions. For scorable paths, `path_tokens` distinguishes
   literal braces from parameters. `normalized` renders that token sequence.
@@ -45,8 +47,9 @@ one-based lines and zero-based, half-open UTF-8 byte spans.
   An explicit empty set is `{"known":[]}`. Independently established defaults
   appear in `default_methods`.
 - Resolved and anonymous callback slots include the callable's byte and line
-  spans. An unresolved slot includes the written expression and reason.
-  `delegate` holds a separately proved forwarding target or null. Hapi
+  spans. An unresolved slot includes the written expression and reason. An
+  unproven receiver gives every callback slot its refusal reason and clears
+  callable and delegate identities. `delegate` holds a separately proved forwarding target or null. Hapi
   callbacks may include a pre-handler role and stage. Table records retain the
   complementary element or installation site and ordinal. Identified Hapi
   objects also carry `origin_plugin`, including on candidates.
@@ -54,9 +57,26 @@ one-based lines and zero-based, half-open UTF-8 byte spans.
   source site and reason. A failed root records the rejecting event and blocks
   binding on every exposure for that root.
 
+## How mount and setup events affect exposures
+
+Live mounts see registrations installed later. Snapshots read the source at
+the copy event, including nested copies. Deferred events contribute at a
+proved activation point. A cycle stops at the repeated instance with
+`mount_cycle`. Each source origin can retain 64 distinct exposures plus an
+`expansion_truncated` suffix. The mount listing retains all recorded edges.
+
+A conditional exposure carries `setup_guard` and earns no unconditional
+schema credit. An overwrite adds `superseded_keys` to the earlier source
+record. Uncertain installation can leave a `dispatch_conflict` suffix.
+Installed alternatives with uncertain dispatch keep their full paths and
+block the contested methods. A proved rejection blocks binding for its root
+with `binding_blocked: "any"`. Source records and written callbacks survive
+these cuts. An impossible chain or a `build_only` declaration has no
+exposure through that chain or declaration.
+
 The route, mount and callback examples below use synthetic identities to
 illustrate the wire contract. The final two lines illustrate the outputs
-available in the S1a build.
+available in the S1b build.
 
 ```jsonl
 {"framework":"express","protocol":"http","site":{"file":"app.js","line":4,"start_byte":50,"end_byte":75},"receiver":{"status":"router","file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"methods":{"known":["GET"]},"path":{"raw":"'/items/:id'","literal":"/items/:id"},"paths":[{"root":{"file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"status":"full","value":"/items/:id","path_tokens":[["literal","/items/"],["parameter"]],"normalized":"/items/{}","host_kind":"unconstrained","hosts":[],"method_guard":"any","version":null}],"callbacks":[{"position":0,"status":"resolved","file":"app.js","name":"show","start_line":2,"end_line":2,"start_byte":22,"end_byte":47,"delegate":null}]}

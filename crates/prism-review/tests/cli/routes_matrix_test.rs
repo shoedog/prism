@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 mod binding;
 mod listing;
+mod mutations;
 mod pins;
 mod rows;
 mod truth;
