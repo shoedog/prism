@@ -21,6 +21,7 @@ The issue's premise is out of date, which changes what has to be built.
 | `target[key] = value` **is** recorded as a definition, of path `target.[]`, and `key` is a use on that line. This has been so since April. | `src/ast/lvalues.rs:628-634`; probe |
 | The key is not part of the path: `o[k]` and `o["x"]` are both `o.[]`; `o[k].y` is recorded as `o.[]`. No data-flow edge starts or ends at a `[]` path (0 of 73 edges in the probe): reads of `o[k]` collapse to `o`. | `src/access_path.rs:152-163`; probe |
 | The key's Use on the write line rarely has the key's own byte span. In a named owner, an identifier inside the index of a plain-statement write gets a zero-width Use at the line start (`o[k] = v`, `a[k1][k2] = v`, `o[keys[keys.length - 1]] = v`, `if (!t[key]) t[key] = {}`), or shares the Use of the same name's right-hand occurrence (`target[key] = source[key]`; `t[key] = f(t[key] \|\| {}, v)`, the occurrence inside the call argument). Exact spans exist for walk steps (`o = o[k] = o[k] \|\| {}`), compound and logical writes (`o[k] ??= {}`, `o[k] += v`), member-chain keys (`o[opts.key][name]`: `opts.key` exact, `name` zero width) and anonymous owners. In the baseline's 41 traced cases the key's Reached occurrence is zero width in 32, a right-hand occurrence in 3 and inside the index span in 1. | probe (`~/prism-evidence/lanes-2026-11-20/reviews/lane4-fable-r1-probes/spans-a.js`) |
+| On the baseline binary the orchestrator saw an exact key Use inside the index at the read step in a loop body (`o = o[s]`) and a zero-width Use of `id` at the declarator line anchor in `const u = users[id]`. Both retain the key by name. | Orchestrator's Stage D probe, recorded under A-F2. Route 2 in 5.3 depends on both forms. |
 | Value and key taint already reach the write line. `taint-reaches` from an Express handler's `req.body` reports the `key` use on the line of `target[key] = …` as Reached in the recursive merge, and the path array at the path setter's final write. | probe 7.3 |
 | `for (const key in source)` carries taint from `source` to `key` (same-line propagation). `Object.keys(source).forEach(key => …)` does not: callback parameters are not bound (#434). | probe; `src/cpg/query.rs:731-767` |
 | A tainted receiver reaches the key of a path walk that aliases its receiver parameter. For a function whose formals share one line and which begins `let o = obj` and walks `o = o[k]`, a tainted `obj` taints `path` and `value`: the alias mints twin definitions of `obj` at `let o = obj` and at `o = o[k]`, they have edges to a Use of `obj` on the signature line, and same-line propagation (a Use reaches every Def on its line in its function) taints the sibling formals. Without the alias (`obj[k1][k2] = v`, `const u = obj[k1]; u[k2] = v`), or with one formal per line, it does not. | probe (same directory: `receiver-decoy-e.js`, `receiver-controls-f.js`); `src/cpg/query.rs` |
@@ -31,7 +32,7 @@ The issue's premise is out of date, which changes what has to be built.
 | The benchmark harness measures reach, not findings: `nav taint-reaches --source <API formal> --sink <ground-truth write line>`, crediting a reached occurrence on that line. Per case it saves the raw `taint-reaches` output (`raw/<class>/<entry>/witness.json.gz`: every Use on the ground-truth line, with a verdict per source root) and, as a comparison channel, review taint on a synthetic diff of the source parameter lines (`raw/<class>/<entry>/taint.json.gz`, `--algorithm taint --taint-return-flow --taint-source <formal>`). The row's `trace_detail.parameter_results` keeps only occurrences that pass `sink_value`: an exact start byte, or a zero-width Use whose name occurs once on the line; a key named two or more times on the line (`ret[keyPath[keyPath.length - 1]] = value`) is absent from it. It has no guarded or fixed-version negatives. | `eval/secbench/run.py:64-72`, `:134-153`, `:290-330` |
 | Benchmark numbers (baseline of 2026-10-05, an older build): 192 prototype-pollution entries, 190 acquired, ground truth derivable for 95; of those 41 traced, 26 reach the function only, 8 partial, 3 not reached, 17 errors. All 41 traced cases have source and sink in one file. | `docs/superpowers/plans/2026-10-04-secbench-ground-truth/R1.md` |
 | Shape of the cases: 145 of 148 recorded sinks are subscript assignments; none is `Object.assign` or a spread. By exploit payload: path setters 52 (31 traced), object merges 46 (5 traced), flatten/unflatten 7 (4 traced). Merge cases fail before the write: rest parameters and `arguments` (#595), callbacks (#434), `dist` directories the loader skips. | research section 3.5 |
-| Draft PR #841 (cross-file taint context) edits `taint/run.rs`, `taint.rs`, `taint/seeds.rs` and `src/cpg/{trace,query,cfg_queries}.rs`. It does not touch `taint_sinks/`, `src/ast/` or `src/sanitizers/`. | PR #841 |
+| At the historical baseline PR #841 (cross-file taint context) edited `taint/run.rs`, `taint.rs`, `taint/seeds.rs` and `src/cpg/{trace,query,cfg_queries}.rs`. The design checkout includes it with `--taint-context` defaulting to `off`. | PR #841, `TaintContextArgs` in `crates/prism-review/src/cli.rs` |
 
 Consequences:
 
@@ -39,9 +40,9 @@ Consequences:
   already arrives on its line. What is missing is knowing **which writes can pollute**, **which operand
   selects the prototype**, **which guards make the write safe**, and a **sink** that decides by name which
   operand is tainted: the key arrives as a line-level Use of its name, not as an occurrence inside the index.
-- The sink rests on two producer behaviours that nothing pins today: the Use an index identifier gets on the
-  write line (pinned by a core test in stage T), and the receiver propagation above, which makes one sink
-  row a known false positive (5.3, decision 10).
+- The Stage T core test pins the key Use on the write line. S1a-1 extends it at the read step and declarator.
+  The seeded receiver case pins the separate propagation behaviour in decision 10.
+
 - The largest loss on merge-shaped cases is upstream of this lane (parameter binding and callbacks). The lane
   reports those cases as potential, and does not fix them.
 - Key identity in paths (`o["x"]` versus `o[k]`) and edges through `[]` paths are data-flow precision work
@@ -159,10 +160,12 @@ A Map method returning a receiver is outside the write classes (`nk15`, `t2-043`
   `t2-069`). A nonnumeric alternative after a counter or search result invalidates its exclusion (`t2-017`,
   `t2-058`).
 - Evaluate literal alternatives, immutable local/module data members, finite unmodified lookup tables, booleans,
-  symbols, and the value-producing tail of a comma expression. For concatenations and templates, retain a
-  selector if any of the three names fits **all** fixed fragments in order, with anchored prefix and suffix.
-  This includes a compatible interpolation or a conditional with a reserved-name arm (`nk11`, `t2-042`). A fixed
-  prefix, infix or suffix incompatible with every name excludes the selector (`nk10`). Guard narrowing is
+  symbols, and the value-producing tail of a comma expression. For concatenations and templates, use the fixed
+  prefix and suffix to test compatibility with the three names.
+  This includes a compatible interpolation or a conditional with a reserved-name arm (`nk11`, `t2-042`). An
+  incompatible fixed prefix or suffix excludes the selector (`nk10`). Retain interior-only templates: both the
+  colon and underscore fixtures ran safe, so that pair does not support a new infix-only cut (8.1). Guard
+  narrowing is
   recorded on an otherwise eligible fact in 5.2. Runtime key sources such as captures and enumeration of unknown
   object keys remain eligible. The keys of a literal regexp’s named capture groups are fixed, even when its
   captured values vary (`t2-055`, `t2-158`).
@@ -174,7 +177,10 @@ A Map method returning a receiver is outside the write classes (`nk15`, `t2-043`
 **Destination and ordinary-code exclusions.** A write-back is local to the enumerated destination when the same
 stable slot is read and rewritten, and the only recursion transforms that slot’s current value. Check object
 *and* key identity, including nested `Object.keys`/`Object.entries` over existing own data slots, or a recursive
-destination enumerating its own keys (`t2-147`). Require a plain data receiver for the own-slot proof. A
+destination enumerating its own keys (`t2-147`). Require a closed plain-data receiver with only private
+traversed own children, proved from local allocations and stores (including a locally bound helper called on
+that closed literal in `t2-147`). An opaque formal or library result lacks that proof even under native own-key
+enumeration. A bare one-level rewrite with no recursive destination relation has no fact at entry. A
 different object supplying the keys, an independently selected destination, or a recursive path argument
 preserves the fact (`rm01`, `rr01`). A fresh base for a one-level store, an unconditionally installed fresh own
 slot (`t2-078`), and the fresh buckets of native `Object.groupBy` give no route to a shared receiver. A fresh
@@ -188,12 +194,15 @@ receiver steps eligible (`t2-013`). For this exclusion, private means a locally 
 unknown writer, escape, or use as another object’s prototype before the write. Treat opaque or shared children,
 retained views, proxies and unknown stores as unproved. Initialisation conditional on the truthiness of an
 inherited read leaves that read eligible. Distinct targets in one destructuring assignment receive independent
-facts. The fresh-slot proof uses an earlier completed installation of the same stable own slot that dominates
+facts. The fresh-slot proof uses an earlier completed installation of the same stable own slot (the reused
+property key has proven primitive identity as in 5.2) that dominates
 the target as a separate statement. A replacement on the right-hand side occurs after capture of the assignment
 receiver (`t2-110`). The bounded proof also leaves earlier sibling pattern targets unresolved (`t2-127`).
 
 **Operands.** A selector is a value-bearing identifier or member chain used to choose a receiver at a retained
-step. Record its spelling, base identifier, owning function and source span. Include the key read that feeds a
+step. Record its spelling, base identifier, source span and file-local AST owner byte interval, plus lexical
+declaration and reaching definition spans for the binding/version test in 5.3. Keep the write owner separately.
+Include the key read that feeds a
 cursor or recursive call and qualifying outer indices of the final target. Include the local key’s direct source
 when it is a stable alias, an element/destructuring read from the path (including native `shift`, `pop` and the
 element of a sliced path in an inline iterator), or a segment sliced from that path (`pw05`, `t2-009`,
@@ -219,26 +228,53 @@ test must cover the actual cursor advance or recursive destination argument on *
 direct chain, cover every qualifying receiver lookup. A stable key may also be checked after a side-effect-free
 selection if every path to the dependent store then requires that check (`t2-121`). A finite identity check can
 apply to the selected receiver itself. A guard for the final property alone has state `none` (`g31`). An
-unguarded final property is compatible with full selector protection (`g32`).
+unguarded final property is compatible with full selector protection. In `g32` the selector test itself lacks string proof.
 
 Compute the actual control-flow destination of `return`, `throw`, `break` and `continue`, including labels,
 `catch`, `finally` and callback scope. A branch can reject the write, restrict its accepting branch, or skip
 just the selected step. A skip suffices only if subsequent selection and the final write cannot reuse an
 unchecked pending key or cursor. A switch-local break, an absorbed throw, a return followed by a store in
 `finally`, and a return from an earlier callback give no protection (`t2-133`, `t2-134`, `t2-080`, `t2-081`). A
-check on only some paths, iterations or selector levels is `partial` (`t2-026`, `t2-049`, `t2-062`, `t2-063`). A
+check on only some paths, iterations or selector levels is `partial` (`t2-026`, `t2-049`, `t2-063`). In `t2-062`
+the catch requires a nullish root and the write requires a non-nullish root. No execution of the write benefits
+from the catch check, so the state is `none`. A
 changed binding, second getter read, changed input across `await`, or unchecked decode/normalisation invalidates
 the old proof (`g34a/b`, `t2-027`, `t2-061`, `t2-074`, `t2-082`).
 
-| Sufficient form and limits | Executed `safe` rows |
+**Key-domain proof.** The core fact computes the guard state from evidence at the actual selection. The by-name
+sink reads its guard state. A fixture argument, TS annotation, method spelling or successful call on a formal
+supplies no runtime domain. For a native split require a proved primitive string receiver (literal, dominating
+`typeof`, stored native `String` result or finite positive string equality), unmodified native operation and
+ordinary literal separator. An explicit native string split with a literal string delimiter also establishes a
+dense array of strings on normal return. For subsequent array operations require the same native-operation and
+stable sequence proofs. A receiver with a custom `split`, iterator or filter can produce different values. A
+regexp's coercion of its argument proves nothing about a later lookup with that argument.
+
+For own-key tests and fresh-slot installation, the checked and used keys must have the same property-key value
+across uses. A stored primitive string or symbol (including the result of native `Reflect.ownKeys`) supplies
+that identity. Repeated conversions of an unknown object do not. Check receiver and key versions on each path.
+For a deny-list comparison require a proved primitive string at the comparison and selection. Native `for…in`,
+`Object.keys`/entry names and matched string capture groups provide strings. A finite positive test against
+literal strings can establish its own domain on the accepting branch.
+
+| Sufficient form | Executed safe witnesses with the proof |
 |---|---|
-| Reject a key if it equals `__proto__` or `constructor`, optionally also `prototype`, at every selection. The accepting form requires the conjunction of the corresponding inequalities. The alternative pair `__proto__` plus `prototype` alone has no isolated safe row and stays partial. Strict comparisons, switch cases, literal-array `includes`/`indexOf` and `Set.has` all require **provably primitive string keys** for a deny-list. String evidence includes native string splitting with a literal separator, regexp string captures, `for…in` names, `Object.keys`/the key of `Object.entries`, one stored native `String` conversion, or a dominating `typeof` test. Apply the ordinary native split contract to JSON data on the successful split-only path. A custom splitter, an unknown separator protocol or an array/text union supplies no such proof. Require an unshadowed intrinsic and an unmodified, unescaped literal collection, even for module constants. | g01, g06, g15, g16, g17, g26, g32, t2-025, t2-048 |
-| A single statically bound, side-effect-free same-file predicate with an admitted return comparison, or an assertion whose rejecting branch actually throws out of the caller’s write path. Substitute the actual key once. A positive test that admits only exact safe literal strings establishes string-ness on its accepting path. A TS predicate or assertion annotation carries no proof. | g10, t2-029, t2-146 |
-| A stateless literal regexp that is exactly an anchored alternation of the excluded names on the complete key, or a complete-segment alternation using the very same literal delimiter as the subsequent split. An exact finite allowed set on every key, or on the entire unchanged path with every allowed member’s segments known safe, also qualifies. | g07, g21, t2-073, t2-083 |
-| Consume the result of filtering **all** stable native-split strings with an admitted comparison, or mapping each forbidden string to a name whose fixed affix makes it benign (inline or the simple local mapper). For a checked token, a literal replacement that introduces a character absent from every blocked name whenever it changes the token cannot create one of those names. Recomputing the identical pure trim/lowercase expression on the same immutable primitive string is admissible when the **normalised result** was checked. | g22, g23, t2-072, t2-152 |
-| On each string selector, reject membership in the unmodified `Object.prototype` or an own-property hit on that same object. For ordinary four-root data, admit each existing **own** destination child or install a fresh fallback before following it, including the composite own-and-enumerable test. An own check followed by an effective exit also qualifies. Match destination, current key and selection on every path. A known registry of shared values still needs a proof about the selected own child. A merely present or truthy property gives none. | g18, g19, g04, g24, g25, t2-120, t2-141, t2-168, t2-170 |
-| An exact single-level redirect of the string header name to a private scratch object, with all other selections starting at the original ordinary root and no second selector before the store. This is the INI writer’s narrow shape. | g28 |
-| Prove the receiver belongs to a fixed collection of freshly allocated local objects, or that it carries the local class’s private brand. Admitting one stable selector value after the read, admitting a finite set of own names on a closed literal for a repeated *identical* string key, or proving exact path length and a fixed selector prefix can likewise cover every receiver step. | t2-118, t2-153, t2-121, t2-166, t2-167 |
+| Reject both `__proto__` and `constructor` at every selection on proved strings, optionally also `prototype`. | g01 (enumeration), g26 (runtime type check), t2-048 (one stored string conversion) |
+| Allow only exact safe literal strings for the selector or entire stable path. A bound same-file assertion must actually exit on rejection. Native set membership in a closed, unmodified set of safe strings proves the accepted key's type. | t2-073, t2-083, t2-121, t2-146 |
+| Recompute the same pure normalisation on the same immutable string after checking its normalised result against a finite allow-list. | t2-152 |
+| Follow destination-owned ordinary-data children or install the fresh fallback at each step, with stable property keys and no known shared child. Admit the composite own-and-enumerable test. A closed local table or cloned snapshot with private children admits an own-only lookup on an unchanged key. | g24, g25, t2-120, t2-166, t2-170 |
+| Redirect the one string header selection to a fresh scratch object on the reserved name, with no second selector before the store. | g28 (the name is a literal regexp's captured string) |
+| Admit the selected receiver by identity in a closed collection of fresh objects or by its local private brand. | t2-118, t2-153 |
+
+A guard form without an executed safe witness **meeting its premises** stays at most partial. This includes the
+current split-only deny-lists, deny-list helpers, switch, regexp checks, filtered/mapped segments and
+whole-sequence prechecks. The split receivers in g04, g06–g07, g10, g15–g19, g21–g23, g32, t2-025, t2-029,
+t2-072, t2-167, t2-168, t3-013, t3-024, t3-056 and seeded sk04 lack the native/string proof. In t2-141 an own
+check and the subsequent reads repeat an unproved key. All have a partial guard. t2-167 and t2-168 remain silent
+given their supplied names. sk04 requires a warning with the partial-guard note. The assertion on a finite
+allowed string in t2-146 has an independent proof. Loose equality stays partial. The two-name combination
+`__proto__` plus `prototype` stays partial in t3-023: the executed safe row also restricts the cursor to objects
+and its split receiver is untyped.
 
 `partial` covers a relevant but incomplete name set, comparison on a potentially non-string segment, a
 remaining-path prefix or whole-parent check covering only some selections, or exclusion of just one possible
@@ -268,17 +304,29 @@ Def, a property-only Use, or a receiver-only Use supplies no match. Require the 
 paths (one is a prefix where both carry fields). Report at the write target. Two observations can establish the
 match.
 
-1. **On the target.** Preserve the by-name rule on a line spanned by the target, in its lexical owner. An
-   in-target span belongs to that write alone. A zero-width line anchor or a right-hand Use outside all targets
-   matches the eligible writes on that line with that selector base. Thus `sk16a` fires and `sk16b` stays
-   silent. Target-line matching remains available when a key Use has no exact span.
-2. **At an earlier selection.** `pw10`, `pw11` and `at01` have no selecting key on the leaf line. Index the
-   actual selector occurrence recorded for each dependent write in 5.1. Require a nonempty Use span **inside
-   that operand**, in the operand’s own function, with the same name/path test. Associate it only with writes
-   for which this step can still supply the receiver. An off-target zero-width anchor, unrelated occurrence on
-   the step line, sibling binding or reached cursor object provides no evidence. For an inline callback, retain
-   the callback’s own location as well as the dependent write’s owner. This is a lookup over syntax facts and
-   existing flow ends.
+1. **At the target.** Match an actual selector occurrence on a target line. Preserve its binding, value version,
+   full member-path compatibility and lexical AST owner. A final-property occurrence alone supplies no selector
+   evidence. The target and the selector may share a stable value with another target (`sk16a/b`).
+2. **At an earlier selection.** Index the selector occurrences that can still supply that particular write's
+   receiver, including callback and recursive steps in their own owners. The producer premise in section 2
+   covers both an exact loop-body Use and a zero-width declarator Use. Rebinding the cursor to an unrelated
+   value on all paths kills the link.
+
+Both routes use the same fallback. A producer Use may represent several same-path occurrences on a line even
+when its retained span is nonempty. Resolve candidate reads of that name/path under the producer's file, line
+and available function identity to their AST owners, lexical declarations and reaching value versions. Use the
+exact in-operand span directly when the producer occurrence is unambiguous. For a zero-width anchor, a shared
+RHS Use, or a retained span outside the earlier operand, admit by name only when **every indistinguishable
+read** denotes one owner, one binding and one version compatible with the selector. Include reads outside
+eligible targets, guarded siblings and reads across a same-line assignment in this test. A retained
+representative byte offset does not resolve an otherwise conflated pair. An unambiguous match can support each
+live dependent write using that same value. Check each write's guard separately before line deduplication.
+
+A different owner on the same line, shadowing, an intervening redefinition, an unresolved member write or
+multiple reaching versions defeats fallback unless syntax uniquely resolves the read. An ambiguous Use supplies
+no credit. Record `M-AMBIG` once per affected case if no independent selector witness succeeds, list both
+candidate spans and count the miss against yield. The row intersection test in section 7 supplies identified
+selector Uses and does not simulate this producer loss.
 
 A directly selected framework source also qualifies at the selector’s own span under the existing framework
 source-access overlap test. The ordinary diff, file, source and same-line seed exclusions apply to the target
@@ -311,28 +359,30 @@ independently be a target (`sk01`).
   the existing producer. Keep sk03b as the known warning, measure it at S4, and track the producer behaviour in
   #854 (decision 10).
 
-PR #841 edits the same loop, so that slice is rebased over #841 or lands after it. Review taint keeps
-findings in the diff's file today (#602, PR #841); a helper in another file is reported once that lands, and
-`taint-reaches` plus the listing cover it meanwhile.
+PR #841 is present on the design checkout. Cross-file taint context is opt-in (`--taint-context` defaults to
+`off`). Use default same-file review for the benchmark and real-diff measures. Report any opt-in experiment
+separately.
 
-### 5.4 The listing
+### 5.4 The listing and benchmark join
 
-`prism nav proto-writes --repo <dir> [--format json|text]` (CLI only, like `dfg-stats`; no MCP tool;
-documented as unstable, so its output may change without notice) prints every fact: file, line, function,
-class, key operands with their roles, guard state. It serves the PR fact lists, E4, and a **diagnostic**
-for the benchmark: the harness joins it with each case's raw `taint-reaches` output to compute a
-**finding-equivalent** (a case counts when the ground-truth write line holds a fact that is not
-`sufficient`ly guarded and a selector operand is reached by name under the rule of section 6, E2) and to say,
-for each case that does not count, which condition failed (no fact, guard, key not reached). The frozen E2
-witnesses cover only ground-truth lines. Off-target evidence is credited by the actual S2 sink or a separately
-captured exact selector-site witness, never inferred from a receiver Use or a missing witness.
+The unstable CLI-only `prism nav proto-writes --repo <dir> [--format json|text]` lists facts with file, owner,
+target span, class, role-tagged operands and guard. Join the listing at the designated target (file, line and
+column) of each frozen strict conversion. Record the structural class and selector, including its actual site
+when earlier. The pre-sink finding-equivalent is a **diagnostic**: join the saved ground-truth-line Uses with a
+Reached verdict from a data root to the target's eligible selector under 5.3. Record missing facts, guards,
+missing earlier-site evidence, ambiguous binding/version, and property-only reaches separately. There is no
+selector-site recapture in this policy.
 
-Once the sink exists (slice S2), the benchmark-yield gate counts the sink itself: `js-proto-write` findings
-at the ground-truth line in the review-taint output the harness already saves per case (`taint.json.gz`,
-section 2). All baseline traced cases have source and sink in one file, so the limit that review taint keeps
-findings in the diff's file does not apply to them; a traced case whose source and sink are in different
-files is listed and not counted until PR #841 lands. Before S2 (slice S1a), finding-equivalents stand in
-for findings.
+Six nonrecursive cases need evidence outside the frozen line: confucious, eivindfjeldstad-dot,
+grunt-util-property, json-pointer 0.6.0 and 0.6.1, and just-safe-set. The write-line ceiling is 15/21 even by
+spelling, at most 14/21 after removing minimist's cross-binding coincidence. In grunt-util-property the final
+property reuses a key name. In recursive doc-path 2.0.0 the line carries `keyPath` while the recursive selection
+uses `currentKey`. Keep all these cases in their original class denominators.
+
+S2 starts the yield gate on actual `js-proto-write` findings at the designated file and line in the same build's
+review-taint output (`taint.json.gz`). Review can see the earlier selector through 5.3. Before S2, measure
+structural coverage and show the frozen finding-equivalent diagnostic alongside it. Section 8 specifies
+thresholds and guard review.
 
 ### 5.5 Where the code goes
 
@@ -452,26 +502,24 @@ before and after. Only fixtures written for this lane are executed. Benchmark pa
 
 Use the recorded `truth` for each call. Project its exercised root kinds onto the four ordinary kinds and
 include calls that construct their own root (`root: none` in the execution record). The watched objects are
-`Object.prototype`, `Array.prototype` and `Function.prototype`. All 270 row IDs, files and four-root labels
-agree with the saved `truth/truth.jsonl` from Node v24.15.0. There are 126 `pollutes`, 144 `safe` and zero
-inadmissible rows. Of eight extended-root labels, seven change from `safe` to `pollutes` (g01, g04, g18, g19,
-g24, g25, g28). The eighth, g29, is already `pollutes`. Neither extended-root outcomes nor the non-JSON
-observations in 5.2 replace `truth`.
+`Object.prototype`, `Array.prototype` and `Function.prototype`. All 326 IDs, files and four-root labels agree
+with the saved Node v24.15.0 execution. There are 153 `pollutes`, 173 `safe` and zero inadmissible rows. Seven
+extended-root neighbours change from safe to pollutes (g01, g04, g18, g19, g24, g25, g28). g29 already pollutes.
+Use the four-root result for the gate and disclose the extended results independently of the current guard
+decision.
 
-[ROW_REQUIREMENTS.md](ROW_REQUIREMENTS.md) supplies the contract at every row’s **designated write**. For a
-fact, intersect the selector bases with the row’s immutable `attacker_names`. Names can denote earlier key
-bindings. For example, `g28` selects with `name`, while the supplied names include `section` (the receiver) and
-`key` (the property). `t2-151` supplies only `cursor`. Both have an empty selector-base intersection. With those
-matching selector Uses supplied as reached evidence, require `fires` exactly when the intersection is nonempty
-and the guard is `none` or `partial`. All other combinations require `silent`. This is a decision test of the
-consumer, independent of whether a framework source actually reaches that operand. Compare `rm02` (given a
-reached key) with `sk11` (actual seed on the input object). The separate seeded cases validate propagation and
-finding placement. Class, guard and concrete behaviour still apply to losses and scope-tagged rows.
+[ROW_REQUIREMENTS.md](ROW_REQUIREMENTS.md) specifies each designated write. With the row's named selector Uses
+supplied as reached, require `fires` exactly when a fact has a selector base in `attacker_names` and its guard
+is `none` or `partial`. A witness in the table names such a base. All other decisions are `silent`. Resolve
+names at the selector's binding. A source-seeded test separately measures actual propagation and direct
+framework-source overlap (`rm02` versus `sk11`). In `t3-051` the supplied name is the selected receiver `entry`.
+The selector's base is `req`. The named-input test is silent (M-ROW-SELECTOR). A separately supplied source
+range on `req.params.section` must reach the dependent write in S2.
 
-Of 270 required decisions, 143 fire and 127 stay silent. The silent outcomes comprise 82 absent facts, 35
-sufficient guards and 10 facts with no matching selector base. The in-scope population has 237 rows. Each
-in-scope discrepancy with execution has an ID in section 11. The 33 scope notes describe effects outside the
-snapshots or lane goal.
+The 326 decisions comprise 202 fires and 124 silences. Of the silences, 96 have no fact, 16 have a sufficient
+guard and 12 have a fact without a matching selector and without sufficient protection. The 293 in-scope
+decisions comprise 136 detections, 17 misses, 96 safe silences and 44 safe reports. The remaining 33 scope rows
+require 22 fires and 11 silences.
 
 ## 8. Gates
 
@@ -479,8 +527,10 @@ snapshots or lane goal.
 |---|---|
 | Experiment | section 6 |
 | Matrix | every row meets the required behaviour of section 7; no row is INADMISSIBLE; exceptions are named accepted losses |
-| Benchmark yield, by class | over the converted cases (C, strict reading) whose E3 class is one the slice has enabled: before the sink (slice S1a), finding-equivalents (5.4) ≥ 0.9 × that count; from slice S2 on, and at acceptance, `js-proto-write` findings at the ground-truth line in the saved review-taint output (5.4) ≥ 0.9 × that count; both on the same build. Cases the final rules call guarded are listed for a human check, not counted against the lane |
-| Ordinary code | on the E4 corpora, every fact outside test directories is listed in the slice's PR; the E4 sample re-labelled against the final rules shows at least 80% able to pollute (on 20 or more class hits) |
+| Benchmark before S2 | S1a-1 and S1a-2 require structural coverage of at least 19/21 nonrecursive cases: an enabled fact with the required class and a selector at the designated write or its live receiver step. S1b preserves this coverage. If S3 precedes S2, apply the same structural metric to all classes (at least 27/29). Record frozen finding-equivalents and ambiguity reasons per class as diagnostics. |
+| Benchmark yield from S2 | On the enabled strict conversions, gate once on the **aggregate** actual findings. Report numerator and denominator for each class. With no exclusions, require 19/21 (19 walks + two nested writes) or 27/29 with the eight recursive cases enabled. S4 uses all 29. |
+| Guard exclusions | For yield only, enumerate sufficient guards for independent human checking of the actual selector, domain and placement. Remove only explicitly approved guarded cases from both numerator and denominator. With raw size N and G approvals require at least ceil(0.9 × (N − G)) distinct unexcluded cases with findings. Publish raw and adjusted counts by class, IDs and approvals. Pending/rejected guards and ambiguous reaches stay in the denominator. If all cases have approved guards, report zero eligible cases and omit the yield percentage. |
+| Ordinary code | Apply 8.1 to the final fact population. Require ≥80% capable at 20 or more sampled final facts. Below 20 after all reserves, record insufficient evidence and the counts without a percentage. That recorded outcome satisfies the reporting condition for acceptance. |
 | Sink on real diffs | after slice S2: review taint with the sink over a fixed set of at least 60 real JS/TS diffs from the ordinary-code corpora (PLAN S4); every `js-proto-write` finding is listed and a reader labels up to 40. Reported with its tally, including the aliased-receiver false positives, and not gated; a percentage is stated only on 20 or more findings |
 | Sink | the sink rows: fires on selector-key taint; silent on value-only taint, on property-only taint (5.1), on receiver-only taint where the write has no cursor alias, and under a sufficient guard; the aliased-cursor receiver row is asserted as the known false positive; `warning` severity even beside a weak call on the same line |
 | No regression | review-taint output on the existing taint fixtures is unchanged except for new `js-proto-write` findings; no change to any data-flow statistic; the core test that pins the key's Use on the write line stays green |
@@ -497,21 +547,39 @@ write. Declaring upstream callers trusted would erase that distinction.
 | 5, 6, 9, 10, 21, 27 | Keep six `nested_keys` facts | Ordinary table with a dynamic receiver selection. A truthiness check, a check of an existing value’s shape, a DB convention or a numeric property operand cannot establish a private receiver. None has a confirmed attacker-reachable selector in the reader labels. |
 | 1–4, 25–26 | No fact | Closed graph-node records initialise `level` numerically and write it from a numeric accumulator. Subtraction yields a number. The point offsets in 25–26 use arithmetic, with a fixed numeric suffix even on the string arm of `+ 1`. Array and TS types alone earn no exclusion. |
 | 7–8 | No fact | A separately allocated null-prototype table receives fresh arrays/records on missing keys. The final store targets one of these local children. The query origin of the key does not remove this proof. |
-| 11–20 | No fact | 11 writes back through the same two levels of own-key enumeration. 12–20 transform values in the enumerated destination. There is no independent recursive destination step. 14 and 19 also use a template with a mandatory separator. |
+| 11 | Keep the nested fact | Library-produced metadata passes through own-key enumeration. The selected children have no local plain/private-data proof. |
+| 12–20 | Keep nine recursive facts | `filter` and `deep` are opaque destinations. Their recursive calls descend through a dynamic child and `for…in` includes inherited slots. Hits 14 and 19 put the separator on the **written property**. The recursive selector is still `key`. |
 | 22–23 | No fact | The receiver key always carries a fixed path prefix. |
-| 24, 28–32 | No fact | 24 crosses a fixed interior field, with a prior dependent access that the reader found cannot complete for the shared receiver. The binding-table stores address an intervening table or a just-installed value. A fixed leaf alone is never an exclusion. At 30 the reader also identifies a destination-own check with an effective throwing exit. Credit such a guard only with ordinary method identity and a verified exit. |
+| 24, 28–32 | No fact | 24 crosses a fixed interior field, with a prior dependent access that the reader found cannot complete for the shared receiver. The binding-table stores address an intervening table or a just-installed value. A fixed leaf alone is never an exclusion. At 30 the reader also identifies a destination-own check with an effective throwing exit. Crediting a guard independently would also require a stable property key, ordinary method identity and a verified exit. |
 
 The reader’s reason for hit 29 describes the adjacent fixed-property store at line 1672 of `woff2-bindings.ts`.
 The saved coordinate is line 1668, whose receiver crosses `.overloadTable`. The disposition above uses the
 recorded coordinate. At 30 the fixed-interior-field rule suffices independently of the proposed throw-helper
 guard.
 
-Six capable facts remain among six retained coordinates. This satisfies the **ratio** requested of the
-re-labelling. The 26 removed coordinates and the original 6/32 both stay in the record. Section 8 requires at
-least 20 *final class hits* for a gate percentage. The product listing can introduce new facts, especially local
-aliases. S1a and S4 must label the final population using the planned corpora and sampling order, list
-sufficiently guarded facts separately and include them in the all-facts denominator. If fewer than 20 are
-available, report the tally and leave the gate open.
+Of 32 original coordinates, the design retains 16 and removes 16. Six of the retained hits had the reader's
+capable label and ten had the incapable label. These are design dispositions. Product cut frequencies and the
+final listing remain to be measured. An executed example supports a bounded rule only where the corpus site
+independently meets its premises.
+
+| Proposed E4 cut | Recorded safe / pollutes controls and decision (t3 suffixes unless named) |
+|---|---|
+| Own-slot write-back (11–20) | 001/025 and 002/026 distinguish the supplied calls. Opaque inputs defeat the plain-data proof at 001/002 and hit 11. 027 and 038 are safe one-level writes with no recursive destination; 028 pollutes with recursive descent. Neither one-level control licenses removing hits 12–20. Keep the narrower closed-literal rule (`t2-147` / 026). |
+| Numeric selector (1–4, 25–27) | 003 safe versus 029/031 polluting for a replaced or externally initialised field. 004/032, 005/033 and 006/034 distinguish native operations. 035/036 distinguish arithmetic from unrestricted input. 030 pollutes with a numeric leaf. Apply the proof only to a receiver selector. |
+| Template fragments (14, 19, 22–23) | 007 and 037 both ran safe, including 037’s row-specific input. Withdraw the proposed interior-only cut. Keep qualifying facts for both rows. 038 puts the fragment on a one-level leaf. The older safe fixed-prefix `nk10` and polluting compatible concatenation `nk11` support the anchored prefix cut at 22–23. |
+| Private children (7–8) | 008/009 safe; 039–041 pollute with a shared slot, ordinary root or opaque child. Require a null table and exclusively private possible children. |
+| Fixed interior or installed private receiver (24, 28–32) | 010 safe versus 043/044 polluting on a direct receiver. The six coordinates have fixed interior fields. The narrower installation proof has safe `t2-078` (one string conversion) and polluting 045 (conditional installation). 011/012 ran safe but reuse an unproved split key. Keep their facts. |
+| Effective exit | 013 safe; 042/046 pollute with a returning helper or a property-only check. 013 proves the helper exits but its repeated key lacks primitive identity. Keep its partial guard. The fixed interior at hit 30 accounts for its exclusion. |
+
+On the final build, list all non-test facts and per-cut counts (candidates, excluded, retained), including new
+fact shapes. Use the five M-4 corpora first. With fewer than 20 final class hits add
+`apache-superset/superset-frontend`, then `apache-answer/ui`, then `screwdriver` from the local bench-repos
+checkout, in that fixed order, stopping after the first corpus that reaches 20 or after the list ends. Pin every
+revision. The historical reserve counts of 18 and zero are candidate counts. Sort by corpus, file, line and
+target span and take all hits up to 40, otherwise sample 40 with seed 20261120. Keep sufficient facts in the
+denominator and label capability independently of source reach. At 20 or more sampled facts require at least 80%
+capable. Below 20 report capable/guarded/incapable counts and **insufficient evidence**. Acceptance can proceed
+with that recorded result. A measured ratio below threshold at 20 or more does not pass.
 
 ## 9. Follow-ups, not started by this lane
 
@@ -539,15 +607,15 @@ available, report the tally and leave the gate open.
 | 5 | Where facts live | core crate, with a CLI-only listing | moving them into the review crate removes the listing and the harness join | before S1a |
 | 6 | Executing lane-written fixtures under Node for truth labels | yes: child process per row, payload, root kind and mode, 5 s limit, contained as in section 7 | without it, labels come from reading | before stage T |
 | 7 | Fixed versions of benchmark packages as negatives | required before any guard form suppresses: downloaded with `npm pack` (archive only, never installed or run), at most 20. If the network does not allow it, no guard suppresses (`sufficient` is treated as `partial`) | without it, guards are tested only on lane fixtures | stage M |
-| 8 | The sink slice and PR #841 | proceed and rebase; if #841 is still open when the sink slice is ready, do the merge-class slice first | — | at S2 |
+| 8 | The sink slice and PR #841 | integrate the landed #841 loop; default same-file measurement, cross-file context opt-in | — | at S2 |
 | 9 | How a finding says it is this rule | category `taint_sink`, with the CWE and the tag in the description | a category of its own (for example `prototype_pollution`) needs a SARIF rule entry and a targets mapping arm, and changes what consumers of `taint_sink` see | before S2 |
 | 10 | Fixing the receiver false positive (alias-twin definitions plus same-line propagation onto sibling formals, section 2) | not fixed in this lane: it is outside the lane's constraints (no producer change). Issue #854 tracks it, the rate is measured (E3, E4, PLAN S4) and reported. The owner or the design seat decides; the orchestrator never does | a fix is its own PR with a corpus differential and touches files PR #841 edits; until then sink row `sk03b` asserts the false positive | stage D |
 
 ## 11. Accepted losses and scope
 
-The first eight IDs below identify every in-scope mismatch between the required decision and recorded truth.
-They are the values of `accepted_loss` for those rows. Each such row still has a testable class, guard and sink
-requirement. The two seeded sink losses have their own IDs and sit outside the 270-row count.
+Every in-scope mismatch between the named-input requirement and recorded truth has an `accepted_loss` ID. Each
+row keeps its testable class, guard and sink behaviour. The seeded and ambiguous-reach losses below are tracked
+separately from the 326 named-input decisions.
 
 | ID | Direction and reason | Rows |
 |---|---|---|
@@ -556,11 +624,17 @@ requirement. The two seeded sink losses have their own IDs and sit outside the 2
 | M-LOOKUP | Missed. A getter, map lookup, or awaited call supplies the selected object. Each needs a receiver relation outside 5.1. | t2-031, t2-043, t2-054 |
 | M-CALL-WRITE | Missed at the designated write. A reflective setter, property-definition call or bulk-copy call performs the leaf store. An assignment elsewhere in the function cannot substitute. | g27, oa01, rs01, rs02, t2-023, t2-024, t2-070, t2-071 |
 | R-ITER | Reported although safe. The body does not prove character/position iteration, native array callback/index semantics, or the type of an instance-method result. | pw12b, nk08a, nk08b, nk08c, t2-174 |
-| R-COERCE | Reported although JSON-safe. Loose equality and a relational test leave the actual property key unproved at an unrestricted API. | g14, t2-045 |
-| R-TARGET | Reported although safe. The local receiver proof does not model frozen shared candidates, a sibling destructuring target’s preceding store, proxy write effects, the value that skips a logical store, or typed-array views sharing storage, respectively. | t2-111, t2-127, t2-130, t2-156, t2-172 |
+| R-COERCE | Reported although JSON-safe. Loose equality or a relational test leaves the property key unproved at an unrestricted API. | g14, t2-045, t3-022 |
+| R-TARGET | Reported although safe. Frozen/shared candidates, proxy effects, a wrapper-built namespace, sibling-pattern effects, logical stores and typed-array views exceed the local receiver proof. Own enumeration of an opaque input lacks a private-child proof even when only that destination is transformed. | t2-111, t2-119, t2-124, t2-127, t2-130, t2-156, t2-172, t3-001, t3-002 |
+| R-SCHEMA | Reported although safe. The checked parallel schema cursor cannot prove ownership of the corresponding destination child. | t2-151 |
+| R-KEY-PROOF | Reported although safe in the run. The receiver of a split, the resulting sequence or the property key reused for a check or installation lacks a local native/primitive proof. Two further partial rows, t2-167/168, lack a matching supplied selector and remain silent. | g04, g06, g07, g10, g15–g19, g21–g23, g32, t2-025, t2-029, t2-072, t2-141, t3-011, t3-012, t3-013, t3-024, t3-056. Also sk04 outside the matrix. |
+| R-TEMPLATE | Reported although safe. One interior-only template has no executed polluting control for the proposed cut. The compatible template remains eligible even though its recorded families ran safe. | t3-007, t3-037 |
+| R-PAIR | Reported although safe. The two-name strict pair omits the constructor check and relies on an additional object-only step and unproved split domain. | t3-023 |
+| M-ROW-SELECTOR | Missed with the supplied receiver name alone. The selector requires the base of the request member or independent framework-source evidence. | t3-051 |
 | R-ASYNC | Reported although safe. Validation and the selected value meet across fulfilled asynchronous results. | t2-169 |
 | M-BIND | Seeded sink miss. A recursive fact exists, but upstream propagation from the source into a callback key is missing (#434). | sk11 (same fact shape as rm02) |
 | R-RECEIVER | Seeded sink false positive. An aliased receiver with same-line formals propagates to the selector (#854, decision 10). | sk03b |
+| M-AMBIG | Potential producer miss. A collapsed Use cannot be attributed to a unique AST owner, binding and value version. Suppress that evidence and count every otherwise missed converted case against yield, with the competing spans. | No isolated frozen row. S2 exercises rebinding and same-line owners; count observed seeded/benchmark misses separately. |
 
 `O-APP` marks 32 application-owned or user-class rows. Within the `t2-` series these are 014, 102–104, 106–107,
 110, 112, 114, 122–123, 126, 128–129, 131–140, 142–145, 148–149, 154 and 162. `O-STRING` marks `t2-096`, where
@@ -570,27 +644,54 @@ rows contribute to neither direction of the in-scope loss tally. Fixture substit
 case source. `t2-034` uses an as-const object, `t2-036` an explicit constructor assignment, `t2-124` a frozen
 namespace-shaped record, and `t2-125` a frozen numeric reverse table. All four have ordinary row decisions.
 
-### Rows still needed
+### Enumeration close and slice additions
 
-These are input shapes and required static behaviour for the orchestrator to materialise. The runner will
-establish their truth. A proposed suppression first needs an executed safe row that distinguishes it from the
-neighbouring case.
+Stage E is **CLOSED by the controller under the OpenAI allowance**. The t2 tiers reached their declared caps:
+terra four rounds (36, 14, 13, 12), sol three (30, 21, 20), astra two (17, 15). Their last rounds still added
+variants of existing classes and no new class. This closure uses the controller decision. Stage D freezes the
+original 92, the 178 t2 rows and the 56 executed t3 rows (326 total). No materialisation remains for the eight
+round-one requests.
 
-| Input shape absent as a complete pair | Required behaviour |
-|---|---|
-| E4 11–20. Nested own-key enumeration writing back to the same slots, and a recursive transform of a single iterated destination. Pair with the same spelling on an independent destination/source. | Same-destination forms have no fact. Independent destination descent retains its class. `t2-147` covers a distinct source restricted to destination-owned keys. |
-| E4 1–4 and 25–27. A local record array whose selector field has only numeric initialisers/updates, paired with an external replacement. Use a numeric **property** with a free outer selector as a second control. Include verified native array callback, `entries` and `indexOf` positions beside the untyped `nk08` receivers. | Exclude proven numeric selectors, retain the replaced selector and the dynamic outer selector, and keep the native receiver proof explicit. |
-| E4 14, 19, 22–23. Two interpolations around a mandatory interior separator, with a compatible-template neighbour. | Only the compatible selector can contribute. `nk10` covers a prefix and `nk11` covers compatible concatenation. |
-| E4 7–8. Allocate a null table on a different line, initialise every missing slot with fresh ordinary records/arrays, then store through it. Pair with a table that can contain a shared child, including a visible shared reference under a finite ordinary key. | No fact for private children. Retain the independent selection when a shared child is possible. |
-| E4 24, 28–32. A fixed *interior* member interrupts selection, a table or function is freshly installed before a subsequent store, and an ordinary destination-own check calls a throwing helper. Include a returning helper and a direct selected receiver with a fixed leaf. | Exclude the disconnected/fresh receivers. An effective proven own-key exit can guard an otherwise eligible fact. A returning helper gives no protection. The direct fixed-leaf write retains its fact. |
-| `pw10/pw11` and `at01` with real seeds on the earlier selecting key, plus a same-name sibling use, a replaced cursor and isolated value/receiver/property seeds. | Report at the dependent write with evidence at the selection site. All decoys stay silent under 5.3. |
-| An identically named method on an unrelated or reassigned object versus a single stable property binding, and a recursive argument wrapped in a fresh copy versus a fallback retaining the selected child. | Admit only the bound recursive destination that can receive the original child. |
-| A primitive string compared loosely, the untested two-name strict pair, and a full-name precheck over a dense split array versus a stale pending key or mutable sequence. | Loose equality and the untested pair remain partial. A stale or unproved selector remains reportable. Exercise any proposed precheck suppression on the actual unchanged sequence. |
+Section 8.1 records the E4 pairs. The other t3 controls cover live earlier selectors and decoy seeds (014–018
+and 047–051), recursive method identity and selected versus copied arguments (019–021 and 052–053), and stable,
+stale or incomplete guard checks (022–024 and 054–056). Their recorded truths and every individual requirement
+appear in the row table. A safe execution without the local proof can still require a warning.
+
+The open class for slice generators is variants of **control flow and selector provenance**. Every later
+discovery becomes an executed matrix row, with its neighbour and named requirement, **inside the slice that
+fixes the gap**. Add seeded or producer probes there when the distinction concerns reach rather than execution
+truth. Refresh changed base RED/GREEN receipts before enabling the row. In particular S2 tests same-line version
+changes, shadowed owners and stable shared RHS reads. A broader interior-template cut or split-dependent
+suppression needs a discriminating executed pair satisfying its actual premises before it enters a slice.
 
 ## 12. Change log
 
-**2026-11-24 · Stage D.** Replaced the tentative class and guard readings with sections 5.1–5.3, preserved the
+**2026-11-24 · Stage D, first draft.** Replaced the tentative class and guard readings with sections 5.1–5.3, preserved the
 stage-M populations, and reconciled all 270 fixture expectations and the slice briefs. The row table records 110
 in-scope required detections, 16 accepted misses, 98 in-scope safe silences, 13 accepted safe reports and 33
 scope-tagged rows. The ordinary-code re-labelling is in 8.1. Product verification and the two design-review
 approvals remain open.
+
+**2026-11-24 · Stage D, round 2 of 2.** Targeted fold of both first-round reviews on the existing design. The
+next joint design review is the last under the cap.
+
+| Finding | Decision |
+|---|---|
+| A-F1, B-1 | Start yield at S2. Before S2 gate structural coverage and record the frozen write-line witness as a diagnostic. Keep all six earlier-selector cases and the minimist binding coincidence visible. |
+| B-2 | One aggregate threshold with per-class counts. From S2 remove only human-approved sufficient guards from both sides of the yield calculation. Ambiguous reaches remain in the denominator. |
+| A-F7 | S3 requires 27/29 aggregate structural matches if it precedes S2, otherwise actual findings under the adjusted yield rule. Record doc-path's earlier recursive selector. |
+| A-F2 | Record the orchestrator's exact loop Use and zero-width declarator Use. Route 2 uses both. The orchestrator pins both in the first S1a-1 commit. |
+| A-F3 | Add the selector to t2-119/124/131/144/151. All five fire, two under O-APP. Extend R-TARGET and introduce R-SCHEMA. |
+| B-3 | Require local native/string or stable property-key proof. Enumerate all 16 surviving sufficient rows in 5.2. sk04 fires with a partial note. Section 11 names the R-KEY-PROOF reports. |
+| B-4 | Store file-local AST owner spans for operands and writes. Allow name fallback only for one owner, binding and version. Disclose and count unresolved reaches as M-AMBIG. |
+| B-5 | Retain E4 hits 11–20, including both written-property templates. Section 8.1 gives the proof and the safe/polluting controls for each proposed cut. Drop the unsupported interior-only cut. |
+| A-F4 | Reconcile all 56 executed t3 controls. Where a pair failed to distinguish a cut or the source lacks its premises, retain the fact. Record the separate named-input miss for t3-051. |
+| A-F5 | At fewer than 20 final facts after Superset, Answer and Screwdriver, accept the recorded insufficient-evidence outcome without a percentage. At 20 or more retain the 80% threshold. |
+| B-6 | t2-062 has guard none. The catch cannot protect an execution reaching the write. |
+| B-7 | #841 is present. Context is opt-in. Measure benchmark yield and real diffs on default same-file review. |
+| B-8 | Record the controller's Stage E closure, tier caps and open generator class. Freeze 326 rows and admit future discoveries within their fixing slice. |
+| A-F6 | Split S1a into separately reviewed structure and exclusion slices. S1b builds a bounded structured AST walker and shares lexical value versions with those slices. |
+| A-F8 | Keep the four-root gate and disclose all seven extended-root flips, including those whose guards are now partial. |
+
+The new contract has 136 in-scope detections, 17 misses, 96 safe silences, 44 safe reports and 33 scope rows.
+The product gates and final design approvals remain pending.

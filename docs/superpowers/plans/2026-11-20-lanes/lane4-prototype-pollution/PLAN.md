@@ -45,7 +45,8 @@ is the write-by-write Stage D contract.
 - No change to `src/ast/lvalues.rs`, `src/access_path.rs`, `src/data_flow/`, `src/cpg/` or the cache version.
   The core test `tests/ast/proto_key_use_test.rs` reads data-flow output and changes nothing.
 - `src/navigation/queries.rs` is over the size ceiling: the listing's logic goes in a new module.
-- PR #841 edits `taint/run.rs`: the sink slice rebases over it (DESIGN decision 8).
+- PR #841 is present. Cross-file context requires opt-in. Measure the benchmark and real diffs with default
+  same-file review (DESIGN 5.3).
 - Rule tag `js-proto-write`, CWE `CWE-1321`. Class names in output: `nested_keys`, `path_walk`,
   `recursive_merge`. Guard names: `none`, `partial`, `sufficient`. Operand roles: `selector`, `property`.
 - The known receiver-only finding is tracked in #854. Preserve the seeded regression `sk03b` and the E3/E4/S4
@@ -54,17 +55,16 @@ is the write-by-write Stage D contract.
 ## Review focus
 
 1. TypeScript wrappers on the target or key (`(o as any)[k] = v`, `o![k] = v`, `o[k as string] = v`): the
-   write is seen through them. (S1a)
+   write is seen through them. (S1a-1)
 2. Logical and destructuring assignment targets (`o[k] ??= {}`, `[o[k]] = [v]`, `({ a: o[k] } = src)`):
-   counted as dynamic-key writes. (S1a)
+   counted as dynamic-key writes. (S1a-1)
 3. A very large generated or minified file: analysis stays linear; a function with more than 10,000
-   subscript writes is skipped and counted in a warning, never a hang. (S1a)
-4. Two dynamic-key writes on one line with different guard states: a Use whose span lies inside one write's
-   target is matched to that write alone; a Use outside every target (the zero-width anchor, a right-hand
-   occurrence) is matched to every write on the line with a selector of its base, and the line fires when
-   any of them is not sufficiently guarded (DESIGN 5.3). (S2)
+   subscript writes is skipped and counted in a warning, never a hang. (S1a-1)
+4. For two writes on one line, identify the binding and version of the selector under DESIGN 5.3. A stable
+   shared RHS or zero-width Use can support both. A collapsed key with competing owners or versions supports
+   neither. One independently matched unguarded write suffices for a finding. (S2)
 5. A cursor captured by a nested callback (`path.split('.').forEach(p => { o = o[p]; })`): classified with
-   the function that declares the cursor. (S1a)
+   the function that declares the cursor. (S1a-1)
 6. Where the key's Use sits: multi-line targets, methods and arrow owners, TypeScript wrappers on the key,
    and a key that also occurs on the right-hand side; the sink matrix rows `skx-*` cross them. (S2)
 
@@ -194,7 +194,7 @@ implementing.
 `rows.jsonl` records the fixture ID, file, write line, call and `attacker_names`, including earlier selector
 bindings. `truth` comes from the four-root execution projection. Optional `truth_extended` and `scope_note`
 disclose its boundary. The changed expectations are `want_class`, `want_guard` and an optional `accepted_loss`
-ID from DESIGN 11. Each is already set for all 270 rows.
+ID from DESIGN 11. The frozen Stage D matrix contains 326 decided rows.
 
 `call` fields (DESIGN section 7): `arg` (the position of the attacker argument); `template` (one of
 `{"kind":"path_string","delimiter":".","leading":""}`, `{"kind":"path_array"}`,
@@ -269,26 +269,26 @@ Guard rows (DESIGN 5.2; placements are stated against selectors):
 | g01 | rm01 with `if (key === '__proto__' \|\| key === 'constructor') continue;` | safe, `recursive_merge`, guard `sufficient`, silent |
 | g02 | rm01 with `if (key === '__proto__') continue;` | pollutes, `recursive_merge`, guard `partial`, fires |
 | g03 | rm01 with `if (!source.hasOwnProperty(key)) continue;` | pollutes, `recursive_merge`, guard `none`, fires |
-| g04 | pw01 with `if (!Object.prototype.hasOwnProperty.call(o, k)) o[k] = {};` before each step | safe, `path_walk`, guard `sufficient`, silent |
+| g04 | pw01 with `if (!Object.prototype.hasOwnProperty.call(o, k)) o[k] = {};` before each step | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
 | g05 | pw01 with the root from `Object.create(null)` | pollutes, `path_walk`, guard `none`, fires |
-| g06 | pw01 with `if (['__proto__', 'constructor', 'prototype'].includes(k)) return;` on each walk key | safe, `path_walk`, guard `sufficient`, silent |
-| g07 | pw01 with a regular-expression test of the key | safe, `path_walk`, guard `sufficient`, silent |
+| g06 | pw01 with `if (['__proto__', 'constructor', 'prototype'].includes(k)) return;` on each walk key | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
+| g07 | pw01 with a regular-expression test of the key | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
 | g08 | guard written after the write | pollutes, `path_walk`, guard `none`, fires |
 | g09 | guard on a different variable than the key | pollutes, `path_walk`, guard `none`, fires |
-| g10 | guard inside a helper `isSafeKey(k)` | safe, `path_walk`, guard `sufficient`, silent |
+| g10 | guard inside a helper `isSafeKey(k)` | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
 | g11 | pw01 with `if (k === '__proto__') return;` on each walk key | pollutes, `path_walk`, guard `partial`, fires |
 | g12 | a setter that accepts `Array.isArray(path) ? path : path.split('.')`, with the three-name `===` guard on each walk key | pollutes, `path_walk`, guard `partial`, fires |
 | g13 | g12 with the guard written as `includes` on a literal array | pollutes, `path_walk`, guard `partial`, fires |
 | g14 | g12 with loose `==` | safe, `path_walk`, guard `partial`, fires (R-COERCE) |
-| g15 | pw01 with the positive form `if (k !== '__proto__' && k !== 'constructor' && k !== 'prototype') { step }` | safe, `path_walk`, guard `sufficient`, silent |
-| g16 | pw01 with a module-level `const UNSAFE = new Set([...]); if (UNSAFE.has(k)) return;` | safe, `path_walk`, guard `sufficient`, silent |
-| g17 | pw01 with a module-level array and `if (BLOCKED.indexOf(k) !== -1) return;` | safe, `path_walk`, guard `sufficient`, silent |
-| g18 | pw01 with `if (k in Object.prototype) return;` | safe, `path_walk`, guard `sufficient`, silent |
-| g19 | pw01 with `if (Object.prototype.hasOwnProperty.call(Object.prototype, k)) return;` | safe, `path_walk`, guard `sufficient`, silent |
+| g15 | pw01 with the positive form `if (k !== '__proto__' && k !== 'constructor' && k !== 'prototype') { step }` | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
+| g16 | pw01 with a module-level `const UNSAFE = new Set([...]); if (UNSAFE.has(k)) return;` | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
+| g17 | pw01 with a module-level array and `if (BLOCKED.indexOf(k) !== -1) return;` | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
+| g18 | pw01 with `if (k in Object.prototype) return;` | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
+| g19 | pw01 with `if (Object.prototype.hasOwnProperty.call(Object.prototype, k)) return;` | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
 | g20 | pw01 with a test of the whole path before splitting (`if (path.includes('__proto__')) return;`) | pollutes, `path_walk`, guard `partial`, fires |
-| g21 | pw01 with a regular expression on the whole path before splitting | safe, `path_walk`, guard `sufficient`, silent |
-| g22 | pw01 whose segments pass a `filter` that drops the three names | safe, `path_walk`, guard `sufficient`, silent |
-| g23 | pw01 with a sanitiser that renames a forbidden segment before the step | safe, `path_walk`, guard `sufficient`, silent |
+| g21 | pw01 with a regular expression on the whole path before splitting | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
+| g22 | pw01 whose segments pass a `filter` that drops the three names | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
+| g23 | pw01 with a sanitiser that renames a forbidden segment before the step | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
 | g24 | rm01 with `if (!Object.prototype.hasOwnProperty.call(target, key))` guarding the recursive descent | safe, `recursive_merge`, guard `sufficient`, silent |
 | g25 | rm01 with a composite predicate (`Object.hasOwn(target, key) && Object.prototype.propertyIsEnumerable.call(target, key)`) before the descent | safe, `recursive_merge`, guard `sufficient`, silent |
 | g26 | a setter with `typeof k === 'string' && k !== '__proto__' && k !== 'constructor' && k !== 'prototype'` on each walk key, array paths accepted | safe, `path_walk`, guard `sufficient`, silent |
@@ -297,7 +297,7 @@ Guard rows (DESIGN 5.2; placements are stated against selectors):
 | g29 | pw01 with a cursor identity check `if (o === Object.prototype) return;` after each step | pollutes, `path_walk`, guard `partial`, fires |
 | g30 | pw01 with null-prototype intermediates (`o = o[k] = o[k] \|\| Object.create(null)`) | pollutes, `path_walk`, guard `none`, fires |
 | g31 | pw01 with the three-name guard on the final key only | pollutes, `path_walk`, guard `none`, fires |
-| g32 | pw01 with the three-name guard on the walk keys only | safe, `path_walk`, guard `sufficient`, silent |
+| g32 | pw01 with the three-name guard on the walk keys only | safe, `path_walk`, guard `partial`, fires (R-KEY-PROOF) |
 | g33 | nk01 with `if (k1 === '__proto__') return;` | pollutes, `nested_keys`, guard `partial`, fires |
 | g34 | pw01 with the three-name guard, then `k = k.toLowerCase()` (and one row with `trim()`) before the step | pollutes, `path_walk`, guard `none`, fires |
 
@@ -338,7 +338,9 @@ Additional stage-M shapes and their Stage D decisions.
       - `sk03b` only the receiver seeded on pw01 (cursor alias `let o = obj`, formals on one line): fires
         today; asserted as the known false positive of DESIGN 5.3 with the issue number in a comment, so a
         data-flow fix turns it red.
-      - `sk04` sufficient guard: silent. `sk05` partial guard: fires and the description says so.
+      - `sk04` and `sk05` both fire with a partial-guard note. For sk04 the split receiver lacks a native/string
+        proof (R-KEY-PROOF). Use this Stage D decision when updating the earlier sk04 expectation in
+        `sink_rows.md` in the enabling slice.
       - `sk06` `cache[id] = v` with seeded `id`: silent.
       - `sk07` a caller function in the same file passes the seeded value to the path setter: fires at the
         setter's write line.
@@ -360,8 +362,7 @@ Additional stage-M shapes and their Stage D decisions.
         compound `+=`, logical `??=`, walk step, a target spread over two lines, `as string` on the key) ×
         owner kind (function declaration, method, arrow bound to a `const`, function expression assigned to
         a property) × key also on the right-hand side (yes, no), on `a[k1][k2] = …` with `k1` seeded: fires.
-      A helper in another file is not a row: review taint keeps findings in the diff's file until PR #841
-      lands.
+      All seeded matrix fixtures use the default same-file mode. #841 cross-file context is opt-in.
 
 ### Task T-1b: payload families and execution contexts (enumeration)
 
@@ -377,7 +378,8 @@ Truth depends on which payloads and contexts are tried, so this set is closed be
       names the family or context, an example function where it matters, and the seed rows whose truth it
       could change. Codex seats get the neutral wording of the global constraints.
 - [ ] Add accepted entries to `families.json` (and to `run_truth.mjs` when a context is new); re-run the
-      runner. The task ends when a full tier round adds nothing.
+      runner. The original stop condition was a dry round. The controller closed Stage E under the allowance
+      recorded in DESIGN 11.
 - [ ] Commit the runner’s output. Record any discrepancy with the historical seed hypotheses. Use the executed
       four-root observation in the row contract.
 - [ ] `truth/check.sh` re-runs the runner and diffs against the committed `truth.jsonl`. The orchestrator
@@ -385,7 +387,11 @@ Truth depends on which payloads and contexts are tried, so this set is closed be
 
 ### Task T-2: enumeration
 
-- [ ] Run the tiers on `rows.jsonl`. Axes: how the cursor moves (assignment forms, loops, array methods,
+**CLOSED by controller decision.** The three t2 tiers reached their caps with variants of existing classes.
+DESIGN 11 records every round count. The 56 t3 controls are included in the frozen 326. Further control-flow and
+selector-provenance variants enter as rows inside the slice fixing the gap.
+
+- [x] Run the tiers on `rows.jsonl`. Axes: how the cursor moves (assignment forms, loops, array methods,
       recursion, helper calls, intermediate variables, fields, destructuring); where keys come from (`split`,
       `for…in`, `Object.keys/entries`, parameters, destructuring, `shift`/`pop`, regular-expression
       matches); which operand is attacker-controlled (selector levels, property, receiver, value); root kind
@@ -398,22 +404,19 @@ Truth depends on which payloads and contexts are tried, so this set is closed be
 
 ## Stage D: design of record (1 to 2 days)
 
-- [x] Reconcile the 270 recorded writes with DESIGN 5.1–5.3 and 11. The three expectation fields and the per-row
-      requirements agree. The 33 scope notes and the extended-root and non-JSON neighbours retain their original
-      evidentiary status.
-- [x] Assign recursive setters to S3. S1a keeps its 3–4 day estimate and its 21 strict-converted cases. Record
-      the 32 original E4 dispositions in DESIGN 8.1.
-- [ ] The orchestrator materialises “Rows still needed” in DESIGN 11, obtains their execution labels and
-      refreshes the row contract. Replace each changed row’s base RED/GREEN receipt before enabling its slice
-      under ORCHESTRATION 7. A missing listing command supplies no behavioural RED.
-- [ ] Both design reviewers approve the amendment. Cap **two rounds** for this design. Apply ORCHESTRATION 7 and
-      8 at the cap.
+- [x] Reconcile all 326 designated writes and the saved execution with DESIGN 5 and 11. Every row has a class,
+      guard and sink decision. Record the 33 scope notes and extended-root neighbours separately.
+- [x] Resolve both first-round reviews on the existing draft, including all 56 t3 controls and the 32 original
+      E4 coordinates. Decisions are in DESIGN 12.
+- [ ] Refresh changed rows' base RED/GREEN receipts before enabling each slice under ORCHESTRATION 7. A missing
+      listing command supplies no behavioural RED.
+- [ ] Obtain both design approvals. The next review is round 2 of 2. At the cap apply ORCHESTRATION 7 and 8.
 
 ---
 
 ## Stage I: slices
 
-### Slice S1a: facts for `nested_keys` and `path_walk`, operand roles, the listing (3 to 4 days)
+### Slice S1a-1: nonrecursive classes, selector operands and listing (3 to 4 days)
 
 **Files:**
 - Create: `src/ast/js_ts/proto_writes.rs`, `src/ast/js_ts/proto_writes/classes.rs`,
@@ -423,7 +426,9 @@ Truth depends on which payloads and contexts are tried, so this set is closed be
   `src/navigation/mod.rs`, `crates/prism-review/src/cli.rs` (`NavQuery`),
   `crates/prism-review/src/main.rs` (`run_nav` arm), `crates/prism-review/tests/cli/main.rs`, `CLAUDE.md`,
   `docs/features/language-coverage/js-ts-known-gaps.md`
-- Separate eval-only PR from `prism-pp-meas`, after this slice merges: `eval/secbench/pp_join.py` and
+- Modify the Stage T core test `tests/ast/proto_key_use_test.rs` in the first commit.
+- Separate eval-only PR from `prism-pp-meas`, prepared alongside this slice for its benchmark gate:
+  `eval/secbench/pp_join.py` and
   `eval/secbench/test_pp_join.py`
 
 **Interfaces (produced):**
@@ -440,11 +445,16 @@ pub enum GuardState { None, Partial, Sufficient }
 #[serde(rename_all = "snake_case")]
 pub enum KeyRole { Selector, Property }
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
-pub struct KeyOperand { pub name: String, pub base: String, pub role: KeyRole,
-    pub function_start_line: usize, pub line: usize, pub start_byte: usize, pub end_byte: usize }
+pub struct AstSpan { pub start_byte: usize, pub end_byte: usize }
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct KeyOperand {
+    pub name: String, pub base: String, pub role: KeyRole,
+    pub owner: AstSpan, pub binding: Option<AstSpan>, pub reaching_versions: Vec<AstSpan>,
+    pub line: usize, pub start_byte: usize, pub end_byte: usize,
+}
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct ProtoWrite { pub line: usize, pub end_line: usize, pub start_byte: usize, pub end_byte: usize,
-    pub function: String, pub function_start_line: usize, pub function_end_line: usize,
+    pub function: String, pub owner: AstSpan, pub function_start_line: usize, pub function_end_line: usize,
     pub class: ProtoWriteClass, pub key_operands: Vec<KeyOperand>, pub guard: GuardState }
 impl ParsedFile {
     /// Pollution-capable dynamic-key writes of this file, sorted by (line, start_byte).
@@ -458,72 +468,96 @@ pub struct ProtoWriteRow { pub file: String, #[serde(flatten)] pub write: ProtoW
 pub fn proto_writes(session: &NavigationSession) -> Vec<ProtoWriteRow>;   // sorted by (file, line, start_byte)
 ```
 
-`line`..`end_line` and `start_byte`..`end_byte` are the write target's lines and span. `KeyOperand.name` is
-the identifier or member chain as the data-flow graph spells it (`keys`, `opts.key`); `base` is its first
-identifier; `role` and the selector/property rule are DESIGN 5.1; `line` is the operand's own line (a
-selector can lie on another line than the write). `KeyOperand.function_start_line` identifies its actual lexical
-owner. Keep the per-target occurrence relation for S2, including a callback selection or a recursive call. In
-S1a `guard` is always `None`. CLI:
-`prism nav proto-writes --repo <dir> [--format json|text]` (JSON: one object per line); its help text and
-the `CLAUDE.md` paragraph say the subcommand is unstable. `eval/secbench/pp_join.py <harness out dir>
-<packages dir> <prism binary>` runs the listing per package and prints, per case: traced, key reached by name
-and strict (the rule of `m/key_reached.py`, DESIGN 6 E2, moved here with its unit test), fact class, guard,
-`finding_equivalent` (DESIGN 5.4), the first failing condition when not, and `sink_finding` (whether
-`raw/<class>/<entry>/taint.json.gz` holds a `taint_sink` finding at the ground-truth file and line whose
-description contains `js-proto-write`; always `false` before S2).
+The target and operand carry separate half-open AST owner byte intervals within the file. Function lines are for
+presentation. The operand has its own line and span, canonical base/path, lexical declaration span and all
+possible reaching definition spans (a formal starts at its declaration). Use the smallest owning function node
+or the program node for top-level code. A missing or ambiguous binding cannot justify name fallback. Keep the
+dependency from the actual selector site to the write, including through an inline callback.
 
-- [ ] Start with the empty listing. Enable all 82 rows requiring no fact and all 169 rows requiring
-      `nested_keys` or `path_walk` (251 of 270). Assert the class and selector bases at the designated write,
-      including losses and scope rows. Check the row table’s witness where present and an empty attacker-name
-      intersection where it is absent. At S1a compare the guard with `None` on every enabled row. Numeric/finite
-      value-domain exclusions already belong to class extraction. Defer the final guard and sink assertions to
-      the slices that supply them. Show behavioural RED for required facts.
-- [ ] Implement DESIGN 5.1. Cover fixed leaves, single-read aliases, temporary, ternary and destructured cursor
-      steps, callbacks, reductions and receiver replacement. Include numeric and finite selector domains,
-      destination-own write-back, private children, and fixed intervening fields. A numeric or constant property
-      alone cannot remove a qualifying selector. Recursive setters enter in S3. Run the enabled matrix through
-      the listing.
-- [ ] Review focus items 1, 2, 3, 5: one test each.
-- [ ] The listing and its CLI test (`lists_facts_sorted_as_json_lines`, `other_languages_list_nothing`).
-- [ ] Docs: the `CLAUDE.md` paragraph; in the known-gaps doc, a line that the `reduce` shape (pw04) records a
-      definition whose access path is a fragment of source text (`keys.slice(0.-1).reduce((o.k) => (o.[]`),
-      harmless for this rule.
-- [ ] Measure before review, host free: the listing on the E4 corpora (fact count per class; the full list
-      for non-test directories goes in the PR body or an attached file).
-- [ ] After the merge: the `pp_join.py` PR (with a unit test on a two-case fixture), then `pp_join.py` on the
-      E1 output with the merged binary (finding-equivalents by class and shape label).
-- [ ] Gates of ORCHESTRATION section 5: items 1 to 5 (Tier-A matrix only: `src/ast` is touched but no
-      resolution or graph behaviour changes; say so in the PR), 8, 9, 10. Two reviewers.
+Document `prism nav proto-writes --repo <dir> [--format json|text]` as unstable in CLI help and `CLAUDE.md`. Its
+JSON output lists one object per fact. In the measurement worktree, `pp_join.py <harness out dir> <packages dir>
+<prism binary>` joins to the designated target at its column. Emit E2's historical by-name/strict flags
+separately from structural class/selector coverage, the write-line `finding_equivalent` diagnostic and actual
+`sink_finding` (DESIGN 5.4). Resolve retained occurrences against the source AST and owner/binding/version rule
+in 5.3. Log the first failed condition, selector site and any competing spans. Use the rule carrier from the
+global constraints. Test the join on an exact selector, an unambiguous zero-width Use, an earlier selector
+absent from the saved line, and a rebound/shadowed name. Run against the slice binary before its gate.
 
-**Gate.** Measure finding-equivalents on the frozen 21 cases (19 walks, two nested writes). The 0.9 threshold
-requires at least 19/21 before any human-checked guard exclusions. Keep the frozen write-line witness diagnostic
-reproducible under DESIGN 5.4. Measure every newly introduced ordinary-code fact. DESIGN 8.1 projects six
-capable hits among six retained from stage M. The ≥80% product gate still needs at least 20 final class hits.
+- [ ] In the first commit the orchestrator extends the Stage T `proto_key_use_test` with both DESIGN 2 read
+      forms. Assert a Use of the loop key on its step line with its exact operand span and a Use of the
+      declarator key at its zero-width line anchor. Check spelling, owner and line in both. Keep the existing
+      write tests.
+- [ ] Start with the empty listing. Enable the 133 `pollutes` rows outside the recursive class (58 nested, 59
+      walked, 16 named no-fact misses). Assert class and selector witness at each designated write, including
+      the empty intersection at t3-051. Guards are disabled and read `None`. Show behavioural RED for required
+      facts.
+- [ ] Implement target/operand roles, fixed leaves, aliases, temporaries, ternaries, destructured cursors,
+      callback owners, reducers and replacement of the cursor. Review focus items 1, 2, 3 and 5 get tests.
+      Exercise the listing's JSON order and empty output on other languages.
+- [ ] Document the CLI and the existing reduce access-path rendering for pw04 in the known-gaps document.
+      Capture the pre-exclusion E4 listing, including non-test fact coordinates and per-class totals, for the
+      S1a-2 differential.
+- [ ] Apply ORCHESTRATION 5 items 1–5, 8–10 and the project AST checks. Two reviewers for this slice.
 
-### Slice S1b: guards (2 to 3 days)
+**Gate.** All 133 enabled row decisions pass their class/operand checks. On the 21 nonrecursive strict
+conversions require at least 19 structurally matched targets in aggregate with per-class counts. Record the
+frozen write-line finding-equivalents as diagnostics, including the six cases that need an earlier selector and
+minimist's binding coincidence. The yield threshold begins at S2.
+
+### Slice S1a-2: value domains and private receivers (2 to 3 days, after S1a-1)
+
+**Files.** Extend the core fact module and its data-driven test. Put value-domain and receiver proofs in
+separate modules beside `classes.rs` as needed. The two S1a slices total 5–7 days.
+
+- [ ] Enable the 169 `safe` nonrecursive rows and keep all 133 earlier rows enabled (302 total). Require the
+      class, selector roles and witnesses for each, including safe reports and scope rows. Use the final row
+      table with guards still disabled. Show pre-change failures for the new exclusions.
+- [ ] Implement DESIGN 5.1 numeric/native and finite-domain proofs, anchored fragments, private null-table
+      children, closed-data write-back, stable installed slots and fixed interior fields. Preserve candidate
+      facts when the proof fails, including t3-001, 007, 011, 012 and 037. Compare both sides of every E4 pair
+      available to the enabled classes.
+- [ ] Re-run the E4 listing on the same corpus revisions as S1a-1. Attach every non-test fact and per-cut
+      candidate, excluded and retained counts. Trace the original coordinates, document new facts and label the
+      sample under DESIGN 8.1. The nine retained recursive E4 coordinates first enter the product listing in S3.
+      Apply the same project and orchestration checks as S1a-1. Two reviewers.
+
+**Gate.** All 302 class/operand rows pass, the 19/21 aggregate structural benchmark threshold still holds and
+each E4 removal has the specified source proof and executed controls. Apply the E4 gate to the enabled classes
+under DESIGN 8.1. Require ≥80% capable at 20 or more sampled facts. Below 20 after the ordered reserves, record
+insufficient evidence without a percentage. S4 repeats the gate with all classes.
+
+### Slice S1b: guards (3 to 4 days, after S1a-2)
 
 **Files:** create `src/ast/js_ts/proto_writes/guards.rs`; modify `src/ast/js_ts/proto_writes.rs`,
 `src/ast/js_ts/proto_writes_tests.rs` (`GUARDS_ENABLED`), docs.
 
+- [ ] Build a bounded structured AST walker in the fact module, sharing owner, binding and reaching-version
+      information from S1a. Carry feasible branches, loop/label targets, callbacks, catch and finally exits.
+      Unknown flow cannot establish dominance. This slice does not consume or edit `src/cfg.rs`.
 - [ ] Set `GUARDS_ENABLED` to true. Show RED, then check the exact guard of every enabled row against the row
       table. Implement only the sufficient forms and placements in DESIGN 5.2 with their executed safe
       witnesses. Cover stable primitive strings, target-own checks and fresh fallback, a real rejecting exit,
       and the bounded finite-name, helper and receiver proofs. Exercise the incomplete, stale, wrong-binding and
       control-flow neighbours. The JSON-safe loose comparison in `g14` stays partial, and the nested-key range
-      check in `t2-045` has no guard.
+      check in `t2-045` has no guard. In `t2-062` the catch protects no feasible write and also has guard none.
+      Check all 16 sufficient witnesses when their classes are enabled. Every split-only downgrade in DESIGN 5.2
+      must stay partial.
 - [ ] E5 found all 20 fixed versions. List sufficient facts and suppress their findings, retain partial
       warnings, and use the three-prototype observations for the four-root contract. Extended-root neighbours go
       in the receipt.
 - [ ] If S2 has merged, enable the final sink decisions for all guarded rows of each implemented class.
-      Include the seeded cases `sk04`, `sk05` and `sk16a`/`sk16b`.
+      Update the sk04 expectation in `sink_rows.md` in the enabling slice. Both sk04 and sk05 fire with the
+      partial note. Include sk16a/sk16b as same-version controls.
 - [ ] Measure: the listing on the E4 corpora (guard state counts); `pp_join.py` on E1 (cases newly
       `sufficient`, listed for a human check).
 - [ ] Gates of ORCHESTRATION section 5 as for S1a. Two reviewers.
 
-**Gate:** every enabled row GREEN; no converted case loses its finding-equivalent except cases listed as
-guarded for the human check.
+**Gate.** All enabled guard rows meet the table. Before S2, preserve at least 19/21 aggregate structural matches
+and explain changes to the diagnostic. If S2 is present, rerun the aggregate actual-finding gate at 90% for the
+enabled classes, removing only human-approved sufficient guards as in DESIGN 8. Report raw and adjusted
+per-class counts.
 
-### Slice S2: the sink (3 to 4 days; may start once S1a has merged)
+### Slice S2: the sink (3 to 4 days, may start after S1a-2)
 
 **Files:**
 - Create: `crates/prism-review/src/algorithms/taint_sinks/proto_write.rs`,
@@ -542,7 +576,7 @@ pub(crate) const CWE: &str = "CWE-1321";
 pub(crate) struct ProtoWriteIndex { /* built once per file from js_ts_proto_writes() */ }
 pub(crate) struct ProtoHit {
     pub write_line: usize,
-    pub function_start_line: usize,
+    pub owner: AstSpan,
     pub partial_guard: bool,
 }
 impl ProtoWriteIndex {
@@ -552,28 +586,37 @@ impl ProtoWriteIndex {
 }
 ```
 
-In `run.rs`, check each reached Use and each framework source range against DESIGN 5.3. On the target line
-preserve by-name matching, including zero-width anchors and right-hand occurrences. For an earlier selector
-require its exact lexical owner and a nonempty span inside that operand (or a directly overlapping framework
-source). Fan out only to the dependent live writes recorded in the fact index. Carry the source to each target’s
-emission even if the target line itself has no reached Use. A matching read creates no separate finding.
+In `run.rs`, check reached Uses and framework-source ranges against DESIGN 5.3. Index the target and earlier
+selector in their own AST owners. For a zero-width anchor, shared RHS or retained representative outside the
+operand, require a single compatible owner, binding and version among all indistinguishable reads on that line.
+Include both sides of a rebind and shadowed names. A representative exact span cannot resolve conflation across
+versions. Check each dependent live write and its guard before deduplicating the target line. Carry the source
+even when the leaf line has no reached Use. Disclose unresolved evidence under M-AMBIG, including its effect on
+yield.
 
 Emit one `taint_sink` per target line under the existing diff/seed rules. Use the DESIGN 5.3 rule carrier and
 co-located-sink convention. Force `warning` even beside a weak call. A partial hit carries the guard note, a
 sufficient guard suppresses, and property-only, value-only and ordinary receiver-only taint stay silent.
 Preserve the known `sk03b` warning (#854).
 
-- [ ] Rebase on `main`; if PR #841 has merged, read the new shape of the sink loop first.
+- [ ] Use the landed #841 sink loop. Cross-file context is opt-in. Leave `--taint-context` at its default `off`
+      for all benchmark and real-diff measures.
 - [ ] Write `taint_sink_proto_write_test.rs` from `sink_rows.md` rows `sk01` to `sk08`, `sk12` to `sk17` and
       every `skx-*` row, with the existing single-file support (`taint_sink_rules_support.rs`:
       `Case { label, source }`, `// SEED`, `// SINK`); add a helper there only for rows that read the
-      finding's description (`sk05`, `sk15`). Rows `sk04`, `sk05`, `sk16a`, `sk16b` are enabled only if S1b
+      finding's description (`sk04`, `sk05`, `sk15`). Apply the Stage D sk04 override to the older sink-row text
+      in the enabling slice. Rows `sk04`, `sk05`, `sk16a`, `sk16b` are enabled only if S1b
       has merged (otherwise S1b enables them). RED.
 - [ ] Drive the enabled row decisions with supplied selector Uses and the immutable attacker-name sets.
       If S2 lands first, assert final outcomes for guard-`none` rows. S1b enables the partial/sufficient rows.
-      Separately run the seeded `sink_rows.md` fixtures. Add earlier-selector seed tests for `pw10`, `pw11` and
-      `at01`, with sibling-name, zero-width off-target, killed-cursor and property-only negatives. Assert the
-      exact target line. Implement the index, both checks and target emission, then make those tests GREEN.
+      Run the seeded fixtures separately. Test the t3-047–050 earlier selectors and t3-014–018 decoys, including
+      an exact step, a unique zero-width declarator and a stable shared RHS outside the operand. For t3-051 keep
+      the named receiver decision silent and supply the selector's source range separately for a positive
+      target-line test. Exercise two writes with a same-line rebind, same-line sibling owners and a retained RHS
+      spanning another binding. Assert silence for ambiguous evidence and for killed cursors, isolated
+      properties and values. Keep sk16a/b as the stable-version controls. Show RED then GREEN at the designated
+      line.
+
 - [ ] Review focus items 4 and 6.
 - [ ] No-regression check: run the existing taint test targets (`--test algo_taxonomy`); the only changed
       expectations are new findings with the DESIGN 5.3 description, each listed in the PR body. Note that
@@ -585,24 +628,35 @@ Preserve the known `sk03b` warning (#854).
       Both results go in the PR body.
 - [ ] Two reviewers.
 
-### Slice S3: `recursive_merge` (3 to 4 days)
+**Gate.** All enabled sink decisions pass. Count actual findings on the designated benchmark line in default
+same-file review. Require at least ceil(0.9 × (N − G)) aggregate hits, with N = 21 or 29 if S3 has landed and G
+the human-approved sufficient-guard exclusions. Without exclusions this is 19/21 or 27/29. Report both raw and
+adjusted counts by class, each approved guard and each ambiguous miss.
+
+### Slice S3: `recursive_merge` (3 to 4 days, after the fact and guard slices)
 
 **Files:** `src/ast/js_ts/proto_writes/classes.rs` (or a new `merge.rs` beside it if `classes.rs` would pass
 600 weighted lines), `src/ast/js_ts/proto_writes_tests.rs` (`ENABLED_CLASSES`),
 `tests/algo/taxonomy/taint_sink_proto_write_test.rs` (rows `sk09` to `sk11`), docs.
 
-- [ ] Enable all 19 `recursive_merge` matrix facts, including recursive path setters (`pw05`, `rr01`, `t2-009`,
+- [ ] Enable all 24 `recursive_merge` matrix facts (20 polluting, four safe), including recursive path setters
+      (`pw05`, `rr01`, `t2-009`,
       `t2-038`, `t2-050`). Show RED on the slice base. Implement one same-file forwarding hop,
       destination-position matching, statically bound property calls, bound/literal-apply forms, and aliased or
-      wrapped child arguments under DESIGN 5.1. Exclude destination-only write-back, source-only descent and
-      ambiguous property dispatch. Include the guards on the recursive destination step.
-- [ ] Recheck all 270 class, guard and operand decisions. When S2 is present also assert the row sink decisions
-      and the distinct source-seeded `sk11` miss (#434). If #841 still holds up S2, do the fact/guard work first
-      and run the sink checks when S2 lands.
-- [ ] Measure: listing on the E4 corpora (new facts listed), re-run E1 and `pp_join.py` (merge-class
-      findings; the potential set P re-counted with the product facts).
-- [ ] Sink rows `sk09` (fires), `sk10` (silent) and `sk11` (silent, the accepted loss of #434, asserted so
-      a later fix shows up). Two reviewers.
+      wrapped child arguments under DESIGN 5.1. Apply the closed-data proof for destination-only write-back.
+      Retain recursion on opaque destinations (t3-002, E4 12–20). Exclude source-only descent and ambiguous
+      property dispatch. Include the guards on the recursive destination step.
+- [ ] Recheck all 326 class, guard and operand decisions, including fresh-copy and method-identity controls
+      t3-019–021/052–053. If S2 is present, assert all named-input sink decisions and the separate seeded rows
+      sk09 (fires), sk10 (silent) and sk11 (silent, M-BIND). Otherwise S2 owns those sink checks.
+- [ ] Measure the E4 listing with all classes, including the retained recursive hits and per-cut counts. Re-run
+      E1 and the join, reporting the eight recursive cases and the potential set P. Two reviewers.
+
+**Gate.** Before S2 require at least 27/29 **structural** matches across all classes (frozen finding-equivalents
+diagnostic only). With S2 require aggregate actual findings ≥ ceil(0.9 × (29 − G)), or 27/29 before any approved
+guard exclusions. Report raw and adjusted counts per class. For doc-path 2.0.0 the ground-truth line carries
+`keyPath`; inspect the earlier recursive selector `currentKey` and record a miss if the actual sink lacks
+evidence.
 
 ### Slice S4: acceptance and close-out (2 to 3 days)
 
@@ -621,17 +675,19 @@ Preserve the known `sk03b` warning (#854).
       (sampled with `random.Random(20261121)` when more): real / helper capable but the key is not
       attacker-controlled / cannot pollute / receiver-only through an aliased cursor (DESIGN 5.3). Report
       the tally; state percentages only on 20 or more findings.
-- [ ] Re-run E1 with the final build and `pp_join.py`: the **benchmark yield** gate of DESIGN section 8 on
-      `sink_finding`, by class. List converted cases the final rules call guarded, for a human check.
-- [ ] Retain raw yield denominators of 19 walks, 2 nested and 8 recursive writes (29 total). Identify cases
-      excluded after human guard review and report the adjusted denominator alongside the raw one. Count actual
-      findings on the designated line. Keep liberal-only and upstream potential cases separate.
-- [ ] Re-label the original 32 E4 coordinates and the final product sample, including all new class shapes.
-      Count every sampled fact in the denominator, with sufficient guards visible. Use the five original
-      corpora, then the two reserves in M-4 order if needed. At least 80% of at least 20 final class hits must
-      be capable. Report a smaller tally as insufficient evidence.
-- [ ] Reconcile the 270-row contract (plus any later executed additions), both directions of loss, scope notes,
-      and the seeded #434/#854 exceptions in the acceptance receipt.
+- [ ] Run E1 and the join on the final build in default same-file mode. Count actual findings at the designated
+      line on all 29 strict conversions. Gate on the aggregate ≥ ceil(0.9 × (29 − G)), 27/29 with no exclusions.
+      Record the 19 walk, two nested and eight recursive denominators, both raw and adjusted by class. Publish
+      every human-approved guard removed from both sides, and each ambiguity still counted against yield.
+- [ ] Re-label the 32 original E4 coordinates and all final class shapes under DESIGN 8.1. Include sufficient
+      facts in the sample denominator. After the original five corpora add Superset frontend, Answer UI, then
+      Screwdriver in order while the final population contains fewer than 20 hits. Pin revisions and list
+      per-cut counts. At 20 or more sampled facts require at least 80% capable. After exhausting the reserves
+      with fewer than 20, record counts and **insufficient evidence**, omit the percentage and accept that gate
+      disposition.
+- [ ] Reconcile the 326 frozen rows plus any executed additions made inside their fixing slice, both directions
+      of loss, the scope rows and the separate seeded and ambiguity ledger.
+
 - [ ] Run `truth/check.sh`.
 - [ ] `g/REPORT.md` in the evidence directory and a summary on #603: C (strict and liberal), sink findings by
       class and shape, potential P by first break (linking #595 and #434), ordinary-code counts, the
@@ -644,5 +700,7 @@ Preserve the known `sk03b` warning (#854).
 
 ## Acceptance for the lane
 
-The experiment memo is merged; if the gate passed: every gate of DESIGN section 8 holds on the merged head,
-both reviewers approved S1a, S1b, S2 and S3, and the report is posted on #603.
+The experiment memo and slice results are merged, both reviewers approved S1a-1, S1a-2, S1b, S2 and S3, and the
+report is posted on #603. Require the DESIGN 8 thresholds on the final head. For ordinary code, the
+preregistered insufficient-evidence result after all reserves also satisfies acceptance. A measured failure at
+20 or more hits remains a failed gate.
