@@ -1,6 +1,6 @@
 # Lane 7: rule identity on findings — design
 
-Status: Stage D amendment for review round 2 of 2, 2026-11-24. S1 is present. Sections 5.2–5.5 and Appendices A–F
+Status: Stage D amendment with design review round 2 of 2 folded, 2026-11-24. S1 is present. Sections 5.2–5.5 and Appendices A–F
 specify the identities for the implementation slices. Historical research record:
 `~/prism-evidence/lanes-2026-11-20/research/lane7-rule-identity.md`.
 
@@ -116,6 +116,13 @@ Both bound cross-spawn rows retain their ids. C covers six primitives and D revi
 pairs outside the taint matrix. Stage M counted 81 all-category taint, six primitive and 34 absence
 findings. Per-witness yields are unknown. Each producer measures its projection before activation (F).
 
+**Round 2 impact against D-2 (`be906634a77c`).** The changes to Flask context and Python SQL
+preserve all 540 matrix and 300 candidate expectations (E). The shell, TLS and credential predicates
+affect three of six primitive categories. The cleanup predicate applies to all 22 conditional absence
+pairs. Before publication measure how many of the six primitive and 34 absence findings move from
+tagged to neutral, using F. Specific SARIF uses the fallback id for every empty normalized list,
+including older and external inputs. This changes no taint expectation cell.
+
 **Admission and attribution have different inputs.** Keep the existing `sink_lines`, first-outcome
 priority (including special early exclusions), source/scope filters, evidence, order and line severity.
 For a physical `(file, line)` that survives admission, collect rule evidence from **all** paths and inline
@@ -148,9 +155,13 @@ serializes with the `rules` key omitted. No identity creates, moves or splits a 
    A reached structured inner call gets its own check, including when its outer SQL call binds a
    parameter. A live call elsewhere cannot uncleanse its sibling. A callee-only index miss excludes the
    corresponding indexed role. A distinct proven role, e.g. file contents, may still be named if the
-   line is admitted. On a proven Flask source operand, ignore that call's context-only safe range for
-   **both** flat `py-template` and `structured-template`, even when it covers the callee. Other guards,
-   the framework-source flat filter and an enclosing safe range still apply.
+   line is admitted. For Flask's own context exclusion, derive the projection decision per operand
+   from B's bound source and scoped output use. A reached source qualifies for `py-template` and
+   `structured-template`. A reached context key proved to render unescaped qualifies for `py-html`
+   and `structured-xss`. Exclude an unproved context key independently. The admission helper's
+   index-0 range can cover the whole call in a keyword permutation. Applying it to either proved
+   role would lose the flat id. Preserve other cleansing, enclosing safe ranges and the independent
+   framework-source flat filter. An inline witness alone supplies only structured evidence.
    A full parameterization, safe-loader, literal-binary or category guard continues to exclude the
    affected call's fallback. A line with only a cleansed first match and no other admission stays absent.
 4. Preserve the framework flat filter: on a Go/Python framework-source line it excludes flat hits even
@@ -244,7 +255,8 @@ algorithms. S2-R lands the maker, A/B rows and checks before the first producer.
 expressions in production code with declaration and computed-id controls (PLAN S2-R). Each language
 slice validates every emitted reference. S3 adds the generated page, whole-table checks and the fixed
 C/D rows before S5. Using two literal tables pending a later registry would let a shipped id diverge.
-External SARIF inputs follow 5.5.
+External SARIF inputs follow 5.5. The normalizer can clone and update a supplied reference to an
+unknown id. It needs no constructor or scanner exemption.
 
 Use the exact id as the stable SARIF `name` (including uppercase primitive ids). Write `short` as one
 sentence naming the observed operation and operand. Write `help` as one or two sentences explaining the
@@ -258,10 +270,11 @@ Generic mitigation boilerplate would imply identical evidence for a format argum
 
 ### 5.4 Other algorithms
 
-Select one immutable row per admitted finding. C requires the primitive operation and operand, D the
-acquisition and manual obligation, or D's two-site test for `double_close`. Each supplies a named
-CWE-less fallback. A literal id survives edits to the description. These refs inherit the finding's
-severity. Other algorithms emit an empty list.
+Select one immutable row per admitted finding. C requires its operation-specific witness, including
+effective protection and credential-use checks where specified. D requires a manual obligation
+proved outstanding at the exit on the reported path, or its two-site test for `double_close`.
+Each supplies a named CWE-less fallback. A literal id survives edits to the description.
+These refs inherit the finding's severity. Other algorithms emit an empty list.
 
 ### 5.5 SARIF
 
@@ -282,12 +295,16 @@ severity. Other algorithms emit an empty list.
 - Category mode keeps the category descriptor, level and fingerprint and includes the canonical
   `properties.rules` only when nonempty (decision 7). Specific mode emits one result per surviving
   id with its effective level, the **same full canonical list** on every copy, and
-  `ruleId = prism/{algorithm}/{rule id}`. An empty group after validation gets one ordinary category
-  result with no rules key in either mode. Compute evidence, locations and fingerprint once and
-  assign `ruleIndex` after expansion and sorting. A registered descriptor uses the row's name,
-  short, help and optional `external/cwe/cwe-<n>` tag. It wins a specific-mode collision with a
-  category descriptor of the same id in either order. Unknown ids get their id as name and generic
-  descriptions. A consumer distinguishes expanded results by fingerprint, rule id and primary location.
+  `ruleId = prism/{algorithm}/{rule id}`. An initially empty or all-discarded list yields one result
+  at the finding's level, with no rules key. Category mode uses its ordinary id. In specific mode
+  use `prism-fallback/{algorithm}/{category}` (the usual category default if absent) with category
+  descriptor text and no tags. The distinct first segment separates this id from every registered
+  or external specific id, including all six primitives whose verified id equals their category.
+  Sharing one descriptor would either lend its CWE to the empty finding or erase the verified CWE.
+  Compute evidence, locations and fingerprint once and assign `ruleIndex` after expansion and sorting.
+  A registered descriptor uses the row's name, short, help and optional `external/cwe/cwe-<n>` tag.
+  Unknown ids get their id as name and generic descriptions. A consumer distinguishes expanded
+  results by fingerprint, rule id and primary location.
 - The flag's help text and the README say that switching modes can start new code-scanning alert histories
   for the affected findings, and that GitHub's display of the CWE tags is unverified (section 2).
 
@@ -313,7 +330,7 @@ main's on the targets fixtures. A targets-only consumer therefore still sees eve
 | G-additive | both builds run on one pinned copy of the fixture inputs; `--format json` and `--format review` output equals the base's byte for byte once the text spans of the `rules` keys the slice adds and the per-build values at their exact paths are removed from the original buffers; `rules` keys present on both sides are equal; any other byte difference, a missing output or an algorithm error fails (PLAN stage M) |
 | G-fingerprint | the multiset of SARIF fingerprints in default mode equals the base's; default-mode SARIF equals the base's by the same byte rule, with `results[].properties.rules` as the allowed key |
 | G-targets | target ids (in order) and the whole targets document, per-build values masked, equal the base's, with every finding-producing algorithm passed explicitly |
-| G-closed | 5.3's declaration and construction controls and registry checks pass. Every specific result indexes exactly one descriptor. Authorized rule descriptors use the registry's optional tag, while 5.5 governs external ids and category fallback. |
+| G-closed | 5.3's declaration and construction controls and registry checks pass. Every specific result indexes its own descriptor. Registered rules use the registry's optional tag, external ids follow 5.5, and an empty result indexes the distinct tagless fallback in either input order. |
 | G-coverage | Check all 540 table/label keys both ways and presence at every marker. Activate identity assertions per PLAN partition (205/360/474/540 cumulative), including positive empty sets. On the final head every positive asserts its D identity and relative severity. |
 | G-sarif-valid | on the final head, after the last producer slice, the SARIF shape assertions pass in both modes on logs with non-empty results from taint, primitive and absence; where a validator is available, a mixed log validates against a checksum-pinned SARIF 2.1.0 schema; otherwise the result says "schema not validated" and names the assertions that ran |
 
@@ -371,7 +388,7 @@ specified operand slots and conditional registry help. Admission alone never ext
 |---|---|
 | JS SQL | Receiver leaf in `js.rs::DB_HANDLES` with a `SQL_NAMES` statement method, or `exec` on a DB handle. This admits untyped `db.query`, `pool.execute`, `knex.raw` and `prisma.$queryRawUnsafe`. Also `request.query` with constructed SQL text and the specific `createQueryBuilder(alias).where(clause)` chain. A bare import of `query` from a local module needs a resolved DB implementation. The path `./db` alone gives `taint-query-name`. |
 | JS HTTP/storage | Use `js.rs::RESPONSES` as receiver root or exact member (`this.res` included), with direct calls or the `status/type/code` chain and the A/B body, header, redirect and file-serving methods. Default `reply.code(n).send(x)` is the data role. A proven explicit HTML type can change it. Also accept `ctx.redirect` and `ctx.response.redirect` on the Koa shape, and the bound `next/navigation.redirect` export. The storage convention is `disk.write(path, stream)`. Filesystem names use `js.rs::FS_LIKE` with `js_modules.rs::FS_API/TWO_PATH_API` at their path slots, or a bound `FS_MODULES` import. |
-| Python SQL | DB-API `cur/cursor.execute/executemany/executescript`, `conn.exec_driver_sql`, `.objects.raw/filter` and a chain proven by the existing `sqla` grammar. A `query` with no resolved SQL receiver may use a SQL-bearing literal in its actual statement operand (including f-string, concatenation, percent or format with a literal leading SELECT, INSERT, UPDATE, DELETE or WITH token, case-insensitive). Formatting unknown variables or a lowercase identifier alone supplies no SQL witness. `python.rs::SQL_METHODS/PANDAS_SQL` give method vocabulary and `query_sql_arg` gives slots. Neither identifies a receiver. SQLModel `Session.exec` requires the Session binding or an independently proven SQL statement. |
+| Python SQL | DB-API `cur/cursor.execute/executemany/executescript`, `conn.exec_driver_sql`, `.objects.raw/filter` and a chain proven by the existing `sqla` grammar. On an unresolved receiver, `query`, `execute` and `executemany` may use a SQL-bearing literal in their actual statement operand (including f-string, concatenation, percent or format with a literal leading SELECT, INSERT, UPDATE, DELETE or WITH token, case-insensitive). A known different operation vetoes the exception. Formatting unknown variables or a lowercase identifier alone supplies no SQL witness. `python.rs::SQL_METHODS/PANDAS_SQL` give method vocabulary and `query_sql_arg` gives query slots. Neither identifies a receiver. SQLModel `Session.exec` requires the Session binding or an independently proven SQL statement. |
 | Go SQL | Intersect `go.rs::SQL_NAMES` with the actual methods and slots of the resolved receiver. The import-free type spellings are sql.DB/Tx/Conn, sqlx.DB/Tx/Conn, pgx.Conn/Tx, pgxpool.Pool and gorm.DB, including pointers. `*sql.Conn` offers `ExecContext` only for execution. The field conventions are `.db.Exec(SQL, binds…)` with a SQL literal, `.db.WithContext(ctx).Exec(sql)` and `.pg.Exec(ctx, sql)` with a context argument. Method values retain the receiver. `Handle` supplies no DB type even with `QueryContext` or generic `Queryx[T]`. |
 | Other named forms | The built-ins, DOM targets, module-qualified APIs, literal structured call paths and signature-specific forms explicitly listed in A/B are the remaining conventions, with their stated binding/semantic restrictions. Permit the unshadowed bare Flask `render_template_string(source, **context)`, `mark_safe` and `Markup` forms, and the qualified Go package spellings for A/B's file, format, exec, template and net/http methods. A generic method suffix in B still requires its stated operation. Python redirects require Flask/Werkzeug/Django binding (`flask.redirect`, `werkzeug.utils.redirect`, `django.shortcuts.redirect`, `django.http.HttpResponseRedirect`, including resolved imports). No language grants a redirect CWE to an unbound or injected callback. |
 
@@ -480,7 +497,7 @@ tables to describe publication, would conflate the operation with the guard used
 | Python Xss (79) | mark_safe, Markup, markupsafe.Markup [0], trusted HTML. format_html[0], reached HTML format text, excluding escaped substitutions | structured-xss/79 | same |
 | Python Xss (79) | render_template_string, reached value bound to the source formal by the signature below, overriding table [1] and the special matcher's syntactic index 0 | structured-template/1336 | corrected |
 | Python Xss (79) | Same pattern, reached context keyword with a proved unescaped output of that key in the bound literal template. Otherwise ∅ for context | structured-xss/79 | same |
-| Python Sqli (89) | execute, executemany, raw [0], reached statement slot of an API established under A | structured-sqli/89 | same |
+| Python Sqli (89) | execute, executemany, raw [0], reached statement slot established under A, including its SQL-literal witness for execute/executemany | structured-sqli/89 | same |
 | Python Ssrf (918) | requests and httpx: get/post/put/delete/patch/head/options [0], request [1]. urllib.request.urlopen/Request [0], urllib3.PoolManager.request [1] | structured-ssrf/918 | same |
 | Python Ssrf (918) | aiohttp.request [1], aiohttp.ClientSession get/post/put/delete/patch/head/options [0], request [1]. Include the imported/bound client special matchers. Attribute the URL value | structured-ssrf/918 | same |
 | Python Deserialization (502) | pickle, cPickle, cloudpickle, marshal and dill: load/loads [0]. yaml.load [0] under accepted loader, jsonpickle.decode [0]. Serialized bytes/document/input stream | structured-deserialization/502 | same |
@@ -514,8 +531,12 @@ would tag unused context. Withholding all context would also remove proven unesc
 | Literal source with an unused disabled block, or `{{ name }}` only after its end/inside nested true, `name=x` | ∅ |
 | Literal source with `{{ name }}` inside active false, or a direct safe-filtered output of `name`, `name=x` | HTML context (flat and structured when eligible) |
 
-On an admitted line bind source independently of the old index-0 test/context-only exclusion.
-Replay both orders on edges and inline. Use an admitting sibling when the isolated base has no finding.
+For a literal `"{{ name | safe }}"` and reached `name=x`, place the literal first positionally,
+first as `source=`, then last as `source=`. All three eligible edges project
+`py-html@CWE-79;structured-xss@CWE-79` for that use. Recompute the call's own context exclusion
+from this binding in each form. Retaining the old whole-call range suppresses `py-html` when
+`name=x` precedes `source=`. On inline-only evidence expect just `structured-xss@CWE-79` on
+admission. Use a real admitting sibling when needed and retain the framework-source flat exclusion.
 
 ## Appendix C. Primitive registry rows
 
@@ -530,9 +551,32 @@ Bind the actual matched site and any helper definition. Ambiguous collapsed site
 | HASH_TRUNCATED_BELOW_128_BITS | Slice of a digest from bound Python hashlib (including a unique local hash-object alias). Actual hex width × 4 or byte width × 8 is below 128 for the identifier digest | CWE-328 | A non-hash object's `digest()[:8]` |
 | HASH_TRUNCATION_VIA_CALL | Resolve this call to the defining helper. Its returned digest satisfies the first row, with the slice bound supplied by this actual argument to that formal | CWE-328 | Helper text mentions a digest slice in a string, or a different same-named helper returns ordinary data |
 | WEAK_HASH_FOR_IDENTITY | Bound hashlib MD5/SHA-1 digest flows into the identified key/identity use in that assignment or its resolved consumer | CWE-328 | Shadowed `hashlib` on an identity-shaped assignment |
-| SHELL_TRUE_WITH_INTERPOLATION | Bound subprocess run/Popen/call/check_call/check_output with true shell option on this call, or bound os.system. Its command operand contains a dynamic shell interpolation | CWE-78 | Fixed command and `title = f"{x}"` in the next statement on the same line |
-| CERT_VALIDATION_DISABLED | False/zero/disabling value in the peer or hostname verification slot of bound requests/httpx, Python ssl context, curl TLS option, Node TLS/HTTPS options, or Go tls.Config at a TLS use | CWE-295 | `helper(verify=False)` on an unrelated API |
-| HARDCODED_SECRET | The literal assignment reaches a credential slot, e.g. a bound client's password/auth parameter or bearer authentication header, without a rebind | CWE-798 | Public display constant assigned to a token-shaped name with no authentication use |
+| SHELL_TRUE_WITH_INTERPOLATION | Bound subprocess run/Popen/call/check_call/check_output with a true shell option on this call, or bound os.system. At least one dynamic field of its command can affect shell syntax in its actual quoting context and shell dialect | CWE-78 | Fixed command beside unrelated interpolation, or every field protected as one data argument |
+| CERT_VALIDATION_DISABLED | Disabling value in the peer or hostname verification slot of bound requests/httpx, Python ssl context, curl TLS option, Node TLS/HTTPS options or Go tls.Config, with that verification demonstrably missing at the TLS use | CWE-295 | Unrelated `helper(verify=False)`, or replacement verification intact or unresolved |
+| HARDCODED_SECRET | The assigned literal reaches one of the credential slots listed below without rebinding | CWE-798 | Public display constant, unlisted client, or a literal used only as the username |
+
+For the shell row, compare an unconstrained string parameter `x` used as the unquoted field in
+`subprocess.run(f"printf '%s' {x}", shell=True)` on POSIX with the same field passed through
+bound `shlex.quote(x)` as a whole data word. The first selects CWE-78 and the second
+`SHELL_TRUE_WITH_INTERPOLATION_MATCH`. Check each field at its insertion site. If protection is
+effective for all fields, or no field is proved syntax-capable, use the fallback. An interpolation
+marker alone would tag the protected call. A function name alone cannot establish effective quoting.
+
+For TLS, follow the effective configuration to a client handshake. Identify the missing peer-chain
+or expected-hostname check, including any replacement verifier. For Go, a locally fixed
+`tls.Config{InsecureSkipVerify: true}` with neither verifier callback nor other validation gives a
+gap. A bound `VerifyConnection` that enforces both checks and propagates failure gives
+`CERT_VALIDATION_DISABLED_MATCH`. An opaque callback or unresolved config change also gives that
+fallback. A callback proved to accept every peer still leaves a gap if nothing else verifies it.
+Using the flag alone would tag a verified connection.
+
+The credential slots are a closed list for S5-P. On bound `requests` or `httpx` module calls
+`request/get/post/put/patch/delete/head/options`, accept the password (second member) of the
+`auth=(user, password)` pair, or the bearer token in the `Authorization` entry of the supplied
+`headers=` mapping (case-insensitive header name). Also accept `password=` on the bound
+`redis.Redis` constructor. Require the literal to supply the credential value at the use.
+Other clients, slots and unresolved flows select `HARDCODED_SECRET_MATCH`. Inferring a credential
+from arbitrary `password=` keywords would admit application helpers with different semantics.
 
 A single truncation id loses the helper distinction. Digest width concerns collision resistance.
 The credential rule spans passwords and keys. Unconditional tags mislabel the six controls above.
@@ -549,7 +593,7 @@ is an all-category absence total. The number reaching these pairs is unmeasured.
 
 For `missing_counterpart`, `close_only_on_error_path` and `missing_close_on_error_path`, each
 dash means **one** CWE-less id on all hits (43 pairs, filed F6). Each CWE means **two** fixed rows:
-the id printed with its CWE for a verified manual obligation, and the literal id with `-match`
+the id printed with its CWE for a verified **unmet** manual obligation on the reported path, and the literal id with `-match`
 appended and no CWE for all other occurrences (F6). For example, `absence-go-file@CWE-775` and
 `absence-go-file-match` are distinct constants. S3 registers 87 ordinary plus three repeat rows.
 The producer selects exactly one. No runtime slug building or optional-CWE override.
@@ -561,9 +605,29 @@ use. For C/C++ require the corresponding library/kernel symbol (declaration/head
 shadow or replacement). Exclude managed prefixes `devm_`/`dmam_`, scope owners, ownership transfer
 and unresolved lifetime. When the old line-level match has multiple possible acquisitions and cannot
 identify one with that obligation, select the fallback. A substring, stripped method tail, neighboring
-call or plain code-text match alone never establishes it. Apply the same proof to error-path findings.
+call or plain code-text match alone never establishes it.
 
-| Observed pair description | Stable public id | CWE on proof | Eligible manual operation or reason for no tag |
+For all 22 conditional pairs, carry the obligation for that resource along a feasible local path
+from successful acquisition to the exit the finding concerns. For `missing_counterpart` identify a
+specific reachable owner-scope exit. For `close_only_on_error_path` use the normal return named in
+the description. For `missing_close_on_error_path` follow the reported goto through its label and
+fall-through to exit, including cleanup between acquisition and goto. Use the emitter's sites
+directly. One feasible path meeting the category's criteria with the obligation still outstanding
+is a tagged witness. If none is proved, emit the single `-match` row. Checking the acquisition
+and trusting the old counterpart scan would tag acquisitions already balanced on the reported path.
+
+Keep this proof local to the selected path. Track the acquired value (or lock/reference), its
+unique aliases and the release operation, including bound method values, function pointers and
+cleanup scheduled to run at that exit. Match the release's resource slot. A close on a different
+resource or a different path cannot discharge this obligation. A proved release on the selected
+path discharges it. An opaque helper that may release it, an ambiguous alias, escape, or unresolved
+control flow leaves the obligation unproved on that path. Restrict tagged witnesses to local
+paths whose relevant effects can be accounted for. No interprocedural cleanup inference is required.
+For Node, `const release = fs.closeSync` followed by `release(fd)` after `fs.openSync` discharges
+that fd. For shell, parse both `exec 3<&-` and `exec 3>&-` as closes of fd 3 (likewise fd 4).
+An admitted finding on either balanced sequence carries the corresponding CWE-less row.
+
+| Observed pair description | Stable public id | CWE on path proof above | Required acquisition or reason for no tag |
 |---|---|---|---|
 | file open without close | `absence-file-handle` | — | Generic open/close spellings include scope-owned files. |
 | lock without unlock | `absence-lock` | — | Generic lock/acquire includes scope guards. |
@@ -667,7 +731,7 @@ are negative at the marker, though a reached legacy token would have identity `l
 identity assertion may succeed vacuously on a missing finding.
 
 **Round 1 keyed delta from D-1 (`65a13c348b47`).** This table preserves the superseded design value.
-The tables below retain the separate TSV `rules` and `observed` history and give the final D-2 value.
+The tables below retain the separate TSV `rules` and `observed` history. D-3 keeps the D-2 cell values.
 
 | Table | Exact label(s) | D-1 | D-2 |
 |---|---|---|---|
@@ -686,6 +750,12 @@ keep their redirect id. The injected callback in the candidate has neither bindi
 `*sql.Conn` fixtures call `Exec` where that type offers `ExecContext`. The Python formatting
 fixtures supply expressions but no SQL literal or resolved execution API. Presence and historical
 classifier observations are independent of these eleven TSV and one candidate identity changes.
+
+**Round 2 keyed delta from D-2 (`be906634a77c`).** Zero of 540 TSV cells and zero of 300
+candidate cells changed. The committed Flask fixture reaches positional source. The new context
+permutations are S2-PY controls. The unresolved-receiver SQL-literal witness retains the published
+`astra-r2-04` cell. No existing TSV execute case gains an id. Primitive, absence and mixed
+specific-mode descriptors are outside the taint matrix. The table above remains the delta from D-1.
 
 | Source table | Rows | Previously `?` | Concrete expectations revised |
 |---|---:|---:|---:|
@@ -979,7 +1049,7 @@ record, never authority to add a finding. The open products themselves are gover
 | `js-location-header` | astra-r1 (47) |
 | `js-child-process@CWE-78;js-db-call@CWE-89;structured-os-command@CWE-78;structured-sqli@CWE-89` | astra-r2 (01, 02) |
 | `py-db-call@CWE-89;taint-query-value!suggestion` | astra-r2 (03) |
-| `py-db-call@CWE-89;structured-sqli@CWE-89;taint-query-value!suggestion` | astra-r2 (04) |
+| `py-db-call@CWE-89;structured-sqli@CWE-89;taint-query-value!suggestion` | astra-r2 (04), retained by A's `execute` statement witness |
 | `py-html@CWE-79;structured-xss@CWE-79` | astra-r2 (13) · astra-r3 (02) |
 | `js-fs@CWE-22;js-redirect@CWE-601` | astra-r2 (17) |
 | `py-module-command@CWE-78;py-subprocess@CWE-78` | astra-r2 (18) |
@@ -987,6 +1057,11 @@ record, never authority to add a finding. The open products themselves are gover
 | `go-html-render;taint-query-value` | astra-r2 (21) |
 | `go-file-op@CWE-22` | astra-r2 (34) |
 | `structured-ssrf@CWE-918;structured-xss@CWE-79` | astra-r3 (01) |
+
+In `astra-r2-04` the reached ORM comparison in `session.execute(select(User).where(User.name == x))`
+contributes the weak value role. Both detectors see the SQL-bearing statement in the sibling
+`conn.execute("SELECT " + x)`. Limiting A's literal witness to `query` would instead yield
+`taint-query-name;taint-query-value!suggestion` and lose the SQL distinction for this sqlite3 idiom.
 
 Some candidate truth lines describe desired detection rather than this lane's admitted line:
 
@@ -1023,9 +1098,9 @@ asserted for a new entry. SQLModel's existing #646 is addressed by the corrected
 | F3. Query values and process arguments | taint-query-value, taint-process-argument | Determine whether the reached value can become SQL or shell syntax. Bound values, positional ORM objects and fixed-program argv do not by themselves select that syntax. Retain real weak emitters and their relative severity. |
 | F4. Dynamic attributes and file mode | py-dynamic-attr, go-file-mode | Establish use of the selected attribute for dispatch, or the file's effective permissions and policy. A computed read and a permission mask alone do not establish unsafe reflection or path traversal. |
 | F5. Name-only detectors | configured-sink, format-wrapper, legacy | A configured name has no declared weakness. The wrapper scan proves one-hop variadic-plus-printf co-occurrence, not the forwarded formal or slot. The legacy list has no operand model. Per-user ids would also make the registry open. |
-| F6. Missing counterparts without a proved manual obligation | The 43 dash ids and the 22 `-match` ids in D | Establish the full acquisition, resource owner and release obligation at the matched site. Connection and SQL-pool lifetimes need their own rule before they can carry a CWE. |
+| F6. Missing counterparts without a proved unmet obligation | The 43 dash ids and the 22 `-match` ids in D | Establish the acquisition, owner and obligation still outstanding at the exit on the reported path. Record discharged obligations separately from unresolved cleanup. Connection and SQL-pool lifetimes need their own rule before they can carry a CWE. |
 | F7. Repeated counterparts | absence-repeated-counterpart | Establish two matching deallocations or unlocks, their common operand and the intervening lifetime before specializing. |
-| F8. Primitive detector matches | Six `<CATEGORY>_MATCH` ids in C | Establish the selected primitive and its actual operand or credential use. The pair of controls in each row distinguishes the tagged and neutral cases. |
+| F8. Primitive detector matches | Six `<CATEGORY>_MATCH` ids in C | Establish C's specific witness, including shell-syntax exposure, a TLS verification gap or a use on the closed credential list. Record effective and unresolved protections separately. |
 
 **Open question for the owner (Opus S5).** Should Node `fork(modulePath)` distinguish CWE-829 or
 CWE-114 for code loading? The one `esm default` TSV row keeps `js-child-module@CWE-73`. It proves
@@ -1058,7 +1133,8 @@ control of a filename. The alternatives need evidence of untrusted functionality
 `6a5a242ad8e7`, 210 output pairs). Count one analysis per input and report its actual `taint_sink`
 denominator alongside the 81 all-category findings. Exclude output copies. Trace old line/first-pattern
 hits and D on identical parse, paths and admission state. Label the private tag/category-default as
-an old proposal. For round-1 refusals also compare D-1 and D-2 on those witnesses. Run G-additive
+an old proposal. For round-1 refusals compare D-1 and D-2 on those witnesses. For round 2 compare
+D-2 to D-3 on the affected Flask/SQL, primitive and absence witnesses in their pinned populations. Run G-additive
 and G-fingerprint with ordinary uninstrumented binaries.
 
 1. **Admission.** Key by pinned input/diff id, analysis variant (baseline/expanded for #841),
@@ -1099,12 +1175,15 @@ cannot authorize an unsupported CWE. Record zeros, unknowns and uncovered cells 
 
 At S5 compare all six primitive and 34 absence findings with multiplicity on the same input
 and original category/severity/description. For each C row show matched site/operand and verified
-versus `_MATCH`. For each D pair/category record language, **full matched callee spelling** (raw
-text for a text-only hit), binding, obligation/lifetime or refusal, and tagged versus CWE-less row.
+versus `_MATCH`, with the effective shell quoting, verification gap/protection or credential slot
+as applicable. For each D pair/category record language, **full matched callee spelling** (raw
+text for a text-only hit), binding, resource, reported path and exit, and the tagged or CWE-less row.
+Distinguish obligation outstanding, discharged, unresolved and no manual obligation.
 Tabulate repeated calls by both release sites and fallback reason. Count a multi-pair line once per
 emitted finding. Show zeros across the entire inventories. Exercise both sides on separate fixtures
-where the pins have no witness. Synthetic `SarifInputs` normalization and scanner controls each
-change zero TSV rows and have no Stage M external-input population.
+where the pins have no witness. At S4 count specific-mode empty fallbacks by algorithm/category on
+the pins and check their indexed descriptors for tags. Use the mixed synthetic pair to exercise
+the external-input collision. Stage M has no external-input population.
 
 **Change log, 2026-11-24.** Stage D fixed the publication tables, both open-grid rules, all 540 TSV
 decisions and the 300 source-only candidate dispositions at design HEAD `457ea9ffa6de`. The matrix
@@ -1114,3 +1193,7 @@ checkout advanced from `a3986ce333f1` to `5e9e4d864cbb` during D. Stage M used a
 identities and one of 300 candidate decisions. A/B close the binding and operand rules, C/D split
 tagged from neutral occurrences, 5.5 normalizes SARIF inputs, and F defines the census join.
 PLAN puts the registry first and assigns each language a separately gated producer PR.
+
+**Change log, 2026-11-24, D-3.** Design review round 2 fold against `be906634a77c`. Both reviews'
+eight findings are folded into 5.2–5.5, A–F and the corresponding PLAN gates and slice controls.
+E retains all 540 matrix and 300 candidate identities. The round 2 verdicts were REJECT and APPROVE.

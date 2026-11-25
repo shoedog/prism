@@ -11,7 +11,7 @@ rule ids; default output gains only the additive `rules` key (DESIGN decision 7)
 loop attributes, per sink occurrence whose operand the tainted use reaches, the rule of each flat hit and
 every structured match, and attaches them to the `taint_sink` finding (DESIGN 5.2). One registry
 (`output/rule_registry.rs`) lists every rule with its CWE and text, is the only way production code names a
-rule (DESIGN 5.3) and generates `docs/rules.md`. SARIF always adds `properties.rules`;
+rule (DESIGN 5.3) and generates `docs/rules.md`. SARIF adds `properties.rules` for a nonempty normalized list;
 `--sarif-rule-ids specific` writes one result per rule with registry descriptors and CWE tags. Primitive and
 absence findings carry their rule last. DESIGN Appendices A–F are the Stage D record. Appendix E lists
 the 540 matrix expectations and 300 source-only candidates, including the accepted corrections.
@@ -62,7 +62,7 @@ the 540 matrix expectations and 300 source-only candidates, including the accept
    neither the structured rule nor the rules of flat identifiers inside the cleansed call appear (`ri15`).
 3. Lines inserted outside the per-edge loop (Python inline Flask source, Go source equal to sink, JS YAML
    inline source) carry their structured rule; caller-supplied and wrapper callees carry `configured-sink` and `format-wrapper`, both without a CWE.
-   S2-JS owns YAML, S2-PY owns signature-bound Flask source and actual unescaped context use,
+   S2-JS owns YAML, S2-PY owns signature-bound Flask source and unescaped context use in all three source orders,
    S2-GO binds the receiver or mux.Vars argument to the handler parameter on both fallback paths,
    and S2-L owns the C wrapper/config fixtures. Check each with the admitted wrong-slot control.
 4. Default-mode SARIF for findings that carry rules: no new descriptor or descriptor key, `mapping_version`
@@ -71,13 +71,16 @@ the 540 matrix expectations and 300 source-only candidates, including the accept
    `--min-confidence exact` writes nothing; each expanded result's `ruleIndex` names its own descriptor;
    normalized duplicates of one id give one result. Exercise wrong registered CWE, wrong algorithm,
    unknown external ids and conflicting levels in both orders. Check every result's full normalized
-   properties **and** its indexed descriptor together, including the all-dropped category fallback (S4).
+   properties **and** its indexed descriptor together. Group an empty primitive finding with a verified
+   one of the same category. The specific fallback must index a separate tagless descriptor (S4).
 6. S2-R closes the public ids before any producer. S2-W checks all 540 keys and the occurrence join.
    At each language PR check that language's complete findings and every already activated partition.
-   Use A's closed nominal exceptions, including the neutral unbound redirects and local SQL export.
+   Use A's closed nominal exceptions, including the neutral unbound redirects and local SQL export,
+   and its SQL-literal witness for Python query/execute/executemany on an unresolved receiver.
 7. S3 registers all 12 primitive and 90 absence rows. S5 reviewers compare one proved occurrence and
-   an admitted neutral counterexample per conditional row, plus the two dropped lifetime tags. Check
-   counts and severity independently of metadata.
+   admitted neutral controls per conditional row, including effective or unresolved shell/TLS
+   protection, the closed credential slots, and cleanup on the path the absence finding names. Check
+   the two dropped lifetime tags. Compare finding counts and severity independently of metadata.
 
 ## Stage M: issue and output baseline (1 day)
 
@@ -131,7 +134,9 @@ host slot procedure. Identify each binary and run all 35 fixed inputs with both.
 on all outputs. Pass each named scope as a separate `--new-rules` argument. S1, S2-R, S2-W,
 S3-G, S3-N and S5-A1 have empty scope. S2-JS/PY/GO/L each allow only `finding:taint` additions,
 S4 only `sarif:taint`, S5-P only `finding:primitive` and `sarif:primitive`, S5-A2 only
-`finding:absence` and `sarif:absence`. Check additions against the active language as well.
+`finding:absence` and `sarif:absence`. These comparator scopes operate by algorithm and output.
+G-coverage checks language isolation on the matrix using each fixture's language, the exact
+active-partition expectations and empty rules on every inactive partition (shared S2/S3 gates).
 The comparator still requires byte equality for a rules key present on both sides. At close-out
 repeat against the pre-lane base with all six scopes. Include the comparison summary in every PR.
 
@@ -252,12 +257,14 @@ directions), `parser_rejects_unsorted_rules`, `parser_rejects_bad_cwe`, `parser_
       weakness); (6) the CWE of each of the six primitive categories (DESIGN names five classes; two
       categories are hash truncation); (7) conventions for registry `name`, `short`, `help`, and the
       `legacy` row's text. Output: amended sections with appendix tables (identities, structured, absence,
-      primitive). D-2 amends only DESIGN and PLAN. S2-W transcribes the 125 `?` and 35 revised concrete
+      primitive). D-2 and D-3 amend DESIGN and PLAN. S2-W transcribes the 125 `?` and 35 revised concrete
       cells at `5e9e4d864cbb`, preserving the original observations. Replay all 160 plus `ri23e`,
       `ri23f` and `ri27` on the base (ORCHESTRATION section 7). These cover the original matrix's 163
       transcription cells at `a3986ce333f1`. E records the eleven TSV and one candidate changes from
-      D-1. Preserve all 540 keys. Candidate rows and open grids are source-only until replayed.
-      Both reviewers rejected D-1 in round 1. This fold goes to round 2 of the existing cap of 2.
+      D-1. D-3 changes no TSV or candidate expectation relative to D-2. Preserve all 540 keys.
+      Candidate rows and open grids are source-only until replayed. Both reviewers rejected D-1.
+      Round 2 of the cap of 2 returned B REJECT and A APPROVE on `be906634a77c`. D-3 folds their
+      bounded findings on that artifact. The design approval gate awaits controller disposition.
 
 ## Stage I: slices
 
@@ -363,6 +370,8 @@ the Stage T test support. Expose `RuleInfo { id, cwe, name, short, help, algorit
       the registry maker. Check `SinkHit` literal construction outside its defining module the same way.
       Respect test-only modules. Pass controls for `pub struct RuleRef {`, type/import references,
       comments, strings and `JS_EVAL.rule_ref()`. Fail a qualified literal with a computed id.
+      S4 uses this maker for registered ids and clones an external ref to normalize an unknown id.
+      Keep the scanner active on the SARIF module.
       A substring ban rejects S1's declaration. A text exemption for that one declaration would
       still match examples in strings and comments. Pair the scan with producer return types and
       `check_emitted` on actual output.
@@ -419,11 +428,19 @@ the Python projection module, py/hybrid_py/identity tests, CLI output tests and
       both orders of live/cleansed siblings, SQLModel exec and proven ORM versus text versus opaque
       query (all A branches). Test the lowercase parameter, variable-only formatting, reordered
       SQL keywords, bound SQL, weak clause and sandboxed/normal template roles on both finding levels.
+      Replay `astra-r2-04` with both SQL ids on `conn.execute("SELECT " + x)` and only the weak
+      value id from the ORM sibling. Exercise the same literal witness on unresolved `executemany`,
+      an opaque statement without a literal, a bound value and a known non-SQL receiver.
 - [ ] Test B's four Flask shapes on edges and inline request values. Bind positional/keyword
       source despite reordering; refuse duplicate or unresolved splats, unused context and outputs
-      after endautoescape or inside nested true. Include valid scoped use and safe filter, both
-      flat+structured source ids against the whole-call context range, a source-line flat exclusion,
-      a real admitting sibling and an unadmitted control. Keep the first-outcome admission semantics.
+      after endautoescape or inside nested true. Derive the projection's context exclusion from
+      the bound source and scoped use. On an eligible edge assert the two `@CWE-79` refs `py-html`
+      and `structured-xss` for each of `render_template_string("{{ name | safe }}", name=x)`,
+      `render_template_string(source="{{ name | safe }}", name=x)` and
+      `render_template_string(name=x, source="{{ name | safe }}")`. Check inline-only context
+      yields just the structured ref on admission. Retain the source-operand pair of template ids,
+      the source-line flat exclusion, a real admitting sibling and an unadmitted control.
+      Keep the first-outcome admission semantics.
 - [ ] Shared gates with `finding:taint`. G-coverage adds py + hybrid_py (147) and
       `ri04,06,08,12,20,21a,21b,22` (8), **360/540** cumulative. Re-record only the two copies of
       the Python sink in the review golden, with the decision 7 reason and exact diff in the PR.
@@ -483,7 +500,9 @@ and the generated `docs/rules.md`. No algorithm emits here.
       double-unlock/765 and repeated-counterpart without CWE. Register each literal once.
 - [ ] Compare membership to C and to all 65 `default_pairs()` descriptions and the D fallback map.
       Test exact immutable CWEs and algorithms, cross-algorithm uniqueness, neutral help and rejected
-      mismatches. Regenerate the page. Shared gates, empty scope, **540/540** G-coverage and G-closed.
+      mismatches. Reflect C's shell/TLS protection and credential slots, and D's unmet obligation
+      on the reported path, in the verified and neutral rows' help. Regenerate the page.
+      Shared gates, empty scope, **540/540** G-coverage and G-closed.
 
 ### Slice S4: SARIF (2.5 days)
 
@@ -504,24 +523,29 @@ impl<'a> SarifInputs<'a> { pub fn rule_ids(mut self, rule_ids: SarifRuleIds) -> 
 pub fn cwe_tags(cwe: Option<&str>) -> Vec<String>;
 // cli.rs, ReviewArgs. Doc (the help text): "--format sarif only: `category` (default) keeps
 // prism/<algorithm>/<category>; `specific` writes one result per rule as prism/<algorithm>/<rule id>, with
-// CWE tags. Switching modes can start new code-scanning alert histories for the affected findings; how
+// optional CWE tags. An empty rule list uses prism-fallback/<algorithm>/<category> in specific mode.
+// Switching modes can start new code-scanning alert histories for the affected findings; how
 // GitHub shows the CWE tags is unverified."
 #[arg(long, value_enum, default_value_t = SarifRuleIds::Category)] pub sarif_rule_ids: SarifRuleIds,
 ```
 
 Add `ResultProperties.rules`, optional descriptor help/category and optional tags, skipped when
 empty. After admission and #841's map/diagnostic choices, normalize incoming references by DESIGN
-5.5 before constructing **any** result properties or specific descriptors. Use the registry CWE
-for an authorized algorithm (including None) and drop registered ids under any other algorithm.
+5.5 before constructing **any** result properties or specific descriptors. Use the registry maker
+for an authorized row (including its optional CWE) and drop registered ids under any other algorithm.
 Group duplicates using the strongest effective severity and sort by id. Category mode uses this
 canonical list with the ordinary category descriptor. Specific mode copies this same full list on
 each result, selects its level from the canonical ref and uses the authorized row's optional tag.
-If the list is empty, emit one category result with omitted rules. An unknown external id follows
-5.5's per-finding CWE rule and its per-(algorithm,id) run-wide tag union.
+If the list is empty on entry or after normalization, omit the rules key and use the ordinary
+category id in default mode. In specific mode emit one finding-level result with the separate
+`prism-fallback/{algorithm}/{category}` id and a tagless category descriptor. For an unknown external
+id, clone a supplied ref in that group and overwrite both public fields `cwe` and `severity` with
+the reduced per-finding values from 5.5. Its descriptor uses the per-(algorithm,id) run-wide tag
+union. No `RuleRef` literal or new public id factory is needed in `sarif.rs`.
 
 Compute message, evidence, fingerprint and locations once. A registered specific descriptor uses
 `name`, `shortDescription = short`, `fullDescription = help`, `help` and algorithm/optional tags.
-It omits category and wins over an ordinary descriptor of the same id in either order. Unknown ids
+It omits category. The disjoint fallback prefix also covers external ids containing separators. Unknown ids
 use the id as name and `"{algorithm}: {id}"` for both descriptions. Sort results and descriptors
 before assigning `ruleIndex`. Document the default-mode result count and the consumer key with ruleId.
 
@@ -530,22 +554,30 @@ before assigning `ruleIndex`. Document the default-mode result count and the con
       `specific_mode_writes_one_result_per_rule_sharing_fingerprint`,
       `specific_mode_descriptor_has_registry_text_and_cwe_tag`, `specific_mode_rule_without_cwe_has_no_tags`
       (use named neutral output, wrapper and configuration rows, including a mixed-CWE finding),
-      `specific_mode_finding_without_rules_keeps_category_rule`, `specific_mode_every_cwe_descriptor_has_its_tag`
+      `specific_mode_finding_without_rules_indexes_tagless_fallback`, `specific_mode_every_cwe_descriptor_has_its_tag`
       (CLI on identity fixtures), `specific_mode_weak_rule_result_is_note`,
       `specific_mode_repeated_id_gives_one_result`, `specific_mode_conflicting_cwes_for_one_id_give_one_result`,
       `specific_mode_unknown_rule_keeps_supplied_cwe_tag`, `specific_mode_unknown_rule_without_cwe_has_no_tags`,
       `specific_mode_two_unknown_inputs_with_different_cwes_tag_both`,
       `specific_mode_registry_wins_over_disagreeing_cwe`,
-      `specific_mode_mixed_primitive_descriptor_is_order_independent`, `specific_mode_is_byte_deterministic`,
+      `specific_mode_mixed_primitive_keeps_fallback_tagless_in_both_orders`, `specific_mode_is_byte_deterministic`,
       `sarif_rule_ids_flag_rejects_unknown_values`, `sarif_rule_ids_help_mentions_alert_history`. RED:
       `cargo test -p prism-review --test cli sarif_rule_ids_test::`.
 - [ ] Through public `SarifInputs`, pass `js-eval@CWE-502` on taint alone and beside valid rows.
       Every copy carries `js-eval@CWE-95`, and its specific descriptor has only the 95 tag.
       Supply `js-eval` on absence alone and beside a valid absence id. Assert its absence from
-      properties and specific descriptors, the empty-category fallback, and the surviving valid id.
+      properties and specific descriptors, the mode-specific empty fallback, and the surviving valid id.
       Also supply a CWE for a neutral row, omit one for a tagged row, reverse duplicate severities
       (including absent), and reverse conflicting unknown CWEs. Check indexed descriptors, result
       levels and the full canonical list in each mode. Category descriptors gain no tags.
+- [ ] Mix two primitive inputs of category `SHELL_TRUE_WITH_INTERPOLATION`, one with that verified
+      ref and one with `rules=[]`. In both input orders follow each result's `ruleIndex` and check
+      the indexed id equals its `ruleId`. Only `prism/primitive/SHELL_TRUE_WITH_INTERPOLATION` gets
+      the CWE-78 tag and the verified rule in result properties. The empty result indexes
+      `prism-fallback/primitive/SHELL_TRUE_WITH_INTERPOLATION` with no tags or result rules key.
+      Check fingerprints against their respective category-mode inputs and keep one result per input.
+      Count the specific-mode empty fallbacks by algorithm/category on the pins and check each
+      indexed fallback descriptor is tagless.
 - [ ] `sarif_shape_test.rs`: `run_sarif` gains a mode argument; every assertion that does not name a
       category-mode rule id runs in both modes (the category-id literals stay default-mode only).
 - [ ] Implement; GREEN; `sarif_test` passes unchanged.
@@ -570,7 +602,19 @@ the RED/base control, both test thread counts, all 540 G-coverage keys and the M
 - [ ] Pin the non-hash digest, non-returned/textual helper slice, shadowed hashlib, fixed subprocess
       command beside unrelated interpolation, unrelated verify option and unused/public token literal.
       Bind the actual callee, positional/keyword operand and result use where C requires it.
-- [ ] Measure the six pinned primitive findings by C row and witness before enabling publication.
+- [ ] On admitted POSIX shell findings compare an unquoted field from an unconstrained string
+      (CWE-78), `subprocess.run(f"printf '%s' {shlex.quote(x)}", shell=True)` (`_MATCH`), and an
+      opaque quoting helper (`_MATCH`). Test the effective insertion context and all fields.
+      On Go TLS client handshakes compare a fixed `InsecureSkipVerify: true` with no replacement
+      checks (CWE-295), a `VerifyConnection` that enforces chain and hostname (`_MATCH`), an opaque
+      verifier (`_MATCH`) and a proved no-op verifier with no other checks (CWE-295).
+      Assert the admitted category and exactly the corresponding tagged or CWE-less id in each case.
+- [ ] Use exactly C's credential slots on resolved requests/httpx module calls (auth tuple password
+      and Authorization bearer value) and `redis.Redis(password=…)`. Cover each family and slot,
+      plus a username-only use, a rebound literal and an unlisted client's `password=` on admitted
+      assignments. All unproved uses yield `HARDCODED_SECRET_MATCH` without a CWE.
+- [ ] Measure the six pinned primitive findings by C row and witness, including the D-2 → D-3
+      tag/fallback transitions and their reasons, before enabling publication.
       G-additive permits only `finding:primitive` and `sarif:primitive`. G-fingerprint, G-targets,
       G-closed and both SARIF modes pass. Two reviewers, cap 3.
 
@@ -581,11 +625,19 @@ projection tests. First commit moves `PairedPattern/default_pairs()` unchanged a
 from the same module. Verify the 65 descriptions and `targets_mapping_test` on that commit.
 
 - [ ] Implement private selection for D's 16 kernel/POSIX acquisition rows, with an exact typed or
-      library-bound full callee and the corresponding manual ownership/lock obligation. Return
-      the S3-N verified constant or its CWE-less fallback. No producer attaches an absence ref yet.
+      library-bound full callee and a manual ownership/lock obligation proved outstanding at the
+      exit on D's category-specific path. Return the S3-N verified constant or its CWE-less fallback.
+      No producer attaches an absence ref yet.
       Data-drive each row with a positive and shadow/tail/managed/ownership negative. Include
       devm_kzalloc, devm_kstrdup, devm_request_irq, a managed DMA spelling, NumPy/Python mmap and
       an application open/socket helper.
+- [ ] Extend those same 16 row controls. For each, check an admitted open with a feasible local exit
+      and no release (tag), a release of that resource via a unique callee alias (`-match`) and an
+      unresolved possible cleanup (`-match`). Trace the acquisition result or lock/reference through
+      release and exit. For the goto categories include normal-return versus error-label release,
+      cleanup before the named goto and label fall-through. Releasing a different resource or on a
+      different path cannot discharge the reported obligation. Keep the controls on admitted sites
+      by using alias calls the legacy scan misses. Use the original emitter's named normal return/goto.
 - [ ] For `double_close`, check actual release functions, their designated resource operands at both
       goto-path sites and absence of a reset/reacquisition. Test free/415, unlock/765 and generic
       repeat against the C goto fixtures, distinct operands, wrong free slot and substring names.
@@ -601,18 +653,29 @@ language modules as needed, novel rule-identity tests, SARIF shape tests and `CL
       proof/fallback controls. Test GORM/client Create, cache.Get/once.Do, local `open(1)`, real
       Node fs.open, Lua io.open and a real versus quoted shell descriptor redirect. Even a real
       process-lifetime connection or sql.Open uses its dash id. Check signal.connect and os.Open
-      misidentified by the old matcher. Run the tagged/neutral controls for all 22 conditional pairs
-      through the public emitter, checking the independently admitted finding at each marker.
+      misidentified by the old matcher.
+- [ ] Apply D's same three cleanup controls to each of these six rows on admitted findings. For
+      Node use `const release = fs.closeSync; const fd = fs.openSync(path, "r"); release(fd)` with
+      the open marked. Expect exactly `absence-node-file-descriptor-match`. For Go file/HTTP body
+      use a bound Close method value, for Lua file/socket an aliased close method with its resource.
+      For shell use a function in a continuing shell with a local fd obligation, `exec 3>file` then
+      `exec 3<&-`. Expect exactly `absence-shell-file-descriptor-match`. Check both close directions
+      and both modeled fd numbers in the proof helper. For each pair also exercise a witnessed
+      unmet obligation (tag) and unresolved cleanup (`-match`). Run the controls for all 16 + 6 pairs
+      through the public emitter, checking base admission, the exact rule/CWE, and multiplicity per marker.
 - [ ] Select exactly one of S3-N's 87 ordinary constants for each finding in the three missing
       categories. Associate the pair definition with its literal primary/optional fallback constants
       in the same internal inventory. Preserve the public `default_pairs()` representation and order.
-      Use the exact acquisition at the site, the pair's bound API and manual lifetime.
+      Use the exact acquisition, bound API, resource identity and outstanding obligation on the
+      reported path through its exit. When the only relevant paths have proved or unresolved cleanup,
+      select the neutral alternate.
       Ambiguous same-line acquisitions fall back. For repeats select exactly one of the three repeat
       constants. Preserve admission, severity, descriptions and per-pair multiplicity. Verify the 65
       primary ids, 22 literal neutral alternates, both error-path categories and the two lifetime-only
       neutral rows against D. Other algorithms remain empty. Reuse registered rows directly.
 - [ ] Before attaching rules, run F's census of all 34 pinned absence findings by pair, category,
-      full matched callee, language, tagged/neutral/repeated and reason. Reconcile multiplicities
+      full matched callee, language, resource, path/exit, tagged/neutral/repeated and reason.
+      Show D-2 → D-3 totals for outstanding, discharged and unresolved obligations. Reconcile multiplicities
       against the base and show zeros. Run the novel rule-identity, C goto and SARIF suites.
 - [ ] G-additive scopes `finding:absence`, `sarif:absence`. G-fingerprint, G-targets, G-closed,
       540/540 G-coverage and final G-sarif-valid on nonempty taint, primitive and absence logs in
@@ -634,16 +697,18 @@ language modules as needed, novel rule-identity tests, SARIF shape tests and `CL
 
 - [ ] The stage D review record has both approvals at the design cap. Each Stage I PR has its own
       integrated-base receipt, sized diff, assigned approvals and review-round count. All four
-      producer partitions pass G-additive with only their own new taint findings enriched. Previously
-      published rule values, every fingerprint, target id, finding and its severity pass the comparator.
+      producer partitions pass Stage M's algorithm-scoped G-additive check. G-coverage verifies
+      the language boundary on active and inactive matrix fixtures. Previously published rule values,
+      every fingerprint, target id, finding and its severity pass the comparator.
       The cumulative check against the pre-lane base passes with the six stated scopes.
 - [ ] G-coverage progresses through 205, 360, 474 and 540 active keys. All 540 assert admission and
       all positives assert ids/CWEs/relative severity, including empty references. No residual `?`.
       Record candidate/grid execution separately. F's pinned censuses reconcile all stages and list
       exclusions. Every production id was registry-backed at its first publication.
 - [ ] G-closed checks A–D, both scanner controls, per-algorithm validation, and the current generated
-      page. C/D projection tests exercise proved and neutral occurrences. Both SARIF modes agree on
-      normalized result properties. Specific descriptors have the authoritative tags and indexes.
+      page. C/D projection tests exercise effective protections, closed credential slots and path-specific
+      cleanup, including admitted neutral occurrences. Both SARIF modes agree on normalized result
+      properties. Verified specific descriptors retain their tags and empty results index a tagless fallback.
       The final mixed-output shape and schema receipts meet G-sarif-valid. Run and record the full
       suite before merging to main, including any exclusions under the repository policy.
 
