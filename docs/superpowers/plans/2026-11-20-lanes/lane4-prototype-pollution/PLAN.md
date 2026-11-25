@@ -425,7 +425,8 @@ selector-provenance variants enter as rows inside the slice fixing the gap.
   `src/ast/js_ts/proto_writes/name_reads.rs` (shared read resolver),
   `src/ast/js_ts/proto_writes_tests.rs`, `src/navigation/proto_writes.rs`,
   `crates/prism-review/tests/cli/nav_proto_writes_test.rs`
-- Modify: `src/ast/js_ts.rs` (the `mod proto_writes;` and `#[cfg(test)] mod proto_writes_tests;` lines),
+- Modify: `src/ast.rs` (a per-file `OnceLock` cache for the name-read index of `js_ts_name_reads`; the file stays under 2,000 weighted lines),
+  `src/ast/js_ts.rs` (the `mod proto_writes;` and `#[cfg(test)] mod proto_writes_tests;` lines),
   `src/navigation/mod.rs`, `crates/prism-review/src/cli.rs` (`NavQuery`),
   `crates/prism-review/src/main.rs` (`run_nav` arm), `crates/prism-review/tests/cli/main.rs`, `CLAUDE.md`,
   `docs/features/language-coverage/js-ts-known-gaps.md`
@@ -505,7 +506,7 @@ distinct target or live selector line (including earlier sites), sorted by file,
 arrays even for an empty listing. Test the JSON against the core query including zero reads and unknown binding.
 
 In the measurement worktree, `pp_join.py <harness out dir> <packages dir> <prism binary>` joins to the
-designated target at its column. Keep the E2 by-name/strict flags, structural coverage, frozen write-line
+designated target at its column. The frozen coordinates point at the assignment operator while a fact's span covers the written member: the join maps the coordinate to its enclosing assignment exactly as the stage-M lookup does (`m/key_index.mjs`) and joins on the member's byte span; `test_pp_join.py` pins that mapping on a two-case fixture. A finding with no match-trace record counts as unverified and does not enter the 19/21 numerator. Keep the E2 by-name/strict flags, structural coverage, frozen write-line
 `finding_equivalent` and actual `sink_finding` separately. Resolve matching Uses against the listing's
 complete read inventory. Write one record per DESIGN 5.4 case, including the expected route, selector site,
 any competing spans, first failed condition and whether only the property was reached. Mark actual route

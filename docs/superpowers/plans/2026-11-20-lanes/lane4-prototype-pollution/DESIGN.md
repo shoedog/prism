@@ -690,7 +690,7 @@ row keeps its testable class, guard and sink behaviour. The seeded cases have se
 | R-KEY-PROOF | Reported although safe in the run. The receiver of a split, the resulting sequence or the property key reused for a check or installation lacks a local native/primitive proof. | g04, g06, g07, g10, g15–g19, g21–g23, g32, t2-025, t2-029, t2-072, t2-141, t2-167, t2-168, t3-011, t3-012, t3-013, t3-024, t3-056. Also sk04 outside the matrix. |
 | R-TEMPLATE | Reported although safe. The prefix/suffix rule keeps the incompatible interior-only template. The compatible neighbour t3-037 is a detection. | t3-007 |
 | R-PAIR | Reported although safe. The two-name strict pair omits the constructor check and relies on an additional object-only step and unproved split domain. | t3-023 |
-| R-CHILD | Reported although safe. A destination-own check without a syntactic private-child proof retains a partial guard. | g24, g25 |
+| R-CHILD | Reported although safe. A destination-own check without a syntactic private-child proof retains a partial guard (g04 also lacks the split-key proof of R-KEY-PROOF and would stay partial for this reason if split-key proofs are added). | g24, g25 |
 | R-ASYNC | Reported although safe. Validation and the selected value meet across fulfilled asynchronous results. | t2-169 |
 | M-BIND | Seeded sink miss. A recursive fact exists, but upstream propagation from the source into a callback key is missing (#434). | sk11 (same fact shape as rm02) |
 | R-RECEIVER | Seeded sink false positive. An aliased receiver with same-line formals propagates to the selector (#854, decision 10). | sk03b |
