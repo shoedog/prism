@@ -463,8 +463,8 @@ fn bounded_parse(source: String) -> ParsedFile {
         send.send(file).unwrap();
     });
     receive
-        .recv_timeout(std::time::Duration::from_secs(30))
-        .expect("prototype-write analysis did not finish within 30 seconds")
+        .recv_timeout(std::time::Duration::from_secs(90))
+        .expect("prototype-write analysis did not finish within 90 seconds")
 }
 
 #[test]

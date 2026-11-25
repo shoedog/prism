@@ -43,9 +43,9 @@ impl<'a> Lexical<'a> {
         let root = file.tree.root_node();
         let mut pending = vec![root];
         while let Some(node) = pending.pop() {
-            if identifier(node) {
+            if identifier(node) && file.source.as_bytes()[node.byte_range()].contains(&b'\\') {
                 let raw = file.node_text(&node);
-                if raw.contains('\\') && !lexical.decoded.contains_key(raw) {
+                if !lexical.decoded.contains_key(raw) {
                     let name = ParsedFile::js_ts_decode_identifier_text(raw)
                         .unwrap_or_else(|| raw.to_owned());
                     lexical.escaped_names.insert(name.clone());
