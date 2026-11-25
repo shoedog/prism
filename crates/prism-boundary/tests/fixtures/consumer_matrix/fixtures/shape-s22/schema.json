@@ -1,0 +1,31 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay shape-s22",
+    "version": "1.0.0"
+  },
+  "host": "alderfen.invalid",
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/mothbank/crates": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/mothbank/pallets": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

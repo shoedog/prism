@@ -1,0 +1,61 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Synthetic expansion examples",
+    "version": "1.0.0"
+  },
+  "host": "opal.invalid",
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/atlas": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/folio": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/vault/atlas": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

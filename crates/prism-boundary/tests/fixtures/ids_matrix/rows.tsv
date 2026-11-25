@@ -1,0 +1,218 @@
+id	fixture	expected_ids	expected_warnings	truth	class
+allof-compatible-overlap	fixtures/allof-compatible-overlap/swagger.json	field:resp:GET /kiln:200#/heat;op:GET /kiln	allof_overlap	rule	allof
+allof-envelope-first	fixtures/allof-envelope-first/swagger.json	field:resp:GET /kiln:200#/code;field:resp:GET /kiln:200#/data;field:resp:GET /kiln:200#/data/shade;field:resp:GET /kiln:200#/msg;op:GET /kiln		rule	allof
+allof-envelope-last	fixtures/allof-envelope-last/swagger.json	field:resp:GET /kiln:200#/code;field:resp:GET /kiln:200#/data;field:resp:GET /kiln:200#/data/shade;field:resp:GET /kiln:200#/msg;op:GET /kiln		rule	allof
+allof-nested-overlap	fixtures/allof-nested-overlap/openapi.json	field:resp:GET /kiln:200#/data;field:resp:GET /kiln:200#/data/tile;field:resp:GET /kiln:200#/data/tile/shade;field:resp:GET /kiln:200#/data/tile/width;op:GET /kiln	allof_overlap	rule	allof
+allof-single-ref-property	fixtures/allof-single-ref-property/swagger.json	field:resp:GET /kiln:200#/rank;field:resp:GET /kiln:200#/slip;field:resp:GET /kiln:200#/slip/shade;op:GET /kiln		rule	allof
+anyof-choice	fixtures/anyof-choice/openapi.json	field:resp:GET /kiln:200#/dark;field:resp:GET /kiln:200#/light;op:GET /kiln	anyOf_union	rule	oneof-anyof
+definition-dotted-name	fixtures/definition-dotted-name/openapi.json	field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	field-punctuation
+definition-pointer-punctuation	fixtures/definition-pointer-punctuation/swagger.json	field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	field-punctuation
+field-embedded-brackets	fixtures/field-embedded-brackets/swagger.json	field:resp:GET /kiln:200#/tone[]wet;op:GET /kiln	unescaped_property_name	rule	field-punctuation
+field-embedded-star	fixtures/field-embedded-star/swagger.json	field:resp:GET /kiln:200#/tone*wet;op:GET /kiln	unescaped_property_name	rule	field-punctuation
+field-empty-name	fixtures/field-empty-name/swagger.json	field:resp:GET /kiln:200#/;field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	field-punctuation
+field-exact-brackets-vs-item	fixtures/field-exact-brackets-vs-item/openapi.json	field:resp:GET /kiln:200#/bucket;field:resp:GET /kiln:200#/bucket/%5B%5D;field:resp:GET /kiln:200#/bucket/%5B%5D/tone;field:resp:GET /kiln:200#/bucket/[]/tone;op:GET /kiln	oneOf_union;unescaped_property_name	gap:a literal brackets property and an item edge require distinct pointers	field-punctuation
+field-exact-star-vs-map	fixtures/field-exact-star-vs-map/swagger.json	field:resp:GET /kiln:200#/%2A;field:resp:GET /kiln:200#/%2A/tone;field:resp:GET /kiln:200#/*/tone;field:resp:GET /kiln:200#/common;op:GET /kiln	unescaped_property_name	gap:a literal star property and the map edge require distinct pointers	field-punctuation
+field-hash	fixtures/field-hash/swagger.json	field:resp:GET /kiln:200#/tone%23wet;op:GET /kiln	unescaped_property_name	gap:the property contains the fragment delimiter	field-punctuation
+field-slash-vs-nesting	fixtures/field-slash-vs-nesting/swagger.json	field:resp:GET /kiln:200#/coat;field:resp:GET /kiln:200#/coat/shade;field:resp:GET /kiln:200#/coat~1shade;op:GET /kiln	unescaped_property_name	gap:one literal property and one nested property require distinct pointers	field-punctuation
+field-tilde-escape-lookalike	fixtures/field-tilde-escape-lookalike/swagger.json	field:resp:GET /kiln:200#/tone~01;field:resp:GET /kiln:200#/tone~1;op:GET /kiln	unescaped_property_name	gap:literal tilde and slash names require distinct pointers	field-punctuation
+gin-catchall	fixtures/gin-catchall/routes.go	op:GET /mugs/*trail		gap:Gin's catch-all consumes slashes within the captured value	no-id-for-served-op
+gin-clean-slash-join	fixtures/gin-clean-slash-join/routes.go	op:POST /studio/kiln/pots		rule	path-normalisation
+gin-colon	fixtures/gin-colon/routes.go	op:GET /mugs/{}		rule	parameters
+gin-distinct-head-options	fixtures/gin-distinct-head-options/routes.go	op:HEAD /mugs;op:OPTIONS /mugs		rule	methods
+gin-group-supplied-prefix	fixtures/gin-group-supplied-prefix/routes.go	op:POST /studio/mugs		gap:a different function supplies the group prefix	one-op-two-ids
+gin-handle-custom-method	fixtures/gin-handle-custom-method/routes.go	op:PROPFIND /mugs		gap:Gin accepts a custom literal method through Handle	no-id-for-served-op
+gin-literal-nested-groups	fixtures/gin-literal-nested-groups/routes.go	op:POST /studio/kiln/mugs/{}		rule	prefixes
+gin-match-list	fixtures/gin-match-list/routes.go	op:HEAD /mugs;op:OPTIONS /mugs		gap:a single Gin Match call registers more than one method	no-id-for-served-op
+gin-mixed-segment	fixtures/gin-mixed-segment/routes.go	op:GET /mugs/rim-{}		rule	parameters
+gin-strict-trailing-slash	fixtures/gin-strict-trailing-slash/routes.go	op:GET /mugs;op:GET /mugs/		gap:the router distinguishes the two trailing-slash registrations	two-ops-one-id
+oas-absolute-server	fixtures/oas-absolute-server/openapi.json	op:GET /atelier/pot		rule	path-normalisation
+oas-adjacent-braces	fixtures/oas-adjacent-braces/openapi.json	op:GET /print/{}{}.png		rule	parameters
+oas-authority-only	fixtures/oas-authority-only/openapi.json	op:GET /pot		rule	path-normalisation
+oas-body-component-ref	fixtures/oas-body-component-ref/openapi.json	field:req:POST /cast#/tone;op:POST /cast		rule	request-body
+oas-body-fallback-single	fixtures/oas-body-fallback-single/openapi.json	field:req:POST /cast#/tone;op:POST /cast	media_type_fallback	rule	request-body
+oas-body-fallback-sorted	fixtures/oas-body-fallback-sorted/openapi.json	field:req:POST /cast#/xmlMark;field:req:POST /cast#/yamlMark;op:POST /cast	media_type_fallback	gap:both non-JSON representations have named fields	request-body
+oas-body-fallback-sorted-control	fixtures/oas-body-fallback-sorted-control/openapi.json	field:req:POST /cast#/xmlMark;op:POST /cast	media_type_fallback	rule	request-body
+oas-body-json	fixtures/oas-body-json/openapi.json	field:req:POST /cast#/tone;op:POST /cast		rule	request-body
+oas-body-json-preferred	fixtures/oas-body-json-preferred/openapi.json	field:req:POST /cast#/tone;op:POST /cast		rule	request-body
+oas-body-media-distinct	fixtures/oas-body-media-distinct/openapi.json	field:req:POST /cast#/jsonMark;field:req:POST /cast#/xmlMark;op:POST /cast		gap:both accepted representations have named fields	request-body
+oas-braces	fixtures/oas-braces/openapi.json	op:GET /vase/{}		rule	parameters
+oas-colon-literal	fixtures/oas-colon-literal/openapi.json	op:GET /marks/:catalog		rule	parameters
+oas-default-exclusion	fixtures/oas-default-exclusion/openapi.json	field:resp:GET /cone:200#/fired;op:GET /cone		rule	status-keys
+oas-default-only	fixtures/oas-default-only/openapi.json	op:GET /cone		rule	status-keys
+oas-encoded-slash	fixtures/oas-encoded-slash/openapi.json	op:GET /etch/A%2FB		rule	path-normalisation
+oas-form-request-body	fixtures/oas-form-request-body/openapi.json	field:req:POST /mix#/sample;field:req:POST /mix#/shade;op:POST /mix	media_type_fallback	rule	formdata
+oas-implicit-server	fixtures/oas-implicit-server/openapi.json	op:GET /pot		rule	path-normalisation
+oas-in-segment-braces	fixtures/oas-in-segment-braces/openapi.json	op:GET /print/plate-{}.png		rule	parameters
+oas-literal-vs-template	fixtures/oas-literal-vs-template/openapi.json	op:GET /kiln/warm;op:GET /kiln/{}		rule	parameters
+oas-lowercase-range	fixtures/oas-lowercase-range/openapi.json	op:GET /glaze		rule	status-keys
+oas-no-content	fixtures/oas-no-content/openapi.json	op:DELETE /cone		rule	status-keys
+oas-nonbody-parameters	fixtures/oas-nonbody-parameters/openapi.json	op:GET /cast/{}		rule	request-body
+oas-operation-keys	fixtures/oas-operation-keys/openapi.json	op:DELETE /clay;op:GET /clay;op:HEAD /clay;op:OPTIONS /clay;op:PATCH /clay;op:POST /clay;op:PUT /clay;op:TRACE /clay		rule	methods
+oas-operation-server-overrides	fixtures/oas-operation-server-overrides/openapi.json	op:GET /archive/plate/;op:GET /atlas/plate	duplicate_operation	gap:operation-level servers override both broader scopes	two-ops-one-id
+oas-operationid-attribute	fixtures/oas-operationid-attribute/openapi.json	op:GET /urn;op:POST /urn		rule	methods
+oas-path-case	fixtures/oas-path-case/openapi.json	op:GET /Tumbler;op:GET /tumbler		rule	path-normalisation
+oas-path-item-metadata	fixtures/oas-path-item-metadata/openapi.json	op:GET /tile		rule	methods
+oas-path-server-overrides	fixtures/oas-path-server-overrides/openapi.json	op:GET /archive/plate/;op:GET /atlas/plate	duplicate_operation	gap:path-level server overrides keep the two operations distinct	two-ops-one-id
+oas-range-and-exact-status	fixtures/oas-range-and-exact-status/openapi.json	field:resp:POST /glaze:201#/receipt;field:resp:POST /glaze:2XX#/fallback;op:POST /glaze		rule	status-keys
+oas-relative-server	fixtures/oas-relative-server/openapi.json	op:GET /atelier/pot		rule	path-normalisation
+oas-response-component-ref	fixtures/oas-response-component-ref/openapi.json	field:resp:GET /cast:200#/tone;op:GET /cast		rule	wire-tree
+oas-response-media-disjoint	fixtures/oas-response-media-disjoint/openapi.json	field:resp:GET /cast:200#/jsonMark;field:resp:GET /cast:200#/xmlMark;op:GET /cast		gap:one success status carries two distinct response representations	two-ops-one-id
+oas-response-media-same-pointer	fixtures/oas-response-media-same-pointer/openapi.json	field:resp:GET /cast:200#/mark/text;op:GET /cast		gap:the two representations collide at the same field pointer	two-ops-one-id
+oas-server-host-variable	fixtures/oas-server-host-variable/openapi.json	op:GET /atelier/pot		rule	path-normalisation
+oas-server-order-north-first	fixtures/oas-server-order-north-first/openapi.json	op:GET /north/tile;op:GET /south/tile		gap:reordering the same servers does not change callable paths	one-op-two-ids
+oas-server-order-south-first	fixtures/oas-server-order-south-first/openapi.json	op:GET /north/tile;op:GET /south/tile		gap:reordering the same servers does not change callable paths	one-op-two-ids
+oas-server-partial-variable	fixtures/oas-server-partial-variable/openapi.json	op:GET /atelier/v7/pot		gap:the server variable is substituted inside a segment	two-ops-one-id
+oas-server-path-variable	fixtures/oas-server-path-variable/openapi.json	op:GET /atelier/cobalt/pot		gap:the server variable supplies a required path segment	two-ops-one-id
+oas-server-trailing-join	fixtures/oas-server-trailing-join/openapi.json	op:GET /atelier//pot		gap:literal server URL append preserves both slashes	path-normalisation
+oas-server-variable-collapse	fixtures/oas-server-variable-collapse/openapi.json	op:GET /atelier/cobalt/pot;op:GET /atelier/ivory/pot		gap:two allowed values produce distinct callable paths	two-ops-one-id
+oas-server-variable-distinct-operations	fixtures/oas-server-variable-distinct-operations/ash.openapi.json	op:GET /atelier/ash/pot;op:GET /atelier/salt/pot		gap:dropping required server variables conflates two independently documented operations	two-ops-one-id
+oas-significant-repeated-slash	fixtures/oas-significant-repeated-slash/openapi.json	op:GET /slip//apply		gap:the declared URL has an empty interior segment	path-normalisation
+oas-significant-trailing-slash	fixtures/oas-significant-trailing-slash/openapi.json	op:GET /slip/		gap:the declared URL ends in a slash	path-normalisation
+oas-uppercase-key	fixtures/oas-uppercase-key/openapi.json			rule	methods
+oneof-choice	fixtures/oneof-choice/openapi.json	field:resp:GET /kiln:200#/kind;field:resp:GET /kiln:200#/roughness;field:resp:GET /kiln:200#/shine;op:GET /kiln	oneOf_union	rule	oneof-anyof
+route-closed-wildcard	fixtures/route-closed-wildcard/routes.js	op:OPTIONS /mugs;op:POST /mugs		gap:the registration expands a wildcard to its finite method set	no-id-for-served-op
+route-colon-required	fixtures/route-colon-required/routes.js	op:GET /mugs/{}		rule	parameters
+route-configured-external-base	fixtures/route-configured-external-base/routes.js	op:POST /pottery/v7/mugs		gap:an external configuration supplies the public route base	one-op-two-ids
+route-custom-keys-and-mount	fixtures/route-custom-keys-and-mount/routes.js	op:GET /atelier/mugs/{}		rule	prefixes
+route-express4-bare-star	fixtures/route-express4-bare-star/routes.js	op:POST /mugs/*		gap:the Express 4 star is a catch-all matcher	no-id-for-served-op
+route-express4-optional	fixtures/route-express4-optional/routes.js	op:POST /mugs/:size?		gap:the optional Express 4 segment admits an absent value	no-id-for-served-op
+route-gateway-stage	fixtures/route-gateway-stage/routes.js	op:POST /blue-stage/mugs		gap:the gateway stage is part of the public route	one-op-two-ids
+route-hapi-braces	fixtures/route-hapi-braces/routes.js	op:GET /mugs/{}		rule	parameters
+route-hapi-catchall	fixtures/route-hapi-catchall/routes.js	op:POST /mugs/{trail*}		gap:a catch-all matches more than one segment	no-id-for-served-op
+route-hapi-fixed-catchall	fixtures/route-hapi-fixed-catchall/routes.js	op:POST /mugs/{trail*2}		gap:the wildcard consumes exactly two segments	no-id-for-served-op
+route-hapi-insensitive	fixtures/route-hapi-insensitive/routes.js	op:POST /mugs		gap:the router serves mixed-case paths through one registration	no-id-for-served-op
+route-hapi-optional	fixtures/route-hapi-optional/routes.js	op:POST /mugs/{size?}		gap:removing the optional marker changes the set of served paths	no-id-for-served-op
+route-hapi-strip-trailing	fixtures/route-hapi-strip-trailing/routes.js	op:POST /mugs		rule	path-normalisation
+route-hapi-vhosts	fixtures/route-hapi-vhosts/routes.js			gap:distinct virtual-host routes share both method and path	two-ops-one-id
+route-hapi-wildcard-method	fixtures/route-hapi-wildcard-method/routes.js			gap:a catch-all method has no concrete METHOD spelling	no-id-for-served-op
+route-header-dispatch	fixtures/route-header-dispatch/routes.js			gap:distinct header-selected handlers share both method and path	two-ops-one-id
+route-method-head-options	fixtures/route-method-head-options/routes.js	op:HEAD /mugs;op:OPTIONS /mugs		rule	methods
+route-method-list	fixtures/route-method-list/routes.js	op:OPTIONS /mugs;op:POST /mugs		gap:the route-table rule only describes a string method	no-id-for-served-op
+route-method-lowercase	fixtures/route-method-lowercase/routes.js	op:PATCH /mugs		rule	methods
+route-mount-parameter	fixtures/route-mount-parameter/routes.js	op:POST /atelier/{}/mugs		rule	prefixes
+route-mount-root	fixtures/route-mount-root/routes.js	op:GET /		rule	prefixes
+route-plugin-mount	fixtures/route-plugin-mount/routes.js	op:POST /atelier/mugs		gap:an enclosing plugin supplies the only served prefix	one-op-two-ids
+route-proxy-rewrite	fixtures/route-proxy-rewrite/routes.js	op:POST /public/pottery/mugs		gap:the public reverse proxy rewrites the route to the upstream path	one-op-two-ids
+swag-detached-annotation	fixtures/swag-detached-annotation/routes.go			rule	annotations
+swag-method-doc-comment	fixtures/swag-method-doc-comment/routes.go	op:GET /mugs		rule	annotations
+swag-method-drift	fixtures/swag-method-drift/routes.go	op:POST /mugs		gap:the stale documentation method differs from the served method	one-op-two-ids
+swag-path-drift	fixtures/swag-path-drift/routes.go	op:POST /mugs		gap:the stale documentation path differs from the served path	one-op-two-ids
+swag-two-annotations	fixtures/swag-two-annotations/routes.go	op:GET /mugs;op:POST /mugs/{}		rule	annotations
+swagger-base	fixtures/swagger-base/swagger.json	op:GET /studio/v4/kiln		rule	path-normalisation
+swagger-body-name-not-on-wire	fixtures/swagger-body-name-not-on-wire/swagger.json	field:req:POST /cast#/stamp;field:req:POST /cast#/tone;op:POST /cast		rule	request-body
+swagger-body-path-inheritance	fixtures/swagger-body-path-inheritance/swagger.json	field:req:POST /cast#/receipt;field:req:PUT /cast#/slip;op:POST /cast;op:PUT /cast		rule	request-body
+swagger-braces	fixtures/swagger-braces/swagger.json	op:GET /vase/{}		rule	parameters
+swagger-default-exclusion	fixtures/swagger-default-exclusion/swagger.json	field:resp:GET /cone:200#/fired;op:GET /cone		rule	status-keys
+swagger-disjoint-collision	fixtures/swagger-disjoint-collision/swagger.json	field:resp:GET /mold/{}:200#/gloss;field:resp:POST /mold/{}:200#/texture;op:GET /mold/{};op:POST /mold/{}		rule	collision
+swagger-duplicate-collision	fixtures/swagger-duplicate-collision/swagger.json	field:resp:GET /mold/{}:200#/gloss;op:GET /mold/{}	duplicate_operation	rule	collision
+swagger-encoded-braces	fixtures/swagger-encoded-braces/swagger.json	op:GET /etch/%7Bstamp%7D		rule	path-normalisation
+swagger-formdata-multipart	fixtures/swagger-formdata-multipart/swagger.json	field:req:POST /mix#/sample;field:req:POST /mix#/shade;op:POST /mix		gap:named multipart sections are fields in the request payload	formdata
+swagger-formdata-urlencoded	fixtures/swagger-formdata-urlencoded/swagger.json	field:req:POST /mix#/binder;field:req:POST /mix#/shade;op:POST /mix		gap:formData parameters are named fields in the request payload	formdata
+swagger-no-base	fixtures/swagger-no-base/swagger.json	op:GET /kiln		rule	path-normalisation
+swagger-nonbody-parameters	fixtures/swagger-nonbody-parameters/swagger.json	op:GET /cast/{}		rule	request-body
+swagger-operation-keys	fixtures/swagger-operation-keys/swagger.json	op:DELETE /clay;op:GET /clay;op:HEAD /clay;op:OPTIONS /clay;op:PATCH /clay;op:POST /clay;op:PUT /clay		rule	methods
+swagger-path-item-metadata	fixtures/swagger-path-item-metadata/swagger.json	op:GET /tile		rule	methods
+swagger-range-key	fixtures/swagger-range-key/swagger.json	op:GET /glaze		rule	status-keys
+swagger-repeated-name	fixtures/swagger-repeated-name/swagger.json	op:GET /chisel/{}/pair/{}		rule	parameters
+swagger-root	fixtures/swagger-root/swagger.json	op:GET /		rule	path-normalisation
+swagger-root-base	fixtures/swagger-root-base/swagger.json	op:GET /kiln		rule	path-normalisation
+swagger-root-with-base	fixtures/swagger-root-with-base/swagger.json	op:GET /studio/		gap:the declared root adds a trailing slash to the base	path-normalisation
+swagger-success-boundaries	fixtures/swagger-success-boundaries/swagger.json	field:resp:GET /glaze:200#/first;field:resp:GET /glaze:299#/last;op:GET /glaze		rule	status-keys
+swagger-trace-key	fixtures/swagger-trace-key/swagger.json			gap:Swagger 2.0 does not declare TRACE as a Path Item method	methods
+wire-array-of-arrays	fixtures/wire-array-of-arrays/swagger.json	field:resp:GET /kiln:200#/grid;field:resp:GET /kiln:200#/grid/[]/[]/cell;op:GET /kiln		rule	wire-tree
+wire-array-property	fixtures/wire-array-property/swagger.json	field:resp:GET /kiln:200#/rims;field:resp:GET /kiln:200#/rims/[]/width;op:GET /kiln		rule	wire-tree
+wire-container-cycle	fixtures/wire-container-cycle/swagger.json	field:resp:GET /kiln:200#/byShade;field:resp:GET /kiln:200#/children;field:resp:GET /kiln:200#/length;op:GET /kiln		rule	cycle
+wire-depth-16	fixtures/wire-depth-16/swagger.json	field:resp:GET /kiln:200#/layer01;field:resp:GET /kiln:200#/layer01/layer02;field:resp:GET /kiln:200#/layer01/layer02/layer03;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14/layer15;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14/layer15/layer16;op:GET /kiln		rule	depth-cut
+wire-depth-17	fixtures/wire-depth-17/swagger.json	field:resp:GET /kiln:200#/layer01;field:resp:GET /kiln:200#/layer01/layer02;field:resp:GET /kiln:200#/layer01/layer02/layer03;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14/layer15;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14/layer15/layer16;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14/layer15/layer16/layer17;op:GET /kiln	depth_cut	gap:a finite named property exists beyond the tentative depth cut	depth-cut
+wire-direct-cycle	fixtures/wire-direct-cycle/swagger.json	field:resp:GET /kiln:200#/length;field:resp:GET /kiln:200#/next;op:GET /kiln		rule	cycle
+wire-empty-object	fixtures/wire-empty-object/swagger.json	op:GET /kiln		rule	wire-tree
+wire-map-boolean	fixtures/wire-map-boolean/openapi.json	field:resp:GET /kiln:200#/closed;field:resp:GET /kiln:200#/open;op:GET /kiln		rule	wire-tree
+wire-map-object	fixtures/wire-map-object/swagger.json	field:resp:GET /kiln:200#/byCoat;field:resp:GET /kiln:200#/byCoat/*/shade;op:GET /kiln		rule	wire-tree
+wire-map-object-ref	fixtures/wire-map-object-ref/swagger.json	field:resp:GET /kiln:200#/byCoat;field:resp:GET /kiln:200#/byCoat/*/shade;op:GET /kiln		rule	wire-tree
+wire-map-of-arrays	fixtures/wire-map-of-arrays/openapi.json	field:resp:GET /kiln:200#/byCoat;field:resp:GET /kiln:200#/byCoat/*/[]/shade;op:GET /kiln		gap:map values can contain arrays with named descendants	wire-tree
+wire-map-primitive	fixtures/wire-map-primitive/swagger.json	field:resp:GET /kiln:200#/counts;op:GET /kiln		rule	wire-tree
+wire-mutual-cycle	fixtures/wire-mutual-cycle/openapi.json	field:resp:GET /kiln:200#/bead;field:resp:GET /kiln:200#/bead/slip;field:resp:GET /kiln:200#/bead/width;field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	cycle
+wire-named-ref-inline	fixtures/wire-named-ref-inline/swagger.json	field:resp:GET /kiln:200#/lid;field:resp:GET /kiln:200#/lid/size;op:GET /kiln		rule	wire-tree
+wire-nested-properties	fixtures/wire-nested-properties/swagger.json	field:resp:GET /kiln:200#/tag;field:resp:GET /kiln:200#/tag/ink;field:resp:GET /kiln:200#/token;op:GET /kiln		rule	wire-tree
+wire-neutral-rename-clayreceipt	fixtures/wire-neutral-rename-clayreceipt/swagger.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:200#/stamp/size;field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	wire-neutral-rename
+wire-neutral-rename-pressedreceipt	fixtures/wire-neutral-rename-pressedreceipt/swagger.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:200#/stamp/size;field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	wire-neutral-rename
+wire-primitive-array	fixtures/wire-primitive-array/swagger.json	field:resp:GET /kiln:200#/rims;op:GET /kiln		rule	wire-tree
+wire-root-array	fixtures/wire-root-array/openapi.json	field:resp:GET /kiln:200#/[]/width;op:GET /kiln		rule	wire-tree
+wire-root-map	fixtures/wire-root-map/openapi.json	field:resp:GET /kiln:200#/*/shade;op:GET /kiln		rule	wire-tree
+wire-scalar-root	fixtures/wire-scalar-root/swagger.json	op:GET /kiln		rule	wire-tree
+wire-sibling-ref-reuse	fixtures/wire-sibling-ref-reuse/swagger.json	field:resp:GET /kiln:200#/lower;field:resp:GET /kiln:200#/lower/size;field:resp:GET /kiln:200#/upper;field:resp:GET /kiln:200#/upper/size;op:GET /kiln		rule	wire-tree
+t1-names-ascii-keys	fixtures/t1-names-ascii-keys/openapi.json	field:resp:GET /forge:200#/0;field:resp:GET /forge:200#/01;field:resp:GET /forge:200#/Shade;field:resp:GET /forge:200#/__proto__;field:resp:GET /forge:200#/shade;op:GET /forge		rule	field-punctuation
+t1-ref-inline-pointer	fixtures/t1-ref-inline-pointer/openapi.json	field:resp:GET /forge:200#/leaf;op:GET /forge		rule	wire-tree
+t1-ref-external-relative	fixtures/t1-ref-external-relative/openapi.json	field:resp:GET /forge:200#/grain;op:GET /forge		gap:a relative external schema reference has a named wire property	wire-tree
+t1-ref-siblings-31	fixtures/t1-ref-siblings-31/openapi.json	field:resp:GET /forge:200#/base;field:resp:GET /forge:200#/extra;op:GET /forge		gap:OpenAPI 3.1 schema reference siblings also constrain the same instance	wire-tree
+t1-ref-siblings-30	fixtures/t1-ref-siblings-30/openapi.json	field:resp:GET /forge:200#/base;op:GET /forge		rule	wire-tree
+t1-tuple-prefix-items	fixtures/t1-tuple-prefix-items/openapi.json	field:resp:GET /forge:200#/[]/first;field:resp:GET /forge:200#/[]/second;op:GET /forge		gap:OpenAPI 3.1 tuple positions contain named fields	wire-tree
+t1-nullable-object	fixtures/t1-nullable-object/openapi.json	field:resp:GET /forge:200#/leaf;op:GET /forge		rule	wire-tree
+t1-null-union-31	fixtures/t1-null-union-31/openapi.json	field:resp:GET /forge:200#/leaf;op:GET /forge		gap:a nullable 3.1 type union can contain object fields	wire-tree
+t1-required-allof	fixtures/t1-required-allof/openapi.json	field:resp:GET /forge:200#/leaf;op:GET /forge		rule	allof
+t1-not-required-field	fixtures/t1-not-required-field/openapi.json	field:resp:GET /forge:200#/kept;op:GET /forge		gap:not forbids the named property in every valid object	wire-tree
+t1-enum-format-before	fixtures/t1-enum-format-before/openapi.json	field:resp:GET /forge:200#/stamp;op:GET /forge		rule	wire-neutral-rename
+t1-enum-format-after	fixtures/t1-enum-format-after/openapi.json	field:resp:GET /forge:200#/stamp;op:GET /forge		rule	wire-neutral-rename
+t1-fragment-percent-collision	fixtures/t1-fragment-percent-collision/openapi.json	field:resp:GET /forge:200#/%23;field:resp:GET /forge:200#/%2523;op:GET /forge	unescaped_property_name	gap:percent escaping must distinguish a literal percent sequence from a fragment delimiter	field-punctuation
+t1-unicode-normalization	fixtures/t1-unicode-normalization/openapi.json	field:resp:GET /forge:200#/%C3%A9;field:resp:GET /forge:200#/e%CC%81;op:GET /forge		gap:distinct Unicode sequences require distinct fragment pointers	field-punctuation
+t1-array-of-map	fixtures/t1-array-of-map/openapi.json	field:resp:GET /forge:200#/[]/*/grain;op:GET /forge		gap:an array item can be a map with named value descendants	wire-tree
+t1-defs-reference	fixtures/t1-defs-reference/openapi.json	field:resp:GET /forge:200#/grain;op:GET /forge		gap:a 3.1 schema may resolve a reference into its local defs	wire-tree
+t1-discriminator-mapping	fixtures/t1-discriminator-mapping/openapi.json	field:resp:GET /forge:200#/edge;field:resp:GET /forge:200#/kind;field:resp:GET /forge:200#/radius;op:GET /forge	oneOf_union	rule	oneof-anyof
+t1-directional-annotations	fixtures/t1-directional-annotations/openapi.json	field:req:POST /forge#/label;field:req:POST /forge#/secret;field:req:POST /forge#/serial;field:resp:POST /forge:200#/label;field:resp:POST /forge:200#/secret;field:resp:POST /forge:200#/serial;op:POST /forge		rule	wire-tree
+t1-path-item-reference	fixtures/t1-path-item-reference/openapi.json	op:GET /forge;op:GET /mold		gap:a referenced Path Item supplies operations at the referring path	methods
+t1-express-implicit-head	fixtures/t1-express-implicit-head/routes.js	op:GET /forge;op:HEAD /forge		gap:Express serves HEAD through a GET route when no earlier HEAD route exists	no-id-for-served-op
+t1-conditional-branches	fixtures/t1-conditional-branches/openapi.json	field:resp:GET /loom:200#/kind;field:resp:GET /loom:200#/warp;field:resp:GET /loom:200#/weft;op:GET /loom		gap:conditional branches describe named fields on valid response objects	wire-tree
+t1-pattern-exact-property	fixtures/t1-pattern-exact-property/openapi.json	field:resp:GET /loom:200#/bolt;field:resp:GET /loom:200#/bolt/gauge;op:GET /loom		gap:an anchored pattern can specify a single literal wire property	wire-tree
+t1-property-names-uri	fixtures/t1-property-names-uri/openapi.json	field:resp:GET /loom:200#/a%20b;field:resp:GET /loom:200#/a%3Fb;op:GET /loom		gap:fragment pointer encoding must preserve spaces and question marks in property names	field-punctuation
+t1-allof-closed-intersection	fixtures/t1-allof-closed-intersection/openapi.json	op:GET /loom		gap:allOf intersection forbids both separately declared properties	allof
+t1-ref-id-base	fixtures/t1-ref-id-base/openapi.json	field:resp:GET /loom:200#/thread;op:GET /loom		gap:a schema resource id changes the base for relative references	wire-tree
+t1-relative-server-document-base	fixtures/t1-relative-server-document-base/openapi.json	op:GET /catalog/api/loom		gap:a relative server URL resolves against the document retrieval URL	path-normalisation
+t1-express-array-paths	fixtures/t1-express-array-paths/routes.js	op:POST /loom;op:POST /spindle		gap:an Express path array registers each literal path	no-id-for-served-op
+t1-array-zero-maximum	fixtures/t1-array-zero-maximum/openapi.json	op:GET /shuttle		gap:zero maximum array length makes every item field unreachable	wire-tree
+t1-false-property	fixtures/t1-false-property/openapi.json	field:resp:GET /shuttle:200#/open;op:GET /shuttle		gap:a false property schema forbids that property on every valid object	wire-tree
+t1-oneof-overlap-exclusion	fixtures/t1-oneof-overlap-exclusion/openapi.json	field:resp:GET /shuttle:200#/plain;op:GET /shuttle	oneOf_union	gap:oneOf rejects objects matching both alternatives so marked cannot occur	oneof-anyof
+t1-dependent-schema	fixtures/t1-dependent-schema/openapi.json	field:resp:GET /shuttle:200#/bobbin;field:resp:GET /shuttle:200#/trigger;op:GET /shuttle		gap:a dependent schema contributes a named field when its trigger is present	wire-tree
+t1-contains-items	fixtures/t1-contains-items/openapi.json	field:resp:GET /shuttle:200#/[]/weave;op:GET /shuttle		gap:contains permits and requires an item with a named field	wire-tree
+t1-unevaluated-properties	fixtures/t1-unevaluated-properties/openapi.json	field:resp:GET /shuttle:200#/warp;field:resp:GET /shuttle:200#/weft;op:GET /shuttle		gap:unevaluatedProperties respects properties evaluated by allOf members	allof
+t1-anchor-ref	fixtures/t1-anchor-ref/openapi.json	field:resp:GET /beacon:200#/grain;op:GET /beacon		gap:a plain name anchor identifies a local schema resource	wire-tree
+t1-max-properties-zero	fixtures/t1-max-properties-zero/openapi.json	op:GET /beacon		gap:maxProperties zero prohibits every named property	wire-tree
+t1-array-prefix-index-collision	fixtures/t1-array-prefix-index-collision/openapi.json	op:GET /beacon		gap:two tuple positions have distinct fields at the same tentative item pointer	two-ops-one-id
+t1-request-media-same-pointer	fixtures/t1-request-media-same-pointer/openapi.json	field:req:POST /beacon#/mark/text;op:POST /beacon		gap:request representations have distinct fields at the same tentative pointer	two-ops-one-id
+t1-external-pointer-escaped	fixtures/t1-external-pointer-escaped/openapi.json	field:resp:GET /beacon:200#/grain~1size;op:GET /beacon	unescaped_property_name	gap:an external reference can lead to a property containing a slash	field-punctuation
+t1-pattern-excluded-by-property	fixtures/t1-pattern-excluded-by-property/openapi.json	op:GET /beacon		gap:a property and matching pattern both apply and the false schema forbids that field	wire-tree
+s1-express4-constrained-captures	fixtures/s1-express4-constrained-captures/routes.js	op:OPTIONS /fletch/:stamp([0-9]+);op:OPTIONS /fletch/:stamp([a-z]+);op:POST /fletch/:stamp([0-9]+);op:POST /fletch/:stamp([a-z]+)		gap:two constrained captures dispatch to distinct handlers and collapse if their constraints are discarded	two-ops-one-id
+s1-express4-generated-options	fixtures/s1-express4-generated-options/routes.js	op:OPTIONS /fletch;op:POST /fletch;op:PUT /fletch		gap:Express synthesizes one OPTIONS operation from two registrations	no-id-for-served-op
+s1-express4-query-dispatch	fixtures/s1-express4-query-dispatch/routes.js	op:OPTIONS /fletch		gap:query-selected handlers share a method and path	two-ops-one-id
+s1-express5-mount-aliases	fixtures/s1-express5-mount-aliases/routes.js	op:OPTIONS /amber/proof;op:OPTIONS /ochre/proof;op:POST /amber/proof;op:POST /ochre/proof		gap:one mounted router is reachable through both members of a mount path array	prefixes
+s1-express5-optional-literal-group	fixtures/s1-express5-optional-literal-group/routes.js	op:OPTIONS /fletch{/draft}/proof;op:POST /fletch{/draft}/proof		gap:Express braces make a group optional even when the group contains no capture	no-id-for-served-op
+s1-express5-quoted-parameter	fixtures/s1-express5-quoted-parameter/routes.js	op:OPTIONS /fletch/{};op:POST /fletch/{}		gap:the entire quoted capture name denotes one parameter	parameters
+s1-express5-root-inclusive-wildcard	fixtures/s1-express5-root-inclusive-wildcard/routes.js	op:OPTIONS /{*waxTrail};op:POST /{*waxTrail}		gap:the Express 5 wildcard in an optional group also reaches the root	no-id-for-served-op
+s1-field-control-characters	fixtures/s1-field-control-characters/openapi.json	field:resp:GET /reed:200#/wax%00note;field:resp:GET /reed:200#/wax%09note;field:resp:GET /reed:200#/wax%0Anote;op:GET /reed		gap:control characters in member names require distinct fragment pointers representable in TSV	field-punctuation
+s1-gin-raw-encoded-slash	fixtures/s1-gin-raw-encoded-slash/routes.go	op:GET /fletch/wax%2Fpith;op:GET /fletch/wax/pith		rule	path-normalisation
+s1-gin-static-file-methods	fixtures/s1-gin-static-file-methods/routes.go	op:GET /fletch/glint.txt;op:HEAD /fletch/glint.txt		gap:StaticFile registers both GET and HEAD within the group	no-id-for-served-op
+s1-hapi-internal-route	fixtures/s1-hapi-internal-route/routes.js	op:POST /fletch/public		gap:an internal Hapi route is accessible only through injection with allowInternals	methods
+s1-hapi-optional-mixed-segment	fixtures/s1-hapi-optional-mixed-segment/routes.js	op:POST /fletch/wax-{hue?}/proof		gap:a partial Hapi capture can be optional inside a nonterminal segment	no-id-for-served-op
+s1-hapi-prefix-on-plugin-root	fixtures/s1-hapi-prefix-on-plugin-root/routes.js	op:POST /fletch		gap:a Hapi plugin mount replaces the root path without a trailing slash	prefixes
+s1-oas30-get-request-body	fixtures/s1-oas30-get-request-body/openapi.json	op:GET /reed		gap:OpenAPI 3.0.3 tells consumers to ignore a GET requestBody	request-body
+s1-oas31-204-response-body	fixtures/s1-oas31-204-response-body/openapi.json	field:resp:POST /reed:200#/wax;op:POST /reed		gap:HTTP 204 cannot transmit the documented response content	status-keys
+s1-oas31-anyof-impossible-branch	fixtures/s1-oas31-anyof-impossible-branch/openapi.json	field:resp:GET /reed:200#/wax;op:GET /reed	anyOf_union	gap:an impossible branch of anyOf cannot put its named members on the wire	oneof-anyof
+s1-oas31-authority-dispatch	fixtures/s1-oas31-authority-dispatch/openapi.json			gap:two independent OpenAPI descriptions serve different operations at the same method and path on different authorities	two-ops-one-id
+s1-oas31-default-success-witness	fixtures/s1-oas31-default-success-witness/openapi.json	field:resp:POST /reed:200#/finished;field:resp:POST /reed:202#/queued;op:POST /reed		gap:an observed 202 response is covered by the default response object	status-keys
+s1-oas31-dynamic-ref-override	fixtures/s1-oas31-dynamic-ref-override/openapi.json	field:resp:GET /reed:200#/outerWax;op:GET /reed		gap:a dynamic reference resolves to the outermost resource defining the anchor	wire-tree
+s1-oas31-empty-server-list	fixtures/s1-oas31-empty-server-list/openapi.json	op:GET /reed		rule	path-normalisation
+s1-oas31-enum-object-shape	fixtures/s1-oas31-enum-object-shape/openapi.json	field:resp:GET /reed:200#/pith;field:resp:GET /reed:200#/wax;field:resp:GET /reed:200#/wax/sheen;op:GET /reed		gap:object-valued enum members explicitly name fields without a properties subschema	wire-tree
+s1-oas31-external-path-item-server	fixtures/s1-oas31-external-path-item-server/openapi.json	field:resp:GET /plans/branch/rev/reed:200#/wax;op:GET /plans/branch/rev/reed		gap:the referenced path item carries a relative server rooted at its own document	prefixes
+s1-oas31-get-request-body	fixtures/s1-oas31-get-request-body/openapi.json	field:req:GET /reed#/wax;op:GET /reed		rule	request-body
+s1-oas31-head-response-body	fixtures/s1-oas31-head-response-body/openapi.json	field:resp:GET /reed:200#/wax;op:GET /reed;op:HEAD /reed		gap:HTTP HEAD cannot transmit the documented response content	status-keys
+s1-oas31-label-path-parameter	fixtures/s1-oas31-label-path-parameter/openapi.json	op:GET /reed/.{}		gap:label serialization contributes a literal dot to the served path template	parameters
+s1-oas31-network-path-server	fixtures/s1-oas31-network-path-server/openapi.json	op:GET /amber/reed		rule	path-normalisation
+s1-oas31-property-names-finite-map	fixtures/s1-oas31-property-names-finite-map/openapi.json	field:resp:GET /reed:200#/indigo;field:resp:GET /reed:200#/indigo/glint;field:resp:GET /reed:200#/saffron;field:resp:GET /reed:200#/saffron/glint;op:GET /reed		gap:propertyNames restricts map entries to explicitly named keys	wire-tree
+s1-oas31-request-media-case-range	fixtures/s1-oas31-request-media-case-range/openapi.json	field:req:POST /reed#/cerulean;op:POST /reed	media_type_fallback	gap:a case equivalent exact JSON media type takes precedence over the wildcard	request-body
+s1-oas31-required-only-name	fixtures/s1-oas31-required-only-name/openapi.json	field:resp:GET /reed:200#/wax;op:GET /reed		gap:required identifies a named wire member even without a properties subschema	wire-tree
+s1-oas31-response-media-range	fixtures/s1-oas31-response-media-range/openapi.json	field:resp:GET /reed:200#/cerulean;field:resp:GET /reed:200#/umber;op:GET /reed		gap:the exact response media type and the range each govern different concrete representations	two-ops-one-id
+s1-oas31-tuple-unevaluated-tail	fixtures/s1-oas31-tuple-unevaluated-tail/openapi.json	field:resp:GET /reed:200#/[]/wax;op:GET /reed		gap:unevaluatedItems closes the tail while the first position remains evaluated by allOf	wire-tree
+s1-oas31-yaml-status-keys	fixtures/s1-oas31-yaml-status-keys/openapi.yaml	field:resp:POST /reed:201#/wax;field:resp:POST /reed:2XX#/pith;op:POST /reed		rule	status-keys
+s1-swagger-body-parameter-ref-override	fixtures/s1-swagger-body-parameter-ref-override/swagger.json	field:req:POST /reed#/sap;field:req:PUT /reed#/pith;op:POST /reed;op:PUT /reed		gap:referenced body parameters inherit and override by their resolved name and location	request-body
+s1-swagger-discriminator-inheritance	fixtures/s1-swagger-discriminator-inheritance/swagger.json	field:resp:GET /reed:200#/family;field:resp:GET /reed:200#/ridge;op:GET /reed		gap:the Swagger discriminator selects an inheriting definition with an additional named field	allof
+s1-swagger-response-ref-two-statuses	fixtures/s1-swagger-response-ref-two-statuses/swagger.json	field:resp:POST /reed:200#/wax;field:resp:POST /reed:201#/wax;op:POST /reed		gap:one reusable response supplies a field under two distinct success status roots	status-keys
+s1-swagger-xml-wire-name	fixtures/s1-swagger-xml-wire-name/swagger.json	field:resp:GET /reed:200#/clay-cut;op:GET /reed		gap:XML serialization replaces the schema key with the XML element name	wire-tree

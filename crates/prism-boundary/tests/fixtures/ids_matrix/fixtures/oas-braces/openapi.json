@@ -1,0 +1,28 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/vase/{scrap}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "scrap",
+          "in": "path",
+          "schema": {
+            "type": "string"
+          },
+          "required": true
+        }
+      ]
+    }
+  }
+}

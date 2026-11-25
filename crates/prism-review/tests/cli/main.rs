@@ -22,6 +22,7 @@ mod owner_activation_test;
 mod readme_test;
 mod review_compact_test;
 mod review_no_diagrams_test;
+mod routes_matrix_test;
 mod sarif_shape_test;
 mod sarif_test;
 mod skills_test;
