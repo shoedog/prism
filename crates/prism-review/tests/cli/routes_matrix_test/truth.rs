@@ -276,7 +276,6 @@ fn compare_executed(row: &Value, truth: &Value, errors: &mut Vec<String>) {
         errors.push("truth: expected projection, calls, and served arrays".to_owned());
         return;
     };
-    compare_mount_links(row, truth, calls, served, errors);
     let mut observed = Vec::new();
     for (index, projected) in projection.iter().enumerate() {
         let call = projected
@@ -296,6 +295,12 @@ fn compare_executed(row: &Value, truth: &Value, errors: &mut Vec<String>) {
     }
 
     let (pairs, remaining) = pair_records(expected, &observed);
+    let registrations = expected
+        .iter()
+        .zip(&pairs)
+        .filter_map(|(pin, pair)| Some((observed[(*pair)?].projected["call_id"].as_u64()?, pin)))
+        .collect();
+    compare_mount_links(row, truth, calls, served, &registrations, errors);
     for (index, (pin, pair)) in expected.iter().zip(pairs).enumerate() {
         let field = format!("expect[{index}]");
         let Some(pair) = pair else {

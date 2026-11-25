@@ -6,7 +6,8 @@ use super::{
 use prism::framework_entries::routes::{MethodSet, Mount, Route, RouterId, Summary};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::hash::Hash;
 use std::path::Path;
 
 fn check_wire<T: Serialize + DeserializeOwned>(
@@ -78,7 +79,7 @@ fn route_key(route: &Value) -> impl Ord + '_ {
     )
 }
 
-fn mount_key(mount: &Value) -> impl Ord + '_ {
+fn mount_key(mount: &Value) -> impl Ord + Hash + '_ {
     (
         site_key(&mount["site"]),
         mount["alternative_ordinal"].as_u64(),
@@ -86,21 +87,39 @@ fn mount_key(mount: &Value) -> impl Ord + '_ {
     )
 }
 
+fn mount_identity(mount: &Value) -> impl Eq + Hash + '_ {
+    let endpoint = |key| {
+        let receiver = &mount[key];
+        (
+            [
+                &receiver["file"],
+                &receiver["binding"],
+                &receiver["construction_byte"],
+            ],
+            items(&receiver["invocations"]),
+            items(&receiver["realm"]),
+        )
+    };
+    (mount_key(mount), endpoint("parent"), endpoint("child"))
+}
+
 pub(super) fn validate_mount_pins(mounts: &[Value], errors: &mut Vec<String>) {
     let mut counts = BTreeMap::new();
     for mount in mounts {
         *counts.entry(site_key(&mount["site"])).or_insert(0) += 1;
     }
-    let mut seen = BTreeSet::new();
+    let mut seen = HashSet::new();
     for (index, mount) in mounts.iter().enumerate() {
-        let site = site_key(&mount["site"]);
-        if counts[&site] > 1
+        if counts[&site_key(&mount["site"])] > 1
             && (mount["alternative_ordinal"].as_u64().is_none()
-                || mount["child_ordinal"].as_u64().is_none()
-                || !seen.insert(mount_key(mount)))
+                || mount["child_ordinal"].as_u64().is_none())
         {
             errors.push(format!(
-                "expect_mounts[{index}]: shared site requires distinct source ordinals"
+                "expect_mounts[{index}]: shared site requires both source ordinals"
+            ));
+        } else if !seen.insert(mount_identity(mount)) {
+            errors.push(format!(
+                "expect_mounts[{index}]: repeated endpoints at the same site require distinct source ordinals"
             ));
         }
     }
@@ -123,12 +142,16 @@ pub(super) fn validate(
     }
     if mounts
         .windows(2)
-        .any(|pair| mount_key(&pair[0]) >= mount_key(&pair[1]))
+        .any(|pair| mount_key(&pair[0]) > mount_key(&pair[1]))
     {
-        errors.push("mounts require unique source ordinals in wire order".into());
+        errors.push("mounts are out of wire order".into());
     }
+    let mut seen_mounts = HashSet::new();
     for (index, mount) in mounts.iter().enumerate() {
         let field = format!("mount[{index}]");
+        if !seen_mounts.insert(mount_identity(mount)) {
+            errors.push(format!("{field}: duplicate mount identity"));
+        }
         check_wire::<Mount>(mount, &field, errors);
         files_and_spans(mount, dir, &field, errors);
         if mount["child"].get("realm").is_some() && mount["child"]["status"] != "router" {

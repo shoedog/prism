@@ -273,6 +273,46 @@ fn source_mount_ordinals_reject_swapped_and_equal_pairs() {
 }
 
 #[test]
+fn mount_ordinals_can_repeat_across_invocations_but_not_within_one() {
+    let first = json!({
+        "parent":{"status":"router","file":"app.js","binding":"app","construction_byte":10,
+            "invocations":[{"file":"app.js","start_byte":80,"end_byte":89}]},
+        "child":{"status":"router","file":"app.js","binding":"child","construction_byte":25,
+            "invocations":[{"file":"app.js","start_byte":80,"end_byte":89}]},
+        "site":{"file":"app.js","line":4,"start_byte":45,"end_byte":67},
+        "prefix":{"status":"literal","value":"/api"},"alternative_ordinal":0,"child_ordinal":0,
+    });
+    let mut second = first.clone();
+    for endpoint in ["parent", "child"] {
+        second[endpoint]["invocations"] = json!([{"file":"app.js","start_byte":91,"end_byte":100}]);
+    }
+    let mut summary = json!({
+        "enabled_adapters":["express"],"registrations":0,"proven":0,"unproven":0,"candidates":0,
+        "mounts":3,"diagnostics":[],"failed_roots":[],
+    });
+    let mut duplicate = first.clone();
+    duplicate["prefix"]["value"] = json!("/other");
+    let mounts = [first.clone(), second.clone(), duplicate];
+    let mut wire_errors = Vec::new();
+    let mut pin_errors = Vec::new();
+    validate(&[], &mounts, &summary, None, &mut wire_errors);
+    validate_mount_pins(&mounts, &mut pin_errors);
+    assert!(!wire_errors.is_empty(), "listing accepted duplicate");
+    assert!(!pin_errors.is_empty(), "pins accepted duplicate");
+
+    summary["mounts"] = json!(2);
+    let mounts = [second, first];
+    wire_errors.clear();
+    pin_errors.clear();
+    validate(&[], &mounts, &summary, None, &mut wire_errors);
+    validate_mount_pins(&mounts, &mut pin_errors);
+    assert!(
+        wire_errors.is_empty() && pin_errors.is_empty(),
+        "listing: {wire_errors:?}, pins: {pin_errors:?}"
+    );
+}
+
+#[test]
 fn weak_contract_and_dangling_guards_cannot_create_mount_edges() {
     let router = json!({"status":"router","file":"app.js","binding":"app","construction_byte":0,"invocations":[]});
     let mount = json!({

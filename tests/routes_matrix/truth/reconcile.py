@@ -246,21 +246,64 @@ def path_alternatives(path):
         yield path
 
 
-def compare_mount_links(result, row, truth, calls):
+def same_router(left, right):
+    # Source pins use construction text, while a wire root can pin the byte.
+    return (all(left.get(key) is not None and left[key] == right.get(key)
+                for key in ("file", "binding"))
+            and left.get("invocations", []) == right.get("invocations", [])
+            and all(left[key] == right[key] for key in ("construction_byte", "construction_text")
+                    if key in left and key in right)
+            and ("construction_text" not in left or "construction_text" not in right
+                 or left.get("occurrence", 1) == right.get("occurrence", 1)))
+
+
+def matches_mount_chain(mounts, chain, receiver, root, unproven_child):
+    # Walk backwards from the receiver using exactly one pinned edge per call.
+    if not chain:
+        if root:
+            return same_router(receiver, root)
+        return not any(same_router(receiver, pin["child"]) for pin in mounts)
+    return any(
+        (same_router(receiver, pin["child"]) or
+         (unproven_child and pin["child"].get("status") == "unproven"))
+        and matches_mount(pin, chain[-1])
+        and matches_mount_chain(mounts, chain[:-1], pin["parent"], root, False)
+        for pin in mounts
+    )
+
+
+def matches_exposure_chain(mounts, chain, pin, path):
+    exposures = [exposure for exposure in pin.get("paths", ())
+                 if exposure["status"] == "dynamic" or (isinstance(path, str) and (
+                     (exposure["status"] == "full" and path == exposure["value"]) or
+                     (exposure["status"] == "suffix" and path.endswith(exposure["value"]))))]
+    # A no_known_mount suffix may have an unproven final child in the pins.
+    return any(matches_mount_chain(mounts, chain, pin.get("receiver", {}), exposure.get("root"),
+                                   exposure.get("reason") == "no_known_mount")
+               for exposure in exposures or ({},))
+
+
+def compare_mount_links(result, row, truth, calls, registrations):
+    mounts = row.get("expect_mounts", ())
     for index, served in enumerate(truth["served"]):
         if "mount_call_ids" not in served and truth.get("framework") != "express":
             continue
         field = f"served[{index}].mount_call_ids"
         ids = served.get("mount_call_ids")
-        if not isinstance(ids, list):
-            result.check(None, field, "ordered mount call IDs", ids)
+        if (not isinstance(ids, list) or any(type(call_id) is not int for call_id in ids)
+                or len(set(ids)) != len(ids)):
+            result.check(None, field, "distinct ordered mount call IDs", ids)
             continue
         chain = [calls.get(call_id, {}) for call_id in ids]
         if any(call.get("kind") != "use" or call.get("mount") is not True
                or not isinstance(call.get("mount_prefix"), str)
-               or not any(matches_mount(pin, call) for pin in row.get("expect_mounts", ()))
                for call in chain):
-            result.check(None, field, "raw use calls matching pinned mount sites/prefixes", ids)
+            result.check(None, field, "raw mount calls", ids)
+            continue
+        pins = [registrations[call_id] for call_id in served["call_ids"] if call_id in registrations]
+        if (any(not matches_exposure_chain(mounts, chain, pin, served["path"]) for pin in pins)
+                or (not pins and (chain or mounts))):
+            result.check(None, field, "ordered chain through the pinned mount endpoints", ids)
             continue
         prefix = "".join(call["mount_prefix"] for call in chain)
         if isinstance(served["path"], str):
@@ -294,8 +337,9 @@ def compare_row(row, truth):
     for route in truth["served"]:
         for call_id in route["call_ids"]:
             served[call_id].append(route)
-    compare_mount_links(result, row, truth, calls)
     pairs, extra = pair_records(expected, observed, calls)
+    registrations = {observed[actual]["call_id"]: expected[pin] for pin, actual in pairs.items()}
+    compare_mount_links(result, row, truth, calls, registrations)
     per_line = Counter(site_key(record["site"]) for record in observed)
     expected_per_line = Counter(site_key(pin.get("site", {})) for pin in expected)
     if row.get("expect_mounts"):

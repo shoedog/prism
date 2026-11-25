@@ -310,6 +310,31 @@ class SavedTruthTests(unittest.TestCase):
             truth["served"][1]["mount_call_ids"], truth["served"][0]["mount_call_ids"])
         self.assertTrue(any("mount_call_ids" in diff.field for diff in compare_row(row, truth).differences))
 
+    def test_empty_prefix_mount_requires_exactly_one_call_id(self):
+        for ids in ([], [3, 3]):
+            with self.subTest(ids=ids):
+                row, truth = self.case("es2-04")
+                self.assertFalse(compare_row(row, truth).differences)
+                inventory = next(route for route in truth["served"] if route["path"] == "/inventory")
+                self.assertEqual(inventory["mount_call_ids"], [3])
+                inventory["mount_call_ids"] = ids
+                self.assertTrue(any("mount_call_ids" in diff.field
+                                    for diff in compare_row(row, truth).differences))
+
+    def test_equal_prefix_mounts_follow_endpoint_order(self):
+        row, truth = self.case("ex25")
+        row = deepcopy(row)
+        row["expect_mounts"][1]["prefix"]["value"] = "/sub"
+        row["expect"][0]["paths"][0]["value"] = "/sub/sub/status"
+        truth["calls"][2]["mount_prefix"] = "/sub"
+        served = truth["served"][0]
+        served["path"] = "/sub/sub/status"
+        self.assertEqual(served["mount_call_ids"], [3, 2])
+        self.assertFalse(compare_row(row, truth).differences)
+        served["mount_call_ids"] = [2, 3]
+        self.assertTrue(any("mount_call_ids" in diff.field
+                            for diff in compare_row(row, truth).differences))
+
     def test_runtime_loss_does_not_cover_another_column_on_the_same_line(self):
         for row_id, column in (("et1-10", "column"), ("es1-20", "column_byte"), ("es3-07", "column_byte")):
             with self.subTest(row=row_id):

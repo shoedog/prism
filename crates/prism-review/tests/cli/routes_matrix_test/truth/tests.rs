@@ -263,6 +263,43 @@ fn swapped_native_mount_links_fail() {
 }
 
 #[test]
+fn empty_prefix_mount_requires_exactly_one_call_id() {
+    let (row, truth) = saved_case("es2-04");
+    assert_fields(&row, Some(&truth), &[]);
+    let mut undetected = Vec::new();
+    for ids in [json!([]), json!([3, 3])] {
+        let mut corrupted = truth.clone();
+        let inventory = corrupted["served"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|route| route["path"] == "/inventory")
+            .unwrap();
+        assert_eq!(inventory["mount_call_ids"], json!([3]));
+        inventory["mount_call_ids"] = ids.clone();
+        let mut errors = Vec::new();
+        compare_row(&row, Some(&corrupted), &mut errors);
+        if !errors.iter().any(|error| error.contains("mount_call_ids")) {
+            undetected.push(ids);
+        }
+    }
+    assert!(undetected.is_empty(), "accepted {undetected:?}");
+}
+
+#[test]
+fn equal_prefix_mounts_follow_endpoint_order() {
+    let (mut row, mut truth) = saved_case("ex25");
+    row["expect_mounts"][1]["prefix"]["value"] = json!("/sub");
+    row["expect"][0]["paths"][0]["value"] = json!("/sub/sub/status");
+    truth["calls"][2]["mount_prefix"] = json!("/sub");
+    truth["served"][0]["path"] = json!("/sub/sub/status");
+    assert_eq!(truth["served"][0]["mount_call_ids"], json!([3, 2]));
+    assert_fields(&row, Some(&truth), &[]);
+    truth["served"][0]["mount_call_ids"] = json!([2, 3]);
+    assert_fields(&row, Some(&truth), &["truth.served[0].mount_call_ids"]);
+}
+
+#[test]
 fn runtime_loss_does_not_cover_another_column_on_the_same_line() {
     for (id, column) in [
         ("et1-10", "column"),
