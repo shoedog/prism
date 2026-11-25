@@ -1,38 +1,38 @@
 table	label	rules	observed	class	note
-taint_sink_rules_identity_test	ri01	?	js-eval@CWE-95;js-response@CWE-79;structured:deserialization	flat+structured	Keep both flat rules. The eval operand is code text, so stage D must resolve the structured deserialization label.
-taint_sink_rules_identity_test	ri02	?	js-child-process@CWE-78;js-dom-html@CWE-79;structured:os-command	flat+structured	Keep both flat rules. Stage D fixes the structured identity for the command operand of cp.exec.
-taint_sink_rules_identity_test	ri03	?	structured:ssrf	structured	fetch takes the tainted URL. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri04	?	structured:deserialization	structured	pickle.loads consumes a serialized payload. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri05	?	go-file-op@CWE-22;structured:path-traversal	flat+structured	Keep go-file-op@CWE-22 for the removed path. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri05b	?	structured:path-traversal	structured	os.ReadFile reads the tainted path and has no flat rule. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri06	?	py-db-call@CWE-89;structured:sqli	flat+structured	Keep py-db-call@CWE-89 for the SQL statement. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri01	?	js-eval@CWE-95;js-response@CWE-79+structured:deserialization	flat+structured	flat: js-eval@CWE-95;js-response@CWE-79; The eval operand is code text, so stage D must resolve the structured deserialization label.
+taint_sink_rules_identity_test	ri02	?	js-child-process@CWE-78;js-dom-html@CWE-79+structured:os-command	flat+structured	flat: js-child-process@CWE-78;js-dom-html@CWE-79; Stage D fixes the structured identity for the command operand of cp.exec.
+taint_sink_rules_identity_test	ri03	?	structured:ssrf	structured	flat: -; fetch takes the tainted URL. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri04	?	structured:deserialization	structured	flat: -; pickle.loads consumes a serialized payload. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri05	?	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; The tainted operand is the removed path. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri05b	?	structured:path-traversal	structured	flat: -; os.ReadFile reads the tainted path. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri06	?	py-db-call@CWE-89+structured:sqli	flat+structured	flat: py-db-call@CWE-89; The tainted operand is the SQL statement. Structured identity pending stage D.
 taint_sink_rules_identity_test	ri07	js-response@CWE-79	=	flat-dup	Both response body occurrences have the same rule id, counted once.
 taint_sink_rules_identity_test	ri08	py-os-command@CWE-78	py-db-call@CWE-89;py-os-command@CWE-78	sibling	The flat classifier also sees the weak constant SQL call. Only the shell command takes taint.
 taint_sink_rules_identity_test	ri09	legacy	=	legacy	C system takes a command. The legacy matcher records no CWE.
 taint_sink_rules_identity_test	ri10	legacy	=	legacy	Bash eval takes shell code even with a quoted argument. The legacy matcher records no CWE.
-taint_sink_rules_identity_test	ri11	?	structured:path-traversal	source-line	Gin c.Param supplies c.File's path inline. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri12	?	structured:deserialization	source-line	Flask request.args supplies the serialized payload inline. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri13	?	structured:deserialization	yaml-inline	Express req.body supplies yaml.load's serialized payload inline. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri11	?	structured:path-traversal	source-line	flat: -; Gin c.Param supplies c.File's path inline. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri12	?	structured:deserialization	source-line	flat: -; Flask request.args supplies the serialized payload inline. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri13	?	structured:deserialization	yaml-inline	flat: -; Express req.body supplies yaml.load's serialized payload inline. Structured identity pending stage D.
 taint_sink_rules_identity_test	ri14	?	-	wrapper	The wrapper detector exact-matches report after it finds vprintf. This path has no current tag or CWE. Stage D sets the identity.
 taint_sink_rules_identity_test	ri15	go-format-string@CWE-134	=	cleansed-structured	The Clean and HasPrefix guard suppress the WriteFile path match and its flat fallback. The validated path still serves as the printf format string.
 taint_sink_rules_identity_test	ri16	legacy	=	legacy	Java Runtime.exec takes a command. The legacy matcher records no CWE.
 taint_sink_rules_identity_test	ri17	legacy	=	legacy	Rust Command::new takes a program name. The legacy matcher records no CWE.
 taint_sink_rules_identity_test	ri18	legacy	=	legacy	Lua os.execute takes a shell command. The legacy matcher records no CWE.
-taint_sink_rules_identity_test	ri19	?	js-eval@CWE-95;js-response@CWE-79;structured:deserialization	flat+structured	Keep both flat rules in TSX. The eval operand is code text, so stage D must resolve the structured deserialization label.
-taint_sink_rules_identity_test	ri20	?	structured:sqli	continued	Flat admission scans the finding line and misses the execute callee on the preceding line. Expect py-db-call@CWE-89 for the SQL operand and the structured identity from stage D.
-taint_sink_rules_identity_test	ri21a	?	structured:ssrf	structured-multi	The borrowed value reaches both the URL and serialized payload. The first-match loop checks SSRF before deserialization. Stage D fixes both identities.
-taint_sink_rules_identity_test	ri21b	?	structured:ssrf	structured-multi	The serialized payload call comes first in source. The first-match loop still checks SSRF before deserialization. Stage D fixes both identities.
-taint_sink_rules_identity_test	ri22	?	py-os-command@CWE-78	cleansed-structured	HTML escaping suppresses mark_safe, the first structured match. The URL operand is still live and stage D fixes its SSRF identity. Keep py-os-command@CWE-78 for the shell operand.
+taint_sink_rules_identity_test	ri19	?	js-eval@CWE-95;js-response@CWE-79+structured:deserialization	flat+structured	flat: js-eval@CWE-95;js-response@CWE-79; In TSX, the eval operand is code text, so stage D must resolve the structured deserialization label.
+taint_sink_rules_identity_test	ri20	?	structured:sqli	continued	DIFF: flat: py-db-call@CWE-89; Flat admission scans the finding line and misses the execute callee on the preceding line. Stage D sets the structured identity for the SQL operand.
+taint_sink_rules_identity_test	ri21a	?	structured:ssrf	structured-multi	flat: -; The borrowed value reaches both the URL and serialized payload. The first-match loop checks SSRF before deserialization. Stage D fixes both identities.
+taint_sink_rules_identity_test	ri21b	?	structured:ssrf	structured-multi	flat: -; The serialized payload call comes first in source. The first-match loop still checks SSRF before deserialization. Stage D fixes both identities.
+taint_sink_rules_identity_test	ri22	?	py-os-command@CWE-78	cleansed-structured	flat: py-os-command@CWE-78; HTML escaping suppresses mark_safe, the first structured match. The URL operand is still live and stage D fixes its SSRF identity.
 taint_sink_rules_identity_test	ri23a	?	-	caller-sink	The configured substring audit matches audit_payload. Configured name matches have no current tag or CWE. Stage D sets the identity.
 taint_sink_rules_identity_test	ri23b	?	-	wrapper	Only the detected report wrapper matches with empty extra_sinks. No current tag or CWE. Stage D sets the identity.
 taint_sink_rules_identity_test	ri23c	?	-	caller-sink	The configured name and the vprintf wrapper both match their respective calls. Their matches carry no current tag or CWE. Stage D sets the identities.
 taint_sink_rules_identity_test	ri23d	?	legacy	caller-sink	The configured exact name overlaps the built-in C system match. Legacy is the only current tag. Stage D sets the configured identity.
-taint_sink_rules_identity_test	ri23e	?	-	negative	Exact =audit rejects audit_payload, which the substring option in ri23a accepts. The config row's identity disposition is deferred to stage D.
-taint_sink_rules_identity_test	ri23f	?	-	negative	The same audit_payload call has no matching name with empty extra_sinks. The config row's identity disposition is deferred to stage D.
-taint_sink_rules_identity_test	ri24	?	js-db-call@CWE-89;structured:os-command	flat+structured	The SQLite operand is SQL, so keep js-db-call@CWE-89 and resolve the structured command label in stage D.
+taint_sink_rules_identity_test	ri23e	-	-	negative	Exact =audit rejects audit_payload, which the substring option in ri23a accepts. The would-be caller-supplied identity from a substring match is deferred to stage D.
+taint_sink_rules_identity_test	ri23f	-	-	negative	The same audit_payload call has no matching name with empty extra_sinks. A configured match would have a caller-supplied identity, deferred to stage D.
+taint_sink_rules_identity_test	ri24	?	js-db-call@CWE-89+structured:os-command	flat+structured	flat: js-db-call@CWE-89; The SQLite operand is SQL. Stage D resolves the structured command label.
 taint_sink_rules_identity_test	ri25	go-html-render@CWE-79!suggestion	go-exec-command@CWE-78;go-html-render@CWE-79!suggestion	weak-mixed	The literal command makes the finding a warning. Only the weak Gin HTML data operand takes taint.
 taint_sink_rules_identity_test	ri26	js-dom-html@CWE-79	js-dom-html@CWE-79;js-response@CWE-79	sibling	Only the DOM assignment receives tainted HTML. The legacy line scan sees the response with a constant body too.
-taint_sink_rules_identity_test	ri27	legacy	-	legacy	Recorded limit: user_data is a legacy name, but the review taint graph does not connect the locals payload definition to local.payload in the resource block. This fixture does not reach the matcher.
+taint_sink_rules_identity_test	ri27	-	-	legacy	Recorded limit: user_data is a legacy name, but the review taint graph does not connect the locals payload definition to local.payload in the resource block. This fixture does not reach the matcher. Would-be identity: legacy.
 taint_sink_rules_js_test	direct eval	?	js-eval@CWE-95+structured:deserialization	flat+structured	flat: js-eval@CWE-95; structured: deserialization. The argument is JavaScript code text (CWE-95).
 taint_sink_rules_js_test	indirect eval (0, eval)	js-eval@CWE-95	=	flat	The structured matcher sees the textual callee (0, eval), which does not match eval.
 taint_sink_rules_js_test	window.eval	?	js-eval@CWE-95+structured:deserialization	flat+structured	flat: js-eval@CWE-95; structured: deserialization. The argument is JavaScript code text (CWE-95).
@@ -47,7 +47,7 @@ taint_sink_rules_js_test	destructured rename	js-child-process@CWE-78	=	flat	The 
 taint_sink_rules_js_test	esm namespace	js-child-process@CWE-78	=	flat	The operand selects the executable.
 taint_sink_rules_js_test	esm default	js-child-process@CWE-78	=	flat	The operand selects the module for the child Node process.
 taint_sink_rules_js_test	esm named	js-child-process@CWE-78	=	flat	The operand selects the executable.
-taint_sink_rules_js_test	bare exec wrapper import elsewhere	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78; structured: os-command. The fixture describes an external exec wrapper and supplies no child_process binding.
+taint_sink_rules_js_test	bare exec wrapper import elsewhere	?	js-child-process@CWE-78+structured:os-command	flat+structured	DIFF: flat: js-exec-call@CWE-78; structured: os-command. The fixture describes an external exec wrapper and supplies no child_process binding.
 taint_sink_rules_js_test	inline require	?	js-child-process@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The argument is a child-process command.
 taint_sink_rules_js_test	promisified exec	js-child-process@CWE-78	=	flat	The alias executes a child_process command. Its local name has no structured pattern.
 taint_sink_rules_js_test	db.query	?	js-db-call@CWE-89+structured:sqli	flat+structured	flat: js-db-call@CWE-89; structured: sqli. The argument is SQL text.
@@ -226,8 +226,8 @@ taint_sink_rules_hybrid_js_test	probe: mssql request.query	?	js-db-call@CWE-89+s
 taint_sink_rules_hybrid_js_test	probe: vm.runInNewContext (structured)	?	structured:deserialization	structured	flat: none; structured: deserialization. The VM executes JavaScript source (CWE-95).
 taint_sink_rules_hybrid_js_test	probe: setTimeout string	-	=	negative	
 taint_sink_rules_hybrid_js_test	probe: ctx.response.redirect koa	js-redirect@CWE-601	=	flat	
-taint_sink_rules_hybrid_js_test	r2: reassigned regex receiver to child_process	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. The assignment makes runner a child_process namespace before the call. The classifier checks the original regex initializer.
-taint_sink_rules_hybrid_js_test	r2: conditionally reassigned regex receiver	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-child-process@CWE-78; structured: os-command. On the command-running branch the receiver is child_process. The other branch accepts regex input.
+taint_sink_rules_hybrid_js_test	r2: reassigned regex receiver to child_process	?	js-exec-call@CWE-78+structured:os-command	flat+structured	DIFF: flat: js-child-process@CWE-78; structured: os-command. The assignment makes runner a child_process namespace before the call. The classifier checks the original regex initializer.
+taint_sink_rules_hybrid_js_test	r2: conditionally reassigned regex receiver	?	js-exec-call@CWE-78+structured:os-command	flat+structured	DIFF: flat: js-child-process@CWE-78; structured: os-command. On the command-running branch the receiver is child_process. The other branch accepts regex input.
 taint_sink_rules_hybrid_js_test	r2d: for-of rebinds a regex receiver	?	js-exec-call@CWE-78+structured:os-command	flat+structured	flat: js-exec-call@CWE-78 if the iteration supplies a command runner; structured: os-command. The loop can supply an arbitrary receiver, and an empty iterable leaves the regex in place.
 taint_sink_rules_hybrid_js_test	r2: unchanged let regex receiver	-	=	negative	
 taint_sink_rules_py_test	eval	py-eval@CWE-95	=	flat	
@@ -409,12 +409,12 @@ taint_sink_rules_go_test	field HTML read	-	=	negative
 taint_sink_rules_go_test	func signature naming a sink word	-	=	negative	
 taint_sink_rules_go_test	freeze (free substring)	-	=	negative	
 taint_sink_rules_go_test	Writer-less Fprintln to a buffer	-	=	negative	
-taint_sink_rules_go_test	generic structured path	?	+structured:path-traversal	structured	flat: -; structured: path-traversal. The semantic callee resolves to os.ReadFile and x is its path.
+taint_sink_rules_go_test	generic structured path	?	structured:path-traversal	structured	flat: -; structured: path-traversal. The semantic callee resolves to os.ReadFile and x is its path.
 taint_sink_rules_go_test	generic flat callee	go-db-call@CWE-89	=	flat	The semantic callee is Queryx and x occupies the SQL statement position.
 taint_sink_rules_go_test	generic file constructor	go-file-op@CWE-22	=	flat	The fixture models an afero filesystem constructor. x is the removal path.
 taint_sink_rules_go_test	slice and map of sink-named functions	-	=	negative	
-taint_sink_rules_go_test	generic enclosing Exec is strong	go-db-call@CWE-89	=	weak-mixed	x reaches a bound parameter of the inner QueryRow. The enclosing Exec has independent SQL text on the prior line and makes the finding a warning.
-taint_sink_rules_go_test	non-generic enclosing Exec is strong	go-db-call@CWE-89	=	weak-mixed	x reaches a bound parameter of the inner QueryRow. The enclosing Exec has independent SQL text on the prior line and makes the finding a warning.
+taint_sink_rules_go_test	generic enclosing Exec is strong	?	go-db-call@CWE-89	weak-mixed	x reaches a bound parameter of the inner QueryRow. The enclosing Exec has independent SQL text on the prior line and makes the finding a warning. One sink reaches the rule ID strongly and the other reaches it weakly. Stage D will decide how to merge them per rule ID.
+taint_sink_rules_go_test	non-generic enclosing Exec is strong	?	go-db-call@CWE-89	weak-mixed	x reaches a bound parameter of the inner QueryRow. The enclosing Exec has independent SQL text on the prior line and makes the finding a warning. One sink reaches the rule ID strongly and the other reaches it weakly. Stage D will decide how to merge them per rule ID.
 taint_sink_rules_go_test	generic constant query stays weak	go-db-call@CWE-89!suggestion	=	continued	Both SQL statements are constant. The marked line passes x as a bound parameter to QueryRow.
 taint_sink_rules_hybrid_go_test	sqlx Queryx	go-db-call@CWE-89	=	flat	
 taint_sink_rules_hybrid_go_test	sqlx MustExec	go-db-call@CWE-89	=	flat	
@@ -431,7 +431,7 @@ taint_sink_rules_hybrid_go_test	exec.CommandContext	?	go-exec-command@CWE-78+str
 taint_sink_rules_hybrid_go_test	syscall.Exec	?	go-exec-command@CWE-78+structured:os-command	flat+structured	flat: go-exec-command@CWE-78; structured: os-command. x is the executable path.
 taint_sink_rules_hybrid_go_test	aliased html/template	go-template-html@CWE-79	=	flat	
 taint_sink_rules_hybrid_go_test	template.HTML	go-template-html@CWE-79	=	flat	
-taint_sink_rules_hybrid_go_test	response.HTML helper keeps firing	go-writer-output@CWE-79	go-template-html@CWE-79	flat	The HTTP writer, request and x suggest an HTML response helper. Its implementation is absent.
+taint_sink_rules_hybrid_go_test	response.HTML helper keeps firing	?	go-template-html@CWE-79	flat	The HTTP writer, request and x suggest an HTML response helper. Its implementation is absent. The weakness is not established.
 taint_sink_rules_hybrid_go_test	os.Remove	?	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; structured: path-traversal. x is the removal path.
 taint_sink_rules_hybrid_go_test	os.RemoveAll	?	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; structured: path-traversal. x is the removal path.
 taint_sink_rules_hybrid_go_test	os.Rename	?	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; structured: path-traversal. x is the old path.
@@ -536,6 +536,6 @@ taint_sink_rules_hybrid_other_test	probe: c get_user_pages	-	=	negative	The C ke
 taint_sink_rules_hybrid_other_test	probe: lua uci:set	legacy	=	legacy	x is the value written to the network.lan.ipaddr configuration key.
 taint_sink_rules_hybrid_other_test	probe: lua os.execute	legacy	=	legacy	x is concatenated into the shell command passed to os.execute.
 taint_sink_rules_hybrid_other_test	probe: rust Command::new	legacy	=	legacy	x selects the executable launched by spawn.
-taint_sink_rules_hybrid_other_test	probe: java Runtime.exec	-	legacy	negative	The legacy classifier matches the exec identifier, while the fixture asserts no SINK-line finding. The reason for that absence is unverified.
+taint_sink_rules_hybrid_other_test	probe: java Runtime.exec	-	legacy	negative	Would-be identity: legacy, from the exec identifier. The fixture asserts no SINK-line finding. The reason for that absence is unverified.
 taint_sink_rules_hybrid_other_test	probe: bash eval	legacy	=	legacy	eval interprets x as shell code.
 taint_sink_rules_hybrid_other_test	probe: bash uci	legacy	=	legacy	x is the value written to the network.lan.ipaddr configuration key.

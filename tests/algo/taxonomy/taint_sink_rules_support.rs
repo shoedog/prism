@@ -7,7 +7,7 @@
 use crate::common::*;
 use prism_review::algorithms::taint::{self, TaintConfig};
 
-const EXPECTATION_HEADER: &str = "table\tlabel\trules\tobserved\tclass\tnote";
+pub(super) const EXPECTATION_HEADER: &str = "table\tlabel\trules\tobserved\tclass\tnote";
 
 #[derive(Debug)]
 pub struct Expectation {
@@ -19,7 +19,7 @@ pub struct Expectation {
     pub class: String,
 }
 
-/// Parse the identity ledger and validate the rule tokens and row keys.
+/// Parse and validate the identity ledger rows.
 pub fn parse_expected_rules(tsv: &str) -> Result<Vec<Expectation>, String> {
     let mut expectations = Vec::new();
     let mut keys = BTreeSet::new();
@@ -41,6 +41,35 @@ pub fn parse_expected_rules(tsv: &str) -> Result<Vec<Expectation>, String> {
         {
             return Err(format!(
                 "line {number}: empty table, label, observed, or class"
+            ));
+        }
+        if !matches!(
+            *class,
+            "flat"
+                | "flat-multi"
+                | "flat-dup"
+                | "structured"
+                | "structured-multi"
+                | "flat+structured"
+                | "cleansed-structured"
+                | "continued"
+                | "sibling"
+                | "legacy"
+                | "source-line"
+                | "yaml-inline"
+                | "wrapper"
+                | "caller-sink"
+                | "weak-mixed"
+                | "negative"
+        ) {
+            return Err(format!("line {number}: invalid class {class:?}"));
+        }
+        if (*rules == "?" && *observed == "=")
+            || observed.contains(";structured:")
+            || observed.starts_with('+')
+        {
+            return Err(format!(
+                "line {number}: invalid observed value {observed:?}"
             ));
         }
         if !keys.insert((*table, *label)) {
@@ -79,11 +108,12 @@ fn parse_rule_list(rules: &str) -> Result<Option<Vec<String>>, String> {
             Some((id, cwe)) => (id, Some(cwe)),
             None => (identity, None),
         };
-        if id.is_empty()
-            || !id
-                .bytes()
-                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-        {
+        if !id.split('-').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        }) {
             return Err(format!("invalid rule id {id:?}"));
         }
         if let Some(cwe) = cwe {
@@ -145,7 +175,9 @@ pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::S
     .unwrap()
 }
 
-/// Run taint with caller-supplied sink names on the same inputs as the compatibility runner.
+/// Run taint with caller-supplied sink names. This skips evidence alignment and diagram
+/// finalisation, so only the presence of `taint_sink` findings is comparable to the
+/// compatibility runner.
 pub fn findings_with_sinks(
     path: &str,
     language: Language,
