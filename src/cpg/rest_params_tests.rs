@@ -558,3 +558,280 @@ fn assert_review_rest(
         assert_eq!(bindings(&cpg, "main", "r"), expected, "{source}");
     }
 }
+
+fn rest_edges_into(cpg: &CodePropertyGraph, edges: &[PendingEdge], parameter: &str) -> Vec<String> {
+    let mut found: Vec<String> = edges
+        .iter()
+        .filter_map(|&(from, to, _)| {
+            let to = cpg.to_var_location(to)?;
+            (to.kind == VarAccessKind::Def && to.path.base == parameter)
+                .then(|| cpg.to_var_location(from).unwrap().path.to_string())
+        })
+        .collect();
+    found.sort();
+    found
+}
+
+#[test]
+fn rest_def_node_requires_one_verifiable_js_implementation() {
+    let js = parsed_files(
+        &[("m.js", "function pack(...items) {\n  use(items);\n}\n")],
+        Language::JavaScript,
+    );
+    let cpg = CodePropertyGraph::build(&js);
+    let pack = cpg.call_graph.functions["pack"][0].clone();
+    let compute = |files: &BTreeMap<String, ParsedFile>,
+                   callee: &FunctionId,
+                   index: &VarIndex,
+                   graph: &DiGraph<CpgNode, CpgEdge>| {
+        rest_params::compute_rest_def_node(&files["m.js"], callee, index, graph)
+    };
+    // Control: one JS implementation, a recorded Def at the identifier's bytes.
+    let (offset, def) = compute(&js, &pack, &cpg.var_index, &cpg.graph).unwrap();
+    assert_eq!(offset, 0);
+
+    // A callee that names no function of the file.
+    let renamed = FunctionId {
+        name: "elsewhere".into(),
+        ..pack.clone()
+    };
+    assert_eq!(compute(&js, &renamed, &cpg.var_index, &cpg.graph), None);
+
+    // No recorded Def for the formal.
+    assert_eq!(
+        compute(&js, &pack, &VarIndex::new(), &cpg.graph),
+        None,
+        "an index without the entry Def finds nothing"
+    );
+
+    // A Def whose bytes are not the identifier's is not the entry Def.
+    let mut moved = cpg.graph.clone();
+    let CpgNode::Variable { start_byte, .. } = &mut moved[def] else {
+        panic!("the entry Def is a variable");
+    };
+    *start_byte += 1;
+    assert_eq!(compute(&js, &pack, &cpg.var_index, &moved), None);
+
+    // Two functions of one name on the same lines are not one implementation.
+    let twin_files = parsed_files(
+        &[(
+            "m.js",
+            "function pack(...a) { use(a); } function pack(...b) { use(b); }\n",
+        )],
+        Language::JavaScript,
+    );
+    let twin = CodePropertyGraph::build(&twin_files);
+    let functions = &twin.call_graph.functions["pack"];
+    assert_eq!(functions.len(), 2);
+    assert_eq!(
+        compute(&twin_files, &functions[0], &twin.var_index, &twin.graph),
+        None
+    );
+    let split_files = parsed_files(
+        &[(
+            "m.js",
+            "function pack(...a) { use(a); }\nfunction pack(...b) { use(b); }\n",
+        )],
+        Language::JavaScript,
+    );
+    let split = CodePropertyGraph::build(&split_files);
+    assert!(compute(
+        &split_files,
+        &split.call_graph.functions["pack"][0],
+        &split.var_index,
+        &split.graph
+    )
+    .is_some());
+
+    // Only the JS family has runtime rest slots.
+    let py = parsed_files(
+        &[("m.js", "def pack(*items):\n    use(items)\n")],
+        Language::Python,
+    );
+    let py_cpg = CodePropertyGraph::build(&py);
+    assert_eq!(
+        compute(
+            &py,
+            &py_cpg.call_graph.functions["pack"][0],
+            &py_cpg.var_index,
+            &py_cpg.graph
+        ),
+        None
+    );
+}
+
+#[test]
+fn rest_namespace_export_match_requires_a_namespace_import() {
+    let files = parsed_files(
+        &[
+            (
+                "main.js",
+                "import * as api from './lib';\nimport { project as named } from './lib';\n\
+                 function main(v) { api.project(v); named(v); }",
+            ),
+            (
+                "lib.js",
+                "export const project = (...items) => { use(items); };",
+            ),
+        ],
+        Language::JavaScript,
+    );
+    let cpg = CodePropertyGraph::build(&files);
+    let target = &cpg.call_graph.functions["project"][0];
+    let qualified = call_site(&cpg.call_graph, "main", "project");
+    assert!(cpg
+        .call_graph
+        .js_ts_namespace_export_matches(qualified, target));
+    let named = call_site(&cpg.call_graph, "main", "named");
+    assert!(!cpg.call_graph.js_ts_namespace_export_matches(named, target));
+}
+
+#[test]
+fn rest_admission_refuses_name_only_in_the_same_file() {
+    // A NameOnly candidate in the call's own file is no evidence of the implementation.
+    let decl = "class Box { pack(prefix, ...items) { use(prefix, items); } }";
+    let caller = "function main(receiver, prefix, scalar) {\nreceiver.pack(prefix, scalar);\n}";
+    let local = format!("{decl}\n{caller}");
+    for (inputs, same_file, expected) in [
+        (
+            vec![("main.js", local.as_str())],
+            true,
+            Vec::<(String, FlowConfidence)>::new(),
+        ),
+        (
+            vec![("main.js", caller), ("box.js", decl)],
+            false,
+            vec![("scalar".to_string(), ResolutionConfidence::NameOnly.into())],
+        ),
+    ] {
+        let files = parsed_files(&inputs, Language::JavaScript);
+        // `build` runs on the build pool, where the legacy switch is not set, so the
+        // frozen twin is assembled directly.
+        let legacy = with_legacy(|| {
+            CodePropertyGraph::assemble_graph(
+                CallGraph::build(&files),
+                DataFlowGraph::build(&files),
+                &files,
+                None,
+            )
+        });
+        for cpg in [CodePropertyGraph::build(&files), legacy] {
+            let site = call_site(&cpg.call_graph, "main", "pack");
+            let pool = cpg.call_graph.resolve_call_site(site);
+            assert_eq!(pool.len(), 1, "{pool:?}");
+            assert_eq!(pool[0].confidence, ResolutionConfidence::NameOnly);
+            assert_eq!(pool[0].target.file == "main.js", same_file);
+            assert_eq!(bindings(&cpg, "main", "items"), expected, "{inputs:?}");
+        }
+        // The serial twin applies the same admission and file lookup.
+        let cpg = CodePropertyGraph::build(&files);
+        let edges = CodePropertyGraph::collect_step5b_edges_reference(
+            &cpg.call_graph,
+            &cpg.var_index,
+            &cpg.graph,
+            &files,
+        );
+        let want: Vec<String> = expected.iter().map(|(from, _)| from.clone()).collect();
+        assert_eq!(rest_edges_into(&cpg, &edges, "items"), want, "{inputs:?}");
+    }
+}
+
+#[test]
+fn rest_serial_twin_skips_a_callee_outside_its_file_map() {
+    let inputs = [
+        (
+            "main.js",
+            "import { project } from './lib';\nfunction main(v) { project(v); }",
+        ),
+        (
+            "lib.js",
+            "export function project(...items) { use(items); }",
+        ),
+    ];
+    let files = parsed_files(&inputs, Language::JavaScript);
+    let cpg = CodePropertyGraph::build(&files);
+    let site = call_site(&cpg.call_graph, "main", "project");
+    let pool = cpg.call_graph.resolve_call_site(site);
+    assert!(object_literal_args::exact_singleton(&pool), "{pool:?}");
+    assert_eq!(pool[0].target.file, "lib.js");
+    let twin = |files: &BTreeMap<String, ParsedFile>| {
+        let edges = CodePropertyGraph::collect_step5b_edges_reference(
+            &cpg.call_graph,
+            &cpg.var_index,
+            &cpg.graph,
+            files,
+        );
+        rest_edges_into(&cpg, &edges, "items")
+    };
+    assert_eq!(twin(&files), ["v"]);
+    let caller_only = parsed_files(&inputs[..1], Language::JavaScript);
+    assert!(twin(&caller_only).is_empty());
+    assert!(twin(&BTreeMap::new()).is_empty());
+}
+
+#[test]
+fn rest_write_through_typescript_assertion_is_a_write() {
+    for (target, expected) in [
+        ("(r as unknown[]) = [];", false),
+        ("(r satisfies unknown[]) = [];", false),
+        ("r! = [];", false),
+        ("(<unknown[]>r) = [];", false),
+        ("use(r as unknown[]);", true),
+    ] {
+        let source = format!(
+            "function take(...r: unknown[]) {{\n {target}\n return r;\n}}\n\
+             function main(v: unknown) {{ return take(v); }}"
+        );
+        assert_review_rest(&source, "m.ts", Language::TypeScript, "v", expected);
+    }
+}
+
+#[test]
+fn rest_cross_file_free_single_exact_is_not_admitted() {
+    // A bare call that only a sibling file's global definition can satisfy is
+    // static-binding Exact but not import-proven, so it binds no rest element.
+    for (caller, lib, kind, expected) in [
+        (
+            "function main(v) { project(v); }",
+            "function project(...items) { use(items); }",
+            ResolutionKind::FreeSingle,
+            vec![],
+        ),
+        (
+            "import { project } from './lib';\nfunction main(v) { project(v); }",
+            "export function project(...items) { use(items); }",
+            ResolutionKind::ImportMember,
+            vec![("v".to_string(), FlowConfidence::Exact)],
+        ),
+    ] {
+        let files = parsed_files(
+            &[("main.js", caller), ("lib.js", lib)],
+            Language::JavaScript,
+        );
+        let legacy = with_legacy(|| {
+            CodePropertyGraph::assemble_graph(
+                CallGraph::build(&files),
+                DataFlowGraph::build(&files),
+                &files,
+                None,
+            )
+        });
+        for cpg in [CodePropertyGraph::build(&files), legacy] {
+            let site = call_site(&cpg.call_graph, "main", "project");
+            let pool = cpg.call_graph.resolve_call_site(site);
+            assert_eq!(pool.len(), 1, "{pool:?}");
+            assert_eq!(pool[0].confidence, ResolutionConfidence::Exact);
+            assert_eq!(pool[0].kind, kind);
+            assert_eq!(bindings(&cpg, "main", "items"), expected, "{caller}");
+        }
+        let cpg = CodePropertyGraph::build(&files);
+        let edges = CodePropertyGraph::collect_step5b_edges_reference(
+            &cpg.call_graph,
+            &cpg.var_index,
+            &cpg.graph,
+            &files,
+        );
+        let want: Vec<String> = expected.iter().map(|(from, _)| from.clone()).collect();
+        assert_eq!(rest_edges_into(&cpg, &edges, "items"), want, "{caller}");
+    }
+}

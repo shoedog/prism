@@ -443,4 +443,194 @@ mod tests {
             Yield::Nonempty
         );
     }
+
+    /// Classify the spread at the last argument of `call`, written verbatim in `source`.
+    fn classify_call(source: &str, call: &str, language: Language) -> Yield {
+        let parsed = ParsedFile::parse("fixture", source, language).unwrap();
+        assert_eq!(parsed.parse_error_count, 0, "{source}");
+        let start = source.rfind(call).unwrap();
+        let end = start + call.len();
+        let args = parsed.call_argument_texts_and_spans_of_call(start, end, "take");
+        let (_, span) = args.last().unwrap();
+        let operand = parsed.spread_argument_operand(span).unwrap();
+        at_spread(&parsed, &args, span, operand)
+    }
+
+    fn assert_pairs(call: &str, pairs: &[(&str, Yield)]) {
+        for (body, want) in pairs {
+            let source = format!("function main() {{ {body} {call}; }}");
+            assert_eq!(
+                classify_call(&source, call, Language::JavaScript),
+                *want,
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn rest_yield_call_statement_forms() {
+        // Positive control first, then each refusal of the statement shape.
+        for (source, call, want) in [
+            (
+                "function main() { const xs = [1]; const ys = take(...xs); }",
+                "take(...xs)",
+                Yield::Nonempty,
+            ),
+            (
+                "function main() { const xs = [1]; return this.take(...xs); }",
+                "this.take(...xs)",
+                Yield::Nonempty,
+            ),
+            // The call is not the first declarator of its list.
+            (
+                "function main() { const xs = [1]; const a = 1, ys = take(...xs); }",
+                "take(...xs)",
+                Yield::Unknown,
+            ),
+            // A pattern declarator is not a plain call statement.
+            (
+                "function main() { const xs = [1]; const [a] = take(...xs); }",
+                "take(...xs)",
+                Yield::Unknown,
+            ),
+            // A call nested in another call's arguments is not a statement of its own.
+            (
+                "function main() { const xs = [1]; wrap(take(...xs)); }",
+                "take(...xs)",
+                Yield::Unknown,
+            ),
+            // A call result or computed receiver can run user code first.
+            (
+                "function main() { const xs = [1]; get().take(...xs); }",
+                "get().take(...xs)",
+                Yield::Unknown,
+            ),
+            (
+                "function main() { const xs = [1]; a.b.take(...xs); }",
+                "a.b.take(...xs)",
+                Yield::Unknown,
+            ),
+        ] {
+            assert_eq!(
+                classify_call(source, call, Language::JavaScript),
+                want,
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn rest_yield_literal_prefix_declarations() {
+        assert_pairs(
+            "take(...xs)",
+            &[
+                ("let ys; const xs = [1];", Yield::Nonempty),
+                ("let xs;", Yield::Unknown),
+                ("var xs = [1]; var xs = [2];", Yield::Unknown),
+                ("var xs = [1];", Yield::Nonempty),
+                ("const [a] = [1]; const xs = [1];", Yield::Unknown),
+                ("const xs = [...[1]];", Yield::Unknown),
+                ("const xs = [1, , 2];", Yield::Unknown),
+            ],
+        );
+    }
+
+    #[test]
+    fn rest_yield_literal_prefix_statements() {
+        assert_pairs(
+            "take(...xs)",
+            &[
+                ("const xs = [1]; return 0;", Yield::Nonempty),
+                ("const xs = [1]; return;", Yield::Nonempty),
+                ("const xs = [1]; return escape();", Yield::Unknown),
+                ("const xs = [1]; xs;", Yield::Nonempty),
+                ("const xs = [1]; escape(xs);", Yield::Unknown),
+                ("const xs = [1]; class A { m() {} }", Yield::Nonempty),
+                ("const xs = [1]; class A extends B {}", Yield::Unknown),
+                ("const xs = [1]; class A { static m() {} }", Yield::Nonempty),
+                ("const xs = [1]; class A { f = 1; }", Yield::Unknown),
+            ],
+        );
+    }
+
+    #[test]
+    fn rest_yield_earlier_spread_arguments() {
+        assert_eq!(
+            classify_call(
+                "function main() { const xs = [1]; take(...[1], ...xs); }",
+                "take(...[1], ...xs)",
+                Language::JavaScript
+            ),
+            Yield::Nonempty
+        );
+        for call in ["take(...[escape()], ...xs)", "take(...ys, ...xs)"] {
+            let source = format!("function main() {{ const xs = [1]; {call}; }}");
+            assert_eq!(
+                classify_call(&source, call, Language::JavaScript),
+                Yield::Unknown,
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn rest_yield_template_substitution_operand_is_unknown() {
+        for (operand, want) in [("`${a}`", Yield::Unknown), ("`a`", Yield::Nonempty)] {
+            let source = format!("take(...{operand});");
+            assert_eq!(classify(&source, Language::JavaScript), want, "{source}");
+        }
+    }
+
+    #[test]
+    fn rest_yield_budget_bounds_parameters_and_values() {
+        let params = |n: usize| {
+            (0..n)
+                .map(|i| format!("p{i}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        for (n, want) in [(3, Yield::Nonempty), (100, Yield::Unknown)] {
+            let source = format!(
+                "function main({}) {{ const xs = [1]; take(...xs); }}",
+                params(n)
+            );
+            assert_eq!(classify(&source, Language::JavaScript), want, "{n}");
+        }
+        for (n, want) in [(10, Yield::Nonempty), (120, Yield::Unknown)] {
+            let zeros = vec!["0"; n].join(", ");
+            let source =
+                format!("function main() {{ const ys = [{zeros}]; const xs = [1]; take(...xs); }}");
+            assert_eq!(classify(&source, Language::JavaScript), want, "{n}");
+        }
+    }
+
+    #[test]
+    fn rest_yield_enclosing_callables_must_be_inert() {
+        for (source, want) in [
+            // An enclosing arrow with an expression body can run the owner at will.
+            (
+                "const outer = () => ({ main() { const xs = [1]; take(...xs); } });",
+                Yield::Unknown,
+            ),
+            (
+                "function outer() { function main() { const xs = [1]; take(...xs); } return main; }",
+                Yield::Nonempty,
+            ),
+            // A computed method name runs when the class is defined.
+            (
+                "class C { [side()]() { const xs = [1]; take(...xs); } }",
+                Yield::Unknown,
+            ),
+            (
+                "class C { ['m']() { const xs = [1]; take(...xs); } }",
+                Yield::Unknown,
+            ),
+        ] {
+            assert_eq!(
+                classify_call(source, "take(...xs)", Language::JavaScript),
+                want,
+                "{source}"
+            );
+        }
+    }
 }

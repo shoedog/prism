@@ -40,3 +40,20 @@ pub(in crate::cpg) fn assert_supplied_site_reaches_use(
         "{id}/{ext} #{ordinal}: disconnected body Use: {actual}"
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "expected a reachability assertion")]
+    fn supplied_site_requires_a_reachability_assertion() {
+        // c01 #1 is a `def` check, which cannot be disconnected and re-asserted.
+        let cpg = crate::cpg::object_literal_arg_tests::build(
+            Language::JavaScript,
+            &[("m", "function f(a) {\n  use(a);\n}\n")],
+            "js",
+        );
+        assert_supplied_site_reaches_use(cpg, "c01", "js", 1);
+    }
+}
