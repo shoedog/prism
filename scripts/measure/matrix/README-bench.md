@@ -16,23 +16,36 @@ never a rule. Check: `python3 -m unittest eval/secbench/test_matrix_rows_bench.p
   writes (`<pkg>` and `<case>` stand for local paths). `taint` is null when ground truth is unavailable (the
   harness returns before the taint channel). A timeout has `returncode` null and `error` `timeout after 120s`.
 - `taint.json`: the raw review output of the taint channel (absent when the channel failed). Real shapes
-  from the baseline binary (`slicing 4.0.0 (9d1a7d06f653)`); it has no `rules` field, so rules rows add one
-  by hand (synthetic).
+  from the baseline binary (`slicing 4.0.0 (9d1a7d06f653)`; the rows added or regenerated in review round 1
+  (bf-018, bf-019, bn-010 fixed side) used `slicing 4.0.0 (06157400a3be)`, whose product code is identical); it has
+  no `rules` field, so rules rows add one by hand (synthetic) in lane 7's shape (`DESIGN.md` section 5.1): a list
+  of `RuleRef` objects `{"id", "cwe"?, "severity"?}` sorted by id, with real tag ids (`js-child-process`/CWE-78,
+  `js-eval`/CWE-95).
 - `pkg/`, `seed.json`: the package and the diff file the run read (all rows keep them).
 - Truth: `line_hit` (sink_line, ambiguous, sink_file, elsewhere, none, error, not_scored), `findings` (one row per
-  emitted `taint_sink` finding: file, line, match), `rules`.
+  emitted `taint_sink` finding: file, line, match), `rules` (the matched finding's RuleRef list). Either `line_hit`
+  or `findings` is `{"undetermined": "<readings>"}` where DESIGN and PLAN do not settle it (bf-011 findings for
+  identical repeated findings; bf-018 findings in the annotated file on another line and in another file; bf-019
+  two sink occurrences on the annotated line with no finding on it).
 
 ## `cases/bn-nnn/` (negatives from fixed pairs)
-- `meta.json`: `class`, `entry`, `id`, `name`, `vulnerableVersion`, `fixedVersion` (as spelled; absent when none),
-  optional `fixCommit`, `sink` as `file:line:col` (null without ground truth), `source` (`file`, `line`, `name`).
+- `meta.json`: `class`, `entry`, `id`, `sink` as `file:line:col` (null without ground truth). Only these four
+  spellings exist in committed harness code: `class` and `entry` in `eval/secbench/run.py`, `id` and the `sink`
+  string `file:line:col` in `eval/secbench/inspect.mjs`. `name`, `vulnerableVersion`, `fixedVersion` (as spelled;
+  absent when none), `fixCommit` and `source` (`file`, `line`, `name`) are assumed (no committed harness code reads
+  them): the scorer of S6b must confirm the benchmark metadata's real spellings before these rows bind it.
 - `observations.json`: `{"vulnerable": {"reach": <reach outcome>, "finding_line_hit": <line_hit>}}` (the positive
   control), or `{"gt_status": "gt_unavailable"}`.
 - `vuln/`, `fixed/`: tiny packages with `package.json` (absent for metadata-only rows).
 - `raw/` (product rows): `{vuln,fixed}-seed.json`, `-taint.json` (review taint channel seeded at the source
   function), `-frontier.json` (`nav taint-reaches` without `--sink`); `reach` is a frontier item on the mapped
-  occurrence's line.
+  occurrence's line. A raw query file with an `error` key (for instance `SymbolNotFound`) is no evidence of
+  absence of flow, so a row holding one must be `undetermined` or say `RAW ERROR:` in `required`.
 - Truth: `{"outcome": "verified_pair" | <reason>, "columns": {finding, reach, function_change, sink_removed}}`.
   For a verified pair `sink_removed` is false and finding/reach are booleans; for a verified removal
   `sink_removed` is true and finding/reach are null; for a reason every column is null. `{"undetermined": "<readings>"}`
-  marks a row whose reason DESIGN and PLAN leave open. The set-level row `bn-026` has `set.json` and
-  `entries/*` and truth `{"outcome": "unmet", ...}`.
+  marks a row whose reason or score DESIGN and PLAN leave open (bn-001, bn-002, bn-006 and the fix-elsewhere and
+  partial-fix rows bn-010, bn-011, bn-012, whose texts name the readings, including which function
+  `function_change` reads). Stub rows (bn-023, bn-024) keep only fixed-side raw output. The set-level row `bn-026`
+  has `set.json` (entry names only; the expected reasons live in the row's truth, not beside the inputs) and
+  `entries/*` (distinct ids) and truth `{"outcome": "unmet", ...}`.

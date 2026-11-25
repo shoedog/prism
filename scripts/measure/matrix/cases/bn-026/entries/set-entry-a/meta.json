@@ -1,8 +1,8 @@
 {
   "class": "code-injection",
   "entry": "set-entry-a_1.0.0",
-  "id": "CVE-0000-026",
-  "name": "bn-026-fixture",
+  "id": "CVE-0000-026a",
+  "name": "bn-026-fixture-a",
   "sink": "lib/index.js:4:3",
   "source": {
     "file": "lib/index.js",

@@ -4,6 +4,7 @@ The rows are data for the S6a and S6b slices of the measurement kit; this test o
 the data is complete and consistent. It never runs a scorer, prism or any harness code.
 """
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -33,6 +34,10 @@ def load_rows():
             if line.strip():
                 rows.append((number, json.loads(line)))
     return rows
+
+
+def is_undetermined(value):
+    return isinstance(value, dict) and list(value) == ['undetermined']
 
 
 def files_under(path):
@@ -153,25 +158,66 @@ class MatrixRowsBench(unittest.TestCase):
             truth = row['truth']
             with self.subTest(id=row['id']):
                 self.assertEqual(sorted(truth), ['findings', 'line_hit', 'rules'])
-                self.assertIn(truth['line_hit'], LINE_HITS)
+                line_hit = truth['line_hit']
+                findings = truth['findings']
+                if is_undetermined(line_hit):
+                    self.assertTrue(line_hit['undetermined'].strip())
+                else:
+                    self.assertIn(line_hit, LINE_HITS)
+                if is_undetermined(findings):
+                    self.assertTrue(findings['undetermined'].strip())
+                    findings = None
                 self.assertIsInstance(truth['rules'], list)
+                self.assert_rule_refs(truth['rules'])
+                case = self.case_dir(row)
+                taint = case / 'taint.json'
+                emitted_findings = []
+                if taint.is_file():
+                    emitted_findings = [f for f in json.loads(taint.read_text())['findings']
+                                        if f.get('category') == 'taint_sink']
+                    for finding in emitted_findings:
+                        self.assert_rule_refs(finding.get('rules', []))
+                if findings is None:
+                    self.assertEqual(line_hit, 'sink_line')
+                    continue
                 matched = 0
-                for finding in truth['findings']:
+                for finding in findings:
                     self.assertEqual(sorted(finding), ['file', 'line', 'match'])
                     self.assertIn(finding['match'], MATCHES)
                     matched += finding['match'] == 'matched'
                 self.assertLessEqual(matched, 1)
-                self.assertEqual(truth['line_hit'] == 'sink_line', matched == 1)
-                if truth['line_hit'] in ('error', 'not_scored', 'none'):
-                    self.assertEqual(truth['findings'], [])
-                case = self.case_dir(row)
-                taint = case / 'taint.json'
-                if taint.is_file():
-                    emitted = sorted((f['file'], f['line']) for f in json.loads(taint.read_text())['findings']
-                                     if f.get('category') == 'taint_sink')
-                    self.assertEqual(emitted, sorted((f['file'], f['line']) for f in truth['findings']))
+                if not is_undetermined(line_hit):
+                    self.assertEqual(line_hit == 'sink_line', matched == 1)
+                    if line_hit in ('error', 'not_scored', 'none'):
+                        self.assertEqual(findings, [])
                 else:
-                    self.assertEqual(truth['findings'], [])
+                    self.assertEqual(matched, 0)
+                emitted = sorted((f['file'], f['line']) for f in emitted_findings)
+                self.assertEqual(emitted, sorted((f['file'], f['line']) for f in findings))
+                if not taint.is_file():
+                    self.assertEqual(findings, [])
+                # rules come from the matched finding's RuleRef list, never from other findings
+                matched_rows = [f for f in findings if f['match'] == 'matched']
+                expected_rules = []
+                for finding in matched_rows:
+                    for source in emitted_findings:
+                        if (source['file'], source['line']) == (finding['file'], finding['line']):
+                            expected_rules = source.get('rules', [])
+                if not is_undetermined(line_hit):
+                    self.assertEqual(truth['rules'], expected_rules)
+
+    def assert_rule_refs(self, rules):
+        """Lane 7 shape: RuleRef objects {id, cwe?, severity?}, sorted by id, at most one per id."""
+        self.assertIsInstance(rules, list)
+        for rule in rules:
+            self.assertIsInstance(rule, dict)
+            self.assertIn('id', rule)
+            self.assertIsInstance(rule['id'], str)
+            self.assertTrue(set(rule) <= {'id', 'cwe', 'severity'}, rule)
+            if 'cwe' in rule:
+                self.assertRegex(rule['cwe'], r'^CWE-\d+$')
+        ids = [rule['id'] for rule in rules]
+        self.assertEqual(ids, sorted(set(ids)))
 
     def test_bench_negatives_truth_shape(self):
         for _, row in self.rows:
@@ -223,12 +269,113 @@ class MatrixRowsBench(unittest.TestCase):
                     self.assertTrue((case / 'vuln' / 'package.json').is_file())
                     self.assertTrue((case / 'fixed' / 'package.json').is_file())
 
+    # ---- derivation checks for the product bench-negatives rows (tests-only, reads committed raw output) ----
+
+    @staticmethod
+    def mapped_line(source_text, meta, fixed_text):
+        """Line of the one occurrence of the annotated callee text in the fixed file, or None."""
+        _, line, column = meta['sink'].rsplit(':', 2)
+        line, column = int(line), int(column)
+        callee = re.match(r'[\w.$]+', source_text.splitlines()[line - 1][column - 1:])
+        if not callee:
+            return None
+        lines = [n for n, text in enumerate(fixed_text.splitlines(), 1)
+                 for _ in re.findall(r'(?<![\w.$])%s\(' % re.escape(callee.group(0)), text)]
+        return lines[0] if len(lines) == 1 else None
+
+    @staticmethod
+    def observed(raw_dir, side, file, line):
+        taint = json.loads((raw_dir / (side + '-taint.json')).read_text())
+        frontier = json.loads((raw_dir / (side + '-frontier.json')).read_text())
+        finding = any(f.get('category') == 'taint_sink' and f['file'] == file and f['line'] == line
+                      for f in taint['findings'])
+        reach = any(i['location']['file'] == file and i['location']['start_line'] <= line <= i['location']['end_line']
+                    for i in frontier['items'])
+        return finding, reach
+
+    def product_negative_rows(self):
+        return [r for _, r in self.rows
+                if r['group'] == 'bench-negatives' and r['source'] == 'product' and 'vulnerable_tree' in r['input']]
+
+    def test_raw_query_files_hold_no_error_unless_documented(self):
+        for _, row in self.rows:
+            if row['group'] != 'bench-negatives':
+                continue
+            case = self.case_dir(row)
+            for path in files_under(case / 'raw') if (case / 'raw').is_dir() else []:
+                if path.suffix != '.json':
+                    continue
+                with self.subTest(id=row['id'], path=path.name):
+                    if 'error' in json.loads(path.read_text()):
+                        # an error is no evidence of absence of flow
+                        self.assertTrue(is_undetermined(row['truth']) or 'RAW ERROR:' in row['required'],
+                                        'raw query error without an undetermined truth or a documented reason')
+
+    def test_product_negative_columns_are_derived_from_the_raw_output(self):
+        rows = self.product_negative_rows()
+        self.assertGreaterEqual(len(rows), 5)
+        for row in rows:
+            case = self.case_dir(row)
+            raw = case / 'raw'
+            with self.subTest(id=row['id']):
+                meta = json.loads((case / 'meta.json').read_text())
+                file = meta['sink'].rsplit(':', 2)[0]
+                vuln_text = (case / 'vuln' / file).read_text()
+                fixed_text = (case / 'fixed' / file).read_text()
+                line = self.mapped_line(vuln_text, meta, fixed_text)
+                self.assertIsNotNone(line, 'the callee text must occur once in the fixed file')
+                finding, reach = self.observed(raw, 'fixed', file, line)
+                truth = row['truth']
+                if is_undetermined(truth):
+                    expected = 'finding %s, reach %s' % (str(finding).lower(), str(reach).lower())
+                    self.assertIn(expected, row['required'])
+                else:
+                    columns = truth['columns']
+                    self.assertEqual(columns['finding'], finding)
+                    self.assertEqual(columns['reach'], reach)
+
+    def test_product_negative_vulnerable_observations_match_the_raw_output(self):
+        for row in self.product_negative_rows():
+            case = self.case_dir(row)
+            if not (case / 'raw' / 'vuln-taint.json').is_file():
+                continue
+            with self.subTest(id=row['id']):
+                meta = json.loads((case / 'meta.json').read_text())
+                file, line, _ = meta['sink'].rsplit(':', 2)
+                finding, reach = self.observed(case / 'raw', 'vuln', file, int(line))
+                vulnerable = json.loads((case / 'observations.json').read_text())['vulnerable']
+                self.assertEqual(vulnerable['finding_line_hit'] == 'sink_line', finding)
+                self.assertEqual(vulnerable['reach'] == 'traced', reach)
+
+    def test_synthetic_stub_rows_keep_no_contradicting_raw_output(self):
+        for _, row in self.rows:
+            if row['group'] != 'bench-negatives' or row['source'] != 'synthetic':
+                continue
+            case = self.case_dir(row)
+            if (case / 'observations.json').is_file() and (case / 'raw').is_dir():
+                with self.subTest(id=row['id']):
+                    self.assertEqual([p.name for p in files_under(case / 'raw') if p.name.startswith('vuln-')], [])
+
+    def test_set_level_row_does_not_store_the_expected_reasons_with_its_inputs(self):
+        for _, row in self.rows:
+            if 'set' not in row['input']:
+                continue
+            case = self.case_dir(row)
+            listing = json.loads((case / 'set.json').read_text())
+            ids = []
+            for entry in listing['entries']:
+                with self.subTest(id=row['id'], entry=entry['entry']):
+                    self.assertEqual(list(entry), ['entry'])
+                    ids.append(json.loads((case / 'entries' / entry['entry'] / 'meta.json').read_text())['id'])
+            self.assertEqual(len(ids), len(set(ids)))
+
     def test_group_coverage(self):
         ids = {g: [r['id'] for _, r in self.rows if r['group'] == g] for g in GROUPS}
         products = [r for _, r in self.rows if r['group'] == 'bench-findings' and r['source'] == 'product']
         self.assertGreaterEqual(len(products), 6)
         self.assertTrue(ids['bench-findings'] and ids['bench-negatives'])
-        hits = {r['truth']['line_hit'] for _, r in self.rows if r['group'] == 'bench-findings'}
+        hits = {r['truth']['line_hit'] for _, r in self.rows
+                if r['group'] == 'bench-findings' and not is_undetermined(r['truth']['line_hit'])}
         self.assertEqual(hits, LINE_HITS)
 
 

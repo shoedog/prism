@@ -1,0 +1,147 @@
+{
+  "algorithm": "Taint",
+  "slices": [
+    {
+      "block_id": 0,
+      "file": "lib/index.js",
+      "modify_type": "M",
+      "diff_lines": [
+        2,
+        3
+      ],
+      "slice_lines": [
+        2,
+        3
+      ],
+      "slice_text": "+   2|function run(cmd) {\n+   3|  cp.execSync('echo ' + cmd);\n",
+      "source_lines": [
+        2
+      ],
+      "sink_lines": [
+        3
+      ]
+    },
+    {
+      "block_id": 1,
+      "file": "lib/other.js",
+      "modify_type": "M",
+      "diff_lines": [
+        1,
+        2
+      ],
+      "slice_lines": [
+        1,
+        2
+      ],
+      "slice_text": "+   1|function other(z) {\n+   2|  eval(z);\n",
+      "source_lines": [
+        1
+      ],
+      "sink_lines": [
+        2
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 3,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 3",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_2",
+              "label": "lib/index.js:2\nfunction run(cmd) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 2
+            },
+            {
+              "id": "n_lib_index_js_3",
+              "label": "lib/index.js:3\ncp.execSync('echo ' + cmd);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 3
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_2",
+              "to": "n_lib_index_js_3",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_2[\"lib/index.js:2<br/>function run(cmd) {\"]:::source\n    n_lib_index_js_3[\"lib/index.js:3<br/>cp.execSync('echo ' + cmd);\"]:::sink\n    n_lib_index_js_2 -->|\"tainted\"| n_lib_index_js_3\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/other.js",
+      "line": 2,
+      "severity": "warning",
+      "description": "tainted value from line 1 reaches sink at line 2",
+      "related_lines": [
+        1
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_other_js_1",
+              "label": "lib/other.js:1\nfunction other(z) {",
+              "kind": "Source",
+              "file": "lib/other.js",
+              "line": 1
+            },
+            {
+              "id": "n_lib_other_js_2",
+              "label": "lib/other.js:2\neval(z);",
+              "kind": "Sink",
+              "file": "lib/other.js",
+              "line": 2
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_other_js_1",
+              "to": "n_lib_other_js_2",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_other_js_1[\"lib/other.js:1<br/>function other(z) {\"]:::source\n    n_lib_other_js_2[\"lib/other.js:2<br/>eval(z);\"]:::sink\n    n_lib_other_js_1 -->|\"tainted\"| n_lib_other_js_2\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 2,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 2",
+      "category": "taint_source"
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/other.js",
+      "line": 1,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 1",
+      "category": "taint_source"
+    }
+  ]
+}

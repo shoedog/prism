@@ -1,7 +1,161 @@
 {
-  "error": {
-    "SymbolNotFound": {
-      "seed": "lib/index.js:5"
+  "query": "taint_reaches",
+  "items": [
+    {
+      "symbol": {
+        "Variable": {
+          "file": "lib/index.js",
+          "function": "run",
+          "line": 5,
+          "path": "cmd",
+          "access": "def",
+          "start_byte": 95,
+          "end_byte": 98,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "lib/index.js",
+        "start_line": 5,
+        "end_line": 5,
+        "start_byte": 95,
+        "end_byte": 98
+      },
+      "score": 1.0,
+      "source": "PrismCpg",
+      "fallback": false,
+      "why": [
+        {
+          "Reasoning": {
+            "TaintedBy": {
+              "source": {
+                "Variable": {
+                  "file": "lib/index.js",
+                  "function": "run",
+                  "line": 5,
+                  "path": "cmd",
+                  "access": "def",
+                  "start_byte": 95,
+                  "end_byte": 98,
+                  "ordinal": 0
+                }
+              },
+              "sanitizers_present_in_source_fn": [],
+              "path_proven": false
+            }
+          }
+        }
+      ],
+      "snippet": null
+    },
+    {
+      "symbol": {
+        "Variable": {
+          "file": "lib/index.js",
+          "function": "run",
+          "line": 6,
+          "path": "cmd.length",
+          "access": "use",
+          "start_byte": 114,
+          "end_byte": 124,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "lib/index.js",
+        "start_line": 6,
+        "end_line": 6,
+        "start_byte": 114,
+        "end_byte": 124
+      },
+      "score": 0.5,
+      "source": "PrismCpg",
+      "fallback": false,
+      "why": [
+        {
+          "Reasoning": {
+            "TaintedBy": {
+              "source": {
+                "Variable": {
+                  "file": "lib/index.js",
+                  "function": "run",
+                  "line": 5,
+                  "path": "cmd",
+                  "access": "def",
+                  "start_byte": 95,
+                  "end_byte": 98,
+                  "ordinal": 0
+                }
+              },
+              "sanitizers_present_in_source_fn": [],
+              "path_proven": false
+            }
+          }
+        }
+      ],
+      "snippet": null
+    },
+    {
+      "symbol": {
+        "Variable": {
+          "file": "lib/index.js",
+          "function": "run",
+          "line": 6,
+          "path": "n",
+          "access": "def",
+          "start_byte": 110,
+          "end_byte": 111,
+          "ordinal": 0
+        }
+      },
+      "location": {
+        "file": "lib/index.js",
+        "start_line": 6,
+        "end_line": 6,
+        "start_byte": 110,
+        "end_byte": 111
+      },
+      "score": 0.33333334,
+      "source": "PrismCpg",
+      "fallback": false,
+      "why": [
+        {
+          "Reasoning": {
+            "TaintedBy": {
+              "source": {
+                "Variable": {
+                  "file": "lib/index.js",
+                  "function": "run",
+                  "line": 5,
+                  "path": "cmd",
+                  "access": "def",
+                  "start_byte": 95,
+                  "end_byte": 98,
+                  "ordinal": 0
+                }
+              },
+              "sanitizers_present_in_source_fn": [],
+              "path_proven": false
+            }
+          }
+        }
+      ],
+      "snippet": null
     }
+  ],
+  "truncated": false,
+  "warnings": [
+    {
+      "kind": "SkippedPath",
+      "message": "Seed line lib/index.js:5 is a function signature / hosts multiple functions; using pure-taint fallback",
+      "location": null
+    }
+  ],
+  "reasoning": {
+    "reachability": null,
+    "per_sink": [],
+    "source_count": 1,
+    "frontier_count": 3,
+    "sinks_omitted": 0
   }
 }

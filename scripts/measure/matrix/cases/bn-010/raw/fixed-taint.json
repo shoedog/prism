@@ -9,9 +9,10 @@
         5
       ],
       "slice_lines": [
-        5
+        5,
+        6
       ],
-      "slice_text": "+   5|function run(cmd) {\n"
+      "slice_text": "+   5|function run(cmd) {\n    6|  const n = cmd.length;\n"
     }
   ],
   "findings": []

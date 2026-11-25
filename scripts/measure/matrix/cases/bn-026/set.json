@@ -1,16 +1,13 @@
 {
   "entries": [
     {
-      "entry": "set-entry-a",
-      "reason": "no_fixed_version"
+      "entry": "set-entry-a"
     },
     {
-      "entry": "set-entry-b",
-      "reason": "fixed_not_newer"
+      "entry": "set-entry-b"
     },
     {
-      "entry": "set-entry-c",
-      "reason": "no_vulnerable_positive"
+      "entry": "set-entry-c"
     }
   ],
   "minimum_verified_pairs": 1

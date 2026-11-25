@@ -6,6 +6,13 @@
       ],
       "file_path": "lib/index.js",
       "modify_type": "Modified"
+    },
+    {
+      "diff_lines": [
+        1
+      ],
+      "file_path": "lib/other.js",
+      "modify_type": "Modified"
     }
   ]
 }
