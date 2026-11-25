@@ -12,6 +12,7 @@ mod taint_cve_test;
 mod taint_interprocedural_test;
 mod taint_lang_test;
 mod taint_member_only_param_test;
+mod taint_parity_test;
 mod taint_sink_go_test;
 mod taint_sink_js_ts_test;
 mod taint_sink_modules_js_test;
