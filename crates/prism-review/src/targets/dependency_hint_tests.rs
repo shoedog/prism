@@ -114,6 +114,40 @@ fn root_identity_reports_no_path_for_repository_local_module() {
 }
 
 #[test]
+fn root_identity_reports_no_path_for_a_mismatched_submodule_tail() {
+    let parsed = parse(
+        "import urllib.request\nurllib.parse.quote(u)",
+        Language::Python,
+    );
+    let identity = identity_at(&parsed, 2, "urllib.parse.quote", &BTreeMap::new());
+    assert_eq!(identity.resolved_path, None);
+}
+
+#[test]
+fn root_identity_reports_no_path_for_a_relative_import() {
+    let parsed = parse("from . import requests as r\nr.get(u)", Language::Python);
+    let identity = identity_at(&parsed, 2, "r.get", &BTreeMap::new());
+    assert_eq!(identity.resolved_path, None);
+}
+
+#[test]
+fn root_identity_is_none_for_a_non_python_call() {
+    let parsed = parse("fetch(u);", Language::JavaScript);
+    let (call, _) = call_candidates(&parsed, parsed.tree.root_node(), 1)
+        .into_iter()
+        .next()
+        .expect("call in fixture");
+    let known = BTreeMap::new();
+    let ctx = SiteContext {
+        file: "app/svc.js",
+        repo_root: Path::new("/nonexistent-prism-test-repo-root"),
+        known_files: &known,
+        resolved_name: None,
+    };
+    assert!(root_identity(&parsed, call, &ctx).is_none());
+}
+
+#[test]
 fn direct_root_library_call_gets_kind_and_verbatim_callee() {
     let parsed = parse(
         "import requests\n\n\ndef send():\n    requests.post('x')\n",
