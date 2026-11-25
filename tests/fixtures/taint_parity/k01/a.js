@@ -2,4 +2,4 @@ function main(handler) {
   const t = getInput(); // @SRC
   handler.run(t);
 }
-main(null);
+main({ run: Function.prototype });

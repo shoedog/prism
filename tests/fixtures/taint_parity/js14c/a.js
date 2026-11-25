@@ -3,4 +3,4 @@ function main(el) {
   const s = t;
   el.insertAdjacentHTML('beforeend', s); // @SINK
 }
-main(null);
+main({ insertAdjacentHTML: Function.prototype });

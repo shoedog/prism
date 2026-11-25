@@ -1,6 +1,7 @@
+import { exec } from 'child_process';
 function a(p) {
+  exec(p); // @SINK
   b(p);
-  observe(p); // @SINK
 }
 function b(q) {
   a(q);

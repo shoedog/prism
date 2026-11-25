@@ -4,4 +4,4 @@ function main(el) {
   const unused = escapeHtml('fixed');
   el.insertAdjacentHTML('beforeend', s); // @SINK
 }
-main(null);
+main({ insertAdjacentHTML: Function.prototype });

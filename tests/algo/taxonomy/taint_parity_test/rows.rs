@@ -1,7 +1,8 @@
 use prism::navigation::types::Reachability;
 use serde::Deserialize;
+use std::collections::BTreeSet;
 
-const GROUPS: &[&str] = &[
+pub(super) const GROUPS: &[&str] = &[
     "control",
     "binding",
     "same_line",
@@ -49,14 +50,41 @@ pub(super) struct Row {
     pub(super) site: Option<Site>,
     pub(super) sink: Sink,
     pub(super) walk_comparable: bool,
-    pub(super) expect: Expectations,
+    #[serde(deserialize_with = "Deserialize::deserialize")]
+    pub(super) expect: Option<Expectations>,
     reasons: Option<Reasons>,
     knobs: Option<Knobs>,
     truth: Truth,
     known_wrong: Option<String>,
-    pub(super) pending: Option<String>,
+    pending: Option<Pending>,
     class: String,
     note: String,
+}
+
+impl Row {
+    pub(super) fn pending_issue(&self, level: Level) -> Option<&str> {
+        self.pending
+            .as_ref()
+            .filter(|pending| pending.levels.contains(&level))
+            .map(|pending| pending.issue.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum Level {
+    Walk,
+    Review,
+    TraceReview,
+    Catalog,
+    Reasons,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Pending {
+    levels: Vec<Level>,
+    issue: String,
 }
 
 #[derive(Deserialize)]
@@ -272,19 +300,35 @@ pub(super) fn validate_labels(row: &Row) {
         );
         assert_eq!(knobs.depth, axes.depth, "{}", row.id);
     }
-    let explained = row.reasons.as_ref().is_some_and(|reasons| {
-        let all = [
-            &reasons.walk,
-            &reasons.review,
-            &reasons.trace_review,
-            &reasons.catalog,
-        ];
-        for reason in all.into_iter().flatten() {
-            assert!(REASONS.contains(&reason.as_str()), "{}: {reason}", row.id);
-        }
-        all.iter().any(|reasons| !reasons.is_empty())
-    });
-    let walk = &row.expect.walk;
+    if let Some(pending) = &row.pending {
+        let distinct: BTreeSet<_> = pending.levels.iter().collect();
+        assert!(
+            !pending.issue.trim().is_empty()
+                && !distinct.is_empty()
+                && distinct.len() == pending.levels.len(),
+            "{}: pending needs an issue and distinct levels",
+            row.id
+        );
+    }
+    let observations = row
+        .note
+        .strip_prefix("observed on 9d1a7d06f: ")
+        .unwrap_or_else(|| panic!("{}: missing base observation", row.id));
+    let Some(expect) = &row.expect else {
+        let observed_cells = ["walk=", "review=", "trace_review="].iter().all(|&label| {
+            observations.split("; ").any(|cell| {
+                cell.strip_prefix(label)
+                    .is_some_and(|value| !value.trim().is_empty())
+            })
+        });
+        assert!(
+            row.group == "tbd" && row.pending.is_none() && row.reasons.is_none() && observed_cells,
+            "{}: null expect requires a tbd row with observed cells in its note",
+            row.id
+        );
+        return;
+    };
+    let walk = &expect.walk;
     let has_witness = matches!(walk.reaches, Verdict::Reached | Verdict::Sanitized);
     assert_eq!(
         walk.source,
@@ -300,36 +344,55 @@ pub(super) fn validate_labels(row: &Row) {
         "{}",
         row.id
     );
-    let mut levels = vec![
-        walk.reaches == Verdict::Reached,
-        row.expect.review != Finding::None,
-        row.expect.trace_review != Finding::None,
+    validate_differences(row, expect);
+}
+
+fn validate_differences(row: &Row, expect: &Expectations) {
+    let catalog = (row.group == "catalog" || !expect.catalog.is_empty()).then(|| {
+        expect.catalog.iter().any(|entry| {
+            entry.file == row.sink.file
+                && entry.line == row.sink.line
+                && entry.verdict == Verdict::Reached
+        })
+    });
+    let reasons = row.reasons.as_ref();
+    let levels = [
+        (
+            Some(expect.walk.reaches == Verdict::Reached),
+            reasons.map(|r| &r.walk),
+        ),
+        (
+            Some(expect.review != Finding::None),
+            reasons.map(|r| &r.review),
+        ),
+        (
+            Some(expect.trace_review != Finding::None),
+            reasons.map(|r| &r.trace_review),
+        ),
+        (catalog, reasons.map(|r| &r.catalog)),
     ];
-    if row.group == "catalog" || !row.expect.catalog.is_empty() {
-        levels.push(
-            row.expect
-                .catalog
-                .iter()
-                .any(|entry| entry.verdict == Verdict::Reached),
-        );
+    let truth = matches!(row.truth, Truth::Flows);
+    let mut agrees = false;
+    let mut differs = false;
+    let mut explained = false;
+    for (flows, reasons) in levels {
+        for reason in reasons.into_iter().flatten() {
+            assert!(REASONS.contains(&reason.as_str()), "{}: {reason}", row.id);
+        }
+        if let Some(flows) = flows {
+            agrees |= flows == truth;
+            differs |= flows != truth;
+            explained |= flows != truth && reasons.is_some_and(|reasons| !reasons.is_empty());
+        }
     }
     assert!(
-        levels.iter().all(|&reaches| reaches == levels[0]) || explained,
-        "{}: disagreeing levels need a reason",
+        !(agrees && differs) || explained,
+        "{}: disagreeing levels need a reason on a level that differs from truth",
         row.id,
     );
     assert!(
-        levels
-            .iter()
-            .all(|&flows| flows == matches!(row.truth, Truth::Flows))
-            || explained
-            || row.known_wrong.is_some(),
+        !differs || explained || row.known_wrong.is_some(),
         "{}: truth differs without a reason or known_wrong issue",
         row.id,
-    );
-    assert!(
-        row.note.starts_with("observed on 9d1a7d06f: "),
-        "{}",
-        row.id
     );
 }

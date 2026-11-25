@@ -1,5 +1,6 @@
+import { exec } from 'child_process';
 function endpoint(e) {
-  observe(e); // @SINK
+  exec(e); // @SINK
 }
 function join(j) {
   endpoint(j);

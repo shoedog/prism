@@ -15,7 +15,9 @@ use std::sync::Arc;
 use tempfile::TempDir;
 
 mod rows;
-use rows::{rows, validate_labels, Bytes, Finding, Row, Slot, Verdict, Walk};
+use rows::{
+    rows, validate_labels, Bytes, Expectations, Finding, Level, Row, Slot, Verdict, Walk, GROUPS,
+};
 
 const ENABLED: &[&str] = &["control"];
 const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/taint_parity");
@@ -295,22 +297,32 @@ fn walk(row: &Row, fixture: &Fixture) -> Walk {
 }
 
 fn check_cells<T: std::fmt::Debug + PartialEq>(
-    expected: impl Fn(&Row) -> &T,
+    level: Level,
+    expected: impl Fn(&Expectations) -> &T,
     actual: impl Fn(&Row, &Fixture) -> T,
 ) {
     let mut failures = Vec::new();
-    for row in rows()
-        .iter()
-        .filter(|row| ENABLED.contains(&row.group.as_str()))
-    {
-        if let Some(issue) = &row.pending {
-            eprintln!("{}: pending {issue}", row.id);
-            continue;
+    let rows = rows();
+    for &group in ENABLED {
+        let mut executed = 0;
+        for row in rows.iter().filter(|row| row.group == group) {
+            let expect = row
+                .expect
+                .as_ref()
+                .unwrap_or_else(|| panic!("{}: enabled row has no expectations", row.id));
+            if let Some(issue) = row.pending_issue(level) {
+                eprintln!("{}: pending {level:?} ({issue})", row.id);
+                continue;
+            }
+            let got = actual(row, &Fixture::load(row));
+            executed += 1;
+            let want = expected(expect);
+            if &got != want {
+                failures.push(format!("{}: expected {want:?}; got {got:?}", row.id));
+            }
         }
-        let got = actual(row, &Fixture::load(row));
-        let want = expected(row);
-        if &got != want {
-            failures.push(format!("{}: expected {want:?}; got {got:?}", row.id));
+        if executed == 0 {
+            failures.push(format!("{group}: no {level:?} cells executed"));
         }
     }
     assert!(failures.is_empty(), "\n{}", failures.join("\n"));
@@ -372,7 +384,7 @@ fn validate_row(row: &Row) {
         "{}: operand nodes",
         row.id
     );
-    for entry in &row.expect.catalog {
+    for entry in row.expect.iter().flat_map(|expect| &expect.catalog) {
         let file = &fixture.repo.files[&entry.file];
         assert!(
             (1..=file.source.lines().count()).contains(&entry.line),
@@ -399,29 +411,30 @@ fn validate_row(row: &Row) {
         .flat_map(|seed| &seed.locations)
         .map(|loc| [loc.start_byte, loc.end_byte])
         .collect();
-    if row.expect.walk.reaches != Verdict::SeedError {
+    if row
+        .expect
+        .as_ref()
+        .is_none_or(|expect| expect.walk.reaches != Verdict::SeedError)
+    {
         assert!(
             roots.contains(&row.src.bytes),
             "{}: source occurrence was not minted",
             row.id
         );
     }
-    if row.walk_comparable {
-        assert_eq!(roots.len(), 1, "{}: source occurrence count", row.id);
-        let (_, trace) =
-            slice_with_trace(&fixture.context(), &fixture.diff(), &row.config(true)).unwrap();
-        assert_eq!(trace.roots.len(), 1, "{}: review root count", row.id);
-        let root = &trace.roots[0];
+    if row.walk_comparable || row.group == "control" {
+        let comparable = roots.as_slice() == [row.src.bytes] && {
+            let (_, trace) =
+                slice_with_trace(&fixture.context(), &fixture.diff(), &row.config(true)).unwrap();
+            matches!(trace.roots.as_slice(), [root]
+                if root.origin == TaintRootOrigin::Explicit
+                    && root.location.file == row.src.file
+                    && root.location.line == row.src.line
+                    && [root.location.start_byte, root.location.end_byte] == row.src.bytes)
+        };
         assert_eq!(
-            root.origin,
-            TaintRootOrigin::Explicit,
-            "{}: implicit source",
-            row.id
-        );
-        assert_eq!(
-            [root.location.start_byte, root.location.end_byte],
-            row.src.bytes,
-            "{}",
+            row.walk_comparable, comparable,
+            "{}: walk comparison requires the same single explicit root in both clients",
             row.id
         );
     }
@@ -429,6 +442,11 @@ fn validate_row(row: &Row) {
 
 #[test]
 fn parity_rows_are_well_formed() {
+    assert!(!ENABLED.is_empty(), "at least one group must be enabled");
+    for group in ENABLED {
+        assert!(GROUPS.contains(group), "unknown enabled group {group}");
+        assert_ne!(*group, "tbd", "tbd rows cannot be enabled");
+    }
     let mut ids = BTreeSet::new();
     let mut invalid = Vec::new();
     for row in rows() {
@@ -444,7 +462,8 @@ fn parity_rows_are_well_formed() {
 #[test]
 fn parity_default_review() {
     check_cells(
-        |row| &row.expect.review,
+        Level::Review,
+        |expect| &expect.review,
         |row, fixture| review(row, fixture, false),
     );
 }
@@ -452,12 +471,13 @@ fn parity_default_review() {
 #[test]
 fn parity_trace_review() {
     check_cells(
-        |row| &row.expect.trace_review,
+        Level::TraceReview,
+        |expect| &expect.trace_review,
         |row, fixture| review(row, fixture, true),
     );
 }
 
 #[test]
 fn parity_taint_reaches() {
-    check_cells(|row| &row.expect.walk, walk);
+    check_cells(Level::Walk, |expect| &expect.walk, walk);
 }
