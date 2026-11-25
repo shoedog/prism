@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from schema_impact.cli import main
 from schema_impact.producer_route_table import HandlerSite, RouteSpec, extract, routes
 
@@ -52,7 +54,8 @@ register("unused", [
   { verb: ["get", , "post"], pattern: "/sparse" },
   { verb: "get", pattern: prefix },
   { verb: verbs, pattern: "/nonliteral-method" },
-  { verb: "get", pattern: `/template` },
+  { verb: "get", pattern: (`/template/:stem/{leaf?}/\u0074ip`) },
+  { verb: `get`, pattern: "/nonquoted-method" },
   [{ verb: "get", pattern: "/nested-array" }],
 ]);
 server.other([{ verb: "get", pattern: "/different-callee" }]);
@@ -66,6 +69,7 @@ server.register({ routes: [{ verb: "get", pattern: "/nested-argument" }] });
         ("GET", "/garden/fern/{}.json", True),
         ("*", "/garden", False),
         ("GET", "/garden/Fern/tip/%2f", False),
+        ("GET", "/garden/template/{}/{}/tip", True),
     ]
     assert result.unextracted == [{"method": "*", "count": 2}]
     assert result.unparsed == []
@@ -96,6 +100,27 @@ server.register([
         ("top", HandlerSite("nesting.js", 1, "top"), False),
         (None, None, False),
     ]
+
+
+def test_validation_spreads_only_in_searched_objects(tmp_path):
+    (tmp_path / "spreads.js").write_text("""
+register([
+  {verb: "get", pattern: "/top", ...docs.fern},
+  {verb: "get", pattern: "/config", config: ({...docs.fern, target})},
+  {verb: "get", pattern: "/unrelated", config: {metadata: {...docs.fern}}},
+  {verb: "get", pattern: "/explicit", config: {...docs.fern, check: {}}},
+  {verb: "get", pattern: "/later-key", ...docs.fern, config: {check: null}},
+]);
+""".lstrip(), encoding="utf-8")
+
+    assert [(row.has_validation, row.validation_unknown) for row in routes(tmp_path, SPEC)] == [
+        (False, True), (False, True), (False, False), (True, False), (True, False),
+    ]
+    spec = RouteSpec(
+        callee="register", method_key="verb", path_key="pattern",
+        handler_key="target", validation_key="check", validation_under=("config",),
+    )
+    assert not routes(tmp_path, spec)[0].validation_unknown
 
 
 def test_named_import_resolution_checks_exports_and_repo_boundary(tmp_path):
@@ -188,7 +213,8 @@ register([
     ]
 
 
-def test_routes_cli_writes_rows_and_diagnostics(tmp_path):
+@pytest.fixture
+def route_cli_output(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "broken.js").write_text("""
@@ -197,7 +223,15 @@ function broken(
 """, encoding="utf-8")
     (repo / "ok.cjs").write_text("""
 const send = function () {};
-register([{verb: ["get", "*"], pattern: "/{name?}", target: send, check: {}}]);
+register([
+  {verb: ["get", "*"], pattern: "/{name?}", target: send, check: {}},
+  {verb: ["get", "post"], pattern: "/arrow", target: (() => {}), config: {...notes}},
+  {verb: "get", pattern: "/function", target: function () {}},
+  {verb: "get", pattern: "/method", target() {}},
+  {verb: ["head", "post"], pattern: `/dynamic/${name}`},
+  {verb: "get", pattern:
+    (`/dynamic/${other}`)},
+]);
 """.lstrip(), encoding="utf-8")
     spec = tmp_path / "spec.json"
     spec.write_text(json.dumps({
@@ -209,17 +243,47 @@ register([{verb: ["get", "*"], pattern: "/{name?}", target: send, check: {}}]);
 
     assert main(["routes", "--repo", str(repo), "--spec", str(spec), "--out", str(out)]) == 0
     rows = [json.loads(line) for line in (out / "routes.jsonl").read_text().splitlines()]
-    assert rows == [
+    return rows, json.loads((out / "routes-summary.json").read_text())
+
+
+def test_routes_cli_writes_validation_flags(route_cli_output):
+    rows, _ = route_cli_output
+    assert rows[:2] == [
         {
             "method": method, "path": "/api/{}", "handler_text": "send",
             "handler_site": {"file": "ok.cjs", "line": 1, "name": "send"},
-            "has_validation": True, "file": "ok.cjs", "line": 2, "optional_param": True,
+            "has_validation": True, "validation_unknown": False,
+            "file": "ok.cjs", "line": 3, "optional_param": True,
         }
         for method in ("GET", "*")
     ]
-    assert json.loads((out / "routes-summary.json").read_text()) == {
-        "routes": 2, "with_handler_site": 2, "with_validation": 2,
-        "unextracted": 1, "unparsed": 1,
-        "unextracted_details": [{"method": "*", "count": 1}],
+    assert [(row["method"], row["path"], row["validation_unknown"]) for row in rows[2:]] == [
+        ("GET", "/api/arrow", True), ("POST", "/api/arrow", True),
+        ("GET", "/api/function", False), ("GET", "/api/method", False),
+    ]
+
+
+def test_routes_cli_reports_unextracted_template_locations(route_cli_output):
+    rows, summary = route_cli_output
+    assert len(rows) == 6
+    assert {key: summary[key] for key in (
+        "unextracted", "unparsed", "unextracted_details", "unparsed_files",
+    )} == {
+        "unextracted": 3, "unparsed": 1,
+        "unextracted_details": [
+            {"method": "*", "count": 1},
+            {"reason": "template_path_with_substitution", "count": 2,
+             "locations": [{"file": "ok.cjs", "line": 7}, {"file": "ok.cjs", "line": 9}]},
+        ],
         "unparsed_files": ["broken.js"],
+    }
+
+
+def test_routes_cli_counts_inline_handler_rows(route_cli_output):
+    _, summary = route_cli_output
+    assert {key: summary.get(key) for key in (
+        "routes", "with_handler_site", "with_validation", "with_validation_unknown", "handler_inline",
+    )} == {
+        "routes": 6, "with_handler_site": 2, "with_validation": 2,
+        "with_validation_unknown": 2, "handler_inline": 3,
     }

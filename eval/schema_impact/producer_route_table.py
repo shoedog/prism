@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from posixpath import normpath
 import re
-from typing import Iterator
+from typing import Iterator, NotRequired, TypedDict
 
 from tree_sitter import Language, Node, Parser
 import tree_sitter_javascript
@@ -43,13 +43,22 @@ class Route:
     file: str
     line: int
     optional_param: bool = False
+    validation_unknown: bool = False
+
+
+class _Unextracted(TypedDict):
+    count: int
+    method: NotRequired[str]
+    reason: NotRequired[str]
+    locations: NotRequired[list[dict[str, str | int]]]
 
 
 @dataclass
 class Extraction:
     routes: list[Route]
-    unextracted: list[dict[str, str | int]]
+    unextracted: list[_Unextracted]
     unparsed: list[str]
+    handler_inline: int = 0
 
 
 _EXTENSIONS = (".js", ".mjs", ".cjs", ".jsx")
@@ -116,8 +125,12 @@ def _string(node: Node | None) -> str | None:
     node = _unwrap(node)
     if node is None or node.type != "string":
         return None
+    return _decode_string(_text(node)[1:-1])
+
+
+def _decode_string(source: str) -> str | None:
     try:
-        value = _ESCAPE.sub(_unescape, _text(node)[1:-1])
+        value = _ESCAPE.sub(_unescape, source)
         return value.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "surrogatepass")
     except ValueError:
         return None
@@ -146,13 +159,28 @@ def _property(obj: Node | None, name: str) -> Node | None:
     return None
 
 
-def _nested_property(obj: Node, name: str, containers: tuple[str, ...]) -> Node | None:
+def _property_sources(obj: Node, containers: tuple[str, ...]) -> Iterator[Node]:
     for container in containers:
-        source = _property(obj, container) if container else obj
+        source = _unwrap(_property(obj, container)) if container else obj
+        if source is not None and source.type == "object":
+            yield source
+
+
+def _nested_property(obj: Node, name: str, containers: tuple[str, ...]) -> Node | None:
+    for source in _property_sources(obj, containers):
         value = _property(source, name)
         if value is not None:
             return value
     return None
+
+
+def _validation(obj: Node, spec: RouteSpec) -> tuple[bool, bool]:
+    unknown = False
+    for source in _property_sources(obj, spec.validation_under):
+        if _property(source, spec.validation_key) is not None:
+            return True, False
+        unknown = unknown or any(child.type == "spread_element" for child in _children(source))
+    return False, unknown
 
 
 def _member_key(node: Node) -> str | None:
@@ -525,26 +553,45 @@ def extract(repo: str | Path, spec: RouteSpec) -> Extraction:
         _index_exports(unit)
 
     rows = []
+    template_locations: list[dict[str, str | int]] = []
+    handler_inline = 0
     for unit in units.values():
         for entry in _entries(unit.root, spec.callee):
-            path = _string(_property(entry, spec.path_key))
+            path_node = _unwrap(_property(entry, spec.path_key))
+            if path_node is not None and path_node.type == "template_string":
+                if any(child.type == "template_substitution" for child in _children(path_node)):
+                    template_locations.append({"file": unit.file, "line": path_node.start_point.row + 1})
+                    continue
+                source = _text(path_node)[1:-1].replace("\r\n", "\n").replace("\r", "\n")
+                path = _decode_string(source)
+            else:
+                path = _string(path_node)
             methods = _methods(_property(entry, spec.method_key))
             if path is None or not methods:
                 continue
             handler = _nested_property(entry, spec.handler_key, spec.handler_under)
             handler_text = _text(handler) if handler is not None else None
             site = _handler_site(units, unit, handler)
-            validation = _nested_property(entry, spec.validation_key, spec.validation_under)
+            expression = _unwrap(handler)
+            if expression is not None and expression.type in {"arrow_function", "function_expression"}:
+                handler_inline += len(methods)
+            has_validation, validation_unknown = _validation(entry, spec)
             optional = bool(_OPTIONAL_PARAM.search(path) or _OPTIONAL_PARAM.search(spec.mount))
             normalized = normalize_path(path, spec.mount)
             rows.extend(
-                Route(method, normalized, handler_text, site, validation is not None,
-                      unit.file, entry.start_point.row + 1, optional)
+                Route(method, normalized, handler_text, site, has_validation,
+                      unit.file, entry.start_point.row + 1, optional, validation_unknown)
                 for method in methods
             )
     wildcards = sum(row.method == "*" for row in rows)
-    unextracted = [{"method": "*", "count": wildcards}] if wildcards else []
-    return Extraction(rows, unextracted, unparsed)
+    unextracted: list[_Unextracted] = [{"method": "*", "count": wildcards}] if wildcards else []
+    if template_locations:
+        unextracted.append({
+            "reason": "template_path_with_substitution",
+            "count": len(template_locations),
+            "locations": template_locations,
+        })
+    return Extraction(rows, unextracted, unparsed, handler_inline)
 
 
 def routes(repo: str | Path, spec: RouteSpec) -> list[Route]:
@@ -568,7 +615,9 @@ def run(args: argparse.Namespace) -> int:
         "routes": len(report.routes),
         "with_handler_site": sum(route.handler_site is not None for route in report.routes),
         "with_validation": sum(route.has_validation for route in report.routes),
-        "unextracted": sum(route.method == "*" for route in report.routes),
+        "with_validation_unknown": sum(route.validation_unknown for route in report.routes),
+        "handler_inline": report.handler_inline,
+        "unextracted": sum(detail["count"] for detail in report.unextracted),
         "unparsed": len(report.unparsed),
         "unextracted_details": report.unextracted,
         "unparsed_files": report.unparsed,
