@@ -24,8 +24,8 @@ tasks R1 to R3) is defined in DESIGN 6.1 and 6.2; grades (`bound`, `candidate`, 
 
 ## Global constraints
 
-- No product-crate change in Part 1. Part 2 starts only after the owner go-ahead (DESIGN decision 4), and the
-  go-ahead names the pilot order (DESIGN decision 2). The orchestrator applies neither order on its own.
+- No product-crate change in Part 1. The owner approved the pilot on both pairs without ordering them. Part 2
+  schedules the two producer slices together and delivers both first reports in P4 (DESIGN 7.2).
 - Corpus P is `bench-repos/apache-answer` at `6744295f`. Work on a clone under the evidence directory, never
   in `~/code/bench-repos`.
 - Pair R is private: ORCHESTRATION section 9 applies to every step that touches it (Claude seats only, never
@@ -36,9 +36,8 @@ tasks R1 to R3) is defined in DESIGN 6.1 and 6.2; grades (`bound`, `candidate`, 
   neutral synthetic code with invented names.
 - Binding grades are `bound`, `candidate`, `unbound`. The words `Exact` and `NameOnly` are not used for
   bindings.
-- Element ids follow DESIGN 5.1 exactly: `op:<METHOD> <path>` with `{}` parameters and no trailing slash;
-  fields on the operation-rooted wire tree, `field:req:<METHOD> <path>#/<pointer>` and
-  `field:resp:<METHOD> <path>:<status>#/<pointer>`, with the definition name as an attribute.
+- Element IDs and slash, capture, wildcard, authority and field-pointer rules are in DESIGN 5.1. Apply the source
+  dialect and preserve typed tokens. A field belongs to its request or status-bearing response root.
 - Clients are identified by resolved file (DESIGN 5.4), never by import spelling.
 - The pilot reads JSON schema files only.
 - Evidence directory: `~/prism-evidence/boundary-impact/` (`LEDGER.md`, `HANDOFF.md`, `feasibility/`,
@@ -71,6 +70,9 @@ named.
 ---
 
 # Part 1: feasibility study (about 7 days)
+
+Part 1 preserves the feasibility protocol and its historical expected values. The amended product rules,
+inputs and gates are in Part 2 and DESIGN §§5, 7 and 9.
 
 Branch `eval/schema-impact-feasibility`, worktree `~/code/prism-boundary` (removed after Task F-8 merges;
 Part 2 creates it again). Gates for Part 1 tasks: `cd eval && uv run --group schema-impact pytest
@@ -512,26 +514,26 @@ Measure F7 (an external differ check) is dropped; it changes no decision.
       pin Review focus items 1 to 9; does any private name appear). Fold, merge on approval and green CI.
 - [ ] Post the gate table, the recommendation, the pilot-order section and the ten public reports on the
       tracking issue (never the private reports). Refresh `HANDOFF.md`. Remove the worktree.
-- [ ] **Stop. The pilot needs the owner's go-ahead** (DESIGN decision 4), and the go-ahead names the order
-      (DESIGN decision 2). Do not start Part 2 on a default.
+- [x] The owner approved both pairs and left their order open. DESIGN 7.2 records the applied schedule. The
+      five-report rating is still unrecorded. It affects G4 and the historical recommendation.
 
 ---
 
-# Part 2: pilot (about 24 to 31 days; provisional until the memo)
+# Part 2: pilot on both pairs
 
-Before dispatching anything, re-read `FEASIBILITY.md`, apply DESIGN section 7's table (it may stop P5 after
-its measurement or add an adapter), and record in the ledger the applied row and the order the owner's
-go-ahead named: **public-first** (slices P1, P2, P3, P4, P5, P6 as written below) or **private-first** (P1,
-P2-R, P3, P4, P5, P6 with the changes of "Private-first variant"). Then run Tasks E-1 and E-2, stage D, and
-the ids regeneration, in that order, before P1.
+The owner approved both pairs and left their order open. The orchestrator's order is D-census → P1 → P2-R and P2 in parallel →
+P3 (R configuration, then P) → P4 (first report on both) → P5 (P only) → P6 (replay and documentation for both).
+The G4 owner rating is still unrecorded. The field-read measurement remains a P5 decision. After stage D review,
+align the fixture expectations and regenerate the public `ids.tsv` before P1. D-census is a separate pre-implementation measurement.
 
 Branch per task or slice from `main`, worktree `~/code/prism-boundary`. Every slice: tests first (RED),
 implement, GREEN, the gates of ORCHESTRATION section 5 that apply (items 1 to 4, 8 and 9; no slice changes
 the cache or the data-flow graph, so items 5 to 7 do not apply; the `CLAUDE.md` paragraph of item 10 is
 written once, in P6), PR, two reviewers (cap 3 rounds).
 
-Estimates: E-1 and E-2 together 2 to 3 days; stage D 2; P1 3 to 4; P2 (or P2-R) 3 to 4; P3 3 to 4; P4 3 to 4;
-P5 5 to 6 (1 if its measurement is negative); P6 3 to 4.
+P1 and P2-R were priced at 3–4 days. Allow about one extra day in P2 for registration evidence (4–5 total). P2-R starts with the table adapter. The memo's shorter
+estimate assumed a ready listing. P3 was repriced at 4–5 days. P4 was priced at 3–4 days before A1. P5 takes 1 day
+for a negative measurement or 5–6 with implementation, P6 3–4. These are slice estimates.
 
 ### File map
 
@@ -545,23 +547,24 @@ crates/prism-boundary/
   src/main.rs                clap: bind | diff | impact
   src/element.rs             ElementId, FieldRoot, normalize_path_template
   src/model.rs               serde DTOs: BindingsDocument, Binding, Unbound, ImpactDocument, ElementChange, BindingStatus
-  src/revision.rs            RepoIdentity (rev, committed_at, dirty), SchemaSource, byte and content hashes, shape signatures
+  src/revision.rs            snapshot/tree, cutoff receipts, schema provenance, byte and structural hashes
   src/schema/mod.rs          SchemaIndex, Operation, Field
   src/schema/openapi.rs      Swagger 2.0 and OpenAPI 3 JSON reader, wire trees
-  src/schema/route_table.rs  route-table schema source (P2-R, or P6 in public-first)
+  src/schema/route_table.rs  route-table schema source (P2-R, alongside public P2)
   src/schema/diff.rs         structural diff
   src/producer/mod.rs        bind_producer, adapter selection
   src/producer/swaggo.rs     annotation adapter
+  src/producer/registrations.rs   P2 evidence-only reader
   src/producer/go_struct_fields.rs
   src/producer/route_table.rs
   src/consumer/mod.rs        bind_consumer
   src/consumer/config.rs     prism-boundary.toml
-  src/consumer/resolve.rs    import → client file (aliases, relative paths, one re-export level)
+  src/consumer/resolve.rs    import → defining export (aliases, baseUrl, relative paths and re-exports)
   src/consumer/client_calls.rs
   src/consumer/url_pattern.rs
   src/consumer/matcher.rs
   src/consumer/field_reads.rs        (only if P5's measurement is positive)
-  src/impact.rs              join on (api, id), binding status, warnings
+  src/impact.rs              admit slots, diff and rematch pairs, freeze A1 JSON and render Markdown
   tests/                     one integration test file per slice, fixtures under tests/fixtures/
 ```
 
@@ -569,49 +572,29 @@ Root `Cargo.toml`: add the member; do not add it to `default-members`.
 
 ### Task E-1: element-identity matrix (stages T and E)
 
-Branch `test/boundary-ids-matrix`. The crate does not exist yet, so this task commits data only
-(ORCHESTRATION section 3, stage T rule): `crates/prism-boundary/tests/fixtures/ids_matrix/` with one schema
-or route-table fixture per row and `rows.tsv` (`id`, `fixture`, `expected_ids`, `expected_warnings`,
-`truth`, `class`). P1 adds the data-driven test that reads it.
-
-- [ ] Stage T: write rows for every rule of DESIGN 5.1 (both tables, wire-tree shapes, cycle and depth cut,
-      2xx keys, request bodies, `formData`) and for every member of the identity open classes in DESIGN
-      section 9 (two operations with one id; one operation with two ids; no id for a served operation;
-      field ids with path punctuation), each with its required ids and a truth label. Rows state required
-      behaviour; they never propose a rule.
-- [ ] Stage E: the enumerator tiers of ORCHESTRATION section 6, run serially on the cumulative list
-      (Haiku-5.5, Sonnet-5.5, gpt-6.1-terra; then Opus-5.5 high, gpt-6.1-sol high), until a full tier round
-      adds no row. Axes: schema format (Swagger 2.0, OpenAPI 3), path syntax (schema, gin, route table),
-      prefixes and mounts, methods, parameters, wire-tree shapes, names.
-- [ ] Docs-and-data PR, one reviewer (Sonnet-5.5, high). Merge on approval and green CI.
+- [x] E-1 stages T and E delivered **217 rows** in `crates/prism-boundary/tests/fixtures/ids_matrix/rows.tsv` with
+  IDs, fixtures, expected IDs and warnings, truth and class. The enumerators were still finding wire-tree cases.
+  DESIGN 5.1 supplies the generator and section 9 partitions every row. P1 owns the identity test.
 
 ### Task E-2: client-recognition and matching matrix (stages T and E)
 
-Branch `test/boundary-consumer-matrix`. Data only, like E-1:
-`crates/prism-boundary/tests/fixtures/consumer_matrix/` (TypeScript and JavaScript snippets, a schema per
-group, a configuration per group) and `rows.tsv` (`id`, `fixture`, `config`, `expected_grade`,
-`expected_ids`, `expected_reason`, `truth`, `class`). P3 adds the data-driven test.
-
-- [ ] Stage T: write rows for every rule of DESIGN 5.4 (client identity, counting rule, URL pattern, method,
-      prefix map, matching), every row of Part 1's `match_matrix.tsv`, every client shape of the private
-      enumeration of Task F-6 rewritten as neutral synthetic code, and every member of the "bound to the
-      wrong operation" open class in DESIGN section 9.
-- [ ] Stage E: the enumerator tiers, serially, until a full tier round adds no row. Axes: client shape,
-      import route, URL expression, method source, hook and fetcher, prefix handling, schema shape at the
-      matched position. Enumerators get no private code; codex seats never see R-derived material beyond
-      the neutral rows.
-- [ ] Docs-and-data PR, one reviewer. Merge on approval and green CI.
+- [x] E-2 stages T and E delivered **306 rows** in `crates/prism-boundary/tests/fixtures/consumer_matrix/rows.tsv`
+  with fixtures, config, grade, IDs, reason, truth and class, including neutral shapes s01–s45. URL-pattern and
+  method enumeration was still growing. DESIGN 5.4 supplies the generator and section 9 partitions every row. P3
+  owns the consumer test.
 
 ### Stage D: design of record
 
-- [ ] Brief the design seat (Fable-5.2, high, or gpt-6-astra; ORCHESTRATION section 3): the tentative rules
-      of DESIGN 5.1, 5.2, 5.4 and 5.6; both rows files with truths; the public F1, F2, F4, F8 results and
-      R's aggregate F5 results; the accepted-loss candidates (DESIGN section 9's open classes and every row
-      the current rules get wrong). Ask for rules stated against every row and an accepted-loss list. No
-      orchestrator opinion in the brief.
-- [ ] The design seat amends DESIGN 5.1, 5.2, 5.4, 5.6 (and section 9's list); an implementer then updates
-      the rows' expectations to match. Both reviewers review the amendment (cap 2 rounds, then ORCHESTRATION
-      section 8). Merge as a docs PR.
+- [x] Set the final pilot rules against E-1 (170 rule, 47 accepted loss) and E-2 (288 rule, 18 accepted loss), both
+  feasibility results, A1 and the provisional route-model contract. DESIGN 5.1–5.6, 7.2 and 9 govern the slice
+  briefs.
+- [x] Both seats rejected round 1. In round 2 Sol rejected and Opus approved. The design seat folded both sets,
+  addressing EVIDENCE-INPUT and GRAMMAR as recurring classes. The targeted round 3 fold adds the directional
+  capacity control, changes two bound expectations to candidate and specifies the fixture mapping controls.
+  DESIGN records the dispositions. The 523 ledger rows comprise 458 rule and 65 accepted loss.
+- [ ] After review, apply ORCHESTRATION sections 7–8 and the DESIGN **Alignment list**. Align the matrices'
+  expectations and warnings with the reviewed design while retaining each row's semantic witness and recording
+  accepted losses. Record a fresh base RED/GREEN for each amended row before enabling it. Regenerate `ids.tsv` next. This design change edits only documents.
 
 ### Regenerate ids.tsv
 
@@ -620,62 +603,111 @@ group, a configuration per group) and `rows.tsv` (`id`, `fixture`, `config`, `ex
       `feasibility/ids.tsv` to the evidence directory and its diff summary to the PR body. Tests of Task F-1
       updated where the amendment changed a rule. One reviewer. This file is P1's golden file.
 
+### Task D-census (pre-implementation measurement, before P1)
+
+- [ ] Pin the reference tool/build, configs and populations from DESIGN 7.2. Freeze the cut predicates, units
+      and expected effects before counting. Measure P at `6744295f`. The authorized local R measurement seat
+      uses the F5 pins and returns aggregates. Keep replay cases bound to their selected versions.
+- [ ] Run every cut in the DESIGN 7.2 table individually on the applicable pinned inputs. For schema coverage,
+      include direct YAML, media/body/status exclusions (including default), depth, tuple and assertion/ref
+      limits, cycles, saturation, closed minima and conjunct remainders. For routes, include implicit methods,
+      registrar/star/options, constrained dispatch, root/mount, prefixes/slashes, endpoint proof, fallback role
+      and unplaced suffixes. For calls, include transport/tag/hook/wrapper gaps, defaults/helpers, writes and
+      overflow, numeric and method/URL arm limits, missing export mappings or origin, other APIs, selectors
+      without a distinct operation, and domain/score ties. Include saved inventories, lost reference locations,
+      unavailable result definitions and field-read linkage in the report and field populations.
+- [ ] Record one line per cut and pair with source scope, inspected denominator, affected count and rate,
+      before/after outcomes on the same members, overlaps and deduplicated net loss. A checked zero cites the
+      inspected population, an inapplicable population cites its basis, and unknown incidence stays pending.
+      Use reference evidence and source inspection to apply the final rules before product code exists. Freeze
+      the receipt before P1, refer material loss to the design seat, and reconcile later slice results against
+      it. The round-2 design fold schedules this task. The study's aggregate residues do not close it.
+
 ### Slice P1: crate, element ids, schema reader, diff, documents (3 to 4 days)
 
-**Interfaces (produced):**
+Implement DESIGN 5.1, 5.2, 5.6 and 9. The reader consumes named-tree JSON and admitted reference/config blobs.
+Represent a snapshot as a commit or a computed tree, with optional commit metadata, blob sources and dependency
+receipts. Keep typed literal, parameter, optional and tail tokens through normalization. Structural list/map edges
+differ from literal property names. An operation includes all source sites, explicit success keys, media/body roots
+and per-region coverage. A field records typed path, branch and definition, comparable properties and stop
+conditions. Index sorted element IDs, operations reaching each definition and declaration provenance. Provide
+`index_schema`, `definitions_of`, `operations_reaching` and `diff_schemas`.
+
+The pilot element diff has the following `ChangeKind` variants. Return **all** applicable changes with the owning
+operation, before/after element IDs, side-local sites, shapes and evidence. A status-root pairing can have
+different IDs on the two sides. Keep the historical F4 selection as a separate evaluation filter.
 
 ```rust
-pub struct ElementId(String);                       // Display, Ord, Serialize as string
-pub enum FieldRoot { Request { method: String, path: String },
-                     Response { method: String, path: String, status: String } }
-impl ElementId {
-    pub fn operation(method: &str, path_template: &str, base: &str) -> ElementId;
-    pub fn field(root: &FieldRoot, pointer: &[&str]) -> ElementId;
+pub enum ChangeKind {
+    OpAdded, OpRemoved,
+    RouteDeclarationChanged, ValidationChanged, HandlerReferenceChanged, HandlerCodeChanged,
+    SuccessStatusAdded, SuccessStatusRemoved,
+    FieldAdded, FieldRemoved, FieldTypeChanged, FieldFormatChanged, FieldItemTypeChanged,
+    FieldRequiredAdded, FieldRequiredRemoved, EnumDeclarationChanged, EnumValuesAdded, EnumValuesRemoved,
 }
-pub fn normalize_path_template(raw: &str) -> String;
-pub enum SchemaFormat { Swagger2, OpenApi3, RouteTable }
-pub enum SourceLocation { Path(String), DerivedRouteTable }
-pub struct SchemaSource { pub repo: String, pub rev: String, pub committed_at: String, pub location: SourceLocation }
-pub struct RepoIdentity { pub name: String, pub rev: String, pub committed_at: String, pub dirty: bool }
-pub fn repo_identity(dir: &Path) -> anyhow::Result<RepoIdentity>;   // dirty: git status --porcelain --untracked-files=no
-pub struct Operation { pub source_path: String, pub operation_id: Option<String>, pub shape: String }
-pub struct Field { pub definition: Option<String>, pub recursive: Option<String>, pub shape: String }
-pub struct SchemaIndex { pub api: String, pub format: SchemaFormat, pub source: SchemaSource,
-    pub sha256: Option<String>, pub content_hash: String, pub info_version: Option<String>,
-    pub operations: BTreeMap<ElementId, Operation>, pub fields: BTreeMap<ElementId, Field>, pub warnings: Vec<String> }
-impl SchemaIndex { pub fn definitions_of(&self, op: &ElementId) -> BTreeSet<String>;
-                   pub fn operations_reaching(&self, definition: &str) -> BTreeSet<ElementId>; }
-pub fn index_schema(bytes: &[u8], api: &str, source: SchemaSource) -> anyhow::Result<SchemaIndex>;
-pub enum ChangeKind { OpRemoved, OpAdded, FieldRemoved, FieldAdded, FieldTypeChanged, FieldRequiredAdded, EnumValuesChanged }
-pub struct ElementChange { pub element: ElementId, pub kind: ChangeKind,
-                           pub old_shape: Option<String>, pub new_shape: Option<String> }
-pub fn diff_schemas(old: &SchemaIndex, new: &SchemaIndex) -> Vec<ElementChange>;
 ```
 
-**Tests** (`tests/schema_test.rs`; fixtures are two trimmed real revisions of P's `swagger.json`, five
-operations each): the Python tests of Task F-1 ported one for one, plus
-`ids_matrix_rows` (the data-driven test over Task E-1's `rows.tsv`, every row enabled in this slice's first
-commit and shown RED), `ids_match_the_prototype_golden_file` (the ids of the pinned schema equal the
-regenerated `ids.tsv`, copied to `tests/fixtures/ids.tsv`, byte for byte),
-`openapi3_first_server_path_is_prefixed` (marked provisional in its doc comment, DESIGN 5.1),
-`addition_only_change_has_no_removed_or_changed_kind`, `content_hash_ignores_formatting` (the same schema
-with a licence header and reordered keys has an equal `content_hash` and a different `sha256`),
-`shape_signature_ignores_definition_name`, `dirty_ignores_untracked_files`, and
-`documents_match_golden_and_schemas_parse` (serialise one bindings and one impact document and compare them
-with golden JSON files; both schema files under `schemas/` parse, and every key of the golden documents is
-declared in the matching schema's `properties`; no copy of the targets contract's schema walker is made).
+A schema reader produces the applicable operation/status/field variants. The producer diff can add the
+retained-edit variants when both source records exist. A client change is recorded separately as call
+added/removed/retargeted or a one-sided observation with correspondence unknown. Preserve both sides of a mixed
+enum change. Success-key rows include bodyless declarations. Group a unique comparable replacement for body diffing
+by relative path and suppress child churn caused only by the root move. For ambiguous or overlapping ranges retain
+the separate status rows and mark body comparison unchecked. An op addition/removal owns its field details.
 
-- [ ] Tests first (RED: crate does not exist), implement, GREEN, gates, PR, two reviewers.
+**Tests and gate**
 
-### Slice P2: producer bindings, public-first order (3 to 4 days)
+- Exercise all 217 E-1 dispositions from DESIGN 9 against the amended expected IDs, warnings or scoped refusal.
+  For source-language fixtures at P1 feed a literal declaration/token projection with its dialect, flags and
+  authority to the common ID builder. P2/P2-R test extraction into those inputs. Never report a projection as an
+  end-to-end framework scan. Compare the public pinned schema's IDs byte-for-byte with the regenerated golden. Port
+  applicable F-1 controls.
+- Include server overrides/order, strict slashes, admitted relative references, wildcard and optional widths,
+  punctuation round trips, array/map recursion, cycles and depth, inherited and overridden body parameters,
+  exact/range/default status and media evidence. Test exact and range status keys and list/wildcard route methods
+  under the applicable format. Keep an unread region distinct from a complete empty one.
+- Test additions only, both directions for requiredness, omitted ↔ empty enum declaration (with zero member deltas)
+  and member changes, format/item-only edits, a retained
+  declaration edit, bodyless status loss, unique and ambiguous root replacement, unchanged definition rename, and
+  formatting-only schema regeneration. Verify that missing evidence blocks the dependent change.
+- Verify zero and residual capacity before literal and map edges. Add required `kept` to the one-slot object
+  in DESIGN 5.1. Require its requiredness edit and loss of both the optional field and map descendant, then
+  restore spare capacity. Test a closed minimum just feasible and one above the feasible key count. Apply
+  each conjunct's false, omitted or schema-valued remainder to the other member's named and required-only
+  keys, including incompatible values. Verify the checked-empty `t1-allof-closed-intersection` and partial
+  coverage for unsupported applicators. Keep false optional, composition-only/root cycle and unaffected sibling
+  controls. Reconcile P1 schema coverage counts with D-census.
+- Add `maxProperties: 2` to `Record` in a control derived from `t1-directional-annotations`. Reserve only
+  `secret` for requests and only `serial` for responses. Check the feasible request with `secret` and `label`
+  and the feasible response with `serial` and `label`. Both roots must still emit all three field IDs with
+  their directional requiredness, including `#/label` on each side and zero `FieldRemoved` changes.
+- Publish versioned JSON schemas and golden bindings/impact documents per DESIGN 5.2 and A1 **Input documents and
+  machine-readable form**. Validate serialized examples against the schemas, including unbound raw calls, coverage
+  without a key, both element IDs on a paired status-root move, absent versus unknown sides, an admitted saved
+  scan/inventory with zero matches and its missing-dependency control, four per-comparison match maps for a
+  joint edit, configured provenance, mixed and client-only reviews, and null commit metadata on a computed tree.
+  Reject a computed tree borrowing a commit date. Exercise tracked dirtiness separately from tree reads.
+- [ ] Show the relevant RED on the exact base, then GREEN and the slice gates. Full-suite verification remains
+  pending before merge to main.
+
+### Slice P2: public producer bindings and registration evidence (4 to 5 days)
+
+Run beside P2-R after P1. Use DESIGN 5.1–5.3 and 5.6. Extract P's admitted annotation and struct-field sites, from
+the correct tree/blob, and preserve each authority and its own complete or partial regions. Keep annotations
+distinct from registration proof, and schema sites distinct from handler/field sites. Compare decoded wire names
+for struct tags. Preserve independent evidence when annotations and registrations disagree. P4 uses these producer
+documents for the first report on P. Port the bounded literal registration reader from
+`eval/schema_impact/producer_go.py` to the boundary crate. Read literal verb calls, final handler argument and
+same-function literal group prefixes at each admitted tree. Freeze original method, path, handler and span,
+root/suffix status and coverage. This reader populates comparison evidence only. The binding adapter list stays
+annotation and struct fields. No cross-function Gin resolver or framework-entries change is required.
 
 **Interfaces (produced):**
 
 ```rust
-pub enum ProducerAdapter { SwaggoAnnotation, GoStructField, RouteTable(RouteTableSpec) }
+pub enum ProducerAdapter { SwaggoAnnotation, GoStructField }   // binding sources only
 pub struct ProducerOptions { pub adapters: Vec<ProducerAdapter> }       // default: [SwaggoAnnotation, GoStructField]
 pub fn bind_producer(session: &prism::navigation::NavigationSession, schema: &SchemaIndex,
-                     repo: &RepoIdentity, opts: &ProducerOptions) -> BindingsDocument;
+                     snapshot: &SnapshotInput, opts: &ProducerOptions) -> BindingsDocument;
 ```
 
 CLI: `prism-boundary bind --role producer --api <name> --repo <dir> --schema <file.json> --out <bindings.json>`.
@@ -686,8 +718,8 @@ CLI: `prism-boundary bind --role producer --api <name> --repo <dir> --schema <fi
 |---|---|---|
 | g01 | one `@Router` line in a method's doc comment | one `bound` binding to that method |
 | g02 | two `@Router` lines on one function | two bindings, same function |
-| g03 | annotation, blank line, `func` | no binding; the operation is `operation_without_producer` |
-| g04 | annotation path not in the schema | listed under `unbound` as `annotation_without_operation`; warning `schema_stale_against_code` |
+| g03 | annotation, blank line, `func`, including an agreeing registration | Missing annotation binding. Preserve the registration and withhold any stale warning from the gap alone. |
+| g04 | annotation path absent from a complete schema inventory | Record `annotation_without_operation`. Test a linked, comparable registration contradicting the schema and a missing/partial registration. Only demonstrated schema/code disagreement earns `schema_stale_against_code`. |
 | g05 | the same operation annotated on two functions | both as `candidate` |
 | g06 | struct field tagged `json:"name,omitempty"` in `p.T` | every wire field whose `definition` is `p.T` and whose last segment is `name` is `bound` to it |
 | g07 | field tagged `json:"-"` | nothing |
@@ -696,31 +728,106 @@ CLI: `prism-boundary bind --role producer --api <name> --repo <dir> --schema <fi
 | g10 | generated file (`// Code generated … DO NOT EDIT.`) holding annotations | bindings kept; a note in `evidence` |
 | g11 | two definitions with the same wire fields, one renamed | struct bindings follow the `definition` attribute; field ids unchanged |
 
-**Gate:** on P, bound operations at least F1's prototype figure minus 2 points; zero `bound` bindings that
-the F1 cross-check contradicts without a recorded explanation.
+**Gate.** On P, reach at least 98% annotation-bound operations (F1 observed 199 of 199). Account for every
+contradiction in the original cross-check of 162 registrations. Preserve differing registration and annotation
+evidence in the document. Reconcile all 162 study cross-checks against fresh registration records by site,
+including uncovered and contradictory cases, and record the registration/declaration census per DESIGN 7.2.
+Drop the annotation in an agreeing case and vary the method and path separately in linked drift cases. Assert
+both authorities and zero bindings from the evidence reader.
 
-### Slice P3: consumer bindings (3 to 4 days)
+### Slice P2-R: route-table producer and schema source (beside P2)
 
-**Interfaces (produced):**
+Implement DESIGN 5.1–5.3, 5.5 and 5.6 after P1. Start with the **prototype-derived route-table adapter**. It emits
+operation declarations and source/coverage records from admitted route entries and spec at each revision. Put it
+behind a route-source interface returning plugin identity where applicable, original method/path/tokens,
+root/suffix evidence, constraints, declaration/endpoint sites, validation evidence and per-file/entry diagnostics.
+The derived index has `schema.source.derived = "route_table"`, a structural `content_hash`, and no schema-file byte
+hash. Keep declaration-site, handler-reference and handler-function coverage separate, especially for inline
+handlers and imported validators. This source supplies operation-level impact.
 
-```rust
-pub struct ClientSpec { /* file, export, methods (member paths allowed), call, hook, fetcher_arg, url_arg,
-                           strip_prefix, add_prefix, response_root */ }
-pub struct ConsumerConfig { pub aliases: BTreeMap<String, String>, pub clients: Vec<ClientSpec> }
-pub fn load_config(path: &Path) -> anyhow::Result<ConsumerConfig>;
-pub enum UrlClass { Literal, Template, Dynamic, Conditional }
-pub fn url_pattern(parsed: &prism::ast::ParsedFile, arg: tree_sitter::Node) -> (Option<String>, UrlClass);
-pub fn match_operation(method: &str, pattern: &str, schema: &SchemaIndex) -> MatchResult;
-    // Bound(id) | Candidates(ids, reason) | Unbound(reason)
-pub fn bind_consumer(session: &prism::navigation::NavigationSession, schema: &SchemaIndex,
-                     repo: &RepoIdentity, config: &ConsumerConfig, caller_depth: usize) -> BindingsDocument;
-```
+CLI: `prism-boundary bind --role producer --api <name> --repo <tree> --route-table <spec> --out <bindings.json>`.
+Compare two admitted route sets using the same interface as a schema-file source. Bind the spec and its plugin
+selector, mount, method/path/handler/validation keys, resolver/lookup containers and era to the selected revisions.
+Implement every policy field in DESIGN 5.3, including custom star sets, verb case, capture dialect and joins,
+version defaults, router options and entry-option keys. Test identical star entries under all, finite and absent
+policies, a missing/unknown option, internal-only, vhost competitors and a scoped mount. Run each through actual
+extraction as well as the P1 projection. Inventory uses of each option on R before assessing the gate.
+Keep registration and configuration evidence separate. A suffix never acquires a public address by string
+similarity.
 
-CLI: `prism-boundary bind --role consumer --api <name> --repo <dir> --schema <file.json> --config <toml>
---caller-depth 2 --out <bindings.json>`.
+**Second source, provisional dependency.** The route-model lane's listing requires its S1 and later Hapi slice (PR
+#882 §11.5). P2-R can produce both documents and measurements from the first source while this dependency is
+pending. This exception reuses the prototype in the boundary crate while lane 12 owns framework extraction.
+When the reviewed listing is available, replace the extraction input behind the interface and run the same
+contract fixtures. Do not sum duplicate declarations from the two readers. If the upstream contract changes, keep
+the first source and report the difference before accepting the listing.
 
-**Seed rows:** every assertion of Task F-3's tests, every row of Task E-2's `rows.tsv` (the data-driven test
-`consumer_matrix_rows`, enabled in this slice's first commit and shown RED), plus:
+| Input or condition | Required record or refusal |
+|---|---|
+| Proven path from a root, matching method/protocol, constraints and unique endpoint or certified delegate | `bound` with `proven` provenance. Keep the proof and endpoint location. |
+| `receiver.status=router`, `receiver.proof=plugin_contract`, `paths[].status=suffix`, `root=null`, `reason=no_known_mount` | Config must identify exactly one `receiver.plugin` by defining file, object_byte and effective name where known. Compose its configured mount with `paths[].value` and `path_tokens`. Match exactly one compatible operation in the derived declaration index on tokens, method/protocol and constraints, and require a resolved endpoint or certified delegate. Label a resulting unique binding `configured`. Keep config source/revision/entry, mount, plugin identity, original suffix and `mount_refusal` (`hapi_registration_unproven` or `no_known_mount`). The source record remains a suffix. |
+| Missing/ambiguous plugin or mount, dynamic leaf, protocol/constraint mismatch, competing endpoints or only a pre-callback | Preserve declaration, refusal and possible sites. Zero configured/proven endpoint credit. Duplicate method/path declarations keep each candidate site. |
+| Static entry with an inline expression, named local handler, imported handler or unresolved expression | A direct function/arrow literal supplies its own endpoint span. A name needs a resolved target, a factory/delegate needs separate proof. Record a declaration site even on refusal. An imported validation object needs its own admitted dependency. |
+| Literal method list, true any-method, colon capture, optional segment, fixed-width or unlimited wildcard | Follow DESIGN 5.1 tokens and IDs, including `op:* <path>`. Test matching with an exact-method tie, width mismatch and a missing mount. |
+| Unsupported path/method, unknown spread, changed registrar shape, skipped file or an entry outside the scoped registrar | Record the reason and affected region. A missing extraction does not prove deletion. A proved removal in comparable inventories gives `OpRemoved`. |
+
+**Gate.** Pass the neutral declaration, token, provenance, refusal and derived-diff rows. On R, under private
+custody, compare the share of route entries extracted with method/path to F5 on the same population (at least
+prototype share minus two percentage points). Report numerator, census denominator, exclusions and source for each
+result. F5 observed 399 declared routes, 393 inline handlers, 118 proven validation objects and 124 more with
+imported/unseen validation. Its resolved-handler baseline was zero. Publish counts for direct literals, resolved references, unresolved
+expressions and proven versus configured bindings separately. The old handler threshold gives no positive evidence. The
+provisional listing has zero root chains for about 400 entries, with 57 of 59 plugin prefixes supplied through
+variables, and **configured yield is unmeasured** until this gate runs. The study's mount window begins in May
+2023. Compare only revisions with admitted evidence for the mount applicable then. Run the private-name check
+before any later publication. On the study population the design predicts up to 393 recovered inline endpoint
+sites from the literal rule (393 if all reported inline functions are directly in handler position and admitted).
+Measure this separately from uniquely mounted/compatible bindings. Record all P2-R cut counts from DESIGN 7.2,
+including possible suffix-only negatives and the non-API fallback. Exercise the role selector by exact declaration
+span and by numbered entry, including a stale selector. With only a mounted GET /api/a and an undesignated root
+tail, GET /api/b gives `unbound/fallback_only`, partial role coverage and no target. A designated fallback is
+overlap only. An ordinary tail in evidenced API scope remains eligible. Check the possible unplaced suffix override.
+
+### Slice P3: consumer inventories and matching (4 to 5 days)
+
+Implement DESIGN 5.1, 5.2, 5.4–5.6 and 9. Run R's configuration first, then P's. Implement one
+`match_operation(request, authority)` for bind-time optional previews and for impact-time comparison. Its result
+retains each input pair, primary/alternates/overlaps, reasons, source and completeness. A consumer scan takes the
+admitted client tree, root, config sources and caller depth. A schema is optional for extraction. Return a
+versioned `BindingsDocument` with every counted call's raw target, site and caller evidence plus per-file/per-entry
+coverage. A saved preview freezes the actual inventory and its dependencies under DESIGN 5.2 even on an empty
+match set. Version both public era configs and R's scoped config. Bind each hook export and default fetcher to
+its source or mark defaults unconfigured, record document URL and producer origins, and specify wrapper
+normalization and zero-based options positions. Test the Alignment list's numbered identity-prefix mapping
+to each configured client's own fixture API after applying its declared prefix policy once. In the 37 listed
+template-client configs, admit the mapping with its factory and settings dependencies and check all 47 listed
+invocations, including `s20` and `s22-3`. With just the API mapping withheld, keep the observed site, prefix
+and readable request components. Assert **Not checked** (`origin_unchecked`), zero confirmed targets and zero notifications.
+
+CLI:
+`prism-boundary bind --role consumer --api <name> --repo <tree> --config <toml> [--schema <json>] --caller-depth 2 --out <bindings.json>`.
+
+**Rows.** Enable the data-driven test over all **306** E-2 rows in the slice's first change. Test the amended rule
+or the exact scoped accepted loss for every row, plus F-3 controls where the rule is retained. Exercise
+alias/baseUrl and barrel resolution, fetch and axios aliases/factories, bound invocations, hook object keys and
+inline fetchers, single-assignment templates, finite endpoint tables, mixed segments, multiline cleanup and unknown
+spreads. Verify dynamic-method precedence, literal shadows with overlapping and disjoint typed domains, prefix
+provenance, origin ambiguity, variable-length route tokens and exact-method/wildcard ties. Independently test
+unknown file/region coverage. Record excluded syntactic forms separately from counted unbound sites.
+Check `url-concat-parenthesized` on numeric and opaque operands, and a readable GET alternative paired with
+an opaque method on the same readable URL. Require the GET candidate with `dynamic_method`, or unbound with
+that reason if GET has no match. Exercise an empty component against `{}`, `{?}` and `{*0+}` with the
+separator policy fixed. At mapped `s05`, require bound `op:GET /mothbank/orchards/{}` with no unmatched arm.
+The whole-component string variable is assumed non-empty under the syntactic path model.
+At mapped `s09` and `s09-2`, the declared string domain gives `candidate/ambiguous_operation` with the two
+candidate IDs in each Alignment list entry and zero notifications. Check the conditional overlap with the other
+mixed declaration at each site under the suffix or prefix condition in that entry. Substitute
+the literal `""` to bind only the generic route. Substitute `"wax"` to get `%2Fwax` and `wax-ridge-gold`,
+respectively. At each site both routes match the two whole literals. With these primary counts equal, require
+one affix point for the mixed route and zero for the generic route, giving a bound mixed route with the generic overlap. With a symbolic numeric
+substitution, require the same binding by structural pattern equality. In `matching-tie-without-parameter-on-literal`,
+both compatible GET declarations for `/press/copper/leaf` score two whole literals and zero affix points.
+Require `candidate/ambiguous_operation` with both IDs.
 
 | Row | Input | Required |
 |---|---|---|
@@ -728,55 +835,108 @@ CLI: `prism-boundary bind --role consumer --api <name> --repo <dir> --schema <fi
 | c02 | client name rebound by a parameter or local | not a client call |
 | c03 | a call of a member the configuration does not list (`request.upload(u)`); a client method passed as a hook's fetcher | the call: in the denominator, `unbound`, reason `unknown_client_method`; the fetcher argument: not a call site |
 | c04 | hook key that is an array whose first element is a URL `const` | bound by the first element |
-| c05 | URL `const` assigned twice | not followed; `dynamic` |
+| c05 | Local initialized to `/reels`, conditionally assigned an opaque URL on a live arm | Mutable fixture gives `candidate/conditional_url`, GET /reels and an uncovered arm. The original const assignment throws on that arm, leaving only GET /reels at the call. |
 | c06 | call in an anonymous callback | binding kept; `callers` may be empty |
-| c07 | `fetch(url, { method: 'POST' })`, `fetch(url)`, `fetch(url, opts)` with non-literal `opts` | POST; GET; `unbound`, reason `dynamic_method` |
+| c07 | `fetch(url, { method: 'POST' })`, `fetch(url)`, `fetch(url, opts)` with opaque `opts` | POST; GET; `unbound`, reason `dynamic_method` |
 | c08 | two operations tie on score | both `candidate` |
 | c09 | `strip_prefix` and `add_prefix` set | stripped, then added, before matching |
 | c10 | call bound, enclosing function called from two components | both in `callers` at depth 2 |
-| c11 | client `{}` facing only a schema literal | `candidate`, reason `client_parameter_on_literal` |
+| c11 | client parameter facing only one feasible literal | `candidate`, reason `client_parameter_on_literal`. A disjoint declared domain cannot match |
 | c12 | hook whose fetcher is `request.instance.post` | method POST |
 | c13 | client imported through a barrel and through a relative path | both recognised |
 | c14 | `${apiUrl}?q=${x}` with `apiUrl` a module-level literal `const` | literal path of the `const` |
 | c15 | a client shape the grammar cannot express | in the denominator, `unbound`, reason `unconfigured_client_form` |
 
-**Gate:** on P, unique matches at least F2's figure minus 2 points; a fresh 50-row sample of `bound`
-bindings has at most 2 wrong (reader task R1, on a *decided* sample, DESIGN 6.2); every row of Task E-2 passes or is an accepted loss named at
-stage D. Private-first order only: on R (local, Claude seats), a fresh 50-row sample of `bound` joins has at
-most 2 wrong. Tier-A does not apply (no resolution change).
+**Gate.** All 306 row dispositions are accounted for, including reason and denominator checks for the losses. On P,
+the bound share must be at least 75% (F2's 77% minus two percentage points). Report any change in denominator under
+the revised counting rule. Apply DESIGN 6.2 on each pair, locally under private custody on R. Draw 50 bound
+joins when available (at most two wrong, with the existing one-time extension for an undecided sample). With
+1–49 bound joins inspect all, require at least 80% decided rounded up and at most two wrong. Zero bound joins
+or an exhausted undecided population is inconclusive. Print pair-specific counts by grade, basis and
+reason. R's study baseline is 236 bound, 2 candidate and 78 unbound out of 316, with 83.9% recoverable patterns.
+On the same 316 occurrences give the transition from each old grade, including retained configured joins out
+of the original 236 (same site and same operation), lost/retargeted joins by reason, new joins, denominator
+changes and net delta. Count product-only joins separately. The owner decision on minimum retained configured
+yield defaults to **report, no floor** (DESIGN 8). P4 still requires a shared evidenced join on R. On both
+pins reconcile actual per-cut counts to D-census in DESIGN 7.2. Include unknown origins/defaults, mixed branches, finite crossings, fallback-only, suffix competitors,
+selector and other-API controls. Check their effects on negatives, totals and notifications.
 
-### Slice P4: diff and impact commands (3 to 4 days)
+### Slice P4: diff, impact JSON and Markdown (both pairs)
 
-**Interfaces (produced):**
+Include DESIGN 5.1, 5.2, 5.4–5.6 and REPORT-DESIGN.md (A1) in this slice's brief. Implement A1's product evidence,
+JSON and rendering tables. The deliverable is the first product report on **both** pairs. `prism-boundary diff`
+reads the two admitted schema or route-table sources for a service diff.
+`prism-boundary impact --comparison <manifest> [--changed <elements.json>] --format json|md` selects input slots
+and direction. The manifest references role documents, trees, mode/cutoff, config provenance and dependency
+receipts. Keep the service-diff shorthand `--old <source> --new <source> --bindings <file>...` for identified
+service pairs. Resolve the same slots and mark missing cutoff or configuration evidence unchecked in either form.
+For service changes compare two service snapshots to one client. For client changes compare two clients to one
+service. For joint changes check both actual pairs and both rollout orders. Schema files are required only for
+schema claims. Validate a supplied change list against its admitted sources, expand definition IDs, and apply the
+same coverage checks.
 
-```rust
-pub enum BindingStatus { BindingCurrent, BindingStale, ElementUnknown }
-pub fn impact(changes: &[ElementChange], old: &SchemaIndex, new: &SchemaIndex,
-              bindings: &[BindingsDocument]) -> ImpactDocument;
-```
+**Comparison and rendering gates**
 
-CLI: `prism-boundary diff --old <a.json> --new <b.json>`;
-`prism-boundary impact --old <a.json> --new <b.json> [--changed <elements.json>] --bindings <file>... --format json|md`
-(`--changed` replaces the built-in diff; both schemas are still required, DESIGN 5.2).
-
-**Rows:** removed operation with a bound consumer → listed with its callers; changed field → the operation
-whose wire tree holds it, its consumer bindings marked `scope: "operation"`, and field-read bindings marked
-`scope: "field"` when present; documents join on (api, id) only (two documents with different `api` never
-meet); per changed element and consumer document, `binding_current`, `binding_stale` or `element_unknown`
-by DESIGN 5.6, including a consumer bound against an older producer revision in another repository (dates
-compared) and a consumer bound before the element existed; a formatting-only schema regeneration gives no
-`schema_mismatch`; a bindings document whose content hash is neither the old nor the new one →
-`schema_mismatch` warning naming the hashes, and one bound against the new schema → no warning; a
-definition-level change in `--changed` expands to the field ids of every operation reaching it
-(`operations_reaching`); a route-table-derived schema source (no `sha256`) joins by content hash; `repo.dirty` → `rev_dirty`
-warning; `inputs` repeats each input document's api, repository, revision, date, schema source and tool
-build; a changed element with no binding in any document → listed under `unobserved`, never omitted;
-`candidate` bindings appear in a separate list from `bound`.
-
-**Gate:** the Markdown output for three of the memo's ten replay changes names the same consumer locations
-as the prototype's reports.
+1. Rematch **every** admitted raw call, including previously unbound ones. Assert API, role, tree, scope,
+   configuration and dependencies per slot. Exercise live, historical and selected-version modes, a missing ref or
+   saved inventory, wrong revision, dirty substitutes, equal timestamps, target-to-merge in both repository setups,
+   a receipt-bound computed tree with exact-blob links, and conflict without a result. Verify saved-current/stale,
+   present-with-no-saved-match, established absence and unchecked alongside fresh matches. Form `unobserved` only
+   from complete admitted membership, including producer bindings.
+2. Golden JSON must validate against the A1 impact schema. Exercise additions/removals, status-only and mixed
+   field edits, retained declaration/handler edits, client edits with and without correspondence, wildcard ties,
+   lower overlaps and prefix hints. Remove each required evidence record in turn and mark a file or entry unknown
+   on either side. Verify all affected cells, totals, notifications and empty states. On R show configured and
+   proven results separately and fields unchecked without a schema.
+3. The product's `impact --format md` renders that frozen JSON as the A1 review: plain-language result and action,
+   versions and coverage, one group per operation with service evidence first, both client matches, callers,
+   limits, standing differences, bounded preview and complete linked Markdown appendix. Check the exact source/side
+   of each link, all preview limits including lists inside cells, and one count per comparable site. Produce a
+   separate evaluation companion. Change or remove hindsight records after freezing and require byte-identical live
+   Markdown and JSON.
+4. **Three-report replay gate.** Before any product run for these subjects, produce and pin the public A1
+   version-2 renders from prototype PR #886. Resolve `refs/pull/886/head` in `shoedog/prism` and pin the
+   reachable renderer commit `028c7d1bf3200ced0a8fa53c7a4155c2eba45231` (renderer change `11f06c91`).
+   Verify that exact commit before rendering and record the ref and resolved SHA. The public v2 report
+   directory is `~/prism-evidence/boundary-impact/feasibility/reports-v2/public/`. Populate it using the
+   pinned batch renderer on the ten P subjects or import its byte-verified renders. Pin full producer/renderer/input commits, input receipts, clock, config,
+   scope, slots and SHA-256 of live Markdown and JSON in the manifest. The tracked memo reports and class index
+   supply subject selection only. Select the first three by DESIGN 6.4 (counted classes in the stated order,
+   one per commit, newest first within class). The index gives 01 `f93fb6b7`, 02 `7a036f21`, 03 `f723d120`.
+   Freeze each reference occurrence's prototype ID, client tree, repository-relative path, blob, half-open
+   byte span of the invocation, version, group, grade and evidence before seeing product output. If a render
+   gives only a line or ordinal, resolve the invocation uniquely against the pinned source before freezing.
+   Consolidate repeated presentations of the same occurrence and keep all its groups. An unresolved span or
+   conflicting occurrence records for one key leave that comparison pending.
+   Require at least one frozen reference occurrence and one evidenced shared location in each selected report. For each reference occurrence record
+   reproduced with the same supported result, changed with independently checked evidence, or lost with measured
+   refusal, cause and affected coverage. Report retained/changed/lost over the full population per subject.
+   Keep the selected subjects fixed if one is empty or loses all shared coverage. Every product-only claim
+   likewise needs its own evidence. Within each subject/comparison, join one-to-one on (client tree, path,
+   blob, byte span). Keep both engine IDs in the receipt, null on the missing side. For a shared occurrence
+   require equal target IDs, before/after grades and reasons on the same evidence. A changed result must
+   identify the additional evidence or scope difference that accounts for it. Test a product-only call earlier
+   in the same blob that shifts the shared call from ordinal 1 to 2. Pair the shared span once, preserve its
+   two IDs and account for the earlier span as product-only, even if its ordinal equals the reference ID.
+   Compare direction, versions, unknowns, actions,
+   Markdown locations and appendix links against JSON. Empty shared coverage, an unexplained loss or a missing
+   input/render keeps the gate pending.
+5. **Admission and rendering.** Run A1's pre-freeze test from raw inputs with fixed query, clock and receipts.
+   Vary/withhold unadmitted refs, config, saved schema, subject lists, restorations and later history. Compare
+   the set of reports emitted and their bytes including unselected/restored subjects. Changing an admitted
+   declaration must change its row. Independently pass the post-freeze byte-identity gate above. For the neutral
+   GET→POST joint case assert both real matches and both rollout failures with separate site keys in all four
+   comparison maps, then render directly from those frozen results.
+6. Render the first report for each pair. R must show at least one evidenced producer endpoint and consumer
+   occurrence joined on the same operation under an admitted scoped mount or root. Disclose configured versus
+   proven basis. Publish aggregates only. Reconcile P4's saved-inventory and lost-location counts with D-census.
 
 ### Slice P5: field level (5 to 6 days; 1 day if step 1 is negative)
+
+Run P5 on P only. P4 supplies call/operation links for both pairs. On R the route source has no committed field
+schema. On P use DESIGN 5.1, 5.2 and 5.4 and A1's JSON-media, status and per-path coverage rules. A matched
+operation, a field spelled in source and a linked field read are separate evidence records. If the measurement
+fails, each affected report still states that client field use was not checked.
 
 **Step 1, Task F-4 (measure F3), run first.** Branch `eval/schema-impact-field-reads`.
 
@@ -792,43 +952,48 @@ as the prototype's reports.
   *detail* (other GET), *mutation* (POST, PUT, DELETE). Sort eligible operations by id, shuffle with the
   seed, take up to 4 per class, and fill a short class from the others. Record the class sizes and the
   number of operations excluded as inline or shared.
-- `fields.start_lines(call, callers_json) -> list[(file, line)]`: the call's own line, and, when the call is
-  the returned value of its enclosing function (a `return` operand or an arrow body), the line of every
-  call site of that function that `prism nav callers --symbol <function> --file <file> --format json`
-  reports (depth 1).
-- `fields.reads_from_edges(edges_jsonl, start_lines, response_root, max_hops=6) -> set[(file, line, path)]`:
-  start from every edge endpoint that is a definition on a start line; follow edges forward, of any label
-  except `doubt: "killed"` (the definition does not reach that use), across functions, up to `max_hops`; collect use endpoints whose access path has at least one field,
-  rendered `f1.f2` from the record's `path` object (base dropped). `response_root` is the configured root:
-  empty when the client already returns the part under it.
-- `oracle/field_refs.mjs <tsconfig> <type name> <property>`: prints `file:line` of every reference to that
-  property, with the TypeScript at `~/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3`.
+- `fields.result_defs(call, edges, callers) -> (definition_ids, coverage)`: identify the exact request expression
+  by repo/tree, blob and byte span. Use its result definition or the uniquely evidenced assignment of that
+  result. For a returned result, follow only evidenced return-to-caller-result edges for that invocation (one
+  caller level). Link each definition to the occurrence, binding and typed path. A file/line or name alone
+  cannot distinguish sibling expressions or later definitions. If the dump lacks spans or def-use identity,
+  join to admitted AST/binding evidence that distinguishes them, otherwise record an unavailable seed and
+  retain the call and its oracle reads in the measurement.
+- `fields.reads_from_edges(edges, definition_ids, response_root, max_hops=6)`: follow value-preserving def-use
+  edges forward from those definitions, respecting kills, reassignments and function boundaries. Submit unique
+  (call occurrence, read occurrence at file/blob/span, typed path) records. Retain property, array and map
+  steps, including the configured response root.
+- `oracle/field_refs.mjs` returns TypeScript property-reference spans and typed paths for the selected type.
+  Check their relation to the selected request. Pin oracle version and adjudicate coverage at the same
+  occurrences. Type/spelling equality alone cannot establish attribution.
 
-**Scoring.** For a *detail* or *mutation* operation, the scored fields are `idx.response_fields(op,
-response_root)`; for a *list* operation, the property names one level below the array (under
-`#/<root>/[]` or `#/<root>/list/[]`). *Found*: an oracle reference and a prism read at the same file and line
-whose path starts with that field (after the array step for list operations). *Missed*: an oracle reference
-with no such read. *Wrong*: a prism read whose path, after the same step, does not start with one of the
-fields.
+**Scoring.** Predeclare eligible response fields under the configured root, including list item fields below
+`[]` or `list/[]`. Freeze the initial oracle set and the entire set of submitted reads for these calls.
+Match one-to-one on the exact call occurrence, read occurrence and typed path. Adjudicate unmatched submissions
+for incomplete oracle coverage using the source and value flow, recording each decision. Add verified oracle
+omissions to the reference set before final scoring. All remaining unmatched submissions, including undecided
+ones and same-named reads on unrelated values, count against precision. Recall is found / all reference reads.
+Precision is found / **all submitted reads**. A zero denominator or an unverifiable reference population cannot
+pass. Report raw and adjudicated totals and coverage per operation.
 
 - [ ] In the clone's `ui/` directory, install the client dependencies with the package manager its lockfile
       names, scripts disabled (`--ignore-scripts`) and the lockfile frozen. This needs the network. If it
-      fails, write "F3 oracle: reader-labelled" in the ledger; a Sonnet-5.5 reader then lists the reads of
-      each field by reading the call's file and its callers.
-- [ ] Unit-test `reads_from_edges` on a hand-written JSONL in the shape `nav dfg-stats --edges` prints
-      (`{"from":{"file","line","path":{"base","fields"},"access"},"to":{…},"confidence":…,"doubt":…}`): a
-      call-line definition, a reassignment, two member reads, one cross-function edge, one unrelated edge,
-      one read reached only by a `killed` edge; expect the member paths, without the killed one. Implement. Commit.
+      fails, write "F3 oracle: reader-labelled" in the ledger; a Sonnet-5.5 reader then labels the exact call/read spans and typed paths under the same scoring contract.
+- [ ] Test two definitions and two reads of `shade` on the same lines, only one from the chosen call. Include a
+      second request, a killed edge, duplicate edge, list item, return-to-caller result and ambiguous seed.
+      Assert occurrence/path sets. Deliberately submit the other object's same-named read and verify precision
+      drops. Removing the exact seed must expose missing coverage and any missed reference reads.
+
 - [ ] Build prism for the dump: `~/prism-evidence/tools/memguard.sh 8 cargo build --release` in the
       worktree; `target/release/prism --version` must show the worktree's `git rev-parse --short HEAD`.
 - [ ] Dump edges once: `memguard.sh 8 target/release/prism nav --no-cache dfg-stats --repo <P clone>
       --edges > feasibility/edges.jsonl`.
 - [ ] For the selected operations: oracle references from `field_refs.mjs` with the client's `tsconfig.json`
       (or the reader). Compare with `reads_from_edges`.
-- [ ] `feasibility/F3.md`: per operation: fields, oracle reads, found, missed, wrong; the totals; and the
+- [ ] `feasibility/F3.md`: per operation: fields, seeded and unseedable calls, oracle reads, all submissions, found, missed, unmatched and adjudications, recall and precision, and the
       three most common reasons for a miss (for example: value stored in component state, value passed
       through a hook). One reviewer on the eval PR.
-- [ ] **Decision:** at least 50% of oracle reads found with at most 10% wrong → continue with step 2.
+- [ ] **Decision:** recall ≥50% and precision ≥90% with both denominators nonzero → continue with step 2.
       Otherwise P5 ends here: the pilot is operation-level with producer struct fields only; record the
       DESIGN section 7 row in the ledger.
 
@@ -838,72 +1003,59 @@ outside the facade's compatibility promise, as `OwnerFailure` and `OwnerArgs` ar
 with its own test in the core crate. Then `consumer/field_reads.rs`: step 1's procedure and scoring, in
 Rust, matching reads to wire fields under the configured `response_root`. Rows come from F3's miss reasons;
 each miss class is either a row that must pass or an accepted loss named in the README. **Gate:** on step 1's
-operations, found reads at least F3's figure, wrong reads at most 10%.
+operations, retain at least F3's found reads and precision ≥90% by the same submission rule.
 
-### Slice P6: replay gate, documentation, the other pair (3 to 4 days)
+### Slice P6: replay gate and documentation for both pairs (3 to 4 days)
 
-- [ ] `eval/schema_impact/replay.py` gains `--engine product` (runs `prism-boundary bind`, `diff` and `impact`
-      instead of the prototype extractors). **Gate:** every location the memo counted is predicted again,
-      and the outcome shares (`same_commit`, `later`, `present_at_pin`) are within 5 points of the memo's.
+Both producer adapters and both consumer configurations were scheduled before P4. P6 runs the product replay and
+documents the final per-pair results. Keep the evaluation companion and measured history window distinct from the
+A1 live review. R's configured mount must be admitted for each replayed version. Report the private replay only in
+aggregates, without attributing lift where there were no controls.
+
+- [ ] Add `--engine product` to the replay driver. Freeze the memo's original usable-change cohorts, pins,
+      prediction rule and outcome observation window per pair. Require every reader-counted replay location
+      again at its original (change commit, element, client revision and occurrence), reconcile lost and new
+      predictions, and report the product denominator.
+- [ ] Independently require **at least 95%** of the original predicted locations on **each** pair (DESIGN 8).
+      Freeze every reference location before the product run. Join on the original change, element and
+      client occurrence using P4's source key. Count each reference location still predicted for that change
+      and element once. The denominator includes all original predictions, including lost or unchecked ones.
+      Report retained, lost and product-only counts. Only retained locations enter the numerator. Round the
+      required count up, giving minima of 185 of 194 on P and 60 of 63 on R.
+- [ ] Each of the three bucket shares must be within **5 percentage points** of its own pair's reference share,
+      assessed independently. Use all predicted locations on that pair's frozen cohort as denominator, including
+      unresolved follow-ups as unknown, and show counts and shares. A zero denominator or missing cohort fails.
+
+| Pair and frozen population | Outcome reference counts and denominator | Comparison basis |
+|---|---|---|
+| P, F4, 37 usable first-parent commits at the public pin | `same_commit` 33/194, `later` 70/194, `present_at_pin` 91/194 | Same-repository parent calls, first-parent touches through the pin, 616 controls separate. Recover all 8 counted F4 locations. |
+| R, F5, 42 usable route-change commits in the recorded mount window, predictions on 22 | `within_14_days` 62/63, `later` 1/63, `present_at_head` 0/63 | Date-aligned consumer revision, touches through its frozen head. Recover all 5 counted replay locations. No controls. |
+
+Check the three gates independently. On P, product buckets of 30 same-commit, 72 later, 89 present and three
+unknown pass the share test over 194. On R, 58 within 14 days and five later fail the share test even if all
+63 locations are retained. Retaining only the five reader-counted R locations, all within 14 days, passes the
+share test and the reader-counted test but fails retention at 5/63. Adding unrelated product locations cannot
+repair that shortfall.
+
+The companion scores the historical selection and buckets. A1 renders the admitted change independently. Record
+a gate miss with its cause even when the live review contains a new supported result.
+
 - [ ] Once that gate passes, remove the prototype's extractors, matcher and schema reader
       (`producer_go.py`, `producer_route_table.py`, `consumer_ts.py`, `match.py`, `mismatch.py`, `config.py`,
       `schema.py`, `ids.py`, `fields.py` and their tests) in the same PR; keep the replay driver and the
       renderer.
 - [ ] `crates/prism-boundary/README.md`, a short user guide `docs/boundary-impact.md`, a paragraph in
       `CLAUDE.md` (crate, documents, grades, what is out of model).
-- [ ] Public-first order: the `route_table` producer adapter and route-table schema source for pair R
-      (exactly slice P2-R below, its rows and its gate), with public fixtures only; R's numbers recorded
-      privately; the private-name check before every commit. Private-first order: the `swaggo_annotation`
-      and `go_struct_field` adapters for P (exactly slice P2's interfaces, rows and gate).
+- [ ] Re-run the P2, P2-R and P3 gates for their respective pairs, with configured/proven counts, denominators,
+  unbound reasons and coverage. Document the P4 version-2 report comparison and P5 measurement outcome. Keep
+  private evidence local.
 - [ ] Close the tracking issue with the acceptance numbers; file follow-ups for protobuf, federation, MCP
       exposure and a Go or Python service-consumer adapter as separate issues, not started.
 
-### Private-first variant
-
-Applied when the owner's go-ahead names the private-first order. P1, P4 and P5 are unchanged (P's OpenAPI
-reader is built because P's replay is the regression gate; P5 runs on P because R has no field source). P3
-adds R's private configuration and the R gate written in its gate line. P6 is as written above.
-
-#### Slice P2-R: route-table producer and schema source (3 to 4 days)
-
-**Interfaces (produced):**
-
-```rust
-pub struct RouteTableSpec { pub register_callee: String, pub method_key: String, pub path_key: String,
-                            pub handler_key: String, pub validation_keys: Vec<String>, pub mount: String }
-pub fn route_table_schema(session: &prism::navigation::NavigationSession, spec: &RouteTableSpec,
-                          api: &str, source: SchemaSource) -> SchemaIndex;   // format RouteTable, operations only,
-                                                                            // sha256 None, content_hash over operations
-// ProducerAdapter::RouteTable(spec) binds each operation to its handler function
-```
-
-CLI: `prism-boundary bind --role producer --api <name> --repo <dir> --route-table <spec.toml> --out
-<bindings.json>` and `prism-boundary diff --old-repo <dir>@<rev> --new-repo <dir>@<rev> --route-table
-<spec.toml>` (the change list between two revisions' route sets). The spec file for R is private.
-
-**Seed rows** (public synthetic fixtures with invented names; stage T adds the F5 residue classes written
-neutrally; stage E runs the tiers):
-
-| Row | Input | Required |
-|---|---|---|
-| r01 | one entry with literal method and path inside the configured registration call | one operation; one `bound` binding to the handler function |
-| r02 | a colon parameter in the path | `{}` in the id |
-| r03 | a method that is a list or a wildcard | `unbound`, reason `unsupported_method` (until stage D says otherwise) |
-| r04 | a path that is not a string literal | `unbound`, reason `dynamic_route` |
-| r05 | `mount` set | prepended to every path |
-| r06 | handler named by a function in the same file; by a function imported from a repository file; by an expression that resolves to no function | `function` set; `function` set; site only, reason `handler_unresolved` |
-| r07 | an entry outside any registration call | ignored |
-| r08 | the same method and path in two entries | both `candidate` |
-| r09 | two revisions, one route removed | `OpRemoved` for its id |
-| r10 | derived schema document | `schema.source.derived = "route_table"`, no `sha256`, `content_hash` present |
-
-**Gate:** every public row passes; on R (local, Claude seats, private): route entries extracted with method
-and path at least F5's prototype figure minus 2 points, and route entries with a resolved handler at least
-F5's figure minus 2 points; the private-name check on every commit.
-
 ## Acceptance for the lane
 
-Part 1 is done when the memo is merged and posted and the owner has rated the private reports (or declined
-to). Part 2 is done when, on P at the pinned revision: the P2 (or, in the private-first order, the P2-R and
-the P6 swaggo) gates and the P3 gate hold on the final head, the P6 replay gate holds, both reviewers
-approved each slice, and the README lists every unbound reason with its count on P (and, privately, on R).
+The memo records feasibility separately from owner ratings. D-census is due before P1. Product acceptance requires the P2, P2-R, both P3 and
+both-pair P4 gates, P5's measured decision and P6's replay gate on the final product head. Record each review
+outcome and every unbound reason and count (P publicly, R under private custody). State the route source used,
+proven/configured counts, accepted losses and remaining coverage. Run the full suite before merging product changes
+to main.
