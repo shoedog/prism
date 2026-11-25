@@ -39,12 +39,15 @@ the 540 matrix expectations and 300 source-only candidates, including the accept
   `rules`, no tag in the description. Built-in refs come only from named `prism::rule_registry`
   rows through the shared writer. S2-R precedes any lane 7 id publication. Whichever slice first
   publishes lane 4's row adds its core constant in the same PR. S2-JS migrates existing side-set
-  evidence if lane 4 merged first (DESIGN 5.2).
+  evidence if lane 4 merged first (DESIGN 5.2). Lane 4 dispatches its sink slice only after S2-W has
+  merged (the shared `attach_rules` writer exists from then on); its non-publishing work continues meanwhile.
 - Before lane 8 I-9 dispatch, the orchestrator sends lane 8 the S2-R dependency on its tracking
   issue (I-9 plan in #881). Reconcile the move manifest and stop rule on the integrated tree.
   The registry lives in core. `prism-review` re-exports it. I-9 imports `prism::rule_registry`
   directly in `prism-taint`, omits the old review registry file from its moves, and reads the
-  classifier's `SinkHit` through accessors.
+  classifier's `SinkHit` through accessors. The same accessor contract is sent to lane 8 before its I-8
+  dispatch (I-8 reads `SinkHit.rule`/`.cwe` today), so no lane 8 slice is dispatched on a base where those
+  fields are private without it.
 - Weighted lines measured with `python3 scripts/file_size.py` at `30216157813a` follow.
   Recount touched files on the dispatch base. Only `contract_slice.rs` in this inventory exceeds
   1,000. S1 added 12 lines there. New logic belongs in the slice modules named below.
