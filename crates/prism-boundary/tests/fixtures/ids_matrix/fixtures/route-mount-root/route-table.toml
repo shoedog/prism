@@ -4,3 +4,6 @@ path_key = "path"
 handler_key = "handler"
 validation_key = "validate"
 mount = "/"
+
+path_dialect = "brace"
+join_policy = "single_separator_root"

@@ -1,0 +1,7 @@
+{
+  "receiver": "kiln",
+  "version": "1",
+  "tail_aliases": {
+    "/mugs/{*0+}": "/mugs"
+  }
+}

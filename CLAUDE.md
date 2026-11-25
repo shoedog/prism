@@ -514,7 +514,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v189) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v190) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -582,6 +582,13 @@ alias of a refused formal (seam, eval, `arguments`) are not aliases. See the kno
 residual list. `PRISM_RD_CENSUS_TRACE=1` names the owners as
 `rd-census-owner<TAB>param-alias|param-bare<TAB>file<TAB>owner<TAB>first<TAB>last`. See
 `docs/features/language-coverage/js-ts-known-gaps.md` §6.
+
+JS/TS/TSX positional bindings read the argument list by the call node's full byte span and source
+callee name, so inner and outer calls in a chain have separate arguments. A dense array-literal
+spread such as `f(...[0, 1], x)` advances the fixed-slot offset by its syntactic length, including
+through parentheses and runtime-transparent TypeScript wrappers. A hole, a spread element in the
+array, or a non-literal spread operand makes later positions unknown. The spread itself contributes
+no argument-to-formal edge. Object-literal field flow retains its spread-argument exclusion.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

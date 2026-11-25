@@ -1,0 +1,9 @@
+schema_api = "match-literal-wins"
+schema_path = "schema.json"
+
+[[client]]
+file = "quay.ts"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"

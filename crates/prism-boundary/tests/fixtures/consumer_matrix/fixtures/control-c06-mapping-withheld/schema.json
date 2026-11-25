@@ -1,0 +1,41 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay counting",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/cairns": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/calipers": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

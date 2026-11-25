@@ -1,0 +1,76 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay hooks",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/cairns": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/lanterns": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/cairns/{mark}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "mark",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/basalt": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/calcite": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

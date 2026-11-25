@@ -1,0 +1,14 @@
+{
+  "api": "sable-quay",
+  "origin": "https://sable-quay.invalid",
+  "coverage": "checked",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/mugs/{*0+}",
+      "retain_separator": true,
+      "api_scope": "/mugs",
+      "allow_empty_after_separator": true
+    }
+  ]
+}
