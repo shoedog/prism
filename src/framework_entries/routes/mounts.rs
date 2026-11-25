@@ -2,6 +2,7 @@
 
 mod events;
 mod graph;
+mod paths;
 
 use super::*;
 
@@ -15,18 +16,35 @@ pub struct Event<K> {
     /// Shared identifier for slots processed in one native call.
     pub call: Option<usize>,
     pub key: K,
+    /// A proved failure of this item independent of an earlier slot.
+    pub rejection: Option<Reason>,
     pub target: Target,
 }
 
 /// Indices refer to the input record arrays. A route seed describes its local
 /// path and constraints, with `Full` indicating a literal path at this stage.
 pub enum Target {
-    Route(usize, Exposure),
-    Mount(usize, MountEpoch),
+    Route {
+        record: usize,
+        path: Exposure,
+        effective_methods: MethodSet,
+    },
+    /// A mount's disjoint slots are consecutive, share one record and epoch,
+    /// and include the remainder (key: None) if it can install. Relations
+    /// compare individual slots and prove writes only within their scope.
+    Mount {
+        record: usize,
+        epoch: MountEpoch,
+        key: Option<MountKey>,
+    },
     Internal,
 }
 
-#[derive(Clone, Copy)]
+/// Adapter-local request-key partition for a mount record.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MountKey(pub usize);
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum MountEpoch {
     /// Read the child at the parent's listing or capture epoch.
     Live,
@@ -63,7 +81,19 @@ pub trait Relation<K> {
     fn interact(&self, earlier: &Event<K>, later: &Event<K>) -> Interaction;
     /// Apply native path/host/transform rules. Return false for a proved
     /// impossible chain. A preexisting suffix is only a known tail.
-    fn join(&self, mount: &Mount, path: &mut Exposure) -> bool;
+    fn join(&self, mount: &Mount, path: &mut Exposure, effective_methods: &MethodSet) -> bool;
+    /// Classify a joined child exposure at the parent dispatcher. Adapters
+    /// partition any potentially colliding exposure (including opaque paths)
+    /// into a scoped slot and return None for the disjoint remainder. Split
+    /// independently modeled leaf keys into separate route seeds.
+    fn mount_key(
+        &self,
+        _mount: &Mount,
+        _joined: &Exposure,
+        _effective_methods: &MethodSet,
+    ) -> Option<MountKey> {
+        None
+    }
     fn path_tokens(&self, value: &str) -> Option<Vec<PathToken>>;
 }
 

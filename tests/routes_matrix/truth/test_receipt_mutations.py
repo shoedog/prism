@@ -115,3 +115,13 @@ class ReceiptMutations(unittest.TestCase):
               f"{counts['rejected']}/{counts['tested']} corruptions rejected"
               f"; static-only: {dict(sorted(exceptions.items()))}")
         self.assertFalse(survivors, f"{len(survivors)} accepted corruptions: {survivors}")
+
+    def test_native_call_ordinal_rejects_a_json_boolean(self):
+        root = Path(__file__).resolve().parent.parent
+        row_id = "ex02"
+        row = read_jsonl(root / "rows.jsonl")[row_id][1]
+        truth = read_jsonl(root / "truth/truth.jsonl")[row_id][1]
+        digest = tree_sha256(root / row["dir"])
+        self.assertEqual(truth["calls"][0]["site"]["ordinal"], 1)
+        changed = corrupt(truth, ("calls", 0, "site", "ordinal"), False, True)
+        self.assertTrue(compare_receipt(row, changed, digest).differences)

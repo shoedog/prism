@@ -49,7 +49,10 @@ one-based lines and zero-based, half-open UTF-8 byte spans.
 - Resolved and anonymous callback slots include the callable's byte and line
   spans. An unresolved slot includes the written expression and reason. An
   unproven receiver gives every callback slot its refusal reason and clears
-  callable and delegate identities. `delegate` holds a separately proved forwarding target or null. Hapi
+  callable and delegate identities. If a decoded callable lacks its written
+  argument, the slot uses `<argument unavailable>` and the listing reports a
+  `callback_unproven` diagnostic at the declaration. `delegate` holds a
+  separately proved forwarding target or null. Hapi
   callbacks may include a pre-handler role and stage. Table records retain the
   complementary element or installation site and ordinal. Identified Hapi
   objects also carry `origin_plugin`, including on candidates.
@@ -62,15 +65,21 @@ one-based lines and zero-based, half-open UTF-8 byte spans.
 Live mounts see registrations installed later. Snapshots read the source at
 the copy event, including nested copies. Deferred events contribute at a
 proved activation point. A cycle stops at the repeated instance with
-`mount_cycle`. Each source origin can retain 64 distinct exposures plus an
-`expansion_truncated` suffix. The mount listing retains all recorded edges.
+`mount_cycle`. Each source origin can retain 64 distinct exposures. A result
+or traversal limit adds an `expansion_truncated` marker, a suffix for a
+literal seed or a dynamic exposure for a dynamic seed. The mount listing
+retains all recorded edges.
 
 A conditional exposure carries `setup_guard` and earns no unconditional
 schema credit. An overwrite adds `superseded_keys` to the earlier source
 record. Uncertain installation can leave a `dispatch_conflict` suffix.
 Installed alternatives with uncertain dispatch keep their full paths and
-block the contested methods. A proved rejection blocks binding for its root
-with `binding_blocked: "any"`. Source records and written callbacks survive
+block the contested methods on potentially colliding keys. A proved
+rejection blocks every binding for its attributed setup root, inferred
+from the dispatcher when the dispatcher is itself a selected root. Without
+either attribution the listing reports a diagnostic and fails closed on
+every selected root. In both cases affected exposures carry
+`binding_blocked: "any"`. Source records and written callbacks survive
 these cuts. An impossible chain or a `build_only` declaration has no
 exposure through that chain or declaration.
 

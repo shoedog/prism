@@ -59,7 +59,7 @@ def validate(row, truth, digest):
         if call_kind == "route" and callbacks:
             yield f"truth.calls[{index - 1}].callbacks", [], callbacks
         if (type(call_id) is not int or call_id != index or call_kind not in KINDS[framework]
-                or site["ordinal"] != ordinals[key] or call["mounted"] is not (origin_id is not None)
+                or type(site["ordinal"]) is not int or site["ordinal"] != ordinals[key] or call["mounted"] is not (origin_id is not None)
                 or (framework != "express" and call["framework"] != framework)
                 or (origin_id is not None and (origin_id not in calls or calls[origin_id]["kind"] != call_kind))):
             yield f"truth.calls[{index - 1}]", "sequential native call with a valid site and origin", call

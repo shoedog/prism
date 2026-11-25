@@ -109,7 +109,11 @@ fn composition_distinguishes_installation_uncertainty_and_dispatch_priority() {
     assert_eq!(origin(&table, 6).paths[0].shadowed, Some(Some(false)));
     assert_eq!(origin(&table, 7).paths[0].shadowed, Some(Some(true)));
     assert_ne!(origin(&table, 8).paths[0].shadowed, Some(Some(true)));
-    for i in [2, 9, 10] {
+    assert_eq!(
+        origin(&table, 2).paths[0].binding_blocked,
+        Some(MethodSet::known(["GET"]))
+    );
+    for i in [9, 10] {
         assert_eq!(origin(&table, i).paths[0].binding_blocked, None);
     }
 }

@@ -76,15 +76,16 @@ fn composition_keeps_guards_suffixes_cycles_and_impossible_chains_distinct() {
         leaf(1, 4, "/denied", ("b", "co-install")),
         leaf(2, 5, "/orphan", ("c", "co-install")),
         Event {
-            target: Target::Route(
-                3,
-                exposure(
+            target: Target::Route {
+                record: 3,
+                path: exposure(
                     None,
                     ExposureStatus::Dynamic {
                         reason: Reason::RegexPath,
                     },
                 ),
-            ),
+                effective_methods: MethodSet::ANY,
+            },
             ..leaf(3, 1, "", ("d", "co-install"))
         },
     ]);

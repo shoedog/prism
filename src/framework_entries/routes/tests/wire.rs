@@ -398,3 +398,75 @@ fn mount_records_preserve_prefix_variants_guards_and_realm() {
         }),
     );
 }
+
+#[test]
+fn mount_wire_order_breaks_site_and_ordinal_ties_canonically() {
+    let first = mount(30, 0, 0);
+    let mut parent_call = first.clone();
+    let Receiver::Router { identity, .. } = &mut parent_call.parent else {
+        unreachable!()
+    };
+    identity.invocations.push(Invocation::Call {
+        file: "app.py".into(),
+        start_byte: 12,
+        end_byte: 19,
+    });
+    let mut child_call = first.clone();
+    let Receiver::Router { identity, .. } = &mut child_call.child.receiver else {
+        unreachable!()
+    };
+    identity.invocations.push(Invocation::Call {
+        file: "app.py".into(),
+        start_byte: 22,
+        end_byte: 29,
+    });
+    let mut other_child = first.clone();
+    other_child.child.receiver = router_receiver(42);
+    let mut realm = first.clone();
+    realm.child.realm = Some(vec![RealmFrame {
+        file: "app.py".into(),
+        start_byte: 30,
+        end_byte: 40,
+        item_ordinal: 0,
+    }]);
+    let mounts = vec![first, parent_call, child_call, other_child, realm];
+    let render = |mounts| {
+        use crate::navigation::routes::RouteFormat;
+        RouteFormat::Json.render(
+            Ok(RouteTable::new(vec![], mounts, vec![], vec![], [])),
+            true,
+        )
+    };
+    assert_eq!(
+        render(mounts.clone()),
+        render(mounts.into_iter().rev().collect())
+    );
+}
+
+#[test]
+fn decoded_callable_on_unproven_receiver_has_placeholder_and_diagnostic() {
+    let mut route = literal_route("'/x'", "/x", 12);
+    route.receiver = Receiver::Unproven {
+        reason: Reason::ImportedUnproven,
+    };
+    route.callbacks = serde_json::from_value(json!([{
+        "position":0, "status":"resolved", "file":"app.js", "name":"handler",
+        "start_line":1, "end_line":1, "start_byte":0, "end_byte":7, "delegate":null
+    }]))
+    .unwrap();
+    let table = RouteTable::new(vec![route], vec![], vec![], vec![], []);
+    assert_eq!(
+        table.summary().diagnostics,
+        [Diagnostic {
+            site: site(12),
+            reason: Reason::CallbackUnproven
+        }]
+    );
+    assert_eq!(
+        table.routes()[0].callbacks[0].status,
+        CallbackStatus::Unresolved {
+            text: "<argument unavailable>".into(),
+            reason: Reason::ImportedUnproven
+        }
+    );
+}

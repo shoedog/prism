@@ -2,15 +2,19 @@ use super::*;
 use std::ops::Range;
 
 pub(super) struct Replay {
-    slots: Vec<Slot>,
+    pub(super) slots: Vec<Slot>,
     pub(super) failures: Vec<FailedRoot>,
     pub(super) diagnostics: Vec<Diagnostic>,
 }
 
-struct Slot {
+pub(super) struct Slot {
+    pub(super) start: usize,
     end: usize,
+    guarded: bool,
     uncertain_from: usize,
     contests: Vec<Contest>,
+    pub(super) cuts: Vec<DispatchCut>,
+    pub(super) refusal: Option<Reason>,
 }
 
 struct Contest {
@@ -38,17 +42,26 @@ impl Version {
     }
 }
 
+impl Slot {
+    fn possibly_absent(&self, at: usize) -> bool {
+        self.guarded || self.uncertain_from <= at
+    }
+
+    fn withhold_installation(&mut self, at: usize) {
+        self.uncertain_from = self.uncertain_from.min(at);
+    }
+}
+
 impl Replay {
     pub(super) fn versions(&self, index: usize) -> Vec<Version> {
         let slot = &self.slots[index];
-        let start = index + 1;
-        let span = start..slot.end;
-        let mut cuts = BTreeSet::from([start, slot.end]);
+        let span = slot.start..slot.end;
+        let mut cuts = BTreeSet::from([slot.start, slot.end]);
         cuts.extend(std::iter::once(slot.uncertain_from).filter(|at| span.contains(at)));
         for contest in &slot.contests {
             let other = &self.slots[contest.other];
             cuts.extend(
-                [contest.other + 1, other.end, other.uncertain_from]
+                [other.start, other.end, other.uncertain_from]
                     .into_iter()
                     .filter(|at| span.contains(at)),
             );
@@ -62,14 +75,17 @@ impl Replay {
                 let mut shadowed = None;
                 for contest in &slot.contests {
                     let other = &self.slots[contest.other];
-                    if (contest.other + 1..other.end).contains(&at) {
-                        let conditional = uncertain || other.uncertain_from <= at;
-                        if conditional || contest.loses {
+                    if (other.start..other.end).contains(&at) {
+                        if contest.loses {
                             block(&mut binding_blocked, &contest.methods);
                         }
                         set_shadow(
                             &mut shadowed,
-                            if conditional { None } else { contest.shadowed },
+                            if slot.possibly_absent(at) || other.possibly_absent(at) {
+                                None
+                            } else {
+                                contest.shadowed
+                            },
                         );
                     }
                 }
@@ -92,220 +108,295 @@ pub(super) fn replay<K>(
     relation: &impl Relation<K>,
 ) -> Replay {
     let mut replay = Replay {
-        slots: events
-            .iter()
-            .map(|_| Slot {
-                end: events.len() + 1,
-                uncertain_from: usize::MAX,
-                contests: vec![],
-            })
-            .collect(),
+        slots: slots(events, mounts),
         failures: vec![],
         diagnostics: vec![],
     };
     let mut dispatchers: BTreeMap<&RouterId, Vec<usize>> = BTreeMap::new();
-    let mut rejected_calls = BTreeSet::new();
+    let mut rejected_calls = BTreeMap::new();
     for (i, event) in events.iter().enumerate() {
-        let at = i + 1;
-        if !admitted(event, routes, mounts)
-            || event
-                .call
-                .is_some_and(|call| rejected_calls.contains(&call))
-        {
+        let at = replay.slots[i].start;
+        if !admitted(event, routes, mounts) {
             replay.slots[i].end = at;
             continue;
         }
+        if let Some(&(rejected_at, reason)) = event
+            .call
+            .as_ref()
+            .and_then(|call| rejected_calls.get(call))
+        {
+            if rejected_at < at {
+                replay.slots[i].end = at;
+                replay.slots[i].refusal = Some(reason);
+                continue;
+            }
+        }
+        if let Some(reason) = event.rejection {
+            replay.slots[i].end = at;
+            replay.slots[i].refusal = Some(reason);
+            if !replay.slots[i].guarded {
+                replay.reject(roots, event, reason);
+                rejected_calls.extend(event.call.map(|call| (call, (at, reason))));
+            }
+            continue;
+        }
+
         let active = dispatchers.entry(&event.dispatcher).or_default();
         active.retain(|&prior| at < replay.slots[prior].end);
+        // Resolve admission against the original state before applying writes
+        // to any earlier slot on this dispatcher.
         let mut comparisons = Vec::new();
+        let mut uncertain_admission = false;
         for &prior in active.iter() {
-            let earlier = &events[prior];
-            let guarded = |event: &Event<K>| match &event.target {
-                Target::Route(_, path) => path.setup_guard.is_some(),
-                Target::Mount(index, _) => mounts[*index].setup_guard.is_some(),
-                Target::Internal => false,
-            };
-            let interaction = match relation.interact(earlier, event) {
-                Interaction::Reject(methods)
-                    if guarded(event)
-                        || guarded(earlier)
-                        || replay.slots[prior].uncertain_from <= at =>
-                {
-                    Interaction::Unknown {
-                        methods,
-                        keep_earlier: true,
-                    }
+            if replay.slots[prior].start == at {
+                continue;
+            }
+            let interaction = relation.interact(&events[prior], event);
+            let prior_possible = replay.slots[prior].possibly_absent(at);
+            match &interaction {
+                Interaction::Reject(methods) if !prior_possible && !replay.slots[i].guarded => {
+                    let reason = Reason::DispatchConflict;
+                    replay.slots[i].end = at;
+                    replay.slots[i].refusal = Some(reason);
+                    replay.reject(roots, event, reason);
+                    rejected_calls.extend(event.call.map(|call| (call, (at, reason))));
+                    replay.slots[i]
+                        .cuts
+                        .push(cut(roots, event, &events[prior], methods, reason));
+                    break;
                 }
-                Interaction::Overwrite(methods) if guarded(event) => Interaction::Unknown {
-                    methods,
-                    keep_earlier: false,
-                },
-                Interaction::Priority { methods, priority }
-                    if (matches!(priority, Priority::Earlier { .. }) && guarded(earlier))
-                        || (matches!(priority, Priority::Later { .. }) && guarded(event)) =>
-                {
-                    Interaction::Priority {
-                        methods,
-                        priority: Priority::Unknown,
-                    }
+                Interaction::Skip if !prior_possible => {
+                    replay.slots[i].end = at;
+                    replay.slots[i].refusal = Some(Reason::DispatchConflict);
+                    break;
                 }
-                interaction => interaction,
-            };
-            if matches!(interaction, Interaction::Reject(_) | Interaction::Skip) {
-                replay.slots[i].end = at;
-                if let Interaction::Reject(methods) = interaction {
-                    rejected_calls.extend(event.call);
-                    cut(
-                        routes,
-                        roots,
-                        event,
-                        earlier,
-                        &methods,
-                        Reason::DispatchConflict,
-                    );
-                    if let Some(root) = setup_root(event, roots) {
-                        replay.failures.push(FailedRoot {
-                            root: root.clone(),
-                            site: event.site.clone(),
-                            reason: Reason::DispatchConflict,
-                        });
-                    } else {
-                        replay.diagnostics.push(Diagnostic {
-                            site: event.site.clone(),
-                            reason: Reason::DispatchConflict,
-                        });
-                    }
+                Interaction::Reject(_) | Interaction::Skip | Interaction::Unknown { .. } => {
+                    uncertain_admission = true;
                 }
-                break;
+                _ => {}
             }
             comparisons.push((prior, interaction));
         }
         if replay.slots[i].end == at {
             continue;
         }
+        if uncertain_admission {
+            replay.slots[i].withhold_installation(at);
+        }
+        let conditional_write = replay.slots[i].possibly_absent(at);
         for (prior, interaction) in comparisons {
-            let earlier = &events[prior];
-            match interaction {
-                Interaction::Disjoint | Interaction::CoInstall => {}
-                Interaction::Overwrite(methods) => {
-                    replay.slots[prior].end = at;
-                    cut(routes, roots, earlier, event, &methods, Reason::Superseded);
+            replay.apply(roots, events, i, prior, conditional_write, interaction);
+        }
+        active.push(i);
+    }
+
+    for (event, slot) in events.iter().zip(&replay.slots) {
+        if let Target::Route { record, .. } = event.target {
+            for cut in &slot.cuts {
+                record_cut(&mut routes[record], cut.clone());
+            }
+        }
+    }
+    replay.failures.sort();
+    replay.failures.dedup();
+    replay.diagnostics.sort();
+    replay.diagnostics.dedup();
+    replay
+}
+
+fn slots<K>(events: &[Event<K>], mounts: &[Mount]) -> Vec<Slot> {
+    let mut out = Vec::with_capacity(events.len());
+    for group in events.chunk_by(|a, b| {
+        matches!((&a.target, &b.target),
+            (Target::Mount { record: left, epoch: left_epoch, .. },
+             Target::Mount { record: right, epoch: right_epoch, .. })
+                if a.dispatcher == b.dispatcher && left == right && left_epoch == right_epoch)
+    }) {
+        let start = out.len() + group.len();
+        out.extend(group.iter().map(|event| Slot {
+            start,
+            end: events.len() + 1,
+            guarded: match &event.target {
+                Target::Route { path, .. } => path.setup_guard.is_some(),
+                Target::Mount { record, .. } => mounts[*record].setup_guard.is_some(),
+                Target::Internal => false,
+            },
+            uncertain_from: usize::MAX,
+            contests: vec![],
+            cuts: vec![],
+            refusal: None,
+        }));
+    }
+    out
+}
+
+impl Replay {
+    fn reject<K>(&mut self, roots: &[RouterId], event: &Event<K>, reason: Reason) {
+        let mut record = |root: &RouterId| {
+            self.failures.push(FailedRoot {
+                root: root.clone(),
+                site: event.site.clone(),
+                reason,
+            });
+        };
+        match event.setup_root.as_ref() {
+            Some(root) if roots.contains(root) => record(root),
+            Some(_) => {}
+            None if roots.contains(&event.dispatcher) => record(&event.dispatcher),
+            None => {
+                roots.iter().for_each(record);
+                self.diagnostics.push(Diagnostic {
+                    site: event.site.clone(),
+                    reason,
+                });
+            }
+        }
+    }
+
+    fn apply<K>(
+        &mut self,
+        roots: &[RouterId],
+        events: &[Event<K>],
+        i: usize,
+        prior: usize,
+        conditional_write: bool,
+        interaction: Interaction,
+    ) {
+        let at = self.slots[i].start;
+        let add_cut = |slot: &mut Slot, affected, competing, methods, reason| {
+            slot.cuts.push(cut(
+                roots,
+                &events[affected],
+                &events[competing],
+                methods,
+                reason,
+            ));
+        };
+        match interaction {
+            Interaction::Disjoint | Interaction::CoInstall | Interaction::Skip => {}
+            Interaction::Overwrite(methods) => {
+                let slot = &mut self.slots[prior];
+                let reason = if conditional_write {
+                    slot.withhold_installation(at);
+                    Reason::DispatchConflict
+                } else {
+                    slot.end = at;
+                    Reason::Superseded
+                };
+                add_cut(slot, prior, i, &methods, reason);
+            }
+            Interaction::Reject(methods) => add_cut(
+                &mut self.slots[i],
+                i,
+                prior,
+                &methods,
+                Reason::DispatchConflict,
+            ),
+            Interaction::Unknown {
+                methods,
+                keep_earlier,
+            } => {
+                add_cut(
+                    &mut self.slots[i],
+                    i,
+                    prior,
+                    &methods,
+                    Reason::DispatchConflict,
+                );
+                if !keep_earlier {
+                    self.slots[prior].withhold_installation(at);
                 }
-                Interaction::Unknown {
-                    methods,
-                    keep_earlier,
-                } => {
-                    replay.slots[i].uncertain_from = at;
-                    cut(
-                        routes,
-                        roots,
-                        event,
-                        earlier,
-                        &methods,
-                        Reason::DispatchConflict,
-                    );
-                    if !keep_earlier {
-                        let slot = &mut replay.slots[prior];
-                        slot.uncertain_from = slot.uncertain_from.min(at);
-                        cut(
-                            routes,
-                            roots,
-                            earlier,
-                            event,
+                // Earlier admission can be guaranteed even while its
+                // effective callback could lose to an admitted later slot.
+                self.slots[prior].contests.push(Contest {
+                    other: i,
+                    methods: methods.clone(),
+                    shadowed: None,
+                    loses: true,
+                });
+                add_cut(
+                    &mut self.slots[prior],
+                    prior,
+                    i,
+                    &methods,
+                    Reason::DispatchConflict,
+                );
+            }
+            Interaction::Priority { methods, priority } => {
+                let (first, second) = match priority {
+                    Priority::Unknown => ((None, true), (None, true)),
+                    Priority::Earlier { entire } => {
+                        ((Some(false), false), (entire.then_some(true), true))
+                    }
+                    Priority::Later { entire } => {
+                        ((entire.then_some(true), true), (Some(false), false))
+                    }
+                };
+                for (slot, other, (shadowed, loses)) in [(prior, i, first), (i, prior, second)] {
+                    self.slots[slot].contests.push(Contest {
+                        other,
+                        methods: methods.clone(),
+                        shadowed,
+                        loses,
+                    });
+                    if loses {
+                        add_cut(
+                            &mut self.slots[slot],
+                            slot,
+                            other,
                             &methods,
                             Reason::DispatchConflict,
                         );
                     }
                 }
-                Interaction::Priority { methods, priority } => {
-                    let (first, second) = match priority {
-                        Priority::Unknown => ((None, true), (None, true)),
-                        Priority::Earlier { entire } => {
-                            ((Some(false), false), (entire.then_some(true), true))
-                        }
-                        Priority::Later { entire } => {
-                            ((entire.then_some(true), true), (Some(false), false))
-                        }
-                    };
-                    for (slot, other, (shadowed, loses)) in [(prior, i, first), (i, prior, second)]
-                    {
-                        replay.slots[slot].contests.push(Contest {
-                            other,
-                            methods: methods.clone(),
-                            shadowed,
-                            loses,
-                        });
-                        if loses {
-                            cut(
-                                routes,
-                                roots,
-                                &events[slot],
-                                &events[other],
-                                &methods,
-                                Reason::DispatchConflict,
-                            );
-                        }
-                    }
-                }
-                Interaction::Reject(_) | Interaction::Skip => {
-                    unreachable!("terminal outcome handled before writes")
-                }
             }
         }
-        active.push(i);
     }
-    replay.failures.sort();
-    replay.failures.dedup();
-    replay
 }
 
 fn admitted<K>(event: &Event<K>, routes: &[Route], mounts: &[Mount]) -> bool {
-    match &event.target {
-        Target::Route(index, _) => {
-            let route = &routes[*index];
-            route.reason != Some(Reason::BuildOnly)
-                && matches!(route.receiver, Receiver::Router { .. })
+    let receiver = match &event.target {
+        Target::Route { record, .. } => {
+            let route = &routes[*record];
+            if route.reason == Some(Reason::BuildOnly) {
+                return false;
+            }
+            &route.receiver
         }
-        Target::Mount(index, _) => {
-            matches!(&mounts[*index].parent, Receiver::Router { identity, .. } if identity == &event.dispatcher)
-        }
-        Target::Internal => true,
-    }
-}
-
-fn setup_root<'a, K>(event: &'a Event<K>, roots: &[RouterId]) -> Option<&'a RouterId> {
-    event
-        .setup_root
-        .as_ref()
-        .or(Some(&event.dispatcher))
-        .filter(|root| roots.contains(root))
+        Target::Mount { record, .. } => &mounts[*record].parent,
+        Target::Internal => return true,
+    };
+    matches!(receiver, Receiver::Router { identity, .. } if identity == &event.dispatcher)
 }
 
 fn cut<K>(
-    routes: &mut [Route],
     roots: &[RouterId],
     affected: &Event<K>,
     competing: &Event<K>,
     methods: &MethodSet,
     reason: Reason,
-) {
-    let Target::Route(index, path) = &affected.target else {
-        return;
+) -> DispatchCut {
+    let setup_root = |event: &Event<K>| {
+        let root = event.setup_root.as_ref().unwrap_or(&event.dispatcher);
+        roots.contains(root).then(|| root.clone())
     };
-    let route = &mut routes[*index];
-    let cuts = if reason == Reason::Superseded {
+    DispatchCut {
+        root: setup_root(affected).or_else(|| setup_root(competing)),
+        method_guard: methods.clone(),
+        path: match &affected.target {
+            Target::Route { path, .. } => path.status.value().map(str::to_owned),
+            _ => None,
+        },
+        site: competing.site.clone(),
+        reason,
+    }
+}
+
+pub(super) fn record_cut(route: &mut Route, cut: DispatchCut) {
+    let cuts = if cut.reason == Reason::Superseded {
         &mut route.superseded_keys
     } else {
         &mut route.conflicts
-    };
-    let cut = DispatchCut {
-        root: setup_root(affected, roots)
-            .or_else(|| setup_root(competing, roots))
-            .cloned(),
-        method_guard: methods.clone(),
-        path: path.status.value().map(str::to_owned),
-        site: competing.site.clone(),
-        reason,
     };
     if !cuts.contains(&cut) {
         cuts.push(cut);

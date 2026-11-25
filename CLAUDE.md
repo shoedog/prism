@@ -253,9 +253,12 @@ and dynamic exposures, and resolved, anonymous and unresolved callbacks.
 Live mounts see later registrations, and copies use the source installation
 at capture. Suffix reasons include `no_known_mount`, `variable_prefix`,
 `mount_cycle`, `dispatch_conflict` and `expansion_truncated`. Dynamic leaves
-carry `non_literal_path` or `regex_path`. Dispatch cuts retain the source
-origin. A proved rejection records a failed root and blocks all bindings on
-that instance. See
+carry `non_literal_path`, `regex_path` or `expansion_truncated`. Dispatch cuts
+retain the source origin and apply to the potentially colliding keys. A
+proved rejection records the failed setup root and blocks every binding on
+that root. When the event lacks a setup root and its dispatcher is outside
+the selected roots, the rejection reports a diagnostic and blocks bindings
+on every selected root. See
 [the routes wire contract](docs/features/query-layer/navigation/routes.md).
 
 Navigation and CPG call resolution share one ordered ladder (S3),

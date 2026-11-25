@@ -1,5 +1,5 @@
 use super::*;
-use mounts::{compose, Event, Interaction, MountEpoch, Priority, Relation, Target};
+use mounts::{compose, Event, Interaction, MountEpoch, MountKey, Priority, Relation, Target};
 use std::cell::Cell;
 
 mod installation;
@@ -12,6 +12,13 @@ struct Synthetic {
 
 impl Relation<(&'static str, &'static str)> for Synthetic {
     fn interact(&self, earlier: &Event<Key>, later: &Event<Key>) -> Interaction {
+        if later.key.1 == "mix" {
+            return match earlier.key.0 {
+                "a" => Interaction::Overwrite(MethodSet::known(["GET"])),
+                "b" => Interaction::Reject(MethodSet::known(["GET"])),
+                _ => Interaction::Disjoint,
+            };
+        }
         if earlier.key.0 != later.key.0 {
             return Interaction::Disjoint;
         }
@@ -40,7 +47,7 @@ impl Relation<(&'static str, &'static str)> for Synthetic {
         }
     }
 
-    fn join(&self, mount: &Mount, path: &mut Exposure) -> bool {
+    fn join(&self, mount: &Mount, path: &mut Exposure, _: &MethodSet) -> bool {
         self.joins.set(self.joins.get() + 1);
         let ExposureStatus::Full { value } = &mut path.status else {
             return true;
@@ -52,6 +59,13 @@ impl Relation<(&'static str, &'static str)> for Synthetic {
             value.insert_str(0, prefix);
         }
         true
+    }
+
+    fn mount_key(&self, mount: &Mount, joined: &Exposure, methods: &MethodSet) -> Option<MountKey> {
+        (mount.site == site(8)
+            && joined.status.value() == Some("/api/x")
+            && methods == &MethodSet::known(["GET"]))
+            .then_some(MountKey(1))
     }
 
     fn path_tokens(&self, value: &str) -> Option<Vec<PathToken>> {
@@ -68,7 +82,17 @@ fn leaf(i: usize, dispatcher: usize, value: &str, key: Key) -> Event<Key> {
         site: site(100 + i),
         call: None,
         key,
-        target: Target::Route(i, exposure(None, full(value))),
+        rejection: None,
+        target: Target::Route {
+            record: i,
+            path: exposure(None, full(value)),
+            effective_methods: match key.0 {
+                "GET" => MethodSet::known(["GET", "HEAD"]),
+                "POST" => MethodSet::known(["POST"]),
+                "child-x" | "child-y" => MethodSet::known(["GET"]),
+                _ => MethodSet::ANY,
+            },
+        },
     }
 }
 
@@ -100,7 +124,12 @@ fn install(index: usize, mount: &Mount, mode: MountEpoch) -> Event<Key> {
         site: mount.site.clone(),
         call: None,
         key: ("mount", "co-install"),
-        target: Target::Mount(index, mode),
+        rejection: None,
+        target: Target::Mount {
+            record: index,
+            epoch: mode,
+            key: None,
+        },
     }
 }
 
@@ -108,11 +137,11 @@ fn catalog(events: &[Event<Key>]) -> Vec<Route> {
     let mut routes: Vec<_> = events
         .iter()
         .filter_map(|event| {
-            let Target::Route(i, path) = &event.target else {
+            let Target::Route { record, path, .. } = &event.target else {
                 return None;
             };
             let spelling = path.status.value().unwrap_or("config.path");
-            let mut route = literal_route(spelling, spelling, 100 + i);
+            let mut route = literal_route(spelling, spelling, 100 + record);
             route.receiver = Receiver::Router {
                 identity: event.dispatcher.clone(),
                 proof: None,
@@ -126,7 +155,7 @@ fn catalog(events: &[Event<Key>]) -> Vec<Route> {
                 delegate: None,
                 role: None,
             });
-            Some((*i, route))
+            Some((*record, route))
         })
         .collect();
     routes.sort_by_key(|(i, _)| *i);
@@ -148,3 +177,5 @@ fn literals(table: &RouteTable, index: usize) -> Vec<&str> {
         .filter_map(|p| p.status.value())
         .collect()
 }
+
+mod fold;
