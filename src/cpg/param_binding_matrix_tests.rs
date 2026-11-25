@@ -12,6 +12,15 @@ use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
 const ENABLED: &[&str] = &["control"];
+/// Doubt kinds as `dfg-stats --edges` spells them; `builtin_callback` is added by slice D.
+const LABEL_DOUBTS: &[&str] = &[
+    "killed",
+    "sameline",
+    "cfg_incomplete",
+    "alias_unstable",
+    "call_nameonly",
+    "builtin_callback",
+];
 const ROWS: &str = include_str!("../../tests/fixtures/param_binding_matrix/rows.jsonl");
 
 #[derive(Deserialize)]
@@ -456,7 +465,8 @@ fn flow_label(label: FlowConfidence) -> String {
                 }
                 label.push(c.to_ascii_lowercase());
             }
-            label
+            // The established spelling (`dfg-stats --edges`, navigation::queries) is one word.
+            label.replace("nameonly/call_name_only", "nameonly/call_nameonly")
         }
     }
 }
@@ -523,6 +533,26 @@ fn param_binding_matrix_rows() {
                 "{}: wrong row needs an issue",
                 row.id
             );
+        }
+        // Static pass over every row, enabled or not: label vocabulary (a misspelt label can
+        // never match, which a group that is not enabled yet would hide).
+        for assertion in &row.expect {
+            let label = match assertion {
+                Assertion::Edge { label, .. }
+                | Assertion::NoEdge { label, .. }
+                | Assertion::NoEdgeInto { label, .. } => label.as_deref(),
+                _ => None,
+            };
+            if let Some(label) = label {
+                assert!(
+                    label == "exact"
+                        || label
+                            .strip_prefix("nameonly/")
+                            .is_some_and(|doubt| LABEL_DOUBTS.contains(&doubt)),
+                    "{}: unknown label {label}",
+                    row.id
+                );
+            }
         }
         if !ENABLED.contains(&row.group.as_str()) {
             continue;

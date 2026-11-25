@@ -14,7 +14,7 @@ IDs. Shared JS-family fixtures run in each declared language.
 | `files` | Fixture filename to source map. The build helper uses the filename stem and the extension for the current language. Multi-file fixtures with explicit extensions in imports use a single language. |
 | `expect` | Nonempty list of assertions |
 | `class` | Census metric and shape, or baseline control class |
-| `truth` | `correct`, `wrong` or `ambiguous`. `wrong` means the row pins the existing unimported-export resolver defect, including rows that require later binding admission to refuse that resolution. |
+| `truth` | `correct`, `wrong` or `ambiguous`. `wrong` means the row pins the existing unimported-export resolver defect, including rows that require later binding admission to refuse that resolution. | `correct` means a correct implementation must produce the stated outcome at run time and under the design; `ambiguous` means the required outcome is a design decision still open (the row is settled at stage D, and an assertion pinned on only one side of the open question is a defect of the row).
 | `issue` | Required for `wrong` rows |
 | `unexecuted` | Reason the assertion needs a measurement or design decision beyond the fixture APIs. The test prints the ID and skips that row. |
 
@@ -534,3 +534,8 @@ failures. Restore `ENABLED` to `&["control"]` afterward.
 `x3-16`, `x3-17`, `x3-18`, `x3-19`, `x4-9`, `x4-10`, `x4-11`, `x4-12`, `x4-13`, `x4-14`,
 `x4-15`, `x4-16`, `x4-17`, `x4-18`, `x4-19`, `x5-9`, `x5-10`, `x5-11`, `x5-12`, `x5-13`,
 `x5-14`, `x5-15`, `x5-16`, `x5-17`, `x5-18`.
+
+
+## Rows that are not enabled (model boundary)
+
+Rows carrying `unexecuted` beginning `model boundary, not enabled:` need run-time reasoning the design excludes (reflection, runtime mutation of built-ins, dead calls, accessors, module-object mutation). They are skipped by the test and listed as accepted-loss candidates for the design of record. The test also validates every row's label vocabulary whether or not its group is enabled.
