@@ -1066,11 +1066,17 @@ All operation suffixes below share the `/answer/admin/api` prefix.
 | PUT `/siteinfo/general` | Removed `check_update` | 1 |
 | PUT `/siteinfo/login` | Removed `login_required` and made `require_email_verification` required | 2 |
 
-The owner-facing location inventory *The 33 withheld Apache Answer predictions* records the individual rows.
+Frozen prediction IDs (change prefix `:pred:` number) of the 13 unchecked rows: `661d8a7f8fec:2`, `7085cfa7ed54:2`,
+`8d421ae5d5ac:2`, `73cfbace7090:1`, `73cfbace7090:2` (interface); `61b10a854ff6:3`, `530812f81097:9` (privileges);
+`530812f81097:2` (smtp); `530812f81097:5`, `530812f81097:6` (write); `3264fdd1d90f:2` (general); `3264fdd1d90f:6`,
+`3b6f981b81ca:1` (login). The 20 removed are `f05f1eb80d10:20` to `:34` (write) and `fed37f873d0a:1` to `:5`
+(interface). Outcome buckets (28/50/83 and the splits above) come from the frozen replay records of the P6 driver
+(one record per change, `outcome.kind` per predicted location); P6 regenerates them and freezes the file before the
+product run.
 Carry the unchecked rows into P4/P6 by frozen change commit, operation, direction/status, field path and client
 occurrence. Preserve the original field ID when known and identify the missing evidence.
 
-**Prototype replay.** At the `origin/main` revision recorded in the owner-facing rerun receipt, the prototype
+**Prototype replay.** At `origin/main` commit `14c74b4cd39264f6cdff1b3eb07c88b8e234f463` (the owner-facing rerun receipt), the prototype
 matched 172 of 174 accounted locations. With the 13 unchecked rows withheld by the media rule, 159 of 161
 scored locations match. The floor allows eight misses in total. The 159/161 result already reflects the two
 misses below, which the frozen reader labelled false predictions. They are outside the eight required recoveries.
@@ -1105,15 +1111,19 @@ misses below, which the frozen reader labelled false predictions. They are outsi
 
 The frozen replay accounts for 15 `later` and five `present_at_pin` among the removals, and five `same_commit`,
 five `later` and three `present_at_pin` among the unchecked. The share of later client edits moves from 36.08%
-to 31.06%, a drop of 5.02 percentage points that exceeds the five-point tolerance against the original 194
-shares. `same_commit` rises 0.38 points and `present_at_pin` rises 4.64 points.
+to 31.06%, a drop of 5.02 points between the displayed percentages (5.03 from exact ratios), which exceeds the five-point tolerance against the original 194
+shares. `same_commit` rises 0.38 points and `present_at_pin` rises 4.64 points between displayed percentages (4.65 exactly).
 
 **Open owner question with default (DESIGN §8).** Which reference and tolerance should P6 use for P?
+
+Every share comparison uses exact count ratios (count over denominator), never the rounded displayed percentages;
+the 5.02-point figures above are differences of displayed values. Under every option the product's share
+denominator is the 161 scored locations.
 
 - **A (default).** Re-base the five-point band on the frozen scored-group shares (17.39%, 31.06%, 51.55%) and
   print the original 194-based shares and the deltas beside them in the report.
 - **B.** Keep the original 194-based shares. A product that reproduces the scored group exactly fails the
-  `later` check by construction, with a 5.02-point difference.
+  `later` check by construction, with a difference of 5.02 points.
 - **C.** Keep the original reference and widen the tolerance to six points for `later` only.
 
 Changing the choice later requires re-scoring only. No implementation depends on it. The latest cheap point
