@@ -177,7 +177,7 @@ fn check_bad_pin_input(repo: &str, diff: &str, invalid_field: &str) {
     let manifest = temp.path().join("inputs.tsv");
     fs::create_dir_all(root.join("repo")).unwrap();
     let empty_capture = r#"{"results":[],"all_findings":[],"findings":[],"runs":[],"targets":[]}"#;
-    let mut rows = String::from("id\trepo\tdiff\n");
+    let mut rows = String::from("name\trepo\tdiff\n");
     for i in 0..INPUT_COUNT {
         fs::write(root.join(format!("{i}.diff")), "").unwrap();
         rows.push_str(&format!("{i}\trepo\t{i}.diff\n"));
