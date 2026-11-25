@@ -66,6 +66,12 @@ pub(crate) struct SinkHit {
 }
 
 impl SinkHit {
+    const LEGACY: Self = Self {
+        rule: "legacy",
+        cwe: None,
+        strength: Strength::Strong,
+    };
+
     const fn new(rule: &'static str, cwe: &'static str) -> Self {
         Self {
             rule,

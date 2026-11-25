@@ -120,6 +120,8 @@ cargo test --test integration coverage_test::      # Coverage matrix
 
 The review layer is the workspace crate `crates/prism-review` (package `prism-review`, library `prism_review`, binary `prism`; #734, the 4.0.0 split). It depends on the `prism` core library; the core never depends on it. Its tests are `crates/prism-review/tests/cli/` (the `cli` umbrella target) plus its inline `src/` unit tests.
 
+`output::rule_registry` holds the public taint IDs and their immutable metadata. A built-in producer uses the named `RuleInfo` constant to make a reference and `check_emitted` to validate the ID, CWE and algorithm. Registering a rule does not publish it in findings.
+
 - `output/` — Output formatters: `mod.rs`, `review.rs`, `review_compact.rs`, `mermaid.rs`, `sarif.rs` (SARIF 2.1 serializer), `sarif_rules.rs` (rule descriptions + pure mapping helpers), `sarif_model.rs` (serde model structs). Nav evidence rendering lives in core (`src/navigation/render.rs`) and is re-exported as `output::navigation`, so `output::navigation::` paths resolve.
   `to_review_output_for` and `to_compact_review_output_for` take a per-result `ResultView`.
   `SarifInputs::context` selects the same-review maps for taint grading and fingerprint line text.

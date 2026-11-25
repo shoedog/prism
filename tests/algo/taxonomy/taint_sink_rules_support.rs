@@ -166,13 +166,15 @@ fn fixture_inputs(
 
 pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::SliceResult {
     let (files, diff) = fixture_inputs(path, language, source);
-    algorithms::run_slicing_compat(
+    let result = algorithms::run_slicing_compat(
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
         None,
     )
-    .unwrap()
+    .unwrap();
+    assert_unactivated_rules(&result);
+    result
 }
 
 /// Run taint with caller-supplied sink names. This skips evidence alignment and diagram
@@ -189,7 +191,22 @@ pub fn findings_with_sinks(
         extra_sinks: extra_sinks.iter().map(|&name| name.to_string()).collect(),
         ..TaintConfig::default()
     };
-    taint::slice(&CpgContext::build(&files, None), &diff, &config).unwrap()
+    let result = taint::slice(&CpgContext::build(&files, None), &diff, &config).unwrap();
+    assert_unactivated_rules(&result);
+    result
+}
+
+#[track_caller]
+fn assert_unactivated_rules(result: &prism::slice::SliceResult) {
+    for finding in &result.findings {
+        assert!(
+            finding.rules.is_empty(),
+            "unexpected rules in an unactivated fixture at {}:{}: {:?}",
+            finding.file,
+            finding.line,
+            finding.rules,
+        );
+    }
 }
 
 pub fn sink_on_marker(path: &str, language: Language, source: &str) -> bool {

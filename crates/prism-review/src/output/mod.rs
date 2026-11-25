@@ -7,6 +7,7 @@ pub mod mermaid;
 pub mod onboarding;
 pub mod review;
 pub mod review_compact;
+pub mod rule_registry;
 pub mod sarif;
 mod sarif_model;
 mod sarif_rules;
