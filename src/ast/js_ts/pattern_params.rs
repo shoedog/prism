@@ -67,9 +67,16 @@ impl ParsedFile {
         self.js_ts_pattern_bound_names_with_decoder(list, &mut names, |name| Some(name.to_owned()));
         // The accessor reports syntax, even on an early-error list. The producer
         // separately preserves its owner guard on those lists.
-        let escaped = names.iter().any(|name| name.contains('\\'));
         let mut counts = BTreeMap::new();
-        for name in names {
+        let mut undecodable = false;
+        for mut name in names {
+            if name.contains('\\') {
+                let Some(decoded) = Self::js_ts_decoded_identifier(&name) else {
+                    undecodable = true;
+                    continue;
+                };
+                name = decoded;
+            }
             *counts.entry(name).or_insert(0) += 1;
         }
         let mut cursor = list.walk();
@@ -92,7 +99,7 @@ impl ParsedFile {
                 let walk = PatternWalk {
                     parsed: self,
                     counts: &counts,
-                    escaped,
+                    undecodable,
                 };
                 walk.object(
                     binding,
@@ -141,7 +148,7 @@ impl DefaultState {
 struct PatternWalk<'a> {
     parsed: &'a ParsedFile,
     counts: &'a BTreeMap<String, usize>,
-    escaped: bool,
+    undecodable: bool,
 }
 
 impl PatternWalk<'_> {
@@ -226,7 +233,8 @@ impl PatternWalk<'_> {
                     rest_level,
                     defaulted: defaults.present,
                     admitted: !defaults.refused
-                        && !self.escaped
+                        && !self.undecodable
+                        && !name.contains('\\')
                         && self.counts.get(name) == Some(&1),
                 });
             }

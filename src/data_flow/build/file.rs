@@ -534,27 +534,21 @@ impl Producer {
                     }
                 }
                 let mut emission = super::fallback_cap::Emission::new(&mut edges, counting);
-                for (def, endpoint) in &pattern_endpoints {
-                    let path = &endpoint.path;
-                    let line = endpoint.line;
-                    if !path.has_fields() && lexical.drop_write_only(path, line, &mut prune_stats) {
-                        continue;
-                    }
-                    if register_uses {
-                        uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                            .or_default().push(endpoint.clone());
-                    }
-                    if !path.has_fields() && !lexical.keep_def(path, def.start_byte, def.end_byte, line, &mut prune_stats) {
-                        continue;
-                    }
-                    emission.push(|| FlowEdge { from: (*def).clone(), to: endpoint.clone() });
-                }
                 let mut get_use =
-                    |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize), exact: bool| {
+                    |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize), body_scope: Option<(usize, usize)>| {
                         if !keep_path(path) {
                             return None;
                         }
-                        if synthetic || exact {
+                        let preferred = preferred_use_locs.get(&(path.clone(), ref_line));
+                        // A body-seam reference search proved a body read. Preserve the
+                        // legacy representative unless its bytes point outside that binding.
+                        let invalid = body_scope.is_some_and(|(start, end)| {
+                            preferred.is_some_and(|loc| loc.start_byte < loc.end_byte
+                                && (loc.start_byte < start || loc.end_byte > end
+                                    || parsed.js_ts_def_scope_id(loc.start_byte, &path.base)
+                                        != parsed.js_ts_def_scope_id(admitted.0, &path.base)))
+                        });
+                        if synthetic || invalid {
                             if refused_occurrence(path, admitted.0) {
                                 return None;
                             }
@@ -577,7 +571,7 @@ impl Producer {
                             }
                             return Some(use_loc);
                         }
-                        if let Some(existing) = preferred_use_locs.get(&(path.clone(), ref_line)) {
+                        if let Some(existing) = preferred {
                             return Some(existing.clone());
                         }
                         if !allow {
@@ -609,7 +603,7 @@ impl Producer {
                     for (ref_line, admitted) in refs {
                         let in_signature_line = *ref_line >= start && *ref_line <= *param_decl_line;
                         if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
-                        if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted, false) {
+                        if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted, None) {
                             if !scope.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
                             if !order.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
                             if !lexical.keep_def(path, loc.start_byte, loc.end_byte, *ref_line, &mut prune_stats) { continue; }
@@ -655,7 +649,7 @@ impl Producer {
                             continue; // Skip self-reference
                         }
                         if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
-                        let Some(use_loc) = get_use(path, *ref_line, true, *admitted, body_scope.is_some()) else {
+                        let Some(use_loc) = get_use(path, *ref_line, true, *admitted, body_scope) else {
                             continue;
                         };
                         if scope.raw_signature_outside_scope(path, span.start_byte, *ref_line, &mut prune_stats) { continue; }
@@ -717,7 +711,7 @@ impl Producer {
                                     continue;
                                 }
                                 if lexical.drop_write_only(&resolved, *ref_line, &mut prune_stats) { continue; }
-                                let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted, body_scope.is_some()) else {
+                                let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted, body_scope) else {
                                     continue;
                                 };
                                 // Keep RHS reads and their legacy anchors, but a Go
@@ -792,6 +786,24 @@ impl Producer {
                             });
                         }
                     }
+                }
+
+                // Preserve the Uses already chosen for legacy edges before adding exact
+                // pattern endpoints of the same owner, line and path.
+                for (def, endpoint) in &pattern_endpoints {
+                    let path = &endpoint.path;
+                    let line = endpoint.line;
+                    if !path.has_fields() && lexical.drop_write_only(path, line, &mut prune_stats) {
+                        continue;
+                    }
+                    if register_uses {
+                        uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                            .or_default().push(endpoint.clone());
+                    }
+                    if !path.has_fields() && !lexical.keep_def(path, def.start_byte, def.end_byte, line, &mut prune_stats) {
+                        continue;
+                    }
+                    emission.push(|| FlowEdge { from: (*def).clone(), to: endpoint.clone() });
                 }
 
                 if register_uses {

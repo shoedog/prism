@@ -181,12 +181,20 @@ fn bound_names_in_excluded_branches_still_compete() {
 #[test]
 fn escaped_bindings_and_recovery_preclude_new_facts() {
     let patterns = js(r"function f({a, independent}, [\u0061]) {}");
+    assert_eq!(admit(&patterns[0]), ["independent"]);
+    let patterns = js(r"function f({live, \u0071}, [\u007a]) { return live; }");
+    assert_eq!(admit(&patterns[0]), ["live"]);
+    let patterns = js(r"function f({live}, [\uD800]) {}");
+    assert_eq!(patterns.len(), 1);
     assert!(admit(&patterns[0]).is_empty());
     assert!(js("function f({a}, b { return a; }").is_empty());
 }
 
 #[test]
 fn root_array_and_rest_supply_no_object_target() {
-    assert!(js("function f([{x}], ...{length}) {}").is_empty());
+    let patterns = js("function f([{x}], {keep}, ...{length}) {}");
+    assert_eq!(patterns.len(), 1);
+    assert_eq!(patterns[0].position, 1);
+    assert_eq!(admit(&patterns[0]), ["keep"]);
     assert!(js("const f = ordinary => ordinary;").is_empty());
 }

@@ -269,3 +269,29 @@ fn python_prune_cap_count_and_replay_count_prunes_once() {
     assert_eq!(capped.rd_function_stats.fallback_functions_capped, 1);
     assert_eq!(capped.rd_function_stats.fallback_edges_capped, count);
 }
+
+#[test]
+fn pattern_formal_edges_count_toward_the_js_fallback_cap() {
+    let source = format!(
+        "function C({{x}}) {{\n  use(x);\n{}}}\n",
+        "  noop();\n".repeat(4100)
+    );
+    let parsed = ParsedFile::parse("cap.js", &source, Language::JavaScript).unwrap();
+    let file = &parsed.path;
+    let baseline = Producer::file_refs_frozen_with_cap(file, &parsed, Some(0));
+    assert_eq!(baseline.rd_function_stats.functions_over_cap, 1);
+    assert_eq!(baseline.rd_function_stats.fallback_functions_capped, 0);
+    let uncapped = Producer::file_refs_with_cap(file, &parsed, None);
+    assert_eq!(uncapped.edges.len(), 1);
+    assert_eq!(uncapped.edges[0].from.var_name(), "x");
+    assert_eq!(uncapped.edges[0].from.start_byte, 12);
+    let at_cap = Producer::file_refs_with_cap(file, &parsed, Some(1));
+    assert_eq!(at_cap.rd_function_stats.functions_over_cap, 1);
+    assert_eq!(at_cap.rd_function_stats.fallback_functions_capped, 0);
+    assert_eq!(bytes(at_cap), bytes(uncapped));
+    let capped = Producer::file_refs_with_cap(file, &parsed, Some(0));
+    assert!(capped.edges.is_empty());
+    assert_eq!(capped.rd_function_stats.functions_over_cap, 1);
+    assert_eq!(capped.rd_function_stats.fallback_functions_capped, 1);
+    assert_eq!(capped.rd_function_stats.fallback_edges_capped, 1);
+}

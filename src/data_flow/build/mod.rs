@@ -125,6 +125,8 @@ mod owner_labels;
 mod param_alias_trace;
 mod pattern_formals;
 #[cfg(test)]
+mod pattern_formals_tests;
+#[cfg(test)]
 mod prune_cap_tests;
 mod prune_roots;
 mod python_prune;

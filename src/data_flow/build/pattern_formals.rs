@@ -5,13 +5,16 @@ use crate::ast::js_ts::props_keys::strip_transparent_wrappers;
 use crate::ast::{ParsedFile, PathSpan};
 use crate::data_flow::{VarAccessKind, VarLocation};
 use crate::js_write_census::{
-    tables::Tables,
-    walk::{census_with, Census},
+    identity::Comp,
+    walk::{census_pattern_formals, Census, Site},
 };
 use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
+
+#[path = "pattern_execution.rs"]
+mod execution;
 
 pub(super) struct PatternFormal {
     pub(super) def: VarLocation,
@@ -31,6 +34,12 @@ struct Read {
     span: (usize, usize),
     region: Region,
     admitted: bool,
+}
+
+impl Read {
+    fn in_body(&self) -> bool {
+        matches!(self.region, Region::Body | Region::NestedBody(_))
+    }
 }
 
 impl PatternFormal {
@@ -93,22 +102,26 @@ impl PatternFormal {
         } else {
             BTreeSet::new()
         };
-        let boundaries = parsed.language.callable_boundary_node_types();
         let mut stack = Vec::new();
         stack.extend(
             owner
                 .child_by_field_name("body")
-                .map(|node| (node, Region::Body)),
+                .map(|node| (node, Region::Body, None)),
         );
         stack.extend(
             owner
                 .child_by_field_name("parameters")
-                .map(|node| (node, Region::Parameter)),
+                .map(|node| (node, Region::Parameter, None)),
         );
-        while let Some((node, region)) = stack.pop() {
-            if node.is_error() || node.is_missing() || parsed.language.is_erased_type_boundary(node)
-            {
+        while let Some((node, mut region, decorator_region)) = stack.pop() {
+            if !execution::runtime_node(parsed, node) {
                 continue;
+            }
+            if execution::decorated_callable(node).is_some() {
+                let Some(outer) = decorator_region else {
+                    continue;
+                };
+                region = outer;
             }
             if matches!(
                 node.kind(),
@@ -125,11 +138,10 @@ impl PatternFormal {
                         continue;
                     };
                     let root = node.start_byte();
-                    let binds = parsed.js_ts_occurrence_binds_formal(&owner, &path.base, root)
-                        // A named var without an initializer inherits the entry value at the
-                        // parameter/body seam. Keep the identifier twin's recorded kill.
-                        || (copied_vars.contains(&path.base)
-                            && parsed.js_ts_def_scope_id(root, &path.base) == Some(owner.id()));
+                    let binds = execution::binding_scope(parsed, owner, node, &path.base)
+                        == Some(owner.id())
+                        && (copied_vars.contains(&path.base)
+                            || !in_body_seam(parsed, owner, &path.base, root));
                     let immediate = region != Region::Parameter
                         || initialized_before(parsed, &formal.def, root);
                     formal
@@ -145,27 +157,25 @@ impl PatternFormal {
             }
 
             let mut cursor = node.walk();
-            let nested = boundaries.contains(&node.kind());
-            let eager_parameter_call =
-                region == Region::Parameter && nested && directly_invoked(node);
-            let mut children = node.named_children(&mut cursor).collect::<Vec<_>>();
-            while let Some(child) = children.pop() {
-                let deferred = nested
-                    && ["parameters", "body", "parameter"]
-                        .iter()
-                        .any(|field| node.child_by_field_name(field) == Some(child));
-                let child_region = if deferred && !eager_parameter_call {
-                    match region {
-                        Region::Parameter | Region::NestedParameter(_) => {
-                            Region::NestedParameter(node.id())
-                        }
-                        _ => Region::NestedBody(node.id()),
-                    }
+            let first_child = stack.len();
+            for child in node.named_children(&mut cursor) {
+                let decorator_region = if child.kind() == "formal_parameters" {
+                    Some(region)
                 } else {
-                    region
+                    decorator_region
                 };
-                stack.push((child, child_region));
+                stack.push((
+                    child,
+                    execution::child_region(parsed, node, child, region),
+                    decorator_region,
+                ));
+                if region == Region::Parameter
+                    && execution::suspends_following_siblings(node, child)
+                {
+                    region = Region::NestedParameter(node.id());
+                }
             }
+            stack[first_child..].reverse();
         }
         formals
             .into_values()
@@ -182,11 +192,6 @@ impl PatternFormal {
         synthetic: bool,
         owner_is_unique: bool,
     ) -> Vec<VarLocation> {
-        let members = self
-            .reads
-            .keys()
-            .any(|(path, _)| path.has_fields())
-            .then(|| parsed.formal_member_facts(owner, &self.def.path.base, self.def.start_byte));
         let mut endpoints = Vec::new();
         for (key @ (path, line), reads) in &self.reads {
             let mut admitted = reads.iter().filter(|read| read.admitted);
@@ -202,7 +207,16 @@ impl PatternFormal {
                 continue;
             };
             if path.has_fields() {
-                if members.as_ref().is_some_and(|facts| !facts.is_killed(path)) {
+                if owner_writes(parsed, *owner, census).is_some_and(|facts| {
+                    !facts.sites.iter().any(|site| {
+                        // The member lane's body kill inventory excludes optional signature
+                        // writes (p24). A read in an immediate default checks signature writes.
+                        site.region.own_params != first.in_body()
+                            && (first.in_body() || site.moment <= first.span.0)
+                            && bound_write(parsed, *owner, &path.base, site, first.in_body())
+                            && projection_overlaps(path, site)
+                    })
+                }) {
                     endpoints.push(self.use_at(path, *line, first.span));
                 }
                 continue;
@@ -214,30 +228,30 @@ impl PatternFormal {
             let uniform = reads
                 .iter()
                 .all(|read| read.admitted && read.region == first.region);
-            let endpoint = if synthetic
-                || !owner_is_unique
-                || !uniform
-                || !same_version(
+            let representative = candidate.cloned().unwrap_or_else(|| {
+                let anchor = parsed.line_start_byte(*line);
+                self.use_at(path, *line, (anchor, anchor))
+            });
+            let start = representative.start_byte;
+            let end = representative.end_byte;
+            let endpoint = if !synthetic
+                && owner_is_unique
+                && uniform
+                && (start == end
+                    || reads.iter().any(|read| read.span == (start, end))
+                    || representative_name(parsed, &representative))
+                && same_version(
                     parsed,
                     *owner,
                     census,
                     &path.base,
-                    first,
-                    reads.last().unwrap(),
+                    start.min(first.span.0),
+                    start.max(reads.last().unwrap().span.0),
+                    first.in_body(),
                 ) {
-                self.use_at(path, *line, first.span)
-            } else if let Some(existing) = candidate {
-                let bytes = (existing.start_byte, existing.end_byte);
-                if reads.iter().any(|read| read.span == bytes)
-                    || representative_name(parsed, existing)
-                {
-                    existing.clone()
-                } else {
-                    self.use_at(path, *line, first.span)
-                }
+                representative
             } else {
-                let anchor = parsed.line_start_byte(*line);
-                self.use_at(path, *line, (anchor, anchor))
+                self.use_at(path, *line, first.span)
             };
             endpoints.push(endpoint);
         }
@@ -266,30 +280,87 @@ fn same_version(
     owner: Node<'_>,
     census: &OnceCell<Option<Census>>,
     name: &str,
-    first: &Read,
-    last: &Read,
+    first: usize,
+    last: usize,
+    in_body: bool,
 ) -> bool {
-    if first.span == last.span {
+    if first == last {
         return true;
     }
+    owner_writes(parsed, owner, census).is_some_and(|facts| {
+        !facts.sites.iter().any(|site| {
+            site.path.comps.is_empty()
+                && first <= site.moment
+                && site.moment <= last
+                && bound_write(parsed, owner, name, site, in_body)
+        })
+    })
+}
+
+fn owner_writes<'a>(
+    parsed: &ParsedFile,
+    owner: Node<'_>,
+    census: &'a OnceCell<Option<Census>>,
+) -> Option<&'a Census> {
     census
         .get_or_init(|| {
             if parsed.js_ts_direct_eval_anywhere(&owner) {
                 return None;
             }
-            let facts = census_with(parsed, Tables::shared(), owner, false);
+            let facts = census_pattern_formals(parsed, owner);
             (!facts.refused()).then_some(facts)
         })
         .as_ref()
-        .is_some_and(|facts| {
-            !facts.sites.iter().any(|site| {
-                site.initialized
-                    && site.path.base == name
-                    && site.path.comps.is_empty()
-                    && first.span.0 <= site.moment
-                    && site.moment <= last.span.0
+}
+
+fn bound_write(
+    parsed: &ParsedFile,
+    owner: Node<'_>,
+    name: &str,
+    site: &Site,
+    in_body: bool,
+) -> bool {
+    site.initialized
+        && site.decl != "param"
+        && decoded_name(&site.path.base).as_deref() == Some(name)
+        && (in_body || !in_body_seam(parsed, owner, name, site.target_start))
+        && parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(site.target_start, site.target_end)
+            .is_some_and(|target| {
+                execution::binding_scope(parsed, owner, target, name) == Some(owner.id())
             })
-        })
+}
+
+fn in_body_seam(parsed: &ParsedFile, owner: Node<'_>, name: &str, at: usize) -> bool {
+    parsed.js_ts_seam_binding(&owner, name)
+        && owner
+            .child_by_field_name("body")
+            .is_some_and(|body| body.byte_range().contains(&at))
+}
+
+fn decoded_name(text: &str) -> Option<Cow<'_, str>> {
+    if text.contains('\\') {
+        ParsedFile::js_ts_decode_identifier_text(text).map(Cow::Owned)
+    } else {
+        Some(Cow::Borrowed(text))
+    }
+}
+
+fn projection_overlaps(path: &AccessPath, site: &Site) -> bool {
+    // Static projections retain the identifier lane's computed-write boundary.
+    let mut write = AccessPath::simple(&path.base);
+    for component in &site.path.comps {
+        let Comp::Name(field) = component else {
+            return false;
+        };
+        let Some(field) = decoded_name(field) else {
+            return true;
+        };
+        write.fields.push(field.into_owned());
+    }
+    path.fields.starts_with(&write.fields) || write.fields.starts_with(&path.fields)
 }
 
 fn read_operand<'a>(
@@ -310,7 +381,8 @@ fn read_operand<'a>(
             "jsx_closing_element" | "meta_property" => return None,
             "member_expression" if parent.child_by_field_name("object") == Some(receiver) => {
                 let property = parent.child_by_field_name("property")?;
-                path.fields.push(parsed.node_text(&property).to_owned());
+                path.fields
+                    .push(decoded_name(parsed.node_text(&property))?.into_owned());
                 operand = parent;
             }
             "subscript_expression"
@@ -330,19 +402,6 @@ fn read_operand<'a>(
         return None;
     }
     Some((operand, path))
-}
-
-fn directly_invoked(callable: Node<'_>) -> bool {
-    let mut expression = callable;
-    while let Some(parent) = expression.parent() {
-        if strip_transparent_wrappers(parent) != Some(callable) {
-            return matches!(parent.kind(), "call_expression" | "new_expression")
-                && (parent.child_by_field_name("function") == Some(expression)
-                    || parent.child_by_field_name("constructor") == Some(expression));
-        }
-        expression = parent;
-    }
-    false
 }
 
 fn initialized_before(parsed: &ParsedFile, def: &VarLocation, read: usize) -> bool {
