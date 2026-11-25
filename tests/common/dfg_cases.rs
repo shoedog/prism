@@ -1,24 +1,11 @@
 use super::*;
 
-fn walk(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
-    let mut entries: Vec<_> = std::fs::read_dir(dir)
-        .unwrap()
-        .map(|e| e.unwrap().path())
-        .collect();
-    entries.sort();
-    for p in entries {
-        let m = std::fs::symlink_metadata(&p).unwrap();
-        assert!(!m.file_type().is_symlink());
-        if m.is_dir() {
-            walk(&p, out)
-        } else if Language::from_path(p.to_str().unwrap()).is_some() {
-            out.push(p)
-        }
-    }
-}
 pub fn visit(mut save: impl FnMut(String, BTreeMap<String, ParsedFile>)) {
-    let mut paths = Vec::new();
-    walk(Path::new("tests/fixtures"), &mut paths);
+    let paths = super::fixture_corpus::legacy_fixture_files(Path::new("tests/fixtures"), |p| {
+        Language::from_path(p.to_str().unwrap()).is_some()
+    });
+    // Language-recognised files of the legacy corpus at 9d1a7d06f: 1,297.
+    super::fixture_corpus::assert_visited_within("dfg_cases::visit", paths.len(), 1_500);
     let mut all = BTreeMap::new();
     for p in paths {
         let path = p.to_str().unwrap();

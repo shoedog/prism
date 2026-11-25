@@ -226,6 +226,30 @@ impl DataFlowGraph {
         })
     }
 
+    /// One `build_with_census_files(&{file}, census_files)` result per file of `files`, in path
+    /// order, with the Rust and C/C++ macro censuses read from `census_files` ONCE. Calling
+    /// `build_with_census_files` in a loop recomputes both censuses over the whole repository for
+    /// every file (quadratic in the file count); the graphs are the same.
+    pub fn build_each_file_with_census_files(
+        files: &BTreeMap<String, ParsedFile>,
+        census_files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<(String, Self)> {
+        crate::build_pool::install(|| {
+            let census = RustMacroCensus::from_files(census_files);
+            let c_census = CMacroCensus::from_files(census_files);
+            files
+                .iter()
+                .map(|(path, parsed)| {
+                    let one = BTreeMap::from([(path.clone(), parsed)]);
+                    (
+                        path.clone(),
+                        Self::build_from_refs_on_pool(&one, &census, &c_census),
+                    )
+                })
+                .collect()
+        })
+    }
+
     /// `build` without the pool boundary, for tests that observe per-worker
     /// thread-local counters on a pool they own: `build` hands the work to the
     /// build pool, where those counters would not be seen.

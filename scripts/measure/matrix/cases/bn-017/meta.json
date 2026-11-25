@@ -1,0 +1,14 @@
+{
+  "class": "code-injection",
+  "entry": "bn-017-fixture_1.4.0",
+  "fixedVersion": "1.3.9",
+  "id": "CVE-0000-017",
+  "name": "bn-017-fixture",
+  "sink": "lib/index.js:4:3",
+  "source": {
+    "file": "lib/index.js",
+    "line": 2,
+    "name": "run"
+  },
+  "vulnerableVersion": "1.4.0"
+}

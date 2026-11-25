@@ -1,0 +1,19 @@
+{
+  "algorithm": "Taint",
+  "slices": [
+    {
+      "block_id": 0,
+      "file": "lib/index.js",
+      "modify_type": "M",
+      "diff_lines": [
+        5
+      ],
+      "slice_lines": [
+        5,
+        6
+      ],
+      "slice_text": "+   5|function run(cmd) {\n    6|  const n = cmd.length;\n"
+    }
+  ],
+  "findings": []
+}

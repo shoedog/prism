@@ -1,0 +1,36 @@
+aliases = { "@quay/" = "net/", "@reed-v1/tools/" = "net/" }
+
+[[client]]
+file = "net/quay.ts"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+
+[[client]]
+file = "net/board.tsx"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+
+[[client]]
+file = "net/skein.js"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+
+[[client]]
+file = "net/tally.jsx"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+
+[[client]]
+file = "net/strand/index.js"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"

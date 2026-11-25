@@ -1,0 +1,52 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/root"
+    }
+  ],
+  "paths": {
+    "/plate": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "servers": [
+          {
+            "url": "/atlas"
+          }
+        ]
+      },
+      "servers": [
+        {
+          "url": "/unused"
+        }
+      ]
+    },
+    "/plate/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "servers": [
+          {
+            "url": "/archive"
+          }
+        ]
+      },
+      "servers": [
+        {
+          "url": "/unused"
+        }
+      ]
+    }
+  }
+}

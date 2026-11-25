@@ -92,11 +92,18 @@ fn transitions(mut files: BTreeMap<String, ParsedFile>) {
             .iter()
             .skip(if delete { 2 } else { 1 })
             .chain(std::iter::once(&paths[0]));
+        // One census read for the whole tree: a `build_with_census_files` call per file
+        // recomputed it N times (~90% of this test's 130 s, #856).
+        let mut singles: BTreeMap<_, _> =
+            DataFlowGraph::build_each_file_with_census_files(&files, &files)
+                .into_iter()
+                .collect();
         let mut expected_edges = vec![];
         for file in order {
-            let singleton = BTreeMap::from([(file.clone(), files[file].clone())]);
             expected_edges.extend(
-                DataFlowGraph::build_with_census_files(&singleton, &files)
+                singles
+                    .remove(file)
+                    .unwrap()
                     .edges()
                     .iter()
                     .map(|e| e.to_owned()),
@@ -245,5 +252,109 @@ fn partial_hit_javascript_exact_labels() {
             })
             .collect();
         transitions(files);
+    });
+}
+
+/// `build_each_file_with_census_files` is `build_with_census_files` per file with the census
+/// read once; the oracle in `partial_hit_multifile_edit_retain_delete` relies on that.
+///
+/// The comparison is over the serialized graph (spans, bindings, both label maps, per-file
+/// statistics, counters and both census digests), not edge identities. The sample holds one Rust
+/// file and one C file whose graph depends on a macro defined in ANOTHER file that is in the tree
+/// but not in the sample, so a census read from the sample or a singleton instead of the whole
+/// tree fails it through those files' edges as well as through the digests (#856).
+#[test]
+fn build_each_file_matches_per_file_builds_under_the_tree_census() {
+    prism::build_pool::install(|| {
+        let mut tree = None;
+        common::dfg_cases::visit(|name, files| {
+            if name == "fixture-tree" {
+                tree = Some(files);
+            }
+        });
+        let mut files = tree.unwrap();
+        // A stride sample of the fixture tree, taken before the synthetic files exist.
+        let mut sample: BTreeMap<_, _> = files
+            .iter()
+            .step_by(37)
+            .map(|(p, f)| (p.clone(), f.clone()))
+            .collect();
+        // Cross-file macro users. The definitions (`xfile_macros/{a.rs,m.h}`) are in the tree but
+        // NOT in the sample, so a census read from the sample or from the file alone does not know
+        // them. Rust: with the definition `show!(x)` is an Allowed macro, `x = 2` dominates its
+        // read and the `x = 1` pairs are pruned; without it the invocation is Refused and they are
+        // kept. C: with `#define SHOW` the argument `x` escapes and the pairs are kept; without it
+        // `SHOW(x)` is an ordinary call and they are pruned.
+        let definers = [
+            (
+                "xfile_macros/a.rs",
+                "macro_rules! show { ($e:expr) => { $e + 1 }; }\n",
+                Language::Rust,
+            ),
+            (
+                "xfile_macros/m.h",
+                "#define SHOW(v) ((v) + 1)\n",
+                Language::C,
+            ),
+        ];
+        let users = [
+            (
+                "xfile_macros/b.rs",
+                "fn f() -> i32 {\n    let mut x = 1;\n    x = 2;\n    let y = show!(x);\n    y\n}\n",
+                Language::Rust,
+            ),
+            (
+                "xfile_macros/c.c",
+                "int f(void) {\n    int x = 1;\n    x = 2;\n    return SHOW(x);\n}\n",
+                Language::C,
+            ),
+        ];
+        for (path, src, lang) in definers.into_iter().chain(users) {
+            files.insert(path.into(), ParsedFile::parse(path, src, lang).unwrap());
+        }
+        for (path, _, _) in users {
+            sample.insert(path.into(), files[path].clone());
+        }
+        assert!(sample.len() > 20, "sample too small: {}", sample.len());
+        let each = DataFlowGraph::build_each_file_with_census_files(&sample, &files);
+        assert_eq!(
+            each.iter().map(|(p, _)| p).collect::<Vec<_>>(),
+            sample.keys().collect::<Vec<_>>(),
+            "one graph per file, in path order"
+        );
+        let bytes = |g: &DataFlowGraph| bincode::serialize(g).unwrap();
+        for (path, graph) in &each {
+            let single = BTreeMap::from([(path.clone(), sample[path].clone())]);
+            let reference = DataFlowGraph::build_with_census_files(&single, &files);
+            assert!(
+                bytes(graph) == bytes(&reference),
+                "serialized graph differs from the per-file build for {path}"
+            );
+        }
+        // Non-vacuity: for the macro users the tree census must matter, i.e. a census taken from
+        // the file alone gives another graph.
+        for path in ["xfile_macros/b.rs", "xfile_macros/c.c"] {
+            let single = BTreeMap::from([(path.to_string(), sample[path].clone())]);
+            let own_census = DataFlowGraph::build_with_census_files(&single, &single);
+            let graph = &each.iter().find(|(p, _)| p == path).unwrap().1;
+            let edges =
+                |g: &DataFlowGraph| g.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>();
+            let (tree_n, own_n) = (edges(graph).len(), edges(&own_census).len());
+            // Rust: the Allowed macro lets the dominating write prune pairs (fewer edges); C: the
+            // known macro escapes its argument (more edges).
+            let expected = if path.ends_with(".rs") {
+                tree_n < own_n
+            } else {
+                tree_n > own_n
+            };
+            assert!(
+                expected,
+                "{path}: the whole-tree census must change its edges ({tree_n} vs {own_n} with its own census), or the test cannot see a wrong census"
+            );
+        }
+        assert!(
+            each.iter().any(|(_, g)| !g.edges().is_empty()),
+            "the sample must produce edges, or the comparison is vacuous"
+        );
     });
 }

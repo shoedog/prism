@@ -18,6 +18,7 @@ fn finding(algorithm: &str, file: &str, line: usize) -> SliceFinding {
         category: Some("c".to_string()),
         parse_quality: None,
         diagrams: vec![],
+        rules: Vec::new(),
     }
 }
 

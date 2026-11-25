@@ -90,6 +90,7 @@ pub(crate) fn finding(algorithm: &str, file: &str) -> SliceFinding {
         category: Some("taint_sink".into()),
         parse_quality: None,
         diagrams: vec![],
+        rules: Vec::new(),
     }
 }
 

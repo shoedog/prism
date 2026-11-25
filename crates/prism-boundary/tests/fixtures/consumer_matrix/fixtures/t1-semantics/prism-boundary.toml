@@ -1,0 +1,6 @@
+[[client]]
+file = "courier.ts"
+export = "default"
+methods = { get = "GET", post = "POST" }
+url_arg = 0
+response_root = ""

@@ -1,0 +1,35 @@
+f1-2-0001	stale_annotation	The annotation says POST /answer/admin/api/users/activation, while the admin router serves POST /answer/admin/api/user/activation.
+f1-2-0002	stale_annotation	The annotation says POST /answer/api/v1/user/notification/config, while the router registers the handler with GET.
+f1-2-0003	extractor_miss	The installation server registers POST /installation/base-info using the configurable APIBaseURL prefix.
+f1-2-0004	extractor_miss	The installation server registers POST /installation/config-file/check using the configurable APIBaseURL prefix.
+f1-2-0005	extractor_miss	The installation server registers POST /installation/db/check using the configurable APIBaseURL prefix.
+f1-2-0006	extractor_miss	The installation server registers POST /installation/init using the configurable APIBaseURL prefix.
+f1-3-0001	outside_schema	GET /healthz is a server health check.
+f1-3-0002	outside_schema	GET /healthz is an installation server health check.
+f1-3-0003	stale_annotation	The router serves GET /answer/api/v1/user/notification/config, but the handler annotation specifies POST.
+f1-3-0004	cannot_tell	POST /answer/api/v1/chat/completions is registered without an annotation, but the evidence does not establish whether its omission from the schema is intentional.
+f1-3-0005	stale_annotation	The router serves POST /answer/admin/api/user/activation, but the handler annotation specifies the plural users path.
+f1-3-0006	cannot_tell	GET /answer/api/v1/mcp/sse is registered without an annotation, but the evidence does not establish whether its omission from the schema is intentional.
+f1-3-0007	cannot_tell	POST /answer/api/v1/mcp/message is registered without an annotation, but the evidence does not establish whether its omission from the schema is intentional.
+f1-3-0008	outside_schema	The user-center agent route is registered as a plugin route.
+f1-3-0009	outside_schema	The personal branding route is registered as a user-center plugin route.
+f1-3-0010	outside_schema	The login callback is registered as a user-center plugin route.
+f1-3-0011	outside_schema	The sign-up callback is registered as a user-center plugin route.
+f1-3-0012	outside_schema	The captcha configuration route is registered as a captcha plugin route.
+f1-3-0013	outside_schema	The sidebar configuration route is registered as a sidebar plugin route.
+f1-3-0014	outside_schema	The user settings route is registered in the authenticated plugin router.
+f1-3-0015	outside_schema	The admin user-center agent route is registered in the admin plugin router.
+f1-3-0016	outside_schema	The conditional /swagger/*any route serves the Swagger interface.
+f1-3-0017	outside_schema	The sitemap XML route is registered by the template router.
+f1-3-0018	outside_schema	The paginated sitemap route is registered by the template router.
+f1-3-0019	outside_schema	The 404 page route is registered by the template router.
+f1-3-0020	outside_schema	The OpenSearch XML route is registered by the template router.
+f1-3-0021	outside_schema	The questions page route is registered by the template router.
+f1-3-0022	outside_schema	The question detail page route is registered by the template router.
+f1-3-0023	outside_schema	The question detail route with a title is registered by the template router.
+f1-3-0024	outside_schema	The question detail route with a title and answer ID is registered by the template router.
+f1-3-0025	outside_schema	The tag page route is registered by the template router.
+f1-3-0026	outside_schema	The user page route is registered by the template router.
+f1-4-0001	stale_annotation	The annotation specifies POST for the notification configuration handler, while its registration is GET.
+f1-cross_check-0001	extractor_miss	The annotated GET / belongs to the installation server, while the matched Index route belongs to the separate template router.
+counts: outside_schema=21 stale_annotation=5 dead_client_code=0 extractor_miss=5 real_mismatch=0 cannot_tell=3

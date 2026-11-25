@@ -1,0 +1,53 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay shape-s41",
+    "version": "1.0.0"
+  },
+  "host": "alderfen.invalid",
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/mothbank/bouquets/baskets/{stamp}/{mark}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "stamp",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "mark",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/mothbank/bouquets/crates/{mark}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "mark",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}
