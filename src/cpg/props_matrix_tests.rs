@@ -86,6 +86,14 @@ struct TraceCheck {
     node: String,
 }
 
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum TraceBoundaryKind {
+    #[default]
+    CrossFunction,
+    SelfFunctionParam,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum Assertion {
@@ -124,7 +132,14 @@ enum Assertion {
     },
     TraceReaches(TraceCheck),
     TraceMisses(TraceCheck),
-    TraceBoundary(TraceCheck),
+    TraceBoundary {
+        #[serde(flatten)]
+        check: TraceCheck,
+        #[serde(default)]
+        boundary_kind: TraceBoundaryKind,
+        from: Option<String>,
+        from_bytes: Option<[usize; 2]>,
+    },
 }
 
 struct Fixture<'a> {
@@ -279,14 +294,32 @@ impl<'a> Fixture<'a> {
             .collect();
         let trace = self.graph.taint_trace(&[(seed_file, check.seed.line)]);
         let reached = targets.iter().any(|&index| trace.in_frontier(index));
-        let boundary = trace
-            .boundary
-            .iter()
-            .any(|edge| edge.kind == BoundaryKind::CrossFunction && targets.contains(&edge.to));
+        let (kind, from, from_bytes) = match assertion {
+            Assertion::TraceBoundary {
+                boundary_kind,
+                from,
+                from_bytes,
+                ..
+            } => {
+                let kind = match boundary_kind {
+                    TraceBoundaryKind::CrossFunction => BoundaryKind::CrossFunction,
+                    TraceBoundaryKind::SelfFunctionParam => BoundaryKind::SelfFunctionParam,
+                };
+                (kind, from.as_deref(), *from_bytes)
+            }
+            _ => (BoundaryKind::CrossFunction, None, None),
+        };
+        let boundary = trace.boundary.iter().any(|edge| {
+            edge.kind == kind
+                && trace.frontier_by_root.contains_key(&edge.root)
+                && targets.contains(&edge.to)
+                && from.is_none_or(|from| self.named(from).contains(&edge.from))
+                && from_bytes.is_none_or(|span| self.bytes(edge.from) == Some(span))
+        });
         let matches = match assertion {
             Assertion::TraceReaches(_) => reached,
             Assertion::TraceMisses(_) => !reached,
-            Assertion::TraceBoundary(_) => boundary && !reached,
+            Assertion::TraceBoundary { .. } => boundary && !reached,
             _ => unreachable!(),
         };
         if trace.frontier_by_root.is_empty() || targets.is_empty() || !matches {
@@ -362,7 +395,7 @@ impl<'a> Fixture<'a> {
             }
             Assertion::TraceReaches(check)
             | Assertion::TraceMisses(check)
-            | Assertion::TraceBoundary(check) => self.trace(assertion, check)?,
+            | Assertion::TraceBoundary { check, .. } => self.trace(assertion, check)?,
         }
         Ok(())
     }
@@ -450,6 +483,37 @@ impl Row {
             failures.push(format!("langs {:?}, exercised {used_langs:?}", self.langs));
         }
         failures
+    }
+}
+
+#[test]
+fn props_matrix_trace_boundary_matches_kind_and_source() {
+    let source = "def f(p):\n    user = input()\n    f(user)\n    sink(p)\n";
+    let graph = build(Language::Python, &[("m", source)], "py");
+    let fixture = Fixture::new(&graph, "py");
+    let boundary = serde_json::json!({
+        "kind": "trace_boundary",
+        "seed": {"file": "m", "line": 2},
+        "target": {"file": "m", "line": 1},
+        "node": "f:p@1(def)",
+        "boundary_kind": "self_function_param",
+        "from": "f:user@3(use)",
+        "from_bytes": [35, 39],
+    });
+    let run = |value| {
+        let check: Check = serde_json::from_value(value).expect("deserialize boundary check");
+        fixture.check(&check.assertion)
+    };
+    run(boundary.clone()).expect("match the recursive call's parameter boundary");
+
+    for (field, wrong_value) in [
+        ("boundary_kind", serde_json::json!("cross_function")),
+        ("from", serde_json::json!("f:user@2(def)")),
+        ("from_bytes", serde_json::json!([34, 38])),
+    ] {
+        let mut wrong = boundary.clone();
+        wrong[field] = wrong_value;
+        assert!(run(wrong).is_err(), "unexpectedly matched wrong {field}");
     }
 }
 

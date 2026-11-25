@@ -35,7 +35,7 @@ fixture file. Different graph nodes can share the same spelling.
 | `path`, `no_path` | A nonempty directed chain of DataFlow edges must connect, or must fail to connect, `from` and `to`. A `path` can specify `via` to require a two-edge chain through the same concrete intermediate node. |
 | `counter` | `key` in the serialized `dfg_props` statistics equals `count`. An absent map or key reads as zero. |
 | `trace_reaches`, `trace_misses` | Seed the normal line-based trace with `seed`. The frontier must include, or must exclude, the specified `node` at `target`. |
-| `trace_boundary` | The trace records a cross-function boundary ending at `node` at `target`, and the node stays outside the frontier. |
+| `trace_boundary` | The trace records a boundary from a `seed` root ending at `node` at `target`, and the node stays outside the frontier. Optional `boundary_kind` is `cross_function` by default and also accepts `self_function_param`. Optional `from` (node spelling) and `from_bytes` filter the source of the same boundary. |
 
 The trace `seed` and `target` are objects with a `file` stem (relative to the case)
 and a one-based `line`. Both must resolve to graph variables. The supported labels
