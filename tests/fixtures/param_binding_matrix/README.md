@@ -14,9 +14,9 @@ IDs. Shared JS-family fixtures run in each declared language.
 | `files` | Fixture filename to source map. The build helper uses the filename stem and the extension for the current language. Multi-file fixtures with explicit extensions in imports use a single language. |
 | `expect` | Nonempty list of assertions |
 | `class` | Census metric and shape, or baseline control class |
-| `truth` | `correct`, `wrong` or `ambiguous`. `wrong` means the row pins the existing unimported-export resolver defect, including rows that require later binding admission to refuse that resolution. | `correct` means a correct implementation must produce the stated outcome at run time and under the design; `ambiguous` means the required outcome is a design decision still open (the row is settled at stage D, and an assertion pinned on only one side of the open question is a defect of the row).
+| `truth` | `correct`, `wrong` or `ambiguous`. `wrong` means the row pins the existing unimported-export resolver defect, including rows that require later binding admission to refuse that resolution. `correct` means a correct implementation must produce the stated outcome at run time and under the design; `ambiguous` means the required outcome is a design decision still open (the row is settled at stage D, and an assertion pinned on only one side of the open question is a defect of the row). |
 | `issue` | Required for `wrong` rows |
-| `unexecuted` | Reason the assertion needs a measurement or design decision beyond the fixture APIs. The test prints the ID and skips that row. |
+| `unexecuted` | Reason the assertion needs a measurement or design decision beyond the fixture APIs, or the model-boundary skip described at the end of this file. The test prints the ID and skips that row. |
 
 An endpoint is `file:function:path@line:col`. Lines and columns are 1-based.
 The column counts characters. The test converts it to a UTF-8 byte offset and

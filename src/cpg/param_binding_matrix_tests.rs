@@ -466,7 +466,9 @@ fn flow_label(label: FlowConfidence) -> String {
                 label.push(c.to_ascii_lowercase());
             }
             // The established spelling (`dfg-stats --edges`, navigation::queries) is one word.
-            label.replace("nameonly/call_name_only", "nameonly/call_nameonly")
+            label
+                .replace("nameonly/call_name_only", "nameonly/call_nameonly")
+                .replace("nameonly/same_line", "nameonly/sameline")
         }
     }
 }
