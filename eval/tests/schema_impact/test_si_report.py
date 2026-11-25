@@ -310,3 +310,65 @@ def test_mixed_operation_table_lists_a_proved_shared_call_once(tmp_path):
     service_table = md.split("### Service changes")[1].split("### Client changes")[0]
     assert service_table.count("request.get") == 1
     assert "Corresponding call: Not checked" not in service_table
+
+
+def test_review_first_puts_a_supported_action_before_limits(tmp_path):
+    repo, _ = start(tmp_path, **{f"ui/src/extra{i}.tsx": "({ invalid [\n" for i in range(2)})
+    head = repo.commit(1, **{"handler.go": "package flora\n"})
+    md, _ = report(repo, head, tmp_path)
+    review = md.split("## Review first\n\n")[1].split("\n\n", 1)[0]
+    plain = re.sub(r"\[`([^`]+)`\]\([^)]*\)|`([^`]+)`", lambda m: m[1] or m[2], review)
+    assert not plain.lower().startswith("not checked")
+    assert len(re.findall(r"[.!?](?= |$)", plain)) <= 3
+    assert "GET /fern" in plain and CALL in plain
+    assert plain.lower().index("check whether") < plain.index("could not be checked")
+
+
+def test_summary_and_shared_limit_references(tmp_path):
+    repo, _ = start(tmp_path, **{f"ui/src/extra{i}.tsx": "({ invalid [\n" for i in range(4)})
+    md, _ = report(repo, repo.commit(1), tmp_path)
+    summary = md.split("## Summary\n\n")[1].split("\n\n", 1)[0]
+    for label in ("Operations changed", "Fields changed", "Client calls affected", "Possible matches only",
+                  "Requests with no match", "Calls with an unknown target"):
+        assert f"| {label}" in summary
+    ids = re.findall(r'id="(L\d+)"', md)
+    markers = re.findall(r"not checked \[(L\d+)\]\(#(L\d+)\)", md)
+    assert ids and len(ids) == len(set(ids))
+    assert markers and all(label == target and target in ids for label, target in markers)
+    assert md.count("client source could not be parsed") == 1
+    assert all(f"ui/src/extra{i}.tsx" in md for i in range(4))
+
+
+def test_long_preview_and_provenance(tmp_path):
+    repo, _ = start(tmp_path)
+    routes = "".join(f"// @Router /fern{i} [get]\nfunc Fern{i}() {{}}\n" for i in range(80))
+    head = repo.commit(1, **{"handler.go": "package flora\n" + routes})
+    md, _ = report(repo, head, tmp_path)
+    main, appendix = md.split("## Appendix\n", 1)
+    assert len(main.splitlines()) < 140
+    assert len(re.findall(r"^#### `GET", main, re.M)) == 5
+    anchors = re.findall(r'id="([^"]+)"', md)
+    assert len(anchors) == len(set(anchors))
+    references = re.findall(r"\]\(#([^)]*)\)|href=\"#([^\"]+)\"", md)
+    assert {markdown or html for markdown, html in references} <= set(anchors)
+    assert re.findall(r"^## (.+)", md, re.M)[-1] == "Provenance"
+    assert "sha256:" not in md.split("## Provenance\n", 1)[0]
+    assert "sha256:" in appendix.split("## Provenance\n", 1)[1]
+
+
+def test_removed_operation_keeps_statuses_fields_and_client_action(tmp_path):
+    before = schema({f"leaf{i}": {"type": "string"} for i in range(6)})
+    after = json.loads(before)
+    after["paths"] = {}
+    client = CALL_SOURCE + "\n".join(
+        f'export const fern{i} = () => request.get("/fern");' for i in range(5))
+    repo, _ = start(tmp_path, **{SCHEMA: before, CALL: client})
+    head = repo.commit(1, **{SCHEMA: json.dumps(after), "handler.go": "package flora\n"})
+    md, _ = report(repo, head, tmp_path)
+    operation = md.split("#### `GET /fern`\n\n")[1].split("## Who calls this code", 1)[0]
+    assert operation.count("| Operation removed |") == 1
+    assert "Operation fields changed" not in operation and "Successful response statuses changed" not in operation
+    assert "<details><summary>Fields and response statuses</summary>" in operation
+    assert "Successful response status removed · 200" in operation
+    assert "Showing 3 of 6 · <a href=" in operation and "Showing 3 of 6 · [See all calls]" in operation
+    assert operation.count("Check whether this client still needs the old declaration") == 1

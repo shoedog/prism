@@ -11,6 +11,7 @@ from ._replay_git import changed_files, git, parent, revision
 from .report_analysis import build_document
 from .report_evaluation import join_evaluation, render_evaluation
 from .report_inputs import ReportRequest, build_inputs
+from .report_layout import label
 from .report_markdown import render_json, render_markdown
 
 
@@ -128,8 +129,10 @@ def main(argv=None):
         doc = make(commit, "producer")
         _live(out, name, doc)
         direction = "Service and client" if doc["change"]["subject_role"] == "both" else "Service change"
-        index.append(f"- [{name}.md]({name}.md) · {commit[:8]} · {direction} · {_look(doc)}")
-        index.append(f"- [{name}.json.gz]({name}.json.gz) · {commit[:8]} · {direction} · Snapshot and match evidence.")
+        subject = doc["change"]["subject"]
+        description = f"{subject['committed_at'][:10]} · {label(subject['subject'])} · {direction}"
+        index.append(f"- [{name}.md]({name}.md) · {description} · {_look(doc)}")
+        index.append(f"- [{name}.json.gz]({name}.json.gz) · {description} · Snapshot and match evidence.")
         live[commit] = name
 
     clients = _client_documents(args, pin, make)
@@ -140,13 +143,16 @@ def main(argv=None):
             raise ValueError("Could not find two client subjects meeting the selection rule") from None
         name = f"client-{i}-{commit[:8]}"
         _live(out, name, doc)
-        index.append(f"- [{name}.md]({name}.md) · {commit[:8]} · Client change · {_look(doc)}")
-        index.append(f"- [{name}.json.gz]({name}.json.gz) · {commit[:8]} · Client change · Snapshot and match evidence.")
+        subject = doc["change"]["subject"]
+        description = f"{subject['committed_at'][:10]} · {label(subject['subject'])} · Client change"
+        index.append(f"- [{name}.md]({name}.md) · {description} · {_look(doc)}")
+        index.append(f"- [{name}.json.gz]({name}.json.gz) · {description} · Snapshot and match evidence.")
 
     # Open replay and adjudication inputs only after each live file has been written.
     directory = args.subjects.parent
     assessments = _assessments(directory.parent / "f4-r3-labels.tsv")
-    date = git(args.repo, "show", "-s", "--format=%cI", pin).decode().strip()
+    date, pin_subject = git(args.repo, "show", "-s", "--format=%cI%x00%s", pin).decode().rstrip("\n").split("\0")
+    observation_end = {"rev": pin, "committed_at": date, "subject": pin_subject}
     for number, result in _replay_results(args, subjects, pin):
         name = live[result.commit]
         with gzip.open(out / f"{name}.json.gz", "rt", encoding="utf-8") as stream:
@@ -154,14 +160,15 @@ def main(argv=None):
         original = _legacy_locations(directory / f"{number}.md")
         current = [(row.call.file, row.call.line, row.element) for row in result.predicted]
         labels = assessments if original == current else {}
-        companion = join_evaluation(doc, result, {"rev": pin, "committed_at": date}, labels,
-                                    model="gpt-6.1-terra")
+        companion = join_evaluation(doc, result, observation_end, labels, model="gpt-6.1-terra")
         suffix = f"{name}.evaluation"
         (out / f"{suffix}.md").write_text(render_evaluation(companion), encoding="utf-8")
         _write_json(out, suffix, companion)
-        index.append(f"- [{suffix}.md]({suffix}.md) · {result.commit[:8]} · Service replay · "
+        subject = doc["change"]["subject"]
+        description = f"{subject['committed_at'][:10]} · {label(subject['subject'])} · Service replay"
+        index.append(f"- [{suffix}.md]({suffix}.md) · {description} · "
                      "Tracked source edits and the study’s recorded assessments.")
-        index.append(f"- [{suffix}.json.gz]({suffix}.json.gz) · {result.commit[:8]} · Service replay · "
+        index.append(f"- [{suffix}.json.gz]({suffix}.json.gz) · {description} · "
                      "Source lines and comparisons used by the study.")
         print(f"Rendered {suffix}.md with {len(companion['rows'])} tracked request and element pairs", flush=True)
     (out / "index.md").write_text("\n".join(index) + "\n", encoding="utf-8")

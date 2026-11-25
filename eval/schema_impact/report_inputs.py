@@ -112,9 +112,11 @@ def _driver():
     version = sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
     try:
         base = revision(directory, "HEAD")
+        commit = _metadata(directory, base)
     except subprocess.CalledProcessError:
-        base = None
-    return {"name": "schema-impact", "version": "2", "rev": base, "build_identity": f"sha256:{version}",
+        commit = dict.fromkeys(("rev", "committed_at", "subject"))
+    return {"name": "schema-impact", "version": "2", "rev": commit["rev"], "committed_at": commit["committed_at"],
+            "subject": commit["subject"], "build_identity": f"sha256:{version}",
             "source_hashes": hashes}
 
 

@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import asdict
 from datetime import datetime, timezone
 
-from .report_markdown import _code, table
+from .report_layout import _code, label, table
 
 
 _ASSESSMENTS = {
@@ -75,6 +75,7 @@ def join_evaluation(live, replay_result, observation_end, assessments=None, mode
     return {
         "schema_version": "2", "live_report_id": live["report_id"], "observation_end": observation_end,
         "subject": change["after"], "study_adjudicator": model, "rows": rows,
+        "subject_metadata": change["subject"],
         "change_tag": (result["change_commit"] or {}).get("earliest_release_tag"),
         "control_count": len(result["control"]), "controls": result["control"],
         "skipped_reason": result["skipped_reason"],
@@ -150,10 +151,12 @@ def _first_edit(row, end):
 
 def render_evaluation(document):
     end = document["observation_end"]
+    subject = document.get("subject_metadata", {})
+    subject_label = _revision_label(document["subject"], subject)
+    end_label = _revision_label(end["rev"], end)
     lines = [
         "# Replay evaluation (uses later history)",
-        f"Service subject {_code(document['subject'])}. Last revision examined "
-        f"{_code(end['rev'])} · {_date(end['committed_at'])}.",
+        f"Service subject {subject_label}. Last revision examined {end_label}.",
         "Lines the study tracked include the client call and, for a field, lines spelling its property name "
         "in the same file or in identified importers of the enclosing function. An edit to any tracked line "
         "can be the first recorded edit.",
@@ -186,3 +189,9 @@ def render_evaluation(document):
         lines.append("The replay recorded no locations for this subject.")
     lines.append(f"The study also followed {document['control_count']} comparison call sites.")
     return "\n\n".join(lines) + "\n"
+
+
+def _revision_label(revision, metadata):
+    date = _date(metadata.get("committed_at")) or "date unavailable"
+    subject = label(metadata["subject"]) if metadata.get("subject") else "subject unavailable"
+    return f"{_code(revision)} · {date} · {subject}"
