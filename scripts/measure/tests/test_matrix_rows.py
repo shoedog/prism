@@ -117,7 +117,13 @@ class MatrixRowsTests(unittest.TestCase):
 
     def test_case_directories_match_the_rows_and_contain_files(self):
         referenced = {row["input"]["case"] for row in self.rows}
-        actual = {path.name for path in CASES.iterdir() if path.is_dir()}
+        # Benchmark cases (bf-*, bn-*) belong to rows-bench.jsonl and are checked by
+        # eval/secbench/test_matrix_rows_bench.py.
+        actual = {
+            path.name
+            for path in CASES.iterdir()
+            if path.is_dir() and not path.name.startswith(("bf-", "bn-"))
+        }
         self.assertEqual(actual, referenced)
         for name in sorted(referenced):
             with self.subTest(case=name):

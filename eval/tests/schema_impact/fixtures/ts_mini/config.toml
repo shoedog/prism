@@ -1,0 +1,28 @@
+aliases = { "@/" = "src/", "@old/tools/" = "src/" }
+
+[[client]]
+file = "src/request.ts"
+export = "default"
+methods = { get = "GET", post = "POST", "instance.put" = "PUT", via = { method_arg = 1 } }
+strip_prefix = "/legacy"
+add_prefix = "/a"
+response_root = "data"
+
+[[client]]
+file = "src/send.ts"
+export = "default"
+call = { method = "POST" }
+
+[[client]]
+file = "src/send.ts"
+export = "withOptions"
+call = { method_key = "verb", options_arg = 1 }
+
+[[client]]
+file = "src/send.ts"
+export = "alternate"
+
+[[client]]
+hook = "useSWR"
+url_arg = 0
+fetcher_arg = 1

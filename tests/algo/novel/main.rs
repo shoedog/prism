@@ -15,4 +15,5 @@ mod peer_consistency_test;
 mod primitive_lang_test;
 mod primitive_test;
 mod provenance_lang_test;
+mod provenance_matrix_test;
 mod provenance_test;
