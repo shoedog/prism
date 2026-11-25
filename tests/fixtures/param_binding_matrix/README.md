@@ -9,14 +9,14 @@ IDs. Shared JS-family fixtures run in each declared language.
 | Field | Meaning |
 |---|---|
 | `id` | Unique plan ID or plan ID with a sub-case suffix |
-| `group` | `control`, `A`, `B`, `C`, `D` or `E` |
+| `group` | Default slice. Use `control`, `A`, `B`, `C`, `D` or legacy `E`, which maps to `E2`. |
 | `langs` | Nonempty list of `js`, `ts`, `tsx`, `go` or `py` |
 | `files` | Fixture filename to source map. The build helper uses the filename stem and the extension for the current language. Multi-file fixtures with explicit extensions in imports use a single language. |
 | `expect` | Nonempty list of assertions |
 | `class` | Census metric and shape, or baseline control class |
-| `truth` | `correct`, `wrong` or `ambiguous`. `wrong` means the row pins the existing unimported-export resolver defect, including rows that require later binding admission to refuse that resolution. `correct` means a correct implementation must produce the stated outcome at run time and under the design; `ambiguous` means the required outcome is a design decision still open (the row is settled at stage D, and an assertion pinned on only one side of the open question is a defect of the row). |
+| `truth` | `correct`, `wrong` or `ambiguous`. `wrong` means the row pins the existing unimported-export resolver defect, including rows that require later binding admission to refuse that resolution. `correct` means a correct implementation must produce the stated outcome at run time and under the design; `ambiguous` preserves an open decision in the original input. The design ledger supplies the disposition for that row. |
 | `issue` | Required for `wrong` rows |
-| `unexecuted` | Reason the assertion needs a measurement or design decision beyond the fixture APIs, or the model-boundary skip described at the end of this file. The test prints the ID and skips that row. |
+| `unexecuted` | Reason the assertion needs a measurement or design decision beyond the fixture APIs, or the model-boundary skip described at the end of this file. Each selected assertion in the row is reported as skipped for every declared language. |
 
 An endpoint is `file:function:path@line:col`. Lines and columns are 1-based.
 The column counts characters. The test converts it to a UTF-8 byte offset and
@@ -45,17 +45,41 @@ A `call` object has `site` in `file@line:col` form at the start of the call
 expression and the extracted `callee` name. Optional `end` is the exclusive
 `line:col` position, and optional `owner` is the extracted caller name.
 
-The ambiguous rest cases `b03` and `b09a` assert only the settled offsets.
-`e02a` asserts the anonymous resolution and leaves the bare-arrow transfer
-for stage D. `h09a`–`h09c` retain the desired edge assertion while stage D
-decides the admissible receiver forms and their graph nodes. `e09a` uses a
-receiver parameter with an existing single-owner name-search route.
+Each assertion can specify `slice` to override the row default. Valid slices
+are `control`, `A`, `B`, `C`, `D` and `E2`. Assertions also accept an
+optional nonempty `loss` reason for an accepted semantic mismatch. A mismatch
+on a marked assertion reports `LOSS`. A match reports `unexpected pass` and
+fails the test. Unmarked mismatches report `RED`. Malformed metadata, fixture
+construction failures and invalid endpoints fail independently of loss
+markers. Sibling assertions are still evaluated. An edge check compares
+transfers at source-validated occurrences, so its count can be zero when the
+product has no corresponding graph occurrence.
 
-For a baseline run, enable `control` and one feature group in
-`src/cpg/param_binding_matrix_tests.rs`. Run `cargo test --lib
-param_binding_matrix -- --nocapture` to display each row's result. The test
-reports each row before failing and prints individual language/assertion
-failures. Restore `ENABLED` to `&["control"]` afterward.
+`manifest.jsonl` binds the design ledger to the fixture using row `id`,
+1-based `ordinal`, effective `slice`, `kind`, and `reason`. The test
+compares all `loss` and `slice` records against assertion metadata.
+`loss-row` and `set-row` preserve ledger rulings, including runtime
+omissions documented alongside passing negatives. `corrected`, `blocked`,
+`sentinel` and `skip` identify expectation changes, unmet prerequisites,
+hard correctness checks and retained whole-row skips. The reviewed input
+had 425 IDs and SHA-256
+`500284f1518dc0112b24466bff2fc108ad85faa8f90163305fe9b0fdea57b73d`.
+The callback Defs and negatives in `h09a`–`h09c` replace the earlier
+open-design skips. The remaining 20 historical skips are retained.
+
+The A sentinels `x1-4`, `x2-2` and `x5-2` remain mandatory. The related
+`c07` and `c08` controls pin the existing foreign-export resolution.
+Ordinary constructor-dependent positives with a missing Source-site or
+Exact-target prerequisite remain mandatory, even where a separate fixed
+slot in the same row carries a loss.
+
+For a baseline run, enable `control` and one feature slice in
+`src/cpg/param_binding_matrix_tests.rs`. Run
+`cargo test --lib param_binding_matrix -- --nocapture`.
+Each tab-separated `MATRIX` record contains the row ID, row group, outcome,
+language, ordinal, effective slice, expected assertion, actual observation
+and loss reason. Inactive assertions emit no record. Restore
+`ACTIVE_SLICES` to `&["control"]` after a baseline run.
 
 ## Census classes by row
 
@@ -536,6 +560,6 @@ failures. Restore `ENABLED` to `&["control"]` afterward.
 `x5-14`, `x5-15`, `x5-16`, `x5-17`, `x5-18`.
 
 
-## Rows that are not enabled (model boundary)
+## Historical model-boundary skips
 
-Rows carrying `unexecuted` beginning `model boundary, not enabled:` need run-time reasoning the design excludes (reflection, runtime mutation of built-ins, dead calls, accessors, module-object mutation). They are skipped by the test and listed as accepted-loss candidates for the design of record. The test also validates every row's label vocabulary whether or not its group is enabled.
+Rows carrying `unexecuted` beginning `model boundary, not enabled:` need run-time reasoning the design excludes (reflection, runtime mutation of built-ins, dead calls, accessors, module-object mutation). The manifest preserves these skips. Metadata validation covers every row before selection.
