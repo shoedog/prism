@@ -588,9 +588,10 @@ Root `Cargo.toml`: add the member; do not add it to `default-members`.
 - [x] Set the final pilot rules against E-1 (170 rule, 47 accepted loss) and E-2 (288 rule, 18 accepted loss), both
   feasibility results, A1 and the provisional route-model contract. DESIGN 5.1–5.6, 7.2 and 9 govern the slice
   briefs.
-- [x] Closed review at round 2 of 2. Both seats rejected round 1. In round 2 Sol rejected and Opus approved.
-  The design seat folded both sets, addressing EVIDENCE-INPUT and GRAMMAR as recurring classes. DESIGN ends
-  with the individual dispositions. The 523 ledger rows comprise 458 rule and 65 accepted loss.
+- [x] Both seats rejected round 1. In round 2 Sol rejected and Opus approved. The design seat folded both sets,
+  addressing EVIDENCE-INPUT and GRAMMAR as recurring classes. The targeted round 3 fold adds the directional
+  capacity control, changes two bound expectations to candidate and specifies the fixture mapping controls.
+  DESIGN records the dispositions. The 523 ledger rows comprise 458 rule and 65 accepted loss.
 - [ ] After review, apply ORCHESTRATION sections 7–8 and the DESIGN **Alignment list**. Align the matrices'
   expectations and warnings with the reviewed design while retaining each row's semantic witness and recording
   accepted losses. Record a fresh base RED/GREEN for each amended row before enabling it. Regenerate `ids.tsv` next. This design change edits only documents.
@@ -675,6 +676,10 @@ the separate status rows and mark body comparison unchecked. An op addition/remo
   keys, including incompatible values. Verify the checked-empty `t1-allof-closed-intersection` and partial
   coverage for unsupported applicators. Keep false optional, composition-only/root cycle and unaffected sibling
   controls. Reconcile P1 schema coverage counts with D-census.
+- Add `maxProperties: 2` to `Record` in a control derived from `t1-directional-annotations`. Reserve only
+  `secret` for requests and only `serial` for responses. Check the feasible request with `secret` and `label`
+  and the feasible response with `serial` and `label`. Both roots must still emit all three field IDs with
+  their directional requiredness, including `#/label` on each side and zero `FieldRemoved` changes.
 - Publish versioned JSON schemas and golden bindings/impact documents per DESIGN 5.2 and A1 **Input documents and
   machine-readable form**. Validate serialized examples against the schemas, including unbound raw calls, coverage
   without a key, both element IDs on a paired status-root move, absent versus unknown sides, an admitted saved
@@ -793,10 +798,11 @@ versioned `BindingsDocument` with every counted call's raw target, site and call
 coverage. A saved preview freezes the actual inventory and its dependencies under DESIGN 5.2 even on an empty
 match set. Version both public era configs and R's scoped config. Bind each hook export and default fetcher to
 its source or mark defaults unconfigured, record document URL and producer origins, and specify wrapper
-normalization and zero-based options positions. Apply the Alignment list inputs to the fixture configs. In the
-35 template-client configs, admit the export-to-API mapping with its factory and settings dependencies and check
-all 45 listed occurrences. With just that mapping withheld, keep the observed site, prefix and readable request
-components. Assert **Not checked** (`origin_unchecked`), zero confirmed targets and zero notifications.
+normalization and zero-based options positions. Test the Alignment list's numbered identity-prefix mapping
+to each configured client's own fixture API after applying its declared prefix policy once. In the 37 listed
+template-client configs, admit the mapping with its factory and settings dependencies and check all 47 listed
+invocations, including `s20` and `s22-3`. With just the API mapping withheld, keep the observed site, prefix
+and readable request components. Assert **Not checked** (`origin_unchecked`), zero confirmed targets and zero notifications.
 
 CLI:
 `prism-boundary bind --role consumer --api <name> --repo <tree> --config <toml> [--schema <json>] --caller-depth 2 --out <bindings.json>`.
@@ -811,7 +817,10 @@ unknown file/region coverage. Record excluded syntactic forms separately from co
 Check `url-concat-parenthesized` on numeric and opaque operands, and a readable GET alternative paired with
 an opaque method on the same readable URL. Require the GET candidate with `dynamic_method`, or unbound with
 that reason if GET has no match. Exercise an empty component against `{}`, `{?}` and `{*0+}` with the
-separator policy fixed.
+separator policy fixed. At each mapped `s09` site, the declared string domain gives
+`candidate/ambiguous_operation` with the two IDs in the Alignment list and zero notifications. Substitute
+the literal `""` to bind only the generic route. With the literal `"wax"` or a typed parameter proved
+non-empty (such as a number interpolated as text), require the site's bound mixed route and its generic overlap.
 
 | Row | Input | Required |
 |---|---|---|

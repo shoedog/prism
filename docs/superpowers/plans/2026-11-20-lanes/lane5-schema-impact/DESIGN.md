@@ -163,6 +163,7 @@ incomplete method coverage.
   serialization/constraint facts as attributes for matching. A literal schema colon stays literal.
 - `{}` matches one non-empty component when it occupies the whole segment. Within a mixed segment its capture
   must consume non-empty text between the fixed parts. An empty capture is admitted only by `{?}` or `{*0+}`.
+  A client substitution can produce empty text. Score the resulting component with its fixed parts intact (§5.4).
   Use `{*}` for one or more nonempty segments, `{*N}` for exactly N and `{*0+}` for zero or more after the
   retained separator. Gin `/mugs/*trail`, Express 4 `/mugs/*` and Hapi `/mugs/{trail*}` under the empty-tail
   policy project to `/mugs/{*0+}`. The empty tail consumes no segment after `/mugs/`. Accept a bare parent only
@@ -219,11 +220,11 @@ without certifying its presence, absence or type. Apply the following transition
 | Production or boundary | Deterministic transition |
 |---|---|
 | Reference or composition back-edge | Resolve static JSON pointers and relative admitted JSON documents, decode fragment escapes and pointer tokens once. Track (resource, pointer) on the current expansion stack. At re-entry stop this branch, retain the referring field if present and attach `recursive` to the current typed pointer. At a root or composition-only cycle attach it to the root or composition site, mark expansion there partial and emit no synthetic field. Pop on return so sibling uses expand. Missing blob, anchor, dynamic reference or nested resource base outside this resolver gives partial at the affected reference. OpenAPI 3.0 Reference Objects ignore siblings. Apply 3.1 schema siblings as a conjunction. |
-| Effective conjunction | Intersect types, simple finite scalar domains, scalar bounds and container limits, and union required names before visiting edges. A false schema or a proven empty intersection eliminates that branch. For objects use the greatest `minProperties` and least `maxProperties` across conjuncts (defaults 0 and unbounded). Apply the object rules below before visiting children. For arrays a minimum above the effective maximum eliminates the branch and a zero maximum withholds all item edges. Nullable branches retain their separate non-null possibilities. |
+| Effective conjunction | Intersect types, simple finite scalar domains, scalar bounds and container limits. A false schema or a proven empty intersection eliminates that branch. For objects use the greatest `minProperties` and least `maxProperties` across conjuncts (defaults 0 and unbounded). Union the declared required names, then apply OpenAPI directional annotations before testing feasibility or visiting edges. Exclude `readOnly` names from the request required set and `writeOnly` names from the response required set. Each remains eligible as an optional field in that direction. For arrays a minimum above the effective maximum eliminates the branch and a zero maximum withholds all item edges. Nullable branches retain their separate non-null possibilities. |
 | Positive composition | Keep each `allOf` member's declared names and remainder policy through intersection, including on referenced members. Keep sorted origins for repeated names and `allof_overlap`. Apply the per-name rule below to open and closed objects. An intersection outside the supported grammar gives partial at the shared container. For `anyOf` union feasible branches with their conditions. For `oneOf` require disjointness for a confirmed branch claim (e.g. disjoint types or required discriminant values). Otherwise keep branch observations and mark the affected union partial. Keep union warnings and discriminator mappings. Drop a proven impossible arm before walking it. An unresolved arm can affect sibling claims at the same pointer. |
 | Object names and remainder | Take the union of literal property and required names. For each name, intersect what **each** conjunct permits at that name. A member supplies its local property schema if declared there, otherwise its own `additionalProperties` (true/omitted permits any value, false forbids the name, a schema constrains its value). For a fresh name outside the union, intersect all remainder policies. A forbidden or provably empty value domain removes an optional name and makes a required name impossible. Unsupported applicators or undecidable intersections give partial where they could affect feasibility. |
-| Object feasibility and residual capacity | Reserve one slot for each distinct required name. An impossible required name, a minimum above the maximum, or more required names than slots eliminates the object branch. If the effective remainder forbids fresh names, count the distinct feasible literal names, including feasible required-only names. Fewer than `minProperties` eliminates the branch. An unknown key or value domain affecting this test gives partial. Otherwise residual capacity is the effective maximum minus the number of required names (unbounded without a maximum). |
-| Object edges | On a feasible branch emit required names. Emit a feasible optional name or descend through a schema-valued fresh-name map edge only if residual capacity is positive. Test each optional edge as a possibility in its own right. Map traversal excludes all literal names accounted for above, including required-only names. With zero spare slots only required names can appear. At each emitted literal carry branch, directional requiredness, readOnly/writeOnly and effective shape and recurse. |
+| Object feasibility and residual capacity | For this direction reserve one slot per distinct name in its effective required set. An impossible required name, a minimum above the maximum, or more required names than slots eliminates the object branch in this direction. If the effective remainder forbids fresh names, count the distinct feasible literal names, including feasible required-only names. Fewer than `minProperties` eliminates the branch. An unknown key or value domain affecting this test gives partial. Otherwise residual capacity is the effective maximum minus the size of this direction's required set (unbounded without a maximum). |
+| Object edges | On a feasible branch emit required names. Emit a feasible optional name or descend through a schema-valued fresh-name map edge only if residual capacity is positive. Test each optional edge independently against the same residual capacity so every field feasible in some valid object of this direction survives the capacity check. Map traversal excludes all literal names accounted for above, including required-only names. With zero spare slots only required names can appear. At each emitted literal carry branch, directional requiredness, readOnly/writeOnly and effective shape and recurse. |
 | Field declaration with a readably empty enum | Preserve the declared element ID, the enum-list presence bit and the empty member set for the declaration diff. The empty value domain contributes no feasible wire values. Compare an absent list with this record even where wire feasibility is empty. |
 | Array, true or atom | Recurse on homogeneous schema-valued items through `[]`. Map and array edges never emit a field on their own. Scalars, true, empty schema and boolean map policy introduce no named descendants. Serialize at most 16 edges and give `depth_cut` at the parent only for a withheld deeper edge. |
 | Unsupported or unresolved | Tuple/prefix items, contains, conditionals, negative/dependent schemas, pattern/property-name restrictions, object enum/const, evaluated properties/items and unknown assertion vocabularies give partial at the smallest container whose children can change. Keep local declaration observations separately, without certifying fields or comparison under that boundary. Preserve unaffected siblings outside it. A descriptive annotation alone has no effect. Any combination without a preceding transition takes this fallback. |
@@ -232,6 +233,7 @@ without certifying its presence, absence or type. Apply the following transition
 |---|---|
 | `composition-only-cycle`, a message schema referencing itself at the root, and the two-node allOf/ref variant | Operation retained, partial at the root with `recursive`, no field ID. A separately reachable acyclic sibling still expands at its own site. |
 | Object with one slot, declared string properties `kept` and `extra`, and an object remainder with field `tag`. Add required `kept`. | Before, `#/kept`, `#/extra` and `#/*/tag` are feasible. After, only `#/kept` is feasible. In the same comparable JSON root emit `FieldRequiredAdded` for `kept` and `FieldRemoved` for both lost fields. Raising the maximum to two restores both optional possibilities. |
+| Add `maxProperties: 2` to `Record` in `t1-directional-annotations` | Only `secret` is required in a request and only `serial` in a response. The spare slot admits `label` in either direction. The object with both `secret` and `serial` is also feasible in either direction, so each root retains all three field IDs. |
 | Closed object with `minProperties=2`, one feasible name and one false-valued optional name | Eliminate this branch. Lower the minimum to one and the feasible field returns. |
 | One conjunct declares a name and another constrains it through a schema-valued remainder | Intersect both value schemas. An integer remainder narrows a declared number to integer, a string remainder forbids that numeric property, and requiring the forbidden name eliminates the object branch. The two closed members in `t1-allof-closed-intersection` permit only the empty object. |
 
@@ -456,8 +458,12 @@ in neutral shapes s01–s45. The disposition table in §9 also covers the gramma
 2. Concatenate literal text and symbolic substitutions for string concatenation and templates. A variable value
    occupying a path component is a segment parameter under the syntactic path model. A simple substitution
    **within** a segment keeps the fixed prefix/suffix and the parameter, even next to an encoded slash. Preserve
-   multiple holes, their order and repeated-variable constraints. Thus, with their admitted service mapping, the two `s09` occurrences select the
-   matching mixed templates with their fixed prefix or suffix. The generic route remains a lower-ranked overlap.
+   multiple holes, their order and repeated-variable constraints. If the substitution domain includes the empty
+   string, score that spelling separately wherever it changes capture eligibility, then reduce the readable
+   alternatives by the table below. At `s09` and `s09-2` the mixed template wins on the non-empty arm. On the
+   empty arm the fixed prefix or suffix alone fills the component and only the generic template matches. Each site
+   is therefore `candidate/ambiguous_operation`. A typed parameter with an evidenced non-empty domain or a known
+   non-empty literal excludes the empty arm. In these controls the mixed template is bound with the generic overlap.
    Apply JS string conversion to known substitutions, including numeric literals, empty string, false, null
    and undefined. Short-circuit operators return their selected operand before that conversion. A numeric hole
    accepts only its numeric string domain. Encoded substitutions retain their encoded segment boundaries. A known slash-producing transform (as in `s20`),
@@ -941,7 +947,7 @@ unknown result. Future syntax takes those transitions even without a fixture. Ov
 marks the affected target unknown and keeps the site in the denominator. A runtime or generated client absent from
 source is outside the static inventory.
 
-After round 2 the tables partition all **523** rows (458 rule, 65 accepted loss) by their original `class` column. A rule row tests the amended decision,
+The tables partition all **523** rows (458 rule, 65 accepted loss) by their original `class` column. A rule row tests the amended decision,
 including correct exclusions, negative grades and new spellings. An accepted loss means the pilot cannot recover
 all the semantics witnessed by that row. Test the supported observations and the named limit. Keep the semantic
 witness in the fixture. The enumeration inputs have SHA-256
@@ -1120,6 +1126,7 @@ their own collection. Compare no fields inside the indicated region.
 | `t1-ref-id-base`, `t1-anchor-ref`, `s1-oas31-dynamic-ref-override`, `s1-swagger-discriminator-inheritance` | First three keep operation only with unresolved reference scope. Last keeps the operation and base `#/family`, drops `#/ridge` and marks derived alternatives partial. |
 | `t1-not-required-field`, `t1-conditional-branches`, `t1-pattern-exact-property`, `t1-oneof-overlap-exclusion` | Operation only in confirmed IDs. Mark the response object partial for not/conditional/pattern/exclusivity respectively. Record literal declarations and branches, the triggering keyword and the oneOf union observation. A pattern spelling alone establishes no literal field. |
 | `t1-allof-closed-intersection` | Rule. Keep `op:GET /loom`. Each member's false remainder forbids the other's optional key (`bolt` or `nut`). The empty object is feasible and the field set is checked empty. Add the saturated literal/map, closed minimum and schema-valued cross-conjunct controls in §5.1. |
+| `t1-directional-annotations` | Keep the pinned rule row and add the §5.1 two-slot control. Require both `field:req:POST /forge#/label` and `field:resp:POST /forge:200#/label` after adding `maxProperties: 2`. Neither root emits a `FieldRemoved`. |
 | `t1-dependent-schema`, `t1-contains-items`, `t1-unevaluated-properties`, `t1-pattern-excluded-by-property`, `s1-oas31-enum-object-shape`, `s1-oas31-property-names-finite-map` | Operation only in confirmed IDs. Mark the affected response container partial under its unsupported keyword. Preserve declarations/constraints including trigger/bobbin, contains/weave, warp/weft, false bolt plus pattern, object values, and the map's `*/glint` observation respectively. |
 | `s1-oas31-anyof-impossible-branch`, `t1-max-properties-zero`, `s1-oas31-required-only-name` | The first arm's required false-valued gate proves that whole arm impossible. Keep only the feasible `#/wax`, its operation and `anyOf_union`. Zero capacity gives operation only. Required-only wax inherits additionalProperties (unconstrained in this fixture). Add integer and false controls: integer shape, or no feasible object fields, respectively. |
 
@@ -1129,10 +1136,11 @@ from the adapter denominator. Keep diagnostics, including secondary reasons, in 
 
 | Row IDs | Replacement result or input |
 |---|---|
-| `s01`, `s02`, `s03`, `s04`, `s04-2`, `s05`, `s06`, `s07`, `s08`, `s09`, `s09-2`, `s10`, `s11`, `s12`, `s13`, `s14`, `s14-2`, `s15`, `s16`, `s16-2`, `s17`, `s18`, `s19`, `s21`, `s21-2`, `s21-3`, `s23`, `s24`, `s25`, `s25-2`, `s26`, `s27`, `s28`, `s29`, `s29-2`, `s30-3`, `s31-3`, `s32`, `s33`, `s34`, `s34-2`, `s35`, `s36`, `s37`, `s37-2` | These 45 occurrences require one admitted service-relative mapping in each of their 35 fixture configs. Use the record below before applying the row's grade, limits or target expectations. |
+| `s01`, `s02`, `s03`, `s04`, `s04-2`, `s05`, `s06`, `s07`, `s08`, `s09`, `s09-2`, `s10`, `s11`, `s12`, `s13`, `s14`, `s14-2`, `s15`, `s16`, `s16-2`, `s17`, `s18`, `s19`, `s20`, `s21`, `s21-2`, `s21-3`, `s22-3`, `s23`, `s24`, `s25`, `s25-2`, `s26`, `s27`, `s28`, `s29`, `s29-2`, `s30-3`, `s31-3`, `s32`, `s33`, `s34`, `s34-2`, `s35`, `s36`, `s37`, `s37-2` | These 47 occurrences require one admitted service-relative mapping in each of their 37 fixture configs. Use the record below before applying the row's grade, limits or target expectations. |
 | `url-concat-parenthesized` | With the default export of `urls/quay.ts` mapped by the fixture config to the fixture API at its identity prefix, numeric parameter plus numeric literal gives bound `op:GET /reels/{}/ends`. Replace the parameter operand with a value of unknown type and coercion. Keep GET, give `unbound/dynamic_url` and zero targets. |
 | `url-in-segment`, `url-concat-in-segment`, `url-two-values-in-one-segment` | Bound GET /reels/{} for all three. |
-| `s09`, `s09-2` | Bound GET /mothbank/crates/%2F{} and GET /mothbank/crates/{}-ridge-gold respectively. Retain the less specific overlap. |
+| `s09` | `candidate/ambiguous_operation` with `op:GET /mothbank/crates/%2F{}` (non-empty substitution) and `op:GET /mothbank/crates/{}` (empty substitution leaves `%2F`). |
+| `s09-2` | `candidate/ambiguous_operation` with `op:GET /mothbank/crates/{}-ridge-gold` (non-empty substitution) and `op:GET /mothbank/crates/{}` (empty substitution leaves `-ridge-gold`). |
 | `c05` | Align the mixed live-branch witness by changing the declaration to let in the aligned projection. Candidate GET /reels, primary `conditional_url`, opaque replacement arm uncovered. Retain original const bytes as an abrupt-completion control: bound GET /reels on the sole reaching arm. |
 | `s15` | Candidate GET /mothbank/booklets and GET /mothbank/booklets/{}, `ambiguous_operation`. Empty string reaches the base, truthy string reaches the segment. Suffixes false, null and undefined stringify without a slash and are unmatched. |
 | `parameter-to-literal`, `matching-only-top`, `matching-parameter-score` | Numeric domain excludes me: unbound/no_operation. Next two become candidate/ambiguous_operation. GET /press/{}/leaf and GET /press/copper/{} tie for copper. GET /base/{}/top and GET /base/flint/{} tie for flint (GET /base/{}/{} overlaps). |
@@ -1149,8 +1157,12 @@ from the adapter denominator. Keep diagnostics, including secondary reasons, in 
 | `t1-expand-ky-prefix`, `t1-expand-got-prefix`, `t1-expand-superagent-query`, `t1-expand-jquery-ajax`, `t1-extra-xhr-send` | No counted call or target under these configs. Record excluded_transport. |
 | `prefix-normalize-after-map`, `trailing-slash`, `repeated-slash`, `s14`, `s14-2` | Strict paths give the first three unbound/no_operation. Last two give candidate/conditional_url with only GET /mothbank/pebbles/{} and unmatched /mothbank/pebbles/. |
 
-**Service-relative mapping for the 45 rows.** In each listed shape's `prism-boundary.toml`, add a numbered
-client mapping from the resolved `alderfenCourier` export to the API key of that fixture's `schema.json`.
+**Configured-client mappings.** In every E-2 configured-client config, give each service-relative export a
+numbered identity-prefix mapping from its prefix-adjusted path to its own fixture schema API, and withhold just
+that record to require **Not checked** (`origin_unchecked`), zero confirmed IDs and zero notifications for the comparison.
+
+For the 47 listed template-client calls, this record in the shape's `prism-boundary.toml` maps the resolved
+`alderfenCourier` export to the API key of that fixture's `schema.json`.
 Cite the local factory export and base construction in `alderfen/kiln-courier.ts` and the origin and mount
 definitions in `alderfen/kiln-settings.ts`, with their tree, blobs and spans. The entry declares service
 origin `https://alderfen.invalid`, root mount, empty strip and add-prefix `/mothbank/` applied once. Record
@@ -1159,6 +1171,8 @@ without evaluating its string replacement. With the entry present apply the amen
 the strict-slash limits on `s14` and `s14-2`. Withhold just the API mapping while keeping the export, method
 convention, prefix and paired schema. Preserve each counted site and its readable components, mark the API
 comparison **Not checked** (`origin_unchecked`), and require zero confirmed IDs and zero notifications.
+With that same record in the `s20` and `s22` configs, `s20` is `unbound/dynamic_url`, `s22` and `s22-2` only
+create bound senders, and the invocation `s22-3` is `unbound/dynamic_method` with secondary `dynamic_url`.
 
 **Additional matching controls.** Against a complete admitted inventory, a readable URL with a known GET arm
 and a live opaque-method arm gives only the GET match as `candidate/dynamic_method`. With the GET operation
@@ -1247,3 +1261,12 @@ design-seat fold amends the class rules and their controls. The pre-implementati
 - opus2-N2 · SMELL folded. P3 checks every bound join below 50 and reports R's retained configured joins out of 236. The owner default is report, no floor.
 - opus2-N3 · SMELL folded. §5.1 requires a non-empty component for `{}` and specifies the captures that admit empty.
 - opus2-N4 · SMELL folded. P4 names the pull ref, exact renderer commit and public v2 report directory.
+
+## Review round 3
+
+- Sol · WRONG · MATERIAL folded. §5.1 reserves capacity per direction, and P1 and the Alignment list require both `label` IDs in the two-slot control.
+- Sol · WRONG · MATERIAL folded. §5.4, P3 and the Alignment list change both `s09` grades from bound to candidate because the empty spelling selects the generic route.
+- Opus · SMELL · IMMATERIAL folded. The Alignment list requires a numbered identity-prefix mapping to each configured client's fixture API and a withheld-record control.
+- Opus · SMELL · IMMATERIAL folded. The `s20` and `s22` configs carry the same template-client record, covering 47 listed invocations across 37 configs.
+
+Both changed grades remain E-2 rule rows. D-census is pending before P1.
