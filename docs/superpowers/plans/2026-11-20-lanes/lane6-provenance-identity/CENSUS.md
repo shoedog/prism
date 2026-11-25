@@ -31,7 +31,9 @@ callee, function, type, keyword, comment or string text); the structural slice S
 
 ## Population and volume (base build 9d1a7d06, all findings)
 
-| family | diffs | files | diff lines | findings | per diff | per 100 diff lines | concern | warning | info |
+The volume table groups findings by the family of the diff's repository; the precision table below groups them by the family of the finding's file (a Python repository's diff can carry JS/TS files), so their per-family counts differ (py/js/go 2629/1197/1074 against 2438/1442/1020; both sum to 4900 over those three families).
+
+| diff family | diffs | files | diff lines | findings | per diff | per 100 diff lines | concern | warning | info |
 |---|---|---|---|---|---|---|---|---|---|
 | py | 100 | 354 | 7209 | 2629 | 26.3 | 36.5 | 610 | 575 | 1444 |
 | js | 40 | 150 | 2767 | 1197 | 29.9 | 43.3 | 510 | 162 | 525 |
@@ -47,7 +49,7 @@ Origins over all 240 diffs: {'function_param': 1952, 'user_input': 1719, 'config
 
 `prec` = right / (labelled = sample minus `insufficient_evidence`); `so` = request or handle object itself, counted wrong or right. Interval is a 95% Wilson interval on the unweighted cell (the cell is the stratum, so weights do not change a cell's rate).
 
-| family | origin | population | sample | right | source_object | not_variable | wrong_origin | insufficient | prec (so wrong) | prec (so right) | 95% interval (so wrong) |
+| file family | origin | population | sample | right | source_object | not_variable | wrong_origin | insufficient | prec (so wrong) | prec (so right) | 95% interval (so wrong) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | c | config | 55 | 30 | 0 | 7 | 20 | 3 | 0 | 0.00 | 0.23 | 0.00 to 0.11 |
 | c | database | 59 | 30 | 0 | 0 | 14 | 14 | 2 | 0.00 | 0.00 | 0.00 to 0.12 |
@@ -113,7 +115,7 @@ Base sample: 655 items. Reader 1 gpt-6.1-terra, reader 2 gpt-6.2-sol, third read
 
 Source census: 400 items, 422 tokens read as variables by at least one reader. Reader 1 Sonnet-5.5, reader 2 gpt-6.1-terra, third read Opus-5.5. Agreed 274, disputed 148; kappa 0.57. 11 tokens stay unresolved (third read `insufficient_evidence`).
 
-Final labels are agreed labels or the third read. Readers saw no tool output about the items. Rubric v1.1 (chain rule added after the first census readers disagreed on `req.query[...]`; every disputed census token and every disputed sample token was resolved under v1.1; agreed labels were not re-read).
+Final labels are agreed labels or the third read. The sample readers worked under rubric v1.1 from the start (the clarification was written before the sample readers started and after the first census readers had begun). Readers saw no tool output about the items. Rubric v1.1 (chain rule added after the first census readers disagreed on `req.query[...]`; every disputed census token and every disputed sample token was resolved under v1.1; agreed labels were not re-read).
 
 ## Source census: recall of the base build (400 changed lines, py/js/go, 180 diffs)
 
@@ -130,7 +132,7 @@ Selection (before any head build, independent of both builds): changed lines of 
 | hardware | 0 | 0 | 0 | n/a | 0  | 0 |
 | source_object | 45 | 423 | 0 | 0% | 24 {'user_input': 13, 'database': 1, 'config': 3, 'function_param': 7} | 21 |
 
-The base build never produces `external_call` or `hardware`, so recall for those classes is 0 by construction (5 external_call reads and no hardware reads in the sample; the census has no oversampled stratum for them). `source_object` rows are request or handle objects themselves: the base build reports them as user_input, config, database or function_param (the wrong-class column), never as a distinct class. Definition-only changes (a source written on a changed line and read only on unchanged lines) are the complement of this census's frame and were not enumerated; they are out of scope for recall and recorded as such. Eleven census tokens remain unresolved after the third read and are excluded from every row.
+The base build never produces `external_call` or `hardware`, so recall for those classes is 0 by construction (5 external_call reads and no hardware reads in the sample; the census has no oversampled stratum for them). `source_object` rows are request or handle objects themselves: the base build reports them as user_input, config, database or function_param (the wrong-class column), never as a distinct class. Definition-only changes (a source written on a changed line and read only on unchanged lines) are the complement of this census's frame and were not enumerated; they are out of scope for recall and recorded as such. 33 of the 422 census tokens (22 agreed `insufficient_evidence` plus 11 unresolved after the third read) are excluded from every row; the recall figures are therefore for decided reads, and counting those 33 as misses would lower each class by at most the share of the excluded reads that belong to it (unknown). Definition-only changes: **deviation from M-4**: not tallied (the census frame cannot see them); deferred, to be sized in stage D if the design needs it. Recall has no interval here: the per-class counts are small (n shown) and every class is far below the 95% recall gate, so only the direction is used.
 
 ## Notes for the next stages
 
