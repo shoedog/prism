@@ -1,7 +1,7 @@
 use super::evidence::{
-    Detector, InlineRoute, Occurrence, PathProof, PathRoute, Provenance, Role, Site,
+    Bound, Detector, InlineRoute, InlineVisit, Occurrence, PathProof, PathRoute, Provenance, Role,
 };
-use super::{collect_rules, NameSinks, Selection};
+use super::{collect_rules, FindingKey, NameSinks, Selection};
 use crate::algorithms::taint::cleansing::{flow_path_cleansed_for_sink_call, node_in_ranges};
 use prism::access_path::AccessPath;
 use prism::ast::ParsedFile;
@@ -41,14 +41,25 @@ fn site<'a>(
     target: &str,
     operand: &str,
     role: Role<'a>,
-) -> Site<'a> {
+) -> Bound<'a> {
     let operation = node(parsed, parsed.tree.root_node(), operation);
-    Site {
+    Bound::from_binder(
         operation,
-        target: node(parsed, operation, target),
-        operand: node(parsed, operation, operand),
+        node(parsed, operation, target),
+        node(parsed, operation, operand),
         role,
-    }
+        FLAT,
+    )
+}
+
+fn rebind<'a>(bound: Bound<'a>, operand: Node<'a>, role: Role<'a>) -> Bound<'a> {
+    Bound::from_binder(
+        bound.operation(),
+        bound.target(),
+        operand,
+        role,
+        bound.detector(),
+    )
 }
 
 fn owner<'a>(parsed: &'a ParsedFile, operation: Node<'a>) -> Node<'a> {
@@ -61,27 +72,53 @@ fn owner<'a>(parsed: &'a ParsedFile, operation: Node<'a>) -> Node<'a> {
 fn receipt<'a, 'p>(
     parsed: &'a ParsedFile,
     line: usize,
-    site: Site<'a>,
+    site: Bound<'a>,
     reached: Node<'a>,
     detector: Detector<'a>,
     provenance: Provenance<'a, 'p>,
 ) -> Occurrence<'a, 'p> {
+    let bound = Bound::from_binder(
+        site.operation(),
+        site.target(),
+        site.operand(),
+        site.role(),
+        detector,
+    );
     Occurrence::from_adapter(
         parsed,
         (&parsed.path, line),
-        owner(parsed, site.operation),
-        site,
+        owner(parsed, site.operation()),
+        bound,
         reached,
-        detector,
         provenance,
     )
+}
+
+fn owner_line(parsed: &ParsedFile, node: Node<'_>) -> usize {
+    let owner = owner(parsed, node);
+    if owner == parsed.tree.root_node() {
+        1
+    } else {
+        owner.start_position().row + 1
+    }
+}
+
+fn raw_from<'a, 'p>(
+    parsed: &'a ParsedFile,
+    key: FindingKey<'a>,
+    owner: Node<'a>,
+    site: Bound<'a>,
+    reached: Node<'a>,
+    path: &'p FlowPath,
+) -> Occurrence<'a, 'p> {
+    Occurrence::from_adapter(parsed, key, owner, site, reached, destination(path))
 }
 
 fn path_to(parsed: &ParsedFile, definition: Node<'_>, reached: Node<'_>) -> FlowPath {
     let location = |node: Node<'_>, kind| VarLocation {
         file: parsed.path.clone(),
         function: "f".into(),
-        function_start_line: 1,
+        function_start_line: owner_line(parsed, node),
         line: node.start_position().row + 1,
         path: AccessPath::simple(parsed.node_text(&definition)),
         start_byte: node.start_byte(),
@@ -132,11 +169,11 @@ fn combines_paths_and_inline_on_final_admitted_key() {
         "inner(x)",
         Role::Argument(1),
     );
-    let y = Site {
-        operand: node(&parsed, query.operation, "y"),
-        role: Role::Argument(2),
-        ..query
-    };
+    let y = rebind(
+        query,
+        node(&parsed, query.operation(), "y"),
+        Role::Argument(2),
+    );
     let bound = site(
         &parsed,
         "db.query('select ?', {bind: x})",
@@ -153,21 +190,21 @@ fn combines_paths_and_inline_on_final_admitted_key() {
     );
     let x_def = node(&parsed, parsed.tree.root_node(), "x");
     let y_def = node(&parsed, parsed.tree.root_node(), "y");
-    let x = path_to(&parsed, x_def, inner.operand);
-    let y_live = path_to(&parsed, y_def, y.operand);
+    let x = path_to(&parsed, x_def, inner.operand());
+    let y_live = path_to(&parsed, y_def, y.operand());
     let mut y_cleansed = y_live.clone();
     y_cleansed.cleansed_for.insert(SanitizerCategory::Sqli);
-    let bound_read = node(&parsed, bound.operand, "x");
+    let bound_read = node(&parsed, bound.operand(), "x");
     let bound_path = path_to(&parsed, x_def, bound_read);
     let make_witnesses = || {
         [
-            receipt(&parsed, 1, inner, inner.operand, FLAT, destination(&x)),
-            receipt(&parsed, 1, inner, inner.operand, FLAT, destination(&x)),
+            receipt(&parsed, 1, inner, inner.operand(), FLAT, destination(&x)),
+            receipt(&parsed, 1, inner, inner.operand(), FLAT, destination(&x)),
             receipt(
                 &parsed,
                 1,
                 query,
-                inner.operand,
+                inner.operand(),
                 STRUCTURED,
                 destination(&x),
             ),
@@ -175,11 +212,11 @@ fn combines_paths_and_inline_on_final_admitted_key() {
                 &parsed,
                 1,
                 y,
-                y.operand,
+                y.operand(),
                 STRUCTURED,
                 destination(&y_cleansed),
             ),
-            receipt(&parsed, 1, y, y.operand, STRUCTURED, destination(&y_live)),
+            receipt(&parsed, 1, y, y.operand(), STRUCTURED, destination(&y_live)),
             receipt(
                 &parsed,
                 1,
@@ -192,11 +229,15 @@ fn combines_paths_and_inline_on_final_admitted_key() {
                 &parsed,
                 1,
                 inline,
-                inline.operand,
+                inline.operand(),
                 STRUCTURED,
                 Provenance::Inline {
-                    key: (&parsed.path, 1),
-                    route: InlineRoute::JsYaml,
+                    visit: InlineVisit::from_visit(
+                        InlineRoute::JsYaml,
+                        inline.operation(),
+                        (&parsed.path, 1),
+                        (&parsed.path, 1),
+                    ),
                 },
             ),
         ]
@@ -222,19 +263,19 @@ fn combines_paths_and_inline_on_final_admitted_key() {
                 Provenance::Path { path, .. } => {
                     paths.push(path as *const FlowPath);
                     if witness.detector() == FLAT {
-                        let callee = (site.target.start_byte(), site.target.end_byte());
-                        let operand = (site.operand.start_byte(), site.operand.end_byte());
-                        assert!(node_in_ranges(&site.target, &[callee]));
-                        assert!(!node_in_ranges(&site.target, &[operand]));
+                        let callee = (site.target().start_byte(), site.target().end_byte());
+                        let operand = (site.operand().start_byte(), site.operand().end_byte());
+                        assert!(node_in_ranges(&site.target(), &[callee]));
+                        assert!(!node_in_ranges(&site.target(), &[operand]));
                         rows.push((&JS_EVAL, true));
-                    } else if site.operand != bound.operand
+                    } else if site.operand() != bound.operand()
                         && !flow_path_cleansed_for_sink_call(
                             &parsed,
                             &cpg,
                             path,
                             1,
                             &QUERY,
-                            &site.operation,
+                            &site.operation(),
                         )
                     {
                         rows.push((&TAINT_WRITE_DATA, false));
@@ -294,8 +335,9 @@ fn configured_and_wrapper_origins_remain_independent_and_ordered() {
         Role::ReceiverValue,
     );
     let def = node(&parsed, parsed.tree.root_node(), "x");
-    let path = path_to(&parsed, def, extra.operand);
-    let receiver_path = path_to(&parsed, def, receiver.operand);
+    let path = path_to(&parsed, def, extra.operand());
+    let wrapper_path = path_to(&parsed, def, wrapper.operand());
+    let receiver_path = path_to(&parsed, def, receiver.operand());
     let rows = collect_rules(
         &parsed,
         2,
@@ -304,7 +346,7 @@ fn configured_and_wrapper_origins_remain_independent_and_ordered() {
             &parsed,
             2,
             receiver,
-            receiver.operand,
+            receiver.operand(),
             Detector::Configured("report"),
             destination(&receiver_path),
         )],
@@ -323,7 +365,7 @@ fn configured_and_wrapper_origins_remain_independent_and_ordered() {
                 &parsed,
                 3,
                 extra,
-                extra.operand,
+                extra.operand(),
                 Detector::Configured("report"),
                 destination(&wrong_file),
             ),
@@ -331,7 +373,7 @@ fn configured_and_wrapper_origins_remain_independent_and_ordered() {
                 &parsed,
                 3,
                 extra,
-                extra.operand,
+                extra.operand(),
                 Detector::Configured("report"),
                 destination(&path),
             ),
@@ -339,7 +381,7 @@ fn configured_and_wrapper_origins_remain_independent_and_ordered() {
                 &parsed,
                 3,
                 extra,
-                extra.operand,
+                extra.operand(),
                 Detector::Configured("=report"),
                 destination(&path),
             ),
@@ -347,25 +389,25 @@ fn configured_and_wrapper_origins_remain_independent_and_ordered() {
                 &parsed,
                 3,
                 wrapper,
-                wrapper.operand,
+                wrapper.operand(),
                 Detector::Configured("=report"),
-                destination(&path),
+                destination(&wrapper_path),
             ),
             receipt(
                 &parsed,
                 3,
                 wrapper,
-                wrapper.operand,
+                wrapper.operand(),
                 Detector::Wrapper("=report"),
-                destination(&path),
+                destination(&wrapper_path),
             ),
             receipt(
                 &parsed,
                 3,
                 wrapper,
-                wrapper.operand,
+                wrapper.operand(),
                 Detector::Wrapper("report"),
-                destination(&path),
+                destination(&wrapper_path),
             ),
         ],
         |witness, rows| names.select(witness, rows),
@@ -397,29 +439,29 @@ fn receipt_checks_parse_key_range_owner_and_operand_membership() {
         "() => x",
         Role::Argument(0),
     );
-    let wrong_slot = Site {
-        operand: node(&parsed, audit.operation, "'safe'"),
-        role: Role::Argument(0),
-        ..audit
-    };
+    let wrong_slot = rebind(
+        audit,
+        node(&parsed, audit.operation(), "'safe'"),
+        Role::Argument(0),
+    );
     let def = node(&parsed, parsed.tree.root_node(), "x");
-    let path = path_to(&parsed, def, audit.operand);
+    let path = path_to(&parsed, def, audit.operand());
     let key = (parsed.path.as_str(), 1);
-    let callable = owner(&parsed, audit.operation);
-    let range = audit.operand.byte_range();
+    let callable = owner(&parsed, audit.operation());
+    let range = audit.operand().byte_range();
     let cloned_read = copied_tree
         .root_node()
         .named_descendant_for_byte_range(range.start, range.end)
         .unwrap();
-    assert_eq!(cloned_read.id(), audit.operand.id());
+    assert_eq!(cloned_read.id(), audit.operand().id());
     let shifted_root = parsed
         .tree
         .root_node_with_offset(0, tree_sitter::Point::new(1, 0));
     let shifted_read = shifted_root
         .named_descendant_for_byte_range(range.start, range.end)
         .unwrap();
-    assert_eq!(shifted_read.id(), audit.operand.id());
-    assert_ne!(shifted_read.range(), audit.operand.range());
+    assert_eq!(shifted_read.id(), audit.operand().id());
+    assert_ne!(shifted_read.range(), audit.operand().range());
     let mut truncated = ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
     let truncated_root = truncated.tree.root_node();
     truncated.source.truncate(12);
@@ -429,20 +471,18 @@ fn receipt_checks_parse_key_range_owner_and_operand_membership() {
             .named_descendant_for_byte_range(range.start, range.end)
             .unwrap()
     };
-    let from = |key, owner, site, reached| {
-        Occurrence::from_adapter(&parsed, key, owner, site, reached, FLAT, destination(&path))
-    };
+    let from = |key, owner, site, reached| raw_from(&parsed, key, owner, site, reached, &path);
     let candidates = [
-        from(("other.js", 1), callable, audit, audit.operand),
-        from((&parsed.path, 2), callable, audit, audit.operand),
-        from(key, parsed.tree.root_node(), audit, audit.operand),
-        from(key, callable, audit, sibling.operand),
-        from(key, callable, wrong_slot, audit.operand),
+        from(("other.js", 1), callable, audit, audit.operand()),
+        from((&parsed.path, 2), callable, audit, audit.operand()),
+        from(key, parsed.tree.root_node(), audit, audit.operand()),
+        from(key, callable, audit, sibling.operand()),
+        from(key, callable, wrong_slot, audit.operand()),
         from(
             key,
             callable,
             deferred,
-            node(&parsed, deferred.operand, "x"),
+            node(&parsed, deferred.operand(), "x"),
         ),
         from(key, callable, audit, cloned_read),
         receipt(
@@ -479,17 +519,18 @@ fn receipt_checks_parse_key_range_owner_and_operand_membership() {
         destination(&shifted_path),
     );
     assert!(collect_rules(&parsed, 2, &admitted(&parsed, &[2]), [shifted], select_eval).is_empty());
-    let truncated_site = Site {
-        operation: in_truncated_tree(audit.operation),
-        target: in_truncated_tree(audit.target),
-        operand: in_truncated_tree(audit.operand),
-        ..audit
-    };
+    let truncated_site = Bound::from_binder(
+        in_truncated_tree(audit.operation()),
+        in_truncated_tree(audit.target()),
+        in_truncated_tree(audit.operand()),
+        audit.role(),
+        audit.detector(),
+    );
     let invalid = receipt(
         &truncated,
         1,
         truncated_site,
-        truncated_site.operand,
+        truncated_site.operand(),
         FLAT,
         destination(&path),
     );
@@ -506,7 +547,7 @@ fn receipt_checks_parse_key_range_owner_and_operand_membership() {
             &parsed,
             1,
             &admitted(&parsed, &[1]),
-            [from(key, callable, audit, audit.operand)],
+            [from(key, callable, audit, audit.operand())],
             select_eval
         )
         .len(),
@@ -515,4 +556,5 @@ fn receipt_checks_parse_key_range_owner_and_operand_membership() {
 }
 
 mod fixtures;
+mod receipt;
 mod routes;

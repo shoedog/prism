@@ -23,12 +23,54 @@ pub(super) enum Detector<'a> {
     Wrapper(&'a str),
 }
 
+/// The binder's whole answer for one operation: the five fields originate
+/// together and are never recombined from separate sources.
 #[derive(Clone, Copy)]
-pub(super) struct Site<'a> {
-    pub(super) operation: Node<'a>,
-    pub(super) target: Node<'a>,
-    pub(super) operand: Node<'a>,
-    pub(super) role: Role<'a>,
+pub(super) struct Bound<'a> {
+    operation: Node<'a>,
+    target: Node<'a>,
+    operand: Node<'a>,
+    role: Role<'a>,
+    detector: Detector<'a>,
+}
+
+impl<'a> Bound<'a> {
+    /// Callable only by a language's operand binder, for the detector entry it matched.
+    pub(super) fn from_binder(
+        operation: Node<'a>,
+        target: Node<'a>,
+        operand: Node<'a>,
+        role: Role<'a>,
+        detector: Detector<'a>,
+    ) -> Self {
+        Self {
+            operation,
+            target,
+            operand,
+            role,
+            detector,
+        }
+    }
+
+    pub(super) fn operation(&self) -> Node<'a> {
+        self.operation
+    }
+
+    pub(super) fn target(&self) -> Node<'a> {
+        self.target
+    }
+
+    pub(super) fn operand(&self) -> Node<'a> {
+        self.operand
+    }
+
+    pub(super) fn role(&self) -> Role<'a> {
+        self.role
+    }
+
+    pub(super) fn detector(&self) -> Detector<'a> {
+        self.detector
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -59,9 +101,35 @@ pub(super) enum Provenance<'a, 'p> {
         proof: PathProof,
     },
     Inline {
-        key: FindingKey<'a>,
-        route: InlineRoute,
+        visit: InlineVisit<'a>,
     },
+}
+
+/// What the admission visit loop actually did: its route, the operation it
+/// visited, the source key it iterated and the key the finding was inserted at.
+#[derive(Clone, Copy)]
+pub(super) struct InlineVisit<'a> {
+    route: InlineRoute,
+    operation: (usize, usize),
+    source: FindingKey<'a>,
+    insertion: FindingKey<'a>,
+}
+
+impl<'a> InlineVisit<'a> {
+    /// Callable only by the admission visit loop, with the values of that visit.
+    pub(super) fn from_visit(
+        route: InlineRoute,
+        operation: Node<'_>,
+        source: FindingKey<'a>,
+        insertion: FindingKey<'a>,
+    ) -> Self {
+        Self {
+            route,
+            operation: (operation.start_byte(), operation.end_byte()),
+            source,
+            insertion,
+        }
+    }
 }
 
 /// The adapter certifies the value, target spelling and semantic operand.
@@ -70,9 +138,8 @@ pub(super) struct Occurrence<'a, 'p> {
     parsed: &'a ParsedFile,
     key: FindingKey<'a>,
     owner: Node<'a>,
-    site: Site<'a>,
+    bound: Bound<'a>,
     reached: Node<'a>,
-    detector: Detector<'a>,
     provenance: Provenance<'a, 'p>,
 }
 
@@ -81,18 +148,16 @@ impl<'a, 'p> Occurrence<'a, 'p> {
         parsed: &'a ParsedFile,
         key: FindingKey<'a>,
         owner: Node<'a>,
-        site: Site<'a>,
+        bound: Bound<'a>,
         reached: Node<'a>,
-        detector: Detector<'a>,
         provenance: Provenance<'a, 'p>,
     ) -> Self {
         Self {
             parsed,
             key,
             owner,
-            site,
+            bound,
             reached,
-            detector,
             provenance,
         }
     }
@@ -101,8 +166,8 @@ impl<'a, 'p> Occurrence<'a, 'p> {
         self.parsed
     }
 
-    pub(super) fn site(&self) -> Site<'a> {
-        self.site
+    pub(super) fn site(&self) -> Bound<'a> {
+        self.bound
     }
 
     pub(super) fn reached(&self) -> Node<'a> {
@@ -110,7 +175,7 @@ impl<'a, 'p> Occurrence<'a, 'p> {
     }
 
     pub(super) fn detector(&self) -> Detector<'a> {
-        self.detector
+        self.bound.detector
     }
 
     pub(super) fn provenance(&self) -> Provenance<'a, 'p> {
@@ -122,12 +187,13 @@ impl<'a, 'p> Occurrence<'a, 'p> {
             return false;
         }
 
-        let Site {
+        let Bound {
             operation,
             target,
             operand,
-            ..
-        } = self.site;
+            role,
+            detector,
+        } = self.bound;
         let root = parsed.tree.root_node();
         let boundaries = parsed.language.callable_boundary_node_types();
         let owner = |node| {
@@ -155,9 +221,12 @@ impl<'a, 'p> Occurrence<'a, 'p> {
         {
             return false;
         }
+        if !slot_matches(parsed, operation, target, operand, role) {
+            return false;
+        }
 
         let opening_line = operation.start_position().row + 1;
-        let structured = matches!(self.detector, Detector::Structured { .. });
+        let structured = matches!(detector, Detector::Structured { .. });
         match self.provenance {
             Provenance::Path {
                 path,
@@ -167,11 +236,22 @@ impl<'a, 'p> Occurrence<'a, 'p> {
             } => {
                 // The destination nominates a line. The adapter supplies the actual read.
                 let read_line = self.reached.start_position().row + 1;
-                if !path
-                    .edges
-                    .get(edge_index)
-                    .is_some_and(|edge| edge.to.file == key.0 && edge.to.line == read_line)
-                {
+                let owner_line = self.owner.start_position().row + 1;
+                let read = self.reached.byte_range();
+                if !path.edges.get(edge_index).is_some_and(|edge| {
+                    let to = &edge.to;
+                    let (start, end) = (to.start_byte, to.end_byte);
+                    // A zero-width location is a point that must lie inside the read.
+                    let touches = if start >= end {
+                        read.start <= start && start < read.end
+                    } else {
+                        start < read.end && read.start < end
+                    };
+                    to.file == key.0
+                        && to.line == read_line
+                        && (self.owner == root || to.function_start_line == owner_line)
+                        && touches
+                }) {
                     return false;
                 }
                 match route {
@@ -191,27 +271,88 @@ impl<'a, 'p> Occurrence<'a, 'p> {
                     }
                 }
             }
-            Provenance::Inline {
-                key: source_key,
-                route,
-            } => {
+            Provenance::Inline { visit } => {
+                let (source, route) = (visit.source, visit.route);
                 structured
-                    && source_key == key
+                    && visit.operation == (operation.start_byte(), operation.end_byte())
+                    && visit.insertion == key
+                    && source.0 == key.0
                     && match route {
                         InlineRoute::JsYaml => {
                             matches!(
                                 parsed.language,
                                 Language::JavaScript | Language::TypeScript | Language::Tsx
                             ) && opening_line == key.1
+                                && source.1 == opening_line
                         }
                         InlineRoute::Flask => {
                             parsed.language == Language::Python
                                 && node_contains_line(&operation, key.1)
+                                && node_contains_line(&operation, source.1)
                         }
-                        InlineRoute::Go => parsed.language == Language::Go && opening_line == key.1,
+                        InlineRoute::Go => {
+                            parsed.language == Language::Go
+                                && opening_line == key.1
+                                && source.1 == opening_line
+                        }
                     }
             }
         }
+    }
+}
+
+/// Derive the argument slot from the syntax rather than from the claimed role.
+fn slot_matches(
+    parsed: &ParsedFile,
+    operation: Node<'_>,
+    target: Node<'_>,
+    operand: Node<'_>,
+    role: Role<'_>,
+) -> bool {
+    let within = |node: Node<'_>, container: Node<'_>| ancestors(node).any(|n| n == container);
+    let arguments = operation.child_by_field_name("arguments");
+    if !matches!(role, Role::Argument(_) | Role::KeywordArgument(_)) {
+        return arguments.is_none_or(|arguments| !within(operand, arguments));
+    }
+    let Some(arguments) = arguments.filter(|a| matches!(a.kind(), "arguments" | "argument_list"))
+    else {
+        return false;
+    };
+    let callee = ["function", "constructor", "name", "type"]
+        .into_iter()
+        .filter_map(|field| operation.child_by_field_name(field))
+        .any(|callee| within(target, callee));
+    if !callee || within(target, arguments) || !within(operand, arguments) {
+        return false;
+    }
+    let is_comment = |node: &Node<'_>| node.kind().ends_with("comment");
+    let mut cursor = arguments.walk();
+    let children: Vec<_> = arguments
+        .named_children(&mut cursor)
+        .filter(|child| !is_comment(child))
+        .collect();
+    let Some(index) = children.iter().position(|child| within(operand, *child)) else {
+        return false;
+    };
+    let child = children[index];
+    let spread =
+        |child: &Node<'_>| child.kind().contains("splat") || child.kind().contains("spread");
+    match role {
+        Role::Argument(slot) => {
+            slot == index
+                && child.kind() != "keyword_argument"
+                && !children[..=index].iter().any(spread)
+        }
+        Role::KeywordArgument(name) => {
+            child.kind() == "keyword_argument"
+                && child
+                    .child_by_field_name("name")
+                    .is_some_and(|field| parsed.node_text(&field) == name)
+                && child
+                    .child_by_field_name("value")
+                    .is_some_and(|value| within(operand, value))
+        }
+        _ => false,
     }
 }
 

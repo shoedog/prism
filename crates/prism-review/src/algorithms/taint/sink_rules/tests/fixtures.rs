@@ -5,12 +5,24 @@ use super::*;
 fn visits<'a>(
     parsed: &'a ParsedFile,
     path: &FlowPath,
-    proved: &[(Site<'a>, Node<'a>)],
+    proved: &[(Bound<'a>, Node<'a>)],
 ) -> Vec<(&'a str, Role<'a>)> {
     let line = path.edges[0].to.line;
-    let witnesses = proved
+    let paths = proved
         .iter()
-        .map(|&(site, reached)| receipt(parsed, line, site, reached, FLAT, destination(path)));
+        .map(|&(_, reached)| {
+            let mut path = path.clone();
+            let to = &mut path.edges[0].to;
+            to.function_start_line = owner_line(parsed, reached);
+            to.line = reached.start_position().row + 1;
+            to.start_byte = reached.start_byte();
+            to.end_byte = reached.end_byte();
+            path
+        })
+        .collect::<Vec<_>>();
+    let witnesses = proved.iter().zip(&paths).map(|(&(site, reached), path)| {
+        receipt(parsed, line, site, reached, FLAT, destination(path))
+    });
     let mut seen = Vec::new();
     collect_rules(
         parsed,
@@ -19,7 +31,7 @@ fn visits<'a>(
         witnesses,
         |witness, _| {
             let site = witness.site();
-            seen.push((parsed.node_text(&site.target), site.role));
+            seen.push((parsed.node_text(&site.target()), site.role()));
         },
     );
     seen
@@ -31,7 +43,7 @@ fn call<'a>(
     target: &str,
     operand: &str,
     slot: usize,
-) -> Site<'a> {
+) -> Bound<'a> {
     site(parsed, text, target, operand, Role::Argument(slot))
 }
 
@@ -55,11 +67,15 @@ fn receipt_accepts_ri02_command_after_dom_assignment() {
         Role::AssignmentValue,
     );
     let exec = call(&parsed, "cp.exec(x)", "exec", "x", 0);
-    for representative in [dom.operand, exec.operand] {
+    for representative in [dom.operand(), exec.operand()] {
         let path = path_to(&parsed, first(&parsed, "x"), representative);
         assert!(visits(&parsed, &path, &[]).is_empty());
         assert_eq!(
-            visits(&parsed, &path, &[(dom, dom.operand), (exec, exec.operand)]),
+            visits(
+                &parsed,
+                &path,
+                &[(dom, dom.operand()), (exec, exec.operand())]
+            ),
             [
                 ("innerHTML", Role::AssignmentValue),
                 ("exec", Role::Argument(0))
@@ -85,11 +101,11 @@ fn binding_and_write_cases_consume_only_supplied_reads() {
         assert!(!parsed.tree.root_node().has_error(), "{source}");
         let observe = call(&parsed, "observe(x)", "observe", "x", 0);
         let send = call(&parsed, "res.send(x)", "send", "x", 0);
-        for representative in [observe.operand, send.operand] {
+        for representative in [observe.operand(), send.operand()] {
             let path = path_to(&parsed, first(&parsed, def), representative);
             assert!(visits(&parsed, &path, &[]).is_empty());
             assert_eq!(
-                visits(&parsed, &path, &[(observe, observe.operand)]),
+                visits(&parsed, &path, &[(observe, observe.operand())]),
                 [("observe", Role::Argument(0))]
             );
         }
@@ -103,25 +119,25 @@ fn binding_and_write_cases_consume_only_supplied_reads() {
     let one = call(&parsed, "one(x)", "one", "x", 0);
     let two = call(&parsed, "two(x, x)", "two", "x", 0);
     let three = call(&parsed, "three(y)", "three", "y", 0);
-    let y = path_to(&parsed, first(&parsed, "y"), three.operand);
+    let y = path_to(&parsed, first(&parsed, "y"), three.operand());
     assert_eq!(
-        visits(&parsed, &y, &[(three, three.operand)]),
+        visits(&parsed, &y, &[(three, three.operand())]),
         [("three", Role::Argument(0))]
     );
-    let two_second = Site {
-        operand: prism::ast::tree_helpers::call_arg_node(&two.operation, 1).unwrap(),
-        role: Role::Argument(1),
-        ..two
-    };
-    let path = path_to(&parsed, first(&parsed, "x"), one.operand);
+    let two_second = rebind(
+        two,
+        prism::ast::tree_helpers::call_arg_node(&two.operation(), 1).unwrap(),
+        Role::Argument(1),
+    );
+    let path = path_to(&parsed, first(&parsed, "x"), one.operand());
     assert_eq!(
         visits(
             &parsed,
             &path,
             &[
-                (one, one.operand),
-                (two, two.operand),
-                (two_second, two_second.operand)
+                (one, one.operand()),
+                (two, two.operand()),
+                (two_second, two_second.operand())
             ]
         ),
         [
@@ -142,15 +158,15 @@ fn explicit_nested_and_assignment_wrapped_reads_keep_their_operations() {
     let observe = call(&parsed, "observe(x)", "observe", "x", 0);
     let eval = call(&parsed, "eval(x)", "eval", "x", 0);
     let send = call(&parsed, "res.send(eval(x))", "send", "eval(x)", 0);
-    let path = path_to(&parsed, first(&parsed, "x"), observe.operand);
+    let path = path_to(&parsed, first(&parsed, "x"), observe.operand());
     assert_eq!(
         visits(
             &parsed,
             &path,
             &[
-                (observe, observe.operand),
-                (eval, eval.operand),
-                (send, eval.operand)
+                (observe, observe.operand()),
+                (eval, eval.operand()),
+                (send, eval.operand())
             ]
         ),
         [
@@ -182,12 +198,12 @@ func f(name string) {
         0,
     );
     let format = call(&parsed, "fmt.Sprintf(cleaned)", "Sprintf", "cleaned", 0);
-    let path = path_to(&parsed, first(&parsed, "cleaned"), write.operand);
+    let path = path_to(&parsed, first(&parsed, "cleaned"), write.operand());
     assert_eq!(
         visits(
             &parsed,
             &path,
-            &[(write, write.operand), (format, format.operand)]
+            &[(write, write.operand()), (format, format.operand())]
         ),
         [
             ("WriteFile", Role::Argument(0)),
@@ -211,10 +227,10 @@ fn supplied_field_and_argument_spans_preserve_adapter_roles() {
             let parsed = ParsedFile::parse("a.ts", &source, language).unwrap();
             assert!(!parsed.tree.root_node().has_error(), "{language:?}: {expr}");
             let fetch = call(&parsed, &operation, "fetch", expr, 0);
-            let mut path = path_to(&parsed, first(&parsed, "runtime"), fetch.operand);
+            let mut path = path_to(&parsed, first(&parsed, "runtime"), fetch.operand());
             path.edges[0].to.path = AccessPath::from_expr("runtime.X");
             assert_eq!(
-                visits(&parsed, &path, &[(fetch, fetch.operand)]),
+                visits(&parsed, &path, &[(fetch, fetch.operand())]),
                 [("fetch", Role::Argument(0))]
             );
         }
@@ -226,12 +242,12 @@ fn supplied_field_and_argument_spans_preserve_adapter_roles() {
     let parsed = ParsedFile::parse("a.js", &source, Language::JavaScript).unwrap();
     let position = call(&parsed, first_call, "insertAdjacentHTML", "x", 0);
     let html = call(&parsed, second_call, "insertAdjacentHTML", "x", 1);
-    let path = path_to(&parsed, first(&parsed, "x"), position.operand);
+    let path = path_to(&parsed, first(&parsed, "x"), position.operand());
     assert_eq!(
         visits(
             &parsed,
             &path,
-            &[(position, position.operand), (html, html.operand)]
+            &[(position, position.operand()), (html, html.operand())]
         ),
         [
             ("insertAdjacentHTML", Role::Argument(0)),
@@ -261,6 +277,22 @@ fn test_adapter_can_supply_or_withhold_targets_and_operands() {
             "x",
             1,
         ),
+    ] {
+        let parsed = ParsedFile::parse("fixture", source, language).unwrap();
+        assert!(
+            !parsed.tree.root_node().has_error(),
+            "{language:?}: {source}"
+        );
+        let site = call(&parsed, operation, target, operand, slot);
+        let reached = node(&parsed, site.operand(), read);
+        let path = path_to(&parsed, reached, reached);
+        assert_eq!(
+            visits(&parsed, &path, &[(site, reached)]),
+            [(target, Role::Argument(slot))]
+        );
+    }
+    // Shapes without an `arguments` field node have no recognised slot: refused.
+    for (language, source, operation, target, operand, read) in [
         (
             Language::Bash,
             "audit safe \"$x\"",
@@ -268,7 +300,6 @@ fn test_adapter_can_supply_or_withhold_targets_and_operands() {
             "audit",
             "\"$x\"",
             "x",
-            1,
         ),
         (
             Language::Terraform,
@@ -277,21 +308,13 @@ fn test_adapter_can_supply_or_withhold_targets_and_operands() {
             "audit",
             "local.x",
             "local.x",
-            1,
         ),
     ] {
         let parsed = ParsedFile::parse("fixture", source, language).unwrap();
-        assert!(
-            !parsed.tree.root_node().has_error(),
-            "{language:?}: {source}"
-        );
-        let site = call(&parsed, operation, target, operand, slot);
-        let reached = node(&parsed, site.operand, read);
+        let site = call(&parsed, operation, target, operand, 1);
+        let reached = node(&parsed, site.operand(), read);
         let path = path_to(&parsed, reached, reached);
-        assert_eq!(
-            visits(&parsed, &path, &[(site, reached)]),
-            [(target, Role::Argument(slot))]
-        );
+        assert!(visits(&parsed, &path, &[(site, reached)]).is_empty());
     }
     let parsed = ParsedFile::parse(
         "a.js",
@@ -310,10 +333,10 @@ fn test_adapter_can_supply_or_withhold_targets_and_operands() {
     let def = first(&parsed, "x");
     let path = path_to(&parsed, def, node(&parsed, unresolved, "x"));
     assert_eq!(
-        visits(&parsed, &path, &[(direct, direct.operand)]),
+        visits(&parsed, &path, &[(direct, direct.operand())]),
         [("audit", Role::Argument(0))]
     );
-    let ctor_read = node(&parsed, ctor.operand, "x");
+    let ctor_read = node(&parsed, ctor.operand(), "x");
     let path = path_to(&parsed, def, ctor_read);
     assert_eq!(
         visits(&parsed, &path, &[(ctor, ctor_read)]),

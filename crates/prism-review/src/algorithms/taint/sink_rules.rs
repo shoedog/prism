@@ -34,10 +34,10 @@ impl<'a> NameSinks<'a> {
     /// Select the supplied name-detector origin after the adapter's flat filters.
     fn select(&self, witness: &Occurrence<'_, '_>, rows: &mut Vec<Selection>) {
         let site = witness.site();
-        if !matches!(site.role, Role::Argument(_) | Role::KeywordArgument(_)) {
+        if !matches!(site.role(), Role::Argument(_) | Role::KeywordArgument(_)) {
             return;
         }
-        let callee = witness.parsed().node_text(&site.target);
+        let callee = witness.parsed().node_text(&site.target());
         match witness.detector() {
             Detector::Configured(entry)
                 if self.configured.iter().any(|name| name == entry)
