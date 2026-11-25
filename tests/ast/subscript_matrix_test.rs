@@ -16,7 +16,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tempfile::TempDir;
 
-#[path = "subscript_matrix_q.rs"]
 mod subscript_matrix_q;
 
 const ENABLED: &[&str] = &["control", "baseline-gap", "boundary"];
