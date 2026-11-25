@@ -343,3 +343,105 @@ fn weak_contract_and_dangling_guards_cannot_create_mount_edges() {
     }
     assert!(undetected.is_empty(), "{undetected:?}");
 }
+
+#[test]
+fn reviewed_route_pins_reject_missing_origins_and_same_display_literal_tokens() {
+    use super::super::{fixture_root, read_rows};
+    let root = fixture_root();
+    let rows = read_rows(&root.join("rows.jsonl"), &mut Vec::new());
+    let mut accepted = Vec::new();
+    for (id, field, prefix) in [
+        ("fa01", "path_tokens", "/items/"),
+        ("es2-21", "path_tokens", "/items/%7Bdraft%7D/"),
+        ("es3-22", "path_tokens", "/report/"),
+        ("es5-05", "path_tokens", "/reports/"),
+        ("hp01", "install_site", ""),
+        ("hp01", "element_ordinal", ""),
+        ("hp01", "origin_plugin", ""),
+    ] {
+        let row = &rows[id];
+        let mut sources = BTreeMap::new();
+        super::super::pins::collect_sources(&root.join(id), &row["expect"], &mut sources).unwrap();
+        let mut actual = row["expect"].clone();
+        let mut errors = Vec::new();
+        resolve_pins(&mut actual, &sources, "expect", &mut errors);
+        assert!(errors.is_empty(), "{id}: {errors:?}");
+        if field == "path_tokens" {
+            actual[0]["paths"][0][field] = json!([["literal", format!("{prefix}{{}}")]]);
+        } else {
+            actual[0].as_object_mut().unwrap().remove(field);
+        }
+        compare_collection(
+            &row["expect"],
+            items(&actual),
+            &sources,
+            "expect",
+            &mut errors,
+        );
+        if errors.is_empty() {
+            accepted.push((id, field));
+        }
+    }
+    assert!(accepted.is_empty(), "accepted {accepted:?}");
+}
+
+#[test]
+fn core_wire_rejects_generated_field_corruption() {
+    use super::super::{
+        check_summary, fixture_root, mutations::edits, query, read_rows, successful_query,
+    };
+    let root = fixture_root();
+    let rows = read_rows(&root.join("rows.jsonl"), &mut Vec::new());
+    let mut rejected = 0;
+    let mut tested = 0;
+    for (id, row) in rows.iter().filter(|(_, row)| row["group"] == "core") {
+        let dir = root.join(row["dir"].as_str().unwrap());
+        let listing = successful_query(&dir, None).unwrap();
+        let expected = json!({
+            "enabled_adapters": [], "registrations": 0, "proven": 0, "unproven": 0,
+            "candidates": 0, "mounts": 0, "diagnostics": [], "failed_roots": [],
+        });
+        for candidate in std::iter::once(None).chain(edits(&listing.summary).into_iter().map(Some))
+        {
+            let summary = candidate.as_ref().map_or_else(
+                || listing.summary.clone(),
+                |edit| edit.apply(&listing.summary),
+            );
+            let mut errors = Vec::new();
+            validate(
+                &listing.routes,
+                &listing.mounts,
+                &summary,
+                Some(&dir),
+                &mut errors,
+            );
+            check_summary(&listing.routes, &listing.mounts, &summary, &mut errors);
+            compare_pins(&expected, Some(&summary), "summary", &mut errors);
+            if let Some(edit) = candidate {
+                tested += 1;
+                assert!(!errors.is_empty(), "{id} summary{}", edit.pointer);
+                rejected += 1;
+            } else {
+                assert!(errors.is_empty(), "{id}: {errors:?}");
+            }
+        }
+
+        let entry = "app:missing";
+        let refusal = query(&dir, Some(entry), "json");
+        assert!(!refusal.status.success(), "{id}: expected entry refusal");
+        let actual: Value = serde_json::from_slice(&refusal.stdout).unwrap();
+        let expected = json!({"error":{"entry":entry,"reason":"entry_unproven"}});
+        assert_eq!(actual, expected, "{id}");
+        for edit in edits(&actual) {
+            tested += 1;
+            assert_ne!(
+                edit.apply(&actual),
+                expected,
+                "{id} refusal{}",
+                edit.pointer
+            );
+            rejected += 1;
+        }
+    }
+    println!("core wire: {rejected}/{tested} corruptions rejected");
+}

@@ -27,6 +27,8 @@ import json
 from pathlib import Path
 import re
 
+import receipt
+
 HERE = Path(__file__).resolve().parent
 MISSING = object()
 CALLBACK_FIELDS = ("position", "file", "name", "start_line")
@@ -150,7 +152,10 @@ def path_tokens(framework, value):
 def compare_paths(result, index, pins, framework, served):
     actual = [route["path"] for route in served if isinstance(route["path"], str)]
     remaining = actual.copy()
-    for position, pin in enumerate(pins):
+    ordered = sorted(enumerate(pins), key=lambda item: (
+        item[1]["status"] != "full", -len(item[1].get("value") or ""),
+    ))
+    for position, pin in ordered:
         prefix = f"paths[{position}]"
         status = pin["status"]
         if status == "dynamic":
@@ -331,12 +336,41 @@ def compare_row(row, truth):
     if truth["status"] != "executed":
         raise ValueError(f"{row['id']}: truth is {truth['status']}")
     result = Comparison()
+    if any(not isinstance(truth.get(key), list) for key in ("projection", "calls", "served")):
+        result.check(None, "truth", "projection, calls, and served arrays", truth.keys())
+        return result
     expected, observed = row["expect"], truth["projection"]
-    calls = {call["id"]: call for call in truth["calls"]}
+    calls = {}
+    for call in truth["calls"]:
+        call_id = call.get("id")
+        if type(call_id) is not int or call_id < 0 or call_id in calls:
+            result.check(None, "truth.calls", "distinct nonnegative call IDs", call_id)
+            return result
+        calls[call_id] = call
+    for index, record in enumerate(observed):
+        call_id = record.get("call_id")
+        if type(call_id) is not int or call_id not in calls:
+            result.check(None, f"projection[{index}].call_id", "existing call ID", call_id)
+            return result
     served = defaultdict(list)
-    for route in truth["served"]:
-        for call_id in route["call_ids"]:
+    for index, route in enumerate(truth["served"]):
+        ids = route.get("call_ids")
+        if (not isinstance(ids, list) or not ids
+                or any(type(call_id) is not int or call_id not in calls for call_id in ids)
+                or len(set(ids)) != len(ids)):
+            result.check(None, f"served[{index}].call_ids", "distinct existing call IDs", ids)
+            return result
+        for call_id in ids:
             served[call_id].append(route)
+    loss = RUNTIME_ONLY.get(row["id"])
+    if loss is not None:
+        approved = set(loss[4])
+        linked = Counter(record["call_id"] for record in observed)
+        if (set(calls) != approved or linked != Counter(approved)
+                or any(not runtime_only(row, call) or not served[call_id]
+                       for call_id, call in calls.items())):
+            result.check(None, "truth.runtime_only", "the complete approved observation", None)
+            return result
     pairs, extra = pair_records(expected, observed, calls)
     registrations = {observed[actual]["call_id"]: expected[pin] for pin, actual in pairs.items()}
     compare_mount_links(result, row, truth, calls, registrations)
@@ -379,11 +413,13 @@ def compare_row(row, truth):
                     runtime = declared
                 result.check(index, "methods", declared, runtime)
         if "path" in pin:
-            written = dict(call.get("path", actual.get("path", {})))
-            if written.get("literal") is None and isinstance(pin["path"].get("literal"), str):
+            written = call.get("path", actual.get("path", {}))
+            literal = pin["path"].get("literal")
+            keys = ("raw",) if isinstance(literal, str) and written.get("literal") is None else ("raw", "literal")
+            result.pins(index, "path", pin["path"], written, keys)
+            if isinstance(literal, str):
                 argument = "rule" if actual["framework"] == "flask" else "path"
-                written["literal"] = call.get("args", {}).get(argument, MISSING)
-            result.pins(index, "path", pin["path"], written, ("raw", "literal"))
+                result.check(index, "path.evaluated", literal, call.get("args", {}).get(argument, MISSING))
         if "paths" in pin:
             if not pin["paths"] and pin.get("receiver", {}).get("status") == "unproven":
                 result.static_only.add("paths")
@@ -397,6 +433,23 @@ def compare_row(row, truth):
             result.static_only.add("runtime-only registration at a pinned diagnostic site")
         else:
             result.check(None, "registrations", MISSING, call["site"])
+    return result
+
+
+def compare_receipt(row, truth, digest):
+    """Check saved evidence as well as its agreement with the source pins."""
+    result = Comparison()
+    if truth.get("status") != "executed":
+        result.check(None, "truth.status", "executed", truth.get("status"))
+        return result
+    try:
+        # Validate registration links before traversing them in the receipt.
+        result = compare_row(row, truth)
+        if not result.differences:
+            for name, expected, observed in receipt.validate(row, truth, digest):
+                result.check(None, name, expected, observed)
+    except (KeyError, TypeError, IndexError, AttributeError, ValueError) as exc:
+        result.check(None, "truth", "complete observation fields", str(exc))
     return result
 
 
@@ -432,12 +485,12 @@ def main():
         rows, truth = read_jsonl(args.rows), read_jsonl(args.truth)
         if truth.keys() - rows.keys():
             raise ValueError(f"unknown IDs in truth: {', '.join(sorted(truth.keys() - rows.keys()))}")
-        return report(rows, truth)
+        return report(rows, truth, args.rows.parent)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         parser.error(str(exc))
 
 
-def report(rows, truth):
+def report(rows, truth, fixture_root=None):
     totals, checked, changed = Counter(), Counter(), Counter()
     for row_id, (_, row) in rows.items():
         line_number, entry = truth.get(row_id, (None, {}))
@@ -457,7 +510,10 @@ def report(rows, truth):
             print(f"{row_id}: {problem}")
             totals["unavailable"] += 1
             continue
-        result = compare_row(row, entry)
+        if fixture_root is None:
+            result = compare_row(row, entry)
+        else:
+            result = compare_receipt(row, entry, receipt.tree_sha256(fixture_root / row["dir"]))
         disposition = "differs" if result.differences else "agrees"
         totals[disposition] += 1
         print(f"{row_id} (truth line {line_number}): {disposition}")
