@@ -54,7 +54,7 @@ control-different-methods-mapping-withheld	control-different-methods-mapping-wit
 control-empty-component-optional	control-empty-component-optional/site.js:1	control-empty-component-optional/prism-boundary.toml	bound	op:GET /orchards/{?}		rule	matching
 control-empty-component-required	control-empty-component-required/site.js:1	control-empty-component-required/prism-boundary.toml	unbound		no_operation	rule	matching
 control-empty-component-tail	control-empty-component-tail/site.js:1	control-empty-component-tail/prism-boundary.toml	bound	op:GET /orchards/{*0+}		rule	matching
-control-exact-wildcard-method-tie	control-exact-wildcard-method-tie/site.js:1	control-exact-wildcard-method-tie/prism-boundary.toml	candidate	op:GET /mugs;op:* /mugs	ambiguous_operation	rule	matching
+control-exact-wildcard-method-tie	control-exact-wildcard-method-tie/site.js:1	control-exact-wildcard-method-tie/prism-boundary.toml	candidate	op:* /mugs;op:GET /mugs	ambiguous_operation	rule	matching
 control-fallback-designated-entry	control-fallback-designated-entry/site.js:1	control-fallback-designated-entry/prism-boundary.toml	unbound		fallback_only	rule	matching
 control-fallback-designated-span	control-fallback-designated-span/site.js:1	control-fallback-designated-span/prism-boundary.toml	unbound		fallback_only	rule	matching
 control-fallback-ordinary-api-tail	control-fallback-ordinary-api-tail/site.js:1	control-fallback-ordinary-api-tail/prism-boundary.toml	bound	op:GET /api/{*0+}		rule	matching
@@ -253,8 +253,8 @@ identity-two-star-reexports	identity/scenes/star.ts:2	identity/prism-boundary.to
 literal-case	match-literal-case/site.ts:2	match-literal-case/prism-boundary.toml	unbound		no_operation	rule	matching
 literal-to-parameter	match-literal-to-parameter/site.ts:2	match-literal-to-parameter/prism-boundary.toml	bound	op:GET /user/{}		rule	matching
 literal-wins	match-literal-wins/site.ts:2	match-literal-wins/prism-boundary.toml	bound	op:GET /user/me		rule	matching
-matching-only-top	scores/sites.ts:6	scores/prism-boundary.toml	candidate	op:GET /press/{}/leaf;op:GET /press/copper/{}	ambiguous_operation	rule	matching
-matching-parameter-score	scores/sites.ts:9	scores/prism-boundary.toml	candidate	op:GET /base/{}/top;op:GET /base/flint/{}	ambiguous_operation	rule	matching
+matching-only-top	scores/sites.ts:6	scores/prism-boundary.toml	candidate	op:GET /press/copper/{};op:GET /press/{}/leaf	ambiguous_operation	rule	matching
+matching-parameter-score	scores/sites.ts:9	scores/prism-boundary.toml	candidate	op:GET /base/flint/{};op:GET /base/{}/top	ambiguous_operation	rule	matching
 matching-tie-without-parameter-on-literal	scores/sites.ts:5	scores/prism-boundary.toml	candidate	op:GET /press/copper/{};op:GET /press/{}/leaf	ambiguous_operation	rule	matching
 member-option-key	methods/wrappers.ts:9	methods/prism-boundary.toml	bound	op:GET /wicks		rule	method
 member-positional	methods/wrappers.ts:8	methods/prism-boundary.toml	bound	op:PUT /wicks		rule	method
@@ -286,7 +286,7 @@ s06	shape-s06/sites.ts:3	shape-s06/prism-boundary.toml	bound	op:GET /mothbank/or
 s07	shape-s07/sites.ts:2	shape-s07/prism-boundary.toml	bound	op:GET /mothbank/bouquets/{}		rule	shape:s07
 s08	shape-s08/sites.ts:3	shape-s08/prism-boundary.toml	bound	op:GET /mothbank/baskets/{}		rule	shape:s08
 s09	shape-s09/sites.ts:2	shape-s09/prism-boundary.toml	candidate	op:GET /mothbank/crates/%2F{};op:GET /mothbank/crates/{}	ambiguous_operation	rule	shape:s09
-s09-2	shape-s09/sites.ts:3	shape-s09/prism-boundary.toml	candidate	op:GET /mothbank/crates/{}-ridge-gold;op:GET /mothbank/crates/{}	ambiguous_operation	rule	shape:s09
+s09-2	shape-s09/sites.ts:3	shape-s09/prism-boundary.toml	candidate	op:GET /mothbank/crates/{};op:GET /mothbank/crates/{}-ridge-gold	ambiguous_operation	rule	shape:s09
 s10	shape-s10/sites.ts:4	shape-s10/prism-boundary.toml	bound	op:GET /mothbank/ledgers/{}		rule	shape:s10
 s11	shape-s11/sites.ts:6	shape-s11/prism-boundary.toml	bound	op:GET /mothbank/shelves		rule	shape:s11
 s12	shape-s12/sites.ts:5	shape-s12/prism-boundary.toml	bound	op:GET /mothbank/pallets		rule	shape:s12
