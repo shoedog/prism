@@ -1,12 +1,15 @@
 use super::*;
 use prism::cpg::{Relation, ReturnFlowMode};
 use prism::navigation::types::{ReasoningWarning, WarningKind};
+use prism::reasoning::taint_reaches::taint_reaches_from_node;
+use prism::reasoning::types::SinkSourceResult;
 
 pub(super) fn check_walk_warning(
     row: &Row,
-    reaches: Reachability,
-    warning_list: &[prism::navigation::types::Warning],
+    session: &NavigationSession,
+    source: &SinkSourceResult,
     sink: &SymbolRef,
+    sink_seed: &SeedSpec,
 ) {
     if row.pending_issue(Level::Reasons).is_some() {
         return;
@@ -14,24 +17,8 @@ pub(super) fn check_walk_warning(
     let Some((_, reasons)) = active_cell(row, enabled_groups().contains(&row.group)) else {
         return;
     };
-    let bytes = symbol_bytes(sink);
-    let boundary_warnings: BTreeSet<_> = warning_list
-        .iter()
-        .filter_map(|warning| match &warning.kind {
-            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary {
-                reason, ..
-            }) if warning.location.as_ref().is_some_and(|loc| {
-                loc.file == row.sink.file && [loc.start_byte, loc.end_byte] == bytes
-            }) =>
-            {
-                Some(reason.to_string())
-            }
-            _ => None,
-        })
-        .collect();
-
-    if reaches == Reachability::BoundaryExited {
-        let expected = reasons
+    let expected = match source.reachability {
+        Reachability::BoundaryExited => reasons
             .into_iter()
             .flat_map(|reasons| &reasons.walk)
             .filter(|reason| {
@@ -49,25 +36,99 @@ pub(super) fn check_walk_warning(
                 )
             })
             .cloned()
-            .collect::<BTreeSet<_>>();
-        if !expected.is_empty() {
-            assert_eq!(
-                boundary_warnings, expected,
-                "{}: selected boundary reason",
-                row.id
-            );
-        }
-    } else if row.group == "reasons" && reaches == Reachability::NotReached {
-        assert!(
-            boundary_warnings.is_empty(),
-            "{}: unrelated boundary warning",
-            row.id
-        );
+            .collect::<BTreeSet<_>>(),
+        Reachability::NotReached if row.group == "reasons" => BTreeSet::new(),
+        _ => return,
+    };
+    if source.reachability == Reachability::BoundaryExited && expected.is_empty() {
+        return;
     }
+
+    // A file:line source can resolve to several graph nodes. Only the marked one can
+    // supply a warning for this row's verdict.
+    let resolved = resolve(session, &[row.source_seed()], SeedRole::Source).unwrap();
+    let mut roots = resolved
+        .seeds
+        .iter()
+        .flat_map(|seed| seed.nodes.iter().zip(&seed.locations))
+        .filter(|(_, loc)| {
+            loc.file == row.src.file && [loc.start_byte, loc.end_byte] == row.src.bytes
+        });
+    let (&root, _) = roots.next().expect("marked source occurrence");
+    assert!(
+        roots.next().is_none(),
+        "{}: ambiguous marked source",
+        row.id
+    );
+    let singleton =
+        taint_reaches_from_node(session, root, Some(std::slice::from_ref(sink_seed))).unwrap();
+    let summary = singleton.reasoning.unwrap();
+    assert_eq!(summary.source_count, 1, "{}", row.id);
+    let terminal = summary
+        .per_sink
+        .iter()
+        .find(|result| &result.sink == sink)
+        .unwrap();
+    assert_eq!(terminal.sources.len(), 1, "{}", row.id);
+    assert_eq!(terminal.sources[0].source, source.source, "{}", row.id);
+    assert_eq!(
+        terminal.sources[0].reachability, source.reachability,
+        "{}",
+        row.id
+    );
+
+    let bytes = symbol_bytes(sink);
+    let boundary_warnings: BTreeSet<_> = singleton
+        .warnings
+        .iter()
+        .filter_map(|warning| match &warning.kind {
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary {
+                reason, ..
+            }) if warning.location.as_ref().is_some_and(|loc| {
+                loc.file == row.sink.file && [loc.start_byte, loc.end_byte] == bytes
+            }) =>
+            {
+                Some(reason.to_string())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        boundary_warnings, expected,
+        "{}: boundary reason for {:?}",
+        row.id, source.source
+    );
 }
 
 fn row(id: &str) -> Row {
     rows().into_iter().find(|row| row.id == id).unwrap()
+}
+
+#[test]
+fn f01_checks_each_root_without_borrowing_its_siblings_warning() {
+    let mut row = row("f01");
+    row.sink.line = 6;
+    row.sink.operand = [96, 97];
+    let original = Fixture::load(&row);
+    assert_eq!(walk(&row, &original).reaches, Verdict::BoundaryExited);
+    let original_root = row.src.bytes;
+    row.src.line = 16;
+    row.src.bytes = [208, 209];
+    assert_eq!(walk(&row, &original).reaches, Verdict::BoundaryExited);
+
+    row.src.line = 15;
+    row.src.bytes = original_root;
+    let fixture = Fixture::load_with(&row, |_, source| {
+        *source = source.replace(
+            "const t = getInput();",
+            "const t = getInput(); const u = 0;",
+        );
+    });
+    assert_eq!(walk(&row, &fixture).reaches, Verdict::BoundaryExited);
+    let text = &fixture.repo.files[&row.src.file].source;
+    let unrelated = text.find("u = 0").unwrap();
+    row.src.bytes = [unrelated, unrelated + 1];
+    assert_eq!(walk(&row, &fixture).reaches, Verdict::NotReached);
 }
 
 fn fan_reaches(row: &Row, fixture: &Fixture, return_flow: bool) -> bool {

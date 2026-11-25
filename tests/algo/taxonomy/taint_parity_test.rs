@@ -240,13 +240,14 @@ fn review_with(row: &Row, fixture: &Fixture, config: &TaintConfig) -> Finding {
 
 fn walk(row: &Row, fixture: &Fixture) -> Walk {
     let session = fixture.session();
+    let sink_seed = SeedSpec::Loc {
+        file: row.sink.file.clone(),
+        line: row.sink.line,
+    };
     let result = taint_reaches(
         &session,
         &[row.source_seed()],
-        Some(&[SeedSpec::Loc {
-            file: row.sink.file.clone(),
-            line: row.sink.line,
-        }]),
+        Some(std::slice::from_ref(&sink_seed)),
     );
     let evidence = match result {
         Ok(evidence) => evidence,
@@ -288,11 +289,11 @@ fn walk(row: &Row, fixture: &Fixture) -> Walk {
     }
     // In a tie, choose the first terminal by byte span.
     pairs.sort_by_key(|(sink, _)| symbol_bytes(&sink.sink));
-    if let Some((sink, _)) = pairs
+    if let Some((sink, source)) = pairs
         .iter()
         .find(|(_, source)| source.reachability == reaches)
     {
-        reason_checks::check_walk_warning(row, reaches, &evidence.warnings, &sink.sink);
+        reason_checks::check_walk_warning(row, &session, source, &sink.sink, &sink_seed);
     }
     for (sink, source) in pairs {
         if source.reachability == reaches {

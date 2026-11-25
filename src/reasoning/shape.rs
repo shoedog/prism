@@ -5,11 +5,12 @@ use std::collections::BTreeMap;
 use petgraph::graph::NodeIndex;
 use petgraph::Direction;
 
-pub(crate) use super::boundary_targets::{BoundaryAttribution, BoundaryTargets};
-use crate::cpg::{
-    CodePropertyGraph, CpgEdge, CpgNode, OrderingWarning, Relation, SameLineOrderView, StmtKind,
-    Trace, VarAccess,
+pub(crate) use super::boundary_targets::{reachability_and_boundary, BoundaryTargets};
+pub use super::boundary_targets::{
+    reachability_for_node_from, reachability_for_node_from_ordered,
+    reachability_for_node_from_ordered_with_attribution, BoundaryAttribution,
 };
+use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, Relation, StmtKind, Trace, VarAccess};
 use crate::navigation::types::{GraphEdge, GraphNode, GraphPayload, Location, SymbolRef};
 use crate::reasoning::types::Reachability;
 
@@ -70,51 +71,6 @@ pub fn reachability_for_node(
         }
     }
     Reachability::NotReached
-}
-
-pub fn reachability_for_node_from(
-    cpg: &CodePropertyGraph,
-    trace: &Trace,
-    root: NodeIndex,
-    sink: NodeIndex,
-) -> Reachability {
-    let mut ordering_warnings = Vec::new();
-    reachability_for_node_from_ordered(cpg, trace, root, sink, None, &mut ordering_warnings)
-}
-
-pub fn reachability_for_node_from_ordered(
-    cpg: &CodePropertyGraph,
-    trace: &Trace,
-    root: NodeIndex,
-    sink: NodeIndex,
-    order: Option<&dyn SameLineOrderView>,
-    ordering_warnings: &mut Vec<OrderingWarning>,
-) -> Reachability {
-    let mut targets = BoundaryTargets::new(cpg, trace, order);
-    reachability_and_boundary(trace, &mut targets, root, sink, ordering_warnings).0
-}
-
-pub(crate) fn reachability_and_boundary<'a>(
-    trace: &Trace,
-    targets: &mut BoundaryTargets<'a>,
-    root: NodeIndex,
-    sink: NodeIndex,
-    ordering_warnings: &mut Vec<OrderingWarning>,
-) -> (Reachability, BoundaryAttribution<'a>) {
-    if trace
-        .frontier_by_root
-        .get(&root)
-        .is_some_and(|frontier| frontier.contains(&sink))
-    {
-        return (Reachability::Reached, BoundaryAttribution::None);
-    }
-    let attribution = targets.find(root, sink, ordering_warnings);
-    let verdict = if matches!(attribution, BoundaryAttribution::Matched(_)) {
-        Reachability::BoundaryExited
-    } else {
-        Reachability::NotReached
-    };
-    (verdict, attribution)
 }
 
 pub fn sink_nodes_at(cpg: &CodePropertyGraph, file: &str, line: usize) -> Vec<NodeIndex> {

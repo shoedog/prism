@@ -436,12 +436,19 @@ fn return_not_entered_site_is_a_cut_not_a_boundary() {
     };
     let identity = |site: CrossingSite| ("a.js".into(), site.start_byte, site.end_byte);
     let compare = super::ContinuationFrames::check_return;
-    let reason = compare(Some(identity(entered)), Some(identity(receiving))).unwrap_err();
-    assert!(compare(Some(identity(entered)), Some(identity(entered))).is_ok());
+    let entry = Some(identity(entered));
+    let reason = compare(Some(&entry), Some(&identity(receiving))).unwrap_err();
+    assert!(compare(Some(&entry), Some(&identity(entered))).is_ok());
     assert_eq!(
-        compare(Some(identity(entered)), Some(("b.js".into(), 10, 20))),
+        compare(Some(&entry), Some(&("b.js".into(), 10, 20))),
         Err(LossReason::ReturnNotEnteredSite)
     );
+    assert_eq!(compare(Some(&entry), None), Err(LossReason::NoMatchingSite));
+    assert_eq!(
+        compare(Some(&None), Some(&identity(receiving))),
+        Err(LossReason::NoMatchingSite)
+    );
+    assert!(compare(None, Some(&identity(receiving))).is_ok());
     trace.record_refusal(BoundaryEdge {
         root,
         from,

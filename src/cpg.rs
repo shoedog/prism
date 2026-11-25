@@ -142,7 +142,9 @@ pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     Relation, ReturnFlowMode, SameLineOrderView, Trace,
 };
-pub(crate) use trace_continuation::{relaxation, ContinuationConstraints, ContinuationFrames};
+pub(crate) use trace_continuation::{
+    relaxation, ContinuationConstraints, ContinuationFrames, ContinuationReturnSites,
+};
 pub(crate) use trace_cuts::{byte_span as trace_byte_span, enabled as crossing_trace_enabled};
 pub use trace_cuts::{CrossingSite, TraceCut};
 pub use trace_descent::LossReason;

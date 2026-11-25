@@ -47,7 +47,33 @@ pub fn taint_reaches(
             seed: "sources".into(),
         });
     }
+    taint_reaches_with_roots(session, &source_roots, &source_set.warnings, sinks)
+}
 
+/// Query one variable occurrence in this session's CPG without expanding a source line.
+pub fn taint_reaches_from_node(
+    session: &NavigationSession,
+    node: NodeIndex,
+    sinks: Option<&[SeedSpec]>,
+) -> Result<Evidence, QueryError> {
+    let cpg = session.index.cpg();
+    let loc = cpg
+        .graph
+        .node_weight(node)
+        .and_then(|_| cpg.to_var_location(node))
+        .ok_or_else(|| QueryError::SymbolNotFound {
+            seed: format!("source node {}", node.index()),
+        })?;
+    let symbol = symbol_for_var_location(&loc);
+    taint_reaches_with_roots(session, &[ConcreteSeed { node, loc, symbol }], &[], sinks)
+}
+
+fn taint_reaches_with_roots(
+    session: &NavigationSession,
+    source_roots: &[ConcreteSeed],
+    source_warnings: &[Warning],
+    sinks: Option<&[SeedSpec]>,
+) -> Result<Evidence, QueryError> {
     let order = AstOrderView::new(&session.index.cpg, &session.repo.files);
     let trace = session.index.cpg.taint_trace_nodes_with_mode(
         &source_roots
@@ -64,8 +90,8 @@ pub fn taint_reaches(
             let sink_nodes = concrete_seeds(&sink_set.seeds);
             witness_mode(
                 session,
-                &source_set.warnings,
-                &source_roots,
+                source_warnings,
+                source_roots,
                 &sink_nodes,
                 &trace,
                 Some(&order),
@@ -73,8 +99,8 @@ pub fn taint_reaches(
         }
         None => Ok(frontier_mode(
             session,
-            &source_set.warnings,
-            &source_roots,
+            source_warnings,
+            source_roots,
             &trace,
         )),
     }
@@ -241,7 +267,8 @@ fn witness_mode(
                             sink.node,
                             &mut bypass_ordering_warnings,
                         );
-                        let incomplete = matches!(attribution, BoundaryAttribution::Incomplete);
+                        let incomplete =
+                            matches!(attribution, BoundaryAttribution::Incomplete { .. });
                         warnings.extend(attribution_warning(
                             &session.index.cpg,
                             &source.loc,

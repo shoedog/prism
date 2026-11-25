@@ -116,7 +116,7 @@ fn boundary_target_test_cap_warns() {
         let attribution = target_search.find(root, sink, &mut Vec::new());
         assert!(matches!(
             attribution,
-            super::shape::BoundaryAttribution::Incomplete
+            super::shape::BoundaryAttribution::Incomplete { matched: false }
         ));
         let warning = super::boundary_warnings::attribution_warning(
             &cpg,
@@ -234,4 +234,295 @@ fn recursive_boundary_cannot_claim_an_earlier_read_even_as_a_direct_target() {
     assert!(
         matches!(targets.find(root, later, &mut Vec::new()), BoundaryAttribution::Matched(edge) if edge.to == later)
     );
+}
+
+#[test]
+fn ambiguous_js_descent_cannot_return_to_another_caller() {
+    let source = "function main(req) {
+  const t = req.body;
+  const v = g(t) + g(1);
+}
+function g(p) {
+  return p;
+}
+function other(k) {
+  const r = g(k);
+  exec(r);
+}";
+    assert_boundary_verdict(
+        "a.js",
+        crate::languages::Language::JavaScript,
+        source,
+        source.find("t = req").unwrap(),
+        source.find("exec(r)").unwrap() + "exec(".len(),
+        Reachability::NotReached,
+    );
+}
+
+#[test]
+fn discarded_multiline_python_return_cannot_reach_the_fixed_result() {
+    assert_boundary_verdict(
+        "a.py",
+        crate::languages::Language::Python,
+        include_str!("../../tests/taint_parity/s2-py-discard-multiline-return/a.py"),
+        58,
+        145,
+        Reachability::NotReached,
+    );
+}
+
+fn assert_boundary_verdict(
+    file: &str,
+    language: crate::languages::Language,
+    source: &str,
+    root_byte: usize,
+    sink_byte: usize,
+    expected: Reachability,
+) {
+    let parsed = crate::ast::ParsedFile::parse(file, source, language).unwrap();
+    let files = [(file.into(), parsed)].into();
+    let cpg = CodePropertyGraph::build(&files);
+    let order = super::order::AstOrderView::new(&cpg, &files);
+    let root = occurrence(&cpg, root_byte);
+    let sink = occurrence(&cpg, sink_byte);
+    let trace =
+        cpg.taint_trace_nodes_with_mode(&[root], Some(&order), crate::cpg::ReturnFlowMode::On);
+    assert_eq!(
+        super::shape::reachability_for_node_from_ordered(
+            &cpg,
+            &trace,
+            root,
+            sink,
+            Some(&order),
+            &mut Vec::new(),
+        ),
+        expected,
+    );
+}
+
+#[test]
+fn continuation_cap_keeps_an_earlier_boundary_match() {
+    use std::fmt::Write;
+
+    let mut source = String::from(
+        "function main(req) {\n  const t = req.body;\n  h1(t);\n}\n\
+         function h1(x) { h2(x); }\nfunction h2(y) {\n",
+    );
+    for index in 0..130 {
+        writeln!(source, "  g{index}(y);").unwrap();
+    }
+    source.push_str("}\nfunction g0(p) {\n  const q = p;\n  eval(q);\n}\n");
+    for index in 1..130 {
+        writeln!(source, "function g{index}(p) {{ consume(p); }}").unwrap();
+    }
+    let parsed =
+        crate::ast::ParsedFile::parse("a.js", &source, crate::languages::Language::JavaScript)
+            .unwrap();
+    let files = [("a.js".into(), parsed)].into();
+    let cpg = CodePropertyGraph::build(&files);
+    let order = super::order::AstOrderView::new(&cpg, &files);
+    let root = occurrence(&cpg, source.find("t = req").unwrap());
+    let sink = occurrence(&cpg, source.find("eval(q)").unwrap() + "eval(".len());
+    let trace =
+        cpg.taint_trace_nodes_with_mode(&[root], Some(&order), crate::cpg::ReturnFlowMode::On);
+    assert_eq!(trace.boundary.len(), 130);
+    assert!(trace
+        .boundary
+        .iter()
+        .all(|edge| edge.reason == LossReason::DepthCap));
+    assert!(matches!(
+        super::shape::reachability_for_node_from_ordered_with_attribution(
+            &cpg,
+            &trace,
+            root,
+            sink,
+            Some(&order),
+            &mut Vec::new(),
+        ),
+        (
+            Reachability::BoundaryExited,
+            BoundaryAttribution::Incomplete { matched: true }
+        )
+    ));
+    let mut targets = BoundaryTargets::new(&cpg, &trace, Some(&order));
+    for _ in 0..2 {
+        let (verdict, attribution) = super::shape::reachability_and_boundary(
+            &trace,
+            &mut targets,
+            root,
+            sink,
+            &mut Vec::new(),
+        );
+        assert_eq!(verdict, Reachability::BoundaryExited);
+        let warning = super::boundary_warnings::attribution_warning(
+            &cpg,
+            &cpg.to_var_location(root).unwrap(),
+            &cpg.to_var_location(sink).unwrap(),
+            attribution,
+        )
+        .unwrap();
+        assert!(warning.message.contains("incomplete (unexplained)"));
+    }
+}
+
+#[test]
+fn continuation_diamond_reuses_visits_with_the_same_top_frame() {
+    use crate::cpg::{OrderingDecision, Relation, SameLineOrderView};
+    use std::{cell::Cell, fmt::Write};
+
+    struct CountCrossings<'a> {
+        order: super::order::AstOrderView<'a>,
+        calls: Cell<usize>,
+    }
+
+    impl SameLineOrderView for CountCrossings<'_> {
+        fn admit_same_line_recovered_def_use(
+            &self,
+            def: NodeIndex,
+            use_: NodeIndex,
+        ) -> OrderingDecision {
+            self.order.admit_same_line_recovered_def_use(def, use_)
+        }
+
+        fn crossing_slot(
+            &self,
+            node: NodeIndex,
+            site: &crate::call_graph::CallSite,
+            relation: Relation,
+        ) -> Option<usize> {
+            let calls = self.calls.get() + 1;
+            assert!(
+                calls <= 200,
+                "20 diamond levels exceeded 200 crossing visits"
+            );
+            self.calls.set(calls);
+            self.order.crossing_slot(node, site, relation)
+        }
+    }
+
+    let mut source = String::from(
+        "function main(req) { const t = req.body; h1(t); }\n\
+         function h1(x) { h2(x); }\nfunction h2(y) { f0(y); }\n\
+         function unrelated(q) { exec(q); }\n",
+    );
+    for level in 0..20 {
+        let next = level + 1;
+        write!(
+            source,
+            "function f{level}(p) {{ a{level}(p); b{level}(p); }}\n\
+            function a{level}(p) {{ f{next}(p); }}\n\
+            function b{level}(p) {{ f{next}(p); }}\n"
+        )
+        .unwrap();
+    }
+    source.push_str("function f20(p) { consume(p); }");
+    let parsed =
+        crate::ast::ParsedFile::parse("a.js", &source, crate::languages::Language::JavaScript)
+            .unwrap();
+    let files = [("a.js".into(), parsed)].into();
+    let cpg = CodePropertyGraph::build(&files);
+    let order = CountCrossings {
+        order: super::order::AstOrderView::new(&cpg, &files),
+        calls: Cell::default(),
+    };
+    let root = occurrence(&cpg, source.find("t = req").unwrap());
+    let sink = occurrence(&cpg, source.find("exec(q)").unwrap() + "exec(".len());
+    let trace =
+        cpg.taint_trace_nodes_with_mode(&[root], Some(&order), crate::cpg::ReturnFlowMode::On);
+    assert_eq!(trace.boundary.len(), 1);
+    order.calls.set(0);
+    let (verdict, _) = super::shape::reachability_and_boundary(
+        &trace,
+        &mut BoundaryTargets::new(&cpg, &trace, Some(&order)),
+        root,
+        sink,
+        &mut Vec::new(),
+    );
+    assert_eq!(verdict, Reachability::NotReached);
+    assert!(
+        order.calls.get() >= 80,
+        "fixture did not walk all 20 diamonds"
+    );
+}
+
+#[test]
+fn returning_diamond_preserves_both_certified_callers() {
+    let source = "function main(req) {
+  const t = req.body;
+  h1(t);
+}
+function h1(x) { h2(x); }
+function h2(y) { f0(y); }
+function f0(p) {
+  branchA(p);
+  branchB(p);
+}
+function branchA(p) {
+  const a = shared(p);
+  exec(a);
+}
+function branchB(p) {
+  const b = shared(p);
+  exec(b);
+}
+function shared(p) {
+  const q = identity(p);
+  return q;
+}
+function identity(p) {
+  return p;
+}";
+    let parsed =
+        crate::ast::ParsedFile::parse("a.js", source, crate::languages::Language::JavaScript)
+            .unwrap();
+    let files = [("a.js".into(), parsed)].into();
+    let cpg = CodePropertyGraph::build(&files);
+    let order = super::order::AstOrderView::new(&cpg, &files);
+    let root = occurrence(&cpg, source.find("t = req").unwrap());
+    let trace =
+        cpg.taint_trace_nodes_with_mode(&[root], Some(&order), crate::cpg::ReturnFlowMode::On);
+    let mut targets = BoundaryTargets::new(&cpg, &trace, Some(&order));
+    for terminal in ["exec(a)", "exec(b)"] {
+        let sink = occurrence(&cpg, source.find(terminal).unwrap() + "exec(".len());
+        assert!(
+            matches!(
+                targets.find(root, sink, &mut Vec::new()),
+                BoundaryAttribution::Matched(edge) if edge.reason == LossReason::DepthCap
+            ),
+            "lost the certified return to {terminal}"
+        );
+    }
+}
+
+#[test]
+fn depth_capped_nameonly_first_hop_loses_to_a_longer_single_relaxation() {
+    use crate::cpg::{CpgEdge, FlowConfidence};
+
+    let mut cpg = CodePropertyGraph::build(&Default::default());
+    let root = variable(&mut cpg, "root", 0);
+    let short = variable(&mut cpg, "callee", 1);
+    let long = variable(&mut cpg, "callee", 2);
+    let mid = variable(&mut cpg, "callee", 3);
+    let sink = variable(&mut cpg, "callee", 4);
+    for (from, to) in [(short, sink), (long, mid), (mid, sink)] {
+        cpg.graph
+            .add_edge(from, to, CpgEdge::DataFlow(FlowConfidence::Exact));
+    }
+    let mut trace = Trace::default();
+    trace.boundary.extend([
+        BoundaryEdge {
+            depth: 2,
+            edge_own_not_exact: true,
+            ..boundary(root, short, LossReason::DepthCap)
+        },
+        BoundaryEdge {
+            depth: 2,
+            ..boundary(root, long, LossReason::DepthCap)
+        },
+    ]);
+    let mut targets = BoundaryTargets::new(&cpg, &trace, None);
+    assert!(matches!(targets.find(root, short, &mut Vec::new()),
+        BoundaryAttribution::Matched(edge) if edge.reason == LossReason::DepthCap));
+    assert!(matches!(targets.find(root, sink, &mut Vec::new()),
+        BoundaryAttribution::Matched(edge) if edge.to == long));
 }

@@ -1,5 +1,6 @@
 //! Bind a refused hop to a concrete source/sink pair.
 
+use std::cell::OnceCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
 
@@ -7,16 +8,91 @@ use petgraph::graph::NodeIndex;
 
 use crate::cpg::{
     crossing_trace_enabled, relaxation, trace_byte_span, BoundaryEdge, CodePropertyGraph,
-    ContinuationConstraints, ContinuationFrames, LossReason, OrderingWarning, SameLineOrderView,
-    Trace,
+    ContinuationConstraints, ContinuationFrames, ContinuationReturnSites, LossReason,
+    OrderingWarning, SameLineOrderView, Trace,
 };
+
+use super::types::Reachability;
 
 const MAX_CONTINUATION_PAIRS: usize = 128;
 
-pub(crate) enum BoundaryAttribution<'a> {
+/// Result of attributing a root and sink to a refused crossing.
+#[derive(Debug)]
+pub enum BoundaryAttribution<'a> {
     None,
     Matched(&'a BoundaryEdge),
-    Incomplete,
+    /// The search hit its pair limit. `matched` records whether a tested pair reached the sink.
+    Incomplete {
+        matched: bool,
+    },
+}
+
+pub fn reachability_for_node_from(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+    sink: NodeIndex,
+) -> Reachability {
+    let mut ordering_warnings = Vec::new();
+    reachability_for_node_from_ordered(cpg, trace, root, sink, None, &mut ordering_warnings)
+}
+
+pub fn reachability_for_node_from_ordered(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    root: NodeIndex,
+    sink: NodeIndex,
+    order: Option<&dyn SameLineOrderView>,
+    ordering_warnings: &mut Vec<OrderingWarning>,
+) -> Reachability {
+    reachability_for_node_from_ordered_with_attribution(
+        cpg,
+        trace,
+        root,
+        sink,
+        order,
+        ordering_warnings,
+    )
+    .0
+}
+
+/// Classify a single root/sink pair and retain whether boundary attribution was incomplete.
+pub fn reachability_for_node_from_ordered_with_attribution<'a>(
+    cpg: &'a CodePropertyGraph,
+    trace: &'a Trace,
+    root: NodeIndex,
+    sink: NodeIndex,
+    order: Option<&'a dyn SameLineOrderView>,
+    ordering_warnings: &mut Vec<OrderingWarning>,
+) -> (Reachability, BoundaryAttribution<'a>) {
+    let mut targets = BoundaryTargets::new(cpg, trace, order);
+    reachability_and_boundary(trace, &mut targets, root, sink, ordering_warnings)
+}
+
+pub(crate) fn reachability_and_boundary<'a>(
+    trace: &Trace,
+    targets: &mut BoundaryTargets<'a>,
+    root: NodeIndex,
+    sink: NodeIndex,
+    ordering_warnings: &mut Vec<OrderingWarning>,
+) -> (Reachability, BoundaryAttribution<'a>) {
+    if trace
+        .frontier_by_root
+        .get(&root)
+        .is_some_and(|frontier| frontier.contains(&sink))
+    {
+        return (Reachability::Reached, BoundaryAttribution::None);
+    }
+    let attribution = targets.find(root, sink, ordering_warnings);
+    let verdict = if matches!(
+        attribution,
+        BoundaryAttribution::Matched(_) | BoundaryAttribution::Incomplete { matched: true }
+    ) {
+        Reachability::BoundaryExited
+    } else {
+        Reachability::NotReached
+    };
+    (verdict, attribution)
 }
 
 struct Continuation {
@@ -30,6 +106,7 @@ pub(crate) struct BoundaryTargets<'a> {
     order: Option<&'a dyn SameLineOrderView>,
     by_root: BTreeMap<NodeIndex, Vec<&'a BoundaryEdge>>,
     continuation: BTreeMap<(NodeIndex, ContinuationConstraints), Continuation>,
+    return_sites: OnceCell<ContinuationReturnSites>,
 }
 
 impl<'a> BoundaryTargets<'a> {
@@ -58,6 +135,7 @@ impl<'a> BoundaryTargets<'a> {
             order,
             by_root,
             continuation: BTreeMap::new(),
+            return_sites: OnceCell::new(),
         }
     }
 
@@ -112,7 +190,14 @@ impl<'a> BoundaryTargets<'a> {
         if let Some((edge, _, _)) = eligible
             .iter()
             .filter(|(edge, _, _)| edge.to == sink)
-            .min_by_key(|(edge, prefix, _)| rank(edge, *prefix, 1, 0))
+            .min_by_key(|(edge, prefix, _)| {
+                rank(
+                    edge,
+                    *prefix,
+                    ContinuationConstraints::initial_relaxations(edge).count_ones(),
+                    0,
+                )
+            })
         {
             return BoundaryAttribution::Matched(edge);
         }
@@ -135,18 +220,28 @@ impl<'a> BoundaryTargets<'a> {
                         cpg.trace_identity(sink)
                     );
                 }
-                return BoundaryAttribution::Incomplete;
+                return BoundaryAttribution::Incomplete {
+                    matched: best.is_some(),
+                };
             }
             let continuation =
                 self.continuation
                     .entry(key)
                     .or_insert_with_key(|(target, constraints)| {
                         let mut warnings = Vec::new();
+                        let return_sites = self.return_sites.get_or_init(|| {
+                            ContinuationReturnSites::new(
+                                cpg,
+                                self.trace.return_flow_mode,
+                                self.order,
+                            )
+                        });
                         let paths = cpg.boundary_continuation(
                             *target,
                             constraints,
                             self.trace,
                             self.order,
+                            return_sites,
                             &mut warnings,
                         );
                         Continuation { paths, warnings }

@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use petgraph::graph::NodeIndex;
+use petgraph::visit::EdgeRef;
 
 use super::{
     BoundaryEdge, BoundaryKind, CodePropertyGraph, CpgNode, LossReason, OrderingWarning, Relation,
@@ -28,10 +29,19 @@ impl ContinuationConstraints {
             .collect();
         Self {
             depth: edge.depth,
-            relaxations: relaxation(edge.reason),
+            relaxations: Self::initial_relaxations(edge),
             recursive: (edge.kind != BoundaryKind::CrossFunction).then_some(edge.root),
             frames,
             return_cuts,
+        }
+    }
+
+    pub(crate) fn initial_relaxations(edge: &BoundaryEdge) -> u32 {
+        let primary = relaxation(edge.reason);
+        if edge.edge_own_not_exact {
+            primary | relaxation(LossReason::NotExact)
+        } else {
+            primary
         }
     }
 }
@@ -42,11 +52,64 @@ pub(crate) struct ContinuationFrames(Vec<Frame>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Frame {
-    site: Option<(String, usize, usize)>,
+    site: Option<SiteIdentity>,
     to: NodeIndex,
 }
 
+type SiteIdentity = (String, usize, usize);
+
+pub(crate) struct ContinuationReturnSites(BTreeSet<SiteIdentity>);
+
+impl ContinuationReturnSites {
+    pub(crate) fn new(
+        cpg: &CodePropertyGraph,
+        mode: super::ReturnFlowMode,
+        order: Option<&dyn SameLineOrderView>,
+    ) -> Self {
+        let mut receivers = BTreeSet::new();
+        let mut sites = BTreeSet::new();
+        if mode == super::ReturnFlowMode::On && order.is_some() {
+            for edge in cpg.graph.edge_references() {
+                if matches!(edge.weight(), super::CpgEdge::ReturnFlow { .. })
+                    && receivers.insert(edge.target())
+                {
+                    sites.extend(crossing_identity(
+                        cpg,
+                        edge.source(),
+                        edge.target(),
+                        Relation::ReturnFlow,
+                        order,
+                    ));
+                }
+            }
+        }
+        Self(sites)
+    }
+}
+
 impl ContinuationFrames {
+    fn return_context(&self, sites: &ContinuationReturnSites) -> &[Frame] {
+        let Some((top, callers)) = self.0.split_last() else {
+            return &[];
+        };
+        let can_return = |frame: &Frame| {
+            frame
+                .site
+                .as_ref()
+                .is_some_and(|site| sites.0.contains(site))
+        };
+        if !can_return(top) {
+            return &[];
+        }
+        // Popping the top frame can expose different callers at a join. Retain those callers
+        // through the first frame with no certified receiver, which cannot itself be popped.
+        let first = callers
+            .iter()
+            .rposition(|frame| !can_return(frame))
+            .unwrap_or(0);
+        &callers[first..]
+    }
+
     pub(crate) fn advance(
         &mut self,
         cpg: &CodePropertyGraph,
@@ -68,22 +131,25 @@ impl ContinuationFrames {
             }
             Relation::ReturnFlow => {
                 let receiving = crossing_identity(cpg, from, to, relation, order);
-                Self::check_return(self.0.pop().and_then(|frame| frame.site), receiving)?;
+                Self::check_return(self.0.last().map(|frame| &frame.site), receiving.as_ref())?;
+                self.0.pop();
             }
             _ => {}
         }
         Ok(())
     }
 
-    pub(crate) fn check_return(
-        entered: Option<(String, usize, usize)>,
-        receiving: Option<(String, usize, usize)>,
+    pub(super) fn check_return(
+        entered: Option<&Option<SiteIdentity>>,
+        receiving: Option<&SiteIdentity>,
     ) -> Result<(), LossReason> {
-        match (entered, receiving) {
-            (Some(entered), Some(receiving)) if entered != receiving => {
-                Err(LossReason::ReturnNotEnteredSite)
-            }
-            _ => Ok(()),
+        let receiving = receiving.ok_or(LossReason::NoMatchingSite)?;
+        // A root seeded inside the callee can ascend to a certified caller without an entry frame.
+        match entered {
+            None => Ok(()),
+            Some(None) => Err(LossReason::NoMatchingSite),
+            Some(Some(entered)) if entered == receiving => Ok(()),
+            Some(Some(_)) => Err(LossReason::ReturnNotEnteredSite),
         }
     }
 }
@@ -94,7 +160,7 @@ fn crossing_identity(
     to: NodeIndex,
     relation: Relation,
     order: Option<&dyn SameLineOrderView>,
-) -> Option<(String, usize, usize)> {
+) -> Option<SiteIdentity> {
     let site = cpg.crossing_site(from, to, relation, order)?;
     let caller = if relation == Relation::ReturnFlow {
         to
@@ -147,6 +213,7 @@ impl CodePropertyGraph {
         constraints: &ContinuationConstraints,
         trace: &Trace,
         order: Option<&dyn SameLineOrderView>,
+        return_sites: &ContinuationReturnSites,
         ordering_warnings: &mut Vec<OrderingWarning>,
     ) -> BTreeMap<NodeIndex, (u32, usize)> {
         let max_depth = super::trace::MAX_TAINT_DESCENT_DEPTH;
@@ -160,11 +227,16 @@ impl CodePropertyGraph {
             constraints.frames.clone(),
         )]);
         let mut paths = BTreeMap::new();
+        type VisitsByReturnContext = BTreeMap<Vec<Frame>, Vec<(u32, usize)>>;
         let mut visited =
-            BTreeMap::<(NodeIndex, usize, ContinuationFrames), Vec<(u32, usize)>>::new();
+            BTreeMap::<(NodeIndex, usize, Option<Frame>), VisitsByReturnContext>::new();
         let mut gate_cache = BTreeMap::new();
         while let Some((_, length, from, depth, reasons, frames)) = queue.pop_first() {
-            let alternatives = visited.entry((from, depth, frames.clone())).or_default();
+            let alternatives = visited
+                .entry((from, depth, frames.0.last().cloned()))
+                .or_default()
+                .entry(frames.return_context(return_sites).to_vec())
+                .or_default();
             if alternatives
                 .iter()
                 .any(|&(seen, hops)| seen & reasons == seen && hops <= length)

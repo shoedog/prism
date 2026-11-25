@@ -48,7 +48,7 @@ pub(super) fn attribution_warning(
             let target = cpg.to_var_location(edge.to)?;
             Some(boundary_warning(edge, &target, sink))
         }
-        BoundaryAttribution::Incomplete => Some(Warning {
+        BoundaryAttribution::Incomplete { .. } => Some(Warning {
             kind: WarningKind::SkippedPath,
             message: format!(
                 "taint boundary attribution incomplete (unexplained) for {}:{} [{}..{}] to {}",
