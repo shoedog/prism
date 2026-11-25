@@ -23,6 +23,32 @@ fn escaped_spellings_share_a_binding_or_refuse_it() {
 }
 
 #[test]
+fn byte_scan_finds_escapes_beside_multibyte_identifier_text() {
+    // Escape forms: braces, a BMP letter, a supplementary letter (a surrogate pair in UTF-16).
+    for (decl, name) in [
+        (r"let \u{6b}=1;", "k"),
+        (r"let caf\u00e9=1;", "caf\u{e9}"),
+        (r"let \u{1d4d0}=1;", "\u{1d4d0}"),
+        (r"let \u{1d4d0}\u{1d4d1}=1;", "\u{1d4d0}\u{1d4d1}"),
+    ] {
+        let file = js(&format!(
+            "function f(root,input){{ {decl}\n {name}=input;\n root[{name}].x=1; }}"
+        ));
+        let key = read(&file, 3, name);
+        assert!(!key.resolution_complete, "{decl}");
+        // Reads whose spelling differs from an escaped declaration were already unresolved
+        // before the fold, so only a matching spelling carries a reason.
+    }
+    // Control: the same non-ASCII spellings written without an escape stay complete.
+    for name in ["caf\u{e9}", "\u{1d4d0}"] {
+        let file = js(&format!(
+            "function f(root,input){{ let {name}=1;\n root[{name}].x=1; }}"
+        ));
+        assert!(read(&file, 2, name).resolution_complete, "{name}");
+    }
+}
+
+#[test]
 fn implicit_arguments_never_claims_the_outer_formal() {
     let file = js("function f(arguments) { return [
         function g(){return arguments},

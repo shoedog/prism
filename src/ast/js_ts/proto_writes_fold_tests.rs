@@ -2,6 +2,8 @@ use super::{js, KeyRole, MATRIX};
 use crate::ast::js_ts::proto_writes::{NameRead, ProtoWrite};
 use crate::{ast::ParsedFile, languages::Language};
 
+#[path = "proto_writes_coverage_tests.rs"]
+mod coverage;
 #[path = "proto_writes_round2_tests.rs"]
 mod round2;
 #[path = "proto_writes_round3_tests.rs"]
@@ -462,9 +464,12 @@ fn bounded_parse(source: String) -> ParsedFile {
         file.js_ts_proto_writes();
         send.send(file).unwrap();
     });
+    // The probe asserts the work budget holds, not speed. On the coverage-instrumented CI
+    // runner it took 31.2 s at c21952a8 and 30.1 to 31.6 s on fold 3 before the byte scan,
+    // and 23.4 s on 136ddee0; 30 s leaves a margin of 6.6 s over that last measurement.
     receive
-        .recv_timeout(std::time::Duration::from_secs(90))
-        .expect("prototype-write analysis did not finish within 90 seconds")
+        .recv_timeout(std::time::Duration::from_secs(30))
+        .expect("prototype-write analysis did not finish within 30 seconds")
 }
 
 #[test]
