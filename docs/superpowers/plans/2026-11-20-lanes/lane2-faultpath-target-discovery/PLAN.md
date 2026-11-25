@@ -3,7 +3,7 @@
 > **For agentic workers:** this plan is run by an orchestrator under `../ORCHESTRATION.md`. Each task is
 > dispatched to an implementer (Sonnet-5.5, high) with its section as the brief. Steps use checkbox syntax.
 
-**Stage D status (2026-11-25).** Both d3 reviewers rejected `ffcbe8fa`. The r4 proposal is with the owner. The ledger uses W for comparison. The owner has yet to select K or W or authorize transcription.
+**Stage D status (2026-11-25).** Both d3 reviewers rejected `ffcbe8fa`. The owner directed the r4 fold with K. The ledger records K, and both reviewers will review this revision once.
 
 **Goal:** `prism targets --inventory python-deps` lists Python dependency call sites (HTTP, then filesystem,
 parsing, configuration) as rows faultpath can inject at, and faultpath plans and runs faults at the httpie
@@ -40,9 +40,9 @@ in DESIGN 5–6. `row-verdicts.jsonl` in this directory supplies the Stage D wan
   also uses the supplied reviews, focused enumeration and the original ledger copied into this directory.
 - Without `--inventory`, `prism targets` output stays as today (G-byte).
 - Row values are exactly those of DESIGN 5.1 and 5.2.
-- `kind` in a hint only when library identity is proven (DESIGN 5.3: root identity, or a receiver route;
-  R1/R2 use construction, R4/R5 follow §6.4 at `nameonly` and S3 needs the owner's §6.10 decision).
-  R3 ties go to diagnostics. Use the repository-wide static grades.
+- A hint needs an admitted root identity or receiver route. R1/R2 use construction. R4/R5 use
+  `nameonly` under DESIGN §6.4. HTTP needs a construction witness. S3 admits eligible standard-library
+  declarations at that grade. R3 ties go to diagnostics.
 - The public facade keeps its signatures: `prism_review::api::project`, `TargetsDocument`, `TargetsMeta`
   are not changed. The inventory adds new functions beside them.
 - The inventory is AST-only: no call graph, no code property graph, no review runner. It does not change
@@ -110,7 +110,7 @@ in DESIGN 5–6. `row-verdicts.jsonl` in this directory supplies the Stage D wan
 
 **Exit gate:** the two HTTP overlay sites require a proven route and supported shape. M found root
 identity at `update_warnings.py:44` and an annotated-helper tie at `client.py:114`. Its census record
-cannot prove the return body. DESIGN 6.1 keeps R1 and defers positive R3. The public source satisfies the proposed receiver-only setup rule in §6.4. S2b measures both emitted rows. Both overlay sites must still pass.
+cannot prove the return body. DESIGN 6.1 keeps R1 and defers positive R3. The public source satisfies the receiver-only setup rule in §6.4. S2b measures both emitted rows. Both overlay sites must still pass.
 
 ---
 
@@ -227,6 +227,12 @@ Stage T seed examples are below. The complete matrix and Stage D verdicts govern
 | f02 | stdlib | `os.environ["X"]` (a subscript, not a call) | none (`*`) |
 | f03 | stdlib | `from pathlib import Path` … `Path.home()` | site(config,pathlib.Path.home,exact) |
 | f04 | stdlib | `json.load(open(p))` | site(parse,json.load,exact) and, for `builtins.open`, unsupported(not_line_anchor,1) |
+| pin03 | stdlib | `config_path: Path` parameter, then `config_path.read_text()` | site(filesystem,pathlib.Path.read_text,nameonly) |
+| pin04 | stdlib | `pot_path: Path` parameter, then `pot_path.exists()` | site(filesystem,pathlib.Path.exists,nameonly) |
+| pin05 | stdlib | `frontend_dist: Path = isolated_filesystem / "frontend" / "dist"`, then `frontend_dist.mkdir()` | site(filesystem,pathlib.Path.mkdir,nameonly) |
+| pin06 | stdlib | `RELOAD_TRIGGER: Path` assigned a value at module scope, then `RELOAD_TRIGGER.touch()` in a function | site(filesystem,pathlib.Path.touch,nameonly) |
+| pin07 | stdlib | `Path("Dockerfile").read_text()` | site(filesystem,pathlib.Path.read_text,exact) |
+| pin08 | stdlib | `path_object = Path(path)`, then `path_object.is_file()` | site(filesystem,pathlib.Path.is_file,exact) |
 
 Truth labels: w01 to w08, u02, u04, s01, s05 to s07, f01, f03 and f04 are `faultpath-guard`; the bounds
 rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `python-semantics`; the rest
@@ -254,7 +260,7 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 
 ### Task T-2: enumeration
 
-- [ ] Add these rows first (group `http.receiver` unless stated; truth `python-semantics`, e07 `design`).
+- [ ] Add these rows first (group `http.receiver` unless stated; truth `python-semantics` except e07 and the standard-library declaration examples marked `design`).
       They follow the binding positions of DESIGN 6.2 and the R3 ownership boundary of 6.3.
 
 | Row | Input | Want |
@@ -278,6 +284,10 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 | e10b | `s: requests.Session = other()` then `s.get(u)` | none(unproven:receiver_value_unproven) |
 | e10c | `def f(s: Optional[requests.Session]): s.get(u)` | none(unproven:receiver_value_unproven) |
 | e10d | `def f(s: "requests.Session"): s.get(u)` | none(unproven:receiver_value_unproven) |
+| tr3-25 | (stdlib, `design`) `p: ConfigParser` parameter, then `p.read("x")` | site(parse,configparser.ConfigParser.read,nameonly) |
+| sl1-65 | (stdlib, `design`) `p: Path` parameter, then `p.home()` | site(config,pathlib.Path.home,nameonly) |
+| as1-28 | (stdlib, `design`) local assigned from the visible `cache_file(...) -> Path` helper returning an opaque value | site(filesystem,pathlib.Path.exists,nameonly,symbol=read,bounds=6-8) |
+| sl4-14 | (stdlib, `design`) `src: Path` parameter in `int(src.stat().st_mtime)` | unsupported(not_line_anchor,1) for `pathlib.Path.stat` |
 
 - [ ] Run the enumerator tiers (ORCHESTRATION section 6) on `rows.jsonl`. Axes to hand them: import form;
       callee form; receiver route; binding count and binding kind of the receiver (the closed-world binding
@@ -295,16 +305,17 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 - [x] DESIGN 6 pins the matrix, supplied oracle and sibling verdict ledger. Round 2 split after
       both reviewers rejected round 1. §6.8 records the pooled options, admission default and
       owner decisions, including the fixed multiline-policy conflict.
-- [x] Both d3 reviewers rejected the escalation. The r4 design seat prepared one proposal covering the closed findings. DESIGN §§6.9–6.11 record the full check set and both owner alternatives. Stage D is stopped for the owner.
-- [ ] Only after owner disposition and authorization, verify the three digests in DESIGN §6.
-      Apply the selected ledger by ID. W has 96 changes and 642 keeps, K has 94 changes and 644 keeps after the 11 substitutions in §6.11. The eight pins already exist.
+- [x] Folded the closed d3 findings and the owner's K decision into DESIGN and the 772-ID verdict ledger.
+- [ ] Both reviewers review the owner-directed r4 revision once.
+- [ ] After Stage D review approval, verify the three digests in DESIGN §6. Apply the ledger by ID
+      (644 keep, 94 change, 34 add). The eight pins already exist.
       Materialise the 34 `add` records at `tests/targets_inventory/py/<fixture_path>` with the exact
       `fixture_source` bytes; set `fixture` to that relative path and copy its selector, line,
       class, group, truth and want. Preserve package neighbours for esc17 and esc18. Verify a
       unique ID-to-row join and the resulting 772 rows. Refresh the qualified oracle on the
       additions before claiming a consumer result, leaving the site observation pending meanwhile.
       On promoted sites (n06, tr4-03, sl1-03, wf27/38/96–98) use the site's canonical selector
-      and the joined guard observation. For all ten §6.4 constructed-class promotions replace the old declared-class selector with the emitted canonical callee. For K follow §6.11's selectors and preserve as1-28's symbol and bounds. Clear site-only consumer fields on omissions. Preserve
+      and the joined guard observation. For all ten §6.4 constructed-class promotions replace the old declared-class selector with the emitted canonical callee. Follow §6.11's selectors and preserve as1-28's symbol and bounds. Clear site-only consumer fields on omissions. Preserve
       targeted negative selectors on mixed lines. For as1-19 and as2-27 assert one surviving
       group member and a separate warning count, without forbidding the surviving member.
       Use all eleven ordered §5.2 causes including `receiver_value_unproven`. Run
@@ -540,7 +551,9 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 - Create (evidence directory): `precision/sample.py`, `precision/PRECISION.md`
 
 - [ ] Enable `"http.receiver"` as the first commit; `matrix_rows_match` RED for its rows.
-- [ ] Implement R1/R2, diagnostic R3 and constructor-backed R4/R5 (DESIGN 6.2–6.5).
+- [ ] Implement HTTP R1/R2, diagnostic R3 and constructor-backed R4/R5 (DESIGN 6.2–6.5).
+      Check the HTTP parameter-only h08 omission alongside the constructor-backed pin01 site.
+      S3 enables declaration-only R4/R5 for the three standard-library families.
       Exercise each lookup slot in DESIGN §6.2 and its read time for direct, context-bound and helper-backed objects. Include receiver and module `__class__`, whole `__dict__` versus a sibling key, the MRO prefix through the defining owner, `__bases__`, inherited lookup/construction protocols and the two context exit protocols. Compare a read inside the first suite with a post-exit read on the same object. A later exit replacement after capture cannot affect that exit. Keep esc06–10/20/25/28/30 as controls.
       Verify wf26 versus wf27, fresh n06/wf38/esc29 versus persistent wf10/wf43/esc21, and alias
       writes in wf29–53. A field store never yields an R3 positive. Check setter, subclass and
@@ -570,13 +583,18 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 **Files:**
 - Modify: `crates/prism-review/src/targets/inventory/py_tables.rs` (DESIGN 5.3's standard-library table,
   verbatim), `py_receiver.rs` (constructors `pathlib.Path`, `configparser.ConfigParser`,
-  `configparser.RawConfigParser`, with field deferral and the owner-selected declaration rule under DESIGN §§6.3–6.4 and 6.10), `inventory/mod.rs` (`Family::supported`),
+  `configparser.RawConfigParser`, with field deferral and declaration-only R4/R5 at `nameonly` under DESIGN §§6.3–6.4 and 6.10), `inventory/mod.rs` (`Family::supported`),
   `crates/prism-review/tests/cli/targets_inventory_matrix_test.rs` (`ENABLED_GROUPS` gains `"stdlib"`)
 - Create (evidence directory): `parity/compare.py`, `parity/PARITY.md`
 
 - [ ] Enable `"stdlib"` in `ENABLED_GROUPS` and add the three families to `Family::supported()`: the matrix
       is RED for their rows. Add every canonical entry with its 5.3 family, including `Path.home` as
-      config. Apply the selected K or W rule to pin03–06, including module constants, and verify the controls pin07/08 at `exact`. Check `RawConfigParser.read` writes against derived `ConfigParser` lookup. GREEN.
+      config. Apply DESIGN §6.11 to all eleven affected IDs. Check pin03–06 at `nameonly`,
+      including the visible module constant in pin06 and the second `write_text` call in pin04.
+      Check the opaque helper in as1-28, preserve its symbol and bounds, and require the
+      `not_line_anchor` group for `pathlib.Path.stat` in sl4-14. Verify pin07/08 at `exact`,
+      including pin08's second `exists` call. Check `RawConfigParser.read` writes against
+      derived `ConfigParser` lookup. GREEN.
 - [ ] Add a unit test that the standard-library table in `py_tables.rs` equals DESIGN 5.3's list, entry for
       entry, with each entry's family. Test `async with Path(...) as p` alone gives plain none at
       `p.read_text()`. Check bare/qualified builtin mutation and the Path class member write across
@@ -596,7 +614,10 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       prism misses a site scan lists (name the exact P1–P5 class from DESIGN 6.7, its key, the source
       witness, independent replay of all applicable proof routes and shape, and prism outcome.
       P1 needs a feasible different reaching value. A killed parameter, dead walrus or same-origin join leaves a corresponding scan miss unresolved (as5-14/tr3-31/sl3-01). A known constructor outranks a conflicting declaration and precludes P3 for the proved key. P1 writes require a feasible order at the actual slot read. P2 requires a relative import or
-      first importable origin under the active corpus roots. Report all scan keys, including files prism omitted, and raw recall. K uses that denominator. For W separately list exact scan keys withheld solely by W that replay as injectable under K, their proof and counts, then report the §6.10 adjusted fraction. Compare raw and adjusted results with the census projection. A representable multiline
+      first importable origin under the active corpus roots. Report matched keys divided by every
+      injectable scan key in the corpus, including keys in files prism omitted. A missing injectable
+      R4/R5 declaration admitted by K is unresolved and counts against the 95% floor. Compare the
+      measured fraction with the census projection in DESIGN §6.10. A representable multiline
       scan key or differing anchor needs a matrix regression and fix or owner escalation); prism lists a site scan
       does not (confirm against the source); the two disagree on bounds, line or callee (decide by the
       source and faultpath's guard; a prism defect gets a matrix row and a fix). A table entry may be added
@@ -667,7 +688,8 @@ routes and the closed-world rule, the unsupported reasons and unproven causes, w
 - 2026-11-25. Folded the Stage D escalation. S1–S3 now specify the two callers’ import roots,
   value witnesses and field deferral, class fallback, per-slot ordering, verified route sidecars and
   parity evidence. Both reviewers subsequently rejected that escalation.
-- 2026-11-25. Proposed r4 to the owner. S2a/S2b now specify startup precedence, remapped ties, structural lookup, receiver-only setup and constructed-class conflict evidence. S3 specifies P1 exclusions, the K/W choice and both parity denominators. The ledger and oracle join cover the eight new pins. Transcription awaits owner direction.
+- 2026-11-25. Proposed r4 to the owner. S2a/S2b specified startup precedence, remapped ties, structural lookup, receiver-only setup and constructed-class conflict evidence. S3 presented P1 exclusions and the K/W choice. The ledger and oracle join covered the eight new pins.
+- 2026-11-25. Adopted K at the owner's direction. T-1/T-2 and S3 specify the declaration-only standard-library sites, the anchor loss and the full parity denominator. S2b retains the HTTP construction witness. Both reviewers review r4 once.
 
 ## Acceptance for the lane
 

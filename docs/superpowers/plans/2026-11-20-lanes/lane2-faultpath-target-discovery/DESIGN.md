@@ -1,6 +1,6 @@
 # Lane 2: faultpath target discovery — design
 
-**Status (2026-11-25).** Stage D is stopped for the owner. Both d3 reviewers rejected `ffcbe8fa`. This r4 proposal makes one fold of their closed findings. The 772 decisions in §6 use W for bookkeeping. K and W both await an owner decision. Tracking issue #613.
+**Status (2026-11-25).** The owner directed the r4 fold and selected K for declaration-only standard-library receivers. Both d3 reviewers rejected `ffcbe8fa`. Both reviewers will review this owner-directed revision once. Tracking issue #613.
 
 ## 1. Intent
 
@@ -111,8 +111,8 @@ Goals:
 1. A row source inside `prism targets` that is independent of findings: a **dependency-call inventory** for
    Python, HTTP family first, then the three standard-library families.
 2. Rows faultpath accepts with no harness change: `kind: external_call`, exact function bounds, an accepted
-   symbol, a hint whose `kind` is present only when library identity is proven, and, for the three
-   standard-library families, the consumer's canonical callee and kind.
+   symbol and a hint from an admitted static identity route. For the three standard-library families use
+   the consumer's canonical callee and kind, including eligible declarations at `nameonly` (§6.4).
 3. Every site the inventory recognises but cannot offer as injectable is listed with a reason, and every
    call it declines for unproven identity is counted per file and cause, so the output shows where coverage
    is lost.
@@ -171,7 +171,7 @@ An inventory site becomes an ordinary targets row:
 | `expected` | `{ "property": "error_handled", "detail": "source callee: <callee text as written>" }` |
 | `dependency_hint` | `{ "kind": "<family>", "callee": "<resolved dotted callee>" }`, for example `requests.Session.send` for `s.send(req)`; for the three standard-library families the resolved callee is the canonical spelling of section 5.3 (`builtins.open`, `pathlib.Path.read_text`) |
 | `site` | `file`, `line` (first line of Python's callee expression), `symbol` (bare Python function name), `function_start_line`, `function_end_line`, `language: "python"`. Sections 5.4 and 6.6 define the source coordinates. |
-| `confidence` | `exact` when identity is proven by imports and constructor bindings (root identity, R1 or R2). R4/R5 use `nameonly` under the proposed precedence in §6.4 and the owner alternatives in §6.10. R3 supplies diagnostics only |
+| `confidence` | `exact` when identity is proven by imports and constructor bindings (root identity, R1 or R2). R4/R5 use `nameonly` under §6.4, including admissible declaration-only standard-library receivers (§6.10). R3 supplies diagnostics only |
 | `tier` | `asserted` when the confidence is `exact` and the file's parse quality is `clean` (the schema's rule); `candidate` otherwise |
 | `severity` | `info` |
 | `description` | `<resolved dotted callee>: dependency call site` |
@@ -240,7 +240,7 @@ use the first applicable cause in this closed order.
 | `annotation_conflict` | The declaration conflicts with value evidence and no independent sole construction resolves the method (§6.4). |
 | `helper_unannotated` | A same-file helper tied by a returned constructor lacks an admissible return type. |
 | `helper_not_admissible` | A tied helper fails the definition, visibility, decorator, generator or await conditions of section 6.4. |
-| `receiver_value_unproven` | A tied R3 field has no admitted instance proof, or a tied R4/R5 declaration lacks the value evidence required under §6.4 and the applicable §6.10 alternative. Apply after all causes above. |
+| `receiver_value_unproven` | A tied R3 field lacks an admitted instance proof, a tied HTTP declaration lacks its §6.4 construction witness, or a returned local fails the escape or rebinding check. Apply after the earlier causes. An admissible standard-library declaration supplies a `nameonly` route. |
 
 The document carries one warning per file with counted calls:
 `inventory: identity unproven: <file>: <n> (<cause>: <k>, …)`, causes in the table's order, zero counts
@@ -288,7 +288,9 @@ selection and admission policy.
 
 **Receiver routes.** First try a proven root path in the table. For a method on an instance use the first
 admissible route below. Verify the method in the chosen class's list. The constructor or annotation is
-resolved where it is written. The same admission and diagnostic rules apply to HTTP and standard-library classes.
+resolved where it is written. In the R4/R5 summary below, the construction requirement and the
+parameter-only diagnostic apply to HTTP. §6.4 governs constructed-class precedence for all families
+and admits eligible declaration-only standard-library receivers at `nameonly` (§6.10).
 
 | Route | Evidence | Grade |
 |---|---|---|
@@ -384,19 +386,17 @@ docs/contracts/targets-1.1.schema.json             vendored, byte-identical to t
 
 ## 6. Stage D amendment
 
-The r4 proposal joins each matrix ID to its sibling `row-verdicts.jsonl`. The ledger's `want` is the
-W result and its `rule` identifies the provision. Of 772 IDs, 738 join the matrix (642 keep, 96 change).
-The 34 `add` records carry fixture source for possible materialisation. There are 305 HTTP root,
-287 HTTP receiver and 180 standard-library IDs. The supplied oracle covers the 738 materialised IDs.
-§6.8 reconciles the observations, §6.9 gives the pinned results, and §§6.10–6.11 give the owner
-alternatives and K substitutions. For r4, apply §6.4's constructed-class precedence and the selected §6.10 text to the R4/R5 summary in §5.3. Both d3 reviewers rejected the escalation amendment. Transcription,
-implementation and any further review await owner direction.
+The sibling `row-verdicts.jsonl` records the owner-directed r4 `want` and governing `rule` for 772 IDs.
+Of these, 738 join the materialised matrix (644 keep, 94 change). The 34 `add` records supply fixture source.
+There are 305 HTTP root, 287 HTTP receiver and 180 standard-library IDs. §6.8 reconciles the 738 IDs
+with the supplied oracle. §6.9 checks the pins and Superset shapes. §§6.10–6.11 record the owner's
+decision and its eleven ledger substitutions.
 
-| Pinned input or proposed ledger | SHA-256 |
+| Pinned input or verdict ledger | SHA-256 |
 |---|---|
 | `tests/targets_inventory/rows.jsonl` at `9e43bbec` | `f3f8927ee594cf0fb8737b6df97a0aa0e4f5391d62bed91afbaef7e040cdaafd` |
 | Supplied `oracle/site-oracle.jsonl` (722 fixture lines) | `ee80f583ec150ea52ebe70899703ad4beaaaa31a73d56b2c98beab0e92922b32` |
-| Sibling `row-verdicts.jsonl` (W, 772 IDs) | `fb51acce0158ea4ac4c5e8b246c6088511c81986a7c58af29a15d0851f3fbb13` |
+| Sibling `row-verdicts.jsonl` (K, 772 IDs) | `f49c094cc597689da02c6a88518cdf8e78d1b8c134d22af89c5c903a8e264159` |
 
 ### 6.1 HTTP table and route retention
 
@@ -450,8 +450,8 @@ whole routes qualify for the optional under-2%-in-every-corpus cut.
 | HTTP membership | Maintain the explicit module and per-class lists above. Additions require an entry and a fixture. | Chosen |
 | Routes | Drop R1. This removes h10 and introduces a family-specific exception for direct construction. | Declined |
 | Routes | Defer positive R3. Even the unconditional field pattern in h07 loses its hint. No Stage M HTTP site uses it. Retain tied field diagnostics. | Chosen in escalation |
-| Routes | Keep R1/R2 and constructor-backed R4/R5. A default or parameter type cannot establish the supplied value. | Chosen in escalation |
-| Stdlib class routes (Q13) | Construction-backed rules cover `pathlib.Path`, `configparser.ConfigParser` and `configparser.RawConfigParser`, including the Path helper in tr3-26. §6.10 gives the two rules for declaration alone. | Owner choice on declarations |
+| HTTP routes | Keep R1/R2 and constructor-backed R4/R5. A default or parameter type cannot establish the supplied value. | Chosen in escalation |
+| Stdlib class routes (Q13) | Use construction when witnessed for `pathlib.Path`, `configparser.ConfigParser` and `configparser.RawConfigParser`. R4/R5 also admit the sole eligible declaration at `nameonly` (§§6.4, 6.10). | K, chosen by owner |
 
 ### 6.2 Root identity and lexical scope
 
@@ -581,7 +581,7 @@ alone supplies no veto. Use the following bounded ordering rules.
 | Root path | Check each imported slot at import/capture or live lookup as appropriate. A class-qualified `C.m` root reads the class member directly. It never constructs an instance or enters a context (esc25). |
 | R1/R2 | Check the chosen constructor binding, `__new__` and `__init__` at construction (esc06/30). Apply the instance lookup below to the method. A qualifying context adds its entry protocol and, when exit can affect the read, its exit protocol (as2-13, esc07/08). |
 | R3 | Apply the name, field and method diagnostics, then withhold the field hint (§6.3). |
-| R4/R5 | Carry object identity from the witnessed construction through the returned temporary and the caller binding. Apply instance lookup at the call and check the annotation at its defining site. Under K a declaration-only proof checks the declared class, receiver and selected lookup, without claiming a constructor ran. |
+| R4/R5 | Carry object identity from the witnessed construction through the returned temporary and the caller binding. Apply instance lookup at the call and check the annotation at its defining site. For declaration-only standard-library receivers, check the declared class, receiver binding and selected lookup. Construction slots apply only to a witnessed construction. |
 
 **Lookup slots.** For each attribute actually selected, use the lookup order of the pinned library
 class. For class `C` and name `m`, the defining class is the first class in the unmodified
@@ -743,10 +743,10 @@ casts, type comments, type aliases and subclasses provide no type proof.
 
 - **R4** tests a positional (including positional-only), keyword-only or ordinary instance parameter,
   or a simple annotated assignment **with a value**, as the receiver name's sole
-  binding. The assignment is function-local, or, for a listed standard-library class only, a same-file module name visible at the read (pin06, sl1-64). This adds an R4 tie under both alternatives. A bare module annotation stores no value. Varargs and kwargs bind collections. An unannotated default alone supplies no type.
+  binding. The assignment is function-local, or, for a listed standard-library class only, a same-file module name visible at the read (pin06, sl1-64). A bare module annotation stores no value. Varargs and kwargs bind collections. An unannotated default alone supplies no type.
   R2 wins when the assignment itself proves a constructor, even against a different annotation
   (tr5-03, sl5-11, wf60/62/65/68). Use that class's table. Otherwise consider R4 before R5,
-  subject to the conflict and positive-witness tests below. A second write defeats the sole binding
+  subject to the conflict, construction and declaration rules below. A second write defeats the sole binding
   even if it uses the annotated constructor (as5-14).
 - **R5** tests a sole function-local `v = make(...)`, or `v = await make(...)` for an async helper.
   An annotated simple assignment offers its RHS to R5 if R4 has no admitted annotation (wf64/66).
@@ -818,17 +818,26 @@ all of these checks:
    alone has the same treatment as in R2. Effects hidden in called code remain a limit of §6.2.
 
 Prefixes may raise. An alternative return, fallthrough, second factory hop or opaque result gives
-no construction proof. K's separate declaration-only rule is in §6.10. The public fixture pin01
-and the source at `httpie/client.py:114` satisfy the returned-local rule. The three `mount`
-receivers, including the loop receiver, read the same binding. esc31–34 respectively exercise
-receiver-only setup, passing the local, making an alias and replacing its `send` member.
+no construction proof. The public fixture pin01 and the source at `httpie/client.py:114` satisfy
+the returned-local rule. The three `mount` receivers, including the loop receiver, read the same
+binding. esc31–34 exercise receiver-only setup, passing the local, aliasing it and replacing `send`.
 
-| Historical round-2 annotation exposure | Disposition at `ffcbe8fa` (K substitutions in §6.11) |
+**Declaration-only standard-library receivers (K).** After checking stronger routes, use the
+declared class and its listed method at `nameonly` for `filesystem`, `parse` and `config`. R4
+accepts the sole annotated parameter or value-bearing simple assignment above, including a
+visible same-file module binding. R5 accepts a sole function-local binding to the result of an
+otherwise admissible annotated helper, including an opaque return (as1-28). Require the §6.2 binding, availability and
+lookup checks. A known contradiction, failed returned-local escape or rebinding check, or
+inadmissible helper still takes its §5.2 cause. Apply the ordinary shape and anchor rules to the
+admitted occurrence. HTTP R4/R5 require the construction witness above. R3 remains diagnostic.
+
+| Annotation evidence | r4 disposition |
 |---|---|
 | Matching helper return, retain `nameonly` | h09, e09c, tr2-57/58, tr3-26, tr4-03, tr5-04, sl1-38/39/41, sl3-17, as3-17/22, as4-24, as5-06, wf64/66 |
-| Parameter or opaque initializer, withhold hint | h08, e10b/c/d, tr1-12, tr3-24/25, sl1-35/36/65, sl2-25, sl4-11, as1-14/16, as2-20/21, as3-18/34, as5-10. For as3-34 the parameter also hides a table-spelled root, so `shadowed_root` wins. |
-| Opaque or multiple helper returns | as1-28, as3-16 lose their hint. |
-| Typed unsupported occurrences | sl4-14 becomes a counted omission. as1-19 and as2-27 each retain one constructor occurrence and count the parameter separately. |
+| HTTP parameter or opaque initializer | Withhold the hint for h08, e10b/c/d, tr1-12, sl1-35/36, sl2-25, sl4-11, as1-14/16, as2-20/21, as3-18/34. The hidden table-spelled root in as3-34 takes `shadowed_root`. |
+| Standard-library declaration | tr3-24/25, sl1-64/65, as5-10 and pin03–06 yield R4 sites at `nameonly`. |
+| Helper returns | as1-28 admits the opaque `Path` result at `nameonly`. as3-16 lacks the required HTTP construction witness. |
+| Typed unsupported occurrences | sl4-14 admits `pathlib.Path.stat` at identity, then loses the anchor to `int`. as1-19 and as2-27 each retain one constructor occurrence and count the HTTP parameter separately. |
 
 | Decision | Option and main cost | Choice |
 |---|---|---|
@@ -838,7 +847,7 @@ receiver-only setup, passing the local, making an alias and replacing its `send`
 | Helper visibility (Q3) | Reserve the spelling throughout the file. An unrelated local in tr4-03 would revoke a real module binding. | Declined |
 | Helper visibility (Q3) | Require module uniqueness plus call-site visibility, then check the returned value. The census alone cannot certify the httpie helper. | Chosen |
 | Helper reach | Follow bodies, imported factories or multiple return hops. This requires interprocedural inference. | Declined |
-| Helper reach | Use one bare call and a visible annotated helper. Construction-backed routes require the sole witness above. A declaration alone uses the owner rule in §6.10, including K's opaque-return case as1-28. | Proposed |
+| Helper reach | Use one bare call to a visible annotated helper. For HTTP require the construction witness. For an eligible standard-library helper the declaration can supply the canonical class at `nameonly` (as1-28). | Chosen |
 
 ### 6.5 Warning eligibility and precedence
 
@@ -858,7 +867,7 @@ ties that make an identity failure count. Count at most once per call occurrence
 2. For a listed method, an inline R1 receiver `C(...).method` is tied by the constructor spelling
    or a visible explicit constructor import, even when root proof fails. Propagate its §5.2 cause
    to the method. The constructor alone supplies no site. For a named receiver use the binding
-   positions in §§6.3–6.4, including an R4 declared parameter or local assignment with a value.
+   positions in §§6.3–6.4, including an R4 declared parameter or value-bearing local assignment, or a visible same-file module assignment of that form for a standard-library class.
    Require a listed method and a constructor, annotation or helper tie. Waive uniqueness and defer
    the positive value test to proof; neither is required to establish the diagnostic tie. For R3 require a qualifying literal construction store on the owning
    self field, again allowing competing writes for diagnosis. Check candidate class/method membership
@@ -877,7 +886,7 @@ For wf74 an annotation-only local declares a local name and stores no value. It 
 with a value, so the call is silent even though Python would raise on lookup. Constructor/helper
 spellings inside rejected positions do not propagate a root or helper cause (wf81/84/95). A module
 constructor assignment is eligible for R2 (wf92), a module helper assignment is outside R5 (wf93).
-The standard-library module annotation in sl1-64 has the §6.4 R4 tie. The position restrictions cover as2-26, sl5-10 and the tuple, walrus and loop cases in wf75–91.
+The standard-library module annotation in sl1-64 supplies the §6.4 R4 `pathlib.Path.exists` site at `nameonly`. The position restrictions cover as2-26, sl5-10 and the tuple, walrus and loop cases in wf75–91.
 
 | Warning tie decision | Alternative and consequence |
 |---|---|
@@ -996,16 +1005,16 @@ binder, never as a listed class. There is no PEP 695 matrix row or interpreter-p
 
 ### 6.7 Accepted losses and G-parity
 
-The W ledger has 328 site IDs. The remaining IDs form the per-ID loss register. Including the proposed fixtures, 90 unsupported expectations represent groups, with
+The K ledger has 338 site IDs. The remaining IDs form the per-ID loss register. Including the proposed fixtures, 91 unsupported expectations represent groups, with
 multiplicity in `want`. Ten lack a function body, 15 are in a class frame, nine in a lambda frame,
-five have a multiline callee, 43 lose the line anchor, and eight have an error in the owning definition.
+five have a multiline callee, 44 lose the line anchor, and eight have an error in the owning definition.
 Keep their diagnostics. The frame, competing occurrence and parse-error cases lack a usable
 frame, line or bounds. §6.8 records the two bindable multiline exceptions for the owner. Runtime
 refusals of otherwise representable rows belong in the funnel.
 
-The 264 counted-omission verdicts comprise 9 `star_import`, 67 `shadowed_root`, 11 `not_imported`,
+The 253 counted-omission verdicts comprise 9 `star_import`, 67 `shadowed_root`, 11 `not_imported`,
 7 `repository_local_module`, 2 `binding_unavailable`, 47 `member_rebound`, 46 `receiver_not_unique`,
-8 `annotation_conflict`, 5 `helper_unannotated`, 14 `helper_not_admissible` and 48 `receiver_value_unproven`.
+8 `annotation_conflict`, 5 `helper_unannotated`, 14 `helper_not_admissible` and 37 `receiver_value_unproven`.
 These are IDs. The mixed groups in §6.5 also have omitted occurrences. Each row's cause identifies the missing evidence
 in 5.2. Proving branch-specific values, trusting local shims or inferring undeclared returns would
 admit sites outside the chosen identity proof.
@@ -1027,13 +1036,15 @@ in scan and missing in prism on **scan's entire `diff.files`**, including files 
 Independently replay root identity, bare fallback, every applicable receiver route and the shape
 rule on the same source occurrence. A positive injectable proof disqualifies **every** loss class.
 Record the attempted routes, shape, key, source witness, class below and
-prism outcome for each miss. A file-total warning alone cannot locate a miss. Report every miss and raw recall. The 95% floor applies **per corpus**. K uses the full denominator. Only W's independently replayed declaration-only misses qualify for its denominator adjustment (§6.10).
+prism outcome for each miss. A file-total warning alone cannot locate a miss. Compute the 95% floor
+for each corpus as matched keys divided by **all** injectable scan keys. Every missed key stays in
+the denominator. A missing key admitted by K remains unresolved.
 
 | Class | Required witness |
 |---|---|
-| P1. Competing or unavailable binding | Demonstrate an actual wildcard, competing deciding-scope occurrence, explicit namespace/member mutation, unavailable binding or non-unique receiver as specified by 6.2–6.5. Name the precise cause and exclude a successful alternative (e.g. R2 in sl2-21). For a write, record the binding owner, object/slot, capture/lookup point and a feasible execution order from write to read (including a prior invocation for persistent state). A file-wide hit, unknown order alone, wf27's severed exporter link or wf38's later local delete cannot earn P1. For a competing binder, require that it can reach this read with a different value. Exclude a parameter killed by a dominating construction (as5-14), a dead write over an empty literal iterable (tr3-31), and a join where all reaching imports have the same available origin (sl3-01). If a standard-library scan miss has one of these shapes, it remains unresolved and stays in both raw and floor denominators. A producer refusal alone earns no loss classification. |
+| P1. Competing or unavailable binding | Demonstrate an actual wildcard, competing deciding-scope occurrence, explicit namespace/member mutation, unavailable binding or non-unique receiver as specified by 6.2–6.5. Name the precise cause and exclude a successful alternative (e.g. R2 in sl2-21). For a write, record the binding owner, object/slot, capture/lookup point and a feasible execution order from write to read (including a prior invocation for persistent state). A file-wide hit, unknown order alone, wf27's severed exporter link or wf38's later local delete cannot earn P1. For a competing binder, require that it can reach this read with a different value. Exclude a parameter killed by a dominating construction (as5-14), a dead write over an empty literal iterable (tr3-31), and a join where all reaching imports have the same available origin (sl3-01). If a standard-library scan miss has one of these shapes, it remains unresolved and counts against the per-corpus floor. A producer refusal alone earns no loss classification. |
 | P2. Relative or repository-local identity | Show a relative import, or identify the competing file/package and show its name is importable first under the corpus's recorded active roots and applicable precedence. A file under an inactive `src/` or a regular package sibling alone earns no P2. Apply §6.2 precedence for absolute `builtins`, `os`, `os.path` and `io` on the pinned startup profile. This includes genuine local shims re-exporting a stdlib function. |
-| P3. Indirect receiver or callable | Show one of these missing proof forms: assigned callable/module/object alias, constructor hidden in an inadmissible binding position, wrapper or method/operator result, field requiring R3, declaration without a §6.4 value witness, descriptor/container/subclass receiver, dynamic import/member lookup, indirect or cross-file helper, same-file helper missing a usable return annotation or failing another condition in 6.4, or a type form explicitly excluded in 6.4. Cite the excluded expression or helper cause. Record the missing value or field proof for the individual occurrence. Direct R1 (f01e), R2 and constructor-backed annotations, including the independently proved class of §6.4, are admitted proofs. A conflicting declaration alone never earns P3 for such a key. §6.10 defines W's sole numerical exemption and K's positive route. |
+| P3. Indirect receiver or callable | Show the excluded expression or binding at this occurrence. Eligible witnesses are an assigned callable/module/object alias, constructor in an inadmissible binding position, wrapper or method/operator result requiring inference, R3 field, descriptor/container/subclass receiver, dynamic import/member lookup, indirect or cross-file helper, same-file helper failing §6.4 eligibility, or an excluded type form. Exclude all admitted routes, including R1/R2, the independently constructed class and K's eligible parameter, value-bearing assignment or helper declaration. The operator in pin05's initializer leaves its R4 proof intact. |
 | P4. Unrepresentable call or frame | Demonstrate an inner class or lambda body frame and record its owner. Scan already skips non-anchors. A different winner or a representable multiline scan key gets a matrix regression and fix, or owner escalation under §6.8. Neither earns P4. |
 | P5. Unevaluated annotation | Show that the recorded call occurs exclusively in an unevaluated annotation under 6.6 on 3.11. |
 
@@ -1046,7 +1057,7 @@ section 8.
 
 | Decision | Option and main cost | Choice |
 |---|---|---|
-| P1 ordering | Exclude killed, dead and same-origin competitors from P1. This preserves the pinned producer refusals and makes a scan miss visible for resolution. Extending production dominance and branch equivalence would change as5-14, tr3-31 and sl3-01 beyond the parity fix. | Proposed |
+| P1 ordering | Exclude killed, dead and same-origin competitors from P1. This preserves the pinned producer refusals and makes a scan miss visible for resolution. Extending production dominance and branch equivalence would change as5-14, tr3-31 and sl3-01 beyond the parity fix. | Chosen |
 | Accepted loss | Infer values across files. This requires a new interprocedural proof. | Declined |
 | Accepted loss | Keep the finite limits and publish every tied failure, unsupported group and plain negative above. Real indirect dependency calls can be missed. | Chosen |
 | G-parity | Allow any unsupported or warning bucket. This could conceal a systematic defect. | Declined |
@@ -1057,13 +1068,13 @@ section 8.
 
 Join on **(fixture, line)** and check the ID in the oracle's `rows`. Several IDs may share one binder
 answer. The supplied oracle covers 722 distinct fixture lines for the 738 materialised IDs. This
-join uses their W wants. The 34 proposed IDs lack observations and are excluded from this table. “Syntax” denotes an error record without a bound call or guard answer.
+join uses their K wants. The 34 proposed IDs lack observations and are excluded from this table. “Syntax” denotes an error record without a bound call or guard answer.
 
 | Want | accepted | unsupported_frame_guard | unsupported_multiline_callee | call_position_unavailable | site_call_unavailable | Syntax | IDs |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| site | 300 | 13 | 0 | 0 | 0 | 3 | 316 |
-| unsupported | 42 | 35 | 2 | 1 | 0 | 8 | 88 |
-| none(unproven) | 232 | 12 | 0 | 0 | 0 | 1 | 245 |
+| site | 310 | 13 | 0 | 0 | 0 | 3 | 326 |
+| unsupported | 43 | 35 | 2 | 1 | 0 | 8 | 89 |
+| none(unproven) | 221 | 12 | 0 | 0 | 0 | 1 | 234 |
 | none | 73 | 6 | 0 | 4 | 6 | 0 | 89 |
 | Total | 647 | 66 | 2 | 5 | 6 | 12 | 738 |
 
@@ -1072,13 +1083,13 @@ The pre-fold 3.11.11 AST comparison reproduced the recorded bound callee text or
 The oracle supplies texts and bounds but lacks occurrence spans. Unique source text can identify an
 occurrence in a fixture. Duplicate text by itself cannot certify G-accept (u04a/b).
 
-- Of the 316 site IDs, 313 have a binder/guard record and three have a whole-file syntax error.
+- Of the 326 site IDs, 323 have a binder/guard record and three have a whole-file syntax error.
   Of the 13 site frame refusals, s03, c06, o20 and tr1-23 are comprehensions/generator expressions. s04, b04, tr1-24, sl5-08 and
   as4-01/02 have decorated or repeated definitions. c02, tr3-06 and tr3-07 have a nested header
   or lambda default evaluated in the surrounding scope. Keep the rows and tabulate the refusal.
-- Of the 313, 185 have the same nonempty qualified name as the hint. All 115 parseable receiver-route sites have
-  an empty oracle qualifier. Compare occurrence spans in G-accept and record that empty field beside the
-  constructed class path. For the other 13 empty qualifiers the source binding is still required.
+- Of the 323, 185 have the same nonempty qualified name as the hint. All 125 parseable receiver-route
+  sites have an empty qualifier. Compare occurrence spans in G-accept and record that field beside the
+  constructed or declared class path. The other 13 empty qualifiers require the source binding.
   The five bare builtin sites are w06b, f01a, as1-31, as4-19 and as5-15. The eight imported roots
   are tr2-53, tr2-54, tr3-02, tr5-02, sl1-01, sl1-04, sl2-02 and sl2-04 (declarations, redirected
   imports, comprehension scope or private-name lookup). Preserve Python's identity. A blank is
@@ -1105,8 +1116,9 @@ occurrence in a fixture. Duplicate text by itself cannot certify G-accept (u04a/
   The other nine syntax records are o23b, tr3-08/09, sl1-25, sl2-14, as1-10, as3-11 and as4-08
   (unsupported), and as2-09 (identity fails first). None provides a consumer verdict on the intended
   call. A recovered site on a census file still needs executed G-accept evidence.
-- For unsupported rows an `accepted` answer describes the one **anchor** on the line. In 37 cases
-  the row targets another occurrence, even if its text matches (u04b). In the five `multiline_callee`
+- For unsupported rows an `accepted` answer describes the one **anchor** on the line. The 38 accepted
+  `not_line_anchor` IDs target another occurrence, even if its text matches (u04b). In sl4-14 the
+  binder selects `int` while the diagnostic selects `pathlib.Path.stat`. In the five `multiline_callee`
   cases, u05 and tr1-22 actually bind the multiline target and the recorded guard accepts it.
   tr3-11, sl1-28 and as2-27 instead bind `consume`, `Session` or `Client`. Keep the 5.2 reason
   and group count in all five. For sl1-16 and sl2-11 the **winner** gets
@@ -1120,8 +1132,8 @@ occurrence in a fixture. Duplicate text by itself cannot certify G-accept (u04a/
   identity failure into an unsupported site. The four no-position plain negatives are unevaluated
   annotations. The six no-call negatives have no call at the line. The remaining frame refusals and
   accepted negatives follow the same per-ID rule.
-- Against the pinned matrix, 85 design wants and eleven Python-semantics wants change. All 24
-  faultpath-guard wants stand. The ledger distinguishes the 34 pending fixtures from the 96 changes
+- Against the pinned matrix, 83 design wants and eleven Python-semantics wants change. All 24
+  faultpath-guard wants stand. The ledger distinguishes the 34 pending fixtures from the 94 changes
   to existing IDs. Promoted `*` selectors take the callee from the site want. Consumer evidence for
   the additions requires a qualified oracle run.
 
@@ -1187,25 +1199,23 @@ This matrix has no planner, scan, live injection or corpus gate receipt.
 
 ### 6.9 Pinned-row results
 
-These are design results on the selected occurrence. The first panel gives the outcome with each
-rule in the complete proposal. `E` and `N` are sites at `exact` and `nameonly`. `V` is
-`none(unproven:receiver_value_unproven)` and `M` is `none(unproven:member_rebound)`. In the
-shared-rule rows, `V/N` gives the W/K result. The HTTP columns name `requests.Session.send`
-and `requests.get`. The six filesystem columns name, in order, `pathlib.Path.read_text`,
-`exists`, `mkdir`, `touch`, `read_text` and `is_file`. Pin04's second call, `write_text`,
-tracks its first under both variants. Pin08's second call, `exists`, is also exact.
+Each row checks one r4 rule with the full K design applied to the eight pinned occurrences.
+`E` and `N` are sites at `exact` and `nameonly`. `V` is `none(unproven:receiver_value_unproven)`
+and `M` is `none(unproven:member_rebound)`. The HTTP columns select `requests.Session.send`
+and `requests.get`. The six filesystem columns select `pathlib.Path.read_text`, `exists`, `mkdir`,
+`touch`, `read_text` and `is_file`, respectively. Pin04 also selects `write_text` at `nameonly`
+on line 6. Pin08 also selects `exists` at `exact` on line 9.
 
-| Rule | pin01 | pin02 | pin03 | pin04 | pin05 | pin06 | pin07 | pin08 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| H · helper setup | N | E | V/N | V/N | V/N | V/N | E | E |
-| L · lookup slots | N | E | V/N | V/N | V/N | V/N | E | E |
-| C · construction | N | E | V/N | V/N | V/N | V/N | E | E |
-| P · P1 evidence | N | E | V/N | V/N | V/N | V/N | E | E |
-| T · remapped ties | N | E | V/N | V/N | V/N | V/N | E | E |
-| J · class lookup | N | E | V/N | V/N | V/N | V/N | E | E |
-| F · startup precedence | N | E | V/N | V/N | V/N | V/N | E | E |
-| W · withhold | N | E | V | V | V | V | E | E |
-| K · keep | N | E | N | N | N | N | E | E |
+| Rule | pin01 | pin02 | pin03 | pin04 | pin05 | pin06 | pin07 | pin08 | Superset shape check |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| H · helper setup | N | E | N | N | N | N | E | E | H applies to the annotated helper. The parameter and operator-initialized Path shapes in pin03–06 need only R4. The census helper tie needs an eligible local binding for R5. |
+| L · lookup slots | N | E | N | N | N | N | E | E | L checks the receiver, class and selected method. The local and module initializers in pin05/06 have no write to the selected lookup. Pin07/08 also pass their constructor-slot checks. |
+| C · construction | N | E | N | N | N | N | E | E | C prefers a construction when present. Pin07/08 establish it directly or by a local assignment. The operators in pin05/06 supply no independent construction of the receiver. |
+| P · P1 evidence | N | E | N | N | N | N | E | E | P requires a feasible different reaching value for a competing binder. The two census-unproven Path parameter records need that witness for P1 on any scan miss. A sole admissible Path declaration gives a positive route. |
+| T · remapped ties | N | E | N | N | N | N | E | E | T resolves the imported class before testing membership. All six Path pins import pathlib.Path without an off-table remap. |
+| J · class lookup | N | E | N | N | N | N | E | E | J checks class-scope fallback where it applies. The Path pins read a parameter, local, module name or direct constructor in a function. None depends on a conditional class slot. |
+| F · startup precedence | N | E | N | N | N | N | E | E | F checks startup precedence for builtins, os, os.path and io. The Superset Path shapes use ordinary pathlib import resolution. |
+| K · keep | N | E | N | N | N | N | E | E | K gives the parameter, local and module shapes R4. A same-file helper declaration can supply R5 under §6.4. Direct and locally bound constructors keep their exact grades. |
 
 | Rule | esc31 | esc32 | esc33 | esc34 |
 | --- | --- | --- | --- | --- |
@@ -1216,7 +1226,6 @@ tracks its first under both variants. Pin08's second call, `exists`, is also exa
 | T · remapped ties | N | V | V | M |
 | J · class lookup | N | V | V | M |
 | F · startup precedence | N | V | V | M |
-| W · withhold | N | V | V | M |
 | K · keep | N | V | V | M |
 
 | Rule | Discriminating controls and result |
@@ -1228,7 +1237,17 @@ tracks its first under both variants. Pin08's second call, `exists`, is also exa
 | T | Under `import urllib3 as requests`, the remapped `Session` constructor cannot originate a tie. esc14 stays silent, sl3-02 keeps `binding_unavailable` on its on-table remap, and sl2-21 retains its independent R2. |
 | J | esc13 keeps `unsupported(class_body_frame,1)` because the conditional import and fallback agree. esc11/12/26 keep `shadowed_root`. Blanket refusal fails esc13 and is declined. |
 | F | o15/16/18, sl2-26, wf96 and esc18 keep exact identities. as2-28/as3-25 retain their relative-import cause. The d3 startup-precedence finding identifies zero affected census sites. |
-| W / K | pin03–06 are the owner choice. sl1-64's module-level annotation has the same diagnostic tie as pin06. W changes that inherited plain omission to V. K's complete replacement list, including sl4-14's anchor loss, is in §6.11. |
+| K | Pin03–06 and sl1-64 admit the declared `Path` at `nameonly`. sl4-14 admits the declared method but loses its anchor. §6.11 gives the exact wants and selectors. |
+
+The Superset census supplies the corresponding source locations. Parameter examples include
+`config_path.read_text` (scripts/extract_feature_flags.py:60) and `pot_path.write_text`
+(scripts/translations/apply_do_not_translate.py:91). The local and module examples include
+`frontend_dist.mkdir` (superset-extensions-cli/tests/test_cli_build.py:205) and `RELOAD_TRIGGER.touch`
+(superset/extensions/local_extensions_watcher.py:141). Constructor controls include the direct
+`Path(...).read_text` in tests/unit_tests/mcp_service/chart/test_gantt_chart.py:101 and the
+local `path_object.is_file` in superset/cli/importexport.py:335. The single helper-tied key is
+`examples_dir.exists` in superset/examples/data_loading.py:120. The census records the tie and
+shape. §6.10 states the source assumptions needed to project these keys onto the scan denominator.
 
 The declared-root layouts and the bindable multiline winners u05/tr1-22 remain owner options
 in §§6.2 and 6.8. Their operational rules have no r4 delta. The status correction has no
@@ -1240,442 +1259,403 @@ producer or parity predicate.
 Each column is one ID. The reference is its exact `want` at `ffcbe8fa` (ledger SHA-256
 `25d5ba510c6ec58859997756e317547badee15e10d0cc796ffdeaddb8c93871d`). The reference row
 shows its kind. `U` means unsupported, `Ø` means silent, `A` means annotation conflict and
-`D` means another counted cause. In H through W, `=` is that full reference want, including
-cause, multiplicity, callee, confidence and any bounds/symbol. A differing cell gives that rule's
-replacement in the W ledger. This reports the effect of each proposed change **in isolation**
-on the prior decisions. The changes compose without overlaps. The K row gives K relative
-to **complete W**, with `=` retaining W and the eleven substitutions specified in §6.11
-(including the four pin columns above). Rule letters sharing a table row each have exactly that result on every column of the panel. P1 credit is per scan key and has no producer-want delta.
+`D` means another counted cause. In each rule row, `=` preserves the full reference want,
+including callee, grade, cause, multiplicity, symbol and bounds. Each differing cell gives the
+kind of that rule's replacement. The sibling ledger gives its full want. These changes compose
+without overlap. Rule letters sharing a row have the same result for every ID in the panel.
+P1 classifies scan differences and has no producer-want delta.
 
 | Rule | h01 | h02 | h03 | h04 | h05 | h06 | h07 | h08 | h09 | h10 | h11 | n01 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | V | V | N | E | E | Ø |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | n02 | n03 | n04 | n05 | n06 | n07 | n08 | u01 | u02 | u03 | u04a | u04b |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | Ø | Ø | D | D | E | D | Ø | U | U | E | E | U |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | u05 | u06 | u07 | w01 | w02 | w03 | w04 | w05 | w06a | w06b | w07 | w08 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | U | U | E | U | U | U | U | U | U | E | U | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | s01 | s02 | s03 | s04 | s05 | s06 | s07 | b01 | b02 | b03 | b04 | c01 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | c02 | c03 | c04 | c05 | c06 | f01a | f01b | f01c | f01d | f01e | f02 | f03 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | U | U | E | E | E | E | E | E | E | Ø | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | f04a | f04b | e01 | e02 | e03 | e04a | e04b | e05a | e05b | e05c | e05d | e05e |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | U | D | D | D | D | D | D | D | D | D | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | e06 | e07 | e08a | e08b | e08c | e09a | e09b | e09c | e09d | e10a | e10b | e10c |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | V | D | D | D | D | D | N | D | D | V | V |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | e10d | o01 | o02 | o03 | o04 | o05 | o06 | o07 | o08 | o09 | o10 | o11 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | V | E | E | E | E | E | E | E | E | D | D | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | o12 | o13 | o14 | o15 | o16 | o17 | o18 | o19 | o20 | o21 | o22 | o23a |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | U | E | E | E | E | E | D | E | U | U | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | o23b | o24a | o24b | o25 | o26 | tr1-01 | tr1-02 | tr1-03 | tr1-04 | tr1-06 | tr1-07 | tr1-08 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | U | E | E | U | D | D | D | D | D | D | D | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr1-09 | tr1-10 | tr1-11 | tr1-12 | tr1-13 | tr1-14 | tr1-15 | tr1-16 | tr1-17 | tr1-18 | tr1-19 | tr1-20 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | D | D | V | D | Ø | E | U | E | E | E | Ø |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr1-21 | tr1-22 | tr1-23 | tr1-24 | tr1-25 | tr1-26 | tr1-27 | tr1-28 | tr1-29 | tr1-30 | tr1-31 | tr1-32 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | U | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr1-33 | tr1-34 | tr1-35 | tr1-36 | tr1-37 | tr1-38 | tr1-39 | tr1-40 | tr1-41 | tr1-42 | tr1-43 | tr1-44 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr1-45 | tr1-46 | tr1-47 | tr1-48 | tr1-49 | tr1-50 | tr1-51 | tr1-52 | tr1-53 | tr1-54 | tr1-55 | tr1-56 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr1-57 | tr1-58 | tr1-59 | tr1-60 | tr1-61 | tr1-62 | tr1-63 | tr1-64 | tr1-65 | tr1-66 | tr1-67 | tr1-68 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr1-69 | tr1-70 | tr1-71 | tr1-72 | tr1-73 | tr1-74 | tr1-75 | tr1-76 | tr1-77 | tr1-78 | tr1-79 | tr1-80 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr1-81 | tr1-82 | tr1-83 | tr1-84 | tr1-85 | tr1-86 | tr1-87 | tr1-88 | tr1-89 | tr1-90 | tr1-91 | tr1-92 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr1-93 | tr1-94 | tr1-95 | tr1-96 | tr1-97 | tr1-98 | tr1-99 | tr1-05 | tr2-01 | tr2-02 | tr2-03 | tr2-04 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | E | D | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr2-05 | tr2-06 | tr2-07 | tr2-08 | tr2-09 | tr2-10 | tr2-11 | tr2-12 | tr2-13 | tr2-14 | tr2-15 | tr2-16 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr2-17 | tr2-18 | tr2-19 | tr2-20 | tr2-21 | tr2-22 | tr2-23 | tr2-24 | tr2-25 | tr2-26 | tr2-27 | tr2-28 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr2-29 | tr2-30 | tr2-31 | tr2-32 | tr2-33 | tr2-34 | tr2-35 | tr2-36 | tr2-37 | tr2-38 | tr2-39 | tr2-40 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | D | D | D | D | D | D | D | D | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr2-41 | tr2-42 | tr2-43 | tr2-44 | tr2-45 | tr2-46 | tr2-47 | tr2-48 | tr2-49 | tr2-50 | tr2-51 | tr2-52 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | D | D | D | D | D | D | D | D | D | D | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr2-53 | tr2-54 | tr2-55 | tr2-56 | tr2-57 | tr2-58 | tr2-59 | tr2-60 | tr2-61 | tr2-62 | tr2-63 | tr2-64 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | D | N | N | D | D | U | U | U | U |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr2-65 | tr2-66 | tr2-67 | tr2-68 | tr2-69 | tr2-70 | tr2-71 | tr2-72 | tr2-73 | tr2-74 | tr2-75 | tr2-76 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | U | E | E | E | U | D | E | D | E | Ø | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr2-77 | tr3-01 | tr3-02 | tr3-03 | tr3-04 | tr3-05 | tr3-06 | tr3-07 | tr3-08 | tr3-09 | tr3-10 | tr3-11 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | D | E | D | D | E | E | E | U | U | U | U |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr3-12 | tr3-13 | tr3-14 | tr3-15 | tr3-16 | tr3-17 | tr3-18 | tr3-19 | tr3-20 | tr3-21 | tr3-22 | tr3-23 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | Ø | Ø | E | E | E | D | D | E | V | D | D | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr3-24 | tr3-25 | tr3-26 | tr3-27 | tr3-28 | tr3-29 | tr3-30 | tr3-31 | tr3-32 | tr3-33 | tr4-01 | tr4-02 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | V | V | N | E | E | E | E | D | E | U | D | D |
-| H / L / C / P / T / J / F / W | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F | = | = | = | = | = | = | = | = | = | = | = | = |
 | K | N | N | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr4-03 | tr4-04 | tr4-05 | tr4-06 | tr4-07 | tr4-08 | tr4-09 | tr4-10 | tr4-11 | tr5-01 | tr5-02 | tr5-03 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | N | U | D | E | U | U | U | D | D | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | tr5-04 | tr6-01 | tr6-02 | tr7-01 | tr7-02 | sl1-01 | sl1-02 | sl1-03 | sl1-04 | sl1-05 | sl1-06 | sl1-07 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | N | D | E | U | U | E | U | E | E | D | D | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl1-08 | sl1-09 | sl1-10 | sl1-11 | sl1-12 | sl1-13 | sl1-14 | sl1-15 | sl1-16 | sl1-17 | sl1-18 | sl1-19 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | Ø | E | D | D | E | D | E | U | U | U | U |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl1-20 | sl1-21 | sl1-22 | sl1-23 | sl1-24 | sl1-25 | sl1-26 | sl1-27 | sl1-28 | sl1-29 | sl1-30 | sl1-31 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | U | U | U | U | E | U | E | E | U | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl1-32 | sl1-33 | sl1-34 | sl1-35 | sl1-36 | sl1-37 | sl1-38 | sl1-39 | sl1-40 | sl1-41 | sl1-42 | sl1-43 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | V | V | V | V | Ø | N | N | D | N | Ø | Ø |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl1-44 | sl1-45 | sl1-46 | sl1-47 | sl1-48 | sl1-49 | sl1-50 | sl1-51 | sl1-52 | sl1-53 | sl1-54 | sl1-55 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | Ø | E | E | E | E | E | E | E | E | E | E | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl1-56 | sl1-57 | sl1-58 | sl1-59 | sl1-60 | sl1-61 | sl1-62 | sl1-63 | sl1-64 | sl1-65 | sl1-66 | sl1-67 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | D | Ø | E | Ø | V | E | D |
 | H / L / C / P / T / J / F | = | = | = | = | = | = | = | = | = | = | = | = |
-| W | = | = | = | = | = | = | = | = | V | = | = | = |
 | K | = | = | = | = | = | = | = | = | N | N | = | = |
 
 | Rule | sl1-68 | sl1-69 | sl1-70 | sl2-01 | sl2-02 | sl2-03 | sl2-04 | sl2-05 | sl2-06 | sl2-07 | sl2-08 | sl2-09 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | D | Ø | U | E | D | E | U | E | E | D | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl2-10 | sl2-11 | sl2-12 | sl2-13 | sl2-14 | sl2-15 | sl2-16 | sl2-17 | sl2-18 | sl2-19 | sl2-20 | sl2-21 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | U | U | U | U | E | U | D | V | D | V | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl2-22 | sl2-23 | sl2-24 | sl2-25 | sl2-26 | sl3-01 | sl3-02 | sl3-03 | sl3-04 | sl3-05 | sl3-06 | sl3-07 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | A | D | Ø | V | E | D | D | D | U | U | D | E |
-| H / L / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 | C | N | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl3-09 | sl3-10 | sl3-11 | sl3-12 | sl3-13 | sl3-14 | sl3-15 | sl3-16 | sl3-17 | sl3-18 | sl3-19 | sl3-20 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | E | D | Ø | E | D | V | D | N | Ø | D | E |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl4-01 | sl4-02 | sl4-03 | sl4-04 | sl4-05 | sl4-06 | sl4-07 | sl4-08 | sl4-09 | sl4-10 | sl4-11 | sl4-12 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | D | U | D | Ø | Ø | U | E | V | D | V | Ø |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl4-13 | sl4-14 | sl5-01 | sl5-02 | sl5-03 | sl5-04 | sl5-05 | sl5-06 | sl5-07 | sl5-08 | sl5-09 | sl5-10 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | V | E | U | D | D | U | U | E | E | Ø | Ø |
-| H / L / C / P / T / J / F / W | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F | = | = | = | = | = | = | = | = | = | = | = | = |
 | K | = | U | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | sl5-11 | sl5-12 | sl5-13 | sl5-14 | as1-01 | as1-02 | as1-03 | as1-04 | as1-05 | as1-06 | as1-07 | as1-08 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | Ø | V | Ø | E | Ø | D | E | M | Ø | E | U |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as1-09 | as1-11 | as1-12 | as1-13 | as1-14 | as1-15 | as1-16 | as1-17 | as1-18 | as1-19 | as1-20 | as1-21 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | Ø | Ø | Ø | V | Ø | V | D | D | U | V | V |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as1-22 | as1-23 | as1-24 | as1-25 | as1-26 | as1-27 | as1-28 | as1-29 | as1-30 | as1-31 | as1-32 | as1-33 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | Ø | D | Ø | E | A | V | Ø | E | E | U | Ø |
-| H / L / P / T / J / F / W | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / P / T / J / F | = | = | = | = | = | = | = | = | = | = | = | = |
 | C | = | = | = | = | = | N | = | = | = | = | = | = |
 | K | = | = | = | = | = | = | N | = | = | = | = | = |
 
 | Rule | as1-34 | as1-35 | as1-36 | as1-37 | as1-38 | as1-39 | as1-40 | as1-41 | as1-10 | as2-01 | as2-02 | as2-03 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | Ø | Ø | D | D | E | Ø | D | E | U | E | D | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as2-04 | as2-05 | as2-06 | as2-07 | as2-08 | as2-09 | as2-10 | as2-11 | as2-12 | as2-13 | as2-14 | as2-15 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | D | E | U | U | D | E | Ø | E | E | Ø | Ø |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as2-16 | as2-17 | as2-18 | as2-19 | as2-20 | as2-21 | as2-22 | as2-23 | as2-24 | as2-25 | as2-26 | as2-27 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | Ø | D | A | V | V | D | D | A | Ø | Ø | U |
-| H / L / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 | C | = | = | = | = | = | = | = | = | N | = | = | = |
 
 | Rule | as2-28 | as2-29 | as2-30 | as2-31 | as2-32 | as2-33 | as3-01 | as3-02 | as3-03 | as3-04 | as3-05 | as3-06 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | Ø | U | U | E | U | U | D | Ø | Ø | Ø | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as3-07 | as3-08 | as3-09 | as3-10 | as3-11 | as3-12 | as3-13 | as3-14 | as3-15 | as3-16 | as3-17 | as3-18 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | U | U | Ø | U | V | V | Ø | D | V | N | V |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as3-19 | as3-20 | as3-21 | as3-22 | as3-23 | as3-24 | as3-25 | as3-26 | as3-27 | as3-28 | as3-29 | as3-30 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | Ø | D | Ø | N | Ø | D | D | Ø | E | U | U | U |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as3-31 | as3-32 | as3-33 | as3-34 | as4-01 | as4-02 | as4-03 | as4-04 | as4-05 | as4-06 | as4-07 | as4-08 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | U | E | U | D | E | E | D | D | E | U | U | U |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as4-09 | as4-10 | as4-11 | as4-12 | as4-13 | as4-14 | as4-15 | as4-16 | as4-17 | as4-18 | as4-19 | as4-20 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | D | D | Ø | Ø | V | D | Ø | Ø | Ø | E | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as4-21 | as4-22 | as4-23 | as4-24 | as5-01 | as5-02 | as5-03 | as5-04 | as5-05 | as5-06 | as5-07 | as5-08 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | Ø | E | E | N | D | E | U | E | D | N | Ø | Ø |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | as5-09 | as5-10 | as5-11 | as5-12 | as5-13 | as5-14 | as5-15 | wf01 | wf02 | wf03 | wf04 | wf05 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | V | V | Ø | U | Ø | D | E | M | M | E | M | M |
-| H / L / C / P / T / J / F / W | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F | = | = | = | = | = | = | = | = | = | = | = | = |
 | K | = | N | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | wf06 | wf07 | wf08 | wf09 | wf10 | wf11 | wf12 | wf13 | wf14 | wf15 | wf16 | wf17 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | M | M | D | M | M | M | E | M | M | M | M | M |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | wf18 | wf19 | wf20 | wf21 | wf22 | wf23 | wf24 | wf25 | wf26 | wf27 | wf28 | wf29 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | M | M | M | D | M | M | D | D | M | E | D | M |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | wf30 | wf31 | wf32 | wf33 | wf34 | wf35 | wf36 | wf37 | wf38 | wf39 | wf40 | wf41 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | M | M | M | M | M | M | M | M | E | D | V | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | wf42 | wf43 | wf44 | wf45 | wf46 | wf47 | wf48 | wf49 | wf50 | wf51 | wf52 | wf53 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | D | D | M | M | D | M | M | M | M | M | M | M |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | wf54 | wf55 | wf56 | wf57 | wf58 | wf59 | wf60 | wf61 | wf62 | wf63 | wf64 | wf65 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | A | A | Ø | Ø | A | A | E | A | E | A | N | E |
-| H / L / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 | C | = | = | = | = | = | = | = | N | = | N | = | = |
 
 | Rule | wf66 | wf67 | wf68 | wf69 | wf70 | wf71 | wf72 | wf73 | wf74 | wf75 | wf76 | wf77 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | N | A | E | A | A | D | A | A | Ø | Ø | Ø | Ø |
-| H / L / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 | C | = | N | = | N | N | = | N | N | = | = | = | = |
 
 | Rule | wf78 | wf79 | wf80 | wf81 | wf82 | wf83 | wf84 | wf85 | wf86 | wf87 | wf88 | wf89 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | Ø | Ø | Ø | Ø | Ø | Ø | Ø | Ø | Ø | Ø | Ø | Ø |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | wf90 | wf91 | wf92 | wf93 | wf94 | wf95 | wf96 | wf97 | wf98 | wf99 | esc01 | esc02 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | Ø | Ø | E | Ø | Ø | Ø | E | E | E | D | A | A |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | esc03 | esc04 | esc05 | esc06 | esc07 | esc08 | esc09 | esc10 | esc11 | esc12 | esc13 | esc14 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | V | N | V | M | M | M | M | E | D | D | U | Ø |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | esc15 | esc16 | esc17 | esc18 | esc19 | esc20 | esc21 | esc22 | esc23 | esc24 | esc25 | esc26 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Reference | E | E | E | E | E | M | M | U | N | A | E | D |
-| H / L / C / P / T / J / F / W / K | = | = | = | = | = | = | = | = | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = | = | = | = | = | = | = | = | = |
 
 | Rule | esc27 | esc28 | esc29 | esc30 |
 | --- | --- | --- | --- | --- |
 | Reference | V | E | E | M |
-| H / L / C / P / T / J / F / W / K | = | = | = | = |
+| H / L / C / P / T / J / F / K | = | = | = | = |
 
 </details>
 
-### 6.10 Owner alternatives for declaration-only standard-library receivers
+### 6.10 Owner decision K and projected standard-library parity
 
-The owner chooses one rule for `filesystem`, `parse` and `config`. For both rules a
-**declaration-only** occurrence has a sole effective receiver binding and a resolved class/method
-in §5.3. R4 accepts the §6.4 parameter or simple value-bearing annotation in the function or
-in its same-file module. R5 accepts the §6.4 local call to a visible, otherwise admissible
-annotated helper. Its value can be opaque (as1-28). A module variable with only an unannotated
-helper assignment gains no R5 route. Apply the same scope, availability, class/member writes,
-known contradictions, method membership and shape tests as for other candidates. Check R1/R2
-and independent construction first. A failed returned-local escape/rebinding check, an
-inadmissible helper or a source-demonstrated alternative incompatible return cannot qualify
-by declaration alone. This definition also limits the W exemption. HTTP and R3 keep §6.3–6.4.
+Use the §6.4 declaration-only route at `nameonly` for `filesystem`, `parse` and `config`. The hint
+uses the declared class's canonical method. This candidate reaches unfiltered consumers even though
+a caller can supply a different value. The sole binding, lookup, contradiction, escape and helper
+checks still apply. For example, a module name with a value-bearing annotation can qualify through
+R4. An unannotated module assignment calling a helper falls outside R5. After identity, apply the
+ordinary §5.2 and §5.4 shape rules, including unsupported grouping when the call loses the anchor.
+Decision 9 records the owner's direction and the cost of the declined W alternative.
 
-#### ALTERNATIVE K — keep the declaration at candidate grade
-
-When the standard-library occurrence above has only the admissible declaration as evidence,
-use that declaration's canonical class and selected method with `nameonly` confidence. Apply
-§5.2/§5.4 to this occurrence, including a grouped unsupported result when it loses the anchor.
-Thus pin03–06 are filesystem sites for `pathlib.Path.read_text`, `exists`, `mkdir` and
-`touch`, respectively. The second call in pin04 also gives `pathlib.Path.write_text` at
-`nameonly`. A caller can supply a different value. Such a candidate reaches unfiltered
-consumers. For a scan-listed key that K admits, absence is an unresolved miss. K retains the
-full per-corpus denominator and 95% floor. §6.11 specifies all 11 substitutions.
-
-#### ALTERNATIVE W — withhold the declaration and exempt only that loss from the floor
-
-If the standard-library occurrence above has only the declaration, emit
-`none(unproven:receiver_value_unproven)`. Count one occurrence before shape, including at
-each call in pin04. Pin03–06 and sl1-64 therefore carry this cause. An eligible construction or
-any earlier §5.2 cause keeps its ordinary outcome. Report **all** scan injectable keys and
-raw recall `matched / scan`. On each missed key, independently replay W and K against the same
-file, bounds, line, family and canonical callee. Exempt the key from W's 95% floor only when W
-withholds it solely for this cause and K would emit that exact injectable key. Record the
-declaration, absence of a stronger route, source occurrence and K shape. An unsupported K group,
-HTTP call, R3 field, escape or any other P3 loss earns no exemption. Store this marker under P3.
-Deduplicate by scan key and compute the per-corpus floor as `matched / (scan − exempt)`.
-Report a zero adjusted denominator as having no eligible keys. Preserve raw misses, including
-exempt keys, for inspection. W supplies the proposal ledger until the owner chooses.
-
-#### Census calculation for the two alternatives
+#### Census projection
 
 From each `census/sites-*.jsonl`, select `proven == true`, one of the three standard-library
 families, and an enclosing function. Exclude `module_level`, `class_body_in_function`, `lambda`,
 `multiline_callee` and `not_line_anchor`. Count unique (file, line, enclosing function, family,
 resolved callee) keys. Each selected occurrence has a distinct key in these ledgers. Bounds are
-absent. At S3 the real denominator uses scan's files and bounds. For the calculation below, let
-scan list all selected keys, let all other keys match, and treat each eligible annotation tie
-as declaration-only. This isolates the numerical effect of the owner decision.
+absent. For this projection, assume scan lists these keys, every selected annotation tie satisfies
+§6.4 as a declaration-only receiver, and all other selected keys match. The tie label alone
+cannot establish a helper's binding position or a local initializer's construction.
 
-| Corpus | Selected keys | Parameter / local / helper annotation ties | K raw and floor | W raw, all annotation ties withheld | W exempt | W adjusted floor |
-|---|---:|---:|---:|---:|---:|---:|
-| Superset | 222 | 21 / 16 / 1 | 222/222 (100%) | 184/222 (82.9%) | 38 | 184/184 (100%) |
-| Black | 77 | 2 / 0 / 3 | 77/77 (100%) | 72/77 (93.5%) | 5 | 72/72 (100%) |
-| httpie | 75 | 1 / 0 / 0 | 75/75 (100%) | 74/75 (98.7%) | 1 | 74/74 (100%) |
-| Saleor | 335 | 0 / 0 / 0 | 335/335 (100%) | 335/335 (100%) | 0 | 335/335 (100%) |
+| Corpus | Selected keys | Parameter / local / helper annotation ties | K matched / all keys |
+|---|---:|---:|---:|
+| Superset | 222 | 21 / 16 / 1 | 222/222 (100%) |
+| Black | 77 | 2 / 0 / 3 | 77/77 (100%) |
+| httpie | 75 | 1 / 0 / 0 | 75/75 (100%) |
+| Saleor | 335 | 0 / 0 / 0 | 335/335 (100%) |
 
-In this selected-key scenario the declaration-only contribution to `receiver_value_unproven` under W is 38 for Superset, 5 for Black, 1 for httpie and 0 for Saleor. Under K it is zero in each corpus. These are occurrence counts for the projection. The ledger-ID counts follow below.
+Under these assumptions K retains all 38, five, one and zero declaration-tied keys, respectively.
+Two further Superset parameter records have census cause `receiver_not_unique` and fall outside
+the proven-key selection. HTTP ties, including `client.py:114`, belong to the HTTP gates.
+S3 measures actual per-corpus recall against every injectable scan key in scan's files, using
+scan's function bounds. The 95% floor uses that full denominator.
 
-The tie label alone identifies neither an initializer's construction nor an admissible helper
-body/binding. For Superset's parameter-only loss the W raw and floor fractions are **201/222
-(90.5%)** and **201/201**. With the 16 locals also declaration-only but the helper proved they
-are **185/222 (83.3%)** and **185/185**. With all 38 declaration-only they are **184/222** and
-**184/184**. Black's parameter-only case is **75/77 (97.4%)** raw and **75/75** adjusted.
-Every additional witnessed construction increases both matched and W's adjusted denominator
-by one. A helper outside the allowed binding position is an ordinary miss under both rules and
-stays in both denominators. The two Superset `receiver_not_unique` parameter records are
-already census-unproven. HTTP ties are outside this calculation, including the overlay at
-`client.py:114`. These fractions are census projections. Actual emitted keys, exemptions and
-per-corpus G-parity await a scan/producer comparison.
-
-| Ledger ID count (772 per variant) | W | K |
-|---|---:|---:|
-| Sites | 328 | 338 |
-| Unsupported groups | 90 | 91 |
-| Plain `none` | 90 | 90 |
-| Counted omissions | 264 | 253 |
-| `star_import` | 9 | 9 |
-| `shadowed_root` | 67 | 67 |
-| `not_imported` | 11 | 11 |
-| `repository_local_module` | 7 | 7 |
-| `binding_unavailable` | 2 | 2 |
-| `member_rebound` | 47 | 47 |
-| `receiver_not_unique` | 46 | 46 |
-| `annotation_conflict` | 8 | 8 |
-| `helper_unannotated` | 5 | 5 |
-| `helper_not_admissible` | 14 | 14 |
-| `receiver_value_unproven` | 48 | 37 |
+| Ledger count | K (772 IDs) |
+|---|---:|
+| Sites | 338 |
+| Unsupported groups | 91 |
+| Plain `none` | 90 |
+| Counted omissions | 253 |
+| `star_import` | 9 |
+| `shadowed_root` | 67 |
+| `not_imported` | 11 |
+| `repository_local_module` | 7 |
+| `binding_unavailable` | 2 |
+| `member_rebound` | 47 |
+| `receiver_not_unique` | 46 |
+| `annotation_conflict` | 8 |
+| `helper_unannotated` | 5 |
+| `helper_not_admissible` | 14 |
+| `receiver_value_unproven` | 37 |
 
 These counts tally one primary `want` per ID. The additional omitted HTTP occurrences on the
-two mixed lines in §6.5 remain separate runtime warning assertions under either rule.
+two mixed lines in §6.5 remain separate runtime warning assertions.
 
-### 6.11 Every K substitution for the W ledger
+### 6.11 Ledger substitutions adopted under K
 
-Each W line below has `none(unproven:receiver_value_unproven)`. Replace its want and cite
-§6.10 K as the rule. The last column compares that new want with the current matrix. Select the
-canonical callee in the site want when transcribing `sl1-64`. All other lines match W byte for byte.
+These eleven records replace the declaration-only omissions in `becb5c6d`. The verdict compares
+the K want with the pinned matrix. Use the site want's canonical callee for the `sl1-64` selector.
+The remaining 761 ledger lines match that revision byte for byte.
 
 | ID | K want | K verdict |
 |---|---|---|
@@ -1702,7 +1682,7 @@ declarations nor constructed-class precedence.
 | G-overlay | on httpie at the pinned commit, the inventory emits a row for each of the overlay's HTTP sites (`client.py:114`, `update_warnings.py:44`) with the overlay row's file, line, bounds and kind, and the bare function name as symbol | the archived overlay; faultpath's site guard |
 | G-bounds | for every function of every census corpus, prism's (file, start line, end line, name) equals the `ast` listing of the stage M census: zero differences | Python `ast` under the pinned interpreter |
 | G-accept | on every census corpus, for every injectable inventory row: (1) faultpath's loader accepts the document; (2) the call faultpath binds at `site.line` is the row's call: the discovery and binder spans (callee and whole call, §6.8) and their source texts agree, and independent source replay agrees with the producer-selected route recorded in the sidecar. Import-root rows require the consumer's matching qualified name. Bare builtin rows require the consumer's matching canonical builtin identity (6.8). For receiver routes record both spellings and check the same occurrence spans; (3) the site guard, run with strict line checking, does not answer `site_call_unavailable`, `unsupported_multiline_callee`, `stale_function_bounds` or `stale_site_symbol`; (4) for a row whose resolved callee is in the consumer's tables (HTTP rows rooted in `requests`, `httpx`, `urllib3` or `aiohttp`; every standard-library row) and whose patch the planner resolves, the plan has no `dependency_identity_mismatch`, `no-dependency-hint` or `no-applicable-fault` note. Every other guard answer and planner note is tabulated per reason, not gated. The HTTP half runs in slices S2a and S2b, the standard-library half in S3 | faultpath's loader, call binder, site guard and planner, run read-only (the planner reads source only; no suite run) |
-| G-parity | on every census corpus, restricted to the files of scan's `diff.files`: prism lists at least 95% of scan's injectable rows (rows with bounds) in the applicable §6.10 floor denominator keyed by (file, line, function bounds, family, canonical callee); every miss has a source witness in the closed list P1–P5 of section 6.7; every row prism lists that scan does not is confirmed against the source, and none is a call that is not that library call. Prism's `module_level` rows are compared with scan's bounds-less rows, and prism's unsupported and unproven sets with scan's warnings. If scan cannot run, G-parity is not met | `faultpath scan` |
+| G-parity | For each census corpus, prism must match at least 95% of **all** injectable standard-library scan keys. Form the denominator from rows with bounds in scan's entire `diff.files`, including files prism omitted. Match on (file, line, function bounds, family, canonical callee). Every miss has a source witness in the closed list P1–P5 of section 6.7; every row prism lists that scan does not is confirmed against the source, and none is a call that is not that library call. Prism's `module_level` rows are compared with scan's bounds-less rows, and prism's unsupported and unproven sets with scan's warnings. If scan cannot run, G-parity is not met | `faultpath scan` |
 | G-precision | a reader checks HTTP rows against the source, stratified by the sidecar route verified by independent source replay (§6.8): every row of each of R1 to R5 and of root identity when a stratum has 50 rows or fewer across the census corpora, otherwise 50 drawn with a recorded seed; at most 1 row per stratum where the callee is not the listed library call; every stratum's size is reported | hand check |
 | G-live | on httpie at the pinned commit, with a document produced with `--inventory-kinds http`, the plain flow `faultpath plan` then `faultpath run` with `--only-target` for the two HTTP overlay sites, under the pilot's interpreter, package pins, pytest options and deselections, after a no-fault run for the flake control: (i) `client.py:114`: the planner resolves the patch to the requests session's `send`, the probe is reached, and at least one fault entry is delivered and gets a verdict naming test ids; (ii) `update_warnings.py:44`: the planner resolves `requests.get`, and the run reports the site as not reached or shadowed because the suite mocks it. Per-fault verdicts are recorded beside attempt 5's as information, not as a condition | faultpath run |
 | G-byte | without `--inventory`, `prism targets` output on the existing fixtures is identical between the merge-base binary and the head binary after removing `producer.version`, `producer.build_identity` and `repo.root` | fixture comparison |
@@ -1737,14 +1717,14 @@ limits, not reached, patch shadowed by a mock).
 | 6 | Who runs the live httpie proof | **changed by design review round 1:** the lane runs the plan-then-run proof (G-live, required for lane acceptance), using faultpath read-only, outputs in the evidence directory; the pilot-level re-run (reach census, pilot driver) is handed to the tooling controller with a note written at close-out | running the pilot-level re-run in this lane needs a driver that accepts a foreign targets document, which faultpath's `main` does not have | at S4 |
 | 7 | How faultpath treats prism rows next to scan rows (prefer one, dedupe, trust level) | the lane supplies parity evidence to the owner, who decides whether to file or act on a consumer issue | — | owner |
 | 8 | A line-independent site key (to follow a site across edits) | not added; faultpath binds to a pinned source and does not need it | a new field needs a new contract minor | when a consumer asks |
-| 9 | Declaration-only standard-library receivers and the G-parity floor | Open. W is serialized for comparison. K emits candidate hints. §6.10 gives both fractions and §6.11 each K verdict. | changes 11 fixture wants and the floor denominator | owner disposition of r4 |
+| 9 | Declaration-only standard-library receivers and the G-parity floor | **K chosen, W declined (2026-11-25).** The owner directed “lane 2: yes and fold” and specified keeping these receivers at `nameonly` for scanner parity. The 95% floor uses every injectable scan key in each corpus. | W would withhold the 38 eligible annotation-tied Superset keys in the §6.10 projection, giving **184/222 (82.9%)** raw recall. Its proposed denominator exemption was declined. | Decided in r4 |
 
 ## 10. Risks and accepted limits
 
 - **A second discovery implementation next to scan.** G-parity makes the overlap measurable; decision 7 is
   where the owner picks one. Until then both may feed faultpath and duplicate sites differ in id (different
   source algorithm), which faultpath already tolerates for overlay rows.
-- **Receiver typing is shallow.** R3 field hints are deferred. §6.4 prefers a sole witnessed construction. §6.10 leaves declaration-only standard-library receivers to the owner. Sessions passed
+- **Receiver typing is shallow.** R3 field hints are deferred. §6.4 prefers a sole witnessed construction. §6.10 admits eligible standard-library declarations at `nameonly`. A supplied value can differ from its declaration. Sessions passed
   through several functions or stored in containers are missed. Only the explicit ties in 6.5 enter the identity-unproven counts.
 - **The closed-world rule costs recall** where Python code rebinds a name it does not use at the call
   (`try`/`except ImportError` fallbacks, a parameter defaulted and then assigned). Faultpath's own binding
@@ -1778,4 +1758,5 @@ limits, not reached, patch shadowed by a mock).
   order, class fallback and import precedence. Updated the route evidence and parity witnesses.
   This escalation changes 44 existing wants relative to round 2 and proposes 30 fixtures. One joint
   review round remained at that revision. Both reviewers subsequently rejected it.
-- 2026-11-25. Proposed the d3 closed-item fold to the owner. §§6.2–6.7 cover receiver-only setup, lookup-slot invalidation, constructed-class precedence, P1 evidence, remapped ties, class fallback and startup precedence. §§6.9–6.11 check all 772 proposed decisions and present the K/W recall and ledger deltas. The eight pins are materialised. esc31–34 are proposed. Stage D remains stopped.
+- 2026-11-25. Proposed the d3 closed-item fold to the owner. §§6.2–6.7 cover receiver-only setup, lookup-slot invalidation, constructed-class precedence, P1 evidence, remapped ties, class fallback and startup precedence. §§6.9–6.11 check all 772 proposed decisions and present the K/W recall and ledger deltas. The eight pins are materialised. esc31–34 are proposed. That proposal awaited the owner’s choice.
+- 2026-11-25. The owner directed the r4 fold with K. §§6.4 and 6.7 admit eligible standard-library declarations at `nameonly` and retain the full per-corpus parity floor. §§6.8–6.11 reconcile the K ledger, pins, oracle and census. Both reviewers review this revision once.
