@@ -69,7 +69,7 @@ All 24 are decided. The kit file contains 15 such rows in 152, including the app
 | oracle-032 | WRONG for `implementation-slot`, first overload formal. | The claimed bytes 16–21 lie on the first bodyless signature. The uniquely mapped receiving formal is on line 2. |
 | oracle-034 | UNDECIDED, external callable. | A refutation using declaration data beyond the authenticated source boundary would enlarge the admitted evidence. |
 | review-008 | Presence 0, payload 2, ambiguous bags 1, no invented transition. | Two uncancelled occurrences overlap on each side of the anchor, and reporting zero would conceal both differences. |
-| gate-005 | Result `retrospective`, exit 1. | Reserving process success for prospective PASS protects callers that gate only on the exit code. |
+| gate-005 | Result `retrospective`, exit 1. | A completed retrospective exits 1. Product consumers must also verify `claim_scope` and the required IDs in `product_steps` on a prospective pass. |
 | gate-006 | Result `fail`, failed step `compare`, exit 1. | The measured step and its zero threshold are both valid, so the failed expectation is a gate outcome. |
 | gate-007 | Refused, exit 2, zero steps launched. | Whole-file preflight prevents prior steps from changing state for an invalid graph. |
 | bf-011 | `sink_line`, two findings in emission order, `matched` then `off_target`, rules empty. | A single annotation credits one duplicate and the emissions denominator requires both copies. |
@@ -84,7 +84,7 @@ All 24 are decided. The kit file contains 15 such rows in 152, including the app
 
 ### Row truth updates
 
-Replace the complete `truth` object for each ID with the JSON below when materialising the successor matrices. The preceding table gives the reason for each decision. Edge bags compare with multiplicity. The oracle keys identify the original claim. Named §4 boundaries use their exact reason codes. `steps_launched` counts observed launches in the gate fixture adapter.
+Replace the complete `truth` object for each ID with the JSON below when materialising the successor matrices. For bn-001, bn-002 and bn-006 these objects apply with the round-four bound vulnerable witnesses. Their frozen summary-only variants have the earlier admission outcome in the flip table. The preceding table gives the reason for each decision. Edge bags compare with multiplicity. The oracle keys identify the original claim. Named §4 boundaries use their exact reason codes. `steps_launched` counts observed launches in the gate fixture adapter.
 
 | ID | New truth |
 |---|---|
@@ -325,9 +325,9 @@ The following 173 rows and the 24 decisions above exhaust the two input matrices
 | bf-017 | Four emitted sinks → sink_line, only line 5 matched, three off_target. |
 | bn-003 | The owner loses the original call statement and contains a constant-argument candidate plus `eval`. No independent occurrence map accompanies the trees. `sink_occurrence_unmapped`, four nulls. A bound retained-identity control may score the observed misses. |
 | bn-004 | Literal-only edit → verified_pair (true,true,changed,false). |
-| bn-005 | Verified deletion → verified_pair (null,null,changed,true). |
-| bn-007 | Duplicate same-file owner → function_ambiguous. |
-| bn-008 | Two same-callee calls in mapped owner → sink_occurrence_ambiguous. |
+| bn-005 | With its round-four vulnerable witness, verified deletion → verified_pair (null,null,changed,true). |
+| bn-007 | With its round-four vulnerable witness, duplicate same-file owner → function_ambiguous. |
+| bn-008 | With its round-four vulnerable witness, two same-callee calls in mapped owner → sink_occurrence_ambiguous. |
 | bn-009 | Version metadata alone changes → verified_pair (true,true,unchanged,false). |
 | bn-013 | Trim whitespace and leading equals → 1.20.0 newer, verified_pair (true,true,changed,false). |
 | bn-014 | Nonversion text → fixed_version_unparseable. |
@@ -371,6 +371,31 @@ Sol's table also qualifies `terra4-oracle-002`. With empty fields and the exact 
 
 **Open lane 10 obligation.** Its S0 plan still needs the [exact S0 producer and rollout text](FORMATS.md#amendment-text-for-lane-10s-plan). Until its producer supplies the independent final counts, even a complete-looking S0 arm fails inventory admission with `inventory-terminal-missing`. Report edge/counter parity separately for S0 against baseline. S1/S0 and S2/S1 each need both terminals before claiming any inventory-dependent zero.
 
+### Review round 4 dispositions
+
+At `967dd7123` Opus approved with zero WRONG findings. Sol returned FIX with eight. This is the owner-authorised final design fold. Each row names the successor fixture or existing control. The lane 10 producer remains open. [Round-four fixture specifications](FORMATS-LEDGER.md#round-four-fixtures)
+
+| Finding | Disposition | Fixture and matrix controls |
+|---|---|---|
+| Sol W1 · WRONG | Folded. Compare the checkout and private snapshot with the commit-derived file/type digest or registered tree digest. Refuse links with unbound referents. | run-021, terra4-run-001, run-001, run-002, run-003, run-005, run-010, run-014 through run-016, run-020 |
+| Sol W2 · WRONG | Folded. Compare effective configurations after binary overrides and child admission. Fresh repeats require a declared identity control and earn control scope only. | gate-026, gate-014, gate-016, gate-025, gate-006 |
+| Sol W3 · WRONG | Folded. The reviewed question closure includes declared, digest-bound data. Ambient reads invalidate self-check and grading evidence. | oracle-065, oracle-018, oracle-020, oracle-055 |
+| Sol W4 · WRONG | Folded. At each retained site a reason substitution survives target cancellation and appears once in the call delta. | oracle-066, oracle-024 through oracle-030, oracle-051 |
+| Sol W5 · WRONG | Folded. Both node path columns carry structured components. The validator compares their decoded values and multiplicities at isolated spans. | cmp-061, cmp-056, cmp-057, cmp-060, join-011 |
+| Sol W6 · WRONG | OPEN in lane 10. The orchestrator has requested the S0 amendment. Lane 11 retains its text and rejects any required arm lacking the terminal. | cmp-060, cmp-056 |
+| Sol W7 · WRONG | Folded. Materialise six individually tree-bound synthetic reach witnesses. Keep the six original summary-only observations as failed-positive controls. | bn-001, bn-002, bn-005, bn-006, bn-007, bn-008, bn-024 |
+| Sol W8 · WRONG | Folded. Reuse one detached scratch clone per ordinal. Verify its complete worktree before and after each arm against the pinned tree. | review-019, review-010, review-011, review-013, review-017, review-018 |
+| Opus S1 · SMELL | Folded in the S3 companion contract. The fixture builder writes a known bundle path which the self-check and oracle receipts bind. | oracle-058, oracle-061 |
+| Opus S2 · SMELL | Folded. A product consumer must check gate scope and its required step IDs. The retrospective exit for gate-005 is unchanged. | gate-005, gate-013, gate-025, gate-026 |
+| Opus S4 · SMELL | Folded. S6a derives and registers the sink-rule table against the replay build and benchmark revision. | bf-008, bf-009, bf-019, bf-020, bf-021 |
+| Opus S5 · SMELL | Tracked with Sol W6. Lane 10 owns the producer and rollout evidence. | cmp-060 |
+| Opus S3 · SMELL | Outside this fold. The S6b prediction still depends on the verified subset meeting its registered minimum. | — |
+| Opus S6 · SMELL | Outside this fold. The bn-012 adjudication uses its existing spans. | bn-012 |
+| Opus S7 · SMELL | Outside this fold. The out-of-scope counter applies to the edge census. | oracle-064 |
+| Opus S8 · SMELL | Retain the slice index and companions. | — |
+| Sol S1 · SMELL | Qualification and sink-rule details folded with Opus S1/S4. The remaining nested oracle input/selection schema is outside this fold. | oracle-058, bf-021 |
+| Sol S2 · SMELL | Retain the slice index and companion layout. | — |
+
 ### Rows whose expectation flips
 
 The comparison is against the Stage D truth at `a0856951d`, including the 24 earlier adjudications. Each row identifies the affected input or output field. Corrected successor inputs retain their positive controls. The two Stage T JSONL files remain the original evidence.
@@ -391,17 +416,42 @@ The comparison is against the Stage D truth at `a0856951d`, including the 24 ear
 | terra-bench-006 (only the same uniquely bound callee) | Retained pair eligible for `(false,true,changed,false)` | `sink_occurrence_unmapped` if correspondence is absent. The materialised mapped arm and its missing-seed control require correspondence. |
 | bn-024 (literal `traced` stub) | `verified_pair (true,true,changed,false)` | `no_vulnerable_positive`, four nulls. With the separately bound synthetic control the original columns hold. |
 
-**Unchanged controls and input qualifications.** The misnamed formal is a mutation of `oracle-001`. Its supplied formal bytes and spelling agree. `terra4-oracle-002`'s bare-member verdict and `oracle-029`'s qualified WRONG hold. All decidable built-in target fixtures assume a source-labelled, build-matched supported form. The missing-qualification arm gives UNDECIDED `target-id-unproved` with the same deltas. `bf-009` has two line-only payloads and two eligible calls, so both remain ambiguous. `bf-011` retains one match for identical repeats. `run-014` starts from a matching archive pin and changes the link during analysis (4). `terra4-run-001` changes only external referent contents. Its registered link text stays equal. `terra-cmp-003` asserts standalone bag counts. `cmp-056` and `cmp-060` already fail without a terminal and now assert the diagnostic.
+**Final fold against `967dd7123`.** In the following table the batch is admitted and the remaining inputs meet their prerequisites. Each of the six frozen benchmark rows gives `no_vulnerable_positive` with four null columns. Its successor adds the specified vulnerable witness to reach the original asserted case.
+
+| ID and affected input | Before | Final expectation |
+|---|---|---|
+| bn-001, summaries only | `sink_occurrence_unmapped` | `no_vulnerable_positive`. With witness, `sink_occurrence_unmapped`. |
+| bn-002, summaries only | `function_moved` | `no_vulnerable_positive`. With witness, `function_moved`. |
+| bn-005, summaries only | Verified removal | `no_vulnerable_positive`. With witness, `verified_pair (null,null,changed,true)`. |
+| bn-006, summaries only | `function_not_found` | `no_vulnerable_positive`. With witness, `function_not_found`. |
+| bn-007, summaries only | `function_ambiguous` | `no_vulnerable_positive`. With witness, `function_ambiguous`. |
+| bn-008, summaries only | `sink_occurrence_ambiguous` | `no_vulnerable_positive`. With witness, `sink_occurrence_ambiguous`. |
+| terra4-run-001, external referent | Equal link-text digest could admit the tree | Digest arithmetic is unchanged. Admission refuses `unbound-link` (3) before launch. |
+| gate-016, gate-025, fresh populated same-configuration clause | Distinct receipts and equal dumps could earn product credit | Undeclared repeat refuses (2). Declared repeat can pass only as control. Different builds with identical output can still earn product credit. |
+| gate-014, gate-025, fresh empty same-configuration clause | Empty waiver could give control PASS by itself | Refuse (2) without the identity declaration. Different builds need only the empty waiver. A declared repeat needs both declarations to pass on empty arms. |
+| cmp-057, cmp-060, otherwise valid nonempty inventory using the old rendered path columns | Rendered paths admitted | Validation fails (1). Encode the same nodes as structured paths to recover the unique-lookup and terminal controls. |
+
+**New discriminating inputs.** run-021 changes clean-looking admission to refusal. gate-026 isolates the same-configuration clauses above. oracle-065 invalidates the ambient-reader receipt. oracle-066 changes zero deltas to one reason substitution. cmp-061 changes a false spelling-leak zero to a validation failure. review-019 changes two successful arm exits into a failed ordinal when source custody breaks. review-017 and review-018 retain their outcomes and additionally check the two worktree hash fields. cmp-060 already fails without its terminal. oracle-030 remains a one-drop census. gate-005 retains retrospective exit 1. No frozen kit row changes its asserted outcome.
+
+**Round-three unchanged controls and input qualifications.** The misnamed formal is a mutation of `oracle-001`. Its supplied formal bytes and spelling agree. `terra4-oracle-002`'s bare-member verdict and `oracle-029`'s qualified WRONG hold. All decidable built-in target fixtures assume a source-labelled, build-matched supported form. The missing-qualification arm gives UNDECIDED `target-id-unproved` with the same deltas. `bf-009` has two line-only payloads and two eligible calls, so both remain ambiguous. `bf-011` retains one match for identical repeats. `run-014` starts from a matching archive pin and changes the link during analysis (4). `terra4-run-001` changes only external referent contents. Its registered link text stays equal. Round four refuses this external link before launch. `terra-cmp-003` asserts standalone bag counts. `cmp-056` and `cmp-060` already fail without a terminal and now assert the diagnostic.
+
+### Question input closure
+
+Register a question and its transitive helpers against the §6 classifier input rule. Both self-check and grading may use the supplied row/context, pinned checker, verified module closure and explicitly declared data. Put data beside or below the question entry and list each logical relative path and lowercase SHA-256 in a sibling `question-data.json` object (absent means `{}`). Copy an external annotation into that closure to declare it. Reject escapes, links, missing files and digest mismatches. Stage verified bytes at their logical names for both runs. The existing recursive `question_sha256` frames the declaration and all file bytes, so it binds names and data in the self-check key and the gate’s `ID/question` role. Recheck through publication. A changed declaration or data requires a new passing self-check and prospective decision pin.
+
+This is a reviewed trusted-code contract like the classifier’s. Review direct `node:fs` reads and helpers as well as `require`. A dependency on undeclared files, environment, time, a subprocess or the network disqualifies the module even if every golden passes. Issue no passing receipt on discovery (self-check 1), invalidate any earlier receipt for that closure and refuse grading on that receipt (3). If discovered during grading, abort (1) and discard staged verdicts. Loading an admitted Node built-in supplies no authority to consume ambient data.
 
 ### Producer qualification
 
-S3 publishes a qualification bundle keyed by the selected run's full executable SHA-256 and callable form. Each entry binds the authenticated fixture source tree, independently labelled declaration file, name token bytes and expected name/line, the unmodified site dump and target index, and the result of its matching and contradictory claim controls. Verify these digests and labels through the self-check. The oracle receipt binds the bundle digest and the run receipt selects the build. Reuse a qualification only for the same build and supported form. Missing coverage gives UNDECIDED `target-id-unproved`. A substituted bundle fails the digest check. Synthetic target fixtures explicitly bind their fixture serializer and labelled source.
+S3’s fixture builder `measure.oracle.build_qualification(runs, labels, output_dir)` verifies §2 `--sites` run receipts and their raw indexed captures against independent labels, runs the matching and contradictory controls, and writes `bundle.json` plus its digest-bound evidence under `scripts/measure/oracle/qualifications/`. Self-check and `ts-calls` resolve that fixed kit-relative path. Key entries by full executable SHA-256 then callable form. Retain source tree, declaration file, name-token bounds, expected name/line, raw site/index and both control results per entry. Include the installed bundle and evidence in `question_sha256`. Record `inputs.qualification={path:"oracle/qualifications/bundle.json",sha256}` relative to `scripts/measure/` and the same `qualification_sha256` in the oracle receipt (both null if absent). Select only the entry for the graded claim’s producer and form. A missing entry gives UNDECIDED `target-id-unproved`. Substitution fails binding. Synthetic fixtures bind their labelled serializer explicitly.
 
 ### Gate credit
 
+For a run pair compare the verified executable SHA-256, authenticated corpus input digest and effective declared product environment of the command(s) supplying the measured evidence. Resolve binary aliases and overrides first. Different IDs, times, filesystem locations, corpus aliases or steps do not distinguish arms. Apply §2 compatibility first. Current edge, stats and call comparisons require equal source digests and compatible options. A corpus difference can distinguish arms only where the measurement admits it. Review arms share the pinned ordinal and additionally compare their effective product arguments. Refuse an undeclared identical configuration during gate admission (2). Any step declared `identity_control:true` earns at most control scope, including dependents claiming a differential from that control. A genuine admitted difference can earn product scope even at zero output changes.
+
 Each gate and each step has exactly one `claim_scope` value from `product`, `control`, `execution`, `none`. A failed, refused, unrun, interrupted or retrospective result earns `none`. A successful absence-only, identity or vacuous comparison earns `control`. For any step kind, consuming `allow_empty` to discharge a minimum gives `control` and zero product credit. A populated list, verify or run alone earns `execution`. An admitted prospective comparison or oracle step with actual coverage may earn `product` for its proved scopes. A census can claim its measured population. A change claim requires a differential. Controls and absent scopes cannot supply a prerequisite for product credit.
 
-`gate.json.product_steps` lists, in graph order, only product-scoped step IDs earned by a successful prospective gate. A mixed gate can claim only those explicitly listed steps. If that list is empty, a successful gate containing a control has `claim_scope=control`, otherwise `execution`. With product steps the gate scope is `product`. Any unsuccessful or retrospective gate has `claim_scope=none, product_steps=[]`. In Controls and Result print the credited step IDs and scope beside the exit.
+`gate.json.product_steps` lists, in graph order, only product-scoped step IDs earned by a successful prospective gate. A mixed gate can claim only those explicitly listed steps. If that list is empty, a successful gate containing a control has `claim_scope=control`, otherwise `execution`. With product steps the gate scope is `product`. Any unsuccessful or retrospective gate has `claim_scope=none, product_steps=[]`. In Controls and Result print the credited step IDs and scope beside the exit. Automated product consumers require exit 0, `result=pass`, `claim_scope=product` and every required product step in `product_steps`.
 
 ### Fixed occurrence correspondence
 
