@@ -199,6 +199,43 @@ fn omitted_algorithm_uses_all_five_defaults_in_order() {
 }
 
 #[test]
+fn today_no_external_call_rows_for_dependency_calls() {
+    use crate::targets_inventory_matrix_test::FIXTURE_REPO;
+
+    let fixture = "http_root/h01.py";
+    let source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(FIXTURE_REPO)
+        .join(fixture);
+    let source = fs::read_to_string(source_path).unwrap();
+    let diff_lines: Vec<_> = (1..=source.lines().count()).collect();
+    let dir = TempDir::new().unwrap();
+    let diff_path = dir.path().join("diff.json");
+    let diff = serde_json::json!({
+        "files": [{
+            "file_path": fixture,
+            "modify_type": "Modified",
+            "diff_lines": diff_lines,
+        }]
+    });
+    fs::write(&diff_path, diff.to_string()).unwrap();
+
+    let output = prism_cmd()
+        .args(["targets", "--repo", FIXTURE_REPO, "--diff"])
+        .arg(&diff_path)
+        .assert()
+        .success();
+    let doc = json(output.get_output());
+    assert_eq!(doc["diff"]["files"], serde_json::json!([fixture]));
+    assert!(
+        targets(&doc)
+            .iter()
+            .all(|target| target["kind"] != "external_call"),
+        "unexpected external_call target: {doc:#}"
+    );
+}
+
+#[test]
 fn default_run_emits_all_five_producers_and_live_mappings() {
     let output = fixture_run(DEFAULT_ALGORITHMS, &[]);
     assert!(

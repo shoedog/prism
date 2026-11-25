@@ -252,7 +252,7 @@ fn validate_records(row: &Value, dir: Option<&Path>, errors: &mut Vec<String>) {
 
 /// SHA-256 over a row directory, as `truth/run_truth.py` computes it: each relative path, NUL, bytes, NUL,
 /// in path order. A fixture edited without regenerating truth then fails the well-formedness test.
-fn tree_sha256(dir: &Path) -> String {
+pub(super) fn tree_sha256(dir: &Path) -> String {
     use sha2::{Digest, Sha256};
     fn files(dir: &Path, out: &mut Vec<PathBuf>) {
         for entry in std::fs::read_dir(dir).unwrap() {
@@ -308,18 +308,12 @@ fn routes_matrix_rows_are_well_formed() {
         if row["truth_source"] == "executed" && nonempty_str(&row["entry"]).is_none() {
             violations.push("entry: executed row needs a nonempty entry".to_owned());
         }
-        if let (Some(dir), Some(entry)) = (dir.as_deref(), truth.get(id)) {
-            if row["truth_source"] == "executed" && entry["status"] == "executed" {
-                let want = tree_sha256(dir);
-                if entry["fixture_sha256"] != want {
-                    violations.push(format!(
-                        "truth.fixture_sha256: stale truth, the fixture hashes to {want}, truth says {}",
-                        entry["fixture_sha256"]
-                    ));
-                }
+        match (dir.as_deref(), truth.get(id)) {
+            (Some(dir), Some(entry)) if row["truth_source"] == "executed" => {
+                truth::compare_receipt(row, entry, &tree_sha256(dir), &mut violations);
             }
+            (_, entry) => truth::compare_row(row, entry, &mut violations),
         }
-        truth::compare_row(row, truth.get(id), &mut violations);
         errors.extend(violations.into_iter().map(|err| format!("{id}.{err}")));
     }
     for id in truth.keys() {

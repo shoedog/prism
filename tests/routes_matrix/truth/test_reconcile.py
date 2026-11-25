@@ -26,7 +26,7 @@ def example():
             "paths": [exposure], "methods": {"known": ["GET"]}, "callbacks": [callback],
         }],
         "calls": [{
-            "id": 1, "site": {**site, "ordinal": 1}, "args": {"methods": ["GET"]},
+            "id": 1, "site": {**site, "ordinal": 1}, "args": {"methods": ["GET"], "path": "/:id"},
             "callbacks": [{"kind": "javascript", "file": "app.js", "name": "<anon@7:24>",
                            "first_line": 7}],
         }],
@@ -49,22 +49,6 @@ class ProjectionTests(unittest.TestCase):
     def assert_fields(self, *fields):
         self.assertEqual([diff.field for diff in self.compare().differences], list(fields))
 
-    def test_runtime_loss_is_scoped_to_an_approved_diagnostic_site(self):
-        row, truth = example()
-        row["expect"] = []
-        self.assertTrue(compare_row(row, truth).differences)
-        row["accepted_loss"] = "runtime_generated_registration"
-        self.assertTrue(compare_row(row, truth).differences)
-        row["id"] = "et1-10"
-        row["expect_diagnostics"] = [{"reason": row["accepted_loss"], "site": {
-            "file": "app.js", "line": 5, "text": "app[method]('/items', show)",
-        }}]
-        truth["calls"][0].update(kind="verb", site={
-            "file": "app.js", "line": 5, "column": 14, "ordinal": 1,
-        })
-        self.assertFalse(compare_row(row, truth).differences)
-        truth["calls"][0]["site"]["line"] = 8
-        self.assertTrue(compare_row(row, truth).differences)
 
     def test_linked_exposure_is_consumed_once(self):
         self.pin["paths"].append(dict(self.pin["paths"][0]))
@@ -103,7 +87,7 @@ class ProjectionTests(unittest.TestCase):
     def test_raw_literal_and_normalized_are_separate_pins(self):
         self.pin["path"] = {"raw": "variable", "literal": "/wrong"}
         self.pin["paths"][0]["normalized"] = "/wrong"
-        self.assert_fields("path.raw", "path.literal", "paths[0].normalized")
+        self.assert_fields("path.raw", "path.literal", "path.evaluated", "paths[0].normalized")
         del self.pin["path"]["literal"]
         self.pin["path"]["raw"] = "'/:id'"
         del self.pin["paths"][0]["normalized"]
@@ -170,7 +154,7 @@ class ProjectionTests(unittest.TestCase):
         actual.update(call_id=2, methods={"known": ["POST"]})
         self.truth["projection"].append(actual)
         call = deepcopy(self.truth["calls"][0])
-        call.update(id=2, args={"methods": ["POST"]})
+        call.update(id=2, args={"methods": ["POST"], "path": "/:id"})
         call["site"]["ordinal"] = 2
         self.truth["calls"].append(call)
         self.truth["served"][0]["call_ids"].append(2)
@@ -341,7 +325,32 @@ class SavedTruthTests(unittest.TestCase):
                 row, truth = self.case(row_id)
                 self.assertFalse(compare_row(row, truth).differences)
                 truth["calls"][0]["site"][column] += 1
-                self.assertEqual([diff.field for diff in compare_row(row, truth).differences], ["registrations"])
+                self.assertEqual([diff.field for diff in compare_row(row, truth).differences], ["truth.runtime_only"])
+
+    def test_rejects_corrupted_links_evaluated_paths_and_erased_loss_evidence(self):
+        for ids in ([1, 1], [1, 9999]):
+            with self.subTest(ids=ids):
+                row, truth = self.case("ex01")
+                truth["served"][0]["call_ids"] = ids
+                self.assertTrue(compare_row(row, truth).differences)
+        row, truth = self.case("fl01")
+        truth["calls"][0]["args"]["rule"] = "/wrong"
+        self.assertTrue(compare_row(row, truth).differences)
+        for row_id in ("et1-10", "es1-20", "es3-07"):
+            for fields in (("calls",), ("projection",), ("served",), ("calls", "projection", "served")):
+                with self.subTest(row=row_id, fields=fields):
+                    row, truth = self.case(row_id)
+                    for field in fields:
+                        truth[field] = []
+                    self.assertTrue(compare_row(row, truth).differences)
+
+    def test_overlapping_suffixes_consume_the_most_specific_match_first(self):
+        row, truth = example()
+        row["expect"][0]["paths"] = [
+            {"status": "suffix", "value": "/b"}, {"status": "suffix", "value": "/x/b"},
+        ]
+        truth["served"] = [{"call_ids": [1], "path": path} for path in ("/r/x/b", "/s/b")]
+        self.assertFalse(compare_row(row, truth).differences)
 
     def test_native_path_keys_match_shared_grammar_vectors(self):
         import json

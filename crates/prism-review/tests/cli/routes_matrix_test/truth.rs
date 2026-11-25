@@ -2,10 +2,12 @@
 
 mod links;
 mod paths;
+mod receipt;
 #[cfg(test)]
 mod tests;
 
-use links::{compare_mount_links, compare_protocol, runtime_only};
+use super::listing::items;
+use links::{compare_mount_links, compare_protocol, runtime_only, runtime_only_count};
 use paths::native_tokens;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -37,6 +39,16 @@ pub(super) fn compare_row(row: &Value, entry: Option<&Value>, errors: &mut Vec<S
             "truth_source: invalid source {}",
             row["truth_source"]
         )),
+    }
+}
+
+pub(super) fn compare_receipt(row: &Value, entry: &Value, digest: &str, errors: &mut Vec<String>) {
+    let before = errors.len();
+    compare_row(row, Some(entry), errors);
+    if errors.len() == before {
+        if let Err(error) = receipt::validate(row, entry, digest) {
+            errors.push(error);
+        }
     }
 }
 
@@ -156,7 +168,14 @@ fn compare_paths(
     let observed_count = paths.len();
     let unattached = observed_count == 0;
 
-    for (index, pin) in pins.iter().enumerate() {
+    let mut ordered: Vec<_> = pins.iter().enumerate().collect();
+    ordered.sort_by_key(|(_, pin)| {
+        (
+            pin["status"] != "full",
+            std::cmp::Reverse(pin["value"].as_str().map_or(0, str::len)),
+        )
+    });
+    for (index, pin) in ordered {
         let suffix = pin["status"] == "suffix";
         if pin["status"] == "dynamic"
             || (suffix
@@ -276,6 +295,31 @@ fn compare_executed(row: &Value, truth: &Value, errors: &mut Vec<String>) {
         errors.push("truth: expected projection, calls, and served arrays".to_owned());
         return;
     };
+    let mut call_ids = BTreeSet::new();
+    for call in calls {
+        if !call["id"].as_u64().is_some_and(|id| call_ids.insert(id)) {
+            errors.push(format!(
+                "truth.calls: invalid or duplicate ID {}",
+                call["id"]
+            ));
+            return;
+        }
+    }
+    for (index, route) in served.iter().enumerate() {
+        let mut seen = BTreeSet::new();
+        if !route["call_ids"].as_array().is_some_and(|ids| {
+            !ids.is_empty()
+                && ids.iter().all(|id| {
+                    id.as_u64()
+                        .is_some_and(|id| call_ids.contains(&id) && seen.insert(id))
+                })
+        }) {
+            errors.push(format!(
+                "truth.served[{index}].call_ids: expected distinct existing call IDs"
+            ));
+            return;
+        }
+    }
     let mut observed = Vec::new();
     for (index, projected) in projection.iter().enumerate() {
         let call = projected
@@ -292,6 +336,27 @@ fn compare_executed(row: &Value, truth: &Value, errors: &mut Vec<String>) {
     }
     if observed.len() != projection.len() {
         return;
+    }
+
+    if let Some(count) = runtime_only_count(row) {
+        if calls.len() != count
+            || projection.len() != count
+            || !calls.iter().all(|call| {
+                runtime_only(row, call)
+                    && projection
+                        .iter()
+                        .filter(|record| record["call_id"] == call["id"])
+                        .count()
+                        == 1
+                    && served
+                        .iter()
+                        .any(|route| items(&route["call_ids"]).contains(&call["id"]))
+            })
+        {
+            errors
+                .push("truth.runtime_only: expected the complete approved observation".to_owned());
+            return;
+        }
     }
 
     let (pairs, remaining) = pair_records(expected, &observed);
@@ -356,26 +421,27 @@ fn compare_executed(row: &Value, truth: &Value, errors: &mut Vec<String>) {
             }
         }
         if let Some(path) = pin.get("path") {
-            let mut written = observation
-                .call
-                .get("path")
-                .unwrap_or(&actual["path"])
-                .clone();
-            if written["literal"].is_null() && path["literal"].is_string() {
+            let written = observation.call.get("path").unwrap_or(&actual["path"]);
+            let raw_only = path["literal"].is_string();
+            let keys: &[_] = if raw_only && written["literal"].is_null() {
+                &["raw"]
+            } else {
+                &["raw", "literal"]
+            };
+            compare_fields(path, written, keys, &format!("{field}.path"), errors);
+            if raw_only {
                 let key = if actual["framework"] == "flask" {
                     "rule"
                 } else {
                     "path"
                 };
-                written["literal"] = observation.call["args"][key].clone();
+                compare_pin(
+                    path.get("literal"),
+                    observation.call["args"].get(key),
+                    &format!("{field}.path.evaluated"),
+                    errors,
+                );
             }
-            compare_fields(
-                path,
-                &written,
-                &["raw", "literal"],
-                &format!("{field}.path"),
-                errors,
-            );
         }
         if let Some(paths) = pin["paths"].as_array() {
             compare_paths(
@@ -405,3 +471,6 @@ fn compare_executed(row: &Value, truth: &Value, errors: &mut Vec<String>) {
         ));
     }
 }
+
+#[cfg(test)]
+mod mutations;
