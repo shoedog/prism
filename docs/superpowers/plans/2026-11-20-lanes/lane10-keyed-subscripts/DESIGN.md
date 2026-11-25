@@ -79,7 +79,7 @@ Apply a kill only at an ordered event on that same route. Short-circuit operands
 | Python | `match` | Unsupported. Evaluate the subject, try cases in order with captures and guards, then complete the selected suite or leave unmatched. |
 | JS/TS/TSX | `if`, block | Supported. Evaluate the test then complete the chosen statement or empty else. A block continues only after its statement list completes normally. |
 | JS/TS/TSX | Three-clause `for`, `while`, `do…while` | Supported. For runs init once, then test/body/update. While tests before the body, do-while after it. False or resolved break exits. Continue goes to update in for and to test in the other two. |
-| JS/TS/TSX | `for-in`, `for-of` | Supported. Evaluate the collection once, enumerate the next key or advance the iterator, bind only on success, then run the body. Exhaustion exits. A resolved break exits after any required iterator close in for-of. Continue to the same loop advances. |
+| JS/TS/TSX | `for-in`, `for-of` | Supported. Evaluate the collection once, enumerate the next key or advance the iterator, bind only on success, then run the body. Exhaustion exits. A resolved break exits after any required iterator close in for-of. Continue to the same loop advances. A `for-in` head with an initializer (`for (var x = e in o)`, Annex B, non-strict scripts only) is unsupported and charged to `completion_unproven`: the initializer runs before enumeration even for an empty collection, so a root replacement in it is a mandatory phase this rule does not model.  |
 | JS/TS/TSX | `switch` | Unsupported. Evaluate the discriminant and case tests, then enter the match or default. No match/default exits empty. A selected arm may fall through, break or reach the end. |
 | JS/TS/TSX | `try/catch/finally` | Unsupported. The normal try tail or the handler for a throw must complete any finally before joining. |
 | JS/TS/TSX | Labeled statement | Supported. Complete the labeled body or exit it at a matching break. A continue can resume only the loop named by its label, at that loop's continue phase. |
@@ -254,6 +254,7 @@ C3 accuracy, addressable owners and actual additions/cap attrition per corpus ar
 - **A-N1** — §7, Owner questions and PLAN, Seeded review differential. Report proven same-sink regrades by corpus and family.
 - **A-N2** — §4 and PLAN Q06. The compound table names the supported exits and charges unsupported completion to attrition.
 - **A-N3** — PLAN Q06 post-commit. The JS comma and short-circuit row checks the remaining events in W's statement.
+- **sol-r4-W1** — §4 loop table (JS `for-in` row) and PLAN Q06 loops. A `for-in` head initializer (Annex B) is unsupported and charged to `completion_unproven`; one row pins the empty-loop case. This is the reviewer's own alternative; the other option was to model the phase.
 - **A-N4** — §8. The accepted stale-edge losses include termination and detaching mutators.
 
-**2026-11-25 · r3 change log.** Opus approved r2 (`d9dcf6a55`) and sol rejected it. The owner allowed this closed fold as material findings fell from four to one. Sol’s delta confirmation is pending.
+**2026-11-25 · r3 change log.** Opus approved r2 (`d9dcf6a55`) and sol rejected it. The owner allowed this closed fold as material findings fell from four to one. Sol’s delta confirmation found one narrow completion case (Annex B `for-in` head initializer) and it was charged to `completion_unproven` (the reviewer's own alternative); a short sol confirmation of that hunk is pending.
