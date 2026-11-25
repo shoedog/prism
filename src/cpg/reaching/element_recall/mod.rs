@@ -12,6 +12,9 @@ mod route_tests;
 #[cfg(test)]
 mod syntax_tests;
 mod trace;
+mod transfer;
+#[cfg(test)]
+mod transfer_tests;
 
 pub(crate) use python::scan_file;
 pub(crate) use trace::FileTrace;

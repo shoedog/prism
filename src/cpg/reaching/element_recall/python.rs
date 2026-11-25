@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use tree_sitter::Node;
 
 /// Scopes of their own: the owner scan never reads a store or operand through them.
-const FENCES: [&str; 8] = [
+pub(super) const FENCES: [&str; 8] = [
     "function_definition",
     "decorated_definition",
     "lambda",
@@ -203,7 +203,7 @@ fn targets(
 }
 
 /// Root, pre-bracket fields and bracket count of a store target, plus the first shape refusal.
-fn static_path(leaf: Node, src: &str) -> (StaticPath, Option<WriteRefusal>) {
+pub(super) fn static_path(leaf: Node, src: &str) -> (StaticPath, Option<WriteRefusal>) {
     let (mut steps, mut n, mut shape) = (Vec::new(), peel_down(leaf), None);
     loop {
         match n.kind() {

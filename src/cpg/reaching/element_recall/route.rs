@@ -6,10 +6,11 @@
 //! into a loop that encloses W, and charges `try`/`with`/`match` completion to the unsupported
 //! bucket. One walk per W visits every candidate R, so route work is memoized by W.
 //!
-//! Only the events of [`Transfer`] kill a route (`rebind.rs`: root and static prefix
-//! replacement). Capture-to-commit and key-blind delete belong to I1's transfer job.
+//! Only the events of [`Transfer`] kill a route: root and static prefix replacement and
+//! key-blind delete/clear (`rebind.rs`). `transfer.rs` admits the store first: an independently
+//! identified local root, and a receiver that is still attached at commit.
 use super::python::{kids, peel_down, span, text};
-use super::rebind::{Rebind, Transfer};
+use super::transfer::{self, Transfer};
 use super::{OwnerScan, Span, Write};
 use crate::ast::ParsedFile;
 use std::cell::{Cell, RefCell};
@@ -149,6 +150,11 @@ pub(crate) enum Why {
     TooDeep,
     /// No certified route reaches R.
     NoRoute,
+    /// W's root is not an independently identified bare local or formal of the owner.
+    Binding,
+    /// The receiver was captured, then its binding or a captured link was replaced or detached
+    /// before the store committed.
+    Capture,
 }
 
 /// Why a pair has no certified route. The flags are observations of W's whole exploration,
@@ -255,9 +261,20 @@ impl<'a> Walk<'a> {
         }
         let (s, e) = (n.start_byte(), n.end_byte());
         let first = self.rs.partition_point(|(r, _)| r.start < s);
-        for (r, i) in self.rs[first..].iter().take_while(|(r, _)| r.start < e) {
+        let inside: Vec<_> = (self.rs[first..].iter())
+            .take_while(|(r, _)| r.start < e)
+            .filter(|(r, i)| r.end <= e && self.hits.borrow()[*i].is_none())
+            .collect();
+        // an operand evaluated after an expression-level kill of the same atom reads the
+        // replacement (`take((d := {}), d)`), so it carries no contribution of W
+        let spans: Vec<Span> = inside.iter().map(|(r, _)| *r).collect();
+        let late = match spans.is_empty() {
+            true => Vec::new(),
+            false => self.tr.clobbered_before(n, &spans, self.src),
+        };
+        for ((r, i), late) in inside.into_iter().zip(late) {
             let mut hits = self.hits.borrow_mut();
-            if r.end <= e && hits[*i].is_none() {
+            if !late {
                 let step = Step {
                     phase: Phase::Read,
                     at: *r,
@@ -535,7 +552,7 @@ fn shares_loop(wstmt: Node, at: usize) -> bool {
 
 fn route_one(parsed: &ParsedFile, body: Node, w: &Write, rs: &[Span]) -> Vec<Route> {
     let mut all = vec![Route::Refused(refused(Why::Syntax)); rs.len()];
-    let (Some(tr), Some(wstmt)) = (Rebind::of(&w.path), store_statement(body, w)) else {
+    let Some(wstmt) = store_statement(body, w) else {
         return all;
     };
     if body.has_error() {
@@ -551,8 +568,24 @@ fn route_one(parsed: &ParsedFile, body: Node, w: &Write, rs: &[Span]) -> Vec<Rou
             live.push(i);
         }
     }
+    let src = parsed.source.as_str();
+    let adm = match transfer::admit(body, w, src) {
+        Ok(a) => a,
+        Err(why) => {
+            live.iter()
+                .for_each(|i| all[*i] = Route::Refused(refused(why)));
+            return all;
+        }
+    };
+    if adm.chain_killed {
+        let mut why = refused(Why::NoRoute);
+        why.killed = true;
+        live.iter()
+            .for_each(|i| all[*i] = Route::Refused(why.clone()));
+        return all;
+    }
     let spans: Vec<Span> = live.iter().map(|i| rs[*i]).collect();
-    let walk = Walk::new(parsed.source.as_str(), &tr, &spans, false);
+    let walk = Walk::new(src, &adm.tr, &spans, false);
     let reachable = walk.climb(wstmt);
     let hits = walk.hits.borrow();
     for (k, i) in live.into_iter().enumerate() {
