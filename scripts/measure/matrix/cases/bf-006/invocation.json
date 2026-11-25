@@ -1,0 +1,23 @@
+{
+  "taint": {
+    "argv": [
+      "prism",
+      "--repo",
+      "<pkg>",
+      "--diff",
+      "<case>/seed.json",
+      "--format",
+      "json",
+      "--algorithm",
+      "taint",
+      "--taint-return-flow",
+      "--taint-source",
+      "lib/index.js:2"
+    ],
+    "error": "Prism invocation exited 1",
+    "output_error": null,
+    "returncode": 1,
+    "stderr": "Error: Failed to read source: \"<pkg>/lib/missing.js\"\n\nCaused by:\n    No such file or directory (os error 2)\n",
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

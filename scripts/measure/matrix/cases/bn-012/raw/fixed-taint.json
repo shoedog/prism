@@ -1,0 +1,79 @@
+{
+  "algorithm": "Taint",
+  "slices": [
+    {
+      "block_id": 0,
+      "file": "lib/index.js",
+      "modify_type": "M",
+      "diff_lines": [
+        5,
+        6
+      ],
+      "slice_lines": [
+        2,
+        3,
+        5,
+        6
+      ],
+      "slice_text": "    2|function quote(s) {\n    3|  return \"'\" + s.replace(/'/g, \"'\\\\''\") + \"'\";\n...|...\n+   5|function run(a, b) {\n+   6|  cp.execSync('echo ' + quote(a) + b);\n",
+      "source_lines": [
+        5
+      ],
+      "sink_lines": [
+        6
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 6,
+      "severity": "warning",
+      "description": "tainted value from line 5 reaches sink at line 6",
+      "related_lines": [
+        5
+      ],
+      "category": "taint_sink",
+      "diagrams": [
+        {
+          "title": "Data flow",
+          "shape": "Chain",
+          "nodes": [
+            {
+              "id": "n_lib_index_js_5",
+              "label": "lib/index.js:5\nfunction run(a, b) {",
+              "kind": "Source",
+              "file": "lib/index.js",
+              "line": 5
+            },
+            {
+              "id": "n_lib_index_js_6",
+              "label": "lib/index.js:6\ncp.execSync('echo ' + quote(a) + b);",
+              "kind": "Sink",
+              "file": "lib/index.js",
+              "line": 6
+            }
+          ],
+          "edges": [
+            {
+              "from": "n_lib_index_js_5",
+              "to": "n_lib_index_js_6",
+              "label": "tainted",
+              "style": "Solid"
+            }
+          ],
+          "mermaid": "flowchart TD\n    n_lib_index_js_5[\"lib/index.js:5<br/>function run(a, b) {\"]:::source\n    n_lib_index_js_6[\"lib/index.js:6<br/>cp.execSync('echo ' + quote(a) + b);\"]:::sink\n    n_lib_index_js_5 -->|\"tainted\"| n_lib_index_js_6\nclassDef origin fill:#cdf,stroke:#06c,stroke-width:2px;\nclassDef source fill:#fed68a;\nclassDef sink fill:#f88;\nclassDef caller fill:#dfe;\nclassDef callee fill:#fff3c4;"
+        }
+      ]
+    },
+    {
+      "algorithm": "taint",
+      "file": "lib/index.js",
+      "line": 5,
+      "severity": "info",
+      "description": "taint source: origin of tainted data at line 5",
+      "category": "taint_source"
+    }
+  ]
+}

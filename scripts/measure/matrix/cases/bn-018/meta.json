@@ -1,0 +1,14 @@
+{
+  "class": "code-injection",
+  "entry": "bn-018-fixture_2.0.0",
+  "fixedVersion": "2.0.0-rc.1",
+  "id": "CVE-0000-018",
+  "name": "bn-018-fixture",
+  "sink": "lib/index.js:4:3",
+  "source": {
+    "file": "lib/index.js",
+    "line": 2,
+    "name": "run"
+  },
+  "vulnerableVersion": "2.0.0"
+}

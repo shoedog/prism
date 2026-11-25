@@ -1,0 +1,14 @@
+{
+  "class": "code-injection",
+  "entry": "bn-019-fixture_1.4.0",
+  "fixCommit": "0123456789abcdef0123456789abcdef01234567",
+  "id": "CVE-0000-019",
+  "name": "bn-019-fixture",
+  "sink": "lib/index.js:4:3",
+  "source": {
+    "file": "lib/index.js",
+    "line": 2,
+    "name": "run"
+  },
+  "vulnerableVersion": "1.4.0"
+}
