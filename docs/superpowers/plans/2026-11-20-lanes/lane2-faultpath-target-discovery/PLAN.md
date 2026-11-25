@@ -3,6 +3,8 @@
 > **For agentic workers:** this plan is run by an orchestrator under `../ORCHESTRATION.md`. Each task is
 > dispatched to an implementer (Sonnet-5.5, high) with its section as the brief. Steps use checkbox syntax.
 
+**Stage D status (2026-11-25).** Both d3 reviewers rejected `ffcbe8fa`. The r4 proposal is with the owner. The ledger uses W for comparison. The owner has yet to select K or W or authorize transcription.
+
 **Goal:** `prism targets --inventory python-deps` lists Python dependency call sites (HTTP, then filesystem,
 parsing, configuration) as rows faultpath can inject at, and faultpath plans and runs faults at the httpie
 HTTP sites from those rows with no overlay.
@@ -39,7 +41,7 @@ in DESIGN 5–6. `row-verdicts.jsonl` in this directory supplies the Stage D wan
 - Without `--inventory`, `prism targets` output stays as today (G-byte).
 - Row values are exactly those of DESIGN 5.1 and 5.2.
 - `kind` in a hint only when library identity is proven (DESIGN 5.3: root identity, or a receiver route;
-  R1/R2 use construction, R4/R5 require the annotation and the §6.4 value witness at grade `nameonly`).
+  R1/R2 use construction, R4/R5 follow §6.4 at `nameonly` and S3 needs the owner's §6.10 decision).
   R3 ties go to diagnostics. Use the repository-wide static grades.
 - The public facade keeps its signatures: `prism_review::api::project`, `TargetsDocument`, `TargetsMeta`
   are not changed. The inventory adds new functions beside them.
@@ -108,8 +110,7 @@ in DESIGN 5–6. `row-verdicts.jsonl` in this directory supplies the Stage D wan
 
 **Exit gate:** the two HTTP overlay sites require a proven route and supported shape. M found root
 identity at `update_warnings.py:44` and an annotated-helper tie at `client.py:114`. Its census record
-cannot prove the return body. DESIGN 6.1 keeps R1 and defers positive R3. S2b tests the actual
-helper against §6.4. Both overlay sites must still pass.
+cannot prove the return body. DESIGN 6.1 keeps R1 and defers positive R3. The public source satisfies the proposed receiver-only setup rule in §6.4. S2b measures both emitted rows. Both overlay sites must still pass.
 
 ---
 
@@ -294,17 +295,16 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 - [x] DESIGN 6 pins the matrix, supplied oracle and sibling verdict ledger. Round 2 split after
       both reviewers rejected round 1. §6.8 records the pooled options, admission default and
       owner decisions, including the fixed multiline-policy conflict.
-- [ ] One escalation review by each reviewer. Both must approve this amendment. On either
-      rejection stop at this slice for the owner. No further fold or transcription.
-- [ ] After both approvals verify all three digests in DESIGN 6 on the pre-transcription inputs.
-      The implementer applies the 95 `change` verdicts by ID and preserves the 635 `keep` wants.
-      The orchestrator materialises the 30 `add` records at `tests/targets_inventory/py/<fixture_path>` with the exact
+- [x] Both d3 reviewers rejected the escalation. The r4 design seat prepared one proposal covering the closed findings. DESIGN §§6.9–6.11 record the full check set and both owner alternatives. Stage D is stopped for the owner.
+- [ ] Only after owner disposition and authorization, verify the three digests in DESIGN §6.
+      Apply the selected ledger by ID. W has 96 changes and 642 keeps, K has 94 changes and 644 keeps after the 11 substitutions in §6.11. The eight pins already exist.
+      Materialise the 34 `add` records at `tests/targets_inventory/py/<fixture_path>` with the exact
       `fixture_source` bytes; set `fixture` to that relative path and copy its selector, line,
       class, group, truth and want. Preserve package neighbours for esc17 and esc18. Verify a
-      unique ID-to-row join and the resulting 760 rows. Refresh the qualified oracle on the
+      unique ID-to-row join and the resulting 772 rows. Refresh the qualified oracle on the
       additions before claiming a consumer result, leaving the site observation pending meanwhile.
       On promoted sites (n06, tr4-03, sl1-03, wf27/38/96–98) use the site's canonical selector
-      and the joined guard observation. Clear site-only consumer fields on omissions. Preserve
+      and the joined guard observation. For all ten §6.4 constructed-class promotions replace the old declared-class selector with the emitted canonical callee. For K follow §6.11's selectors and preserve as1-28's symbol and bounds. Clear site-only consumer fields on omissions. Preserve
       targeted negative selectors on mixed lines. For as1-19 and as2-27 assert one surviving
       group member and a separate warning count, without forbidding the surviving member.
       Use all eleven ordered §5.2 causes including `receiver_value_unproven`. Run
@@ -347,7 +347,7 @@ pub(super) fn sole_receiver_constructor(/* today's private helper, signature unc
 Share the decomposition of Python imports and the repository-local lookup with the later inventory
 census. Pass a root list to `repo_has_local_module`. The legacy finding-line binder supplies its
 original site ancestors only (including packages). Inventory supplies the §6.2 root list and
-applies its own builtin precedence before calling the filesystem helper. Check echo against its base. S2a can supply a deciding binding
+applies its own builtin and pinned startup-module precedence before calling the filesystem helper. Check echo against its base. S2a can supply a deciding binding
 from DESIGN 6.2 without inheriting the legacy binder's veto. Receiver routes start in S2b.
 
 - [ ] Add tests `root_identity_reports_resolved_path_for_alias_import` (`import requests as r; r.get(u)` →
@@ -445,8 +445,8 @@ canonical imported paths, bare builtin namespace members, literal mapping keys a
 aliases for vetoes. Distinguish slot capture from live member lookup; apply §6.2 ordering.
 Join conditional class bindings with fallback in the evaluating namespace. For absolute imports
 check non-package site ancestors, repository root and `src/` on disk, including outside `--files`.
-Give absolute `builtins` builtin precedence. Tied relative imports have their explicit locality cause.
-A sole table-library import resolving off-table supplies no root tie even when later than the call. Keep the legacy echo admission policy for G-byte. Implement narrow same-package import
+Apply the absolute `builtins`, `os`, `os.path` and `io` precedence in DESIGN §6.2. Tied relative imports have their explicit locality cause.
+Suppress a sole off-table remap before testing root, constructor and annotation spellings, even when the import is later than the call. Keep the legacy echo admission policy for G-byte. Implement narrow same-package import
 coalescing and the sole table-import cause rule (sl3-02, as1-18, sl1-03, wf96–99).
 
 Command line: `--inventory <NAME>` (value `python-deps`); `--inventory-kinds <LIST>`; `--diff` becomes
@@ -486,7 +486,7 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 - [ ] Check the sibling `src/requests/__init__.py` collision from `app/main.py` with only the
       importing file selected. Test a package-local sibling (`httpie/output/formatters/json.py` pattern,
       esc17), bare and qualified `builtins` with a `src/builtins.py` decoy, and the controls in
-      esc11–14/26. Confirm a later local off-table import is silent. Test direct false
+      esc11–14/26. Exercise relative and shadowed controls with `os.py`/`io.py` decoys. Check the class-slot/fallback join in esc13 and both `requests.get` and `requests.Session().get` under an off-table remap. Test direct false
       `TYPE_CHECKING`, the proven `typing_extensions` alias and a shadowing parameter (DESIGN 6.2).
       Test attribute and subscript annotated assignments in function scope: omit calls in their
       annotations while retaining evaluated target operands and RHS. Assert that the RHS wins in
@@ -541,15 +541,13 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 
 - [ ] Enable `"http.receiver"` as the first commit; `matrix_rows_match` RED for its rows.
 - [ ] Implement R1/R2, diagnostic R3 and constructor-backed R4/R5 (DESIGN 6.2–6.5).
-      Check write timing at capture, construction, context entry and selected-member lookup,
-      including `__new__`, `__init__`, the selected enter protocol and `__getattribute__` (esc06–10,
-      esc20, esc25, esc28 and esc30).
+      Exercise each lookup slot in DESIGN §6.2 and its read time for direct, context-bound and helper-backed objects. Include receiver and module `__class__`, whole `__dict__` versus a sibling key, the MRO prefix through the defining owner, `__bases__`, inherited lookup/construction protocols and the two context exit protocols. Compare a read inside the first suite with a post-exit read on the same object. A later exit replacement after capture cannot affect that exit. Keep esc06–10/20/25/28/30 as controls.
       Verify wf26 versus wf27, fresh n06/wf38/esc29 versus persistent wf10/wf43/esc21, and alias
       writes in wf29–53. A field store never yields an R3 positive. Check setter, subclass and
       function-parameter cases e07, tr3-20, as1-20, wf40 and esc27, plus h07 as the recall cost.
       Distinguish parameter/default and literal conflicts from missing value evidence; test R4
       priority over R5, the unique unconditional return, a returned local with a single construction,
-      and an alternate return or fallthrough (esc01–05/23/24). Preserve the earlier warning order.
+      and an alternate return or fallthrough (esc01–05/23/24). For pin01 and esc31–34 check loop/branch receiver-only setup, alias/argument escape and a selected slot write. Add del, rebind, container and nested capture checks. Confirm all ten constructed-class callees in DESIGN §6.4 and log the conflicting declaration alongside each route. The eight remaining conflicts still count once. Preserve the earlier warning order.
       Count failed inline R1 and eligible receiver ties (wf74–95). Check mixed filters with esc22
       (two unfiltered, one exact/asserted, zero above info); as1-19 and as2-27 each have one surviving
       member plus one unproven occurrence. Require GREEN on every enabled row.
@@ -563,7 +561,7 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       Use the S2a sidecar and gate replay for every HTTP occurrence before sampling. Report the
       empty R3 stratum and tied losses. Publish source-witnessed exceptions and count demonstrated
       mismatches under the original gate. At `httpie/client.py:114` record the actual return, constructor and
-      relevant writes. If it lacks a witness, G-overlay is unmet and the owner decides the next step.
+      relevant writes. Require the R5 `requests.Session.send` row at `nameonly` and root `requests.get` at `exact` at `update_warnings.py:44`. Missing either fails G-overlay.
       Each wrong row becomes a matrix row and is fixed; the gate fails when a stratum has more than one wrong row.
 - [ ] Two reviewers. Merge.
 
@@ -572,14 +570,13 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 **Files:**
 - Modify: `crates/prism-review/src/targets/inventory/py_tables.rs` (DESIGN 5.3's standard-library table,
   verbatim), `py_receiver.rs` (constructors `pathlib.Path`, `configparser.ConfigParser`,
-  `configparser.RawConfigParser`, with the same field deferral and annotation/value rules
-  as HTTP under DESIGN 6.3–6.4), `inventory/mod.rs` (`Family::supported`),
+  `configparser.RawConfigParser`, with field deferral and the owner-selected declaration rule under DESIGN §§6.3–6.4 and 6.10), `inventory/mod.rs` (`Family::supported`),
   `crates/prism-review/tests/cli/targets_inventory_matrix_test.rs` (`ENABLED_GROUPS` gains `"stdlib"`)
 - Create (evidence directory): `parity/compare.py`, `parity/PARITY.md`
 
 - [ ] Enable `"stdlib"` in `ENABLED_GROUPS` and add the three families to `Family::supported()`: the matrix
       is RED for their rows. Add every canonical entry with its 5.3 family, including `Path.home` as
-      config, and enable the same R4/R5 proofs for the three classes. GREEN.
+      config. Apply the selected K or W rule to pin03–06, including module constants, and verify the controls pin07/08 at `exact`. Check `RawConfigParser.read` writes against derived `ConfigParser` lookup. GREEN.
 - [ ] Add a unit test that the standard-library table in `py_tables.rs` equals DESIGN 5.3's list, entry for
       entry, with each entry's family. Test `async with Path(...) as p` alone gives plain none at
       `p.read_text()`. Check bare/qualified builtin mutation and the Path class member write across
@@ -598,9 +595,8 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       filesystem,parse,config` on every census corpus. Classify every difference in `parity/PARITY.md`:
       prism misses a site scan lists (name the exact P1–P5 class from DESIGN 6.7, its key, the source
       witness, independent replay of all applicable proof routes and shape, and prism outcome.
-      P1 writes require a feasible order at the actual slot read. P2 requires a relative import or
-      first importable origin under the active corpus roots. Keep every scan key in the denominator,
-      including files prism omitted. A representable multiline
+      P1 needs a feasible different reaching value. A killed parameter, dead walrus or same-origin join leaves a corresponding scan miss unresolved (as5-14/tr3-31/sl3-01). A known constructor outranks a conflicting declaration and precludes P3 for the proved key. P1 writes require a feasible order at the actual slot read. P2 requires a relative import or
+      first importable origin under the active corpus roots. Report all scan keys, including files prism omitted, and raw recall. K uses that denominator. For W separately list exact scan keys withheld solely by W that replay as injectable under K, their proof and counts, then report the §6.10 adjusted fraction. Compare raw and adjusted results with the census projection. A representable multiline
       scan key or differing anchor needs a matrix regression and fix or owner escalation); prism lists a site scan
       does not (confirm against the source); the two disagree on bounds, line or callee (decide by the
       source and faultpath's guard; a prism defect gets a matrix row and a fix). A table entry may be added
@@ -670,7 +666,8 @@ routes and the closed-world rule, the unsupported reasons and unproven causes, w
 
 - 2026-11-25. Folded the Stage D escalation. S1–S3 now specify the two callers’ import roots,
   value witnesses and field deferral, class fallback, per-slot ordering, verified route sidecars and
-  parity evidence. The escalation review is pending before matrix transcription.
+  parity evidence. Both reviewers subsequently rejected that escalation.
+- 2026-11-25. Proposed r4 to the owner. S2a/S2b now specify startup precedence, remapped ties, structural lookup, receiver-only setup and constructed-class conflict evidence. S3 specifies P1 exclusions, the K/W choice and both parity denominators. The ledger and oracle join cover the eight new pins. Transcription awaits owner direction.
 
 ## Acceptance for the lane
 
