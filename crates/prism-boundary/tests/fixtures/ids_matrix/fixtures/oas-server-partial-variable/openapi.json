@@ -1,0 +1,31 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/atelier/v{edition}",
+      "variables": {
+        "edition": {
+          "default": "7",
+          "enum": [
+            "7"
+          ]
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/pot": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      }
+    }
+  }
+}

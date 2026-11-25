@@ -1,0 +1,50 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay match-parameter-wins",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/user/{mark}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "mark",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      },
+      "post": {
+        "parameters": [
+          {
+            "name": "mark",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/user/me": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

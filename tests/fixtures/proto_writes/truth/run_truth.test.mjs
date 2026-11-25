@@ -393,3 +393,21 @@ test('a row whose roots are all extended kinds is rejected', async () => {
   assert.equal(records[0].truth, 'inadmissible');
   assert.match(JSON.stringify(records[0].reasons), /no design root/);
 });
+
+test('row-specific extra_payloads are run and can flip a row to pollutes', async () => {
+  const fn = `
+module.exports = function f(root, path) {
+  const s = String(path).split('.');
+  if (s.some((x) => x === '__proto__' || x === 'constructor' || x === 'prototype')) return;
+  if (s[0] === 'zz') { Object.prototype.pp_extra = 1; }
+  root[s[0]] = root[s[0]] || {};
+  root[s[0]][s[1]] = 1;
+};
+`;
+  const plain = row('p', 'p.js');
+  const withExtra = row('q', 'p.js', { extra_payloads: [{ id: 'zz', segments: ['zz', 'b'] }] });
+  const { records } = await run({ 'p.js': fn }, [plain, withExtra]);
+  assert.equal(records[0].truth, 'safe');
+  assert.equal(records[1].truth, 'pollutes');
+  assert.ok(records[1].results.some((r) => r.family === 'extra:zz'));
+});

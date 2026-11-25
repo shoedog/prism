@@ -1,0 +1,37 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Moonspindle Exchange",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/reed": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Successful exchange"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "*/*": {
+              "schema": {
+                "type": "string"
+              }
+            },
+            "Application/JSON": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cerulean": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

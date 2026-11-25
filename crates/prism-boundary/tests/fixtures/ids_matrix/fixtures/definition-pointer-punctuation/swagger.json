@@ -1,0 +1,31 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "definitions": {
+    "Jugs/C~D#*[]": {
+      "type": "object",
+      "properties": {
+        "tone": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response",
+            "schema": {
+              "$ref": "#/definitions/Jugs~1C~0D%23%2A%5B%5D"
+            }
+          }
+        }
+      }
+    }
+  }
+}

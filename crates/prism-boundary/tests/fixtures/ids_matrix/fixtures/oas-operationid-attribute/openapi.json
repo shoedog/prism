@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/urn": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "operationId": "inspectUrn"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "operationId": "castUrn"
+      }
+    }
+  }
+}

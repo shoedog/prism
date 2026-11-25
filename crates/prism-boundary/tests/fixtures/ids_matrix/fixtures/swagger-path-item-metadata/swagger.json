@@ -1,0 +1,32 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/tile": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "x-preview": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "shade",
+          "in": "query",
+          "type": "string"
+        }
+      ]
+    }
+  }
+}
