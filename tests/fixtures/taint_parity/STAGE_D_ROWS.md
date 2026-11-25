@@ -82,7 +82,7 @@ For other non-JSX positives use binding alone on the literal/formal pairs (`js03
 | `e2-go-no-originating-path` | `catalog` | Keep []; cover unsupported family 27 in the catalog diagnostic. | The source event, empty originating set, whole-file scan or cross-fan decision specified for this family in DESIGN 5.6 is unavailable from one fan. Preserve seed errors and any independently supported route. |
 | `e2-go-originating-path` | `catalog` | Catalog operand [105,106) (was [20,21)); keep Reached | Use the matched c.File(t) argument's file bytes. The earlier t at [20,21) belongs to the import keyword. |
 | `e2-go-mixed-inline` | `catalog` | Keep []; cover unsupported family 29 in the catalog diagnostic. | The source event, empty originating set, whole-file scan or cross-fan decision specified for this family in DESIGN 5.6 is unavailable from one fan. Preserve seed errors and any independently supported route. |
-| `s1-js-long-continuation` | `control` | Retain cells; `operand_granularity` is the trace-review operand mismatch. Bind the first default-review loss on replay. | The marked Use is reached. `call_arg_node` selects named child zero, the leading JS comment. It has no tainted identifier; review also omits short commented variants. A 20-line cutoff can precede that check in default review. Confirm the first default cut on its fan before assigning primary credit. |
+| `s1-js-long-continuation` | `control` | Walk Reached d0, none / none, []. Default `review_cfg_filter`, trace review and catalog `matcher_admission`. | On line 26 default's 20-line CFG scan misses the call start at 4. Trace reaches t [708,709), but `call_arg_node(0)` selects the leading comment [99,123). The equal-width whitespace control restores trace only. Shorten to one continuation line to isolate the matcher in both modes. |
 | `s2-catalog-js-inline-operand-other-fan` | `catalog` | Keep the structured decision and operand; catalog verdict NotReached, no operand witness | The selected fan admits a candidate row, but the actual operand is reached only by a same-name line match or independent framework source. `operand_granularity`. |
 | `s3-js-nested-spread-alias-competitor` | `spelling` → `control` | NotReached; none / none; []; `no_graph_edge` | No binding into the selected inner formal past the spread. Lane 8 adds no producer. Unit-test the rejection separately on a constructed edge where applicable. |
 | `s3-js-mixed-rest-competitor` | `guard` → `control` | NotReached; none / none; []; `no_graph_edge` | The selected receiver/rest edge is missing. No refused candidate is reachable. Lane 8 adds no producer. Unit-test the rejection separately on a constructed edge where applicable. |
@@ -157,12 +157,14 @@ Pass over `rows.jsonl`, `rows-t2a.jsonl`, `rows-t2b.jsonl` and `rows-t2c.jsonl`:
 
 | Rows and levels | Reason amendment and required evidence |
 |---|---|
+| `x01` (default review) | `uncertified_flow`. The value of t in `forget(t)` is transferred into z despite the fixed return. The use of z at [141,142) is the actual sink operand. Change only the actual to a literal: the default finding disappears. Walk NotReached, unlabeled / none, []. Keep `shortcut_suppressed` on the trace assignment cut. |
+| `s1-js-self-return` | Walk BoundaryExited, none / none, []. Default review needs the omitted ReturnFlow (`review_no_return_flow`). Walk and trace review meet the recursive return to y [132,133) (`self_return`). Split the base case into a separate callee: the walk reaches via ReturnFlow and trace review reports, while default review still omits the sink. |
 | `s2-js-mixed-bound-alias` (default review) | Replace `operand_granularity` with `uncertified_flow`. The tainted actual of `other.run(t)` reaches the selected Runner formal/exec operand through uncertain dispatch. The actual to the proven Runner is fixed. Changing only the first actual to a literal removes the base finding; the sink and exact sibling remain. Keep the edge-own `not_exact` on the trace refusal. |
 | `s2-js-star-both-sides`, `tr1-py-star`, `tr6-py-decorator` (default review) | `uncertified_flow`: record the wrong positional formal after spread, absent second Python argument, or wrapper substituting a constant. Review reaches the marked operand through that binding. The stage-D trace hop refuses `unproven_slot`. Replacing the JS spread call with the effective `run(t, 'fixed')` removes both base findings. |
 | `b06`, `s2-ts-literal-dynamic-sibling` (default review) | `uncertified_flow` for the existing leaf→Use into a computed read of the fixed sibling. The reached Use is **inside** the marked operand. Using the equivalent static clean-field read removes both the false binding and the base finding. Keep `target_not_binding` for the trace hop; a flat/line matcher alone does not explain the gain. |
 | `s2-py-discard-multiline-return`, `tr6-go-multireturn-safe` (default review) | Replace projection or `unmodelled` with `uncertified_flow` for an assignment transfer into the actual fixed sink variable. Bind the same-line discarded input/independent assignment or the argument transferred into the fixed first result. Splitting the two Python calls removes the default finding (base trace separately returns through the wrong caller site). Retain `shortcut_suppressed` **on the trace cut** when its suppression certificate exists. |
 | `a1-go-partial-return-certificate`, `a1-py-nested-use-certificate`, `a1-py-nondata-keyword`, `a1-js-sanitizer-sibling-def`; amended `s3-go-fluent-overwrite-two-sites` (positive cells against no_flow) | Replace `unmodelled` or missing reason with `uncertified_flow`. Base witnesses contain AssignmentPropagation into respectively the incomplete constant result, fixed outer result, fixed payload from a quote flag, fixed sibling Def, or overwritten fluent result. Pin the relation and receiver/slot/version to the reached operand. Splitting the JS sibling definitions removes its witness and findings. Keep known_wrong; these local transfers survive the crossing repair. |
-| `e2-flat-configured`, `s2-catalog-js-configured-only` (review, trace review, catalog) | `matcher_admission` for an empty configured sink list. Record the reached operand and actual list. Require an I-8 API positive on the identical fixture with only the matched extra-sink rule added. The base CLI provides the empty-list negative; a built-in sink spelling control is a separate test. |
+| `e2-flat-configured`, `s2-catalog-js-configured-only` (review, trace review, catalog) | `matcher_admission` for an empty configured sink list. Record the reached operand and actual list. Require an I-8 API positive on the identical fixture with only the matched extra-sink rule added. The base CLI provides the empty-list negative. A built-in sink spelling control exercises recognition independently of configuration. |
 | `e2-framework-source-guard` (same three levels) | `matcher_admission` for the live framework source-row mask. Record the matched pattern, seed row/range and applied predicate. Moving only `db.Query(t)` to the next line preserves reach and changes both base grades from none to exact. The two admission cases have distinct evidence even though both run with context off. |
 | `e2-js-request-flat-call`, `e2-js-request-flat-write` | Replace the undifferentiated walk `unmodelled`: the line-keyed fan reaches the earlier occurrence on the sink row, while the later marked operand does not receive that flow. Use `operand_granularity` for the comparison with the flat matcher, recording both occurrences and the request-range predicate. Pin the missing def/use edge separately at the walk level. |
 | `e2-go-mixed-inline`; `e2-target-seed-synthesis` (finding vs selected-root catalog) | For the exclusive cross-fan fallback use `unmodelled` + family 29 and its empty-matching-fan test. A different root alone does not establish exclusivity. For target synthesis use `operand_granularity` with the separate synthesized root ID, inventory entry 31. An explicit anchor outside the handler is not that root. |
@@ -170,6 +172,18 @@ Pass over `rows.jsonl`, `rows-t2a.jsonl`, `rows-t2b.jsonl` and `rows-t2c.jsonl`:
 | `b01`, `tr5-js-two-roots`, `s3-py-receiver-keyword-forward-return`, `m01` | Clear stale reasons on the **corrected level**: b01's `no_graph_edge` describes producer-absent CURRENT, never a Reached target. tr5's extra-root reason describes ordinary review, never a selected-root hit in []; record the root difference on the comparison. The Python forwarder's confirmed default finding cannot retain a loss `no_graph_edge`. In m01 the post-binding trace finding is present; the remaining projection discrepancy is its sibling operand verdict. |
 | `tr2-py-unbound`, `tr2-go-methodexpr`, `a1-go-field-sibling-result`, `a1-go-forwarded-result-list` | Use `no_graph_edge` for the specific missing argument/result route on the pinned graph. A method-expression spelling or a field destination describes the producer limit. The last two require the result-edge evidence (non-simple LHS, forwarded result list). Do not claim a refused crossing without an existing candidate. |
 | `s3-ts-next-middleware-locals`, `s3-go-callback-write-outer-local` | For the missing framework callback/capture use `unmodelled`, with the missing callable relation. Keep missing local mutation edges as secondary candidates. Never count both labels against the same observation. |
+
+The second pass enumerated every input (ID, level, reason), reapplied the row-specific overrides, and checked the mechanism against that client’s root/operand, cell, truth and fixture. Base navigation and both ordinary review projections were replayed on all 415 fixture rows. The following are **input** counts before amendments. A multi-reason cell contributes once per reason.
+
+| Shard | Rows with a reason | Walk | Default review | Trace review | Catalog |
+|---|---:|---:|---:|---:|---:|
+| rows.jsonl | 40 | 34 | 8 | 5 | 3 |
+| rows-t2a.jsonl | 55 | 35 | 45 | 44 | 10 |
+| rows-t2b.jsonl | 48 | 32 | 39 | 40 | 4 |
+| rows-t2c.jsonl | 76 | 53 | 64 | 70 | 1 |
+| Total | 219 | 154 | 156 | 159 | 18 |
+
+After applying the prior amendments, three rows required a change of mechanism at the reporting level: x01, s1-js-self-return and s1-js-long-continuation. No additional review/trace attribution swap was identified. Shared missing-producer reasons require the same missing relation on both clients. A real extra root or line projection retains `operand_granularity`. A genuine observer without a rule uses `unmodelled` for the missing finding. A trace boundary, wrong-site cut or budget can explain trace loss only when it connects to the operand. On a correct negative keep it as hop evidence. Catalog decisions, future producer/CURRENT cells and wire reasons have no executable base oracle. They retain the evidence obligations below.
 
 Earlier corrections also apply during this pass. The slot-reason replacements are `tr1-js-default`, `s1-py-default`, `s1-py-cls`, `tr6-py-bound`, `s1-js-slot-far`, `s2-js-default-alias`, `s3-ts-optional-default-competitor`. Use the positive witnesses, actual resolution ceiling or depth in the row-specific decisions. For `l07`, `tr2-js-rebind`, `g01`, `f03`, `s3-js-recursive-return-distal`, `s3-tsx-sibling-opening-nested-read`, `js07` and `s1-js-long-continuation`, distinguish the slice, direction, refused edge and selected occurrence before dropping a secondary. For `a1-py-packed-result`, `s3-js-nested-spread-alias-competitor`, `s3-js-mixed-rest-competitor`, `s3-ts-nested-spread-default`, `s3-js-rest-before-inner-call`, `s3-go-dispatch-variadic-tail`, `s3-go-variadic-fixed-defer-return`, `s3-ts-awaited-refused-ascent-two-more`, `s3-ts-guard-return-destructure`, `s3-ts-await-branch-rejoin`, `s3-ts-checked-branch-error-payload`, `s3-go-if-init-nested-return` and `s3-py-context-binding-to-next-manager`, the specific missing producer takes precedence over a hypothetical slot, depth, or return-bearing path. Apply this to the affected level only. For b04b keep `self_param` on the recursive attempt, never project a sink boundary onto the CFG-impossible earlier local read.
 
@@ -235,15 +249,15 @@ function entry() {
 | `d-return-array` | `[v]`, a.js | flows | NotReached, aggregate loss |
 | `d-return-object` | `({key:v})`, a.js | flows | NotReached, aggregate loss |
 | `d-return-condition` | `(v ? "fixed" : "fixed")`, a.js | no_flow | NotReached, test only |
-| `d-return-arm` | `(true ? v : "fixed")`, a.js | flows | NotReached, feasible arm outside allowlist |
-| `d-return-template` | `` `text:${v}` ``, a.js | flows | NotReached, interpolation loss |
+| `d-return-arm` | `(true ? v : "fixed")`, a.js | flows | Reached d1, selected value in the feasible true arm |
+| `d-return-template` | `` `text:${v}` ``, a.js | flows | Reached d1, ordinary untagged interpolation of a primitive string |
 | `d-return-await` | `await v`, a.js; make both functions f and entry async and use `observe(await out)` | flows | NotReached, no proof of the fulfillment value |
 | `d-return-spread` | `[...v]`, a.js | flows | NotReached, iterable elements unproved |
 | `d-return-member-base` | `v.cmd`, a.js | flows | NotReached on this graph from the caller root. No Use→synthetic shortcut from the base. |
-| `d-return-jsx` | `<span>{v}</span>`, a.tsx | flows | NotReached, returned element outside allowlist |
+| `d-return-jsx` | `<span>{v}</span>`, a.tsx | flows | NotReached, no certified scalar component in the returned element |
 | `d-return-member-exact` | `v.cmd`, a.js; move the source marker to the return line and select the **full member** Use | flows | Reached d0 from the selected member by direct ReturnFlow. The shorter base Use on that same line is NotReached. |
 
-For the two Python `walk` rows below, substitute `(v, 'fixed')` in `d-return-py-tuple` and `f"text:{v}"` in `d-return-py-fstring`. Both truth flows, both require NotReached, none / none, []. The tuple contains the value; it has different semantics from the identically spelled JS discarded sequence. Both have a base synthetic edge from the caller-entered function and lose it under the allowlist.
+For the two Python `walk` rows below, substitute `(v, 'fixed')` in `d-return-py-tuple` and `f"text:{v}"` in `d-return-py-fstring`. Both have truth flows, none / none and []. The tuple requires NotReached: its element lacks a scalar slot proof. The f-string requires Reached d1 through the interpolated primitive string. Both were Reached d1 on the caller-seeded base.
 
 ```python
 def f(p):
@@ -255,6 +269,117 @@ def entry():
     out = f(y)
     observe(out)  # @SINK
 ```
+
+### Additional caller-seeded value-role rows
+
+Each ID is a separate fixture. Substitute its expression in the matching template below. Use the original UTF-8 bytes with LF, including a final LF. The source is the `entry` Def of `y`, the entered site is `f(y)` at actual 0, and the terminal is the `out` Use in `observe(out)`. Bind the selected return Use, the ReturnValue component, the receiving Def of `out` and the matching ascent. For repeated names accept only an occurrence whose entire path through the expression is certified.
+
+```ts
+function f(v: string) {
+  return EXPR;
+}
+function entry() {
+  const y = acquire(); // @SRC
+  const out = f(y);
+  observe(out); // @SINK
+}
+```
+
+Use the same text without `: string` in a.js. Prepend any helper on a separate line. For Python and Go use:
+
+```python
+def f(v: str):
+    return EXPR
+
+def entry():
+    y = input()  # @SRC
+    out = f(y)
+    observe(out)  # @SINK
+```
+
+```go
+package main
+func f(v string) string {
+    return EXPR
+}
+func entry() {
+    y := acquire() // @SRC
+    out := f(y)
+    observe(out) // @SINK
+}
+```
+
+For the `fmt` cases insert `import "fmt"` after `package main`. For the Go hook, insert `type fixedStringer struct{ s string }` and `func (fixedStringer) String() string { return "fixed" }` on separate lines before `f` and type its formal `fixedStringer`. For the Python hook prepend `class Fixed:` with method `def __format__(self, spec):` returning `"fixed"`, use `v: Fixed` and initialize `y = Fixed()`.
+
+All rows have group `walk`, default knobs, findings **none / none** on the marked observer and catalog **[]**. Each of the following base queries reached the operand at depth 1 via ReturnInput and ReturnFlow. The expected **I-walk** cells are:
+
+- **P** (propagate, truth flows) requires Reached d1 from the specified Def to Use through this returned component.
+- **X** (excluded role, truth no_flow on these fixtures) requires NotReached, null witness fields and the `unproven_return_input` cut on the attempted synthetic input.
+- **U** (undecided, truth flows on these fixtures) requires the same NotReached and cut, with the missing proof in the ledger and `unproven_return_input` as the walk loss. Where the missing observer finding differs from truth, apply the observer rule above.
+
+| Row ID | File | Return expression | Expected cells | Discriminating evidence or fixture change |
+|---|---|---|---|---|
+| `d-return-ts-left` | a.ts | `'ls ' + v` | P | literal prefix |
+| `d-return-ts-literal-number` | a.ts | `v + 42` | P | primitive literal beside a string |
+| `d-return-ts-repeat` | a.ts | `v + v` | P | pin the actual selected occurrence |
+| `d-return-ts-nested` | a.ts | `'ls ' + (v + v)` | P | recurse through both additions |
+| `d-return-ts-opaque-sibling` | a.ts | `v + fixed(v)` | U | prepend `function fixed(z: string) { return 'fixed'; }` |
+| `d-return-ts-as` | a.ts | `v as string` | P | value child |
+| `d-return-ts-nonnull` | a.ts | `v!` | P | postfix non-null |
+| `d-return-ts-satisfies` | a.ts | `v satisfies string` | P | value child |
+| `d-return-ts-angle` | a.ts | `<string>v` | P | TS grammar |
+| `d-return-ts-parens` | a.ts | `((v))` | P | two groupings |
+| `d-return-ts-or` | a.ts | `v \|\| ''` | P | truthy string on left |
+| `d-return-ts-coalesce` | a.ts | `v ?? ''` | P | non-nullish left |
+| `d-return-ts-or-right` | a.ts | `'' \|\| v` | P | evaluated right |
+| `d-return-ts-and-right` | a.ts | `true && v` | P | evaluated right |
+| `d-return-ts-dead` | a.ts | `'fixed' \|\| v` | X | right operand never evaluated |
+| `d-return-ts-else` | a.ts | `false ? 'fixed' : v` | P | false arm |
+| `d-return-ts-constant-arm` | a.ts | `v === 'fixed' ? v : 'fixed'` | X | guard fixes even the value in the live arm |
+| `d-return-ts-trim` | a.ts | `v.trim()` | P | native receiver |
+| `d-return-ts-case` | a.ts | `v.toUpperCase()` | P | native receiver |
+| `d-return-ts-slice` | a.ts | `v.slice(1)` | P | a suffix can survive |
+| `d-return-ts-empty-slice` | a.ts | `v.slice(0, 0)` | X | no character survives |
+| `d-return-ts-unknown-slice` | a.ts | `v.slice(position())` | U | unresolved bound |
+| `d-return-js-own-trim` | a.js | `v.trim()` | X | prepend `class Fixed { trim() { return 'fixed'; } }` and initialize `y` with `new Fixed()` |
+| `d-return-ts-tag` | a.ts | `` fixedTag`ls ${v}` `` | X | prepend `function fixedTag(strings: TemplateStringsArray, ...xs: unknown[]) { return "fixed"; }` |
+| `d-return-py-left` | a.py | `"ls " + v` | P | literal prefix |
+| `d-return-py-or` | a.py | `v or ''` | P | truthy string on left |
+| `d-return-py-and` | a.py | `True and v` | P | evaluated right |
+| `d-return-py-arm` | a.py | `v if True else 'fixed'` | P | value arm |
+| `d-return-py-percent` | a.py | `"ls %s" % v` | P | consumed string field |
+| `d-return-py-percent-zero` | a.py | `"%.0s" % v` | X | precision discards all characters |
+| `d-return-py-format` | a.py | `"ls {}".format(v)` | P | automatic positional field |
+| `d-return-py-format-keyword` | a.py | `"ls {x}".format(x=v)` | P | named field consumes this value |
+| `d-return-py-format-unused` | a.py | `"fixed".format(v)` | X | no consuming field |
+| `d-return-py-format-spec` | a.py | `"{:.1}".format(v)` | P | positive literal precision retains a prefix |
+| `d-return-py-format-precision` | a.py | `"{0:.{1}}".format(v, limit())` | U | unresolved precision can erase the value |
+| `d-return-py-fstring-hook` | a.py | `f"{v}"` | X | use the Python `Fixed` setup above |
+| `d-return-js-negate` | a.js | `-v` | P | feasible primitive number |
+| `d-return-js-complement` | a.js | `~v` | P | numeric complement can vary with the number |
+| `d-return-ts-void` | a.ts | `void v` | X | always undefined |
+| `d-return-ts-index` | a.ts | `v[0]` | P | nonempty primitive string |
+| `d-return-py-index` | a.py | `v[0]` | P | nonempty primitive string |
+| `d-return-ts-dynamic-index` | a.ts | `v[position()]` | U | no certified selector |
+| `d-return-go-concat` | a.go | `"ls " + v` | P | primitive string concatenation |
+| `d-return-go-string` | a.go | `string(v)` | P | predeclared conversion |
+| `d-return-go-bytes-string` | a.go | `string(v)` | P | change the formal type to `[]byte` |
+| `d-return-go-sprintf` | a.go | `fmt.Sprintf("ls %s", v)` | P | standard `fmt`, bare string directive |
+| `d-return-go-sprintf-zero` | a.go | `fmt.Sprintf("%.0s", v)` | X | zero-byte output |
+| `d-return-go-sprintf-quote` | a.go | `fmt.Sprintf("%q", v)` | P | standard quoting emits the string’s data |
+| `d-return-go-sprintf-precision` | a.go | `fmt.Sprintf("%.*s", limit(), v)` | U | the dynamic precision can select zero characters |
+| `d-return-go-sprintf-hook` | a.go | `fmt.Sprintf("%s", v)` | X | use the Go `fixedStringer` setup above |
+
+The paired fixture comparison covers 50 additional base-accepted witnesses. The design retains 34 true witnesses, rejects 11 false witnesses, and deliberately forgoes 5 true witnesses, one per U row. These are fixture counts against the proposed decisions. The owner’s pre-dispatch comparison in PLAN measures the cost in the frozen repositories, including alternative surviving paths.
+
+### Finding and catalog controls to materialise
+
+| ID or amendment | Fixture and expected cells |
+|---|---|
+| `d-js-long-continuation-space` (control, I-1) | Copy `s1-js-long-continuation/a.js`. Replace the 24 non-indent characters of each of the 21 `// argument continuation` comments with 24 ASCII spaces, preserving every newline and offset. Truth flows. Walk Reached d0 [64,65) → [708,709), default none (`review_cfg_filter`), trace exact at line 26, catalog one `structured-os-command` Reached there on [708,709). The long commented row keeps none / none and []. |
+| `d-catalog-weak-fixed` (catalog, I-8) | Copy `e2-flat-weak/app.js`, prepend `import { exec } from 'child_process';` and insert ` exec('fixed');` after the SQL statement, before its marker. Truth flows. Walk Reached d0 [70,71) → [125,126), exact / exact. Catalog one weak `js-db-call`, LineOnly, Reached on line 4. No command decision. Base review severity on the mixed line is warning, on the SQL-only control suggestion. At the warning floor both line projections keep only the mixed fixture’s line. |
+| `e2-target-seed-synthesis` (I-8 API pair) | Keep the shard’s anchor walk NotReached, unlabeled / unlabeled and []. Through the tagged comparison entry select only the anchor, then only the admitted synthesized target for `f(item: Item)`. Expected review/catalog line sets are empty / empty, then {app.py:8} / {app.py:8}. Preserve the graph seed error at app.py:7 in navigation. Neither ordinary review finding belongs to the anchor. |
+| `e2-flat-configured` (I-8 API pair) | Keep Reached d0 [26,27) → [65,66), none / none, [] at empty configuration. Repeat on identical inputs with `["=customObserve"]`: require the configured identifier decision (family 11, original pattern ID, Strong, LineOnly/null operand, Reached on app.js:3, absent CWE/category) and the same review finding line. An empty adapter queried again returns []. |
 
 ## Known wrong results
 
@@ -308,3 +433,15 @@ On the clean input head `13ccf08b`, used the prebuilt `prism-base` reporting `9d
 - **Recursion and site ownership.** b04 reached p.a [92,95) via local DataFlow with zero descents; b04b did not reach the earlier read. Both reviews omitted the observer. l02/l03 were BoundaryExited; l01 reached via its second `t`. On the literal mixed fixture both result queries were Reached d1, and both selected actual [79,80). The chain to `a` returned to [53,54) through the other call. Separating the call-start lines permitted both queries without a legacy count collision. The I-walk assertions must still check the full chains.
 - **Prerequisites.** The literal alias was BoundaryExited, exact / none. The six named JSX alias/wrapper/colliding positives were NotReached, none / none on the pinned producer. Also probed the nested, computed, prefix, callback-local, attribute, anchor, continuation and third-hop controls. No positive #596 edge was observed on these inputs.
 - **Root and reason controls.** On tr5 the same sink Use [109,110) was NotReached from t [64,65) and Reached d0 from u [79,80); line review was exact in both modes. The mixed dispatch was BoundaryExited, nameonly / none; fixing its uncertain actual removed the finding. The configured and masked matcher inputs were Reached d0, none / none; unmasking the Go sink by moving it one line gave exact / exact. The actual configured-positive API run belongs to I-8. No real-code Catalog, Recovered or Sound gate was run for this documentation fold.
+
+## Review fold probe receipt (A round 3, B round 2)
+
+Input head `4c022e27`, branch `docs/lane8-stage-d`. Used the same no-cache navigation and all-lines review commands as the preceding receipt with `prism-base` at `9d1a7d06f653`. Counted source/terminal bytes, witness relations and the marked SARIF finding in each mode.
+
+- **Return contribution.** Recreated all 50 additional return fixtures from the Markdown templates and reran the three amended positive rows. All 53 reached d1 through ReturnInput and ReturnFlow with no observer findings. A’s eight are among these. From a caller, both `fixed(v)` and the non-last comma operand also reached d1 on base. The value-role proof must distinguish those false witnesses. The original four-shard replay produced 413 navigation answers and the two recorded seed errors. Only `tr2-js-wrapper` displayed a ReturnInput in that replay. The six archived `frontier/relax-none.json` results contain no witness graph, and the descent logs record refusals. They cannot supply counts of all accepted synthetic inputs.
+- **Root identity.** On `e2-target-seed-synthesis`, the graph anchor [212,213) reached neither the base nor the full member at line 8. Both review modes reported unlabeled. The signature query at line 7 returned `SymbolNotFound`. Removing only the framework decorator removed both findings. Entry 31’s producer builds a virtual Def from the admitted seed. The tagged singleton comparisons in I-8 will test it directly.
+- **Line strength.** On `e2-flat-weak` and the fixed-command variant, both review modes reported exact. Trace review with `--format review --review-min-severity suggestion` retained both lines. The warning floor retained only the mixed line at app.js:4. As a mask control, `observe(t); exec('fixed');` had a reached t with neither finding. Changing the command actual to t produced exact / exact. I-8 must verify the weak decision and its distinct projected severity.
+- **Reason attribution.** The 487-entry audit is itemised by shard and level above. On x01, fixing only the actual to forget eliminated the default finding. Splitting self-return across two functions changed the boundary into a ReturnFlow witness and gave none / unlabeled. On the long and short continuations the leading comment suppressed both findings. Equal-width whitespace gave none / exact on the long form and exact / exact on the short form. The original comment at [99,123) occupies named child zero, ahead of t at [708,709). Default review needs both a CFG-admitted row and an admitted argument.
+- **Configured sinks.** On `e2-flat-configured`, t [26,27) reached [65,66), with neither review finding under empty configuration. Changing the sink spelling to `document.write` produced exact / exact. The base CLI exposes no extra-sink input. Only the I-8 API test can verify the positive configured decision while holding the spelling, graph and fan fixed.
+
+Materialise the 50 return rows and amend the three earlier return targets at I-walk. Add the whitespace control and the three per-level reason corrections at I-1. Add the mixed-strength row and paired synthesized/configured API assertions at I-8. Document the extended `matcher_admission` evidence and the two catalog strength meanings in the fixture README when the harness consumes them. This Markdown fold changes none of the four JSONL inputs.
