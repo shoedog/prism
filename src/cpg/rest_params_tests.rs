@@ -118,11 +118,20 @@ fn rest_exact_requires_the_complete_singleton_pool() {
     ] {
         let local = format!("{definition}\n{caller}\nfunction other(...decoy) {{ use(decoy); }}");
         let foreign = format!("{caller}\nfunction other(...decoy) {{ use(decoy); }}");
-        let inputs = if kind == ResolutionKind::LocalDef {
+        let mut inputs = if kind == ResolutionKind::LocalDef {
             vec![("main.js", local.as_str())]
         } else {
             vec![("main.js", foreign.as_str()), ("lib.js", definition)]
         };
+        let target_file = if kind == ResolutionKind::LocalDef {
+            "main.js"
+        } else {
+            "lib.js"
+        };
+        inputs.push((
+            "foreign.js",
+            "function foreign(...foreign_rest) { use(foreign_rest); }",
+        ));
         let files = parsed_files(&inputs, Language::JavaScript);
         let cpg = CodePropertyGraph::build(&files);
         let site = call_site(&cpg.call_graph, "main", "project");
@@ -130,6 +139,7 @@ fn rest_exact_requires_the_complete_singleton_pool() {
         assert!(object_literal_args::exact_singleton(&actual), "{actual:?}");
         let one = actual[0].clone();
         assert_eq!(one.kind, kind);
+        assert_eq!(one.target.file, target_file);
         assert_eq!(
             bindings(&cpg, "main", "items"),
             [("v".into(), FlowConfidence::Exact)]
@@ -139,9 +149,13 @@ fn rest_exact_requires_the_complete_singleton_pool() {
             target: other,
             ..one.clone()
         };
-        let name_only = ResolvedCallee {
+        let local_name_only = ResolvedCallee {
             confidence: ResolutionConfidence::NameOnly,
             ..another.clone()
+        };
+        let foreign_name_only = ResolvedCallee {
+            target: &cpg.call_graph.functions["foreign"][0],
+            ..local_name_only.clone()
         };
 
         for pool in [vec![one.clone(), another], vec![one.clone(), one.clone()]] {
@@ -151,12 +165,12 @@ fn rest_exact_requires_the_complete_singleton_pool() {
             &cpg,
             &files,
             site,
-            vec![one, name_only],
+            vec![one, local_name_only, foreign_name_only],
             spread_args::for_call,
         );
         assert_eq!(edges.len(), 1);
         let (_, to, ref edge) = edges[0].edge;
-        assert_eq!(cpg.to_var_location(to).unwrap().path.base, "decoy");
+        assert_eq!(cpg.to_var_location(to).unwrap().path.base, "foreign_rest");
         assert_eq!(
             edge,
             &CpgEdge::DataFlow(ResolutionConfidence::NameOnly.into())
@@ -187,13 +201,18 @@ fn rest_namespace_spelling_fallback_does_not_witness_the_export() {
 }
 
 #[test]
-fn rest_name_only_retains_same_file_and_foreign_candidates() {
-    let owner = "export class Box { pack(...items) { use(items); } }";
-    let caller = "function main(receiver, value) { receiver.pack(value); }";
+fn rest_name_only_requires_a_foreign_candidate() {
+    let owner = "export class Box { pack(first, ...items) { use(first, items); } }";
+    let caller = "function main(receiver, prefix, value, dense) { receiver.pack(prefix, value, ...[dense]); }";
     let same_file = format!("{owner}\n{caller}");
-    for (inputs, target_file) in [
-        (vec![("main.js", same_file.as_str())], "main.js"),
-        (vec![("main.js", caller), ("box.js", owner)], "box.js"),
+    let label = FlowConfidence::from(ResolutionConfidence::NameOnly);
+    for (inputs, target_file, expected) in [
+        (vec![("main.js", same_file.as_str())], "main.js", vec![]),
+        (
+            vec![("main.js", caller), ("box.js", owner)],
+            "box.js",
+            vec![("dense".into(), label), ("value".into(), label)],
+        ),
     ] {
         let files = parsed_files(&inputs, Language::JavaScript);
         for cpg in build_both(&files) {
@@ -203,10 +222,8 @@ fn rest_name_only_retains_same_file_and_foreign_candidates() {
             assert_eq!(resolved[0].target.file, target_file);
             assert_eq!(resolved[0].kind, ResolutionKind::R6SingleOwner);
             assert_eq!(resolved[0].confidence, ResolutionConfidence::NameOnly);
-            assert_eq!(
-                bindings(&cpg, "main", "items"),
-                [("value".into(), ResolutionConfidence::NameOnly.into())]
-            );
+            assert_eq!(bindings(&cpg, "main", "first"), [("prefix".into(), label)]);
+            assert_eq!(bindings(&cpg, "main", "items"), expected, "{target_file}");
         }
     }
 }
@@ -272,10 +289,16 @@ fn rest_opaque_iteration_requires_occurrence_specific_evidence() {
                 name_only,
             ),
         ] {
-            let source = format!(
-                "{decl}\nfunction main(receiver, producer, prefix, scalar) {{\n{setup}\n{callee}(prefix, ...xs, scalar);\n}}"
+            let caller = format!(
+                "function main(receiver, producer, prefix, scalar) {{\n{setup}\n{callee}(prefix, ...xs, scalar);\n}}"
             );
-            let files = parsed_files(&[("main.js", &source)], Language::JavaScript);
+            let local = format!("{decl}\n{caller}");
+            let inputs = if confidence == ResolutionConfidence::Exact {
+                vec![("main.js", local.as_str())]
+            } else {
+                vec![("main.js", caller.as_str()), ("box.js", decl)]
+            };
+            let files = parsed_files(&inputs, Language::JavaScript);
             for cpg in build_both(&files) {
                 let site = call_site(&cpg.call_graph, "main", "pack");
                 let actual = cpg.call_graph.resolve_call_site(site);
@@ -286,7 +309,7 @@ fn rest_opaque_iteration_requires_occurrence_specific_evidence() {
                 if witness {
                     expected.push(("xs".into(), label));
                 }
-                assert_eq!(bindings(&cpg, "main", "items"), expected, "{source}");
+                assert_eq!(bindings(&cpg, "main", "items"), expected, "{caller}");
             }
         }
     }

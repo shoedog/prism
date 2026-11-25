@@ -62,6 +62,7 @@ pub(super) fn compute_rest_def_node(
     (!parsed.js_ts_scoped_written(implementation, name, &mut bindings)).then_some((offset, def))
 }
 
+/// Admission for ordinary Step 5b rest edges.
 pub(super) fn admitted(
     inputs: &SiteInputs<'_>,
     site: &CallSite,
@@ -72,10 +73,14 @@ pub(super) fn admitted(
     inputs.caller_parsed.language.is_js_family()
         && inputs.callee_parsed.language.is_js_family()
         && !inputs.cross_file_free_single_exact
-        && (resolved.confidence != ResolutionConfidence::Exact
-            || (exact_singleton
-                && (resolved.kind != ResolutionKind::ImportQualified
-                    || graph.js_ts_namespace_export_matches(site, resolved.target))))
+        && match resolved.confidence {
+            ResolutionConfidence::Exact => {
+                exact_singleton
+                    && (resolved.kind != ResolutionKind::ImportQualified
+                        || graph.js_ts_namespace_export_matches(site, resolved.target))
+            }
+            ResolutionConfidence::NameOnly => site.caller.file != resolved.target.file,
+        }
 }
 
 pub(super) fn collect(

@@ -14,7 +14,8 @@
 {"id":"b03","ordinal":2,"slice":"B","kind":"corrected","reason":"For both xs and v require no fixed or rest edge. With an empty xs, v fills p. A longer xs can place v in rest."}
 {"id":"b03","ordinal":3,"slice":"B","kind":"corrected","reason":"For both xs and v require no fixed or rest edge. With an empty xs, v fills p. A longer xs can place v in rest."}
 {"id":"b05a","ordinal":1,"slice":"B","kind":"loss-row","reason":"Keep the negatives. A rest pattern exposes component bindings, not the single identifier rest Def to which B delivers elements."}
-{"id":"b06","ordinal":1,"slice":"B","kind":"set-row","reason":"Use the ordinary call's name-only confidence for rest and its existing wire doubt. C's ordinary bare-target precision refusal does not apply to rest."}
+{"id":"b06","ordinal":2,"slice":"B","kind":"loss-row","reason":"Keep the NameOnly r6_single_owner resolution at #1. At #2 require no edge of any label from main.v to the same-file f.rest."}
+{"id":"b06","ordinal":2,"slice":"B","kind":"corrected","reason":"Replace the labelled rest edge with an all-label prohibition."}
 {"id":"b07","ordinal":1,"slice":"B","kind":"loss-row","reason":"Keep q → q and no x → rest. Supplied object-literal fields are not the object element itself. B does not flatten object fields into rest."}
 {"id":"b09a","ordinal":1,"slice":"B","kind":"loss-row","reason":"Require w → r, no v → p or r and no xs → r. The lower bounds of v and w are zero and one respectively."}
 {"id":"b09a","ordinal":3,"slice":"B","kind":"corrected","reason":"Require w → r, no v → p or r and no xs → r. The lower bounds of v and w are zero and one respectively."}
@@ -198,6 +199,9 @@
 {"id":"s5-2","ordinal":1,"slice":"A","kind":"loss-row","reason":"No fixed edge from value. Both alternatives have length one at runtime, but the spread operand is a conditional expression."}
 {"id":"s5-3","ordinal":1,"slice":"A","kind":"loss-row","reason":"#1 only, value → fourth.item. Lane 3 stops leaf admission at the earlier spread. Keep #2–3 sibling negatives."}
 {"id":"s5-3","ordinal":1,"slice":"A","kind":"loss","reason":"#1 only, value → fourth.item. Lane 3 stops leaf admission at the earlier spread. Keep #2–3 sibling negatives."}
+{"id":"s5-5","ordinal":1,"slice":"B","kind":"loss-row","reason":"Withhold the same-file rest edge, retain the Exact prohibition and require nonreachability. Move the positive edge, trace boundary and reachability to s5-5-foreign in the prerequisites module."}
+{"id":"s5-5","ordinal":1,"slice":"B","kind":"corrected","reason":"Replace the labelled rest edge with an all-label prohibition."}
+{"id":"s5-5","ordinal":3,"slice":"B","kind":"corrected","reason":"Replace original #4's reachability check with nonreachability after moving original #3's trace boundary check to the foreign companion."}
 {"id":"s5-6","ordinal":1,"slice":"B","kind":"loss-row","reason":"#2 value → Base.tail is blocked/RED unless the extracted new Derived site identifies Base’s implementation. Exercise that binding with the supplied target, keep #1’s Def and check a wrong-target control. No synthetic forwarding."}
 {"id":"s5-6","ordinal":2,"slice":"B","kind":"blocked","reason":"Requires an admitted Source constructor site and its Exact implementation"}
 {"id":"s5-7","ordinal":1,"slice":"B","kind":"set-row","reason":"Bind the actual element value → tail once, exact. The preceding 0 occupies the fixed slot."}

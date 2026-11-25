@@ -596,7 +596,9 @@ Def, and scoped rebinding can disqualify it. Exact rest edges require a singleto
 for namespace-qualified imports, a matching value export. Cross-file `free_single` Exact targets
 remain ineligible. An opaque spread must start within rest. Its Exact edge also requires a positive
 iteration witness from a bounded literal and evaluation-prefix check. A proved-empty spread
-yields no edge at either confidence. See the known-gaps document for the proof's coverage.
+yields no edge at either confidence. An ordinary NameOnly rest edge uses
+`nameonly/call_nameonly` and requires the call site and target declaration to be in different
+files. See the known-gaps document for the iteration proof's coverage.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

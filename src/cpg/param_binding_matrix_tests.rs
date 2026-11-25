@@ -1022,7 +1022,7 @@ mod harness {
                 .iter()
                 .filter(|(_, kind)| kind == "loss-row")
                 .count(),
-            135
+            137
         );
         assert_eq!(rows.iter().filter(|r| r.unexecuted.is_some()).count(), 20);
         for id in ["x1-4", "x2-2", "x5-2"] {
