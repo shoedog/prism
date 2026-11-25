@@ -3,7 +3,12 @@
 mod join;
 #[cfg(test)]
 mod join_tests;
+mod loops;
 mod python;
+mod rebind;
+mod route;
+#[cfg(test)]
+mod route_tests;
 #[cfg(test)]
 mod syntax_tests;
 mod trace;

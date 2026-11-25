@@ -26,7 +26,7 @@ const CONTAINERS: [&str; 6] = [
 /// Calls spelled like these supply no R, shadowed or not.
 const EXCLUDED: [&str; 5] = ["len", "cap", "id", "delete", "clear"];
 
-fn span(n: Node) -> Span {
+pub(super) fn span(n: Node) -> Span {
     Span {
         start: n.start_byte(),
         end: n.end_byte(),
@@ -34,19 +34,19 @@ fn span(n: Node) -> Span {
     }
 }
 
-fn kids(n: Node) -> Vec<Node> {
+pub(super) fn kids(n: Node) -> Vec<Node> {
     n.children(&mut n.walk())
         .filter(|c| c.kind() != "comment")
         .collect()
 }
 
-fn is_field(parent: Node, field: &str, n: Node) -> bool {
+pub(super) fn is_field(parent: Node, field: &str, n: Node) -> bool {
     parent
         .child_by_field_name(field)
         .is_some_and(|f| f.id() == n.id())
 }
 
-fn peel_down(mut n: Node) -> Node {
+pub(super) fn peel_down(mut n: Node) -> Node {
     while n.kind() == "parenthesized_expression" {
         let named: Vec<_> = kids(n).into_iter().filter(|c| c.is_named()).collect();
         match named[..] {
@@ -103,7 +103,7 @@ pub(crate) fn scan_file(parsed: &ParsedFile) -> Vec<OwnerScan> {
     scans
 }
 
-fn text<'a>(n: Node, src: &'a str) -> &'a str {
+pub(super) fn text<'a>(n: Node, src: &'a str) -> &'a str {
     &src[n.start_byte()..n.end_byte()]
 }
 
@@ -154,7 +154,7 @@ fn collect_writes<'a>(
     }
 }
 
-fn leaves<'a>(n: Node<'a>, out: &mut Vec<Node<'a>>, nested: &mut bool) {
+pub(super) fn leaves<'a>(n: Node<'a>, out: &mut Vec<Node<'a>>, nested: &mut bool) {
     let n = peel_down(n);
     if CONTAINERS.contains(&n.kind()) {
         *nested = true;
