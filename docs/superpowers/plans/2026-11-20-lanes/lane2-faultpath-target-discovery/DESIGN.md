@@ -173,7 +173,7 @@ An inventory site becomes an ordinary targets row:
 | `expected` | `{ "property": "error_handled", "detail": "source callee: <callee text as written>" }` |
 | `dependency_hint` | `{ "kind": "<family>", "callee": "<resolved dotted callee>" }`, for example `requests.Session.send` for `s.send(req)`; for the three standard-library families the resolved callee is the canonical spelling of section 5.3 (`builtins.open`, `pathlib.Path.read_text`) |
 | `site` | `file`, `line` (first line of Python's callee expression), `symbol` (bare Python function name), `function_start_line`, `function_end_line`, `language: "python"`. Sections 5.4 and 6.6 define the source coordinates. |
-| `confidence` | `exact` when identity is proven by imports and constructor bindings (root identity, routes R1 to R3); `nameonly` when a type annotation is part of the proof (routes R4, R5) |
+| `confidence` | `exact` when identity is proven by imports and constructor bindings (root identity, R1 or R2). R4/R5 require the annotated class and a matching construction witness for `nameonly` (§6.4). R3 supplies diagnostics only |
 | `tier` | `asserted` when the confidence is `exact` and the file's parse quality is `clean` (the schema's rule); `candidate` otherwise |
 | `severity` | `info` |
 | `description` | `<resolved dotted callee>: dependency call site` |
@@ -233,15 +233,16 @@ use the first applicable cause in this closed order.
 | Cause | Evidence |
 |---|---|
 | `star_import` | A syntactic wildcard import anywhere in this file. |
-| `shadowed_root` | A non-import binder or import of a different, unrelated library hides a table spelling, competing root bindings survive Q12, or a namespace write invalidates the root. Resolve a sole import of a candidate table path under the locality and availability cells below (§6.2). |
+| `shadowed_root` | A non-import binder or unrelated absolute import hides a table spelling, competing root bindings survive Q12, class lookup has competing outcomes, or a namespace write invalidates the root. A sole tied relative import goes to `repository_local_module`. Resolve a sole import of a candidate table path under the locality and availability cells below (§6.2). |
 | `not_imported` | No binding occurrence for the candidate name is visible to lexical lookup, and builtin fallback does not apply. |
 | `repository_local_module` | A relative import or a module/package for the imported root found by the §6.2 lookup. |
 | `binding_unavailable` | The sole effective binding is type-only at an executable use, or has no available occurrence before this use in the same local execution scope (§6.2). |
 | `member_rebound` | A modelled write or delete hits a member or prefix required by the chosen callable, including bare builtins and receiver methods (§6.2). |
 | `receiver_not_unique` | More than one binding of the tied receiver name or more than one modelled write of the instance attribute. |
-| `annotation_conflict` | The R4/R5 declaration and the bounded evidence for the value name different listed classes (§6.4). |
+| `annotation_conflict` | The R4/R5 value witness contradicts the declaration (different listed class or known non-instance, §6.4). |
 | `helper_unannotated` | A same-file helper tied by a returned constructor lacks an admissible return type. |
 | `helper_not_admissible` | A tied helper fails the definition, visibility, decorator, generator or await conditions of section 6.4. |
+| `receiver_value_unproven` | A tied R3 field has no admitted instance proof, or a tied R4/R5 declaration lacks the §6.4 construction witness. Apply after all causes above. |
 
 The document carries one warning per file with counted calls:
 `inventory: identity unproven: <file>: <n> (<cause>: <k>, …)`, causes in the table's order, zero counts
@@ -289,15 +290,15 @@ selection and admission policy.
 
 **Receiver routes.** First try a proven root path in the table. For a method on an instance use the first
 admissible route below. Verify the method in the chosen class's list. The constructor or annotation is
-resolved where it is written. All five routes apply to the listed HTTP and standard-library classes.
+resolved where it is written. The same admission and diagnostic rules apply to HTTP and standard-library classes.
 
 | Route | Evidence | Grade |
 |---|---|---|
 | R1 | The receiver expression is the listed constructor call itself. | exact |
 | R2 | A single name binding assigns the constructor result or takes the matching context-manager target (6.3). | exact |
-| R3 | A single modelled store of the constructor result in the instance attribute of the owning class (6.3). | exact |
-| R4 | A single parameter or local annotated assignment gives one admissible class (6.4). | nameonly |
-| R5 | A single local assignment calls one visible same-file module helper with an admissible return annotation, with matching await form (6.4). | nameonly |
+| R3 | A constructor store on the owning instance field ties a diagnostic. Positive field inference is deferred (§6.3). | no row |
+| R4 | Local annotated assignment with the matching, constructor-backed helper result in §6.4. A parameter alone ties a diagnostic. | nameonly |
+| R5 | A single local assignment calls one visible same-file module helper with an admissible return annotation, matching await form and constructor-backed return (§6.4). | nameonly |
 
 ### 5.4 Site rules
 
@@ -387,16 +388,18 @@ docs/contracts/targets-1.1.schema.json             vendored, byte-identical to t
 
 This is the design of record for `tests/targets_inventory/rows.jsonl`. Join the sibling
 `row-verdicts.jsonl` by `id`. Its `want` is the required result and its `rule` identifies the
-deciding provision. The 730 IDs comprise 293 HTTP root, 265 HTTP receiver and 172 standard-library
-expectations. `keep` and `change` compare the final want with the checked-in matrix. Join the oracle
-on fixture, line and member ID. Its observations describe the binder and guard. Both reviewers must
-approve within the two-round cap. A second rejection goes to ORCHESTRATION section 8.
+deciding provision. Of 760 verdicts, 730 join to the pinned matrix (635 keep, 95 change).
+The 30 `add` records carry complete fixture source for materialisation after approval. Across the
+ledger the group counts are 304 HTTP root, 282 HTTP receiver and 174 standard-library expectations.
+The supplied oracle covers the existing IDs only. §6.8 distinguishes observed and pending results.
+Round 2 exhausted the ordinary cap. Both reviewers now have one escalation review. Either rejection
+stops Stage D at this slice for the owner before transcription.
 
-| Input to the round-1 fold | SHA-256 |
+| Pinned input / amended ledger | SHA-256 |
 |---|---|
 | `tests/targets_inventory/rows.jsonl` at `cd1d776b70be` | `fd9531229cfb2d1b9f62df77bb8b4905180cacab41f17c23455f742bc640fbb1` |
 | Supplied `oracle/site-oracle.jsonl` (714 fixture lines) | `16728a9d7a10838be433303c7bbdb7f879c9727f44bcc5cfb9c3bcf44c356b63` |
-| Sibling `row-verdicts.jsonl` (679 keep, 51 change) | `58928b1a46f22d420b9be39ec2b280465109c2cb9d95a24d73f308ad537e35ef` |
+| Sibling `row-verdicts.jsonl` (635 keep, 95 change, 30 add) | `25d5ba510c6ec58859997756e317547badee15e10d0cc796ffdeaddb8c93871d` |
 
 ### 6.1 HTTP table and route retention
 
@@ -424,8 +427,8 @@ The lookup is exact after import resolution. For example, `requests.api.get`, `S
 `urlretrieve` (tr2-12) remain discoverable even without a matching consumer fault. The other three
 families use the canonical list in 5.3, including its three backports and the separate `Path.home` kind.
 
-The stage M denominator includes every listed HTTP site, including unproven sites. Counts from
-`census/CENSUS.md` give the following shares. The two R2 forms each account for one Black site.
+The stage M denominator includes every listed HTTP site, including unproven sites. The four
+`census/sites-*.jsonl` files give the following shares. The two R2 forms each account for one Black site.
 
 | Tie | httpie (7) | Saleor (2) | Superset (25) | Black (2) |
 |---|---:|---:|---:|---:|
@@ -437,7 +440,9 @@ The stage M denominator includes every listed HTTP site, including unproven site
 | R5 annotated helper | 1/7 | 0/2 | 0/25 | 0/2 |
 | Other | 0/7 | 0/2 | 12/25 | 0/2 |
 
-R4's 4% is a parameter in Superset. R5's 14.29% is the required `httpie/client.py:114` site.
+The Superset R4 parameter accounts for 4% and lacks an admissible value witness. The httpie R5 tie
+at `httpie/client.py:114` accounts for 14.29%. Its ledger entry records the annotation, with no helper
+body or write evidence. S2b must replay §6.4 on the pinned source. A failed proof leaves G-overlay unmet.
 Root identity covers the other overlay HTTP site at `update_warnings.py:44`. Only R1 and R3 as
 whole routes qualify for the optional under-2%-in-every-corpus cut.
 
@@ -448,10 +453,9 @@ whole routes qualify for the optional under-2%-in-every-corpus cut.
 | HTTP membership | Use only patchable callees. This drops the measured urllib population. | Declined |
 | HTTP membership | Maintain the explicit module and per-class lists above. Additions require an entry and a fixture. | Chosen |
 | Routes | Drop R1. This removes h10 and introduces a family-specific exception for direct construction. | Declined |
-| Routes | Drop R3. This removes h07 and the supported same-class store pattern. | Declined |
-| Routes | Keep R1–R5. R1 also handles f01d/e and needs no name index. R3 reuses the target module's existing class-owner concept but requires an attribute-write census. | Chosen |
-| Stdlib class routes (Q13) | Restrict to constructors. This loses tr3-24–26, sl1-65 and as1-28. | Declined |
-| Stdlib class routes (Q13) | Use R1–R5 on `pathlib.Path`, `configparser.ConfigParser` and `configparser.RawConfigParser`. Annotation evidence costs a candidate-grade row and downstream witnessing. | Chosen |
+| Routes | Defer positive R3. Even the unconditional field pattern in h07 loses its hint. No Stage M HTTP site uses it. Retain tied field diagnostics. | Chosen in escalation |
+| Routes | Keep R1/R2 and constructor-backed R4/R5. A default or parameter type cannot establish the supplied value. | Chosen in escalation |
+| Stdlib class routes (Q13) | Use the same rules for `pathlib.Path`, `configparser.ConfigParser` and `configparser.RawConfigParser`. This keeps the Path helper in tr3-26. Restricting to direct construction would lose it. | Chosen |
 
 ### 6.2 Root identity and lexical scope
 
@@ -467,10 +471,18 @@ well as in a clean file.
   `import a.b as x` binds `x` to `a.b`. A from-import binds the imported member, under its alias
   when present. This admits o01–04 and o08 and excludes sl4-05's doubled `request`. Identity describes
   the qualified call if reached. It does not require running imports to check which submodules are loaded.
-  Check the actual imported top-level name for `root.py` or `root/__init__.py` under every site
-  ancestor up to and including the repository root, and under `<repo>/src`. Check the filesystem
-  independently of the selected file set, including the site's own file. Relative imports are local. An alias's spelling or a sibling module with no import
-  is insufficient (as1-01, as2-04, as4-10). Bare builtin lookup needs no import of `builtins` (as5-15).
+  For absolute imports check the actual imported top-level name for `root.py` or
+  `root/__init__.py`. Inventory passes a deduplicated list to `repo_has_local_module`: the repo
+  root, conventional `<repo>/src` if present, and site ancestors below the repo root that lack
+  `__init__.py`. Inspect the filesystem even outside `--files`. A sibling of the importer inside
+  a regular package does not enter the absolute search through that package directory.
+  Hence `import json` at `httpie/output/formatters/colors.py:183` resolves `json.loads` to the
+  `parse` table entry at `exact` despite `httpie/output/formatters/json.py`, as the census records.
+  For absolute `builtins`, CPython's builtin module takes precedence, including qualified,
+  aliased and from-import uses. Lexical rebinding, relative imports and member writes still apply.
+  Bare builtin fallback requires no import. Echo passes its original ancestors (including packages)
+  and keeps its original admission policy. The common helper searches exactly the caller's roots.
+  The corpus's actual import roots determine P2 credit (§6.7).
 - The nearest binding scope decides. Count parameters, import items, function/class definitions, simple
   and chained stores, annotated and augmented stores, destructuring and starred targets, loop, context
   and exception targets (also the async forms and `except*`), assignment expressions, deletions and
@@ -484,6 +496,21 @@ well as in a clean file.
   looking for a free name. Code immediately executing in a class can use its class namespace. Nested
   classes skip outer class namespaces in their bodies. Account for Python's implicit `__class__` cell
   and an annotated class's own `__annotations__` mapping (as1-02, as5-12/13).
+- For immediate class lookup, consider the class namespace **at this expression**. An earlier
+  unconditional simple store/import establishes the local slot. A missing key (including after
+  deletion) takes Python's fallback. For a name bound by the class block this is globals then
+  builtins, even inside a function. A genuine free variable can use its enclosing cell.
+  Preserve explicit global/nonlocal declarations. An annotation without a value leaves the key
+  absent. For a conditional store, import or delete, retain both reachable slot states, including
+  absence. Propagate simple straight-line statements and union arm exits; when availability is
+  uncertain include absence and every possible local value. A populated class slot hides fallback
+  only on that path. Accept only if every possible lookup proves the same canonical identity and
+  passes locality and write checks. Different or unresolved alternatives on a tied spelling give
+  `shadowed_root` (wildcard still wins). This join handles one conditional import and its fallback;
+  it does not coalesce repeated conditional imports under Q12.
+  Apply the rule to expressions evaluated in the class, including inner class headers, defaults,
+  decorators and comprehension first iterables. Methods and comprehension bodies keep their own
+  lookup. See esc11–13 and esc26, with as3-01, sl2-05 and tr7-01 as straight-line controls.
 - A comprehension's first iterable uses the surrounding scope. Its targets, later iterables, filters and
   result expression use its implicit scope and skip a surrounding class namespace. Its walrus binds the
   containing non-comprehension scope. A lambda's parameters and body-local walrus stay in the lambda.
@@ -513,23 +540,57 @@ well as in a clean file.
   Also refuse a sole local value binding textually later than its use in the **same execution scope**.
   These give `binding_unavailable` (o11, sl3-02). This source-order check includes loops. Do not
   order a deferred body against module or enclosing-function initialisation or another function's
-  global setup. Other conditional imports are potential bindings. A type-only import can supply the
+  global setup. Other conditional imports are potential bindings subject to the class fallback rule. A type-only import can supply the
   static class in a string, postponed or unevaluated local annotation (as1-14). An eagerly evaluated
   signature still needs a runtime-visible class or wrapper at its definition.
 
 **Same-file writes (Sol 2–3, Opus W1).** For each proposed proof, build the paths it actually reads.
 Compare stores and deletes to these paths using binding owners and canonical import paths. A hit on
-the path or a required prefix invalidates the proof. A sibling such as `self.session.headers` leaves
-`self.session.get` eligible (sl4-09). Apply this before grade and shape on every route. Index writes
-in all scopes of this file, across branches and before or after use. Resolve each write at its own
-site. A later write can veto a from-import taken earlier (wf26/27). This conservative loss avoids a
-reaching-definitions or snapshot analysis.
+a required slot invalidates proof only if it can affect the read of **that slot**.
+Resolve each write at its own binding site. Check this before grade and shape. A sibling member
+alone supplies no veto. Use the following bounded ordering rules.
+
+1. A from-import reads the export slot at the import statement and stores the object in a new
+   binding. A later replacement of the export cannot alter that completed capture. Check subsequent
+   writes to the captured name and to slots read *on* the captured object separately. A captured
+   class still uses its current construction protocol and instance method. A captured module still
+   uses its current members. Preserve the capture point and object prefix across aliases. wf26/27,
+   esc19/20/28 distinguish these cases.
+2. In straight-line module initialisation, order direct suite statements within that initialisation.
+   In a function an available local import, constructed value or qualifying with-target binds a
+   fresh local name for this invocation (including a §6.4 helper result). A later reassignment or
+   deletion of that name cannot reach an earlier read when its binding dominates the read, both are in that activation, and no back-edge from the
+   write reaches the read without a fresh binding. The simple proof admits sequential statements
+   of a loop-free suite, including the direct body of a qualifying with for its own fresh target.
+   Apply the same ordering to writes on the freshly constructed instance when it is unescaped
+   (its only uses up to the call are the tracked binding and member read). Apply this exception before
+   counting competing occurrences (n06, wf38, esc29). A later write to the referenced module
+   itself still has the persistent lifetime in rule 3. A local declaration such as `del open` still affects lexical lookup
+   throughout the function (wf25).
+3. A persistent object can carry a write across invocations, even a later statement in the same
+   function. Test the lifetime of the **written slot**. A local capture of a module member can
+   see a prior invocation's write to the module (esc21, wf10). An R3 field persists (wf43).
+   Treat branches, loops, deferred bodies, captures, redirections and unknown order conservatively
+   when the simple proof above cannot exclude reach. Record the uncertain edge. This veto alone
+   cannot establish a parity exception.
+
+| Slot and time of read | Required checks |
+|---|---|
+| Root path | Check each imported slot at import/capture or live lookup as appropriate. A class-qualified `C.m` root reads the class member directly. It never constructs an instance or enters a context (esc25). |
+| R1/R2 | At construction check the selected class binding, `C.__new__` and `C.__init__` (a replacement initializer can install an instance method, esc30); at instance-method lookup check `C.__getattribute__`, `C.m` and the selected instance member. R2 context targets also read `C.__enter__` or `C.__aenter__` at matching entry. An ordinary constructor never reads these entry slots (esc06–10). |
+| R3 | Apply the existing name/field/selected-member diagnostics, then withhold the field hint (§6.3). |
+| R4/R5 | Apply the construction checks at the witnessed helper return or temporary creation and instance lookup at the use. Attach writes through the helper's returned temporary to that object. Check the declaration's own root at its annotation site. |
+
+All protocol checks use the same resolved write forms and one-hop aliases as selected methods. A matching protocol write gives `member_rebound`.
+Writes on other members or protocols not used by this route do not veto it. These are local
+inventory admission tests on explicit syntax. The repository-wide static-binding grades in
+`CLAUDE.md` retain their meaning. No inventory hint certifies runtime dispatch.
 
 | Read by the proof | Effect of a matching write |
 |---|---|
 | Deciding module name (including a literal `globals()["name"]` key), or the module's reserved `__builtins__` binding for bare fallback | Count a competing root binder as `shadowed_root`. A new binding for a named receiver participates in receiver uniqueness. |
-| Imported member or prefix, including a captured from-import, the builtin member behind both `open` and `b.open`, or the class/constructor and selected class method behind R1–R5 | `member_rebound`, including an imported class alias writing `Class.get` while the read uses `requests.Session`. |
-| R2/R4/R5 receiver in its deciding scope, or the exact-class R3 field | A second write to the receiver name or R3 field gives `receiver_not_unique`. A write to its selected method gives `member_rebound`, including `self.client.get = v`, `del s.get` and literal setters. Compare owners across captures and redirections. |
+| Imported member or prefix, at its read/capture point, the builtin member behind both `open` and `b.open`, or the class/constructor and selected class method behind R1–R5 | `member_rebound`, including an imported class alias writing `Class.get` while the read uses `requests.Session`. |
+| R2/R4/R5 receiver in its deciding scope, or the exact-class R3 field | A competing write reaching the receiver name or R3 field gives `receiver_not_unique`. A write to its selected method gives `member_rebound`, including `self.client.get = v`, `del s.get` and literal setters. Compare owners across captures and redirections. |
 
 Recognize attribute store/delete targets (including augmented stores and binding targets), unshadowed
 builtin `setattr`/`delattr` with a literal member, and stores/deletes of a literal key in
@@ -542,11 +603,11 @@ Accept import aliases. For **write detection only**, also recognize a simple nam
 `self` in the same file. Key the alias by lexical binding and the RHS by its own lookup. This one hop
 handles as4-15 and wf05/36/41/45/53. It supplies no new positive call route.
 
-The following writes are outside the closed-world proof. A surviving exact grade describes the modelled
+The following mechanisms are outside the inventory write index. A surviving exact grade describes the modelled
 binding. A source-disproved HTTP positive still counts as an error in G-precision.
 
 1. Other-file writes, attached methods, subclass overrides and descriptor dispatch, including the
-   supplied subclass of as1-20. Each R3 class definition is a separate owner.
+   supplied subclass of as1-20. R3 records a field tie and withholds its hint for every owner.
 2. A write through another receiver whose identity would require argument flow, a second assignment
    alias hop, a container lookup or equality of runtime objects. This includes `other.client` in the
    owning class or its methods and `owner.session` in wf40. A qualifying alias of the actual `self`
@@ -554,23 +615,24 @@ binding. A source-disproved HTTP positive still counts as an error in G-precisio
 3. Computed keys or member names, a shadowed reflection helper, arbitrary mapping methods, and
    namespace mutations beyond the literal forms above (wf12, e07, tr3-20). Do not execute source.
 4. Runtime import hooks, `exec`, changes to `sys.modules` and mutations of a helper's runtime
-   `__annotations__` (as4-24). R5 reads the source declaration.
+   `__annotations__` (as4-24). R5 reads the source declaration. The selected protocol list above
+   bounds inventory checks. Arbitrary metaclass behavior, unlisted descriptors and effects inside
+   called code have no general AST proof here. Record any evidenced mismatch at the product gates.
 
 | Explicit-write decision | Alternative and consequence |
 |---|---|
 | Chosen | Compare the selected name, field, class and callable paths. wf01–53 cover root writes (01–12), builtin namespaces (13–25), from-import capture (26–28), constructor/class prefixes (29–34), receiver names, fields and methods (35–47) and class methods (48–53). The ledger identifies the deciding slot for each row. |
 | Declined | Check only the imported spelling. Bare builtins and inferred methods can point at the replacement. |
-| Declined | Veto every write on any similarly named receiver. Unrelated owners (wf40) and sibling members (wf03, sl4-09) lose valid rows. |
+| Declined | Veto every write on any similarly named receiver. Sibling members such as wf03 lose valid rows. Unknown receiver aliasing in wf40 motivates deferring field hints. |
 
 | Repository-local lookup | Alternative and consequence |
 |---|---|
-| Chosen | Site ancestors and the conventional repository `src/` root. `repo/app/main.py` importing `requests` with `repo/src/requests/__init__.py` gives `repository_local_module`, even under `--files app/main.py`. No installation lookup or new flag. |
+| Chosen | Non-package site ancestors, repository root and conventional `src/`, with absolute builtin precedence. `repo/app/main.py` importing `requests` with `repo/src/requests/__init__.py` gives `repository_local_module`, even under `--files app/main.py`. No installation lookup or new flag. |
 | Declined | Site ancestors alone miss that package. Treating every directory as an import root would let an unrelated nested fixture or vendor tree hide the external library. |
 | Declined | Refuse every absolute import without a declared loader search path. The current interface has no such declaration, so ordinary external imports would lose their proof. |
-| OWNER OPTION | Accept repeatable declared import roots for sibling or multiple nonstandard source trees. These layouts are outside the default guarantee. Where a corpus declares such a root, compare the actual origin before crediting any affected identity. Escalate a collision to the owner before admitting the row. |
+| OWNER OPTION | Accept repeatable declared import roots for sibling or multiple nonstandard source trees. These layouts are outside the default guarantee. Where a corpus declares such a root, compare the actual origin before crediting any affected identity. Preserve even an erroneous emitted row in the raw inventory. A collision with the active local origin fails identity validation and goes to the owner. The default CLI cannot take the missing root. |
 
-The Q12 review reports 131 `os.*` calls in `saleor/settings.py`, which imports both `os` and
-`os.path`. The Stage M site ledger contains 122 tied shadowed calls there, 121 module-level and
+`saleor/settings.py` imports both `os` and `os.path`. Its Stage M ledger contains 122 tied shadowed calls, 121 module-level and
 one in a function. The other shadow counts are Superset 15, httpie 1 and Black 1, all in functions,
 with no repeat-import case identified. Coalescing the supported same-package form corrects the root
 diagnosis even for module-level calls, whose next test is shape. These are census counts before the
@@ -592,12 +654,12 @@ change. Corpus recall under the amendment awaits measurement.
 
 Resolve the constructor at its own expression and validate the selected class's method. Grouping
 parentheses are transparent to identity. A mere `Session` spelling cannot prove a constructor.
-An independent success can explain a library-looking receiver (sl2-21, as3-34).
+An independent constructor proof can explain a library-looking receiver (sl2-21). A parameter declaration alone fails in as3-34.
 
 - **R1** accepts exactly a call to the constructor as the method receiver, including imported aliases.
   Nested method results, `(x := C())`, `super()`, subscripts and context-entry calls do not qualify.
   The constructor call still competes for the line anchor (h10, sl2-16).
-- **R2** accepts a single simple name assigned `C(...)` by an assignment statement, including an
+- **R2** accepts a single effective binding at the read (§6.2) of a simple name assigned `C(...)` by an assignment statement, including an
   annotated assignment or a direct target of chained assignment. Unpacking and walrus targets count
   as bindings but do not establish this route. The name can live in the using function, an enclosing
   function or the same file's module. A module receiver with a redirected second write fails uniqueness (as4-11).
@@ -606,7 +668,7 @@ An independent success can explain a library-looking receiver (sl2-21, as3-34).
   For `async with`, admit `httpx.AsyncClient` and `aiohttp.ClientSession`.
   Count context items separately, including in parenthesised/multi-item forms. The bound object's
   identity persists after the suite (as2-13). Wrapping a context in another call does not qualify.
-- **R3** accepts a direct `self.attr = C(...)` store (also annotated with a value or a direct chained
+- **R3** recognizes a diagnostic tie from a direct `self.attr = C(...)` store (also annotated with a value or a direct chained
   target). Require literal `self` bound to the instance parameter of the owning method, or a lexical capture of that parameter. Count writes
   in methods of that exact class definition, including a nested body that captures the same `self`.
   A nested class's own instance parameter belongs to that other class. Count plain, annotated-with-value,
@@ -616,7 +678,11 @@ An independent success can explain a library-looking receiver (sl2-21, as3-34).
   `self.attr.headers` leave the attribute binding intact (sl5-13, sl4-09).
   Apply the §6.2 write rule to this field and its selected method, including a one-hop alias of
   the owning self and literal instance-dictionary writes (as4-15, tr3-21). Owners and write
-  forms beyond that rule have the numbered exclusions in §6.2 (e07, tr3-20, as1-20).
+  forms beyond that rule have the numbered exclusions in §6.2. Positive R3 is deferred for the
+  entire release, including adjacent store/use. On a tied field keep the first applicable §5.2
+  cause, otherwise count `receiver_value_unproven`. This covers parameterised setters (e07,
+  tr3-20), subclass-supplied values (as1-20, esc27) and a function receiving the owner (wf40).
+  No caller enumeration or assumption that an instance has run this class’s initializer is required.
 
 | Decision | Option and main cost | Choice |
 |---|---|---|
@@ -624,7 +690,7 @@ An independent success can explain a library-looking receiver (sl2-21, as3-34).
 | R1/R2 | Admit the direct constructor and single name/context bindings above. Wrapped or computed receiver results are lost. | Chosen |
 | R3 | Count only assignment statements. This misses literal deletion in as2-18. | Declined |
 | R3 | Model every possible attribute mutation. This needs alias and cross-file analysis. | Declined |
-| R3 | Count explicit same-owner field writes in every §6.2 spelling. Writes through unrelated receiver bindings and subclass overrides remain a precision limit. | Chosen |
+| R3 | Keep explicit same-owner field diagnostics. The consumer gets no positive field hint, including for h07. | Chosen |
 
 ### 6.4 Annotation and helper routes R4 and R5
 
@@ -641,21 +707,20 @@ string denoting the class or whole allowed expression are admitted, including ad
 alias expansion or arbitrary subscription. Other unions, `typing.Union`, `Annotated`, generics,
 casts, type comments, type aliases and subclasses provide no type proof.
 
-- **R4** accepts a positional (including positional-only), keyword-only or ordinary instance parameter,
+- **R4** tests a positional (including positional-only), keyword-only or ordinary instance parameter,
   or a function-local simple annotated assignment **with a value**, as the receiver name's sole
   binding. Varargs and kwargs bind collections. An unannotated default alone supplies no type.
   R2 wins when the assignment itself proves a constructor, even against a different annotation
   (tr5-03, sl5-11, wf60/62/65/68). Use that class's table. Otherwise consider R4 before R5,
-  subject to the conflict test below. A second write defeats the sole binding
+  subject to the conflict and positive-witness tests below. A second write defeats the sole binding
   even if it uses the annotated constructor (as5-14).
-- **R5** accepts a sole function-local `v = make(...)`, or `v = await make(...)` for an async helper.
+- **R5** tests a sole function-local `v = make(...)`, or `v = await make(...)` for an async helper.
   An annotated simple assignment offers its RHS to R5 if R4 has no admitted annotation (wf64/66).
   The callee is a bare lexical name resolving to exactly one module-scope function definition in the
   same file, including one under a module-level conditional. Its module binding must be unique, and no
   visible binding may hide it at the call. Unrelated same-spelling locals have no effect (tr4-03).
   A redirected global write, a shadowing parameter, a nested helper, a decorator, a generator or a
-  mismatch between `await` and `async def` disqualifies it. A later module definition and a recursive
-  call can qualify. Qualified calls, inline helper receivers and a split call/await cannot.
+  mismatch between `await` and `async def` disqualifies it. A later module definition or a recursive call can resolve the helper name. The value test below applies. Qualified calls, inline helper receivers and a split call/await cannot.
 - Test generator status in the helper's **own** Python compiler scope, including unreachable yield,
   `yield from`, a nested definition's evaluated default, a nested class base and a yield flag in
   a local annotation. A nested generator body and an async comprehension alone do not make the helper
@@ -669,7 +734,10 @@ class, if any, and direct `return C(...)` expressions in that helper's own body.
 compare its declaration with those same return expressions. Resolve each constructor at the return
 site, including body-local imports (as2-24). Stop at that helper. Count any different proven listed
 class as a conflict, including one of several direct returns. No body execution or second helper hop.
-An opaque value, absent default or return without a listed constructor supplies no contradiction.
+A literal or display known to construct a non-instance also contradicts a listed class (dict, list,
+set or tuple display, string, bytes or numeric literal, boolean or None). For nullable syntax,
+None is consistent but supplies no instance witness. An absent default, opaque value or unanalysed
+call supplies no contradiction. For helpers, inspect returns only in their own compiler scope.
 
 After a positive R2 construction, R4/R5 cannot relabel its class, even if the chosen class lacks the
 method. When comparing annotation and helper evidence, test the method against both classes. If
@@ -678,18 +746,33 @@ it belongs to either, a contradiction vetoes **all annotation routes for that bi
 is no receiver-method tie. No fallback from the conflicting local
 declaration to the helper declaration in sl2-22. Apply this even when a base and subclass share the
 implementation: the table names distinct canonical receiver paths for `RawConfigParser` and
-`ConfigParser` (as1-27, wf72). No conflict means an admitted declaration still gives `nameonly`.
-A returned constructor on its own can establish a diagnostic tie, never a new positive R5 proof.
+`ConfigParser` (as1-27, wf72). A known non-instance gives the same cause for a tied method.
 
-| Annotation evidence decision | Alternative and consequence |
+**Positive value test.** R2 takes precedence. An R4 parameter, including one with a matching
+constructor default, cannot establish what the caller supplied. A local R4 initializer must be a
+call to an admissible annotated helper (matching await form); for R5 the assignment must already
+select that helper. Resolve its declared and constructed classes at their respective source locations, including a temporary's constructor
+for the conflict test.
+Require agreement with the effective annotation and one of these witnesses in its own compiler scope:
+
+- Its sole return is the final, unconditional statement of the helper's suite, `return C(...)`.
+- The same sole final return reads a simple local. An earlier unconditional simple assignment in
+  that suite gives it `C(...)`. It has no other binding, alias, capture, escape or use except the
+  final return. Apply the constructor and method-slot checks in §6.2.
+
+Prefixes may raise. An alternative return, possible implicit return, opaque return, second factory hop
+or inferred return type cannot qualify. Apply §6.2 writes before acceptance. Matching declaration
+and value evidence earn `nameonly`, including when R4 wins over R5 (esc04). After the earlier causes,
+count `receiver_value_unproven` for an unsupported declaration. A known dictionary instead gives
+`annotation_conflict` (esc01/02/24). A caller overriding a matching default (esc03) cannot make
+the parameter a positive. The grades retain their existing meanings.
+
+| Round-2 annotation exposure | Escalation disposition by ID |
 |---|---|
-| Chosen | Preserve exact direct construction and veto contradictory named classes on candidate-grade routes. Defaults can disprove an unconditional hint but cannot prove the caller used the default. |
-| Declined | Trust the declaration through visible contradictory construction. sl2-22, as2-19 and as2-24 would advertise the other HTTP library. |
-| Declined | Require a positive construction witness for every declaration or promote a helper's return expression to an exact proof. The first drops declaration-only parameters. The second would assume a particular return path. |
-
-The review's other exposed declarations retain their grade: h08, e10b/c/d, tr1-12, tr3-24/25,
-sl1-35/36/65, sl2-25, sl4-11, as1-14/16/28, as2-20/21, as3-18/34, as5-10 and the typed
-occurrence in as1-19. None contains a different proven listed class at the selected binding.
+| Matching helper return, retain `nameonly` | h09, e09c, tr2-57/58, tr3-26, tr4-03, tr5-04, sl1-38/39/41, sl3-17, as3-17/22, as4-24, as5-06, wf64/66 |
+| Parameter or opaque initializer, withhold hint | h08, e10b/c/d, tr1-12, tr3-24/25, sl1-35/36/65, sl2-25, sl4-11, as1-14/16, as2-20/21, as3-18/34, as5-10. For as3-34 the parameter also hides a table-spelled root, so `shadowed_root` wins. |
+| Opaque or multiple helper returns | as1-28, as3-16 lose their hint. |
+| Typed unsupported occurrences | sl4-14 becomes a counted omission. as1-19 and as2-27 each retain one constructor occurrence and count the parameter separately. |
 
 | Decision | Option and main cost | Choice |
 |---|---|---|
@@ -697,9 +780,9 @@ occurrence in as1-19. None contains a different proven listed class at the selec
 | Annotation grammar | Resolve arbitrary typing constructs. Containers and unions can describe multiple receiver identities. | Declined |
 | Annotation grammar | Admit the closed single-class grammar above. Other wrappers produce no R4/R5 proof. | Chosen |
 | Helper visibility (Q3) | Reserve the spelling throughout the file. An unrelated local in tr4-03 would revoke a real module binding. | Declined |
-| Helper visibility (Q3) | Require module uniqueness plus call-site visibility. This requires scope lookup and preserves the httpie helper. | Chosen |
+| Helper visibility (Q3) | Require module uniqueness plus call-site visibility, then check the returned value. The census alone cannot certify the httpie helper. | Chosen |
 | Helper reach | Follow bodies, imported factories or multiple return hops. This requires interprocedural inference. | Declined |
-| Helper reach | Use one bare call and its declared return class at candidate grade. The declaration can be imprecise. | Chosen |
+| Helper reach | Use one bare call, an admissible return annotation and the construction witness above at candidate grade. Opaque or multiple returns lose coverage. | Chosen |
 
 ### 6.5 Warning eligibility and precedence
 
@@ -713,12 +796,15 @@ ties that make an identity failure count. Count at most once per call occurrence
    A repository-local import under an explicit alias counts too (sl5-04). A nearer unrelated binder
    hides an out-of-scope alias (as1-02). A table-spelled root hidden by an unrelated import/assignment
    is a candidate (tr2-40, as1-40). When an actual import into a known table library resolves to a
-   different, off-table path, the call is simply outside the table (sl4-05, as1-25).
+   different, off-table path, the call supplies no root tie regardless of the import's availability
+   (sl4-05, as1-25, esc14). A later local `import urllib3 as requests` therefore gives plain `none`
+   at `requests.get` if no independent receiver tie applies.
 2. For a listed method, an inline R1 receiver `C(...).method` is tied by the constructor spelling
    or a visible explicit constructor import, even when root proof fails. Propagate its §5.2 cause
-   to the method. The constructor alone supplies no site. For a named receiver, require a binding
-   in the deciding scope in a position R2, R4 or R5 would admit, waiving **only** the sole-binding
-   test to establish position. For R3 require a qualifying literal construction store on the owning
+   to the method. The constructor alone supplies no site. For a named receiver use the binding
+   positions in §§6.3–6.4, including an R4 declared parameter or local assignment with a value.
+   Require a listed method and a constructor, annotation or helper tie. Waive uniqueness and defer
+   the positive value test to proof; neither is required to establish the diagnostic tie. For R3 require a qualifying literal construction store on the owning
    self field, again allowing competing writes for diagnosis. Check candidate class/method membership
    and then propagate the constructor or annotation root failure (Q5). A context must have the
    admitted constructor and sync/async pairing even to tie: `async with Path(...) as p` alone gives
@@ -744,7 +830,8 @@ These restrictions also cover sl1-64, as2-26, sl5-10 and the tuple, walrus and l
 
 | Deciding import and cause | Disposition |
 |---|---|
-| Chosen | A sole absolute table-library import that maps the call to a listed path supplies a candidate of **that** library. Hiding an outer import is normal lookup. Failure of its availability gives `binding_unavailable` (sl3-02), after any earlier applicable wildcard or repository-local veto. An available import resolving off-table supplies no root tie. Independent receiver routes still run. |
+| Chosen | A sole tied relative import goes to `repository_local_module` after any wildcard veto (o09, as2-28, as3-25). It cannot itself satisfy the unrelated-import `shadowed_root` predicate. Multiple competing binders remain subject to their own earlier cause. |
+| Chosen | A sole absolute table-library import that maps the call to a listed path supplies a candidate of **that** library. Hiding an outer import is normal lookup. Failure of its availability gives `binding_unavailable` (sl3-02), after any earlier applicable wildcard or repository-local veto. An off-table path under a table library supplies no root tie even before the import is available. Independent receiver routes still run. |
 | Declined | Count any hidden outer binding as shadowing. That misdiagnoses the later local import in sl3-02. A deciding unrelated binder or multiple non-equivalent binders still gives `shadowed_root` on a table spelling (as1-18). |
 
 On ties use the **5.2 table order**, after attempting applicable proofs. Thus sl2-21 admits
@@ -755,13 +842,15 @@ A star import wins over both. An extra receiver binding wins over helper faults 
 admissible return annotation wins over a decorator on the same tied helper (tr4-02). Identity failure
 wins over a frame or parse failure (as2-09). The unsupported reasons retain the §5.2 order.
 For a tied annotation conflict, competing receiver writes take precedence, followed by
-`annotation_conflict`, then the two helper causes.
+`annotation_conflict`, the two helper causes, then `receiver_value_unproven`.
 
 Grouping a proven unsupported call uses the 5.2 key, including the **bare symbol string**, independently
 of grade and source alias. Keep each occurrence's grade and file parse quality through confidence
 and tier filtering. Group surviving occurrences, recompute their count and use the highest surviving
-confidence and its corresponding §5.1 tier for the group. Drop empty groups. as1-19 contributes two
-without a filter and one exact occurrence under `--min-confidence exact`. Apply severity to these
+confidence and its corresponding §5.1 tier for the group. Drop empty groups. esc22 contributes two
+without a filter and one exact occurrence under `--min-confidence exact`. In as1-19 and as2-27
+one constructor occurrence survives both settings. Each fixture also counts one `receiver_value_unproven`
+for its parameter, independent of confidence filtering. Apply severity to these
 rows and count removed groups once. Diagnostic warning counts for unproven identity have no grade.
 Two calls in different functions with the same bare symbol can therefore group
 on one line (as3-31). Sites, unsupported groups and unproven call occurrences are distinct counts.
@@ -775,7 +864,7 @@ in that order, with no zero causes. as4-03/04 contribute two occurrences on a si
 | Failed proofs (Q5, Q11) | Discard explicitly tied aliases and failed constructors. A known provenance failure would disappear from the counts. | Declined |
 | Failed proofs (Q5, Q11) | Require the ties above, propagate the earliest applicable 5.2 cause and distinguish an absent root from a bound one. This requires carrying evidence through a failed route. | Chosen |
 | Diagnostic vocabulary | Reuse one shadowing bucket for time-of-use and member writes. It cannot explain whether the import or its callable failed. | Declined |
-| Diagnostic vocabulary | Keep six unsupported reasons. Add binding_unavailable, member_rebound and annotation_conflict to the seven original identity causes. T-1 and the producer use the same ten entries. | Chosen |
+| Diagnostic vocabulary | Keep six unsupported reasons. T-1 and the producer use the eleven ordered §5.2 causes, ending in `receiver_value_unproven`. | Chosen |
 | Warning totals (Q10) | Use the per-row lower bound alone. It cannot detect a duplicate warning or double counting. | Declined |
 | Warning totals (Q10) | Retain the row test and check the exact histogram in the existing aggregate test. It needs one multi-cause fixture assertion. | Chosen |
 
@@ -823,8 +912,11 @@ own scope**, including name, attribute and subscript targets. Thus `self.x: requ
 in a method contributes plain `none`. Also omit calls in annotations postponed by
 `from __future__ import annotations`, including signature and class annotations. Still visit the
 evaluated default, RHS and evaluated parts of assignment targets (sl1-27, as4-22). Static
-type spellings remain available to R4/R5. For the **binder's candidate set**, keep 5.4's specific
-local annotated-assignment exception and fallback when every candidate is such a call. Elsewhere use
+type spellings remain available to R4/R5. For the **binder's candidate set** apply §5.4 to every
+function-scope `AnnAssign.annotation`, whether the target is a name, attribute or subscript.
+If any other candidate covers the line, remove the annotation's calls, leaving evaluated target
+operands and RHS calls in competition. Otherwise keep the annotation candidates for binding;
+none can emit an executable site. In esc15/16 only `requests.post` on the RHS can win. Elsewhere use
 the syntactic key even for a postponed annotation. An unevaluated winner produces no row of its own.
 as1-14 and as4-22 test the distinction between type evidence and executable expressions. The packet
 has no consumer measurement for a postponed signature call competing with a default on the same line.
@@ -848,26 +940,27 @@ binder, never as a listed class. There is no PEP 695 matrix row or interpreter-p
 
 ### 6.7 Accepted losses and G-parity
 
-The verdict file is the per-ID loss register. Its 90 unsupported expectations represent groups, with
+The ledger has 313 site IDs. The remaining IDs form the per-ID loss register. Including the proposed fixtures, 90 unsupported expectations represent groups, with
 multiplicity in `want`. Ten lack a function body, 15 are in a class frame, nine in a lambda frame,
 five have a multiline callee, 43 lose the line anchor, and eight have an error in the owning definition.
 Keep their diagnostics. The frame, competing occurrence and parse-error cases lack a usable
 frame, line or bounds. §6.8 records the two bindable multiline exceptions for the owner. Runtime
 refusals of otherwise representable rows belong in the funnel.
 
-The 214 counted omissions break down as 9 `star_import`, 63 `shadowed_root`, 11 `not_imported`,
-7 `repository_local_module`, 2 `binding_unavailable`, 40 `member_rebound`, 48 `receiver_not_unique`,
-15 `annotation_conflict`, 5 `helper_unannotated` and 14 `helper_not_admissible`. Each row's cause identifies the missing evidence
+The 266 counted-omission verdicts comprise 9 `star_import`, 67 `shadowed_root`, 11 `not_imported`,
+7 `repository_local_module`, 2 `binding_unavailable`, 46 `member_rebound`, 46 `receiver_not_unique`,
+18 `annotation_conflict`, 5 `helper_unannotated`, 14 `helper_not_admissible` and 41 `receiver_value_unproven`.
+These are IDs. The mixed groups in §6.5 also have omitted occurrences. Each row's cause identifies the missing evidence
 in 5.2. Proving branch-specific values, trusting local shims or inferring undeclared returns would
 admit sites outside the chosen identity proof.
 
-The 90 plain `none` decisions are accounted for below. Some are negative controls, where there is
+The 91 plain `none` decisions are accounted for below. Some are negative controls, where there is
 no executable table call to recover.
 
 | Reason for plain `none` | Row IDs |
 |---|---|
 | No explicit call to the dependency. Subscripts, patterns, decorators applied implicitly, callables passed to higher-order functions, comments, literal text and non-executing annotation subtrees contribute no site. | f02, tr1-14, tr1-20, tr3-12, tr3-13, sl1-09, sl1-62, sl1-70, sl4-06, as1-29, as3-10, as4-21 |
-| Constructor alone or a qualified member outside the closed family/class table. Extending the table or equating re-exports changes the published family boundary. | n01, n02, tr2-74, sl1-44, sl4-05, as1-25, as1-34, as1-35, as2-11, as3-05 |
+| Constructor alone or a qualified member outside the closed family/class table. Extending the table or equating re-exports changes the published family boundary. | n01, n02, tr2-74, sl1-44, sl4-05, as1-25, as1-34, as1-35, as2-11, as3-05, esc14 |
 | No visible tie at the use. The spelling belongs to an unknown parameter, wildcard member, unrelated helper, comprehension local or implicit class binding. Guessing from `get` would include dictionary calls. | n03, n08, sl1-43, sl3-12, as1-02, as2-15, as5-13 |
 | A return, factory, descriptor, class attribute/default, different-file helper, attribute or callable alias, wrapper, operator, reflection, or intermediate result would have to be followed. R1–R5 stop at their stated expression or single binding. | sl1-42, sl5-09, sl5-10, sl5-12, sl5-14, as1-06, as1-11, as1-23, as1-33, as1-39, as2-14, as2-17, as2-25, as2-29, as3-03, as3-04, as3-21, as3-23, as3-26, as4-12, as4-13, as4-18, as5-07, as5-08, as5-11 |
 | The annotation is on a different target, is outside a function-local R4 binding, or would require narrowing, alias expansion, cast, comment, subclass, container-element or wrapper interpretation. No unique receiver type is admitted by 6.4. | sl1-37, sl1-64, sl2-24, sl3-18, sl4-12, as1-12, as1-13, as1-15, as2-26, as3-14, as3-19, as4-16, as4-17 |
@@ -883,9 +976,9 @@ in the denominator and the 95% floor applies **per corpus**.
 
 | Class | Required witness |
 |---|---|
-| P1. Competing or unavailable binding | Demonstrate an actual wildcard, competing deciding-scope occurrence, explicit namespace/member mutation, unavailable binding or non-unique receiver as specified by 6.2–6.5. Name the precise cause and exclude a successful alternative (e.g. R2 in sl2-21). |
-| P2. Relative or repository-local identity | Show the relative import or the imported name's module/package under a §6.2 lookup root. This includes re-exports of real stdlib functions from a local shim. |
-| P3. Indirect receiver or callable | Show one of these missing proof forms: assigned callable/module/object alias, constructor hidden in an inadmissible binding position, wrapper or method/operator result, attribute outside literal R3, descriptor/container/subclass receiver, dynamic import/member lookup, indirect or cross-file helper, same-file helper missing a usable return annotation or failing another condition in 6.4, or a type form explicitly excluded in 6.4. Cite the excluded expression or helper cause. Direct R1 (f01e) and valid R3 are admitted proofs. |
+| P1. Competing or unavailable binding | Demonstrate an actual wildcard, competing deciding-scope occurrence, explicit namespace/member mutation, unavailable binding or non-unique receiver as specified by 6.2–6.5. Name the precise cause and exclude a successful alternative (e.g. R2 in sl2-21). For a write, record the binding owner, object/slot, capture/lookup point and a feasible execution order from write to read (including a prior invocation for persistent state). A file-wide hit, unknown order alone, wf27's severed exporter link or wf38's later local delete cannot earn P1. |
+| P2. Relative or repository-local identity | Show a relative import, or identify the competing file/package and show its name is importable first under the corpus's recorded active roots and applicable precedence. A file under an inactive `src/` or a regular package sibling alone earns no P2. Absolute `builtins` takes builtin precedence. This includes genuine local shims re-exporting a stdlib function. |
+| P3. Indirect receiver or callable | Show one of these missing proof forms: assigned callable/module/object alias, constructor hidden in an inadmissible binding position, wrapper or method/operator result, field requiring R3, declaration without a §6.4 value witness, descriptor/container/subclass receiver, dynamic import/member lookup, indirect or cross-file helper, same-file helper missing a usable return annotation or failing another condition in 6.4, or a type form explicitly excluded in 6.4. Cite the excluded expression or helper cause. Record the missing value or field proof for the individual occurrence. Direct R1 (f01e), R2 and constructor-backed annotations are admitted proofs. |
 | P4. Unrepresentable call or frame | Demonstrate an inner class or lambda body frame and record its owner. Scan already skips non-anchors. A different winner or a representable multiline scan key gets a matrix regression and fix, or owner escalation under §6.8. Neither earns P4. |
 | P5. Unevaluated annotation | Show that the recorded call occurs exclusively in an unevaluated annotation under 6.6 on 3.11. |
 
@@ -907,14 +1000,14 @@ section 8.
 ### 6.8 Oracle reconciliation and owner questions
 
 Join on **(fixture, line)** and check the ID in the oracle's `rows`. Several IDs may share one binder
-answer. The current oracle contains 714 distinct fixture lines for all 730 IDs. This join uses
-the amended wants. “Syntax” denotes an error record without a bound call or guard answer.
+answer. The supplied oracle covers 714 distinct fixture lines for the 730 materialised IDs. This
+join uses their amended wants. The 30 proposed IDs lack observations and are excluded from this table. “Syntax” denotes an error record without a bound call or guard answer.
 
 | Want | accepted | unsupported_frame_guard | unsupported_multiline_callee | call_position_unavailable | site_call_unavailable | Syntax | IDs |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| site | 319 | 14 | 0 | 0 | 0 | 3 | 336 |
-| unsupported | 43 | 36 | 2 | 1 | 0 | 8 | 90 |
-| none(unproven) | 203 | 10 | 0 | 0 | 0 | 1 | 214 |
+| site | 286 | 13 | 0 | 0 | 0 | 3 | 302 |
+| unsupported | 42 | 35 | 2 | 1 | 0 | 8 | 88 |
+| none(unproven) | 237 | 12 | 0 | 0 | 0 | 1 | 250 |
 | none | 74 | 6 | 0 | 4 | 6 | 0 | 90 |
 | Total | 639 | 66 | 2 | 5 | 6 | 12 | 730 |
 
@@ -923,12 +1016,11 @@ The pre-fold 3.11.11 AST comparison reproduced the recorded bound callee text or
 The oracle supplies texts and bounds but lacks occurrence spans. Unique source text can identify an
 occurrence in a fixture. Duplicate text by itself cannot certify G-accept (u04a/b).
 
-- Of the 336 site IDs, 333 have a binder/guard record and three have a whole-file syntax error.
-  Of the 14 site frame refusals, s03, c06, o20,
-  tr1-23 and sl2-25 are comprehensions/generator expressions. s04, b04, tr1-24, sl5-08 and
+- Of the 302 site IDs, 299 have a binder/guard record and three have a whole-file syntax error.
+  Of the 13 site frame refusals, s03, c06, o20 and tr1-23 are comprehensions/generator expressions. s04, b04, tr1-24, sl5-08 and
   as4-01/02 have decorated or repeated definitions. c02, tr3-06 and tr3-07 have a nested header
   or lambda default evaluated in the surrounding scope. Keep the rows and tabulate the refusal.
-- Of the 333, 183 have the same nonempty qualified name as the hint. All 137 parseable receiver-route sites have
+- Of the 299, 184 have the same nonempty qualified name as the hint. All 102 parseable receiver-route sites have
   an empty oracle qualifier. Compare occurrence spans in G-accept and record that empty field beside the
   constructed class path. For the other 13 empty qualifiers the source binding is still required.
   The five bare builtin sites are w06b, f01a, as1-31, as4-19 and as5-15. The eight imported roots
@@ -957,13 +1049,13 @@ occurrence in a fixture. Duplicate text by itself cannot certify G-accept (u04a/
   The other nine syntax records are o23b, tr3-08/09, sl1-25, sl2-14, as1-10, as3-11 and as4-08
   (unsupported), and as2-09 (identity fails first). None provides a consumer verdict on the intended
   call. A recovered site on a census file still needs executed G-accept evidence.
-- For unsupported rows an `accepted` answer describes the one **anchor** on the line. In 38 cases
+- For unsupported rows an `accepted` answer describes the one **anchor** on the line. In 37 cases
   the row targets another occurrence, even if its text matches (u04b). In the five `multiline_callee`
   cases, u05 and tr1-22 actually bind the multiline target and the recorded guard accepts it.
   tr3-11, sl1-28 and as2-27 instead bind `consume`, `Session` or `Client`. Keep the 5.2 reason
   and group count in all five. For sl1-16 and sl2-11 the **winner** gets
   `unsupported_multiline_callee`. The target loses the anchor. In as3-08 the winner is `ignored`
-  and the guard has no call position. The 36 frame refusals likewise describe the winner. Select
+  and the guard has no call position. The 35 frame refusals likewise describe the winner. Select
   unsupported reasons per intended occurrence before grouping, including when two rows share a line.
 - For each plain or counted `none`, binding a source expression or qualifying its text supplies no
   evidence of table membership or of runtime library identity. Use that ID's proof or loss in 5.2/6.7
@@ -972,17 +1064,17 @@ occurrence in a fixture. Duplicate text by itself cannot certify G-accept (u04a/
   identity failure into an unsupported site. The four no-position plain negatives are unevaluated
   annotations. The six no-call negatives have no call at the line. The remaining frame refusals and
   accepted negatives follow the same per-ID rule.
-- All 24 `faultpath-guard` wants stand. Of 183 `python-semantics` wants, wf74 changes only its
-  warning eligibility (§6.5). Of 523 design wants, 50 change. The ledger includes the original
-  nine changes and 42 more relative to the round-1 ledger plus the focused proposals. Transcribe
-  the 51 changes after design approval. Promoted `*` selectors take the callee from the site want.
+- Against the pinned matrix, 84 design wants and eleven Python-semantics wants change. All 24
+  faultpath-guard wants stand. The ledger distinguishes the 30 pending fixtures from the 95 changes
+  to existing IDs. Promoted `*` selectors take the callee from the site want. Consumer evidence for
+  the additions requires a qualified oracle run.
 
 | Gate evidence decision | Chosen | Alternative and consequence |
 |---|---|---|
-| Occurrence identity (G-accept) | On identical source bytes compare the actual Prism discovery with the actual consumer-bound call. Record file, four-coordinate `Call.func` and whole-`Call` spans (start/end lines and UTF-8 byte columns, §6.6), and source text from each. Require equality. A test-only sidecar carries the discovery span before projection. Missing or unequal spans leave the check unmet. | Matching only text, line, qualification or guard can confuse the two calls in `[s.get(x) for s in items], s.get(y)`. Reconstructing both spans from one winner repeats the same error. |
+| Occurrence identity (G-accept) | On identical source bytes compare the actual Prism discovery with the actual consumer-bound call. Record file, four-coordinate `Call.func` and whole-`Call` spans (start/end lines and UTF-8 byte columns, §6.6), and source text from each. Require equality. A test-only sidecar carries the producer-selected route (`root`, `R1`…`R5`) and both discovery spans before projection. Join by revision, file, row ID and occurrence. Replay the ordered source rules independently on that occurrence. Require one matching route as well as matching spans. Missing, duplicate or disagreeing route evidence fails G-accept (2) and leaves G-precision stratification unmet. Missing or unequal spans fail condition (2). | Matching only text, line, qualification or guard can confuse the two calls in `[s.get(x) for s in items], s.get(y)`. Reconstructing both spans from one winner repeats the same error. |
 | Unsupported group matching (T-1) | Match full group keys, symbol, reason and count. Consume each actual row at most once. | Independent existence checks allow either sl2-12 or sl2-13 to satisfy both. |
 | Parse quality (S2a) | Carry file parse quality into both projections. Recovered sites with clean owning subtrees retain the file's quality and candidate tier. | Inferring quality from a clean owner would mark o23a, sl1-24 and as4-09 asserted. |
-| Unsupported filters | Filter occurrences then group (§6.5). | Filtering a mixed group as a unit would drop or retain both calls for as1-19 under an exact floor. |
+| Unsupported filters | Filter occurrences then group (§6.5). | Filtering a mixed group as a unit would drop or retain both calls for esc22 under an exact floor. |
 | Parity | Require independent proof and shape replay. Keep omitted files in scan's denominator (§6.7). | A failed spelling or the label “constructor” alone would excuse admitted R2 or R1 calls. |
 | Ledger custody | Use the sibling ledger and three digests in §6. | An external unversioned pointer leaves the design and test seats without a common input. |
 
@@ -1003,6 +1095,36 @@ occurrence in a fixture. Duplicate text by itself cannot certify G-accept (u04a/
 | Tooling pilot | Adapt the pilot driver to accept a foreign targets document. This requires tooling work and a qualified run. | Owner option |
 | Tooling pilot | Keep the lane's plan/run G-live gate and hand the separate pilot run to the tooling owner. Pilot-level evidence comes later. | Default |
 
+#### Escalation decision after round 2
+
+An inventory hint names a callable and may enter a fault plan. The design therefore requires a
+bounded value witness on an annotation route. `CLAUDE.md` defines Exact by static binding and
+places runtime module mutation outside every language's grade. The §6.2 same-file veto affects
+inventory admission only. The public grades and both overlay requirements stand. The owner
+decides any change to either contract.
+
+| Pooled alternatives | Decision for this release | Cost or boundary |
+|---|---|---|
+| A / O1, retain all routes and disclose runtime exceptions | Decline admission on declaration alone. Retain O1 disclosure for residual cases. | Disclosure leaves a source-disproved dictionary hint eligible for planning. |
+| B + partial O3, positive construction witness and defer field inference | **Choose.** R1/R2 keep their grades, R3 is diagnostic only, R4/R5 need §6.4. | This loses h07 and even adjacent field uses, the Superset HTTP parameter and opaque helpers. A fresh, unescaped owner proof could recover some R3 cases but requires tracking the owner at the use. |
+| C / O2, bounded contradiction checks on otherwise static routes | **Choose** literal conflicts, selected protocol slots and existing field-write diagnostics. Decline caller/setter/subclass enumeration as a positive proof. | An unsampled caller can replace a parameter; an inherited method can read a different field. Adding another setter pattern cannot close that class. |
+| O3, drop all annotation routes as well | Decline. | Would also lose h09 and other helpers returning the matching constructor. |
+| O4, grade R3/R4/R5 all `nameonly` | **OWNER OPTION**, default to admission above and existing grades. | A lower grade still exports an incorrect callee to an unfiltered consumer. |
+| D / O5, separate declaration-only candidates, enforce receiver types or redefine receiver grades/G-overlay | **OWNER OPTION**, default to no candidate hint without the witness. Preserve schema 1.1, the grade contract and G-overlay. | Requires an owner decision on representation, consumers and gate credit. A measured overlay failure stops S2b for that decision. |
+| E / O7, order writes per slot and capture | **Choose** §6.2. | Needs binding owner, capture point, read phase and object lifetime; unknown order can still cost a site. |
+| F / O6, blanket veto with separate loss reporting | Decline. | Loses wf27, n06 and wf38. Counting such losses in parity would require an owner exception. |
+| G, reaching definitions and cross-call summaries | Decline. | Branch joins, aliases, recursion and unknown calls exceed this AST visitor. P1 still requires a feasible witness. |
+| H / modified O8, conventional roots and package/builtin precedence | **Choose** §6.2, with active-root evidence for P2. | Inactive `src/` may suppress a real call. A sibling root outside the default lookup may produce a wrong hint. Neither earns gate credit from a filename. |
+| I / O9, ordered declared roots including multiple launch contexts | **OWNER OPTION**, default to no new CLI input. | Needs a contract for root order, unknown roots and disagreeing entry points. Record all affected keys and withhold gate credit until resolved. |
+| J / O10, search every directory, or require a declared origin universally | Decline both. | Unrelated local fixtures would suppress genuine calls; requiring a launch declaration would withhold ordinary imports under the current interface. |
+
+For S2b publish the per-route positives and tied losses, including deferred R3, exposed parameter
+defaults, opaque returns, and evidenced exceptions to the write model (e.g. wf12 if its parameter
+is the real builtin). Record the occurrence, source witness and relevant exclusion. An observed
+wrong hint counts under G-precision regardless of grade or exclusion. No rule assumes that an
+absence of indexed writes proves runtime immutability. G-accept tests binding to the intended
+occurrence independently.
+
 A missing oracle run or `unsupported_interpreter` / `unqualified_runtime` is an inadmissible probe.
 Keep the rule-derived want and mark consumer evidence pending until a qualified run is available.
 This matrix has no planner, scan, live injection or corpus gate receipt.
@@ -1013,9 +1135,9 @@ This matrix has no planner, scan, live injection or corpus gate receipt.
 |---|---|---|
 | G-overlay | on httpie at the pinned commit, the inventory emits a row for each of the overlay's HTTP sites (`client.py:114`, `update_warnings.py:44`) with the overlay row's file, line, bounds and kind, and the bare function name as symbol | the archived overlay; faultpath's site guard |
 | G-bounds | for every function of every census corpus, prism's (file, start line, end line, name) equals the `ast` listing of the stage M census: zero differences | Python `ast` under the pinned interpreter |
-| G-accept | on every census corpus, for every injectable inventory row: (1) faultpath's loader accepts the document; (2) the call faultpath binds at `site.line` is the row's call: the discovery and binder spans (callee and whole call, §6.8) and their source texts agree. Import-root rows require the consumer's matching qualified name. Bare builtin rows require the consumer's matching canonical builtin identity (6.8). For receiver routes record both spellings and check the same occurrence spans; (3) the site guard, run with strict line checking, does not answer `site_call_unavailable`, `unsupported_multiline_callee`, `stale_function_bounds` or `stale_site_symbol`; (4) for a row whose resolved callee is in the consumer's tables (HTTP rows rooted in `requests`, `httpx`, `urllib3` or `aiohttp`; every standard-library row) and whose patch the planner resolves, the plan has no `dependency_identity_mismatch`, `no-dependency-hint` or `no-applicable-fault` note. Every other guard answer and planner note is tabulated per reason, not gated. The HTTP half runs in slices S2a and S2b, the standard-library half in S3 | faultpath's loader, call binder, site guard and planner, run read-only (the planner reads source only; no suite run) |
+| G-accept | on every census corpus, for every injectable inventory row: (1) faultpath's loader accepts the document; (2) the call faultpath binds at `site.line` is the row's call: the discovery and binder spans (callee and whole call, §6.8) and their source texts agree, and independent source replay agrees with the producer-selected route recorded in the sidecar. Import-root rows require the consumer's matching qualified name. Bare builtin rows require the consumer's matching canonical builtin identity (6.8). For receiver routes record both spellings and check the same occurrence spans; (3) the site guard, run with strict line checking, does not answer `site_call_unavailable`, `unsupported_multiline_callee`, `stale_function_bounds` or `stale_site_symbol`; (4) for a row whose resolved callee is in the consumer's tables (HTTP rows rooted in `requests`, `httpx`, `urllib3` or `aiohttp`; every standard-library row) and whose patch the planner resolves, the plan has no `dependency_identity_mismatch`, `no-dependency-hint` or `no-applicable-fault` note. Every other guard answer and planner note is tabulated per reason, not gated. The HTTP half runs in slices S2a and S2b, the standard-library half in S3 | faultpath's loader, call binder, site guard and planner, run read-only (the planner reads source only; no suite run) |
 | G-parity | on every census corpus, restricted to the files of scan's `diff.files`: prism lists at least 95% of scan's injectable rows (rows with bounds) keyed by (file, line, function bounds, family, canonical callee); every miss has a source witness in the closed list P1–P5 of section 6.7; every row prism lists that scan does not is confirmed against the source, and none is a call that is not that library call. Prism's `module_level` rows are compared with scan's bounds-less rows, and prism's unsupported and unproven sets with scan's warnings. If scan cannot run, G-parity is not met | `faultpath scan` |
-| G-precision | a reader checks HTTP rows against the source, stratified by route: every row of each of R1 to R5 and of root identity when a stratum has 50 rows or fewer across the census corpora, otherwise 50 drawn with a recorded seed; at most 1 row per stratum where the callee is not the listed library call; every stratum's size is reported | hand check |
+| G-precision | a reader checks HTTP rows against the source, stratified by the sidecar route verified by independent source replay (§6.8): every row of each of R1 to R5 and of root identity when a stratum has 50 rows or fewer across the census corpora, otherwise 50 drawn with a recorded seed; at most 1 row per stratum where the callee is not the listed library call; every stratum's size is reported | hand check |
 | G-live | on httpie at the pinned commit, with a document produced with `--inventory-kinds http`, the plain flow `faultpath plan` then `faultpath run` with `--only-target` for the two HTTP overlay sites, under the pilot's interpreter, package pins, pytest options and deselections, after a no-fault run for the flake control: (i) `client.py:114`: the planner resolves the patch to the requests session's `send`, the probe is reached, and at least one fault entry is delivered and gets a verdict naming test ids; (ii) `update_warnings.py:44`: the planner resolves `requests.get`, and the run reports the site as not reached or shadowed because the suite mocks it. Per-fault verdicts are recorded beside attempt 5's as information, not as a condition | faultpath run |
 | G-byte | without `--inventory`, `prism targets` output on the existing fixtures is identical between the merge-base binary and the head binary after removing `producer.version`, `producer.build_identity` and `repo.root` | fixture comparison |
 
@@ -1055,7 +1177,7 @@ limits, not reached, patch shadowed by a mock).
 - **A second discovery implementation next to scan.** G-parity makes the overlap measurable; decision 7 is
   where the owner picks one. Until then both may feed faultpath and duplicate sites differ in id (different
   source algorithm), which faultpath already tolerates for overlay rows.
-- **Receiver typing is shallow.** One constructor binding, one annotation, one helper hop. Sessions passed
+- **Receiver typing is shallow.** R3 field hints are deferred. Annotated locals and helpers require a matching value witness. Sessions passed
   through several functions or stored in containers are missed. Only the explicit ties in 6.5 enter the identity-unproven counts.
 - **The closed-world rule costs recall** where Python code rebinds a name it does not use at the call
   (`try`/`except ImportError` fallbacks, a parameter defaulted and then assigned). Faultpath's own binding
@@ -1083,4 +1205,9 @@ limits, not reached, patch shadowed by a mock).
 - 2026-11-24. Folded round 1 on the existing amendment. Added 99 focused verdicts, the write
   invalidation and annotation-conflict rules, warning eligibility, repository lookup roots and the
   measured Q12 decision. Tightened the matcher, projection and gate evidence. §6.8 records the
-  multiline conflict for the owner. §6 pins 730 verdicts and 714 oracle lines. Round 2 is pending.
+  multiline conflict for the owner. This round pinned 730 verdicts and 714 oracle lines.
+- 2026-11-25. Round 2 split (A approved, B rejected). Pooled the independent and held options in
+  §6.8. Deferred R3 hints, required value evidence for R4/R5, and specified protocol reads, capture
+  order, class fallback and import precedence. Updated the route evidence and parity witnesses.
+  This escalation changes 44 existing wants relative to round 2 and proposes 30 fixtures. One joint
+  review round remains. A rejection stops this slice for the owner.

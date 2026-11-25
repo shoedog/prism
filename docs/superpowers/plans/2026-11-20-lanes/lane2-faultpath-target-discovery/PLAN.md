@@ -39,7 +39,8 @@ in DESIGN 5–6. `row-verdicts.jsonl` in this directory supplies the Stage D wan
 - Without `--inventory`, `prism targets` output stays as today (G-byte).
 - Row values are exactly those of DESIGN 5.1 and 5.2.
 - `kind` in a hint only when library identity is proven (DESIGN 5.3: root identity, or a receiver route;
-  routes R4 and R5 prove it by annotation, at grade `nameonly`); never from a name match.
+  R1/R2 use construction, R4/R5 require the annotation and the §6.4 value witness at grade `nameonly`).
+  R3 ties go to diagnostics. Use the repository-wide static grades.
 - The public facade keeps its signatures: `prism_review::api::project`, `TargetsDocument`, `TargetsMeta`
   are not changed. The inventory adds new functions beside them.
 - The inventory is AST-only: no call graph, no code property graph, no review runner. It does not change
@@ -106,9 +107,9 @@ in DESIGN 5–6. `row-verdicts.jsonl` in this directory supplies the Stage D wan
       for httpie the classification of the four overlay sites.
 
 **Exit gate:** the two HTTP overlay sites require a proven route and supported shape. M found root
-identity at `update_warnings.py:44` and R5 at `client.py:114`. The under-2%-in-every-corpus cut was
-optional. DESIGN 6.1 records the four denominators and the decision to keep all five routes, including
-the two eligible for the cut (R1 and R3).
+identity at `update_warnings.py:44` and an annotated-helper tie at `client.py:114`. Its census record
+cannot prove the return body. DESIGN 6.1 keeps R1 and defers positive R3. S2b tests the actual
+helper against §6.4. Both overlay sites must still pass.
 
 ---
 
@@ -175,9 +176,9 @@ Stage T seed examples are below. The complete matrix and Stage D verdicts govern
 | h04 | http.root | `from requests import get as fetch` … `fetch(u)` | site(http,requests.get,exact) |
 | h05 | http.receiver | `s = requests.Session()` … `s.send(req)` | site(http,requests.Session.send,exact) |
 | h06 | http.receiver | `with requests.Session() as s:` … `s.get(u)` | site(http,requests.Session.get,exact) |
-| h07 | http.receiver | `self.s = requests.Session()` in `__init__`, `self.s.get(u)` in a method | site(http,requests.Session.get,exact) |
-| h08 | http.receiver | `def f(s: requests.Session): s.get(u)` | site(http,requests.Session.get,nameonly) |
-| h09 | http.receiver | `s = make()` then `s.send(req)`, where `def make() -> requests.Session:` is in the same file | site(http,requests.Session.send,nameonly) |
+| h07 | http.receiver | `self.s = requests.Session()` in `__init__`, `self.s.get(u)` in a method | none(unproven:receiver_value_unproven) |
+| h08 | http.receiver | `def f(s: requests.Session): s.get(u)` | none(unproven:receiver_value_unproven) |
+| h09 | http.receiver | `s = make()` then `s.send(req)`, where `make` is an admissible same-file annotated helper returning `requests.Session()` | site(http,requests.Session.send,nameonly) |
 | h10 | http.receiver | `requests.Session().get(u)` | site(http,requests.Session.get,exact) |
 | h11 | http.receiver | `async def f(): async with httpx.AsyncClient() as c: await c.get(u)` | site(http,httpx.AsyncClient.get,exact) |
 | n01 | http.root | `s = requests.Session()` (the constructor call itself) | none |
@@ -185,7 +186,7 @@ Stage T seed examples are below. The complete matrix and Stage D verdicts govern
 | n03 | http.receiver | `d.get(k)` with `d` a parameter | none |
 | n04 | http.root | `requests = Fake()` in the function, then `requests.get(u)` | none(unproven:shadowed_root) |
 | n05 | http.root | a repository-local `requests.py` beside the file | none(unproven:repository_local_module) |
-| n06 | http.receiver | `s = requests.Session()` and later `s = other()` | none(unproven:receiver_not_unique) |
+| n06 | http.receiver | `s = requests.Session()`, `s.get(u)`, then `s = other()` in one straight-line activation | site(http,requests.Session.get,exact) |
 | n07 | http.receiver | `s = make()` where `make` has no return annotation | none(unproven:helper_unannotated) |
 | n08 | http.root | `from requests import *` … `get(u)` | none |
 | u01 | http.root | `R = requests.get(u)` at module level | unsupported(module_level,1) |
@@ -264,7 +265,7 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 | e04b | (http.root) as e04a with `except E as requests:` | none(unproven:shadowed_root) |
 | e05a–e | `s = requests.Session()`, then one of `with other() as s:`, `for s in pool:`, `(s := other())`, `s, t = a, b`, `except E as s:`; then `s.get(u)` | none(unproven:receiver_not_unique), each |
 | e06 | `self.s = requests.Session()` in `__init__` and `self.s, self.t = other, None` in another method; `self.s.get(u)` | none(unproven:receiver_not_unique) |
-| e07 | as h07, plus `obj.s = other()` in another module, `setattr(self, name, x)` with a computed name, and an override in a subclass in another file | site(http,requests.Session.get,exact) (out of model, DESIGN 6.3 and the numbered exclusions in 6.2) |
+| e07 | as h07, plus `obj.s = other()` in another module, `setattr(self, name, x)` with a computed name, and an override in a subclass in another file | none(unproven:receiver_value_unproven) (R3 deferred, DESIGN 6.3) |
 | e08a | (http.root) `requests` imported at module level and assigned in another function under `global requests` | none(unproven:shadowed_root) |
 | e08b | `s = requests.Session()` in `outer`, an inner function assigns it under `nonlocal s`, `s.get(u)` in `outer` | none(unproven:receiver_not_unique) |
 | e08c | (http.root) `del requests` in the module, or a `match` arm `case requests:` in the calling function | none(unproven:shadowed_root) |
@@ -273,9 +274,9 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 | e09c | as e09b with `c = await make()` inside `async def`, then `await c.get(u)` | site(http,httpx.AsyncClient.get,nameonly) |
 | e09d | as h09, with a parameter or local named `make` in the calling function | none(unproven:helper_not_admissible) |
 | e10a | `def f(s: requests.Session): s = wrap(s); s.get(u)` | none(unproven:receiver_not_unique) |
-| e10b | `s: requests.Session = other()` then `s.get(u)` | site(http,requests.Session.get,nameonly) |
-| e10c | `def f(s: Optional[requests.Session]): s.get(u)` | site(http,requests.Session.get,nameonly) |
-| e10d | `def f(s: "requests.Session"): s.get(u)` | site(http,requests.Session.get,nameonly) |
+| e10b | `s: requests.Session = other()` then `s.get(u)` | none(unproven:receiver_value_unproven) |
+| e10c | `def f(s: Optional[requests.Session]): s.get(u)` | none(unproven:receiver_value_unproven) |
+| e10d | `def f(s: "requests.Session"): s.get(u)` | none(unproven:receiver_value_unproven) |
 
 - [ ] Run the enumerator tiers (ORCHESTRATION section 6) on `rows.jsonl`. Axes to hand them: import form;
       callee form; receiver route; binding count and binding kind of the receiver (the closed-world binding
@@ -290,21 +291,24 @@ rows b01 to b04, the frame rows c01 to c06, s02 to s04 and the `none` rows are `
 
 ## Stage D: design of record (half a day)
 
-- [x] DESIGN 6 records the ten HTTP table paths, all five receiver routes, the targets-owned binding
-      census, diagnostic precedence, accepted losses, G-parity classes P1–P5 and the per-line oracle
-      reconciliation. The sibling `row-verdicts.jsonl` covers all 730 IDs, including wf01–99. Verify
-      its SHA-256 and the current matrix/oracle digests against DESIGN 6 before transcription.
-- [x] Both reviewers rejected round 1. Folded the findings in place. The fixed multiline rule and
-      its two accepted counterexamples are an OWNER OPTION in DESIGN 6.8.
-- [ ] Both reviewers review the fold. Cap **two rounds**. On a second rejection use ORCHESTRATION
-      section 8. Stage D exits on two approvals.
-- [ ] After approval apply all 51 changed wants by ID. For the five promoted site rows (tr4-03,
-      sl1-03, wf96–98) replace `*` with the canonical callee in the want and transcribe the joined
-      guard observation. Clear the site-only consumer field on the 40 sites becoming omissions.
-      Set omission selectors to forbid the intended site (use `*` where the line must be empty).
-      The oracle preserves observations for all IDs. The four counted-to-silent changes implement
-      warning eligibility. Add `binding_unavailable`, `member_rebound` and `annotation_conflict` to
-      the original seven allowed causes. Run `rows_file_is_well_formed`.
+- [x] DESIGN 6 pins the matrix, supplied oracle and sibling verdict ledger. Round 2 split after
+      both reviewers rejected round 1. §6.8 records the pooled options, admission default and
+      owner decisions, including the fixed multiline-policy conflict.
+- [ ] One escalation review by each reviewer. Both must approve this amendment. On either
+      rejection stop at this slice for the owner. No further fold or transcription.
+- [ ] After both approvals verify all three digests in DESIGN 6 on the pre-transcription inputs.
+      The implementer applies the 95 `change` verdicts by ID and preserves the 635 `keep` wants.
+      The orchestrator materialises the 30 `add` records at `tests/targets_inventory/py/<fixture_path>` with the exact
+      `fixture_source` bytes; set `fixture` to that relative path and copy its selector, line,
+      class, group, truth and want. Preserve package neighbours for esc17 and esc18. Verify a
+      unique ID-to-row join and the resulting 760 rows. Refresh the qualified oracle on the
+      additions before claiming a consumer result, leaving the site observation pending meanwhile.
+      On promoted sites (n06, tr4-03, sl1-03, wf27/38/96–98) use the site's canonical selector
+      and the joined guard observation. Clear site-only consumer fields on omissions. Preserve
+      targeted negative selectors on mixed lines. For as1-19 and as2-27 assert one surviving
+      group member and a separate warning count, without forbidding the surviving member.
+      Use all eleven ordered §5.2 causes including `receiver_value_unproven`. Run
+      `rows_file_is_well_formed`.
       The empty → HTTP root → HTTP receiver → stdlib `ENABLED_GROUPS` sequence stays in force.
 
 ---
@@ -341,7 +345,9 @@ pub(super) fn sole_receiver_constructor(/* today's private helper, signature unc
 
 `resolve(parsed, line, ctx)` keeps its signature and its results; internally it may use `root_identity`.
 Share the decomposition of Python imports and the repository-local lookup with the later inventory
-census. The legacy finding-line binder keeps its admission policy. S2a can supply a deciding binding
+census. Pass a root list to `repo_has_local_module`. The legacy finding-line binder supplies its
+original site ancestors only (including packages). Inventory supplies the §6.2 root list and
+applies its own builtin precedence before calling the filesystem helper. Check echo against its base. S2a can supply a deciding binding
 from DESIGN 6.2 without inheriting the legacy binder's veto. Receiver routes start in S2b.
 
 - [ ] Add tests `root_identity_reports_resolved_path_for_alias_import` (`import requests as r; r.get(u)` →
@@ -395,7 +401,8 @@ pub struct UnsupportedSite { pub file: String, pub line: usize, pub symbol: Opti
     pub grade: Grade }                                                 // one per occurrence until projection
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnprovenCause { StarImport, ShadowedRoot, NotImported, RepositoryLocalModule,
-    BindingUnavailable, MemberRebound, ReceiverNotUnique, AnnotationConflict, HelperUnannotated, HelperNotAdmissible } // DESIGN 5.2 order
+    BindingUnavailable, MemberRebound, ReceiverNotUnique, AnnotationConflict, HelperUnannotated, HelperNotAdmissible,
+    ReceiverValueUnproven } // DESIGN 5.2 order
 pub struct InventoryOutput { pub sites: Vec<InventorySite>, pub unsupported: Vec<UnsupportedSite>,
     pub parse_quality: BTreeMap<String, prism::finding_confidence::ParseQuality>, // every inventoried file, keyed as in sites
     pub unproven: BTreeMap<String, BTreeMap<UnprovenCause, usize>>,    // file → cause → count
@@ -435,8 +442,11 @@ frames, bounds and the line anchor follow DESIGN 5.4/6.6 in `python.rs`. Use the
 parse and original-byte mapping for rows and the bounds example. The slice includes source-order and
 type-only import refusals, alias ties, NFKC identity and the write checks in DESIGN 6.2. Index
 canonical imported paths, bare builtin namespace members, literal mapping keys and one-hop assignment
-aliases for vetoes. Check site ancestors and repository `src/` on disk, including files outside
-`--files`. Keep the legacy echo admission policy for G-byte. Implement narrow same-package import
+aliases for vetoes. Distinguish slot capture from live member lookup; apply §6.2 ordering.
+Join conditional class bindings with fallback in the evaluating namespace. For absolute imports
+check non-package site ancestors, repository root and `src/` on disk, including outside `--files`.
+Give absolute `builtins` builtin precedence. Tied relative imports have their explicit locality cause.
+A sole table-library import resolving off-table supplies no root tie even when later than the call. Keep the legacy echo admission policy for G-byte. Implement narrow same-package import
 coalescing and the sole table-import cause rule (sl3-02, as1-18, sl1-03, wf96–99).
 
 Command line: `--inventory <NAME>` (value `python-deps`); `--inventory-kinds <LIST>`; `--diff` becomes
@@ -474,11 +484,14 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       wiring and `examples/inventory_bounds.rs` (arguments: a repository path; prints one JSON line per
       function of every inventoried file: file, start line, end line, name).
 - [ ] Check the sibling `src/requests/__init__.py` collision from `app/main.py` with only the
-      importing file selected, and an unrelated sibling package as a negative. Test direct false
+      importing file selected. Test a package-local sibling (`httpie/output/formatters/json.py` pattern,
+      esc17), bare and qualified `builtins` with a `src/builtins.py` decoy, and the controls in
+      esc11–14/26. Confirm a later local off-table import is silent. Test direct false
       `TYPE_CHECKING`, the proven `typing_extensions` alias and a shadowing parameter (DESIGN 6.2).
       Test attribute and subscript annotated assignments in function scope: omit calls in their
-      annotations while retaining evaluated target operands and RHS. Include a same-text duplicate
-      span mismatch in the G-accept evidence runner.
+      annotations while retaining evaluated target operands and RHS. Assert that the RHS wins in
+      esc15/16 and the discarded annotation contributes no row. Test mismatched duplicate-text spans
+      and an intentionally incorrect or absent route in the G-accept/G-precision evidence runner.
 - [ ] `matrix_rows_match` GREEN for every `http.root` row.
 - [ ] Review focus items 1, 2, 4, 5 and 6: one test each, named after the item.
 - [ ] Gates of ORCHESTRATION section 5: items 1 to 4, 8, 9, 10 (no cache, data-flow or resolution change:
@@ -487,7 +500,9 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 - [ ] Before S2a measurement, run the DESIGN 6.8 source preflight on all four census corpora for the
       eight empty-qualifier root shapes and bare builtins. Record counts including zero, occurrences,
       consumer qualifiers and any canonical builtin evidence. Check the M-1 declared roots against
-      DESIGN 6.2's lookup set. Record any nonstandard-root collision. Escalate missing/conflicting
+      DESIGN 6.2's lookup set. Record ordered sibling or multiple roots, inactive `src/`, the candidate
+      origin and actual precedence for each affected key. A default positive colliding with an active
+      nonstandard root fails identity validation. An inactive `src/` cannot justify P2. Escalate missing/conflicting
       evidence to the owner under ORCHESTRATION §8 and leave the affected family gate unmet.
 - [ ] Measure before review (measurement runner; G-accept steps on a Claude seat):
   - **G-bounds:** run the example on every census corpus and compare with `census/functions-<corpus>.jsonl`
@@ -502,9 +517,14 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
   - **G-accept**, HTTP rows of this slice: `oracle/accept.py` (Claude seat) loads each document with
     faultpath's loader, runs `oracle/site_oracle.py` on every injectable row, runs `faultpath plan` with the
     corpus's import root, and checks DESIGN section 7's four conditions. Use a test-only sidecar
-    keyed to the projected site ID and source revision for the Prism-discovered `Call.func` and
-    whole-call spans. Extract the same spans from the actual consumer-bound occurrence, check both
-    ranges and text, and fail condition (2) on missing or unequal evidence. Follow DESIGN 6.8 for bare
+    keyed to revision, file, projected ID and occurrence. Emit the producer-selected route
+    (`root`, `R1`, `R2`, `R3`, `R4`, `R5`) and discovery-time `Call.func` and whole-call spans.
+    Capture the route at the successful resolver branch and associate its occurrence with the emitted
+    ID at projection. Generating a route from the projected grade or callee would lose this evidence.
+    Independently replay the ordered rules from source on that occurrence, then compare the route.
+    Missing, duplicate or disagreeing route evidence fails condition (2) and prevents precision
+    stratification. An emitted R3 row fails replay. Preserve the public targets schema. Extract the
+    same spans from the actual consumer-bound occurrence, check both ranges and text, and fail condition (2) on missing or unequal evidence. Follow DESIGN 6.8 for bare
     builtins, empty qualifiers and recovered sites. Report any unmet identity/binding check. Tabulate
     other guard answers and planner notes per reason.
   - Put the tables in the PR body.
@@ -513,30 +533,38 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 ### Slice S2b: receiver routes R1 to R5 (2 to 2.5 days)
 
 **Files:**
-- Modify: `crates/prism-review/src/targets/inventory/py_receiver.rs` (routes R1 to R5 under the closed-world
+- Modify: `crates/prism-review/src/targets/inventory/py_receiver.rs` (admission and diagnostics under the closed-world
   rule in DESIGN 6.2–6.5), `python.rs` (building `<class path>.<method>`),
   `crates/prism-review/tests/cli/targets_inventory_matrix_test.rs` (`ENABLED_GROUPS` gains
   `"http.receiver"`), `CLAUDE.md` (the `targets/` paragraph)
 - Create (evidence directory): `precision/sample.py`, `precision/PRECISION.md`
 
 - [ ] Enable `"http.receiver"` as the first commit; `matrix_rows_match` RED for its rows.
-- [ ] Implement R1–R5 under DESIGN 6.2–6.5. Apply the common write veto to the constructor, selected
-      class method, receiver method and R3 field. Check same-owner and one-hop alias writes and unrelated
-      member/owner controls (wf29–53). Test a write to `self.client.get` as well as to `self.client`.
-      Prefer R2 direct construction, then check R4/R5 declarations against defaults, initializers and
-      same-file helper return witnesses (wf54–73). Count failed inline R1. Require an eligible position
-      for other receiver ties, including context pairing. Test a failed inline constructor against
-      a rejected context (async Path is checked in S3) and wf74–95. Check as1-19's count 2 unfiltered,
-      count 1 under exact or asserted, and its absence above info. `matrix_rows_match` GREEN for
-      every enabled row.
+- [ ] Implement R1/R2, diagnostic R3 and constructor-backed R4/R5 (DESIGN 6.2–6.5).
+      Check write timing at capture, construction, context entry and selected-member lookup,
+      including `__new__`, `__init__`, the selected enter protocol and `__getattribute__` (esc06–10,
+      esc20, esc25, esc28 and esc30).
+      Verify wf26 versus wf27, fresh n06/wf38/esc29 versus persistent wf10/wf43/esc21, and alias
+      writes in wf29–53. A field store never yields an R3 positive. Check setter, subclass and
+      function-parameter cases e07, tr3-20, as1-20, wf40 and esc27, plus h07 as the recall cost.
+      Distinguish parameter/default and literal conflicts from missing value evidence; test R4
+      priority over R5, the unique unconditional return, a returned local with a single construction,
+      and an alternate return or fallthrough (esc01–05/23/24). Preserve the earlier warning order.
+      Count failed inline R1 and eligible receiver ties (wf74–95). Check mixed filters with esc22
+      (two unfiltered, one exact/asserted, zero above info); as1-19 and as2-27 each have one surviving
+      member plus one unproven occurrence. Require GREEN on every enabled row.
 - [ ] Review focus item 3: one test.
 - [ ] Gates of ORCHESTRATION section 5, as for S2a.
 - [ ] Measure before review: re-run the S2a measurements (G-bounds unchanged, G-byte) on every census corpus;
       **G-overlay** in full (both HTTP overlay sites are rows with the overlay's file, line, bounds and kind
       and the bare symbol); **G-accept** for every HTTP row; **G-precision**: `precision/sample.py` draws the
       strata of DESIGN section 7 with a recorded seed, and a Sonnet-5.5 reader checks each drawn row against
-      the source and writes `precision/PRECISION.md` (stratum sizes, rows checked, wrong rows). Each wrong
-      row becomes a matrix row and is fixed; the gate fails when a stratum has more than one wrong row.
+      the source and writes `precision/PRECISION.md` (stratum sizes, rows checked, wrong rows).
+      Use the S2a sidecar and gate replay for every HTTP occurrence before sampling. Report the
+      empty R3 stratum and tied losses. Publish source-witnessed exceptions and count demonstrated
+      mismatches under the original gate. At `httpie/client.py:114` record the actual return, constructor and
+      relevant writes. If it lacks a witness, G-overlay is unmet and the owner decides the next step.
+      Each wrong row becomes a matrix row and is fixed; the gate fails when a stratum has more than one wrong row.
 - [ ] Two reviewers. Merge.
 
 ### Slice S3: standard-library families and scan parity (2.5 to 3 days)
@@ -544,8 +572,8 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 **Files:**
 - Modify: `crates/prism-review/src/targets/inventory/py_tables.rs` (DESIGN 5.3's standard-library table,
   verbatim), `py_receiver.rs` (constructors `pathlib.Path`, `configparser.ConfigParser`,
-  `configparser.RawConfigParser`, with R1–R5 including parameter/local annotations and same-file
-  annotated helpers under DESIGN 6.3–6.4), `inventory/mod.rs` (`Family::supported`),
+  `configparser.RawConfigParser`, with the same field deferral and annotation/value rules
+  as HTTP under DESIGN 6.3–6.4), `inventory/mod.rs` (`Family::supported`),
   `crates/prism-review/tests/cli/targets_inventory_matrix_test.rs` (`ENABLED_GROUPS` gains `"stdlib"`)
 - Create (evidence directory): `parity/compare.py`, `parity/PARITY.md`
 
@@ -555,7 +583,8 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
 - [ ] Add a unit test that the standard-library table in `py_tables.rs` equals DESIGN 5.3's list, entry for
       entry, with each entry's family. Test `async with Path(...) as p` alone gives plain none at
       `p.read_text()`. Check bare/qualified builtin mutation and the Path class member write across
-      root, constructor, annotation and helper proofs.
+      root, constructor, annotation and helper proofs. Check esc18/19 and the census-positive
+      `json.loads` at `httpie/output/formatters/colors.py:183`.
 - [ ] `parity/compare.py <prism.json> <scan.json>` (lane interpreter): restrict both sides to the files in the
       scan document's `diff.files`; key each injectable row by (file, line, function_start_line,
       function_end_line, family, resolved callee); compare prism's `module_level` unsupported rows with
@@ -569,7 +598,9 @@ runner; an explicit review-runner option on that path (DESIGN 5.5's list, detect
       filesystem,parse,config` on every census corpus. Classify every difference in `parity/PARITY.md`:
       prism misses a site scan lists (name the exact P1–P5 class from DESIGN 6.7, its key, the source
       witness, independent replay of all applicable proof routes and shape, and prism outcome.
-      Keep every scan key in the denominator, including files prism omitted. A representable multiline
+      P1 writes require a feasible order at the actual slot read. P2 requires a relative import or
+      first importable origin under the active corpus roots. Keep every scan key in the denominator,
+      including files prism omitted. A representable multiline
       scan key or differing anchor needs a matrix regression and fix or owner escalation); prism lists a site scan
       does not (confirm against the source); the two disagree on bounds, line or callee (decide by the
       source and faultpath's guard; a prism defect gets a matrix row and a fix). A table entry may be added
@@ -636,6 +667,10 @@ routes and the closed-world rule, the unsupported reasons and unproven causes, w
 - 2026-11-24. Folded Stage D round 1. T-1 now consumes complete group keys and checks silent
   fixtures. S1 exposes the shared crate interface. S2a–S3 carry parse quality and occurrence evidence,
   apply the revised identity rules and measure the stricter acceptance and parity gates.
+
+- 2026-11-25. Folded the Stage D escalation. S1–S3 now specify the two callers’ import roots,
+  value witnesses and field deferral, class fallback, per-slot ordering, verified route sidecars and
+  parity evidence. The escalation review is pending before matrix transcription.
 
 ## Acceptance for the lane
 
