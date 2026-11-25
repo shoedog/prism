@@ -7,9 +7,12 @@ use crate::framework_entries::routes::python::{arguments, literal_string, ungrou
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
+mod escapes;
 mod metadata;
+mod modules;
 mod reach;
 mod values;
+use escapes::ViewArgument;
 use metadata::MetadataWrites;
 use reach::FileReach;
 use values::{possible_values, unbound_name};
@@ -27,6 +30,7 @@ pub(super) struct AttributeWrites<'a> {
     converter_belts: BTreeSet<&'a str>,
     reach: FileReach<'a>,
     metadata: MetadataWrites<'a>,
+    view_arguments: BTreeMap<Allocation<'a>, Vec<ViewArgument<'a>>>,
 }
 
 fn allocation<'a>(router: &PythonRouter<'a>) -> Allocation<'a> {
@@ -63,7 +67,7 @@ impl<'a> AttributeWrites<'a> {
                 }
                 if stored {
                     if let Some(value) = node.child_by_field_name("right") {
-                        writes.escape(bindings, file, value);
+                        writes.escape(bindings, file, value, None);
                     }
                 }
                 if node.kind() == "call" {
@@ -250,7 +254,7 @@ impl<'a> AttributeWrites<'a> {
                 arg
             };
             if Some(value) != native_owner {
-                self.escape(bindings, file, value);
+                self.escape(bindings, file, value, Some(call));
             }
         }
     }
@@ -260,6 +264,7 @@ impl<'a> AttributeWrites<'a> {
         bindings: &PythonBindings<'a>,
         file: &'a ParsedFile,
         expression: Node<'a>,
+        call: Option<Node<'a>>,
     ) {
         let expression = ungroup(expression);
         match expression.kind() {
@@ -273,7 +278,7 @@ impl<'a> AttributeWrites<'a> {
             | "conditional_expression"
             | "boolean_operator" => {
                 for member in children(expression) {
-                    self.escape(bindings, file, member);
+                    self.escape(bindings, file, member, call);
                 }
             }
             "identifier" | "attribute" | "call" => {
@@ -282,6 +287,20 @@ impl<'a> AttributeWrites<'a> {
                     match value {
                         PythonValue::Router(router) => {
                             self.routers.insert(allocation(&router));
+                        }
+                        PythonValue::Definition(member)
+                            if member.node.kind() == "function_definition" =>
+                        {
+                            if let Some(call) = call {
+                                self.view_arguments
+                                    .entry(metadata::definition(member))
+                                    .or_default()
+                                    .push(ViewArgument {
+                                        file,
+                                        call,
+                                        value: expression,
+                                    });
+                            }
                         }
                         PythonValue::Opaque(member) => {
                             let Some((object, field)) = attribute(member.node) else {

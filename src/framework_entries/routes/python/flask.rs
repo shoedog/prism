@@ -15,6 +15,7 @@ use crate::framework_entries::routes::{
 use tree_sitter::Node;
 
 mod metadata;
+pub(in crate::framework_entries::routes) mod registration;
 use metadata::view_metadata;
 
 const ADD_URL_RULE: &[&str] = &["rule", "endpoint", "view_func", "provide_automatic_options"];

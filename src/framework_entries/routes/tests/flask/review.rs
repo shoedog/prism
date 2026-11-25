@@ -1,5 +1,6 @@
 use super::*;
 
+mod round_three;
 mod round_two;
 
 const APP: &str = "from flask import Flask, Blueprint\napp = Flask(__name__)\n";
@@ -84,6 +85,27 @@ fn attribute_writes_invalidate_router_and_module_aliases() {
         };
         assert_eq!(proved(&mount.child), expected, "{write}");
         assert!(proved(&mount.parent));
+    }
+
+    for (write, expected) in [("", true), ("pkg.routes = replacement\n", false)] {
+        let source = format!("{APP}import pkg\nimport pkg.routes as original\nimport replacement\n{write}app.register_blueprint(pkg.routes.bp)\n");
+        let files = parsed(&[
+            ("app.py", &source),
+            (
+                "pkg/routes.py",
+                "from flask import Blueprint\nbp = Blueprint('original', __name__)\n",
+            ),
+            (
+                "replacement.py",
+                "from flask import Blueprint\nbp = Blueprint('replacement', __name__)\n",
+            ),
+        ]);
+        let facts = flask_facts(&index_python(&files), "app.py", &SetupContext::default());
+        let [FlaskEvent::Mount(mount)] = facts.as_slice() else {
+            panic!("expected namespace-package mount");
+        };
+        assert!(proved(&mount.parent));
+        assert_eq!(proved(&mount.child), expected, "{write}");
     }
 
     for (write, expected) in [("", true), ("made.get = replace", false)] {

@@ -19,7 +19,7 @@ pub(super) struct MetadataWrites<'a> {
     unresolved: BTreeMap<&'a str, Vec<MetadataWrite<'a>>>,
 }
 
-fn definition(member: PythonMember<'_>) -> Allocation<'_> {
+pub(super) fn definition(member: PythonMember<'_>) -> Allocation<'_> {
     (member.file.path.as_str(), member.node.start_byte())
 }
 

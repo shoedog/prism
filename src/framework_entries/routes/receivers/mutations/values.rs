@@ -1,4 +1,4 @@
-use super::*;
+use super::{modules::relevant_module, *};
 use crate::framework_entries::routes::receivers::{
     direct, import_parts, python_scope, targets, PythonMember, SetupContext,
 };
@@ -139,9 +139,7 @@ fn relevant_import(
     import: Node<'_>,
     name: &str,
 ) -> bool {
-    let relevant = |module: &str| {
-        module == "flask" || module.starts_with("flask.") || bindings.module_file(module).is_some()
-    };
+    let relevant = |module: &str| relevant_module(bindings, module);
     let from = import.child_by_field_name("module_name");
     children(import)
         .into_iter()

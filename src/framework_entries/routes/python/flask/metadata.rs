@@ -71,6 +71,17 @@ fn function_metadata<'a>(
         node: origin,
         context,
     } = use_site;
+    if let Some(call) = bindings.view_metadata_escape(member, context) {
+        return (
+            EffectiveEndpoint::Unknown,
+            FlaskViewMetadata {
+                methods: Some(MethodSet::unknown(call)),
+                required: Some(MethodSet::unknown(call)),
+                automatic: Some(Err(call.into())),
+                ..FlaskViewMetadata::default()
+            },
+        );
+    }
     let mut endpoint = EffectiveEndpoint::Known(name.into());
     let mut metadata = FlaskViewMetadata::default();
     for write in bindings.view_metadata_writes(member, file, origin, context) {
