@@ -1,0 +1,135 @@
+# Dropped draft rows
+
+The disposition follows the stage T plan. Draft programs and truth remain in custody commit `1dc74573e`.
+
+- `R01.js` — Unresolved sink on the base (SymbolNotFound). R09 and Q12 cover call roots with an observable sink.
+- `R01.py` — Unresolved sink on the base (SymbolNotFound). R09 and Q12 cover call roots with an observable sink.
+- `P04.js` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `P04.py` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `P10.go` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `P12.js` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `P12.py` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y02.go` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y02.js` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y02.py` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y04.go` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y04.js` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y04.py` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y07.py` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y08.go` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y08.js` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `Y08.py` — Missing complete projected sink Use. P01, P15 and Y12 cover the receiver exclusion without requiring a keyed read.
+- `I03.py` — Missing projected sink Use for initializer or spread. Q12 has a real whole sink and no element-write Def.
+- `P17.go` — Missing projected sink Use for initializer or spread. Q12 has a real whole sink and no element-write Def.
+- `P17.js` — Missing projected sink Use for initializer or spread. Q12 has a real whole sink and no element-write Def.
+- `P17.py` — Missing projected sink Use for initializer or spread. Q12 has a real whole sink and no element-write Def.
+- `P20.go` — Missing projected sink Use for initializer or spread. Q12 has a real whole sink and no element-write Def.
+- `P20.js` — Missing projected sink Use for initializer or spread. Q12 has a real whole sink and no element-write Def.
+- `P20.py` — Missing projected sink Use for initializer or spread. Q12 has a real whole sink and no element-write Def.
+- `K02.py` — Missing projected sink Use for spelling, overloaded/aliased item or delete. X02 and Q08/Q13 exercise whole-value boundaries.
+- `K05.js` — Missing projected sink Use for spelling, overloaded/aliased item or delete. X02 and Q08/Q13 exercise whole-value boundaries.
+- `K12.py` — Missing projected sink Use for spelling, overloaded/aliased item or delete. X02 and Q08/Q13 exercise whole-value boundaries.
+- `O02.py` — Missing projected sink Use for spelling, overloaded/aliased item or delete. X02 and Q08/Q13 exercise whole-value boundaries.
+- `O04.py` — Missing projected sink Use for spelling, overloaded/aliased item or delete. X02 and Q08/Q13 exercise whole-value boundaries.
+- `X04.py` — Missing projected sink Use for spelling, overloaded/aliased item or delete. X02 and Q08/Q13 exercise whole-value boundaries.
+- `E01.go` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E01.js` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E01.py` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E02.go` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E02.js` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E02.py` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E03.go` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E03.js` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E03.py` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E04.go` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E04.js` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E04.py` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E05.js` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E06.go` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E06.js` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E06.py` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E07.go` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E07.js` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `E07.py` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `R02.go` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `R02.js` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `R02.py` — Extension, receiver, literal leaf or element argument. Existing call controls plus Q03/Q12 separate projection from whole use.
+- `I01.go` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `I01.js` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `I01.py` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `I02.go` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `I02.js` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `I02.py` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `I04.go` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `I04.js` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `I04.py` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `P18.go` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `P18.js` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `P18.py` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `P19.go` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `P19.js` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `P19.py` — Initializer leaf has no subscript assignment. Q12 exercises the whole-container version.
+- `K04.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K06.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K07.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K08.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K09.go` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K09.py` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K10.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K11.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K11.py` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K13.py` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K14.go` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K15.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K16.py` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K18.go` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K19.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K19.ts` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K20.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K20.ts` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K21.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K21.ts` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `K23.js` — Key normalization and item/dot equivalence have no bearing on a whole Use. Q01 and Q08 cover index expressions and endpoints.
+- `L02.js` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L02.py` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L03.js` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L04.go` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L04.js` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L04.py` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L05.go` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L05.js` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L05.py` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L06.js` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L07.js` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `L08.js` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `P25.py` — Keyed overwrite or sibling projection. P03, L01 and Q05/Q13 distinguish whole replacement from a later element write.
+- `P02.go` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P02.js` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P02.py` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P05.js` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P05.py` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P06.js` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P06.ts` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P07.js` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P07.ts` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P11.go` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P13.js` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P22.js` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `P22.py` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `R05.js` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `R05.ts` — Element or field reads, dot equivalence and wrapped roots. P15, P24 and Q12 pin the admitted boundary.
+- `Y01.go` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y01.js` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y01.py` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y03.go` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y03.js` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y03.py` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y05.js` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y05.py` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y06.js` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y06.py` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y10.js` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y10.py` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y11.js` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y11.py` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
+- `Y13.js` — Dynamic-key equality at a projected use. Q01 and Q05 keep dynamic and nested writes with a whole consumer.
