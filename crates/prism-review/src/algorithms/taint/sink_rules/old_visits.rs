@@ -1,98 +1,35 @@
-//! Test-only observations of legacy detector visits without a located witness.
+//! Raw path fixtures for the S2-WC detector-site observer.
 
-use prism::ast::ParsedFile;
-use prism::data_flow::{FlowPath, VarLocation};
-use prism::frameworks::SinkPattern;
+use prism::data_flow::FlowPath;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
-
-// Finding category is taint_sink. The count is visits; occurrence multiplicity is unknown.
-type Key = (String, usize, &'static str, String, &'static str);
-
-struct Capture {
-    groups: BTreeMap<Key, usize>,
-    fixture_path_visits: Option<Vec<prism::data_flow::FlowPath>>,
-}
 
 thread_local! {
-    static ACTIVE: RefCell<Option<Capture>> = const { RefCell::new(None) };
+    static FIXTURE_PATHS: RefCell<Option<Vec<FlowPath>>> = const { RefCell::new(None) };
 }
 
 pub(in crate::algorithms::taint) fn replace_fixture_paths(paths: &mut Vec<FlowPath>) {
-    ACTIVE.with_borrow_mut(|active| {
-        if let Some(fixture) = active
-            .as_mut()
-            .and_then(|capture| capture.fixture_path_visits.take())
-        {
-            *paths = fixture;
-        }
-    });
+    if let Some(fixture) = FIXTURE_PATHS.with_borrow_mut(Option::take) {
+        *paths = fixture;
+    }
 }
 
-pub(in crate::algorithms::taint) fn unlocated(parsed: &ParsedFile, target: &VarLocation) -> bool {
-    super::uses::exact_use(parsed, target).is_none()
-}
-
-pub(in crate::algorithms::taint) fn record(
-    parsed: &ParsedFile,
-    line: usize,
-    detector: &'static str,
-    entry: &str,
-    branch: &'static str,
-) {
-    ACTIVE.with_borrow_mut(|active| {
-        if let Some(capture) = active {
-            let key = (
-                parsed.path.clone(),
-                line,
-                detector,
-                entry.to_owned(),
-                branch,
-            );
-            *capture.groups.entry(key).or_default() += 1;
-        }
-    });
-}
-
-pub(in crate::algorithms::taint) fn structured(
-    parsed: &ParsedFile,
-    line: usize,
-    pat: &SinkPattern,
-    branch: &'static str,
-) {
-    record(
-        parsed,
-        line,
-        "structured",
-        &format!("{:?}:{}", pat.category, pat.call_path),
-        branch,
-    );
-}
-
-fn capture(
-    fixture_path_visits: Option<Vec<prism::data_flow::FlowPath>>,
-    run: impl FnOnce(),
-) -> BTreeMap<Key, usize> {
+fn with_fixture_paths(paths: Vec<FlowPath>, run: impl FnOnce()) {
     struct Reset;
     impl Drop for Reset {
         fn drop(&mut self) {
-            ACTIVE.with_borrow_mut(|active| *active = None);
+            FIXTURE_PATHS.with_borrow_mut(|fixture| *fixture = None);
         }
     }
-    ACTIVE.with_borrow_mut(|active| {
-        assert!(active.is_none());
-        *active = Some(Capture {
-            groups: BTreeMap::new(),
-            fixture_path_visits,
-        });
+    FIXTURE_PATHS.with_borrow_mut(|fixture| {
+        assert!(fixture.is_none());
+        *fixture = Some(paths);
     });
     let _reset = Reset;
     run();
-    ACTIVE.with_borrow_mut(|active| active.take().unwrap().groups)
 }
 
 #[test]
-fn legacy_run_counts_two_raw_spanless_visits_and_distinguishes_zero() {
+fn raw_visit_fixtures_preserve_admission_without_rules() {
     use crate::algorithms::taint::{run, TaintConfig};
     use prism::access_path::AccessPath;
     use prism::ast::ParsedFile;
@@ -100,7 +37,7 @@ fn legacy_run_counts_two_raw_spanless_visits_and_distinguishes_zero() {
     use prism::data_flow::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
     use prism::diff::DiffInput;
     use prism::languages::Language;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
 
     let file = "a.js";
     let parsed = ParsedFile::parse(
@@ -146,22 +83,19 @@ fn legacy_run_counts_two_raw_spanless_visits_and_distinguishes_zero() {
         taint_from_diff: false,
         ..TaintConfig::default()
     };
-    let check = || {
-        let result = run::slice(&ctx, &diff, &config).unwrap();
-        assert!(result
-            .findings
-            .iter()
-            .any(|f| f.line == 2 && f.category.as_deref() == Some("taint_sink")));
-    };
-    let visits = capture(Some(vec![spanless.clone(), spanless]), check);
-    assert_eq!(
-        visits,
-        BTreeMap::from([((file.into(), 2, "configured", "=audit".into(), "path"), 2)])
-    );
-    assert!(capture(Some(vec![located]), check).is_empty());
-    let visits = capture(Some(vec![unlocated]), check);
-    assert_eq!(
-        visits,
-        BTreeMap::from([((file.into(), 2, "configured", "=audit".into(), "path"), 1)])
-    );
+    for paths in [
+        vec![spanless.clone(), spanless],
+        vec![located],
+        vec![unlocated],
+    ] {
+        with_fixture_paths(paths, || {
+            let result = run::slice(&ctx, &diff, &config).unwrap();
+            let finding = result
+                .findings
+                .iter()
+                .find(|f| f.line == 2 && f.category.as_deref() == Some("taint_sink"))
+                .expect("raw visits preserve admission");
+            assert!(finding.rules.is_empty());
+        });
+    }
 }

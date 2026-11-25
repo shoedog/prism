@@ -325,9 +325,9 @@ pub(super) fn slice_attributed_impl(
                     {
                         continue;
                     }
-                    let flat_hit =
-                        sink_classifier.classify(&edge.to.file, parsed, *id, text, SINK_PATTERNS);
-                    let flat_sink = flat_hit.is_some();
+                    let flat_sink = sink_classifier
+                        .classify(&edge.to.file, parsed, *id, text, SINK_PATTERNS)
+                        .is_some();
                     if !flat_sink && !extra_sinks.iter().any(|s| matches_sink(text, s)) {
                         continue;
                     }
@@ -344,17 +344,6 @@ pub(super) fn slice_attributed_impl(
                         continue;
                     }
                     {
-                        #[cfg(test)]
-                        if old_visits::unlocated(parsed, &edge.to) {
-                            let (detector, entry) = if let Some(hit) = flat_hit {
-                                ("flat", hit.rule())
-                            } else {
-                                names
-                                    .old_first_match(text)
-                                    .expect("admitted configured or wrapper hit")
-                            };
-                            old_visits::record(parsed, edge.to.line, detector, entry, "path");
-                        }
                         let sink = (edge.to.file.clone(), edge.to.line);
                         sink_lines.insert(sink.clone());
                         if let Some(first_edge) = path.edges.first() {
@@ -381,12 +370,6 @@ pub(super) fn slice_attributed_impl(
                 if matches!(outcome, SinkMatchOutcome::Match(_))
                     && !structured_suppressed_by_cleanser
                 {
-                    #[cfg(test)]
-                    if let SinkMatchOutcome::Match(pat) = outcome {
-                        if old_visits::unlocated(parsed, &edge.to) {
-                            old_visits::structured(parsed, edge.to.line, pat, "path");
-                        }
-                    }
                     let sink = (edge.to.file.clone(), edge.to.line);
                     sink_lines.insert(sink.clone());
                     if let Some(first_edge) = path.edges.first() {
@@ -446,8 +429,6 @@ pub(super) fn slice_attributed_impl(
                 if let Some(pat) = python_sink_with_inline_flask_source(parsed, *line) {
                     let cleansed = source_line_cleansed_for_sink(parsed, &ctx.cpg, *line, pat);
                     if !cleansed {
-                        #[cfg(test)]
-                        old_visits::structured(parsed, *line, pat, "python-inline");
                         sink_lines.insert((file.clone(), *line));
                     }
                 }
@@ -479,8 +460,6 @@ pub(super) fn slice_attributed_impl(
                 // No FlowPath cleansing applies. Fall back to function-body scan.
                 let cleansed = source_line_cleansed_for_sink(parsed, &ctx.cpg, *line, sink_pat);
                 if !cleansed {
-                    #[cfg(test)]
-                    old_visits::structured(parsed, *line, sink_pat, "go-no-path");
                     sink_lines.insert((file.clone(), *line));
                 }
             } else {
@@ -498,12 +477,6 @@ pub(super) fn slice_attributed_impl(
                 for p in &originating {
                     if let SinkMatchOutcome::Match(pat) = go_sink_outcome(parsed, *line, Some(p)) {
                         if !flow_path_cleansed_for_sink(parsed, &ctx.cpg, p, *line, pat) {
-                            #[cfg(test)]
-                            if !p.edges.iter().any(|edge| {
-                                edge.to.line == *line && !old_visits::unlocated(parsed, &edge.to)
-                            }) {
-                                old_visits::structured(parsed, *line, pat, "go-source-path");
-                            }
                             any_matching_uncleansed = true;
                             break;
                         }
@@ -529,8 +502,6 @@ pub(super) fn slice_attributed_impl(
                     if let Some(pat) = find_sink_with_inline_framework_source(parsed, *line) {
                         let cleansed = source_line_cleansed_for_sink(parsed, &ctx.cpg, *line, pat);
                         if !cleansed {
-                            #[cfg(test)]
-                            old_visits::structured(parsed, *line, pat, "go-inline-fallback");
                             any_matching_uncleansed = true;
                         }
                     }

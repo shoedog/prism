@@ -1,6 +1,9 @@
-use super::{call_operand, collect_rules, InlineOccurrence, NameSinks, Occurrence, Witness};
+use super::evidence::{
+    Detector, InlineRoute, Occurrence, PathProof, PathRoute, Provenance, Role, Site,
+};
+use super::{collect_rules, NameSinks, Selection};
+use crate::algorithms::taint::cleansing::{flow_path_cleansed_for_sink_call, node_in_ranges};
 use prism::access_path::AccessPath;
-use prism::ast::tree_helpers::{call_arg_node, collect_calls};
 use prism::ast::ParsedFile;
 use prism::cpg::CodePropertyGraph;
 use prism::data_flow::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
@@ -9,30 +12,109 @@ use prism::languages::Language;
 use prism::rule_registry::{CONFIGURED_SINK, FORMAT_WRAPPER, JS_EVAL, TAINT_WRITE_DATA};
 use prism::slice::{attach_rules, SliceFinding};
 use std::collections::BTreeSet;
+use std::iter::successors;
+use tree_sitter::Node;
 
-fn path_to(location: VarLocation) -> FlowPath {
-    let mut from = location.clone();
-    from.kind = VarAccessKind::Def;
-    from.line = 1;
+const FLAT: Detector<'static> = Detector::Flat("fixture");
+const STRUCTURED: Detector<'static> = Detector::Structured {
+    table: "fixture",
+    entry: 0,
+};
+
+fn node<'a>(parsed: &'a ParsedFile, scope: Node<'a>, text: &str) -> Node<'a> {
+    parsed
+        .node_text(&scope)
+        .match_indices(text)
+        .find_map(|(offset, _)| {
+            let start = scope.start_byte() + offset;
+            let range = start..start + text.len();
+            scope
+                .named_descendant_for_byte_range(range.start, range.end)
+                .filter(|candidate| candidate.byte_range() == range)
+        })
+        .unwrap_or_else(|| panic!("fixture node {text:?} in {:?}", parsed.node_text(&scope)))
+}
+
+fn site<'a>(
+    parsed: &'a ParsedFile,
+    operation: &str,
+    target: &str,
+    operand: &str,
+    role: Role<'a>,
+) -> Site<'a> {
+    let operation = node(parsed, parsed.tree.root_node(), operation);
+    Site {
+        operation,
+        target: node(parsed, operation, target),
+        operand: node(parsed, operation, operand),
+        role,
+    }
+}
+
+fn owner<'a>(parsed: &'a ParsedFile, operation: Node<'a>) -> Node<'a> {
+    let boundaries = parsed.language.callable_boundary_node_types();
+    successors(Some(operation), Node::parent)
+        .find(|candidate| boundaries.contains(&candidate.kind()))
+        .unwrap_or_else(|| parsed.tree.root_node())
+}
+
+fn receipt<'a, 'p>(
+    parsed: &'a ParsedFile,
+    line: usize,
+    site: Site<'a>,
+    reached: Node<'a>,
+    detector: Detector<'a>,
+    provenance: Provenance<'a, 'p>,
+) -> Occurrence<'a, 'p> {
+    Occurrence::from_adapter(
+        parsed,
+        (&parsed.path, line),
+        owner(parsed, site.operation),
+        site,
+        reached,
+        detector,
+        provenance,
+    )
+}
+
+fn path_to(parsed: &ParsedFile, definition: Node<'_>, reached: Node<'_>) -> FlowPath {
+    let location = |node: Node<'_>, kind| VarLocation {
+        file: parsed.path.clone(),
+        function: "f".into(),
+        function_start_line: 1,
+        line: node.start_position().row + 1,
+        path: AccessPath::simple(parsed.node_text(&definition)),
+        start_byte: node.start_byte(),
+        end_byte: node.end_byte(),
+        kind,
+    };
     FlowPath {
-        edges: vec![FlowEdge { from, to: location }],
+        edges: vec![FlowEdge {
+            from: location(definition, VarAccessKind::Def),
+            to: location(reached, VarAccessKind::Use),
+        }],
         cleansed_for: BTreeSet::new(),
     }
 }
 
-fn use_at(parsed: &ParsedFile, before: &str, name: &str, line: usize) -> VarLocation {
-    let start = parsed.source.find(before).unwrap() + before.len();
-    assert_eq!(&parsed.source[start..start + name.len()], name);
-    VarLocation {
-        file: parsed.path.clone(),
-        function: "f".into(),
-        function_start_line: 1,
-        line,
-        path: AccessPath::simple(name),
-        start_byte: start,
-        end_byte: start + name.len(),
-        kind: VarAccessKind::Use,
+fn destination<'a, 'p>(path: &'p FlowPath) -> Provenance<'a, 'p> {
+    Provenance::Path {
+        path,
+        edge_index: 0,
+        route: PathRoute::Destination,
+        proof: PathProof::ExactPoint,
     }
+}
+
+fn admitted(parsed: &ParsedFile, lines: &[usize]) -> BTreeSet<(String, usize)> {
+    lines
+        .iter()
+        .map(|&line| (parsed.path.clone(), line))
+        .collect()
+}
+
+fn select_eval(_: &Occurrence<'_, '_>, rows: &mut Vec<Selection>) {
+    rows.push((&JS_EVAL, false));
 }
 
 #[test]
@@ -41,31 +123,86 @@ fn combines_paths_and_inline_on_final_admitted_key() {
         "a.js",
         "function f(x, y) { db.query('select ?', inner(x), y); db.query('select ?', {bind: x}); inline(source()); }",
         Language::JavaScript,
-    )
-    .unwrap();
-    let x = defined_path(&parsed, "x,", "inner(", "x");
-    let mut y_cleansed = defined_path(&parsed, "y)", "inner(x), ", "y");
-    y_cleansed.cleansed_for.insert(SanitizerCategory::Sqli);
-    let y_live = defined_path(&parsed, "y)", "inner(x), ", "y");
-    let bound = defined_path(&parsed, "x,", "bind: ", "x");
-    let mut calls = Vec::new();
-    collect_calls(&parsed, parsed.tree.root_node(), &mut calls);
-    let inline_call = calls
-        .into_iter()
-        .find(|call| parsed.node_text(call) == "inline(source())")
-        .unwrap();
-    let source = call_arg_node(&inline_call, 0).unwrap();
-    let inline = InlineOccurrence {
-        admission_key: (&parsed.path, 1),
-        occurrence: Occurrence {
-            call: inline_call,
-            callee: parsed.call_function_name(&inline_call).unwrap(),
-            operand: source,
-            slot: 0,
-        },
-        source,
+    ).unwrap();
+    let inner = site(&parsed, "inner(x)", "inner", "x", Role::Argument(0));
+    let query = site(
+        &parsed,
+        "db.query('select ?', inner(x), y)",
+        "query",
+        "inner(x)",
+        Role::Argument(1),
+    );
+    let y = Site {
+        operand: node(&parsed, query.operation, "y"),
+        role: Role::Argument(2),
+        ..query
     };
-    let paths = [&x, &x, &y_cleansed, &y_live, &bound];
+    let bound = site(
+        &parsed,
+        "db.query('select ?', {bind: x})",
+        "query",
+        "{bind: x}",
+        Role::Argument(1),
+    );
+    let inline = site(
+        &parsed,
+        "inline(source())",
+        "inline",
+        "source()",
+        Role::Argument(0),
+    );
+    let x_def = node(&parsed, parsed.tree.root_node(), "x");
+    let y_def = node(&parsed, parsed.tree.root_node(), "y");
+    let x = path_to(&parsed, x_def, inner.operand);
+    let y_live = path_to(&parsed, y_def, y.operand);
+    let mut y_cleansed = y_live.clone();
+    y_cleansed.cleansed_for.insert(SanitizerCategory::Sqli);
+    let bound_read = node(&parsed, bound.operand, "x");
+    let bound_path = path_to(&parsed, x_def, bound_read);
+    let make_witnesses = || {
+        [
+            receipt(&parsed, 1, inner, inner.operand, FLAT, destination(&x)),
+            receipt(&parsed, 1, inner, inner.operand, FLAT, destination(&x)),
+            receipt(
+                &parsed,
+                1,
+                query,
+                inner.operand,
+                STRUCTURED,
+                destination(&x),
+            ),
+            receipt(
+                &parsed,
+                1,
+                y,
+                y.operand,
+                STRUCTURED,
+                destination(&y_cleansed),
+            ),
+            receipt(&parsed, 1, y, y.operand, STRUCTURED, destination(&y_live)),
+            receipt(
+                &parsed,
+                1,
+                bound,
+                bound_read,
+                STRUCTURED,
+                destination(&bound_path),
+            ),
+            receipt(
+                &parsed,
+                1,
+                inline,
+                inline.operand,
+                STRUCTURED,
+                Provenance::Inline {
+                    key: (&parsed.path, 1),
+                    route: InlineRoute::JsYaml,
+                },
+            ),
+        ]
+    };
+    assert!(collect_rules(&parsed, 1, &BTreeSet::new(), make_witnesses(), select_eval).is_empty());
+
     static QUERY: SinkPattern = SinkPattern {
         call_path: "query",
         category: SanitizerCategory::Sqli,
@@ -73,59 +210,48 @@ fn combines_paths_and_inline_on_final_admitted_key() {
         semantic_check: None,
     };
     let cpg = CodePropertyGraph::empty();
-    let mut visited = Vec::new();
-    let mut project = |occ: Occurrence<'_>, witness: Witness<'_, '_>, rows: &mut Vec<_>| {
-        let name = parsed.node_text(&occ.callee);
-        match witness {
-            Witness::Path { path, reached } => {
-                assert!(!reached.byte_range().is_empty());
-                visited.push((name, occ.slot, parsed.node_text(&occ.operand)));
-                if name == "inner" {
-                    let callee = (occ.callee.start_byte(), occ.callee.end_byte());
-                    let operand = (occ.operand.start_byte(), occ.operand.end_byte());
-                    assert!(!occ.passes_flat_safe_ranges(&[callee]));
-                    assert!(occ.passes_flat_safe_ranges(&[operand]));
-                    rows.push((&JS_EVAL, true));
-                }
-                if occ.matches_path_pattern(&parsed, &cpg, 1, path, &QUERY) {
-                    assert_ne!(parsed.node_text(&occ.operand), "{bind: x}");
-                    assert!(!std::ptr::eq(path, &y_cleansed));
-                    rows.push((&TAINT_WRITE_DATA, false));
-                }
-            }
-            Witness::Inline(source) => {
-                assert_eq!(parsed.node_text(&source), "source()");
-                rows.push((&JS_EVAL, false));
-            }
-        }
-    };
-    assert!(collect_rules(&parsed, 1, &BTreeSet::new(), paths, [inline], &mut project).is_empty());
-    let admitted = BTreeSet::from([(parsed.path.clone(), 1)]);
-    let rejected_inline = InlineOccurrence {
-        source: inline.occurrence.callee,
-        ..inline
-    };
+    let mut paths = Vec::new();
     let rows = collect_rules(
         &parsed,
         1,
-        &admitted,
-        paths,
-        [inline, rejected_inline],
-        &mut project,
+        &admitted(&parsed, &[1]),
+        make_witnesses(),
+        |witness, rows| {
+            let site = witness.site();
+            match witness.provenance() {
+                Provenance::Path { path, .. } => {
+                    paths.push(path as *const FlowPath);
+                    if witness.detector() == FLAT {
+                        let callee = (site.target.start_byte(), site.target.end_byte());
+                        let operand = (site.operand.start_byte(), site.operand.end_byte());
+                        assert!(node_in_ranges(&site.target, &[callee]));
+                        assert!(!node_in_ranges(&site.target, &[operand]));
+                        rows.push((&JS_EVAL, true));
+                    } else if site.operand != bound.operand
+                        && !flow_path_cleansed_for_sink_call(
+                            &parsed,
+                            &cpg,
+                            path,
+                            1,
+                            &QUERY,
+                            &site.operation,
+                        )
+                    {
+                        rows.push((&TAINT_WRITE_DATA, false));
+                    }
+                }
+                Provenance::Inline { .. } => {
+                    assert_eq!(parsed.node_text(&witness.reached()), "source()");
+                    rows.push((&JS_EVAL, false));
+                }
+            }
+        },
     );
-    assert_eq!(rows.len(), 6);
     assert_eq!(
-        visited,
-        [
-            ("inner", 0, "x"),
-            ("query", 1, "inner(x)"),
-            ("inner", 0, "x"),
-            ("query", 1, "inner(x)"),
-            ("query", 2, "y"),
-            ("query", 2, "y"),
-            ("query", 1, "{bind: x}"),
-        ]
+        paths,
+        [&x, &x, &x, &y_cleansed, &y_live, &bound_path].map(std::ptr::from_ref)
     );
+    assert_eq!(rows.len(), 5);
     let mut finding = SliceFinding {
         severity: "warning".into(),
         ..SliceFinding::default()
@@ -138,408 +264,255 @@ fn combines_paths_and_inline_on_final_admitted_key() {
 }
 
 #[test]
-fn coalesced_reads_do_not_cross_a_binding_or_write() {
-    let parsed = ParsedFile::parse(
-        "a.js",
-        "function f(x, y) { one(x); two(x, x); { let x = 'clean'; shadow(x); } three(y); y = 'clean'; rebound(y); }",
-        Language::JavaScript,
-    )
-    .unwrap();
-    let x = defined_path(&parsed, "x,", "one(", "x");
-    let y = defined_path(&parsed, "y)", "three(", "y");
-    let mut slots = Vec::new();
-    let rows = collect_rules(
-        &parsed,
-        1,
-        &BTreeSet::from([(parsed.path.clone(), 1)]),
-        [&x, &y],
-        [],
-        |occ, _, _| slots.push((parsed.node_text(&occ.callee), occ.slot)),
-    );
-    assert!(rows.is_empty());
-    assert_eq!(slots, [("one", 0), ("two", 0), ("two", 1), ("three", 0)]);
-}
-
-#[test]
-fn only_located_arguments_can_contribute_name_detector_rows() {
+fn configured_and_wrapper_origins_remain_independent_and_ordered() {
     let parsed = ParsedFile::parse(
         "a.py",
         "def f(x):\n    x.report('ok')\n    report_extra(x); report('%s', x)\n",
         Language::Python,
     )
     .unwrap();
-    let path = defined_path(&parsed, "x)", "    ", "x");
-    let mut other_file = use_at(&parsed, "report_extra(", "x", 3);
-    other_file.file = "other.py".into();
-    let mut spanless = use_at(&parsed, "'%s', ", "x", 3);
-    spanless.start_byte = 0;
-    spanless.end_byte = 0;
-    let other_file = path_to(other_file);
-    let spanless = path_to(spanless);
-    let configured = ["report".into()];
+    let configured = ["report".into(), "=report".into()];
     let wrappers = ["=report".into()];
     let names = NameSinks::new(&configured, &wrappers);
-    let admitted = BTreeSet::from([(parsed.path.clone(), 2), (parsed.path.clone(), 3)]);
-    let mut project = |occ: Occurrence<'_>, _, rows: &mut Vec<_>| {
-        names.select(parsed.node_text(&occ.callee), rows)
-    };
-    assert!(collect_rules(
+    assert_eq!(
+        names.admission_patterns().collect::<Vec<_>>(),
+        ["report", "=report", "=report"]
+    );
+    let extra = site(
+        &parsed,
+        "report_extra(x)",
+        "report_extra",
+        "x",
+        Role::Argument(0),
+    );
+    let wrapper = site(&parsed, "report('%s', x)", "report", "x", Role::Argument(1));
+    let receiver = site(
+        &parsed,
+        "x.report('ok')",
+        "report",
+        "x",
+        Role::ReceiverValue,
+    );
+    let def = node(&parsed, parsed.tree.root_node(), "x");
+    let path = path_to(&parsed, def, extra.operand);
+    let receiver_path = path_to(&parsed, def, receiver.operand);
+    let rows = collect_rules(
         &parsed,
         2,
-        &admitted,
-        [&path, &other_file, &spanless],
-        [],
-        &mut project,
-    )
-    .is_empty());
-    assert!(collect_rules(
+        &admitted(&parsed, &[2, 3]),
+        [receipt(
+            &parsed,
+            2,
+            receiver,
+            receiver.operand,
+            Detector::Configured("report"),
+            destination(&receiver_path),
+        )],
+        |witness, rows| names.select(witness, rows),
+    );
+    assert!(rows.is_empty());
+
+    let mut wrong_file = path.clone();
+    wrong_file.edges[0].to.file = "other.py".into();
+    let rows = collect_rules(
         &parsed,
         3,
-        &admitted,
-        [&other_file, &spanless],
-        [],
-        &mut project
-    )
-    .is_empty());
-
-    let path = defined_path(&parsed, "x)", "report_extra(", "x");
-    let rows = collect_rules(&parsed, 3, &admitted, [&path], [], &mut project);
-    assert_eq!(
-        rows.iter().map(|(row, _)| row.id()).collect::<Vec<_>>(),
+        &admitted(&parsed, &[2, 3]),
         [
-            CONFIGURED_SINK.id(),
-            CONFIGURED_SINK.id(),
-            FORMAT_WRAPPER.id()
+            receipt(
+                &parsed,
+                3,
+                extra,
+                extra.operand,
+                Detector::Configured("report"),
+                destination(&wrong_file),
+            ),
+            receipt(
+                &parsed,
+                3,
+                extra,
+                extra.operand,
+                Detector::Configured("report"),
+                destination(&path),
+            ),
+            receipt(
+                &parsed,
+                3,
+                extra,
+                extra.operand,
+                Detector::Configured("=report"),
+                destination(&path),
+            ),
+            receipt(
+                &parsed,
+                3,
+                wrapper,
+                wrapper.operand,
+                Detector::Configured("=report"),
+                destination(&path),
+            ),
+            receipt(
+                &parsed,
+                3,
+                wrapper,
+                wrapper.operand,
+                Detector::Wrapper("=report"),
+                destination(&path),
+            ),
+            receipt(
+                &parsed,
+                3,
+                wrapper,
+                wrapper.operand,
+                Detector::Wrapper("report"),
+                destination(&path),
+            ),
+        ],
+        |witness, rows| names.select(witness, rows),
+    );
+    assert_eq!(
+        rows.iter()
+            .map(|(row, weak)| (row.id(), *weak))
+            .collect::<Vec<_>>(),
+        [
+            (CONFIGURED_SINK.id(), false),
+            (CONFIGURED_SINK.id(), false),
+            (FORMAT_WRAPPER.id(), false)
         ]
     );
-    let exact_pattern = ["=report".into()];
-    let exact = NameSinks::new(&exact_pattern, &[]);
-    let rows = collect_rules(&parsed, 3, &admitted, [&path], [], |occ, _, rows| {
-        exact.select(parsed.node_text(&occ.callee), rows)
-    });
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].0.id(), CONFIGURED_SINK.id());
-    assert!(!rows[0].1);
-}
-
-fn defined_path(parsed: &ParsedFile, definition: &str, before: &str, name: &str) -> FlowPath {
-    let line = |marker| {
-        let byte = parsed.source.find(marker).unwrap();
-        parsed.source[..byte]
-            .bytes()
-            .filter(|&b| b == b'\n')
-            .count()
-            + 1
-    };
-    let mut path = path_to(use_at(parsed, before, name, line(before)));
-    let from = &mut path.edges[0].from;
-    from.line = line(definition);
-    from.start_byte = parsed.source.find(definition).unwrap();
-    from.end_byte = from.start_byte + name.len();
-    path
-}
-
-fn visits<'a>(parsed: &'a ParsedFile, path: &FlowPath) -> Vec<(&'a str, usize)> {
-    let line = path.edges[0].to.line;
-    let mut visits = Vec::new();
-    collect_rules(
-        parsed,
-        line,
-        &BTreeSet::from([(parsed.path.clone(), line)]),
-        [path],
-        [],
-        |occ, _, _| visits.push((parsed.node_text(&occ.callee), occ.slot)),
-    );
-    visits
 }
 
 #[test]
-fn refuses_shadowed_initial_span() {
-    let parsed = ParsedFile::parse(
-        "a.js",
-        "function f(x) {\n  { const x = 'safe'; res.send(x); } observe(x);\n  confirm(x);\n}",
-        Language::JavaScript,
-    )
-    .unwrap();
-    assert!(visits(&parsed, &defined_path(&parsed, "x)", "res.send(", "x")).is_empty());
-    assert_eq!(
-        visits(&parsed, &defined_path(&parsed, "x)", "confirm(", "x")),
-        [("confirm", 0)]
-    );
-}
-
-#[test]
-fn every_destructuring_write_blocks_coalescing_in_both_directions() {
-    let mut failures = Vec::new();
-    for write in [
-        "({x} = o);",
-        "({x = d} = o);",
-        "var {x} = o;",
-        "for ({x} of xs);",
-        "for (var {x} of xs);",
-    ] {
-        let source = format!("function f(x) {{\n  observe(x); {write} res.send(x);\n}}");
-        let parsed = ParsedFile::parse("a.js", &source, Language::JavaScript).unwrap();
-        assert!(!parsed.tree.root_node().has_error(), "{write}");
-        let forward = visits(&parsed, &defined_path(&parsed, "x)", "observe(", "x"));
-        let backward = visits(&parsed, &defined_path(&parsed, "x)", "res.send(", "x"));
-        if forward != [("observe", 0)] || !backward.is_empty() {
-            failures.push(format!("{write}: {forward:?}, {backward:?}"));
-        }
-    }
-    assert!(failures.is_empty(), "{failures:?}");
-}
-
-#[test]
-fn captured_write_blocks_reuse_and_cannot_validate_a_late_representative() {
-    let parsed = ParsedFile::parse(
-        "a.js",
-        "function f() {\n  let x = source();\n  const reset = () => { x = 'safe'; };\n  observe(x); reset(); res.send(x);\n}",
-        Language::JavaScript,
-    )
-    .unwrap();
-    assert!(visits(
+fn receipt_checks_parse_key_range_owner_and_operand_membership() {
+    let source = "function f(x) { audit('safe', x); other(x); audit(() => x); }\n";
+    let parsed = ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+    let other_parse = ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+    let copied_tree = parsed.tree.clone();
+    let audit = site(&parsed, "audit('safe', x)", "audit", "x", Role::Argument(1));
+    let sibling = site(&parsed, "other(x)", "other", "x", Role::Argument(0));
+    let deferred = site(
         &parsed,
-        &defined_path(&parsed, "x = source", "res.send(", "x")
+        "audit(() => x)",
+        "audit",
+        "() => x",
+        Role::Argument(0),
+    );
+    let wrong_slot = Site {
+        operand: node(&parsed, audit.operation, "'safe'"),
+        role: Role::Argument(0),
+        ..audit
+    };
+    let def = node(&parsed, parsed.tree.root_node(), "x");
+    let path = path_to(&parsed, def, audit.operand);
+    let key = (parsed.path.as_str(), 1);
+    let callable = owner(&parsed, audit.operation);
+    let range = audit.operand.byte_range();
+    let cloned_read = copied_tree
+        .root_node()
+        .named_descendant_for_byte_range(range.start, range.end)
+        .unwrap();
+    assert_eq!(cloned_read.id(), audit.operand.id());
+    let shifted_root = parsed
+        .tree
+        .root_node_with_offset(0, tree_sitter::Point::new(1, 0));
+    let shifted_read = shifted_root
+        .named_descendant_for_byte_range(range.start, range.end)
+        .unwrap();
+    assert_eq!(shifted_read.id(), audit.operand.id());
+    assert_ne!(shifted_read.range(), audit.operand.range());
+    let mut truncated = ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+    let truncated_root = truncated.tree.root_node();
+    truncated.source.truncate(12);
+    let in_truncated_tree = |node: Node<'_>| {
+        let range = node.byte_range();
+        truncated_root
+            .named_descendant_for_byte_range(range.start, range.end)
+            .unwrap()
+    };
+    let from = |key, owner, site, reached| {
+        Occurrence::from_adapter(&parsed, key, owner, site, reached, FLAT, destination(&path))
+    };
+    let candidates = [
+        from(("other.js", 1), callable, audit, audit.operand),
+        from((&parsed.path, 2), callable, audit, audit.operand),
+        from(key, parsed.tree.root_node(), audit, audit.operand),
+        from(key, callable, audit, sibling.operand),
+        from(key, callable, wrong_slot, audit.operand),
+        from(
+            key,
+            callable,
+            deferred,
+            node(&parsed, deferred.operand, "x"),
+        ),
+        from(key, callable, audit, cloned_read),
+        receipt(
+            &other_parse,
+            1,
+            site(
+                &other_parse,
+                "audit('safe', x)",
+                "audit",
+                "x",
+                Role::Argument(1),
+            ),
+            node(&other_parse, other_parse.tree.root_node(), "x"),
+            FLAT,
+            destination(&path),
+        ),
+    ];
+    assert!(collect_rules(
+        &parsed,
+        1,
+        &admitted(&parsed, &[1]),
+        candidates,
+        select_eval
     )
     .is_empty());
-    assert!(!visits(
+    let mut shifted_path = path.clone();
+    shifted_path.edges[0].to.line = 2;
+    let shifted = receipt(
         &parsed,
-        &defined_path(&parsed, "x = source", "observe(", "x")
-    )
-    .contains(&("send", 0)));
-}
-
-#[test]
-fn immutable_value_reaches_nested_arguments() {
-    let parsed = ParsedFile::parse(
-        "a.js",
-        "function f() {\n  const x = source();\n  observe(x); inspect('x'); /* x */ res.send(eval(x));\n}",
-        Language::JavaScript,
-    )
-    .unwrap();
-    assert_eq!(
-        visits(
-            &parsed,
-            &defined_path(&parsed, "x = source", "observe(", "x")
-        ),
-        [("observe", 0), ("eval", 0), ("send", 0)]
+        2,
+        audit,
+        shifted_read,
+        FLAT,
+        destination(&shifted_path),
     );
-}
-
-#[test]
-fn ri15_assignment_wrapped_calls_share_the_reached_value() {
-    let parsed = ParsedFile::parse(
-        "a.go",
-        r#"package p
-func f(name string) {
-    cleaned := filepath.Clean(name)
-    if !strings.HasPrefix(cleaned, "/safe/") {
-        return
-    }
-    _ = os.WriteFile(cleaned, []byte("data"), 0644); _ = fmt.Sprintf(cleaned)
-}
-"#,
-        Language::Go,
-    )
-    .unwrap();
-    assert_eq!(
-        visits(
-            &parsed,
-            &defined_path(&parsed, "cleaned :=", "WriteFile(", "cleaned")
-        ),
-        [("WriteFile", 0), ("Sprintf", 0)]
-    );
-}
-
-#[test]
-fn exact_asserted_members_use_the_core_path() {
-    let mut failures = Vec::new();
-    for language in [Language::TypeScript, Language::Tsx] {
-        for expr in [
-            "runtime.X",
-            "(runtime as any).X",
-            "(runtime satisfies any).X",
-            "((runtime as any) satisfies any).X",
-            "(/* before */ runtime /* value */ as any).X",
-        ] {
-            let source = format!("function f(runtime: any) {{\n  fetch({expr});\n}}");
-            let parsed = ParsedFile::parse("a.ts", &source, language).unwrap();
-            assert!(!parsed.tree.root_node().has_error(), "{language:?}: {expr}");
-            let mut path = defined_path(&parsed, "runtime:", "fetch(", expr);
-            let field = AccessPath::from_expr("runtime.X");
-            assert!(parsed
-                .rvalue_identifier_spans_on_lines(&parsed.all_functions()[0], &BTreeSet::from([2]))
-                .iter()
-                .any(|span| span.start_byte == path.edges[0].to.start_byte
-                    && span.end_byte == path.edges[0].to.end_byte
-                    && span.path == field));
-            path.edges[0].from.path = AccessPath::simple("runtime");
-            path.edges[0].from.end_byte = path.edges[0].from.start_byte + "runtime".len();
-            path.edges[0].to.path = field;
-            let actual = visits(&parsed, &path);
-            if actual != [("fetch", 0)] {
-                failures.push((language, expr));
-            }
-            path.edges[0].to.path = AccessPath::from_expr("runtime.Y");
-            assert!(visits(&parsed, &path).is_empty(), "{expr}");
-        }
-    }
-    assert!(failures.is_empty(), "{failures:?}");
-}
-
-#[test]
-fn semantic_slot_ignores_comment_trivia() {
-    let parsed = ParsedFile::parse(
-        "a.js",
-        "function f(x) {\n  el.insertAdjacentHTML(/* position */ x, 'safe'); el.insertAdjacentHTML('beforeend', /* html */ x);\n}",
-        Language::JavaScript,
-    )
-    .unwrap();
-    assert_eq!(
-        visits(
-            &parsed,
-            &defined_path(&parsed, "x)", "/* position */ ", "x")
-        ),
-        [("insertAdjacentHTML", 0), ("insertAdjacentHTML", 1)]
-    );
-}
-
-#[test]
-fn name_selection_uses_only_a_verified_callee_token() {
-    let parsed = ParsedFile::parse(
-        "a.js",
-        "function f(x, table, audit) {\n  table[audit](x); audit(x);\n  const fn = new Function('return ' + x);\n}",
-        Language::JavaScript,
-    )
-    .unwrap();
-    assert_eq!(
-        visits(&parsed, &defined_path(&parsed, "x,", "table[audit](", "x")),
-        [("audit", 0)]
-    );
-    assert_eq!(
-        visits(&parsed, &defined_path(&parsed, "x,", "'return ' + ", "x")),
-        [("Function", 0)]
-    );
-}
-
-#[test]
-fn call_layouts_use_grammar_specific_callee_and_arguments() {
-    let mut failures = Vec::new();
-    for (language, source, before, name, expected) in [
-        (
-            Language::Java,
-            "class A { void f(String x) { new p.Builder(\"ok\", /* value */ x); } }",
-            "\"ok\", /* value */ ",
-            "x",
-            ("Builder", 1),
-        ),
-        (
-            Language::Cpp,
-            "void f(int x) { new ns::Builder(0, /* value */ x); }",
-            "/* value */ ",
-            "x",
-            ("Builder", 1),
-        ),
-        (Language::Bash, "audit safe \"$x\"", "$", "x", ("audit", 1)),
-        (
-            Language::Terraform,
-            "value = audit(\"ok\", /* value */ local.x)\n",
-            "/* value */ ",
-            "local.x",
-            ("audit", 1),
-        ),
-    ] {
-        let parsed = ParsedFile::parse("fixture", source, language).unwrap();
-        assert!(
-            !parsed.tree.root_node().has_error(),
-            "{language:?}: {source}"
-        );
-        let location = use_at(&parsed, before, name, 1);
-        let reached = parsed
-            .tree
-            .root_node()
-            .named_descendant_for_byte_range(location.start_byte, location.end_byte)
-            .unwrap();
-        let call = std::iter::successors(reached.parent(), tree_sitter::Node::parent)
-            .find(|node| parsed.language.is_call_node(node.kind()))
-            .unwrap();
-        let actual = call_operand(&parsed, call, reached)
-            .map(|occ| (parsed.node_text(&occ.callee), occ.slot));
-        if actual != Some(expected) {
-            failures.push(format!("{language:?}: {actual:?}"));
-        }
-    }
-    assert!(failures.is_empty(), "{failures:?}");
-}
-
-#[test]
-fn unrelated_inline_call_cannot_supply_a_rule() {
-    let parsed = ParsedFile::parse(
-        "a.py",
-        "other()\ninline(\n    source()\n)\n",
-        Language::Python,
-    )
-    .unwrap();
-    let call = parsed
-        .tree
-        .root_node()
-        .named_child(1)
-        .unwrap()
-        .named_child(0)
-        .unwrap();
-    let source = call_arg_node(&call, 0).unwrap();
-    let inline = InlineOccurrence {
-        admission_key: (&parsed.path, 2),
-        occurrence: Occurrence {
-            call,
-            callee: parsed.call_function_name(&call).unwrap(),
-            operand: source,
-            slot: 0,
-        },
-        source,
+    assert!(collect_rules(&parsed, 2, &admitted(&parsed, &[2]), [shifted], select_eval).is_empty());
+    let truncated_site = Site {
+        operation: in_truncated_tree(audit.operation),
+        target: in_truncated_tree(audit.target),
+        operand: in_truncated_tree(audit.operand),
+        ..audit
     };
-    let admitted = [1, 2, 3]
-        .map(|line| (parsed.path.clone(), line))
-        .into_iter()
-        .collect();
-    let project = |_, _, rows: &mut Vec<_>| rows.push((&JS_EVAL, false));
-    assert!(collect_rules(&parsed, 1, &admitted, [], [inline], project).is_empty());
-    assert!(collect_rules(&parsed, 3, &admitted, [], [inline], project).is_empty());
-    let wrong_slot = InlineOccurrence {
-        occurrence: Occurrence {
-            slot: 1,
-            ..inline.occurrence
-        },
-        ..inline
-    };
-    assert!(collect_rules(&parsed, 2, &admitted, [], [wrong_slot], project).is_empty());
+    let invalid = receipt(
+        &truncated,
+        1,
+        truncated_site,
+        truncated_site.operand,
+        FLAT,
+        destination(&path),
+    );
+    assert!(collect_rules(
+        &truncated,
+        1,
+        &admitted(&truncated, &[1]),
+        [invalid],
+        select_eval
+    )
+    .is_empty());
     assert_eq!(
-        collect_rules(&parsed, 2, &admitted, [], [inline], project).len(),
+        collect_rules(
+            &parsed,
+            1,
+            &admitted(&parsed, &[1]),
+            [from(key, callable, audit, audit.operand)],
+            select_eval
+        )
+        .len(),
         1
     );
 }
 
-#[test]
-fn assignment_target_is_not_a_reached_read() {
-    let parsed = ParsedFile::parse(
-        "a.js",
-        "function f(x) {\n  res.send(x = 'safe');\n}\n",
-        Language::JavaScript,
-    )
-    .unwrap();
-    let mut path = path_to(use_at(&parsed, "res.send(", "x", 2));
-    let definition = parsed.source.find("x)").unwrap();
-    path.edges[0].from.start_byte = definition;
-    path.edges[0].from.end_byte = definition + 1;
-    let mut visited = Vec::new();
-    collect_rules(
-        &parsed,
-        2,
-        &BTreeSet::from([(parsed.path.clone(), 2)]),
-        [&path],
-        [],
-        |occ, _, _| visited.push(parsed.node_text(&occ.callee)),
-    );
-    assert!(visited.is_empty(), "{visited:?}");
-}
+mod fixtures;
+mod routes;
