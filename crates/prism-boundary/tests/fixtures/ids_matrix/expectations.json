@@ -1,0 +1,1116 @@
+{
+  "control-ambiguous-status-root-replacement": {
+    "before": "before.json",
+    "changes": {
+      "SuccessStatusRemoved": [
+        "200"
+      ],
+      "SuccessStatusAdded": [
+        "201",
+        "202"
+      ],
+      "body_comparison": "not_checked"
+    },
+    "prohibited_changes": [
+      "FieldAdded",
+      "FieldRemoved"
+    ]
+  },
+  "control-bodyless-success-loss": {
+    "before": "before.json",
+    "changes": {
+      "SuccessStatusRemoved": [
+        "204"
+      ]
+    },
+    "prohibited_changes": [
+      "FieldAdded",
+      "FieldRemoved"
+    ]
+  },
+  "control-closed-minimum-1": {
+    "coverage": "checked",
+    "feasible": true
+  },
+  "control-closed-minimum-2": {
+    "coverage": "checked",
+    "feasible": false
+  },
+  "control-composition-only-cycle": {
+    "coverage": "partial",
+    "scope": "GET /loom 200 root",
+    "checked_sibling": "GET /spare 200 root"
+  },
+  "control-cross-conjunct-false-required": {
+    "coverage": "checked",
+    "feasible": false,
+    "field_types": {}
+  },
+  "control-cross-conjunct-integer": {
+    "coverage": "checked",
+    "feasible": true,
+    "field_types": {
+      "/grain": "integer"
+    }
+  },
+  "control-cross-conjunct-integer-required-only": {
+    "coverage": "checked",
+    "field_types": {
+      "/wax": "integer"
+    }
+  },
+  "control-cross-conjunct-omitted-required": {
+    "coverage": "checked",
+    "feasible": true,
+    "field_types": {
+      "/grain": "number"
+    }
+  },
+  "control-cross-conjunct-string": {
+    "coverage": "checked",
+    "feasible": true,
+    "field_types": {}
+  },
+  "control-cross-conjunct-string-required": {
+    "coverage": "checked",
+    "feasible": false,
+    "field_types": {}
+  },
+  "control-definition-rename": {
+    "before": "before.json",
+    "changes": {}
+  },
+  "control-document-client-only-held-service": {
+    "comparisons": [
+      {
+        "service": "service-before",
+        "client": "client-before",
+        "matches": {
+          "call-before": {
+            "target_ids": [
+              "op:GET /kiln"
+            ]
+          }
+        }
+      },
+      {
+        "service": "service-before",
+        "client": "client-after",
+        "matches": {
+          "call-after": {
+            "target_ids": []
+          }
+        }
+      }
+    ]
+  },
+  "control-document-computed-tree-borrowed-date": {
+    "admit": false,
+    "reason": "computed_tree_has_commit_metadata"
+  },
+  "control-document-computed-tree-null-metadata": {
+    "admit": true
+  },
+  "control-document-configured-provenance": {
+    "basis": "configured"
+  },
+  "control-document-joint-edit-four-comparisons": {
+    "comparisons": [
+      {
+        "service": "service-before",
+        "client": "client-before",
+        "matches": {
+          "call-before": {
+            "target_ids": [
+              "op:GET /kiln"
+            ]
+          }
+        }
+      },
+      {
+        "service": "service-before",
+        "client": "client-after",
+        "matches": {
+          "call-after": {
+            "target_ids": []
+          }
+        }
+      },
+      {
+        "service": "service-after",
+        "client": "client-before",
+        "matches": {
+          "call-before": {
+            "target_ids": []
+          }
+        }
+      },
+      {
+        "service": "service-after",
+        "client": "client-after",
+        "matches": {
+          "call-after": {
+            "target_ids": [
+              "op:GET /forge"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "control-document-keyless-coverage": {
+    "coverage": "not_checked",
+    "operation_key": null
+  },
+  "control-document-saved-inventory-withheld": {
+    "coverage": "not_checked",
+    "reason": "inventory_unavailable",
+    "withheld": "inventory.json"
+  },
+  "control-document-side-presence": {
+    "before_presence": "absent",
+    "after_presence": "unknown",
+    "comparison": "not_checked"
+  },
+  "control-document-tracked-dirtiness": {
+    "input_used": "tree.json"
+  },
+  "control-document-unbound-raw-call": {
+    "counted": 1,
+    "grade": "unbound",
+    "reason": "dynamic_url",
+    "targets": []
+  },
+  "control-document-zero-saved-matches": {
+    "coverage": "checked",
+    "saved_binding_status": "no_saved_match",
+    "saved_matches": 0
+  },
+  "control-enum-absent-to-empty": {
+    "changes": {
+      "EnumDeclarationChanged": [
+        "/stamp"
+      ]
+    },
+    "before": "before.json",
+    "enum_value_deltas": []
+  },
+  "control-enum-empty-to-absent": {
+    "changes": {
+      "EnumDeclarationChanged": [
+        "/stamp"
+      ]
+    },
+    "before": "before.json",
+    "enum_value_deltas": []
+  },
+  "control-enum-member-swap": {
+    "changes": {
+      "EnumValuesAdded": [
+        "ochre"
+      ],
+      "EnumValuesRemoved": [
+        "umber"
+      ]
+    },
+    "before": "before.json"
+  },
+  "control-field-added-only": {
+    "changes": {
+      "FieldAdded": [
+        "/extra"
+      ]
+    },
+    "before": "before.json"
+  },
+  "control-field-format-only": {
+    "changes": {
+      "FieldFormatChanged": [
+        "/stamp"
+      ]
+    },
+    "before": "before.json"
+  },
+  "control-field-items-only": {
+    "changes": {
+      "FieldItemTypeChanged": [
+        "/stamp"
+      ]
+    },
+    "before": "before.json"
+  },
+  "control-field-required-added": {
+    "changes": {
+      "FieldRequiredAdded": [
+        "/stamp"
+      ]
+    },
+    "before": "before.json"
+  },
+  "control-field-required-removed": {
+    "changes": {
+      "FieldRequiredRemoved": [
+        "/stamp"
+      ]
+    },
+    "before": "before.json"
+  },
+  "control-formatting-only": {
+    "changes": {},
+    "before": "before.json"
+  },
+  "control-g01-method-annotation": {
+    "schema": "openapi.json",
+    "registration_bindings": 0,
+    "bindings": 1
+  },
+  "control-g02-two-annotations": {
+    "schema": "openapi.json",
+    "registration_bindings": 0,
+    "bindings": 2
+  },
+  "control-g03-detached-agreeing-registration": {
+    "schema": "openapi.json",
+    "registration_bindings": 0,
+    "bindings": 0,
+    "registration": "op:GET /mugs",
+    "prohibited_warnings": [
+      "schema_stale_against_code"
+    ]
+  },
+  "control-g04-contradicting-registration": {
+    "schema": "openapi.json",
+    "registration_bindings": 0,
+    "bindings": 0,
+    "registration": "op:GET /cups"
+  },
+  "control-g04-missing-registration": {
+    "schema": "openapi.json",
+    "registration_bindings": 0,
+    "bindings": 0,
+    "prohibited_warnings": [
+      "schema_stale_against_code"
+    ]
+  },
+  "control-g04-partial-registration": {
+    "schema": "openapi.json",
+    "registration_bindings": 0,
+    "bindings": 0,
+    "prohibited_warnings": [
+      "schema_stale_against_code"
+    ],
+    "coverage": "partial"
+  },
+  "control-g05-duplicate-annotations": {
+    "schema": "openapi.json",
+    "registration_bindings": 0,
+    "bindings": 2,
+    "grade": "candidate"
+  },
+  "control-g06-tagged-field": {
+    "schema": "openapi.json",
+    "grade": "bound",
+    "field_site": "Tile.Shade"
+  },
+  "control-g07-ignored-field": {
+    "schema": "openapi.json",
+    "bindings": 0
+  },
+  "control-g08-untagged-field": {
+    "schema": "openapi.json",
+    "grade": "unbound",
+    "reason": "untagged_field"
+  },
+  "control-g09-embedded-field": {
+    "schema": "openapi.json",
+    "grade": "bound",
+    "field_site": "Slip.Shade",
+    "unlisted_field": "Slip.Width",
+    "definitions": [
+      "Tile",
+      "Rim",
+      "Slip"
+    ]
+  },
+  "control-g10-generated-annotation": {
+    "schema": "openapi.json",
+    "registration_bindings": 0,
+    "bindings": 1,
+    "generated": true
+  },
+  "control-g11-definition-rename": {
+    "schema": "openapi.json",
+    "grade": "bound",
+    "field_site": "Rim.Shade",
+    "unchanged_field_ids": true,
+    "before": "before.json"
+  },
+  "control-gin-catchall-version-withheld": {
+    "coverage": "not_checked",
+    "scope": "tail_width",
+    "withheld": "version",
+    "spec": "route-table.toml",
+    "baseline": "gin-catchall"
+  },
+  "control-p2-agreeing-registration-no-annotation": {
+    "schema": "openapi.json",
+    "registration_bindings": 0,
+    "bindings": 0,
+    "registration": "op:GET /mugs",
+    "prohibited_warnings": [
+      "schema_stale_against_code"
+    ]
+  },
+  "control-p2-linked-method-drift": {
+    "schema": "openapi.json",
+    "drift": "method",
+    "registration": "op:POST /mugs",
+    "registration_bindings": 0
+  },
+  "control-p2-linked-path-drift": {
+    "schema": "openapi.json",
+    "drift": "path",
+    "registration": "op:GET /mugs",
+    "registration_bindings": 0
+  },
+  "control-range-status-root-overlap": {
+    "before": "before.json",
+    "changes": {
+      "SuccessStatusRemoved": [
+        "2XX"
+      ],
+      "SuccessStatusAdded": [
+        "201"
+      ],
+      "body_comparison": "not_checked"
+    },
+    "prohibited_changes": [
+      "FieldAdded",
+      "FieldRemoved"
+    ]
+  },
+  "control-required-only-false": {
+    "coverage": "checked",
+    "feasible": false,
+    "field_types": {}
+  },
+  "control-required-only-integer": {
+    "coverage": "checked",
+    "feasible": true,
+    "field_types": {
+      "/wax": "integer"
+    }
+  },
+  "control-retained-route-handler-edit": {
+    "before": "before.js",
+    "changes": {
+      "HandlerCodeChanged": [
+        "op:GET /kiln"
+      ]
+    }
+  },
+  "control-root-reference-cycle": {
+    "coverage": "partial",
+    "scope": "GET /loom 200 root",
+    "checked_sibling": "GET /spare 200 root"
+  },
+  "control-route-closed-wildcard-withheld": {
+    "coverage": "not_checked",
+    "reason": "star_policy_unchecked",
+    "scope": "method",
+    "source": "routes.js",
+    "spec": "route-table.toml"
+  },
+  "control-route-custom-keys-and-mount-join-policy-withheld": {
+    "coverage": "not_checked",
+    "scope": "mount",
+    "withheld": "join_policy",
+    "spec": "route-table.toml",
+    "baseline": "route-custom-keys-and-mount"
+  },
+  "control-route-custom-keys-and-mount-method-key-withheld": {
+    "coverage": "not_checked",
+    "scope": "method",
+    "withheld": "method_key",
+    "spec": "route-table.toml",
+    "baseline": "route-custom-keys-and-mount"
+  },
+  "control-route-express4-bare-star-version-withheld": {
+    "coverage": "not_checked",
+    "scope": "tail_width",
+    "withheld": "version",
+    "spec": "route-table.toml",
+    "baseline": "route-express4-bare-star"
+  },
+  "control-route-express4-optional-version-withheld": {
+    "coverage": "not_checked",
+    "scope": "optional_separator",
+    "withheld": "version",
+    "spec": "route-table.toml",
+    "baseline": "route-express4-optional"
+  },
+  "control-route-hapi-catchall-version-withheld": {
+    "coverage": "not_checked",
+    "scope": "tail_width",
+    "withheld": "version",
+    "spec": "route-table.toml",
+    "baseline": "route-hapi-catchall"
+  },
+  "control-route-hapi-fixed-catchall-version-withheld": {
+    "coverage": "not_checked",
+    "scope": "tail_width",
+    "withheld": "version",
+    "spec": "route-table.toml",
+    "baseline": "route-hapi-fixed-catchall"
+  },
+  "control-route-hapi-insensitive-withheld": {
+    "coverage": "not_checked",
+    "scope": "path_policy",
+    "reason": "router_policy_unchecked",
+    "withheld": "router_options",
+    "source": "routes.js",
+    "spec": "route-table.toml"
+  },
+  "control-route-hapi-optional-version-withheld": {
+    "coverage": "not_checked",
+    "scope": "optional_separator",
+    "withheld": "version",
+    "spec": "route-table.toml",
+    "baseline": "route-hapi-optional"
+  },
+  "control-route-hapi-strip-trailing-withheld": {
+    "coverage": "not_checked",
+    "scope": "path_policy",
+    "reason": "router_policy_unchecked",
+    "withheld": "router_options",
+    "source": "routes.js",
+    "spec": "route-table.toml"
+  },
+  "control-route-hapi-vhosts-withheld": {
+    "coverage": "not_checked",
+    "scope": "entry_options",
+    "reason": "entry_options_unchecked",
+    "withheld": "entry_options",
+    "source": "routes.js",
+    "spec": "route-table.toml"
+  },
+  "control-route-hapi-wildcard-method-withheld": {
+    "coverage": "not_checked",
+    "reason": "star_policy_unchecked",
+    "scope": "method",
+    "source": "routes.js",
+    "spec": "route-table.toml"
+  },
+  "control-route-header-dispatch-withheld": {
+    "coverage": "not_checked",
+    "scope": "entry_options",
+    "reason": "entry_options_unchecked",
+    "withheld": "entry_options",
+    "source": "routes.js",
+    "spec": "route-table.toml"
+  },
+  "control-route-method-lowercase-method-normalization-withheld": {
+    "coverage": "not_checked",
+    "scope": "method",
+    "withheld": "method_normalization",
+    "spec": "route-table.toml",
+    "baseline": "route-method-lowercase"
+  },
+  "control-route-mount-parameter-path-dialect-withheld": {
+    "coverage": "not_checked",
+    "scope": "path",
+    "withheld": "path_dialect",
+    "spec": "route-table.toml",
+    "baseline": "route-mount-parameter"
+  },
+  "control-route-mount-root-join-policy-withheld": {
+    "coverage": "not_checked",
+    "scope": "mount",
+    "withheld": "join_policy",
+    "spec": "route-table.toml",
+    "baseline": "route-mount-root"
+  },
+  "control-route-plugin-mount-withheld": {
+    "coverage": "not_checked",
+    "scope": "mount",
+    "reason": "mount_unchecked",
+    "withheld": "plugin_selector",
+    "source": "routes.js",
+    "spec": "route-table.toml"
+  },
+  "control-s1-hapi-internal-route-withheld": {
+    "coverage": "not_checked",
+    "scope": "entry_options",
+    "reason": "entry_options_unchecked",
+    "withheld": "entry_options",
+    "source": "routes.js",
+    "spec": "route-table.toml"
+  },
+  "control-s1-hapi-optional-mixed-segment-version-withheld": {
+    "coverage": "not_checked",
+    "scope": "optional_separator",
+    "withheld": "version",
+    "spec": "route-table.toml",
+    "baseline": "s1-hapi-optional-mixed-segment"
+  },
+  "control-s1-hapi-prefix-on-plugin-root-withheld": {
+    "coverage": "not_checked",
+    "scope": "mount",
+    "reason": "mount_unchecked",
+    "withheld": "plugin_selector",
+    "source": "routes.js",
+    "spec": "route-table.toml"
+  },
+  "control-s1-oas31-external-path-item-server-withheld": {
+    "coverage": "not_checked",
+    "reason": "retrieval_base_unchecked",
+    "withheld": "context.json"
+  },
+  "control-saturated-object-before": {
+    "coverage": "checked"
+  },
+  "control-saturated-object-required": {
+    "coverage": "checked",
+    "baseline": "control-saturated-object-before",
+    "changes": {
+      "FieldRequiredAdded": [
+        "/kept"
+      ],
+      "FieldRemoved": [
+        "/extra",
+        "/*/tag"
+      ]
+    }
+  },
+  "control-saturated-object-restored": {
+    "coverage": "checked",
+    "baseline": "control-saturated-object-required",
+    "changes": {
+      "FieldAdded": [
+        "/extra",
+        "/*/tag"
+      ]
+    }
+  },
+  "control-t1-directional-annotations-two-slot": {
+    "baseline": "t1-directional-annotations",
+    "request_required": [
+      "/secret"
+    ],
+    "response_required": [
+      "/serial"
+    ],
+    "feasible_request": {
+      "label": "amber",
+      "secret": "wax"
+    },
+    "feasible_response": {
+      "label": "amber",
+      "serial": "wax"
+    },
+    "prohibited_changes": [
+      "FieldRemoved"
+    ]
+  },
+  "control-t1-external-pointer-escaped-withheld": {
+    "coverage": "partial",
+    "reason": "reference_blob_unavailable",
+    "withheld": "referenced resource"
+  },
+  "control-t1-ref-external-relative-withheld": {
+    "coverage": "partial",
+    "reason": "reference_blob_unavailable",
+    "withheld": "referenced resource"
+  },
+  "control-t1-relative-server-document-base-withheld": {
+    "coverage": "not_checked",
+    "reason": "retrieval_base_unchecked",
+    "withheld": "context.json"
+  },
+  "control-two-node-composition-cycle": {
+    "coverage": "partial",
+    "scope": "GET /loom 200 root",
+    "checked_sibling": "GET /spare 200 root"
+  },
+  "control-unique-status-root-replacement": {
+    "before": "before.json",
+    "changes": {
+      "SuccessStatusRemoved": [
+        "200"
+      ],
+      "SuccessStatusAdded": [
+        "201"
+      ],
+      "paired_roots": [
+        [
+          "200",
+          "201"
+        ]
+      ]
+    },
+    "prohibited_changes": [
+      "FieldAdded",
+      "FieldRemoved"
+    ],
+    "element_pair": [
+      "field:resp:GET /loom:200#/stamp",
+      "field:resp:GET /loom:201#/stamp"
+    ]
+  },
+  "gin-catchall": {
+    "spec": "route-table.toml",
+    "path_probes": {
+      "/mugs/": true,
+      "/mugs/rim": true,
+      "/mugs/rim/top": true
+    },
+    "bare_parent_requires_separate_policy": true
+  },
+  "gin-group-supplied-prefix": {
+    "coverage": "not_checked",
+    "reason": "public_mapping_unavailable",
+    "local_ids": [
+      "op:POST /mugs"
+    ]
+  },
+  "oas-body-fallback-single": {
+    "coverage": "partial",
+    "reason": "non_json_media",
+    "retain": "excluded media declarations"
+  },
+  "oas-body-fallback-sorted": {
+    "coverage": "partial",
+    "reason": "non_json_media",
+    "retain": "excluded media declarations"
+  },
+  "oas-body-fallback-sorted-control": {
+    "coverage": "partial",
+    "reason": "non_json_media",
+    "retain": "excluded media declarations"
+  },
+  "oas-body-media-distinct": {
+    "coverage": "partial",
+    "reason": "non_json_media"
+  },
+  "oas-default-exclusion": {
+    "retain": "default response declaration"
+  },
+  "oas-default-only": {
+    "retain": "default response declaration"
+  },
+  "oas-form-request-body": {
+    "coverage": "partial",
+    "reason": "non_json_media",
+    "retain": "excluded media declarations"
+  },
+  "oas-response-media-disjoint": {
+    "coverage": "partial",
+    "reason": "non_json_media"
+  },
+  "oas-response-media-same-pointer": {
+    "coverage": "partial",
+    "reason": "non_json_media",
+    "field_type": "integer"
+  },
+  "route-closed-wildcard": {
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-configured-external-base": {
+    "coverage": "not_checked",
+    "reason": "public_mapping_unavailable",
+    "local_ids": [
+      "op:POST /mugs"
+    ]
+  },
+  "route-custom-keys-and-mount": {
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-express4-bare-star": {
+    "spec": "route-table.toml",
+    "source": "routes.js",
+    "path_probes": {
+      "/mugs/": true,
+      "/mugs/rim": true,
+      "/mugs/rim/top": true
+    },
+    "bare_parent_requires_separate_policy": true
+  },
+  "route-express4-optional": {
+    "optional_separator": true,
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-gateway-stage": {
+    "coverage": "not_checked",
+    "reason": "public_mapping_unavailable",
+    "local_ids": [
+      "op:POST /mugs"
+    ]
+  },
+  "route-hapi-catchall": {
+    "spec": "route-table.toml",
+    "source": "routes.js",
+    "path_probes": {
+      "/mugs/": true,
+      "/mugs/rim": true,
+      "/mugs/rim/top": true
+    },
+    "bare_parent_requires_separate_policy": true
+  },
+  "route-hapi-fixed-catchall": {
+    "spec": "route-table.toml",
+    "source": "routes.js",
+    "path_probes": {
+      "/mugs/": false,
+      "/mugs/rim": false,
+      "/mugs/rim/top": true
+    },
+    "bare_parent_requires_separate_policy": true
+  },
+  "route-hapi-insensitive": {
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-hapi-optional": {
+    "optional_separator": true,
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-hapi-strip-trailing": {
+    "aliases": [
+      "/mugs/"
+    ],
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-hapi-vhosts": {
+    "coverage": "not_checked",
+    "reason": "dispatch_discriminator",
+    "retain": "competing declarations and their conditions",
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-hapi-wildcard-method": {
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-header-dispatch": {
+    "coverage": "not_checked",
+    "reason": "dispatch_discriminator",
+    "retain": "competing declarations and their conditions",
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-method-lowercase": {
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-mount-parameter": {
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-mount-root": {
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-plugin-mount": {
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "route-proxy-rewrite": {
+    "coverage": "not_checked",
+    "reason": "public_mapping_unavailable",
+    "local_ids": [
+      "op:POST /mugs"
+    ]
+  },
+  "s1-express4-constrained-captures": {
+    "coverage": "not_checked",
+    "reason": "dispatch_discriminator",
+    "retain": "competing declarations and their conditions"
+  },
+  "s1-express4-generated-options": {
+    "coverage": "partial",
+    "reason": "implicit_methods"
+  },
+  "s1-express4-query-dispatch": {
+    "coverage": "not_checked",
+    "reason": "dispatch_discriminator",
+    "retain": "competing declarations and their conditions"
+  },
+  "s1-express5-mount-aliases": {
+    "coverage": "partial",
+    "reason": "implicit_methods"
+  },
+  "s1-express5-optional-literal-group": {
+    "coverage": "partial",
+    "reason": "implicit_methods"
+  },
+  "s1-express5-quoted-parameter": {
+    "coverage": "partial",
+    "reason": "implicit_methods"
+  },
+  "s1-express5-root-inclusive-wildcard": {
+    "coverage": "partial",
+    "reason": "implicit_methods"
+  },
+  "s1-gin-static-file-methods": {
+    "coverage": "partial",
+    "reason": "implicit_methods",
+    "retain": "StaticFile helper site"
+  },
+  "s1-hapi-internal-route": {
+    "exclude": [
+      "/fletch/internal"
+    ],
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "s1-hapi-optional-mixed-segment": {
+    "optional_separator": false,
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "s1-hapi-prefix-on-plugin-root": {
+    "spec": "route-table.toml",
+    "source": "routes.js"
+  },
+  "s1-oas31-anyof-impossible-branch": {
+    "eliminated_branch": "required false-valued gate"
+  },
+  "s1-oas31-authority-dispatch": {
+    "authorities": [
+      {
+        "api": "wax.moonspindle.invalid",
+        "schema": "openapi.json",
+        "ids": [
+          "op:GET /reed",
+          "field:resp:GET /reed:200#/wax"
+        ]
+      },
+      {
+        "api": "pith.moonspindle.invalid",
+        "schema": "pith.openapi.json",
+        "ids": [
+          "op:GET /reed",
+          "field:resp:GET /reed:200#/pith"
+        ]
+      }
+    ]
+  },
+  "s1-oas31-default-success-witness": {
+    "coverage": "partial",
+    "reason": "fallback_success",
+    "excluded_status_witness": 202,
+    "retain": "exchange.json and default declaration"
+  },
+  "s1-oas31-dynamic-ref-override": {
+    "coverage": "partial",
+    "reason": "reference_scope",
+    "keyword": "$dynamicRef",
+    "region": "response body"
+  },
+  "s1-oas31-enum-object-shape": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "enum",
+    "region": "response body",
+    "observed": [
+      "#/wax",
+      "#/wax/sheen",
+      "#/pith"
+    ]
+  },
+  "s1-oas31-external-path-item-server": {
+    "context": "context.json"
+  },
+  "s1-oas31-property-names-finite-map": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "propertyNames",
+    "region": "response body",
+    "observed": [
+      "#/*/glint"
+    ]
+  },
+  "s1-oas31-required-only-name": {
+    "field_type": "unconstrained"
+  },
+  "s1-oas31-response-media-range": {
+    "coverage": "partial",
+    "reason": "non_json_media"
+  },
+  "s1-oas31-tuple-unevaluated-tail": {
+    "coverage": "partial",
+    "reason": "indexed_tuple",
+    "keyword": "unevaluatedItems",
+    "region": "response body"
+  },
+  "s1-oas31-yaml-status-keys": {
+    "coverage": "not_checked",
+    "reason": "yaml_format"
+  },
+  "s1-swagger-discriminator-inheritance": {
+    "coverage": "partial",
+    "reason": "discriminator_inheritance"
+  },
+  "s1-swagger-xml-wire-name": {
+    "coverage": "partial",
+    "reason": "non_json_media",
+    "retain": "excluded media declarations"
+  },
+  "swag-method-drift": {
+    "registration": "op:POST /mugs",
+    "annotation": "op:GET /mugs",
+    "drift": "method",
+    "registration_bindings": 0
+  },
+  "swag-path-drift": {
+    "registration": "op:POST /mugs",
+    "annotation": "op:POST /cups",
+    "drift": "path",
+    "registration_bindings": 0
+  },
+  "swagger-default-exclusion": {
+    "retain": "default response declaration",
+    "structural_field_media": "unverified"
+  },
+  "swagger-formdata-multipart": {
+    "coverage": "partial",
+    "reason": "non_json_media",
+    "retain": "excluded media declarations"
+  },
+  "swagger-formdata-urlencoded": {
+    "coverage": "partial",
+    "reason": "non_json_media",
+    "retain": "excluded media declarations"
+  },
+  "t1-allof-closed-intersection": {
+    "coverage": "checked",
+    "confirmed_fields": []
+  },
+  "t1-anchor-ref": {
+    "coverage": "partial",
+    "reason": "reference_scope",
+    "keyword": "$anchor",
+    "region": "response body"
+  },
+  "t1-array-prefix-index-collision": {
+    "coverage": "partial",
+    "reason": "indexed_tuple",
+    "keyword": "prefixItems",
+    "region": "response body"
+  },
+  "t1-conditional-branches": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "if",
+    "region": "response body",
+    "observed": [
+      "#/kind",
+      "#/warp",
+      "#/weft"
+    ]
+  },
+  "t1-contains-items": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "contains",
+    "region": "response body",
+    "observed": [
+      "#/[]/weave (contains)"
+    ]
+  },
+  "t1-dependent-schema": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "dependentSchemas",
+    "region": "response body",
+    "observed": [
+      "#/trigger",
+      "#/bobbin"
+    ]
+  },
+  "t1-express-implicit-head": {
+    "coverage": "partial",
+    "reason": "implicit_methods"
+  },
+  "t1-max-properties-zero": {
+    "coverage": "checked",
+    "confirmed_fields": []
+  },
+  "t1-not-required-field": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "not",
+    "region": "response body",
+    "observed": [
+      "#/kept",
+      "#/forbidden (negated required)"
+    ]
+  },
+  "t1-oneof-overlap-exclusion": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "oneOf",
+    "region": "response body",
+    "observed": [
+      "#/plain",
+      "#/marked"
+    ],
+    "union": "oneOf"
+  },
+  "t1-pattern-exact-property": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "patternProperties",
+    "region": "response body"
+  },
+  "t1-pattern-excluded-by-property": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "patternProperties",
+    "region": "response body",
+    "observed": [
+      "#/bolt (false)",
+      "pattern declaration"
+    ]
+  },
+  "t1-ref-id-base": {
+    "coverage": "partial",
+    "reason": "reference_scope",
+    "keyword": "$id",
+    "region": "response body"
+  },
+  "t1-relative-server-document-base": {
+    "context": "context.json"
+  },
+  "t1-request-media-same-pointer": {
+    "coverage": "partial",
+    "reason": "non_json_media",
+    "field_type": "integer"
+  },
+  "t1-tuple-prefix-items": {
+    "coverage": "partial",
+    "reason": "indexed_tuple",
+    "keyword": "prefixItems",
+    "region": "response body"
+  },
+  "t1-unevaluated-properties": {
+    "coverage": "partial",
+    "reason": "unsupported_schema_keyword",
+    "keyword": "unevaluatedProperties",
+    "region": "response body",
+    "observed": [
+      "#/warp",
+      "#/weft"
+    ]
+  },
+  "wire-depth-17": {
+    "coverage": "partial",
+    "reason": "depth_cut",
+    "parent_depth": 16
+  }
+}

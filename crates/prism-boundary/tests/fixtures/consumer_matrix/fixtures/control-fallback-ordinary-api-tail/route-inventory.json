@@ -1,0 +1,18 @@
+{
+  "api": "sable-quay",
+  "origin": "https://sable-quay.invalid",
+  "api_mount": "/api",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/a",
+      "site": "routes.js:2"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{*0+}",
+      "role": "ordinary_api",
+      "site": "routes.js:3"
+    }
+  ]
+}

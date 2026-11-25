@@ -1,0 +1,336 @@
+{
+  "source": "DESIGN.md §9, Matrix decisions and accepted losses",
+  "design_revision": "9d180273fb05889233f630b382852cda0026f7f2",
+  "matrices": {
+    "ids_matrix": {
+      "pinned_sha256": "b7617d8537c238ef5271ec4c65778e57336e76b2a56495b7341d91a22dd60ba9",
+      "totals": {
+        "rule": 170,
+        "loss": 47
+      },
+      "classes": {
+        "allof": {
+          "rule": 7,
+          "loss": 2
+        },
+        "oneof-anyof": {
+          "rule": 4,
+          "loss": 1
+        },
+        "field-punctuation": {
+          "rule": 16,
+          "loss": 0
+        },
+        "no-id-for-served-op": {
+          "rule": 14,
+          "loss": 5
+        },
+        "path-normalisation": {
+          "rule": 22,
+          "loss": 0
+        },
+        "parameters": {
+          "rule": 12,
+          "loss": 1
+        },
+        "methods": {
+          "rule": 12,
+          "loss": 0
+        },
+        "one-op-two-ids": {
+          "rule": 5,
+          "loss": 4
+        },
+        "prefixes": {
+          "rule": 6,
+          "loss": 1
+        },
+        "two-ops-one-id": {
+          "rule": 8,
+          "loss": 9
+        },
+        "request-body": {
+          "rule": 11,
+          "loss": 4
+        },
+        "status-keys": {
+          "rule": 11,
+          "loss": 2
+        },
+        "formdata": {
+          "rule": 0,
+          "loss": 3
+        },
+        "wire-tree": {
+          "rule": 29,
+          "loss": 14
+        },
+        "annotations": {
+          "rule": 3,
+          "loss": 0
+        },
+        "collision": {
+          "rule": 2,
+          "loss": 0
+        },
+        "cycle": {
+          "rule": 3,
+          "loss": 0
+        },
+        "depth-cut": {
+          "rule": 1,
+          "loss": 1
+        },
+        "wire-neutral-rename": {
+          "rule": 4,
+          "loss": 0
+        }
+      }
+    },
+    "consumer_matrix": {
+      "pinned_sha256": "eb1988f64200552892351e93e580fec5819776def804919cccb47850fb018dc2",
+      "totals": {
+        "rule": 288,
+        "loss": 18
+      },
+      "classes": {
+        "client-identity": {
+          "rule": 37,
+          "loss": 5
+        },
+        "counting": {
+          "rule": 38,
+          "loss": 2
+        },
+        "url-pattern": {
+          "rule": 55,
+          "loss": 4
+        },
+        "prefix-map": {
+          "rule": 4,
+          "loss": 1
+        },
+        "hook with non-GET fetcher": {
+          "rule": 5,
+          "loss": 0
+        },
+        "method": {
+          "rule": 33,
+          "loss": 0
+        },
+        "conditional URLs with two URL arms": {
+          "rule": 3,
+          "loss": 0
+        },
+        "function wrappers with fixed or argument-supplied method": {
+          "rule": 6,
+          "loss": 0
+        },
+        "fetch with non-literal options": {
+          "rule": 4,
+          "loss": 0
+        },
+        "a locally created client with another base": {
+          "rule": 3,
+          "loss": 0
+        },
+        "built-in axios/fetch with a relative URL in a consumer that talks to more than one backend": {
+          "rule": 3,
+          "loss": 0
+        },
+        "single-endpoint routing by query string or body": {
+          "rule": 2,
+          "loss": 2
+        },
+        "a version or tenant segment interpolated in the client": {
+          "rule": 3,
+          "loss": 0
+        },
+        "matching": {
+          "rule": 25,
+          "loss": 2
+        },
+        "shape:s01": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s02": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s03": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s04": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s05": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s06": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s07": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s08": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s09": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s10": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s11": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s12": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s13": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s14": {
+          "rule": 0,
+          "loss": 2
+        },
+        "shape:s15": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s16": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s17": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s18": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s19": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s20": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s21": {
+          "rule": 3,
+          "loss": 0
+        },
+        "shape:s22": {
+          "rule": 3,
+          "loss": 0
+        },
+        "shape:s23": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s24": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s25": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s26": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s27": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s28": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s29": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s30": {
+          "rule": 3,
+          "loss": 0
+        },
+        "shape:s31": {
+          "rule": 3,
+          "loss": 0
+        },
+        "shape:s32": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s33": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s34": {
+          "rule": 4,
+          "loss": 0
+        },
+        "shape:s35": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s36": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s37": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s38": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s39": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s40": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s41": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s42": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s43": {
+          "rule": 1,
+          "loss": 0
+        },
+        "shape:s44": {
+          "rule": 2,
+          "loss": 0
+        },
+        "shape:s45": {
+          "rule": 1,
+          "loss": 0
+        }
+      }
+    }
+  }
+}

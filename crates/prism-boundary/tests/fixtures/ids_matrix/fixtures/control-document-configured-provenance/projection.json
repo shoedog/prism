@@ -1,0 +1,9 @@
+{
+  "operation": "op:GET /api/kiln",
+  "suffix": "/kiln",
+  "mount": "/api",
+  "config_entry": 1,
+  "plugin_file": "routes.js",
+  "plugin": "lantern",
+  "handler": "send"
+}

@@ -1,3 +1,6 @@
+schema_api = "prefixes"
+schema_path = "schema.json"
+
 [[client]]
 file = "quay.ts"
 export = "default"
@@ -6,3 +9,18 @@ url_arg = 0
 response_root = "data"
 strip_prefix = "/old"
 add_prefix = "/harbor/"
+
+# Factory or wrapper: quay.ts:1-23.
+[[api_mapping]]
+entry = 1
+client_entry = 1
+file = "quay.ts"
+export = "default"
+api = "prefixes"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = "/old"
+add_prefix = "/harbor/"
+sources = [{ path = "quay.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "45c843511657b971f5c3f45c8a83ad86b956a6c0", start_line = 1, end_line = 23 }]
