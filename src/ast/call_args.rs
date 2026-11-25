@@ -2,7 +2,7 @@
 
 use crate::ast::{CallArg, CallArgsIndex, ParsedFile};
 use crate::languages::Language;
-use std::collections::BTreeMap;
+use std::ops::Range;
 use tree_sitter::Node;
 
 impl ParsedFile {
@@ -11,23 +11,35 @@ impl ParsedFile {
     }
 
     fn build_call_args_index(&self) -> CallArgsIndex {
-        let mut by_call = BTreeMap::new();
-        self.index_call_args(self.tree.root_node(), &mut by_call);
-        CallArgsIndex { by_call }
+        let mut index = CallArgsIndex::default();
+        self.index_call_args(self.tree.root_node(), &mut index);
+        index
     }
 
-    fn index_call_args(&self, node: Node<'_>, out: &mut BTreeMap<(usize, String), Vec<CallArg>>) {
+    fn index_call_args(&self, node: Node<'_>, index: &mut CallArgsIndex) {
         if self.language.is_call_node(node.kind()) {
             if let Some(name_node) = self.call_function_name(&node) {
-                let key = (node.start_byte(), self.node_text(&name_node).to_string());
+                let start = node.start_byte();
+                let name = self.node_text(&name_node).to_string();
                 // First pre-order occurrence wins — mirrors the legacy first-match.
-                out.entry(key)
-                    .or_insert_with(|| self.named_arg_spans(&node));
+                if self.language.is_js_family() {
+                    let spans = self.named_arg_spans(&node);
+                    index
+                        .by_call
+                        .entry((start, name.clone()))
+                        .or_insert_with(|| spans.clone());
+                    index.by_span.insert((start, node.end_byte(), name), spans);
+                } else {
+                    index
+                        .by_call
+                        .entry((start, name))
+                        .or_insert_with(|| self.named_arg_spans(&node));
+                }
             }
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.index_call_args(child, out);
+            self.index_call_args(child, index);
         }
     }
 
@@ -156,17 +168,49 @@ impl ParsedFile {
         &self,
         start_byte: usize,
         callee_name: &str,
-    ) -> Vec<(String, std::ops::Range<usize>)> {
+    ) -> Vec<(String, Range<usize>)> {
         self.call_args_index()
             .by_call
             .get(&(start_byte, callee_name.to_string()))
-            .map(|spans| {
-                spans
-                    .iter()
-                    .map(|a| (self.arg_text(a), a.start_byte..a.end_byte))
-                    .collect()
-            })
+            .map(|spans| self.spanned_argument_texts(spans))
             .unwrap_or_default()
+    }
+
+    /// Read arguments of the JS-family call with this full source span and callee name.
+    pub(crate) fn call_argument_texts_and_spans_of_call(
+        &self,
+        start: usize,
+        end: usize,
+        callee_name: &str,
+    ) -> Vec<(String, Range<usize>)> {
+        self.call_args_index()
+            .by_span
+            .get(&(start, end, callee_name.to_string()))
+            .map(|spans| self.spanned_argument_texts(spans))
+            .unwrap_or_default()
+    }
+
+    fn spanned_argument_texts(&self, spans: &[CallArg]) -> Vec<(String, Range<usize>)> {
+        spans
+            .iter()
+            .map(|a| (self.arg_text(a), a.start_byte..a.end_byte))
+            .collect()
+    }
+
+    /// The operand of a JS-family spread argument, after peeling runtime-transparent wrappers.
+    pub(crate) fn spread_argument_operand(&self, span: &Range<usize>) -> Option<Node<'_>> {
+        let node = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(span.start, span.end)?;
+        if node.kind() != "spread_element" || node.byte_range() != *span || node.has_error() {
+            return None;
+        }
+        let mut cursor = node.walk();
+        let operand = node
+            .named_children(&mut cursor)
+            .find(|child| !child.is_extra())?;
+        super::member_projection::strip_transparent_wrappers(operand)
     }
 
     #[cfg(test)]

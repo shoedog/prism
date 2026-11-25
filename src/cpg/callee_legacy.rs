@@ -44,6 +44,7 @@ impl CodePropertyGraph {
         for site in sites {
             let resolved_site = cg.resolve_call_site(site);
             let literal_ok = object_literal_args::exact_singleton(&resolved_site);
+            let mut call_args = None;
             for resolved in resolved_site {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
                 // maybe-edge (nav-only). DataFlow carries no confidence/kind and
@@ -61,10 +62,8 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let args = caller_parsed.call_argument_texts_and_spans_at(
-                    site.start_byte,
-                    site.effective_source_callee_name(),
-                );
+                let (args, offsets) =
+                    call_args.get_or_insert_with(|| spread_args::for_call(caller_parsed, site));
                 if args.is_empty() {
                     continue;
                 }
@@ -83,7 +82,7 @@ impl CodePropertyGraph {
                         caller_id,
                         caller_parsed,
                         callee_parsed,
-                        args: &args,
+                        args,
                         var_index,
                         exact_var_index,
                         graph,
@@ -91,11 +90,10 @@ impl CodePropertyGraph {
                     };
                     object_literal_args::collect(&mut out, &inputs, param_nodes, |&n| Some(n));
                 }
-                for (i, &param_idx) in param_nodes.iter().enumerate() {
-                    if i >= args.len() {
-                        break;
-                    }
-                    let (arg_text, arg_span) = &args[i];
+                for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
+                    let Some(&param_idx) = slot.and_then(|slot| param_nodes.get(slot)) else {
+                        continue;
+                    };
                     // Field-sensitive arg binding (from PR #113): prefer the full access path
                     // (e.g. `o.data`) so interproc taint flows from the specific field, falling
                     // back to the base (`o`) — the pre-change behavior — when no field-path var
