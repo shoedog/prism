@@ -1,0 +1,17 @@
+{
+  "algorithm": "Taint",
+  "slices": [],
+  "findings": [
+    {
+      "algorithm": "taint",
+      "file": "views.py",
+      "line": 3,
+      "severity": "warning",
+      "description": "tainted value from line 2 reaches sink at line 3",
+      "related_lines": [
+        2
+      ],
+      "category": "taint_sink"
+    }
+  ]
+}

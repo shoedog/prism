@@ -1,0 +1,21 @@
+{
+  "gate": {
+    "schema": "prism.measure.gate/1",
+    "lane": "matrix",
+    "prediction": "prediction.md",
+    "steps": [
+      {
+        "id": "bound",
+        "do": "run"
+      }
+    ]
+  },
+  "prediction": {
+    "path": "prediction.md",
+    "contents": "Predict zero unattributed changes.\n"
+  },
+  "reused_receipt": {
+    "status": "ok"
+  },
+  "retrospective": false
+}

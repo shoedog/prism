@@ -28,6 +28,7 @@ mod live_types_test;
 mod owner_test;
 mod parameter_slots_test;
 mod parse_quality_test;
+mod proto_key_use_test;
 mod python_type_provider_test;
 mod recall_frozen;
 mod rust_type_provider_test;

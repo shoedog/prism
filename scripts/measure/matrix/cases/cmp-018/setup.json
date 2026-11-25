@@ -1,0 +1,7 @@
+{
+  "transport_edit": {
+    "arm": "head",
+    "after_line": 1,
+    "insert": "\n"
+  }
+}

@@ -314,6 +314,7 @@ mod tests {
             category: Some("missing_counterpart".to_string()),
             parse_quality: None,
             diagrams: vec![],
+            rules: Vec::new(),
         }
     }
 

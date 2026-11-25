@@ -102,6 +102,7 @@ pub(super) fn finding(algorithm: &str) -> SliceFinding {
         category: Some("taint_sink".into()),
         parse_quality: None,
         diagrams: vec![],
+        rules: Vec::new(),
     }
 }
 pub(super) fn witness(confidence: ResolutionConfidence) -> EvidencePath {

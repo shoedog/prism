@@ -35,6 +35,7 @@ fn projection_missing_evidence_warns_and_is_never_empty_exact() {
         category: Some("missing_counterpart".to_string()),
         parse_quality: None,
         diagrams: Vec::new(),
+        rules: Vec::new(),
     };
     let mut metadata = TargetsMeta::default();
     metadata.repo_root = temp.path().to_path_buf();
@@ -88,6 +89,7 @@ fn selected_finding() -> SliceFinding {
         category: Some("taint_source".to_string()),
         parse_quality: None,
         diagrams: Vec::new(),
+        rules: Vec::new(),
     }
 }
 

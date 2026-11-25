@@ -1,0 +1,10 @@
+{
+  "class": "code-injection",
+  "entry": "bn-025-fixture_1.4.0",
+  "fixedVersion": "1.4.1",
+  "id": "CVE-0000-025",
+  "name": "bn-025-fixture",
+  "sink": null,
+  "source": null,
+  "vulnerableVersion": "1.4.0"
+}

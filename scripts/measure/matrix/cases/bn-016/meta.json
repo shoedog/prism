@@ -1,0 +1,14 @@
+{
+  "class": "code-injection",
+  "entry": "bn-016-fixture_1.4.0",
+  "fixedVersion": "1.4.0",
+  "id": "CVE-0000-016",
+  "name": "bn-016-fixture",
+  "sink": "lib/index.js:4:3",
+  "source": {
+    "file": "lib/index.js",
+    "line": 2,
+    "name": "run"
+  },
+  "vulnerableVersion": "1.4.0"
+}

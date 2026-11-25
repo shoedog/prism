@@ -157,6 +157,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 category: Some("callback_registrar_call".to_string()),
                 parse_quality: None,
                 diagrams: vec![],
+                rules: Vec::new(),
             });
             // Add a block showing the def + registration lines.
             let mut block = DiffBlock::new(block_id, def_file.clone(), ModifyType::Modified);
@@ -279,6 +280,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 }),
                 parse_quality: None,
                 diagrams: vec![],
+                rules: Vec::new(),
             });
 
             // Build a block containing: the function definition, each

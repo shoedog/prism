@@ -363,6 +363,7 @@ fn controlled_go_sink(sample: &mut Sample) {
         category: Some("taint_sink".into()),
         parse_quality: None,
         diagrams: vec![],
+        rules: Vec::new(),
     };
     let mut result = SliceResult::new(SlicingAlgorithm::Taint);
     let mut block = DiffBlock::new(17, "svc/a.go".into(), ModifyType::Modified);
