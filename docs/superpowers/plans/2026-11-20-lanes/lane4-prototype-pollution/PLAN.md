@@ -17,7 +17,8 @@ producer or cache change.
 benchmark harness and joins; Node 24 for the truth runner (lane-written fixtures only).
 
 **Spec:** `DESIGN.md` in this directory (facts and roles 5.1, guards 5.2, sink 5.3, listing 5.4,
-experiment 6, truth 7, gates 8, owner decisions 10). Every rule is stated there; this plan only references it.
+experiment 6, truth 7, gates 8, owner decisions 10 and loss IDs 11). [ROW_REQUIREMENTS.md](ROW_REQUIREMENTS.md)
+is the write-by-write Stage D contract.
 
 ## Global constraints
 
@@ -47,9 +48,8 @@ experiment 6, truth 7, gates 8, owner decisions 10). Every rule is stated there;
 - PR #841 edits `taint/run.rs`: the sink slice rebases over it (DESIGN decision 8).
 - Rule tag `js-proto-write`, CWE `CWE-1321`. Class names in output: `nested_keys`, `path_walk`,
   `recursive_merge`. Guard names: `none`, `partial`, `sufficient`. Operand roles: `selector`, `property`.
-- The orchestrator files the data-flow issue for the receiver false positive (DESIGN 5.3, decision 10) at
-  the end of stage M, with the probe of DESIGN section 2, and records its number in the ledger; rows and
-  docs that mention it use that number.
+- The known receiver-only finding is tracked in #854. Preserve the seeded regression `sk03b` and the E3/E4/S4
+  accounting under DESIGN decision 10.
 
 ## Review focus
 
@@ -191,12 +191,10 @@ implementing.
   `tests/ast/proto_key_use_test.rs`
 - Modify: `tests/ast/main.rs` (its `mod proto_key_use_test;` line)
 
-`rows.jsonl` fields: `id`, `file`, `write_line`, `call`, `attacker_names` (DESIGN section 7: the names at the
-write that carry attacker data), `truth` (`pollutes`, `safe`; copied from `truth.jsonl`), `want_class` (a
-class name or `none`), `want_guard`, `class` (what the row is an instance of), `baseline_cases` (optional:
-benchmark case ids of the same shape), `accepted_loss` (optional reason). After stage D the implementer
-updates `want_class` and `want_guard` from the amended design in the same commit as the design; `truth`
-never changes by hand.
+`rows.jsonl` records the fixture ID, file, write line, call and `attacker_names`, including earlier selector
+bindings. `truth` comes from the four-root execution projection. Optional `truth_extended` and `scope_note`
+disclose its boundary. The changed expectations are `want_class`, `want_guard` and an optional `accepted_loss`
+ID from DESIGN 11. Each is already set for all 270 rows.
 
 `call` fields (DESIGN section 7): `arg` (the position of the attacker argument); `template` (one of
 `{"kind":"path_string","delimiter":".","leading":""}`, `{"kind":"path_array"}`,
@@ -222,106 +220,108 @@ and an anonymous callback, and for the write forms `o[k] = v`, `a[k1][k2] = v`, 
 `o[keys[keys.length - 1]] = v`. It names only existing items, passes on `main`, and needs one reviewer
 (test-only). Run with `cargo test --test ast proto_key_use_test::` through memguard.
 
-Seed rows (truth is whatever the runner prints; the expectation column is the hypothesis to check):
+Seed cases. The shapes below identify the fixtures. The expectation column gives the Stage D decision at the
+recorded write. The complete matrix, including all enumeration rows, is in
+[ROW_REQUIREMENTS.md](ROW_REQUIREMENTS.md).
 
 | Row | Function | Expect |
 |---|---|---|
-| pw01 | the path setter of DESIGN section 1; roots `plain`, `null_proto`, `class_instance`, `array` | pollutes; `path_walk`; guard none |
-| pw02 | `while (parts.length > 1) { const k = parts.shift(); obj = obj[k] = obj[k] \|\| {}; } obj[parts[0]] = v;` | pollutes; `path_walk` |
-| pw03 | `path.split('.').forEach(function (p, i, a) { if (i === a.length - 1) obj[p] = v; else obj = obj[p] = obj[p] \|\| {}; });` | pollutes; `path_walk` |
-| pw04 | `keys.slice(0, -1).reduce((o, k) => (o[k] = o[k] \|\| {}), obj)[keys[keys.length - 1]] = v;` | pollutes; `path_walk` |
-| pw05 | recursive setter: `function set(o, keys, v) { if (keys.length === 1) o[keys[0]] = v; else set(o[keys[0]] = o[keys[0]] \|\| {}, keys.slice(1), v); }` | pollutes; `recursive_merge` or `path_walk` (stage D names it) |
-| pw06 | JSON-pointer setter over `pointer.split('/')`; template `path_string`, delimiter `/`, leading `/` | pollutes; `path_walk` |
-| pw07 | unflatten: keys such as `"a.b"` expanded into nested objects; template `flat_object` | pollutes; `path_walk` |
-| pw08 | `function setIn(o, path, last, v) { for (const k of path) o = o[k] = o[k] \|\| {}; o[last] = v; }`, attacker argument `path` (array), attacker names `k` | pollutes; `path_walk` |
-| pw09 | pw08's function, attacker argument `last` only (`path` a benign constant), attacker names `last` | safe; fact present, `last` only a property operand |
-| pw10 | read-only walk then a fixed-name write: `for (const s of path.split('.')) o = o[s]; o.enabled = true;` | pollutes; class decided by stage D (no fact under 5.1 as written) |
-| pw11 | pw10 with `o[KEY] = v` for a module constant `KEY` | pollutes; class decided by stage D |
-| pw12 | walk over the characters of a word: `for (const ch of word) cur = cur[ch] = cur[ch] \|\| {};`, template `path_array` for a list of strings and `path_string` with an empty delimiter for a string | by the runner (expected: safe for a string, pollutes for an array of strings) |
-| nk01 | `function put(a, k1, k2, v) { a[k1][k2] = v; }` | pollutes; `nested_keys` |
-| nk02 | `for (let r = 0; r < n; r++) for (let c = 0; c < m; c++) grid[r][c] = 0;` | safe; no fact |
-| nk03 | `a["fixed"][k] = v` | safe; no fact |
-| nk04 | `function put(store, kind, id, v) { store[kind][id] = v; }`, attacker argument `id` only, attacker names `id` | safe; fact present, `id` only a property operand |
-| nk05 | `var i, j; for (i = 0; i < rows.length; i++) for (j = 0; j < rows[i].length; j++) m[i][j] = rows[i][j];` (baseline: `libnested`, `nodee-utils`, where such a counter is the only index identifier reached) | safe; no fact |
-| nk06 | `rows[rows.length - 1][k] = v` | safe; no fact |
-| nk07 | `for (let i = 0; i < rows.length; i++) { const row = rows[i]; row[col] = v; }` | safe; no fact |
-| nk08 | `list.forEach((x, i) => { out[i][k] = x; })`; and one row each for an index from `entries()` and from `indexOf` | by the runner (expected safe); stage D decides which index sources count as numeric |
-| nk09 | `out[parseInt(a, 10)][k] = v`; and one row each for `out[+a][k]` and `out[a \| 0][k]` | by the runner (expected safe) |
-| nk10 | `` cache[`user:${id}`][f] = v `` | safe; no fact expected after stage D |
-| nk11 | `obj['__' + k + '__'][f] = v` | pollutes (`k = "proto"`); `nested_keys` |
-| nk12 | `a[c ? 'x' : 'y'][k] = v` | safe; no fact expected after stage D |
-| nk13 | `handlers[EventType.Click][phase] = v` with `EventType` a module constant object | safe; no fact expected after stage D |
-| nk14 | TypeScript: `function put(grid: Cell[][], y: number, x: number, v: Cell) { grid[y][x] = v; }`, `y` from JSON text | pollutes; `nested_keys` (a `number` annotation is no exclusion) |
-| nk15 | `map.get(k1)[k2] = v` with `map` a `Map` | safe; no fact |
-| rm01 | the recursive merge of issue #603; roots `plain`, `null_proto` | pollutes; `recursive_merge` |
-| rm02 | the same with `Object.keys(source).forEach(key => { … })` | pollutes; `recursive_merge` |
-| rm03 | merge that recurses through a same-file helper (`mergeObject` ↔ `mergeValue`) | pollutes; `recursive_merge` |
-| rm04 | one-level copy: `for (const k in s) t[k] = s[k];` | safe; no fact |
-| rm05 | deep clone that builds a new object and never writes into an argument | by the runner |
-| np01 | `Object.defineProperty(o, '__proto__', { value: v })` | safe; no fact |
-| np02 | `Object.assign(o, { ['__proto__']: v })` | safe; no fact |
-| np03 | `Object.assign({}, JSON.parse(text))` | safe; no fact |
+| pw01 | the split-index path setter; roots `plain`, `null_proto`, `class_instance`, `array` | pollutes, `path_walk`, guard `none`, fires |
+| pw02 | `while (parts.length > 1) { const k = parts.shift(); obj = obj[k] = obj[k] \|\| {}; } obj[parts[0]] = v;` | pollutes, `path_walk`, guard `none`, fires |
+| pw03 | `path.split('.').forEach(function (p, i, a) { if (i === a.length - 1) obj[p] = v; else obj = obj[p] = obj[p] \|\| {}; });` | pollutes, `path_walk`, guard `none`, fires |
+| pw04 | `keys.slice(0, -1).reduce((o, k) => (o[k] = o[k] \|\| {}), obj)[keys[keys.length - 1]] = v;` | pollutes, `path_walk`, guard `none`, fires |
+| pw05 | recursive setter: `function set(o, keys, v) { if (keys.length === 1) o[keys[0]] = v; else set(o[keys[0]] = o[keys[0]] \|\| {}, keys.slice(1), v); }` | pollutes, `recursive_merge`, guard `none`, fires |
+| pw06 | JSON-pointer setter over `pointer.split('/')`; template `path_string`, delimiter `/`, leading `/` | pollutes, `path_walk`, guard `none`, fires |
+| pw07 | unflatten: keys such as `"a.b"` expanded into nested objects; template `flat_object` | pollutes, `path_walk`, guard `none`, fires |
+| pw08 | `function setIn(o, path, last, v) { for (const k of path) o = o[k] = o[k] \|\| {}; o[last] = v; }`, attacker argument `path` (array), attacker names `k` | pollutes, `path_walk`, guard `none`, fires |
+| pw09 | pw08's function, attacker argument `last` only (`path` a benign constant), attacker names `last` | safe, `path_walk`, guard `none`, silent |
+| pw10 | read-only walk then a fixed-name write: `for (const s of path.split('.')) o = o[s]; o.enabled = true;` | pollutes, `path_walk`, guard `none`, fires |
+| pw11 | pw10 with `o[KEY] = v` for a module constant `KEY` | pollutes, `path_walk`, guard `none`, fires |
+| pw12 | walk over the characters of a word: `for (const ch of word) cur = cur[ch] = cur[ch] \|\| {};`, template `path_array` for a list of strings and `path_string` with an empty delimiter for a string | pw12a pollutes, `path_walk`, guard `none`, fires<br>pw12b safe, `path_walk`, guard `none`, fires (R-ITER) |
+| nk01 | `function put(a, k1, k2, v) { a[k1][k2] = v; }` | pollutes, `nested_keys`, guard `none`, fires |
+| nk02 | `for (let r = 0; r < n; r++) for (let c = 0; c < m; c++) grid[r][c] = 0;` | safe, `none`, guard `none`, silent |
+| nk03 | `a["fixed"][k] = v` | safe, `none`, guard `none`, silent |
+| nk04 | `function put(store, kind, id, v) { store[kind][id] = v; }`, attacker argument `id` only, attacker names `id` | safe, `nested_keys`, guard `none`, silent |
+| nk05 | `var i, j; for (i = 0; i < rows.length; i++) for (j = 0; j < rows[i].length; j++) m[i][j] = rows[i][j];` (baseline: `libnested`, `nodee-utils`, where such a counter is the only index identifier reached) | safe, `none`, guard `none`, silent |
+| nk06 | `rows[rows.length - 1][k] = v` | safe, `none`, guard `none`, silent |
+| nk07 | `for (let i = 0; i < rows.length; i++) { const row = rows[i]; row[col] = v; }` | safe, `none`, guard `none`, silent |
+| nk08 | `list.forEach((x, i) => { out[i][k] = x; })`; and one row each for an index from `entries()` and from `indexOf` | safe, `nested_keys`, guard `none`, fires (R-ITER) |
+| nk09 | `out[parseInt(a, 10)][k] = v`; and one row each for `out[+a][k]` and `out[a \| 0][k]` | safe, `none`, guard `none`, silent |
+| nk10 | `` cache[`user:${id}`][f] = v `` | safe, `none`, guard `none`, silent |
+| nk11 | `obj['__' + k + '__'][f] = v` | pollutes, `nested_keys`, guard `none`, fires |
+| nk12 | `a[c ? 'x' : 'y'][k] = v` | safe, `none`, guard `none`, silent |
+| nk13 | `handlers[EventType.Click][phase] = v` with `EventType` a module constant object | safe, `none`, guard `none`, silent |
+| nk14 | TypeScript: `function put(grid: Cell[][], y: number, x: number, v: Cell) { grid[y][x] = v; }`, `y` from JSON text | pollutes, `nested_keys`, guard `none`, fires |
+| nk15 | `map.get(k1)[k2] = v` with `map` a `Map` | safe, `none`, guard `none`, silent |
+| rm01 | the recursive merge of issue #603; roots `plain`, `null_proto` | pollutes, `recursive_merge`, guard `none`, fires |
+| rm02 | the same with `Object.keys(source).forEach(key => { … })` | pollutes, `recursive_merge`, guard `none`, fires |
+| rm03 | merge that recurses through a same-file helper (`mergeObject` ↔ `mergeValue`) | pollutes, `recursive_merge`, guard `none`, fires |
+| rm04 | one-level copy: `for (const k in s) t[k] = s[k];` | safe, `none`, guard `none`, silent |
+| rm05 | deep clone that builds a new object and never writes into an argument | safe, `none`, guard `none`, silent |
+| np01 | `Object.defineProperty(o, '__proto__', { value: v })` | safe, `none`, guard `none`, silent |
+| np02 | `Object.assign(o, { ['__proto__']: v })` | safe, `none`, guard `none`, silent |
+| np03 | `Object.assign({}, JSON.parse(text))` | safe, `none`, guard `none`, silent |
 
 Guard rows (DESIGN 5.2; placements are stated against selectors):
 
 | Row | Function | Expect |
 |---|---|---|
-| g01 | rm01 with `if (key === '__proto__' \|\| key === 'constructor') continue;` | safe; guard sufficient |
-| g02 | rm01 with `if (key === '__proto__') continue;` | pollutes; guard partial |
-| g03 | rm01 with `if (!source.hasOwnProperty(key)) continue;` | pollutes; guard none |
-| g04 | pw01 with `if (!Object.prototype.hasOwnProperty.call(o, k)) o[k] = {};` before each step | by the runner |
-| g05 | pw01 with the root from `Object.create(null)` | pollutes (`a.__proto__.polluted`); guard none |
-| g06 | pw01 with `if (['__proto__', 'constructor', 'prototype'].includes(k)) return;` on each walk key | safe; guard sufficient |
-| g07 | pw01 with a regular-expression test of the key | safe; expected accepted loss (fact not sufficient) unless stage D admits the form |
-| g08 | guard written after the write | pollutes; guard none |
-| g09 | guard on a different variable than the key | pollutes; guard none |
-| g10 | guard inside a helper `isSafeKey(k)` | safe; expected accepted loss |
-| g11 | pw01 with `if (k === '__proto__') return;` on each walk key | pollutes as sloppy CommonJS (`constructor.prototype`), safe as an ES module; guard partial |
-| g12 | a setter that accepts `Array.isArray(path) ? path : path.split('.')`, with the three-name `===` guard on each walk key | pollutes (`[["__proto__"], "polluted"]`); guard not sufficient |
-| g13 | g12 with the guard written as `includes` on a literal array | pollutes; guard not sufficient |
-| g14 | g12 with loose `==` | by the runner |
-| g15 | pw01 with the positive form `if (k !== '__proto__' && k !== 'constructor' && k !== 'prototype') { step }` | safe; guard sufficient |
-| g16 | pw01 with a module-level `const UNSAFE = new Set([...]); if (UNSAFE.has(k)) return;` | safe; guard sufficient |
-| g17 | pw01 with a module-level array and `if (BLOCKED.indexOf(k) !== -1) return;` | safe; guard sufficient |
-| g18 | pw01 with `if (k in Object.prototype) return;` | by the runner |
-| g19 | pw01 with `if (Object.prototype.hasOwnProperty.call(Object.prototype, k)) return;` | by the runner |
-| g20 | pw01 with a test of the whole path before splitting (`if (path.includes('__proto__')) return;`) | by the runner (expected: pollutes through `constructor.prototype`) |
-| g21 | pw01 with a regular expression on the whole path before splitting | by the runner |
-| g22 | pw01 whose segments pass a `filter` that drops the three names | by the runner |
-| g23 | pw01 with a sanitiser that renames a forbidden segment before the step | by the runner |
-| g24 | rm01 with `if (!Object.prototype.hasOwnProperty.call(target, key))` guarding the recursive descent | safe; guard by stage D |
-| g25 | rm01 with a composite predicate (`Object.hasOwn(target, key) && Object.prototype.propertyIsEnumerable.call(target, key)`) before the descent | by the runner |
-| g26 | a setter with `typeof k === 'string' && k !== '__proto__' && k !== 'constructor' && k !== 'prototype'` on each walk key, array paths accepted | safe; guard sufficient |
-| g27 | pw01 whose final write is `Object.defineProperty(o, last, { value: v, enumerable: true, writable: true, configurable: true })` | by the runner |
-| g28 | an ini-style section writer that redirects to a scratch object when the section name is `__proto__` | by the runner |
-| g29 | pw01 with a cursor identity check `if (o === Object.prototype) return;` after each step | by the runner |
-| g30 | pw01 with null-prototype intermediates (`o = o[k] = o[k] \|\| Object.create(null)`) | by the runner |
-| g31 | pw01 with the three-name guard on the final key only | pollutes; guard none (a property guard does not count) |
-| g32 | pw01 with the three-name guard on the walk keys only | safe; guard sufficient |
-| g33 | nk01 with `if (k1 === '__proto__') return;` | safe; expected accepted loss (fact `partial`) |
-| g34 | pw01 with the three-name guard, then `k = k.toLowerCase()` (and one row with `trim()`) before the step | pollutes (`"__PROTO__"`, `" __proto__ "`); guard none |
+| g01 | rm01 with `if (key === '__proto__' \|\| key === 'constructor') continue;` | safe, `recursive_merge`, guard `sufficient`, silent |
+| g02 | rm01 with `if (key === '__proto__') continue;` | pollutes, `recursive_merge`, guard `partial`, fires |
+| g03 | rm01 with `if (!source.hasOwnProperty(key)) continue;` | pollutes, `recursive_merge`, guard `none`, fires |
+| g04 | pw01 with `if (!Object.prototype.hasOwnProperty.call(o, k)) o[k] = {};` before each step | safe, `path_walk`, guard `sufficient`, silent |
+| g05 | pw01 with the root from `Object.create(null)` | pollutes, `path_walk`, guard `none`, fires |
+| g06 | pw01 with `if (['__proto__', 'constructor', 'prototype'].includes(k)) return;` on each walk key | safe, `path_walk`, guard `sufficient`, silent |
+| g07 | pw01 with a regular-expression test of the key | safe, `path_walk`, guard `sufficient`, silent |
+| g08 | guard written after the write | pollutes, `path_walk`, guard `none`, fires |
+| g09 | guard on a different variable than the key | pollutes, `path_walk`, guard `none`, fires |
+| g10 | guard inside a helper `isSafeKey(k)` | safe, `path_walk`, guard `sufficient`, silent |
+| g11 | pw01 with `if (k === '__proto__') return;` on each walk key | pollutes, `path_walk`, guard `partial`, fires |
+| g12 | a setter that accepts `Array.isArray(path) ? path : path.split('.')`, with the three-name `===` guard on each walk key | pollutes, `path_walk`, guard `partial`, fires |
+| g13 | g12 with the guard written as `includes` on a literal array | pollutes, `path_walk`, guard `partial`, fires |
+| g14 | g12 with loose `==` | safe, `path_walk`, guard `partial`, fires (R-COERCE) |
+| g15 | pw01 with the positive form `if (k !== '__proto__' && k !== 'constructor' && k !== 'prototype') { step }` | safe, `path_walk`, guard `sufficient`, silent |
+| g16 | pw01 with a module-level `const UNSAFE = new Set([...]); if (UNSAFE.has(k)) return;` | safe, `path_walk`, guard `sufficient`, silent |
+| g17 | pw01 with a module-level array and `if (BLOCKED.indexOf(k) !== -1) return;` | safe, `path_walk`, guard `sufficient`, silent |
+| g18 | pw01 with `if (k in Object.prototype) return;` | safe, `path_walk`, guard `sufficient`, silent |
+| g19 | pw01 with `if (Object.prototype.hasOwnProperty.call(Object.prototype, k)) return;` | safe, `path_walk`, guard `sufficient`, silent |
+| g20 | pw01 with a test of the whole path before splitting (`if (path.includes('__proto__')) return;`) | pollutes, `path_walk`, guard `partial`, fires |
+| g21 | pw01 with a regular expression on the whole path before splitting | safe, `path_walk`, guard `sufficient`, silent |
+| g22 | pw01 whose segments pass a `filter` that drops the three names | safe, `path_walk`, guard `sufficient`, silent |
+| g23 | pw01 with a sanitiser that renames a forbidden segment before the step | safe, `path_walk`, guard `sufficient`, silent |
+| g24 | rm01 with `if (!Object.prototype.hasOwnProperty.call(target, key))` guarding the recursive descent | safe, `recursive_merge`, guard `sufficient`, silent |
+| g25 | rm01 with a composite predicate (`Object.hasOwn(target, key) && Object.prototype.propertyIsEnumerable.call(target, key)`) before the descent | safe, `recursive_merge`, guard `sufficient`, silent |
+| g26 | a setter with `typeof k === 'string' && k !== '__proto__' && k !== 'constructor' && k !== 'prototype'` on each walk key, array paths accepted | safe, `path_walk`, guard `sufficient`, silent |
+| g27 | pw01 whose final write is `Object.defineProperty(o, last, { value: v, enumerable: true, writable: true, configurable: true })` | pollutes, `none`, guard `none`, silent (M-CALL-WRITE) |
+| g28 | an ini-style section writer that redirects to a scratch object when the section name is `__proto__` | safe, `path_walk`, guard `sufficient`, silent |
+| g29 | pw01 with a cursor identity check `if (o === Object.prototype) return;` after each step | pollutes, `path_walk`, guard `partial`, fires |
+| g30 | pw01 with null-prototype intermediates (`o = o[k] = o[k] \|\| Object.create(null)`) | pollutes, `path_walk`, guard `none`, fires |
+| g31 | pw01 with the three-name guard on the final key only | pollutes, `path_walk`, guard `none`, fires |
+| g32 | pw01 with the three-name guard on the walk keys only | safe, `path_walk`, guard `sufficient`, silent |
+| g33 | nk01 with `if (k1 === '__proto__') return;` | pollutes, `nested_keys`, guard `partial`, fires |
+| g34 | pw01 with the three-name guard, then `k = k.toLowerCase()` (and one row with `trim()`) before the step | pollutes, `path_walk`, guard `none`, fires |
 
-Shapes outside the classes as written (DESIGN 5.1, E3 shape labels):
+Additional stage-M shapes and their Stage D decisions.
 
 | Row | Function | Expect | Baseline cases |
 |---|---|---|---|
-| hw01 | walk in a helper, write through its result: `const parent = walk(obj, keys); parent[last] = v` | pollutes; no class (`helper_walk`, a known miss) | `convict`, `decal`, `getobject` |
-| at01 | `const u = users[id]; u[field] = v` | pollutes; class decided by stage D (`alias_two_step`) | `component-flatten` |
-| at02 | `p = out[section] = out[section] \|\| {}; p[key] = v` | pollutes; class decided by stage D | the ini-parser shape |
-| rp01 | merge recursing through a property: `exports.merge(target[key], source[key])` | pollutes; class decided by stage D (`property_recursion`) | `hoek`, `merge-change`, `safe-obj` |
-| rp02 | the same through `this.merge(…)` in an object's method | pollutes; class decided by stage D | — |
-| ra01 | `clone = target[name]; … extend(deep, clone, copy)` | pollutes; class decided by stage D (`alias_arg_recursion`) | `putil-merge` |
-| ra02 | `target[key] = merge(target[key] \|\| {}, source[key])` | pollutes; class decided by stage D | — |
-| rr01 | return-style recursion: `obj[key] = setPath(obj[key], rest, v)` | pollutes; `recursive_merge` (or `path_walk` per pw05's decision) | `keyget`, `object-path-set`, `json8-merge-patch`, `paypal-adaptive` |
-| ic01 | a cursor moved through an intermediate variable (`const next = o[k]; o = next;`) | pollutes; class decided by stage D (`indirect_cursor`) | `objection`, `strikeentco-set`, `undefsafe` |
-| ic02 | a cursor moved through a ternary (`o = o[k] ? o[k] : (o[k] = {})`) | pollutes; class decided by stage D | — |
-| ic03 | a write through the parent of the cursor (`parent = o; o = o[k]; … parent[k2] = v`) | pollutes; class decided by stage D | — |
-| fc01 | a cursor held in an object field: `st.cur = st.cur[k]` | pollutes; no class (`field_cursor`, a known miss) | — |
-| dc01 | a destructured cursor: `({ [k]: o } = o)` | pollutes; class decided by stage D | — |
-| im01 | an iterative merge with an explicit stack | pollutes; class decided by stage D | — |
-| oa01 | `Object.assign(target[key], source[key])` as the leaf of a recursive merge | pollutes; class decided by stage D | — |
-| rs01 | `Reflect.set(a[k1], k2, v)` | by the runner; class decided by stage D | — |
-| rs02 | `Object.defineProperty(cursor, last, { value: v })` after a walk | by the runner; class decided by stage D | one minified case |
+| hw01 | walk in a helper, write through its result: `const parent = walk(obj, keys); parent[last] = v` | pollutes, `none`, guard `none`, silent (M-HELPER) | `convict`, `decal`, `getobject` |
+| at01 | `const u = users[id]; u[field] = v` | pollutes, `path_walk`, guard `none`, fires | `component-flatten` |
+| at02 | `p = out[section] = out[section] \|\| {}; p[key] = v` | pollutes, `path_walk`, guard `none`, fires | the ini-parser shape |
+| rp01 | merge recursing through a property: `exports.merge(target[key], source[key])` | pollutes, `recursive_merge`, guard `none`, fires | `hoek`, `merge-change`, `safe-obj` |
+| rp02 | the same through `this.merge(…)` in an object's method | pollutes, `recursive_merge`, guard `none`, fires | — |
+| ra01 | `clone = target[name]; … extend(deep, clone, copy)` | pollutes, `recursive_merge`, guard `none`, fires | `putil-merge` |
+| ra02 | `target[key] = merge(target[key] \|\| {}, source[key])` | pollutes, `recursive_merge`, guard `none`, fires | — |
+| rr01 | return-style recursion: `obj[key] = setPath(obj[key], rest, v)` | pollutes, `recursive_merge`, guard `none`, fires | `keyget`, `object-path-set`, `json8-merge-patch`, `paypal-adaptive` |
+| ic01 | a cursor moved through an intermediate variable (`const next = o[k]; o = next;`) | pollutes, `path_walk`, guard `none`, fires | `objection`, `strikeentco-set`, `undefsafe` |
+| ic02 | a cursor moved through a ternary (`o = o[k] ? o[k] : (o[k] = {})`) | pollutes, `path_walk`, guard `none`, fires | — |
+| ic03 | a write through the parent of the cursor (`parent = o; o = o[k]; … parent[k2] = v`) | pollutes, `path_walk`, guard `none`, fires | — |
+| fc01 | a cursor held in an object field: `st.cur = st.cur[k]` | pollutes, `none`, guard `none`, silent (M-STORAGE) | — |
+| dc01 | a destructured cursor: `({ [k]: o } = o)` | pollutes, `path_walk`, guard `none`, fires | — |
+| im01 | an iterative merge with an explicit stack | pollutes, `none`, guard `none`, silent (M-STORAGE) | — |
+| oa01 | `Object.assign(target[key], source[key])` as the leaf of a recursive merge | pollutes, `none`, guard `none`, silent (M-CALL-WRITE) | — |
+| rs01 | `Reflect.set(a[k1], k2, v)` | pollutes, `none`, guard `none`, silent (M-CALL-WRITE) | — |
+| rs02 | `Object.defineProperty(cursor, last, { value: v })` after a walk | pollutes, `none`, guard `none`, silent (M-CALL-WRITE) | one minified case |
 
 - [ ] Write the cases, the runner and its unit test, `families.json` with the initial family set of DESIGN
       section 7 item 1, and `rows.jsonl`. Run the runner. Every `inadmissible` row is fixed (its `call` or
@@ -378,8 +378,8 @@ Truth depends on which payloads and contexts are tried, so this set is closed be
       could change. Codex seats get the neutral wording of the global constraints.
 - [ ] Add accepted entries to `families.json` (and to `run_truth.mjs` when a context is new); re-run the
       runner. The task ends when a full tier round adds nothing.
-- [ ] Commit `truth.jsonl`. Where the runner contradicts the "Expect" column, the runner wins: correct the
-      row's expectation and note it in the ledger.
+- [ ] Commit the runner’s output. Record any discrepancy with the historical seed hypotheses. Use the executed
+      four-root observation in the row contract.
 - [ ] `truth/check.sh` re-runs the runner and diffs against the committed `truth.jsonl`. The orchestrator
       runs it before stage D and before each slice merges; it is not part of `cargo test`.
 
@@ -398,15 +398,16 @@ Truth depends on which payloads and contexts are tried, so this set is closed be
 
 ## Stage D: design of record (1 to 2 days)
 
-- [ ] The design seat (ORCHESTRATION section 3, stage D) amends DESIGN 5.1 and 5.2 against the full row
-      set: exact class definitions, including where recursive path setters belong (decided first: it sizes
-      slice S1a), whether a read-only walk followed by a fixed-name write is a fact, and the readings left
-      open in 5.1; the selector and property rule, and whether property-only taint is silent or a
-      `suggestion`; which index sources are numeric; the guard forms and placements that are sufficient (each
-      backed by `safe` rows; strict-equality forms only on provably string keys); and the accepted-loss list
-      in both directions. The implementer updates `rows.jsonl` to match. Both reviewers; cap 2 rounds.
-- [ ] If stage D puts recursive path setters in `path_walk`, recursion detection for them is part of S1a and
-      S1a's estimate grows by one day; otherwise it is S3's. Record which in the ledger.
+- [x] Reconcile the 270 recorded writes with DESIGN 5.1–5.3 and 11. The three expectation fields and the per-row
+      requirements agree. The 33 scope notes and the extended-root and non-JSON neighbours retain their original
+      evidentiary status.
+- [x] Assign recursive setters to S3. S1a keeps its 3–4 day estimate and its 21 strict-converted cases. Record
+      the 32 original E4 dispositions in DESIGN 8.1.
+- [ ] The orchestrator materialises “Rows still needed” in DESIGN 11, obtains their execution labels and
+      refreshes the row contract. Replace each changed row’s base RED/GREEN receipt before enabling its slice
+      under ORCHESTRATION 7. A missing listing command supplies no behavioural RED.
+- [ ] Both design reviewers approve the amendment. Cap **two rounds** for this design. Apply ORCHESTRATION 7 and
+      8 at the cap.
 
 ---
 
@@ -440,7 +441,7 @@ pub enum GuardState { None, Partial, Sufficient }
 pub enum KeyRole { Selector, Property }
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct KeyOperand { pub name: String, pub base: String, pub role: KeyRole,
-    pub line: usize, pub start_byte: usize, pub end_byte: usize }
+    pub function_start_line: usize, pub line: usize, pub start_byte: usize, pub end_byte: usize }
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct ProtoWrite { pub line: usize, pub end_line: usize, pub start_byte: usize, pub end_byte: usize,
     pub function: String, pub function_start_line: usize, pub function_end_line: usize,
@@ -460,7 +461,9 @@ pub fn proto_writes(session: &NavigationSession) -> Vec<ProtoWriteRow>;   // sor
 `line`..`end_line` and `start_byte`..`end_byte` are the write target's lines and span. `KeyOperand.name` is
 the identifier or member chain as the data-flow graph spells it (`keys`, `opts.key`); `base` is its first
 identifier; `role` and the selector/property rule are DESIGN 5.1; `line` is the operand's own line (a
-selector can lie on another line than the write). In S1a `guard` is always `None`. CLI:
+selector can lie on another line than the write). `KeyOperand.function_start_line` identifies its actual lexical
+owner. Keep the per-target occurrence relation for S2, including a callback selection or a recursive call. In
+S1a `guard` is always `None`. CLI:
 `prism nav proto-writes --repo <dir> [--format json|text]` (JSON: one object per line); its help text and
 the `CLAUDE.md` paragraph say the subcommand is unstable. `eval/secbench/pp_join.py <harness out dir>
 <packages dir> <prism binary>` runs the listing per package and prints, per case: traced, key reached by name
@@ -469,12 +472,17 @@ and strict (the rule of `m/key_reached.py`, DESIGN 6 E2, moved here with its uni
 `raw/<class>/<entry>/taint.json.gz` holds a `taint_sink` finding at the ground-truth file and line whose
 description contains `js-proto-write`; always `false` before S2).
 
-- [ ] Module skeleton returning no facts; `proto_writes_tests.rs` is one data-driven test that reads
-      `rows.jsonl` and asserts, for every enabled row, the required behaviour of DESIGN section 7 (fact
-      class, guard, selector bases against `attacker_names`). A row is skipped when its `want_class` is not
-      in the constant `ENABLED_CLASSES` (S1a: `nested_keys`, `path_walk`), or when its `want_guard` is not
-      `none` and the constant `GUARDS_ENABLED` is `false` (S1a). RED for the rows that want a fact.
-- [ ] Implement `classes.rs` (the two classes and the operand roles). GREEN for the enabled rows.
+- [ ] Start with the empty listing. Enable all 82 rows requiring no fact and all 169 rows requiring
+      `nested_keys` or `path_walk` (251 of 270). Assert the class and selector bases at the designated write,
+      including losses and scope rows. Check the row table’s witness where present and an empty attacker-name
+      intersection where it is absent. At S1a compare the guard with `None` on every enabled row. Numeric/finite
+      value-domain exclusions already belong to class extraction. Defer the final guard and sink assertions to
+      the slices that supply them. Show behavioural RED for required facts.
+- [ ] Implement DESIGN 5.1. Cover fixed leaves, single-read aliases, temporary, ternary and destructured cursor
+      steps, callbacks, reductions and receiver replacement. Include numeric and finite selector domains,
+      destination-own write-back, private children, and fixed intervening fields. A numeric or constant property
+      alone cannot remove a qualifying selector. Recursive setters enter in S3. Run the enabled matrix through
+      the listing.
 - [ ] Review focus items 1, 2, 3, 5: one test each.
 - [ ] The listing and its CLI test (`lists_facts_sorted_as_json_lines`, `other_languages_list_nothing`).
 - [ ] Docs: the `CLAUDE.md` paragraph; in the known-gaps doc, a line that the `reduce` shape (pw04) records a
@@ -487,21 +495,27 @@ description contains `js-proto-write`; always `false` before S2).
 - [ ] Gates of ORCHESTRATION section 5: items 1 to 5 (Tier-A matrix only: `src/ast` is touched but no
       resolution or graph behaviour changes; say so in the PR), 8, 9, 10. Two reviewers.
 
-**Gate:** finding-equivalents ≥ 0.9 × the converted cases (C, strict reading) whose E3 class is `nested_keys`
-or `path_walk` as stage D defined them (DESIGN section 8, benchmark yield by class); the E4 sample re-labelled
-against the product facts shows at least 80% able to pollute.
+**Gate.** Measure finding-equivalents on the frozen 21 cases (19 walks, two nested writes). The 0.9 threshold
+requires at least 19/21 before any human-checked guard exclusions. Keep the frozen write-line witness diagnostic
+reproducible under DESIGN 5.4. Measure every newly introduced ordinary-code fact. DESIGN 8.1 projects six
+capable hits among six retained from stage M. The ≥80% product gate still needs at least 20 final class hits.
 
 ### Slice S1b: guards (2 to 3 days)
 
 **Files:** create `src/ast/js_ts/proto_writes/guards.rs`; modify `src/ast/js_ts/proto_writes.rs`,
 `src/ast/js_ts/proto_writes_tests.rs` (`GUARDS_ENABLED`), docs.
 
-- [ ] Set `GUARDS_ENABLED` to `true`: RED for the guard rows. Implement the guard forms and placements of the
-      amended DESIGN 5.2 (selector operands, string-ness, per-class placement, rewrites after the guard).
-      GREEN.
-- [ ] If the ledger says "fixed versions owed" (task M-4, E5), the sink fallback of DESIGN 5.2 applies:
-      record that in the PR body; the guard state is still computed and listed.
-- [ ] If slice S2 has merged, enable sink rows `sk04`, `sk05` and `sk16a`/`sk16b` in its test in this slice.
+- [ ] Set `GUARDS_ENABLED` to true. Show RED, then check the exact guard of every enabled row against the row
+      table. Implement only the sufficient forms and placements in DESIGN 5.2 with their executed safe
+      witnesses. Cover stable primitive strings, target-own checks and fresh fallback, a real rejecting exit,
+      and the bounded finite-name, helper and receiver proofs. Exercise the incomplete, stale, wrong-binding and
+      control-flow neighbours. The JSON-safe loose comparison in `g14` stays partial, and the nested-key range
+      check in `t2-045` has no guard.
+- [ ] E5 found all 20 fixed versions. List sufficient facts and suppress their findings, retain partial
+      warnings, and use the three-prototype observations for the four-root contract. Extended-root neighbours go
+      in the receipt.
+- [ ] If S2 has merged, enable the final sink decisions for all guarded rows of each implemented class.
+      Include the seeded cases `sk04`, `sk05` and `sk16a`/`sk16b`.
 - [ ] Measure: the listing on the E4 corpora (guard state counts); `pp_join.py` on E1 (cases newly
       `sufficient`, listed for a human check).
 - [ ] Gates of ORCHESTRATION section 5 as for S1a. Two reviewers.
@@ -526,28 +540,28 @@ guarded for the human check.
 pub(crate) const RULE: &str = "js-proto-write";
 pub(crate) const CWE: &str = "CWE-1321";
 pub(crate) struct ProtoWriteIndex { /* built once per file from js_ts_proto_writes() */ }
-pub(crate) struct ProtoHit { pub partial_guard: bool }
+pub(crate) struct ProtoHit {
+    pub write_line: usize,
+    pub function_start_line: usize,
+    pub partial_guard: bool,
+}
 impl ProtoWriteIndex {
-    /// `guards_suppress` is false when the fixed-version harvest is owed (DESIGN 5.2): `Sufficient` then
-    /// counts as `Partial`.
-    pub(crate) fn for_file(parsed: &ParsedFile, guards_suppress: bool) -> ProtoWriteIndex;
-    /// The key-hit rule of DESIGN 5.3 for one flow-path edge end. Reads `at.kind` (only a Use can hit),
-    /// `at.function_start_line`, `at.line`, `at.path` (base and fields, matched by name against selector
-    /// operands) and `at.start_byte`/`at.end_byte` (only to tell two writes on one line apart).
-    pub(crate) fn key_hit(&self, at: &VarLocation) -> Option<ProtoHit>;
-    /// The framework-source selector rule of DESIGN 5.3: a hit when a selector operand of a write on `line`
-    /// overlaps one of the line's framework source-access byte ranges.
-    pub(crate) fn source_key_hit(&self, line: usize, ranges: &[(usize, usize)]) -> Option<ProtoHit>;
+    pub(crate) fn for_file(parsed: &ParsedFile) -> ProtoWriteIndex;
+    pub(crate) fn key_hits(&self, at: &VarLocation) -> Vec<ProtoHit>;
+    pub(crate) fn source_key_hits(&self, line: usize, ranges: &[(usize, usize)]) -> Vec<ProtoHit>;
 }
 ```
 
-In `run.rs` (DESIGN 5.3): `key_hit` runs once per flow-path edge on `edge.to`, outside the per-identifier
-loop and before the framework-source-line skip; `source_key_hit` runs once per JS-family framework source line
-with the ranges `run.rs` already computes (`framework_source_access_ranges`). A hit records the line with its
-`ProtoHit` in a side set. The emission block, for a line in that set, writes the description of DESIGN 5.3
-(with the "also holds another taint sink" suffix when the line is also in the existing sink set) and forces
-Strong (severity `warning`) whatever `line_strength` returns. Category stays `taint_sink` (DESIGN decision 9).
-`guards_suppress` is a constant in `proto_write.rs`, set from the ledger's E5 state when the slice is written.
+In `run.rs`, check each reached Use and each framework source range against DESIGN 5.3. On the target line
+preserve by-name matching, including zero-width anchors and right-hand occurrences. For an earlier selector
+require its exact lexical owner and a nonempty span inside that operand (or a directly overlapping framework
+source). Fan out only to the dependent live writes recorded in the fact index. Carry the source to each target’s
+emission even if the target line itself has no reached Use. A matching read creates no separate finding.
+
+Emit one `taint_sink` per target line under the existing diff/seed rules. Use the DESIGN 5.3 rule carrier and
+co-located-sink convention. Force `warning` even beside a weak call. A partial hit carries the guard note, a
+sufficient guard suppresses, and property-only, value-only and ordinary receiver-only taint stay silent.
+Preserve the known `sk03b` warning (#854).
 
 - [ ] Rebase on `main`; if PR #841 has merged, read the new shape of the sink loop first.
 - [ ] Write `taint_sink_proto_write_test.rs` from `sink_rows.md` rows `sk01` to `sk08`, `sk12` to `sk17` and
@@ -555,7 +569,11 @@ Strong (severity `warning`) whatever `line_strength` returns. Category stays `ta
       `Case { label, source }`, `// SEED`, `// SINK`); add a helper there only for rows that read the
       finding's description (`sk05`, `sk15`). Rows `sk04`, `sk05`, `sk16a`, `sk16b` are enabled only if S1b
       has merged (otherwise S1b enables them). RED.
-- [ ] Implement the index, both checks and the emission changes. GREEN.
+- [ ] Drive the enabled row decisions with supplied selector Uses and the immutable attacker-name sets.
+      If S2 lands first, assert final outcomes for guard-`none` rows. S1b enables the partial/sufficient rows.
+      Separately run the seeded `sink_rows.md` fixtures. Add earlier-selector seed tests for `pw10`, `pw11` and
+      `at01`, with sibling-name, zero-width off-target, killed-cursor and property-only negatives. Assert the
+      exact target line. Implement the index, both checks and target emission, then make those tests GREEN.
 - [ ] Review focus items 4 and 6.
 - [ ] No-regression check: run the existing taint test targets (`--test algo_taxonomy`); the only changed
       expectations are new findings with the DESIGN 5.3 description, each listed in the PR body. Note that
@@ -573,9 +591,14 @@ Strong (severity `warning`) whatever `line_strength` returns. Category stays `ta
 600 weighted lines), `src/ast/js_ts/proto_writes_tests.rs` (`ENABLED_CLASSES`),
 `tests/algo/taxonomy/taint_sink_proto_write_test.rs` (rows `sk09` to `sk11`), docs.
 
-- [ ] Add `recursive_merge` to `ENABLED_CLASSES`: RED. Implement direct recursion and one same-file helper
-      hop, parameter-position matching of the dynamic read, single-alias bases, and the selector of DESIGN
-      5.1 (the descent read's key); plus recursive path setters if stage D put them here. GREEN.
+- [ ] Enable all 19 `recursive_merge` matrix facts, including recursive path setters (`pw05`, `rr01`, `t2-009`,
+      `t2-038`, `t2-050`). Show RED on the slice base. Implement one same-file forwarding hop,
+      destination-position matching, statically bound property calls, bound/literal-apply forms, and aliased or
+      wrapped child arguments under DESIGN 5.1. Exclude destination-only write-back, source-only descent and
+      ambiguous property dispatch. Include the guards on the recursive destination step.
+- [ ] Recheck all 270 class, guard and operand decisions. When S2 is present also assert the row sink decisions
+      and the distinct source-seeded `sk11` miss (#434). If #841 still holds up S2, do the fact/guard work first
+      and run the sink checks when S2 lands.
 - [ ] Measure: listing on the E4 corpora (new facts listed), re-run E1 and `pp_join.py` (merge-class
       findings; the potential set P re-counted with the product facts).
 - [ ] Sink rows `sk09` (fires), `sk10` (silent) and `sk11` (silent, the accepted loss of #434, asserted so
@@ -600,7 +623,15 @@ Strong (severity `warning`) whatever `line_strength` returns. Category stays `ta
       the tally; state percentages only on 20 or more findings.
 - [ ] Re-run E1 with the final build and `pp_join.py`: the **benchmark yield** gate of DESIGN section 8 on
       `sink_finding`, by class. List converted cases the final rules call guarded, for a human check.
-- [ ] Re-label the E4 sample against the final facts: the **ordinary code** gate.
+- [ ] Retain raw yield denominators of 19 walks, 2 nested and 8 recursive writes (29 total). Identify cases
+      excluded after human guard review and report the adjusted denominator alongside the raw one. Count actual
+      findings on the designated line. Keep liberal-only and upstream potential cases separate.
+- [ ] Re-label the original 32 E4 coordinates and the final product sample, including all new class shapes.
+      Count every sampled fact in the denominator, with sufficient guards visible. Use the five original
+      corpora, then the two reserves in M-4 order if needed. At least 80% of at least 20 final class hits must
+      be capable. Report a smaller tally as insufficient evidence.
+- [ ] Reconcile the 270-row contract (plus any later executed additions), both directions of loss, scope notes,
+      and the seeded #434/#854 exceptions in the acceptance receipt.
 - [ ] Run `truth/check.sh`.
 - [ ] `g/REPORT.md` in the evidence directory and a summary on #603: C (strict and liberal), sink findings by
       class and shape, potential P by first break (linking #595 and #434), ordinary-code counts, the
