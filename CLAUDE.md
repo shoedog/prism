@@ -612,17 +612,23 @@ no argument-to-formal edge. Object-literal field flow retains its spread-argumen
 JS/TS/TSX object-pattern formals give each used, eligible local a Def at the callable's start
 line with the binding token's bytes. The pattern walk covers renames, nested objects and rest.
 Array subtrees and non-inert defaults exclude their bindings. Whole-pattern identifier defaults
-use the existing alias producer. Edges follow bound runtime reads, including member projections.
-Named signature lines with no eligible preferred Use keep their miss. Deferred parameter-initializer
-captures have an exact byte location and `cfg_incomplete` confidence, including member reads that
-may run after a body write. A representative can stand for runtime reads on the same line when
-they all share the binding, path and version at the representative. Mixed lines use the admitted
-operand's bytes through CPG interning. The body seam fences body writes and alias twins out of the
-parameter environment and retains a valid legacy body representative. Parameter names and argument
-slots keep their separate accessors. Adding pattern Defs can cross the 2,048-Def reaching-definitions
-limit and alter existing labels. Their surviving edges also count in both fallback passes. Crossing
-the 1,000,000-pair fallback cap suppresses all local edges of the owner. The S1 comparison at
-`b481a6dd` recorded no cap or RD availability counter changes on X, T or cal.com.
+use the existing alias producer. The owner-relative runtime walk keeps body captures and fences
+parameter decorators and descendant formal lists. Signature reads require complete-list syntax,
+binding and initialization proofs. The signature can read a completed earlier binding as an
+entire bare key or default. Its final identifier formal can store a synchronous zero-parameter
+arrow that reads an eligible local from a completed earlier formal. Both forms use the operand
+bytes with `cfg_incomplete`. The final reader can supply a Use on a named signature line without
+a preferred Use.
+
+Body edges use a separate value proof. A bare signature read or a possible signature alias with
+an overlapping body write selects the base-read behavior. Projections check writes by binding
+and path, including opaque signature effects. A shared representative must belong to the proved
+environment and value version. The body seam checks preferred and fallback bytes for raw writes
+and alias twins. The mixed-line endpoint relocation is the pending DESIGN §7 exception.
+Parameter names and argument slots keep their separate accessors. When S1 alone crosses the
+2,048-Def RD or 1,000,000-pair fallback limit, the file producer replays the owner's legacy facts.
+The uncapped p35 sibling relabel remains. The opt-in S1 ledger records the producer's attempts,
+site and cap decisions before graph deduplication. The CPG cache stays at v191.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

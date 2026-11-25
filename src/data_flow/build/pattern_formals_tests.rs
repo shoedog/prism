@@ -8,6 +8,14 @@ fn refs(source: &str, language: Language) -> FileRefs {
     Producer::file_refs(&file.path, &file)
 }
 
+fn evidence(source: &str, language: Language) -> crate::data_flow::s1_evidence::Evidence {
+    let file = ParsedFile::parse("test", source, language).unwrap();
+    crate::data_flow::DataFlowGraph::collect_s1_evidence(
+        &std::collections::BTreeMap::from([(file.path.clone(), file)]),
+        "pattern-formals-fixture",
+    )
+}
+
 #[test]
 fn representative_must_share_the_value_version() {
     for (statement, endpoint) in [
@@ -45,6 +53,28 @@ fn representative_must_share_the_value_version() {
             .collect::<Vec<_>>(),
         [(read, read + 1)]
     );
+    for assignment in [
+        "[x, t.v = x] = [1]",
+        "[[x], t.v = x] = [[1]]",
+        "({x, slot: t.v = x} = {x: 1})",
+        "({a: {x}, slot: t.v = x} = {a: {x: 1}})",
+        "({x, [x]: t.v} = {x: 1})",
+    ] {
+        let source = format!("function C({{x}}, t) {{ return <D x={{({assignment})}}/>; }}");
+        let graph = refs(&source, Language::Tsx);
+        assert!(
+            graph
+                .defs
+                .values()
+                .flatten()
+                .any(|def| def.start_byte == 12),
+            "{assignment}"
+        );
+        assert!(
+            graph.edges.iter().all(|edge| edge.from.start_byte != 12),
+            "{assignment}"
+        );
+    }
 }
 
 #[test]
@@ -52,6 +82,8 @@ fn pattern_projection_uses_bound_normalized_write_paths() {
     for (body, projections) in [
         ("o = {}; return o.k;", vec![]),
         ("[o] = values; return o.k;", vec![]),
+        ("[o[key]] = values; return o.k;", vec![]),
+        ("[o.other[key]] = values; return o.k;", vec!["o.k"]),
         (r"\u006f.k = 0; return o.k;", vec![]),
         (r"o.\u006b = 0; return o.k;", vec![]),
         (r"o.k = 0; return o.\u006b;", vec![]),
@@ -93,7 +125,7 @@ fn projection_writes_respect_the_parameter_body_seam() {
             "function C({o}, f = () => 0) {\n  var o;\n  o = {};\n  return o.k;\n}",
             0,
         ),
-        ("function C({o},\n  f = use(o.k)) {\n  return f;\n}", 1),
+        ("function C({o},\n  f = use(o.k)) {\n  return f;\n}", 0),
         (
             "function C({o},\n  f = (o = {}, use(o.k))) {\n  return f;\n}",
             0,
@@ -110,71 +142,102 @@ fn projection_writes_respect_the_parameter_body_seam() {
             "{source}"
         );
     }
+    for (init, projection) in [
+        ("() => { o.k = 0; }", true),
+        ("(() => { o.k = 0; })()", false),
+        ("([o, t = o.k] = [{k: 1}])", false),
+        ("({a: [o], t = o.k} = {a: [{k: 1}]})", false),
+    ] {
+        let source =
+            format!("function C({{keep}}, {{o}}, t, f = {init}) {{\n  return use(o.k, keep);\n}}");
+        let graph = refs(&source, Language::JavaScript);
+        let binding = source.find("{o}").unwrap() + 1;
+        let projected = graph
+            .edges
+            .iter()
+            .any(|edge| edge.from.start_byte == binding && edge.to.path.to_string() == "o.k");
+        assert_eq!(projected, projection, "{init}: {:?}", graph.edges);
+        assert!(graph
+            .edges
+            .iter()
+            .any(|edge| edge.from.var_name() == "keep"));
+    }
 }
 
 #[test]
 fn default_execution_regions_preserve_parameter_order() {
-    for (init, capture) in [
-        ("(function*(){ yield x; })()", true),
-        ("(function*(){ yield 1; })().next(x)", false),
-        ("(function*(){ yield x; })().next()", false),
-        ("(async function*(){ yield x; })()", true),
-        ("(async function*(){ yield x; })().next()", false),
-        ("(async () => { await ready; return x; })()", true),
-        ("(async () => { return (await ready, x); })()", true),
-        ("(async () => { return use(await ready, x); })()", true),
-        ("(async () => { return (await ready) + x; })()", true),
-        ("(async () => { return (await ready) ? x : 0; })()", true),
-        ("(async () => { use(x); await ready; })()", false),
-        (
-            "(async () => { if (flag) await ready; return x; })()",
-            false,
-        ),
-        ("(async () => { await x; })()", false),
-        ("class { field = x; }", true),
-        ("class { [x] = 0; }", false),
-        ("class { static field = x; }", false),
-        ("class { static { use(x); } }", false),
-        ("new (class { field = x; })()", false),
-        ("new (class { constructor() { use(x); } })()", false),
-        ("(() => x)()", false),
-        ("(() => x).call(null)", false),
-        ("(() => x).apply(null, [])", false),
-        ("(() => x).call", true),
-        ("({ get value() { return x; } }).value", false),
-        ("({ get value() { return x; } }).other", true),
-        ("({ get value() { return x; } })", true),
-        ("({ get value() { return x; } })['value']", false),
-        ("({ get value() { return x; } })['other']", true),
-        ("(class { static get value() { return x; } }).value", false),
-        ("(class { get value() { return x; } }).value", true),
-        ("new (class { get value() { return x; } })().value", false),
+    for init in [
+        "(function*(){ yield x; })()",
+        "[...(function*(){ yield x; })()]",
+        "(async () => { Number(await 0); return x; }).call(null)",
+        "new (class extends (class { field = x; }) {})()",
+        "({ get a() { return x; }, get b() { return this; } })[true ? 'b' : 'a']",
+        "(() => x).bind(null)()",
+        "(function*(){ yield 1; })().next(x)",
+        "(function*(){ yield x; })().next()",
+        "(async function*(){ yield x; })()",
+        "(async function*(){ yield x; })().next()",
+        "(async () => { await ready; return x; })()",
+        "(async () => { return (await ready, x); })()",
+        "(async () => { return use(await ready, x); })()",
+        "(async () => { return (await ready) + x; })()",
+        "(async () => { return (await ready) ? x : 0; })()",
+        "(async () => { use(x); await ready; })()",
+        "(async () => { if (flag) await ready; return x; })()",
+        "(async () => { await x; })()",
+        "class { field = x; }",
+        "class { [x] = 0; }",
+        "class { static field = x; }",
+        "class { static { use(x); } }",
+        "new (class { field = x; })()",
+        "new (class { constructor() { use(x); } })()",
+        "(() => x)()",
+        "(() => x).call(null)",
+        "(() => x).apply(null, [])",
+        "(() => x).call",
+        "({ get value() { return x; } }).value",
+        "({ get value() { return x; } }).other",
+        "({ get value() { return x; } })",
+        "({ get value() { return x; } })['value']",
+        "({ get value() { return x; } })['other']",
+        "(class { static get value() { return x; } }).value",
+        "(class { get value() { return x; } }).value",
+        "new (class { get value() { return x; } })().value",
     ] {
         let source =
             format!("function C(it = {init}, {{x, keep}}) {{\n  return use(it, keep);\n}}");
         for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
             let graph = refs(&source, language);
             let binding = source.find("{x, keep}").unwrap() + 1;
-            let edge = graph
-                .edges
-                .iter()
-                .find(|edge| edge.from.start_byte == binding);
-            assert_eq!(edge.is_some(), capture, "{language:?}: {init}");
-            if let Some(edge) = edge {
-                assert_eq!(
-                    &source[edge.to.start_byte..edge.to.end_byte],
-                    "x",
-                    "{language:?}: {init}"
-                );
-            }
+            let receipt = evidence(&source, language);
             assert_eq!(
+                receipt.counters()["refused_param_list_shape"],
+                1,
+                "{language:?}: {init}"
+            );
+            let file = &receipt.files["test"];
+            assert!(
+                file.attempts.iter().any(|attempt| {
+                    attempt.key.binding == [binding, binding + 1]
+                        && !attempt.justifies_def
+                        && attempt.disposition.as_str() == "refused_param_list_shape"
+                }),
+                "{language:?}: {init}"
+            );
+            assert!(
+                graph
+                    .edges
+                    .iter()
+                    .all(|edge| edge.from.start_byte != binding),
+                "unexpected entry edge for {language:?}: {init}"
+            );
+            assert!(
                 graph
                     .defs
                     .values()
                     .flatten()
-                    .any(|def| def.start_byte == binding),
-                capture,
-                "{language:?}: {init}"
+                    .all(|def| def.start_byte != binding),
+                "unexpected entry Def for {language:?}: {init}"
             );
             assert!(graph
                 .edges
@@ -239,12 +302,30 @@ fn only_runtime_references_in_the_formals_environment_supply_defs() {
             "class C { m({k}: {k: number}, @dec(k) other = use(k)) { return other; } }",
             Language::TypeScript,
             "k",
-            true,
+            false,
         ),
         (
             "function C({k}) { return class { m(k: number, @dec(k) value: number) {} }; }",
             Language::TypeScript,
             "k",
+            false,
+        ),
+        (
+            "function C({x}) { return class { a(@d(class { b(x: number, @d(x) y: number) {} }) z: number) {} }; }",
+            Language::TypeScript,
+            "x",
+            false,
+        ),
+        (
+            "function C({k, live}) { abstract class K { declare [k]: number; abstract [k]: number; [live] = 0; } }",
+            Language::TypeScript,
+            "k",
+            false,
+        ),
+        (
+            "function C({k, live}) { abstract class K { declare [k]: number; abstract [k]: number; [live] = 0; } }",
+            Language::TypeScript,
+            "live",
             true,
         ),
         (
@@ -255,8 +336,20 @@ fn only_runtime_references_in_the_formals_environment_supply_defs() {
         ),
     ] {
         let graph = refs(source, language);
-        let binding = source.find('{').unwrap();
-        let binding = binding + source[binding..].find(&format!("{{{name}")).unwrap() + 1;
+        let binding = source.match_indices(name).find(|(at, _)| {
+            source[..*at].ends_with('{') || source[..*at].ends_with(", ")
+        }).unwrap().0;
+        if source.contains("@dec(") || source.contains("@d(class") {
+            let receipt = evidence(source, language);
+            assert_eq!(receipt.counters()["refused_param_list_decorator"], 1, "{source}");
+            if source.contains("other = use(k)") {
+                assert_eq!(receipt.counters()["refused_param_list_shape"], 1, "{source}");
+            }
+        }
+        if name == "k" && source.contains("declare [k]") {
+            let receipt = evidence(source, language);
+            assert!(receipt.files["test"].attempts.iter().all(|attempt| attempt.key.binding[0] != binding));
+        }
         assert_eq!(
             graph
                 .defs
@@ -319,4 +412,56 @@ fn body_seam_preserves_alias_twin_endpoint_and_fence() {
         [(5, file.line_start_byte(5), file.line_start_byte(5))]
     );
     assert_eq!(twin_edges(&graph), expected);
+}
+
+#[test]
+fn body_seam_preserves_scope_without_pattern_def() {
+    let source = "function C({x=0}, f=()=>\nsee(x)) { if (x) return 1;\nvar x = 0;\n}";
+    let condition = source.find("if (x)").unwrap() + 4;
+    let binding = source.find("var x").unwrap() + 4;
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let graph = refs(source, language);
+        assert!(graph
+            .defs
+            .values()
+            .flatten()
+            .all(|def| def.start_byte != 12));
+        let endpoints: Vec<_> = graph
+            .edges
+            .iter()
+            .filter(|edge| edge.from.start_byte == binding && edge.to.line == 2)
+            .map(|edge| (edge.to.start_byte, edge.to.end_byte))
+            .collect();
+        assert_eq!(endpoints, [(condition, condition + 1)], "{language:?}");
+    }
+}
+
+#[test]
+fn opaque_signature_call_can_invoke_a_stored_writer_through_an_alias() {
+    for (default, entry_reaches_body) in [("0", true), ("invoke(alias)", false)] {
+        let source = format!("function C({{a, keep}}, writer = () => {{ a = 1; }}, alias = writer, ignored = {default}) {{\n  return [a, keep];\n}}\n");
+        let graph = refs(&source, Language::JavaScript);
+        let read = source.find("return [a").unwrap() + "return [".len();
+        let entry = graph
+            .edges
+            .iter()
+            .any(|edge| edge.from.start_byte == 12 && edge.to.line == 2);
+        assert_eq!(entry, entry_reaches_body, "{default}");
+        let evidence = evidence(&source, Language::JavaScript);
+        let attempt = evidence.files["test"]
+            .attempts
+            .iter()
+            .find(|attempt| attempt.key.operand == [read, read + 1])
+            .unwrap();
+        let disposition = if entry_reaches_body {
+            "emitted"
+        } else {
+            "refused_param_list_write_effect"
+        };
+        assert_eq!(attempt.disposition.as_str(), disposition, "{default}");
+        assert!(graph
+            .edges
+            .iter()
+            .any(|edge| edge.from.var_name() == "keep" && edge.to.line == 2));
+    }
 }

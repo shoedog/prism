@@ -468,7 +468,7 @@ struct Receipt {
     parsed: usize,
     preconditions: usize,
     compared: usize,
-    outcomes: BTreeMap<String, usize>,
+    expected_outcomes: BTreeMap<String, usize>,
 }
 
 #[test]
@@ -528,7 +528,10 @@ fn generated_pattern_default_cells() {
             receipt.preconditions += 1;
             compare(file, &graph, &evidence, &outcome);
             receipt.compared += 1;
-            *receipt.outcomes.entry(outcome.disposition).or_default() += 1;
+            *receipt
+                .expected_outcomes
+                .entry(outcome.disposition)
+                .or_default() += 1;
         }));
         if result.is_err() {
             eprintln!("failing cell {id}, {dimensions:?}\nfiles {files:#?}");

@@ -290,8 +290,138 @@ fn pattern_formal_edges_count_toward_the_js_fallback_cap() {
     assert_eq!(at_cap.rd_function_stats.fallback_functions_capped, 0);
     assert_eq!(bytes(at_cap), bytes(uncapped));
     let capped = Producer::file_refs_with_cap(file, &parsed, Some(0));
-    assert!(capped.edges.is_empty());
-    assert_eq!(capped.rd_function_stats.functions_over_cap, 1);
-    assert_eq!(capped.rd_function_stats.fallback_functions_capped, 1);
-    assert_eq!(capped.rd_function_stats.fallback_edges_capped, 1);
+    assert!(
+        bytes(capped) == bytes(baseline),
+        "whole legacy output differs"
+    );
+}
+
+#[test]
+fn p35_pair_cap_replays_the_owner_with_distinct_legacy_bases() {
+    let source = "function C({ p }, safe) {\n  return report(++p, safe, p);\n}\nfunction unrelated(x) {\n  return use(x);\n}\n";
+    let parsed = ParsedFile::parse("p35.js", source, Language::JavaScript).unwrap();
+    let file = &parsed.path;
+    let legacy = Producer::file_refs_frozen_with_cap(file, &parsed, Some(0));
+    let augmented = Producer::file_refs_with_cap(file, &parsed, None);
+    let pairs = augmented
+        .edges
+        .iter()
+        .filter(|edge| edge.from.function == "C")
+        .count();
+    assert!(pairs > 1);
+    let safe_label = |parts: &FileRefs| {
+        parts
+            .labels
+            .iter()
+            .find_map(|((from, to), label)| {
+                (from.function == "C" && from.var_name() == "safe" && to.var_name() == "safe")
+                    .then_some(*label)
+            })
+            .unwrap()
+    };
+    assert_eq!(safe_label(&legacy), crate::cpg::FlowConfidence::Exact);
+    assert_eq!(
+        safe_label(&augmented),
+        crate::cpg::FlowConfidence::NameOnly(crate::cpg::FlowDoubt::CfgIncomplete)
+    );
+    for cap in [pairs, pairs + 1] {
+        assert_eq!(
+            bytes(Producer::file_refs_with_cap(file, &parsed, Some(cap))),
+            bytes(Producer::file_refs_with_cap(file, &parsed, None))
+        );
+    }
+    let capped = Producer::file_refs_with_cap(file, &parsed, Some(pairs - 1));
+    let evidence = cap_evidence(&parsed, pairs - 1);
+    let [event] = &evidence.files[file].cap_withholdings[..] else {
+        panic!("one p35 withholding")
+    };
+    assert_eq!(evidence.counters()["refused_s1_pair_cap"], 1);
+    assert_eq!(event.definitions.len(), 1);
+    assert_eq!(event.definitions[0].bytes, [13, 14]);
+    assert_eq!(event.definitions[0].path.base, "p");
+    assert_eq!(event.pairs.len(), 1);
+    assert_eq!(event.pairs[0].source, event.definitions[0]);
+    let operand = source.find("++p").unwrap() + 2;
+    assert_eq!(event.pairs[0].target.bytes, [operand, operand + 1]);
+    assert_eq!(event.pairs[0].target.path.base, "p");
+    eprintln!(
+        "p35 prospective pairs={pairs}, cap={}, event={event:?}",
+        pairs - 1
+    );
+    assert_eq!(safe_label(&capped), safe_label(&legacy));
+    assert!(
+        bytes(capped) == bytes(legacy),
+        "whole legacy output differs"
+    );
+}
+
+#[test]
+fn pattern_increment_isolated_at_the_real_rd_definition_limit() {
+    for definitions in [2047, 2048, 2049] {
+        let mut source = String::from("function C({x}, safe) {\n");
+        for index in 0..definitions - 2 {
+            source.push_str(&format!("  let local{index} = 0;\n"));
+        }
+        source.push_str("  return use(x, safe);\n}\n");
+        let parsed = ParsedFile::parse("cap.js", &source, Language::JavaScript).unwrap();
+        let file = &parsed.path;
+        let actual = Producer::file_refs(file, &parsed);
+        assert_eq!(
+            actual.rd_function_stats.functions_over_cap, 0,
+            "{definitions}"
+        );
+        assert_eq!(
+            actual.edges.iter().any(|edge| edge.from.var_name() == "x"),
+            definitions <= 2048,
+            "{definitions}"
+        );
+        if definitions > 2048 {
+            assert!(
+                bytes(actual) == bytes(Producer::file_refs_frozen(file, &parsed)),
+                "whole legacy output differs"
+            );
+            let evidence = cap_evidence(&parsed, super::fallback_cap::FALLBACK_EDGE_CAP);
+            let [event] = &evidence.files[file].cap_withholdings[..] else {
+                panic!("one RD withholding")
+            };
+            assert_eq!(evidence.counters()["refused_s1_rd_cap"], 1);
+            assert_eq!(event.definitions.len(), 1);
+            assert_eq!(event.definitions[0].bytes, [12, 13]);
+            assert_eq!(event.pairs.len(), 1);
+            assert_eq!(event.pairs[0].source, event.definitions[0]);
+            let operand = source.find("use(x").unwrap() + 4;
+            assert_eq!(event.pairs[0].target.bytes, [operand, operand + 1]);
+            eprintln!("RD definitions={definitions}, event={event:?}");
+        }
+    }
+}
+
+fn cap_evidence(parsed: &ParsedFile, cap: usize) -> crate::data_flow::s1_evidence::Evidence {
+    let census = crate::call_graph::rust::macro_args::RustMacroCensus::of_file(parsed);
+    let c_census = crate::call_graph::c::macro_census::CMacroCensus::of_file(parsed);
+    let evidence = Producer::file_s1_evidence(&parsed.path, parsed, &census, &c_census, cap);
+    crate::data_flow::s1_evidence::Evidence {
+        source_revision: "cap-fixture".to_owned(),
+        files: std::collections::BTreeMap::from([(parsed.path.clone(), evidence)]),
+    }
+}
+
+#[test]
+fn fallback_counting_crosses_the_real_pair_limit_only_above_one_million() {
+    let cap = super::fallback_cap::FALLBACK_EDGE_CAP;
+    assert_eq!(cap, 1_000_000);
+    let mut edges = Vec::new();
+    let mut counter = super::fallback_cap::Emission::new(&mut edges, true);
+    for _ in 0..cap - 1 {
+        counter.push(|| panic!("count should not materialize a pair"));
+    }
+    assert_eq!(counter.count(), 999_999);
+    assert!(!counter.exceeds_cap(cap));
+    counter.push(|| panic!("count should not materialize a pair"));
+    assert_eq!(counter.count(), 1_000_000);
+    assert!(!counter.exceeds_cap(cap));
+    counter.push(|| panic!("count should not materialize a pair"));
+    assert_eq!(counter.count(), 1_000_001);
+    assert!(counter.exceeds_cap(cap));
+    assert!(edges.is_empty());
 }

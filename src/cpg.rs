@@ -132,8 +132,8 @@ pub(crate) use reaching::loop_plan_tests;
 #[cfg(test)]
 pub(crate) use reaching::with_recall_cap;
 pub(crate) use reaching::{
-    placed_lines, reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges,
-    DefId, DefSite, FileCfgEdgeIndex, RdOutcome,
+    pattern_one_node_refusal, placed_lines, reaching_definitions_with_exact, record_go_recall_skip,
+    unavailable_before_edges, DefId, DefSite, FileCfgEdgeIndex, RdOutcome, RdUnavailable,
 };
 #[cfg(test)]
 pub(crate) use reaching::{RD_MAX_DEFS, RD_MAX_LINES};

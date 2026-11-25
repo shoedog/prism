@@ -8,8 +8,14 @@ use crate::cpg::{
     reaching_definitions_with_exact, FileCfgEdgeIndex, FlowConfidence, FlowDoubt, RdFileStats,
     RdOutcome,
 };
+use crate::data_flow::s1_evidence::{CapKind, FileEvidence, Refusal};
 use crate::data_flow::{ExactFlowEdge, FlowEdge, VarAccessKind, VarLocation};
 use std::collections::{BTreeMap, BTreeSet};
+
+#[path = "file_compact.rs"]
+mod compact;
+#[cfg(test)]
+pub(in crate::data_flow) use compact::FILE_RESULTS;
 
 impl Producer {
     // Preserve the extracted closure's line breaks for the indentation-only byte control.
@@ -28,7 +34,7 @@ impl Producer {
         census: &RustMacroCensus,
         c_census: &CMacroCensus,
     ) -> FileRefs {
-        Self::file_refs_impl(file_path, parsed, Some(super::fallback_cap::FALLBACK_EDGE_CAP), census, c_census)
+        Self::file_refs_impl(file_path, parsed, Some(super::fallback_cap::FALLBACK_EDGE_CAP), census, c_census, None)
     }
 
     #[cfg(test)]
@@ -39,11 +45,31 @@ impl Producer {
     ) -> FileRefs {
         let census = RustMacroCensus::of_file(parsed);
         let c_census = CMacroCensus::of_file(parsed);
-        Self::file_refs_impl(file_path, parsed, cap, &census, &c_census)
+        Self::file_refs_impl(file_path, parsed, cap, &census, &c_census, None)
+    }
+
+    pub(super) fn file_s1_evidence(
+        file: &String,
+        parsed: &ParsedFile,
+        census: &RustMacroCensus,
+        c_census: &CMacroCensus,
+        cap: usize,
+    ) -> FileEvidence {
+        let mut evidence = FileEvidence::new(parsed);
+        Self::file_refs_impl(
+            file,
+            parsed,
+            Some(cap),
+            census,
+            c_census,
+            Some(&mut evidence),
+        );
+        evidence.finish();
+        evidence
     }
 
     #[rustfmt::skip]
-    fn file_refs_impl(file_path: &String, parsed: &ParsedFile, cap: Option<usize>, census: &RustMacroCensus, c_census: &CMacroCensus) -> FileRefs {
+    fn file_refs_impl(file_path: &String, parsed: &ParsedFile, cap: Option<usize>, census: &RustMacroCensus, c_census: &CMacroCensus, mut evidence: Option<&mut FileEvidence>) -> FileRefs {
         let _profile_file = crate::profile::Phase::file("dfg.file_extract", file_path);
         let mut defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
             BTreeMap::new();
@@ -276,7 +302,7 @@ impl Producer {
             let pattern_formals = super::pattern_formals::PatternFormal::collect(
                 parsed, func_node, file_path, &func_name, start, &refused_formals, &lvalue_spans,
             );
-            let pattern_seams: BTreeSet<_> = pattern_formals.iter()
+            let pattern_seams: BTreeSet<_> = pattern_formals.iter().filter(|_| !synthetic)
                 .map(|formal| formal.def.var_name())
                 .filter(|name| parsed.js_ts_seam_binding(&func_node, name))
                 .collect();
@@ -285,12 +311,9 @@ impl Producer {
                 body_bytes.as_ref().filter(|body| body.contains(&at) && pattern_seams.contains(path.base.as_str()))
                     .map(|body| (body.start, body.end))
             };
-            for formal in &pattern_formals {
-                let loc = &formal.def;
-                Self::push_rd_def(&mut rd_defs, loc, false);
-                defs.entry((file_path.clone(), func_name.clone(), start, loc.path.clone()))
-                    .or_default()
-                    .push(loc.clone());
+            let mut pattern_increment = super::pattern_caps::Increment::default();
+            for formal in pattern_formals.iter().filter(|formal| formal.produces_def()) {
+                pattern_increment.add_entry(&formal.def, &mut rd_defs, &defs);
             }
 
             // Find all definitions (L-values) with structured access paths
@@ -458,12 +481,18 @@ impl Producer {
                 .push(use_loc);
             }
 
-            // Select and prove the endpoint once. Both cap passes use these exact
-            // locations, and CPG assembly interns nonempty JS-family locations by bytes.
-            let pattern_write_census = std::cell::OnceCell::new();
+            // Reuse the selected endpoint across count, replay and interning.
+            let pattern_values = super::pattern_values::Values::new(parsed, func_node);
+            if !pattern_formals.is_empty() {
+                if let Some(evidence) = evidence.as_deref_mut() {
+                    for site in pattern_values.unresolved_sites() {
+                        evidence.signature_write_sites.push(([func_node.start_byte(), func_node.end_byte()], site));
+                    }
+                }
+            }
             let pattern_endpoints: Vec<_> = pattern_formals.iter().flat_map(|formal| {
-                formal.endpoints(parsed, &func_node, &preferred_use_locs, &pattern_write_census, synthetic, owner_is_unique)
-                    .into_iter().map(|endpoint| (&formal.def, endpoint))
+                formal.endpoints(parsed, &func_node, &preferred_use_locs, &pattern_values, synthetic, owner_is_unique)
+                    .into_iter().map(move |endpoint| (formal, endpoint))
             }).collect();
 
             // F1: captured writes inside nested callables contribute to
@@ -476,21 +505,20 @@ impl Producer {
                 else {
                     continue;
                 };
-                let same_binding = rd_defs.iter().any(|d| {
+                let mut matching = rd_defs.iter().enumerate().filter(|(_, d)| {
                     d.path == span.path
                         && !crate::profile::gates::admission_fence(
-                            parsed,
-                            &node,
-                            &func_node,
-                            &span.path.base,
-                            d.start_byte,
+                            parsed, &node, &func_node, &span.path.base, d.start_byte,
                         )
                 });
-                if !same_binding
-                    || (span.path.base == "this"
-                        && parsed.js_ts_this_rebound_between(&node, &func_node))
-                {
+                let Some((first, _)) = matching.next() else { continue; };
+                if span.path.base == "this" && parsed.js_ts_this_rebound_between(&node, &func_node) {
                     continue;
+                }
+                if pattern_increment.added_rd(first)
+                    && matching.all(|(index, _)| pattern_increment.added_rd(index))
+                {
+                    pattern_increment.add_rd_only(rd_defs.len());
                 }
                 Self::push_rd_def(
                     &mut rd_defs,
@@ -513,315 +541,402 @@ impl Producer {
                     FileCfgEdgeIndex::new(cfg)
                 })
             });
-            let unavailable = cap.and_then(|_| crate::cpg::unavailable_before_edges(
-                parsed, &func_node, &rd_defs, cfg_index,
-            ));
+            let mut augmented = (cap.is_some() || !pattern_increment.is_empty()).then(|| {
+                crate::cpg::unavailable_before_edges(parsed, &func_node, &rd_defs, cfg_index)
+            }).flatten();
+            let one_node = cap.is_some() && augmented.is_none() && !pattern_increment.is_empty()
+                && crate::cpg::pattern_one_node_refusal(parsed, &func_node, &rd_defs, cfg_index);
+            let legacy_defs = (!pattern_increment.is_empty() && (augmented.is_some() || one_node)).then(|| {
+                pattern_increment.legacy_rd(&rd_defs)
+            });
+            let legacy = legacy_defs.as_ref().and_then(|defs| {
+                crate::cpg::unavailable_before_edges(parsed, &func_node, defs, cfg_index)
+            });
+            if one_node && legacy_defs.as_ref().is_some_and(|defs| {
+                !crate::cpg::pattern_one_node_refusal(parsed, &func_node, defs, cfg_index)
+            }) {
+                augmented = Some(crate::cpg::RdUnavailable::NoCfgEdges);
+            }
             let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans, census, c_census, &c_file_parens);
-            let scope = super::scope_prune::ScopeFacts::new(parsed, func_node, &rd_defs, &declared_types);
-            let order = super::order_prune::OrderFacts::new(parsed, func_node, &rd_defs);
-            let original_preferred = unavailable.map(|_| preferred_use_locs.clone());
-            // Pass 0 counts with the real admission/use logic, but constructs no edges.
-            // Pass 1 emits only after the complete prospective count passed the cap.
-            for pass in 0..2 {
-                let counting = pass == 0;
-                if counting && unavailable.is_none() { continue; }
-                let register_uses = counting || unavailable.is_none();
-                // Evaluate pruning in both passes; retain counters only from the first.
-                let mut prune_stats = RdFileStats::default();
-                if !counting {
-                    if let Some(original) = &original_preferred {
-                        preferred_use_locs = original.clone();
-                    }
+            let mut withheld = None;
+            let mut cap_pairs = Vec::new();
+            if !pattern_increment.is_empty() && augmented.is_some_and(|reason| reason.is_def_cap())
+                && !legacy.is_some_and(|reason| reason.is_def_cap())
+            {
+                withheld = Some(CapKind::Definitions);
+                if evidence.is_some() {
+                    let mut discarded = RdFileStats::default();
+                    cap_pairs.extend(pattern_endpoints.iter().enumerate().filter_map(|(index, (formal, selection))| {
+                        let path = &selection.loc.path;
+                        let line = selection.loc.line;
+                        (path.has_fields() || (!lexical.drop_write_only(path, line, &mut discarded)
+                            && lexical.keep_def(path, formal.def.start_byte, formal.def.end_byte, line, &mut discarded)))
+                            .then_some(index)
+                    }));
                 }
-                let mut emission = super::fallback_cap::Emission::new(&mut edges, counting);
-                let mut get_use =
-                    |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize), body_scope: Option<(usize, usize)>| {
-                        if !keep_path(path) {
-                            return None;
+            }
+            let mut use_pattern = withheld.is_none();
+            let mut owner_capped = false;
+            let mut emitted_patterns = Vec::new();
+            'select_owner: loop {
+                let selected_rd = if use_pattern { rd_defs.as_slice() } else { legacy_defs.as_deref().expect("cap comparison prepared legacy definitions") };
+                let unavailable = if cap.is_none() { None } else if use_pattern { augmented } else { legacy };
+                let comparing = use_pattern && legacy_defs.is_some() && unavailable.is_some();
+                let scope = super::scope_prune::ScopeFacts::new(parsed, func_node, selected_rd, &declared_types);
+                let order = super::order_prune::OrderFacts::new(parsed, func_node, selected_rd);
+                let original_preferred = unavailable.map(|_| preferred_use_locs.clone());
+                // Count with the same endpoint and pruning rules. Defer mutations for
+                // a prospective augmented owner until its count is accepted.
+                for pass in 0..2 {
+                    let counting = pass == 0;
+                    if counting && unavailable.is_none() { continue; }
+                    let register_uses = if comparing { !counting } else { counting || unavailable.is_none() };
+                    let mut prune_stats = RdFileStats::default();
+                    if !counting {
+                        if let Some(original) = &original_preferred {
+                            preferred_use_locs = original.clone();
                         }
-                        let preferred = preferred_use_locs.get(&(path.clone(), ref_line));
-                        // A body-seam reference search proved a body read. Preserve the
-                        // legacy representative unless its bytes point outside that binding.
-                        let invalid = body_scope.is_some_and(|(start, end)| {
-                            preferred.is_some_and(|loc| loc.start_byte < loc.end_byte
-                                && (loc.start_byte < start || loc.end_byte > end
-                                    || parsed.js_ts_def_scope_id(loc.start_byte, &path.base)
-                                        != parsed.js_ts_def_scope_id(admitted.0, &path.base)))
-                        });
-                        if synthetic || invalid {
-                            if refused_occurrence(path, admitted.0) {
+                    }
+                    let mut candidates = Vec::new();
+                    let mut emission = super::fallback_cap::Emission::new(&mut edges, counting);
+                    let mut get_use =
+                        |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize), body_scope: Option<(usize, usize)>| {
+                            if !keep_path(path) {
                                 return None;
                             }
-                            // The reference walk has already proved this occurrence's
-                            // binding and read role for the current Def.
+                            let preferred = preferred_use_locs.get(&(path.clone(), ref_line));
+                            // Validate the actual preferred or fallback location against the
+                            // admitted body environment. A zero-width point still has a scope.
+                            let invalid = body_scope.is_some_and(|(start, end)| {
+                                let (at, stop) = preferred.map_or_else(|| {
+                                    let anchor = parsed.line_start_byte(ref_line);
+                                    (anchor, anchor)
+                                }, |loc| (loc.start_byte, loc.end_byte));
+                                let scope = parsed.js_ts_def_scope_id(admitted.0, &path.base);
+                                !(start..end).contains(&at) || stop > end || scope.is_none()
+                                    || parsed.js_ts_def_scope_id(at, &path.base) != scope
+                                    || !pattern_values.same_version(path, at.min(admitted.0), at.max(admitted.0))
+                            });
+                            if synthetic || invalid {
+                                if refused_occurrence(path, admitted.0) {
+                                    return None;
+                                }
+                                // The reference walk has already proved this occurrence's
+                                // binding and read role for the current Def.
+                                let use_loc = VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    function_start_line: start,
+                                    line: ref_line,
+                                    path: path.clone(),
+                                    start_byte: admitted.0,
+                                    end_byte: admitted.1,
+                                    kind: VarAccessKind::Use,
+                                };
+                                if register_uses {
+                                    uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                                        .or_default()
+                                        .push(use_loc.clone());
+                                }
+                                return Some(use_loc);
+                            }
+                            if let Some(existing) = preferred {
+                                return Some(existing.clone());
+                            }
+                            if !allow {
+                                return None;
+                            }
+                            let anchor = parsed.line_start_byte(ref_line);
                             let use_loc = VarLocation {
                                 file: file_path.clone(),
                                 function: func_name.clone(),
                                 function_start_line: start,
                                 line: ref_line,
                                 path: path.clone(),
-                                start_byte: admitted.0,
-                                end_byte: admitted.1,
+                                start_byte: anchor,
+                                end_byte: anchor,
                                 kind: VarAccessKind::Use,
                             };
+                            debug_assert_eq!(use_loc.start_byte, use_loc.end_byte);
                             if register_uses {
                                 uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
                                     .or_default()
                                     .push(use_loc.clone());
                             }
-                            return Some(use_loc);
-                        }
-                        if let Some(existing) = preferred {
-                            return Some(existing.clone());
-                        }
-                        if !allow {
-                            return None;
-                        }
-                        let anchor = parsed.line_start_byte(ref_line);
-                        let use_loc = VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            function_start_line: start,
-                            line: ref_line,
-                            path: path.clone(),
-                            start_byte: anchor,
-                            end_byte: anchor,
-                            kind: VarAccessKind::Use,
+                            preferred_use_locs.insert((path.clone(), ref_line), use_loc.clone());
+                            Some(use_loc)
                         };
-                        debug_assert_eq!(use_loc.start_byte, use_loc.end_byte);
-                        if register_uses {
-                            uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                                .or_default()
-                                .push(use_loc.clone());
-                        }
-                        preferred_use_locs.insert((path.clone(), ref_line), use_loc.clone());
-                        Some(use_loc)
-                    };
 
-                // Create edges from param def to all uses in the function body.
-                for (path, loc, refs, param_decl_line) in &param_ref_jobs {
-                    for (ref_line, admitted) in refs {
-                        let in_signature_line = *ref_line >= start && *ref_line <= *param_decl_line;
-                        if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
-                        if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted, None) {
-                            if !scope.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
-                            if !order.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
-                            if !lexical.keep_def(path, loc.start_byte, loc.end_byte, *ref_line, &mut prune_stats) { continue; }
-                            emission.push(|| FlowEdge {
-                                from: loc.clone(),
-                                to: use_loc,
-                            });
+                    // Create edges from param def to all uses in the function body.
+                    for (path, loc, refs, param_decl_line) in &param_ref_jobs {
+                        for (ref_line, admitted) in refs {
+                            let in_signature_line = *ref_line >= start && *ref_line <= *param_decl_line;
+                            if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
+                            if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted, None) {
+                                if !scope.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
+                                if !order.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
+                                if !lexical.keep_def(path, loc.start_byte, loc.end_byte, *ref_line, &mut prune_stats) { continue; }
+                                emission.push(|| FlowEdge {
+                                    from: loc.clone(),
+                                    to: use_loc,
+                                });
+                            }
                         }
                     }
-                }
 
-                // Find all uses of each defined variable/path.
-                // Cross-line references remain line-anchored unless a real
-                // rvalue span already exists for the same identity key.
-                for span in &lvalue_spans {
-                    let path = &span.path;
-                    let def_line = span.line;
-                    // R1: every JS/TS Def, including writes, stays in its
-                    // binding environment; body vars cannot reach defaults.
-                    let body_scope = body_seam(path, span.start_byte);
-                    let def_scope = body_scope.or_else(||
-                        crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte));
-                    // #761: a parameter-list alias binding's own identifier is no read of it, whatever
-                    // row the def is placed on (the def sits on the owner's first line).
-                    let refs = crate::profile::search_refs(
-                        parsed,
-                        &member_refs,
-                        &func_node,
-                        path,
-                        def_line,
-                        span.start_byte,
-                        def_scope,
-                        synthetic
-                            || body_scope.is_some()
-                            || parsed.js_ts_is_param_alias_binding_at(span.start_byte, span.end_byte),
-                    );
-                    for (ref_line, admitted) in &refs {
-                        if *ref_line == def_line
-                            || (synthetic
-                                && parsed.js_ts_seam_binding(&func_node, &path.base)
-                                && admitted.0 < span.start_byte)
-                        {
-                            continue; // Skip self-reference
-                        }
-                        if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
-                        let Some(use_loc) = get_use(path, *ref_line, true, *admitted, body_scope) else {
-                            continue;
-                        };
-                        if scope.raw_signature_outside_scope(path, span.start_byte, *ref_line, &mut prune_stats) { continue; }
-                        let (def_start, def_end) = def_locs_by_occurrence
-                            .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
-                            .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));
-                        if !scope.keep_pair(path, def_start, def_end, def_line, *ref_line, &mut prune_stats) { continue; }
-                        if !order.keep_pair(path, def_start, def_end, def_line, *ref_line, &mut prune_stats) { continue; }
-                        if !lexical.keep_def(path, span.start_byte, span.end_byte, *ref_line, &mut prune_stats) { continue; }
-                        emission.push(|| {
-                            let def_loc = def_locs_by_occurrence
+                    // Find all uses of each defined variable/path.
+                    // Cross-line references remain line-anchored unless a real
+                    // rvalue span already exists for the same identity key.
+                    for span in &lvalue_spans {
+                        let path = &span.path;
+                        let def_line = span.line;
+                        // R1: every JS/TS Def, including writes, stays in its
+                        // binding environment; body vars cannot reach defaults.
+                        let body_scope = body_seam(path, span.start_byte);
+                        let def_scope = body_scope.or_else(||
+                            crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte));
+                        // #761: a parameter-list alias binding's own identifier is no read of it, whatever
+                        // row the def is placed on (the def sits on the owner's first line).
+                        let refs = crate::profile::search_refs(
+                            parsed,
+                            &member_refs,
+                            &func_node,
+                            path,
+                            def_line,
+                            span.start_byte,
+                            def_scope,
+                            synthetic
+                                || body_scope.is_some()
+                                || parsed.js_ts_is_param_alias_binding_at(span.start_byte, span.end_byte),
+                        );
+                        for (ref_line, admitted) in &refs {
+                            if *ref_line == def_line
+                                || (synthetic
+                                    && parsed.js_ts_seam_binding(&func_node, &path.base)
+                                    && admitted.0 < span.start_byte)
+                            {
+                                continue; // Skip self-reference
+                            }
+                            if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
+                            let Some(use_loc) = get_use(path, *ref_line, true, *admitted, body_scope) else {
+                                continue;
+                            };
+                            if scope.raw_signature_outside_scope(path, span.start_byte, *ref_line, &mut prune_stats) { continue; }
+                            let (def_start, def_end) = def_locs_by_occurrence
                                 .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
-                                .cloned()
-                                .unwrap_or_else(|| VarLocation {
+                                .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));
+                            if !scope.keep_pair(path, def_start, def_end, def_line, *ref_line, &mut prune_stats) { continue; }
+                            if !order.keep_pair(path, def_start, def_end, def_line, *ref_line, &mut prune_stats) { continue; }
+                            if !lexical.keep_def(path, span.start_byte, span.end_byte, *ref_line, &mut prune_stats) { continue; }
+                            emission.push(|| {
+                                let def_loc = def_locs_by_occurrence
+                                    .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
+                                    .cloned()
+                                    .unwrap_or_else(|| VarLocation {
+                                        file: file_path.clone(),
+                                        function: func_name.clone(),
+                                        function_start_line: start,
+                                        line: def_line,
+                                        path: path.clone(),
+                                        start_byte: span.start_byte,
+                                        end_byte: span.end_byte,
+                                        kind: VarAccessKind::Def,
+                                    });
+                                FlowEdge {
+                                    from: def_loc,
+                                    to: use_loc,
+                                }
+                            });
+                        }
+
+                        // Phase 3: Also create edges for the alias-resolved path.
+                        let twin = if header_targets.contains(&span.start_byte) || twin_policy.suppresses_span(span.start_byte) {
+                            None
+                        } else if synthetic {
+                            Self::resolve_on_alias_span(&alias_targets_by_byte, path, span.start_byte)
+                        } else {
+                            Self::resolve_path(&alias_map, path)
+                        };
+                        if let Some(resolved) = twin {
+                            if resolved != *path {
+                                let body_scope = body_seam(&resolved, span.start_byte);
+                                let resolved_refs = crate::profile::search_refs(
+                                    parsed,
+                                    &member_refs,
+                                    &func_node,
+                                    &resolved,
+                                    def_line,
+                                    span.start_byte,
+                                    body_scope.or_else(|| crate::profile::gates::def_scope(
+                                        parsed,
+                                        &func_node,
+                                        &resolved.base,
+                                        span.start_byte,
+                                    )),
+                                    synthetic || body_scope.is_some(),
+                                );
+                                for (ref_line, admitted) in &resolved_refs {
+                                    if *ref_line == def_line {
+                                        continue;
+                                    }
+                                    if lexical.drop_write_only(&resolved, *ref_line, &mut prune_stats) { continue; }
+                                    let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted, body_scope) else {
+                                        continue;
+                                    };
+                                    // Keep RHS reads and their legacy anchors, but a Go
+                                    // blank write cannot define its alias target.
+                                    if !keep_path(path) { continue; }
+                                    if !lexical.keep_def(&resolved, span.start_byte, span.end_byte, *ref_line, &mut prune_stats) { continue; }
+                                    emission.push(|| {
+                                        let def_loc = resolved_def_locs_by_occurrence
+                                            .get(&(resolved.clone(), def_line, occurrence_byte(span.start_byte)))
+                                            .cloned()
+                                            .unwrap_or_else(|| VarLocation {
+                                                file: file_path.clone(),
+                                                function: func_name.clone(),
+                                                function_start_line: start,
+                                                line: def_line,
+                                                path: resolved.clone(),
+                                                start_byte: span.start_byte,
+                                                end_byte: span.end_byte,
+                                                kind: VarAccessKind::Def,
+                                            });
+                                        FlowEdge {
+                                            from: def_loc,
+                                            to: use_loc,
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    drop(get_use);
+                    // PR-C: projection edges Def(p) -> Use(p.<path>) for
+                    // member-only formals. Never between two different field
+                    // paths. One body walk per formal collects the admitted read
+                    // occurrences and the binding-proved member writes; a write to
+                    // a prefix of a path, to the path, or below it suppresses it
+                    // (narrow choice, flow-insensitive). Every Use is built at the
+                    // exact admitted span, for named and synthetic owners alike.
+                    for (base_path, base_loc) in &member_only_params {
+                        let facts = parsed.formal_member_facts(&func_node, &base_path.base, base_loc.start_byte);
+                        for field_path in &facts.outermost {
+                            if facts.is_killed(field_path) {
+                                continue;
+                            }
+                            let Some(occurrences) = facts.reads.get(field_path) else {
+                                continue;
+                            };
+                            for (ref_line, (start_byte, end_byte)) in occurrences {
+                                let use_loc = VarLocation {
                                     file: file_path.clone(),
                                     function: func_name.clone(),
                                     function_start_line: start,
-                                    line: def_line,
-                                    path: path.clone(),
-                                    start_byte: span.start_byte,
-                                    end_byte: span.end_byte,
-                                    kind: VarAccessKind::Def,
-                                });
-                            FlowEdge {
-                                from: def_loc,
-                                to: use_loc,
-                            }
-                        });
-                    }
-
-                    // Phase 3: Also create edges for the alias-resolved path.
-                    let twin = if header_targets.contains(&span.start_byte) || twin_policy.suppresses_span(span.start_byte) {
-                        None
-                    } else if synthetic {
-                        Self::resolve_on_alias_span(&alias_targets_by_byte, path, span.start_byte)
-                    } else {
-                        Self::resolve_path(&alias_map, path)
-                    };
-                    if let Some(resolved) = twin {
-                        if resolved != *path {
-                            let body_scope = body_seam(&resolved, span.start_byte);
-                            let resolved_refs = crate::profile::search_refs(
-                                parsed,
-                                &member_refs,
-                                &func_node,
-                                &resolved,
-                                def_line,
-                                span.start_byte,
-                                body_scope.or_else(|| crate::profile::gates::def_scope(
-                                    parsed,
-                                    &func_node,
-                                    &resolved.base,
-                                    span.start_byte,
-                                )),
-                                synthetic || body_scope.is_some(),
-                            );
-                            for (ref_line, admitted) in &resolved_refs {
-                                if *ref_line == def_line {
-                                    continue;
-                                }
-                                if lexical.drop_write_only(&resolved, *ref_line, &mut prune_stats) { continue; }
-                                let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted, body_scope) else {
-                                    continue;
+                                    line: *ref_line,
+                                    path: field_path.clone(),
+                                    start_byte: *start_byte,
+                                    end_byte: *end_byte,
+                                    kind: VarAccessKind::Use,
                                 };
-                                // Keep RHS reads and their legacy anchors, but a Go
-                                // blank write cannot define its alias target.
-                                if !keep_path(path) { continue; }
-                                if !lexical.keep_def(&resolved, span.start_byte, span.end_byte, *ref_line, &mut prune_stats) { continue; }
-                                emission.push(|| {
-                                    let def_loc = resolved_def_locs_by_occurrence
-                                        .get(&(resolved.clone(), def_line, occurrence_byte(span.start_byte)))
-                                        .cloned()
-                                        .unwrap_or_else(|| VarLocation {
-                                            file: file_path.clone(),
-                                            function: func_name.clone(),
-                                            function_start_line: start,
-                                            line: def_line,
-                                            path: resolved.clone(),
-                                            start_byte: span.start_byte,
-                                            end_byte: span.end_byte,
-                                            kind: VarAccessKind::Def,
-                                        });
-                                    FlowEdge {
-                                        from: def_loc,
-                                        to: use_loc,
-                                    }
+                                if register_uses {
+                                    uses.entry((
+                                        file_path.clone(),
+                                        func_name.clone(),
+                                        start,
+                                        field_path.clone(),
+                                    ))
+                                    .or_default()
+                                    .push(use_loc.clone());
+                                }
+                                emission.push(|| FlowEdge {
+                                    from: base_loc.clone(),
+                                    to: use_loc,
                                 });
                             }
                         }
                     }
-                }
 
-                drop(get_use);
-                // PR-C: projection edges Def(p) -> Use(p.<path>) for
-                // member-only formals. Never between two different field
-                // paths. One body walk per formal collects the admitted read
-                // occurrences and the binding-proved member writes; a write to
-                // a prefix of a path, to the path, or below it suppresses it
-                // (narrow choice, flow-insensitive). Every Use is built at the
-                // exact admitted span, for named and synthetic owners alike.
-                for (base_path, base_loc) in &member_only_params {
-                    let facts = parsed.formal_member_facts(&func_node, &base_path.base, base_loc.start_byte);
-                    for field_path in &facts.outermost {
-                        if facts.is_killed(field_path) {
+                    // Preserve the Uses already chosen for legacy edges before adding exact
+                    // pattern endpoints of the same owner, line and path.
+                    let active_patterns = if use_pattern { pattern_endpoints.as_slice() } else { &[] };
+                    for (index, (formal, selected)) in active_patterns.iter().enumerate() {
+                        let def = &formal.def;
+                        let endpoint = &selected.loc;
+                        let path = &endpoint.path;
+                        let line = endpoint.line;
+                        if !path.has_fields() && lexical.drop_write_only(path, line, &mut prune_stats) {
                             continue;
                         }
-                        let Some(occurrences) = facts.reads.get(field_path) else {
+                        if register_uses {
+                            uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                                .or_default().push(endpoint.clone());
+                        }
+                        if !path.has_fields() && !lexical.keep_def(path, def.start_byte, def.end_byte, line, &mut prune_stats) {
+                            selected.refuse(Refusal::Replaced);
                             continue;
-                        };
-                        for (ref_line, (start_byte, end_byte)) in occurrences {
-                            let use_loc = VarLocation {
-                                file: file_path.clone(),
-                                function: func_name.clone(),
-                                function_start_line: start,
-                                line: *ref_line,
-                                path: field_path.clone(),
-                                start_byte: *start_byte,
-                                end_byte: *end_byte,
-                                kind: VarAccessKind::Use,
-                            };
-                            if register_uses {
-                                uses.entry((
-                                    file_path.clone(),
-                                    func_name.clone(),
-                                    start,
-                                    field_path.clone(),
-                                ))
-                                .or_default()
-                                .push(use_loc.clone());
-                            }
-                            emission.push(|| FlowEdge {
-                                from: base_loc.clone(),
-                                to: use_loc,
-                            });
+                        }
+                        emission.push(|| FlowEdge { from: def.clone(), to: endpoint.clone() });
+                        if !counting {
+                            emitted_patterns.push(index);
+                        } else if evidence.is_some() {
+                            candidates.push(index);
                         }
                     }
-                }
 
-                // Preserve the Uses already chosen for legacy edges before adding exact
-                // pattern endpoints of the same owner, line and path.
-                for (def, endpoint) in &pattern_endpoints {
-                    let path = &endpoint.path;
-                    let line = endpoint.line;
-                    if !path.has_fields() && lexical.drop_write_only(path, line, &mut prune_stats) {
-                        continue;
-                    }
                     if register_uses {
-                        uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                            .or_default().push(endpoint.clone());
+                        rd_function_stats.merge(prune_stats);
                     }
-                    if !path.has_fields() && !lexical.keep_def(path, def.start_byte, def.end_byte, line, &mut prune_stats) {
-                        continue;
+                    if counting && emission.exceeds_cap(cap.unwrap()) {
+                        if comparing {
+                            withheld = Some(CapKind::Pairs);
+                            cap_pairs = candidates;
+                            use_pattern = false;
+                            preferred_use_locs = original_preferred.expect("fallback count snapshots preferred Uses");
+                            continue 'select_owner;
+                        }
+                        let reason = unavailable.unwrap();
+                        if reason.is_def_cap() || reason.is_line_cap() {
+                            rd_function_stats.record_over_cap(func_name.clone(), start);
+                        } else {
+                            rd_function_stats.record_without_cfg(func_name.clone(), start);
+                        }
+                        rd_function_stats.record_fallback_capped(func_name.clone(), start, func_node.start_byte(), emission.count());
+                        crate::cpg::record_go_recall_skip(parsed, func_node, selected_rd, reason, &mut rd_function_stats);
+                        owner_capped = true;
+                        break 'select_owner;
                     }
-                    emission.push(|| FlowEdge { from: (*def).clone(), to: endpoint.clone() });
                 }
-
-                if register_uses {
-                    rd_function_stats.merge(prune_stats);
+                break;
+            }
+            if use_pattern {
+                pattern_increment.commit(&mut defs);
+            }
+            if let Some(evidence) = evidence.as_deref_mut() {
+                if let Some(kind) = withheld {
+                    pattern_increment.report_withheld(func_node, kind, &pattern_endpoints, &cap_pairs, owner_capped, evidence);
                 }
-                if counting && emission.count() > cap.unwrap() {
-                    let reason = unavailable.unwrap();
-                    if reason.is_def_cap() || reason.is_line_cap() {
-                        rd_function_stats.record_over_cap(func_name.clone(), start);
-                    } else {
-                        rd_function_stats.record_without_cfg(func_name.clone(), start);
-                    }
-                    rd_function_stats.record_fallback_capped(func_name.clone(), start, func_node.start_byte(), emission.count());
-                    crate::cpg::record_go_recall_skip(parsed, func_node, &rd_defs, reason, &mut rd_function_stats);
-                    continue 'functions;
+                if owner_capped {
+                    super::pattern_formals::finish_owner_evidence(&pattern_formals, func_node, evidence);
                 }
             }
-            let function_edges = &edges[function_edge_start..];
+            if owner_capped {
+                continue 'functions;
+            }
+            let rd_defs = if use_pattern { rd_defs } else { legacy_defs.expect("cap comparison prepared legacy definitions") };
+            let signature_pairs: BTreeSet<_> = emitted_patterns.iter().filter_map(|&index| {
+                let (formal, selected) = &pattern_endpoints[index];
+                selected.signature.then(|| ExactFlowEdge::from_refs(&formal.def, &selected.loc))
+            }).collect();
+            let mut body_pairs = Vec::new();
+            let function_edges = if signature_pairs.is_empty() {
+                &edges[function_edge_start..]
+            } else {
+                body_pairs.extend(edges[function_edge_start..].iter().filter(|edge| {
+                    !signature_pairs.contains(&ExactFlowEdge::from_legacy(edge))
+                }).cloned());
+                &body_pairs
+            };
             let exact_candidates = Self::exact_read_candidates(
                 parsed,
                 &func_node,
@@ -923,6 +1038,24 @@ impl Producer {
                     }
                 }
             }
+            let signature_label = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+            for &index in &emitted_patterns {
+                let (formal, selected) = &pattern_endpoints[index];
+                if selected.signature {
+                    labels.entry((formal.def.clone(), selected.loc.clone())).or_insert(signature_label);
+                    let pair = ExactFlowEdge::from_refs(&formal.def, &selected.loc);
+                    exact_labels.insert(pair, signature_label);
+                }
+            }
+            if let Some(evidence) = evidence.as_deref_mut() {
+                for index in emitted_patterns {
+                    let (formal, selected) = &pattern_endpoints[index];
+                    let pair = (formal.def.clone(), selected.loc.clone());
+                    let label = if selected.signature { signature_label } else { labels.get(&pair).copied().unwrap_or(signature_label) };
+                    selected.credit(formal, func_node, evidence, label);
+                }
+                super::pattern_formals::finish_owner_evidence(&pattern_formals, func_node, evidence);
+            }
         }
 
         FileRefs {
@@ -936,39 +1069,3 @@ impl Producer {
         }
     }
 }
-
-// Consuming boundary: expanded scratch dies on this worker before parallel collection.
-impl Producer {
-    pub(super) fn compact_file_refs(
-        file: &String,
-        parsed: &ParsedFile,
-        census: &RustMacroCensus,
-        c_census: &CMacroCensus,
-    ) -> crate::data_flow::compact::CompactDfg {
-        let _profile_file = crate::profile::Phase::file("dfg.file", file);
-        let parts = Self::file_refs_with_census(file, parsed, census, c_census).into_parts();
-        #[cfg(test)]
-        let legacy_adjacency_rows = parts
-            .adjacency
-            .as_ref()
-            .map_or(0, |(f, b)| f.len() + b.len());
-        let graph = crate::data_flow::compact::CompactDfg::from_parts(parts)
-            .expect("DFG exceeds u32 location capacity");
-        #[cfg(test)]
-        if let Some(records) = FILE_RESULTS.lock().unwrap().as_mut() {
-            if let Some(record) = records.get_mut(file) {
-                *record = (
-                    graph.arena.rows().len(),
-                    graph.edges().len(),
-                    legacy_adjacency_rows,
-                    crate::data_flow::test_support::compact::storage(&graph),
-                );
-            }
-        }
-        graph
-    }
-}
-#[cfg(test)]
-pub(in crate::data_flow) static FILE_RESULTS: std::sync::Mutex<
-    Option<BTreeMap<String, (usize, usize, usize, Vec<u8>)>>,
-> = std::sync::Mutex::new(None);

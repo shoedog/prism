@@ -123,9 +123,13 @@ mod order_prune;
 mod order_prune_tests;
 mod owner_labels;
 mod param_alias_trace;
+mod pattern_caps;
+mod pattern_execution;
 mod pattern_formals;
+pub(crate) use pattern_formals::is_signature_pair;
 #[cfg(test)]
 mod pattern_formals_tests;
+mod pattern_values;
 #[cfg(test)]
 mod prune_cap_tests;
 mod prune_roots;
@@ -174,6 +178,38 @@ impl Producer {
 }
 
 impl DataFlowGraph {
+    /// Run the file producer uncached and collect the S1 attempt ledger in file order.
+    pub fn collect_s1_evidence(
+        files: &BTreeMap<String, ParsedFile>,
+        source_revision: &str,
+    ) -> super::s1_evidence::Evidence {
+        crate::build_pool::install(|| {
+            let census = RustMacroCensus::from_files(files);
+            let c_census = CMacroCensus::from_files(files);
+            let files = files
+                .par_iter()
+                .map(|(path, parsed)| {
+                    let evidence = if parsed.language.is_js_family() {
+                        Producer::file_s1_evidence(
+                            path,
+                            parsed,
+                            &census,
+                            &c_census,
+                            fallback_cap::FALLBACK_EDGE_CAP,
+                        )
+                    } else {
+                        super::s1_evidence::FileEvidence::new(parsed)
+                    };
+                    (path.clone(), evidence)
+                })
+                .collect();
+            super::s1_evidence::Evidence {
+                source_revision: source_revision.to_owned(),
+                files,
+            }
+        })
+    }
+
     /// Build a data flow graph from only the specified files.
     ///
     /// Identical to `build()` but skips files not in `only_files`. Used by

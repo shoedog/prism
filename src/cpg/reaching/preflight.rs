@@ -39,6 +39,30 @@ impl Availability {
     }
 }
 
+/// The one-node census refusal counts against the S1 pair increment.
+/// The ordinary preflight and solver retain their existing policies.
+pub(crate) fn pattern_one_node_refusal(
+    parsed: &ParsedFile,
+    owner: &Node<'_>,
+    defs: &[DefSite],
+    cfg: &FileCfgEdgeIndex<'_>,
+) -> bool {
+    let (statements, _) = super::rd_statements(parsed, owner);
+    let availability = Availability::of(parsed, owner, &statements);
+    if availability.statement_lines != 1
+        || !availability.no_edges(|lines| cfg.has_owner_edges(lines))
+    {
+        return false;
+    }
+    let (mut completed, mut census) =
+        super::census_defs::complete_for(true, false, parsed, owner, deduplicate_definitions(defs));
+    census.cap_defs(&mut completed, RD_MAX_DEFS);
+    let count = completed.len();
+    census.one_node_admits(&mut completed, |bases| {
+        crate::cfg::js_single::single_node_cfg_is_complete(parsed, 1, bases)
+    }) && completed.len() != count
+}
+
 pub(crate) fn unavailable_before_edges(
     parsed: &ParsedFile,
     owner: &Node<'_>,

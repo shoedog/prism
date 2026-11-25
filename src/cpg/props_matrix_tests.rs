@@ -4,6 +4,9 @@ use super::flow_confidence::{FlowConfidence, FlowDoubt};
 use super::object_literal_arg_tests::{build, spell};
 use super::trace::BoundaryKind;
 use super::{CodePropertyGraph, CpgEdge, CpgNode};
+use crate::ast::ParsedFile;
+use crate::data_flow::s1_evidence::{Binding, Evidence, COUNTER_KEYS};
+use crate::data_flow::DataFlowGraph;
 use crate::languages::Language;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
@@ -56,7 +59,15 @@ impl TryFrom<serde_json::Value> for Check {
             "no_edge_into" => &["to", "absent_ok"],
             "path" => &["from", "to", "via"],
             "no_path" => &["from", "to", "absent_ok"],
-            "counter" => &["key", "count"],
+            "counter" | "s1_counter" => &["key", "count"],
+            "s1_ledger" => &[
+                "file",
+                "binding_bytes",
+                "operand_bytes",
+                "count",
+                "disposition",
+                "binding",
+            ],
             "trace_reaches" | "trace_misses" => &["seed", "target", "node"],
             "trace_boundary" => &[
                 "seed",
@@ -181,6 +192,18 @@ enum Assertion {
         key: String,
         count: u64,
     },
+    S1Counter {
+        key: String,
+        count: u64,
+    },
+    S1Ledger {
+        file: Option<String>,
+        binding_bytes: [usize; 2],
+        operand_bytes: [usize; 2],
+        count: usize,
+        disposition: String,
+        binding: Option<String>,
+    },
     TraceReaches(TraceCheck),
     TraceMisses(TraceCheck),
     TraceBoundary {
@@ -198,6 +221,8 @@ struct Fixture<'a> {
     ext: &'a str,
     nodes: BTreeMap<String, BTreeSet<NodeIndex>>,
     stats: serde_json::Value,
+    s1_evidence: Option<&'a Evidence>,
+    s1_counters: serde_json::Value,
 }
 
 impl<'a> Fixture<'a> {
@@ -218,6 +243,8 @@ impl<'a> Fixture<'a> {
             ext,
             nodes,
             stats,
+            s1_evidence: None,
+            s1_counters: serde_json::Value::Null,
         }
     }
 
@@ -482,12 +509,81 @@ impl<'a> Fixture<'a> {
                     return Err(format!("observed {actual}"));
                 }
             }
+            Assertion::S1Counter { key, count } => {
+                check_s1_counter(COUNTER_KEYS, &self.s1_counters, key, *count)?;
+            }
+            Assertion::S1Ledger {
+                file,
+                binding_bytes,
+                operand_bytes,
+                count,
+                disposition,
+                binding,
+            } => {
+                let evidence = self.s1_evidence.ok_or("missing S1 evidence")?;
+                let file = match file {
+                    Some(stem) => evidence.files.get(&format!("{stem}.{}", self.ext)),
+                    None if evidence.files.len() == 1 => evidence.files.values().next(),
+                    None => {
+                        return Err(
+                            "S1 ledger assertion requires a file stem for multiple sources".into(),
+                        )
+                    }
+                }
+                .ok_or("no fixture source for S1 ledger assertion")?;
+                let matching: Vec<_> = file
+                    .attempts
+                    .iter()
+                    .filter(|attempt| {
+                        attempt.key.binding == *binding_bytes
+                            && attempt.key.operand == *operand_bytes
+                    })
+                    .collect();
+                if matching.len() != *count {
+                    return Err(format!(
+                        "found {} S1 attempts, expected {count}: {matching:?}",
+                        matching.len()
+                    ));
+                }
+                for attempt in matching {
+                    let verdict = match attempt.binding {
+                        Binding::SameBinding => "same-binding",
+                        Binding::OtherBinding => "other-binding",
+                        Binding::Unresolved => "unresolved",
+                    };
+                    if attempt.disposition.as_str() != disposition
+                        || binding
+                            .as_deref()
+                            .is_some_and(|expected| expected != verdict)
+                    {
+                        return Err(format!("unexpected S1 attempt {attempt:?}"));
+                    }
+                }
+            }
             Assertion::TraceReaches(check)
             | Assertion::TraceMisses(check)
             | Assertion::TraceBoundary { check, .. } => self.trace(assertion, check)?,
         }
         Ok(())
     }
+}
+
+fn check_s1_counter(
+    registry: &[&str],
+    observed: &serde_json::Value,
+    key: &str,
+    count: u64,
+) -> Result<(), String> {
+    if !registry.contains(&key) {
+        return Err(format!("unregistered S1 counter {key:?}"));
+    }
+    let actual = observed[key]
+        .as_u64()
+        .ok_or_else(|| format!("missing integer observation for S1 counter {key:?}"))?;
+    if actual != count {
+        return Err(format!("observed {actual}"));
+    }
+    Ok(())
 }
 
 impl Row {
@@ -552,7 +648,23 @@ impl Row {
                     failures.push(format!("{tag}: fixture build failed (see panic above)"));
                     continue;
                 };
-                let fixture = Fixture::new(&graph, ext);
+                let parsed = files
+                    .iter()
+                    .map(|(stem, source)| {
+                        let name = format!("{stem}.{ext}");
+                        let file = ParsedFile::parse(&name, source, language)
+                            .expect("parsed fixture source");
+                        (name, file)
+                    })
+                    .collect();
+                let evidence = DataFlowGraph::collect_s1_evidence(
+                    &parsed,
+                    &format!("matrix/{}/{tag}", self.id),
+                );
+                let mut fixture = Fixture::new(&graph, ext);
+                fixture.s1_evidence = Some(&evidence);
+                fixture.s1_counters =
+                    serde_json::to_value(evidence.counters()).expect("serialize S1 counters");
                 for check in &checks {
                     if let Err(detail) = fixture.check(&check.assertion) {
                         failures.push(format!("{tag}: {:?}: {detail}", check.assertion));
@@ -622,7 +734,7 @@ fn props_matrix_rejects_unknown_assertion_fields() {
             assert!(err.contains("unknown_field"), "{err}");
         }
     }
-    assert_eq!(kinds.len(), 11);
+    assert_eq!(kinds.len(), 13);
 }
 
 #[test]
@@ -668,6 +780,111 @@ fn props_matrix_negative_assertions_detect_connected_edge_and_wrong_counter() {
             .contains("no graph node matches"));
         negative["absent_ok"] = json!(true);
         check(negative).unwrap();
+    }
+}
+
+#[test]
+fn props_matrix_s1_counter_requires_registration_and_integer_observation() {
+    use serde_json::json;
+
+    let row = ROWS
+        .lines()
+        .map(|text| serde_json::from_str::<Row>(text).unwrap())
+        .find(|row| row.id == "d1-selected-endpoint")
+        .unwrap();
+    let (key, count) = row
+        .expect
+        .iter()
+        .find_map(|check| match &check.assertion {
+            Assertion::S1Counter { key, count } if check.case == "parameter-bare" => {
+                Some((key.as_str(), *count))
+            }
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(count, 0);
+    let registry = [key];
+    let zero = json!({key: 0});
+    assert!(check_s1_counter(&[], &zero, key, count)
+        .unwrap_err()
+        .contains("unregistered"));
+    for bad in [json!({}), json!({key: "0"}), json!({key: 0.0})] {
+        assert!(check_s1_counter(&registry, &bad, key, count)
+            .unwrap_err()
+            .contains("missing integer"));
+    }
+    check_s1_counter(&registry, &zero, key, count).unwrap();
+}
+
+#[test]
+fn props_matrix_s1_unfiltered_count_rejects_parallel_label() {
+    let row = ROWS
+        .lines()
+        .map(|text| serde_json::from_str::<Row>(text).unwrap())
+        .find(|row| row.id == "d2-default-capture")
+        .unwrap();
+    let mut graph = build(Language::JavaScript, &[("m", &row.files["m"])], "js");
+    let mut edges = row
+        .expect
+        .iter()
+        .filter_map(|check| match &check.assertion {
+            Assertion::Edge { between, .. }
+                if check.case.is_empty() && between.from_bytes == Some([13, 14]) =>
+            {
+                Some((&check.assertion, between))
+            }
+            _ => None,
+        });
+    let (with_label, between) = edges.next().unwrap();
+    let (with_count, _) = edges.next().unwrap();
+    let [(from, to, _)] = Fixture::new(&graph, "js").edges(between)[..] else {
+        panic!("expected a single edge before injecting the parallel label");
+    };
+    let edge = graph.graph.find_edge(from, to).unwrap();
+    graph.graph[edge] = CpgEdge::DataFlow(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
+    graph
+        .graph
+        .add_edge(from, to, CpgEdge::DataFlow(FlowConfidence::Exact));
+    let fixture = Fixture::new(&graph, "js");
+    fixture.check(with_label).unwrap();
+    assert!(fixture
+        .check(with_count)
+        .unwrap_err()
+        .contains("found 2 matching edges"));
+}
+
+#[test]
+fn props_matrix_s1_controls_for_j25_and_j31() {
+    use serde_json::json;
+    for (id, case, checks) in [
+        (
+            "j25",
+            "pattern-formal/m",
+            vec![
+                json!({"kind":"edge", "from":"Outer:title@4(def)", "to":"Outer:title@5(use)", "from_bytes":[68,73], "to_bytes":[95,100], "count":1}),
+            ],
+        ),
+        (
+            "j31",
+            "m",
+            vec![
+                json!({"kind":"def", "node":"One:title@1(def)", "bytes":[15,20]}),
+                json!({"kind":"no_edge", "from":"One:title@1(def)", "to":"One:title@1(use)", "absent_ok":true}),
+            ],
+        ),
+    ] {
+        let row = ROWS
+            .lines()
+            .map(|text| serde_json::from_str::<Row>(text).unwrap())
+            .find(|row| row.id == id)
+            .unwrap();
+        let graph = build(Language::Tsx, &[("m", &row.files[case])], "tsx");
+        let fixture = Fixture::new(&graph, "tsx");
+        for value in checks {
+            fixture
+                .check(&Check::try_from(value).unwrap().assertion)
+                .unwrap_or_else(|error| panic!("{id}/{case}: {error}"));
+        }
     }
 }
 

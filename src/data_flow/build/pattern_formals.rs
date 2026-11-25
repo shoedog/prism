@@ -3,18 +3,22 @@
 use crate::access_path::AccessPath;
 use crate::ast::js_ts::props_keys::strip_transparent_wrappers;
 use crate::ast::{ParsedFile, PathSpan};
-use crate::data_flow::{VarAccessKind, VarLocation};
-use crate::js_write_census::{
-    identity::Comp,
-    walk::{census_pattern_formals, Census, Site},
+use crate::cpg::FlowConfidence;
+use crate::data_flow::s1_evidence::{
+    Admission, Attempt, AttemptKey, Binding, Disposition, Endpoint, FileEvidence, Refusal,
 };
+use crate::data_flow::{VarAccessKind, VarLocation};
+use crate::languages::Language;
 use std::borrow::Cow;
-use std::cell::OnceCell;
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
-#[path = "pattern_execution.rs"]
-mod execution;
+use super::pattern_execution as execution;
+#[path = "pattern_signature.rs"]
+mod signature;
+
+use super::pattern_values::Values;
 
 pub(super) struct PatternFormal {
     pub(super) def: VarLocation,
@@ -24,21 +28,84 @@ pub(super) struct PatternFormal {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Region {
-    Body,
-    Parameter,
-    NestedBody(usize),
-    NestedParameter(usize),
+    Body(usize),
+    Formals,
+    Other,
 }
 
 struct Read {
     span: (usize, usize),
+    root: (usize, usize),
     region: Region,
-    admitted: bool,
+    binding: Binding,
+    admission: Admission,
+    body_refusal: Cell<Option<Refusal>>,
 }
 
-impl Read {
-    fn in_body(&self) -> bool {
-        matches!(self.region, Region::Body | Region::NestedBody(_))
+pub(super) struct Selected<'a> {
+    pub(super) loc: VarLocation,
+    pub(super) signature: bool,
+    original_path: &'a AccessPath,
+    covered: Vec<&'a Read>,
+}
+
+impl Selected<'_> {
+    pub(super) fn credit(
+        &self,
+        formal: &PatternFormal,
+        owner: Node<'_>,
+        evidence: &mut FileEvidence,
+        label: FlowConfidence,
+    ) {
+        for read in &self.covered {
+            formal.record(
+                owner,
+                evidence,
+                self.original_path,
+                read,
+                Some((&self.loc, Some(label))),
+            );
+        }
+    }
+
+    pub(super) fn withhold(
+        &self,
+        formal: &PatternFormal,
+        owner: Node<'_>,
+        evidence: &mut FileEvidence,
+    ) {
+        for read in &self.covered {
+            formal.record(
+                owner,
+                evidence,
+                self.original_path,
+                read,
+                Some((&self.loc, None)),
+            );
+        }
+    }
+
+    pub(super) fn refuse(&self, reason: Refusal) {
+        for read in &self.covered {
+            read.body_refusal.set(Some(reason));
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Ancestry {
+    region: Region,
+    decorator: bool,
+    nested_list: bool,
+}
+
+impl Ancestry {
+    fn new(region: Region) -> Self {
+        Self {
+            region,
+            decorator: false,
+            nested_list: false,
+        }
     }
 }
 
@@ -102,85 +169,167 @@ impl PatternFormal {
         } else {
             BTreeSet::new()
         };
-        let mut stack = Vec::new();
-        stack.extend(
-            owner
-                .child_by_field_name("body")
-                .map(|node| (node, Region::Body, None)),
-        );
-        stack.extend(
-            owner
-                .child_by_field_name("parameters")
-                .map(|node| (node, Region::Parameter, None)),
-        );
-        while let Some((node, mut region, decorator_region)) = stack.pop() {
+        let eligible = formals
+            .values()
+            .map(|formal| formal.def.start_byte)
+            .collect();
+        let signature = signature::Signature::certify(parsed, owner, &eligible);
+        let parameters = owner.child_by_field_name("parameters");
+        let body = owner.child_by_field_name("body");
+        let mut cursor = owner.walk();
+        let mut stack: Vec<_> = owner
+            .named_children(&mut cursor)
+            .map(|child| {
+                let region = if Some(child) == parameters {
+                    Region::Formals
+                } else if Some(child) == body {
+                    Region::Body(owner.id())
+                } else {
+                    Region::Other
+                };
+                (child, Ancestry::new(region))
+            })
+            .collect();
+        if owner.kind() == "method_definition"
+            && matches!(parsed.language, Language::TypeScript | Language::Tsx)
+            && owner
+                .parent()
+                .is_some_and(|parent| parent.kind() == "class_body")
+        {
+            let mut previous = owner.prev_named_sibling();
+            while let Some(node) = previous {
+                if node.kind() == "decorator" {
+                    stack.push((node, Ancestry::new(Region::Other)));
+                } else if !node.is_extra() {
+                    break;
+                }
+                previous = node.prev_named_sibling();
+            }
+        }
+        stack.reverse();
+        let callable_kinds = parsed.language.callable_boundary_node_types();
+        while let Some((node, mut ancestry)) = stack.pop() {
             if !execution::runtime_node(parsed, node) {
                 continue;
             }
-            if execution::decorated_callable(node).is_some() {
-                let Some(outer) = decorator_region else {
-                    continue;
-                };
-                region = outer;
-            }
+            ancestry.decorator |= execution::decorated_callable(node).is_some();
             if matches!(
                 node.kind(),
                 "identifier" | "undefined" | "shorthand_property_identifier"
             ) {
-                let spelling = parsed.node_text(&node);
-                let name = if spelling.contains('\\') {
-                    ParsedFile::js_ts_decoded_identifier(spelling).map(Cow::Owned)
-                } else {
-                    Some(Cow::Borrowed(spelling))
-                };
-                if let Some(formal) = name.as_deref().and_then(|name| formals.get_mut(name)) {
+                if let Some(formal) = decoded_name(parsed.node_text(&node))
+                    .as_deref()
+                    .and_then(|name| formals.get_mut(name))
+                {
                     let Some((operand, path)) = read_operand(parsed, node, &formal.def.path) else {
                         continue;
                     };
                     let root = node.start_byte();
-                    let binds = execution::binding_scope(parsed, owner, node, &path.base)
-                        == Some(owner.id())
-                        && (copied_vars.contains(&path.base)
-                            || !in_body_seam(parsed, owner, &path.base, root));
-                    let immediate = region != Region::Parameter
-                        || initialized_before(parsed, &formal.def, root);
+                    let in_body_var = in_body_seam(parsed, owner, &path.base, root);
+                    let scope = execution::binding_scope(parsed, owner, node, &path.base);
+                    let binding = match scope {
+                        Some(id) if id == owner.id() && !in_body_var => Binding::SameBinding,
+                        Some(_) => Binding::OtherBinding,
+                        None => Binding::Unresolved,
+                    };
+                    let copied_body_var = in_body_var
+                        && scope == Some(owner.id())
+                        && copied_vars.contains(&path.base);
+                    let admission = admit(&signature, operand, ancestry, binding, copied_body_var);
                     formal
                         .reads
                         .entry((path, parsed.line_for_byte(operand.start_byte())))
                         .or_default()
                         .push(Read {
                             span: (operand.start_byte(), operand.end_byte()),
-                            region,
-                            admitted: binds && immediate,
+                            root: (root, node.end_byte()),
+                            region: ancestry.region,
+                            binding,
+                            admission,
+                            body_refusal: Cell::new(None),
                         });
                 }
             }
-
             let mut cursor = node.walk();
-            let first_child = stack.len();
+            let first = stack.len();
+            let callable = callable_kinds.contains(&node.kind());
             for child in node.named_children(&mut cursor) {
-                let decorator_region = if child.kind() == "formal_parameters" {
-                    Some(region)
-                } else {
-                    decorator_region
-                };
-                stack.push((
-                    child,
-                    execution::child_region(parsed, node, child, region),
-                    decorator_region,
-                ));
-                if region == Region::Parameter
-                    && execution::suspends_following_siblings(node, child)
-                {
-                    region = Region::NestedParameter(node.id());
+                let mut child_ancestry = ancestry;
+                if callable {
+                    child_ancestry.nested_list |= ["parameters", "parameter"]
+                        .iter()
+                        .any(|field| node.child_by_field_name(field) == Some(child));
+                    if matches!(ancestry.region, Region::Body(_))
+                        && node.child_by_field_name("body") == Some(child)
+                    {
+                        child_ancestry.region = Region::Body(node.id());
+                    }
+                }
+                stack.push((child, child_ancestry));
+            }
+            stack[first..].reverse();
+        }
+        formals.into_values().collect()
+    }
+
+    pub(super) fn produces_def(&self) -> bool {
+        self.reads
+            .values()
+            .flatten()
+            .any(|read| read.admission.admits())
+    }
+
+    fn finish_evidence(
+        &self,
+        owner: Node<'_>,
+        evidence: &mut FileEvidence,
+        credited: &BTreeSet<AttemptKey>,
+    ) {
+        for ((path, _), reads) in &self.reads {
+            for read in reads {
+                if !credited.contains(&self.attempt_key(owner, path, read)) {
+                    self.record(owner, evidence, path, read, None);
                 }
             }
-            stack[first_child..].reverse();
         }
-        formals
-            .into_values()
-            .filter(|formal| formal.reads.values().flatten().any(|read| read.admitted))
-            .collect()
+    }
+
+    fn attempt_key(&self, owner: Node<'_>, path: &AccessPath, read: &Read) -> AttemptKey {
+        AttemptKey {
+            owner: [owner.start_byte(), owner.end_byte()],
+            binding: [self.def.start_byte, self.def.end_byte],
+            operand: [read.span.0, read.span.1],
+            path: path.clone(),
+        }
+    }
+
+    fn record(
+        &self,
+        owner: Node<'_>,
+        evidence: &mut FileEvidence,
+        path: &AccessPath,
+        read: &Read,
+        selected: Option<(&VarLocation, Option<FlowConfidence>)>,
+    ) {
+        let disposition = match (read.admission, selected) {
+            (_, Some((_, Some(_)))) => Disposition::Emitted,
+            (_, Some((_, None))) => Disposition::CapWithheld,
+            (Admission::OtherBinding, _) => Disposition::OtherBinding,
+            (Admission::Refused(reason), _) => Disposition::Refused(reason),
+            _ => Disposition::Refused(read.body_refusal.get().unwrap_or(Refusal::Endpoint)),
+        };
+        evidence.attempts.push(Attempt {
+            key: self.attempt_key(owner, path, read),
+            binding: read.binding,
+            admission: read.admission,
+            justifies_def: read.admission.admits(),
+            endpoint: selected.map(|(endpoint, label)| Endpoint {
+                bytes: [endpoint.start_byte, endpoint.end_byte],
+                path: endpoint.path.clone(),
+                label,
+            }),
+            disposition,
+        });
     }
 
     pub(super) fn endpoints(
@@ -188,72 +337,120 @@ impl PatternFormal {
         parsed: &ParsedFile,
         owner: &Node<'_>,
         preferred: &BTreeMap<(AccessPath, usize), VarLocation>,
-        census: &OnceCell<Option<Census>>,
+        values: &Values<'_>,
         synthetic: bool,
         owner_is_unique: bool,
-    ) -> Vec<VarLocation> {
+    ) -> Vec<Selected<'_>> {
         let mut endpoints = Vec::new();
+        let mixed = self
+            .reads
+            .values()
+            .flatten()
+            .any(|read| read.admission == Admission::Bare)
+            || self.reads.iter().any(|((path, _), reads)| {
+                reads.iter().any(|read| read.admission == Admission::Body)
+                    && values.signature_alias_overlaps(path, self.def.start_byte)
+            });
         for (key @ (path, line), reads) in &self.reads {
-            let mut admitted = reads.iter().filter(|read| read.admitted);
-            // Default closures have their own runtime region and can run after body writes.
-            // Each capture is materialized at the proved operand, without a signature lookup.
-            endpoints.extend(admitted.clone().filter_map(|read| {
-                matches!(read.region, Region::NestedParameter(_))
-                    .then(|| self.use_at(path, *line, read.span))
-            }));
-            let Some(first) =
-                admitted.find(|read| !matches!(read.region, Region::NestedParameter(_)))
-            else {
+            let candidate = preferred.get(key);
+            for read in reads {
+                if read.admission == Admission::Reader
+                    || read.admission == Admission::Bare
+                        && (synthetic || candidate.is_some() || *line > self.decl_line)
+                {
+                    endpoints.push(Selected {
+                        loc: self.use_at(path, *line, read.span),
+                        signature: true,
+                        original_path: path,
+                        covered: vec![read],
+                    });
+                }
+            }
+            let projection = path.has_fields() && !mixed;
+            let selected_path = if projection { path } else { &self.def.path };
+            let body_reads: Vec<_> = reads
+                .iter()
+                .filter(|read| {
+                    if read.admission != Admission::Body {
+                        return false;
+                    }
+                    let refusal =
+                        values.body_refusal(selected_path, self.def.end_byte, read.root.0);
+                    read.body_refusal.set(refusal);
+                    refusal.is_none()
+                })
+                .collect();
+            let Some(&first) = body_reads.first() else {
                 continue;
             };
-            if path.has_fields() {
-                if owner_writes(parsed, *owner, census).is_some_and(|facts| {
-                    !facts.sites.iter().any(|site| {
-                        // The member lane's body kill inventory excludes optional signature
-                        // writes (p24). A read in an immediate default checks signature writes.
-                        site.region.own_params != first.in_body()
-                            && (first.in_body() || site.moment <= first.span.0)
-                            && bound_write(parsed, *owner, &path.base, site, first.in_body())
-                            && projection_overlaps(path, site)
-                    })
-                }) {
-                    endpoints.push(self.use_at(path, *line, first.span));
-                }
+            if projection {
+                endpoints.push(Selected {
+                    loc: self.use_at(path, *line, first.span),
+                    signature: false,
+                    original_path: path,
+                    covered: body_reads
+                        .into_iter()
+                        .filter(|read| read.region == first.region)
+                        .collect(),
+                });
                 continue;
             }
-            let candidate = preferred.get(key);
+            let candidate = preferred.get(&(selected_path.clone(), *line));
             if !synthetic && candidate.is_none() && *line <= self.decl_line {
                 continue;
             }
-            let uniform = reads
+            let uniform = self
+                .reads
                 .iter()
-                .all(|read| read.admitted && read.region == first.region);
+                .filter(|((_, at_line), _)| at_line == line)
+                .all(|((other, _), occurrences)| {
+                    other == path
+                        && occurrences.iter().all(|read| {
+                            read.admission == Admission::Body
+                                && read.body_refusal.get().is_none()
+                                && read.region == first.region
+                        })
+                });
             let representative = candidate.cloned().unwrap_or_else(|| {
                 let anchor = parsed.line_start_byte(*line);
-                self.use_at(path, *line, (anchor, anchor))
+                self.use_at(selected_path, *line, (anchor, anchor))
             });
             let start = representative.start_byte;
             let end = representative.end_byte;
-            let endpoint = if !synthetic
+            let representative_span = |read: &Read| {
+                if path.has_fields() {
+                    read.root
+                } else {
+                    read.span
+                }
+            };
+            let (loc, covered) = if !synthetic
                 && owner_is_unique
                 && uniform
                 && (start == end
-                    || reads.iter().any(|read| read.span == (start, end))
+                    || reads
+                        .iter()
+                        .any(|read| representative_span(read) == (start, end))
                     || representative_name(parsed, &representative))
-                && same_version(
-                    parsed,
-                    *owner,
-                    census,
-                    &path.base,
-                    start.min(first.span.0),
-                    start.max(reads.last().unwrap().span.0),
-                    first.in_body(),
+                && representative_in_body(parsed, *owner, &representative, first.region)
+                && values.same_version(
+                    selected_path,
+                    start.min(first.root.0),
+                    start.max(body_reads.last().unwrap().root.0),
                 ) {
-                representative
+                (representative, body_reads)
             } else {
-                self.use_at(path, *line, first.span)
+                (
+                    self.use_at(selected_path, *line, representative_span(first)),
+                    vec![first],
+                )
             };
-            endpoints.push(endpoint);
+            endpoints.push(Selected {
+                loc,
+                signature: false,
+                original_path: path,
+                covered,
+            });
         }
         endpoints
     }
@@ -275,72 +472,157 @@ impl PatternFormal {
     }
 }
 
-fn same_version(
-    parsed: &ParsedFile,
+pub(super) fn finish_owner_evidence(
+    formals: &[PatternFormal],
     owner: Node<'_>,
-    census: &OnceCell<Option<Census>>,
-    name: &str,
-    first: usize,
-    last: usize,
-    in_body: bool,
-) -> bool {
-    if first == last {
-        return true;
+    evidence: &mut FileEvidence,
+) {
+    let span = [owner.start_byte(), owner.end_byte()];
+    let credited = evidence
+        .attempts
+        .iter()
+        .rev()
+        .take_while(|attempt| attempt.key.owner == span)
+        .map(|attempt| attempt.key.clone())
+        .collect();
+    for formal in formals {
+        formal.finish_evidence(owner, evidence, &credited);
     }
-    owner_writes(parsed, owner, census).is_some_and(|facts| {
-        !facts.sites.iter().any(|site| {
-            site.path.comps.is_empty()
-                && first <= site.moment
-                && site.moment <= last
-                && bound_write(parsed, owner, name, site, in_body)
-        })
-    })
 }
 
-fn owner_writes<'a>(
-    parsed: &ParsedFile,
-    owner: Node<'_>,
-    census: &'a OnceCell<Option<Census>>,
-) -> Option<&'a Census> {
-    census
-        .get_or_init(|| {
-            if parsed.js_ts_direct_eval_anywhere(&owner) {
-                return None;
+/// Recognize a forced signature label already recorded under the exact pair.
+pub(crate) fn is_signature_pair(parsed: &ParsedFile, from: &VarLocation, to: &VarLocation) -> bool {
+    if from.kind != VarAccessKind::Def
+        || to.kind != VarAccessKind::Use
+        || !from.path.is_simple()
+        || from.path != to.path
+        || from.start_byte >= from.end_byte
+        || to.start_byte >= to.end_byte
+        || !parsed.language.is_js_family()
+    {
+        return false;
+    }
+    let root = parsed.tree.root_node();
+    let Some(binding) = root.descendant_for_byte_range(from.start_byte, from.end_byte) else {
+        return false;
+    };
+    let Some(operand) = root.descendant_for_byte_range(to.start_byte, to.end_byte) else {
+        return false;
+    };
+    if binding.byte_range() != (from.start_byte..from.end_byte)
+        || operand.byte_range() != (to.start_byte..to.end_byte)
+    {
+        return false;
+    }
+    let mut ancestor = binding.parent();
+    while let Some(node) = ancestor {
+        if node.kind() == "formal_parameters" {
+            let Some(owner) = node.parent() else {
+                return false;
+            };
+            if !node.byte_range().contains(&operand.start_byte()) {
+                return false;
             }
-            let facts = census_pattern_formals(parsed, owner);
-            (!facts.refused()).then_some(facts)
-        })
-        .as_ref()
+            let eligible: BTreeSet<_> = parsed
+                .js_ts_pattern_params(&owner)
+                .into_iter()
+                .flat_map(|pattern| pattern.elements)
+                .filter(|element| element.admitted)
+                .map(|element| element.bytes.start)
+                .collect();
+            return eligible.contains(&binding.start_byte())
+                && matches!(
+                    signature::Signature::certify(parsed, owner, &eligible).admission(operand),
+                    Admission::Bare | Admission::Reader
+                );
+        }
+        ancestor = node.parent();
+    }
+    false
 }
 
-fn bound_write(
+fn admit(
+    signature: &signature::Signature,
+    operand: Node<'_>,
+    ancestry: Ancestry,
+    binding: Binding,
+    copied_body_var: bool,
+) -> Admission {
+    if ancestry.region == Region::Other {
+        return Admission::OtherBinding;
+    }
+    if ancestry.decorator {
+        return Admission::Refused(Refusal::Decorator);
+    }
+    if ancestry.nested_list {
+        return Admission::Refused(Refusal::NestedList);
+    }
+    let admission = match ancestry.region {
+        Region::Formals => signature.admission(operand),
+        _ => Admission::Body,
+    };
+    if matches!(
+        admission,
+        Admission::Refused(Refusal::Shape | Refusal::Binding)
+    ) {
+        return admission;
+    }
+    // An uninitialized named body var has a distinct binding, but its
+    // value is copied from the parameter at body entry.
+    if copied_body_var && matches!(ancestry.region, Region::Body(_)) {
+        return Admission::Body;
+    }
+    match binding {
+        Binding::OtherBinding => Admission::OtherBinding,
+        Binding::Unresolved => Admission::Refused(Refusal::Binding),
+        Binding::SameBinding => admission,
+    }
+}
+
+fn representative_in_body(
     parsed: &ParsedFile,
     owner: Node<'_>,
-    name: &str,
-    site: &Site,
-    in_body: bool,
+    loc: &VarLocation,
+    region: Region,
 ) -> bool {
-    site.initialized
-        && site.decl != "param"
-        && decoded_name(&site.path.base).as_deref() == Some(name)
-        && (in_body || !in_body_seam(parsed, owner, name, site.target_start))
-        && parsed
-            .tree
-            .root_node()
-            .descendant_for_byte_range(site.target_start, site.target_end)
-            .is_some_and(|target| {
-                execution::binding_scope(parsed, owner, target, name) == Some(owner.id())
-            })
+    let Some(body) = owner.child_by_field_name("body") else {
+        return false;
+    };
+    if !body.byte_range().contains(&loc.start_byte) || loc.end_byte > body.end_byte() {
+        return false;
+    }
+    let Some(node) =
+        body.descendant_for_byte_range(loc.start_byte, loc.end_byte.max(loc.start_byte + 1))
+    else {
+        return false;
+    };
+    if parsed.js_ts_def_scope_id(loc.start_byte, &loc.path.base) != Some(owner.id()) {
+        return false;
+    }
+    let mut ancestor = Some(node);
+    let kinds = parsed.language.callable_boundary_node_types();
+    while let Some(node) = ancestor {
+        if node == owner
+            || (kinds.contains(&node.kind())
+                && node
+                    .child_by_field_name("body")
+                    .is_some_and(|body| body.byte_range().contains(&loc.start_byte)))
+        {
+            return region == Region::Body(node.id());
+        }
+        ancestor = node.parent();
+    }
+    false
 }
 
-fn in_body_seam(parsed: &ParsedFile, owner: Node<'_>, name: &str, at: usize) -> bool {
+pub(super) fn in_body_seam(parsed: &ParsedFile, owner: Node<'_>, name: &str, at: usize) -> bool {
     parsed.js_ts_seam_binding(&owner, name)
         && owner
             .child_by_field_name("body")
             .is_some_and(|body| body.byte_range().contains(&at))
 }
 
-fn decoded_name(text: &str) -> Option<Cow<'_, str>> {
+pub(super) fn decoded_name(text: &str) -> Option<Cow<'_, str>> {
     if text.contains('\\') {
         ParsedFile::js_ts_decode_identifier_text(text).map(Cow::Owned)
     } else {
@@ -348,29 +630,12 @@ fn decoded_name(text: &str) -> Option<Cow<'_, str>> {
     }
 }
 
-fn projection_overlaps(path: &AccessPath, site: &Site) -> bool {
-    // Static projections retain the identifier lane's computed-write boundary.
-    let mut write = AccessPath::simple(&path.base);
-    for component in &site.path.comps {
-        let Comp::Name(field) = component else {
-            return false;
-        };
-        let Some(field) = decoded_name(field) else {
-            return true;
-        };
-        write.fields.push(field.into_owned());
-    }
-    path.fields.starts_with(&write.fields) || write.fields.starts_with(&path.fields)
-}
-
 fn read_operand<'a>(
     parsed: &ParsedFile,
     root: Node<'a>,
     base: &AccessPath,
 ) -> Option<(Node<'a>, AccessPath)> {
-    if parsed.js_ts_identifier_is_not_a_read(root)
-        || parsed.js_ts_span_in_with_body(root.start_byte(), root.end_byte())
-    {
+    if parsed.js_ts_identifier_is_not_a_read(root) {
         return None;
     }
     let mut operand = root;
@@ -402,31 +667,6 @@ fn read_operand<'a>(
         return None;
     }
     Some((operand, path))
-}
-
-fn initialized_before(parsed: &ParsedFile, def: &VarLocation, read: usize) -> bool {
-    if read < def.end_byte {
-        return false;
-    }
-    let mut node = parsed
-        .tree
-        .root_node()
-        .descendant_for_byte_range(def.start_byte, def.end_byte);
-    while let Some(current) = node {
-        let initializer = match current.kind() {
-            "formal_parameters" => break,
-            "assignment_pattern" | "object_assignment_pattern" => {
-                current.child_by_field_name("right")
-            }
-            "required_parameter" | "optional_parameter" => current.child_by_field_name("value"),
-            _ => None,
-        };
-        if initializer.is_some_and(|value| value.byte_range().contains(&read)) {
-            return false;
-        }
-        node = current.parent();
-    }
-    true
 }
 
 fn representative_name(parsed: &ParsedFile, loc: &VarLocation) -> bool {

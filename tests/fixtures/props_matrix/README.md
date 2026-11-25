@@ -34,6 +34,8 @@ fixture file. Different graph nodes can share the same spelling.
 | `no_edge_into` | No DataFlow edge crosses into `to` from another owner. `to` can be a function name or a node spelling. Optional `absent_ok: true` permits it to be absent. |
 | `path`, `no_path` | A nonempty directed chain of DataFlow edges must connect, or must fail to connect, `from` and `to`. A `path` can specify `via` to require a two-edge chain through the same concrete intermediate node. Optional `absent_ok: true` on `no_path` permits either spelling to be absent. |
 | `counter` | `key` in the serialized `dfg_props` statistics equals `count`. An absent map or key reads as zero. |
+| `s1_counter` | `key` must be registered in `data_flow::s1_evidence::COUNTER_KEYS`. The case and grammar must supply an observed integer equal to `count`, including when `count` is zero. |
+| `s1_ledger` | Select the `file` stem, which may be omitted for a single-file case. Count all attempts with the exact `binding_bytes` and `operand_bytes` before checking each matching `disposition` and optional `binding` verdict. |
 | `trace_reaches`, `trace_misses` | Seed the normal line-based trace with `seed`. The frontier must include, or must exclude, the specified `node` at `target`. |
 | `trace_boundary` | The trace records a boundary from a `seed` root ending at `node` at `target`, and the node stays outside the frontier. Optional `boundary_kind` is `cross_function` by default and also accepts `self_function_param`. Optional `from` (node spelling) and `from_bytes` filter the source of the same boundary. |
 
@@ -42,3 +44,8 @@ and a one-based `line`. Both must resolve to graph variables. The supported labe
 are `exact`, `killed`, `same_line`, `cfg_incomplete`, `alias_unstable`, and
 `call_name_only`. Unknown assertion fields are rejected. Negative edge and path
 assertions require all named endpoint spellings to exist unless `absent_ok` is true.
+
+The S1 assertions use an uncached run of the file producer for each case and grammar. The ledger
+identifies the source by revision, file, grammar and digest. Each attempt has one terminal outcome.
+Signature effect sites and cap decisions have their own counts. To require exactly one edge with
+a particular label, pair an unfiltered `edge` with `count` of one and a separate labeled `edge`.

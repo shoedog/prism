@@ -113,7 +113,7 @@ impl ParsedFile {
     }
 }
 
-fn formal_binding(entry: Node<'_>) -> Option<(Node<'_>, Option<Node<'_>>)> {
+pub(crate) fn formal_binding(entry: Node<'_>) -> Option<(Node<'_>, Option<Node<'_>>)> {
     match entry.kind() {
         "required_parameter" | "optional_parameter" => Some((
             entry.child_by_field_name("pattern")?,

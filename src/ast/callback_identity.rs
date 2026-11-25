@@ -304,12 +304,12 @@ impl ParsedFile {
         &self,
         operand: Node<'_>,
         name: &str,
-        decorated: Node<'_>,
+        decorated: &[Node<'_>],
     ) -> Option<usize> {
         let boundaries = self.language.callable_boundary_node_types();
         let mut ancestor = operand.parent();
         while let Some(scope) = ancestor {
-            if scope != decorated
+            if !decorated.contains(&scope)
                 && self.js_ts_scope_binds(scope, &boundaries, name, operand.start_byte())
             {
                 return Some(scope.id());

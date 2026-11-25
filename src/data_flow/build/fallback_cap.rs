@@ -28,6 +28,10 @@ impl<'a> Emission<'a> {
         }
     }
 
+    pub(super) fn exceeds_cap(&self, cap: usize) -> bool {
+        self.count > cap
+    }
+
     pub(super) fn count(&self) -> usize {
         self.count
     }
