@@ -1,13 +1,6 @@
 # Lane 8: one taint answer from both engines — design
 
-Status: architecture final; the crossing rules of section 5.2 are tentative until the parity census and the
-matrix (PLAN stages M, T, E). Round 1 of the design review is folded (2026-11-21; its probes, cited below as
-"review probe", are in `~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane8/probes/`); round 2 is folded
-the same day (its probes, cited as "r2 probe", are in `~/prism-evidence/lanes-2026-11-20/reviews/fable-r2/lane8/probes/`). Starts after
-draft PR #841 merges (it edits the same three files and adds the crossing-policy type this lane uses). The
-plan files a tracking issue. Research record: `~/prism-evidence/lanes-2026-11-20/research/lane8-taint-parity.md`.
-Owner decision 2 was settled on 2026-11-24: the MCP server gets the catalog through a new crate below both
-binaries (branch A2, section 4).
+**Stage D design of record, 2026-11-24.** The measurement base is `9d1a7d06f653`. The four matrix shards at `7ccb0eba04f1` contain 415 rows. The row decisions are in [STAGE_D_ROWS.md](../../../../../tests/fixtures/taint_parity/STAGE_D_ROWS.md). The implementation seats apply that table to the JSONL as their groups ship. Decision 2 is settled on branch A2. Decision 6 remains with the owner (§8). Historical probe names below refer to the two design reviews of 2026-11-21.
 
 ## 1. Intent
 
@@ -32,7 +25,7 @@ a sink catalog.
 | An object-literal leaf binds to every formal read whose static chain is comparable with its key path; a computed read (`p['k']`, `p[k]`) has the empty chain, so it is fed by every leaf. | `src/cpg/object_literal_args.rs` (`read_chain`, `comparable`) |
 | Probe matrix, 26 fixtures in three languages: default review and `taint-reaches` agree on 20 and disagree on 6. Five are descent refusals: an object-literal argument bound to a member read (the edge ends at a use; two fixtures), two call sites of the callee on one line, a name-only callee, a call chain three deep. One is sink granularity (a use that shares the sink's line). Review in trace mode agrees with `taint-reaches` on 25 of 26. Both engines miss a captured variable read in a nested function. | research section 6 |
 | Wrong results today (review probes on a0f2c427): (a) the trace engine returns into an unrelated caller: `entry` passes `t` to `id`, `separate` reads `safe = id('fixed')`, and `safe` is Reached; (b) `run(...[], t)` into `run(a, b)` reaches `b` (the producer binds positionally past a spread; lane 9 slice A); (c) exploration order decides depth: a formal reached first at depth 2 blocks a later depth-1 route, so an in-budget path is BoundaryExited; (d) a recursive `f({a:x}, false)` reaches a later read `p.a` as intra-function DataFlow at depth 0; (e) a non-simple return seeded inside the callee is dropped silently by the depth-0 CFG filter; (f) `pick({bad:t, clean:'fixed'})` has an Exact edge into the read `p['clean']`; (g) review reports a flat sink with a fixed operand on a line reached only at a parameter Def, and a certified constant-return call's left side through the same-line shortcut. | probes `return_one`, `spread_direct`, `diamond`, `self_literal_after`, `return_expr`, `literal_index`, `flat_def_line`, `constant_return_flat` |
-| In trace mode, findings that are `exact` in default mode become `unlabeled`, because descent and assignment hops mark the evidence as crossing unlabelled edges. An object-literal binding edge carries the worse of Exact and the callee read's own label. | `src/finding_confidence.rs:348-379`; `src/cpg/object_literal_args.rs:523` |
+| In the cited probe fixtures, findings that are `exact` in default mode can become `unlabeled`, because descent and assignment hops mark the evidence as crossing unlabelled edges. An object-literal binding edge carries the worse of Exact and the callee read's own label. | `src/finding_confidence.rs:348-379`; `src/cpg/object_literal_args.rs:523` |
 | The trace engine has no notion of a sanitizer; the reasoning layer adds one on the witness chain and accepts a sanitizer of any category, by documented design (its line query names no sink category). Review cuts per category on the flow path and, as an advisory, by presence in the source function's body. | `src/reasoning/sanitizer_walk.rs`; `src/sanitizers/matching.rs` (`sanitizer_call_site`); `crates/prism-review/src/algorithms/taint/cleansing.rs` |
 | PR #841 adds an optional crossing policy threaded through the walk functions. It limits only edges that enter a context file (a file added by import depth) to a confidence ceiling of Exact or name-only; `--taint-context-depth` is that import depth. The descent rule still requires Exact whatever the policy says, the depth cap and review's choice of engine are unchanged, and the reasoning layer passes no policy and has no context files. With its defaults, every difference above remains. | PR #841 (`src/cpg/taint_policy.rs` at 493ab5ee) |
 | The sink catalog lives in the review crate: the flat pattern list, the positional classifier with its scope resolvers and module tables (`taint_sinks/`, 23 files, 7,322 raw lines with tests), the per-language structured tables, the matchers. The matchers call into review's cleansing and source discovery (the operand check reaches framework parameters, request aliases and `seeds.rs`), so their module closure is measured, not a set of helpers: from `taint/sink_match.rs` and `taint_sinks/` it is 48 files and 17,241 raw lines plus 12 items of `taint.rs` and one function of `seeds.rs`; with the sink loop's own source facts (framework sources, wrapper sinks) about 18,300 of the 19,146 lines in 51 of 53 files. Only `taint/report.rs` names another review module (`crate::output::mermaid::safe_node_id`). Review's FlowPaths are single-source fans, and its sink predicates read every edge of the fan and take the CPG (`taint/cleansing.rs`). A static table's argument index is not always the operand review checks (`render_template_string`: index 1; review checks the tainted keyword's template variable). The core crate holds the sink pattern type, the sanitizer recognisers and nearly empty per-framework sink lists that nothing reads. | research section 5; `taint/python/sink_tables.rs:31`, `taint/python/sinks.rs:49`; closure measured by `use` and qualified paths at 9ba4249d; `src/cpg/cfg_queries.rs:281`, `taint/cleansing.rs:477` |
@@ -111,11 +104,11 @@ last slices of the lane. The owner chose A2 on 2026-11-24; the four branches con
   2.5 days.
 - **C.** CLI only, MCP pending; 0.5 day.
 
-## 5. Architecture — *crossing rules tentative*
+## 5. Architecture
 
 ### 5.1 The parity matrix
 
-Fixtures under `tests/fixtures/taint_parity/` with a rows file. A row names occurrences, not lines: the
+Read `rows.jsonl`, `rows-t2a.jsonl`, `rows-t2b.jsonl` and `rows-t2c.jsonl` under `tests/fixtures/taint_parity/`. `STAGE_D_ROWS.md` records the 18 newly assigned groups, 41 other amendments or strengthened assertions, and all retained rows against their shard. Distinguish a required future cell from an observation on the pinned producer. A row names occurrences, not lines: the
 source occurrence (file, line, bytes), the call site and argument slot or the return it tests, and the sink
 operand (file, line, bytes). Parity has three levels, asserted separately:
 
@@ -140,85 +133,62 @@ the shapes real code shows.
 
 ### 5.2 Crossings
 
-**Hop evidence (every crossing).** A hop is crossed only on evidence that belongs to that hop. The proof
-names one emitting call site: its caller, its half-open byte span, the argument slot (or receiver, or
-return) and its target. It holds when (i) the source occurrence is the argument at that slot of that site
-(byte containment of the occurrence in the argument is one input; where the graph node does not carry the
-occurrence's own bytes, the occurrence is reconstructed, and an ambiguous reconstruction refuses); (ii) no
-other site of the caller passes (i) for the same target; (iii) the callee is one of that same site's Exact
-targets, and every Exact target of the site is a candidate of one dispatch (interface satisfiers, embedded
-promotions, overrides: Go interface dispatch resolves Exact to every implementation and is crossed today, r2
-probe `d1`); a pool that mixes grades or holds targets of no one dispatch refuses (`not_exact`), and stage D
-fixes how a pool is shown to be one dispatch; (iv) the slot is proven by a positive certificate: every
-argument before it is plain positional, the argument itself is positional, formal *i* of the callee is a
-plain positional formal, and no receiver offset applies; anything else (a spread, starred, double-starred or
-keyword argument, a rest, default or destructured formal, `self`/`cls` offsets, `call`/`apply`/`bind`, a
-signature-changing decorator, a Go variadic) refuses (`unproven_slot`); (v) the occurrence carries the value the walk reached: where a
-same-line write separates two occurrences (`first('fixed', t); t = 'fixed'; first(t, 'fixed')`), the hop
-refuses unless same-line ordering proves which version the site reads.
+**Baseline at 9d1a7d06f653.** In `src/cpg/trace.rs`, `descend_target` accepts a DataFlow to a Def, indexes `callers` by the destination function's **name**, counts matching sites before resolution, then uses `.any(Exact && target_matches)`. Its cache includes the occurrence start and the callee owner but omits the occurrence end and target node. `return_flow_ascent_allowed` searches the entire destination function for *any* singleton-Exact call to the returning owner. In `taint_trace_from_root` the depth comparison short-circuits before `descend_target`, and the first insertion of a node into the root's `enqueued` set wins. In `object_literal_args.rs`, `formal_info` takes Uses one DataFlow edge from the formal Def. `collect` emits leaf → Use directly. `read_chain` stops at a subscript so a computed read directly on the formal has the empty chain. In `step5c.rs` the failed `step5c_facts::singleton_exact` test skips the site before edge creation. A name-only return has no ReturnFlow edge at either ceiling.
 
-The proof reads syntax the graph does not hold (argument spans and kinds, the call on the right side of an
-assignment, same-line order; section 2): `run(...[], t)` and `run(a0, t)` have the same `CallSite` facts and
-the same edge. So the walk receives a syntax view, a trait beside the existing `SameLineOrderView`,
-implemented once in core over the parsed files and passed by both clients; an entry point never falls back
-to today's rule. The alternative is to store slot, spread flag and site span on binding and return edges at
-build time (usable by a cache-loaded graph, but a graph change: `CACHE_VERSION`, edge differential, memory
-on every edge, and a collision with lanes 3, 9 and 10 on Step 5b). The choice is a stage D item.
+**Hop evidence.** A crossing consumes one existing edge and one positive certificate. Keep an immutable syntax view over the exact parsed files used for this graph, shared by review, navigation, catalog and the sanitizer exclusion walk. Read call arguments, lexical owners, value versions, target formals, and RHS/LHS result slots there. Read endpoints, labels, the resolver's candidate records and formal neighbours from the graph. No new edge metadata or cache format. Implement the view beside `AstOrderView`; give it file/owner/span descriptors, never opaque node indices into a graph it does not own. Preserve public graph-only entry points: without a usable view, every interprocedural crossing refuses (`no_matching_site` for missing site evidence), including empty-stack ascent. Local paths still work. The no-view entry must also fence recursive binding candidates; an unclassifiable same-function producer edge must not bypass the fence. Keep ordinary local Def→Use flow. Test each entry, including cache-loaded graphs and bypass re-walks.
 
-A name-only edge is never crossed
-because another site on its line resolves Exact. In particular, under the default ceiling (`exact`) a binding
-edge labelled name-only with doubt `call_nameonly`, or `builtin_callback` (a doubt kind lane 9 adds for the
-edges its slices D and E derive from a method's name or a derived target), is never crossed (`not_exact`),
-neither on its own evidence nor through another call on its line: in `cb(x); handler(0);` the name-only edge
-into `cb`'s target never uses `handler`'s resolution, and an occurrence node that carries its own bytes
-matches a site by containment only (the line match stays for zero-width and line-keyed nodes). This check ships as a small slice of its own right after
-the reasons slice (PLAN I-guard, rows n01, n02), so lane 9's slices D and E2 wait for it, not for the whole
-walk repair. A cached decision is keyed by every input it read (source
-and target node, slot, site span), never by a key that drops one. Stage D states (i) to (v) against the rows,
-including multi-target pools and the lane-3 JSX producer's line-keyed and zero-width source nodes.
+1. **(i) Identify the occurrence.** Start from the reached edge endpoint, not just the query's root line. Bind a file, executing caller, half-open site and actual-value spans, slot, formal/read node, and target function identity. For an ordinary argument use its own bytes in the selected actual. The AST must show that the actual supplies this value. Containment in a receiver, callee token or an intervening callable is insufficient. For a result, identify the RHS call of the assignment to this destination and the result component it consumes.
+2. **(ii) Identify one emission.** Enumerate sites of that caller, including aliases. Retain only occurrences and target/slot pairings consistent with the edge. Zero matches refuse, multiple indistinguishable emissions refuse. For a lane-3 JSX source, replay the producer's lookup key (file, caller identity, value line, full access path or its base, Use). Inspect value expressions of the effective attributes of each opening in that owner. Require exactly one surviving (opening, attribute leaf, slot, target) compatible with the reached node and its value version. A key token at nonzero width, another attribute's token, and a zero-width declarator anchor can all be line-keyed. Neither width nor line equality identifies the value. Do not search an enclosing owner's locals or promote a signature Def to the missing Use.
+3. **(iii) Certify one dispatch.** Require the selected target in the complete site-local resolution pool. A singleton Exact suffices for resolution. For a larger scalar pool all grades must be Exact and all targets must belong to one receiver/member dispatch. Require the same receiver type/selector and resolver-backed membership for *each* target (Go interface satisfiers including proven embedded method paths, or the same method in a proved override hierarchy). Compare the certified set with the whole candidate set. Recover the callee’s declaring receiver and method signature for each ID and check membership in the receiver’s interface implementation, embedded promotion or base/override relation. A missing hierarchy fact refuses the entire pool. A common name or common resolution-kind tag alone proves neither membership nor completeness. Mixed grades, free/local same-name pools, unknown membership and unproved unions refuse `not_exact` at either ceiling. A synthetic mixed vector is a unit case. The current resolver grades each pool uniformly. Literal, JSX and return producers retain their singleton prerequisite.
 
-| Change | Today | After |
-|---|---|---|
-| **Binding edges that end at a use** | refused: the target must be a definition | crossed when the hop evidence holds and the use is a read of the formal that the edge's own key path supports: a dotted read whose static chain is a prefix of, or extends, the leaf's key path, or a bare consumption of the whole formal. A computed or literal subscript (`p['clean']`, `p[k]`), a read that executes in a callable nested in the callee (decided by the callable at the target's bytes, not the graph node's owner) and a written path refuse (`target_not_binding`). A recursive binding (the target in the caller's own function, Def or Use) refuses `self_param`, as the Def form does today (`test_self_call_param_stays_boundary`), never an intra-function DataFlow hop |
-| **Two call sites on one line** | refused when two sites spelled like the callee match the line, even when only one carries the value; a site of another name does not count (`log(t); g(t)` descends into `g`) | the hop evidence picks the site; refused (`ambiguous_site`) when it does not single one out. `other.run(t); this.run('fixed')` stays refused (`not_exact`): the edge carrying `t` is name-only |
-| **Spelling differs from the definition's name** | refused in the cases lane 3's review found (aliased or default import under another name, wrapper around a differently named function) | the site is matched to the callee through its resolved target under the hop evidence, slot proof included; a forwarding wrapper is crossed only through edges of its own body |
-| **Returns** (repair) | ascent into any caller with a singleton-Exact call to the callee (section 2 (a)) | the walk state carries the bounded stack of entered sites; after a descent, ascent returns only through the site entered (`return_not_entered_site`); a root inside a callee (nothing entered) keeps today's rule, since a value the callee itself produces reaches every caller |
-| **Depth** (repair) | first-come visited set; a recursive Use-target binding is uncounted (section 2 (c), (d)) | the budget counts every crossing, descent and ascent (output `descent_depth` keeps counting descents); a state (node, entered-site stack) reached again with more remaining budget is re-expanded and its witness replaced, so the order of exploration does not decide the answer; stage D fixes the parent store per state (or re-derives the displayed chain under the stack discipline) and retracts boundaries of superseded expansions, so witnesses and warnings do not depend on order either; the depth-0 CFG filter places a synthetic return value at its return statement's line (section 2 (e)) |
+   On the pinned fixtures, d01 exposes two `interface_dispatch` implementations and d02 one `embedded_promotion`. Both descend. d03's source declares an override but the pinned callee query reports just Base.run via `typed_param`. Resolution passes for that target; the implicit Python receiver fails (iv). Do not synthesize a Sub.run edge. w09 exposes two `local_def` targets of `f`. The conditional assignments give a feasible flow, but no receiver dispatch certificate. Refuse both. Test a real or constructed override pool independently of d03.
+4. **(iv) Certify the slot.** Through actual *i*, require ordinary positional arguments and a one-to-one mapping to declared formal *i*, using the original signature including holes. Selected formal must be a plain positional binding. An unambiguous Python positional-only name qualifies. A later spread, rest or Go variadic tail cannot move a fixed prefix. A preceding/selected expansion, selected default, destructuring, rest/variadic slot, keyword, receiver offset, method expression, call/apply/bind adapter or unproved decorator mapping refuses `unproven_slot`. A Go bound-method receiver is declared outside the parameter list. Python bound self/cls consumes a declared slot. Never use a receiver as argument zero. A JSX edge uses a separate certificate for the producer's props position 0 and its selected key/local, never the ref position. This does not admit ordinary destructured calls by ordinal.
+5. **(v) Certify the value version.** Match the lexical binding and prove the reaching version at that occurrence. Use byte order and def/use facts for writes, shadowing, kills and competing reads. A same-line redefinition prevents substituting a later occurrence for the earlier value. If the graph conflates versions and order cannot isolate the emission, refuse `ambiguous_site`. Cache static proofs within one graph/view by relation, emitting caller/site/value start **and end**, both endpoint identities, target and slot, label/ceiling if consulted. Keep order/version, context policy, exclusions, stack and budget outside that cache unless also keyed. Cache failures only at the same specificity.
 
-The depth cap stays 2 by default. A name-only callee stays refused by default.
+**Standalone name-only guard (I-guard).** Before consulting or caching any positive site result, inspect the candidate binding's *own* label. Under Exact, a `NameOnly` doubt of `call_nameonly` or `builtin_callback` refuses `not_exact`, even on a line also containing an Exact call to that target. Recognize the second kind when its producer lands. Do not reject unrelated doubts such as `SameLine` on an Exact literal pairing. For ordinary byte-carrying nodes require caller and containment, including on a single line. For producer line keys a line can nominate candidates only. At this early slice leave uncertified line-keyed widenings refused. Preserve existing positive, uniquely owned scalar descents. The guard needs the edge and existing site bytes, independent of the later syntax view, stack and knobs. Pin n01/n02 on constructed edges until the real producer runs; preserve l01 and refuse l06.
+
+**Binding.** Trust the existing producer's leaf/read pairing. It already compares key paths by prefix in either direction, applies duplicate/spread and write suppression and bypasses the formal Def to avoid tainting siblings. Verify the existing edge, proven slot and owner, and that the Use is a direct DataFlow neighbour of that very formal Def with the same binding. At its bytes accept a read of a static dotted chain or a bare consumption. Reject any subscript on the observed path (literal included), a write target or a read executing inside a nested callable, invoked or otherwise (`target_not_binding`). Use the lexical execution owner of the target bytes. Missing edge means `no_graph_edge`; never recreate a producer's path match. A same-owner recursive binding, including the Use form b04, goes through the `self_param` boundary before local traversal. A local CFG-impossible target before the seed (b04b) gives no sink warning. I-binding edits no lane-3 file.
+
+**Two call sites.** l01 proves `g` from its own second `t` [166,167). l02/l03 can likewise distinguish separate actuals. For l04 explicitly refuse overlapping nested same-target argument spans (`ambiguous_site`) when the de-duplicated edge has no evidence selecting the inner argument versus the outer result. Choosing the narrowest span is insufficient. A later separately proved return of the inner call can supply a distinct outer actual. No outer-site credit from the bytes of the inner argument. l05's Python Use [74,78) fits only the first site [72,79); the second occurrence supplies no graph Use. Admit the first and pin the bytes, with no second-site witness. Under a collapsed line key that could denote either emission refuse both. l06 refuses the name-only edge even though the other call is Exact. In tr2-js-rebind the first occurrence before the write can be proved and its witness must use it. In l07 the reached version occurs in the first call's second slot. Refuse the conflated route to the first formal across the write. A distinct read proved to be of the new version is ineligible from this root.
+
+**Spelling.** Enumerate by caller identity, resolve the precise site, and compare target identity across imports, default exports, namespace members and aliases. The callee's definition spelling is never a site filter. Apply (i)–(v) to renamed calls, including w07. Wrappers require an existing, proven edge at each crossing. A resolver-supported JSX wrapper uses only the target and props binding admitted by lane 3.
+
+**Returns and Depth.** Push (file, caller, full site span, callee) on descent. On ReturnFlow recover the exact call assigned to the destination Def and match the return component, including tuple position and ignored/discarded results. With an entered frame, require equality to the top and pop it. An unrelated site is a `return_not_entered_site` **cut**, even if the budget is exhausted. An empty stack allows an origin inside the callee to ascend each individually certified existing result edge, including further ascents after a pop. A discarded result cannot return to a neighbouring assignment. A recursive return is a `self_return` boundary. Charge one for every accepted descent or ascent and none for intraprocedural propagation. The displayed `descent_depth` counts only descents. A synthetic ReturnValue uses its own return statement for the depth-zero CFG check. Existing ReturnInput and local assignment relations keep their semantics. For example, tr2-js-wrapper has a two-crossing summary through `wrap`; a witness claiming also to enter and exit `id` would cost four.
+
+For each root, keep separate states for (node, full entered stack). Also distinguish initial CFG-restricted traversal from post-crossing traversal when the stack is empty. Store the greatest remaining budget for each such state. Re-expand on improvement. Keep an immutable parent **per state version**, including the edge, certified bytes and predecessor version. Distinct equal-budget stacks at a formal remain live. On ties select minimum crossings, then shortest witness, then stable lexicographic file/byte/site/relation/endpoint order. Propagate a better canonical tie or select it from the final predecessor graph. This avoids hybrid chains and cyclic parents. Buffer boundaries and cuts by root, state version and attempted edge/site. Publish only those supported by final nondominated expansions, retract superseded records and suppress sink warnings when a valid witness wins. Retain independently live refusals in the ledger. Exercise reversed enumeration order. w01/w02 reject wrong and discarded returns, w03/w04 select the in-budget diamond, w05 retains a root-local synthetic return, w06–w09 exercise certificates. w10 and w10b select two and one descents at budget 3; w10c refuses the first descent at 0; w10d refuses ascent after two descents at budget 2.
+
+Use the following literal text (LF, one trailing LF) in the I-walk two-site test. For the witness to `b`, assert seed [40,41), actual [79,80), entered and returned-through site [74,82), callee return Use [24,25), returned-to Def [70,71), terminal [91,92), and exactly one descent and one ascent. The other actual [60,61), site [57,62) and Def [53,54) must never be spliced into that witness. Also assert the independent result for `a` using its own site. The matrix companion `a1-js-equal-budget-return-sites` uses two multiline calls and must assert internal bytes too.
+
+```js
+function id(v) { return v; }
+function f(t) {
+  const a = id(t); const b = id(
+ t
+);
+  sink(b);
+}
+```
 
 ### 5.3 Reasons
 
-One closed list explains every refused hop and every difference between default review and the trace engine,
-in both directions. Boundary reasons, recorded on the refused hop: `target_not_binding`, `no_matching_site`,
-`ambiguous_site`, `not_exact`, `unproven_slot`, `depth_cap`, `policy_ceiling`, `self_param`, `self_return`.
-Other causes, recorded by the census and, where the walk observes them, by `taint-reaches`:
-`return_not_entered_site` (a cut, not a boundary: the value never goes there, so row w01 stays NotReached),
-`no_graph_edge` (no binding or return edge: a producer limit, such as return flow of a
-name-only call), `shortcut_suppressed` (the certified constant-return cut of the same-line shortcut),
-`cfg_pruned` (the depth-0 CFG filter), `sanitizer_model` (review's body-presence cleansing against a proof on
-the path), `operand_granularity` (the line is reached, the sink's operand is not), `unmodelled` (captures,
-callbacks). Review-side reasons, for a sink the trace engine reaches and default review does not (r2 probe
-`b3`: a multi-line `const y = id(\n t\n)` reaches `exec(y)` only over return flow): `review_no_return_flow`,
-`review_no_recovered_def_use` (a field path's recovered def-use on an earlier line), `review_cfg_filter`
-(review filters same-function targets at every depth with a 20-line continuation scan), `review_context_policy`
-(PR #841's policy applies to the review client only). A reason is bound to the root, the hop's from and to nodes and the requested sink, not to a
-warning located in the same function; when the cause cannot be decided, every candidate is kept. A sink
-beyond the refused hop's function is bound too: when the verdict would be NotReached and the root has
-boundaries, the sink is tested for reach from each boundary's target by the unconditional walk
-(`dfg_forward_reachable`, the walk default review uses), memoised per target, with a cap on the boundaries
-tested that a warning names; if one reaches it, the verdict is BoundaryExited with that hop's reason (r2
-probes `b4`, `b5`: today NotReached, the warning in another function). Anything
-else is `unexplained`, which no gate accepts. Today a boundary carries only a kind (cross-function, own
-parameter, own return), so every name is new; stage D fixes the names and their precedence. `taint-reaches`
-shows the reason with the boundary.
+Use one primary reason per refused hop and per lost **or gained** sink identity (repository revision, file, projected line, direction, compared root sets/options). Preserve the root, state, from/to, site/slot when known and sink operand for each contributing path. This is the closed vocabulary, in priority order **within each applicable stage**:
+
+| Stage | Ordered reasons and evidence |
+|---|---|
+| Existing crossing | `self_param`, `self_return`; then `return_not_entered_site` for a certified wrong return (cut); then `depth_cap`, the edge-own `not_exact` guard, `target_not_binding`, `no_matching_site`, `ambiguous_site`, site/pool `not_exact`, `unproven_slot`, `policy_ceiling`. The last is #841's independent context filter. Version ambiguity is a site ambiguity. A missing view cannot certify any return or binding. |
+| Local path and producer | `shortcut_suppressed` for the certified return shortcut cut, `cfg_pruned` for a rejected local successor, `unmodelled` for a specifically identified missing construct (capture, callback), otherwise `no_graph_edge` for a demonstrated missing binding/result. Exhausted search alone proves none of these. |
+| Comparison of clients | `review_no_return_flow`, `review_no_recovered_def_use`, `review_cfg_filter`, `review_context_policy` when the successful path needs that difference. `sanitizer_model` for incompatible cleansing evidence, `operand_granularity` for line/fan or seed-occurrence projection (record both root identities when review uses a different root). Use `unmodelled` plus the inventory number for an exclusive per-root-inexpressible emitter in catalog comparisons. |
+
+A boundary must reach the requested sink for **that root**: test the target itself, then an unconditional forward continuation from that exact target node to the operand (including intervening functions). Memoize by graph, target and continuation constraints. The unconditional DFG is a candidate index: check occurrence identity, proven wrong-site cuts and local order before binding a sink (a line-keyed VarLocation can represent multiple byte occurrences); a warning in the same function cannot assign a cause. A limit on target tests produces an explicit incomplete warning, never positive attribution. Excluded sanitizer hops and dominated visits are bookkeeping, not flow boundaries.
+
+For sink attribution first seek a discriminating path/decision difference at identical inputs, or a controlled minimal relaxation. Include joint barriers as secondary evidence. On a necessary sequence choose the first blocking hop from the root and its primary reason. For alternative complete explanations choose least number of relaxations, then shortest causal path, then the stage and reason order above and canonical byte identities. Prove sufficiency before tie-breaking. In particular a valid return-gain witness must need return flow to explain a gained line. Keep ambiguous or unbound candidates in diagnostics. Report `unexplained` as a failing audit status until one cause is established; its required count is zero. No `other`, `unknown`, or joint label is a product reason.
 
 ### 5.4 Knobs
 
 `taint-reaches` gains `--edges exact|nameonly` (default `exact`) and `--depth <0..=3>` (default 2, counted as
 in 5.2; 3 is the deepest the matrix exercises); the MCP tool gains the same optional inputs. Trace-mode review
 keeps its CLI unchanged: the core walk takes the policy, review passes the default, and tests pass other knobs
-through the core API. PR #841's policy cannot carry them (it governs context files only), so the lane adds a descent
+through the core API. At `nameonly` admit at most a homogeneous singleton name-only resolution for that same proved binding; all occurrence, origin, slot, recursion, frame and budget checks still apply. A derived callback with no provable actual/formal mapping still refuses. PR #841's policy cannot carry them (it governs context files only), so the lane adds a descent
 policy of its own beside it, reusing that PR's ceiling type with another meaning, stated at the flags: #841
 compares a context-entering edge's own label (a `sameline` or `cfg_incomplete` doubt fails `Exact`), this
 policy the call's resolution grade plus the two doubt kinds of 5.2. The ceiling governs the resolution grade the hop
@@ -229,63 +199,36 @@ edge differential). Equal knobs give equal answers at the walk level of 5.1 only
 
 ### 5.5 Confidence in trace mode
 
-Trace-mode findings keep `unlabeled`: a grade changes labels of an opt-in mode, not reach, reasons or the
-catalog. Stage D records the census grade histogram; a grading change (the weaker of the call's resolution and
-the binding edge's own label, so an Exact call whose object-literal edge is `NameOnly(SameLine)` stays
-name-only; recovered def-use, assignment propagation and return input keep their doubt) is a follow-up for
-the owner (decision 4). The matrix carries the expected grade per row.
+Keep the existing evidence classifier. Crossing or assignment propagation can make a finding `unlabeled`; this is not a blanket grade for trace mode. Of 53 surviving population-A sink lines, default review had **21 exact, 2 nameonly, 30 unlabeled** and trace review had **24 exact, 2 nameonly, 27 unlabeled**. These are marginal histograms of the same survivors, not a transition matrix. Record both findings' actual grades. Changing how a crossing contributes confidence remains decision 4's follow-up.
 
 ### 5.6 The catalog
 
-```rust
-// src/reasoning/sink_catalog.rs  (core)
-pub enum CatalogStrength { Strong, Weak }
-pub struct CatalogSink { pub file: String, pub line: usize, pub start_byte: usize, pub end_byte: usize,  // the call
-                         pub rule: String, pub cwe: Option<String>,
-                         pub category: Option<SanitizerCategory>,   // None: no category, even from the CWE
-                         pub strength: CatalogStrength,
-                         pub operand: Option<(usize, usize)>,       // the tainted operand decided on; None: any target on the line
-                         pub review_cleansed: bool }                // review's own cleansing suppressed it
-pub trait SinkCatalog: Sync {
-    /// Review's sink decisions for `fans`, one single-source fan per root holding that root's full reach (the
-    /// shape review builds), over the graph and files they were walked on.
-    fn sink_decisions(&self, cpg: &CodePropertyGraph, files: &BTreeMap<String, ParsedFile>,
-                      fans: &[FlowPath]) -> Vec<CatalogSink>;
-}
-```
+Use the existing matcher on **one complete single-root fan** and the graph, parsed files, run configuration, seed membership and framework facts used by review. Batch many fans in one invocation, retaining their identities. Distinguish the *matcher decision* (including the projected line and review cleansing), the *operand it decided*, and the *walk verdict from this root*. The line-parity oracle compares decisions; it does not require that the graph has a witness to each operand. A row's finding columns can include framework or other line roots. Its catalog column selects only the marked occurrence.
 
-Review's predicates are defined on fans and need the graph (section 2): asked about one line with one witness
-chain, the same predicate answers otherwise (r2 probe `c2`: `exec(\n u,\n t\n)` with `u = t` is reported at
-both lines because the fan holds `u`; the chain to `t` alone matches nothing). So the review crate implements
-the trait by running review's own sink loop (the body of `taint/run.rs`'s loop over paths, factored into a
-function that returns decisions; its per-run source facts, framework sources and wrapper sinks, computed once
-per call from the graph and files), with every predicate as review runs it (`arg_is_tainted_in_path`, the
-per-language outcomes including Python template keywords, `flow_path_cleansed_for_sink_call`). An operand is
-never paraphrased from a table index. Catalog lines therefore equal trace-mode review's sink lines for the
-same roots by construction. In catalog mode the reasoning layer walks forward from the sources as in
-frontier mode, builds each root's fan from the trace as trace-mode review does, asks the catalog once, maps
-each decision to the reached nodes on its line for verdict, witness and sanitizer walk, and reports each
-distinct (file, sink span, rule, operand) with verdict, witness and sanitizer result, under the existing
-result caps. The verdict is Sanitized only when a sanitizer of the sink's own category is on the path, for the
-witness hits and the bypass exclusions alike (a `review_cleansed` decision is reported, not dropped, so a
-sanitized sink stays visible); a sanitizer of another category, or any sanitizer on a rule with no category,
-is reported as advisory beside Reached. The line query keeps its documented any-category meaning.
-Flat rules lose two things against structured ones, reported rather than hidden: no operand (review's flat
-matcher accepts any reached target on the line, so `operand` is `None`), and a category only through the
-rule's CWE (79, 89, 918, 502, 78, 22 map to their sanitizer categories; another CWE gives none, so every
-sanitizer is advisory). `strength` is carried: a weak hit, which review hides under its default floor, is
-reported with `strength: weak`, not as a plain sink.
-CLI: `prism nav taint-reaches --source … --sinks catalog`.
+| Decision field | Contract |
+|---|---|
+| Origin and location | Root occurrence ID, inventory family, file and **projected finding line**, plus the actual call, constructor, assignment, attribute or identifier span. Use the matched row span when the predicate has only a row. A call need not exist. |
+| Operand | Tagged `LineOnly` (wire operand null, verdict on any fan target at the row), `Argument` (whole selected positional/semantic argument subtree), `KeywordValue` (the selected template variable's value), or `JsxAttribute` (whole attribute). The latter three carry half-open UTF-8 **file** offsets from the matcher. A qualifying framework source range is an admission fact. For the flat call or assignment gates it does not silently become a selected argument or RHS. |
+| Classification | Actual classifier tag or registry ID, CWE, optional sanitizer category, strength, and `review_cleansed`. Structured IDs use `structured-<category>` pending lane 7. Preserve a legacy identifier rule, discovered wrapper name and configured pattern identity even without a `SinkHit` (use family-qualified matched pattern as ID until registered). A flat category derives only from a mapped CWE (79, 89, 918, 502, 78, 22). Weak entries retain weak strength. |
+| Verdict and witness | For an operand, aggregate only intersecting nodes in this root's trace, on the operand's own source lines. Keep the exact decision even for NotReached or BoundaryExited, with no invented chain. For a line-only hit return its line witness and label the scope. Sanitized needs matching-category evidence on this root's paths, including the same-category bypass re-walk under identical knobs. An unresolved bypass can yield BoundaryExited. Body-presence cleansing or a hit in another fan cannot alone prove Sanitized. A recognizer of a different category or a hit on a categoryless rule is advisory. |
 
-Before stage D the emitter families of review's sink lines are inventoried (PLAN Task E-2): each is in the
-catalog with rows, or declared unsupported with a diagnostic and rows that pin its absence. Rule ids come
-from lane 7's registry (`crates/prism-review/src/output/rule_registry.rs`) when that lane has merged; until
-then the classifier's tag is used as is, and a structured sink, which has no tag, is named
-`structured-<category>` as lane 7 spells it. The implementation returns the id, so the reasoning layer never
-maps ids itself. The classifier holds interior state that cannot be shared between threads, so the
-implementation builds one per call; a per-file cache is a stage D option if the cost check (JS, Python and Go
-repositories) shows the need. Because the matrix alone cannot show that catalog mode reports what review
-reports, a check on real code compares them (gate Catalog, section 7).
+A review predicate can accept the correct text on insufficiently precise graph evidence. For c04 a fan reaches the first `x` on the line; the matcher can select the second but the operand verdict is NotReached. For family 22 the classifier can recognize an inline request argument external to the fan; retain its decision and judge the selected bytes from the requested root. No decision from an independent root may be borrowed. Conversely an accepted `review_cleansed` candidate can have an unsanitized bypass. Keep root-specific verdicts through aggregation and clipping. Count syntax arguments without comment/trivia nodes (a1-js-sanitizer-comment-slot). A paired guard may establish catalog Sanitized only with its actual checked operand, dominating success branch and no raw bypass in that fan (s3-go-paired-clean-independent-fan). Body scans alone remain advisory.
+
+Extract review's fan loop once; both adapters use the same graph/file identities, run facts, dispatcher ordering, operand selection, range masks and cleansing. Project each admitted continuation row separately (c12). Deduplicate identical (root, file, projected line, sink span, rule, operand kind/span) records, then group the root results for display. At a matched occurrence prefer the structured operand decision over a duplicate flat fallback for the same sink. Keep separate occurrences and independently selected structured categories. Use the inventory's flat tag when only the flat route admits the occurrence. Preserve the underlying admissions so a cleansed structured hit cannot hide an independently surviving review line. Configure strength floors identically in a gate run. Build one classifier per query; measure JS/Python/Go before proposing a shared cache.
+
+**Emitter contract.** The inventory has seven writes, 29 ordinary `taint_sink` families and eight companion entries. Families 1–12 are flat/legacy/configured, 13–19 structured (including JSX, template text/keyword and multiline projection), 20–22 add request facts, 26 uses the Go framework table, and 28 accepts a positive originating fan with seed-row facts. These 24 are expressible. Test 9/10 with native legacy/C-wrapper inputs outside the five-language matrix and 11 with an actual nonempty API configuration; default-config emptiness does not exercise the positive route. For 28 isolate the seed predicate from the ordinary structured write in a matcher test.
+
+| Unsupported ordinary family | Missing input in a per-root decision | Fixture (pin empty for this route) |
+|---|---|---|
+| 23 Independent JS inline YAML | Scan of every admitted file, even without any root | e2-js-inline-yaml |
+| 24 Inline Flask positional | Source-line seed event, including one with no fan | e2-python-inline-flask-positional |
+| 25 Inline Flask template keyword | Source-line seed event plus template-keyword match | e2-python-inline-flask-keyword |
+| 27 Go no originating fan | Seed membership and proof the set of originating fans is empty | e2-go-no-originating-path |
+| 29 Go secondary inline source | Negative fold over **all** originating fans before separate inline search | e2-go-mixed-inline |
+
+Expose a structured coverage diagnostic identifying these five families and their missing inputs on CLI/MCP, including an empty result. Preserve normal seed errors. Do not scan the repository to pretend to identify individual omitted hits. Independent supported hits on the same line still count. Entry 30 is the separate Bash `unquoted_expansion` category. Entries 31/32 synthesize upstream target/IPC roots; do not silently add them to an explicit-root query. Entries 33–35 are shared fan suppressions, 36 belongs to the unsupported source-event routes and 37 arbitrates Bash occupancy. They are outside the 29-family denominator.
+
+Core owns `SinkCatalog: Sync`, a batch `sink_decisions(cpg, files, rooted_fans) -> CatalogDecisions` interface. Each rooted fan contains its actual root ID, seed membership and complete FlowPath. The result contains the decisions and coverage diagnostics above. Pass configured run facts through the implementation. The review crate supplies the first adapter to `prism nav taint-reaches --sinks catalog`; I-9 moves that implementation to `prism-taint` for both binaries (A2).
 
 ### 5.7 Where the code goes
 
@@ -300,7 +243,15 @@ review keeps re-exports so its paths hold.
 
 ## 6. Measurement
 
-**Parity census (stage M, after PR #841 merges).** On the 120-diff population of issue #602: for every sink
+**Stage D change log — measured overrides (2026-11-24).** The original #602 list was unavailable. M selected 20 qualifying diffs in each of six repositories. On 120 paired diffs there are 56 default and 68 trace sink lines, 53 survivors (53/56), three losses and 15 gains. Two Directus Redis lines (140, 159) returned under `not_exact`; Superset helpers.py:4635 required `not_exact+depth`. Under the default Exact/2 knobs none is a measured binding, same-line or spelling recovery.
+
+The census patch logs pid, root/from/to (owner, line, access, path and bytes), relation, depth, refusal/cut, **first** failing condition and site features (line/containment lists, alternate spelling, target access, grades; `slot_if_known` is null). Its unconditional relaxations give upper bounds, not certificates. Across six frontiers the raw 2,987 records are 2,479 depth (2,105 descent, 374 ascent), 357 CFG, 63 site-not-exact, 56 shortcut, 29 self-param and 3 cheaper revisits. `classes.json` reports 2,455 classifiable depth refusals and the census flags 24 refusal records with incomplete identity. Keep both denominators. Among depth-refused descents, 267 also have name-only and 68 also have Use targets. Neither overlap is a new finding. Same-line and spelling have zero observed or latent members. Baseline control replay covered the two diffs with losses, not all 120.
+
+The machine ledger `classes.json` assigns eight gains to Superset a813fb906c78 and seven to five Apache Answer revisions, although the CENSUS.md close note places all 15 in Superset and calls them return-flow gains. Use the ledger for identity (Superset queries.py:666–669, 671–672, 674–675; Answer template_controller.go:381 at 791b5f74, :384 separately at 88c5ef66, ace02c49 and c7b37a15, and connector_controller.go:135,184,194 at 06a0f742). The candidate reason is `review_no_return_flow`. Attribute each line by §5.3 before granting Explained credit. Neither `unknown` nor `other` is an accepted waiver. The three loss records also lack bound boundary identities. Preserve the joint relaxation as evidence even when reporting one primary reason.
+
+**Decision 6.** Population A gives zero recoverable sink lines to all three descent slices. Binding has 68 latent candidates, all already over budget. Each optional slice costs about three engineering days plus census, Sound sample, Benchmark and runtime checks (nine days together). The matrix case for keeping them is a reproducible occurrence-level improvement for supported bindings, collisions and aliases, including lane 3. The yield case for deferral is no measured default recovery; no default increase or 95% Sound pass can be inferred from empty samples. If kept, binding has the only latent population and goes first; ties retain same-line then spelling. The owner decides dispatch and any change to Recovered. Guard, walk repairs and knobs have independent reasons to proceed. Keep Exact/2 defaults and the maximum selectable budget of 3. The census did not authorize a change of ceiling, cap, grade, or benchmark threshold. Population B remains unmeasured.
+
+**Measurement method (Stage M).** On the replacement 120-diff population described above, for every sink
 that default review taint reports, run review in trace mode and record whether the finding survives and, if
 not, the boundary. Every run freezes its commit, loaded-file manifest, options, roots and binary. The unit is
 a path: source occurrence, call site and slot, sink operand. Yield is counted by sink line. A lost
@@ -313,7 +264,7 @@ hand-written prototype of 5.2. The relaxation patch is applied to the base commi
 Review parses only the diff's files, so population A observes a crossing only when caller and callee are
 both in the diff and cross-file classes (spelling, cross-file bindings) would read near zero for a reason of
 measurement: the same log is also collected from `taint-reaches` frontier mode on the full checkout for the
-census's frozen sources, and a class's size for the ordering rule is the larger of the two. The apparatus is
+census's frozen sources, and a class's size for the ordering rule is the larger of the two. The measured overrides above govern decision 6. The apparatus is
 first run on synthetic fixtures (two roots and two sites on one sink line; a joint barrier) and must change
 the right cell. The benchmark's harness records trace-mode review, not default review, so it supplies the
 Benchmark gate's paired `taint-reaches` non-regression only, not classes.
@@ -338,10 +289,10 @@ real" (reported; old line-granular hops can fail it), adjudications kept.
 |---|---|
 | Matrix | every row's expectations hold at each level with its reasons; with equal knobs, trace-mode review and `taint-reaches` give the same walk on every `walk_comparable` row |
 | Explained | in the census after the lane, every default-review sink that the trace engine does not reach, and every trace-mode finding that default review does not report (the gained list), has a reason from the closed list of 5.3; `unexplained` is zero |
-| Recovered | the share of default-review sinks confirmed by the trace engine rises; the classes fixed in 5.2 account for the rise |
+| Recovered | report head against 53/56 under identical defaults. A rise must name its recovered sinks and causes. A flat result leaves this gate unmet unless the owner expressly revises it under decision 6 |
 | Sound | at least 95 of 100 sampled new crossing paths have a real new hop (a smaller population: all of it, at most 5% not real); the whole-path label is reported; a known false witness is a WRONG whatever the tally; no observations is reported as such |
 | Benchmark | traced cases through `taint-reaches` do not decrease in any class; every case that becomes traced has been read and none is a false witness |
-| Catalog | on the matrix, catalog mode reports exactly each row's expected multiset of (file, line, rule, operand, verdict), an empty list included; every (file, line) where it differs from review's `taint_sink` findings carries a reason from the closed list in the row; and on real code (population A's repositories at their census commits, the census's frozen sources, one whole-repository graph through the API) the catalog's (file, line) set of decisions not `review_cleansed` equals trace-mode review's `taint_sink` lines, except for emitter families declared unsupported |
+| Catalog | on the matrix, catalog mode reports exactly each row's expected multiset of (file, line, rule, operand, verdict), an empty list included; every (file, line) where it differs from review's `taint_sink` findings carries a reason from the closed list in the row; and on real code (population A's repositories at their census commits, the census's frozen sources, one whole-repository graph through the API) the catalog's (file, line) set of decisions not `review_cleansed` equals trace-mode review's `taint_sink` lines, at matched roots/configuration/floor, except for individually identified contributions exclusive to families 23–25, 27 or 29. Compare before result caps. A supported `(root, projected line)` cannot be excused by an unsupported hit on that line |
 | Defaults | with default knobs, review taint's findings are unchanged on the population |
 
 ## 8. Owner decisions
@@ -351,9 +302,9 @@ real" (reported; old line-granular hops can fail it), adjudications kept.
 | 1 | Start before PR #841 merges | no; wait for it | starting early means rebasing three files | at start |
 | 2 | How the MCP server gets the catalog | **Owner, 2026-11-24: branch A2, a new crate `crates/prism-taint` below both binaries that holds the taint module's closure (section 4).** Chosen with the measured size in hand (section 2: the matchers call into source discovery, so the closure is nearly the whole taint module, about 18,300 of 19,146 lines in 51 of 53 files). It replaces the owner's earlier choice of branch A (2026-11-21), made before the closure was measured. Estimates of the alternatives, recorded: A 9 days, B 2.5, C 0.5; A2 is 7.5 (PLAN I-9) | A2 is a structural change to the crate layout and adds a crate; moving back means a second move-only sequence | decided |
 | 3 | Default of `--edges` for `taint-reaches` | `exact`, as today | flipping to name-only changes agents' answers | — |
-| 4 | Grade of trace-mode findings | `unlabeled`, as today; stage D records the histogram, and a change is a follow-up (5.5) | one slice and every trace-review cell | any time |
+| 4 | Grade of trace-mode findings | retain the current classifier and mixed grades (5.5) | one slice and every trace-review cell | any time |
 | 5 | Depth cap | 2, adjustable by flag up to 3 | — | — |
-| 6 | No census class has a recoverable member on population A | asked before any descent slice is dispatched (Recovered cannot rise) | — | end of stage M |
+| 6 | No census class has a recoverable member on population A | open for I-binding, I-same-line and I-spelling; keep for the matrix or defer for lack of measured recovery (§6) | — | end of stage M |
 
 ## 9. Risks and accepted limits
 
@@ -370,8 +321,7 @@ real" (reported; old line-granular hops can fail it), adjudications kept.
 - **Differences that remain by design:** captures, callbacks, name-only return flow, anything review's
   unconditional walk follows that has no hop evidence. They stay in the matrix with their reasons.
 
-Recorded, not pursued: a cheaper first binding slice that admits only proven dotted reads and bare
-consumption (stage D may choose it; it is a subset of 5.2); a review-consistent `taint-reaches` query mode
+Recorded, not pursued: a review-consistent `taint-reaches` query mode
 (another public contract). Dropped from the lane as not changing the goal-level result, each a follow-up with
 the decision it would support: the trace-mode grade slice (decision 4); descent flags on the review command
 (only if a user of trace-mode review other than the benchmark harness asks for them); labelled samples of new
@@ -380,3 +330,13 @@ a wall-time measurement). Pre-existing defects found by the round-2 probes, pinn
 close-out: a mixed formal's second member read on a line gets no binding edge (r2 probe `a3`); default
 review reports `exec(p.b)` when only `p.a` is tainted (`a1`; catalog mode inherits it); in Python and Go the
 second occurrence of a name on a line never binds (`b1p`); Python keyword arguments get no edge (`b2`).
+
+**Accepted losses on the pinned producer.** js06 misses the nested capture and js07 the callback parameter flow (`unmodelled`). go04 lacks a graph path to the selected `c` in the chained `exec.Command(c).Run()` form (`no_graph_edge`); plain Go command controls remain positive. Name-only return edges and other documented missing producer edges are separately pinned. An unsupported catalog emitter is a coverage limit, not a false witness. Accept a real gain due solely to default review omitting return edges once demonstrated; none of the 15 ledger entries is accepted *because* it is `unknown`. Preserve every `known_wrong` and its truth in STAGE_D_ROWS. A wrong witness remains a defect even where its public verdict stays the same. Further deliberate refusals include w09's uncertified local pool, d03's implicit receiver offset and matching computed-key reads. Their semantic truth can be flows. They earn no recovery credit.
+
+**Enumeration close.** E stopped while still producing rows. Site identity/slots, returns/budgets and sanitizers/source fans have a row for each independent factor at the last tier. This does not assert Cartesian-product coverage. Apply the following rules also to members absent from the matrix.
+
+| Open class | Rule for any member | Limits |
+|---|---|---|
+| JSX ownership | Enumerate executable openings × effective attribute leaves × lexical value owners × producer-admitted component identities. Apply the actual line-index lookup and (i)–(v) to the reached Use. Last effective own key wins within its opening; respect spreads, namespace-export identity and the producer's direct React wrapper admission. A callback-local use can qualify. | No synthetic captures across one or more owners, signature-only source, type-only use, shadowed or unproved wrapper, or sibling-opening evidence. |
+| Formal reads (including JSX) | Vary formal position/binding, read AST kind, lexical execution owner, write/kill and key relation. Follow only the producer's paired edge to the formal/local Def or to a direct read under Binding. Apply any documented pattern-local mapping to that local specifically. | No phantom destructured or rest edges, computed read, write, nested callable read, or sibling-field precision beyond the graph. Missing producer stays pending only when an identified upstream change is actually expected. |
+| Route-handler shapes | Generate matched pairs varying framework activation, registration shape/provenance, receiver binding, signature position/pattern, owner/shadow and root projection. Use review's actual source discovery, ranges and file admission once. Hold the explicit occurrence fixed and identify any separately admitted framework root by ID. | No new route recognizer, arbitrary adapter inference, transfer of a framework fan to the marked root, or claim that lexical recognition proves runtime registration. Unrecognized registrations provide no implicit seed. |
