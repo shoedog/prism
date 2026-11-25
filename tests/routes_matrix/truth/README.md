@@ -3,7 +3,7 @@
 Run from the worktree root with Node 24 on `PATH` and the offline environments in place.
 
 ```sh
-fixture=tests/fixtures/routes
+fixture=tests/routes_matrix
 out=$(mktemp -d)
 python3 -B -m unittest discover -s "$fixture/truth" -v
 python3 -B "$fixture/truth/run_truth.py" --rows "$fixture/rows.jsonl" \
