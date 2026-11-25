@@ -20,6 +20,15 @@ use rows::{
 };
 
 const ENABLED: &[&str] = &["control"];
+
+/// `PARITY_ENABLED=control,binding` replaces `ENABLED` at run time (a worker's hand-enabled RED record);
+/// the committed constant is what CI runs.
+fn enabled_groups() -> Vec<String> {
+    match std::env::var("PARITY_ENABLED") {
+        Ok(list) => list.split(',').map(str::to_string).collect(),
+        Err(_) => ENABLED.iter().map(|group| group.to_string()).collect(),
+    }
+}
 const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/taint_parity");
 struct Fixture {
     _dir: TempDir,
@@ -303,8 +312,9 @@ fn check_cells<T: std::fmt::Debug + PartialEq>(
 ) {
     let mut failures = Vec::new();
     let rows = rows();
-    for &group in ENABLED {
+    for group in enabled_groups() {
         let mut executed = 0;
+        let mut pending = 0;
         for row in rows.iter().filter(|row| row.group == group) {
             let expect = row
                 .expect
@@ -312,6 +322,7 @@ fn check_cells<T: std::fmt::Debug + PartialEq>(
                 .unwrap_or_else(|| panic!("{}: enabled row has no expectations", row.id));
             if let Some(issue) = row.pending_issue(level) {
                 eprintln!("{}: pending {level:?} ({issue})", row.id);
+                pending += 1;
                 continue;
             }
             let got = actual(row, &Fixture::load(row));
@@ -322,7 +333,11 @@ fn check_cells<T: std::fmt::Debug + PartialEq>(
             }
         }
         if executed == 0 {
-            failures.push(format!("{group}: no {level:?} cells executed"));
+            if pending == 0 {
+                failures.push(format!("{group}: no {level:?} cells executed"));
+            } else {
+                eprintln!("{group}: all {pending} {level:?} cells pending");
+            }
         }
     }
     assert!(failures.is_empty(), "\n{}", failures.join("\n"));
@@ -442,10 +457,14 @@ fn validate_row(row: &Row) {
 
 #[test]
 fn parity_rows_are_well_formed() {
-    assert!(!ENABLED.is_empty(), "at least one group must be enabled");
-    for group in ENABLED {
-        assert!(GROUPS.contains(group), "unknown enabled group {group}");
-        assert_ne!(*group, "tbd", "tbd rows cannot be enabled");
+    let enabled = enabled_groups();
+    assert!(!enabled.is_empty(), "at least one group must be enabled");
+    for group in &enabled {
+        assert!(
+            GROUPS.contains(&group.as_str()),
+            "unknown enabled group {group}"
+        );
+        assert_ne!(group, "tbd", "tbd rows cannot be enabled");
     }
     let mut ids = BTreeSet::new();
     let mut invalid = Vec::new();

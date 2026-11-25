@@ -1,5 +1,6 @@
 use crate::diff::DiffBlock;
 use crate::finding_confidence::EvidencePath;
+pub use crate::rule_registry::RuleRef;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -13,18 +14,6 @@ pub struct FileParseQuality {
     pub quality: String,
     /// Lines containing ERROR nodes (first 20, to avoid bloat).
     pub error_lines: Vec<usize>,
-}
-
-/// A reference from a finding to the rule it is an instance of: the rule id, the rule's CWE when it
-/// has one, and the rule's own severity when that is lower than the finding's.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct RuleRef {
-    pub id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cwe: Option<String>,
-    /// The rule's own severity, only when lower than the finding's.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub severity: Option<String>,
 }
 
 /// A structured finding from a slicing algorithm.
@@ -589,19 +578,11 @@ mod tests {
 
     #[test]
     fn rules_serialize_as_id_and_optional_cwe() {
+        use crate::rule_registry::{JS_DOM_HTML, LEGACY};
         let mut finding = SliceFinding::default();
-        finding.rules.extend([
-            RuleRef {
-                id: "js-dom-html".into(),
-                cwe: Some("CWE-79".into()),
-                severity: None,
-            },
-            RuleRef {
-                id: "legacy".into(),
-                cwe: None,
-                severity: None,
-            },
-        ]);
+        finding
+            .rules
+            .extend([JS_DOM_HTML.rule_ref(), LEGACY.rule_ref()]);
 
         assert_eq!(
             serde_json::to_string(&finding).unwrap(),

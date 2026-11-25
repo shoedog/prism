@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "dependencies": {
+    "@hapi/hapi": "^21.1.0"
+  }
+}

@@ -1,10 +1,18 @@
 # Taint parity matrix
 
 Each JSON line records one source occurrence and one sink operand in a fixture.
-The four taxonomy tests check every row's shape and the executable cells of the
-groups listed in `ENABLED`. Run them with
+One taxonomy test validates every loaded row. The other three check walk,
+default review, and return-flow review for the groups listed in `ENABLED`. Run them with
 `cargo test --test algo_taxonomy taint_parity_test::`.
-Each enabled group must execute at least one cell in each engine test.
+
+The harness reads `rows.jsonl` (T-1), `rows-t2a.jsonl`, `rows-t2b.jsonl`, and
+`rows-t2c.jsonl` in that order. IDs must be unique across all loaded files.
+`PARITY_ROWS=rows.jsonl,rows-t2b.jsonl` replaces the file list at run time, in
+the order given. Use comma-separated filenames relative to this directory.
+`PARITY_ENABLED=control,binding` replaces the enabled groups at run time.
+By default only `control` is enabled. An engine test reports an all-pending
+group and fails an enabled group with no cells and no pending reason at that
+level.
 
 ## Row schema
 
@@ -13,13 +21,13 @@ Each enabled group must execute at least one cell in each engine test.
 | `id`, `group`, `class` | Unique row ID, implementation group, and origin of the fixture. |
 | `lang`, `fixture`, `axes` | Source language, directory, and the shape of the flow or attempted crossing. |
 | `src` | Relative `file`, one-based `line`, and `bytes` of the occurrence on the line marked `@SRC`. |
-| `site` | `null` or `{bytes, slot}` in the source file. A numbered slot is zero-based. The string `return` marks a return statement. |
+| `site` | `{bytes, slot}` in the source file. A numbered slot is zero-based. The string `return` marks a return statement. Use `null` when the proposal has no slot the schema can represent, such as a receiver or call result. |
 | `sink` | Relative `file`, one-based `line` marked `@SINK`, `operand` byte span, and sorted `nodes` spans of all intersecting Variable nodes, including duplicates. |
 | `walk_comparable` | True when the source line provides the same single occurrence to both clients and review has no implicit sources. |
 | `expect` | Required cells after the row's group ships, or explicit `null` for a `tbd` row awaiting Stage D. Put the observed `walk`, `review`, and `trace_review` values in `note` when `expect` is null. |
 | `expect.walk` | `{reaches, source, terminal, descent_depth}`. Witness fields are null if no witness exists. Depth counts descents on the displayed chain. |
 | `expect.review`, `expect.trace_review` | Confidence of the `taint_sink` finding on the marked line with default and return-flow review, respectively. |
-| `expect.catalog` | Multiset of `{file, line, rule, operand, verdict}` decisions. An empty list represents zero decisions. A flat rule has a null operand. |
+| `expect.catalog` | Multiset of `{file, line, rule, operand, verdict}` decisions for the one selected explicit source occurrence. `[]` expects zero decisions in that scope. A flat rule has a null operand. |
 | `reasons` | Null or lists keyed by `walk`, `review`, `trace_review`, and `catalog`. Explain disagreements in flow or finding presence. |
 | `knobs` | Null or `{edges, depth}`. Edge ceilings are `exact` and `nameonly`. Depth is a nonnegative crossing budget. |
 | `truth`, `known_wrong` | `flows` or `no_flow` for the selected operand, and null or the issue or group responsible for a known wrong answer. |
@@ -41,6 +49,12 @@ for rows marked `walk_comparable`. Every control with identical single explicit
 roots must set that flag. Review can mint extra explicit roots from call
 occurrences on the source line.
 
+Catalog expectations cover one explicit root even when the legacy command can
+report decisions from several roots. When a proposed hit requires a separate
+root, a file scan, or a decision across roots, record `[]` if this root has no
+decisions and use `Unsupported per root` in `note` to name the dependency.
+Record an unavailable catalog producer in `pending` for the catalog level.
+
 For unresolved names or receivers, `truth` is `flows` when some feasible
 binding of the unresolved name reaches the selected operand. Placeholder
 receivers keep sample calls callable without choosing the binding under test.
@@ -56,7 +70,13 @@ are listed, using the reached decisions on the marked sink line.
   `walk`, `guard`, `reasons`, and `tbd`. `ENABLED` can contain any listed group
   except `tbd`. Stage D sets the remaining requirements for `tbd` rows.
 - Classes are `research`, `seed`, `design_review`, and `second_review`.
-  Languages are `javascript`, `python`, `go`, and `tsx`.
+  Use `research` for Sol and Astra enumeration rows. Proposal classes describe
+  code shape, while the row class records provenance.
+- Languages are `javascript`, `python`, `go`, `typescript`, and `tsx`.
+  Use `.ts` with `typescript` for plain TypeScript and `.tsx` with `tsx` for
+  JSX fixtures using the TSX grammar. Keep a historical `.tsx` path when the
+  `.ts` form changes the recorded baseline, and document the difference in the
+  corresponding `SOURCES-t2*.md` map.
 - Mechanisms are `intra`, `argument`, `binding`, `return`, `capture`,
   `callback`, `field`, `sanitizer`, `dispatch`, and `catalog`. Layouts are
   `same_line`, `separate_lines`, and `multiline`.
@@ -78,7 +98,7 @@ are listed, using the reached decisions on the marked sink line.
 - Review-side reasons are `review_no_return_flow`, `review_no_recovered_def_use`,
   `review_cfg_filter`, and `review_context_policy`.
 
-T-1 validates catalog, knobs, and reasons as data. Their runtime assertions
+The harness validates catalog, knobs, and reasons as data. Their runtime assertions
 arrive with I-8, I-5, and I-1, respectively. Both review modes use the default
 crossing policy even on rows with explicit walk knobs. Update the matching
 expectations when an enabled group's required behavior changes.
