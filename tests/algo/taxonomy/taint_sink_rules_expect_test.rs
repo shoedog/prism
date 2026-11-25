@@ -253,17 +253,20 @@ fn parser_rejects_empty_ledger() {
 
 #[test]
 fn parser_checks_row_keys_and_preserves_rule_tokens() {
-    let row = ledger_row("a;b-2@CWE-79!suggestion");
+    let row = ledger_row("configured-sink;js-dom-html@CWE-79!suggestion");
     let parsed = parse_expected_rules(&row).unwrap();
     assert_eq!(parsed[0].table, "sample_table");
     assert_eq!(parsed[0].label, "sample label");
-    assert_eq!(parsed[0].rules, ["a", "b-2@CWE-79!suggestion"]);
+    assert_eq!(
+        parsed[0].rules,
+        ["configured-sink", "js-dom-html@CWE-79!suggestion"]
+    );
     assert_eq!(parsed[0].observed, "=");
     assert_eq!(parsed[0].class, "flat");
     for observed in ["a+structured:sqli", "structured:sqli"] {
         let parsed =
-            parse_expected_rules(&ledger_row_with("a", observed, "flat+structured")).unwrap();
-        assert_eq!(parsed[0].rules, ["a"]);
+            parse_expected_rules(&ledger_row_with("legacy", observed, "flat+structured")).unwrap();
+        assert_eq!(parsed[0].rules, ["legacy"]);
         assert_eq!(parsed[0].observed, observed);
     }
     assert!(parse_expected_rules(&ledger_row("-")).unwrap()[0]
@@ -280,4 +283,21 @@ fn parser_checks_row_keys_and_preserves_rule_tokens() {
         let error = parse_expected_rules(&tsv).unwrap_err();
         assert!(error.contains(message), "{tsv:?}: {error}");
     }
+}
+
+#[test]
+fn tsv_rules_require_the_registered_id_and_cwe() {
+    for rule in [
+        "not-a-prism-rule",
+        "js-dom-html@CWE-78",
+        "js-dom-html",
+        "legacy@CWE-79",
+    ] {
+        let tsv = format!("{EXPECTATION_HEADER}\ntable\tlabel\t{rule}\t-\tflat\t\n");
+        assert!(parse_expected_rules(&tsv).is_err(), "{rule}");
+    }
+    let tsv = format!(
+        "{EXPECTATION_HEADER}\ntable\tlabel\tjs-dom-html@CWE-79!suggestion;legacy\t-\tflat\t\n"
+    );
+    assert!(parse_expected_rules(&tsv).is_ok());
 }

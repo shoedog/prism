@@ -21,6 +21,35 @@ pub(super) fn is_scope(node: Node<'_>) -> bool {
 }
 
 impl ParsedFile {
+    /// Whether a read and the definition token resolve to the same lexical binding
+    /// local to `owner`. Declaration tokens use the scope's declaration index.
+    pub fn js_ts_same_binding<'a>(
+        &'a self,
+        read: Node<'a>,
+        owner: Node<'a>,
+        name: &str,
+        def: Node<'a>,
+        declaration: bool,
+    ) -> bool {
+        let mut cache = JsBindingCache::default();
+        let Walk::Found(scope, None) = self.js_ts_binding_walk(read, name, &mut cache) else {
+            return false;
+        };
+        if scope.start_byte() < owner.start_byte() || scope.end_byte() > owner.end_byte() {
+            return false;
+        }
+        if declaration {
+            let (sites, annex) = self.js_ts_scope_lookup(scope, name, &mut cache);
+            return !annex
+                && sites.is_some_and(|sites| {
+                    sites.iter().any(|site| {
+                        site.start_byte() <= def.start_byte() && def.end_byte() <= site.end_byte()
+                    })
+                });
+        }
+        matches!(self.js_ts_binding_walk(def, name, &mut cache), Walk::Found(def_scope, None) if def_scope == scope)
+    }
+
     /// What `name`, used at the identifier `ident`, denotes (SPEC §3.1, §3.1a).
     pub(crate) fn js_ts_site_binding<'a>(
         &'a self,

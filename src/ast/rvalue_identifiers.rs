@@ -195,6 +195,27 @@ impl ParsedFile {
         }
     }
 
+    /// The data-flow value path for this exact AST span, if one is recorded for it.
+    pub fn value_reference_path_at(&self, node: Node<'_>) -> Option<AccessPath> {
+        let mut spans = Vec::new();
+        self.collect_identifier_path_spans(node, &mut spans);
+        spans
+            .into_iter()
+            .find(|span| span.start_byte == node.start_byte() && span.end_byte == node.end_byte())
+            .map(|span| span.path)
+    }
+
+    /// The base token of a value reference, including the supported erased TS receivers.
+    pub fn value_reference_base_at<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
+        if Self::is_field_access_node(node.kind()) {
+            return self
+                .bounded_member_path(node)
+                .map(|member| member.receiver)
+                .or_else(|| self.leftmost_receiver_identifier(node));
+        }
+        matches!(node.kind(), "identifier" | "shorthand_property_identifier").then_some(node)
+    }
+
     pub(super) fn collect_identifier_path_spans(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
         if !self.language.is_in_erased_type_context(node) {
             self.collect_identifier_spans_in_value_context(node, out);

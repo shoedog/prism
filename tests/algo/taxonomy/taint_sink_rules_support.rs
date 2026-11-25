@@ -137,6 +137,17 @@ fn parse_rule_list(rules: &str) -> Result<Vec<String>, String> {
         previous = Some(id);
         parsed.push(rule.to_string());
     }
+    for rule in &parsed {
+        let identity = rule.split('!').next().unwrap();
+        let (id, cwe) = identity
+            .split_once('@')
+            .map_or((identity, None), |(id, cwe)| (id, Some(cwe)));
+        let row =
+            prism::rule_registry::lookup(id).ok_or_else(|| format!("unknown rule id {id:?}"))?;
+        if row.cwe() != cwe {
+            return Err(format!("{id}: expected CWE {:?}, got {cwe:?}", row.cwe()));
+        }
+    }
     Ok(parsed)
 }
 

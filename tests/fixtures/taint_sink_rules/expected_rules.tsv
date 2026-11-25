@@ -1,18 +1,18 @@
 table	label	rules	observed	class	note
 taint_sink_rules_identity_test	ri01	js-eval@CWE-95;js-response@CWE-79;structured-code-eval@CWE-95	js-eval@CWE-95;js-response@CWE-79+structured:deserialization	flat+structured	flat: js-eval@CWE-95;js-response@CWE-79; The eval operand is code text, so stage D must resolve the structured deserialization label.
 taint_sink_rules_identity_test	ri02	js-child-process@CWE-78;js-dom-html@CWE-79;structured-os-command@CWE-78	js-child-process@CWE-78;js-dom-html@CWE-79+structured:os-command	flat+structured	flat: js-child-process@CWE-78;js-dom-html@CWE-79; Stage D fixes the structured identity for the command operand of cp.exec.
-taint_sink_rules_identity_test	ri03	structured-ssrf@CWE-918	structured:ssrf	structured	flat: -; fetch takes the tainted URL. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri04	structured-deserialization@CWE-502	structured:deserialization	structured	flat: -; pickle.loads consumes a serialized payload. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri05	go-file-op@CWE-22;structured-path-traversal@CWE-22	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; The tainted operand is the removed path. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri05b	structured-path-traversal@CWE-22	structured:path-traversal	structured	flat: -; os.ReadFile reads the tainted path. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri06	py-db-call@CWE-89;structured-sqli@CWE-89	py-db-call@CWE-89+structured:sqli	flat+structured	flat: py-db-call@CWE-89; The tainted operand is the SQL statement. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri03	structured-ssrf@CWE-918	structured:ssrf	structured	flat: -; fetch takes the tainted URL.
+taint_sink_rules_identity_test	ri04	structured-deserialization@CWE-502	structured:deserialization	structured	flat: -; pickle.loads consumes a serialized payload.
+taint_sink_rules_identity_test	ri05	go-file-op@CWE-22;structured-path-traversal@CWE-22	go-file-op@CWE-22+structured:path-traversal	flat+structured	flat: go-file-op@CWE-22; The tainted operand is the removed path.
+taint_sink_rules_identity_test	ri05b	structured-path-traversal@CWE-22	structured:path-traversal	structured	flat: -; os.ReadFile reads the tainted path.
+taint_sink_rules_identity_test	ri06	py-db-call@CWE-89;structured-sqli@CWE-89	py-db-call@CWE-89+structured:sqli	flat+structured	flat: py-db-call@CWE-89; The tainted operand is the SQL statement.
 taint_sink_rules_identity_test	ri07	js-response@CWE-79	=	flat-dup	Both response body occurrences have the same rule id, counted once.
 taint_sink_rules_identity_test	ri08	py-os-command@CWE-78	py-db-call@CWE-89;py-os-command@CWE-78	sibling	The flat classifier also sees the weak constant SQL call. Only the shell command takes taint.
 taint_sink_rules_identity_test	ri09	legacy	=	legacy	C system takes a command. The legacy matcher records no CWE.
 taint_sink_rules_identity_test	ri10	legacy	=	legacy	Bash eval takes shell code even with a quoted argument. The legacy matcher records no CWE.
-taint_sink_rules_identity_test	ri11	structured-path-traversal@CWE-22	structured:path-traversal	source-line	flat: -; Gin c.Param supplies c.File's path inline. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri12	structured-deserialization@CWE-502	structured:deserialization	source-line	flat: -; Flask request.args supplies the serialized payload inline. Structured identity pending stage D.
-taint_sink_rules_identity_test	ri13	structured-deserialization@CWE-502	structured:deserialization	yaml-inline	flat: -; Express req.body supplies yaml.load's serialized payload inline. Structured identity pending stage D.
+taint_sink_rules_identity_test	ri11	structured-path-traversal@CWE-22	structured:path-traversal	source-line	flat: -; Gin c.Param supplies c.File's path inline.
+taint_sink_rules_identity_test	ri12	structured-deserialization@CWE-502	structured:deserialization	source-line	flat: -; Flask request.args supplies the serialized payload inline.
+taint_sink_rules_identity_test	ri13	structured-deserialization@CWE-502	structured:deserialization	yaml-inline	flat: -; Express req.body supplies yaml.load's serialized payload inline.
 taint_sink_rules_identity_test	ri14	format-wrapper	-	wrapper	The wrapper detector exact-matches report after it finds vprintf. This path has no current tag or CWE. Stage D sets the identity.
 taint_sink_rules_identity_test	ri15	go-format-string@CWE-134	=	cleansed-structured	The Clean and HasPrefix guard suppress the WriteFile path match and its flat fallback. The validated path still serves as the printf format string.
 taint_sink_rules_identity_test	ri16	legacy	=	legacy	Java Runtime.exec takes a command. The legacy matcher records no CWE.
