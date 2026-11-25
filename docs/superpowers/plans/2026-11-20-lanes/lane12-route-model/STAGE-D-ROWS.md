@@ -653,3 +653,41 @@ Author the 18 retained round-two rows after approval. Pin root by independent co
 | d3-03 (w1-python) | FastAPI default docs before user GET /docs, plus StaticFiles mounted at /s before GET /s/x (pin the fa12 diagnostic at the mount). Preserve both user installs and block their bindings. Disable docs and reverse the mount/user order on a separate app: both user handlers bind. A disjoint /ready binds throughout. Internal claims add no public registrations. | hand | asgi_constructor_and_static_claims |
 | d3-04 (w2-nethttp) | One mux registers GET EXAMPLE.test/x and GET example.test/x with distinct handlers. Both install. Exact native hosts select their own handler, including ordinary requests with a port. DNS-only scope certifies neither host-qualified binding. A hostless disjoint control binds. | hand | servemux_native_host |
 | d3-05 (w2-nethttp) | Go 1.22 mux mode, import expvar and net/http/pprof for init. On the default mux duplicate the actual init pattern in separate setups (GET /debug/vars, GET /debug/pprof/). Retain the rejected origin, failed mux/site and no exposure for the duplicate. On a fresh private mux the same user pattern installs and binds. | hand | default_mux_init_claims |
+
+## Python router and view value boundary
+
+Use fresh Flask apps with `static_folder=None`. Namespace rows have `pkg/routes.py` and no `pkg/__init__.py`.
+`skip(rule)` returns an identity decorator. In `setup.py`, a mutating `patch(view)` sets `view.__name__ = 'renamed'`
+and `view.methods = ['POST']`. Plain `f` and `g` are undecorated defs.
+`KNOWN_LIMIT` pins the static declaration and source callback. Record any runtime difference as the named out-of-model
+mutation and award no installation or dispatch credit from that pin. `WITHHELD` pins the indicated missing proof.
+For `add_url_rule` metadata refusals, keep literal path and resolved `f`/`g`, leave omitted declared/default methods null
+and withhold effective methods and inferred endpoint. These pins leave §7 and d2-14's direct view-map write checks in force.
+
+| ID | Fixture shape | Expected record | Control |
+|---|---|---|---|
+| fk-01 | `import pkg.routes`<br>`pkg.routes = (app,)[0]`<br>`pkg.routes.get = skip`<br>`@app.get('/x')` above `def f` | KNOWN_LIMIT. Declared GET `/x`, callback `f`. Replaced decorator installs nothing. | fk-c01 |
+| fk-02 | `import pkg.routes`<br>`pkg.routes = [app][0]`<br>`pkg.routes.get = skip`<br>`@app.get('/x')` above `def f` | KNOWN_LIMIT. Declared GET `/x`, callback `f`. Indexed list hides the replacement. | fk-c01 |
+| fk-03 | `import pkg.routes`<br>`pkg.routes = {'r': app}['r']`<br>`pkg.routes.get = skip`<br>`@app.get('/x')` above `def f` | KNOWN_LIMIT. Declared GET `/x`, callback `f`. Indexed dict hides the replacement. | fk-c01 |
+| fk-04 | `import pkg.routes`<br>`owner = app if True else app`<br>`pkg.routes = owner`<br>`pkg.routes.get = skip`<br>`@app.get('/x')` above `def f` | KNOWN_LIMIT. Declared GET `/x`, callback `f`. Conditional alias hides the replacement. | fk-c01 |
+| fk-05 | `import pkg.routes`<br>`pkg.routes = (app,)[0]`<br>`setattr(pkg.routes, 'get', skip)`<br>`@app.get('/x')` above `def f` | KNOWN_LIMIT. Declared GET `/x`, callback `f`. Reflective replacement installs nothing. | fk-c01 |
+| fk-06 | `import pkg.routes`<br>`pkg.routes = (app,)[0]`<br>`del pkg.routes.url_map`<br>`@app.get('/x')` above `def f` | KNOWN_LIMIT. Declared GET `/x`, callback `f`. Deleting the live map prevents installation. | fk-c01 |
+| fk-07 | `import setup` with mutating `patch`<br>`from views import f`<br>`setup.patch((f,)[0])`<br>`app.add_url_rule('/x', view_func=f)` | KNOWN_LIMIT. Literal `/x`, callback `views.f`, methods omitted. Static inference gives `f` and GET/HEAD/OPTIONS. Runtime mutation gives `renamed` and POST/OPTIONS. | fk-c06 |
+| fk-08 | `from functools import partial`<br>`import setup` with mutating `patch`, `from views import f`<br>`partial(setup.patch, f)()`<br>`app.add_url_rule('/x', view_func=f)` | WITHHELD. The visible argument `f` to the opaque `partial` callee triggers the existing metadata refusal. | fk-c06 |
+| fk-09 | `from views import f` and `import setup`<br>`@setup.touch` above `class Holder: view = f`<br>`setup.touch(cls)` sets `cls.view.methods = ['POST']` and returns `cls`<br>`app.add_url_rule('/x', view_func=f)` | KNOWN_LIMIT. Literal `/x`, callback `views.f`, methods omitted. Static default GET/HEAD/OPTIONS survives the indirect class-decorator mutation. | fk-c02 |
+| fk-10 | `from views import f`<br>`app.add_url_rule('/x', view_func=f)`<br>`def wrap(): return f()`<br>`maps = (app.view_functions,)`<br>`maps[0]['f'] = wrap` | KNOWN_LIMIT. Literal `/x` and written callback `views.f`. An indirect view-map write replaces the runtime callable. | fk-c02 |
+| fk-11 | Start by importing `setup`<br>`setup.py` defines mutating `patch`<br>then `import app`, then `def patch(view): pass`<br>`app.py` imports `patch` from `setup` and `f` from `views`<br>`patch(f)` then `app.add_url_rule('/x', view_func=f)` | WITHHELD. The first definition was captured. No default methods or inferred endpoint proof after the uniqueness fix. | fk-c03 |
+| fk-12 | Start by importing `setup`<br>`setup.py` defines mutating `patch`, imports `early`, redefines `patch` as `pass`, imports `late`<br>`early.py` captures `from setup import patch as first` and calls `first(f)`<br>`late.py` separately captures `from setup import patch as second` and calls `second(g)`<br>Both import their views from `views.py`<br>`app.py` imports `setup` and both views, and registers `f` at `/x`, `g` at `/y` | WITHHELD. Both registrations keep their own callback and path. Neither capture earns the exemption when the defining name has two bindings. | fk-c04 |
+| fk-13 | Construct `app`<br>`@((app,)[0]).get('/x')`<br>`def f(): pass` | WITHHELD. No receiver proof. Flask has no receiver hint and omits the site. | fk-c01 |
+| fk-14 | Construct `bp = Blueprint('b', __name__)`<br>`@bp.get('/x')` above `def f`<br>`app.register_blueprint((bp,)[0])` | WITHHELD. Keep the Blueprint declaration, report `mount_child_unproven`, and withhold the mount proof. | fk-c05 |
+| fk-15 | `from views import f`<br>Construct `app`<br>`app.add_url_rule('/x', view_func=(f,)[0])` | WITHHELD. Literal `/x`, receiver proved, callback unresolved with `callback_unproven`. Effective methods and inferred endpoint unknown. | fk-c02 |
+| fk-16 | `import setup` with mutating `patch`<br>`from views import f`<br>`setup.patch(f)`<br>`app.add_url_rule('/x', view_func=f)` | WITHHELD. The direct opaque call triggers the existing metadata refusal. | fk-c06 |
+
+| Control ID | Fixture shape | Required proof |
+|---|---|---|
+| fk-c01 | `import pkg.routes`<br>`@app.get('/x')` on the constructor-bound `app`<br>`def f(): pass` | Grounded receiver, declared GET `/x`, callback and inferred endpoint `f`, effective GET/HEAD/OPTIONS. |
+| fk-c02 | `views.py` defines `f`<br>`app.py` imports `f` directly<br>`app.add_url_rule('/x', view_func=f)` | Grounded `/x`, callback `views.f`, inferred endpoint `f` and effective GET/HEAD/OPTIONS. |
+| fk-c03 | Start by importing `setup`<br>`setup.py` defines `def patch(view): pass` then imports `app`<br>`app.py` imports `patch` and `f` as in fk-11<br>`patch(f)` then a plain `add_url_rule` for `f` | Same proof as fk-c02 through one stable binding and one capture. |
+| fk-c04 | Start by importing `setup`<br>`setup.py` defines `def patch(view): pass` then imports `early` and `late`<br>Keep both `from` captures, the calls on `f` and `g`, and the registrations as in fk-12 | Both literal paths, their separate callbacks and inferred endpoint names, and effective GET/HEAD/OPTIONS for each. |
+| fk-c05 | Construct `bp = Blueprint('b', __name__)`<br>`@bp.get('/x')` above `def f`<br>`app.register_blueprint(bp)` | Grounded parent, proved Blueprint mount and GET `/x` with callback `f`. |
+| fk-c06 | `setup.py` defines `def patch(view): pass`<br>`app.py` uses `import setup` and `from views import f`<br>`setup.patch(f)`<br>`app.add_url_rule('/x', view_func=f)` | Same proof as fk-c02 through a direct call to the once-bound no-effect def. |

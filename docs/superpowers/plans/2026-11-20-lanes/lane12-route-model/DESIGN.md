@@ -222,6 +222,51 @@ provide_automatic_options may alter dispatch. Endpoint text alone adds no callba
 registration. Preserve a build_only declaration with empty exposures. Stored decorator application and
 data-generated registrations are accepted losses.
 
+##### Router and view value boundary (Python)
+
+This boundary applies to Flask in S2a and FastAPI/Starlette in S2b. It governs decorator and call receivers,
+children of `register_blueprint`, `include_router` and `mount`, and the view supplied by `view_func`, `endpoint` or a decorated def.
+
+- **Router values.** Admit a bare name with a proved reaching binding, including a simple assignment or an
+  alias that passes the existing write/use checks. Follow direct imports and `from` imports (including `as`
+  aliases), and attribute chains through resolved modules to a proved definition or allocation. Admit calls to
+  import-proved framework constructors (`Flask`, `Blueprint` here), and zero-argument calls to proved, synchronous,
+  undecorated, parameterless factories whose sole return is the final direct statement and resolves to a named
+  router in the invocation frames. Grouping parentheses preserve the form. The Flask `record_once` setup-state
+  formal derives its owner from the proved Blueprint. S2b retains the built-in FastAPI `.router` case below.
+- **View values.** Admit the function definition at a route decorator with no opaque decorator beneath it, or a
+  bare function name reached directly or through the same assignment, import/alias and module-member forms.
+  A passed function's decorators must all be proved transparent. Flask's recognized `View`/`MethodView`
+  subclass `.as_view('name')` call can prove metadata under the native class-shape checks. Its callback remains
+  unresolved (`class_view`).
+
+A subscript (including tuple, list or dict lookup), conditional, arbitrary call result, lambda, `self`/`cls`
+member or value returned through an unproved helper never supplies a value proof. An unproved receiver is
+`receiver_unproven` or `imported_unproven` when the site is retained (Flask drops sites without a receiver hint).
+An unproved mount child is `mount_child_unproven`. A view argument stays unresolved with its existing reason,
+including `callback_unproven`, `wrapper_call`, `anonymous_unindexed`, `member_handler`, `imported_unproven`,
+`inner_decorator` or `spread_callback` as applicable.
+
+As with `Exact`, post-creation replacement or deletion of router/app methods or attributes is out of model,
+including `x.get = ...`, `setattr`, `del` and writes through a rebound module attribute that holds the router.
+So is mutation of a view passed to a function, by any argument path, including writes to `__name__`, `methods`,
+`provide_automatic_options`, `required_methods` or `view_class`, or an opaque wrapper replacing the registered
+callable. The record grades the statically declared method, path, endpoint and callback at the registration
+site under the traced forms. It carries no runtime installation or dispatch guarantee for these mutations.
+Direct `patch(f)` refusal and detected rebindings are conservative precision measures. Existing explicit setup
+proofs and refusals, including endpoint/view-map writes (d2-14), still apply. A slice modeling runtime mutation
+of routers or views must propose a new contract.
+
+**Round-4 finding 3 (WRONG, in scope).** A `from` import captures a lexical binding during module execution.
+`module_before`/`SetupContext` and `member_precedes` already constrain static setup order. If `setup` defines a
+mutating `patch`, imports `app`, then redefines `patch` as `pass`, `app` can call the first definition. The
+last-definition lookup in `view_metadata_escape` exempts that call and incorrectly proves the default methods
+and inferred endpoint. Keep `no_effect_body` and require exactly one module-level binding of the callee's
+original name in its defining file, the unconditional def. Count all potential bindings, including redefinitions,
+assignments, conditional bindings and imports. Without that proof, withhold view-derived metadata while keeping
+the declaration and written callback identity. The census found zero rebindings among 168 no-effect functions.
+The regression pins and their positive controls are in [STAGE-D-ROWS.md](STAGE-D-ROWS.md#python-router-and-view-value-boundary).
+
 #### FastAPI
 
 FastAPI/APIRouter and the app's built-in .router. GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS and TRACE decorators,
@@ -573,6 +618,12 @@ The frozen populations, binding floors and ledger dispositions above govern each
 - **Handler wrappers.** A wrapper call is an unresolved callback; a delegate is recorded only through stage
   D's closed forwarder list. Decorators that may replace the handler, dependency injection and class-based
   views are unresolved with a reason. Request-source coverage built on the listing pays for this.
+- **Python router/view boundary (§5.3).** Across 2,206 registrations the census found zero subscript, tuple-index
+  or conditional receivers or children, two non-constructor receiver call results, four non-constructor child call
+  results in FastAPI docs (raw tally), and three lambdas among 58 explicit views. Triage found zero real post-creation
+  router method replacements and zero application functions mutating a registered view passed to them, and all 168
+  module-level no-effect functions were bound once. The census at `~/prism-evidence/routes/m/UNTRACED-FORMS-CENSUS.md`
+  uses the PLAN Stage M pins Flask `36e4a824f340` and FastAPI `0cb4a8e284b4` plus Apache Superset 7519fa8b6f5a. Untraced receiver or child forms in total: 6 of 2,206 (0.27%).
 - **Two registration facts for Go.** The existing callback-registration edges and the new records describe
   the same calls; the records prefer those facts at the argument's own bytes. Only the two unindexed bare-function positions in 5.1 use the declaration fallback. A Go
   method value (`c.List`) has no such fact; the records resolve it by 5.6 (owner decision 6), and nothing
