@@ -1,7 +1,8 @@
 //! Syntactic write census, computed before any occurrence can claim a complete version.
 use super::{
-    children, field, has_token, identifier, inline_iteration, instance_initializer, is_owner,
-    is_scope, parameters, peel, Context, Lexical,
+    children, eager_owner_inputs, field, has_token, identifier, inline_iteration,
+    instance_initializer, is_owner, is_scope, parameter_decorator, parameters, peel, Context,
+    Lexical,
 };
 use crate::ast::ParsedFile;
 use std::{
@@ -19,12 +20,16 @@ pub(super) struct Effects {
     pub(super) skipped: BTreeSet<usize>,
     pub(super) known: BTreeMap<usize, BTreeSet<AstSpan>>,
     pub(super) captured: BTreeMap<usize, BTreeSet<AstSpan>>,
+    pub(super) member_writes: BTreeMap<usize, Arc<BTreeSet<AstSpan>>>,
     pub(super) captured_members: BTreeMap<usize, Arc<BTreeSet<AstSpan>>>,
     pub(super) mapped: BTreeMap<usize, Arc<BTreeSet<AstSpan>>>,
     opaque_rebinds: BTreeSet<usize>,
+    pub(super) direct_eval: bool,
+    pub(super) outer_bindings: BTreeMap<usize, BTreeSet<usize>>,
+    pub(super) refused_file: bool,
     pub(super) member_aliases: BTreeMap<usize, Arc<Vec<usize>>>,
     pub(super) inline: BTreeMap<AstSpan, AstSpan>,
-    writes: BTreeMap<usize, Write>,
+    writes: BTreeMap<(usize, usize), Write>,
     inline_ids: BTreeMap<usize, usize>,
 }
 
@@ -52,6 +57,7 @@ struct Census<'a, 'b> {
     aliases: BTreeMap<usize, BTreeSet<usize>>,
     mapped_owners: BTreeMap<usize, Node<'a>>,
     argument_stores: BTreeMap<usize, BTreeSet<AstSpan>>,
+    owners: Vec<(usize, usize)>,
 }
 
 impl Effects {
@@ -65,6 +71,7 @@ impl Effects {
             aliases: BTreeMap::new(),
             mapped_owners: BTreeMap::new(),
             argument_stores: BTreeMap::new(),
+            owners: Vec::new(),
         };
         for scope in lexical.scopes.values() {
             for (binding, site) in scope
@@ -104,17 +111,10 @@ impl Effects {
         census.finish()
     }
 
-    pub(super) fn writes_in(
-        &self,
-        region: Node<'_>,
-        owner: Node<'_>,
-    ) -> impl Iterator<Item = &Write> {
-        let end = region.end_byte();
-        let owner = owner.id();
+    pub(super) fn writes_in(&self, region: Node<'_>) -> impl Iterator<Item = &Write> {
         self.writes
-            .range(region.byte_range())
+            .range((region.start_byte(), 0)..(region.end_byte(), 0))
             .map(|(_, write)| write)
-            .filter(move |write| write.site.end_byte <= end && self.runs_with(write.owner, owner))
     }
 
     pub(super) fn rebound_between(&self, binding: usize, start: usize, end: usize) -> bool {
@@ -132,7 +132,7 @@ impl Effects {
             })
     }
 
-    fn runs_with(&self, mut owner: usize, binding_owner: usize) -> bool {
+    pub(super) fn runs_with(&self, mut owner: usize, binding_owner: usize) -> bool {
         while owner != binding_owner {
             let Some(parent) = self.inline_ids.get(&owner) else {
                 return false;
@@ -145,6 +145,27 @@ impl Effects {
 
 impl<'a> Census<'a, '_> {
     fn finish(mut self) -> Effects {
+        // A nested callable may need an outer value through several owners.
+        // Charge propagation per reference before materializing the next set.
+        let mut reference_work = 0usize;
+        for (owner, parent) in self.owners.into_iter().rev() {
+            let Some(refs) = self.effects.outer_bindings.remove(&owner) else {
+                continue;
+            };
+            reference_work += refs.len();
+            if reference_work > 1_000_000 {
+                self.effects.refused_file = true;
+                self.effects.outer_bindings.clear();
+                break;
+            }
+            let outer = self.effects.outer_bindings.entry(parent).or_default();
+            outer.extend(
+                refs.iter()
+                    .copied()
+                    .filter(|r| self.lexical.binding_owner_ids[r] != parent),
+            );
+            self.effects.outer_bindings.insert(owner, refs);
+        }
         for (owner, count) in self.counts.into_values() {
             if count > MAX_SUBSCRIPT_WRITES {
                 eprintln!(
@@ -190,6 +211,7 @@ impl<'a> Census<'a, '_> {
                     queue.extend(edges.iter().copied().filter(|edge| visited.insert(*edge)));
                 }
             }
+            let all_sites = Arc::new(writers.iter().map(|write| write.site.clone()).collect());
             let sites: BTreeSet<_> = writers
                 .into_iter()
                 .filter(|write| {
@@ -206,6 +228,9 @@ impl<'a> Census<'a, '_> {
             let sites = Arc::new(sites);
             let component = Arc::new(component);
             for &alias in component.iter() {
+                self.effects
+                    .member_writes
+                    .insert(alias, Arc::clone(&all_sites));
                 if !sites.is_empty() {
                     self.effects.captured_members.insert(alias, sites.clone());
                 }
@@ -225,6 +250,9 @@ impl<'a> Census<'a, '_> {
                 pos.context.scope = node;
             }
             if is_owner(node) {
+                if node != parent.context.owner {
+                    self.owners.push((node.id(), parent.context.owner.id()));
+                }
                 if inline_iteration(self.file, node).is_some() && !pos.deferred {
                     self.effects
                         .inline_ids
@@ -240,14 +268,16 @@ impl<'a> Census<'a, '_> {
                 if !matches!(node.kind(), "arrow_function" | "program") {
                     pos.arguments_owner = (!pos.strict
                         && parameters(node).all(|param| {
-                            simple_parameter(param)
-                                .is_some_and(|name| self.file.node_text(&name) != "arguments")
+                            simple_parameter(param).is_some_and(|name| {
+                                !special_name(self.file.node_text(&name), "arguments")
+                            })
                         }))
                     .then_some(node);
                 }
                 for parameter in parameters(node) {
                     self.record(parameter, None, pos);
                 }
+                pending.extend(eager_owner_inputs(node).map(|input| (input, parent)));
             }
             if matches!(
                 node.kind(),
@@ -295,32 +325,48 @@ impl<'a> Census<'a, '_> {
                         self.record(target, None, pos);
                     }
                 }
-                "call_expression" => {
-                    if field(node, "function")
-                        .is_some_and(|callee| self.file.node_text(&peel(callee)) == "eval")
-                        && self.lexical.lookup(pos.context.scope, "eval").is_none()
+                "call_expression" | "new_expression" => {
+                    if field(node, "function").is_some_and(|callee| {
+                        special_name(self.file.node_text(&peel(callee)), "eval")
+                    }) && field(node, "optional_chain").is_none()
+                        && !has_token(node, "?.")
+                        && self.lexical.binding(pos.context.scope, "eval").is_none()
                     {
+                        self.effects.direct_eval = true;
                         self.effects.opaque_rebinds.insert(node.start_byte());
                     }
-                    if let Some(target) =
-                        mutation_receiver(self.file, self.lexical, node, pos.context)
-                    {
+                    for target in mutation_inputs(self.file, self.lexical, node, pos.context) {
                         self.record_member(target, node, pos);
                     }
                 }
-                "identifier" if self.file.node_text(&node) == "arguments" => {
-                    if let Some(owner) = self.implicit_arguments(pos) {
-                        self.mapped_owners.insert(owner.id(), owner);
+                _ if identifier(node) => {
+                    let name = self.file.node_text(&node);
+                    if special_name(name, "arguments") {
+                        if let Some(owner) = self.implicit_arguments(pos) {
+                            self.mapped_owners.insert(owner.id(), owner);
+                        }
+                    }
+                    if let Some(binding) = flatten_lookup(self.lexical, pos.context.scope, name) {
+                        if self.lexical.binding_owner_ids[&binding] != pos.context.owner.id() {
+                            self.effects
+                                .outer_bindings
+                                .entry(pos.context.owner.id())
+                                .or_default()
+                                .insert(binding);
+                        }
                     }
                 }
                 _ => {}
             }
             let deferred = instance_initializer(node);
             for child in children(node) {
-                let outer = (node.kind() == "with_statement"
-                    && field(node, "object") == Some(child))
+                if parameter_decorator(child, node)
                     || (is_owner(node)
-                        && matches!(child.kind(), "decorator" | "computed_property_name"));
+                        && matches!(child.kind(), "decorator" | "computed_property_name"))
+                {
+                    continue;
+                }
+                let outer = node.kind() == "with_statement" && field(node, "object") == Some(child);
                 let mut child_pos = if outer { parent } else { pos };
                 child_pos.deferred |= deferred == Some(child);
                 pending.push((child, child_pos));
@@ -369,21 +415,19 @@ impl<'a> Census<'a, '_> {
                     .insert(site.clone());
             }
             if let Some(source) = source {
-                for source in super::alias_sources(self.file, source) {
-                    if let Some(base) = base_node(source) {
-                        if let Some(alias) = self
-                            .lexical
-                            .binding(pos.context.scope, self.file.node_text(&base))
-                        {
-                            let alias = alias.start_byte;
-                            self.aliases.entry(binding).or_default().insert(alias);
-                            self.aliases.entry(alias).or_default().insert(binding);
-                        }
+                for base in receiver_roots(self.file, source) {
+                    if let Some(alias) = self
+                        .lexical
+                        .binding(pos.context.scope, self.file.node_text(&base))
+                    {
+                        let alias = alias.start_byte;
+                        self.aliases.entry(alias).or_default().insert(binding);
+                        self.aliases.entry(binding).or_default().insert(alias);
                     }
                 }
             }
             self.effects.writes.insert(
-                target.start_byte(),
+                (target.start_byte(), binding),
                 Write {
                     binding,
                     site,
@@ -413,55 +457,68 @@ impl<'a> Census<'a, '_> {
     }
 
     fn record_member(&mut self, target: Node<'a>, site: Node<'a>, pos: Position<'a>) {
-        let Some(base) = base_node(target) else {
-            return;
-        };
-        let name = self.file.node_text(&base);
-        let site = AstSpan::from(site);
-        if name == "arguments" {
-            if let Some(owner) = self.implicit_arguments(pos) {
-                self.argument_stores
-                    .entry(owner.id())
-                    .or_default()
-                    .insert(site);
-                return;
-            }
+        if let Some(owner) = pos.arguments_owner.filter(|_| target == site) {
+            self.argument_stores
+                .entry(owner.id())
+                .or_default()
+                .insert(site.into());
         }
-        let Some(binding) = self
-            .lexical
-            .lookup_inner(pos.context.scope, name, true)
-            .cloned()
-            .flatten()
-        else {
-            return;
+        let receiver = if target == site {
+            field(target, "object").unwrap_or(target)
+        } else {
+            target
         };
-        let binding = binding.start_byte;
-        let owner = pos.context.owner.id();
-        let deferred = pos.deferred || self.lexical.binding(pos.context.scope, name).is_none();
-        self.effects.writes.insert(
-            site.start_byte,
-            Write {
-                binding,
-                site,
-                member: true,
-                owner,
-                deferred,
-            },
-        );
+        for base in receiver_roots(self.file, receiver) {
+            let name = self.file.node_text(&base);
+            let site = AstSpan::from(site);
+            if special_name(name, "arguments") {
+                if let Some(owner) = self.implicit_arguments(pos) {
+                    self.argument_stores
+                        .entry(owner.id())
+                        .or_default()
+                        .insert(site);
+                    continue;
+                }
+            }
+            let Some(binding) = flatten_lookup(self.lexical, pos.context.scope, name) else {
+                continue;
+            };
+            let owner = pos.context.owner.id();
+            let deferred = pos.deferred || self.lexical.binding(pos.context.scope, name).is_none();
+            self.effects.writes.insert(
+                (site.start_byte, binding),
+                Write {
+                    binding,
+                    site,
+                    member: true,
+                    owner,
+                    deferred,
+                },
+            );
+        }
     }
 }
 
-fn base_node(mut node: Node<'_>) -> Option<Node<'_>> {
-    loop {
-        node = peel(node);
-        if identifier(node) {
-            return Some(node);
+fn flatten_lookup(lexical: &Lexical<'_>, scope: Node<'_>, name: &str) -> Option<usize> {
+    lexical
+        .lookup_inner(scope, name, true)?
+        .as_ref()
+        .map(|site| site.start_byte)
+}
+
+fn receiver_roots<'a>(file: &'a ParsedFile, expression: Node<'a>) -> Vec<Node<'a>> {
+    let mut pending = vec![expression];
+    let mut roots = Vec::new();
+    while let Some(value) = pending.pop() {
+        for source in super::alias_sources(file, value) {
+            if identifier(source) {
+                roots.push(source);
+            } else if matches!(source.kind(), "member_expression" | "subscript_expression") {
+                pending.extend(field(source, "object"));
+            }
         }
-        if !matches!(node.kind(), "member_expression" | "subscript_expression") {
-            return None;
-        }
-        node = field(node, "object")?;
     }
+    roots
 }
 
 fn simple_parameter(parameter: Node<'_>) -> Option<Node<'_>> {
@@ -490,29 +547,55 @@ fn strict_directive(file: &ParsedFile, body: Node<'_>) -> bool {
         .any(|literal| matches!(file.node_text(&literal), "\"use strict\"" | "'use strict'"))
 }
 
-pub(super) fn mutation_receiver<'a>(
+fn special_name(text: &str, expected: &str) -> bool {
+    text == expected
+        || (text.contains('\\')
+            && ParsedFile::js_ts_decoded_identifier(text).as_deref() == Some(expected))
+}
+
+pub(super) fn mutation_inputs<'a>(
     file: &ParsedFile,
     lexical: &Lexical<'a>,
     call: Node<'a>,
     context: Context<'a>,
-) -> Option<Node<'a>> {
-    let callee = peel(field(call, "function")?);
-    let object = peel(field(callee, "object")?);
-    let name = file.node_text(&object);
-    let method = file.node_text(&field(callee, "property")?);
-    if matches!(
-        (name, method),
-        (
-            "Object",
-            "assign" | "defineProperty" | "defineProperties" | "setPrototypeOf"
-        ) | (
-            "Reflect",
-            "set" | "defineProperty" | "deleteProperty" | "setPrototypeOf"
+) -> impl Iterator<Item = Node<'a>> {
+    let callee = field(call, "function")
+        .or_else(|| field(call, "constructor"))
+        .map(peel);
+    let receiver = callee.and_then(|callee| field(callee, "object")).map(peel);
+    let builtin = receiver.zip(callee).and_then(|(receiver, callee)| {
+        let name = file.node_text(&receiver);
+        let method = file.node_text(&field(callee, "property")?);
+        lexical
+            .lookup(context.scope, name)
+            .is_none()
+            .then_some((name, method))
+    });
+    let args = field(call, "arguments").filter(|args| args.kind() == "arguments");
+    let explicit_mutator = matches!(
+        builtin,
+        Some(
+            (
+                "Object",
+                "assign" | "defineProperty" | "defineProperties" | "setPrototypeOf"
+            ) | (
+                "Reflect",
+                "set" | "defineProperty" | "deleteProperty" | "setPrototypeOf"
+            )
         )
-    ) && lexical.lookup(context.scope, name).is_none()
-    {
-        children(field(call, "arguments")?).next()
-    } else {
-        super::member_mutator(file, callee).then_some(object)
-    }
+    );
+    let method_mutator = callee.is_some_and(|callee| super::member_mutator(file, callee));
+    let known_read = matches!(
+        builtin,
+        Some(("Object", "keys" | "values" | "entries") | ("Reflect", "get") | ("Array", "isArray"))
+    );
+    let iteration = super::iteration(file, call).is_some();
+    let unknown = !explicit_mutator && !method_mutator && !known_read && !iteration;
+    let receiver = receiver.filter(|_| unknown || method_mutator);
+    let mut arguments = args.into_iter().flat_map(children);
+    let first = explicit_mutator.then(|| arguments.next()).flatten();
+    receiver
+        .into_iter()
+        .chain(first)
+        .chain(arguments.filter(move |arg| unknown && identifier(peel(*arg))))
 }

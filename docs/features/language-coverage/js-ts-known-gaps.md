@@ -276,23 +276,37 @@ callback store at `[67, 71)`. Captured-cursor transfer uses synchronous
 callback literals in supported iteration calls. Guard recognition, recursive
 descent and review-taint matching are later slices.
 
-The read inventory tracks local bindings, hoisted `var` declarations,
-evaluation order, and candidate definition spans. A bare `var` redeclaration
-keeps the previous value. Parameter defaults have their own lookup environment
-when the body introduces bindings. Inside `with`, lexical bindings inside
-the body remain available. Lookups that cross the dynamic scope are unresolved.
+The name-read inventory certifies a reaching set for straight-line evaluation,
+plain assignments, if/else, short-circuit and conditional joins
+(`&&`, `||`, `??`, `?:`), plain loops with back-edge widening, simple
+try/catch, and direct inline iteration callbacks. Other transfers preserve
+candidate writes and mark affected reads incomplete. Optional chains keep both
+the evaluated and bypassed effects. A finalizer includes implicit exceptional
+entries from the try body and handler. A file containing direct `eval` reports
+incomplete resolution throughout. Lookups across `with` remain unresolved.
 
-A captured write in a deferred callable makes reads of that binding incomplete,
-with the known write sites retained. This applies to async callbacks, callbacks
-outside the supported iteration calls (including Lodash `_.each`), and instance
-field initializers. Static blocks run eagerly and have their own `var` scope.
-Sloppy functions with simple parameters and a reference to mapped `arguments`
-report incomplete formal reads. Member mutations through aliases or opaque
-receivers can also make member reads incomplete.
+A captured write from a deferred callable or an instance field initializer
+makes the affected binding incomplete. Deferred reads of hoisted `var` retain
+initializer spans and stay incomplete because the closure can run before
+initialization. Sloppy functions with simple parameters and a reference to
+mapped `arguments`, including shorthand, report incomplete formal reads.
+Static initializers run after computed member keys and static blocks keep
+their own `var` scope. The inventory includes evaluated receivers of stores
+and excludes individual type-only export specifiers.
 
-Loop headers conservatively include possible back-edge writes. The analyzer
-bounds the work per owner and keeps a syntax-only, incomplete read inventory
-when it reaches the budget or an owner exceeds 10,000 subscript writes. It
-warns on stderr and omits facts for that owner. Selector provenance follows a
-bounded number of alternatives. Reusing a property operand as a selector
-requires a stable primitive identity or the same original occurrence.
+Inline iteration callbacks are trusted to run synchronously based on the
+method name alone. A custom method that defers or retains a callback can
+violate that assumption. The resolver tracks candidate member effects through
+receiver alternatives, aliases, direct argument escapes and method receivers.
+It has no interprocedural object-identity proof for arbitrary returned objects
+or ambient mutations.
+
+The analyzer bounds proof work per owner and file. A refused owner retains a
+syntax-only read inventory with conservative candidate spans, and a refused
+inline callback contributes possible writes to its caller. Owners with more
+than 10,000 subscript writes emit no facts. Candidate histories for incomplete
+reads are expanded when their line is requested. The size of that response
+depends on how many candidate spans the line requests. Selector provenance
+follows bounded alternatives and retains direct selection evidence where an
+earlier source is uncertain. Property promotion requires a reused stable
+primitive identity or the original selection occurrence.

@@ -6,13 +6,16 @@ use super::{
 };
 use crate::ast::ParsedFile;
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{BTreeMap, BTreeSet},
     rc::Rc,
 };
 use tree_sitter::Node;
 
 mod operands;
+mod store;
+const TARGET_WORK_LIMIT: usize = 16_384;
+const FILE_WORK_LIMIT: usize = 2_000_000;
 const RECEIVER_DEPTH_LIMIT: usize = 128;
 
 type Selectors<'a> = BTreeMap<usize, Node<'a>>;
@@ -44,7 +47,9 @@ pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<Pr
             _ => None,
         };
         if let Some(target) = target {
-            let (_, members) = targets.entry(owner.id()).or_insert((owner, Vec::new()));
+            let (_, members) = targets
+                .entry((owner.start_byte(), owner.end_byte()))
+                .or_insert((owner, Vec::new()));
             collect_targets(target, node, members);
         }
         work.extend(children(node).map(|child| (child, owner)));
@@ -53,6 +58,8 @@ pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<Pr
         file,
         analysis,
         receivers: RefCell::default(),
+        file_work: Cell::new(0),
+        target_work: Cell::new(0),
     };
     let mut result = Vec::new();
     for (owner, mut members) in targets.into_values() {
@@ -85,15 +92,32 @@ struct Classifier<'a, 'b> {
     file: &'a ParsedFile,
     analysis: &'b Analysis<'a>,
     receivers: RefCell<BTreeMap<ReceiverKey, Rc<Relation<'a>>>>,
+    file_work: Cell<usize>,
+    target_work: Cell<usize>,
 }
 
 impl<'a> Classifier<'a, '_> {
+    fn charge(&self, work: usize) -> bool {
+        let target = self.target_work.get().saturating_add(work);
+        self.target_work.set(target);
+        if target > TARGET_WORK_LIMIT {
+            return false;
+        }
+        let file = self.file_work.get().saturating_add(work);
+        self.file_work.set(file);
+        file <= FILE_WORK_LIMIT
+    }
+
     fn classify(
         &mut self,
         owner: Node<'a>,
         target: Node<'a>,
         store: Node<'a>,
     ) -> Option<ProtoWrite> {
+        self.target_work.set(0);
+        if !self.charge(1) {
+            return None;
+        }
         let object = field(target, "object")?;
         let mut walk = ReceiverWalk::default();
         let mut relation = self.receiver(object, &mut walk, None);
@@ -113,9 +137,10 @@ impl<'a> Classifier<'a, '_> {
             self.key_reads(key, KeyRole::Property, &mut operands, &mut BTreeSet::new());
         }
         self.promote_reused_primitives(&relation.selectors, &mut operands);
-        if !operands
-            .values()
-            .any(|operand| operand.role == KeyRole::Selector)
+        if !self.charge(0)
+            || !operands
+                .values()
+                .any(|operand| operand.role == KeyRole::Selector)
         {
             return None;
         }
@@ -184,6 +209,10 @@ impl<'a> Classifier<'a, '_> {
         let mut aliases = Vec::new();
         let cuts = walk.cuts;
         let relation = loop {
+            if !self.charge(1) {
+                walk.cuts += 1;
+                break Rc::new(Relation::default());
+            }
             let key = (value.id(), accumulator);
             if let Some(relation) = self.receivers.borrow().get(&key) {
                 break Rc::clone(relation);
@@ -209,6 +238,13 @@ impl<'a> Classifier<'a, '_> {
             }
             break relation;
         };
+        if !self.charge(relation.selectors.len()) {
+            for key in aliases {
+                walk.active.remove(&key);
+            }
+            walk.cuts += 1;
+            return Relation::default();
+        }
         if aliases.is_empty() {
             return (*relation).clone();
         }
@@ -269,6 +305,9 @@ impl<'a> Classifier<'a, '_> {
                     .filter(|read| self.local_receiver(read))
                 {
                     for site in &read.reaching_versions {
+                        if !self.charge(1) {
+                            break;
+                        }
                         if self.analysis.deferred_definition(read, site) {
                             continue;
                         }
@@ -427,6 +466,9 @@ impl<'a> Classifier<'a, '_> {
         let Some(accumulator) = accumulator else {
             return true;
         };
+        if seen.len() >= RECEIVER_DEPTH_LIMIT || !self.charge(1) || !seen.insert(value.id()) {
+            return false;
+        }
         let value = peel(value);
         if let Some(object) = field(value, "object") {
             return self.from_accumulator(object, Some(accumulator), seen);
@@ -456,9 +498,7 @@ impl<'a> Classifier<'a, '_> {
                     if site.start_byte == accumulator {
                         return true;
                     }
-                    if !seen.insert(site.start_byte)
-                        || self.analysis.deferred_definition(read, site)
-                    {
+                    if !self.charge(1) || self.analysis.deferred_definition(read, site) {
                         return false;
                     }
                     match self.origin(site) {
@@ -499,6 +539,9 @@ impl<'a> Classifier<'a, '_> {
         let Some((callback, initial, accumulator)) = self.reducer(call) else {
             return relation;
         };
+        if self.analysis.skipped(callback) {
+            return relation;
+        }
         let Some(body) = field(callback, "body") else {
             return relation;
         };
@@ -507,6 +550,9 @@ impl<'a> Classifier<'a, '_> {
         } else {
             let mut todo = vec![body];
             while let Some(node) = todo.pop() {
+                if !self.charge(1) {
+                    return Relation::default();
+                }
                 if node.kind() == "return_statement" && self.analysis.reachable_return(node) {
                     if let Some(value) = children(node).next() {
                         relation.extend(self.receiver(value, walk, Some(accumulator)));
@@ -540,108 +586,6 @@ impl<'a> Classifier<'a, '_> {
             }
             _ => None,
         }
-    }
-
-    fn advances(&self, store: Node<'a>, target: Node<'a>) -> bool {
-        if field(store, "left").map(peel) != Some(target) {
-            return false;
-        }
-        let mut enclosing = store;
-        while let Some(parent) = enclosing.parent() {
-            match parent.kind() {
-                "parenthesized_expression"
-                | "non_null_expression"
-                | "as_expression"
-                | "satisfies_expression" => enclosing = parent,
-                "assignment_expression" => {
-                    if field(parent, "right") != Some(enclosing)
-                        || !field(parent, "left").is_some_and(|left| identifier(peel(left)))
-                    {
-                        return false;
-                    }
-                    return self.retains_slot(store, target);
-                }
-                "variable_declarator" if field(parent, "value") == Some(enclosing) => {
-                    return self.retains_slot(store, target);
-                }
-                "return_statement" | "arrow_function" => {
-                    let mut current = Some(parent);
-                    while let Some(node) = current {
-                        if is_owner(node) {
-                            let accumulator = inline_iteration(self.file, node)
-                                .and_then(|call| self.reducer(call))
-                                .map(|(_, _, accumulator)| accumulator);
-                            let reachable = parent.kind() != "return_statement"
-                                || self.analysis.reachable_return(parent);
-                            return reachable
-                                && accumulator.is_some()
-                                && field(target, "object").is_some_and(|object| {
-                                    self.from_accumulator(object, accumulator, &mut BTreeSet::new())
-                                })
-                                && self.retains_slot(store, target);
-                        }
-                        current = node.parent();
-                    }
-                    return false;
-                }
-                _ => return false,
-            }
-        }
-        false
-    }
-
-    fn retains_slot(&self, store: Node<'a>, target: Node<'a>) -> bool {
-        if matches!(operator(store, self.file), "||=" | "??=") {
-            // The branch retaining the selected child does not perform the store.
-            return false;
-        }
-        let mut values: Vec<_> = field(store, "right").into_iter().collect();
-        while let Some(value) = values.pop() {
-            let value = peel(value);
-            match value.kind() {
-                "binary_expression" if matches!(operator(value, self.file), "||" | "??" | "&&") => {
-                    if operator(value, self.file) != "&&" {
-                        values.extend(field(value, "left"));
-                    }
-                    values.extend(field(value, "right"));
-                }
-                "ternary_expression" => {
-                    values.extend(field(value, "consequence"));
-                    values.extend(field(value, "alternative"));
-                }
-                "sequence_expression" => values.extend(children(value).last()),
-                "subscript_expression" if self.same_slot(target, value) => return true,
-                _ => {}
-            }
-        }
-        false
-    }
-
-    fn same_slot(&self, write: Node<'a>, read: Node<'a>) -> bool {
-        ["object", "index"].into_iter().all(|part| {
-            let Some(left) = field(write, part).map(peel) else {
-                return false;
-            };
-            let Some(right) = field(read, part).map(peel) else {
-                return false;
-            };
-            if self.file.node_text(&left) != self.file.node_text(&right) {
-                return false;
-            }
-            match (self.analysis.read(left), self.analysis.read(right)) {
-                (Some(a), Some(b)) => {
-                    a.binding.is_some()
-                        && a.binding == b.binding
-                        && a.reaching_versions == b.reaching_versions
-                        && !a.reaching_versions.is_empty()
-                        && ((a.resolution_complete && b.resolution_complete)
-                            || (identifier(left)
-                                && identifier(right)
-                                && self.analysis.correlated_identifiers(a, b)))
-                }
-                _ => self.fixed_key(left).is_some(),
-            }
-        })
     }
 }
 

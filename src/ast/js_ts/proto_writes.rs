@@ -7,6 +7,8 @@ use tree_sitter::Node;
 mod classes;
 mod effects;
 mod name_reads;
+mod scope;
+use scope::Lexical;
 
 pub(in crate::ast) use name_reads::Index as NameReadIndex;
 
@@ -148,7 +150,7 @@ fn operator<'a>(node: Node<'_>, file: &'a ParsedFile) -> &'a str {
 
 fn path(file: &ParsedFile, mut node: Node<'_>) -> Option<(String, String)> {
     let mut segments = Vec::new();
-    loop {
+    for _ in 0..128 {
         node = peel(node);
         match node.kind() {
             "member_expression" => segments.push(file.node_text(&field(node, "property")?)),
@@ -166,6 +168,7 @@ fn path(file: &ParsedFile, mut node: Node<'_>) -> Option<(String, String)> {
         }
         node = field(node, "object")?;
     }
+    None
 }
 
 fn literal_index<'a>(file: &'a ParsedFile, index: Node<'_>) -> Option<&'a str> {
@@ -182,19 +185,27 @@ fn literal_index<'a>(file: &'a ParsedFile, index: Node<'_>) -> Option<&'a str> {
     }
 }
 
-fn array_element(array: Node<'_>, index: usize) -> Option<Node<'_>> {
+// One pass for all positions. A spread makes the following positions unknown.
+fn array_positions(array: Node<'_>) -> impl Iterator<Item = (usize, Node<'_>)> {
     let mut position = 0;
     let mut cursor = array.walk();
-    for child in array.children(&mut cursor) {
-        if child.kind() == "," {
-            position += 1;
-        } else if child.kind() == "spread_element" {
-            return None;
-        } else if position == index && child.is_named() && !child.is_extra() {
-            return Some(child);
+    let mut next = cursor.goto_first_child();
+    std::iter::from_fn(move || {
+        while next {
+            let child = cursor.node();
+            next = cursor.goto_next_sibling();
+            match child.kind() {
+                "," => position += 1,
+                "spread_element" => {
+                    next = false;
+                    break;
+                }
+                _ if child.is_named() && !child.is_extra() => return Some((position, child)),
+                _ => {}
+            }
         }
-    }
-    None
+        None
+    })
 }
 
 fn iteration<'a>(file: &ParsedFile, call: Node<'a>) -> Option<(Node<'a>, &'static str)> {
@@ -277,234 +288,26 @@ struct Context<'a> {
     owner: Node<'a>,
 }
 
-#[derive(Default)]
-struct Scope<'a> {
-    parent: Option<usize>,
-    names: BTreeMap<&'a str, Option<AstSpan>>,
-    entry: Vec<AstSpan>,
-    shared_vars: BTreeSet<&'a str>,
-    parameter_copies: Vec<(usize, AstSpan)>,
-    dynamic: bool,
-}
-
-struct Lexical<'a> {
-    file: &'a ParsedFile,
-    scopes: BTreeMap<usize, Scope<'a>>,
-    binding_owners: BTreeMap<usize, AstSpan>,
-    binding_owner_ids: BTreeMap<usize, usize>,
-}
-
-impl<'a> Lexical<'a> {
-    fn build(file: &'a ParsedFile) -> Self {
-        let mut lexical = Self {
-            file,
-            scopes: BTreeMap::new(),
-            binding_owners: BTreeMap::new(),
-            binding_owner_ids: BTreeMap::new(),
-        };
-        let root = file.tree.root_node();
-        lexical.collect(
-            root,
-            Context {
-                scope: root,
-                owner: root,
-            },
-            root,
-        );
-        lexical
-    }
-    fn declare(
-        &mut self,
-        pattern: Node<'a>,
-        scope: Node<'a>,
-        owner: Node<'a>,
-        entry: bool,
-        shared_var: bool,
-    ) {
-        if identifier(pattern) || pattern.kind() == "type_identifier" {
-            let span = AstSpan::from(pattern);
-            let name = self.file.node_text(&pattern);
-            let scope = self.scopes.entry(scope.id()).or_default();
-            if let Some(binding) = scope.names.get_mut(name) {
-                if !shared_var || !scope.shared_vars.contains(name) {
-                    *binding = None;
-                }
-                return;
-            }
-            scope.names.insert(name, Some(span.clone()));
-            if shared_var {
-                scope.shared_vars.insert(name);
-            }
-            self.binding_owners
-                .insert(span.start_byte, AstSpan::from(owner));
-            self.binding_owner_ids.insert(span.start_byte, owner.id());
-            if entry {
-                scope.entry.push(span);
-            }
-        } else {
-            for part in pattern_parts(pattern) {
-                self.declare(part, scope, owner, entry, shared_var);
-            }
-        }
-    }
-
-    fn collect(&mut self, node: Node<'a>, parent: Context<'a>, mut hoist: Node<'a>) {
-        let mut context = parent;
-        if is_scope(node) {
-            self.scopes.insert(
-                node.id(),
-                Scope {
-                    parent: (node != parent.scope).then_some(parent.scope.id()),
-                    dynamic: node.kind() == "with_statement",
-                    ..Scope::default()
-                },
-            );
-            context.scope = node;
-        }
-        if is_owner(node) {
-            context.owner = node;
-            hoist = node;
-        }
-        let has_body_environment = node.kind() == "statement_block"
-            && field(context.owner, "body") == Some(node)
-            && parameter_expressions(context.owner);
-        if node.kind() == "class_static_block" || has_body_environment {
-            hoist = node;
-        }
-        match node.kind() {
-            "variable_declarator" => {
-                if let Some(name) = field(node, "name") {
-                    let hoisted = node
-                        .parent()
-                        .is_some_and(|n| n.kind() == "variable_declaration");
-                    self.declare(
-                        name,
-                        if hoisted { hoist } else { context.scope },
-                        context.owner,
-                        false,
-                        hoisted,
-                    );
-                }
-            }
-            "function_declaration"
-            | "generator_function_declaration"
-            | "class_declaration"
-            | "abstract_class_declaration" => {
-                if let Some(name) = field(node, "name") {
-                    self.declare(name, parent.scope, parent.owner, is_owner(node), false);
-                    if !is_owner(node) {
-                        self.declare(name, node, context.owner, false, false);
-                    }
-                }
-            }
-            "function_expression" | "generator_function" | "class" => {
-                if let Some(name) = field(node, "name") {
-                    self.declare(
-                        name,
-                        context.scope,
-                        context.owner,
-                        node.kind() != "class",
-                        false,
-                    );
-                }
-            }
-            "for_in_statement" if field(node, "kind").is_some() => {
-                if let Some(name) = field(node, "left") {
-                    let hoisted = field(node, "kind").is_some_and(|n| n.kind() == "var");
-                    self.declare(
-                        name,
-                        if hoisted { hoist } else { context.scope },
-                        context.owner,
-                        false,
-                        hoisted,
-                    );
-                }
-            }
-            "catch_clause" => {
-                if let Some(name) = field(node, "parameter") {
-                    self.declare(name, context.scope, context.owner, false, false);
-                }
-            }
-            "import_clause" | "namespace_import" | "import_specifier" => {
-                let name = if node.kind() == "import_specifier" {
-                    field(node, "alias").or_else(|| field(node, "name"))
-                } else {
-                    children(node).find(|&n| identifier(n))
-                };
-                if let Some(name) = name {
-                    self.declare(name, context.scope, context.owner, true, false);
-                }
-            }
-            _ => {}
-        }
-        if is_owner(node) {
-            if let Some(params) = field(node, "parameters").or_else(|| field(node, "parameter")) {
-                self.declare(params, node, node, false, true);
-            }
-        }
-        for child in children(node) {
-            let outer = (node.kind() == "with_statement" && field(node, "object") == Some(child))
-                || (is_owner(node)
-                    && (child.kind() == "decorator" || child.kind() == "computed_property_name"));
-            self.collect(child, if outer { parent } else { context }, hoist);
-        }
-        if has_body_environment {
-            self.body_parameter_copies(node, context.owner);
-        }
-    }
-
-    fn body_parameter_copies(&mut self, body: Node<'a>, owner: Node<'a>) {
-        let owner = &self.scopes[&owner.id()];
-        let scope = &self.scopes[&body.id()];
-        let copies = scope
-            .shared_vars
-            .iter()
-            .filter_map(|name| {
-                let formal = owner.names.get(name)?.clone()?;
-                let body_var = scope.names.get(name)?.as_ref()?;
-                Some((body_var.start_byte, formal))
-            })
-            .collect();
-        self.scopes
-            .get_mut(&body.id())
-            .expect("function body scope")
-            .parameter_copies = copies;
-    }
-
-    fn lookup(&self, node: Node<'a>, name: &str) -> Option<&Option<AstSpan>> {
-        self.lookup_inner(node, name, false)
-    }
-
-    fn lookup_inner(
-        &self,
-        node: Node<'a>,
-        name: &str,
-        through_with: bool,
-    ) -> Option<&Option<AstSpan>> {
-        let mut next = Some(node.id());
-        while let Some(id) = next {
-            let scope = &self.scopes[&id];
-            if let Some(binding) = scope.names.get(name) {
-                return Some(binding);
-            }
-            if scope.dynamic && !through_with {
-                return Some(&None);
-            }
-            next = scope.parent;
-        }
-        None
-    }
-
-    fn binding(&self, node: Node<'a>, name: &str) -> Option<AstSpan> {
-        self.lookup(node, name).cloned().flatten()
-    }
-}
-
 fn parameters(owner: Node<'_>) -> impl Iterator<Item = Node<'_>> {
     field(owner, "parameters")
         .into_iter()
         .flat_map(children)
         .chain(field(owner, "parameter"))
+}
+
+fn eager_owner_inputs(owner: Node<'_>) -> impl Iterator<Item = Node<'_>> {
+    children(owner)
+        .filter(|child| matches!(child.kind(), "decorator" | "computed_property_name"))
+        .chain(
+            parameters(owner).flat_map(|parameter| {
+                children(parameter).filter(|child| child.kind() == "decorator")
+            }),
+        )
+}
+
+fn parameter_decorator(node: Node<'_>, parent: Node<'_>) -> bool {
+    node.kind() == "decorator"
+        && matches!(parent.kind(), "required_parameter" | "optional_parameter")
 }
 
 fn parameter_expressions(owner: Node<'_>) -> bool {

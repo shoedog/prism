@@ -315,6 +315,18 @@ fn earlier_consumed_element_is_a_selector_and_leaf_is_a_property() {
         &source[final_key.start_byte..final_key.end_byte],
         "keyPath[keyPath.length - 1]"
     );
+    let [step, leaf] = [earlier, final_key].map(|operand| {
+        file.js_ts_name_reads(operand.line)
+            .into_iter()
+            .find(|read| read.span.start_byte == operand.start_byte)
+            .unwrap()
+    });
+    assert_eq!(step.path, leaf.path);
+    assert_eq!(step.binding, leaf.binding);
+    assert!(!step.resolution_complete && !leaf.resolution_complete);
+    assert_eq!(leaf.reaching_versions, [leaf.binding.unwrap()]);
+    assert_eq!(step.reaching_versions.len(), 3);
+    assert_ne!(step.reaching_versions, leaf.reaching_versions);
     assert!(file
         .js_ts_name_reads(4)
         .iter()

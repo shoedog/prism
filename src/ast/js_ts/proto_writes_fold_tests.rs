@@ -2,6 +2,9 @@ use super::{js, KeyRole, MATRIX};
 use crate::ast::js_ts::proto_writes::{NameRead, ProtoWrite};
 use crate::{ast::ParsedFile, languages::Language};
 
+#[path = "proto_writes_round2_tests.rs"]
+mod round2;
+
 fn reads(file: &ParsedFile, line: usize, path: &str) -> Vec<NameRead> {
     file.js_ts_name_reads(line)
         .into_iter()
@@ -341,26 +344,22 @@ fn reducer_checks_its_accumulator_and_reachable_returns_and_pattern_punctuation(
 
 #[test]
 fn exact_write_cap_keeps_reads_and_larger_owners_only_inventory() {
+    // Put synthetic stores on separate lines. A single query for a minified
+    // line could legitimately materialize every candidate for every receiver.
     let source = format!(
         "function edge(o,k,p) {{ {} }}\nfunction big(o,k,p) {{ {} }}\nfunction small(o,k,p) {{ o[k][p]=1; }}",
-        "o[k][p]=1;".repeat(10_000),
-        "o[k][p]=1;".repeat(10_001)
+        "o[k][p]=1;\n".repeat(10_000),
+        "o[k][p]=1;\n".repeat(10_001)
     );
     let file = js(&source);
     let facts = file.js_ts_proto_writes();
     assert_eq!(facts.len(), 10_001);
     assert_eq!(facts.last().unwrap().function, "small");
-    assert!(
-        file.js_ts_name_reads(1)
-            .iter()
-            .find(|r| r.base == "k")
-            .unwrap()
-            .resolution_complete
-    );
-    let skipped = file.js_ts_name_reads(2);
+    assert!(read(&file, 1, "k").resolution_complete);
+    let skipped = file.js_ts_name_reads(10_002);
     assert!(!skipped.is_empty());
     assert!(skipped.iter().all(|r| !r.resolution_complete));
-    assert!(read(&file, 3, "k").resolution_complete);
+    assert!(read(&file, 20_004, "k").resolution_complete);
 }
 
 #[test]

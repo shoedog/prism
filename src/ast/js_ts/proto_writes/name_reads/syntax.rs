@@ -1,5 +1,5 @@
 //! Grammar positions for the value inventory and the syntax-only fallback.
-use super::super::{has_token, path};
+use super::super::{eager_owner_inputs, has_token, parameter_decorator, path};
 use super::{
     children, field, is_owner, is_scope, pattern_parts, peel, Analysis, Context, Node, ParsedFile,
     State, Version,
@@ -13,9 +13,7 @@ impl<'a> Analysis<'a> {
         while let Some((node, outer)) = work.pop() {
             if is_owner(node) && node != outer.owner {
                 self.function(node, outer, &mut State::default(), None);
-                for child in children(node)
-                    .filter(|child| matches!(child.kind(), "decorator" | "computed_property_name"))
-                {
+                for child in eager_owner_inputs(node) {
                     work.push((child, outer));
                 }
                 continue;
@@ -41,7 +39,6 @@ impl<'a> Analysis<'a> {
                 self.read_path(node, path, base, context, Version::default(), true);
                 work.extend(field(node, "index").map(|child| (child, context)));
                 if let Some(object) = field(node, "object") {
-                    // Only computed indices of a canonical receiver are independent reads.
                     let mut object = peel(object);
                     while matches!(object.kind(), "member_expression" | "subscript_expression") {
                         work.extend(field(object, "index").map(|child| (child, context)));
@@ -55,6 +52,7 @@ impl<'a> Analysis<'a> {
             }
             for child in value_children(self.file, node).filter(|child| {
                 Some(*child) != target
+                    && !parameter_decorator(*child, node)
                     && (!is_owner(node)
                         || !matches!(child.kind(), "decorator" | "computed_property_name"))
             }) {
@@ -117,6 +115,7 @@ pub(in super::super) fn value_children<'a>(
         | "jsx_closing_element" => false,
         "export_specifier" => {
             Some(*child) == field(node, "name")
+                && !has_token(node, "type")
                 && node
                     .parent()
                     .and_then(|clause| clause.parent())
