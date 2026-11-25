@@ -1,0 +1,39 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "definitions": {
+    "PressedReceipt": {
+      "type": "object",
+      "properties": {
+        "tone": {
+          "type": "string"
+        },
+        "stamp": {
+          "type": "object",
+          "properties": {
+            "size": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response",
+            "schema": {
+              "$ref": "#/definitions/PressedReceipt"
+            }
+          }
+        }
+      }
+    }
+  }
+}

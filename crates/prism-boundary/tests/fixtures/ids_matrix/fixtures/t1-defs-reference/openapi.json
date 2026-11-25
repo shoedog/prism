@@ -1,0 +1,35 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Amber Anvil",
+    "version": "1"
+  },
+  "paths": {
+    "/forge": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$defs": {
+                    "Leaf": {
+                      "type": "object",
+                      "properties": {
+                        "grain": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "$ref": "#/paths/~1forge/get/responses/200/content/application~1json/schema/$defs/Leaf"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

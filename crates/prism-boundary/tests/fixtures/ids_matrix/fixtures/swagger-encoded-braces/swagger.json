@@ -1,0 +1,18 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/etch/%7Bstamp%7D": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        }
+      }
+    }
+  }
+}
