@@ -257,6 +257,11 @@ fn partial_hit_javascript_exact_labels() {
 
 /// `build_each_file_with_census_files` is `build_with_census_files` per file with the census
 /// read once; the oracle in `partial_hit_multifile_edit_retain_delete` relies on that.
+///
+/// The comparison is over the serialized graph (spans, bindings, both label maps, per-file
+/// statistics, counters and both census digests), not edge identities, and the sample holds one
+/// Rust file and one C file whose graph depends on a macro defined in ANOTHER file, so a census
+/// read from the sample or a singleton instead of the whole tree fails it (#856).
 #[test]
 fn build_each_file_matches_per_file_builds_under_the_tree_census() {
     prism::build_pool::install(|| {
@@ -266,13 +271,37 @@ fn build_each_file_matches_per_file_builds_under_the_tree_census() {
                 tree = Some(files);
             }
         });
-        let files = tree.unwrap();
-        // A stride sample across every language directory keeps this to a couple of seconds.
-        let sample: BTreeMap<_, _> = files
+        let mut files = tree.unwrap();
+        // Cross-file macro users. `show!(x)` / `SHOW(x)` is a macro invocation only when the
+        // census has seen the definition in `xfile_macros/{a.rs,m.h}`; without it `x = 1` looks
+        // overwritten and its pairs are pruned (Rust) or the call looks external (C).
+        let synthetic = [
+            ("xfile_macros/a.rs", "macro_rules! show { ($e:expr) => { $e + 1 }; }\n", Language::Rust),
+            (
+                "xfile_macros/b.rs",
+                "fn f() -> i32 {\n    let mut x = 1;\n    x = 2;\n    let y = show!(x);\n    y\n}\n",
+                Language::Rust,
+            ),
+            ("xfile_macros/m.h", "#define SHOW(v) ((v) + 1)\n", Language::C),
+            (
+                "xfile_macros/c.c",
+                "int f(void) {\n    int x = 1;\n    x = 2;\n    return SHOW(x);\n}\n",
+                Language::C,
+            ),
+        ];
+        for (path, src, lang) in synthetic {
+            files.insert(path.into(), ParsedFile::parse(path, src, lang).unwrap());
+        }
+        // A stride sample of the fixture tree plus the macro users. (It is mostly Go, C++, C and
+        // Python; the equivalence does not depend on the language mix.)
+        let mut sample: BTreeMap<_, _> = files
             .iter()
             .step_by(37)
             .map(|(p, f)| (p.clone(), f.clone()))
             .collect();
+        for (path, _, _) in synthetic {
+            sample.insert(path.into(), files[path].clone());
+        }
         assert!(sample.len() > 20, "sample too small: {}", sample.len());
         let each = DataFlowGraph::build_each_file_with_census_files(&sample, &files);
         assert_eq!(
@@ -280,14 +309,26 @@ fn build_each_file_matches_per_file_builds_under_the_tree_census() {
             sample.keys().collect::<Vec<_>>(),
             "one graph per file, in path order"
         );
+        let bytes = |g: &DataFlowGraph| bincode::serialize(g).unwrap();
         for (path, graph) in &each {
             let single = BTreeMap::from([(path.clone(), sample[path].clone())]);
             let reference = DataFlowGraph::build_with_census_files(&single, &files);
+            assert!(
+                bytes(graph) == bytes(&reference),
+                "serialized graph differs from the per-file build for {path}"
+            );
+        }
+        // Non-vacuity: for the macro users the tree census must matter, i.e. a census taken from
+        // the file alone gives another graph.
+        for path in ["xfile_macros/b.rs", "xfile_macros/c.c"] {
+            let single = BTreeMap::from([(path.to_string(), sample[path].clone())]);
+            let own_census = DataFlowGraph::build_with_census_files(&single, &single);
+            let graph = &each.iter().find(|(p, _)| p == path).unwrap().1;
             let edges =
                 |g: &DataFlowGraph| g.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>();
             assert!(
-                edges(graph) == edges(&reference),
-                "edges differ from the per-file build for {path}"
+                edges(graph) != edges(&own_census),
+                "{path}: the whole-tree census must change its edges, or the test cannot see a wrong census"
             );
         }
         assert!(
