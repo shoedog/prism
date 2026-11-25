@@ -51,8 +51,9 @@ Goals:
    rules.)
 3. SARIF output can present one descriptor per rule with CWE tags and help text, on request; by default it
    keeps today's rule ids and adds the rule references to each result's properties.
-4. One registry lists every rule id with its CWE, name and description; production code can name a rule only
-   through it, and every emitted reference agrees with its row (5.3); a generated page documents it.
+4. Built-in projections select named registry rows. Each emitted id and CWE must agree with its row,
+   and the row must list the finding's algorithm. Section 5.3 defines how each condition is checked.
+   A generated page documents the rows. External SARIF input follows 5.5.
 5. Fingerprints, target ids, finding counts, severities and default SARIF rule ids are unchanged, and default
    JSON, review and SARIF output equals main's once the `rules` keys and the per-build keys are removed
    (decision 7), proven by comparison with main on fixed inputs.
@@ -87,15 +88,16 @@ into one result per rule at serialisation time only.
 ### 5.1 The field
 
 ```rust
-// src/slice.rs
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+// src/rule_registry.rs, re-exported at prism::slice::RuleRef
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct RuleRef {
-    pub id: String,                                   // e.g. "js-dom-html"
+    id: String,                                       // e.g. "js-dom-html"
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cwe: Option<String>,                          // e.g. "CWE-79"
+    cwe: Option<String>,                              // e.g. "CWE-79"
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub severity: Option<String>,                     // only when lower than the finding's (5.2)
+    severity: Option<String>,                         // only when lower than the finding's (5.2)
 }
+// src/slice.rs
 pub struct SliceFinding {
     // existing fields unchanged
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -247,16 +249,37 @@ Lane 4 owns any description and benchmark-join migration.
 
 ### 5.3 The registry
 
-`RuleInfo { id, cwe, name, short, help, algorithms }` has one named constant per public id and one
-immutable optional CWE. Built-in producers select those constants. Only `RuleInfo::rule_ref` constructs a
-production reference. Strength is reduced after selecting the row. `rules()` sorts by id. `check_emitted`
-rejects unknown ids, mismatched CWEs (including an unexpected value for a CWE-less row), and unlisted
-algorithms. S2-R lands the maker, A/B rows and checks before the first producer. Scan Rust constructor
-expressions in production code with declaration and computed-id controls (PLAN S2-R). Each language
-slice validates every emitted reference. S3 adds the generated page, whole-table checks and the fixed
-C/D rows before S5. Using two literal tables pending a later registry would let a shipped id diverge.
-External SARIF inputs follow 5.5. The normalizer can clone and update a supplied reference to an
-unknown id. It needs no constructor or scanner exemption.
+`prism::rule_registry` owns `RuleInfo`, `RuleRef`, the named constants, the sorted `rules()`
+table, `lookup(id)` and `check_emitted(algorithm, rule)`. Each row declaration supplies both its
+named constant and its table entry. `RuleInfo::rule_ref(&'static self)` copies the row's id and
+optional CWE and sets severity to `None`. Built-in projections select a named `&'static RuleInfo`.
+The emitter applies `with_severity(self, Option<String>) -> Self` after reducing strength.
+
+- **Compiler.** Both structs' fields are private to the core registry module and its descendants.
+  Outside that tree, Rust rejects literals, struct updates and direct field assignments, including
+  those inside expanded macros. Typed projection interfaces require a row. A string or deserialized
+  ref cannot satisfy that signature. Public accessors borrow metadata. The maker takes a row and
+  the severity method takes only an override. The API supplies neither a raw-parts factory nor a
+  deserializer for `RuleInfo`. Privacy grants access to all code inside the tree, including nested items.
+- **Tests.** For every row, check that the maker copies its id/CWE and that applying or clearing a
+  severity override preserves both. `check_emitted` rejects an
+  unknown id, a missing, extra or different CWE, and an unlisted algorithm. Each producer slice
+  applies it to every actual built-in ref on the matrix and pinned outputs, with independent
+  expected identities for the exercised examples. This establishes validity on the paths run.
+- **Review.** Trace each built-in write to `SliceFinding.rules` back to named rows. A computed
+  string can still select a *valid* row through `lookup`. Public serde can materialize an arbitrary
+  `RuleRef` or whole finding, and callers can clone or forward it into the public vector. Neither
+  type checking nor output equality proves how that value was obtained. Review rules out these
+  routes for built-in producers and inspects new factories, conversions and code inside the trusted
+  module. External input is admitted through serde and normalized at the SARIF boundary (5.5).
+
+S2-R moves the existing 64 A/B rows intact before the first producer. The core library can build
+the registry without naming the review crate. The existing Rust type path and serde contract survive, including unknown ids,
+field order and omitted optionals. Downstream struct literals, patterns accessing fields, and
+direct field reads/writes are a source break. Readers use `id()`, `cwe()` and `severity()`.
+Callers use named rows for built-ins and deserialize supplied wire data for external references.
+Accept the field API change here to close direct identity writes before the first publication.
+S3 adds the generated page, whole-table checks and the fixed C/D rows.
 
 Use the exact id as the stable SARIF `name` (including uppercase primitive ids). Write `short` as one
 sentence naming the observed operation and operand. Write `help` as one or two sentences explaining the
@@ -267,6 +290,52 @@ For `legacy` use `name = "legacy"`, `short = "A legacy sink name matched on a ta
 `help = "Inspect the matched name and trace the input to the operation. This detector does not identify a particular operand or weakness."`
 Use `algorithms = ["taint"]` and `cwe = None`. A generated display name would change when copy changes.
 Generic mitigation boilerplate would imply identical evidence for a format argument and a name match.
+
+#### S2-R enforcement options (design escalation)
+
+**Independent options, before pooling**
+
+- Give producer helpers a closed input type in `prism-review`. They select an opaque registered
+  row and pass it with the reduced severity to one writer. Rust can reject a string, a wire
+  `RuleRef`, or a hand-built row at those interfaces. This preserves the core wire API and costs
+  little before the first producer. Any producer with a mutable `SliceFinding` can still write
+  its public vector directly. Review must account for each such writer and tests must inspect
+  the references that actually leave it.
+- Move the registry and maker into a small core module with private identity fields and public
+  read accessors. Rust then checks direct literals and assignments even through aliases and
+  macro expansion. Core can own the rows without a reverse dependency. Count external field
+  uses first. This changes the Rust field API, moves review metadata into core and needs an
+  explicit path for normalizing an imported unknown id. Public deserialization still allows a
+  producer to synthesize an arbitrary wire value.
+- Separate built-in and external findings up to the final conversion to the shared wire format.
+  Only a registered row can enter the built-in rule list. This would make provenance a type
+  property at every output that requires the built-in finding type. It also changes the finding
+  types crossing algorithm, aggregation and output interfaces. Measure those interfaces before
+  accepting the migration cost for an empty-producer slice.
+- Validate every built-in rule at a common publication boundary. This can reject invalid values
+  on untested paths and preserves external deserialization. It costs a lookup per reference,
+  needs a defined failure policy and proves membership and algorithm eligibility only. Two
+  equal refs have the same bytes regardless of how their ids were chosen. Establish that all
+  built-in outputs pass the boundary before claiming coverage.
+- Retain a source lint for a small set of recognizable spellings. It can point at an accidental
+  literal in review. Macro expansion, type resolution and conditional compilation determine
+  which Rust expression is actually built. Extending the current walker buys examples at an
+  ongoing maintenance cost and leaves the exclusivity claim unproved.
+
+**Pooled decision.** Adopt O4 and O6, plus O2's typed producer interfaces, output tests and
+writer review. Remove the entire scanner. Apply Rust privacy to the independent `SinkHit`
+literal restriction in its own classifier module (PLAN S2-R).
+
+| Alternative | Disposition and cost |
+|---|---|
+| O1, harden the scanner | Reject. Following token trees, aliases, `cfg_attr` and mounted modules still leaves expansion and resolution to approximate. The implemented scanner and its controls already consume 321.5 weighted lines at `e53d01c8`. |
+| O2, retain a small tripwire | Keep the typed interfaces, tests and review. Drop the tripwire even in combination with O4. Privacy checks direct construction for every spelling the compiler accepts. A syntax tripwire would still miss serde and valid-row lookup bypasses. |
+| O3, non-exhaustive ref and cross-crate maker | Reject. `#[non_exhaustive]` blocks downstream literals but leaves public field mutation. Rust has no friend-crate visibility. A token sealed in core needs a public path to mint it in a dependent crate, and a hidden raw constructor is still callable. Co-locating the mint and rows yields O4. |
+| O4, move rows and maker to core | Adopt. At this head the maker is the only in-tree production ref literal. Core takes ownership of the row strings. Embedders bear the field API change described above. |
+| O5, compiler-resolved lint | Reject. It can see resolved expressions but would add a toolchain and CI gate for restrictions privacy already checks. Proving serde provenance or ruling out forwarding would require additional analysis. |
+| O6, private row fields | Adopt for *all* row fields. A seal alone with writable public fields would still permit changes to a local copy of a named constant. O6 alone leaves the S1 ref fields writable. |
+| Separate built-in and external finding types | Defer. Enforcing that boundary throughout the public finding vector, aggregators and serializers would widen S2-R beyond the registry. |
+| Validate at every built-in publication | Reject as a lane-wide runtime gate. It would require a common boundary and an error policy across formats, pay per ref, and still accept the wrong choice of a valid row. Keep `check_emitted` in the fixture gates and on canonical registered SARIF input in S4. |
 
 ### 5.4 Other algorithms
 
@@ -282,9 +351,11 @@ These refs inherit the finding's severity. Other algorithms emit an empty list.
   properties or descriptors**. For a registered id on a listed algorithm take the registry's optional
   CWE, even if the supplied CWE is different, missing, or supplied for a neutral row. Run
   `check_emitted` on that canonical ref. Discard a registered id on an unlisted algorithm entirely.
-  For an unknown external id retain the id. Give its per-finding ref the sole distinct well-formed
-  supplied CWE, or none if absent or conflicting. Its specific descriptor uses the sorted union of
-  all well-formed supplied CWEs for the same (algorithm, id) across admitted findings.
+  For an unknown external id copy the supplied id verbatim. Both surviving cases fill one private,
+  serialize-only SARIF property type with the wire keys of 5.1. Give the unknown id the sole
+  distinct well-formed CWE supplied for that finding, or none if absent or conflicting. Its specific descriptor uses the sorted union of
+  all well-formed supplied CWEs for the same (algorithm, id) across admitted findings. This
+  reduction operates on SARIF output fields and requires no core CWE setter or new `RuleRef`.
 - Group by id within each finding and sort. A missing, unrecognized or higher override inherits the
   finding's severity. For a recognized finding take the strongest effective member in the order
   `concern > warning > suggestion > info`; serialize an override only if it is lower than the
@@ -330,7 +401,7 @@ main's on the targets fixtures. A targets-only consumer therefore still sees eve
 | G-additive | both builds run on one pinned copy of the fixture inputs; `--format json` and `--format review` output equals the base's byte for byte once the text spans of the `rules` keys the slice adds and the per-build values at their exact paths are removed from the original buffers; `rules` keys present on both sides are equal; any other byte difference, a missing output or an algorithm error fails (PLAN stage M) |
 | G-fingerprint | the multiset of SARIF fingerprints in default mode equals the base's; default-mode SARIF equals the base's by the same byte rule, with `results[].properties.rules` as the allowed key |
 | G-targets | target ids (in order) and the whole targets document, per-build values masked, equal the base's, with every finding-producing algorithm passed explicitly |
-| G-closed | 5.3's declaration and construction controls and registry checks pass. Every specific result indexes its own descriptor. Registered rules use the registry's optional tag, external ids follow 5.5, and an empty result indexes the distinct tagless fallback in either input order. |
+| G-closed | The privacy compile-fail controls, serde round trips and row inventory in 5.3 pass. Every built-in ref on the matrix and pinned outputs passes `check_emitted`. Review traces each producer write. Every specific result indexes its own descriptor. Registered rules use the registry's optional tag, external ids follow 5.5, and an empty result indexes the distinct tagless fallback in either input order. |
 | G-coverage | Check all 540 table/label keys both ways and presence at every marker. Activate identity assertions per PLAN partition (205/360/474/540 cumulative), including positive empty sets. On the final head every positive asserts its D identity and relative severity. |
 | G-sarif-valid | on the final head, after the last producer slice, the SARIF shape assertions pass in both modes on logs with non-empty results from taint, primitive and absence; where a validator is available, a mixed log validates against a checksum-pinned SARIF 2.1.0 schema; otherwise the result says "schema not validated" and names the assertions that ran |
 
