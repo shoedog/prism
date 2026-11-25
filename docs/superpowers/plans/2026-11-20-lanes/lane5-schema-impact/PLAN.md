@@ -621,7 +621,8 @@ Root `Cargo.toml`: add the member; do not add it to `default-members`.
       inspected population, an inapplicable population cites its basis, and unknown incidence stays pending.
       Use reference evidence and source inspection to apply the final rules before product code exists. Freeze
       the receipt before P1, refer material loss to the design seat, and reconcile later slice results against
-      it. The round-2 design fold schedules this task. The study's aggregate residues do not close it.
+      it. The declaration-only receipt is summarized in DESIGN 7.2. Before P1, freeze the producer evidence
+      independently of replay outcomes, recount S04 and P02 on their original keys, and apply the P6 ceiling below.
 
 ### Slice P1: crate, element ids, schema reader, diff, documents (3 to 4 days)
 
@@ -664,7 +665,8 @@ the separate status rows and mark body comparison unchecked. An op addition/remo
 - Include server overrides/order, strict slashes, admitted relative references, wildcard and optional widths,
   punctuation round trips, array/map recursion, cycles and depth, inherited and overridden body parameters,
   exact/range/default status and media evidence. Test exact and range status keys and list/wildcard route methods
-  under the applicable format. Keep an unread region distinct from a complete empty one.
+  under the applicable format. Run the DESIGN 9 companion to `swagger-default-exclusion` with and without its
+  scoped producer record. Keep an unread region distinct from a complete empty one.
 - Test additions only, both directions for requiredness, omitted ↔ empty enum declaration (with zero member deltas)
   and member changes, format/item-only edits, a retained
   declaration edit, bodyless status loss, unique and ambiguous root replacement, unchanged definition rename, and
@@ -864,7 +866,8 @@ selector and other-API controls. Check their effects on negatives, totals and no
 ### Slice P4: diff, impact JSON and Markdown (both pairs)
 
 Include DESIGN 5.1, 5.2, 5.4–5.6 and REPORT-DESIGN.md (A1) in this slice's brief. Implement A1's product evidence,
-JSON and rendering tables. The deliverable is the first product report on **both** pairs. `prism-boundary diff`
+JSON and rendering tables, applying DESIGN 5.1's media rule and citing the source for each JSON comparison.
+The deliverable is the first product report on **both** pairs. `prism-boundary diff`
 reads the two admitted schema or route-table sources for a service diff.
 `prism-boundary impact --comparison <manifest> [--changed <elements.json>] --format json|md` selects input slots
 and direction. The manifest references role documents, trees, mode/cutoff, config provenance and dependency
@@ -1012,6 +1015,17 @@ documents the final per-pair results. Keep the evaluation companion and measured
 A1 live review. R's configured mount must be admitted for each replayed version. Report the private replay only in
 aggregates, without attributing lift where there were no controls.
 
+**Public feasibility before P1.** P02 identifies 33 frozen field locations blocked by the old media rule.
+All eight reader-counted locations survive that cut, but the retention ceiling is 161/194 (82.99%).
+Removing just the 33 also lowers the `later` share by 5.03 percentage points. For each of the 33, record the
+§5.1 media evidence on every historical side needed for its field change, or record the missing evidence.
+If `k` of them clear the media check, the ceiling from this cut is `(161 + k)/194`. At least **24 of 33**
+must clear it even if all other 161 are retained. With all 33 covered the ceiling is 194/194. If it stays
+below 185/194, return the gate to the owner under ORCHESTRATION §8 before collecting toward it. If the only
+change is omitting at most nine original locations, each bucket share moves by at most 9/194 (4.64 percentage
+points). Report the revised projection and carry the two unresolved historical field IDs into P4/P6. The product
+replay measures actual retention and shares. R has no field schema. P3 handles both pairs' scoped API mappings.
+
 - [ ] Add `--engine product` to the replay driver. Freeze the memo's original usable-change cohorts, pins,
       prediction rule and outcome observation window per pair. Require every reader-counted replay location
       again at its original (change commit, element, client revision and occurrence), reconcile lost and new
@@ -1021,7 +1035,9 @@ aggregates, without attributing lift where there were no controls.
       client occurrence using P4's source key. Count each reference location still predicted for that change
       and element once. The denominator includes all original predictions, including lost or unchecked ones.
       Report retained, lost and product-only counts. Only retained locations enter the numerator. Round the
-      required count up, giving minima of 185 of 194 on P and 60 of 63 on R.
+      required count up, giving minima of **185/194 on P** and **60/63 on R**. Keep every one of P02's 33
+      in the public denominator. A surviving call to the same operation earns field-location credit only when
+      the product also predicts the original field change at that occurrence.
 - [ ] Each of the three bucket shares must be within **5 percentage points** of its own pair's reference share,
       assessed independently. Use all predicted locations on that pair's frozen cohort as denominator, including
       unresolved follow-ups as unknown, and show counts and shares. A zero denominator or missing cohort fails.
