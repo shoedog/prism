@@ -76,7 +76,7 @@ the 540 matrix expectations and 300 source-only candidates, including the accept
 6. S2-R closes the public ids before any producer. S2-W checks all 540 keys and the occurrence join.
    At each language PR check that language's complete findings and every already activated partition.
    Use A's closed nominal exceptions, including the neutral unbound redirects and local SQL export,
-   and its SQL-literal witness for Python query/execute/executemany on an unresolved receiver.
+   and its SQL-literal witness for Python `query` alone on an unresolved receiver.
 7. S3 registers all 12 primitive and 90 absence rows. S5 reviewers compare one proved occurrence and
    admitted neutral controls per conditional row, including effective or unresolved shell/TLS
    protection, the closed credential slots, and cleanup on the path the absence finding names. Check
@@ -428,9 +428,10 @@ the Python projection module, py/hybrid_py/identity tests, CLI output tests and
       both orders of live/cleansed siblings, SQLModel exec and proven ORM versus text versus opaque
       query (all A branches). Test the lowercase parameter, variable-only formatting, reordered
       SQL keywords, bound SQL, weak clause and sandboxed/normal template roles on both finding levels.
-      Replay `astra-r2-04` with both SQL ids on `conn.execute("SELECT " + x)` and only the weak
-      value id from the ORM sibling. Exercise the same literal witness on unresolved `executemany`,
-      an opaque statement without a literal, a bound value and a known non-SQL receiver.
+      Replay `astra-r2-04`: `conn.execute("SELECT " + x)` on an unresolved receiver gets
+      `taint-query-name` and the ORM sibling only the weak value id. Add negative controls for an
+      unresolved `executemany` and an injected `executor.execute("SELECT ..." + x)` (no SQL id), and
+      for an opaque statement without a literal, a bound value and a known non-SQL receiver.
 - [ ] Test B's four Flask shapes on edges and inline request values. Bind positional/keyword
       source despite reordering; refuse duplicate or unresolved splats, unused context and outputs
       after endautoescape or inside nested true. Derive the projection's context exclusion from

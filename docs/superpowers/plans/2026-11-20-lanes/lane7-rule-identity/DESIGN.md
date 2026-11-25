@@ -388,7 +388,7 @@ specified operand slots and conditional registry help. Admission alone never ext
 |---|---|
 | JS SQL | Receiver leaf in `js.rs::DB_HANDLES` with a `SQL_NAMES` statement method, or `exec` on a DB handle. This admits untyped `db.query`, `pool.execute`, `knex.raw` and `prisma.$queryRawUnsafe`. Also `request.query` with constructed SQL text and the specific `createQueryBuilder(alias).where(clause)` chain. A bare import of `query` from a local module needs a resolved DB implementation. The path `./db` alone gives `taint-query-name`. |
 | JS HTTP/storage | Use `js.rs::RESPONSES` as receiver root or exact member (`this.res` included), with direct calls or the `status/type/code` chain and the A/B body, header, redirect and file-serving methods. Default `reply.code(n).send(x)` is the data role. A proven explicit HTML type can change it. Also accept `ctx.redirect` and `ctx.response.redirect` on the Koa shape, and the bound `next/navigation.redirect` export. The storage convention is `disk.write(path, stream)`. Filesystem names use `js.rs::FS_LIKE` with `js_modules.rs::FS_API/TWO_PATH_API` at their path slots, or a bound `FS_MODULES` import. |
-| Python SQL | DB-API `cur/cursor.execute/executemany/executescript`, `conn.exec_driver_sql`, `.objects.raw/filter` and a chain proven by the existing `sqla` grammar. On an unresolved receiver, `query`, `execute` and `executemany` may use a SQL-bearing literal in their actual statement operand (including f-string, concatenation, percent or format with a literal leading SELECT, INSERT, UPDATE, DELETE or WITH token, case-insensitive). A known different operation vetoes the exception. Formatting unknown variables or a lowercase identifier alone supplies no SQL witness. `python.rs::SQL_METHODS/PANDAS_SQL` give method vocabulary and `query_sql_arg` gives query slots. Neither identifies a receiver. SQLModel `Session.exec` requires the Session binding or an independently proven SQL statement. |
+| Python SQL | DB-API `cur/cursor.execute/executemany/executescript`, `conn.exec_driver_sql`, `.objects.raw/filter` and a chain proven by the existing `sqla` grammar. On an unresolved receiver, only `query` may use a SQL-bearing literal in its actual statement operand (including f-string, concatenation, percent or format with a literal leading SELECT, INSERT, UPDATE, DELETE or WITH token, case-insensitive). A known different operation vetoes the exception. Formatting unknown variables or a lowercase identifier alone supplies no SQL witness. `python.rs::SQL_METHODS/PANDAS_SQL` give method vocabulary and `query_sql_arg` gives query slots. Neither identifies a receiver. SQLModel `Session.exec` requires the Session binding or an independently proven SQL statement. |
 | Go SQL | Intersect `go.rs::SQL_NAMES` with the actual methods and slots of the resolved receiver. The import-free type spellings are sql.DB/Tx/Conn, sqlx.DB/Tx/Conn, pgx.Conn/Tx, pgxpool.Pool and gorm.DB, including pointers. `*sql.Conn` offers `ExecContext` only for execution. The field conventions are `.db.Exec(SQL, binds…)` with a SQL literal, `.db.WithContext(ctx).Exec(sql)` and `.pg.Exec(ctx, sql)` with a context argument. Method values retain the receiver. `Handle` supplies no DB type even with `QueryContext` or generic `Queryx[T]`. |
 | Other named forms | The built-ins, DOM targets, module-qualified APIs, literal structured call paths and signature-specific forms explicitly listed in A/B are the remaining conventions, with their stated binding/semantic restrictions. Permit the unshadowed bare Flask `render_template_string(source, **context)`, `mark_safe` and `Markup` forms, and the qualified Go package spellings for A/B's file, format, exec, template and net/http methods. A generic method suffix in B still requires its stated operation. Python redirects require Flask/Werkzeug/Django binding (`flask.redirect`, `werkzeug.utils.redirect`, `django.shortcuts.redirect`, `django.http.HttpResponseRedirect`, including resolved imports). No language grants a redirect CWE to an unbound or injected callback. |
 
@@ -497,7 +497,7 @@ tables to describe publication, would conflate the operation with the guard used
 | Python Xss (79) | mark_safe, Markup, markupsafe.Markup [0], trusted HTML. format_html[0], reached HTML format text, excluding escaped substitutions | structured-xss/79 | same |
 | Python Xss (79) | render_template_string, reached value bound to the source formal by the signature below, overriding table [1] and the special matcher's syntactic index 0 | structured-template/1336 | corrected |
 | Python Xss (79) | Same pattern, reached context keyword with a proved unescaped output of that key in the bound literal template. Otherwise ∅ for context | structured-xss/79 | same |
-| Python Sqli (89) | execute, executemany, raw [0], reached statement slot established under A, including its SQL-literal witness for execute/executemany | structured-sqli/89 | same |
+| Python Sqli (89) | execute, executemany, raw [0], reached statement slot established under A (nominal receivers only; an unresolved `execute`/`executemany` receiver gets no SQL-literal witness) | structured-sqli/89 | same |
 | Python Ssrf (918) | requests and httpx: get/post/put/delete/patch/head/options [0], request [1]. urllib.request.urlopen/Request [0], urllib3.PoolManager.request [1] | structured-ssrf/918 | same |
 | Python Ssrf (918) | aiohttp.request [1], aiohttp.ClientSession get/post/put/delete/patch/head/options [0], request [1]. Include the imported/bound client special matchers. Attribute the URL value | structured-ssrf/918 | same |
 | Python Deserialization (502) | pickle, cPickle, cloudpickle, marshal and dill: load/loads [0]. yaml.load [0] under accepted loader, jsonpickle.decode [0]. Serialized bytes/document/input stream | structured-deserialization/502 | same |
@@ -753,8 +753,8 @@ classifier observations are independent of these eleven TSV and one candidate id
 
 **Round 2 keyed delta from D-2 (`be906634a77c`).** Zero of 540 TSV cells and zero of 300
 candidate cells changed. The committed Flask fixture reaches positional source. The new context
-permutations are S2-PY controls. The unresolved-receiver SQL-literal witness retains the published
-`astra-r2-04` cell. No existing TSV execute case gains an id. Primitive, absence and mixed
+permutations are S2-PY controls. The SQL-literal witness is limited to `query` (review extension fold-back), so one candidate cell
+(`astra-r2-04`) changes to `taint-query-name;taint-query-value!suggestion`. No existing TSV execute case gains an id. Primitive, absence and mixed
 specific-mode descriptors are outside the taint matrix. The table above remains the delta from D-1.
 
 | Source table | Rows | Previously `?` | Concrete expectations revised |
@@ -1049,7 +1049,7 @@ record, never authority to add a finding. The open products themselves are gover
 | `js-location-header` | astra-r1 (47) |
 | `js-child-process@CWE-78;js-db-call@CWE-89;structured-os-command@CWE-78;structured-sqli@CWE-89` | astra-r2 (01, 02) |
 | `py-db-call@CWE-89;taint-query-value!suggestion` | astra-r2 (03) |
-| `py-db-call@CWE-89;structured-sqli@CWE-89;taint-query-value!suggestion` | astra-r2 (04), retained by A's `execute` statement witness |
+| `taint-query-name;taint-query-value!suggestion` | astra-r2 (04), changed in the round 2 fold-back: an unresolved `execute` receiver has no SQL witness |
 | `py-html@CWE-79;structured-xss@CWE-79` | astra-r2 (13) · astra-r3 (02) |
 | `js-fs@CWE-22;js-redirect@CWE-601` | astra-r2 (17) |
 | `py-module-command@CWE-78;py-subprocess@CWE-78` | astra-r2 (18) |
@@ -1059,9 +1059,11 @@ record, never authority to add a finding. The open products themselves are gover
 | `structured-ssrf@CWE-918;structured-xss@CWE-79` | astra-r3 (01) |
 
 In `astra-r2-04` the reached ORM comparison in `session.execute(select(User).where(User.name == x))`
-contributes the weak value role. Both detectors see the SQL-bearing statement in the sibling
-`conn.execute("SELECT " + x)`. Limiting A's literal witness to `query` would instead yield
-`taint-query-name;taint-query-value!suggestion` and lose the SQL distinction for this sqlite3 idiom.
+contributes the weak value role. The sibling `conn.execute("SELECT " + x)` has an unresolved receiver: an injected
+client that only records text would receive CWE-89 from a literal-only witness (design review extension, reviewer B),
+so A grants the SQL-literal witness to `query` alone and the candidate is `taint-query-name;taint-query-value!suggestion`.
+The cost is that the common sqlite3 `conn.execute("SELECT " + x)` shape loses the CWE-89 distinction until a receiver
+binding proves SQL execution.
 
 Some candidate truth lines describe desired detection rather than this lane's admitted line:
 
@@ -1197,3 +1199,5 @@ PLAN puts the registry first and assigns each language a separately gated produc
 **Change log, 2026-11-24, D-3.** Design review round 2 fold against `be906634a77c`. Both reviews'
 eight findings are folded into 5.2–5.5, A–F and the corresponding PLAN gates and slice controls.
 E retains all 540 matrix and 300 candidate identities. The round 2 verdicts were REJECT and APPROVE.
+
+**Change log, 2026-11-24, D-3b (review extension, orchestrator fold-back).** The focused verification of the D-3 folds by reviewer B (REJECT) found one new defect in the W-A fix: the SQL-literal witness on an unresolved `execute`/`executemany` receiver can attach CWE-89 to a non-SQL client (`executor.execute("SELECT ..." + x)`). Reviewer A had offered the alternative in its own finding W-A; it is applied: the witness is limited to `query`, and the candidate `astra-r2-04` changes to `taint-query-name;taint-query-value!suggestion` (one candidate cell; zero TSV cells). Edited in A, B, E, the keyed delta and PLAN S2-PY. All other round-2 folds were verified resolved by reviewer B.
