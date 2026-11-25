@@ -1,0 +1,7 @@
+{
+  "swagger": "2.0",
+  "paths": {"/a": {"get": {"responses": {"200": {"schema": {"$ref": "#/definitions/schema.A"}}}}}},
+  "definitions": {
+    "schema.A": {"properties": {"x": {"type": "integer"}, "y": {"type": "string"}}}
+  }
+}
