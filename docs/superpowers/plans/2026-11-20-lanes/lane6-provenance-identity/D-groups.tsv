@@ -24,7 +24,7 @@ js-ext-axios	control
 js-ext-fetch	js
 js-cfg-require-config	control
 js-cfg-readfile-json	control
-ts-ui-as-request	control
+ts-ui-as-request	js
 tsx-control	control
 js-browser-cookie	control
 go-ui-one-byte-q	control
@@ -204,7 +204,7 @@ st-c-pointer-zero	pattern-c
 decoy-py-fstring	py
 js-env-destructure	js
 go-env-lookupenv	go
-go-ui-formvalue	go
+go-ui-formvalue	control
 go-db-queryrow-scan	go
 decoy-py-foreign-c-read	py
 py-unproven-import-other-scope	py
@@ -220,7 +220,7 @@ census-py-signature-substring	py
 census-go-precedence-db	go
 census-c-request-object	pattern-c
 eterra-r1-ts-express-header	js
-eterra-r1-ts-koa-body	control
+eterra-r1-ts-koa-body	js
 eterra-r1-ts-nest-param	js
 eterra-r1-tsx-prop-parameter	control
 eterra-r1-ts-express-rebound	js
@@ -266,7 +266,7 @@ eterra-r1-bash-backtick-curl	pattern-bash
 eterra-r1-bash-command-substitution-env	control
 eterra-r1-bash-read-two-bindings	pattern-bash
 eterra-r1-bash-literal-curl	control
-eterra-r1-bash-exported-env	pattern-bash
+eterra-r1-bash-exported-env	control
 eterra-r1-terraform-interpolation	pattern-hcl
 eterra-r1-terraform-variable-member	pattern-hcl
 eterra-r1-terraform-literal-decoy	pattern-hcl
@@ -289,13 +289,13 @@ eterra-r2-go-sql-scan-two-columns	go
 eterra-r2-go-viper-instance-get	control
 eterra-r2-go-http-post	control
 eterra-r2-go-gin-path-param	go
-eterra-r2-go-http-header	go
+eterra-r2-go-http-header	control
 eterra-r2-go-http-rebind-alias	control
 eterra-r2-py-for-argv	py
 eterra-r2-py-handler-default-vs-query	py
 eterra-r2-py-branch-exit-kills-request	control
 eterra-r2-js-loop-carried-env	js
-eterra-r2-go-join-request-env	control
+eterra-r2-go-join-request-env	go
 eterra-r2-java-env-shadow-block	pattern-java
 eterra-r2-java-input-vs-literal	control
 eterra-r2-cpp-getenv-string-decoy	control
@@ -304,7 +304,7 @@ eterra-r2-rust-env-then-overwrite	pattern-rust
 eterra-r2-rust-stdin-read-line	pattern-rust
 eterra-r2-lua-stdin-read	pattern-lua
 eterra-r2-lua-getenv-overwrite	control
-eterra-r2-bash-default-expansion	pattern-bash
+eterra-r2-bash-default-expansion	control
 eterra-r2-bash-read-heredoc	control
 eterra-r2-bash-env-then-overwrite	control
 eterra-r2-terraform-local-reference	pattern-hcl
@@ -358,7 +358,7 @@ eterra-r3-lua-io-lines-loop	control
 eterra-r3-lua-long-string-decoy	control
 eterra-r3-lua-env-branch-join	pattern-lua
 eterra-r3-bash-positional-braced	pattern-bash
-eterra-r3-bash-read-here-string-env	pattern-bash
+eterra-r3-bash-read-here-string-env	control
 eterra-r3-bash-single-quoted-expansion-decoy	control
 eterra-r3-bash-arithmetic-param	control
 eterra-r3-terraform-var-index	pattern-hcl
@@ -411,7 +411,7 @@ eterra-r4-bash-env-indirect-command-substitution	control
 eterra-r4-bash-comment-substitution-decoy	control
 eterra-r4-terraform-conditional-input	pattern-hcl
 eterra-r4-terraform-template-directive	pattern-hcl
-eterra-r5-ts-nest-req-cookie	control
+eterra-r5-ts-nest-req-cookie	js
 eterra-r5-ts-express-multiline-destructure	js
 eterra-r5-ts-koa-request-body-field	js
 eterra-r5-ts-express-locals-not-request	js
@@ -489,7 +489,7 @@ eterra-r6-lua-multiple-assignment-swap	pattern-lua
 eterra-r6-lua-table-key-param	pattern-lua
 eterra-r6-lua-io-read-number-vs-type	pattern-lua
 eterra-r6-bash-read-two-fields	pattern-bash
-eterra-r6-bash-default-env-substitution	pattern-bash
+eterra-r6-bash-default-env-substitution	control
 eterra-r6-bash-env-overwrite-before-use	control
 eterra-r6-bash-subshell-env-parent-kill	control
 eterra-r6-terraform-object-key-vs-var	pattern-hcl
@@ -527,7 +527,7 @@ eterra-r7-lua-same-line-write-kill	control
 eterra-r7-bash-read-timeout-outparam	pattern-bash
 eterra-r7-bash-positional-shift	pattern-bash
 eterra-r7-bash-heredoc-quoted-env-decoy	control
-eterra-r7-bash-loop-break-unconditional-write	pattern-bash
+eterra-r7-bash-loop-break-unconditional-write	control
 eterra-r7-terraform-for-iterator-shadow	pattern-hcl
 eterra-r7-terraform-quoted-object-key-decoy	control
 eterra-r7-terraform-dynamic-block-iterator	pattern-hcl
@@ -644,7 +644,7 @@ esol-r2-lua-default-input-replaced-vs-explicit-stdin	pattern-lua
 esol-r2-lua-nginx-request-uri-vs-generated-id	pattern-lua
 esol-r2-lua-foreign-exact-trigger-and-generic-suffix	pattern-lua
 esol-r2-lua-colon-method-implicit-self-formal	pattern-lua
-esol-r2-bash-command-temporary-assignment-does-not-kill-parent	pattern-bash
+esol-r2-bash-command-temporary-assignment-does-not-kill-parent	control
 esol-r2-bash-for-word-binds-positional-arguments	pattern-bash
 esol-r2-bash-printf-v-writes-output-variable	control
 esol-r2-bash-case-return-excludes-env-write	control
@@ -891,4 +891,4 @@ eastra-r3-rs-move-closure-keeps-captured-value-after-reinitialization	pattern-ru
 eastra-r3-go-pgx-copyfrom-returns-row-count-not-inserted-data	control
 eastra-r3-go-gorm-afterfind-hook-replaces-only-one-selected-field	go
 eastra-r3-lua-long-comment-unclosed-hides-apparent-code	pattern-lua
-eastra-r3-c-libpq-field-data-and-null-indicator-share-result	pattern-c
+eastra-r3-c-libpq-field-data-and-null-indicator-share-result	control
