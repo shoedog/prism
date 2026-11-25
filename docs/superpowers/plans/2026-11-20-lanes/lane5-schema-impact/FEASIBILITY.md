@@ -46,7 +46,7 @@ Gates (DESIGN 6.3):
 
 How far to trust these. The R1 samples were read against raw call sites by reader seats and found no wrong join, but
 on P every unique match is a string equality, so a clean R1 there is close to guaranteed; the informative R1 is R's.
-The R3 labels on P include 63 `false_prediction` and 22 `cannot_tell` among 150: field-level prediction is the
+The R3 labels on P include 63 `false_prediction` and 22 `cannot_tell` among 149 labels: field-level prediction is the
 weak part (predicted locations for a field change are calls to an operation whose wire tree holds the field, not reads
 of the field; F3's measurement belongs to slice P5). The pooled lift of 33.0 is not evidence of 33 separate effects: all 52 touches come from five adjacent release-merge
 commits of one day (2026-01-22; 2, 40, 2, 6 and 2 touches), and one touching commit accounts for every one of them.
@@ -72,7 +72,7 @@ operation"), not of the pair.
 
 Ten public reports from P's replay are in `feasibility/reports/` (`index.tsv` lists each one's class and commit):
 counted classes first (one fix after release, one dead code, three real mismatch), then five coordinated. Three are
-quoted in full in `feasibility/reports/02.md`, `03.md` and `05.md` (21 to 22 lines each); report sizes run from 21 to 286 lines (`04.md` 243 and `06.md` 286 are large merges; `01.md` is a release merge of 86 lines) and shows that the producer location for a field change is the schema file line today,
+quoted in full in `feasibility/reports/02.md`, `03.md` and `05.md` (21 to 22 lines each); report sizes run from 21 to 286 lines (`04.md` 243 and `06.md` 286 are the largest). `01.md` (a release merge, 86 lines) shows that the producer location for a field change is the schema file line today,
 because struct-field binding (`go_struct_field`) is a pilot slice. Five reports from R's replay are rendered
 privately (one fix after release, two dead code, two coordinated); the memo names only their classes.
 
