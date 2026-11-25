@@ -168,8 +168,14 @@ impl<'a> Analysis<'a> {
         // and increment can see writes from any earlier iteration.
         if !statement.is_some_and(definitely_exits_iteration) {
             if let Some(statement) = statement {
-                let cutoffs = self.back_edge_cutoffs(statement, context);
-                self.widen_except(statement, context, &mut body, &cutoffs);
+                let (cutoffs, safe_cutoffs) = self.back_edge_cutoffs(statement, context);
+                self.widen_except(
+                    statement,
+                    context,
+                    &mut body,
+                    &cutoffs,
+                    safe_cutoffs.as_ref(),
+                );
             }
             for region in [condition, field(node, "left"), field(node, "increment")]
                 .into_iter()
@@ -390,7 +396,9 @@ impl<'a> Analysis<'a> {
         if !has_default {
             self.join(context, &mut fallthrough, state, true);
         }
-        if !fallthrough.dead || self.jumps.contains_key(&(node.id(), "break_statement")) {
+        if !has_default
+            && (!fallthrough.dead || self.jumps.contains_key(&(node.id(), "break_statement")))
+        {
             self.join(context, &mut fallthrough, &bypass, true);
         }
         *state = fallthrough;
@@ -399,20 +407,39 @@ impl<'a> Analysis<'a> {
         &mut self,
         body: Node<'a>,
         context: Context<'a>,
-    ) -> BTreeMap<usize, usize> {
+    ) -> (BTreeMap<usize, usize>, Option<BTreeMap<usize, usize>>) {
         let mut stores = BTreeMap::new();
-        let mut pending = vec![body];
-        while let Some(node) = pending.pop() {
+        let mut safe_cutoffs = None;
+        let mut pending = vec![(body, false)];
+        while let Some((node, after_abrupt_finally)) = pending.pop() {
+            if after_abrupt_finally && safe_cutoffs.is_none() {
+                if !self.charge(context.owner, stores.len()) {
+                    return (BTreeMap::new(), None);
+                }
+                safe_cutoffs = Some(stores.clone());
+                continue;
+            }
             if !self.charge(context.owner, 1) {
-                return BTreeMap::new();
+                return (BTreeMap::new(), None);
             }
             match node.kind() {
                 "statement_block" | "finally_clause" => {
                     let mut statements: Vec<_> = children(node).collect();
-                    pending.extend(statements.drain(..).rev());
+                    pending.extend(
+                        statements
+                            .drain(..)
+                            .rev()
+                            .map(|statement| (statement, false)),
+                    );
                 }
                 "try_statement" if field(node, "finalizer").is_some() => {
-                    pending.extend(field(node, "finalizer"));
+                    let finalizer = field(node, "finalizer").unwrap();
+                    if safe_cutoffs.is_none() && self.abrupt_try(node, finalizer, context) {
+                        // The finalizer still runs on the abrupt edge. A
+                        // following statement cannot kill the edge's store.
+                        pending.push((node, true));
+                    }
+                    pending.push((finalizer, false));
                 }
                 "expression_statement" => {
                     if let Some(target) = children(node)
@@ -432,13 +459,42 @@ impl<'a> Analysis<'a> {
                 _ => {}
             }
         }
-        stores
+        (stores, safe_cutoffs)
+    }
+
+    fn abrupt_try(&mut self, node: Node<'a>, finalizer: Node<'a>, context: Context<'a>) -> bool {
+        let mut pending: Vec<_> = children(node)
+            .filter(|child| *child != finalizer)
+            .map(|child| (child, false, false))
+            .collect();
+        while let Some((node, in_loop, in_switch)) = pending.pop() {
+            if !self.charge(context.owner, 1) {
+                return true;
+            }
+            let labelled = field(node, "label").is_some();
+            match node.kind() {
+                "continue_statement" if labelled || !in_loop => return true,
+                "break_statement" if labelled || (!in_loop && !in_switch) => return true,
+                _ if is_owner(node) => continue,
+                _ => {}
+            }
+            pending.extend(children(node).map(|child| {
+                (
+                    child,
+                    in_loop || is_loop(node),
+                    in_switch || node.kind() == "switch_statement",
+                )
+            }));
+        }
+        false
     }
 
     fn may_continue(&mut self, region: Node<'a>, context: Context<'a>) -> bool {
         let mut pending = vec![region];
         while let Some(node) = pending.pop() {
-            if !self.charge(context.owner, 1) || node.kind() == "continue_statement" {
+            if !self.charge(context.owner, 1)
+                || matches!(node.kind(), "continue_statement" | "break_statement")
+            {
                 return true;
             }
             if !is_owner(node) {

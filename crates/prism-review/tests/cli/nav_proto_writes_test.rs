@@ -124,3 +124,48 @@ fn json_keeps_a_target_line_with_no_reads() {
         .unwrap()
         .contains(&json!({ "file": "app.js", "line": 3, "reads": [] })));
 }
+
+#[test]
+fn fold_refusal_reason_is_listed_in_json_and_text() {
+    let root = tempfile::tempdir().unwrap();
+    fs::write(
+        root.path().join("app.js"),
+        "function put(o,k,eval){ eval('k=null');\n o[k].x=1; use(external); }",
+    )
+    .unwrap();
+    let got = listing(root.path());
+    let reads = got["name_reads"][0]["reads"].as_array().unwrap();
+    assert!(reads.iter().any(|read| {
+        read["base"] == "k"
+            && read["resolution_complete"] == false
+            && read["incomplete_reason"] == "direct_eval"
+    }));
+    assert!(reads.iter().any(|read| {
+        read["base"] == "external"
+            && read["resolution_complete"] == false
+            && read.get("incomplete_reason").is_none()
+    }));
+    let out = crate::prism_bin()
+        .unwrap()
+        .args(["nav", "proto-writes", "--repo"])
+        .arg(root.path())
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains("k resolution_complete=false incomplete_reason=direct_eval"));
+}
+
+#[test]
+fn unclosed_interface_with_error_recovery_does_not_panic() {
+    let root = tempfile::tempdir().unwrap();
+    fs::write(
+        root.path().join("a.ts"),
+        "interface i4 {\n    [p];\n    [p2: string, p3: number];\ninterface i5 extends i1 { }\ninterface i6 extends i2 { }\ninterface i7 extends i3 { }\ninterface i8 extends i4 { }\n",
+    )
+    .unwrap();
+    let value = listing(root.path());
+    assert!(value["facts"].as_array().is_some());
+}

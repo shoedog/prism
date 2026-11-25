@@ -279,11 +279,24 @@ descent and review-taint matching are later slices.
 The name-read inventory certifies a reaching set for straight-line evaluation,
 plain assignments, if/else, short-circuit and conditional joins
 (`&&`, `||`, `??`, `?:`), plain loops with back-edge widening, simple
-try/catch, and direct inline iteration callbacks. Other transfers preserve
+try/catch, and direct inline iteration callbacks. Completeness also requires
+proven binding identity and a proven member version. Other transfers preserve
 candidate writes and mark affected reads incomplete. Optional chains keep both
 the evaluated and bypassed effects. A finalizer includes implicit exceptional
-entries from the try body and handler. A file containing direct `eval` reports
-incomplete resolution throughout. Lookups across `with` remain unresolved.
+entries from the try body and handler. Lookups across `with` remain unresolved.
+
+JSON and text report `incomplete_reason` when a new refusal turns an otherwise
+complete read incomplete. The reasons are `identity_escape` for a name with
+an escaped spelling, `implicit_arguments` when a non-arrow's implicit binding
+shadows an outer binding, and `direct_eval` for bindings visible to a syntactically
+direct call. Only a stable, same-file function declaration proves a bound
+`eval` nonintrinsic. The existing file-wide refusal for unbound direct `eval`
+still applies. Member reads can report `member_alias`, `member_call`,
+`member_deferred`, or `member_accessor`. These cover possible receiver aliases,
+opaque call inputs, deferred evaluations, and getter evidence. Reflection that
+can invoke a getter or proxy trap supplies opaque call evidence. Unproven abrupt
+edges can report `control_flow_unproven`; a restoration guaranteed by a
+finalizer can still kill an earlier receiver.
 
 A captured write from a deferred callable or an instance field initializer
 makes the affected binding incomplete. Deferred reads of hoisted `var` retain
@@ -291,22 +304,27 @@ initializer spans and stay incomplete because the closure can run before
 initialization. Sloppy functions with simple parameters and a reference to
 mapped `arguments`, including shorthand, report incomplete formal reads.
 Static initializers run after computed member keys and static blocks keep
-their own `var` scope. The inventory includes evaluated receivers of stores
-and excludes individual type-only export specifiers.
+their own `var` scope. Eager method keys and decorators belong to the enclosing
+callable. The inventory includes evaluated store receivers and excludes type-only
+export specifiers and implements clauses.
 
 Inline iteration callbacks are trusted to run synchronously based on the
 method name alone. A custom method that defers or retains a callback can
 violate that assumption. The resolver tracks candidate member effects through
-receiver alternatives, aliases, direct argument escapes and method receivers.
+receiver alternatives, aliases, opaque argument expressions and method receivers.
 It has no interprocedural object-identity proof for arbitrary returned objects
 or ambient mutations.
 
 The analyzer bounds proof work per owner and file. A refused owner retains a
 syntax-only read inventory with conservative candidate spans, and a refused
 inline callback contributes possible writes to its caller. Owners with more
-than 10,000 subscript writes emit no facts. Candidate histories for incomplete
-reads are expanded when their line is requested. The size of that response
-depends on how many candidate spans the line requests. Selector provenance
-follows bounded alternatives and retains direct selection evidence where an
-earlier source is uncertain. Property promotion requires a reused stable
-primitive identity or the original selection occurrence.
+than 10,000 subscript writes emit no facts. JSON marks omitted candidate
+histories with `candidate_history_refused` when the owner was refused or the
+listing's expansion budget is exhausted. Text renders facts and refusal reasons
+without expanding those histories. The file API counts reads by refusal reason.
+
+Selectors exclude discarded native `pop`, `shift` and `at` arguments, unselected
+literal array elements, implements clauses, and deferred class field values.
+Omitted `at()` offsets select index zero. An uncertain choice retains the direct
+selection site with an incomplete read. Property promotion requires a reused
+stable primitive identity or the original selection occurrence.

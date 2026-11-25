@@ -128,33 +128,61 @@ impl<'a> Classifier<'a, '_> {
                 let receiver = callee
                     .and_then(|callee| field(peel(callee), "object"))
                     .map(peel);
-                if let Some(receiver) = receiver {
-                    if receiver.kind() == "array" && matches!(method, Some("shift" | "pop" | "at"))
-                    {
-                        self.array_call_inputs(receiver, node, method.unwrap(), &mut inputs);
-                    } else if !self.analysis.namespace_receiver(receiver) {
-                        if let Some(array) = self.stable_array(receiver) {
-                            if let Some(method @ ("pop" | "shift" | "at")) = method {
-                                self.array_call_inputs(array, node, method, &mut inputs);
+                let native = receiver.zip(method).and_then(|(receiver, method)| {
+                    if !matches!(method, "shift" | "pop" | "at") {
+                        return None;
+                    }
+                    let array = (receiver.kind() == "array")
+                        .then_some(receiver)
+                        .or_else(|| self.stable_array(receiver));
+                    let string_at =
+                        method == "at" && matches!(receiver.kind(), "string" | "template_string");
+                    (array.is_some() || string_at).then_some((receiver, method, array))
+                });
+                if let Some((receiver, method, array)) = native {
+                    if let Some(array) = array {
+                        match self.array_call_value(array, node, method) {
+                            Ok(input) => inputs.extend(input),
+                            Err(()) => {
+                                self.direct_unproven_key(node, role, out);
+                                return;
                             }
                         }
+                    }
+                    if receiver.kind() != "array" {
                         inputs.push(receiver);
                     }
-                } else if let Some(callee) = callee.map(peel).filter(|callee| !identifier(*callee))
-                {
-                    inputs.push(callee);
-                }
-                if let Some(args) = field(node, "arguments") {
-                    let offset = method == Some("at")
-                        && receiver.is_some_and(|receiver| self.native_sequence(receiver));
-                    inputs.extend(
-                        children(args)
-                            .take_while(|_| self.charge(1))
-                            .skip(usize::from(offset)),
-                    );
+                } else {
+                    if let Some(receiver) = receiver {
+                        if !self.analysis.namespace_receiver(receiver) {
+                            inputs.push(receiver);
+                        }
+                    } else if let Some(callee) =
+                        callee.map(peel).filter(|callee| !identifier(*callee))
+                    {
+                        inputs.push(callee);
+                    }
+                    if let Some(args) = field(node, "arguments") {
+                        inputs.extend(children(args).take_while(|_| self.charge(1)));
+                    }
                 }
             }
             "subscript_expression" | "member_expression" => {
+                if let Some(array) = field(node, "object")
+                    .map(peel)
+                    .filter(|object| object.kind() == "array")
+                {
+                    if let Some(index) = field(node, "index") {
+                        match self.literal_subscript_value(array, index) {
+                            Ok(input) => inputs.extend(input),
+                            Err(()) => self.direct_unproven_key(node, role, out),
+                        }
+                        for input in inputs {
+                            self.key_value(input, role, out, seen, depth + 1);
+                        }
+                        return;
+                    }
+                }
                 inputs.extend(field(node, "object"));
                 let position = field(node, "object")
                     .map(peel)
@@ -194,6 +222,13 @@ impl<'a> Classifier<'a, '_> {
                 ) => {}
             "yield_expression" => {}
             "pair" => inputs.extend(field(node, "value")),
+            "field_definition" | "public_field_definition" => {
+                let deferred = super::super::instance_initializer(node);
+                inputs.extend(
+                    value_children(self.file, node).filter(|child| Some(*child) != deferred),
+                );
+            }
+            "implements_clause" => {}
             _ if !is_owner(node) => {
                 inputs.extend(value_children(self.file, node).take_while(|_| self.charge(1)))
             }
@@ -241,9 +276,9 @@ impl<'a> Classifier<'a, '_> {
                             if let Some(array) =
                                 array.filter(|_| matches!(method, "shift" | "pop" | "at"))
                             {
-                                let mut inputs = Vec::new();
-                                self.array_call_inputs(array, source, method, &mut inputs);
-                                for input in inputs {
+                                if let Ok(Some(input)) =
+                                    self.array_call_value(array, source, method)
+                                {
                                     self.key_value(input, role, out, seen, depth + 1);
                                 }
                             } else {
@@ -259,11 +294,6 @@ impl<'a> Classifier<'a, '_> {
             _ => {}
         }
     }
-    fn native_sequence(&self, receiver: Node<'a>) -> bool {
-        matches!(receiver.kind(), "array" | "string" | "template_string")
-            || self.stable_array(receiver).is_some()
-    }
-
     fn stable_array(&self, receiver: Node<'a>) -> Option<Node<'a>> {
         if !identifier(receiver) || !self.analysis.unmutated_receiver(receiver) {
             return None;
@@ -281,76 +311,128 @@ impl<'a> Classifier<'a, '_> {
         }
     }
 
-    fn array_call_inputs(
+    fn direct_unproven_key(
+        &self,
+        node: Node<'a>,
+        role: KeyRole,
+        out: &mut BTreeMap<AstSpan, KeyOperand>,
+    ) {
+        let span = AstSpan::from(node);
+        out.entry(span.clone()).or_insert_with(|| KeyOperand {
+            name: self.file.node_text(&node).to_owned(),
+            base: self.file.node_text(&node).to_owned(),
+            role,
+            owner: AstSpan::from(super::super::evaluation_owner(node)),
+            binding: None,
+            reaching_versions: Vec::new(),
+            line: node.start_position().row + 1,
+            start_byte: span.start_byte,
+            end_byte: span.end_byte,
+        });
+    }
+
+    fn literal_subscript_value(
+        &self,
+        array: Node<'a>,
+        index: Node<'a>,
+    ) -> Result<Option<Node<'a>>, ()> {
+        let text = super::super::literal_index(self.file, peel(index)).ok_or(())?;
+        let offset = text.parse::<isize>().map_err(|_| ())?;
+        if offset.to_string() != text {
+            return Err(());
+        }
+        self.array_value(array, "at", Some(offset))
+    }
+
+    fn array_call_value(
         &self,
         array: Node<'a>,
         call: Node<'a>,
         method: &str,
-        out: &mut Vec<Node<'a>>,
-    ) {
+    ) -> Result<Option<Node<'a>>, ()> {
+        let first = field(call, "arguments").and_then(|args| children(args).next());
+        let offset = match first {
+            None => Some(0),
+            Some(value) => {
+                let value = peel(value);
+                let text = match value.kind() {
+                    "number" | "unary_expression" => self.file.node_text(&value),
+                    _ => "",
+                };
+                text.parse::<isize>().ok()
+            }
+        };
+        self.array_value(array, method, offset)
+    }
+
+    fn array_value(
+        &self,
+        array: Node<'a>,
+        method: &str,
+        offset: Option<isize>,
+    ) -> Result<Option<Node<'a>>, ()> {
         let mut cursor = array.walk();
+        let mut slots = Vec::new();
         let mut slot = None;
-        let mut elements = Vec::new();
-        let mut comma = false;
+        let mut spread = false;
         let mut position = 0usize;
         for child in array
             .children(&mut cursor)
             .filter(|child| !child.is_extra())
         {
             if !self.charge(1) {
-                return;
+                return Err(());
             }
             match child.kind() {
-                "," if comma && method == "pop" => slot = None,
                 "," => {
-                    position += 1;
-                    comma = true;
-                    if method == "shift" {
-                        return;
+                    if method == "shift"
+                        || offset.is_some_and(|offset| offset >= 0 && offset as usize == position)
+                            && method == "at"
+                    {
+                        return Ok(slot);
                     }
+                    slots.push(slot.take());
+                    position += 1;
                 }
                 "spread_element" => {
-                    slot = None;
-                    comma = false;
                     if method != "pop" {
-                        return;
+                        return Err(());
                     }
+                    spread = true;
+                    slot = None;
                 }
                 _ if child.is_named() => {
-                    if method == "shift" {
-                        out.push(child);
-                        return;
-                    }
-                    if method == "at" {
-                        elements.push((position, child));
-                    }
                     slot = Some(child);
-                    comma = false;
+                    spread = false;
                 }
                 _ => {}
             }
         }
-        if method == "pop" {
-            out.extend(slot);
-        } else if method == "at" {
-            let offset = field(call, "arguments")
-                .and_then(|args| children(args).next())
-                .and_then(|arg| self.file.node_text(&peel(arg)).parse::<isize>().ok());
-            let length = position + usize::from(!comma && slot.is_some());
-            if let Some(offset) = offset {
-                let index = if offset.is_negative() {
-                    length.checked_sub(offset.unsigned_abs())
-                } else {
-                    Some(offset as usize)
-                };
-                out.extend(
-                    elements
-                        .into_iter()
-                        .filter_map(|(position, child)| (Some(position) == index).then_some(child)),
-                );
-            } else {
-                out.extend(elements.into_iter().map(|(_, child)| child));
-            }
+        if spread {
+            return Err(());
+        }
+        if let Some(slot) = slot {
+            slots.push(Some(slot));
+        }
+        match method {
+            "shift" => Ok(slots.first().copied().flatten()),
+            "pop" => Ok(slots.last().copied().flatten()),
+            "at" => match offset {
+                Some(offset) => {
+                    let index = if offset.is_negative() {
+                        slots.len().checked_sub(offset.unsigned_abs())
+                    } else {
+                        Some(offset as usize)
+                    };
+                    Ok(index.and_then(|index| slots.get(index).copied().flatten()))
+                }
+                // There is one possible element if the call returns an element.
+                None if slots.iter().flatten().count() <= 1 => {
+                    Ok(slots.into_iter().flatten().next())
+                }
+                None => Err(()),
+            },
+            _ => unreachable!("array selection method"),
         }
     }
 }

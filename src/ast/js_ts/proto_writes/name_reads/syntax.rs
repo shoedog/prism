@@ -9,12 +9,12 @@ impl<'a> Analysis<'a> {
     // Preserve occurrences and lexical identity after refusing the transfer.
     // The inventory walk visits each syntax node once without copying State.
     pub(super) fn inventory(&mut self, root: Node<'a>, context: Context<'a>, state: &mut State) {
-        let mut work = vec![(root, context)];
-        while let Some((node, outer)) = work.pop() {
+        let mut work = vec![(root, context, false)];
+        while let Some((node, outer, receiver)) = work.pop() {
             if is_owner(node) && node != outer.owner {
                 self.function(node, outer, &mut State::default(), None);
                 for child in eager_owner_inputs(node) {
-                    work.push((child, outer));
+                    work.push((child, outer, false));
                 }
                 continue;
             }
@@ -22,26 +22,51 @@ impl<'a> Analysis<'a> {
             if is_scope(node) {
                 context.scope = node;
             }
+            let load = matches!(
+                node.kind(),
+                "augmented_assignment_expression" | "update_expression"
+            );
             let target = match node.kind() {
-                "assignment_expression" | "for_in_statement" => field(node, "left"),
+                "assignment_expression"
+                | "augmented_assignment_expression"
+                | "for_in_statement" => field(node, "left"),
+                "update_expression" => field(node, "argument"),
                 "variable_declarator" => field(node, "name"),
                 "catch_clause" => field(node, "parameter"),
                 _ => None,
             };
-            for target in target.into_iter().chain(super::super::parameters(node)) {
+            if load {
+                work.extend(target.map(|target| (peel(target), context, true)));
+            }
+            for target in target
+                .filter(|_| !load)
+                .into_iter()
+                .chain(super::super::parameters(node))
+            {
                 work.extend(
                     pattern_inputs(target)
                         .into_iter()
-                        .map(|child| (child, context)),
+                        .map(|(child, receiver)| (child, context, receiver)),
                 );
             }
             if let Some((base, path)) = path(self.file, node) {
                 self.read_path(node, path, base, context, Version::default(), true);
-                work.extend(field(node, "index").map(|child| (child, context)));
+                work.extend(field(node, "index").map(|child| (child, context, false)));
+                if receiver {
+                    work.extend(
+                        field(node, "object")
+                            .map(peel)
+                            .filter(|child| {
+                                matches!(child.kind(), "member_expression" | "subscript_expression")
+                            })
+                            .map(|child| (child, context, true)),
+                    );
+                    continue;
+                }
                 if let Some(object) = field(node, "object") {
                     let mut object = peel(object);
                     while matches!(object.kind(), "member_expression" | "subscript_expression") {
-                        work.extend(field(object, "index").map(|child| (child, context)));
+                        work.extend(field(object, "index").map(|child| (child, context, false)));
                         let Some(base) = field(object, "object") else {
                             break;
                         };
@@ -62,33 +87,37 @@ impl<'a> Analysis<'a> {
                     } else {
                         context
                     };
-                work.push((child, child_context));
+                work.push((child, child_context, false));
             }
         }
         *state = State::default();
     }
 }
 
-fn pattern_inputs(target: Node<'_>) -> Vec<Node<'_>> {
+fn pattern_inputs(target: Node<'_>) -> Vec<(Node<'_>, bool)> {
     let mut pending = vec![target];
     let mut reads = Vec::new();
     while let Some(part) = pending.pop().map(peel) {
         match part.kind() {
             "member_expression" | "subscript_expression" => {
-                reads.extend(
-                    [field(part, "object"), field(part, "index")]
-                        .into_iter()
-                        .flatten(),
-                );
+                reads.extend(field(part, "object").map(peel).map(|object| (object, true)));
+                reads.extend(field(part, "index").map(|index| (index, false)));
             }
             "assignment_pattern"
             | "object_assignment_pattern"
             | "required_parameter"
             | "optional_parameter" => {
-                reads.extend(field(part, "right").or_else(|| field(part, "value")));
+                reads.extend(
+                    field(part, "right")
+                        .or_else(|| field(part, "value"))
+                        .map(|value| (value, false)),
+                );
             }
-            "pair_pattern" => reads
-                .extend(field(part, "key").filter(|key| key.kind() == "computed_property_name")),
+            "pair_pattern" => reads.extend(
+                field(part, "key")
+                    .filter(|key| key.kind() == "computed_property_name")
+                    .map(|key| (key, false)),
+            ),
             _ => {}
         }
         pending.extend(pattern_parts(part));
@@ -107,6 +136,7 @@ pub(in super::super) fn value_children<'a>(
         | "type_alias_declaration"
         | "interface_declaration"
         | "type_annotation"
+        | "implements_clause"
         | "type_arguments"
         | "type_parameters"
         | "function_signature"

@@ -136,6 +136,7 @@ impl<'a> Analysis<'a> {
             }
             "import_statement"
             | "type_alias_declaration"
+            | "implements_clause"
             | "interface_declaration"
             | "type_annotation"
             | "type_arguments"

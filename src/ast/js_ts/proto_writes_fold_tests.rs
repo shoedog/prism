@@ -4,6 +4,8 @@ use crate::{ast::ParsedFile, languages::Language};
 
 #[path = "proto_writes_round2_tests.rs"]
 mod round2;
+#[path = "proto_writes_round3_tests.rs"]
+mod round3;
 
 fn reads(file: &ParsedFile, line: usize, path: &str) -> Vec<NameRead> {
     file.js_ts_name_reads(line)
@@ -172,14 +174,14 @@ fn class_with_export_and_tsx_value_positions() {
 #[test]
 fn member_effects_follow_aliases_and_the_captured_receiver() {
     let file = js(concat!(
-        "function f(opts, other, next) {\n",
-        "  Object.assign(opts, {key: next}); read(opts.key); read(other.key);\n",
+        "function f(opts, next) { const other={key:0, child:{key:0}};\n",
+        "  Object.assign(opts, {key: next}); const a=opts.key, b=other.key;\n",
         "  const alias = other.child; alias.key = next; read(other.child.key);\n",
         "}\n",
-        "function g(obj, next) { const alias = obj;\n",
-        "  obj.key = (obj = next); read(alias.key); read(obj.key);\n",
+        "function g(obj) { const alias = obj, next={key:0};\n",
+        "  obj.key = (obj = next); const a=alias.key, b=obj.key;\n",
         "}\n",
-        "function h(obj, free) { const later = () => { const alias = obj.child; alias.key = 1; };\n",
+        "function h(obj) { const free={key:0}; const later = () => { const alias = obj.child; alias.key = 1; };\n",
         "  read(obj.key); read(free.key);\n",
         "}\n",
     ));
@@ -272,8 +274,8 @@ fn operand_alternatives_inline_consumption_and_primitive_reuse() {
 #[test]
 fn element_versions_include_the_index_and_change_after_consumption() {
     let file = js(concat!(
-        "function f(o, parts, i, j) {\n",
-        "  read(parts[i]); read(parts[i]); i = j; read(parts[i]);\n",
+        "function f(o, i, j) { const parts=[0,1];\n",
+        "  const a=parts[i], b=parts[i]; i = j; const c=parts[i];\n",
         "  parts.shift(); read(parts[i]);\n",
         "}\n",
     ));
@@ -495,9 +497,9 @@ fn long_receiver_alias_chain_has_a_live_selector_at_its_tail() {
 #[test]
 fn loop_entry_includes_a_member_write_through_an_alias_created_in_the_body() {
     let file = js(concat!(
-        "function f(obj, other, flag) {\n",
+        "function f(obj, flag) { const other={child:{key:0}};\n",
         "  while (flag) { const alias = obj.child;\n",
-        "    read(obj.child.key); read(other.child.key); alias.key = 1;\n",
+        "    const a=obj.child.key, b=other.child.key; alias.key = 1;\n",
         "  }\n",
         "}\n",
     ));

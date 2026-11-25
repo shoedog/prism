@@ -99,15 +99,27 @@ impl<'a> Classifier<'a, '_> {
             }
             match (self.analysis.read(left), self.analysis.read(right)) {
                 (Some(a), Some(b)) => {
-                    self.charge(a.reaching_versions.len() + b.reaching_versions.len())
-                        && a.binding.is_some()
-                        && a.binding == b.binding
-                        && a.reaching_versions == b.reaching_versions
+                    if !self.charge(a.reaching_versions.len() + b.reaching_versions.len())
+                        || a.binding.is_none()
+                        || a.binding != b.binding
+                    {
+                        return false;
+                    }
+                    let stable = a.reaching_versions == b.reaching_versions
                         && !a.reaching_versions.is_empty()
                         && ((a.resolution_complete && b.resolution_complete)
                             || (identifier(left)
                                 && identifier(right)
-                                && self.analysis.correlated_identifiers(a, b)))
+                                && self.analysis.correlated_identifiers(a, b)));
+                    // A shared version is a candidate when a completeness
+                    // check refused equality. Keep the fact without using
+                    // this possibility to promote the final property role.
+                    stable
+                        || ((self.analysis.refused_read_proof(a)
+                            || self.analysis.refused_read_proof(b))
+                            && a.reaching_versions
+                                .iter()
+                                .any(|site| b.reaching_versions.binary_search(site).is_ok()))
                 }
                 _ => self.fixed_key(left).is_some(),
             }

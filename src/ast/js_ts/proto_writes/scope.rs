@@ -1,14 +1,16 @@
 //! Lexical declarations, hoisting and the body environment for parameter defaults.
 use super::*;
+use std::borrow::Cow;
 
 #[derive(Default)]
 pub(super) struct Scope<'a> {
     pub(super) parent: Option<usize>,
-    pub(super) names: BTreeMap<&'a str, Option<AstSpan>>,
+    pub(super) names: BTreeMap<Cow<'a, str>, Option<AstSpan>>,
     pub(super) entry: Vec<AstSpan>,
-    shared_vars: BTreeSet<&'a str>,
+    shared_vars: BTreeSet<Cow<'a, str>>,
     pub(super) parameter_copies: Vec<(usize, AstSpan)>,
     dynamic: bool,
+    implicit_arguments: bool,
 }
 
 pub(super) struct Lexical<'a> {
@@ -17,6 +19,10 @@ pub(super) struct Lexical<'a> {
     pub(super) binding_owners: BTreeMap<usize, AstSpan>,
     pub(super) binding_owner_ids: BTreeMap<usize, usize>,
     pub(super) hoisted_vars: BTreeSet<usize>,
+    pub(super) escaped_names: BTreeSet<String>,
+    decoded: BTreeMap<&'a str, String>,
+    pub(super) binding_scopes: BTreeMap<usize, usize>,
+    pub(super) eval_functions: BTreeSet<usize>,
     pub(super) namespaces: BTreeSet<usize>,
 }
 
@@ -28,9 +34,26 @@ impl<'a> Lexical<'a> {
             binding_owners: BTreeMap::new(),
             binding_owner_ids: BTreeMap::new(),
             hoisted_vars: BTreeSet::new(),
+            escaped_names: BTreeSet::new(),
+            decoded: BTreeMap::new(),
+            binding_scopes: BTreeMap::new(),
+            eval_functions: BTreeSet::new(),
             namespaces: BTreeSet::new(),
         };
         let root = file.tree.root_node();
+        let mut pending = vec![root];
+        while let Some(node) = pending.pop() {
+            if identifier(node) {
+                let raw = file.node_text(&node);
+                if raw.contains('\\') && !lexical.decoded.contains_key(raw) {
+                    let name = ParsedFile::js_ts_decode_identifier_text(raw)
+                        .unwrap_or_else(|| raw.to_owned());
+                    lexical.escaped_names.insert(name.clone());
+                    lexical.decoded.insert(raw, name);
+                }
+            }
+            pending.extend(children(node));
+        }
         lexical.collect(
             root,
             Context {
@@ -51,18 +74,24 @@ impl<'a> Lexical<'a> {
     ) {
         if identifier(pattern) || pattern.kind() == "type_identifier" {
             let span = AstSpan::from(pattern);
-            let name = self.file.node_text(&pattern);
+            let raw = self.file.node_text(&pattern);
+            let name = self
+                .decoded
+                .get(raw)
+                .map_or(Cow::Borrowed(raw), |name| Cow::Owned(name.clone()));
+            let scope_id = scope.id();
             let scope = self.scopes.entry(scope.id()).or_default();
-            if let Some(binding) = scope.names.get_mut(name) {
-                if !shared_var || !scope.shared_vars.contains(name) {
+            if let Some(binding) = scope.names.get_mut(name.as_ref()) {
+                if !shared_var || !scope.shared_vars.contains(name.as_ref()) {
                     *binding = None;
                 }
                 return;
             }
-            scope.names.insert(name, Some(span.clone()));
+            scope.names.insert(name.clone(), Some(span.clone()));
             if shared_var {
                 scope.shared_vars.insert(name);
             }
+            self.binding_scopes.insert(span.start_byte, scope_id);
             self.binding_owners
                 .insert(span.start_byte, AstSpan::from(owner));
             self.binding_owner_ids.insert(span.start_byte, owner.id());
@@ -85,6 +114,8 @@ impl<'a> Lexical<'a> {
                 Scope {
                     parent: (node != parent.scope).then_some(parent.scope.id()),
                     dynamic: node.kind() == "with_statement",
+                    implicit_arguments: is_owner(node)
+                        && !matches!(node.kind(), "program" | "arrow_function"),
                     ..Scope::default()
                 },
             );
@@ -124,6 +155,11 @@ impl<'a> Lexical<'a> {
             | "abstract_class_declaration" => {
                 if let Some(name) = field(node, "name") {
                     self.declare(name, parent.scope, parent.owner, is_owner(node), false);
+                    if node.kind() == "function_declaration"
+                        && self.canonical(self.file.node_text(&name)) == "eval"
+                    {
+                        self.eval_functions.insert(name.start_byte());
+                    }
                     if !is_owner(node) {
                         self.declare(name, node, context.owner, false, false);
                     }
@@ -206,7 +242,7 @@ impl<'a> Lexical<'a> {
             if identifier(part) {
                 if let Some(site) = self.scopes[&scope.id()]
                     .names
-                    .get(self.file.node_text(&part))
+                    .get(self.canonical(self.file.node_text(&part)))
                     .and_then(Option::as_ref)
                 {
                     self.hoisted_vars.insert(site.start_byte);
@@ -235,6 +271,31 @@ impl<'a> Lexical<'a> {
             .parameter_copies = copies;
     }
 
+    pub(super) fn canonical<'s>(&'s self, name: &'s str) -> &'s str {
+        self.decoded.get(name).map_or(name, String::as_str)
+    }
+
+    pub(super) fn implicit_arguments(&self, node: Node<'a>, name: &str) -> bool {
+        if self.canonical(name) != "arguments" {
+            return false;
+        }
+        let mut next = Some(node.id());
+        while let Some(id) = next {
+            // A scope the collector never registered (error recovery) proves nothing.
+            let Some(scope) = self.scopes.get(&id) else {
+                return true;
+            };
+            if scope.names.contains_key("arguments") {
+                return false;
+            }
+            if scope.implicit_arguments {
+                return true;
+            }
+            next = scope.parent;
+        }
+        false
+    }
+
     pub(super) fn lookup(&self, node: Node<'a>, name: &str) -> Option<&Option<AstSpan>> {
         self.lookup_inner(node, name, false)
     }
@@ -245,9 +306,13 @@ impl<'a> Lexical<'a> {
         name: &str,
         through_with: bool,
     ) -> Option<&Option<AstSpan>> {
+        let name = self.canonical(name);
         let mut next = Some(node.id());
         while let Some(id) = next {
-            let scope = &self.scopes[&id];
+            // Fail closed: an unregistered scope (error recovery) is an unproven identity.
+            let Some(scope) = self.scopes.get(&id) else {
+                return Some(&None);
+            };
             if let Some(binding) = scope.names.get(name) {
                 return Some(binding);
             }

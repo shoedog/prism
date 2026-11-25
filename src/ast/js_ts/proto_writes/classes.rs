@@ -52,7 +52,19 @@ pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<Pr
                 .or_insert((owner, Vec::new()));
             collect_targets(target, node, members);
         }
-        work.extend(children(node).map(|child| (child, owner)));
+        if is_owner(node) {
+            work.extend(super::eager_owner_inputs(node).map(|child| (child, previous_owner)));
+        }
+        work.extend(
+            children(node)
+                .filter(|child| {
+                    !super::parameter_decorator(*child, node)
+                        && !(is_owner(node)
+                            && matches!(child.kind(), "decorator" | "computed_property_name"))
+                        && child.kind() != "implements_clause"
+                })
+                .map(|child| (child, owner)),
+        );
     }
     let mut classifier = Classifier {
         file,

@@ -63,6 +63,11 @@ pub struct NameRead {
     pub binding: Option<AstSpan>,
     pub reaching_versions: Vec<AstSpan>,
     pub resolution_complete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub incomplete_reason: Option<&'static str>,
+    /// The unstable listing omits expanded histories for refused owners.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub candidate_history_refused: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
@@ -93,6 +98,37 @@ impl ParsedFile {
         self.js_proto_write_index()
             .map(|index| index.line(line))
             .unwrap_or_default()
+    }
+
+    /// Complete-read total and per-reason refusals across this file's inventory.
+    pub fn js_ts_name_read_counts(&self) -> (usize, BTreeMap<&'static str, usize>) {
+        self.js_proto_write_index()
+            .map(NameReadIndex::counts)
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn js_ts_listed_name_reads(
+        &self,
+        line: usize,
+        remaining: &mut usize,
+    ) -> Vec<NameRead> {
+        self.js_proto_write_index()
+            .map(|index| index.listing_line(line, remaining))
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn js_ts_name_read_reasons(
+        &self,
+        line: usize,
+    ) -> impl Iterator<Item = (&NameRead, &'static str)> {
+        self.js_proto_write_index()
+            .into_iter()
+            .flat_map(move |index| index.reasons(line))
+    }
+
+    #[cfg(test)]
+    pub(in crate::ast) fn js_ts_proto_write_census_work(&self) -> (usize, usize) {
+        self.js_proto_write_index().unwrap().census_work
     }
 
     fn js_proto_write_index(&self) -> Option<&NameReadIndex> {
@@ -303,6 +339,31 @@ fn eager_owner_inputs(owner: Node<'_>) -> impl Iterator<Item = Node<'_>> {
                 children(parameter).filter(|child| child.kind() == "decorator")
             }),
         )
+}
+
+// Eager method inputs execute in the enclosing callable. A parameter default
+// executes at call entry, while a parameter decorator is an eager method input.
+fn evaluation_owner(mut node: Node<'_>) -> Node<'_> {
+    while let Some(parent) = node.parent() {
+        if is_owner(parent) {
+            let eager = matches!(node.kind(), "decorator" | "computed_property_name");
+            if !eager {
+                return parent;
+            }
+        }
+        if parameter_decorator(node, parent) {
+            if let Some(owner) = parent
+                .parent()
+                .and_then(|params| params.parent())
+                .filter(|owner| is_owner(*owner))
+            {
+                node = owner;
+                continue;
+            }
+        }
+        node = parent;
+    }
+    node
 }
 
 fn parameter_decorator(node: Node<'_>, parent: Node<'_>) -> bool {

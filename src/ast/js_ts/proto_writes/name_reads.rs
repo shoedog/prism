@@ -4,7 +4,10 @@
 //! short-circuit and conditional joins, plain assignments, plain loop entry
 //! with widening, simple try/catch, and direct inline iteration callbacks.
 //! Syntax that only groups values has no transfer of its own. Unmodelled
-//! evaluation can keep candidate stores, but cannot certify a reaching set.
+//! evaluation keeps candidate stores. Complete reads also require proven binding
+//! identity and member paths. The refusal reasons are identity_escape,
+//! implicit_arguments, direct_eval, member_alias, member_call, member_deferred,
+//! member_accessor, and control_flow_unproven.
 use super::{
     children,
     effects::{mutation_inputs, Effects},
@@ -17,9 +20,12 @@ use tree_sitter::Node;
 
 mod evaluate;
 mod flow;
+mod index;
+mod proof;
 mod syntax;
 mod transfer;
 use flow::PendingJump;
+pub(in crate::ast) use index::Index;
 pub(super) use syntax::value_children;
 
 const OWNER_WORK_BUDGET: usize = 500_000;
@@ -35,48 +41,6 @@ pub(super) enum Origin<'a> {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default)]
-pub(in crate::ast) struct Index {
-    lines: BTreeMap<usize, Vec<NameRead>>,
-    pub(super) facts: Vec<ProtoWrite>,
-    refused_reads: BTreeSet<AstSpan>,
-    refused_writes: BTreeMap<usize, BTreeSet<AstSpan>>,
-    member_writes: BTreeMap<usize, std::sync::Arc<BTreeSet<AstSpan>>>,
-    widened_members: BTreeSet<AstSpan>,
-}
-
-impl Index {
-    pub(super) fn line(&self, line: usize) -> Vec<NameRead> {
-        let mut reads = self.lines.get(&line).cloned().unwrap_or_default();
-        for read in &mut reads {
-            let Some(binding) = read.binding.as_ref().map(|b| b.start_byte) else {
-                continue;
-            };
-            let writes = self
-                .refused_reads
-                .contains(&read.span)
-                .then(|| self.refused_writes.get(&binding))
-                .flatten();
-            let members = (self.widened_members.contains(&read.span)
-                || (self.refused_reads.contains(&read.span) && read.path != read.base))
-                .then(|| self.member_writes.get(&binding))
-                .flatten();
-            if writes.is_some() || members.is_some() {
-                read.reaching_versions = read
-                    .reaching_versions
-                    .iter()
-                    .chain(writes.into_iter().flatten())
-                    .chain(members.into_iter().flat_map(|sites| sites.iter()))
-                    .cloned()
-                    .collect::<BTreeSet<_>>()
-                    .into_iter()
-                    .collect();
-            }
-        }
-        reads
-    }
-}
-
 #[derive(Clone, Default, PartialEq, Eq)]
 struct Version {
     sites: BTreeSet<AstSpan>,
@@ -87,6 +51,8 @@ struct Version {
     // Object mutations separately affect member reads, leaving bare aliases live.
     incomplete: bool,
     mutated: bool,
+    unproven_flow: bool,
+    input_reason: Option<&'static str>,
 }
 
 impl Version {
@@ -99,6 +65,8 @@ impl Version {
         self.objects.extend(other.objects.iter().copied());
         self.incomplete |= other.incomplete;
         self.mutated |= other.mutated;
+        self.unproven_flow |= other.unproven_flow;
+        self.input_reason = self.input_reason.or(other.input_reason);
     }
 }
 
@@ -185,6 +153,9 @@ struct Site {
     objects: BTreeSet<usize>,
     receiver_mutated: bool,
     widened_member: bool,
+    member_history: proof::MemberHistory,
+    otherwise_complete: bool,
+    refusal: Option<&'static str>,
 }
 
 pub(super) struct Analysis<'a> {
@@ -238,45 +209,6 @@ impl<'a> Analysis<'a> {
         analysis.visit(root, context, &mut state);
         analysis.finish_owner(context, &mut state);
         analysis
-    }
-
-    pub(super) fn index(&self, facts: Vec<ProtoWrite>) -> Index {
-        let mut lines = BTreeMap::<usize, Vec<NameRead>>::new();
-        let mut refused_reads = BTreeSet::new();
-        let mut widened_members = BTreeSet::new();
-        let selectors: BTreeSet<_> = facts
-            .iter()
-            .flat_map(|fact| &fact.key_operands)
-            .filter(|operand| operand.role == super::KeyRole::Selector)
-            .map(|operand| (operand.start_byte, operand.end_byte))
-            .collect();
-        for site in self.sites.values().filter(|site| {
-            site.visible
-                || selectors.contains(&(site.read.span.start_byte, site.read.span.end_byte))
-        }) {
-            let mut read = site.read.clone();
-            if self.effects.direct_eval || self.effects.skipped.contains(&site.owner) {
-                read.resolution_complete = false;
-                refused_reads.insert(read.span.clone());
-            }
-            if site.widened_member {
-                widened_members.insert(read.span.clone());
-            }
-            lines.entry(site.line).or_default().push(read);
-        }
-        let refused_writes = if refused_reads.is_empty() {
-            BTreeMap::new()
-        } else {
-            self.effects.known.clone()
-        };
-        Index {
-            lines,
-            facts,
-            refused_reads,
-            refused_writes,
-            widened_members,
-            member_writes: self.effects.member_writes.clone(),
-        }
     }
 
     pub(super) fn read(&self, node: Node<'_>) -> Option<&NameRead> {
@@ -341,7 +273,7 @@ impl<'a> Analysis<'a> {
     }
 
     fn widen(&mut self, region: Node<'a>, context: Context<'a>, state: &mut State) {
-        self.widen_except(region, context, state, &BTreeMap::new());
+        self.widen_except(region, context, state, &BTreeMap::new(), None);
     }
 
     fn widen_except(
@@ -350,6 +282,7 @@ impl<'a> Analysis<'a> {
         context: Context<'a>,
         state: &mut State,
         cutoffs: &BTreeMap<usize, usize>,
+        safe_cutoffs: Option<&BTreeMap<usize, usize>>,
     ) {
         let remaining = OWNER_WORK_BUDGET.saturating_sub(
             self.spending
@@ -369,10 +302,18 @@ impl<'a> Analysis<'a> {
         for (owner, binding, site, member) in writes {
             if site.end_byte > region.end_byte()
                 || !self.effects.runs_with(owner, context.owner.id())
-                || (!member
-                    && cutoffs
-                        .get(&binding)
-                        .is_some_and(|cutoff| site.start_byte < *cutoff))
+            {
+                continue;
+            }
+            let below_cutoff = !member
+                && cutoffs
+                    .get(&binding)
+                    .is_some_and(|cutoff| site.start_byte < *cutoff);
+            if below_cutoff
+                && safe_cutoffs.is_none_or(|safe| {
+                    safe.get(&binding)
+                        .is_some_and(|cutoff| site.start_byte < *cutoff)
+                })
             {
                 continue;
             }
@@ -403,7 +344,8 @@ impl<'a> Analysis<'a> {
                 let version = state.values.entry(binding).or_default();
                 version.sites.insert(site.clone());
                 version.objects.insert(site.start_byte);
-                version.incomplete = true;
+                version.incomplete |= !below_cutoff;
+                version.unproven_flow |= below_cutoff;
             }
         }
     }
@@ -429,16 +371,31 @@ impl<'a> Analysis<'a> {
         })
     }
 
+    pub(super) fn refused_read_proof(&self, read: &NameRead) -> bool {
+        self.sites
+            .get(&read.span)
+            .is_some_and(|site| site.refusal.is_some())
+    }
+
     pub(super) fn correlated_identifiers(&self, a: &NameRead, b: &NameRead) -> bool {
         // A widened loop header can have several prior values. Two identifiers
         // inside one assignment still name the same current slot if there is
         // no intervening rebind and no deferred or mapped write.
         !self.effects.direct_eval
+            && !self.refused_read_proof(a)
+            && !self.refused_read_proof(b)
             && a.binding.as_ref().is_some_and(|binding| {
                 a.owner == b.owner
                     && a.span.end_byte <= b.span.start_byte
                     && !self.effects.captured.contains_key(&binding.start_byte)
                     && !self.effects.mapped.contains_key(&binding.start_byte)
+                    && self
+                        .effects
+                        .proof
+                        .eval_sites
+                        .range(a.span.end_byte..b.span.start_byte)
+                        .next()
+                        .is_none()
                     && !self.effects.rebound_between(
                         binding.start_byte,
                         a.span.end_byte,
@@ -490,10 +447,12 @@ impl<'a> Analysis<'a> {
         path: String,
         base: String,
         context: Context<'a>,
-        version: Version,
+        mut version: Version,
         visible: bool,
     ) {
         let span = AstSpan::from(node);
+        let had_sites = !version.sites.is_empty();
+        let (reason, history) = self.refuse_read(node, &path, &base, context, &mut version);
         let prior = self
             .sites
             .get(&span)
@@ -508,21 +467,26 @@ impl<'a> Analysis<'a> {
             Version::default()
         };
         let lexical = self.lexical.lookup(context.scope, &base);
-        let binding = lexical.cloned().flatten();
-        let resolution_complete = within_budget
+        let implicit = self.lexical.implicit_arguments(context.scope, &base);
+        let otherwise_complete = within_budget
             && !self.effects.direct_eval
-            && binding.is_some()
+            && lexical.is_some_and(Option::is_some)
             && !version.incomplete
             && !version.mutated
-            && !version.sites.is_empty();
+            && had_sites;
+        let binding = (!implicit).then(|| lexical.cloned().flatten()).flatten();
+        let resolution_complete = otherwise_complete && reason.is_none();
         let site = self.sites.entry(span.clone()).or_insert_with(|| Site {
             line: node.start_position().row + 1,
             owner: context.owner.id(),
             visible,
-            has_binding: lexical.is_some(),
+            has_binding: lexical.is_some() || implicit,
             objects: BTreeSet::new(),
             receiver_mutated: false,
             widened_member: false,
+            member_history: history,
+            otherwise_complete,
+            refusal: reason,
             read: NameRead {
                 path,
                 base,
@@ -531,11 +495,28 @@ impl<'a> Analysis<'a> {
                 binding,
                 reaching_versions: Vec::new(),
                 resolution_complete,
+                incomplete_reason: None,
+                candidate_history_refused: false,
             },
         });
         site.visible |= visible;
         site.objects.extend(version.objects);
+        site.member_history.merge(history);
         site.read.resolution_complete &= resolution_complete;
+        site.otherwise_complete &= otherwise_complete;
+        site.refusal = site.refusal.or(reason);
+        site.read.incomplete_reason = if site.otherwise_complete
+            && (reason != Some("identity_escape")
+                || lexical.as_ref().is_some_and(|binding| {
+                    binding.as_ref().is_some_and(|binding| {
+                        self.file.source.get(binding.start_byte..binding.end_byte)
+                            == Some(site.read.base.as_str())
+                    })
+                })) {
+            site.read.incomplete_reason.or(reason)
+        } else {
+            None
+        };
         if !version.sites.is_empty() {
             site.read.reaching_versions = site
                 .read

@@ -29,6 +29,12 @@ impl<'a> Analysis<'a> {
     ) {
         let target = peel(target);
         if identifier(target) {
+            if self
+                .lexical
+                .implicit_arguments(context.scope, self.file.node_text(&target))
+            {
+                return;
+            }
             let Some(binding) = self
                 .lexical
                 .binding(context.scope, self.file.node_text(&target))
@@ -264,8 +270,15 @@ impl<'a> Analysis<'a> {
                 // Element equality additionally depends on the evaluated subscript.
                 let key = peel(key);
                 if identifier(key) {
-                    let mut key = self.version(self.file.node_text(&key), context, state);
+                    let spelling = self.file.node_text(&key);
+                    let input_reason = self.binding_refusal(spelling, context);
+                    let mut key = self.version(spelling, context, state);
+                    key.input_reason = input_reason;
                     version.incomplete |= key.sites.is_empty();
+                    if input_reason.is_some() {
+                        let binding = self.lexical.binding(context.scope, spelling);
+                        self.extend_binding_stores(context, binding.as_ref(), &mut key.sites);
+                    }
                     key.mutated = false;
                     key.objects.clear();
                     version.merge(&key);

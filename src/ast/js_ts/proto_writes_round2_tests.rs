@@ -58,7 +58,7 @@ fn direct_eval_refuses_visible_resolution() {
         "read(k); }\n",
     ));
     assert!(!read(&file, 2, "k").resolution_complete);
-    let control = js("function f(k, eval) { eval('label');\n read(k); }");
+    let control = js("function f(k) { function eval(text) {} eval('label');\n read(k); }");
     assert!(read(&control, 2, "k").resolution_complete);
 }
 
@@ -100,8 +100,8 @@ fn alternative_member_targets_invalidate_both_possible_receivers() {
     ] {
         let file = js(&format!(
             concat!(
-                "function f(flag, a, b, c, v) {{ {store};\n",
-                "read(a.x); read(b.x); read(c.x); }}"
+                "function f(flag, a, b, v) {{ const c={{x:0}}; {store};\n",
+                "const xa=a.x, xb=b.x, xc=c.x; }}"
             ),
             store = store
         ));
@@ -210,15 +210,15 @@ fn repeated_ternary_aliases_finish_with_a_separate_fact_control() {
 #[test]
 fn member_reads_after_opaque_calls_keep_possible_write_sites() {
     let file = js(concat!(
-        "function f(a,b,c) {\n",
+        "function f(a,b) { const c={x:0};\n",
         "  helper(a); b.reset();\n",
-        "  read(a.x); read(b.x); read(c.x);\n",
+        "  const xa=a.x, xb=b.x, xc=c.x;\n",
         "}"
     ));
     for path in ["a.x", "b.x"] {
         let affected = read(&file, 3, path);
         assert!(!affected.resolution_complete);
-        assert_eq!(affected.reaching_versions.len(), 2);
+        assert_eq!(affected.reaching_versions.len(), 3);
     }
     assert!(read(&file, 3, "c.x").resolution_complete);
 }
@@ -227,7 +227,7 @@ fn member_reads_after_opaque_calls_keep_possible_write_sites() {
 fn switch_keeps_skipped_effects_and_limits_state_copies() {
     let file = js(concat!(
         "function f(t, k, next, stable) {\n",
-        "  switch (t) { default: k = next; break; }\n",
+        "  switch (t) { case 0: k = next; break; }\n",
         "  read(k); read(stable);\n",
         "}"
     ));

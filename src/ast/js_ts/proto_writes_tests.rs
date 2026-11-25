@@ -116,6 +116,9 @@ fn matrix_nonrecursive_polluting_rows() {
     let rows = std::fs::read_to_string(format!("{MATRIX}/rows.jsonl")).unwrap();
     let mut counts = BTreeMap::<String, (usize, usize)>::new();
     let mut failures = Vec::new();
+    let mut complete = 0;
+    let mut reasons = BTreeMap::<&str, usize>::new();
+    let mut designated = BTreeMap::new();
     assert_eq!(rows.lines().count(), 326);
     for row in rows
         .lines()
@@ -144,6 +147,18 @@ fn matrix_nonrecursive_polluting_rows() {
             .iter()
             .filter(|fact| fact.line == row.write_line)
             .collect();
+        let (file_complete, file_reasons) = parsed.js_ts_name_read_counts();
+        complete += file_complete;
+        for (reason, count) in file_reasons {
+            *reasons.entry(reason).or_default() += count;
+        }
+        designated.insert(
+            row.id.clone(),
+            on_line
+                .iter()
+                .map(|fact| (fact.start_byte, fact.end_byte, fact.class, fact.guard))
+                .collect::<Vec<_>>(),
+        );
         let class = match row.want_class.as_str() {
             "nested_keys" => Some(ProtoWriteClass::NestedKeys),
             "path_walk" => Some(ProtoWriteClass::PathWalk),
@@ -175,6 +190,23 @@ fn matrix_nonrecursive_polluting_rows() {
             failures.push(format!("{} at {:?}: {on_line:?}", row.id, spans));
         }
     }
+    let total = reasons.values().sum::<usize>();
+    eprintln!("fail_closed_reads: total={total} by_reason={reasons:?}");
+    assert_eq!(1722 - complete, total, "counts against c21952a8");
+    eprintln!("matrix complete_reads: {complete}");
+    assert_eq!(designated.len(), 134);
+    let mut changed = failures.len();
+    if let Some(path) = std::env::var_os("PRISM_FOLD3_BASE_FACTS") {
+        let recorded: BTreeMap<String, serde_json::Value> =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        assert_eq!(recorded.len(), 134);
+        changed = designated
+            .iter()
+            .filter(|(id, facts)| recorded.get(*id) != serde_json::to_value(facts).ok().as_ref())
+            .count();
+    }
+    eprintln!("designated_fact_rows_changed: {changed}");
+    assert_eq!(changed, 0);
     eprintln!("matrix pass/total {counts:?}");
     assert_eq!(counts.values().map(|count| count.1).sum::<usize>(), 134);
     assert!(
@@ -257,8 +289,8 @@ fn same_line_inventory_distinguishes_stable_reads_rebinding_and_owners() {
 #[test]
 fn shadowed_or_mutated_reads_remain_in_the_inventory() {
     let file = js(concat!(
-        "function run(opts, part, one, two, cond) {\n",
-        "  read(opts.key); opts[part] = two; read(opts.key);\n",
+        "function run(part, one, two, cond) { const opts={key:0};\n",
+        "  const before=opts.key; opts[part] = two; const after=opts.key;\n",
         "  if (cond) part = one; read(part);\n",
         "  { read(part); let part = two; read(part); }\n",
         "}\n"
@@ -522,10 +554,10 @@ fn nullish_cursor_installation_reports_the_later_write() {
 #[test]
 fn member_mutation_through_a_direct_alias_does_not_follow_a_rebind() {
     let file = js(concat!(
-        "function f(opts, key, replacement) {\n",
+        "function f(opts, key) { const replacement={key:0};\n",
         "  const alias = opts;\n",
-        "  alias[key] = 1; read(opts.key);\n",
-        "  opts = replacement; read(opts.key); read(alias.key);\n",
+        "  alias[key] = 1; const a=opts.key;\n",
+        "  opts = replacement; const b=opts.key, c=alias.key;\n",
         "}\n",
     ));
     let after_mutation = file.js_ts_name_reads(3);
