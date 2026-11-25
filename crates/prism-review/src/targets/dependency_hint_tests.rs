@@ -49,6 +49,70 @@ fn hint_at(parsed: &ParsedFile, line: usize) -> AstHint {
     }
 }
 
+fn identity_at(
+    parsed: &ParsedFile,
+    line: usize,
+    callee: &str,
+    known_files: &BTreeMap<String, ParsedFile>,
+) -> RootIdentity {
+    let (call, _) = call_candidates(parsed, parsed.tree.root_node(), line)
+        .into_iter()
+        .find(|(_, source)| source == callee)
+        .expect("call in fixture");
+    root_identity(
+        parsed,
+        call,
+        &SiteContext {
+            file: "app/svc.py",
+            repo_root: Path::new("/nonexistent-prism-test-repo-root"),
+            known_files,
+            resolved_name: Some("other"),
+        },
+    )
+    .expect("Python call identity")
+}
+
+#[test]
+fn root_identity_reports_resolved_path_for_alias_import() {
+    for (source, callee) in [
+        ("import requests as r; other(); r.get(u)", "r.get"),
+        ("from requests import get as fetch; fetch(u)", "fetch"),
+    ] {
+        let parsed = parse(source, Language::Python);
+        let identity = identity_at(&parsed, 1, callee, &BTreeMap::new());
+        assert_eq!(identity.source_callee, callee);
+        assert_eq!(identity.resolved_path.as_deref(), Some("requests.get"));
+        assert!(!identity.root_is_library_spelling);
+    }
+}
+
+#[test]
+fn root_identity_reports_no_path_for_shadowed_root() {
+    for (source, line) in [
+        ("import requests\ndef f(requests): requests.get(u)", 2),
+        ("import requests; requests = x; requests.get(u)", 1),
+        ("requests.get(u)", 1),
+    ] {
+        let parsed = parse(source, Language::Python);
+        let identity = identity_at(&parsed, line, "requests.get", &BTreeMap::new());
+        assert_eq!(identity.source_callee, "requests.get");
+        assert_eq!(identity.resolved_path, None);
+        assert!(identity.root_is_library_spelling);
+    }
+}
+
+#[test]
+fn root_identity_reports_no_path_for_repository_local_module() {
+    let parsed = parse("import requests as r; r.get(u)", Language::Python);
+    for path in ["app/requests.py", "requests/__init__.py"] {
+        let known_files = BTreeMap::from([(path.to_string(), parse("", Language::Python))]);
+        let identity = identity_at(&parsed, 1, "r.get", &known_files);
+        assert_eq!(identity.source_callee, "r.get");
+        assert_eq!(identity.resolved_path, None);
+        assert!(!identity.root_is_library_spelling);
+    }
+}
+
 #[test]
 fn direct_root_library_call_gets_kind_and_verbatim_callee() {
     let parsed = parse(
