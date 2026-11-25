@@ -89,7 +89,7 @@ CLASSES = ('nested_keys', 'path_walk', 'recursive_merge')
 # operator gap between the end of the written member and the coordinate: closing parens, TS non-null
 # `!`, whitespace, then the leading characters of a (compound) assignment operator.
 # Block comments and line comments may also sit between the member and the operator.
-GAP = re.compile(rb'^(?:[\s)!]|/\*.*?\*/|//[^\r\n]*[\r\n])*[-+*/%<>&|^?]*$', re.S)
+GAP = re.compile(rb'^(?:[\s)!]|/\*(?:[^*]|\*(?!/))*\*/|//[^\r\n]*[\r\n])*[-+*/%<>&|^?]*$')
 LINE_BREAK = re.compile('\r\n|\n|\r| | ')
 
 # stage ranks for first_failed_condition: the furthest failing stage wins
