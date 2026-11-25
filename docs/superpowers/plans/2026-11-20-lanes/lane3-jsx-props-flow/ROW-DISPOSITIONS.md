@@ -320,19 +320,19 @@ d1-import-alias | add | 5.3.1
 d1-literal-member-source | add | 5.3.3
 d1-jsx-bracket-family | add | 5.3.2
 d1-bracket-beside-reads | add | 5.3.2
-d1-multiline-selection | add | 5.3.4
+d1-multiline-selection | add: Full/base positives and two vetoes. Check the indexed full Use bytes, hidden-full base and broken fall-through in both negatives. | 5.3.4
 d1-scoped-replacement | add | 5.2.3
-d2-literal-selected-read | add | 5.3.2
+d2-literal-selected-read | add: The inherited formal-to-shadow edges are fixture preconditions. Check the literal refusal and surviving formal reads. | 5.3.2
 d2-guard-bare-arrow-literal | add | 5.3.5
 d2-guard-rest-literal | add | 5.3.5
 d2-forward-literal | add | 5.3.1
-d2-jsx-selected-read | add | 5.3.2
+d2-jsx-selected-read | add: The inherited formal-to-shadow edges are fixture preconditions. Check the JSX refusal and surviving formal reads. | 5.3.2
 d2-guard-bare-arrow-jsx | add | 5.3.5
 d2-guard-rest-jsx | add | 5.3.5
 d2-forward-jsx | add | 5.3.1
-d2-default-capture | add | 5.1.2
+d2-default-capture | add: Require cfg_incomplete for the closure capture with a separate body var and with a body write to the captured parameter. | 5.1.2
 d2-unknown-writer | add | 5.2.3
 d2-unknown-target | add | 5.1.3
-d2-multiline-shadow | add | 5.3.4
-d2-multiline-version | add | 5.3.4
-d2-multiline-base-pairs | add | 5.3.4
+d2-multiline-shadow | add: Intentionally repeats d1-multiline-selection/shadow beside its source baseline. Witness the inner declaration at the indexed read even if disconnected. | 5.3.4
+d2-multiline-version | add: Intentionally repeats d1-multiline-selection/stale beside its source baseline. Witness the intervening field write at the indexed read even if disconnected. | 5.3.4
+d2-multiline-base-pairs | add: Intentionally repeats both d2 baselines together to check the two base paths independently of the conflict cases. | 5.3.4
