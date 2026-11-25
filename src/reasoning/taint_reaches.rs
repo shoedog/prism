@@ -20,7 +20,7 @@ use crate::reasoning::scope_honesty;
 use crate::reasoning::seeds::{resolve, ResolvedSeed, SeedRole, SeedSpec};
 use crate::reasoning::shape::{
     node_to_graph_node, reachability_and_boundary, window_relations, witness_chain_for,
-    witness_graph_for_chain, BoundaryAttribution, BoundaryTargets,
+    witness_graph_for_chain, BoundaryTargets,
 };
 use crate::reasoning::types::{
     Reachability, ReasoningReason, ReasoningSummary, ReasoningWarning, SanitizerSite, SinkResult,
@@ -114,7 +114,7 @@ fn frontier_mode(
 ) -> Evidence {
     let mut warnings = seed_warnings.to_vec();
     warnings.extend(trace_warnings(trace));
-    warnings.extend(boundary_warnings(&session.index.cpg, trace));
+    warnings.extend(boundary_warnings(&session.index.cpg, trace, true));
     warnings.extend(scope_honesty::warnings_for_trace(
         &session.repo.files,
         &session.index.cpg,
@@ -267,8 +267,6 @@ fn witness_mode(
                             sink.node,
                             &mut bypass_ordering_warnings,
                         );
-                        let incomplete =
-                            matches!(attribution, BoundaryAttribution::Incomplete { .. });
                         warnings.extend(attribution_warning(
                             &session.index.cpg,
                             &source.loc,
@@ -289,7 +287,6 @@ fn witness_mode(
                                 descent_depth = 0;
                                 skip_graph = true;
                             }
-                            Reachability::NotReached if incomplete => {}
                             Reachability::NotReached => {
                                 reachability = Reachability::Sanitized;
                                 sanitized_by = hits.iter().map(|hit| hit.site.clone()).collect();
@@ -386,6 +383,8 @@ fn witness_mode(
     }
 
     let reachability = ReasoningSummary::aggregate(&per_sink, 0);
+    // Insert the legacy warning records after any attributed versions of the same record.
+    warnings.extend(boundary_warnings(&session.index.cpg, trace, false));
     Ok(Evidence {
         query: "taint_reaches".into(),
         items: Vec::new(),
@@ -625,10 +624,15 @@ pub(super) fn location_for_var(loc: &VarLocation) -> Location {
 fn dedup_warnings(warnings: Vec<Warning>) -> Vec<Warning> {
     let mut by_key = BTreeMap::new();
     for warning in warnings {
+        let kind = match &warning.kind {
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { sink, .. }) => {
+                format!("Reasoning(InterproceduralBoundary {{ sink: {sink:?} }})")
+            }
+            kind => format!("{kind:?}"),
+        };
         by_key
             .entry(format!(
-                "{:?}:{}:{}:{}:{}",
-                warning.kind,
+                "{kind}:{}:{}:{}:{}",
                 warning.message,
                 warning
                     .location

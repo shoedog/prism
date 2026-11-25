@@ -288,6 +288,19 @@ fn use_target_reports_target_not_binding() {
         .iter()
         .any(|edge| (edge.root, edge.from, edge.to, edge.reason)
             == (from, from, to, LossReason::TargetNotBinding)));
+
+    cpg.call_graph.callers.remove("g").unwrap();
+    let trace = cpg.taint_trace_nodes(&[from], None);
+    assert_boundary(&trace, from, to, LossReason::TargetNotBinding);
+    let edge = trace
+        .boundary
+        .iter()
+        .find(|edge| edge.from == from && edge.to == to)
+        .unwrap();
+    assert_ne!(
+        edge.joint_relaxations & super::relaxation(LossReason::NoMatchingSite),
+        0
+    );
 }
 
 #[test]
@@ -459,6 +472,7 @@ fn return_not_entered_site_is_a_cut_not_a_boundary() {
         depth: 1,
         site: Some(receiving),
         edge_own_not_exact: false,
+        joint_relaxations: 0,
     });
     assert!(trace.boundary.is_empty());
     assert_eq!(

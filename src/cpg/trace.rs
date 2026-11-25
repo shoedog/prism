@@ -7,7 +7,7 @@ use crate::finding_confidence::{EvidenceHop, EvidencePath};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 
-use super::trace_cuts::{self, CrossingSite, TraceCut};
+use super::trace_cuts::{self, BoundaryEdge, CrossingSite, TraceCut};
 use super::trace_descent::{DescentGateKey, LossReason};
 use super::{CodePropertyGraph, CpgEdge, CpgNode, TaintCrossingPolicy, VarAccess};
 
@@ -44,28 +44,12 @@ pub enum Relation {
     ReturnFlow,
 }
 
-/// A def-use edge crossing a `(file,function,function_start_line)` boundary, recorded but not
-/// traversed in v1.
-/// `Ord` so [`Trace::boundary`] can be a set — parallel DataFlow edges and multi-root traces
-/// would otherwise push duplicate `(root, from, to)` triples and double-count downstream warnings.
+/// Kind of crossing refused by the walker.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BoundaryKind {
     CrossFunction,
     SelfFunctionParam,
     SelfFunctionReturn,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BoundaryEdge {
-    pub root: NodeIndex,
-    pub from: NodeIndex,
-    pub to: NodeIndex,
-    pub kind: BoundaryKind,
-    pub reason: LossReason,
-    pub relation: Relation,
-    pub site: Option<CrossingSite>,
-    pub depth: usize,
-    pub edge_own_not_exact: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -544,10 +528,16 @@ impl CodePropertyGraph {
                         site = self.crossing_site(node, next, relation, order);
                     }
                     if let Err(reason) = gate {
-                        let edge_own_not_exact = label
-                            == Some(super::FlowConfidence::NameOnly(
-                                super::FlowDoubt::CallNameOnly,
-                            ));
+                        let (edge_own_not_exact, joint_relaxations) = self
+                            .joint_crossing_relaxations(
+                                kind,
+                                relation,
+                                node,
+                                next,
+                                label,
+                                descent_gate_cache,
+                                policy,
+                            );
                         let first = trace.record_refusal(BoundaryEdge {
                             root,
                             from: node,
@@ -558,6 +548,7 @@ impl CodePropertyGraph {
                             site,
                             depth,
                             edge_own_not_exact,
+                            joint_relaxations,
                         });
                         if first && log_crossings {
                             self.log_trace_attempt(
@@ -656,7 +647,7 @@ impl CodePropertyGraph {
         )
     }
 
-    pub(super) fn node_file_fn(&self, idx: NodeIndex) -> Option<(String, String, usize)> {
+    pub(crate) fn node_file_fn(&self, idx: NodeIndex) -> Option<(String, String, usize)> {
         match &self.graph[idx] {
             CpgNode::Variable {
                 file,

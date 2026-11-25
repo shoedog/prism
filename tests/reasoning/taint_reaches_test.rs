@@ -8,12 +8,12 @@ use prism::repo_loader::load_repo;
 use std::sync::Arc;
 use tempfile::TempDir;
 
-struct Fixture {
+pub(super) struct Fixture {
     _dir: TempDir,
-    session: NavigationSession,
+    pub(super) session: NavigationSession,
 }
 
-fn fixture(files: &[(&str, &str)]) -> Fixture {
+pub(super) fn fixture(files: &[(&str, &str)]) -> Fixture {
     let dir = tempfile::tempdir().unwrap();
     for (file, src) in files {
         let path = dir.path().join(file);

@@ -7,9 +7,24 @@ use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 
 use super::{
-    BoundaryEdge, CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, LossReason, Relation,
+    BoundaryKind, CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, LossReason, Relation,
     ReturnFlowMode, Trace, VarAccess,
 };
+
+/// A def-use crossing recorded without traversing the refused hop.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BoundaryEdge {
+    pub root: NodeIndex,
+    pub from: NodeIndex,
+    pub to: NodeIndex,
+    pub kind: BoundaryKind,
+    pub reason: LossReason,
+    pub relation: Relation,
+    pub site: Option<CrossingSite>,
+    pub depth: usize,
+    pub edge_own_not_exact: bool,
+    pub joint_relaxations: u32,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CrossingSite {

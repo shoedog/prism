@@ -10,6 +10,17 @@ use super::{
     SameLineOrderView, Trace,
 };
 
+pub(crate) const MAX_CONTINUATION_STEPS: usize = 1024;
+// The edge label and site resolution can independently refuse as `not_exact`.
+pub(crate) const EDGE_OWN_NOT_EXACT: u32 = 1 << 31;
+
+#[derive(Default)]
+pub(crate) struct ContinuationSearch {
+    pub paths: BTreeMap<NodeIndex, (u32, usize)>,
+    pub incomplete: bool,
+    pub steps: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ContinuationConstraints {
     pub depth: usize,
@@ -37,12 +48,17 @@ impl ContinuationConstraints {
     }
 
     pub(crate) fn initial_relaxations(edge: &BoundaryEdge) -> u32 {
-        let primary = relaxation(edge.reason);
-        if edge.edge_own_not_exact {
-            primary | relaxation(LossReason::NotExact)
-        } else {
-            primary
-        }
+        Self::primary_relaxation(edge)
+            | edge.joint_relaxations
+            | if edge.edge_own_not_exact {
+                EDGE_OWN_NOT_EXACT
+            } else {
+                0
+            }
+    }
+
+    pub(crate) fn primary_relaxation(edge: &BoundaryEdge) -> u32 {
+        crossing_relaxation(edge.reason, edge.edge_own_not_exact)
     }
 }
 
@@ -88,26 +104,20 @@ impl ContinuationReturnSites {
 }
 
 impl ContinuationFrames {
-    fn return_context(&self, sites: &ContinuationReturnSites) -> &[Frame] {
-        let Some((top, callers)) = self.0.split_last() else {
-            return &[];
-        };
-        let can_return = |frame: &Frame| {
-            frame
-                .site
-                .as_ref()
-                .is_some_and(|site| sites.0.contains(site))
-        };
-        if !can_return(top) {
-            return &[];
-        }
-        // Popping the top frame can expose different callers at a join. Retain those callers
-        // through the first frame with no certified receiver, which cannot itself be popped.
-        let first = callers
+    fn retain_return_context(&mut self, sites: &ContinuationReturnSites) {
+        // Keep every frame a certified return can expose, including the first unpoppable
+        // one. Older frames can never become active and do not take part in repeat detection.
+        let first = self
+            .0
             .iter()
-            .rposition(|frame| !can_return(frame))
+            .rposition(|frame| {
+                !frame
+                    .site
+                    .as_ref()
+                    .is_some_and(|site| sites.0.contains(site))
+            })
             .unwrap_or(0);
-        &callers[first..]
+        self.0.drain(..first);
     }
 
     pub(crate) fn advance(
@@ -178,6 +188,14 @@ pub(crate) fn relaxation(reason: LossReason) -> u32 {
     1 << (reason as u32)
 }
 
+fn crossing_relaxation(reason: LossReason, edge_own_not_exact: bool) -> u32 {
+    if edge_own_not_exact && reason == LossReason::NotExact {
+        EDGE_OWN_NOT_EXACT
+    } else {
+        relaxation(reason)
+    }
+}
+
 impl CodePropertyGraph {
     /// A recorded recursive edge cannot bind an earlier read outside the root's CFG scope.
     pub(crate) fn recursive_boundary_allows(&self, root: NodeIndex, sink: NodeIndex) -> bool {
@@ -215,37 +233,42 @@ impl CodePropertyGraph {
         order: Option<&dyn SameLineOrderView>,
         return_sites: &ContinuationReturnSites,
         ordering_warnings: &mut Vec<OrderingWarning>,
-    ) -> BTreeMap<NodeIndex, (u32, usize)> {
+    ) -> ContinuationSearch {
         let max_depth = super::trace::MAX_TAINT_DESCENT_DEPTH;
         let initial_depth = (constraints.depth + 1).min(max_depth);
+        let mut initial_frames = constraints.frames.clone();
+        initial_frames.retain_return_context(return_sites);
         let mut queue = BTreeSet::from([(
             constraints.relaxations.count_ones(),
             0,
             target,
             initial_depth,
             constraints.relaxations,
-            constraints.frames.clone(),
+            initial_frames,
         )]);
-        let mut paths = BTreeMap::new();
-        type VisitsByReturnContext = BTreeMap<Vec<Frame>, Vec<(u32, usize)>>;
+        let mut search = ContinuationSearch::default();
+        // The retained stack is all that both matching returns and the repeat check read.
+        // At equal node, depth and stack, each successor adds the same reasons and hop to
+        // either state, so a subset of reasons at no greater length dominates.
         let mut visited =
-            BTreeMap::<(NodeIndex, usize, Option<Frame>), VisitsByReturnContext>::new();
+            BTreeMap::<(NodeIndex, usize, ContinuationFrames), Vec<(u32, usize)>>::new();
         let mut gate_cache = BTreeMap::new();
         while let Some((_, length, from, depth, reasons, frames)) = queue.pop_first() {
-            let alternatives = visited
-                .entry((from, depth, frames.0.last().cloned()))
-                .or_default()
-                .entry(frames.return_context(return_sites).to_vec())
-                .or_default();
+            let alternatives = visited.entry((from, depth, frames.clone())).or_default();
             if alternatives
                 .iter()
                 .any(|&(seen, hops)| seen & reasons == seen && hops <= length)
             {
                 continue;
             }
+            if search.steps == MAX_CONTINUATION_STEPS {
+                search.incomplete = true;
+                break;
+            }
+            search.steps += 1;
             alternatives.retain(|&(seen, hops)| reasons & seen != reasons || length > hops);
             alternatives.push((reasons, length));
-            paths.entry(from).or_insert((reasons, length));
+            search.paths.entry(from).or_insert((reasons, length));
             for (to, relation, label, cut) in self.taint_neighbors(from, trace.return_flow_mode) {
                 if cut.is_some()
                     || trace.excluded_hops.contains(&(from, to))
@@ -273,6 +296,7 @@ impl CodePropertyGraph {
                     {
                         continue;
                     }
+                    next_frames.retain_return_context(return_sites);
                     if kind == BoundaryKind::CrossFunction && depth == max_depth {
                         required |= relaxation(LossReason::DepthCap);
                     }
@@ -288,7 +312,11 @@ impl CodePropertyGraph {
                         &mut gate_cache,
                         None,
                     ) {
-                        required |= relaxation(reason);
+                        required |= crossing_relaxation(
+                            reason,
+                            relation != Relation::ReturnFlow
+                                && super::trace_descent::edge_own_not_exact(label),
+                        );
                     }
                     next_depth = (depth + 1).min(max_depth);
                 } else {
@@ -328,6 +356,6 @@ impl CodePropertyGraph {
                 ));
             }
         }
-        paths
+        search
     }
 }

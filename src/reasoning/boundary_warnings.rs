@@ -1,4 +1,4 @@
-use crate::cpg::{BoundaryEdge, BoundaryKind, CodePropertyGraph, Trace};
+use crate::cpg::{BoundaryEdge, BoundaryKind, CodePropertyGraph, LossReason, Trace};
 use crate::data_flow::VarLocation;
 use crate::navigation::types::{Warning, WarningKind};
 use crate::reasoning::types::ReasoningWarning;
@@ -6,18 +6,30 @@ use crate::reasoning::types::ReasoningWarning;
 use super::boundary_targets::BoundaryAttribution;
 use super::taint_reaches::location_for_var;
 
-pub(super) fn boundary_warnings(cpg: &CodePropertyGraph, trace: &Trace) -> Vec<Warning> {
+pub(super) fn boundary_warnings(
+    cpg: &CodePropertyGraph,
+    trace: &Trace,
+    frontier: bool,
+) -> Vec<Warning> {
     trace
         .boundary
         .iter()
         .filter_map(|edge| {
             let target = cpg.to_var_location(edge.to)?;
-            Some(boundary_warning(edge, &target, &target))
+            Some(boundary_warning(
+                edge,
+                &target,
+                frontier.then_some(edge.reason),
+            ))
         })
         .collect()
 }
 
-fn boundary_warning(edge: &BoundaryEdge, target: &VarLocation, sink: &VarLocation) -> Warning {
+fn boundary_warning(
+    edge: &BoundaryEdge,
+    target: &VarLocation,
+    reason: Option<LossReason>,
+) -> Warning {
     let kind = match edge.kind {
         BoundaryKind::CrossFunction => "cross-function",
         BoundaryKind::SelfFunctionParam => "self-function parameter",
@@ -26,13 +38,10 @@ fn boundary_warning(edge: &BoundaryEdge, target: &VarLocation, sink: &VarLocatio
     Warning {
         kind: WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary {
             sink: target.path.to_string(),
-            reason: edge.reason,
+            reason,
         }),
-        message: format!(
-            "taint reached a {kind} boundary at {} ({})",
-            target.path, edge.reason
-        ),
-        location: Some(location_for_var(sink)),
+        message: format!("taint reached a {kind} boundary at {}", target.path),
+        location: Some(location_for_var(target)),
     }
 }
 
@@ -46,7 +55,7 @@ pub(super) fn attribution_warning(
         BoundaryAttribution::None => None,
         BoundaryAttribution::Matched(edge) => {
             let target = cpg.to_var_location(edge.to)?;
-            Some(boundary_warning(edge, &target, sink))
+            Some(boundary_warning(edge, &target, Some(edge.reason)))
         }
         BoundaryAttribution::Incomplete { .. } => Some(Warning {
             kind: WarningKind::SkippedPath,

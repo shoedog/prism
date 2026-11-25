@@ -8,8 +8,8 @@ use petgraph::graph::NodeIndex;
 
 use crate::cpg::{
     crossing_trace_enabled, relaxation, trace_byte_span, BoundaryEdge, CodePropertyGraph,
-    ContinuationConstraints, ContinuationFrames, ContinuationReturnSites, LossReason,
-    OrderingWarning, SameLineOrderView, Trace,
+    ContinuationConstraints, ContinuationFrames, ContinuationReturnSites, ContinuationSearch,
+    LossReason, OrderingWarning, SameLineOrderView, Trace, EDGE_OWN_NOT_EXACT,
 };
 
 use super::types::Reachability;
@@ -21,7 +21,7 @@ const MAX_CONTINUATION_PAIRS: usize = 128;
 pub enum BoundaryAttribution<'a> {
     None,
     Matched(&'a BoundaryEdge),
-    /// The search hit its pair limit. `matched` records whether a tested pair reached the sink.
+    /// The search hit a pair or step limit. `matched` records a match found by the search.
     Incomplete {
         matched: bool,
     },
@@ -84,10 +84,14 @@ pub(crate) fn reachability_and_boundary<'a>(
         return (Reachability::Reached, BoundaryAttribution::None);
     }
     let attribution = targets.find(root, sink, ordering_warnings);
-    let verdict = if matches!(
-        attribution,
-        BoundaryAttribution::Matched(_) | BoundaryAttribution::Incomplete { matched: true }
-    ) {
+    let matched = match attribution {
+        BoundaryAttribution::Matched(_) => true,
+        BoundaryAttribution::Incomplete { matched } => {
+            targets.legacy_boundary_matches(root, sink, ordering_warnings) || matched
+        }
+        BoundaryAttribution::None => false,
+    };
+    let verdict = if matched {
         Reachability::BoundaryExited
     } else {
         Reachability::NotReached
@@ -96,7 +100,7 @@ pub(crate) fn reachability_and_boundary<'a>(
 }
 
 struct Continuation {
-    paths: BTreeMap<NodeIndex, (u32, usize)>,
+    search: ContinuationSearch,
     warnings: Vec<OrderingWarning>,
 }
 
@@ -137,6 +141,31 @@ impl<'a> BoundaryTargets<'a> {
             continuation: BTreeMap::new(),
             return_sites: OnceCell::new(),
         }
+    }
+
+    fn legacy_boundary_matches(
+        &self,
+        root: NodeIndex,
+        sink: NodeIndex,
+        warnings: &mut Vec<OrderingWarning>,
+    ) -> bool {
+        // Main's local boundary test has no continuation budget. Only targets in the
+        // sink's function can reach it through that test.
+        let owner = self.cpg.node_file_fn(sink);
+        self.by_root.get(&root).into_iter().flatten().any(|edge| {
+            edge.to == sink
+                || (owner.is_some()
+                    && self.cpg.node_file_fn(edge.to) == owner
+                    && self
+                        .cpg
+                        .forward_reachable_in_function_ordered(edge.to, self.order, warnings)
+                        .contains(&sink))
+        })
+    }
+
+    #[cfg(test)]
+    pub(super) fn continuation_steps(&self) -> impl Iterator<Item = usize> + '_ {
+        self.continuation.values().map(|c| c.search.steps)
     }
 
     pub(crate) fn find(
@@ -205,6 +234,7 @@ impl<'a> BoundaryTargets<'a> {
         let log = crossing_trace_enabled();
         let mut pairs = BTreeSet::new();
         let mut best = None;
+        let mut incomplete = false;
         for (edge, prefix, frames) in eligible {
             let key = (
                 edge.to,
@@ -212,17 +242,8 @@ impl<'a> BoundaryTargets<'a> {
             );
             let new_pair = pairs.insert(key.clone());
             if new_pair && pairs.len() > MAX_CONTINUATION_PAIRS {
-                if log {
-                    let _ = writeln!(
-                        io::stderr().lock(),
-                        "taint-attribution root={:?} sink={:?} status=incomplete explained=false",
-                        cpg.trace_identity(root),
-                        cpg.trace_identity(sink)
-                    );
-                }
-                return BoundaryAttribution::Incomplete {
-                    matched: best.is_some(),
-                };
+                incomplete = true;
+                break;
             }
             let continuation =
                 self.continuation
@@ -236,7 +257,7 @@ impl<'a> BoundaryTargets<'a> {
                                 self.order,
                             )
                         });
-                        let paths = cpg.boundary_continuation(
+                        let search = cpg.boundary_continuation(
                             *target,
                             constraints,
                             self.trace,
@@ -244,12 +265,13 @@ impl<'a> BoundaryTargets<'a> {
                             return_sites,
                             &mut warnings,
                         );
-                        Continuation { paths, warnings }
+                        Continuation { search, warnings }
                     });
             if new_pair {
                 warnings.extend(continuation.warnings.iter().cloned());
             }
-            if let Some(&(reasons, suffix)) = continuation.paths.get(&sink) {
+            incomplete |= continuation.search.incomplete;
+            if let Some(&(reasons, suffix)) = continuation.search.paths.get(&sink) {
                 if log {
                     log_candidate(cpg, edge, sink, reasons, prefix + 1 + suffix);
                 }
@@ -258,6 +280,19 @@ impl<'a> BoundaryTargets<'a> {
                     best = Some((score, edge));
                 }
             }
+        }
+        if incomplete {
+            if log {
+                let _ = writeln!(
+                    io::stderr().lock(),
+                    "taint-attribution root={:?} sink={:?} status=incomplete explained=false",
+                    cpg.trace_identity(root),
+                    cpg.trace_identity(sink)
+                );
+            }
+            return BoundaryAttribution::Incomplete {
+                matched: best.is_some(),
+            };
         }
         best.map_or(BoundaryAttribution::None, |(_, edge)| {
             BoundaryAttribution::Matched(edge)
@@ -272,6 +307,7 @@ fn log_candidate(
     reasons: u32,
     length: usize,
 ) {
+    let secondary = reasons & !ContinuationConstraints::primary_relaxation(edge);
     let joint = [
         LossReason::SelfParam,
         LossReason::SelfReturn,
@@ -284,7 +320,10 @@ fn log_candidate(
         LossReason::PolicyCeiling,
     ]
     .into_iter()
-    .filter(|reason| *reason != edge.reason && reasons & relaxation(*reason) != 0)
+    .filter(|&reason| {
+        secondary & relaxation(reason) != 0
+            || (reason == LossReason::NotExact && secondary & EDGE_OWN_NOT_EXACT != 0)
+    })
     .map(|reason| reason.to_string())
     .collect::<Vec<_>>()
     .join(",");

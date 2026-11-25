@@ -32,7 +32,8 @@ pub enum ReasoningWarning {
     /// variable reached at an interprocedural crossing.
     InterproceduralBoundary {
         sink: String,
-        reason: LossReason,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reason: Option<LossReason>,
     },
     Cleansed {
         source_function: String,

@@ -1,3 +1,4 @@
+mod boundary_warnings_test;
 mod member_only_param_test;
 mod scope_honesty_test;
 mod smoke_test;

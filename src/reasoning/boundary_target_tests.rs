@@ -77,6 +77,7 @@ fn boundary(root: NodeIndex, to: NodeIndex, reason: LossReason) -> BoundaryEdge 
         depth: 0,
         site: None,
         edge_own_not_exact: false,
+        joint_relaxations: 0,
     }
 }
 
@@ -367,12 +368,22 @@ fn continuation_cap_keeps_an_earlier_boundary_match() {
 
 #[test]
 fn continuation_diamond_reuses_visits_with_the_same_top_frame() {
+    exercise_continuation_diamond(false);
+}
+
+#[test]
+fn continuation_diamond_with_receivers_exhausts_step_budget() {
+    exercise_continuation_diamond(true);
+}
+
+fn exercise_continuation_diamond(receivers: bool) {
     use crate::cpg::{OrderingDecision, Relation, SameLineOrderView};
     use std::{cell::Cell, fmt::Write};
 
     struct CountCrossings<'a> {
         order: super::order::AstOrderView<'a>,
         calls: Cell<usize>,
+        limit: usize,
     }
 
     impl SameLineOrderView for CountCrossings<'_> {
@@ -392,8 +403,9 @@ fn continuation_diamond_reuses_visits_with_the_same_top_frame() {
         ) -> Option<usize> {
             let calls = self.calls.get() + 1;
             assert!(
-                calls <= 200,
-                "20 diamond levels exceeded 200 crossing visits"
+                calls <= self.limit,
+                "20 diamond levels exceeded {} crossing visits",
+                self.limit
             );
             self.calls.set(calls);
             self.order.crossing_slot(node, site, relation)
@@ -407,15 +419,24 @@ fn continuation_diamond_reuses_visits_with_the_same_top_frame() {
     );
     for level in 0..20 {
         let next = level + 1;
-        write!(
-            source,
-            "function f{level}(p) {{ a{level}(p); b{level}(p); }}\n\
+        if receivers {
+            write!(
+                source,
+                "function f{level}(x) {{ const u = a{level}(x); const v = b{level}(x); return u + v; }}\n\
+                 function a{level}(y) {{ const r = f{next}(y); return r; }}\n\
+                 function b{level}(y) {{ const r = f{next}(y); return r; }}\n"
+            ).unwrap();
+        } else {
+            write!(
+                source,
+                "function f{level}(p) {{ a{level}(p); b{level}(p); }}\n\
             function a{level}(p) {{ f{next}(p); }}\n\
             function b{level}(p) {{ f{next}(p); }}\n"
-        )
-        .unwrap();
+            )
+            .unwrap();
+        }
     }
-    source.push_str("function f20(p) { consume(p); }");
+    source.push_str("function f20(p) { consume(p); return p; }");
     let parsed =
         crate::ast::ParsedFile::parse("a.js", &source, crate::languages::Language::JavaScript)
             .unwrap();
@@ -424,6 +445,7 @@ fn continuation_diamond_reuses_visits_with_the_same_top_frame() {
     let order = CountCrossings {
         order: super::order::AstOrderView::new(&cpg, &files),
         calls: Cell::default(),
+        limit: if receivers { 4096 } else { 200 },
     };
     let root = occurrence(&cpg, source.find("t = req").unwrap());
     let sink = occurrence(&cpg, source.find("exec(q)").unwrap() + "exec(".len());
@@ -431,14 +453,20 @@ fn continuation_diamond_reuses_visits_with_the_same_top_frame() {
         cpg.taint_trace_nodes_with_mode(&[root], Some(&order), crate::cpg::ReturnFlowMode::On);
     assert_eq!(trace.boundary.len(), 1);
     order.calls.set(0);
-    let (verdict, _) = super::shape::reachability_and_boundary(
-        &trace,
-        &mut BoundaryTargets::new(&cpg, &trace, Some(&order)),
-        root,
-        sink,
-        &mut Vec::new(),
-    );
+    let mut targets = BoundaryTargets::new(&cpg, &trace, Some(&order));
+    let (verdict, attribution) =
+        super::shape::reachability_and_boundary(&trace, &mut targets, root, sink, &mut Vec::new());
     assert_eq!(verdict, Reachability::NotReached);
+    assert_eq!(
+        matches!(attribution, BoundaryAttribution::Incomplete { .. }),
+        receivers
+    );
+    if receivers {
+        assert_eq!(
+            targets.continuation_steps().collect::<Vec<_>>(),
+            [crate::cpg::MAX_CONTINUATION_STEPS]
+        );
+    }
     assert!(
         order.calls.get() >= 80,
         "fixture did not walk all 20 diamonds"
@@ -526,3 +554,6 @@ fn depth_capped_nameonly_first_hop_loses_to_a_longer_single_relaxation() {
     assert!(matches!(targets.find(root, sink, &mut Vec::new()),
         BoundaryAttribution::Matched(edge) if edge.to == long));
 }
+
+#[path = "boundary_fold2_tests.rs"]
+mod fold2;

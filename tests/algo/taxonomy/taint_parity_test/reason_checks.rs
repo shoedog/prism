@@ -1,6 +1,10 @@
 use super::*;
-use prism::cpg::{Relation, ReturnFlowMode};
+use prism::cpg::{LossReason, Relation, ReturnFlowMode};
 use prism::navigation::types::{ReasoningWarning, WarningKind};
+use prism::reasoning::order::AstOrderView;
+use prism::reasoning::shape::{
+    reachability_for_node_from_ordered_with_attribution, BoundaryAttribution,
+};
 use prism::reasoning::taint_reaches::taint_reaches_from_node;
 use prism::reasoning::types::SinkSourceResult;
 
@@ -77,27 +81,77 @@ pub(super) fn check_walk_warning(
         row.id
     );
 
+    // Warning locations point to boundary targets. Verify the exact operand's
+    // attribution before checking that its boundary record carries the reason.
+    let SymbolRef::Variable {
+        path,
+        file,
+        function,
+        access,
+        ..
+    } = sink
+    else {
+        panic!("expected sink occurrence");
+    };
+    let kind = if access == "def" {
+        prism::data_flow::VarAccessKind::Def
+    } else {
+        prism::data_flow::VarAccessKind::Use
+    };
     let bytes = symbol_bytes(sink);
-    let boundary_warnings: BTreeSet<_> = singleton
-        .warnings
+    let resolved = resolve(session, std::slice::from_ref(sink_seed), SeedRole::Sink).unwrap();
+    let mut operands = resolved
+        .seeds
         .iter()
-        .filter_map(|warning| match &warning.kind {
-            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary {
-                reason, ..
-            }) if warning.location.as_ref().is_some_and(|loc| {
-                loc.file == row.sink.file && [loc.start_byte, loc.end_byte] == bytes
-            }) =>
-            {
-                Some(reason.to_string())
-            }
-            _ => None,
-        })
-        .collect();
-    assert_eq!(
-        boundary_warnings, expected,
-        "{}: boundary reason for {:?}",
-        row.id, source.source
+        .flat_map(|seed| seed.nodes.iter().zip(&seed.locations))
+        .filter(|(_, loc)| {
+            &loc.file == file
+                && &loc.function == function
+                && &loc.path.to_string() == path
+                && loc.kind == kind
+                && [loc.start_byte, loc.end_byte] == bytes
+        });
+    let (&operand, _) = operands.next().expect("resolved sink occurrence");
+    assert!(operands.next().is_none(), "{}: ambiguous operand", row.id);
+    let cpg = session.index.cpg();
+    let order = AstOrderView::new(cpg, &session.repo.files);
+    let trace = cpg.taint_trace_nodes_with_mode(&[root], Some(&order), ReturnFlowMode::On);
+    let (verdict, attribution) = reachability_for_node_from_ordered_with_attribution(
+        cpg,
+        &trace,
+        root,
+        operand,
+        Some(&order),
+        &mut Vec::new(),
     );
+    assert_eq!(verdict, source.reachability, "{}", row.id);
+    match attribution {
+        BoundaryAttribution::None => assert!(expected.is_empty(), "{}", row.id),
+        BoundaryAttribution::Incomplete { .. } => panic!("{}: incomplete attribution", row.id),
+        BoundaryAttribution::Matched(edge) => {
+            assert!(
+                expected.contains(&edge.reason.to_string()),
+                "{}: {:?}",
+                row.id,
+                edge.reason
+            );
+            let target = cpg.to_var_location(edge.to).unwrap();
+            assert!(
+                singleton.warnings.iter().any(|warning| {
+                    matches!(&warning.kind, WarningKind::Reasoning(
+                    ReasoningWarning::InterproceduralBoundary { reason: Some(reason), .. }
+                ) if *reason == edge.reason)
+                        && warning.location.as_ref().is_some_and(|loc| {
+                            loc.file == target.file
+                                && loc.start_byte == target.start_byte
+                                && loc.end_byte == target.end_byte
+                        })
+                }),
+                "{}: attributed boundary warning",
+                row.id
+            );
+        }
+    }
 }
 
 fn row(id: &str) -> Row {
@@ -196,8 +250,16 @@ fn reason_audit_self_return_and_missing_review_return_flow() {
         evidence.reasoning.as_ref().unwrap().reachability,
         Some(Reachability::BoundaryExited)
     );
-    assert!(evidence.warnings.iter().any(|warning| warning.message
-        == "taint reached a self-function return boundary at y (self_return)"));
+    assert!(evidence.warnings.iter().any(|warning| {
+        warning.message == "taint reached a self-function return boundary at y"
+            && matches!(
+                &warning.kind,
+                WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary {
+                    reason: Some(LossReason::SelfReturn),
+                    ..
+                })
+            )
+    }));
     assert_eq!(review(&row, &fixture, false), Finding::None);
     assert_eq!(review(&row, &fixture, true), Finding::None);
     let split = Fixture::load_with(&row, |_, source| {

@@ -81,6 +81,20 @@ pub(super) type DescentGateKey = (
     NodeIndex, // target binding
 );
 
+pub(super) fn edge_own_not_exact(label: Option<FlowConfidence>) -> bool {
+    match label {
+        Some(FlowConfidence::Exact)
+        | Some(FlowConfidence::NameOnly(
+            FlowDoubt::Killed { .. }
+            | FlowDoubt::SameLine
+            | FlowDoubt::CfgIncomplete
+            | FlowDoubt::AliasUnstable,
+        )) => false,
+        // Lane 9's builtin_callback doubt belongs on this side when introduced.
+        Some(FlowConfidence::NameOnly(FlowDoubt::CallNameOnly)) | None => true,
+    }
+}
+
 impl CodePropertyGraph {
     /// Is `to` a parameter binding reached by an arg→param call edge from `from`?
     ///
@@ -151,26 +165,35 @@ impl CodePropertyGraph {
         binding_label: Option<FlowConfidence>,
         descent_gate_cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
     ) -> Result<(), LossReason> {
-        match binding_label {
-            Some(FlowConfidence::Exact)
-            | Some(FlowConfidence::NameOnly(
-                FlowDoubt::Killed { .. }
-                | FlowDoubt::SameLine
-                | FlowDoubt::CfgIncomplete
-                | FlowDoubt::AliasUnstable,
-            )) => {}
-            // `not_exact`: the call-binding doubt, and (lane 9) `builtin_callback`, are refused here.
-            // Naming the variant keeps a new doubt kind a compile-time decision.
-            Some(FlowConfidence::NameOnly(FlowDoubt::CallNameOnly)) | None => {
-                return Err(LossReason::NotExact);
-            }
+        if edge_own_not_exact(binding_label) {
+            return Err(LossReason::NotExact);
         }
+        if !self.is_binding_target(to) {
+            return Err(LossReason::TargetNotBinding);
+        }
+        self.descend_site(from, to, descent_gate_cache)
+    }
 
+    fn is_binding_target(&self, to: NodeIndex) -> bool {
+        matches!(
+            self.graph[to],
+            CpgNode::Variable {
+                access: VarAccess::Def,
+                ..
+            }
+        )
+    }
+
+    fn descend_site(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+        descent_gate_cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
+    ) -> Result<(), LossReason> {
         let CpgNode::Variable {
             file: target_file,
             function: target_fn,
             function_start_line: target_fn_start_line,
-            access: VarAccess::Def,
             ..
         } = &self.graph[to]
         else {
@@ -384,6 +407,45 @@ impl CodePropertyGraph {
             return Err(LossReason::PolicyCeiling);
         }
         Ok(())
+    }
+
+    /// Score guards hidden by the ordinary gate's ordered first refusal.
+    pub(super) fn joint_crossing_relaxations(
+        &self,
+        kind: super::BoundaryKind,
+        relation: Relation,
+        from: NodeIndex,
+        to: NodeIndex,
+        label: Option<FlowConfidence>,
+        cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
+        policy: Option<&super::TaintCrossingPolicy<'_>>,
+    ) -> (bool, u32) {
+        use super::trace_continuation::relaxation;
+
+        if kind != super::BoundaryKind::CrossFunction {
+            return (false, 0);
+        }
+        if relation == Relation::ReturnFlow {
+            return (
+                false,
+                self.return_flow_ascent(from, to)
+                    .err()
+                    .map_or(0, relaxation),
+            );
+        }
+        // A Use can have enough owner and occurrence information to fail site proof
+        // independently of its binding role. The policy tests the graph edge itself.
+        let mut required = self
+            .descend_site(from, to, cache)
+            .err()
+            .map_or(0, relaxation);
+        if !self.is_binding_target(to) {
+            required |= relaxation(LossReason::TargetNotBinding);
+        }
+        if policy.is_some() && self.admitted_data_flow_label(policy, from, to).is_none() {
+            required |= relaxation(LossReason::PolicyCeiling);
+        }
+        (edge_own_not_exact(label), required)
     }
 }
 

@@ -139,13 +139,16 @@ pub(crate) use reaching::{
 pub(crate) use reaching::{RD_MAX_DEFS, RD_MAX_LINES};
 pub use taint_policy::{CrossingCeiling, TaintCrossingPolicy};
 pub use trace::{
-    BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
-    Relation, ReturnFlowMode, SameLineOrderView, Trace,
+    BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning, Relation,
+    ReturnFlowMode, SameLineOrderView, Trace,
 };
+#[cfg(test)]
+pub(crate) use trace_continuation::MAX_CONTINUATION_STEPS;
 pub(crate) use trace_continuation::{
     relaxation, ContinuationConstraints, ContinuationFrames, ContinuationReturnSites,
+    ContinuationSearch, EDGE_OWN_NOT_EXACT,
 };
 pub(crate) use trace_cuts::{byte_span as trace_byte_span, enabled as crossing_trace_enabled};
-pub use trace_cuts::{CrossingSite, TraceCut};
+pub use trace_cuts::{BoundaryEdge, CrossingSite, TraceCut};
 pub use trace_descent::LossReason;
 pub use types::{CpgEdge, CpgNode, StmtKind, VarAccess};

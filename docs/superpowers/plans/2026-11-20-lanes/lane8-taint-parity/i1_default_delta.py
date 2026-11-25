@@ -53,25 +53,40 @@ def observe(binary, repo, row):
         error = payload["error"]
         if len(error) != 1 or not error.keys() <= SEED_ERRORS:
             raise ValueError(f"unexpected CLI error {error}")
-        return {"line": "SeedError", "operand": "SeedError", "error": error, "reasons": []}
+        return {"line": "SeedError", "operand": "SeedError", "error": error, "reasons": [],
+                "reason_status": "absent", "line_reason_status": "absent"}
     if proc.returncode:
         raise ValueError(f"CLI exited {proc.returncode}: {proc.stderr}")
     summary = payload["reasoning"]
     if summary["sinks_omitted"] or any(s["sources_omitted"] for s in summary["per_sink"]):
         raise ValueError("CLI clipped the witness results")
     verdict, terminal = verdict_at_operand(summary, row)
-    reasons = set()
-    line_reasons = set()
+    candidates = set()
     for warning in payload["warnings"]:
         reason = warning["kind"].get("Reasoning", {}) if isinstance(warning["kind"], dict) else {}
         reason = reason.get("InterproceduralBoundary", {}).get("reason")
-        loc = warning.get("location")
-        if reason and loc and loc["file"] == sink["file"] and loc["start_line"] == sink["line"]:
-            line_reasons.add(reason)
-            if terminal == (loc["start_byte"], loc["end_byte"]):
-                reasons.add(reason)
-    return {"line": summary["reachability"], "operand": verdict,
-            "line_reasons": sorted(line_reasons), "reasons": sorted(reasons)}
+        if reason:
+            candidates.add(reason)
+    # Warning locations name the boundary. Bind a reason only if the query has one
+    # root and one BoundaryExited sink occurrence, so no other pair can supply it.
+    boundary_sinks = [result["sink"]["Variable"] for result in summary["per_sink"]
+                      if result["reachability"] == "BoundaryExited"]
+    unique = summary["source_count"] == 1 and len(boundary_sinks) == len(candidates) == 1
+    line = summary["reachability"]
+    line_bound = unique and line == "BoundaryExited"
+    operand_bound = unique and verdict == "BoundaryExited" and (
+        boundary_sinks[0]["file"], boundary_sinks[0]["start_byte"], boundary_sinks[0]["end_byte"]
+    ) == (sink["file"], *terminal)
+
+    return {
+        "line": line, "operand": verdict,
+        "line_reasons": sorted(candidates) if line_bound else [],
+        "line_reason_status": "bound" if line_bound else
+                              "unbound" if candidates and line == "BoundaryExited" else "absent",
+        "reasons": sorted(candidates) if operand_bound else [],
+        "reason_status": "bound" if operand_bound else
+                         "unbound" if candidates and verdict == "BoundaryExited" else "absent",
+    }
 
 
 def main():
@@ -104,10 +119,15 @@ def main():
     print(f"{len(ledger)} paired rows")
     for entry in ledger:
         before, after = entry["base"], entry["head"]
-        for scope, reasons in [("operand", "reasons"), ("line", "line_reasons")]:
+        for scope, reasons, status in [
+            ("operand", "reasons", "reason_status"), ("line", "line_reasons", "line_reason_status")
+        ]:
             if before[scope] != after[scope]:
+                reason = ",".join(after.get(reasons, []))
+                if not reason:
+                    reason = "unbound" if after[status] == "unbound" else "–"
                 print(entry["id"], scope, before[scope], after[scope],
-                      ",".join(after.get(reasons, [])) or "–", sep="\t")
+                      reason, sep="\t")
 
 
 if __name__ == "__main__":
