@@ -64,6 +64,7 @@ fn echo_finding(file: &str, line: usize) -> SliceFinding {
         category: Some("missing_error_handling".to_string()),
         parse_quality: None,
         diagrams: Vec::new(),
+        rules: Vec::new(),
     }
 }
 

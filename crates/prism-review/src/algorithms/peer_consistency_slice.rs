@@ -150,6 +150,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                 category: Some("peer_guard_divergence".to_string()),
                 parse_quality: None,
                 diagrams: vec![],
+                rules: Vec::new(),
             });
 
             // Emit a block showing the cluster (function signatures + body start).

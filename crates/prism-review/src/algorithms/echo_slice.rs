@@ -263,6 +263,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                         category: Some("missing_error_handling".to_string()),
                         parse_quality: None,
                         diagrams: vec![],
+                        rules: Vec::new(),
                     });
                     result.evidence.push(Some(evidence));
                     let mut block =
