@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "entry": "set-entry-a"
+    },
+    {
+      "entry": "set-entry-b"
+    },
+    {
+      "entry": "set-entry-c"
+    }
+  ],
+  "minimum_verified_pairs": 1
+}

@@ -1,0 +1,14 @@
+{
+  "swagger": "2.0",
+  "paths": {"/n": {"get": {"responses": {"200": {"schema": {"$ref": "#/definitions/Node"}}}}}},
+  "definitions": {
+    "Node": {
+      "type": "object",
+      "properties": {
+        "children": {"type": "array", "items": {"$ref": "#/definitions/Node"}},
+        "label": {"type": "string"},
+        "parent": {"$ref": "#/definitions/Node"}
+      }
+    }
+  }
+}

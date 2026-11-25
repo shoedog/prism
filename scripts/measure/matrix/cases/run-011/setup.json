@@ -1,0 +1,24 @@
+{
+  "command": "python syntax",
+  "corpus": {
+    "git": true,
+    "pin": "initial-commit",
+    "tracked": {
+      "a.ts": "export const x = 1;\n"
+    },
+    "untracked": {},
+    "tracked_ignore": null,
+    "ignored": {}
+  },
+  "fake_binary": {
+    "version": "9d1a7d06f653",
+    "commands_exit": 0
+  },
+  "environment": {
+    "module_text": "match n:\n    case 0: pass\n",
+    "python_grammar": [
+      3,
+      9
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+rd-census-owner	guard-deleted:a	cases.ts	first	4
+rd-census-owner	arrow-body-node	cases.ts	second	8	ok>no-cfg
+rd-census-owner	param-alias	cases.ts	third	12	14
+rd-census-owner	loop-exit	cases.ts	fourth	16	no-cfg>ok

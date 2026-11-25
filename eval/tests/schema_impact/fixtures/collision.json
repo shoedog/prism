@@ -1,0 +1,7 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/a/{name}": {"post": {"responses": {}}},
+    "/a/{id}": {"get": {"responses": {}}}
+  }
+}

@@ -25,6 +25,7 @@ fn finding(algorithm: &str, category: Option<&str>, description: &str) -> SliceF
         category: category.map(str::to_string),
         parse_quality: None,
         diagrams: Vec::new(),
+        rules: Vec::new(),
     }
 }
 

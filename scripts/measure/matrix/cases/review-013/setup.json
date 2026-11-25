@@ -1,0 +1,10 @@
+{
+  "source_clone": {
+    "head": "tip",
+    "uncommitted": {
+      "local.txt": "local work\n"
+    }
+  },
+  "ordinal": 1,
+  "candidate": "earlier"
+}

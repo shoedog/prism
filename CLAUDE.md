@@ -109,6 +109,7 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `languages/mod.rs` — Language-specific node type mappings. Add new languages here.
 - `diff.rs` — Diff parsing and `DiffInput`/`DiffInfo` types.
 - `slice.rs` — `SlicingAlgorithm` enum (30 variants), `SliceConfig`, and `SliceResult`.
+  `SliceFinding.rules` contains `RuleRef` entries sorted by id, with at most one entry per id. The field is skipped when empty and additive under the API handle promise.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
 - `api/` — `prism::api`: the stable, `#[non_exhaustive]` core facade of the `prism` library (`build_info`, `nav_session`/`callers`/`callees`, `OwnerOptions`, `load_review_inputs`, `build_context`, `ReviewOptions`, the finding-confidence items, `with_build_pool`). The review runner, SARIF and targets items are not in it: they live in `prism_review::api` (see "Review crate" below). See the module doc for the compatibility promise.
   `review_loading.rs` captures the root and listing used by `ReviewContextLoader` for targeted reads.

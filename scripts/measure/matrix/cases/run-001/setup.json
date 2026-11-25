@@ -1,0 +1,19 @@
+{
+  "command": "run",
+  "corpus": {
+    "git": true,
+    "pin": "initial-commit",
+    "tracked": {
+      "a.ts": "export const x = 1;\n"
+    },
+    "untracked": {},
+    "tracked_ignore": "generated.ts\n",
+    "ignored": {
+      "generated.ts": "export const input = 1;\nexport const output = input;\n"
+    }
+  },
+  "fake_binary": {
+    "version": "9d1a7d06f653",
+    "commands_exit": 0
+  }
+}

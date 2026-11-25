@@ -1,0 +1,3 @@
+rd-alias-cert	admitted	-	cases.ts	g	u@13:255	u@13:255	o@12:229
+rd-census	kill:alias	cases.ts	g	o.x@14:264	o.x@16:296
+rd-alias-move	kill:alias	cases.ts	g	o.x@14:264	o.x@16:296	u.x@15:275	u@13:255	u@13:255	o@12:229	o.x
