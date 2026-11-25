@@ -1,7 +1,7 @@
 # Lane 7: rule identity on findings — design
 
-Status: D-5 folds the single §8 review of the D-4 enforcement amendment at `30216157813a`,
-2026-11-25 (B REJECT, A APPROVE). S1 is present. Sections 5.2–5.5 and Appendices A–F
+Status: D-6, 2026-11-25. Collector attribution amendment against dormant S2-W
+at `b3bfd5515ece` (PR #901), pending its one §8 review. S1 is present. Sections 5.2–5.5 and Appendices A–F
 specify the identities for the implementation slices. Historical research record:
 `~/prism-evidence/lanes-2026-11-20/research/lane7-rule-identity.md`.
 
@@ -133,8 +133,8 @@ sources for that key. A path can supply a rule even when another path, processed
 Buffer candidates and intersect with the final set of admitted keys. An empty set on an admitted line
 serializes with the `rules` key omitted. No identity creates, moves or splits a finding.
 
-1. Identify the occurrence by file, AST span, callee/operator and operand span. Start a flat walk at the
-   reached use (`VarLocation` bytes), through enclosing calls up to its statement or function boundary.
+1. Identify the occurrence by file, AST span, callee/operator and operand span. Start a flat walk at
+   each read proved under step 2, through enclosing operations up to its statement or callable boundary.
    Test the operation's operand in Appendix A, including named arguments, aliases and generic callees.
    Inspect the RHS of an actual DOM/location assignment, the value of JSX `__html`, and the named
    `Location` header value. The receiver of `x.send("ok")`, an assignment's LHS, an unrelated argument,
@@ -145,12 +145,10 @@ serializes with the `rules` key omitted. No identity creates, moves or splits a 
 2. Enumerate each matching structured **occurrence** and each eligible operand, including repeats of one
    pattern, special Flask/JSX forms and framework tables (Appendix B). Preserve the path matcher's
    file/name/identifier-line, semantic, import and JS source-access-range checks. Bind the candidate to
-   the reached operand. Use the edge bytes when available. If a graph key coalesced same-line uses
-   (`VarLocation` equality omits bytes), an additional spelling needs the same reaching binding/value,
-   in the same file and scope, with no intervening write. A shadow, different request-field range or
-   ambiguous binding supplies no additional occurrence. This rule applies equally to flat duplicates
-   and structured siblings. A nested result inside a consuming operand counts under the existing
-   expression-containment model. This is evidence of syntactic flow, not proof of a callee's return value.
+   the reached operand by the D-6 proof below. The path nominates a definition and a physical line.
+   Representative order, syntactic proximity and equality of two `VarLocation` keys have no evidentiary
+   weight. The same proof applies to the first read and to every sibling. A nested result inside
+   a consuming operand counts under the existing syntactic expression-containment model.
 3. Check cleansing on the **particular path, call and pattern**, using its original sanitizer category.
    A public reclassification does not change which guard admits a finding. Apply safe-call ranges to
    the flat callee/target identifier (a range may cover just the callee), and apply call-specific
@@ -248,6 +246,165 @@ first, S2-JS migrates its side-set evidence, preserving descriptions, with its r
 second, lane 4 selects the named core row in the same PR that publishes it. Its #603 contract
 requires every built-in ref to come from a core row. S2-R is a dependency for publication.
 Lane 4 owns any description and benchmark-join migration.
+
+#### Collector attribution options (design escalation 2)
+
+**Independent options, before the pooled proposals and reviews.** The representative bytes
+identify a token. They do not establish which definition the token reads. Operand meaning is a
+second question even after reaching value has been proved.
+
+1. Retain the present admission graph and produce a separate occurrence relation at data-flow
+   construction. Key reads by file version, callable, binding, access path and half-open span,
+   and associate each read with its reaching definition(s) *before* any line reduction.
+   This preserves sibling and continued reads and gives the collector evidence it can audit.
+   Copying every old line edge onto every read would preserve the original error. The producer
+   needs a sound binding/transfer contract, versioned cache and a corpus compatibility run.
+2. Ask each language for a projection-only proof on demand. Accept a closed grammar of reads,
+   bindings and effects, with a proof from the path definition to the candidate read. An
+   unclassified effect invalidates the proof. A language can implement a straight-line fragment
+   early and add other constructs under separate tests. This avoids migrating the graph but
+   duplicates flow reasoning and makes the unsupported-fixture census part of each activation.
+3. Restrict the projection to explicit inline sources and uniquely attributable path uses.
+   Suppress a coalesced group unless its binding and value at the particular read are proved,
+   including for the representative itself. This is small and gives a meaningful lower bound,
+   but would discard distinct live sibling roles and could weaken the id on a mixed-strength line.
+4. Make the detector return a located call/target and its operand role on a read-only visit.
+   Preserve the actual matcher index, binding, guard and selected line alongside that role.
+   This handles language-specific call syntax and avoids a generic guess at a callee leaf.
+   It composes with any of the first three choices. On its own it cannot distinguish two
+   bindings or two values of one binding.
+
+**Measured policy comparison.** At `b3bfd5515ece`, compare sorted (id, CWE, relative level)
+lists at the marker in all nine TSV tables with the source bodies, and join all eleven enumerator
+files by label to E's **design** value. Count a label once. Keep all line-admission decisions,
+independent origins, actual inline roles, cleansing and the legacy line scan. Collapse ids and
+recompute relative strength *after* removing witnesses. This is a static counterfactual on 540
+keys and 300 specified shapes, conditional on their stated admission. It is not a corpus yield.
+For the outline `own-8` use its two calls in the order written with one incoming local `x`.
+
+| Policy applied to the same shapes | Changed TSV labels | Changed candidate labels |
+|---|---:|---:|
+| P3 strict physical-line uniqueness, withhold a repeated path group except when every read belongs to one and the same operand | 12 | 31 |
+| P3 retaining the representative, or P6 keeping its own enclosing chain, taking the first source read as representative | 6 | 26 |
+| P2 on once-bound simple locals, first exact use otherwise, with fields restricted to the retained read | 0 | 1 |
+| D-6 single-definition proof for simple locals, exact independent witnesses and repeated-field limit | 0 | 1 |
+| Full independently bound occurrence edges (own 1 / P4), including separately validated request reads | 0 required | 0 required |
+
+P3 strict changes identity `ri02,07,15,21a,21b,22,23c` and hybrid_py `os.execvp`,
+`os.spawnlp`, `from os import execv`, `probe: py os.execvp`, `probe: py os.spawnlp`. In those
+five rows the same name occurs in distinct actual arguments. P6 retains their program selector
+and one of the identical `ri07` calls. Its six changed identity rows retain respectively DOM HTML,
+empty (guarded file), SSRF, deserialization, empty (cleansed HTML), and configured only.
+
+| Candidate file | P3 strict changed suffixes | Of these, equal to E again with the first read under P6 |
+|---|---|---|
+| own-r1 | 8 | — |
+| terra-r1 | 01, 02, 09, 14 | 02, 09, 14 |
+| terra-r2 | 01, 13, 20 | 13 |
+| terra-r3 / r4 / r5 | 07 / 10 / 02 | — |
+| sol-r1 / r2 | 49, 50 / 45, 55 | r2-45 |
+| astra-r1 | 01, 02, 03, 16, 20, 21, 24, 47 | — |
+| astra-r2 | 01, 02, 03, 04, 17, 18, 19, 21 | — |
+| astra-r3 | — | — |
+
+Different representatives can change the P6 list. For instance, in `astra-r1-01` the sandboxed
+first use alone leaves a suggestion override on the warning, while the second use restores the
+strong id. In `sol-r2-55` the independent `raw` path survives either policy. Several siblings with
+different names and one nested read with several enclosing roles do not imply coalescing. The two
+open grids have no measured execution denominator. Use the same policy on every generated coordinate.
+
+**Decision.** Adopt independent option 2 with the restricted single-assignment proof of P2,
+positive facts from P5, and option 4 for dispatch. The shared collector intersects final keys,
+keeps path/channel evidence separate, and reduces selected rows. It does no language-wide
+rediscovery of reads, writes, slots or callees. The graph, cache and admission consumers stay
+on their existing representation. Use stable-local, independently exact or keyed inline evidence
+under the following conditions.
+
+1. **Stable local.** On demand, per parse and exact callable span, start at the definition on
+   the incoming path. Require its exact declaring token, canonical access path and an initializer
+   or formal whose incoming value is the tainted value on that path. A synthetic seed needs its
+   own uniquely located source/definition witness. At a copy or alias, match the reached
+   RHS/source value to this target, or refuse that origin. Re-prove any coalesced hop used to
+   justify this transfer. An unlocated edge alone proves nothing.
+   Build a closed inventory over the owner's grammar, including nested/deferred bodies and
+   binding scopes. Resolve each candidate at its own bytes to the same declaration token.
+   The definition must dominate evaluation of each read (including order within a statement),
+   with exactly one initialization per binding instance and no possible second write or storage
+   escape over its lifetime. Pair Go parallel declarations to individual RHS values.
+   A use before initialization, or a loop-carried value without a fresh dominating initialization,
+   fails. Independent locals in a tuple or on the same line keep their own proofs.
+2. **Proof boundaries.** Each language supplies a finite positive grammar for introduction,
+   scope and reads, and a total classification of effects on the storage. An unclassified node
+   that might introduce a name, write, expose a local or execute hidden source invalidates the
+   proof. Default new grammar productions to unknown. Walking only existing def/use inventories
+   and subtracting known bad spellings is insufficient. Check exact declaration sites including
+   parameters, destructuring, catch and loop binders, anonymous callables and shadow scopes.
+   Classify compound/update targets as read-before-write, simple targets as write-only, and
+   keyword names, member keys, labels, type positions and declaration names as non-reads.
+   Visit RHSs, receiver/index *expressions* and interpolation expressions in their value roles.
+   Account for captured and class-field/static writes even when the write's source precedes
+   the read; reject unproved address/reference/alias escape, dynamic scope/eval, mapped
+   arguments, nonlocal/global effects, macro expansion and unresolved identifier normalization.
+   In the positive fragment, traverse grammar fields in evaluation order. Record each normalized
+   occurrence of the target binding as declaration, value read, write, storage exposure or
+   unknown. Skip inert tokens such as comments, descend through interpolation and destructuring,
+   and account separately for effects without a spelled target. An ordinary call can preserve
+   an isolated local when the grammar passes its value and the slot is inaccessible to the
+   callee. Passing by reference, deferred code with access to the slot, and dynamic environments
+   need their own proof. Audit the default-unknown branch against the pinned grammar node types.
+   `const` protects the local slot only. It says nothing about a field or pointee.
+   Enumerate *every* proved value read on the nominated physical line in the owner, including
+   non-bare, nested, third-statement and continued-operand reads. Each must lie in a reachable
+   evaluation region for that origin and pass the path's access-range and cleansing checks.
+   Do not cross a deferred execution boundary on expression containment alone.
+   An unrelated shadow may be excluded independently only
+   with exact token-level scope proof.
+3. **Exact point and inline source.** For a non-stable value accept an independently proved exact use only.
+   Require the correct tree, owner, half-open read and def spans, canonical full access path,
+   declaration identity, and a value proof at that program point. For example a direct,
+   dominating assignment/parameter and a closed straight-line prefix with no possible killing
+   effect proves the *old* local read in `audit(x += suffix)`. The transfer must carry that read
+   into the argument. The new stored value gets a separate definition. A matching endpoint,
+   a line RD label or absence of an inventoried kill cannot discharge that proof. If no such
+   proof exists, withhold even the representative. Never expand a field, pointee or request-object
+   alias by a stable-base proof. Require an exact field witness, or a uniquely bound recognized
+   framework-source access in the operand under the applicable route. For path-based flat roles
+   on a repeated identical request-field access on the same line, withhold the group on that
+   receiver path, in either representative order. A line-wide source-range list cannot assign
+   an incoming value to successive property evaluations. An independently tainted operand may
+   still select the role. Inline sources use their existing language route, binding and guards,
+   with a witness anchored at the real insertion key in the same parse, call and eligible operand.
+   An inline-only witness supplies structured roles. Step 6's legacy token scan needs no read proof.
+
+**Reuse and cost.** P5 provides building blocks. `src/cpg/binding_facts.rs` has explicit-byte
+declaration lookup; even `relation_at == Same` can compare equal flat fallbacks.
+`build/lexical_prune.rs` is removal-only. RD uses a line CFG, has unavailable outcomes and
+keeps both line and exact-key labels. A retained pair or an `Exact` label on representative bytes
+cannot certify an omitted read. Use positive per-byte facts via a small read-only, parse-scoped
+query where available, only with complete language proof. Do not expose crate-private tables or
+persist proof results. Use the parser's canonical access-path builder for TS assertions.
+
+- P1 leaves the open class intact. The first fold blocked the five destructuring writes yet still
+  accepted the class initializer and enclosing catch span. More examples do not close that predicate.
+- P2 with unconditional “exact otherwise” accepts the clean shadow in round 1. Restrict its
+  fallback as above. All repeated *local* operands in the nonempty E comparison have the
+  single-definition shape, including C `ri23c` (automatic pointer passed by value, no address
+  of its storage). The sole repeated-field delta is in E. The comparison concerns expected ids;
+  implementation still has to exhibit each certificate.
+- P3 and P6 lose the measured roles above. Uniqueness within each separate statement would
+  also reuse one line edge across statements without proving binding or value.
+- P4 or a persisted side relation can preserve the old projections if admission still runs on
+  the exact old graph. Splitting `VarLocation` equality alone changes traversal/deduplication and
+  does not repair the original binding. Either core data-flow alternative requires a dedicated
+  core PR, next-free CPG/cache version, cold rebuilds and ORCHESTRATION §5.6 on the lane corpora:
+  exact base and head release binaries, two graph builds per corpus, compare the full
+  `nav dfg-stats --edges` multiset and **every** `nav call-stats` counter. Predict changes before
+  running and account for every delta, including zero drift in unrelated counters. Also run the
+  ordinary finding/byte gates and §5.5 for affected paths. This is additional host time and
+  cross-lane cache coordination; elapsed hours have not been measured. D-6 incurs none of that
+  migration. A need for changed core flow facts returns to design before any such edit.
+- P5 alone lacks the missing occurrence and effect proof. A detector-only solution lacks the
+  reaching-value proof; a graph-only solution lacks the semantic operand and old guard.
 
 ### 5.3 The registry
 
@@ -445,8 +602,8 @@ main's on the targets fixtures. A targets-only consumer therefore still sees eve
 - **Other output consumers.** Nothing in `eval/` parses finding JSON by key list, and the sibling
   fault-injection product reads targets only, which do not change. A reader that rejects unknown keys sees
   the new key (decision 7).
-- **Coalesced graph occurrences.** The path matcher can nominate two same-spelled uses. Section 5.2
-  requires the reached range or corroborating same-binding evidence for publication. Appendix F measures refusals.
+- **Coalesced graph occurrences.** Section 5.2 requires a reaching-value and read-role proof even
+  for the first span. Appendix F measures withheld occurrences and findings whose final list changes.
 - **Existing admission limitations:** the first structured match decides
   presence, so a line whose first match is cleansed and whose second is live gets no finding unless another
   sink admits it; Python call-level cleansing requires the call to start on the finding line while matching
@@ -467,6 +624,19 @@ means that this occurrence contributes no reference. Dispositions are **same**, 
 projection only) and **filed** (the neutral public row and its follow-up in F). Each line has one
 disposition. Conditional lines partition occurrences of a detector. Columns A and B together cover
 the 34 flat tags, all structured patterns, and the additional public rows.
+
+**Locate the operation before naming it.** Each grammar adapter returns the operation span,
+exact callee leaf/operator, value-expression span and semantic role. Extract the leaf through
+the classifier's proved wrappers. Cover JS constructors, static member/optional/generic calls,
+parentheses and the final callable in a sequence such as `(0, eval)`, C++ qualification and
+construction, Java creation types, Rust scoped generics, HCL function arguments and a static Bash
+command word with repeated argument fields. Refuse computed `table[audit]`, a callee expression
+without a proved terminal name, and dynamic command words. Only the verified leaf feeds configured
+substring/`=name` and wrapper exact matching. A statically named callback such as `archive(x)`
+in `astra-r1-32` can supply `configured-sink` with an unknown implementation. Test static
+`(audit)(x)` and `ns::audit(x)` against the computed-index refusal.
+Assignment and JSX adapters return the actual RHS or `__html` value and its matched target token.
+A value read nested in a receiver/argument gets only the A roles that consume it.
 
 **Closed nominal contract (flat and structured).** Resolve the callee by import, type, constructor,
 unique alias or dominating assignment. A shadow, conflicting bindings or a known different operation
@@ -598,6 +768,20 @@ tables to describe publication, would conflate the operation with the guard used
 | SQL category or SQLite exception | An indexed ORM statement contains solely a reached bound comparison/value and survives its own exclusion checks | taint-query-value | filed F3 |
 | Ambiguous exec/eval/query match | Same unresolved operation as in A across both detectors. Use respectively taint-exec-name, taint-eval-name or taint-query-name, once per id | respective neutral row | filed F1 |
 | Other ambiguous nominal pattern | A matched tail with an unresolved API and no other evidence of the named operation, e.g. an application method named deserialize | structured-name-match | filed F1 |
+
+**Two slot checks for ordinary indexed entries.** For each call × entry × channel, replay the
+existing index test on that call/path (or inline source) with its original argument accessor.
+Retain the particular old indexed argument spans that pass. Independently bind the semantic
+formal to the actual value-expression span. Require the *same proved read* in both the permitted
+old argument and its corresponding permitted semantic role. A passing sibling, another index on
+the same call, or a corrected index alone cannot authorize that child. Exclude trivia from semantic
+positions. Python `...` is a value; keyword labels are not values. Bind explicit keywords by
+formal name independently of source order. JS tagged templates reserve slot 0 for template strings
+and start substitutions at 1. For unknown-width spreads/splats refuse dependent positions or
+ambiguous keyword binding. Independent earlier positions or a proven argument to a name-only
+detector may still qualify. Cover comments both ways on `insertAdjacentHTML`, including an
+independently admitting sibling. Its old callee exclusion still applies to the indexed flat role.
+Apply the documented signature-specific Flask, JSX and A roles with their own guards.
 
 These rows cover 40 JS-family entries, 48 Python entries, 17 ordinary Go entries and two Go framework
 entries. Materially different slots in one occurrence can produce different rows. Framework-source and
@@ -818,6 +1002,22 @@ assertion distinguishes a missing finding from an admitted finding with empty ru
 four substitution-only Sprintf rows are positive with empty rules. HCL `ri27` and `probe: java Runtime.exec`
 are negative at the marker, though a reached legacy token would have identity `legacy`. No positive
 identity assertion may succeed vacuously on a missing finding.
+
+**D-6 keyed delta from D-5, using the PR #901 fixtures at `b3bfd5515ece`.** All nine TSV
+partitions retain their expectations (0/540). One of 300 candidate cells changes:
+
+| Group and label | D-5 | D-6 | Reason |
+|---|---|---|---|
+| JS framework-source flat, `astra-r1-47` | `js-location-header` | `[]` on admission | The assignment and the Location value both evaluate `req.query.next`. Withhold the repeated field group. The response setter has no independent inline structured role. |
+
+The other 47 Astra round-1 cells, all 43+5 later Astra cells, 120 Sol cells, 76 Terra cells
+and eight own sketches retain their decisions. Thus the candidate populations become 43 predicted
+absences, 15 admitted-empty and 242 nonempty conditional lists. Simple locals account for every
+other repeated path-read comparison in §5.2. `ri02` requires RHS **and** command, `ri15` the
+uncleansed format, `ri21a/b` both structured siblings, `ri22` the two live siblings and `ri23c`
+both name origins. Nested and continued uses with one read retain all eligible enclosing roles.
+These counts compare design cells. Neither a dormant writer nor the candidate sources establish
+production yield. No registry, observation or presence cell changes.
 
 **Round 1 keyed delta from D-1 (`65a13c348b47`).** This table preserves the superseded design value.
 The tables below retain the separate TSV `rules` and `observed` history. D-3 keeps the D-2 cell values.
@@ -1089,7 +1289,7 @@ record, never authority to add a finding. The open products themselves are gover
 | `no` | terra-r1 (03, 12, 13, 15) · terra-r4 (05, 09) · terra-r5 (07) · sol-r1 (29, 34, 43, 46, 60) · sol-r2 (19, 20, 26, 30, 48, 53) · astra-r1 (09, 10, 12, 14, 30, 33, 34, 35, 42, 43, 48) · astra-r2 (05, 10, 25, 26, 27, 29, 30, 32, 33, 39, 40, 42, 43) · astra-r3 (05) |
 | `taint-write-data` | terra-r1 (04) · sol-r2 (01, 02, 03, 04, 05, 06) |
 | `go-file-op@CWE-22;structured-path-traversal@CWE-22` | terra-r1 (05) · astra-r1 (46) · astra-r2 (08) |
-| `[]` | terra-r1 (08) · terra-r2 (10) · sol-r1 (51, 56, 57) · sol-r2 (59, 60) · astra-r1 (04, 18, 31) · astra-r2 (09, 12, 16, 23) |
+| `[]` | terra-r1 (08) · terra-r2 (10) · sol-r1 (51, 56, 57) · sol-r2 (59, 60) · astra-r1 (04, 18, 31, 47) · astra-r2 (09, 12, 16, 23) |
 | `structured-ssrf@CWE-918` | terra-r1 (09, 18) · terra-r2 (03, 04, 05, 06, 07, 15, 19) · terra-r3 (09, 11, 12, 14) · terra-r4 (06) · terra-r5 (03, 04) · sol-r1 (14, 15, 23, 38) · sol-r2 (41, 42, 43, 44, 46, 47) · astra-r1 (22) · astra-r2 (24, 28, 35, 36) · astra-r3 (04) |
 | `structured-deserialization@CWE-502;structured-ssrf@CWE-918` | terra-r1 (10, 20) · astra-r2 (06) |
 | `structured-path-traversal@CWE-22` | terra-r1 (19) · terra-r2 (16) · terra-r3 (03) · terra-r5 (05, 06) · sol-r1 (25, 30, 32, 36, 44) · astra-r2 (11, 15) |
@@ -1135,7 +1335,6 @@ record, never authority to add a finding. The open products themselves are gover
 | `js-fs@CWE-22` | astra-r1 (29) |
 | `configured-sink` | astra-r1 (32) |
 | `configured-sink;format-wrapper` | astra-r1 (45) |
-| `js-location-header` | astra-r1 (47) |
 | `js-child-process@CWE-78;js-db-call@CWE-89;structured-os-command@CWE-78;structured-sqli@CWE-89` | astra-r2 (01, 02) |
 | `py-db-call@CWE-89;taint-query-value!suggestion` | astra-r2 (03) |
 | `taint-query-name;taint-query-value!suggestion` | astra-r2 (04), changed in the round 2 fold-back: an unresolved `execute` receiver has no SQL witness |
@@ -1199,6 +1398,13 @@ control of a filename. The alternatives need evidence of untrusted functionality
 
 **Accepted detection and attribution losses**
 
+- D-6 withholds path-based flat credit for repeated identical request-field accesses on a
+  receiver path (`astra-r1-47`). It also withholds individual reads with unresolved declaration,
+  unknown effects/escapes, an ambiguous reaching value, missing source provenance or unproved
+  field storage. A compound assignment may still supply its independently proved incoming read.
+  Unknown callee, ambiguous formal and old-index/semantic-role disagreement withhold the affected
+  role. These are per-witness losses. Preserve an independent path, inline source, name origin
+  or legacy token when its own contract holds. No other labeled loss is accepted by D-6.
 - A first cleansed/excluded structured outcome can prevent an otherwise live finding. Go's start-line
   rule, flat-only continuation with no local admission, HCL cross-block flow (`ri27`), and absent
   framework/IPC source witnesses can also leave no finding. An existing finding admitted only by an
@@ -1234,8 +1440,13 @@ and G-fingerprint with ordinary uninstrumented binaries.
    For #841 also report the overlap/expanded-only keys and the selected run after union.
 2. **Join old hits to selected D occurrences.** Within an admitted key use detector family, private
    tag/pattern (language + table + entry, or name-detector origin) and half-open byte span of the
-   callee leaf/operator. Instrument the exact old visit or selected call. A non-call identifier uses
-   its token span. For spanless hits record one unmatched group per finding/detector/entry/branch,
+   callee leaf/operator. Instrument the exact old visit or selected call, including JS YAML,
+   Flask path and inline, Go primary/secondary, flat identifiers, configured and wrapper visits.
+   Use a stable table/entry ordinal (or equivalent unique key including its indices), so Go's two
+   `exec.Command` entries at 0 and 2 remain distinct. A non-call identifier uses its token span.
+   A located old `audit` token visited by two spanless edges gives one located parent, two
+   raw visits and no reached child. Record missing operand bytes separately. Only when the old
+   *detector site itself* cannot be located record one unmatched group per finding/detector/entry/branch,
    with raw visit count and unknown occurrence multiplicity, separately from occurrence totals.
    Outer-join the located parents once per key. Keep path/inline channels as a set. Count old-only,
    D-only and common parents. For common parents show old → sorted D identities and flag every CWE
@@ -1258,6 +1469,21 @@ and G-fingerprint with ordinary uninstrumented binaries.
    old-only parent (wrong slot), one refused substitution, one admitted-empty finding. For the local
    `./db` query export two detector parents select one neutral id: two neutralizations, one collapse,
    one affected finding. These counts have different denominators.
+
+**D-6 census before each activation.** Compare the actual old visit, the prior E decision where
+specified, and the new proof on the same admission/path data. PR #901 has no published rule
+baseline. Record the proof route (stable local, exact point, inline or legacy), def/read spans,
+old/semantic operand spans, role, strength, and refusal detail under the first applicable F reason.
+Split binding refusals by missing evidence, shadow, multiple writes, escape/unknown effects,
+ambiguous field, and repeated request field. Split slot refusals by unproved callee, spread,
+wrong role and old-index disagreement. Keep unknowns separate. Tabulate raw visits, unique
+parents, selected/refused children, independently rescued roles, and losses *after* id/strength
+reduction including newly empty lists. Exercise zero, one and two truly unlocated old visits,
+and zero, one and two missing operands on a located site. Require the sole changed E control
+in JS and unchanged positive controls in each language. Run the joined census on all 35 pins;
+report observed denominators and examples, including zero support for any named loss. Report the
+two grids' tested coordinates independently of the 840 labeled cases. A further changed E cell
+or a wrong identity blocks activation pending correction or another design decision.
 
 Separate before/after totals could hide a lost occurrence behind a new one. The joined yield is
 diagnostic. A valid in-scope witness lost through an incorrect predicate
@@ -1297,3 +1523,8 @@ outside the registry, tests check emitted values on exercised paths, and produce
 how built-ins selected their rows. External serde and forwarding remain possible. D-5 folds the
 single §8 review onto that decision. It specifies the common writer, lane 8's core import, the
 S2-R controls and the algorithm encoding for both specific-mode descriptor namespaces (§5.5).
+
+**Change log, 2026-11-25, D-6.** At the second collector rejection, §5.2 replaces generic
+representative expansion with language-owned proofs and preserves separate semantic and old
+matcher operands. Appendix E changes `astra-r1-47` only. F and PLAN assign the old-site census
+and dormant language tests before publication. The 64 registry rows remain settled.
