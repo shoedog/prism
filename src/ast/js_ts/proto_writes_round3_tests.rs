@@ -39,6 +39,19 @@ fn byte_scan_finds_escapes_beside_multibyte_identifier_text() {
         // Reads whose spelling differs from an escaped declaration were already unresolved
         // before the fold, so only a matching spelling carries a reason.
     }
+    // Discriminating form: a plain non-ASCII declaration and an escaped write of the same name.
+    for (write, name) in [
+        (r"caf\u00e9", "caf\u{e9}"),
+        (r"\u{1d4d0}", "\u{1d4d0}"),
+        (r"caf\u{e9}", "caf\u{e9}"),
+    ] {
+        let file = js(&format!(
+            "function f(root,input){{ let {name}=1;\n {write}=input;\n root[{name}].x=1; }}"
+        ));
+        let key = read(&file, 3, name);
+        assert!(!key.resolution_complete, "{write}");
+        assert_eq!(key.incomplete_reason, Some("identity_escape"), "{write}");
+    }
     // Control: the same non-ASCII spellings written without an escape stay complete.
     for name in ["caf\u{e9}", "\u{1d4d0}"] {
         let file = js(&format!(
