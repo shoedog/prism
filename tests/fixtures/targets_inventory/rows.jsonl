@@ -522,3 +522,4 @@
 {"id": "as1-39", "group": "http.receiver", "fixture": "http_receiver/as1-39.py", "line": 6, "callee": "*", "class": "attribute dictionary lookup", "want": "none", "truth": "design", "consumer": ""}
 {"id": "as1-40", "group": "http.root", "fixture": "http_root/as1-40.py", "line": 4, "callee": "*", "class": "local root shadowing", "want": "none(unproven:shadowed_root)", "truth": "design", "consumer": ""}
 {"id": "as1-41", "group": "http.root", "fixture": "http_root/as1-41.py", "line": 6, "callee": "requests.get", "class": "module import", "want": "site(http,requests.get,exact)", "truth": "design", "consumer": "accepted"}
+{"id": "as1-10", "group": "http.root", "fixture": "http_root/as1-10.py", "line": 3, "callee": "requests.get", "class": "grouped unsupported calls", "want": "unsupported(parse_error_in_function,2)", "truth": "design", "consumer": ""}
