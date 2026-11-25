@@ -288,7 +288,7 @@ pub(super) fn validate_labels(row: &Row) {
         (row.group.as_str(), GROUPS),
         (
             row.lang.as_str(),
-            &["javascript", "python", "go", "tsx"][..],
+            &["javascript", "python", "go", "typescript", "tsx"][..],
         ),
         (
             row.class.as_str(),

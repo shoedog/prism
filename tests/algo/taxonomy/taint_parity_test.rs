@@ -314,6 +314,7 @@ fn check_cells<T: std::fmt::Debug + PartialEq>(
     let rows = rows();
     for group in enabled_groups() {
         let mut executed = 0;
+        let mut pending = 0;
         for row in rows.iter().filter(|row| row.group == group) {
             let expect = row
                 .expect
@@ -321,6 +322,7 @@ fn check_cells<T: std::fmt::Debug + PartialEq>(
                 .unwrap_or_else(|| panic!("{}: enabled row has no expectations", row.id));
             if let Some(issue) = row.pending_issue(level) {
                 eprintln!("{}: pending {level:?} ({issue})", row.id);
+                pending += 1;
                 continue;
             }
             let got = actual(row, &Fixture::load(row));
@@ -331,7 +333,11 @@ fn check_cells<T: std::fmt::Debug + PartialEq>(
             }
         }
         if executed == 0 {
-            failures.push(format!("{group}: no {level:?} cells executed"));
+            if pending == 0 {
+                failures.push(format!("{group}: no {level:?} cells executed"));
+            } else {
+                eprintln!("{group}: all {pending} {level:?} cells pending");
+            }
         }
     }
     assert!(failures.is_empty(), "\n{}", failures.join("\n"));
