@@ -32,5 +32,7 @@ mod proto_key_use_test;
 mod python_type_provider_test;
 mod recall_frozen;
 mod rust_type_provider_test;
+mod subscript_matrix_routes;
+mod subscript_matrix_test;
 mod ts_type_provider_test;
 mod type_provider_test;
