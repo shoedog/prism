@@ -1,0 +1,12 @@
+schema_api = "t1-grammar-extra"
+schema_path = "schema.json"
+
+document_url = "https://saffron.invalid/"
+schema_retrieval_url = "https://saffron.invalid/schema.json"
+
+[[client]]
+file = "wire.ts"
+export = "default"
+methods = { get = "GET", post = "POST" }
+url_arg = 0
+response_root = ""

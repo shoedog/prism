@@ -1,0 +1,33 @@
+import wire from './wire';
+import axios from 'axios';
+// Browser document base URI is https://quartz.invalid/doc/page.html.
+const read = wire;
+const endpoints = { list: '/tablets' } as const;
+const request = new Request('https://quartz.invalid/fables', { method: 'POST' });
+
+export const aliased = () => read.get('/fables');
+export const destructured = () => { const { get } = wire; return get('/fables'); };
+export const computed = () => wire['g' + 'et']('/fables');
+export const dotSegments = () => fetch('https://quartz.invalid/base/../fables');
+export const relativeDocument = () => fetch('leaf');
+export const protocolRelative = () => fetch('//quartz.invalid/fables');
+export const unicode = () => fetch('https://quartz.invalid/book/café');
+export const encoded = () => fetch('https://quartz.invalid/book/' + encodeURIComponent('a/b'));
+export const doubleEncoded = () => fetch('https://quartz.invalid/book/' + encodeURIComponent('%2F'));
+export const fragmentBeforeQuery = () => fetch('https://quartz.invalid/fables#part?fake=/folio');
+export const indexedTable = () => wire.get(endpoints['list']);
+export const fallback = () => wire.get('' || '/fables');
+export const inheritedMethod = () => fetch(request);
+export const inheritedWithOptions = () => fetch(request, { cache: 'no-store' });
+export const undefinedMethod = () => fetch('/fables', { method: undefined });
+export const lowerMethod = () => fetch('/fables', { method: 'patch' });
+export const axiosTwoArgs = () => axios('/fables', { method: 'patch' });
+export const axiosBase = () => axios({ baseURL: 'https://quartz.invalid/base/', url: 'nested' });
+export const axiosOverride = () => axios({ baseURL: 'https://quartz.invalid/base/', url: 'https://quartz.invalid/plain' });
+export const shelf = (a: number, b: number) => wire.get(`/shelves/${a}/items/${b}`);
+export const pair = (a: number, b: number) => wire.get(`/pairs/${a}/${b}/end`);
+export const fixedPair = (b: number) => wire.get(`/pairs/fixed/${b}/end`);
+export const postSwitch = () => wire.post('/switch');
+export const getSwitch = () => wire.get('/switch');
+export const instance = axios.create({ baseURL: 'https://quartz.invalid/base/' });
+export const searchOnly = () => new URLSearchParams({ q: '/fables' });

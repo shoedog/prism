@@ -1,0 +1,7 @@
+framework = "gin"
+version = "1.11.0"
+path_dialect = "gin"
+receiver = "r"
+empty_tail = true
+retain_separator = true
+trailing_slash = "redirect"

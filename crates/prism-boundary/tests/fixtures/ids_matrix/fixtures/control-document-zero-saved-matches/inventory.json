@@ -1,0 +1,9 @@
+{
+  "id": "inventory-before",
+  "service_input": "service-before",
+  "api": "sable-quay",
+  "operations": [
+    "op:GET /kiln"
+  ],
+  "coverage": "checked"
+}

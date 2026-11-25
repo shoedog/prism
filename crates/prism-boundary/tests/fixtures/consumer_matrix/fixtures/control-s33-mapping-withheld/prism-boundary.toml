@@ -1,0 +1,12 @@
+schema_api = "shape-s33"
+schema_path = "schema.json"
+
+aliases = { "alderfen/" = "alderfen/", "@alderfen-kit/" = "support/" }
+
+[[client]]
+file = "alderfen/kiln-courier.ts"
+export = "alderfenCourier"
+methods = { "get" = "GET", "put" = "PUT", "post" = "POST", "delete" = "DELETE" }
+url_arg = 0
+add_prefix = "/mothbank/"
+response_root = ""

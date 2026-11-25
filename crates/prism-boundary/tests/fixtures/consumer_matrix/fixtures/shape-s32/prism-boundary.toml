@@ -1,3 +1,6 @@
+schema_api = "shape-s32"
+schema_path = "schema.json"
+
 aliases = { "alderfen/" = "alderfen/", "@alderfen-kit/" = "support/" }
 
 [[client]]
@@ -7,3 +10,20 @@ methods = { "get" = "GET", "put" = "PUT", "post" = "POST", "delete" = "DELETE" }
 url_arg = 0
 add_prefix = "/mothbank/"
 response_root = ""
+
+# Factory export and base: alderfen/kiln-courier.ts:2-6. Origin and mount: alderfen/kiln-settings.ts:1-2.
+[[api_mapping]]
+entry = 1
+client_entry = 1
+file = "alderfen/kiln-courier.ts"
+export = "alderfenCourier"
+api = "shape-s32"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = "/mothbank/"
+service_origin = "https://alderfen.invalid"
+mount = "/"
+sources = [{ path = "alderfen/kiln-courier.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "c2c4de8d08500636b7dd0d8195ef5c6bf26ca329", start_line = 2, end_line = 6 }, { path = "alderfen/kiln-settings.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "feeec109e2360959df06f067d795c9646fda0d27", start_line = 1, end_line = 2 }]
