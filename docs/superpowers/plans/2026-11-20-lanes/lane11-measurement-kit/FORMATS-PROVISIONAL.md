@@ -85,7 +85,7 @@ STRAYS = "fail" | "allow"                     # optional, default "fail"
 def validate(bound) -> list[str]              # optional, called once after classify; each string is a failure
 ```
 
-`record = {"arm", "tag", "kind": "edge|write|owner|counter|...", "key": {...fields the trace names...}, ...}`. An `edge`
+`record = {"arm", "tag", "kind": "edge|node|write|owner|counter|...", "key": {...fields the trace names...}, ...}`. A `node` record names one def or use span (file, path, line, start_byte, end_byte) and is never joined to an edge; it reaches `validate(bound)` with every other unjoined record (lane 10's node inventory and spelling-leak gate). An `edge`
 record matches the edges of its arm whose key agrees on every field the record carries; it attaches to a change only
 when exactly one edge of its side matches and that edge is changed; a match on an unchanged edge is a stray, several
 matches are `ambiguous`, none is `unmatched`; a record attaches to at most one change. `context` provides
@@ -121,8 +121,9 @@ are not graded). Any other relation is UNDECIDED `relation-not-graded`.
 
 **Question module** (a `.cjs` file; one per lane at most): exports `relations` (the relation names it grades) and
 `grade(row, ctx) -> {verdict, property, why}`; `ctx` gives the loaded TypeScript module, the program and checker for the
-run's corpus root, and helpers to find the identifier at `(file, start_byte, end_byte)`, its declaration(s) and the call
-expression enclosing it. An unknown verdict string fails the run (exit 1). The built-in self-check (`oracle/selfcheck.cjs`)
+run's corpus root, and helpers to find the identifier at `(file, start_byte, end_byte)`, its declaration(s), the call
+expression enclosing it (by full span), and `program_with_default_lib()`, a second program over the same sources built with the default
+library (lane 9's built-in callback question). An unknown verdict string fails the run (exit 1). The built-in self-check (`oracle/selfcheck.cjs`)
 must pass first; a lane's question module ships its own self-check cases in the same layout
 (`oracle/selfcheck/<case>/{repo/, input.jsonl, expected.jsonl}`).
 
@@ -134,3 +135,4 @@ classes (if any). Lanes do not depend on them for their classifier or question m
 ## Change log
 
 - 2026-11-24: first version, from `DESIGN.md` section 5 and `PLAN.md` S1 to S3 as folded on 2026-11-21.
+- 2026-11-24 (adopter answers): record kind `node` added (lane 10 trace names spans, not edges); question-module `ctx` gains `enclosing_call` by full span and `program_with_default_lib()` (lane 9).
