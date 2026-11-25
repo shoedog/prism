@@ -106,6 +106,8 @@ mod taint_policy_tests;
 mod tests;
 mod trace;
 mod trace_descent;
+#[cfg(test)]
+mod trace_descent_tests;
 mod types;
 pub(crate) mod var_index;
 

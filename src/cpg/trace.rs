@@ -449,7 +449,7 @@ impl CodePropertyGraph {
 
         while let Some(node) = queue.pop_front() {
             let node_depth = *depths.get(&(root, node)).unwrap_or(&0);
-            for (next, rel) in self.taint_neighbors(node, return_flow_mode) {
+            for (next, rel, binding_label) in self.taint_neighbors(node, return_flow_mode) {
                 // P14 fix-wave BLOCKER fix: an excluded hop is simply not taken — no ordering
                 // check, no boundary/descent/CFG handling, no `BoundaryEdge` record. Checked first
                 // so `taint_trace_nodes_excluding`'s re-walk (used to bypass-prove a `Sanitized`
@@ -504,7 +504,16 @@ impl CodePropertyGraph {
                 // different function, or if a recursive/self call's arg→param DataFlow edge lands back in
                 // the same function. The edge-sensitive parameter test avoids classifying one-line body
                 // locals as call boundaries.
-                if next_fn != node_fn || self.is_parameter_binding_from(node, next, rel) {
+                // A `call_nameonly` binding edge is a call-binding hop whichever function it lands in: a
+                // name-only callback that resolves back into the function being walked must not become
+                // local flow (reviewer finding, I-guard round 1).
+                if next_fn != node_fn
+                    || self.is_parameter_binding_from(node, next, rel)
+                    || binding_label
+                        == Some(super::FlowConfidence::NameOnly(
+                            super::FlowDoubt::CallNameOnly,
+                        ))
+                {
                     let boundary_kind = if next_fn != node_fn {
                         BoundaryKind::CrossFunction
                     } else {
@@ -513,7 +522,7 @@ impl CodePropertyGraph {
 
                     let can_descend = matches!(boundary_kind, BoundaryKind::CrossFunction)
                         && node_depth < MAX_TAINT_DESCENT_DEPTH
-                        && self.descend_target(node, next, rel, descent_gate_cache)
+                        && self.descend_target(node, next, binding_label, descent_gate_cache)
                         && policy.is_none_or(|_| {
                             self.admitted_data_flow_label(policy, node, next).is_some()
                         });
@@ -721,29 +730,29 @@ impl CodePropertyGraph {
         &self,
         node: NodeIndex,
         return_flow_mode: ReturnFlowMode,
-    ) -> Vec<(NodeIndex, Relation)> {
-        let mut out = Vec::new();
-        let mut df: Vec<NodeIndex> = self
+    ) -> Vec<(NodeIndex, Relation, Option<super::FlowConfidence>)> {
+        let mut out: Vec<_> = self
             .graph
             .edges(node)
-            .filter(|e| matches!(e.weight(), CpgEdge::DataFlow(_)))
-            .map(|e| e.target())
+            .filter_map(|edge| match edge.weight() {
+                CpgEdge::DataFlow(label) => Some((edge.target(), Relation::DataFlow, Some(*label))),
+                _ => None,
+            })
             .collect();
         // General DFG neighbors can cross lines; NodeIndex order is build-deterministic.
-        df.sort_by_key(|i| i.index());
-        out.extend(df.into_iter().map(|t| (t, Relation::DataFlow)));
+        out.sort_by_key(|(target, _, _)| target.index());
 
         if return_flow_mode == ReturnFlowMode::On {
-            let mut returned: Vec<(NodeIndex, Relation)> = self
+            let mut returned: Vec<_> = self
                 .graph
                 .edges(node)
                 .filter_map(|edge| match edge.weight() {
-                    CpgEdge::ReturnInput => Some((edge.target(), Relation::ReturnInput)),
-                    CpgEdge::ReturnFlow { .. } => Some((edge.target(), Relation::ReturnFlow)),
+                    CpgEdge::ReturnInput => Some((edge.target(), Relation::ReturnInput, None)),
+                    CpgEdge::ReturnFlow { .. } => Some((edge.target(), Relation::ReturnFlow, None)),
                     _ => None,
                 })
                 .collect();
-            returned.sort_by_key(|(target, relation)| {
+            returned.sort_by_key(|(target, relation, _)| {
                 (
                     match relation {
                         Relation::ReturnInput => 0,
@@ -790,7 +799,7 @@ impl CodePropertyGraph {
                     same.sort_by_key(|&i| self.node_sort_key(i));
                     out.extend(
                         same.into_iter()
-                            .map(|t| (t, Relation::AssignmentPropagation)),
+                            .map(|t| (t, Relation::AssignmentPropagation, None)),
                     );
                 }
             }
@@ -816,7 +825,7 @@ impl CodePropertyGraph {
                     self.same_function_same_path_uses_any_line(node)
                 };
                 for u in uses {
-                    out.push((u, Relation::RecoveredDefUse));
+                    out.push((u, Relation::RecoveredDefUse, None));
                 }
             }
             _ => {}
@@ -920,7 +929,7 @@ impl CodePropertyGraph {
             if !visited.insert(node) {
                 continue;
             }
-            for (next, rel) in self.taint_neighbors(node, ReturnFlowMode::Off) {
+            for (next, rel, _) in self.taint_neighbors(node, ReturnFlowMode::Off) {
                 if !self.ordering_admits_collect(node, next, rel, order, ordering_warnings) {
                     continue;
                 }

@@ -19,7 +19,8 @@ use rows::{
     rows, validate_labels, Bytes, Expectations, Finding, Level, Row, Slot, Verdict, Walk, GROUPS,
 };
 
-const ENABLED: &[&str] = &["control"];
+const ENABLED: &[&str] = &["control", "guard"];
+const SHIPPED_SLICES: &[&str] = &["guard"];
 
 /// `PARITY_ENABLED=control,binding` replaces `ENABLED` at run time (a worker's hand-enabled RED record);
 /// the committed constant is what CI runs.
@@ -312,14 +313,33 @@ fn check_cells<T: std::fmt::Debug + PartialEq>(
 ) {
     let mut failures = Vec::new();
     let rows = rows();
-    for group in enabled_groups() {
+    let enabled = enabled_groups();
+    let deferred: BTreeSet<_> = rows
+        .iter()
+        .filter(|row| row.current.is_some() && !enabled.contains(&row.group))
+        .map(|row| &row.group)
+        .collect();
+    for group in enabled.iter().chain(deferred) {
+        let group_enabled = enabled.contains(group);
         let mut executed = 0;
         let mut pending = 0;
-        for row in rows.iter().filter(|row| row.group == group) {
-            let expect = row
-                .expect
-                .as_ref()
-                .unwrap_or_else(|| panic!("{}: enabled row has no expectations", row.id));
+        for row in rows.iter().filter(|row| &row.group == group) {
+            let expect = match &row.current {
+                Some(current)
+                    if !group_enabled
+                        || current
+                            .until
+                            .iter()
+                            .any(|slice| !SHIPPED_SLICES.contains(&slice.as_str())) =>
+                {
+                    &current.expect
+                }
+                _ if group_enabled => row
+                    .expect
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("{}: enabled row has no expectations", row.id)),
+                _ => continue,
+            };
             if let Some(issue) = row.pending_issue(level) {
                 eprintln!("{}: pending {level:?} ({issue})", row.id);
                 pending += 1;
@@ -399,7 +419,11 @@ fn validate_row(row: &Row) {
         "{}: operand nodes",
         row.id
     );
-    for entry in row.expect.iter().flat_map(|expect| &expect.catalog) {
+    let expectations = row
+        .expect
+        .iter()
+        .chain(row.current.iter().map(|current| &current.expect));
+    for entry in expectations.flat_map(|expect| &expect.catalog) {
         let file = &fixture.repo.files[&entry.file];
         assert!(
             (1..=file.source.lines().count()).contains(&entry.line),
