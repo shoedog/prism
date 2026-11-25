@@ -102,7 +102,9 @@ impl CodePropertyGraph {
                 | FlowDoubt::CfgIncomplete
                 | FlowDoubt::AliasUnstable,
             )) => {}
-            _ => return false,
+            // `not_exact`: the call-binding doubt, and (lane 9) `builtin_callback`, are refused here.
+            // Naming the variant keeps a new doubt kind a compile-time decision.
+            Some(FlowConfidence::NameOnly(FlowDoubt::CallNameOnly)) | None => return false,
         }
 
         let CpgNode::Variable {
@@ -246,5 +248,10 @@ impl CodePropertyGraph {
 }
 
 fn site_contains_occurrence(site: &CallSite, start_byte: usize, end_byte: usize) -> bool {
+    if start_byte == end_byte {
+        // An empty occurrence has no actual bytes: it is inside the call only strictly before its
+        // exclusive end (`g(t)` ending at byte 168 does not contain `[168, 168)`).
+        return site.start_byte <= start_byte && start_byte < site.end_byte;
+    }
     site.start_byte <= start_byte && end_byte <= site.end_byte
 }

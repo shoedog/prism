@@ -504,7 +504,16 @@ impl CodePropertyGraph {
                 // different function, or if a recursive/self call's arg→param DataFlow edge lands back in
                 // the same function. The edge-sensitive parameter test avoids classifying one-line body
                 // locals as call boundaries.
-                if next_fn != node_fn || self.is_parameter_binding_from(node, next, rel) {
+                // A `call_nameonly` binding edge is a call-binding hop whichever function it lands in: a
+                // name-only callback that resolves back into the function being walked must not become
+                // local flow (reviewer finding, I-guard round 1).
+                if next_fn != node_fn
+                    || self.is_parameter_binding_from(node, next, rel)
+                    || binding_label
+                        == Some(super::FlowConfidence::NameOnly(
+                            super::FlowDoubt::CallNameOnly,
+                        ))
+                {
                     let boundary_kind = if next_fn != node_fn {
                         BoundaryKind::CrossFunction
                     } else {

@@ -152,3 +152,76 @@ fn two_same_spelling_sites_still_refuse_as_ambiguous_site() {
         );
     }
 }
+
+#[test]
+fn empty_occurrence_at_the_exclusive_end_of_a_call_is_not_inside_it() {
+    let mut cpg = build(Language::JavaScript, &[("a", L01)], "js");
+    let exact = occurrence(&cpg, 166, VarAccess::Use);
+    let to = occurrence(&cpg, L01.find("g(x)").unwrap() + 2, VarAccess::Def);
+    assert_eq!(&L01[164..168], "g(t)");
+    let mut empty = cpg.node(exact).clone();
+    let CpgNode::Variable {
+        start_byte,
+        end_byte,
+        ..
+    } = &mut empty
+    else {
+        unreachable!()
+    };
+    *start_byte = 168;
+    *end_byte = 168;
+    let empty = cpg.graph.add_node(empty);
+    add_binding(&mut cpg, empty, to, FlowConfidence::Exact);
+    assert_boundary(
+        &cpg.taint_trace_nodes(&[empty], None),
+        empty,
+        to,
+        "no_matching_site",
+    );
+}
+
+#[test]
+fn nameonly_binding_edge_into_the_walked_function_is_a_boundary_not_local_flow() {
+    let source = include_str!("../../tests/taint_parity/n01/a.js");
+    let mut cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let from = occurrence(&cpg, source.find("cb(x)").unwrap() + 3, VarAccess::Use);
+    // A name-only edge from a use to another node of the SAME function (a callback that resolves
+    // back into its own caller): it must not enter the frontier as local DataFlow.
+    let local = cpg
+        .graph
+        .node_indices()
+        .find(|&id| {
+            id != from
+                && matches!(cpg.node(id), CpgNode::Variable { access: VarAccess::Use, function, .. }
+                    if matches!(cpg.node(from), CpgNode::Variable { function: f, .. } if f == function))
+        })
+        .expect("a second use in the same function");
+    add_binding(&mut cpg, from, local, NAMEONLY);
+    let trace = cpg.taint_trace_nodes(&[from], None);
+    assert!(
+        !trace.frontier_by_root[&from].contains(&local),
+        "name-only edge became local flow"
+    );
+    assert!(trace.boundary.contains(&BoundaryEdge {
+        root: from,
+        from,
+        to: local,
+        kind: BoundaryKind::SelfFunctionParam,
+    }));
+}
+
+#[test]
+fn nameonly_binding_edge_with_a_containing_site_is_refused_without_any_exact_sibling() {
+    let mut cpg = build(Language::JavaScript, &[("a", L01)], "js");
+    let exact = occurrence(&cpg, 166, VarAccess::Use);
+    let to = occurrence(&cpg, L01.find("g(x)").unwrap() + 2, VarAccess::Def);
+    // The occurrence sits inside g(t): only the label can refuse it (cold cache, single root).
+    let nameonly = cpg.graph.add_node(cpg.node(exact).clone());
+    add_binding(&mut cpg, nameonly, to, NAMEONLY);
+    assert_boundary(
+        &cpg.taint_trace_nodes(&[nameonly], None),
+        nameonly,
+        to,
+        "not_exact",
+    );
+}
