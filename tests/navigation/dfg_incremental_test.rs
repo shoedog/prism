@@ -92,11 +92,18 @@ fn transitions(mut files: BTreeMap<String, ParsedFile>) {
             .iter()
             .skip(if delete { 2 } else { 1 })
             .chain(std::iter::once(&paths[0]));
+        // One census read for the whole tree: a `build_with_census_files` call per file
+        // recomputed it N times (~90% of this test's 130 s, #856).
+        let mut singles: BTreeMap<_, _> =
+            DataFlowGraph::build_each_file_with_census_files(&files, &files)
+                .into_iter()
+                .collect();
         let mut expected_edges = vec![];
         for file in order {
-            let singleton = BTreeMap::from([(file.clone(), files[file].clone())]);
             expected_edges.extend(
-                DataFlowGraph::build_with_census_files(&singleton, &files)
+                singles
+                    .remove(file)
+                    .unwrap()
                     .edges()
                     .iter()
                     .map(|e| e.to_owned()),
@@ -245,5 +252,47 @@ fn partial_hit_javascript_exact_labels() {
             })
             .collect();
         transitions(files);
+    });
+}
+
+/// `build_each_file_with_census_files` is `build_with_census_files` per file with the census
+/// read once; the oracle in `partial_hit_multifile_edit_retain_delete` relies on that.
+#[test]
+fn build_each_file_matches_per_file_builds_under_the_tree_census() {
+    prism::build_pool::install(|| {
+        let mut tree = None;
+        common::dfg_cases::visit(|name, files| {
+            if name == "fixture-tree" {
+                tree = Some(files);
+            }
+        });
+        let files = tree.unwrap();
+        // A stride sample across every language directory keeps this to a couple of seconds.
+        let sample: BTreeMap<_, _> = files
+            .iter()
+            .step_by(37)
+            .map(|(p, f)| (p.clone(), f.clone()))
+            .collect();
+        assert!(sample.len() > 20, "sample too small: {}", sample.len());
+        let each = DataFlowGraph::build_each_file_with_census_files(&sample, &files);
+        assert_eq!(
+            each.iter().map(|(p, _)| p).collect::<Vec<_>>(),
+            sample.keys().collect::<Vec<_>>(),
+            "one graph per file, in path order"
+        );
+        for (path, graph) in &each {
+            let single = BTreeMap::from([(path.clone(), sample[path].clone())]);
+            let reference = DataFlowGraph::build_with_census_files(&single, &files);
+            let edges =
+                |g: &DataFlowGraph| g.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>();
+            assert!(
+                edges(graph) == edges(&reference),
+                "edges differ from the per-file build for {path}"
+            );
+        }
+        assert!(
+            each.iter().any(|(_, g)| !g.edges().is_empty()),
+            "the sample must produce edges, or the comparison is vacuous"
+        );
     });
 }
