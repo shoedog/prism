@@ -1,4 +1,4 @@
-// Unit tests of the truth runner itself. Run: node --test tests/fixtures/proto_writes/truth/run_truth.test.mjs
+// Unit tests of the truth runner itself. Run: node --test tests/proto_writes_matrix/truth/run_truth.test.mjs
 // The cases here are tiny functions made for these tests, written into a temp directory.
 
 import assert from 'node:assert/strict';
