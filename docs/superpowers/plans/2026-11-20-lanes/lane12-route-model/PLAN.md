@@ -356,7 +356,7 @@ Reuse the blind preflight labels at the pinned revisions, with a per-entry compa
 ## Acceptance for the lane
 
 Each built wave passed its census gate; the matrix holds for every enabled group; schema-oracle precision on
-in-scope `full` exposures ≥ 0.95 on each schema-bearing corpus of a finished wave, every difference and
+in-scope `full` exposures ≥ 0.95 on each schema-bearing corpus of a finished wave where a correct listing has `full` exposures (for a corpus whose keys all inherit configuration-valued prefixes, such as apache-answer, a correct listing is suffix-only: precision is reported as undefined, DESIGN 7 applies instead: independent prefix evidence and positive unique-suffix yield, and the oracle pins this zero-full case with a control), every difference and
 binding contradiction classified, every observed false certainty fixed or withdrawn and rescored; reconciled completeness (no unexplained ledger site, recall at or above the
 per-corpus non-test floor, independently verified path/root and endpoint accuracy, exact-full scorable recall and nonempty yield), the Go handler binding row when wave 2 is built, and no-regression hold on
 each slice's final head; both reviewers approved
