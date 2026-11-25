@@ -86,6 +86,8 @@
 {"id":"t2-12","ordinal":1,"slice":"E2","kind":"set-row","reason":"Resolve the grounded target independently of the payload. Apply A's exact-offset tests to its fixed slots and inherit the derived label."}
 {"id":"t2-12","ordinal":3,"slice":"E2","kind":"corrected","reason":"Resolve the grounded target independently of the payload. Apply A's exact-offset tests to its fixed slots and inherit the derived label."}
 {"id":"t3-1","ordinal":1,"slice":"A","kind":"loss-row","reason":"Keep the exact edge from the following w to b. A omits the real fixed-slot transfer from v inside the dense spread to a."}
+{"id":"t3-2","ordinal":1,"slice":"B","kind":"loss-row","reason":"Ledger error: the required edge holds only when xs yields at least one element; the frozen least-offset rule binds nothing (DESIGN section 5 B). Prohibitions #2 and #3 stay mandatory."}
+{"id":"t3-2","ordinal":1,"slice":"B","kind":"loss","reason":"Ledger error: the required edge holds only when xs yields at least one element; the frozen least-offset rule binds nothing (DESIGN section 5 B). Prohibitions #2 and #3 stay mandatory."}
 {"id":"t3-3","ordinal":1,"slice":"D","kind":"set-row","reason":"Uphold the recording. Without an initializer the first visited element seeds acc, and a subsequent element feeds value. Require both receiver edges as builtin_callback. See h02a for an explicit seed."}
 {"id":"t3-3","ordinal":2,"slice":"D","kind":"corrected","reason":"Uphold the recording. Without an initializer the first visited element seeds acc, and a subsequent element feeds value. Require both receiver edges as builtin_callback. See h02a for an explicit seed."}
 {"id":"t3-10","ordinal":1,"slice":"E2","kind":"set-row","reason":"Resolve the grounded target independently of the payload. Apply A's exact-offset tests to its fixed slots and inherit the derived label."}
@@ -116,6 +118,8 @@
 {"id":"s2-4","ordinal":1,"slice":"B","kind":"loss","reason":"#1 label → tag also lacks a parameter-property Def. #2–3 count/text → parts are blocked/RED without the constructor site. Require #4 no label → parts, including with a supplied site."}
 {"id":"s2-4","ordinal":2,"slice":"B","kind":"blocked","reason":"Requires an admitted Source constructor site and its Exact implementation"}
 {"id":"s2-4","ordinal":3,"slice":"B","kind":"blocked","reason":"Requires an admitted Source constructor site and its Exact implementation"}
+{"id":"s2-5","ordinal":1,"slice":"B","kind":"loss-row","reason":"A nested function's same-named parameter drops the outer rest formal's entry Def in the formal census (#915); outside slice B. The prohibition #2 stays mandatory."}
+{"id":"s2-5","ordinal":1,"slice":"B","kind":"loss","reason":"A nested function's same-named parameter drops the outer rest formal's entry Def in the formal census (#915); outside slice B. The prohibition #2 stays mandatory."}
 {"id":"s2-6","ordinal":1,"slice":"B","kind":"set-row","reason":"#1 withhold box.items → tail. Matching member bytes and a known start do not prove an element. Keep both fixed-slot prohibitions."}
 {"id":"s2-6","ordinal":1,"slice":"B","kind":"corrected","reason":"#1 withhold box.items → tail. Matching member bytes and a known start do not prove an element. Keep both fixed-slot prohibitions."}
 {"id":"s2-11","ordinal":1,"slice":"D","kind":"loss-row","reason":"Bind arr only to transform at the inner site. The outer call consumes the intermediate result and loses its transfer to consume."}
@@ -332,6 +336,8 @@
 {"id":"x4-1","ordinal":2,"slice":"A","kind":"skip","reason":"model boundary, not enabled: callee reassigned inside the argument list (evaluation-order reasoning)"}
 {"id":"x4-1","ordinal":3,"slice":"A","kind":"skip","reason":"model boundary, not enabled: callee reassigned inside the argument list (evaluation-order reasoning)"}
 {"id":"x4-1","ordinal":4,"slice":"A","kind":"skip","reason":"model boundary, not enabled: callee reassigned inside the argument list (evaluation-order reasoning)"}
+{"id":"x4-3","ordinal":1,"slice":"B","kind":"loss-row","reason":"Reads of earlier formals inside parameter default initializers have no Use node (#916); outside slice B. The other five assertions stay mandatory."}
+{"id":"x4-3","ordinal":5,"slice":"B","kind":"loss","reason":"Reads of earlier formals inside parameter default initializers have no Use node (#916); outside slice B. The other five assertions stay mandatory."}
 {"id":"x4-4","ordinal":1,"slice":"B","kind":"loss-row","reason":"Neither bound prefix nor the final payload has a proved adapter offset. No new head or tail transfer through the two bind results. The reviewed matrix skips this row."}
 {"id":"x4-4","ordinal":1,"slice":"B","kind":"skip","reason":"model boundary, not enabled: flow through a double bind (reflection)"}
 {"id":"x4-4","ordinal":2,"slice":"B","kind":"skip","reason":"model boundary, not enabled: flow through a double bind (reflection)"}

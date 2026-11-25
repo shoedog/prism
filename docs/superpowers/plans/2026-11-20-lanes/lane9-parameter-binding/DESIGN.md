@@ -286,13 +286,13 @@ For E payload grading, join the independent argfollow target verdict to each pro
 
 ## 9. Accepted losses and outstanding evidence
 
-**132 distinct rows of the original 425** carry an explicit Stage D loss. An ID counts once even when both a missing and an excess transfer occur. The list includes passing negative controls for which a separate, identifiable runtime transfer remains outside the model. Each row's shape, required output and reason are in the corresponding entry of the [row ledger](RULES-INPUT-NOTES.md). Loss counts are fixture counts. The additional indented D companion pins a receiver loss outside those original row counts. Corpus rows with no checker credit have their own denominator.
+**135 distinct rows of the original 425** carry an explicit loss in the row ledger. An ID counts once even when both a missing and an excess transfer occur. The list includes passing negative controls for which a separate, identifiable runtime transfer remains outside the model. Each row's shape, required output and reason are in the corresponding entry of the [row ledger](RULES-INPUT-NOTES.md). Loss counts are fixture counts. The additional indented D companion pins a receiver loss outside those original row counts. Corpus rows with no checker credit have their own denominator.
 
 | Matrix group | Loss count | Row IDs |
 |---|---:|---|
 | control | 0 | — |
 | A | 18 | `a06e`, `a06f`, `a08a`, `a08b`, `t1-3`, `t1-4`, `t2-3`, `t3-1`, `t5-1`, `s1-1`, `s2-1`, `s5-2`, `s5-3`, `x1-2`, `x1-3`, `x2-1`, `x3-1`, `x4-1` |
-| B | 18 | `b03`, `b05a`, `b07`, `b09a`, `t4-3`, `s1-7`, `s2-4`, `s4-4`, `s4-5`, `s5-6`, `x1-5`, `x1-6`, `x1-7`, `x2-4`, `x2-5`, `x3-5`, `x4-4`, `x5-3` |
+| B | 21 | `b03`, `b05a`, `b07`, `b09a`, `t3-2`, `t4-3`, `s1-7`, `s2-4`, `s2-5`, `s4-4`, `s4-5`, `s5-6`, `x1-5`, `x1-6`, `x1-7`, `x2-4`, `x2-5`, `x3-5`, `x4-3`, `x4-4`, `x5-3` |
 | C | 10 | `s3-7`, `s3-9`, `s5-9`, `s5-11`, `x1-8`, `x1-9`, `x2-6`, `x3-7`, `x5-5`, `x5-6` |
 | D | 36 | `h02a`, `h02b`, `h05a`, `h05c`, `h06c`, `h07g`, `h08`, `h09a`, `h09b`, `h09c`, `h12a`, `t1-11`, `t1-12`, `t2-5`, `t2-6`, `t5-3`, `s1-13`, `s1-15`, `s2-11`, `s2-14`, `s2-15`, `s3-11`, `s3-12`, `s4-9`, `s4-11`, `s4-12`, `s4-13`, `s5-14`, `s5-15`, `s5-17`, `x1-12`, `x3-9`, `x4-7`, `x4-8`, `x5-7`, `x5-8` |
 | E | 50 | `e05`, `e06b`, `e06d`, `e08b`, `e11`, `t1-9`, `s2-21`, `s2-25`, `s3-15`, `s3-16`, `s3-20`, `s3-21`, `s3-22`, `s4-16`, `s4-17`, `s4-23`, `s5-19`, `s5-20`, `s5-22`, `s5-28`, `x1-19`, `x1-22`, `x1-23`, `x1-25`, `x2-11`, `x2-12`, `x2-13`, `x2-14`, `x2-17`, `x2-20`, `x2-22`, `x3-12`, `x3-14`, `x4-9`, `x4-10`, `x4-11`, `x4-12`, `x4-14`, `x4-15`, `x4-16`, `x4-18`, `x4-19`, `x5-9`, `x5-11`, `x5-12`, `x5-14`, `x5-15`, `x5-16`, `x5-17`, `x5-18` |

@@ -12,7 +12,7 @@ impl ParsedFile {
     /// M2 (SPEC §3.1 W rows, §3.8 (3)): some write's target resolves to `scope`'s binding of
     /// `name` (or passes a `with`, or sits at an unproven position). The file's write targets
     /// are indexed once and each `(scope, name)` answer is memoized (C-19).
-    pub(super) fn js_ts_scoped_written<'a>(
+    pub(crate) fn js_ts_scoped_written<'a>(
         &'a self,
         scope: Node<'a>,
         name: &str,

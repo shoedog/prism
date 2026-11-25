@@ -11,14 +11,17 @@ use petgraph::visit::EdgeRef;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-const ACTIVE_SLICES: &[&str] = &["control", "A"];
+const ACTIVE_SLICES: &[&str] = &["control", "A", "B"];
 type AssertionKey<'a> = (&'a str, &'a str, usize);
 type ExpectedRed<'a> = (AssertionKey<'a>, &'a str);
 
 const X2_2_RED_REASON: &str = "DESIGN §9 line 314: both step sites resolve only as r6_multi_owner_candidate, excluded from Step 5b. #893 tracks the candidate-binding decision. Green also needs unfiled resolver work to resolve super.m() to the base method and type a receiver through a method that returns this";
 const X5_2_RED_REASON: &str = "DESIGN §9 line 315: the constructor site is absent (#892) and the take targets are navigation-only candidates. #893 tracks the candidate-binding decision. Green also needs unfiled resolver work to type the receiver from the constructor's explicit return";
 
-/// Mandatory RED assertions from DESIGN §9, keyed by row, language and ordinal.
+const CONSTRUCTOR_RED_REASON: &str =
+    "The Source new-expression site or its singleton Exact constructor implementation is absent (#892). The supplied-site companion exercises binding only.";
+
+/// Mandatory RED assertions from DESIGN §9 and the B constructor ledger.
 /// Every pin must remain RED, and every unpinned RED fails the suite.
 const EXPECTED_RED: &[ExpectedRed<'_>] = &[
     (
@@ -33,6 +36,21 @@ const EXPECTED_RED: &[ExpectedRed<'_>] = &[
     (("x2-2", "tsx", 2), X2_2_RED_REASON),
     (("x5-2", "js", 1), X5_2_RED_REASON),
     (("x5-2", "js", 2), X5_2_RED_REASON),
+    (("t4-3", "js", 2), CONSTRUCTOR_RED_REASON),
+    (("t4-3", "ts", 2), CONSTRUCTOR_RED_REASON),
+    (("t4-3", "tsx", 2), CONSTRUCTOR_RED_REASON),
+    (("s2-4", "ts", 2), CONSTRUCTOR_RED_REASON),
+    (("s2-4", "ts", 3), CONSTRUCTOR_RED_REASON),
+    (("s2-4", "tsx", 2), CONSTRUCTOR_RED_REASON),
+    (("s2-4", "tsx", 3), CONSTRUCTOR_RED_REASON),
+    (("s3-3", "js", 1), CONSTRUCTOR_RED_REASON),
+    (("s3-3", "ts", 1), CONSTRUCTOR_RED_REASON),
+    (("s3-3", "tsx", 1), CONSTRUCTOR_RED_REASON),
+    (("s5-6", "js", 2), CONSTRUCTOR_RED_REASON),
+    (("s5-6", "ts", 2), CONSTRUCTOR_RED_REASON),
+    (("s5-6", "tsx", 2), CONSTRUCTOR_RED_REASON),
+    (("x3-5", "js", 1), CONSTRUCTOR_RED_REASON),
+    (("x3-5", "js", 2), CONSTRUCTOR_RED_REASON),
 ];
 /// Doubt kinds as `dfg-stats --edges` spells them; `builtin_callback` is added by slice D.
 const LABEL_DOUBTS: &[&str] = &[
@@ -1004,7 +1022,7 @@ mod harness {
                 .iter()
                 .filter(|(_, kind)| kind == "loss-row")
                 .count(),
-            132
+            135
         );
         assert_eq!(rows.iter().filter(|r| r.unexecuted.is_some()).count(), 20);
         for id in ["x1-4", "x2-2", "x5-2"] {

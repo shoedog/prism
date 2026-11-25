@@ -38,7 +38,14 @@ function rest(first, ...later) {
   use(first, later);
 }
 function rest_control(prefix, surplus) {
-  rest(...[], prefix, surplus);
+  rest(...[], prefix, surplus, surplus);
+}
+function rest_spread(still_fixed, dense, trailing) {
+  rest(...still_fixed, ...[0, dense], trailing);
+}
+function rest_opaque(prefix) {
+  const proven = [1];
+  rest(prefix, ...proven);
 }
 "#;
 
@@ -99,7 +106,7 @@ fn fixture_bindings(cpg: &CodePropertyGraph) -> Vec<String> {
             };
             let pinned = matches!(
                 (from_fn.as_str(), to_fn.as_str()),
-                ("spread", "f") | ("rest_control", "rest")
+                ("spread", "f") | ("rest_control" | "rest_opaque" | "rest_spread", "rest")
             ) || (from_fn == "chain"
                 && to_fn == "m"
                 && matches!(to_path.base.as_str(), "a1" | "a2"));
@@ -201,13 +208,20 @@ fn spread_and_rest_graph_is_identical_across_every_route() {
     // a05: only the inner non-spread argument binds to A.m. In particular, neither
     // outer argument nor the argument after the unknown spread can reach A.m.
     // a06: dense lengths shift the slot; holes and nested spreads stop binding.
-    // The fixed prefix of a rest-formal call binds; its surplus remains unbound.
+    // b02: preserve the fixed prefix and both occurrences of the surplus.
+    // A terminal dense element and a separately proved opaque spread also bind.
     let pinned = fixture_bindings(&cold);
     assert_eq!(
         pinned,
         [
             "chain:inner -> m:a1 [Exact]",
             "rest_control:prefix -> rest:first [Exact]",
+            "rest_control:surplus -> rest:later [Exact]",
+            "rest_control:surplus -> rest:later [Exact]",
+            "rest_opaque:prefix -> rest:first [Exact]",
+            "rest_opaque:proven -> rest:later [Exact]",
+            "rest_spread:dense -> rest:later [Exact]",
+            "rest_spread:trailing -> rest:later [Exact]",
             "spread:dense -> f:c [Exact]",
             "spread:empty -> f:a [Exact]",
             "spread:first -> f:a [Exact]",
