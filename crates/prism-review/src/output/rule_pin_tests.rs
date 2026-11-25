@@ -10,6 +10,7 @@ use std::{
 const FORMATS: &str = "json review json-taint sarif sarif-taint targets";
 const ALGORITHMS: &str = "taint primitive absence contract echo membrane symmetry \
     provenance peer_consistency callback_dispatcher";
+const INPUT_COUNT: usize = 35;
 type Counts = BTreeMap<String, (usize, usize)>;
 
 fn array<'a>(object: &'a Value, key: &str) -> Result<&'a [Value], String> {
@@ -63,19 +64,45 @@ fn check_capture(format: &str, document: &Value, counts: &mut Counts) -> Result<
     Ok(())
 }
 
-#[test]
-#[ignore = "requires host Stage M captures"]
-fn check_stage_m_pins() {
-    let manifest =
-        PathBuf::from(env::var_os("PRISM_RULE_PIN_MANIFEST").expect("pin manifest path"));
-    let outputs = PathBuf::from(env::var_os("PRISM_RULE_PIN_OUTPUTS").expect("pin output path"));
-    assert!(manifest.is_absolute() && outputs.is_absolute());
-    assert!(
-        outputs.is_dir() && !outputs.join("FAILED").exists(),
-        "invalid capture directory {outputs:?}"
-    );
-    let input =
-        fs::read_to_string(&manifest).unwrap_or_else(|error| panic!("{manifest:?}: {error}"));
+fn resolve_pin_path(
+    root: &Path,
+    id: &str,
+    field: &str,
+    raw: &str,
+    expected_type: fn(&Path) -> bool,
+) -> Result<PathBuf, String> {
+    let invalid = || format!("{id}: invalid {field} {raw:?}");
+    if raw.is_empty() {
+        return Err(invalid());
+    }
+    let resolved = root
+        .join(raw)
+        .canonicalize()
+        .map_err(|error| format!("{}: {error}", invalid()))?;
+    if !resolved.starts_with(root) {
+        return Err(format!("{}: outside pinned input root {root:?}", invalid()));
+    }
+    if !expected_type(&resolved) {
+        return Err(format!("{}: unexpected file type", invalid()));
+    }
+    Ok(resolved)
+}
+
+fn read_stage_m_pins(
+    manifest: &Path,
+    input_root: &Path,
+    outputs: &Path,
+) -> Result<(usize, BTreeMap<&'static str, Counts>), String> {
+    if !outputs.is_dir() || outputs.join("FAILED").exists() {
+        return Err(format!("invalid capture directory {outputs:?}"));
+    }
+    let root = input_root
+        .canonicalize()
+        .map_err(|error| format!("invalid pinned input root {input_root:?}: {error}"))?;
+    if !root.is_dir() {
+        return Err(format!("pinned input root {root:?} is not a directory"));
+    }
+    let input = fs::read_to_string(manifest).map_err(|error| format!("{manifest:?}: {error}"))?;
     let mut keys = BTreeSet::new();
     let mut sources = BTreeSet::new();
     let mut totals = BTreeMap::<&str, Counts>::new();
@@ -85,28 +112,49 @@ fn check_stage_m_pins() {
     {
         let fields: Vec<_> = line.split('\t').collect();
         let [id, repo, diff] = fields.as_slice() else {
-            panic!("invalid pin manifest row: {line:?}");
+            return Err(format!("invalid pin manifest row: {line:?}"));
         };
-        assert_eq!(
-            Path::new(id).file_name().and_then(|name| name.to_str()),
-            Some(*id)
-        );
-        assert!(
-            !repo.is_empty() && !diff.is_empty() && sources.insert((*repo, *diff)),
-            "invalid input: {line:?}"
-        );
-        assert!(keys.insert(*id), "duplicate capture key {id:?}");
+        if Path::new(id).file_name().and_then(|name| name.to_str()) != Some(*id) {
+            return Err(format!("invalid capture key {id:?}"));
+        }
+        if !keys.insert(*id) {
+            return Err(format!("duplicate capture key {id:?}"));
+        }
+        let repo = resolve_pin_path(&root, id, "repo", repo, Path::is_dir)?;
+        let diff = resolve_pin_path(&root, id, "diff", diff, Path::is_file)?;
+        if !sources.insert((repo, diff)) {
+            return Err(format!("duplicate pin input: {line:?}"));
+        }
         for format in FORMATS.split_whitespace() {
             let path = outputs.join(id).join(format!("{format}.json"));
-            let raw = fs::read(&path).unwrap_or_else(|error| panic!("{path:?}: {error}"));
+            let raw = fs::read(&path).map_err(|error| format!("{path:?}: {error}"))?;
             let document =
-                serde_json::from_slice(&raw).unwrap_or_else(|error| panic!("{path:?}: {error}"));
+                serde_json::from_slice(&raw).map_err(|error| format!("{path:?}: {error}"))?;
             check_capture(format, &document, totals.entry(format).or_default())
-                .unwrap_or_else(|error| panic!("{path:?}: {error}"));
+                .map_err(|error| format!("{path:?}: {error}"))?;
         }
     }
-    assert_eq!(keys.len(), 35, "Stage M input count");
-    println!("inputs={}", keys.len());
+    if keys.len() != INPUT_COUNT {
+        return Err(format!(
+            "Stage M input count: {} != {INPUT_COUNT}",
+            keys.len()
+        ));
+    }
+    Ok((keys.len(), totals))
+}
+
+#[test]
+#[ignore = "requires host Stage M captures"]
+fn check_stage_m_pins() {
+    let manifest =
+        PathBuf::from(env::var_os("PRISM_RULE_PIN_MANIFEST").expect("pin manifest path"));
+    let input_root =
+        PathBuf::from(env::var_os("PRISM_RULE_PIN_INPUT_ROOT").expect("pinned input root path"));
+    let outputs = PathBuf::from(env::var_os("PRISM_RULE_PIN_OUTPUTS").expect("pin output path"));
+    assert!(manifest.is_absolute() && input_root.is_absolute() && outputs.is_absolute());
+    let (inputs, mut totals) = read_stage_m_pins(&manifest, &input_root, &outputs)
+        .unwrap_or_else(|error| panic!("{error}"));
+    println!("inputs={inputs}");
     for format in FORMATS.split_whitespace() {
         let counts = totals.get_mut(format).unwrap();
         for algorithm in ALGORITHMS.split_whitespace() {
@@ -115,12 +163,63 @@ fn check_stage_m_pins() {
         let (findings, refs) = counts
             .values()
             .fold((0, 0), |(f, r), (df, dr)| (f + df, r + dr));
-        println!(
-            "{format}: rows={} findings={findings} refs={refs} by_algorithm={counts:?}",
-            keys.len()
-        );
+        println!("{format}: rows={inputs} findings={findings} refs={refs} by_algorithm={counts:?}");
         assert_eq!(refs, 0, "S2-R has no activated producer in {format}");
     }
+}
+
+fn check_bad_pin_input(repo: &str, diff: &str, invalid_field: &str) {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("pinned");
+    let outputs = temp.path().join("captures");
+    let manifest = temp.path().join("inputs.tsv");
+    fs::create_dir_all(root.join("repo")).unwrap();
+    let empty_capture = r#"{"results":[],"all_findings":[],"findings":[],"runs":[],"targets":[]}"#;
+    let mut rows = String::from("id\trepo\tdiff\n");
+    for i in 0..INPUT_COUNT {
+        fs::write(root.join(format!("{i}.diff")), "").unwrap();
+        rows.push_str(&format!("{i}\trepo\t{i}.diff\n"));
+        let dir = outputs.join(i.to_string());
+        fs::create_dir_all(&dir).unwrap();
+        for format in FORMATS.split_whitespace() {
+            fs::write(dir.join(format!("{format}.json")), empty_capture).unwrap();
+        }
+    }
+    fs::write(&manifest, &rows).unwrap();
+    assert_eq!(
+        read_stage_m_pins(&manifest, &root, &outputs).unwrap().0,
+        INPUT_COUNT
+    );
+    let last = INPUT_COUNT - 1;
+    let rows = rows.replace(
+        &format!("{last}\trepo\t{last}.diff"),
+        &format!("{last}\t{repo}\t{diff}"),
+    );
+    fs::write(&manifest, rows).unwrap();
+    let error = read_stage_m_pins(&manifest, &root, &outputs).unwrap_err();
+    assert!(
+        error.contains(&format!("{last}: invalid {invalid_field}")),
+        "{error}"
+    );
+}
+
+#[test]
+fn pin_reader_rejects_missing_diff_with_intact_captures() {
+    check_bad_pin_input("repo", "missing.diff", "diff");
+}
+
+#[test]
+fn pin_reader_rejects_missing_repo_with_intact_captures() {
+    check_bad_pin_input("missing-repo", &format!("{}.diff", INPUT_COUNT - 1), "repo");
+}
+
+#[test]
+fn pin_reader_requires_the_expected_input_types_inside_the_root() {
+    let diff = format!("{}.diff", INPUT_COUNT - 1);
+    check_bad_pin_input(&diff, &diff, "repo");
+    check_bad_pin_input("repo", "repo", "diff");
+    check_bad_pin_input("../captures", &diff, "repo");
+    check_bad_pin_input("repo", "../inputs.tsv", "diff");
 }
 
 #[test]

@@ -44,6 +44,42 @@ fn registry_rows_are_sorted_and_canonical() {
 }
 
 #[test]
+fn nominal_sink_descriptions_state_call_shapes() {
+    for (row, shape, binding_check) in [
+        (&JS_FS, "filesystem-like", "Confirm the filesystem binding"),
+        (
+            &JS_REDIRECT,
+            "redirect-like",
+            "Confirm the receiver redirects",
+        ),
+        (
+            &JS_LOCATION,
+            "navigation-like",
+            "Confirm the navigation or response binding",
+        ),
+        (
+            &JS_LOCATION_HEADER,
+            "header-setting call shape",
+            "Confirm the response binding",
+        ),
+        (
+            &STRUCTURED_PATH_TRAVERSAL,
+            "filesystem-like",
+            "Confirm the file API",
+        ),
+        (
+            &TAINT_QUERY_VALUE,
+            "database-like or ORM",
+            "Confirm the receiver",
+        ),
+        (&TAINT_WRITE_DATA, "write-like", "Resolve the callee"),
+    ] {
+        assert!(row.short().contains(shape), "{} short", row.id());
+        assert!(row.help().contains(binding_check), "{} help", row.id());
+    }
+}
+
+#[test]
 fn emitted_reference_must_match_registry_and_algorithm() {
     let reference: SliceRuleRef = JS_EVAL.rule_ref().with_severity(Some("suggestion".into()));
     assert_eq!(reference.cwe(), Some("CWE-95"));
