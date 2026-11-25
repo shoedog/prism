@@ -535,7 +535,9 @@ alone cannot establish a runtime value.
 For literal patterns without a variable, compare the exact mapped path before testing variable routes. For mixed
 patterns, compatible means a nonempty intersection of segment spellings under their literal pieces and capture
 domains. A read of only a possible subset is conditional. For each feasible path alternative, score the count of
-equal literal segment pairs or structurally equal parameter patterns. An optional component scores only when
+equal literal segment pairs or structurally equal parameter patterns. Break ties in that count by awarding one
+point per concrete caller segment that matches all literal pieces of a mixed declaration segment and satisfies
+every capture constraint. An optional component scores only when
 present, and a variable-length tail consumes the suffix without credit for each absorbed segment. Take the highest
 compatible score over all valid alignments for each declaration. Retain every tied best. A sole best that needs a
 caller variable to take a particular literal, or needs an unproved width/constraint, is a candidate. Keep the
@@ -1139,8 +1141,8 @@ from the adapter denominator. Keep diagnostics, including secondary reasons, in 
 | `s01`, `s02`, `s03`, `s04`, `s04-2`, `s05`, `s06`, `s07`, `s08`, `s09`, `s09-2`, `s10`, `s11`, `s12`, `s13`, `s14`, `s14-2`, `s15`, `s16`, `s16-2`, `s17`, `s18`, `s19`, `s20`, `s21`, `s21-2`, `s21-3`, `s22-3`, `s23`, `s24`, `s25`, `s25-2`, `s26`, `s27`, `s28`, `s29`, `s29-2`, `s30-3`, `s31-3`, `s32`, `s33`, `s34`, `s34-2`, `s35`, `s36`, `s37`, `s37-2` | These 47 occurrences require one admitted service-relative mapping in each of their 37 fixture configs. Use the record below before applying the row's grade, limits or target expectations. |
 | `url-concat-parenthesized` | With the default export of `urls/quay.ts` mapped by the fixture config to the fixture API at its identity prefix, numeric parameter plus numeric literal gives bound `op:GET /reels/{}/ends`. Replace the parameter operand with a value of unknown type and coercion. Keep GET, give `unbound/dynamic_url` and zero targets. |
 | `url-in-segment`, `url-concat-in-segment`, `url-two-values-in-one-segment` | Bound GET /reels/{} for all three. |
-| `s09` | `candidate/ambiguous_operation` with `op:GET /mothbank/crates/%2F{}` (non-empty substitution) and `op:GET /mothbank/crates/{}` (empty substitution leaves `%2F`). |
-| `s09-2` | `candidate/ambiguous_operation` with `op:GET /mothbank/crates/{}-ridge-gold` (non-empty substitution) and `op:GET /mothbank/crates/{}` (empty substitution leaves `-ridge-gold`). |
+| `s09` | Declared string gives `candidate/ambiguous_operation` with `op:GET /mothbank/crates/%2F{}` and `op:GET /mothbank/crates/{}`. With `"wax"`, `%2Fwax` binds the mixed route on its literal prefix, with the generic route as an overlap. With `""`, `%2F` binds only the generic route. |
+| `s09-2` | Declared string gives `candidate/ambiguous_operation` with `op:GET /mothbank/crates/{}-ridge-gold` and `op:GET /mothbank/crates/{}`. With `"wax"`, `wax-ridge-gold` binds the mixed route on its literal suffix, with the generic route as an overlap. With `""`, `-ridge-gold` binds only the generic route. |
 | `c05` | Align the mixed live-branch witness by changing the declaration to let in the aligned projection. Candidate GET /reels, primary `conditional_url`, opaque replacement arm uncovered. Retain original const bytes as an abrupt-completion control: bound GET /reels on the sole reaching arm. |
 | `s15` | Candidate GET /mothbank/booklets and GET /mothbank/booklets/{}, `ambiguous_operation`. Empty string reaches the base, truthy string reaches the segment. Suffixes false, null and undefined stringify without a slash and are unmatched. |
 | `parameter-to-literal`, `matching-only-top`, `matching-parameter-score` | Numeric domain excludes me: unbound/no_operation. Next two become candidate/ambiguous_operation. GET /press/{}/leaf and GET /press/copper/{} tie for copper. GET /base/{}/top and GET /base/flint/{} tie for flint (GET /base/{}/{} overlaps). |
@@ -1156,6 +1158,10 @@ from the adapter denominator. Keep diagnostics, including secondary reasons, in 
 | `grammar-default-param`, `t1-extra-default-explicit-undefined`, `t1-expand-helper-literal`, `t1-extra-helper-finite-table`, `grammar-client-template-tag`, `grammar-parameter-template-tag` | First four unbound/dynamic_url. Both tags unbound/unconfigured_client_form. Count all six, empty target IDs. |
 | `t1-expand-ky-prefix`, `t1-expand-got-prefix`, `t1-expand-superagent-query`, `t1-expand-jquery-ajax`, `t1-extra-xhr-send` | No counted call or target under these configs. Record excluded_transport. |
 | `prefix-normalize-after-map`, `trailing-slash`, `repeated-slash`, `s14`, `s14-2` | Strict paths give the first three unbound/no_operation. Last two give candidate/conditional_url with only GET /mothbank/pebbles/{} and unmatched /mothbank/pebbles/. |
+
+Of the 76 pinned E-2 fixture schemas, only `shape-s09` declares a segment containing both literal text and a
+capture. Every alignment scores zero affix points in the other 304 rows, including `match-*`, `scores`,
+`t1-boundaries`, `urls/*` and the remaining template cases.
 
 **Configured-client mappings.** In every E-2 configured-client config, give each service-relative export a
 numbered identity-prefix mapping from its prefix-adjusted path to its own fixture schema API, and withhold just
@@ -1270,3 +1276,7 @@ design-seat fold amends the class rules and their controls. The pre-implementati
 - Opus · SMELL · IMMATERIAL folded. The `s20` and `s22` configs carry the same template-client record, covering 47 listed invocations across 37 configs.
 
 Both changed grades remain E-2 rule rows. D-census is pending before P1.
+
+## Review round 4
+
+- WRONG folded. §5.4 breaks the concrete `"wax"` tie at `s09` and `s09-2`. P3 checks both affix scores and the existing two-way GET tie at `/press/copper/leaf`.

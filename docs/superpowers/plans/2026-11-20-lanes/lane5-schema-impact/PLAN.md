@@ -817,10 +817,14 @@ unknown file/region coverage. Record excluded syntactic forms separately from co
 Check `url-concat-parenthesized` on numeric and opaque operands, and a readable GET alternative paired with
 an opaque method on the same readable URL. Require the GET candidate with `dynamic_method`, or unbound with
 that reason if GET has no match. Exercise an empty component against `{}`, `{?}` and `{*0+}` with the
-separator policy fixed. At each mapped `s09` site, the declared string domain gives
+separator policy fixed. At the mapped `s09` and `s09-2` sites, the declared string domain gives
 `candidate/ambiguous_operation` with the two IDs in the Alignment list and zero notifications. Substitute
-the literal `""` to bind only the generic route. With the literal `"wax"` or a typed parameter proved
-non-empty (such as a number interpolated as text), require the site's bound mixed route and its generic overlap.
+the literal `""` to bind only the generic route. Substitute `"wax"` to get `%2Fwax` and `wax-ridge-gold`,
+respectively. At each site both routes match the two whole literals. Require one affix point for the mixed route
+and zero for the generic route, giving a bound mixed route with the generic overlap. With a symbolic numeric
+substitution, require the same binding by structural pattern equality. In `matching-tie-without-parameter-on-literal`,
+both compatible GET declarations for `/press/copper/leaf` score two whole literals and zero affix points.
+Require `candidate/ambiguous_operation` with both IDs.
 
 | Row | Input | Required |
 |---|---|---|
