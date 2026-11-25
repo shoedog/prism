@@ -33,9 +33,9 @@ handlers 5.6, measurement 6, gates 7, follow-ups 8, owner decisions 9, Hapi plug
 - Allowed edits to existing files: `pub(crate)` on the helpers each slice names (no behaviour change); one
   `pub mod routes;` line in `src/framework_entries/mod.rs` and in `src/navigation/mod.rs` (1,148.5 lines; the
   PR body says that line is the only addition); `NavQuery::Routes` in `crates/prism-review/src/cli.rs`; a
-  `run_nav` arm of at most 10 lines in `crates/prism-review/src/main.rs` (990.5 lines; rendering is in core);
+  `run_nav` arm of at most 10 lines in `crates/prism-review/src/cli_nav.rs` (the exhaustive match in run_nav; rendering is in core);
   one `mod` line in `tests/navigation/main.rs`, in `crates/prism-review/tests/cli/main.rs` and (S3) in
-  `src/ast.rs` (600.5 lines); the route fixture pins, validator and source-truth projection named in S1; the route modules and tests introduced earlier in this lane; the docs each task names (`CLAUDE.md`,
+  `src/ast.rs` (600.5 lines); the review fixtures, route pins, validator and source-truth projection named in S1a and their owning checkpoints; the route modules and tests introduced earlier in this lane; the docs each task names (`CLAUDE.md`,
   `docs/features/query-layer/navigation/README.md`, `docs/features/language-coverage/js-ts-known-gaps.md`).
 - Sizes: `python3 scripts/file_size.py <files>`; new files aim for 600 weighted lines. Only lane-written
   fixtures are executed, never a corpus (owner decision 5), under DESIGN 6's containment and pinned offline
@@ -195,17 +195,18 @@ or 1).
 `w2-nethttp`, `w3-<framework>`, `w3-hapi`); `class`; `truth_source` (`executed` or `hand`); `entry` (executed rows:
 `module:attr`, `module:factory()`, or the JS file exporting the app); `expect` (route objects in DESIGN 5.4's
 JSON shape, only the fields the row pins: `methods`, `path`, `paths`, `callbacks`, `receiver`, `site`);
-`expect_mounts`; `accepted_loss` (optional reason); `ignore` (optional issue number). After Stage D approval the implementer applies STAGE-D-ROWS.md to this frozen input and refreshes baseline receipts. Raw truth never changes by hand.
+`expect_mounts`; `accepted_loss` (optional reason); `ignore` (optional issue number). After Stage D approval apply STAGE-D-ROWS.md to this frozen input, author its explicitly listed new cases, and refresh baseline receipts. Preserve the raw receipts for the original cohort. Raw truth never changes by hand.
 
 ```rust
 // crates/prism-review/tests/cli/routes_matrix_test.rs: drives the binary, so it names no Rust item that
 // does not exist yet, and compares nothing while no group is enabled
-const ENABLED_GROUPS: &[&str] = &[];  // each slice adds its groups in its first commit
+const ENABLED_GROUPS: &[&str] = &[];  // each slice enables its assigned rows before implementing them
 #[test] fn routes_matrix_rows_are_well_formed();  // unique ids, dirs are real directories under the fixture
                                                   // root, closed value sets; an executed row's truth.jsonl
                                                   // entry agrees with its `expect` under DESIGN 6's projection
 #[test] fn routes_matrix_matches_rows();  // per enabled, non-ignored row: `crate::prism_bin()` runs
-    // `nav --no-cache routes --repo tests/fixtures/routes/<dir> --mounts --format json`; projected route and
+    // `nav --no-cache routes --repo tests/fixtures/routes/<dir> --mounts --format json`. Pass query_entry
+    // (default: row.entry; null: infer), then run entry_queries separately. Projected route and
     // mount lines equal `expect`/`expect_mounts` exactly; the summary keeps the completeness invariant
 ```
 
@@ -230,15 +231,17 @@ copy change the truth. `check.sh` re-runs, diffs `truth.jsonl` and fails if a ro
 matches what the runner can do, before stage D and before each merge. The runner beats a seed expectation;
 note it.
 
-Stages M, T and E are closed. The 420 fixture IDs and their data, including all E rounds, supersede the historical seed sketches. CLASS_MAP.md crosswalks the 171 census classes; RECONCILE.md describes the seed reconciliation. There are now 158 executed and 262 hand rows. Do not reopen enumeration. See STAGE-D-ROWS.md for current expectations, including cases where a hand row has no observable from the runner.
+Stages M, T and E are closed. The 420 fixture IDs and their data, including all E rounds, supersede the historical seed sketches. CLASS_MAP.md crosswalks the 171 census classes; RECONCILE.md describes the seed reconciliation. There are now 158 executed and 262 hand rows. Add only the bounded review cases listed at the end of STAGE-D-ROWS.md. See STAGE-D-ROWS.md for current expectations, including cases where a hand row has no observable from the runner.
 
-## Stage D: design of record (1.5 days)
+## Stage D: design of record (2 days)
 
 DESIGN 5.1–5.6, 7, 9 and 11 and STAGE-D-ROWS.md are one revision. The design review cap is two rounds with both reviewers. After approval, apply the row patches and update the fixture validator and independent truth projections before enabling groups. Keep runtime truth bytes and provenance fixed. For each changed expectation refresh the row's base RED or GREEN on the same checkout/environment before its enabling slice. Preserve honest baseline GREENs, including empty controls. The generative checks below implement the open-class rule without a further E round.
 
 ## Stage I: slices
 
-Cut each brief from the approved DESIGN and this PLAN at the same revision. Include the slice's cited sections, its rows from STAGE-D-ROWS.md, Stage I commands and the no-regression gate. Each slice owns all IDs in its named group after the two membership patches. Keep all earlier groups green. At the first commit enable the group and run its pins on the actual predecessor binary. Record row-level RED, initial GREEN or command-missing; a missing command is rechecked at S1, and a previously satisfied control is not claimed as behavioral RED. S1 also supplies pure tests on synthetic records. Use fail-on-pre-change and negative/edge coverage. Two reviewers per product slice, cap three rounds; use ORCHESTRATION 5, 6 and 7. Through memguard run `cargo test -p prism-review --test cli routes_matrix_test::`, `cargo test -p prism --lib framework_entries::routes` and `cargo test --test navigation routes_test::`. Apply the project's Tier-A checks when applicable. Record commands, totals, gaps and final-head corpus results. Per-slice affected checks; full suite pending before merging to main.
+Cut each brief from the approved DESIGN and this PLAN at the same revision. Include the slice's cited sections, its rows from STAGE-D-ROWS.md, Stage I commands and the no-regression gate. Each slice owns all IDs in its named group after the two membership patches. Keep all earlier groups green. At each checkpoint enable its row IDs (incremental allowlists within groups); run its pins on the actual predecessor binary. Record row-level RED, initial GREEN or command-missing; a missing command is rechecked at S1, and a previously satisfied control is not claimed as behavioral RED. S1 also supplies pure tests on synthetic records. Use fail-on-pre-change and negative/edge coverage. Each product checkpoint below is a separate reviewable change with its own affected-row gate and two reviewers, cap three rounds; use ORCHESTRATION 5, 6 and 7. Through memguard run `cargo test -p prism-review --test cli routes_matrix_test::`, `cargo test -p prism --lib framework_entries::routes` and `cargo test --test navigation routes_test::`. Apply the project's Tier-A checks when applicable. Record commands, totals, gaps and final-head corpus results. Per-slice affected checks; full suite pending before merging to main.
+
+Planning ranges for the previously oversized product changes, in handwritten weighted lines including tests but excluding mechanical row data: S1a 500–900, S1b 400–700, S2a/b and S3a/b 400–800 each, SHa/b/c 350–700 each. Estimate again against the actual dispatch diff and split at a named responsibility before review if it outgrows the checkpoint. Corpus classification and oracle adaptation have separate receipts.
 
 **No-regression gate, every slice, final head:** release builds of merge base and head; on the slice's
 corpora `prism nav --no-cache call-stats --repo <c>` identical, and `nav --no-cache callers --format json`
@@ -246,51 +249,59 @@ identical for the head listing's first 20 resolved callbacks per corpus; `cargo 
 golden_transcript_test` passes unre-recorded; `git diff <base>..HEAD -- src/call_graph.rs src/cpg_cache.rs
 src/resolution.rs src/resolution/ src/call_graph/go/ src/navigation/{queries,types,call_edge_cache}.rs` empty.
 
-### Slice S1: shared model, matrix projection, composer and CLI (4 days)
+### S1a — wire contract, projection and CLI (2.5 days)
 
-Implement DESIGN 5.1–5.5 and 7. Files: new `src/framework_entries/routes.rs` with RouteTable/RouteRecord/MountRecord/Exposure/Callback/Reason and `routes(files,call_graph,manifests)` (empty manifest input until SH), `routes/{mounts,tests}.rs`, `src/navigation/routes.rs` with routes_listing/render, `tests/navigation/routes_test.rs`, the module declarations, CLI enum/short main arm, user page and navigation README/CLAUDE.md. Keep caches, core resolution and entry edges as in global constraints. Use finite ordered event snapshots and live edges, retain root/guard/origin identity, partial leaves, diagnostics and deterministic truncation. No public dependency on an invented call edge.
+Implement DESIGN 5.1, 5.4–5.5 in new routes.rs, navigation/routes.rs, their tests, the module declarations, cli.rs and the short cli_nav.rs arm. Expose routes(files,call_graph,manifests,entry), optional --entry, text/JSON renderers, typed host/root and invocation fields, reason enum and summary partition. Document the CLI. Use empty inputs for the core rows; validate explicit selectors and preserve inference when omitted. In fl15 preserve the unproven candidate on inference and fail the explicit selector with entry_unproven. Compare actual candidate counts as a subset of route lines.
 
-- [ ] Apply the approved patches to tests/fixtures/routes/rows.jsonl under implementer custody. Update `crates/prism-review/tests/cli/routes_matrix_test.rs`, its `truth.rs` submodule and `tests/fixtures/routes/truth/reconcile.py` for DESIGN 5.1, 5.4 and STAGE-D-ROWS projection. Validate nullable methods, protocol, host/version/method guards, candidate/reason, install + element sites, callback roles/groups and diagnostics. Replace the blanket skip for an empty accepted-loss row with a source-linked disposition for each native call. Keep the partial-field check. Match record/mount collections one-to-one by pinned source identities/alternatives, assert exact cardinality, never sort callbacks or pair on handler alone. Where pins are partial, require a perfect matching of actual records to compatible pins; a missing, duplicate or swapped identity fails. Test CLI sort separately. Check asserted absence of delegates and empty candidates. Run the offline reconciler on executed receipts. The evidence/oracle seat adapts m/schema_oracle.py and its tests to read per-exposure guards and typed path_tokens before S3 scoring. Keep frozen scopes/denominators and test literal authority vs parameterized host, GET vs POST under a guarded mount, and literal braces vs a schema placeholder. The method span, path and handler swap controls continue to apply.
-- [ ] Enable `core` (e01,e02); es2-34 now belongs to S3. RED then GREEN: `listing_is_sorted_and_ends_with_summary`, `unproven_receiver_has_no_paths`, `every_known_mount_prefix_is_a_full_path`, `dynamic_prefix_branch_is_a_suffix_beside_full_branches`, `mount_cycle_and_expansion_bound_terminate` (64 + one marker), `normalize_path_is_framework_specific` (typed segment, literal braces, tail and regex). `installation_event_product_matches_reference_replay` runs DESIGN 5.3's generator, including repeated identical sites in different epochs and mutually incompatible guards. Prove that swapping origins, moving a snapshot or dropping a guard fails. Unit-test emit/render of candidate, build-only, constrained and shadowed records; empty controls have zero summary.
-- [ ] No-regression gate and file sizes. Document output through the normal CLI. Extend decoder/grammar and generated fixtures in the owning adapter slice.
+- [ ] Apply the approved patches to the 420 original rows. Implementers add the 15 specified review fixtures in their owning checkpoints, with their own baselines and provenance. Update routes_matrix_test.rs, its truth.rs and the offline reconcile.py projection. Pin exact route/mount multiplicity by origin with one-to-one partial matching, ordered callback slots, typed tokens/guards, optional delegate, plugin identity, and diagnostics as an exact multiset (absent expectation means empty). Materialize expected roots independently from fixture entry/declaration and call sites, compare --entry secondary queries separately from saved primary receipts. Check invalid selectors and corrupt/swapped root, origin, role and diagnostic controls. Remove the blanket empty-loss skip. Preserve the 158 raw executed observations. Enable core e01/e02, test sorted output and summary through the CLI.
 
-### Slice S2: Flask and FastAPI (4.5 days)
+### S1b — composition (2.5 days)
 
-Implement DESIGN 5.1–5.5 and 7 in new `routes/{python,receivers,handler}.rs` (split Python setup/copy helpers at a responsibility boundary), `routes/{mounts,tests}.rs` and module declarations; existing flask/fastapi parsing helpers may become pub(crate). Update user page and CLAUDE.md. Enable all `w1-python` rows. Scan the whole imported router binding surface, including files using an imported router without their own framework constructor. Use argument-scope value lookup, receiver lifetimes, positional/keyword APIs, Python literals and only certified captures/factory returns. See DESIGN 5.3 for default, omitted and WebSocket methods, compatibility calls, dependencies, build-only and scope limits.
+Implement DESIGN 5.2–5.3 in routes/mounts.rs and its synthetic tests. Cover live, snapshot and deferred installations, origin/epoch/root/guard, impossible chains, orphan suffixes, stable truncation at 64 plus a marker, grammar-specific path tokens and adapter-specific duplicate transitions. Use installation_event_product_matches_reference_replay and mutate roots, order, guards and origins to check discrimination. Keep the projection and CLI gates green; adapters supply native fixtures in their own slices.
+
+### Oracle adaptation — independent evidence task (1.5 days)
+
+Outside both S1 product PRs, the evidence seat updates m/schema_oracle.py and its own tests. Before S3 scoring freeze independent populations, roots, typed schema keys and evidence for constraints, path and terminal classes (DESIGN 6–7). Keep original scope denominators. Reject a literal-brace/placeholder collision, parameterized/literal host confusion, a wrong selected root, guarded GET scored as POST, swapped handlers, 1 correct key with the rest downgraded, and test-only aggregate recall. Record control numerators and denominators.
+
+### Slice S2: Flask then FastAPI (2.5 + 2.5 days)
+
+Implement DESIGN 5.1–5.5 and 7 in new `routes/{python,receivers,handler}.rs` (split Python setup/copy helpers at a responsibility boundary), `routes/{mounts,tests}.rs` and module declarations; existing flask/fastapi parsing helpers may become pub(crate). Update user page and CLAUDE.md. S2a enables the Flask rows and S2b the FastAPI/Starlette rows of w1-python (adapter at the registration/negative control). Gate each separately, including its new review rows. S2a owns shared Python values and blueprint replay; S2b owns include snapshots, API methods and sub-app selection. All 88 original rows must be enabled by S2b. Scan the whole imported router binding surface, including files using an imported router without their own framework constructor. Use argument-scope value lookup, receiver lifetimes, positional/keyword APIs, Python literals and only certified captures/factory returns. See DESIGN 5.3 for default, omitted and WebSocket methods, compatibility calls, dependencies, build-only and scope limits.
 
 - [ ] `function_local_lookalike_receiver_is_unproven` (fl21), `package_import_mount_composes`, `imported_member_selects_its_own_router` (fa14), `inner_but_not_outer_decorator_can_replace_endpoint`, `python_literal_expression_preserves_spelling`, `endpoint_only_has_no_registered_callback`, `websocket_and_http_share_path_without_method_collision`.
 - [ ] `blueprint_override_empty_none_and_root_leaf`, `record_once_runs_only_on_first_registration_per_app`, `include_snapshots_keep_origin_multiplicity` (et6-01, es1-18, es7-08; move an include across identical calls), `build_only_has_no_dispatch_exposure` (es7-07), `subapp_mount_and_static_files_have_distinct_outcomes`. Contrast live mounts with copies in the event generator. Register two different factory-local routers with the same spelling; reject the wrong member. Reconcile test and non-test yield on flask and fastapi.
 
-### Slice S3: Express and wave 1 gate (5 days)
+### Slice S3: Express adapter and composition (2.5 + 2 days)
 
-Implement DESIGN 5.1–5.5 and 7 in new `routes/express.rs` (separate builder/mount or value-walk module if needed), `src/ast/js_router_binding.rs` plus its ast.rs declaration, routes/{receivers,handler,mounts,tests}.rs, user page, JS/TS known gaps and CLAUDE.md. Enable all `w1-express` including es2-34. Use the exact census verb table, source-scoped js_ts_site_binding, module/export terminal value and anon_owner::identity. A route-specific declarator helper returns the reaching value at the use, with new identity for an ordered rebinding. Do not reuse the old file-wide/single unwritten router test.
+Implement DESIGN 5.1–5.5 and 7 in new `routes/express.rs` (separate builder/mount or value-walk module if needed), `src/ast/js_router_binding.rs` plus its ast.rs declaration, routes/{receivers,handler,mounts,tests}.rs, user page, JS/TS known gaps and CLAUDE.md. S3a owns receiver/argument resolution, verb and builder rows, including duplicate Express layers. S3b owns installer, mount/import composition, root selection and the cap. Enable rows requiring mount records, mount-derived paths or multiple factory roots (d1-07) in S3b, remaining Express rows in S3a. Gate all 84 original w1-express rows including es2-34 at S3b. Use the exact census verb table, source-scoped js_ts_site_binding, module/export terminal value and anon_owner::identity. A route-specific declarator helper returns the reaching value at the use, with new identity for an ordered rebinding. Do not reuse the old file-wide/single unwritten router test.
 
 - [ ] `rebound_router_routes_stay_unmounted` (ex29), `default_export_mount_composes`, `replaced_module_exports_detaches_old_alias`, `handler_resolves_in_argument_scope` (ex06/ex27), `every_callback_position_is_recorded` (ordered flattened arrays, proved spread plus terminal, error middleware), `wrapper_call_delegate_needs_a_proven_forwarder` (local async-handler delegates absent; add a synthetic exact-package positive and a rebound-name negative).
 - [ ] `builder_legs_and_pinned_methods_extract_and_settings_read_does_not`, `bound_bracket_and_chained_verbs_keep_the_receiver`, `literal_concatenation_and_route_arrays_expand`, `use_arrays_expand_each_router_and_prefix`, `live_mount_sees_later_registration`, `sixty_five_alternatives_keep_all_mounts`, `handler_matches_the_entry_record_on_overlap`. Verify site ordinals and duplicate-looking anonymous functions.
-- [ ] Wave 1 gate: Directus schema (136 operations) and frozen-ledger reconciliation on the five primary corpora. Classify receiver flags and middleware individually, report site recall ≥0.80 and full precision ≥0.95 with DESIGN 7's defined denominators, timing, RSS and no-regression receipt.
+### Wave 1 gate — independent evidence task (3 days)
 
-### Slice S4: gin sites and Go callback arguments (3 days)
+Run on the final S3b head after oracle adaptation. On five primary corpora classify all 236 receiver flags and 695 middleware calls, then reconcile registration and mount ledgers separately. Require ≥0.80 eligible non-test registration recall **per corpus**, report tests separately, and enforce DESIGN 7's independently classified root, path/status and terminal accuracy and scorable recall floors. Directus: ≥0.95 exact-full precision and ≥0.80 exact-full recall on independently literal-chain/scorable keys, report recall on all 136. Report per-corpus endpoint and certified-delegate yield, including Directus's 295 local asyncHandler calls crosswalked to distinct terminal sites/keys. Record losses, timing/RSS and no-regression. Reuse these checks for each later wave.
 
-Implement DESIGN 5.1–5.5 and 7 in new `routes/go.rs`, shared receiver/handler, mount join, tests and docs. Enable `w2-gin`. Ground gin by import/type and engine/group construction even without a *gin.Context parameter. Group may be passed inline or by variable into one installer. Count second-hop typed group as suffix. Include Match, Handle and finite Any, anonymous chained Group and explicit engine.RouterGroup. Initial selector fallback is internal until S4b; no enabled row may require its final value prematurely.
+### Slice S4: gin sites and Go callback arguments (3.5 days)
+
+Implement DESIGN 5.1–5.5 and 7 in new `routes/go.rs`, shared receiver/handler, mount join, tests and docs. Enable `w2-gin`. Ground gin by import/type and engine/group construction even without a *gin.Context parameter. Group may be passed inline or by variable into one installer. Count second-hop typed group as suffix. Include Match, Handle and finite Any, anonymous chained Group and explicit engine.RouterGroup. Before S4 dispatch the evidence seat freezes a per-corpus count of expanded bare elements and package-initializer arguments lacking byte-exact facts. Prefer the exact fact; for these two positions resolve the original lexical identifier to one same-package/profile-visible free function. Test a same-named shadow and an ambiguous build partition. Initial selector fallback is internal until S4b; no enabled row may require its final value prematurely.
 
 - [ ] `gin_router_file_without_context_type_extracts`, `gin_callback_identity_matches_callback_registration` (each bare argument's byte range), `function_literal_has_text_and_no_graph_id`, `literal_variadic_slice_preserves_order`, `inline_and_named_group_share_one_helper_bound` (gn04, gn05 plus inline control), `gin_join_cleans_but_preserves_final_slash`, `gin_any_is_finite`. Gate on apache-answer and gin; record selector population still awaiting S4b.
 
-### Slice S5: net/http and chi sites (3 days, before S4b)
+### Slice S5: net/http and chi sites (3.5 days, before S4b)
 
 Implement DESIGN 5.1–5.5 and 7 in `routes/{go_nethttp,chi}.rs`, declared under routes.rs, plus Go handler helpers, mounts/tests and docs. Enable `w2-nethttp` with nh01 moved to the selector group. Supply the sites needed by gm04, gm19 and the remaining net/http selector rows before enabling S4b. Include chi despite its zero registration-site count (Caddy has one Route mount). Sparse groups must pass the independent mount control.
 
-- [ ] `serve_mux_parses_method_host_and_encoded_segments` (GET versus get, encoded slash, CONNECT, {$} and subtree), `package_helper_reads_current_default_mux`, `strip_prefix_uses_actual_strip_and_outer_guard` (es5-09, es7-01; GET→GET+HEAD, POST excluded only on that branch), `direct_mux_preserves_original_url`. Test `handlerfunc_conversion_has_one_delegate` against an ordinary wrapper. `chi_route_group_with_and_opaque_mount` covers pathless inline child, factory return, regex, wildcard and extension verbs. No-regression on Miniflux, Prometheus and Caddy. The wave gate runs after S4b.
+- [ ] `serve_mux_parses_method_host_and_encoded_segments` (GET versus get, encoded slash, CONNECT, {$} and subtree), `package_helper_reads_current_default_mux`, `strip_prefix_uses_actual_strip_and_outer_guard` (es5-09, es7-01; GET→GET+HEAD, POST excluded only on that branch), `direct_mux_preserves_original_url`. Add the package-initializer bare-function row, inert literal control and net/http/chi duplicate-install controls. Test `handlerfunc_conversion_has_one_delegate` against an ordinary wrapper. `chi_route_group_with_and_opaque_mount` covers pathless inline child, factory return, regex, wildcard and extension verbs. No-regression on Miniflux, Prometheus and Caddy. The wave gate runs after S4b.
 
-### Slice S4b: Go selector values and wave 2 gate (3 days)
+### Slice S4b: Go selector values and wave 2 gate (4 days)
 
 Implement DESIGN 5.1, 5.6 and 7 in new `routes/{go_method_value,go_method_value_tests}.rs`, with call sites only under the Go route adapter; docs/user page. All `w2-method-value` rows, including nh01, gn03 and gm04/gm19, now have predecessors that recognize their registrations. Read GoReceiverCtx/classifier, field types, owner partition and concrete receiver routing; distinguish scope-local type/return-slot proof from a call-site fact. Keep src/call_graph*, src/resolution* unchanged.
 
-- [ ] `same_named_controllers_in_two_packages_stay_apart`, `shadowed_receiver_is_refused`, `expired_if_shadow_and_same_block_redeclaration`, `interface_typed_receiver_is_counted_never_resolved`, `alias_and_new_defined_type_have_distinct_method_sets`, `package_expression_and_shadowed_qualifier` (gm15, es1-47), `method_value_agrees_with_call_resolution` (gm18; compare existing real call's Exact target). Exercise every M1 receiver form, promoted minimum-depth and prohibited explicit embedded hop, exact package paths, generic owner and build/test partitions. Unordered tagged alternatives refuse. A Go wrapper stays wrapper_call and gm19 gets no delegate.
-- [ ] Wave 2 gate on apache-answer, miniflux-v2, prometheus, gin and Caddy chi control. Reach ≥207/217 and ≥143/150 independently, classify interface terminal and wrappers. Apache schema 191 in-scope, terminal binding ≥90% on matched operations, zero unexplained contradictions. Run no-regression on final wave head, time/RSS, class and ledger accounting.
+- [ ] `same_named_controllers_in_two_packages_stay_apart`, `shadowed_receiver_is_refused`, `expired_if_shadow_and_same_block_redeclaration`, `interface_typed_receiver_is_counted_never_resolved`, `alias_and_new_defined_type_have_distinct_method_sets`, `package_expression_and_shadowed_qualifier` (gm15, es1-47), `method_value_agrees_with_call_resolution` (gm18; compare existing real call's Exact target). Exercise every M1 receiver form, promoted minimum-depth and prohibited explicit embedded hop, exact package paths, refused instantiated owners (direct, explicit and promoted), and build/test partitions. Cross-package promotion follows embedded declarations and their own visibility, breadth-first across distinct paths. Never certify from a bare-name bucket. Contrast gm17 with es1-39/40; include collisions, field/interface and nearest-depth competitors. Unordered tagged alternatives refuse. A Go wrapper stays wrapper_call and gm19 gets no delegate.
+- [ ] Wave 2 gate on apache-answer, miniflux-v2, prometheus, gin and Caddy chi control. Credit ≥207/217 Apache and ≥143/150 Miniflux only when the registration/terminal-site join returns the same declaring file/line and method as the frozen census method.declaration. Check every selector including schema-unmatched sites; report equal, unresolved, missing and contradictions, fail unexplained contradictions. Keep the external http.Handler terminal and wrapper arguments outside those denominators. Swap two targets in each census-join control and require two contradictions, even when the schema keys still match. Apache schema 191 in-scope, terminal binding ≥90% on matched operations, zero unexplained contradictions. Run no-regression on final wave head, time/RSS, class and ledger accounting.
 
 ### Slice S6: Django URLconf (3.5 days)
 
-Enable all `w3-django`. Implement DESIGN 5.1–5.5, 7 in `routes/django.rs`, a dedicated URLconf composition helper if needed, shared Python callback/mount modules, tests and docs. Freeze independently selected ROOT_URLCONF and module/list binding identity before computing exposures. Support include tuples, +=, direct module/list/string references, conditional settings and i18n as specified. Keep each installed URLPattern, including duplicate paths; check shadowing separately.
+Enable all `w3-django`. Implement DESIGN 5.1–5.5, 7 in `routes/django.rs`, a dedicated URLconf composition helper if needed, shared Python callback/mount modules, tests and docs. Freeze independently selected ROOT_URLCONF and module/list binding identity before computing exposures. Support include tuples, +=, direct module/list/string references, conditional settings and i18n as specified. Keep each installed URLPattern, including duplicate paths; check first-match shadowing separately. Keep every admitted child declaration and callback when an end-guard blocks its only exposure. Pin raw regex, decoded prefix and end guard separately.
 
 - [ ] `urlpatterns_membership_and_imported_view` (cx51–60, es1-52); `captured_list_and_live_module_diverge` (es3-23); `regex_consumption_restricts_child_remainder` (es3-24, es4-15, es5-13); `locale_and_debug_select_setup_events` (es1-54, es6-04–07); `append_slash_is_no_registration` (es7-05). Perturb include order and false flag in the generator. Census reconciliation (996 sites across django, saleor-saleor and cockroach); independently reconcile both mount syntaxes. No schema corpus for this adapter.
 
@@ -300,29 +311,34 @@ Enable all `w3-nestjs`. Implement DESIGN 5.1–5.5, 7 in `routes/nestjs.rs` and 
 
 - [ ] `only_reachable_controllers_and_effective_methods` (cx61–66, es1-61/62, es2-32); `version_host_and_prefix_constrain_exposures` (es1-57–60, es3-25, es7-09); `nested_module_paths_keep_receivers_distinct`; `dynamic_module_and_forward_ref_replay` (es6-08–10; definite, optional, cycle visited once). Cal.com schema 121 operations; reconcile 297 sites on Cal.com and fxa.
 
-### Slice S8: object-literal tables (2.5 days)
+### Slice S8: object-literal tables (3 days)
 
 Enable `w3-object-table`. Implement DESIGN 5.1–5.5, 7 in `routes/tables.rs`, JS handler/value helpers, tests and docs. Read own object fields, shorthand, static spread and one direct imported object/array at the element's definition site. Use the Map installation/dispatch proof and label object-table; pin both table origin and installation identity. No Hapi plugin credit in this slice.
 
-- [ ] `grounded_table_consumer_lists_rows` (ol01–04), `ungrounded_table_is_a_candidate_without_credit` (ol05–07), `post_spread_value_is_the_installed_handler`, `one_literal_two_installs_and_one_passive_read` (es3-27/es5-15); a mismatched Map, key or discarded callback cannot certify an installer. Inspect the 150 fxa candidate objects independently; report gross candidate counts even where zero installations qualify.
+- [ ] `grounded_table_consumer_lists_rows` (ol01–04), `ungrounded_table_is_a_candidate_without_credit` (ol05–07), `post_spread_value_is_the_installed_handler`, `one_literal_two_installs_and_one_passive_read` (es3-27/es5-15); replay exact keys on the same Map, pin superseded origins with empty paths and live keys on partial overwrites. A mismatched Map, key or discarded callback cannot certify an installer. Inspect the 150 fxa candidate objects independently; report gross candidate counts even where zero installations qualify.
 
-### Slice SH: Hapi plugin adapter (3.5 days)
+### SH pre-dispatch measurement (0.5 day, evidence only)
 
-Enable all `w3-hapi`. Implement DESIGN 5.1–5.5, 7 and 11 in `routes/{hapi,hapi_tests}.rs`, table reader/JS values, mount replay, route docs and CLAUDE.md (split realm/lifecycle proof if needed). Read the nearest manifest under NavigationSession.repo.root into the query-local evidence input (DESIGN 5.5). Test nested packages, a malformed inner manifest and an absent dependency. Strong register chains and dependency-backed plugin-contract proof have different path guarantees. Use 11's closed certificate, handler precedence, counted opaque elements and phase rules.
+Before **SHa**, an authorized seat performs the aggregate-only nearest-package manifest/use join of DESIGN 11.4, weighted by routes, literal paths and inline handler positions. Freeze private and public attainable counts and independent classifications. An infeasible public or private threshold returns to owner before SH dispatch. Keep the 400-entry denominator.
 
-- [ ] `plugin_route_table_rows_are_records`, `once_and_nested_registration_use_item_prefix`, `weak_plugin_has_suffix_without_root_or_mount` (hp22, cx07; absent nearest dependency, shadowed formal or non-Hapi invocation cannot certify a plugin); `direct_import_grounds_register_formal` (es7-06); `opaque_element_keeps_siblings_and_earns_zero_credit` (cx47/48); `options_pre_preserves_parallel_groups` (hp11/es5-12); `registration_phase_invokes_only_known_hooks` (et3-01, es4-14, es6-01–03). Verify lexical aliases/default versus written formal, import versus re-export, once-only registration, vhost, duplicate keys versus conflicting locations. Keep hp21's legacy loss counted.
-- [ ] Public gate on starterkit and screwdriver, zero-call control on hapipal. Private gate measured locally by the authorized seat only, ≥380/400 whole-population, separate all path and binding counts and zero unexplained; aggregates only. Run final wave no-regression checks, diagnostics/yield and timing/RSS.
+### Slice SH: direct rows, plugin realms, weak proof and lifecycle (1.5 + 2 + 2 days)
+
+Use routes/hapi.rs and separate realm/lifecycle modules, the S8 object reader, adapter tests and user docs. Each checkpoint enables its rows by ID and reruns its predecessors.
+
+- [ ] SHa implements grounded server constructors and direct route objects/lists, property overwrite, direct config/options binding/import and opaque handler fallback, pre groups/vhosts and nonliteral elements. Gate direct rows (hp12/13/19, cx47–49, et7-01, es1-26/28/29, es2-25/26, es3-21/22, es5-11/12) plus the new config and direct duplicate controls.
+- [ ] SHb implements strong plugin contract/registration, exact item diagnostics, effective name/once/multiple and per-event nested realms. Exercise distinct objects sharing a name, unknown repeat metadata, conflicting/missing handler, valid and invalid formals, imported register, and two failures in one array. Gate remaining Hapi rows except the SHc list, including hp08 and es1-27/32/34.
+- [ ] SHc implements query-local nearest-manifest weak proof and plugin identity, negative use evidence and active lifecycle hooks. Gate hp16/22, cx07, es1-25, es4-14, es6-01–03, then run all 62 original Hapi rows and additions. Test malformed/nested manifests, absent dependency, no invented mount, root:null suffix/typed tokens, and the listing fields for a configured consumer join.
+
+### SH corpus gates (1.5 days, evidence only)
+
+Require starterkit ≥24/29 correct plugin-contract records **and** ≥95% independently eligible, reconcile all 29 rows, including 24 referenced configs. On screwdriver reconcile 28 rows, all 134 opaque items by their independently classified receiver, and register diagnostics; apply per-corpus non-test/accuracy floors and use hapipal as zero control. Authorized seat alone runs the private gate: ≥380/400 correctly grounded/exposed, ≥365/384 correct literal paths and ≥374/393 correct inline identities, all joined per entry before aggregation, zero unexplained. As negative controls, relabel the literal paths dynamic, then drop the inline identities. Each must fail independently of the 380/400 coverage check. Separate strong/weak and full/suffix/dynamic yield. Run final no-regression and timing/RSS. Configured consumer results never enter these gates.
 
 ## Close-out (1 day)
 
 - [ ] `CLAUDE.md` Architecture paragraph (route table, listing, statuses, reasons, out of model) and the
       user page final. Comments on #600 (records exist; the request-source follow-up and its evidence) and
       PR #606 (the CLI listing exists; `nav_routes` is a DESIGN section 8 follow-up).
-- [ ] Note on lane 5's issue, for the waves that shipped: the JSON line shape, `normalized` for matching
-      operations, DESIGN 8's binding rule (a `full` exposure with a resolved callback or delegate; callbacks
-      ordered), the measured bindings and losses, Go registration records if wave 2 shipped (adapter input,
-      not a wired adapter). The same position semantics on #600. File DESIGN section 8's six follow-ups with
-      their evidence, and the stage D accepted losses that have a fix.
+- [ ] Give lane 5 the shipped wire shape and measured binding losses. Match **validated path_tokens, root, protocol/method and effective constraints**, including host/version; normalized is display text. Exclude failed setup roots and unresolved dispatch conflicts. Require a uniquely compatible endpoint or certified terminal delegate. Document DESIGN 11.5: join a plugin_contract suffix to an explicitly configured per-pair plugin mount only as **configured**. Preserve plugin identity, refusal and config provenance; count separately from proven full bindings. Include Go records and callback position semantics for #600. File DESIGN 8 follow-ups with their evidence.
 - [ ] Run `truth/check.sh`; refresh `HANDOFF.md` and `LEDGER.md`; offload raw evidence; delete `target/`.
 
 ## Acceptance for the lane
@@ -330,7 +346,7 @@ Enable all `w3-hapi`. Implement DESIGN 5.1–5.5, 7 and 11 in `routes/{hapi,hapi
 Each built wave passed its census gate; the matrix holds for every enabled group; schema-oracle precision on
 in-scope `full` exposures ≥ 0.95 on each schema-bearing corpus of a finished wave, every difference and
 binding contradiction classified; reconciled completeness (no unexplained ledger site, recall at or above the
-stage D floor, nonempty yield), the Go handler binding row when wave 2 is built, and no-regression hold on
+per-corpus non-test floor, independently verified path/root and endpoint accuracy, exact-full scorable recall and nonempty yield), the Go handler binding row when wave 2 is built, and no-regression hold on
 each slice's final head; both reviewers approved
 each slice; follow-ups filed.
 
@@ -338,10 +354,12 @@ each slice; follow-ups filed.
 
 | Phase in execution order | Days |
 |---|---:|
-| M, T/E, D | 2.75 + 4.75 + 1.5 |
-| S1 shared contract and projection | 4 |
-| S2 Python, S3 Express and wave 1 gate | 4.5 + 5 |
-| S4 gin, S5 net/http and chi, S4b selectors and wave 2 gate | 3 + 3 + 3 |
-| S6 Django, S7 NestJS, S8 object tables, SH Hapi | 3.5 + 4 + 2.5 + 3.5 |
+| M, T/E, D (including review fold) | 2.75 + 4.75 + 2 |
+| S1a projection/CLI, S1b composition, independent oracle | 2.5 + 2.5 + 1.5 |
+| S2a Flask, S2b FastAPI | 2.5 + 2.5 |
+| S3a Express, S3b composition, independent wave 1 gate | 2.5 + 2 + 3 |
+| S4 gin, S5 net/http and chi, S4b selectors and wave 2 gate | 3.5 + 3.5 + 4 |
+| S6 Django, S7 NestJS, S8 tables | 3.5 + 4 + 3 |
+| SH preflight, direct rows, plugin realms, weak/lifecycle, corpus gates | 0.5 + 1.5 + 2 + 2 + 1.5 |
 | Close-out | 1 |
-| Total for the admitted lane | 46 |
+| Total for the admitted lane | 58.5 (was 46, +12.5) |
