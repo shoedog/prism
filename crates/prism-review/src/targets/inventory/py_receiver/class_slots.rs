@@ -27,23 +27,13 @@ fn suite<'a, 'tree>(
                 stmt.kind(),
                 "for_statement" | "while_statement" | "try_statement" | "match_statement"
             );
-            let mut possible = values.clone();
-            for binding in bindings.iter().filter(|binding| {
-                stmt.start_byte() <= binding.node.start_byte()
-                    && binding.node.end_byte() <= stmt.end_byte()
-                    && binding.position <= limit
-            }) {
-                match binding.kind {
-                    Kind::Annotation => {}
-                    Kind::Delete => possible = vec![None],
-                    _ => possible = vec![Some(binding)],
+            let updates = updates_in(stmt, bindings, limit);
+            if conditional {
+                for update in updates {
+                    join(&mut values, &[update]);
                 }
-                if conditional {
-                    join(&mut values, &possible);
-                }
-            }
-            if !conditional {
-                values = possible;
+            } else if let Some(last) = updates.last() {
+                values = vec![last];
             }
         }
     }
@@ -53,7 +43,7 @@ fn suite<'a, 'tree>(
 fn conditional<'a, 'tree>(
     stmt: Node<'tree>,
     bindings: &'a [Binding<'tree>],
-    entry: Vec<Option<&'a Binding<'tree>>>,
+    mut entry: Vec<Option<&'a Binding<'tree>>>,
     limit: usize,
 ) -> Vec<Option<&'a Binding<'tree>>> {
     let arms = std::iter::once(stmt)
@@ -66,6 +56,12 @@ fn conditional<'a, 'tree>(
             continue;
         };
         // Only the path which skipped the preceding suites evaluates this test.
+        // Its writes reach the arm and the path to the remaining tests.
+        if let Some(test) = arm.child_by_field_name("condition") {
+            if let Some(last) = updates_in(test, bindings, limit).last() {
+                entry = vec![last];
+            }
+        }
         if arm.start_byte() <= limit && limit < body.start_byte() {
             return entry;
         }
@@ -79,6 +75,26 @@ fn conditional<'a, 'tree>(
     }
     join(&mut exits, &entry);
     exits
+}
+
+fn updates_in<'a, 'tree>(
+    region: Node<'tree>,
+    bindings: &'a [Binding<'tree>],
+    limit: usize,
+) -> impl Iterator<Item = Option<&'a Binding<'tree>>> {
+    bindings.iter().filter_map(move |binding| {
+        if binding.node.start_byte() < region.start_byte()
+            || binding.node.end_byte() > region.end_byte()
+            || binding.position > limit
+        {
+            return None;
+        }
+        match binding.kind {
+            Kind::Annotation => None,
+            Kind::Delete => Some(None),
+            _ => Some(Some(binding)),
+        }
+    })
 }
 
 fn join<'a, 'tree>(

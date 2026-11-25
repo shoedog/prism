@@ -151,14 +151,19 @@ impl<'tree> Resolver<'_, 'tree> {
     }
 
     pub(super) fn type_only(&self, binding: &Binding<'tree>) -> bool {
-        let body = self.walk.scopes[binding.scope].body;
+        let mut scope = binding.scope;
         let mut node = binding.node;
-        while let Some(parent) = node.parent().filter(|parent| *parent != body) {
+        while let Some(parent) = node.parent() {
+            // A guard on the enclosing definition uses that guard's scope,
+            // even when an import inside the definition redirects elsewhere.
+            if node == self.walk.scopes[scope].body {
+                scope = self.walk.scopes[scope].parent;
+            }
             if matches!(parent.kind(), "if_statement" | "elif_clause")
                 && parent.child_by_field_name("consequence") == Some(node)
             {
                 if let Some(test) = parent.child_by_field_name("condition") {
-                    if self.type_guard(test, binding.scope) {
+                    if self.type_guard(test, scope) {
                         return true;
                     }
                 }

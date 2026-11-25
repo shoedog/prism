@@ -222,9 +222,122 @@ impl<'tree> Walk<'tree> {
     }
 }
 
-// The path through Python AST fields orders equal-depth calls as ast.walk
-// does. Concrete-only nodes are transparent. In particular, the grammar
-// interleaves positional and keyword arguments, while the AST groups them.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TieField {
+    DictKey,
+    DictValue,
+    ConditionalTest,
+    ConditionalBody,
+    ConditionalElse,
+    KeywordOnlyDefault,
+    PositionalDefault,
+    AssignmentTarget,
+}
+
+use TieField::*;
+
+// Sibling field pairs covered by the Python 3.11.11 ast.walk oracle. The
+// parser's traversal order alone cannot settle a tie in any other pair.
+const ORDERED_TIE_FIELDS: &[(TieField, TieField)] = &[
+    (DictKey, DictValue),
+    (ConditionalTest, ConditionalBody),
+    (ConditionalTest, ConditionalElse),
+    (ConditionalBody, ConditionalElse),
+    (KeywordOnlyDefault, PositionalDefault),
+    (AssignmentTarget, AssignmentTarget),
+];
+
+pub(super) fn supports_anchor_tie(left: Node<'_>, right: Node<'_>) -> bool {
+    fn ancestry(node: Node<'_>) -> Vec<Node<'_>> {
+        std::iter::successors(Some(node), Node::parent).collect()
+    }
+    let left = ancestry(left);
+    let right = ancestry(right);
+    let shared = left
+        .iter()
+        .rev()
+        .zip(right.iter().rev())
+        .take_while(|(a, b)| a == b)
+        .count();
+    let (left_end, right_end) = (left.len() - shared, right.len() - shared);
+    if left_end == 0 || right_end == 0 {
+        // An ancestor call precedes its descendants in breadth-first order.
+        return true;
+    }
+    let parent = left[left_end];
+    let fields = (
+        tie_field(parent, &left[..left_end]),
+        tie_field(parent, &right[..right_end]),
+    );
+    ORDERED_TIE_FIELDS
+        .iter()
+        .any(|&(a, b)| fields == (Some(a), Some(b)) || fields == (Some(b), Some(a)))
+}
+
+fn tie_field(parent: Node<'_>, branch: &[Node<'_>]) -> Option<TieField> {
+    let (child, inner) = branch.split_last()?;
+    match parent.kind() {
+        "dictionary" if child.kind() == "pair" => dictionary_field(*child, *inner.last()?),
+        "pair"
+            if parent
+                .parent()
+                .is_some_and(|node| node.kind() == "dictionary") =>
+        {
+            dictionary_field(parent, *child)
+        }
+        "conditional_expression" => children(parent)
+            .zip([ConditionalBody, ConditionalTest, ConditionalElse])
+            .find_map(|(node, field)| (node == *child).then_some(field)),
+        "parameters" | "lambda_parameters"
+            if inner
+                .last()
+                .is_some_and(|&value| child.child_by_field_name("value") == Some(value)) =>
+        {
+            let keyword_only = children(parent)
+                .take_while(|node| node != child)
+                .any(|node| {
+                    matches!(
+                        parameter_kind(node),
+                        "keyword_separator" | "list_splat_pattern"
+                    )
+                });
+            Some(if keyword_only {
+                KeywordOnlyDefault
+            } else {
+                PositionalDefault
+            })
+        }
+        "assignment" => {
+            let mut assignment = parent;
+            for &node in branch.iter().rev() {
+                if assignment.child_by_field_name("left") == Some(node) {
+                    return Some(AssignmentTarget);
+                }
+                if node.kind() != "assignment"
+                    || assignment.child_by_field_name("right") != Some(node)
+                {
+                    break;
+                }
+                assignment = node;
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+fn dictionary_field(pair: Node<'_>, child: Node<'_>) -> Option<TieField> {
+    if pair.child_by_field_name("key") == Some(child) {
+        Some(DictKey)
+    } else if pair.child_by_field_name("value") == Some(child) {
+        Some(DictValue)
+    } else {
+        None
+    }
+}
+
+// Approximate ast.walk depth and field indices. Anchor selection consults
+// this order only after verifying that the tie is supported.
 fn ast_children(node: Node<'_>) -> Vec<Node<'_>> {
     let mut nodes: Vec<_> = children(node).collect();
     match node.kind() {
@@ -272,13 +385,7 @@ fn parameter_children(parameters: Vec<Node<'_>>) -> Vec<Node<'_>> {
     let mut positional_defaults = Vec::new();
     let mut kwarg = None;
     for parameter in parameters {
-        let kind = if parameter.kind() == "typed_parameter" {
-            children(parameter)
-                .next()
-                .map_or(parameter.kind(), |target| target.kind())
-        } else {
-            parameter.kind()
-        };
+        let kind = parameter_kind(parameter);
         match kind {
             "list_splat_pattern" => {
                 keyword_only = true;
@@ -305,6 +412,16 @@ fn parameter_children(parameters: Vec<Node<'_>>) -> Vec<Node<'_>> {
     args.extend(kwarg);
     args.extend(positional_defaults);
     args
+}
+
+fn parameter_kind(parameter: Node<'_>) -> &'static str {
+    if parameter.kind() == "typed_parameter" {
+        children(parameter)
+            .next()
+            .map_or(parameter.kind(), |target| target.kind())
+    } else {
+        parameter.kind()
+    }
 }
 
 fn transparent(node: Node<'_>, child: Node<'_>) -> bool {

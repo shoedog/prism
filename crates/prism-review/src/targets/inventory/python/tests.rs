@@ -150,15 +150,17 @@ fn anchor_tie_inputs() -> Vec<(&'static str, String, usize)> {
     .collect()
 }
 
-fn tied_anchor(input: &str, line: usize) -> [usize; 4] {
+fn parse_tied_calls(input: &str) -> ParsedFile {
     let parsed = ParsedFile::parse("input.py", input, Language::Python).unwrap();
     assert!(
         !parsed.tree.root_node().has_error(),
         "{}",
         parsed.tree.root_node().to_sexp()
     );
-    let source = Source::new(&parsed);
-    let walk = Walk::new(source.parsed());
+    parsed
+}
+
+fn assert_tied_keys(walk: &Walk<'_>, line: usize, input: &str) {
     let competitors: Vec<_> = walk
         .calls
         .iter()
@@ -177,6 +179,13 @@ fn tied_anchor(input: &str, line: usize) -> [usize; 4] {
         competitors[1].node.end_position().column,
         "{input}"
     );
+}
+
+fn tied_anchor(input: &str, line: usize) -> [usize; 4] {
+    let parsed = parse_tied_calls(input);
+    let source = Source::new(&parsed);
+    let walk = Walk::new(source.parsed());
+    assert_tied_keys(&walk, line, input);
     Span::new(&source, anchor::winners(&walk.calls)[&line].node).range
 }
 
@@ -195,6 +204,18 @@ fn equal_anchor_keys_follow_python_field_order_and_depth() {
         if actual != expected {
             failures.push(format!("{label}: expected {expected:?}, got {actual:?}"));
         }
+        // An enclosing def makes calls in definition defaults injectable too.
+        let mut wrapped = String::from("import requests\ndef outer():\n");
+        for line in input.lines() {
+            wrapped.push_str("    ");
+            wrapped.push_str(line);
+            wrapped.push('\n');
+        }
+        assert_eq!(
+            http_anchor_label(&wrapped, line + 2, "requests.get"),
+            [None],
+            "{label}"
+        );
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
@@ -218,11 +239,28 @@ winners = []
 for _, source, line in fixtures:
     candidates = [n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.Call)
                   and n.func.lineno <= line <= n.func.end_lineno]
-    winner = min(candidates, key=lambda n: (n.func.end_lineno - line, n.func.col_offset, -n.end_col_offset))
+    key = lambda n: (n.func.end_lineno - line, n.func.col_offset, -n.end_col_offset)
+    winner = min(candidates, key=key)
+    assert sum(key(n) == key(winner) for n in candidates) == 2, source
     winners.append([winner.lineno, winner.col_offset, winner.end_lineno, winner.end_col_offset])
 print(json.dumps(winners))
 "#;
-    let fixtures = anchor_tie_inputs();
+    let mut fixtures = anchor_tie_inputs();
+    for (label, prefix) in [
+        ("conditional body versus else", ""),
+        ("conditional test versus else", "0 if "),
+    ] {
+        let col = "    ).get() else ".len();
+        let line = format!("    return ({prefix}");
+        let pad = " ".repeat(col - line.len());
+        let test = if prefix.is_empty() { " if flag" } else { "" };
+        let close = "    ).get()";
+        // Place the second callee at the first callee's starting column.
+        let pad = format!("{pad}{}", " ".repeat(test.len()));
+        let source =
+            format!("def f():\n{line}{pad}(obj\n{close}{test} else requests.get(\n          ))\n");
+        fixtures.push((label, source, 3));
+    }
     let output = std::process::Command::new(python)
         .args(["-c", script, &serde_json::to_string(&fixtures).unwrap()])
         .output()
@@ -238,4 +276,71 @@ print(json.dumps(winners))
         .map(|(_, source, line)| tied_anchor(source, *line))
         .collect();
     assert_eq!(actual, expected);
+    eprintln!(
+        "checked {} anchor ties against CPython 3.11.11",
+        actual.len()
+    );
+}
+
+fn http_anchor_label(input: &str, line: usize, callee: &str) -> Vec<Option<UnsupportedReason>> {
+    let parsed = parse_tied_calls(input);
+    let mut out = InventoryOutput::default();
+    collect_file(
+        "input.py",
+        &parsed,
+        Path::new("."),
+        &BTreeSet::from([Family::Http]),
+        &mut out,
+    );
+    out.occurrences
+        .iter()
+        .filter(|occurrence| {
+            occurrence.canonical == callee && occurrence.proof.callee.range[0] == line
+        })
+        .map(|occurrence| occurrence.reason)
+        .collect()
+}
+
+#[test]
+fn unlisted_equal_anchor_keys_are_unsupported() {
+    fn tie(prefix: &str, middle: &str, suffix: &str) -> String {
+        let close = "            ).get()";
+        let col = close.len() + middle.find("requests").unwrap();
+        let indent = col - prefix.rsplit('\n').next().unwrap().len();
+        format!(
+            "{prefix}{}(obj\n{close}{middle}\n{}u){suffix}",
+            " ".repeat(indent),
+            " ".repeat(close.len() - 2)
+        )
+    }
+
+    let inputs = [
+        ("with header", tie("def f(u):\n    with ", ": return requests.get(", "\n"), 3, "requests.get"),
+        ("match guard", tie("def f(u, x):\n    match x:\n        case _ if ", ": return requests.get(", "\n"), 4, "requests.get"),
+        ("and chain", "def f(u, c):\n    return (       requests\n.get)(u) and c and requests.post(\n      u)\n".into(), 3, "requests.post"),
+        ("or chain", "def f(u, c):\n    return (     requests\n.get)(u) or c or requests.post(\n      u)\n".into(), 3, "requests.post"),
+        ("dict comprehension", tie("def f(u, xs):\n    return {\n        ", ": requests.get(", " for x in xs}\n"), 4, "requests.get"),
+        ("unlisted tuple siblings", tie("def f(u):\n    return (\n        ", ", requests.get(", ")\n"), 4, "requests.get"),
+    ];
+    let mut failures = Vec::new();
+    for (label, input, line, callee) in inputs {
+        let input = format!("import requests\n{input}");
+        let parsed = parse_tied_calls(&input);
+        let walk = Walk::new(&parsed);
+        assert_tied_keys(&walk, line + 1, &input);
+        let has_winner = anchor::winners(&walk.calls).contains_key(&(line + 1));
+        let found = http_anchor_label(&input, line + 1, callee);
+        if has_winner || found != [Some(UnsupportedReason::NotLineAnchor)] {
+            failures.push(format!("{label}: expected no winner and not_line_anchor, got winner={has_winner}, label={found:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+
+    let unequal = tie(
+        "import requests\ndef f(u):\n    with ",
+        ": return requests.get(",
+        "\n",
+    )
+    .replace("u)\n", "u )\n");
+    assert_eq!(http_anchor_label(&unequal, 4, "requests.get"), [None]);
 }

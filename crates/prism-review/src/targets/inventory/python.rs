@@ -104,7 +104,10 @@ pub(super) fn collect_file(
             Some(UnsupportedReason::LambdaFrame)
         } else if call.callee.end_position().row + 1 != line {
             Some(UnsupportedReason::MultilineCallee)
-        } else if anchors[&line].node.id() != call.node.id() {
+        } else if anchors
+            .get(&line)
+            .is_none_or(|anchor| anchor.node != call.node)
+        {
             Some(UnsupportedReason::NotLineAnchor)
         } else {
             None

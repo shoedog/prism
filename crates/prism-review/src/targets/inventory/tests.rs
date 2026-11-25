@@ -363,3 +363,6 @@ fn repeated_inventory_skips_produce_one_warning() {
         1
     );
 }
+
+#[path = "tests_round2.rs"]
+mod round2;
