@@ -675,3 +675,16 @@ and `ids.tsv` is regenerated from the amended rules.
   - field ids: property or definition names with path punctuation (5.1).
 - **Out of model, as everywhere in prism:** URLs assembled at run time, reflection, generated clients not
   present in the repository.
+
+## 10. Amendments
+
+- **A1 (2026-11-24), the impact report.** `REPORT-DESIGN.md` in this directory is the design of record for how a
+  report reads (the prototype's renderer and, in slice P4, the product's `--format md`): one section per operation
+  with before/after and service code above one row per client use; added and changed operations and fields beside
+  removals, each with a named risk class; the other side held at one named reference revision, with a title that
+  says which direction the change runs (service change checked against client code, or the reverse); nothing from
+  later history in a live report (later edits, release tags and reader judgments go in a separate replay evaluation,
+  clearly marked); plain-word labels with the study's evaluation labels translated. It also extends the impact
+  document of 5.2 (its "Machine-readable form"). Stage D states the both-pairs order, how P4 renders this design and
+  the element-diff kinds it needs (`OpAdded`, `FieldAdded` and the field changes of its "Fields on a service with a
+  schema" table); stage D may amend it, the reviewers of stage D see it.
