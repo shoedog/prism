@@ -1,0 +1,30 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay shape-s42",
+    "version": "1.0.0"
+  },
+  "host": "alderfen.invalid",
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/booklets/{mark}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "mark",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

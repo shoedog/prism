@@ -65,3 +65,8 @@ joins), `pattern` (pattern languages and parser edges), and `origin` (sources).
 - The matrix lives outside `tests/fixtures/` on purpose: the alias-twin receipt golden
   (`src/data_flow/build/alias_occurrence/receipt_diff_tests.rs`) walks every Go, Rust, Python, C and C++ file under
   `tests/fixtures/`, so fixtures added there change its golden.
+- `truth` uses a wider vocabulary than `want`: besides the `Origin::name()` values and `none` it may say `constant` (a
+  literal), `derived` (computed from other values), `non_variable` (a token that is not a variable read) and
+  `source_object` (the request or handle object itself). `constant`, `derived` and `non_variable` mean the tool reports
+  nothing, so they equal `want: none` for the `tentative` rule; `source_object` and every other difference need `tentative`.
+- `accepted_loss` stays null until stage D decides it.

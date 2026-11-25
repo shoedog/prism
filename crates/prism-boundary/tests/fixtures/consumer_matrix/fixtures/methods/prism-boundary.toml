@@ -1,0 +1,35 @@
+[[client]]
+file = "quay.ts"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+
+[[client]]
+file = "wrap.ts"
+export = "default"
+url_arg = 0
+call = { "method" = "POST" }
+
+[[client]]
+file = "wrap.ts"
+export = "byVerb"
+url_arg = 1
+call = { "method_arg" = 0 }
+
+[[client]]
+file = "wrap.ts"
+export = "byOptions"
+url_arg = 0
+call = { "method_key" = "verb", "options_arg" = 2 }
+
+[[client]]
+file = "wrap.ts"
+export = "via"
+url_arg = 0
+methods = { "withVerb" = { "method_arg" = 1 }, "withOptions" = { "options_arg" = 1, "method_key" = "verb" } }
+
+[[client]]
+file = "wrap.ts"
+export = "defer"
+url_arg = 0
