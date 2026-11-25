@@ -1,379 +1,260 @@
-# Lane 10: subscripts in the data-flow graph — design
+# Lane 10 · Subscript writes reaching the whole container
 
-Status: the census design (section 6) is final. The identity and overlap relations (section 5.3) are fixed,
-including the per-language base predicates; the alias policy inside definite identity is chosen at stage D on
-census C6. The path encoding and the remaining items of section 5 are tentative until the census, the executed
-test matrix and enumeration (PLAN stages M, T, E). The plan files a tracking issue. Research record:
-`~/prism-evidence/lanes-2026-11-20/research/lane10-keyed-subscripts.md`; design reviews: astra, round 1
-(`~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane10/review.md`), Fable, round 2
-(`~/prism-evidence/lanes-2026-11-20/reviews/fable-r2/lane10/review.md`, probes beside it).
+## Change log
 
-## 1. Intent
+**2026-11-24.** The owner chose recall only. The old gate required 150 functions per language with a literal-key write and a later read of that key. Validation found 47 such owners in Python, zero in JS/TS and two in Go. The same census found 787, 142 and 182 owners respectively where a subscript write could contribute to a later **whole-container** read. This revision replaces the keyed-path design, the spelling oracle and the seven keyed implementation steps with one kind of graph addition. It retains the old S6 question, the executed matrix, byte-bound route checks and corpus controls.
 
-Data held in dictionaries, maps and objects is read and written with subscripts: `payload["user"]`,
-`m["k"] = v`, `o["x"]`. The lane was proposed to make such paths key-sensitive (`d["a"]` distinct from
-`d["b"]`). The research found a larger defect underneath: **a value written through a subscript reaches
-nothing**. `d["a"] = tainted; sink(d["a"])` is not reached in Python, JavaScript or Go, and neither is
-`x = d["a"]; sink(x)` or `sink(d)`. Recall comes first; key sensitivity is what keeps the recall fix from
-flooding.
+**2026-11-24 · r1.** Folded the first review of r0 (`150e16e01`). The amendment measures review output, admits normal loop exits, checks storage identity through the store, and ties admission, precision and benefit to individual witnesses.
 
-## 2. What exists today (verified on `origin/main` at 1179055f)
+**2026-11-25 · r2 proposal.** Folded the recurring route and measurement findings on r1 (`22cedcadd`). The pass certifies syntax phases, the matrix distinguishes three observations, and the comparator preserves owner-qualified edges.
 
-| Fact | Reference |
+**Status.** Design of record. Review history: r0 rejected by both reviewers; r1 approved by A, rejected by B; r2 approved by A; B's single new finding was folded in a closed r3 edit (owner-allowed extension, converging loop: 4, 1, 1 narrow case) and B confirmed r3b. Stage E is closed.
+
+## 1. Problem and success condition
+
+In `d[k] = t` followed by `sink(d)`, the sink can observe `t` inside `d`. The inherited P14 cases are Python, JS and Go (`1dc74573e`). A separate `06157400a3be` probe used those files plus the P14.js bytes saved as `.ts` and `.tsx` (SHA-256 prefix `a1dde28cf4a4`). In each of the five parser modes, `nav --no-cache nodes-at` found one Def at W and one Use at R's marked bytes, and `nav --no-cache taint-reaches` from the marked source to the sink reported `NotReached`. For TS/TSX these are lines 2→5, W `[83,89)`, R `[109,110)`. T records all five on its actual parent. Add a local DataFlow edge through those occurrences for a feasible contribution. The same rule serves a return operand and a direct assignment RHS. Owner credit requires a validated gain at a previously missed whole read (§7).
+
+Scope ends at that whole value. Same-key reads, keyed definitions, kills by key, per-key argument binding and dynamic-key slices are follow-ups. Anti-goals are connecting writes to the bases of projected reads, replacing ordinary definitions, lowering the confidence of an existing edge, or turning a function with many stores and reads into a dense graph. P01, P15, Y12, P26 and the caps in §5 test those boundaries. Trace may continue through ordinary edges *after* a legitimate whole read such as `e = d` (P16). That downstream may-reach is part of the effect to measure.
+
+## 2. What the graph can establish today
+
+- For a plain identifier or static dot chain followed by brackets, `AccessPath::from_expr` keeps the base and fields before the first bracket, appends `[]` and loses subsequent bracket/field detail. The lvalue walkers and `data_flow/build/file.rs` record target spans and also produce aliases or kill-only evidence in some contexts. Only the original value-carrying occurrence is suitable as W. A spelled `d.[]` also matches targets like `d[i].field` in the text path. Inspect the assignment syntax.
+- `ast/rvalue_identifiers.rs` visits subexpressions. `ast/member_reference_index.rs` indexes member spans. A Use of `d` inside `sink(d[i])` and a Use of `d` in `sink(d)` can have the same path. The producer can fall back to a preferred occurrence or a zero-width anchor. On the baseline `f(d["b"], d)` in Python assembles only the first `d` Use. The Python and JS delete controls have zero-width Uses of the base and no value Def on the delete line.
+- Ordinary location/label identity omits bytes. Step 4 has a supplementary byte-keyed label path for JS-family simple same-path flows. Python/Go variable materialization can fold same-line occurrences. A byte field in a dump does not prove that the wanted occurrence survived. CPG `--edges` includes assembled call argument flow as well as local flow.
+- `cpg/reaching/contribution.rs` and `go_aggregate.rs` use the available owner's CFG, mapped DefIds and binding facts to connect Go field writes to strict ancestor Uses. The Go static-path grammar excludes indices. Its field kills, Exact proofs, method receivers, captures and supplemental Uses serve different semantics. Its raw-candidate cap, separate transfer and cache-persisted accounting are precedents here. The source reference is the reviewed tree `150e16e01`. `2830a3d36` is a separate matrix-branch merge, outside its ancestry. `C2-VERIFICATION.md` records the draft matrix results. The seven historical corpus captures report `9d1a7d06f653`. The small CLI probes above used `06157400a3be`.
+- Review taint seeds Variable occurrences on the diff line. Its default CFG-constrained walk follows DataFlow at all confidence levels. Return-flow mode uses `taint_neighbors`, which also admits weak DataFlow. See `crates/prism-review/src/algorithms/taint/run.rs`, `src/cpg/{cfg_queries,query,trace}.rs`. On `06157400a3be`, a sole diff at line 5 containing `d["a"] = cmd` yielded empty findings at `os.system(d)` on line 6. The same diff location with `d = cmd` yielded `warning taint_sink` on 6 and `info taint_source` on 5, with return flow off and on. These static controls establish the seed and sink. I2 must demonstrate the gain through the actual indexed edge (§7).
+
+## 3. Options and decision
+
+| Mechanism and edge source | Benefit | Cost against this workload |
+|---|---|---|
+| Extend the definition/use producers. Match the recorded `d.[]` to base-name Uses during ordinary enumeration. | Reuses the current Def and ordinary edge storage. Covers literal and variable indices without a path migration. | P15 and both Y12 receivers already look like `d`. A broad match generates edges to projections and grows with all base Uses. Giving the producer syntax, barriers, bindings and a separate budget largely recreates a contribution analysis inside ordinary RD. |
+| Produce a new Def of `d` at every element store or introduce an aggregate summary node. | Root reads already have consumers. A summary chain can limit fan-in for frequently written objects. | A fictitious root overwrite interferes with existing root definitions/kills (P03, L01). A separate summary node changes node inventory, trace routes and the cache schema. It requires new propagation rules to keep sibling values, although P14 already has both endpoints. |
+| Recover contributions in `taint-reaches` or at query time. | Avoids persistent graph growth and could answer a single P14 cheaply. | The raw DFG, cache, stats and other consumers would disagree with the query. It crosses lane 8's trace boundary. The 1,653 recorded whole reads across the three families are a graph measurement population. |
+| Separate RD contribution pass using genuine existing Def and Use occurrences. Emit every bounded surviving W. | Uses the Go pass's available facts, handles the variable/expression writes prominent in JS and Go, and preserves the source of an earlier sibling's value (L01). No path migration or new node. | Needs its own consumer grammar, file-wide collision check and cap. Keeping only the latest W would reduce output further, but misses `d[a]=t; d[b]=safe; sink(d)` even on a straight-line route. C3 used the latest W to count opportunities. |
+
+Choose the last option. Borrow CFG/binding interfaces, the count-before-allocation pattern and cache tests. Keep the Go field analyzer independent. From old S6 reuse the genuine W→ancestor R idea. Drop its dependency on keyed definitions and its same-key kill. Dynamic indices account for at least 88 JS-family and 125 Go C3 owners with variable-key writes alone.
+
+## 4. Contribution rule
+
+### Recurring class in rounds 1 and 2
+
+A shared binding, CFG successor or selected trace can look identical for executions with different evaluation order, completed arms, jumps or surviving storage. The same loss of identity in a measurement can hide a redirect or credit the wrong route. Round 1 exposed loop completion (B-W2, A-S1), receiver capture (B-W3), witness and review selection (B-S2, A-W1) and incomplete graph comparison (B-W4). Scoring only a recorded pair or a graph delta also hid lost witnesses (B-W1, B-S3). Round 2 exposed the private/public jump mismatch (B-W1), compound completion (B-W2), child detachment (B-W3), owner-blind comparison (B-W4), alternate routes (B-S2) and re-entry (A-S1).
+
+**Edge claim.** The marked indexed store W is a candidate source for the whole operand R on the same local binding along at least one ordered syntax route that reaches R with W's contribution still live under the transfers below. This is a structural possibility. Predicate satisfiability, heap contents and public query reach each need separate evidence. The only published label is `nameonly/cfg_incomplete`, even on straight-line code. Without a complete structural route there is no addition.
+
+### Admission and transfer
+
+**Source W.** In one uniquely identified function, find an ordinary single-target indexed store with a value RHS. Walk the *outer target* to a named local or formal, through zero or more static selector fields, then one or more single-element bracket operations. A literal, variable, integer, interpolated string or other expression in the brackets all qualify. The projected write itself must be evaluated eagerly. Unconditional value-carrying compound assignments qualify when the producer has a genuine Def at the full target bytes (P21/P31). The contribution describes the stored result. Reads of the previous element value stay under ordinary RD. Admission depends on syntax, binding and physical endpoints. The built-in container examples below explain the value model. A receiver of unknown runtime type with the same syntax is a weak candidate and remains in the precision sample (Q08).
+
+| Language | Admitted examples and consumer details | Boundary and evidence |
+|---|---|---|
+| Python | Dict and list writes, including `self.items[k] += t` for a bound formal. Whole `d` or `self.items` as positional/keyword value, direct RHS or return operand. | Slice/range assignment, multi-index/slice syntax, `del`, unpacking and iteration targets are separate operations (T04/T05, X02, Q12/Q13). Item overrides can implement different storage (Q08). |
+| JS, TS, TSX | Plain object or array brackets, including an expression index. A value-position argument, direct RHS/declarator initializer or return operand, including inside an ordinary function in a TSX file. | No type-level indexed access, JSX syntax standing in for a value operand, `this` root, optional chain, `++`/`--`, conditional compound assignment, `delete`, pattern or `for…in/of` target (T01–T03, Q07/Q12). A census site error was a TS indexed-access type. |
+| Go | Map, slice or array assignment/compound assignment, including a statically selected field of a local struct holding one. A whole argument, direct RHS/short declaration or separate direct operand of a return expression list. | A struct field write belongs to Go field recall (P27). Slicing, pointer/dereference roots, range targets, `++`/`--`, type conversions and deferred/concurrent evaluation are excluded (Q03/Q07/Q12). |
+
+**Consumer R.** Consume the root or a static selector prefix of W's container as a complete value. For `o.items[i][j]=t`, `return o.items` and `sink(o)` qualify if the Use spans the complete operand. `sink(o.items[i])`, `sink(o.other)` and `o.items.method()` do not (Q05). Bracketed subcontainers would require identifying an element. A dot after the first bracket in W, a call result as root, or a wrapper without a matching full real occurrence is refused. Strip transparent parentheses to the sole operand for the byte join. A TS `as` wrapper with only an inner Use fails the complete-operand join (Q03). In a call, only the complete argument value qualifies. In assignment, it must be a direct RHS value, not a literal leaf, spread or arithmetic operand. A receiver, key expression, membership/identity test, projection, unpacking, length/capacity query, Go conversion, and calls spelled `len`, `cap`, `id`, `Object.is`, `delete`, `clear` supply no R, even if shadowed (Q03/Q08). Returns and RHSs are necessary: the census counts 591 returns and 92 assignment RHSs.
+
+**Endpoint and owner proof.** Join W to the raw, non-alias-derived, value-carrying Def and its mapped DefId by owner, path, line and full UTF-8 half-open target bytes. Require W’s recorded path to equal the syntax root and pre-bracket fields followed by one `[]`. Join R to the existing nonempty Use of the complete operand and its corresponding static prefix. A truncated or otherwise disagreeing path fails the join. Require one unambiguous owner/name/start, one occurrence per legacy endpoint key across raw locations **and matching syntax occurrences**, and evidence that the existing CPG node at each key resolves to those bytes. Certify this before assembly from the final file Def/Use buckets consumed by Steps 2–3. For each access kind the only ordinary location at the legacy key must have the intended span, with no competing anchor or supplemental-only Go Use. First-wins materialization then selects those bytes. Independently check both assembled nodes in the matrix and comparator. Count distinct spans for endpoint identity. Refuse a missing, zero-width, hidden, reassigned or ambiguous endpoint, even in JS. The two-argument Python probe would otherwise send taint to the wrong formal. Never construct a Use, Def, root alias or label for an absent endpoint. Q04 includes the reversed order, two whole arguments and two writes sharing a line.
+
+**Identity and route.** Require the same owner-local storage binding at the root of W and R, using `BindingFacts` and syntax for declarations/formals. For Python, require an independently identified bare local binding or formal, even if RD supplies a declaration ID. Exclude `global`/`nonlocal` redirection. A projected write alone is insufficient. Reject flat/name-only fallback, captured/global roots, nested-callable or deferred execution, and uncertain binding/placement (R07, Q07). `e = d` reads `d` and may carry the weak result onward. `e[k]` and `d[k]` are never identified through an alias (P16, N01/N03).
+
+**Store lifetime.** Start at receiver capture, retaining the links from the binding through static prefixes and each already-selected indexed child to the eventual store receiver. Visit eager operands in language order through commit, including compound reads and the RHS. A visible replacement of a required binding/link, or a key-blind deletion, clear or indexed replacement that can detach an already-captured child, invalidates that candidate. Test against the storage that owns the link. Refuse when the order could invalidate it and cannot be resolved. A simple Python assignment evaluates the RHS before target capture. A pre-capture rebind therefore starts a new lifetime. Clearing a still-bound root before a one-level store creates no detached receiver. Opaque calls and alias effects retain the explicit weak policy below. Q01/Q13 exercise nested and one-level targets.
+
+**Route after commit.** W precedes R in bytes, on different mapped statement lines in an RD-available owner. Require a syntactically reachable W and at least one live completion from commit through evaluation of R. The pass derives steps from the owner's syntax. Record construct span, arm, entry/exit phase, ordered operand bytes and jump target where applicable. Compose statement lists in execution order, taking the next statement only from a normal exit of its predecessor. For a branch, evaluate its test, enter one arm and recursively complete its tail before joining. An absent arm can complete empty. For a compound tail, use its actual normal exits, at every nesting depth. A return or throw has no normal exit. A jump can resume only at its resolved lexical target. Treat literal unconditional tests as such. Other conditions can leave correlated, runtime-impossible paths in the weak result.
+
+Apply a kill only at an ordered event on that same route. Short-circuit operands and conditional expressions execute only on the chosen arm. An unsupported compound has no assumed normal exit. At a join retain a W if any certified arm survives. At R inspect eager siblings through operand capture (`d = take(d)` reads before rebinding). Refuse a route that requires unknown evaluation order, completion, exception handling, unwinding through `finally`, fallthrough, deferred execution or an unresolved transfer. An alternative certified route may still win. RD facts and the CFG can locate candidates. A line successor, reachability bit or `Structured` tag alone can neither carry W past a construct nor kill it. Missing public CFG transitions may be realized locally by the syntax rules. Publication adds only DataFlow.
+
+**Loops.** Treat initializer, test or iterator advance, target binding only on successful entry, body, update and exit as distinct phases. Normal body completion and a resolved `continue` execute the language's next update/test or advance. The three-clause initializer runs once. A resolved `break` skips update and test. On Python exhaustion or a false test, complete the entire loop `else`, if present, before continuing. A break skips it. A conditionless or literal-true loop has no test-false exit. Keep the loop identities enclosing W at commit and refuse every subsequent body entry into one of them, including entry through an outer loop. Re-entry would require proving the next iteration's effects on the carried storage. This rule deliberately loses some values that survive until a later break. A route through the final test to an exit remains eligible. Q06 pairs each completion with killed and surviving controls. M and I1 charge necessary re-entry and unsupported completions (§6).
+
+**Compound completion (Q06).** Only the supported exits below can carry W. Charge a required unsupported exit, phase or unlisted compound completion to `completion_unproven` (§6). Apply the loop re-entry limit above to every supported transfer.
+
+| Language | Construct | Status and phases through the normal exit |
+|---|---|---|
+| Python | `if/elif/else` | Supported. Test in order until the first true arm, complete only its suite, then join. All false takes the else suite or the empty exit. |
+| Python | `for…else`, `while…else` | Supported. Evaluate the iterable once and advance before binding the target, or test the while condition before entry. Body completion returns to advance/test. Exhaustion or false completes the entire else suite before joining. |
+| Python | Loop `break`, loop `continue` | Supported. Break exits the resolved loop directly, skipping else. Continue skips the body suffix and resumes advance/test, including else on exhaustion. |
+| Python | `try/except/else/finally` | Unsupported. Normal try completion runs else if present. A handled exception exits via its handler. Both must complete any finally before joining. |
+| Python | `with`, `async with` | Unsupported. Enter and bind managers left to right, execute the suite, then exit in reverse order. The async form awaits entry and exit. |
+| Python | `match` | Unsupported. Evaluate the subject, try cases in order with captures and guards, then complete the selected suite or leave unmatched. |
+| JS/TS/TSX | `if`, block | Supported. Evaluate the test then complete the chosen statement or empty else. A block continues only after its statement list completes normally. |
+| JS/TS/TSX | Three-clause `for`, `while`, `do…while` | Supported. For runs init once, then test/body/update. While tests before the body, do-while after it. False or resolved break exits. Continue goes to update in for and to test in the other two. |
+| JS/TS/TSX | `for-in`, `for-of` | Supported. Evaluate the collection once, enumerate the next key or advance the iterator, bind only on success, then run the body. Exhaustion exits. A resolved break exits after any required iterator close in for-of. Continue to the same loop advances. A `for-in` head with an initializer (`for (var x = e in o)`, Annex B, non-strict scripts only) is unsupported and charged to `completion_unproven`: the initializer runs before enumeration even for an empty collection, so a root replacement in it is a mandatory phase this rule does not model.  |
+| JS/TS/TSX | `switch` | Unsupported. Evaluate the discriminant and case tests, then enter the match or default. No match/default exits empty. A selected arm may fall through, break or reach the end. |
+| JS/TS/TSX | `try/catch/finally` | Unsupported. The normal try tail or the handler for a throw must complete any finally before joining. |
+| JS/TS/TSX | Labeled statement | Supported. Complete the labeled body or exit it at a matching break. A continue can resume only the loop named by its label, at that loop's continue phase. |
+| Go | `if` with optional init | Supported. Complete init once before the test, then complete the selected arm, nested else-if or empty else. |
+| Go | Infinite, condition and three-clause `for`, `range` | Supported. Infinite has only a break exit. Condition loops test before entry. Three-clause loops run init once, test, body, post, then retest. Range evaluates its input when required, then advances and binds on success. False, exhaustion or resolved break exits. Continue resumes the next post/test/advance as applicable. |
+| Go | Expression `switch` | Supported. Complete init, evaluate tag and case expressions in order up to a match, or take default/empty exit after no match. Complete one clause or its resolved break. Explicit fallthrough is unsupported. |
+| Go | Type switch | Unsupported. Complete init and type guard, bind any alias in the selected clause, then complete it or its break. A missed match takes default or the empty exit. |
+| Go | `select` | Supported. Evaluate every channel operand and send RHS once in source order. Choose a ready communication, evaluate and assign receive targets only for that choice, then complete its body or resolved break. Default runs only if none is ready. Blocking supplies no exit. |
+| Go | `goto` | Unsupported. Control transfers directly to the label, skipping the intervening statements on a forward jump. There is no sequential exit. |
+| Go | Labeled statement | Supported. Complete the labeled statement normally, or honor a matching break to the end of its loop/switch/select or continue to its loop’s next phase. |
+| Go | `defer` | Supported through registration. Evaluate callee and arguments, register the call, then resume the statement list. A route requiring the deferred invocation on return or unwind is unsupported. |
+
+| Intervening event on that route | Transfer and reason |
 |---|---|
-| An access path is a base name and a list of field strings. Every subscript becomes the one component `[]`, and the text parser cuts at the first `[`: `d["u"]["n"]` and `d["a"].c` are both `d.[]`. | `src/access_path.rs:33`, `from_expr` |
-| A subscript write records one definition, `base.[]`, over the whole target; the key and anything after it are dropped. `del d["a"]` and JavaScript `delete d["a"]` record nothing. A subscript target in a JS `for (… of/in …)` head or as a direct leaf of an array pattern (`[o["a"]] = [t]`) records nothing at all (the header and pattern collectors skip it). | `src/ast/lvalues.rs` (`extract_for_in_lvalue_spans`, `extract_destructuring_def_spans`) |
-| A plain subscript read records a use of the base variable (and of an index variable), not of a path. Only a read where a field access wraps a subscript (`d["a"].c`) records a use with the path `d.[]`. | `src/ast/rvalue_identifiers.rs:80-96` |
-| Field sensitivity for dot fields comes from one index keyed by the path text of field-access nodes: a definition reaches only references whose path equals its own. Subscript nodes are not in that index. So the definition `d.[]` is an orphan: nothing but `d["a"].c`-shaped reads can reach it. | `src/ast/member_reference_index.rs:23-120` |
-| Probes with `taint-reaches`, three languages. False negatives: `d["a"] = t; sink(d["a"])`; `…; sink(d)`; `…; x = d["a"]; sink(x)`; through an alias; augmented assignment; JavaScript `o["x"] = t; sink(o.x)` and `o.x = t; sink(o["x"])`. False positives: a literal `d = {"a": t, "b": "safe"}; sink(d["b"])` (the whole container is tainted); `d["u"].n = t; sink(d["u"].m)` and `d["a"].c = t; sink(d["b"].c)` (an `exact` edge `x.[]` → `x.[]` across keys or tails, all three languages). Also wrong: a write to another key is labelled as killing (`d["a"].c = t; d["b"].c = "x"; sink(d["a"].c)` is `killed`). Dot fields behave correctly. | research section 5; review r2 batch 1 |
-| Flows main has only because subscripts collapse: `m["k"] = v; f(m["k"].x)` carries taint into the callee (`def m.[]` → real-span `use m.[]` at the argument → callee formal, all `exact`, three languages), while the dot analog `o.a = v; f(o.a.x)` ends at a zero-width anchor `Use(o.a)` at the line start and stops at the call line; quote styles meet (`d['a'].c = t; sink(d["a"].c)` is `exact`). The existing index is path equality, and `get_use` mints a zero-width use when a path has no real span on the line. | review r2 batches 2, 4, 5; `member_reference_index.rs:96-131`; `get_use` in `src/data_flow/build/file.rs` |
-| Defects on main that the lane pins as known wrong rows and does not widen (review probes): Python `make()["a"] = "x"` records `Def(make)` and `Def(a)`, and JS `make()["b"].field = 1` records the whole text as one base; dynamic-only chains give `exact` across different runtime keys (`o[j].z = "safe"; o[i].z = t; sink(o[j].z)`, `o.[]` 35→36 `exact`, runtime safe); Python dot fields stay `exact` across a root rebinding (`o.x = t; o = a; sink(o.x)`) and across a write through an uncertified alias (`p = o; p.x = "safe"; sink(o.x)`); the JS object-literal binder gives `exact` from `t` into the callee's `q["b"]` for `put({a: t, b: "safe"})`. | review probes A, B, C |
-| Today's output already contains a field string spelled `["x"]`: `(o)?.["x"].f` gives the fields `['["x"]', 'f']` (optional chaining is normalised, then the parenthesised tail is split on dots). A JS `$o.x` is recorded as the one base `$o.x` with no fields. | review probe C |
-| The same gap exists for dot fields in one direction: `o.a = t; sink(o)` is not reached in Python and JavaScript. Go has a separate pass that connects field writes to later whole-object reads. | probes; `CLAUDE.md` ("Go eager aggregate reads") |
-| Review taint is a different path model: it is not field-sensitive even for dot fields (`d.name = tainted; d.other = "safe"; sink(d.other)` is reported), and it matches request reads such as `req.body["x"]` by text. A subscript on the left of an assignment gives it no target in Python and Go. | research section 5 |
-| Killed edges are still followed by taint; a correct kill changes a label, not a verdict. | research |
-| Readers of path spellings: reaching definitions and kills (exact equality, except JavaScript, where `[]` is a wildcard in the kill relation in both directions by an earlier design decision; the same `affects` relation also drives D3, D2-c, the refusal classes, alias kills and the census trace), the JavaScript write census (any index is `[]`, pinned by tests), the object-literal binder (which already has a static-key policy), Step 5b argument binding (production, legacy twin, serial reference), Step 5c return flow and its reference, capture identities and capture-region placement, alias resolution (`aliases.rs` reparses the target string), member-only formal projection, the JS `for` initializer replay check, navigation output. The path is stored in the cached graph. Fixture counts are text matches, not behaviour pins: 116 of 176 census rows contain `[]` (14 site paths hold an index), the five MCP goldens print only `helper` with no fields, and the 105 alias lines belong to a call-resolution matrix. | research sections 3 and 8; review findings 4, 6, 18 |
-| Corpus counts, by regular expression on non-test files: string-literal subscripts 3,984 (1,447 writes) in one Python corpus and 2,653 (760 writes) in another; 5 to 6% of their functions use two or more different literal keys on one base. Excalidraw 736 (32 writes). One Go corpus 200. Python's `.get("k")`, `.pop("k")`, `.setdefault("k")` are about as frequent as subscripts. | research section 6 |
-| An earlier architecture note chose to ignore index values and to revisit "if false positives from array collapsing become a problem". | `docs/features/cpg/architecture.md:313` |
+| Root rebinding or whole assignment/deletion at a static prefix of **W's storage**, including loop/pattern heads | Stop on that route, even when R is a shorter ancestor. In `o.a[i]=t; o.a={}; sink(o)`, the old `o.a` is gone. A sibling write to `o.b` survives. A root or prefix compound assignment is a possible replacement, including Python `d \|= x` and `xs += ys`, even where a built-in mutates in place. On a conditional write keep only a proven non-writing arm. Q05/Q06 pin the conservative loss and the unaffected sibling. |
+| Another element store in that storage | Keep both candidates; never compare keys. An earlier different-slot contribution can be essential (L01). A same-slot or enclosing indexed replacement can leave a stale **weak** edge (rebuilt P03, Q13). The truth observation remains `not`, and such infeasible sampled edges count against precision. |
+| Explicit element deletion or clear | Python `del`, JS `delete`, Go `delete`/`clear` and direct Python `x.clear()` cut all older contributions in the affected static subtree, key-blind. Use the prefix before the first bracket. A delete explicitly removes contents and supplies no replacement value to track. Keeping every old W across it would defeat that signal. An indexed store supplies another value and frequently preserves earlier siblings (L01), so it generates without killing. This trades sibling-delete misses for same-slot-overwrite stale edges (X01–X03, Q13). |
+| An effect through another name, opaque method/call, overload, proxy or overlapping heap storage | No interprocedural heap kill or alias expansion. A visible direct whole argument of a mutator is itself a consumer. For general runtime objects the evidence describes a possible containment relationship. Later weak evidence can be stale or miss a runtime alias (O01, N01/N03, Q08). |
 
-## 3. Goals, non-goals, anti-goals
+**Publication and confidence.** One new local `DataFlow Def(W) → Use(R)` per distinct admitted pair, always `FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)` (`nameonly`, `cfg_incomplete`, no `kill_line`). Syntax supplies the ordering witness. This uses the existing incomplete-contribution vocabulary without claiming a known kill, unstable alias, or exact identity. The class comes from the two endpoints and the contribution trace, never the doubt string alone. Finding confidence stays governed by the existing exact/nameonly/unlabeled rules. A route relying on this edge for the contribution cannot supply Exact evidence. A previously missed query may become `Reached` through the new weak edge and existing argument, assignment or return flow. Count that change separately from direct W→R additions.
 
-Goals:
+Stage the additions separately from legacy labels and Go recall. After the file's ordinary owners and Go field results have been collected, refuse any existing edge, legacy label key, supplementary key or ambiguous endpoint pair before inserting into `FileRefs`. Never `worst`-merge an element label into an existing key. The source is a genuine indexed assignment target, never a formal Def. Steps 5b and the literal binder inspect arguments/formals; Step 5c rejects non-simple LHSs. Ordinary local edges target Uses. The new edge therefore adds no incoming DataFlow to W, the formal-source guard's reverse walk cannot acquire a new formal through W, and no new call/return edge is authorized. Pin these properties in the assembled graph, including the D12 guard, Go field recall and a mixed argument. The complete vocabulary of allowed changes is in §7.
 
-1. A value written through a subscript reaches later reads of that element, in Python, JavaScript/TypeScript
-   and Go.
-2. A static string key is part of the path, so a write to one key does not reach a read of another, and
-   does not kill it.
-3. In JavaScript and TypeScript, `o["x"]` and `o.x` are the same path when the key is an identifier-like
-   string.
-4. Dynamic keys keep today's meaning: a write with an unknown key may write any element; a read with an
-   unknown key may read any.
-5. Every rule is checked against executed truth on small programs, and against a labelled sample on real
-   code.
+## 5. Budget, accounting and cache
 
-Non-goals (this lane): integer indices and slices (arrays stay index-insensitive); dictionary methods
-(`get`, `pop`, `setdefault`, `update`); `Map` and `Set` methods; keys held in constants or built by
-expressions; containers passed to other functions (element paths across calls); making review taint
-field-sensitive.
+For an RD-available owner bucket syntax/byte-certified writes by binding and each eligible static ancestor, and reads by their exact binding and static path. Count `P = Σ(raw W count × distinct R count)` across matching buckets **before** testing routes, allocating pairs or emitting Use/edge records. Duplicate raw records at one W span count for work. An ancestor bucket matches a read only once. Capture-to-commit refusals, CFG/phase barriers and occupied pairs are survivor filters after this work count. Use checked wide arithmetic, saturating a reported unrepresentable total at the counter type's maximum and recording a cap. With `P > 1,000,000` skip the entire owner's addition. The Go limit gives a known ceiling, but this count bounds prospective pairs, not just survivors. With no W or no R, P is zero.
 
-Anti-goals: connecting every element write to every element read of the same container without key
-sensitivity (a recall fix that floods); changing the meaning of `[]` for dynamic keys; changing path
-spellings for code that has no static-key subscript.
+Among unique surviving, unoccupied pairs, omit **all** edges to an R with more than **8** sources. Omit the entire remaining owner addition if it exceeds **256** edges. Equality at each threshold passes. Index barriers/placements once, memoize route work by storage/W or equivalent, and count before materialization using the same survivor logic for publication. Q09/Q10 cover boundaries, raw duplicates and unaffected neighbours.
 
-## 4. Approaches considered
+**Size of the cut.** The orchestrator's `census/fanin-distribution.txt` counts earlier `sub` rows with roles `write`, `aug_write`, `pattern_leaf` or `update` at the same or a descendant base (dot or bracket) in the owner of each `whole` read. Raw matches include five P1 and two P2 pattern leaves and one G2 update, all excluded by product admission. These are upper bounds on matching sources in the recorded frame, before route feasibility, overwrites, endpoint checks or owner budgets. `census/baseline-edge-counts.txt` counts baseline DataFlow edge-dump lines for the entire loaded corpus. The 2026-11-24 inputs under lane evidence have SHA-256 `b73266f936e76216491f4b438b370c27f42be854af6119f3646b4a274408a0ea` (fan-in) and `816a16b3cfd6b1c31ce274649c795ffd7833a63a9141ffb8d4517ac3f8b9a8c1` (baseline). “All / cut” below applies the read cap directly to the raw counts, dropping the entire read at nine. Feasibility can bring a nine-source read back under eight.
 
-**A. Recall only: let the orphan definition `d.[]` reach every subscript read of `d`.** Small, and fixes the
-false negatives, but it makes `d["a"] = t; sink(d["b"])` reached, in the 5 to 6% of functions that use
-several keys, and in every request-payload handler. Rejected as a first step.
+| Corpus | Whole reads / raw owners | Above 8 / above 4 (reads) | All / cut edges | Baseline DataFlow | Expected additions | % of baseline |
+|---|---:|---:|---:|---:|---:|---:|
+| P1 | 766 / 517 | 18 (2.3%) / 61 (8.0%) | 1,587 / 1,380 | 517,609 | 690–1,524 | 0.133–0.294% |
+| P2 | 371 / 270 | 3 (0.8%) / 15 (4.0%) | 656 / 623 | 352,128 | 312–647 | 0.089–0.184% |
+| X | 183 / 66 | 0 / 4 (2.2%) | 233 / 233 | 78,743 | 117–233 | 0.149–0.296% |
+| T | 107 / 76 | 0 / 3 (2.8%) | 136 / 136 | 382,358 | 68–136 | 0.018–0.036% |
+| G1 | 109 / 87 | 1 (0.9%) / 6 (5.5%) | 169 / 160 | 43,417 | 80–168 | 0.184–0.387% |
+| G2 | 117 / 95 | 1 (0.9%) / 1 (0.9%) | 144 / 134 | 138,794 | 67–142 | 0.048–0.102% |
+| R (Rust control) | 0 / 0 eligible | 0 / 0 | 0 / 0 | 10,161 | 0 | 0% |
 
-**B. Keyed components for static string keys, then reads as path uses** (chosen). The path gains a keyed
-component; reads of subscripts become uses of paths; the existing equality-based index then connects a
-keyed write to reads of the same key, and a small wildcard rule connects dynamic keys.
+Keep whole-read refusal. Only 23/1,653 recorded reads exceed eight even before filtering. Taking the nearest eight on those raw reads would add 184 edges to the cut total (2,850 versus 2,666). Source order cannot establish which slot still holds the value. A partial set can hide an earlier surviving sibling such as L01. Refusal exposes the lost read in `reads_over_fanin`. The forecast assumes the family passes and the C3 sites account for the additions. The low scenario retains half the raw cut edges (round up) after admission, the high keeps them all and allows eight at each recovered over-cap read. These planning assumptions give no statistical or full-loader bound. A deferred mode contributes zero. Outside-C3 gains, wrapper/byte refusals and actual fan-in are measured at I1. Freeze the independently reconciled full-loader prediction before I2 (§7).
 
-**C. Treat a container as one abstract object** (every write taints the base variable, every read reads
-it). This is what literal initialisers do today and is the source of the false positives. Rejected.
+Persist a separate per-file element ledger in `RdFileStats`, including its merge and compact wire decoder. Public counter names are `dfg_element_recall_` plus the following suffixes, projected by one routine into bare `nav dfg-stats` and nested `nav call-stats.dfg_labels`:
 
-**D. Leave the graph alone and special-case subscripts in the taint engines.** It would fix taint only, in
-two engines, and leave slicing and navigation wrong. Rejected.
+| Suffix | Unit and reconciliation |
+|---|---|
+| `candidates`, `max_candidates` | Sum of P over eligible available owners including capped ones, and maximum P of one owner. Max merges by max; other counts sum. |
+| `functions_capped`, `candidates_capped` | Owners over the raw-pair cap, and sum of their P. |
+| `reads_over_fanin`, `functions_over_edge_cap`, `edges` | Reads suppressed at 9+, remaining owners suppressed at 257+, and distinct published pairs. Count reads before the owner-edge test. |
+| `functions_over_rd_cap`, `functions_without_cfg` | Admitted-language owners with a syntactically eligible W and R skipped for that RD reason. Count once per owner, also on the early fallback-capped exit in `build/file.rs`. P is unknown for them. |
 
-## 5. Architecture — *encoding tentative; identity rule fixed*
+A file with no applicable owner contributes zero. Omit the new block of public keys on both surfaces when every element counter is zero, including R (Rust). Verify the two projections, counts and every edge including bytes/attributes on a cold build and an observed full `Hit`. Edit the unique maximum down in place in one of two files with stable topology. Require `PartialHit` identifying exactly that file and the lower recomputed maximum. Separately delete a file and require `Miss`. Compare each modified result with a fresh cold build on the same bytes. `cpg_cache.rs` pins version 189 on this checkout. The **only** bump is in the PR that first persists edges and counters, to the next free version under the merge-time claim. Earlier slices use opt-in diagnostics only.
 
-### 5.1 Path components
+## 6. Per-language go
 
-A path component is one of: a field name (as today); the dynamic-index component `[]` (as today); a keyed
-component for a subscript whose index is a string literal without interpolation or escapes. Its encoding in
-`fields` and in `Display`, `Debug` and JSON is fixed at stage D under two conditions: it is injective with
-field names, with `[]` and with every field string the text parser can already produce (today's output holds
-a field spelled `["x"]`, section 2), and no existing output changes for code without a static-key subscript.
-An internal tagged identity beside an unchanged external spelling is admissible.
+C1's sampled sites (171/172) and the check of 187 rejected Python text pairs validate the old gate, not C3. C3 selects at most the **latest** feasible contributing element write per eligible read under a syntactic route model. It has no precision sample. Index-kind owner counts overlap. Corpus facts and the common go thresholds are shown together.
 
-| Language | `x["k"]` | `x.k` | Same path? |
+| Family | C1 confirmed owners/pairs vs 150 owners | C3 owners vs 100 | C3 arg / return / RHS | Required validation |
+|---|---:|---:|---:|---|
+| Python | 47/80 (raw 48/82) | **787** = P1 517 + P2 270 | 678 / 401 / 58 | C3 precision lower bound ≥ .85 and ≥100 projected addressable owners |
+| JS/TS/TSX | 0/0 | **142 raw**, X 66 + T 76 (**141 functions**, X 65 + T 76) | 191 / 91 / 8 raw | Same. JS 4 raw/3 functions, TS 128, TSX 10. |
+| Go | 2/5 | **182** = G1 87 + G2 95 | 101 / 99 / 26 | Same. Keep maps, arrays and slices distinguishable in the audit. |
+
+Latest contributing writes by index kind explain why all ordinary indices qualify. Python has 503 owners with identifier-like literal keys, 196 with variable keys, 74 with other expressions, 11 with other strings, and 16 with augmentation. JS/TS has 88 with variable keys, 46 with other expressions, five with integers, one with interpolation and two with augmentation. Go has 125 with variables, 32 with other expressions, 14 with identifier-like literals and four with integers. These counts overlap.
+
+**Frame and draw.** Deduplicate C3 `whole` rows by `(corpus, file, owner)` using the literal census `name@start-line` key, including its anonymous/column disambiguator. Exclude `<module>` before drawing. Only X's `scripts/build-locales-coverage.js` contributes a module read (one). Python and Go retain 787 and 182 functions. Inspect all three JS and ten TSX function owners separately for mode coverage. Remove a rare mode only if its exhaustive coverage audit finds zero addressable witnesses. Freeze the retained frame, both corpus counts and the input hash. For each family start a fresh CPython 3.12.13 `random.Random(10)` and call `.sample(sorted(frame), 60)` once, tuple order as above. Publish the Python version, frame/sample and hash. Retained modes need an addressable witness in the draw or the rare-mode audit. If TS, Python or Go has none, its family cannot reach 100 remaining functions. Stop there. No redraw for an adverse score. The rare-mode audit adds no votes to the random draw.
+
+**Owner scores.** The census runner (gpt-6.2-sol) and a separate enumeration seat (gpt-6.1-terra) independently rate pinned source and baseline bytes. Record both rater versions and their row decisions. Score (a) a genuine feasible recorded C3 W/R and (b) an ordinary-storage witness for a previously missed contribution to a recorded R. For (b), reconstruct **all** W and R in the function, including earlier W and reads absent from C3. Include raw duplicates, file-wide endpoint collisions, occupied pairs and RD availability. Apply §5's raw owner-work cap first, then the distinct-source cap for each R, then the edge cap across **all** remaining reads of the owner. Nine surviving W to its only R, 257 remaining owner edges or 1,000,001 raw pairs earn no (b) for the suppressed contribution. Credit (b) only with a surviving witnessed pair at a C3 site and a parent miss for that W's value at those R bytes. An existing route carrying the same value there earns zero. Record pair-level attrition and both owner bits. For a negative, exhaust the owner's candidates or show that an owner-wide refusal suppresses them all. Grade **every would-add pair** in each sampled owner as witnessed, stale (e.g. overwritten, deleted via alias or impossible branch), or unknown. Report `(stale + unknown)/would-add` by family/role as an early precision check, with zero denominators labelled empty. The controller adjudicates disagreements against the cited bytes, route and value evidence before seeing I1. An unresolved bit scores zero, an unknown edge scores against precision. Keep both ratings and all sampled owners.
+
+**Go.** Use the lower endpoint L of the two-sided 95% Wilson interval (`z=1.96`, no finite-population correction). Require `N ≥ 100`, `L(a) ≥ .85` and `floor(N × L(b)) ≥ 100`. At n=60 this needs **57/60** valid and **13/60 Python, 50/60 JS-family or 41/60 Go** addressable on the full function frames. For a reduced JS-family frame of 138 (TS+TSX), 131 (TS+JS) or 128 (TS alone), (b) needs **51, 53 or 54** respectively. Without TS, fewer than 100 remain. The benefit threshold is a hundred distinct functions, and the validity floor protects the estimate when a large census contains noise. Synthetic matrix positives earn no corpus yield.
+
+**Cost before go.** Score each genuine C3 opportunity lost to the rule as valid demand (a) and zero addressability for that pair (b). A different surviving witness can still earn the owner's (b). Record overlapping flags `reentry_required` (Q06 check-before-store or exclusive arms across iterations), `completion_unproven` (Q06/Q07 unsupported compound exit, jump or cleanup), `eager_effect_in_target` (Q01/Q13 capture-to-commit detachment or uncertain order), and `eager_effect_at_read` (Q06 sibling ordering). Record direct certified kills separately from unsupported completion. Mark necessary re-entry only with an identified route requiring another entry and no certified single-iteration route. Unknown necessity stays unknown. In the measurement copy add the independent typed predictions to the parent and bind one source Def and sink Use. Record `public_cfg_stop` only when the trace scope excludes the marked R and the missing public transition is identified (Q06). An unbound query or unexplained miss is unknown. Such a pair can earn graph credit with an ordinary-storage witness, and earns zero query recovery. For each flag report pairs, distinct affected C3 reads / all sampled C3 reads, and owners losing their last witness / sampled owners by family, mode and role before the decision. Keep non-C3 reads found in those owners in a separate count. This draw cannot estimate re-entry demand in owners absent from C3. Retain unknowns, cap refusals and overlapping causes. Flagged refusals stay in attrition and outside the would-add precision denominator. Surviving but stale or unknown edges count against precision. I1 repeats the accounting on its full frame and reports out-of-C3 sites separately. If a measurement defect caused a shortfall, follow orchestration §8. Otherwise defer the failing family/mode, leave its product delta zero and publish its baseline losses and counts. If none qualifies, close at M with the evidence. Raw C3 totals alone authorize no activation.
+
+## 7. Truth, differentials and acceptance
+
+**Matrix contract.** Freeze a triple per marker and sink on every behavioural row before enabling the family. (1) Execute the fixture and record marker presence in the actual sink value. Mixed A/B rows have one observation with both bits. Pin A only, B only, both and neither. (2) Inspect the assembled directed DataFlow edge at the full typed W/R identities. Require exactly one new edge with the §4 label for admission, zero marked additions of any label for refusal. (3) Query the unchanged production `taint-reaches` from the isolated source Def to the bound sink Use. Assert the row's named verdict and, for claimed query recovery, its selected consecutive W→R hop on that source-to-sink witness. An unbound sink, execution error or missing/extra observation fails the behavioural receipt.
+
+| Row contract (PLAN T) | Runtime | Assembled marked addition | Production assertion |
 |---|---|---|---|
-| JavaScript, TypeScript | three classes, the object-literal binder's (`literal_key`, `object_literal_args.rs:135-151`): (1) an ASCII identifier-like string other than `__proto__` → field `k`; (2) a string that provably is not an IdentifierName (ASCII, no backslash, fails the identifier test: `"a-b"`, `"1"`, `""`) → keyed `["k"]`; (3) everything else (non-ASCII, a backslash, a template, `__proto__`) → dynamic `[]` | field `k` | yes for class 1; class 3 may equal a field, so it is dynamic |
-| Python | keyed `["k"]` | field `k` | no: items and attributes are different namespaces |
-| Go | keyed `["k"]` for a map index that is a string literal | field `k` | no |
+| End-to-end P14/Q01 and observable sibling | Marked value present | One weak edge | `Reached` through the pair. Masking only A's indispensable edge loses A's reach and preserves B's independent route. |
+| Python in-body source, unconditional break or terminal continue to exhaustion, R after loop (Q06) | Present on the preserving exit | One weak edge | `NotReached`, no selected witness. Pin the public CFG stop. A source before the loop is a separate control. |
+| Known stale store (P03/Q13) | Absent | One weak edge | Assert the preregistered weak reach on the isolated straight-line fixture and exclude an alternate all-Exact route. |
+| Refusal or accepted loss | Execute and pin present **or** absent for the specific input | Zero | Freeze the parent verdict and witness for the isolated pair. Runtime presence with a graph miss is a measured loss. |
+| Inherited gap or structural control | Preserve executed bits, structural only `n/a` | Pin parent inventory and forbidden delta | Retain named parent observations (including P26/P30 and both Y12 bits). For structural-only rows assert the stated structural oracle and mark the query inapplicable where it cannot bind. |
 
-Integer literals, variables, constants and expressions give `[]`. A keyed component holds the key's runtime
-value, never its spelling: two static spellings of one runtime key (quote styles, prefixes, raw and interpreted
-literals, concatenation) must give equal components, or the spelling is dynamic. Because different static
-components never overlap (5.3), a spelling pair the builder keeps apart while the runtime unifies it is a wrong
-`exact` or a missed kill; the truth runner's generated spelling-pair table (section 7) checks the whole class. A chain that holds at least one static
-key is built from syntax nodes by one shared function, not from text, and keeps every component
-(`d["u"]["n"]` is `d.["u"].["n"]`; `d["a"].c` is `d.["a"].c`). The builder answers one of three ways:
-**unaffected** (no static key: the chain keeps today's text-derived path exactly, `d[k].c` stays `d.[]`, so code
-without static-key subscripts does not change), **admitted** (the full path), or **refused** (a static key on a
-chain the builder cannot place: a call, constructor, conditional or tagged root, a comment or escaped name
-inside the chain, a root today's dot extraction spells differently, such as JS `$o` whose dot twin `$o.x` is
-one base). A refused chain is never handed back to text extraction (section 5.2). The JavaScript three-class
-rule is the object-literal binder's, repeated in the new module; unifying the two is a follow-up.
+On baseline `06157400a3be`, the Q06 public-CFG cross product with ordinary `d = t` gave a byte-matched store→sink edge in all 12 forms. All 12 in-body source queries were `NotReached` and all 12 pre-loop source companions were `Reached`. T must bind the indexed-store receipts on its own parent and I2 head.
 
-### 5.2 Definitions and uses
+For composed fixtures with another admitted pair, freeze the verdict/witness expectation using the parent production walker on the independent inventory's typed additions before I2. Record one expected verdict per source/sink, including any bypass. Require a separate isolated row for each claimed recovery. PLAN T specifies the Exact-only alternate search. Report witnessed graph gains, production recoveries and public-CFG misses separately.
 
-- Every write-target entry point (plain, augmented and logical assignment, update, JS `for … of/in` heads,
-  array and object pattern leaves, Python and Go target lists) passes a subscript target to the builder. An
-  admitted target records a definition of its full path; a refused one is consumed as a unit: no definition of
-  any name in it, while its evaluated inputs (call arguments, receivers, key expressions) stay reads. A target
-  shape no entry point can hand over is listed with a matrix row.
-- Roles are separate: a plain assignment target writes and does not read the old element; augmented,
-  logical and update targets read and write; a delete kills. Write-only targets are never registered as reads,
-  in every language, not only on the fenced JS path.
-- A subscript read records a use of its full path at the subscript's bytes, in addition to the base use it
-  records today. A read occurrence is the outermost admitted node of its chain (`d["u"]["n"]`, `d["a"].c`);
-  inner nodes of the same chain are not separate occurrences.
-- `del d["k"]` and `delete o["k"]` record a kill-only definition of the path where the language's census
-  already supports kill-only definitions (JavaScript), and are left as today elsewhere.
+- **Comparator.** Use the lane's own comparator script (lane 11's kit has stopped; PLAN, Comparator) with the semantics of lane 11's `run`, byte-mode `diff-edges` and `diff-stats --which both` on P1/P2/X/T/G1/G2/R with matched hashes, receipts, pre-run prediction and bound binaries. The DataFlow classes are `element-recall-arg`, `element-recall-return`, `element-recall-assign-rhs`. Each needs a newly occupied singleton key, genuine Def/Use bytes, role, owner/binding, route, caps, sole allowed label, and one matching emission. The independent inventory must equal the predicted and published pairs. Reject removed, moved, ambiguous, duplicate or stray occurrences. For A additions require `dfg_label_nameonly_cfg_incomplete += A` on both surfaces. Permit only §5's reconciled counters alongside it. Other counters and prior edges/attributes have zero delta. The companion reader compares multiset rows for **every node** (`Function`, `Statement`, `Variable`, `ReturnValue`, including isolated nodes) and every directed edge, including DataFlow with its full confidence/doubt payload. In particular `Call` and `Return` retain their resolution confidences, `ReturnInput` its endpoints and `ReturnFlow` its `suppress_shortcut` bit. Serialize variant and all fields of each endpoint, including owner, typed path/access, statement kind, return span/child slot and source bytes where present. Include edge variant, all payload fields and multiplicity. Fail on ambiguous endpoint identity. Require the typed head edge multiset to equal the typed parent multiset plus exactly one occurrence per independently certified new pair. Compare multiplicities before any subtraction and reject a missing certified occurrence. In the mutation control, two Uses share every byte-dump field but differ in owner. Redirect an existing Exact DataFlow from the first to the second with all counts fixed. Typed comparison must fail. The lane 11 byte differential independently reconciles publication and traces. The diagnostics PR and disabled inputs require zero deltas.
+- **No flood and benefit.** On the actual product file set freeze total raw bucket-pair work (`P_c`), distinct whole reads with a feasible, previously missing W before output caps (`R_c`) and their owners (`O_c`). Raw-capped owners contribute their work and earn no eligible reads without an independent witness. Require `A_c ≤ min(P_c, 256 × O_c, 4 × R_c)`. Report maxima, cut rates, additions by corpus/mode/role, and counts inside/outside the census filter and at C3 sites. Projected-read and Rust-control additions must be zero. G requires **≥100 distinct validated functions per admitted family** in the retained C3 frame. For each credit, retain one actual new W→R at a recorded read with the same binding, a feasible value-preserving execution through R and a baseline miss for that W/value at R. The §6 raters sign the source/route/value witness and the parent/head byte evidence. A stale or unknown edge earns zero. Count graph additions, reads, credited owners and review findings separately.
+- **Precision.** At I1/I2 target 100 edges and at G target 200. Freeze distinct keys `(corpus,file,owner,W-start,W-end,R-start,R-end)` and family × role strata. Take a simple random core pooled over roles in each family for its Wilson score. Allocate `min(60,N_family)` slots first, then one per non-exhausted family in lexical rotation until the overall target or population is reached. Top up each role to `min(20,N_stratum)` so rare roles have a floor. These minima may enlarge the draw. Per stage and frame initialize CPython 3.12.13 `rng = random.Random(10)` once. In lexical family order call `rng.sample(sorted(family_keys), k_family)` once per populated family, including exhaustive cores. Then in lexical (family, role) order call `rng.sample(sorted(remaining_stratum_keys), deficit)` exactly once per positive deficit. No other RNG calls or redraws. Archive keys, calls, hashes and scores. Score the two-rater witnessed fraction as in §6, counting stale and unknown as failures. Require the §6 Wilson lower endpoint ≥ .85 on the family core. If the entire family was inspected, use its exact population fraction ≥ .85. Each populated stratum across core plus top-up needs at least `max(1, n − max(1, floor(n/10)))` witnessed (18/20, 7/8). Report empty strata and inspect high fan-in separately. Apply the same rule to I1 predictions and I2/G additions. The independent review-finding frame uses the same draw with finding category in place of role.
+- **Review output.** Keep the edges visible to all graph consumers. The separate output class `review-via-element-recall` admits a gained finding, slice line or its dependent evidence only when a rerun of the same engine/input on head with the certified additions withheld recovers the parent output. Bind the gain to the contributing byte pair(s). Include the accompanying `taint_source` when it appears because a new sink was reached. Measure W-line diffs and separate upstream source-line diffs for sampled pairs, for taint with return flow off/on and the other DataFlow consumers in PLAN. A bound upstream seed without an admissible old-tree edit remains available to the other readers and counts in PLAN's Delta preimage denominator. A clean, disconnected seed is a zero control. Report `review-regrade-via-element-recall` by corpus and family when the same sink finding survives before confidence filtering, its parent evidence route remains admissible on head and its newly selected evidence crosses certified pairs. Withholding those pairs must restore the parent evidence and grade. A proven regrade counts as neither a gain nor a loss. Removed findings, unexplained changes and Exact/asserted claims depending on a weak edge fail the gate. Sample gained findings separately from edges under PLAN's review gate. Overwrites and alias mutations can produce a user-visible `warning taint_sink` for an absent value. The owner default and alternative follow below.
 
-### 5.3 Identity, overlap and flow
+Comparator semantics follow lane 11's provisional formats as a specification only; the lane implements its own script (PLAN specifies it, and the replay required if a kit is released).
 
-Identity and overlap are different relations, and every rule of this lane uses them as defined here.
+## 8. Decisions, risks and follow-ups
 
-**Definite identity.** Two paths denote the same storage for certain only when every component of both is
-static, the components are equal (JS: by the class-1 rule, so `o["x"]` equals `o.x`), the base passes its
-language's predicate below, and the alias policy finds no possible overwrite on the route. Only definite
-identity may give an `exact` edge or a kill. The predicates use only what the code answers today
-(`python_prune::stable_receivers` seeds only `self`/`cls` parameters, so "bound once" for Python is a new census
-over the existing `is_binding_occurrence`):
+| Owner decision | Default in this amendment | Cost of revisiting / latest cheap point |
+|---|---|---|
+| How much observed demand warrants a family? | Apply both lower bounds in §6, freeze before the sample. | Changing a threshold after seeing the draw needs a new decision and independent validation. |
+| Evidence strength and overwrite policy | Always weak, retain sibling contributions and use a key-blind delete barrier. | Tighter heap identity or changing an admitted loss requires new truth and a new precision sample. Decide before activation. |
+| Maximum graph growth | 1,000,000 prospective pairs, 8 sources/read, 256 edges/owner, mean ≤4 per candidate read. | A looser bound needs a new preregistered differential and cost measurement. Decide before corpus prediction. |
+| Review output through the new edges | Visible by default, with the seeded differential and precision gates in §7. | See Owner questions before activation. |
 
-| Language | The base `b` is definite when |
+Accepted losses have executable or structural IDs: element-only reads P15/Y12, dot-only sources P28/P29, same-line ambiguity Q04, unsupported indexed ancestors/paths Q05, backward/unsupported routes and closures Q06/Q07, alias/opaque effects and custom runtime objects Q08/O01/N01/N03, resource or RD refusals Q09–Q11, unmodelled targets Q12, and key-blind deletion or stale slot retention X02/P03/Q13. Calls that never return (`panic`, `os.Exit`, `sys.exit`, `process.exit`) and mutations that detach stored values (`pop`, `splice`, `length = 0`) can leave accepted stale weak edges. Q03 covers introspection and excluded operand contexts. Existing M01–M04 and P26/P30 pin independent baseline defects. The principal risks are loss of addressable C3 owners to span/binding refusals and low sample precision from stale contributions. §§6–7 measure both, including refused owners.
+
+**Follow-ups only.** Keyed paths and definitions, same-key element reads, keyed kills, dynamic-key and spelling rules, integer-key identity, literal initializers, dictionary/map methods, element paths across calls, Python/JS field-to-root recall, field extension reads, alias identity, review-taint field sensitivity, and the inherited argument/trace/path defects. C4 found 473 eligible literals later read by key in JS/TS, 20 in Python and zero in Go. It does not enter this lane's go decision.
+
+## Owner questions
+
+**A-W1 · Should review expose a new warning when the only new evidence is a weak element contribution?** The recommended default is yes, subject to §7. The reported `review-regrade-via-element-recall` class includes a surviving sink that drops to `nameonly` when the walker first visits it by the weak route. Such a sink can disappear from `--resolution scoped --min-confidence exact` output. A review of the changed store is one place an observable whole-value flow matters. The default keeps a single published graph, adds the lane's measurement reader, seeded-review driver, fixtures and a `CLAUDE.md` disclosure, and charges stale warnings against their own sample. Hiding just these edges would need durable provenance distinct from the shared `cfg_incomplete` doubt, plus filters across `src/cpg/{trace,cfg_queries,query}.rs` and the review walkers that preserve navigation's access to the same edges. That adds a shared-lane dependency, removes review recall and would require a zero-review-delta gate alongside the graph gain. Accepting unmeasured output would leave stale warnings invisible to the acceptance decision. Proceed on the visible, measured default.
+
+**A-S1 (r1) · Which Python completion evidence is admissible?** On `06157400a3be`, `src/cfg.rs::collect_loop_back_edges` can emit body-end→header and header→after. Section 4 requires the pass to derive the executed phases itself, including the loop `else` on exhaustion. That supplies graph evidence. Section 7 tests the public walk independently with its actual source inside the body.
+
+## Open questions
+
+C3 accuracy, addressable owners and actual additions/cap attrition per corpus are unmeasured. Resolve them with the independent owner audit (§6), zero-change preview and emitting differential (§7). The final integration parent, free cache version and lane 11's final format are merge-time facts. Verify the parent binary, cache pin and comparator replay before certification. No mechanism or confidence choice is reserved for a later design stage.
+
+## Review r1 disposition
+
+| ID | Disposition and location | Reason |
+|---|---|---|
+| B-W1 | Folded, §6 / PLAN M | Full-owner inventory applies all three caps before addressability credit. |
+| B-W2 | Folded, §4 / PLAN Q06 | Final header/update/exhaustion and resolved breaks can exit without body re-entry. |
+| B-W3 | Folded, §4 / PLAN Q01/Q06 | Capture-to-commit replacement invalidates the store's storage identity. |
+| B-W4 | Folded, §7 / PLAN Comparator | All node variants and directed call/return payloads have an independent zero certificate. |
+| B-W5 | Folded, §6 / PLAN M | X's module is counted in demand and excluded from the function draw. |
+| B-W6 | Folded, PLAN T | `main.rs` weighs 37 at the matrix ref and 36 at the design ref. |
+| B-S1 | Folded, §5 / PLAN I1 | Seven numerical forecasts precede the full-loader prediction. |
+| B-S2 | Folded, §7 / PLAN T/I2 | Each marker has its own observation, production verdict and marked witness. |
+| B-S3 | Folded, §§6–7 / PLAN G | Each credited function has a validated added value witness at a C3 read. |
+| B-S4 | Folded, §§1–2 / PLAN Global constraints | The corpus captures, three inherited cases and five-mode probe have distinct provenance. |
+| A-W1 | Folded, §§2, 7 / Owner questions / PLAN Comparator | A seeded review can gain a warning through W. Visibility is the measured owner default. |
+| A-S1 | Folded, §4 / PLAN Q06 | Loop tests distinguish exits and re-entry in every family. Owner questions qualifies the Python CFG detail. |
+| A-S2 | Folded, §5 / PLAN M/I1 | The observed tail sizes the read cut. Per-cut losses are reconciled before emission. |
+| A-S3 | Folded, §§5, 7 / PLAN Comparator | The forecast has baseline denominators and the independent inventory has a disagreement gate. |
+| A-S4 | Folded, §§6–7 / PLAN I1/G | Score stale candidates early and inspect 20 per stratum or its entire population. |
+| A-S5 | Folded, §6 / PLAN M | The draw, count thresholds, independent ratings and unknown rule are reproducible. |
+| A-S6 | Folded, PLAN E/D | r1 allowed a bounded E correction within the then-remaining round. E has since closed. |
+| A-S7 | Folded, PLAN Text for the controller | Three §11 replacement rows release the retired lane-10 dependencies. |
+| A-S8 | Folded, §4 / PLAN Q06 | A compound write to the root/prefix is a replacement barrier. |
+| A-S9 | Folded, §4 / PLAN Q13 | Deletes remove contents. Keeping sibling stores preserves a measured recall opportunity. |
+| A-S10 | Folded, §§1–2 / PLAN Global constraints/T | Sizes and evidence are pinned to reachable refs and future receipts are identified. |
+| A-S11 | Folded, PLAN I | Inventory and feasibility are two checkpoints of one diagnostics PR. |
+
+## Review r2 disposition
+
+| ID | Settlement |
 |---|---|
-| Python | `b` is in `python_prune::stable_receivers(owner)`; or `b` has exactly one occurrence for which `python_prune::is_binding_occurrence` holds in the owner subtree (nested callables, comprehensions and class bodies included; `global`, `nonlocal`, `del`, `for`, `with`, `except .. as`, walrus, pattern and import forms all count), and that occurrence is a parameter of the owner or the sole target of a plain `=` statement that is not inside a loop or comprehension |
-| JavaScript, TypeScript | `b` is in `js_prune::stable_bases(owner)` (`this`, or bound exactly once as an own formal or an initialised declarator in owner scope and never written, nested callables included), and the write is eligible by the rule of `src/cpg/reaching/affects_writers.rs` (not inside a nested callable or instance field initializer, `this` not rebound, base not a catch parameter or a block-level function or class declaration); owners the refusal classes refuse (`eval`, mapped `arguments`, `with`, escaped spellings) keep those labels |
-| Go | the def's declaration (`BindingFacts::binding_of_def`) and the `BindingFacts::binding_at` answer of every use-line occurrence of `b` are one explicit declaration of the owner itself (no flat fallback, package-level or captured binding, no `unclassified_binding_lines` for the name); the owner holds no other plain write of `b` (`scope_prune::is_plain_write_site` over its occurrences); `b` is not in `scope_prune::address_taken_names` (`&b`, `b[:]`) |
+| B-W1 | §7 / PLAN T, Q06. An in-body marker can have present truth, a weak edge and `NotReached` at a public CFG stop. |
+| B-W2 | §4 / PLAN Q06 completion. Recursive syntax completion visits every mandatory phase on a surviving arm. |
+| B-W3 | §4 / PLAN Q01, Q13. Capture-to-commit checks include links holding an indexed child. |
+| B-W4 | §7 / PLAN Comparator. Full typed edge bags expose an Exact redirect between otherwise identical Uses in different owners. |
+| B-W5 | PLAN Global constraints. The proposal branch starts at r1. Historical size comparisons retain r0. |
+| B-S1 | §5 / PLAN I2. An in-place edit lowers the maximum on PartialHit. Deletion requires Miss. |
+| B-S2 | §7 / PLAN T, Q02. Exact-only alternate search uses production transition rules and tests a suppressed shortcut. |
+| B-S3 | PLAN Global constraints, I0/I1. Diagnostics have an opt-in record-conformance gate. I2 owns the public behavioural RED. |
+| B-S4 | §5. The historical forecast identifies the pattern-leaf and update matches before product admission. |
+| A-S1 | §§4, 6 / PLAN Q06, M/I1. Refuse re-entry into a body enclosing W and publish the lost reads and owners. |
+| A-S2 | §7. Pooled family precision and a role floor allow one stale edge among eight. |
+| A-S3 | §5. Both forecast inputs have full SHA-256 digests. |
+| A-S4 | §7 / PLAN Comparator. The aggregate minimum drops the dominated term. The eight-source read cap still applies. |
+| A-S5 | Change log / PLAN E and D. D supplies the delta disposition, verdict and docs PR against named refs after E closure. |
+| A-S6 | §7. Seed, sorted frames, allocation and ordered sample calls fix both precision draws. |
+| A-S7 | §7 / PLAN Seeded review differential. Each sampled pair records its upstream source-line seed or its explicit coverage loss. |
 
-Alias policy (tentative default C; stage D chooses on census C6). No existing predicate reports that a base has
-an alias (review r2 batch 6: JS `let u; u = o`, `c ? o : p`, member-value aliases and Python `e = d or {}`,
-`e = (d)`, `e, f = d, 1` all leave the real def's edge `exact`).
-- **C (default).** An alias-derived definition (an alias-map twin, `push_rd_def(.., true)` in
-  `src/data_flow/build/file.rs`) whose resolved path is identical to or may overlap the def's path is a possible
-  overwrite: an edge whose every route crosses one is not `exact`. JS certified aliases keep `alias_unstable`
-  (`alias_cert.rs`). Covers plain `e = d` in all three languages at no cost; every alias form the alias map does
-  not see (conditional, boolean, parenthesised, tuple, destructuring, loop and `with` targets, stored containers,
-  sub-container aliases, Go struct copies) is out of model with a row (5.7).
-- **A.** An escape census: `b` has no bare occurrence other than its binding and as the object of a subscript,
-  attribute or method call (the shape of the C/C++ rule E3); flow-insensitive, so `return d` or `log(d)` after
-  the read costs the `exact`.
-- **B.** In-function aliasing out of model as for dot fields (paths are names, not objects): the base predicate
-  alone; N01 and its relatives become pinned accepted losses.
-Rows whose expected label depends on the policy carry it per policy; the alias-form enumeration runs after the
-choice (under B or C the forms are pinned losses, under A requirements).
+## Review r3 disposition
 
-**Possible overlap.** Everything else that may be the same storage: a dynamic component anywhere in either
-path (`d[i]["a"]` and `d[j]["a"]` included, though their spellings are equal), or an unproven base. A possible
-overlap gives an edge; the edge is not `exact`, and it kills nothing. An edge whose route crosses a possible
-overwrite (a write with possible overlap with the def's path) is not `exact` either, when every route from the
-def to the use crosses one (a route that avoids all of them keeps its label, as for the JS alias may-kill of
-#783, `src/cpg/reaching/alias_kill.rs`). Two different static components at the same position never overlap.
+- **sol-N1** — PLAN, Seeded review differential. Every bound upstream seed has a Delta eligibility result and both coverage controls are required.
+- **A-N1** — §7, Owner questions and PLAN, Seeded review differential. Report proven same-sink regrades by corpus and family.
+- **A-N2** — §4 and PLAN Q06. The compound table names the supported exits and charges unsupported completion to attrition.
+- **A-N3** — PLAN Q06 post-commit. The JS comma and short-circuit row checks the remaining events in W's statement.
+- **sol-r4-W1** — §4 loop table (JS `for-in` row) and PLAN Q06 loops. A `for-in` head initializer (Annex B) is unsupported and charged to `completion_unproven`; one row pins the empty-loop case. This is the reviewer's own alternative; the other option was to model the phase.
+- **A-N4** — §8. The accepted stale-edge losses include termination and detaching mutators.
 
-| From | Reaches | Label |
-|---|---|---|
-| a definition of a lane-built path `p` | uses of `p`; by the extension rule, every admitted read occurrence of a path that extends `p` | `exact` only under definite identity and no crossed possible overwrite; otherwise the overlap label |
-| a definition and a use in possible overlap (a dynamic component on either side, an unproven base) | the use | never `exact`: `NameOnly` with the existing alias-unstable doubt, or a new doubt kind fixed at stage D |
-| a dynamic-only write (no static key, path `x.[]`) | admitted keyed reads of the same base binding whose components before the dynamic position are equal, at the same depth; dot fields only if stage D item 6 admits them with a count | never `exact` |
-| a definition of an element path | a later whole-container value read (`sink(d)`) | only if the census justifies the slice (section 6 and the paragraph below) |
-
-**Extension rule.** A lane-built definition of `p` gets an edge to every admitted read occurrence `q` in the
-owner where `p` is a strict static prefix of `q` (a later line or one loop, the same base binding), bound at
-`q`'s own bytes (`d["u"] = v; f(d["u"].n)`, `x = d["u"]["n"]`, `return d["u"].n`, `d["u"].get("n")`, a
-literal leaf `{slot: d["u"].n}`); the label is the first row's. A definite write of any path `r` with `p` a
-prefix of `r` and `r` a prefix of `q` on every route kills it. It is built from the per-owner occurrence table
-(PLAN S3), never through a zero-width anchor of the inner path: main's dot machinery ends such reads at a line
-anchor and loses the call boundary (section 2), and keyed paths must not inherit that loss.
-
-Each admitted (read path, byte span) is its own candidate: two reads on one line, one matching exactly and one
-by overlap, give two edges, deduplicated and labelled per edge pair. A dynamic subscript read gets a real use
-only where a lane-built definition of the same base needs one (`d["a"] = t; f(d["a"], d[k])`); pure
-dynamic-only code keeps today's nodes. No edge into a lane-registered dynamic read is `exact`, whatever its
-source: an existing dynamic-only definition (`d[i] = v`, `d.[]`) that meets such a read by path equality is
-labelled with the overlap label, so main's known-wrong dynamic `exact` (M01) is not widened. A dynamic-only
-write is a source only as the third row says, and only in an owner where its base has a lane-built occurrence;
-everywhere else it keeps today's node and edges. Whether `d[i] = t; sink(d[j])` (no static key on either side)
-becomes a promised may-flow or stays an accepted miss is a stage D item.
-
-Whole-container reads (conditional slice). A consumer is a maximal value operand: an argument, a return
-value, the right side of an assignment of the whole container or of an enclosing subcontainer
-(`sink(d["u"])` after `d["u"]["n"] = t`). Evaluating a receiver, computing a key, membership, length,
-identity, a method call and a nested projection are not consumers (the Go pass excludes the indexed storage
-operand in the same way, `go_aggregate.rs`). The source contribution is killed by a write of its path or a
-prefix, by a delete, and by a root rebinding; a descendant write weakens it. Whether JS identifier-key writes
-(recorded as fields, `o["a"] = t`) are sources, which would also admit the deferred `o.a = t; sink(o)` lane, is
-a stage D item.
-
-### 5.4 Kills
-
-Two predicates replace the one `affects` relation where kills are decided: **replaces(w, d)**, a write that
-definitely overwrites `d` (`w`'s path is `d`'s path or a static prefix of it, under definite identity; a root
-or field prefix counts: `d = {}` or `obj.items = …` kills `d.["a"]`, `obj.items.["a"]`), and **may_overlap(w, d)**
-(section 5.3). A kill uses `replaces`. Consumers that test interference rather than overwrite (JS D3 order,
-D2-c captured writes, the refusal classes, alias-kill refinement, the census trace: `d3.rs`, `d2c.rs`,
-`refusal_classes.rs`, `alias_kill.rs`, `census_defs.rs`) use `may_overlap`, which differs from today's
-wildcard `affects` only by excluding two different static keys at one position. Pinned behaviour that must
-hold: `o.x = 1; o["x"] = 2; sink(o.x)` still kills (o27); a computed `o[k]++` still defeats `exact` (o28), as a
-crossed possible overwrite rather than a kill, a named change of label. For JavaScript this narrows the earlier
-wildcard decision for static keys and is listed for review as such.
-
-For dynamic-only chains outside the lane's builder (no static key anywhere), main's equality kill and label
-stay (`d[i] = ..` kills an earlier `d[j]` definition, and the dynamic-only `exact` of section 2 stays a pinned
-known-wrong row): changing them is not this lane's work.
-
-### 5.5 Initialisers (conditional slice)
-
-A dictionary, map or object literal with static keys defines the keyed (or field) paths of its entries. An
-entry is eligible only when its key, its whole value and nothing else of the literal share one line, the
-literal's opening line holds no entry, and the key passes the key rule; no spread, computed key, method or
-accessor. The entry definition takes its input from its value expression's span (the assignment hook sees
-the target, so the initializer is located explicitly). Duplicate keys: the last entry wins. Whether the
-container's own definition and its existing edges stay (they keep a base-to-sibling path on mixed layouts) is
-a stage D item. The trace engine also carries taint from a use to every definition on the same line, so for a
-literal written on one line the false positive survives in `taint-reaches` whatever the definitions are; that
-propagation lives in a file other work owns (PR #841, lane 8), and this lane reports the case instead of
-changing it.
-
-### 5.6 Where the code goes
-
-One new module builds paths from nodes (`src/ast/subscript_paths.rs`, with per-language key rules). Before any
-behaviour changes, every producer of a path spelling and every consumer that looks one up is routed through one
-path function at the expression's bytes that still returns today's text path (a zero-difference seam): the
-lvalue and rvalue extractors (both `assignment_lvalue_paths_on_lines` and `assignment_lvalue_spans_on_lines`),
-the member reference index and its oracle, Step 5b argument binding (three positions), the object-literal
-binder's read chain (`object_literal_args.rs`, lane 3's file: one lookup, coordinated with lane 3), Step 5c and
-its reference, capture identities and capture-region placement, and alias resolution. The behaviour slices then
-change that one function and the label rule. A consumer left on text is kept only with a test that proves its
-endpoint unaffected: the trace seeds compare an argument's base; the JS `for` initializer replay check spells
-every bracket `[]` from syntax and stays a conservative hazard; member-only formal projection
-(`member_projection.rs`) stays on text, because moving it would turn a formal read only as `p["x"]` from mixed
-into member-only and move cross-file binding edges (row M04); the lexical prune rules U, D, S and O compare
-writes by recorded path and stay conservative (a pin test each). No slice loses an existing `exact` edge without
-listing it as a named change class.
-Each slice that changes stored paths bumps the cache version and updates the pinned spellings it touches,
-listed in the PR.
-
-### 5.7 Out of model
-
-What `CLAUDE.md` already puts out of model for `Exact` and for field paths in that language stays out for
-keyed paths, each with a matrix row that pins the answer the contract gives (a wrong `exact` or a miss,
-accepted and listed):
-
-| Case | Contract it follows | Row |
-|---|---|---|
-| A callee mutates its argument (`mutate(d)` between write and read) | "a call that mutates the alias or another holder is out of model as for `Exact`" | O01 |
-| Python `__setitem__`/`__getitem__`/`__delitem__` overrides, `dict` subclasses that redirect keys, ORM rows and data frames | Python: properties, descriptors and `__setattr__`/`__getattr__` are out of model | O02 |
-| JS getters, setters, Proxies, array `length` truncation, inherited accessors; `__proto__` gets no static component (section 5.1) | JS field rules: getters, setters, Proxies and runtime mutation are out of model | O03 |
-| Two distinct static paths naming one child (`d = {"a": v, "b": v}; d["a"]["x"] = t; sink(d["b"]["x"])`), a Go struct copy holding a shared map | field paths are compared as fixed storage (Go design §2.2) | O04 (a missed flow, never a wrong `exact`) |
-| Alias forms the stage-D alias policy does not see (5.3), each with its policy-dependent answer | as dot fields today (section 2) | O05 onward, after the policy |
-
-Where a review fixture shows a wrong `exact` that the language's dot-field rules refuse (the JS certified
-alias gives `alias_unstable`), keyed paths refuse too. Where the dot-field rules do not refuse (section 2),
-keyed paths still need definite identity and the dot-field defect is filed.
-
-## 6. The census (stage M)
-
-On two Python corpora, Excalidraw, the TypeScript sources and two Go corpora, from Prism's own parser on the
-current build (no product change). Counts are of feasible pairs. A write W and a read R of the same full base
-chain (identifiers, dot members and every subscript before the one compared; JS dot reads count for
-identifier keys, `o["x"] = t; sink(o.x)`) form a pair only when R follows W in execution order or both sit in
-one loop, W and R are not in mutually exclusive arms (`if`/`elif`/`else`, `switch` cases, `try`/`except` arms),
-no unconditional `return`/`raise`/`throw`/`break`/`continue` and no rebinding of the base or definite overwrite
-of W's path lies between them on the straight-line part of the route, and both bind the same declaration where
-the language records one.
-
-| Id | Count | Decides |
-|---|---|---|
-| C1 | per language, owners with a feasible W→R pair, by key relation (same literal key, different literal keys, either side dynamic; JS dot write → identifier-key bracket read, `o.x = t; sink(o["x"])`, counted as same key); for the dynamic class also the predicted pairs per owner; for JS also the different-key kills (a static-key write of another key on the route of a same-key pair) | per language: the go of the keyed slices, of JS's kill narrowing and of the dynamic-key slice |
-| C2 | subscript reads and writes by index kind (string literal, identifier-like or not, integer, variable, other), role and language, over every grammar node kind that can hold a subscript (enumerated from the pinned grammars' node types; an unmatched kind is counted as `unknown`) | which keys become keyed components |
-| C3 | owners where an element write is followed feasibly by a whole-container value read (section 5.3 consumer roles) | the container-read slice |
-| C4 | eligible static-key literals (section 5.5 layout) whose name is later read feasibly by one of their keys | the initialiser slice |
-| C6 | per same-key feasible pair, whether its base passes the language predicate of 5.3, and whether it then also passes alias policy C, policy A; the `exact` yield under C, A and B | the alias policy (stage D) |
-| C7 | every existing DataFlow edge of the base build with `[]` in either endpoint's path, joined by bytes to the census's subscript records and classified by the paths it will have: equal, prefix → extension, different static key or tail, static ↔ dynamic, refused chain, dynamic-only (unchanged) | the predicted population of each PLAN S3 change class |
-
-Each count is validated in both directions on a labelled sample (sites the scan reports, and every subscript
-node of sampled files, so an omitted grammar class shows up) and carries a golden fixture with exact per-owner
-counts. Go or no-go (defaults), **per language** (Python: the two Python corpora; JS/TS: Excalidraw and the
-TypeScript sources; Go: the two Go corpora), each count scaled by the lower 95% bound of the sample's pair
-precision: a language's keyed slices run when C1 finds at least 150 same-key feasible-pair owners in it; JS's
-kill narrowing (PLAN S4) when JS passes and C1 finds at least 50 JS owners with a different-key kill; the
-dynamic-key slice in a passing language when C1's either-side-dynamic pairs there are at most its same-key pairs
-and the 99th percentile of predicted pairs per owner is at most 50 (its differential then bounds the edges it
-adds, section 7); the container-read slice when C3 finds at least 300, the initialiser slice when C4 finds at
-least 300 (both over the passing languages). A language below its threshold gets the shared path builder and
-seam and nothing else: its slices are dropped and the count is stated. When no language passes, the lane stops
-and reports. The dead-write count (per concrete subscript write, by bytes, whether its definition has an
-outgoing edge) and the benchmark leg decide nothing at this stage and run at stage G on the base and head
-builds.
-
-## 7. Truth and gates
-
-**Executed truth.** Each matrix row is a small program in Python, JavaScript or Go that marks one value and
-records at its one sink call whether the marked value arrived; it is run to get the row's truth (`reaches` or
-`does not`). Required behaviour is checked on paths: for `reaches`, a route exists from the marked definition
-through the row's write W to the sink's use; for `does not`, the row's `expect` decides: `no_exact_route` (no
-route made only of `exact` edges, DataFlow edges, argument edges and the same-line use-to-definition transfers
-the trace engine applies, leads from the marked definition to the sink's use; overwrite rows, whose killed edge
-the engine follows) or `no_route` (no route at all; rows whose write and read name different static keys). A row
-whose sink use cannot be resolved at the sink argument's bytes fails, whatever its truth. Each `control` row also
-pins the base build's `taint-reaches` verdict, which may change only under a named class.
-
-**Spelling pairs.** Per language, a table of key spellings (quote styles, string prefixes, raw and interpreted
-literals, escapes, concatenation, templates, non-ASCII, `$`, reserved words, `__proto__`, numeric strings,
-integers); the truth runner executes `c[s1] = 1; c[s2]` (JS also `c.s2` for an identifier spelling) for every
-ordered pair and records same key or not. A unit test requires that the builder's components for `s1` and `s2`
-are equal exactly when the runtime says same key, or that one side is dynamic. This closes the class "two static
-spellings of one runtime key" without hand-written rows.
-
-**Containment** (ORCHESTRATION 3). A case file imports nothing (Python `import`/`from`, JS `import`/`require`, a
-Go `import` block are refused) and names none of: Python `open`, `exec`, `eval`, `compile`, `__import__`,
-`__builtins__`, `breakpoint`, `input`; JS `process`, `globalThis`, `fetch`, `eval`, `Function`, `import(`;
-the preludes import a pinned set (Python none, JS none, Go `fmt`, `reflect`, `strings`). Each row runs in a fresh
-temporary working directory with the environment cleared to `PATH` and a temporary `HOME`, under a 10 s timeout.
-The runner checks every case and the preludes' import sets at launch and refuses to run when a check fails; the
-orchestrator reads each new fixture before its first run.
-
-| Gate | Threshold (default) |
-|---|---|
-| Matrix | every row agrees with its executed truth under its `expect`, or is a named accepted loss or a pinned known-wrong row; `control` verdicts unchanged except under a named class |
-| Differential | per slice, against the previous slice's binary (attribution: only its own classes of change, each with a mechanical predicate; edges a class covers are counted, edges no class covers fail) and against the stage-M binary (cumulative impact, intervening main changes isolated); each gate names its comparison |
-| No flood | edges added or relabelled between two occurrences whose full component sequences differ at a static position: zero. Endpoints are joined to occurrences by bytes, and keys compared by identity, never by line; JS `o["x"]` and `o.x` are one path. `orphan-anchor` (from the reads slice on): a zero-width use, new against the parent build, whose path is lane-built or whose line holds a static-key occurrence of that path: zero (it is the signature of a wrong edge or a read the walkers missed). Dynamic-key slice: added `dynamic-edge` count at most 1.5 times the census prediction per corpus and no owner over the per-owner cap |
-| Sample | per slice that adds or relabels edges, before merge: 100 of its own edges (all if fewer), stratified by rule, language, label and fan-out; per stratum: `exact`, the value arrives on some execution; overlap, some execution makes the keys equal and no definite overwrite of the read's key lies on every route; at least 95% per stratum, denominators and unknowns reported. Stage G: 200 over the cumulative change, same criteria |
-| Engines | `taint-reaches` reaches every row whose truth is `reaches`; for a `does not` row no `exact`-only route exists as defined above (the engine follows killed edges, so a verdict alone cannot be required); review taint's verdicts are recorded for the same rows and are not required to change |
-| Spellings | every changed fixture row and golden file is listed in the PR; paths of code without static-key subscripts are byte-identical, checked on the node inventory, not only the edge dump |
-
-The Differential and No flood gates are measured with lane 11's comparator: lane 10 adopts the measurement
-kit's comparator (owner, 2026-11-24), and until it has merged the lane uses its own differential script,
-migrating when a bound replay of its baseline agrees (lane 11 DESIGN section 6, G-adopt). The formats to
-write the classifier against are in `lane11-measurement-kit/FORMATS-PROVISIONAL.md` until lane 11's stage D
-writes `FORMATS.md`.
-
-## 8. Follow-ups, not started by this lane
-
-Dictionary and map methods as keyed reads and writes; integer indices; element paths across calls;
-field-write to whole-object reads for Python and JavaScript (the dot-field half of the same gap);
-prefix-definition to extension-read edges for dot fields (`o.a = v; f(o.a.x)`, section 2); field sensitivity in
-review taint; the main defects of section 2.
-
-## 9. Owner decisions
-
-| # | Question | Default applied | Cost of changing later | Latest cheap point |
-|---|---|---|---|---|
-| 1 | Census thresholds, per language, and the dynamic-key slice's edge bound | section 6, section 7 | none | at the census |
-| 2 | JavaScript: identifier-like string keys unify with dot fields | yes | keeping them apart leaves `o["x"]` and `o.x` unconnected | stage D |
-| 3 | Narrowing the JavaScript wildcard kill rule for static keys | yes, with the earlier decision's tests updated and listed | — | stage D |
-| 4 | Label of flows that involve a dynamic key | not `exact` | — | stage D |
-| 5 | Review taint | unchanged; its verdicts are only recorded | a separate lane | — |
-
-## 10. Risks and accepted limits
-
-- **This lane changes path identity**, which many proofs and pinned fixtures read. Slices are ordered so the
-  first two are behaviour-preserving (the path builder, used only by a trace; the seam), the reads slice adds
-  nearly isolated nodes, and every later slice lists the spellings it changes.
-- **Definite identity costs `exact` labels.** A container whose base is rebound, bound in a loop or aliased
-  gets non-`exact` keyed edges even where dot fields of the same object are `exact` today; C6 measures the cost
-  per alias policy before stage D chooses.
-- **The JavaScript interim (PLAN S3 to S4)** keeps a kill-only `o.[]` definition beside each recorded static-key
-  definition, so an owner reaches the completed-definition cap (2,048, owner-wide `cfg_incomplete`) sooner; the
-  PLAN S3 differential names the class.
-- **Dynamic keys dominate some code.** There the lane adds non-`exact` edges and no precision.
-- **The verdict of review taint may not move**, because it does not use field paths. The benefit is in
-  `taint-reaches`, slices, navigation and labels; the engines gate says so explicitly.
-- **Recorded, not pursued:** a separate nav call-edge cache version bump (needed only for a nav contract
-  change, review finding 18); re-blessing goldens wholesale (each changed assertion is named instead); decoding
-  Unicode identifier classes so `o["é"]` unifies with `o.é` (review r2 W3 alternative: a table to maintain, and
-  the dot side would have to decode escapes too); the 120-diff leg of the old census C5 (it decided nothing).
+**2026-11-25 · r3 change log.** Opus approved r2 (`d9dcf6a55`) and sol rejected it. The owner allowed this closed fold as material findings fell from four to one. Sol’s delta confirmation found one narrow completion case (Annex B `for-in` head initializer) and it was charged to `completion_unproven` (the reviewer's own alternative); a short sol confirmation of that hunk is pending.
