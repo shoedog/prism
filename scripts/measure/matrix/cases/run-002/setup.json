@@ -1,0 +1,22 @@
+{
+  "command": "run",
+  "corpus": {
+    "git": true,
+    "pin": "initial-commit",
+    "tracked": {
+      "a.ts": "export const x = 1;\n"
+    },
+    "untracked": {},
+    "tracked_ignore": null,
+    "ignored": {}
+  },
+  "fake_binary": {
+    "version": "9d1a7d06f653",
+    "commands_exit": 0,
+    "mutate": {
+      "command": "edges",
+      "file": "a.ts",
+      "contents": "export const x = 2;\n"
+    }
+  }
+}

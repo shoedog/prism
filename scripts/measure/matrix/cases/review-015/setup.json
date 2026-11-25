@@ -1,0 +1,9 @@
+{
+  "population": {
+    "ordinals": 120,
+    "content_fields_absent": [
+      "files",
+      "diff_lines"
+    ]
+  }
+}

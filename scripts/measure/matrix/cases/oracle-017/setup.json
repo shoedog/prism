@@ -1,0 +1,7 @@
+{
+  "checker": {
+    "version": "5.9.3",
+    "contents": "module.exports = {version: '5.9.3'};\n"
+  },
+  "passing_selfcheck_for_pinned_checker": true
+}
