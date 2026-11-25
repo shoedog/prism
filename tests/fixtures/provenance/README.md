@@ -48,3 +48,17 @@ The seed families are `pred` (predecessors), `occ` (occurrence roles), `pos`
 position), `decoy` (source-like spellings), `scoping` (lexical scope), `hops`
 (handle transitions and helpers), `unproven` (unproven bindings), `join` (origin
 joins), `pattern` (pattern languages and parser edges), and `origin` (sources).
+
+## Notes
+
+- `control` rows pass on the base build and must stay green; a row that already passes on base with `want == truth` and no
+  `tentative` flag is a control.
+- `tentative` rows state the behaviour the design describes before stage D; `want` may differ from `truth` only on a
+  `tentative` row or one with `accepted_loss`. The test checks every row's invariants (same sites in `want` and `truth`,
+  fixtures present, lines in range, the tentative rule) whether or not its group is enabled.
+- A listed variable with origin `none` and an omitted variable are equivalent for the runner; rows list a token as `none`
+  only when the token is the point of the row (a callee, module or member name that must not be reported).
+- Improvements on `accepted_loss` rows print `provenance-matrix IMPROVEMENT ...` (visible with `-- --nocapture`);
+  `PROVENANCE_MATRIX_STRICT=1` makes them fail the test.
+- Rows that parse sibling repository files are run through `slice(&ctx, &diff)` without a repository root until slice S2
+  adds `slice_in_repo`.

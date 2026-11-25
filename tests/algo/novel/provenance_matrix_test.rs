@@ -19,6 +19,8 @@ struct Row {
     exact_lines: BTreeMap<String, BTreeSet<usize>>,
     truth: Vec<Expectation>,
     accepted_loss: Option<String>,
+    #[serde(default)]
+    tentative: bool,
 }
 
 #[derive(Deserialize)]
@@ -33,6 +35,61 @@ type Site<'a> = (&'a str, usize, &'a str);
 type Findings<'a> = BTreeMap<Site<'a>, Vec<&'a str>>;
 
 impl Row {
+    /// Invariants of the row itself, checked for every row whether or not its group is enabled.
+    fn validate(&self) -> Result<()> {
+        let sites = |entries: &[Expectation]| {
+            entries
+                .iter()
+                .map(|e| (e.file.clone(), e.line, e.var.clone()))
+                .collect::<BTreeSet<_>>()
+        };
+        ensure!(
+            sites(&self.want) == sites(&self.truth),
+            "want and truth must list the same sites"
+        );
+        let same = |a: &[Expectation], b: &[Expectation]| {
+            let key = |e: &Expectation| (e.file.clone(), e.line, e.var.clone(), e.origin.clone());
+            a.iter().map(key).collect::<BTreeSet<_>>() == b.iter().map(key).collect::<BTreeSet<_>>()
+        };
+        ensure!(
+            same(&self.want, &self.truth) || self.tentative || self.accepted_loss.is_some(),
+            "want differs from truth: the row must be tentative or carry accepted_loss"
+        );
+        let primary = self.files.first().context("no fixture files")?;
+        ensure!(
+            self.diff.contains_key(primary),
+            "first fixture file must be in diff"
+        );
+        let lang = Path::new(primary)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .context("first fixture file has no language extension")?;
+        let row_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/provenance/cases")
+            .join(lang)
+            .join(&self.id);
+        for (file, lines) in &self.diff {
+            ensure!(self.files.contains(file), "undeclared diff file {file}");
+            let source = std::fs::read_to_string(row_dir.join(file))
+                .with_context(|| format!("missing fixture {file}"))?;
+            let line_count = source.lines().count();
+            ensure!(
+                !lines.is_empty() && lines.iter().all(|line| (1..=line_count).contains(line)),
+                "invalid diff lines for {file}"
+            );
+        }
+        for entry in self.want.iter().chain(&self.truth) {
+            ensure!(
+                self.diff
+                    .get(&entry.file)
+                    .is_some_and(|lines| lines.contains(&entry.line)),
+                "expectation outside diff for {}",
+                entry.var
+            );
+        }
+        Ok(())
+    }
+
     fn check(&self) -> Result<()> {
         let primary = self.files.first().context("no fixture files")?;
         ensure!(
@@ -104,6 +161,11 @@ impl Row {
                     "provenance-matrix IMPROVEMENT [{}] {}: {reason}",
                     self.group, self.id
                 );
+                // Stage D adjudicates improvements; set PROVENANCE_MATRIX_STRICT=1 to fail on one.
+                ensure!(
+                    std::env::var_os("PROVENANCE_MATRIX_STRICT").is_none(),
+                    "improvement on an accepted-loss row (strict mode): {reason}"
+                );
             }
         }
         if !errors.is_empty() {
@@ -167,6 +229,13 @@ fn test_provenance_matrix_rows() {
             row.id,
             row.group
         );
+        if let Err(error) = row.validate() {
+            failures.push(format!(
+                "provenance-matrix INVALID [{}] {}: {error:#}",
+                row.group, row.id
+            ));
+            continue;
+        }
         if !ENABLED_GROUPS.contains(&row.group.as_str()) {
             continue;
         }
