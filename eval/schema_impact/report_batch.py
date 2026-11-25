@@ -1,4 +1,4 @@
-"""Render the public report set and the separate replay companions under a measurement slot."""
+"""Render impact reports and their separate replay companions."""
 
 import argparse
 from datetime import datetime, timezone
@@ -7,9 +7,10 @@ import json
 import re
 from pathlib import Path
 
-from ._replay_git import changed_files, git, parent, revision
+from ._replay_git import History, changed_files, git, parent, revision
+from .replay import DEFAULT_SCHEMA
 from .report_analysis import build_document
-from .report_evaluation import join_evaluation, render_evaluation
+from .report_evaluation import join_evaluation, render_evaluation, replay_counterpart
 from .report_inputs import ReportRequest, build_inputs
 from .report_layout import label
 from .report_markdown import render_json, render_markdown
@@ -24,6 +25,23 @@ def _live(out, name, document):
     (out / f"{name}.md").write_text(render_markdown(document), encoding="utf-8")
     _write_json(out, name, document)
     print(f"Rendered {name}.md", flush=True)
+
+
+def _read_live(out, name):
+    with gzip.open(out / f"{name}.json.gz", "rt", encoding="utf-8") as stream:
+        return json.load(stream)
+
+
+def _companion(out, name, index, document, *, assessed=False):
+    suffix = f"{name}.evaluation"
+    (out / f"{suffix}.md").write_text(render_evaluation(document), encoding="utf-8")
+    _write_json(out, suffix, document)
+    subject = document["subject_metadata"]
+    description = f"{subject['committed_at'][:10]} · {label(subject['subject'])} · Service replay"
+    evidence = "Tracked source edits and the study’s recorded assessments." if assessed else "Tracked source edits."
+    index.append(f"- [{suffix}.md]({suffix}.md) · {description} · {evidence}")
+    index.append(f"- [{suffix}.json.gz]({suffix}.json.gz) · {description} · Source lines and comparisons used by the study.")
+    print(f"Rendered {suffix}.md with {len(document['rows'])} tracked request and element pairs", flush=True)
 
 
 def _subject_index(path):
@@ -99,31 +117,50 @@ def _look(document):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
-    parser.add_argument("--pin", required=True)
+    parser.add_argument("--pin", required=True, help="Replay end revision, in the counterpart repository when supplied")
     parser.add_argument("--subjects", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--configs", type=Path, default=Path(__file__).parent / "configs")
     parser.add_argument("--root", default="ui/src")
-    parser.add_argument("--schema", default="docs/swagger.json")
-    parser.add_argument("--source-url", default="https://github.com/apache/answer")
+    parser.add_argument("--schema")
+    parser.add_argument("--route-spec", type=Path)
+    parser.add_argument("--service-root", default=".")
+    parser.add_argument("--source-url")
+    parser.add_argument("--counterpart-repo", type=Path)
+    parser.add_argument("--counterpart-rev")
+    parser.add_argument("--counterpart-source-url")
+    parser.add_argument("--selection-time")
     args = parser.parse_args(argv)
     args.repo = args.repo.resolve()
+    if args.counterpart_repo is None and (args.counterpart_rev is not None or args.counterpart_source_url is not None):
+        parser.error("--counterpart-rev and --counterpart-source-url require --counterpart-repo")
+    if args.counterpart_repo is not None:
+        args.counterpart_repo = args.counterpart_repo.resolve()
+    elif args.source_url is None:
+        args.source_url = "https://github.com/apache/answer"
+    args.schema = args.schema or (None if args.counterpart_repo and args.route_spec else DEFAULT_SCHEMA)
     out = args.out_dir
     out.mkdir(parents=True, exist_ok=True)
-    pin = revision(args.repo, args.pin)
-    before_time = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    pin = revision(args.repo, args.pin) if args.counterpart_repo is None else None
+    before_time = args.selection_time
+    if args.counterpart_repo is None and before_time is None:
+        before_time = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     def make(commit, role):
         return build_document(build_inputs(ReportRequest(
             args.repo, commit, role, args.configs, args.root, args.schema, selection_time=before_time,
-            source_url=args.source_url,
+            source_url=args.source_url, service_root=args.service_root, route_spec=args.route_spec,
+            counterpart_repo=args.counterpart_repo, counterpart_rev=args.counterpart_rev,
+            counterpart_source_url=args.counterpart_source_url,
         )))
 
     subjects = [(number, revision(args.repo, subject)) for number, subject in _subject_index(args.subjects)]
-    live, index = {}, ["# Public impact reports", "",
-                       "Client subjects are the two most recent first-parent commits with only UI paths changed, "
-                       "an added request expression in the services diff, and a readable after request matching "
-                       "a service declaration or listed among the closest declarations read.", ""]
+    live, index = {}, ["# Impact reports", ""]
+    if args.counterpart_repo is None:
+        index = ["# Public impact reports", "",
+                 "Client subjects are the two most recent first-parent commits with only UI paths changed, "
+                 "an added request expression in the services diff, and a readable after request matching "
+                 "a service declaration or listed among the closest declarations read.", ""]
     for number, commit in subjects:
         name = f"{number}-{commit[:8]}"
         doc = make(commit, "producer")
@@ -134,6 +171,19 @@ def main(argv=None):
         index.append(f"- [{name}.md]({name}.md) · {description} · {_look(doc)}")
         index.append(f"- [{name}.json.gz]({name}.json.gz) · {description} · Snapshot and match evidence.")
         live[commit] = name
+
+    if args.counterpart_repo is not None:
+        # Open the replay end and later history only after writing the live reports.
+        history = History(args.counterpart_repo, args.pin)
+        end = history.detail(history.pin)
+        observation_end = {"rev": end.commit, "committed_at": end.date, "subject": end.subject,
+                           "repo": args.counterpart_repo.name}
+        for name in live.values():
+            doc = _read_live(out, name)
+            companion = join_evaluation(doc, replay_counterpart(doc, history), observation_end)
+            _companion(out, name, index, companion)
+        (out / "index.md").write_text("\n".join(index) + "\n", encoding="utf-8")
+        return 0
 
     clients = _client_documents(args, pin, make)
     for i in (1, 2):
@@ -155,22 +205,12 @@ def main(argv=None):
     observation_end = {"rev": pin, "committed_at": date, "subject": pin_subject}
     for number, result in _replay_results(args, subjects, pin):
         name = live[result.commit]
-        with gzip.open(out / f"{name}.json.gz", "rt", encoding="utf-8") as stream:
-            doc = json.load(stream)
+        doc = _read_live(out, name)
         original = _legacy_locations(directory / f"{number}.md")
         current = [(row.call.file, row.call.line, row.element) for row in result.predicted]
         labels = assessments if original == current else {}
         companion = join_evaluation(doc, result, observation_end, labels, model="gpt-6.1-terra")
-        suffix = f"{name}.evaluation"
-        (out / f"{suffix}.md").write_text(render_evaluation(companion), encoding="utf-8")
-        _write_json(out, suffix, companion)
-        subject = doc["change"]["subject"]
-        description = f"{subject['committed_at'][:10]} · {label(subject['subject'])} · Service replay"
-        index.append(f"- [{suffix}.md]({suffix}.md) · {description} · "
-                     "Tracked source edits and the study’s recorded assessments.")
-        index.append(f"- [{suffix}.json.gz]({suffix}.json.gz) · {description} · "
-                     "Source lines and comparisons used by the study.")
-        print(f"Rendered {suffix}.md with {len(companion['rows'])} tracked request and element pairs", flush=True)
+        _companion(out, name, index, companion, assessed=True)
     (out / "index.md").write_text("\n".join(index) + "\n", encoding="utf-8")
     return 0
 

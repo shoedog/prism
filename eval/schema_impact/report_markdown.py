@@ -5,7 +5,8 @@ import json
 
 from .report_analysis import EARLIER, FIELD_USE, NO_FIELD_USE
 from .report_layout import (
-    MODE, Limits, _code, appendix_section, compact_html, coverage, provenance, review_first, site_link, table, versions_line,
+    MODE, Limits, _code, appendix_section, compact_html, counterpart_sites, coverage, provenance, request_counts,
+    review_first, site_link, table, versions_line,
 )
 from .report_matches import GATEWAY, MAPPING, OVERLAPS, WILDCARD, match_text, parts
 
@@ -85,7 +86,10 @@ class Markdown:
                 key = snapshot["role"], source["file"], source["revision"]
                 self.receipts.setdefault(key, f"configuration-{len(self.receipts) + 1}")
         for warning in doc["warnings"]:
-            self.limits.warning(warning["reason"], f"{_code(warning['file'])} at {_code(warning['rev'][:8])}")
+            if warning["rev"]:
+                self.limits.warning(warning["reason"], f"{_code(warning['file'])} at {_code(warning['rev'][:8])}")
+            else:
+                self.mark(warning["reason"])
 
     @staticmethod
     def field_key(row):
@@ -134,7 +138,7 @@ class Markdown:
         for reason in (EARLIER, GATEWAY, OVERLAPS, doc["unobserved_reason"], *doc["field_limits"]):
             if reason:
                 self.mark(reason)
-        lines = ["## Coverage", *coverage(doc), "## Changes by operation"]
+        lines = ["## Coverage", *coverage(doc, self.mark), "## Changes by operation"]
         if role == "both":
             lines.append("### Service changes")
         if role in {"service", "both"}:
@@ -372,21 +376,11 @@ class Markdown:
                 affected))
         return self.list("field properties", parts, complete=complete)
 
-    def request_counts(self, purpose, counts):
-        no_match = counts["known_unmatched_count"]
-        unknown = counts["unknown_target_count"]
-        return (
-            f"[{no_match['observed']} requests whose method and address were read had no match](#requests-{purpose})"
-            + (f" observed · {self.mark(no_match['reason'])}" if no_match["reason"] else "")
-            + f" · [{unknown['observed']} calls had an unknown target](#requests-{purpose})"
-            + (f" observed · {self.mark(unknown['reason'])}" if unknown["reason"] else "")
-        )
-
     def operation_calls(self, group, complete):
         chunks = []
         name = group["operation_id"].removeprefix("op:")
         for checked in group["declaration_comparisons"]:
-            context = [f"**{checked['side'].title()} requests** · " + self.request_counts(checked["purpose"], checked)]
+            context = [f"**{checked['side'].title()} requests** · " + request_counts(checked["purpose"], checked, self.mark)]
             if not checked["closest_site_ids"]:
                 reason = checked["inventory_reason"] or checked["known_unmatched_count"]["reason"]
                 if reason:
@@ -474,6 +468,10 @@ class Markdown:
         ]
         if alternates:
             basic += "<br>Other methods · " + self.list("other methods", alternates, complete=complete)
+        if sites := counterpart_sites(self.doc, match):
+            basic += "<br>Service code · " + self.list("service code locations", sites, complete=complete)
+        if not match["service_rev"]:
+            return basic
         return f"Client {_code(match['client_rev'][:8])} with service {_code(match['service_rev'][:8])} · {basic}"
 
     def call_row(self, call, old, new, action, complete=False, missing=None, prior=None):
@@ -559,7 +557,7 @@ class Markdown:
             if link:
                 entries.append(link)
             rows.append((_PAIR_LABELS[key], "<br>".join(entries) or "No affected request recorded for this pair",
-                         self.request_counts(key, self.doc["request_counts"][key])))
+                         request_counts(key, self.doc["request_counts"][key], self.mark)))
         check = "Check whether the service and client deploy together or need an interval supporting both versions."
         return table(["Compared versions", "What the reviewer sees", "Requests checked"], rows) + "\n\n" + check
 
@@ -606,6 +604,8 @@ class Markdown:
             heading = _PAIR_LABELS[purpose] if "service_first" in self.pairs else purpose.title()
             content = (table(_CLIENT[:2] + ["Match"], rows) if rows else
                        "No unmatched request or unknown target was observed among the rows checked.")
+            if not rows and (reason := self.doc["reference"].get("unavailable_reason")):
+                content = self.mark(reason)
             self.appendix.append([f"requests-{purpose}", f"Requests compared · {heading}", content])
 
     def standing(self):
@@ -622,6 +622,8 @@ class Markdown:
                 timing = observed + "When this difference began " + self.mark(reason, source)
             rows.append(((source, kind, timing), mismatch["linked_to_change"]))
         if not rows:
+            if reason := self.doc["reference"].get("unavailable_reason"):
+                return self.mark(reason)
             return "No difference of this kind was observed among the declarations and calls read."
         all_rows = [row for row, _ in rows]
         preview = [row for row, linked in rows if linked][:5]

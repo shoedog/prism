@@ -4,7 +4,15 @@ from collections import defaultdict
 from dataclasses import asdict
 from datetime import datetime, timezone
 
+from ._replay_client import ClientSources
+from ._replay_git import LineFollower
+from ._ts_syntax import EXTENSIONS
+from .config import ClientSpec, Config
+from .consumer_ts import ClientCall
+from .replay import Outcome, ReplayResult, _locations
+from .report_inputs import _source_tree, _tree
 from .report_layout import _code, label, table
+from .schema import Change
 
 
 _ASSESSMENTS = {
@@ -22,13 +30,72 @@ def _date(value):
     return datetime.fromisoformat(value).astimezone(timezone.utc).isoformat() if value else None
 
 
+def replay_counterpart(live, history):
+    """Follow the producer report's bound client sites in the client repository."""
+    change = live["change"]
+    reference = live["inputs"][live["reference"]["reference_input_id"]]
+    if change["requested_role"] != "producer" or reference["role"] != "consumer":
+        raise ValueError("Counterpart replay requires a producer subject and a fixed client")
+    selected = reference["rev"]
+    result = ReplayResult(change["after"], change["before"], [], consumer_revision=selected)
+    if selected not in history.position:
+        result.skipped_reason = "reference_outside_history" if selected else "no_consumer_revision"
+        return result
+
+    for group in live["impacts"]:
+        kinds = set(group["change_kinds"])
+        if kinds & {"Operation added", "Operation removed", "Route declaration changed",
+                    "Successful response statuses changed"}:
+            result.changes.append(Change("operation", group["operation_id"]))
+        result.changes.extend(Change("field", (field["after"] or field["before"])["field_id"])
+                              for field in group["fields"])
+    if not result.changes:
+        return result
+
+    bindings = defaultdict(set)
+    for comparison in live["comparisons"]:
+        for site_id, match in comparison["matches"].items():
+            if match["status"] == "match":
+                bindings[site_id].update(match["target_ids"])
+    bound = []
+    for row in reference["calls"]:
+        site = row["site"]
+        call = ClientCall(site["file"], site["line"], row["requested_method"], row["original_url_text"],
+                          row["mapped_path"], row["url_class"], row["target_reason"],
+                          row["response_type"], row["enclosing_function"])
+        bound.extend((call, operation) for operation in sorted(bindings[row["site_id"]]))
+    if not bound:
+        return result
+
+    change_time = datetime.fromisoformat(change["subject"]["committed_at"]).timestamp()
+
+    def outcome(touched):
+        if touched is None:
+            return Outcome("present_at_pin")
+        days = (history.seconds[touched] - change_time) / 86400
+        return Outcome("within_14_days" if days <= 14 else "later", touched, lag_days=days)
+
+    config, = reference["config_sources"]
+    cfg = Config(config["aliases"], [ClientSpec(**{k: v for k, v in entry.items() if k != "entry"})
+                                    for entry in config["entries"]])
+    files = {file: record for file, record in _tree(history.repo, reference["tree"]).items()
+             if file.endswith(EXTENSIONS)}
+    with _source_tree(history.repo, files) as (snapshot, selected_sources):
+        checked = [snapshot / row["path"] for row in reference["file_status"]
+                   if row["status"] == "complete" and selected_sources.get(row["path"]) is not None]
+        sources = ClientSources(snapshot, cfg, reference["scope"], files=checked)
+        follower = LineFollower(history, selected, snapshot)
+        _locations(result, bound, sources, follower, outcome, controls=False)
+    return result
+
+
 def join_evaluation(live, replay_result, observation_end, assessments=None, model=None):
     result = asdict(replay_result) if not isinstance(replay_result, dict) else replay_result
     change = live["change"]
     reference = live["inputs"][change["before_input_id"]["client"]]
     if (change["requested_role"] != "producer" or result["commit"] != change["after"]
             or result["parent"] != change["before"] or result["consumer_revision"] != reference["rev"]):
-        raise ValueError("Replay subject and parent client revision must match the serialized producer report")
+        raise ValueError("Replay subject, parent and checked client revision must match the serialized producer report")
     sites = defaultdict(list)
     for call in reference["calls"]:
         site = call["site"]
@@ -183,7 +250,9 @@ def render_evaluation(document):
                             "Study adjudicator’s assessment and evidence"], rows))
     elif document["skipped_reason"]:
         reason = {"no_client_import": "no import could be linked to the configured client",
-                  "config_missing": "the primary client source or configuration was missing"}
+                  "config_missing": "the primary client source or configuration was missing",
+                  "no_consumer_revision": "the report has no checked client revision",
+                  "reference_outside_history": "the checked client revision is outside the observation pin’s first-parent history"}
         lines.append("Not checked — " + reason.get(document["skipped_reason"], "the replay did not finish the scan") + ".")
     else:
         lines.append("The replay recorded no locations for this subject.")

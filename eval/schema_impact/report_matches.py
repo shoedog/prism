@@ -56,6 +56,8 @@ def compare(service, client, purpose):
                   "registration": "not_checked", "registration_reason": GATEWAY}
         if reason or not method or not path:
             return dict(result, status="target_unknown", primary_grade="unbound")
+        if service["snapshot_kind"] == "unavailable":
+            return dict(result, status="not_checked", reason=coverage[0]["reason"])
         matches = per_method.get(method, {})
         for identifier, op in (matches | per_method.get("*", {})).items():
             optional = any(s["optional_param"] for s in op["sites"])
@@ -131,11 +133,11 @@ def match_text(match):
         return "No call at this site"
     status, reason = match["status"], match["reason"]
     ids = [identifier.removeprefix("op:") for identifier in match["target_ids"]]
-    source, revision = match["authority"], match["service_rev"][:8]
     if status == "target_unknown":
         return "Target unknown — " + TARGET_REASONS.get(reason, "This form of request could not be read")
     if status == "not_checked":
         return reason
+    source, revision = match["authority"], match["service_rev"][:8]
     if status == "partial":
         observation = "Closest match among the declarations read: " + ", ".join(ids) + ". " if ids else ""
         return f"{observation}Not checked — {reason}"

@@ -132,15 +132,40 @@ def site_link(site):
     return f"[{location}]({site['url']})" if site.get("url") else location
 
 
+def counterpart_sites(doc, match):
+    if "repo" not in doc["reference"] or doc["change"]["subject_role"] != "client":
+        return []
+    service = doc["inputs"][match["service_input_id"]]
+    ids = dict.fromkeys([*match["target_ids"], *(row["operation"] for row in match["alternates"])])
+    return [site_link(site) for identifier in ids for site in service["operations"][identifier]["sites"]]
+
+
+def request_counts(purpose, counts, mark):
+    no_match = counts["known_unmatched_count"]
+    unknown = counts["unknown_target_count"]
+    return (
+        f"[{no_match['observed']} requests whose method and address were read had no match](#requests-{purpose})"
+        + (f" observed · {mark(no_match['reason'])}" if no_match["reason"] else "")
+        + f" · [{unknown['observed']} calls had an unknown target](#requests-{purpose})"
+        + (f" observed · {mark(unknown['reason'])}" if unknown["reason"] else "")
+    )
+
+
 def versions_line(doc):
     change = doc["change"]
-    counterpart = doc["inputs"][doc["reference"]["reference_input_id"]]
+    reference = doc["reference"]
+    counterpart = doc["inputs"][reference["reference_input_id"]]
     role = "service" if counterpart["role"] == "producer" else "client"
 
     def describe(commit):
         return f"{_code(commit['rev'][:8])} ({commit['committed_at'][:10]}, {label(commit['subject'])})"
 
-    fixed = f"{role} held at the base dated {counterpart['committed_at'][:10]}"
+    if reference.get("unavailable_reason"):
+        fixed = f"{role} counterpart · Not checked"
+    elif "repo" in reference:
+        fixed = f"{role} held unchanged at {describe(counterpart)}"
+    else:
+        fixed = f"{role} held at the base dated {counterpart['committed_at'][:10]}"
     if change["subject_role"] == "both":
         fixed += " for the single-side check, with both edits also checked together"
     return (f"**Versions checked** · {MODE} · subject {describe(change['subject'])} · "
@@ -149,7 +174,9 @@ def versions_line(doc):
 
 def provenance(doc, receipts, mark):
     change = doc["change"]
-    before = doc["inputs"][change["before_input_id"]["service"]]
+    reference = doc["reference"]
+    subject_side = "client" if "repo" in reference and change["subject_role"] == "client" else "service"
+    before = doc["inputs"][change["before_input_id"][subject_side]]
     after = change["subject"]
     driver = before["tool"]
     result = [
@@ -164,15 +191,27 @@ def provenance(doc, receipts, mark):
         "**Input admission** · Source and schema files came from the selected Git trees. The driver recomputed "
         "inventories and matches from admitted inputs. Study inputs used are listed below.",
     ]
-    reference = doc["reference"]
     counterpart = doc["inputs"][reference["reference_input_id"]]
-    delta = reference["duration_seconds"]
-    offset = ("Both commits have the same time" if delta == 0 else
-              f"Checked revision is {timedelta(seconds=abs(delta))} {'earlier than' if delta < 0 else 'after'} "
-              "the change")
     role = "Service" if counterpart["role"] == "producer" else "Client"
-    result.append(f"**{role} held at the base** · {_code(counterpart['rev'])} · {counterpart['committed_at']} · "
-                  f"{label(counterpart['subject'])} · tree {_code(counterpart['tree'])}. {offset}.")
+    if reason := reference.get("unavailable_reason"):
+        result.append(f"**{role} counterpart** · {_code(counterpart['repo'])} · Not checked — {label(reason)}.")
+    else:
+        delta = reference["duration_seconds"]
+        offset = ("Both commits have the same time" if delta == 0 else
+                  f"Checked revision is {timedelta(seconds=abs(delta))} {'earlier than' if delta < 0 else 'after'} "
+                  "the change")
+        details = (f"{_code(counterpart['rev'])} · {counterpart['committed_at']} · "
+                   f"{label(counterpart['subject'])} · tree {_code(counterpart['tree'])}. {offset}.")
+        if "repo" in reference:
+            result.append(f"**{role} held unchanged** · {_code(counterpart['repo'])} · {details}")
+            result.append(reference["selection_reason"].rstrip(".") + ".")
+            if reference["selected_by"] == "commit_date":
+                result.append("The selected commit is the last on the counterpart HEAD’s first-parent history "
+                              f"with a committer date at or before {after['committed_at']}.")
+            if delta > 0:
+                result.append("This comparison uses code from after the change.")
+        else:
+            result.append(f"**{role} held at the base** · {details}")
     for (source_role, file, receipt), anchor in receipts.items():
         kind = "Client configuration" if source_role == "consumer" else "Route specification"
         result.append(f'<a id="{anchor}"></a>**{kind}** · {_code(file)} from selection receipt '
@@ -185,10 +224,13 @@ def provenance(doc, receipts, mark):
         "The configuration era comes from each selected client revision’s first-parent ancestry. "
         "The configured request.ts client is primary when present in the configuration."
     )
+    if any(source.get("selected_by") == "single supplied file" for snap in doc["inputs"].values()
+           for source in snap["config_sources"]):
+        result.append("A single supplied client configuration file is used directly.")
     return result
 
 
-def coverage(doc):
+def coverage(doc, mark):
     change = doc["change"]
     service = doc["inputs"][change["before_input_id"]["service"]]
     client = doc["inputs"][change["before_input_id"]["client"]]
@@ -204,6 +246,14 @@ def coverage(doc):
         "We compare the HTTP method and the path after applying the address mapping shown here. "
         "Among paths that fit, the check prefers those with more matching fixed or variable parts.",
     ]
+    if reason := doc["reference"].get("unavailable_reason"):
+        limit = mark(reason)
+        if service["snapshot_kind"] == "unavailable":
+            result[0] = "**Source of operations** · " + limit
+            result[2] = "**Schema path** · " + limit
+        else:
+            result[1] = "**Client scope** · " + limit
+        result[3] = "**Request matching** · " + limit
     if doc["code_changed_with_unchanged_schema"]:
         result.append("The code changed. The checked-in schema file did not change. "
                       "Whether it describes this edit is unknown.")

@@ -47,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     report.add_argument("--route-spec", type=Path)
     report.add_argument("--selection-time")
     report.add_argument("--source-url", help="HTTPS repository URL for revision-specific source links")
+    report.add_argument("--counterpart-repo", type=Path, help="Repository of the held-unchanged side")
+    report.add_argument("--counterpart-rev", help="Use this revision instead of selecting by commit date")
+    report.add_argument("--counterpart-source-url", help="HTTPS repository URL for counterpart source links")
     report.add_argument("--name")
     args = parser.parse_args(argv)
 
@@ -57,9 +60,13 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.name is not None and (Path(args.name).name != args.name or args.name in {"", ".", ".."}):
             report.error("--name must be a filename stem")
+        if args.counterpart_repo is None and (args.counterpart_rev is not None or args.counterpart_source_url is not None):
+            report.error("--counterpart-rev and --counterpart-source-url require --counterpart-repo")
         schema_path = None if args.no_schema else args.schema or (None if args.route_spec else DEFAULT_SCHEMA)
         request = ReportRequest(args.repo.resolve(), args.subject, args.role, args.configs, args.root, schema_path,
-                                args.service_root, args.route_spec, args.selection_time, args.source_url)
+                                args.service_root, args.route_spec, args.selection_time, args.source_url,
+                                counterpart_repo=args.counterpart_repo.resolve() if args.counterpart_repo else None,
+                                counterpart_rev=args.counterpart_rev, counterpart_source_url=args.counterpart_source_url)
         document = build_document(build_inputs(request))
         name = args.name or document["change"]["after"][:8]
         args.out_dir.mkdir(parents=True, exist_ok=True)

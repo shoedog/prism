@@ -391,7 +391,7 @@ def build_document(frozen):
                          for snap in (bc, ac) for row in snap["file_status"])
     client_changed |= [row["revision"] for row in bc["config_sources"]] != [
         row["revision"] for row in ac["config_sources"]]
-    mixed = service_changed and client_changed
+    mixed = frozen.reference is None and service_changed and client_changed
     show_service = mixed or requested == "producer"
     show_client = mixed or requested == "consumer"
     service_after, client_after = (aps if show_service else bs), (ac if show_client else bc)
@@ -405,8 +405,11 @@ def build_document(frozen):
                                                 snapshots[pair["service_input_id"]]) for pair in pairs}
     service_changes, field_limits = _service_changes(frozen) if show_service else ({}, [])
     if not show_service:
-        fixed_schema, field_limits = compare_schema(bs, bs)
-        field_limits.extend(limit for group in fixed_schema.values() for limit in group["limits"])
+        if bs["snapshot_kind"] == "unavailable":
+            field_limits = [bs["schema"]["reason"]]
+        else:
+            fixed_schema, field_limits = compare_schema(bs, bs)
+            field_limits.extend(limit for group in fixed_schema.values() for limit in group["limits"])
     operations = list(service_changes.values())
     calls = {row["site_id"]: row for snap in (bc, client_after) for row in snap["calls"]}
     for group in operations:
@@ -460,19 +463,21 @@ def build_document(frozen):
     shared_keys = [(x, y) for x, y, _ in shared]
     shared_keys.extend((row["before_site_id"], row["after_site_id"]) for row in client_changes
                        if not row["correspondence_evidence"])
-    version = {"before": bs["rev"], "after": subject["rev"], "requested_rev": subject["rev"],
+    version = {"before": b["commit"]["rev"], "after": subject["rev"], "requested_rev": subject["rev"],
                "subject": subject, "base": b["commit"],
                "subject_role": "both" if mixed else "service" if show_service else "client",
                "requested_role": requested, "before_input_id": {"service": bs["input_id"], "client": bc["input_id"]},
                "after_input_id": {"service": service_after["input_id"], "client": client_after["input_id"]},
                "changed_paths": frozen.changed_paths, "target": None, "merge_result": None, "merge_receipt": None}
-    reference = bc if requested == "producer" else bs
-    delta = datetime.fromisoformat(subject["committed_at"]) - datetime.fromisoformat(reference["committed_at"])
-    ref = {"reference_input_id": reference["input_id"], "selected_by": "first parent in the same repository",
-           "selection_reason": "the counterpart is held at the base; joint changes also check the after tree",
-           "availability_status": "selected", "availability_evidence": {"tree": reference["tree"]},
-           "duration_seconds": -int(delta.total_seconds()), "branch": None, "observed_tip": None,
-           "observed_at": None, "selection_history_tip": None}
+    ref = frozen.reference
+    if ref is None:
+        reference = bc if requested == "producer" else bs
+        delta = datetime.fromisoformat(subject["committed_at"]) - datetime.fromisoformat(reference["committed_at"])
+        ref = {"reference_input_id": reference["input_id"], "selected_by": "first parent in the same repository",
+               "selection_reason": "the counterpart is held at the base; joint changes also check the after tree",
+               "availability_status": "selected", "availability_evidence": {"tree": reference["tree"]},
+               "duration_seconds": -int(delta.total_seconds()), "branch": None, "observed_tip": None,
+               "observed_at": None, "selection_history_tip": None}
     for group in operations:
         group["call_changes"] = [row for row in client_changes if group["operation_id"] in row["operation_ids"]]
     elements = [{"element_id": group["operation_id"], "change_kinds": group["change_kinds"]}
@@ -488,9 +493,13 @@ def build_document(frozen):
         for row in elements
     ) else "Not checked — the binding inventory is incomplete"
     summary = _summary(operations, field_limits, [bs, service_after], usages, pairs, client_changes)
+    if reason := ref.get("unavailable_reason"):
+        summary["possible_only_usage_count"].update(total=None, reason=reason)
     summary.update({name: {purpose: counts[name] for purpose, counts in request_counts.items()}
                     for name in ("known_unmatched_count", "unknown_target_count")})
-    schema_unchanged = service_sources_changed and bool(bs["sha256"]) and bs["sha256"] == aps["sha256"]
+    schema_unchanged = (frozen.reference is None or show_service) and service_sources_changed and (
+        bool(bs["sha256"]) and bs["sha256"] == aps["sha256"]
+    )
     return {
         "schema_version": "2", "report_id": _fingerprint([version, ref, frozen.request.selection_time,
                                                          [(key, snap["config_sources"], snap["tool"]["build_identity"],
@@ -501,7 +510,8 @@ def build_document(frozen):
         "change": version, "impacts": operations, "call_changes": client_changes, "usages": usages,
         "binding_status": {"status": "not_checked", "reason": EARLIER},
         "coverage": [{"input_id": key, "scope": snap["scope"],
-                      "status": "partial" if snap["unaccounted_scopes"] else "complete",
+                      "status": ("not_checked" if snap["snapshot_kind"] == "unavailable" else
+                                 "partial" if snap["unaccounted_scopes"] else "complete"),
                       "reason": snap["unaccounted_scopes"][0]["reason"] if snap["unaccounted_scopes"] else None}
                      for key, snap in inputs.items()],
         "warnings": warnings, "field_limits": field_limits, "code_changed_with_unchanged_schema": schema_unchanged,

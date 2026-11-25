@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 from . import _ts_syntax as ts, config, producer_go as go, producer_route_table as routes
 from ._replay_git import changed_files, git, parent, revision
 from .replay import DEFAULT_SCHEMA, select_config
-from .report_schema import schema_inventory
+from .report_schema import _empty, schema_inventory
 from .schema import _hash_shapes
 from .report_sources import account_changed_route_regions, client_calls, diagnostic, in_root, inventory, operations
 
@@ -31,6 +31,9 @@ class ReportRequest:
     route_spec: Path | None = None
     selection_time: str | None = None
     source_url: str | None = None
+    counterpart_repo: Path | None = None
+    counterpart_rev: str | None = None
+    counterpart_source_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -41,6 +44,7 @@ class FrozenReport:
     changed_paths: tuple[str, ...]
     before_sources: dict
     after_sources: dict
+    reference: dict | None = None
 
 
 def _repo_path(path):
@@ -120,8 +124,16 @@ def _driver():
             "source_hashes": hashes}
 
 
-def _config(repo, rev, directory):
-    path = select_config(repo, rev, directory)
+def _config(repo, rev, source):
+    selected_by = "first-parent ancestry"
+    if source.is_file():
+        path, selected_by = source, "single supplied file"
+    else:
+        path = select_config(repo, rev, source)
+        if not path.is_file():
+            files = [file for file in source.glob("*.toml") if file.is_file()]
+            if len(files) == 1:
+                path, selected_by = files[0], "single supplied file"
     try:
         data = path.read_bytes()
     except OSError:
@@ -131,34 +143,66 @@ def _config(repo, rev, directory):
         parsed = config.Config(document.get("aliases", {}), [config.ClientSpec(**entry) for entry in document.get("client", [])])
     except (UnicodeError, ValueError, TypeError):
         return None, _source_receipt(path, data) | {"error": "could not be read as client configuration"}
-    return parsed, {**_source_receipt(path, data), "selected_by": "first-parent ancestry",
+    return parsed, {**_source_receipt(path, data), "selected_by": selected_by,
                     "selected_for": rev, "aliases": parsed.aliases,
                     "entries": [{"entry": i, **asdict(entry)} for i, entry in enumerate(parsed.clients, start=1)]}
 
 
-def _snapshot(request, rev, driver, spec, spec_source, configuration, *, reused=None):
-    common = _metadata(request.repo, rev)
-    common.update(api=request.repo.name, repo=request.repo.name, tool=driver, origin="selected commit tree",
-                  sha256=None, content_hash=None, config_sources=[], dependencies=[], source_url=request.source_url)
-    common["tree_files"] = _tree(request.repo, common["tree"])
+def _route_spec(path):
+    if path is None or not path.is_file():
+        return None, None
+    raw = path.read_bytes()
+    spec = routes.RouteSpec(**json.loads(raw))
+    return spec, {**_source_receipt(path, raw), "mapping": asdict(spec)}
+
+
+def _location(request, counterpart):
+    if counterpart:
+        return request.counterpart_repo, request.counterpart_source_url
+    return request.repo, request.source_url
+
+
+def _snapshot_record(request, commit, driver, counterpart):
+    repo, url = _location(request, counterpart)
+    service_repo = request.counterpart_repo if request.role == "consumer" and request.counterpart_repo else request.repo
+    return dict(commit, api=service_repo.name, repo=repo.name, tool=driver, origin="selected commit tree",
+                sha256=None, content_hash=None, config_sources=[], dependencies=[], source_url=url)
+
+
+def _role_record(request, common, role):
+    rev = common["rev"] or "unavailable"
+    if role == "service":
+        return dict(common, role="producer", input_id=f"service:{rev}", scope=request.service_root,
+                    operation_authority="route table" if request.route_spec else "Go annotations")
+    return dict(common, role="consumer", input_id=f"client:{rev}", scope=request.root, schema=None,
+                operation_authority=None)
+
+
+def _snapshot(request, rev, driver, spec, spec_source, configuration, *, reused=None,
+              roles=("service", "client"), counterpart=False):
+    repo, _ = _location(request, counterpart)
+    commit = _metadata(repo, rev)
+    common = _snapshot_record(request, commit, driver, counterpart)
+    common["tree_files"] = _tree(repo, common["tree"])
     source_type = routes._EXTENSIONS if request.route_spec else (".go",)
     reused = reused or {}
+    scan_service = "service" in roles and "service" not in reused
+    scan_client = "client" in roles and "client" not in reused
+
     def service_wanted(file):
         return in_root(file, request.service_root) and (
             Path(file).suffix in source_type and (request.route_spec is not None or go._is_go_file(file))
         )
     wanted = {file: info for file, info in common["tree_files"].items()
-              if ("client" not in reused and Path(file).suffix in ts.EXTENSIONS)
-              or ("service" not in reused and (service_wanted(file) or file == request.schema))
+              if (scan_client and Path(file).suffix in ts.EXTENSIONS)
+              or (scan_service and (service_wanted(file) or file == request.schema))
               or info["mode"] in {"120000", "160000"}}
-    service = dict(common, role="producer", input_id=f"service:{rev}", scope=request.service_root,
-                   operation_authority="route table" if request.route_spec else "Go annotations")
-    client = dict(common, role="consumer", input_id=f"client:{rev}", scope=request.root, schema=None,
-                  operation_authority=None)
-    with _source_tree(request.repo, wanted) as (directory, selected):
+    snapshots = {role: _role_record(request, common, role) for role in roles if role not in reused}
+    with _source_tree(repo, wanted) as (directory, selected):
         unresolved = {file for file, contents in selected.items() if contents is None
                       and common["tree_files"][file]["mode"] in {"120000", "160000"}}
-        if "service" not in reused:
+        if scan_service:
+            service = snapshots["service"]
             relevant = {name: contents for name, contents in selected.items()
                         if service_wanted(name) or name in unresolved}
             if spec is not None:
@@ -178,16 +222,97 @@ def _snapshot(request, rev, driver, spec, spec_source, configuration, *, reused=
                 if not service["unaccounted_scopes"]:
                     digest = _hash_shapes(dict.fromkeys(service["operations"], ""))
                     service["schema"]["content_hash"] = service["content_hash"] = digest
-        if "client" not in reused:
+        if scan_client:
+            client = snapshots["client"]
             cfg, cfg_source = configuration
             if cfg_source:
                 client["config_sources"] = [cfg_source]
             relevant_client = {name: contents for name, contents in selected.items()
                                if Path(name).suffix in ts.EXTENSIONS or name in unresolved}
             client.update(client_calls(client, directory, request.root, relevant_client, cfg, cfg_source))
-        del service["tree_files"], client["tree_files"]
-        commit = {key: common[key] for key in ("rev", "tree", "committed_at", "subject", "dirty", "snapshot_kind")}
-        return {"service": service, "client": client, **reused, "commit": commit}, selected
+    for snapshot in snapshots.values():
+        del snapshot["tree_files"]
+    return {**snapshots, **reused, "commit": commit}, selected
+
+
+def _select_counterpart(request, subject):
+    repo, supplied = request.counterpart_repo, request.counterpart_rev
+    if supplied is not None:
+        try:
+            return revision(repo, supplied), None
+        except subprocess.CalledProcessError:
+            return None, f"the supplied counterpart revision {supplied} could not be read"
+    try:
+        tip = revision(repo, "HEAD")
+        history = git(repo, "rev-list", "--first-parent", "--timestamp", tip).decode().splitlines()
+    except subprocess.CalledProcessError:
+        return None, "the counterpart repository's first-parent history could not be read"
+    cutoff = datetime.fromisoformat(subject["committed_at"]).timestamp()
+    for row in history:
+        seconds, rev = row.split()
+        if int(seconds) <= cutoff:
+            return rev, None
+    return None, f"no first-parent commit in the counterpart repository at or before {subject['committed_at']}"
+
+
+def _unavailable_counterpart(request, role, driver, reason):
+    commit = dict.fromkeys(("rev", "tree", "committed_at", "subject", "dirty"))
+    common = _snapshot_record(request, dict(commit, snapshot_kind="unavailable"), driver, True)
+    snapshot = _role_record(request, dict(common, origin=None, tree_files={}), role)
+    snapshot.update(inventory(snapshot, [], [], [diagnostic(snapshot["scope"], reason, status="unknown")]))
+    if role == "service":
+        snapshot.update(_empty(snapshot, request.schema, reason, "not_checked"), operations={},
+                        registration_inventory=None, outside_registration=None)
+    else:
+        snapshot["calls"] = []
+    del snapshot["tree_files"]
+    return snapshot
+
+
+def _cross_inputs(request, base, head, driver, changes):
+    changing, fixed = ("service", "client") if request.role == "producer" else ("client", "service")
+    spec, spec_source = _route_spec(request.route_spec) if changing == "service" else (None, None)
+
+    def scan(rev, role, counterpart=False):
+        repo, _ = _location(request, counterpart)
+        cfg = _config(repo, rev, request.configs) if role == "client" else None
+        return _snapshot(request, rev, driver, spec, spec_source, cfg, roles=(role,), counterpart=counterpart)
+
+    before, before_sources = scan(base, changing)
+    after, after_sources = scan(head, changing)
+    if changing == "service" and spec is not None:
+        account_changed_route_regions(before["service"], after["service"], changes)
+        account_changed_route_regions(after["service"], before["service"], changes)
+    selected, reason = _select_counterpart(request, after["commit"])
+    if selected is not None:
+        if fixed == "service":
+            spec, spec_source = _route_spec(request.route_spec)
+        try:
+            scanned, _ = scan(selected, fixed, counterpart=True)
+            reference = scanned[fixed]
+        except subprocess.CalledProcessError:
+            reason = f"the selected counterpart revision {selected} could not be read"
+    if reason is not None:
+        reference = _unavailable_counterpart(request, fixed, driver, reason)
+    before[fixed] = after[fixed] = reference
+
+    supplied = request.counterpart_rev is not None
+    date = reference["committed_at"]
+    offset = (datetime.fromisoformat(date) - datetime.fromisoformat(after["commit"]["committed_at"])) if date else None
+    selection = {
+        "reference_input_id": reference["input_id"], "repo": reference["repo"],
+        "rev": reference["rev"], "tree": reference["tree"], "committed_at": date,
+        "requested_rev": request.counterpart_rev, "selected_by": "supplied_revision" if supplied else "commit_date",
+        "selection_reason": "Revision supplied for this review" if supplied else
+        "Selected by commit date. When this revision reached the branch is unknown.",
+        "availability_status": "unavailable" if reason else "selected", "unavailable_reason": reason,
+        "availability_evidence": {"tree": reference["tree"]} if date else None,
+        "duration_seconds": int(offset.total_seconds()) if offset is not None else None,
+        "branch": None, "observed_tip": None, "observed_at": None,
+        # Retain the tip of the selected history, excluding newer commits used only to reach it.
+        "selection_history_tip": reference["rev"] if not supplied else None,
+    }
+    return FrozenReport(request, before, after, changes, before_sources, after_sources, selection)
 
 
 def build_inputs(request):
@@ -196,21 +321,21 @@ def build_inputs(request):
     for role_path in (request.root, request.service_root, request.schema):
         if role_path is not None:
             _repo_path(role_path)
-    if request.source_url:
-        url = urlsplit(request.source_url)
+    if request.counterpart_repo is None and (request.counterpart_rev is not None or request.counterpart_source_url is not None):
+        raise ValueError("Counterpart revision and source URL require a counterpart repository")
+    for source_url in filter(None, (request.source_url, request.counterpart_source_url)):
+        url = urlsplit(source_url)
         if url.scheme != "https" or not url.hostname or url.username or url.query or url.fragment:
             raise ValueError("Source URL must be an HTTPS repository URL")
     head = revision(request.repo, request.subject)
     base = parent(request.repo, head)
     if base is None:
         raise ValueError("The selected subject has no first parent")
-    spec, spec_source = None, None
-    if request.route_spec is not None and request.route_spec.is_file():
-        raw = request.route_spec.read_bytes()
-        spec = routes.RouteSpec(**json.loads(raw))
-        spec_source = {**_source_receipt(request.route_spec, raw), "mapping": asdict(spec)}
     driver = _driver()
     changes = tuple(changed_files(request.repo, base, head))
+    if request.counterpart_repo is not None:
+        return _cross_inputs(request, base, head, driver, changes)
+    spec, spec_source = _route_spec(request.route_spec)
     base_cfg, head_cfg = (_config(request.repo, rev, request.configs) for rev in (base, head))
     before, before_sources = _snapshot(request, base, driver, spec, spec_source, base_cfg)
     reused = {}
