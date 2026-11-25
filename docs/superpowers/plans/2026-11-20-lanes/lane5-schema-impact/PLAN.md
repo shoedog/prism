@@ -630,7 +630,7 @@ Root `Cargo.toml`: add the member; do not add it to `default-members`.
       spans or gap. Reconcile disagreements against those blobs. Freeze a location as cleared only when both
       sides pass and the independent check agrees.
       Keep each refusal and its reason. Account for all 33 original keys exactly once, then recount S04 and
-      P02 on their original populations and apply the P6 ceiling below.
+      reconcile P02 with the owner-approved dispositions in P6.
 
 ### Slice P1: crate, element ids, schema reader, diff, documents (3 to 4 days)
 
@@ -641,6 +641,9 @@ differ from literal property names. An operation includes all source sites, expl
 and per-region coverage. A field records typed path, branch and definition, comparable properties and stop
 conditions. Index sorted element IDs, operations reaching each definition and declaration provenance. Provide
 `index_schema`, `definitions_of`, `operations_reaching` and `diff_schemas`.
+
+Preserve Swagger's trailing slash on `PUT /answer/admin/api/report/` under DESIGN §5.1. Equivalence to the
+router's unslashed path under a stated rule decides the two report-route locations in P6. See P3 for the join.
 
 The pilot element diff has the following `ChangeKind` variants. Return **all** applicable changes with the owning
 operation, before/after element IDs, side-local sites, shapes and evidence. A status-root pairing can have
@@ -813,6 +816,9 @@ to each configured client's own fixture API after applying its declared prefix p
 template-client configs, admit the mapping with its factory and settings dependencies and check all 47 listed
 invocations, including `s20` and `s22-3`. With just the API mapping withheld, keep the observed site, prefix
 and readable request components. Assert **Not checked** (`origin_unchecked`), zero confirmed targets and zero notifications.
+
+For the P6 report-route locations, the router and client use `/answer/admin/api/report`, while P1 retains
+Swagger's `/answer/admin/api/report/`. Prove equivalence for this route under a stated rule or explain the miss.
 
 CLI:
 `prism-boundary bind --role consumer --api <name> --repo <tree> --config <toml> [--schema <json>] --caller-depth 2 --out <bindings.json>`.
@@ -1027,43 +1033,94 @@ documents the final per-pair results. Keep the evaluation companion and measured
 A1 live review. R's configured mount must be admitted for each replayed version. Report the private replay only in
 aggregates, without attributing lift where there were no controls.
 
-**Public feasibility before P1.** P02 identifies 33 frozen field locations blocked by the old media rule.
-All eight reader-counted locations survive that cut, but the retention ceiling is 161/194 (82.99%).
-Removing just the 33 also lowers the `later` share by 5.03 percentage points. For each of the 33, record the
-§5.1 media evidence on **both sides** of the historical field comparison, or record which side lacks what proof.
-If `k` of them clear the media check, the ceiling from this cut is `(161 + k)/194`. At least **24 of 33**
-must clear it even if all other 161 are retained. With all 33 covered the ceiling is 194/194. If it stays
-below 185/194, return the gate to the owner under ORCHESTRATION §8 before collecting toward it. If the only
-change is omitting at most nine original locations, each bucket share moves by at most 9/194 (4.64 percentage
-points). Report the revised projection. Carry any unresolved historical field into P4/P6 by its frozen replay
-record (change commit, operation, direction/status, field path and original client occurrence). Retain the
-original field ID when known and identify the missing evidence when it cannot be resolved. Such a row stays
-in the denominator and earns no field-location credit while unresolved. The product replay measures actual
-retention and shares. R has no field schema. P3 handles both pairs' scoped API mappings.
+**Public retention decision (2026-11-25).** The P02 check found `k = 0` of the 33 locations qualified. The gate
+was returned to the owner under ORCHESTRATION §8. The owner set the public minimum at **153 of 161** checkable
+locations (95%, rounded up) and kept all eight reader-counted recoveries mandatory. R has no field schema.
+P3 handles both pairs' scoped API mappings.
+
+Show the following accounting beside the public score. The 194 frozen predictions comprise 161 scored,
+20 removed and 13 unchecked. The unchecked rows count toward 174 accounted locations, with 161 scored.
+
+| Disposition | Locations | Treatment |
+|---|---:|---|
+| Scored | 161 | Retain at least 153. All eight reader-counted recoveries are mandatory. |
+| Removed | 20 | Already stale at the original revision. Exclude from the score and the unchecked count. |
+| Not checked | 13 | Historical JSON request media remains unverified. Include in accounting only. |
+
+| Removed operation | Historical comparison | Locations | Reason |
+|---|---|---:|---|
+| PUT `/answer/admin/api/siteinfo/write` | `f05f1eb80d10` → `9efa9471bd84` | 15 | The router had already removed the route. Swagger later dropped the fields from `authorized_attachment_extensions` through `restrict_answer`. |
+| GET `/answer/admin/api/siteinfo/interface` | `fed37f873d0a` → `2b1ad9479163` | 5 | Stale request-body annotation on a handler that reads no body. |
+
+No request-side evidence was admitted for P02. DESIGN §5.1 requires media verification on both sides of a
+historical comparison, with producer evidence at any revision where Swagger omits media. The 13 unchecked
+locations are on PUT handlers that bind through `ShouldBind`, where Gin can select JSON, XML or form binding.
+All operation suffixes below share the `/answer/admin/api` prefix.
+
+| Operation | Unchecked request-field changes | Locations |
+|---|---|---:|
+| PUT `/siteinfo/interface` | Removed `logo`, `theme`, `default_avatar` (two rows) and `gravatar_base_url` | 5 |
+| PUT `/setting/privileges` | Changed allowed values for `level` (two rows) | 2 |
+| PUT `/setting/smtp` | Changed allowed values for `encryption` | 1 |
+| PUT `/siteinfo/write` | Changed types of `recommend_tags` and `reserved_tags` | 2 |
+| PUT `/siteinfo/general` | Removed `check_update` | 1 |
+| PUT `/siteinfo/login` | Removed `login_required` and made `require_email_verification` required | 2 |
+
+The owner-facing location inventory *The 33 withheld Apache Answer predictions* records the individual rows.
+Carry the unchecked rows into P4/P6 by frozen change commit, operation, direction/status, field path and client
+occurrence. Preserve the original field ID when known and identify the missing evidence.
+
+**Prototype replay.** At the `origin/main` revision recorded in the owner-facing rerun receipt, the prototype
+matched 172 of 174 accounted locations. With the 13 unchecked rows withheld by the media rule, 159 of 161
+scored locations match. The floor allows eight misses in total. The 159/161 result already reflects the two
+misses below, which the frozen reader labelled false predictions. They are outside the eight required recoveries.
+
+| P6 acceptance row | Frozen locations | Required product disposition |
+|---|---|---|
+| Public report-route slash | `07d3d3525ba5c2248bafa7ea6812d811dff476b3:pred:1` (`flaged_content`) and `07d3d3525ba5c2248bafa7ea6812d811dff476b3:pred:2` (`flaged_type`), both field removals on PUT `/answer/admin/api/report/` | Check these two misses first. Recover each by proving equivalence under a stated rule to the router and client spelling, `/answer/admin/api/report`, or record why it remains a miss. Preserve the Swagger spelling in the source identity (P1/P3). |
 
 - [ ] Add `--engine product` to the replay driver. Freeze the memo's original usable-change cohorts, pins,
       prediction rule and outcome observation window per pair. Require every reader-counted replay location
       again at its original (change commit, element, client revision and occurrence), reconcile lost and new
       predictions, and report the product denominator.
-- [ ] Independently require **at least 95%** of the original predicted locations on **each** pair (DESIGN 8).
-      Freeze every reference location before the product run. Join on the original change, element and
-      client occurrence using P4's source key. Count each reference location still predicted for that change
-      and element once. The denominator includes all original predictions, including lost or unchecked ones.
-      Report retained, lost and product-only counts. Only retained locations enter the numerator. Round the
-      required count up, giving minima of **185/194 on P** and **60/63 on R**. Keep every one of P02's 33
-      in the public denominator. A surviving call to the same operation earns field-location credit only when
-      the product also predicts the original field change at that occurrence.
+- [ ] Independently require **153/161 on P** and **60/63 on R** (95% of each scored set, rounded up, DESIGN §8).
+      Freeze every reference location before the product run. P scores the 161 checkable locations and R scores
+      its full frozen set. Join on the original change, element and client occurrence using P4's source key.
+      Count each scored reference location still predicted for that change and element once. Report retained,
+      lost and product-only counts. Only retained scored locations enter the numerator. A surviving call to the
+      same operation earns field-location credit only when the product also predicts the original field change
+      at that occurrence.
 - [ ] Each of the three bucket shares must be within **5 percentage points** of its own pair's reference share,
-      assessed independently. Use all predicted locations on that pair's frozen cohort as denominator, including
-      unresolved follow-ups as unknown, and show counts and shares. A zero denominator or missing cohort fails.
+      assessed independently, subject to the open public reference question below. Freeze the scored group's
+      outcome shares before any product run. Use all predicted locations on each pair's frozen cohort as the
+      share denominator, excluding the 20 removed and 13 unchecked on P. Include unresolved follow-ups as
+      unknown and show counts and shares. A zero denominator or missing cohort fails.
 
 | Pair and frozen population | Outcome reference counts and denominator | Comparison basis |
 |---|---|---|
-| P, F4, 37 usable first-parent commits at the public pin | `same_commit` 33/194, `later` 70/194, `present_at_pin` 91/194 | Same-repository parent calls, first-parent touches through the pin, 616 controls separate. Recover all 8 counted F4 locations. |
+| P, F4, 37 usable first-parent commits at the public pin. 161 scored (frozen reference) | `same_commit` 28 (17.39%), `later` 50 (31.06%), `present_at_pin` 83 (51.55%) | Same-repository parent calls, first-parent touches through the pin, 616 controls separate. Recover all 8 counted F4 locations. |
+| P, 194 original | `same_commit` 33 (17.01%), `later` 70 (36.08%), `present_at_pin` 91 (46.91%) | Original frozen shares for comparison. |
+| P, 174 accounted after the 20 removals | `same_commit` 33, `later` 55, `present_at_pin` 86 | Includes all 13 unchecked locations. |
 | R, F5, 42 usable route-change commits in the recorded mount window, predictions on 22 | `within_14_days` 62/63, `later` 1/63, `present_at_head` 0/63 | Date-aligned consumer revision, touches through its frozen head. Recover all 5 counted replay locations. No controls. |
 
-Check the three gates independently. On P, product buckets of 30 same-commit, 72 later, 89 present and three
-unknown pass the share test over 194. On R, 58 within 14 days and five later fail the share test even if all
+The frozen replay accounts for 15 `later` and five `present_at_pin` among the removals, and five `same_commit`,
+five `later` and three `present_at_pin` among the unchecked. The share of later client edits moves from 36.08%
+to 31.06%, a drop of 5.02 percentage points that exceeds the five-point tolerance against the original 194
+shares. `same_commit` rises 0.38 points and `present_at_pin` rises 4.64 points.
+
+**Open owner question with default (DESIGN §8).** Which reference and tolerance should P6 use for P?
+
+- **A (default).** Re-base the five-point band on the frozen scored-group shares (17.39%, 31.06%, 51.55%) and
+  print the original 194-based shares and the deltas beside them in the report.
+- **B.** Keep the original 194-based shares. A product that reproduces the scored group exactly fails the
+  `later` check by construction, with a 5.02-point difference.
+- **C.** Keep the original reference and widen the tolerance to six points for `later` only.
+
+Changing the choice later requires re-scoring only. No implementation depends on it. The latest cheap point
+is before P6 sees product results.
+
+Check the three gates independently. Under option A, P product buckets of 25 same-commit, 51 later, 82 present
+and three unknown pass the share test over 161. On R, 58 within 14 days and five later fail the share test even if all
 63 locations are retained. Retaining only the five reader-counted R locations, all within 14 days, passes the
 share test and the reader-counted test but fails retention at 5/63. Adding unrelated product locations cannot
 repair that shortfall.
@@ -1085,8 +1142,9 @@ a gate miss with its cause even when the live review contains a new supported re
 
 ## Acceptance for the lane
 
-The memo records feasibility separately from owner ratings. D-census is due before P1. Product acceptance requires the P2, P2-R, both P3 and
-both-pair P4 gates, P5's measured decision and P6's replay gate on the final product head. Record each review
-outcome and every unbound reason and count (P publicly, R under private custody). State the route source used,
-proven/configured counts, accepted losses and remaining coverage. Run the full suite before merging product changes
-to main.
+The memo records feasibility separately from owner ratings. D-census is due before P1. Product acceptance
+requires the P2, P2-R, both P3 and both-pair P4 gates, P5's measured decision and P6's replay gate on the final
+product head. Use P6's scored public set, report the removed and unchecked rows beside the score, and record
+the disposition of both public report-route misses. Record each review outcome and every unbound reason and
+count (P publicly, R under private custody). State the route source used, proven/configured counts, accepted
+losses and remaining coverage. Run the full suite before merging product changes to main.
