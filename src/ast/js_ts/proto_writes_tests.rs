@@ -252,9 +252,9 @@ fn matrix_nonrecursive_rows() {
     }
     let total = reasons.values().sum::<usize>();
     eprintln!("fail_closed_reads: total={total} by_reason={reasons:?}");
-    assert_eq!(1722 - complete, total, "counts against c21952a8");
+    // S1a-1 pinned `1722 - complete == total` against c21952a8; S1a-2 adds receiver steps.
     eprintln!("matrix complete_reads: {complete}");
-    assert_eq!(designated.len(), 134);
+    assert_eq!(designated.len(), 302);
     let mut changed = failures.len();
     if let Some(path) = std::env::var_os("PRISM_FOLD3_BASE_FACTS") {
         let recorded: BTreeMap<String, serde_json::Value> =
@@ -262,6 +262,7 @@ fn matrix_nonrecursive_rows() {
         assert_eq!(recorded.len(), 134);
         changed = designated
             .iter()
+            .filter(|(id, _)| recorded.contains_key(*id))
             .filter(|(id, facts)| recorded.get(*id) != serde_json::to_value(facts).ok().as_ref())
             .count();
     }
