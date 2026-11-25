@@ -25,7 +25,7 @@ p13 | change: Keep the graph assertions. Set base to green: the earlier-formal a
 p14 | keep | 5.1.2
 p15 | change: Keep the entry Def. Require the line-2 assignment Def → line-3 Use (exact) and no entry-Def → line-3 Use at any label. The straight-line identifier twin has no surviving entry edge. | 5.1.2
 p16 | keep | 5.1.2
-p17 | keep | 5.1.2
+p17 | change: A read of the owner's arguments makes the pattern local mixed. Require identifier-twin base admission and labels and no entry projection. Retain the eval controls and pair lexical arguments with the arrow, ordinary-function and shadowing cases in owner-arguments-and-arrow. | 5.1.2
 p18 | keep | 5.1.1
 p19 | keep | 5.1.1
 p20 | keep | 5.1.1
@@ -336,12 +336,23 @@ d2-unknown-target | add | 5.1.3
 d2-multiline-shadow | add: Intentionally repeats d1-multiline-selection/shadow beside its source baseline. Witness the inner declaration at the indexed read even if disconnected. | 5.3.4
 d2-multiline-version | add: Intentionally repeats d1-multiline-selection/stale beside its source baseline. Witness the intervening field write at the indexed read even if disconnected. | 5.3.4
 d2-multiline-base-pairs | add: Intentionally repeats both d2 baselines together to check the two base paths independently of the conflict cases. | 5.3.4
-d3-implicit-key-effects | add: Withhold the affected field projection with one write-effect refusal. Keep the disjoint bare body read and require zero write-effect refusals for that pair. | 5.1.2
+d3-implicit-key-effects | add: The identifier key passes the syntax allowlist, but either key coercion or destructuring Get can write the field. Withhold its projection as write_effect and require the base replacement at [44,45). Keep the disjoint bare body read with zero projection refusals. | 5.1.2
 d3-abrupt-key-order | add: A forward computed key blocks the final reader with one order refusal and no entry Def. Keep the same reader with the key omitted. | 5.1.2
 d3-refusal-precedence | add: The bare outer-name sibling fails binding, the array sibling fails shape, and the nested default gives one nested-list refusal with a separate shadow verdict. Retain the nested control's outer body read. | 5.1.2
-d3-mixed-line-fallback | add: Pin the raw write and alias twin at the condition bytes and exclude both signature endpoints. Preserve the wholly body-line anchors. The corresponding pre-S1 relocation requires the bounded §7 exception in DESIGN §5.9. | 5.1.2
+d3-mixed-line-fallback | add: Pin the raw write and alias twin at the condition bytes and exclude both signature endpoints. Include the renamed raw witness. Preserve wholly-body anchors and require zero version-only and scope-only moves under the bounded §5.9 exception. | 5.1.2
 d3-method-computed-name | add: Inventory the computed method key as other-binding for the method. Only the body operand receives the formal's edge. | 5.1.2
 d3-method-decorator | add: Associate the sibling decorator with the method in TS and TSX. Require exactly one other-binding ledger entry at [15,16) for the formal at [21,22) in each grammar. Only the body operand receives the formal's edge. | 5.1.2
-d3-signature-alias-omitted | add: With p omitted, require mixed-local base-read parity with the plain-formal twin and exclude all entry field projections. In shape-refused, count one shape refusal at [24,25) and require the body base read at [46,47) with no entry field projection. The call returns 1. | 5.1.2
-d3-signature-alias-passed | add: With a distinct p supplied, require the same mixed-local base-read parity and absence of entry field projections. In shape-refused, count one shape refusal at [24,25) and require the body base read at [46,47) with no entry field projection. The call returns 7. | 5.1.2
+d3-signature-alias-omitted | add: With p omitted the call returns 1. Require M1 base-read parity and no entry projection, including the shape-refused case ([24,25) refusal, [46,47) base Use). At [16,17) → [49,50), and [16,17) → [52,53) with a trailing formal, pin the legacy twin's nameonly/alias_unstable → nameonly/sameline transition separately from p35. | 5.1.2
+d3-signature-alias-passed | add: With a distinct p supplied the call returns 7. The same owner-level M1 rule requires base-read parity and no entry projection. In shape-refused, keep the [24,25) shape refusal and the base Use at [46,47). Compare legacy labels independently of the omitted fixture. | 5.1.2
 d3-sibling-order | add: The later c formal causes order refusals at its own bare read and the downstream reader. In the reordered control the reader retains its cfg_incomplete edge. | 5.1.2
+body-container-alias | add: Array destructuring or indexing, object literals, a sequence and a direct local can forward the whole reference to an explicit store. Require the entry base read and no field projection under M1. | 5.1.2
+body-iteration-and-throw-alias | add: A for-of binding and a catch binding carry the original reference to a field store. Require M1 base edges only. | 5.1.2
+body-property-store-alias | add: A fresh holder can reload o after a property store. Keep only the base read. The member-only variants isolate W1 for foreign, this, call-result and nested-capture roots, with a write-effect refusal and base replacement. | 5.1.2
+body-copied-path-prefix | add: q = o.child keeps M1 eligible, but q.k writes the storage read by o.child.k. Require the W1 refusal at the return operand and the base replacement, with no projection for either read. | 5.1.2
+owner-arguments-and-arrow | add: Direct and arrow arguments reads demote to base, including in the non-simple formal list. An intervening ordinary function and a shadow preserve projections. A bare read in a refused nested formal list still demotes. | 5.1.2
+signature-container-and-transitive-alias | add: Object, array, conditional, class-static, binding-leaf and transitive defaults forward the reference. Pin the shape refusal and retain the body base edge without a projection. | 5.1.2
+signature-coercion-and-setter | add: Coercing o triggers M1. Coercing another formal or assigning its setter withholds the field as write_effect and keeps the base edge. The inert-default control retains the projection. | 5.1.2
+projection-disjoint-control | add: Member-only reads without stores keep exact entry projections, including with an inert signature. Require zero write-effect refusals. | 5.1.2
+legacy-relocation-cap-replay | add: Pin uncapped raw and twin moves at the seam with a live S1 increment. PLAN S1 requires companion cap cells to restore the pre-S1 anchors and entire legacy owner output. | 5.1.2
+step5c-pattern-input | add: Pin the new Def's reached return operand and the constant-return control. PLAN S1 requires the byte-keyed Step 5c input and counter check. | 5.1.2
+ordinary-argument-new-source | add: Pin the reached argument Use and its edge to the ordinary formal Def, with a literal-slot control. PLAN S1 requires the resolved call-slot join. | 5.1.2
