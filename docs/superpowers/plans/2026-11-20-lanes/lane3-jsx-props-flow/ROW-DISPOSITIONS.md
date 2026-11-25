@@ -31,11 +31,11 @@ p19 | keep | 5.1.1
 p20 | keep | 5.1.1
 p21 | keep | 5.1.2
 p22 | keep | 5.1.2
-p23 | change: At the formal identifier bytes require the identifier twin’s cfg_incomplete edge into the body read, not killed. Distinguish the other line-1 assignment Def by bytes. Pin each extension against its same-layout twin. | 5.1.2
+p23 | change: At the formal identifier bytes require entry → body read `cfg_incomplete` for js, ts and tsx. Distinguish the separate line-1 assignment Def by bytes. | 5.1.2
 p24 | keep | 5.1.2
 p25 | keep | 5.1.2
 p26 | keep | 5.1.2
-p27 | change: Require the line-1 formal → line-3 Use edge with the twin’s killed label and the distinct line-2 captured-write Def → that Use with cfg_incomplete. Pin labels against the same-extension twin. | 5.1.2
+p27 | change: For js, ts and tsx require entry Def → line-3 Use `killed` and line-2 captured-write Def → the same Use `cfg_incomplete`. | 5.1.2
 p28 | keep | 5.1.1
 p29 | change: Keep the graph assertions. Set base to green: the outer-binding alias already provides the pinned Defs (Stage T/E RED record). | 5.1.1
 p30 | change: Keep the graph assertions. Set base to green: the effectful whole-formal default already has no Def (Stage T/E RED record). | 5.1.1
@@ -114,7 +114,7 @@ astra-1-03 | keep | 5.1.1
 astra-1-04 | keep | 5.2.3
 astra-1-05 | keep | 5.2.3
 astra-1-06 | keep | 5.2.3
-astra-1-07 | keep | 5.3.4
+astra-1-07 | change: Keep graph edges, both paths, bytes, counter and negative control. Replace trace_reaches with SelfFunctionParam boundary NodeView:next@4(use) bytes [95,99) → NodeView:current@1(def) and trace_misses NodeView:current@2(use), both seeded at m:3. | 5.3.5
 astra-1-08 | keep | 5.3.2
 astra-1-09 | keep | 5.3.1
 astra-1-10 | keep | 5.3.1
@@ -167,7 +167,7 @@ astra-3-09 | keep | 5.3.1
 astra-3-10 | keep | 5.3.1
 astra-3-11 | keep | 5.2.2
 astra-3-12 | keep | 5.3.4
-astra-3-13 | keep | 5.3.1
+astra-3-13 | change: Direct only, keep edges and paths. Replace trace_reaches with SelfFunctionParam boundary Inner:next@4(use) bytes [70,74) → Inner:a@1(def) and trace_misses Inner:a@2(use), both seeded at m:3. Keep wrapped intact. | 5.3.5
 astra-3-14 | keep | 5.3.2
 astra-4-01 | keep | 5.1.2
 astra-4-02 | keep | 5.1.2
@@ -309,3 +309,16 @@ terra-5-01 | keep | 5.1.3
 terra-5-02 | keep | 5.1.3
 terra-5-03 | keep | 5.1.3
 terra-5-04 | keep | 5.1.3
+d1-selected-endpoint | add | 5.1.2
+d1-rewritten-argument | add | 5.3.1
+d1-debounce | add | 5.3.1
+d1-pass-through | add | 5.3.1
+d1-local-usecallback | add | 5.3.1
+d1-shadowed-usecallback | add | 5.3.1
+d1-unbound-singleton | add | 5.3.1
+d1-import-alias | add | 5.3.1
+d1-literal-member-source | add | 5.3.3
+d1-jsx-bracket-family | add | 5.3.2
+d1-bracket-beside-reads | add | 5.3.2
+d1-multiline-selection | add | 5.3.4
+d1-scoped-replacement | add | 5.2.3

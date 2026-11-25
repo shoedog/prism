@@ -11,13 +11,13 @@ end-to-end path counts and rated review examples.
 that leaves parameter occurrences and positional slots untouched; the #594 object-literal binder is split
 into props sources (object literal, JSX attributes) and props targets (plain formal reads, pattern-formal
 definitions), keeping its generic shape; JSX sites enter the argument-binding step through one new branch,
-take one connected, binding-correct caller Use per leaf, and require an existing Exact singleton. A member site also proves the namespace export and a wrapper site proves the React render operand.
+take one connected, binding-correct caller Use per leaf, and require an existing Exact singleton. A member site also proves the namespace export and each JSX or literal-pattern position needs the callable and argument-mapping proof for that site kind.
 
 **Tech stack:** Rust (core crate: `src/ast`, `src/data_flow`, `src/cpg`), tree-sitter
 JavaScript/TypeScript/TSX; Node with the pinned TypeScript 5.9.3 for the census and oracle; Python 3 for the
 comparators.
 
-**Spec:** `DESIGN.md` sections 5.1–5.4 define the rules and counters, 5.7–5.9 record losses, generators and amendments, and section 7 defines the gates. [ROW-DISPOSITIONS.md](ROW-DISPOSITIONS.md) covers the pinned 311 rows.
+**Spec:** `DESIGN.md` sections 5.1–5.4 define the rules and counters, 5.7–5.9 record losses, generators and amendments, and section 7 defines the gates. [ROW-DISPOSITIONS.md](ROW-DISPOSITIONS.md) maps the pinned 311 rows plus the 13 source fixtures in [NEW-ROWS.jsonl](NEW-ROWS.jsonl).
 
 ## Global constraints
 
@@ -43,7 +43,7 @@ comparators.
   `src/cpg/step5b_reference.rs`. Emission order must be the same in all three: parity tests compare edge
   lists, and a parallel-equals-serial assertion compares order.
 - Each slice that changes the graph or the statistics record bumps `CACHE_VERSION` in `src/cpg_cache.rs`
-  with a list line, and updates the React and data-flow entries of
+  with a list line and updates all three current-version assertions in `src/cpg_cache/dfg_codec_tests.rs`. Run `cargo test --lib dfg_codec_tests` for owned/streamed byte equality, activation and stale-version misses. S1, S2b and S3 each verify cold/partial Step 5b assembly against serialized full-hit stats and edges at 1 and 4 threads. Each also updates the React and data-flow entries of
   `docs/features/language-coverage/js-ts-known-gaps.md` and the matching paragraph of `CLAUDE.md`.
 - Tier-A applies to every slice (ORCHESTRATION section 5 item 5).
 - Core tests must not name the review crate (the layering test forbids it). Assertions about review-taint
@@ -103,7 +103,7 @@ comparators.
       function, a const-bound arrow, or an anonymous function inside an admitted wrapper; whether it is a
       one-line function with two or more props; and whether the pattern or the member reads contain the
       attribute's key.
-- [ ] Source outcome per Leaf value, by the DESIGN 5.3 rule: with a warmed nav cache for the corpus (one
+- [ ] Stage M source outcome per Leaf value, using its original first-wins line-index and incoming-endpoint lookup (DESIGN §6 Census): with a warmed nav cache for the corpus (one
       `prism-base nav call-stats` run without `--no-cache` first), run `prism-base nav nodes-at --repo
       <corpus> --location <file>:<line> --format json` once per distinct value line and look for a Use node
       of the value's path whose function is the site's caller (by name, and by start line where the output
@@ -133,32 +133,33 @@ plus R2, and a rate ≥ 30% on each). Below it: stop, post the tables on #596, a
 ### Task M-3: comparator, oracles, paths
 
 **Files (evidence directory):** `tools/compare_props.py`, `tools/oracle_props_edges.cjs`,
-`tools/oracle_pattern_defs.cjs`, `tools/undecided_sample.py`, `tools/paths.py`, `tools/measure.sh`.
+`tools/oracle_pattern_defs.cjs`, `tools/undecided_sample.py`, `tools/paths.py`, `tools/measure.sh` and `tools/selftest/` (the independent TypeScript model, fixtures and poison controls).
 
 - [ ] `measure.sh <binary> <corpus> <outdir>`: runs, through memguard, `nav --no-cache dfg-stats`,
       `nav --no-cache call-stats`, and `PRISM_EDGES_BYTES=1 nav --no-cache dfg-stats --edges`.
+- [ ] Supply the byte-keyed input to oracle check 3. In the measurement build, capture the immutable variable table, index insertion order, concrete incoming DataFlow edges/labels and owner IDs immediately before `collect_step5b_edges_with_exact` in `src/cpg/build.rs`. Pass that sidecar plus `call-stats --dump-sites` and the final edge dump to M-3. Bind sidecar, corpus bytes and final graph to the same build/run; check fresh versus ordinary builds have identical final edges and stats. Use the same observation point in the test adapter. Do not infer pre-step connectivity by deleting cross-owner edges from the finished graph; that would retain recursive argument edges.
 - [ ] `compare_props.py <base dir> <head dir>`: keys each edge by (file, path, line, bytes) at both ends;
       classes: `pattern-def-intra` (a new edge that starts at a Def absent from the base, inside one
-      function), `props-literal` (a new cross-function edge whose source is in the caller of an
-      object-literal argument site), `props-jsx` (the same for a JSX element site), `removed` and
+      function), `props-literal` (an added edge with an object-literal argument witness, including a recursive site in the same owner), `props-jsx` (the same for a JSX element site), `removed` and
       `label-move` (each listed in full: none is expected), and `s1-one-node-relabel` (an existing edge whose
       label moves from `exact` to `cfg_incomplete` in a one-node owner that gains a pattern Def written or
       updated in that owner: the expected change class of DESIGN section 7 "Slice S1", listed in full and
       counted; any other label move stays `label-move`); prints every counter delta of both stats files;
       exits 1 on an unclassified change. Model: `~/prism-evidence/jsts-lane/783/scripts/compare761.py`.
-- [ ] `oracle_props_edges.cjs <corpus> <added-edges.jsonl>`: verdicts per DESIGN section 6 "Oracle",
-      checks 1 to 3 (component identity with aliases and the one-step follow; key match; attribution from
-      the TypeScript tree). It loads the corpus's own files with no dependency installation. Self-test it
-      before use on a fixture with one correct edge and one edge for each WRONG kind: wrong component, wrong
-      key, an attribute overwritten by a later spread, the first of two duplicate attributes, a `key`
-      attribute, a `children` attribute on an element with child content, a source that belongs to another
-      attribute, a member tag through a named import, a namespace member the module does not export
-      (`<UI.Item>` resolved to an object member `Other.Item`), a leaf of an object value that a later
-      attribute of the same name replaces (`x` in `style={{ color: x }} style={{ size: y }}`), plus one
-      correct expando component (`Tabs.Tab = X` through a namespace import).
-- [ ] `oracle_pattern_defs.cjs <corpus> <added-edges.jsonl>`: the slice S1 binding-identity oracle of
-      DESIGN section 6, and a list of added `exact` edges whose local has a write reference in its function.
-      Self-test on a fixture with one correct edge and one edge from a shadowed outer binding.
+- [ ] `oracle_props_edges.cjs <corpus> <added-edges.jsonl>` and its fixture suite implement DESIGN §6 checks 1–3 on actual TS source and byte-keyed endpoints. Recover candidates from the syntax and dump, including same-owner calls. Preserve every valid witness with site/position, actual operand and selected bytes, source path, target binding and key restriction. Test the following **positive and deliberately WRONG** controls before S2b or S3 uses the oracle. A fixture expectation cannot become a corpus witness.
+
+| Witness | CORRECT control | WRONG control |
+|---|---|---|
+| Target identity / position | Direct, stable renamed import/alias, proven namespace export (including an exported expando if its value is the selected callable), JSX wrapper operand zero, local literal-call React hook | Foreign unbound singleton, inaccessible declaration, shadowed hook, rewriting or forwarding factory, comparator, unexported or unrelated same-spelled member, wrong runtime argument, prior argument spread |
+| Pattern | Equal key and renamed local; shorter value path into nested local; deeper value into container | Wrong local bytes, divergent segment, dotted spelling split into two segments, deeper leaf sent to a sibling container. In `paths.py` separately reject a chain leaving the correct container through a sibling |
+| Rest | Unconsumed top-level and nested residual, sibling outside nested wildcard | Consumed key (including a refused/unused sibling), parent-only value, unknown sibling, wrong residual suffix |
+| Plain target | Reached matching member at exact bytes, mixed base Use with full dot syntax, genuine nonzero bare Use, legacy literal bracket/odd-key projection compared with base | Wrong sibling/member, suppressed member write, a label stronger than the reached read, zero-width bare, JSX bracket or exposing a rich-only key in the legacy projection |
+| Literal source | Shorthand and explicit value, both full and base endpoints in the bytes of `D({a:user.name})`, a disconnected exact Use | Wrong byte occurrence elsewhere on the same line, path from a different root or intermediate prefix |
+| JSX source | Own full, proved base with dead full, zero-width or earlier representative (including a name token), transparent/optional path, recursive edge | Disconnected/outer source, wrong shadow/version, base despite live or conflicting full, wrong attribute or wrong operand line |
+| Writer and metadata | `key/ref` in a literal and inside a nested JSX object, explicit JSX children without content, final duplicate, independent nested site | Top-level JSX `key/ref`, children with content, displaced duplicate/subtree/leaf or foreign-site operand, later spread |
+| Dedup and verdict | One edge with two valid restrictions, plus a discarded invalid candidate; unresolved external symbol → UNDECIDED | No viable witness for the endpoint → WRONG; malformed probe → INADMISSIBLE |
+
+- [ ] `oracle_pattern_defs.cjs` checks the checker symbol at Def bytes and the selected destination bytes (or the complete represented-read set for a line anchor). Manufacture a wrong first endpoint beside a valid same-line outer read. Pair a uniformly bound zero-width/name-token representative with mixed anchor and distinct-block/loop/switch/catch/default controls. Check projection roots and captured reads; retain the 30 written-local exact-edge sample. Exercise each wrong control by poisoning only that endpoint, binding, writer or position.
 - [ ] `undecided_sample.py <verdicts> <n> <seed>`: the seeded sample of UNDECIDED rows for the hand read.
 - [ ] `paths.py <head edges> <oracle verdicts> <corpus>`: the end-to-end path table and the connected share
       of DESIGN section 6 (the value's root binding decided with the checker; no credit for a chain that
@@ -186,7 +187,7 @@ the `dfg_props` map read from the serialised statistics; an absent key reads as 
 `trace_misses` and `trace_boundary` (through the trace engine, as the existing plain-call trace tests do;
 each names its seed line and its target line).
 
-**Binding rows assert reachability from the definition.** Join the path through the concrete connected caller Use. For a pattern target assert trace descent where DESIGN 5.3.5 admits it, or the specified boundary/miss for a spelling or site collision. Test a refused leaf with no incoming props edge and a negative path from an existing seed.
+**Binding rows assert reachability from the definition.** Join the path through the concrete connected caller Use. For a pattern target assert descent only where DESIGN 5.3.5 admits it. Pin cross-function spelling/site boundaries and the same-owner self-parameter boundary separately. Test a refused leaf with no incoming props edge and a negative path from an existing seed.
 
 `props_matrix_tests.rs` holds one test, `props_matrix_rows`, with a constant
 `ENABLED: &[&str] = &["control"]`. It runs the rows of enabled groups and skips the rest. On main the
@@ -227,11 +228,11 @@ admits only React's wrappers.
 | p20 | `(x = 1, { b }) => { … }` | `b` gets a Def; `x` exactly as on main |
 | p21 | one-line owner `const C = ({ a, b }) => use(a, b);` | Defs `a` and `b`; edges present, label not asserted |
 | p22 | `function C({ html }) {` / `function html() {}` / `return use(html);` / `}` (a hoisted function replaces the formal) | the edge from `C:html@1` into `use(html)` is `killed`, as the identifier twin `function C(html)` gets |
-| p23 | `function C({ a }, b = (a = 1)) {` / `return use(a);` / `}` | formal-bytes edge into the body read is the identifier twin’s `cfg_incomplete` in the TSX control; locate the two line-1 Defs by bytes |
+| p23 | `function C({ a }, b = (a = 1)) {` / `return use(a);` / `}` | formal-bytes edge into the body read is the identifier twin’s `cfg_incomplete` in js, ts and tsx; locate the two line-1 Defs by bytes |
 | p24 | `function C({ o }, x = (o.k = 1)) {` / `return use(o.k);` / `}` | the edge from `C:o@1` to `o.k` gets what the identifier twin `(o, x = (o.k = 1))` gets (the own-parameter member-write refusal) |
 | p25 | `function C({ a = 1 }) {` / `var a;` / `return use(a);` / `}`; the same as an anonymous function passed to a call | as the identifier twin `(a = 1)` with `var a`, named and anonymous |
 | p26 | `function L({ id }) {` / `return xs.map(({ id }) => {` / `return use(id);` / `});` / `}` | no edge from `L:id@1` into the inner use; the inner arrow's pattern Def feeds it |
-| p27 | `function C({ a }) {` / `run(() => { a = 2; });` / `return use(a);` / `}` | entry Def → final Use `killed`; captured-write Def → final Use `cfg_incomplete` in the TSX twin |
+| p27 | `function C({ a }) {` / `run(() => { a = 2; });` / `return use(a);` / `}` | entry Def → final Use `killed`; captured-write Def → final Use `cfg_incomplete` in js, ts and tsx |
 | p28 | `{ a: { c } = make() }`; `{ a: { c } = other }`; `{ a: { c } = {} }` | no Def for `c`; no Def for `c`; Def `c` |
 | p29 | `function f({ a } = outer) {` / `return use(a);` / `}` with `outer` an outer variable, not a formal | exactly the Defs main has today (the alias code's `a` and its twin); no second Def at the same bytes |
 | p30 | `({ a } = make())` | no Def for `a` |
@@ -319,7 +320,7 @@ at a pattern); `D({ other: t })`-style rows that already hold.
 | j39 | `import * as UI from "./table"; <UI.Item html={a} />` where `table` has no export `Item` but holds `export const Other = { Item: ({ html }) => … }`; the same with an unexported `function Item({ html })` in `table` | no edge; `refused_member_not_export` = 1 each (contrast: j03's `<UI.Html>` binds) |
 | j40 | `<C style={{ color: x }} style={{ size: y }} />` and `<C style={{ color: x }} style={s()} />` into `function C({ style: { color, size } })` and into `function C({ style })` | only `y → size` and `y → style` in the first; nothing from `x` in either, `refused_overwritten` = 1 for `x` each |
 
-The tables above describe the seed cases. Every enumerator row and amended expectation, including mixed cases and counters, is in [ROW-DISPOSITIONS.md](ROW-DISPOSITIONS.md). The complete groups contain 11 control, 62 S1, 69 S2 and 169 S3 rows.
+The tables above describe the seed cases. Every enumerator row and amended expectation, including mixed cases and counters, is in [ROW-DISPOSITIONS.md](ROW-DISPOSITIONS.md). The pin contains 11 control, 62 S1, 69 S2 and 169 S3 rows. The fold adds 1 S1, 9 S2 and 3 S3 rows, for 324 total (11/63/78/172).
 
 - [ ] Write the rows file, the README (row schema and assertion kinds) and the test. Confirm: control rows
       green on main; record the RED run for the other groups.
@@ -355,9 +356,11 @@ so this axis gets its own pass, run with the same tiers and rules as Task T-2.
 
 ## Stage D: design of record (1 to 1.5 days)
 
-- [x] Record the decisions in DESIGN 5.1–5.9 and the disposition of all 311 rows. E closed with two open classes; use the generators in 5.8.
-- [ ] Before the slice that enables a changed row starts, the implementer applies its revised expectation and records its new RED/GREEN receipt on the same base (ORCHESTRATION 7). Preserve the prior receipts as historical evidence. The supplied 06157400a run reports 272 failures and 39 passes. p13, p29, p30, j08, j14, terra-1-09 and terra-1-10 passed despite red seeds. Correct their base metadata independently of behavioral disposition. A passed negative is a preservation check.
+- [x] Record the decisions in DESIGN 5.1–5.9 and the dispositions of all 311 pinned rows and 13 additions. E closed with two open classes; use the generators in 5.8.
+- [ ] Before each enabling slice, import its `add` lines verbatim from `NEW-ROWS.jsonl`, apply the pinned `change` instructions, validate unique IDs/cases and record fresh observed RED/GREEN receipts on the same base (ORCHESTRATION 7). Preserve the prior receipts as historical evidence. The supplied 06157400a run reports 272 failures and 39 passes. p13, p29, p30, j08, j14, terra-1-09 and terra-1-10 passed despite red seeds. Correct their base metadata independently of behavioral disposition. A passed negative is a preservation check.
 - [ ] Both reviewers approve the amendment; cap two rounds under ORCHESTRATION 7–8.
+
+**Round 1 fold checks.** All 324 ledger IDs matched pin order followed by addition order. A read-only adaptation of the pinned row evaluator used the existing lane `libprism` archive (SHA-256 `50fdcaa4b62c9dedd0973106d8948fd0480c09bc04b8274649d908022866796a`). The 11 original controls passed. All 13 new rows parsed and built in all 73 case/extension instances and failed their planned edge or counter expectations on that pre-implementation graph. The same library produced the p23/p27 labels in all six identifier twins. The existing lane test binary passed all six `cpg_cache::dfg_codec_tests`, including owned/streamed parity and stale-version miss. The future cache versions still require these checks. Sources for all seven §5.8 panels parsed and produced nonempty native graphs (1,920 + 176 + 16 + 2,048 + 96 + 576 + 80). These baseline checks used an existing archive without a fresh build at the reviewed revision. Exact-base slice REDs, independent model comparisons on implementation heads, oracle verdicts and corpus gates require the planned slice runs.
 
 ---
 
@@ -368,13 +371,12 @@ so this axis gets its own pass, run with the same tiers and rules as Task T-2.
 **Files:**
 - Create: `src/ast/js_ts/pattern_params.rs`, `src/ast/js_ts/pattern_params_tests.rs` and the shared AST key/wrapper helper (`src/ast/js_ts/props_keys.rs`). Expose `is_inert_default_value` in `src/parameter_slots.rs` with its existing callers’ behavior.
 - Modify: `src/ast/js_ts.rs` (module lines), `src/data_flow/build/file.rs` (register Defs for admitted
-  pattern locals in the loop that handles `function_parameter_occurrences`. Filter candidate reads by
-  binding identity under 5.1.2 before applying the existing producer's classifications and refusals),
-  `src/cpg/props_matrix_tests.rs` (`ENABLED` gains `"S1"`), `src/cpg_cache.rs` (version), docs
+  pattern locals in the loop that handles `function_parameter_occurrences`. pass admitted binding and occurrence bytes through endpoint selection, both count/emit passes and member projection per 5.1.2),
+  `src/cpg/props_matrix_tests.rs` (`ENABLED` gains `"S1"`), `src/cpg_cache.rs` (version), `src/cpg_cache/dfg_codec_tests.rs` (three version assertions), docs
 - Tests to re-run and, where they compare the live producer with the test-only legacy producer
   (`src/data_flow/build/legacy_producer.rs`), to adjust by excluding owners that have a pattern formal, each
   exclusion named in the PR: find them with `rg -l "file_refs_frozen" src/` (the command's list is
-  authoritative; at 1179055f it names 15 test files under `src/data_flow/build/`, among them
+  authoritative; on the reviewed product it names 16 files, including the producer and test support, under `src/data_flow/build/`, among them
   `js_prune_tests.rs`, `prune_cap_tests.rs`, `lexical_prune_tests.rs`, `scope_prune_tests.rs`,
   `order_prune_tests.rs` and the C, C++, Rust and Python prune tests). Also run
   `parameter_slots_parity_tests`, `js_param_defs_tests`, `inert_default_parameter_tests`,
@@ -384,13 +386,14 @@ so this axis gets its own pass, run with the same tiers and rules as Task T-2.
 
 Produce per-position pattern facts under DESIGN 5.1. Preserve empty/alias-skipped positions. Keep the per-object consumed-key set and unknown-sibling flag even for empty, unused, excluded or array-valued children. Each element carries its structured path or unknown status, a rest-level exclusion predicate if applicable, local name and identifier bytes, default state and admission. Index positions excluding TypeScript's `this`. Put shared key and erased-wrapper classification in the AST layer. Expose the existing inert-default predicate and alias accessor internally where needed. Pair the facts with the exact callable syntax node.
 
-`ParsedFile::js_ts_pattern_params(&Node) -> Vec<PatternParam>` returns these facts. The data-flow-only occurrence adapter carries each eligible local's bytes through the existing Def, reference, write and projection paths. Screen new pattern locals for runtime binding identity, including parameter-initializer uses, type/JSX name positions, shadows and captures. Keep existing general-purpose parameter and slot accessors. The same-shaped identifier control decides absence, label and concrete source Def. See DESIGN 5.1.1–5.1.3, 5.7–5.8 and the S1 dispositions. Include the pinned row data and disposition lines in this slice's brief. Exercise the pattern half of the shape generator, including a refused/empty subtree beside an eligible sibling.
+`ParsedFile::js_ts_pattern_params(&Node) -> Vec<PatternParam>` returns these facts. The data-flow-only occurrence adapter carries each eligible local's bytes through the existing Def, reference, write and projection paths. Screen new pattern locals for runtime binding identity, including parameter-initializer uses, type/JSX name positions, shadows and captures. Keep existing general-purpose parameter and slot accessors. Keep the same-shaped identifier control for presence, reaching-definition label and concrete source Def. For newly added edges prove the selected endpoint after the producer chooses its preferred Use; on a mixed line use the admitted occurrence bytes, including during final CPG interning. In `d1-selected-endpoint` check the positive and poisoned byte spans across all five environments. Inventory unidentifiable endpoints per attempted binding/reference pair for S4. For p23/p27 pin JS, TS and TSX independently. See DESIGN 5.1.1–5.1.3, 5.7–5.8 and the S1 dispositions. Include the pinned row data and disposition lines in this slice's brief. Build the 576 generated default/uniqueness programs (§5.8), compare actual pattern Defs and absence by bytes. Reuse the sources with the S2b binding model. Put the builder/expectation adapter in the test-only files listed below.
 
 - [ ] Unit tests for `js_ts_pattern_params` first, in `pattern_params_tests.rs`: one per binding/default/rest form in DESIGN 5.1 and 5.8, one per admission rule (the intermediate-default rule and the assertion-wrapper removal
       included), and the alias-default exclusion for an earlier formal and for an outer variable (p13,
       p29). They do not compile until the module exists: add the module skeleton returning empty lists in
       the same commit, so the tests are RED, not broken.
 - [ ] Implement the accessor. Unit tests GREEN.
+- [ ] Add `src/cpg/props_generated_tests.rs` and its `src/cpg.rs` registration for the real graph-builder adapter. Own the independent TS reference in evidence `tools/selftest/props_generated.cjs` with source marks and a stable input/expected JSON format. Feed these cases into the Rust test; no runtime TypeScript dependency in the product. Verify full/partial/cold cache and codec controls per Global constraints.
 - [ ] Enable group `S1` in `props_matrix_tests.rs`: RED. Extend the producer loop in `file.rs`. GREEN.
 - [ ] Review focus items 1 and 2 are rows p14, p15, p16, p26, p27: confirm they pass.
 - [ ] Write the differential prediction (DESIGN section 7, "Slice S1"), then measure X, R2, T and G with
@@ -411,6 +414,7 @@ Produce per-position pattern facts under DESIGN 5.1. Preserve empty/alias-skippe
 Two PRs: S2a is a pure move and is reviewed as one; S2b adds behaviour.
 
 **Files:**
+- Create in S2b: `src/ast/js_ts/component_route.rs`, `src/ast/js_ts/component_route_tests.rs` with declarations in `src/ast/js_ts.rs`. Extend `src/cpg/props_generated_tests.rs`, `tools/selftest/props_generated.cjs`, and `src/cpg/object_literal_parity_tests.rs`.
 - Create: `src/cpg/props_binding.rs` (move in S2a; extend in S2b). Use the S1 AST facts and shared key helpers. Add literal writer/matcher generated cases to the existing props tests in S2b.
 - Modify: `src/cpg/object_literal_args.rs` (becomes the literal source and calls the binder),
   `src/cpg/callee_params.rs` (pattern facts), `src/cpg/build.rs` (module line; pass pattern facts; merge
@@ -421,17 +425,17 @@ Two PRs: S2a is a pure move and is reviewed as one; S2b adds behaviour.
   destructured case moves to the matrix with the new expectation; the rest and bare-arrow cases stay),
   `src/cpg/callee_param_cache_tests.rs` and any test that names the cache's types, if they change,
   `crates/prism-review/tests/cli/min_confidence_test.rs` (the statistics golden lists every field),
-  `src/cpg_cache.rs` and `src/cpg_cache/stream.rs` (version; the statistics record if it is serialised),
+  `src/cpg_cache.rs`, `src/cpg_cache/dfg_codec_tests.rs` and `src/cpg_cache/stream.rs` (version pins, owned/streamed statistics transport),
   `src/cpg.rs` (test module lines), docs
 
 **Interfaces (produced):**
 
-Attach the 69 S2 disposition lines and their pinned row data to the S2b brief. S2a moves the existing plain-target pairing code verbatim where possible. Keep public/internal callers, representation, traversal, labels and byte-keyed source behavior identical. Introduce the following behavior-bearing interfaces in **S2b**, after the S2a differential.
+Attach the 78 S2 disposition lines, their pinned data and additions to the S2b brief. S2a moves the existing plain-target pairing code verbatim where possible. Keep public/internal callers, representation, traversal, labels and byte-keyed source behavior identical. Introduce the following behavior-bearing interfaces in **S2b**, after the S2a differential.
 
 - `compute_pattern_formal_nodes` joins the unique callable syntax span and each binding's exact bytes to a Def. Cache per-callee pattern positions beside the existing positional cell. Retain empty and alias-skipped positions and all levels' exclusions. Cached targets carry owner and binding geometry; on a line with multiple same-name Defs resolve the correct one by bytes (use the exact occurrence index). Direct twins use concrete node indices for the same facts. Keep `compute_param_def_nodes` and the positional cache's clients intact.
 - `PropsEntry` represents one ordered writer **at one object level**: named leaf (operand bytes), named object (ordered children, possibly empty), constant/opaque named terminal, numeric opaque writer, unknown writer or spread. Keep legacy #594 visibility on the same parsed writes. `PropsTarget<T>` is a plain target or a pattern position with per-level exclusions and optional local targets.
 - `collect<T>` takes the existing positional targets, pattern positions, resolver/query, caller site and per-caller counters. `bind<T>` joins surviving leaves to eligible destinations. Its source callback resolves a **whole leaf**, returning concrete source node(s) or one refusal. S2b keeps #594's full/base byte-contained candidates; S3 returns one connected caller node or one reason for the entire leaf. A missing literal byte lookup supplies no JSX source counter. Resolve generic targets with the existing cache/twin adapters.
-- Pre-loop, count a direct-literal site once and apply the Exact-singleton gate to the whole resolution. Preserve ordinary argument flow. At Exact sites skip each literal after an argument spread, counting `refused_argument_after_spread` per position. Apply member admission on pattern positions only, so a refused pattern and a successful plain argument can coexist. Merge admission reasons in DESIGN 5.4 order. Share a stable per-caller dedupe by concrete endpoints for props counters and emissions; recursive edges qualify by site/position even when both owners coincide.
+- Pre-loop, count a direct-literal site once and apply the Exact-singleton gate to the whole resolution. Preserve ordinary argument flow. At Exact sites skip each literal after an argument spread, counting `refused_argument_after_spread` per position. For each safe pattern position run checks 2 **and 3**. `js_ts_component_route(site_kind, lexical_site, selected_callable, export_proof)` returns direct, proven local hook operand, JSX render operand, unadmitted wrapper or unproved identity. Require binding/file/body bytes and position mapping. Check hook provenance at its initializer. Count `refused_unknown_wrapper` or `refused_target_identity` in §5.4 order and preserve the old plain position at a mixed site. Merge admission reasons in DESIGN 5.4 order. Share a stable per-caller dedupe by concrete endpoints for props counters and emissions; recursive edges qualify by site/position even when both owners coincide.
 - Production, legacy and reference traversals return counters beside pending edges. Merge in caller order into `DfgLabelStats.dfg_props`. Do not serialize graph indices. DESIGN 5.1–5.4 and 5.8 define all states and generated cases for this slice.
 
 - [ ] **S2a (its own PR), no behaviour change:** move the pairing from `object_literal_args.rs` into `bind`
@@ -439,8 +443,8 @@ Attach the 69 S2 disposition lines and their pinned row data to the S2b brief. S
       a base-versus-head differential on X and T shows zero changes in edges and statistics. No cache bump.
       Both reviewers, briefed that it is a pure move; merge before S2b branches.
 - [ ] **S2b, step 1:** introduce the counters, statistics field and ordered writer tree. Apply the legacy projection for every old plain-literal target, including bare reads of odd string keys. X and T must show zero edge changes at this step. Exercise empty parent replacement, scoped wildcard, and byte-distinct literal sources.
-- [ ] **S2b, step 2:** implement pattern facts and position-local admission (DESIGN 5.3.1–5.3.3, 5.4). Expose the read-only namespace/export equality query through `CpgCallResolver` for both resolvers; do not extend the candidate set. Run all 69 S2 dispositions, including mixed-target calls, recursive literal sites, empty patterns, residuals and unsafe spread positions. Run the shape generator cases against both projections. Enable the group after recording its RED controls.
-- [ ] Update the three tests named under Files; say in the PR which assertions moved or changed.
+- [ ] **S2b, step 2:** implement pattern facts and position-local admission (DESIGN 5.3.1–5.3.3, 5.4). Expose the read-only namespace/export equality query through `CpgCallResolver` for both resolvers; do not extend the candidate set. Exercise rewrite, delayed/pass-through and shadowed hooks, unbound foreign `FreeSingle`, the local React hook and a stable import alias. Check exact resolver preconditions before counting the failure. Run all 78 S2 dispositions, including mixed-target calls, recursive literal sites, empty patterns, residuals and unsafe spread positions. Run §5.8's collision, literal replacement and default panels through the real builder against the independent model, including the legacy plain projection with literal and bracket compatibility controls. Check disconnected literal sources and both byte-contained full/base edges. Run the codec/stale-version checks. Enable the group after recording its RED controls.
+- [ ] Update the affected tests listed above. Report which object-literal, cache-version, parity and statistics assertions changed.
 - [ ] Differential on X, R2, T: only `props-literal` edge additions; report the new counters. Extend `tools/compare_props.py` and `tools/oracle_props_edges.cjs` in the evidence workspace as needed for recursive same-owner sites. Use site/argument evidence before owner equality and self-check a recursive hop beside an ordinary intra-owner edge. Oracle on the additions: 0 WRONG.
 - [ ] Review focus item 5: extend `object_literal_parity_tests.rs` with a pattern-formal case (production,
       legacy twin, serial reference, cache round trip, incremental rebuild: identical edges and counters).
@@ -449,25 +453,26 @@ Attach the 69 S2 disposition lines and their pinned row data to the S2b brief. S
 ### Slice S3: JSX attribute source (4 to 5 days)
 
 **Files:**
-- Create: `src/cpg/jsx_props.rs`, `src/ast/js_ts/component_route.rs`, `src/ast/js_ts/component_route_tests.rs`,
+- Create: `src/cpg/jsx_props.rs`,
   `tests/algo/taxonomy/taint_jsx_props_test.rs` (with its `mod` line in `tests/algo/taxonomy/main.rs`), plus JSX source/owner generator cases in the props tests
 - Modify: `src/ast/js_ts.rs` (module lines), `src/cpg/build.rs` (module line and the JSX branch),
   `src/cpg/callee_legacy.rs`, `src/cpg/step5b_reference.rs`, `src/cpg/props_matrix_tests.rs` (`ENABLED`
-  gains `"S3"`), `src/cpg/object_literal_parity_tests.rs`, `src/cpg_cache.rs`, docs
+  gains `"S3"`), `src/cpg/object_literal_parity_tests.rs`, `src/cpg/props_generated_tests.rs`, `src/cpg/props_binding.rs`, `src/cpg/object_literal_args.rs` (expose reached read geometry), `src/ast/js_ts/component_route{,_tests}.rs`, `src/cpg_cache.rs`, `src/cpg_cache/dfg_codec_tests.rs`, matrix README and docs
 
 **Interfaces (produced):**
 
-- `js_ts_component_route` classifies the actual function node and JSX tag binding. Return direct, admitted React first operand, other wrapper, or unproved identity. Compare the selected body with the unique syntax span; an anonymous first operand is supported (j05). Use the existing wrapper proof and namespace query from S2b.
+- Extend S2b's `js_ts_component_route` to classify the actual function node and JSX tag binding. Return direct, admitted React first operand, other wrapper, or unproved identity. Compare the selected body with the unique syntax span; an anonymous first operand is supported (j05). Use the existing wrapper proof and namespace query from S2b.
 - `jsx_props::entries(caller, opening_span)` produces the S2b writer tree for this opening, including emitted-child overwrite. Extract nested sites independently. Match namespace tags, erased wrappers, reserved top-level names and child trivia per DESIGN 5.2.
-- `jsx_props::source_node(site, leaf) -> Result<NodeIndex, SourceRefusal>` consumes the operand's structured path, bytes and value-token lines. Use the immutable pre-Step-5b graph and first-wins VarIndex. Try full path then base; choose **one** connected caller Use. Verify its incoming definition/projection, execution owner, and binding/version equivalence for a line representative. Report ambiguous, unconnected, enclosing-only or missing in DESIGN 5.3.4 priority. Do not require a nonzero-width source. Do not create a Use or use an ancestor as the source. Reuse the AST scope walk and write facts in the JSX module; no DFG producer or trace changes in S3.
+- `jsx_plain_read(parsed, endpoint, formal)` returns a proved whole read, complete dot chain, bracket refusal, zero-width bare refusal or unproved read. Walk receiver parents even for projected endpoints; account for all §5.3.2 forms. Record the per-site/read counters without suppressing valid reads. Keep the legacy literal adapter for sol-3-07.
+- `jsx_props::source_node(site, leaf) -> Result<NodeIndex, SourceRefusal>` consumes the operand's structured path, bytes and value-token lines. Use the immutable pre-Step-5b graph and first-wins VarIndex. Check candidate lines for a conflict before accepting any representative in that tier. Try full path then base and choose one connected caller Use. Exercise `d1-multiline-selection` against the real pre-Step-5b inputs. Verify its incoming definition/projection, execution owner, and binding/version equivalence for a line representative. Report ambiguous, unconnected, enclosing-only or missing in DESIGN 5.3.4 priority. Do not require a nonzero-width source. Do not create a Use or use an ancestor as the source. Reuse the AST scope walk and write facts in the JSX module; no DFG producer or trace changes in S3.
 - `jsx_props::collect<T>` calls the binder with one JSX target at runtime position zero, the ordered entries, the whole-leaf source callback and the same target adapter and counters as S2b. There are no positional arguments at a JSX site.
 
 **Site admission and branch.** Count `sites_jsx` once per recorded attributed opening, before target iteration; check 1 may return no callee. For the Exact singleton, branch before fetching the site's arguments. Apply member qualifier/export checks, wrapper/target identity, then formal presence/alias state in that order. Count the first site refusal once and continue; otherwise pair surviving entries in DESIGN 5.4 order. Insert the same branch and stable emission order in all three traversals.
 
-- [ ] Unit tests for `js_ts_component_route` first (a direct function, both admitted wrapper forms, each
-      wrapper of row j36, the `lazy` loader, a wrapper declared inside a function); skeleton returning
-      `Direct` in the same commit so they are RED. Implement; GREEN.
-- [ ] Attach the 169 S3 disposition lines and their pinned row data to the brief. Record updated controls and enable the group. Implement entries, source proof and the three collection paths. Exercise DESIGN 5.7's mixed outcomes for j31, j33 and the remaining callback, catch, signature and collision cases. Run the DESIGN 5.8 context matrix against the evidence-state table and retain binding/trace witnesses for positive fixtures, including patterns first connected by S1.
+- [ ] Extend the S2b route tests to JSX (a direct function, both admitted wrapper forms, each
+      wrapper of row j36, the `lazy` loader, a wrapper declared inside a function); record RED before adding the JSX arm, then verify GREEN.
+- [ ] Attach the 172 S3 disposition lines, pinned data and additions to the brief. Record updated controls and enable the group. Implement entries, source proof and the three collection paths. Exercise DESIGN 5.7's mixed outcomes for j31, j33 and the remaining callback, catch, signature and collision cases. Run §5.8's source-generated core, region, multiline path and attribute-name panels plus the JSX half of the replacement panel through the real builder. Retain checked site, owner, endpoint and trace/graph witnesses; require the family counts and discriminating evidence states. Test both bracket rows and the B-7 j22/j31 and hook call/JSX controls.
+- [ ] In the matrix harness and README extend `trace_boundary` with optional `boundary_kind` (`cross_function` by default, or `self_function_param`), `from` and `from_bytes`. Check the same boundary record's kind, root, source node/bytes and target; the target stays out of the frontier. Older rows retain their cross-function behavior. Assert `SelfFunctionParam` from the intended Use to the formal Def and `trace_misses` at the body for astra-1-07 and astra-3-13/direct. Keep their paths and astra-3-13/wrapped. No trace product edit. Repeat cache restore, codec and parity checks.
 - [ ] `taint_jsx_props_test.rs`: the issue's example in one TSX file with an explicit source line; default
       review taint reports a `taint_sink` finding on the `dangerouslySetInnerHTML` line. RED before the
       branch exists, GREEN after.
@@ -484,7 +489,9 @@ chains with two or more component hops).
 
 ### Slice S4: end-to-end measurement and close-out (3 to 4 days)
 
-**Files (evidence directory):** `g/paths-{X,R2}.md`, `g/examples/`, `g/REPORT.md`; `tools/examples.py`.
+**Files (evidence directory):** `g/paths-{X,R2}.md`, `g/examples/`, `g/REPORT.md`, `tools/examples.py`, `tools/paths.py` and `tools/props_residuals.cjs`.
+
+- [ ] Materialize the §5.7 attempt ledger per corpus/partition. Join syntax, complete site inventory, pre-Step-5b evidence, full-cache and fresh stats, verdicts and trace boundaries. Reconcile before-dedup pairs against distinct edges. Publish the three ambiguity buckets, unjoined sites, S1 endpoint omissions, S2 literal-position failures, S3 read refusals, the F3 only-candidate proxy versus all reached zero-width sites, and F5 boundary causes with the specified denominators. An unavailable measurement is `unmeasured` and its follow-up decision stays pending.
 
 - [ ] `paths.py` on X and R2: the path table, the multi-hop chain count and the connected share. Report first failures and post-S1 recoveries separately from baseline predictions. For recursive props require the same site proof as for cross-owner props; for each credited container/rest hop retain the incoming key restriction.
 - [ ] `examples.py <repo with history> <base binary> <head binary> <direction> <n> <out dir>`: list
