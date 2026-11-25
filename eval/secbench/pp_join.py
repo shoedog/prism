@@ -88,7 +88,8 @@ CLASSES = ('nested_keys', 'path_walk', 'recursive_merge')
 
 # operator gap between the end of the written member and the coordinate: closing parens, TS non-null
 # `!`, whitespace, then the leading characters of a (compound) assignment operator.
-GAP = re.compile(rb'^[\s)!]*[-+*/%<>&|^?]*$')
+# Block comments and line comments may also sit between the member and the operator.
+GAP = re.compile(rb'^(?:[\s)!]|/\*.*?\*/|//[^\r\n]*[\r\n])*[-+*/%<>&|^?]*$', re.S)
 LINE_BREAK = re.compile('\r\n|\n|\r| | ')
 
 # stage ranks for first_failed_condition: the furthest failing stage wins
@@ -162,7 +163,10 @@ def sink_text(packages: Path, row: dict):
 
 
 def run_listing(binary: Path, repo: Path, timeout: int = 600):
-    """-> (parsed listing | None, error | None, sha256 of the raw stdout)."""
+    """-> (parsed listing | None, error | None, sha256 of the raw stdout).
+
+    No cache flags are passed: the listing is built from the package directory as given, and the
+    default per-repo cache (if the binary keeps one) is keyed by that directory and the build."""
     try:
         r = subprocess.run([str(binary), 'nav', 'proto-writes', '--repo', str(repo), '--format', 'json'],
                            capture_output=True, timeout=timeout)
@@ -180,20 +184,35 @@ def run_listing(binary: Path, repo: Path, timeout: int = 600):
     return doc, None, sha
 
 
+def binary_identity(binary: Path, timeout: int = 60):
+    """{'binary_path', 'binary_version'}: the resolved path and the `--version` text (or why none)."""
+    try:
+        r = subprocess.run([str(binary), '--version'], capture_output=True, timeout=timeout)
+        text = (r.stdout or b'').decode('utf-8', 'replace').strip() if r.returncode == 0 else \
+            f'--version exited {r.returncode}'
+    except Exception as e:  # noqa: BLE001 - an unprintable binary must not stop the join
+        text = f'--version failed: {e}'
+    try:
+        path = str(Path(binary).resolve())
+    except Exception:  # noqa: BLE001
+        path = str(binary)
+    return {'binary_path': path, 'binary_version': text}
+
+
 def norm_file(f):
     f = str(f or '').replace('\\', '/')
     return f[2:] if f.startswith('./') else f
 
 
 def file_facts(listing: dict, file: str):
-    return [f for f in listing.get(F['facts'], []) if norm_file(f.get(F['file'])) == norm_file(file)]
+    return [f for f in listing.get(F['facts'], []) if isinstance(f, dict) and norm_file(f.get(F['file'])) == norm_file(file)]
 
 
 def line_reads(listing: dict, file: str):
     out = defaultdict(list)
     for lr in listing.get(F['name_reads'], []) or []:
-        if norm_file(lr.get(F['lr_file'])) == norm_file(file):
-            out[lr.get(F['lr_line'])].extend(lr.get(F['lr_reads'], []) or [])
+        if isinstance(lr, dict) and norm_file(lr.get(F['lr_file'])) == norm_file(file):
+            out[lr.get(F['lr_line'])].extend(r for r in (lr.get(F['lr_reads'], []) or []) if isinstance(r, dict))
     return out
 
 
@@ -271,7 +290,17 @@ def reached_uses(row: dict, witness: dict):
     the same way."""
     sink = row['sink']
     found = {}
-    for s in witness.get('reasoning', {}).get('per_sink', []):
+    if not isinstance(witness, dict):
+        raise ValueError('witness is not a JSON object')
+    reasoning = witness.get('reasoning', {})
+    if not isinstance(reasoning, dict):
+        raise ValueError('witness reasoning is not an object')
+    per_sink = reasoning.get('per_sink', [])
+    if not isinstance(per_sink, list) or not all(isinstance(x, dict) for x in per_sink):
+        raise ValueError('witness per_sink is not a list of objects')
+    for s in per_sink:
+        if not isinstance(s.get('sources', []), list) or not all(isinstance(x, dict) for x in s.get('sources', [])):
+            raise ValueError('witness sources is not a list of objects')
         u = variable(s.get('sink'))
         if u.get('file') != sink['file'] or u.get('access', 'use') != 'use':
             continue
@@ -297,54 +326,76 @@ def use_zero_width(u):
     return u['start_byte'] is None or u['end_byte'] is None or u['end_byte'] <= u['start_byte']
 
 
+def read_problem(r: dict, want):
+    """Why one inventory read does not denote the operand's owner, binding and single version (None when it does)."""
+    ident = identity(r.get(F['rd_owner']), r.get(F['rd_binding']), r.get(F['rd_versions']))
+    if not r.get(F['rd_complete'], True):
+        return 'incomplete_resolution'
+    if ident[1] is None or want[1] is None:
+        return 'unknown_binding'
+    if ident[0] != want[0]:
+        return 'owner'
+    if ident[1] != want[1]:
+        return 'binding'
+    if len(ident[2]) != 1 or ident[2] != want[2]:
+        return 'version'
+    return None
+
+
 def match_use(u: dict, op: dict, reads: dict):
     """One reached Use against one operand under DESIGN 5.3.
 
-    -> (verdict, detail). verdict: 'exact' | 'name' | 'ambiguous' | 'mismatch'. 'name' admits by name only
-    when every indistinguishable read on the Use's line (same base) denotes the operand's one owner, one
-    binding and one version; otherwise 'ambiguous' with the competing spans (code M-AMBIG)."""
+    -> (verdict, detail). verdict: 'exact' | 'name' | 'ambiguous' | 'mismatch'.
+
+    'exact' is a non-empty Use span inside the operand's span on the operand's line. Choice (review fold):
+    it needs no inventory entry, but the inventory can veto it: a read of the same base lying inside the
+    operand's span that is resolution-incomplete, has other than the operand's one version, or denotes
+    another owner or binding makes the pair 'ambiguous'; an unknown binding does not veto (absence of
+    information, not a contradiction).
+    'name' admits by name only when every indistinguishable read on the Use's line (same base) denotes the
+    operand's one owner, one binding and one version; otherwise 'ambiguous' with the competing spans.
+    An ambiguous verdict carries `cross_line` when the Use's line is not the operand's: such a pair cannot
+    earn credit whatever the inventory says, so it is not the case's M-AMBIG."""
     if u['base'] != op['base'] or not path_compatible(u['path'], op['name'] or op['base']):
         return 'mismatch', {'why': 'name_or_path'}
     s, e = op['span']
-    if (not use_zero_width(u)) and isinstance(s, int) and u['line'] == op['line'] \
+    want = op['identity']
+    cross = u['line'] != op['line']
+    if (not use_zero_width(u)) and isinstance(s, int) and not cross \
             and s <= u['start_byte'] and u['end_byte'] <= e:
+        inside = []
+        for r in reads.get(u['line'], []):
+            sp = span_of(r.get(F['rd_span']))
+            if r.get(F['rd_base']) == u['base'] and sp and s <= sp[0] and sp[1] <= e:
+                inside.append((read_problem(r, want), sp))
+        vetoes = [(p, sp) for p, sp in inside if p not in (None, 'unknown_binding')]
+        if vetoes:
+            return 'ambiguous', {'why': vetoes[0][0], 'competing': [list(sp) for _, sp in vetoes], 'cross_line': False}
         return 'exact', {'span': [u['start_byte'], u['end_byte']]}
     group = [r for r in reads.get(u['line'], []) if r.get(F['rd_base']) == u['base']]
     if not group:
-        return 'ambiguous', {'why': 'no_read_inventory', 'competing': []}
-    want = op['identity']
+        return 'ambiguous', {'why': 'no_read_inventory', 'competing': [], 'cross_line': cross}
     bad = []
     for r in group:
-        ident = identity(r.get(F['rd_owner']), r.get(F['rd_binding']), r.get(F['rd_versions']))
-        sp = span_of(r.get(F['rd_span']))
-        problem = None
-        if not r.get(F['rd_complete'], True):
-            problem = 'incomplete_resolution'
-        elif ident[1] is None or want[1] is None:
-            problem = 'unknown_binding'
-        elif ident[0] != want[0]:
-            problem = 'owner'
-        elif ident[1] != want[1]:
-            problem = 'binding'
-        elif len(ident[2]) != 1 or ident[2] != want[2]:
-            problem = 'version'
+        problem = read_problem(r, want)
         if problem:
-            bad.append((problem, sp))
+            bad.append((problem, span_of(r.get(F['rd_span']))))
     if bad:
-        return 'ambiguous', {'why': bad[0][0], 'competing': [list(sp) for _, sp in bad if sp]}
+        return 'ambiguous', {'why': bad[0][0], 'competing': [list(sp) for _, sp in bad if sp], 'cross_line': cross}
     return 'name', {'span': [u['start_byte'], u['end_byte']], 'reads': len(group)}
 
 
 def evaluate(fact: dict, uses: list, reads: dict, frozen_line: int):
     """Route flags and diagnostics for one fact."""
-    ops = [operand_view(o) for o in fact.get(F['operands'], []) or []]
+    ops = [operand_view(o) for o in fact.get(F['operands'], []) or [] if isinstance(o, dict)]
     sels = [o for o in ops if o['role'] == F['role_selector']]
     props = [o for o in ops if o['role'] == F['role_property']]
     t0, t1 = fact.get(F['line']), fact.get(F['end_line']) or fact.get(F['line'])
     target_lines = set(range(t0, t1 + 1)) | {frozen_line} if isinstance(t0, int) else {frozen_line}
     witness_lines = {u['line'] for u in uses}
     out = {'route1': False, 'route2': False, 'finding_equivalent_frozen_line': False, 'matches': [],
-           'competing_spans': [], 'ambiguous': [], 'property_only_reach': False, 'stage': None}
+           'competing_spans': [], 'ambiguous': [], 'frozen_line_ambiguous': [], 'property_only_reach': False,
+           'stage': None}
     best = -1
 
     def note_stage(name):
@@ -374,9 +425,14 @@ def evaluate(fact: dict, uses: list, reads: dict, frozen_line: int):
                 else:
                     note_stage('use_on_other_line')
             elif verdict == 'ambiguous':
-                out['ambiguous'].append(rec)
-                out['competing_spans'].extend(detail.get('competing', []))
-                note_stage('M-AMBIG')
+                if u['line'] == op['line']:
+                    out['ambiguous'].append(rec)
+                    out['competing_spans'].extend(detail.get('competing', []))
+                    note_stage('M-AMBIG')
+                elif u['line'] == frozen_line:
+                    # credit also needs the Use on the operand's own line, so this is the frozen-line
+                    # diagnostic only, never the case's failure reason
+                    out['frozen_line_ambiguous'].append(rec)
             else:
                 note_stage('path_incompatible')
         if not on_target and op['line'] not in witness_lines:
@@ -401,30 +457,35 @@ def load_trace(raw_dir: Path):
         if p.is_file():
             try:
                 doc = read_json(p)
-            except (OSError, ValueError) as e:
-                return {'error': f'{p.name}: {e}'}
+            except Exception as e:  # noqa: BLE001 - truncated or corrupt gzip (EOFError, zlib.error), bad JSON
+                return {'error': f'{p.name}: {type(e).__name__}: {e}'}
             recs = doc.get(T['records']) if isinstance(doc, dict) else doc
-            return {'records': recs if isinstance(recs, list) else []}
+            return {'records': [r for r in recs if isinstance(r, dict)] if isinstance(recs, list) else []}
     return None
 
 
 def is_rule_finding(f: dict) -> bool:
-    for r in f.get('rules', []) or []:
+    rules = f.get('rules', []) or []
+    for r in rules if isinstance(rules, list) else []:
         if (r.get('id') if isinstance(r, dict) else r) == RULE:
             return True
     return RULE in (f.get('description') or '')
 
 
 def s2_join(raw_dir: Path, sink: dict, fact: dict, trace):
-    """Actual rule finding at the designated target joined to the pre-dedup match record by exact target."""
-    res = {'status': None, 'finding': None, 'trace_records': 0, 'route1': False, 'route2': False,
+    """Actual rule finding at the designated target joined to the pre-dedup match record by exact target.
+
+    The route fields (route1, route2, credited_route) are None unless status is finding_verified: a trace
+    record without a finding, or a finding without a route-bearing record, credits nothing."""
+    res = {'status': None, 'finding': None, 'trace_records': 0, 'route1': None, 'route2': None,
            'credited_route': None, 'ambiguous': [], 'code': None}
     try:
         taint = read_json(raw_dir / 'taint.json.gz')
         findings = taint.get('findings', []) if isinstance(taint, dict) else []
-    except (OSError, ValueError) as e:
+        findings = [f for f in findings if isinstance(f, dict)] if isinstance(findings, list) else []
+    except Exception as e:  # noqa: BLE001 - truncated or corrupt gzip, bad JSON
         res['status'] = 'taint_output_unreadable'
-        res['error'] = str(e)
+        res['error'] = f'{type(e).__name__}: {e}'
         return res
     lines = set(range(fact[F['line']], (fact.get(F['end_line']) or fact[F['line']]) + 1)) | {sink['line']}
     hits = [f for f in findings if f.get('file') == sink['file'] and f.get('line') in lines
@@ -436,6 +497,9 @@ def s2_join(raw_dir: Path, sink: dict, fact: dict, trace):
     if trace and 'records' in trace:
         recs = [r for r in trace['records'] if (r.get(T['file']) in (None, sink['file'])) and span_equal(r.get(T['target']), fact)]
     res['trace_records'] = len(recs)
+    if trace and 'error' in trace:
+        res['trace_error'] = trace['error']
+    route1 = route2 = False
     for r in recs:
         if r.get(T['ambiguous']):
             res['ambiguous'].append({'competing': r.get(T['competing']), 'code': r.get(T['code'])})
@@ -443,18 +507,19 @@ def s2_join(raw_dir: Path, sink: dict, fact: dict, trace):
         if not r.get(T['survives'], True):
             continue
         if r.get(T['route']) in T['route_target_line']:
-            res['route1'] = True
+            route1 = True
         elif r.get(T['route']) in T['route_earlier']:
-            res['route2'] = True
-    res['credited_route'] = 1 if res['route1'] else 2 if res['route2'] else None
+            route2 = True
+    credited = 1 if route1 else 2 if route2 else None
     if not hits:
         res['status'] = 'no_finding'
     elif not recs:
         res['status'] = 'finding_unverified'      # a finding with no match-trace record enters no numerator
-    elif res['credited_route'] is None:
+    elif credited is None:
         res['status'] = 'finding_without_route_credit'
     else:
         res['status'] = 'finding_verified'
+        res['route1'], res['route2'], res['credited_route'] = route1, route2, credited
     return res
 
 
@@ -469,14 +534,24 @@ def read_rows(out_dir: Path):
     return rows
 
 
-def join_case(entry: str, row: dict, out_dir: Path, packages: Path, binary: Path, s2: bool, listing_fn=None):
+def new_record(entry: str, row=None, error=None):
+    """The one record schema: every record, including failures, carries every key."""
     cls, route = EXPECTED.get(entry, (None, None))
-    sink = {k: row['sink'].get(k) for k in ('file', 'line', 'column')}
-    rec = {'entry': entry, 'id': row.get('id'), 'expected_class': cls, 'expected_route': route, 'sink': sink,
-           'fact': None, 'fact_class': None, 'guard': None, 'selector_operands': [], 'mapping': None,
-           'structural_match': False, 'route1': False, 'route2': False, 'credited_route': None,
-           'finding_equivalent_frozen_line': False, 'sink_finding': None, 'first_failed_condition': None,
-           'competing_spans': [], 'property_only_reach': False, 'reached_uses': [], 'matches': [], 'errors': []}
+    rsink = row.get('sink') if isinstance(row, dict) and isinstance(row.get('sink'), dict) else {}
+    return {'entry': entry, 'id': row.get('id') if isinstance(row, dict) else None, 'expected_class': cls,
+            'expected_route': route, 'sink': {k: rsink.get(k) for k in ('file', 'line', 'column')},
+            'fact': None, 'fact_class': None, 'guard': None, 'selector_operands': [], 'mapping': None,
+            'structural_match': False, 'route1': False, 'route2': False, 'credited_route': None,
+            'finding_equivalent_frozen_line': False, 'sink_finding': None, 'first_failed_condition': None,
+            'failed_stage': None, 'competing_spans': [], 'ambiguous': [], 'frozen_line_ambiguous': [],
+            'property_only_reach': False, 'reached_uses': [], 'matches': [], 'listing_sha256': None,
+            'binary_path': None, 'binary_version': None, 'errors': [error] if error else []}
+
+
+def join_case(entry: str, row: dict, out_dir: Path, packages: Path, binary: Path, s2: bool, listing_fn=None):
+    cls = EXPECTED.get(entry, (None, None))[0]
+    rec = new_record(entry, row)
+    sink = rec['sink']
     raw_dir = out_dir / 'raw' / CLASS / entry
     text, err = sink_text(packages, row)
     if err:
@@ -488,8 +563,9 @@ def join_case(entry: str, row: dict, out_dir: Path, packages: Path, binary: Path
     uses, werr = [], None
     try:
         uses = reached_uses(row, read_json(raw_dir / 'witness.json.gz'))
-    except (OSError, ValueError) as e:
-        werr = f'witness {raw_dir / "witness.json.gz"}: {e}'
+    except Exception as e:  # noqa: BLE001 - missing, truncated (EOFError, zlib.error) or malformed witness
+        uses = []
+        werr = f'witness {raw_dir / "witness.json.gz"}: {type(e).__name__}: {e}'
         rec['errors'].append(werr)
     rec['reached_uses'] = uses
     fact = None
@@ -501,7 +577,7 @@ def join_case(entry: str, row: dict, out_dir: Path, packages: Path, binary: Path
         if fact is not None:
             rec['mapping']['member_span'] = [fact[F['start']], fact[F['end']]]
     if fact is not None:
-        sels = [operand_view(o) for o in fact.get(F['operands'], []) or []]
+        sels = [operand_view(o) for o in fact.get(F['operands'], []) or [] if isinstance(o, dict)]
         rec.update(fact={'line': fact.get(F['line']), 'end_line': fact.get(F['end_line']),
                          'start_byte': fact.get(F['start']), 'end_byte': fact.get(F['end']),
                          'function': fact.get(F['function'])},
@@ -511,10 +587,8 @@ def join_case(entry: str, row: dict, out_dir: Path, packages: Path, binary: Path
         rec['structural_match'] = rec['fact_class'] == cls and bool(rec['selector_operands'])
         ev = evaluate(fact, uses, line_reads(listing, sink['file']), sink['line'])
         for k in ('route1', 'route2', 'finding_equivalent_frozen_line', 'property_only_reach', 'competing_spans',
-                  'matches'):
+                  'matches', 'ambiguous', 'frozen_line_ambiguous'):
             rec[k] = ev[k]
-        if ev['ambiguous']:
-            rec['ambiguous'] = ev['ambiguous']
         rec['credited_route'] = 1 if rec['route1'] else 2 if rec['route2'] else None
         rec['failed_stage'] = ev['stage'] if rec['credited_route'] is None else None
         if rec['credited_route'] is None:
@@ -542,15 +616,20 @@ def run_join(out_dir: Path, packages: Path, binary: Path, cases=None, s2=None, l
     names = list(cases) if cases else list(EXPECTED)
     if s2 is None:   # S2 mode when any case carries a match trace
         s2 = any(load_trace(out_dir / 'raw' / CLASS / n) is not None for n in names)
+    ident = binary_identity(binary)
     recs = []
     for n in names:
         if n not in rows:
-            recs.append({'entry': n, 'expected_class': EXPECTED.get(n, (None, None))[0],
-                         'expected_route': EXPECTED.get(n, (None, None))[1], 'structural_match': False,
-                         'route1': False, 'route2': False, 'credited_route': None, 'sink_finding': None,
-                         'first_failed_condition': 'no_frozen_row', 'errors': [f'no {CLASS} row for {n} in entries.jsonl']})
-            continue
-        recs.append(join_case(n, rows[n], out_dir, packages, binary, s2, listing_fn))
+            rec = new_record(n, None, f'no {CLASS} row for {n} in entries.jsonl')
+            rec['first_failed_condition'] = 'no_frozen_row'
+        else:
+            try:
+                rec = join_case(n, rows[n], out_dir, packages, binary, s2, listing_fn)
+            except Exception as e:  # noqa: BLE001 - one bad case must not abort the other 28
+                rec = new_record(n, rows[n], f'join failed: {type(e).__name__}: {e}')
+                rec['first_failed_condition'] = 'join_error'
+        rec.update(ident)
+        recs.append(rec)
     return recs, s2
 
 
@@ -578,6 +657,22 @@ def totals(recs, s2):
     diff = [f'{r["entry"]} expected {r["expected_route"]} credited {r["credited_route"]}'
             for r in recs if r['credited_route'] and r['credited_route'] != r.get('expected_route')]
     lines.append(f'route differences from the table: {len(diff)}' + ''.join(f'\n  {d}' for d in diff))
+    if s2:
+        sf = lambda r: r.get('sink_finding') or {}
+        lines.append('S2 sink finding, per class: n verified credited_route1 credited_route2 route_differences')
+        sdiff = []
+        for c in CLASSES + (None,):
+            rs = [r for r in recs if r.get('expected_class') == c]
+            if not rs:
+                continue
+            d = [r for r in rs if sf(r).get('credited_route') and sf(r)['credited_route'] != r.get('expected_route')]
+            sdiff += d
+            lines.append(f'  {c}: {len(rs)} {cnt(rs, lambda r: sf(r).get("status") == "finding_verified")} '
+                         f'{cnt(rs, lambda r: sf(r).get("credited_route") == 1)} '
+                         f'{cnt(rs, lambda r: sf(r).get("credited_route") == 2)} {len(d)}')
+        lines.append(f'S2 route differences from the table: {len(sdiff)}'
+                     + ''.join(f'\n  {r["entry"]} expected {r["expected_route"]} credited {sf(r)["credited_route"]}'
+                               for r in sdiff))
     fails = Counter(r['first_failed_condition'] for r in recs if r.get('first_failed_condition'))
     lines.append('first failed condition: ' + ', '.join(f'{k}={v}' for k, v in sorted(fails.items())))
     return '\n'.join(lines)
