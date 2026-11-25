@@ -1,6 +1,5 @@
 """Shared Markdown formatting and the numbered limits for a review."""
 
-from datetime import timedelta
 from html import escape
 import re
 
@@ -29,6 +28,14 @@ class Limits:
         self.warning_locations.setdefault(reason.rstrip("."), {}).setdefault(where, None)
 
     def add(self, reason, where=None):
+        if isinstance(reason, dict):
+            file = reason["file"]
+            if file:
+                location = _code(file + (f":{reason['line']}" if reason["line"] else ""))
+                if reason["rev"]:
+                    location += f" at {_code(reason['rev'][:8])}"
+                where = " · ".join(filter(None, (where, location)))
+            reason = reason["reason"]
         # Schema readers supply the affected operation/body before the diagnostic.
         if " · Not checked — " in reason:
             source, reason = reason.rsplit(" · Not checked — ", 1)
@@ -63,7 +70,8 @@ def label(value):
     return re.sub(r"([\\`*_\[\]<>])", r"\\\1", " ".join(value.split()))
 
 
-MODE = "Comparison of selected versions"
+MODES = {"version_comparison": "Comparison of selected versions", "live": "Live review",
+         "historical_as_of": "Historical review at the change"}
 
 
 def _code(text):
@@ -95,6 +103,14 @@ def review_first(doc, calls):
             "Route declaration changed": f"The route entry for {target} changes",
         }.get(kind, f"The checked code shows {target} only {'before' if group['before_presence'] == 'present' else 'after'} the change"
               if kind.startswith("Listed only") else f"The comparison for {target} has incomplete evidence")
+        removals = {row["site"]["file"] for row in group["file_changes"] if row["kind"] == "removal"}
+        additions = {row["site"]["file"] for row in group["file_changes"] if row["kind"] == "addition"}
+        if len(removals) == len(additions) == 1 and removals != additions and not group["proof_failures"]:
+            finding = f"The declaration of {target} moves from {_code(next(iter(removals)))} to {_code(next(iter(additions)))}"
+        elif kind.startswith("Declaration "):
+            finding = f"{target} · {kind}"
+        elif not kind and group["limits"]:
+            finding = next(iter(group["limits"])).rstrip(".")
         ids = list(dict.fromkeys([*(risk["site_id"] for risk in group["risks"]), *group["client_site_ids"]]))
         if ids:
             site = calls[ids[0]]["site"]
@@ -124,11 +140,31 @@ def review_first(doc, calls):
             "Observed before": "The check found a call before the edit", "Observed after": "The check found a call after the edit",
         }[edit["kind"]]
         return f"{finding}{target} at {site_link(call['site'])}. {edit['review_action']}"
+    key = "client_change_count" if doc["change"]["subject_role"] == "client" else "operation_count"
+    summary = doc["summary"][key]
+    if summary["reason"]:
+        return summary["reason"].rstrip(".") + ". Check the affected source."
     return "The checked source shows no measured change. Check the coverage before relying on this comparison."
 
 
-def site_link(site):
+def site_location(site):
     location = _code(f"{site['file']}:{site['line']}")
+    return f"{location} (occurrence {site['occurrence']})" if site.get("same_line_occurrences", 0) > 1 else location
+
+
+def source_site(site, kind=None, *, excerpt=True):
+    if not site:
+        return "Not checked — source location was unavailable"
+    location = site_location(site)
+    if site.get("url"):
+        location = f"[{location}]({site['url']})"
+    version = _code(site["rev"][:8])
+    text = _code(site.get("text")) if site.get("text") and (excerpt or not site.get("url")) else ""
+    return " · ".join(part for part in (kind, location, version, text) if part)
+
+
+def site_link(site):
+    location = site_location(site)
     return f"[{location}]({site['url']})" if site.get("url") else location
 
 
@@ -145,9 +181,9 @@ def request_counts(purpose, counts, mark):
     unknown = counts["unknown_target_count"]
     return (
         f"[{no_match['observed']} requests whose method and address were read had no match](#requests-{purpose})"
-        + (f" observed · {mark(no_match['reason'])}" if no_match["reason"] else "")
+        + (f" observed · {mark(no_match['proof_failure'] or no_match['reason'])}" if no_match["reason"] else "")
         + f" · [{unknown['observed']} calls had an unknown target](#requests-{purpose})"
-        + (f" observed · {mark(unknown['reason'])}" if unknown["reason"] else "")
+        + (f" observed · {mark(unknown['proof_failure'] or unknown['reason'])}" if unknown["reason"] else "")
     )
 
 
@@ -168,8 +204,17 @@ def versions_line(doc):
         fixed = f"{role} held at the base dated {counterpart['committed_at'][:10]}"
     if change["subject_role"] == "both":
         fixed += " for the single-side check, with both edits also checked together"
-    return (f"**Versions checked** · {MODE} · subject {describe(change['subject'])} · "
+    return (f"**Versions checked** · {MODES[doc['mode']]} · subject {describe(change['subject'])} · "
             f"base {describe(change['base'])} · {fixed}.")
+
+
+def duration(seconds):
+    parts = []
+    for unit, width in (("day", 86400), ("hour", 3600), ("minute", 60), ("second", 1)):
+        count, seconds = divmod(seconds, width)
+        if count:
+            parts.append(f"{count} {unit}{'s' if count != 1 else ''}")
+    return ", ".join(parts)
 
 
 def provenance(doc, receipts, mark):
@@ -185,21 +230,25 @@ def provenance(doc, receipts, mark):
         f"**Before** · {_code(before['rev'])} · {before['committed_at']} · {label(before['subject'])} · "
         f"first parent · tree {_code(before['tree'])}",
         f"**After** · {_code(after['rev'])} · {after['committed_at']} · selected commit · tree {_code(after['tree'])}",
-        f"**Selection time** · {doc['report_time'] or mark('no selection timestamp was supplied')}",
-        "Selection freezes the named commit trees and study inputs for this comparison. This mode does not "
-        "establish availability at change time or deployment order.",
+        f"**{ {'version_comparison': 'Selection time', 'live': 'Report time', 'historical_as_of': 'Change time'}[doc['mode']]}** · "
+        f"{doc['report_time'] or mark('no selection timestamp was supplied')}",
         "**Input admission** · Source and schema files came from the selected Git trees. The driver recomputed "
         "inventories and matches from admitted inputs. Study inputs used are listed below.",
     ]
+    if doc["mode"] == "version_comparison":
+        result.append("Selection freezes the named commit trees and study inputs. Availability at change time and "
+                      "deployment order are unknown.")
     counterpart = doc["inputs"][reference["reference_input_id"]]
     role = "Service" if counterpart["role"] == "producer" else "Client"
+    if tip := reference.get("selection_history_tip"):
+        result.append(f"**Searched history tip** · {_code(reference['branch'])} · {_code(tip)} · "
+                      f"{reference['selection_history_tip_committed_at']}.")
     if reason := reference.get("unavailable_reason"):
         result.append(f"**{role} counterpart** · {_code(counterpart['repo'])} · Not checked — {label(reason)}.")
     else:
         delta = reference["duration_seconds"]
         offset = ("Both commits have the same time" if delta == 0 else
-                  f"Checked revision is {timedelta(seconds=abs(delta))} {'earlier than' if delta < 0 else 'after'} "
-                  "the change")
+                  f"Checked revision is {duration(abs(delta))} {'earlier' if delta < 0 else 'later'} than the change")
         details = (f"{_code(counterpart['rev'])} · {counterpart['committed_at']} · "
                    f"{label(counterpart['subject'])} · tree {_code(counterpart['tree'])}. {offset}.")
         if "repo" in reference:
@@ -214,14 +263,21 @@ def provenance(doc, receipts, mark):
             result.append(f"**{role} held at the base** · {details}")
     for (source_role, file, receipt), anchor in receipts.items():
         kind = "Client configuration" if source_role == "consumer" else "Route specification"
-        result.append(f'<a id="{anchor}"></a>**{kind}** · {_code(file)} from selection receipt '
-                      f"{_code(receipt)}, supplied by the study.")
+        source = next(row for snap in doc["inputs"].values() if snap["role"] == source_role
+                      for row in snap["config_sources"] if row["file"] == file and row["revision"] == receipt)
+        if receipt:
+            origin = (f"supplied by the study from {_code(source['study_rev'])}, tree {_code(source['tree'])}"
+                      if source.get("study_rev") else "supplied by the study, read at capture time, "
+                      "not shown to have existed at the change time")
+            result.append(f'<a id="{anchor}"></a>**{kind}** · {_code(file)} · {_code(receipt)} · {origin}.')
+        else:
+            result.append(f'<a id="{anchor}"></a>**{kind}** · {mark(source["error"], _code(file))}.')
     driver_revision = (_code(driver["rev"]) + f" · {driver['committed_at']} · {label(driver['subject'])}"
                        if driver.get("committed_at") else
                        mark("driver commit date and subject were unavailable"))
     result.append(
-        f"**Driver revision** · {driver_revision} · source receipt {_code(driver['build_identity'])}. "
-        "The configuration era comes from each selected client revision’s first-parent ancestry. "
+        f"**Driver revision** · {driver_revision} · source hash {_code(driver['build_identity'])} · "
+        f"{driver['origin']}. The configuration era comes from each selected client revision’s first-parent ancestry. "
         "The configured request.ts client is primary when present in the configuration."
     )
     if any(source.get("selected_by") == "single supplied file" for snap in doc["inputs"].values()
@@ -246,6 +302,11 @@ def coverage(doc, mark):
         "We compare the HTTP method and the path after applying the address mapping shown here. "
         "Among paths that fit, the check prefers those with more matching fixed or variable parts.",
     ]
+    if doc["summary"]["changed_field_count"]["reason"]:
+        fields = doc["summary"]["changed_field_count"]
+        scope = fields["reason"]
+        result[2] = (f"**Schema path** · {_code(service['schema']['source']['path'])}. "
+                     f"Changed fields {mark(scope)}.")
     if reason := doc["reference"].get("unavailable_reason"):
         limit = mark(reason)
         if service["snapshot_kind"] == "unavailable":

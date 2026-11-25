@@ -10,6 +10,7 @@ from urllib.parse import quote
 from . import _ts_syntax as ts, consumer_ts, producer_go as go, producer_route_table as routes
 from ._replay_client import ClientSources
 from ._ts_imports import Resolver
+from .report_proof import diff
 
 
 def in_root(path, root):
@@ -28,8 +29,8 @@ def site(snapshot, file, line, **extra):
     }
 
 
-def diagnostic(file, reason, line=None, *, status="partial"):
-    return {"file": file, "line": line, "status": status, "reason": reason}
+def diagnostic(file, reason, line=None, *, status="partial", check="source inventory"):
+    return {"file": file, "line": line, "status": status, "reason": reason, "check": check}
 
 
 def inventory(snapshot, paths, entries, gaps, excluded=()):
@@ -53,7 +54,7 @@ def inventory(snapshot, paths, entries, gaps, excluded=()):
 def operations(snapshot, root, service_root, selected, route_spec=None):
     paths = [file for file in selected if in_root(file, service_root)]
     entries, gaps, operations = [], [], {}
-    registrations, outside = None, None
+    registrations, outside, regions = None, None, []
     if not any(in_root(file, service_root) for file in snapshot["tree_files"]):
         gaps.append(diagnostic(service_root, f"source root for {snapshot['rev'][:8]} is missing"))
     readable = {}
@@ -123,6 +124,8 @@ def operations(snapshot, root, service_root, selected, route_spec=None):
         extraction = routes.extract(directory, route_spec) if directory.is_dir() else routes.Extraction([], [], [])
         outside = [dict(row, file=(Path(service_root) / row["file"]).as_posix())
                    for row in extraction.outside_registration]
+        regions = [dict(row, file=(Path(service_root) / row["file"]).as_posix())
+                   for row in extraction.registration_regions]
         index = {}
         for record in extraction.entries:
             file = (Path(service_root) / record["file"]).as_posix()
@@ -151,43 +154,70 @@ def operations(snapshot, root, service_root, selected, route_spec=None):
                 validation_digest=None, handler_digest=None)
     return {**inventory(snapshot, paths, entries, gaps), "operations": operations,
             "dependencies": dependencies, "registration_inventory": registrations,
-            "outside_registration": outside}
+            "outside_registration": outside, "registration_regions": regions}
 
 
-def account_changed_route_regions(previous, current, paths):
-    before = {(key, row["file"]) for key, operation in previous["operations"].items() for row in operation["sites"]}
-    after = {(key, row["file"]) for key, operation in current["operations"].items() for row in operation["sites"]}
-    if not before - after:
-        return
-    previous_regions = Counter((row["file"], row["text"]) for row in previous["outside_registration"] or [])
+def account_changed_route_regions(previous, current, paths, previous_sources, current_sources):
+    prior, following = defaultdict(list), defaultdict(list)
+    for snapshot, index in ((previous, prior), (current, following)):
+        for region in snapshot["registration_regions"]:
+            index[region["file"]].append(region)
+    outside = Counter((row["file"], row["text"]) for row in previous["outside_registration"] or [])
     status = {row["path"]: row for row in current["file_status"]}
-    for region in current["outside_registration"] or []:
-        file, text = region["file"], region["text"]
-        if file not in paths or previous_regions[file, text]:
-            previous_regions[file, text] -= 1
-            continue
-        reason = "a changed route-like entry is outside the configured registration call"
-        current["unaccounted_scopes"].append(diagnostic(file, reason, region["line"]))
+
+    def gap(file, region, reason):
+        current["unaccounted_scopes"].append(diagnostic(file, reason, region["line"], check="registration region"))
         status[file]["entries"].append(dict(region, kind="unrecognized route", status="partial", reason=reason))
         status[file].update(status="partial", reason=reason)
         if current["schema"]["source"].get("derived"):
             current["content_hash"] = current["schema"]["content_hash"] = None
+
+    for region in current["outside_registration"] or []:
+        file, text = region["file"], region["text"]
+        if file in paths and not outside[file, text]:
+            gap(file, region, "a changed route-like entry is outside the configured registration call")
+        else:
+            outside[file, text] -= 1
+    for file in sorted(set(prior) & set(paths) & status.keys()):
+        if status[file]["status"] != "complete":
+            continue
+        _, after, opcodes = diff(previous_sources.get(file), current_sources.get(file))
+        covered = {line for region in following[file] for line in range(region["line"], region["end_line"] + 1)}
+        for tag, lo, hi, start, stop in opcodes:
+            if tag != "replace" or not any(lo < row["end_line"] and row["line"] - 1 < hi for row in prior[file]):
+                continue
+            unaccounted = next((i + 1 for i in range(start, stop)
+                                if i + 1 not in covered and after[i].strip()
+                                and not after[i].lstrip().startswith(("//", "/*", "*"))), None)
+            if unaccounted is not None:
+                gap(file, {"file": file, "line": unaccounted},
+                    "replacement source is outside the configured registration call")
+                break
 
 
 class RecordingResolver(Resolver):
     def __init__(self, repo, base, config, readable):
         self.readable = readable
         self.dependencies = {}
+        self.parse_errors = {}
         super().__init__(repo, base, config)
 
     def file(self, importer, module):
         resolved = super().file(importer, module)
         if resolved is not None or module.startswith(("./", "../", *(prefix for prefix, _ in self.aliases))):
-            if resolved is not None and self.readable.get(resolved.relative_to(self.repo).as_posix()) is None:
-                resolved = None
-            self.dependencies[importer.relative_to(self.repo).as_posix(), module] = (
-                resolved.relative_to(self.repo).as_posix() if resolved is not None else None
-            )
+            path = resolved.relative_to(self.repo).as_posix() if resolved is not None else None
+            reason = None
+            if path is None:
+                reason = "the local import could not be resolved to a readable file"
+            elif self.readable.get(path) is None:
+                reason = "the imported file could not be read"
+            elif self.parse_errors.setdefault(path, None) is None:
+                self.parse_errors[path] = ts.parse(self.readable[path].encode(), resolved).has_error
+            if path and self.parse_errors.get(path):
+                reason = "the imported source could not be parsed"
+            self.dependencies[importer.relative_to(self.repo).as_posix(), module] = path, reason
+            if reason:
+                return None
         return resolved
 
 
@@ -195,6 +225,35 @@ def _test_file(file, root):
     path = Path(file)
     return (any(marker in path.name for marker in (".test.", ".spec."))
             or "__tests__" in path.relative_to(root).parts)
+
+
+def function_inventory(tree):
+    def identity(node):
+        if node.type in ts.FUNCTIONS | {"class_declaration", "class", "namespace_declaration"}:
+            name = node.child_by_field_name("name")
+            if name is None and node.parent.type == "variable_declarator":
+                name = node.parent.child_by_field_name("name")
+            if name is None:
+                return None
+            return f"{node.type}:{ts.text(name)}"
+        return ""
+
+    for node in ts.walk(tree):
+        if node.type not in ts.FUNCTIONS:
+            continue
+        chain = []
+        ancestor = node
+        while ancestor is not None:
+            part = identity(ancestor)
+            if part is None:
+                break
+            if part:
+                chain.append(part)
+            ancestor = ancestor.parent
+        body = node.child_by_field_name("body")
+        if ancestor is None and body is not None:
+            yield {"span": [node.start_byte, node.end_byte], "identity": chain[::-1],
+                   "header_lines": [node.start_point.row + 1, body.start_point.row + 1]}
 
 
 def client_calls(snapshot, root, client_root, selected, config, config_source):
@@ -205,11 +264,13 @@ def client_calls(snapshot, root, client_root, selected, config, config_source):
     if not any(in_root(file, client_root) for file in snapshot["tree_files"]):
         gaps.append(diagnostic(client_root, f"source root for {snapshot['rev'][:8]} is missing"))
     if config is None:
-        reason = (f"client configuration for {snapshot['rev'][:8]} "
-                  + ((config_source or {}).get("error") or "is missing"))
-        gaps.extend(diagnostic(file, reason, status="unknown") for file in expected or [client_root])
+        failed_config = (config_source or {}).get("error") or "client configuration is missing"
+        gaps.append(diagnostic((config_source or {}).get("file") or client_root, failed_config,
+                               status="unknown", check="client configuration"))
+        gaps.extend(diagnostic(file, failed_config, status="unknown", check="client configuration")
+                    for file in expected)
         return {**inventory(snapshot, expected, entries, gaps, excluded),
-                "calls": records, "dependencies": []}
+                "calls": records, "dependencies": [], "functions": {}}
     directory = root / client_root
     base = directory.parent if directory.name == "src" and directory != root else directory
     resolver = RecordingResolver(root, base, config, selected)
@@ -236,10 +297,14 @@ def client_calls(snapshot, root, client_root, selected, config, config_source):
         gaps.append(diagnostic(client_root, "no import could be linked to the configured client. "
                                "Uses of this client could have been missed"))
     for file, scan in scans.items():
-        for occurrence, observation in enumerate(scan.observations(file), start=1):
+        gaps.extend(diagnostic(file, "a client alias could not be resolved to a stable request target", line,
+                               check="client call inventory") for line in scan.unsupported_aliases())
+        observations = list(scan.observations(file))
+        same_line = Counter(row.call.line for row in observations)
+        for occurrence, observation in enumerate(observations, start=1):
             call = observation.call
             source = site(snapshot, file, call.line, end_line=observation.end_line,
-                          occurrence=occurrence, byte_span=[observation.start, observation.end],
+                          occurrence=occurrence, same_line_occurrences=same_line[call.line], byte_span=[observation.start, observation.end],
                           text=observation.expression)
             spec = observation.mapping
             mapping = None
@@ -278,11 +343,12 @@ def client_calls(snapshot, root, client_root, selected, config, config_source):
                       caller_method="direct names in the same file and identified importers",
                       depth=1 if function else None, caller_scope=scope, callers=callers)
     dependencies = []
-    for (file, imported), resolved in sorted(resolver.dependencies.items()):
+    for (file, imported), (resolved, reason) in sorted(resolver.dependencies.items()):
         dependencies.append({"importer": file, "import": imported, "path": resolved,
                              "blob": snapshot["tree_files"][resolved]["blob"] if resolved else None,
-                             "status": "complete" if resolved else "unknown"})
-        if resolved is None and (not Path(imported).suffix or Path(imported).suffix in ts.EXTENSIONS):
-            gaps.append(diagnostic(file, f"local import {imported} could not be read"))
+                             "status": "unknown" if reason else "complete", "reason": reason})
+        if reason and (resolved or not Path(imported).suffix or Path(imported).suffix in ts.EXTENSIONS):
+            gaps.append(diagnostic(resolved or file, f"{reason} (import {imported} from {file})", check="client import"))
     return {**inventory(snapshot, expected, entries, gaps, excluded),
-            "calls": records, "dependencies": dependencies}
+            "calls": records, "dependencies": dependencies,
+            "functions": {file: list(function_inventory(scan.tree)) for file, scan in scans.items()}}

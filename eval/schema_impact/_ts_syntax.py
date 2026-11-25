@@ -8,7 +8,7 @@ from tree_sitter_javascript import language as javascript
 from tree_sitter_typescript import language_tsx, language_typescript
 
 
-EXTENSIONS = (".ts", ".tsx", ".js", ".jsx")
+EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts")
 FUNCTIONS = {
     "arrow_function", "function_declaration", "function_expression", "generator_function",
     "generator_function_declaration", "method_definition",
@@ -17,7 +17,8 @@ FUNCTIONS = {
 
 @lru_cache(maxsize=None)
 def _language(extension: str) -> Language:
-    capsule = {".ts": language_typescript, ".tsx": language_tsx}.get(extension, javascript)
+    capsule = (language_typescript if extension in {".ts", ".mts", ".cts"} else
+               language_tsx if extension == ".tsx" else javascript)
     return Language(capsule())
 
 

@@ -1,6 +1,7 @@
 """Command line entry point for the schema impact feasibility prototype."""
 
 import argparse
+import json
 from pathlib import Path
 
 from . import producer_go, producer_route_table
@@ -46,27 +47,35 @@ def main(argv: list[str] | None = None) -> int:
     report.add_argument("--service-root", default=".")
     report.add_argument("--route-spec", type=Path)
     report.add_argument("--selection-time")
+    report.add_argument("--mode", choices=["version_comparison", "live", "historical_as_of"],
+                        default="version_comparison")
+    report.add_argument("--cutoff-receipt", type=Path,
+                        help="Independent JSON observation with subject, observed_at and optional counterpart_tip")
     report.add_argument("--source-url", help="HTTPS repository URL for revision-specific source links")
     report.add_argument("--counterpart-repo", type=Path, help="Repository of the held-unchanged side")
     report.add_argument("--counterpart-rev", help="Use this revision instead of selecting by commit date")
     report.add_argument("--counterpart-source-url", help="HTTPS repository URL for counterpart source links")
+    report.add_argument("--study-repo", type=Path, help="Repository containing the named study inputs")
+    report.add_argument("--study-rev", help="Commit supplying configuration and route specification paths")
     report.add_argument("--name")
     args = parser.parse_args(argv)
 
     if args.command == "report":
         from .report_analysis import build_document
-        from .report_inputs import DEFAULT_SCHEMA, ReportRequest, build_inputs
+        from .report_inputs import ReportRequest, build_inputs, selected_schema
         from .report_markdown import render_json, render_markdown
 
         if args.name is not None and (Path(args.name).name != args.name or args.name in {"", ".", ".."}):
             report.error("--name must be a filename stem")
         if args.counterpart_repo is None and (args.counterpart_rev is not None or args.counterpart_source_url is not None):
             report.error("--counterpart-rev and --counterpart-source-url require --counterpart-repo")
-        schema_path = None if args.no_schema else args.schema or (None if args.route_spec else DEFAULT_SCHEMA)
+        schema_path = selected_schema(args.schema, args.route_spec, omitted=args.no_schema)
+        receipt = json.loads(args.cutoff_receipt.read_text()) if args.cutoff_receipt else None
         request = ReportRequest(args.repo.resolve(), args.subject, args.role, args.configs, args.root, schema_path,
                                 args.service_root, args.route_spec, args.selection_time, args.source_url,
                                 counterpart_repo=args.counterpart_repo.resolve() if args.counterpart_repo else None,
-                                counterpart_rev=args.counterpart_rev, counterpart_source_url=args.counterpart_source_url)
+                                counterpart_rev=args.counterpart_rev, counterpart_source_url=args.counterpart_source_url, schema_omitted=args.no_schema,
+                                mode=args.mode, cutoff_receipt=receipt, study_repo=args.study_repo, study_rev=args.study_rev)
         document = build_document(build_inputs(request))
         name = args.name or document["change"]["after"][:8]
         args.out_dir.mkdir(parents=True, exist_ok=True)

@@ -2,15 +2,20 @@
 
 from collections import Counter, defaultdict
 from datetime import datetime
-from difflib import SequenceMatcher
 from hashlib import sha256
 import json
 
-from .report_matches import GATEWAY, OVERLAPS, WILDCARD, compare, parts, prefix_hints
+from .report_matches import GATEWAY, compare, parts, prefix_hints
+from .report_proof import declaration_changes, diff, equal_lines, explain, failed, paired_functions, source_gap
 from .report_schema import compare_schema
 
 
-CORRESPONDENCE = "Corresponding call: Not checked — the scan recorded line numbers only."
+MISSING_DECLARATION = "Client calls a missing route"
+RISK_ACTIONS = {
+    MISSING_DECLARATION: "Check whether this client still needs the old declaration and which version it will use.",
+    "Existing client call gains a matching declaration": "Check which service version this client needs.",
+    "Client target needs confirmation": "Check the address value and which route takes priority.",
+}
 EARLIER = "Earlier match: Not checked — the earlier scan’s binding record is unavailable."
 FIELD_USE = "Client field use: Not checked — the call was matched by method and path."
 NO_FIELD_USE = "Client field use: Not checked — no recorded read or send links this call to the field."
@@ -24,75 +29,27 @@ def _file_status(snapshot):
     return {row["path"]: row["status"] for row in snapshot["file_status"]}
 
 
-def _diff(before, after):
-    a, b = (before or "").splitlines(), (after or "").splitlines()
-    return a, b, list(SequenceMatcher(None, a, b, autojunk=False).get_opcodes())
-
-
-def _changed_line(opcodes, line, end, side):
-    return any(tag != "equal" and all(lo <= pos < hi for pos in range(line - 1, end))
-               for tag, *bounds in opcodes for lo, hi in [bounds[side:side + 2]])
-
-
 def _service_changes(frozen):
     before, after = frozen.before["service"], frozen.after["service"]
     old, new = before["operations"], after["operations"]
-    old_files, new_files = _file_status(before), _file_status(after)
+    inventories = _file_status(before), _file_status(after)
+    files = {site["file"] for snapshot in (old, new) for operation in snapshot.values()
+             for site in operation["sites"]}
+    diffs = {}
+    for file in files:
+        _, _, blocks = diff(frozen.before_sources.get(file), frozen.after_sources.get(file))
+        diffs[file] = blocks, equal_lines(blocks)
     fields, limits = compare_schema(before, after)
     changes = {}
-    for identifier in old.keys() | new.keys() | fields.keys():
+    for identifier in sorted(old.keys() | new.keys() | fields.keys()):
         old_sites = old.get(identifier, {}).get("sites", [])
         new_sites = new.get(identifier, {}).get("sites", [])
         group = fields.get(identifier, {"fields": [], "status_additions": [], "status_removals": [],
                                         "response_root_pairs": [], "limits": [], "schema_sites": [None, None]})
-        kinds, scoped = [], []
-        presence = ["present" if sites else "unknown" if snap["unaccounted_scopes"] else "absent"
-                    for sites, snap in ((old_sites, before), (new_sites, after))]
-        for side, (owned, other, other_files, other_sources) in enumerate((
-            (old_sites, new_sites, new_files, frozen.after_sources),
-            (new_sites, old_sites, old_files, frozen.before_sources),
-        )):
-            word, label = ("removal", "after") if side == 0 else ("addition", "before")
-            for entry in owned:
-                file = entry["file"]
-                siblings = [s for s in other if s["file"] == file]
-                if siblings:
-                    if (len(owned) == len(other) == 1 and file in frozen.changed_paths
-                            and old_files.get(file) == new_files.get(file) == "complete"
-                            and (entry["text"], entry["handler_ref"]) != (siblings[0]["text"], siblings[0]["handler_ref"])):
-                        kinds.append("Route declaration changed")
-                    continue
-                _, _, opcodes = _diff(frozen.before_sources.get(file), frozen.after_sources.get(file))
-                owner_snapshot = before if side == 0 else after
-                other_text = other_sources.get(file)
-                retained_as_text = bool(other_text and entry["text"] in other_text)
-                # The declaration must be accounted for on both sides, including a
-                # proved deletion from the tree and entries still present as text.
-                complete = (_file_status(owner_snapshot).get(file) == "complete"
-                            and (other_files.get(file) == "complete" or file not in other_sources)
-                            and file in frozen.changed_paths and not retained_as_text
-                            and _changed_line(opcodes, entry["line"], entry["end_line"], 2 * side))
-                if complete:
-                    scoped.append({"kind": word, "site": entry, "proof": "complete inventories and changed source lines"})
-                elif not other:
-                    presence[1 - side] = "unknown"
-                    group["limits"].append(f"{word.title()}: Not checked — {file} has no complete {label} scan.")
-                    if side == 0 and other_files.get(file) == "unreadable":
-                        group["limits"].append(f"Observed before at {file}:{entry['line']}. "
-                                               f"After: Not checked — {file} could not be read")
-        for side, (owned, other) in enumerate(((old_sites, new_sites), (new_sites, old_sites))):
-            if owned and not other:
-                word = "removal" if side == 0 else "addition"
-                if presence[1 - side] == "absent" and any(row["kind"] == word for row in scoped):
-                    kinds.append("Operation removed" if side == 0 else "Operation added")
-                else:
-                    kinds.append("Listed only before among the declarations read" if side == 0 else
-                                 "Listed only after among the declarations read")
-                    if not group["limits"]:
-                        label = "after" if side == 0 else "before"
-                        group["limits"].append(f"{word.title()}: Not checked — {owned[0]['file']} has no complete {label} scan.")
-        kinds.extend(f"Declaration {'removed from' if row['kind'] == 'removal' else 'added to'} {row['site']['file']}"
-                     for row in scoped if "Operation removed" not in kinds and "Operation added" not in kinds)
+        kinds, scoped, presence, failures = declaration_changes(frozen, old_sites, new_sites, inventories, diffs)
+        group["proof_failures"] = failures
+        group["schema_limits"] = list(group["limits"])
+        group["limits"].extend(map(explain, failures))
         if group["fields"]:
             kinds.append("Operation fields changed")
         if group["status_removals"] or group["status_additions"]:
@@ -119,31 +76,38 @@ def _client_changes(frozen):
             index[row["site"]["file"]].append(row)
     paired, changes = [], []
     for file in sorted(old.keys() | new.keys()):
-        left, right, opcodes = _diff(frozen.before_sources.get(file), frozen.after_sources.get(file))
+        left, right, opcodes = diff(frozen.before_sources.get(file), frozen.after_sources.get(file))
         left_counts, right_counts = Counter(left), Counter(right)
-        complete = (af.get(file, "absent") in {"complete", "absent"} and
-                    bf.get(file, "absent") in {"complete", "absent"} and
-                    not any(gap["file"] in {file, before["scope"]}
-                            for snap in (before, after) for gap in snap["unaccounted_scopes"]))
+        failures = []
+        for label, snapshot, statuses, sources in (
+            ("before", before, af, frozen.before_sources), ("after", after, bf, frozen.after_sources),
+        ):
+            gap = source_gap("Client call comparison", snapshot, label, file=file)
+            if gap is None and statuses.get(file) != "complete" and file in sources:
+                gap = failed("Client call comparison", file, snapshot["rev"],
+                             "no complete client file inventory was recorded", side=label)
+            if gap:
+                failures.append(gap)
+        complete = not failures
         old_lines = Counter(row["site"]["line"] for row in old[file])
         new_lines = Counter(row["site"]["line"] for row in new[file])
-        functions = [{name for name, spans in _function_spans(rows).items() if len(spans) == 1}
-                     for rows in (old[file], new[file])]
-        equal_lines = {i1 + offset + 1: j1 + offset + 1
-                       for tag, i1, i2, j1, _ in opcodes if tag == "equal" for offset in range(i2 - i1)}
+        mapped = equal_lines(opcodes)
+        functions = paired_functions(before.get("functions", {}).get(file, []),
+                                     after.get("functions", {}).get(file, []), mapped)
         by_line = {row["site"]["line"]: row for row in new[file]}
         handled = set()
         for row in old[file]:
             loc = row["site"]
             line, function = loc["line"], row["enclosing_function"]
-            other = by_line.get(equal_lines.get(line))
+            other = by_line.get(mapped.get(line))
             if (complete and other and function and function == other["enclosing_function"]
-                    and function in functions[0] & functions[1]
+                    and row["function_span"] and other["function_span"]
+                    and functions.get(tuple(row["function_span"])) == tuple(other["function_span"])
                     and loc["line"] == loc["end_line"] and other["site"]["line"] == other["site"]["end_line"]
                     and old_lines[line] == new_lines[other["site"]["line"]] == 1
                     and left_counts[left[line - 1]] == right_counts[left[line - 1]] == 1
                     and loc["text"] == other["site"]["text"]):
-                evidence = "one complete call on a uniquely mapped unchanged line in the same named function"
+                evidence = "one complete call on a uniquely mapped unchanged line inside paired function declarations"
                 handled.update((row["site_id"], other["site_id"]))
                 paired.append((row, other, evidence))
                 if _target(row) != _target(other):
@@ -162,10 +126,11 @@ def _client_changes(frozen):
                          for lo, hi in [bounds[side * 2:side * 2 + 2]]
                          if lo <= loc["line"] - 1 and loc["end_line"] - 1 < hi]
                 expected = "delete" if side == 0 else "insert"
-                untouched = (diffs == ["equal"] and _target(row) in
-                             {_target(r) for r in (new[file] if side == 0 else old[file])
-                              if r["site"]["text"] == loc["text"]})
-                if untouched:
+                others = new[file] if side == 0 else old[file]
+                unchanged_file = file not in frozen.changed_paths and not failures
+                if unchanged_file and any(
+                    r["site"]["byte_span"] == loc["byte_span"] and _target(r) == _target(row) for r in others
+                ):
                     continue
                 moved_or_copied = any(
                     source and loc["text"] in source for source in counterpart_sources(frozen, file, side)
@@ -173,13 +138,14 @@ def _client_changes(frozen):
                 if (complete and diffs == [expected] and not moved_or_copied
                         and only[loc["line"]] == 1 and lines[loc["line"] - 1] not in counterpart):
                     kind = "Client call removed" if side == 0 else "Client call added"
-                    reason = None
+                    failure = None
                 else:
                     kind = "Observed before" if side == 0 else "Observed after"
-                    reason = CORRESPONDENCE if complete else (
-                        f"{'Removal' if side == 0 else 'Addition'}: Not checked — {file} could not be compared."
-                    )
-                changes.append(_change(row if side == 0 else None, row if side == 1 else None, kind, reason))
+                    failure = failures[0] if failures else failed(
+                        "Corresponding call", file, (before, after)[side]["rev"],
+                        "no unique call and function correspondence or independent insertion or deletion was proved",
+                        side=("before", "after")[side], line=loc["line"])
+                changes.append(_change(row if side == 0 else None, row if side == 1 else None, kind, failure))
     return changes, paired
 
 
@@ -188,34 +154,29 @@ def counterpart_sources(frozen, file, side):
     return (sources.get(path) for path in set(frozen.changed_paths) | {file})
 
 
-def _function_spans(rows):
-    result = defaultdict(set)
-    for row in rows:
-        result[row["enclosing_function"]].add(row["function_span"])
-    return result
-
-
 def _target(row):
     return row["requested_method"], row["mapped_path"], row["target_reason"]
 
 
-def _change(old, new, kind, reason=None, evidence=None):
+def _change(old, new, kind, failure=None, evidence=None):
+    reason = explain(failure) if failure else None
     return {"before_site_id": old["site_id"] if old else None, "after_site_id": new["site_id"] if new else None,
-            "kind": kind, "reason": reason, "correspondence_evidence": evidence,
+            "kind": kind, "reason": reason, "proof_failure": failure, "correspondence_evidence": evidence,
             "before_presence": "present" if old else "unknown" if reason else "absent",
             "after_presence": "present" if new else "unknown" if reason else "absent"}
 
 
 def _count(observed, scope, version, reason=None):
     return {"observed": observed, "total": observed if reason is None else None,
-            "scope": scope, "version": version, "reason": reason}
+            "scope": scope, "version": version, "reason": explain(reason) if isinstance(reason, dict) else reason,
+            "proof_failure": reason if isinstance(reason, dict) else None}
 
 
 def _requests(pair, client, service):
     results = list(pair["matches"].values())
-    reason = next((g["reason"] for g in client["unaccounted_scopes"]), None)
-    match_gap = next((r["reason"] for r in results if r["status"] in {"partial", "not_checked"}), None)
-    match_gap = match_gap or next((g["reason"] for g in service["unaccounted_scopes"]), None)
+    reason = source_gap("Client request inventory", client)
+    match_gap = next((r["proof_failure"] for r in results if r["status"] in {"partial", "not_checked"}), None)
+    match_gap = match_gap or source_gap("Operation inventory", service)
     basis = [pair["service_input_id"], pair["client_input_id"]]
     no_match = [key for key, match in pair["matches"].items() if match["status"] == "no_match"]
     unknown = [key for key, match in pair["matches"].items() if match["status"] == "target_unknown"]
@@ -249,7 +210,7 @@ def _service_risks(group, client_before, client_after, before, after, request_co
         group["prefix_hints"].extend(dict(hint, side=side) for hint in hints)
         group["declaration_comparisons"].append({
             "side": side, "purpose": pair["purpose"], "compared": len(client["calls"]),
-            "inventory_reason": next((gap["reason"] for gap in client["unaccounted_scopes"]), None),
+            "inventory_reason": source_gap("Client request inventory", client),
             "closest_site_ids": [key for key, result in pair["matches"].items() if identifier in result["target_ids"]],
             **observed,
         })
@@ -258,7 +219,7 @@ def _service_risks(group, client_before, client_after, before, after, request_co
             lost, remains = before["matches"][key], after["matches"][key]
             if identifier in lost["target_ids"] and lost["status"] == "match":
                 if remains["status"] == "no_match":
-                    group["risks"].append({"kind": "Client calls a missing route", "site_id": key})
+                    group["risks"].append({"kind": MISSING_DECLARATION, "site_id": key})
                 elif remains["status"] == "match" and identifier not in remains["target_ids"]:
                     group["risks"].append({"kind": "Client target needs confirmation", "site_id": key})
     if "Operation added" in kinds:
@@ -274,13 +235,9 @@ def _service_risks(group, client_before, client_after, before, after, request_co
 
 
 def _action(group):
-    risks = [risk["kind"] for risk in group["risks"]]
-    if "Client calls a missing route" in risks:
-        return "Check whether this client still needs the old declaration and which version it will use."
-    if "Existing client call gains a matching declaration" in risks:
-        return "Check which service version this client needs."
-    if "Client target needs confirmation" in risks:
-        return "Check the address value and which route takes priority."
+    for kind, text in RISK_ACTIONS.items():
+        if any(risk["kind"] == kind for risk in group["risks"]):
+            return text
     if group["fields"]:
         return "Check what the client sends and how it reads the changed fields."
     if group["status_additions"] or group["status_removals"]:
@@ -305,20 +262,27 @@ def _client_action(change, calls, before, after):
     })
     change["risk"] = None
     if new and new["status"] == "no_match":
-        change["risk"] = "Client calls a missing route"
+        change["risk"] = MISSING_DECLARATION
     elif new and (new["status"] == "possible" or old and old["target_ids"] != new["target_ids"]):
         change["risk"] = "Client target needs confirmation"
     change["requested_target"] = _target(target)[:2]
     change["remaining_after_site_ids"] = [
         key for key, row in after["matches"].items()
-        if a and not b and set(row["target_ids"]) & set(change["operation_ids"])
+        if change["kind"] == "Client call removed" and set(row["target_ids"]) & set(change["operation_ids"])
     ]
-    change["review_action"] = ("Check which service version this call needs." if b else
-                                "Check which clients still need the old declaration.")
+    if change["kind"] == "Client call removed":
+        action = "Check which clients still need the old declaration."
+    elif change["kind"] == "Observed before":
+        action = "Check whether this call has a corresponding occurrence after the edit."
+    else:
+        action = "Check which service version this call needs."
+    change["review_action"] = action
     return change
 
 
-def _standing(before, after, shared, ops, snapshots):
+def _standing(before, after, shared, ops, snapshots, client_changes):
+    changed_sites = {row[key] for row in client_changes for key in ("before_site_id", "after_site_id") if row[key]}
+    changed_sites.update(key for group in ops for key in group["client_site_ids"])
     result = []
     for a, b in shared:
         old, new = before["matches"].get(a), after["matches"].get(b)
@@ -329,52 +293,85 @@ def _standing(before, after, shared, ops, snapshots):
             timing = "Appears with this change" if new["status"] == "no_match" else "Clears with this change"
         seen = [match["service_rev"][:8] + " with client " + match["client_rev"][:8]
                 for match in (old, new) if match and match["status"] == "no_match"]
+        gaps = []
+        if timing is None:
+            for label, match in (("before", old), ("after", new)):
+                if match is None:
+                    gaps.append(failed("Timing", None, None, "there is no corresponding request at this version",
+                                       side=label))
+                elif match["status"] not in {"match", "no_match"}:
+                    gap = match.get("proof_failure") or failed(
+                        "Timing", None, match["service_rev"],
+                        f"the comparison recorded {match['status'].replace('_', ' ')}",
+                    )
+                    gaps.append(dict(gap, side=label))
         result.append({"kind": "request has no same-method match among the declarations read",
                        "before_site_id": a, "after_site_id": b, "operation_id": None,
-                       "linked_to_change": any(key in group["client_site_ids"] for key in (a, b) for group in ops),
-                       "timing": timing or f"Seen at {' and '.join(seen)}. When this difference began: "
-                       f"Not checked — {'before' if not old or old['status'] == 'partial' else 'after'} comparison is missing.",
-                       "versions": seen})
+                       "linked_to_change": a in changed_sites or b in changed_sites,
+                       "timing": timing or f"Seen at {' and '.join(seen)}.",
+                       "timing_failures": gaps, "versions": seen})
     for snapshot in snapshots:
         document = snapshot["schema"]
-        if document["status"] != "complete":
+        if document["status"] != "complete" or document["path_gaps"] or snapshot["unaccounted_scopes"]:
             continue
         for op in sorted(document["operations"].keys() ^ snapshot["operations"].keys()):
             origin = "The committed schema" if op in document["operations"] else snapshot["operation_authority"]
-            result.append({"kind": f"{origin} lists this operation. Registration: Not checked — no gateway mapping was checked.",
+            result.append({"kind": f"{origin} lists this operation.", "registration_reason": GATEWAY,
                            "before_site_id": None, "after_site_id": None, "operation_id": op,
                            "linked_to_change": any(op == group["operation_id"] for group in ops),
-                           "timing": f"Seen at {snapshot['rev'][:8]}. When this difference began: Not checked — "
-                           "no complete registration comparison was available.",
+                           "timing": f"Seen at {snapshot['rev'][:8]}.",
+                           "timing_failures": [failed("Timing", snapshot["schema"]["source"]["path"], snapshot["rev"],
+                                                      "no complete registration comparison was available")],
                            "versions": [snapshot["rev"]]})
     return result
 
 
-def _summary(operations, service_limits, service_sides, usage, pairs, client_changes):
-    service_gap = next((g["reason"] for snap in service_sides for g in snap["unaccounted_scopes"]), None)
-    fields_gap = next(iter(service_limits), None) or next(
-        (gap for group in operations for gap in group["limits"]
-         if "JSON fields:" in gap or "stops at" in gap or "Body comparison:" in gap or "Status change:" in gap), None)
-    counts = {"operation_count": _count(sum(bool(
-        group["fields"] or group["status_additions"] or group["status_removals"]
-        or any(kind in {"Operation added", "Operation removed", "Route declaration changed"} for kind in group["change_kinds"])
-    ) for group in operations), "changed operations among declarations and schema read",
-        [snap["rev"] for snap in service_sides], service_gap),
+def _summary(operations, service_limits, service_sides, client_sides, usage, pairs, client_changes):
+    service_gap = next((source_gap("Operation inventory", snap, side)
+                        for side, snap in zip(("before", "after"), service_sides) if snap["unaccounted_scopes"]), None)
+    client_gap = next((source_gap("Client call inventory", snap, side)
+                       for side, snap in zip(("before", "after"), client_sides) if snap["unaccounted_scopes"]), None)
+    schema_gap = next((limit for limit in service_limits if "no committed field schema" not in limit
+                       and "omitted by request" not in limit), None)
+    schema_gap = schema_gap or next((limit for group in operations for limit in group["schema_limits"]), None)
+    fields_gap = schema_gap or next(iter(service_limits), None)
+    proof_gap = next((explain(row) for group in operations for row in group["proof_failures"]
+                      if row["check"] != "Validation or handler edits"), None)
+    reviewed = {row["operation_id"] for row in operations if row["change_kinds"]}
+    reviewed.update(identifier for change in client_changes for identifier in change["operation_ids"])
+    possible = 0
+    usage_gap = None
+    for row in usage:
+        applicable = [(side, row[f"match_{side}"]) for side in ("before", "after")
+                      if row[f"{side}_presence"] != "absent"]
+        if any(match is None or match["status"] not in {"match", "possible", "no_match"}
+               for _, match in applicable):
+            for side, match in applicable:
+                if match is None or match["status"] not in {"match", "possible", "no_match"}:
+                    usage_gap = usage_gap or (row["presence_reason"] if match is None else
+                                             match.get("proof_failure") or match["reason"] or
+                                             f"{side} match could not be assessed")
+            continue
+        matches = {match["status"] for _, match in applicable if reviewed.intersection(match["target_ids"])}
+        possible += "possible" in matches and "match" not in matches
+    return {
+        "operation_count": _count(sum(bool(
+            group["fields"] or group["status_additions"] or group["status_removals"]
+            or group["file_changes"] or "Route declaration changed" in group["change_kinds"]
+        ) for group in operations), "changed operations among declarations and schema read",
+            [snap["rev"] for snap in service_sides], service_gap or schema_gap or proof_gap),
         "changed_field_count": _count(sum(len(group["fields"]) for group in operations),
                                       "measured JSON field declarations", [snap["rev"] for snap in service_sides], fields_gap),
-        "listed_usage_count": _count(len(usage), "distinct client request sites shown",
+        "listed_usage_count": _count(len(usage), "distinct recorded client calls shown",
                                      [pair["client_input_id"] for pair in pairs]),
-        "possible_only_usage_count": _count(sum(
-            "possible" in statuses and statuses <= {"possible", "no_match"}
-            for row in usage for statuses in [{m["status"] for m in (row["match_before"], row["match_after"]) if m}]
-        ), "shown requests with possible matches only", [pair["client_input_id"] for pair in pairs],
-            next((m["reason"] for row in usage for m in (row["match_before"], row["match_after"])
-                  if m and m["status"] in {"not_checked", "partial"}), None)),
+        "listed_usage_by_version": {side: sum(row[f"{side}_site_id"] is not None for row in usage)
+                                    for side in ("before", "after")},
+        "possible_only_usage_count": _count(possible, "shown requests with possible matches only",
+                                            [pair["client_input_id"] for pair in pairs], client_gap or usage_gap),
         "client_change_count": _count(sum(not row["reason"] for row in client_changes), "proved client call edits",
                                       [pair["client_input_id"] for pair in pairs],
-                                      next((row["reason"] for row in client_changes if row["reason"]), None)),
+                                      client_gap or next((row["reason"] for row in client_changes if row["reason"]), None)),
     }
-    return counts
 
 
 def build_document(frozen):
@@ -389,11 +386,14 @@ def build_document(frozen):
     service_changed = service_sources_changed or schema_path in frozen.changed_paths
     client_changed = any(row["path"] in frozen.changed_paths and row["status"] != "skipped"
                          for snap in (bc, ac) for row in snap["file_status"])
+    client_changed |= any(dep["path"] in frozen.changed_paths for snap in (bc, ac)
+                          for dep in snap["dependencies"])
     client_changed |= [row["revision"] for row in bc["config_sources"]] != [
         row["revision"] for row in ac["config_sources"]]
     mixed = frozen.reference is None and service_changed and client_changed
-    show_service = mixed or requested == "producer"
-    show_client = mixed or requested == "consumer"
+    infer = frozen.reference is None and (service_changed or client_changed)
+    show_service = service_changed if infer else requested == "producer"
+    show_client = client_changed if infer else requested == "consumer"
     service_after, client_after = (aps if show_service else bs), (ac if show_client else bc)
     pairs = [compare(bs, bc, "before"), compare(service_after, client_after, "after")]
     service_pairs = pairs
@@ -425,7 +425,7 @@ def build_document(frozen):
     client_changes, paired = _client_changes(frozen) if show_client else ([], [])
     client_changes = [_client_action(row, calls, *pairs[:2]) for row in client_changes]
     operations.sort(key=lambda group: (
-        0 if any(r["kind"] == "Client calls a missing route" for r in group["risks"]) else
+        0 if any(r["kind"] == MISSING_DECLARATION for r in group["risks"]) else
         1 if group["fields"] or group["status_additions"] or group["status_removals"] else
         2 if group["risks"] else 3,
         parts(group["operation_id"])[1], parts(group["operation_id"])[0]))
@@ -436,6 +436,8 @@ def build_document(frozen):
     if not show_client:
         shared = [(key, key, "same frozen client occurrence") for key in calls]
     join = {key: pair for pair in shared for key in pair[:2]}
+    client_proofs = {edit[side]: edit for edit in client_changes for side in ("before_site_id", "after_site_id")
+                     if edit[side]}
     usages = []
     for key in sorted(wanted):
         lhs, rhs, evidence = join.get(key, (
@@ -446,7 +448,15 @@ def build_document(frozen):
         x, y = calls.get(lhs), calls.get(rhs)
         before_match, after_match = pairs[0]["matches"].get(lhs), pairs[1]["matches"].get(rhs)
         matched = any(row and row["status"] in {"match", "possible"} for row in (before_match, after_match))
+        edit = client_proofs.get(key)
+        presence_failure = (edit.get("proof_failure") if edit else None) or (
+            failed("Corresponding call", (x or y)["site"]["file"], (x or y)["site"]["rev"],
+                   "no corresponding call was proved at the other version") if not (lhs and rhs) else None
+        )
         usages.append({"site_id": key, "before_site_id": lhs, "after_site_id": rhs,
+                       "before_presence": edit["before_presence"] if edit else "present" if lhs else "unknown",
+                       "after_presence": edit["after_presence"] if edit else "present" if rhs else "unknown",
+                       "presence_reason": explain(presence_failure) if presence_failure else None,
                        "before_site": x["site"] if x else None,
                        "after_site": y["site"] if y else None,
                        "usage_id": f"{lhs}→{rhs}" if evidence else None, "correspondence_evidence": evidence,
@@ -471,7 +481,7 @@ def build_document(frozen):
                "changed_paths": frozen.changed_paths, "target": None, "merge_result": None, "merge_receipt": None}
     ref = frozen.reference
     if ref is None:
-        reference = bc if requested == "producer" else bs
+        reference = bc if show_service else bs
         delta = datetime.fromisoformat(subject["committed_at"]) - datetime.fromisoformat(reference["committed_at"])
         ref = {"reference_input_id": reference["input_id"], "selected_by": "first parent in the same repository",
                "selection_reason": "the counterpart is held at the base; joint changes also check the after tree",
@@ -492,20 +502,24 @@ def build_document(frozen):
                                                 or row["element_id"] in service_after["operations"])
         for row in elements
     ) else "Not checked — the binding inventory is incomplete"
-    summary = _summary(operations, field_limits, [bs, service_after], usages, pairs, client_changes)
+    summary = _summary(operations, field_limits, [bs, service_after], [bc, client_after], usages, pairs, client_changes)
     if reason := ref.get("unavailable_reason"):
-        summary["possible_only_usage_count"].update(total=None, reason=reason)
+        summary["possible_only_usage_count"].update(total=None, reason=reason, proof_failure=None)
     summary.update({name: {purpose: counts[name] for purpose, counts in request_counts.items()}
                     for name in ("known_unmatched_count", "unknown_target_count")})
     schema_unchanged = (frozen.reference is None or show_service) and service_sources_changed and (
         bool(bs["sha256"]) and bs["sha256"] == aps["sha256"]
     )
+    manifest = [{key: snap[key] for key in ("input_id", "repository_id", "tree", "source_url", "scope",
+                                            "operation_authority", "config_sources")} |
+                {"schema": {key: snap["schema"][key] for key in ("source", "status", "sha256")}
+                 if snap["schema"] else None, "driver": snap["tool"]["build_identity"]}
+                for snap in inputs.values()]
     return {
-        "schema_version": "2", "report_id": _fingerprint([version, ref, frozen.request.selection_time,
-                                                         [(key, snap["config_sources"], snap["tool"]["build_identity"],
-                                                           snap["scope"], snap["source_url"], snap["operation_authority"])
-                                                          for key, snap in inputs.items()]]),
-        "api": bs["api"], "mode": "version_comparison", "report_time": frozen.request.selection_time,
+        "schema_version": "2", "report_id": _fingerprint([
+            version, ref, frozen.request.mode, frozen.request.selection_time, manifest]),
+        "api": bs["api"], "mode": frozen.request.mode, "report_time": frozen.request.selection_time,
+        "input_manifest": manifest,
         "cutoff_at": frozen.request.selection_time, "inputs": inputs, "reference": ref, "comparisons": pairs,
         "change": version, "impacts": operations, "call_changes": client_changes, "usages": usages,
         "binding_status": {"status": "not_checked", "reason": EARLIER},
@@ -515,7 +529,8 @@ def build_document(frozen):
                       "reason": snap["unaccounted_scopes"][0]["reason"] if snap["unaccounted_scopes"] else None}
                      for key, snap in inputs.items()],
         "warnings": warnings, "field_limits": field_limits, "code_changed_with_unchanged_schema": schema_unchanged,
-        "standing_mismatches": _standing(*pairs[:2], shared_keys, operations, (bs,) if bs == service_after else (bs, service_after)),
+        "standing_mismatches": _standing(*pairs[:2], shared_keys, operations,
+                                         (bs,) if bs == service_after else (bs, service_after), client_changes),
         "summary": summary, "request_counts": request_counts,
         "unobserved": None if unobserved_reason else [], "unobserved_reason": unobserved_reason,
     }

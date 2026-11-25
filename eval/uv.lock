@@ -911,6 +911,7 @@ dev = [
     { name = "pytest" },
 ]
 schema-impact = [
+    { name = "markdown-it-py" },
     { name = "pyyaml" },
     { name = "tree-sitter" },
     { name = "tree-sitter-go" },
@@ -927,6 +928,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8" }]
 schema-impact = [
+    { name = "markdown-it-py" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "tree-sitter", specifier = ">=0.23" },
     { name = "tree-sitter-go" },

@@ -1,7 +1,7 @@
 """Freeze a first-parent comparison before any replay evidence is opened."""
 
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
@@ -34,6 +34,11 @@ class ReportRequest:
     counterpart_repo: Path | None = None
     counterpart_rev: str | None = None
     counterpart_source_url: str | None = None
+    schema_omitted: bool = False
+    mode: str = "version_comparison"
+    cutoff_receipt: dict | None = None
+    study_repo: Path | None = None
+    study_rev: str | None = None
 
 
 @dataclass(frozen=True)
@@ -104,15 +109,24 @@ def _source_tree(repo, files):
         yield root, selected
 
 
-def _source_receipt(path, data):
-    return {"file": path.name, "origin": "study-supplied selection receipt",
-            "revision": f"sha256:{sha256(data).hexdigest()}", "tree": None, "blob": None}
+CAPTURE_WORDING = "read at capture time, not shown to have existed at the change time"
 
 
-def _driver():
+def selected_schema(schema, route_spec, *, omitted=False):
+    return None if omitted else schema or (None if route_spec else DEFAULT_SCHEMA)
+
+
+def _source_receipt(path, data, captured_at, error=None):
+    return {"file": path.name, "origin": CAPTURE_WORDING, "captured_at": captured_at,
+            "revision": f"sha256:{sha256(data).hexdigest()}" if data is not None else None,
+            "tree": None, "blob": None, "error": error}
+
+
+def _driver(captured_at):
     directory = Path(__file__).resolve().parent
     hashes = {path.name: sha256(path.read_bytes()).hexdigest() for path in sorted(directory.glob("*.py"))
-              if path.name not in {"render.py", "report_evaluation.py", "report_batch.py", "_replay_measure.py"}}
+              if path.name not in {"render.py", "report_evaluation.py", "report_batch.py",
+                                   "report_batch_evaluation.py", "_replay_measure.py"}}
     version = sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
     try:
         base = revision(directory, "HEAD")
@@ -121,39 +135,89 @@ def _driver():
         commit = dict.fromkeys(("rev", "committed_at", "subject"))
     return {"name": "schema-impact", "version": "2", "rev": commit["rev"], "committed_at": commit["committed_at"],
             "subject": commit["subject"], "build_identity": f"sha256:{version}",
-            "source_hashes": hashes}
+            "source_hashes": hashes, "origin": CAPTURE_WORDING, "captured_at": captured_at}
 
 
-def _config(repo, rev, source):
+def _config(repo, rev, source, captured_at, tree_reader=None):
     selected_by = "first-parent ancestry"
-    if source.is_file():
+    is_file = (lambda path: tree_reader.contains(path)) if tree_reader else Path.is_file
+    if source.suffix.lower() == ".toml" or is_file(source):
         path, selected_by = source, "single supplied file"
     else:
         path = select_config(repo, rev, source)
-        if not path.is_file():
-            files = [file for file in source.glob("*.toml") if file.is_file()]
+        if not is_file(path):
+            files = tree_reader.configs(source) if tree_reader else sorted(source.glob("*.toml"))
             if len(files) == 1:
                 path, selected_by = files[0], "single supplied file"
+    receipt = tree_reader.receipt if tree_reader else _source_receipt
     try:
-        data = path.read_bytes()
+        data = tree_reader.read(path) if tree_reader else path.read_bytes()
+    except FileNotFoundError:
+        return None, receipt(path, None, captured_at, "client configuration is missing")
     except OSError:
-        return None, None
+        return None, receipt(path, None, captured_at, "client configuration could not be read")
     try:
         document = tomllib.loads(data.decode("utf-8"))
-        parsed = config.Config(document.get("aliases", {}), [config.ClientSpec(**entry) for entry in document.get("client", [])])
+        aliases = document.get("aliases", {})
+        if not isinstance(aliases, dict) or not all(isinstance(value, str) for value in aliases.values()):
+            raise ValueError("invalid client aliases")
+        parsed = config.Config(aliases, [config.ClientSpec(**entry) for entry in document.get("client", [])])
     except (UnicodeError, ValueError, TypeError):
-        return None, _source_receipt(path, data) | {"error": "could not be read as client configuration"}
-    return parsed, {**_source_receipt(path, data), "selected_by": selected_by,
+        return None, receipt(path, data, captured_at, "client configuration could not be parsed")
+    return parsed, {**receipt(path, data, captured_at), "selected_by": selected_by,
                     "selected_for": rev, "aliases": parsed.aliases,
                     "entries": [{"entry": i, **asdict(entry)} for i, entry in enumerate(parsed.clients, start=1)]}
 
 
-def _route_spec(path):
-    if path is None or not path.is_file():
+def _route_spec(path, captured_at, tree_reader=None):
+    if path is None:
         return None, None
-    raw = path.read_bytes()
-    spec = routes.RouteSpec(**json.loads(raw))
-    return spec, {**_source_receipt(path, raw), "mapping": asdict(spec)}
+    receipt = tree_reader.receipt if tree_reader else _source_receipt
+    try:
+        raw = tree_reader.read(path) if tree_reader else path.read_bytes()
+    except FileNotFoundError:
+        return None, receipt(path, None, captured_at, "route specification is missing")
+    except OSError:
+        return None, receipt(path, None, captured_at, "route specification could not be read")
+    try:
+        spec = routes.RouteSpec(**json.loads(raw))
+        mapping = asdict(spec)
+        if not all(isinstance(mapping[key], str) and (mapping[key] or key == "mount") for key in (
+            "callee", "method_key", "path_key", "handler_key", "validation_key", "mount"
+        )) or not all(isinstance(mapping[key], (list, tuple))
+                      and all(isinstance(entry, str) for entry in mapping[key])
+                      for key in ("handler_under", "validation_under")):
+            raise ValueError("invalid route specification")
+    except (ValueError, TypeError):
+        return None, receipt(path, raw, captured_at, "route specification could not be parsed or validated")
+    return spec, {**receipt(path, raw, captured_at), "mapping": mapping}
+
+
+class StudyTree:
+    def __init__(self, repo, rev):
+        self.repo, self.rev = repo, rev
+        self.tree_id = _metadata(repo, rev)["tree"]
+        self.files = _tree(repo, self.tree_id)
+
+    def contains(self, path):
+        return _repo_path(path) in self.files
+
+    def configs(self, directory):
+        return sorted(Path(file) for file in self.files if Path(file).parent == directory and file.endswith(".toml"))
+
+    def read(self, path):
+        record = self.files.get(_repo_path(path))
+        if record is None:
+            raise FileNotFoundError(path)
+        if not record["mode"].startswith("100"):
+            raise OSError("study input is not a regular file")
+        return git(self.repo, "cat-file", "blob", record["blob"])
+
+    def receipt(self, path, data, captured_at, error=None):
+        return _source_receipt(path, data, captured_at, error) | {
+            "file": _repo_path(path), "origin": "named study tree", "tree": self.tree_id,
+            "study_rev": self.rev, "blob": self.files.get(_repo_path(path), {}).get("blob"),
+        }
 
 
 def _location(request, counterpart):
@@ -165,7 +229,9 @@ def _location(request, counterpart):
 def _snapshot_record(request, commit, driver, counterpart):
     repo, url = _location(request, counterpart)
     service_repo = request.counterpart_repo if request.role == "consumer" and request.counterpart_repo else request.repo
-    return dict(commit, api=service_repo.name, repo=repo.name, tool=driver, origin="selected commit tree",
+    return dict(commit, api=service_repo.name, repo=repo.name,
+                repository_id=url or f"sha256:{sha256(str(repo.resolve()).encode()).hexdigest()}",
+                tool=driver, origin="selected commit tree",
                 sha256=None, content_hash=None, config_sources=[], dependencies=[], source_url=url)
 
 
@@ -205,18 +271,19 @@ def _snapshot(request, rev, driver, spec, spec_source, configuration, *, reused=
             service = snapshots["service"]
             relevant = {name: contents for name, contents in selected.items()
                         if service_wanted(name) or name in unresolved}
-            if spec is not None:
+            if spec_source is not None:
                 service["config_sources"] = [spec_source]
             if request.route_spec and spec is None:
-                reason = f"route specification for {rev[:8]} is missing"
-                gap = diagnostic(request.service_root, reason)
+                reason = spec_source["error"]
+                gap = diagnostic(spec_source["file"] or request.service_root, reason, check="route specification")
                 paths = sorted(file for file in relevant if in_root(file, request.service_root))
                 service.update(inventory(service, paths, [], [gap, *(
                     diagnostic(file, reason, status="unknown") for file in paths
                 )]), operations={}, registration_inventory=None, outside_registration=None)
             else:
                 service.update(operations(service, directory, request.service_root, relevant, spec))
-            service.update(schema_inventory(service, request.schema, selected.get(request.schema)))
+            service.update(schema_inventory(service, request.schema, selected.get(request.schema),
+                                            omitted=request.schema_omitted))
             if request.schema is None and spec is not None:
                 service["schema"]["source"]["derived"] = "route_table"
                 if not service["unaccounted_scopes"]:
@@ -237,22 +304,38 @@ def _snapshot(request, rev, driver, spec, spec_source, configuration, *, reused=
 
 def _select_counterpart(request, subject):
     repo, supplied = request.counterpart_repo, request.counterpart_rev
+    if request.mode != "version_comparison":
+        receipt = request.cutoff_receipt or {}
+        tip = receipt.get("counterpart_tip")
+        if not tip:
+            return None, None, f"no record of the tip of the counterpart branch at {request.selection_time}"
+        try:
+            commit = revision(repo, tip)
+            if commit != tip:
+                raise ValueError("cutoff receipt must identify an exact counterpart commit")
+            return commit, None, None
+        except subprocess.CalledProcessError:
+            return None, None, f"the counterpart revision from the cutoff receipt {tip} could not be read"
     if supplied is not None:
         try:
-            return revision(repo, supplied), None
+            return revision(repo, supplied), None, None
         except subprocess.CalledProcessError:
-            return None, f"the supplied counterpart revision {supplied} could not be read"
+            return None, None, f"the supplied counterpart revision {supplied} could not be read"
+    tip_record = None
     try:
         tip = revision(repo, "HEAD")
+        tip_record = _metadata(repo, tip)
+        branch = git(repo, "rev-parse", "--abbrev-ref", "HEAD").decode().strip()
+        tip_record["branch"] = branch if branch != "HEAD" else "detached HEAD"
         history = git(repo, "rev-list", "--first-parent", "--timestamp", tip).decode().splitlines()
     except subprocess.CalledProcessError:
-        return None, "the counterpart repository's first-parent history could not be read"
+        return None, tip_record, "the counterpart repository's first-parent history could not be read"
     cutoff = datetime.fromisoformat(subject["committed_at"]).timestamp()
     for row in history:
         seconds, rev = row.split()
         if int(seconds) <= cutoff:
-            return rev, None
-    return None, f"no first-parent commit in the counterpart repository at or before {subject['committed_at']}"
+            return rev, tip_record, None
+    return None, tip_record, f"no first-parent commit in the counterpart repository at or before {subject['committed_at']}"
 
 
 def _unavailable_counterpart(request, role, driver, reason):
@@ -264,29 +347,29 @@ def _unavailable_counterpart(request, role, driver, reason):
         snapshot.update(_empty(snapshot, request.schema, reason, "not_checked"), operations={},
                         registration_inventory=None, outside_registration=None)
     else:
-        snapshot["calls"] = []
+        snapshot.update(calls=[], functions={})
     del snapshot["tree_files"]
     return snapshot
 
 
-def _cross_inputs(request, base, head, driver, changes):
+def _cross_inputs(request, base, head, driver, changes, study):
     changing, fixed = ("service", "client") if request.role == "producer" else ("client", "service")
-    spec, spec_source = _route_spec(request.route_spec) if changing == "service" else (None, None)
+    spec, spec_source = study("route specification") if changing == "service" else (None, None)
 
     def scan(rev, role, counterpart=False):
         repo, _ = _location(request, counterpart)
-        cfg = _config(repo, rev, request.configs) if role == "client" else None
+        cfg = study("client configuration", repo, rev) if role == "client" else None
         return _snapshot(request, rev, driver, spec, spec_source, cfg, roles=(role,), counterpart=counterpart)
 
     before, before_sources = scan(base, changing)
     after, after_sources = scan(head, changing)
     if changing == "service" and spec is not None:
-        account_changed_route_regions(before["service"], after["service"], changes)
-        account_changed_route_regions(after["service"], before["service"], changes)
-    selected, reason = _select_counterpart(request, after["commit"])
+        account_changed_route_regions(before["service"], after["service"], changes, before_sources, after_sources)
+        account_changed_route_regions(after["service"], before["service"], changes, after_sources, before_sources)
+    selected, tip, reason = _select_counterpart(request, after["commit"])
     if selected is not None:
         if fixed == "service":
-            spec, spec_source = _route_spec(request.route_spec)
+            spec, spec_source = study("route specification")
         try:
             scanned, _ = scan(selected, fixed, counterpart=True)
             reference = scanned[fixed]
@@ -296,21 +379,29 @@ def _cross_inputs(request, base, head, driver, changes):
         reference = _unavailable_counterpart(request, fixed, driver, reason)
     before[fixed] = after[fixed] = reference
 
-    supplied = request.counterpart_rev is not None
+    admitted_cutoff = request.mode != "version_comparison"
+    supplied = request.counterpart_rev is not None and not admitted_cutoff
+    branch = (tip or {}).get("branch") or (request.cutoff_receipt or {}).get("counterpart_branch")
     date = reference["committed_at"]
     offset = (datetime.fromisoformat(date) - datetime.fromisoformat(after["commit"]["committed_at"])) if date else None
     selection = {
         "reference_input_id": reference["input_id"], "repo": reference["repo"],
         "rev": reference["rev"], "tree": reference["tree"], "committed_at": date,
-        "requested_rev": request.counterpart_rev, "selected_by": "supplied_revision" if supplied else "commit_date",
-        "selection_reason": "Revision supplied for this review" if supplied else
-        "Selected by commit date. When this revision reached the branch is unknown.",
+        "requested_rev": request.counterpart_rev if supplied else None,
+        "selected_by": "cutoff_receipt" if admitted_cutoff else "supplied_revision" if supplied else "commit_date",
+        "selection_reason": ("Selected from the supplied cutoff receipt" if admitted_cutoff else
+                             "Revision supplied for this review" if supplied else
+                             f"Selected by commit date. When this revision reached {branch or 'HEAD'} is unknown."),
+        "selected_rev": selected,
         "availability_status": "unavailable" if reason else "selected", "unavailable_reason": reason,
-        "availability_evidence": {"tree": reference["tree"]} if date else None,
+        "availability_evidence": ({"tree": reference["tree"], "observed_at": request.selection_time,
+                                   "branch": branch} if admitted_cutoff and date else
+                                  {"tree": reference["tree"]} if date else None),
         "duration_seconds": int(offset.total_seconds()) if offset is not None else None,
-        "branch": None, "observed_tip": None, "observed_at": None,
-        # Retain the tip of the selected history, excluding newer commits used only to reach it.
-        "selection_history_tip": reference["rev"] if not supplied else None,
+        "branch": branch, "observed_tip": selected if admitted_cutoff else None,
+        "observed_at": request.selection_time if admitted_cutoff and selected else None,
+        "selection_history_tip": tip["rev"] if tip else None,
+        "selection_history_tip_committed_at": tip["committed_at"] if tip else None,
     }
     return FrozenReport(request, before, after, changes, before_sources, after_sources, selection)
 
@@ -327,16 +418,55 @@ def build_inputs(request):
         url = urlsplit(source_url)
         if url.scheme != "https" or not url.hostname or url.username or url.query or url.fragment:
             raise ValueError("Source URL must be an HTTPS repository URL")
-    head = revision(request.repo, request.subject)
+    receipt = request.cutoff_receipt or {}
+    if request.mode != "version_comparison" and receipt.get("subject_query") == request.subject:
+        head = revision(request.repo, receipt["subject"])
+        if head != receipt["subject"]:
+            raise ValueError("cutoff receipt must identify an exact subject commit")
+    else:
+        head = revision(request.repo, request.subject)
     base = parent(request.repo, head)
     if base is None:
         raise ValueError("The selected subject has no first parent")
-    driver = _driver()
+    # An explicitly fixed selection time keeps repeated selected-version comparisons reproducible.
+    if request.mode != "version_comparison":
+        if request.mode not in {"live", "historical_as_of"}:
+            raise ValueError(f"Unknown report mode: {request.mode}")
+        receipt = request.cutoff_receipt or {}
+        change_time = _metadata(request.repo, head)["committed_at"]
+        cutoff = change_time if request.mode == "historical_as_of" else request.selection_time
+        observed_at = receipt.get("observed_at")
+        if (not cutoff or not observed_at or datetime.fromisoformat(observed_at) != datetime.fromisoformat(cutoff)
+                or receipt.get("subject") != head):
+            raise ValueError("the requested mode requires an independent receipt for the exact subject and cutoff")
+        request = replace(request, selection_time=datetime.fromisoformat(cutoff).astimezone(timezone.utc).isoformat())
+    driver = _driver(None)
+    if (request.study_repo is None) != (request.study_rev is None):
+        raise ValueError("a named study tree requires both --study-repo and --study-rev")
+    study_tree = None
+    if request.study_repo is not None:
+        if request.mode == "version_comparison":
+            study_tree = StudyTree(request.study_repo, revision(request.study_repo, request.study_rev))
+        elif receipt.get("study_rev") == request.study_rev:
+            if revision(request.study_repo, request.study_rev) != request.study_rev:
+                raise ValueError("cutoff receipt must identify an exact study commit")
+            study_tree = StudyTree(request.study_repo, request.study_rev)
+
+    def study(kind, repo=None, rev=None):
+        source = request.route_spec if repo is None else request.configs
+        if source is None:
+            return None, None
+        if request.mode != "version_comparison" and study_tree is None:
+            return None, {"file": None, "revision": None,
+                          "error": f"{kind} has no evidence of availability at the cutoff"}
+        return (_route_spec(source, None, study_tree) if repo is None else
+                _config(repo, rev, source, None, study_tree))
+
     changes = tuple(changed_files(request.repo, base, head))
     if request.counterpart_repo is not None:
-        return _cross_inputs(request, base, head, driver, changes)
-    spec, spec_source = _route_spec(request.route_spec)
-    base_cfg, head_cfg = (_config(request.repo, rev, request.configs) for rev in (base, head))
+        return _cross_inputs(request, base, head, driver, changes, study)
+    spec, spec_source = study("route specification")
+    base_cfg, head_cfg = (study("client configuration", request.repo, rev) for rev in (base, head))
     before, before_sources = _snapshot(request, base, driver, spec, spec_source, base_cfg)
     reused = {}
     client_paths = set(before["client"]["expected_files"]) | {
@@ -355,6 +485,6 @@ def build_inputs(request):
         reused["service"] = before["service"]
     after, after_sources = _snapshot(request, head, driver, spec, spec_source, head_cfg, reused=reused)
     if spec is not None and "service" not in reused:
-        account_changed_route_regions(before["service"], after["service"], changes)
-        account_changed_route_regions(after["service"], before["service"], changes)
+        account_changed_route_regions(before["service"], after["service"], changes, before_sources, after_sources)
+        account_changed_route_regions(after["service"], before["service"], changes, after_sources, before_sources)
     return FrozenReport(request, before, after, changes, before_sources, after_sources)

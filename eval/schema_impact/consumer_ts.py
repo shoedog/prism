@@ -184,8 +184,13 @@ class _File:
             return _Target("axios_factory", members)
         if root.type != "identifier":
             return None
+        while (binding := self.bindings.find(root)) is not None:
+            alias = ts.unwrap(binding.initializer)
+            if (not binding.constant or binding.written or alias is None
+                    or alias.type != "identifier" or alias.start_byte >= root.start_byte):
+                break
+            root = alias
         local = ts.text(root)
-        binding = self.bindings.find(root)
         if binding is None:
             if (local == "fetch" and not members) or (local in _GLOBAL_OBJECTS and members == ("fetch",)):
                 return _Target("fetch", ())
@@ -240,6 +245,19 @@ class _File:
             return _Request("GET", url, hook), inline, None
         spec = hook if hook.strip_prefix or hook.add_prefix else request.spec or hook
         return _Request(request.method, url, spec, request.reason), inline, request.spec
+
+    def unsupported_aliases(self):
+        for node in ts.walk(self.tree):
+            if node.type != "call_expression":
+                continue
+            callee = node.child_by_field_name("function")
+            root, _ = ts.member_chain(callee)
+            if root is None or root.type != "identifier" or self.target(callee) is not None:
+                continue
+            binding = self.bindings.find(root)
+            initializer = ts.unwrap(binding.initializer) if binding else None
+            if initializer is not None and self.target(initializer) is not None:
+                yield node.start_point.row + 1
 
     def calls(self, file: str) -> list[ClientCall]:
         return [observation.call for observation in self.observations(file)]

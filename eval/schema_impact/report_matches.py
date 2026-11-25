@@ -6,6 +6,7 @@ from functools import cache
 
 from .consumer_ts import ClientCall
 from .match import _segments, bind
+from .report_proof import failed, source_gap
 
 
 WILDCARD = ("Method coverage: Not checked — the matcher compares exact methods only and "
@@ -54,28 +55,33 @@ def compare(service, client, purpose):
         result = {"authority": source, "target_ids": [], "primary_grade": None, "reason": reason,
                   "alternates": [], "overlaps": None, "overlaps_reason": OVERLAPS,
                   "registration": "not_checked", "registration_reason": GATEWAY}
+        def unchecked(status, text, gap=None):
+            proof = gap or failed("Request match", service["scope"], service["rev"], text)
+            return dict(result, status=status, reason=text, proof_failure=proof)
+
         if reason or not method or not path:
             return dict(result, status="target_unknown", primary_grade="unbound")
         if service["snapshot_kind"] == "unavailable":
-            return dict(result, status="not_checked", reason=coverage[0]["reason"])
+            return unchecked("not_checked", coverage[0]["reason"], source_gap("Request match", service))
         matches = per_method.get(method, {})
         for identifier, op in (matches | per_method.get("*", {})).items():
             optional = any(s["optional_param"] for s in op["sites"])
             if not _compatible(path, parts(identifier)[1], optional):
                 continue
             if identifier in per_method.get("*", {}):
-                return dict(result, status="not_checked", reason=WILDCARD)
+                return unchecked("not_checked", WILDCARD)
             if optional:
-                return dict(result, status="not_checked", reason="Not checked — this path segment may be omitted")
+                return unchecked("not_checked", "Not checked — this path segment may be omitted")
         call = ClientCall("", 0, method, "", path, "", None, None, None)
         grade, ids, why = bind(call, _Index(matches))
         result.update(target_ids=ids, reason=why)
         if not mapped:
-            return dict(result, status="not_checked", reason=MAPPING)
+            return unchecked("not_checked", MAPPING)
         if any(len(matches[identifier]["sites"]) != 1 for identifier in ids):
-            return dict(result, status="not_checked", reason="Not checked — two declarations have the same method and path")
+            return unchecked("not_checked", "Not checked — two declarations have the same method and path")
         if coverage:
-            return dict(result, status="partial", reason=f"{coverage[0]['file']}: {coverage[0]['reason']}")
+            return unchecked("partial", f"{coverage[0]['file']}: {coverage[0]['reason']}",
+                             source_gap("Request match", service))
         if not ids:
             for other_method, operations in sorted(per_method.items()):
                 if other_method in {method, "*"}:
@@ -150,4 +156,4 @@ def match_text(match):
         values = [declared for requested, declared in zip(_segments(match["mapped_path"]), _segments(path))
                   if requested == "{}" and declared != "{}"]
         return "Possible match — the value in this address would have to be " + " and ".join(values) + "."
-    return f"No {match['requested_method']} match among {source} declarations read at {revision}. {GATEWAY}."
+    return f"No {match['requested_method']} match among declarations read from {source} at {revision}. {GATEWAY}."

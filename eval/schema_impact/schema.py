@@ -79,6 +79,7 @@ class _Shape:
     required: bool
     enum: tuple[str, ...]
     items_type: str
+    item_types: tuple[str, ...]
 
     @property
     def signature(self) -> str:
@@ -193,13 +194,14 @@ def _make_field(
         ]
         for layer in shaped or declaration.layers[:1] or [_Node({})]:
             schema = layer.schema
-            item_types = {_node_type(item.schema) for item in items.get(id(layer), [])}
+            item_types = tuple(sorted({_node_type(item.schema) for item in items.get(id(layer), [])} - {""}))
             shapes.append(_Shape(
                 _node_type(schema),
                 schema.get("format", ""),
                 declaration.required,
                 tuple(sorted({_json(value) for value in schema.get("enum", [])})),
-                ",".join(sorted(item_types - {""})),
+                ",".join(item_types),
+                item_types,
             ))
     shapes.sort(key=attrgetter("signature"))
     signatures = [shape.signature for shape in shapes]
@@ -261,6 +263,8 @@ class _Reader:
     ) -> Iterator[_Node]:
         node = self._resolve(node, location, schema=True)
         schema = node.schema
+        if "properties" in schema and not isinstance(schema["properties"], dict):
+            self.warnings.add(f"malformed_properties {location}")
         identity = id(schema)
         if identity in active and not node.stopped:
             self.warnings.add(f"recursive_composition {location}")

@@ -61,6 +61,7 @@ class Extraction:
     handler_inline: int = 0
     entries: list[dict] = field(default_factory=list)
     outside_registration: list[dict] = field(default_factory=list)
+    registration_regions: list[dict] = field(default_factory=list)
 
 
 _EXTENSIONS = (".js", ".mjs", ".cjs", ".jsx")
@@ -488,30 +489,42 @@ def _handler_site(units: dict[str, _Unit], unit: _Unit, handler: Node | None) ->
     return HandlerSite(value.unit.file, value.node.start_point.row + 1, value.name)
 
 
-def _entries(root: Node, registration: str) -> Iterator[tuple[Node, str | None]]:
+def _array_elements(array):
+    expecting = True
+    for child in array.children[1:-1]:
+        if child.type == "comment":
+            continue
+        if child.type != "," or expecting:
+            yield child
+        expecting = child.type == ","
+
+
+def _registrations(root: Node, registration: str):
     for call in _walk(root):
         if call.type != "call_expression":
             continue
         callee = _unwrap(call.child_by_field_name("function"))
         if callee is not None and callee.type == "member_expression":
             callee = callee.child_by_field_name("property")
-        if callee is None or callee.type not in {"identifier", "property_identifier"}:
-            continue
-        if _text(callee) != registration:
-            continue
-        args = call.child_by_field_name("arguments")
-        arrays = [_unwrap(arg) for arg in _children(args)] if args is not None else []
-        arrays = [arg for arg in arrays if arg is not None and arg.type == "array"]
-        if not arrays:
-            yield call, "registration call has no literal array argument"
-        for array in arrays:
-            tokens = [child for child in array.children[1:-1] if child.type != "comment"]
-            for item in tokens[::2]:
-                entry = _unwrap(item)
-                if entry is not None and entry.type == "object":
-                    yield entry, None
-                else:
-                    yield item, "registration item is not an object declaration"
+        if callee is not None and _text(callee) == registration:
+            yield call
+
+
+def _registration_entries(call):
+    args = call.child_by_field_name("arguments")
+    arrays = [_unwrap(arg) for arg in _children(args)] if args is not None else []
+    arrays = [arg for arg in arrays if arg is not None and arg.type == "array"]
+    if not arrays:
+        yield call, "registration call has no literal array argument"
+    for array in arrays:
+        for item in _array_elements(array):
+            entry = _unwrap(item)
+            if item.type == ",":
+                yield item, "registration array has a hole"
+            elif entry is not None and entry.type == "object":
+                yield entry, None
+            else:
+                yield item, "registration item is not an object declaration"
 
 
 def _methods(node: Node | None) -> list[str]:
@@ -519,8 +532,7 @@ def _methods(node: Node | None) -> list[str]:
     if node is None:
         return []
     if node.type == "array":
-        tokens = [child for child in node.children[1:-1] if child.type != "comment"]
-        items = tokens[::2]  # Elements alternate with separators; a comma here denotes a hole.
+        items = list(_array_elements(node))
         if any(item.type == "," for item in items):
             return []
     else:
@@ -531,7 +543,7 @@ def _methods(node: Node | None) -> list[str]:
     return [method.upper() for method in methods if method is not None]
 
 
-def extract(repo: str | Path, spec: RouteSpec) -> Extraction:
+def extract(repo: str | Path, spec: RouteSpec, *, allow_uncertain=False) -> Extraction:
     """Return routes and diagnostics in repository path and source order."""
     root = Path(repo).resolve(strict=True)
     if not root.is_dir():
@@ -559,11 +571,14 @@ def extract(repo: str | Path, spec: RouteSpec) -> Extraction:
 
     rows = []
     entries = []
-    outside = []
+    outside, regions = [], []
     template_locations: list[dict[str, str | int]] = []
     handler_inline = 0
     for unit in units.values():
-        registrations = list(_entries(unit.root, spec.callee))
+        calls = list(_registrations(unit.root, spec.callee))
+        regions.extend({"file": unit.file, "line": call.start_point.row + 1,
+                        "end_line": call.end_point.row + 1} for call in calls)
+        registrations = [(node, issue) for call in calls for node, issue in _registration_entries(call)]
         accepted = {node for node, _ in registrations}
         for node in _walk(unit.root):
             if (node.type == "object" and node not in accepted
@@ -585,6 +600,8 @@ def extract(repo: str | Path, spec: RouteSpec) -> Extraction:
                        for key in (child.child_by_field_name("key"), child.child_by_field_name("name")))
                    for child in _children(entry)):
                 record["reason"] = "registration entry has a spread or computed key"
+                if not allow_uncertain:
+                    continue
             path_node = _unwrap(_property(entry, spec.path_key))
             if path_node is not None and path_node.type == "template_string":
                 if any(child.type == "template_substitution" for child in _children(path_node)):
@@ -624,11 +641,11 @@ def extract(repo: str | Path, spec: RouteSpec) -> Extraction:
             "count": len(template_locations),
             "locations": template_locations,
         })
-    return Extraction(rows, unextracted, unparsed, handler_inline, entries, outside)
+    return Extraction(rows, unextracted, unparsed, handler_inline, entries, outside, regions)
 
 
 def routes(repo: str | Path, spec: RouteSpec) -> list[Route]:
-    return extract(repo, spec).routes
+    return extract(repo, spec, allow_uncertain=True).routes
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:

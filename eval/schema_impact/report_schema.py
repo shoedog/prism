@@ -10,6 +10,7 @@ from . import schema
 from .ids import op_id
 from .producer_go import _entries
 from .report_sources import site
+from .report_proof import explain, failed
 
 
 _JSON = "application/json"
@@ -19,7 +20,7 @@ _STOPS = {
     "anyOf_union": "alternative shapes", "oneOf_union": "alternative shapes",
     "anyof_union": "alternative shapes", "oneof_union": "alternative shapes",
     "allof_overlap": "overlapping definitions", "field_id_collision": "ambiguous field paths",
-    "unescaped_property_name": "ambiguous field path",
+    "unescaped_property_name": "ambiguous field path", "malformed_properties": "unreadable properties",
 }
 
 
@@ -82,7 +83,9 @@ def _empty(snapshot, file, reason, status):
                        "success_statuses": None, "warnings": None}}
 
 
-def schema_inventory(snapshot, file, source):
+def schema_inventory(snapshot, file, source, *, omitted=False):
+    if omitted:
+        return _empty(snapshot, file, "schema comparison was omitted by request", "omitted")
     if file is None or file not in snapshot["tree_files"]:
         return _empty(snapshot, file, "no committed field schema", "missing")
     if source is None:
@@ -106,12 +109,16 @@ def _read(snapshot, file, source, document, openapi, index, tree):
     nodes = _entries(_entries(tree)["paths"][1])
     lines = source.splitlines()
     reader = schema._Reader(document)
-    ops, messages, fields, statuses = {}, {}, {}, {}
+    ops, messages, fields, statuses, path_gaps = {}, {}, {}, {}, {}
     base = schema._base(document, openapi)
     for source_path, raw_path in document["paths"].items():
         if not source_path.startswith("/"):
             continue
         path = reader.message(raw_path, source_path)
+        if not isinstance(raw_path, dict) or ("$ref" in raw_path and not path):
+            canonical = op_id("GET", source_path, base).partition(" ")[2]
+            path_gaps[canonical] = {"source_path": source_path, "reason": "the schema path item could not be read"}
+            continue
         path_node = _entries(nodes[source_path][1])
         for method in sorted(schema._METHODS & path.keys()):
             operation_id = op_id(method, source_path, base)
@@ -132,8 +139,11 @@ def _read(snapshot, file, source, document, openapi, index, tree):
                                  "reason": None if isinstance(raw_operation, dict) else "schema operation could not be read",
                                  "source_path": source_path}
             if openapi:
-                message = reader.message(operation.get("requestBody"), req)
+                raw_request = operation.get("requestBody")
+                message = reader.message(raw_request, req)
                 messages[req] = _root(document, operation, message, None, True, "request")
+                if "requestBody" in operation and not isinstance(raw_request, dict):
+                    messages[req].update(coverage="not_checked", reason="JSON fields: Not checked — the request body is unreadable")
             else:
                 body = schema._swagger_body(reader, path, operation, req)
                 messages[req] = _root(document, operation, {}, body, False, "request")
@@ -150,6 +160,8 @@ def _read(snapshot, file, source, document, openapi, index, tree):
                 root = f"resp:{suffix}:{status}"
                 response = reader.message(raw, root)
                 messages[root] = _root(document, operation, response, response.get("schema"), openapi, "response")
+                if not isinstance(raw, dict):
+                    messages[root].update(coverage="not_checked", reason="JSON fields: Not checked — the response body is unreadable")
                 status_node = response_nodes.get(status)
                 status_site = None
                 if status_node:
@@ -196,7 +208,7 @@ def _read(snapshot, file, source, document, openapi, index, tree):
         "schema": {"source": schema_source, "sha256": index.sha256, "content_hash": index.content_hash,
                    "info_version": index.info_version, "format": "openapi-3" if openapi else "swagger-2.0",
                    "status": "complete", "reason": None, "operations": ops, "message_roots": messages,
-                   "fields": fields, "success_statuses": statuses, "warnings": index.warnings},
+                   "fields": fields, "success_statuses": statuses, "warnings": index.warnings, "path_gaps": path_gaps},
     }
 
 
@@ -205,9 +217,13 @@ def compare_schema(before, after):
     if old["status"] != "complete" or new["status"] != "complete":
         if old["status"] == new["status"] == "missing":
             return {}, ["Changed fields: Not checked — no committed field schema"]
-        return {}, [f"Changed fields: Not checked — {label} {side['source']['path'] or 'schema'}: {side['reason']}"
+        return {}, [explain(_schema_failure("Changed fields", side, label, side["reason"]))
                     for label, side in (("before", old), ("after", new)) if side["status"] != "complete"]
     groups, limits = {}, []
+    for label, side in (("before", old), ("after", new)):
+        limits.extend(explain(_schema_failure("Schema path item", side, label,
+                                             f"{row['source_path']}: {row['reason']}"))
+                      for row in side["path_gaps"].values())
     indexed = []
     for side in (old, new):
         by_root = defaultdict(dict)
@@ -217,8 +233,11 @@ def compare_schema(before, after):
     for identifier in sorted(old["operations"].keys() | new["operations"].keys()):
         old_op, new_op = old["operations"].get(identifier), new["operations"].get(identifier)
         suffix = identifier.removeprefix("op:")
+        if any(suffix.partition(" ")[2] in side["path_gaps"] for side in (old, new)):
+            continue
         if any(op and op["status"] != "complete" for op in (old_op, new_op)):
-            limits.extend(f"{suffix}: Not checked — {op['reason']}" for op in (old_op, new_op)
+            limits.extend(explain(_schema_failure(suffix, side, label, op["reason"]))
+                          for label, side, op in (("before", old, old_op), ("after", new, new_op))
                           if op and op["status"] != "complete")
             continue
         a = old["success_statuses"].get(identifier) if old_op else {}
@@ -248,13 +267,16 @@ def compare_schema(before, after):
                 group["limits"].append("Body comparison: Not checked — the status range overlaps")
             elif len(removed) == len(added) == 1:
                 ra, rb = a[removed[0]]["root"], b[added[0]]["root"]
-                if all(rec["body_present"] and rec["coverage"] == "complete"
-                       for rec in (old["message_roots"][ra], new["message_roots"][rb])):
+                bodies = old["message_roots"][ra], new["message_roots"][rb]
+                if all(rec["body_present"] and rec["coverage"] == "complete" for rec in bodies):
                     group["response_root_pairs"].append({"before": ra, "after": rb,
                                                          "before_status": removed[0], "after_status": added[0]})
                     pairs.append((ra, rb))
-                else:
-                    pairs.extend([(ra, None), (None, rb)])
+                elif any(rec["body_present"] for rec in bodies):
+                    group["limits"].append("Body comparison: Not checked — the removed and added status bodies "
+                                           "do not both have comparable JSON schemas")
+                    group["limits"].extend(_message_limits(ra, old["message_roots"][ra]))
+                    group["limits"].extend(_message_limits(rb, new["message_roots"][rb]))
             elif removed and added:
                 group["limits"].append("Body comparison: Not checked — several bodies could correspond")
             else:
@@ -287,6 +309,10 @@ def compare_schema(before, after):
         else:
             limits.extend(f"{suffix} · {gap}" for gap in group["limits"])
     return groups, limits
+
+
+def _schema_failure(check, side, label, reason):
+    return failed(check, side["source"]["path"], side["source"]["rev"], reason, side=label)
 
 
 def _message_limits(root, record):

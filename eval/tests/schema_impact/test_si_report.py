@@ -36,15 +36,15 @@ def call(path="/fern", method="get"):
 
 @pytest.mark.parametrize(("before", "after", "client", "phrases"), [
     (HANDLER, HANDLER.replace("// @Router /fern [get]\n", ""), CALL_SOURCE,
-     ("Operation removed", "Client calls a missing route")),
+     ("Operation removed", "No matching declaration among those read")),
     ("package flora\n", HANDLER, CALL_SOURCE,
      ("Operation added", "Existing client call gains a matching declaration")),
     ("package flora\n", HANDLER, call("/oak"),
      ("Operation added", "None of the 1 calls compared had this declaration among its closest matches")),
     (HANDLER, HANDLER.replace("[get]", "[post]"), CALL_SOURCE,
-     ("Operation removed", "Operation added", "Client calls a missing route")),
+     ("Operation removed", "Operation added", "No matching declaration among those read")),
     (HANDLER, HANDLER.replace("/fern", "/oak"), CALL_SOURCE,
-     ("Operation removed", "Operation added", "Client calls a missing route")),
+     ("Operation removed", "Operation added", "No matching declaration among those read")),
     ("package flora\n", HANDLER.replace("/fern", "/internal/fern"), call("/edge/fern"),
      ("Possible match under another prefix — both addresses end in /fern.", "1 requests whose method and address were read had no match")),
 ])
@@ -68,7 +68,7 @@ def test_mixed_checks_all_four_pairs(tmp_path):
     assert md.index("Service changes") < md.index("Client changes")
     for phrase in ("Before both edits", "Both edits included", "If the service ships first",
                    "If the client ships first",
-                   "Corresponding call: Not checked — the scan recorded line numbers only."):
+                   "no unique call and function correspondence"):
         assert phrase in md
 
 
@@ -195,7 +195,7 @@ def test_route_table_diagnostics_do_not_assert_missing_request(tmp_path, entry, 
     head = repo.commit(1, **{"service/routes.js": f"server.register([{entry}]);\n"})
     md, doc = report(repo, head, tmp_path, "producer", *route_contract(tmp_path))
     assert reason in md
-    assert "Client calls a missing route" not in md
+    assert "No matching declaration among those read" not in md
     assert doc["summary"]["known_unmatched_count"]["after"]["total"] is None
 
 
@@ -243,7 +243,7 @@ def test_incomplete_after_schema_preserves_independent_service_evidence(tmp_path
     head = repo.commit(1, **{SCHEMA: "{incomplete", "handler.go": HANDLER.replace("/fern", "/oak")})
     md, doc = report(repo, head, tmp_path)
     assert "Changed fields: Not checked" in md
-    assert "Operation removed" in md and "Client calls a missing route" in md
+    assert "Operation removed" in md and "No matching declaration among those read" in md
     assert doc["summary"]["changed_field_count"]["total"] is None
     assert not any(row["fields"] for row in doc["impacts"])
 
@@ -294,7 +294,7 @@ def test_evaluation_attachment_uses_separate_evidence_and_refuses_same_line_join
     history = render_evaluation(companion)
     assert len(companion["rows"]) == 2
     for phrase in ("Replay evaluation (uses later history)", "Not checked — more than one call shares this line",
-                   "A tracked line changed later.", "Unrelated edit.", "A study-only reason",
+                   "A tracked line changed within 14 days.", "Unrelated edit.", "A study-only reason",
                    "Release: Not checked"):
         assert phrase in history and phrase not in md
     replayed_md, replayed_doc = report(repo, head, tmp_path)
@@ -328,7 +328,7 @@ def test_summary_and_shared_limit_references(tmp_path):
     repo, _ = start(tmp_path, **{f"ui/src/extra{i}.tsx": "({ invalid [\n" for i in range(4)})
     md, _ = report(repo, repo.commit(1), tmp_path)
     summary = md.split("## Summary\n\n")[1].split("\n\n", 1)[0]
-    for label in ("Operations changed", "Fields changed", "Client calls affected", "Possible matches only",
+    for label in ("Operations changed", "Fields changed", "Distinct client calls shown", "Possible matches only",
                   "Requests with no match", "Calls with an unknown target"):
         assert f"| {label}" in summary
     ids = re.findall(r'id="(L\d+)"', md)

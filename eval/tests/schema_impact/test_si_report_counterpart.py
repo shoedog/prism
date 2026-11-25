@@ -78,24 +78,30 @@ def test_service_compares_one_fixed_client(tmp_path, old, new, risks):
         match = next(iter(doc["comparisons"][1]["matches"].values()))
         assert match["status"] == "no_match" and match["alternates"][0]["method"] == "POST"
     for line in ("# Service change checked against client code · Comparison of selected versions",
-                 "Selected by commit date. When this revision reached the branch is unknown.",
+                 doc["reference"]["selection_reason"],
                  "2024-01-04T00:00:00+00:00", "2024-01-05T00:00:00+00:00",
-                 "Checked revision is 1 day, 0:00:00 earlier than the change",
+                 "Checked revision is 1 day earlier than the change",
                  "Changed fields: Not checked — no committed field schema",
                  "**Client configuration** · `synthetic.toml`", "**Route specification** · `routes.json`",
                  "supplied by the study", f"{CLIENT_URL}/blob/{selected}/{CALL}#L2",
                  f"{SERVICE_URL}/blob/{base if old else head}/{ROUTES}#L2"):
         assert line in md
-    assert later not in md and later not in json.dumps(doc)
+    assert later in md and ref["selection_history_tip"] == later
+    assert later not in json.dumps(doc["inputs"])
+    assert "/later" not in md and "/later" not in json.dumps(doc)
     assert "Both sides in one change" not in md
 
     files = [tmp_path / "report" / f"subject.{ext}" for ext in ("md", "json")]
     original = [file.read_bytes() for file in files]
-    client.commit(7, **{CALL: CALL_SOURCE.replace("/fern", "/future")})
+    future = client.commit(7, **{CALL: CALL_SOURCE.replace("/fern", "/future")})
     (client.path / CALL).write_text(CALL_SOURCE.replace("/fern", "/dirty"))
     git(client.path, "tag", "later", "HEAD")
-    report(service, head, tmp_path, "producer", *args)
-    assert [file.read_bytes() for file in files] == original
+    revised, moved = report(service, head, tmp_path, "producer", *args)
+    assert [file.read_bytes() for file in files] != original
+    assert moved["reference"]["rev"] == selected
+    assert moved["reference"]["selection_history_tip"] == future
+    assert moved["comparisons"] == doc["comparisons"]
+    assert "/future" not in revised and "/dirty" not in revised
 
 
 def test_client_compares_one_fixed_service_and_can_pin_newer_service(tmp_path):
@@ -121,7 +127,7 @@ def test_client_compares_one_fixed_service_and_can_pin_newer_service(tmp_path):
     md, pinned = report(client, head, tmp_path, "consumer", *args, "--counterpart-rev", later)
     assert "Revision supplied for this review" in md
     assert "This comparison uses code from after the change." in md
-    assert "Checked revision is 1 day, 0:00:00 after the change" in md
+    assert "Checked revision is 1 day later than the change" in md
     assert pinned["reference"]["requested_rev"] == later
     assert pinned["call_changes"][0]["risk"] is None
     assert f"{SERVICE_URL}/blob/{later}/{ROUTES}#L2" in md
@@ -150,7 +156,10 @@ def test_date_selection_follows_first_parents_instead_of_sorting_dates(tmp_path,
     args = (*settings(tmp_path, client), "--configs", str(tmp_path / "configs" / "synthetic.toml"),
             "--counterpart-source-url", CLIENT_URL)
     md, doc = report(service, head, tmp_path, "producer", *args)
-    assert doc["reference"]["rev"] == doc["reference"]["selection_history_tip"] == selected
+    assert doc["reference"]["rev"] == selected
+    assert doc["reference"]["selection_history_tip"] == merge
+    assert doc["reference"]["selection_history_tip_committed_at"] == (DATE + timedelta(days=7)).isoformat()
+    assert "**Searched history tip**" in md and merge in md
     assert ("Both commits have the same time" in md) == (date == 4)
     assert f"{CLIENT_URL}/blob/{selected}/{CALL}#L2" in md
     assert f"`{ROUTES}:2`" in md and f"[`{ROUTES}:2`]" not in md
