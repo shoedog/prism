@@ -4,6 +4,8 @@ use crate::{ast::ParsedFile, languages::Language};
 
 #[path = "proto_writes_coverage_tests.rs"]
 mod coverage;
+#[path = "proto_writes_patch_tests.rs"]
+mod patch;
 #[path = "proto_writes_round2_tests.rs"]
 mod round2;
 #[path = "proto_writes_round3_tests.rs"]
