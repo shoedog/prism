@@ -15,6 +15,9 @@ tier-c = "tier_c.cli:main"
 secbench = "secbench.run:main"
 schema-impact = "schema_impact.cli:main"
 
+[tool.uv]
+default-groups = ["dev", "schema-impact"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
