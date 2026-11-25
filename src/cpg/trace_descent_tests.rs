@@ -225,3 +225,40 @@ fn nameonly_binding_edge_with_a_containing_site_is_refused_without_any_exact_sib
         "not_exact",
     );
 }
+
+#[test]
+fn nomination_keeps_the_inclusive_base_predicate_so_an_outer_call_still_makes_it_ambiguous() {
+    // `g(g(\n x))`: an empty occurrence at the inner call's exclusive end is nominated by BOTH sites
+    // (base predicate), so the unique-candidate rule must not turn it into a single accepted site.
+    let source = "function g(a) { sink(a); }\nfunction f(x) {\n  g(g(\n x));\n}\n";
+    let mut cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let inner_end = source.find("x));").unwrap() + 2;
+    let template = occurrence(&cpg, source.find("x));").unwrap(), VarAccess::Use);
+    let to = occurrence(
+        &cpg,
+        source
+            .find("g(a)")
+            .map(|_| source.find("(a)").unwrap() + 1)
+            .unwrap(),
+        VarAccess::Def,
+    );
+    let mut empty = cpg.node(template).clone();
+    let CpgNode::Variable {
+        start_byte,
+        end_byte,
+        ..
+    } = &mut empty
+    else {
+        unreachable!()
+    };
+    *start_byte = inner_end;
+    *end_byte = inner_end;
+    let empty = cpg.graph.add_node(empty);
+    add_binding(&mut cpg, empty, to, FlowConfidence::Exact);
+    assert_boundary(
+        &cpg.taint_trace_nodes(&[empty], None),
+        empty,
+        to,
+        "ambiguous_site",
+    );
+}

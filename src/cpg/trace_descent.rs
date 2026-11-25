@@ -205,7 +205,7 @@ impl CodePropertyGraph {
             && site.caller.name == caller_name
             && site.caller.start_line == caller_start_line
             && (site.line == source_line
-                || site_contains_occurrence(site, source_start_byte, source_end_byte))
+                || (site.start_byte <= source_start_byte && source_end_byte <= site.end_byte))
     }
 
     pub(super) fn return_flow_ascent_allowed(&self, from: NodeIndex, to: NodeIndex) -> bool {
