@@ -123,6 +123,7 @@ mod order_prune;
 mod order_prune_tests;
 mod owner_labels;
 mod param_alias_trace;
+mod pattern_formals;
 #[cfg(test)]
 mod prune_cap_tests;
 mod prune_roots;

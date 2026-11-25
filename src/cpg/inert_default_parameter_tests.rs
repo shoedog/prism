@@ -441,10 +441,6 @@ fn structurally_unsafe_default_forms_never_gain_a_def_or_edge() {
             "tdz_forward_reference",
             "function take(a = b, b = 1) { sink(a, b); }\n",
         ),
-        (
-            "computed_destructuring_key",
-            "function take({[key]: value = 1}) { sink(value); }\n",
-        ),
     ];
     for (case, callee) in cases {
         for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
@@ -457,5 +453,24 @@ fn structurally_unsafe_default_forms_never_gain_a_def_or_edge() {
                 "{language:?}/{case}: {defs:?}"
             );
         }
+    }
+}
+
+#[test]
+fn computed_pattern_default_has_local_def_without_positional_binding() {
+    let source = "function take({[key]: value = 1}) { sink(value); }\nfunction run(x, y) {\n  take(x, y);\n}\n";
+    let start = source.find("value").unwrap();
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let (cpg, files) = build(language, source);
+        let parsed = files.values().next().unwrap();
+        let take = parsed.all_functions()[0];
+        assert!(parsed.function_parameter_occurrences(&take).is_empty());
+        assert!(crate::parameter_slots::slots(parsed, &take).is_none_or(|slots| slots.is_empty()));
+        assert!(argument_edges(&cpg, "run", "take").is_empty());
+        assert_eq!(
+            parameter_defs(&cpg, "take"),
+            BTreeSet::from([("value".into(), start, start + "value".len())]),
+            "{language:?}"
+        );
     }
 }

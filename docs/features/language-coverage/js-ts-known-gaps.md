@@ -214,7 +214,7 @@ A call through a followed alias is filed under the alias's spelling. The resolve
 ## 4. React
 
 - The resolver treats a lowercase JSX tag (`<div />`, and `<h />` where `h` aliases a component) as an intrinsic element and gives it no target. The older textual alias path (§1.2), which scans source line by line, can still emit an edge for `const h = Comp;` on its own line followed by `<h />` in the same function. That edge is wrong, since `<h>` is a DOM element; it exists on main and is kept unchanged.
-- Missing: a JSX attribute value has no data-flow edge into the component's parameter, destructured or not (`<Html html={text} />` → `Html({ html })`), so a `dangerouslySetInnerHTML` sink is not reached from the caller's value. The element → component call edge exists. Tracked: #596.
+- `Html({ html })` gives a used `html` a local Def and can trace it into the component body. The JSX attribute in `<Html html={text} />` still lacks a data-flow edge into the component, so a trace from `text` stops short of `dangerouslySetInnerHTML`. Tracked in #596.
 - A wrapped component export (`memo`, `forwardRef`, …) binds from JSX element sites only. Called as a function, it drops with `WrappedExportNonJsx`.
 - Hook results: see §1.1. These are not followed:
   - an object built inside `useMemo(() => ({ … }))`;

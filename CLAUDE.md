@@ -583,8 +583,8 @@ accepted cost is that a seed on the whole parameter reaches every `p.<field>` re
 bound to the formal suppresses its path for the whole callable (flow-insensitive): plain, compound and
 logical assignment, `++`/`--`, `delete`, array/object/rest pattern targets, `for (p.x of/in ...)`, and
 the same inside nested callables; a write to `p`, to a prefix of the path, or below it (`p.x.y = 1`
-also suppresses `p.x`) all count. `p[k]` counts as a bare read; `this.x`, destructured formals and
-`arguments` are not handled. A bare read in a default of the own parameter list (`u = o`, `u = g(o)`,
+also suppresses `p.x`) all count. `p[k]` counts as a bare read. This member-only rule excludes
+`this.x` and `arguments`. A bare read in a default of the own parameter list (`u = o`, `u = g(o)`,
 `{ k = o } = {}`, a computed pattern key; a nested callable's read counts, as in the body) makes the
 formal mixed, like the same read in the body (#761; `o[k] = v` written in the list is not a read, it
 stays `own-params`' domain). A default that is a plain identifier, or a destructuring pattern with an
@@ -608,6 +608,13 @@ spread such as `f(...[0, 1], x)` advances the fixed-slot offset by its syntactic
 through parentheses and runtime-transparent TypeScript wrappers. A hole, a spread element in the
 array, or a non-literal spread operand makes later positions unknown. The spread itself contributes
 no argument-to-formal edge. Object-literal field flow retains its spread-argument exclusion.
+
+JS/TS/TSX object-pattern formals give each used, eligible local a Def at the callable's start
+line with the binding token's bytes. The pattern walk covers renames, nested objects and rest.
+Array subtrees and non-inert defaults exclude their bindings. Whole-pattern identifier defaults
+use the existing alias producer. Edges follow bound runtime reads, including member projections
+and `cfg_incomplete` captures in parameter initializers. Parameter names and argument slots keep
+their separate accessors.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

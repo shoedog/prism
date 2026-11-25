@@ -273,6 +273,26 @@ impl Producer {
                 param_ref_jobs.push((path, loc, refs, param_decl_line));
             }
 
+            let pattern_formals = super::pattern_formals::PatternFormal::collect(
+                parsed, func_node, file_path, &func_name, start, &refused_formals, &lvalue_spans,
+            );
+            let pattern_seams: BTreeSet<_> = pattern_formals.iter()
+                .map(|formal| formal.def.var_name())
+                .filter(|name| parsed.js_ts_seam_binding(&func_node, name))
+                .collect();
+            let body_bytes = func_node.child_by_field_name("body").map(|body| body.byte_range());
+            let body_seam = |path: &AccessPath, at: usize| {
+                body_bytes.as_ref().filter(|body| body.contains(&at) && pattern_seams.contains(path.base.as_str()))
+                    .map(|body| (body.start, body.end))
+            };
+            for formal in &pattern_formals {
+                let loc = &formal.def;
+                Self::push_rd_def(&mut rd_defs, loc, false);
+                defs.entry((file_path.clone(), func_name.clone(), start, loc.path.clone()))
+                    .or_default()
+                    .push(loc.clone());
+            }
+
             // Find all definitions (L-values) with structured access paths
             for span in &lvalue_spans {
                 let loc = VarLocation {
@@ -438,6 +458,14 @@ impl Producer {
                 .push(use_loc);
             }
 
+            // Select and prove the endpoint once. Both cap passes use these exact
+            // locations, and CPG assembly interns nonempty JS-family locations by bytes.
+            let pattern_write_census = std::cell::OnceCell::new();
+            let pattern_endpoints: Vec<_> = pattern_formals.iter().flat_map(|formal| {
+                formal.endpoints(parsed, &func_node, &preferred_use_locs, &pattern_write_census, synthetic, owner_is_unique)
+                    .into_iter().map(|endpoint| (&formal.def, endpoint))
+            }).collect();
+
             // F1: captured writes inside nested callables contribute to
             // RD kills, but never become emitted Defs or edge sources.
             for span in &nested_write_spans {
@@ -506,12 +534,27 @@ impl Producer {
                     }
                 }
                 let mut emission = super::fallback_cap::Emission::new(&mut edges, counting);
+                for (def, endpoint) in &pattern_endpoints {
+                    let path = &endpoint.path;
+                    let line = endpoint.line;
+                    if !path.has_fields() && lexical.drop_write_only(path, line, &mut prune_stats) {
+                        continue;
+                    }
+                    if register_uses {
+                        uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                            .or_default().push(endpoint.clone());
+                    }
+                    if !path.has_fields() && !lexical.keep_def(path, def.start_byte, def.end_byte, line, &mut prune_stats) {
+                        continue;
+                    }
+                    emission.push(|| FlowEdge { from: (*def).clone(), to: endpoint.clone() });
+                }
                 let mut get_use =
-                    |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize)| {
+                    |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize), exact: bool| {
                         if !keep_path(path) {
                             return None;
                         }
-                        if synthetic {
+                        if synthetic || exact {
                             if refused_occurrence(path, admitted.0) {
                                 return None;
                             }
@@ -566,7 +609,7 @@ impl Producer {
                     for (ref_line, admitted) in refs {
                         let in_signature_line = *ref_line >= start && *ref_line <= *param_decl_line;
                         if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
-                        if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted) {
+                        if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted, false) {
                             if !scope.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
                             if !order.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
                             if !lexical.keep_def(path, loc.start_byte, loc.end_byte, *ref_line, &mut prune_stats) { continue; }
@@ -586,8 +629,9 @@ impl Producer {
                     let def_line = span.line;
                     // R1: every JS/TS Def, including writes, stays in its
                     // binding environment; body vars cannot reach defaults.
-                    let def_scope =
-                        crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte);
+                    let body_scope = body_seam(path, span.start_byte);
+                    let def_scope = body_scope.or_else(||
+                        crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte));
                     // #761: a parameter-list alias binding's own identifier is no read of it, whatever
                     // row the def is placed on (the def sits on the owner's first line).
                     let refs = crate::profile::search_refs(
@@ -599,6 +643,7 @@ impl Producer {
                         span.start_byte,
                         def_scope,
                         synthetic
+                            || body_scope.is_some()
                             || parsed.js_ts_is_param_alias_binding_at(span.start_byte, span.end_byte),
                     );
                     for (ref_line, admitted) in &refs {
@@ -610,7 +655,7 @@ impl Producer {
                             continue; // Skip self-reference
                         }
                         if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
-                        let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
+                        let Some(use_loc) = get_use(path, *ref_line, true, *admitted, body_scope.is_some()) else {
                             continue;
                         };
                         if scope.raw_signature_outside_scope(path, span.start_byte, *ref_line, &mut prune_stats) { continue; }
@@ -651,6 +696,7 @@ impl Producer {
                     };
                     if let Some(resolved) = twin {
                         if resolved != *path {
+                            let body_scope = body_seam(&resolved, span.start_byte);
                             let resolved_refs = crate::profile::search_refs(
                                 parsed,
                                 &member_refs,
@@ -658,20 +704,20 @@ impl Producer {
                                 &resolved,
                                 def_line,
                                 span.start_byte,
-                                crate::profile::gates::def_scope(
+                                body_scope.or_else(|| crate::profile::gates::def_scope(
                                     parsed,
                                     &func_node,
                                     &resolved.base,
                                     span.start_byte,
-                                ),
-                                synthetic,
+                                )),
+                                synthetic || body_scope.is_some(),
                             );
                             for (ref_line, admitted) in &resolved_refs {
                                 if *ref_line == def_line {
                                     continue;
                                 }
                                 if lexical.drop_write_only(&resolved, *ref_line, &mut prune_stats) { continue; }
-                                let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted) else {
+                                let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted, body_scope.is_some()) else {
                                     continue;
                                 };
                                 // Keep RHS reads and their legacy anchors, but a Go

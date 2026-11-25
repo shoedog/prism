@@ -2,7 +2,7 @@
 
 `rows.jsonl` holds one row per planned case. The test is `cpg::props_matrix_tests::props_matrix_rows`.
 Run it with `cargo test --lib props_matrix_rows -- --nocapture`. The checked-in `ENABLED`
-constant runs only `control`. To record a baseline or test a slice, temporarily add its
+constant runs `control` and `S1`. To record a baseline or test another slice, temporarily add its
 group to the constant. The runner prints a status for each enabled row and reports all
 failing rows together.
 
@@ -30,9 +30,9 @@ fixture file. Different graph nodes can share the same spelling.
 | `def` | `node` must have a Def. Optional `bytes` requires one match at that span. Optional `count` checks the total with that spelling. |
 | `no_def` | No Def matches `node`. |
 | `edge` | A directed DataFlow edge connects `from` and `to`. Optional `label`, `from_bytes`, and `to_bytes` filter the match. Optional `count` checks the exact number of matching edges. |
-| `no_edge` | No DataFlow edge matches `from`, `to`, and any supplied label or byte filters. |
-| `no_edge_into` | No DataFlow edge crosses into `to` from another owner. `to` can be a function name or a node spelling. |
-| `path`, `no_path` | A nonempty directed chain of DataFlow edges must connect, or must fail to connect, `from` and `to`. A `path` can specify `via` to require a two-edge chain through the same concrete intermediate node. |
+| `no_edge` | No DataFlow edge matches `from`, `to`, and any supplied label or byte filters. Optional `absent_ok: true` permits either spelling to be absent. |
+| `no_edge_into` | No DataFlow edge crosses into `to` from another owner. `to` can be a function name or a node spelling. Optional `absent_ok: true` permits it to be absent. |
+| `path`, `no_path` | A nonempty directed chain of DataFlow edges must connect, or must fail to connect, `from` and `to`. A `path` can specify `via` to require a two-edge chain through the same concrete intermediate node. Optional `absent_ok: true` on `no_path` permits either spelling to be absent. |
 | `counter` | `key` in the serialized `dfg_props` statistics equals `count`. An absent map or key reads as zero. |
 | `trace_reaches`, `trace_misses` | Seed the normal line-based trace with `seed`. The frontier must include, or must exclude, the specified `node` at `target`. |
 | `trace_boundary` | The trace records a boundary from a `seed` root ending at `node` at `target`, and the node stays outside the frontier. Optional `boundary_kind` is `cross_function` by default and also accepts `self_function_param`. Optional `from` (node spelling) and `from_bytes` filter the source of the same boundary. |
@@ -40,4 +40,5 @@ fixture file. Different graph nodes can share the same spelling.
 The trace `seed` and `target` are objects with a `file` stem (relative to the case)
 and a one-based `line`. Both must resolve to graph variables. The supported labels
 are `exact`, `killed`, `same_line`, `cfg_incomplete`, `alias_unstable`, and
-`call_name_only`.
+`call_name_only`. Unknown assertion fields are rejected. Negative edge and path
+assertions require all named endpoint spellings to exist unless `absent_ok` is true.

@@ -267,7 +267,7 @@ pub(crate) fn javascript_inert_default_occurrences(
 /// `undefined` (its own leaf grammar kind, not `identifier`), identifiers,
 /// calls, property reads, functions, parenthesized/asserted/`satisfies`
 /// expressions, filled containers and spreads are all excluded.
-fn is_inert_default_value(node: Node<'_>) -> bool {
+pub(crate) fn is_inert_default_value(node: Node<'_>) -> bool {
     match node.kind() {
         "number" | "string" | "true" | "false" | "null" => true,
         "object" | "array" => {

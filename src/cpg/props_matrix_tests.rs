@@ -10,7 +10,7 @@ use petgraph::visit::EdgeRef;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-const ENABLED: &[&str] = &["control"];
+const ENABLED: &[&str] = &["control", "S1"];
 const ROWS: &str = include_str!("../../tests/fixtures/props_matrix/rows.jsonl");
 
 #[derive(Deserialize)]
@@ -33,14 +33,59 @@ enum Base {
 }
 
 #[derive(Deserialize)]
+#[serde(try_from = "serde_json::Value")]
 struct Check {
-    #[serde(default)]
     case: String,
-    #[serde(flatten)]
     assertion: Assertion,
 }
 
+impl TryFrom<serde_json::Value> for Check {
+    type Error = String;
+
+    fn try_from(mut value: serde_json::Value) -> Result<Self, Self::Error> {
+        let fields = value.as_object_mut().ok_or("assertion must be an object")?;
+        let kind = fields
+            .get("kind")
+            .and_then(serde_json::Value::as_str)
+            .ok_or("assertion requires a kind")?;
+        let allowed: &[&str] = match kind {
+            "def" => &["node", "bytes", "count"],
+            "no_def" => &["node"],
+            "edge" => &["from", "to", "label", "from_bytes", "to_bytes", "count"],
+            "no_edge" => &["from", "to", "label", "from_bytes", "to_bytes", "absent_ok"],
+            "no_edge_into" => &["to", "absent_ok"],
+            "path" => &["from", "to", "via"],
+            "no_path" => &["from", "to", "absent_ok"],
+            "counter" => &["key", "count"],
+            "trace_reaches" | "trace_misses" => &["seed", "target", "node"],
+            "trace_boundary" => &[
+                "seed",
+                "target",
+                "node",
+                "boundary_kind",
+                "from",
+                "from_bytes",
+            ],
+            _ => return Err(format!("unknown assertion kind {kind:?}")),
+        };
+        for key in fields.keys() {
+            if !matches!(key.as_str(), "kind" | "case") && !allowed.contains(&key.as_str()) {
+                return Err(format!("unknown {kind} assertion field {key:?}"));
+            }
+        }
+        let case = fields
+            .remove("case")
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|err| format!("invalid assertion case: {err}"))?
+            .unwrap_or_default();
+        let assertion = serde_json::from_value(value).map_err(|err| err.to_string())?;
+        Ok(Self { case, assertion })
+    }
+}
+
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Location {
     file: String,
     line: usize,
@@ -113,9 +158,13 @@ enum Assertion {
     NoEdge {
         #[serde(flatten)]
         between: Between,
+        #[serde(default)]
+        absent_ok: bool,
     },
     NoEdgeInto {
         to: String,
+        #[serde(default)]
+        absent_ok: bool,
     },
     Path {
         from: String,
@@ -125,6 +174,8 @@ enum Assertion {
     NoPath {
         from: String,
         to: String,
+        #[serde(default)]
+        absent_ok: bool,
     },
     Counter {
         key: String,
@@ -173,6 +224,15 @@ impl<'a> Fixture<'a> {
     fn named(&self, name: &str) -> &BTreeSet<NodeIndex> {
         static EMPTY: BTreeSet<NodeIndex> = BTreeSet::new();
         self.nodes.get(name).unwrap_or(&EMPTY)
+    }
+
+    fn require_endpoints(&self, endpoints: &[&str]) -> Result<(), String> {
+        for endpoint in endpoints {
+            if self.named(endpoint).is_empty() {
+                return Err(format!("no graph node matches {endpoint:?}"));
+            }
+        }
+        Ok(())
     }
 
     fn bytes(&self, index: NodeIndex) -> Option<[usize; 2]> {
@@ -335,6 +395,35 @@ impl<'a> Fixture<'a> {
 
     fn check(&self, assertion: &Assertion) -> Result<(), String> {
         match assertion {
+            Assertion::NoEdge {
+                between,
+                absent_ok: false,
+            } => {
+                self.require_endpoints(&[&between.from, &between.to])?;
+            }
+            Assertion::NoPath {
+                from,
+                to,
+                absent_ok: false,
+            } => {
+                self.require_endpoints(&[from, to])?;
+            }
+            Assertion::NoEdgeInto {
+                to,
+                absent_ok: false,
+            } => {
+                if self.named(to).is_empty()
+                    && !self.graph.graph.node_indices().any(|idx| {
+                        matches!(self.graph.node(idx), CpgNode::Function { name, .. } if name == to)
+                            || self.owner(idx).is_some_and(|(_, owner, _)| owner == to)
+                    })
+                {
+                    return Err(format!("no graph node matches {to:?}"));
+                }
+            }
+            _ => {}
+        }
+        match assertion {
             Assertion::Def { node, bytes, count } => {
                 let defs = self.named(node);
                 let spans: Vec<_> = defs.iter().filter_map(|&index| self.bytes(index)).collect();
@@ -351,7 +440,7 @@ impl<'a> Fixture<'a> {
                     return Err(format!("found {} matching nodes", self.named(node).len()));
                 }
             }
-            Assertion::Edge { between, .. } | Assertion::NoEdge { between } => {
+            Assertion::Edge { between, .. } | Assertion::NoEdge { between, .. } => {
                 let edges = self.edges(between);
                 let matching = edges
                     .iter()
@@ -371,7 +460,7 @@ impl<'a> Fixture<'a> {
                     ));
                 }
             }
-            Assertion::NoEdgeInto { to } => {
+            Assertion::NoEdgeInto { to, .. } => {
                 let edges = self.cross_edges_into(to);
                 if !edges.is_empty() {
                     return Err(format!("found incoming cross-function edges {edges:?}"));
@@ -382,7 +471,7 @@ impl<'a> Fixture<'a> {
                     return Err("no data-flow path".into());
                 }
             }
-            Assertion::NoPath { from, to } => {
+            Assertion::NoPath { from, to, .. } => {
                 if self.path(from, to, None) {
                     return Err("found an unexpected data-flow path".into());
                 }
@@ -514,6 +603,71 @@ fn props_matrix_trace_boundary_matches_kind_and_source() {
         let mut wrong = boundary.clone();
         wrong[field] = wrong_value;
         assert!(run(wrong).is_err(), "unexpectedly matched wrong {field}");
+    }
+}
+
+#[test]
+fn props_matrix_rejects_unknown_assertion_fields() {
+    let mut kinds = BTreeSet::new();
+    for row in ROWS.lines() {
+        let row: serde_json::Value = serde_json::from_str(row).unwrap();
+        for check in row["expect"].as_array().unwrap() {
+            kinds.insert(check["kind"].as_str().unwrap().to_owned());
+            assert!(Check::try_from(check.clone()).is_ok(), "{check}");
+            let mut invalid = check.clone();
+            invalid["unknown_field"] = serde_json::json!(true);
+            let err = Check::try_from(invalid)
+                .err()
+                .expect("accepts only documented fields");
+            assert!(err.contains("unknown_field"), "{err}");
+        }
+    }
+    assert_eq!(kinds.len(), 11);
+}
+
+#[test]
+fn props_matrix_negative_assertions_detect_connected_edge_and_wrong_counter() {
+    use serde_json::json;
+
+    let source =
+        "function D(p) {\n  return use(p.other);\n}\nfunction A(t) {\n  D({ other: t });\n}\n";
+    let graph = build(Language::JavaScript, &[("m", source)], "js");
+    let fixture = Fixture::new(&graph, "js");
+    let from = "A:t@5(use)";
+    let to = "D:p.other@2(use)";
+    let check = |value| fixture.check(&Check::try_from(value).unwrap().assertion);
+    check(json!({"kind":"edge", "from":from, "to":to})).unwrap();
+    for (negative, reason) in [
+        (
+            json!({"kind":"no_edge", "from":from, "to":to}),
+            "found 1 matching edges",
+        ),
+        (
+            json!({"kind":"no_path", "from":from, "to":to}),
+            "unexpected data-flow path",
+        ),
+        (
+            json!({"kind":"no_edge_into", "to":to}),
+            "incoming cross-function edges",
+        ),
+        (
+            json!({"kind":"counter", "key":"edges_to_def", "count":1}),
+            "observed 0",
+        ),
+    ] {
+        let error = check(negative).unwrap_err();
+        assert!(error.contains(reason), "{error}");
+    }
+    for mut negative in [
+        json!({"kind":"no_edge", "from":from, "to":"missing"}),
+        json!({"kind":"no_path", "from":"missing", "to":to}),
+        json!({"kind":"no_edge_into", "to":"missing"}),
+    ] {
+        assert!(check(negative.clone())
+            .unwrap_err()
+            .contains("no graph node matches"));
+        negative["absent_ok"] = json!(true);
+        check(negative).unwrap();
     }
 }
 
