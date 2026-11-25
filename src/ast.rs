@@ -261,12 +261,12 @@ pub(crate) struct CallArg {
     pub end_byte: usize,
 }
 
-/// Per-file call-argument index, keyed by (call node start_byte, callee name).
-/// Built once per file by a single pre-order walk; replaces the per-lookup
-/// full-tree walk frozen as `collect_call_args_at_reference`.
+/// Per-file call-argument index, built once by a single pre-order walk.
+/// JS-family call identity also includes the call node's end byte.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct CallArgsIndex {
     by_call: BTreeMap<(usize, String), Vec<CallArg>>,
+    by_span: BTreeMap<(usize, usize, String), Vec<CallArg>>,
 }
 
 /// A variable occurrence the parser located, with its real source span.

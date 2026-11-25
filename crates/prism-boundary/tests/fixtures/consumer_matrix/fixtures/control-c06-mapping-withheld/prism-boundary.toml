@@ -1,0 +1,33 @@
+schema_api = "counting"
+schema_path = "schema.json"
+
+[[client]]
+file = "quay.ts"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+
+[[client]]
+hook = "useQuayKey"
+file = "key.ts"
+export = "useQuayKey"
+key_arg = 0
+fetcher_arg = 1
+# key.ts:7 calls recordSable with GET when fetcher is omitted.
+default_fetcher = { method = "GET", address_policy = "service_relative" }
+
+# Factory or wrapper: key.ts:1-8.
+[[api_mapping]]
+entry = 2
+client_entry = 2
+file = "key.ts"
+export = "useQuayKey"
+api = "counting"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "key.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "a2a76e62a82284ed659bd9d8677da93ce716ab71", start_line = 1, end_line = 8 }]

@@ -1,0 +1,24 @@
+{
+  "api": "sable-quay",
+  "origin": "https://sable-quay.invalid",
+  "api_mount": "/api",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/a",
+      "site": "routes.js:2"
+    },
+    {
+      "method": "GET",
+      "path": "/{*0+}",
+      "role": "fallback",
+      "site": "routes.js:3",
+      "role_selector": {
+        "file": "routes.js",
+        "start_byte": 80,
+        "end_byte": 137,
+        "blob": "57781412d923103af4b99a3cf6d78ee7f41d3579"
+      }
+    }
+  ]
+}

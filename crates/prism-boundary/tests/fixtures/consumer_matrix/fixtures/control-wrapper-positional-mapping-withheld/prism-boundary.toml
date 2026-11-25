@@ -1,0 +1,116 @@
+schema_api = "methods"
+schema_path = "schema.json"
+
+document_url = "https://sable-quay.invalid/"
+schema_retrieval_url = "https://sable-quay.invalid/schema.json"
+
+[[client]]
+file = "quay.ts"
+export = "default"
+methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
+url_arg = 0
+response_root = "data"
+
+[[client]]
+file = "wrap.ts"
+export = "default"
+url_arg = 0
+call = { "method" = "POST" }
+
+[[client]]
+file = "wrap.ts"
+export = "byVerb"
+url_arg = 1
+call = { "method_arg" = 0 }
+method_normalization = "uppercase"
+[[client]]
+file = "wrap.ts"
+export = "byOptions"
+url_arg = 0
+call = { "method_key" = "verb", "options_arg" = 2 }
+method_normalization = "uppercase"
+[[client]]
+file = "wrap.ts"
+export = "via"
+url_arg = 0
+methods = { "withVerb" = { "method_arg" = 1 }, "withOptions" = { "options_arg" = 1, "method_key" = "verb" } }
+method_normalization = "uppercase"
+[[client]]
+file = "wrap.ts"
+export = "defer"
+url_arg = 0
+
+# Factory or wrapper: quay.ts:1-23.
+[[api_mapping]]
+entry = 1
+client_entry = 1
+file = "quay.ts"
+export = "default"
+api = "methods"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "quay.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "171bd8a524216e39a7536b8cf676d76cf472e8b0", start_line = 1, end_line = 23 }]
+
+# Factory or wrapper: wrap.ts:1-22.
+[[api_mapping]]
+entry = 2
+client_entry = 2
+file = "wrap.ts"
+export = "default"
+api = "methods"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "wrap.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "2dd214651d5ac9a2deeb8f22cfdf455a278f6bd5", start_line = 1, end_line = 22 }]
+
+# Factory or wrapper: wrap.ts:1-22.
+[[api_mapping]]
+entry = 4
+client_entry = 4
+file = "wrap.ts"
+export = "byOptions"
+api = "methods"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "wrap.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "2dd214651d5ac9a2deeb8f22cfdf455a278f6bd5", start_line = 1, end_line = 22 }]
+
+# Factory or wrapper: wrap.ts:1-22.
+[[api_mapping]]
+entry = 5
+client_entry = 5
+file = "wrap.ts"
+export = "via"
+api = "methods"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "wrap.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "2dd214651d5ac9a2deeb8f22cfdf455a278f6bd5", start_line = 1, end_line = 22 }]
+
+# Factory or wrapper: wrap.ts:1-22.
+[[api_mapping]]
+entry = 6
+client_entry = 6
+file = "wrap.ts"
+export = "defer"
+api = "methods"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "wrap.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "2dd214651d5ac9a2deeb8f22cfdf455a278f6bd5", start_line = 1, end_line = 22 }]

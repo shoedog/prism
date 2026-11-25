@@ -79,6 +79,8 @@ mod optional_parameter_tests;
 mod param_binding_matrix_tests;
 #[cfg(test)]
 mod parameter_slots_parity_tests;
+#[cfg(test)]
+mod props_matrix_tests;
 pub mod query;
 mod reaching;
 #[cfg(test)]
