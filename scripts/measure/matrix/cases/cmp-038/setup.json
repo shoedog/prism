@@ -1,0 +1,118 @@
+{
+  "additional_pairs": {
+    "count": 200,
+    "seed": 731,
+    "keys": [
+      {
+        "confidence": "exact",
+        "doubt": null,
+        "from": {
+          "access": "def",
+          "end_byte": 133,
+          "file": "cases.ts",
+          "line": 5,
+          "path": {
+            "base": "x",
+            "fields": []
+          },
+          "start_byte": 132
+        },
+        "to": {
+          "access": "use",
+          "end_byte": 155,
+          "file": "cases.ts",
+          "line": 6,
+          "path": {
+            "base": "x",
+            "fields": []
+          },
+          "start_byte": 154
+        }
+      },
+      {
+        "confidence": "nameonly",
+        "doubt": "sameline",
+        "from": {
+          "access": "def",
+          "end_byte": 133,
+          "file": "cases.ts",
+          "line": 5,
+          "path": {
+            "base": "x",
+            "fields": []
+          },
+          "start_byte": 132
+        },
+        "to": {
+          "access": "use",
+          "end_byte": 159,
+          "file": "cases.ts",
+          "line": 6,
+          "path": {
+            "base": "x",
+            "fields": []
+          },
+          "start_byte": 158
+        }
+      },
+      {
+        "from": {
+          "file": "cases.ts",
+          "line": 12,
+          "path": {
+            "base": "o",
+            "fields": []
+          },
+          "access": "def",
+          "start_byte": 229,
+          "end_byte": 230
+        },
+        "to": {
+          "file": "cases.ts",
+          "line": 14,
+          "path": {
+            "base": "o",
+            "fields": []
+          },
+          "access": "use",
+          "start_byte": 262,
+          "end_byte": 262
+        },
+        "confidence": "nameonly",
+        "doubt": "killed",
+        "kill_line": 13
+      }
+    ],
+    "labels": [
+      {
+        "from_access": "def",
+        "to_access": "use",
+        "confidence": "exact",
+        "doubt": null,
+        "kill_line": null
+      },
+      {
+        "from_access": "def",
+        "to_access": "use",
+        "confidence": "nameonly",
+        "doubt": "sameline",
+        "kill_line": null
+      },
+      {
+        "from_access": "def",
+        "to_access": "use",
+        "confidence": "nameonly",
+        "doubt": "killed",
+        "kill_line": 5
+      },
+      {
+        "from_access": "def",
+        "to_access": "use",
+        "confidence": "nameonly",
+        "doubt": "alias_unstable",
+        "kill_line": null
+      }
+    ],
+    "max_copies_per_label": 3
+  }
+}

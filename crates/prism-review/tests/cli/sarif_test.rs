@@ -368,6 +368,7 @@ mod document {
             category: category.map(str::to_string),
             parse_quality: None,
             diagrams: vec![],
+            rules: Vec::new(),
         }
     }
 

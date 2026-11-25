@@ -1,0 +1,146 @@
+{
+  "comment": "Payload families for run_truth.mjs (DESIGN section 7 item 1). Data only: add a family object to extend the set. 'segments' are the key segments written through a row's template; 'array_wrapping' says whether the one-element-array variant of the family is also run for rows whose call has array_segments true. 'value' is written at the end of every attack payload; 'control' is the benign payload run through the same template.",
+  "value": "yes",
+  "control": {
+    "segments": [
+      "a",
+      "b"
+    ],
+    "value": 1
+  },
+  "families": [
+    {
+      "id": "direct",
+      "segments": [
+        "__proto__",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "reserved accessor name, then the target property"
+    },
+    {
+      "id": "benign_prefix",
+      "segments": [
+        "a",
+        "__proto__",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "one benign prefix segment before the reserved accessor name"
+    },
+    {
+      "id": "doubled",
+      "segments": [
+        "__proto__",
+        "__proto__",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "reserved accessor name twice"
+    },
+    {
+      "id": "constructor_prototype",
+      "segments": [
+        "constructor",
+        "prototype",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "reach the shared prototype through the constructor property"
+    },
+    {
+      "id": "terminal_proto",
+      "segments": [
+        "__proto__"
+      ],
+      "array_wrapping": true,
+      "note": "path ends at the shared prototype, the function's own fixed write lands there"
+    },
+    {
+      "id": "terminal_constructor_prototype",
+      "segments": [
+        "constructor",
+        "prototype"
+      ],
+      "array_wrapping": true,
+      "note": "path ends at the shared prototype through the constructor property"
+    },
+    {
+      "id": "upper_case",
+      "segments": [
+        "__PROTO__",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "reserved name in upper case, for a function that lower-cases after its check"
+    },
+    {
+      "id": "padded",
+      "segments": [
+        " __proto__ ",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "reserved name with surrounding whitespace, for a function that trims after its check"
+    },
+    {
+      "id": "fragment",
+      "segments": [
+        "proto",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "the middle fragment of a reserved name, for a function that builds the key by adding a prefix and a suffix"
+    },
+    {
+      "id": "constructor_proto",
+      "segments": [
+        "constructor",
+        "__proto__",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "reach a second shared base (the constructor's own prototype chain)"
+    },
+    {
+      "id": "tostring_constructor",
+      "segments": [
+        "toString",
+        "constructor",
+        "prototype",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "reach a shared base through an inherited method's constructor"
+    },
+    {
+      "id": "lookup_getter",
+      "segments": [
+        "__lookupGetter__",
+        "__proto__",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "reach a shared base through an inherited accessor helper"
+    },
+    {
+      "id": "prototype_first",
+      "segments": [
+        "prototype",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "for roots that are constructor functions"
+    },
+    {
+      "id": "global_object_prototype",
+      "segments": [
+        "Object",
+        "prototype",
+        "polluted"
+      ],
+      "array_wrapping": true,
+      "note": "for a root that is the global object"
+    }
+  ]
+}

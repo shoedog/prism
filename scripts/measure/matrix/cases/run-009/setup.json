@@ -1,0 +1,21 @@
+{
+  "command": "corpora verify",
+  "corpus": {
+    "git": true,
+    "pin": "initial-commit",
+    "tracked": {
+      "a.ts": "export const x = 1;\n"
+    },
+    "untracked": {},
+    "tracked_ignore": null,
+    "ignored": {},
+    "key": "fixture",
+    "second_commit": {
+      "extra.ts": "export {};\n"
+    }
+  },
+  "fake_binary": {
+    "version": "9d1a7d06f653",
+    "commands_exit": 0
+  }
+}
