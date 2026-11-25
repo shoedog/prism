@@ -24,6 +24,8 @@ const CAUSES: &[&str] = &[
     "shadowed_root",
     "not_imported",
     "repository_local_module",
+    "binding_unavailable",
+    "member_rebound",
     "receiver_not_unique",
     "helper_unannotated",
     "helper_not_admissible",
