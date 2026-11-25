@@ -6,7 +6,7 @@ aggregates and class names appear here. Corpus P is `apache-answer` at `6744295f
 `eval/schema_impact/` on branch `eval/schema-impact-feasibility`; evidence summaries (predictions, label files, ten
 reports) are in `feasibility/` next to this file.
 
-Bottom line: G1, G2 and G3 pass; G4 passes on its measured arms and waits for one owner input (the owner rating of
+Bottom line: G1, G2 and G3 pass; G4's measured arms pass and it waits for one owner input (the owner rating of
 five private reports). The study took about one working day, not 7, and cut nothing from DESIGN 6.5's cut line except
 per-commit lift on the private pair (see section 7). **The pilot is an owner go-ahead; the pair order is the
 owner's too (section 5).**
@@ -24,7 +24,7 @@ source text only.
 | F4 | would the report have helped (replay) | 607 first-parent revisions, 37 usable commits (operation-only 5, field-only 26, both 6), 194 predicted locations: same commit 33, later 70, present at pin 91; 616 controls; pooled lift 33.0 (52 of 194 vs 5 of 616 touched within 10 commits) | 1,216 producer first-parent commits in the window (2023-05 to 2026-07; the `/api` mount holds only from 2023-05), 42 usable commits (105 removed routes, 0 method changes), 63 predicted locations on 22 commits: within 14 days 62, later 1, present at head 0; no controls (the cross-repository replay runs with controls off), so no lift |
 | F5 | private pair behaves like P? | | routes extracted 399 (census 400 method entries, minus one non-API catch-all); 118 routes with a proven validation object, 124 more with a spread whose validation is unseen; handler site resolved 0 (393 handlers are inline functions); consumer files importing the client resolved 25 of 25; 5 reports rendered |
 | F6 | cost | see section 6 | |
-| F8 | standing mismatches | lists 8 / 6 / 26 / 3 (43 rows) | lists 27 / 162 of 399 routes reached by no call / 27 / 5 |
+| F8 | standing mismatches | lists 8 / 6 / 26 / 3 (43 rows) | lists 27 / 162 of 399 routes reached by no call / 27 (the same calls as list 1) / 5 (a subset of list 1) |
 
 Reader results (all readers were told the class definitions of DESIGN 6.1, and were not shown a verdict):
 
@@ -33,24 +33,25 @@ Reader results (all readers were told the class definitions of DESIGN 6.1, and w
 | R1, 50 unique or bound joins | 50 yes, 0 no, 0 cannot tell (decided) | 50 yes, 0 no, 0 cannot tell (decided) |
 | R2 on F1 residue (34 rows) | outside schema 21, stale annotation 5, extractor miss 5, cannot tell 3 | |
 | R2 on F8 lists (43 rows) | outside schema 24, stale annotation 7, extractor miss 4, real mismatch 1, dead client code 1, cannot tell 6 | 27 rows (every list 1 and list 4 row): extractor miss 22, real mismatch 3, dead client code 2 |
-| R3 on replay locations | 150 of 161 eligible (cap): coordinated 41, fix after release 2, dead code 1, real mismatch 5, unrelated edit 15, false prediction 63, cannot tell 22 | all 63: coordinated 56, dead code 4, fix after release 1, cannot tell 2 |
+| R3 on replay locations | 149 of the 150 packet rows labelled (cap 150 of 161 eligible; one row has no label): coordinated 41, fix after release 2, dead code 1, real mismatch 5, unrelated edit 15, false prediction 63, cannot tell 22 | all 63: coordinated 56, dead code 4, fix after release 1, cannot tell 2 |
 
 Gates (DESIGN 6.3):
 
 | Gate | Threshold | Result | Pair |
 |---|---|---|---|
-| G1 | at least 90% of operations bound and not contradicted by drift | **PASS**: 197 of 199 (98.99%); two operations are contradicted (a path that disagrees with the router, a method that disagrees with the router). Not applicable to a code-first producer | P |
+| G1 | at least 90% of operations bound and not contradicted by drift | **PASS**: 196 of 199 (98.49%); three operations are excluded by DESIGN 6.3's rule (an annotation path that disagrees with the router, an annotation method that disagrees with the router, and the one cross-check name disagreement, which reader R2 labelled an extractor miss but which the rule excludes whatever its label). The drift test covers the 162-registration cross-check population; the other 37 operations have no drift check. Not applicable to a code-first producer | P |
 | G2 | P: at least 70% bound uniquely and at most 2 wrong in 50; matrix rows pass; R: at most 2 wrong in 50 | **PASS**: P 154 of 200 (77.0%), 0 wrong in 50; synthetic matching matrix 15 of 15; R 0 wrong in 50 joins. P has no path parameters, so parameter matching is exercised by the matrix and by R only | P and R |
-| G3 | at least 15 usable commits and at least 2 counted locations or rows | **PASS**: 37 usable commits on P; counted locations on P: 8 (fix after release 2 on one commit, dead code 1, real mismatch 5) plus 2 counted rows of F8 (1 dead client code, 1 real mismatch); on R: 5 counted rows of the standing join and 5 counted replay locations on 3 commits. No owner arm needed | P and R |
-| G4 | R: recoverable pattern at least 60%, at most 2 wrong in 50, owner rates at least one rendered report useful | **PASS on the measured arms** (83.9%, 0 wrong in 50; 5 reports exist, so not "R payoff unmeasured"); **owner rating pending** (the five private reports are at the local private directory, `private/reports/`) | R |
+| G3 | at least 15 usable commits and at least 2 counted locations or rows | **PASS**: 37 usable commits on P; counted locations on P: 8 (fix after release 2 on one commit, dead code 1, real mismatch 5), plus 2 counted rows of F8; these overlap (the two F8 rows are two of the eight replay locations, and the two fix-after-release locations are one removed field on one commit), so the distinct counted elements are 8; the drift in F8's 7 stale-annotation rows is 2 distinct annotations. On R: 5 counted rows of the standing join and 5 counted replay locations on 3 commits (also overlapping evidence). The threshold is 2, so overlap does not change the result. No owner arm needed | P and R |
+| G4 | R: recoverable pattern at least 60%, at most 2 wrong in 50, owner rates at least one rendered report useful | **PENDING** (the measured arms pass: 83.9%, 0 wrong in 50; 5 reports exist, so not "R payoff unmeasured"); **owner rating pending** (the five private reports are at the local private directory, `private/reports/`) | R |
 
 How far to trust these. The R1 samples were read against raw call sites by reader seats and found no wrong join, but
 on P every unique match is a string equality, so a clean R1 there is close to guaranteed; the informative R1 is R's.
 The R3 labels on P include 63 `false_prediction` and 22 `cannot_tell` among 150: field-level prediction is the
 weak part (predicted locations for a field change are calls to an operation whose wire tree holds the field, not reads
-of the field; F3's measurement belongs to slice P5). The operation-level predictions on P are what the lift number
-rests on, and 40 of 54 predicted locations of one commit account for most of the pooled touches (per-commit lift is in
-`feasibility/F4-summary.md`); the pooled lift is large but not independent evidence of 33 separate effects.
+of the field; F3's measurement belongs to slice P5). The pooled lift of 33.0 is not evidence of 33 separate effects: all 52 touches come from five adjacent release-merge
+commits of one day (2026-01-22; 2, 40, 2, 6 and 2 touches), and one touching commit accounts for every one of them.
+Outside that burst the lift is 0 (0 of 124 predicted vs 4 of 439 control locations touched within 10 commits). The
+five `coordinated` reports 06 to 10 are that one event. Treat lift as unproven; G3 does not rest on it.
 
 ## 2. Standing mismatches (F8)
 
@@ -61,7 +62,8 @@ annotation 7, extractor miss 4 (installation routes registered with a configured
 mismatch 1, dead client code 1. Counted rows: 2.
 
 R (aggregate): list 1 client calls with no route 27; list 2 route entries no client call reaches 162 of 399; list 3
-27; list 4 5. R2 on the 27 rows: 22 extractor misses (19 are routes whose path ends in a multi-segment wildcard
+(R form: client calls with no route) the same 27 calls as list 1; list 4 5 calls, a subset of list 1 (5 of the 27 match
+a route under another method). R2 on the 27 rows: 22 extractor misses (19 are routes whose path ends in a multi-segment wildcard
 parameter, 3 are multi-line template paths that kept a trailing newline), 3 real mismatches and 2 dead client code.
 Counted rows: 5. The extractor misses are limits of the prototype's id rules (DESIGN section 9, "no id for a served
 operation"), not of the pair.
@@ -70,8 +72,7 @@ operation"), not of the pair.
 
 Ten public reports from P's replay are in `feasibility/reports/` (`index.tsv` lists each one's class and commit):
 counted classes first (one fix after release, one dead code, three real mismatch), then five coordinated. Three are
-quoted in full in `feasibility/reports/02.md`, `03.md` and `05.md` (21 to 22 lines each); `01.md` is the large merge
-of release 1.0.4 (86 lines) and shows that the producer location for a field change is the schema file line today,
+quoted in full in `feasibility/reports/02.md`, `03.md` and `05.md` (21 to 22 lines each); report sizes run from 21 to 286 lines (`04.md` 243 and `06.md` 286 are large merges; `01.md` is a release merge of 86 lines) and shows that the producer location for a field change is the schema file line today,
 because struct-field binding (`go_struct_field`) is a pilot slice. Five reports from R's replay are rendered
 privately (one fix after release, two dead code, two coordinated); the memo names only their classes.
 
@@ -108,8 +109,8 @@ fewer, public-first. The order is the owner's either way.
 | | Public-first | Private-first |
 |---|---|---|
 | Built first | P1 schema reader and ids; P2 `swaggo_annotation` and `go_struct_field`; P3 consumer for P | P1; P2-R route-table schema source and adapter; P3 consumer for P and R |
-| First report on the public pair | after P4 (about 17 to 22 days from the go-ahead) | after P4 (the same) |
-| First report on the owner's pair | after P6 (about 25 to 32 days) | after P4 (about 16 to 22 days) |
+| First report on the public pair | after P4 (about 17 to 23 days from the go-ahead) | after P6 (about 24 to 32 days; P's producer adapters come last unless pulled forward at +3 to 4 days) |
+| First report on the owner's pair | after P6 (about 25 to 33 days) | after P4 (about 16 to 22 days) |
 | What R needs that is not built | `route_table` and the consumer gaps of section 4 item 2 at P6 | the same, at P2-R and P3 |
 | Field-level on R | none (R has no field source; validation objects cover about 60% of routes at best) | none |
 
@@ -122,7 +123,7 @@ listing instead of adding its own, which lowers P2-R to about 2 to 3 days.
 
 ## 6. Cost and refreshed estimates
 
-Prototype lines (non-blank, non-comment): producer 857 (Go 327, route table 530), consumer 802, schema reader and ids
+Prototype lines (counted as non-blank, non-comment source lines by a small counter; `scripts/file_size.py` weighted counts differ by up to 10 per area; every module is under 600): producer 857 (Go 327, route table 530), consumer 802, schema reader and ids
 413, standing mismatches 60, replay and renderer 862, outbound-HTTP count 27. Run time on P: producer 0.77 s,
 consumer 0.81 s, mismatch 0.12 s, replay of 37 commits 74 s. Outbound HTTP call sites in the Go and Python code:
 P 4 Go and 0 Python; R 0 in both repositories (the consumer is JavaScript and TypeScript only), so a Go or Python
@@ -140,7 +141,7 @@ service-consumer adapter would have nothing to bind on either pair.
 | P5 | 5 to 6 | 5 to 6 | 63 of 150 adjudicated field locations were false predictions, so the field-read step is where precision work sits |
 | P6 | 3 to 4 | 3 to 4 | |
 
-Totals: public-first about 26 to 33 days, private-first about 25 to 33 (24 to 31 as planned). DESIGN 7's table:
+Totals (sum of the table): public-first about 25 to 33 days, private-first about 24 to 32 (24 to 31 as planned). DESIGN 7's table:
 no row triggers (G1, G2, G3 pass; G4 waits on the owner rating; P5's measurement is still ahead).
 
 ## 7. What was not done or not verified
@@ -150,6 +151,8 @@ no row triggers (G1, G2, G3 pass; G4 waits on the owner rating; P5's measurement
 - Per-commit lift on the private pair: `replay_cross` runs controls off; not re-run with controls.
 - R3 labels were not cross-checked beyond reading the sentences of the eight counted P locations; 22 `cannot_tell`
   labels sit in one packet of 50.
+- The Python prototype parses with the upstream tree-sitter Go (0.25.0) and TypeScript (0.23.2) wheels, not the vendored,
+  patched grammars of the Rust build; parse behaviour may differ on edge syntax.
 - The full repository test suite was not run (CI runs it); the prototype's tests were: 99 passed, 0 failed.
 - No `prism` binary ran; no CPG or navigation cache was touched; no product crate changed.
 - The cut line of DESIGN 6.5 was not needed; the roadmap-corrections file is written locally
