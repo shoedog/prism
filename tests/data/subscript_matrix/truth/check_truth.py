@@ -19,7 +19,8 @@ def check_rows(rows_path, truth_path, cases_path):
 
     truth = {}
     for record in records[1:]:
-        if (set(record) not in ({"id", "truth"}, {"id", "truth", "case_sha256"})
+        if (not {"id", "truth"} <= set(record)
+                or set(record) - {"id", "truth", "case_sha256", "graph_mode", "runtime_mode"}
                 or not isinstance(record["id"], str)):
             raise ValueError(f"{truth_path}: malformed row truth {record!r}")
         key = record["id"]
@@ -38,8 +39,32 @@ def check_rows(rows_path, truth_path, cases_path):
         key = row["id"]
         allowed = ("reaches", "not") if row["lang"] in EXECUTED else ("n/a",)
         record = truth[key]
-        if record["truth"] not in allowed:
-            raise ValueError(f"{truth_path}: {key} has invalid truth {record['truth']!r}")
+        modes = {name: record[name] for name in ("graph_mode", "runtime_mode") if name in record}
+        expected_modes = {"graph_mode": "tsx", "runtime_mode": "ts"} if row["lang"] == "tsx" else {}
+        if modes != expected_modes:
+            raise ValueError(f"{truth_path}: {key} has invalid graph/runtime modes {modes!r}")
+        observed = record["truth"]
+        if row.get("truth_protocol") == "ab":
+            valid = isinstance(observed, list) and len(observed) == 2 and all(
+                isinstance(bit, bool) for bit in observed
+            )
+        else:
+            valid = observed in allowed
+        if not valid:
+            raise ValueError(f"{truth_path}: {key} has invalid truth {observed!r}")
+        if "markers" in row:
+            markers = row["markers"]
+            expected_markers = ["A", "B"] if row.get("truth_protocol") == "ab" else ["A"]
+            if (not isinstance(markers, list) or any(not isinstance(m, dict) for m in markers)
+                    or [m.get("marker") for m in markers] != expected_markers
+                    or any(not isinstance(m.get("present"), bool) for m in markers)):
+                raise ValueError(f"{rows_path}: {key} has invalid marker expectations")
+            bits = observed if isinstance(observed, list) else [observed == "reaches"]
+            if bits != [marker["present"] for marker in markers]:
+                raise ValueError(f"{truth_path}: {key} observed {bits}, expected marker bits differ")
+            if (row["lang"] != "py" or not versions["python"].startswith("3.12.")
+                    or "case_sha256" not in row):
+                raise ValueError(f"{truth_path}: {key} requires Python 3.12 and a case SHA-256")
         if ("case_sha256" in row) != ("case_sha256" in record) or (
             row.get("case_sha256") != record.get("case_sha256")
         ):

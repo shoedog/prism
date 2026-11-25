@@ -2,6 +2,7 @@
 """Execute the lane 10 fixture programs and record their observations."""
 
 import argparse
+import ast
 from hashlib import sha256
 import json
 import os
@@ -19,7 +20,7 @@ from containment import Refused, check_source
 HERE = Path(__file__).resolve().parent
 MATRIX = HERE.parent
 PRELUDES = {"py": "prelude.py", "js": "prelude.mjs", "go": "prelude.go"}
-EXECUTED = {"py", "js", "ts", "go"}
+EXECUTED = {"py", "js", "ts", "tsx", "go"}
 LANGUAGES = EXECUTED | {"rs", "java", "c"}
 TIMEOUT = 10
 
@@ -52,6 +53,8 @@ def load_rows(path):
         seen.add(row["id"])
         if row["lang"] not in LANGUAGES:
             raise ValueError(f"{path}: {row['id']}: unknown language {row['lang']!r}")
+        if "truth_protocol" in row and (row["truth_protocol"] != "ab" or row["lang"] != "py"):
+            raise ValueError(f"{path}: {row['id']}: unsupported truth protocol")
     return rows
 
 
@@ -103,8 +106,33 @@ def load_cases(directory, rows):
         check_case_digest(row, contents)
         source = contents.decode("utf-8")
         check_source(path, row["lang"], source)
+        if row.get("truth_protocol") == "ab":
+            check_mixed_sources(path, source)
         cases.append(source)
     return cases
+
+
+def check_mixed_sources(path, source):
+    names = ("src_a", "src_b")
+    assignments = {name: [] for name in names}
+    references = {name: 0 for name in names}
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as error:
+        raise Refused(f"{path}: cannot bind mixed sources: {error}") from error
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in references:
+            references[node.id] += 1
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name) and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Name) and node.value.func.id in assignments
+                and not node.value.args and not node.value.keywords):
+            assignments[node.value.func.id].append((node.targets[0].lineno, node.targets[0].id))
+    if all(references[name] == len(assignments[name]) == 1 for name in names):
+        (line_a, name_a), (line_b, name_b) = (assignments[name][0] for name in names)
+        if line_a != line_b and name_a != name_b:
+            return
+    raise Refused(f"{path}: mixed sources require one assignment per source on distinct Def lines")
 
 
 def run_process(command, directory, env, timeout):
@@ -191,8 +219,8 @@ class Runner:
                 entry = directory / "case.py"
                 entry.write_text(prelude + "\n\n" + source, encoding="utf-8")
                 command = [self.commands["python"], "-I", "-S", entry.name]
-            elif lang in {"js", "ts"}:
-                entry = directory / ("case.ts" if lang == "ts" else "case.mjs")
+            elif lang in {"js", "ts", "tsx"}:
+                entry = directory / ("case.ts" if lang in {"ts", "tsx"} else "case.mjs")
                 entry.write_text(prelude + "\n\n" + source, encoding="utf-8")
                 (directory / "package.json").write_text('{"type":"module"}\n', encoding="utf-8")
                 command = [self.commands["node"], entry.name]
@@ -219,7 +247,7 @@ class Runner:
                 return None, str(error)
             if code != 0:
                 detail = error.strip().splitlines()
-                return None, f"exit {code}" + (f" ({detail[0]})" if detail else "")
+                return None, f"exit {code}" + (f" ({detail[-1]})" if detail else "")
             return output, None
 
     def disable_go_telemetry(self, directory, env):
@@ -252,6 +280,7 @@ ENTRY = {
     "py": "\n\ncase()\n",
     "js": "\n\ncaseFn();\n",
     "ts": "\n\ncaseFn();\n",
+    "tsx": "\n\ncaseFn();\n",
     "go": "\n\nfunc main() { caseFn() }\n",
 }
 
@@ -260,14 +289,19 @@ def row_truth(runner, preludes, row, source):
     lang = row["lang"]
     if lang not in EXECUTED:
         return "n/a"
-    prelude = preludes["js" if lang == "ts" else lang]
-    output, error = runner.execute(lang, source + ENTRY[lang], prelude)
+    prelude = preludes["js" if lang in {"ts", "tsx"} else lang]
+    mixed = row.get("truth_protocol") == "ab"
+    entry = "\n\n_MIXED = True\ncase()\n_check_mixed_sources()\n" if mixed else ENTRY[lang]
+    output, error = runner.execute(lang, source + entry, prelude)
     if error is None:
         observations = [line for line in output.splitlines() if re.match(r"^OBSERVE(?:\s|$)", line)]
-        if observations == ["OBSERVE reaches"]:
-            return "reaches"
-        if observations == ["OBSERVE not"]:
-            return "not"
+        if len(observations) == 1:
+            if mixed:
+                match = re.fullmatch(r"OBSERVE A ([01]) B ([01])", observations[0])
+                if match:
+                    return [bit == "1" for bit in match.groups()]
+            elif observations[0] in ("OBSERVE reaches", "OBSERVE not"):
+                return observations[0].split()[1]
         error = f"expected one valid observation, received {observations!r}"
     print(f"{row['id']}: inadmissible ({error})", file=sys.stderr)
     return "inadmissible"
@@ -292,6 +326,9 @@ def main():
                 record = {"id": row["id"], "truth": row_truth(runner, preludes, row, source)}
                 if "case_sha256" in row:
                     record["case_sha256"] = row["case_sha256"]
+                if row["lang"] == "tsx":
+                    record["graph_mode"] = "tsx"
+                    record["runtime_mode"] = "ts"
                 records.append(record)
             write_jsonl(args.out, records)
     except (OSError, ValueError, subprocess.TimeoutExpired) as error:

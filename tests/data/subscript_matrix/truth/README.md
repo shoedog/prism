@@ -28,7 +28,9 @@ Cases define `case()` in Python, `caseFn()` in JavaScript or TypeScript, or
 `sink(value)` once. The sink looks for the substring `TAINT-7f3a`, traverses
 nested containers and fields, and tracks visited references through cycles.
 The runner concatenates the script preludes with the cases. JavaScript runs
-as ESM and TypeScript runs directly as `.ts` with native type stripping. Go
+as ESM and TypeScript runs directly as `.ts` with native type stripping. TSX
+value cases are staged as `.ts` with the same case bytes; their receipts record
+TSX graph mode and TS runtime mode. JSX syntax is inadmissible to this runner. Go
 runs the case and prelude together in a temporary module.
 
 The runner resolves Python 3.12 with offline `uv run --python 3.12 python` and
@@ -51,3 +53,10 @@ JavaScript preludes import nothing. Go's prelude imports `fmt`, `reflect` and
 Row truth starts with runtime versions, followed by observations in row order.
 An error, timeout or missing or repeated observation gives `inadmissible`.
 Rust, Java and C rows get `n/a`.
+
+Python rows with `truth_protocol: "ab"` assign `src_a()` and `src_b()` to
+distinct locals on separate lines and execute each assignment once. The
+sink emits one observation in the form `OBSERVE A 1 B 0`. The receipt
+stores the two Booleans as `[true, false]` in A, B order. A mixed row must
+call the sink exactly once. The checker compares Q row bits to the marker
+expectations and requires Python 3.12 and the case SHA-256.

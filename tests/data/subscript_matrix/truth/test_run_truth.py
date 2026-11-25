@@ -276,6 +276,75 @@ class TruthTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("case SHA-256 differs", result.stderr)
 
+    def test_mixed_truth_observes_bits_in_source_order(self):
+        examples = (
+            ("only-a", "sink([a, None])", [True, False]),
+            ("only-b", "sink([b, None])", [False, True]),
+            ("both", "d = [b, a]; d.append(d); sink(d)", [True, True]),
+            ("neither", "sink({})", [False, False]),
+            ("replace-a", "d = [a, b]; d[0] = 'clean'; sink(d)", [False, True]),
+        )
+        self.write_cases(*(
+            (name + ".py", f"def case():\n    a = src_a()\n    b = src_b()\n    {body}\n")
+            for name, body, _ in examples
+        ))
+        self.write_jsonl(self.rows, [dict(row, truth_protocol="ab")
+                                    for row in run_truth.load_rows(self.rows)])
+        result = self.run_cli(self.cases, self.rows, "--out", self.truth)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        versions, *records = run_truth.load_jsonl(self.truth)
+        self.assertEqual([r["truth"] for r in records], [bits for _, _, bits in examples])
+        self.assertEqual(self.run_check().returncode, 0)
+        for bad in ([True], [True, False, False], [1, 0], "reaches"):
+            self.write_jsonl(self.truth, [versions, dict(records[0], truth=bad), *records[1:]])
+            self.assertIn("invalid truth", self.run_check().stderr)
+
+    def test_mixed_truth_refuses_incomplete_or_ambiguous_sources(self):
+        for body in (
+            "a = src_a()\n    sink(a)",
+            "a = src_a()\n    b = src_b()\n    again = src_a()\n    sink(b)",
+            "a = src_a(); b = src_b()\n    sink([a, b])",
+            "a = src_a()\n    if False:\n        b = src_b()\n    sink(a)",
+        ):
+            with self.subTest(body=body):
+                self.write_cases(("bad.py", "def case():\n    " + body))
+                row, = run_truth.load_rows(self.rows)
+                self.write_jsonl(self.rows, [dict(row, truth_protocol="ab")])
+                result = self.run_cli(self.cases, self.rows, "--out", self.truth)
+                self.assertIn("mixed sources", result.stderr)
+                self.assertTrue(result.returncode != 0 or
+                                run_truth.load_jsonl(self.truth)[1]["truth"] == "inadmissible")
+
+    def test_mixed_truth_refuses_missing_repeated_or_malformed_observation(self):
+        for body in ("return b", "sink(a); sink(b)", "print('OBSERVE A 0 B 1')",
+                     "sink(a); print('OBSERVE B 1 A 0')",
+                     "sink(a); print('OBSERVE A 1 A 0')", "sink(a); print('OBSERVE A 1')"):
+            with self.subTest(body=body):
+                self.write_cases(("bad.py", f"def case():\n    a = src_a()\n    b = src_b()\n    {body}"))
+                row, = run_truth.load_rows(self.rows)
+                self.write_jsonl(self.rows, [dict(row, truth_protocol="ab")])
+                result = self.run_cli(self.cases, self.rows, "--out", self.truth)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("expected one valid observation", result.stderr)
+                self.assertEqual(run_truth.load_jsonl(self.truth)[1]["truth"], "inadmissible")
+
+    def test_tsx_value_case_uses_ts_runtime_and_tsx_graph(self):
+        self.write_cases(
+            ("value.tsx", "function caseFn() {\n  const t: string = src();\n  sink(t);\n}\n"),
+            ("jsx.tsx", "function caseFn() { const t = src(); sink(<div>{t}</div>); }"),
+        )
+        result = self.run_cli(self.cases, self.rows, "--out", self.truth)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        versions, value, jsx = run_truth.load_jsonl(self.truth)
+        self.assertEqual(value, {"id": "value.tsx", "truth": "reaches",
+                                 "graph_mode": "tsx", "runtime_mode": "ts"})
+        self.assertEqual(jsx["truth"], "inadmissible")
+        self.assertEqual(jsx["graph_mode"], "tsx")
+        self.write_jsonl(self.rows, run_truth.load_rows(self.rows)[:1])
+        self.write_jsonl(self.truth, [versions, value])
+        self.assertEqual(self.run_check().returncode, 0)
+        self.write_jsonl(self.truth, [versions, dict(value, runtime_mode="tsx")])
+        self.assertIn("invalid graph/runtime modes", self.run_check().stderr)
 
 
 if __name__ == "__main__":
