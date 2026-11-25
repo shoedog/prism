@@ -68,11 +68,7 @@ fn table_labels(table: &str, source: &str) -> Vec<String> {
 fn expected_rules_tsv_is_well_formed() {
     assert_eq!(EXPECTED_RULES.lines().next(), Some(EXPECTATION_HEADER));
     let expectations = parse_expected_rules(EXPECTED_RULES).unwrap();
-    assert!(
-        expectations.len() >= 500,
-        "expected at least 500 ledger rows, found {}",
-        expectations.len()
-    );
+    assert_eq!(expectations.len(), 540);
 }
 
 #[test]

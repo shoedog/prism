@@ -1,4 +1,4 @@
-"""Run with python3 -m unittest discover -s tests/fixtures/routes/truth."""
+"""Run with python3 -m unittest discover -s tests/routes_matrix/truth."""
 import json
 import os
 from pathlib import Path

@@ -64,7 +64,7 @@ impl SinkClassifier {
             }
             // No legacy list: these languages have call-position rules only.
             match self.classify(file, parsed, id, text, &[]) {
-                Some(hit) if hit.strength == Strength::Weak => weak_seen = true,
+                Some(hit) if hit.strength() == Strength::Weak => weak_seen = true,
                 Some(_) => return Strength::Strong,
                 None => {}
             }
