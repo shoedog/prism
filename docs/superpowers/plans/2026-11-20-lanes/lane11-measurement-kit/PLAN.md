@@ -2,7 +2,7 @@
 
 > **For agentic workers:** run by an orchestrator under `../ORCHESTRATION.md`. Each task goes to an implementer
 > (Sonnet-5.5, high) with its section and `FORMATS.md` as the brief for S1–S5 and S6a–S6b.
-> Read DESIGN section 5 with the explicit amendments in FORMATS section 8. In test listings, a `def` line ending in a comment is a test to write; the comment
+> Use the slice reading map in FORMATS. Section 8 is in [FORMATS-DECISIONS.md](FORMATS-DECISIONS.md) and section 9 in [FORMATS-LEDGER.md](FORMATS-LEDGER.md). Read DESIGN section 5 with its section 8 amendments. In test listings, a `def` line ending in a comment is a test to write; the comment
 > is its assertion.
 
 **Goal:** one tested measurement kit in the repository, so a lane writes only a classifier file (and, when
@@ -32,7 +32,7 @@ section 5 supplies the architecture. `FORMATS.md` supplies the commands, files, 
   fixture corpora and matrix cases are authored public inputs). Private-name check of ORCHESTRATION section 9
   before every commit; briefs name the private evidence directories as not to be opened and say that
   sentence is not to be copied into repository files.
-- Every prism, `cargo` or TypeScript-checker run goes through the guard (the evidence guard with limit 8 GiB, from S1 on `scripts/memguard/memguard.sh 8`), one at a time; on exit 75 run `python3
+- Every prism, `cargo` or TypeScript-checker run goes through the guard (the evidence guard with limit 8 GiB, from S1 on `scripts/memguard/memguard.sh 8`), one at a time; on a structured host-quiet refusal run `python3
   scripts/hostquiet/host_quiet.py wait` and retry. Counting runs take no marker.
 - Cloud (the kit must run there unchanged): 4 vCPUs, 15 GB, no swap, ~30 GB disk, no system time utility,
   REST-only GitHub, silent push failure for any file over 100 MB, nothing private.
@@ -106,9 +106,7 @@ the evidence root, else its versioned evidence checkout; restore nothing from re
 - [ ] Build both commits (`cargo build --release`, guarded) in detached scratch worktrees under the evidence
       directory; keep `repro/bin/prism-{base,head}`; delete the scratch `target/`s. Check that
       `PRISM_EDGES_BYTES=1` gives both bounds on every endpoint of both binaries.
-- [ ] Before any kit run, identify from `gate-4b.log` and the PR's commit list which fold's head produced the
-      recorded trace counts and bind it in `repro/TARGET.md`, with any alternative fold named in advance in
-      order; no fold is tried after seeing kit totals.
+- [ ] Follow the ordered protocol fixed in `repro/TARGET.md` before any kit measurement. Use base `4f9e3a3e` and primary `1f2ad1cc` for edge and counter identity. For historical trace counts try the primary first. For each corpus with a count mismatch try `32ad7c09b` (head at the recorded minute), then `3510ed4f2` on a further mismatch. Stop at the first matching counts and retain every prior result. If all miss, mark trace reproduction unmet. Report each corpus, actual head, executable digest, observed numbers and the claim earned. A fallback can earn trace-count credit only. If different corpora match on different heads, report the matches separately. The toolchain fallback below is separate.
 - [ ] Fallback (DESIGN section 8), on toolchain drift only: the earlier #783 round in `jsts-lane/783/` (base
       `4c8620a2`, head `4da81c36`; `local/gate/{X,EX,T}.compare.txt`: 85,645 / 7,691 / 408,954 edges), line
       mode only (no bytes).
@@ -161,20 +159,20 @@ The kit matrix lives in `scripts/measure/matrix/rows.jsonl` and `cases/<id>/`. T
       `synthetic` (expected result settled by the author and checked by a second reader).
 - [ ] Each slice's first commit adds `scripts/measure/tests/test_matrix.py` (S1 creates it) or
       `eval/secbench/test_matrix_bench.py` (S6a creates it) with `ENABLED_GROUPS` naming its groups; the test
-      runs every enabled row against its slice and checks the fields of `truth` with the section 8 decisions. Add each of the 102 fixture IDs selected in section 9 to its corresponding matrix before closing that slice.
+      runs every enabled row against its slice and checks the fields of `truth` with the section 8 decisions. Add each of the 107 selected enumeration IDs and 43 round-one fixture IDs in section 9 to its corresponding matrix before closing that slice.
 
 **Exit gate:** every row has a truth; the M-2 disagreements each have a row; CI green.
 
 ## Stage E: enumeration (1.5 days)
 
-- [x] Enumeration stopped as an open class after five terra rounds, two sol rounds and one astra round. A dry round was never observed. The eight files contain 300 distinct suggestions and 33 dispute mentions. FORMATS sections 8–9 adjudicate them. The matrix successor materializes every ID marked Materialize (102) and records the remaining 198 under their stated rules. Keep the two matrix streams separate.
+- [x] Enumeration stopped as an open class after five terra rounds, two sol rounds and one astra round. A dry round was never observed. The eight files contain 300 distinct suggestions and 33 dispute mentions. Section 8 adjudicates the 33 dispute mentions. In section 9 the matrix successor takes 107 of the original IDs, including five promoted from Record in design review, and records the remaining 193 under their rules. The same ledger adds 43 new round-one fixture IDs. Apply all 24 section 8 truth replacements in the matrix-successor job. Keep the two matrix streams separate.
 - [x] The bound census found 57 traced positive candidates among 600 entries, 277 with parseable fixed versions and 147 with usable ground truth. Set the premeasurement G-negatives minimum to 28. S6a may add finding-only candidates.
 
 **Exit disposition.** The original dry-round gate was unmet. Stage D supplies the proof and conservation rules plus a finite fixture backlog.
 
 ## Stage D: formats of record (1.5 days)
 
-The formats of record are in `FORMATS.md`. Sections 1–7 are the implementation contract. Section 8 decides every materialized test row and all disputes. Section 9 is the per-ID fixture backlog. The initial adopter contract and both amendments are reconciled there. Both design reviewers must APPROVE (cap two rounds, then ORCHESTRATION section 8). Review and downstream measurement remain separate gates.
+The formats of record are in [FORMATS.md](FORMATS.md), sections 1–7 and accepted losses. Section 8 in the decisions companion decides every materialized test row and dispute. Section 9 in the ledger companion gives the per-ID fixture backlog and review-round dispositions. The initial adopter contract and both amendments are reconciled there. Both design reviewers must APPROVE (cap two rounds, then ORCHESTRATION section 8). Review and downstream measurement remain separate gates.
 
 ## Stage I: slices
 
@@ -192,13 +190,13 @@ anyone else or a cloud session to run it.
 discover -s scripts/measure -t scripts -p 'test_*.py'` and `python3 -m unittest discover -s scripts/memguard
 -p 'test_*.py'`.
 
-**Guard changes only:** host-quiet script at `$(dirname "$0")/../hostquiet/host_quiet.py`; log at
+**Guard integration.** Add the dedicated `--status-fd` result from FORMATS §2. Keep the host-quiet script at `$(dirname "$0")/../hostquiet/host_quiet.py` and the log at
 `${MEMGUARD_LOG:-${XDG_STATE_HOME:-$HOME/.local/state}/prism/memguard-kills.log}`; exits 75, 76, 137 kept.
 
-**Contract.** Implement `corpora.json`, `corpora list|verify`, `run` and `prism.measure.receipt/1` exactly as FORMATS sections 1–2. Include the adopter pins, per-package SB binding and the S2 fixture entry when its tree is available. Use the perf-cloud manifest hash for a tree and the type/path/content digest for the measured input. Pin errors (3) precede analysis. Version mismatch runs version only. Record every produced stdout/stderr hash, including the trace. A pre-launch quiet refusal (75) has no receipt. A late refusal stops the run and retains its failed receipt. Output, digest, guard and Python 3.9 cases are listed by ID in FORMATS sections 8–9.
+**Contract.** Implement `corpora.json`, `corpora list|verify`, `run` and `prism.measure.receipt/1` exactly as FORMATS sections 1–2. Include the adopter pins, per-package SB binding and the S2 fixture entry when its tree is available. Use the perf-cloud manifest hash for a tree and the type/path/content digest for the measured input. Pin errors (3) precede analysis. Version mismatch runs version only. Record every produced stdout/stderr hash, including the trace, and the structured guard status per command. A fresh gate-bound receipt includes its decision digest and step ID from before version. A pre-launch quiet refusal (75) has no receipt. A late refusal stops the run and retains its failed receipt. Output, digest, guard and Python 3.9 cases are listed by ID in FORMATS sections 8–9.
 
 - [ ] **Failing tests first.** `helpers.py`: a one-commit git repo named `Z` in a temp manifest, a fake prism
-      that logs argv and env and prints canned JSON, a pass-through guard, `kit(*args)` running the module.
+      that logs argv and env and prints canned JSON, a pass-through guard writing §2 status to its caller's status descriptor, `kit(*args)` running the module.
       `test_matrix.py` with `ENABLED_GROUPS = {"run"}`.
 
 ```python
@@ -213,7 +211,7 @@ def test_run_refuses_ignored_file_under_root(self):      # tracked .gitignore na
 def test_input_change_during_run_fails(self):            # fake prism writes a file under the root -> 4, receipt "input_changed"
 def test_receipt_binds_prediction_before_first_command(self):  # fake rewrites the prediction on its first call; receipt sha256 = original
 def test_trace_env_applies_to_edges_run_only(self):      # [False, False, True] for PRISM_RD_CENSUS_TRACE per command
-def test_guard_refusal_exits_75(self):                   # guard stub exits 75 -> 75
+def test_guard_refusal_exits_75(self):                   # structured host_quiet -> 75; launched analysis returning 75 -> run 4
 def test_corpora_verify_nonzero_on_mismatch(self):       # exit 3, key on stdout
 def test_manifest_hash_matches_perf_cloud(self):         # equals fetch_corpora.manifest_hash on a temp tree
 def test_every_module_parses_as_python_39(self):
@@ -231,7 +229,7 @@ first on `PATH`): above the limit → 137 and one log line; below → the comman
 
 ### S2: `diff-edges`, `diff-stats`, classifiers, G-repro (5 days; G-repro, G-hermetic)
 
-Lane 10 uses `PRISM_SUBSCRIPT_TRACE=all` for the complete def/use inventory from S0 onward. The S0-versus-baseline differential reports edge/counter parity and the unavailable baseline inventory. S1 versus S0 and S2 versus S1 compare both inventories, including isolated nodes. The value `1` supplies only subscript sites. Implement the exact parser, context and `validate(bound)` interface in FORMATS section 3.
+Lane 10 uses `PRISM_SUBSCRIPT_TRACE=all` for the complete def/use inventory from S0 onward. The S0-versus-baseline differential reports edge/counter parity and the unavailable baseline inventory. S1 versus S0 and S2 versus S1 compare both inventories, including isolated nodes. Require the terminal all-inventory def/use totals in both traces. Cross-key and orphan-anchor require byte mode and unique endpoint lookup. The value `1` supplies only subscript sites. Implement the exact parser, context and `validate(bound)` interface in FORMATS section 3.
 
 **Files:** create `scripts/measure/{edges,diff_edges,diff_stats,classifier,trace}.py`,
 `examples/classify_783_4b.py`, `fixtures/repro-4b/` (`repo/` holds only the measured sources, with M-3's truth and control generator alongside it),
@@ -239,11 +237,11 @@ Lane 10 uses `PRISM_SUBSCRIPT_TRACE=all` for the complete def/use inventory from
 `test_matrix.py`.
 
 ```
-python3 -m measure diff-edges BASE_RUN HEAD_RUN --classifier FILE [--key bytes|line] [--out DIR] [--list]
+python3 -m measure diff-edges BASE_RUN HEAD_RUN --classifier FILE [--key bytes|line] [--line-reason TEXT] [--out DIR] [--list]
 python3 -m measure diff-stats BASE_RUN HEAD_RUN [--allow FILE] [--which dfg|call|both]
 ```
 
-**Contract.** FORMATS sections 1–3 and 8–9 fix admission, projection, residual bags, `changes.jsonl`, `classes.tsv`, `certificate.json`, counter tables and both legacy stdout lines. One identical transition is one counted row. One-sided residuals at a key share one bag. Check reconstruction per arm and attribute. Unattributed counts rows. Ambiguous edge records fail (1), even at a clean key. Default-forbidden strays fail (1), and unmatched records alone may pass. A whole classified ambiguous change may pass. Expose both run roots, receipts, unchanged occurrences, nodes and both counter sets to the callbacks by their published names. Grade counter allow-lists by component. The example supplies a separate historical projection for the G-repro trace counts.
+**Contract.** FORMATS sections 1–3 and 8–9 fix admission, projection, residual bags, `changes.jsonl`, `classes.tsv`, `certificate.json`, counter tables and both legacy stdout lines. One identical transition is one counted row. One-sided residuals at a key share one bag. Check reconstruction per arm and attribute. Unattributed counts rows. Ambiguous edge records fail (1), even at a clean key. Default-forbidden strays fail (1), and unmatched records alone may pass. A whole classified ambiguous change may pass. Expose both run roots, receipts, unchanged occurrences, nodes and both counter sets to the callbacks by their published names. Grade counter allow-lists by component tuple, escaping literal dots. An erased trace key is unmatched. Record a reason and flag for deliberate byte-to-line projection. The example supplies a separate historical projection for the G-repro trace counts.
 
 - [ ] **Failing tests first** (`edge(...)` builds one line in the `nav dfg-stats --edges` shape; matrix rows
       enabled):
@@ -259,8 +257,8 @@ def test_permuted_rows_and_gzip_header_are_no_change(self):  # exit 0, zero chan
 def test_byte_only_difference_is_a_change_in_byte_mode_and_not_in_line_mode(self):
     a, b = edge(line=6, sb=154, eb=155, label=EXACT), edge(line=6, sb=158, eb=159, label=NAMEONLY)
     self.diff([a, b], [swap_labels(a, b)], key="bytes"); self.assertEqual(len(self.changes()), 2)
-    self.diff([a, b], [swap_labels(a, b)], key="line"); self.assertEqual((self.changes(), self.cert()["collisions"]), ([], 1))
-def test_mixed_capability_refuses_byte_mode(self):            # bytes vs none -> exit 2; --key line -> 0 changes
+    self.diff([a, b], [swap_labels(a, b)], key="line", line_reason="matrix line projection"); self.assertEqual((self.changes(), self.cert()["collisions"]), ([], 1))
+def test_mixed_capability_refuses_byte_mode(self):            # bytes vs none -> exit 2; --key line with declared reason -> 0 changes
 def test_partial_bounds_refuse_byte_mode(self):              # one endpoint without end_byte -> exit 2
 def test_path_fields_stay_structured(self):                  # fields ["a.b"] and ["a", "b"] are two keys
 def test_trace_record_attaches_only_to_a_unique_changed_edge(self):  # byte 154 attaches in byte mode. In join-002 line mode there are zero changes, one ambiguous record, exit 1.
@@ -284,8 +282,8 @@ def test_783_classifier_attributes_kill_alias_and_alias_d3_and_refuses_untagged_
       identity counts include all eligible mechanisms through the legacy projection, with identity strays allowed. R4B joins the two attribution mechanisms with strict strays).
 - [ ] **G-repro** (measurement runner; M-3's `repro/PREDICTION.md` already written; DESIGN section 6):
       (a) `run` X, EX, T with both M-3 binaries (head with `--trace-env PRISM_RD_CENSUS_TRACE=1`), then
-      `diff-edges --classifier examples/classify_783_4b.py` in `--key line` and in byte mode, with a distinct `--out` per corpus and mode, and
-      `diff-stats`. Pass: the first line equals the recorded one byte for byte, `PASS` in both modes, the full `trace mechanism lines:` line equals the recorded bytes, and neither stats file has a delta. (b) `run` `R4B` with both binaries, then
+      `diff-edges --classifier examples/classify_783_4b.py` with `--key line --line-reason "historical comparator used line keys"` and in byte mode, with a distinct `--out` per corpus and mode, and
+      `diff-stats`. Require primary edge stdout byte equality and PASS in both modes, and zero DFG and call counter deltas. Record full `trace mechanism lines:` byte equality per corpus under M-3's ordered count trials. Publish the head that earned each claim. (b) `run` `R4B` with both binaries, then
       `diff-edges` in byte mode: the 139 independent rows match (22/14/103), the 42 dump-derived siblings are reported separately, and the whole run passes at 23/55 attributed changes. Each control rebinds its edited trace and returns 1 for the predicted join/classification reason in FORMATS section 3.
 - [ ] PR body: recorded-versus-kit table per corpus for (a); truth-versus-kit per row for (b) and the five
       control results; formats as built.
@@ -299,7 +297,7 @@ lexical_binding,calls}.cjs`, `oracle/selfcheck/<case>/{repo/,input.jsonl,expecte
 `oracle/realuse/{repo/,truth.jsonl}`, `scripts/measure/oracle.py`, `tests/test_oracle.py`; enable `oracle`
 in `test_matrix.py`. Cover verdict rows with self-check cases and admission, selection and delta rows through the Python wrapper.
 
-**Contract.** Implement the two oracle command grammars and self-check entry in FORMATS sections 1 and 4, including `--side`, `--kind`, `--class` and `--relation`. Verify the checker tree/file, combined question and fixture key before launching grading. Select only the named run's residual occurrences against a bound certificate. Grade spread LOST on the base arm. Call diffs retain all deltas and grade new head exact claims. Preserve non-exact/dropped denominators and the separate ancillary record count. Use the prescribed `verdicts.jsonl`, `tuples.json`, `denominators.json`, `oracle-receipt.json` and call-diff `deltas.jsonl`. Aggregate mode keeps denominators and custody with the tuples. Use FORMATS section 8 decisions and materialize the oracle IDs in section 9.
+**Contract.** Implement the two oracle command grammars and self-check entry in FORMATS sections 1 and 4, including `--side`, `--kind`, `--class`, `--relation`, `--target-confidence` and `--target-kind`. Verify the checker tree/file, combined question and fixture key before launching grading. Select only the named run's residual occurrences against a bound certificate. Grade spread LOST on the base arm. Call diffs retain all deltas, with exact gained targets as the default. Lane 9 selects nameonly/argument_follow in census or differential mode. Keep per-confidence/kind denominators, drops and ancillary records. Refuse ambiguous raw subsets, admit source coordinates before question-specific shape tests, grade callable claims only against a proved body, and key tuples by relation and property. Use program-aware lookup and a require hook over the hashed module directory. Use the prescribed `verdicts.jsonl`, `tuples.json`, `denominators.json`, `oracle-receipt.json` and call-diff `deltas.jsonl`. Aggregate mode keeps denominators and custody with the tuples. Use FORMATS section 8 decisions and materialize the oracle IDs in section 9.
 
 - [ ] Author self-check cases first: per question one case per verdict, plus the near-miss negatives of
       G-selfcheck. Cover the wrapper rows with their own receipt, arm and denominator checks. `selfcheck.cjs` exits 0 only when every verdict equals
@@ -323,7 +321,7 @@ in `test_matrix.py`. Cover verdict rows with self-check cases and admission, sel
 **Files:** create `scripts/measure/{population,review_diff}.py`, `populations/602-m2-120.json`,
 `tests/{test_population,test_review_diff}.py`; enable `review` in `test_matrix.py`.
 
-**Contract.** FORMATS sections 1, 5, 8 and 9 define the public `602-m2-120.json`, exact #602 spec bytes, CLI, arm envelopes, full finding payload and sample. Reconstruct each postimage in a detached scratch clone. Record every manifest ordinal, including excluded, failed and refused rows. Sum presence surplus and overlapping payload differences after exact cancellation, including unpairable bags. Emit `per-diff.jsonl`, `totals.json`, `sample.jsonl` and `review-receipt.json`. Apply subset and successful-sample denominators explicitly.
+**Contract.** FORMATS sections 1, 5, 8 and 9 define the public `602-m2-120.json`, exact #602 spec bytes, CLI, arm envelopes, full finding payload and sample. Reconstruct each postimage from the fixed-option patch in a detached scratch clone, decoding quoted path bytes as specified in §5. Retain and hash both raw streams for each launched ordinal/arm. Record every manifest ordinal, including excluded, failed and refused rows. Sum presence surplus and overlapping payload differences after exact cancellation, including unpairable bags. Emit `per-diff.jsonl`, `totals.json`, `sample.jsonl` and `review-receipt.json`. Apply subset and successful-sample denominators explicitly.
 
 - [ ] Failing tests (temp repo with parent and commit): `test_spec_matches_m2_rule` (test file, `.md` file
       and deleted file excluded; equals `{"files": [{"file_path": "src/a.ts", "modify_type": "Modified",
@@ -350,7 +348,7 @@ in `test_matrix.py`. Cover verdict rows with self-check cases and admission, sel
   {"id": "X-edges", "do": "diff-edges", "base": "X-base", "head": "X-head", "classifier": "c.py", "expect": {"unattributed": 0}}]}
 ```
 
-**Contract.** FORMATS sections 1, 6, 8 and 9 fix `gate FILE --out DIR`, overrides, step kinds, reference types, reuse, expectations, child exits and the eight ordered report sections. Preflight the whole graph and all reused inputs before measurement. Bind/hash the prediction before the first step and through final publication. Exit 0 only for a prospective PASS, 1 on a failed measurement or completed retrospective, 2 on malformed gate/admission/prediction refusal, 75 on quiet. Keep failed step IDs and observed metrics. Write `gate.json` and `REPORT.md`.
+**Contract.** FORMATS sections 1, 6, 8 and 9 fix `gate FILE --out DIR`, overrides, step kinds, reference types, reuse, expectations, child exits and the eight ordered report sections. Preflight the whole graph and all reused inputs before measurement. Freeze the prediction and decision graph including every expectation before the first step and through publication. Verify both the gate binding and the declared binary SHA/version on each reused run. Enforce per-kind coverage, record allow_empty waivers under Limits, and label self-comparisons as identity controls. Exit 0 only for a prospective PASS, 1 on a failed measurement or completed retrospective, 2 on malformed gate/admission/prediction refusal (including child interface exit 2), 75 with result `host_quiet` only on structured guard refusal. Keep failed step IDs and observed metrics. Write `gate.json` and `REPORT.md`.
 
 - [ ] Failing tests: `test_gate_refuses_missing_prediction`; `test_gate_refuses_reused_run_without_matching_
       prediction_digest` (a receipt without a digest → 2; a receipt whose digest differs while the
@@ -389,9 +387,9 @@ parsed taint channel output instead of discarding it; add `row['finding']`), `re
 **Files:** create `eval/secbench/{fixed.py,test_fixed.py,locate.mjs,locate.test.mjs,fixed-pins.json}`;
 modify `report.py`, `README.md`; enable `bench-negatives` in `test_matrix_bench.py`.
 
-**Contract.** Use FORMATS sections 1 and 7 (S6b) for the two `fixed.py` commands, registry/SRI/size/extraction checks, pin publication, bound adjudications and exact reason vocabulary with precedence. Read each entry's `package.json`. `acquire --packages VULN` binds its dependency to the vulnerable package manifest. Without that option acquisition requires a single exact dependency. `score` requires the manifest. `locate.mjs` uses the pinned TypeScript scanner and syntax tree for owning functions, actual call occurrences and byte spans. Tokens preserve raw literals. An unchanged sink owner with an independently established caller-only fix is `fix_elsewhere`. Independent evidence of a partially fixed annotated path gives `partial_fix`. A known move into a helper cannot earn removal credit. A failed or truncated negative observation cannot earn a false column.
+**Contract.** Use FORMATS sections 1 and 7 (S6b) for the two `fixed.py` commands, registry/SRI/size/extraction checks, pin publication, bound adjudications and exact reason vocabulary with precedence. Read each entry's `package.json`. `acquire --packages VULN` binds its dependency to the vulnerable package manifest. Without that option acquisition requires a single exact dependency. `score` requires the manifest. `locate.mjs` uses the pinned TypeScript scanner and syntax tree for owning functions, actual call occurrences and byte spans. Tokens preserve raw literals. The automatic `fix_elsewhere` test requires changed mapped source-owner tokens and an unchanged sink owner. `partial_fix` requires a tree-bound adjudication row. Bind the fixed scorer to the vulnerable SUT SHA and version, match callee identity across trees, and match each reach witness to the mapped seed and a terminal sink value. An otherwise eligible candidate lacking a fixed acquisition row, pin or tree gives `fixed_input_missing`. A known move into a helper cannot earn removal credit. A failed or truncated negative observation cannot earn a false column.
 
-Produce `acquisition.jsonl`, `negatives.jsonl` and `negatives-summary.json`. A verified pair has `finding,reach,function_change,sink_removed`; finding/reach are null for verified removal. An exclusion has one closed reason and four nulls. Enable all 26 negative rows plus selected S6b fixtures.
+Produce `acquisition.jsonl`, `negatives.jsonl`, `negatives-summary.json` and `score-receipt.json` with retained raw observations. A verified pair has `finding,reach,function_change,sink_removed`; finding/reach are null for verified removal. An exclusion has one closed reason and four nulls. Enable all 26 negative rows plus selected S6b fixtures. When materialising the successor, align the benchmark row validator’s reason enum with the closed §7 table, including fix_elsewhere, partial_fix and fixed_input_missing, and install bn-012’s adjudication from §8.
 
 - [ ] Failing tests: `test_fixed_version_parsing` (`" =1.20.0"` → `"1.20.0"`; `"n/a"` and `">=2.1.1 <3.0.1"`
       → `None`), `test_extraction_refuses_traversal_links_and_collisions`, `test_member_and_size_limits_are_
