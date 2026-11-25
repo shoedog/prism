@@ -18,6 +18,11 @@ Counts are sites that can receive an added edge (conversion candidates), not gra
 
 M3 (D12 repeat) detail: rows graded in `binding` mode. T: 68 rows, 0 correct, 6 WRONG (all name-only), 62 UNDECIDED (19 exact rows, 14 of them at cross-file free_single sites that binding admission removes; the checker cannot witness the runtime callee). SB: 127 rows, 116 CORRECT, 11 UNDECIDED, 0 WRONG; 114 sites, 104 of them with every added row CORRECT. X: no row changes. Wrong Exact rows: 0 on all corpora. The three PROBE-LOG P11 rows (`debug.ts` `Array(height)`, `incrementalUtils.ts` `readFile(fileName)`, `deprecations.ts` `bind(args)`) are not among the added rows on this build.
 
+Round 2 numerical reconciliation on the recorded keys (X/T/SB):
+
+- M2’s 482 sites include 1/40/12 (53) with only a spread-operand source. Withholding unproved operand yields can therefore remove the last source at up to 53 sites in this population. The number of affected operand edges at mixed sites is unmeasured.
+- M3’s disjoint exclusions remove 50 foreign NameOnly rows, 14 foreign FreeSingle Exact and 3 multi-Exact (0/3/0, T#5 local_def and T#58/59 import_qualified). Of the 73 historical UNDECIDED rows, 17 Exact and 44 NameOnly are withheld. The remaining 128 rows comprise 116 CORRECT and 12 UNDECIDED. The latter include 11 Exact (T#39, T#54, 9 SB) and one T NameOnly. These exclusions cost 0 CORRECT. The declaration-witness replay has a separate, pending cost.
+
 M6 (benchmark on the base binary, all classes): traced 252, function-only 57, partial 40, prism error 22, not reached 2, ground truth unavailable 210, acquisition excluded 17 (of 600). First-break attribution of the non-traced: B-plain-argument 20, E-admission 19, B-arguments (`arguments`, no parameter Def) 3, C-member 3, D-cjs 6, H-callback/promise/event 4 (of which `callback_argument_parameter_registration`: 2), unresolved 63. No case is labelled first-broken at a rest Def. The handler-registration cases that the plan expected (97) now trace; 2 remain, to be handed to lane 12.
 
 ## Go or no-go (DESIGN section 6)
