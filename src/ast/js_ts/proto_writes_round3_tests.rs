@@ -72,6 +72,21 @@ fn member_read_keeps_opaque_argument_effects() {
 }
 
 #[test]
+fn member_read_sees_an_inner_call_that_runs_before_the_read() {
+    let nested = js("function f(o){ outer(o.a, inner(o.a),
+        o.a.key); }");
+    let key = read(&nested, 2, "o.a.key");
+    assert_eq!(key.incomplete_reason, Some("member_call"));
+    let hoisted = js("function f(o){ g();
+        return o.a.key;
+        function g(){ helper(o.a) } }");
+    let key = read(&hoisted, 2, "o.a.key");
+    assert_eq!(key.incomplete_reason, Some("member_call"));
+    let control = js("function f(o){ return o.a.key; }");
+    assert!(read(&control, 1, "o.a.key").resolution_complete);
+}
+
+#[test]
 fn native_reflection_is_opaque_where_it_can_execute_user_code() {
     for call in [
         "Object.values(o)",

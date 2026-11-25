@@ -76,10 +76,10 @@ impl<'a> Analysis<'a> {
             .opaque_calls
             .get(&id)
             .is_some_and(|sites| {
+                // Any call may run first; one outside this owner runs at an unknown time.
                 sites
                     .iter()
-                    .next()
-                    .is_some_and(|call| call.end_byte <= limit)
+                    .any(|call| call.end_byte <= limit || self.runs_elsewhere(call, context.owner))
             })
         {
             reason = reason.or(Some("member_call"));
@@ -100,6 +100,28 @@ impl<'a> Analysis<'a> {
             history.members = Some(limit);
         }
         (reason, history)
+    }
+
+    // A call inside another callable (hoisted, nested or outside this owner) can run at any time.
+    fn runs_elsewhere(&self, call: &AstSpan, owner: Node<'a>) -> bool {
+        if call.start_byte < owner.start_byte() || call.end_byte > owner.end_byte() {
+            return true;
+        }
+        let mut node = self
+            .file
+            .tree
+            .root_node()
+            .descendant_for_byte_range(call.start_byte, call.end_byte);
+        while let Some(current) = node {
+            if current == owner {
+                return false;
+            }
+            if is_owner(current) {
+                return true;
+            }
+            node = current.parent();
+        }
+        true
     }
 
     fn member_effect_limit(&self, node: Node<'a>) -> usize {
