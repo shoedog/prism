@@ -301,22 +301,40 @@ impl<'a, 'p> Occurrence<'a, 'p> {
     }
 }
 
-/// The target is the callee itself or the last name of the callee path, reached
-/// without passing through a call (`a.b.f` yes; `a.b(c).d` for `b`, `f(y)(x)` for `f` no).
+/// The target is the callee itself or the last name of the callee path, reached only through
+/// an ACCEPT-LIST of descent kinds: a callee shape that is not listed earns nothing (a call,
+/// lambda, arrow or function literal, conditional, sequence, await, index or generic
+/// instantiation, type assertion). `parenthesized_expression` and `non_null_expression` are
+/// transparent only over a listed kind; a subscript descends only into a string-literal key.
 fn is_terminal_callee(callee: Node<'_>, target: Node<'_>) -> bool {
     let mut current = callee;
     while current != target {
         let kind = current.kind();
-        if kind.contains("call") || kind.contains("invocation") || kind == "new_expression" {
-            return false;
-        }
         let mut cursor = current.walk();
-        let last = current
+        let mut children = current
             .named_children(&mut cursor)
-            .filter(|child| !child.kind().ends_with("comment"))
-            .last();
-        match last {
-            Some(last) => current = last,
+            .filter(|child| !child.kind().ends_with("comment"));
+        let next = match kind {
+            // Member paths: the last named child is the member name.
+            "attribute"
+            | "member_expression"
+            | "selector_expression"
+            | "scoped_identifier"
+            | "scoped_type_identifier"
+            | "qualified_identifier"
+            | "field_expression" => children.last(),
+            // Transparent wrappers: exactly one wrapped expression.
+            "parenthesized_expression" | "non_null_expression" => {
+                let only = children.next();
+                children.next().is_none().then_some(only).flatten()
+            }
+            "subscript" | "subscript_expression" => children
+                .last()
+                .filter(|key| matches!(key.kind(), "string" | "string_literal")),
+            _ => None,
+        };
+        match next {
+            Some(next) => current = next,
             None => return false,
         }
     }
