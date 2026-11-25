@@ -115,6 +115,7 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `rule_registry.rs` and `rule_registry/` own the named finding rules, `RuleInfo`, and `RuleRef`.
   Both types have private fields and borrowed read accessors. Named rows make references via `rule_ref()`. `prism::slice::RuleRef` and `prism_review::output::rule_registry` re-export the core API.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
+  Under the Exact ceiling, `cpg/trace_descent.rs` refuses binding doubts such as `call_nameonly` before site lookup or a cached proof. It counts same-spelling sites in the executing caller before requiring the unique site's byte span to contain the occurrence. Until I-spelling, `s2-js-alias-same-line`, `s2-js-alias-multiline-overlap`, `s3-ts-optional-default-competitor` and `s3-js-nested-spread-alias-competitor` now report `BoundaryExited` in the walk and no trace-review finding. An empty occurrence must lie strictly inside the one accepted site (nomination keeps the inclusive base predicate), and a `call_nameonly` binding edge that lands in the function being walked is a self-function boundary instead of local flow.
 - `api/` — `prism::api`: the stable, `#[non_exhaustive]` core facade of the `prism` library (`build_info`, `nav_session`/`callers`/`callees`, `OwnerOptions`, `load_review_inputs`, `build_context`, `ReviewOptions`, the finding-confidence items, `with_build_pool`). The review runner, SARIF and targets items are not in it: they live in `prism_review::api` (see "Review crate" below). See the module doc for the compatibility promise.
   `review_loading.rs` captures the root and listing used by `ReviewContextLoader` for targeted reads.
   `ReviewContextRound` builds a graph from the captured review and the admitted files.
@@ -239,11 +240,22 @@ Whole-repo `prism nav` indexes use a prism-owned per-repo cache at
 `dirs::cache_dir()/prism/nav/<hash(canonical repo root)>/`, with `--no-cache`
 and `--cache-dir` gating that navigation store specifically.
 Navigation queries include `nodes-at`, `symbol-spans`, `callers`, `callees`, `ego`,
-`module-deps`, `repo-map`, `dfg-stats`, and the CLI-only `onboard` report.
+`module-deps`, `repo-map`, `dfg-stats`, `routes`, and the CLI-only `onboard` report.
 `module-deps`/`repo-map` live in `src/navigation/module_graph.rs`; onboarding report
 construction lives in `src/navigation/onboarding.rs` and deterministic Markdown/JSON
 rendering in `crates/prism-review/src/output/onboarding.rs`. `onboard --out` is explicit create-new-only
 output and must never overwrite an existing file.
+
+`prism nav routes --repo <dir> [--entry <selector>] [--mounts] [--format json|text]`
+lists source registrations, optional mount edges, and a final summary. The
+summary names the enabled adapters. S1a has an empty adapter set, so an empty
+listing carries no evidence of route absence. Explicit entries require a
+unique, statically evidenced root and otherwise return `entry_unproven`.
+The wire contract distinguishes router and unproven receivers, full, suffix
+and dynamic exposures, and resolved, anonymous and unresolved callbacks.
+A closed snake_case reason enum records refusal and dispatch outcomes. See
+[the routes wire contract](docs/features/query-layer/navigation/routes.md).
+
 Navigation and CPG call resolution share one ordered ladder (S3),
 `CallGraph::resolve_call_site` in `src/resolution.rs`, which returns each callee
 with a `ResolutionConfidence` (`Exact` | `NameOnly`) and a `ResolutionKind`. The

@@ -1,0 +1,19 @@
+[
+  ["flask", "/x/{literal}/<id>", [["literal","/x/{literal}/"],["parameter"]]],
+  ["flask", "/x/<any('a:b','c'):id>", [["literal","/x/"],["parameter"]]],
+  ["flask", "/x/<string(length=2):id>", [["literal","/x/"],["parameter"]]],
+  ["flask", "/x/<default:id>", [["literal","/x/"],["parameter"]]],
+  ["flask", "/x/<path:tail>", null],
+  ["flask", "/x/<str:id>", null],
+  ["flask", "/x/<int(arg:id>", null],
+  ["fastapi", "/x/{id:int(arg)}", [["literal","/x/{id:int(arg)}"]]],
+  ["fastapi", "/x/{literal}{id:uuid}", [["literal","/x/"],["parameter"],["parameter"]]],
+  ["fastapi", "/x/{bad-name}/{id}", [["literal","/x/{bad-name}/"],["parameter"]]],
+  ["fastapi", "/x/{id:string}", null],
+  ["fastapi", "/x/{tail:path}", null],
+  ["express", "/x/{literal}/:id-:2", [["literal","/x/{literal}/"],["parameter"],["literal","-"],["parameter"]]],
+  ["express", "/x/:id?", null],
+  ["express", "/x/:id(\\d+)", null],
+  ["express", "/x/a|b", null],
+  ["hapi", "/x/{id}", null]
+]

@@ -218,5 +218,31 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("child exceeded 10 s", rows["timeout"]["error"])
 
 
+class SourceGateTests(unittest.TestCase):
+    def test_only_the_truncation_row_may_execute_with_a_hand_label(self):
+        from unittest.mock import patch
+        import run_truth
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            rows = root / "rows.jsonl"
+            output = root / "truth.jsonl"
+            rows.write_text("".join(json.dumps({
+                "id": row_id, "truth_source": "hand", **metadata,
+            }) + "\n" for row_id, metadata in [
+                ("es2-34", {"hand_reason": "64-exposure cap"}),
+                ("other", {"hand_reason": "free text cannot exempt this row"}),
+                ("another", {}),
+            ]))
+            with (patch.object(sys, "argv", ["run_truth", "--rows", str(rows), "--root",
+                                             str(root), "--out", str(output), "--verify-sources"]),
+                  patch.object(run_truth, "execute", return_value={"status": "executed"}),
+                  patch.object(sys, "stderr") as stderr):
+                self.assertEqual(run_truth.main(), 1)
+            self.assertEqual("".join(call.args[0] for call in stderr.write.call_args_list),
+                             "other: hand row can execute\nanother: hand row can execute\n")
+            self.assertEqual(output.read_text(), "")
+
+
 if __name__ == "__main__":
     unittest.main()
