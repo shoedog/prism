@@ -2,6 +2,7 @@ use super::*;
 use mounts::{compose, Event, Interaction, MountEpoch, MountKey, Priority, Relation, Target};
 use std::cell::Cell;
 
+mod coverage;
 mod installation;
 mod projection;
 
