@@ -59,7 +59,9 @@ pub(super) fn compute_rest_def_node(
     // This scopes writes to the formal, including captured rebinding and
     // parameter expressions. An indexed write and a write to a shadow differ.
     let mut bindings = JsBindingCache::for_sites();
-    (!parsed.js_ts_scoped_written(implementation, name, &mut bindings)).then_some((offset, def))
+    (!parsed.js_ts_direct_eval_anywhere(&implementation)
+        && !parsed.js_ts_scoped_written(implementation, name, &mut bindings))
+    .then_some((offset, def))
 }
 
 /// Admission for ordinary Step 5b rest edges.

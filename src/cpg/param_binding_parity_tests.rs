@@ -37,6 +37,9 @@ class A {
 function rest(first, ...later) {
   use(first, later);
 }
+function rest_all(...items) { use(items); }
+function rest_unknown_all(xs) { rest_all(...xs); }
+function rest_unknown_tail(prefix, xs) { rest(prefix, ...xs); }
 function rest_control(prefix, surplus) {
   rest(...[], prefix, surplus, surplus);
 }
@@ -106,7 +109,12 @@ fn fixture_bindings(cpg: &CodePropertyGraph) -> Vec<String> {
             };
             let pinned = matches!(
                 (from_fn.as_str(), to_fn.as_str()),
-                ("spread", "f") | ("rest_control" | "rest_opaque" | "rest_spread", "rest")
+                ("spread", "f")
+                    | (
+                        "rest_control" | "rest_opaque" | "rest_spread" | "rest_unknown_tail",
+                        "rest"
+                    )
+                    | ("rest_unknown_all", "rest_all")
             ) || (from_fn == "chain"
                 && to_fn == "m"
                 && matches!(to_path.base.as_str(), "a1" | "a2"));
@@ -208,8 +216,28 @@ fn spread_and_rest_graph_is_identical_across_every_route() {
     // a05: only the inner non-spread argument binds to A.m. In particular, neither
     // outer argument nor the argument after the unknown spread can reach A.m.
     // a06: dense lengths shift the slot; holes and nested spreads stop binding.
-    // b02: preserve the fixed prefix and both occurrences of the surplus.
-    // A terminal dense element and a separately proved opaque spread also bind.
+    // b02b/c: both opaque operands resolve to a singleton rest destination but
+    // have no yield witness. The mixed call still binds its fixed prefix.
+    for (caller, callee) in [
+        ("rest_unknown_all", "rest_all"),
+        ("rest_unknown_tail", "rest"),
+    ] {
+        let site = cold
+            .call_graph
+            .calls
+            .values()
+            .flatten()
+            .find(|site| site.caller.name == caller && site.callee_name == callee)
+            .unwrap();
+        let resolved = cold.call_graph.resolve_call_site(site);
+        assert!(
+            object_literal_args::exact_singleton(&resolved),
+            "{caller}: {resolved:?}"
+        );
+        assert_eq!(resolved[0].target.name, callee);
+    }
+    // Preserve both occurrences of the surplus, the dense element and the
+    // separately proved opaque spread.
     let pinned = fixture_bindings(&cold);
     assert_eq!(
         pinned,
@@ -222,6 +250,7 @@ fn spread_and_rest_graph_is_identical_across_every_route() {
             "rest_opaque:proven -> rest:later [Exact]",
             "rest_spread:dense -> rest:later [Exact]",
             "rest_spread:trailing -> rest:later [Exact]",
+            "rest_unknown_tail:prefix -> rest:first [Exact]",
             "spread:dense -> f:c [Exact]",
             "spread:empty -> f:a [Exact]",
             "spread:first -> f:a [Exact]",

@@ -162,6 +162,17 @@ impl ParsedFile {
     fn js_ts_function_names<'a>(&self, f: Node<'a>, at: Node<'a>, out: &mut Index<'a>) {
         let mut params = BTreeSet::new();
         self.collect_js_ts_parameter_bindings(f, &mut params);
+        if self.node_text(&at).contains('\\') {
+            // Scoped writes compare decoded names. Index escaped formals so
+            // a write to a shadow stops in its own parameter or body scope.
+            let mut escaped = Vec::new();
+            self.js_ts_pattern_bound_names_with_decoder(at, &mut escaped, |text| {
+                text.contains('\\')
+                    .then(|| Self::js_ts_decoded_identifier(text))
+                    .flatten()
+            });
+            params.extend(escaped);
+        }
         if f.kind() != "arrow_function" {
             params.insert("arguments".to_string());
         }

@@ -132,6 +132,10 @@ fn rest_constructor_supplied_sites_keep_end_to_end_prerequisites_visible() {
         ("x5-3", "new Shape(direct)", 7, vec![("direct", "other")]),
     ] {
         let (extensions, source) = matrix_source(&rows, id);
+        let extended = (id == "s5-6").then(|| {
+            format!("{source}\nclass Decoy {{ constructor(first, ...tail) {{ use(tail); }} }}\n")
+        });
+        let source = extended.as_deref().unwrap_or(source);
         for ext in extensions.iter().map(|ext| ext.as_str().unwrap()) {
             let files = matrix_input(ext, source);
             let parsed = files.values().next().unwrap();
@@ -193,6 +197,29 @@ fn rest_constructor_supplied_sites_keep_end_to_end_prerequisites_visible() {
                 "CONSTRUCTOR {id}/{ext} {expression} {span:?} -> {target:?} real_sites={real:?}"
             );
             supply_constructor_uses(&mut cpg, &site, parsed, &arguments);
+            if id == "s5-6" {
+                let decoy = owner_at(
+                    parsed,
+                    "constructor",
+                    Some(parsed.line_for_byte(source.find("class Decoy").unwrap())),
+                );
+                let wrong = vec![ResolvedCallee {
+                    target: &decoy,
+                    confidence: ResolutionConfidence::Exact,
+                    kind: ResolutionKind::ConstructorLocal,
+                }];
+                let flows = run_site(&cpg, &files, &site, wrong, |parsed, _| {
+                    (arguments.clone(), spread_args::offsets(parsed, &arguments))
+                });
+                assert_eq!(flows.len(), 1, "{id}/{ext}: wrong-target control");
+                let (from, to, ref edge) = flows[0].edge;
+                assert_eq!(cpg.to_var_location(from).unwrap().path.base, "value");
+                let to = cpg.to_var_location(to).unwrap();
+                assert_eq!(to.path.base, "tail");
+                assert_eq!(to.function_start_line, decoy.start_line);
+                assert_ne!(to.function_start_line, target.start_line);
+                assert_eq!(edge, &CpgEdge::DataFlow(FlowConfidence::Exact));
+            }
             let pool = vec![ResolvedCallee {
                 target: &target,
                 confidence: ResolutionConfidence::Exact,
@@ -262,6 +289,12 @@ fn rest_constructor_supplied_sites_keep_end_to_end_prerequisites_visible() {
                 for flow in pending {
                     let (from, to, label) = flow.edge;
                     cpg.graph.add_edge(from, to, label);
+                }
+                if expression == "new Implicit(kept)" {
+                    crate::cpg::param_binding_matrix_tests::assert_supplied_site_reaches_use(
+                        cpg, id, ext, 2,
+                    );
+                    continue;
                 }
                 let param = if id == "x5-3" { "kept" } else { expected[0].0 };
                 let root = cpg

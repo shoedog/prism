@@ -41,6 +41,18 @@ pub(super) fn at_spread(
             {
                 return None;
             }
+            let mut enclosing = Some(owner);
+            while let Some(node) = enclosing {
+                if parsed
+                    .language
+                    .callable_boundary_node_types()
+                    .contains(&node.kind())
+                    && !inert_parameters(parsed, node, &mut budget, true)
+                {
+                    return None;
+                }
+                enclosing = node.parent();
+            }
             // A visible module initializer can replace a standard iterator
             // before the local allocation, even if it never sees the value.
             literal_prefix(parsed, program, None, &mut budget)?;
@@ -169,7 +181,7 @@ fn literal_prefix<'a>(
             | "type_alias_declaration"
             | "interface_declaration"
             | "empty_statement" => {}
-            "class_declaration" if inert_class(node) => {}
+            "class_declaration" if inert_class(parsed, node, budget) => {}
             "expression_statement" => {
                 let mut cursor = node.walk();
                 let value = node.named_children(&mut cursor).find(|c| !c.is_extra())?;
@@ -183,7 +195,7 @@ fn literal_prefix<'a>(
     Some(values)
 }
 
-fn inert_class(class: Node<'_>) -> bool {
+fn inert_class(parsed: &ParsedFile, class: Node<'_>, budget: &mut usize) -> bool {
     let mut cursor = class.walk();
     let inert = class
         .named_children(&mut cursor)
@@ -201,12 +213,49 @@ fn inert_class(class: Node<'_>) -> bool {
                                 .child_by_field_name("name")
                                 .is_some_and(|name| name.kind() != "computed_property_name")
                             && member.child_by_field_name("decorator").is_none()
+                            && inert_parameters(parsed, member, budget, false)
                     });
                 inert
             }
             _ => false,
         });
     inert
+}
+
+// Parameter defaults may run before the call body; decorators run at class definition.
+fn inert_parameters(
+    parsed: &ParsedFile,
+    callable: Node<'_>,
+    budget: &mut usize,
+    defaults: bool,
+) -> bool {
+    let Some(params) = parsed.find_parameters_node(&callable) else {
+        return true;
+    };
+    let mut stack = vec![params];
+    while let Some(node) = stack.pop() {
+        if spend(budget).is_none() {
+            return false;
+        }
+        if node.kind() == "decorator" {
+            return false;
+        }
+        let initializer = match node.kind() {
+            "assignment_pattern" | "object_assignment_pattern" => node.child_by_field_name("right"),
+            "required_parameter" | "optional_parameter" => node.child_by_field_name("value"),
+            _ => None,
+        };
+        if defaults && initializer.is_some_and(|value| !inert_expression(parsed, value, budget)) {
+            return false;
+        }
+        let annotation = node.child_by_field_name("type");
+        let mut cursor = node.walk();
+        stack.extend(
+            node.named_children(&mut cursor)
+                .filter(|child| Some(*child) != initializer && Some(*child) != annotation),
+        );
+    }
+    true
 }
 
 fn value_yield(parsed: &ParsedFile, value: Node<'_>, values: &BTreeMap<&str, Yield>) -> Yield {

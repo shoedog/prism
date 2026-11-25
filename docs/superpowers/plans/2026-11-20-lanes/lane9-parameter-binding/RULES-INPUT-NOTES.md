@@ -149,7 +149,7 @@ The input truth comes from the reviewed matrix. The base outcome is historical. 
 | `s1-7` | destructured fixed formal consumes one slot | correct | RED | B rest | **Loss.** Mark #1 a → fixed only. The fixed builder stops at the preceding destructure. Require b → tail and both crossed negatives. |
 | `s1-8` | return flow certification with rest inputs | correct | RED | Consumers | **Keep.** Check counter, reachability. |
 | `s2-4` | parameter property and tuple rest | correct | RED | B rest | **Loss.** #1 label → tag also lacks a parameter-property Def. #2–3 count/text → parts are blocked/RED without the constructor site. Require #4 no label → parts, including with a supplied site. |
-| `s2-5` | shadowed rest write keeps entry binding | correct | RED | B rest | **Loss #1.** A nested function's same-named parameter drops the outer rest formal's entry Def in the formal census (#915), outside slice B. The prohibition #2 stays mandatory. |
+| `s2-5` | shadowed rest write keeps entry binding | correct | RED | B rest | **Keep.** The round 1 fold restores the outer entry Def. Require #1 main.value → collect.items (exact) and #2 no main.value → reset.items. |
 | `s2-6` | member spread begins at rest after literal prefix | correct | RED | B rest | **Set.** #1 withhold box.items → tail. Matching member bytes and a known start do not prove an element. Keep both fixed-slot prohibitions. |
 | `s3-3` | super forwarding cannot bind back to derived constructor | correct | RED | B rest | **Set.** #1 last → Derived.constructor.items is blocked/RED without that constructor site. Require it with a supplied site. Keep all three prohibitions (#2–4). |
 | `s3-4` | independent unknown spreads start in the rest range | correct | RED | B rest | **Set.** Withhold #2 left → tail and #4 right → tail. Neither opaque operand has a yield witness. Keep lead → first, last → tail and all three crossed negatives. |
@@ -177,16 +177,16 @@ The input truth comes from the reviewed matrix. The base outcome is historical. 
 
 ### Ordinary B NameOnly rest edges
 
-The independent `binding` verdicts for head `bd9c0945` give the following cost when the §5 B file comparison is applied to each graded `nameonly/call_nameonly` addition. Compare `row.from.file` and `row.to.file` with the SB package qualifier intact. Counts are edges. C, W and U mean CORRECT, WRONG and UNDECIDED. [X verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/X/graded/verdicts.jsonl) · [T verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/T/graded/verdicts.jsonl) · [SB verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/SB/graded/verdicts.jsonl)
+The independent `binding` verdicts for head `bd9c0945` give the following cost when the §5 B file comparison is applied to B-only graded `nameonly/call_nameonly` additions. The figures subtract 23 inherited foreign slice A edges from SB. Compare `row.from.file` and `row.to.file` with the SB package qualifier intact. Counts are edges. C, W and U mean CORRECT, WRONG and UNDECIDED. [X verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/X/graded/verdicts.jsonl) · [T verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/T/graded/verdicts.jsonl) · [SB verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/SB/graded/verdicts.jsonl)
 
 | Corpus | Withheld same-file | C / W / U | Kept foreign | C / W / U |
 |---|---:|---|---:|---|
 | X | 4 | 0 / 4 / 0 | 109 | 82 / 0 / 27 |
 | T | 29 | 16 / 13 / 0 | 18 | 18 / 0 / 0 |
-| SB | 36 | 0 / 3 / 33 | 200 | 3 / 0 / 197 |
-| **Total** | **69** | **16 / 20 / 33** | **327** | **103 / 0 / 224** |
+| SB | 36 | 0 / 3 / 33 | 177 | 1 / 0 / 176 |
+| **Total** | **69** | **16 / 20 / 33** | **304** | **101 / 0 / 203** |
 
-The unfiltered head failed the pooled gate at 20/396 (5.05%), with 20/139 WRONG among decided rows. All 20 errors matched a receiver method to an unrelated same-file declaration. Applying the file comparison to those verdicts gives **0/327** on the gate and **0/103** among decided rows. The 224 retained UNDECIDED rows earn zero credit. The Exact population stands at 793 CORRECT, 0 WRONG and 4 UNDECIDED. These counts price the design on the recorded differential. Regrade the implementation head for activation. [Differential ledger](/Users/wesleyjinks/prism-evidence/param-binding/LEDGER.md)
+The unfiltered head failed the pooled gate at 20/373 (5.36%), with 20/137 WRONG among decided rows. All 20 errors matched a receiver method to an unrelated same-file declaration. Applying the file comparison to those verdicts gives **0/304** on the gate and **0/101** among decided rows. The 203 retained UNDECIDED rows earn zero credit. The 793 B-only Exact additions comprise 789 CORRECT, 0 WRONG and 4 UNDECIDED. These counts price the design on the recorded differential. Regrade the implementation head for activation. [Differential ledger](/Users/wesleyjinks/prism-evidence/param-binding/LEDGER.md)
 
 Before this amendment, b06 and s5-5 were the only ordinary B same-file NameOnly rest positives across the 425 matrix IDs. Both now prohibit those edges. Three E rows require same-file `nameonly/call_nameonly` rest edges from independently derived `argument_follow` targets. Keep t4-9 #2, s3-23 #3 and x3-11 #4–5. D's s1-17 #2 also delivers into same-file rest, under `nameonly/builtin_callback`. Keep its role edge. Each producer retains its ledger disposition.
 

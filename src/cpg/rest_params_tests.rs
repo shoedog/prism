@@ -383,3 +383,131 @@ function main(xs, early, late) {
         assert!(bindings(&cpg, "main", "b").is_empty());
     }
 }
+
+#[test]
+fn rest_review_parameter_decorator() {
+    for (member, decorator, expected) in [
+        ("m", "@drain ", false),
+        ("constructor", "@drain ", false),
+        ("m", "", true),
+    ] {
+        let source = format!(
+            "function take(...r: unknown[]) {{ return r; }}\n\
+             function main() {{ const xs = [1];\n\
+               function drain(...args: unknown[]) {{ xs.length = 0; }}\n\
+               class C {{ {member}({decorator}arg: unknown) {{}} }}\n\
+               return take(...xs);\n\
+             }}"
+        );
+        assert_review_rest(&source, "m.ts", Language::TypeScript, "xs", expected);
+    }
+}
+
+#[test]
+fn rest_review_parameter_default() {
+    for (initializer, expected) in [
+        ("(String.prototype[Symbol.iterator] = function*(){})", false),
+        ("0", true),
+    ] {
+        let source = format!(
+            "function take(...r) {{ return r; }}\n\
+             function main(arg = {initializer}) {{ const xs = 'x'; return take(...xs); }}"
+        );
+        assert_review_rest(&source, "m.js", Language::JavaScript, "xs", expected);
+    }
+}
+
+#[test]
+fn rest_review_parameter_default_in_enclosing_callable() {
+    for (initializer, expected) in [("replaceIterator()", false), ("0", true)] {
+        let source = format!(
+            "function take(...r: unknown[]) {{ return r; }}\n\
+             function outer(arg: number = {initializer}) {{\n\
+               function main() {{ const xs = 'x'; return take(...xs); }}\n\
+               return main;\n\
+             }}"
+        );
+        assert_review_rest(&source, "m.ts", Language::TypeScript, "xs", expected);
+    }
+}
+
+#[test]
+fn rest_review_escaped_captured_write() {
+    assert_review_rest_body(r"function reset(){\u0072=[]} reset();", false);
+    assert_review_rest_body(r"\u0072=[];", false);
+    assert_review_rest_body("function reset(){r=[]} reset();", false);
+    assert_review_receiver_rest(r"function reset(){\u0072=[]} reset();", false);
+    assert_review_receiver_rest(r"\u0072=[];", false);
+}
+
+#[test]
+fn rest_review_direct_eval() {
+    assert_review_rest_body("eval('r=[]');", false);
+}
+
+#[test]
+fn rest_review_nested_eval() {
+    assert_review_rest_body("function reset(){eval('r=[]')} reset();", false);
+}
+
+#[test]
+fn rest_review_nested_shadow() {
+    assert_review_rest_body("function reset(r){r=[]} reset();", true);
+}
+
+#[test]
+fn rest_review_escaped_nested_shadow() {
+    assert_review_receiver_rest(r"function reset(\u0072){\u0072=[]} reset();", true);
+    assert_review_receiver_rest(r"function reset(\u0072){r=[]; use(r)} reset();", true);
+    assert_review_receiver_rest(r"function reset(r){\u0072=[]} reset();", true);
+}
+
+fn assert_review_receiver_rest(body: &str, expected: bool) {
+    // A same-file bare call can already be refused by the escaped-identifier
+    // resolution guard. A call on `this` independently identifies the method.
+    let source = format!(
+        "class C {{\n take(...r) {{\n {body}\n return r;\n }}\n main(v) {{ return this.take(v); }}\n}}"
+    );
+    let files = parsed_files(&[("m.js", &source)], Language::JavaScript);
+    let expected = if expected {
+        vec![("v".into(), FlowConfidence::Exact)]
+    } else {
+        vec![]
+    };
+    for cpg in build_both(&files) {
+        let site = call_site(&cpg.call_graph, "main", "take");
+        let pool = cpg.call_graph.resolve_call_site(site);
+        assert!(
+            object_literal_args::exact_singleton(&pool),
+            "{body}: {pool:?}"
+        );
+        assert_eq!(pool[0].kind, ResolutionKind::SelfReceiver);
+        assert_eq!(pool[0].target.name, "take");
+        assert_eq!(bindings(&cpg, "main", "r"), expected, "{body}");
+    }
+}
+
+fn assert_review_rest_body(body: &str, expected: bool) {
+    let source = format!(
+        "function take(...r){{\n {body}\n return r;\n}}\nfunction main(v){{ return take(v); }}"
+    );
+    assert_review_rest(&source, "m.js", Language::JavaScript, "v", expected);
+}
+
+fn assert_review_rest(
+    source: &str,
+    path: &str,
+    language: Language,
+    argument: &str,
+    expected: bool,
+) {
+    let files = parsed_files(&[(path, source)], language);
+    let expected = if expected {
+        vec![(argument.to_string(), FlowConfidence::Exact)]
+    } else {
+        vec![]
+    };
+    for cpg in build_both(&files) {
+        assert_eq!(bindings(&cpg, "main", "r"), expected, "{source}");
+    }
+}

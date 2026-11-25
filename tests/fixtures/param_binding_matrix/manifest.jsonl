@@ -119,8 +119,7 @@
 {"id":"s2-4","ordinal":1,"slice":"B","kind":"loss","reason":"#1 label → tag also lacks a parameter-property Def. #2–3 count/text → parts are blocked/RED without the constructor site. Require #4 no label → parts, including with a supplied site."}
 {"id":"s2-4","ordinal":2,"slice":"B","kind":"blocked","reason":"Requires an admitted Source constructor site and its Exact implementation"}
 {"id":"s2-4","ordinal":3,"slice":"B","kind":"blocked","reason":"Requires an admitted Source constructor site and its Exact implementation"}
-{"id":"s2-5","ordinal":1,"slice":"B","kind":"loss-row","reason":"A nested function's same-named parameter drops the outer rest formal's entry Def in the formal census (#915); outside slice B. The prohibition #2 stays mandatory."}
-{"id":"s2-5","ordinal":1,"slice":"B","kind":"loss","reason":"A nested function's same-named parameter drops the outer rest formal's entry Def in the formal census (#915); outside slice B. The prohibition #2 stays mandatory."}
+{"id":"s2-5","ordinal":1,"slice":"B","kind":"corrected","reason":"Require the Exact edge to the outer rest Def now that the shadowed write is distinguished. Keep the prohibition on the inner parameter."}
 {"id":"s2-6","ordinal":1,"slice":"B","kind":"set-row","reason":"#1 withhold box.items → tail. Matching member bytes and a known start do not prove an element. Keep both fixed-slot prohibitions."}
 {"id":"s2-6","ordinal":1,"slice":"B","kind":"corrected","reason":"#1 withhold box.items → tail. Matching member bytes and a known start do not prove an element. Keep both fixed-slot prohibitions."}
 {"id":"s2-11","ordinal":1,"slice":"D","kind":"loss-row","reason":"Bind arr only to transform at the inner site. The outer call consumes the intermediate result and loses its transfer to consume."}

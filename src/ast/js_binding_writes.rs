@@ -66,7 +66,7 @@ impl ParsedFile {
             }
             for t in targets {
                 let mut names = BTreeSet::new();
-                self.collect_js_ts_binding_pattern_names(t, &mut names);
+                self.collect_js_ts_write_names(t, &mut names);
                 for w in names {
                     out.entry(w).or_default().push(t);
                 }
