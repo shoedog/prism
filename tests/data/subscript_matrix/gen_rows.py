@@ -8,6 +8,8 @@ import subprocess
 import tempfile
 import textwrap
 
+from gen_python_q import python_q
+
 ROOT = Path(__file__).resolve().parent
 ROWS = []
 # Line-seeded CLI verdicts for the retained draft controls.
@@ -494,10 +496,23 @@ def projected_receiver(case, argument):
     return [start, start + case[start:end].index(b"[")]
 
 
+# A forbidden edge may refer to a deliberately absent or colliding draft node.
+# Pin these exceptions explicitly so every other missing endpoint fails closed.
+BOUNDARY_ENDPOINT_COUNTS = {
+    "P01.go": {(142, 148): 0}, "P01.js": {(140, 146): 0}, "P01.py": {(104, 110): 0},
+    "P15.go": {(111, 117): 0}, "P15.js": {(103, 104): 0, (103, 109): 0},
+    "P15.py": {(73, 79): 0}, "R07.py": {(91, 92): 2}, "R09.py": {(30, 41): 0},
+    "T01.js": {(77, 83): 0, (119, 125): 0}, "T02.js": {(73, 79): 0, (112, 118): 0},
+    "T03.js": {(120, 126): 0}, "T04.py": {(54, 60): 0, (94, 100): 0},
+    "T05.py": {(83, 89): 0}, "Y12.js": {(125, 131): 0, (133, 137): 0, (159, 160): 0},
+    "Y12.py": {(94, 100): 0, (102, 103): 0, (102, 106): 0, (119, 120): 0},
+}
+
+
 def observations(row, case):
     """Keep new assertions separate from unchanged and group-only draft rows."""
     group = row["group"]
-    if group == "control":
+    if group == "control" or "markers" in row:
         return None
     ident = row["id"]
     write_def = endpoint("Def", row["w_bytes"])
@@ -569,6 +584,13 @@ def observations(row, case):
             edges.append(edge(endpoint("Use", receiver), p_def))
         formal_label = "exact" if row["lang"] == "js" else "nameonly_cfg_incomplete"
         edges.append(edge(q_def, sink_use, formal_label))
+    counts = BOUNDARY_ENDPOINT_COUNTS.get(ident, {})
+    for pair in edges:
+        if not pair["labels"]:
+            for site in (pair["from"], pair["to"]):
+                count = counts.get(tuple(site["bytes"]))
+                if count is not None:
+                    site["node_count"] = count
     return pin
 
 
@@ -596,6 +618,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe-base", type=Path, help="print the pinned base binary's raw responses")
     args = parser.parse_args()
+    ROWS.extend(python_q())
     assert len({row["id"] for row, _ in ROWS}) == len(ROWS)
     if args.probe_base:
         print(json.dumps(probe(args.probe_base.resolve()), indent=2, ensure_ascii=False))
