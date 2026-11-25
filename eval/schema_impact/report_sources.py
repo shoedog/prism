@@ -331,9 +331,10 @@ def client_calls(snapshot, root, client_root, selected, config, config_source):
         gaps.append(diagnostic(client_root, "no import could be linked to the configured client. "
                                "Uses of this client could have been missed"))
     for file, scan in scans.items():
+        accounted = set()
+        observations = list(scan.observations(file, accounted=accounted))
         gaps.extend(diagnostic(file, reason, line, check="client call inventory")
-                    for line, reason in dict.fromkeys(scan.unaccounted_client_references()))
-        observations = list(scan.observations(file))
+                    for line, reason in dict.fromkeys(scan.unaccounted_client_references(accounted)))
         same_line = Counter(row.call.line for row in observations)
         line_occurrences = Counter()
         for occurrence, observation in enumerate(observations, start=1):

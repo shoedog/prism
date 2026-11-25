@@ -29,10 +29,13 @@ class Limits:
     def warning(self, reason, where):
         self.warning_locations.setdefault(reason.rstrip("."), {}).setdefault(where, None)
 
+    def markers(self, failures, where=None):
+        return list(dict.fromkeys(self.add(failure, where) for failure in failures))
+
     def add(self, reason, where=None):
         if isinstance(reason, dict):
             if "confirmed" in reason:
-                return " · ".join(dict.fromkeys(self.add(failure, where) for failure in reason["failures"]))
+                return " · ".join(self.markers(reason["failures"], where))
             file = reason["file"]
             location = reason["side"] or ""
             if file:

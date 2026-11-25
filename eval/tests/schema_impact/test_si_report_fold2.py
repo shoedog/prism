@@ -61,6 +61,61 @@ def test_unaccounted_client_reference_qualifies_inventory(tmp_path, source, file
     assert "No client calls were added, removed or retargeted" not in markdown
 
 
+@pytest.mark.parametrize(("hook_call", "method", "fetcher_arg"), [
+    ('useSWR<Result>(["/oak", params], request.instance.post,);', "POST", None),
+    ('swr("/oak", (request.instance["get"] as Fetcher));', "GET", None),
+    ('useSWR("/oak", options, request.instance.post);', "POST", 2),
+])
+def test_recognised_hook_fetcher_is_accounted(tmp_path, hook_call, method, fetcher_arg):
+    cli_args = ()
+    if fetcher_arg is not None:
+        configs = tmp_path / "configs"
+        configs.mkdir()
+        name = "apache-answer.toml"
+        (configs / name).write_text(
+            (CONFIGS / name).read_text().replace("fetcher_arg = 1", f"fetcher_arg = {fetcher_arg}"),
+        )
+        cli_args = ("--configs", str(configs))
+    repo, _ = start(tmp_path)
+    source = CALL_SOURCE + 'import swr from "swr";\n' + hook_call + "\n"
+    _, doc = report(repo, repo.commit(1, **{CALL: source}), tmp_path, "consumer", *cli_args)
+    assert not [gap for gap in doc["warnings"] if gap["check"] == "client call inventory"]
+    after = doc["inputs"][doc["change"]["after_input_id"]["client"]]
+    fetcher, = [row for row in after["calls"] if row["site"]["line"] == 4]
+    assert fetcher["requested_method"] == method
+    assert doc["summary"]["client_change_count"]["total"] == 1
+
+
+def test_parameter_alias_stays_unaccounted_alongside_hook_fetcher(tmp_path):
+    repo, _ = start(tmp_path)
+    source = CALL_SOURCE + '''
+const run = (api) => api.get("/oak");
+run(request);
+useSWR("/oak", request.instance.get);
+useSWR("/oak", fetch,
+  request.instance.post);
+'''
+    _, doc = report(repo, repo.commit(1, **{CALL: source}), tmp_path, "consumer")
+    gaps = [gap for gap in doc["warnings"] if gap["check"] == "client call inventory"]
+    assert [(gap["file"], gap["line"]) for gap in gaps] == [(CALL, 5), (CALL, 8)]
+
+
+def test_recognised_bind_receiver_is_accounted(tmp_path):
+    repo, _ = start(tmp_path)
+    source = CALL_SOURCE + '''
+const bound = request.instance.post.bind(
+  request.instance,
+  request);
+const other = request.instance.post.bind(
+  request);
+useSWR("/oak", () => request.instance.post.bind(
+  request.instance));
+'''
+    _, doc = report(repo, repo.commit(1, **{CALL: source}), tmp_path, "consumer")
+    gaps = [gap for gap in doc["warnings"] if gap["check"] == "client call inventory"]
+    assert [(gap["file"], gap["line"]) for gap in gaps] == [(CALL, 6), (CALL, 8)]
+
+
 @pytest.mark.parametrize("replacement", [
     "register([]); mount(makeEntries());\n",
     "/* comment */ mount(makeEntries());\n",

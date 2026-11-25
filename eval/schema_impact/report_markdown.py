@@ -175,21 +175,30 @@ class Markdown(OperationTables):
                          "Proved client call edits"))
         for key, name in (("known_unmatched_count", "Requests with no match"),
                           ("unknown_target_count", "Calls with an unknown target")):
-            value = " · ".join(f"{side.title()} {self.count_text(doc['request_counts'][side][key], side)}"
-                               for side in ("before", "after"))
+            counts = doc["request_counts"]
+            value = self.count_text(counts["before"][key], after=counts["after"][key])
             scope = ("Readable methods and addresses among client requests checked" if key == "known_unmatched_count"
                      else "Client requests whose method or address could not be read")
             rows.append((name, value, scope))
         return table(["Measure", "Count", "What it covers"], rows)
 
-    def count_text(self, row, purpose=None):
-        number = str(row["observed"])
-        if purpose:
-            number = f"[{number}](#requests-{purpose})"
-        if row["total"] is None:
-            proof = row["claim"]
-            return f"{number} observed · {self.mark(proof if proof and not proof['confirmed'] else row['reason'])}"
-        return number
+    def count_text(self, row, *, after=None):
+        counts = ((None, row),) if after is None else (("before", row), ("after", after))
+        values, failures = [], []
+        for side, count in counts:
+            number = str(count["observed"])
+            if side:
+                number = f"{side.title()} [{number}](#requests-{side})"
+            if count["total"] is None:
+                number += " observed"
+                proof = count["claim"]
+                failures.extend(proof["failures"] if proof and not proof["confirmed"] else [count["reason"]])
+            values.append(number)
+        markers = self.limits.markers(failures)
+        text = " · ".join([*values, *markers[:2]])
+        if len(markers) > 2:
+            text += f" and {len(markers) - 2} more, [see Limits](#limits)"
+        return text
 
     def request(self, call):
         method, original, path = call["requested_method"], call["original_url_text"], call["mapped_path"]

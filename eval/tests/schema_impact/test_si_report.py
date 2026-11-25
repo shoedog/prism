@@ -4,6 +4,8 @@ import re
 import pytest
 
 from schema_impact.cli import main
+from schema_impact.report_claims import failed
+from schema_impact.report_markdown import render_markdown
 from test_si_replay import CALL, CALL_SOURCE, CLIENT, CONFIGS, HANDLER, Repo, SCHEMA, git
 
 
@@ -337,6 +339,30 @@ def test_summary_and_shared_limit_references(tmp_path):
     assert markers and all(label == target and target in ids for label, target in markers)
     assert md.count("client source could not be parsed") == 1
     assert all(f"ui/src/extra{i}.tsx" in md for i in range(4))
+
+
+def test_summary_shares_and_shortens_limits_across_versions(tmp_path):
+    repo, _ = start(tmp_path, **{"ui/src/extra.tsx": "({ invalid [\n"})
+    _, doc = report(repo, repo.commit(1), tmp_path)
+    counts = doc["request_counts"]
+    for side, reason in (("before", "first additional reason"), ("after", "second additional reason")):
+        counts[side]["unknown_target_count"]["claim"]["failures"].append(failed("Client inventory", None, None, reason))
+    possible = doc["summary"]["possible_only_usage_count"]["claim"]
+    possible["failures"] = [failure for side in ("before", "after")
+                            for failure in counts[side]["unknown_target_count"]["claim"]["failures"]]
+    md = render_markdown(doc)
+    summary = md.split("## Summary\n\n")[1].split("\n\n", 1)[0]
+    row = next(line for line in summary.splitlines() if line.startswith("| Calls with an unknown target |"))
+    markers = re.findall(r"not checked \[(L\d+)\]", row)
+    assert len(markers) == len(set(markers)) == 2
+    assert "Before [0](#requests-before) observed · After [0](#requests-after) observed" in row
+    assert "and 1 more, [see Limits](#limits)" in row
+    same_marker_row = next(line for line in summary.splitlines() if line.startswith("| Possible matches only |"))
+    assert re.findall(r"not checked \[(L\d+)\]", same_marker_row) == markers
+    assert "and 1 more, [see Limits](#limits)" in same_marker_row
+    limits = md.split("## Limits\n\n")[1].split("## Coverage", 1)[0]
+    for reason in ("first additional reason", "second additional reason", "client source could not be parsed"):
+        assert limits.count(reason) == 1
 
 
 def test_long_preview_and_provenance(tmp_path):

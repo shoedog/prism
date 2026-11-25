@@ -220,7 +220,9 @@ class _File:
         hook = self.resolver.hooks.get(hook_name)
         return _Target("hook", (), hook) if hook is not None and not members else None
 
-    def _hook(self, target: _Target, args: list[Node]) -> tuple[_Request, Node | None, ClientSpec | None]:
+    def _hook(
+        self, target: _Target, args: list[Node], accounted: set[Node] | None,
+    ) -> tuple[_Request, Node | None, ClientSpec | None]:
         hook = target.spec
         url = ts.argument(args, hook.url_arg)
         fetcher = ts.unwrap(ts.argument(args, hook.fetcher_arg))
@@ -231,7 +233,7 @@ class _File:
                 called = self.target(result.child_by_field_name("function"))
                 if called is None or called.kind == "hook":
                     continue
-                delegated = _request(called, ts.children(result.child_by_field_name("arguments")))
+                delegated = self._call_request(called, ts.children(result.child_by_field_name("arguments")), accounted)
                 if request is not None and (request.method, request.spec, request.reason) != (
                     delegated.method, delegated.spec, delegated.reason
                 ):
@@ -241,13 +243,33 @@ class _File:
             reference = self.target(fetcher)
             if reference is not None and reference.kind != "hook":
                 request = _request(reference, [])
+                if accounted is not None:
+                    accounted.add(ts.member_chain(fetcher)[0])
         if request is None:
             return _Request("GET", url, hook), inline, None
         spec = hook if hook.strip_prefix or hook.add_prefix else request.spec or hook
         return _Request(request.method, url, spec, request.reason), inline, request.spec
 
-    def unaccounted_client_references(self):
-        accounted = set()
+    def _bound_receiver(self, target: _Target, args: list[Node]) -> Node | None:
+        if target.kind != "client" or target.members[-1:] != ("bind",):
+            return None
+        method = _Target("client", target.members[:-1], target.spec)
+        if _client_request(method, []).reason in {"unknown_client_method", "unconfigured_client_form"}:
+            return None
+        receiver = ts.argument(args, 0)
+        if self.target(receiver) == _Target("client", target.members[:-2], target.spec):
+            return ts.member_chain(receiver)[0]
+        return None
+
+    def _call_request(self, target: _Target, args: list[Node], accounted: set[Node] | None) -> _Request:
+        request = _request(target, args)
+        # A matching thisArg belongs to the observed .bind form of a configured method.
+        if accounted is not None and request.reason == "unknown_client_method":
+            if (receiver := self._bound_receiver(target, args)) is not None:
+                accounted.add(receiver)
+        return request
+
+    def unaccounted_client_references(self, accounted: set[Node]):
         for node, scope in self.bindings.scopes.items():
             if node.type == "variable_declarator":
                 name = node.child_by_field_name("name")
@@ -282,7 +304,7 @@ class _File:
     def calls(self, file: str) -> list[ClientCall]:
         return [observation.call for observation in self.observations(file)]
 
-    def observations(self, file: str):
+    def observations(self, file: str, *, accounted: set[Node] | None = None):
         fetchers = []
         for node in ts.walk(self.tree):
             if node.type != "call_expression":
@@ -298,11 +320,11 @@ class _File:
             hook_key = target.kind == "hook"
             delegated = None
             if hook_key:
-                request, inline, delegated = self._hook(target, args)
+                request, inline, delegated = self._hook(target, args, accounted)
                 if inline is not None:
                     fetchers.append(inline)
             else:
-                request = _request(target, args)
+                request = self._call_request(target, args, accounted)
             path, url_class, url_reason = url_pattern(
                 request.url, self.bindings.constant, request.spec, hook_key=hook_key,
             )
