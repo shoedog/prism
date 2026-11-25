@@ -180,23 +180,36 @@ impl ParsedFile {
 
     /// PR-A D11: refuse new shapes if another binding anywhere inside the
     /// owner's body may bind this name. Escaped binding spellings are ambiguous
-    /// and fail closed. Plain-formal admission and the legacy walk stay intact.
+    /// and fail closed. A nested function declaration's own parameters can
+    /// shadow a rest formal when the reference walk uses the byte-based fence.
     pub(crate) fn js_ts_nested_callable_binds_formal(
         &self,
         func_node: &Node<'_>,
-        name: &str,
+        formal: Node<'_>,
     ) -> bool {
+        let name = self.node_text(&formal);
+        let rest = formal
+            .parent()
+            .is_some_and(|node| node.kind() == "rest_pattern");
         let boundaries = self.language.callable_boundary_node_types();
         let mut stack: Vec<_> = func_node.child_by_field_name("body").into_iter().collect();
         while let Some(node) = stack.pop() {
-            if boundaries.contains(&node.kind()) {
-                if let Some(params) = self
+            if boundaries.contains(&node.kind())
+                && self
                     .find_parameters_node(&node)
                     .or_else(|| node.child_by_field_name("parameter"))
+                    .is_some_and(|params| self.js_ts_binding_pattern_may_bind(params, name))
+            {
+                let declaration = matches!(
+                    node.kind(),
+                    "function_declaration" | "generator_function_declaration"
+                );
+                if !rest
+                    || !declaration
+                    || node.has_error()
+                    || self.js_ts_seam_binding(func_node, name)
                 {
-                    if self.js_ts_binding_pattern_may_bind(params, name) {
-                        return true;
-                    }
+                    return true;
                 }
             }
             let binding = match node.kind() {
