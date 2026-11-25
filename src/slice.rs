@@ -15,12 +15,14 @@ pub struct FileParseQuality {
     pub error_lines: Vec<usize>,
 }
 
+/// A reference from a finding to the rule it is an instance of: the rule id, the rule's CWE when it
+/// has one, and the rule's own severity when that is lower than the finding's.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct RuleRef {
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cwe: Option<String>,
-    /// The rule's own severity, only when lower than the finding's (design section 5.2).
+    /// The rule's own severity, only when lower than the finding's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub severity: Option<String>,
 }
@@ -30,6 +32,9 @@ pub struct RuleRef {
 /// DiffBlocks carry the *lines* to show. They're consumed at different
 /// stages: blocks go into the reviewer's code context, findings go
 /// into the reviewer's analysis hints.
+///
+/// `Default` is for tests and struct update; production code builds a finding with every field
+/// spelled out and sets `algorithm`, `file`, `line`, `severity` and `description` itself.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SliceFinding {
     pub algorithm: String,
@@ -598,6 +603,10 @@ mod tests {
             },
         ]);
 
+        assert_eq!(
+            serde_json::to_string(&finding).unwrap(),
+            r#"{"algorithm":"","file":"","line":0,"severity":"","description":"","rules":[{"id":"js-dom-html","cwe":"CWE-79"},{"id":"legacy"}]}"#
+        );
         let json = serde_json::to_value(&finding).unwrap();
         assert_eq!(
             json["rules"],
