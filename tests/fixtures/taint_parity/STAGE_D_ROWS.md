@@ -350,7 +350,7 @@ All rows have group `walk`, default knobs, findings **none / none** on the marke
 | `d-return-py-percent` | a.py | `"ls %s" % v` | P | consumed string field |
 | `d-return-py-percent-zero` | a.py | `"%.0s" % v` | X | precision discards all characters |
 | `d-return-py-percent-width` | a.py | `"ls%4s" % v` | P | fixed minimum width pads, no truncation (reviewer B round 3) |
-| `d-return-js-composed-occurrence` | a.js | `("a" + v).slice(0, 1) + v` | P (second read) / X (first read) | two occurrences of `v`: the witness must use the second read; the first cannot contribute (reviewer B round 3 smell) |
+| `d-return-js-composed-occurrence` | a.js | `("a" + v).slice(0, 1) + v` | P (second read) / X (first read) | two occurrences of `v` (two queries): seeded at the second read, Reached depth 1 with the witness through the second read; seeded at the first read, a cut at the first edge (NotReached, `unproven_return_input`) (reviewer B round 3 smell) |
 | `d-return-py-format` | a.py | `"ls {}".format(v)` | P | automatic positional field |
 | `d-return-py-format-keyword` | a.py | `"ls {x}".format(x=v)` | P | named field consumes this value |
 | `d-return-py-format-unused` | a.py | `"fixed".format(v)` | X | no consuming field |
@@ -371,13 +371,13 @@ All rows have group `walk`, default knobs, findings **none / none** on the marke
 | `d-return-py-str` | a.py | `str(v)` | P | identity conversion of a primitive string (R4) |
 | `d-return-js-String` | a.js | `String(v)` | P | identity conversion of a primitive string (R4) |
 | `d-return-py-strip` | a.py | `v.strip()` | P | native trim; also `lower()` / `upper()` (R4) |
-| `d-return-js-and-fixed` | a.js | `v && 'fixed'` | X | returns `v` only when falsy, which carries no data; truth no_flow (R4 smell) |
+| `d-return-js-and-fixed` | a.js | `v && 'fixed'` | X | the formal is a primitive string (TS `v: string`), where `''` is the only falsy value and carries no data; truth no_flow. An untyped formal would pass `0` or `-0` through, so the fixture must type it (R4 smell, reviewer B round 4) |
 | `d-return-go-sprintf-zero` | a.go | `fmt.Sprintf("%.0s", v)` | X | zero-byte output |
 | `d-return-go-sprintf-quote` | a.go | `fmt.Sprintf("%q", v)` | P | standard quoting emits the string’s data |
 | `d-return-go-sprintf-precision` | a.go | `fmt.Sprintf("%.*s", limit(), v)` | U | the dynamic precision can select zero characters |
 | `d-return-go-sprintf-hook` | a.go | `fmt.Sprintf("%s", v)` | X | use the Go `fixedStringer` setup above |
 
-The paired fixture comparison covers 50 additional base-accepted witnesses. The design retains 34 true witnesses, rejects 11 false witnesses, and deliberately forgoes 5 true witnesses, one per U row. These are fixture counts against the proposed decisions. The owner’s pre-dispatch comparison in PLAN measures the cost in the frozen repositories, including alternative surviving paths.
+The paired fixture comparison (tally taken before the round-3 and round-4 return-row additions; the table now lists more return rows) covers 50 additional base-accepted witnesses. The design retains 34 true witnesses, rejects 11 false witnesses, and deliberately forgoes 5 true witnesses, one per U row. These are fixture counts against the proposed decisions. The owner’s pre-dispatch comparison in PLAN measures the cost in the frozen repositories, including alternative surviving paths.
 
 ### Finding and catalog controls to materialise
 
