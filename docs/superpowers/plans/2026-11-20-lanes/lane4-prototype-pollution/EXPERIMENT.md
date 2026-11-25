@@ -8,19 +8,25 @@ Date: 2026-11-24. Parent issue #603.
 **C (strict) = 29, C (liberal) = 42.** The pre-stated gate (owner-confirmed 2026-11-20) is
 C >= 25 under the strict reading: **continue to stages T and E without waiting.**
 The contradicted-premise check passes: of the 20 traced cases that do not convert under the strict
-reading, 3 fail because the key is not reached by name and 17 because no strict class applies (a shape the
-classes do not cover); none is a matching artefact of how the key's arrival is read.
+reading, 3 fail because the key is not reached by name (expand-hash_1.0.1, mixin-deep_2.0.0, which also has no class,
+and think-config_1.0.0) and 17 because no strict class applies: 16 for a shape the classes do not cover and 1
+(objnest_5.0.0) because the write on the ground-truth line cannot pollute (a fresh local object). At most 3 of the 20 could be
+matching artefacts of how the key's arrival is read, so they cannot be most of them; the premise check cannot fire.
+Disclosure on the margin: the gate is applied by name, as DESIGN section 6 says. Of the 29 converted cases only 6 have a byte-exact
+(strict E2) Use in the index span (arr-flatten-unflatten, assign-deep, dot-object, grunt-util-property, json8-merge-patch,
+paypal-adaptive); the margin over the gate is 4 and the readers' coincidental-credit flag was not audited, so 5 coincidental
+credits would move the gate to "ask the owner".
 
 ## E1: how many cases trace today
 
-49 of 95 cases with ground truth trace (baseline of 2026-10-05: 41). Outcomes now (baseline): traced 49 (41),
+49 of the 95 cases with ground truth trace (the 190 acquired entries partition as below; `gt_unavailable` is the other 95) (baseline of 2026-10-05: 41). Outcomes now (baseline): traced 49 (41),
 reached_function_only 24 (26), partial 9 (8), prism_error 11 (17), not_reached 2 (3), gt_unavailable 95 (95),
 acquisition_excluded 2 (2). 20 case outcomes changed; the list is in `e1/SUMMARY.md`.
 
 ## E2: is the key reached (49 traced cases)
 
 By name: 46 yes, 3 no (expand-hash_1.0.1, mixin-deep_2.0.0, think-config_1.0.0).
-Strict (the Use's byte span inside the index expression): 8 yes. As predicted by DESIGN 2, nearly every
+Strict (the Use's byte span inside the index expression): 8 yes over the 49 (6 of them among the 29 converted). As predicted by DESIGN 2, nearly every
 conversion rests on a zero-width or right-hand-occurrence Use, so the sink must match by name.
 Coincidental credit: the readers flagged none (E3 `coincidental_credit` false in all 49; the field is the least
 reliable one, readers had no access to the matching script's internals).
@@ -75,12 +81,12 @@ First breaks of the 20: unresolved 11, B-plain-argument 7, C-member 1, H-callbac
 ## E4: ordinary code
 
 Corpora and commits: Excalidraw 0642e72c (source tree), TypeScript `src` 7964e22f2, express 18e5985, directus `api` c40ab79f2c,
-calcom `apps/api` f972feefa1 (superset 7519fa8b6f and answer 6744295f were run too but the first five gave 32 hits >= 20).
+calcom `apps/api` f972feefa1 (superset 7519fa8b6f and answer 6744295f were run and excluded by rule: the first five gave 32 hits >= 20).
 Class hits outside test directories: Excalidraw 8 (nested_keys), TypeScript 4 (nested_keys), express 0, directus 19
 (nested_keys 10, recursive_merge 9), calcom 1 (nested_keys); path_walk 0 in every corpus. 32 hits, all labelled.
 Reader tally: can_pollute 6, guarded 3, cannot 23. **Share able to pollute 6/32 = 19% (9/32 = 28% with guarded)**, below the 70% line:
-the misjudged shapes become matrix rows and the class definitions are tightened in stage D before any slice. None of the 6 has a
-confirmed attacker-reachable selector.
+the misjudged shapes become matrix rows and the class definitions are tightened in stage D before any slice. None of the 6 can-pollute hits has a
+confirmed attacker-reachable selector (two of the three guarded directus hits are reachable from a `fields=` query parameter).
 False-positive shapes named by the reader: write-back to the iterated object (`for (k in o) o[k] = f(o[k])`, hits 11-20, includes
 all 9 directus recursive_merge hits); numeric or array-index selectors; templated selectors with a constant prefix; constant or
 fresh-object targets; guards the token scan does not see (`Object.create(null)` on another line, a `throw` guard).
@@ -88,16 +94,19 @@ Aliased-receiver exposure: benchmark 3 of 49 traced (minimist_1.0.0, nodee-utils
 
 ## E5: guard forms in fixed versions (20 packages, archives only, never run)
 
-All 20 fixes found. Forms: strict equality on literal names, inline or in a helper (13: assign-deep, mixin-deep, object-path-set,
-just-safe-set, keyget, nodee-utils, dotty, hoek, json8-merge-patch, objection, jsonpointer, convict, madlib-object-utils);
+The 20 were taken from the 49 traced cases that name a fixed version (14 of them are strict-converted; convict, getobject, hoek, mixin-deep, mpath and objection are not). All 20 fixes found. Forms: strict equality on literal names, inline or in a helper (12: assign-deep, mixin-deep, object-path-set,
+just-safe-set, nodee-utils, dotty, hoek, json8-merge-patch, objection, jsonpointer, convict, madlib-object-utils);
 `includes`/`indexOf` on a name list (dot-object, getobject, libnested, mpath, keyget); `startsWith` on the remaining path (doc-path);
 a value test `=== Object.prototype` (keyd); a container change to `Object.create(null)` (cached-path-relative, json8-merge-patch).
 Several fixes cover `__proto__` only (dotty, getobject, hoek, objection, json8-merge-patch) or test the first or the whole parent
-path only (madlib-object-utils, convict). 13 test every walk key and the final key (or the whole path before the walk), none only the
+path only (madlib-object-utils, convict). at least 13 test every walk key and the final key (or the whole path before the walk; the reader's count, criterion not re-applied), none only the
 final key; most reject with `throw` or `return`, six skip. Each distinct form is an input row for task T-2 (`m/e5_guards.jsonl`).
 Fixed versions are available, so DESIGN decision 7's fallback does not apply: guards may suppress once backed by executed rows.
 
 ## Notes on method
+
+Not in this memo, deferred to the stage-D brief: P by payload shape and by shape label (reader labels for the 33 were not made), C by shape
+label beyond the table above, and the classifier's guard-token report (`m/classify_on_traced.json`).
 
 Readers are Claude seats (Sonnet-5.5); labels are single-reader. The E3 `strict` flag of the key-reach script requires a non-zero-width
 Use inside the index; a zero-width anchor never converts strict. Benchmark source was read, never executed.
