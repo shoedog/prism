@@ -38,7 +38,7 @@ is the write-by-write Stage D contract.
   model, empty working directory, cleared environment, 5 second limit, refused network modules). The
   orchestrator reads every new row before its first run.
 - Briefs for codex seats use neutral wording: "benchmark accounting", "entry point", "target write",
-  "key operand". Product implementers work from `tests/fixtures/proto_writes/` and do not open the
+  "key operand". Product implementers work from `tests/proto_writes_matrix/` and do not open the
   benchmark tree. Readers of benchmark functions (E3, E5) are Claude seats.
 - The harness run and the real-diff run are measurements: host free, through memguard, one at a time
   (ORCHESTRATION section 4).
@@ -182,12 +182,12 @@ would name do not exist yet. Each slice adds its Rust test in its first commit a
 implementing.
 
 **Files:**
-- Create: `tests/fixtures/proto_writes/cases/<row>.js` (one exported function per file; `.ts` for TypeScript
-  rows), `tests/fixtures/proto_writes/rows.jsonl`, `tests/fixtures/proto_writes/sink_rows.md` (the sink rows
+- Create: `tests/proto_writes_matrix/cases/<row>.js` (one exported function per file; `.ts` for TypeScript
+  rows), `tests/proto_writes_matrix/rows.jsonl`, `tests/proto_writes_matrix/sink_rows.md` (the sink rows
   below, as source text with `// SEED` and `// SINK` markers, for slices S2 and S3),
-  `tests/fixtures/proto_writes/truth/run_truth.mjs`, `tests/fixtures/proto_writes/truth/families.json`,
-  `tests/fixtures/proto_writes/truth/truth.jsonl` (committed output, after task T-1b),
-  `tests/fixtures/proto_writes/truth/check.sh`, `tests/fixtures/proto_writes/README.md`,
+  `tests/proto_writes_matrix/truth/run_truth.mjs`, `tests/proto_writes_matrix/truth/families.json`,
+  `tests/proto_writes_matrix/truth/truth.jsonl` (committed output, after task T-1b),
+  `tests/proto_writes_matrix/truth/check.sh`, `tests/proto_writes_matrix/README.md`,
   `tests/ast/proto_key_use_test.rs`
 - Modify: `tests/ast/main.rs` (its `mod proto_key_use_test;` line)
 

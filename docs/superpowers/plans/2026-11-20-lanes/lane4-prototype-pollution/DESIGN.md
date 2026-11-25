@@ -434,7 +434,7 @@ crates/prism-review/src/cli.rs, main.rs  NavQuery::ProtoWrites and its arm
 crates/prism-review/src/algorithms/taint_sinks/proto_write.rs   the operand-aware sink check
 crates/prism-review/src/algorithms/taint/run.rs                 the per-edge check, the side set, the emission changes
 tests/ast/proto_key_use_test.rs          core test pinning the key's Use on the write line (stage T)
-tests/fixtures/proto_writes/             matrix fixtures (one function per file) and the Node truth runner
+tests/proto_writes_matrix/             matrix fixtures (one function per file) and the Node truth runner
 ```
 
 No cache version change: facts are computed from parsed files on demand and nothing new is stored.
@@ -515,7 +515,7 @@ before and after. Only fixtures written for this lane are executed. Benchmark pa
    doubled (`__proto__`, `__proto__`, `polluted`); `constructor`, `prototype`, `polluted`; and, for
    templates that accept arrays, each of these with every segment wrapped in a one-element array. The
    payload-family enumeration (PLAN T-1b) closes the set, which is stored as data in
-   `tests/fixtures/proto_writes/truth/families.json`; this section does not list later additions.
+   `tests/proto_writes_matrix/truth/families.json`; this section does not list later additions.
 2. **Root kinds.** Where the function takes a root, the call description lists the root kinds it is run
    with: a plain object, `Object.create(null)`, a class instance, an array.
 3. **Module modes.** Every row runs as sloppy CommonJS and as a strict ES module, both wrappers generated

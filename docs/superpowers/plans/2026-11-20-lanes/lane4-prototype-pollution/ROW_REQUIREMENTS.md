@@ -2,15 +2,15 @@
 
 The 326 rows follow fixture order. Each requirement identifies an individual write target in the recorded file. The saved Node 24.15.0
 observations supply the truth for the ordinary roots exercised by each call, including calls that construct
-their own root. [Fixture metadata](../../../../../tests/fixtures/proto_writes/rows.jsonl) ·
-[Recorded execution](../../../../../tests/fixtures/proto_writes/truth/truth.jsonl) ·
+their own root. [Fixture metadata](../../../../../tests/proto_writes_matrix/rows.jsonl) ·
+[Recorded execution](../../../../../tests/proto_writes_matrix/truth/truth.jsonl) ·
 [Truth contract](DESIGN.md#7-truth-by-execution-stages-t-and-e)
 
 The sink column is a requirement with the listed attacker names supplied as reached inputs. A witness is a
 selector base in that row’s `attacker_names`. A dash in that column means the intersection is empty. A
 sufficient guard silences even a matching witness. The seeded integration cases specify actual propagation,
 including `sk11` from a source-only seed. Product measurements begin in Stage I.
-[Seeded sink cases](../../../../../tests/fixtures/proto_writes/sink_rows.md)
+[Seeded sink cases](../../../../../tests/proto_writes_matrix/sink_rows.md)
 
 | Recorded truth and scope | Fires | Silent | Total |
 |---|---:|---:|---:|
