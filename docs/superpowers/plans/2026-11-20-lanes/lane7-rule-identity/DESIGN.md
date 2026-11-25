@@ -1,6 +1,7 @@
 # Lane 7: rule identity on findings — design
 
-Status: Stage D amendment with design review round 2 of 2 folded, 2026-11-24. S1 is present. Sections 5.2–5.5 and Appendices A–F
+Status: D-5 folds the single §8 review of the D-4 enforcement amendment at `30216157813a`,
+2026-11-25 (B REJECT, A APPROVE). S1 is present. Sections 5.2–5.5 and Appendices A–F
 specify the identities for the implementation slices. Historical research record:
 `~/prism-evidence/lanes-2026-11-20/research/lane7-rule-identity.md`.
 
@@ -241,10 +242,11 @@ any-argument rule would publish path traversal for file contents. Dropping all w
 would hide which operation or name admitted the finding. Assigning new lines from the attribution walk
 would change counts. Appendix F states the losses and their measurement.
 
-PR #841's union retains the baseline finding on overlap and the expanded finding on an expanded-only
+The merged #841 union retains the baseline finding on overlap and the expanded finding on an expanded-only
 key. Lane 4's side-set rule is `js-proto-write@CWE-1321` for a reached prototype write. If lane 4 lands
 first, S2-JS migrates its side-set evidence, preserving descriptions, with its registry row. If it lands
-second, lane 4 selects the row in the same PR that publishes it. S2-R is a dependency for publication.
+second, lane 4 selects the named core row in the same PR that publishes it. Its #603 contract
+requires every built-in ref to come from a core row. S2-R is a dependency for publication.
 Lane 4 owns any description and benchmark-join migration.
 
 ### 5.3 The registry
@@ -253,29 +255,39 @@ Lane 4 owns any description and benchmark-join migration.
 table, `lookup(id)` and `check_emitted(algorithm, rule)`. Each row declaration supplies both its
 named constant and its table entry. `RuleInfo::rule_ref(&'static self)` copies the row's id and
 optional CWE and sets severity to `None`. Built-in projections select a named `&'static RuleInfo`.
-The emitter applies `with_severity(self, Option<String>) -> Self` after reducing strength.
+S2-W adds `prism::slice::attach_rules(&mut SliceFinding, rows)` as the sole writer of built-in
+rule lists. Each projection passes all selected rows for one finding, pairing each row with whether
+its occurrence is weak. The helper groups by id, takes the strongest occurrence, sorts by id and
+replaces the vector once. It calls `row.rule_ref().with_severity(override_value)` per distinct row
+using 5.2. Primitive and absence pass one row at the finding's own severity.
 
 - **Compiler.** Both structs' fields are private to the core registry module and its descendants.
   Outside that tree, Rust rejects literals, struct updates and direct field assignments, including
   those inside expanded macros. Typed projection interfaces require a row. A string or deserialized
   ref cannot satisfy that signature. Public accessors borrow metadata. The maker takes a row and
-  the severity method takes only an override. The API supplies neither a raw-parts factory nor a
+  `with_severity(self, Option<String>) -> Self` takes only an override. The API supplies neither a raw-parts factory nor a
   deserializer for `RuleInfo`. Privacy grants access to all code inside the tree, including nested items.
 - **Tests.** For every row, check that the maker copies its id/CWE and that applying or clearing a
-  severity override preserves both. `check_emitted` rejects an
+  severity override preserves both. Separate compile-fail doctests guard against adding
+  `Default` or `FromStr` for `RuleRef`. `check_emitted` rejects an
   unknown id, a missing, extra or different CWE, and an unlisted algorithm. Each producer slice
   applies it to every actual built-in ref on the matrix and pinned outputs, with independent
   expected identities for the exercised examples. This establishes validity on the paths run.
-- **Review.** Trace each built-in write to `SliceFinding.rules` back to named rows. A computed
+- **Review.** Trace each built-in projection through `attach_rules` back to its named rows. Check
+  for writes or forwarded findings that bypass the helper. A computed
   string can still select a *valid* row through `lookup`. Public serde can materialize an arbitrary
   `RuleRef` or whole finding, and callers can clone or forward it into the public vector. Neither
   type checking nor output equality proves how that value was obtained. Review rules out these
   routes for built-in producers and inspects new factories, conversions and code inside the trusted
   module. External input is admitted through serde and normalized at the SARIF boundary (5.5).
 
-S2-R moves the existing 64 A/B rows intact before the first producer. The core library can build
-the registry without naming the review crate. The existing Rust type path and serde contract survive, including unknown ids,
-field order and omitted optionals. Downstream struct literals, patterns accessing fields, and
+S2-R moves the existing 64 A/B rows intact before the first producer. The source lives in
+`src/rule_registry` (root `src/rule_registry.rs`). The review crate re-exports the module as
+`prism_review::output::rule_registry`. Lane 8 I-9 (#881) imports `prism::rule_registry` directly
+in `prism-taint` and removes the former review registry file from its move manifest and stop rule.
+I-9 carries the classifier's `SinkHit` and uses its read accessors. The existing `prism::slice::RuleRef`
+path and serde contract survive, including unknown ids, field order and omitted optionals.
+Downstream struct literals, patterns accessing fields, and
 direct field reads/writes are a source break. Readers use `id()`, `cwe()` and `severity()`.
 Callers use named rows for built-ins and deserialize supplied wire data for external references.
 Accept the field API change here to close direct identity writes before the first publication.
@@ -331,7 +343,8 @@ literal restriction in its own classifier module (PLAN S2-R).
 | O1, harden the scanner | Reject. Following token trees, aliases, `cfg_attr` and mounted modules still leaves expansion and resolution to approximate. The implemented scanner and its controls already consume 321.5 weighted lines at `e53d01c8`. |
 | O2, retain a small tripwire | Keep the typed interfaces, tests and review. Drop the tripwire even in combination with O4. Privacy checks direct construction for every spelling the compiler accepts. A syntax tripwire would still miss serde and valid-row lookup bypasses. |
 | O3, non-exhaustive ref and cross-crate maker | Reject. `#[non_exhaustive]` blocks downstream literals but leaves public field mutation. Rust has no friend-crate visibility. A token sealed in core needs a public path to mint it in a dependent crate, and a hidden raw constructor is still callable. Co-locating the mint and rows yields O4. |
-| O4, move rows and maker to core | Adopt. At this head the maker is the only in-tree production ref literal. Core takes ownership of the row strings. Embedders bear the field API change described above. |
+| O4, move rows and maker to core | Adopt. At the rejected product head `e53d01c8` the maker is the only in-tree production ref literal. Core takes ownership of the row strings. Embedders bear the field API change described above. |
+| Keep id, CWE and algorithms in core and join review-side short/help by id | Reject. A two-way inventory test could detect missing or orphaned text, and core would carry fewer strings. Editing a rule would then require coordinating two tables and testing the join. One complete row supplies both the generated page and the SARIF descriptor. |
 | O5, compiler-resolved lint | Reject. It can see resolved expressions but would add a toolchain and CI gate for restrictions privacy already checks. Proving serde provenance or ruling out forwarding would require additional analysis. |
 | O6, private row fields | Adopt for *all* row fields. A seal alone with writable public fields would still permit changes to a local copy of a named constant. O6 alone leaves the S1 ref fields writable. |
 | Separate built-in and external finding types | Defer. Enforcing that boundary throughout the public finding vector, aggregators and serializers would widen S2-R beyond the registry. |
@@ -366,11 +379,16 @@ These refs inherit the finding's severity. Other algorithms emit an empty list.
 - Category mode keeps the category descriptor, level and fingerprint and includes the canonical
   `properties.rules` only when nonempty (decision 7). Specific mode emits one result per surviving
   id with its effective level, the **same full canonical list** on every copy, and
-  `ruleId = prism/{algorithm}/{rule id}`. An initially empty or all-discarded list yields one result
+  `ruleId = prism/{encoded algorithm}/{rule id}`. An initially empty or all-discarded list yields one result
   at the finding's level, with no rules key. Category mode uses its ordinary id. In specific mode
-  use `prism-fallback/{algorithm}/{category}` (the usual category default if absent) with category
-  descriptor text and no tags. The distinct first segment separates this id from every registered
-  or external specific id, including all six primitives whose verified id equals their category.
+  use `prism-fallback/{encoded algorithm}/{category}` (the usual category default if absent) with category
+  descriptor text and no tags. In both specific forms encode the raw algorithm in one pass, writing
+  `%25` for each `%`, `%2F` for each `/`, and copying every other character verbatim. The first slash
+  after that segment unambiguously starts the verbatim rule id or category, which may contain slashes.
+  Thus `(taint, vendor/check)` and `(taint/vendor, check)` have distinct descriptors, as does
+  `(taint%2Fvendor, check)`. Use the original algorithm in properties and in the CWE union key.
+  Category mode retains its existing id format. The distinct first segment separates the fallback
+  from every registered or external specific id, including all six primitives whose verified id equals their category.
   Sharing one descriptor would either lend its CWE to the empty finding or erase the verified CWE.
   Compute evidence, locations and fingerprint once and assign `ruleIndex` after expansion and sorting.
   A registered descriptor uses the row's name, short, help and optional `external/cwe/cwe-<n>` tag.
@@ -1272,3 +1290,10 @@ eight findings are folded into 5.2–5.5, A–F and the corresponding PLAN gates
 E retains all 540 matrix and 300 candidate identities. The round 2 verdicts were REJECT and APPROVE.
 
 **Change log, 2026-11-24, D-3b (review extension, orchestrator fold-back).** The focused verification of the D-3 folds by reviewer B (REJECT) found one new defect in the W-A fix: the SQL-literal witness on an unresolved `execute`/`executemany` receiver can attach CWE-89 to a non-SQL client (`executor.execute("SELECT ..." + x)`). Reviewer A had offered the alternative in its own finding W-A; it is applied: the witness is limited to `query`, and the candidate `astra-r2-04` changes to `taint-query-name;taint-query-value!suggestion` (one candidate cell; zero TSV cells). Edited in A, B, E, the keyed delta and PLAN S2-PY. All other round-2 folds were verified resolved by reviewer B.
+
+**Change log, 2026-11-25, D-4 and D-5.** D-4 (`30216157813a`) restated goal 4. The earlier “only through”
+claim becomes three obligations in §5.3. Rust privacy blocks struct literals and direct field writes
+outside the registry, tests check emitted values on exercised paths, and producer review traces
+how built-ins selected their rows. External serde and forwarding remain possible. D-5 folds the
+single §8 review onto that decision. It specifies the common writer, lane 8's core import, the
+S2-R controls and the algorithm encoding for both specific-mode descriptor namespaces (§5.5).

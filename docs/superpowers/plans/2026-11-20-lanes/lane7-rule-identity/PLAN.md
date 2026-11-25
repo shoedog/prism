@@ -29,25 +29,38 @@ the 540 matrix expectations and 300 source-only candidates, including the accept
   ids and descriptors, `MAPPING_VERSION` (`"1"`, `output/sarif.rs`). No CPG or cache change. No edit under
   `crates/prism-review/src/targets/` (lane 2 owns it). `rules` is the **last** field of `SliceFinding`, so
   the key order of existing output does not move.
-- PR #841 (open; head `493ab5ee`) edits `taint/run.rs`, `cli.rs`, `main.rs`, `output/mod.rs`,
-  `output/sarif.rs`, `output/sarif_model.rs`, `api/run.rs` and adds nine `SliceFinding` literals in five
-  files (`taint/result_union/tests.rs`, `api/context_matrix_tests/formats/policy.rs`, `api/context_view_tests/fixture.rs`,
-  `api/map_view_tests.rs`, `output/context_render_tests.rs`). Whichever of #841 and a slice merges second owns
-  the conflict: it rebases, re-reads the touched code, runs `rg -n "SliceFinding \{" -g '*.rs'` and compares
-  the literal inventory and the gate comparison against the integrated base. #841's SARIF loop picks an
-  original or context map per finding and both CLI branches attach context and diagnostics; S4 keeps those
-  choices before expanding. Its result union keeps the baseline finding per `(category, file, line)`
-  verbatim, so a line found by both of its runs keeps the baseline run's rules (DESIGN goal 2).
-  S2-W pins this boundary and the emitting language slice checks overlap and expanded-only cases if merged.
+- PR #841 merged at `9d1a7d06`. Inventory `SliceFinding` literals on the integrated base with
+  `rg -n 'SliceFinding \{' -g '*.rs'` and compare outputs to that base. S4 preserves #841's per-finding
+  original/context map and both CLI branches' context and diagnostics before expanding results.
+  The union keeps the baseline finding per overlapping `(category, file, line)` and the expanded
+  finding on expanded-only keys. S2-W pins this choice and each emitting taint slice checks both cases.
 - Lane 4's sink (DESIGN 5.2, last paragraph). Before lane 4 dispatches its sink slice, the orchestrator posts
   the field contract on #603 and in lane 4's ledger: category `taint_sink`, `js-proto-write`/`CWE-1321` in
-  `rules`, no tag in the description. S2-R precedes any lane 7 id publication. Whichever slice first
-  publishes lane 4's row adds its registry constant in the same PR. S2-JS migrates existing side-set
+  `rules`, no tag in the description. Built-in refs come only from named `prism::rule_registry`
+  rows through the shared writer. S2-R precedes any lane 7 id publication. Whichever slice first
+  publishes lane 4's row adds its core constant in the same PR. S2-JS migrates existing side-set
   evidence if lane 4 merged first (DESIGN 5.2).
-- Weighted sizes now: `taint/run.rs` 601.5, `absence_slice.rs` 906, `primitive_slice.rs` 794,
-  `contract_slice.rs` 1447, `main.rs` 990.5, `cli.rs` 483.5, `src/slice.rs` 572, `output/sarif.rs` 380.5,
-  `sarif_rules.rs` 436.5. Only `contract_slice.rs` stays over 1,000 (12 one-line additions in S1; its PR
-  says so); new logic goes in the new modules named below.
+- Before lane 8 I-9 dispatch, the orchestrator sends lane 8 the S2-R dependency on its tracking
+  issue (I-9 plan in #881). Reconcile the move manifest and stop rule on the integrated tree.
+  The registry lives in core. `prism-review` re-exports it. I-9 imports `prism::rule_registry`
+  directly in `prism-taint`, omits the old review registry file from its moves, and reads the
+  classifier's `SinkHit` through accessors.
+- Weighted lines measured with `python3 scripts/file_size.py` at `30216157813a` follow.
+  Recount touched files on the dispatch base. Only `contract_slice.rs` in this inventory exceeds
+  1,000. S1 added 12 lines there. New logic belongs in the slice modules named below.
+
+  | File | Weighted lines |
+  |---|---:|
+  | `taint/run.rs` | 680.5 |
+  | `absence_slice.rs` | 910 |
+  | `primitive_slice.rs` | 795 |
+  | `contract_slice.rs` | 1459 |
+  | `main.rs` | 674 |
+  | `cli.rs` | 557.5 |
+  | `src/slice.rs` | 644.5 |
+  | `output/sarif.rs` | 490 |
+  | `sarif_rules.rs` | 437.5 |
+
 - Use the host slot procedure in ORCHESTRATION for product runs. Inside an already guarded seat use
   normal `cargo` and `prism` commands. No mutgate.
 
@@ -77,9 +90,9 @@ the 540 matrix expectations and 300 source-only candidates, including the accept
 6. S2-R reviewers inspect the public API from outside the registry. Try a macro/alias literal,
    an id/CWE edit after cloning a ref, and a forged static row. Check privacy diagnostics, serde
    compatibility, the unchanged 64-row inventory and the empty-scope byte receipt. Check the
-   classifier's separate `SinkHit` visibility. In each producer PR, trace every new or changed
-   `rules` writer, including vector replacements and deserialized/cloned findings, back to named
-   row selection. Inspect helpers and macros for raw factories, serde synthesis and computed
+   classifier's separate `SinkHit` visibility. Trace every built-in producer through `attach_rules`
+   to named row selection. Check for bypasses, including vector replacements and deserialized/cloned
+   findings. Inspect helpers and macros for raw factories, serde synthesis and computed
    lookups. Check the actual algorithm and the choice of row against the witness. S4 reviewers
    trace external ids to the admitted input and the private SARIF property type in both modes.
    S2-W checks all 540 keys and the occurrence join.
@@ -273,7 +286,8 @@ directions), `parser_rejects_unsorted_rules`, `parser_rejects_bad_cwe`, `parser_
       D-1. D-3 changes no TSV or candidate expectation relative to D-2. Preserve all 540 keys.
       Candidate rows and open grids are source-only until replayed. Both reviewers rejected D-1.
       Round 2 of the cap of 2 returned B REJECT and A APPROVE on `be906634a77c`. D-3 folds their
-      bounded findings on that artifact. The design approval gate awaits controller disposition.
+      bounded findings on that artifact. D-5 folds the single §8 review of D-4 (B REJECT,
+      A APPROVE at `30216157813a`). The orchestrator owns disposition of the amendment.
 
 ## Stage I: slices
 
@@ -287,7 +301,7 @@ dispatched brief so its files, dependencies, size, review cap and acceptance tra
 | Slice | Depends on | Scope | Days | Weighted lines | Cap |
 |---|---|---|---:|---:|---:|
 | S1 | T/E may overlap | Field (present) | 0.5 | mechanical literals, ~70–110 | 3 |
-| S2-R | S1, approved D, pinned T | Core registry, field privacy, serde and producer checks | 1 | 300–400 | 3 |
+| S2-R | S1, approved D, pinned T | Core registry, field privacy, serde and producer checks | 1 | 300–450 | 3 |
 | S2-W | S2-R, pinned T | Shared collection, measurement and matrix harness | 1 | 300–500 | 3 |
 | S2-JS | S2-W | JS/TS/TSX including YAML | 1.5 | 450–700 | 3 |
 | S2-PY | S2-JS | Python including Flask and review golden | 1.5 | 450–700 | 3 |
@@ -339,7 +353,7 @@ pub struct SliceFinding { /* existing fields unchanged, then, last: */
 - [ ] Gates: section 5 items 1, 2, 4, 8, 9, 10; G-additive and G-targets (`compare.py` with no scope: every
       output byte-equal after masking the per-build values).
       One reviewer (Opus-5.5 xhigh): no behaviour change, proven by the gate. PR body: literals per file, gate
-      summary, why `contract_slice.rs` stays over 1,000, #841 state.
+      summary, why `contract_slice.rs` stays over 1,000, and the integrated #841 literal inventory.
 
 ### S2 and S3 gates shared by the following PRs
 
@@ -355,7 +369,8 @@ pub struct SliceFinding { /* existing fields unchanged, then, last: */
       the actual enclosing algorithm on **every** built-in ref returned on every matrix row and
       in every finding copy on the 35 Stage M pins (JSON, review and SARIF properties when present,
       including single-run outputs). Walk all findings, including unmarked lines. Read the same
-      captured outputs the comparator used. Record inputs, rows, findings and refs checked by
+      captured head outputs the comparator used, invoking S2-R's ignored `check_stage_m_pins`
+      test explicitly in each slice gate. Record inputs, rows, findings and refs checked by
       algorithm and format, including expected empties. Require each activated producer to have
       nonempty coverage across its controls. Exercise the walker with a bad ref in a later copy,
       a wrong algorithm, and a valid neutral ref. Validate raw finding output before SARIF
@@ -368,30 +383,33 @@ pub struct SliceFinding { /* existing fields unchanged, then, last: */
 - [ ] Before activating a producer run DESIGN F's joined census for its language. Attach the old/new
       identity and reason counts, sink denominator, unadmitted keys and admitted empties, and one
       location per nonzero reason. Include pre-existing discrepancies with the base observation,
-      #841/lane 4 state and any unexecuted candidate or grid cells. The 300 candidate decisions
+      #841 overlap/expanded-only counts, lane 4 state and any unexecuted candidate or grid cells. The 300 candidate decisions
       select extra positive/negative controls. Check base admission before asserting a new example.
 
 ### Slice S2-R. Minimum taint registry
 
-**Files.** Move the registry, A/B rows and behavioral tests from
-`crates/prism-review/src/output/rule_registry{.rs,/}` to `src/rule_registry{.rs,/}`.
-Update `src/{lib,slice}.rs`, the review `output/mod.rs` re-export, classifier
-`algorithms/taint_sinks/{mod,hit,strength}.rs` and its field readers/tests. The shared
-gate uses Stage T test support and a review-side test reader for Stage M outputs.
+**Files.** Carry the registry, A/B rows and behavioral tests from the rejected head's
+`crates/prism-review/src/output/rule_registry{.rs,/}` into core `src/rule_registry{.rs,/}`.
+Update `src/{lib,slice}.rs`, review's `output/mod.rs` re-export, the classifier's
+`algorithms/taint_sinks/{mod,hit,legacy,strength}.rs` and its field readers/tests. Use Stage T
+test support and review's `output/rule_pin_tests.rs` for the gates. In `CLAUDE.md`, replace the
+rejected head's `output::rule_registry` ownership paragraph with an entry in the core module list
+covering the private fields, accessors and review re-export.
 
 - [ ] **Measure first.** On the integrated head inventory ref/row constructors, field readers and
       writers, classifier callers and all 64 complete row tuples. At `e53d01c8` the maker is the
       only production ref literal and S1 has two test literals. The three registry files total
-      525.5 weighted lines, including 321.5 from the first scanner test to EOF. The new whole-slice
-      estimate from S1 is 300–400 weighted lines (was 250–450) and 1 day (was 0.75). About 204
-      weighted lines of registry, rows and behavioral tests survive the scanner deletion. The balance
-      covers accessors, classifier privacy, consumer migration and regression controls. Report file
+      525.5 weighted lines, including 321.5 from the first scanner test to EOF. Budget 300–450
+      weighted lines from S1 and one day. About 204 weighted lines of registry, rows and behavioral
+      tests survive the deletion. Allow for accessors, the classifier move, consumer and S1 test
+      migration, compile-fail and serde controls, and the Stage M pin reader. Report file
       moves and scanner deletions separately from new code. Recount after any independent row fold.
 - [ ] Move the implemented rows as data, preserving each symbol, id, optional CWE, text, algorithm
       and sorted membership. Compare all six fields of every row before/after. Keep lane 4's
       conditional row for its first producer. Delete the source walker, exemption logic and scanner
       fixtures. The core registry owns both types. Preserve `prism::slice::RuleRef` by re-export
       and the review registry path by `pub use prism::rule_registry` in review's output module.
+      Pass this ownership and the direct core import to lane 8 before I-9 (Global constraints).
 - [ ] Make all fields private. Expose borrowed `id() -> &str`, `cwe()/severity() -> Option<&str>`
       on refs, corresponding read accessors for row metadata, and the 5.3 maker and severity
       method. Preserve ref derives, serde field order, optional defaults/omissions and the public
@@ -399,35 +417,54 @@ gate uses Stage T test support and a review-side test reader for Stage M outputs
       Keep row construction within the registry tree. Test both type paths, all named rows against
       lookup by value, applying and clearing severity, and the sorted inventory. Preserve the existing CWE
       grammar, algorithm and text controls in `cargo test -p prism --lib rule_registry`.
-- [ ] RED on the rejected head using the existing public paths. From a consumer, compile a computed
+- [ ] Use two controls. The rejected product head `e53d01c8` supplies the implemented registry and
+      the pre-privacy API. The integrated main base supplies Stage M byte comparisons. At the D-4
+      branch point (`1cbc5400`) main has S1 and lacks `RuleInfo`. A missing type there cannot
+      demonstrate a privacy failure. Record both control SHAs in the dispatch and receipt.
+      On the rejected head, using its public paths from a consumer, compile a computed
       ref literal inside `vec![]` through a type alias, assign id and CWE on a cloned ref in separate
       examples, and construct `static BAD: RuleInfo` with struct update from `JS_EVAL`. Record
       successful compilation on `e53d01c8` for each control. If the independent private-row fix
       lands first, attribute the forged-row failure to that fold. Keep separate compile-fail
-      doctests (review-path examples in review).
-      On the fold inspect the privacy error for each expression and pair with compiling use of the
-      same imports, a valid named row and its getters. Run `cargo test -p prism -p prism-review --doc`.
-      A missing import, malformed fixture or uncompiled doctest does not satisfy a privacy control.
+      doctests (review-path examples in review). On the fold inspect the privacy error for each
+      expression and pair with compiling use of the same imports, a valid named row and its getters.
+      Add two independent `compile_fail` doctests using `prism::slice::RuleRef`, one calling
+      `RuleRef::default()` and one evaluating `"x".parse::<RuleRef>()`. Check the missing
+      `Default` and `FromStr` diagnostics respectively. Both traits are already absent on S1.
+      Run `cargo test -p prism -p prism-review --doc`. A missing import, malformed fixture or
+      uncompiled doctest does not satisfy any control.
 - [ ] Move `SinkHit` and its impl to a leaf `taint_sinks::hit` module. Keep its fields private,
       re-export the type at its existing visibility, and expose the existing classifier factories
-      and grading operation only within `taint_sinks` (`pub(super)` in the leaf). Supply read
-      accessors at the visibility each caller needs. Verify a literal in a classifier sibling
-      compiles on the base and fails for field privacy on the fold while legitimate classification
-      and grading tests pass. Review any new descendant of the leaf as privileged. Its internal
-      tag and CWE never supply public rule metadata directly.
+      and grading operation only within `taint_sinks` (`pub(super)` on `new`, `weak_if` and
+      `LEGACY` in the leaf). In `taint_sinks/legacy.rs` replace main's literal with
+      `SinkHit::LEGACY` as on the rejected head. Supply read accessors at each caller's visibility.
+      Check legacy hits still return `Strength::Strong` with no CWE, and run the classifier grading tests.
+      Drop the sibling-literal compile-fail receipt. The type is crate-private and its classifier
+      siblings can still call the factories. Review descendants of the leaf as privileged.
+      Public rule metadata comes from the core rows.
 - [ ] Through the existing public ref path, deserialize an unknown id with and without optional
-      fields, a registered id with the wrong CWE, and a neutral id with an extra CWE. Preserve the
-      S1 byte and round-trip controls (`cargo test -p prism --lib slice::tests`). Feed those inputs,
+      fields, a registered id with the wrong CWE, and a neutral id with an extra CWE. Rewrite the two
+      literals in S1's `slice::tests::rules_serialize_as_id_and_optional_cwe` as
+      `JS_DOM_HTML.rule_ref()` and `LEGACY.rule_ref()` from core. Retain the exact byte, omission
+      and round-trip assertions. Run `cargo test -p prism --lib slice::tests`. Feed those inputs,
       a missing required CWE and a valid ref under the wrong algorithm to `check_emitted` and
       verify each expected rejection. Exercise the matrix and pin readers with known good/bad
       synthetic values now so zero producer refs cannot make their controls pass vacuously.
+- [ ] In `output::rule_pin_tests`, run the synthetic reader controls in ordinary CI. Mark only
+      the host capture test `check_stage_m_pins` with `#[ignore]`. From the workspace root, set
+      `m_dir` and `head_out` to absolute paths for the Stage M script and captured head output directories.
+      Invoke the slice gate with
+      `PRISM_RULE_PIN_MANIFEST="$m_dir/inputs.tsv" PRISM_RULE_PIN_OUTPUTS="$head_out" cargo test -p prism-review --lib output::rule_pin_tests::check_stage_m_pins -- --ignored --exact --nocapture`.
+      Require that exact test to run. Fail on missing manifest, capture, input or expected format.
+      Reconcile all 35 input entries and report the shared-gate per-format totals, including zero refs.
 - [ ] Shared gates with empty scope. Require byte equality on all Stage M outputs after only the
       existing per-build masks. Record zero emitted refs and the Stage T presence/key inventory.
       S2-R has no producer. The page and cross-detector inventory belong to S3-G.
 
 ### Slice S2-W. Collection and matrix support
 
-**Files.** `algorithms/taint.rs`, `taint/{run,sink_match,sink_rules}.rs` (under `crates/prism-review/src`),
+**Files.** Core `src/slice.rs` and `src/slice/attach_rules.rs` for the writer and its tests,
+`algorithms/taint.rs`, `taint/{run,sink_match,sink_rules}.rs` (under `crates/prism-review/src`),
 Stage T's support, expectation, identity and TSV files, and `tests/algo/taxonomy/taint_sink_strength_test.rs`.
 Keep census instrumentation in test/diagnostic support; observe the real old visits as specified in F.
 
@@ -437,16 +474,20 @@ Keep census instrumentation in test/diagnostic support; observe the real old vis
       Use the fixture's language for mixed-table `ri*` rows. Run `cargo test --test algo_taxonomy taint_sink_rules`.
 - [ ] Collect occurrences and reached operand byte spans on final admitted keys. Keep the existing
       admission function (including first exclusions), source/scope filters and `line_strength`.
-      Implement coalesced-use and rebinding checks, per-call cleansing hooks, and a sorted id reducer
-      (strong wins, suggestion only for an all-weak id in a warning). Prepare config/wrapper origins
-      separately for every language. Every language projection returns named core
-      `&'static RuleInfo` values paired with strength. Carry the row through the reducer and call
-      `row.rule_ref().with_severity(override_value)` at attachment. Tests cover
-      duplicate paths to one operand, sibling binding collision, different slots, empty admission,
-      weak+strong same id and the separately reported spanless old-hit group.
+      Implement coalesced-use and rebinding checks and per-call cleansing hooks. Prepare config/wrapper
+      origins separately for every language. Every language returns named `&'static RuleInfo` rows
+      paired with whether each hit is weak. Collect the complete input for one finding across paths
+      and inline hits. Cover duplicate paths, sibling binding collisions, different slots, empty
+      admission and the separately reported spanless old-hit group.
+- [ ] Implement `prism::slice::attach_rules(&mut SliceFinding, rows)` as the single built-in writer.
+      Group by row id, reduce strength (any strong wins), sort by id and assign the vector once.
+      Call `row.rule_ref().with_severity(override_value)` per id, setting `suggestion` only for
+      an all-weak id on a warning. Test empty input, duplicate weak/strong rows in both orders,
+      unsorted distinct rows and an all-weak id at warning and suggestion levels. S2-JS/PY/GO/L,
+      S5-P and S5-A2 each pass the complete selection to this helper once per published finding.
 - [ ] Shared gates, empty scope. Keep all 540 presence controls and zero activated partitions.
       Exercise the shared collector/reducer via tests before any public activation. Pin evidence
-      and the baseline/expanded union choice if #841 is present.
+      and the baseline/expanded union choice from merged #841.
 
 ### Slice S2-JS. JavaScript, TypeScript and TSX
 
@@ -533,7 +574,7 @@ and identity tests, CLI output tests and `CLAUDE.md` (taint paragraph).
 
 **Files.** Core `src/rule_registry/tests.rs`, review-side `output/rule_inventory_tests.rs` and
 its test module declaration, `docs/rules.md`, `scripts/ci/classify-changes{,.test}.sh` and
-`CLAUDE.md` (output paragraph).
+`CLAUDE.md` (extend the core module list's registry entry with the page and its review-side inventory check).
 
 - [ ] Read `prism::rule_registry::rules()` through its accessors in the review-side test. Generate
       id, optional CWE, name, algorithms, short and help in id order, with the regeneration
@@ -582,8 +623,9 @@ impl<'a> SarifInputs<'a> { pub fn rule_ids(mut self, rule_ids: SarifRuleIds) -> 
 // output/sarif_rules.rs: ["external/cwe/cwe-<n>"] for Some("CWE-<n>"), empty otherwise
 pub fn cwe_tags(cwe: Option<&str>) -> Vec<String>;
 // cli.rs, ReviewArgs. Doc (the help text): "--format sarif only: `category` (default) keeps
-// prism/<algorithm>/<category>; `specific` writes one result per rule as prism/<algorithm>/<rule id>, with
-// optional CWE tags. An empty rule list uses prism-fallback/<algorithm>/<category> in specific mode.
+// prism/<algorithm>/<category>. `specific` uses prism/<encoded algorithm>/<rule id> with optional CWE
+// tags, or prism-fallback/<encoded algorithm>/<category> for an empty list. In the algorithm segment
+// each % becomes %25 and each / becomes %2F.
 // Switching modes can start new code-scanning alert histories for the affected findings; how
 // GitHub shows the CWE tags is unverified."
 #[arg(long, value_enum, default_value_t = SarifRuleIds::Category)] pub sarif_rule_ids: SarifRuleIds,
@@ -598,9 +640,11 @@ Group duplicates using the strongest effective severity and sort by id. Category
 canonical list with the ordinary category descriptor. Specific mode copies this same full list on
 each result, selects its level from the canonical ref and uses the authorized row's optional tag.
 If the list is empty on entry or after normalization, omit the rules key and use the ordinary
-category id in default mode. In specific mode emit one finding-level result with the separate
-`prism-fallback/{algorithm}/{category}` id and a tagless category descriptor. Use one serialize-only
-rule property type private to review's SARIF output. It has the 5.1 wire keys and omits absent
+category id in default mode. Both specific-mode forms use the same algorithm-segment encoder
+(DESIGN 5.5). Append the verbatim rule id or category after the delimiter. For an empty list emit
+one finding-level result with `prism-fallback/{encoded algorithm}/{category}` and a tagless category
+descriptor. Use one serialize-only rule property type private to review's SARIF output.
+It has the 5.1 wire keys and omits absent
 optionals. Fill it from the canonical ref's accessors for a known row. For an unknown external id,
 copy the supplied id verbatim into the property and fill its CWE and severity from the group
 reduction in 5.5. Build the descriptor tags from the per-(algorithm,id) run-wide union. The
@@ -609,7 +653,7 @@ id/CWE setter, serde round-trip or scanner exemption in the normalizer.
 
 Compute message, evidence, fingerprint and locations once. A registered specific descriptor uses
 `name`, `shortDescription = short`, `fullDescription = help`, `help` and algorithm/optional tags.
-It omits category. The disjoint fallback prefix also covers external ids containing separators. Unknown ids
+It omits category. The fallback prefix keeps empty results distinct from rule-bearing ones. Unknown ids
 use the id as name and `"{algorithm}: {id}"` for both descriptions. Sort results and descriptors
 before assigning `ruleIndex`. Document the default-mode result count and the consumer key with ruleId.
 
@@ -636,6 +680,16 @@ before assigning `ruleIndex`. Document the default-mode result count and the con
       Also supply a CWE for a neutral row, omit one for a tagged row, reverse duplicate severities
       (including absent), and reverse conflicting unknown CWEs. Check indexed descriptors, result
       levels and the full canonical list in each mode. Category descriptors gain no tags.
+- [ ] In `specific_mode_escapes_algorithm_in_both_namespaces_in_both_orders`, use the default
+      floor and submit external `(algorithm, id, CWE)` tuples `(taint, vendor/check, CWE-79)` and
+      `(taint/vendor, check, CWE-22)` together in both orders. Follow each result's
+      `ruleIndex` and assert its descriptor id equals its `ruleId`. Verify `prism/taint/vendor/check`
+      has only the 79 tag and `prism/taint%2Fvendor/check` only the 22 tag. Check the raw
+      algorithm and id in result properties. Repeat with empty rules using those ids as categories.
+      Expect `prism-fallback/taint/vendor/check` and `prism-fallback/taint%2Fvendor/check`
+      with distinct indices, matching raw algorithm/category, no tags and no rules key. In both
+      namespaces include the literal-percent control `(taint%2Fvendor, check)` and check that
+      its `taint%252Fvendor` segment yields a third descriptor.
 - [ ] Mix two primitive inputs of category `SHELL_TRUE_WITH_INTERPOLATION`, one with that verified
       ref and one with `rules=[]`. In both input orders follow each result's `ruleIndex` and check
       the indexed id equals its `ruleId`. Only `prism/primitive/SHELL_TRUE_WITH_INTERPOLATION` gets
@@ -666,8 +720,9 @@ shared per-ref G-closed check on the pins. Include both SARIF modes once availab
 - [ ] RED/GREEN `cargo test --test algo_novel rule_identity_test::` and the affected primitive and SARIF
       suites. Make each existing emitter pass its site to the projection. Select the category id with
       C's CWE on proof, else its literal `_MATCH` row without CWE. Return a named core
-      `&'static RuleInfo` on each branch and attach `row.rule_ref()`. Preserve category, description,
-      severity and multiplicity. Give each C row a genuine tagged positive and an **admitted** neutral
+      `&'static RuleInfo` on each branch and pass the single row to `attach_rules` at the finding's
+      own severity. Preserve category, description, severity and multiplicity.
+      Give each C row a genuine tagged positive and an **admitted** neutral
       control through the normal algorithm entry, verifying both category and specific SARIF.
 - [ ] Pin the non-hash digest, non-returned/textual helper slice, shadowed hashlib, fixed subprocess
       command beside unrelated interpolation, unrelated verify option and unused/public token literal.
@@ -743,8 +798,8 @@ language modules as needed, novel rule-identity tests, SARIF shape tests and `CL
       Ambiguous same-line acquisitions fall back. For repeats select exactly one of the three repeat
       constants. Preserve admission, severity, descriptions and per-pair multiplicity. Verify the 65
       primary ids, 22 literal neutral alternates, both error-path categories and the two lifetime-only
-      neutral rows against D. Attach the selected core row via `row.rule_ref()`. Other algorithms
-      remain empty.
+      neutral rows against D. Pass the single selected row to `attach_rules` at the finding's own
+      severity. Other algorithms remain empty.
 - [ ] Before attaching rules, run F's census of all 34 pinned absence findings by pair, category,
       full matched callee, language, resource, path/exit, tagged/neutral/repeated and reason.
       Show D-2 → D-3 totals for outstanding, discharged and unresolved obligations. Reconcile multiplicities
@@ -780,8 +835,9 @@ language modules as needed, novel rule-identity tests, SARIF shape tests and `CL
 - [ ] G-closed checks the A–D inventory, compiler privacy and positive serde controls, and the
       current generated page. Repeat the all-output test on all 540 keys and all 35 pins with
       taint, primitive and absence active. Include every finding copy and both SARIF modes.
-      Report per-algorithm totals and the review trace for each built-in writer. C/D projection
-      tests exercise effective protections, closed credential slots and path-specific
+      Report per-algorithm totals and trace each built-in producer to its named rows and the
+      single `attach_rules` writer. C/D projection tests exercise effective protections, closed
+      credential slots and path-specific
       cleanup, including admitted neutral occurrences. Both SARIF modes agree on normalized result
       properties. Verified specific descriptors retain their tags and empty results index a tagless fallback.
       The final mixed-output shape and schema receipts meet G-sarif-valid. Run and record the full
