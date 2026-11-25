@@ -131,7 +131,7 @@ The input truth comes from the reviewed matrix. The base outcome is historical. 
 | `b04` | ts this | correct | RED | B rest | **Keep.** Bind 2 specified edges, including main.x → f.a (exact). |
 | `b05a` | rest pattern | correct | Pass | B rest | **Loss.** Keep the negatives. A rest pattern exposes component bindings, not the single identifier rest Def to which B delivers elements. |
 | `b05b` | rebound rest | correct | Pass | B rest | **Keep.** 1 prohibited edge. |
-| `b06` | nameonly | correct | RED | B rest | **Set.** Use the ordinary call's name-only confidence for rest and its existing wire doubt. C's ordinary bare-target precision refusal does not apply to rest. |
+| `b06` | same-file NameOnly method | correct | RED | B rest | **Loss #2.** Preserve #1, the NameOnly `r6_single_owner` resolution to `f`. B withholds the same-file binding. Require no edge of any label from `main.v` to `f.rest`. |
 | `b07` | rest object literal | correct | Pass | B rest | **Loss.** Keep q → q and no x → rest. Supplied object-literal fields are not the object element itself. B does not flatten object fields into rest. |
 | `b08` | refusal reachability | correct | Pass | Consumers | **Keep.** Bind f.rest → freeSink.p (exact). check Def, unreachability. |
 | `b09a` | least offset | ambiguous | RED | B rest | **Loss.** Require w → r, no v → p or r and no xs → r. The lower bounds of v and w are zero and one respectively. |
@@ -158,7 +158,7 @@ The input truth comes from the reviewed matrix. The base outcome is historical. 
 | `s4-3` | fixed overload signatures with a rest implementation | correct | RED | B rest | **Keep.** Bind 3 specified edges, including main.value → pack.items (exact). 2 prohibited edges. check Def. |
 | `s4-4` | spread straddling the fixed slot versus one wholly in rest | correct | RED | B rest | **Loss.** Keep #1–2 prohibiting left → tail/first for the straddle. For #3 withhold right → tail despite its trailing start because yield is unproved. Keep #4 no right → first. |
 | `s4-5` | object rest pattern index and synthesized length | correct | Pass | B rest | **Loss.** Keep the negatives. A rest pattern exposes component bindings, not the single identifier rest Def to which B delivers elements. |
-| `s5-5` | least offset rest edge retains nameonly trace boundary | correct | RED | D label | **Keep.** Bind main.value → pack.tail (nameonly/call_nameonly). 1 prohibited edge. check trace boundary, reachability. |
+| `s5-5` | least offset reaches rest at a same-file NameOnly call | correct | RED | B rest | **Loss #1, #3, #4.** The offset reaches rest, but B withholds the same-file edge. Require no `main.value → pack.tail` edge at #1 and keep #2's Exact prohibition. The absent edge supplies no trace boundary (#3). Require the value Def cannot reach the tail read in this fixture (#4). Exercise the original positive edge, boundary and reachability on the foreign companion. |
 | `s5-6` | implicit derived constructor forwards into base rest | ambiguous | RED | B rest | **Loss.** #2 value → Base.tail is blocked/RED unless the extracted new Derived site identifies Base’s implementation. Exercise that binding with the supplied target, keep #1’s Def and check a wrong-target control. No synthetic forwarding. |
 | `s5-7` | dense literal spread element enters rest after fixed slot | ambiguous | RED | B rest | **Set.** Bind the actual element value → tail once, exact. The preceding 0 occupies the fixed slot. |
 | `s5-8` | writing unmapped arguments preserves entry rest binding | correct | RED | B rest | **Keep.** Bind main.value → pack.items (exact). check Def. |
@@ -174,6 +174,21 @@ The input truth comes from the reviewed matrix. The base outcome is historical. 
 | `x4-4` | twice bound prefixes fill fixed and rest slots in binding order | correct | RED | B rest | **Loss.** Neither bound prefix nor the final payload has a proved adapter offset. No new head or tail transfer through the two bind results. The reviewed matrix skips this row. |
 | `x5-3` | reflect construct new target supplies only the prototype | correct | RED | B rest | **Loss.** Preserve the reviewed whole-row skip for Reflect.construct. Its ordinary #3 direct → Shape.other independently needs a constructor site. Record the missing prerequisite, exercise #3 with a supplied site in a companion and keep its decoy negatives. The skipped reflection arm earns no pass. |
 | `x5-4` | rest collection and fixed slot forwarding certify separately | correct | RED | Consumers | **Keep.** Bind main.value → relay.items (exact). 1 prohibited edge. check counter. |
+
+### Ordinary B NameOnly rest edges
+
+The independent `binding` verdicts for head `bd9c0945` give the following cost when the §5 B file comparison is applied to each graded `nameonly/call_nameonly` addition. Compare `row.from.file` and `row.to.file` with the SB package qualifier intact. Counts are edges. C, W and U mean CORRECT, WRONG and UNDECIDED. [X verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/X/graded/verdicts.jsonl) · [T verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/T/graded/verdicts.jsonl) · [SB verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/SB/graded/verdicts.jsonl)
+
+| Corpus | Withheld same-file | C / W / U | Kept foreign | C / W / U |
+|---|---:|---|---:|---|
+| X | 4 | 0 / 4 / 0 | 109 | 82 / 0 / 27 |
+| T | 29 | 16 / 13 / 0 | 18 | 18 / 0 / 0 |
+| SB | 36 | 0 / 3 / 33 | 200 | 3 / 0 / 197 |
+| **Total** | **69** | **16 / 20 / 33** | **327** | **103 / 0 / 224** |
+
+The unfiltered head failed the pooled gate at 20/396 (5.05%), with 20/139 WRONG among decided rows. All 20 errors matched a receiver method to an unrelated same-file declaration. Applying the file comparison to those verdicts gives **0/327** on the gate and **0/103** among decided rows. The 224 retained UNDECIDED rows earn zero credit. The Exact population stands at 793 CORRECT, 0 WRONG and 4 UNDECIDED. These counts price the design on the recorded differential. Regrade the implementation head for activation. [Differential ledger](/Users/wesleyjinks/prism-evidence/param-binding/LEDGER.md)
+
+Across all 425 matrix IDs, b06 and s5-5 are the only ordinary B same-file NameOnly rest positives. Three E rows require same-file `nameonly/call_nameonly` rest edges from independently derived `argument_follow` targets. Keep t4-9 #2, s3-23 #3 and x3-11 #4–5. D's s1-17 #2 also delivers into same-file rest, under `nameonly/builtin_callback`. Keep its role edge. Each producer retains its ledger disposition.
 
 ## C · Bare parameters
 
