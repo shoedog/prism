@@ -277,20 +277,26 @@ fn first_event_can_reject_with_its_own_reason() {
     );
 }
 
-#[test]
-fn guarded_within_call_rejection_aborts_the_siblings_under_the_shared_guard() {
+fn guarded_call(guards: [Option<&str>; 2]) -> [Event<(&'static str, &'static str)>; 2] {
     let mut events = [
         leaf(0, 1, "/x", ("invalid", "handler-conflict")),
         leaf(1, 1, "/ok", ("ok", "co-install")),
     ];
     events[0].rejection = Some(Reason::HapiHandlerConflict);
-    for event in &mut events {
+    for (event, guard) in events.iter_mut().zip(guards) {
         event.call = Some(7);
         let Target::Route { path, .. } = &mut event.target else {
             unreachable!()
         };
-        path.setup_guard = Some("flag".into());
+        path.setup_guard = guard.map(Into::into);
     }
+    events
+}
+
+#[test]
+fn guarded_within_call_rejection_leaves_the_sibling_no_full_exposure() {
+    // `if (flag) server.route([invalid, valid])`: /ok is never a certain install.
+    let events = guarded_call([Some("flag"), Some("flag")]);
     let table = compose(
         catalog(&events),
         vec![],
@@ -299,24 +305,18 @@ fn guarded_within_call_rejection_aborts_the_siblings_under_the_shared_guard() {
         &Synthetic::default(),
     );
     assert!(origin(&table, 0).paths.is_empty());
-    assert!(origin(&table, 1).paths.is_empty());
-    assert_eq!(origin(&table, 1).reason, Some(Reason::HapiHandlerConflict));
+    assert_eq!(
+        origin(&table, 1).paths[0].binding_blocked,
+        Some(MethodSet::ANY)
+    );
     assert!(table.summary().failed_roots.is_empty());
 }
 
 #[test]
-fn guarded_rejection_only_possibly_aborts_a_sibling_under_another_guard() {
-    let mut events = [
-        leaf(0, 1, "/x", ("invalid", "handler-conflict")),
-        leaf(1, 1, "/ok", ("ok", "co-install")),
-    ];
-    events[0].rejection = Some(Reason::HapiHandlerConflict);
-    events[0].call = Some(7);
-    events[1].call = Some(7);
-    let Target::Route { path, .. } = &mut events[0].target else {
-        unreachable!()
-    };
-    path.setup_guard = Some("flag".into());
+fn equal_guard_text_is_not_one_evaluation_so_the_sibling_is_not_refused() {
+    // `flag ? [item] : []` evaluated in two slots can differ: the first false,
+    // the second true leaves only /ok in the call. It must not be refused.
+    let events = guarded_call([Some("flag"), Some("flag")]);
     let table = compose(
         catalog(&events),
         vec![],
@@ -324,11 +324,28 @@ fn guarded_rejection_only_possibly_aborts_a_sibling_under_another_guard() {
         &events,
         &Synthetic::default(),
     );
-    assert_eq!(
-        origin(&table, 1).paths[0].binding_blocked,
-        Some(MethodSet::ANY)
-    );
-    assert!(table.summary().failed_roots.is_empty());
+    let ok = origin(&table, 1);
+    assert_ne!(ok.reason, Some(Reason::HapiHandlerConflict));
+    assert_eq!(ok.paths.len(), 1);
+}
+
+#[test]
+fn guarded_rejection_only_possibly_aborts_a_sibling_under_another_guard() {
+    for guards in [[Some("flag"), None], [Some("flag"), Some("other")]] {
+        let events = guarded_call(guards);
+        let table = compose(
+            catalog(&events),
+            vec![],
+            &[router(1)],
+            &events,
+            &Synthetic::default(),
+        );
+        assert_eq!(
+            origin(&table, 1).paths[0].binding_blocked,
+            Some(MethodSet::ANY)
+        );
+        assert!(table.summary().failed_roots.is_empty());
+    }
 }
 
 #[test]
