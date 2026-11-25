@@ -85,6 +85,8 @@ def stage(root, row, work, dependencies):
     group = row.get("group", "")
     if group in {"w2-gin", "w2-method-value", "w2-nethttp"}:
         raise HandRequired("Go has no executed-truth adapter")
+    if group == "core":
+        raise HandRequired("core controls register no route to execute")
     if entry is None:
         if group.startswith("w3-"):
             raise HandRequired("framework group has no executed-truth adapter")
