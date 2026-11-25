@@ -1,6 +1,6 @@
 # Lane 8: one taint answer from both engines — design
 
-**Stage D design of record, 2026-11-25.** The measurement base is `9d1a7d06f653`. The four matrix shards at `7ccb0eba04f1` contain 415 rows. The row decisions are in [STAGE_D_ROWS.md](../../../../../tests/fixtures/taint_parity/STAGE_D_ROWS.md). The implementation seats apply that table to the JSONL as their groups ship. Decision 2 is settled on branch A2. Decision 6 remains with the owner (§8). Historical probe names below refer to the two design reviews of 2026-11-21.
+**Stage D design of record, 2026-11-25.** The measurement base is `9d1a7d06f653`. The four matrix shards at `7ccb0eba04f1` contain 415 rows. The row decisions are in [STAGE_D_ROWS.md](../../../../../tests/taint_parity/STAGE_D_ROWS.md). The implementation seats apply that table to the JSONL as their groups ship. Decision 2 is settled on branch A2. Decision 6 remains with the owner (§8). Historical probe names below refer to the two design reviews of 2026-11-21.
 
 ## 1. Intent
 
@@ -107,7 +107,7 @@ last slices of the lane. The owner chose A2 on 2026-11-24; the four branches con
 
 ### 5.1 The parity matrix
 
-Read `rows.jsonl`, `rows-t2a.jsonl`, `rows-t2b.jsonl` and `rows-t2c.jsonl` under `tests/fixtures/taint_parity/`. `STAGE_D_ROWS.md` records the disposition of all 415 input IDs, the slice prerequisites and CURRENT cells, reason amendments, and additional control fixtures to materialise. Distinguish a required future cell from an observation on the pinned producer. A row names occurrences, not lines: the
+Read `rows.jsonl`, `rows-t2a.jsonl`, `rows-t2b.jsonl` and `rows-t2c.jsonl` under `tests/taint_parity/`. `STAGE_D_ROWS.md` records the disposition of all 415 input IDs, the slice prerequisites and CURRENT cells, reason amendments, and additional control fixtures to materialise. Distinguish a required future cell from an observation on the pinned producer. A row names occurrences, not lines: the
 source occurrence (file, line, bytes), the call site and argument slot or the return it tests, and the sink
 operand (file, line, bytes). Parity has three levels, asserted separately:
 

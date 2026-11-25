@@ -227,24 +227,24 @@ enum Truth {
     NoFlow,
 }
 
-/// Row files in reading order. `PARITY_ROWS=a.jsonl,b.jsonl` (names under `tests/fixtures/taint_parity/`)
+/// Row files in reading order. `PARITY_ROWS=a.jsonl,b.jsonl` (names under `tests/taint_parity/`)
 /// replaces the list at run time, so a worker can check its own rows file next to `rows.jsonl`.
 const ROW_FILES: &[(&str, &str)] = &[
     (
         "rows.jsonl",
-        include_str!("../../../fixtures/taint_parity/rows.jsonl"),
+        include_str!("../../../taint_parity/rows.jsonl"),
     ),
     (
         "rows-t2a.jsonl",
-        include_str!("../../../fixtures/taint_parity/rows-t2a.jsonl"),
+        include_str!("../../../taint_parity/rows-t2a.jsonl"),
     ),
     (
         "rows-t2b.jsonl",
-        include_str!("../../../fixtures/taint_parity/rows-t2b.jsonl"),
+        include_str!("../../../taint_parity/rows-t2b.jsonl"),
     ),
     (
         "rows-t2c.jsonl",
-        include_str!("../../../fixtures/taint_parity/rows-t2c.jsonl"),
+        include_str!("../../../taint_parity/rows-t2c.jsonl"),
     ),
 ];
 
@@ -254,7 +254,7 @@ pub(super) fn rows() -> Vec<Row> {
             .split(',')
             .map(|name| {
                 let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("tests/fixtures/taint_parity")
+                    .join("tests/taint_parity")
                     .join(name);
                 let text = std::fs::read_to_string(&path)
                     .unwrap_or_else(|err| panic!("{}: {err}", path.display()));
