@@ -27,8 +27,10 @@ const CAUSES: &[&str] = &[
     "binding_unavailable",
     "member_rebound",
     "receiver_not_unique",
+    "annotation_conflict",
     "helper_unannotated",
     "helper_not_admissible",
+    "receiver_value_unproven",
 ];
 
 #[derive(Deserialize)]
