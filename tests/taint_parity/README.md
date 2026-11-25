@@ -2,7 +2,8 @@
 
 Each JSON line records one source occurrence and one sink operand in a fixture.
 One taxonomy test validates every loaded row. The other three check walk,
-default review, and return-flow review for the groups listed in `ENABLED`. Run them with
+default review, and return-flow review for enabled groups and rows with
+`current` cells. Run them with
 `cargo test --test algo_taxonomy taint_parity_test::`.
 
 The harness reads `rows.jsonl` (T-1), `rows-t2a.jsonl`, `rows-t2b.jsonl`, and
@@ -10,9 +11,13 @@ The harness reads `rows.jsonl` (T-1), `rows-t2a.jsonl`, `rows-t2b.jsonl`, and
 `PARITY_ROWS=rows.jsonl,rows-t2b.jsonl` replaces the file list at run time, in
 the order given. Use comma-separated filenames relative to this directory.
 `PARITY_ENABLED=control,binding` replaces the enabled groups at run time.
-By default only `control` is enabled. An engine test reports an all-pending
-group and fails an enabled group with no cells and no pending reason at that
-level.
+By default `control` and `guard` are enabled. For a row with `current`, the
+engine tests select that cell while its group is disabled or any slice in
+`current.until` is absent from `SHIPPED_SLICES`. Otherwise they select the
+target `expect` of an enabled row. The runtime group override does not alter
+the shipped slice list. Pending producer checks apply to their listed levels
+after cell selection. An engine test reports an all-pending group and fails
+an enabled group with no cells and no pending reason at that level.
 
 ## Row schema
 
@@ -29,6 +34,7 @@ level.
 | `expect.review`, `expect.trace_review` | Confidence of the `taint_sink` finding on the marked line with default and return-flow review, respectively. |
 | `expect.catalog` | Multiset of `{file, line, rule, operand, verdict}` decisions for the one selected explicit source occurrence. `[]` expects zero decisions in that scope. A flat rule has a null operand. |
 | `reasons` | Null or lists keyed by `walk`, `review`, `trace_review`, and `catalog`. Explain disagreements in flow or finding presence. |
+| `current` | Optional `{until, expect, reasons}` for the active intermediate cell. `until` lists distinct prerequisite slices. `expect` and `reasons` use the target schema. Record the measured build and mechanism in `note`. |
 | `knobs` | Null or `{edges, depth}`. Edge ceilings are `exact` and `nameonly`. Depth is a nonnegative crossing budget. |
 | `truth`, `known_wrong` | `flows` or `no_flow` for the selected operand, and null or the issue or group responsible for a known wrong answer. |
 | `pending` | Null or `{levels, issue}`. Use a nonempty list of distinct levels from `walk`, `review`, `trace_review`, `catalog`, and `reasons`, and name the missing producer in `issue`. An engine test prints the dependency and skips only its listed cell. |
