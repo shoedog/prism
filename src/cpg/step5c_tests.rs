@@ -153,37 +153,32 @@ fn anonymous_and_refusal_identity() {
     });
 }
 
-fn fixtures(root: &Path, files: &mut BTreeMap<String, ParsedFile>, base: &Path) {
-    let mut entries: Vec<_> = std::fs::read_dir(root)
-        .unwrap()
-        .map(Result::unwrap)
-        .collect();
-    entries.sort_by_key(|e| e.file_name());
-    for entry in entries {
-        let kind = entry.file_type().unwrap();
-        if kind.is_dir() {
-            fixtures(&entry.path(), files, base);
-        } else if kind.is_file() {
-            let path = entry.path();
-            let relative = path.strip_prefix(base).unwrap().to_str().unwrap();
-            if let Some(language) = Language::from_path(relative) {
-                files.insert(
-                    relative.into(),
-                    ParsedFile::parse(relative, &std::fs::read_to_string(&path).unwrap(), language)
-                        .unwrap(),
-                );
-            }
-        }
-    }
-}
+/// Language-recognised files of the legacy corpus at 9d1a7d06f: 1,297 (tests/fixtures).
+const BOUND: usize = 1_500;
 
 #[test]
 fn repository_fixtures_complete_identity() {
     crate::build_pool::install(|| {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let paths = crate::fixture_corpus::legacy_fixture_files(&root, |p| {
+            Language::from_path(&p.to_string_lossy()).is_some()
+        });
+        assert!(paths.len() >= 100, "empty/truncated fixture population");
+        crate::fixture_corpus::assert_visited_within(
+            "repository_fixtures_complete_identity",
+            paths.len(),
+            BOUND,
+        );
         let mut files = BTreeMap::new();
-        fixtures(&root, &mut files, &root);
-        assert!(files.len() >= 100, "empty/truncated fixture population");
+        for path in &paths {
+            let relative = path.strip_prefix(&root).unwrap().to_str().unwrap();
+            let language = Language::from_path(relative).unwrap();
+            files.insert(
+                relative.to_string(),
+                ParsedFile::parse(relative, &std::fs::read_to_string(path).unwrap(), language)
+                    .unwrap(),
+            );
+        }
         for (file, parsed) in &files {
             let one = BTreeMap::from([(
                 file.clone(),

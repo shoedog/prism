@@ -51,7 +51,6 @@ fn matching_examines_only_bucket_members() {
 }
 
 use std::cell::{Cell, RefCell};
-use std::path::Path;
 
 #[derive(Default, Debug, PartialEq, Eq)]
 struct Observation {
@@ -163,15 +162,13 @@ fn compare(path: &str, source: &str) -> (usize, BTreeSet<FlowDoubt>) {
 
 #[test]
 fn differential_all_fixtures() {
-    let mut files = Vec::new();
-    for root in ["tests/fixtures", "eval/fixtures"] {
-        work_tests::fixture_files(
-            &Path::new(env!("CARGO_MANIFEST_DIR")).join(root),
-            &mut files,
-        );
-    }
-    files.sort();
+    let files = work_tests::repository_fixture_files();
     assert!(files.len() >= 100);
+    crate::fixture_corpus::assert_visited_within(
+        "differential_all_fixtures (def_bucket_tests)",
+        files.len(),
+        work_tests::FIXTURE_SWEEP_BOUND,
+    );
     let mut owners = 0;
     let mut doubts = BTreeSet::new();
     for file in &files {
