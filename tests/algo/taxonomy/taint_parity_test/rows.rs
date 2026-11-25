@@ -227,15 +227,59 @@ enum Truth {
     NoFlow,
 }
 
+/// Row files in reading order. `PARITY_ROWS=a.jsonl,b.jsonl` (names under `tests/fixtures/taint_parity/`)
+/// replaces the list at run time, so a worker can check its own rows file next to `rows.jsonl`.
+const ROW_FILES: &[(&str, &str)] = &[
+    (
+        "rows.jsonl",
+        include_str!("../../../fixtures/taint_parity/rows.jsonl"),
+    ),
+    (
+        "rows-t2a.jsonl",
+        include_str!("../../../fixtures/taint_parity/rows-t2a.jsonl"),
+    ),
+    (
+        "rows-t2b.jsonl",
+        include_str!("../../../fixtures/taint_parity/rows-t2b.jsonl"),
+    ),
+    (
+        "rows-t2c.jsonl",
+        include_str!("../../../fixtures/taint_parity/rows-t2c.jsonl"),
+    ),
+];
+
 pub(super) fn rows() -> Vec<Row> {
-    include_str!("../../../fixtures/taint_parity/rows.jsonl")
-        .lines()
-        .enumerate()
-        .map(|(index, line)| {
-            serde_json::from_str(line)
-                .unwrap_or_else(|err| panic!("rows.jsonl:{}: {err}", index + 1))
-        })
-        .collect()
+    let sources: Vec<(String, String)> = match std::env::var("PARITY_ROWS") {
+        Ok(list) => list
+            .split(',')
+            .map(|name| {
+                let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/fixtures/taint_parity")
+                    .join(name);
+                let text = std::fs::read_to_string(&path)
+                    .unwrap_or_else(|err| panic!("{}: {err}", path.display()));
+                (name.to_string(), text)
+            })
+            .collect(),
+        Err(_) => ROW_FILES
+            .iter()
+            .map(|(name, text)| (name.to_string(), text.to_string()))
+            .collect(),
+    };
+    let mut rows = Vec::new();
+    for (name, text) in &sources {
+        for (index, line) in text
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| !line.trim().is_empty())
+        {
+            rows.push(
+                serde_json::from_str(line)
+                    .unwrap_or_else(|err| panic!("{name}:{}: {err}", index + 1)),
+            );
+        }
+    }
+    rows
 }
 
 pub(super) fn validate_labels(row: &Row) {
