@@ -113,6 +113,7 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `rule_registry.rs` and `rule_registry/` own the named finding rules, `RuleInfo`, and `RuleRef`.
   Both types have private fields and borrowed read accessors. Named rows make references via `rule_ref()`. `prism::slice::RuleRef` and `prism_review::output::rule_registry` re-export the core API.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
+  Under the Exact ceiling, `cpg/trace_descent.rs` refuses binding doubts such as `call_nameonly` before site lookup or a cached proof. It counts same-spelling sites in the executing caller before requiring the unique site's byte span to contain the occurrence. Until I-spelling, `s2-js-alias-same-line`, `s2-js-alias-multiline-overlap`, and `s3-ts-optional-default-competitor` now report `BoundaryExited` in the walk and no trace-review finding.
 - `api/` — `prism::api`: the stable, `#[non_exhaustive]` core facade of the `prism` library (`build_info`, `nav_session`/`callers`/`callees`, `OwnerOptions`, `load_review_inputs`, `build_context`, `ReviewOptions`, the finding-confidence items, `with_build_pool`). The review runner, SARIF and targets items are not in it: they live in `prism_review::api` (see "Review crate" below). See the module doc for the compatibility promise.
   `review_loading.rs` captures the root and listing used by `ReviewContextLoader` for targeted reads.
   `ReviewContextRound` builds a graph from the captured review and the admitted files.

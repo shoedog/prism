@@ -53,6 +53,7 @@ pub(super) struct Row {
     #[serde(deserialize_with = "Deserialize::deserialize")]
     pub(super) expect: Option<Expectations>,
     reasons: Option<Reasons>,
+    pub(super) current: Option<Current>,
     knobs: Option<Knobs>,
     truth: Truth,
     known_wrong: Option<String>,
@@ -143,6 +144,15 @@ pub(super) struct Expectations {
     pub(super) review: Finding,
     pub(super) trace_review: Finding,
     pub(super) catalog: Vec<CatalogEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Current {
+    pub(super) until: Vec<String>,
+    pub(super) expect: Expectations,
+    #[serde(deserialize_with = "Deserialize::deserialize")]
+    reasons: Option<Reasons>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -366,12 +376,31 @@ pub(super) fn validate_labels(row: &Row) {
             })
         });
         assert!(
-            row.group == "tbd" && row.pending.is_none() && row.reasons.is_none() && observed_cells,
+            row.group == "tbd"
+                && row.pending.is_none()
+                && row.reasons.is_none()
+                && row.current.is_none()
+                && observed_cells,
             "{}: null expect requires a tbd row with observed cells in its note",
             row.id
         );
         return;
     };
+    validate_expectations(row, expect, row.reasons.as_ref());
+    if let Some(current) = &row.current {
+        let distinct: BTreeSet<_> = current.until.iter().collect();
+        assert!(
+            !distinct.is_empty()
+                && distinct.len() == current.until.len()
+                && current.until.iter().all(|slice| !slice.trim().is_empty()),
+            "{}: CURRENT needs distinct prerequisite slices",
+            row.id
+        );
+        validate_expectations(row, &current.expect, current.reasons.as_ref());
+    }
+}
+
+fn validate_expectations(row: &Row, expect: &Expectations, reasons: Option<&Reasons>) {
     let walk = &expect.walk;
     let has_witness = matches!(walk.reaches, Verdict::Reached | Verdict::Sanitized);
     assert_eq!(
@@ -388,10 +417,10 @@ pub(super) fn validate_labels(row: &Row) {
         "{}",
         row.id
     );
-    validate_differences(row, expect);
+    validate_differences(row, expect, reasons);
 }
 
-fn validate_differences(row: &Row, expect: &Expectations) {
+fn validate_differences(row: &Row, expect: &Expectations, reasons: Option<&Reasons>) {
     let catalog = (row.group == "catalog" || !expect.catalog.is_empty()).then(|| {
         expect.catalog.iter().any(|entry| {
             entry.file == row.sink.file
@@ -399,7 +428,6 @@ fn validate_differences(row: &Row, expect: &Expectations) {
                 && entry.verdict == Verdict::Reached
         })
     });
-    let reasons = row.reasons.as_ref();
     let levels = [
         (
             Some(expect.walk.reaches == Verdict::Reached),

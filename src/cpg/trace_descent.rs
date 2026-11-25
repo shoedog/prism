@@ -4,21 +4,24 @@
 
 use std::collections::BTreeMap;
 
+use crate::call_graph::CallSite;
 use crate::resolution::ResolutionConfidence;
 use petgraph::graph::NodeIndex;
 
 use super::trace::Relation;
-use super::{CodePropertyGraph, CpgNode, VarAccess};
+use super::{CodePropertyGraph, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
 
 pub(super) type DescentGateKey = (
-    String, // caller file
-    String, // caller function
-    usize,  // caller function start line
-    usize,  // source occurrence line
-    usize,  // source occurrence start byte
-    String, // callee name
-    String, // target function file
-    usize,  // target function start line
+    String,    // caller file
+    String,    // caller function
+    usize,     // caller function start line
+    usize,     // source occurrence line
+    usize,     // source occurrence start byte
+    usize,     // source occurrence end byte
+    String,    // callee name
+    String,    // target function file
+    usize,     // target function start line
+    NodeIndex, // target binding
 );
 
 impl CodePropertyGraph {
@@ -63,7 +66,7 @@ impl CodePropertyGraph {
             .get(callee_name)
             .is_some_and(|sites| {
                 sites.iter().any(|site| {
-                    Self::call_site_matches_source_occurrence(
+                    Self::call_site_is_candidate(
                         site,
                         caller_file,
                         caller_name,
@@ -76,17 +79,30 @@ impl CodePropertyGraph {
             })
     }
 
-    /// Some(..) iff this cross-function `DataFlow` hop is backed by exactly one matching
-    /// CallSite and that site's `resolve_call_site` includes an Exact edge to the target `to` owner.
+    /// Under Exact, a binding edge's own `call_nameonly` or `builtin_callback`
+    /// doubt refuses as `not_exact` before consulting any site proof. Only
+    /// existing read-side doubts can proceed to the site check, so the
+    /// lane-9 `builtin_callback` doubt is refused when it becomes available.
+    ///
+    /// Count the legacy candidates first (`ambiguous_site` for several).
+    /// The unique site must contain the occurrence (`no_matching_site` for
+    /// zero candidates or failed containment) and resolve Exactly to the target owner.
     pub(super) fn descend_target(
         &self,
         from: NodeIndex,
         to: NodeIndex,
-        rel: Relation,
+        binding_label: Option<FlowConfidence>,
         descent_gate_cache: &mut BTreeMap<DescentGateKey, bool>,
     ) -> bool {
-        if rel != Relation::DataFlow {
-            return false;
+        match binding_label {
+            Some(FlowConfidence::Exact)
+            | Some(FlowConfidence::NameOnly(
+                FlowDoubt::Killed { .. }
+                | FlowDoubt::SameLine
+                | FlowDoubt::CfgIncomplete
+                | FlowDoubt::AliasUnstable,
+            )) => {}
+            _ => return false,
         }
 
         let CpgNode::Variable {
@@ -119,9 +135,11 @@ impl CodePropertyGraph {
             *caller_fn_start_line,
             *source_line,
             *source_start_byte,
+            *source_end_byte,
             target_fn.clone(),
             target_file.clone(),
             *target_fn_start_line,
+            to,
         );
         if let Some(can_descend) = descent_gate_cache.get(&cache_key) {
             return *can_descend;
@@ -135,7 +153,7 @@ impl CodePropertyGraph {
                 let matching_sites: Vec<_> = sites
                     .iter()
                     .filter(|site| {
-                        Self::call_site_matches_source_occurrence(
+                        Self::call_site_is_candidate(
                             site,
                             caller_file,
                             caller_fn,
@@ -153,27 +171,27 @@ impl CodePropertyGraph {
                 }
             })
             .is_some_and(|site| {
-                self.call_graph
-                    .resolve_call_site(site)
-                    .into_iter()
-                    .any(|resolved| {
-                        resolved.confidence == ResolutionConfidence::Exact
-                            && resolved.target.file == *target_file
-                            && resolved.target.name == *target_fn
-                            && resolved.target.start_line == *target_fn_start_line
-                    })
+                site_contains_occurrence(site, *source_start_byte, *source_end_byte)
+                    && self
+                        .call_graph
+                        .resolve_call_site(site)
+                        .into_iter()
+                        .any(|resolved| {
+                            resolved.confidence == ResolutionConfidence::Exact
+                                && resolved.target.file == *target_file
+                                && resolved.target.name == *target_fn
+                                && resolved.target.start_line == *target_fn_start_line
+                        })
             });
 
         descent_gate_cache.insert(cache_key, can_descend);
         can_descend
     }
 
-    /// Match a Step-5b source occurrence to its CallSite. Existing same-line
-    /// behavior remains line-based, preserving the refusal on same-line
-    /// same-name call collisions. When the occurrence is on a continuation
-    /// line, the CallSite's byte span is the only available identity proof.
-    pub(super) fn call_site_matches_source_occurrence(
-        site: &crate::call_graph::CallSite,
+    /// Nominate sites from the executing caller by the legacy line or byte
+    /// rule. A same-line collision remains ambiguous before containment.
+    fn call_site_is_candidate(
+        site: &CallSite,
         caller_file: &str,
         caller_name: &str,
         caller_start_line: usize,
@@ -185,7 +203,7 @@ impl CodePropertyGraph {
             && site.caller.name == caller_name
             && site.caller.start_line == caller_start_line
             && (site.line == source_line
-                || (site.start_byte <= source_start_byte && source_end_byte <= site.end_byte))
+                || site_contains_occurrence(site, source_start_byte, source_end_byte))
     }
 
     pub(super) fn return_flow_ascent_allowed(&self, from: NodeIndex, to: NodeIndex) -> bool {
@@ -225,4 +243,8 @@ impl CodePropertyGraph {
                     })
             })
     }
+}
+
+fn site_contains_occurrence(site: &CallSite, start_byte: usize, end_byte: usize) -> bool {
+    site.start_byte <= start_byte && end_byte <= site.end_byte
 }
