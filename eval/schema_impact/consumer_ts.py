@@ -31,6 +31,20 @@ class ClientCall:
 
 
 @dataclass(frozen=True)
+class CallObservation:
+    call: ClientCall
+    start: int
+    end: int
+    end_line: int
+    expression: str
+    function_span: tuple[int, int] | None
+    mapping: ClientSpec | None
+    client: ClientSpec | None
+    delegated: ClientSpec | None
+    builtin: str | None
+
+
+@dataclass(frozen=True)
 class _Target:
     kind: str
     members: tuple[str | None, ...]
@@ -170,8 +184,13 @@ class _File:
             return _Target("axios_factory", members)
         if root.type != "identifier":
             return None
+        while (binding := self.bindings.find(root)) is not None:
+            alias = ts.unwrap(binding.initializer)
+            if (not binding.constant or binding.written or alias is None
+                    or alias.type != "identifier" or alias.start_byte >= root.start_byte):
+                break
+            root = alias
         local = ts.text(root)
-        binding = self.bindings.find(root)
         if binding is None:
             if (local == "fetch" and not members) or (local in _GLOBAL_OBJECTS and members == ("fetch",)):
                 return _Target("fetch", ())
@@ -201,7 +220,9 @@ class _File:
         hook = self.resolver.hooks.get(hook_name)
         return _Target("hook", (), hook) if hook is not None and not members else None
 
-    def _hook(self, target: _Target, args: list[Node]) -> tuple[_Request, Node | None]:
+    def _hook(
+        self, target: _Target, args: list[Node], accounted: set[Node] | None,
+    ) -> tuple[_Request, Node | None, ClientSpec | None]:
         hook = target.spec
         url = ts.argument(args, hook.url_arg)
         fetcher = ts.unwrap(ts.argument(args, hook.fetcher_arg))
@@ -212,23 +233,78 @@ class _File:
                 called = self.target(result.child_by_field_name("function"))
                 if called is None or called.kind == "hook":
                     continue
-                delegated = _request(called, ts.children(result.child_by_field_name("arguments")))
+                delegated = self._call_request(called, ts.children(result.child_by_field_name("arguments")), accounted)
                 if request is not None and (request.method, request.spec, request.reason) != (
                     delegated.method, delegated.spec, delegated.reason
                 ):
-                    return _Request(None, url, hook, "dynamic_method"), inline
+                    return _Request(None, url, hook, "dynamic_method"), inline, None
                 request = delegated
         else:
             reference = self.target(fetcher)
             if reference is not None and reference.kind != "hook":
                 request = _request(reference, [])
+                if accounted is not None:
+                    accounted.add(ts.member_chain(fetcher)[0])
         if request is None:
-            return _Request("GET", url, hook), inline
+            return _Request("GET", url, hook), inline, None
         spec = hook if hook.strip_prefix or hook.add_prefix else request.spec or hook
-        return _Request(request.method, url, spec, request.reason), inline
+        return _Request(request.method, url, spec, request.reason), inline, request.spec
+
+    def _bound_receiver(self, target: _Target, args: list[Node]) -> Node | None:
+        if target.kind != "client" or target.members[-1:] != ("bind",):
+            return None
+        method = _Target("client", target.members[:-1], target.spec)
+        if _client_request(method, []).reason in {"unknown_client_method", "unconfigured_client_form"}:
+            return None
+        receiver = ts.argument(args, 0)
+        if self.target(receiver) == _Target("client", target.members[:-2], target.spec):
+            return ts.member_chain(receiver)[0]
+        return None
+
+    def _call_request(self, target: _Target, args: list[Node], accounted: set[Node] | None) -> _Request:
+        request = _request(target, args)
+        # A matching thisArg belongs to the observed .bind form of a configured method.
+        if accounted is not None and request.reason == "unknown_client_method":
+            if (receiver := self._bound_receiver(target, args)) is not None:
+                accounted.add(receiver)
+        return request
+
+    def unaccounted_client_references(self, accounted: set[Node]):
+        for node, scope in self.bindings.scopes.items():
+            if node.type == "variable_declarator":
+                name = node.child_by_field_name("name")
+                binding = scope.find(ts.text(name))
+                if binding and binding.constant and not binding.written:
+                    initializer = ts.unwrap(binding.initializer)
+                    if initializer is not None and initializer.type == "identifier":
+                        accounted.add(initializer)
+            if node.type == "call_expression":
+                callee = node.child_by_field_name("function")
+                root, _ = ts.member_chain(callee)
+                if self.target(callee) is not None:
+                    accounted.add(root)
+                elif ts.text(callee) == "require" and scope.find("require") is None:
+                    module = ts.literal(ts.argument(ts.children(node.child_by_field_name("arguments")), 0))
+                    if module and self.resolver.reaches_client(self.path, Import(module, "*")):
+                        yield node.start_point.row + 1, "a CommonJS client reference was not used as a recognised callee"
+        for node in ts.walk(self.tree):
+            if node in accounted or not self.bindings.reference(node):
+                continue
+            root = node
+            while (binding := self.bindings.find(root)) is not None:
+                if binding.imported:
+                    if self.resolver.reaches_client(self.path, binding.imported):
+                        yield node.start_point.row + 1, "a configured client reference was not used as a recognised callee"
+                    break
+                alias = ts.unwrap(binding.initializer)
+                if not binding.constant or alias is None or alias.type != "identifier" or alias.start_byte >= root.start_byte:
+                    break
+                root = alias
 
     def calls(self, file: str) -> list[ClientCall]:
-        result = []
+        return [observation.call for observation in self.observations(file)]
+
+    def observations(self, file: str, *, accounted: set[Node] | None = None):
         fetchers = []
         for node in ts.walk(self.tree):
             if node.type != "call_expression":
@@ -242,22 +318,29 @@ class _File:
                 continue
             args = ts.children(node.child_by_field_name("arguments"))
             hook_key = target.kind == "hook"
+            delegated = None
             if hook_key:
-                request, inline = self._hook(target, args)
+                request, inline, delegated = self._hook(target, args, accounted)
                 if inline is not None:
                     fetchers.append(inline)
             else:
-                request = _request(target, args)
+                request = self._call_request(target, args, accounted)
             path, url_class, url_reason = url_pattern(
                 request.url, self.bindings.constant, request.spec, hook_key=hook_key,
             )
             type_args = ts.children(node.child_by_field_name("type_arguments"))
-            result.append(ClientCall(
+            call = ClientCall(
                 file, node.start_point.row + 1, request.method, ts.text(request.url), path, url_class,
                 request.reason or url_reason, ts.text(type_args[0]) if type_args else None,
                 self.bindings.enclosing_function(node),
-            ))
-        return result
+            )
+            function = node.parent
+            while function is not None and function.type not in ts.FUNCTIONS:
+                function = function.parent
+            span = (function.start_byte, function.end_byte) if function is not None else None
+            yield CallObservation(call, node.start_byte, node.end_byte, node.end_point.row + 1,
+                                  ts.text(node), span, request.spec, target.spec, delegated,
+                                  target.kind if target.spec is None else None)
 
 
 def _returned_calls(function: Node):

@@ -57,6 +57,7 @@ class Resolver:
         self.hooks = {client.hook: client for client in config.clients if client.hook is not None}
         self.file = cache(self.file)
         self.client = cache(self.client)
+        self.reaches_client = cache(self.reaches_client)
         self.reexports = cache(self.reexports)
 
     def file(self, importer: Path, module: str) -> Path | None:
@@ -94,6 +95,22 @@ class Resolver:
             if spec is not None:
                 return spec
         return None
+
+    def reaches_client(self, importer: Path, imported: Import) -> bool:
+        """Find configured bindings even when the call extractor cannot follow the import chain."""
+        pending = [(self.file(importer, imported.module), imported.export)]
+        seen = set()
+        while pending:
+            path, export = pending.pop()
+            if path is None or (path, export) in seen:
+                continue
+            seen.add((path, export))
+            if (path, export) in self.clients or (
+                export == "*" and any(candidate == path for candidate, _ in self.clients)
+            ):
+                return True
+            pending.extend((self.file(path, source), name) for name, source in self.reexports(path, export))
+        return False
 
     def reexports(self, path: Path, export: str) -> tuple[tuple[str, str], ...]:
         tree = ts.parse(path.read_bytes(), path)
