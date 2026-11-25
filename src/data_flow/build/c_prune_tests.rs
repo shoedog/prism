@@ -77,10 +77,17 @@ fn check_subset(name: &str, source: &str) -> (usize, usize) {
 #[test]
 fn c_prune_is_removal_only_over_fixture_tree() {
     let mut files = 0;
-    for path in fixtures("tests/fixtures") {
-        if path.to_string_lossy().contains("secbench") {
-            continue;
-        }
+    let paths = crate::fixture_corpus::legacy_fixture_files(
+        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
+        |p| p.extension().is_some_and(|e| e == "c"),
+    );
+    crate::fixture_corpus::assert_visited_within(
+        "c_prune_is_removal_only_over_fixture_tree",
+        paths.len(),
+        // `.c` files of the legacy corpus at 9d1a7d06f: 61.
+        80,
+    );
+    for path in paths {
         let Ok(source) = std::fs::read_to_string(&path) else {
             continue;
         };

@@ -166,13 +166,15 @@ fn fixture_inputs(
 
 pub fn findings(path: &str, language: Language, source: &str) -> prism::slice::SliceResult {
     let (files, diff) = fixture_inputs(path, language, source);
-    algorithms::run_slicing_compat(
+    let result = algorithms::run_slicing_compat(
         &files,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::Taint),
         None,
     )
-    .unwrap()
+    .unwrap();
+    assert_unactivated_rules(&result);
+    result
 }
 
 /// Run taint with caller-supplied sink names. This skips evidence alignment and diagram
@@ -189,7 +191,30 @@ pub fn findings_with_sinks(
         extra_sinks: extra_sinks.iter().map(|&name| name.to_string()).collect(),
         ..TaintConfig::default()
     };
-    taint::slice(&CpgContext::build(&files, None), &diff, &config).unwrap()
+    let result = taint::slice(&CpgContext::build(&files, None), &diff, &config).unwrap();
+    assert_unactivated_rules(&result);
+    result
+}
+
+#[track_caller]
+fn assert_unactivated_rules(result: &prism::slice::SliceResult) {
+    check_matrix_rules(&result.findings).unwrap_or_else(|error| panic!("{error}"));
+}
+
+fn check_matrix_rules(findings: &[prism::slice::SliceFinding]) -> Result<(), String> {
+    for finding in findings {
+        for rule in &finding.rules {
+            prism::rule_registry::check_emitted(&finding.algorithm, rule)
+                .map_err(|error| format!("{}:{}: {error}", finding.file, finding.line))?;
+        }
+        if !finding.rules.is_empty() {
+            return Err(format!(
+                "{}:{}: rules in unactivated fixture",
+                finding.file, finding.line
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub fn sink_on_marker(path: &str, language: Language, source: &str) -> bool {
@@ -249,4 +274,24 @@ pub fn assert_rows(rows: &[Row]) {
         wrong.len(),
         wrong.join("\n")
     );
+}
+
+#[test]
+fn matrix_rule_reader_checks_unmarked_findings_and_empty_partitions() {
+    use prism::slice::SliceFinding;
+    let mut findings = vec![SliceFinding::default()];
+    assert!(check_matrix_rules(&findings).is_ok());
+    findings.push(
+        serde_json::from_value(serde_json::json!({
+            "algorithm":"taint","file":"unmarked.js","line":99,"severity":"warning",
+            "description":"control","rules":[{"id":"legacy"}]
+        }))
+        .unwrap(),
+    );
+    let error = check_matrix_rules(&findings).unwrap_err();
+    assert!(error.contains("unmarked.js:99") && error.contains("unactivated"));
+    findings[1].rules = serde_json::from_str(r#"[{"id":"unknown"}]"#).unwrap();
+    assert!(check_matrix_rules(&findings)
+        .unwrap_err()
+        .contains("unknown rule id"));
 }

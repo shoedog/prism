@@ -5,7 +5,7 @@ use crate::cpg::{dfg_observation, CodePropertyGraph};
 use crate::languages::Language;
 use crate::navigation::queries;
 use std::cell::Cell;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Barrier, Condvar, Mutex};
 
 thread_local! {
@@ -203,31 +203,24 @@ fn duplicate_paths_merge_in_input_order_despite_reverse_completion() {
     assert_eq!(extract(inputs.clone()), sequential(inputs));
 }
 
-fn fixture_paths(root: &Path, paths: &mut Vec<PathBuf>) {
-    let mut entries: Vec<_> = std::fs::read_dir(root)
-        .unwrap()
-        .map(Result::unwrap)
-        .collect();
-    entries.sort_by_key(|e| e.file_name());
-    for entry in entries {
-        let kind = entry.file_type().unwrap();
-        if kind.is_dir() {
-            fixture_paths(&entry.path(), paths);
-        } else if kind.is_file() && Language::from_path(&entry.path().to_string_lossy()).is_some() {
-            paths.push(entry.path());
-        }
-    }
-}
+/// Language-recognised files of the legacy corpus at 9d1a7d06f: 1,297 (tests/fixtures).
+const BOUND: usize = 1_500;
 
 #[test]
 fn repository_fixtures_complete_maps_and_serialization() {
     crate::build_pool::install(|| {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
-        let mut paths = Vec::new();
-        fixture_paths(&root, &mut paths);
+        let paths = crate::fixture_corpus::legacy_fixture_files(&root, |p| {
+            Language::from_path(&p.to_string_lossy()).is_some()
+        });
         assert!(
             paths.len() >= 100,
             "fixture population unexpectedly truncated"
+        );
+        crate::fixture_corpus::assert_visited_within(
+            "repository_fixtures_complete_maps_and_serialization",
+            paths.len(),
+            BOUND,
         );
         let mut all = BTreeMap::new();
         for path in &paths {
