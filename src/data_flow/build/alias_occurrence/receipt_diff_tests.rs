@@ -42,6 +42,8 @@ fn fixture_files(dir: &Path, out: &mut Vec<PathBuf>) {
             || name.starts_with("F-private")
             || name == "private-corpus"
             || name == "secbench"
+            // route-matrix rows (lane 12): lane-written apps for `prism nav routes`, not alias-twin inputs
+            || (name == "routes" && dir.ends_with("tests/fixtures"))
         {
             continue;
         }
