@@ -1,167 +1,280 @@
 id	fixture	config	expected_grade	expected_ids	expected_reason	truth	class
+axios-dynamic-method	methods/builtins.js:22	methods/prism-boundary.toml	unbound		dynamic_method	rule	method
+axios-named-verb	methods/builtins.js:19	methods/prism-boundary.toml	bound	op:PATCH /seals		rule	client-identity
+axios-object	methods/builtins.js:20	methods/prism-boundary.toml	bound	op:POST /seals		rule	method
+axios-object-default	methods/builtins.js:21	methods/prism-boundary.toml	bound	op:GET /seals		rule	method
+axios-promise-chain	methods/builtins.js:23	methods/prism-boundary.toml	bound	op:DELETE /seals		rule	counting
+axios-shadow	methods/builtins.js:28	methods/prism-boundary.toml	none		shadowed_builtin	rule	client-identity
+axios-verb	methods/builtins.js:18	methods/prism-boundary.toml	bound	op:PATCH /seals		rule	method
+backend-absolute-fetch	backends/sites.js:11	backends/prism-boundary.toml	bound	op:GET /seals		rule	built-in axios/fetch with a relative URL in a consumer that talks to more than one backend
+backend-inline-client	backends/sites.js:10	backends/prism-boundary.toml	unbound		other_api	rule	a locally created client with another base
+backend-local-client	backends/sites.js:9	backends/prism-boundary.toml	unbound		other_api	rule	a locally created client with another base
+backend-relative-axios	backends/sites.js:8	backends/prism-boundary.toml	unbound		other_api	rule	built-in axios/fetch with a relative URL in a consumer that talks to more than one backend
+backend-relative-fetch	backends/sites.js:7	backends/prism-boundary.toml	unbound		other_api	rule	built-in axios/fetch with a relative URL in a consumer that talks to more than one backend
 c01	identity/scenes/entry.ts:13	identity/prism-boundary.toml	bound	op:GET /cairns		rule	client-identity
-identity-old-alias	identity/scenes/entry.ts:14	identity/prism-boundary.toml	bound	op:GET /cairns		rule	client-identity
-c13-relative	identity/scenes/entry.ts:15	identity/prism-boundary.toml	bound	op:GET /cairns		rule	client-identity
-c13	identity/scenes/entry.ts:16	identity/prism-boundary.toml	bound	op:GET /twine		rule	client-identity
-identity-namespace	identity/scenes/entry.ts:17	identity/prism-boundary.toml	bound	op:GET /twine		rule	client-identity
-identity-two-reexports	identity/scenes/entry.ts:18	identity/prism-boundary.toml	bound	op:GET /twine		gap:reexport-depth	client-identity
-identity-tsx	identity/scenes/entry.ts:19	identity/prism-boundary.toml	bound	op:GET /mosaics		rule	client-identity
-identity-js	identity/scenes/entry.ts:20	identity/prism-boundary.toml	bound	op:GET /lampwicks		rule	client-identity
-identity-jsx	identity/scenes/entry.ts:21	identity/prism-boundary.toml	bound	op:GET /firs		rule	client-identity
-identity-index-js	identity/scenes/entry.ts:22	identity/prism-boundary.toml	bound	op:GET /calipers		rule	client-identity
-identity-same-spelling	identity/scenes/entry.ts:23	identity/prism-boundary.toml	none		different_defining_file	rule	client-identity
 c02	identity/scenes/entry.ts:26	identity/prism-boundary.toml	none		shadowed_by_parameter	rule	client-identity
 c02-local	identity/scenes/entry.ts:31	identity/prism-boundary.toml	none		shadowed_by_local	rule	client-identity
-identity-after-block	identity/scenes/entry.ts:33	identity/prism-boundary.toml	bound	op:GET /gates		rule	client-identity
-identity-destructured	identity/scenes/entry.ts:36	identity/prism-boundary.toml	none		shadowed_by_destructured_parameter	rule	client-identity
-identity-two-star-reexports	identity/scenes/star.ts:2	identity/prism-boundary.toml	bound	op:GET /twine		gap:reexport-depth	client-identity
 c03	counting/sites.ts:7	counting/prism-boundary.toml	unbound		unknown_client_method	rule	counting
-count-deep-member	counting/sites.ts:8	counting/prism-boundary.toml	unbound		unknown_client_method	rule	counting
-count-dotted-property	counting/sites.ts:9	counting/prism-boundary.toml	unbound		unknown_client_method	rule	counting
-count-passed-fetcher-hook	counting/sites.ts:10	counting/prism-boundary.toml	bound	op:GET /cairns		rule	counting
 c03-fetcher	counting/sites.ts:11	counting/prism-boundary.toml	none		fetcher_reference	rule	counting
-c06	counting/sites.ts:17	counting/prism-boundary.toml	bound	op:GET /calipers		rule	counting
-count-inline-hook	counting/sites.ts:22	counting/prism-boundary.toml	bound	op:GET /cairns		rule	counting
-count-inline-inner	counting/sites.ts:23	counting/prism-boundary.toml	none		inline_hook_fetcher	rule	counting
-count-test-infix	counting/scene.test.extra.ts:2	counting/prism-boundary.toml	none		test_file	rule	counting
-count-spec	counting/scene.spec.jsx:1	counting/prism-boundary.toml	none		test_file	rule	counting
-count-test-directory	counting/__tests__/scene.js:2	counting/prism-boundary.toml	none		test_file	rule	counting
-count-test-lookalike	counting/scene.testing.ts:2	counting/prism-boundary.toml	bound	op:GET /cairns		rule	counting
-c10	counting/choir.tsx:4	counting/prism-boundary.toml	bound	op:GET /calipers		rule	counting
-url-const-argument	urls/paths.ts:8	urls/prism-boundary.toml	bound	op:GET /drums		rule	url-pattern
-url-const-any-position	urls/paths.ts:9	urls/prism-boundary.toml	bound	op:GET /spools/reels		rule	url-pattern
-c14	urls/paths.ts:10	urls/prism-boundary.toml	bound	op:GET /reels		rule	url-pattern
-url-query-delimiter-in-const	urls/paths.ts:11	urls/prism-boundary.toml	bound	op:GET /top		rule	url-pattern
-url-two-segments	urls/paths.ts:12	urls/prism-boundary.toml	bound	op:GET /reels/{}/ends/{}		rule	url-pattern
-url-concat-segment	urls/paths.ts:13	urls/prism-boundary.toml	bound	op:GET /reels/{}		rule	url-pattern
-url-concat-parenthesized	urls/paths.ts:14	urls/prism-boundary.toml	bound	op:GET /reels/{}/ends		rule	url-pattern
-url-concat-const	urls/paths.ts:15	urls/prism-boundary.toml	bound	op:GET /spools/reels/{}		rule	url-pattern
-url-query-after-segment	urls/paths.ts:16	urls/prism-boundary.toml	bound	op:GET /reels/{}		rule	url-pattern
-url-query-concat	urls/paths.ts:17	urls/prism-boundary.toml	bound	op:GET /reels		rule	url-pattern
-url-in-segment	urls/paths.ts:18	urls/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
-url-leading	urls/paths.ts:19	urls/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
-url-two-values-in-one-segment	urls/paths.ts:20	urls/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
-url-concat-in-segment	urls/paths.ts:21	urls/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
-url-percent-encoded	urls/paths.ts:22	urls/prism-boundary.toml	bound	op:GET /charms/%2F		rule	url-pattern
-url-shadowed-const	urls/paths.ts:25	urls/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
-url-closure-const	urls/paths.ts:29	urls/prism-boundary.toml	bound	op:GET /spools/ivory		gap:const-url	url-pattern
-url-later-module-const	urls/paths.ts:31	urls/prism-boundary.toml	bound	op:GET /spools/ivory		rule	url-pattern
-c05	urls/reassigned.js:5	urls/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
-c09	prefixes/paths.ts:3	prefixes/prism-boundary.toml	bound	op:GET /harbor/ribbons		rule	prefix-map
-prefix-add-without-strip	prefixes/paths.ts:4	prefixes/prism-boundary.toml	bound	op:GET /harbor/new-ribbons		rule	prefix-map
-prefix-strip-only-at-start	prefixes/paths.ts:5	prefixes/prism-boundary.toml	bound	op:GET /harbor/ribbons/old/{}		rule	prefix-map
-prefix-normalize-after-map	prefixes/paths.ts:6	prefixes/prism-boundary.toml	bound	op:GET /harbor/ribbons		rule	prefix-map
-hook-named-fetcher-implementation	hooks/sites.ts:5	hooks/prism-boundary.toml	unbound		dynamic_url	rule	counting
 c04	hooks/sites.ts:7	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
-c12	hooks/sites.ts:8	hooks/prism-boundary.toml	bound	op:POST /cairns		rule	hook with non-GET fetcher
-hook-post	hooks/sites.ts:9	hooks/prism-boundary.toml	bound	op:POST /cairns		rule	hook with non-GET fetcher
-hook-inline-put	hooks/sites.ts:10	hooks/prism-boundary.toml	bound	op:PUT /cairns		gap:hook-method	hook with non-GET fetcher
-hook-inline-put-inner	hooks/sites.ts:11	hooks/prism-boundary.toml	none		inline_hook_fetcher	rule	counting
-hook-inline-different-path	hooks/sites.ts:13	hooks/prism-boundary.toml	bound	op:PUT /lanterns		gap:hook-url	hook with non-GET fetcher
-hook-inline-different-path-inner	hooks/sites.ts:14	hooks/prism-boundary.toml	none		inline_hook_fetcher	rule	counting
-hook-named-put	hooks/sites.ts:16	hooks/prism-boundary.toml	bound	op:PUT /cairns		gap:hook-method	hook with non-GET fetcher
-hook-local-fetcher	hooks/sites.ts:17	hooks/prism-boundary.toml	none		local_value_fetcher	gap:counting	counting
-hook-default-get	hooks/sites.ts:18	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	method
-hook-null-arm	hooks/sites.ts:19	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
-hook-undefined-arm	hooks/sites.ts:20	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
-hook-false-arm	hooks/sites.ts:21	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
-hook-empty-arm	hooks/sites.ts:22	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
-hook-array-template	hooks/sites.ts:23	hooks/prism-boundary.toml	bound	op:GET /cairns/{}		rule	url-pattern
-hook-array-first-only	hooks/sites.ts:24	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
-hook-object-key	hooks/sites.ts:25	hooks/prism-boundary.toml	unbound		non_string_key	rule	url-pattern
-hook-array-unknown-first	hooks/sites.ts:26	hooks/prism-boundary.toml	unbound		non_string_key	rule	url-pattern
-hook-array-hole	hooks/sites.ts:27	hooks/prism-boundary.toml	unbound		non_string_key	rule	url-pattern
-hook-empty-array	hooks/sites.ts:28	hooks/prism-boundary.toml	unbound		non_string_key	rule	url-pattern
-hook-two-url-arms	hooks/sites.ts:29	hooks/prism-boundary.toml	candidate	op:GET /basalt;op:GET /calcite	ambiguous_operation	gap:conditional-url	conditional URLs with two URL arms
-wrapper-fixed	methods/wrappers.ts:5	methods/prism-boundary.toml	bound	op:POST /wicks		rule	function wrappers with fixed or argument-supplied method
-wrapper-positional	methods/wrappers.ts:6	methods/prism-boundary.toml	bound	op:PATCH /wicks		rule	function wrappers with fixed or argument-supplied method
-wrapper-option-key	methods/wrappers.ts:7	methods/prism-boundary.toml	bound	op:DELETE /wicks		rule	function wrappers with fixed or argument-supplied method
-member-positional	methods/wrappers.ts:8	methods/prism-boundary.toml	bound	op:PUT /wicks		rule	method
-member-option-key	methods/wrappers.ts:9	methods/prism-boundary.toml	bound	op:GET /wicks		rule	method
-wrapper-dynamic-positional	methods/wrappers.ts:10	methods/prism-boundary.toml	unbound		dynamic_method	rule	function wrappers with fixed or argument-supplied method
-wrapper-dynamic-option	methods/wrappers.ts:11	methods/prism-boundary.toml	unbound		dynamic_method	rule	function wrappers with fixed or argument-supplied method
-wrapper-const-method	methods/wrappers.ts:13	methods/prism-boundary.toml	bound	op:PATCH /wicks		gap:method-literal	function wrappers with fixed or argument-supplied method
-c15	methods/wrappers.ts:14	methods/prism-boundary.toml	unbound		unconfigured_client_form	rule	counting
-method-nested-put	methods/wrappers.ts:15	methods/prism-boundary.toml	bound	op:PUT /wicks		rule	method
-method-nested-get	methods/wrappers.ts:16	methods/prism-boundary.toml	bound	op:GET /wicks/{}		rule	method
-method-nested-post	methods/wrappers.ts:17	methods/prism-boundary.toml	bound	op:POST /wicks/{}		rule	method
+c05	urls/reassigned.js:5	urls/prism-boundary.toml	candidate	op:GET /reels	conditional_url	rule	url-pattern
+c06	counting/sites.ts:17	counting/prism-boundary.toml	bound	op:GET /calipers		rule	counting
 c07	methods/builtins.js:4	methods/prism-boundary.toml	bound	op:POST /wicks		rule	method
 c07-get	methods/builtins.js:5	methods/prism-boundary.toml	bound	op:GET /wicks		rule	method
 c07-options	methods/builtins.js:6	methods/prism-boundary.toml	unbound		dynamic_method	rule	fetch with non-literal options
-fetch-runtime-method	methods/builtins.js:7	methods/prism-boundary.toml	unbound		dynamic_method	rule	fetch with non-literal options
-fetch-init-default	methods/builtins.js:8	methods/prism-boundary.toml	bound	op:GET /wicks		gap:fetch-method-default	method
-fetch-known-options	methods/builtins.js:10	methods/prism-boundary.toml	bound	op:PUT /wicks		gap:method-literal	fetch with non-literal options
-fetch-known-verb	methods/builtins.js:12	methods/prism-boundary.toml	bound	op:PATCH /wicks		gap:method-literal	fetch with non-literal options
-fetch-undefined-init	methods/builtins.js:13	methods/prism-boundary.toml	bound	op:GET /wicks		gap:fetch-method-default	method
-fetch-global-property	methods/builtins.js:14	methods/prism-boundary.toml	bound	op:GET /wicks		rule	client-identity
-axios-verb	methods/builtins.js:18	methods/prism-boundary.toml	bound	op:PATCH /seals		rule	method
-axios-named-verb	methods/builtins.js:19	methods/prism-boundary.toml	bound	op:PATCH /seals		rule	client-identity
-axios-object	methods/builtins.js:20	methods/prism-boundary.toml	bound	op:POST /seals		rule	method
-axios-object-default	methods/builtins.js:21	methods/prism-boundary.toml	bound	op:GET /seals		gap:axios-method-default	method
-axios-dynamic-method	methods/builtins.js:22	methods/prism-boundary.toml	unbound		dynamic_method	rule	method
-axios-promise-chain	methods/builtins.js:23	methods/prism-boundary.toml	bound	op:DELETE /seals		rule	counting
-fetch-shadow	methods/builtins.js:27	methods/prism-boundary.toml	none		shadowed_builtin	rule	client-identity
-axios-shadow	methods/builtins.js:28	methods/prism-boundary.toml	none		shadowed_builtin	rule	client-identity
-factory-created	backends/sites.js:5	backends/prism-boundary.toml	none		client_factory_setup	rule	a locally created client with another base
-backend-relative-fetch	backends/sites.js:7	backends/prism-boundary.toml	unbound		no_operation	gap:backend-origin	built-in axios/fetch with a relative URL in a consumer that talks to more than one backend
-backend-relative-axios	backends/sites.js:8	backends/prism-boundary.toml	unbound		no_operation	gap:backend-origin	built-in axios/fetch with a relative URL in a consumer that talks to more than one backend
-backend-local-client	backends/sites.js:9	backends/prism-boundary.toml	unbound		no_operation	gap:backend-origin	a locally created client with another base
-backend-inline-client	backends/sites.js:10	backends/prism-boundary.toml	unbound		no_operation	gap:backend-origin	a locally created client with another base
-backend-absolute-fetch	backends/sites.js:11	backends/prism-boundary.toml	bound	op:GET /seals		gap:backend-origin	built-in axios/fetch with a relative URL in a consumer that talks to more than one backend
-rpc-query-control	dispatch/sites.js:2	dispatch/prism-boundary.toml	bound	op:GET /dispatch		rule	single-endpoint routing by query string or body
-rpc-query-selector	dispatch/sites.js:3	dispatch/prism-boundary.toml	unbound		no_operation	gap:routed-selector	single-endpoint routing by query string or body
-rpc-body-control	dispatch/sites.js:6	dispatch/prism-boundary.toml	bound	op:POST /query		rule	single-endpoint routing by query string or body
-rpc-body-selector	dispatch/sites.js:7	dispatch/prism-boundary.toml	unbound		no_operation	gap:routed-selector	single-endpoint routing by query string or body
-variant-version	variants/sites.ts:5	variants/prism-boundary.toml	candidate	op:GET /api/v4/seals;op:GET /api/v5/seals	ambiguous_operation	rule	a version or tenant segment interpolated in the client
-variant-fixed-version	variants/sites.ts:6	variants/prism-boundary.toml	bound	op:GET /api/v5/seals		rule	a version or tenant segment interpolated in the client
-variant-tenant	variants/sites.ts:9	variants/prism-boundary.toml	candidate	op:GET /tenants/cobalt/seals;op:GET /tenants/ochre/seals	ambiguous_operation	rule	a version or tenant segment interpolated in the client
-two-url-arms	variants/sites.ts:11	variants/prism-boundary.toml	candidate	op:GET /basalt;op:GET /calcite	ambiguous_operation	gap:conditional-url	conditional URLs with two URL arms
-same-path-url-arms	variants/sites.ts:13	variants/prism-boundary.toml	bound	op:GET /basalt		gap:conditional-url	conditional URLs with two URL arms
 c08	scores/sites.ts:3	scores/prism-boundary.toml	candidate	op:GET /sparrows/flint;op:GET /sparrows/opal	ambiguous_operation	rule	matching
+c09	prefixes/paths.ts:3	prefixes/prism-boundary.toml	bound	op:GET /harbor/ribbons		rule	prefix-map
+c10	counting/choir.tsx:4	counting/prism-boundary.toml	bound	op:GET /calipers		rule	counting
 c11	scores/sites.ts:4	scores/prism-boundary.toml	candidate	op:GET /bins/sable	client_parameter_on_literal	rule	matching
-matching-tie-without-parameter-on-literal	scores/sites.ts:5	scores/prism-boundary.toml	candidate	op:GET /press/copper/{};op:GET /press/{}/leaf	ambiguous_operation	rule	matching
-matching-only-top	scores/sites.ts:6	scores/prism-boundary.toml	bound	op:GET /press/{}/leaf		rule	matching
-matching-parameter-score	scores/sites.ts:9	scores/prism-boundary.toml	bound	op:GET /base/{}/top		rule	matching
-grammar-optional-receiver	grammar/forms.ts:4	grammar/prism-boundary.toml	bound	op:GET /herons		rule	client-identity
-grammar-optional-method	grammar/forms.ts:5	grammar/prism-boundary.toml	bound	op:GET /cranberries		rule	client-identity
-grammar-static-subscript	grammar/forms.ts:6	grammar/prism-boundary.toml	bound	op:GET /marshes		rule	client-identity
-grammar-computed-verb	grammar/forms.ts:7	grammar/prism-boundary.toml	candidate	op:GET /ponds;op:POST /ponds	ambiguous_operation	gap:finite-method-values	method
-grammar-ts-cast	grammar/forms.ts:8	grammar/prism-boundary.toml	bound	op:GET /ghylls		rule	client-identity
-grammar-promise-inner	grammar/forms.ts:9	grammar/prism-boundary.toml	bound	op:GET /limpets		rule	counting
-grammar-promise-then	grammar/forms.ts:10	grammar/prism-boundary.toml	none		promise_continuation	rule	counting
-grammar-await	grammar/forms.ts:12	grammar/prism-boundary.toml	bound	op:GET /weirs		rule	counting
-grammar-known-spread	grammar/forms.ts:16	grammar/prism-boundary.toml	bound	op:GET /cinders		gap:argument-spread	url-pattern
-grammar-inline-spread	grammar/forms.ts:18	grammar/prism-boundary.toml	bound	op:GET /kilns		gap:argument-spread	url-pattern
-grammar-unknown-spread	grammar/forms.ts:19	grammar/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
-grammar-fixed-table	grammar/forms.ts:22	grammar/prism-boundary.toml	bound	op:GET /limpets		gap:finite-url-values	url-pattern
-grammar-runtime-table	grammar/forms.ts:23	grammar/prism-boundary.toml	candidate	op:GET /bowls;op:GET /limpets	ambiguous_operation	gap:finite-url-values	url-pattern
-grammar-default-param	grammar/forms.ts:26	grammar/prism-boundary.toml	bound	op:GET /egrets		gap:default-parameter	url-pattern
-grammar-default-wrapper	grammar/forms.ts:28	grammar/prism-boundary.toml	none		local_wrapper_call	rule	counting
-grammar-class-method	grammar/forms.ts:32	grammar/prism-boundary.toml	bound	op:GET /rushes		rule	counting
-grammar-class-client-field	grammar/forms.ts:36	grammar/prism-boundary.toml	bound	op:GET /herons/{}		gap:client-identity	client-identity
-grammar-ordinary-template-tag	grammar/forms.ts:41	grammar/prism-boundary.toml	none		non_client_tag	rule	counting
-grammar-client-template-tag	grammar/forms.ts:42	grammar/prism-boundary.toml	bound	op:POST /leaves		gap:tagged-template	counting
-grammar-parameter-template-tag	grammar/forms.ts:43	grammar/prism-boundary.toml	bound	op:POST /leaves/{}		gap:tagged-template	counting
-grammar-new-url	grammar/forms.ts:45	grammar/prism-boundary.toml	bound	op:GET /badges/{}		gap:url-constructor	url-pattern
-grammar-url-constructor	grammar/forms.ts:46	grammar/prism-boundary.toml	none		url_construction_only	rule	counting
-grammar-dynamic-module-load	grammar/forms.ts:49	grammar/prism-boundary.toml	none		module_load_only	rule	counting
-grammar-dynamic-client-import	grammar/forms.ts:50	grammar/prism-boundary.toml	bound	op:GET /herons		gap:client-identity	client-identity
-same-literal	match-same-literal/site.ts:2	match-same-literal/prism-boundary.toml	bound	op:GET /user/me		rule	matching
-same-parameter	match-same-parameter/site.ts:2	match-same-parameter/prism-boundary.toml	bound	op:GET /user/{}		rule	matching
-literal-to-parameter	match-literal-to-parameter/site.ts:2	match-literal-to-parameter/prism-boundary.toml	bound	op:GET /user/{}		rule	matching
-literal-wins	match-literal-wins/site.ts:2	match-literal-wins/prism-boundary.toml	bound	op:GET /user/me		rule	matching
-parameter-to-literal	match-parameter-to-literal/site.ts:2	match-parameter-to-literal/prism-boundary.toml	candidate	op:GET /user/me	client_parameter_on_literal	rule	matching
-parameter-to-two-literals	match-parameter-to-two-literals/site.ts:2	match-parameter-to-two-literals/prism-boundary.toml	candidate	op:GET /vote/down;op:GET /vote/up	ambiguous_operation	rule	matching
-one-version	match-one-version/site.ts:2	match-one-version/prism-boundary.toml	candidate	op:GET /api/v1/item	client_parameter_on_literal	rule	matching
-two-versions	match-two-versions/site.ts:2	match-two-versions/prism-boundary.toml	candidate	op:GET /api/v1/item;op:GET /api/v2/item	ambiguous_operation	rule	matching
+c12	hooks/sites.ts:8	hooks/prism-boundary.toml	bound	op:POST /cairns		rule	hook with non-GET fetcher
+c13	identity/scenes/entry.ts:16	identity/prism-boundary.toml	bound	op:GET /twine		rule	client-identity
+c13-relative	identity/scenes/entry.ts:15	identity/prism-boundary.toml	bound	op:GET /cairns		rule	client-identity
+c14	urls/paths.ts:10	urls/prism-boundary.toml	bound	op:GET /reels		rule	url-pattern
+c15	methods/wrappers.ts:14	methods/prism-boundary.toml	unbound		unconfigured_client_form	rule	counting
+control-axios-named-verb-origin-withheld	control-axios-named-verb-origin-withheld/builtins.js:19	control-axios-named-verb-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	client-identity
+control-axios-object-default-origin-withheld	control-axios-object-default-origin-withheld/builtins.js:21	control-axios-object-default-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-axios-object-origin-withheld	control-axios-object-origin-withheld/builtins.js:20	control-axios-object-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-axios-promise-chain-origin-withheld	control-axios-promise-chain-origin-withheld/builtins.js:23	control-axios-promise-chain-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	counting
+control-axios-verb-origin-withheld	control-axios-verb-origin-withheld/builtins.js:18	control-axios-verb-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-backend-relative-axios-origin-withheld	control-backend-relative-axios-origin-withheld/sites.js:8	control-backend-relative-axios-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	built-in axios/fetch with a relative URL in a consumer that talks to more than one backend
+control-backend-relative-fetch-origin-withheld	control-backend-relative-fetch-origin-withheld/sites.js:7	control-backend-relative-fetch-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	built-in axios/fetch with a relative URL in a consumer that talks to more than one backend
+control-c01-mapping-withheld	control-c01-mapping-withheld/scenes/entry.ts:13	control-c01-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	client-identity
+control-c04-mapping-withheld	control-c04-mapping-withheld/sites.ts:7	control-c04-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	url-pattern
+control-c05-const-abrupt-completion	control-c05-const-abrupt-completion/reassigned.js:5	control-c05-const-abrupt-completion/prism-boundary.toml	bound	op:GET /reels		rule	url-pattern
+control-c06-mapping-withheld	control-c06-mapping-withheld/sites.ts:17	control-c06-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	counting
+control-c07-get-origin-withheld	control-c07-get-origin-withheld/builtins.js:5	control-c07-get-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-c07-origin-withheld	control-c07-origin-withheld/builtins.js:4	control-c07-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-c08-mapping-withheld	control-c08-mapping-withheld/sites.ts:3	control-c08-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-c09-mapping-withheld	control-c09-mapping-withheld/paths.ts:3	control-c09-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	prefix-map
+control-c15-mapping-withheld	control-c15-mapping-withheld/wrappers.ts:14	control-c15-mapping-withheld/prism-boundary.toml	unbound		unconfigured_client_form	rule	counting
+control-counting-hook-default-mapping	control-counting-hook-default-mapping/sites.ts:10	control-counting-hook-default-mapping/prism-boundary.toml	bound	op:GET /cairns		rule	counting
+control-counting-hook-default-mapping-withheld	control-counting-hook-default-mapping-withheld/sites.ts:10	control-counting-hook-default-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	counting
+control-different-lengths-mapping-withheld	control-different-lengths-mapping-withheld/site.ts:2	control-different-lengths-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-different-methods-mapping-withheld	control-different-methods-mapping-withheld/site.ts:2	control-different-methods-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-empty-component-optional	control-empty-component-optional/site.js:1	control-empty-component-optional/prism-boundary.toml	bound	op:GET /orchards/{?}		rule	matching
+control-empty-component-required	control-empty-component-required/site.js:1	control-empty-component-required/prism-boundary.toml	unbound		no_operation	rule	matching
+control-empty-component-tail	control-empty-component-tail/site.js:1	control-empty-component-tail/prism-boundary.toml	bound	op:GET /orchards/{*0+}		rule	matching
+control-exact-wildcard-method-tie	control-exact-wildcard-method-tie/site.js:1	control-exact-wildcard-method-tie/prism-boundary.toml	candidate	op:* /mugs;op:GET /mugs	ambiguous_operation	rule	matching
+control-fallback-designated-entry	control-fallback-designated-entry/site.js:1	control-fallback-designated-entry/prism-boundary.toml	unbound		fallback_only	rule	matching
+control-fallback-designated-span	control-fallback-designated-span/site.js:1	control-fallback-designated-span/prism-boundary.toml	unbound		fallback_only	rule	matching
+control-fallback-ordinary-api-tail	control-fallback-ordinary-api-tail/site.js:1	control-fallback-ordinary-api-tail/prism-boundary.toml	bound	op:GET /api/{*0+}		rule	matching
+control-fallback-possible	control-fallback-possible/site.js:1	control-fallback-possible/prism-boundary.toml	unbound		fallback_only	rule	matching
+control-fallback-stale-selector	control-fallback-stale-selector/site.js:1	control-fallback-stale-selector/prism-boundary.toml	unbound		fallback_only	rule	matching
+control-fallback-unplaced-suffix	control-fallback-unplaced-suffix/site.js:1	control-fallback-unplaced-suffix/prism-boundary.toml	unbound		mount_unchecked	rule	matching
+control-fetch-global-property-origin-withheld	control-fetch-global-property-origin-withheld/builtins.js:14	control-fetch-global-property-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	client-identity
+control-fetch-init-default-origin-withheld	control-fetch-init-default-origin-withheld/builtins.js:8	control-fetch-init-default-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-fetch-known-options-origin-withheld	control-fetch-known-options-origin-withheld/builtins.js:10	control-fetch-known-options-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	fetch with non-literal options
+control-fetch-known-verb-origin-withheld	control-fetch-known-verb-origin-withheld/builtins.js:12	control-fetch-known-verb-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	fetch with non-literal options
+control-fetch-undefined-init-origin-withheld	control-fetch-undefined-init-origin-withheld/builtins.js:13	control-fetch-undefined-init-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-grammar-await-mapping-withheld	control-grammar-await-mapping-withheld/forms.ts:12	control-grammar-await-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	counting
+control-grammar-client-template-tag-mapping-withheld	control-grammar-client-template-tag-mapping-withheld/forms.ts:42	control-grammar-client-template-tag-mapping-withheld/prism-boundary.toml	unbound		unconfigured_client_form	rule	counting
+control-hook-default-get-mapping-withheld	control-hook-default-get-mapping-withheld/sites.ts:18	control-hook-default-get-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-hook-default-get-withheld	control-hook-default-get-withheld/sites.ts:18	control-hook-default-get-withheld/prism-boundary.toml	unbound		unconfigured_client_form	rule	method
+control-identity-index-js-mapping-withheld	control-identity-index-js-mapping-withheld/scenes/entry.ts:22	control-identity-index-js-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	client-identity
+control-identity-js-mapping-withheld	control-identity-js-mapping-withheld/scenes/entry.ts:20	control-identity-js-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	client-identity
+control-identity-jsx-mapping-withheld	control-identity-jsx-mapping-withheld/scenes/entry.ts:21	control-identity-jsx-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	client-identity
+control-identity-tsx-mapping-withheld	control-identity-tsx-mapping-withheld/scenes/entry.ts:19	control-identity-tsx-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	client-identity
+control-literal-case-mapping-withheld	control-literal-case-mapping-withheld/site.ts:2	control-literal-case-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-literal-to-parameter-mapping-withheld	control-literal-to-parameter-mapping-withheld/site.ts:2	control-literal-to-parameter-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-literal-wins-mapping-withheld	control-literal-wins-mapping-withheld/site.ts:2	control-literal-wins-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-matching-whole-literal-tie	control-matching-whole-literal-tie/sites.ts:5	control-matching-whole-literal-tie/prism-boundary.toml	candidate	op:GET /press/copper/{};op:GET /press/{}/leaf	ambiguous_operation	rule	matching
+control-member-positional-mapping-withheld	control-member-positional-mapping-withheld/wrappers.ts:8	control-member-positional-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-method-nested-put-mapping-withheld	control-method-nested-put-mapping-withheld/wrappers.ts:15	control-method-nested-put-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-numeric-operand-opaque	control-numeric-operand-opaque/paths.ts:14	control-numeric-operand-opaque/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
+control-one-version-mapping-withheld	control-one-version-mapping-withheld/site.ts:2	control-one-version-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-parameter-to-literal-mapping-withheld	control-parameter-to-literal-mapping-withheld/site.ts:2	control-parameter-to-literal-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-parameter-to-two-literals-mapping-withheld	control-parameter-to-two-literals-mapping-withheld/site.ts:2	control-parameter-to-two-literals-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-parameter-wins-mapping-withheld	control-parameter-wins-mapping-withheld/site.ts:2	control-parameter-wins-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-prefix-mapping-withheld	control-prefix-mapping-withheld/site.ts:2	control-prefix-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	prefix-map
+control-readable-get-opaque-method-matched	control-readable-get-opaque-method-matched/site.js:1	control-readable-get-opaque-method-matched/prism-boundary.toml	candidate	op:GET /wicks	dynamic_method	rule	method
+control-readable-get-opaque-method-unmatched	control-readable-get-opaque-method-unmatched/site.js:1	control-readable-get-opaque-method-unmatched/prism-boundary.toml	unbound		dynamic_method	rule	method
+control-repeated-slash-mapping-withheld	control-repeated-slash-mapping-withheld/site.ts:2	control-repeated-slash-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-root-mapping-withheld	control-root-mapping-withheld/site.ts:2	control-root-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-rpc-body-control-origin-withheld	control-rpc-body-control-origin-withheld/sites.js:6	control-rpc-body-control-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	single-endpoint routing by query string or body
+control-rpc-body-selector-origin-withheld	control-rpc-body-selector-origin-withheld/sites.js:7	control-rpc-body-selector-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	single-endpoint routing by query string or body
+control-rpc-query-control-origin-withheld	control-rpc-query-control-origin-withheld/sites.js:2	control-rpc-query-control-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	single-endpoint routing by query string or body
+control-rpc-query-selector-origin-withheld	control-rpc-query-selector-origin-withheld/sites.js:3	control-rpc-query-selector-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	single-endpoint routing by query string or body
+control-s01-mapping-withheld	control-s01-mapping-withheld/alderfen/kiln-tally.ts:2	control-s01-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s01
+control-s02-mapping-withheld	control-s02-mapping-withheld/sites.ts:2	control-s02-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s02
+control-s03-mapping-withheld	control-s03-mapping-withheld/alderfen/kiln-slips.ts:2	control-s03-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s03
+control-s04-2-mapping-withheld	control-s04-2-mapping-withheld/sites.ts:3	control-s04-2-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s04
+control-s04-mapping-withheld	control-s04-mapping-withheld/sites.ts:2	control-s04-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s04
+control-s05-mapping-withheld	control-s05-mapping-withheld/sites.ts:2	control-s05-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s05
+control-s05-whole-component	control-s05-whole-component/sites.ts:2	control-s05-whole-component/prism-boundary.toml	bound	op:GET /mothbank/orchards/{}		rule	shape:s05
+control-s06-mapping-withheld	control-s06-mapping-withheld/sites.ts:3	control-s06-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s06
+control-s07-mapping-withheld	control-s07-mapping-withheld/sites.ts:2	control-s07-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s07
+control-s08-mapping-withheld	control-s08-mapping-withheld/sites.ts:3	control-s08-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s08
+control-s09-2-literal-empty	control-s09-2-literal-empty/sites.ts:3	control-s09-2-literal-empty/prism-boundary.toml	bound	op:GET /mothbank/crates/{}		rule	shape:s09
+control-s09-2-literal-wax	control-s09-2-literal-wax/sites.ts:3	control-s09-2-literal-wax/prism-boundary.toml	bound	op:GET /mothbank/crates/{}-ridge-gold		rule	shape:s09
+control-s09-2-mapping-withheld	control-s09-2-mapping-withheld/sites.ts:3	control-s09-2-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s09
+control-s09-2-numeric-nonempty	control-s09-2-numeric-nonempty/sites.ts:3	control-s09-2-numeric-nonempty/prism-boundary.toml	bound	op:GET /mothbank/crates/{}-ridge-gold		rule	shape:s09
+control-s09-literal-empty	control-s09-literal-empty/sites.ts:2	control-s09-literal-empty/prism-boundary.toml	bound	op:GET /mothbank/crates/{}		rule	shape:s09
+control-s09-literal-wax	control-s09-literal-wax/sites.ts:2	control-s09-literal-wax/prism-boundary.toml	bound	op:GET /mothbank/crates/%2F{}		rule	shape:s09
+control-s09-mapping-withheld	control-s09-mapping-withheld/sites.ts:2	control-s09-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s09
+control-s09-numeric-nonempty	control-s09-numeric-nonempty/sites.ts:2	control-s09-numeric-nonempty/prism-boundary.toml	bound	op:GET /mothbank/crates/%2F{}		rule	shape:s09
+control-s10-mapping-withheld	control-s10-mapping-withheld/sites.ts:4	control-s10-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s10
+control-s11-mapping-withheld	control-s11-mapping-withheld/sites.ts:6	control-s11-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s11
+control-s12-mapping-withheld	control-s12-mapping-withheld/sites.ts:5	control-s12-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s12
+control-s13-mapping-withheld	control-s13-mapping-withheld/sites.ts:4	control-s13-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s13
+control-s14-2-mapping-withheld	control-s14-2-mapping-withheld/sites.ts:6	control-s14-2-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s14
+control-s14-mapping-withheld	control-s14-mapping-withheld/sites.ts:4	control-s14-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s14
+control-s15-mapping-withheld	control-s15-mapping-withheld/sites.ts:4	control-s15-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s15
+control-s16-2-mapping-withheld	control-s16-2-mapping-withheld/sites.ts:10	control-s16-2-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s16
+control-s16-mapping-withheld	control-s16-mapping-withheld/sites.ts:5	control-s16-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s16
+control-s17-mapping-withheld	control-s17-mapping-withheld/sites.ts:6	control-s17-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s17
+control-s18-mapping-withheld	control-s18-mapping-withheld/sites.ts:4	control-s18-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s18
+control-s19-mapping-withheld	control-s19-mapping-withheld/alderfen/kiln-tally.ts:4	control-s19-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s19
+control-s20-mapping-withheld	control-s20-mapping-withheld/sites.ts:2	control-s20-mapping-withheld/prism-boundary.toml	unbound		dynamic_url	rule	shape:s20
+control-s21-2-mapping-withheld	control-s21-2-mapping-withheld/sites.ts:7	control-s21-2-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s21
+control-s21-3-mapping-withheld	control-s21-3-mapping-withheld/sites.ts:11	control-s21-3-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s21
+control-s21-mapping-withheld	control-s21-mapping-withheld/sites.ts:4	control-s21-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s21
+control-s22-3-mapping-withheld	control-s22-3-mapping-withheld/sites.ts:6	control-s22-3-mapping-withheld/prism-boundary.toml	unbound		dynamic_method	rule	shape:s22
+control-s23-mapping-withheld	control-s23-mapping-withheld/sites.ts:2	control-s23-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s23
+control-s24-mapping-withheld	control-s24-mapping-withheld/sites.ts:2	control-s24-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s24
+control-s25-2-mapping-withheld	control-s25-2-mapping-withheld/sites.ts:3	control-s25-2-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s25
+control-s25-mapping-withheld	control-s25-mapping-withheld/sites.ts:2	control-s25-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s25
+control-s26-mapping-withheld	control-s26-mapping-withheld/sites.ts:4	control-s26-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s26
+control-s27-mapping-withheld	control-s27-mapping-withheld/sites.ts:3	control-s27-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s27
+control-s28-mapping-withheld	control-s28-mapping-withheld/sites.ts:2	control-s28-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s28
+control-s29-2-mapping-withheld	control-s29-2-mapping-withheld/sites.ts:4	control-s29-2-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s29
+control-s29-mapping-withheld	control-s29-mapping-withheld/sites.ts:3	control-s29-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s29
+control-s30-3-mapping-withheld	control-s30-3-mapping-withheld/sites.ts:9	control-s30-3-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s30
+control-s31-3-mapping-withheld	control-s31-3-mapping-withheld/sites.ts:12	control-s31-3-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s31
+control-s32-mapping-withheld	control-s32-mapping-withheld/alderfen/kiln-slips.ts:2	control-s32-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s32
+control-s33-mapping-withheld	control-s33-mapping-withheld/sites.ts:3	control-s33-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s33
+control-s34-2-mapping-withheld	control-s34-2-mapping-withheld/sites.ts:3	control-s34-2-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s34
+control-s34-mapping-withheld	control-s34-mapping-withheld/sites.ts:2	control-s34-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s34
+control-s35-mapping-withheld	control-s35-mapping-withheld/sites.tsx:2	control-s35-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s35
+control-s36-mapping-withheld	control-s36-mapping-withheld/sites.ts:4	control-s36-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s36
+control-s37-2-mapping-withheld	control-s37-2-mapping-withheld/sites.ts:3	control-s37-2-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s37
+control-s37-mapping-withheld	control-s37-mapping-withheld/sites.ts:2	control-s37-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	shape:s37
+control-same-literal-mapping-withheld	control-same-literal-mapping-withheld/site.ts:2	control-same-literal-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-same-parameter-mapping-withheld	control-same-parameter-mapping-withheld/site.ts:2	control-same-parameter-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-t1-axios-spread-url-origin-withheld	control-t1-axios-spread-url-origin-withheld/sites.ts:14	control-t1-axios-spread-url-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-t1-axios-url-config-origin-withheld	control-t1-axios-url-config-origin-withheld/sites.ts:24	control-t1-axios-url-config-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-t1-axios-url-last-origin-withheld	control-t1-axios-url-last-origin-withheld/sites.ts:15	control-t1-axios-url-last-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-t1-call-verb-mapping-withheld	control-t1-call-verb-mapping-withheld/sites.ts:18	control-t1-call-verb-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	client-identity
+control-t1-expand-optional-table-mapping-withheld	control-t1-expand-optional-table-mapping-withheld/sites.ts:21	control-t1-expand-optional-table-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	url-pattern
+control-t1-extra-fetch-override-spread-origin-withheld	control-t1-extra-fetch-override-spread-origin-withheld/sites.ts:19	control-t1-extra-fetch-override-spread-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-t1-extra-frozen-property-mapping-withheld	control-t1-extra-frozen-property-mapping-withheld/sites.ts:14	control-t1-extra-frozen-property-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	url-pattern
+control-t1-fetch-lowercase-method-origin-withheld	control-t1-fetch-lowercase-method-origin-withheld/sites.ts:23	control-t1-fetch-lowercase-method-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-t1-fetch-undefined-method-origin-withheld	control-t1-fetch-undefined-method-origin-withheld/sites.ts:22	control-t1-fetch-undefined-method-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-t1-spread-last-origin-withheld	control-t1-spread-last-origin-withheld/sites.ts:13	control-t1-spread-last-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-t1-spread-override-origin-withheld	control-t1-spread-override-origin-withheld/sites.ts:12	control-t1-spread-override-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	method
+control-t1-url-document-relative-origin-withheld	control-t1-url-document-relative-origin-withheld/sites.ts:12	control-t1-url-document-relative-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	url-pattern
+control-t1-url-fragment-origin-withheld	control-t1-url-fragment-origin-withheld/sites.ts:8	control-t1-url-fragment-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	url-pattern
+control-t1-url-known-table-mapping-withheld	control-t1-url-known-table-mapping-withheld/sites.ts:18	control-t1-url-known-table-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	url-pattern
+control-t1-url-protocol-relative-origin-withheld	control-t1-url-protocol-relative-origin-withheld/sites.ts:13	control-t1-url-protocol-relative-origin-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	url-pattern
+control-tail-bare-parent-evidenced	control-tail-bare-parent-evidenced/site.js:1	control-tail-bare-parent-evidenced/prism-boundary.toml	bound	op:GET /mugs/{*0+}		rule	matching
+control-tail-bare-parent-unproved	control-tail-bare-parent-unproved/site.js:1	control-tail-bare-parent-unproved/prism-boundary.toml	unbound		no_operation	rule	matching
+control-trailing-slash-mapping-withheld	control-trailing-slash-mapping-withheld/site.ts:2	control-trailing-slash-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-two-versions-mapping-withheld	control-two-versions-mapping-withheld/site.ts:2	control-two-versions-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	matching
+control-unread-file	control-unread-file/site.js:1	control-unread-file/prism-boundary.toml	unbound		coverage_unchecked	rule	counting
+control-unread-region	control-unread-region/site.js:1	control-unread-region/prism-boundary.toml	unbound		coverage_unchecked	rule	counting
+control-url-concat-parenthesized-mapping-withheld	control-url-concat-parenthesized-mapping-withheld/paths.ts:14	control-url-concat-parenthesized-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	url-pattern
+control-variant-version-mapping-withheld	control-variant-version-mapping-withheld/sites.ts:5	control-variant-version-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	a version or tenant segment interpolated in the client
+control-wrapper-fixed-mapping-withheld	control-wrapper-fixed-mapping-withheld/wrappers.ts:5	control-wrapper-fixed-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	function wrappers with fixed or argument-supplied method
+control-wrapper-option-key-mapping-withheld	control-wrapper-option-key-mapping-withheld/wrappers.ts:7	control-wrapper-option-key-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	function wrappers with fixed or argument-supplied method
+control-wrapper-positional-mapping-withheld	control-wrapper-positional-mapping-withheld/wrappers.ts:6	control-wrapper-positional-mapping-withheld/prism-boundary.toml	unbound		origin_unchecked	rule	function wrappers with fixed or argument-supplied method
+count-deep-member	counting/sites.ts:8	counting/prism-boundary.toml	unbound		unknown_client_method	rule	counting
+count-dotted-property	counting/sites.ts:9	counting/prism-boundary.toml	unbound		unknown_client_method	rule	counting
+count-inline-hook	counting/sites.ts:22	counting/prism-boundary.toml	bound	op:GET /cairns		rule	counting
+count-inline-inner	counting/sites.ts:23	counting/prism-boundary.toml	none		inline_hook_fetcher	rule	counting
+count-passed-fetcher-hook	counting/sites.ts:10	counting/prism-boundary.toml	bound	op:GET /cairns		rule	counting
+count-spec	counting/scene.spec.jsx:1	counting/prism-boundary.toml	none		test_file	rule	counting
+count-test-directory	counting/__tests__/scene.js:2	counting/prism-boundary.toml	none		test_file	rule	counting
+count-test-infix	counting/scene.test.extra.ts:2	counting/prism-boundary.toml	none		test_file	rule	counting
+count-test-lookalike	counting/scene.testing.ts:2	counting/prism-boundary.toml	bound	op:GET /cairns		rule	counting
 different-lengths	match-different-lengths/site.ts:2	match-different-lengths/prism-boundary.toml	unbound		no_operation	rule	matching
 different-methods	match-different-methods/site.ts:2	match-different-methods/prism-boundary.toml	unbound		no_operation	rule	matching
-prefix	match-prefix/site.ts:2	match-prefix/prism-boundary.toml	bound	op:GET /api/item		rule	prefix-map
-trailing-slash	match-trailing-slash/site.ts:2	match-trailing-slash/prism-boundary.toml	bound	op:GET /api/item		rule	matching
-repeated-slash	match-repeated-slash/site.ts:2	match-repeated-slash/prism-boundary.toml	bound	op:GET /api/item		rule	matching
-root	match-root/site.ts:2	match-root/prism-boundary.toml	bound	op:GET /		rule	matching
+factory-created	backends/sites.js:5	backends/prism-boundary.toml	none		client_factory_setup	rule	a locally created client with another base
+fetch-global-property	methods/builtins.js:14	methods/prism-boundary.toml	bound	op:GET /wicks		rule	client-identity
+fetch-init-default	methods/builtins.js:8	methods/prism-boundary.toml	bound	op:GET /wicks		rule	method
+fetch-known-options	methods/builtins.js:10	methods/prism-boundary.toml	bound	op:PUT /wicks		rule	fetch with non-literal options
+fetch-known-verb	methods/builtins.js:12	methods/prism-boundary.toml	bound	op:PATCH /wicks		rule	fetch with non-literal options
+fetch-runtime-method	methods/builtins.js:7	methods/prism-boundary.toml	unbound		dynamic_method	rule	fetch with non-literal options
+fetch-shadow	methods/builtins.js:27	methods/prism-boundary.toml	none		shadowed_builtin	rule	client-identity
+fetch-undefined-init	methods/builtins.js:13	methods/prism-boundary.toml	bound	op:GET /wicks		rule	method
+grammar-await	grammar/forms.ts:12	grammar/prism-boundary.toml	bound	op:GET /weirs		rule	counting
+grammar-class-client-field	grammar/forms.ts:36	grammar/prism-boundary.toml	bound	op:GET /herons/{}		rule	client-identity
+grammar-class-method	grammar/forms.ts:32	grammar/prism-boundary.toml	bound	op:GET /rushes		rule	counting
+grammar-client-template-tag	grammar/forms.ts:42	grammar/prism-boundary.toml	unbound		unconfigured_client_form	loss:tagged_template	counting
+grammar-computed-verb	grammar/forms.ts:7	grammar/prism-boundary.toml	candidate	op:GET /ponds;op:POST /ponds	ambiguous_operation	rule	method
+grammar-default-param	grammar/forms.ts:26	grammar/prism-boundary.toml	unbound		dynamic_url	loss:dynamic_url	url-pattern
+grammar-default-wrapper	grammar/forms.ts:28	grammar/prism-boundary.toml	none		local_wrapper_call	rule	counting
+grammar-dynamic-client-import	grammar/forms.ts:50	grammar/prism-boundary.toml	bound	op:GET /herons		rule	client-identity
+grammar-dynamic-module-load	grammar/forms.ts:49	grammar/prism-boundary.toml	none		module_load_only	rule	counting
+grammar-fixed-table	grammar/forms.ts:22	grammar/prism-boundary.toml	bound	op:GET /limpets		rule	url-pattern
+grammar-inline-spread	grammar/forms.ts:18	grammar/prism-boundary.toml	bound	op:GET /kilns		rule	url-pattern
+grammar-known-spread	grammar/forms.ts:16	grammar/prism-boundary.toml	bound	op:GET /cinders		rule	url-pattern
+grammar-new-url	grammar/forms.ts:45	grammar/prism-boundary.toml	bound	op:GET /badges/{}		rule	url-pattern
+grammar-optional-method	grammar/forms.ts:5	grammar/prism-boundary.toml	bound	op:GET /cranberries		rule	client-identity
+grammar-optional-receiver	grammar/forms.ts:4	grammar/prism-boundary.toml	bound	op:GET /herons		rule	client-identity
+grammar-ordinary-template-tag	grammar/forms.ts:41	grammar/prism-boundary.toml	none		non_client_tag	rule	counting
+grammar-parameter-template-tag	grammar/forms.ts:43	grammar/prism-boundary.toml	unbound		unconfigured_client_form	loss:tagged_template	counting
+grammar-promise-inner	grammar/forms.ts:9	grammar/prism-boundary.toml	bound	op:GET /limpets		rule	counting
+grammar-promise-then	grammar/forms.ts:10	grammar/prism-boundary.toml	none		promise_continuation	rule	counting
+grammar-runtime-table	grammar/forms.ts:23	grammar/prism-boundary.toml	candidate	op:GET /bowls;op:GET /limpets	ambiguous_operation	rule	url-pattern
+grammar-static-subscript	grammar/forms.ts:6	grammar/prism-boundary.toml	bound	op:GET /marshes		rule	client-identity
+grammar-ts-cast	grammar/forms.ts:8	grammar/prism-boundary.toml	bound	op:GET /ghylls		rule	client-identity
+grammar-unknown-spread	grammar/forms.ts:19	grammar/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
+grammar-url-constructor	grammar/forms.ts:46	grammar/prism-boundary.toml	none		url_construction_only	rule	counting
+hook-array-first-only	hooks/sites.ts:24	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
+hook-array-hole	hooks/sites.ts:27	hooks/prism-boundary.toml	unbound		non_string_key	rule	url-pattern
+hook-array-template	hooks/sites.ts:23	hooks/prism-boundary.toml	bound	op:GET /cairns/{}		rule	url-pattern
+hook-array-unknown-first	hooks/sites.ts:26	hooks/prism-boundary.toml	unbound		non_string_key	rule	url-pattern
+hook-default-get	hooks/sites.ts:18	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	method
+hook-empty-arm	hooks/sites.ts:22	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
+hook-empty-array	hooks/sites.ts:28	hooks/prism-boundary.toml	unbound		non_string_key	rule	url-pattern
+hook-false-arm	hooks/sites.ts:21	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
+hook-inline-different-path	hooks/sites.ts:13	hooks/prism-boundary.toml	bound	op:PUT /lanterns		rule	hook with non-GET fetcher
+hook-inline-different-path-inner	hooks/sites.ts:14	hooks/prism-boundary.toml	none		inline_hook_fetcher	rule	counting
+hook-inline-put	hooks/sites.ts:10	hooks/prism-boundary.toml	bound	op:PUT /cairns		rule	hook with non-GET fetcher
+hook-inline-put-inner	hooks/sites.ts:11	hooks/prism-boundary.toml	none		inline_hook_fetcher	rule	counting
+hook-local-fetcher	hooks/sites.ts:17	hooks/prism-boundary.toml	none		local_value_fetcher	rule	counting
+hook-named-fetcher-implementation	hooks/sites.ts:5	hooks/prism-boundary.toml	unbound		dynamic_url	rule	counting
+hook-named-put	hooks/sites.ts:16	hooks/prism-boundary.toml	bound	op:PUT /cairns		rule	hook with non-GET fetcher
+hook-null-arm	hooks/sites.ts:19	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
+hook-object-key	hooks/sites.ts:25	hooks/prism-boundary.toml	unbound		non_string_key	rule	url-pattern
+hook-post	hooks/sites.ts:9	hooks/prism-boundary.toml	bound	op:POST /cairns		rule	hook with non-GET fetcher
+hook-two-url-arms	hooks/sites.ts:29	hooks/prism-boundary.toml	candidate	op:GET /basalt;op:GET /calcite	ambiguous_operation	rule	conditional URLs with two URL arms
+hook-undefined-arm	hooks/sites.ts:20	hooks/prism-boundary.toml	bound	op:GET /cairns		rule	url-pattern
+identity-after-block	identity/scenes/entry.ts:33	identity/prism-boundary.toml	bound	op:GET /gates		rule	client-identity
+identity-destructured	identity/scenes/entry.ts:36	identity/prism-boundary.toml	none		shadowed_by_destructured_parameter	rule	client-identity
+identity-index-js	identity/scenes/entry.ts:22	identity/prism-boundary.toml	bound	op:GET /calipers		rule	client-identity
+identity-js	identity/scenes/entry.ts:20	identity/prism-boundary.toml	bound	op:GET /lampwicks		rule	client-identity
+identity-jsx	identity/scenes/entry.ts:21	identity/prism-boundary.toml	bound	op:GET /firs		rule	client-identity
+identity-namespace	identity/scenes/entry.ts:17	identity/prism-boundary.toml	bound	op:GET /twine		rule	client-identity
+identity-old-alias	identity/scenes/entry.ts:14	identity/prism-boundary.toml	bound	op:GET /cairns		rule	client-identity
+identity-same-spelling	identity/scenes/entry.ts:23	identity/prism-boundary.toml	none		different_defining_file	rule	client-identity
+identity-tsx	identity/scenes/entry.ts:19	identity/prism-boundary.toml	bound	op:GET /mosaics		rule	client-identity
+identity-two-reexports	identity/scenes/entry.ts:18	identity/prism-boundary.toml	bound	op:GET /twine		rule	client-identity
+identity-two-star-reexports	identity/scenes/star.ts:2	identity/prism-boundary.toml	bound	op:GET /twine		rule	client-identity
 literal-case	match-literal-case/site.ts:2	match-literal-case/prism-boundary.toml	unbound		no_operation	rule	matching
+literal-to-parameter	match-literal-to-parameter/site.ts:2	match-literal-to-parameter/prism-boundary.toml	bound	op:GET /user/{}		rule	matching
+literal-wins	match-literal-wins/site.ts:2	match-literal-wins/prism-boundary.toml	bound	op:GET /user/me		rule	matching
+matching-only-top	scores/sites.ts:6	scores/prism-boundary.toml	candidate	op:GET /press/copper/{};op:GET /press/{}/leaf	ambiguous_operation	rule	matching
+matching-parameter-score	scores/sites.ts:9	scores/prism-boundary.toml	candidate	op:GET /base/flint/{};op:GET /base/{}/top	ambiguous_operation	rule	matching
+matching-tie-without-parameter-on-literal	scores/sites.ts:5	scores/prism-boundary.toml	candidate	op:GET /press/copper/{};op:GET /press/{}/leaf	ambiguous_operation	rule	matching
+member-option-key	methods/wrappers.ts:9	methods/prism-boundary.toml	bound	op:GET /wicks		rule	method
+member-positional	methods/wrappers.ts:8	methods/prism-boundary.toml	bound	op:PUT /wicks		rule	method
+method-nested-get	methods/wrappers.ts:16	methods/prism-boundary.toml	bound	op:GET /wicks/{}		rule	method
+method-nested-post	methods/wrappers.ts:17	methods/prism-boundary.toml	bound	op:POST /wicks/{}		rule	method
+method-nested-put	methods/wrappers.ts:15	methods/prism-boundary.toml	bound	op:PUT /wicks		rule	method
+one-version	match-one-version/site.ts:2	match-one-version/prism-boundary.toml	candidate	op:GET /api/v1/item	conditional_url	rule	matching
+parameter-to-literal	match-parameter-to-literal/site.ts:2	match-parameter-to-literal/prism-boundary.toml	unbound		no_operation	rule	matching
+parameter-to-two-literals	match-parameter-to-two-literals/site.ts:2	match-parameter-to-two-literals/prism-boundary.toml	candidate	op:GET /vote/down;op:GET /vote/up	ambiguous_operation	rule	matching
 parameter-wins	match-parameter-wins/site.ts:2	match-parameter-wins/prism-boundary.toml	bound	op:GET /user/{}		rule	matching
+prefix	match-prefix/site.ts:2	match-prefix/prism-boundary.toml	bound	op:GET /api/item		rule	prefix-map
+prefix-add-without-strip	prefixes/paths.ts:4	prefixes/prism-boundary.toml	bound	op:GET /harbor/new-ribbons		rule	prefix-map
+prefix-normalize-after-map	prefixes/paths.ts:6	prefixes/prism-boundary.toml	unbound		no_operation	loss:strict_slash	prefix-map
+prefix-strip-only-at-start	prefixes/paths.ts:5	prefixes/prism-boundary.toml	bound	op:GET /harbor/ribbons/old/{}		rule	prefix-map
+repeated-slash	match-repeated-slash/site.ts:2	match-repeated-slash/prism-boundary.toml	unbound		no_operation	loss:strict_slash	matching
+root	match-root/site.ts:2	match-root/prism-boundary.toml	bound	op:GET /		rule	matching
+rpc-body-control	dispatch/sites.js:6	dispatch/prism-boundary.toml	bound	op:POST /query		rule	single-endpoint routing by query string or body
+rpc-body-selector	dispatch/sites.js:7	dispatch/prism-boundary.toml	unbound		selector_unchecked	loss:selector_unchecked	single-endpoint routing by query string or body
+rpc-query-control	dispatch/sites.js:2	dispatch/prism-boundary.toml	bound	op:GET /dispatch		rule	single-endpoint routing by query string or body
+rpc-query-selector	dispatch/sites.js:3	dispatch/prism-boundary.toml	unbound		selector_unchecked	loss:selector_unchecked	single-endpoint routing by query string or body
 s01	shape-s01/alderfen/kiln-tally.ts:2	shape-s01/prism-boundary.toml	bound	op:GET /mothbank/widgets		rule	shape:s01
 s02	shape-s02/sites.ts:2	shape-s02/prism-boundary.toml	bound	op:GET /mothbank/widgets		rule	shape:s02
 s03	shape-s03/alderfen/kiln-slips.ts:2	shape-s03/prism-boundary.toml	bound	op:GET /mothbank/invoices		rule	shape:s03
@@ -172,41 +285,41 @@ s05	shape-s05/sites.ts:2	shape-s05/prism-boundary.toml	bound	op:GET /mothbank/or
 s06	shape-s06/sites.ts:3	shape-s06/prism-boundary.toml	bound	op:GET /mothbank/orchards/{}/{}		rule	shape:s06
 s07	shape-s07/sites.ts:2	shape-s07/prism-boundary.toml	bound	op:GET /mothbank/bouquets/{}		rule	shape:s07
 s08	shape-s08/sites.ts:3	shape-s08/prism-boundary.toml	bound	op:GET /mothbank/baskets/{}		rule	shape:s08
-s09	shape-s09/sites.ts:2	shape-s09/prism-boundary.toml	unbound		dynamic_url	rule	shape:s09
-s09-2	shape-s09/sites.ts:3	shape-s09/prism-boundary.toml	unbound		dynamic_url	rule	shape:s09
-s10	shape-s10/sites.ts:4	shape-s10/prism-boundary.toml	bound	op:GET /mothbank/ledgers/{}		gap:const-url	shape:s10
-s11	shape-s11/sites.ts:6	shape-s11/prism-boundary.toml	bound	op:GET /mothbank/shelves		gap:query-cut	shape:s11
-s12	shape-s12/sites.ts:5	shape-s12/prism-boundary.toml	bound	op:GET /mothbank/pallets		gap:query-cut	shape:s12
-s13	shape-s13/sites.ts:4	shape-s13/prism-boundary.toml	candidate	op:GET /mothbank/acorns;op:GET /mothbank/acorns/{}	ambiguous_operation	gap:conditional-url	shape:s13
-s14	shape-s14/sites.ts:4	shape-s14/prism-boundary.toml	candidate	op:GET /mothbank/pebbles;op:GET /mothbank/pebbles/{}	ambiguous_operation	gap:conditional-url	shape:s14
-s14-2	shape-s14/sites.ts:6	shape-s14/prism-boundary.toml	candidate	op:GET /mothbank/pebbles;op:GET /mothbank/pebbles/{}	ambiguous_operation	gap:conditional-url	shape:s14
-s15	shape-s15/sites.ts:4	shape-s15/prism-boundary.toml	unbound		dynamic_url	rule	shape:s15
-s16	shape-s16/sites.ts:5	shape-s16/prism-boundary.toml	candidate	op:GET /mothbank/brochures;op:GET /mothbank/brochures/bunting	ambiguous_operation	gap:conditional-url	shape:s16
-s16-2	shape-s16/sites.ts:10	shape-s16/prism-boundary.toml	candidate	op:GET /mothbank/brochures;op:GET /mothbank/brochures/bunting;op:GET /mothbank/brochures/{}	ambiguous_operation	gap:conditional-url	shape:s16
-s17	shape-s17/sites.ts:6	shape-s17/prism-boundary.toml	candidate	op:GET /mothbank/bluebells/{};op:GET /mothbank/bluebells/{}/{}	ambiguous_operation	gap:conditional-url	shape:s17
-s18	shape-s18/sites.ts:4	shape-s18/prism-boundary.toml	candidate	op:GET /mothbank/booklets/baskets/{};op:GET /mothbank/booklets/crates/{}	ambiguous_operation	gap:conditional-url	shape:s18
-s19	shape-s19/alderfen/kiln-tally.ts:4	shape-s19/prism-boundary.toml	bound	op:GET /mothbank/brochures/chalkboard/{}		gap:const-url	shape:s19
-s20	shape-s20/sites.ts:2	shape-s20/prism-boundary.toml	unbound		dynamic_url	gap:whole-segment-substitution	shape:s20
-s21	shape-s21/sites.ts:4	shape-s21/prism-boundary.toml	candidate	op:GET /mothbank/crates;op:GET /mothbank/pallets	ambiguous_operation	gap:finite-url-values	shape:s21
-s21-2	shape-s21/sites.ts:7	shape-s21/prism-boundary.toml	candidate	op:GET /mothbank/crates;op:GET /mothbank/pallets	ambiguous_operation	gap:finite-url-values	shape:s21
-s21-3	shape-s21/sites.ts:11	shape-s21/prism-boundary.toml	candidate	op:GET /mothbank/crates;op:GET /mothbank/pallets	ambiguous_operation	gap:finite-url-values	shape:s21
-s22	shape-s22/sites.ts:4	shape-s22/prism-boundary.toml	none		bind_creation_only	gap:counting	shape:s22
-s22-2	shape-s22/sites.ts:5	shape-s22/prism-boundary.toml	none		bind_creation_only	gap:counting	shape:s22
-s22-3	shape-s22/sites.ts:6	shape-s22/prism-boundary.toml	unbound		dynamic_method	gap:client-identity	shape:s22
-s23	shape-s23/sites.ts:2	shape-s23/prism-boundary.toml	bound	op:GET /mothbank/invoices/{}		gap:url-normalization	shape:s23
+s09	shape-s09/sites.ts:2	shape-s09/prism-boundary.toml	candidate	op:GET /mothbank/crates/%2F{};op:GET /mothbank/crates/{}	ambiguous_operation	rule	shape:s09
+s09-2	shape-s09/sites.ts:3	shape-s09/prism-boundary.toml	candidate	op:GET /mothbank/crates/{};op:GET /mothbank/crates/{}-ridge-gold	ambiguous_operation	rule	shape:s09
+s10	shape-s10/sites.ts:4	shape-s10/prism-boundary.toml	bound	op:GET /mothbank/ledgers/{}		rule	shape:s10
+s11	shape-s11/sites.ts:6	shape-s11/prism-boundary.toml	bound	op:GET /mothbank/shelves		rule	shape:s11
+s12	shape-s12/sites.ts:5	shape-s12/prism-boundary.toml	bound	op:GET /mothbank/pallets		rule	shape:s12
+s13	shape-s13/sites.ts:4	shape-s13/prism-boundary.toml	candidate	op:GET /mothbank/acorns;op:GET /mothbank/acorns/{}	ambiguous_operation	rule	shape:s13
+s14	shape-s14/sites.ts:4	shape-s14/prism-boundary.toml	candidate	op:GET /mothbank/pebbles/{}	conditional_url	loss:strict_slash	shape:s14
+s14-2	shape-s14/sites.ts:6	shape-s14/prism-boundary.toml	candidate	op:GET /mothbank/pebbles/{}	conditional_url	loss:strict_slash	shape:s14
+s15	shape-s15/sites.ts:4	shape-s15/prism-boundary.toml	candidate	op:GET /mothbank/booklets;op:GET /mothbank/booklets/{}	ambiguous_operation	rule	shape:s15
+s16	shape-s16/sites.ts:5	shape-s16/prism-boundary.toml	candidate	op:GET /mothbank/brochures;op:GET /mothbank/brochures/bunting	ambiguous_operation	rule	shape:s16
+s16-2	shape-s16/sites.ts:10	shape-s16/prism-boundary.toml	candidate	op:GET /mothbank/brochures;op:GET /mothbank/brochures/bunting;op:GET /mothbank/brochures/{}	ambiguous_operation	rule	shape:s16
+s17	shape-s17/sites.ts:6	shape-s17/prism-boundary.toml	candidate	op:GET /mothbank/bluebells/{};op:GET /mothbank/bluebells/{}/{}	ambiguous_operation	rule	shape:s17
+s18	shape-s18/sites.ts:4	shape-s18/prism-boundary.toml	candidate	op:GET /mothbank/booklets/baskets/{};op:GET /mothbank/booklets/crates/{}	ambiguous_operation	rule	shape:s18
+s19	shape-s19/alderfen/kiln-tally.ts:4	shape-s19/prism-boundary.toml	bound	op:GET /mothbank/brochures/chalkboard/{}		rule	shape:s19
+s20	shape-s20/sites.ts:2	shape-s20/prism-boundary.toml	unbound		dynamic_url	rule	shape:s20
+s21	shape-s21/sites.ts:4	shape-s21/prism-boundary.toml	candidate	op:GET /mothbank/crates;op:GET /mothbank/pallets	ambiguous_operation	rule	shape:s21
+s21-2	shape-s21/sites.ts:7	shape-s21/prism-boundary.toml	candidate	op:GET /mothbank/crates;op:GET /mothbank/pallets	ambiguous_operation	rule	shape:s21
+s21-3	shape-s21/sites.ts:11	shape-s21/prism-boundary.toml	candidate	op:GET /mothbank/crates;op:GET /mothbank/pallets	ambiguous_operation	rule	shape:s21
+s22	shape-s22/sites.ts:4	shape-s22/prism-boundary.toml	none		bind_creation_only	rule	shape:s22
+s22-2	shape-s22/sites.ts:5	shape-s22/prism-boundary.toml	none		bind_creation_only	rule	shape:s22
+s22-3	shape-s22/sites.ts:6	shape-s22/prism-boundary.toml	unbound		dynamic_method	rule	shape:s22
+s23	shape-s23/sites.ts:2	shape-s23/prism-boundary.toml	bound	op:GET /mothbank/invoices/{}		rule	shape:s23
 s24	shape-s24/sites.ts:2	shape-s24/prism-boundary.toml	bound	op:GET /mothbank/lozenges/mothbank/{}		rule	shape:s24
 s25	shape-s25/sites.ts:2	shape-s25/prism-boundary.toml	bound	op:GET /mothbank/orchards/bunting		rule	shape:s25
-s25-2	shape-s25/sites.ts:3	shape-s25/prism-boundary.toml	candidate	op:GET /mothbank/orchards/bunting;op:GET /mothbank/orchards/{}	ambiguous_operation	gap:matching	shape:s25
+s25-2	shape-s25/sites.ts:3	shape-s25/prism-boundary.toml	candidate	op:GET /mothbank/orchards/bunting;op:GET /mothbank/orchards/{}	ambiguous_operation	rule	shape:s25
 s26	shape-s26/sites.ts:4	shape-s26/prism-boundary.toml	bound	op:PUT /mothbank/shelves		rule	shape:s26
 s27	shape-s27/sites.ts:3	shape-s27/prism-boundary.toml	bound	op:GET /mothbank/booklets		rule	shape:s27
 s28	shape-s28/sites.ts:2	shape-s28/prism-boundary.toml	bound	op:DELETE /mothbank/crates		rule	shape:s28
 s29	shape-s29/sites.ts:3	shape-s29/prism-boundary.toml	bound	op:PUT /mothbank/pallets		rule	shape:s29
 s29-2	shape-s29/sites.ts:4	shape-s29/prism-boundary.toml	bound	op:POST /mothbank/pallets		rule	shape:s29
-s30	shape-s30/sites.ts:3	shape-s30/prism-boundary.toml	none		interceptor_registration	gap:counting	shape:s30
-s30-2	shape-s30/sites.ts:7	shape-s30/prism-boundary.toml	none		interceptor_registration	gap:counting	shape:s30
+s30	shape-s30/sites.ts:3	shape-s30/prism-boundary.toml	none		interceptor_registration	rule	shape:s30
+s30-2	shape-s30/sites.ts:7	shape-s30/prism-boundary.toml	none		interceptor_registration	rule	shape:s30
 s30-3	shape-s30/sites.ts:9	shape-s30/prism-boundary.toml	bound	op:GET /mothbank/ledgers		rule	shape:s30
-s31	shape-s31/sites.ts:5	shape-s31/prism-boundary.toml	none		interceptor_registration	gap:counting	shape:s31
-s31-2	shape-s31/sites.ts:9	shape-s31/prism-boundary.toml	none		interceptor_cleanup	gap:counting	shape:s31
+s31	shape-s31/sites.ts:5	shape-s31/prism-boundary.toml	none		interceptor_registration	rule	shape:s31
+s31-2	shape-s31/sites.ts:9	shape-s31/prism-boundary.toml	none		interceptor_cleanup	rule	shape:s31
 s31-3	shape-s31/sites.ts:12	shape-s31/prism-boundary.toml	bound	op:GET /mothbank/bouquets		rule	shape:s31
 s32	shape-s32/alderfen/kiln-slips.ts:2	shape-s32/prism-boundary.toml	bound	op:GET /mothbank/bluebells		rule	shape:s32
 s32-2	shape-s32/alderfen/kiln-tally.ts:2	shape-s32/prism-boundary.toml	none		local_wrapper_call	rule	shape:s32
@@ -221,7 +334,7 @@ s36	shape-s36/sites.ts:4	shape-s36/prism-boundary.toml	bound	op:PUT /mothbank/lo
 s36-2	shape-s36/sites.ts:7	shape-s36/prism-boundary.toml	none		local_callback_call	rule	shape:s36
 s37	shape-s37/sites.ts:2	shape-s37/prism-boundary.toml	bound	op:GET /mothbank/invoices		rule	shape:s37
 s37-2	shape-s37/sites.ts:3	shape-s37/prism-boundary.toml	bound	op:GET /mothbank/brochures		rule	shape:s37
-s38	shape-s38/sites.ts:6	shape-s38/prism-boundary.toml	unbound		dynamic_url	gap:fetch-method-default	shape:s38
+s38	shape-s38/sites.ts:6	shape-s38/prism-boundary.toml	unbound		dynamic_url	rule	shape:s38
 s39	shape-s39/sites.ts:2	shape-s39/prism-boundary.toml	unbound		dynamic_url	rule	shape:s39
 s39-2	shape-s39/sites.ts:3	shape-s39/prism-boundary.toml	none		local_wrapper_call	rule	shape:s39
 s40	shape-s40/sites.tsx:4	shape-s40/prism-boundary.toml	none		link_navigation	rule	shape:s40
@@ -231,77 +344,109 @@ s43	shape-s43/sites.tsx:4	shape-s43/prism-boundary.toml	none		jsx_destination_pr
 s44	shape-s44/sites.ts:3	shape-s44/prism-boundary.toml	none		unconfigured_sdk	rule	shape:s44
 s44-2	shape-s44/sites.ts:4	shape-s44/prism-boundary.toml	none		unconfigured_sdk	rule	shape:s44
 s45	shape-s45/sites.ts:3	shape-s45/prism-boundary.toml	none		unconfigured_constructor	rule	shape:s45
-t1-url-parent	t1-semantics/sites.ts:6	t1-semantics/prism-boundary.toml	bound	op:GET /archive/fables		gap:url-constructor	url-pattern
-t1-url-base-file	t1-semantics/sites.ts:7	t1-semantics/prism-boundary.toml	bound	op:GET /archive/fables		gap:url-constructor	url-pattern
-t1-url-fragment	t1-semantics/sites.ts:8	t1-semantics/prism-boundary.toml	bound	op:GET /fables		gap:url-normalization	url-pattern
-t1-nullish-url	t1-semantics/sites.ts:9	t1-semantics/prism-boundary.toml	bound	op:GET /fables		gap:conditional-url	url-pattern
-t1-enum-url	t1-semantics/sites.ts:10	t1-semantics/prism-boundary.toml	bound	op:GET /fables		gap:finite-url-values	url-pattern
-t1-spread-override	t1-semantics/sites.ts:12	t1-semantics/prism-boundary.toml	bound	op:PUT /fables		gap:method-literal	method
-t1-spread-last	t1-semantics/sites.ts:13	t1-semantics/prism-boundary.toml	bound	op:DELETE /fables		gap:method-literal	method
-t1-axios-spread-url	t1-semantics/sites.ts:14	t1-semantics/prism-boundary.toml	bound	op:POST /fables		gap:axios-config	method
-t1-axios-url-last	t1-semantics/sites.ts:15	t1-semantics/prism-boundary.toml	bound	op:POST /fables		gap:axios-config	method
-t1-query-inner	t1-semantics/sites.ts:16	t1-semantics/prism-boundary.toml	bound	op:POST /fables		rule	counting
-t1-thunk-inner	t1-semantics/sites.ts:17	t1-semantics/prism-boundary.toml	bound	op:GET /fables		rule	counting
-t1-call-verb	t1-semantics/sites.ts:18	t1-semantics/prism-boundary.toml	bound	op:GET /fables		gap:client-identity	client-identity
-t1-bind-creation	t1-semantics/sites.ts:19	t1-semantics/prism-boundary.toml	none		bind_creation_only	gap:counting	counting
-t1-bind-invoke	t1-semantics/sites.ts:20	t1-semantics/prism-boundary.toml	bound	op:POST /fables		gap:client-identity	client-identity
-t1-request-override	t1-semantics/sites.ts:21	t1-semantics/prism-boundary.toml	bound	op:PUT /fables		gap:fetch-request	method
-t1-request-construction	t1-semantics/sites.ts:22	t1-semantics/prism-boundary.toml	none		request_construction_only	rule	counting
-t1-alias-client	t1-boundaries/sites.ts:8	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		gap:client-identity	client-identity
-t1-destructure-client	t1-boundaries/sites.ts:9	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		gap:client-identity	client-identity
-t1-finite-computed-key	t1-boundaries/sites.ts:10	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		gap:client-identity	client-identity
-t1-url-dot-segments	t1-boundaries/sites.ts:11	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		gap:url-normalization	url-pattern
-t1-url-document-relative	t1-boundaries/sites.ts:12	t1-boundaries/prism-boundary.toml	bound	op:GET /doc/leaf		gap:url-resolution	url-pattern
-t1-url-protocol-relative	t1-boundaries/sites.ts:13	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		gap:url-normalization	url-pattern
-t1-url-unicode	t1-boundaries/sites.ts:14	t1-boundaries/prism-boundary.toml	bound	op:GET /book/caf%C3%A9		gap:url-normalization	url-pattern
-t1-url-encoded-literal	t1-boundaries/sites.ts:15	t1-boundaries/prism-boundary.toml	bound	op:GET /book/a%2Fb		gap:finite-url-values	url-pattern
-t1-url-double-encoding	t1-boundaries/sites.ts:16	t1-boundaries/prism-boundary.toml	bound	op:GET /book/%252F		gap:finite-url-values	url-pattern
-t1-url-hash-before-query	t1-boundaries/sites.ts:17	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		gap:url-normalization	url-pattern
-t1-url-known-table	t1-boundaries/sites.ts:18	t1-boundaries/prism-boundary.toml	bound	op:GET /tablets		gap:finite-url-values	url-pattern
-t1-url-or-default	t1-boundaries/sites.ts:19	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		gap:conditional-url	url-pattern
-t1-request-inherits-method	t1-boundaries/sites.ts:20	t1-boundaries/prism-boundary.toml	bound	op:POST /fables		gap:fetch-request	method
-t1-request-options-inherit	t1-boundaries/sites.ts:21	t1-boundaries/prism-boundary.toml	bound	op:POST /fables		gap:fetch-request	method
-t1-fetch-undefined-method	t1-boundaries/sites.ts:22	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		gap:fetch-method-default	method
-t1-fetch-lowercase-method	t1-boundaries/sites.ts:23	t1-boundaries/prism-boundary.toml	unbound		no_operation	gap:method-normalization	method
-t1-axios-url-config	t1-boundaries/sites.ts:24	t1-boundaries/prism-boundary.toml	bound	op:PATCH /fables		gap:axios-config	method
-t1-axios-base-path	t1-boundaries/sites.ts:25	t1-boundaries/prism-boundary.toml	bound	op:GET /base/nested		gap:axios-config	method
-t1-axios-absolute-over-base	t1-boundaries/sites.ts:26	t1-boundaries/prism-boundary.toml	bound	op:GET /plain		gap:axios-config	method
-t1-match-middle-parameters	t1-boundaries/sites.ts:27	t1-boundaries/prism-boundary.toml	bound	op:GET /shelves/{}/items/{}		rule	matching
-t1-match-adjacent-parameters	t1-boundaries/sites.ts:28	t1-boundaries/prism-boundary.toml	bound	op:GET /pairs/{}/{}/end		rule	matching
-t1-match-adjacent-literal	t1-boundaries/sites.ts:29	t1-boundaries/prism-boundary.toml	bound	op:GET /pairs/fixed/{}/end		rule	matching
-t1-method-same-path-post	t1-boundaries/sites.ts:30	t1-boundaries/prism-boundary.toml	bound	op:POST /switch		rule	matching
-t1-method-same-path-get	t1-boundaries/sites.ts:31	t1-boundaries/prism-boundary.toml	bound	op:GET /switch		rule	matching
+same-literal	match-same-literal/site.ts:2	match-same-literal/prism-boundary.toml	bound	op:GET /user/me		rule	matching
+same-parameter	match-same-parameter/site.ts:2	match-same-parameter/prism-boundary.toml	bound	op:GET /user/{}		rule	matching
+same-path-url-arms	variants/sites.ts:13	variants/prism-boundary.toml	bound	op:GET /basalt		rule	conditional URLs with two URL arms
+t1-alias-client	t1-boundaries/sites.ts:8	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	client-identity
+t1-axios-absolute-over-base	t1-boundaries/sites.ts:26	t1-boundaries/prism-boundary.toml	bound	op:GET /plain		rule	method
+t1-axios-base-path	t1-boundaries/sites.ts:25	t1-boundaries/prism-boundary.toml	bound	op:GET /base/nested		rule	method
 t1-axios-create-only	t1-boundaries/sites.ts:32	t1-boundaries/prism-boundary.toml	none		client_factory_setup	rule	counting
-t1-url-searchparams-only	t1-boundaries/sites.ts:33	t1-boundaries/prism-boundary.toml	none		url_construction_only	rule	counting
-t1-generated-file	t1-boundaries/generated.generated.ts:2	t1-boundaries/prism-boundary.toml	bound	op:GET /generated		rule	counting
-t1-test-suffix-lookalike	t1-boundaries/included.speculative.ts:2	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	counting
-t1-test-exact-suffix	t1-boundaries/excluded.test.ts:2	t1-boundaries/prism-boundary.toml	none		test_file	rule	counting
-t1-expand-fetch-lower-get	t1-expansions/sites.ts:12	t1-expansions/prism-boundary.toml	bound	op:GET /atlas		gap:method-normalization	method
-t1-expand-fetch-lower-delete	t1-expansions/sites.ts:13	t1-expansions/prism-boundary.toml	bound	op:DELETE /atlas		gap:method-normalization	method
-t1-expand-axios-instance-prefix	t1-expansions/sites.ts:14	t1-expansions/prism-boundary.toml	bound	op:GET /vault/atlas		gap:client-identity	client-identity
-t1-expand-axios-config-params	t1-expansions/sites.ts:15	t1-expansions/prism-boundary.toml	bound	op:GET /atlas		gap:axios-config	method
-t1-expand-ky-prefix	t1-expansions/sites.ts:16	t1-expansions/prism-boundary.toml	bound	op:GET /vault/atlas		gap:client-identity	client-identity
-t1-expand-got-prefix	t1-expansions/sites.ts:17	t1-expansions/prism-boundary.toml	bound	op:POST /vault/atlas		gap:client-identity	client-identity
-t1-expand-superagent-query	t1-expansions/sites.ts:18	t1-expansions/prism-boundary.toml	bound	op:GET /atlas		gap:client-identity	client-identity
-t1-expand-jquery-ajax	t1-expansions/sites.ts:19	t1-expansions/prism-boundary.toml	bound	op:POST /atlas		gap:client-identity	client-identity
-t1-expand-helper-literal	t1-expansions/sites.ts:20	t1-expansions/prism-boundary.toml	bound	op:GET /atlas		gap:helper-url	url-pattern
-t1-expand-optional-table	t1-expansions/sites.ts:21	t1-expansions/prism-boundary.toml	bound	op:GET /atlas		gap:finite-url-values	url-pattern
-t1-expand-nullish-live-choice	t1-expansions/sites.ts:22	t1-expansions/prism-boundary.toml	candidate	op:GET /atlas;op:GET /folio	ambiguous_operation	gap:conditional-url	url-pattern
-t1-expand-method-apply	t1-expansions/sites.ts:23	t1-expansions/prism-boundary.toml	bound	op:POST /atlas		gap:client-identity	client-identity
-t1-expand-axios-request-member	t1-expansions/sites.ts:24	t1-expansions/prism-boundary.toml	bound	op:DELETE /atlas		gap:axios-config	method
-t1-extra-renamed-barrel	t1-grammar-extra/sites.ts:10	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		rule	client-identity
-t1-extra-namespace-barrel	t1-grammar-extra/sites.ts:11	t1-grammar-extra/prism-boundary.toml	bound	op:POST /copper		rule	client-identity
-t1-extra-rebound-alias	t1-grammar-extra/sites.ts:12	t1-grammar-extra/prism-boundary.toml	none		rebound_to_non_client	gap:client-identity	client-identity
-t1-extra-default-explicit-undefined	t1-grammar-extra/sites.ts:13	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		gap:default-parameter	url-pattern
-t1-extra-frozen-property	t1-grammar-extra/sites.ts:14	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		gap:finite-url-values	url-pattern
-t1-extra-helper-finite-table	t1-grammar-extra/sites.ts:15	t1-grammar-extra/prism-boundary.toml	candidate	op:GET /copper;op:GET /linen	ambiguous_operation	gap:finite-url-values	url-pattern
-t1-extra-url-searchparams	t1-grammar-extra/sites.ts:16	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		gap:query-cut	url-pattern
-t1-extra-url-object	t1-grammar-extra/sites.ts:17	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		gap:url-constructor	url-pattern
-t1-extra-axios-config-constant	t1-grammar-extra/sites.ts:18	t1-grammar-extra/prism-boundary.toml	bound	op:POST /copper		gap:axios-config	method
-t1-extra-fetch-override-spread	t1-grammar-extra/sites.ts:19	t1-grammar-extra/prism-boundary.toml	bound	op:HEAD /copper		gap:method-literal	method
-t1-extra-bound-preargument	t1-grammar-extra/sites.ts:21	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		gap:client-identity	client-identity
-t1-extra-repeated-param	t1-grammar-extra/sites.ts:22	t1-grammar-extra/prism-boundary.toml	bound	op:GET /pairs/{}/{}		rule	matching
+t1-axios-spread-url	t1-semantics/sites.ts:14	t1-semantics/prism-boundary.toml	bound	op:POST /fables		rule	method
+t1-axios-url-config	t1-boundaries/sites.ts:24	t1-boundaries/prism-boundary.toml	bound	op:PATCH /fables		rule	method
+t1-axios-url-last	t1-semantics/sites.ts:15	t1-semantics/prism-boundary.toml	bound	op:POST /fables		rule	method
+t1-bind-creation	t1-semantics/sites.ts:19	t1-semantics/prism-boundary.toml	none		bind_creation_only	rule	counting
+t1-bind-invoke	t1-semantics/sites.ts:20	t1-semantics/prism-boundary.toml	bound	op:POST /fables		rule	client-identity
+t1-call-verb	t1-semantics/sites.ts:18	t1-semantics/prism-boundary.toml	bound	op:GET /fables		rule	client-identity
+t1-destructure-client	t1-boundaries/sites.ts:9	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	client-identity
+t1-enum-url	t1-semantics/sites.ts:10	t1-semantics/prism-boundary.toml	bound	op:GET /fables		rule	url-pattern
+t1-expand-axios-config-params	t1-expansions/sites.ts:15	t1-expansions/prism-boundary.toml	bound	op:GET /atlas		rule	method
+t1-expand-axios-instance-prefix	t1-expansions/sites.ts:14	t1-expansions/prism-boundary.toml	bound	op:GET /vault/atlas		rule	client-identity
+t1-expand-axios-request-member	t1-expansions/sites.ts:24	t1-expansions/prism-boundary.toml	bound	op:DELETE /atlas		rule	method
+t1-expand-fetch-lower-delete	t1-expansions/sites.ts:13	t1-expansions/prism-boundary.toml	bound	op:DELETE /atlas		rule	method
+t1-expand-fetch-lower-get	t1-expansions/sites.ts:12	t1-expansions/prism-boundary.toml	bound	op:GET /atlas		rule	method
+t1-expand-got-prefix	t1-expansions/sites.ts:17	t1-expansions/prism-boundary.toml	none		excluded_transport	loss:excluded_transport	client-identity
+t1-expand-helper-literal	t1-expansions/sites.ts:20	t1-expansions/prism-boundary.toml	unbound		dynamic_url	loss:dynamic_url	url-pattern
+t1-expand-jquery-ajax	t1-expansions/sites.ts:19	t1-expansions/prism-boundary.toml	none		excluded_transport	loss:excluded_transport	client-identity
+t1-expand-ky-prefix	t1-expansions/sites.ts:16	t1-expansions/prism-boundary.toml	none		excluded_transport	loss:excluded_transport	client-identity
+t1-expand-method-apply	t1-expansions/sites.ts:23	t1-expansions/prism-boundary.toml	bound	op:POST /atlas		rule	client-identity
+t1-expand-nullish-live-choice	t1-expansions/sites.ts:22	t1-expansions/prism-boundary.toml	candidate	op:GET /atlas;op:GET /folio	ambiguous_operation	rule	url-pattern
+t1-expand-optional-table	t1-expansions/sites.ts:21	t1-expansions/prism-boundary.toml	bound	op:GET /atlas		rule	url-pattern
+t1-expand-superagent-query	t1-expansions/sites.ts:18	t1-expansions/prism-boundary.toml	none		excluded_transport	loss:excluded_transport	client-identity
+t1-extra-axios-config-constant	t1-grammar-extra/sites.ts:18	t1-grammar-extra/prism-boundary.toml	bound	op:POST /copper		rule	method
+t1-extra-bind-preargument-creation	t1-grammar-extra/sites.ts:20	t1-grammar-extra/prism-boundary.toml	none		bind_creation_only	rule	counting
+t1-extra-bound-preargument	t1-grammar-extra/sites.ts:21	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		rule	client-identity
+t1-extra-default-explicit-undefined	t1-grammar-extra/sites.ts:13	t1-grammar-extra/prism-boundary.toml	unbound		dynamic_url	loss:dynamic_url	url-pattern
+t1-extra-fetch-override-spread	t1-grammar-extra/sites.ts:19	t1-grammar-extra/prism-boundary.toml	bound	op:HEAD /copper		rule	method
+t1-extra-frozen-property	t1-grammar-extra/sites.ts:14	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		rule	url-pattern
+t1-extra-helper-finite-table	t1-grammar-extra/sites.ts:15	t1-grammar-extra/prism-boundary.toml	unbound		dynamic_url	loss:dynamic_url	url-pattern
 t1-extra-literal-schema-tie	t1-grammar-extra/sites.ts:23	t1-grammar-extra/prism-boundary.toml	candidate	op:GET /cross/fixed/{};op:GET /cross/{}/leaf	ambiguous_operation	rule	matching
-t1-extra-xhr-open	t1-grammar-extra/sites.ts:24	t1-grammar-extra/prism-boundary.toml	none		request_initialization_only	gap:counting	counting
-t1-extra-xhr-send	t1-grammar-extra/sites.ts:25	t1-grammar-extra/prism-boundary.toml	bound	op:POST /copper		gap:client-identity	client-identity
-t1-extra-bind-preargument-creation	t1-grammar-extra/sites.ts:20	t1-grammar-extra/prism-boundary.toml	none		bind_creation_only	gap:counting	counting
+t1-extra-namespace-barrel	t1-grammar-extra/sites.ts:11	t1-grammar-extra/prism-boundary.toml	bound	op:POST /copper		rule	client-identity
+t1-extra-rebound-alias	t1-grammar-extra/sites.ts:12	t1-grammar-extra/prism-boundary.toml	none		rebound_to_non_client	rule	client-identity
+t1-extra-renamed-barrel	t1-grammar-extra/sites.ts:10	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		rule	client-identity
+t1-extra-repeated-param	t1-grammar-extra/sites.ts:22	t1-grammar-extra/prism-boundary.toml	bound	op:GET /pairs/{}/{}		rule	matching
+t1-extra-url-object	t1-grammar-extra/sites.ts:17	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		rule	url-pattern
+t1-extra-url-searchparams	t1-grammar-extra/sites.ts:16	t1-grammar-extra/prism-boundary.toml	bound	op:GET /copper		rule	url-pattern
+t1-extra-xhr-open	t1-grammar-extra/sites.ts:24	t1-grammar-extra/prism-boundary.toml	none		request_initialization_only	rule	counting
+t1-extra-xhr-send	t1-grammar-extra/sites.ts:25	t1-grammar-extra/prism-boundary.toml	none		excluded_transport	loss:excluded_transport	client-identity
+t1-fetch-lowercase-method	t1-boundaries/sites.ts:23	t1-boundaries/prism-boundary.toml	unbound		no_operation	rule	method
+t1-fetch-undefined-method	t1-boundaries/sites.ts:22	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	method
+t1-finite-computed-key	t1-boundaries/sites.ts:10	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	client-identity
+t1-generated-file	t1-boundaries/generated.generated.ts:2	t1-boundaries/prism-boundary.toml	bound	op:GET /generated		rule	counting
+t1-match-adjacent-literal	t1-boundaries/sites.ts:29	t1-boundaries/prism-boundary.toml	bound	op:GET /pairs/fixed/{}/end		rule	matching
+t1-match-adjacent-parameters	t1-boundaries/sites.ts:28	t1-boundaries/prism-boundary.toml	bound	op:GET /pairs/{}/{}/end		rule	matching
+t1-match-middle-parameters	t1-boundaries/sites.ts:27	t1-boundaries/prism-boundary.toml	bound	op:GET /shelves/{}/items/{}		rule	matching
+t1-method-same-path-get	t1-boundaries/sites.ts:31	t1-boundaries/prism-boundary.toml	bound	op:GET /switch		rule	matching
+t1-method-same-path-post	t1-boundaries/sites.ts:30	t1-boundaries/prism-boundary.toml	bound	op:POST /switch		rule	matching
+t1-nullish-url	t1-semantics/sites.ts:9	t1-semantics/prism-boundary.toml	bound	op:GET /fables		rule	url-pattern
+t1-query-inner	t1-semantics/sites.ts:16	t1-semantics/prism-boundary.toml	bound	op:POST /fables		rule	counting
+t1-request-construction	t1-semantics/sites.ts:22	t1-semantics/prism-boundary.toml	none		request_construction_only	rule	counting
+t1-request-inherits-method	t1-boundaries/sites.ts:20	t1-boundaries/prism-boundary.toml	bound	op:POST /fables		rule	method
+t1-request-options-inherit	t1-boundaries/sites.ts:21	t1-boundaries/prism-boundary.toml	bound	op:POST /fables		rule	method
+t1-request-override	t1-semantics/sites.ts:21	t1-semantics/prism-boundary.toml	bound	op:PUT /fables		rule	method
+t1-spread-last	t1-semantics/sites.ts:13	t1-semantics/prism-boundary.toml	bound	op:DELETE /fables		rule	method
+t1-spread-override	t1-semantics/sites.ts:12	t1-semantics/prism-boundary.toml	bound	op:PUT /fables		rule	method
+t1-test-exact-suffix	t1-boundaries/excluded.test.ts:2	t1-boundaries/prism-boundary.toml	none		test_file	rule	counting
+t1-test-suffix-lookalike	t1-boundaries/included.speculative.ts:2	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	counting
+t1-thunk-inner	t1-semantics/sites.ts:17	t1-semantics/prism-boundary.toml	bound	op:GET /fables		rule	counting
+t1-url-base-file	t1-semantics/sites.ts:7	t1-semantics/prism-boundary.toml	bound	op:GET /archive/fables		rule	url-pattern
+t1-url-document-relative	t1-boundaries/sites.ts:12	t1-boundaries/prism-boundary.toml	bound	op:GET /doc/leaf		rule	url-pattern
+t1-url-dot-segments	t1-boundaries/sites.ts:11	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	url-pattern
+t1-url-double-encoding	t1-boundaries/sites.ts:16	t1-boundaries/prism-boundary.toml	bound	op:GET /book/%252F		rule	url-pattern
+t1-url-encoded-literal	t1-boundaries/sites.ts:15	t1-boundaries/prism-boundary.toml	bound	op:GET /book/a%2Fb		rule	url-pattern
+t1-url-fragment	t1-semantics/sites.ts:8	t1-semantics/prism-boundary.toml	bound	op:GET /fables		rule	url-pattern
+t1-url-hash-before-query	t1-boundaries/sites.ts:17	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	url-pattern
+t1-url-known-table	t1-boundaries/sites.ts:18	t1-boundaries/prism-boundary.toml	bound	op:GET /tablets		rule	url-pattern
+t1-url-or-default	t1-boundaries/sites.ts:19	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	url-pattern
+t1-url-parent	t1-semantics/sites.ts:6	t1-semantics/prism-boundary.toml	bound	op:GET /archive/fables		rule	url-pattern
+t1-url-protocol-relative	t1-boundaries/sites.ts:13	t1-boundaries/prism-boundary.toml	bound	op:GET /fables		rule	url-pattern
+t1-url-searchparams-only	t1-boundaries/sites.ts:33	t1-boundaries/prism-boundary.toml	none		url_construction_only	rule	counting
+t1-url-unicode	t1-boundaries/sites.ts:14	t1-boundaries/prism-boundary.toml	bound	op:GET /book/caf%C3%A9		rule	url-pattern
+trailing-slash	match-trailing-slash/site.ts:2	match-trailing-slash/prism-boundary.toml	unbound		no_operation	loss:strict_slash	matching
+two-url-arms	variants/sites.ts:11	variants/prism-boundary.toml	candidate	op:GET /basalt;op:GET /calcite	ambiguous_operation	rule	conditional URLs with two URL arms
+two-versions	match-two-versions/site.ts:2	match-two-versions/prism-boundary.toml	candidate	op:GET /api/v1/item;op:GET /api/v2/item	ambiguous_operation	rule	matching
+url-closure-const	urls/paths.ts:29	urls/prism-boundary.toml	bound	op:GET /spools/ivory		rule	url-pattern
+url-concat-const	urls/paths.ts:15	urls/prism-boundary.toml	bound	op:GET /spools/reels/{}		rule	url-pattern
+url-concat-in-segment	urls/paths.ts:21	urls/prism-boundary.toml	bound	op:GET /reels/{}		rule	url-pattern
+url-concat-parenthesized	urls/paths.ts:14	urls/prism-boundary.toml	bound	op:GET /reels/{}/ends		rule	url-pattern
+url-concat-segment	urls/paths.ts:13	urls/prism-boundary.toml	bound	op:GET /reels/{}		rule	url-pattern
+url-const-any-position	urls/paths.ts:9	urls/prism-boundary.toml	bound	op:GET /spools/reels		rule	url-pattern
+url-const-argument	urls/paths.ts:8	urls/prism-boundary.toml	bound	op:GET /drums		rule	url-pattern
+url-in-segment	urls/paths.ts:18	urls/prism-boundary.toml	bound	op:GET /reels/{}		rule	url-pattern
+url-later-module-const	urls/paths.ts:31	urls/prism-boundary.toml	bound	op:GET /spools/ivory		rule	url-pattern
+url-leading	urls/paths.ts:19	urls/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
+url-percent-encoded	urls/paths.ts:22	urls/prism-boundary.toml	bound	op:GET /charms/%2F		rule	url-pattern
+url-query-after-segment	urls/paths.ts:16	urls/prism-boundary.toml	bound	op:GET /reels/{}		rule	url-pattern
+url-query-concat	urls/paths.ts:17	urls/prism-boundary.toml	bound	op:GET /reels		rule	url-pattern
+url-query-delimiter-in-const	urls/paths.ts:11	urls/prism-boundary.toml	bound	op:GET /top		rule	url-pattern
+url-shadowed-const	urls/paths.ts:25	urls/prism-boundary.toml	unbound		dynamic_url	rule	url-pattern
+url-two-segments	urls/paths.ts:12	urls/prism-boundary.toml	bound	op:GET /reels/{}/ends/{}		rule	url-pattern
+url-two-values-in-one-segment	urls/paths.ts:20	urls/prism-boundary.toml	bound	op:GET /reels/{}		rule	url-pattern
+variant-fixed-version	variants/sites.ts:6	variants/prism-boundary.toml	bound	op:GET /api/v5/seals		rule	a version or tenant segment interpolated in the client
+variant-tenant	variants/sites.ts:9	variants/prism-boundary.toml	candidate	op:GET /tenants/cobalt/seals;op:GET /tenants/ochre/seals	ambiguous_operation	rule	a version or tenant segment interpolated in the client
+variant-version	variants/sites.ts:5	variants/prism-boundary.toml	candidate	op:GET /api/v4/seals;op:GET /api/v5/seals	ambiguous_operation	rule	a version or tenant segment interpolated in the client
+wrapper-const-method	methods/wrappers.ts:13	methods/prism-boundary.toml	bound	op:PATCH /wicks		rule	function wrappers with fixed or argument-supplied method
+wrapper-dynamic-option	methods/wrappers.ts:11	methods/prism-boundary.toml	unbound		dynamic_method	rule	function wrappers with fixed or argument-supplied method
+wrapper-dynamic-positional	methods/wrappers.ts:10	methods/prism-boundary.toml	unbound		dynamic_method	rule	function wrappers with fixed or argument-supplied method
+wrapper-fixed	methods/wrappers.ts:5	methods/prism-boundary.toml	bound	op:POST /wicks		rule	function wrappers with fixed or argument-supplied method
+wrapper-option-key	methods/wrappers.ts:7	methods/prism-boundary.toml	bound	op:DELETE /wicks		rule	function wrappers with fixed or argument-supplied method
+wrapper-positional	methods/wrappers.ts:6	methods/prism-boundary.toml	bound	op:PATCH /wicks		rule	function wrappers with fixed or argument-supplied method

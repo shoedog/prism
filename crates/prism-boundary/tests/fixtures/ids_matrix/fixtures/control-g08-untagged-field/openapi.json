@@ -1,0 +1,37 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Loom Workshop",
+    "version": "1"
+  },
+  "paths": {
+    "/mugs": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Sample",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/lantern.Tile"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "lantern.Tile": {
+        "type": "object",
+        "properties": {
+          "Shade": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

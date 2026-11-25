@@ -3,3 +3,8 @@ method_key = "method"
 path_key = "path"
 handler_key = "handler"
 validation_key = "validate"
+
+framework = "@hapi/hapi"
+version = "21.3.12"
+path_dialect = "hapi"
+star = "all"

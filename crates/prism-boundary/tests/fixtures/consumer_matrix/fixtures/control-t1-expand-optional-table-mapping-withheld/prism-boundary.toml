@@ -1,0 +1,12 @@
+schema_api = "t1-expansions"
+schema_path = "schema.json"
+
+document_url = "https://opal.invalid/"
+schema_retrieval_url = "https://opal.invalid/schema.json"
+
+[[client]]
+file = "wire.ts"
+export = "default"
+methods = { get = "GET", post = "POST" }
+url_arg = 0
+response_root = ""
