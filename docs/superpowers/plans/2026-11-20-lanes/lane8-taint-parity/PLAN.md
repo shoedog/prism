@@ -10,7 +10,8 @@ the same crossing knobs; `taint_reaches` gains a sink catalog mode, first in the
 
 **Architecture:** the descent gate moves from `src/cpg/trace.rs` to `src/cpg/trace_descent.rs`, proves the
 emitting site of each hop from a syntax view passed through the walk (DESIGN 5.2) and returns a reason instead
-of a boolean; the reason rides on `BoundaryEdge` into the reasoning warnings. The walk state (entered sites,
+of a boolean. The reason rides on `BoundaryEdge` into the reasoning warnings and the matching
+`per_sink[].sources[]` result. The walk state (entered sites,
 remaining budget) lives in `src/cpg/trace_frames.rs`. A descent policy (ceiling, depth) is threaded beside PR
 #841's crossing policy. A `SinkCatalog` trait in core is implemented in the review crate by review's own sink
 loop over each root's fan, and passed in. For the MCP server (DESIGN decision 2, branch A2, owner
@@ -44,7 +45,7 @@ in `~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane8/probes/`.
 - **MCP goldens** (`tests/fixtures/mcp/golden/*.jsonl`) hold `taint_reaches`'s schema and description. Only
   I-5 and I-9.4 re-record them: `PRISM_MCP_BLESS_GOLDEN=1 cargo test -p prism-mcp --test mcp
   golden_transcript_test`, with the reason in the commit message.
-- **Tier-A** (ORCHESTRATION 5 item 5) for every slice touching `src/cpg/` (I-1 to I-5). Its two taint cases
+- **Tier-A** (ORCHESTRATION 5 item 5) for every slice touching `src/cpg/`, including option B. Its two taint cases
   that expect `BoundaryExited` (`eval/fixtures/python/taint_boundary_negative`, `taint_descent_depth_bound`)
   keep their answer under the defaults, and the additive `reason` field does not break their kind check. No
   slice changes stored CPG or navigation data. Stage D chose the syntax view; graph-only consumers refuse crossings without it. Core never names `prism_review`. Engine-parity assertions live in `tests/algo/taxonomy/`.
@@ -69,8 +70,9 @@ in `~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane8/probes/`.
 6. Catalog Sanitized only for a sanitizer of the sink's category (`c07`); the Python template keyword, the
    Def-only flat line and the multi-line call are reported as review reports them (`c08`, `c09`, `c12`);
    catalog lines equal trace-mode review's on real code. I-7, I-8, `parity_catalog`.
-7. A sink one or more functions past a refused hop is BoundaryExited with that hop's reason (`f01` to `f03`);
-   a walk cell aggregates every node that intersects the operand (`m01`). I-1, T-1.
+7. A sink one or more functions past a refused hop keeps the parent verdict in I-1. The ledger records the
+   refused hop and reason (`f01` to `f03`). Option B owns the distal BoundaryExited targets and their attribution.
+   A walk cell aggregates every node that intersects the operand (`m01`). T-1.
 
 ## Stage M: issue and parity census (4 days)
 
@@ -157,7 +159,8 @@ line, rule, operand, verdict}`, possibly empty); `reasons` (per level, DESIGN 5.
 it); `pending` (null, or the issue whose producer the row needs; the group test skips the row and prints the
 issue, so no row is `#[ignore]`d); `class`; `note` (free text; it never waives a check). `expect` is the
 target behaviour after all named admissions ship. For staged or deferred answers, assert the build's `current` cell as specified in STAGE_D_ROWS.md, including rows outside the enabled target group. Rows true on main are `control`; a slice that moves a control cell
-edits the row in its PR and names it.
+   edits the row in its PR and names it. For the ten DEFERRED option B rows below, use this plan's CURRENT
+   overlay and assert the refused-hop reason at the hop.
 
 Harness: copy the fixture to a temp directory; `prism::repo_loader::load_repo`. **review** / **trace_review**:
 `CpgContext::build_with_scope_graph_inputs(&repo.files, repo.type_db.as_ref(), repo.scope_graph_inputs.as_ref())`
@@ -181,7 +184,7 @@ const ENABLED: &[&str] = &["control"];   // "reasons": also check the reasons of
                                          // from expect without known_wrong; closed vocabularies; catalog present
 #[test] fn parity_default_review()
 #[test] fn parity_trace_review()
-#[test] fn parity_taint_reaches()        // walk level; `reasons`, `knobs`, `catalog` are data until I-1, I-5, I-8
+#[test] fn parity_taint_reaches()        // walk level; hop reasons in I-1, distal targets in option B, knobs in I-5, catalog in I-8
 ```
 
 **Seed rows, research probes** (today's values observed on a0f2c427):
@@ -259,9 +262,9 @@ today's values on a0f2c427):
 
 | Row | Shape (probe) | Today | Group: required |
 |---|---|---|---|
-| f01 | `main -> a -> b -> c -> d`, sink in `d` (`b5`) | review exact; NotReached, warning in `c` | reasons: BoundaryExited, `depth_cap` |
-| f02 | `handler.run(t)` name-only, `run` calls `inner(x)`, sink in `inner` (`b4`) | review nameonly; NotReached | reasons: BoundaryExited, `not_exact` |
-| f03 | f02 with an object-literal hop first | — | reasons: BoundaryExited, `target_not_binding` until binding, then `not_exact` |
+| f01 | `main -> a -> b -> c -> d`, sink in `d` (`b5`) | review exact; NotReached, warning in `c` | DEFERRED to option B; I-1 NotReached, `depth_cap` on the refused hop |
+| f02 | `handler.run(t)` name-only, `run` calls `inner(x)`, sink in `inner` (`b4`) | review nameonly; NotReached | DEFERRED to option B; I-1 NotReached, `not_exact` on the refused hop |
+| f03 | f02 with an object-literal hop first | — | DEFERRED to option B; I-1 NotReached, `target_not_binding` on the refused hop. After I-binding the live refusal is `not_exact`. |
 | m01 | `pick({a: t, b: 'fixed'})` into `observe(p.a); exec(p.b)` on one line, mixed formal (`a1`) | review exact at `exec(p.b)` (known wrong; filed); operand `p.a` has two disagreeing nodes | binding: `p.a` Reached d1, `p.b` NotReached |
 | m02 | m01 with the reads swapped (`a3`) | no binding edge; both miss | control; truth flows; reason `no_graph_edge` (filed) |
 | x02 | `const y = id(\n t\n); exec(y)` (`b3`) | review none; trace review unlabeled; Reached d1 | control; reason `review_no_return_flow` |
@@ -308,6 +311,8 @@ E is closed. Its historical assignments follow. The remaining classes and the en
 
 **Design delivered.** DESIGN §§5.1–5.7, 6–9 and [STAGE_D_ROWS.md](../../../../../tests/taint_parity/STAGE_D_ROWS.md) are the implementation brief. The ledger resolves every `tbd` row and records the other changed contracts. Apply the row edits in the owning product slices, including the affected shards, witness assertions, `walk_comparable` flags for genuinely identical single roots, and documented level-specific dependencies. Designate the slice that first changes each control or intermediate reason in its receipt. E closed with open JSX ownership/formal reads and route-handler classes; the generators and exclusions in DESIGN §9 apply to future members. The review cap is two rounds. Design delivery does not attest those reviews or owner decision 6.
 
+The 2026-11-25 option B table below supersedes the earlier distal verdict and attribution expectations in STAGE_D_ROWS.
+
 - [x] Brief the design seat with DESIGN 5.2, 5.3, 5.5, 5.6, the rows, `CENSUS.md`, `catalog-inventory.md`,
       the accepted-loss candidates (js06, js07, go04, census `other`/`unknown`), the known wrong rows, and these facts:
       `descend_target` requires a `Def` target and counts sites by the callee's spelling before resolving;
@@ -331,22 +336,30 @@ E is closed. Its historical assignments follow. The remaining classes and the en
 
 ## Stage I: slices
 
-Order: I-1 first (every later row asserts a reason; gate Explained reads them); I-guard (lane 9 waits for
-it); I-walk (repairs the engine's own wrong answers before any slice widens what it crosses); the owner-retained descent
-slices by the ordering rule; I-5 after the retained set, so `parity_knobs_agree` runs on the final rules; I-7 after I-5
-(it takes `TaintReachesOptions`); I-8; then I-9.0 to I-9.4 in that order (branch A2, DESIGN decision 2). A slice starts only
-when the DESIGN sections it cites are approved and the types it names have merged.
+Start with I-1 (option A, live-hop ledger), then I-guard (lane 9 waits for it) and I-walk (repairs the
+engine's own wrong answers). Option B follows I-walk and uses its evidence and state for distal verdicts
+and attribution. Next come the owner-retained descent slices by the ordering rule, then I-5 so
+`parity_knobs_agree` runs on the final rules. Follow with I-7 (it takes `TaintReachesOptions`), I-8 and
+I-9.0 to I-9.4 in that order (branch A2, DESIGN decision 2). A slice starts only when the DESIGN sections
+it cites are approved and the types it names have merged.
 
-**Gates per slice** (DESIGN 7): Matrix and Defaults (all); Benchmark (I-guard); Sound and Benchmark (I-walk
-and the descent slices); Catalog (I-8, I-9.4); Recovered (I-walk baseline, each retained slice versus its actual parent, and close-out); Explained (close-out). ORCHESTRATION 5 items 1 to 4, 8 to 10; two
+**Gates per slice** (DESIGN 7): Matrix and Defaults (all); Benchmark (I-guard); Sound and Benchmark (I-walk,
+option B and the descent slices); Catalog (I-8, I-9.4); Recovered (I-walk baseline, each retained slice versus its actual parent, and close-out); Explained (close-out, with distal sink attribution from option B). ORCHESTRATION 5 items 1 to 4, 8 to 10; two
 reviewers. No slice adds or relabels graph edges, so item 6 does not apply; the census rerun replaces it.
 
-### Slice I-1: reasons and the crossing trace (3.5 days)
+### Slice I-1: refused-hop reasons and the crossing trace (option A, 3.5 days)
+
+The owner chose option A on 2026-11-25. Ship the accepted-crossing and refusal ledger and record `LossReason` where the
+live gate refuses. Preserve every parent verdict using the pre-I-1 per-root predicate (reached frontier,
+exact boundary target, legacy same-function closure), and keep legacy warning locations at the boundary.
+For an existing BoundaryExited result, carry the matched hop's optional `reason` on its own
+`per_sink[].sources[]` entry (`SinkSourceResult`). Warnings may still deduplicate for display. Distal
+verdicts and sink-cause credit depend on option B.
 
 **Files:** Create `src/cpg/trace_descent.rs`, `src/cpg/trace_descent_tests.rs` (`mod trace_descent;` and
 `#[cfg(test)] mod trace_descent_tests;` in `src/cpg.rs`, which also re-exports `LossReason`); Modify
-`src/cpg/trace.rs`, `src/reasoning/types.rs`, `src/reasoning/taint_reaches.rs` (`boundary_warnings`),
-`src/reasoning/shape.rs` (`reachability_for_node_from_ordered`: the boundary-target test of DESIGN 5.3),
+`src/cpg/trace.rs`, `src/reasoning/types.rs`, `src/reasoning/taint_reaches.rs` (`witness_mode` and `boundary_warnings`),
+`src/reasoning/shape.rs` (retain the matched hop from `reachability_for_node_from_ordered`'s existing predicate),
 `src/navigation/render.rs`, `tests/algo/taxonomy/taint_parity_test.rs` (`ENABLED` gains `"reasons"`),
 the affected `tests/taint_parity/rows*.jsonl` shards (including f01–f03), `CLAUDE.md`. Rule: DESIGN 5.3; the crossing trace of
 DESIGN 6.
@@ -367,6 +380,7 @@ impl CodePropertyGraph {
 //   Per-root boundaries/cuts retain from, to, relation, certified site/slot and primary reason.
 //   I-walk qualifies them by expansion version before projection.
 // src/reasoning/types.rs: InterproceduralBoundary { sink: String, reason: LossReason }   (additive)
+//   SinkSourceResult gains reason: Option<LossReason> for this root's matched hop.
 // src/cpg/trace.rs: under PRISM_TAINT_CROSSING_TRACE=1 the walk prints to stderr one `taint-crossing` line per
 //   accepted CallDescent or ReturnFlow (root, from, to, relation, site span where known, grades), a separate
 //   value-input record for a traversed ReturnInput (Use, component, owner and state; excluded from crossing counts), and one
@@ -381,15 +395,26 @@ impl CodePropertyGraph {
       `context_policy_refusal_reports_policy_ceiling`, `self_call_reports_self_param`,
       `self_return_reports_self_return`, `depth_zero_cfg_cut_is_recorded` (row w05's node is recorded with
       `CfgPruned`, verdict unchanged), `suppressed_shortcut_is_recorded` (x01),
-      `return_not_entered_site_is_a_cut_not_a_boundary`, `sink_past_refused_hop_is_boundary_exited_with_its_reason`
-      (f01, f02: verdict BoundaryExited, reason `depth_cap` / `not_exact`), `boundary_target_test_cap_warns`,
+      `return_not_entered_site_is_a_cut_not_a_boundary`, `sink_past_refused_hop_keeps_parent_verdict`
+      (f01 and f02 stay NotReached, with `depth_cap` and `not_exact` on the respective refused hops),
       `crossing_trace_lists_accepted_and_refused_hops` (one line each, fields asserted; nothing printed with the
       switch off); the enum and fields land with a placeholder in the same commit so they compile and fail.
-      Apply the four-shard reason audit in STAGE_D_ROWS before choosing primaries. Add the three wire names to the fixture validator, README and serialization tests. Pin x01’s false default assignment, the self-return boundary and default review’s missing ReturnFlow in separate assertions. On the long continuation compare the CFG-filtered default fan with trace’s reached argument and the AST child selected by the matcher. Assert the equal-width whitespace control. Also exercise uncertain dispatch, genuine operand projection, configuration admission, source-row masks and rejected return inputs. Implement DESIGN 5.3's ordered checks and sink tie-break. Test the 128th distinct continuation pair and a required 129th for one root/operand, with cold and warm caches. The latter yields `incomplete` and counts as `unexplained`. Trace conditional candidates and joints separately. A same-function warning, exhausted attribution cap or unbound relaxation cannot explain a sink. Exercise twin roots/sites, unrelated/distant sinks and reverse traversal; one primary per direction and sink, unresolved identities fail Explained. Until I-walk lands, exercise wrong-return cuts with constructed inputs. With live paths, a reason is attached to the requested sink through the hop's
-      identity; message `taint reached a {kind} boundary at {path} ({reason})`.
+      Apply the four-shard reason audit in STAGE_D_ROWS with the DEFERRED overlay below. Add the three
+      wire names to the fixture validator, README and serialization tests. Pin x01’s false default assignment,
+      the self-return boundary and default review’s missing ReturnFlow in separate assertions. On the long
+      continuation compare the CFG-filtered default fan with trace’s reached argument and the AST child
+      selected by the matcher. Assert the equal-width whitespace control. Also exercise uncertain dispatch,
+      genuine operand projection, configuration admission, source-row masks and rejected return inputs.
+      Use DESIGN 5.3's ordered checks at the live gate. Until I-walk lands, exercise wrong-return cuts with
+      constructed inputs.
+- [ ] In one witness response, exercise two roots refused at the same formal with different reasons
+      (`depth_cap` and `ambiguous_site`, round-3 finding 4). Both source results retain their own hop reason
+      with root order reversed and warning deduplication unchanged. Exercise twin sites and an unrelated
+      operand. Keep the legacy warning location. Render `taint reached a {kind} boundary at {path} ({reason})`.
 - [ ] Enable `"reasons"`: RED, GREEN. `test_self_call_param_stays_boundary` and
       `test_two_same_line_same_name_calls_do_not_descend` pass unchanged. Run `ledger.py` on the apparatus
-      fixtures. PR body: reasons, move commit, Tier-A, the rows whose verdict moved to BoundaryExited.
+      fixtures. Compare all 416 line and operand verdicts with the immediate parent. PR body: hop reasons,
+      move commit, Tier-A, parent verdict parity and the deferred rows.
 
 ### Slice I-guard: name-only binding edges (1 day)
 
@@ -406,14 +431,14 @@ the guard and alias rows in `tests/taint_parity/{rows,rows-t2b,rows-t2c}.jsonl`,
       (l01, source bytes asserted); the same test for `builtin_callback` lands with lane 9's kind (n02).
       Include a cache warmed by an Exact sibling. Enable `"guard"` and assert the listed alias CURRENT cells even though spelling is disabled: RED, implement, GREEN.
 - [ ] I-guard cannot merge before the comparable population-B base exists, unless the owner explicitly accepts Benchmark as unmeasured for the named slices. The orchestrator’s 2026-11-25 census receipt records the base. Compare the head per class and read newly traced cases for the gate.
-- [ ] Census (default byte-identical, trace losses listed and explained), Benchmark, Tier-A, cloud tests as in
+- [ ] Census (default byte-identical, trace losses listed with hop evidence; option B supplies distal attribution), Benchmark, Tier-A, cloud tests as in
       the descent slices; two reviewers. PR body: moved rows, census, the note on lane 9's issue.
 
 ### Slice I-walk: hop evidence and walk state (4.5 days)
 
 **Pre-dispatch gate.** Use I-1’s accepted-crossing ledger with base crossing behaviour on the census’s frozen frontier sources in all six repositories (same revisions, roots, graph inputs and Exact/2). Reconcile against the pinned base’s frontier results. Compare every base-accepted crossing with rule (iv)’s refusal list, retaining caller/site/actual, target/formal, receiver, default and expansion evidence. Retrieve missing facts at the recorded bytes. Also classify rule (iii)’s non-dispatch pools. For every base-accepted synthetic ReturnInput at local and entered depths, bind root, Use/version, return bytes/component, owner and frame to §5.2’s propagate/exclude/undecided decision. Enumerate by repository, family and depth, including zero counts and missing evidence. For each refusal, replay with just that proof disabled/enabled under the same base crossing policy. Separate rejected edges from lost true operand witnesses and distinct trace-review sink lines after alternate paths, joint cuts and deduplication. Also measure the combined policy. Record false witnesses removed and unresolved truth separately. Send the measured costs and affected rows (including `tr2-js-wrapper`) to the owner before dispatching I-walk. An undecided role stays refused with its missing proof and a fixture. A new or unbound member requires a decision and row before dispatch. I-1 supplies the acceptance ledger. The fixture comparison in STAGE_D_ROWS does not measure the frozen population. A first-failure census or a post-implementation diff cannot substitute for it.
 
-Rules: DESIGN 5.2 (i)–(v), Returns and Depth. Bind the shared syntax view to the graph's parsed files. Implement proof/refusal and frame repairs first; leave optional Use-target, colliding-site and renamed-site admissions gated until the owning slice is dispatched. For each seam test positive and refused proofs directly even when public admission is still gated. The full matrix ledger specifies the affected rows. No edge/schema change.
+Rules: DESIGN 5.2 (i)–(v), Returns and Depth. Bind the shared syntax view to the graph's parsed files. Implement proof/refusal and frame repairs first; leave optional Use-target, colliding-site and renamed-site admissions gated until the owning slice is dispatched. For each seam test positive and refused proofs directly even when public admission is still gated. The full matrix ledger specifies the affected rows. I-walk supplies the state and transfer evidence for option B. The distal BoundaryExited targets stay deferred until option B. No edge/schema change.
 
 **Files:** Create `src/cpg/trace_frames.rs`, `src/cpg/trace_frames_tests.rs` (`mod` lines in `src/cpg.rs`);
 Modify `src/cpg/trace_descent.rs`, `src/cpg/trace_descent_tests.rs`, `src/cpg/trace.rs` (the walk keys its
@@ -459,9 +484,47 @@ pub(super) struct State { node: NodeIndex, entered: Vec<Frame>, initial_cfg: boo
 - [ ] Implement `prove_site` for `descend_target` and ascent. Assert l07’s version-refuted CURRENT reason at I-walk even if I-same-line is deferred. Run all enabled groups and `test_self_call_param_stays_boundary`.
 - [ ] Census, Benchmark, Sound, wall time, Tier-A, cloud tests and PR body as in the descent slices below.
 
+### Slice option B: certified reachability and bounded attribution
+
+After I-walk, use its transfer proofs and walk state to compute complete reachability for each root and
+operand over certified transfers, including a refused crossing under an admissible relaxation. Supply
+proofs for any additional transfer the solver admits, in the prefix as well as between the refusal and sink.
+Use matched call/return summaries and preserve semantically distinct prefix states. Rank sufficient
+explanations in a second, bounded pass (DESIGN 5.3). **Disabling attribution leaves every verdict identical.**
+
+**DEFERRED to option B.** These are the ten old I-1 NotReached → BoundaryExited rows in
+`target/i1-fold2/default-delta.tsv`, excluding the eight I-guard differences. Keep `truth: flows` and retain
+the prior BoundaryExited targets as data. Assert the I-1 CURRENT cell at both line and operand level
+and log the reason where the live gate refused. Enable the distal targets only when option B proves them
+under the row's active prerequisites.
+
+| Row | Truth | I-1 CURRENT (parent verdict) | Reason on live refused hop |
+|---|---|---|---|
+| `tr4-js-nameonly-far3` | flows | NotReached | `not_exact` |
+| `s2-py-bound-boundary-far` | flows | NotReached | `not_exact` |
+| `s2-ts-literal-refusal-far` | flows | NotReached | `target_not_binding` |
+| `s3-js-refused-ascent-one-more` | flows | NotReached | `depth_cap` |
+| `s3-js-root-ascent-refusal-two-more` | flows | NotReached | `depth_cap` |
+| `s3-go-named-explicit-ascent-far` | flows | NotReached | `depth_cap` |
+| `s3-js-recursive-return-distal` | flows | NotReached | `depth_cap`; keep `self_param` on the separate recursive refusal |
+| `f01` | flows | NotReached | `depth_cap` |
+| `f02` | flows | NotReached | `not_exact` |
+| `f03` | flows | NotReached | `target_not_binding` before I-binding; `not_exact` afterward |
+
+**Review obligations** (`i1-s8-astra.md`, 2026-11-25). Carry the four off-matrix value-transfer probes
+as regressions: same-line assignment, discarded `ReturnInput`, literal-member pairing and dispatch.
+The fixed-value variants must return NotReached for the same root and operand.
+
+1. **Proof of transfer.** Enumerate every relation and producer admitted by the new solver. Require evidence at the exact occurrence, including assignment RHS, return component, member pairing and dispatch/slot. Run all four reported counterexamples with paired positive and severed-transfer controls. Missing proof ends that candidate.
+2. **State and termination.** Show that merged states have the same legal successors and matched returns. Exercise unknown entry, root-in-callee ascent, wrong receiver, recursive CFG cut, equal-budget distinct callers, cheaper revisit and both diamond shapes. Count summary facts on growing receiver diamonds to verify work is shared.
+3. **Verdict independence.** Compare attribution off, minimal budgets and normal budgets. Put the sole local and distal matches first and last among 130 callees and beyond 1,024 suffix states. Reverse definition and worklist order and warm the cache. Compare the exact same root/operand verdicts, including the sanitizer-exclusion rewalk.
+4. **Uniform scoring.** Move the identical guarded crossing between first and suffix positions. Assert the same primary and complete barrier set under the same state and policy. Pit the short `CallNameOnly → Use` route against the longer proved-Def route. Apply §5.3 ranking only after sufficiency is established.
+5. **Pair ownership on the wire.** In one real multi-root response, assert both roots’ distinct reasons at the shared formal and queried operand, then reverse root order. Check an unrelated operand, aggregate verdict, warning location and incomplete attribution. Each retained source result must stand on its own.
+6. **Compatibility and recall accounting.** Replay all 416 IDs at marked-operand and line level against the immediate parent and measurement base. List every lost or gained verdict by truth label, keep the eight I-guard differences separate, and check review output and MCP goldens. Carry the four off-matrix repros as regressions.
+
 ### Slices I-binding, I-same-line, I-spelling (3 days each)
 
-Dispatch only on owner decision 6. For each deferred group retain the target expectations and reasons as data. Materialise and assert CURRENT on the chosen build, for the group and every dependent cell, under the STAGE_D_ROWS rule. A group owns the work; enable each level's target only once its `prerequisites` all hold (including the particular #596 edge). Reassert the intermediate cells for every subset, in either slice order, as tabulated in STAGE_D_ROWS. This includes f03’s `target_not_binding` until I-binding (then `not_exact`) and the alias rows’ `no_matching_site` until I-spelling. If retained, one slice per change of DESIGN 5.2: they edit one function, but each has its own group, census class and
+Dispatch only on owner decision 6. For each deferred group retain the target expectations and reasons as data. Materialise and assert CURRENT on the chosen build, for the group and every dependent cell, under the STAGE_D_ROWS rule and the option B overlay. A group owns the work; enable each level's target only once its `prerequisites` all hold (including the particular #596 edge). Reassert the intermediate cells for every subset, in either slice order, as tabulated in STAGE_D_ROWS. This includes f03’s live refused-hop reason `target_not_binding` until I-binding (then `not_exact`), its distal target subject to option B, and the alias rows’ `no_matching_site` until I-spelling. If retained, one slice per change of DESIGN 5.2: they edit one function, but each has its own group, census class and
 sample, and merging them would make the Sound sample unattributable. Each needs I-walk's `prove_site`.
 
 **Files:** Modify `src/cpg/trace_descent.rs`, `src/cpg/trace_descent_tests.rs`,
@@ -477,7 +540,7 @@ I-binding covers computed/written/nested reads and unique versus ambiguous line-
 | I-same-line | `same_line` | DESIGN 5.2 "Two call sites" | Run the literal `const a = id(t); const b = id(\n t\n);` from DESIGN §5.2. Query both results and assert the separate actual, site, return and destination bytes. `two_sites_one_line_choose_containing_site`, `second_occurrence_inside_g_descends` (l01), `python_first_repeated_argument_has_its_own_site` (l05), `nested_same_callee_refuses_ambiguous`, `nameonly_edge_not_crossed_through_other_exact_site` (l06), `same_line_rebinding_refuses` (l07), `entered_site_return_discarded` (w02) |
 | I-spelling | `spelling` | DESIGN 5.2 "Spelling" | `aliased_import_site_descends`, `const_alias_site_descends`, `aliased_site_descends_only_into_resolved_target`, `aliased_spread_before_slot_refuses` (w07) |
 
-- [ ] RED on this slice's parent. Enable only newly satisfied cell prerequisites, implement, then assert all applicable targets and CURRENT cells, including f03’s post-binding reason and the alias rows’ post-spelling witnesses. Run every enabled group.
+- [ ] RED on this slice's parent. Enable only newly satisfied cell prerequisites, implement, then assert all applicable targets and CURRENT cells, including f03’s post-binding refused-hop reason and the alias rows’ post-spelling witnesses. Run every enabled group.
 - [ ] Write the prediction. Pair this retained slice's head with its actual post-I-walk parent on the frozen A inputs at Exact/2. Apply the 53/56 floor and publish identified before/after differences and certified paths for any claimed recovery (DESIGN §7). Rerun `run_census.py` on A with the head build: default byte-identical; trace
       gains listed by class; any trace loss is a WRONG to explain or fix; `ledger.py` against the parent build,
       whole-repository frontier runs and review runs.
@@ -754,7 +817,7 @@ mode stays CLI-only and the MCP description says so (0.5 day).
 ## Close-out (2 days)
 
 - [ ] Census rerun on A with the census apparatus (same frozen roots, manifests and options), final head:
-      Explained (every lost default sink and every gained trace-mode finding has a reason from DESIGN 5.3;
+      Explained (with option B for distal attribution, every lost default sink and every gained trace-mode finding has a reason from DESIGN 5.3;
       `unexplained` zero); Recovered (share by class). Benchmark on B.
 - [ ] Docs: `CLAUDE.md` (one paragraph on crossings, reasons, knobs, catalog mode, beside the reasoning-layer
       line); `docs/MCP.md` (`taint_reaches` row); `skills/prism-code-navigation/SKILL.md` (catalog mode,
@@ -780,13 +843,14 @@ every shipped product slice; census and matrix are on the tracking issue. Matrix
 | Stage or slice | Days |
 |---|---|
 | M, T and E, D | 4, 4, 2 |
-| I-1 reasons and crossing trace; I-guard; I-walk | 3.5; 1; 4.5 |
+| I-1 refused-hop reasons and crossing trace (option A); I-guard; I-walk | 3.5; 1; 4.5 |
+| Option B: certified reachability and bounded attribution | to be sized when I-walk lands |
 | I-binding, I-same-line, I-spelling | 3 each (9) |
 | I-5 knobs | 1.5 |
 | I-7 catalog core; I-8 review catalog and CLI | 3.5; 5 |
 | I-9.0 closure; I-9.1 untangle; I-9.2 crate and layering; I-9.3 move; I-9.4 MCP (branch A2) | 0.5; 1.5; 0.5; 3; 2 (7.5) |
 | Close-out | 2 |
-| **Total** | **47.5** (40 before the MCP slices, plus 7.5) |
+| **Total sized work** | **47.5** (40 before the MCP slices, plus 7.5), plus option B |
 
 The alternatives not run would have cost 9 days (A), 2.5 (B) or 0.5 (C) for the MCP slices, totals 49, 42.5
-and 40.5.
+and 40.5 before sizing the distal option B slice.
