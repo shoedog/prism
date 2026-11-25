@@ -2,7 +2,7 @@
 
 > **For agentic workers:** run by an orchestrator under `../ORCHESTRATION.md`. Each task goes to an implementer
 > (Sonnet-5.5, high) with its section and `FORMATS.md` as the brief for S1–S5 and S6a–S6b.
-> Use the slice reading map in FORMATS. Section 8 is in [FORMATS-DECISIONS.md](FORMATS-DECISIONS.md) and section 9 in [FORMATS-LEDGER.md](FORMATS-LEDGER.md). Read DESIGN section 5 with its section 8 amendments. In test listings, a `def` line ending in a comment is a test to write; the comment
+> Use the slice reading map in FORMATS. Section 8 is in [FORMATS-DECISIONS.md](FORMATS-DECISIONS.md) and section 9 in [FORMATS-LEDGER.md](FORMATS-LEDGER.md). Read DESIGN §§5–6 with the [replacement gate and architecture text](FORMATS.md#changes-to-design-sections-5-and-6). In test listings, a `def` line ending in a comment is a test to write; the comment
 > is its assertion.
 
 **Goal:** one tested measurement kit in the repository, so a lane writes only a classifier file (and, when
@@ -41,7 +41,7 @@ section 5 supplies the architecture. `FORMATS.md` supplies the commands, files, 
 - Every PR body: what changed, formats as built, test totals (local and CI), the matrix groups enabled, the
   slice gate's prediction and result, what was not verified, the review record. Branches
   `feat/measure-kit-<slice>`.
-- Review seats (caps: design 2 rounds, slice 3 rounds):
+- Review seats (ordinary design cap 2 rounds, spent; §8 escalation cap one fresh paired decision on one revision; slice cap 3 rounds):
 
 | Work | Reviewers | Why |
 |---|---|---|
@@ -101,7 +101,7 @@ the evidence root, else its versioned evidence checkout; restore nothing from re
 |---|---|
 | Base / head | `4f9e3a3e` (main at merge; the PR states it is byte-identical to `ead6edf0` and the 4a tip) / `1f2ad1cc` (PR head, fold 3b; binary `prism-4b-fold3b`, SHA-256 `c52604ea…` in the evidence repository's `manifests/provenance-survey-slices.md`) |
 | Recorded numbers | evidence repository `provenance-survey/slice4ab/results/gate-4b-compare-{X,EX,T}.txt`, `gate-4b-f-identity.txt`; PR #786 body, "Gates" |
-| Expected | edges 80,033 / 7,445 / 388,055 (excalidraw / express / TypeScript `src`); 0 added, removed and label-moved; `dfg-stats` and `call-stats` identical; per-mechanism trace counts as in each compare file |
+| Expected | edges 80,033 / 7,445 / 388,055 (excalidraw / express / TypeScript `src`); primary pair has 0 added, removed and label-moved, with identical DFG and call counters. Measure the per-mechanism trace line for each corpus under the ordered protocol below |
 
 - [ ] Build both commits (`cargo build --release`, guarded) in detached scratch worktrees under the evidence
       directory; keep `repro/bin/prism-{base,head}`; delete the scratch `target/`s. Check that
@@ -134,7 +134,7 @@ pair cannot serve: its serializers emit no bytes (DESIGN section 2).
 
 ### Task M-4: the consuming lane (G-adopt)
 
-- [x] The owner named lane 10 for S2 and lane 9 for S3. Lane 10 compares S0 against baseline, then S1 and S2 against their respective predecessors on the seven git-clean pins in FORMATS section 2. Its classifier implements cross-key, spelling-leak and orphan-anchor checks over edges and traced nodes. Lane 9 grades argument additions and spread removals on X, T and benchmark package runs, with gin as the base control (lane 9's G, registry key `GIN`), using its checked multi-relation module. The lane 11 orchestrator hands each interface to its consuming orchestrator at the slice merge. Baseline parity and the actual adopter decision remain G-adopt requirements.
+- [x] The owner named lane 10 for S2 and lane 9 for S3. Lane 10 compares S0 against baseline, then S1 and S2 against their respective predecessors on the seven git-clean pins in FORMATS section 2. Its classifier implements cross-key, spelling-leak and orphan-anchor checks over edges and traced nodes. At handoff supply the [paste-ready S0 and rollout amendment](FORMATS.md#amendment-text-for-lane-10s-plan). Lane 9 grades argument additions and spread removals on X, T and benchmark package runs, with gin as the base control (lane 9's G, registry key `GIN`), using its checked multi-relation module. The lane 11 orchestrator hands each interface to its consuming orchestrator at the slice merge. Baseline parity and the actual adopter decision remain G-adopt requirements.
 
 **Exit gate:** INVENTORY.md covers every file listed; TARGET.md names commits, binaries, numbers and the
 labelled pair's rows; PREDICTION.md exists; M-4's outcome is in LEDGER.md.
@@ -159,20 +159,26 @@ The kit matrix lives in `scripts/measure/matrix/rows.jsonl` and `cases/<id>/`. T
       `synthetic` (expected result settled by the author and checked by a second reader).
 - [ ] Each slice's first commit adds `scripts/measure/tests/test_matrix.py` (S1 creates it) or
       `eval/secbench/test_matrix_bench.py` (S6a creates it) with `ENABLED_GROUPS` naming its groups; the test
-      runs every enabled row against its slice and checks the fields of `truth` with the section 8 decisions. Add each of the 107 selected enumeration IDs and 43 round-one fixture IDs in section 9 to its corresponding matrix before closing that slice.
+      runs every enabled row against its slice and checks the fields of `truth` with the section 8 decisions. Add each of the 108 selected enumeration IDs, 43 round-one fixture IDs and 20 round-two fixture IDs in section 9 to its corresponding matrix before closing that slice.
 
 **Exit gate:** every row has a truth; the M-2 disagreements each have a row; CI green.
 
 ## Stage E: enumeration (1.5 days)
 
-- [x] Enumeration stopped as an open class after five terra rounds, two sol rounds and one astra round. A dry round was never observed. The eight files contain 300 distinct suggestions and 33 dispute mentions. Section 8 adjudicates the 33 dispute mentions. In section 9 the matrix successor takes 107 of the original IDs, including five promoted from Record in design review, and records the remaining 193 under their rules. The same ledger adds 43 new round-one fixture IDs. Apply all 24 section 8 truth replacements in the matrix-successor job. Keep the two matrix streams separate.
+- [x] Enumeration stopped as an open class after five terra rounds, two sol rounds and one astra round. A dry round was never observed. The eight files contain 300 distinct suggestions and 33 dispute mentions. Section 8 adjudicates the 33 dispute mentions. In section 9 the matrix successor takes 108 of the original IDs, including six promoted from Record, and records the remaining 192 under their rules. The sixth promotion preserves the original composite actual in `terra5-oracle-003`. The same ledger adds 43 round-one IDs and 20 round-two IDs. Apply all 24 section 8 truth replacements in the matrix-successor job. Keep the two matrix streams separate.
 - [x] The bound census found 57 traced positive candidates among 600 entries, 277 with parseable fixed versions and 147 with usable ground truth. Set the premeasurement G-negatives minimum to 28. S6a may add finding-only candidates.
 
 **Exit disposition.** The original dry-round gate was unmet. Stage D supplies the proof and conservation rules plus a finite fixture backlog.
 
 ## Stage D: formats of record (1.5 days)
 
-The formats of record are in [FORMATS.md](FORMATS.md), sections 1–7 and accepted losses. Section 8 in the decisions companion decides every materialized test row and dispute. Section 9 in the ledger companion gives the per-ID fixture backlog and review-round dispositions. The initial adopter contract and both amendments are reconciled there. Both design reviewers must APPROVE (cap two rounds, then ORCHESTRATION section 8). Review and downstream measurement remain separate gates.
+Both ordinary rounds ended in FIX. The §8 proposal retains the artifact and APIs, limits each decision to identifiable evidence, and records the options and costs in [the pooled decision](FORMATS-DECISIONS.md#stage-d-escalation-decision). The [round-two ledger](FORMATS-LEDGER.md#round-two-dispositions-and-fixtures) maps the named inputs to mandatory controls. The [DESIGN amendments](FORMATS.md#changes-to-design-sections-5-and-6) state the proposed authority for G-repro. One fresh paired decision on the same bound revision is the escalation cap. Both seats must APPROVE. Another open-class rejection returns to the owner.
+
+| Slice while awaiting that decision | What can proceed | What requires approval and execution |
+|---|---|---|
+| S1 | Corpus pins, guard, paired input hashes and standalone run receipts. | Prospective registration/reuse and any measured gate claim. |
+| S2 | Bag reconstruction, counters, parser/classifier/validator signatures, disk-backed node views and terminal tests. | Credit for line joins, inventory zeroes, registered classifiers and G-repro. |
+| S3 | Both compiler programs, byte helpers, original-row module dispatch, census and labelled self-check fixtures. | Built-in or adopter grading, scoped quality claims and G-selfcheck/G-adopt. |
 
 ## Stage I: slices
 
@@ -193,7 +199,7 @@ discover -s scripts/measure -t scripts -p 'test_*.py'` and `python3 -m unittest 
 **Guard integration.** Add the dedicated `--status-fd` result from FORMATS §2. Keep the host-quiet script at `$(dirname "$0")/../hostquiet/host_quiet.py` and the log at
 `${MEMGUARD_LOG:-${XDG_STATE_HOME:-$HOME/.local/state}/prism/memguard-kills.log}`; exits 75, 76, 137 kept.
 
-**Contract.** Implement `corpora.json`, `corpora list|verify`, `run` and `prism.measure.receipt/1` exactly as FORMATS sections 1–2. Include the adopter pins, per-package SB binding and the S2 fixture entry when its tree is available. Use the perf-cloud manifest hash for a tree and the type/path/content digest for the measured input. Pin errors (3) precede analysis. Version mismatch runs version only. Record every produced stdout/stderr hash, including the trace, and the structured guard status per command. A fresh gate-bound receipt includes its decision digest and step ID from before version. A pre-launch quiet refusal (75) has no receipt. A late refusal stops the run and retains its failed receipt. Output, digest, guard and Python 3.9 cases are listed by ID in FORMATS sections 8–9.
+**Contract.** Implement `corpora.json`, `corpora list|verify`, `run` and `prism.measure.receipt/1` exactly as FORMATS sections 1–2. Include the adopter pins, per-package SB binding and the S2 fixture entry when its tree is available. Use the perf-cloud manifest hash for a tree and the type/path/content digest for the measured input. Pin errors (3) precede analysis. Version mismatch runs version only. Record every produced stdout/stderr hash, including the trace, and the structured guard status per command. A fresh gate-bound receipt includes its decision digest and step ID from before version. S5 supplies independent decision registration and dependency views for prospective differentials. A pre-launch quiet refusal (75) has no receipt. A late refusal stops the run and retains its failed receipt. Output, digest, guard and Python 3.9 cases are listed by ID in FORMATS sections 8–9.
 
 - [ ] **Failing tests first.** `helpers.py`: a one-commit git repo named `Z` in a temp manifest, a fake prism
       that logs argv and env and prints canned JSON, a pass-through guard writing §2 status to its caller's status descriptor, `kit(*args)` running the module.
@@ -229,7 +235,7 @@ first on `PATH`): above the limit → 137 and one log line; below → the comman
 
 ### S2: `diff-edges`, `diff-stats`, classifiers, G-repro (5 days; G-repro, G-hermetic)
 
-Lane 10 uses `PRISM_SUBSCRIPT_TRACE=all` for the complete def/use inventory from S0 onward. The S0-versus-baseline differential reports edge/counter parity and the unavailable baseline inventory. S1 versus S0 and S2 versus S1 compare both inventories, including isolated nodes. Require the terminal all-inventory def/use totals in both traces. Cross-key and orphan-anchor require byte mode and unique endpoint lookup. The value `1` supplies only subscript sites. Implement the exact parser, context and `validate(bound)` interface in FORMATS section 3.
+Lane 10 uses `PRISM_SUBSCRIPT_TRACE=all` for the complete def/use inventory from S0 onward. The S0-versus-baseline differential reports edge/counter parity and the unavailable baseline inventory. S1 versus S0 and S2 versus S1 compare both inventories, including isolated nodes. Require the terminal and its independently counted eligible def/use totals on both arms. Give lane 10 the exact amendment in FORMATS. Cross-key and orphan-anchor require byte mode and unique endpoint lookup. The value `1` supplies only subscript sites. Implement the exact parser, context and `validate(bound)` interface in FORMATS section 3.
 
 **Files:** create `scripts/measure/{edges,diff_edges,diff_stats,classifier,trace}.py`,
 `examples/classify_783_4b.py`, `fixtures/repro-4b/` (`repo/` holds only the measured sources, with M-3's truth and control generator alongside it),
@@ -241,7 +247,7 @@ python3 -m measure diff-edges BASE_RUN HEAD_RUN --classifier FILE [--key bytes|l
 python3 -m measure diff-stats BASE_RUN HEAD_RUN [--allow FILE] [--which dfg|call|both]
 ```
 
-**Contract.** FORMATS sections 1–3 and 8–9 fix admission, projection, residual bags, `changes.jsonl`, `classes.tsv`, `certificate.json`, counter tables and both legacy stdout lines. One identical transition is one counted row. One-sided residuals at a key share one bag. Check reconstruction per arm and attribute. Unattributed counts rows. Ambiguous edge records fail (1), even at a clean key. Default-forbidden strays fail (1), and unmatched records alone may pass. A whole classified ambiguous change may pass. Expose both run roots, receipts, unchanged occurrences, nodes and both counter sets to the callbacks by their published names. Grade counter allow-lists by component tuple, escaping literal dots. An erased trace key is unmatched. Record a reason and flag for deliberate byte-to-line projection. The example supplies a separate historical projection for the G-repro trace counts.
+**Contract.** FORMATS sections 1–3 and 8–9 fix admission, projection, residual bags, `changes.jsonl`, `classes.tsv`, `certificate.json`, counter tables and both legacy stdout lines. One identical transition is one counted row. One-sided residuals at a key share one bag. Check reconstruction per arm and attribute. Unattributed counts rows. Ambiguous edge records fail (1), even at a clean key. Default-forbidden strays fail (1), and unmatched records alone may pass. A whole classified ambiguous change may pass. Expose both run roots, receipts, unchanged occurrences, nodes and both counter sets to the callbacks by their published names. Grade counter allow-lists by component tuple, escaping literal dots. An erased trace key is unmatched. A sole projected candidate with contradictory known bounds is unmatched. Two projected candidates stay ambiguous. Index node candidates by bytes, file and access. Standalone callbacks see their original run paths. Prospective callbacks see only authenticated run artifacts, declared sidecar/helper bytes and the verified source. Record a reason and flag for deliberate byte-to-line projection. The example supplies a separate historical projection for the G-repro trace counts. S2 uses M-3's independently registered historical prediction and fixed inputs for this protocol. S5 later exercises the general `gate` wrapper.
 
 - [ ] **Failing tests first** (`edge(...)` builds one line in the `nav dfg-stats --edges` shape; matrix rows
       enabled):
@@ -280,7 +286,7 @@ def test_783_classifier_attributes_kill_alias_and_alias_d3_and_refuses_untagged_
 - [ ] RED, implement, GREEN, commit. Port `classify_783_4b.py` from `compare4b.py` (allowed: `exact` → one
       `nameonly` label whose doubt maps to tag `kill:alias` or `alias-d3`; `rd-alias-cert` records unjoined;
       identity counts include all eligible mechanisms through the legacy projection, with identity strays allowed. R4B joins the two attribution mechanisms with strict strays).
-- [ ] **G-repro** (measurement runner; M-3's `repro/PREDICTION.md` already written; DESIGN section 6):
+- [ ] **G-repro** (measurement runner; M-3's bound prediction and the replacement DESIGN §6 text in FORMATS):
       (a) `run` X, EX, T with both M-3 binaries (head with `--trace-env PRISM_RD_CENSUS_TRACE=1`), then
       `diff-edges --classifier examples/classify_783_4b.py` with `--key line --line-reason "historical comparator used line keys"` and in byte mode, with a distinct `--out` per corpus and mode, and
       `diff-stats`. Require primary edge stdout byte equality and PASS in both modes, and zero DFG and call counter deltas. Record full `trace mechanism lines:` byte equality per corpus under M-3's ordered count trials. Publish the head that earned each claim. (b) `run` `R4B` with both binaries, then
@@ -297,7 +303,7 @@ lexical_binding,calls}.cjs`, `oracle/selfcheck/<case>/{repo/,input.jsonl,expecte
 `oracle/realuse/{repo/,truth.jsonl}`, `scripts/measure/oracle.py`, `tests/test_oracle.py`; enable `oracle`
 in `test_matrix.py`. Cover verdict rows with self-check cases and admission, selection and delta rows through the Python wrapper.
 
-**Contract.** Implement the two oracle command grammars and self-check entry in FORMATS sections 1 and 4, including `--side`, `--kind`, `--class`, `--relation`, `--target-confidence` and `--target-kind`. Verify the checker tree/file, combined question and fixture key before launching grading. Select only the named run's residual occurrences against a bound certificate. Grade spread LOST on the base arm. Call diffs retain all deltas, with exact gained targets as the default. Lane 9 selects nameonly/argument_follow in census or differential mode. Keep per-confidence/kind denominators, drops and ancillary records. Refuse ambiguous raw subsets, admit source coordinates before question-specific shape tests, grade callable claims only against a proved body, and key tuples by relation and property. Use program-aware lookup and a require hook over the hashed module directory. Use the prescribed `verdicts.jsonl`, `tuples.json`, `denominators.json`, `oracle-receipt.json` and call-diff `deltas.jsonl`. Aggregate mode keeps denominators and custody with the tuples. Use FORMATS section 8 decisions and materialize the oracle IDs in section 9.
+**Contract.** Implement the two oracle command grammars and self-check entry in FORMATS sections 1 and 4, including `--side`, `--kind`, `--class`, `--relation`, `--target-confidence` and `--target-kind`. Verify the checker tree/file, combined question and fixture key before launching grading. Select only the named run's residual occurrences against a bound certificate. Grade spread LOST on the base arm. For an admitted call diff retain all deltas, with exact gained targets as the default. Cancel identical full row/index contexts before projected claim counts. A grade requiring a choice among unequal residuals refuses before dispatch. Lane 9 selects nameonly/argument_follow in census or differential mode. Keep per-confidence/kind denominators, drops and ancillary records. Refuse ambiguous raw subsets, admit source coordinates before question-specific shape tests, grade callable claims only against a proved body, and key tuples by relation and property. Admit a formal's own header line at its exact identifier bytes for both question directions. Grade declaration or write to a pure read, distinguish whole and composite recursive actuals, and prove the supported producer's name/line convention (including decorated method name line). Constructor, inferred/anonymous, computed or split-header target identity stays UNDECIDED under the built-in. Retain the slot and lane-module proofs where supported. Use program-aware lookup and a require hook over the hashed module directory. Use the prescribed `verdicts.jsonl`, `tuples.json`, `denominators.json`, `oracle-receipt.json` and call-diff `deltas.jsonl`. Aggregate mode keeps denominators and custody with the tuples. Use FORMATS section 8 decisions and materialize the oracle IDs in section 9.
 
 - [ ] Author self-check cases first: per question one case per verdict, plus the near-miss negatives of
       G-selfcheck. Cover the wrapper rows with their own receipt, arm and denominator checks. `selfcheck.cjs` exits 0 only when every verdict equals
@@ -314,14 +320,14 @@ in `test_matrix.py`. Cover verdict rows with self-check cases and admission, sel
       scripts/measure/oracle/selfcheck.cjs --typescript <installed path>` exits 0; output in the PR. One real
       use: `run` `oracle/realuse/repo` (authored argument- and lexical-binding shapes, truth written before
       the run) with `repro/bin/prism-head`, then `ts-edges --all`: every graded verdict equals `truth.jsonl`,
-      at least ten CORRECT, no INADMISSIBLE row; report the tuple.
+      at least ten CORRECT, no INADMISSIBLE row; report the tuple. Check the supported decorated method's actual `function_id` against a source-labelled capture and a decorator-line mutation, and check multiline formal defs in both questions. Record producer identity, source and raw span. A failed producer control leaves that built-in convention unqualified and the required S3 control unmet.
 
 ### S4: `review-diff` and the diff population (2.5 days; G-hermetic)
 
 **Files:** create `scripts/measure/{population,review_diff}.py`, `populations/602-m2-120.json`,
 `tests/{test_population,test_review_diff}.py`; enable `review` in `test_matrix.py`.
 
-**Contract.** FORMATS sections 1, 5, 8 and 9 define the public `602-m2-120.json`, exact #602 spec bytes, CLI, arm envelopes, full finding payload and sample. Reconstruct each postimage from the fixed-option patch in a detached scratch clone, decoding quoted path bytes as specified in §5. Retain and hash both raw streams for each launched ordinal/arm. Record every manifest ordinal, including excluded, failed and refused rows. Sum presence surplus and overlapping payload differences after exact cancellation, including unpairable bags. Emit `per-diff.jsonl`, `totals.json`, `sample.jsonl` and `review-receipt.json`. Apply subset and successful-sample denominators explicitly.
+**Contract.** FORMATS sections 1, 5, 8 and 9 define the public `602-m2-120.json`, exact #602 spec bytes, CLI, arm envelopes, full finding payload and sample. Reconstruct each postimage from the fixed-option patch in a detached scratch clone, decoding quoted path bytes as specified in §5. Retain and hash both raw streams for each launched ordinal/arm. Round-trip the exact positional review receipt in review-018, including a failed or unlaunched arm. Record every manifest ordinal, including excluded, failed and refused rows. Sum presence surplus and overlapping payload differences after exact cancellation, including unpairable bags. Emit `per-diff.jsonl`, `totals.json`, `sample.jsonl` and `review-receipt.json`. Apply subset and successful-sample denominators explicitly.
 
 - [ ] Failing tests (temp repo with parent and commit): `test_spec_matches_m2_rule` (test file, `.md` file
       and deleted file excluded; equals `{"files": [{"file_path": "src/a.ts", "modify_type": "Modified",
@@ -348,7 +354,7 @@ in `test_matrix.py`. Cover verdict rows with self-check cases and admission, sel
   {"id": "X-edges", "do": "diff-edges", "base": "X-base", "head": "X-head", "classifier": "c.py", "expect": {"unattributed": 0}}]}
 ```
 
-**Contract.** FORMATS sections 1, 6, 8 and 9 fix `gate FILE --out DIR`, overrides, step kinds, reference types, reuse, expectations, child exits and the eight ordered report sections. Preflight the whole graph and all reused inputs before measurement. Freeze the prediction and decision graph including every expectation before the first step and through publication. Verify both the gate binding and the declared binary SHA/version on each reused run. Enforce per-kind coverage, record allow_empty waivers under Limits, and label self-comparisons as identity controls. Exit 0 only for a prospective PASS, 1 on a failed measurement or completed retrospective, 2 on malformed gate/admission/prediction refusal (including child interface exit 2), 75 with result `host_quiet` only on structured guard refusal. Keep failed step IDs and observed metrics. Write `gate.json` and `REPORT.md`.
+**Contract.** FORMATS sections 1, 6, 8 and 9 fix `gate FILE --out DIR`, overrides, step kinds, reference types, reuse, expectations, child exits and the eight ordered report sections. Preflight the whole graph and all reused inputs before measurement. Register the decision digest independently before any result for that differential. Check the controller's `--decision-pin` on both fresh runs and reuse. Freeze the prediction, graph, every threshold and classifier dependencies through publication. Stage and verify the §6 file views and read back the exact step and review receipt shapes. Verify both the gate binding and the declared binary SHA/version on each reused run. Check coverage for each asserted relation/property and confidence/kind, including explicit intersections. For lane 9 require exact WRONG=0 and nameonly WRONG/(CORRECT+WRONG) ≤ 1/20 on the named populations, with a positive preregistered minimum. Use integer cross multiplication. Report each scope and absence-only control. Record `allow_empty` waivers under Limits and label self-comparisons as identity controls. Exit 0 only for a prospective PASS, 1 on a failed measurement or completed retrospective, 2 on malformed gate/admission/prediction refusal (including child interface exit 2), 75 with result `host_quiet` only on structured guard refusal. Keep failed step IDs and observed metrics. Write `gate.json` and `REPORT.md`.
 
 - [ ] Failing tests: `test_gate_refuses_missing_prediction`; `test_gate_refuses_reused_run_without_matching_
       prediction_digest` (a receipt without a digest → 2; a receipt whose digest differs while the
@@ -356,7 +362,7 @@ in `test_matrix.py`. Cover verdict rows with self-check cases and admission, sel
       `test_retrospective_replay_is_never_a_pass`; `test_gate_fails_on_threshold_and_names_the_step`;
       `test_gate_rejects_unknown_step_kind`; `test_report_has_the_eight_sections_in_order`;
       `test_report_quotes_prediction_and_its_sha256`.
-- [ ] RED, implement, GREEN, commit. Run `examples/gate_783_4b.json` once (paths supplied at run time); its
+- [ ] RED, implement, GREEN, commit. Run `examples/gate_783_4b.json` with its registered decision pin (paths supplied at run time); its
       numbers equal S2's part (a).
 
 ### S6a: benchmark finding-level accounting (2 days; G-findings)
@@ -365,7 +371,7 @@ in `test_matrix.py`. Cover verdict rows with self-check cases and admission, sel
 parsed taint channel output instead of discarding it; add `row['finding']`), `replay.py` (score from retained
 `taint.json.gz`), `report.py` (case-level line-hit table and finding-level counts beside reach), `README.md`.
 
-**Contract.** FORMATS section 7 (S6a) defines `finding_outcome(row, taint_output, invocation)`, eligibility, precedence, RuleRef payloads and both denominators. Reuse the same scorer for the bound retained taint stream and live output. Keep `row.finding={line_hit,findings,rules}` and every emitted sink occurrence. Credit at most one match. A second eligible sink gives `ambiguous` even with zero findings, identical repeated hits give one match and one off-target, and a same-file miss outranks an elsewhere miss. Channel errors remain separate from reach. Enable the 19 finding rows plus selected S6a fixtures. Existing `--class`, `--binary-sha` and `--sut-commit` are already supplied by the harness.
+**Contract.** FORMATS section 7 (S6a) defines `finding_outcome(row, taint_output, invocation)`, eligibility, precedence, RuleRef payloads and both denominators. Reuse the same scorer for the bound retained taint stream and live output. Keep `row.finding={line_hit,findings,rules}` and every emitted sink occurrence. Credit at most one match. Enumerate plausible emitters across callees/families on the annotated line. An unresolved competing sink gives `ambiguous`, including with zero findings. A uniquely identified different operation gets zero matched. Identical repeated hits at the annotated operation give one match and one off-target. A same-file miss outranks an elsewhere miss. Channel errors remain separate from reach. Enable the 19 finding rows plus selected S6a fixtures. Existing `--class`, `--binary-sha` and `--sut-commit` are already supplied by the harness.
 
 - [ ] Failing tests (`bench-findings` rows enabled): `test_sink_line_finding`, `test_other_line_same_file`,
       `test_finding_elsewhere`, `test_no_taint_sink_finding` (a `taint_source` finding does not count),
@@ -387,9 +393,9 @@ parsed taint channel output instead of discarding it; add `row['finding']`), `re
 **Files:** create `eval/secbench/{fixed.py,test_fixed.py,locate.mjs,locate.test.mjs,fixed-pins.json}`;
 modify `report.py`, `README.md`; enable `bench-negatives` in `test_matrix_bench.py`.
 
-**Contract.** Use FORMATS sections 1 and 7 (S6b) for the two `fixed.py` commands, registry/SRI/size/extraction checks, pin publication, bound adjudications and exact reason vocabulary with precedence. Read each entry's `package.json`. `acquire --packages VULN` binds its dependency to the vulnerable package manifest. Without that option acquisition requires a single exact dependency. `score` requires the manifest. `locate.mjs` uses the pinned TypeScript scanner and syntax tree for owning functions, actual call occurrences and byte spans. Tokens preserve raw literals. The automatic `fix_elsewhere` test requires changed mapped source-owner tokens and an unchanged sink owner. `partial_fix` requires a tree-bound adjudication row. Bind the fixed scorer to the vulnerable SUT SHA and version, match callee identity across trees, and match each reach witness to the mapped seed and a terminal sink value. An otherwise eligible candidate lacking a fixed acquisition row, pin or tree gives `fixed_input_missing`. A known move into a helper cannot earn removal credit. A failed or truncated negative observation cannot earn a false column.
+**Contract.** Use FORMATS sections 1 and 7 (S6b) for the two `fixed.py` commands, registry/SRI/size/extraction checks, pin publication, bound adjudications and exact reason vocabulary with precedence. Read each entry's `package.json`. `acquire --packages VULN` binds its dependency to the vulnerable package manifest. Without that option acquisition requires a single exact dependency. `score` requires the manifest. `locate.mjs` uses the pinned TypeScript scanner and syntax tree for owning functions, actual call occurrences and byte spans. Tokens preserve raw literals. Require independently tree-bound contribution evidence for `fix_elsewhere` and `partial_fix`. An unrelated caller edit with intact seed forwarding goes through ordinary retained scoring. A direct identifier substitution in an untagged template is a supported terminal sink operand. Withhold a column when its channel cannot distinguish the annotated occurrence. Bind the fixed scorer to the vulnerable SUT SHA and version, match callee identity across trees, and match each reach witness to the mapped seed and a terminal sink value. An otherwise eligible candidate lacking a fixed acquisition row, pin or tree gives `fixed_input_missing`. A known move into a helper cannot earn removal credit. A failed or truncated negative observation cannot earn a false column.
 
-Produce `acquisition.jsonl`, `negatives.jsonl`, `negatives-summary.json` and `score-receipt.json` with retained raw observations. A verified pair has `finding,reach,function_change,sink_removed`; finding/reach are null for verified removal. An exclusion has one closed reason and four nulls. Enable all 26 negative rows plus selected S6b fixtures. When materialising the successor, align the benchmark row validator’s reason enum with the closed §7 table, including fix_elsewhere, partial_fix and fixed_input_missing, and install bn-012’s adjudication from §8.
+Produce `acquisition.jsonl`, `negatives.jsonl`, `negatives-summary.json` and `score-receipt.json` with retained raw observations. A verified pair has `finding,reach,function_change,sink_removed`; finding/reach are null for verified removal. An exclusion has one closed reason and four nulls. Enable all 26 negative rows plus selected S6b fixtures. When materialising the successor, align the benchmark row validator’s reason enum with the closed §7 table, including fix_elsewhere, partial_fix and fixed_input_missing, and install the bn-010, bn-011 and bn-012 adjudications from §8. Verify the nested score receipt on each completed batch, including one below the minimum.
 
 - [ ] Failing tests: `test_fixed_version_parsing` (`" =1.20.0"` → `"1.20.0"`; `"n/a"` and `">=2.1.1 <3.0.1"`
       → `None`), `test_extraction_refuses_traversal_links_and_collisions`, `test_member_and_size_limits_are_
@@ -400,7 +406,7 @@ Produce `acquisition.jsonl`, `negatives.jsonl`, `negatives-summary.json` and `sc
       `test_every_attempted_entry_has_outcome_or_reason`, `test_zero_verified_pairs_reports_unmet`.
 - [ ] RED (`uv run --locked pytest secbench/test_fixed.py secbench/test_matrix_bench.py -q`), implement,
       GREEN, commit.
-- [ ] **G-negatives.** Acquire archives only, at the configured evidence input destination. Account for all entries, including every attempted named version, and score using the bound baseline. The prediction sets `N=28` from the 57-candidate census. Fewer verified pairs is unmet. Publish each retained observation column and the exclusion distribution within their stated denominators.
+- [ ] **G-negatives.** Acquire archives only, at the configured evidence input destination. Account for all entries, including every attempted named version, and score using the bound baseline. Before scoring verify possession of the exact repair-r1 executable (`d603e7cd…`, SUT `4e592daa`) and a vulnerable binding carrying its full SHA/version/commit. The prediction sets `N=28` from that baseline's 57-candidate census. An unavailable build/binding or fewer verified pairs leaves historical G-negatives unmet. A separately chosen build requires new vulnerable observations, a new census and a registered minimum before any fixed query. Publish each retained observation column and the exclusion distribution within their stated denominators.
 
 ### S7: removed by the design review (2026-11-21)
 
@@ -419,12 +425,12 @@ The cloud launchers are a follow-up issue (DESIGN section 7, decision 3; close-o
 ## Close-out (1 day, plus the wait for G-adopt)
 
 - [ ] **G-adopt** (DESIGN section 6): at S2's merge the orchestrator hands lane 10 the commands,
-      the classifier contract and the amendment to its plan (its own comparator, recipe, counter diff and
+      the classifier contract and the [exact S0 terminal and rollout amendment](FORMATS.md#amendment-text-for-lane-10s-plan) (its own comparator, recipe, counter diff and
       trace-join task replaced by a classifier file, gate files and predictions). At S3's merge hand lane 9 its oracle contract and self-check layout. Allowed files: one
       classifier, at most one oracle question module, gate files, predictions, and census scripts asking a
       question the kit does not answer. A lane migrating after its stage M first replays its baseline with the
       kit and shows parity with its existing comparator. Any other comparator, recipe, counter or trace-join
-      script fails G-adopt. Record the actual consuming lane and its decision. If neither named adopter has taken a decision on kit output by close, report G-adopt unmet and name the blocker. DESIGN section 6's provisional-formats condition concerned having no named consumer before stage D. M-4 secured two.
+      script fails G-adopt. Record the actual consuming lane and its decision with the registered scope, decided denominator and limitations. If neither named adopter has taken a decision on kit output by close, report G-adopt unmet and name the blocker. DESIGN section 6's provisional-formats condition concerned having no named consumer before stage D. M-4 secured two.
 - [ ] Issues (filed, not started), each with the decision it would support: rule-aware finding scoring after
       lane 7 (benchmark rule columns); the cloud launchers (a lane that needs a kit gate in a cloud session);
       `review-diff` as a cross-check for PR #841 (only if #841's merge needs an independent count; same format
@@ -435,7 +441,7 @@ The cloud launchers are a follow-up issue (DESIGN section 7, decision 3; close-o
 ## Acceptance for the lane
 
 G-repro (a) and (b), G-selfcheck, G-hermetic, G-findings and G-negatives hold on merged code, or a gate that
-does not is reported unmet with its numbers (G-negatives below N). G-adopt needs an actual adopter decision and baseline parity where required. Report it unmet if that evidence is absent. ORCHESTRATION points lanes at the kit and
+does not is reported unmet with its numbers (including missing same-build custody or G-negatives below N). G-adopt needs an actual adopter decision and baseline parity where required. Report it unmet if that evidence is absent. ORCHESTRATION points lanes at the kit and
 each slice approved by its seats with CI green.
 
 ## Day estimates

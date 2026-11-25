@@ -2,14 +2,32 @@
 
 [Formats of record](FORMATS.md) · [Decision tables](FORMATS-DECISIONS.md) · [Fixture ledger](FORMATS-LEDGER.md)
 
-## 8. Changes to DESIGN section 5
+## 8. Stage D decisions
+
+### Stage D escalation decision
+
+The independent design-seat record for `993b55ef1` had SHA-256 `013995a1ae40575b736e10d0d0018837cf897404c9e40f98b55301713c4703cc` before pooling. Both reviews closed most of the original examples. The fall from 15 to 12 WRONGs also included new failures caused by the first fold. Projected equality, admitted coordinates and counted populations had each been mistaken for proof of the property being graded.
+
+| Option | Decision and cost |
+|---|---|
+| Design A / O1, another full-rule fold | Keep A's paired near-miss and positive controls. Reject an ordinary third round. The open classes and two newly introduced errors offer no stopping rule for another half-day review of the full catalogue. |
+| Design B / O2, limit positive decisions to identifiable evidence | **Choose.** Separate bag accounting from original selection, projected trace candidates from compatible attachment, and population counts from scoped verdicts. Apply the same evidence rule to each benchmark occurrence. This costs decided coverage, can refuse a differential and can leave a real gate unmet. O2's blanket ambiguous-bag rule would also erase a determinable residual when an identical original can cancel first. |
+| O3, remove calls and S6b and restrict built-ins to plain identifiers | Reject the broad cut. Removing call grading strands lane 9's selected `nameonly/argument_follow` claims. Removing S6b gives up G-negatives even on same-build verified pairs. Defer only built-in target identities without an established producer convention. Whole-actual, literal and write proofs still have testable controls. |
+| Design C / O4, wait for producer evidence or phase the freeze | Use C for unsupported target forms and historical binary availability. S1–S3 may build the stable interfaces and fixtures listed in [Adopter impact](FORMATS.md#adopter-impact). A provisional measurement cannot decide an adopter gate. Freezing disputed semantics independently at each slice would leave two versions of shared receipt and coverage rules. |
+| O5, one rule and fixture per report item | Keep the named counterexamples and controls in §9. A row-only repair leaves the adjacent input unspecified. The rule in each consuming section owns the result for both the row and its complement. |
+
+**Approval boundary.** The two ordinary rounds are spent. Request one §8 decision from two fresh reviewers on the same controller-bound revision. Give both the original inputs, the 20 new fixture specifications, the promoted Record and both negative-control suites. Each should derive the outcome and gate scope independently, including an input-order permutation and a missing-evidence case. Both must APPROVE before calling this the accepted design. A further open-class rejection returns the specific boundary and its cost to the owner. A new review round requires a new scope decision.
+
+### Amendments to the architecture
+
+Use the [changes to DESIGN sections 5 and 6](FORMATS.md#changes-to-design-sections-5-and-6) for the gate statements, including the ordered-head protocol. The following row decisions supply the original Stage D detail.
 
 1. **Binding.** A git-clean query root excludes tracked edits as well as untracked/ignored files. Bind all command outputs **and stderr**, check the executable across the run, and compare effective analysis options before mode projection. This makes the source, options and trace used to claim a change inspectable.
 2. **Edge identity.** Compress identical transitions into one row with a count. Combine one-sided residuals at a key into one row. Give each ambiguous bag both arm totals and a scalar maximum. This preserves both observed multisets and the matrix's row unit.
-3. **Trace join.** Project the trace's byte fields away along with edge bytes in line mode. Count matching arm occurrences including cancelled ones. Ambiguous edge records fail independently; unmatched records require a lane veto to fail by themselves. Include unjoined `node` records. This permits conservative line-mode joins and spelling checks on nodes with no edge.
-4. **Oracle questions.** Grade a uniquely proved in-root implementation body and fixed slot. A type-only declaration supplies no receiving body. The target filter defaults to gained exact head claims and can select lane-declared confidence/kind populations. Ambiguous raw arm-bag subsets refuse. These choices specify the population and the property each verdict can support.
+3. **Trace join.** Project the trace's byte fields away along with edge bytes in line mode. Count matching arm occurrences including cancelled ones. With one projected candidate, veto a conflicting known original byte bound. Ambiguous edge records fail independently; unmatched records require a lane veto to fail by themselves. Include unjoined `node` records. This permits conservative line-mode joins and spelling checks on nodes with no edge.
+4. **Oracle questions.** Grade a uniquely proved in-root implementation body and fixed slot. A type-only declaration supplies no receiving body. The target filter defaults to gained exact head claims and can select lane-declared confidence/kind populations. Ambiguous raw arm-bag subsets refuse. For call claims cancel identical raw contexts first and preserve the full dispatched row and target index. These choices specify the population and the property each verdict can support.
 5. **Review comparison.** Count each overlapping unmatched payload occurrence as one payload change, even in an ambiguous bag, and report absolute anchor-count surplus as presence. This keeps a zero meaningful without assigning speculative transitions.
-6. **Benchmark bullets.** Resolve case ambiguity before testing for emissions, preserve one row per duplicate, use only the sink owner's tokens for `function_change`, and give moved/split/elsewhere/partial/incomplete cases explicit exclusion rules. A verified removal carries null fixed finding/reach. This keeps all denominators reconstructible.
+6. **Benchmark bullets.** Start with all plausible source emitters and narrow them only with the finding's own distinguishing evidence. An ambiguous population can exist with zero emissions. Preserve one row per duplicate, use only the sink owner's tokens for `function_change`, and give moved/split/elsewhere/partial/incomplete cases explicit exclusion rules. A verified removal carries null fixed finding/reach. This keeps all denominators reconstructible.
 
 **Provisional handoff change log**
 
@@ -60,8 +78,8 @@ All 24 are decided. The kit file contains 15 such rows in 152, including the app
 | bn-001 | `sink_occurrence_unmapped`, four nulls. | The named owner survives but delegates to a new helper carrying the sink, which rules out verified deletion. |
 | bn-002 | `function_moved`, four nulls. | A unique same-name owner in another file supplies more specific evidence than a missing name. |
 | bn-006 | `function_not_found`, four nulls. | The same-file name is gone and body resemblance cannot authorize substituting the renamed callable. |
-| bn-010 | `fix_elsewhere`, four nulls. | The changed caller stops passing the original value and the sink owner itself is unchanged. |
-| bn-011 | `fix_elsewhere`, four nulls. | The edit is confined to the caller and that independently established exclusion precedes any partial-fix determination. |
+| bn-010 | `fix_elsewhere`, four nulls. | The tree-bound adjudication below identifies the replacement of the forwarded seed by a constant. |
+| bn-011 | `fix_elsewhere`, four nulls. | The bound guard adjudication identifies the restricted seed path. This exclusion has precedence over partial_fix. |
 | bn-012 | `partial_fix`, four nulls. | The bound adjudication supplied below identifies the wrapped first contribution and the unchanged second. Materialise it alongside the case. |
 
 ### Row truth updates
@@ -101,6 +119,13 @@ Replace the complete `truth` object for each ID with the JSON below when materia
 {"class":"code-injection","entry":"bn-012-fixture_1.19.0","id":"CVE-0000-012","vulnerable_tree_sha256":"46226178ad429efef79ea0f93e0e4d3c3887ad6cc068aa559266e74c9ece8403","fixed_tree_sha256":"2983aa38dbd1dabc46ca025933101e1b745b901d6bf3d160aca7a7cc187812cd","sink":"lib/index.js:3:3","fact":"partial_fix","evidence":{"before":[{"file":"lib/index.js","start_byte":72,"end_byte":83},{"file":"lib/index.js","start_byte":84,"end_byte":87}],"after":[{"file":"lib/index.js","start_byte":151,"end_byte":159},{"file":"lib/index.js","start_byte":160,"end_byte":163}],"explanation":"The first parameter contribution is wrapped in quote in the fixed call. The second parameter is still appended directly to the same command argument."}}
 ```
 
+**Adjudication inputs for bn-010 and bn-011.** Materialise one row per fixture alongside its inputs. These independent labels specify the caller contribution used to earn the original expected exclusion. Omitting the adjudication exercises ordinary retained-pair scoring when both channels are available. A caller's token-diff alone cannot supply the label.
+
+```jsonl
+{"class":"code-injection","entry":"bn-010-fixture_1.19.0","id":"CVE-0000-010","vulnerable_tree_sha256":"636a140061275574648672fcab650c925ed625c7389f4d40b3b97f998d4beca1","fixed_tree_sha256":"01b899ff1756ce3e55640075a7c18a92c5c348b7d555e7f9624a438f73e3a77d","sink":"lib/index.js:3:3","fact":"fix_elsewhere","evidence":{"before":[{"file":"lib/index.js","start_byte":91,"end_byte":99},{"file":"lib/index.js","start_byte":104,"end_byte":113},{"file":"lib/index.js","start_byte":61,"end_byte":78}],"after":[{"file":"lib/index.js","start_byte":91,"end_byte":99},{"file":"lib/index.js","start_byte":128,"end_byte":140},{"file":"lib/index.js","start_byte":61,"end_byte":78}],"explanation":"The caller formerly passed its cmd parameter to exec. It now passes the constant 'safe' to the same helper. The retained sink still consumes that helper's full parameter."}}
+{"class":"code-injection","entry":"bn-011-fixture_1.19.0","id":"CVE-0000-011","vulnerable_tree_sha256":"f331d2b266111eafad0d89f0118fea3f3577dd1f7fea55fbe5269f54276a4837","fixed_tree_sha256":"76baa99e183d021dd641e9720f60da397617c988ddfd9f15ce616bd871ebf778","sink":"lib/index.js:3:3","fact":"fix_elsewhere","evidence":{"before":[{"file":"lib/index.js","start_byte":91,"end_byte":99},{"file":"lib/index.js","start_byte":104,"end_byte":113},{"file":"lib/index.js","start_byte":61,"end_byte":78}],"after":[{"file":"lib/index.js","start_byte":91,"end_byte":99},{"file":"lib/index.js","start_byte":104,"end_byte":154},{"file":"lib/index.js","start_byte":157,"end_byte":166},{"file":"lib/index.js","start_byte":61,"end_byte":78}],"explanation":"The caller now rejects its cmd parameter above length 100 before forwarding it to exec. That guard constrains the annotated route on the rejected inputs. The same helper and its sink remain on the surviving route."}}
+```
+
 ### Truth disputes
 
 Each mention in each round is represented below. T1–T5 are the five terra rounds, S1–S2 in this table are sol rounds, A1 is astra. T1–T3 filed no disputes. The 33 mentions address 18 IDs.
@@ -123,8 +148,10 @@ Each mention in each round is represented below. T1–T5 are the five terra roun
 | bf-019 | S2, A1 | Both win on `ambiguous` because occurrence eligibility is a source property even with no emitted finding. |
 | bn-001 | S2, A1 | Both win on exclusion because the helper retains the former sink and the retained outer name distinguishes this from an owner move. |
 | bn-010 | A1 | Astra wins on exclusion because the fix is outside the sink function. |
-| bn-011 | A1 | Astra wins on exclusion because the caller-only edit establishes `fix_elsewhere` first. |
+| bn-011 | A1 | The §8 adjudication identifies the guard on the forwarded parameter. This establishes `fix_elsewhere` first. |
 | bn-012 | S2, A1 | Both win on `partial_fix` with the adjudication in Row truth updates. Its before/after spans identify the surviving second contribution. |
+
+**Record correction.** The original `terra5-oracle-003` is the `x` token of recursive `f(x - 1)`. Its fixed-slot verdict is UNDECIDED `slot-unproved`. The promoted regression keeps the expression intact. The whole-identifier recursion control has its own ID, `oracle-060`.
 
 ### Units and compared text
 
@@ -312,7 +339,7 @@ The following 173 rows and the 24 decisions above exhaust the two input matrices
 | bn-020 | Neither version nor commit → no_fixed_version. |
 | bn-021 | Neither vulnerable channel positive → no_vulnerable_positive. |
 | bn-022 | Function-only reach plus same-file off-target finding → no_vulnerable_positive. |
-| bn-023 | Vulnerable finding alone supplies control → verified_pair (true,true,changed,false). |
+| bn-023 | The explicitly synthetic vulnerable finding at the one eligible annotated operation supplies the fixture control → verified_pair (true,true,changed,false). |
 | bn-024 | Vulnerable traced result alone supplies control → verified_pair (true,true,changed,false). |
 | bn-025 | Missing sink/GT → gt_unavailable. |
 | bn-026 | Three entries yield no_fixed_version, fixed_not_newer and no_vulnerable_positive respectively. Zero verified, unmet. |

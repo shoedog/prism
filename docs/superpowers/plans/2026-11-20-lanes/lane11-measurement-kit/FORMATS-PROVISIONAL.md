@@ -131,4 +131,4 @@ classes (if any). Lanes do not depend on them for their classifier or question m
 
 - 2026-11-24: first version, from `DESIGN.md` section 5 and `PLAN.md` S1 to S3 as folded on 2026-11-21.
 - 2026-11-24 (adopter answers): record kind `node` added (lane 10 trace names spans, not edges); question-module `ctx` gains `enclosing_call` by full span and `program_with_default_lib()` (lane 9).
-- Stage D accepted the original wire inputs, run-directory handoff and question-module layout, and revised the comparator, oracle selection and self-check contracts. It accepted all three adopter additions: `node`, `enclosing_call` by full span and `program_with_default_lib()`. Section 8 records each disposition and its effect. [Formats of record](FORMATS.md#8-changes-to-design-section-5)
+- Stage D accepted the original wire inputs, run-directory handoff and question-module layout, and revised the comparator, oracle selection and self-check contracts. It accepted all three adopter additions: `node`, `enclosing_call` by full span and `program_with_default_lib()`. Section 8 records each disposition and its effect. [Stage D adopter impact](FORMATS.md#adopter-impact)
