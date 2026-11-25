@@ -3,10 +3,10 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::path::{Component, Path};
 
-pub(super) const FIXTURE_REPO: &str = "tests/fixtures/targets_inventory/py";
+pub(super) const FIXTURE_REPO: &str = "tests/targets_inventory/py";
 const ROWS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../tests/fixtures/targets_inventory/rows.jsonl"
+    "/../../tests/targets_inventory/rows.jsonl"
 ));
 const GROUPS: &[&str] = &["http.root", "http.receiver", "stdlib"];
 const ENABLED_GROUPS: &[&str] = &[];
