@@ -106,31 +106,44 @@ def pair_records(expected, observed, calls):
     return pairs, remaining
 
 
+# The executed adapters use distinct native grammars. A custom converter
+# can match more than one segment, so its shape supplies no comparison key.
+NAME = r"[A-Za-z_][A-Za-z0-9_]*"
+PARAMETERS = {
+    "express": re.compile(r":[A-Za-z0-9_]+"),
+    "flask": re.compile(rf"<(?:(?P<converter>{NAME})(?:\(.*?\))?:)?{NAME}>"),
+    "fastapi": re.compile(rf"\{{{NAME}(?::(?P<converter>{NAME}))?\}}"),
+}
+SEGMENT_CONVERTERS = {
+    "express": {None},
+    "flask": {None, "default", "string", "any", "int", "float", "uuid"},
+    "fastapi": {None, "str", "int", "float", "uuid"},
+}
+
+
 def path_tokens(framework, value):
-    if framework == "express":
-        if any(char in value for char in "*?+()[]\\"):
-            return None
-        parameters = re.finditer(r":[A-Za-z0-9_]+", value)
-    else:
-        name = r"[A-Za-z_][A-Za-z0-9_]*"
-        if framework == "flask":
-            parameters = re.finditer(rf"<(?:(?P<converter>{name})(?:\([^>]*\))?:)?{name}>", value)
-        elif framework == "fastapi":
-            parameters = re.finditer(rf"\{{{name}(?::(?P<converter>{name}))?\}}", value)
-        else:
-            raise ValueError(f"no runtime path grammar for {framework}")
+    grammar = PARAMETERS.get(framework)
+    if grammar is None or (framework == "express" and any(char in value for char in "*?+()[]\\|^$")):
+        return None
+    parameters = grammar.finditer(value)
     tokens = []
     offset = 0
     for match in parameters:
         converter = match.groupdict().get("converter")
-        if converter not in (None, "string", "str", "int", "float", "uuid", "any"):
+        if converter not in SEGMENT_CONVERTERS[framework]:
             return None
-        if match.start() > offset:
-            tokens.append(["literal", value[offset:match.start()]])
+        literal = value[offset:match.start()]
+        if framework == "flask" and "<" in literal:
+            return None
+        if literal:
+            tokens.append(["literal", literal])
         tokens.append(["parameter"])
         offset = match.end()
-    if offset < len(value):
-        tokens.append(["literal", value[offset:]])
+    literal = value[offset:]
+    if framework == "flask" and "<" in literal:
+        return None
+    if literal:
+        tokens.append(["literal", literal])
     return tokens
 
 
@@ -188,19 +201,87 @@ def compare_callbacks(result, index, pins, projected, callbacks):
         result.pins(index, prefix, pin, actual, CALLBACK_FIELDS)
 
 
+# Approved diagnostic anchors and the exact raw calls they cover. Express
+# reports a one-based call-frame column; Python reports a zero-based byte span.
 RUNTIME_ONLY = {
-    "et1-10": "runtime_generated_registration",
-    "es1-20": "runtime_generated_registration",
-    "es3-07": "unsupported_registration",
+    "et1-10": ("runtime_generated_registration", "verb", "app.js", 5, (1, 2), {"column": 14}),
+    "es1-20": ("runtime_generated_registration", "url_rule", "app.py", 9, (1, 2),
+               {"column_byte": 4, "end_line": 9, "end_column_byte": 61}),
+    "es3-07": ("unsupported_registration", "url_rule", "app.py", 11, (1,),
+               {"column_byte": 0, "end_line": 11, "end_column_byte": 16}),
 }
 
 
 def runtime_only(row, call):
-    reason = RUNTIME_ONLY.get(row["id"])
-    return reason is not None and any(
-        diagnostic["reason"] == reason and site_key(diagnostic["site"]) == site_key(call["site"])
-        for diagnostic in row.get("expect_diagnostics", ())
-    )
+    loss = RUNTIME_ONLY.get(row["id"])
+    if loss is None:
+        return False
+    reason, kind, file, line, ids, frame = loss
+    site = call["site"]
+    return (call.get("id") in ids and call.get("kind") == kind and
+            site == {"file": file, "line": line, "ordinal": call["id"], **frame} and any(
+                diagnostic["reason"] == reason and site_key(diagnostic["site"]) == (file, line)
+                for diagnostic in row.get("expect_diagnostics", ())
+            ))
+
+
+def matches_mount(pin, call):
+    site = pin["site"]
+    prefix = pin["prefix"]
+    if site_key(site) != site_key(call["site"]) or (
+            "ordinal" in site and site["ordinal"] != call["site"]["ordinal"]):
+        return False
+    if prefix["status"] == "literal":
+        return prefix["value"] == call["mount_prefix"]
+    if prefix["status"] == "absent":
+        return not call["args"]["has_path_arg"] and call["mount_prefix"] == ""
+    return prefix["text"] == (call.get("path") or {}).get("raw")
+
+
+def path_alternatives(path):
+    if isinstance(path, list):
+        for item in path:
+            yield from path_alternatives(item)
+    elif isinstance(path, str):
+        yield path
+
+
+def compare_mount_links(result, row, truth, calls):
+    for index, served in enumerate(truth["served"]):
+        if "mount_call_ids" not in served and truth.get("framework") != "express":
+            continue
+        field = f"served[{index}].mount_call_ids"
+        ids = served.get("mount_call_ids")
+        if not isinstance(ids, list):
+            result.check(None, field, "ordered mount call IDs", ids)
+            continue
+        chain = [calls.get(call_id, {}) for call_id in ids]
+        if any(call.get("kind") != "use" or call.get("mount") is not True
+               or not isinstance(call.get("mount_prefix"), str)
+               or not any(matches_mount(pin, call) for pin in row.get("expect_mounts", ()))
+               for call in chain):
+            result.check(None, field, "raw use calls matching pinned mount sites/prefixes", ids)
+            continue
+        prefix = "".join(call["mount_prefix"] for call in chain)
+        if isinstance(served["path"], str):
+            leaves = (
+                leaf for call_id in served["call_ids"]
+                for leaf in path_alternatives(calls.get(call_id, {}).get("args", {}).get("path"))
+            )
+            paths = [prefix + leaf for leaf in leaves]
+            result.check(None, field, served["path"], served["path"] if served["path"] in paths else paths)
+        else:
+            result.check(None, field, served.get("mount_prefix"), prefix)
+
+
+def compare_protocol(result, index, pin, call, served):
+    if "protocol" not in pin:
+        return
+    kind = call.get("kind")
+    raw = "http" if kind in {"api_route", "url_rule", "verb"} else kind
+    result.check(index, "protocol", pin["protocol"], raw)
+    for observed in served:
+        result.check(index, "served.protocol", pin["protocol"], observed.get("kind"))
 
 
 def compare_row(row, truth):
@@ -213,6 +294,7 @@ def compare_row(row, truth):
     for route in truth["served"]:
         for call_id in route["call_ids"]:
             served[call_id].append(route)
+    compare_mount_links(result, row, truth, calls)
     pairs, extra = pair_records(expected, observed, calls)
     per_line = Counter(site_key(record["site"]) for record in observed)
     expected_per_line = Counter(site_key(pin.get("site", {})) for pin in expected)
@@ -231,6 +313,7 @@ def compare_row(row, truth):
         actual = observed[pairs[index]]
         call_id = actual["call_id"]
         call = calls[call_id]
+        compare_protocol(result, index, pin, call, served[call_id])
         if "receiver" in pin:
             result.static_only.add("receiver")
         if "framework" in pin:

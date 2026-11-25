@@ -57,8 +57,11 @@ class ProjectionTests(unittest.TestCase):
         self.assertTrue(compare_row(row, truth).differences)
         row["id"] = "et1-10"
         row["expect_diagnostics"] = [{"reason": row["accepted_loss"], "site": {
-            "file": "app.js", "line": 7, "text": "app[method]('/items', show)",
+            "file": "app.js", "line": 5, "text": "app[method]('/items', show)",
         }}]
+        truth["calls"][0].update(kind="verb", site={
+            "file": "app.js", "line": 5, "column": 14, "ordinal": 1,
+        })
         self.assertFalse(compare_row(row, truth).differences)
         truth["calls"][0]["site"]["line"] = 8
         self.assertTrue(compare_row(row, truth).differences)
@@ -278,6 +281,51 @@ class ReportTests(unittest.TestCase):
                 read_jsonl(path)
             path.write_text('{"id":"x"}\n{"id":"y"}\n', encoding="utf-8")
             self.assertEqual(read_jsonl(path)["y"], (2, {"id": "y"}))
+
+
+class SavedTruthTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        here = Path(__file__).resolve().parent
+        cls.rows = read_jsonl(here.parent / "rows.jsonl")
+        cls.truth = read_jsonl(here / "truth.jsonl")
+
+    def case(self, row_id):
+        return self.rows[row_id][1], deepcopy(self.truth[row_id][1])
+
+    def test_websocket_protocol_uses_raw_and_served_kinds(self):
+        for row_id in ("fa06", "es2-10"):
+            for field in ("calls", "served"):
+                with self.subTest(row=row_id, field=field):
+                    row, truth = self.case(row_id)
+                    self.assertFalse(compare_row(row, truth).differences)
+                    next(record for record in truth[field] if record["kind"] == "websocket")["kind"] = "http"
+                    self.assertTrue(any("protocol" in diff.field
+                                        for diff in compare_row(row, truth).differences))
+
+    def test_swapped_mount_ids_fail_even_when_served_paths_are_unchanged(self):
+        row, truth = self.case("ex24")
+        self.assertFalse(compare_row(row, truth).differences)
+        truth["served"][0]["mount_call_ids"], truth["served"][1]["mount_call_ids"] = (
+            truth["served"][1]["mount_call_ids"], truth["served"][0]["mount_call_ids"])
+        self.assertTrue(any("mount_call_ids" in diff.field for diff in compare_row(row, truth).differences))
+
+    def test_runtime_loss_does_not_cover_another_column_on_the_same_line(self):
+        for row_id, column in (("et1-10", "column"), ("es1-20", "column_byte"), ("es3-07", "column_byte")):
+            with self.subTest(row=row_id):
+                row, truth = self.case(row_id)
+                self.assertFalse(compare_row(row, truth).differences)
+                truth["calls"][0]["site"][column] += 1
+                self.assertEqual([diff.field for diff in compare_row(row, truth).differences], ["registrations"])
+
+    def test_native_path_keys_match_shared_grammar_vectors(self):
+        import json
+        from reconcile import path_tokens
+
+        vectors = json.loads(Path(__file__).with_name("path_key_vectors.json").read_text(encoding="utf-8"))
+        for framework, path, tokens in vectors:
+            with self.subTest(framework=framework, path=path):
+                self.assertEqual(path_tokens(framework, path), tokens)
 
 
 if __name__ == "__main__":

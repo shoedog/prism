@@ -397,7 +397,7 @@ pub struct Route {
     pub default_methods: Option<MethodSet>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "candidate_is_absent")]
     pub candidate: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<Reason>,
@@ -409,16 +409,28 @@ pub struct Route {
     pub callbacks: Vec<Callback>,
 }
 
+fn candidate_is_absent(candidate: &Option<bool>) -> bool {
+    *candidate != Some(true)
+}
+
 impl Route {
     fn sort_key(&self) -> impl Ord + '_ {
         let first = self.paths.first();
-        let path = first
-            .and_then(|path| path.normalized.as_deref().or_else(|| path.status.value()))
-            .or_else(|| {
-                self.declaration
-                    .as_ref()
-                    .map(|record| record.path.raw.as_str())
-            });
+        let spelling = self.declaration.as_ref().map(|record| &record.path);
+        let raw = spelling.map(|path| path.raw.as_str());
+        let spelling = match first {
+            Some(path) => (
+                path.normalized
+                    .as_deref()
+                    .or_else(|| path.status.value())
+                    .or(raw),
+                None,
+            ),
+            None => (
+                spelling.and_then(|path| path.literal.as_deref()).or(raw),
+                raw,
+            ),
+        };
         let methods = self
             .declaration
             .as_ref()
@@ -428,7 +440,7 @@ impl Route {
             .as_ref()
             .map(|plugin| (&plugin.file, plugin.object_byte));
         (
-            path,
+            spelling,
             methods,
             &self.site,
             &self.install_site,
@@ -538,6 +550,7 @@ impl RouteTable {
         for route in &mut routes {
             if matches!(route.receiver, Receiver::Unproven { .. }) {
                 route.candidate = Some(true);
+                route.paths.clear();
                 unproven += 1;
             }
             candidates += usize::from(route.candidate == Some(true));

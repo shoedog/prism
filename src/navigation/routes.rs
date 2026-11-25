@@ -12,11 +12,30 @@ pub enum RouteFormat {
 }
 
 pub fn list(session: &NavigationSession, entry: Option<&str>) -> Result<RouteTable, EntryError> {
+    list_selected(session, entry.map(RootSelector::parse).transpose()?)
+}
+
+/// Parse the selector before opening an index for a CLI query.
+pub fn list_with_session<E>(
+    entry: Option<&str>,
+    open: impl FnOnce() -> Result<NavigationSession, E>,
+) -> Result<Result<RouteTable, EntryError>, E> {
+    let entry = match entry.map(RootSelector::parse).transpose() {
+        Ok(entry) => entry,
+        Err(error) => return Ok(Err(error)),
+    };
+    Ok(list_selected(&open()?, entry))
+}
+
+fn list_selected(
+    session: &NavigationSession,
+    entry: Option<RootSelector>,
+) -> Result<RouteTable, EntryError> {
     routes(
         &session.repo.files,
         session.index.call_graph(),
         &session.repo.manifest_snapshot,
-        entry.map(RootSelector::parse).transpose()?,
+        entry,
     )
 }
 

@@ -605,6 +605,7 @@ pub struct RoutesArgs {
     #[arg(long)]
     pub repo: PathBuf,
     /// Select a statically evidenced application or dispatcher instance.
+    /// Use --entry=-app.js for a selector that starts with a hyphen.
     #[arg(long)]
     pub entry: Option<String>,
     #[arg(long)]

@@ -25,6 +25,7 @@ fn listing_sorts_origins_and_paths_and_counts_hidden_mounts() {
     candidate["origin_plugin"]["object_byte"] = json!(10);
     candidate["receiver"] = json!({"status":"unproven","reason":"receiver_unproven"});
     candidate["paths"] = json!([]);
+    candidate["path"] = json!({"raw":"'/0'","literal":"/0"});
     let mount = json!({
         "parent":router,"child":router,"site":site,"prefix":{"status":"absent"},
         "alternative_ordinal":0,"child_ordinal":0
@@ -91,4 +92,59 @@ fn session_infers_empty_and_refuses_explicit_entry() {
         RouteFormat::Text.render(Err(refusal), false),
         "error entry=\"app:app\" reason=\"entry_unproven\"\n"
     );
+}
+
+#[test]
+fn empty_exposures_sort_by_literal_then_raw() {
+    let row = |raw: &str, literal: &str, start| {
+        serde_json::from_value::<Route>(json!({
+            "framework":"express","protocol":"http",
+            "site":{"file":"app.js","line":1,"start_byte":start,"end_byte":start + 1},
+            "receiver":{"status":"router","file":"app.js","binding":"app","construction_byte":0,"invocations":[]},
+            "methods":null,"path":{"raw":raw,"literal":literal},
+            "paths":[],"callbacks":[],"candidate":false
+        })).unwrap()
+    };
+    let later = row("\"/z\"", "/z", 0);
+    let tied = row("`/a`", "/a", 1);
+    let first = row("'/a'", "/a", 2);
+    let table = RouteTable::new(vec![later, tied, first], vec![], vec![], vec![], []);
+    assert_eq!(
+        table
+            .routes()
+            .iter()
+            .map(|row| row.site.start_byte)
+            .collect::<Vec<_>>(),
+        [2, 1, 0]
+    );
+}
+
+#[test]
+fn unproven_receivers_cannot_retain_exposures() {
+    let route = serde_json::from_value::<Route>(json!({
+        "framework":"express","protocol":"http","site":{"file":"app.js","line":1,"start_byte":0,"end_byte":2},
+        "receiver":{"status":"unproven","reason":"receiver_unproven"},
+        "methods":null,"path":{"raw":"x","literal":null},
+        "paths":[{"root":null,"status":"dynamic","reason":"non_literal_path",
+                  "path_tokens":null,"normalized":null,"host_kind":"unconstrained","hosts":[],
+                  "method_guard":"any","version":null}],
+        "callbacks":[]
+    })).unwrap();
+    let table = RouteTable::new(vec![route], vec![], vec![], vec![], []);
+    assert!(table.routes()[0].paths.is_empty());
+    assert_eq!(table.routes()[0].candidate, Some(true));
+    assert_eq!(table.summary().candidates, 1);
+}
+
+#[test]
+fn candidate_false_is_omitted() {
+    let route: Route = serde_json::from_value(json!({
+        "framework":"express","protocol":"http","site":{"file":"app.js","line":1,"start_byte":0,"end_byte":2},
+        "receiver":{"status":"router","file":"app.js","binding":"app","construction_byte":0,"invocations":[]},
+        "methods":null,"path":{"raw":"x","literal":null},"paths":[],"callbacks":[],"candidate":false
+    })).unwrap();
+    assert!(serde_json::to_value(route)
+        .unwrap()
+        .get("candidate")
+        .is_none());
 }

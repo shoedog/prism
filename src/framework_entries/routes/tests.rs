@@ -115,3 +115,62 @@ fn wire_distinguishes_null_omitted_and_closed_variants() {
         json!(["literal", "{id}"])
     );
 }
+
+#[test]
+fn native_identifiers_can_select_evidenced_roots() {
+    for entry in ["app:किरण", "किरण.urls:ऐप", "app.js#किरण", "app.js#\u{2118}"]
+    {
+        let kind = EntryKind::parse(entry).unwrap_or_else(|| panic!("{entry}"));
+        let root = router(10);
+        let evidence = [RootEvidence {
+            identity: root.clone(),
+            selectors: vec![kind],
+        }];
+        assert_eq!(
+            RootSelector::parse(entry).unwrap().resolve(&evidence),
+            Ok(&root)
+        );
+    }
+    for entry in ["app:कि-रण", "app:किरण ", "app.js#नाम/अ", "app:१नाम"]
+    {
+        assert!(RootSelector::parse(entry).is_err(), "{entry}");
+    }
+}
+
+#[test]
+fn serialized_paths_use_repo_paths_instead_of_shorthand_delimiters() {
+    let root = RouterId {
+        file: "routes#v2.js".into(),
+        invocations: vec![Invocation::Call {
+            file: "src/config:dev\\local.js".into(),
+            start_byte: 23,
+            end_byte: 38,
+        }],
+        ..router(10)
+    };
+    let evidence = [RootEvidence {
+        identity: root.clone(),
+        selectors: vec![],
+    }];
+    let entry = serde_json::to_string(&root).unwrap();
+    assert_eq!(
+        RootSelector::parse(&entry).unwrap().resolve(&evidence),
+        Ok(&root)
+    );
+    for file in [
+        "/abs.js",
+        "../escape.js",
+        "src/../../escape.js",
+        "line\nbreak.js",
+        "nul\0.js",
+        "control\u{7f}.js",
+        "line\u{2028}break.js",
+    ] {
+        let mut invalid = root.clone();
+        invalid.file = file.into();
+        assert!(
+            RootSelector::parse(&serde_json::to_string(&invalid).unwrap()).is_err(),
+            "{file:?}"
+        );
+    }
+}

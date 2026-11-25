@@ -9,7 +9,9 @@ S1a provides the listing contract with `enabled_adapters: []`. With no
 empty summary in this build. An empty listing carries no evidence of route
 absence. Explicit selection requires one grounded app, factory result, URLconf,
 or serialized root identity. The query refuses missing, ambiguous and invalid
-selections with one `entry_unproven` error line and a nonzero exit status.
+selections with one `entry_unproven` error line and exit status 2. Use the
+equals form for selectors that start with a hyphen, for example
+`--entry=-app.js`. A missing argument produces a CLI usage error.
 
 Selectors include Python `module:app`, `module:create_app()` and
 `project.urls:urlpatterns`, JavaScript or TypeScript `src/app.ts` for the
@@ -21,7 +23,9 @@ contain the file and half-open byte span, in outermost-first order.
 JSON output uses one unwrapped route per line, then wrapped mount lines when
 requested, then one wrapped summary. Text output uses the record kind followed
 by `field=value` pairs. Nested values retain their JSON spelling. Routes are
-ordered by first path key or spelling, methods, and source origin. Mounts follow
+ordered by first path key or spelling, methods, and source origin. With no
+exposures they use the declared literal when available, then the raw spelling.
+Mounts follow
 source order and alternative/child ordinals. Sites use repo-relative files,
 one-based lines and zero-based, half-open UTF-8 byte spans.
 
@@ -57,8 +61,8 @@ available in the S1a build.
 ```jsonl
 {"framework":"express","protocol":"http","site":{"file":"app.js","line":4,"start_byte":50,"end_byte":75},"receiver":{"status":"router","file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"methods":{"known":["GET"]},"path":{"raw":"'/items/:id'","literal":"/items/:id"},"paths":[{"root":{"file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"status":"full","value":"/items/:id","path_tokens":[["literal","/items/"],["parameter"]],"normalized":"/items/{}","host_kind":"unconstrained","hosts":[],"method_guard":"any","version":null}],"callbacks":[{"position":0,"status":"resolved","file":"app.js","name":"show","start_line":2,"end_line":2,"start_byte":22,"end_byte":47,"delegate":null}]}
 {"framework":"express","protocol":"http","site":{"file":"app.js","line":5,"start_byte":76,"end_byte":113},"receiver":{"status":"router","file":"app.js","binding":"child","construction_byte":0,"invocations":[]},"methods":{"known":["GET"]},"path":{"raw":"'/ready'","literal":"/ready"},"paths":[{"root":null,"status":"suffix","value":"/ready","reason":"no_known_mount","path_tokens":[["literal","/ready"]],"normalized":"/ready","host_kind":"unconstrained","hosts":[],"method_guard":"any","version":null}],"callbacks":[{"position":0,"status":"anonymous","file":"app.js","name":"<anon@5:20>","start_line":5,"end_line":5,"start_byte":96,"end_byte":112,"delegate":null}]}
-{"framework":"express","protocol":"http","site":{"file":"app.js","line":6,"start_byte":114,"end_byte":150},"receiver":{"status":"router","file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"methods":{"known":["GET"]},"path":{"raw":"config.path","literal":null},"paths":[{"root":{"file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"status":"dynamic","reason":"non_literal_path","path_tokens":null,"normalized":null,"host_kind":"unconstrained","hosts":[],"method_guard":"any","version":null}],"callbacks":[{"position":0,"status":"unresolved","text":"views.show","reason":"member_handler","delegate":null}]}
 {"framework":"flask","protocol":"http","site":{"file":"app.py","line":8,"start_byte":110,"end_byte":130},"receiver":{"status":"unproven","reason":"receiver_unproven"},"candidate":true,"methods":null,"path":{"raw":"'/x'","literal":"/x"},"paths":[],"callbacks":[{"position":0,"status":"unresolved","text":"status","reason":"receiver_unproven","delegate":null}]}
+{"framework":"express","protocol":"http","site":{"file":"app.js","line":6,"start_byte":114,"end_byte":150},"receiver":{"status":"router","file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"methods":{"known":["GET"]},"path":{"raw":"config.path","literal":null},"paths":[{"root":{"file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"status":"dynamic","reason":"non_literal_path","path_tokens":null,"normalized":null,"host_kind":"unconstrained","hosts":[],"method_guard":"any","version":null}],"callbacks":[{"position":0,"status":"unresolved","text":"views.show","reason":"member_handler","delegate":null}]}
 {"mount":{"parent":{"status":"router","file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"child":{"status":"router","file":"app.js","binding":"child","construction_byte":0,"invocations":[]},"site":{"file":"app.js","line":7,"start_byte":151,"end_byte":174},"prefix":{"status":"literal","value":"/api"},"alternative_ordinal":0,"child_ordinal":0}}
 {"mount":{"parent":{"status":"router","file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"child":{"status":"unproven","reason":"mount_child_unproven"},"site":{"file":"app.js","line":8,"start_byte":175,"end_byte":193},"prefix":{"status":"absent"},"alternative_ordinal":0,"child_ordinal":0}}
 {"mount":{"parent":{"status":"router","file":"app.js","binding":"app","construction_byte":12,"invocations":[]},"child":{"status":"router","file":"app.js","binding":"child","construction_byte":0,"invocations":[]},"site":{"file":"app.js","line":9,"start_byte":194,"end_byte":222},"prefix":{"status":"unevaluated","text":"config.prefix"},"alternative_ordinal":0,"child_ordinal":0}}

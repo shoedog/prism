@@ -227,6 +227,7 @@ pub(super) fn selected_root(dir: &Path, entry: &str) -> Result<Value, String> {
         .next()
         .filter(|_| files.next().is_none())
         .ok_or_else(|| format!("{entry}: expected one entry source"))?;
+    let named_export = export.as_ref().is_some_and(Option::is_some);
     if let Some(export) = export {
         let proven = source
             .lines()
@@ -284,6 +285,7 @@ pub(super) fn selected_root(dir: &Path, entry: &str) -> Result<Value, String> {
 
     let mut offset = region_start;
     let mut hits = Vec::new();
+    let mut indirect_named_constructor = false;
     for line in region.split_inclusive('\n') {
         let statement = line.trim_start();
         let prefix = statement.strip_prefix("export ").unwrap_or(statement);
@@ -293,9 +295,8 @@ pub(super) fn selected_root(dir: &Path, entry: &str) -> Result<Value, String> {
             .unwrap_or(prefix);
         let (name, rhs) = prefix.split_once('=').unwrap_or_default();
         let constructor = rhs.trim_start();
-        if name.trim() == binding
-            && (factory || statement.len() == line.len())
-            && [
+        if name.trim() == binding && (factory || statement.len() == line.len()) {
+            if [
                 "express(",
                 "Flask(",
                 "flask.Flask(",
@@ -305,12 +306,22 @@ pub(super) fn selected_root(dir: &Path, entry: &str) -> Result<Value, String> {
             ]
             .iter()
             .any(|pattern| constructor.starts_with(pattern))
-        {
-            hits.push(offset + line.len() - constructor.len());
+            {
+                hits.push(offset + line.len() - constructor.len());
+            } else if named_export
+                && constructor.split_once('(').is_some_and(|(callee, _)| {
+                    EntryKind::parse(&format!("{file}#{}", callee.trim_end())).is_some()
+                })
+            {
+                indirect_named_constructor = true;
+            }
         }
         offset += line.len();
     }
     let [byte] = hits.as_slice() else {
+        if hits.is_empty() && indirect_named_constructor {
+            return Err(format!("{entry}: unsupported selector shape: owned by S3a"));
+        }
         return Err(format!("{entry}: expected a unique fixture construction"));
     };
     Ok(
@@ -336,6 +347,9 @@ pub(super) fn validate(row: &Value, dir: &Path, errors: &mut Vec<String>) {
         let mut pins = row[key].clone();
         resolve_pins(&mut pins, &sources, key, errors);
         files_and_spans(&pins, Some(dir), key, errors);
+        if key == "expect_mounts" {
+            super::listing::validate_mount_pins(items(&pins), errors);
+        }
     }
     if let Some(entry) = row.get("query_entry").unwrap_or(&row["entry"]).as_str() {
         if let Err(error) = selected_root(dir, entry) {
@@ -403,4 +417,29 @@ fn construction_byte(anchor: &Value, source: &str, after: Option<usize>) -> Resu
     Err(format!(
         "ambiguous construction anchor {binding:?} at {text:?}"
     ))
+}
+
+#[test]
+fn named_factory_instance_selector_explains_s3a_ownership() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("app.js"),
+        concat!(
+            "const express = require('express');\n",
+            "function makeApp() { return express(); }\n",
+            "const left = makeApp();\n",
+            "module.exports.left = left;\n",
+        ),
+    )
+    .unwrap();
+    let error = selected_root(dir.path(), "app.js#left").unwrap_err();
+    assert!(
+        error.contains("unsupported selector shape: owned by S3a"),
+        "{error}"
+    );
+    let missing = selected_root(dir.path(), "app.js#missing").unwrap_err();
+    assert!(
+        missing.contains("expected a direct fixture export"),
+        "{missing}"
+    );
 }

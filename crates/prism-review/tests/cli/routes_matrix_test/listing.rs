@@ -54,13 +54,21 @@ fn path_key(path: &Value) -> impl Ord + '_ {
 }
 
 fn route_key(route: &Value) -> impl Ord + '_ {
-    let path = items(&route["paths"]).first().unwrap_or(&Value::Null);
+    let paths = items(&route["paths"]);
+    let raw = route["path"]["raw"].as_str();
+    let spelling = match paths.first() {
+        Some(path) => (
+            path["normalized"]
+                .as_str()
+                .or(path["value"].as_str())
+                .or(raw),
+            None,
+        ),
+        None => (route["path"]["literal"].as_str().or(raw), raw),
+    };
     let plugin = &route["origin_plugin"];
     (
-        path["normalized"]
-            .as_str()
-            .or_else(|| path["value"].as_str())
-            .or_else(|| route["path"]["raw"].as_str()),
+        spelling,
         methods(&route["methods"]),
         site_key(&route["site"]),
         route.get("install_site").map(site_key),
@@ -76,6 +84,26 @@ fn mount_key(mount: &Value) -> impl Ord + '_ {
         mount["alternative_ordinal"].as_u64(),
         mount["child_ordinal"].as_u64(),
     )
+}
+
+pub(super) fn validate_mount_pins(mounts: &[Value], errors: &mut Vec<String>) {
+    let mut counts = BTreeMap::new();
+    for mount in mounts {
+        *counts.entry(site_key(&mount["site"])).or_insert(0) += 1;
+    }
+    let mut seen = BTreeSet::new();
+    for (index, mount) in mounts.iter().enumerate() {
+        let site = site_key(&mount["site"]);
+        if counts[&site] > 1
+            && (mount["alternative_ordinal"].as_u64().is_none()
+                || mount["child_ordinal"].as_u64().is_none()
+                || !seen.insert(mount_key(mount)))
+        {
+            errors.push(format!(
+                "expect_mounts[{index}]: shared site requires distinct source ordinals"
+            ));
+        }
+    }
 }
 
 pub(super) fn validate(
@@ -95,9 +123,9 @@ pub(super) fn validate(
     }
     if mounts
         .windows(2)
-        .any(|pair| mount_key(&pair[0]) > mount_key(&pair[1]))
+        .any(|pair| mount_key(&pair[0]) >= mount_key(&pair[1]))
     {
-        errors.push("mounts are out of wire order".into());
+        errors.push("mounts require unique source ordinals in wire order".into());
     }
     for (index, mount) in mounts.iter().enumerate() {
         let field = format!("mount[{index}]");
@@ -105,6 +133,15 @@ pub(super) fn validate(
         files_and_spans(mount, dir, &field, errors);
         if mount["child"].get("realm").is_some() && mount["child"]["status"] != "router" {
             errors.push(format!("{field}.child.realm: requires a grounded child"));
+        }
+        if ["parent", "child"]
+            .iter()
+            .any(|&endpoint| mount[endpoint]["proof"] == "plugin_contract")
+        {
+            errors.push(format!("{field}: plugin_contract cannot ground a mount"));
+        }
+        if mount.get("end_guard").is_some() && mount.get("guard_pattern").is_none() {
+            errors.push(format!("{field}.end_guard: requires guard_pattern"));
         }
     }
     let failed = items(&summary["failed_roots"]);
@@ -115,6 +152,7 @@ pub(super) fn validate(
         let receiver = &route["receiver"];
         let candidate = route["candidate"] == true;
         let hapi = route["framework"] == "hapi";
+        let flask = route["framework"] == "flask";
         let weak = receiver["proof"] == "plugin_contract";
         if receiver["status"] == "unproven" && (!candidate || !items(&route["paths"]).is_empty()) {
             errors.push(format!(
@@ -126,17 +164,37 @@ pub(super) fn validate(
                 "{field}: plugin proof requires an identified Hapi object"
             ));
         }
-        if route.get("path").is_none() && !candidate {
+        if route.get("path").is_none()
+            && (!candidate
+                || !items(&route["paths"]).is_empty()
+                || !items(&route["callbacks"]).is_empty())
+        {
             errors.push(format!(
-                "{field}: missing declaration is limited to opaque candidates"
+                "{field}: missing declaration requires an opaque candidate with no exposures or callbacks"
             ));
         }
-        if route["protocol"] == "websocket" && !route["methods"].is_null()
+        if route["protocol"] == "websocket"
+            && (!route["methods"].is_null() || route.get("default_methods").is_some())
             || route
                 .get("default_methods")
                 .is_some_and(|set| set.get("known").is_none())
         {
             errors.push(format!("{field}: invalid declared or default methods"));
+        }
+        if route.get("endpoint").is_some() && !flask {
+            errors.push(format!("{field}.endpoint: requires Flask"));
+        }
+        if route.get("origin_plugin").is_some() && !hapi && route["framework"] != "object-table" {
+            errors.push(format!(
+                "{field}.origin_plugin: requires a Hapi association"
+            ));
+        }
+        if route.get("superseded_keys").is_some()
+            && !matches!(route["framework"].as_str(), Some("object-table" | "chi"))
+        {
+            errors.push(format!(
+                "{field}.superseded_keys: requires a Map or chi write"
+            ));
         }
         let element = route.get("element_site").is_some();
         let install = route.get("install_site").is_some();
@@ -158,6 +216,21 @@ pub(super) fn validate(
             let field = format!("{field}.paths[{position}]");
             if path["status"] == "full" && path["root"].is_null() {
                 errors.push(format!("{field}.root: full exposure requires a root"));
+            }
+            if path.get("strict_slashes").is_some() != flask {
+                errors.push(format!("{field}.strict_slashes: required only on Flask"));
+            }
+            if !path["version"].is_null() && route["framework"] != "nestjs" {
+                errors.push(format!("{field}.version: active selectors require NestJS"));
+            }
+            if weak
+                && (!path["root"].is_null()
+                    || !(path["status"] == "dynamic"
+                        || (path["status"] == "suffix" && path["reason"] == "no_known_mount")))
+            {
+                errors.push(format!(
+                    "{field}: plugin_contract requires a null-root suffix (no_known_mount) or dynamic path"
+                ));
             }
             if failed.iter().any(|failed| failed["root"] == path["root"])
                 && path["binding_blocked"] != "any"
@@ -188,11 +261,23 @@ pub(super) fn validate(
             if path["normalized"] != json!(expected_normalized) {
                 errors.push(format!("{field}.normalized: does not render path_tokens"));
             }
+            if path["status"] == "dynamic" && !path["path_tokens"].is_null() {
+                errors.push(format!("{field}.path_tokens: dynamic path has no key"));
+            }
             if path["host_kind"] == "unconstrained" && !items(&path["hosts"]).is_empty() {
                 errors.push(format!("{field}.hosts: unconstrained host has no strings"));
             }
+            if path["host_kind"] != "unconstrained"
+                && !matches!(
+                    route["framework"].as_str(),
+                    Some("flask" | "hapi" | "nestjs" | "net/http")
+                )
+            {
+                errors.push(format!("{field}.host_kind: framework has no host selector"));
+            }
         }
-        for (position, callback) in items(&route["callbacks"]).iter().enumerate() {
+        let callbacks = items(&route["callbacks"]);
+        for (position, callback) in callbacks.iter().enumerate() {
             if (hapi && route.get("path").is_some() && !candidate && callback.get("role").is_none())
                 || (!hapi && callback.get("role").is_some())
                 || callback["position"] != position
@@ -200,6 +285,27 @@ pub(super) fn validate(
             {
                 errors.push(format!(
                     "{field}.callbacks[{position}]: inconsistent callback"
+                ));
+            }
+            let last = position + 1 == callbacks.len();
+            if hapi
+                && ((!last && callback["role"] == "handler")
+                    || (last && !candidate && callback["role"] != "handler"))
+            {
+                errors.push(format!(
+                    "{field}.callbacks[{position}].role: handler must be last"
+                ));
+            }
+            if receiver["status"] == "unproven" && callback["reason"] != receiver["reason"] {
+                errors.push(format!(
+                    "{field}.callbacks[{position}].reason: must match receiver reason"
+                ));
+            }
+            if !callback["delegate"].is_null()
+                && (callback["status"] != "unresolved" || callback["reason"] != "wrapper_call")
+            {
+                errors.push(format!(
+                    "{field}.callbacks[{position}].delegate: requires wrapper_call"
                 ));
             }
         }
@@ -258,6 +364,8 @@ pub(super) fn compare_collection(
                         "install_site",
                         "element_ordinal",
                         "origin_plugin",
+                        "alternative_ordinal",
+                        "child_ordinal",
                     ]
                     .iter()
                     .all(|&key| pin.get(key).is_none_or(|value| fits(value, &got[key])))
@@ -316,80 +424,5 @@ pub(super) fn check_events(
     }
 }
 
-#[test]
-fn duplicate_diagnostics_and_changed_failure_frames_fail_exact_comparison() {
-    use super::check_roots;
-    let source = "é\nregister(p)\n";
-    let sources = BTreeMap::from([("app.js".into(), source.into())]);
-    let reason = "hapi_registration_unproven";
-    let root = json!({
-        "file":"app.js","binding":"app","construction_byte":0,"invocations":[
-            {"file":"app.js","start_byte":3,"end_byte":14}
-        ]
-    });
-    let row = json!({
-        "expect_diagnostics":[{"site":{"file":"app.js","line":2,"text":"register(p)"},"reason":reason}],
-        "expect_failed_roots":[{"root":root,"site":{"file":"app.js","line":2,"text":"register(p)"},"reason":reason}]
-    });
-    let site = json!({"file":"app.js","line":2,"start_byte":3,"end_byte":14});
-    let diagnostic = json!({"site":site,"reason":reason});
-    let mut summary = json!({
-        "diagnostics":[diagnostic],
-        "failed_roots":[{"root":root,"site":site,"reason":reason}]
-    });
-    let mut errors = Vec::new();
-    check_events(&row, &summary, &sources, &mut errors);
-    assert!(errors.is_empty(), "{errors:?}");
-    summary["diagnostics"]
-        .as_array_mut()
-        .unwrap()
-        .push(diagnostic);
-    summary["failed_roots"][0]["root"]["invocations"][0]["start_byte"] = json!(5);
-    check_events(&row, &summary, &sources, &mut errors);
-    assert_eq!(errors.len(), 2, "{errors:?}");
-    let mut exposure = json!({"status":"full","root":root});
-    let mut errors = Vec::new();
-    check_roots(&[json!({"paths":[exposure]})], &root, &mut errors);
-    assert!(errors.is_empty());
-    exposure["root"]["binding"] = json!("other");
-    check_roots(&[json!({"paths":[exposure]})], &root, &mut errors);
-    assert_eq!(errors.len(), 1, "{errors:?}");
-}
-
-#[test]
-fn wire_requires_nullable_fields_and_failed_root_blocks() {
-    let root = json!({"file":"app.js","binding":"app","construction_byte":0,"invocations":[]});
-    let site = json!({"file":"app.js","line":1,"start_byte":0,"end_byte":20});
-    let mut route = json!({
-        "framework":"hapi", "protocol":"http", "site":site,
-        "receiver":{"status":"router","file":"app.js","binding":"app","construction_byte":0,"invocations":[]},
-        "methods":null, "path":{"raw":"'/ready'","literal":"/ready"},
-        "paths":[{"root":root,"status":"full","value":"/ready","path_tokens":[["literal","/ready"]],
-            "normalized":"/ready","host_kind":"unconstrained","hosts":[],"version":null,
-            "method_guard":"any","binding_blocked":"any","shadowed":null,"strict_slashes":null}],
-        "callbacks":[{"position":0,"status":"resolved","role":"pre","group":0,"delegate":null,
-            "file":"app.js","name":"prepare","start_line":1,"end_line":1,"start_byte":0,"end_byte":5}]
-    });
-    let summary = json!({"enabled_adapters":["hapi"],"registrations":1,"proven":1,"unproven":0,"candidates":0,
-        "mounts":0,"diagnostics":[],"failed_roots":[{"root":root,"site":site,"reason":"hapi_handler_conflict"}]});
-    let mut errors = Vec::new();
-    validate(&[route.clone()], &[], &summary, None, &mut errors);
-    assert!(errors.is_empty(), "{errors:?}");
-    route["callbacks"][0]
-        .as_object_mut()
-        .unwrap()
-        .remove("delegate");
-    route["paths"][0]
-        .as_object_mut()
-        .unwrap()
-        .remove("binding_blocked");
-    validate(&[route], &[], &summary, None, &mut errors);
-    assert!(
-        errors.iter().any(|error| error.contains("noncanonical")),
-        "{errors:?}"
-    );
-    assert!(
-        errors.iter().any(|error| error.contains("binding_blocked")),
-        "{errors:?}"
-    );
-}
+#[cfg(test)]
+mod tests;
