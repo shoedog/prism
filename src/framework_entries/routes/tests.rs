@@ -2,6 +2,7 @@ use super::*;
 use serde_json::json;
 
 mod composition;
+mod flask;
 mod table;
 mod wire;
 

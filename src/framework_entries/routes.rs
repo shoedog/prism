@@ -1,5 +1,11 @@
 //! Source registrations and their query-local projection.
+// Checkpoint 2 connects the source facts to the route table.
+#[allow(dead_code)]
+mod handler;
 pub mod mounts;
+#[allow(dead_code)]
+mod python;
+#[allow(dead_code)]
 mod receivers;
 mod table;
 #[cfg(test)]
