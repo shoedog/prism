@@ -102,7 +102,7 @@ the 540 matrix expectations and 300 source-only candidates, including the accept
    findings. Inspect helpers and macros for raw factories, serde synthesis and computed
    lookups. Check the actual algorithm and the choice of row against the witness. S4 reviewers
    trace external ids to the admitted input and the private SARIF property type in both modes.
-   S2-W checks all 540 keys and the occurrence join.
+   S2-W checks all 540 keys and the shared writer. S2-WC checks the occurrence join.
    At each language PR check that language's complete findings and every already activated partition.
    Use A's closed nominal exceptions, including the neutral unbound redirects and local SQL export,
    and its SQL-literal witness for Python `query` alone on an unresolved receiver.
@@ -296,14 +296,16 @@ directions), `parser_rejects_unsorted_rules`, `parser_rejects_bad_cwe`, `parser_
       Round 2 of the cap of 2 returned B REJECT and A APPROVE on `be906634a77c`. D-3 folds their
       bounded findings on that artifact. D-5 folds the single §8 review of D-4 (B REJECT,
       A APPROVE at `30216157813a`). D-6 changes one JS candidate and zero TSV cells.
-      Both reviewers review D-6 once under ORCHESTRATION §8. A rejection returns the designs,
-      changed rows and reasons to the owner. Hold further collector work until that disposition.
+      The one §8 review of D-6 at `45264869` returned B REJECT and A APPROVE. D-7 folds both
+      reviews on that design; E retains all D-6 decisions. Hold collector dispatch for owner
+      disposition under §8, including the S5 threshold and S6 budget below.
 
 ## Stage I: slices
 
-S1 is present. Use one PR per row below in the listed order. Estimates include tests in weighted
+S1 is present. Use one PR per row below in dependency order. Estimates include tests in weighted
 lines of hand-edited code, excluding generated page/TSV bytes and the identified move-only commit.
-Each PR has a review cap of **3 rounds**, declared before dispatch. Both reviewers cover product
+Declare the cap before dispatch. A new product blocker has **3 rounds**. The #901 successors
+share the remaining round for each inherited blocker as set out below. Both reviewers cover product
 changes. At the cap apply ORCHESTRATION's convergence/owner procedure. Split a forecast that outgrows
 its boundary before dispatch. Include the slice's row, shared gates and Stage M scopes in each
 dispatched brief so its files, dependencies, size, review cap and acceptance travel together.
@@ -312,15 +314,15 @@ dispatched brief so its files, dependencies, size, review cap and acceptance tra
 |---|---|---|---:|---:|---:|
 | S1 | T/E may overlap | Field (present) | 0.5 | mechanical literals, ~70–110 | 3 |
 | S2-R | S1, approved D, pinned T | Core registry, field privacy, serde and producer checks | 1 | 300–450 | 3 |
-| S2-W | S2-R, pinned T, approved D-6 | Fold #901 in place, shared evidence interface, writer and matrix | 1.25 | 350–550 | 3 total |
-| S2-WC | S2-W | Located old visits, diagnostic join and controls | 0.75 | 250–400 | 3 |
-| S2-JS-proof | S2-WC | JS/TS/TSX read/value proofs and operand layout, dormant | 1.5 | 350–550 | 3 |
+| S2-W | S2-R, pinned T, owner disposition on D-7 | Fold #901 in place, shared evidence interface, writer and matrix | 1.25 | 350–550 | 1 left (#901) |
+| S2-WC | S2-W | Located old visits, diagnostic join and controls | 0.75 | 250–400 | 1 left (#901) |
+| S2-JS-proof | S2-WC | JS/TS/TSX read/value proofs and operand layout, dormant | 1.5 | 350–550 | 1 left (#901) |
 | S2-JS | S2-JS-proof | JS/TS/TSX including YAML | 1.5 | 450–700 | 3 |
-| S2-PY-proof | S2-JS | Python read/value proofs and signature binding, dormant | 1.25 | 300–500 | 3 |
-| S2-PY | S2-PY-proof | Python including Flask and review golden | 1.5 | 450–700 | 3 |
-| S2-GO-proof | S2-PY | Go bindings, roles and source keys, dormant | 1 | 250–450 | 3 |
-| S2-GO | S2-GO-proof | Go including both inline routes | 1.25 | 350–600 | 3 |
-| S2-L-proof | S2-GO | Legacy-language callee/value adapters for name origins, dormant | 1 | 250–450 | 3 |
+| S2-PY-proof | S2-WC | Python read/value proofs and signature binding, dormant | 1.25 | 300–500 | 1 left (#901) |
+| S2-PY | S2-JS, S2-PY-proof | Python including Flask and review golden | 1.5 | 450–700 | 3 |
+| S2-GO-proof | S2-WC | Go bindings, roles and source keys, dormant | 1 | 250–450 | 1 left (#901) |
+| S2-GO | S2-PY, S2-GO-proof | Go including both inline routes | 1.25 | 350–600 | 3 |
+| S2-L-proof | S2-GO | Legacy-language callee/value adapters for name origins, dormant | 1 | 250–450 | 1 left (#901) |
 | S2-L | S2-L-proof | Legacy languages and config/wrapper fixtures | 0.5 | 120–250 | 3 |
 | S3-G | S2-L | Registry completeness and generated page | 0.75 | 180–320 | 3 |
 | S3-N | S3-G | Primitive and absence registry rows | 0.75 | 220–400 | 3 |
@@ -336,7 +338,22 @@ cost for each language. These are forecasts, including tests. The existing #901 
 Keep accepted writer, matrix, tests and control history. Budget 150–250 weighted lines of new
 or revised behavior for the W fold, separately recording removals/moves of superseded dormant
 code and the final diff. Reuse discriminating regression fixtures at their new proof boundary.
-Round counts follow the blocker across all splits (§7); #901 has used two product rounds.
+
+**Owner question S6.** Should the design decision give each proof PR a fresh three-round cap?
+PR #901 spent 2 of 3 rounds. Under §7 we recommend carrying round 3 to the closure slice for each
+inherited obligation. Where multiple adapters must satisfy one obligation, review their parts of
+the same round. Splitting a PR, running proofs concurrently or deferring a control to publication
+does not reset its count. A rejection on an inherited blocker goes straight to the owner at cap
+before another fold. Use fresh proof caps only with explicit owner sign-off. Activation caps in
+the table cover new publication work.
+
+| Inherited #901 blocker | Closure slice and evidence | Remaining |
+|---|---|---|
+| Generic representative/slot credit and unrelated insertion keys | W removes the shared inference and checks parse, operand and route key. Each affected proof below demonstrates the actual language witness. | Round 3 |
+| Old visit counted by destination bytes, missing parents/children | WC records actual detector sites and both spanless controls in F. JS-proof replays recovered/refused children with real binding proofs. | Round 3 |
+| Declaration, coalesced read, reaching value and effects | JS-proof (shadow, destructuring/deferred writes, escapes in identifiers), PY-proof (targets, keywords, late writes), GO-proof (formals, init, value copies/escapes), L-proof (C value and macro). Each covers non-bare, later and continued reads where supported. | Round 3 |
+| Wrong callee, operand index or semantic role | JS-proof (wrappers, comments, tag/spread), PY-proof (keywords, splats), GO-proof (nested command, indices), L-proof (seven grammar layouts and both C name origins). | Round 3 |
+| Inline/source provenance and continued read key | JS-proof (YAML insertion/field binding), PY-proof (Flask call and role), GO-proof (ordinary edge, originating path, no-path and secondary inline). The corresponding activations replay the same controls through finding assembly. | Round 3 |
 
 Each language publishes **complete findings** including all its source insertions and any configured
 or wrapper role on the same line. A later source-only PR could change a rules key already shipped
@@ -392,8 +409,11 @@ pub struct SliceFinding { /* existing fields unchanged, then, last: */
 - [ ] For a proof PR run the real parsed-file/flow controls on the pre-slice base and head in
       addition to injected representative-order tests. Assert declaration/read/role spans and
       refusal causes. Affirmative tests at a callback alone cannot discharge publication.
-      No new active partition in W, WC or a proof PR. A read-only helper touching `src/ast*` or
-      `src/cpg/` still takes ORCHESTRATION §5 item 5, with an immediate release rebuild.
+      No new active partition in W, WC or a proof PR. Inspect **each final PR diff against its
+      integrated base**. Any `src/ast*`, `src/cpg/`, call-graph or navigation change triggers
+      ORCHESTRATION §5 item 5 on that PR, including a read-only accessor. Run Tier-A matrix-only
+      before commit and quick before review. Use `--allow-stale-sut` only immediately after a
+      release rebuild of the same worktree.
       A core flow modification is outside D-6 and requires a separately approved design, a cache
       bump and §5 item 6's full base/head multiset and counter differential (DESIGN 5.2).
 - [ ] From S2-R onward, G-closed calls core `check_emitted` with
@@ -416,7 +436,9 @@ pub struct SliceFinding { /* existing fields unchanged, then, last: */
       location per nonzero reason. Include pre-existing discrepancies with the base observation,
       #841 overlap/expanded-only counts, lane 4 state and any unexecuted candidate or grid cells. The 300 candidate decisions
       select extra positive/negative controls. Check base admission before asserting a new example.
-      Run F's D-6 join with per-channel rescues and after-reduction losses. Replay the changed
+      Run F's D-6 join with per-channel rescues. Report after-reduction losses against the
+      keyed D-5 E values for labels and F's independently reviewed D-5 references on pins.
+      Give the comparable denominator, unresolved refusals and the S5 trigger result. Replay the changed
       candidate on the exact base before JS activation. If its admission differs, report the
       discrepancy separately. Do not weaken a different E cell to get a producer through its gate.
 
@@ -503,6 +525,9 @@ covering the private fields, accessors and review re-export.
 Stage T's support, expectation, identity and TSV files, and `tests/algo/taxonomy/taint_sink_strength_test.rs`.
 Retire the diagnostic that classifies a detector parent by the edge's operand bytes. Carry its
 raw-visit fixtures into S2-WC, which implements the complete census before any activation.
+Defer #901's `src/ast/js_binding_site.rs` and `src/ast/rvalue_identifiers.rs` additions to the
+first proof PR that needs a core query. W should have no final diff in those paths. If either
+helper stays, W itself takes Tier-A matrix-only and quick. Recheck the trigger on the consumer PR.
 
 - [ ] Preserve #901's transcription of all 160 reviewed TSV cells by exact key, including expanded
       `observed =` values wherever the concrete expectation changed and all explicit observations. Replay
@@ -517,8 +542,10 @@ raw-visit fixtures into S2-WC, which implements the complete census before any a
       Use parse-tied/private construction. Verify file/tree, range, role containment, callable and
       route-specific line on receipt; retain each path for its guard. Pass selected named rows and
       strength to the existing writer only after all channels join. Check unrelated keys/trees,
-      same-call wrong slot, duplicate paths, empty admission and an inline continuation whose
-      insertion key differs from its operand line. Preserve #841's selected variant.
+      same-call wrong slot, duplicate paths, empty admission and continuations where the insertion
+      key differs from the read line. Exercise keyed inline evidence and Go originating-path
+      evidence separately. Reject a read in a sibling call outside the selected operand.
+      Preserve #841's selected variant.
 - [ ] Retain #901's `prism::slice::attach_rules(&mut SliceFinding, rows)` as the single built-in writer.
       Group by row id, reduce strength (any strong wins), sort by id and assign the vector once.
       Call `row.rule_ref().with_severity(override_value)` per id, setting `suggestion` only for
@@ -536,8 +563,16 @@ Extend the test-only `sink_rules/old_visits.rs` observer at actual old selection
 Observe a parent's real identifier/operator span or selected call's callee span on flat,
 structured, configured/wrapper, JS YAML, Flask and both Go paths. Distinguish Go command
 table entries with the same spelling. Record raw visits and missing operand bytes independently.
-Exercise the actual branches with zero/one/two unlocated parents, and two spanless edges hitting
-one located `audit` token. Join F's parent, operand, path/inline and final-publication populations.
+Exercise zero/one/two unlocated detector visits separately from missing destination spans. On the
+actual #901 `audit(x)` visits, with its exact tainted formal, require one located parent, two raw
+visits, two missing operand spans and one proved child (`configured-sink`). With unprovable source
+provenance, keep the same admission, parent and visit counts and require zero proved children and
+an empty final list. WC exercises the join with supplied child evidence. S2-JS-proof must
+produce those children from the parsed fixture and paths. Join F's parent, operand, path/inline
+and final-publication populations. On the 35 pins record the evidence for F's D-5 references
+and report the single-mention/multiple-reaching-definitions bucket separately. Show unavailable
+adapter decisions as pending. Rerun with the respective proof before activation and apply F's
+owner threshold (proposed default ≥1 distinct unrescued admitted key across the pins).
 Keep test instrumentation off in both output-gate binaries. Run shared gates at 0/540 active.
 
 ### Dormant proof PR before each language activation
@@ -549,30 +584,67 @@ the three proof routes of DESIGN 5.2, with a closed grammar inventory (including
 fallback), a callee/target extractor and a semantic operand binder. Show why an unclassified
 effect cannot pass. Compare binding at the exact read to the def token and test the old value
 of a read-modify-write separately from the resulting store. No edge/confidence/cache mutation.
-Test old and semantic argument checks on the same child. All four proof PRs take the empty-scope
-gates, retaining respectively 0, 205, 360 and 474 active keys.
+Before each affected proof fold, enumerate the pinned grammar's binders and shadows, deferred and
+destructuring writes, escapes, read/non-read roles and callee/argument layouts. Mark each supported
+or refused with a control. Test old and semantic argument checks on the same child. Each proof PR
+takes the empty-scope gates. JS/PY/GO proofs may run concurrently on WC (0/540 active). L-proof
+starts after Go activation (474/540). Recheck against the actual integrated base at landing,
+preserving every active key there. Only activations raise the count, in JS → PY → GO → L order.
 
-- **S2-JS-proof.** Include JS/TS/TSX immutable local, normal parameter, block/catch/for shadows
+- **S2-JS-proof. Files.** Use `taint_sinks/{js_binding,js_scope,callee}.rs` for lexical and
+  call-position facts, and `src/ast/js_write_census/` (including `alias_cert.rs`) for binders,
+  destructuring, writes and alias hazards. Prove token identity and initialization before each
+  evaluation, including within one statement. Include JS/TS/TSX immutable locals, normal parameters and block/catch/for shadows
   (including an inner def inside a scope-wide binder span), all five Opus destructuring writes,
   mapped arguments/eval, closure/class field/static writes and uncertain escapes. Reverse the
   representative and assert identities of the *actual reads* at nested, non-bare, continued and
   third-statement uses. Check asserted member paths, unique versus repeated request ranges,
   computed/indexed callee refusal, constructors, sequence and static wrapper forms. Test both
-  comment-shift directions, tag substitutions after slot 0 and unknown-width spread.
-- **S2-PY-proof.** Inventory formals/assignments including nonlocal/global, comprehension and
-  closure scopes, pattern targets and `del`. Check keyword name versus value, Python ellipsis,
+  comment-shift directions, tag substitutions after slot 0 and unknown-width spread. In the
+  nominal `res.send` fixture, `const x=i.v; const s='\n'; res.send(x)` retains `js-response@CWE-79`.
+  Substitute an inert regex such as `/\d/` and require the same result. For a read of `\u0078`
+  whose identifier binding the adapter cannot normalize, require refusal of the dependent proof.
+  Replay both WC `audit` controls from their actual formal/provenance and edges.
+- **S2-PY-proof. Files.** Use `taint_sinks/py_scope.rs::Sites` for the binding-site inventory and
+  `taint_sinks/callee.rs` for call/receiver facts. Resolve scope, reaching value and evaluation
+  order at the particular read. Inventory formals and assignments including nonlocal/global,
+  comprehension and closure scopes, pattern targets and `del`. Check keyword name versus value, Python ellipsis,
   positional/keyword permutation, splats and compound writes. Three nonadjacent reads and a
-  continued call must each carry their own operation and original indexed operand.
-- **S2-GO-proof.** Normalize formal/body and statement-list scope via actual declaration identity.
+  continued call must each carry their own operation and original indexed operand. A preceding
+  prefixed literal such as `s = r'\n'` preserves the control's `os.system(x)` identity. Inspect
+  formatted-string replacement expressions. Exercise F's conditional-default single-read refusal
+  and a direct dominating definition at the same sink.
+- **S2-GO-proof. Files.** Use `taint_sinks/{go_scope,callee}.rs` for formals, init scopes,
+  receiver/argument and callee facts. Prove the exact declaration, RHS/read order and slot
+  exposure. Normalize formal/body and statement-list scope via that declaration identity.
   Cover shadowing, `:=` reuse versus declaration, init scopes, parallel values, address-taking,
   capture and self-write. Verify non-bare arguments, comments, generic callees, start-line and
   source-operand ownership. On `ri15` the path guard applies to the file, leaving the format.
-- **S2-L-proof.** Prove the straight-line C automatic pointer value passed by value to both
-  `ri23c` calls, contrasted with a pointer-to-slot escape, macro or intervening write. For each
+  On `exec.Command(x).Run()` retain the inner executable read. `f(&T{N: x})` copies the value
+  of `x`, so a subsequent `exec.Command(x)` still qualifies. `f(&x)` exposes its slot and defeats
+  that proof. Repeat the clean control with an inert Go raw string containing a backslash.
+  Exercise `go: exec.Command`, `hybrid_go: aliased os/exec`, `hybrid_go: exec.CommandContext`,
+  `hybrid_go: probe: go aliased osexec.Command` against their individual E rows, plus the
+  separate `exec.Command` warning in `taint_sink_strength_test.rs`. Check the selected inner
+  operand, row/strength where applicable and the four Go routes in S2-GO below.
+- **S2-L-proof. Files.** Use the legacy projection and grammar fixtures in `taint/sink_rules/`.
+  `taint_sinks/callee.rs` covers JS/Python/Go. Extract the legacy callee and operand from each
+  grammar's own fields and prove the token, order and storage effects for supported locals.
+  Under DESIGN 5.2's D2 macro contract, the repo macro census finds no definition for undeclared
+  `audit_payload` in `ri23c`. The modeled function receives a copy of the automatic pointer.
+  `audit_payload(x); report(x);` therefore proves both configured and wrapper origins. Contrast
+  an in-repo macro that writes its argument, an incomplete census, `&x` and an intervening store.
+  Withhold any dependent role whose value or call cannot be proved. For each
   remaining grammar exercise supported configured/wrapper forms and refusal on an unresolved
   binder, dynamic callee or ambiguous slot. Cover qualified C++, Java creation, Rust scoped
   generics, Lua's call form, HCL argument container and static/dynamic Bash command words.
   The line-based legacy scan remains independently testable with no operand proof.
+
+  L-proof allocates 25–45 weighted lines to shared dispatch and controls, 60–95 to C,
+  30–60 to C++, 25–45 to Java, 35–55 to Rust, 20–40 to Lua, 25–50 to HCL and 30–60 to Bash.
+  The 250–450 total includes fixtures. Reforecast each grammar on the dispatch base. If the upper total exceeds 450,
+  split by grammar before dispatch, keep C's two `ri23c` origins together, and carry the
+  inherited round into each affected part. S2-L waits for all parts before publication.
 
 ### Slice S2-JS. JavaScript, TypeScript and TSX
 
@@ -643,6 +715,13 @@ sink-strength tests. Read the existing source table and exact receiver/argument 
 - [ ] Wire S2-GO-proof through edge, primary and secondary admission. Assert a formal used
       in a body statement, both `ri15` representative orders, distinct source bindings for
       parallel RHSs, wrong sink slot and both same-name `exec.Command` table entries in F.
+- [ ] Check the four route keys. An ordinary edge nominates its destination line. On the
+      originating path in `x := c.Param("f"); os.Remove(` followed by `x,` on the next line,
+      assert the later read/slot and `structured-path-traversal@CWE-22` at the admitted opening
+      line. Repeat with a cleansed path and with the read in a sibling call outside `os.Remove`.
+      Neither witness supplies the path-traversal id. On no-path admission require a bound inline source in the selected
+      operand for credit. On secondary inline fallback anchor the source to the actual call
+      and admitting key. Exercise the same-line read as a positive control.
 - [ ] Union every eligible originating path and inline witness on a source line. In *both* inline
       routes test a mux.Vars argument resolving to the handler request (including a unique alias),
       a fresh request, a reassigned parameter, another binding and a shadow. Test source-only, incoming-only and mixed
@@ -922,7 +1001,8 @@ language modules as needed, novel rule-identity tests, SARIF shape tests and `CL
 
 ## Acceptance for the lane
 
-- [ ] The stage D review record has both approvals at the design cap. Each Stage I PR has its own
+- [ ] Record the Stage D approvals and the owner's §8 authorization to resume #901 after the
+      split verdict on D-6 and this D-7 fold. Each Stage I PR has its own
       integrated-base receipt, sized diff, assigned approvals and review-round count. All four
       producer partitions pass Stage M's algorithm-scoped G-additive check. G-coverage verifies
       the language boundary on active and inactive matrix fixtures. Previously published rule values,
@@ -944,5 +1024,7 @@ language modules as needed, novel rule-identity tests, SARIF shape tests and `CL
       suite before merging to main, including any exclusions under the repository policy.
 
 **Effort estimate.** M 1, T 2.5, E 1, D 1.5, S1 0.5 (during T), S2 12.5, S3 1.5, S4 2.5,
-S5 3.5 and close-out 0.5 give 27 days of work and 26.5 on the critical path. D-6 adds an
-estimated 5.75 days to S2. These planning figures exclude review queues and elapsed host-gate time.
+S5 3.5 and close-out 0.5 give 27 days of work. D-6 added 5.75 workdays to S2. With the JS,
+Python and Go proof PRs staffed concurrently after WC, S2 takes 10.25 elapsed days and the lane
+critical path is 24.25 days. Serial staffing gives 26.5. These estimates exclude review queues
+and elapsed host-gate time.
