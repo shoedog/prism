@@ -847,13 +847,13 @@ if __name__ == '__main__':
 
 class GapRegexTests(unittest.TestCase):
     def test_comment_cannot_swallow_code_between_two_comments(self):
-        self.assertIsNone(pp_join.GAP.match(b' /* c1 */ ; b.x /* c2 */ '))
+        self.assertIsNone(J.GAP.match(b' /* c1 */ ; b.x /* c2 */ '))
 
     def test_adjacent_comments_do_not_blow_up(self):
         import time
         start = time.monotonic()
-        self.assertIsNone(pp_join.GAP.match(b' ' + b'/* a */' * 40 + b'x'))
+        self.assertIsNone(J.GAP.match(b' ' + b'/* a */' * 40 + b'x'))
         self.assertLess(time.monotonic() - start, 1.0)
 
     def test_a_comment_between_member_and_operator_is_allowed(self):
-        self.assertIsNotNone(pp_join.GAP.match(b' /* c */ '))
+        self.assertIsNotNone(J.GAP.match(b' /* c */ '))
