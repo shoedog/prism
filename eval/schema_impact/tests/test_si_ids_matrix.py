@@ -28,7 +28,7 @@ def rule_rows():
     rule_ids = set(re.findall(r"`([^`]+)`", ledger))
     with (MATRIX / "rows.tsv").open(newline="") as stream:
         rows = {row["id"]: row for row in csv.DictReader(stream, delimiter="\t")}
-    assert len(rows) == 217 and len(rule_ids) == 170
+    assert len(rows) == 301 and len(rule_ids) == 170  # 217 original rows (ledger) + 84 controls
     return [row for key, row in rows.items() if key in rule_ids]
 
 
@@ -51,11 +51,6 @@ def test_rule_row_ids(row):
     context = fixture.with_name("context.json")
     options = json.loads(context.read_text()) if context.is_file() else {}
     expected_ids = row["expected_ids"]
-    # The hashed witness table retains the old spelling for these two rows.
-    if row["id"] == "field-embedded-brackets":
-        expected_ids = expected_ids.replace("tone[]wet", "tone%5B%5Dwet")
-    if row["id"] == "field-embedded-star":
-        expected_ids = expected_ids.replace("tone*wet", "tone%2Awet")
     index = load(fixture, **options)
     assert index.operations.keys() | index.fields.keys() == set(filter(None, expected_ids.split(";")))
     warnings = {warning.split()[0] for warning in index.warnings}
