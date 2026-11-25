@@ -465,3 +465,171 @@ fn opaque_signature_call_can_invoke_a_stored_writer_through_an_alias() {
             .any(|edge| edge.from.var_name() == "keep" && edge.to.line == 2));
     }
 }
+
+#[test]
+fn jsx_attribute_representative_contains_its_own_read() {
+    for (jsx, endpoint) in [
+        (r#"<D x="fixed" y={x}/>"#, "x}"),
+        ("<D x={other} y={x}/>", "x}"),
+        ("<D x={other} {...x}/>", "x}"),
+        (r#"<D x="fixed" ns:y={x}/>"#, "x}"),
+        (r#"<D ns:x="fixed" y={x}/>"#, "x}"),
+        ("<D x={x}/>", "x={"),
+    ] {
+        let source = format!("function C({{x}}) {{\n  return {jsx};\n}}\n");
+        let start = source.find(endpoint).unwrap();
+        let actual: Vec<_> = refs(&source, Language::Tsx)
+            .edges
+            .iter()
+            .filter(|edge| edge.from.start_byte == 12)
+            .map(|edge| (edge.to.start_byte, edge.to.end_byte))
+            .collect();
+        assert_eq!(actual, [(start, start + 1)], "{jsx}");
+    }
+}
+
+#[test]
+fn optional_eval_in_a_formal_is_indirect() {
+    for (language, default, direct) in [
+        (Language::JavaScript, r#"eval?.("typeof a")"#, false),
+        (Language::JavaScript, r#"(eval)?.("typeof a")"#, false),
+        (
+            Language::TypeScript,
+            r#"(eval as any)?.("typeof a")"#,
+            false,
+        ),
+        (Language::JavaScript, r#"(0, eval)("typeof a")"#, false),
+        (Language::JavaScript, r#"eval("typeof a")"#, true),
+        (Language::JavaScript, r#"(eval)("typeof a")"#, true),
+        (Language::TypeScript, r#"(eval as any)("typeof a")"#, true),
+    ] {
+        let source = format!("function C({{a}}, t = {default}) {{ return [a,t] }}");
+        let receipt = evidence(&source, language);
+        let attempt = &receipt.files["test"].attempts[0];
+        assert_eq!(
+            attempt.disposition.as_str(),
+            if direct {
+                "refused_param_list_write_effect"
+            } else {
+                "emitted"
+            },
+            "{default}",
+        );
+    }
+}
+
+// These fixtures put the only matching body identifier in the return operand.
+// A simple assignment target in this syntax walk contributes no value read.
+fn syntax_read_count(source: &str, name: &str) -> u64 {
+    let parsed = ParsedFile::parse("test", source, Language::JavaScript).unwrap();
+    assert!(!parsed.tree.root_node().has_error(), "{source}");
+    let owner = parsed.all_functions()[0];
+    let mut stack = vec![owner.child_by_field_name("body").unwrap()];
+    let mut count = 0;
+    while let Some(node) = stack.pop() {
+        if node.kind() == "assignment_expression" {
+            stack.extend(node.child_by_field_name("right"));
+            continue;
+        }
+        if node.kind() == "identifier" && parsed.node_text(&node) == name {
+            count += 1;
+        }
+        stack.extend(node.named_children(&mut node.walk()));
+    }
+    count
+}
+
+#[test]
+fn member_read_modify_write_counts_and_justifies_an_entry_def() {
+    for (operand, count) in [
+        ("o.k++", 1),
+        ("++o.k", 1),
+        ("o.k += 1", 1),
+        ("o.k ||= 1", 1),
+        ("o.k &&= 1", 1),
+        ("o.k ??= 1", 1),
+        ("o[k]++", 1),
+        ("o[k] += 1", 1),
+        ("o[k] ||= 1", 1),
+        ("o.k = 1", 0),
+        ("o[k] = 1", 0),
+    ] {
+        let source = format!("function C({{o}}) {{ return {operand} }}");
+        let expected = syntax_read_count(&source, "o");
+        assert_eq!(expected, count, "{operand}: syntax fixture");
+        let receipt = evidence(&source, Language::JavaScript);
+        assert_eq!(receipt.counters()["candidates"], expected, "{operand}");
+        assert!(receipt.files["test"]
+            .attempts
+            .iter()
+            .all(|a| a.justifies_def));
+        assert_eq!(
+            refs(&source, Language::JavaScript)
+                .defs
+                .values()
+                .flatten()
+                .any(|def| def.start_byte == 12),
+            count != 0,
+            "{operand}",
+        );
+    }
+}
+
+#[test]
+fn synthetic_eval_guard_refuses_a_counted_read() {
+    for (source, disposition, guarded) in [
+        (
+            r#"({a}) => { eval("0"); return a }"#,
+            "refused_param_list_write_effect",
+            true,
+        ),
+        (r#"({a}) => { eval?.("0"); return a }"#, "emitted", false),
+    ] {
+        let expected = syntax_read_count(source, "a");
+        assert_eq!(expected, 1);
+        let receipt = evidence(source, Language::JavaScript);
+        assert_eq!(receipt.counters()["candidates"], expected, "{source}");
+        let attempt = &receipt.files["test"].attempts[0];
+        assert_eq!(attempt.disposition.as_str(), disposition, "{source}");
+        assert_eq!(attempt.justifies_def, !guarded, "{source}");
+        let graph = refs(source, Language::JavaScript);
+        assert_eq!(
+            graph.defs.values().flatten().any(|def| def.start_byte == 2),
+            !guarded,
+            "{source}",
+        );
+        assert_eq!(
+            graph.edges.iter().any(|edge| edge.from.start_byte == 2),
+            !guarded,
+            "{source}",
+        );
+    }
+}
+
+#[test]
+fn computed_parameter_key_replaces_the_entry_value_before_the_body() {
+    for (key, read, disposition) in [
+        ("(o = 5)", "o", "refused_s1_replaced"),
+        ("(flag ? (o = 5) : 0)", "o", "emitted"),
+        ("0", "o", "emitted"),
+        ("(o = 5)", "o.k", "refused_param_list_write_effect"),
+    ] {
+        let source = format!("function C({{o}}, {{[{key}]: y}}) {{ return {read}; }}");
+        let receipt = evidence(&source, Language::JavaScript);
+        let start = source.find("return ").unwrap() + "return ".len();
+        let attempt = receipt.files["test"]
+            .attempts
+            .iter()
+            .find(|attempt| attempt.key.operand == [start, start + read.len()])
+            .unwrap();
+        assert_eq!(attempt.disposition.as_str(), disposition, "{key}/{read}");
+        assert_eq!(
+            refs(&source, Language::JavaScript)
+                .edges
+                .iter()
+                .any(|edge| edge.from.start_byte == 12),
+            disposition == "emitted",
+            "{key}/{read}",
+        );
+    }
+}

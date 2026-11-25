@@ -268,4 +268,37 @@ fn s1_signature_label_at_operand_does_not_relabel_the_body_on_the_same_line() {
         [FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)]
     );
     assert_eq!(labels(&with_signature, body), [FlowConfidence::Exact]);
+
+    let sources = BTreeMap::from([("m.js".to_owned(), source.to_owned())]);
+    let graph = CodePropertyGraph::build(&parse(&sources));
+    let body_edge = graph
+        .dfg
+        .edges()
+        .iter()
+        .find(|edge| edge.from.start_byte == binding && edge.to.start_byte == body)
+        .expect("body DFG pair");
+    let mut signature_use = body_edge.to.clone();
+    signature_use.start_byte = signature;
+    signature_use.end_byte = signature + 1;
+    assert_eq!(
+        graph.dfg.label(body_edge.from, &signature_use),
+        Some(FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)),
+        "byte-bearing signature pair",
+    );
+    assert_eq!(
+        graph.dfg.label(body_edge.from, body_edge.to),
+        Some(FlowConfidence::Exact),
+        "byte-bearing body pair",
+    );
+    let mut line_def = body_edge.from.clone();
+    line_def.start_byte = 0;
+    line_def.end_byte = 0;
+    let mut line_use = signature_use;
+    line_use.start_byte = 0;
+    line_use.end_byte = 0;
+    assert_eq!(
+        graph.dfg.label(&line_def, &line_use),
+        Some(FlowConfidence::Exact),
+        "line-group pair",
+    );
 }
