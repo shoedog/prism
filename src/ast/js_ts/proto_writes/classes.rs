@@ -1,16 +1,22 @@
 //! Nonrecursive receiver selection and the operands contributing to it.
 use super::name_reads::{Analysis, Origin};
 use super::{
-    children, field, identifier, is_inline_callback, is_owner, iteration, operator, pattern_parts,
-    peel, AstSpan, GuardState, KeyOperand, KeyRole, ProtoWrite, ProtoWriteClass,
+    children, field, identifier, inline_iteration, is_inline_callback, is_owner, iteration,
+    operator, pattern_parts, peel, AstSpan, GuardState, KeyRole, ProtoWrite, ProtoWriteClass,
 };
 use crate::ast::ParsedFile;
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet},
+    rc::Rc,
+};
 use tree_sitter::Node;
 
-const MAX_SUBSCRIPT_WRITES: usize = 10_000;
+mod operands;
+const RECEIVER_DEPTH_LIMIT: usize = 128;
 
 type Selectors<'a> = BTreeMap<usize, Node<'a>>;
+type ReceiverKey = (usize, Option<usize>);
 
 #[derive(Clone, Default)]
 struct Relation<'a> {
@@ -43,20 +49,17 @@ pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<Pr
         }
         work.extend(children(node).map(|child| (child, owner)));
     }
-    let mut classifier = Classifier { file, analysis };
+    let mut classifier = Classifier {
+        file,
+        analysis,
+        receivers: RefCell::default(),
+    };
     let mut result = Vec::new();
-    for (owner, members) in targets.into_values() {
-        let count = members
-            .iter()
-            .filter(|(target, _)| target.kind() == "subscript_expression")
-            .count();
-        if count > MAX_SUBSCRIPT_WRITES {
-            eprintln!(
-                "warning: {}:{}: skipped prototype-write classification for owner with {count} subscript writes",
-                file.path, owner.start_position().row + 1
-            );
+    for (owner, mut members) in targets.into_values() {
+        if analysis.skipped(owner) {
             continue;
         }
+        members.sort_by_key(|(target, _)| target.start_byte());
         result.extend(
             members
                 .into_iter()
@@ -81,6 +84,7 @@ fn collect_targets<'a>(target: Node<'a>, store: Node<'a>, out: &mut Vec<(Node<'a
 struct Classifier<'a, 'b> {
     file: &'a ParsedFile,
     analysis: &'b Analysis<'a>,
+    receivers: RefCell<BTreeMap<ReceiverKey, Rc<Relation<'a>>>>,
 }
 
 impl<'a> Classifier<'a, '_> {
@@ -91,8 +95,8 @@ impl<'a> Classifier<'a, '_> {
         store: Node<'a>,
     ) -> Option<ProtoWrite> {
         let object = field(target, "object")?;
-        let mut seen = BTreeSet::new();
-        let mut relation = self.receiver(object, &mut seen, None);
+        let mut walk = ReceiverWalk::default();
+        let mut relation = self.receiver(object, &mut walk, None);
         let key = field(target, "index");
         if let Some(key) = key.filter(|_| self.advances(store, target)) {
             self.add_key(key, &mut relation);
@@ -102,12 +106,13 @@ impl<'a> Classifier<'a, '_> {
         }
 
         let mut operands = BTreeMap::new();
-        for node in relation.selectors.into_values() {
+        for &node in relation.selectors.values() {
             self.key_reads(node, KeyRole::Selector, &mut operands, &mut BTreeSet::new());
         }
         if let Some(key) = key {
             self.key_reads(key, KeyRole::Property, &mut operands, &mut BTreeSet::new());
         }
+        self.promote_reused_primitives(&relation.selectors, &mut operands);
         if !operands
             .values()
             .any(|operand| operand.role == KeyRole::Selector)
@@ -172,10 +177,89 @@ impl<'a> Classifier<'a, '_> {
     fn receiver(
         &self,
         expression: Node<'a>,
-        seen: &mut BTreeSet<usize>,
+        walk: &mut ReceiverWalk,
         accumulator: Option<usize>,
     ) -> Relation<'a> {
-        let value = peel(expression);
+        let mut value = peel(expression);
+        let mut aliases = Vec::new();
+        let cuts = walk.cuts;
+        let relation = loop {
+            let key = (value.id(), accumulator);
+            if let Some(relation) = self.receivers.borrow().get(&key) {
+                break Rc::clone(relation);
+            }
+            if walk.depth == RECEIVER_DEPTH_LIMIT || !walk.active.insert(key) {
+                walk.cuts += 1;
+                break Rc::new(Relation::default());
+            }
+            // Long chains of single-definition aliases need no recursive stack.
+            if let Some(source) = self.single_receiver_origin(value) {
+                aliases.push(key);
+                value = peel(source);
+                continue;
+            }
+            walk.depth += 1;
+            let relation = Rc::new(self.receiver_inner(value, walk, accumulator));
+            walk.depth -= 1;
+            walk.active.remove(&key);
+            if walk.cuts == cuts {
+                self.receivers
+                    .borrow_mut()
+                    .insert(key, Rc::clone(&relation));
+            }
+            break relation;
+        };
+        if aliases.is_empty() {
+            return (*relation).clone();
+        }
+        let relation = if relation.nested {
+            Rc::new(Relation {
+                nested: false,
+                selectors: relation.selectors.clone(),
+            })
+        } else {
+            relation
+        };
+        // Do not memoize a partial answer that depends on the active cycle.
+        for key in aliases {
+            walk.active.remove(&key);
+            if walk.cuts == cuts {
+                self.receivers
+                    .borrow_mut()
+                    .insert(key, Rc::clone(&relation));
+            }
+        }
+        (*relation).clone()
+    }
+
+    fn single_receiver_origin(&self, value: Node<'a>) -> Option<Node<'a>> {
+        if !identifier(value) {
+            return None;
+        }
+        let read = self
+            .analysis
+            .read(value)
+            .filter(|read| self.local_receiver(read))?;
+        let [site] = read.reaching_versions.as_slice() else {
+            return None;
+        };
+        if self.analysis.defaults.contains_key(&site.start_byte)
+            || self.analysis.deferred_definition(read, site)
+        {
+            return None;
+        }
+        match self.origin(site) {
+            Origin::Value(source) => Some(source),
+            _ => None,
+        }
+    }
+
+    fn receiver_inner(
+        &self,
+        value: Node<'a>,
+        walk: &mut ReceiverWalk,
+        accumulator: Option<usize>,
+    ) -> Relation<'a> {
         let mut relation = Relation::default();
         match value.kind() {
             "identifier" => {
@@ -185,20 +269,20 @@ impl<'a> Classifier<'a, '_> {
                     .filter(|read| self.local_receiver(read))
                 {
                     for site in &read.reaching_versions {
-                        if !seen.insert(site.start_byte) {
+                        if self.analysis.deferred_definition(read, site) {
                             continue;
                         }
                         if let Some(default) = self.analysis.defaults.get(&site.start_byte) {
-                            relation.extend(self.receiver(*default, seen, accumulator));
+                            relation.extend(self.receiver(*default, walk, accumulator));
                         }
                         match self.origin(site) {
                             Origin::Value(source) => {
-                                relation.extend(self.receiver(source, seen, accumulator))
+                                relation.extend(self.receiver(source, walk, accumulator))
                             }
                             Origin::Child(source, key) => {
                                 if self.from_accumulator(source, accumulator, &mut BTreeSet::new())
                                 {
-                                    relation.extend(self.receiver(source, seen, accumulator));
+                                    relation.extend(self.receiver(source, walk, accumulator));
                                     self.add_key(key, &mut relation);
                                 }
                             }
@@ -214,17 +298,17 @@ impl<'a> Classifier<'a, '_> {
                         if let Some(key) =
                             field(value, "index").filter(|key| self.fixed_key(*key).is_none())
                         {
-                            relation = self.receiver(object, seen, accumulator);
+                            relation = self.receiver(object, walk, accumulator);
                             relation.nested |= self.add_key(key, &mut relation);
                         } else if self.shared_link(value) {
-                            relation = self.receiver(object, seen, accumulator);
+                            relation = self.receiver(object, walk, accumulator);
                         }
                     }
                 }
             }
             "assignment_expression" => {
                 if let Some(right) = field(value, "right") {
-                    relation = self.receiver(right, seen, accumulator);
+                    relation = self.receiver(right, walk, accumulator);
                 }
             }
             "augmented_assignment_expression" => {
@@ -232,11 +316,11 @@ impl<'a> Classifier<'a, '_> {
                 if matches!(op, "||=" | "??=" | "&&=") {
                     if op != "&&=" {
                         if let Some(left) = field(value, "left") {
-                            relation.extend(self.receiver(left, seen, accumulator));
+                            relation.extend(self.receiver(left, walk, accumulator));
                         }
                     }
                     if let Some(right) = field(value, "right") {
-                        relation.extend(self.receiver(right, seen, accumulator));
+                        relation.extend(self.receiver(right, walk, accumulator));
                     }
                 }
             }
@@ -245,7 +329,7 @@ impl<'a> Classifier<'a, '_> {
                     .into_iter()
                     .filter_map(|arm| field(value, arm))
                 {
-                    relation.extend(self.receiver(arm, seen, accumulator));
+                    relation.extend(self.receiver(arm, walk, accumulator));
                 }
             }
             "binary_expression" => {
@@ -253,27 +337,27 @@ impl<'a> Classifier<'a, '_> {
                 if matches!(op, "||" | "??" | "&&") {
                     if op != "&&" {
                         if let Some(left) = field(value, "left") {
-                            relation.extend(self.receiver(left, seen, accumulator));
+                            relation.extend(self.receiver(left, walk, accumulator));
                         }
                     }
                     if let Some(right) = field(value, "right") {
-                        relation.extend(self.receiver(right, seen, accumulator));
+                        relation.extend(self.receiver(right, walk, accumulator));
                     }
                 }
             }
             "sequence_expression" => {
                 if let Some(tail) = children(value).last() {
-                    relation = self.receiver(tail, seen, accumulator);
+                    relation = self.receiver(tail, walk, accumulator);
                 }
             }
             "call_expression" => {
                 if let Some((object, key)) = self.reflect_get(value) {
                     if self.from_accumulator(object, accumulator, &mut BTreeSet::new()) {
-                        relation = self.receiver(object, seen, accumulator);
+                        relation = self.receiver(object, walk, accumulator);
                         self.add_key(key, &mut relation);
                     }
                 } else if accumulator.is_none() {
-                    relation = self.reduce(value, seen);
+                    relation = self.reduce(value, walk);
                 }
                 relation.nested = false;
             }
@@ -347,72 +431,93 @@ impl<'a> Classifier<'a, '_> {
         if let Some(object) = field(value, "object") {
             return self.from_accumulator(object, Some(accumulator), seen);
         }
-        self.analysis.read(value).is_some_and(|read| {
-            read.reaching_versions.iter().any(|site| {
-                if site.start_byte == accumulator {
-                    return true;
-                }
-                if !seen.insert(site.start_byte) {
-                    return false;
-                }
-                match self.origin(site) {
-                    Origin::Value(value) | Origin::Child(value, _) => {
-                        self.from_accumulator(value, Some(accumulator), seen)
+        if seen.len() >= RECEIVER_DEPTH_LIMIT {
+            return false;
+        }
+        match value.kind() {
+            "ternary_expression" => ["consequence", "alternative"]
+                .into_iter()
+                .filter_map(|arm| field(value, arm))
+                .any(|arm| self.from_accumulator(arm, Some(accumulator), seen)),
+            "assignment_expression" => field(value, "right")
+                .is_some_and(|right| self.from_accumulator(right, Some(accumulator), seen)),
+            "binary_expression" if matches!(operator(value, self.file), "||" | "??" | "&&") => {
+                ["left", "right"]
+                    .into_iter()
+                    .filter(|part| *part != "left" || operator(value, self.file) != "&&")
+                    .filter_map(|part| field(value, part))
+                    .any(|part| self.from_accumulator(part, Some(accumulator), seen))
+            }
+            "sequence_expression" => children(value)
+                .last()
+                .is_some_and(|tail| self.from_accumulator(tail, Some(accumulator), seen)),
+            _ => self.analysis.read(value).is_some_and(|read| {
+                read.reaching_versions.iter().any(|site| {
+                    if site.start_byte == accumulator {
+                        return true;
                     }
-                    _ => false,
-                }
-            })
-        })
+                    if !seen.insert(site.start_byte)
+                        || self.analysis.deferred_definition(read, site)
+                    {
+                        return false;
+                    }
+                    match self.origin(site) {
+                        Origin::Value(value) | Origin::Child(value, _) => {
+                            self.from_accumulator(value, Some(accumulator), seen)
+                        }
+                        _ => false,
+                    }
+                })
+            }),
+        }
     }
 
-    fn reduce(&self, call: Node<'a>, seen: &mut BTreeSet<usize>) -> Relation<'a> {
-        let mut relation = Relation::default();
-        let Some((_, "reduce")) = iteration(self.file, call) else {
-            return relation;
+    fn reducer(&self, call: Node<'a>) -> Option<(Node<'a>, Node<'a>, usize)> {
+        let (_, "reduce") = iteration(self.file, call)? else {
+            return None;
         };
-        let Some(args) = field(call, "arguments") else {
-            return relation;
-        };
-        let mut args = children(args);
-        let (Some(callback), Some(initial), None) =
-            (args.next().map(peel), args.next(), args.next())
-        else {
-            return relation;
-        };
-        if !is_inline_callback(callback) {
-            return relation;
+        let mut args = children(field(call, "arguments")?);
+        let callback = peel(args.next()?);
+        let initial = args.next()?;
+        if args.next().is_some()
+            || !is_inline_callback(callback)
+            || initial.kind() == "spread_element"
+        {
+            return None;
         }
-        let Some(param) = field(callback, "parameters")
-            .and_then(|params| children(params).next())
-            .or_else(|| field(callback, "parameter"))
-            .map(|param| pattern_parts(param).into_iter().next().unwrap_or(param))
-            .filter(|param| identifier(*param))
-        else {
+        let param = super::parameters(callback).next()?;
+        let param = if matches!(param.kind(), "required_parameter" | "optional_parameter") {
+            pattern_parts(param).into_iter().next()?
+        } else {
+            param
+        };
+        identifier(param).then_some((callback, initial, param.start_byte()))
+    }
+
+    fn reduce(&self, call: Node<'a>, walk: &mut ReceiverWalk) -> Relation<'a> {
+        let mut relation = Relation::default();
+        let Some((callback, initial, accumulator)) = self.reducer(call) else {
             return relation;
         };
         let Some(body) = field(callback, "body") else {
             return relation;
         };
-        let mut returned = if body.kind() == "statement_block" {
-            Vec::new()
+        if body.kind() != "statement_block" {
+            relation.extend(self.receiver(body, walk, Some(accumulator)));
         } else {
-            vec![body]
-        };
-        if body.kind() == "statement_block" {
             let mut todo = vec![body];
             while let Some(node) = todo.pop() {
-                if node.kind() == "return_statement" {
-                    returned.extend(children(node).take(1));
+                if node.kind() == "return_statement" && self.analysis.reachable_return(node) {
+                    if let Some(value) = children(node).next() {
+                        relation.extend(self.receiver(value, walk, Some(accumulator)));
+                    }
                 } else if !is_owner(node) {
                     todo.extend(children(node));
                 }
             }
         }
-        for value in returned {
-            relation.extend(self.receiver(value, seen, Some(param.start_byte())));
-        }
         if !relation.selectors.is_empty() {
-            relation.extend(self.receiver(initial, seen, None));
+            relation.extend(self.receiver(initial, walk, None));
         }
         relation
     }
@@ -463,20 +568,16 @@ impl<'a> Classifier<'a, '_> {
                     let mut current = Some(parent);
                     while let Some(node) = current {
                         if is_owner(node) {
-                            let mut wrapper = node;
-                            while wrapper
-                                .parent()
-                                .is_some_and(|n| n.kind() == "parenthesized_expression")
-                            {
-                                wrapper = wrapper.parent().unwrap();
-                            }
-                            return is_inline_callback(node)
-                                && wrapper
-                                    .parent()
-                                    .filter(|args| children(*args).next() == Some(wrapper))
-                                    .and_then(|args| args.parent())
-                                    .and_then(|call| iteration(self.file, call))
-                                    .is_some_and(|(_, method)| method == "reduce")
+                            let accumulator = inline_iteration(self.file, node)
+                                .and_then(|call| self.reducer(call))
+                                .map(|(_, _, accumulator)| accumulator);
+                            let reachable = parent.kind() != "return_statement"
+                                || self.analysis.reachable_return(parent);
+                            return reachable
+                                && accumulator.is_some()
+                                && field(target, "object").is_some_and(|object| {
+                                    self.from_accumulator(object, accumulator, &mut BTreeSet::new())
+                                })
                                 && self.retains_slot(store, target);
                         }
                         current = node.parent();
@@ -508,6 +609,7 @@ impl<'a> Classifier<'a, '_> {
                     values.extend(field(value, "consequence"));
                     values.extend(field(value, "alternative"));
                 }
+                "sequence_expression" => values.extend(children(value).last()),
                 "subscript_expression" if self.same_slot(target, value) => return true,
                 _ => {}
             }
@@ -532,130 +634,20 @@ impl<'a> Classifier<'a, '_> {
                         && a.binding == b.binding
                         && a.reaching_versions == b.reaching_versions
                         && !a.reaching_versions.is_empty()
-                        && a.resolution_complete
-                        && b.resolution_complete
+                        && ((a.resolution_complete && b.resolution_complete)
+                            || (identifier(left)
+                                && identifier(right)
+                                && self.analysis.correlated_identifiers(a, b)))
                 }
                 _ => self.fixed_key(left).is_some(),
             }
         })
     }
+}
 
-    fn key_reads(
-        &self,
-        node: Node<'a>,
-        role: KeyRole,
-        out: &mut BTreeMap<AstSpan, KeyOperand>,
-        seen: &mut BTreeSet<usize>,
-    ) {
-        let node = peel(node);
-        if self.fixed_key(node).is_some() {
-            return;
-        }
-        if let Some(read) = self.analysis.read(node) {
-            out.entry(read.span.clone()).or_insert_with(|| KeyOperand {
-                name: read.path.clone(),
-                base: read.base.clone(),
-                role,
-                owner: read.owner.clone(),
-                binding: read.binding.clone(),
-                reaching_versions: read.reaching_versions.clone(),
-                line: node.start_position().row + 1,
-                start_byte: read.span.start_byte,
-                end_byte: read.span.end_byte,
-            });
-            if role == KeyRole::Selector
-                && identifier(node)
-                && read.resolution_complete
-                && read.reaching_versions.len() == 1
-            {
-                for site in &read.reaching_versions {
-                    if !seen.insert(site.start_byte) {
-                        continue;
-                    }
-                    match self.origin(site) {
-                        Origin::Value(source) | Origin::Element(source) => {
-                            self.key_source(source, role, out, seen)
-                        }
-                        Origin::Child(source, _) => self.key_source(source, role, out, seen),
-                        Origin::Unknown => {}
-                    }
-                }
-            }
-            return;
-        }
-        match node.kind() {
-            "call_expression" | "new_expression" => {
-                if let Some(args) = field(node, "arguments") {
-                    for arg in children(args) {
-                        self.key_reads(arg, role, out, seen);
-                    }
-                }
-            }
-            "ternary_expression" => {
-                for arm in ["consequence", "alternative"]
-                    .into_iter()
-                    .filter_map(|arm| field(node, arm))
-                {
-                    self.key_reads(arm, role, out, seen);
-                }
-            }
-            "sequence_expression" => {
-                if let Some(tail) = children(node).last() {
-                    self.key_reads(tail, role, out, seen);
-                }
-            }
-            "assignment_expression" | "augmented_assignment_expression" => {
-                if let Some(right) = field(node, "right") {
-                    self.key_reads(right, role, out, seen);
-                }
-            }
-            "binary_expression"
-            | "template_string"
-            | "template_substitution"
-            | "unary_expression"
-            | "spread_element"
-            | "await_expression" => {
-                for child in children(node) {
-                    self.key_reads(child, role, out, seen);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn key_source(
-        &self,
-        source: Node<'a>,
-        role: KeyRole,
-        out: &mut BTreeMap<AstSpan, KeyOperand>,
-        seen: &mut BTreeSet<usize>,
-    ) {
-        let source = peel(source);
-        match source.kind() {
-            "identifier" | "member_expression" | "subscript_expression" | "ternary_expression" => {
-                self.key_reads(source, role, out, seen);
-            }
-            "call_expression" => {
-                if let Some(callee) = field(source, "function") {
-                    if let Some(method) = field(callee, "property").filter(|method| {
-                        matches!(
-                            self.file.node_text(method),
-                            "shift" | "pop" | "slice" | "split"
-                        )
-                    }) {
-                        if let Some(object) = field(callee, "object") {
-                            if self.analysis.read(callee).is_some()
-                                && matches!(self.file.node_text(&method), "shift" | "pop")
-                            {
-                                self.key_reads(callee, role, out, seen);
-                            } else {
-                                self.key_source(object, role, out, seen);
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
+#[derive(Default)]
+struct ReceiverWalk {
+    active: BTreeSet<ReceiverKey>,
+    cuts: usize,
+    depth: usize,
 }

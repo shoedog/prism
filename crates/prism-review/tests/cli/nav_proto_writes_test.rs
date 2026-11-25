@@ -74,3 +74,53 @@ fn json_has_two_empty_arrays_for_other_languages() {
         json!({ "facts": [], "name_reads": [] })
     );
 }
+
+#[test]
+fn default_text_shares_json_spellings() {
+    let root = tempfile::tempdir().unwrap();
+    fs::write(
+        root.path().join("app.js"),
+        "function put(o,k,p) { const child=o[k]; child[p]=1; }\n",
+    )
+    .unwrap();
+    let output = crate::prism_bin()
+        .unwrap()
+        .args(["nav", "proto-writes", "--repo"])
+        .arg(root.path())
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(output).unwrap();
+    let value = listing(root.path());
+    let fact = &value["facts"][0];
+    assert!(text.contains(&format!(
+        " {} guard={}",
+        fact["class"].as_str().unwrap(),
+        fact["guard"].as_str().unwrap()
+    )));
+    for operand in fact["key_operands"].as_array().unwrap() {
+        assert!(text.contains(&format!(
+            "  {} {}:",
+            operand["role"].as_str().unwrap(),
+            operand["name"].as_str().unwrap()
+        )));
+    }
+}
+
+#[test]
+fn json_keeps_a_target_line_with_no_reads() {
+    let root = tempfile::tempdir().unwrap();
+    fs::write(
+        root.path().join("app.js"),
+        "function put(o,k,p) {\n o[k][\n\n p\n ] = 1;\n}\n",
+    )
+    .unwrap();
+    let value = listing(root.path());
+    assert_eq!(value["facts"].as_array().unwrap().len(), 1);
+    assert!(value["name_reads"]
+        .as_array()
+        .unwrap()
+        .contains(&json!({ "file": "app.js", "line": 3, "reads": [] })));
+}

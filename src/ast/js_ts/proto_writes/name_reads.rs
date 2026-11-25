@@ -1,13 +1,24 @@
 //! Byte-ordered local reaching definitions, shared by the listing and its consumers.
 use super::{
-    children, field, identifier, is_inline_callback, is_owner, is_scope, operator, pattern_parts,
-    peel, AstSpan, Context, Lexical, NameRead, ProtoWrite,
+    children,
+    effects::{mutation_receiver, Effects},
+    field, identifier, is_loop, is_owner, is_scope, operator, pattern_parts, peel, AstSpan,
+    Context, Lexical, NameRead, ProtoWrite,
 };
 use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
+mod flow;
+mod syntax;
+use flow::PendingJump;
+pub(super) use syntax::value_children;
+
+const OWNER_WORK_BUDGET: usize = 500_000;
+
 #[derive(Clone, Copy)]
+// Versions retain the store site, while origins describe the value at that site.
+// Element selects an untracked position. Child carries an explicit computed key.
 pub(super) enum Origin<'a> {
     Value(Node<'a>),
     Element(Node<'a>),
@@ -30,7 +41,11 @@ impl Index {
 #[derive(Clone, Default, PartialEq, Eq)]
 struct Version {
     sites: BTreeSet<AstSpan>,
+    // Abstract receiver identities are allocation/definition sites. Alias copies
+    // preserve them. A member alias conservatively shares its base identity.
     objects: BTreeSet<usize>,
+    // A path is incomplete if a transfer or join cannot prove its reaching set.
+    // Object mutations separately affect member reads, leaving bare aliases live.
     incomplete: bool,
     mutated: bool,
 }
@@ -47,7 +62,7 @@ impl Version {
 #[derive(Clone, Default, PartialEq, Eq)]
 struct State {
     values: BTreeMap<usize, Version>,
-    mutated_objects: BTreeSet<usize>,
+    mutated_objects: BTreeMap<usize, BTreeSet<AstSpan>>,
     dead: bool,
 }
 
@@ -73,8 +88,12 @@ impl State {
             *self = other.clone();
             return;
         }
-        self.mutated_objects
-            .extend(other.mutated_objects.iter().copied());
+        for (object, sites) in &other.mutated_objects {
+            self.mutated_objects
+                .entry(*object)
+                .or_default()
+                .extend(sites.iter().cloned());
+        }
         for (binding, value) in &mut self.values {
             if let Some(other) = other.values.get(binding) {
                 value.merge(other);
@@ -88,6 +107,16 @@ impl State {
                 ..value.clone()
             });
         }
+    }
+
+    fn weight(&self) -> usize {
+        // Charge the material copied or joined, including candidate histories.
+        self.values
+            .values()
+            .map(|version| version.sites.len() + version.objects.len() + 1)
+            .chain(self.mutated_objects.values().map(|sites| sites.len() + 1))
+            .sum::<usize>()
+            + 1
     }
 
     fn install(&mut self, binding: usize, site: AstSpan) {
@@ -106,6 +135,7 @@ impl State {
 
 struct Site {
     line: usize,
+    owner: usize,
     read: NameRead,
     visible: bool,
     has_binding: bool,
@@ -118,10 +148,13 @@ pub(super) struct Analysis<'a> {
     pub(super) origins: BTreeMap<usize, Origin<'a>>,
     pub(super) defaults: BTreeMap<usize, Node<'a>>,
     pub(super) inline_owners: BTreeMap<AstSpan, AstSpan>,
-    known_writes: BTreeMap<usize, BTreeSet<AstSpan>>,
+    effects: Effects,
+    spending: BTreeMap<usize, usize>,
+    reachable_returns: BTreeSet<usize>,
+    deferred_initializer: Option<usize>,
     sites: BTreeMap<AstSpan, Site>,
     deferred: BTreeMap<usize, BTreeMap<usize, (Node<'a>, Context<'a>)>>,
-    jumps: BTreeMap<(usize, &'static str), State>,
+    jumps: BTreeMap<(usize, &'static str), PendingJump>,
 }
 
 impl<'a> Analysis<'a> {
@@ -130,15 +163,20 @@ impl<'a> Analysis<'a> {
         let context = Context {
             owner: root,
             scope: root,
-            dynamic: false,
         };
+        let lexical = Lexical::build(file);
+        let mut effects = Effects::build(file, &lexical);
+        let inline_owners = std::mem::take(&mut effects.inline);
         let mut analysis = Self {
             file,
-            lexical: Lexical::build(file),
+            lexical,
             origins: BTreeMap::new(),
             defaults: BTreeMap::new(),
-            inline_owners: BTreeMap::new(),
-            known_writes: BTreeMap::new(),
+            inline_owners,
+            effects,
+            spending: BTreeMap::new(),
+            reachable_returns: BTreeSet::new(),
+            deferred_initializer: None,
             sites: BTreeMap::new(),
             deferred: BTreeMap::new(),
             jumps: BTreeMap::new(),
@@ -151,16 +189,155 @@ impl<'a> Analysis<'a> {
 
     pub(super) fn index(&self, facts: Vec<ProtoWrite>) -> Index {
         let mut lines = BTreeMap::<usize, Vec<NameRead>>::new();
-        for site in self.sites.values().filter(|site| site.visible) {
-            lines.entry(site.line).or_default().push(site.read.clone());
+        let selectors: BTreeSet<_> = facts
+            .iter()
+            .flat_map(|fact| &fact.key_operands)
+            .filter(|operand| operand.role == super::KeyRole::Selector)
+            .map(|operand| (operand.start_byte, operand.end_byte))
+            .collect();
+        for site in self.sites.values().filter(|site| {
+            site.visible
+                || selectors.contains(&(site.read.span.start_byte, site.read.span.end_byte))
+        }) {
+            let mut read = site.read.clone();
+            read.resolution_complete &= !self.effects.skipped.contains(&site.owner);
+            lines.entry(site.line).or_default().push(read);
         }
         Index { lines, facts }
     }
 
     pub(super) fn read(&self, node: Node<'_>) -> Option<&NameRead> {
+        self.read_at(&AstSpan::from(peel(node)))
+    }
+
+    pub(super) fn skipped(&self, node: Node<'_>) -> bool {
+        self.effects.skipped.contains(&node.id())
+    }
+
+    pub(super) fn reachable_return(&self, node: Node<'_>) -> bool {
+        self.reachable_returns.contains(&node.id())
+    }
+
+    fn charge(&mut self, owner: Node<'_>, work: usize) -> bool {
+        if self.skipped(owner) {
+            return false;
+        }
+        let spent = self.spending.entry(owner.id()).or_default();
+        *spent = spent.saturating_add(work);
+        if *spent <= OWNER_WORK_BUDGET {
+            return true;
+        }
+        self.effects.skipped.insert(owner.id());
+        eprintln!(
+            "warning: {}:{}: prototype-write analysis exhausted the owner work budget",
+            self.file.path,
+            owner.start_position().row + 1
+        );
+        false
+    }
+
+    fn widen(&mut self, region: Node<'a>, context: Context<'a>, state: &mut State) {
+        // Bound the state passed across a back edge before visiting the body.
+        // A write can be a candidate even when the first iteration has no value.
+        let remaining = OWNER_WORK_BUDGET.saturating_sub(
+            self.spending
+                .get(&context.owner.id())
+                .copied()
+                .unwrap_or_default(),
+        );
+        let writes: Vec<_> = self
+            .effects
+            .writes_in(region, context.owner)
+            .take(remaining + 1)
+            .map(|write| (write.binding, write.site.clone(), write.member))
+            .collect();
+        if !self.charge(context.owner, writes.len()) {
+            return;
+        }
+        for (binding, site, member) in writes {
+            if member {
+                let aliases = self.effects.member_aliases.get(&binding).cloned();
+                let bindings = aliases
+                    .as_deref()
+                    .map_or(std::slice::from_ref(&binding), Vec::as_slice);
+                if !self.charge(context.owner, bindings.len()) {
+                    return;
+                }
+                for alias in bindings {
+                    if let Some(version) = state.values.get(alias) {
+                        for object in &version.objects {
+                            state
+                                .mutated_objects
+                                .entry(*object)
+                                .or_default()
+                                .insert(site.clone());
+                        }
+                    }
+                }
+            } else {
+                let version = state.values.entry(binding).or_default();
+                if version.sites.insert(site.clone()) {
+                    version.objects.insert(site.start_byte);
+                    version.incomplete = true;
+                }
+            }
+        }
+    }
+
+    pub(super) fn read_at(&self, span: &AstSpan) -> Option<&NameRead> {
         self.sites
-            .get(&AstSpan::from(peel(node)))
+            .get(span)
+            .filter(|site| !self.effects.skipped.contains(&site.owner))
             .map(|site| &site.read)
+    }
+
+    pub(super) fn deferred_definition(&self, read: &NameRead, site: &AstSpan) -> bool {
+        read.binding.as_ref().is_some_and(|binding| {
+            self.effects
+                .captured
+                .get(&binding.start_byte)
+                .is_some_and(|writes| writes.contains(site))
+                || self
+                    .effects
+                    .mapped
+                    .get(&binding.start_byte)
+                    .is_some_and(|writes| writes.contains(site))
+        })
+    }
+
+    pub(super) fn correlated_identifiers(&self, a: &NameRead, b: &NameRead) -> bool {
+        // A widened loop header can have several prior values. Two identifiers
+        // inside one assignment still name the same current slot if there is
+        // no intervening rebind and no deferred or mapped write.
+        a.binding.as_ref().is_some_and(|binding| {
+            a.owner == b.owner
+                && a.span.end_byte <= b.span.start_byte
+                && !self.effects.captured.contains_key(&binding.start_byte)
+                && !self.effects.mapped.contains_key(&binding.start_byte)
+                && !self.effects.rebound_between(
+                    binding.start_byte,
+                    a.span.end_byte,
+                    b.span.start_byte,
+                )
+                && self
+                    .sites
+                    .get(&a.span)
+                    .is_some_and(|site| !self.effects.skipped.contains(&site.owner))
+        })
+    }
+
+    pub(super) fn may_repeat(&self, node: Node<'_>) -> bool {
+        let mut parent = node.parent();
+        while let Some(node) = parent {
+            if is_loop(node) || self.inline_owners.contains_key(&AstSpan::from(node)) {
+                return true;
+            }
+            if is_owner(node) {
+                break;
+            }
+            parent = node.parent();
+        }
+        false
     }
 
     pub(super) fn has_binding(&self, node: Node<'_>) -> bool {
@@ -179,16 +356,19 @@ impl<'a> Analysis<'a> {
         visible: bool,
     ) {
         let span = AstSpan::from(node);
+        let within_budget = self.charge(context.owner, version.sites.len() + version.objects.len());
         let lexical = self.lexical.lookup(context.scope, &base);
-        let binding = lexical.cloned().flatten().filter(|_| !context.dynamic);
-        let resolution_complete = binding.is_some()
+        let binding = lexical.cloned().flatten();
+        let resolution_complete = within_budget
+            && binding.is_some()
             && !version.incomplete
             && !version.mutated
             && !version.sites.is_empty();
         let site = self.sites.entry(span.clone()).or_insert_with(|| Site {
             line: node.start_position().row + 1,
+            owner: context.owner.id(),
             visible,
-            has_binding: lexical.is_some() || context.dynamic,
+            has_binding: lexical.is_some(),
             objects: BTreeSet::new(),
             read: NameRead {
                 path,
@@ -211,11 +391,7 @@ impl<'a> Analysis<'a> {
     }
 
     fn version(&self, base: &str, context: Context<'a>, state: &State) -> Version {
-        let Some(binding) = self
-            .lexical
-            .binding(context.scope, base)
-            .filter(|_| !context.dynamic)
-        else {
+        let Some(binding) = self.lexical.binding(context.scope, base) else {
             return Version::default();
         };
         let mut version = state
@@ -224,15 +400,29 @@ impl<'a> Analysis<'a> {
             .cloned()
             .unwrap_or_default();
         if let Some(owner) = self.lexical.binding_owners.get(&binding.start_byte) {
-            if !self.in_inline_scope(&AstSpan::from(context.owner), owner) {
-                if let Some(sites) = self.known_writes.get(&binding.start_byte) {
+            if self.deferred_initializer == Some(context.owner.id())
+                || !self.in_inline_scope(&AstSpan::from(context.owner), owner)
+            {
+                if let Some(sites) = self.effects.known.get(&binding.start_byte) {
                     version.incomplete |= sites != &version.sites;
                     version.sites.extend(sites.iter().cloned());
                 }
             }
         }
+        for sites in [
+            self.effects.captured.get(&binding.start_byte),
+            self.effects
+                .mapped
+                .get(&binding.start_byte)
+                .map(AsRef::as_ref),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            version.incomplete = true;
+            version.sites.extend(sites.iter().cloned());
+        }
         version.incomplete |= state.dead;
-        version.mutated |= !version.objects.is_disjoint(&state.mutated_objects);
         version
     }
 
@@ -258,6 +448,11 @@ impl<'a> Analysis<'a> {
         for site in &scope.entry {
             state.install(site.start_byte, site.clone());
         }
+        for (binding, formal) in &scope.parameter_copies {
+            if let Some(value) = state.values.get(&formal.start_byte).cloned() {
+                state.values.insert(*binding, value);
+            }
+        }
     }
 
     fn write(
@@ -269,10 +464,6 @@ impl<'a> Analysis<'a> {
     ) {
         let target = peel(target);
         if identifier(target) {
-            if context.dynamic {
-                state.invalidate();
-                return;
-            }
             let Some(binding) = self
                 .lexical
                 .binding(context.scope, self.file.node_text(&target))
@@ -281,40 +472,46 @@ impl<'a> Analysis<'a> {
             };
             self.origins.insert(target.start_byte(), origin);
             let site = AstSpan::from(target);
-            self.known_writes
-                .entry(binding.start_byte)
-                .or_default()
-                .insert(site.clone());
             state.install(binding.start_byte, site);
-            if let Origin::Value(source) = origin {
-                let source = peel(source);
-                if let Some(read) = self.sites.get(&AstSpan::from(source)).filter(|read| {
-                    identifier(source) && read.read.binding.is_some() && !read.objects.is_empty()
-                }) {
+            let source = match origin {
+                Origin::Value(source) | Origin::Child(source, _) | Origin::Element(source) => {
+                    Some(source)
+                }
+                Origin::Unknown => None,
+            };
+            if let Some(source) = source {
+                let objects: BTreeSet<_> = super::alias_sources(self.file, source)
+                    .into_iter()
+                    .filter_map(|source| self.sites.get(&AstSpan::from(source)))
+                    .flat_map(|read| read.objects.iter().copied())
+                    .collect();
+                if !objects.is_empty() {
                     if let Some(value) = state.values.get_mut(&binding.start_byte) {
-                        value.objects.clone_from(&read.objects);
+                        value.objects = objects;
                     }
                 }
             }
-        } else if let Some((base, _)) = super::path(self.file, target) {
-            if let Some(binding) = self.lexical.binding(context.scope, &base) {
-                if let Some(version) = state.values.get(&binding.start_byte) {
-                    state
-                        .mutated_objects
-                        .extend(version.objects.iter().copied());
-                }
-            }
+        } else if matches!(target.kind(), "member_expression" | "subscript_expression") {
+            let objects = self.target_reads(target, context, state, false);
+            self.mutate(objects, target.into(), state);
         } else {
-            let mut array_index = 0;
-            let mut at = target.start_byte();
             self.target_reads(target, context, state, false);
-            for part in pattern_parts(target) {
-                if matches!(
-                    peel(part).kind(),
-                    "member_expression" | "subscript_expression"
-                ) {
-                    self.target_reads(part, context, state, false);
-                }
+            let parts = if target.kind() == "array_pattern" {
+                let mut position = 0;
+                let mut cursor = target.walk();
+                target
+                    .children(&mut cursor)
+                    .filter_map(|child| {
+                        if child.kind() == "," {
+                            position += 1;
+                        }
+                        (child.is_named() && !child.is_extra()).then_some((position, child))
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                pattern_parts(target).into_iter().enumerate().collect()
+            };
+            for (index, part) in parts {
                 if identifier(part)
                     && matches!(
                         target.kind(),
@@ -331,12 +528,7 @@ impl<'a> Analysis<'a> {
                 }
                 let source = match (target.kind(), origin) {
                     ("array_pattern", Origin::Value(value)) if peel(value).kind() == "array" => {
-                        array_index += self.file.source[at..part.start_byte()]
-                            .bytes()
-                            .filter(|&b| b == b',')
-                            .count();
-                        at = part.end_byte();
-                        super::array_element(peel(value), array_index)
+                        super::array_element(peel(value), index)
                             .map_or(Origin::Unknown, Origin::Value)
                     }
                     ("pair_pattern", Origin::Value(value)) => field(target, "key")
@@ -364,25 +556,31 @@ impl<'a> Analysis<'a> {
         }
     }
 
+    fn mutate(&self, objects: BTreeSet<usize>, site: AstSpan, state: &mut State) {
+        if !state.dead {
+            for object in objects {
+                state
+                    .mutated_objects
+                    .entry(object)
+                    .or_default()
+                    .insert(site.clone());
+            }
+        }
+    }
+
     fn target_reads(
         &mut self,
         node: Node<'a>,
         context: Context<'a>,
         state: &mut State,
         load: bool,
-    ) {
+    ) -> BTreeSet<usize> {
         let node = peel(node);
         match node.kind() {
-            "subscript_expression" | "member_expression" if load => {
-                self.member(node, context, state, true);
-            }
             "subscript_expression" | "member_expression" => {
-                if let Some(object) = field(node, "object") {
-                    self.visit(object, context, state);
-                }
-                if let Some(key) = field(node, "index") {
-                    self.visit(key, context, state);
-                }
+                return self
+                    .member(node, context, state, load)
+                    .map_or_else(BTreeSet::new, |version| version.objects);
             }
             "assignment_pattern"
             | "object_assignment_pattern"
@@ -404,6 +602,7 @@ impl<'a> Analysis<'a> {
             _ if load && identifier(node) => self.visit(node, context, state),
             _ => {}
         }
+        BTreeSet::new()
     }
 
     fn member(
@@ -449,240 +648,60 @@ impl<'a> Analysis<'a> {
                 }
             }
         }
-        if let Some(version) = &mut version {
-            version.mutated |= !version.objects.is_disjoint(&state.mutated_objects);
-        }
-        if let (Some((base, path)), Some(version)) = (canonical, &version) {
+        if let (Some((base, path)), Some(version)) = (canonical, &mut version) {
+            if visible {
+                let capacity = OWNER_WORK_BUDGET.saturating_sub(
+                    self.spending
+                        .get(&context.owner.id())
+                        .copied()
+                        .unwrap_or_default(),
+                );
+                let mut writes = BTreeSet::new();
+                for sites in version
+                    .objects
+                    .iter()
+                    .filter_map(|object| state.mutated_objects.get(object))
+                    .chain(
+                        self.lexical
+                            .binding(context.scope, &base)
+                            .and_then(|binding| {
+                                self.effects.captured_members.get(&binding.start_byte)
+                            })
+                            .map(AsRef::as_ref),
+                    )
+                {
+                    writes.extend(sites.iter().take(capacity.saturating_add(1)).cloned());
+                    if writes.len() > capacity {
+                        break;
+                    }
+                }
+                if self.charge(context.owner, writes.len()) {
+                    version.mutated |= !writes.is_empty();
+                    version.sites.extend(writes);
+                } else {
+                    version.incomplete = true;
+                }
+            }
             self.read_path(node, path, base, context, version.clone(), visible);
         }
         version
     }
 
-    fn finish_owner(&mut self, context: Context<'a>, state: &mut State) {
-        if let Some(exit) = self.jumps.remove(&(context.owner.id(), "return_statement")) {
-            state.join(&exit);
-        }
-        if let Some(closures) = self.deferred.remove(&context.owner.id()) {
-            for (closure, outer) in closures.into_values() {
-                self.function(closure, outer, state, None);
-            }
-        }
-    }
-
-    fn function(
-        &mut self,
-        node: Node<'a>,
-        outer: Context<'a>,
-        state: &mut State,
-        iteration: Option<(Node<'a>, &str)>,
-    ) {
-        let mut local = state.clone();
-        let context = Context {
-            scope: node,
-            owner: node,
-            dynamic: outer.dynamic,
-        };
-        if iteration.is_some() {
-            self.inline_owners
-                .insert(AstSpan::from(node), AstSpan::from(outer.owner));
-        }
-        self.enter(node, &mut local);
-        if let Some(params) = field(node, "parameters").or_else(|| field(node, "parameter")) {
-            let parameters = if params.kind() == "formal_parameters" {
-                children(params).collect()
-            } else {
-                vec![params]
-            };
-            for (index, parameter) in parameters.into_iter().enumerate() {
-                let origin = iteration
-                    .filter(|(_, method)| index == usize::from(*method == "reduce"))
-                    .map_or(Origin::Unknown, |(receiver, _)| Origin::Element(receiver));
-                self.write(parameter, origin, context, &mut local);
-            }
-        }
-        if let Some(body) = field(node, "body") {
-            self.visit(body, context, &mut local);
-        }
-        self.finish_owner(context, &mut local);
-        if let Some(thrown) = self.jumps.remove(&(node.id(), "throw_statement")) {
-            if iteration.is_some() {
-                self.save_jump((outer.owner.id(), "throw_statement"), &thrown);
-            }
-        }
-        if iteration.is_some() {
-            local.values.retain(|binding, _| {
-                self.lexical.binding_owners.get(binding) != Some(&AstSpan::from(node))
-            });
-            state.join(&local);
-        }
-    }
-
-    fn loop_body(&mut self, node: Node<'a>, context: Context<'a>, state: &mut State) {
-        if let Some(init) = field(node, "initializer").or_else(|| field(node, "right")) {
-            self.visit(init, context, state);
-        }
-        let entry = state.clone();
-        let mut header = entry.clone();
-        let mut exit = State::unreachable();
-        loop {
-            let mut body = header.clone();
-            let condition = field(node, "condition");
-            if node.kind() != "do_statement" {
-                if let Some(test) = condition {
-                    self.visit(test, context, &mut body);
-                }
-                if condition.is_some_and(|test| test.kind() != "empty_statement")
-                    || node.kind() == "for_in_statement"
-                {
-                    exit.join(&body);
-                }
-            }
-            if let (Some(left), Some(right)) = (field(node, "left"), field(node, "right")) {
-                self.target_reads(left, context, &mut body, false);
-                self.write(left, Origin::Element(right), context, &mut body);
-            }
-            if let Some(statement) = field(node, "body") {
-                self.visit(statement, context, &mut body);
-            }
-            if let Some(next) = self.jumps.remove(&(node.id(), "continue_statement")) {
-                body.join(&next);
-            }
-            if let Some(increment) = field(node, "increment") {
-                self.visit(increment, context, &mut body);
-            }
-            if node.kind() == "do_statement" {
-                if let Some(test) = condition {
-                    self.visit(test, context, &mut body);
-                }
-                exit.join(&body);
-            }
-            if let Some(breaks) = self.jumps.remove(&(node.id(), "break_statement")) {
-                exit.join(&breaks);
-            }
-            let mut next = entry.clone();
-            next.join(&body);
-            if next == header {
-                break;
-            }
-            header = next;
-        }
-        *state = exit;
-    }
-
-    fn jump(&mut self, node: Node<'a>, context: Context<'a>, state: &mut State) {
-        let kind = node.kind();
-        let label = field(node, "label").map(|label| self.file.node_text(&label));
-        let mut outer = node.parent();
-        let mut target = context.owner;
-        if matches!(kind, "break_statement" | "continue_statement") {
-            while let Some(parent) = outer.filter(|n| *n != context.owner) {
-                if let Some(label) = label {
-                    if parent.kind() == "labeled_statement"
-                        && field(parent, "label").is_some_and(|n| self.file.node_text(&n) == label)
-                    {
-                        target = if kind == "continue_statement" {
-                            field(parent, "body").unwrap_or(parent)
-                        } else {
-                            parent
-                        };
-                        break;
-                    }
-                } else if is_loop(parent)
-                    || (kind == "break_statement" && parent.kind() == "switch_statement")
-                {
-                    target = parent;
-                    break;
-                }
-                outer = parent.parent();
-            }
-        }
-        self.save_jump((target.id(), kind), state);
-        state.dead = true;
-    }
-
-    fn save_jump(&mut self, jump: (usize, &'static str), state: &State) {
-        if !state.dead {
-            self.jumps
-                .entry(jump)
-                .and_modify(|saved| saved.join(state))
-                .or_insert_with(|| state.clone());
-        }
-    }
-
-    fn visit_try(&mut self, node: Node<'a>, context: Context<'a>, state: &mut State) {
-        let outside = std::mem::take(&mut self.jumps);
-        let mut caught = state.clone();
-        if let Some(body) = field(node, "body") {
-            self.visit(body, context, state);
-        }
-        if let Some(handler) = field(node, "handler") {
-            caught.join(state);
-            if let Some(thrown) = self.jumps.remove(&(context.owner.id(), "throw_statement")) {
-                caught.join(&thrown);
-            }
-            // An implicit exception can leave from inside an expression.
-            caught.invalidate();
-            self.visit(handler, context, &mut caught);
-            state.join(&caught);
-        }
-        if let Some(finalizer) = field(node, "finalizer") {
-            let exits = std::mem::take(&mut self.jumps);
-            if !state.dead || exits.is_empty() {
-                self.visit(finalizer, context, state);
-            }
-            for (jump, mut pending) in exits {
-                self.visit(finalizer, context, &mut pending);
-                self.save_jump(jump, &pending);
-            }
-        }
-        for (jump, state) in outside {
-            self.save_jump(jump, &state);
-        }
-    }
-
-    fn visit_switch(&mut self, node: Node<'a>, context: Context<'a>, state: &mut State) {
-        if let Some(value) = field(node, "value") {
-            self.visit(value, context, state);
-        }
-        let Some(body) = field(node, "body") else {
-            return;
-        };
-        let context = Context {
-            scope: body,
-            ..context
-        };
-        self.enter(body, state);
-        let mut has_default = false;
-        let mut cases = Vec::new();
-        for case in children(body) {
-            let at = field(case, "value");
-            let input = if let Some(test) = at {
-                self.visit(test, context, state);
-                Some(state.clone())
-            } else {
-                has_default = true;
-                None
-            };
-            cases.push((case, at, input));
-        }
-        let mut fallthrough = State::unreachable();
-        for (case, test, input) in cases {
-            fallthrough.join(input.as_ref().unwrap_or(state));
-            for statement in children(case).filter(|statement| Some(*statement) != test) {
-                self.visit(statement, context, &mut fallthrough);
-            }
-        }
-        if !has_default {
-            fallthrough.join(state);
-        }
-        *state = fallthrough;
-    }
-
     fn visit(&mut self, node: Node<'a>, mut context: Context<'a>, state: &mut State) {
+        let outside = context;
+        if !self.charge(context.owner, 1) {
+            self.inventory(node, context, state);
+            return;
+        }
+        if costly_transfer(node, self.file) && !self.charge(context.owner, state.weight()) {
+            self.inventory(node, context, state);
+            return;
+        }
         if is_owner(node) && node != context.owner {
-            if let Some(name) = field(node, "name").filter(|n| n.kind() == "computed_property_name")
+            for eager in children(node)
+                .filter(|child| matches!(child.kind(), "decorator" | "computed_property_name"))
             {
-                self.visit(name, context, state);
+                self.visit(eager, context, state);
             }
             let closures = self.deferred.entry(context.owner.id()).or_default();
             closures.insert(node.start_byte(), (node, context));
@@ -715,11 +734,15 @@ impl<'a> Analysis<'a> {
                 let assignment = declaration || node.kind() == "assignment_expression";
                 let logical = matches!(operator(node, self.file), "||=" | "&&=" | "??=");
                 if let Some(target) = target {
-                    if !declaration
-                        && !matches!(peel(target).kind(), "array_pattern" | "object_pattern")
-                    {
-                        self.target_reads(target, context, state, !assignment);
-                    }
+                    let member = matches!(
+                        peel(target).kind(),
+                        "member_expression" | "subscript_expression"
+                    );
+                    let captured = if !declaration {
+                        self.target_reads(target, context, state, !assignment)
+                    } else {
+                        BTreeSet::new()
+                    };
                     let bypass = logical.then(|| state.clone());
                     if let Some(right) = right {
                         self.visit(right, context, state);
@@ -729,7 +752,11 @@ impl<'a> Analysis<'a> {
                     } else {
                         Origin::Unknown
                     };
-                    self.write(target, origin, context, state);
+                    if member {
+                        self.mutate(captured, peel(target).into(), state);
+                    } else if !super::bare_var(node) {
+                        self.write(target, origin, context, state);
+                    }
                     if let Some(bypass) = bypass {
                         state.join(&bypass);
                     }
@@ -754,23 +781,16 @@ impl<'a> Analysis<'a> {
             _ if is_loop(node) => self.loop_body(node, context, state),
             "with_statement" => {
                 if let Some(object) = field(node, "object") {
-                    self.visit(object, context, state);
+                    self.visit(object, outside, state);
                 }
                 if let Some(body) = field(node, "body") {
-                    self.visit(
-                        body,
-                        Context {
-                            dynamic: true,
-                            ..context
-                        },
-                        state,
-                    );
+                    self.visit(body, context, state);
                 }
             }
             "unary_expression" if operator(node, self.file) == "delete" => {
                 if let Some(target) = field(node, "argument") {
-                    self.target_reads(target, context, state, false);
-                    self.write(target, Origin::Unknown, context, state);
+                    let receiver = self.target_reads(target, context, state, false);
+                    self.mutate(receiver, peel(target).into(), state);
                 }
             }
             "return_statement" | "throw_statement" | "break_statement" | "continue_statement" => {
@@ -781,41 +801,7 @@ impl<'a> Analysis<'a> {
                     self.jump(node, context, state);
                 }
             }
-            "call_expression" => {
-                if let Some(callee) = field(node, "function") {
-                    self.visit(callee, context, state);
-                    if self.file.node_text(&callee) == "eval" && !self.has_binding(callee) {
-                        state.invalidate();
-                    }
-                }
-                let receiver = super::iteration(self.file, node);
-                if let Some(arguments) = field(node, "arguments") {
-                    let mut callback = None;
-                    for (index, arg) in children(arguments).enumerate() {
-                        if index == 0 && receiver.is_some() && is_inline_callback(peel(arg)) {
-                            callback = Some(peel(arg));
-                        } else {
-                            self.visit(arg, context, state);
-                        }
-                    }
-                    if let Some(callback) = callback {
-                        let entry = state.clone();
-                        loop {
-                            let before = state.clone();
-                            self.function(callback, context, state, receiver);
-                            state.join(&entry);
-                            if *state == before {
-                                break;
-                            }
-                        }
-                    }
-                }
-                if let Some(callee) = field(node, "function")
-                    .filter(|callee| super::member_mutator(self.file, *callee))
-                {
-                    self.write(callee, Origin::Unknown, context, state);
-                }
-            }
+            "call_expression" => self.visit_call(node, context, state),
             "catch_clause" => {
                 if let Some(parameter) = field(node, "parameter") {
                     self.write(parameter, Origin::Unknown, context, state);
@@ -826,19 +812,27 @@ impl<'a> Analysis<'a> {
             }
             "try_statement" => self.visit_try(node, context, state),
             "switch_statement" => self.visit_switch(node, context, state),
-            "class_declaration" | "abstract_class_declaration" => {
-                for child in children(node).filter(|child| Some(*child) != field(node, "name")) {
+            "class" | "class_declaration" | "abstract_class_declaration" => {
+                let name = field(node, "name");
+                for child in children(node).filter(|child| Some(*child) != name) {
+                    if child.kind() == "class_body" {
+                        if let Some(name) = name {
+                            state.install(name.start_byte(), name.into());
+                        }
+                    }
                     self.visit(child, context, state);
                 }
-                if let (Some(name), Some(parent)) = (
-                    field(node, "name"),
-                    self.lexical.scopes[&context.scope.id()].parent,
-                ) {
-                    if let Some(Some(binding)) = self.lexical.scopes[&parent]
-                        .names
-                        .get(self.file.node_text(&name))
-                    {
-                        state.install(binding.start_byte, AstSpan::from(name));
+            }
+            "field_definition" | "public_field_definition" => {
+                let deferred = super::instance_initializer(node);
+                for child in value_children(self.file, node) {
+                    if deferred == Some(child) {
+                        let mut instance = state.clone();
+                        let outer = self.deferred_initializer.replace(context.owner.id());
+                        self.visit(child, context, &mut instance);
+                        self.deferred_initializer = outer;
+                    } else {
+                        self.visit(child, context, state);
                     }
                 }
             }
@@ -862,22 +856,71 @@ impl<'a> Analysis<'a> {
                 }
             }
             _ => {
-                for child in children(node) {
+                for child in value_children(self.file, node) {
                     self.visit(child, context, state);
                 }
             }
         }
         if matches!(node.kind(), "labeled_statement" | "switch_statement") {
             if let Some(exit) = self.jumps.remove(&(node.id(), "break_statement")) {
-                state.join(&exit);
+                state.join(&exit.state);
             }
         }
     }
 }
 
-fn is_loop(node: Node<'_>) -> bool {
-    matches!(
-        node.kind(),
-        "for_statement" | "for_in_statement" | "while_statement" | "do_statement"
-    )
+impl<'a> Analysis<'a> {
+    fn visit_call(&mut self, node: Node<'a>, context: Context<'a>, state: &mut State) {
+        let mutation = mutation_receiver(self.file, &self.lexical, node, context);
+        if let Some(callee) = field(node, "function") {
+            self.visit(callee, context, state);
+            if self.file.node_text(&callee) == "eval" && !self.has_binding(callee) {
+                state.invalidate();
+            }
+        }
+        let iteration = super::iteration(self.file, node);
+        let mut callback = None;
+        if let Some(arguments) = field(node, "arguments") {
+            for (index, arg) in children(arguments).enumerate() {
+                if index == 0 && iteration.is_some() && super::is_inline_callback(peel(arg)) {
+                    callback = Some(peel(arg));
+                } else {
+                    self.visit(arg, context, state);
+                }
+            }
+        }
+        if let Some(callback) = callback {
+            if self.charge(context.owner, state.weight()) {
+                self.function(callback, context, state, iteration);
+            } else {
+                self.function(callback, context, &mut State::default(), None);
+            }
+        }
+        if let Some(receiver) = mutation {
+            if let Some(site) = self.sites.get(&AstSpan::from(peel(receiver))) {
+                self.mutate(site.objects.clone(), node.into(), state);
+            }
+        }
+    }
+}
+
+fn costly_transfer(node: Node<'_>, file: &ParsedFile) -> bool {
+    is_loop(node)
+        || matches!(
+            node.kind(),
+            "if_statement"
+                | "ternary_expression"
+                | "try_statement"
+                | "switch_statement"
+                | "return_statement"
+                | "throw_statement"
+                | "continue_statement"
+                | "break_statement"
+                | "field_definition"
+                | "public_field_definition"
+        )
+        || matches!(
+            operator(node, file),
+            "&&" | "||" | "??" | "||=" | "&&=" | "??="
+        )
 }

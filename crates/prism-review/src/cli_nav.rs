@@ -246,19 +246,25 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 for row in &listing.facts {
                     let write = &row.write;
                     println!(
-                        "{}:{} [{}..{}] {} {:?} guard={:?}",
+                        "{}:{} [{}..{}] {} {} guard={}",
                         row.file,
                         write.line,
                         write.start_byte,
                         write.end_byte,
                         write.function,
-                        write.class,
-                        write.guard
+                        serde_json::to_value(write.class)?
+                            .as_str()
+                            .expect("serialized class"),
+                        serde_json::to_value(write.guard)?
+                            .as_str()
+                            .expect("serialized guard")
                     );
                     for operand in &write.key_operands {
                         println!(
-                            "  {:?} {}:{} [{}..{}]",
-                            operand.role,
+                            "  {} {}:{} [{}..{}]",
+                            serde_json::to_value(operand.role)?
+                                .as_str()
+                                .expect("serialized role"),
                             operand.name,
                             operand.line,
                             operand.start_byte,

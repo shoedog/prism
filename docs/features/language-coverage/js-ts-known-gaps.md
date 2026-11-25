@@ -275,3 +275,24 @@ listing identifies the outer member at bytes `[31, 114)` and the distinct
 callback store at `[67, 71)`. Captured-cursor transfer uses synchronous
 callback literals in supported iteration calls. Guard recognition, recursive
 descent and review-taint matching are later slices.
+
+The read inventory tracks local bindings, hoisted `var` declarations,
+evaluation order, and candidate definition spans. A bare `var` redeclaration
+keeps the previous value. Parameter defaults have their own lookup environment
+when the body introduces bindings. Inside `with`, lexical bindings inside
+the body remain available. Lookups that cross the dynamic scope are unresolved.
+
+A captured write in a deferred callable makes reads of that binding incomplete,
+with the known write sites retained. This applies to async callbacks, callbacks
+outside the supported iteration calls (including Lodash `_.each`), and instance
+field initializers. Static blocks run eagerly and have their own `var` scope.
+Sloppy functions with simple parameters and a reference to mapped `arguments`
+report incomplete formal reads. Member mutations through aliases or opaque
+receivers can also make member reads incomplete.
+
+Loop headers conservatively include possible back-edge writes. The analyzer
+bounds the work per owner and keeps a syntax-only, incomplete read inventory
+when it reaches the budget or an owner exceeds 10,000 subscript writes. It
+warns on stderr and omits facts for that owner. Selector provenance follows a
+bounded number of alternatives. Reusing a property operand as a selector
+requires a stable primitive identity or the same original occurrence.

@@ -1,4 +1,4 @@
-use super::proto_writes::{GuardState, KeyRole, ProtoWriteClass};
+use super::proto_writes::{GuardState, KeyRole, ProtoWrite, ProtoWriteClass};
 use crate::{ast::ParsedFile, languages::Language};
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -57,6 +57,60 @@ fn targets(node: Node<'_>, line: usize, spans: &mut Vec<(usize, usize)>) {
     }
 }
 
+fn matches_target_facts(
+    facts: &[&ProtoWrite],
+    mut expected: Vec<(usize, usize)>,
+    class: ProtoWriteClass,
+    allowed: &[String],
+    required: &[&str],
+) -> bool {
+    let mut actual: Vec<_> = facts
+        .iter()
+        .map(|fact| (fact.start_byte, fact.end_byte))
+        .collect();
+    actual.sort_unstable();
+    expected.sort_unstable();
+    actual == expected
+        && facts.iter().all(|fact| {
+            let selectors: Vec<_> = fact
+                .key_operands
+                .iter()
+                .filter(|operand| operand.role == KeyRole::Selector)
+                .map(|operand| operand.base.as_str())
+                .collect();
+            fact.class == class
+                && fact.guard == GuardState::None
+                && selectors
+                    .iter()
+                    .any(|base| allowed.iter().any(|name| name == base))
+                && required.iter().all(|base| selectors.contains(base))
+        })
+}
+
+#[test]
+fn matrix_assertion_refuses_extra_targets_and_missing_required_witnesses() {
+    let file = js("function f(o,req,entry) { o[req].x=1; o[entry].x=2; }");
+    let facts = file.js_ts_proto_writes();
+    let [good, wrong] = facts.as_slice() else {
+        panic!("{facts:?}")
+    };
+    let allowed = ["entry".to_owned(), "req".to_owned()];
+    let check = |facts: &[&ProtoWrite], expected| {
+        matches_target_facts(
+            facts,
+            expected,
+            ProtoWriteClass::NestedKeys,
+            &allowed,
+            &["req"],
+        )
+    };
+    let span = (good.start_byte, good.end_byte);
+    assert!(check(&[good], vec![span]));
+    assert!(!check(&[good, good], vec![span]));
+    assert!(!check(&[good, wrong], vec![span]));
+    assert!(!check(&[wrong], vec![(wrong.start_byte, wrong.end_byte)]));
+}
+
 #[test]
 fn matrix_nonrecursive_polluting_rows() {
     let rows = std::fs::read_to_string(format!("{MATRIX}/rows.jsonl")).unwrap();
@@ -97,17 +151,20 @@ fn matrix_nonrecursive_polluting_rows() {
             other => panic!("unknown class {other}"),
         };
         let passed = if let Some(class) = class {
-            spans.iter().all(|&(start, end)| {
-                on_line.iter().any(|fact| {
-                    (fact.start_byte, fact.end_byte) == (start, end)
-                        && fact.class == class
-                        && fact.guard == GuardState::None
-                        && fact.key_operands.iter().any(|operand| {
-                            operand.role == KeyRole::Selector
-                                && row.attacker_names.contains(&operand.base)
-                        })
-                })
-            })
+            // The contract names both positive witnesses for this loop and the
+            // request path, rather than the local receiver, for t3-051.
+            let required: &[&str] = match row.id.as_str() {
+                "t3-051" => &["req"],
+                "t3-054" => &["pending", "key"],
+                _ => &[],
+            };
+            matches_target_facts(
+                &on_line,
+                spans.clone(),
+                class,
+                &row.attacker_names,
+                required,
+            )
         } else {
             on_line.is_empty()
         };
@@ -488,3 +545,6 @@ fn iteration_requires_a_synchronous_callback_in_the_callback_position() {
     let facts = file.js_ts_proto_writes();
     assert_eq!(facts.iter().map(|fact| fact.line).collect::<Vec<_>>(), [8]);
 }
+
+#[path = "proto_writes_fold_tests.rs"]
+mod fold;
