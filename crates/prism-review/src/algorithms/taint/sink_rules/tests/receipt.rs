@@ -267,3 +267,75 @@ fn flask_inline_record_is_bound_to_the_visit() {
     assert_eq!(count(&parsed, 3, inline(call, op, 2, 3, 3)), 1);
     assert_eq!(count(&parsed, 4, inline(call, op, 3, 4, 4)), 1);
 }
+
+#[test]
+fn target_is_the_operations_own_terminal_callee() {
+    // (language, file, source, [(operation, target, passes)]); the operand is the last `x`.
+    let cases = [
+        (
+            Language::Python,
+            "a.py",
+            "def f(x):\n    a.b(c).d(x)\n    f(x)\n    a.b.f(x)\n    obj.method(x)\n",
+            [
+                ("a.b(c).d(x)", "b", false),
+                ("a.b(c).d(x)", "d", true),
+                ("f(x)", "f", true),
+                ("a.b.f(x)", "f", true),
+                ("a.b.f(x)", "b", false),
+                ("obj.method(x)", "method", true),
+            ],
+        ),
+        (
+            Language::JavaScript,
+            "a.js",
+            "function f(x) {\n  audit(ok)(x);\n  a.b(c).d(x);\n  f(x);\n  a.b.f(x);\n  obj.method(x);\n}\n",
+            [
+                ("audit(ok)(x)", "audit", false),
+                ("a.b(c).d(x)", "b", false),
+                ("a.b(c).d(x)", "d", true),
+                ("f(x)", "f", true),
+                ("a.b.f(x)", "f", true),
+                ("obj.method(x)", "method", true),
+            ],
+        ),
+        (
+            Language::Go,
+            "a.go",
+            "package p\nfunc f(x int) {\n\ta.b(c).d(x)\n\tf(x)\n\ta.b.f(x)\n\tobj.method(x)\n}\n",
+            [
+                ("a.b(c).d(x)", "b", false),
+                ("a.b(c).d(x)", "d", true),
+                ("f(x)", "f", true),
+                ("a.b.f(x)", "f", true),
+                ("a.b.f(x)", "b", false),
+                ("obj.method(x)", "method", true),
+            ],
+        ),
+    ];
+    let mut wrong = Vec::new();
+    for (language, file, source, rows) in cases {
+        let parsed = ParsedFile::parse(file, source, language).unwrap();
+        assert!(!parsed.tree.root_node().has_error(), "{file}");
+        let def = node(&parsed, parsed.tree.root_node(), "x");
+        for (operation, target, passes) in rows {
+            let operation = node(&parsed, parsed.tree.root_node(), operation);
+            let operand = node(&parsed, operation, "x");
+            let bound = Bound::from_binder(
+                operation,
+                node(&parsed, operation, target),
+                operand,
+                Role::Argument(0),
+                FLAT,
+            );
+            let line = operation.start_position().row + 1;
+            let witness = leaked(&parsed, line, bound, operand, def);
+            if count(&parsed, line, witness) != usize::from(passes) {
+                wrong.push(format!(
+                    "{file}: {target} in {}",
+                    parsed.node_text(&operation)
+                ));
+            }
+        }
+    }
+    assert!(wrong.is_empty(), "{wrong:?}");
+}

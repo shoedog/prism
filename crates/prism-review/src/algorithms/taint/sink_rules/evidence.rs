@@ -301,6 +301,28 @@ impl<'a, 'p> Occurrence<'a, 'p> {
     }
 }
 
+/// The target is the callee itself or the last name of the callee path, reached
+/// without passing through a call (`a.b.f` yes; `a.b(c).d` for `b`, `f(y)(x)` for `f` no).
+fn is_terminal_callee(callee: Node<'_>, target: Node<'_>) -> bool {
+    let mut current = callee;
+    while current != target {
+        let kind = current.kind();
+        if kind.contains("call") || kind.contains("invocation") || kind == "new_expression" {
+            return false;
+        }
+        let mut cursor = current.walk();
+        let last = current
+            .named_children(&mut cursor)
+            .filter(|child| !child.kind().ends_with("comment"))
+            .last();
+        match last {
+            Some(last) => current = last,
+            None => return false,
+        }
+    }
+    true
+}
+
 /// Derive the argument slot from the syntax rather than from the claimed role.
 fn slot_matches(
     parsed: &ParsedFile,
@@ -321,7 +343,7 @@ fn slot_matches(
     let callee = ["function", "constructor", "name", "type"]
         .into_iter()
         .filter_map(|field| operation.child_by_field_name(field))
-        .any(|callee| within(target, callee));
+        .any(|callee| is_terminal_callee(callee, target));
     if !callee || within(target, arguments) || !within(operand, arguments) {
         return false;
     }
