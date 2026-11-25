@@ -33,7 +33,7 @@ in `~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane8/probes/`.
   a security corpus, so no codex seat). Evidence `~/prism-evidence/taint-parity/`.
 - **Defaults unchanged** unless a row says otherwise: default review taint findings byte-identical on
   population A after every slice (gate Defaults); `taint_reaches` with default knobs moves only where a row of
-  the slice's group or an explicitly named cross-group CURRENT cell says so. Assert the change in the slice that first causes it.
+  the slice's group or an explicitly named cross-group cell says so and its active per-level prerequisites select that answer. Assert the change in the slice that first causes it.
 - **Known wrong rows** (DESIGN 9): a row with `known_wrong` set keeps today's answer until the slice named
   there; no slice may move one to a further wrong answer.
 - **File size** (weighted): `src/cpg/trace.rs` is 1,138.5 on this checkout and must not grow (new
@@ -241,8 +241,8 @@ const ENABLED: &[&str] = &["control"];   // "reasons": also check the reasons of
 | n01 | `cb(x); handler(0);` on one line, the edge into `cb`'s target name-only with doubt `call_nameonly`, `handler` Exact (lane 9 row h13) | — | guard: BoundaryExited, `not_exact` |
 | n02 | n01 with doubt `builtin_callback` (lane 9 row e14; the kind lane 9 adds) | NotReached, `no_graph_edge`, until lane 9 adds the edge | guard: BoundaryExited, `not_exact` |
 | w10 | competing shallow and deep routes under `exact,3`; mutual recursion; zero budget; descent then ascent at the cap | — | knobs: w10 Reached d2; w10b Reached d1; w10c and w10d BoundaryExited, `depth_cap` |
-| b04 | `f({a:x}, false)` recursive, read after the call (`self_literal_after`) | Reached d0 over DataFlow (wrong witness) | binding: BoundaryExited, `self_param` (DESIGN 5.2 "Binding") |
-| b04b | the read before the recursive call (`self_literal`) | NotReached | control |
+| b04 | `f({a:x}, false)` recursive, read after the call (`self_literal_after`) | Reached d0 over DataFlow (wrong witness) | walk: BoundaryExited, `self_param`, with and without syntax on every entry |
+| b04b | the read before the recursive call (`self_literal`) | NotReached | control; I-walk asserts local order and no sink warning on every entry |
 | b06 | `pick({bad:t, clean:'fixed'})` into `observe(p['clean'])` (`literal_index`) | review exact (wrong edge; filed); BoundaryExited | binding: BoundaryExited, `target_not_binding` |
 | b07, b08 | the same into `p.clean` / `p.bad` (`literal_dot`, `literal_tainted`) | NotReached / BoundaryExited | control / binding: Reached d1 |
 | l06 | `other.run(t); this.run('fixed')` (`method_mixed`) | BoundaryExited | guard: BoundaryExited, `not_exact` |
@@ -320,7 +320,7 @@ E is closed. Its historical assignments follow. The remaining classes and the en
       one-dispatch pools (rows d01 to d03, w09) and lane 3's line-keyed source nodes; where the proof's facts
       come from (the syntax view, or facts stored on edges: DESIGN 5.2; the second re-plans I-walk), and what
       an entry point without a view does (a required argument, or every crossing refused; never the old rule);
-      5.2 Binding (key path, nested callables, row b04; or the cheaper rule: trust the producer's pairing in
+      5.2 Binding (key path and nested callables; I-walk owns the recursive fence on b04/b04b; or the cheaper rule: trust the producer's pairing in
       `object_literal_args::collect` and refuse only what it admits wrongly, so I-binding duplicates no
       key-path logic and edits no lane-3 file); 5.2 Two call sites (rows l01, l04 to l07); 5.2 Spelling and
       the slot certificate; 5.2 Returns and Depth (rows w01 to w10; the parent store per state and boundary
@@ -338,7 +338,7 @@ slices by the ordering rule; I-5 after the retained set, so `parity_knobs_agree`
 when the DESIGN sections it cites are approved and the types it names have merged.
 
 **Gates per slice** (DESIGN 7): Matrix and Defaults (all); Benchmark (I-guard); Sound and Benchmark (I-walk
-and the descent slices); Catalog (I-8, I-9.4); Recovered and Explained (close-out). ORCHESTRATION 5 items 1 to 4, 8 to 10; two
+and the descent slices); Catalog (I-8, I-9.4); Recovered (I-walk baseline, each retained slice versus its actual parent, and close-out); Explained (close-out). ORCHESTRATION 5 items 1 to 4, 8 to 10; two
 reviewers. No slice adds or relabels graph edges, so item 6 does not apply; the census rerun replaces it.
 
 ### Slice I-1: reasons and the crossing trace (3.5 days)
@@ -357,8 +357,8 @@ DESIGN 6.
 #[serde(rename_all = "snake_case")] #[non_exhaustive]
 pub enum LossReason { TargetNotBinding, NoMatchingSite, AmbiguousSite, NotExact, UnprovenSlot,
     ReturnNotEnteredSite, DepthCap, PolicyCeiling, SelfParam, SelfReturn,
-    NoGraphEdge, ShortcutSuppressed, CfgPruned, SanitizerModel, OperandGranularity, Unmodelled,
-    ReviewNoReturnFlow, ReviewNoRecoveredDefUse, ReviewCfgFilter, ReviewContextPolicy }   // census and rows only
+    NoGraphEdge, ShortcutSuppressed, UnprovenReturnInput, CfgPruned, SanitizerModel, OperandGranularity, Unmodelled,
+    ReviewNoReturnFlow, ReviewNoRecoveredDefUse, ReviewCfgFilter, ReviewContextPolicy, UncertifiedFlow, MatcherAdmission }   // census and rows only
 impl CodePropertyGraph {
     pub(super) fn descend_target(&self, from: NodeIndex, to: NodeIndex, rel: Relation,
         cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>) -> Result<(), LossReason>;
@@ -368,7 +368,8 @@ impl CodePropertyGraph {
 //   I-walk qualifies them by expansion version before projection.
 // src/reasoning/types.rs: InterproceduralBoundary { sink: String, reason: LossReason }   (additive)
 // src/cpg/trace.rs: under PRISM_TAINT_CROSSING_TRACE=1 the walk prints to stderr one `taint-crossing` line per
-//   accepted CallDescent or ReturnFlow (root, from, to, relation, site span where known, grades) and one
+//   accepted CallDescent or ReturnFlow (root, from, to, relation, site span where known, grades), a separate
+//   value-input record for a traversed ReturnInput (Use, component, owner and state; excluded from crossing counts), and one
 //   `taint-refusal` line per refused hop or cut (the same, plus the reason); output otherwise unchanged
 ```
 
@@ -384,7 +385,7 @@ impl CodePropertyGraph {
       (f01, f02: verdict BoundaryExited, reason `depth_cap` / `not_exact`), `boundary_target_test_cap_warns`,
       `crossing_trace_lists_accepted_and_refused_hops` (one line each, fields asserted; nothing printed with the
       switch off); the enum and fields land with a placeholder in the same commit so they compile and fail.
-      Implement DESIGN 5.3's ordered checks and sink tie-break. Test the 128th distinct continuation pair and a required 129th for one root/operand, with cold and warm caches. The latter yields `incomplete` and counts as `unexplained`. Trace conditional candidates and joints separately. A same-function warning, exhausted attribution cap or unbound relaxation cannot explain a sink. Exercise twin roots/sites, unrelated/distant sinks and reverse traversal; one primary per direction and sink, unresolved identities fail Explained. Until I-walk lands, exercise wrong-return cuts with constructed inputs. With live paths, a reason is attached to the requested sink through the hop's
+      Apply the four-shard reason audit in STAGE_D_ROWS before choosing primaries. Add the three wire names to the fixture validator, README and serialization tests. Exercise an uncertain dispatch versus genuine operand projection, configuration admission versus a source-row mask with context off, and a rejected return Use versus a missing edge. Implement DESIGN 5.3's ordered checks and sink tie-break. Test the 128th distinct continuation pair and a required 129th for one root/operand, with cold and warm caches. The latter yields `incomplete` and counts as `unexplained`. Trace conditional candidates and joints separately. A same-function warning, exhausted attribution cap or unbound relaxation cannot explain a sink. Exercise twin roots/sites, unrelated/distant sinks and reverse traversal; one primary per direction and sink, unresolved identities fail Explained. Until I-walk lands, exercise wrong-return cuts with constructed inputs. With live paths, a reason is attached to the requested sink through the hop's
       identity; message `taint reached a {kind} boundary at {path} ({reason})`.
 - [ ] Enable `"reasons"`: RED, GREEN. `test_self_call_param_stays_boundary` and
       `test_two_same_line_same_name_calls_do_not_descend` pass unchanged. Run `ledger.py` on the apparatus
@@ -392,7 +393,7 @@ impl CodePropertyGraph {
 
 ### Slice I-guard: name-only binding edges (1 day)
 
-Under Exact, inspect the binding edge’s own label before site lookup or a proof-cache hit. A `call_nameonly` or `builtin_callback` doubt refuses `not_exact` even when an Exact sibling names the target. A read-side `SameLine` doubt alone does not trip the guard. Retain the existing spelling and single-site requirements. For ordinary byte-addressed occurrences, also require the executing caller and containment in that site, including on a single line. A producer line key can only nominate candidates. Leave uncertified line-keyed widenings refused.
+Under Exact, inspect the binding edge’s own label before site lookup or a proof-cache hit. A `call_nameonly` or `builtin_callback` doubt refuses `not_exact` even when an Exact sibling names the target. A read-side `SameLine` doubt alone does not trip the guard. Count the base same-spelling sites first (in the executing caller, site starts on the source line or contains the occurrence). Refuse zero or multiple candidates. For the unique candidate only, require ordinary actual-byte containment even on one line. Pin l02/l03 as BoundaryExited (`ambiguous_site`) through I-guard and I-walk; disambiguation by containment belongs to I-same-line. A producer line key can only nominate candidates. Leave uncertified line-keyed widenings refused.
 
 Report the following default answers in the I-guard PR. `n01` and `n02` are NotReached on the base fixtures, which lack the lane-9 edges. With those edges present the guard returns `BoundaryExited / not_exact`. Pin this on constructed edges until the producers land. `s2-js-alias-same-line`, `s2-js-alias-multiline-overlap` and `s3-ts-optional-default-competitor` move from Reached d1 to `BoundaryExited / no_matching_site` until I-spelling. In each, the alias is the only site for the target that contains the tainted actual. Assert these intermediate cells in I-guard. Keep l01’s positive witness at its second `t` and l06’s refusal. The guard needs only the edge label and existing site bytes, so lane 9 can depend on it before I-walk.
 
@@ -410,7 +411,7 @@ the guard and alias rows in `tests/fixtures/taint_parity/{rows,rows-t2b,rows-t2c
 
 ### Slice I-walk: hop evidence and walk state (4.5 days)
 
-**Pre-dispatch gate.** Use I-1’s accepted-crossing ledger with base crossing behaviour on the census’s frozen frontier sources in all six repositories (same revisions, roots, graph inputs and Exact/2). Reconcile against the pinned base’s frontier results. Compare every base-accepted crossing with rule (iv)’s refusal list, retaining caller/site/actual, target/formal, receiver, default and expansion evidence. Retrieve missing facts at the recorded bytes. Also classify rule (iii)’s non-dispatch pools. Record counts, implicated rows, and the recall cost of each deliberate refusal. For unmatched or indeterminate cases, record the missing evidence and settle the rule and row before proceeding. The orchestrator must read this comparison before dispatching I-walk. A first-failure census or a post-implementation diff cannot substitute for it.
+**Pre-dispatch gate.** Use I-1’s accepted-crossing ledger with base crossing behaviour on the census’s frozen frontier sources in all six repositories (same revisions, roots, graph inputs and Exact/2). Reconcile against the pinned base’s frontier results. Compare every base-accepted crossing with rule (iv)’s refusal list, retaining caller/site/actual, target/formal, receiver, default and expansion evidence. Retrieve missing facts at the recorded bytes. Also classify rule (iii)’s non-dispatch pools. Also compare base-accepted synthetic ReturnInput hops to the §5.2 value-role table at local and entered depths. Record counts, implicated rows (including `tr2-js-wrapper`), and the recall cost of each deliberate refusal. For unmatched or indeterminate cases, record the missing evidence and settle the rule and row before proceeding. The orchestrator must read this comparison before dispatching I-walk. A first-failure census or a post-implementation diff cannot substitute for it.
 
 Rules: DESIGN 5.2 (i)–(v), Returns and Depth. Bind the shared syntax view to the graph's parsed files. Implement proof/refusal and frame repairs first; leave optional Use-target, colliding-site and renamed-site admissions gated until the owning slice is dispatched. For each seam test positive and refused proofs directly even when public admission is still gated. The full matrix ledger specifies the affected rows. No edge/schema change.
 
@@ -444,14 +445,15 @@ pub(super) struct State { node: NodeIndex, entered: Vec<Frame>, initial_cfg: boo
 // Existing no-view entry points retain local traversal and refuse every crossing.
 ```
 
-- [ ] Assert both clients and sanitizer bypass use the same view. Probe missing/partial view (including root-in-callee ascent and recursive Use), mixed-grade and unrelated all-Exact vectors, d01/d02, d03’s bound slot and the two plain instance forms (`self.run(t)`, `r = Runner(); r.run(t)`), s1-py-cls through the class, and w09. Check the actual → formal edge in each instance/classmethod witness. Exercise supplied versus omitted defaults (including JS `undefined`), static/other decorators, explicit unbound receiver, preceding expansion, fixed-prefix/rest controls, per-result slots and caches with equal starts/different ends and different targets. Assert boundary retraction on cheaper revisit, preservation for a different live stack and identical final witnesses/warnings in reversed traversal order. Keep internal frame bytes in the test oracle.
+- [ ] Assert both clients and sanitizer bypass use the same view. Probe missing/partial view (including root-in-callee ascent and recursive Use), mixed-grade and unrelated all-Exact vectors, d01/d02, d03’s bound slot and the two plain instance forms (`self.run(t)`, `r = Runner(); r.run(t)`), s1-py-cls through the class, and w09. Check the actual → formal edge in each instance/classmethod witness. Pin both new unshadowed `@staticmethod` controls through class and instance, actual 0 → `cmd` at formal 0. Refuse the receiver offset, a shadowed `staticmethod`, stacked and other decorators. Exercise supplied versus omitted defaults (including JS `undefined`), explicit unbound receiver, preceding expansion, fixed-prefix/rest controls, per-result slots and caches with equal starts/different ends and different targets. Assert boundary retraction on cheaper revisit, preservation for a different live stack and identical final witnesses/warnings in reversed traversal order. Keep internal frame bytes in the test oracle.
 
+- [ ] Fence possible recursive Use/Def bindings before local DataFlow on **every entry listed above**, including single and multi-root, graph/cache-only, partial-view, context-policy and exclusion/bypass walks. Run b04/b04b with the view and without it. Require b04 `BoundaryExited/self_param`, no depth-zero witness; b04b `NotReached`, no sink warning at the earlier read. Pin a normal one-line local Def→Use. These checks ship with I-walk even if all admissions are deferred.
 - [ ] Tests first: `return_after_descent_only_through_entered_site` (w01),
       `root_in_callee_returns_to_any_exact_caller`, `deeper_first_route_does_not_block_cheaper_route` (w03),
-      `ascent_and_descent_share_the_budget`, `synthetic_return_value_survives_depth_zero_filter` (w05),
+      `ascent_and_descent_share_the_budget`, `synthetic_return_value_survives_depth_zero_filter` (w05; the §5.2 shape table and new STAGE_D_ROWS fixtures check statement CFG and value role independently, pinning cut, slot, Use bytes and the `tr2-js-wrapper` loss),
       `spread_before_slot_refuses_unproven_slot` (w06), `plain_positional_slot_still_descends` (`run(a0, t)`),
       `exact_multi_target_site_follows_stage_d` (w09), `go_interface_pool_descends` (d01),
-      `two_site_witness_returns_through_its_own_site` (DESIGN 5.2's literal fixture and exact interior bytes; also instrument `a1-js-equal-budget-return-sites`),
+      `two_site_witness_returns_through_its_own_site` (two separately identifiable multiline sites in `a1-js-equal-budget-return-sites`, querying `exec(first)` and `exec(second)` in separate variants, or constructed frames; assert both destination-specific interior chains),
       `site_cache_key_includes_target_and_slot`, and in `taint_parity_test.rs` `both_clients_pass_ast_site_view`.
       Enable `"walk"`: RED.
 - [ ] Implement `prove_site` for `descend_target` and ascent. Assert l07’s version-refuted CURRENT reason at I-walk even if I-same-line is deferred. Run all enabled groups and `test_self_call_param_stays_boundary`.
@@ -459,7 +461,7 @@ pub(super) struct State { node: NodeIndex, entered: Vec<Frame>, initial_cfg: boo
 
 ### Slices I-binding, I-same-line, I-spelling (3 days each)
 
-Dispatch only on owner decision 6. For each deferred group retain the target expectations and reasons as data. Materialise and assert CURRENT on the chosen build, for the group and every dependent cell, under the STAGE_D_ROWS rule. This includes f03’s `target_not_binding` until I-binding (then `not_exact`) and the alias rows’ `no_matching_site` until I-spelling. If retained, one slice per change of DESIGN 5.2: they edit one function, but each has its own group, census class and
+Dispatch only on owner decision 6. For each deferred group retain the target expectations and reasons as data. Materialise and assert CURRENT on the chosen build, for the group and every dependent cell, under the STAGE_D_ROWS rule. A group owns the work; enable each level's target only once its `prerequisites` all hold (including the particular #596 edge). Reassert the intermediate cells for every subset, in either slice order, as tabulated in STAGE_D_ROWS. This includes f03’s `target_not_binding` until I-binding (then `not_exact`) and the alias rows’ `no_matching_site` until I-spelling. If retained, one slice per change of DESIGN 5.2: they edit one function, but each has its own group, census class and
 sample, and merging them would make the Sound sample unattributable. Each needs I-walk's `prove_site`.
 
 **Files:** Modify `src/cpg/trace_descent.rs`, `src/cpg/trace_descent_tests.rs`,
@@ -467,16 +469,16 @@ sample, and merging them would make the Sound sample unattributable. Each needs 
 the affected `tests/fixtures/taint_parity/rows*.jsonl` shards (STAGE_D_ROWS), `CLAUDE.md`; I-same-line also `src/cpg/tests.rs`
 (split the graph-only refusal from the view-equipped first-site witness on l05; no test is
 added to that file, which is over the size ceiling);
-I-binding covers computed/written/nested/recursive reads and unique versus ambiguous line-key reconstruction, including nonzero token and zero-width anchors. I-spelling also `docs/features/language-coverage/js-ts-known-gaps.md` (section 3, taint descent entry).
+I-binding covers computed/written/nested reads and unique versus ambiguous line-key reconstruction, including nonzero token and zero-width anchors. I-spelling also `docs/features/language-coverage/js-ts-known-gaps.md` (section 3, taint descent entry).
 
 | Slice | Group | Rule | Unit tests first |
 |---|---|---|---|
-| I-binding | `binding` | Reuse the actual producer pairing and check the formal's one-hop read, AST read kind and lexical owner. No second key-path implementation or lane-3 edit. Reject recursive Use as `self_param`. | `objlit_edge_into_formal_member_read_descends`, `objlit_edge_into_bare_formal_read_descends`, `objlit_edge_into_literal_subscript_read_refuses` (b06), `objlit_edge_into_disjoint_dotted_key_absent` (b07), `use_in_callable_nested_in_callee_refuses` (b05), `two_indistinguishable_leaf_emissions_refuse`, `recursive_use_target_refuses_self_param` (b04), `mixed_formal_operand_aggregates_its_nodes` (m01) |
-| I-same-line | `same_line` | DESIGN 5.2 "Two call sites" | `two_sites_one_line_choose_containing_site`, `second_occurrence_inside_g_descends` (l01), `python_first_repeated_argument_has_its_own_site` (l05), `nested_same_callee_refuses_ambiguous`, `nameonly_edge_not_crossed_through_other_exact_site` (l06), `same_line_rebinding_refuses` (l07), `entered_site_return_discarded` (w02) |
+| I-binding | `binding` | Reuse the actual producer pairing and check the formal's one-hop read, AST read kind and lexical owner. No second key-path implementation or lane-3 edit. Retain I-walk’s recursive fence. | `objlit_edge_into_formal_member_read_descends`, `objlit_edge_into_bare_formal_read_descends`, `objlit_edge_into_literal_subscript_read_refuses` (b06), `objlit_edge_into_disjoint_dotted_key_absent` (b07), `use_in_callable_nested_in_callee_refuses` (b05), `two_indistinguishable_leaf_emissions_refuse`, `mixed_formal_operand_aggregates_its_nodes` (m01) |
+| I-same-line | `same_line` | DESIGN 5.2 "Two call sites" | Run the literal `const a = id(t); const b = id(\n t\n);` from DESIGN §5.2. Query both results and assert the separate actual, site, return and destination bytes. `two_sites_one_line_choose_containing_site`, `second_occurrence_inside_g_descends` (l01), `python_first_repeated_argument_has_its_own_site` (l05), `nested_same_callee_refuses_ambiguous`, `nameonly_edge_not_crossed_through_other_exact_site` (l06), `same_line_rebinding_refuses` (l07), `entered_site_return_discarded` (w02) |
 | I-spelling | `spelling` | DESIGN 5.2 "Spelling" | `aliased_import_site_descends`, `const_alias_site_descends`, `aliased_site_descends_only_into_resolved_target`, `aliased_spread_before_slot_refuses` (w07) |
 
-- [ ] Enable the group: RED. Implement. Assert each active cell, including f03’s post-binding reason and the alias rows’ post-spelling witnesses. Run every enabled group.
-- [ ] Write the prediction; rerun `run_census.py` on A with the head build: default byte-identical; trace
+- [ ] RED on this slice's parent. Enable only newly satisfied cell prerequisites, implement, then assert all applicable targets and CURRENT cells, including f03’s post-binding reason and the alias rows’ post-spelling witnesses. Run every enabled group.
+- [ ] Write the prediction. Pair this retained slice's head with its actual post-I-walk parent on the frozen A inputs at Exact/2. Apply the 53/56 floor and publish identified before/after differences and certified paths for any claimed recovery (DESIGN §7). Rerun `run_census.py` on A with the head build: default byte-identical; trace
       gains listed by class; any trace loss is a WRONG to explain or fix; `ledger.py` against the parent build,
       whole-repository frontier runs and review runs.
 - [ ] Benchmark: harness run with the head build; traced count per class not below base; every case whose
@@ -579,14 +581,15 @@ Compute run facts once and instantiate one classifier per call. Forward the matc
 
 - [ ] Step 1: the extraction alone; `cargo test --test algo_taxonomy taint_sink` and `cargo test --test cli`
       unchanged, Defaults gate on population A byte-identical. Commit.
-- [ ] Tests first: `parity_catalog` (per enabled row: the reported multiset of (file, line, rule, operand,
-      verdict) equals `expect.catalog`; every (file, line) of the review column's `taint_sink` findings is
+- [ ] Tests first: `parity_catalog` (on every measurable row, the reported multiset of (file, line, rule, operand,
+      verdict) equals the active `expect.catalog` or `current.expect.catalog` selected by its prerequisites; every (file, line) of the review column's `taint_sink` findings is
       accounted for at matched roots/options, or the row identifies a different root or a specific unsupported emitter); enable `catalog`; CLI tests: `--sinks catalog` on c02
       prints the rule; on c08 it reports the keyword operand; on c12 both lines; with `--sink` it is rejected.
+- [ ] Provide a test/API comparison entry for trace review that takes explicit graph-node root IDs and emits review's normal pre-cap findings with root/family provenance. Keep ordinary framework recognition, masks, classifier, cleansing, configuration and grade floor; disable line/diff/framework/IPC/target expansion as *additional roots* in this entry. Preserve the public review entry separately. On `tr5-js-two-roots`, singleton `t` must give neither catalog nor review decision at `exec(u)`; singleton `u` must give both, and ordinary source-line review still reports the finding. Verify the adapter against ordinary review on equal-root fixtures, including a framework-dependent matcher. Do not use the catalog's answers as the review oracle.
 - [ ] Real-code check (DESIGN 7 Catalog): an ignored test `catalog_matches_trace_review_on_repo` in
       `nav_taint_catalog_test.rs` (repository and sources file from `PRISM_CATALOG_CHECK_REPO` and
       `PRISM_CATALOG_CHECK_SOURCES`) loads the repository once, runs catalog mode and trace-mode review through
-      the API (`taint_from_diff: false`, the same whole-repository files) and compares the (file, line) set of
+      the two API entries on the same CPG and resolved frozen node IDs. Assert identical selected root sets, source membership and rooted fan inputs, including zero-target fans; a mismatch invalidates the comparison. Line seeding with `taint_from_diff: false` still admits other roots. Keep matching facts from the same whole-repository files. Compare each root's (file, line) set of
       decisions not `review_cleansed` with the `taint_sink` lines; the census seat runs it per repository of
       population A at its census commit with its frozen sources. Compare eligible projections before clipping at the same floor, on identical rooted fans. Attribute both directions, subtract only lines exclusively supplied by the five unsupported routes. A shared line with a missing supported decision fails. A missing occurrence on an already matching line is caught by the matrix. Result in the PR body.
 - [ ] Catalog-mode wall time and file-scan counts against frontier mode on A's largest JS repository and one
@@ -597,7 +600,7 @@ Compute run facts once and instantiate one classifier per call. Forward the matc
 The owner chose branch A2 on 2026-11-24 (DESIGN section 4 and decision 2): a new crate `crates/prism-taint`
 (package `prism-taint`, library `prism_taint`) holds the taint module's closure and the catalog
 implementation; `prism-review` and `prism-mcp` depend on it; core is unchanged. The slices run in order after
-I-8 merges, one PR each. Move the root identity, projected lines, tagged operand handling and diagnostics with the matcher; the core contract stays below the adapters. The closure cannot be moved in parts: its modules form one cycle of references
+I-8 merges, one PR each. Move the root identity, projected lines, tagged operand handling and diagnostics with the matcher; the core contract stays below the adapters. I-9.0 must check whether lane 7 S2-R has landed and measure the resulting registry/`SinkHit` API on this exact base. The closure cannot be moved in parts: its modules form one cycle of references
 (verified at 57f7b8cf: `taint_sinks/` names `matches_sink`, `line_matches_structured_sink`,
 `SinkMatchOutcome` and the Go sink tables through `taint.rs`; `taint/js_ts/` names `taint_sinks`; and
 `cleansing.rs`, `sink_match.rs`, `seeds.rs` and the `js_ts/`, `python/` and `go/` directories name each
@@ -607,9 +610,9 @@ move itself (I-9.3) is one generated PR that changes only `use` paths, checked b
 gains a line, and every new file stays under 600 weighted lines, so no file approaches the 2,000 ceiling.
 
 **Stop rule (every I-9 slice).** Stop and ask the owner when (a) a closure module names an item of the review
-crate outside `algorithms/taint*` and `taint_sinks/` (none today; lane 7's registry lives in core, `prism::rule_registry`, and review only re-exports it, so the closure imports it from `prism` and `crates/prism-review/src/output/` is not named; `SinkHit.rule`/`cwe` are private with accessors, which I-8's catalog uses); (b) the untangling needs an edit other than moving an item, rewriting
+crate outside `algorithms/taint*` and `taint_sinks/` (once lane 7 S2-R lands, the registry import is `prism::rule_registry`, review re-exports it and I-8 uses accessors for the private `SinkHit.rule`/`cwe`. I-9.0 checks the actual fields/imports at its head, including any dependency on review output); (b) the untangling needs an edit other than moving an item, rewriting
 visibility (`pub(super)`, `pub(in crate::algorithms::taint)`, `pub(crate)`), rewriting a `use` path, or I-8's
-signature change of `detect_framework_sources`; (c) the closure exceeds 20,000 raw lines or 55 files; (d)
+signature change of `detect_framework_sources` (the verbatim `RunScope` extraction below is an authorized item move); (c) the closure exceeds 20,000 raw lines or 55 files; (d)
 another lane has an open PR on a closure file (ORCHESTRATION's shared table: lanes 4, 6 and 7 finish their
 taint slices first or rebase after; the move is announced on their issues as a move-only window that lasts
 from I-9.1's dispatch to I-9.3's merge).
@@ -619,9 +622,7 @@ from I-9.1's dispatch to I-9.3's merge).
 The numbers below were measured before PR #841 merged. On `main` at 9d1a7d06 the taint module is about twice
 as many files, `taint/seeds.rs` names `source_scope::admission`, and `source_scope/admission.rs` calls
 `run::slice_attributed_impl`, so the closure may now reach `run.rs`, which this plan keeps in the review crate.
-Include I-8's native legacy/wrapper/configuration routes and the source admission and suppression helpers it actually calls. I-9.0 re-measures on its own head and decides whether that module joins the closure and whether `run`'s entry
-points move or the call is inverted; if the closure no longer fits the 7.5-day estimate, the stop rules below
-apply and the orchestrator reports to the controller.
+Include I-8's native legacy/wrapper/configuration routes and the source admission and suppression helpers it actually calls. I-9.0 re-measures on its own head. Record in I-9.1's brief which `RunScope` type, impls and imports `seeds.rs` needs, and whether I-8 already severed `seeds → source_scope::admission → run::slice_attributed_impl`. If still present, authorize extracting that type and its scope-only methods verbatim into a closure-owned module before the crate move. Admission orchestration and `run.rs` stay in review. Supply the resulting item-level closure, measured size and dependencies; if this split cannot close it under the stop rule, return to the owner before moving orchestration. The scoped item move fits the 7.5-day estimate.
 
 - [ ] `census/closure.py` (kept in the evidence directory) computes the module closure mechanically from the
       catalog implementation and the sink loop (`use` trees, qualified and child-module paths, re-exports; a
@@ -646,7 +647,7 @@ apply and the orchestrator reports to the controller.
 
 #### Slice I-9.1: untangle the closure inside the review crate (1.5 days)
 
-Freeze the I-8 decision multiset and unsupported-family diagnostics before moving helpers. Review-only, behaviour unchanged. Every edit is one the stop rule allows. After it, the closure is a set of
+Require the I-9.0 `RunScope` disposition on the actual base. If extraction is needed, move the type and its impl to the closure's `model.rs`, re-export at its old path, repoint `seeds.rs` and admission to it, and check that no closure import reaches `admission` or `run.rs`. Verify original-file admission, default scope and crossing policy before/after. If already severed, record the imports proving it. Freeze the I-8 decision multiset and unsupported-family diagnostics before moving helpers. Review-only, behaviour unchanged. Every edit is one the stop rule allows. After it, the closure is a set of
 whole files in which every item another module uses is `pub`, so the move needs no edit but its paths.
 
 **Files:** Create `crates/prism-review/src/algorithms/taint/model.rs` (the `taint.rs` items the closure names,
@@ -767,7 +768,7 @@ mode stays CLI-only and the MCP description says so (0.5 day).
 ## Acceptance for the lane
 
 Every gate of DESIGN 7 holds on the merged head (numbers in the close-out report); both reviewers approved
-every shipped product slice; census and matrix are on the tracking issue. Matrix asserts the active cells at every level, including CURRENT for deferred targets. Report the empty default Sound sample on descent slices as unmeasured. Apply the Recovered threshold actually recorded by the owner under decision 6 (proposed floor 53/56 plus all named recoveries), and report Benchmark against the comparable B base or cite the owner’s explicit unmeasured exception. A failing gate stops the lane for the owner. Only the owner may change a threshold.
+every shipped product slice; census and matrix are on the tracking issue. Matrix asserts the active cells at every level, including CURRENT for deferred targets. Report the empty default Sound sample on descent slices as unmeasured. Apply decision 6's default Recovered floor of 53/56 plus all named recoveries on their stated populations, or cite the owner's explicit override, and report Benchmark against the comparable B base or cite the owner’s explicit unmeasured exception. A failing gate stops the lane for the owner. Only the owner may change a threshold.
 
 ## Estimate
 
