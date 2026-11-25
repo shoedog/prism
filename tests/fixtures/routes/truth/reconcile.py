@@ -159,6 +159,10 @@ def compare_row(row, truth):
         raise ValueError(f"{row['id']}: truth is {truth['status']}")
     result = Comparison()
     expected, observed = row["expect"], truth["projection"]
+    if row.get("accepted_loss") and not expected:
+        # runtime registers routes no static listing can name: an accepted loss lists nothing
+        result.static_only.add("registrations")
+        return result
     calls = {call["id"]: call for call in truth["calls"]}
     served = defaultdict(list)
     for route in truth["served"]:

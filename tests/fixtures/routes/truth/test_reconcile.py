@@ -49,6 +49,15 @@ class ProjectionTests(unittest.TestCase):
     def assert_fields(self, *fields):
         self.assertEqual([diff.field for diff in self.compare().differences], list(fields))
 
+    def test_accepted_loss_with_no_expectation_skips_runtime_only_registrations(self):
+        row, truth = example()
+        row["expect"] = []
+        self.assertTrue(compare_row(row, truth).differences)
+        row["accepted_loss"] = "runtime_generated_registration"
+        self.assertFalse(compare_row(row, truth).differences)
+        row["expect"] = [{"framework": "express", "site": {"file": "app.js", "line": 99}}]
+        self.assertTrue(compare_row(row, truth).differences)
+
     def test_full_is_exact_even_with_a_matching_suffix(self):
         self.pin["paths"] = [{"status": "full", "value": "/:id"}]
         self.assert_fields("paths[0].value")
