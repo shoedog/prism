@@ -29,7 +29,7 @@ fn enabled_groups() -> Vec<String> {
         Err(_) => ENABLED.iter().map(|group| group.to_string()).collect(),
     }
 }
-const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/taint_parity");
+const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/taint_parity");
 struct Fixture {
     _dir: TempDir,
     repo: Arc<LoadedRepo>,

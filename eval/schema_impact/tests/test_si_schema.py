@@ -105,18 +105,18 @@ def test_allof_member_order_and_property_wrapper():
     assert any("allof_overlap" in warning for warning in a.warnings)
     prefix = "field:resp:GET /b:200#/"
     assert a.fields[prefix + "level"].shape == "integer|int32|false|[]|"
-    assert json.loads(a.fields[prefix + "mode"].shape) == [
-        'string||false|["a","b"]|',
-        'string||false|["c"]|',
-    ]
+    assert prefix + "mode" not in a.fields
 
 
-def test_openapi_first_server_path_and_message_selection():
+def test_openapi_nearest_servers_and_json_message_selection():
     idx = load(b"""\
 openapi: 3.0.3
 info: {version: '2.0'}
 servers:
   - url: https://{tenant}.example.test/api/{version}/Fixed?skip=1
+    variables:
+      tenant: {default: test, enum: [test]}
+      version: {default: v2, enum: [v2]}
   - url: https://example.test/ignored
 paths:
   /items/{name}:
@@ -170,22 +170,23 @@ components:
         name: {type: string}
         flags: {type: object, properties: {nested: {type: boolean}}}
 """)
-    operation = "op:POST /api/Fixed/items/{}"
-    assert set(idx.operations) == {operation, "op:POST /api/Fixed/fallback"}
+    operation = "op:POST /also-ignored/items/{}"
+    assert set(idx.operations) == {operation, "op:POST /api/v2/Fixed/fallback", "op:POST /ignored/fallback"}
     assert idx.info_version == "2.0"
     assert idx.response_fields(operation, "data") == ["flags", "name"]
     assert idx.definitions_of(operation) == {"A/B~C"}
     assert set(idx.fields) == {
-        "field:req:POST /api/Fixed/items/{}#/name",
-        "field:req:POST /api/Fixed/fallback#/selected",
-        "field:resp:POST /api/Fixed/items/{}:201#/data",
-        "field:resp:POST /api/Fixed/items/{}:201#/data/[]/flags",
-        "field:resp:POST /api/Fixed/items/{}:201#/data/[]/flags/nested",
-        "field:resp:POST /api/Fixed/items/{}:201#/data/[]/name",
-        "field:resp:POST /api/Fixed/items/{}:2XX#/range",
+        "field:req:POST /also-ignored/items/{}#/name",
+        "field:resp:POST /also-ignored/items/{}:201#/data",
+        "field:resp:POST /also-ignored/items/{}:201#/data/[]/flags",
+        "field:resp:POST /also-ignored/items/{}:201#/data/[]/flags/nested",
+        "field:resp:POST /also-ignored/items/{}:201#/data/[]/name",
+        "field:resp:POST /also-ignored/items/{}:2XX#/range",
     }
-    assert len(idx.warnings) == 1
-    assert "application/xml" in idx.warnings[0]
+    assert idx.operations[operation].success_statuses == ("201", "2XX")
+    assert idx.operations[operation].default_response == {"$ref": "./other.yaml#/never-read"}
+    assert any(warning.startswith("non_json_media ") for warning in idx.warnings)
+    assert not any("media_type_fallback" in warning for warning in idx.warnings)
 
 
 def test_yaml_plain_schema_strings_are_preserved():
@@ -244,7 +245,7 @@ parameters:
     }
 
 
-def test_union_maps_and_unescaped_property_name():
+def test_union_maps_and_escaped_property_names():
     idx = swagger_response({
         "properties": {
             "data": {
@@ -258,12 +259,12 @@ def test_union_maps_and_unescaped_property_name():
     assert idx.response_fields("op:GET /a", "data") == ["a*b", "c/d"]
     assert set(idx.fields) == {
         "field:resp:GET /a:200#/data",
-        "field:resp:GET /a:200#/data/a*b",
-        "field:resp:GET /a:200#/data/c/d",
+        "field:resp:GET /a:200#/data/a%2Ab",
+        "field:resp:GET /a:200#/data/c~1d",
         "field:resp:GET /a:200#/data/*/name",
         "field:resp:GET /a:200#/scalars",
     }
-    assert any("unescaped_property_name" in warning for warning in idx.warnings)
+    assert not any("unescaped_property_name" in warning for warning in idx.warnings)
     assert any("oneOf" in warning for warning in idx.warnings)
     assert any("anyOf" in warning for warning in idx.warnings)
 
