@@ -1,7 +1,7 @@
 //! AST inventory of Python dependency calls with statically proven identity.
 
-#[cfg(test)]
-mod evidence;
+#[cfg(any(test, feature = "inventory-evidence"))]
+pub mod evidence;
 #[cfg(test)]
 mod tests;
 
@@ -21,6 +21,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
 pub enum Family {
     Http,
     Filesystem,
@@ -50,16 +51,19 @@ impl Family {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Grade {
     Exact,
     AnnotationTyped,
 }
 
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub struct InventoryOptions {
     pub families: BTreeSet<Family>,
 }
 
+#[non_exhaustive]
 pub struct InventorySite {
     pub file: String,
     pub line: usize,
@@ -73,6 +77,7 @@ pub struct InventorySite {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
 pub enum UnsupportedReason {
     ParseErrorInFunction,
     ModuleLevel,
@@ -96,6 +101,7 @@ impl UnsupportedReason {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
 pub enum UnprovenCause {
     StarImport,
     ShadowedRoot,
@@ -130,6 +136,7 @@ impl UnprovenCause {
     }
 }
 
+#[non_exhaustive]
 pub struct UnsupportedSite {
     pub file: String,
     pub line: usize,
@@ -141,6 +148,7 @@ pub struct UnsupportedSite {
 }
 
 #[derive(Default)]
+#[non_exhaustive]
 pub struct InventoryOutput {
     pub sites: Vec<InventorySite>,
     pub unsupported: Vec<UnsupportedSite>,
@@ -148,11 +156,14 @@ pub struct InventoryOutput {
     pub unproven: BTreeMap<String, BTreeMap<UnprovenCause, usize>>,
     pub skipped: Vec<(String, String)>,
     pub files: Vec<String>,
-    #[cfg(test)]
+    #[cfg(feature = "inventory-evidence")]
+    pub occurrences: Vec<evidence::Occurrence>,
+    #[cfg(all(test, not(feature = "inventory-evidence")))]
     occurrences: Vec<evidence::Occurrence>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct FunctionBounds {
     pub name: String,
     pub start_line: usize,
@@ -170,12 +181,20 @@ pub fn collect(
         .copied()
         .filter(|family| opts.families.is_empty() || opts.families.contains(family))
         .collect();
-    let files: BTreeMap<_, _> = files
-        .iter()
-        .filter(|(_, parsed)| parsed.language == prism::languages::Language::Python)
-        .map(|(file, parsed)| (normalize_path(file), parsed))
-        .collect();
+    let mut selected_files = BTreeMap::new();
     for (file, parsed) in files {
+        if parsed.language != prism::languages::Language::Python {
+            continue;
+        }
+        if std::path::MAIN_SEPARATOR != '\\' && file.contains('\\') {
+            output
+                .skipped
+                .push((file.clone(), "UnrepresentablePath".to_owned()));
+            continue;
+        }
+        selected_files.insert(normalize_path(file), parsed);
+    }
+    for (file, parsed) in selected_files {
         python::collect_file(&file, parsed, repo_root, &selected, &mut output);
         output.files.push(file);
     }

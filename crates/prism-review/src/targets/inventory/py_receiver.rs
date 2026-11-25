@@ -24,7 +24,7 @@ use tree_sitter::Node;
 pub(super) struct Resolution {
     pub family: Family,
     pub identity: Result<String, UnprovenCause>,
-    #[cfg(test)]
+    #[cfg(any(test, feature = "inventory-evidence"))]
     pub route: Option<super::evidence::Route>,
 }
 
@@ -105,7 +105,7 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
             Some(Resolution {
                 family,
                 identity: Err(cause),
-                #[cfg(test)]
+                #[cfg(any(test, feature = "inventory-evidence"))]
                 route: None,
             })
         };
@@ -139,7 +139,7 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
         Some(Resolution {
             family: py_tables::family(&canonical)?,
             identity: Ok(canonical),
-            #[cfg(test)]
+            #[cfg(any(test, feature = "inventory-evidence"))]
             route: Some(super::evidence::Route::Root),
         })
     }

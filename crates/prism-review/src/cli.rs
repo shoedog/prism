@@ -434,7 +434,7 @@ pub struct TargetsArgs {
 pub enum Command {
     /// Whole-repo navigation/architecture queries.
     Nav(NavArgs),
-    /// Project findings into the targets contract v1.0.
+    /// Project review findings (schema 1.0) and optional Python inventory (schema 1.1).
     Targets(TargetsArgs),
 }
 

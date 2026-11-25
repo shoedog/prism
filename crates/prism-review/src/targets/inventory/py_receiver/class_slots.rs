@@ -56,25 +56,28 @@ fn conditional<'a, 'tree>(
     entry: Vec<Option<&'a Binding<'tree>>>,
     limit: usize,
 ) -> Vec<Option<&'a Binding<'tree>>> {
-    let blocks =
-        stmt.child_by_field_name("consequence")
-            .into_iter()
-            .chain(children(stmt).filter_map(|arm| match arm.kind() {
-                "elif_clause" => arm.child_by_field_name("consequence"),
-                "else_clause" => arm.child_by_field_name("body"),
-                _ => None,
-            }));
+    let arms = std::iter::once(stmt)
+        .chain(children(stmt).filter(|arm| matches!(arm.kind(), "elif_clause" | "else_clause")));
     let mut exits = Vec::new();
-    for body in blocks {
+    for arm in arms {
+        let is_else = arm.kind() == "else_clause";
+        let Some(body) = arm.child_by_field_name(if is_else { "body" } else { "consequence" })
+        else {
+            continue;
+        };
+        // Only the path which skipped the preceding suites evaluates this test.
+        if arm.start_byte() <= limit && limit < body.start_byte() {
+            return entry;
+        }
         if body.start_byte() <= limit && limit < body.end_byte() {
             return suite(body, bindings, entry, limit);
         }
-        let arm = suite(body, bindings, entry.clone(), limit);
-        join(&mut exits, &arm);
+        join(&mut exits, &suite(body, bindings, entry.clone(), limit));
+        if is_else {
+            return exits;
+        }
     }
-    if !children(stmt).any(|arm| arm.kind() == "else_clause") || limit < stmt.end_byte() {
-        join(&mut exits, &entry);
-    }
+    join(&mut exits, &entry);
     exits
 }
 

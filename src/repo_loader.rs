@@ -34,6 +34,7 @@ pub enum SkipReason {
     TooLarge { bytes: u64 },
     Unreadable,
     NotUtf8,
+    UnrepresentablePath,
     ParseFailed,
 }
 
@@ -927,14 +928,6 @@ fn rel(root: &Path, path: &Path) -> String {
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/")
-}
-
-fn rel_dir(root: &Path, path: &Path) -> String {
-    let mut path = rel(root, path);
-    if !path.ends_with('/') {
-        path.push('/');
-    }
-    path
 }
 
 #[cfg(test)]

@@ -1,12 +1,10 @@
 use crate::targets::inventory::FunctionBounds;
-use icu_normalizer::ComposingNormalizerBorrowed;
 use prism::ast::ParsedFile;
 use tree_sitter::Node;
+use unicode_normalization::UnicodeNormalization;
 
 pub(super) fn identifier(text: &str) -> String {
-    ComposingNormalizerBorrowed::new_nfkc()
-        .normalize(text)
-        .into_owned()
+    text.nfkc().collect()
 }
 
 /// Python recognizes LF, CRLF and CR as line endings. Keep the raw source
@@ -85,6 +83,42 @@ pub(super) fn bounds(parsed: &ParsedFile, node: Node<'_>) -> Option<FunctionBoun
         start_line: node.start_position().row + 1,
         end_line: end.end_position().row + 1,
     })
+}
+
+/// A bare comma-starred string can pull subsequent statements into an
+/// erroneous expression (including the name and parameters of a later def).
+/// Neutralize only the offending star token in a separate bounds parse,
+/// retaining every line and column and leaving inventory call proof alone.
+pub(super) fn recover_bounds_parse(parsed: &ParsedFile) -> Option<ParsedFile> {
+    fn stars(node: Node<'_>, source: &str, repairs: &mut Vec<usize>) {
+        if !node.has_error() || node.start_position().row == node.end_position().row {
+            return;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "*" && matches!(node.kind(), "ERROR" | "list_splat") {
+                let byte = child.start_byte();
+                let before = source[..byte].trim_end_matches([' ', '\t']);
+                let after = source[child.end_byte()..].trim_start_matches([' ', '\t']);
+                if before.ends_with(',') && after.starts_with(['"', '\'']) {
+                    repairs.push(byte);
+                }
+            }
+            stars(child, source, repairs);
+        }
+    }
+
+    let mut repairs = Vec::new();
+    stars(parsed.tree.root_node(), &parsed.source, &mut repairs);
+    if repairs.is_empty() {
+        return None;
+    }
+    let mut bytes = parsed.source.as_bytes().to_vec();
+    for byte in repairs {
+        bytes[byte] = b' ';
+    }
+    let input = String::from_utf8(bytes).expect("replacing ASCII preserves UTF-8");
+    ParsedFile::parse(&parsed.path, &input, parsed.language).ok()
 }
 
 fn last_token(node: Node<'_>) -> Option<Node<'_>> {

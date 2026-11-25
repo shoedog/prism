@@ -217,12 +217,14 @@ fn row(doc: &Value, file: &str, line: u64) -> Value {
 }
 
 fn warning(doc: &Value, expected: &str) {
-    assert!(
-        doc["warnings"]
-            .as_array()
-            .unwrap()
-            .contains(&json!(expected)),
-        "{doc:#}"
+    let warnings = doc["warnings"].as_array().unwrap();
+    assert_eq!(
+        warnings
+            .iter()
+            .filter(|warning| warning.as_str() == Some(expected))
+            .count(),
+        1,
+        "{doc:#}",
     );
 }
 
@@ -487,4 +489,76 @@ fn targets_without_diff_or_inventory_retains_missing_diff_diagnostic() {
             "For more information, try '--help'.\n",
         )
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn inventory_refuses_a_literal_backslash_in_a_filename() {
+    let repo = TempDir::new().unwrap();
+    fs::create_dir(repo.path().join("pkg")).unwrap();
+    for (name, symbol) in [(r"pkg\fetch.py", "wrong"), ("pkg/fetch.py", "right")] {
+        fs::write(
+            repo.path().join(name),
+            format!("import requests\ndef {symbol}(u): return requests.get(u)\n"),
+        )
+        .unwrap();
+    }
+    let doc = document(&run(repo.path(), &[]));
+    assert_eq!(doc["diff"]["files"], json!(["pkg/fetch.py"]));
+    assert_eq!(rows(&doc).len(), 1);
+    assert_eq!(row(&doc, "pkg/fetch.py", 2)["site"]["symbol"], "right");
+    assert_eq!(
+        doc["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|warning| {
+                warning
+                    .as_str()
+                    .unwrap()
+                    .starts_with(r"inventory: skipped: pkg\fetch.py:")
+            })
+            .count(),
+        1,
+        "{doc:#}"
+    );
+    let filtered = document(&run(repo.path(), &["--files", r".\pkg\fetch.py"]));
+    assert_eq!(filtered["diff"]["files"], json!(["pkg/fetch.py"]));
+    assert_eq!(row(&filtered, "pkg/fetch.py", 2)["site"]["symbol"], "right");
+}
+
+#[test]
+fn inventory_without_diff_rejects_taint_context_options() {
+    let repo = fixture();
+    let accepted: Vec<_> = [
+        ("--taint-context", Some("imports")),
+        ("--taint-context-edges", Some("exact")),
+        ("--taint-context-depth", Some("2")),
+        ("--taint-context-max-files", Some("4")),
+    ]
+    .into_iter()
+    .filter_map(|(option, value)| {
+        let args = [Some(option), value]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        let output = run(repo.path(), &args);
+        (output.status.success()
+            || !String::from_utf8_lossy(&output.stderr)
+                .contains(&format!("{option} requires --diff")))
+        .then(|| (option, String::from_utf8_lossy(&output.stderr).into_owned()))
+    })
+    .collect();
+    assert!(accepted.is_empty(), "{accepted:?}");
+}
+
+#[test]
+fn targets_help_identifies_both_output_schemas() {
+    let output = crate::prism_std()
+        .args(["targets", "--help"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let help = String::from_utf8(output.stdout).unwrap();
+    assert!(help.contains("schema 1.0") && help.contains("schema 1.1"));
 }

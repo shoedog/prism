@@ -10,6 +10,20 @@ use anyhow::Result;
 use std::collections::BTreeMap;
 use std::path::Path;
 
+pub(super) fn source_key(root: &Path, path: &Path) -> Result<String, String> {
+    let relative = path.strip_prefix(root).unwrap_or(path);
+    let Some(key) = relative.to_str() else {
+        return Err(relative.to_string_lossy().into_owned());
+    };
+    if std::path::MAIN_SEPARATOR == '\\' {
+        Ok(key.replace('\\', "/"))
+    } else if key.contains('\\') {
+        Err(key.to_owned())
+    } else {
+        Ok(key.to_owned())
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(super) struct Selection<'a> {
     pub includes: &'a (dyn Fn(&str) -> bool + Sync),

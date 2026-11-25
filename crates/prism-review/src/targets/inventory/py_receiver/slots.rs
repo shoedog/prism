@@ -8,11 +8,38 @@ use tree_sitter::Node;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Slot {
-    Name { owner: ScopeId, name: String },
-    Member { object: String, key: String },
+    Name {
+        owner: ScopeId,
+        name: Option<String>,
+    },
+    Member {
+        object: Option<String>,
+        key: Option<String>,
+        definite: bool,
+    },
 }
 
-#[derive(Clone, Copy)]
+impl Slot {
+    pub(super) fn matches_name(&self, owner: ScopeId, name: &str) -> bool {
+        matches!(self, Self::Name { owner: written, name: key }
+            if *written == owner && key.as_deref().is_none_or(|key| key == name))
+    }
+
+    pub(super) fn matches_member(&self, object: &str, key: &str) -> bool {
+        matches!(self, Self::Member { object: written, key: member, .. }
+            if written.as_deref().is_none_or(|path| py_tables::class_object(path) == py_tables::class_object(object))
+            && member.as_deref().is_none_or(|member| member == key))
+    }
+
+    pub(super) fn definite(&self) -> bool {
+        matches!(
+            self,
+            Self::Name { name: Some(_), .. } | Self::Member { definite: true, .. }
+        )
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) struct Read {
     pub scope: ScopeId,
     pub byte: usize,
@@ -28,10 +55,9 @@ impl<'tree> Resolver<'_, 'tree> {
         scope: ScopeId,
     ) -> bool {
         let read = self.read(at, scope);
-        self.writes.iter().any(|write| {
-            matches!(&write.slot, Slot::Name { owner: written_owner, name: key } if *written_owner == owner && key == name)
-                && write.reaches(read)
-        })
+        self.writes
+            .iter()
+            .any(|write| write.slot.matches_name(owner, name) && write.reaches(read))
     }
 
     pub(super) fn builtin_rebound(&self, name: &str, at: Node<'tree>, scope: ScopeId) -> bool {
@@ -81,21 +107,22 @@ impl<'tree> Resolver<'_, 'tree> {
 
     fn reads_member(&self, object: &str, key: &str, read: Read) -> bool {
         let owners = py_tables::method_owners(object, key);
-        self.writes.iter().any(|write| match &write.slot {
-            Slot::Member {
-                object: written,
-                key: member,
-            } if write.reaches(read) => {
-                let written = py_tables::class_object(written);
+        self.writes
+            .iter()
+            .filter(|write| write.reaches(read))
+            .any(|write| {
                 if owners.is_empty() {
-                    written == object && (member == key || member == "__class__")
+                    write.slot.matches_member(object, key)
+                        || write.slot.matches_member(object, "__class__")
                 } else {
-                    (member == key && owners.contains(&written))
-                        || (member == "__bases__" && owners[..owners.len() - 1].contains(&written))
+                    owners
+                        .iter()
+                        .any(|owner| write.slot.matches_member(owner, key))
+                        || owners[..owners.len() - 1]
+                            .iter()
+                            .any(|owner| write.slot.matches_member(owner, "__bases__"))
                 }
-            }
-            _ => false,
-        })
+            })
     }
 
     pub(super) fn read(&self, at: Node<'tree>, scope: ScopeId) -> Read {

@@ -66,6 +66,7 @@ pub fn merge_inventory(
     }
     let mut skipped = out.skipped.iter().collect::<Vec<_>>();
     skipped.sort();
+    skipped.dedup();
     for (file, reason) in skipped {
         doc.warnings
             .push(format!("inventory: skipped: {file}: {reason}"));

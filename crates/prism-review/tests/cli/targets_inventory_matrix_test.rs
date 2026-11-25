@@ -242,6 +242,12 @@ fn matrix_rows_match() {
     let targets = document["targets"]
         .as_array()
         .expect("inventory document must include a targets array");
+    let warnings = document["warnings"].as_array().expect("inventory warnings");
+    let unique: HashSet<_> = warnings
+        .iter()
+        .map(|warning| warning.as_str().unwrap())
+        .collect();
+    assert_eq!(warnings.len(), unique.len(), "duplicate inventory warning");
 
     // Each unsupported target answers at most one row (DESIGN 6.8: rows consume actual targets).
     let mut used = vec![false; targets.len()];

@@ -1,4 +1,4 @@
-//! Test-only source evidence captured before DTO projection.
+//! Optional source evidence captured before DTO projection.
 
 use super::{python::source::Source, UnsupportedReason};
 use crate::targets::Target;
@@ -7,12 +7,12 @@ use tree_sitter::Node;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub(super) enum Route {
+pub enum Route {
     Root,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub(super) struct Span {
+pub struct Span {
     pub range: [usize; 4],
     pub text: String,
 }
@@ -29,13 +29,13 @@ impl Span {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub(super) struct Proof {
+pub struct Proof {
     pub route: Route,
     pub call: Span,
     pub callee: Span,
 }
 
-pub(super) struct Occurrence {
+pub struct Occurrence {
     pub file: String,
     pub symbol: Option<String>,
     pub canonical: String,
@@ -44,7 +44,7 @@ pub(super) struct Occurrence {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub(super) struct Projected {
+pub struct Projected {
     pub revision: &'static str,
     pub build_identity: &'static str,
     pub file: String,
@@ -55,7 +55,7 @@ pub(super) struct Projected {
 
 /// Attach proof to the actual projected IDs, including every occurrence of a
 /// grouped unsupported row. The route and spans come from the proof branch.
-pub(super) fn sidecar(rows: &[Target], occurrences: &[Occurrence]) -> Vec<Projected> {
+pub fn sidecar(rows: &[Target], occurrences: &[Occurrence]) -> Vec<Projected> {
     let build = prism::api::build_info();
     let mut result = Vec::new();
     for row in rows

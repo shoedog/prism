@@ -18,6 +18,8 @@ pub fn function_bounds(parsed: &ParsedFile) -> Vec<FunctionBounds> {
     }
     let source = source::Source::new(parsed);
     let parsed = source.parsed();
+    let recovered = source::recover_bounds_parse(parsed);
+    let parsed = recovered.as_ref().unwrap_or(parsed);
     let walk = walk::Walk::new(parsed);
     let mut functions: Vec<_> = walk
         .scopes
@@ -108,7 +110,7 @@ pub(super) fn collect_file(
             None
         };
 
-        #[cfg(test)]
+        #[cfg(any(test, feature = "inventory-evidence"))]
         output.occurrences.push(super::evidence::Occurrence {
             file: file.to_owned(),
             symbol: owner.map(|owner| owner.name.clone()),

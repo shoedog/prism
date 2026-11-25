@@ -12,6 +12,10 @@ path = "src/main.rs"
 # The core library is also named `prism`; documenting this bin would collide with its docs (measured on a toy).
 doc = false
 
+[[example]]
+name = "inventory_sidecar"
+required-features = ["inventory-evidence"]
+
 [dependencies]
 prism = { path = "../.." }
 tree-sitter = "0.25"
@@ -23,13 +27,14 @@ anyhow = "1"
 petgraph = "0.7"
 sha2 = "0.10"
 rayon = "1"
-icu_normalizer = { version = "2.2", default-features = false, features = ["compiled_data"] }
+unicode-normalization = "0.1"
 
 # Global allocator for the `prism` CLI only (src/main.rs); see #437.
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.7"
 
 [features]
+inventory-evidence = []
 # Forwards prism's explicit real-compiler audit tests (tests/cli/owner_activation_test.rs).
 detached-owner-audit = ["prism/detached-owner-audit"]
 

@@ -2,6 +2,24 @@ use crate::targets::inventory::python::source::{children, ungroup};
 use prism::ast::ParsedFile;
 use tree_sitter::Node;
 
+/// A syntactic string key can model a write even when its value can't be
+/// decoded. Computed keys are outside the write index.
+pub(super) fn write_key(parsed: &ParsedFile, node: Node<'_>) -> Option<Option<String>> {
+    let node = ungroup(node);
+    fn plain_text(parsed: &ParsedFile, node: Node<'_>) -> bool {
+        match node.kind() {
+            "concatenated_string" => children(node).all(|part| plain_text(parsed, part)),
+            "string" => children(node).next().is_some_and(|start| {
+                let delimiter = parsed.node_text(&start);
+                let prefix = delimiter.trim_end_matches(['\'', '"']);
+                matches!(prefix.to_ascii_lowercase().as_str(), "" | "r" | "u")
+            }),
+            _ => false,
+        }
+    }
+    plain_text(parsed, node).then(|| literal(parsed, node))
+}
+
 pub(super) fn literal(parsed: &ParsedFile, node: Node<'_>) -> Option<String> {
     let node = ungroup(node);
     match node.kind() {
@@ -93,9 +111,8 @@ fn decode(raw: &str) -> Option<String> {
     Some(value)
 }
 
-// The catalogued members and reserved lookup slots are ASCII identifiers.
-// Decode their Unicode names directly. A non-ASCII key can still be written
-// literally or with a numeric Unicode escape.
+// Decode common ASCII names directly. An unrecognized name makes the write
+// key unknown, so it can veto a matching namespace or object's lookup.
 fn named_ascii_identifier_character(name: &str) -> Option<char> {
     for (prefix, base) in [
         ("LATIN CAPITAL LETTER ", b'A'),

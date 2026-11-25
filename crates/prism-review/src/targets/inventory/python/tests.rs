@@ -82,3 +82,160 @@ fn normalized_bounds_and_original_crlf_span() {
     assert_eq!(evidence.callee.text, "requests\r\n     .get");
     assert_eq!(evidence.callee.range, [3, 5, 4, 9]);
 }
+
+#[test]
+fn function_bounds_recovers_after_starred_string_tuple() {
+    for tuple in ["1, *x", "1, *\"ten\""] {
+        let input = format!("g = {tuple}\n\ndef f():\n    pass\n");
+        let parsed = ParsedFile::parse("input.py", &input, Language::Python).unwrap();
+        let bounds = function_bounds(&parsed);
+        assert_eq!(
+            bounds,
+            [crate::targets::inventory::FunctionBounds {
+                name: "f".to_owned(),
+                start_line: 3,
+                end_line: 4,
+            }],
+            "{tuple}: {}",
+            parsed.tree.root_node().to_sexp()
+        );
+    }
+}
+
+fn anchor_tie_inputs() -> Vec<(&'static str, String, usize)> {
+    [
+        (
+            "dict",
+            "def f():\n    return {\n        0: ",
+            ", requests.get(",
+            ": 0}\n",
+        ),
+        (
+            "conditional",
+            "def f():\n    return (\n",
+            " if requests.get(",
+            " else 0)\n",
+        ),
+        (
+            "def defaults",
+            "def f(x=",
+            ", *, y=requests.get(",
+            "):\n    pass\n",
+        ),
+        (
+            "lambda defaults",
+            "f = (lambda x=",
+            ", *, y=requests.get(",
+            ": 0)\n",
+        ),
+        (
+            "chained targets",
+            "def f():\n    [",
+            "][0] = requests.get(",
+            "[0] = 0\n",
+        ),
+    ]
+    .into_iter()
+    .map(|(label, prefix, middle, suffix)| {
+        let line = prefix.lines().count() + usize::from(prefix.ends_with('\n')) + 1;
+        let col = "    ).get()".len() + middle.find("requests").unwrap();
+        let used = prefix.rsplit('\n').next().unwrap().len();
+        assert!(used <= col, "{label}");
+        let source = format!(
+            "{prefix}{}(obj\n    ).get(){middle}\n          ){suffix}",
+            " ".repeat(col - used)
+        );
+        (label, source, line)
+    })
+    .collect()
+}
+
+fn tied_anchor(input: &str, line: usize) -> [usize; 4] {
+    let parsed = ParsedFile::parse("input.py", input, Language::Python).unwrap();
+    assert!(
+        !parsed.tree.root_node().has_error(),
+        "{}",
+        parsed.tree.root_node().to_sexp()
+    );
+    let source = Source::new(&parsed);
+    let walk = Walk::new(source.parsed());
+    let competitors: Vec<_> = walk
+        .calls
+        .iter()
+        .filter(|call| {
+            call.callee.start_position().row < line && call.callee.end_position().row + 1 == line
+        })
+        .collect();
+    assert_eq!(competitors.len(), 2, "{input}");
+    assert_eq!(
+        competitors[0].callee.start_position().column,
+        competitors[1].callee.start_position().column,
+        "{input}"
+    );
+    assert_eq!(
+        competitors[0].node.end_position().column,
+        competitors[1].node.end_position().column,
+        "{input}"
+    );
+    Span::new(&source, anchor::winners(&walk.calls)[&line].node).range
+}
+
+#[test]
+fn equal_anchor_keys_follow_python_field_order_and_depth() {
+    let mut failures = Vec::new();
+    for (label, input, line) in anchor_tie_inputs() {
+        let actual = tied_anchor(&input, line);
+        let col = input
+            .lines()
+            .nth(line - 1)
+            .unwrap()
+            .find("requests")
+            .unwrap();
+        let expected = [line, col, line + 1, 11];
+        if actual != expected {
+            failures.push(format!("{label}: expected {expected:?}, got {actual:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn equal_anchor_keys_match_python_311_ast_walk() {
+    let Some(home) = std::env::var_os("HOME") else {
+        eprintln!("skipped AST oracle: HOME is unavailable");
+        return;
+    };
+    let python = Path::new(&home).join("prism-evidence/faultpath-targets/venv/bin/python");
+    if !python.is_file() {
+        eprintln!("skipped AST oracle: {} is unavailable", python.display());
+        return;
+    }
+    let script = r#"
+import ast, json, sys
+assert sys.version_info[:3] == (3, 11, 11), sys.version
+fixtures = json.loads(sys.argv[1])
+winners = []
+for _, source, line in fixtures:
+    candidates = [n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.Call)
+                  and n.func.lineno <= line <= n.func.end_lineno]
+    winner = min(candidates, key=lambda n: (n.func.end_lineno - line, n.func.col_offset, -n.end_col_offset))
+    winners.append([winner.lineno, winner.col_offset, winner.end_lineno, winner.end_col_offset])
+print(json.dumps(winners))
+"#;
+    let fixtures = anchor_tie_inputs();
+    let output = std::process::Command::new(python)
+        .args(["-c", script, &serde_json::to_string(&fixtures).unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let expected: Vec<[usize; 4]> = serde_json::from_slice(&output.stdout).unwrap();
+    let actual: Vec<_> = fixtures
+        .iter()
+        .map(|(_, source, line)| tied_anchor(source, *line))
+        .collect();
+    assert_eq!(actual, expected);
+}

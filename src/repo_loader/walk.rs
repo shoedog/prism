@@ -1,5 +1,5 @@
 use super::{
-    is_manifest_name, rel, rel_dir, skip_dir, source_files, CandidateData, MergeItem, SkipReason,
+    is_manifest_name, rel, skip_dir, source_files, CandidateData, MergeItem, SkipReason,
     SkippedFile, MAX_FILE_BYTES,
 };
 use crate::languages::Language;
@@ -34,11 +34,15 @@ pub(super) fn walk(
         };
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
+        let relp = match selection {
+            Some(_) => source_files::source_key(root, &path),
+            None => Ok(rel(root, &path)),
+        };
         let file_type = match entry.file_type() {
             Ok(file_type) => file_type,
             Err(_) => {
                 items.push(MergeItem::Skip(SkippedFile {
-                    path: rel(root, &path),
+                    path: relp.unwrap_or_else(|path| path),
                     reason: SkipReason::Unreadable,
                 }));
                 continue;
@@ -50,8 +54,18 @@ pub(super) fn walk(
                 if selection.excluded_directories.contains(&name.as_str()) {
                     continue;
                 }
-            } else if !(selection.includes)(&rel(root, &path)) {
-                continue;
+            } else {
+                match &relp {
+                    Ok(key) if (selection.includes)(key) => {}
+                    Err(path) if (selection.includes)(path) => {
+                        items.push(MergeItem::Skip(SkippedFile {
+                            path: path.clone(),
+                            reason: SkipReason::UnrepresentablePath,
+                        }));
+                        continue;
+                    }
+                    _ => continue,
+                }
             }
         }
 
@@ -64,7 +78,7 @@ pub(super) fn walk(
         }
 
         if is_manifest_name(&name) {
-            let relp = rel(root, &path);
+            let relp = relp.as_ref().unwrap_or_else(|path| path).clone();
             if file_type.is_symlink() {
                 manifest_snapshot.insert_symlink_refused(relp.clone());
                 items.push(MergeItem::Skip(SkippedFile {
@@ -93,7 +107,7 @@ pub(super) fn walk(
 
         if file_type.is_symlink() {
             items.push(MergeItem::Skip(SkippedFile {
-                path: rel(root, &path),
+                path: relp.unwrap_or_else(|path| path),
                 reason: SkipReason::Symlink,
             }));
             continue;
@@ -116,7 +130,7 @@ pub(super) fn walk(
             continue;
         }
 
-        let relp = rel(root, &path);
+        let relp = relp.unwrap_or_else(|path| path);
         let meta = match entry.metadata() {
             Ok(meta) => meta,
             Err(_) => {
@@ -188,4 +202,12 @@ pub(super) fn walk(
     }
 
     Ok(())
+}
+
+fn rel_dir(root: &Path, path: &Path) -> String {
+    let mut path = rel(root, path);
+    if !path.ends_with('/') {
+        path.push('/');
+    }
+    path
 }

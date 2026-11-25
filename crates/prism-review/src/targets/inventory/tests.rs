@@ -254,3 +254,112 @@ fn writes_distinguish_fresh_local_slots_and_persistent_members() {
     );
     assert_eq!(shadowed_helper.sites.len(), 1);
 }
+
+#[test]
+fn modeled_writes_veto_at_their_execution_point() {
+    let repo = tempdir().unwrap();
+    let cases = [
+        ("earlier alias", "import requests as r\nr.get = fake\nr = None\nimport requests as s\ndef f(u): return s.get(u)\n", UnprovenCause::MemberRebound, 1),
+        ("class join", "import requests\nimport httpx\nclass C:\n    if flag:\n        r = requests\n    else:\n        r = httpx\n    r.get = fake\ndef f(u): return requests.get(u)\ndef g(u): return httpx.get(u)\n", UnprovenCause::MemberRebound, 2),
+        ("class alias", "import requests\nA = requests.Session\nA.get = fake\ndef f(u): return requests.Session.get(u)\n", UnprovenCause::MemberRebound, 1),
+        ("named unicode globals key", r#"import requests as ρ
+globals()["\N{GREEK SMALL LETTER RHO}"] = fake
+def f(u): return ρ.get(u)
+"#, UnprovenCause::ShadowedRoot, 1),
+        ("loop-carried alias", "import requests\ndef f(u): return requests.get(u)\ndef p(n):\n    for i in range(n):\n        if i: r.get = None\n        r = requests\n", UnprovenCause::MemberRebound, 1),
+        ("loop-carried import", "def f(us):\n    for i,u in enumerate(us):\n        if i: requests.get = None\n        import requests\n        requests.get(u)\n", UnprovenCause::MemberRebound, 1),
+        ("unknown object", "import requests\ndef p(obj):\n    obj.get = fake\ndef f(u): return requests.get(u)\n", UnprovenCause::MemberRebound, 1),
+        ("undecodable literal member key", r#"import requests
+setattr(requests, "\N{LATIN SMALL LIGATURE FF}", fake)
+def f(u): return requests.get(u)
+"#, UnprovenCause::MemberRebound, 1),
+        ("reflective replacement of alias", "import requests as r\nimport httpx\nglobals()['r'] = httpx\nr.get = fake\ndef f(u): return httpx.get(u)\n", UnprovenCause::MemberRebound, 1),
+        ("import after reflective replacement", "import requests as r\nimport httpx\nglobals()['r'] = httpx\nimport requests as r\nr.get = fake\nimport requests\ndef f(u): return requests.get(u)\n", UnprovenCause::MemberRebound, 1),
+        ("possible writes retain the original object", "from urllib import request as saved\nimport urllib.request\nimport httpx\nr = urllib if flag else httpx\nr.request = object()\nurllib.request.urlopen = fake\ndef f(u): return saved.urlopen(u)\n", UnprovenCause::MemberRebound, 1),
+    ];
+    let failures: Vec<_> = cases
+        .into_iter()
+        .filter_map(|(label, source, cause, count)| {
+            let out = file(source, repo.path(), &[Family::Http]);
+            let actual = out
+                .unproven
+                .get("app/main.py")
+                .and_then(|causes| causes.get(&cause))
+                .copied();
+            (actual != Some(count) || !out.sites.is_empty() || !out.unsupported.is_empty()).then(
+                || {
+                    format!(
+                        "{label}: {} sites, {} unsupported, {:?}",
+                        out.sites.len(),
+                        out.unsupported.len(),
+                        out.unproven
+                    )
+                },
+            )
+        })
+        .collect();
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn modeled_writes_preserve_captures_and_unrelated_objects() {
+    let repo = tempdir().unwrap();
+    for (label, source, callee) in [
+        ("capture", "from urllib import request as saved\nimport urllib.request\nclass Replacement: pass\nurllib.request = Replacement()\nurllib.request.urlopen = fake\ndef f(u): return saved.urlopen(u)\n", "urllib.request.urlopen"),
+        ("unrelated object", "import requests\nimport httpx as other\ndel other.get\nvars(other)['get'] = fake\nother.__dict__['get'] = fake\nsetattr(other, 'get', fake)\ndelattr(other, 'get')\ndef f(u): return requests.get(u)\n", "requests.get"),
+        ("unrelated slot", "import requests as r\nr.post = fake\ndef f(u): return r.get(u)\n", "requests.get"),
+        ("reflective replacement after import", "import requests as r\nimport httpx\nimport requests as r\nglobals()['r'] = httpx\nr.get = fake\nimport requests\ndef f(u): return requests.get(u)\n", "requests.get"),
+        ("computed key outside the write model", "import requests\ndef p(key):\n    setattr(requests, key, fake)\ndef f(u): return requests.get(u)\n", "requests.get"),
+    ] {
+        let out = file(source, repo.path(), &[Family::Http]);
+        assert_eq!(out.sites.len(), 1, "{label}: {:?}", out.unproven);
+        assert_eq!(out.sites[0].resolved_callee, callee, "{label}");
+        assert!(out.unproven.is_empty(), "{label}");
+    }
+}
+
+#[test]
+fn elif_type_only_guards_refuse_runtime_use() {
+    let repo = tempdir().unwrap();
+    for (guard, count) in [("TYPE_CHECKING", 1), ("ordinary", 0)] {
+        let source = format!("from typing import TYPE_CHECKING\nif flag:\n    pass\nelif {guard}:\n    import requests\ndef f(u): return requests.get(u)\n");
+        let out = file(&source, repo.path(), &[Family::Http]);
+        assert_eq!(out.sites.len(), 1 - count, "{guard}");
+        assert_eq!(
+            out.unproven
+                .get("app/main.py")
+                .and_then(|causes| causes.get(&UnprovenCause::BindingUnavailable))
+                .copied()
+                .unwrap_or(0),
+            count,
+            "{guard}"
+        );
+    }
+}
+
+#[test]
+fn elif_tests_start_from_the_preceding_false_path() {
+    let repo = tempdir().unwrap();
+    for first_arm in ["r = None", "pass"] {
+        let source = format!("import requests as r\ndef f(u):\n    class C:\n        if flag:\n            {first_arm}\n        elif r.get(u):\n            pass\n");
+        let out = file(&source, repo.path(), &[Family::Http]);
+        assert!(out.unproven.is_empty(), "{first_arm}: {:?}", out.unproven);
+        assert_eq!(out.unsupported.len(), 1, "{first_arm}");
+        assert_eq!(out.unsupported[0].reason, UnsupportedReason::ClassBodyFrame);
+    }
+}
+
+#[test]
+fn repeated_inventory_skips_produce_one_warning() {
+    let mut out = InventoryOutput::default();
+    let skip = ("x.py".to_owned(), "Unreadable".to_owned());
+    out.skipped = vec![skip.clone(), skip];
+    let doc = inventory_document(&TargetsMeta::default(), &out);
+    assert_eq!(
+        doc.warnings
+            .iter()
+            .filter(|w| w.starts_with("inventory: skipped:"))
+            .count(),
+        1
+    );
+}

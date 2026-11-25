@@ -672,7 +672,8 @@ Inventory rows use `prism.inventory/1` and severity `info`. An exact call in a c
 `asserted`. Exact calls in recovered files are `candidate`, and a parse error within the owning
 definition produces an unsupported row. The confidence, tier, and severity filters apply to
 inventory rows. Warnings report unproven identities, selected files the loader skipped, and
-rows removed by the severity floor.
+rows removed by the severity floor. On POSIX, the inventory skips file paths that contain a
+literal backslash. Taint-context options require `--diff`.
 
 Both inventory commands produce [schema 1.1](docs/contracts/targets-1.1.schema.json). With a diff,
 the document keeps the review's diff metadata. In an inventory-only run, the file list and

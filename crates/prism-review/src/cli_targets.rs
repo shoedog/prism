@@ -21,16 +21,20 @@ pub(crate) fn run_targets(args: &TargetsArgs, matches: &ArgMatches) -> Result<()
     let document = if let Some(diff) = &args.diff {
         run_review(args, diff, inventory.as_ref())?
     } else {
-        for option in [
-            "algorithm",
-            "scoped_cpg",
-            "old_repo",
-            "compile_commands",
-            "cache_dir",
-            "no_cache",
+        for (option, flag) in [
+            ("algorithm", "algorithm"),
+            ("scoped_cpg", "scoped-cpg"),
+            ("old_repo", "old-repo"),
+            ("compile_commands", "compile-commands"),
+            ("cache_dir", "cache-dir"),
+            ("no_cache", "no-cache"),
+            ("mode", "taint-context"),
+            ("edges", "taint-context-edges"),
+            ("depth", "taint-context-depth"),
+            ("max_files", "taint-context-max-files"),
         ] {
             if matches.value_source(option) == Some(ValueSource::CommandLine) {
-                anyhow::bail!("targets: --{} requires --diff", option.replace('_', "-"));
+                anyhow::bail!("targets: --{flag} requires --diff");
             }
         }
         let repo = canonical_repo(args)?;
@@ -80,7 +84,7 @@ fn collect_inventory(
     });
     let (files, skipped) = load_python_files(repo, only.as_ref())?;
     let mut out = collect(&files, repo, options);
-    out.skipped = skipped;
+    out.skipped.extend(skipped);
     Ok(out)
 }
 

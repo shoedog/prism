@@ -154,7 +154,7 @@ impl<'tree> Resolver<'_, 'tree> {
         let body = self.walk.scopes[binding.scope].body;
         let mut node = binding.node;
         while let Some(parent) = node.parent().filter(|parent| *parent != body) {
-            if parent.kind() == "if_statement"
+            if matches!(parent.kind(), "if_statement" | "elif_clause")
                 && parent.child_by_field_name("consequence") == Some(node)
             {
                 if let Some(test) = parent.child_by_field_name("condition") {

@@ -231,9 +231,24 @@ fn ast_children(node: Node<'_>) -> Vec<Node<'_>> {
         "argument_list" => {
             nodes.sort_by_key(|node| matches!(node.kind(), "keyword_argument" | "dictionary_splat"))
         }
-        "parameters" | "lambda_parameters" => nodes.sort_by_key(|node| {
-            matches!(node.kind(), "default_parameter" | "typed_default_parameter")
-        }),
+        "parameters" | "lambda_parameters" => return parameter_children(nodes),
+        "default_parameter" | "typed_default_parameter" => {
+            nodes.retain(|child| Some(*child) != node.child_by_field_name("value"));
+        }
+        "dictionary" => {
+            let keys = nodes
+                .iter()
+                .filter_map(|pair| pair.child_by_field_name("key"));
+            let values = nodes.iter().filter_map(|item| {
+                if item.kind() == "dictionary_splat" {
+                    children(*item).next()
+                } else {
+                    item.child_by_field_name("value")
+                }
+            });
+            return keys.chain(values).collect();
+        }
+        "conditional_expression" if nodes.len() == 3 => nodes.swap(0, 1),
         "function_definition" => nodes.sort_by_key(|n| {
             if Some(*n) == node.child_by_field_name("return_type") {
                 1
@@ -247,6 +262,51 @@ fn ast_children(node: Node<'_>) -> Vec<Node<'_>> {
     nodes
 }
 
+fn parameter_children(parameters: Vec<Node<'_>>) -> Vec<Node<'_>> {
+    // ast.arguments visits positional args, vararg, keyword-only args,
+    // keyword-only defaults, kwarg, then positional defaults. Default
+    // values are siblings of arg nodes, rather than children of those args.
+    let mut args = Vec::new();
+    let mut keyword_only = false;
+    let mut keyword_defaults = Vec::new();
+    let mut positional_defaults = Vec::new();
+    let mut kwarg = None;
+    for parameter in parameters {
+        let kind = if parameter.kind() == "typed_parameter" {
+            children(parameter)
+                .next()
+                .map_or(parameter.kind(), |target| target.kind())
+        } else {
+            parameter.kind()
+        };
+        match kind {
+            "list_splat_pattern" => {
+                keyword_only = true;
+                args.push(parameter);
+            }
+            "keyword_separator" => keyword_only = true,
+            "positional_separator" => {}
+            "dictionary_splat_pattern" => kwarg = Some(parameter),
+            _ => {
+                args.push(parameter);
+                if matches!(kind, "default_parameter" | "typed_default_parameter") {
+                    if let Some(value) = parameter.child_by_field_name("value") {
+                        if keyword_only {
+                            keyword_defaults.push(value);
+                        } else {
+                            positional_defaults.push(value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    args.extend(keyword_defaults);
+    args.extend(kwarg);
+    args.extend(positional_defaults);
+    args
+}
+
 fn transparent(node: Node<'_>, child: Node<'_>) -> bool {
     match child.kind() {
         "parenthesized_expression"
@@ -258,9 +318,7 @@ fn transparent(node: Node<'_>, child: Node<'_>) -> bool {
         "expression_statement" => children(child)
             .next()
             .is_some_and(|child| matches!(child.kind(), "assignment" | "augmented_assignment")),
-        _ => {
-            matches!(node.kind(), "default_parameter" | "typed_default_parameter")
-                && Some(child) == node.child_by_field_name("value")
-        }
+        "assignment" => node.kind() == "assignment",
+        _ => false,
     }
 }
