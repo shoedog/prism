@@ -166,8 +166,11 @@ class PythonFrontend(Frontend):
         if node is None or isinstance(node, CALLABLES):
             return end
         if isinstance(node, COMPREHENSIONS):
-            # Only the leftmost iterable is evaluated outside the nested scope.
-            return self.expr(node.generators[0].iter, self.uncertain(node, end), loops=loops)
+            # Only the leftmost iterable is evaluated outside the nested scope. A comprehension that binds
+            # an enclosing name by `:=` can replace the root at an uncertain point, so it stays unproven;
+            # any other comprehension is an ordinary expression with a normal exit.
+            walrus = any(isinstance(n, ast.NamedExpr) for n in ast.walk(node))
+            return self.expr(node.generators[0].iter, self.uncertain(node, end) if walrus else end, loops=loops)
         if isinstance(node, (ast.Name, ast.Attribute)) and not target:
             self.location(node, "use")
         end = self.read(node, role, end) if role else end

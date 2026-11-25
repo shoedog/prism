@@ -446,5 +446,41 @@ class InventoryTests(unittest.TestCase):
         """, 0, owner="f@3", raw=0)
 
 
+    def test_python_comprehension_is_an_ordinary_expression(self):
+        self.check("python", """
+            def f(d, v, xs):
+                d[0] = v
+                ys = [x for x in xs]
+                return d
+        """, 1)
+
+    def test_python_walrus_in_comprehension_stays_unproven(self):
+        self.check("python", """
+            def f(d, v, xs):
+                d[0] = v
+                ys = [d := x for x in xs]
+                return d
+        """, 0, flag="completion_unproven")
+
+    def test_write_after_an_unsupported_compound_is_not_refused_for_that(self):
+        self.check("python", """
+            def f(d, v, xs):
+                try:
+                    pass
+                finally:
+                    pass
+                d[0] = v
+                return d
+        """, 1)
+
+    def test_write_and_read_inside_one_unsupported_arm(self):
+        self.check("python", """
+            def f(d, v):
+                with v:
+                    d[0] = v
+                    return d
+        """, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

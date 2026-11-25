@@ -166,7 +166,8 @@ class Graph:
             return mask, captured
 
         states = self.walk(
-            [(write.start_capture, mask, ()) for mask in sorted(reach[write.start_capture])],
+            # The route starts at W: how W itself was reached (an earlier unsupported compound) is not part of it.
+            [(write.start_capture, 0, ())],
             transfer, stop=write.event,
         )
         return {mask for mask, _ in states.get(write.event, ())}

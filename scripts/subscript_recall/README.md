@@ -9,5 +9,5 @@ whole-container reads R, per-pair route verdicts, raw-pair work, the three caps 
   `uv run --with tree-sitter==0.23.2 --with tree-sitter-go==0.23.4 --with tree-sitter-javascript==0.23.1
   --with tree-sitter-typescript==0.23.2 python3 -B -m unittest` from this directory (these are the versions the
   recorded run used; they differ from the grammars prism vendors, a deliberate independence).
-- Tests: `python3 -B -m unittest` from this directory (38 tests).
+- Tests: `python3 -B -m unittest` from this directory (42 tests).
 - Entry point: `inventory.py` (see `VERIFICATION.md` for the run recorded for the stage M audit).
