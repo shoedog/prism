@@ -7,7 +7,7 @@ use serde::Deserialize;
 use std::path::Path;
 
 const ENABLED_GROUPS: &[&str] = &["control"];
-const ROWS: &str = include_str!("../../fixtures/provenance/rows.jsonl");
+const ROWS: &str = include_str!("../../provenance_matrix/rows.jsonl");
 
 #[derive(Deserialize)]
 struct Row {
@@ -65,7 +65,7 @@ impl Row {
             .and_then(|ext| ext.to_str())
             .context("first fixture file has no language extension")?;
         let row_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/provenance/cases")
+            .join("tests/provenance_matrix/cases")
             .join(lang)
             .join(&self.id);
         for (file, lines) in &self.diff {
@@ -101,7 +101,7 @@ impl Row {
             .and_then(|ext| ext.to_str())
             .context("first fixture file has no language extension")?;
         let row_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/provenance/cases")
+            .join("tests/provenance_matrix/cases")
             .join(lang)
             .join(&self.id);
         for file in &self.files {

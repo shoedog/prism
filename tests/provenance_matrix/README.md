@@ -62,3 +62,6 @@ joins), `pattern` (pattern languages and parser edges), and `origin` (sources).
   `PROVENANCE_MATRIX_STRICT=1` makes them fail the test.
 - Rows that parse sibling repository files are run through `slice(&ctx, &diff)` without a repository root until slice S2
   adds `slice_in_repo`.
+- The matrix lives outside `tests/fixtures/` on purpose: the alias-twin receipt golden
+  (`src/data_flow/build/alias_occurrence/receipt_diff_tests.rs`) walks every Go, Rust, Python, C and C++ file under
+  `tests/fixtures/`, so fixtures added there change its golden.
