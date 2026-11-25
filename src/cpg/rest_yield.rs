@@ -626,6 +626,50 @@ mod tests {
     }
 
     #[test]
+    fn rest_yield_enclosing_expression_body_guard_decides_a_decorated_class() {
+        // The decorator sits on the export wrapper, so the module prefix sees only an empty class and
+        // the enclosing arrow's expression body is the only check that reaches the method.
+        let source =
+            "@register(() => ({ main() { const xs = [1]; take(...xs); } })) export class C {}";
+        assert_eq!(
+            classify_call(source, "take(...xs)", Language::JavaScript),
+            Yield::Unknown
+        );
+        let inert = "function main() { const xs = [1]; take(...xs); } export class C {}";
+        assert_eq!(
+            classify_call(inert, "take(...xs)", Language::JavaScript),
+            Yield::Nonempty
+        );
+    }
+
+    #[test]
+    fn rest_yield_statement_budget_counts_each_prefix_statement() {
+        for (empties, want) in [(80, Yield::Nonempty), (200, Yield::Unknown)] {
+            let source = format!("const xs = [1];{} take(...xs);", ";".repeat(empties));
+            assert_eq!(
+                classify_call(&source, "take(...xs)", Language::JavaScript),
+                want,
+                "{empties}"
+            );
+        }
+    }
+
+    #[test]
+    fn rest_yield_refuses_an_unsupported_statement_before_the_call() {
+        for (stmt, want) in [
+            ("if (ready) escape(xs);", Yield::Unknown),
+            ("const ys = 0;", Yield::Nonempty),
+        ] {
+            let source = format!("function main() {{ const xs = [1]; {stmt} take(...xs); }}");
+            assert_eq!(
+                classify_call(&source, "take(...xs)", Language::JavaScript),
+                want,
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
     fn rest_yield_enclosing_expression_body_inertness() {
         for (body, want) in [("({ main() {} })", false), ("0", true)] {
             let source = format!("const outer = () => {body};");
