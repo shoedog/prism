@@ -243,25 +243,30 @@ fn matrix_rows_match() {
         .as_array()
         .expect("inventory document must include a targets array");
 
+    // Each unsupported target answers at most one row (DESIGN 6.8: rows consume actual targets).
+    let mut used = vec![false; targets.len()];
     for row in rows
         .iter()
         .filter(|row| ENABLED_GROUPS.contains(&row.group.as_str()))
     {
-        check_row(row, targets, &document["warnings"]);
+        check_row(row, targets, &document["warnings"], &mut used);
     }
 }
 
-fn check_row(row: &Row, targets: &[Value], warnings: &Value) {
+fn check_row(row: &Row, targets: &[Value], warnings: &Value, used: &mut [bool]) {
     let context = format!("{} {}:{} {}", row.id, row.fixture, row.line, row.want);
-    let candidates: Vec<_> = targets
+    let indexes: Vec<usize> = targets
         .iter()
-        .filter(|target| {
+        .enumerate()
+        .filter(|(_, target)| {
             let site = &target["site"];
             site["file"] == row.fixture
                 && site["line"].as_u64() == Some(row.line)
                 && (row.callee == "*" || target["dependency_hint"]["callee"] == row.callee)
         })
+        .map(|(i, _)| i)
         .collect();
+    let candidates: Vec<&Value> = indexes.iter().map(|&i| &targets[i]).collect();
 
     match row.expectation() {
         Want::Site {
@@ -302,16 +307,17 @@ fn check_row(row: &Row, targets: &[Value], warnings: &Value) {
             } else {
                 format!("{reason}; {count} calls")
             };
-            let matching = candidates
-                .iter()
-                .filter(|target| {
-                    target["kind"] == "other" && target["expected"]["detail"] == detail
-                })
-                .count();
-            assert_eq!(
-                matching, 1,
-                "{context}: expected one unsupported row with detail {detail:?}, got {candidates:#?}"
-            );
+            let found = indexes.iter().copied().find(|&i| {
+                !used[i]
+                    && targets[i]["kind"] == "other"
+                    && targets[i]["expected"]["detail"] == detail
+            });
+            let Some(i) = found else {
+                panic!(
+                    "{context}: expected an unconsumed unsupported row with detail {detail:?}, got {candidates:#?}"
+                );
+            };
+            used[i] = true;
         }
         Want::None(cause) => {
             assert!(
