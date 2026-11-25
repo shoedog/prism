@@ -1840,4 +1840,4 @@ mod tests {
 }
 
 #[cfg(test)]
-mod dfg_codec_tests;
+pub(crate) mod dfg_codec_tests;
