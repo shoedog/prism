@@ -13,7 +13,8 @@ every structured match, and attaches them to the `taint_sink` finding (DESIGN 5.
 (`output/rule_registry.rs`) lists every rule with its CWE and text, is the only way production code names a
 rule (DESIGN 5.3) and generates `docs/rules.md`. SARIF always adds `properties.rules`;
 `--sarif-rule-ids specific` writes one result per rule with registry descriptors and CWE tags. Primitive and
-absence findings carry their rule last.
+absence findings carry their rule last. DESIGN Appendices A–F are the Stage D record. Appendix E lists
+the 540 matrix expectations and 300 source-only candidates, including the accepted corrections.
 
 **Tech stack:** Rust (`prism`, `prism-review`); Python 3 for the gate script. **Spec:** `DESIGN.md` here
 (field 5.1, taint 5.2, registry 5.3, others 5.4, SARIF 5.5, review/JSON 5.6, targets 5.7, gates 6, owner 7).
@@ -50,15 +51,15 @@ absence findings carry their rule last.
 ## Review focus
 
 1. Two flat rules on one line (`res.send(eval(x))`): one finding, `rules` = `js-eval`, `js-response` and the
-   structured rule stage D fixes for `eval`; one `specific`-mode result per distinct id, sharing a fingerprint.
+   `structured-code-eval@CWE-95`; one `specific`-mode result per distinct id, sharing a fingerprint.
    Row `ri01` (S2); `specific_mode_writes_one_result_per_rule_sharing_fingerprint` (S4).
 2. Attribution per occurrence (DESIGN 5.2): a sibling sink that does not take the tainted value lends neither
-   rule nor strength (`ri08`, `ri25`, `ri26`); a continued call carries the one-line call's rules (`ri20`);
+   rule nor strength (`ri08`, `ri25`, `ri26`); a continued call on an admitted use line carries the eligible enclosing rules (`ri20`);
    two structured calls on one line carry both rules in either order (`ri21a`, `ri21b`); a cleansed first
    match beside a live second match (`ri22`). A cleansed structured call beside an unrelated flat sink:
    neither the structured rule nor the rules of flat identifiers inside the cleansed call appear (`ri15`).
 3. Lines inserted outside the per-edge loop (Python inline Flask source, Go source equal to sink, JS YAML
-   inline source) carry their structured rule; caller-supplied and wrapper sinks carry what stage D decides.
+   inline source) carry their structured rule; caller-supplied and wrapper callees carry `configured-sink` and `format-wrapper`, both without a CWE.
    Rows `ri11` to `ri14`, `ri23*` (S2).
 4. Default-mode SARIF for findings that carry rules: no new descriptor or descriptor key, `mapping_version`
    still `"1"`, only `results[].properties.rules`. `default_mode_adds_properties_rules_and_keeps_rule_ids` (S4).
@@ -125,7 +126,8 @@ scope shows the cumulative change.
 
 The sink-rule tables (`tests/algo/taxonomy/taint_sink_rules_*_test.rs`, 503 labelled rows, about 350 of them
 positive) already have one rule per row. Stage T adds an expectations file keyed by table and label, and a
-table of identity rows. Nothing in stage T names `SliceFinding.rules`, so the branch compiles before S1.
+table of identity rows. Nothing in stage T names `SliceFinding.rules`, so the branch compiles before S1. The seed table below
+records the pre-D work order. DESIGN Appendix E now supersedes its provisional `?` and concrete values.
 
 ### Task T-1: expectations and identity rows
 
@@ -237,8 +239,12 @@ directions), `parser_rejects_unsorted_rules`, `parser_rejects_bad_cwe`, `parser_
       weakness); (6) the CWE of each of the six primitive categories (DESIGN names five classes; two
       categories are hash truncation); (7) conventions for registry `name`, `short`, `help`, and the
       `legacy` row's text. Output: amended sections with appendix tables (identities, structured, absence,
-      primitive). The implementer replaces every `?` in the TSV in the same commit and re-runs the changed
-      rows against the base build (ORCHESTRATION section 7). Both reviewers; cap 2 rounds.
+      primitive). D-1 delivers only these two design documents. In the matrix implementation commit, replace all
+      125 `?` entries and 26 revised concrete values on the reviewed matrix `5e9e4d864cbb`. Preserve the
+      observations. Replay those 151 cases plus `ri23e`, `ri23f` and `ri27` on the base (ORCHESTRATION
+      section 7). This covers the 154 cells from the brief's original matrix `a3986ce333f1`. Appendix E
+      reconciles the counts. Preserve all 540 keys. Candidate rows and open grids are source-only until replayed.
+      Both reviewers; cap 2 rounds.
 
 ## Stage I: slices
 
@@ -297,68 +303,61 @@ holding a value stage D corrects, the support, identity and TSV files of stage T
 `tests/algo/taxonomy/taint_sink_strength_test.rs` (`assert_severities`),
 `tests/fixtures/review_no_diagrams/golden/review_unflagged.json`, `CLAUDE.md` (`taint_sinks/` paragraph).
 
-```rust
-// taint_sinks/mod.rs: drop the "no slot" doc sentence and `#[cfg_attr(not(test), allow(dead_code))]`
-impl SinkHit {
-    const fn without_cwe(rule: &'static str) -> Self;      // stage D's "published without a CWE"
-    pub(crate) fn rule_ref(&self) -> prism::slice::RuleRef; // severity None
-}
-pub(crate) use structured::structured_rule;
-// taint_sinks/structured.rs
-/// Stage D's identity for a structured match (DESIGN 5.2): the pattern's exception row if it has one,
-/// else `structured-<category>` with the category's CWE; `None` when D says the match contributes nothing
-/// (the `exec` pattern on a database handle, if D so decides). Exhaustive over `SanitizerCategory`.
-pub(crate) fn structured_rule(language: Language, pattern: &SinkPattern, call: Node<'_>)
-    -> Option<prism::slice::RuleRef>;
-// taint/sink_match.rs
-/// Every matching structured pattern on `line` for `path`, in today's order (special outcomes first), with
-/// its call node (a sibling of `line_matches_structured_sink` that also returns the call). The three
-/// `<language>_sink_outcome` functions become the first element (or the old exclusion result).
-pub(super) fn structured_sink_matches<'t>(parsed: &'t ParsedFile, line: usize, path: Option<&FlowPath>)
-    -> Vec<(&'static SinkPattern, Node<'t>)>;
-// taint/sink_rules.rs
-#[derive(Default)] pub(super) struct SinkRules { /* (file, line) -> id -> (RuleRef, Strength) */ }
-impl SinkRules {
-    /// The same id reached weakly and strongly is strong.
-    pub(super) fn add(&mut self, sink: &(String, usize), rule: RuleRef, strength: Strength);
-    /// Sorted by id, one per id; `severity: Some("suggestion")` on a weak rule of a `warning` finding.
-    pub(super) fn take(&mut self, sink: &(String, usize), finding_severity: &str) -> Vec<RuleRef>;
-}
-/// DESIGN 5.2, flat hits: the hits of the calls enclosing `at` (up to its statement) whose argument list
-/// holds `at`, and of a DOM or location assignment whose right side holds it; `is_extra` names
-/// caller-supplied and wrapper sinks.
-pub(super) fn reached_flat_hits(classifier: &SinkClassifier, parsed: &ParsedFile, at: &VarLocation,
-    is_extra: &dyn Fn(&str) -> bool) -> Vec<(Option<SinkHit>, std::ops::Range<usize>)>;
-```
+**Implement DESIGN 5.2 and Appendices A, B, E and F.** A detector's admission tag and strength
+still drive today's finding. Public metadata is computed separately per reached operand. This slice
+does not require the S3 registry to exist.
 
-`run.rs` keeps one `SinkRules` beside `sink_lines`. Presence code is not changed: the per-identifier loop,
-the structured branch and the source-line branches insert exactly the lines they insert today. For each
-edge whose target line is inserted (or already in `sink_lines`), `reached_flat_hits(edge.to)` adds each hit
-whose call range is not in that edge's `cleansed_structured_ranges` (an `extra_sinks` name adds what stage D
-says; a legacy-language line adds `legacy` once), and every `structured_sink_matches` entry not suppressed
-for that path (`structured_sink_line_cleansed_for_path`) adds its `structured_rule`. YAML inline lines, Python
-inline Flask lines and Go source lines add the rules of DESIGN 5.2 (Go: `find_sink_with_inline_framework_source`
-gains an all-patterns sibling for attribution; the presence decision keeps the first). Emission:
-`rules: sink_rules.take(.., severity)`. `unquoted_expansion` and `taint_source` keep `Vec::new()`. If lane
-4's sink has merged, its side-set lines add `js-proto-write`/CWE-1321 (DESIGN 5.2, last paragraph).
+- In `taint/sink_match.rs` and the three language matchers expose attribution evidence for every
+  eligible (pattern, call/JSX attribute, operand span, semantic role) with its path or inline source.
+  Preserve the existing outcome function for admission, including an early special
+  `SemanticallyExcluded` and Go's call-start filter. A vector's first successful element alone cannot
+  reproduce every old outcome. Use the original pattern category and the per-call cleanser on each
+  candidate. Check both arms of a duplicate pattern and both operands of a multi-slot pattern.
+- In `taint/sink_rules.rs` collect flat occurrences from edge target bytes and the explicit inline
+  witnesses. Handle named arguments, JSX, nested calls, both path positions, assignment RHS and the
+  `Path(x)` and TypeORM consuming chains. Enforce A's operand roles and 5.2's binding, source-line,
+  safe-range and statement boundaries. Withhold an ambiguous occurrence rather than borrowing another
+  use's bytes. Keep configured predicates and detected wrapper predicates separate for attribution.
+- `structured_rule` takes the matched pattern, parsed occurrence, reached operand/role and binding or
+  matching flat evidence for **that call**. It returns the public reference/strength for that role or
+  no contribution. Use B's explicit dispatch, including JS code execution, Mongoose, SQLite and both
+  Flask roles. A per-role optional result permits several roles of the same call to survive. The same
+  occurrence can supply a neutral F1/F3 id through both detectors.
+- `run.rs` collects candidates independently of insertion order. After ordinary edge, YAML, Flask and Go
+  source-line insertions, emit rules only on the resulting physical keys. Go unions every uncleansed
+  originating path with every valid inline witness, including the no-path and secondary fallbacks. A
+  framework source line may specifically exclude the flat half. Preserve scope and the original line
+  severity, descriptions, evidence alignment and order. Attach `configured-sink` and `format-wrapper`
+  only to reached matching callees, `legacy` only for an eligible built-in line hit. Leave source and
+  unquoted-expansion rules empty. Use `js-proto-write@CWE-1321` on lane 4's side-set lines if merged.
+- Aggregate strengths by public id across attached hits, strong winning over weak. Sort by id. Set
+  `severity = Some("suggestion")` only on an all-weak id in a warning. Keep the original finding's
+  `line_strength`, including the line-only vetoes. Inspect the actual finding severity in tests.
 
-- [ ] First commit, RED: `assert_all_sinks`, `assert_rows` and `assert_severities` gain `#[track_caller]`,
-      take the table from the stem of `std::panic::Location::caller().file()` (`assert_severities` checks
-      only when that stem is a TSV table) and, for each positive row,
-      compare the SINK-line `taint_sink` finding's rules (as `id`, `id@CWE-n`, with `!suggestion` for a
-      per-rule severity) with the TSV `rules` column; a missing or `?` entry fails naming table and label.
-      In the identity file: `config_rows_carry_their_rules`, `taint_source_and_unquoted_expansion_carry_no_rules`
-      (a source line, and a Bash unquoted `$x` argument of a non-sink command) and `rules_are_sorted_and_unique`.
-      In `taint_sinks/tests.rs`: `rule_ref_carries_tag_and_cwe`, `legacy_rule_ref_has_no_cwe`,
-      `structured_rule_covers_every_category_and_exception`. In `taint/sink_rules.rs` tests:
-      `same_id_weak_and_strong_is_strong`, `weak_rule_on_warning_finding_gets_suggestion`,
-      `structured_matches_first_equals_outcome` (every identity fixture, every language: presence parity).
-      If #841 has merged: `union_overlap_keeps_baseline_rules`, `union_expanded_only_keeps_its_rules`.
-      `cargo test --test algo_taxonomy taint_sink_rules` is RED.
-- [ ] Implement; GREEN. Classify every RED-run mismatch in the PR body: TSV wrong (fix it, ledger note) or
-      code wrong (apply stage D's disposition for that rule: the corrected value, or the rule without a CWE
-      with its issue number). No expected identity is replaced by the code's value, and no TSV value changes
-      without a classification.
+- [ ] First commit, RED. Transcribe Appendix E into the TSV in the matrix implementation commit if
+      it has not already landed. Use table plus exact label, preserve all 540 labels and the historical
+      meaning of `observed` (expand an old `=` to its old concrete value when changing `rules`).
+      Replay changed cases on the exact base. Separately assert **presence** on every marked line and
+      ids/CWEs/optional severity on every positive, including positive `-` rows. Reject a residual
+      `?`, missing positive or extra negative. Retain `#[track_caller]` in the matrix helpers.
+      `cargo test --test algo_taxonomy taint_sink_rules` is RED on the S1 base for nonempty expected ids.
+- [ ] Add both orders and a negative for sibling and continued placements, same-name binding collisions,
+      safe and live nested calls, Go's start-line limit, source-only vs incoming vs mixed paths and the
+      byte/inline source exception. Cover TypeORM and pathlib receiver operands, role swaps in A/B,
+      SQLModel exec, typed/opaque receivers, Flask source vs escaped/unsafe context, JS VM, Mongoose,
+      browser-only versus server-capable requests and the shell/ordinary argv split in syscall.Exec.
+      Check weak JS/Go/Python SQL, Python clause, sandbox and Gin both alone and on a warning, plus
+      same-id weak+strong and a weak structured SQL role. Include ri01–ri27 and both dynamic name
+      origins on one call, clean siblings, `=name` and substring negatives. For #841 if merged, test
+      overlapping and expanded-only findings. Preserve baseline presence even on a design-predicted
+      empty/rejected case.
+- [ ] Before adopting the refusals, run the paired projection and per-reason census in Appendix F
+      on the pinned inputs. Use the 300 labelled E candidates to choose regression witnesses. Check
+      candidate admission on the base before adding assertions, and disclose any unbuilt/unexecuted rows
+      or grid cells. Implement and run the affected suites GREEN. Classify each disagreement as
+      expectation, classifier/projection or pre-existing admission, with the base control and disposition.
+      Use the filed F1–F5 entries for neutral rows.
+
 - [ ] `rule_identity_output_test.rs`: `json_taint_sink_carries_rules`, `review_taint_sink_carries_rules`
       (single and multi run, per-result and aggregate copies, with and without diagrams, retained and
       floor-filtered findings), `findings_without_rules_have_no_rules_key` (echo and contract on
@@ -366,8 +365,8 @@ gains an all-patterns sibling for attribution; the presence decision keeps the f
 - [ ] The `review_no_diagrams` golden gains `rules` on both copies of its one `taint_sink` finding, re-recorded
       once with the reason in the commit (DESIGN decision 7); no other existing expectation changes.
 - [ ] Gates: section 5 items 1 to 4, 8, 9, 10; G-additive, G-fingerprint, G-targets (`--new-rules
-      finding:taint`), G-coverage. Two reviewers. PR body: mismatch classification, the count of taint
-      findings with an empty `rules` on the gate inputs (lines admitted only through an unreached sibling),
+      finding:taint`), G-coverage. Two reviewers. PR body: mismatch classification, the Appendix F census, including the `taint_sink` denominator, unadmitted candidates, admitted
+      empties and CWE-less occurrences by reason,
       golden diff, gate summaries, #841 state, lane 4 state.
 
 ### Slice S3: registry, closed producers and generated page (2 days)
@@ -376,7 +375,7 @@ gains an all-patterns sibling for attribution; the presence decision keeps the f
 `pub mod rule_registry;`), `crates/prism-review/src/output/rule_registry/taint_rows.rs` and
 `.../rule_registry/tests.rs` (declared in `rule_registry.rs`), `docs/rules.md` (generated); modify
 `taint_sinks/{mod,structured,js,js_modules,python,py_modules,go,legacy,tests,tests_js_modules,tests_py_modules}.rs`
-(every hit names its registry constant), `taint/sink_rules.rs`, the stage T support file (`check_emitted` on
+(every published role selects a registry constant), `taint/sink_rules.rs`, the stage T support file (`check_emitted` on
 every emitted reference), `scripts/ci/classify-changes.sh` (`docs/rules.md) code=true ;;` before `docs/*`,
 since a test reads it) and `scripts/ci/classify-changes.test.sh` (a `check true true` case), `CLAUDE.md`
 (`output/` bullet).
@@ -393,16 +392,18 @@ pub fn lookup(id: &str) -> Option<&'static RuleInfo>;
 /// DESIGN 5.3: Err for an unknown id, a CWE other than the row's, an algorithm the row does not list.
 pub fn check_emitted(algorithm: &str, rule: &prism::slice::RuleRef) -> Result<(), String>;
 pub fn render_markdown() -> String;   // the text of docs/rules.md
-// taint_sinks/mod.rs (`SinkHit::rule_ref` becomes `self.rule.rule_ref()`; `without_cwe` goes: a row has none)
-pub(crate) struct SinkHit { pub rule: &'static RuleInfo, pub strength: Strength }
-// taint_sinks/structured.rs: structured_rule returns Option<&'static RuleInfo>
+// The occurrence projection selects Option<&'static RuleInfo> per matched role.
+// Private classification evidence and Strength remain available for presence and line grading.
 ```
 
-Rows: the flat tags (34, plus any stage D adds or renames), `legacy`, the structured ids, the caller and
-wrapper rules if D names them, `js-proto-write` if lane 4's sink has merged, with stage D's text. The page
-opens with a "generated, do not edit" line naming the regenerate command, then id, CWE, name, algorithms,
-short, help. The `hit("js-eval", "CWE-95")`-style call sites become `hit(&taint_rows::JS_EVAL)`; a hit's CWE
-is its row's.
+Register every distinct **published id** of DESIGN A/B once, including neutral rows, six structured
+category defaults and their code/template exceptions, `configured-sink`, `format-wrapper` and `legacy`.
+Register `js-proto-write` only when its emitter lands. Former internal tag/CWE combinations in the
+observation column are not registry entries. Several detectors can select the same constants
+(e.g. the bound-value role). Verified and unresolved cases must never produce two CWEs for one id.
+Use `name = id`, the short/inspection-help conventions and the exact legacy strings in DESIGN 5.3.
+Generate the page in id order with id, optional CWE, name, algorithms, short and help, after a
+"generated, do not edit" line naming the regeneration command.
 
 - [ ] Tests first (`cargo test -p prism-review --lib output::rule_registry`, RED): `ids_are_unique_and_sorted`,
       `cwe_strings_are_well_formed`, `rows_have_text_and_known_algorithms`,
@@ -413,7 +414,8 @@ is its row's.
       `RuleRef { id: format!("js-{}", k), cwe: None, severity: None }` is flagged, `JS_EVAL.rule_ref()` is
       not), `check_rejects_unknown_id`, `check_rejects_cwe_that_disagrees_with_row`,
       `check_rejects_algorithm_not_listed`, `check_accepts_a_registry_ref`,
-      `structured_ids_are_rows_with_their_cwe`, `rules_page_is_current` (`PRISM_BLESS_RULES=1` rewrites it).
+      `structured_ids_are_rows_with_their_cwe` (all 107 built-in and framework entries, eligible slots
+      and exceptions), `legacy_text_matches_design`, `neutral_rows_never_gain_a_cwe`, `rules_page_is_current` (`PRISM_BLESS_RULES=1` rewrites it).
       The stage T helpers call `check_emitted("taint", ..)` on every emitted reference of every positive row.
 - [ ] Implement, bless once, GREEN; the S2 rows stay GREEN unchanged; `bash scripts/ci/classify-changes.test.sh`
       passes.
@@ -447,7 +449,11 @@ pub fn cwe_tags(cwe: Option<&str>) -> Vec<String>;
 
 Model: `ResultProperties.rules: Vec<RuleRef>`, `Rule.help: Option<Text>`, `RuleProperties.category:
 Option<String>`, `RuleProperties.tags: Vec<String>`, each skipped when empty or `None`; default mode fills
-them as today, so its bytes do not move except for `properties.rules`. Other formats ignore the flag.
+them as today, so its bytes do not move except for `properties.rules`. Other formats ignore the flag. An empty admitted finding keeps its default descriptor in both modes.
+The named neutral roles (including `configured-sink` and `format-wrapper`) do have specific-mode rule
+ids and registry descriptions. They have no CWE tag. Never infer a tag from the old detector, a sibling
+or the public id. Carry the full sorted references on each expanded result, including a weak id's
+`suggestion` only when it is lower than the finding severity.
 `specific` mode follows DESIGN 5.5: after admission (and after #841's per-finding map and diagnostics
 choices, if merged), a finding's references are grouped by id and the finding becomes one result per
 distinct id, each a copy of the default result (message, locations, fingerprint, evidence computed once,
@@ -463,7 +469,8 @@ becomes "in default mode", and its consumer key gains `ruleId`.
 - [ ] Tests first (in-process through `prism_review::api` with `SliceFinding { rules: …, ..Default::default() }`,
       plus CLI runs): review-focus tests 4 and 5; `default_mode_without_rules_has_no_rules_key`,
       `specific_mode_writes_one_result_per_rule_sharing_fingerprint`,
-      `specific_mode_descriptor_has_registry_text_and_cwe_tag`, `specific_mode_rule_without_cwe_has_no_tags`,
+      `specific_mode_descriptor_has_registry_text_and_cwe_tag`, `specific_mode_rule_without_cwe_has_no_tags`
+      (use named neutral output, wrapper and configuration rows, including a mixed-CWE finding),
       `specific_mode_finding_without_rules_keeps_category_rule`, `specific_mode_every_cwe_descriptor_has_its_tag`
       (CLI on identity fixtures), `specific_mode_weak_rule_result_is_note`,
       `specific_mode_repeated_id_gives_one_result`, `specific_mode_conflicting_cwes_for_one_id_give_one_result`,
@@ -493,20 +500,29 @@ in `rule_registry.rs`), `crates/prism-review/src/algorithms/absence_slice/pairs.
 
 - [ ] First commit, move-only: `PairedPattern` and `default_pairs()` into `absence_slice/pairs.rs`, text
       unchanged; `targets_mapping_test` green. This keeps `absence_slice.rs` well under 1,000.
-- [ ] Tests first: `primitive_findings_carry_their_rule_and_cwe` (one row per category, sources from
-      `primitive_test.rs`), `absence_findings_carry_their_pair_rule` (one row per absence category, each
-      asserting the pair's id and stage D's rule: `missing_counterpart` from `tests/algo/novel/absence_test.rs`;
-      `close_only_on_error_path`, `missing_close_on_error_path` and `double_close` from the C goto inputs of
-      `tests/lang/c/cve_test.rs`, `test_close_only_on_error_path`, `test_missing_close_on_error_path` and
-      `test_cve_double_free_goto_cleanup`, plus a repeated-unlock `double_close` row),
-      `other_algorithms_carry_no_rules` (contract, echo, membrane, symmetry,
-      provenance, peer consistency, callback dispatcher); in `rule_registry/tests.rs`
-      `every_primitive_rule_id_is_a_row`, `every_absence_pair_id_is_a_unique_row`. RED:
-      `cargo test --test algo_novel rule_identity_test::`.
-- [ ] Primitive: each emitting site passes its `primitive_rows` constant; `make_finding` takes
-      `&'static RuleInfo`, sets `category` from its `id` (unchanged text) and `rules: vec![rule.rule_ref()]`.
-- [ ] Absence: `PairedPattern` gains `pub rule: &'static RuleInfo` (stage D's table, in `absence_rows`); the
-      four finding sites set `rules` per stage D. Descriptions do not change. Re-bless; GREEN.
+- [ ] Tests first. `primitive_findings_carry_their_rule_and_cwe` covers all six categories in
+      DESIGN C: direct and called digest truncation and weak identity hash /328, shell interpolation
+      /78, disabled certificate validation /295, hardcoded credential /798. Keep the verbatim category
+      and test both colliding category/specific descriptors. `every_absence_pair_id_is_a_unique_row`
+      compares the entire 65-member description/id/optional-CWE inventory in D and checks cross-algorithm
+      uniqueness. Assert one missing-counterpart result with a CWE, one without, and both error-path
+      categories. Use the goto inputs of `tests/lang/c/cve_test.rs` plus repeated unlock and generic
+      close controls. For `double_close` assert `absence-double-free@CWE-415`,
+      `absence-double-unlock@CWE-765` and `absence-repeated-counterpart` without a CWE. Include different
+      operands, substring-only names and an intervening reset/reacquisition as controls for specialization.
+      Other algorithms (contract, echo, membrane, symmetry, provenance, peer consistency, callback
+      dispatcher) have empty rules. RED: `cargo test --test algo_novel rule_identity_test::`.
+- [ ] Primitive: each emitting site passes its Appendix C constant. `make_finding` takes the immutable
+      row, preserves the category and adds its one reference. Absence: use each Appendix D constant
+      directly from its `PairedPattern` for the three missing categories. For a repeated operation,
+      check both concrete release sites, exact callee and resource operand on the goto path before
+      selecting the free/unlock constant. Fall back to the generic repeated-counterpart constant
+      while retaining the finding. Do not construct an id from a description or add the missing-release
+      id to a repeated result. These references have no per-rule severity override.
+- [ ] Run the Appendix F measurement for every primitive and absence category on the pinned inputs,
+      showing which pairs/close roles actually occur, with zeros explicit. Compare the original
+      and projected category/severity/description multisets. Re-bless the generated rules page and
+      run the affected checks GREEN.
 - [ ] Gates: section 5 items 1 to 4, 8, 9, 10; G-additive and G-fingerprint (`--new-rules finding:primitive
       finding:absence sarif:primitive sarif:absence`), G-targets, G-closed, and G-sarif-valid on this head
       (the last producer slice): the shape tests in both modes on logs with non-empty taint, primitive and
@@ -516,7 +532,7 @@ in `rule_registry.rs`), `crates/prism-review/src/algorithms/absence_slice/pairs.
 
 - [ ] The `CLAUDE.md` paragraphs the slices added read as one account; `docs/rules.md` is current.
 - [ ] The cumulative comparison against the pre-lane base (stage M), with every scope, in the close-out note.
-- [ ] Follow-up issues, each with its evidence: the identities stage D filed; the main defects of DESIGN
+- [ ] Follow-up issues, each with its evidence: the CWE-less entries F1–F7 in DESIGN Appendix F; the main defects of DESIGN
       section 8 (presence decided by the first structured match; Python call-level cleansing on continued
       calls); the GitHub check of DESIGN section 2, for someone with upload rights; the `security` tag and
       `security-severity` (decision 5); rules for a targets consumer (decision 6); more algorithms
