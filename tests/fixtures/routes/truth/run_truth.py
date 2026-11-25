@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Execute lane-authored routes fixtures with the pinned local dependencies."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -141,6 +142,14 @@ def execute(row, root, python, node_modules):
         return {"status": "error", "error": str(exc)}
 
 
+def tree_sha256(directory):
+    """SHA-256 over the row's files: each relative path, NUL, bytes, NUL, in path order (the Rust test mirrors this)."""
+    digest = hashlib.sha256()
+    for path in sorted((p for p in directory.rglob("*") if p.is_file()), key=lambda p: p.relative_to(directory).as_posix()):
+        digest.update(path.relative_to(directory).as_posix().encode() + b"\0" + path.read_bytes() + b"\0")
+    return digest.hexdigest()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=Path, required=True)
@@ -169,11 +178,15 @@ def main():
                 result = execute(row, root, python, node_modules)
                 status = result["status"]
                 if row["truth_source"] == "executed":
+                    if status == "executed":
+                        result["fixture_sha256"] = tree_sha256(root / row["dir"])
                     print(json.dumps({"id": name, **result}, sort_keys=True, allow_nan=False), file=output)
                     if status != "executed":
                         print(f"{name}: {status}: {result['error']}", file=sys.stderr)
                         failed = True
-                elif status != "hand_required":
+                elif status != "hand_required" and not (
+                        status == "error" and str(result.get("error", "")).startswith("untraced ")):
+                    # an untraced registration is a shape the runner cannot observe: the hand label is justified
                     message = "hand row can execute" if status == "executed" else result["error"]
                     print(f"{name}: {message}", file=sys.stderr)
                     failed = True

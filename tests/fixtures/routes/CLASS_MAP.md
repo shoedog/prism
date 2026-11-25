@@ -240,7 +240,7 @@ These seed classes cover negative controls and design axes with no separate cens
 
 ## Coverage
 
-The four tables enumerate **199 classes**. The **171 census classes** include 64 ledger shapes, 79 dimension values and 28 Go callback shapes. The additional table tracks 28 contract shapes. The seed rows covered 126 classes. The census rows close all 72 in-scope gaps. All 203 matrix rows map to a class, including 6 seed-only controls. The counts of covered classes exclude those seed-only controls.
+The four tables enumerate **199 classes**. The **171 census classes** include 64 ledger shapes, 79 dimension values and 28 Go callback shapes. The additional table tracks 28 contract shapes. The seed rows covered 126 classes. The census rows close all 72 in-scope gaps. The 203 seed and census rows map to a class, including 6 seed-only controls. The enumeration rows (`et*`, `es*`, added later by the terra and sol tiers; 217 rows in `rows.jsonl`, each with its own `class` string) are not part of this census map: they are variant rows found by the enumeration tiers, not census classes. The counts of covered classes exclude those seed-only controls.
 
 No in-scope classes remain uncovered.
 

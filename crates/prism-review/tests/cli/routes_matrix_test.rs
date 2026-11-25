@@ -299,6 +299,38 @@ fn compare_pins(expected: &Value, actual: Option<&Value>, field: &str, errors: &
     }
 }
 
+/// SHA-256 over a row directory, as `truth/run_truth.py` computes it: each relative path, NUL, bytes, NUL,
+/// in path order. A fixture edited without regenerating truth then fails the well-formedness test.
+fn tree_sha256(dir: &Path) -> String {
+    use sha2::{Digest, Sha256};
+    fn files(dir: &Path, out: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                files(&path, out);
+            } else {
+                out.push(path);
+            }
+        }
+    }
+    let mut paths = Vec::new();
+    files(dir, &mut paths);
+    paths.sort_by_key(|path| {
+        path.strip_prefix(dir)
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
+    });
+    let mut digest = Sha256::new();
+    for path in paths {
+        digest.update(path.strip_prefix(dir).unwrap().to_string_lossy().as_bytes());
+        digest.update([0]);
+        digest.update(std::fs::read(&path).unwrap());
+        digest.update([0]);
+    }
+    format!("{:x}", digest.finalize())
+}
+
 #[test]
 fn routes_matrix_rows_are_well_formed() {
     let root = fixture_root();
@@ -318,6 +350,17 @@ fn routes_matrix_rows_are_well_formed() {
         validate_records(row, dir.as_deref(), &mut violations);
         if row["truth_source"] == "executed" && nonempty_str(&row["entry"]).is_none() {
             violations.push("entry: executed row needs a nonempty entry".to_owned());
+        }
+        if let (Some(dir), Some(entry)) = (dir.as_deref(), truth.get(id)) {
+            if row["truth_source"] == "executed" && entry["status"] == "executed" {
+                let want = tree_sha256(dir);
+                if entry["fixture_sha256"] != want {
+                    violations.push(format!(
+                        "truth.fixture_sha256: stale truth, the fixture hashes to {want}, truth says {}",
+                        entry["fixture_sha256"]
+                    ));
+                }
+            }
         }
         truth::compare_row(row, truth.get(id), &mut violations);
         errors.extend(violations.into_iter().map(|err| format!("{id}.{err}")));

@@ -47,3 +47,5 @@ route regexes are preserved as raw patterns. Flask fixtures disable static
 routes on apps and blueprints, FastAPI fixtures disable generated docs and
 OpenAPI routes, and Express fixtures export an application without listening.
 Use this harness with lane-authored fixtures.
+
+The pinned environments and how they were built are in `ENV.md`; `ROUTES_TRUTH_VENV` and `ROUTES_TRUTH_NODE` select them. This is containment against ambient imports for lane-written fixtures, not a sandbox: a fixture can still run any standard-library code. `fixture_sha256` in each executed truth line ties it to the row directory.

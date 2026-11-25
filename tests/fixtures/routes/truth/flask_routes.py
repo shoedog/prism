@@ -84,6 +84,8 @@ def install(trace, refusal, hand_required, normalize_methods, method_arguments):
         for rule in app.url_map.iter_rules():
             if id(rule) not in rules:
                 raise refusal(f"untraced Flask rule: {rule.rule}")
+            if getattr(rule, "build_only", False):
+                raise hand_required(f"Flask build-only rule is not a served route: {rule.rule}")
             _, call, view = rules[id(rule)]
             actual_view = app.view_functions.get(rule.endpoint)
             if view is not None and actual_view is not view:
