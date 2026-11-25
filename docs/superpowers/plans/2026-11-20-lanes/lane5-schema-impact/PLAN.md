@@ -521,10 +521,10 @@ Measure F7 (an external differ check) is dropped; it changes no decision.
 
 # Part 2: pilot on both pairs
 
-The owner approved both pairs and left their order open. The orchestrator's order is P1 → P2-R and P2 in parallel →
+The owner approved both pairs and left their order open. The orchestrator's order is D-census → P1 → P2-R and P2 in parallel →
 P3 (R configuration, then P) → P4 (first report on both) → P5 (P only) → P6 (replay and documentation for both).
 The G4 owner rating is still unrecorded. The field-read measurement remains a P5 decision. After stage D review,
-align the fixture expectations and regenerate the public `ids.tsv` before P1.
+align the fixture expectations and regenerate the public `ids.tsv` before P1. D-census is a separate pre-implementation measurement.
 
 Branch per task or slice from `main`, worktree `~/code/prism-boundary`. Every slice: tests first (RED),
 implement, GREEN, the gates of ORCHESTRATION section 5 that apply (items 1 to 4, 8 and 9; no slice changes
@@ -585,11 +585,12 @@ Root `Cargo.toml`: add the member; do not add it to `default-members`.
 
 ### Stage D: design of record
 
-- [x] Draft the pilot rules against E-1 (169 rule, 48 accepted loss) and E-2 (288 rule, 18 accepted loss), both
+- [x] Set the final pilot rules against E-1 (170 rule, 47 accepted loss) and E-2 (288 rule, 18 accepted loss), both
   feasibility results, A1 and the provisional route-model contract. DESIGN 5.1–5.6, 7.2 and 9 govern the slice
   briefs.
-- [x] Both seats rejected round 1. The fold and all dispositions are in DESIGN. Round 2 of the two-round cap
-  remains pending.
+- [x] Closed review at round 2 of 2. Both seats rejected round 1. In round 2 Sol rejected and Opus approved.
+  The design seat folded both sets, addressing EVIDENCE-INPUT and GRAMMAR as recurring classes. DESIGN ends
+  with the individual dispositions. The 523 ledger rows comprise 458 rule and 65 accepted loss.
 - [ ] After review, apply ORCHESTRATION sections 7–8 and the DESIGN **Alignment list**. Align the matrices'
   expectations and warnings with the reviewed design while retaining each row's semantic witness and recording
   accepted losses. Record a fresh base RED/GREEN for each amended row before enabling it. Regenerate `ids.tsv` next. This design change edits only documents.
@@ -600,6 +601,26 @@ Root `Cargo.toml`: add the member; do not add it to `default-members`.
       amended DESIGN 5.1, run `schema-impact ids` on the pinned schema, commit the new
       `feasibility/ids.tsv` to the evidence directory and its diff summary to the PR body. Tests of Task F-1
       updated where the amendment changed a rule. One reviewer. This file is P1's golden file.
+
+### Task D-census (pre-implementation measurement, before P1)
+
+- [ ] Pin the reference tool/build, configs and populations from DESIGN 7.2. Freeze the cut predicates, units
+      and expected effects before counting. Measure P at `6744295f`. The authorized local R measurement seat
+      uses the F5 pins and returns aggregates. Keep replay cases bound to their selected versions.
+- [ ] Run every cut in the DESIGN 7.2 table individually on the applicable pinned inputs. For schema coverage,
+      include direct YAML, media/body/status exclusions (including default), depth, tuple and assertion/ref
+      limits, cycles, saturation, closed minima and conjunct remainders. For routes, include implicit methods,
+      registrar/star/options, constrained dispatch, root/mount, prefixes/slashes, endpoint proof, fallback role
+      and unplaced suffixes. For calls, include transport/tag/hook/wrapper gaps, defaults/helpers, writes and
+      overflow, numeric and method/URL arm limits, missing export mappings or origin, other APIs, selectors
+      without a distinct operation, and domain/score ties. Include saved inventories, lost reference locations,
+      unavailable result definitions and field-read linkage in the report and field populations.
+- [ ] Record one line per cut and pair with source scope, inspected denominator, affected count and rate,
+      before/after outcomes on the same members, overlaps and deduplicated net loss. A checked zero cites the
+      inspected population, an inapplicable population cites its basis, and unknown incidence stays pending.
+      Use reference evidence and source inspection to apply the final rules before product code exists. Freeze
+      the receipt before P1, refer material loss to the design seat, and reconcile later slice results against
+      it. The round-2 design fold schedules this task. The study's aggregate residues do not close it.
 
 ### Slice P1: crate, element ids, schema reader, diff, documents (3 to 4 days)
 
@@ -647,9 +668,13 @@ the separate status rows and mark body comparison unchecked. An op addition/remo
   and member changes, format/item-only edits, a retained
   declaration edit, bodyless status loss, unique and ambiguous root replacement, unchanged definition rename, and
   formatting-only schema regeneration. Verify that missing evidence blocks the dependent change.
-- Verify zero object capacity before named emission, schema-valued/false/omitted additionalProperties on
-  required-only names, false optional properties, composition-only and root cycles, open/closed intersections
-  and independent sibling expansion. Report the per-cut P1 schema coverage counts in DESIGN 7.2.
+- Verify zero and residual capacity before literal and map edges. Add required `kept` to the one-slot object
+  in DESIGN 5.1. Require its requiredness edit and loss of both the optional field and map descendant, then
+  restore spare capacity. Test a closed minimum just feasible and one above the feasible key count. Apply
+  each conjunct's false, omitted or schema-valued remainder to the other member's named and required-only
+  keys, including incompatible values. Verify the checked-empty `t1-allof-closed-intersection` and partial
+  coverage for unsupported applicators. Keep false optional, composition-only/root cycle and unaffected sibling
+  controls. Reconcile P1 schema coverage counts with D-census.
 - Publish versioned JSON schemas and golden bindings/impact documents per DESIGN 5.2 and A1 **Input documents and
   machine-readable form**. Validate serialized examples against the schemas, including unbound raw calls, coverage
   without a key, both element IDs on a paired status-root move, absent versus unknown sides, an admitted saved
@@ -753,7 +778,10 @@ variables, and **configured yield is unmeasured** until this gate runs. The stud
 before any later publication. On the study population the design predicts up to 393 recovered inline endpoint
 sites from the literal rule (393 if all reported inline functions are directly in handler position and admitted).
 Measure this separately from uniquely mounted/compatible bindings. Record all P2-R cut counts from DESIGN 7.2,
-including possible suffix-only negatives and the non-API fallback. Pass the distinct API wildcard control.
+including possible suffix-only negatives and the non-API fallback. Exercise the role selector by exact declaration
+span and by numbered entry, including a stale selector. With only a mounted GET /api/a and an undesignated root
+tail, GET /api/b gives `unbound/fallback_only`, partial role coverage and no target. A designated fallback is
+overlap only. An ordinary tail in evidenced API scope remains eligible. Check the possible unplaced suffix override.
 
 ### Slice P3: consumer inventories and matching (4 to 5 days)
 
@@ -765,7 +793,10 @@ versioned `BindingsDocument` with every counted call's raw target, site and call
 coverage. A saved preview freezes the actual inventory and its dependencies under DESIGN 5.2 even on an empty
 match set. Version both public era configs and R's scoped config. Bind each hook export and default fetcher to
 its source or mark defaults unconfigured, record document URL and producer origins, and specify wrapper
-normalization and zero-based options positions. Apply the Alignment list inputs to the fixture configs.
+normalization and zero-based options positions. Apply the Alignment list inputs to the fixture configs. In the
+35 template-client configs, admit the export-to-API mapping with its factory and settings dependencies and check
+all 45 listed occurrences. With just that mapping withheld, keep the observed site, prefix and readable request
+components. Assert **Not checked** (`origin_unchecked`), zero confirmed targets and zero notifications.
 
 CLI:
 `prism-boundary bind --role consumer --api <name> --repo <tree> --config <toml> [--schema <json>] --caller-depth 2 --out <bindings.json>`.
@@ -777,6 +808,10 @@ inline fetchers, single-assignment templates, finite endpoint tables, mixed segm
 spreads. Verify dynamic-method precedence, literal shadows with overlapping and disjoint typed domains, prefix
 provenance, origin ambiguity, variable-length route tokens and exact-method/wildcard ties. Independently test
 unknown file/region coverage. Record excluded syntactic forms separately from counted unbound sites.
+Check `url-concat-parenthesized` on numeric and opaque operands, and a readable GET alternative paired with
+an opaque method on the same readable URL. Require the GET candidate with `dynamic_method`, or unbound with
+that reason if GET has no match. Exercise an empty component against `{}`, `{?}` and `{*0+}` with the
+separator policy fixed.
 
 | Row | Input | Required |
 |---|---|---|
@@ -798,13 +833,16 @@ unknown file/region coverage. Record excluded syntactic forms separately from co
 
 **Gate.** All 306 row dispositions are accounted for, including reason and denominator checks for the losses. On P,
 the bound share must be at least 75% (F2's 77% minus two percentage points). Report any change in denominator under
-the revised counting rule. On P and, locally under private custody, on R, allow at most two wrong in a fresh
-**decided** 50-row sample of bound joins per pair (DESIGN 6.2). Print pair-specific counts by grade, basis and
+the revised counting rule. Apply DESIGN 6.2 on each pair, locally under private custody on R. Draw 50 bound
+joins when available (at most two wrong, with the existing one-time extension for an undecided sample). With
+1–49 bound joins inspect all, require at least 80% decided rounded up and at most two wrong. Zero bound joins
+or an exhausted undecided population is inconclusive. Print pair-specific counts by grade, basis and
 reason. R's study baseline is 236 bound, 2 candidate and 78 unbound out of 316, with 83.9% recoverable patterns.
 On the same 316 occurrences give the transition from each old grade, including retained configured joins out
-of the original 236, lost/retargeted joins by reason, new joins, denominator changes and net delta. A new join
-cannot replace a lost reference occurrence in that count. On both pins complete the per-cut consumer census in
-DESIGN 7.2. Include unknown origins/defaults, mixed branches, finite crossings, fallback-only, suffix competitors,
+of the original 236 (same site and same operation), lost/retargeted joins by reason, new joins, denominator
+changes and net delta. Count product-only joins separately. The owner decision on minimum retained configured
+yield defaults to **report, no floor** (DESIGN 8). P4 still requires a shared evidenced join on R. On both
+pins reconcile actual per-cut counts to D-census in DESIGN 7.2. Include unknown origins/defaults, mixed branches, finite crossings, fallback-only, suffix competitors,
 selector and other-API controls. Check their effects on negatives, totals and notifications.
 
 ### Slice P4: diff, impact JSON and Markdown (both pairs)
@@ -841,20 +879,29 @@ same coverage checks.
    separate evaluation companion. Change or remove hindsight records after freezing and require byte-identical live
    Markdown and JSON.
 4. **Three-report replay gate.** Before any product run for these subjects, produce and pin the public A1
-   version-2 renders from prototype PR #886. Use its renderer at `028c7d1bf3200ced0a8fa53c7a4155c2eba45231`
-   (renderer change `11f06c91`). The gate's output directory is `feasibility/reports-v2/public/` relative to
-   the repository's **evidence store**. Populate it using the pinned batch renderer on the ten P subjects or
-   import its byte-verified renders. Pin full producer/renderer/input commits, input receipts, clock, config,
+   version-2 renders from prototype PR #886. Resolve `refs/pull/886/head` in `shoedog/prism` and pin the
+   reachable renderer commit `028c7d1bf3200ced0a8fa53c7a4155c2eba45231` (renderer change `11f06c91`).
+   Verify that exact commit before rendering and record the ref and resolved SHA. The public v2 report
+   directory is `~/prism-evidence/boundary-impact/feasibility/reports-v2/public/`. Populate it using the
+   pinned batch renderer on the ten P subjects or import its byte-verified renders. Pin full producer/renderer/input commits, input receipts, clock, config,
    scope, slots and SHA-256 of live Markdown and JSON in the manifest. The tracked memo reports and class index
    supply subject selection only. Select the first three by DESIGN 6.4 (counted classes in the stated order,
    one per commit, newest first within class). The index gives 01 `f93fb6b7`, 02 `7a036f21`, 03 `f723d120`.
-   Freeze their reference occurrence IDs, version, group, site/span, grade and evidence before seeing product output.
+   Freeze each reference occurrence's prototype ID, client tree, repository-relative path, blob, half-open
+   byte span of the invocation, version, group, grade and evidence before seeing product output. If a render
+   gives only a line or ordinal, resolve the invocation uniquely against the pinned source before freezing.
+   Consolidate repeated presentations of the same occurrence and keep all its groups. An unresolved span or
+   conflicting occurrence records for one key leave that comparison pending.
    Require at least one frozen reference occurrence and one evidenced shared location in each selected report. For each reference occurrence record
    reproduced with the same supported result, changed with independently checked evidence, or lost with measured
    refusal, cause and affected coverage. Report retained/changed/lost over the full population per subject.
    Keep the selected subjects fixed if one is empty or loses all shared coverage. Every product-only claim
-   likewise needs its own evidence. On shared admitted evidence require equal occurrence IDs, target IDs, before/after grades and reasons.
-   A changed result must identify the additional evidence or scope difference that accounts for it.
+   likewise needs its own evidence. Within each subject/comparison, join one-to-one on (client tree, path,
+   blob, byte span). Keep both engine IDs in the receipt, null on the missing side. For a shared occurrence
+   require equal target IDs, before/after grades and reasons on the same evidence. A changed result must
+   identify the additional evidence or scope difference that accounts for it. Test a product-only call earlier
+   in the same blob that shifts the shared call from ordinal 1 to 2. Pair the shared span once, preserve its
+   two IDs and account for the earlier span as product-only, even if its ordinal equals the reference ID.
    Compare direction, versions, unknowns, actions,
    Markdown locations and appendix links against JSON. Empty shared coverage, an unexplained loss or a missing
    input/render keeps the gate pending.
@@ -866,7 +913,7 @@ same coverage checks.
    comparison maps, then render directly from those frozen results.
 6. Render the first report for each pair. R must show at least one evidenced producer endpoint and consumer
    occurrence joined on the same operation under an admitted scoped mount or root. Disclose configured versus
-   proven basis. Publish aggregates only. Record the P4 saved-inventory and lost-location counts in DESIGN 7.2.
+   proven basis. Publish aggregates only. Reconcile P4's saved-inventory and lost-location counts with D-census.
 
 ### Slice P5: field level (5 to 6 days; 1 day if step 1 is negative)
 
@@ -953,7 +1000,13 @@ aggregates, without attributing lift where there were no controls.
       prediction rule and outcome observation window per pair. Require every reader-counted replay location
       again at its original (change commit, element, client revision and occurrence), reconcile lost and new
       predictions, and report the product denominator.
-      Each of the three bucket shares must be within **5 percentage points** of its own pair's reference share,
+- [ ] Independently require **at least 95%** of the original predicted locations on **each** pair (DESIGN 8).
+      Freeze every reference location before the product run. Join on the original change, element and
+      client occurrence using P4's source key. Count each reference location still predicted for that change
+      and element once. The denominator includes all original predictions, including lost or unchecked ones.
+      Report retained, lost and product-only counts. Only retained locations enter the numerator. Round the
+      required count up, giving minima of 185 of 194 on P and 60 of 63 on R.
+- [ ] Each of the three bucket shares must be within **5 percentage points** of its own pair's reference share,
       assessed independently. Use all predicted locations on that pair's frozen cohort as denominator, including
       unresolved follow-ups as unknown, and show counts and shares. A zero denominator or missing cohort fails.
 
@@ -961,6 +1014,12 @@ aggregates, without attributing lift where there were no controls.
 |---|---|---|
 | P, F4, 37 usable first-parent commits at the public pin | `same_commit` 33/194, `later` 70/194, `present_at_pin` 91/194 | Same-repository parent calls, first-parent touches through the pin, 616 controls separate. Recover all 8 counted F4 locations. |
 | R, F5, 42 usable route-change commits in the recorded mount window, predictions on 22 | `within_14_days` 62/63, `later` 1/63, `present_at_head` 0/63 | Date-aligned consumer revision, touches through its frozen head. Recover all 5 counted replay locations. No controls. |
+
+Check the three gates independently. On P, product buckets of 30 same-commit, 72 later, 89 present and three
+unknown pass the share test over 194. On R, 58 within 14 days and five later fail the share test even if all
+63 locations are retained. Retaining only the five reader-counted R locations, all within 14 days, passes the
+share test and the reader-counted test but fails retention at 5/63. Adding unrelated product locations cannot
+repair that shortfall.
 
 The companion scores the historical selection and buckets. A1 renders the admitted change independently. Record
 a gate miss with its cause even when the live review contains a new supported result.
@@ -979,7 +1038,7 @@ a gate miss with its cause even when the live review contains a new supported re
 
 ## Acceptance for the lane
 
-The memo records feasibility separately from owner ratings. Product acceptance requires the P2, P2-R, both P3 and
+The memo records feasibility separately from owner ratings. D-census is due before P1. Product acceptance requires the P2, P2-R, both P3 and
 both-pair P4 gates, P5's measured decision and P6's replay gate on the final product head. Record each review
 outcome and every unbound reason and count (P publicly, R under private custody). State the route source used,
 proven/configured counts, accepted losses and remaining coverage. Run the full suite before merging product changes
