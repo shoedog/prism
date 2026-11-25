@@ -12,11 +12,11 @@ The independent design-seat record for `993b55ef1` had SHA-256 `013995a1ae40575b
 |---|---|
 | Design A / O1, another full-rule fold | Keep A's paired near-miss and positive controls. Reject an ordinary third round. The open classes and two newly introduced errors offer no stopping rule for another half-day review of the full catalogue. |
 | Design B / O2, limit positive decisions to identifiable evidence | **Choose.** Separate bag accounting from original selection, projected trace candidates from compatible attachment, and population counts from scoped verdicts. Apply the same evidence rule to each benchmark occurrence. This costs decided coverage, can refuse a differential and can leave a real gate unmet. O2's blanket ambiguous-bag rule would also erase a determinable residual when an identical original can cancel first. |
-| O3, remove calls and S6b and restrict built-ins to plain identifiers | Reject the broad cut. Removing call grading strands lane 9's selected `nameonly/argument_follow` claims. Removing S6b gives up G-negatives even on same-build verified pairs. Defer only built-in target identities without an established producer convention. Whole-actual, literal and write proofs still have testable controls. |
+| O3, remove calls and S6b and restrict built-ins to plain identifiers | Reject the broad cut. Removing call grading strands lane 9's selected `name_only/argument_follow` claims. Removing S6b gives up G-negatives even on same-build verified pairs. Defer only built-in target identities without an established producer convention. Whole-actual, literal and write proofs still have testable controls. |
 | Design C / O4, wait for producer evidence or phase the freeze | Use C for unsupported target forms and historical binary availability. S1–S3 may build the stable interfaces and fixtures listed in [Adopter impact](FORMATS.md#adopter-impact). A provisional measurement cannot decide an adopter gate. Freezing disputed semantics independently at each slice would leave two versions of shared receipt and coverage rules. |
 | O5, one rule and fixture per report item | Keep the named counterexamples and controls in §9. A row-only repair leaves the adjacent input unspecified. The rule in each consuming section owns the result for both the row and its complement. |
 
-**Approval boundary.** The two ordinary rounds are spent. Request one §8 decision from two fresh reviewers on the same controller-bound revision. Give both the original inputs, the 20 new fixture specifications, the promoted Record and both negative-control suites. Each should derive the outcome and gate scope independently, including an input-order permutation and a missing-evidence case. Both must APPROVE before calling this the accepted design. A further open-class rejection returns the specific boundary and its cost to the owner. A new review round requires a new scope decision.
+**Approval boundary.** Both ordinary reviews and the single escalation review returned FIX. On 2026-11-25 the owner authorised one targeted fold of the escalation findings on `a0856951d` and one paired re-review. Option B stands. Both seats must approve the same controller-bound revision. Any remaining rejection at that cap returns to the owner.
 
 ### Amendments to the architecture
 
@@ -65,7 +65,7 @@ All 24 are decided. The kit file contains 15 such rows in 152, including the app
 | join-002 | Attached 0, stray 0, ambiguous 1, unmatched 0, collisions 1, zero change rows, exit 1. | Projecting both sides to line identity prevents hidden bytes from resolving a collision in a line-mode result. |
 | join-008 | One unmatched, one independently classified move, unattributed 0, exit 0. | Requiring every unmatched diagnostic trace to fail would impose a policy the supplied classifier did not request. |
 | oracle-027 | One lost site/claim in the delta, zero verdicts. | A removed base target belongs in the loss denominator and has no new exact head claim to grade. |
-| oracle-029 | One multi-target delta, one head WRONG (`sameB`), zero new CORRECT. | Grading the surviving `sameA` again would inflate changed-claim coverage. |
+| oracle-029 | One multi-target delta, one head WRONG (`sameB`) for the qualified named-function serializer, zero new CORRECT. | Grading the surviving `sameA` again would inflate changed-claim coverage. |
 | oracle-032 | WRONG for `implementation-slot`, first overload formal. | The claimed bytes 16–21 lie on the first bodyless signature. The uniquely mapped receiving formal is on line 2. |
 | oracle-034 | UNDECIDED, external callable. | A refutation using declaration data beyond the authenticated source boundary would enlarge the admitted evidence. |
 | review-008 | Presence 0, payload 2, ambiguous bags 1, no invented transition. | Two uncancelled occurrences overlap on each side of the anchor, and reporting zero would conceal both differences. |
@@ -113,7 +113,7 @@ Replace the complete `truth` object for each ID with the JSON below when materia
 | bn-011 | `{"outcome":"fix_elsewhere","columns":{"finding":null,"reach":null,"function_change":null,"sink_removed":null}}` |
 | bn-012 | `{"outcome":"partial_fix","columns":{"finding":null,"reach":null,"function_change":null,"sink_removed":null}}` |
 
-**Adjudication input for bn-012.** Materialise the following JSONL row with the benchmark fixture and pass it as `--adjudications`. The spans identify the two contributions in order in each tree. An invocation omitting this input has no partial-fix adjudication. Its ordinary scoring control is bn-031.
+**Adjudication input for bn-012.** Materialise the following JSONL row with the benchmark fixture and pass it as `--adjudications`. The spans identify the two contributions in order in each tree. An invocation omitting this input has no partial-fix adjudication. Without independent occurrence correspondence the unlabelled bn-031 arm is unmapped. Its separate retained-identity control isolates the partial-fix fact.
 
 ```json
 {"class":"code-injection","entry":"bn-012-fixture_1.19.0","id":"CVE-0000-012","vulnerable_tree_sha256":"46226178ad429efef79ea0f93e0e4d3c3887ad6cc068aa559266e74c9ece8403","fixed_tree_sha256":"2983aa38dbd1dabc46ca025933101e1b745b901d6bf3d160aca7a7cc187812cd","sink":"lib/index.js:3:3","fact":"partial_fix","evidence":{"before":[{"file":"lib/index.js","start_byte":72,"end_byte":83},{"file":"lib/index.js","start_byte":84,"end_byte":87}],"after":[{"file":"lib/index.js","start_byte":151,"end_byte":159},{"file":"lib/index.js","start_byte":160,"end_byte":163}],"explanation":"The first parameter contribution is wrapped in quote in the fixed call. The second parameter is still appended directly to the same command argument."}}
@@ -179,7 +179,7 @@ The following 173 rows and the 24 decisions above exhaust the two input matrices
 | run-007 | Only the edges command gets the requested trace switch → 0, ok. |
 | run-008 | Guard refuses before launch → 75, no binary invocation or receipt. |
 | run-009 | Verify prints failing key and exits 3 for the second commit. |
-| run-010 | Archive verifies, exit 0, perf manifest SHA-256 `1cde38ecf4ebe4cb0b36c72fbbae296fc0e34215d19116dbdb624800650b4d36`. |
+| run-010 | Perf-only archive refuses (3). Register `tree_sha256=b6bffcac5874e0ee6175e89da1d91450d4ee15634e82572f368c2158b74d14b1` for the two supplied files and verify (0). Also check the existing perf-cloud digest `1cde38ecf4ebe4cb0b36c72fbbae296fc0e34215d19116dbdb624800650b4d36`. |
 | run-011 | The sample match statement fails the Python 3.9 grammar check. |
 | run-012 | Middle command exits 7 → stop, 4, failed receipt with the child exit. |
 | run-013 | Call-stats argv uses --no-cache → 0, ok. |
@@ -280,7 +280,7 @@ The following 173 rows and the 24 decisions above exhaust the two input matrices
 | oracle-024 | Replace outer claim by inner → one retargeted delta, one head CORRECT. |
 | oracle-025 | One-run census → one CORRECT, no deltas. |
 | oracle-026 | Add sameB site → one new delta, one head CORRECT. |
-| oracle-028 | Demote exact to nameonly → one confidence-only delta, one site and one head nonexact site, zero verdicts. |
+| oracle-028 | Successor input and generator use `name_only` on the head target. One confidence-only delta, one site, one head nonexact site and zero default exact verdicts. The frozen `nameonly` call input refuses (2). |
 | oracle-030 | Dropped call → one site, one drop, zero verdicts. |
 | oracle-031 | No checker declaration for callee → UNDECIDED. |
 | oracle-033 | Union has two callable owners → UNDECIDED. |
@@ -323,7 +323,7 @@ The following 173 rows and the 24 decisions above exhaust the two input matrices
 | bf-015 | Successful empty list → none, no rows. |
 | bf-016 | GT-line source plus other-line sink → sink_file, one off_target. |
 | bf-017 | Four emitted sinks → sink_line, only line 5 matched, three off_target. |
-| bn-003 | Mapped sink line 3, unrelated observation on line 4 → verified_pair (false,false,changed,false). |
+| bn-003 | The owner loses the original call statement and contains a constant-argument candidate plus `eval`. No independent occurrence map accompanies the trees. `sink_occurrence_unmapped`, four nulls. A bound retained-identity control may score the observed misses. |
 | bn-004 | Literal-only edit → verified_pair (true,true,changed,false). |
 | bn-005 | Verified deletion → verified_pair (null,null,changed,true). |
 | bn-007 | Duplicate same-file owner → function_ambiguous. |
@@ -340,6 +340,75 @@ The following 173 rows and the 24 decisions above exhaust the two input matrices
 | bn-021 | Neither vulnerable channel positive → no_vulnerable_positive. |
 | bn-022 | Function-only reach plus same-file off-target finding → no_vulnerable_positive. |
 | bn-023 | The explicitly synthetic vulnerable finding at the one eligible annotated operation supplies the fixture control → verified_pair (true,true,changed,false). |
-| bn-024 | Vulnerable traced result alone supplies control → verified_pair (true,true,changed,false). |
+| bn-024 | Bare vulnerable `traced` stub gives `no_vulnerable_positive`, four nulls. With the synthetic witness specified below, `verified_pair (true,true,changed,false)`. |
 | bn-025 | Missing sink/GT → gt_unavailable. |
 | bn-026 | Three entries yield no_fixed_version, fixed_not_newer and no_vulnerable_positive respectively. Zero verified, unmet. |
+
+### Review round 3 dispositions
+
+The reviews of `a0856951d` supplied ten WRONG findings, four material SMELLs and two editorial SMELLs. The following dispositions cover each review ID. Row IDs identify controls or changed expectations. All findings were folded. The nine additional fixture specifications are in [the ledger](FORMATS-LEDGER.md#round-three-fixtures).
+
+| Finding | Fold | Rows |
+|---|---|---|
+| Opus W1 · WRONG | §4 credits the old-value read in compound/logical assignment and either form of update. Pure writes still refute a destination read. | oracle-057, terra-oracle-008, terra2-oracle-005, oracle-011, terra3-oracle-001, terra5-oracle-001, astra-oracle-008 |
+| Opus W2 · WRONG | `call_site_dump_iter` emits `exact` and `name_only`. §4 uses them from decode through the CLI, target populations and adopter example. Preserve the separate §3 DFG vocabulary. | oracle-028, oracle-051, oracle-061 |
+| Sol W1 · WRONG | §6 validates the lane 9 quality scope against the target wire enum. The declared selector matches the review's native target projection. | oracle-061, gate-020, gate-023 |
+| Sol W2 · WRONG | A proved slot requires both implementation formal bytes and identifier spelling. The sole mutation `formal` → `other` refutes that claim. | oracle-001, oracle-013, oracle-032, oracle-062 |
+| Sol W3 · WRONG | §7 requires correspondence of the annotated operation across both trees or a tree-bound removal proof. Exclude a survivor, insertion or owner replacement that supplies only the same callee. | bn-003 through bn-005, bn-008, bn-027, bn-031, bn-038, terra-bench-006, astra-bn-003 |
+| Sol W4 · WRONG | §6 publishes control scope for a pass that consumed an empty waiver. Gate aggregation counts only identified product steps. | gate-013 through gate-016, gate-020, gate-025, terra-cmp-003 |
+| Sol W5 · WRONG | §2 compares the registered digest of every file/link record before either arm. The perf manifest remains an additional regular-file check. | run-010, run-014, run-020, sol-run-002, terra4-run-001 |
+| Sol W6 · WRONG (round-two Opus S2 / Sol W09) | §3 specifies `inventory-terminal-missing` per required arm. The exact producer and rollout amendment remains in FORMATS. Lane 10 owns its adoption. | cmp-056, cmp-060 |
+| Sol W7 · WRONG | A first valid acquisition publishes the computed pin after SRI, extraction and tree verification. Reacquisition checks the stored entry and preserves it on drift. | bn-039, bn-030, sol-bench-009, sol2-bn-008 |
+| Sol W8 · WRONG | §7 resolves each emission first. Exact operation spans survive peer payload differences. A proved match supplies the vulnerable control or fixed finding even beside unresolved peers. | bf-008, bf-009, bf-011, bf-019 through bf-021, bn-033 |
+| Opus S1 · SMELL MATERIAL | §4 admits the callable node's first non-decorator token for a formal def's header line, including a leading `static`. | oracle-056, oracle-058, oracle-063 |
+| Opus S2 · SMELL MATERIAL | Live, replay and fixed scoring enumerate plausible sink operations from the versioned build-bound sink-rule table. | bf-020, bf-021, sol2-bf-002, astra-bf-002 |
+| Opus S3 · SMELL MATERIAL | `ts-edges --all` counts authenticated out-of-program edges in `out_of_scope`. Only in-scope claims reach admission and grading after source custody. | oracle-009, oracle-016, oracle-064, astra-oracle-001 |
+| Sol S1 · SMELL MATERIAL | §4 binds the per-build/form source-labelled qualification to self-check and grading. `sameA` cancels in oracle-029. Only a qualified producer can refute the gained `sameB` claim. | oracle-021 through oracle-026, oracle-029, oracle-048, oracle-058, terra2-oracle-007, terra3-oracle-005, astra-oracle-012 |
+| Opus S4 · SMELL IMMATERIAL | Keep the adopter amendment verbatim and the slice reading map. Detailed proofs and control inputs live in the companions. | cmp-060 |
+| Sol S2 · SMELL IMMATERIAL | Remove the dangling Section 10 reference. The reading map links the dispositions and the adopter amendment. | cmp-060 |
+
+Sol's table also qualifies `terra4-oracle-002`. With empty fields and the exact bare member token, a different unique property declaration disproves the local claim (WRONG). A structured member path gives UNDECIDED `structured-path` before token reduction. `oracle-052` and `astra-oracle-007` cover the structured case.
+
+**Open lane 10 obligation.** Its S0 plan still needs the [exact S0 producer and rollout text](FORMATS.md#amendment-text-for-lane-10s-plan). Until its producer supplies the independent final counts, even a complete-looking S0 arm fails inventory admission with `inventory-terminal-missing`. Report edge/counter parity separately for S0 against baseline. S1/S0 and S2/S1 each need both terminals before claiming any inventory-dependent zero.
+
+### Rows whose expectation flips
+
+The comparison is against the Stage D truth at `a0856951d`, including the 24 earlier adjudications. Each row identifies the affected input or output field. Corrected successor inputs retain their positive controls. The two Stage T JSONL files remain the original evidence.
+
+| ID and affected input | Old truth | New truth |
+|---|---|---|
+| oracle-057 (last clause) | Compound destination WRONG | CORRECT for the old-value read. Source-side assertions retain their verdicts. |
+| terra-oracle-008 | Compound destination WRONG | CORRECT. |
+| terra2-oracle-005 | Prefix increment destination WRONG | CORRECT, also for postfix and decrement. |
+| oracle-028 (frozen call target `nameonly`) | One confidence-only delta, zero verdicts | Decode refuses (2). Change only the successor target spelling to `name_only` to recover the original counts. |
+| oracle-051 (real `name_only/argument_follow` target) | Published selector misses the native claim or rejects its scope | Corrected selector grades one gained claim. The kind-change delta and intended count of one are preserved. |
+| gate-023 (literal target scope) | `nameonly/argument_follow` accepted for the rate | Old scope refuses preflight (2). `name_only/argument_follow` passes at 1/20 and fails at 1/19 or zero decided. |
+| run-010 (only `perf-manifest` registered) | Verify 0 | Verify 3 before launch. With the §2 pin above, verify 0 and the perf hash assertion also holds. |
+| gate-013 (empty list/verify waiver) | Passed waiver with Limits note, execution scope | Passed control, `claim_scope=control`, no product steps. |
+| gate-014 (distinct empty arms with waiver) | PASS could earn differential credit | Control PASS, `product_steps=[]`. Without waiver coverage still fails. |
+| bn-003 (supplied tree pair, admitted vulnerable control) | `verified_pair (false,false,changed,false)` | `sink_occurrence_unmapped`, four nulls. |
+| bn-031 (bn-012 without adjudication or separate occurrence evidence) | `verified_pair (true,true,changed,false)` | `sink_occurrence_unmapped`, four nulls. An independent retained-identity-only control keeps the positive columns. |
+| terra-bench-006 (only the same uniquely bound callee) | Retained pair eligible for `(false,true,changed,false)` | `sink_occurrence_unmapped` if correspondence is absent. The materialised mapped arm and its missing-seed control require correspondence. |
+| bn-024 (literal `traced` stub) | `verified_pair (true,true,changed,false)` | `no_vulnerable_positive`, four nulls. With the separately bound synthetic control the original columns hold. |
+
+**Unchanged controls and input qualifications.** The misnamed formal is a mutation of `oracle-001`. Its supplied formal bytes and spelling agree. `terra4-oracle-002`'s bare-member verdict and `oracle-029`'s qualified WRONG hold. All decidable built-in target fixtures assume a source-labelled, build-matched supported form. The missing-qualification arm gives UNDECIDED `target-id-unproved` with the same deltas. `bf-009` has two line-only payloads and two eligible calls, so both remain ambiguous. `bf-011` retains one match for identical repeats. `run-014` starts from a matching archive pin and changes the link during analysis (4). `terra4-run-001` changes only external referent contents. Its registered link text stays equal. `terra-cmp-003` asserts standalone bag counts. `cmp-056` and `cmp-060` already fail without a terminal and now assert the diagnostic.
+
+### Producer qualification
+
+S3 publishes a qualification bundle keyed by the selected run's full executable SHA-256 and callable form. Each entry binds the authenticated fixture source tree, independently labelled declaration file, name token bytes and expected name/line, the unmodified site dump and target index, and the result of its matching and contradictory claim controls. Verify these digests and labels through the self-check. The oracle receipt binds the bundle digest and the run receipt selects the build. Reuse a qualification only for the same build and supported form. Missing coverage gives UNDECIDED `target-id-unproved`. A substituted bundle fails the digest check. Synthetic target fixtures explicitly bind their fixture serializer and labelled source.
+
+### Gate credit
+
+Each gate and each step has exactly one `claim_scope` value from `product`, `control`, `execution`, `none`. A failed, refused, unrun, interrupted or retrospective result earns `none`. A successful absence-only, identity or vacuous comparison earns `control`. For any step kind, consuming `allow_empty` to discharge a minimum gives `control` and zero product credit. A populated list, verify or run alone earns `execution`. An admitted prospective comparison or oracle step with actual coverage may earn `product` for its proved scopes. A census can claim its measured population. A change claim requires a differential. Controls and absent scopes cannot supply a prerequisite for product credit.
+
+`gate.json.product_steps` lists, in graph order, only product-scoped step IDs earned by a successful prospective gate. A mixed gate can claim only those explicitly listed steps. If that list is empty, a successful gate containing a control has `claim_scope=control`, otherwise `execution`. With product steps the gate scope is `product`. Any unsuccessful or retrospective gate has `claim_scope=none, product_steps=[]`. In Controls and Result print the credited step IDs and scope beside the exit.
+
+### Fixed occurrence correspondence
+
+Record the annotated operation's file, owner, full operation span and callee origin in the vulnerable tree. Inventory all same-callee peers on **both** sides. For automatic retention require the unique same-file owner in the same declaration chain and an identifiable counterpart of that operation. One sufficient structural test is an equal ordered syntax tree for the owner's file, comparing node kinds and token text, allowing only trivia, changes to literal values outside the sink expression, and edits confined to bodies of other already-corresponding callables. Keep the enclosing declaration paths, owner signature and the target's complete expression and child path equal. Require a single candidate in each owner and the same bound callee. Preserve both tree digests, operation spans and the checked correspondence. A conflicting independently evidenced owner replacement, relocation or deletion defeats this test.
+
+For other edits require independent evidence bound to both trees that maps the annotated owner and operation across the edit, for example an authenticated edit carrying those spans or a `retained_identity` adjudication explaining which operation survived and why competing old/new calls cannot be its counterpart. A `partial_fix` or `fix_elsewhere` adjudication may supply that mapping when its evidence independently identifies both operations. A nearest line, ordinal, owner name, callee binding or an arbitrary textual diff alignment alone cannot do so. Multiple unresolved candidates give `sink_occurrence_ambiguous`. A sole unproved replacement gives `sink_occurrence_unmapped`. Direct or adjudicated removal must establish deletion of the annotated operation in the retained owner and exclude relocation or replacement across the package. A surviving *different* call can coexist with an independently proved removal.
+
+`bn-004`, `bn-013`, `bn-023` and the bound-control `bn-024` change only a literal outside the call. `bn-009` keeps the source bytes. `bn-005` removes both the call and its import with no delegation. `bn-008` has two fixed candidates. `bn-010/011/012` carry the independent §8 adjudications. For `bn-031` retain the no-fact negative arm and add a separate retained-identity-only arm using the two tree pins and the corresponding call in `run(a,b)` from the bn-012 fixture. Its annotated call changes only the first operand contribution by wrapping `a` in `quote`; the independently labelled second `b` contribution and corresponding owner identify the call. The separate arm asserts retention alone.
+
+**Synthetic bn-024 reach control.** Bind vulnerable tree `b34322c90675488e1473ff4a4cf456a7b4888b40fc05ce670996fbf76599b6dc` and `lib/index.js`. The independently authored witness starts at `run` parameter `cmd` bytes `[50,53)` and ends at the `full` use `[101,105)` in annotated `cp.execSync(full)` `[89,106)`. Retain it as synthetic vulnerable evidence in the bound fixture observation. Wrong seed, another use or the bare label supplies zero vulnerable positives. The fixed observations remain attributed to their own bound run.
