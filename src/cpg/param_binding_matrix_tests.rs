@@ -11,7 +11,25 @@ use petgraph::visit::EdgeRef;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-const ACTIVE_SLICES: &[&str] = &["control"];
+const ACTIVE_SLICES: &[&str] = &["control", "A"];
+/// Rows the design of record (DESIGN section 9) keeps mandatory and RED through slice A:
+/// (row id, why it is red and the issue that turns it green). Their RED outcomes do not fail
+/// the suite; the suite fails if one of them has no RED assertion any more (an unexpected
+/// green means the list must be updated and the row re-pinned).
+const EXPECTED_RED: &[(&str, &str)] = &[
+    (
+        "x1-4",
+        "DESIGN 9 sentinel: an unimported builtin spelling resolves Exact free_single to an unrelated export; fixed by #891",
+    ),
+    (
+        "x2-2",
+        "DESIGN 9 sentinel: both step sites resolve only as r6_multi_owner_candidate, excluded from Step 5b; decision tracked in #893",
+    ),
+    (
+        "x5-2",
+        "DESIGN 9 sentinel: the constructor site is absent and the take targets are navigation-only candidates; #892 and #893",
+    ),
+];
 /// Doubt kinds as `dfg-stats --edges` spells them; `builtin_callback` is added by slice D.
 const LABEL_DOUBTS: &[&str] = &[
     "killed",
@@ -687,6 +705,7 @@ fn param_binding_matrix_rows() {
         .flat_map(|row| row.selected(ACTIVE_SLICES).map(|(_, slice, _)| slice))
         .collect();
     let mut failures = Vec::new();
+    let mut still_red = BTreeSet::new();
     for row in &rows {
         evaluate(
             row,
@@ -712,7 +731,14 @@ fn param_binding_matrix_rows() {
                 );
                 println!("MATRIX\t{record}");
                 if outcome.fails() {
-                    failures.push(record);
+                    if matches!(outcome, Outcome::Red)
+                        && EXPECTED_RED.iter().any(|(id, _)| *id == row.id)
+                    {
+                        println!("MATRIX-EXPECTED-RED\t{}", row.id);
+                        still_red.insert(row.id.clone());
+                    } else {
+                        failures.push(record);
+                    }
                 }
             },
         );
@@ -721,6 +747,16 @@ fn param_binding_matrix_rows() {
         ACTIVE_SLICES.iter().all(|slice| seen.contains(slice)),
         "empty active slice"
     );
+    for (id, why) in EXPECTED_RED {
+        let selected = rows
+            .iter()
+            .any(|row| row.id == *id && row.selected(ACTIVE_SLICES).next().is_some());
+        if selected && !still_red.contains(*id) {
+            failures.push(format!(
+                "{id}: expected RED but no assertion is red any more ({why}); update EXPECTED_RED"
+            ));
+        }
+    }
     assert!(
         failures.is_empty(),
         "matrix failures:\n{}",
