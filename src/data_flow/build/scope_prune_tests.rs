@@ -290,16 +290,6 @@ fn named_result_reused_by_short_var_keeps() {
 #[test]
 fn multiply_declared_prescan_covers_inventory_on_all_go_fixtures() {
     use crate::cpg::binding_facts::BindingFacts;
-    fn go_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                go_files(&path, out);
-            } else if path.extension().is_some_and(|e| e == "go") {
-                out.push(path);
-            }
-        }
-    }
     fn owners<'a>(node: tree_sitter::Node<'a>, out: &mut Vec<tree_sitter::Node<'a>>) {
         if matches!(node.kind(), "function_declaration" | "method_declaration") {
             out.push(node);
@@ -309,12 +299,16 @@ fn multiply_declared_prescan_covers_inventory_on_all_go_fixtures() {
             owners(child, out);
         }
     }
-    let mut files = Vec::new();
-    go_files(
+    let files = crate::fixture_corpus::legacy_fixture_files(
         &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
-        &mut files,
+        |p| p.extension().is_some_and(|e| e == "go"),
     );
-    files.sort();
+    crate::fixture_corpus::assert_visited_within(
+        "multiply_declared_prescan_covers_inventory_on_all_go_fixtures",
+        files.len(),
+        // `.go` files of the legacy corpus at 9d1a7d06f: 866.
+        1_000,
+    );
     let (mut checked, mut multi_names) = (0usize, 0usize);
     for path in files {
         let src = std::fs::read_to_string(&path).unwrap();

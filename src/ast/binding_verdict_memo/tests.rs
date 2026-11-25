@@ -183,31 +183,20 @@ fn differential_all_repository_fixtures() {
 }
 
 fn all_repository_fixtures() {
-    fn visit(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            if path.file_name().unwrap() == "private-corpus" {
-                continue;
-            }
-            if path.is_dir() {
-                visit(&path, files);
-            } else {
-                files.push(path);
-            }
-        }
-    }
-    let mut files = Vec::new();
-    visit(
+    let files = crate::fixture_corpus::legacy_fixture_files(
         &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
-        &mut files,
+        |p| Language::from_path(p.to_str().unwrap()).is_some(),
     );
-    files.sort();
+    crate::fixture_corpus::assert_visited_within(
+        "differential_all_repository_fixtures",
+        files.len(),
+        // Language-recognised files of the legacy corpus at 9d1a7d06f: 1,297.
+        1_500,
+    );
     let mut parsed = 0;
     let mut comparisons = 0;
     for path in files {
-        let Some(lang) = Language::from_path(path.to_str().unwrap()) else {
-            continue;
-        };
+        let lang = Language::from_path(path.to_str().unwrap()).unwrap();
         let source = std::fs::read_to_string(&path).unwrap();
         let p = ParsedFile::parse(path.to_str().unwrap(), &source, lang).unwrap();
         comparisons += differential(&p, false);
