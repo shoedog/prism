@@ -1,0 +1,10 @@
+{
+  "receipt_variations": {
+    "base_options": {
+      "sites": false
+    },
+    "head_options": {
+      "sites": true
+    }
+  }
+}

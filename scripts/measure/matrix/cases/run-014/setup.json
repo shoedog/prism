@@ -1,0 +1,26 @@
+{
+  "command": "run",
+  "corpus": {
+    "git": false,
+    "pin": "matching-archive",
+    "tracked": {
+      "a.ts": "export {};\n",
+      "b.ts": "export {};\n"
+    },
+    "untracked": {},
+    "tracked_ignore": null,
+    "ignored": {},
+    "symlinks": {
+      "link.ts": "a.ts"
+    }
+  },
+  "fake_binary": {
+    "version": "9d1a7d06f653",
+    "commands_exit": 0,
+    "retarget_symlink": {
+      "command": "edges",
+      "file": "link.ts",
+      "target": "b.ts"
+    }
+  }
+}

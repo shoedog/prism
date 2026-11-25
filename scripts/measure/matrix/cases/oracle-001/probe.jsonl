@@ -1,0 +1,1 @@
+{"from":{"file":"cases.ts","line":3,"path":{"base":"actual","fields":[]},"access":"use","start_byte":105,"end_byte":111},"to":{"file":"cases.ts","line":1,"path":{"base":"formal","fields":[]},"access":"def","start_byte":18,"end_byte":24},"confidence":"exact","doubt":null}
