@@ -199,6 +199,7 @@ fn slice_impl(
                         category: Some("contract_violation".to_string()),
                         parse_quality: None,
                         diagrams: vec![],
+                        rules: Vec::new(),
                     });
                 }
             }
@@ -226,6 +227,7 @@ fn slice_impl(
                             category: Some("contract_violation".to_string()),
                             parse_quality: None,
                             diagrams: vec![],
+                            rules: Vec::new(),
                         });
                         break; // One violation per postcondition
                     }
@@ -261,6 +263,7 @@ fn slice_impl(
                                     category: Some("contract_postcondition_new_null".to_string()),
                                     parse_quality: None,
                                     diagrams: vec![],
+                                    rules: Vec::new(),
                                 });
                             }
                         }
@@ -290,6 +293,7 @@ fn slice_impl(
                     category: Some("contract_postcondition".to_string()),
                     parse_quality: None,
                     diagrams: vec![],
+                    rules: Vec::new(),
                 });
             }
 
@@ -334,6 +338,7 @@ fn slice_impl(
                     category: Some("contract".to_string()),
                     parse_quality: None,
                     diagrams: vec![],
+                    rules: Vec::new(),
                 });
 
                 // Include guard clause lines in the block
@@ -1384,6 +1389,7 @@ pub fn slice_delta(
                                     category: Some("contract_precondition_weakened".to_string()),
                                     parse_quality: None,
                                     diagrams: vec![],
+                                    rules: Vec::new(),
                                 });
                             }
                             PreconditionChange::Added {
@@ -1409,6 +1415,7 @@ pub fn slice_delta(
                                     ),
                                     parse_quality: None,
                                     diagrams: vec![],
+                                    rules: Vec::new(),
                                 });
                             }
                             PreconditionChange::Modified {
@@ -1437,6 +1444,7 @@ pub fn slice_delta(
                                     category: Some("contract_precondition_weakened".to_string()),
                                     parse_quality: None,
                                     diagrams: vec![],
+                                    rules: Vec::new(),
                                 });
                             }
                         }
@@ -1464,6 +1472,7 @@ pub fn slice_delta(
                                     category: Some("contract_postcondition_weakened".to_string()),
                                     parse_quality: None,
                                     diagrams: vec![],
+                                    rules: Vec::new(),
                                 });
                             }
                             PostconditionChange::NullPathRemoved { old_line } => {
@@ -1486,6 +1495,7 @@ pub fn slice_delta(
                                     ),
                                     parse_quality: None,
                                     diagrams: vec![],
+                                    rules: Vec::new(),
                                 });
                             }
                             PostconditionChange::TypeChanged { old_type, new_type } => {
@@ -1504,6 +1514,7 @@ pub fn slice_delta(
                                     category: Some("contract_postcondition_weakened".to_string()),
                                     parse_quality: None,
                                     diagrams: vec![],
+                                    rules: Vec::new(),
                                 });
                             }
                             PostconditionChange::KindChanged { old_kind, new_kind } => {
@@ -1529,6 +1540,7 @@ pub fn slice_delta(
                                     category: Some(category.to_string()),
                                     parse_quality: None,
                                     diagrams: vec![],
+                                    rules: Vec::new(),
                                 });
                             }
                         }

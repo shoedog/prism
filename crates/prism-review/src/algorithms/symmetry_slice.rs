@@ -250,6 +250,7 @@ pub fn slice(files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<S
                                         category: Some("broken_symmetry".to_string()),
                                         parse_quality: None,
                                         diagrams: vec![],
+                                        rules: Vec::new(),
                                     });
                                     result.blocks.push(block);
                                     block_id += 1;

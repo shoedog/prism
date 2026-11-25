@@ -50,6 +50,7 @@ fn mermaid_report_snapshot_taint_finding() {
             // here. This snapshot pins the formatter's markdown layout only.
             mermaid: "flowchart TD\n    src[\"foo.c:42 read\"]:::source\n    snk[\"foo.c:67 strcpy\"]:::sink\n    src -->|tainted| snk\n".to_string(),
         }],
+        rules: Vec::new(),
     });
     let multi = MultiSliceResult {
         version: "snapshot".to_string(),

@@ -672,6 +672,7 @@ pub(super) fn slice_attributed_impl(
             category: Some("taint_sink".to_string()),
             parse_quality: None,
             diagrams: vec![],
+            rules: Vec::new(),
         };
         finding.diagrams.push(diagram);
         let finding_evidence = source_location
@@ -749,6 +750,7 @@ pub(super) fn slice_attributed_impl(
                 category: Some("unquoted_expansion".to_string()),
                 parse_quality: None,
                 diagrams: vec![],
+                rules: Vec::new(),
             });
             result.evidence.push(Some(finding_evidence));
         }
@@ -778,6 +780,7 @@ pub(super) fn slice_attributed_impl(
             category: Some("taint_source".to_string()),
             parse_quality: None,
             diagrams: vec![],
+            rules: Vec::new(),
         });
         result.evidence.push(Some(
             evidence_for_sources

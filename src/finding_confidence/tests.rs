@@ -29,6 +29,7 @@ fn finding(algorithm: &str, file: &str, related: &[&str]) -> SliceFinding {
         category: None,
         parse_quality: None,
         diagrams: vec![],
+        rules: Vec::new(),
     }
 }
 

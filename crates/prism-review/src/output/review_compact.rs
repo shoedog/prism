@@ -339,6 +339,7 @@ mod tests {
             category: None,
             parse_quality: None,
             diagrams: vec![graph_with_one_node()],
+            rules: Vec::new(),
         }
     }
 
