@@ -156,7 +156,7 @@ def check_source(label, lang, source, prelude=False):
             names = set(python_names(source))
             imports = {"import"} & names
             forbidden = PYTHON_NAMES & names
-        elif lang in {"js", "ts"}:
+        elif lang in {"js", "ts", "tsx"}:
             names = list(js_tokens(source))
             imports = {"import"} & set(names)
             for index, name in enumerate(names):
