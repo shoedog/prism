@@ -540,6 +540,8 @@ pub enum NavQuery {
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
+    /// List source route registrations and optionally show mount edges.
+    Routes(RoutesArgs),
     /// Compact deterministic project orientation over one cached nav build.
     Onboard {
         #[arg(long)]
@@ -596,6 +598,20 @@ pub enum NavQuery {
         #[arg(long, default_value = "text", value_parser = ["text", "json"])]
         format: String,
     },
+}
+
+#[derive(clap::Args, Debug)]
+pub struct RoutesArgs {
+    #[arg(long)]
+    pub repo: PathBuf,
+    /// Select a statically evidenced application or dispatcher instance.
+    /// Use --entry=-app.js for a selector that starts with a hyphen.
+    #[arg(long)]
+    pub entry: Option<String>,
+    #[arg(long)]
+    pub mounts: bool,
+    #[arg(long, value_enum, default_value = "text")]
+    pub format: prism::navigation::routes::RouteFormat,
 }
 
 #[cfg(test)]

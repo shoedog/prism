@@ -18,6 +18,7 @@
 
 pub mod express;
 pub mod python;
+pub mod routes;
 
 use crate::ast::ParsedFile;
 use crate::call_graph::FunctionId;

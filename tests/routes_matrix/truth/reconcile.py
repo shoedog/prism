@@ -8,8 +8,10 @@ Any, and disagrees with a Known pin. Explicit app.all also matches Any.
 Unknown methods describe a static expression, leaving the runtime set unpinned.
 
 Full and suffix pins constrain linked served paths, with exact and endswith
-matching respectively. Extra exposures are unpinned. Dynamic classifications
-and unserved suffixes with a static reachability reason are static only.
+matching respectively. Each pinned alternative consumes one served entry.
+Fully pinned literal lists also check for extra served entries. Dynamic
+classifications and unserved suffixes with a static reachability reason are
+static only.
 Lexical receiver identities, source span metadata, callback resolution status
 and delegates, and the full mount listing also belong to the static oracle.
 
@@ -23,6 +25,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+import re
 
 HERE = Path(__file__).resolve().parent
 MISSING = object()
@@ -103,16 +106,57 @@ def pair_records(expected, observed, calls):
     return pairs, remaining
 
 
-def compare_paths(result, index, pins, projected, served):
-    normalized = {path["value"]: path.get("normalized") for path in projected}
-    actual = list(dict.fromkeys(route["path"] for route in served if isinstance(route["path"], str)))
+# The executed adapters use distinct native grammars. A custom converter
+# can match more than one segment, so its shape supplies no comparison key.
+NAME = r"[A-Za-z_][A-Za-z0-9_]*"
+PARAMETERS = {
+    "express": re.compile(r":[A-Za-z0-9_]+"),
+    "flask": re.compile(rf"<(?:(?P<converter>{NAME})(?:\(.*?\))?:)?{NAME}>"),
+    "fastapi": re.compile(rf"\{{{NAME}(?::(?P<converter>{NAME}))?\}}"),
+}
+SEGMENT_CONVERTERS = {
+    "express": {None},
+    "flask": {None, "default", "string", "any", "int", "float", "uuid"},
+    "fastapi": {None, "str", "int", "float", "uuid"},
+}
+
+
+def path_tokens(framework, value):
+    grammar = PARAMETERS.get(framework)
+    if grammar is None or (framework == "express" and any(char in value for char in "*?+()[]\\|^$")):
+        return None
+    parameters = grammar.finditer(value)
+    tokens = []
+    offset = 0
+    for match in parameters:
+        converter = match.groupdict().get("converter")
+        if converter not in SEGMENT_CONVERTERS[framework]:
+            return None
+        literal = value[offset:match.start()]
+        if framework == "flask" and "<" in literal:
+            return None
+        if literal:
+            tokens.append(["literal", literal])
+        tokens.append(["parameter"])
+        offset = match.end()
+    literal = value[offset:]
+    if framework == "flask" and "<" in literal:
+        return None
+    if literal:
+        tokens.append(["literal", literal])
+    return tokens
+
+
+def compare_paths(result, index, pins, framework, served):
+    actual = [route["path"] for route in served if isinstance(route["path"], str)]
+    remaining = actual.copy()
     for position, pin in enumerate(pins):
         prefix = f"paths[{position}]"
         status = pin["status"]
         if status == "dynamic":
             result.static_pins(prefix, pin, ())
             continue
-        result.static_pins(prefix, pin, ("status", "value", "normalized"))
+        result.static_pins(prefix, pin, ("status", "value", "normalized", "path_tokens"))
         if not actual and status == "suffix" and pin.get("reason") in {
             "no_known_mount", "mount_cycle", "expansion_truncated",
         }:
@@ -121,19 +165,22 @@ def compare_paths(result, index, pins, projected, served):
         if "value" not in pin:
             continue
         value = pin["value"]
-        if status == "suffix":
-            matches = [path for path in actual if path.endswith(value)]
-        else:
-            matches = [path for path in actual if path == value]
-        result.check(index, f"{prefix}.value", value, value if matches else actual)
-        if matches and "normalized" in pin:
-            keys = [normalized[path] for path in matches if path in normalized]
-            key = pin["normalized"]
-            agrees = key in keys or (
-                status == "suffix" and isinstance(key, str)
-                and any(item is not None and item.endswith(key) for item in keys)
-            )
-            result.check(index, f"{prefix}.normalized", key, key if agrees else keys)
+        match = next((path for path in remaining
+                      if path == value or (status == "suffix" and path.endswith(value))), None)
+        result.check(index, f"{prefix}.value", value, value if match is not None else remaining)
+        if match is None:
+            continue
+        remaining.remove(match)
+        if "path_tokens" in pin or "normalized" in pin:
+            tokens = path_tokens(framework, value if status == "suffix" else match)
+            key = None if tokens is None else "".join(t[1] if t[0] == "literal" else "{}" for t in tokens)
+            result.pins(index, prefix, pin, {"path_tokens": tokens, "normalized": key},
+                        ("path_tokens", "normalized"))
+    exact = bool(pins) and all(pin["status"] == "full" and "value" in pin for pin in pins)
+    if exact and len(actual) - len(remaining) == len(pins):
+        result.check(index, "paths", [], remaining)
+    elif remaining and not exact:
+        result.static_only.add("withheld runtime exposures")
 
 
 def compare_callbacks(result, index, pins, projected, callbacks):
@@ -154,21 +201,145 @@ def compare_callbacks(result, index, pins, projected, callbacks):
         result.pins(index, prefix, pin, actual, CALLBACK_FIELDS)
 
 
+# Approved diagnostic anchors and the exact raw calls they cover. Express
+# reports a one-based call-frame column; Python reports a zero-based byte span.
+RUNTIME_ONLY = {
+    "et1-10": ("runtime_generated_registration", "verb", "app.js", 5, (1, 2), {"column": 14}),
+    "es1-20": ("runtime_generated_registration", "url_rule", "app.py", 9, (1, 2),
+               {"column_byte": 4, "end_line": 9, "end_column_byte": 61}),
+    "es3-07": ("unsupported_registration", "url_rule", "app.py", 11, (1,),
+               {"column_byte": 0, "end_line": 11, "end_column_byte": 16}),
+}
+
+
+def runtime_only(row, call):
+    loss = RUNTIME_ONLY.get(row["id"])
+    if loss is None:
+        return False
+    reason, kind, file, line, ids, frame = loss
+    site = call["site"]
+    return (call.get("id") in ids and call.get("kind") == kind and
+            site == {"file": file, "line": line, "ordinal": call["id"], **frame} and any(
+                diagnostic["reason"] == reason and site_key(diagnostic["site"]) == (file, line)
+                for diagnostic in row.get("expect_diagnostics", ())
+            ))
+
+
+def matches_mount(pin, call):
+    site = pin["site"]
+    prefix = pin["prefix"]
+    if site_key(site) != site_key(call["site"]) or (
+            "ordinal" in site and site["ordinal"] != call["site"]["ordinal"]):
+        return False
+    if prefix["status"] == "literal":
+        return prefix["value"] == call["mount_prefix"]
+    if prefix["status"] == "absent":
+        return not call["args"]["has_path_arg"] and call["mount_prefix"] == ""
+    return prefix["text"] == (call.get("path") or {}).get("raw")
+
+
+def path_alternatives(path):
+    if isinstance(path, list):
+        for item in path:
+            yield from path_alternatives(item)
+    elif isinstance(path, str):
+        yield path
+
+
+def same_router(left, right):
+    # Source pins use construction text, while a wire root can pin the byte.
+    return (all(left.get(key) is not None and left[key] == right.get(key)
+                for key in ("file", "binding"))
+            and left.get("invocations", []) == right.get("invocations", [])
+            and all(left[key] == right[key] for key in ("construction_byte", "construction_text")
+                    if key in left and key in right)
+            and ("construction_text" not in left or "construction_text" not in right
+                 or left.get("occurrence", 1) == right.get("occurrence", 1)))
+
+
+def matches_mount_chain(mounts, chain, receiver, root, unproven_child):
+    # Walk backwards from the receiver using exactly one pinned edge per call.
+    if not chain:
+        if root:
+            return same_router(receiver, root)
+        return not any(same_router(receiver, pin["child"]) for pin in mounts)
+    return any(
+        (same_router(receiver, pin["child"]) or
+         (unproven_child and pin["child"].get("status") == "unproven"))
+        and matches_mount(pin, chain[-1])
+        and matches_mount_chain(mounts, chain[:-1], pin["parent"], root, False)
+        for pin in mounts
+    )
+
+
+def matches_exposure_chain(mounts, chain, pin, path):
+    exposures = [exposure for exposure in pin.get("paths", ())
+                 if exposure["status"] == "dynamic" or (isinstance(path, str) and (
+                     (exposure["status"] == "full" and path == exposure["value"]) or
+                     (exposure["status"] == "suffix" and path.endswith(exposure["value"]))))]
+    # A no_known_mount suffix may have an unproven final child in the pins.
+    return any(matches_mount_chain(mounts, chain, pin.get("receiver", {}), exposure.get("root"),
+                                   exposure.get("reason") == "no_known_mount")
+               for exposure in exposures or ({},))
+
+
+def compare_mount_links(result, row, truth, calls, registrations):
+    mounts = row.get("expect_mounts", ())
+    for index, served in enumerate(truth["served"]):
+        if "mount_call_ids" not in served and truth.get("framework") != "express":
+            continue
+        field = f"served[{index}].mount_call_ids"
+        ids = served.get("mount_call_ids")
+        if (not isinstance(ids, list) or any(type(call_id) is not int for call_id in ids)
+                or len(set(ids)) != len(ids)):
+            result.check(None, field, "distinct ordered mount call IDs", ids)
+            continue
+        chain = [calls.get(call_id, {}) for call_id in ids]
+        if any(call.get("kind") != "use" or call.get("mount") is not True
+               or not isinstance(call.get("mount_prefix"), str)
+               for call in chain):
+            result.check(None, field, "raw mount calls", ids)
+            continue
+        pins = [registrations[call_id] for call_id in served["call_ids"] if call_id in registrations]
+        if (any(not matches_exposure_chain(mounts, chain, pin, served["path"]) for pin in pins)
+                or (not pins and (chain or mounts))):
+            result.check(None, field, "ordered chain through the pinned mount endpoints", ids)
+            continue
+        prefix = "".join(call["mount_prefix"] for call in chain)
+        if isinstance(served["path"], str):
+            leaves = (
+                leaf for call_id in served["call_ids"]
+                for leaf in path_alternatives(calls.get(call_id, {}).get("args", {}).get("path"))
+            )
+            paths = [prefix + leaf for leaf in leaves]
+            result.check(None, field, served["path"], served["path"] if served["path"] in paths else paths)
+        else:
+            result.check(None, field, served.get("mount_prefix"), prefix)
+
+
+def compare_protocol(result, index, pin, call, served):
+    if "protocol" not in pin:
+        return
+    kind = call.get("kind")
+    raw = "http" if kind in {"api_route", "url_rule", "verb"} else kind
+    result.check(index, "protocol", pin["protocol"], raw)
+    for observed in served:
+        result.check(index, "served.protocol", pin["protocol"], observed.get("kind"))
+
+
 def compare_row(row, truth):
     if truth["status"] != "executed":
         raise ValueError(f"{row['id']}: truth is {truth['status']}")
     result = Comparison()
     expected, observed = row["expect"], truth["projection"]
-    if row.get("accepted_loss") and not expected:
-        # runtime registers routes no static listing can name: an accepted loss lists nothing
-        result.static_only.add("registrations")
-        return result
     calls = {call["id"]: call for call in truth["calls"]}
     served = defaultdict(list)
     for route in truth["served"]:
         for call_id in route["call_ids"]:
             served[call_id].append(route)
     pairs, extra = pair_records(expected, observed, calls)
+    registrations = {observed[actual]["call_id"]: expected[pin] for pin, actual in pairs.items()}
+    compare_mount_links(result, row, truth, calls, registrations)
     per_line = Counter(site_key(record["site"]) for record in observed)
     expected_per_line = Counter(site_key(pin.get("site", {})) for pin in expected)
     if row.get("expect_mounts"):
@@ -186,6 +357,7 @@ def compare_row(row, truth):
         actual = observed[pairs[index]]
         call_id = actual["call_id"]
         call = calls[call_id]
+        compare_protocol(result, index, pin, call, served[call_id])
         if "receiver" in pin:
             result.static_only.add("receiver")
         if "framework" in pin:
@@ -207,16 +379,24 @@ def compare_row(row, truth):
                     runtime = declared
                 result.check(index, "methods", declared, runtime)
         if "path" in pin:
-            result.pins(index, "path", pin["path"], actual.get("path", {}), ("raw", "literal"))
+            written = dict(call.get("path", actual.get("path", {})))
+            if written.get("literal") is None and isinstance(pin["path"].get("literal"), str):
+                argument = "rule" if actual["framework"] == "flask" else "path"
+                written["literal"] = call.get("args", {}).get(argument, MISSING)
+            result.pins(index, "path", pin["path"], written, ("raw", "literal"))
         if "paths" in pin:
             if not pin["paths"] and pin.get("receiver", {}).get("status") == "unproven":
                 result.static_only.add("paths")
-            compare_paths(result, index, pin["paths"], actual["paths"], served[call_id])
+            compare_paths(result, index, pin["paths"], actual["framework"], served[call_id])
         if "callbacks" in pin:
             compare_callbacks(result, index, pin["callbacks"], actual.get("callbacks", []), call["callbacks"])
     for index in sorted(extra):
         actual = observed[index]
-        result.check(None, "registrations", MISSING, calls[actual["call_id"]]["site"])
+        call = calls[actual["call_id"]]
+        if runtime_only(row, call):
+            result.static_only.add("runtime-only registration at a pinned diagnostic site")
+        else:
+            result.check(None, "registrations", MISSING, call["site"])
     return result
 
 
