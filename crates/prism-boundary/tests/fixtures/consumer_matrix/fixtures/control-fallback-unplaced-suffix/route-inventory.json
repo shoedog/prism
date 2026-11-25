@@ -1,0 +1,26 @@
+{
+  "api": "sable-quay",
+  "origin": "https://sable-quay.invalid",
+  "api_mount": "/api",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/a",
+      "site": "routes.js:2"
+    },
+    {
+      "method": "GET",
+      "path": "/{*0+}",
+      "role": "unknown",
+      "site": "routes.js:3"
+    }
+  ],
+  "unplaced": [
+    {
+      "method": "GET",
+      "suffix": "/b",
+      "plugin": "kiln",
+      "site": "routes.js:5"
+    }
+  ]
+}

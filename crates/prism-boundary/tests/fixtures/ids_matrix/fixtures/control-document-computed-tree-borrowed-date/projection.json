@@ -1,0 +1,12 @@
+{
+  "snapshot_kind": "computed_tree",
+  "tree": "computed-kiln",
+  "commit": null,
+  "subject": null,
+  "committer_date": "2026-01-01T00:00:00Z",
+  "inputs": [
+    "base-kiln",
+    "head-kiln",
+    "target-kiln"
+  ]
+}

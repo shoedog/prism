@@ -32,6 +32,9 @@ mod taint_context_output_test;
 mod taint_reaches_test;
 mod taint_sink_strength_view_test;
 mod targets_test;
+
+mod targets_inventory_matrix_test;
+
 mod validation_test;
 mod version_test;
 

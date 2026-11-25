@@ -1,0 +1,46 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Loom Workshop",
+    "version": "1"
+  },
+  "paths": {
+    "/loom": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Sample",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/paths/~1loom/get/responses/200/content/application~1json/schema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spare": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Sample",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "spool": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

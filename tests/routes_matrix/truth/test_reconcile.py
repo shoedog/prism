@@ -26,7 +26,7 @@ def example():
             "paths": [exposure], "methods": {"known": ["GET"]}, "callbacks": [callback],
         }],
         "calls": [{
-            "id": 1, "site": {**site, "ordinal": 1}, "args": {"methods": ["GET"]},
+            "id": 1, "site": {**site, "ordinal": 1}, "args": {"methods": ["GET"], "path": "/:id"},
             "callbacks": [{"kind": "javascript", "file": "app.js", "name": "<anon@7:24>",
                            "first_line": 7}],
         }],
@@ -49,14 +49,10 @@ class ProjectionTests(unittest.TestCase):
     def assert_fields(self, *fields):
         self.assertEqual([diff.field for diff in self.compare().differences], list(fields))
 
-    def test_accepted_loss_with_no_expectation_skips_runtime_only_registrations(self):
-        row, truth = example()
-        row["expect"] = []
-        self.assertTrue(compare_row(row, truth).differences)
-        row["accepted_loss"] = "runtime_generated_registration"
-        self.assertFalse(compare_row(row, truth).differences)
-        row["expect"] = [{"framework": "express", "site": {"file": "app.js", "line": 99}}]
-        self.assertTrue(compare_row(row, truth).differences)
+
+    def test_linked_exposure_is_consumed_once(self):
+        self.pin["paths"].append(dict(self.pin["paths"][0]))
+        self.assert_fields("paths[1].value")
 
     def test_full_is_exact_even_with_a_matching_suffix(self):
         self.pin["paths"] = [{"status": "full", "value": "/:id"}]
@@ -76,6 +72,8 @@ class ProjectionTests(unittest.TestCase):
         self.pin["paths"] = [{"status": "full", "value": "/missing/:id"}]
         self.assert_fields("paths[0].value")
         self.pin["paths"][0]["value"] = "/also/:id"
+        self.assert_fields("paths")
+        self.pin["paths"].append({"status": "full", "value": "/api/:id"})
         self.assert_fields()
 
     def test_suffix_and_normalized_suffix(self):
@@ -89,7 +87,7 @@ class ProjectionTests(unittest.TestCase):
     def test_raw_literal_and_normalized_are_separate_pins(self):
         self.pin["path"] = {"raw": "variable", "literal": "/wrong"}
         self.pin["paths"][0]["normalized"] = "/wrong"
-        self.assert_fields("path.raw", "path.literal", "paths[0].normalized")
+        self.assert_fields("path.raw", "path.literal", "path.evaluated", "paths[0].normalized")
         del self.pin["path"]["literal"]
         self.pin["path"]["raw"] = "'/:id'"
         del self.pin["paths"][0]["normalized"]
@@ -156,7 +154,7 @@ class ProjectionTests(unittest.TestCase):
         actual.update(call_id=2, methods={"known": ["POST"]})
         self.truth["projection"].append(actual)
         call = deepcopy(self.truth["calls"][0])
-        call.update(id=2, args={"methods": ["POST"]})
+        call.update(id=2, args={"methods": ["POST"], "path": "/:id"})
         call["site"]["ordinal"] = 2
         self.truth["calls"].append(call)
         self.truth["served"][0]["call_ids"].append(2)
@@ -267,6 +265,101 @@ class ReportTests(unittest.TestCase):
                 read_jsonl(path)
             path.write_text('{"id":"x"}\n{"id":"y"}\n', encoding="utf-8")
             self.assertEqual(read_jsonl(path)["y"], (2, {"id": "y"}))
+
+
+class SavedTruthTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        here = Path(__file__).resolve().parent
+        cls.rows = read_jsonl(here.parent / "rows.jsonl")
+        cls.truth = read_jsonl(here / "truth.jsonl")
+
+    def case(self, row_id):
+        return self.rows[row_id][1], deepcopy(self.truth[row_id][1])
+
+    def test_websocket_protocol_uses_raw_and_served_kinds(self):
+        for row_id in ("fa06", "es2-10"):
+            for field in ("calls", "served"):
+                with self.subTest(row=row_id, field=field):
+                    row, truth = self.case(row_id)
+                    self.assertFalse(compare_row(row, truth).differences)
+                    next(record for record in truth[field] if record["kind"] == "websocket")["kind"] = "http"
+                    self.assertTrue(any("protocol" in diff.field
+                                        for diff in compare_row(row, truth).differences))
+
+    def test_swapped_mount_ids_fail_even_when_served_paths_are_unchanged(self):
+        row, truth = self.case("ex24")
+        self.assertFalse(compare_row(row, truth).differences)
+        truth["served"][0]["mount_call_ids"], truth["served"][1]["mount_call_ids"] = (
+            truth["served"][1]["mount_call_ids"], truth["served"][0]["mount_call_ids"])
+        self.assertTrue(any("mount_call_ids" in diff.field for diff in compare_row(row, truth).differences))
+
+    def test_empty_prefix_mount_requires_exactly_one_call_id(self):
+        for ids in ([], [3, 3]):
+            with self.subTest(ids=ids):
+                row, truth = self.case("es2-04")
+                self.assertFalse(compare_row(row, truth).differences)
+                inventory = next(route for route in truth["served"] if route["path"] == "/inventory")
+                self.assertEqual(inventory["mount_call_ids"], [3])
+                inventory["mount_call_ids"] = ids
+                self.assertTrue(any("mount_call_ids" in diff.field
+                                    for diff in compare_row(row, truth).differences))
+
+    def test_equal_prefix_mounts_follow_endpoint_order(self):
+        row, truth = self.case("ex25")
+        row = deepcopy(row)
+        row["expect_mounts"][1]["prefix"]["value"] = "/sub"
+        row["expect"][0]["paths"][0]["value"] = "/sub/sub/status"
+        truth["calls"][2]["mount_prefix"] = "/sub"
+        served = truth["served"][0]
+        served["path"] = "/sub/sub/status"
+        self.assertEqual(served["mount_call_ids"], [3, 2])
+        self.assertFalse(compare_row(row, truth).differences)
+        served["mount_call_ids"] = [2, 3]
+        self.assertTrue(any("mount_call_ids" in diff.field
+                            for diff in compare_row(row, truth).differences))
+
+    def test_runtime_loss_does_not_cover_another_column_on_the_same_line(self):
+        for row_id, column in (("et1-10", "column"), ("es1-20", "column_byte"), ("es3-07", "column_byte")):
+            with self.subTest(row=row_id):
+                row, truth = self.case(row_id)
+                self.assertFalse(compare_row(row, truth).differences)
+                truth["calls"][0]["site"][column] += 1
+                self.assertEqual([diff.field for diff in compare_row(row, truth).differences], ["truth.runtime_only"])
+
+    def test_rejects_corrupted_links_evaluated_paths_and_erased_loss_evidence(self):
+        for ids in ([1, 1], [1, 9999]):
+            with self.subTest(ids=ids):
+                row, truth = self.case("ex01")
+                truth["served"][0]["call_ids"] = ids
+                self.assertTrue(compare_row(row, truth).differences)
+        row, truth = self.case("fl01")
+        truth["calls"][0]["args"]["rule"] = "/wrong"
+        self.assertTrue(compare_row(row, truth).differences)
+        for row_id in ("et1-10", "es1-20", "es3-07"):
+            for fields in (("calls",), ("projection",), ("served",), ("calls", "projection", "served")):
+                with self.subTest(row=row_id, fields=fields):
+                    row, truth = self.case(row_id)
+                    for field in fields:
+                        truth[field] = []
+                    self.assertTrue(compare_row(row, truth).differences)
+
+    def test_overlapping_suffixes_consume_the_most_specific_match_first(self):
+        row, truth = example()
+        row["expect"][0]["paths"] = [
+            {"status": "suffix", "value": "/b"}, {"status": "suffix", "value": "/x/b"},
+        ]
+        truth["served"] = [{"call_ids": [1], "path": path} for path in ("/r/x/b", "/s/b")]
+        self.assertFalse(compare_row(row, truth).differences)
+
+    def test_native_path_keys_match_shared_grammar_vectors(self):
+        import json
+        from reconcile import path_tokens
+
+        vectors = json.loads(Path(__file__).with_name("path_key_vectors.json").read_text(encoding="utf-8"))
+        for framework, path, tokens in vectors:
+            with self.subTest(framework=framework, path=path):
+                self.assertEqual(path_tokens(framework, path), tokens)
 
 
 if __name__ == "__main__":

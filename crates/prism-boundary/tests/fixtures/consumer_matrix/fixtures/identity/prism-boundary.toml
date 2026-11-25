@@ -1,3 +1,6 @@
+schema_api = "identity"
+schema_path = "schema.json"
+
 aliases = { "@quay/" = "net/", "@reed-v1/tools/" = "net/" }
 
 [[client]]
@@ -34,3 +37,78 @@ export = "default"
 methods = { "get" = "GET", "post" = "POST", "put" = "PUT", "delete" = "DELETE", "patch" = "PATCH", "head" = "HEAD", "options" = "OPTIONS", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT" }
 url_arg = 0
 response_root = "data"
+
+# Factory or wrapper: net/quay.ts:1-23.
+[[api_mapping]]
+entry = 1
+client_entry = 1
+file = "net/quay.ts"
+export = "default"
+api = "identity"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "net/quay.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "171bd8a524216e39a7536b8cf676d76cf472e8b0", start_line = 1, end_line = 23 }]
+
+# Factory or wrapper: net/board.tsx:1-2.
+[[api_mapping]]
+entry = 2
+client_entry = 2
+file = "net/board.tsx"
+export = "default"
+api = "identity"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "net/board.tsx", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "5b5ee796c2bba00ddfd609e0ae4cfb0027609c81", start_line = 1, end_line = 2 }]
+
+# Factory or wrapper: net/skein.js:1-2.
+[[api_mapping]]
+entry = 3
+client_entry = 3
+file = "net/skein.js"
+export = "default"
+api = "identity"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "net/skein.js", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "5b5ee796c2bba00ddfd609e0ae4cfb0027609c81", start_line = 1, end_line = 2 }]
+
+# Factory or wrapper: net/tally.jsx:1-2.
+[[api_mapping]]
+entry = 4
+client_entry = 4
+file = "net/tally.jsx"
+export = "default"
+api = "identity"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "net/tally.jsx", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "5b5ee796c2bba00ddfd609e0ae4cfb0027609c81", start_line = 1, end_line = 2 }]
+
+# Factory or wrapper: net/strand/index.js:1-2.
+[[api_mapping]]
+entry = 5
+client_entry = 5
+file = "net/strand/index.js"
+export = "default"
+api = "identity"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "net/strand/index.js", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "d1fa9416fe2d2dc4868171e037c58595a3229730", start_line = 1, end_line = 2 }]

@@ -1,0 +1,27 @@
+{
+  "services": {
+    "service-before": [
+      "op:GET /kiln"
+    ]
+  },
+  "clients": {
+    "client-before": [
+      {
+        "id": "call-before",
+        "file": "sender.js",
+        "line": 1,
+        "method": "GET",
+        "path": "/kiln"
+      }
+    ],
+    "client-after": [
+      {
+        "id": "call-after",
+        "file": "sender.js",
+        "line": 1,
+        "method": "GET",
+        "path": "/forge"
+      }
+    ]
+  }
+}

@@ -1,5 +1,9 @@
 # Element identity matrix
 
+`rule` exercises a stage D decision. `loss:<reason>` preserves the witness and checks the supported observations and accepted limit. The ledger is DESIGN.md §9 (Lane 5 schema impact), with counts in [ledger.json](../ledger.json).
+
+Rows starting with `control-` are outside the pinned E-1 census. [expectations.json](expectations.json) records scoped coverage, authorities and other assertions by row ID. The comments below describe the enumeration witnesses.
+
 Each fixture path is relative to this directory. A route-table configuration or other source evidence
 for that row lives beside the named fixture. The two server-order fixtures, two envelope-order fixtures,
 and two definition-rename fixtures are paired comparisons.

@@ -14,6 +14,7 @@ mod partition_site_dump;
 pub mod proto_writes;
 pub mod queries;
 pub mod render;
+pub mod routes;
 pub mod seed;
 pub mod types;
 

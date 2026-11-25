@@ -53,6 +53,7 @@ pub(super) struct Row {
     #[serde(deserialize_with = "Deserialize::deserialize")]
     pub(super) expect: Option<Expectations>,
     reasons: Option<Reasons>,
+    pub(super) current: Option<Current>,
     knobs: Option<Knobs>,
     truth: Truth,
     known_wrong: Option<String>,
@@ -145,6 +146,15 @@ pub(super) struct Expectations {
     pub(super) catalog: Vec<CatalogEntry>,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Current {
+    pub(super) until: Vec<String>,
+    pub(super) expect: Expectations,
+    #[serde(deserialize_with = "Deserialize::deserialize")]
+    reasons: Option<Reasons>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub(super) enum Verdict {
     Reached,
@@ -227,24 +237,24 @@ enum Truth {
     NoFlow,
 }
 
-/// Row files in reading order. `PARITY_ROWS=a.jsonl,b.jsonl` (names under `tests/fixtures/taint_parity/`)
+/// Row files in reading order. `PARITY_ROWS=a.jsonl,b.jsonl` (names under `tests/taint_parity/`)
 /// replaces the list at run time, so a worker can check its own rows file next to `rows.jsonl`.
 const ROW_FILES: &[(&str, &str)] = &[
     (
         "rows.jsonl",
-        include_str!("../../../fixtures/taint_parity/rows.jsonl"),
+        include_str!("../../../taint_parity/rows.jsonl"),
     ),
     (
         "rows-t2a.jsonl",
-        include_str!("../../../fixtures/taint_parity/rows-t2a.jsonl"),
+        include_str!("../../../taint_parity/rows-t2a.jsonl"),
     ),
     (
         "rows-t2b.jsonl",
-        include_str!("../../../fixtures/taint_parity/rows-t2b.jsonl"),
+        include_str!("../../../taint_parity/rows-t2b.jsonl"),
     ),
     (
         "rows-t2c.jsonl",
-        include_str!("../../../fixtures/taint_parity/rows-t2c.jsonl"),
+        include_str!("../../../taint_parity/rows-t2c.jsonl"),
     ),
 ];
 
@@ -254,7 +264,7 @@ pub(super) fn rows() -> Vec<Row> {
             .split(',')
             .map(|name| {
                 let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("tests/fixtures/taint_parity")
+                    .join("tests/taint_parity")
                     .join(name);
                 let text = std::fs::read_to_string(&path)
                     .unwrap_or_else(|err| panic!("{}: {err}", path.display()));
@@ -366,12 +376,31 @@ pub(super) fn validate_labels(row: &Row) {
             })
         });
         assert!(
-            row.group == "tbd" && row.pending.is_none() && row.reasons.is_none() && observed_cells,
+            row.group == "tbd"
+                && row.pending.is_none()
+                && row.reasons.is_none()
+                && row.current.is_none()
+                && observed_cells,
             "{}: null expect requires a tbd row with observed cells in its note",
             row.id
         );
         return;
     };
+    validate_expectations(row, expect, row.reasons.as_ref());
+    if let Some(current) = &row.current {
+        let distinct: BTreeSet<_> = current.until.iter().collect();
+        assert!(
+            !distinct.is_empty()
+                && distinct.len() == current.until.len()
+                && current.until.iter().all(|slice| !slice.trim().is_empty()),
+            "{}: CURRENT needs distinct prerequisite slices",
+            row.id
+        );
+        validate_expectations(row, &current.expect, current.reasons.as_ref());
+    }
+}
+
+fn validate_expectations(row: &Row, expect: &Expectations, reasons: Option<&Reasons>) {
     let walk = &expect.walk;
     let has_witness = matches!(walk.reaches, Verdict::Reached | Verdict::Sanitized);
     assert_eq!(
@@ -388,10 +417,10 @@ pub(super) fn validate_labels(row: &Row) {
         "{}",
         row.id
     );
-    validate_differences(row, expect);
+    validate_differences(row, expect, reasons);
 }
 
-fn validate_differences(row: &Row, expect: &Expectations) {
+fn validate_differences(row: &Row, expect: &Expectations, reasons: Option<&Reasons>) {
     let catalog = (row.group == "catalog" || !expect.catalog.is_empty()).then(|| {
         expect.catalog.iter().any(|entry| {
             entry.file == row.sink.file
@@ -399,7 +428,6 @@ fn validate_differences(row: &Row, expect: &Expectations) {
                 && entry.verdict == Verdict::Reached
         })
     });
-    let reasons = row.reasons.as_ref();
     let levels = [
         (
             Some(expect.walk.reaches == Verdict::Reached),

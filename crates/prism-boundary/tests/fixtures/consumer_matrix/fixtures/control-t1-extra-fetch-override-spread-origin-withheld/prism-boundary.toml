@@ -1,0 +1,26 @@
+schema_api = "t1-grammar-extra"
+schema_path = "schema.json"
+
+schema_retrieval_url = "https://saffron.invalid/schema.json"
+
+[[client]]
+file = "wire.ts"
+export = "default"
+methods = { get = "GET", post = "POST" }
+url_arg = 0
+response_root = ""
+
+# Factory or wrapper: wire.ts:1-2.
+[[api_mapping]]
+entry = 1
+client_entry = 1
+file = "wire.ts"
+export = "default"
+api = "t1-grammar-extra"
+schema = "schema.json"
+source_prefix = "/"
+target_prefix = "/"
+path_input = "prefix_adjusted"
+strip_prefix = ""
+add_prefix = ""
+sources = [{ path = "wire.ts", tree = "12b78df804edf300d85f1cf07bcf6f7e9f15c42e", blob = "91171888c039593f3931e8a9cfa1b52760b1a427", start_line = 1, end_line = 2 }]
