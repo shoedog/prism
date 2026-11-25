@@ -1,0 +1,53 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay shape-s20",
+    "version": "1.0.0"
+  },
+  "host": "alderfen.invalid",
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/mothbank/greenhouses/{trail}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "trail",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    },
+    "/mothbank/greenhouses/{trail}/{end}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "trail",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "end",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}
