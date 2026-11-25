@@ -40,8 +40,12 @@
 //! `callee`", and a site whose own finding cannot be matched to one of several
 //! calls on its line keeps the hint it already had and reports the ambiguity.
 
-use super::dependency_identity::{enclosing_function_node, kind_for_binding};
+use super::dependency_identity::{
+    builtin_kind, enclosing_function_node, kind_for_binding, python_kind_for_path,
+    python_root_binding, PythonBinding,
+};
 use prism::ast::ParsedFile;
+use prism::languages::Language;
 use std::collections::BTreeMap;
 use std::path::Path;
 use tree_sitter::Node;
@@ -58,7 +62,7 @@ pub struct AstHint {
 /// vendored `requests.py` from being read as the `requests` library) and the
 /// finding's own recorded callee identity (for correlating one of several
 /// same-line calls with the finding that anchored there).
-pub struct SiteContext<'a> {
+pub(crate) struct SiteContext<'a> {
     /// Repo-relative path of the file containing the site.
     pub file: &'a str,
     /// Repo root, for the repo-local-module check.
@@ -69,6 +73,40 @@ pub struct SiteContext<'a> {
     /// (`mapping::echo_callee`'s output), used only to pick between several
     /// candidate calls on the site line.
     pub resolved_name: Option<&'a str>,
+}
+
+/// What the root of a call's callee chain is bound to at the call site.
+pub(crate) struct RootIdentity {
+    pub source_callee: String,
+    /// Dotted path through a proven external import.
+    pub resolved_path: Option<String>,
+    /// Spelling evidence for the inventory, independent of the binding proof.
+    #[allow(dead_code)]
+    pub root_is_library_spelling: bool,
+}
+
+/// Resolve the root of a Python call directly from its AST node.
+pub(crate) fn root_identity(
+    parsed: &ParsedFile,
+    call: Node<'_>,
+    ctx: &SiteContext<'_>,
+) -> Option<RootIdentity> {
+    if parsed.language != Language::Python || !parsed.language.is_call_node(call.kind()) {
+        return None;
+    }
+    let source_callee = callee_text(parsed, &call)?;
+    let segments = chain_segments(&source_callee);
+    let (&root, rest) = segments.split_first()?;
+    let (binding, root_is_library_spelling) = python_root_binding(parsed, ctx, call, root, rest);
+    let resolved_path = match binding {
+        PythonBinding::External(path) => Some(path),
+        _ => None,
+    };
+    Some(RootIdentity {
+        source_callee,
+        resolved_path,
+        root_is_library_spelling,
+    })
 }
 
 /// The outcome of one site resolution.
@@ -97,9 +135,10 @@ pub fn resolve(parsed: &ParsedFile, line: usize, ctx: &SiteContext<'_>) -> Optio
     let Some((node, callee)) = select_candidate(&candidates, ctx.resolved_name) else {
         return Some(Resolution::Ambiguous(candidates.len()));
     };
-    let kind = resolve_kind(parsed, ctx, node, callee);
+    let identity = root_identity(parsed, node, ctx);
+    let kind = resolve_kind(parsed, ctx, node, callee, identity.as_ref());
     Some(Resolution::Hint(AstHint {
-        callee: callee.clone(),
+        callee: identity.map_or_else(|| callee.clone(), |identity| identity.source_callee),
         kind,
     }))
 }
@@ -215,10 +254,17 @@ fn resolve_kind(
     ctx: &SiteContext<'_>,
     call_node: Node<'_>,
     callee: &str,
+    identity: Option<&RootIdentity>,
 ) -> Option<&'static str> {
     let segments = chain_segments(callee);
-    let root = *segments.first()?;
-    if let Some(kind) = kind_for_binding(parsed, ctx, call_node, root, &segments[1..]) {
+    let (&root, rest) = segments.split_first()?;
+    let direct_kind = match identity.map(|identity| identity.resolved_path.as_deref()) {
+        Some(Some(path)) => python_kind_for_path(path),
+        // Builtins still need the legacy admission check for an absent import.
+        Some(None) if !(rest.is_empty() && builtin_kind(parsed.language, root).is_some()) => None,
+        _ => kind_for_binding(parsed, ctx, call_node, root, rest),
+    };
+    if let Some(kind) = direct_kind {
         return Some(kind);
     }
     if segments.len() < 2 {
@@ -238,7 +284,7 @@ fn resolve_kind(
 /// enclosing function for a local. Two assignments, or none, leave the
 /// receiver's type unproven — a whole-file first-match scan is exactly how a
 /// hint crossed from one class to another.
-fn sole_receiver_constructor<'a>(
+pub(crate) fn sole_receiver_constructor<'a>(
     parsed: &'a ParsedFile,
     call_node: Node<'a>,
     receiver: &str,
