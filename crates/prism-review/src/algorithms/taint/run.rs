@@ -25,6 +25,7 @@ use crate::algorithms::taint::report::{
 };
 use crate::algorithms::taint::seeds::{detect_framework_sources, synthesize_target_seed_paths};
 use crate::algorithms::taint::sink_match::{structured_sink_outcome, SinkMatchOutcome};
+use crate::algorithms::taint::sink_rules::NameSinks;
 use crate::algorithms::taint::source_scope::admission::RunScope;
 use crate::algorithms::taint::{matches_sink, TaintConfig, TaintSeed};
 use crate::algorithms::taint_sinks;
@@ -245,12 +246,8 @@ pub(super) fn slice_attributed_impl(
     // Flat built-in sinks are decided by `taint_sinks` (call position and
     // receiver, #622 S1); caller-supplied and wrapper sinks keep name matching.
     let sink_classifier = taint_sinks::SinkClassifier::default();
-    let extra_sinks: Vec<&str> = taint_config
-        .extra_sinks
-        .iter()
-        .map(|s| s.as_str())
-        .chain(wrapper_sinks.iter().map(|s| s.as_str()))
-        .collect();
+    let names = NameSinks::new(&taint_config.extra_sinks, &wrapper_sinks);
+    let extra_sinks: Vec<&str> = names.admission_patterns().collect();
 
     for path in &paths {
         for edge in &path.edges {

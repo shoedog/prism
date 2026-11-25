@@ -56,5 +56,5 @@ const OTHER_ROWS: &[Row] = &[
 
 #[test]
 fn hybrid_other_matrix() {
-    assert_rows(OTHER_ROWS);
+    assert_rows(module_path!(), OTHER_ROWS);
 }

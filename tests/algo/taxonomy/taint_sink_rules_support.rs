@@ -6,15 +6,18 @@
 
 use crate::common::*;
 use prism_review::algorithms::taint::{self, TaintConfig};
+use std::sync::LazyLock;
 
 pub(super) const EXPECTATION_HEADER: &str = "table\tlabel\trules\tobserved\tclass\tnote";
+pub(super) const EXPECTED_RULES: &str =
+    include_str!("../../fixtures/taint_sink_rules/expected_rules.tsv");
 
 #[derive(Debug)]
 pub struct Expectation {
     pub table: String,
     pub label: String,
-    /// `None` defers the rule list to stage D. An empty list records `-`.
-    pub rules: Option<Vec<String>>,
+    /// An empty list records `-`.
+    pub rules: Vec<String>,
     pub observed: String,
     pub class: String,
 }
@@ -77,7 +80,8 @@ pub fn parse_expected_rules(tsv: &str) -> Result<Vec<Expectation>, String> {
                 "line {number}: duplicate table and label {table}/{label}"
             ));
         }
-        let rules = parse_rule_list(rules).map_err(|error| format!("line {number}: {error}"))?;
+        let rules = parse_rule_list(rules)
+            .map_err(|error| format!("line {number}: {table}/{label}: {error}"))?;
         expectations.push(Expectation {
             table: (*table).to_string(),
             label: (*label).to_string(),
@@ -86,13 +90,16 @@ pub fn parse_expected_rules(tsv: &str) -> Result<Vec<Expectation>, String> {
             class: (*class).to_string(),
         });
     }
+    if expectations.is_empty() {
+        return Err("no expectation rows".into());
+    }
     Ok(expectations)
 }
 
-fn parse_rule_list(rules: &str) -> Result<Option<Vec<String>>, String> {
+fn parse_rule_list(rules: &str) -> Result<Vec<String>, String> {
     match rules {
-        "?" => return Ok(None),
-        "-" => return Ok(Some(Vec::new())),
+        "?" => return Err("unresolved rules (?)".into()),
+        "-" => return Ok(Vec::new()),
         _ => {}
     }
 
@@ -130,7 +137,34 @@ fn parse_rule_list(rules: &str) -> Result<Option<Vec<String>>, String> {
         previous = Some(id);
         parsed.push(rule.to_string());
     }
-    Ok(Some(parsed))
+    Ok(parsed)
+}
+
+/// Require every selected fixture to have an exact ledger key. Each fixture owns its
+/// presence assertion, since an empty expected rule list can accompany a finding.
+#[track_caller]
+pub fn assert_matrix_selection(module: &str, labels: impl IntoIterator<Item = &'static str>) {
+    static KEYS: LazyLock<BTreeMap<String, BTreeSet<String>>> = LazyLock::new(|| {
+        let mut keys: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for row in parse_expected_rules(EXPECTED_RULES).unwrap() {
+            keys.entry(row.table).or_default().insert(row.label);
+        }
+        keys
+    });
+
+    let table = module.rsplit("::").next().unwrap();
+    let mut labels = labels.into_iter().peekable();
+    assert!(
+        labels.peek().is_some(),
+        "empty matrix selection for {table}"
+    );
+    let keys = KEYS.get(table);
+    for label in labels {
+        assert!(
+            keys.is_some_and(|keys| keys.contains(label)),
+            "missing matrix key {table}/{label:?}"
+        );
+    }
 }
 
 pub struct Case {
@@ -226,12 +260,7 @@ pub fn sink_on_marker(path: &str, language: Language, source: &str) -> bool {
 }
 
 /// Labels of the cases whose result differs from `expect`.
-pub fn mismatches(
-    path: &str,
-    language: Language,
-    cases: &[Case],
-    expect: bool,
-) -> Vec<&'static str> {
+fn mismatches(path: &str, language: Language, cases: &[Case], expect: bool) -> Vec<&'static str> {
     cases
         .iter()
         .filter(|c| sink_on_marker(path, language, c.source) != expect)
@@ -239,12 +268,16 @@ pub fn mismatches(
         .collect()
 }
 
-pub fn assert_all_sinks(path: &str, language: Language, cases: &[Case]) {
+#[track_caller]
+pub fn assert_all_sinks(module: &str, path: &str, language: Language, cases: &[Case]) {
+    assert_matrix_selection(module, cases.iter().map(|case| case.label));
     let wrong = mismatches(path, language, cases, true);
     assert!(wrong.is_empty(), "genuine sinks not reported: {wrong:?}");
 }
 
-pub fn assert_no_sinks(path: &str, language: Language, cases: &[Case]) {
+#[track_caller]
+pub fn assert_no_sinks(module: &str, path: &str, language: Language, cases: &[Case]) {
+    assert_matrix_selection(module, cases.iter().map(|case| case.label));
     let wrong = mismatches(path, language, cases, false);
     assert!(
         wrong.is_empty(),
@@ -261,8 +294,10 @@ pub struct Row {
     pub source: &'static str,
 }
 
-/// Rows whose result differs from their `sink` expectation.
-pub fn assert_rows(rows: &[Row]) {
+/// Assert each row's presence using the fixture's own path and language.
+#[track_caller]
+pub fn assert_rows(module: &str, rows: &[Row]) {
+    assert_matrix_selection(module, rows.iter().map(|row| row.label));
     let wrong: Vec<String> = rows
         .iter()
         .filter(|r| sink_on_marker(r.path, r.lang, r.source) != r.sink)
@@ -294,4 +329,36 @@ fn matrix_rule_reader_checks_unmarked_findings_and_empty_partitions() {
     assert!(check_matrix_rules(&findings)
         .unwrap_err()
         .contains("unknown rule id"));
+}
+
+#[test]
+#[should_panic(expected = "empty matrix selection")]
+fn matrix_rejects_empty_cases() {
+    assert_all_sinks(
+        "taint_sink_rules_js_test",
+        "a.js",
+        Language::JavaScript,
+        &[],
+    );
+}
+
+#[test]
+#[should_panic(expected = "empty matrix selection")]
+fn matrix_rejects_empty_rows() {
+    assert_rows("taint_sink_rules_identity_test", &[]);
+}
+
+#[test]
+#[should_panic(expected = "missing matrix key")]
+fn matrix_requires_exact_row_key() {
+    assert_rows(
+        "taint_sink_rules_identity_test",
+        &[Row {
+            sink: false,
+            label: "ri27 ",
+            path: "a.tf",
+            lang: Language::Terraform,
+            source: "locals {\n  payload = var.payload # SEED SINK\n}\n",
+        }],
+    );
 }

@@ -1,6 +1,8 @@
 //! Stage T pins sink presence for the rule identity ledger.
 
-use super::taint_sink_rules_support::{assert_rows, findings_with_sinks, marker_line, Row};
+use super::taint_sink_rules_support::{
+    assert_matrix_selection, assert_rows, findings_with_sinks, marker_line, Row,
+};
 use crate::common::Language;
 
 const WRAPPER_ONLY: &str = r#"#include <stdarg.h>
@@ -142,11 +144,12 @@ void h(const char *input) {
 
 #[test]
 fn identity_rows_fire_as_marked() {
-    assert_rows(IDENTITY_ROWS);
+    assert_rows(module_path!(), IDENTITY_ROWS);
 }
 
 #[test]
 fn config_rows_fire_as_marked() {
+    assert_matrix_selection(module_path!(), CONFIG_ROWS.iter().map(|(row, _)| row.label));
     let mut wrong = Vec::new();
     for (row, extra_sinks) in CONFIG_ROWS {
         let sink_line = marker_line(row.source, "SINK");

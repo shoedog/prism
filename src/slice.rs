@@ -4,6 +4,9 @@ pub use crate::rule_registry::RuleRef;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+mod attach_rules;
+pub use attach_rules::attach_rules;
+
 /// Structured per-file parse quality information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileParseQuality {

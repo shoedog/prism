@@ -23,6 +23,8 @@ pub(crate) mod rounds;
 mod run;
 mod seeds;
 mod sink_match;
+#[allow(dead_code)] // The language slices supply the first occurrence projectors.
+mod sink_rules;
 #[allow(dead_code)] // `slice_scoped` has no production caller until S4.
 mod source_scope;
 mod trace;

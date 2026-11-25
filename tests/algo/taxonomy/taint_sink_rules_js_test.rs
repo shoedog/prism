@@ -95,29 +95,49 @@ const NEG_NAME_FRAGMENTS: &[Case] = &[
 
 #[test]
 fn js_code_execution_shapes_are_sinks() {
-    assert_all_sinks("a.js", Language::JavaScript, POS_CODE_EXEC);
-    assert_all_sinks("a.ts", Language::TypeScript, POS_CODE_EXEC);
+    assert_all_sinks(module_path!(), "a.js", Language::JavaScript, POS_CODE_EXEC);
+    assert_all_sinks(module_path!(), "a.ts", Language::TypeScript, POS_CODE_EXEC);
 }
 
 #[test]
 fn js_child_process_receivers_bound_by_import_are_sinks() {
-    assert_all_sinks("a.js", Language::JavaScript, POS_PROCESS);
-    assert_all_sinks("a.ts", Language::TypeScript, POS_PROCESS);
+    assert_all_sinks(module_path!(), "a.js", Language::JavaScript, POS_PROCESS);
+    assert_all_sinks(module_path!(), "a.ts", Language::TypeScript, POS_PROCESS);
 }
 
 #[test]
 fn js_db_response_and_redirect_calls_are_sinks() {
-    assert_all_sinks("a.js", Language::JavaScript, POS_DB_RESPONSE);
-    assert_all_sinks("a.ts", Language::TypeScript, POS_DB_RESPONSE);
+    assert_all_sinks(
+        module_path!(),
+        "a.js",
+        Language::JavaScript,
+        POS_DB_RESPONSE,
+    );
+    assert_all_sinks(
+        module_path!(),
+        "a.ts",
+        Language::TypeScript,
+        POS_DB_RESPONSE,
+    );
 }
 
 #[test]
 fn js_dom_and_fs_calls_are_sinks() {
-    assert_all_sinks("a.js", Language::JavaScript, POS_DOM_FS);
+    assert_all_sinks(module_path!(), "a.js", Language::JavaScript, POS_DOM_FS);
 }
 
 #[test]
 fn js_name_fragments_are_not_sinks() {
-    assert_no_sinks("a.js", Language::JavaScript, NEG_NAME_FRAGMENTS);
-    assert_no_sinks("a.ts", Language::TypeScript, NEG_NAME_FRAGMENTS);
+    assert_no_sinks(
+        module_path!(),
+        "a.js",
+        Language::JavaScript,
+        NEG_NAME_FRAGMENTS,
+    );
+    assert_no_sinks(
+        module_path!(),
+        "a.ts",
+        Language::TypeScript,
+        NEG_NAME_FRAGMENTS,
+    );
 }

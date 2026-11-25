@@ -61,10 +61,10 @@ const NEGATIVES: &[Case] = &[
 
 #[test]
 fn python_genuine_call_sinks_are_reported() {
-    assert_all_sinks("a.py", Language::Python, POSITIVES);
+    assert_all_sinks(module_path!(), "a.py", Language::Python, POSITIVES);
 }
 
 #[test]
 fn python_name_fragments_are_not_sinks() {
-    assert_no_sinks("a.py", Language::Python, NEGATIVES);
+    assert_no_sinks(module_path!(), "a.py", Language::Python, NEGATIVES);
 }

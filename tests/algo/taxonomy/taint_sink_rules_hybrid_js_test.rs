@@ -138,5 +138,5 @@ const JS_ROWS: &[Row] = &[
 
 #[test]
 fn hybrid_js_matrix() {
-    assert_rows(JS_ROWS);
+    assert_rows(module_path!(), JS_ROWS);
 }

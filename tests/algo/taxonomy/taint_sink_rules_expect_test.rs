@@ -1,10 +1,8 @@
 //! Stage T checks for the identity ledger and its coverage of the sink matrices.
 
-use super::taint_sink_rules_support::{parse_expected_rules, EXPECTATION_HEADER};
+use super::taint_sink_rules_support::{parse_expected_rules, EXPECTATION_HEADER, EXPECTED_RULES};
 use crate::common::*;
 use std::{fs, path::Path};
-
-const EXPECTED_RULES: &str = include_str!("../../fixtures/taint_sink_rules/expected_rules.tsv");
 
 macro_rules! table_sources {
     ($($table:ident),+ $(,)?) => {
@@ -69,6 +67,36 @@ fn expected_rules_tsv_is_well_formed() {
     assert_eq!(EXPECTED_RULES.lines().next(), Some(EXPECTATION_HEADER));
     let expectations = parse_expected_rules(EXPECTED_RULES).unwrap();
     assert_eq!(expectations.len(), 540);
+}
+
+#[test]
+fn substitution_only_sprintf_rows_expect_empty_rules() {
+    let expectations = parse_expected_rules(EXPECTED_RULES).unwrap();
+    for (table, label) in [
+        (
+            "taint_sink_rules_go_test",
+            "Sprintf with a non-constant format",
+        ),
+        (
+            "taint_sink_rules_go_test",
+            "Sprintf with a format read from a request field",
+        ),
+        (
+            "taint_sink_rules_hybrid_go_test",
+            "Sprintf where a param shadows a const",
+        ),
+        (
+            "taint_sink_rules_hybrid_go_test",
+            "r2: range var shadows package const format",
+        ),
+    ] {
+        let row = expectations
+            .iter()
+            .find(|row| row.table == table && row.label == label)
+            .unwrap_or_else(|| panic!("missing matrix key {table}/{label}"));
+        assert!(row.rules.is_empty(), "{table}/{label}: {:?}", row.rules);
+        assert_eq!(row.observed, "go-format-string@CWE-134", "{table}/{label}");
+    }
 }
 
 #[test]
@@ -209,27 +237,38 @@ fn parser_rejects_bad_observed_syntax() {
 }
 
 #[test]
+fn parser_rejects_unresolved_rules() {
+    let row = ledger_row_with("?", "structured:sqli", "structured");
+    let error = parse_expected_rules(&row).unwrap_err();
+    assert!(error.contains("unresolved rules"), "{error}");
+}
+
+#[test]
+fn parser_rejects_empty_ledger() {
+    for tsv in ["", EXPECTATION_HEADER] {
+        let error = parse_expected_rules(tsv).unwrap_err();
+        assert!(error.contains("no expectation rows"), "{error}");
+    }
+}
+
+#[test]
 fn parser_checks_row_keys_and_preserves_rule_tokens() {
     let row = ledger_row("a;b-2@CWE-79!suggestion");
     let parsed = parse_expected_rules(&row).unwrap();
     assert_eq!(parsed[0].table, "sample_table");
     assert_eq!(parsed[0].label, "sample label");
-    assert_eq!(
-        parsed[0].rules,
-        Some(vec!["a".into(), "b-2@CWE-79!suggestion".into()])
-    );
+    assert_eq!(parsed[0].rules, ["a", "b-2@CWE-79!suggestion"]);
     assert_eq!(parsed[0].observed, "=");
     assert_eq!(parsed[0].class, "flat");
     for observed in ["a+structured:sqli", "structured:sqli"] {
         let parsed =
-            parse_expected_rules(&ledger_row_with("?", observed, "flat+structured")).unwrap();
-        assert_eq!(parsed[0].rules, None);
+            parse_expected_rules(&ledger_row_with("a", observed, "flat+structured")).unwrap();
+        assert_eq!(parsed[0].rules, ["a"]);
         assert_eq!(parsed[0].observed, observed);
     }
-    assert_eq!(
-        parse_expected_rules(&ledger_row("-")).unwrap()[0].rules,
-        Some(vec![])
-    );
+    assert!(parse_expected_rules(&ledger_row("-")).unwrap()[0]
+        .rules
+        .is_empty());
 
     for (tsv, message) in [
         (
