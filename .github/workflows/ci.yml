@@ -225,6 +225,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The harness is bound to the cargo recorded in eval/tier-a.lock.toml (1.94.0): it reads
+      # cargo's build-directory layout (`.fingerprint`, `deps`, `build/*/output`), and a few tests
+      # run the real cargo against fixtures. cargo 1.100 moved to a new layout
+      # (`build/<pkg>/<hash>/{fingerprint,out,run}`), so those tests fail on a newer cargo than the
+      # runner image's default. Pin it here instead of inheriting whatever the image ships.
+      - name: Install Rust toolchain (the cargo pinned by eval/tier-a.lock.toml)
+        uses: dtolnay/rust-toolchain@1.94.0
+
+      - name: Show cargo version
+        run: cargo --version
+
       # Python version from eval/.python-version, dependencies from eval/uv.lock.
       - name: Install uv
         uses: astral-sh/setup-uv@v7

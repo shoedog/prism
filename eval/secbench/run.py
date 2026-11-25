@@ -512,17 +512,32 @@ def main():
     parser.add_argument('--no-build', action='store_true', help='explicitly use the already built, hash-recorded binary')
     parser.add_argument('--workers', type=int, default=2)
     parser.add_argument('--timeout', type=int, default=120)
+    parser.add_argument('--class', dest='class_', action='append', metavar='NAME',
+                        help='measure only entries of this class (repeatable); verification still covers every entry')
+    parser.add_argument('--binary-sha', help='replace the built-in BINARY_SHA pin (recorded in the summary)')
+    parser.add_argument('--sut-commit', help='replace the built-in SUT_COMMIT pin (40 hex; recorded in the summary)')
     args = parser.parse_args()
+    sut_commit = args.sut_commit if args.sut_commit is not None else SUT_COMMIT
+    binary_sha = args.binary_sha if args.binary_sha is not None else BINARY_SHA
+    if args.sut_commit is not None and not re.fullmatch(r'[0-9a-f]{40}', args.sut_commit):
+        raise ValueError('--sut-commit must be 40 lowercase hex characters')
+    if args.binary_sha is not None and not re.fullmatch(r'[0-9a-f]{64}', args.binary_sha):
+        raise ValueError('--binary-sha must be 64 lowercase hex characters')
+    pins_overridden = ({'binary_sha': args.binary_sha, 'sut_commit': args.sut_commit}
+                       if args.binary_sha is not None or args.sut_commit is not None else None)
     args.out.mkdir(parents=True, exist_ok=True)
     manifest_file = args.packages / 'manifest.json'
     manifest = json.loads(manifest_file.read_bytes())
     if manifest['secbench_commit'] != SEC_COMMIT or len(manifest['entries']) != 600:
         raise ValueError('SecBench manifest pin/count mismatch')
+    class_filter = sorted(set(args.class_)) if args.class_ else None
+    if class_filter and not set(class_filter) <= {e['class'] for e in manifest['entries']}:
+        raise ValueError(f'unknown --class: {sorted(set(class_filter) - {e["class"] for e in manifest["entries"]})}')
     sut_head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=args.sut_repo, text=True).strip()
     sec_head = subprocess.check_output(['git', '-C', str(args.inputs), 'rev-parse', 'HEAD'], text=True).strip()
-    if (not args.binary and sut_head != SUT_COMMIT) or sec_head != SEC_COMMIT:
+    if (not args.binary and sut_head != sut_commit) or sec_head != SEC_COMMIT:
         raise ValueError('checkout revision mismatch')
-    subprocess.run(['git', 'diff', '--exit-code', SUT_COMMIT, '--', 'src', 'Cargo.toml', 'Cargo.lock', 'build.rs', 'vendor'],
+    subprocess.run(['git', 'diff', '--exit-code', sut_commit, '--', 'src', 'Cargo.toml', 'Cargo.lock', 'build.rs', 'vendor'],
                    cwd=args.sut_repo, check=True, stdout=subprocess.DEVNULL)
     for e in manifest['entries']:
         if e['status'] == 'ok' and digest((args.packages / e['class'] / e['entry'] / e['tarball']).read_bytes()) != e['sha256']:
@@ -533,10 +548,10 @@ def main():
         with (args.out / 'build.log').open('wb') as log:
             subprocess.run(['cargo', 'build', '--release', '--offline'], cwd=args.sut_repo, stdout=log, stderr=log, check=True)
     binary = args.binary or args.sut_repo / 'target/release/prism'
-    if digest(binary.read_bytes()) != BINARY_SHA:
+    if digest(binary.read_bytes()) != binary_sha:
         raise ValueError('binary SHA256 pin mismatch')
     version = subprocess.check_output([str(binary), '--version'], text=True).strip()
-    if SUT_COMMIT[:12] not in version:
+    if sut_commit[:12] not in version:
         raise ValueError('binary identity mismatch')
     inspection = args.inspection or args.out / 'inspection.jsonl'
     if not args.inspection:
@@ -556,29 +571,39 @@ def main():
     if pin_file.exists() and pin_file.read_bytes() != canonical(pins):
         raise ValueError('input pins changed; use a new output directory')
     pin_file.write_bytes(canonical(pins))
-    binding = {'sut_head': SUT_COMMIT, 'harness_checkout': sut_head, 'sut_repo': str(args.sut_repo), 'secbench_head': sec_head, 'binary_sha256': digest(binary.read_bytes()),
+    binding = {'sut_head': sut_commit, 'harness_checkout': sut_head, 'sut_repo': str(args.sut_repo), 'secbench_head': sec_head, 'binary_sha256': digest(binary.read_bytes()),
                'version': version, 'inspection_sha256': digest(inspection.read_bytes()),
                'pins_sha256': digest(pin_file.read_bytes()), 'workers': args.workers, 'timeout_seconds': args.timeout,
                'adjudications_sha256': digest(args.adjudications.read_bytes()) if args.adjudications else None,
                'harness_sha256': {p.name: digest(p.read_bytes()) for p in Path(__file__).parent.glob('*') if p.suffix in ('.py', '.mjs')}}
+    if class_filter:
+        binding['class_filter'] = class_filter
+    if pins_overridden:
+        binding['pins_overridden'] = pins_overridden
     (args.out / 'binding.json').write_bytes(canonical(binding))
+    in_scope = (lambda cls: True) if not class_filter else (lambda cls: cls in class_filter)
+    selected = [r for r in rows if in_scope(r['class'])]
     measured = []
     with (args.out / 'entries.jsonl').open('wb') as stream:
         with ThreadPoolExecutor(max_workers=args.workers) as pool:
-            for row in pool.map(lambda r: measure(r, binary, args.packages, args.out, args.timeout), rows):
+            for row in pool.map(lambda r: measure(r, binary, args.packages, args.out, args.timeout), selected):
                 stream.write(canonical(row)); stream.flush(); measured.append(row)
-                print(f'{len(measured)}/583 {row["class"]}/{row["entry"]}: {row["outcome"]}', flush=True)
+                print(f'{len(measured)}/{len(selected)} {row["class"]}/{row["entry"]}: {row["outcome"]}', flush=True)
         for e in manifest['entries']:
-            if e['status'] != 'ok':
+            if e['status'] != 'ok' and in_scope(e['class']):
                 row = {**e, 'outcome': 'acquisition_excluded', 'exclusion_reason': e['status']}
                 measured.append(row); stream.write(canonical(row))
     labels = json.loads(args.adjudications.read_bytes()) if args.adjudications else None
-    if labels and (labels['sut_commit'] != SUT_COMMIT or labels['secbench_commit'] != sec_head):
+    if labels and (labels['sut_commit'] != sut_commit or labels['secbench_commit'] != sec_head):
         raise ValueError('adjudication revision mismatch')
-    agreement = apply_adjudications(measured, labels['entries'] if labels else [])
+    agreement = apply_adjudications(measured, [i for i in labels['entries'] if in_scope(i['class'])] if labels else [])
     (args.out / 'entries.jsonl').write_bytes(b''.join(canonical(r) for r in measured))
     summary = summarize(measured)
     summary['adjudication'] = agreement
+    if class_filter:
+        summary['class_filter'] = class_filter
+    if pins_overridden:
+        summary['pins_overridden'] = pins_overridden
     (args.out / 'summary.json').write_bytes(canonical(summary))
     (args.out / 'summary.md').write_text(markdown(summary))
     print(json.dumps(summary['outcomes'], sort_keys=True))
