@@ -1907,8 +1907,8 @@ The recorded census across httpie, Saleor, Superset and Black prices the boundar
 | `match` statements | 109 | None capturing a returned local. |
 | `__class__` or `__dict__` string keys | 12 | None a write key on a receiver. |
 
-The archived four-corpus documents, warning results and G-accept results were identical before and
-after fold 1. S2b closes the context-entry veto and leaves the five priced classes as accepted limits.
+The four-corpus targets, warnings and G-accept results were identical before and after fold 1 and after the
+context-entry fix (only `producer.build_identity` differs). S2b closes the context-entry veto and leaves the five priced classes as accepted limits.
 Runtime mutation stays out of model under the CLAUDE.md Exact contract and §10.1. A future slice
 may close the five classes.
 
