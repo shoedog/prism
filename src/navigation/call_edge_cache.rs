@@ -125,7 +125,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v81: Rust self-import module aliases and macro-argument path anchors (#724, CPG v162).
 // v82: Rust `#[path]` modules resolve where rustc loads them; let-binding and std-macro scoping (#765, CPG v163).
 // v83: Rust binary roots resolve their package's in-repo dependencies (#749, CPG v165).
-// v84: Paired with CPG v195's cached JS-family argument-follow facts.
+// v84: Paired with CPG v196's cached JS-family argument-follow facts.
 const NAV_CALL_EDGE_CACHE_VERSION: u32 = 84;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";

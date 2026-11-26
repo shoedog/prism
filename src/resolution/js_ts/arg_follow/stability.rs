@@ -3,6 +3,7 @@ use super::*;
 
 mod literal;
 mod mapped;
+mod timing;
 
 pub(super) use literal::plain_access;
 pub(super) use mapped::arguments_instability;
@@ -11,6 +12,7 @@ pub(super) use mapped::arguments_instability;
 pub(super) struct References<'a> {
     names: BTreeMap<String, Vec<Node<'a>>>,
     literals: Mutex<literal::PlainObjects<'a>>,
+    timing: timing::ReadTiming,
 }
 
 impl<'a> FileBindings<'a> {
@@ -22,12 +24,14 @@ impl<'a> FileBindings<'a> {
 impl<'a> References<'a> {
     fn index(parsed: &'a ParsedFile) -> Self {
         let mut refs = Self::default();
+        let callables = parsed.language.callable_boundary_node_types();
         let mut cursor = parsed.tree.walk();
         loop {
             let node = cursor.node();
             if let Some(name) = param_slot::name(parsed, node) {
                 refs.names.entry(name).or_default().push(node);
             }
+            refs.timing.index(node, &callables);
             if cursor.goto_first_child() {
                 continue;
             }
@@ -37,6 +41,15 @@ impl<'a> References<'a> {
                 }
             }
         }
+    }
+
+    pub(super) fn deferred_read(
+        &self,
+        parsed: &ParsedFile,
+        owner: Node<'_>,
+        read: Node<'_>,
+    ) -> bool {
+        self.timing.deferred(parsed, owner, read)
     }
 
     fn in_scope(&self, name: &str, scope: Node<'a>) -> &[Node<'a>] {

@@ -383,7 +383,7 @@ impl<'a> Context<'a> {
             refuse(result, relay, "depth");
             return;
         }
-        let (caller_file, holder_file) = self
+        let (holder_file, _) = self
             .files
             .get_key_value(&slot.holder.file)
             .expect("indexed holder file");
@@ -396,23 +396,16 @@ impl<'a> Context<'a> {
             return;
         };
         stack.push(slot.clone());
-        let mut stability = None;
         for call in callers {
             let ground = self.ground(slot, parameter, call);
-            let (parsed, node) = match ground {
+            let (caller_parsed, node) = match ground {
                 Ok(ground) => ground,
                 Err(reason) => {
                     refuse(result, Some(call), reason);
                     continue;
                 }
             };
-            if let Some(reason) = *stability
-                .get_or_insert_with(|| self.stability(holder_file, caller_file, parameter))
-            {
-                refuse(result, Some(call), reason);
-                continue;
-            }
-            for value in self.values_of(caller_file, parameter, parsed, call, node) {
+            for value in self.values_of(holder_file, parameter, caller_parsed, call, node) {
                 match value.and_then(|value| self.terminal(value)) {
                     Ok(identity::Terminal::Callable(target, bytes)) => {
                         diagnostic.report(

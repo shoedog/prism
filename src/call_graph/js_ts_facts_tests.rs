@@ -109,6 +109,68 @@ fn compare_graphs(files: &BTreeMap<String, ParsedFile>) {
 }
 
 #[test]
+fn cross_file_parameter_fan_in_matches_at_each_thread_count() {
+    use crate::resolution::js_ts::arg_follow::{self, ArgOutcome};
+
+    let files = BTreeMap::from([
+        (
+            "holder.ts".into(),
+            parsed(
+                "holder.ts",
+                "export function holder(cb: () => void) { cb(); }",
+            ),
+        ),
+        (
+            "left.ts".into(),
+            parsed(
+                "left.ts",
+                "import {holder} from './holder'; function left() {} holder(left);",
+            ),
+        ),
+        (
+            "right.js".into(),
+            parsed(
+                "right.js",
+                "import {holder} from './holder'; function right() {} holder(right);",
+            ),
+        ),
+    ]);
+    compare_graphs(&files);
+    let graph = CallGraph::build(&files);
+    let expected = &graph.js_anonymous.arg_follow;
+    let site = graph
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.caller.file == "holder.ts" && site.effective_source_callee_name() == "cb")
+        .unwrap();
+    let Some(ArgOutcome::Targets(targets)) = expected.lookup(site) else {
+        panic!(
+            "cross-file parameter site was not grounded: {:?}",
+            expected.lookup(site)
+        );
+    };
+    assert_eq!(
+        targets
+            .iter()
+            .map(|id| (id.file.as_str(), id.name.as_str()))
+            .collect::<Vec<_>>(),
+        [("left.ts", "left"), ("right.js", "right")]
+    );
+    for threads in [1, 4, 16] {
+        let actual = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| {
+                assert_eq!(rayon::current_num_threads(), threads);
+                arg_follow::compute(&graph, &reparse(&files))
+            });
+        assert_eq!(&actual, expected, "threads={threads}");
+    }
+}
+
+#[test]
 fn generated_complete_maps_and_serialization() {
     let files = generated();
     let expected = sequential(files.iter());

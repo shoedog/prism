@@ -19,6 +19,7 @@ struct ObjectRead<'a, 'path> {
     key: &'path str,
     remaining: &'path [Selection<'a>],
     observation: Node<'a>,
+    deferred: bool,
 }
 
 const OBJECT_PROTOTYPE: &[&str] = &[
@@ -42,6 +43,7 @@ impl<'a> Evaluation<'a, '_> {
         value: Value<'a>,
         key: &str,
         remaining: &[Selection<'a>],
+        deferred: bool,
     ) -> Arm<'a> {
         match value {
             Value::Props(file, node) => self.jsx_attribute(file, node, key),
@@ -59,6 +61,7 @@ impl<'a> Evaluation<'a, '_> {
                         key,
                         remaining,
                         observation,
+                        deferred,
                     },
                     &mut BTreeSet::new(),
                 )
@@ -110,10 +113,15 @@ impl<'a> Evaluation<'a, '_> {
                     let value = self.static_object(file, node, read)?;
                     match value.kind() {
                         "null" => Ok(Value::Undefined),
+                        // The caller-side stability proof ends at invocation.
+                        "object" | "array" if read.deferred => Err("stale_path"),
                         "object" => self.read_object(file, value, read, visited),
-                        "array" => {
-                            self.select_object(Value::Node(file, value), read.key, read.remaining)
-                        }
+                        "array" => self.select_object(
+                            Value::Node(file, value),
+                            read.key,
+                            read.remaining,
+                            read.deferred,
+                        ),
                         _ => Err("undefined_lookup"),
                     }
                 }

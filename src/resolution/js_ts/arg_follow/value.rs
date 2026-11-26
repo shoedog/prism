@@ -42,21 +42,29 @@ impl<'a> Context<'a> {
             call,
             node,
         };
-        evaluation.parameter(parameter)
+        evaluation.parameter(parameter, None, &mut BTreeSet::new())
     }
 
-    pub(super) fn stability(
+    fn stability(
         &self,
-        parsed: &'a ParsedFile,
         file: &str,
         parameter: &Parameter<'a>,
+        entry: Option<Node<'a>>,
     ) -> Option<&'static str> {
-        let mut cache = self.bindings[file].cache();
-        let name = param_slot::name(parsed, parameter.binding)?;
-        if parameter.replaced || parsed.js_ts_scoped_written(parameter.scope, &name, &mut cache) {
+        if parameter.replaced {
             return Some("entry_write");
         }
-        if self.dynamic_for(file, parameter.scope, &name, &mut cache) {
+        let parsed = &self.files[file];
+        let mut cache = self.bindings[file].cache();
+        let name = param_slot::name(parsed, parameter.binding)?;
+        let written = match entry {
+            Some(formals) => parsed.js_ts_formal_written(formals, &name, &mut cache),
+            None => parsed.js_ts_scoped_written(parameter.scope, &name, &mut cache),
+        };
+        if written {
+            return Some("entry_write");
+        }
+        if self.dynamic_for(file, entry.unwrap_or(parameter.scope), &name, &mut cache) {
             return Some("dynamic_binding");
         }
         if let Some(read) = parameter.body_read {
@@ -76,7 +84,15 @@ impl<'a> Context<'a> {
 }
 
 impl<'a> Evaluation<'a, '_> {
-    fn parameter(&self, parameter: &Parameter<'a>) -> Vec<Arm<'a>> {
+    fn parameter(
+        &self,
+        parameter: &Parameter<'a>,
+        entry: Option<Node<'a>>,
+        active_defaults: &mut BTreeSet<usize>,
+    ) -> Vec<Arm<'a>> {
+        if let Some(reason) = self.context.stability(self.holder, parameter, entry) {
+            return vec![Err(reason)];
+        }
         let actual = self.actual(parameter.position);
         let plain_access =
             |usage: &stability::PathUse<'a>, skip| self.plain_access(actual, usage, skip);
@@ -97,10 +113,15 @@ impl<'a> Evaluation<'a, '_> {
                 return vec![Err(reason)];
             }
         }
+        let mut deferred = false;
         if let Some(read) = parameter.body_read {
             if !self.body_path_stable(parameter, read, &plain_access) {
                 return vec![Err("stale_path")];
             }
+            let parsed = &self.context.files[self.holder];
+            deferred = self.context.bindings[self.holder]
+                .references(parsed)
+                .deferred_read(parsed, parameter.owner, read);
         }
         let mut values = self.expand_result(actual.map(|value| {
             if matches!(value, Value::Missing) {
@@ -117,17 +138,17 @@ impl<'a> Evaluation<'a, '_> {
                     Err(reason) => vec![Err(reason)],
                     Ok(value) => match step {
                         Selection::Default(default) if matches!(value, Value::Undefined) => {
-                            self.default(*default)
+                            self.default(*default, parameter.owner, active_defaults)
                         }
                         Selection::Default(_) => vec![Ok(value)],
                         Selection::Array(position) => self.select_array(value, *position),
                         Selection::Object(key) => {
-                            self.expand_result(self.select_object(value, key, remaining))
+                            self.expand_result(self.select_object(value, key, remaining, deferred))
                         }
                         Selection::Computed(key) => match self.computed_key(*key, parameter) {
-                            Ok(key) => {
-                                self.expand_result(self.select_object(value, &key, remaining))
-                            }
+                            Ok(key) => self.expand_result(
+                                self.select_object(value, &key, remaining, deferred),
+                            ),
                             Err(reason) => vec![Err(reason)],
                         },
                         Selection::Rest => vec![Err("path_step")],
@@ -232,32 +253,61 @@ impl<'a> Evaluation<'a, '_> {
             .ok_or("path_step")
     }
 
-    fn default(&self, node: Node<'a>) -> Vec<Arm<'a>> {
-        self.expand(Value::Node(self.holder, node))
-            .into_iter()
-            .flat_map(|arm| match arm {
+    fn default(
+        &self,
+        node: Node<'a>,
+        owner: Node<'a>,
+        active_defaults: &mut BTreeSet<usize>,
+    ) -> Vec<Arm<'a>> {
+        let mut values = Vec::new();
+        for arm in self.expand(Value::Node(self.holder, node)) {
+            match arm {
                 Ok(Value::Node(file, selected)) if file == self.holder => {
-                    self.default_binding(selected)
+                    let resolved = self.default_binding(selected, owner, active_defaults);
+                    if resolved
+                        .iter()
+                        .any(|value| matches!(value, Err("stale_terminal")))
+                    {
+                        // An unproved binding read can invalidate evaluation
+                        // of the whole initializer.
+                        return vec![Err("stale_terminal")];
+                    }
+                    values.extend(resolved);
                 }
-                _ => vec![arm],
-            })
-            .collect()
+                _ => values.push(arm),
+            }
+        }
+        values
     }
 
-    fn default_binding(&self, node: Node<'a>) -> Vec<Arm<'a>> {
+    fn default_binding(
+        &self,
+        node: Node<'a>,
+        owner: Node<'a>,
+        active_defaults: &mut BTreeSet<usize>,
+    ) -> Vec<Arm<'a>> {
         let parsed = &self.context.files[self.holder];
         let parameter = param_slot::parameter(
             parsed,
             node,
             &mut self.context.bindings[self.holder].cache(),
         );
-        if let Some(parameter) = parameter {
-            if parameter.binding.end_byte() <= node.start_byte() && !parameter.replaced {
-                return self.parameter(&parameter);
-            }
+        let Some(parameter) = parameter else {
+            return vec![Ok(Value::Node(self.holder, node))];
+        };
+        if parameter.owner != owner
+            || !initialized_before(&parameter, node)
+            || (parameter.body_read.is_some() && parameter.replaced)
+            || !active_defaults.insert(parameter.binding.id())
+        {
             return vec![Err("stale_terminal")];
         }
-        vec![Ok(Value::Node(self.holder, node))]
+        let entry = owner
+            .child_by_field_name("parameters")
+            .filter(|list| list.byte_range().contains(&node.start_byte()));
+        let values = self.parameter(&parameter, entry, active_defaults);
+        active_defaults.remove(&parameter.binding.id());
+        values
     }
 
     fn actual(&self, position: usize) -> Arm<'a> {
@@ -468,6 +518,24 @@ impl<'a> Evaluation<'a, '_> {
         }
         vec![Ok(Value::Undefined)]
     }
+}
+
+fn initialized_before(parameter: &Parameter<'_>, occurrence: Node<'_>) -> bool {
+    let read = occurrence.start_byte();
+    // Every default on the binding's path encloses it in a formal or pattern
+    // element. Its initializer runs before that binding is initialized, even
+    // when the binding's token precedes the read. An earlier sibling inside
+    // the pattern is available after its own element finishes.
+    parameter.binding.end_byte() <= read
+        && !parameter.selected.iter().any(|step| {
+            let Selection::Default(initializer) = step else {
+                return false;
+            };
+            initializer.start_byte() <= read
+                && initializer
+                    .parent()
+                    .is_some_and(|element| read < element.end_byte())
+        })
 }
 
 fn truthiness(value: Option<Value<'_>>) -> Option<bool> {
