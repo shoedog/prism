@@ -307,7 +307,7 @@ impl ParsedFile {
     }
 
     /// The file is an ES module: a top-level `import`/`export` statement, or `.mjs`/`.mts`.
-    pub(super) fn js_ts_is_module(&self) -> bool {
+    pub(crate) fn js_ts_is_module(&self) -> bool {
         let root = self.tree.root_node();
         let mut cursor = root.walk();
         let found = root

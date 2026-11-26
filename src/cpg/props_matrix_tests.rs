@@ -113,6 +113,7 @@ enum Label {
     #[serde(alias = "nameonly/alias_unstable")]
     AliasUnstable,
     CallNameOnly,
+    BuiltinCallback,
 }
 
 impl From<FlowConfidence> for Label {
@@ -124,6 +125,7 @@ impl From<FlowConfidence> for Label {
             FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => Self::CfgIncomplete,
             FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => Self::AliasUnstable,
             FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => Self::CallNameOnly,
+            FlowConfidence::NameOnly(FlowDoubt::BuiltinCallback) => Self::BuiltinCallback,
         }
     }
 }

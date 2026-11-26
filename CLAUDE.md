@@ -382,15 +382,15 @@ write-back and intrinsic-trusting key domains are deferred. Every fact has
 guard state `none`.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
-`dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
+`dfg_label_loop_carried`, six mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
 two reaching-definition availability counters. RD-unavailable functions with more than
 1,000,000 prospective raw legacy emissions surviving U/D emit no local edges while retaining defs/uses;
 `dfg_fallback_functions_capped` counts omitted functions and `dfg_fallback_edges_capped`
 counts their surviving raw emissions, duplicates included. Omission also removes the capped owner's
 contribution to shared label keys of same-name/same-start-line owners and derived edges,
 such as the #594 object-literal shortcut into a capped callee. Loop-carried is a subset of Exact, so labeled-edge
-count is Exact plus the five NameOnly counters. `--edges` emits sorted JSONL with the doubt
-vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_nameonly`;
+count is Exact plus the six NameOnly counters. `--edges` emits sorted JSONL with the doubt
+vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, `call_nameonly`, and `builtin_callback`;
 `kill_line` is present only for `killed`; on an object-literal shortcut edge (below) it is a line of the
 `to` endpoint's function, the callee. The same counters are nested under `call-stats.dfg_labels`.
 
@@ -570,7 +570,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v193) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v194) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -699,6 +699,34 @@ does not prove the call returned the callback. A refused incoming transfer leave
 available. The outgoing source guard also checks each bare literal-leaf edge's read.
 Admitted Exact calls can feed the literal-leaf producer below. Unnamed default exports, escaped
 call spellings and parenthesized arrow IIFEs still have unresolved resolver prerequisites.
+
+JS/TS/TSX built-in callbacks (lane 9, slice D) receive `nameonly/builtin_callback` edges in Step 5b from
+a byte-matched receiver Use at attached static table calls. The table feeds the element, reducer
+element, or promise fulfillment formal of callback argument zero. Reducers also feed the first
+accumulator when the caller proves it omitted the initializer. A read entry Def may be bare,
+parenthesized, or a rest identifier covering the role. Slice D admits entry rest Defs without
+slice B's captured-rebinding and eval checks. Inline callables use their own bytes. A named value
+needs a live same-file declaration. Top-level function declarations in classic scripts are refused.
+A directly initialized `const` callback requires declaration and use in the same execution owner
+and statement list. D edges extend the outgoing guard's reverse reach and can remove a new-source
+formal's local edges (`builtin_route_triggers_original_guard_bucket_removal`).
+
+`PRISM_D_BUILTIN_TRACE=1` emits keyed admission and refusal records on stderr. If the receiver is
+not at line start and its only Use is a zero-width line-start anchor, the receiver's bytes lack a
+matching Use. Byte-spanning full-path and callee-projection Uses can bind away from line start.
+Roughly half of the sites that reach the receiver step are refused for a missing receiver Use (47% on Excalidraw, 57% on TypeScript src).
+
+| Built-in callback trace (per call-site record) | Excalidraw (X) | TypeScript/src (T) |
+| --- | ---: | ---: |
+| `bound` | 492 | 373 |
+| `missing_receiver_use` | 512 | 603 |
+| `receiver_syntax` (includes sites before the method-table check) | 361 | 223 |
+| `caller_identity` | 1184 | 1733 |
+| `non_public_static_key` | 52 | 366 |
+| `not_argument_list` | 2 | 437 |
+| Later refusals (formals, import/alias, non-callable) | ~53 | ~83 |
+
+Pre-table filters `detached_callee`, `unlisted_method`, and `not_source_call` are excluded from callback site counts.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

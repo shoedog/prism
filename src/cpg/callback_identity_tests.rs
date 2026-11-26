@@ -43,24 +43,6 @@ fn r5_full_binding_rows(
         ) = (cpg.node(a), cpg.node(b))
         {
             if function == owner && to_owner == owner && path.to_string() == name {
-                let (doubt, kill) = match label {
-                    super::FlowConfidence::Exact => (None, None),
-                    super::FlowConfidence::NameOnly(super::FlowDoubt::Killed { kill_line }) => {
-                        (Some("killed"), Some(kill_line))
-                    }
-                    super::FlowConfidence::NameOnly(super::FlowDoubt::SameLine) => {
-                        (Some("sameline"), None)
-                    }
-                    super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete) => {
-                        (Some("cfg_incomplete"), None)
-                    }
-                    super::FlowConfidence::NameOnly(super::FlowDoubt::AliasUnstable) => {
-                        (Some("alias_unstable"), None)
-                    }
-                    super::FlowConfidence::NameOnly(super::FlowDoubt::CallNameOnly) => {
-                        (Some("call_nameonly"), None)
-                    }
-                };
                 result.push(serde_json::json!([
                     line,
                     start_byte,
@@ -69,8 +51,8 @@ fn r5_full_binding_rows(
                     to_byte,
                     to_end,
                     label.level(),
-                    doubt,
-                    kill
+                    label.doubt_spelling(),
+                    label.kill_line()
                 ]));
             }
         }

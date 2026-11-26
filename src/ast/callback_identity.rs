@@ -646,6 +646,7 @@ impl ParsedFile {
                                 | "satisfies_expression"
                                 | "non_null_expression"
                                 | "type_assertion"
+                                | "instantiation_expression"
                         ) {
                             let mut cursor = callee.walk();
                             let mut operands = callee
