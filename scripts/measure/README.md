@@ -52,8 +52,8 @@ pin its version token or build from a clean tree. The receipt also records the
 guard's SHA-256, the SHA-256 of the host-quiet helper at `../hostquiet/host_quiet.py` relative to the guard file (null when absent or not a regular file; other dependencies of a custom guard are not bound, see open-n3-21) and
 `kit_dirty`, which marks Git-visible edits to the kit (tracked changes and untracked
 non-ignored files under the kit directories) and, as a fallback for tracked edits that
-`assume-unchanged` or `skip-worktree` index flags hide, byte or symlink-target differences from the
-recorded commit's blobs. Mode-only edits under those flags and ignored untracked files are not
+`assume-unchanged` or `skip-worktree` index flags hide, any tracked kit path that cannot be shown to match the
+recorded commit's blobs (byte or symlink-target difference, missing file, type mismatch or comparison error counts as dirty). Mode-only working-tree edits hidden from `git status` by those flags and ignored untracked files are not
 seen (known-s1-2). The guard and its helper
 are rechecked before each launch and after the last command; a change fails the
 run (exit 4; 75 when a later attempt reports host quiet after an analysis has launched); once an analysis has launched the failed receipt is retained, before that there is none. The guard must be a readable
