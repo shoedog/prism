@@ -471,17 +471,20 @@ destination: a read of it). The producer anchors an endpoint by line, so its
 span can land on a neighbour (the key `app:` in `{app: {value: app}}`): that
 is UNDECIDED `endpoint-coordinate-off`, never WRONG. An endpoint that is not
 at exact identifier bytes is UNDECIDED `identifier-unproved`. The rule applies
-to every lexical fault (spelling, role, destination write, `delete` or type
-position, a different binding) and, by the same rule, to the argument slot: a
+to a lexical spelling mismatch and to a role or position fault (source not a
+definition, destination write, `delete` or type position) and, by the same rule,
+to the argument slot. It does not apply when both endpoints are at exact
+identifier bytes spelled as the claimed base and resolve to different
+declarations: that is a proved different binding, WRONG `different-declaration`
+(matrix row oracle-007). The slot rule: a
 wrong actual spelling, or a formal claimed at other bytes, is WRONG only when
 the claimed name is nowhere else on that line in the needed role (actual: a
 read; formal: the proved formal itself, which must share the claimed line).
 FORMATS section 4 is stricter in two places and those rules are kept: a
 different name at exactly the proved formal's bytes, and a signature formal of an
 overload (oracle-032, oracle-037), are WRONG whatever else the line holds.
-Matrix rows oracle-007 (a same-line other declaration) and oracle-010 (a span on
-`other` beside a read of `value`) were WRONG and are UNDECIDED
-`endpoint-coordinate-off` under this rule. Formal bytes that are not an identifier
+Matrix row oracle-010 (a span on `other` beside a read of `value`) was WRONG and
+is UNDECIDED `endpoint-coordinate-off` under this rule. Formal bytes that are not an identifier
 are UNDECIDED `identifier-unproved`. Of the 36 Express WRONG verdicts of the
 real-use read, 4 were coordinate-off (a key span next to the value read) and 32
 a variable not defined at the from line; the self-check case

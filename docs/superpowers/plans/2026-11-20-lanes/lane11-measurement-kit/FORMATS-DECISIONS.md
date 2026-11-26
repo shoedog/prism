@@ -260,7 +260,7 @@ The following 173 rows and the 24 decisions above exhaust the two input matrices
 | oracle-004 | Spread actual → UNDECIDED. |
 | oracle-005 | Outer shadow claim WRONG, inner declaration to its read CORRECT. |
 | oracle-006 | Identifier in type query → WRONG. |
-| oracle-007 | Same-line other declaration → UNDECIDED `endpoint-coordinate-off` (S3 fold 4: the line holds another declaration of the base that the read resolves to; was WRONG). |
+| oracle-007 | Same-line other declaration → WRONG. |
 | oracle-008 | Inner read and local declaration agree → CORRECT. |
 | oracle-009 | Missing destination bounds → INADMISSIBLE. |
 | oracle-010 | Authenticated span covers other identifier → UNDECIDED `endpoint-coordinate-off` when the destination line holds a read of the claimed base (S3 fold 4; was WRONG). |

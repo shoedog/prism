@@ -135,7 +135,9 @@ function grade(row, context) {
   const read = declaration(ts, checker, right);
   if (!source || !read) return result('UNDECIDED', 'declaration-unproved');
   if (source === read) return result('CORRECT');
-  return served('from') || served('to') ? result('UNDECIDED', 'endpoint-coordinate-off') : result('WRONG');
+  // Both endpoints are at exact identifier bytes spelled as the claimed base and resolve to
+  // different declarations: a proved different binding, so no neighbour can rescue it.
+  return result('WRONG', 'different-declaration');
 }
 
 module.exports = { property, grade, role, neighbour, roles };
