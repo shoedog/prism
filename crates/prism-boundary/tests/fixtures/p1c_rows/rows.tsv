@@ -46,6 +46,21 @@ f2-impossible	fixtures/wire/string.json	field:resp:GET /loom:200#/x		rule	fields
 f4	fixtures/statuses/no-body.json	field:resp:GET /loom:200#/x		rule	fields
 f4-dialect	fixtures/wire/request-31.json	field:req:GET /loom#/x	request_dialect_excluded	rule	fields
 f4-request	fixtures/wire/string.json	field:req:GET /loom#/x		rule	fields
+fold1-item-type-stop	fixtures/fold1/items-pruned.json		unsupported_schema_keyword	rule	fold1
+fold1-media-scalar-field	fixtures/fold1/json-object-200.json	field:resp:GET /loom:200#/x	media_unverified	rule	fold1
+fold1-media-scalar-field-json	fixtures/fold1/json-object-200.json	field:resp:GET /loom:200#/x		rule	fold1
+fold1-media-scalar-pair	fixtures/fold1/scalar-200.json		media_unverified	rule	fold1
+fold1-media-scalar-pair-json	fixtures/fold1/json-scalar-200.json	op:GET /loom		rule	fold1
+fold1-producer-api-checked-none	fixtures/producer/baseline.json	op:GET /kiln	schema_unavailable	rule	fold1
+fold1-producer-api-withheld	fixtures/producer/baseline.json		route_unreadable;schema_unavailable	rule	fold1
+fold1-producer-bound	fixtures/producer/baseline.json	op:GET /kiln	schema_unavailable	rule	fold1
+fold1-producer-capture-name	fixtures/fold1/capture-before.json	op:GET /kiln/{}	schema_unavailable	rule	fold1
+fold1-producer-prefix-checked-none	fixtures/producer/baseline.json	op:GET /kiln	producer_operation_unscoped;schema_unavailable	rule	fold1
+fold1-producer-prefix-withheld	fixtures/producer/baseline.json	op:GET /kiln	producer_operation_unscoped;schema_unavailable	rule	fold1
+fold1-producer-unbound	fixtures/producer/baseline.json		producer_evidence_unbound;schema_unavailable	rule	fold1
+fold1-request-authored-excluded	fixtures/wire/string.json		request_dialect_excluded	rule	fold1
+fold1-request-eligible	fixtures/wire/string.json	field:req:GET /loom#/x		rule	fold1
+fold1-server-document-gap	fixtures/fold1/server-gap-before.json		server_url_unchecked	rule	fold1
 formatting-only	fixtures/control-formatting-only/before.json			rule	control
 n1	fixtures/control-definition-rename/before.json			rule	neutral
 n2	fixtures/neutral/union-before.json			rule	neutral

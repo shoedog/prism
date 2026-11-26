@@ -66,30 +66,48 @@ impl<'a> Input<'a> {
         let bytes = fixture("p1c_rows", name);
         let api = config["api"].as_str().unwrap_or("test-api");
         let tree = ["before-tree", "after-tree"][side];
+        let scope = || {
+            config["scope"]
+                .as_str()
+                .map_or(ComparisonScope::Api, |prefix| {
+                    ComparisonScope::PathPrefix(schema_path(prefix, "", &[]))
+                })
+        };
         if config["producer"] == true {
             let basis = DiffBasis {
                 api,
                 authority: "route_table",
                 tree,
-                scope: ComparisonScope::Api,
+                scope: scope(),
             };
             let value = serde_json::from_slice(&bytes).expect("typed producer fixture");
+            let mut producer = producer(basis.clone(), &value);
+            let op = &mut producer.operations[0];
+            if let Some(reason) = config["declaration_withheld"].as_str() {
+                op.declaration.fact = Fact::Withheld {
+                    reason: reason.into(),
+                };
+            } else if config["declaration_absent"] == true {
+                op.declaration.fact = Fact::Checked(None);
+            }
+            if config["declaration_unbound"] == true {
+                op.declaration.sites[0].tree = "unbound-tree".into();
+            }
+            if config["operations_empty"] == true {
+                producer.operations.clear();
+            }
             return Self {
                 schema: None,
-                producer: Some(producer(basis.clone(), &value)),
+                producer: Some(producer),
                 basis: Some(basis),
             };
         }
-        let scope = config["scope"].as_str().or(config["basis_tree"].as_str());
-        let basis = scope.map(|_| DiffBasis {
+        let explicit_basis = config["scope"].as_str().or(config["basis_tree"].as_str());
+        let basis = explicit_basis.map(|_| DiffBasis {
             api,
             authority: config["authority"].as_str().unwrap_or("schema"),
             tree: config["basis_tree"].as_str().unwrap_or(tree),
-            scope: config["scope"]
-                .as_str()
-                .map_or(ComparisonScope::Api, |prefix| {
-                    ComparisonScope::PathPrefix(schema_path(prefix, "", &[]))
-                }),
+            scope: scope(),
         });
         Self {
             schema: Some(schema(&bytes, api, config, side)),
@@ -110,7 +128,8 @@ impl<'a> Input<'a> {
 fn producer<'a>(basis: DiffBasis<'a>, value: &Value) -> ProducerInventory<'a> {
     use ProducerSiteKind::*;
 
-    let canonical_path = schema_path("/kiln", "", &[]);
+    let original_path = value["path"].as_str().unwrap_or("/kiln");
+    let canonical_path = schema_path(original_path, "", &[]);
     let start = value["start"].as_u64().unwrap() as usize;
     let site = |kind, offset| ProducerSite {
         kind,
@@ -148,7 +167,7 @@ fn producer<'a>(basis: DiffBasis<'a>, value: &Value) -> ProducerInventory<'a> {
             declaration: fact(
                 Fact::Checked(Some(RouteDeclaration {
                     original_method: "GET".into(),
-                    original_path: "/kiln".into(),
+                    original_path: original_path.into(),
                     canonical_path,
                     attributes: [(
                         "priority".into(),

@@ -1,4 +1,3 @@
-use super::basis;
 use super::limits::Ledger;
 use super::*;
 use crate::element::{CanonicalPath, OperationId};
@@ -109,9 +108,15 @@ pub(super) fn path<'a>(op: &'a ProducerOperation<'_>) -> Option<&'a CanonicalPat
     }
 }
 
-pub(super) fn in_scope(op: &ProducerOperation<'_>, scope: &ComparisonScope) -> bool {
-    matches!(scope, ComparisonScope::Api)
-        || path(op).is_some_and(|path| basis::in_scope(path, scope))
+pub(super) fn evidence_bound(sites: &[ProducerSite], tree: &str) -> bool {
+    !sites.is_empty() && sites.iter().all(|site| site.tree == tree)
+}
+
+pub(super) fn bound_path<'a>(
+    op: &'a ProducerOperation<'_>,
+    tree: &str,
+) -> Option<&'a CanonicalPath> {
+    path(op).filter(|_| evidence_bound(&op.declaration.sites, tree))
 }
 
 pub(super) fn compare<'a>(
@@ -203,13 +208,7 @@ impl<'a> Compare<'_, 'a> {
                 (Some(_), None) => "producer_fact_unavailable",
                 (Some(inventory), Some(record)) => match &record.fact {
                     Fact::Withheld { reason } => reason,
-                    Fact::Checked(_)
-                        if record.sites.is_empty()
-                            || record
-                                .sites
-                                .iter()
-                                .any(|site| site.tree != inventory.basis.tree) =>
-                    {
+                    Fact::Checked(_) if !evidence_bound(&record.sites, inventory.basis.tree) => {
                         "producer_evidence_unbound"
                     }
                     Fact::Checked(value) => {

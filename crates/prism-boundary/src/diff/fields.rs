@@ -98,7 +98,7 @@ pub(super) fn compare<'a>(
                         after: a.id.clone(),
                     });
                 }
-                shape_changes(&mut change.kinds, &b.shape, &a.shape);
+                shape_changes(&mut change.kinds, ledger, &roots, [b, a]);
             }
             enums(&mut change, &b.shape.enum_values, &a.shape.enum_values);
         }

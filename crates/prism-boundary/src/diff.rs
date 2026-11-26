@@ -3,10 +3,16 @@
 //! Report whole-operation edits with their own statuses and observed field detail.
 //! Report explicit success-key edits independently of response-body eligibility.
 //! Pair unique proved JSON replacements and preserve both original root and field IDs.
+//! Keep schema-bearing responses with unproved media eligible for pairing limits even when their field inventories are empty.
+//! Require proved media or checked body absence for a retained root to establish named field absence.
+//! Record side-local coverage for authored requests excluded by their dialect.
 //! Compare named JSON field presence on checked evidence and compare all five signed shape slots.
+//! Limit a differing item-type slot when a stop leaves it signed from the declaration instead of the effective type set.
 //! Keep declaration and member deltas independently for readable enum evidence.
 //! Preserve side-local unknowns, scope, reasons, evidence, and deduplicated limit counts.
 //! Report independently proved producer fact changes through typed revision-local inputs.
+//! Establish producer-only operation presence from revision-bound declaration evidence.
+//! Treat a producer declaration with an unavailable path as a method-wide coverage gap under a path prefix.
 //! Preserve unchanged structural facts through formatting, definition renames, and equivalent projections.
 //! Stay silent on value-only, unsigned union const, and unsigned item/map facts within P1b's known limits.
 

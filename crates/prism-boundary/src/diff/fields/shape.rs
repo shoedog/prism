@@ -42,16 +42,7 @@ pub(super) fn shape_limits(
         if let Some(reason) = reason {
             let pointer = &field.id.pointer;
             let reason = if reason == "unknown" {
-                root.blocks()
-                    .iter()
-                    .filter(|limit| {
-                        pointer.starts_with(&limit.pointer)
-                            || slot == ShapeSlot::ItemType
-                                && limit.pointer.strip_prefix(pointer.as_slice())
-                                    == Some(&[PointerToken::ListItem])
-                    })
-                    .max_by_key(|limit| limit.pointer.len())
-                    .map_or(reason, |limit| limit.reason.as_str())
+                stop_reason(root, pointer, slot).unwrap_or(reason)
             } else {
                 reason
             };
@@ -67,7 +58,28 @@ pub(super) fn shape_limits(
     }
 }
 
-pub(super) fn shape_changes(kinds: &mut Vec<ChangeKind>, b: &FieldShape, a: &FieldShape) {
+fn stop_reason<'a>(
+    root: &'a Root<'_, '_>,
+    pointer: &[PointerToken],
+    slot: ShapeSlot,
+) -> Option<&'a str> {
+    root.blocks()
+        .iter()
+        .filter(|limit| {
+            pointer.starts_with(&limit.pointer)
+                || slot == ShapeSlot::ItemType
+                    && limit.pointer.strip_prefix(pointer) == Some(&[PointerToken::ListItem])
+        })
+        .max_by_key(|limit| limit.pointer.len())
+        .map(|limit| limit.reason.as_str())
+}
+
+pub(super) fn shape_changes(
+    kinds: &mut Vec<ChangeKind>,
+    ledger: &mut Ledger,
+    roots: &[Root<'_, '_>; 2],
+    fields: [&Field; 2],
+) {
     fn different<T: PartialEq>(b: &Property<T>, a: &Property<T>) -> bool {
         unavailable(b).is_none() && unavailable(a).is_none() && b != a
     }
@@ -79,6 +91,25 @@ pub(super) fn shape_changes(kinds: &mut Vec<ChangeKind>, b: &FieldShape, a: &Fie
             _ => different(b, a),
         }
     }
+    let [b, a] = fields.map(|field| &field.shape);
+    let mut item_type_changed = types_differ(&b.item_type, &a.item_type);
+    if item_type_changed {
+        let pointer = &fields[0].id.pointer;
+        for (root, side) in roots.iter().zip(SIDES) {
+            if root.item_type_from_declaration(pointer) {
+                root.limit(
+                    side,
+                    ledger,
+                    pointer,
+                    ComparisonClaim::Property(ShapeSlot::ItemType),
+                    stop_reason(root, pointer, ShapeSlot::ItemType)
+                        .unwrap_or("item_type_unchecked"),
+                    None,
+                );
+                item_type_changed = false;
+            }
+        }
+    }
     for (changed, kind) in [
         (
             types_differ(&b.field_type, &a.field_type),
@@ -88,10 +119,7 @@ pub(super) fn shape_changes(kinds: &mut Vec<ChangeKind>, b: &FieldShape, a: &Fie
             different(&b.format, &a.format),
             ChangeKind::FieldFormatChanged,
         ),
-        (
-            types_differ(&b.item_type, &a.item_type),
-            ChangeKind::FieldItemTypeChanged,
-        ),
+        (item_type_changed, ChangeKind::FieldItemTypeChanged),
         (
             (&b.required, &a.required) == (&Property::Known(false), &Property::Known(true)),
             ChangeKind::FieldRequiredAdded,

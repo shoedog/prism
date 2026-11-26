@@ -386,6 +386,127 @@
     "limits": [],
     "equal_content": true, "changed_bytes": true, "controls": ["t1"]
   },
+  "fold1-item-type-stop": {
+    "case": "A stopped item signs its declared types and limits the effective type comparison",
+    "clause": "DESIGN \u00a7\u00a75.1 and 5.6 signed shape slots",
+    "inputs": [{"fixture": "fold1/items-pruned.json", "slots": {"field:resp:GET /loom:200#/x": {"item_type": "integer"}}}, {"fixture": "fold1/items-stopped.json", "slots": {"field:resp:GET /loom:200#/x": {"item_type": ["integer", "string"]}}}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "unsupported_schema_keyword", "pointer": "/x/[]"}, {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Property(ItemType)", "reason": "unsupported_schema_keyword", "pointer": "/x"}],
+    "reverse": true,
+    "controls": ["control-field-items-only"]
+  },
+  "fold1-media-scalar-field": {
+    "case": "Unproved Swagger scalar media leaves field absence unknown",
+    "clause": "DESIGN \u00a75.1 Element diff and checked field presence",
+    "inputs": [{"fixture": "fold1/json-object-200.json"}, {"fixture": "fold1/scalar-200.json"}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "media_unverified", "pointer": "/x", "presence": [["field:resp:GET /loom:200#/x", "Present"], [null, "Unknown"]]}],
+    "controls": ["fold1-media-scalar-field-json"]
+  },
+  "fold1-media-scalar-field-json": {
+    "case": "The same proved JSON scalar establishes named field absence",
+    "clause": "DESIGN \u00a75.1 Element diff and checked field presence",
+    "inputs": [{"fixture": "fold1/json-object-200.json"}, {"fixture": "fold1/json-scalar-200.json"}],
+    "changes": [{"kinds": ["FieldRemoved"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": [null, "Absent"]}],
+    "limits": []
+  },
+  "fold1-media-scalar-pair": {
+    "case": "Unproved Swagger scalar roots remain body candidates",
+    "clause": "DESIGN \u00a75.1 JSON media and response-root pairing",
+    "inputs": [{"fixture": "fold1/scalar-200.json"}, {"fixture": "fold1/scalar-201.json"}],
+    "changes": [{"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]}, {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "RootPairing", "reason": "media_unverified"}, {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "RootPairing", "reason": "media_unverified"}],
+    "controls": ["fold1-media-scalar-pair-json"]
+  },
+  "fold1-media-scalar-pair-json": {
+    "case": "Proved JSON pairs the same scalar roots",
+    "clause": "DESIGN \u00a75.1 JSON media and response-root pairing",
+    "inputs": [{"fixture": "fold1/json-scalar-200.json"}, {"fixture": "fold1/json-scalar-201.json"}],
+    "changes": [{"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]}, {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}],
+    "limits": [],
+    "pairs": [{"operation": "op:GET /loom", "before": "200", "after": "201", "fields": []}]
+  },
+  "fold1-producer-api-checked-none": {
+    "case": "At API scope the producer operation is present with an unavailable declaration path",
+    "clause": "DESIGN \u00a7\u00a75.1\u20135.3 operation presence and revision-local producer evidence",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true, "declaration_absent": true}, {"fixture": "producer/baseline.json", "producer": true}],
+    "changes": [{"kinds": ["RouteDeclarationChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [{"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}]
+  },
+  "fold1-producer-api-withheld": {
+    "case": "At API scope the producer operation is present with an unavailable declaration path",
+    "clause": "DESIGN \u00a7\u00a75.1\u20135.3 operation presence and revision-local producer evidence",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true, "declaration_withheld": "route_unreadable"}, {"fixture": "producer/baseline.json", "producer": true}],
+    "changes": [],
+    "limits": [{"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "Before", "scope": "op:GET /kiln", "claim": "Producer(Declaration)", "reason": "route_unreadable"}]
+  },
+  "fold1-producer-bound": {
+    "case": "A bound producer declaration establishes whole-operation presence",
+    "clause": "DESIGN \u00a7\u00a75.1\u20135.3 operation presence and revision-local producer evidence",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true, "operations_empty": true}, {"fixture": "producer/baseline.json", "producer": true}],
+    "changes": [{"kinds": ["OpAdded"], "before": [null, "Absent"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [{"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}],
+    "reverse": true
+  },
+  "fold1-producer-capture-name": {
+    "case": "Renaming a capture edits the declaration at the same operation ID",
+    "clause": "DESIGN \u00a7\u00a75.1\u20135.3 operation presence and revision-local producer evidence",
+    "inputs": [{"fixture": "fold1/capture-before.json", "producer": true}, {"fixture": "fold1/capture-after.json", "producer": true}],
+    "changes": [{"kinds": ["RouteDeclarationChanged"], "before": ["op:GET /kiln/{}", "Present"], "after": ["op:GET /kiln/{}", "Present"], "producer_evidence": true}],
+    "limits": [{"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}],
+    "reverse": true
+  },
+  "fold1-producer-prefix-checked-none": {
+    "case": "A missing producer path leaves a method gap under a prefix",
+    "clause": "DESIGN \u00a7\u00a75.1\u20135.3 operation presence and revision-local producer evidence",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true, "scope": "/kiln", "declaration_absent": true}, {"fixture": "producer/baseline.json", "producer": true, "scope": "/kiln"}],
+    "changes": [],
+    "limits": [{"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "Before", "scope": "op:GET /kiln", "claim": "OperationPresence", "reason": "producer_operation_unscoped", "presence": [[null, "Unknown"], ["op:GET /kiln", "Present"]]}],
+    "reverse": true,
+    "controls": ["fold1-producer-api-checked-none"]
+  },
+  "fold1-producer-prefix-withheld": {
+    "case": "A missing producer path leaves a method gap under a prefix",
+    "clause": "DESIGN \u00a7\u00a75.1\u20135.3 operation presence and revision-local producer evidence",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true, "scope": "/kiln", "declaration_withheld": "route_unreadable"}, {"fixture": "producer/baseline.json", "producer": true, "scope": "/kiln"}],
+    "changes": [],
+    "limits": [{"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "Before", "scope": "op:GET /kiln", "claim": "OperationPresence", "reason": "producer_operation_unscoped", "presence": [[null, "Unknown"], ["op:GET /kiln", "Present"]]}],
+    "reverse": true,
+    "controls": ["fold1-producer-api-withheld"]
+  },
+  "fold1-producer-unbound": {
+    "case": "A foreign declaration site tree leaves producer presence unknown",
+    "clause": "DESIGN \u00a7\u00a75.1\u20135.3 operation presence and revision-local producer evidence",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true, "operations_empty": true}, {"fixture": "producer/baseline.json", "producer": true, "declaration_unbound": true}],
+    "changes": [],
+    "limits": [{"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}, {"side": "After", "scope": "op:GET /kiln", "claim": "OperationPresence", "reason": "producer_evidence_unbound", "presence": [[null, "Absent"], [null, "Unknown"]]}],
+    "reverse": true,
+    "controls": ["fold1-producer-bound"]
+  },
+  "fold1-request-authored-excluded": {
+    "case": "An authored but excluded request retains its side-local limit",
+    "clause": "DESIGN \u00a75.1 Element diff and dialect-excluded requests",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/request-30.json"}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:req:GET /loom", "claim": "Coverage", "reason": "request_dialect_excluded", "pointer": ""}],
+    "reverse": true,
+    "controls": ["fold1-request-eligible"]
+  },
+  "fold1-request-eligible": {
+    "case": "The same authored request is checked in the eligible dialect",
+    "clause": "DESIGN \u00a75.1 Element diff and dialect-excluded requests",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/request-31.json"}],
+    "changes": [{"kinds": ["FieldAdded"], "before": [null, "Absent"], "after": ["field:req:GET /loom#/x", "Present"]}],
+    "limits": []
+  },
+  "fold1-server-document-gap": {
+    "case": "A document-level server diagnostic gaps every retained operation",
+    "clause": "DESIGN \u00a75.2 incomplete operation scopes",
+    "inputs": [{"fixture": "fold1/server-gap-before.json"}, {"fixture": "fold1/server-gap-after.json"}],
+    "changes": [],
+    "limits": [{"side": "Before", "scope": "op:GET /loom", "claim": "Coverage", "reason": "server_url_unchecked"}, {"side": "Before", "scope": "op:POST /other", "claim": "Coverage", "reason": "server_url_unchecked"}],
+    "controls": ["s5"]
+  },
   "n1": {
     "case": "A rename also preserves checked wire paths under admitted Swagger media proof", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and DESIGN §5.1 definition identity",
     "inputs": [

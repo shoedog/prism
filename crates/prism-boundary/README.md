@@ -296,15 +296,30 @@ unestablished comparison basis returns `DiffError`.
 - A unique outgoing and incoming JSON response root can pair by typed relative
   field path, retaining both original IDs. Unknown candidates, overlapping
   status ownership, and incomparable media leave a scoped limit. Exact keys
-  own eligible responses before `2XX`, then `default`.
+  own eligible responses before `2XX`, then `default`. Schema-bearing Swagger
+  responses with unproved media remain possible body candidates even when
+  their field inventories are empty. They carry a pairing limit and leave
+  named field absence unknown at retained roots.
 - Checked named fields compare presence, type, format, requiredness, scalar
   enum, and immediate list-item type. A readable empty enum retains its
   declaration even when the field has no feasible value. Member deltas
   require two readable lists. Checked empty or absent bodies can establish
-  field presence changes at retained roots.
+  field presence changes at retained roots. A stop that leaves the differing
+  item-type slot signed from its declaration yields a side-local `ItemType`
+  limit. Independently comparable slots still report edits.
+- An authored request excluded by its dialect carries a side-local
+  `request_dialect_excluded` coverage limit, including when both revisions
+  have no projected request message.
 - Typed producer facts compare route declarations, validation, resolved
   handler references, and corresponding endpoint body digests. Moving a
   site or changing an alias to the same endpoint leaves those facts equal.
+- Producer-only operation presence requires declaration sites bound to the
+  inventory tree. Under a path prefix, an unavailable declaration path
+  leaves a method-wide `producer_operation_unscoped` gap. At API scope, a
+  bound `Checked(None)` declaration counts as operation presence, and a
+  transition between `Checked(None)` and `Checked(Some(...))` emits
+  `RouteDeclarationChanged`. Changing only a capture name also emits
+  `RouteDeclarationChanged` at the same operation ID.
 
 Each side carries its own counted limits and evidence. A missing schema,
 dialect-excluded request root, unproved media selection, partial subtree,
@@ -314,3 +329,20 @@ persists across equal hashes. Formatting, definition renames, and equivalent
 projections leave the structural changes empty. Value-only narrowing or
 widening, unsigned union `const` edits, and unsigned item or map facts stay
 silent when the signed projection is unchanged.
+
+A document-level server diagnostic without a method leaves a coverage gap
+for every operation. It can withhold operation absence and suspend status
+and field comparison for retained operations.
+
+The following P1c rows use `subset_limits`. They assert the listed limits
+and leave extra limits unasserted.
+
+- `c1`, `c2`, `c4`, `c5`, `c6`, `c8`, `d1`, `d1-common-status`,
+  `d1-withheld-inventory`, `d2`, `d2-checked-absence`, `d2-literal-capture`,
+  `definition-rename`, `e6`, `evidence-withheld`, `f4-dialect`, `o2`, `o4`.
+- `control-ambiguous-status-root-replacement`, `control-range-status-root-overlap`,
+  `control-retained-route-handler-edit`, `p1`, `p2`, `p2-checked-absence`, `p3`,
+  `p4`, `p5`, `p5-partial`, `p6`, `p6-alias`, `p6-inline-reference`, `p6-withheld`.
+- `r10`, `r6`, `r6-ambiguous`, `r6-proof-withheld`, `r6-wildcard`, `r8`, `r9`,
+  `r9-retained-default`, `r9-unknown-peer`, `s6`, `s7`, `s7-repeated-key`,
+  `s7-repeated-key-added`, `s7-repeated-map`, `u2`, `u3-unknown`.

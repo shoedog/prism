@@ -101,9 +101,22 @@ impl<'r, 'a> Root<'r, 'a> {
             .is_some_and(|wire| wire.declaration_only.contains(pointer))
     }
 
+    pub(super) fn item_type_from_declaration(&self, pointer: &[PointerToken]) -> bool {
+        self.wire
+            .is_some_and(|wire| wire.item_types_from_declaration.contains(pointer))
+    }
+
+    pub(in crate::diff) fn empty_projection_with_unproved_media(&self) -> bool {
+        self.wire
+            .is_some_and(|wire| wire.empty_projection_with_unproved_media)
+    }
+
     pub(super) fn authority_reason(&self) -> Option<&str> {
         if self.key == RootKey::Request && !self.op.request_eligible {
             return Some("request_dialect_excluded");
+        }
+        if self.empty_projection_with_unproved_media() {
+            return Some("media_unverified");
         }
         if let Some(message) = self.message {
             if message.coverage == Coverage::Withheld
@@ -192,6 +205,16 @@ pub(in crate::diff) fn standing(
     side: ComparisonSide,
     ledger: &mut Ledger,
 ) {
+    if op.request_authored_but_excluded {
+        Root::new(op, fields, RootKey::Request).limit(
+            side,
+            ledger,
+            &[],
+            ComparisonClaim::Coverage,
+            "request_dialect_excluded",
+            None,
+        );
+    }
     for message in &op.messages {
         Root::new(op, fields, message.key.clone()).standing(side, ledger);
     }

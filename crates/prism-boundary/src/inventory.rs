@@ -45,6 +45,7 @@ pub struct Operation {
     pub declarations: Vec<OperationSite>,
     pub(crate) ranged_responses: bool,
     pub(crate) request_eligible: bool,
+    pub(crate) request_authored_but_excluded: bool,
     pub(crate) status_refusals: BTreeMap<SchemaSite, &'static str>,
     pub(crate) wire_evidence: BTreeMap<RootKey, WireEvidence>,
 }
@@ -145,6 +146,8 @@ pub struct MessageCoverage {
 pub(crate) struct WireEvidence {
     pub blocks: Vec<FieldBlock>,
     pub declaration_only: BTreeSet<Vec<PointerToken>>,
+    pub item_types_from_declaration: BTreeSet<Vec<PointerToken>>,
+    pub empty_projection_with_unproved_media: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

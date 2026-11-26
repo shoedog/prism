@@ -69,6 +69,8 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
         let dialect = operation.dialect;
         let duplicate = operation.declarations.len() > 1;
         let mut status_refusals = BTreeMap::new();
+        let request_eligible = request_eligible(dialect, id.method());
+        let mut request_authored_but_excluded = false;
         let mut projected = Operation {
             id: id.clone(),
             success_keys: operation.success_keys().to_vec(),
@@ -81,6 +83,8 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
                     let location = documents
                         .locate(declaration.resource.as_deref(), &declaration.site)
                         .expect("indexed declaration has an admitted location");
+                    request_authored_but_excluded |=
+                        !request_eligible && location.value.get("requestBody").is_some();
                     let status_refusal = if location.duplicate("responses") {
                         Some("duplicate_member")
                     } else {
@@ -111,7 +115,8 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
                 })
                 .collect(),
             ranged_responses: dialect != Dialect::Swagger2,
-            request_eligible: request_eligible(dialect, id.method()),
+            request_eligible,
+            request_authored_but_excluded,
             status_refusals,
             wire_evidence: BTreeMap::new(),
             messages: Vec::new(),
@@ -172,10 +177,12 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
             if let (Some(schema), Some(root)) = (message.schema.take(), root) {
                 let result = wire::read(&documents, dialect, &root, schema);
                 feasible = result.feasible;
+                evidence = result.evidence;
                 if message.coverage == Coverage::ObservedOnly
                     && result.fields.is_empty()
                     && result.limits.is_empty()
                 {
+                    evidence.empty_projection_with_unproved_media = true;
                     message.coverage = Coverage::Checked;
                     message
                         .limits
@@ -210,7 +217,6 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
                     message.coverage = Coverage::Partial;
                 }
                 message.limits.extend(result.limits);
-                evidence = result.evidence;
             }
             if duplicate {
                 message.coverage = Coverage::Withheld;

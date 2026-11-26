@@ -333,7 +333,11 @@ fn check_side(check: &mut Checks<'_>, side: &ChangeSide<'_>, row: &Value, label:
             .into_iter()
             .all(|sites| !sites.is_empty() && sites.iter().all(|site| site.tree == tree))
         });
-        check.eq("side-local producer evidence", json!(actual), json!(true));
+        check.eq(
+            "side-local producer evidence",
+            json!(actual),
+            json!(side.element.id.is_some().then_some(true)),
+        );
     } else if side.element.id.is_some() || side.declaration_id.is_some() {
         check.eq(
             "side-local schema sites",

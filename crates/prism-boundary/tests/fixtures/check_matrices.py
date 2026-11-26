@@ -230,12 +230,21 @@ def check_p1c_rows():
         if row["expected_warnings"] != ";".join(reasons) or row["truth"] != "rule":
             raise ValueError(f"{label}: TSV and comparison expectation disagree")
         controls = entry.get("controls", [])
-        if any(control not in rows or control == row_id or not expectations[control]["changes"]
-               for control in controls):
+        if any(control not in rows or control == row_id or (
+            not expectations[control]["changes"] and not (
+                row["class"] == "fold1" and rows[control][1]["class"] == "fold1"
+                and expectations[control]["limits"]
+                and not expectations[control].get("subset_limits")
+            )
+        ) for control in controls):
             raise ValueError(f"{label}: missing independent edit control")
-    variants = sum(counts.values()) - counts["control"] - len(minimum)
+    fold1 = {row_id for row_id, (_, row) in rows.items() if row["class"] == "fold1"}
+    if len(fold1) != 15 or any(not row_id.startswith("fold1-") for row_id in fold1):
+        raise ValueError(f"p1c_rows: unexpected fold1 rows {sorted(fold1)}")
+    variants = sum(counts.values()) - counts["control"] - len(minimum) - len(fold1)
     print(f"p1c_rows: {counts['control']} controls, "
           f"{len(minimum)} minimum assertions and {variants} variants — OK")
+    print(f"p1c_rows: {len(fold1)} fold1 rows — OK")
 
 
 def main():

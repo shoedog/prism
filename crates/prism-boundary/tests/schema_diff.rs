@@ -57,6 +57,11 @@ fn retained_producer_facts() {
 }
 
 #[test]
+fn review_fold1() {
+    diff_rows::run(&["fold1"]);
+}
+
+#[test]
 fn existing_diff_controls_and_neutral_edits() {
     diff_audit::audit_inputs();
     diff_rows::run(&["control", "neutral"]);

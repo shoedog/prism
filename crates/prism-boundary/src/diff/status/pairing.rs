@@ -115,7 +115,7 @@ fn body(root: &Root<'_, '_>, ownership: &Ownership, key: SuccessKey) -> Body {
     if !possible || ownership.owns(key) == Some(false) {
         return Body::Empty;
     }
-    if ownership.owners.is_none() {
+    if ownership.owners.is_none() || root.empty_projection_with_unproved_media() {
         return Body::Unknown;
     }
     match root.message {
@@ -209,6 +209,13 @@ pub(super) fn select(
             if *body == Body::Empty || reason == "root_media_incomparable" && *body == Body::Json {
                 continue;
             }
+            let reason = if reason == "root_media_incomparable"
+                && root.empty_projection_with_unproved_media()
+            {
+                "media_unverified"
+            } else {
+                reason
+            };
             let mut limit =
                 ComparisonLimit::new(SIDES[i], root.scope(), ComparisonClaim::RootPairing, reason);
             limit.evidence = root.sites();

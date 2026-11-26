@@ -23,6 +23,7 @@ struct Gap {
     method: Option<String>,
     paths: Option<Vec<CanonicalPath>>,
     sites: Vec<SchemaSite>,
+    producer_sites: Vec<ProducerSite>,
     reason: &'static str,
 }
 
@@ -61,6 +62,7 @@ impl<'a> Side<'a> {
                         method: gap.method.clone(),
                         paths: gap.paths.clone(),
                         sites: diagnostic_sites(&gap.diagnostic),
+                        producer_sites: Vec::new(),
                         reason: gap.diagnostic.code,
                     });
                 }
@@ -68,13 +70,38 @@ impl<'a> Side<'a> {
         }
         if let Some(inventory) = bound.producer {
             for op in &inventory.operations {
-                if producer::in_scope(op, scope) && producer::in_scope(op, &inventory.basis.scope) {
-                    entries
-                        .entry(op.operation.clone())
-                        .or_default()
-                        .producers
-                        .push(op);
+                if let Some(path) = producer::bound_path(op, inventory.basis.tree) {
+                    if !in_scope(path, scope) || !in_scope(path, &inventory.basis.scope) {
+                        continue;
+                    }
+                } else if !matches!(scope, ComparisonScope::Api)
+                    || !matches!(inventory.basis.scope, ComparisonScope::Api)
+                {
+                    let reason = if producer::path(op).is_none() {
+                        "producer_operation_unscoped"
+                    } else {
+                        "producer_evidence_unbound"
+                    };
+                    gaps.push(Gap {
+                        method: Some(op.operation.method().into()),
+                        paths: None,
+                        sites: Vec::new(),
+                        producer_sites: op
+                            .declaration
+                            .sites
+                            .iter()
+                            .filter(|site| site.tree == inventory.basis.tree)
+                            .cloned()
+                            .collect(),
+                        reason,
+                    });
+                    continue;
                 }
+                entries
+                    .entry(op.operation.clone())
+                    .or_default()
+                    .producers
+                    .push(op);
             }
         }
         Self {
@@ -116,6 +143,7 @@ impl<'a> Side<'a> {
                     let method = diagnostic_method(diagnostic);
                     self.gaps.push(Gap {
                         sites: diagnostic_sites(diagnostic),
+                        producer_sites: Vec::new(),
                         reason: diagnostic.code,
                         method,
                         paths: None,
@@ -201,6 +229,7 @@ pub(super) fn compare<'a>(bounds: [BoundSide<'a>; 2], scope: &ComparisonScope) -
                 gap.reason,
             );
             limit.evidence.clone_from(&gap.sites);
+            limit.producer_sites.clone_from(&gap.producer_sites);
             ledger.record(limit);
         }
     }
@@ -220,12 +249,18 @@ fn compare_operation<'a>(
         .each_ref()
         .map(|side| side.entries.get(id).unwrap_or(&empty));
     let schemas = entries.map(|entry| entry.schema);
-    let paths = entries.map(|entry| {
+    let paths = [0, 1].map(|i| {
+        let entry = entries[i];
         entry
             .schema
             .and_then(|op| op.declarations.first())
             .map(|site| &site.canonical_path)
-            .or_else(|| entry.producers.first().and_then(|op| producer::path(op)))
+            .or_else(|| {
+                entry
+                    .producers
+                    .first()
+                    .and_then(|op| producer::bound_path(op, sides[i].bound.basis.tree))
+            })
     });
     let mismatched = matches!(paths, [Some(b), Some(a)] if !same_path(b, a));
     let typed = entries.map(|entry| {
@@ -254,12 +289,17 @@ fn compare_operation<'a>(
             })
             .collect::<Vec<_>>()
     });
+    let unbound = [0, 1].map(|i| {
+        matches!(entries[i].producers.as_slice(), [op]
+            if !producer::evidence_bound(&op.declaration.sites, sides[i].bound.basis.tree))
+    });
     let presence = [0, 1].map(|i| {
         let side = &sides[i];
         let present = if side.bound.schema.is_some() {
             schemas[i].is_some()
         } else {
             entries[i].producers.len() == 1
+                && !unbound[i]
                 && side
                     .bound
                     .producer
@@ -267,8 +307,10 @@ fn compare_operation<'a>(
         };
         let checked = (side.bound.schema.is_some()
             || side.bound.producer.is_some_and(|inventory| {
-                inventory.coverage == Coverage::Checked
-                    && paths[1 - i].is_some_and(|path| in_scope(path, &inventory.basis.scope))
+                entries[i].producers.is_empty()
+                    && inventory.coverage == Coverage::Checked
+                    && (matches!(inventory.basis.scope, ComparisonScope::Api)
+                        || paths[1 - i].is_some_and(|path| in_scope(path, &inventory.basis.scope)))
             }))
             && gaps[i].is_empty()
             && entries[i].producers.len() <= 1;
@@ -298,6 +340,7 @@ fn compare_operation<'a>(
                 limit = limit.with_presence(&presence);
             }
             limit.evidence.clone_from(&gap.sites);
+            limit.producer_sites.clone_from(&gap.producer_sites);
             ledger.record(limit);
         }
         if let Some(op) = schemas[i] {
@@ -322,10 +365,14 @@ fn compare_operation<'a>(
                 ledger.record(limit.with_presence(&presence));
             }
             status::standing(ledger, SIDES[i], op, &entries[i].fields);
-        } else if sides[i].bound.schema.is_none() && presence[i].presence == Presence::Unknown {
+        } else if sides[i].bound.schema.is_none()
+            && presence[i].presence == Presence::Unknown
+            && (gaps[i].is_empty() || !entries[i].producers.is_empty())
+        {
             let reason = match sides[i].bound.producer {
                 None => "operation_inventory_unavailable",
                 Some(_) if entries[i].producers.len() > 1 => "ambiguous_producer_operation",
+                Some(_) if unbound[i] => "producer_evidence_unbound",
                 Some(_) if mismatched => "typed_operation_mismatch",
                 Some(_) => "producer_operation_unchecked",
             };
