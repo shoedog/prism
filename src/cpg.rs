@@ -91,6 +91,8 @@ mod recorded_kill_tests;
 mod required_parameter_tests;
 pub(crate) mod s1_trace;
 #[cfg(test)]
+mod s1_trace_tests;
+#[cfg(test)]
 mod s1c_label_tests;
 #[cfg(test)]
 mod s1d_label_tests;

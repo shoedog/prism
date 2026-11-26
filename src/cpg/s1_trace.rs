@@ -13,11 +13,19 @@ type Graph = DiGraph<CpgNode, CpgEdge>;
 const PREFIX: &str = "PRISM_S1 ";
 
 pub(crate) fn enabled() -> bool {
+    #[cfg(test)]
+    if capture::forced() {
+        return true;
+    }
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| std::env::var("PRISM_S1_TRACE").as_deref() == Ok("1"))
 }
 
 fn emit(record: Value) {
+    #[cfg(test)]
+    if capture::offer(&record) {
+        return;
+    }
     eprintln!("{PREFIX}{record}");
 }
 
@@ -98,7 +106,7 @@ pub(super) fn argument(
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-struct CallKey {
+pub(crate) struct CallKey {
     caller: FunctionId,
     bytes: [usize; 2],
     callee: FunctionId,
@@ -149,6 +157,24 @@ pub(super) fn suppression(
     complete_returns: bool,
     all_rhs_uses_bound: bool,
 ) {
+    suppression_against(
+        baseline(),
+        site,
+        callee,
+        certified,
+        complete_returns,
+        all_rhs_uses_bound,
+    );
+}
+
+fn suppression_against(
+    baseline: Option<&BTreeMap<CallKey, Vec<String>>>,
+    site: &CallSite,
+    callee: &FunctionId,
+    certified: bool,
+    complete_returns: bool,
+    all_rhs_uses_bound: bool,
+) {
     let call = CallKey {
         caller: site.caller.clone(),
         bytes: [site.start_byte, site.end_byte],
@@ -170,7 +196,7 @@ pub(super) fn suppression(
         .filter_map(|&(counter, active)| active.then_some(counter))
         .collect();
     emit(json!({"event": "suppression_state", "call": call, "reasons": reasons}));
-    if let Some(base) = baseline() {
+    if let Some(base) = baseline {
         let previous = base.get(&call).map_or(&[][..], Vec::as_slice);
         for (counter, active) in flags {
             let was_active = previous.iter().any(|reason| reason == counter);
@@ -186,4 +212,79 @@ pub(super) fn suppression(
             }
         }
     }
+}
+
+/// Test seams: a process-wide forced `enabled()` and a capture sink. Process-wide
+/// (not thread-local) because the DFG and Step 5c fact collection run on build-pool
+/// workers. One holder at a time; concurrent tests may also deposit records while it
+/// is held, so assertions filter by their own fixture's file names.
+#[cfg(test)]
+pub(crate) mod capture {
+    use serde_json::Value;
+    use std::sync::{Mutex, MutexGuard};
+
+    static HOLDER: Mutex<()> = Mutex::new(());
+    static SINK: Mutex<Option<Vec<Value>>> = Mutex::new(None);
+
+    pub(super) fn forced() -> bool {
+        SINK.lock().is_ok_and(|sink| sink.is_some())
+    }
+
+    pub(super) fn offer(record: &Value) -> bool {
+        match SINK.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+            Some(sink) => {
+                sink.push(record.clone());
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub(crate) struct Capture(#[allow(dead_code)] MutexGuard<'static, ()>);
+
+    pub(crate) fn start() -> Capture {
+        let guard = HOLDER.lock().unwrap_or_else(|e| e.into_inner());
+        *SINK.lock().unwrap_or_else(|e| e.into_inner()) = Some(Vec::new());
+        Capture(guard)
+    }
+
+    /// Hold the capture lock with tracing off, so a control build is never traced.
+    pub(crate) fn quiet() -> Capture {
+        let guard = HOLDER.lock().unwrap_or_else(|e| e.into_inner());
+        *SINK.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        Capture(guard)
+    }
+
+    impl Capture {
+        pub(crate) fn events(&self) -> Vec<Value> {
+            SINK.lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+                .cloned()
+                .unwrap_or_default()
+        }
+    }
+
+    impl Drop for Capture {
+        fn drop(&mut self) {
+            *SINK.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn suppression_for_test(
+    baseline: Option<&BTreeMap<CallKey, Vec<String>>>,
+    site: &CallSite,
+    callee: &FunctionId,
+    flags: (bool, bool, bool),
+) {
+    suppression_against(baseline, site, callee, flags.0, flags.1, flags.2);
+}
+
+#[cfg(test)]
+pub(crate) fn read_baseline_for_test(
+    path: &std::path::Path,
+) -> Result<BTreeMap<CallKey, Vec<String>>, String> {
+    read_baseline(path.as_os_str())
 }
