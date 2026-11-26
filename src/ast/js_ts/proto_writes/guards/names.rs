@@ -239,6 +239,18 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         false
     }
 
+    /// The read of `node`, only when it is the bare variable (through erased
+    /// wrappers). A member or index read carries its BASE's binding and
+    /// versions, so using that read to prove something about the variable
+    /// itself would credit `k.name` as `k`.
+    pub(super) fn bare_read(&self, node: Node<'a>) -> Option<&super::super::NameRead> {
+        if identifier(peel(node)) {
+            self.analysis.read(node)
+        } else {
+            None
+        }
+    }
+
     pub(super) fn same_binding(&self, first: Node<'a>, second: Node<'a>) -> bool {
         self.analysis
             .read(peel(first))

@@ -1,6 +1,73 @@
 //! Sequence, pointer-token and callback premises.
 use super::proto_writes_guard_coverage_tests::{run, witness, Case};
 
+/// The block-list test inside a callback must be on the BARE parameter: `k.name`
+/// is a member of the element, so the callback removes or renames nothing.
+#[test]
+fn filter_callbacks_test_the_bare_parameter() {
+    let filter = witness("g22.js");
+    let cases = [
+        Case {
+            label: "ctl",
+            edits: &[],
+            states: "PP",
+            refusals: &[("incomplete_coverage", 1), ("unproved_native_identity", 2)],
+        },
+        Case {
+            label: "ctl parenthesised",
+            edits: &[(r#".includes(k)"#, r#".includes((k))"#)],
+            states: "PP",
+            refusals: &[("incomplete_coverage", 1), ("unproved_native_identity", 2)],
+        },
+        Case {
+            label: "neg member of the element",
+            edits: &[(r#".includes(k)"#, r#".includes(k.name)"#)],
+            states: "NN",
+            refusals: &[],
+        },
+        Case {
+            label: "neg index of the element",
+            edits: &[(r#".includes(k)"#, r#".includes(k[0])"#)],
+            states: "NN",
+            refusals: &[],
+        },
+        Case {
+            label: "neg optional member of the element",
+            edits: &[(r#".includes(k)"#, r#".includes(k?.name)"#)],
+            states: "NN",
+            refusals: &[],
+        },
+    ];
+    run("filter bare parameter", &filter, &cases);
+}
+
+/// The same rule for a `map` callback that renames reserved names.
+#[test]
+fn map_callbacks_test_the_bare_parameter() {
+    let map = witness("g23.js");
+    let cases = [
+        Case {
+            label: "ctl",
+            edits: &[],
+            states: "PP",
+            refusals: &[("incomplete_coverage", 1), ("unproved_native_identity", 2)],
+        },
+        Case {
+            label: "neg member of the element",
+            edits: &[(r#".includes(k)"#, r#".includes(k.name)"#)],
+            states: "NN",
+            refusals: &[],
+        },
+        Case {
+            label: "neg index of the element",
+            edits: &[(r#".includes(k)"#, r#".includes(k[0])"#)],
+            states: "NN",
+            refusals: &[],
+        },
+    ];
+    run("map bare parameter", &map, &cases);
+}
+
 /// A filter callback that removes reserved names is recognised in the shapes a predicate can take.
 #[test]
 fn pipeline_callbacks() {

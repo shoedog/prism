@@ -301,9 +301,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             method == "includes"
                 && self.literal_block(receiver, 0)
                 && self.args::<1>(call).is_some_and(|[value]| {
-                    self.analysis
-                        .read(value)
-                        .and_then(|read| read.binding.as_ref())
+                    self.bare_read(value).and_then(|read| read.binding.as_ref())
                         == Some(&AstSpan::from(param))
                 })
         })

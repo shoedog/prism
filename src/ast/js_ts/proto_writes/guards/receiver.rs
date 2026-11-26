@@ -260,7 +260,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         {
             return false;
         }
-        let Some(read) = self.analysis.read(left) else {
+        let Some(read) = self.bare_read(left) else {
             return false;
         };
         if read.binding.as_ref() == Some(&binding)

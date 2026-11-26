@@ -135,3 +135,31 @@ fn private_brand_premises() {
     ];
     run("private_brand_premises", &base, &cases);
 }
+
+/// A one-step receiver identity check must compare the BARE receiver variable:
+/// `o.tag === Object.prototype` tests a property, so it excludes nothing.
+#[test]
+fn one_identity_compares_the_bare_receiver() {
+    let base = witness("g29.js");
+    let cases = [
+        Case {
+            label: "ctl",
+            edits: &[],
+            states: "PP",
+            refusals: &[("incomplete_coverage", 2)],
+        },
+        Case {
+            label: "neg member of the receiver",
+            edits: &[("o === Object.prototype", "o.tag === Object.prototype")],
+            states: "NN",
+            refusals: &[],
+        },
+        Case {
+            label: "neg index of the receiver",
+            edits: &[("o === Object.prototype", "o[0] === Object.prototype")],
+            states: "NN",
+            refusals: &[],
+        },
+    ];
+    run("one_identity bare receiver", &base, &cases);
+}

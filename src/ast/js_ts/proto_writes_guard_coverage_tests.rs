@@ -62,9 +62,17 @@ pub(super) fn erased(name: &str) -> String {
 }
 
 /// `control` must keep a sufficient fact; a `neg` case must not, a `pos`
-/// case must. With `PP_PROBE` set, the observed rows are printed instead.
+/// case must.
 pub(super) fn run(family: &str, base: &str, cases: &[Case]) {
-    let probing = std::env::var_os("PP_PROBE").is_some();
+    run_in(&LANGUAGES, family, base, cases);
+}
+
+/// The TypeScript grammars only: for syntax JavaScript cannot parse.
+pub(super) fn run_ts(family: &str, base: &str, cases: &[Case]) {
+    run_in(&LANGUAGES[1..], family, base, cases);
+}
+
+fn run_in(languages: &[(&str, Language)], family: &str, base: &str, cases: &[Case]) {
     for case in cases {
         let mut source = base.to_owned();
         for (before, after) in case.edits {
@@ -75,14 +83,8 @@ pub(super) fn run(family: &str, base: &str, cases: &[Case]) {
             );
             source = source.replacen(before, after, 1);
         }
-        for (ext, language) in LANGUAGES {
+        for &(ext, language) in languages {
             let (states, refusals) = observe(&source, ext, language);
-            if probing {
-                if ext == "js" {
-                    eprintln!("PROBE\t{family}|{}\t{states}\t{refusals:?}", case.label);
-                }
-                continue;
-            }
             let at = format!("{family}/{} [{ext}]\n{source}", case.label);
             let sufficient = states.contains('S');
             match case.label.split(' ').next().unwrap() {

@@ -234,6 +234,11 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             params
         };
         let param = if param.kind() == "required_parameter" {
+            // A TypeScript default (`key = "draft"`) is an `assignment_pattern`
+            // in JavaScript and is refused there; refuse it here as well.
+            if field(param, "value").is_some() {
+                return None;
+            }
             field(param, "pattern")?
         } else {
             param
@@ -245,10 +250,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
     /// and erased wrappers): a member, index or call over it says nothing about
     /// the value the caller passes.
     fn parameter_use(&self, value: Node<'a>, param: Node<'a>) -> bool {
-        if !identifier(peel(value)) {
-            return false;
-        }
-        let Some(read) = self.analysis.read(value) else {
+        let Some(read) = self.bare_read(value) else {
             return false;
         };
         read.binding.as_ref() == Some(&AstSpan::from(param))
