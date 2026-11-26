@@ -54,7 +54,7 @@ guard's SHA-256, the SHA-256 of the host-quiet helper beside it (null when absen
 `assume-unchanged` or `skip-worktree` index flags hide from `git status` (working kit
 files are compared with the recorded commit's blobs). The guard and its helper
 are rechecked before each launch and after the last command; a change fails the
-run (exit 4) with a retained failed receipt. The guard must be a readable
+run (exit 4); once an analysis has launched the failed receipt is retained, before that there is none. The guard must be a readable
 executable regular file. If a command changes or deletes an artifact after
 capture, the failed receipt lists `artifact_drift` entries with the captured and
 retained digests (retained is null when the file is gone) and publishes the
