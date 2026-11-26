@@ -248,6 +248,45 @@ class LoaderInventoryTests(unittest.TestCase):
         wrong = dict(old, path=dict(base="t", fields=[]))
         self.assertIsNone(parent_route("U4", [w, r, feed, new, wrong], [(feed, new)] + route))
 
+    def test_a_method_call_right_hand_side_is_uncertified_even_with_its_receiver_use(self):
+        """`d["new"] = t.old()`: the graph holds the receiver `t` Use, not the `t.old` Use: unknown, not False."""
+        src = b'def f(d, t):\n    d["new"] = t.old()\n    return d\n'
+        w = var("a.py", "f", 1, src, "def", b'd["new"]', ("d", "[]"))
+        r = var("a.py", "f", 1, src, "use", b"return d", ("d",), b"d")
+        feed = var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t")
+        recv = var("a.py", "f", 1, src, "use", b"t.old()", ("t",), b"t")
+        for corpus, edges in (("V1", [(feed, recv)]), ("V2", [(feed, recv), (feed, r)])):
+            pair, = predictions(rows_of(self.fresh_run(corpus, {"a.py": src}, [w, r, feed, recv], edges)))
+            self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", None), corpus)
+
+    def test_only_names_attribute_chains_literals_and_operators_certify_a_right_hand_side(self):
+        for n, rhs in enumerate((b"t[0]", b"f(t)", b"g()", b"[x for x in t]", b"(lambda: t)", b"f'{t}'",
+                                 b"[*t]", b"(y := t)", b"t if d else 1", b"{1: t}", b"~t[0]")):
+            with self.subTest(rhs=rhs):
+                src = b'def f(d, t):\n    d["k"] = ' + rhs + b'\n    return d\n'
+                w = var("a.py", "f", 1, src, "def", b'd["k"]', ("d", "[]"))
+                r = var("a.py", "f", 1, src, "use", b"return d", ("d",), b"d")
+                feed = var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t")
+                uses = [var("a.py", "f", 1, src, "use", b"= " + rhs, ("t",), b"t")] if b"t" in rhs else []
+                run = self.fresh_run(f"W{n}", {"a.py": src}, [w, r, feed, *uses], [(feed, u) for u in uses])
+                pair, = predictions(rows_of(run))
+                self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", None))
+
+    def test_a_plain_chain_expression_is_certified_with_and_without_a_route(self):
+        src = b'def f(d, t):\n    d["k"] = -t.new + t.old * 2 < 3 and t.new\n    return d\n'
+        w = var("a.py", "f", 1, src, "def", b'd["k"]', ("d", "[]"))
+        r = var("a.py", "f", 1, src, "use", b"return d", ("d",), b"d")
+        feed = var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t")
+        n1 = var("a.py", "f", 1, src, "use", b"-t.new +", ("t", "new"), b"t.new")
+        o = var("a.py", "f", 1, src, "use", b"+ t.old *", ("t", "old"), b"t.old")
+        n2 = var("a.py", "f", 1, src, "use", b"and t.new", ("t", "new"), b"t.new")
+        nodes = [w, r, feed, n1, o, n2]
+        base = [(feed, n1), (feed, o), (feed, n2)]
+        pair, = predictions(rows_of(self.fresh_run("C1", {"a.py": src}, nodes, base)))
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", False))
+        pair, = predictions(rows_of(self.fresh_run("C2", {"a.py": src}, nodes, base + [(feed, r)])))
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", True))
+
     def test_source_hash_must_match_the_loader_manifest(self):
         run = self.run_of(nodes=list(standard_nodes()))
         (Path(self.dir.name) / "repo-P1" / "a.py").write_bytes(SRC + b"# edited\n")

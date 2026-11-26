@@ -33,7 +33,7 @@ fn identity_line(path: &Path) -> Result<String, String> {
 /// verification job sets `PRISM_DIAG_REQUIRE=1`), where a missing or unusable binary is an error
 /// and the binary must also print a `slicing` identity line for `--version` (printed, so the
 /// run records which build it exercised). `expect_sha` (`PRISM_DIAG_EXPECT_SHA`) applies in required
-/// mode only: the identity in the line's parentheses must contain it.
+/// mode only: it must be 7 or more hex digits and a prefix of the identity in the line's parentheses.
 fn resolve_binary(
     bin: Option<std::ffi::OsString>,
     require: bool,
@@ -56,9 +56,14 @@ fn resolve_binary(
                 .rsplit_once('(')
                 .and_then(|(_, rest)| rest.strip_suffix(')'))
                 .unwrap_or("");
-            if sha.is_empty() || !identity.contains(sha) {
+            if sha.len() < 7 || !sha.bytes().all(|b| b.is_ascii_hexdigit()) {
                 return Err(format!(
-                    "PRISM_DIAG_EXPECT_SHA {sha:?} is not in the binary's identity {line:?}"
+                    "PRISM_DIAG_EXPECT_SHA {sha:?} is not 7 or more hex digits"
+                ));
+            }
+            if !identity.starts_with(&sha.to_ascii_lowercase()) {
+                return Err(format!(
+                    "PRISM_DIAG_EXPECT_SHA {sha:?} is not a prefix of the binary's identity {line:?}"
                 ));
             }
         }
@@ -143,6 +148,15 @@ fn required_mode_checks_the_expected_sha_against_the_identity() {
     assert!(run(true, Some("fedcba987654")).is_err());
     assert!(run(true, Some("")).is_err());
     assert!(run(true, Some("4.0.0")).is_err());
+    // an interior substring of the identity is not a prefix; too short or non-hex is refused outright
+    assert!(run(true, Some("1234567")).is_err());
+    assert!(run(true, Some("456789ab")).is_err());
+    assert!(run(true, Some("012345")).is_err());
+    assert!(run(true, Some("0123456789abz")).is_err());
+    // the identity `1e9265fd6547` is not matched by its interior `e9265fd`
+    std::fs::write(&path, "#!/bin/sh\necho 'slicing 4.0.0 (1e9265fd6547)'\n").unwrap();
+    assert!(run(true, Some("e9265fd")).is_err());
+    assert_eq!(run(true, Some("1e9265fd")), Ok(Some(path.clone())));
     // unset: the identity line alone is the gate
     assert_eq!(run(true, None), Ok(Some(path.clone())));
     // not required: the variable is ignored

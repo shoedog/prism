@@ -13,7 +13,11 @@ sampling with a hash order that any reader reproduces from the keys.
 
 Judgments: one JSON row per drawn key, `{key, verdict, witnessed, prepared_sha256}`, `verdict` one of
 `valid`, `invalid`, `stale`, `unknown`; a row whose `prepared_sha256` is not the draw's is stale. The key set
-must be exactly the draw's. A pair is witnessed when `witnessed` is true and its verdict is `valid`.
+must be exactly the draw's. `witnessed` must be a strict boolean (any other value refuses the file) and may be
+true only on a `valid` verdict (a witness for a pair judged otherwise contradicts it: refused). A pair is
+witnessed when `witnessed` is true and its verdict is `valid`. The core, the exhaustive family and the roles
+are all scored on the WITNESSED fraction, never on `valid` verdicts: a judgment of `valid` that no witness
+backs counts against precision.
 """
 
 import json
@@ -82,10 +86,14 @@ def evaluate(draw, rows):
                              (("extra", extra), ("missing", missing), ("duplicated", duplicated)) if group))
     verdict = {}
     for row in rows:
+        if not isinstance(row.get("witnessed"), bool):
+            raise ValueError(f"judgment {row['key']}: witnessed {row.get('witnessed')!r} is not a boolean")
         v = "stale" if row.get("prepared_sha256") != draw["prepared_sha256"] else row.get("verdict")
         if v not in VERDICTS:
             raise ValueError(f"judgment {row['key']}: verdict {v!r} is not one of {VERDICTS}")
-        verdict[row["key"]] = (v, bool(row.get("witnessed")) and v == "valid")
+        if row["witnessed"] and row.get("verdict") != "valid":
+            raise ValueError(f"judgment {row['key']}: witnessed is true but the verdict is {row.get('verdict')!r}")
+        verdict[row["key"]] = (v, row["witnessed"] and v == "valid")
     core = set(draw["core"])
     roles = {r: dict(n=0, witnessed=0) for r in sorted(set(keys.values()))}
     for key, role in keys.items():
@@ -95,8 +103,10 @@ def evaluate(draw, rows):
     body = dict(schema=PRECISION_SCHEMA, prepared_sha256=draw["prepared_sha256"], population=draw["population"],
                 n=len(keys), valid=count["valid"], invalid=count["invalid"], stale=count["stale"],
                 unknown=count["unknown"], exhaustive=draw["exhaustive"],
-                core=dict(n=len(core), valid=sum(verdict[k][0] == "valid" for k in core)), roles=roles)
-    body["wilson_core"] = round(wilson_lower(body["core"]["valid"], body["core"]["n"]), 6)
+                core=dict(n=len(core), valid=sum(verdict[k][0] == "valid" for k in core),
+                          witnessed=sum(verdict[k][1] for k in core)), roles=roles,
+                witnessed=sum(w for _, w in verdict.values()))
+    body["wilson_core"] = round(wilson_lower(body["core"]["witnessed"], body["core"]["n"]), 6)
     return body, thresholds(body)
 
 
@@ -109,10 +119,10 @@ def thresholds(body):
         if body[what]:
             out.append(f"precision draw has {body[what]} {what} judgments (any {what} fails)")
     if body["exhaustive"]:
-        if body["valid"] != n:
-            out.append(f"exhaustive family: {body['valid']}/{n} judgments valid, every one must be")
-    elif wilson_lower(body["core"]["valid"], body["core"]["n"]) < FLOOR:
-        out.append(f"Wilson lower bound {body['wilson_core']:.4f} of the core's {body['core']['valid']}/"
+        if body["witnessed"] != n:
+            out.append(f"exhaustive family: {body['witnessed']}/{n} judgments witnessed, every one must be")
+    elif wilson_lower(body["core"]["witnessed"], body["core"]["n"]) < FLOOR:
+        out.append(f"Wilson lower bound {body['wilson_core']:.4f} of the core's {body['core']['witnessed']}/"
                    f"{body['core']['n']} is below {FLOOR}")
     for role, row in sorted(body["roles"].items()):
         need = max(1, row["n"] - max(1, row["n"] // 10))

@@ -661,13 +661,14 @@ class AdmissionTests(unittest.TestCase):
             "stale in the draw": (dict(verdict=lambda k, r: "stale" if k == core[0] else "valid"), "stale"),
             "unknown in the draw": (dict(verdict=lambda k, r: "unknown" if k == core[0] else "valid"), "unknown"),
             "role short": (dict(witnessed=lambda k: k not in set(core[:11])), "role return"),
+            "valid but only 90 of 100 witnessed": (dict(witnessed=lambda k: k not in set(core[:10])), "Wilson"),
             "role counts forged": (dict(roles={"return": dict(n=3)}), "recomputation"),
         }
         for name, (receipt, needle) in cases.items():
             with self.subTest(name):
                 self.blocked_by(w, receipt, needle)
         with self.subTest("passes"), mock.patch.object(ad, "GATE", 1):
-            for good in (dict(), dict(verdict=first_k(set(core[:6]))), dict(witnessed=lambda k: k not in set(core[:10]))):
+            for good in (dict(), dict(verdict=first_k(set(core[:6]))), dict(witnessed=lambda k: k not in set(core[:5]))):
                 code, out, _ = w.report(precision=w.precision(**good))
                 self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
         with self.subTest("exhaustive family needs every judgment valid"):

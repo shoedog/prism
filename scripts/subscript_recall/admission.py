@@ -480,7 +480,7 @@ def make_precision(a):
     receipt, problems = precision.score(meta, candidates, a.draw, a.judgments)
     Path(a.out).write_text(json.dumps(receipt, indent=1, sort_keys=True) + "\n")
     print(f"precision: {'PASS' if not problems else 'FAIL'}; n={receipt['n']} valid={receipt['valid']} "
-          f"stale={receipt['stale']} unknown={receipt['unknown']} wilson_core={receipt['wilson_core']}")
+          f"witnessed={receipt['witnessed']} stale={receipt['stale']} unknown={receipt['unknown']} wilson_core={receipt['wilson_core']}")
     for p in problems:
         print("  " + p)
     return 1 if problems else 0
@@ -555,6 +555,8 @@ def report(a):
         reasons += [receipt_problem] if receipt_problem else precision.verify(receipt, meta, candidates, Path(a.precision).resolve().parent)
     blocked = bool(reasons)
     print(f"I2: {'BLOCKED by ' + '; '.join(reasons) if blocked else 'ADMITTED' if verdict == 'PASS' else 'NOT ADMITTED'}")
+    print("  precision population = A-credit candidates (CHOICE: section 7 may require all agreed survivors; "
+          "owner/design decision pending)")
     return 2 if verdict == "INVALID" else 4 if blocked else {"PASS": 0, "STOP": 1}[verdict]
 
 

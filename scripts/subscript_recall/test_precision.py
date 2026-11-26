@@ -147,6 +147,55 @@ class PrecisionTests(unittest.TestCase):
         self.assertIn("role assign_rhs", out)
         self.assertIn("unknown", out)
 
+    def test_core_precision_counts_the_witnessed_fraction_not_valid_verdicts(self):
+        """100 `valid` core judgments with 90 witnessed: Wilson(90/100) = 0.826 < .85 fails."""
+        d, _ = self.prepared({"return": 300})
+        draw_path, draw = self.draw(d)
+        core = sorted(draw["core"])
+        rows = [dict(key=k, verdict="valid", witnessed=k not in set(core[:10]), prepared_sha256=PREPARED_SHA)
+                for k in sorted(draw["keys"])]
+        path = self.root / "w90.jsonl"
+        path.write_text("".join(ad.dump(r) + "\n" for r in rows))
+        code, out, _ = self.precision(d, draw_path, path)
+        self.assertEqual(code, 1, out)
+        self.assertIn("Wilson", out)
+        receipt = json.loads((self.root / "precision.json").read_text())
+        self.assertEqual((receipt["core"]["valid"], receipt["core"]["witnessed"]), (100, 90))
+        # control: 95 of 100 witnessed clears the floor
+        rows = [dict(r, witnessed=r["key"] not in set(core[:5])) for r in rows]
+        path.write_text("".join(ad.dump(r) + "\n" for r in rows))
+        self.assertEqual(self.precision(d, draw_path, path)[0], 0)
+
+    def test_an_exhaustive_family_needs_every_pair_witnessed_not_just_valid(self):
+        d, _ = self.prepared({"return": 5})
+        draw_path, draw = self.draw(d)
+        first = sorted(draw["keys"])[0]
+        rows = [dict(key=k, verdict="valid", witnessed=k != first, prepared_sha256=PREPARED_SHA)
+                for k in sorted(draw["keys"])]
+        path = self.root / "ex.jsonl"
+        path.write_text("".join(ad.dump(r) + "\n" for r in rows))
+        code, out, _ = self.precision(d, draw_path, path)
+        self.assertEqual(code, 1, out)
+        self.assertIn("4/5 judgments witnessed", out)
+
+    def test_witnessed_must_be_a_strict_boolean_and_agree_with_the_verdict(self):
+        d, _ = self.prepared({"return": 5})
+        draw_path, draw = self.draw(d)
+        first = sorted(draw["keys"])[0]
+        for name, change in (("string", dict(witnessed="true")), ("int", dict(witnessed=1)),
+                             ("missing", dict(witnessed=None)),
+                             ("witness for an invalid verdict", dict(verdict="invalid", witnessed=True))):
+            with self.subTest(name):
+                rows = [dict(key=k, verdict="valid", witnessed=True, prepared_sha256=PREPARED_SHA)
+                        for k in sorted(draw["keys"])]
+                rows[0] = dict(rows[0], **change)
+                assert rows[0]["key"] == first
+                path = self.root / "bad.jsonl"
+                path.write_text("".join(ad.dump(r) + "\n" for r in rows))
+                code, _, err = self.precision(d, draw_path, path)
+                self.assertEqual(code, 3, err)
+                self.assertTrue("witnessed" in err, err)
+
     def test_judgments_outside_the_draw_are_refused(self):
         """The round-3 repro: 22 all-return judgments cannot stand in for the 100-pair draw."""
         d, _ = self.prepared({"return": 1100, "arg": 100, "assign_rhs": 50})
