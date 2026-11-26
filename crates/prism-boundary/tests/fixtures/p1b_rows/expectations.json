@@ -362,7 +362,7 @@
     {"fixture": "assertion.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"|schema_dialect_unchecked": 1}}}}}, "fields": [], "observed": ["field:resp:POST /probe:200#/x"]}
   ]},
   "s11": {"case": "Typed enum members intersect without scalar coercion", "inputs": [
-    {"fixture": "typed.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:resp:POST /probe:200#/x"], "observed": [], "shapes": {"field:resp:POST /probe:200#/x": {"enum": ["1", true, null, {"number": "1"}]}}},
+    {"fixture": "typed.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:resp:POST /probe:200#/x"], "observed": [], "shapes": {"field:resp:POST /probe:200#/x": {"enum": ["1", null, true, {"number": "1"}]}}},
     {"fixture": "disjoint.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}, "feasible": false}}}}, "fields": [], "observed": []},
     {"fixture": "supported.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:resp:POST /probe:200#/x"], "observed": []}
   ]},
