@@ -95,7 +95,7 @@ module and the requested *member* in it. Validate the export's reaching value an
 local export specifiers, direct module.exports and its own properties, observing replacement/detachment of exports.
 A second ES/CJS module forwarding the value, a star import, an ambiguous export or a shadowed require supplies no
 proof. For Python module members, apply the static import proof in §5.3, including syntactically established
-package hops. A terminal import of a router or callable from another module is an unsupported re-export. If an
+package hops. A terminal binding that gets its router or callable from another module is an unsupported re-export. If an
 unproved value controls a conditional mount, retain the syntactic unproven mount unless the condition is
 independently decidable (es1-06). Do not use a file basename as an owner. An initializer declaring a router
 differs from one re-exporting it (cx02, es1-15).
@@ -132,7 +132,7 @@ Go selector values see 5.6.
 `receiver_unproven imported_unproven mount_child_unproven table_consumer_unproven no_known_mount variable_prefix
 non_literal_path regex_path mount_cycle expansion_truncated`,
 `getattr_module star_import global_write multi_write nested_single submodule_shadow module_descriptor_name`
-(Python import diagnostics),
+(Python import diagnostics), `no_effect_body` (Python callee check),
 `callback_unproven member_handler wrapper_call inner_decorator class_view anonymous_unindexed spread_callback handler_object`,
 `method_value_receiver_unproven method_value_receiver_shadowed method_value_method_unproven method_value_interface
 method_value_external func_field_value qualified_function_value method_expression`,
@@ -295,38 +295,55 @@ Require one eligible in-repo source module. Resolve the `P.N` module path in `fr
 through import syntax. Python loads that module without reading `P.N` as a package attribute. Apply
 the hop predicates only where the capture reads a package member, including `import P.N as r`,
 qualified access such as `P.N.x`, and selection of `N` in `from P import N`. Apply the terminal
-predicates to the captured member `x`. The import-machinery veto also checks source initializers on
-the module path.
+predicates to the captured member `x`. Resolve a relative import from the capturing file's source
+package.
 
 Each attribute-path hop needs a syntactically established binding. A child-naming import
 (`import P.N`, `import P.N as r`, or `from P import N` when it imports the child) must occur in
 the capture's own lexical scope in the capture module, at or before the capture in that scope's
 source text. The dotted aliased import itself supplies that evidence for its attribute reads.
 `from P import N` imports the child under this rule when an eligible child exists, `P` has no
-lexical value write to `N`, and `P` has no module-scope `__getattr__` binding. A lexical binding
+lexical value write to `N`, and `P` has no explicit lexical module-scope `__getattr__` binding. A lexical binding
 of `N` in the package initializer, by import, definition or assignment, also establishes a member.
 Follow it as a module only when the syntax identifies an eligible module, including an explicit
 initializer alias such as `from . import real as routes`. The initializer's `from . import N`
 is the explicit same-child binding in predicate 6. An empty initializer and `import P` leave
 `P.N.x` unproved even if `P/N.py` exists or an unrelated module imports `P.N`. Keep the lexical
 alias and shadow checks. Refuse a router or callable terminal re-export such as `from pkg import bp`
-when the initializer obtains `bp` via `from .base import bp`. Recognized native Flask imports
-continue to supply `Flask`, `Blueprint`, `View` and `MethodView` under the existing framework checks.
+when the initializer obtains `bp` via `from .base import bp`. A terminal assignment alias whose
+reaching value comes from an import from another module is also a re-export, for example
+`from .base import bp as _bp; bp = _bp` (fk-80). An alias in the capturing scope can still name a
+directly imported declaration. Recognized native Flask imports continue to supply `Flask`,
+`Blueprint`, `View` and `MethodView` under the existing framework checks.
 
 Require one unconditional eligible terminal binding. Use Python's NFKC-normalised identifiers as
-binding and predicate keys. Keep original UTF-8 byte spans and spellings in diagnostics. Apply
+binding and predicate keys. NFKC-normalise module-path and hop segments in the source text and
+match the resulting keys byte-for-byte against filesystem candidate names (fk-74–75).
+Keep original UTF-8 byte spans and spellings in diagnostics. Apply
 the following predicates in order across the terminal and applicable attribute-path hops.
 
-1. `getattr_module` applies to any module-scope lexical binding of `__getattr__`, conditional
-   or unconditional. Count imports (including aliases), defs, classes, assignment targets
-   including tuples, `for`, `with`, `except` and `except*` targets, match captures and walrus
-   targets. A binding through `global __getattr__` in a nested scope also counts. A nested
-   scope's own local binding or an unwritten `global` declaration does not trigger the veto.
+1. `getattr_module` applies to any explicit module-scope lexical binding of `__getattr__`,
+   conditional or unconditional. Count named imports and aliases that bind that spelling,
+   defs, classes, `type __getattr__` statements, assignment targets including tuples, `for`,
+   `with`, `except` and `except*` targets, match captures and walrus targets. A binding through
+   `global __getattr__` in a nested scope also counts. A nested scope's own local binding or an
+   unwritten `global` declaration does not trigger the veto. A wildcard-supplied hook is a
+   `KNOWN_LIMIT` (fk-72 and fk-c72). Predicate 2 still checks whether the star could supply the
+   captured member itself.
 2. `star_import` applies when a wildcard import could supply the name, including an unknown source or export set.
-3. `global_write` applies when a class or function body writes the module name through `global`.
-   An ordinary class attribute binds in the class namespace.
-4. `multi_write` applies to competing lexical binding or deletion sites across the defining module,
-   including later writes, imports, `del`, `match` captures, `for` targets, `with ... as`,
+3. `global_write` applies when a class or function body writes a module binding through
+   `global`. Use the effective identifier after NFKC and Python's class-private mangling for
+   both `global_write` and the write keys of `multi_write`. Within an enclosing class's lexical
+   context, including its methods, a name with at least two leading underscores and fewer
+   than two trailing underscores gets the class name as a prefix. Strip the class name's leading underscores
+   and prepend one underscore. An all-underscore class leaves the name as written, and a
+   nested class supplies its own prefix. All five pinned CPython versions (3.9.6, 3.11.15,
+   3.12.13, 3.13.13 and 3.14.4) disassemble `global __f` followed by `def __f` in
+   `class Install` to `STORE_GLOBAL _Install__f` (fk-69–70). An ordinary class attribute binds
+   in the class namespace. [Python's private-name mangling rules](https://docs.python.org/3.12/reference/expressions.html#private-name-mangling)
+4. `multi_write` applies to competing lexical binding or deletion sites for the same effective
+   module name, including later writes, writes through `global`, imports, `del`, `match` captures,
+   `for` targets, `with ... as`,
    `except ... as`, `except* ... as`, walrus writes to the enclosing scope and Python 3.12
    `type` statement names (including generic aliases). Count an annotated assignment with a
    value as a write. An annotation without a value (`f: object`) writes no value and can still
@@ -345,10 +362,6 @@ the following predicates in order across the terminal and applicable attribute-p
    def. On 3.11+ a repeated qualified lookup may return the def after specialization. The veto
    applies in both cases. The tested `__annotations__` and `__annotate__` lookups preserve an
    explicit declaration, including on versions exposing the corresponding descriptors.
-8. `import_dunder` applies to a module-scope lexical write to `__path__`, `__name__`, `__spec__`,
-   `__package__` or `__loader__`, including a nested write directed there through `global`.
-   This spelling veto covers the terminal module, packages read at attribute hops and source
-   initializers on an import module path. It does not simulate native import machinery.
 
 Keep the existing decorator transparency checks. Flask accepts a proved `@bp.get('/a')` (fk-c10).
 For the following stack, keep the admitted route and mark its written callback unresolved with
@@ -373,8 +386,10 @@ capture span. Use the imported name before `as` for a bare from-import and the f
 a qualified capture. For a refused no-effect callee, emit once at each distinct whole-call span
 (fk-65). Emit the diagnostic even when Flask drops a site for lack of a receiver hint. An unsupported
 form with no counted predicate, including an unestablished child hop or terminal re-export, keeps
-only its role-specific refusal. The estimator records `unestablished_hop` and `terminal_reexport`
-as separate site outcomes.
+only its role-specific refusal. Use `mount_child_unproven` for a mount child and
+`imported_unproven` for an imported receiver or view retained by the adapter. For an unsupported
+imported callee, the no-effect exemption is unavailable and dependent fields are withheld.
+`unestablished_hop` and `terminal_reexport` name census outcomes only.
 
 During escape indexing, keep possible targets when an import proof fails and withhold their
 view-derived metadata if the escape cannot be cleared. In fk-34, the helper captures and mutates
@@ -395,8 +410,16 @@ at `56a9a0d4`, `setup.unused = _mut` invalidated the entire module for the no-ef
 For these Python imports, out-of-model behavior includes runtime module-object mutation (reflective
 writes and direct attribute stores, `globals()`, `vars()`, `setattr` and `__dict__` stores,
 `importlib.reload`, `sys.modules` replacement (fk-66) and `exec`), dynamic lookup without a
-lexical module `__getattr__` binding, dynamic import machinery changes and non-source children,
-initialization order and timing, and native descriptor precedence. The closed descriptor veto
+explicit lexical module `__getattr__` binding, dynamic import machinery changes and non-source
+children, initialization order and timing, and native descriptor precedence. The controller withdrew
+the import-machinery veto after the rule produced three of the four distinct material findings in
+review round 2. The five attributes `__path__`, `__name__`, `__spec__`, `__package__` and
+`__loader__` are inputs to runtime import machinery. Static name binding follows the source import path.
+Module-scope lexical writes to these attributes, including writes through `global`, are out of model
+in the terminal module, hop packages, source initializers and the capturing module. Mutations such
+as `__path__.insert(...)`, `__path__.append(...)` and `__path__[:] = ...` are also out of model.
+A wildcard import can supply one of these attributes or install a `__getattr__` hook through its
+export set. Pins fk-68, fk-c68, fk-71–73 and fk-76–77 record these import boundaries. The closed descriptor veto
 is a conservative belt based on source spelling. Supported view and router escape checks and
 explicit view metadata writes remain part of the setup model. The [Stage D pins](STAGE-D-ROWS.md#python-router-and-view-value-boundary)
 record emitted fields beside native observations. Each `KNOWN_LIMIT` pin makes no claim about
@@ -788,8 +811,8 @@ The frozen populations, binding floors and ledger dispositions above govern each
   R and M denote registrations and mounts. For the frameworks and Superset, the source screen
   excludes 1,545 client-like sites from 3,503 scanner sites. The scanner excludes 413 Superset mock
   decorators before that site count. The five-app denominator includes all 340 scanner sites.
-  Site keys and import-reached keys match the preceding rerun. The columns are exclusive, with
-  the first counted reason taking precedence.
+  Review round 2 reproduced the preceding site keys, import-reached keys and cost table.
+  The columns are exclusive, with the first counted reason taking precedence.
 
   | Framework or corpus | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | Former rule flagged R / M |
   |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -809,10 +832,9 @@ The frozen populations, binding floors and ledger dispositions above govern each
 
   Every first-reason count and pairwise overlap is zero for both populations and both site kinds
   (`getattr_module`, `star_import`, `global_write`, `multi_write`, `nested_single`, `submodule_shadow`,
-  `module_descriptor_name` and `import_dunder`). Other unresolved cases among the import-reached sites
-  are also zero. The lexical import-machinery veto adds zero flags. Skipping the attribute-hop
-  predicates on the module path of a from-import removes 18 check entries in the frameworks and
-  Superset and 157 in the apps, with zero change to site classifications or counts.
+  `module_descriptor_name`). Other unresolved cases among the import-reached sites are also zero.
+  Review round 1 measured 18 framework/Superset and 157 app check entries removed by skipping
+  attribute-hop predicates on a from-import's module path, with the same site classifications.
 
   The withdrawn rule flagged 9 of 15 import-reached sites across the frameworks and Superset
   (9 of 1,958 source-screened sites). The former mutation check was first on three mounts and the
@@ -822,18 +844,18 @@ The frozen populations, binding floors and ledger dispositions above govern each
   the former initialization check overlapped at 99. The application flags came from `setattr`
   on ordinary objects or `exec` on private dictionaries.
 
-  This fold raises the estimator's refusal count in the apps from zero to 17. All 17 are Redash
-  registrations that import the Blueprint through a terminal re-export. Redash now has four
-  import-reached registrations and one mount with no counted predicate flagged for the site.
-  One follow-up worth measuring is admitting one explicit terminal re-export hop, given the
-  17 Redash registrations affected. The current rule refuses the hop.
+  The estimator still records 17 role-only refusals, all Redash registrations that import the
+  Blueprint through a terminal re-export. Redash has four import-reached registrations and one mount
+  with no counted predicate flagged. A follow-up could measure one terminal re-export hop, including
+  assignment aliases of imported values.
 
   The scanner estimates flags from Tree-sitter syntax. Its lexical inventory now normalises
-  NFKC identifiers, distinguishes annotation-only declarations from value writes, counts Python 3.12
-  type statements and screens lexical import-machinery dunders. It preserves raw source text.
-  It can skip opaque ordinary verb calls, computed or subscripted roots, splatted arguments and
-  module-valued assignments it cannot trace. It flags explicit terminal imports without tracing
-  re-exported objects, uses source-only module candidates and does not model transitive wildcard
+  NFKC identifiers, uses effective class-private keys for global writes, distinguishes annotation-only
+  declarations from value writes and counts Python 3.12 type statements. It preserves raw source text
+  and records lexical import-machinery writes as informational evidence. It can skip opaque ordinary
+  verb calls, computed or subscripted roots, splatted arguments and module-valued assignments it cannot
+  trace. It flags explicit terminal imports and simple assignment aliases rooted in a reaching import,
+  uses source-only module candidates and does not model transitive wildcard
   exports, arbitrary import lookup, dynamic hooks, reflective writes, or runtime branch and
   initialization order. Static hook bindings are screened by name. The wildcard screen is broader
   than the rule when a known export set excludes the name. Imported no-effect callees, decorator and
