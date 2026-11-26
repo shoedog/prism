@@ -89,6 +89,14 @@ impl SchemaError {
     }
 }
 
+pub(crate) fn parse_json(bytes: &[u8]) -> serde_json::Result<references::Parsed> {
+    references::parse_json(bytes)
+}
+
+pub(crate) fn supported_retrieval_uri(uri: &str) -> bool {
+    servers::Uri::absolute(uri).is_some()
+}
+
 impl fmt::Display for SchemaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.code())?;

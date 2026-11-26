@@ -97,7 +97,8 @@ fn serialize_bindings(case: &Case<'_>, mut input: Value) -> Value {
         input["schema"]["content_hash"] = Value::Null;
         input["schema"]["info_version"] = Value::Null;
     }
-    let mut doc: BindingsDocument = serde_json::from_value(input).expect("typed bindings input");
+    let mut doc: BindingsDocument = serde_json::from_value(input)
+        .unwrap_or_else(|error| panic!("{} bindings DTO: {error}", case.id));
     if let Some(inventory) = &inventory {
         if case.id == "B04" && case.data["name"] == "file" {
             assert_eq!(
@@ -137,7 +138,8 @@ fn serialize_impact(case: &Case<'_>, mut input: Value) -> Value {
     if case.flag("derive_counts") {
         return usage_counts(input);
     }
-    let mut doc: ImpactDocument = serde_json::from_value(input).expect("typed impact input");
+    let mut doc: ImpactDocument = serde_json::from_value(input)
+        .unwrap_or_else(|error| panic!("{} impact DTO: {error}", case.id));
     if let Some((before, after)) = &diff_inputs {
         let diff = diff_schemas(before, after).expect("admitted diff fixture");
         if case.id == "B24" {
@@ -327,7 +329,10 @@ pub fn decode(case: &Case<'_>) -> Result<(), String> {
             None => serde_json::to_vec(&input).unwrap(),
         }
     };
-    let actual = if expected["document"] == "impact" {
+    let document = expected["document"]
+        .as_str()
+        .or_else(|| case.data["document"].as_str());
+    let actual = if document == Some("impact") {
         ImpactDocument::from_json(&bytes).map(|doc| !doc.report_id.is_empty())
     } else {
         BindingsDocument::from_json(&bytes).map(|doc| doc.input.is_some())

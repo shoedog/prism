@@ -282,7 +282,7 @@
         "mutate_bytes": {"id": "media", "patches": [{"path": "/0/api", "value": "other-api"}]},
         "project": {
           "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
-          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp"],
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
@@ -295,7 +295,7 @@
         "mutate_bytes": {"id": "media", "patches": [{"path": "/0/producer_tree", "value": "other-tree"}]},
         "project": {
           "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
-          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp"],
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
@@ -308,7 +308,7 @@
         "mutate_bytes": {"id": "media", "patches": [{"path": "/0/schema_blob", "value": "other-blob"}]},
         "project": {
           "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
-          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp"],
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
@@ -321,7 +321,7 @@
         "mutate_bytes": {"id": "media", "patches": [{"path": "/0/direction", "value": "request"}]},
         "project": {
           "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
-          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp"],
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
@@ -334,7 +334,7 @@
         "mutate_bytes": {"id": "media", "patches": [{"path": "/0/status", "value": "201"}]},
         "project": {
           "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
-          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp"],
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
@@ -347,7 +347,7 @@
         "mutate_bytes": {"id": "media", "patches": [{"path": "/0/coverage/paths/0/file", "value": "other-handler.go"}]},
         "project": {
           "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
-          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp"],
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
@@ -360,7 +360,7 @@
         "mutate_bytes": {"id": "media", "patches": [{"path": "/0/media_type", "value": ""}]},
         "project": {
           "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
-          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp"],
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
@@ -373,7 +373,7 @@
         "mutate_bytes": {"id": "media", "patches": [{"path": "/0/media_type", "value": "text/plain"}]},
         "project": {
           "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
-          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp"],
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },

@@ -91,7 +91,7 @@ fn string(value: &str) -> String {
     output
 }
 
-pub(super) fn canonical_number(literal: &str) -> String {
+pub(crate) fn canonical_number(literal: &str) -> String {
     let (mantissa, exponent) = literal.split_once(['e', 'E']).unwrap_or((literal, "0"));
     let (sign, digits) = mantissa
         .strip_prefix('-')

@@ -30,8 +30,7 @@ impl<'a> Snapshot<'a> {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
-#[serde(tag = "snapshot_kind", rename_all = "snake_case")]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SnapshotInput {
     Commit {
         rev: String,
@@ -44,14 +43,136 @@ pub enum SnapshotInput {
         computed_at: String,
         merge_receipt: String,
     },
-    #[serde(other)]
     Unsupported,
+}
+
+impl SnapshotInput {
+    pub(crate) fn identity(&self) -> Option<(&str, Option<&str>)> {
+        match self {
+            Self::Commit { tree, rev, .. } => Some((tree, Some(rev))),
+            Self::ComputedTree { tree, .. } => Some((tree, None)),
+            Self::Unsupported => None,
+        }
+    }
+
+    pub(crate) fn as_snapshot(&self) -> Option<Snapshot<'_>> {
+        Some(match self {
+            Self::Commit {
+                tree,
+                rev,
+                subject,
+                committed_at,
+            } => Snapshot::Commit {
+                tree,
+                commit: rev,
+                subject: subject.as_deref(),
+                committer_date: committed_at.as_deref(),
+            },
+            Self::ComputedTree {
+                tree,
+                computed_at,
+                merge_receipt,
+            } => Snapshot::ComputedTree {
+                tree,
+                computed_at,
+                merge_receipt,
+            },
+            Self::Unsupported => return None,
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for SnapshotInput {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(tag = "snapshot_kind", rename_all = "snake_case")]
+        enum Wire {
+            Commit {
+                tree: String,
+                rev: String,
+                subject: Option<String>,
+                committed_at: Option<String>,
+            },
+            ComputedTree {
+                tree: String,
+                computed_at: String,
+                merge_receipt: String,
+                rev: Option<String>,
+                subject: Option<String>,
+                committed_at: Option<String>,
+            },
+            #[serde(other)]
+            Unsupported,
+        }
+        Ok(match Wire::deserialize(deserializer)? {
+            Wire::Commit {
+                tree,
+                rev,
+                subject,
+                committed_at,
+            } => Self::Commit {
+                tree,
+                rev,
+                subject,
+                committed_at,
+            },
+            Wire::ComputedTree {
+                tree,
+                computed_at,
+                merge_receipt,
+                rev: None,
+                subject: None,
+                committed_at: None,
+            } => Self::ComputedTree {
+                tree,
+                computed_at,
+                merge_receipt,
+            },
+            Wire::ComputedTree { .. } => {
+                return Err(serde::de::Error::custom(
+                    "computed tree carries commit metadata",
+                ))
+            }
+            Wire::Unsupported => Self::Unsupported,
+        })
+    }
 }
 
 impl Serialize for SnapshotInput {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        // P1d RED stub. The computed variant must project three explicit nulls.
-        serializer.serialize_unit()
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(None)?;
+        match self {
+            Self::Commit {
+                tree,
+                rev,
+                subject,
+                committed_at,
+            } => {
+                map.serialize_entry("snapshot_kind", "commit")?;
+                map.serialize_entry("tree", tree)?;
+                map.serialize_entry("rev", rev)?;
+                map.serialize_entry("subject", subject)?;
+                map.serialize_entry("committed_at", committed_at)?;
+            }
+            Self::ComputedTree {
+                tree,
+                computed_at,
+                merge_receipt,
+            } => {
+                map.serialize_entry("snapshot_kind", "computed_tree")?;
+                map.serialize_entry("tree", tree)?;
+                map.serialize_entry("rev", &())?;
+                map.serialize_entry("subject", &())?;
+                map.serialize_entry("committed_at", &())?;
+                map.serialize_entry("computed_at", computed_at)?;
+                map.serialize_entry("merge_receipt", merge_receipt)?;
+            }
+            Self::Unsupported => {
+                return Err(serde::ser::Error::custom("unsupported snapshot kind"))
+            }
+        }
+        map.end()
     }
 }
 

@@ -122,12 +122,15 @@ impl<'a> Side<'a> {
 
     fn standing_limits(&mut self, side: ComparisonSide, ledger: &mut Ledger) {
         let Some(index) = self.bound.schema else {
-            ledger.record(ComparisonLimit::new(
-                side,
-                LimitScope::Schema,
-                ComparisonClaim::Coverage,
-                "schema_unavailable",
-            ));
+            ledger.record(
+                ComparisonLimit::new(
+                    side,
+                    LimitScope::Schema,
+                    ComparisonClaim::Coverage,
+                    "schema_unavailable",
+                )
+                .with_inventory_origin(),
+            );
             return;
         };
         for diagnostic in &index.diagnostics {
@@ -165,7 +168,8 @@ impl<'a> Side<'a> {
                         LimitScope::Schema,
                         ComparisonClaim::Coverage,
                         diagnostic.code,
-                    );
+                    )
+                    .with_inventory_origin();
                     limit.evidence = diagnostic_sites(diagnostic);
                     ledger.record(limit);
                 }
@@ -214,9 +218,12 @@ pub(super) fn operation_sites(op: &Operation) -> Vec<SchemaSite> {
 }
 
 pub(super) fn compare<'a>(bounds: [BoundSide<'a>; 2], scope: &ComparisonScope) -> SchemaDiff<'a> {
-    let mut sides = bounds.map(|bound| Side::new(bound, scope));
     let mut ledger = Ledger::default();
-    let mut diff = SchemaDiff::default();
+    let mut diff = SchemaDiff {
+        bases: Some(bounds.each_ref().map(|side| side.basis.clone())),
+        ..SchemaDiff::default()
+    };
+    let mut sides = bounds.map(|bound| Side::new(bound, scope));
     for (side, label) in sides.iter_mut().zip(SIDES) {
         side.standing_limits(label, &mut ledger);
     }
@@ -237,7 +244,8 @@ pub(super) fn compare<'a>(bounds: [BoundSide<'a>; 2], scope: &ComparisonScope) -
                 LimitScope::Operation(None),
                 ComparisonClaim::OperationPresence,
                 gap.reason,
-            );
+            )
+            .with_inventory_origin();
             limit.evidence.clone_from(&gap.sites);
             limit.producer_sites.clone_from(&gap.producer_sites);
             ledger.record(limit);
@@ -354,7 +362,8 @@ fn compare_operation<'a>(
                 LimitScope::Operation(Some(id.clone())),
                 claim,
                 gap.reason,
-            );
+            )
+            .with_inventory_origin();
             if presence[i].presence == Presence::Unknown {
                 limit = limit.with_presence(&presence);
             }

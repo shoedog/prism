@@ -76,3 +76,193 @@ fn cli_help_and_version() {
         concat!("prism-boundary ", env!("CARGO_PKG_VERSION"))
     );
 }
+
+#[test]
+fn schema_projection_and_report_share_receipt_refusals() {
+    use prism_boundary::revision::AdmissionRequest;
+    use prism_boundary::{admit_inputs, admit_schema_input};
+    use serde_json::json;
+    use sha2::{Digest, Sha256};
+
+    for (key, replacement, file, code) in [
+        (
+            "/receipts/0/origin/kind",
+            json!("new_origin"),
+            "inventory.json",
+            "unsupported_kind",
+        ),
+        (
+            "/receipts/0/origin/availability",
+            json!("new_state"),
+            "inventory.json",
+            "unsupported_kind",
+        ),
+        (
+            "/receipts/0/format",
+            json!("other"),
+            "inventory.json",
+            "unsupported_format",
+        ),
+        (
+            "/receipts/0/format",
+            json!("json"),
+            "conflicting.txt",
+            "unsupported_schema_dialect",
+        ),
+    ] {
+        let mut input = doc_cases::json_fixture("admission.json");
+        *input.pointer_mut(key).unwrap() = replacement;
+        let mut bytes = doc_admission::supplied_bytes(&serde_json::Value::Null);
+        bytes.insert("schema".into(), doc_cases::fixture(file));
+        input["receipts"][0]["digest"]["value"] =
+            json!(format!("{:x}", Sha256::digest(&bytes["schema"])));
+        let request: AdmissionRequest = serde_json::from_value(input).unwrap();
+        let report = admit_inputs(&request, &bytes);
+        let projection = admit_schema_input(&request, &bytes, "schema-claim");
+        assert_eq!(report.counts.get(code), Some(&1), "{key} {file}");
+        assert_eq!(report.claims["sibling"].status, "admitted");
+        assert_eq!(
+            serde_json::to_value(report).unwrap(),
+            serde_json::to_value(&projection.report).unwrap()
+        );
+        assert!(projection.input().is_none());
+    }
+}
+
+#[test]
+fn coverage_deduplicates_with_recorded_origin_and_remaps_links() {
+    use prism_boundary::model::{CoverageLimit, ImpactDocument, LimitRegion};
+    use serde_json::json;
+
+    let mut doc: ImpactDocument =
+        serde_json::from_value(doc_cases::json_fixture("mixed.json")).unwrap();
+    let row = &mut doc.change.elements[0];
+    row.coverage_limits.push("second".into());
+    let mut limit = CoverageLimit {
+        limit_id: "first".into(),
+        comparison_id: "actual_before".into(),
+        input_id: "service-before".into(),
+        side: "before".into(),
+        authority: "schema".into(),
+        scope: LimitRegion::Schema {
+            path_scope: Some(prism_boundary::revision::Scope::Api),
+        },
+        pointer: vec![],
+        claim: "coverage".into(),
+        reason: "operation_unreadable".into(),
+        source: "input_inventory".into(),
+        evidence: vec![json!("schema-blob")],
+        affected_claims: vec![],
+        presence: None,
+    };
+    let original = limit.clone();
+    limit.limit_id = "second".into();
+    limit.source = "comparison".into();
+    limit.evidence.push(json!("comparison-observation"));
+    let doc = doc.with_coverage_limits(&[original, limit]);
+    assert_eq!(doc.coverage.len(), 1);
+    assert_eq!(doc.coverage[0].source, "both");
+    assert_eq!(
+        doc.coverage[0].evidence,
+        [json!("schema-blob"), json!("comparison-observation")]
+    );
+    assert_eq!(doc.coverage[0].affected_claims, ["retained-stamp"]);
+    assert_eq!(doc.change.elements[0].coverage_limits, ["first"]);
+    assert!(doc.validate().counts.is_empty());
+}
+
+#[test]
+fn cutoff_reference_requires_its_edge_and_availability() {
+    use prism_boundary::revision::AdmissionRequest;
+    use prism_boundary::{admit_schema_input, index_schema};
+    use serde_json::json;
+    use sha2::{Digest, Sha256};
+
+    let mut input = doc_cases::json_fixture("admission.json");
+    let mut bytes = doc_admission::supplied_bytes(&serde_json::Value::Null);
+    for (receipt, file) in [("schema", "external.json"), ("parts", "parts.json")] {
+        bytes.insert(receipt.into(), doc_cases::fixture(file));
+    }
+    input["receipts"][0]["digest"]["value"] =
+        json!(format!("{:x}", Sha256::digest(&bytes["schema"])));
+    input["receipts"][0]["retrieval_uri"] = json!("https://pilot.invalid/schemas/openapi.json");
+    input["receipts"].as_array_mut().unwrap().push(json!({
+        "id":"parts","kind":"blob","format":"json",
+        "retrieval_uri":"https://pilot.invalid/schemas/parts.json",
+        "origin":{
+            "kind":"independent_cutoff","evidence":"archived",
+            "available_at":"2026-11-26T11:00:00Z","repo":"pilot-dependency",
+            "covered_tree":"parts-tree","path":"parts.json","blob":"parts-blob"
+        },
+        "digest":{"algorithm":"sha256","framing":"raw_bytes","value":format!("{:x}", Sha256::digest(&bytes["parts"]))}
+    }));
+
+    let request: AdmissionRequest = serde_json::from_value(input.clone()).unwrap();
+    let absent = admit_schema_input(&request, &bytes, "schema-claim");
+    assert!(index_schema(&absent.input().unwrap())
+        .unwrap()
+        .fields
+        .is_empty());
+
+    input["receipts"][0]["dependencies"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("parts"));
+    let request: AdmissionRequest = serde_json::from_value(input.clone()).unwrap();
+    let admitted = admit_schema_input(&request, &bytes, "schema-claim");
+    let inventory = index_schema(&admitted.input().unwrap()).unwrap();
+    assert_eq!(
+        inventory.fields[0].id.to_string(),
+        "field:resp:GET /kiln:200#/stamp"
+    );
+    assert_eq!(inventory.fields[0].sites[0].tree, "parts-tree");
+
+    input["receipts"][11]["origin"]["available_at"] = json!("2026-11-27T11:00:00Z");
+    let request: AdmissionRequest = serde_json::from_value(input).unwrap();
+    let refused = admit_schema_input(&request, &bytes, "schema-claim");
+    assert!(refused.input().is_none());
+    assert_eq!(refused.report.counts.get("missing_cutoff"), Some(&1));
+    assert_eq!(refused.report.claims["sibling"].status, "admitted");
+}
+
+#[test]
+fn historical_selection_requires_evidence_covering_the_cutoff() {
+    use prism_boundary::admit_inputs;
+    use prism_boundary::revision::AdmissionRequest;
+    use serde_json::json;
+
+    let mut input = doc_cases::json_fixture("admission.json");
+    input["mode"] = json!("historical_as_of");
+    input["cutoff_at"] = json!("2026-11-25T12:00:00Z");
+    input["claims"][0]["requires_selection"] = json!(true);
+    let bytes = doc_admission::supplied_bytes(&serde_json::Value::Null);
+    for (receipt, expected) in [
+        (
+            json!({"kind":"historical_snapshot","branch":"main","rev":"service-before-rev",
+                "captured_at":"2026-11-25T05:00:00-07:00","evidence":"archived"}),
+            "admitted",
+        ),
+        (
+            json!({"kind":"historical_ref_history","branch":"main","rev":"service-before-rev",
+                "valid_from":"2026-11-25T11:00:00Z","valid_until":"2026-11-25T13:00:00Z",
+                "evidence":"ref-log"}),
+            "admitted",
+        ),
+        (
+            json!({"kind":"historical_ref_history","branch":"main","rev":"service-before-rev",
+                "valid_from":"2026-11-25T11:00:00Z","valid_until":"2026-11-25T12:00:00Z",
+                "evidence":"ref-log"}),
+            "unchecked",
+        ),
+    ] {
+        input["inputs"][0]["selection"] = receipt;
+        let request: AdmissionRequest = serde_json::from_value(input.clone()).unwrap();
+        let report = admit_inputs(&request, &bytes);
+        assert_eq!(report.claims["schema-claim"].status, expected);
+        assert_eq!(report.claims["sibling"].status, "admitted");
+        assert_eq!(
+            report.counts.get("missing_cutoff"),
+            (expected == "unchecked").then_some(&1)
+        );
+    }
+}

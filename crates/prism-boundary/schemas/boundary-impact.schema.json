@@ -1,0 +1,541 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:prism:boundary:impact:0.1",
+  "title": "Prism boundary impact 0.1",
+  "type": "object",
+  "required": ["schema_version", "report_id", "api", "mode", "report_time", "cutoff_at", "inputs", "reference", "comparisons", "change", "impacts", "usages", "binding_status", "coverage", "warnings", "standing_mismatches", "summary", "unobserved"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "report_id": {"type": "string", "minLength": 1},
+    "api": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["live", "historical_as_of", "version_comparison"]},
+    "report_time": {"type": "string", "format": "date-time"},
+    "cutoff_at": {"type": "string", "format": "date-time"},
+    "inputs": {"type": "array", "items": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/input"}},
+    "reference": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+    "comparisons": {"type": "array", "items": {"$ref": "#/$defs/pair"}},
+    "change": {"$ref": "#/$defs/change"},
+    "impacts": {"type": "array", "items": {"$ref": "#/$defs/element"}},
+    "usages": {"type": "array", "items": {"$ref": "#/$defs/usage"}},
+    "binding_status": {"type": "array", "items": {"$ref": "#/$defs/binding_status"}},
+    "coverage": {"type": "array", "items": {"$ref": "#/$defs/coverage"}},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/warning"}},
+    "standing_mismatches": {"type": "array", "items": {"$ref": "#/$defs/mismatch"}},
+    "summary": {"$ref": "#/$defs/summary"},
+    "unobserved": {"type": "array", "items": {"$ref": "#/$defs/unobserved"}}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "pair": {
+      "type": "object",
+      "required": ["comparison_id", "purpose", "service_input_id", "client_input_id", "matches", "unchecked_count"],
+      "properties": {
+        "comparison_id": {"enum": ["actual_before", "actual_after", "service_first", "client_first"]},
+        "purpose": {"enum": ["actual_before", "actual_after", "service_first", "client_first"]},
+        "service_input_id": {"type": "string", "minLength": 1},
+        "client_input_id": {"type": "string", "minLength": 1},
+        "matches": {"type": "object", "propertyNames": {"type": "string", "minLength": 1}, "additionalProperties": {"$ref": "#/$defs/match"}},
+        "unchecked_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "match": {
+      "type": "object",
+      "required": ["service_input_id", "client_input_id", "status", "grade", "reason", "mapping", "target_ids", "alternates", "overlaps", "prefix_hints"],
+      "properties": {
+        "service_input_id": {"type": "string", "minLength": 1},
+        "client_input_id": {"type": "string", "minLength": 1},
+        "status": {"enum": ["checked", "unchecked"]},
+        "grade": {"anyOf": [{"enum": ["bound", "candidate", "unbound"]}, {"type": "null"}]},
+        "reason": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "mapping": {"anyOf": [{"$ref": "#/$defs/mapping"}, {"type": "null"}]},
+        "target_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "alternates": {"type": "array", "items": {"$ref": "#/$defs/alternate"}},
+        "overlaps": {"type": "array", "items": {"$ref": "#/$defs/overlap"}},
+        "prefix_hints": {"type": "array", "items": {"$ref": "#/$defs/hint"}}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"required": ["status"], "properties": {"status": {"const": "unchecked"}}},
+          "then": {"properties": {"grade": {"const": null}, "reason": {"type": "string", "minLength": 1}}},
+          "else": {"properties": {"grade": {"enum": ["bound", "candidate", "unbound"]}}}
+        }
+      ]
+    },
+    "mapping": {
+      "type": "object",
+      "required": ["entry"],
+      "properties": {
+        "entry": {"type": "integer", "minimum": 1},
+        "input_id": {"type": "string", "minLength": 1},
+        "requested_path": {"type": "string", "minLength": 1},
+        "mapped_path": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "alternate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["requested_path"],
+          "properties": {"requested_path": {"type": "string", "minLength": 1}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["operation_id", "method", "grade", "reason", "condition", "evidence"],
+          "properties": {
+            "operation_id": {"type": "string", "minLength": 1},
+            "method": {"type": "string", "minLength": 1},
+            "grade": {"enum": ["bound", "candidate", "unbound"]},
+            "reason": {"type": "string", "minLength": 1},
+            "condition": {"type": "string", "minLength": 1},
+            "evidence": {"type": "array", "items": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/proof"}}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "overlap": {
+      "type": "object",
+      "required": ["operation_id", "method", "grade", "reason"],
+      "properties": {
+        "operation_id": {"type": "string", "minLength": 1},
+        "method": {"type": "string", "minLength": 1},
+        "grade": {"enum": ["bound", "candidate", "unbound"]},
+        "reason": {"type": "string", "minLength": 1},
+        "condition": {"type": "string", "minLength": 1},
+        "evidence": {"type": "array", "items": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/proof"}}
+      },
+      "additionalProperties": false
+    },
+    "hint": {
+      "type": "object",
+      "required": ["requested_path", "registered_path", "suffix"],
+      "properties": {
+        "requested_path": {"type": "string", "minLength": 1},
+        "registered_path": {"type": "string", "minLength": 1},
+        "suffix": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "match_ref": {
+      "type": "object",
+      "required": ["comparison_id", "site_id"],
+      "properties": {
+        "comparison_id": {"enum": ["actual_before", "actual_after", "service_first", "client_first"]},
+        "site_id": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": ["method", "path"],
+      "properties": {"method": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}, "path": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
+      "additionalProperties": false
+    },
+    "target_pair": {
+      "type": "object",
+      "required": ["before", "after"],
+      "properties": {"before": {"anyOf": [{"$ref": "#/$defs/target"}, {"type": "null"}]}, "after": {"anyOf": [{"$ref": "#/$defs/target"}, {"type": "null"}]}},
+      "additionalProperties": false
+    },
+    "usage": {
+      "type": "object",
+      "required": ["site_id", "before_site", "after_site", "before_presence", "after_presence", "requested_target", "match_before", "match_after", "match_service_first", "match_client_first", "reason"],
+      "properties": {
+        "site_id": {"type": "string", "minLength": 1},
+        "before_site": {"anyOf": [{"$ref": "urn:prism:boundary:bindings:0.1#/$defs/site"}, {"type": "null"}]},
+        "after_site": {"anyOf": [{"$ref": "urn:prism:boundary:bindings:0.1#/$defs/site"}, {"type": "null"}]},
+        "before_presence": {"enum": ["present", "absent", "unknown"]},
+        "after_presence": {"enum": ["present", "absent", "unknown"]},
+        "requested_target": {"$ref": "#/$defs/target_pair"},
+        "match_before": {"anyOf": [{"$ref": "#/$defs/match_ref"}, {"type": "null"}]},
+        "match_after": {"anyOf": [{"$ref": "#/$defs/match_ref"}, {"type": "null"}]},
+        "match_service_first": {"anyOf": [{"$ref": "#/$defs/match_ref"}, {"type": "null"}]},
+        "match_client_first": {"anyOf": [{"$ref": "#/$defs/match_ref"}, {"type": "null"}]},
+        "reason": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "usage_id": {"type": "string", "minLength": 1},
+        "correspondence_evidence": {"$ref": "#/$defs/correspondence"}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"required": ["before_presence"], "properties": {"before_presence": {"const": "present"}}},
+          "then": {},
+          "else": {"properties": {"before_site": {"const": null}, "match_before": {"const": null}, "match_service_first": {"const": null}}}
+        },
+        {
+          "if": {"required": ["after_presence"], "properties": {"after_presence": {"const": "present"}}},
+          "then": {},
+          "else": {"properties": {"after_site": {"const": null}, "match_after": {"const": null}, "match_client_first": {"const": null}}}
+        },
+        {
+          "if": {"required": ["before_presence"], "properties": {"before_presence": {"const": "unknown"}}},
+          "then": {"properties": {"reason": {"type": "string", "minLength": 1}}}
+        },
+        {
+          "if": {"required": ["after_presence"], "properties": {"after_presence": {"const": "unknown"}}},
+          "then": {"properties": {"reason": {"type": "string", "minLength": 1}}}
+        }
+      ]
+    },
+    "correspondence": {
+      "type": "object",
+      "required": ["kind", "file"],
+      "properties": {"kind": {"enum": ["single_target_edit", "unchanged_span"]}, "file": {"type": "string", "minLength": 1}},
+      "additionalProperties": false
+    },
+    "role_slots": {
+      "type": "object",
+      "required": ["before_input_id", "after_input_id"],
+      "properties": {
+        "before_input_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "after_input_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false,
+      "allOf": [{"if": {"required": ["before_input_id"], "properties": {"before_input_id": {"const": null}}}, "then": {"required": ["reason"]}}]
+    },
+    "change_kind": {
+      "enum": ["op_added", "op_removed", "route_declaration_changed", "validation_changed", "handler_reference_changed", "handler_code_changed", "success_status_added", "success_status_removed", "field_added", "field_removed", "field_type_changed", "field_format_changed", "field_item_type_changed", "field_required_added", "field_required_removed", "enum_declaration_changed", "enum_values_added", "enum_values_removed"]
+    },
+    "element": {
+      "type": "object",
+      "required": ["row_id", "operation_id", "change_kinds", "coverage_limits", "before_element_id", "before_presence", "before_shape", "after_element_id", "after_presence", "after_shape"],
+      "properties": {
+        "row_id": {"type": "string", "minLength": 1},
+        "operation_id": {"type": "string", "minLength": 1},
+        "change_kinds": {"type": "array", "items": {"$ref": "#/$defs/change_kind"}, "uniqueItems": true},
+        "coverage_limits": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "before_element_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "before_presence": {"enum": ["present", "absent", "unknown"]},
+        "before_shape": {"anyOf": [{"$ref": "urn:prism:boundary:bindings:0.1#/$defs/wire_signature"}, {"type": "null"}]},
+        "after_element_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "after_presence": {"enum": ["present", "absent", "unknown"]},
+        "after_shape": {"anyOf": [{"$ref": "urn:prism:boundary:bindings:0.1#/$defs/wire_signature"}, {"type": "null"}]},
+        "before_declaration_id": {"type": "string", "minLength": 1},
+        "after_declaration_id": {"type": "string", "minLength": 1},
+        "before_fields": {"type": "array", "items": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/field"}},
+        "after_fields": {"type": "array", "items": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/field"}},
+        "enum_added": {"type": "array", "items": {"type": ["null", "boolean", "number", "string"]}, "uniqueItems": true},
+        "enum_removed": {"type": "array", "items": {"type": ["null", "boolean", "number", "string"]}, "uniqueItems": true}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"required": ["before_presence"], "properties": {"before_presence": {"const": "present"}}},
+          "then": {"properties": {"before_element_id": {"type": "string", "minLength": 1}}},
+          "else": {"properties": {"before_element_id": {"const": null}}}
+        },
+        {
+          "if": {"required": ["after_presence"], "properties": {"after_presence": {"const": "present"}}},
+          "then": {"properties": {"after_element_id": {"type": "string", "minLength": 1}}},
+          "else": {"properties": {"after_element_id": {"const": null}}}
+        },
+        {"if": {"required": ["before_presence"], "properties": {"before_presence": {"const": "unknown"}}}, "then": {"properties": {"before_shape": {"const": null}}}},
+        {"if": {"required": ["after_presence"], "properties": {"after_presence": {"const": "unknown"}}}, "then": {"properties": {"after_shape": {"const": null}}}}
+      ]
+    },
+    "presence_pair": {
+      "type": "object",
+      "required": ["before_element_id", "before_presence", "before_shape", "after_element_id", "after_presence", "after_shape"],
+      "properties": {
+        "before_element_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "before_presence": {"enum": ["present", "absent", "unknown"]},
+        "before_shape": {"anyOf": [{"$ref": "urn:prism:boundary:bindings:0.1#/$defs/wire_signature"}, {"type": "null"}]},
+        "after_element_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "after_presence": {"enum": ["present", "absent", "unknown"]},
+        "after_shape": {"anyOf": [{"$ref": "urn:prism:boundary:bindings:0.1#/$defs/wire_signature"}, {"type": "null"}]}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"required": ["before_presence"], "properties": {"before_presence": {"const": "present"}}},
+          "then": {"properties": {"before_element_id": {"type": "string", "minLength": 1}}},
+          "else": {"properties": {"before_element_id": {"const": null}}}
+        },
+        {
+          "if": {"required": ["after_presence"], "properties": {"after_presence": {"const": "present"}}},
+          "then": {"properties": {"after_element_id": {"type": "string", "minLength": 1}}},
+          "else": {"properties": {"after_element_id": {"const": null}}}
+        },
+        {"if": {"required": ["before_presence"], "properties": {"before_presence": {"const": "unknown"}}}, "then": {"properties": {"before_shape": {"const": null}}}},
+        {"if": {"required": ["after_presence"], "properties": {"after_presence": {"const": "unknown"}}}, "then": {"properties": {"after_shape": {"const": null}}}}
+      ]
+    },
+    "status_edit": {
+      "type": "object",
+      "required": ["operation_id", "status"],
+      "properties": {"operation_id": {"type": "string", "minLength": 1}, "status": {"type": "string", "pattern": "^(2[0-9][0-9]|2XX)$"}},
+      "additionalProperties": false
+    },
+    "field_pair": {
+      "type": "object",
+      "required": ["before_element_id", "after_element_id"],
+      "properties": {"before_element_id": {"type": "string", "minLength": 1}, "after_element_id": {"type": "string", "minLength": 1}},
+      "additionalProperties": false
+    },
+    "root_pair": {
+      "type": "object",
+      "required": ["operation_id", "before_status", "after_status", "fields"],
+      "properties": {
+        "operation_id": {"type": "string", "minLength": 1},
+        "before_status": {"type": "string", "pattern": "^(2[0-9][0-9]|2XX)$"},
+        "after_status": {"type": "string", "pattern": "^(2[0-9][0-9]|2XX)$"},
+        "fields": {"type": "array", "items": {"$ref": "#/$defs/field_pair"}}
+      },
+      "additionalProperties": false
+    },
+    "call_change": {
+      "type": "object",
+      "required": ["kind", "before_site_id", "after_site_id"],
+      "properties": {
+        "kind": {"enum": ["retargeted", "inserted", "deleted", "unknown"]},
+        "before_site_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "after_site_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "review_action": {
+      "type": "object",
+      "required": ["claim_id", "comparison_id", "evidence"],
+      "properties": {
+        "claim_id": {"type": "string", "minLength": 1},
+        "comparison_id": {"enum": ["actual_before", "actual_after", "service_first", "client_first"]},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/match_ref"}},
+        "supporting_row_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      },
+      "additionalProperties": false
+    },
+    "risk": {
+      "type": "object",
+      "required": ["kind", "reason", "supporting_row_ids"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "supporting_row_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      },
+      "additionalProperties": false
+    },
+    "selection": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "branch": {"type": "string", "minLength": 1},
+        "observed_tip": {"type": "string", "minLength": 1},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "requested_rev": {"type": "string", "minLength": 1},
+        "selected_by": {"type": "string", "minLength": 1},
+        "selection_reason": {"type": "string", "minLength": 1},
+        "selection_history_tip": {"type": "string", "minLength": 1},
+        "availability_status": {"enum": ["admitted", "unchecked"]},
+        "availability_evidence": {"type": "string", "minLength": 1},
+        "comparison_basis": {"type": "string", "minLength": 1},
+        "proposed_base": {"type": "string", "minLength": 1},
+        "proposed_head": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "merge_receipt": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "change": {
+      "type": "object",
+      "required": ["subject_role", "producer", "consumer", "elements", "status_additions", "status_removals", "response_root_pairs", "call_changes", "producer_sites", "risks", "review_action", "selection"],
+      "properties": {
+        "subject_role": {"enum": ["service", "client", "both"]},
+        "producer": {"anyOf": [{"$ref": "#/$defs/role_slots"}, {"type": "null"}]},
+        "consumer": {"anyOf": [{"$ref": "#/$defs/role_slots"}, {"type": "null"}]},
+        "elements": {"type": "array", "items": {"$ref": "#/$defs/element"}},
+        "status_additions": {"type": "array", "items": {"$ref": "#/$defs/status_edit"}},
+        "status_removals": {"type": "array", "items": {"$ref": "#/$defs/status_edit"}},
+        "response_root_pairs": {"type": "array", "items": {"$ref": "#/$defs/root_pair"}},
+        "call_changes": {"type": "array", "items": {"$ref": "#/$defs/call_change"}},
+        "producer_sites": {"type": "array", "items": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/site"}},
+        "risks": {"type": "array", "items": {"$ref": "#/$defs/risk"}},
+        "review_action": {"anyOf": [{"$ref": "#/$defs/review_action"}, {"type": "null"}]},
+        "selection": {"anyOf": [{"$ref": "#/$defs/selection"}, {"type": "null"}]}
+      },
+      "additionalProperties": false
+    },
+    "limit_scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {"kind": {"const": "schema"}, "path_scope": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/scope"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "operation_id"],
+          "properties": {
+            "kind": {"const": "operation"},
+            "operation_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+            "path_scope": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/scope"}
+          },
+          "additionalProperties": false,
+          "allOf": [{"if": {"required": ["operation_id"], "properties": {"operation_id": {"const": null}}}, "then": {"required": ["path_scope"]}}]
+        },
+        {
+          "type": "object",
+          "required": ["kind", "operation_id", "status"],
+          "properties": {
+            "kind": {"const": "status"},
+            "operation_id": {"type": "string", "minLength": 1},
+            "status": {"anyOf": [{"type": "string", "pattern": "^(2[0-9][0-9]|2XX)$"}, {"type": "null"}]}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "operation_id", "direction", "status"],
+          "properties": {
+            "kind": {"const": "root"},
+            "operation_id": {"type": "string", "minLength": 1},
+            "direction": {"enum": ["request", "response"]},
+            "status": {"anyOf": [{"anyOf": [{"type": "string", "pattern": "^(2[0-9][0-9]|2XX)$"}, {"const": "default"}]}, {"type": "null"}]}
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {"required": ["direction"], "properties": {"direction": {"const": "request"}}},
+              "then": {"properties": {"status": {"const": null}}},
+              "else": {"properties": {"status": {"anyOf": [{"type": "string", "pattern": "^(2[0-9][0-9]|2XX)$"}, {"const": "default"}]}}}
+            }
+          ]
+        }
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["limit_id", "comparison_id", "input_id", "side", "authority", "scope", "pointer", "claim", "reason", "source", "evidence", "affected_claims"],
+      "properties": {
+        "limit_id": {"type": "string", "minLength": 1},
+        "comparison_id": {"enum": ["actual_before", "actual_after", "service_first", "client_first"]},
+        "input_id": {"type": "string", "minLength": 1},
+        "side": {"enum": ["before", "after", "held"]},
+        "authority": {"enum": ["schema", "route_table", "calls", "registration", "annotation"]},
+        "scope": {"$ref": "#/$defs/limit_scope"},
+        "pointer": {"type": "array", "items": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/pointer_token"}},
+        "claim": {
+          "enum": ["operation_presence", "status_membership", "root_pairing", "field_presence", "type", "format", "required", "enum", "item_type", "declaration", "validation", "reference", "code", "coverage", "membership"]
+        },
+        "reason": {"type": "string", "minLength": 1},
+        "source": {"enum": ["input_inventory", "comparison", "both"]},
+        "evidence": {"type": "array", "items": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/proof"}},
+        "affected_claims": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "presence": {"$ref": "#/$defs/presence_pair"}
+      },
+      "additionalProperties": false
+    },
+    "warning": {
+      "type": "object",
+      "required": ["claim_id", "status", "coverage_limits"],
+      "properties": {
+        "claim_id": {"type": "string", "minLength": 1},
+        "status": {"const": "unchecked"},
+        "coverage_limits": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      },
+      "additionalProperties": false
+    },
+    "refusal": {
+      "type": "object",
+      "required": ["code", "dimension", "record_id", "expected", "received", "evidence"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "dimension": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "record_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "expected": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "received": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "evidence": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "binding_status": {
+      "type": "object",
+      "required": ["scan_id", "element_id", "selected_input_id", "side", "saved_location", "status", "reason", "selected_presence"],
+      "properties": {
+        "scan_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "element_id": {"type": "string", "minLength": 1},
+        "selected_input_id": {"type": "string", "minLength": 1},
+        "side": {"enum": ["before", "after", "held"]},
+        "saved_location": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "status": {"enum": ["not_checked", "no_saved_match", "element_absent_from_scan_schema", "binding_current", "binding_stale"]},
+        "reason": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "selected_presence": {"enum": ["present", "absent", "unknown"]},
+        "refusal": {"$ref": "#/$defs/refusal"},
+        "saved_shape": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/saved_shape"},
+        "selected_shape": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/saved_shape"},
+        "saved_grade": {"enum": ["bound", "candidate", "unbound"]}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"required": ["status"], "properties": {"status": {"const": "not_checked"}}},
+          "then": {"properties": {"reason": {"type": "string", "minLength": 1}}},
+          "else": {"properties": {"reason": {"const": null}}}
+        },
+        {"if": {"required": ["status"], "properties": {"status": {"const": "binding_current"}}}, "then": {"required": ["saved_shape", "selected_shape"]}},
+        {"if": {"required": ["status"], "properties": {"status": {"const": "binding_stale"}}}, "then": {"required": ["saved_shape", "selected_shape"]}}
+      ]
+    },
+    "mismatch": {
+      "type": "object",
+      "required": ["kind", "saved_content_hash", "selected_content_hash", "saved_info_version", "selected_info_version"],
+      "properties": {
+        "kind": {"const": "schema_mismatch"},
+        "saved_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "selected_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "saved_info_version": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "selected_info_version": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+      },
+      "additionalProperties": false
+    },
+    "metric": {
+      "type": "object",
+      "required": ["version", "scope", "observed", "total", "reason"],
+      "properties": {
+        "version": {"type": "string", "minLength": 1},
+        "scope": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/scope"},
+        "observed": {"type": "integer", "minimum": 0},
+        "total": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "reason": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"required": ["total"], "properties": {"total": {"const": null}}},
+          "then": {"properties": {"reason": {"type": "string", "minLength": 1}}},
+          "else": {"properties": {"reason": {"const": null}}}
+        }
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "required": ["operation_count", "changed_field_count", "listed_usage_count", "possible_only_usage_count", "known_unmatched_count", "unknown_target_count"],
+      "properties": {
+        "operation_count": {"$ref": "#/$defs/metric"},
+        "changed_field_count": {"$ref": "#/$defs/metric"},
+        "listed_usage_count": {"$ref": "#/$defs/metric"},
+        "possible_only_usage_count": {"$ref": "#/$defs/metric"},
+        "known_unmatched_count": {"$ref": "#/$defs/metric"},
+        "unknown_target_count": {"$ref": "#/$defs/metric"}
+      },
+      "additionalProperties": false
+    },
+    "unobserved": {
+      "type": "object",
+      "required": ["before_element_id", "after_element_id", "membership_basis"],
+      "properties": {
+        "before_element_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "after_element_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "membership_basis": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true}
+      },
+      "additionalProperties": false
+    }
+  }
+}

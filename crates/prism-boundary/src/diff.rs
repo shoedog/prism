@@ -51,7 +51,8 @@ pub struct DiffSide<'a> {
     pub producer: Option<&'a ProducerInventory<'a>>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ChangeKind {
     OpAdded,
     OpRemoved,
@@ -180,6 +181,7 @@ pub struct PresenceComparison {
 
 #[derive(Debug)]
 pub struct ComparisonLimit {
+    pub origin: LimitOrigin,
     pub side: ComparisonSide,
     pub scope: LimitScope,
     pub pointer: Vec<PointerToken>,
@@ -190,6 +192,13 @@ pub struct ComparisonLimit {
     pub producer_sites: Vec<ProducerSite>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LimitOrigin {
+    InputInventory,
+    Comparison,
+    Both,
+}
+
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct LimitCounts {
     pub before: usize,
@@ -198,6 +207,7 @@ pub struct LimitCounts {
 
 #[derive(Debug, Default)]
 pub struct SchemaDiff<'a> {
+    pub(crate) bases: Option<[DiffBasis<'a>; 2]>,
     pub changes: Vec<ElementChange<'a>>,
     pub response_root_pairs: Vec<ResponseRootPair>,
     pub limits: Vec<ComparisonLimit>,

@@ -9,9 +9,10 @@ OpenAPI 3.0 and 3.1 JSON. The reader consumes admitted bytes and explicit
 reference dependencies. Convert YAML at the caller boundary. The binary
 provides `--help` and `--version`.
 
-Wire-field discovery, source extraction, binding and impact documents, and
-schema diffs arrive in later slices. Adapters will add the `prism` dependency
-when they use `prism::api` and will list any non-facade calls here.
+The library indexes wire fields, compares admitted schema revisions, and
+publishes bindings and impact contracts. Source extractors and fresh matching
+land with the adapters. Adapters will add the `prism` dependency when they use
+`prism::api` and will list any non-facade calls here.
 
 ```sh
 cargo test -p prism-boundary
@@ -360,3 +361,46 @@ and leave extra limits unasserted.
 - `r10`, `r6`, `r6-ambiguous`, `r6-proof-withheld`, `r6-wildcard`, `r8`, `r9`,
   `r9-retained-default`, `r9-unknown-peer`, `s6`, `s7`, `s7-repeated-key`,
   `s7-repeated-key-added`, `s7-repeated-map`, `u2`, `u3-unknown`.
+
+## P1d document contracts
+
+`BindingsDocument` freezes one producer or consumer snapshot. It carries the
+snapshot and schema provenance, raw observations, expected files, and extraction
+coverage. `ImpactDocument` freezes a review with slot assignments, side-local
+changes, comparison-owned match maps, and saved-binding status. The bundled
+Draft 2020-12 schemas in `schemas/` use version `"0.1"`. Register both schemas
+by their `$id` to resolve the impact schema's shared records. The Rust
+`from_json` entry points check the wire contract and refuse duplicate members.
+`ImpactDocument::validate` checks references, slots, and comparison ownership
+on decoded records.
+
+Admission accepts commit and computed-tree snapshots. Producer authorities are
+schema, route table, registration and annotation. The consumer authority is
+calls. The schema reader projects JSON Swagger 2.0 and OpenAPI 3.0/3.1.
+Blob, inventory and media receipts bind a named tree. Config, mapping and
+source receipts can bind a named tree or independent cutoff evidence. An
+external reference can use an independent cutoff blob receipt with a retrieval
+URI and repository/tree/path/blob identity. Derived
+records carry a version and explicit input dependencies. Byte-backed schema and
+media receipts require SHA-256 over the raw bytes. Live ref, historical pin, historical snapshot, ref history,
+explicit pin and first-parent date-rule receipts bind selection to the requested
+time. Computed trees require merge evidence. Historical computed trees also
+require independent evidence of the exact tree by cutoff.
+
+Admission counts each dependent claim once per refusal code and retains the
+record evidence. Identical receipts coalesce. Conflicts, cycles, missing
+dependencies and unsupported kinds withhold their dependent claims. Tracked
+dirtiness stays attached as checkout context. The schema reader uses the
+admitted named-tree blob and explicitly linked references.
+
+Coverage stores each basis/side/scope/pointer/claim/reason once. Each limit
+retains its origin and can link to multiple changed or unchecked claims.
+Keyless and unlinked limits remain in the ledger. Saved scans and membership
+negatives require the relevant inventory and coverage. Unmeasured totals are
+null and carry a reason. Repository reads, fresh matching and rendering
+belong to later slices. The binary exposes `--help` and `--version`.
+
+
+The schema tests use Python with `jsonschema`. Set
+`PRISM_BOUNDARY_SCHEMA_PYTHON` to that interpreter when it differs from
+`python3`.

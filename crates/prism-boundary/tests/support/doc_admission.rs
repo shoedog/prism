@@ -49,13 +49,16 @@ pub fn check(case: &Case<'_>) -> Result<(), String> {
     }
     let request: AdmissionRequest = serde_json::from_value(input).expect("typed admission fixture");
     let project = case.data.get("project");
+    let schema_admission;
+    let basic_admission;
     let (report, admitted) = if project.is_some() {
-        let result = admit_schema_input(&request, &bytes, "schema-claim");
-        (result.report, result.input)
+        schema_admission = admit_schema_input(&request, &bytes, "schema-claim");
+        (&schema_admission.report, schema_admission.input())
     } else {
-        (admit_inputs(&request, &bytes), None)
+        basic_admission = admit_inputs(&request, &bytes);
+        (&basic_admission, None)
     };
-    let actual = serde_json::to_value(&report).unwrap();
+    let actual = serde_json::to_value(report).unwrap();
     let mut errors: Vec<_> = expect_paths(&actual, &admission_expectations(case))
         .err()
         .into_iter()

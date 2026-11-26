@@ -341,7 +341,7 @@
           "/unaccounted_scopes/0/status": "unknown"
         },
         "patches": [
-          {"path": "/operations/0/message_roots", "value": [{"direction": "response", "status": "200", "coverage": "checked"}]},
+          {"path": "/operations/0/message_roots/0/coverage", "value": "checked"},
           {
             "path": "/unaccounted_scopes",
             "value": [
@@ -363,7 +363,7 @@
           "/unaccounted_scopes/0/status": "unknown"
         },
         "patches": [
-          {"path": "/operations/0/message_roots", "value": [{"direction": "response", "status": "200", "coverage": "observed_only"}]},
+          {"path": "/operations/0/message_roots/0/coverage", "value": "observed_only"},
           {
             "path": "/unaccounted_scopes",
             "value": [
@@ -385,7 +385,7 @@
           "/unaccounted_scopes/0/status": "unknown"
         },
         "patches": [
-          {"path": "/operations/0/message_roots", "value": [{"direction": "response", "status": "200", "coverage": "partial"}]},
+          {"path": "/operations/0/message_roots/0/coverage", "value": "partial"},
           {
             "path": "/unaccounted_scopes",
             "value": [
@@ -407,7 +407,7 @@
           "/unaccounted_scopes/0/status": "unknown"
         },
         "patches": [
-          {"path": "/operations/0/message_roots", "value": [{"direction": "response", "status": "200", "coverage": "withheld"}]},
+          {"path": "/operations/0/message_roots/0/coverage", "value": "withheld"},
           {
             "path": "/unaccounted_scopes",
             "value": [
