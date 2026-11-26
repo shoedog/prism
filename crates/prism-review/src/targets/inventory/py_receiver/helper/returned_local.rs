@@ -5,7 +5,7 @@ use crate::targets::inventory::{
         source::{children, name, outer_group, ungroup, ungroup_target},
         walk::ScopeId,
     },
-    UnprovenCause,
+    Family, UnprovenCause,
 };
 use tree_sitter::Node;
 
@@ -15,7 +15,7 @@ impl<'tree> Resolver<'_, 'tree> {
         returned: Node<'tree>,
         scope: ScopeId,
         method: Option<&str>,
-    ) -> Option<Result<Constructed<'tree>, UnprovenCause>> {
+    ) -> Option<(Option<Family>, Result<Constructed<'tree>, UnprovenCause>)> {
         if returned.kind() != "identifier" {
             return None;
         }
@@ -36,19 +36,26 @@ impl<'tree> Resolver<'_, 'tree> {
                 }
                 let target = ungroup_target(binding.node.child_by_field_name("left")?);
                 let call = ungroup(value);
-                Some((
-                    binding,
-                    target,
-                    call,
-                    self.constructor(call, scope, None, None)?,
-                ))
+                let (family, class) = if let Some(selected) =
+                    method.and_then(|method| self.method_constructor(call, scope, method, None))
+                {
+                    (Some(selected.0), selected.1)
+                } else {
+                    (None, self.constructor(call, scope, None)?)
+                };
+                Some((binding, target, call, family, class))
             })
             .collect();
         if constructions.is_empty() {
             return None;
         }
+        let family = constructions
+            .iter()
+            .filter_map(|(_, _, _, family, _)| *family)
+            .min();
+        let refuse = |cause| Some((family, Err(cause)));
         let mut causes = Vec::new();
-        for (_, _, call, class) in &constructions {
+        for (_, _, call, _, class) in &constructions {
             if let Err(cause) = class {
                 causes.push(*cause);
                 continue;
@@ -67,10 +74,10 @@ impl<'tree> Resolver<'_, 'tree> {
             causes.push(UnprovenCause::ReceiverValueUnproven);
         }
         if let Some(cause) = causes.into_iter().min() {
-            return Some(Err(cause));
+            return refuse(cause);
         }
 
-        let (binding, target, call, class) = constructions.into_iter().next()?;
+        let (binding, target, call, _, class) = constructions.into_iter().next()?;
         let uses_binding = |node: Node<'tree>, scope| {
             name(self.parsed.node_text(&node), self.walk.class(scope)) == key
                 && self.lookup(scope, &key, node).iter().any(|alt| {
@@ -86,7 +93,7 @@ impl<'tree> Resolver<'_, 'tree> {
             if node.kind() == "case_pattern"
                 && bare_class_heads(node, &|head| uses_binding(head, context.scope))
             {
-                return Some(Err(UnprovenCause::ReceiverValueUnproven));
+                return refuse(UnprovenCause::ReceiverValueUnproven);
             }
             if node.kind() != "identifier"
                 || !identifier_use(node)
@@ -102,10 +109,10 @@ impl<'tree> Resolver<'_, 'tree> {
             if context.scope != scope
                 || !(member_base || self.literal_receiver_write(expression, scope))
             {
-                return Some(Err(UnprovenCause::ReceiverValueUnproven));
+                return refuse(UnprovenCause::ReceiverValueUnproven);
             }
         }
-        Some(class.map(|class| Constructed { class, call }))
+        Some((family, class.map(|class| Constructed { class, call })))
     }
 }
 

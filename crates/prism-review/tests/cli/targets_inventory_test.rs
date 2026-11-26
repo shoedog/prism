@@ -131,11 +131,13 @@ fn inventory_without_diff_rejects_review_runner_options() {
 #[test]
 fn inventory_kinds_rejects_an_unsupported_family() {
     let repo = fixture();
-    let output = run(repo.path(), &["--inventory-kinds", "filesystem"]);
+    let output = run(repo.path(), &["--inventory-kinds", "unknown"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("filesystem") && stderr.contains("http"),
+        stderr.contains(
+            "unsupported inventory family \"unknown\"; supported: http, filesystem, parse, config"
+        ),
         "{stderr}"
     );
 }

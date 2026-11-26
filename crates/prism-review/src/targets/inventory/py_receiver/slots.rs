@@ -147,6 +147,24 @@ impl<'tree> Resolver<'_, 'tree> {
         self.reads_member_at(object, key, read, MemberRead::Receiver, |_| true)
     }
 
+    pub(super) fn reads_instance_member_at(
+        &self,
+        class: &str,
+        key: &str,
+        read: Read,
+        reaches: impl Fn(&Write) -> bool,
+    ) -> bool {
+        let classes = py_tables::instance_classes(class);
+        let classes = if classes.is_empty() {
+            std::slice::from_ref(&class)
+        } else {
+            classes
+        };
+        classes
+            .iter()
+            .any(|class| self.reads_member_at(class, key, read, MemberRead::Receiver, &reaches))
+    }
+
     pub(super) fn reads_member_at(
         &self,
         object: &str,

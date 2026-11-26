@@ -9,7 +9,7 @@ use crate::targets::inventory::{
         source::{children, name},
         walk::{ScopeId, ScopeKind},
     },
-    Family, Grade, UnprovenCause,
+    Grade, UnprovenCause,
 };
 use tree_sitter::Node;
 
@@ -21,7 +21,7 @@ impl<'tree> Resolver<'_, 'tree> {
             owner,
             name: field.clone(),
         };
-        let cause = self
+        let (cause, family) = self
             .census
             .field_stores
             .iter()
@@ -30,19 +30,19 @@ impl<'tree> Resolver<'_, 'tree> {
                 if written_owner != owner || written_field != field {
                     return None;
                 }
-                self.constructor(assignment_value(value)?, scope, Some(&method), None)
+                self.method_constructor(assignment_value(value)?, scope, &method, None)
             })
-            .map(|constructor| {
+            .map(|(family, constructor)| {
                 let class = match constructor {
                     Ok(class) => class,
-                    Err(cause) => return cause,
+                    Err(cause) => return (cause, family),
                 };
                 if self
                     .prove_instance_method(&class, &method, callee, scope)
                     .is_err()
                     || self.instance_rebound(&instance, Some(&method), callee, scope, None)
                 {
-                    return UnprovenCause::MemberRebound;
+                    return (UnprovenCause::MemberRebound, family);
                 }
                 let stores = self
                     .writes
@@ -55,22 +55,15 @@ impl<'tree> Resolver<'_, 'tree> {
                     })
                     .take(2)
                     .count();
-                if stores == 2 {
+                let cause = if stores == 2 {
                     UnprovenCause::ReceiverNotUnique
                 } else {
                     UnprovenCause::ReceiverValueUnproven
-                }
+                };
+                (cause, family)
             })
             .min()?;
-        Some(Resolution {
-            family: Family::Http,
-            grade: Grade::Exact,
-            identity: Err(cause),
-            #[cfg(any(test, feature = "inventory-evidence"))]
-            route: None,
-            #[cfg(any(test, feature = "inventory-evidence"))]
-            receiver: None,
-        })
+        Some(Resolution::refused(family, Grade::Exact, cause))
     }
 
     fn literal_self_field(&self, target: Node<'tree>, scope: ScopeId) -> Option<(ScopeId, String)> {

@@ -1,4 +1,4 @@
-use super::{context::Protocol, PathUse, Resolution, Resolver};
+use super::{context::Protocol, PathMatch, PathUse, Resolution, Resolver};
 use crate::targets::inventory::{
     python::{
         source::{name, ungroup},
@@ -15,15 +15,16 @@ impl<'tree> Resolver<'_, 'tree> {
         scope: ScopeId,
     ) -> Option<Resolution> {
         let (receiver, method) = self.selected_method(callee, scope)?;
-        let proven = self
-            .constructor(receiver, scope, Some(&method), None)?
-            .and_then(|class| {
-                self.prove_instance_method(&class, &method, callee, scope)?;
-                Ok(class)
-            });
+        let (family, class) = self.method_constructor(receiver, scope, &method, None)?;
+        let proven = class.and_then(|class| {
+            self.prove_instance_method(&class, &method, callee, scope)?;
+            Ok(class)
+        });
         Some(Resolution {
-            family: Family::Http,
+            family,
             grade: Grade::Exact,
+            #[cfg(any(test, feature = "inventory-evidence"))]
+            declaration: None,
             #[cfg(any(test, feature = "inventory-evidence"))]
             route: proven.is_ok().then_some(super::super::evidence::Route::R1),
             #[cfg(any(test, feature = "inventory-evidence"))]
@@ -56,25 +57,51 @@ impl<'tree> Resolver<'_, 'tree> {
         &self,
         call: Node<'tree>,
         scope: ScopeId,
-        method: Option<&str>,
         protocol: Option<Protocol>,
     ) -> Option<Result<String, UnprovenCause>> {
+        self.constructor_match(call, scope, None, protocol)
+            .map(|(_, class)| class)
+    }
+
+    pub(super) fn method_constructor(
+        &self,
+        call: Node<'tree>,
+        scope: ScopeId,
+        method: &str,
+        protocol: Option<Protocol>,
+    ) -> Option<(Family, Result<String, UnprovenCause>)> {
+        let (family, class) = self.constructor_match(call, scope, Some(method), protocol)?;
+        Some((family?, class))
+    }
+
+    fn constructor_match(
+        &self,
+        call: Node<'tree>,
+        scope: ScopeId,
+        method: Option<&str>,
+        protocol: Option<Protocol>,
+    ) -> Option<(Option<Family>, Result<String, UnprovenCause>)> {
         if call.kind() != "call" {
             return None;
         }
         let callee = self.parsed.call_function_node(&call)?;
-        let (_, class) =
+        let (kind, class) =
             self.resolve_path(callee, scope, PathUse::Constructor { method, protocol })?;
+        let PathMatch::Class(family) = kind else {
+            return None;
+        };
         let read = self.read(call, scope);
-        Some(class.and_then(|class| {
-            if ["__new__", "__init__"]
-                .iter()
-                .any(|slot| self.reads_member(&class, slot, read))
-            {
-                return Err(UnprovenCause::MemberRebound);
-            }
-            Ok(class)
-        }))
+        Some((
+            family,
+            class.and_then(|class| {
+                if self.reads_member(&class, "__new__", read)
+                    || self.reads_instance_member_at(&class, "__init__", read, |_| true)
+                {
+                    return Err(UnprovenCause::MemberRebound);
+                }
+                Ok(class)
+            }),
+        ))
     }
 
     pub(super) fn prove_instance_method(
@@ -85,8 +112,8 @@ impl<'tree> Resolver<'_, 'tree> {
         scope: ScopeId,
     ) -> Result<(), UnprovenCause> {
         let read = self.read(at, scope);
-        if self.reads_member(class, "__getattribute__", read)
-            || self.reads_member(class, method, read)
+        if self.reads_instance_member_at(class, "__getattribute__", read, |_| true)
+            || self.reads_instance_member_at(class, method, read, |_| true)
         {
             return Err(UnprovenCause::MemberRebound);
         }

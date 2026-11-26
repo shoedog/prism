@@ -2,6 +2,9 @@ use super::source::{children, identifier, ungroup};
 use prism::ast::ParsedFile;
 use tree_sitter::Node;
 
+mod starred_annotation;
+pub(super) use starred_annotation::recover as recover_starred_annotations;
+
 pub(in crate::targets::inventory) type ScopeId = usize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
