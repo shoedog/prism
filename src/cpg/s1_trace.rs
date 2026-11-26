@@ -21,12 +21,24 @@ pub(crate) fn enabled() -> bool {
 /// either way: `capture::start()` forces tracing on, `capture::quiet()` forces it off.
 fn enabled_from(env_on: bool) -> bool {
     #[cfg(test)]
-    match capture::mode() {
-        capture::Mode::On => return true,
-        capture::Mode::Off => return false,
-        capture::Mode::Default => {}
-    }
+    return select(capture::mode(), env_on);
+    #[cfg(not(test))]
     env_on
+}
+
+/// The pure rule behind `enabled_from`: a held capture overrides the environment.
+#[cfg(test)]
+pub(crate) fn select(mode: capture::Mode, env_on: bool) -> bool {
+    match mode {
+        capture::Mode::On => true,
+        capture::Mode::Off => false,
+        capture::Mode::Default => env_on,
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn capture_mode_for_test() -> capture::Mode {
+    capture::mode()
 }
 
 #[cfg(test)]
@@ -236,7 +248,7 @@ pub(crate) mod capture {
     use serde_json::Value;
     use std::sync::{Mutex, MutexGuard};
 
-    pub(super) enum Mode {
+    pub(crate) enum Mode {
         /// No holder: the environment decides.
         Default,
         /// `quiet()`: tracing is off whatever the environment says.
@@ -256,7 +268,9 @@ pub(crate) mod capture {
 
     // Process-wide, like the sink: the build may run Step 5c on a pool thread. Only the
     // holder sets it, and its drop clears it.
-    type Hook = Box<dyn FnOnce() + Send>;
+    // The hook is bound to one fixture: it names a file path and fires only in the build
+    // whose files contain that path, at most once.
+    type Hook = (String, Box<dyn FnOnce() + Send>);
     static AFTER_COLLECT: Mutex<Option<Hook>> = Mutex::new(None);
 
     fn hook() -> MutexGuard<'static, Option<Hook>> {
@@ -267,7 +281,7 @@ pub(crate) mod capture {
         SINK.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    pub(super) fn mode() -> Mode {
+    pub(crate) fn mode() -> Mode {
         match *state() {
             State::Default => Mode::Default,
             State::Off => Mode::Off,
@@ -309,9 +323,10 @@ pub(crate) mod capture {
             }
         }
 
-        /// Run `run` once, right after the next Step 5c fact collection.
-        pub(crate) fn after_collect(&self, run: impl FnOnce() + Send + 'static) {
-            *hook() = Some(Box::new(run));
+        /// Run `run` once, right after the Step 5c fact collection of the build whose
+        /// files include `file`; no other build takes it.
+        pub(crate) fn after_collect(&self, file: &str, run: impl FnOnce() + Send + 'static) {
+            *hook() = Some((file.to_owned(), Box::new(run)));
         }
     }
 
@@ -321,8 +336,19 @@ pub(crate) mod capture {
         *state() = State::On(Vec::new());
     }
 
-    pub(in crate::cpg) fn run_after_collect() {
-        let run = hook().take();
+    pub(in crate::cpg) fn run_after_collect(
+        files: &std::collections::BTreeMap<String, crate::ast::ParsedFile>,
+    ) {
+        let run = {
+            let mut slot = hook();
+            match slot.take() {
+                Some((file, run)) if files.contains_key(&file) => Some(run),
+                other => {
+                    *slot = other;
+                    None
+                }
+            }
+        };
         if let Some(run) = run {
             run();
         }

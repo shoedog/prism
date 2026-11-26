@@ -39,7 +39,7 @@ impl CodePropertyGraph {
         let uses = uses::UseIndex::without(graph, hidden);
         let callers = facts::collect(go_satisfiers, files, &uses);
         #[cfg(test)]
-        crate::cpg::s1_trace::capture::run_after_collect();
+        crate::cpg::s1_trace::capture::run_after_collect(files);
         let shared_returns = callee_returns::ReturnCache::new(files);
         let mut stats = ReturnFlowStats::default();
         let mut return_value_index: BTreeMap<
