@@ -15,8 +15,8 @@ mod cache;
 mod outcome;
 use outcome::{compare, Outcome};
 
-const CASES: &str = include_str!("../../tests/props_matrix_gen/generated-cases.jsonl");
-type Span = [usize; 2];
+pub(super) const CASES: &str = include_str!("../../tests/props_matrix_gen/generated-cases.jsonl");
+pub(super) type Span = [usize; 2];
 
 #[derive(Debug, Deserialize)]
 struct Cell {
@@ -57,18 +57,18 @@ struct Evidence {
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
-struct Owner {
-    name: String,
-    bytes: Span,
-    line: usize,
-    end_line: usize,
+pub(super) struct Owner {
+    pub(super) name: String,
+    pub(super) bytes: Span,
+    pub(super) line: usize,
+    pub(super) end_line: usize,
 }
 
 #[derive(Debug, Deserialize)]
-struct Site {
-    bytes: Span,
-    argument: Span,
-    resolution: ResolutionConfidence,
+pub(super) struct Site {
+    pub(super) bytes: Span,
+    pub(super) argument: Span,
+    pub(super) resolution: ResolutionConfidence,
 }
 
 #[derive(Debug, Deserialize)]
@@ -88,25 +88,25 @@ struct Binding {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
-enum Access {
+pub(super) enum Access {
     Def,
     Use,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-struct Endpoint {
-    file: String,
-    owner: String,
-    owner_line: usize,
-    name: String,
-    line: usize,
-    access: Access,
-    bytes: Span,
+pub(super) struct Endpoint {
+    pub(super) file: String,
+    pub(super) owner: String,
+    pub(super) owner_line: usize,
+    pub(super) name: String,
+    pub(super) line: usize,
+    pub(super) access: Access,
+    pub(super) bytes: Span,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
-enum Label {
+pub(super) enum Label {
     Exact,
     CfgIncomplete,
     SameLine,
@@ -144,11 +144,11 @@ struct Incoming {
     label: Label,
 }
 
-fn span(node: Node<'_>) -> Span {
+pub(super) fn span(node: Node<'_>) -> Span {
     [node.start_byte(), node.end_byte()]
 }
 
-fn parse(files: &BTreeMap<String, String>) -> BTreeMap<String, ParsedFile> {
+pub(super) fn parse(files: &BTreeMap<String, String>) -> BTreeMap<String, ParsedFile> {
     files
         .iter()
         .map(|(path, source)| {
@@ -165,7 +165,7 @@ fn parse(files: &BTreeMap<String, String>) -> BTreeMap<String, ParsedFile> {
         .collect()
 }
 
-fn owner<'a>(file: &'a ParsedFile, wanted: &Owner) -> Node<'a> {
+pub(super) fn owner<'a>(file: &'a ParsedFile, wanted: &Owner) -> Node<'a> {
     let owners: Vec<_> = file
         .all_functions()
         .into_iter()
@@ -181,7 +181,7 @@ fn owner<'a>(file: &'a ParsedFile, wanted: &Owner) -> Node<'a> {
     node
 }
 
-fn endpoint(node: &CpgNode) -> Option<Endpoint> {
+pub(super) fn endpoint(node: &CpgNode) -> Option<Endpoint> {
     let CpgNode::Variable {
         file,
         path,
@@ -266,7 +266,7 @@ fn bindings(
     }
 }
 
-fn exact_node(file: &ParsedFile, bytes: Span) -> Node<'_> {
+pub(super) fn exact_node(file: &ParsedFile, bytes: Span) -> Node<'_> {
     let node = file
         .tree
         .root_node()
@@ -470,6 +470,7 @@ struct Receipt {
     parsed: usize,
     preconditions: usize,
     compared: usize,
+    compared_green: usize,
     expected_outcomes: BTreeMap<String, usize>,
 }
 
@@ -478,7 +479,10 @@ fn generated_pattern_default_cells() {
     let mut previous = String::new();
     let mut receipts = BTreeMap::<String, Receipt>::new();
     let mut failures = Vec::new();
-    for line in CASES.lines() {
+    for line in CASES
+        .lines()
+        .filter(|line| line.starts_with(r#"{"id":"pattern-defaults/"#))
+    {
         let cell: Cell = serde_json::from_str(line).expect("generated JSONL schema");
         let Cell {
             id,
@@ -525,15 +529,33 @@ fn generated_pattern_default_cells() {
             let file = &parsed[&format!("case.{grammar}")];
             assert!(!file.tree.root_node().has_error(), "unexpected recovery");
             receipt.parsed += 1;
-            let graph = CodePropertyGraph::build(&parsed);
+            let (graph, observed) = super::props_s2_test_support::capture(&parsed, || {
+                CodePropertyGraph::build(&parsed)
+            });
             observe_evidence(file, &graph, &evidence);
-            receipt.preconditions += 1;
+            let pre = observed.pre_binding.as_ref().unwrap();
+            outcome::observe_literal_sources(pre, &evidence);
             compare(file, &graph, &evidence, &outcome);
-            receipt.compared += 1;
+            receipt.preconditions += 1;
             *receipt
                 .expected_outcomes
-                .entry(outcome.disposition)
+                .entry(outcome.disposition.clone())
                 .or_default() += 1;
+            receipt.compared += 1;
+            let source_defs = evidence
+                .sources
+                .iter()
+                .map(|source| source.incoming.from.clone())
+                .collect();
+            super::props_s2_generated_tests::compare_literal(
+                &graph,
+                &evidence.caller,
+                &evidence.target,
+                &source_defs,
+                &outcome.literal,
+            )
+            .unwrap_or_else(|error| panic!("{error}"));
+            receipt.compared_green += 1;
         }));
         if result.is_err() {
             eprintln!("failing cell {id}, {dimensions:?}\nfiles {files:#?}");

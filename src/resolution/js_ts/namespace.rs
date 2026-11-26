@@ -1,4 +1,6 @@
 //! S1b-4 namespace R3 and its scoped E7 module fallback.
+use crate::ast::js_ts::exports::{props_namespace_reexport, JsExportTarget};
+use crate::ast::ParsedFile;
 use crate::call_graph::{js_ts_literal_module_candidates, resolve_js_ts_relative_module};
 use crate::resolution::{
     CallGraph, CallSite, ResolutionConfidence, ResolutionKind, ResolutionOutcome, ResolvedCallee,
@@ -71,6 +73,67 @@ impl CallGraph {
                 self.js_ts_namespace_proof(&file, &site.callee_name, site, &[target])
                     .is_some()
             })
+    }
+
+    /// Compare the selected pattern callee with the spelled member's value export.
+    /// R3 continues to use its existing whole-module projection for call resolution.
+    pub(super) fn js_ts_props_namespace_export_matches(
+        &self,
+        site: &CallSite,
+        target: &crate::call_graph::FunctionId,
+        parsed: &ParsedFile,
+        module_path: &str,
+    ) -> bool {
+        if parsed.path != target.file {
+            return false;
+        }
+        let Some(file) = self.js_ts_namespace_module_file(module_path, site) else {
+            return false;
+        };
+        let member = &site.callee_name;
+        let span = (target.start_line, target.end_line);
+        if file != target.file {
+            let resolve = |from: &str, specifier: &str| {
+                resolve_js_ts_relative_module(specifier, from, &self.indexed_files)
+            };
+            return props_namespace_reexport(&self.js_ts_exports, &resolve, &file, member)
+                .is_some_and(|export| {
+                    export.file == target.file
+                        && export.local_name == target.name
+                        && export.span == Some(span)
+                        && !export.wrapped
+                });
+        }
+        let Some(facts) = self.js_ts_exports.get(&file) else {
+            return false;
+        };
+        let Some(JsExportTarget::VerifiedLocal {
+            local,
+            start_line,
+            end_line,
+        }) = facts.named.get(member)
+        else {
+            return false;
+        };
+        local == &target.name
+            && (*start_line, *end_line) == span
+            && !facts.conflicted.contains(member)
+            && facts
+                .namespace_callable_locals
+                .get(local)
+                .is_some_and(|exports| {
+                    exports
+                        .iter()
+                        .filter(|export| {
+                            export.file == target.file
+                                && export.local_name == target.name
+                                && export.span == Some(span)
+                                && !export.wrapped
+                        })
+                        .count()
+                        == 1
+                })
+            && parsed.js_ts_has_unique_value_export(member, !facts.namespace_proof_complete)
     }
 
     /// The positive namespace proof: `None` means "no proof", never "wrong".
