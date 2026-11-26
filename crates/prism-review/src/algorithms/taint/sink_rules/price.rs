@@ -141,6 +141,21 @@ fn visit_file(
                 .is_some()
         {
             let hit = certify_hit(&parsed, id);
+            if let (Hit::Refused(reason), Some(want)) = (hit, env::var_os("PRICE_LIST")) {
+                if want == "all" || want.to_string_lossy() == format!("{language:?}") {
+                    eprintln!(
+                        "price-miss\t{language:?}\t{}:{}\t{}\t{}",
+                        file,
+                        id.start_position().row + 1,
+                        reason.as_str(),
+                        source
+                            .lines()
+                            .nth(id.start_position().row)
+                            .unwrap_or("")
+                            .trim()
+                    );
+                }
+            }
             totals.record(hit);
             corpus.record(hit);
         }

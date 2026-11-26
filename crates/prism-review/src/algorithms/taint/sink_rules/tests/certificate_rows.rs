@@ -155,18 +155,45 @@ impl<'a> Row<'a> {
                     .unwrap_or(operand);
                 let path = path_to(parsed, definition, operand);
                 let witness = receipt(parsed, line, bound, operand, FLAT, destination(&path));
-                let rules = collect_rules(
+                let mut refusals = Refusals::default();
+                let rules = super::super::collect_rules(
                     parsed,
                     line,
                     &admitted(parsed, &[line]),
                     [witness],
+                    &mut refusals,
                     select_eval,
                 );
-                if rules.len() != usize::from(self.accept) {
+                // The module assertions still check every table in the TSV.
+                let in_scope = matches!(
+                    self.language,
+                    Language::JavaScript
+                        | Language::TypeScript
+                        | Language::Tsx
+                        | Language::Python
+                        | Language::Go
+                );
+                let accepts = in_scope && self.accept;
+                if rules.len() != usize::from(accepts) {
                     return Err(format!(
                         "expected {}, earned {} receipt(s)",
-                        if self.accept { "accept" } else { "refuse" },
+                        if accepts { "accept" } else { "refuse" },
                         rules.len()
+                    ));
+                }
+                // Cross-owner and foreign-tree claims stop before the tables.
+                let callable = owner(parsed, operation);
+                let same_owner =
+                    owner(parsed, target) == callable && owner(parsed, operand) == callable;
+                let expected = (in_scope
+                    && same_owner
+                    && !self.reason.is_empty()
+                    && self.reason != "parse_recovery")
+                    .then_some((self.reason, 1));
+                let actual = refusals.iter().collect::<Vec<_>>();
+                if actual.as_slice() != expected.as_slice() {
+                    return Err(format!(
+                        "expected refusal count {expected:?}, got {actual:?}"
                     ));
                 }
             }
@@ -330,4 +357,25 @@ fn certificate_rows_module() {
 #[test]
 fn certificate_rows_end_to_end() {
     check_rows(Assertion::EndToEnd);
+}
+
+#[test]
+fn receipt_counts_current_tree_parse_recovery() {
+    let parsed = ParsedFile::parse("a.js", "eval(x;", Language::JavaScript).unwrap();
+    let bound = site(&parsed, "eval(x", "eval", "x", Role::Argument(0));
+    assert!(bound.operation().has_error());
+    let reached = bound.operand();
+    let path = path_to(&parsed, reached, reached);
+    let witness = receipt(&parsed, 1, bound, reached, FLAT, destination(&path));
+    let mut refusals = Refusals::default();
+    assert!(super::super::collect_rules(
+        &parsed,
+        1,
+        &admitted(&parsed, &[1]),
+        [witness],
+        &mut refusals,
+        select_eval,
+    )
+    .is_empty());
+    assert_eq!(refusals.iter().collect::<Vec<_>>(), [("parse_recovery", 1)]);
 }

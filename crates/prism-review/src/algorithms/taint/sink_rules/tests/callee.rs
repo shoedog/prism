@@ -124,6 +124,8 @@ fn go_callee_shapes() {
 
 #[test]
 fn java_callee_shapes() {
+    use super::super::certificate::certify;
+
     let source = "class A {\n  void f(int x) {\n    new Foo(x);\n    new Foo<T>(x);\n    a.f(x);\n    a.g().f(x);\n  }\n}\n";
     let rows: &[Row] = &[
         ("new Foo(x)", "Foo", true),
@@ -133,8 +135,19 @@ fn java_callee_shapes() {
         ("a.g().f(x)", "g", false),
         ("a.g().f(x)", "f", true),
     ];
-    assert_eq!(
-        wrong_rows(Language::Java, "A.java", source, rows),
-        Vec::<String>::new()
-    );
+    let parsed = ParsedFile::parse("A.java", source, Language::Java).unwrap();
+    let root = parsed.tree.root_node();
+    assert!(!root.has_error());
+    // Java's table is tested directly because this lane has no Java receipt adapter.
+    for &(operation, target, passes) in rows {
+        let op = node(&parsed, root, operation);
+        let target = node(&parsed, op, target);
+        let operand = node(&parsed, op, "x");
+        assert_eq!(
+            certify(&parsed, op, target, operand, Role::Argument(0)).is_ok(),
+            passes,
+            "{operation}: {}",
+            parsed.node_text(&target)
+        );
+    }
 }

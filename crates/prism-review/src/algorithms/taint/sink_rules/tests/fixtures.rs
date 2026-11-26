@@ -149,7 +149,7 @@ fn binding_and_write_cases_consume_only_supplied_reads() {
 }
 
 #[test]
-fn explicit_nested_and_assignment_wrapped_reads_keep_their_operations() {
+fn nested_calls_only_earn_for_the_inner_read_and_go_assignments_keep_their_calls() {
     let parsed = ParsedFile::parse(
         "a.js",
         "function f() {\n  const x = source();\n  observe(x); inspect('x'); /* x */ res.send(eval(x));\n}",
@@ -169,11 +169,7 @@ fn explicit_nested_and_assignment_wrapped_reads_keep_their_operations() {
                 (send, eval.operand())
             ]
         ),
-        [
-            ("observe", Role::Argument(0)),
-            ("eval", Role::Argument(0)),
-            ("send", Role::Argument(0))
-        ]
+        [("observe", Role::Argument(0)), ("eval", Role::Argument(0))]
     );
 
     let parsed = ParsedFile::parse(
@@ -215,12 +211,12 @@ func f(name string) {
 #[test]
 fn supplied_field_and_argument_spans_preserve_adapter_roles() {
     for language in [Language::TypeScript, Language::Tsx] {
-        for expr in [
-            "runtime.X",
-            "(runtime as any).X",
-            "(runtime satisfies any).X",
-            "((runtime as any) satisfies any).X",
-            "(/* before */ runtime /* value */ as any).X",
+        for (expr, expected) in [
+            ("runtime.X", &[("fetch", Role::Argument(0))][..]),
+            ("(runtime as any).X", &[][..]),
+            ("(runtime satisfies any).X", &[][..]),
+            ("((runtime as any) satisfies any).X", &[][..]),
+            ("(/* before */ runtime /* value */ as any).X", &[][..]),
         ] {
             let operation = format!("fetch({expr})");
             let source = format!("function f(runtime: any) {{\n  {operation};\n}}");
@@ -231,7 +227,8 @@ fn supplied_field_and_argument_spans_preserve_adapter_roles() {
             path.edges[0].to.path = AccessPath::from_expr("runtime.X");
             assert_eq!(
                 visits(&parsed, &path, &[(fetch, fetch.operand())]),
-                [("fetch", Role::Argument(0))]
+                expected,
+                "{language:?}: {expr}"
             );
         }
     }
@@ -258,7 +255,8 @@ fn supplied_field_and_argument_spans_preserve_adapter_roles() {
 
 #[test]
 fn test_adapter_can_supply_or_withhold_targets_and_operands() {
-    for (language, source, operation, target, operand, read, slot) in [
+    // These grammars have tables but no receipt adapter in this lane.
+    for (language, source, operation, target, operand, read) in [
         (
             Language::Java,
             "class A { void f(String x) { new p.Builder(\"ok\", /* value */ x); } }",
@@ -266,7 +264,6 @@ fn test_adapter_can_supply_or_withhold_targets_and_operands() {
             "Builder",
             "x",
             "x",
-            1,
         ),
         (
             Language::Cpp,
@@ -275,24 +272,7 @@ fn test_adapter_can_supply_or_withhold_targets_and_operands() {
             "Builder",
             "x",
             "x",
-            1,
         ),
-    ] {
-        let parsed = ParsedFile::parse("fixture", source, language).unwrap();
-        assert!(
-            !parsed.tree.root_node().has_error(),
-            "{language:?}: {source}"
-        );
-        let site = call(&parsed, operation, target, operand, slot);
-        let reached = node(&parsed, site.operand(), read);
-        let path = path_to(&parsed, reached, reached);
-        assert_eq!(
-            visits(&parsed, &path, &[(site, reached)]),
-            [(target, Role::Argument(slot))]
-        );
-    }
-    // Shapes without an `arguments` field node have no recognised slot: refused.
-    for (language, source, operation, target, operand, read) in [
         (
             Language::Bash,
             "audit safe \"$x\"",
@@ -311,6 +291,10 @@ fn test_adapter_can_supply_or_withhold_targets_and_operands() {
         ),
     ] {
         let parsed = ParsedFile::parse("fixture", source, language).unwrap();
+        assert!(
+            !parsed.tree.root_node().has_error(),
+            "{language:?}: {source}"
+        );
         let site = call(&parsed, operation, target, operand, 1);
         let reached = node(&parsed, site.operand(), read);
         let path = path_to(&parsed, reached, reached);
@@ -338,10 +322,7 @@ fn test_adapter_can_supply_or_withhold_targets_and_operands() {
     );
     let ctor_read = node(&parsed, ctor.operand(), "x");
     let path = path_to(&parsed, def, ctor_read);
-    assert_eq!(
-        visits(&parsed, &path, &[(ctor, ctor_read)]),
-        [("Function", Role::Argument(0))]
-    );
+    assert!(visits(&parsed, &path, &[(ctor, ctor_read)]).is_empty());
 
     let parsed = ParsedFile::parse(
         "a.js",

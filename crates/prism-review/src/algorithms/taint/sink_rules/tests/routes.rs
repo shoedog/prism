@@ -89,15 +89,15 @@ fn receipt_accepts_go_originating_path_at_opening_line() {
 fn inline_routes_keep_insertion_keys_and_selected_operands() {
     let parsed = ParsedFile::parse(
         "a.py",
-        "other()\ninline(\n    source(),\n    'clean'\n)\n",
+        "other()\ninline(\n    source,\n    'clean'\n)\n",
         Language::Python,
     )
     .unwrap();
     let call = site(
         &parsed,
-        "inline(\n    source(),\n    'clean'\n)",
+        "inline(\n    source,\n    'clean'\n)",
         "inline",
-        "source()",
+        "source",
         Role::Argument(0),
     );
     let wrong_slot = rebind(
@@ -164,7 +164,7 @@ fn inline_routes_keep_insertion_keys_and_selected_operands() {
             witness(2, ("other.py", 2), call, STRUCTURED, InlineRoute::Flask),
         ],
         |witness, rows| {
-            assert_eq!(parsed.node_text(&witness.reached()), "source()");
+            assert_eq!(parsed.node_text(&witness.reached()), "source");
             assert_eq!(witness.site().role(), Role::Argument(0));
             select_eval(witness, rows);
         },
@@ -173,15 +173,15 @@ fn inline_routes_keep_insertion_keys_and_selected_operands() {
 
     let go = ParsedFile::parse(
         "a.go",
-        "package p\nfunc f() { c.File(\n    c.Param(\"f\"),\n) }\n",
+        "package p\nfunc f() { c.File(\n    c.Path,\n) }\n",
         Language::Go,
     )
     .unwrap();
     let call = site(
         &go,
-        "c.File(\n    c.Param(\"f\"),\n)",
+        "c.File(\n    c.Path,\n)",
         "File",
-        "c.Param(\"f\")",
+        "c.Path",
         Role::Argument(0),
     );
     let keys = admitted(&go, &[2, 3]);

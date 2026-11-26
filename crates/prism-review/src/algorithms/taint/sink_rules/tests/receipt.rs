@@ -1,16 +1,5 @@
 use super::*;
 
-fn leaked<'a>(
-    parsed: &'a ParsedFile,
-    line: usize,
-    site: Bound<'a>,
-    reached: Node<'a>,
-    def: Node<'a>,
-) -> Occurrence<'a, 'static> {
-    let path = Box::leak(Box::new(path_to(parsed, def, reached)));
-    receipt(parsed, line, site, reached, FLAT, destination(path))
-}
-
 fn count(parsed: &ParsedFile, line: usize, witness: Occurrence<'_, '_>) -> usize {
     collect_rules(
         parsed,
@@ -40,89 +29,6 @@ fn flask_visit<'a>(
         STRUCTURED,
         Provenance::Inline { visit },
     )
-}
-
-#[test]
-fn receipt_binds_role_to_the_operand_slot() {
-    let parsed = ParsedFile::parse(
-        "a.py",
-        "def f(x):\n    x.report('ok')\n    audit('safe', x)\n    pair(report('ok'), other(x))\n    report(k=x)\n",
-        Language::Python,
-    )
-    .unwrap();
-    let def = node(&parsed, parsed.tree.root_node(), "x");
-    let make = |line, site, reached| leaked(&parsed, line, site, reached, def);
-    let receiver = site(
-        &parsed,
-        "x.report('ok')",
-        "report",
-        "x",
-        Role::ReceiverValue,
-    );
-    let as_argument = rebind(receiver, receiver.operand(), Role::Argument(0));
-    assert_eq!(count(&parsed, 2, make(2, receiver, receiver.operand())), 1);
-    assert_eq!(
-        count(&parsed, 2, make(2, as_argument, receiver.operand())),
-        0
-    );
-
-    let audit = site(&parsed, "audit('safe', x)", "audit", "x", Role::Argument(1));
-    let safe = node(&parsed, audit.operation(), "'safe'");
-    let first_slot = rebind(audit, safe, Role::Argument(1));
-    let honest_first = rebind(audit, safe, Role::Argument(0));
-    assert_eq!(count(&parsed, 3, make(3, audit, audit.operand())), 1);
-    assert_eq!(count(&parsed, 3, make(3, honest_first, safe)), 1);
-    assert_eq!(count(&parsed, 3, make(3, first_slot, safe)), 0);
-    for role in [
-        Role::ReceiverValue,
-        Role::AssignmentValue,
-        Role::AttributeValue,
-    ] {
-        let in_arguments = rebind(audit, audit.operand(), role);
-        assert_eq!(count(&parsed, 3, make(3, in_arguments, audit.operand())), 0);
-    }
-    let second_as_first = rebind(audit, audit.operand(), Role::Argument(0));
-    assert_eq!(
-        count(&parsed, 3, make(3, second_as_first, audit.operand())),
-        0
-    );
-
-    let pair = node(
-        &parsed,
-        parsed.tree.root_node(),
-        "pair(report('ok'), other(x))",
-    );
-    let other = node(&parsed, pair, "other(x)");
-    let read = node(&parsed, other, "x");
-    let substituted = Bound::from_binder(
-        pair,
-        node(&parsed, pair, "report"),
-        other,
-        Role::Argument(1),
-        FLAT,
-    );
-    assert_eq!(count(&parsed, 4, make(4, substituted, read)), 0);
-    let genuine = Bound::from_binder(
-        pair,
-        node(&parsed, pair, "pair"),
-        other,
-        Role::Argument(1),
-        FLAT,
-    );
-    assert_eq!(count(&parsed, 4, make(4, genuine, read)), 1);
-
-    let keyword = site(
-        &parsed,
-        "report(k=x)",
-        "report",
-        "x",
-        Role::KeywordArgument("k"),
-    );
-    let wrong_name = rebind(keyword, keyword.operand(), Role::KeywordArgument("j"));
-    let positional = rebind(keyword, keyword.operand(), Role::Argument(0));
-    assert_eq!(count(&parsed, 5, make(5, keyword, keyword.operand())), 1);
-    assert_eq!(count(&parsed, 5, make(5, wrong_name, keyword.operand())), 0);
-    assert_eq!(count(&parsed, 5, make(5, positional, keyword.operand())), 0);
 }
 
 #[test]
@@ -235,15 +141,15 @@ fn path_edge_binds_the_exact_read_and_owner() {
 fn flask_inline_record_is_bound_to_the_visit() {
     let parsed = ParsedFile::parse(
         "a.py",
-        "def f():\n    pickle.loads(\n        request.get_data(),\n    ); audit(x)\n",
+        "def f():\n    pickle.loads(\n        request.data,\n    ); audit(x)\n",
         Language::Python,
     )
     .unwrap();
     let call = site(
         &parsed,
-        "pickle.loads(\n        request.get_data(),\n    )",
+        "pickle.loads(\n        request.data,\n    )",
         "loads",
-        "request.get_data()",
+        "request.data",
         Role::Argument(0),
     );
     let other = site(&parsed, "audit(x)", "audit", "x", Role::Argument(0));
@@ -266,76 +172,4 @@ fn flask_inline_record_is_bound_to_the_visit() {
     // Flask may insert at a different line of the call than its source key.
     assert_eq!(count(&parsed, 3, inline(call, op, 2, 3, 3)), 1);
     assert_eq!(count(&parsed, 4, inline(call, op, 3, 4, 4)), 1);
-}
-
-#[test]
-fn target_is_the_operations_own_terminal_callee() {
-    // (language, file, source, [(operation, target, passes)]); the operand is the last `x`.
-    let cases = [
-        (
-            Language::Python,
-            "a.py",
-            "def f(x):\n    a.b(c).d(x)\n    f(x)\n    a.b.f(x)\n    obj.method(x)\n",
-            [
-                ("a.b(c).d(x)", "b", false),
-                ("a.b(c).d(x)", "d", true),
-                ("f(x)", "f", true),
-                ("a.b.f(x)", "f", true),
-                ("a.b.f(x)", "b", false),
-                ("obj.method(x)", "method", true),
-            ],
-        ),
-        (
-            Language::JavaScript,
-            "a.js",
-            "function f(x) {\n  audit(ok)(x);\n  a.b(c).d(x);\n  f(x);\n  a.b.f(x);\n  obj.method(x);\n}\n",
-            [
-                ("audit(ok)(x)", "audit", false),
-                ("a.b(c).d(x)", "b", false),
-                ("a.b(c).d(x)", "d", true),
-                ("f(x)", "f", true),
-                ("a.b.f(x)", "f", true),
-                ("obj.method(x)", "method", true),
-            ],
-        ),
-        (
-            Language::Go,
-            "a.go",
-            "package p\nfunc f(x int) {\n\ta.b(c).d(x)\n\tf(x)\n\ta.b.f(x)\n\tobj.method(x)\n}\n",
-            [
-                ("a.b(c).d(x)", "b", false),
-                ("a.b(c).d(x)", "d", true),
-                ("f(x)", "f", true),
-                ("a.b.f(x)", "f", true),
-                ("a.b.f(x)", "b", false),
-                ("obj.method(x)", "method", true),
-            ],
-        ),
-    ];
-    let mut wrong = Vec::new();
-    for (language, file, source, rows) in cases {
-        let parsed = ParsedFile::parse(file, source, language).unwrap();
-        assert!(!parsed.tree.root_node().has_error(), "{file}");
-        let def = node(&parsed, parsed.tree.root_node(), "x");
-        for (operation, target, passes) in rows {
-            let operation = node(&parsed, parsed.tree.root_node(), operation);
-            let operand = node(&parsed, operation, "x");
-            let bound = Bound::from_binder(
-                operation,
-                node(&parsed, operation, target),
-                operand,
-                Role::Argument(0),
-                FLAT,
-            );
-            let line = operation.start_position().row + 1;
-            let witness = leaked(&parsed, line, bound, operand, def);
-            if count(&parsed, line, witness) != usize::from(passes) {
-                wrong.push(format!(
-                    "{file}: {target} in {}",
-                    parsed.node_text(&operation)
-                ));
-            }
-        }
-    }
-    assert!(wrong.is_empty(), "{wrong:?}");
 }

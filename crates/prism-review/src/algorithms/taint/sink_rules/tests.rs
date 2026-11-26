@@ -1,7 +1,7 @@
 use super::evidence::{
     Bound, Detector, InlineRoute, InlineVisit, Occurrence, PathProof, PathRoute, Provenance, Role,
 };
-use super::{collect_rules, FindingKey, NameSinks, Selection};
+use super::{FindingKey, NameSinks, Refusals, Selection};
 use crate::algorithms::taint::cleansing::{flow_path_cleansed_for_sink_call, node_in_ranges};
 use prism::access_path::AccessPath;
 use prism::ast::ParsedFile;
@@ -20,6 +20,23 @@ const STRUCTURED: Detector<'static> = Detector::Structured {
     table: "fixture",
     entry: 0,
 };
+
+fn collect_rules<'a, 'p>(
+    parsed: &'a ParsedFile,
+    line: usize,
+    admitted: &BTreeSet<(String, usize)>,
+    witnesses: impl IntoIterator<Item = Occurrence<'a, 'p>>,
+    project: impl FnMut(&Occurrence<'a, 'p>, &mut Vec<Selection>),
+) -> Vec<Selection> {
+    super::collect_rules(
+        parsed,
+        line,
+        admitted,
+        witnesses,
+        &mut Refusals::default(),
+        project,
+    )
+}
 
 fn node<'a>(parsed: &'a ParsedFile, scope: Node<'a>, text: &str) -> Node<'a> {
     parsed
@@ -158,7 +175,7 @@ fn select_eval(_: &Occurrence<'_, '_>, rows: &mut Vec<Selection>) {
 fn combines_paths_and_inline_on_final_admitted_key() {
     let parsed = ParsedFile::parse(
         "a.js",
-        "function f(x, y) { db.query('select ?', inner(x), y); db.query('select ?', {bind: x}); inline(source()); }",
+        "function f(x, y) { db.query('select ?', inner(x), y); db.query('select ?', {bind: x}); inline(source); }",
         Language::JavaScript,
     ).unwrap();
     let inner = site(&parsed, "inner(x)", "inner", "x", Role::Argument(0));
@@ -183,9 +200,9 @@ fn combines_paths_and_inline_on_final_admitted_key() {
     );
     let inline = site(
         &parsed,
-        "inline(source())",
+        "inline(source)",
         "inline",
-        "source()",
+        "source",
         Role::Argument(0),
     );
     let x_def = node(&parsed, parsed.tree.root_node(), "x");
@@ -252,11 +269,13 @@ fn combines_paths_and_inline_on_final_admitted_key() {
     };
     let cpg = CodePropertyGraph::empty();
     let mut paths = Vec::new();
-    let rows = collect_rules(
+    let mut refusals = Refusals::default();
+    let rows = super::collect_rules(
         &parsed,
         1,
         &admitted(&parsed, &[1]),
         make_witnesses(),
+        &mut refusals,
         |witness, rows| {
             let site = witness.site();
             match witness.provenance() {
@@ -268,21 +287,19 @@ fn combines_paths_and_inline_on_final_admitted_key() {
                         assert!(node_in_ranges(&site.target(), &[callee]));
                         assert!(!node_in_ranges(&site.target(), &[operand]));
                         rows.push((&JS_EVAL, true));
-                    } else if site.operand() != bound.operand()
-                        && !flow_path_cleansed_for_sink_call(
-                            &parsed,
-                            &cpg,
-                            path,
-                            1,
-                            &QUERY,
-                            &site.operation(),
-                        )
-                    {
+                    } else if !flow_path_cleansed_for_sink_call(
+                        &parsed,
+                        &cpg,
+                        path,
+                        1,
+                        &QUERY,
+                        &site.operation(),
+                    ) {
                         rows.push((&TAINT_WRITE_DATA, false));
                     }
                 }
                 Provenance::Inline { .. } => {
-                    assert_eq!(parsed.node_text(&witness.reached()), "source()");
+                    assert_eq!(parsed.node_text(&witness.reached()), "source");
                     rows.push((&JS_EVAL, false));
                 }
             }
@@ -290,9 +307,13 @@ fn combines_paths_and_inline_on_final_admitted_key() {
     );
     assert_eq!(
         paths,
-        [&x, &x, &x, &y_cleansed, &y_live, &bound_path].map(std::ptr::from_ref)
+        [&x, &x, &y_cleansed, &y_live].map(std::ptr::from_ref)
     );
-    assert_eq!(rows.len(), 5);
+    assert_eq!(
+        refusals.iter().collect::<Vec<_>>(),
+        [("operand_kind_unlisted", 2)]
+    );
+    assert_eq!(rows.len(), 4);
     let mut finding = SliceFinding {
         severity: "warning".into(),
         ..SliceFinding::default()

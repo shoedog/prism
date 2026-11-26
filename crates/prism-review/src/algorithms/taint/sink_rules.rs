@@ -8,6 +8,7 @@ use std::collections::BTreeSet;
 #[cfg_attr(not(test), allow(dead_code))]
 mod certificate;
 mod evidence;
+use certificate::Refusals;
 use evidence::{Detector, Occurrence, Role};
 
 type Selection = (&'static RuleInfo, bool);
@@ -65,6 +66,7 @@ fn collect_rules<'a, 'p>(
     line: usize,
     admitted: &BTreeSet<(String, usize)>,
     witnesses: impl IntoIterator<Item = Occurrence<'a, 'p>>,
+    refusals: &mut Refusals,
     mut project: impl FnMut(&Occurrence<'a, 'p>, &mut Vec<Selection>),
 ) -> Vec<Selection> {
     let mut rows = Vec::new();
@@ -72,7 +74,7 @@ fn collect_rules<'a, 'p>(
         return rows;
     }
     for witness in witnesses {
-        if witness.verifies(parsed, (&parsed.path, line)) {
+        if witness.verifies(parsed, (&parsed.path, line), refusals) {
             project(&witness, &mut rows);
         }
     }

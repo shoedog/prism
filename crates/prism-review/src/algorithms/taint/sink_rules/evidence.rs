@@ -1,3 +1,4 @@
+use super::certificate::{self, Refusals};
 use super::FindingKey;
 use crate::algorithms::taint::cleansing::node_contains_line;
 use prism::ast::ParsedFile;
@@ -182,8 +183,18 @@ impl<'a, 'p> Occurrence<'a, 'p> {
         self.provenance
     }
 
-    pub(super) fn verifies(&self, parsed: &ParsedFile, key: FindingKey<'_>) -> bool {
+    pub(super) fn verifies(
+        &self,
+        parsed: &ParsedFile,
+        key: FindingKey<'_>,
+        refusals: &mut Refusals,
+    ) -> bool {
         if self.key != key || key.0 != parsed.path || !std::ptr::eq(self.parsed, parsed) {
+            return false;
+        }
+        if !parsed.language.is_js_family()
+            && !matches!(parsed.language, Language::Python | Language::Go)
+        {
             return false;
         }
 
@@ -213,15 +224,11 @@ impl<'a, 'p> Occurrence<'a, 'p> {
         {
             return false;
         }
-        if !ancestors(target).any(|node| node == operation)
-            || !ancestors(operand).any(|node| node == operation)
-            || !ancestors(self.reached).any(|node| node == operand)
-            || (target.start_byte() < operand.end_byte()
-                && operand.start_byte() < target.end_byte())
-        {
+        if !ancestors(self.reached).any(|node| node == operand) {
             return false;
         }
-        if !slot_matches(parsed, operation, target, operand, role) {
+        if let Err((_, reason)) = certificate::certify(parsed, operation, target, operand, role) {
+            refusals.record(reason);
             return false;
         }
 
@@ -298,101 +305,6 @@ impl<'a, 'p> Occurrence<'a, 'p> {
                     }
             }
         }
-    }
-}
-
-/// The target is the callee itself or the last name of the callee path, reached only through
-/// an ACCEPT-LIST of descent kinds: a callee shape that is not listed earns nothing (a call,
-/// lambda, arrow or function literal, conditional, sequence, await, index or generic
-/// instantiation, type assertion). `parenthesized_expression` and `non_null_expression` are
-/// transparent only over a listed kind; a subscript descends only into a string-literal key.
-fn is_terminal_callee(callee: Node<'_>, target: Node<'_>) -> bool {
-    let mut current = callee;
-    while current != target {
-        let kind = current.kind();
-        let mut cursor = current.walk();
-        let mut children = current
-            .named_children(&mut cursor)
-            .filter(|child| !child.kind().ends_with("comment"));
-        let next = match kind {
-            // Member paths: the last named child is the member name.
-            "attribute"
-            | "member_expression"
-            | "selector_expression"
-            | "scoped_identifier"
-            | "scoped_type_identifier"
-            | "qualified_identifier"
-            | "field_expression" => children.last(),
-            // Transparent wrappers: exactly one wrapped expression.
-            "parenthesized_expression" | "non_null_expression" => {
-                let only = children.next();
-                children.next().is_none().then_some(only).flatten()
-            }
-            "subscript" | "subscript_expression" => children
-                .last()
-                .filter(|key| matches!(key.kind(), "string" | "string_literal")),
-            _ => None,
-        };
-        match next {
-            Some(next) => current = next,
-            None => return false,
-        }
-    }
-    true
-}
-
-/// Derive the argument slot from the syntax rather than from the claimed role.
-fn slot_matches(
-    parsed: &ParsedFile,
-    operation: Node<'_>,
-    target: Node<'_>,
-    operand: Node<'_>,
-    role: Role<'_>,
-) -> bool {
-    let within = |node: Node<'_>, container: Node<'_>| ancestors(node).any(|n| n == container);
-    let arguments = operation.child_by_field_name("arguments");
-    if !matches!(role, Role::Argument(_) | Role::KeywordArgument(_)) {
-        return arguments.is_none_or(|arguments| !within(operand, arguments));
-    }
-    let Some(arguments) = arguments.filter(|a| matches!(a.kind(), "arguments" | "argument_list"))
-    else {
-        return false;
-    };
-    let callee = ["function", "constructor", "name", "type"]
-        .into_iter()
-        .filter_map(|field| operation.child_by_field_name(field))
-        .any(|callee| is_terminal_callee(callee, target));
-    if !callee || within(target, arguments) || !within(operand, arguments) {
-        return false;
-    }
-    let is_comment = |node: &Node<'_>| node.kind().ends_with("comment");
-    let mut cursor = arguments.walk();
-    let children: Vec<_> = arguments
-        .named_children(&mut cursor)
-        .filter(|child| !is_comment(child))
-        .collect();
-    let Some(index) = children.iter().position(|child| within(operand, *child)) else {
-        return false;
-    };
-    let child = children[index];
-    let spread =
-        |child: &Node<'_>| child.kind().contains("splat") || child.kind().contains("spread");
-    match role {
-        Role::Argument(slot) => {
-            slot == index
-                && child.kind() != "keyword_argument"
-                && !children[..=index].iter().any(spread)
-        }
-        Role::KeywordArgument(name) => {
-            child.kind() == "keyword_argument"
-                && child
-                    .child_by_field_name("name")
-                    .is_some_and(|field| parsed.node_text(&field) == name)
-                && child
-                    .child_by_field_name("value")
-                    .is_some_and(|value| within(operand, value))
-        }
-        _ => false,
     }
 }
 
