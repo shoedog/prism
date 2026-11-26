@@ -87,7 +87,7 @@ impl<'tree> Resolver<'_, 'tree> {
                     let origin = Instance::Constructed(construction.call.id());
                     let fresh = fresh_suite
                         .filter(|_| self.unescaped_before(binding, &key, receiver, scope));
-                    if self.instance_rebound(&origin, &method, callee, scope, fresh)
+                    if self.instance_rebound(&origin, Some(&method), callee, scope, fresh)
                         || self.instance_context_rebound(&class, &origin, binding, callee, scope)
                     {
                         return Err(UnprovenCause::MemberRebound);
@@ -232,7 +232,7 @@ impl<'tree> Resolver<'_, 'tree> {
     pub(super) fn instance_rebound(
         &self,
         origin: &Instance,
-        method: &str,
+        method: Option<&str>,
         at: Node<'tree>,
         scope: ScopeId,
         fresh: Option<Node<'tree>>,
@@ -241,7 +241,7 @@ impl<'tree> Resolver<'_, 'tree> {
         self.writes.iter().any(|write| {
             matches!(&write.slot, Slot::Instance { origin: written, key }
             if written == origin && key.as_deref().is_none_or(|key| {
-                key == method || matches!(key, "__class__" | "__dict__")
+                Some(key) == method || matches!(key, "__class__" | "__dict__")
             })) && write.reaches(read)
                 && fresh.is_none_or(|suite| !write.follows_in_suite(read, suite))
         })

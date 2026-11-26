@@ -1,7 +1,7 @@
 use super::{writes::string_literal, PathUse, Resolver};
 use crate::targets::inventory::{
     python::{
-        source::{chain, children, name, ungroup},
+        source::{chain, children, has_comma, name, scalar_subscript, ungroup},
         walk::ScopeId,
     },
     UnprovenCause,
@@ -118,10 +118,16 @@ fn annotation(
             Some(annotation)
         }
         "subscript" | "generic_type" => {
-            let [wrapper, mut inner] = children(node).collect::<Vec<_>>().try_into().ok()?;
-            if node.kind() == "generic_type" {
-                [inner] = children(inner).collect::<Vec<_>>().try_into().ok()?;
-            }
+            let (wrapper, inner) = if node.kind() == "subscript" {
+                (node.child_by_field_name("value")?, scalar_subscript(node)?)
+            } else {
+                let [wrapper, parameters] = children(node).collect::<Vec<_>>().try_into().ok()?;
+                if parameters.kind() != "type_parameter" || has_comma(parameters) {
+                    return None;
+                }
+                let [inner] = children(parameters).collect::<Vec<_>>().try_into().ok()?;
+                (wrapper, inner)
+            };
             let path = type_path(parsed, wrapper, class)?;
             let mut annotation = annotation(parsed, inner, class, false, quoted)?;
             annotation.nullable = true;

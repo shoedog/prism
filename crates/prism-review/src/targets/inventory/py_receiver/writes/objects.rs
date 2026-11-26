@@ -6,7 +6,7 @@ use crate::targets::inventory::{
         slots::{Instance, Read},
     },
     python::{
-        source::{children, name, ungroup},
+        source::{children, name, scalar_subscript, ungroup},
         walk::ScopeId,
     },
 };
@@ -133,8 +133,7 @@ impl<'tree> Resolver<'_, 'tree> {
                 let Some(value) = node.child_by_field_name("value").map(ungroup) else {
                     return Objects::unknown();
                 };
-                let Some(key) = node
-                    .child_by_field_name("subscript")
+                let Some(key) = scalar_subscript(node)
                     .and_then(|index| super::strings::literal(self.parsed, index))
                 else {
                     return Objects::unknown();
@@ -225,37 +224,7 @@ impl<'tree> Resolver<'_, 'tree> {
                     continue;
                 }
                 unavailable |= !self.available(binding, at, scope);
-                let origin = self
-                    .owning_self(binding)
-                    .map(Instance::OwningSelf)
-                    .or_else(|| {
-                        self.construction_origin(binding, alt.owner)
-                            .map(Instance::Constructed)
-                    })
-                    .or_else(|| {
-                        self.declared_origin(binding, alt.owner)
-                            .map(Instance::Constructed)
-                    });
-                let value = if let Some(origin) = origin {
-                    Objects::instance(origin)
-                } else {
-                    match &binding.kind {
-                        Kind::Import(import) => self.import_objects(import, binding),
-                        Kind::Assigned(Some(value)) if alias => {
-                            let mut objects = self.objects(*value, binding.scope, false);
-                            if !matches!(ungroup(*value).kind(), "identifier" | "attribute") {
-                                objects.instances.clear();
-                            }
-                            objects
-                        }
-                        Kind::Parameter => Objects {
-                            untracked_parameter: true,
-                            ..Objects::default()
-                        },
-                        Kind::Delete => Objects::other(),
-                        _ => Objects::unknown(),
-                    }
-                };
+                let value = self.binding_objects(binding, alt.owner, alias);
                 resolved.extend(&value);
             }
             if unavailable && resolved.paths.is_empty() && resolved.instances.is_empty() {
@@ -263,6 +232,41 @@ impl<'tree> Resolver<'_, 'tree> {
             }
             objects.extend(&resolved);
         }
+        objects
+    }
+
+    fn binding_objects(&self, binding: &Binding<'tree>, owner: ScopeId, alias: bool) -> Objects {
+        if let Some(origin) = self.construction_origin(binding, owner) {
+            return Objects::instance(Instance::Constructed(origin));
+        }
+        let origin = if let Some(owner) = self.owning_self(binding) {
+            Some(Instance::OwningSelf(owner))
+        } else {
+            match self.declared_origin(binding, owner) {
+                Some((origin, true)) => return Objects::instance(Instance::Constructed(origin)),
+                Some((origin, false)) => Some(Instance::Constructed(origin)),
+                None => None,
+            }
+        };
+        let mut objects = match &binding.kind {
+            Kind::Import(import) => self.import_objects(import, binding),
+            Kind::Assigned(Some(value)) if alias => {
+                let mut objects = self.objects(*value, binding.scope, false);
+                if !matches!(ungroup(*value).kind(), "identifier" | "attribute") {
+                    objects.instances.clear();
+                }
+                objects
+            }
+            Kind::Parameter => Objects {
+                untracked_parameter: true,
+                ..Objects::default()
+            },
+            Kind::Delete => Objects::other(),
+            _ => Objects::unknown(),
+        };
+        // A diagnostic origin identifies a receiver slot without proving that
+        // the object is unrelated to the slots already tracked by S2a.
+        objects.instances.extend(origin);
         objects
     }
 

@@ -2,7 +2,7 @@ use super::{Constructed, Resolver};
 use crate::targets::inventory::{
     py_receiver::{census::Kind, lookup::direct, slots::Instance},
     python::{
-        source::{name, ungroup},
+        source::{children, name, outer_group, ungroup, ungroup_target},
         walk::ScopeId,
     },
     UnprovenCause,
@@ -14,7 +14,7 @@ impl<'tree> Resolver<'_, 'tree> {
         &self,
         returned: Node<'tree>,
         scope: ScopeId,
-        method: &str,
+        method: Option<&str>,
     ) -> Option<Result<Constructed<'tree>, UnprovenCause>> {
         if returned.kind() != "identifier" {
             return None;
@@ -22,26 +22,37 @@ impl<'tree> Resolver<'_, 'tree> {
         let key = name(self.parsed.node_text(&returned), self.walk.class(scope));
         let bindings = self.census.spaces[scope].bindings.get(&key)?;
         let body = self.walk.scopes[scope].body;
-        let (binding, target, call, class) = bindings.iter().find_map(|binding| {
-            let Kind::Assigned(Some(value)) = binding.kind else {
-                return None;
-            };
-            if binding.scope != scope
-                || !direct(body, binding.node)
-                || binding.position > returned.start_byte()
-            {
-                return None;
+        let constructions: Vec<_> = bindings
+            .iter()
+            .filter_map(|binding| {
+                let Kind::Assigned(Some(value)) = binding.kind else {
+                    return None;
+                };
+                if binding.scope != scope
+                    || !direct(body, binding.node)
+                    || binding.position > returned.start_byte()
+                {
+                    return None;
+                }
+                let target = ungroup_target(binding.node.child_by_field_name("left")?);
+                let call = ungroup(value);
+                Some((
+                    binding,
+                    target,
+                    call,
+                    self.constructor(call, scope, None, None)?,
+                ))
+            })
+            .collect();
+        if constructions.is_empty() {
+            return None;
+        }
+        let mut causes = Vec::new();
+        for (_, _, call, class) in &constructions {
+            if let Err(cause) = class {
+                causes.push(*cause);
+                continue;
             }
-            let target = binding.node.child_by_field_name("left")?;
-            let call = ungroup(value);
-            Some((
-                binding,
-                target,
-                call,
-                self.constructor(call, scope, None, None)?,
-            ))
-        })?;
-        Some(class.and_then(|class| {
             if self.instance_rebound(
                 &Instance::Constructed(call.id()),
                 method,
@@ -49,50 +60,67 @@ impl<'tree> Resolver<'_, 'tree> {
                 scope,
                 None,
             ) {
-                return Err(UnprovenCause::MemberRebound);
+                causes.push(UnprovenCause::MemberRebound);
             }
-            if bindings.len() != 1 || self.name_rebound(scope, &key, returned, scope) {
-                return Err(UnprovenCause::ReceiverValueUnproven);
+        }
+        if bindings.len() != 1 || self.name_rebound(scope, &key, returned, scope) {
+            causes.push(UnprovenCause::ReceiverValueUnproven);
+        }
+        if let Some(cause) = causes.into_iter().min() {
+            return Some(Err(cause));
+        }
+
+        let (binding, target, call, class) = constructions.into_iter().next()?;
+        let uses_binding = |node: Node<'tree>, scope| {
+            name(self.parsed.node_text(&node), self.walk.class(scope)) == key
+                && self.lookup(scope, &key, node).iter().any(|alt| {
+                    alt.bindings
+                        .iter()
+                        .any(|candidate| std::ptr::eq(*candidate, binding))
+                })
+        };
+        for &(node, context) in &self.walk.nodes {
+            if !context.evaluated || node == target || node == returned {
+                continue;
             }
-            for (node, context) in &self.walk.nodes {
-                if *node == target
-                    || *node == returned
-                    || node.kind() != "identifier"
-                    || !context.evaluated
-                    || !identifier_use(*node)
-                    || name(self.parsed.node_text(node), self.walk.class(context.scope)) != key
-                    || !self.lookup(context.scope, &key, *node).iter().any(|alt| {
-                        alt.bindings
-                            .iter()
-                            .any(|candidate| std::ptr::eq(*candidate, binding))
-                    })
-                {
-                    continue;
-                }
-                let expression = grouped(*node);
-                let member_base = expression.parent().is_some_and(|parent| {
-                    parent.kind() == "attribute"
-                        && parent.child_by_field_name("object") == Some(expression)
-                });
-                if context.scope != scope
-                    || !(member_base || self.literal_receiver_write(expression, scope))
-                {
-                    return Err(UnprovenCause::ReceiverValueUnproven);
-                }
+            if node.kind() == "case_pattern"
+                && bare_class_heads(node, &|head| uses_binding(head, context.scope))
+            {
+                return Some(Err(UnprovenCause::ReceiverValueUnproven));
             }
-            Ok(Constructed { class, call })
-        }))
+            if node.kind() != "identifier"
+                || !identifier_use(node)
+                || !uses_binding(node, context.scope)
+            {
+                continue;
+            }
+            let expression = outer_group(node);
+            let member_base = expression.parent().is_some_and(|parent| {
+                parent.kind() == "attribute"
+                    && parent.child_by_field_name("object") == Some(expression)
+            });
+            if context.scope != scope
+                || !(member_base || self.literal_receiver_write(expression, scope))
+            {
+                return Some(Err(UnprovenCause::ReceiverValueUnproven));
+            }
+        }
+        Some(class.map(|class| Constructed { class, call }))
     }
 }
 
-fn grouped(mut node: Node<'_>) -> Node<'_> {
-    while let Some(parent) = node
-        .parent()
-        .filter(|parent| parent.kind() == "parenthesized_expression")
-    {
-        node = parent;
+// The call walk stops at case patterns. Only a bare class head consumes the
+// local itself. A dotted head reads a member, and a keyword label binds nothing.
+fn bare_class_heads<'tree>(node: Node<'tree>, matches: &impl Fn(Node<'tree>) -> bool) -> bool {
+    if node.kind() == "class_pattern" {
+        let mut path = children(node).next().into_iter().flat_map(children);
+        if let (Some(head), None) = (path.next(), path.next()) {
+            if matches(head) {
+                return true;
+            }
+        }
     }
-    node
+    children(node).any(|child| bare_class_heads(child, matches))
 }
 
 fn identifier_use(node: Node<'_>) -> bool {

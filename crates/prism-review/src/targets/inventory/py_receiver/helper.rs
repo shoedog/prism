@@ -95,7 +95,7 @@ impl<'tree> Resolver<'_, 'tree> {
         let helper_call = value.and_then(|value| self.helper_call(value));
         let helper = helper_call.and_then(|helper| {
             (local || annotation_ties)
-                .then(|| self.helper_value(helper, value_scope, method, annotation_ties))
+                .then(|| self.helper_value(helper, value_scope, Some(method), annotation_ties))
                 .flatten()
         });
         if !annotation_ties && declaration_cause.is_none() && (!local || helper.is_none()) {
@@ -115,7 +115,7 @@ impl<'tree> Resolver<'_, 'tree> {
         let origin =
             Instance::Constructed(helper_call.map_or(binding.node.id(), |helper| helper.call.id()));
         let fresh_instance = fresh.filter(|_| self.unescaped_before(binding, key, at, scope));
-        if self.instance_rebound(&origin, method, at, scope, fresh_instance) {
+        if self.instance_rebound(&origin, Some(method), at, scope, fresh_instance) {
             causes.push(UnprovenCause::MemberRebound);
         }
         let mut built = None;
@@ -262,7 +262,7 @@ impl<'tree> Resolver<'_, 'tree> {
         &self,
         binding: &Binding<'tree>,
         owner: ScopeId,
-    ) -> Option<usize> {
+    ) -> Option<(usize, bool)> {
         if self.walk.scopes[owner].kind != ScopeKind::Function {
             return None;
         }
@@ -274,12 +274,22 @@ impl<'tree> Resolver<'_, 'tree> {
                 self.declaration(annotation, scope, local, None)
                     .is_some_and(|result| result.is_ok())
             });
-        if let Some(helper) = value.and_then(|value| self.helper_call(value)) {
-            if local && (declared || !self.helper_bindings(helper, scope).is_empty()) {
-                return Some(helper.call.id());
+        if let Some(helper) = value
+            .and_then(|value| self.helper_call(value))
+            .filter(|_| local)
+        {
+            let bindings = self.helper_bindings(helper, scope);
+            if declared || !bindings.is_empty() {
+                let constructed = bindings.into_iter().any(|(binding, visible)| {
+                    visible
+                        && self
+                            .helper_definition(binding, visible, helper.awaited, None, false)
+                            .is_some_and(|helper| helper.value.is_ok())
+                });
+                return Some((helper.call.id(), constructed));
             }
         }
-        declared.then_some(binding.node.id())
+        declared.then_some((binding.node.id(), false))
     }
 
     fn helper_call(&self, value: Node<'tree>) -> Option<HelperCall<'tree>> {
@@ -312,12 +322,17 @@ impl<'tree> Resolver<'_, 'tree> {
         );
         let alternatives = self.lookup(scope, &key, helper.callee);
         let deciding = alternatives.first().filter(|_| alternatives.len() == 1);
-        let module = self.census.spaces[0].bindings.get(&key);
+        let lexical = std::iter::successors(Some(scope), |&scope| {
+            (scope != 0).then(|| self.walk.scopes[scope].parent)
+        })
+        .filter(|&scope| self.walk.scopes[scope].kind != ScopeKind::Class)
+        .filter_map(|scope| self.census.spaces[scope].bindings.get(&key))
+        .flatten();
         let mut bindings: Vec<(&Binding<'tree>, bool)> = Vec::new();
         for candidate in alternatives
             .iter()
             .flat_map(|alt| alt.bindings.iter().copied())
-            .chain(module.into_iter().flatten())
+            .chain(lexical)
             .filter(|binding| binding.node.kind() == "function_definition")
         {
             if bindings
@@ -341,7 +356,7 @@ impl<'tree> Resolver<'_, 'tree> {
         &self,
         helper: HelperCall<'tree>,
         scope: ScopeId,
-        method: &str,
+        method: Option<&str>,
         use_declaration: bool,
     ) -> Option<HelperValue<'tree>> {
         self.helper_bindings(helper, scope)
@@ -357,7 +372,7 @@ impl<'tree> Resolver<'_, 'tree> {
         binding: &Binding<'tree>,
         visible: bool,
         awaited: bool,
-        method: &str,
+        method: Option<&str>,
         use_declaration: bool,
     ) -> Option<HelperValue<'tree>> {
         let definition = binding.node;
@@ -367,20 +382,16 @@ impl<'tree> Resolver<'_, 'tree> {
         let syntax = definition.child_by_field_name("return_type");
         let declaration =
             syntax.and_then(|syntax| self.declaration(syntax, binding.scope, false, None));
-        let declaration = match declaration {
-            Some(Err(cause))
-                if syntax.is_some_and(|annotation| {
-                    self.declaration(annotation, binding.scope, false, Some(method))
+        let declaration_cause = declaration.as_ref().and_then(|result| {
+            let cause = *result.as_ref().err()?;
+            (use_declaration
+                || syntax.is_some_and(|annotation| {
+                    self.declaration(annotation, binding.scope, false, method)
                         .is_some()
-                }) =>
-            {
-                return Some(HelperValue {
-                    declaration: None,
-                    value: Err(cause),
-                })
-            }
-            candidate => candidate.and_then(Result::ok),
-        };
+                }))
+            .then_some(cause)
+        });
+        let declaration = declaration.and_then(Result::ok);
         let returns: Vec<_> = facts
             .returns
             .iter()
@@ -388,51 +399,56 @@ impl<'tree> Resolver<'_, 'tree> {
                 let value = children(statement).next().map(ungroup);
                 let constructor =
                     value.and_then(|value| self.constructor(value, scope, None, None));
-                (value, constructor)
+                let ties = constructor.is_some()
+                    && method.is_none_or(|method| {
+                        value.is_some_and(|value| {
+                            self.constructor(value, scope, Some(method), None).is_some()
+                        })
+                    });
+                (value, constructor, ties)
             })
             .collect();
-        let direct_ties = returns.iter().any(|(value, _)| {
-            value.is_some_and(|value| self.constructor(value, scope, Some(method), None).is_some())
-        });
+        let matches_method =
+            |class: &str| method.is_none_or(|method| py_tables::constructor_method(class, method));
+        let direct_ties = returns.iter().any(|(_, _, ties)| *ties);
         let final_return =
             facts.returns.len() == 1 && children(body).last() == facts.returns.first().copied();
-        let returned_local = if final_return && declaration.is_some() {
-            returns[0]
-                .0
-                .and_then(|value| self.returned_local(value, scope, method))
-        } else {
-            None
-        };
-        let local_ties = matches!(&returned_local, Some(Ok(built))
-            if py_tables::constructor_method(&built.class, method));
+        let returned_local =
+            if final_return && (declaration.is_some() || declaration_cause.is_some()) {
+                returns[0]
+                    .0
+                    .and_then(|value| self.returned_local(value, scope, method))
+            } else {
+                None
+            };
+        let local_ties = matches!(&returned_local, Some(Ok(built)) if matches_method(&built.class));
         if !direct_ties
             && !local_ties
-            && !declaration.as_ref().is_some_and(|declaration| {
-                use_declaration || py_tables::constructor_method(&declaration.class, method)
-            })
+            && declaration_cause.is_none()
+            && !declaration
+                .as_ref()
+                .is_some_and(|declaration| use_declaration || matches_method(&declaration.class))
         {
             return None;
         }
         let value = (|| {
-            for (value, constructor) in &returns {
-                if let Some(Err(cause)) = constructor {
-                    if use_declaration
-                        || value.is_some_and(|value| {
-                            self.constructor(value, scope, Some(method), None).is_some()
-                        })
-                    {
-                        return Err(*cause);
-                    }
+            let mut causes: Vec<_> = declaration_cause.into_iter().collect();
+            causes.extend(returns.iter().filter_map(|(_, constructor, ties)| {
+                if use_declaration || *ties {
+                    constructor.as_ref()?.as_ref().err().copied()
+                } else {
+                    None
                 }
+            }));
+            causes.extend(
+                returned_local
+                    .as_ref()
+                    .and_then(|result| result.as_ref().err())
+                    .copied(),
+            );
+            if declaration.is_none() {
+                causes.push(UnprovenCause::HelperUnannotated);
             }
-            if let Some(Err(cause)) = &returned_local {
-                if *cause < UnprovenCause::ReceiverNotUnique {
-                    return Err(*cause);
-                }
-            }
-            let Some(declaration) = &declaration else {
-                return Err(UnprovenCause::HelperUnannotated);
-            };
             if !visible
                 || facts.yields
                 || definition
@@ -443,17 +459,23 @@ impl<'tree> Resolver<'_, 'tree> {
                         .child(0)
                         .is_some_and(|token| token.kind() == "async")
             {
-                return Err(UnprovenCause::HelperNotAdmissible);
+                causes.push(UnprovenCause::HelperNotAdmissible);
             }
+            if let Some(cause) = causes.into_iter().min() {
+                return Err(cause);
+            }
+            let declaration = declaration
+                .as_ref()
+                .expect("missing declarations are refused");
             if returns
                 .iter()
-                .all(|(value, _)| value.is_none_or(|value| value.kind() == "none"))
+                .all(|(value, _, _)| value.is_none_or(|value| value.kind() == "none"))
             {
                 return Err(UnprovenCause::ReceiverIsNone);
             }
             if final_return {
-                if let [(Some(call), Some(Ok(class)))] = returns.as_slice() {
-                    if py_tables::constructor_method(class, method) || use_declaration {
+                if let [(Some(call), Some(Ok(class)), ties)] = returns.as_slice() {
+                    if *ties || use_declaration {
                         return Ok(Constructed {
                             call: *call,
                             class: class.clone(),
@@ -463,14 +485,14 @@ impl<'tree> Resolver<'_, 'tree> {
             }
             if let Some(result) = returned_local {
                 let built = result?;
-                if py_tables::constructor_method(&built.class, method) || use_declaration {
+                if matches_method(&built.class) || use_declaration {
                     return Ok(built);
                 }
                 if built.class != declaration.class {
                     return Err(UnprovenCause::AnnotationConflict);
                 }
             }
-            if returns.iter().any(|(value, constructor)| {
+            if returns.iter().any(|(value, constructor, _)| {
                 matches!(constructor, Some(Ok(class)) if *class != declaration.class)
                     || value.is_some_and(|value| contradicts_literal(value, declaration.nullable))
             }) {
@@ -486,8 +508,11 @@ fn contradicts_literal(node: Node<'_>, nullable: bool) -> bool {
     match node.kind() {
         "none" => !nullable,
         "dictionary"
+        | "dictionary_comprehension"
         | "list"
+        | "list_comprehension"
         | "set"
+        | "set_comprehension"
         | "tuple"
         | "expression_list"
         | "string"

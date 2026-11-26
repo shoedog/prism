@@ -37,6 +37,7 @@ mod targets_inventory_fields_test;
 mod targets_inventory_helpers_test;
 mod targets_inventory_receiver_guards_test;
 mod targets_inventory_receiver_projection_test;
+mod targets_inventory_s2b_fold_test;
 mod targets_inventory_test;
 mod targets_test;
 

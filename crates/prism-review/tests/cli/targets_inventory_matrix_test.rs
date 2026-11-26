@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Component, Path};
 
 pub(super) const FIXTURE_REPO: &str = "tests/targets_inventory/py";
@@ -27,12 +27,13 @@ const CAUSES: &[&str] = &[
     "binding_unavailable",
     "member_rebound",
     "receiver_not_unique",
+    "receiver_is_none",
     "annotation_conflict",
     "helper_unannotated",
     "helper_not_admissible",
     "receiver_value_unproven",
-    "receiver_is_none",
 ];
+const IDENTITY_WARNING: &str = "inventory: identity unproven: ";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -251,12 +252,64 @@ fn matrix_rows_match() {
 
     // Each unsupported target answers at most one row (DESIGN 6.8: rows consume actual targets).
     let mut used = vec![false; targets.len()];
-    for row in rows
+    let enabled: Vec<_> = rows
         .iter()
         .filter(|row| ENABLED_GROUPS.contains(&row.group.as_str()))
-    {
+        .collect();
+    assert_eq!(enabled.len(), 594);
+    assert_eq!(
+        identity_warning_lines(warnings),
+        expected_identity_warnings(&enabled),
+        "matrix warning totals and causes"
+    );
+    for row in enabled {
         check_row(row, targets, &document["warnings"], &mut used);
     }
+}
+
+fn expected_identity_warnings(rows: &[&Row]) -> Vec<String> {
+    let mut counts = BTreeMap::<&str, BTreeMap<&str, usize>>::new();
+    for row in rows {
+        if let Want::None(Some(cause)) = row.expectation() {
+            *counts
+                .entry(&row.fixture)
+                .or_default()
+                .entry(cause)
+                .or_default() += 1;
+        }
+    }
+    // DESIGN §6.5 also counts a parameter call alongside each constructor row.
+    for file in ["http_receiver/as1-19.py", "http_receiver/as2-27.py"] {
+        if rows.iter().any(|row| row.fixture == file) {
+            *counts
+                .entry(file)
+                .or_default()
+                .entry("receiver_value_unproven")
+                .or_default() += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .map(|(file, causes)| {
+            let total: usize = causes.values().sum();
+            let detail = CAUSES
+                .iter()
+                .filter_map(|&cause| causes.get(cause).map(|count| format!("{cause}: {count}")))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{IDENTITY_WARNING}{file}: {total} ({detail})")
+        })
+        .collect()
+}
+
+fn identity_warning_lines(warnings: &[Value]) -> Vec<&str> {
+    let mut lines: Vec<_> = warnings
+        .iter()
+        .map(|warning| warning.as_str().unwrap())
+        .filter(|warning| warning.starts_with(IDENTITY_WARNING))
+        .collect();
+    lines.sort_unstable();
+    lines
 }
 
 #[test]
@@ -413,7 +466,7 @@ fn check_row(row: &Row, targets: &[Value], warnings: &Value, used: &mut [bool]) 
 }
 
 fn has_unproven_cause(warnings: &Value, fixture: &str, cause: &str) -> bool {
-    let prefix = format!("inventory: identity unproven: {fixture}: ");
+    let prefix = format!("{IDENTITY_WARNING}{fixture}: ");
     warnings
         .as_array()
         .into_iter()
@@ -425,4 +478,32 @@ fn has_unproven_cause(warnings: &Value, fixture: &str, cause: &str) -> bool {
         .flat_map(|(_, causes)| causes.split(", "))
         .filter_map(|entry| entry.split_once(": "))
         .any(|(name, count)| name == cause && positive_integer(count).is_some())
+}
+
+#[test]
+fn matrix_rejects_incorrect_warning_counts() {
+    let rows = read_rows();
+    let fixture_rows: Vec<_> = rows
+        .iter()
+        .filter(|row| matches!(row.id.as_str(), "sl1-67" | "sl1-68" | "sl1-69"))
+        .collect();
+    assert_eq!(fixture_rows.len(), 3);
+    let prefix = format!("{IDENTITY_WARNING}{}: ", fixture_rows[0].fixture);
+    let expected = expected_identity_warnings(&fixture_rows);
+    assert_eq!(
+        expected,
+        [format!("{prefix}3 (shadowed_root: 2, not_imported: 1)")]
+    );
+    let control = [Value::from(expected[0].clone())];
+    assert_eq!(identity_warning_lines(&control), expected);
+    for detail in [
+        "4 (shadowed_root: 2, not_imported: 1)",
+        "3 (shadowed_root: 1, not_imported: 2)",
+        "3 (not_imported: 1, shadowed_root: 2)",
+    ] {
+        let altered = [Value::from(format!("{prefix}{detail}"))];
+        assert_ne!(identity_warning_lines(&altered), expected);
+    }
+    let duplicated = [control[0].clone(), control[0].clone()];
+    assert_ne!(identity_warning_lines(&duplicated), expected);
 }

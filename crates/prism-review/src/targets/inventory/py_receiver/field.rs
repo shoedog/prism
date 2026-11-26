@@ -40,7 +40,7 @@ impl<'tree> Resolver<'_, 'tree> {
                 if self
                     .prove_instance_method(&class, &method, callee, scope)
                     .is_err()
-                    || self.instance_rebound(&instance, &method, callee, scope, None)
+                    || self.instance_rebound(&instance, Some(&method), callee, scope, None)
                 {
                     return UnprovenCause::MemberRebound;
                 }

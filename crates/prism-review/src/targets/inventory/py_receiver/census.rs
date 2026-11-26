@@ -1,7 +1,7 @@
 use super::context::ContextUse;
 use crate::targets::dependency_identity::python_imports;
 use crate::targets::inventory::python::{
-    source::{children, name, ungroup},
+    source::{children, name, ungroup, ungroup_target},
     walk::{ScopeId, ScopeKind, Walk},
 };
 use prism::ast::ParsedFile;
@@ -135,10 +135,11 @@ impl<'tree> Census<'tree> {
                     let annotation = node.child_by_field_name("type").is_some();
                     let right = node.child_by_field_name("right");
                     if let Some(left) = node.child_by_field_name("left") {
-                        if let Some(value) = right.filter(|_| {
-                            node.kind() == "assignment" && ungroup(left).kind() == "attribute"
-                        }) {
-                            this.field_stores.push((scope, ungroup(left), value));
+                        let target = ungroup_target(left);
+                        if let Some(value) = right
+                            .filter(|_| node.kind() == "assignment" && target.kind() == "attribute")
+                        {
+                            this.field_stores.push((scope, target, value));
                         }
                         if annotation && walk.scopes[scope].kind == ScopeKind::Class {
                             this.insert(
@@ -155,12 +156,12 @@ impl<'tree> Census<'tree> {
                         if !annotation || right.is_some() || left.kind() == "identifier" {
                             let kind = if annotation && right.is_none() {
                                 Kind::Annotation
-                            } else if node.kind() == "assignment" && left.kind() == "identifier" {
+                            } else if node.kind() == "assignment" && target.kind() == "identifier" {
                                 Kind::Assigned(right)
                             } else {
                                 Kind::Other
                             };
-                            this.targets(parsed, walk, scope, left, node, kind);
+                            this.targets(parsed, walk, scope, target, node, kind);
                         }
                     }
                 }

@@ -8,7 +8,7 @@ use super::{
     Resolver,
 };
 use crate::targets::inventory::python::{
-    source::{children, name, ungroup},
+    source::{children, has_comma, name, outer_group, scalar_subscript, ungroup, ungroup_target},
     walk::{Context, ScopeId},
 };
 use objects::Objects;
@@ -102,43 +102,33 @@ impl<'tree> Resolver<'_, 'tree> {
                 byte: node.end_byte(),
                 ..self.read(node, scope)
             };
-            let mut value = None;
-            let slots = match node.kind() {
-                "assignment"
-                | "augmented_assignment"
-                | "for_statement"
-                | "for_in_clause"
-                | "as_pattern" => {
-                    let field = if node.kind() == "as_pattern" {
-                        "alias"
-                    } else {
-                        "left"
-                    };
-                    let Some(target) = node.child_by_field_name(field) else {
-                        continue;
-                    };
-                    if node.kind() == "assignment" {
-                        let right = node.child_by_field_name("right");
-                        if node.child_by_field_name("type").is_some() && right.is_none() {
-                            continue;
-                        }
-                        if matches!(ungroup(target).kind(), "attribute" | "subscript") {
-                            value = right;
-                        }
+            let (slots, value) = if node.kind() == "call" {
+                if names_only {
+                    continue;
+                }
+                let Some((object, key, value)) = self.reflection_write(node, scope) else {
+                    continue;
+                };
+                (self.objects(object, scope, true).slots(key), value)
+            } else {
+                let roots = write_targets(node);
+                let value = match roots.as_slice() {
+                    [target]
+                        if node.kind() == "assignment"
+                            && matches!(
+                                ungroup_target(*target).kind(),
+                                "attribute" | "subscript"
+                            ) =>
+                    {
+                        node.child_by_field_name("right")
                     }
-                    self.targets(target, scope, names_only)
-                }
-                "delete_statement" => children(node)
+                    _ => None,
+                };
+                let slots = roots
+                    .into_iter()
                     .flat_map(|target| self.targets(target, scope, names_only))
-                    .collect(),
-                "call" if !names_only => {
-                    let Some((slots, replacement)) = self.reflection_write(node, scope) else {
-                        continue;
-                    };
-                    value = replacement;
-                    slots
-                }
-                _ => continue,
+                    .collect();
+                (slots, value)
             };
             if slots.is_empty() {
                 continue;
@@ -162,7 +152,6 @@ impl<'tree> Resolver<'_, 'tree> {
     }
 
     fn targets(&self, target: Node<'tree>, scope: ScopeId, names_only: bool) -> Vec<Slot> {
-        let target = ungroup(target);
         match target.kind() {
             "attribute" if !names_only => {
                 let Some(object) = target.child_by_field_name("object") else {
@@ -176,13 +165,10 @@ impl<'tree> Resolver<'_, 'tree> {
             "subscript" => self
                 .subscript_write(target, scope, names_only)
                 .unwrap_or_default(),
-            "expression_list" | "list" | "tuple" | "pattern_list" | "list_pattern"
-            | "tuple_pattern" | "list_splat_pattern" | "list_splat" | "as_pattern_target" => {
-                children(target)
-                    .flat_map(|item| self.targets(item, scope, names_only))
-                    .collect()
-            }
-            _ => Vec::new(),
+            _ => target_parts(target)
+                .into_iter()
+                .flat_map(|item| self.targets(item, scope, names_only))
+                .collect(),
         }
     }
 
@@ -193,7 +179,7 @@ impl<'tree> Resolver<'_, 'tree> {
         names_only: bool,
     ) -> Option<Vec<Slot>> {
         let value = ungroup(target.child_by_field_name("value")?);
-        let index = target.child_by_field_name("subscript")?;
+        let index = scalar_subscript(target)?;
         let key = strings::write_key(self.parsed, index)?;
         if self.reflection_helper(value, scope, "globals") && args(value).next().is_none() {
             return names_only.then(|| {
@@ -206,8 +192,7 @@ impl<'tree> Resolver<'_, 'tree> {
         if names_only {
             return None;
         }
-        if self.reflection_helper(value, scope, "vars") {
-            let [object] = args(value).collect::<Vec<_>>().try_into().ok()?;
+        if let Some(object) = self.vars_target(value, target, scope) {
             return Some(self.objects(object, scope, true).slots(key));
         }
         if value.kind() == "attribute" {
@@ -233,32 +218,58 @@ impl<'tree> Resolver<'_, 'tree> {
         if call.kind() != "call" || args(call).next() != Some(receiver) {
             return false;
         }
-        if self.reflection_write(call, scope).is_some() {
+        if self
+            .reflection_write(call, scope)
+            .is_some_and(|(object, _, _)| object == receiver)
+        {
             return true;
         }
-        let Some(target) = call.parent().filter(|parent| {
-            parent.kind() == "subscript" && parent.child_by_field_name("value") == Some(call)
+        let base = outer_group(call);
+        let Some(target) = base.parent().filter(|parent| {
+            parent.kind() == "subscript" && parent.child_by_field_name("value") == Some(base)
         }) else {
             return false;
         };
-        self.reflection_helper(call, scope, "vars")
-            && self.subscript_write(target, scope, false).is_some()
-            && target.parent().is_some_and(|parent| match parent.kind() {
-                "assignment" | "augmented_assignment" => {
-                    parent.child_by_field_name("left") == Some(target)
-                        && (parent.child_by_field_name("type").is_none()
-                            || parent.child_by_field_name("right").is_some())
-                }
-                "delete_statement" => true,
-                _ => false,
+        is_write_target(target)
+            && self.vars_target(call, target, scope) == Some(receiver)
+            && (has_comma(target)
+                || scalar_subscript(target).is_some_and(|index| {
+                    ungroup(index).kind() == "tuple"
+                        || strings::write_key(self.parsed, index).is_some()
+                }))
+    }
+
+    fn vars_target(
+        &self,
+        call: Node<'tree>,
+        target: Node<'tree>,
+        scope: ScopeId,
+    ) -> Option<Node<'tree>> {
+        if call.kind() != "call" {
+            return None;
+        }
+        let mut callee = ungroup(self.parsed.call_function_node(&call)?);
+        // A starred unpacking target can put the star on the call's
+        // identifier instead of wrapping the full subscript in the tree.
+        if callee.kind() == "list_splat"
+            && target.parent().is_some_and(|pattern| {
+                matches!(pattern.kind(), "list_pattern" | "pattern_list")
+                    || (pattern.kind() == "tuple_pattern" && has_comma(pattern))
             })
+        {
+            let [identifier] = children(callee).collect::<Vec<_>>().try_into().ok()?;
+            callee = identifier;
+        }
+        let [object] = args(call).collect::<Vec<_>>().try_into().ok()?;
+        self.reflection_name(callee, scope, "vars")
+            .then_some(object)
     }
 
     fn reflection_write(
         &self,
         call: Node<'tree>,
         scope: ScopeId,
-    ) -> Option<(Vec<Slot>, Option<Node<'tree>>)> {
+    ) -> Option<(Node<'tree>, Option<String>, Option<Node<'tree>>)> {
         let callee = ungroup(self.parsed.call_function_node(&call)?);
         let effect = name(self.parsed.node_text(&callee), self.walk.class(scope));
         if !matches!(effect.as_str(), "setattr" | "delattr")
@@ -273,7 +284,7 @@ impl<'tree> Resolver<'_, 'tree> {
         if (effect == "setattr") != value.is_some() || arguments.next().is_some() {
             return None;
         }
-        Some((self.objects(object, scope, true).slots(key), value))
+        Some((object, key, value))
     }
 
     fn reflection_helper(&self, call: Node<'tree>, scope: ScopeId, helper: &str) -> bool {
@@ -283,6 +294,10 @@ impl<'tree> Resolver<'_, 'tree> {
         let Some(callee) = self.parsed.call_function_node(&call).map(ungroup) else {
             return false;
         };
+        self.reflection_name(callee, scope, helper)
+    }
+
+    fn reflection_name(&self, callee: Node<'tree>, scope: ScopeId, helper: &str) -> bool {
         callee.kind() == "identifier"
             && name(self.parsed.node_text(&callee), self.walk.class(scope)) == helper
             && self.builtin_unshadowed(scope, helper, callee)
@@ -296,4 +311,47 @@ impl<'tree> Resolver<'_, 'tree> {
                 .iter()
                 .all(|alt| alt.owner == 0)
     }
+}
+
+fn write_targets(node: Node<'_>) -> Vec<Node<'_>> {
+    match node.kind() {
+        "assignment"
+            if node.child_by_field_name("type").is_some()
+                && node.child_by_field_name("right").is_none() =>
+        {
+            Vec::new()
+        }
+        "assignment" | "augmented_assignment" | "for_statement" | "for_in_clause" => {
+            node.child_by_field_name("left").into_iter().collect()
+        }
+        "as_pattern" => node.child_by_field_name("alias").into_iter().collect(),
+        "delete_statement" => children(node).collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn target_parts(node: Node<'_>) -> Vec<Node<'_>> {
+    match node.kind() {
+        "parenthesized_expression"
+        | "expression_list"
+        | "list"
+        | "tuple"
+        | "pattern_list"
+        | "list_pattern"
+        | "tuple_pattern"
+        | "list_splat_pattern"
+        | "list_splat"
+        | "as_pattern_target" => children(node).collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn is_write_target(mut node: Node<'_>) -> bool {
+    while let Some(parent) = node.parent() {
+        if !target_parts(parent).contains(&node) {
+            return write_targets(parent).contains(&node);
+        }
+        node = parent;
+    }
+    false
 }
