@@ -284,6 +284,10 @@ inside the 8 GiB memory guard with the §2 host environment allow-list.
 small `node` self-check bootstrap directly, the caller controls that
 initial Node process.
 
+The built-in self-check has 742 golden rows in 75 cases. Each
+`known-limit-*` case groups programs in separate `repo/<id>/`
+directories. The worker grades each program in its own checker graph.
+
 The self-check prints and atomically stores its receipt in
 `PRISM_MEASURE_SELFCHECK_DIR`, or `prism/measure/selfcheck` under the XDG
 cache. Grading requires a prior receipt for the complete current input
@@ -359,9 +363,66 @@ outcomes and can appear on exit 0.
 
 ### What can be graded
 
-Argument binding proves a whole identifier or primitive literal actual to a
+**What a lane may conclude.** CORRECT and WRONG are the pinned TypeScript
+checker's verdicts under the static-binding model at exact identifier bytes.
+For call targets the checker-resolved body is mapped to the qualified producer
+triple. CORRECT means the binding, slot or target agrees with the claim.
+WRONG means the checker binds elsewhere or the exact bytes contradict the
+claimed role or position. Runtime behavior can differ in the cases below.
+Hand-read every WRONG against the source before attributing it to the product.
+The four Excalidraw WRONGs at this revision were assignment-target anchors
+tracked in #961. UNDECIDED earns no credit either way and names the missing
+proof in `why`.
+
+A real build needs the producer qualification bundle for call-target
+decisions. With the empty production qualification pin, every otherwise
+decidable call-target row is UNDECIDED `target-id-unproved`. Slot and lexical
+verdicts require no producer qualification.
+
+**Known limits and measured exposure.** The registry
+[known_limits.json](oracle/known_limits.json) pins the checker's verdicts where Node
+differs. The table gives decided edges at `d0a2b9c3` whose route touches the
+listed syntactic detector. Proxies overcount and have no reliable detector for
+the full class. The counts measure syntactic exposure. They give no estimate
+of false verdicts. A zero with unrecovered dependencies cannot establish
+absence. For both Annex B and eval, 4,632 Express edges and 5,775 Excalidraw
+edges had unrecovered dependencies.
+Source measurements are in `enum-r8/price/classify-receipts.tgz` (`summary.md`).
+
+| Known limit (example) | Measurement | Authored real-use (14 decided) | Express (5,040 CORRECT, 0 WRONG) | Excalidraw slice (14,285 CORRECT, 4 WRONG) |
+|---|---|---:|---:|---:|
+| Annex B block functions (B01) | Detector | 0 | 0 | 0 |
+| Sloppy direct eval (E01) | Detector | 0 | 0 | 0 |
+| Catch-parameter var redirection (R14) | Detector | 0 | 0 | 0 |
+| Host and script vs. module bindings (M09) | Proxy | 0 | 3,694 | 661 |
+| Property origin and structural lending (P02) | Proxy | 0 | 2 | 351 |
+| Property origin, spread getter and noncomputed `__proto__` (T05) | Detector | 0 | 5 | 132 |
+| Property origin, declare fields and merged interfaces (N30) | Detector | 0 | 0 | 0 |
+| Parameter-default closure scope (N03) | Detector | 0 | 0 | 0 |
+| For-let initializer environment (N10) | Detector | 0 | 0 | 0 |
+| For-in/of head environment (B07, pass 3) | Detector | 0 | 0 | 0 |
+| Module resolution, extension substitution (N20) | Detector | 0 | 1,289 | 3,326 |
+| Module resolution, package main, JSON and declaration files (A14) | Proxy | 0 | 3,682 | 5,821 |
+| HTML-like comment tokenization (N80) | Detector | 0 | 0 | 17 |
+| Receiver override and detached dispatch (N40) | Proxy | 0 | 376 | 137 |
+| Computed member names (C05) | Detector | 0 | 0 | 11 |
+| Static initialization order (C01) | Proxy | 0 | 0 | 0 |
+| Member definition order (A22) | Proxy | 0 | 0 | 44 |
+| Erased ambient declarations (B19, pass 3) | Detector | 0 | 0 | 5 |
+
+The spot check reproduced all 14 enum-r8 programs it sampled
+(`SPOT.md` in `enum-r8/price/spot-receipts.tgz`). A separate random hand-read
+found all 60 sampled decided occurrences sound against runtime. All were
+CORRECT, with 30 kept by accept-list A and 30 discarded
+(`enum-r8/price/HANDREAD.md`).
+Accept-list A was a positive list of simple routes and kept 233 of 19,343
+decided edges (1.2%, with 0 authored, 233 Express and 0 Excalidraw). It was
+rejected because all 30 sampled losses were sound (`enum-r8/price/ACCEPT-A.md`
+and `HANDREAD.md`).
+
+Argument binding checks a whole identifier or primitive literal actual against a
 fixed implementation slot. Parentheses, type assertions, non-null assertions
-and `satisfies` preserve an entire actual. Which body runs is decided by a
+and `satisfies` preserve an entire actual. The checker-selected body needs a
 positive value-origin certificate; anything outside it is UNDECIDED
 `ambiguous-dispatch` (closed world). Only parentheses, `!` and `satisfies`
 are stripped from a callee or receiver, uniformly, so `o.m(x)`, `(o).m(x)`,
@@ -400,34 +461,23 @@ written, and exactly one bodied function declaration for the export, which is
 the owner, however many duplicate diagnostics are suppressed (the identifier
 callee rule), under the same closed global-scope rule;
 (c) an immediately invoked body.
-Closed global-scope rule (amended accept-list, name-based, costs only recall). A
-callable certificate verdict, argument slot or call target through any
-certificate form, for a callee that is (i) a top-level function of a non-module
-script (global-scope backed) or (ii) a namespace or module-namespace member, is
-decided only if, across ALL files of the program and by spelling: the callee
-name and the namespace receiver name occur in no write position (an assignment
-target leaf including destructuring and `for` heads, compound assignment,
-update, `delete`, and a member write on ANY receiver, including `this.f = ..`),
-and no declaration of that name by var, let, const, function, class, namespace
-or enum exists other than the proved declaration (and its overloads) in the same
-scope, or in any other non-module script file. A global object reached through
-any form (`globalThis`, `window`, `self`, `global`, a UMD `(function (root) {
-root.f = .. })(this)` parameter, an alias assigned later, `window.window.f`) is
-covered by the member name it writes. Otherwise UNDECIDED `ambiguous-dispatch`.
-Each reviewer instance is a self-check case (`certificate-fold6`) with its
-UNDECIDED row beside a CORRECT control.
-Out-of-model amendment (accept-list, FORMATS section 4). A callable verdict
-(argument slot and call target, every certificate form, the identifier route
-included) is a STATIC-BINDING grade, as `Exact` is in the repository contract: it
-is decided over statically bound bodies only. Out of model, zero credit either
-way (UNDECIDED with a named reason, never CORRECT, never WRONG): (1)
-replacement or mutation of a module object, namespace object,
-`module.exports`/`exports` or a global, by any spelling including an alias of
-`module`; (2) programs that only compile under diagnostic suppression, and
-duplicate declarations. Detection is a FILE-WIDE BELT BY SPELLING over the
-callee's file F (for a namespace member also every file that contributes to the
-namespace), added to the name-based program-wide rules above, never instead of
-them, and it precedes every certificate form:
+
+**Closed global-scope rule.** Program-wide checks apply by spelling to script-global function names
+and to namespace member-access routes. A script-global function needs no
+assignment or member write of its name in any file and no other declaration
+of that name in a script. A namespace member access checks identifier and
+member writes to the receiver and function names, plus receiver redeclarations
+in the access file and other scripts. Assignment targets include destructuring
+leaves, `for` heads, compound assignments, updates and `delete`. A member write
+on any receiver, including a UMD parameter or a global-object alias, counts
+under the written name. These checks can yield UNDECIDED `ambiguous-dispatch`.
+
+The callable model excludes runtime replacement or mutation of module,
+namespace or global objects, programs relying on diagnostic suppression and
+duplicate declarations. The detected forms below yield named UNDECIDED
+reasons. The file-wide checks examine the callee's file F and, for a TypeScript
+namespace member, all files contributing to the namespace.
+
 - UNDECIDED `out-of-model-module-mutation` when F holds a write to
   `module.exports` or `exports` (an assignment, update, `delete`, destructuring
   or loop-head target rooted at `module` or `exports`, at any alias of them
@@ -436,8 +486,8 @@ them, and it precedes every certificate form:
   or `Reflect.set`/`defineProperty`/`deleteProperty`/`setPrototypeOf` on one of
   them), or a write to a member of the global object (`globalThis`, `window`,
   `self`, `global` or an alias, any member name) or `this.<name> = ..` at the
-  top level of a script, or, for a namespace member, a write of the member name
-  by any receiver spelling in any file (`(N as any).f = ..`).
+  top level of a script, or, for a TypeScript namespace member, a write of the
+  member name by any receiver spelling in any file (`(N as any).f = ..`).
 - UNDECIDED `out-of-model-suppression` when F carries `@ts-nocheck`,
   `@ts-ignore` or `@ts-expect-error` (by spelling, anywhere in the file), or a
   duplicate declaration of the callee name (a `let`, `const`, `class`, `enum`,
@@ -445,12 +495,17 @@ them, and it precedes every certificate form:
   merged namespace; a plain `var f;` and a block-scoped namesake of another
   scope are not duplicates) or of the namespace receiver name (declared again
   anywhere, nested scopes included).
-Where each component applies: the module-object component to a call that crosses
-a file or reaches a namespace member (a same-file call of a module-local function
-runs that declaration whatever the module object holds); the global-object
-component to a script-global function or a namespace member (a module-local
-function cannot be replaced by a global write); the suppression component to
-every callee. An ordinary CommonJS export (`module.exports = { f }`) is a write
+
+The module-object check applies to cross-file calls and calls to namespace
+members. The global-object check applies to script-global functions and
+namespace members. The suppression check applies to every callee.
+For an ES module export reached as `ns.f()`, the member-access
+rule sees a third file's `(ns as any).f = ..` and yields
+UNDECIDED `ambiguous-dispatch`. For the same export reached by a bare
+`f()` through a named import, that write alone permits a decision. The
+all-file member-write check on the bare route applies to TypeScript
+namespace members. `certificate-module-namespace-routes` pins the ES
+module distinction. An ordinary CommonJS export (`module.exports = { f }`) is a write
 to `module.exports`, so a call into such a file from another file is UNDECIDED
 (recall cost; calls through `require` were already undecided). Reflective
 writers beyond the list, computed keys and runtime re-acquisition remain out
@@ -526,8 +581,8 @@ receiver constants. `(x as C).m()` is UNDECIDED even when the assertion keeps
 the inner expression's own type. Hand-written qualification evidence is out
 of model (see Qualification above).
 
-Lexical binding proves a unique value declaration or write and a read of
-the same binding. Old-value reads in compound/logical assignments and
+Lexical binding checks whether the checker resolves a declaration or write
+and a read to the same unique value binding. Old-value reads in compound/logical assignments and
 updates count as reads. An endpoint anywhere inside the operand of a `delete`
 (`delete o.m`, `delete o[k]`, `delete (c ? x : 0)`) is UNDECIDED `delete-operand`,
 never WRONG and never CORRECT: `delete o.m` reads nothing of `m`, but the
@@ -564,16 +619,18 @@ endpoint spelled as claimed at exact identifier bytes. Lexical cases:
   name): a serving neighbour on that line makes it UNDECIDED
   `endpoint-coordinate-off`, else WRONG. Private names (`#m`) count as
   occurrences.
-- Type-only contexts are erased, so a mention there is the type role, never a read
-  (WRONG `type-position` unless a neighbour serves): `implements X`, `implements
-  ns.T`, an interface `extends X`, and the computed key of a type literal or
-  interface member (`type Shape = { [key]: number }`). A class `extends`, an
-  object or class computed key (`{ [key]: 1 }`) and `extends ns.C` are evaluated
-  reads and stay CORRECT (`lexical-fold7`).
-- Two member accesses that resolve to one member declaration are one slot only
-  on one certain receiver: both receivers are the same identifier binding, or both
-  `this` of one function or class. Anything else (`a.m = 1` to `b.m` for two
-  instances) is UNDECIDED `receiver-identity-unproved`.
+- `implements`, interface `extends` and computed property/method signatures
+  in interfaces and type literals take the type role (WRONG `type-position`
+  unless a neighbour serves). Erased computed keys of accessor signatures,
+  abstract members and body-less method overloads are UNDECIDED
+  `erased-computed-key`. Evaluated computed keys and class `extends` remain
+  reads. Ambient and `declare`-field cases are recorded in the known-limit ledger.
+- A member write and read resolved to the same declaration by the checker
+  need matching receiver identity. The receiver must resolve to the same
+  identifier symbol with no indexed assignments, or to `this` in the same
+  function or class. The read may be the key of a direct object binding or
+  assignment pattern with a proved receiver. Other receiver evidence gives
+  UNDECIDED `receiver-identity-unproved`.
 - An endpoint that is not at exact identifier bytes is UNDECIDED
   `identifier-unproved`.
 

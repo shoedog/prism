@@ -29,7 +29,7 @@ MATRIX_ROWS = {row["id"]: row for row in read_jsonl(MATRIX / "rows.jsonl")
 BOUNDARY_REASONS = {"structured-path", "type-only-declaration", "slot-unproved", "ambiguous-dispatch",
                     "external-callable", "target-id-unproved", "endpoint-coordinate-off",
                     "endpoint-spelling-mismatch", "delete-operand", "out-of-model-module-mutation",
-                    "out-of-model-suppression", "receiver-identity-unproved"}
+                    "out-of-model-suppression", "receiver-identity-unproved", "erased-computed-key"}
 DECISIONS = {"oracle-027": [], "oracle-029": ["WRONG"], "oracle-032": ["WRONG"],
              "oracle-034": ["UNDECIDED"]}
 

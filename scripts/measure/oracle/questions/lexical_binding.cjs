@@ -1,5 +1,7 @@
 'use strict';
 
+const { writes } = require('./callable.cjs');
+
 const property = 'declaration-and-read';
 const result = (verdict, why = property) => ({ verdict, property, why });
 
@@ -51,30 +53,49 @@ function neighbour(ts, node, wireLine, matches) {
   return found;
 }
 
-// A mention erased by TypeScript: `implements X`, an interface `extends X` (through a
-// qualified `ns.T`) and a computed key of a type literal or interface member. A class
-// `extends` and an object or class computed key are evaluated, so they are not type-only.
-function typeOnly(ts, identifier) {
+// Type references and computed keys erased at a signature rather than evaluated.
+function erasedRole(ts, identifier) {
   let node = identifier;
   while (ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node) node = node.parent;
   const heritage = node.parent;
   if (ts.isExpressionWithTypeArguments(heritage) && ts.isHeritageClause(heritage.parent)) {
     const owner = heritage.parent.parent;
-    return heritage.parent.token === ts.SyntaxKind.ImplementsKeyword || ts.isInterfaceDeclaration(owner);
+    if (heritage.parent.token === ts.SyntaxKind.ImplementsKeyword || ts.isInterfaceDeclaration(owner)) return 'type';
   }
   for (let p = identifier.parent; p; p = p.parent) {
     if (ts.isComputedPropertyName(p)) {
-      return (ts.isPropertySignature(p.parent) || ts.isMethodSignature(p.parent))
-        && (ts.isTypeLiteralNode(p.parent.parent) || ts.isInterfaceDeclaration(p.parent.parent));
+      const member = p.parent;
+      const typeMember = ts.isTypeLiteralNode(member.parent) || ts.isInterfaceDeclaration(member.parent);
+      if (typeMember && (ts.isPropertySignature(member) || ts.isMethodSignature(member))) return 'type';
+      if (typeMember && (ts.isGetAccessorDeclaration(member) || ts.isSetAccessorDeclaration(member))) {
+        return 'erased-computed-key';
+      }
+      // Ambient declaration and declare-field discrepancies have their own pinned limits.
+      if (!(member.flags & ts.NodeFlags.Ambient)
+          && ((ts.getCombinedModifierFlags(member) & ts.ModifierFlags.Abstract)
+            || (ts.isMethodDeclaration(member) && !member.body))) return 'erased-computed-key';
+      break;
     }
-    if (ts.isFunctionLike(p) || ts.isStatement(p) || ts.isDeclaration(p)) return false;
+    if (ts.isFunctionLike(p) || ts.isStatement(p) || ts.isDeclaration(p)) break;
   }
-  return false;
+  return null;
+}
+
+function objectAssignment(ts, identifier) {
+  const key = identifier.parent;
+  if (!ts.isPropertyAssignment(key) || key.name !== identifier) return null;
+  const pattern = key.parent;
+  const assignment = pattern.parent;
+  return ts.isObjectLiteralExpression(pattern) && ts.isBinaryExpression(assignment)
+    && assignment.left === pattern && assignment.operatorToken.kind === ts.SyntaxKind.EqualsToken
+    ? assignment : null;
 }
 
 function role(ts, identifier) {
   let p = identifier.parent;
-  if (typeOnly(ts, identifier)) return 'type';
+  const erased = erasedRole(ts, identifier);
+  if (erased) return erased;
+  if (objectAssignment(ts, identifier)) return 'read';
   if (ts.isDeclaration(p) && p.name === identifier && !ts.isShorthandPropertyAssignment(p)) return 'decl';
   for (let node = identifier; p; node = p, p = p.parent) {
     // A class `extends` expression is evaluated at run time, so it reads the value binding.
@@ -136,12 +157,23 @@ function propertyToken(ts, id) {
     || (ts.isDeclaration(p) && p.name === id && !valueBinding(ts, p));
 }
 
-// The instance a member access is made on, when it is certain: an identifier (its symbol) or `this`
-// (the nearest non-arrow function or class).
-function receiverIdentity(ts, checker, id) {
+function memberReceiver(ts, id) {
   const p = id.parent;
-  if (!(ts.isPropertyAccessExpression(p) && p.name === id)) return undefined;
-  let receiver = p.expression;
+  return ts.isPropertyAccessExpression(p) && p.name === id ? p.expression : null;
+}
+
+function patternReceiver(ts, id) {
+  const key = id.parent;
+  if (ts.isBindingElement(key) && key.propertyName === id && ts.isObjectBindingPattern(key.parent)) {
+    const owner = key.parent.parent;
+    if (ts.isVariableDeclaration(owner)) return owner.initializer;
+  }
+  return objectAssignment(ts, id)?.right;
+}
+
+// Compare a receiver's identifier symbol or its nearest non-arrow `this` scope.
+function receiverIdentity(ts, checker, receiver) {
+  if (!receiver) return null;
   while (ts.isParenthesizedExpression(receiver) || ts.isNonNullExpression(receiver)) receiver = receiver.expression;
   if (ts.isIdentifier(receiver)) return checker.getSymbolAtLocation(receiver) ?? null;
   if (receiver.kind === ts.SyntaxKind.ThisKeyword) {
@@ -151,9 +183,11 @@ function receiverIdentity(ts, checker, id) {
 }
 
 function declaration(ts, checker, id) {
-  const symbol = ts.isShorthandPropertyAssignment(id.parent) && id.parent.name === id
-    ? checker.getShorthandAssignmentValueSymbol(id.parent)
-    : checker.getSymbolAtLocation(id);
+  let symbol;
+  if (objectAssignment(ts, id)) symbol = checker.getPropertySymbolOfDestructuringAssignment(id);
+  else if (ts.isShorthandPropertyAssignment(id.parent) && id.parent.name === id) {
+    symbol = checker.getShorthandAssignmentValueSymbol(id.parent);
+  } else symbol = checker.getSymbolAtLocation(id);
   if (!symbol || !(symbol.flags & (ts.SymbolFlags.Value | ts.SymbolFlags.Alias))) return undefined;
   const ds = symbol.declarations;
   if (ds?.length !== 1) return undefined;
@@ -175,6 +209,7 @@ function grade(row, context) {
   if (insideDelete(ts, left) || insideDelete(ts, right)) return result('UNDECIDED', 'delete-operand');
   const a = role(ts, left);
   const b = role(ts, right);
+  if (a === 'erased-computed-key' || b === 'erased-computed-key') return result('UNDECIDED', 'erased-computed-key');
   // A spelling mismatch (the span's identifier is not the claimed base) proves nothing: the
   // producer's alias twins carry the alias variable's span for a def of the base. It is
   // UNDECIDED. A role or position fault at an endpoint spelled as claimed is a proof, WRONG
@@ -202,12 +237,15 @@ function grade(row, context) {
   const read = declaration(ts, checker, right);
   if (!source || !read) return result('UNDECIDED', 'declaration-unproved');
   if (source === read) {
-    // One member declaration does not make a write and a read the same instance slot: two
-    // member accesses are one slot only on one certain receiver binding.
-    const a = receiverIdentity(ts, checker, left);
-    const b = receiverIdentity(ts, checker, right);
-    if (a !== undefined && b !== undefined) {
-      if (!a || a !== b) return result('UNDECIDED', 'receiver-identity-unproved');
+    // A member write needs evidence that the read uses the same receiver. Even one
+    // identifier symbol can denote a different receiver when it is reassigned.
+    const receiver = memberReceiver(ts, left);
+    if (receiver) {
+      const written = receiverIdentity(ts, checker, receiver);
+      const observed = receiverIdentity(ts, checker, memberReceiver(ts, right) ?? patternReceiver(ts, right));
+      if (!written || written !== observed || writes(context).symbols.has(written)) {
+        return result('UNDECIDED', 'receiver-identity-unproved');
+      }
     }
     return result('CORRECT');
   }

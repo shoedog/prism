@@ -134,7 +134,8 @@ class Custody(unittest.TestCase):
                           "certificate-fold6", "certificate-fold7-global",
                           "certificate-fold7-module", "certificate-fold7-namespace",
                           "certificate-fold7-pins", "certificate-fold7-suppress",
-                          "certificate-member-writes", "certificate-receiver-wrappers"])
+                          "certificate-member-writes", "certificate-module-namespace-routes",
+                          "certificate-receiver-wrappers"])
         for case in cases:
             rows = fixtures.read_jsonl(case / "expected.jsonl")
             with self.subTest(case=case.name):

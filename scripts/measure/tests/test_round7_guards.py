@@ -127,21 +127,21 @@ class BoundedItems(unittest.TestCase):
 class RuleText(unittest.TestCase):
     def test_readme_states_the_amendment_and_where_each_component_applies(self):
         text = " ".join(README.read_text().split())
-        for phrase in ("is a STATIC-BINDING grade",
-                       "FILE-WIDE BELT BY SPELLING",
+        for phrase in ("under the static-binding model at exact identifier bytes",
+                       "The file-wide checks examine the callee's file F",
                        "UNDECIDED `out-of-model-module-mutation`",
                        "UNDECIDED `out-of-model-suppression`",
-                       "Where each component applies",
+                       "The suppression check applies to every callee.",
                        "`const alias = module; alias.exports = {..}`",
                        "UNDECIDED `receiver-identity-unproved`",
                        "property token BY SYNTAX",
-                       "Type-only contexts are erased",
+                       "Erased computed keys of accessor signatures",
                        "constructors, whose overloads are the containing class's"):
             self.assertIn(phrase, text)
 
     def test_formats_lists_the_new_named_reasons(self):
         text = FORMATS.read_text()
-        for name in (MUTATION, SUPPRESSION, "receiver-identity-unproved"):
+        for name in (MUTATION, SUPPRESSION, "receiver-identity-unproved", "erased-computed-key"):
             self.assertIn(f"`{name}`", text)
 
 

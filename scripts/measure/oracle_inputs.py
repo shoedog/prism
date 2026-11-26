@@ -135,6 +135,12 @@ def fixture_set(root, raw, prefix):
     for entry in cases.values():
         if not {"input.jsonl", "expected.jsonl"} <= entry["files"].keys():
             raise ValueError("self-check case requires input and expected JSONL")
+        grouped = entry["id"].startswith("kit/known-limit-")
+        if grouped:
+            source_files = {path.removeprefix("repo/") for path in entry["files"]
+                            if path.startswith("repo/")}
+            if any("/" not in path for path in source_files):
+                raise ValueError("selfcheck-schema: known-limit program directory required")
         for filename in ("input.jsonl", "expected.jsonl"):
             for line in raw[f"{entry['id'].split('/', 1)[1]}/{filename}"].split(b"\n"):
                 if not line.strip(b" \t\r"):
@@ -157,6 +163,14 @@ def fixture_set(root, raw, prefix):
                     edge(row)
                 else:
                     raise ValueError("selfcheck-schema: expected call_site or edge")
+                if grouped:
+                    if row.get("record_kind") == "call_site":
+                        files = {row["source_span"]["file"], row["caller"]["file"]}
+                        files.update(target["function_id"]["file"] for target in row["resolved_targets"])
+                    else:
+                        files = {row["from"]["file"], row["to"]["file"]}
+                    if not files <= source_files or len({file.split("/", 1)[0] for file in files}) != 1:
+                        raise ValueError("selfcheck-schema: known-limit row must use one program")
         if not (Path(entry["root"]) / "repo").is_dir():
             raise ValueError("self-check case requires repo directory")
     if not cases:

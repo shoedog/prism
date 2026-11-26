@@ -124,7 +124,24 @@ function records(bytes) {
 
 const namedBoundary = new Set(['structured-path', 'type-only-declaration', 'slot-unproved',
   'ambiguous-dispatch', 'external-callable', 'target-id-unproved', 'endpoint-coordinate-off', 'endpoint-spelling-mismatch', 'delete-operand', 'out-of-model-module-mutation',
-  'out-of-model-suppression', 'receiver-identity-unproved', fallback]);
+  'out-of-model-suppression', 'receiver-identity-unproved', 'erased-computed-key', fallback]);
+
+// A known-limit case groups several independent programs under repo/<id>/.
+// Their scripts can reuse global names, so grade each with its own checker graph.
+function fixturePrograms(test, source, claims) {
+  if (!test.id.startsWith('kit/known-limit-')) return [{ source, claims }];
+  const groups = new Map();
+  for (const [file, hash] of Object.entries(source.files)) {
+    const id = file.split('/', 1)[0];
+    if (!groups.has(id)) groups.set(id, { source: { ...source, files: object() }, claims: [] });
+    groups.get(id).source.files[file] = hash;
+  }
+  for (const claim of claims) {
+    const file = claim.index === null ? claim.row.from.file : claim.row.source_span.file;
+    groups.get(file.split('/', 1)[0]).claims.push(claim);
+  }
+  return [...groups.values()];
+}
 
 function selfcheck(job, ts, question) {
   const permitted = new Map();
@@ -187,8 +204,7 @@ function selfcheck(job, ts, question) {
     }
   }
   for (const { test, inputs, expected, source, caseModule } of fixtures) {
-    const context = buildContext(ts, source, job.checker);
-    const observed = inputs.map((wrapper, ordinal) => {
+    const claims = inputs.map((wrapper, ordinal) => {
       const wrapped = !Object.hasOwn(wrapper, 'from') && !Object.hasOwn(wrapper, 'record_kind');
       if (wrapped && (!keys(wrapper, ['relation', 'arm', 'row'], ['target_index', 'change'])
           || !['census', 'base', 'head'].includes(wrapper.arm) || blank(wrapper.relation))) {
@@ -206,9 +222,12 @@ function selfcheck(job, ts, question) {
         || !['added', 'removed', 'label_moved', 'ambiguous'].includes(change.kind))) {
         throw Error('selfcheck-schema: change context');
       }
-      const occurrence = { row, arm, index, change, ordinal };
-      return grade(occurrence, source, context, caseModule, wrapped ? wrapper.relation : null,
-        { permitted, admission }, test.prefix === 'kit' ? forms : [], false);
+      return { row, arm, index, change, ordinal, relation: wrapped ? wrapper.relation : null };
+    });
+    const observed = fixturePrograms(test, source, claims).flatMap(program => {
+      const context = buildContext(ts, program.source, job.checker);
+      return program.claims.map(claim => grade(claim, program.source, context, caseModule,
+        claim.relation, { permitted, admission }, test.prefix === 'kit' ? forms : [], false));
     }).sort((a, b) => order(canonical(a.key), canonical(b.key)) || order(a.arm, b.arm));
     for (let i = 0; i < observed.length; i++) {
       const { key, relation, property, verdict, why } = observed[i];

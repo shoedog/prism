@@ -58,7 +58,7 @@ class PropertyTokens(unittest.TestCase):
 class RuleText(unittest.TestCase):
     def test_readme_states_the_amendment_and_the_new_rules(self):
         text = " ".join(README.read_text().split())
-        for phrase in ("across ALL files of the program and by spelling",
+        for phrase in ("Program-wide checks apply by spelling to script-global function names",
                        "`globalThis.N = {..}`, `var N = {..}` replacing a script namespace",
                        "UNDECIDED `delete-operand`",
                        "different VALUE bindings",
