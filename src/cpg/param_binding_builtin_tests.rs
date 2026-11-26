@@ -16,6 +16,7 @@ function main() {
   const direct = 2;
 items.forEach(visit); visit(direct);
 }
+export {};
 ";
 
 fn endpoint(
@@ -129,24 +130,27 @@ fn named_callback_and_exact_sibling_have_distinct_endpoints() {
 }
 
 #[test]
-fn same_owner_callback_is_a_known_trace_limit() {
+fn same_owner_callback_stops_at_a_self_function_param_boundary() {
     let source =
-        "function visit(item, items) {\nobserve(items);\nitems.map(visit);\nuse(item);\n}\n";
+        "function visit(item, items) {\nobserve(items);\nitems.map(visit);\nuse(item);\n}\nexport {};";
     let cpg = build(LANGS[0].0, &[("m", source)], "js");
     let start = source.find("items.map").unwrap();
     let items = endpoint(&cpg, "visit", "items", (start, start), VarAccess::Use);
     let formal = endpoint(&cpg, "visit", "item", (15, 19), VarAccess::Def);
     assert_eq!(builtin_edges(&cpg), [(items, formal)]);
     let root = endpoint(&cpg, "visit", "items", (21, 26), VarAccess::Def);
+    let start = source.find("use(item)").unwrap() + "use(".len();
+    let read = endpoint(&cpg, "visit", "item", (start, start + 4), VarAccess::Use);
     let trace = cpg.taint_trace_nodes(&[root], None);
-    assert!(!trace
-        .boundary
-        .iter()
-        .any(|edge| edge.from == items && edge.to == formal));
-    assert_eq!(
-        trace.parents_by_root[&(root, formal)],
-        (items, Relation::DataFlow)
-    );
+    assert!(trace.boundary.contains(&BoundaryEdge {
+        root,
+        from: items,
+        to: formal,
+        kind: BoundaryKind::SelfFunctionParam,
+    }));
+    assert!(trace.frontier_by_root[&root].contains(&items));
+    assert!(!trace.frontier_by_root[&root].contains(&formal));
+    assert!(!trace.frontier_by_root[&root].contains(&read));
 }
 
 #[test]
@@ -262,7 +266,7 @@ fn named_value_requires_live_initialization_and_rejects_writes() {
         ),
     ];
     for (before, local, after, expected) in cases {
-        let source = format!("{before}\nfunction main() {{\nconst items = [1];\n{local}\nitems.forEach(visit);\n{after}\n}}");
+        let source = format!("{before}\nfunction main() {{\nconst items = [1];\n{local}\nitems.forEach(visit);\n{after}\n}}\nexport {{}};");
         let cpg = build(LANGS[0].0, &[("m", &source)], "js");
         let from = source.find("items.forEach").unwrap();
         let from = endpoint(&cpg, "main", "items", (from, from), VarAccess::Use);
@@ -367,7 +371,7 @@ fn named_callback_refusals_keep_the_same_file_control() {
             "visit",
         ),
     ] {
-        let source = format!("{prefix}\n{control}\nfunction main() {{\nconst items = [1];\n{statements}\nitems.forEach({decoy});\nitems.forEach(stable);\n}}");
+        let source = format!("{prefix}\n{control}\nfunction main() {{\nconst items = [1];\n{statements}\nitems.forEach({decoy});\nitems.forEach(stable);\n}}\nexport {{}};");
         let cpg = build(
             LANGS[0].0,
             &[
@@ -447,7 +451,7 @@ fn destructure_and_typescript_this_keep_runtime_slots() {
             "this: object, { ignored }, value: number",
         ),
     ] {
-        let source = format!("function step({formals}) {{\nuse(ignored, value);\n}}\nfunction main() {{\nconst items = [1];\nitems.reduce(step);\n}}");
+        let source = format!("function step({formals}) {{\nuse(ignored, value);\n}}\nfunction main() {{\nconst items = [1];\nitems.reduce(step);\n}}\nexport {{}};");
         let cpg = build(lang, &[("m", &source)], ext);
         let edges = builtin_edges(&cpg);
         let from = source.find("items.reduce").unwrap();
@@ -472,7 +476,7 @@ fn destructure_and_typescript_this_keep_runtime_slots() {
 
 #[test]
 fn fulfillment_only_leaves_rejection_unfed() {
-    let source = "function ok(value) {\nuse(value);\n}\nfunction fail(reason) {\nuse(reason);\n}\nfunction main() {\nconst promise = source();\npromise.then(ok, fail);\n}";
+    let source = "function ok(value) {\nuse(value);\n}\nfunction fail(reason) {\nuse(reason);\n}\nfunction main() {\nconst promise = source();\npromise.then(ok, fail);\n}\nexport {};";
     let cpg = build(LANGS[0].0, &[("m", source)], "js");
     let from = source.find("promise.then").unwrap();
     let from = endpoint(&cpg, "main", "promise", (from, from), VarAccess::Use);
@@ -490,7 +494,7 @@ fn producer_arguments_are_not_receivers_of_call_results() {
         ("arr.map(f)", "filter", &["f"][..]),
         ("fetch(u)", "then", &["u"][..]),
     ] {
-        let source = format!("function visit(item) {{\nuse(item);\n}}\nfunction main(o, arr, f, u) {{\nconst control = [1];\n{producer}.{outer}(visit);\ncontrol.map(visit);\n}}");
+        let source = format!("function visit(item) {{\nuse(item);\n}}\nfunction main(o, arr, f, u) {{\nconst control = [1];\n{producer}.{outer}(visit);\ncontrol.map(visit);\n}}\nexport {{}};");
         let cpg = build(LANGS[0].0, &[("m", &source)], "js");
         let formal = endpoint(&cpg, "visit", "item", (15, 19), VarAccess::Def);
         let start = source.find("control.map").unwrap();
@@ -514,7 +518,7 @@ fn installed_override_keeps_the_table_candidate_at_nameonly() {
     // The external oracle grades one witnessed contrary delivery and one
     // opaque delivery. Both remain NameOnly candidates in the product.
     for override_value in ["cb => { cb(99, 0, []); }", "opaque()"] {
-        let source = format!("function visit(item) {{\nuse(item);\n}}\nfunction main() {{\nconst items = [0];\nitems.forEach = {override_value};\nitems.forEach(visit);\n}}");
+        let source = format!("function visit(item) {{\nuse(item);\n}}\nfunction main() {{\nconst items = [0];\nitems.forEach = {override_value};\nitems.forEach(visit);\n}}\nexport {{}};");
         let cpg = build(LANGS[0].0, &[("m", &source)], "js");
         let formal = endpoint(&cpg, "visit", "item", (15, 19), VarAccess::Def);
         let start = source.find("items.forEach(visit)").unwrap();

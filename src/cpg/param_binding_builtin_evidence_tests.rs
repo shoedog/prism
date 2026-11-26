@@ -59,6 +59,7 @@ fn transfer(
         &VarIndex::from_graph(graph),
         &CodePropertyGraph::exact_var_index_from_graph(graph),
         graph,
+        super::builtin_callbacks::diagnostic::enabled(),
     );
     transfers
         .into_iter()
@@ -224,11 +225,9 @@ fn represented_formal_without_existing_read_edge_supplies_no_binding() {
 #[test]
 fn diagnostic_records_join_role_outcomes_to_edges() {
     const FILE: &str = "d-capture-only.js";
-    let source = "function main(opaque) {\nconst items = [1];\nitems.reduce((...parts) => use(parts));\nitems.reduce((acc, elem) => use(acc, elem), ...opaque);\nitems.reduce((a, b) => use(a, b), undefined);\nitems.map(unread => 0);\nitems.map(...opaque, unused => use(unused));\nitems.map(0, later => use(later));\nitems.map();\nitems.map(stable);\nitems[opaque](stable);\n  items.map(stable);\n}\nfunction stable(value) { use(value); }";
+    let source = "function main(opaque) {\nconst items = [1];\nitems.reduce((...parts) => use(parts));\nitems.reduce((acc, elem) => use(acc, elem), ...opaque);\nitems.reduce((a, b) => use(a, b), undefined);\nitems.map(unread => 0);\nitems.map(...opaque, unused => use(unused));\nitems.map(0, later => use(later));\nitems.map();\nitems.map(stable);\nitems[opaque](stable);\n  items.map(stable);\n}\nfunction stable(value) { use(value); }\nexport {};";
     let (_, control) = fixture(FILE, source, Language::JavaScript);
-    assert!(!super::builtin_callbacks::diagnostic::enabled());
     let ((_, captured), lines) = capture::run(|| fixture(FILE, source, Language::JavaScript));
-    assert!(!super::builtin_callbacks::diagnostic::enabled());
     assert_eq!(builtin_edges(&control), builtin_edges(&captured));
     let records: Vec<serde_json::Value> = lines
         .iter()
@@ -291,7 +290,6 @@ fn diagnostic_records_join_role_outcomes_to_edges() {
     assert_eq!(named["role"], "element");
     assert_eq!(named["slot"], 0);
     assert_ne!(named["callback"], named["declaration"]);
-    direct_eval_in_the_declaration_scope_refuses_the_named_callback();
 }
 
 #[test]
@@ -308,7 +306,7 @@ fn attached_references_bind_and_detached_invocations_leave_the_formal_unfed() {
         ("items.map`${visit}`", "map", false),
         ("new items.map(visit)", "map", false),
     ] {
-        let source = format!("function visit(item) {{\nuse(item);\n}}\nfunction main(key) {{\nconst items = [1];\nitems.map(visit);\n{expression};\n}}");
+        let source = format!("function visit(item) {{\nuse(item);\n}}\nfunction main(key) {{\nconst items = [1];\nitems.map(visit);\n{expression};\n}}\nexport {{}};");
         let (parsed, mut cpg) = fixture("syntax.ts", &source, Language::TypeScript);
         let good = source.find("items.map").unwrap();
         let control = site(&cpg, good);
@@ -359,6 +357,7 @@ fn non_js_same_spelling_keeps_its_ordinary_binding() {
         &cpg.var_index,
         &CodePropertyGraph::exact_var_index_from_graph(&cpg.graph),
         &cpg.graph,
+        super::builtin_callbacks::diagnostic::enabled(),
     );
     assert!(parser_evidence.is_empty());
     let edges: Vec<_> = cpg
@@ -391,7 +390,7 @@ fn closure_read_with_outer_owner_bytes_is_not_an_entry_read_witness() {
         } else {
             "  use(item);"
         };
-        let source = format!("function visit(item) {{\n{read}\n}}\nfunction main() {{\nconst items = [1];\nitems.map(visit);\n}}");
+        let source = format!("function visit(item) {{\n{read}\n}}\nfunction main() {{\nconst items = [1];\nitems.map(visit);\n}}\nexport {{}};");
         let (parsed, mut cpg) = fixture("closure.js", &source, Language::JavaScript);
         let call = site(&cpg, source.find("items.map").unwrap());
         let formal = occurrence(&cpg.graph, "visit", "item", (15, 19), VarAccess::Def);
@@ -455,7 +454,7 @@ fn sloppy_annex_b_and_with_do_not_reuse_an_outer_declaration() {
         ("scope.cjs", "", "{", true),
     ] {
         let closing = if wrapper.ends_with('{') { "}" } else { "" };
-        let source = format!("{prologue}\nfunction visit(item) {{ use(item); }}\nfunction main(flag, env) {{\nconst items = [1];\n{wrapper}\nitems.forEach(visit);\n{closing}\n}}");
+        let source = format!("{prologue}\nfunction main(flag, env) {{\nfunction visit(item) {{ use(item); }}\nconst items = [1];\n{wrapper}\nitems.forEach(visit);\n{closing}\n}}");
         let (parsed, mut cpg) = fixture(path, &source, Language::JavaScript);
         let call = site(&cpg, source.find("items.forEach").unwrap());
         let start = source.find("item)").unwrap();
@@ -493,26 +492,140 @@ fn sloppy_annex_b_and_with_do_not_reuse_an_outer_declaration() {
     }
 }
 
-// Called from the one test that owns the global capture sink: the sink's
-// enabled flag is process-wide, so a second capturing test would race the
-// `enabled()` assertions there.
-fn direct_eval_in_the_declaration_scope_refuses_the_named_callback() {
-    let build = |statement: &str| {
-        let source = format!(
-            "function visit(v) {{ use(v); }}\nfunction main() {{\nconst items = [1];\n{statement}\nitems.forEach(visit);\n}}"
-        );
-        let ((_, cpg), lines) = capture::run(|| fixture("e.js", &source, Language::JavaScript));
-        let reasons: Vec<String> = lines
+fn assert_callback_decisions(file: &str, source: &str, language: Language, calls: &[(&str, &str)]) {
+    let ((_, cpg), lines) = capture::run(|| fixture(file, source, language));
+    let records: Vec<serde_json::Value> = lines
+        .iter()
+        .map(|line| {
+            serde_json::from_str(line.strip_prefix("PRISM_D_BUILTIN_TRACE ").unwrap()).unwrap()
+        })
+        .filter(|record: &serde_json::Value| record["caller_file"] == file)
+        .collect();
+    for &(call, reason) in calls {
+        let start = source.find(call).unwrap();
+        let outcomes: Vec<_> = records
             .iter()
-            .filter_map(|line| {
-                let record: serde_json::Value =
-                    serde_json::from_str(line.strip_prefix("PRISM_D_BUILTIN_TRACE ")?).ok()?;
-                (record["callee"] == "forEach" && record["caller_file"] == "e.js")
-                    .then(|| record["reason"].as_str().unwrap().to_owned())
+            .filter(|record| record["call"][0] == start && record["disposition"] != "omitted")
+            .map(|record| {
+                (
+                    record["disposition"].as_str().unwrap(),
+                    record["reason"].as_str().unwrap(),
+                )
             })
             .collect();
-        (builtin_edges(&cpg).len(), reasons)
-    };
-    assert_eq!(build("use(0);"), (1, vec!["table_role".to_owned()]));
-    assert_eq!(build("eval('0');"), (0, vec!["dynamic_binding".to_owned()]));
+        let disposition = if reason == "table_role" {
+            "admitted"
+        } else {
+            "refused"
+        };
+        assert_eq!(
+            outcomes,
+            [(disposition, reason)],
+            "{file}: {call}\n{source}"
+        );
+    }
+    let admitted = calls
+        .iter()
+        .filter(|(_, reason)| *reason == "table_role")
+        .count();
+    assert_eq!(builtin_edges(&cpg).len(), admitted, "{file}");
+}
+
+#[test]
+fn direct_eval_with_type_arguments_refuses_the_named_callback() {
+    for (callee, reason) in [
+        ("(eval)", "dynamic_binding"),
+        ("(eval<string>)", "dynamic_binding"),
+        ("(eval<string>)?.", "table_role"),
+        ("(0, eval<string>)", "table_role"),
+    ] {
+        let source = format!(
+            "function main(replacement) {{\nfunction visit(v) {{ use(v); }}\nconst items = [1];\n{callee}(\"visit = replacement\");\nitems.map(visit);\n}}"
+        );
+        assert_callback_decisions(
+            "typed-eval.ts",
+            &source,
+            Language::TypeScript,
+            &[("items.map(visit)", reason)],
+        );
+    }
+}
+
+#[test]
+fn global_object_alias_refuses_script_global_callback_but_preserves_local_and_module() {
+    let source = "function visit(v) { use(v); }\nfunction main(replacement) {\nfunction local(v) { use(v); }\nconst items = [1];\nglobalThis.visit = replacement;\nitems.map(visit);\nitems.map(local);\n}";
+    assert_callback_decisions(
+        "classic.js",
+        source,
+        Language::JavaScript,
+        &[
+            ("items.map(visit)", "script_global_binding"),
+            ("items.map(local)", "table_role"),
+        ],
+    );
+    assert_callback_decisions(
+        "module.js",
+        &format!("{source}\nexport {{}};"),
+        Language::JavaScript,
+        &[
+            ("items.map(visit)", "table_role"),
+            ("items.map(local)", "table_role"),
+        ],
+    );
+}
+
+#[test]
+fn refuses_indirect_initializer() {
+    let source = "import {useCallback} from 'react';\nfunction main() {\nconst items = [1];\nconst visit = useCallback((item) => use(item), []);\nconst stable = (item) => use(item);\nitems.forEach(visit);\nitems.forEach(stable);\n}";
+    assert_callback_decisions(
+        "indirect.js",
+        source,
+        Language::JavaScript,
+        &[
+            ("items.forEach(visit)", "indirect_initializer"),
+            ("items.forEach(stable)", "table_role"),
+        ],
+    );
+}
+
+#[test]
+fn refuses_unsupported_declaration() {
+    let source = "const outer = function walk(node) {\nnode.kids.forEach(walk);\n};\nfunction main() {\nconst items = [1];\nitems.forEach(stable => use(stable));\n}";
+    assert_callback_decisions(
+        "self-reference.js",
+        source,
+        Language::JavaScript,
+        &[
+            ("node.kids.forEach(walk)", "unsupported_declaration"),
+            ("items.forEach(stable", "table_role"),
+        ],
+    );
+}
+
+#[test]
+fn refuses_callback_owner() {
+    let source = "function main() {\nconst items = [1];\nitems.forEach((a, a) => use(a));\nitems.forEach((a, b) => use(a, b));\n}";
+    assert_callback_decisions(
+        "owner.js",
+        source,
+        Language::JavaScript,
+        &[
+            ("items.forEach((a, a)", "callback_owner"),
+            ("items.forEach((a, b)", "table_role"),
+        ],
+    );
+}
+
+#[test]
+fn refuses_formal_layout() {
+    let source = "function main() {\nconst items = [1];\nitems.reduce(function (a, a) { use(a); }, 0);\nitems.reduce(function (a, b) { use(a, b); }, 0);\n}";
+    assert_callback_decisions(
+        "layout.cjs",
+        source,
+        Language::JavaScript,
+        &[
+            ("items.reduce(function (a, a)", "formal_layout"),
+            ("items.reduce(function (a, b)", "table_role"),
+        ],
+    );
 }

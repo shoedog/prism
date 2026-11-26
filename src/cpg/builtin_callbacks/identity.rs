@@ -33,6 +33,8 @@ pub(super) fn implementation<'a>(
         JsBinding::Alias => return Err("alias_binding"),
         JsBinding::Refused(reason) | JsBinding::Unchecked(reason) => return Err(reason),
     };
+    // Both lookups use the same cached binding walk. The declaration lookup
+    // and terminal cross-check below defensively refuse if they ever disagree.
     let (scope, declaration) = parsed
         .js_ts_site_declaration(value, name, &mut bindings)
         .ok_or("declaration_identity")?;
@@ -45,7 +47,16 @@ pub(super) fn implementation<'a>(
         return Err("dynamic_binding");
     }
     let function = match declaration.kind() {
-        "function_declaration" | "generator_function_declaration" => declaration,
+        "function_declaration" | "generator_function_declaration" => {
+            if declaration
+                .parent()
+                .is_some_and(|parent| parent.kind() == "program")
+                && !parsed.js_ts_is_module()
+            {
+                return Err("script_global_binding");
+            }
+            declaration
+        }
         "variable_declarator" => {
             let list = declaration
                 .parent()

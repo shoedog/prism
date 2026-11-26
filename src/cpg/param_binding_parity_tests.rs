@@ -457,7 +457,7 @@ fn bare_bindings_are_identical_across_every_route() {
 #[test]
 fn builtin_label_and_endpoints_are_identical_across_every_route() {
     use crate::cpg::param_binding_builtin_tests::builtin_edges;
-    let source = "function visit(item) {\n  use(item);\n}\nfunction main() {\nconst items = [1];\nitems.map(value => use(value));\nitems.forEach(visit);\n}\n";
+    let source = "function visit(item) {\n  use(item);\n}\nfunction main() {\nconst items = [1];\nitems.map(value => use(value));\nitems.forEach(visit);\n}\nexport {};\n";
     let mut sources = BTreeMap::from([
         ("m.js".to_owned(), source.to_owned()),
         ("unrelated.js".to_owned(), "const unchanged = 1;".to_owned()),
@@ -561,7 +561,7 @@ fn builtin_label_and_endpoints_are_identical_across_every_route() {
 #[test]
 fn builtin_route_triggers_original_guard_bucket_removal() {
     use crate::cpg::param_binding_builtin_tests::builtin_edges;
-    const MAIN: &str = "const origin = arr => {\n  observe(arr);\narr.forEach(handler);\n};\nfunction handler(v) {\n  freeSink(v);\n}\n";
+    const MAIN: &str = "const origin = arr => {\nfunction handler(v) {\n  freeSink(v);\n}\n  observe(arr);\narr.forEach(handler);\n};\n";
     const SINK: &str = "export function freeSink(p) {\n  observe(p);\n}\n";
     let build = |method: &str| {
         let sources = BTreeMap::from([

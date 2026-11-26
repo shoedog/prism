@@ -38,8 +38,9 @@ pub(super) fn collect(
     var_index: &VarIndex,
     exact_var_index: &ExactVarIndex,
     graph: &DiGraph<CpgNode, CpgEdge>,
+    output: Option<diagnostic::Output>,
 ) {
-    let mut trace = diagnostic::Decision::new(site);
+    let mut trace = output.map(|output| diagnostic::Decision::new(site, output));
     if let Err(reason) = collect_site(
         out,
         site,

@@ -513,6 +513,10 @@ impl CodePropertyGraph {
                         == Some(super::FlowConfidence::NameOnly(
                             super::FlowDoubt::CallNameOnly,
                         ))
+                    || binding_label
+                        == Some(super::FlowConfidence::NameOnly(
+                            super::FlowDoubt::BuiltinCallback,
+                        ))
                 {
                     let boundary_kind = if next_fn != node_fn {
                         BoundaryKind::CrossFunction

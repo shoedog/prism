@@ -1623,6 +1623,7 @@ impl CodePropertyGraph {
         let mut out = Vec::new();
         let mut param_cache: BTreeMap<FunctionId, callee_params::FactCell> = BTreeMap::new();
         let trace_bare = bare_param_admission::trace_enabled();
+        let trace_builtin = builtin_callbacks::diagnostic::enabled();
         for site in sites {
             if let Some(parsed) = files.get(&caller_id.file) {
                 builtin_callbacks::collect(
@@ -1633,6 +1634,7 @@ impl CodePropertyGraph {
                     var_index,
                     exact_var_index,
                     graph,
+                    trace_builtin,
                 );
             }
             let resolved_site = cg.resolve_call_site(site);

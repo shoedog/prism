@@ -906,7 +906,7 @@ mod harness {
     #[test]
     fn staged_ordinals_and_integrated_coverage() {
         let rows = read_rows(ROWS).unwrap();
-        assert_eq!(rows.len(), 425);
+        assert_eq!(rows.len(), 432);
         let ordinals = |id, slices: &[&str]| {
             rows.iter()
                 .find(|row| row.id == id)
