@@ -187,7 +187,7 @@ fn fold4() {
 fn known_limits() {
     check_enumeration(
         |row| matches!(row.class, "known_limits" | "known_limits_control"),
-        72 + 6 + 22 + 2 + 4,
+        72 + 6 + 22 + 2 + 4 + 2,
     );
 }
 

@@ -19,6 +19,7 @@ control-fold2-unrelated-union-const	fixtures/control-fold2-unrelated-union-const
 control-fold3-root-scalar-slots	fixtures/control-fold3-root-scalar-slots/map-before.json	field:resp:POST /p:200#/*/x;field:resp:POST /p:200#/x;op:POST /p		rule	known_limits_control
 control-fold4-item-enum-slot	fixtures/control-fold4-item-enum-slot/before.json	field:resp:POST /p:200#/x;field:resp:POST /p:200#/x/[]/value;op:POST /p		rule	known_limits_control
 control-fold4-item-format-slot	fixtures/control-fold4-item-format-slot/before.json	field:resp:POST /p:200#/x;field:resp:POST /p:200#/x/[]/value;op:POST /p		rule	known_limits_control
+control-fold6-item-value-bounds	fixtures/control-fold6-item-value-bounds/wide.json	field:req:POST /p#/x;op:POST /p		rule	known_limits_control
 control-i01	fixtures/control-i01/supported.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
 control-i02	fixtures/control-i02/supported.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
 control-i03	fixtures/control-i03/supported.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
@@ -96,6 +97,7 @@ fold4-items-multiple-of	fixtures/fold4-items-multiple-of/before.json	field:resp:
 fold4-items-pattern	fixtures/fold4-items-pattern/before.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold4
 fold4-request-body-terminal-types	fixtures/fold4-request-body-terminal-types/oas31.json	field:req:POST /valid#/x;op:POST /bad-content;op:POST /bad-description;op:POST /p;op:POST /valid		rule	fold4
 fold4-response-terminal-types	fixtures/fold4-response-terminal-types/oas31.json	field:resp:POST /p:200#/x;field:resp:POST /p:201#/x;op:POST /p		rule	fold4
+fold6-item-value-bounds	fixtures/fold6-item-value-bounds/narrow.json	field:req:POST /p#/x;op:POST /p		loss:item_value_bounds_signature	known_limits
 i01	fixtures/i01/both.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		loss:direction_flags_unchecked	known_limits
 i02	fixtures/i02/read-only.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		loss:direction_flags_unchecked	known_limits
 i03	fixtures/i03/read-only.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		loss:direction_policy_unchecked	known_limits

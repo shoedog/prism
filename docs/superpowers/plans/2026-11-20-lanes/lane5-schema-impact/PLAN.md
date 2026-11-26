@@ -898,6 +898,9 @@ service. For joint changes check both actual pairs and both rollout orders. Sche
 schema claims. Validate a supplied change list against its admitted sources, expand definition IDs, and apply the
 same coverage checks.
 
+A later slice can sign value-level bounds at the owner's request, informed by the P1b census of unsigned value
+keywords on 171 of 2,421 public golden fields and 57 of 600 OpenAPI 3.x fixture fields.
+
 **Comparison and rendering gates**
 
 1. Rematch **every** admitted raw call, including previously unbound ones. Assert API, role, tree, scope,

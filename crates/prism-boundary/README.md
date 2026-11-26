@@ -83,7 +83,7 @@ byte SHA-256 and the canonical inventory hash are independent.
 - Schema objects use the governing dialect. OpenAPI 3.1 accepts boolean schemas, the implicit and explicit 3.1 base dialect, and the supported JSON Schema 2020-12 dialect.
 - Named object properties contribute fields when capacity and required-value witnesses support their presence. Readable directional flags refine requiredness where the dialect defines it.
 - Homogeneous array items contribute descendant fields where an item can occur. A named array field signs its known item type or type set in the item slot.
-- Under an item-level stop, the parent item slot signs the readable declared type set. When feasibility is unknown and pruning can proceed, it signs the surviving type set. The item limit remains counted in both cases.
+- The item type slot signs the surviving type set for a multi-type item schema. The reader drops types it proves impossible, including strings with contradictory length bounds, even when feasibility of a surviving type is unknown. If an item-level stop blocks pruning, the slot signs the readable declared set. The item limit remains counted in both cases. [Item arm](src/schema/wire.rs) · [Feasibility rules](src/schema/wire/constraints.rs) · [Fold-5 hash test](tests/hashes.rs)
 - Schema-valued object remainders contribute map-value fields when the object has capacity and the remainder is feasible.
 - Inventory paths retain typed property, item and map edges through depth 16. The reader checks object feasibility at edge 17 before recording a depth cut.
 - Recognized types, readable format labels, exact scalar enum members and established field requiredness contribute signature facts. An empty enum declaration can be retained as an observation where the edge survives capacity checks.
@@ -93,6 +93,80 @@ byte SHA-256 and the canonical inventory hash are independent.
 - Nonempty `anyOf` contributes feasible arms within the 128-alternative budget.
 - Nonempty `oneOf` contributes feasible arms within the same budget when effective types or required scalar tags establish disjointness.
 - Union slots sign facts shared across every feasible arm. The `branch_dependent` tag represents differences in a slot or its presence across arms.
+
+### Wire-field signature and value-level limits
+
+The signed field record includes the field name and its presence in the
+inventory through the field ID, which binds the operation, request or response
+root, and typed path. The signature tuple records five facts about the field.
+
+- Effective field type or type set
+- Readable format label
+- Established requiredness
+- Effective exact scalar enum members
+- Immediate homogeneous list-item type or type set
+
+Each slot records a known fact, missing fact, branch dependence, or unknown
+fact. The value-level constraints outside the signature are `minimum`,
+`maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`, `minLength`,
+`maxLength`, `pattern`, `minItems`, `maxItems`, `uniqueItems`, and `const`.
+`enum` and `format` are unsigned on unnamed list items and map values, and
+where a named field's slot cannot carry the effective value, such as
+branch-specific values. The reader can use constraints to establish
+feasibility and prune impossible types. A change that only narrows or widens
+the admitted values is outside this slice's claim.
+
+`fold6-item-value-bounds` pins the same signature and hash for narrow and
+wide items on the request field `/x`. The wide schema admits `{"x":[1]}`
+and the narrow schema caps its items at `0.9`. Both sign the item type
+`number` after feasibility pruning. `control-fold6-item-value-bounds` pins
+the different signature and hash when the wide schema's item type changes
+to `integer`.
+
+A temporary reader probe collected keywords after reference and `allOf` expansion for each public golden field ID, attributing unnamed item and map-value keywords to the enclosing named field and counting only unsigned `enum` and `format` payloads.
+The same probe counted each (fixture file, field ID) once per keyword across 510 OpenAPI 3.x JSON documents in `p1b_rows` and `ids_matrix`, including comparable and observed fields and the fold-6 pair and control.
+
+**Public Swagger 2.0 golden**
+
+| Unsigned keyword | Fields |
+| --- | ---: |
+| `minimum` | 19 |
+| `maximum` | 10 |
+| `exclusiveMinimum` | 0 |
+| `exclusiveMaximum` | 0 |
+| `multipleOf` | 0 |
+| `minLength` | 28 |
+| `maxLength` | 152 |
+| `pattern` | 0 |
+| `minItems` | 0 |
+| `maxItems` | 0 |
+| `uniqueItems` | 0 |
+| `const` | 0 |
+| `enum` | 0 |
+| `format` | 0 |
+| **Distinct fields carrying at least one** | **171** |
+| Total fields | 2,421 |
+
+**OpenAPI 3.x enumeration fixtures**
+
+| Unsigned keyword | Fields |
+| --- | ---: |
+| `minimum` | 5 |
+| `maximum` | 4 |
+| `exclusiveMinimum` | 1 |
+| `exclusiveMaximum` | 1 |
+| `multipleOf` | 10 |
+| `minLength` | 3 |
+| `maxLength` | 3 |
+| `pattern` | 10 |
+| `minItems` | 0 |
+| `maxItems` | 2 |
+| `uniqueItems` | 0 |
+| `const` | 16 |
+| `enum` | 13 |
+| `format` | 4 |
+| **Distinct fields carrying at least one** | **57** |
+| Total fields | 600 |
 
 ### Withheld or pinned limits
 
