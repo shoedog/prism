@@ -168,7 +168,7 @@ fn delimited_arguments(node: Node<'_>) -> bool {
 fn check_call(parsed: &ParsedFile, op: Node<'_>, form: Form, head: Node<'_>) -> Result<(), Reason> {
     use Language::*;
     match parsed.language {
-        JavaScript | TypeScript | Tsx => js::check_call(op, head),
+        JavaScript | TypeScript | Tsx => js::check_call(parsed, op, head),
         Go => go::check_call(parsed, op, head),
         Java => java::check_call(op, form),
         C | Cpp => c_family::check_call(parsed, op, form, head),
@@ -182,23 +182,25 @@ fn non_runtime(parsed: &ParsedFile, operation: Node<'_>) -> bool {
         Language::Go if go::size_query(parsed, operation) => return true,
         _ => {}
     }
+    let js_family = parsed.language.is_js_family();
     let children = ancestors(operation);
     for (child, parent) in children.zip(ancestors(operation).skip(1)) {
-        let excluded = match parsed.language {
-            Language::TypeScript | Language::Tsx => js::erased_edge(parent, child),
-            Language::Python => python::erased_edge(parent, child),
-            Language::Go => go::non_runtime_edge(parsed, parent, child),
-            Language::Java => {
-                matches!(
-                    parent.kind(),
-                    "annotation" | "marker_annotation" | "annotation_argument_list"
-                ) || (parent.kind() == "annotation_type_element_declaration"
-                    && parent.child_by_field_name("value") == Some(child))
-            }
-            Language::Rust => rust::non_runtime_edge(parent, child),
-            Language::C | Language::Cpp => c_family::non_runtime_edge(parsed, parent, child),
-            _ => false,
-        };
+        let excluded = js_family && js::import_attribute_edge(parent)
+            || match parsed.language {
+                Language::TypeScript | Language::Tsx => js::erased_edge(parent, child),
+                Language::Python => python::erased_edge(parent, child),
+                Language::Go => go::non_runtime_edge(parsed, parent, child),
+                Language::Java => {
+                    matches!(
+                        parent.kind(),
+                        "annotation" | "marker_annotation" | "annotation_argument_list"
+                    ) || (parent.kind() == "annotation_type_element_declaration"
+                        && parent.child_by_field_name("value") == Some(child))
+                }
+                Language::Rust => rust::non_runtime_edge(parent, child),
+                Language::C | Language::Cpp => c_family::non_runtime_edge(parsed, parent, child),
+                _ => false,
+            };
         if excluded {
             return true;
         }

@@ -27,6 +27,8 @@ struct Counts {
     refusals: Refusals,
     no_operation: usize,
     parse_error_files: usize,
+    // Certified hits whose input shape the owner has not yet ruled on (PENDING rows).
+    shapes: BTreeMap<&'static str, usize>,
 }
 
 #[derive(Clone, Copy)]
@@ -72,11 +74,100 @@ fn operand_progress(reason: Reason) -> usize {
     }
 }
 
-fn certify_hit(parsed: &ParsedFile, id: Node<'_>) -> Hit {
-    let operation = successors(id.parent(), Node::parent).find(|&op| {
+fn operation_of<'tree>(parsed: &ParsedFile, id: Node<'tree>) -> Option<Node<'tree>> {
+    successors(id.parent(), Node::parent).find(|&op| {
         operation_head(parsed.language, op)
             .is_some_and(|head| successors(Some(id), Node::parent).any(|node| node == head))
-    });
+    })
+}
+
+fn blank(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    matches!(
+        node.kind(),
+        "identifier" | "field_identifier" | "blank_identifier"
+    ) && parsed.node_text(&node) == "_"
+}
+
+// A `_` read, or a `_` selector segment, inside the operation (not a declaring position).
+fn go_blank_read(parsed: &ParsedFile, operation: Node<'_>) -> bool {
+    let mut cursor = operation.walk();
+    let mut stack = vec![operation];
+    while let Some(node) = stack.pop() {
+        if blank(parsed, node) {
+            let declaring = successors(Some(node), Node::parent)
+                .take_while(|&up| up != operation.parent().unwrap_or(operation))
+                .any(|up| {
+                    up.parent().is_some_and(|parent| {
+                        matches!(
+                            parent.kind(),
+                            "short_var_declaration" | "assignment_statement" | "range_clause"
+                        ) && parent.child_by_field_name("left") == Some(up)
+                    })
+                });
+            if !declaring {
+                return true;
+            }
+        }
+        stack.extend(node.children(&mut cursor));
+    }
+    false
+}
+
+fn python_invalid_argument_list(parsed: &ParsedFile, list: Node<'_>) -> bool {
+    let mut cursor = list.walk();
+    let (mut keyword, mut double_star) = (false, false);
+    let mut names = Vec::new();
+    for arg in list.named_children(&mut cursor) {
+        match arg.kind() {
+            "keyword_argument" => {
+                keyword = true;
+                let name = arg
+                    .child_by_field_name("name")
+                    .map(|name| parsed.node_text(&name).to_owned());
+                if names.contains(&name) {
+                    return true;
+                }
+                names.push(name);
+            }
+            "dictionary_splat" => double_star = true,
+            "list_splat" if double_star => return true,
+            "comment" | "list_splat" => {}
+            _ if keyword || double_star => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
+// Shapes of a certified hit that the certificate accepts but a valid default build may not run.
+fn pending_shapes(parsed: &ParsedFile, id: Node<'_>) -> Vec<&'static str> {
+    let mut shapes = Vec::new();
+    if parsed.language == Language::Go {
+        if operation_of(parsed, id).is_some_and(|operation| go_blank_read(parsed, operation)) {
+            shapes.push("go_blank_read_or_selector");
+        }
+    }
+    for node in successors(id.parent(), Node::parent) {
+        match (parsed.language, node.kind()) {
+            (Language::Python, "assert_statement") => shapes.push("python_assert"),
+            (Language::Python, "argument_list") if python_invalid_argument_list(parsed, node) => {
+                shapes.push("python_invalid_outer_arguments");
+            }
+            (Language::TypeScript | Language::Tsx, "enum_declaration")
+                if node
+                    .children(&mut node.walk())
+                    .any(|child| child.kind() == "const") =>
+            {
+                shapes.push("ts_const_enum");
+            }
+            _ => {}
+        }
+    }
+    shapes
+}
+
+fn certify_hit(parsed: &ParsedFile, id: Node<'_>) -> Hit {
+    let operation = operation_of(parsed, id);
     let Some(operation) = operation else {
         return Hit::NoOperation;
     };
@@ -158,6 +249,12 @@ fn visit_file(
             }
             totals.record(hit);
             corpus.record(hit);
+            if matches!(hit, Hit::Certified) {
+                for shape in pending_shapes(&parsed, id) {
+                    *totals.shapes.entry(shape).or_default() += 1;
+                    *corpus.shapes.entry(shape).or_default() += 1;
+                }
+            }
         }
         if cursor.goto_first_child() {
             continue;
@@ -193,7 +290,10 @@ fn walk(root: &Path, visit: &mut impl FnMut(&Path) -> io::Result<()>) -> io::Res
 fn price_corpora() -> io::Result<()> {
     let paths = env::var_os("PRICE_ROOTS").expect("PRICE_ROOTS is required");
     let output = env::var_os("PRICE_OUT").expect("PRICE_OUT is required");
-    let mut roots: Vec<_> = env::split_paths(&paths).collect();
+    run_census(env::split_paths(&paths).collect(), Path::new(&output))
+}
+
+fn run_census(mut roots: Vec<std::path::PathBuf>, output: &Path) -> io::Result<()> {
     roots.sort();
     let mut languages: BTreeMap<_, _> = Language::all()
         .into_iter()
@@ -244,6 +344,7 @@ fn price_corpora() -> io::Result<()> {
                 .map(|(scope, counts)| (scope.clone(), counts)),
         )
         .collect::<BTreeMap<_, _>>();
+    let shape_scopes = scopes.clone();
     let mut out = BufWriter::new(fs::File::create(output)?);
     writeln!(out, "scope\thits\tcertified\tfail_a\tfail_b\tfail_c")?;
     for (scope, counts) in &scopes {
@@ -276,5 +377,74 @@ fn price_corpora() -> io::Result<()> {
             writeln!(out, "{scope}\t{reason}\t{count}")?;
         }
     }
+    writeln!(out, "\nscope\tpending_shape\tcertified_hits")?;
+    for (scope, counts) in &shape_scopes {
+        for (shape, count) in &counts.shapes {
+            writeln!(out, "{scope}\t{shape}\t{count}")?;
+        }
+    }
     out.flush()
+}
+
+#[cfg(test)]
+mod census_tests {
+    use super::*;
+
+    fn census(files: &[(&str, &str)]) -> String {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("corpus");
+        fs::create_dir(&root).unwrap();
+        for (name, text) in files {
+            fs::write(root.join(name), text).unwrap();
+        }
+        let out = dir.path().join("out.tsv");
+        run_census(vec![root], &out).unwrap();
+        fs::read_to_string(out).unwrap()
+    }
+
+    fn line<'a>(report: &'a str, prefix: &str) -> &'a str {
+        report
+            .lines()
+            .find(|line| line.starts_with(prefix))
+            .unwrap_or_else(|| panic!("no {prefix} in {report}"))
+    }
+
+    #[test]
+    fn counts_certified_and_refused_hits_and_pending_shapes() {
+        let report = census(&[
+            ("a.py", "def g(x):\n    eval(x)\n    assert eval(x)\n    outer(k=0, eval(x))\n    outer(**d, *a, eval(x))\n    outer(k=0, k=1, eval(x))\n    outer(eval(x), k=0)\n"),
+            ("b.go", "package p\nfunc g(x int) {\n\texec.Command(x)\n\texec.Command(_)\n\tb._.Command(x)\n\t_ = exec.Command(x)\n}\n"),
+            ("c.ts", "const enum E { A = eval(1) }\nenum F { A = eval(1) }\n"),
+            ("d.js", "function g(x) {\n  eval(x);\n  eval(...x);\n}\n"),
+            ("note.txt", "eval(x)"),
+            ("bin.py", ""),
+        ]);
+        assert!(
+            line(&report, "Python\t").starts_with("Python\t6\t6\t"),
+            "{report}"
+        );
+        assert!(
+            line(&report, "JavaScript\t").starts_with("JavaScript\t2\t1\t"),
+            "{report}"
+        );
+        for shape in [
+            "python_assert",
+            "python_invalid_outer_arguments",
+            "go_blank_read_or_selector",
+            "ts_const_enum",
+        ] {
+            assert!(report.contains(shape), "{shape} missing in {report}");
+        }
+        // The valid control shapes are not counted.
+        assert!(
+            line(&report, "Python\tpython_assert").ends_with("\t1"),
+            "{report}"
+        );
+        assert!(line(&report, "Python\tpython_invalid_outer_arguments").ends_with("\t3"));
+        assert!(line(&report, "TypeScript\tts_const_enum").ends_with("\t1"));
+        assert!(
+            line(&report, "Go\tgo_blank_read_or_selector").ends_with("\t2"),
+            "{report}"
+        );
+    }
 }

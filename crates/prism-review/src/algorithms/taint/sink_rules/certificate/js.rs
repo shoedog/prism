@@ -1,8 +1,17 @@
 use super::*;
 
-pub(super) fn check_call(op: Node<'_>, head: Node<'_>) -> Result<(), Reason> {
+pub(super) fn check_call(parsed: &ParsedFile, op: Node<'_>, head: Node<'_>) -> Result<(), Reason> {
     if op.child_by_field_name("type_arguments").is_some() {
         return Err(Reason::OpTypeArguments);
+    }
+    // `new a?.b()` is not valid syntax and `new (a?.b)()` may skip the construction.
+    if op.kind() == "new_expression" && contains_optional(head) {
+        return Err(Reason::OpSpecialForm);
+    }
+    // A short-circuited chain evaluates no call; the base `undefined` is refused whether or
+    // not the program shadows it.
+    if nullish_optional_base(parsed, op) {
+        return Err(Reason::OpSpecialForm);
     }
     if callee::unwrap_head(Language::Tsx, head)
         .is_some_and(|head| matches!(head.kind(), "import" | "super" | "this"))
@@ -16,6 +25,12 @@ pub(super) fn declaration_file(path: &str) -> bool {
     [".d.ts", ".d.mts", ".d.cts"]
         .iter()
         .any(|suffix| path.ends_with(suffix))
+}
+
+/// Static import and export attributes (`with { .. }`, `assert { .. }`) are parsed by the
+/// module loader and never evaluated as expressions.
+pub(super) fn import_attribute_edge(parent: Node<'_>) -> bool {
+    parent.kind() == "import_attribute"
 }
 
 pub(super) fn erased_edge(parent: Node<'_>, child: Node<'_>) -> bool {
@@ -42,6 +57,51 @@ pub(super) fn erased_edge(parent: Node<'_>, child: Node<'_>) -> bool {
         "type_alias_declaration" => parent.child_by_field_name("value") == Some(child),
         "as_expression" | "satisfies_expression" => named(parent).get(1) == Some(&child),
         _ => false,
+    }
+}
+
+fn contains_optional(node: Node<'_>) -> bool {
+    let mut cursor = node.walk();
+    optional(node) || node.children(&mut cursor).any(contains_optional)
+}
+
+// The expression one step down a call, member or subscript chain, through wrappers that do
+// not change the value.
+fn chain_base(node: Node<'_>) -> Option<Node<'_>> {
+    match node.kind() {
+        "member_expression" | "subscript_expression" => node.child_by_field_name("object"),
+        "call_expression" => node.child_by_field_name("function"),
+        "non_null_expression" => non_null_operand(node),
+        "parenthesized_expression" => unwrapped(node, "(", ")"),
+        "as_expression" | "satisfies_expression" => named(node).first().copied(),
+        "type_assertion" => named(node).last().copied(),
+        _ => None,
+    }
+}
+
+fn nullish_optional_base(parsed: &ParsedFile, op: Node<'_>) -> bool {
+    let mut node = op;
+    loop {
+        let Some(base) = chain_base(node) else {
+            return false;
+        };
+        if optional(node) {
+            let mut value = base;
+            while let Some(inner) = chain_base(value).filter(|_| {
+                !matches!(
+                    value.kind(),
+                    "member_expression" | "subscript_expression" | "call_expression"
+                )
+            }) {
+                value = inner;
+            }
+            if matches!(value.kind(), "null" | "undefined")
+                || (value.kind() == "identifier" && parsed.node_text(&value) == "undefined")
+            {
+                return true;
+            }
+        }
+        node = base;
     }
 }
 
@@ -154,15 +214,12 @@ pub(super) fn attribute_spread(node: Node<'_>) -> bool {
         && attribute_tag(node).is_some()
 }
 
-fn has_jsx_body_children(parsed: &ParsedFile, tag: Node<'_>) -> bool {
+fn has_jsx_body_children(tag: Node<'_>) -> bool {
     tag.parent().is_some_and(|element| {
         element.kind() == "jsx_element"
             && element.child_by_field_name("open_tag") == Some(tag)
-            && named(element).into_iter().any(|child| match child.kind() {
-                "jsx_element" | "jsx_self_closing_element" | "html_character_reference" => true,
-                "jsx_expression" => !named(child).is_empty(),
-                "jsx_text" => !parsed.node_text(&child).trim().is_empty(),
-                _ => false,
+            && tokens(element).into_iter().any(|child| {
+                child != tag && element.child_by_field_name("close_tag") != Some(child)
             })
     })
 }
@@ -177,7 +234,7 @@ pub(super) fn attribute_value<'tree>(
     }
     let tag = attribute_tag(op).ok_or(Reason::RoleNotBound)?;
     let spelling = parsed.node_text(&name);
-    if spelling == "children" && has_jsx_body_children(parsed, tag) {
+    if spelling == "children" && has_jsx_body_children(tag) {
         return Err(Reason::AttributeOverwritten);
     }
     for later in fields(tag, "attribute")

@@ -69,6 +69,11 @@ impl<'a> Row<'a> {
             | ("near_negative" | "pass_wrong" | "over_refusal", "refuse", false)
             | ("control_owner", "refuse", true)
                 if !note.is_empty() => {}
+            // Owner decision pending: the row records today's outcome (accept) and names the
+            // reason the certificate would give if the owner chooses to refuse.
+            ("pending_owner", "pending", false) if note.starts_with("PENDING owner") => {
+                reason_table(reason)?;
+            }
             _ => {
                 return Err(format!(
                     "inconsistent kind, expectation, reason or note for {id}"
@@ -89,7 +94,7 @@ impl<'a> Row<'a> {
             operand,
             reached,
             role,
-            accept: *expect == "accept",
+            accept: matches!(*expect, "accept" | "pending"),
             reason,
             kind,
         })
@@ -209,6 +214,7 @@ impl<'a> Row<'a> {
                 let expected = (in_scope
                     && same_owner
                     && !self.reason.is_empty()
+                    && self.kind != "pending_owner"
                     && self.reason != "parse_recovery")
                     .then_some((self.reason, 1));
                 let actual = refusals.iter().collect::<Vec<_>>();
