@@ -1,47 +1,101 @@
-//! Occurrence-bound writes to the live arguments map and to selected paths.
+//! Prove that uses of an entry object leave the selected path intact.
 use super::*;
 
-fn descendants(root: Node<'_>) -> impl Iterator<Item = Node<'_>> {
-    let mut pending = vec![root];
-    std::iter::from_fn(move || {
-        let node = pending.pop()?;
-        pending.extend(param_slot::children(node).rev());
-        Some(node)
-    })
+mod literal;
+mod mapped;
+
+pub(super) use literal::plain_access;
+pub(super) use mapped::arguments_instability;
+
+#[derive(Default)]
+pub(super) struct References<'a> {
+    names: BTreeMap<String, Vec<Node<'a>>>,
+    literals: Mutex<literal::PlainObjects<'a>>,
 }
 
-fn member_key(parsed: &ParsedFile, member: Node<'_>) -> Option<String> {
-    if let Some(property) = member.child_by_field_name("property") {
-        return param_slot::property_key(parsed, property);
+impl<'a> FileBindings<'a> {
+    pub(super) fn references(&self, parsed: &'a ParsedFile) -> &References<'a> {
+        self.references.get_or_init(|| References::index(parsed))
     }
-    let index = member
-        .child_by_field_name("index")
-        .and_then(param_slot::peel)?;
-    matches!(index.kind(), "number" | "string")
-        .then(|| param_slot::property_key(parsed, index))
-        .flatten()
 }
 
-fn member(node: Node<'_>) -> bool {
-    matches!(node.kind(), "member_expression" | "subscript_expression")
-}
-
-fn assignment_targets(target: Node<'_>) -> Vec<Node<'_>> {
-    let mut pending = vec![target];
-    let mut leaves = Vec::new();
-    while let Some(target) = pending.pop().and_then(param_slot::peel) {
-        match target.kind() {
-            "array_pattern" | "object_pattern" | "rest_pattern" => {
-                pending.extend(param_slot::children(target))
+impl<'a> References<'a> {
+    fn index(parsed: &'a ParsedFile) -> Self {
+        let mut refs = Self::default();
+        let mut cursor = parsed.tree.walk();
+        loop {
+            let node = cursor.node();
+            if let Some(name) = param_slot::name(parsed, node) {
+                refs.names.entry(name).or_default().push(node);
             }
-            "pair_pattern" => pending.extend(target.child_by_field_name("value")),
-            "assignment_pattern" | "object_assignment_pattern" => {
-                pending.extend(target.child_by_field_name("left"))
+            if cursor.goto_first_child() {
+                continue;
             }
-            _ => leaves.push(target),
+            while !cursor.goto_next_sibling() {
+                if !cursor.goto_parent() {
+                    return refs;
+                }
+            }
         }
     }
-    leaves
+
+    fn in_scope(&self, name: &str, scope: Node<'a>) -> &[Node<'a>] {
+        let nodes = self.names.get(name).map(Vec::as_slice).unwrap_or_default();
+        let start = nodes.partition_point(|node| node.start_byte() < scope.start_byte());
+        let end = nodes.partition_point(|node| node.start_byte() < scope.end_byte());
+        &nodes[start..end]
+    }
+}
+
+pub(super) struct PathRead<'a, 'path> {
+    pub(super) source: Node<'a>,
+    pub(super) scope: Node<'a>,
+    pub(super) observation: Node<'a>,
+    pub(super) name: &'path str,
+    pub(super) selected: &'path [Option<String>],
+}
+
+pub(super) fn path_unstable<'a>(
+    parsed: &'a ParsedFile,
+    refs: &References<'a>,
+    read: PathRead<'a, '_>,
+    plain_access: &DisjointProof<'a, '_>,
+    cache: &mut JsBindingCache<'a>,
+) -> bool {
+    let before = Before::new(parsed, read.observation);
+    refs.in_scope(read.name, read.scope)
+        .iter()
+        .copied()
+        .any(|occurrence| {
+            if occurrence == read.source
+                || !before.may_include(parsed, occurrence)
+                || parsed.language.is_in_erased_type_context(occurrence)
+            {
+                return false;
+            }
+            match parsed.js_ts_binding_walk(occurrence, read.name, cache) {
+                param_slot::Walk::Found(found, _) if found == read.scope => !PathUse::new(
+                    parsed,
+                    occurrence,
+                    read.selected,
+                )
+                .preserves(parsed, 0, plain_access),
+                param_slot::Walk::Found(found, _) => found.kind() == "with_statement",
+                param_slot::Walk::Unchecked(_) => true,
+                param_slot::Walk::Unbound => false,
+            }
+        })
+}
+
+pub(super) fn selected_keys<'a>(
+    selected: &'a [Selection<'_>],
+) -> impl Iterator<Item = Option<String>> + 'a {
+    selected.iter().filter_map(|step| match step {
+        Selection::Object(key) => Some(Some(key.clone())),
+        Selection::Array(index) => Some(Some(index.to_string())),
+        Selection::Computed(_) | Selection::Rest => Some(None),
+        Selection::Default(_) => None,
+    })
 }
 
 fn execution_owner(parsed: &ParsedFile, mut node: Node<'_>) -> Option<usize> {
@@ -57,345 +111,186 @@ fn execution_owner(parsed: &ParsedFile, mut node: Node<'_>) -> Option<usize> {
     None
 }
 
-fn delete(node: Node<'_>) -> bool {
-    node.kind() == "unary_expression"
-        && node
-            .child_by_field_name("operator")
-            .is_some_and(|operator| operator.kind() == "delete")
+struct Before {
+    end: usize,
+    owner: Option<usize>,
 }
 
-fn direct_body_statement(node: Node<'_>, owner: Node<'_>) -> bool {
-    node.parent()
-        .filter(|statement| statement.kind() == "expression_statement")
-        .and_then(|statement| statement.parent())
-        == owner.child_by_field_name("body")
+impl Before {
+    fn new(parsed: &ParsedFile, node: Node<'_>) -> Self {
+        let owner = execution_owner(parsed, node);
+        let mut end = node.end_byte();
+        let mut parent = node.parent();
+        while let Some(enclosing) = parent.filter(|parent| Some(parent.id()) != owner) {
+            // A back edge, a later case label, or a computed class key can
+            // execute text after the observation before the read takes place.
+            if matches!(
+                enclosing.kind(),
+                "for_statement"
+                    | "for_in_statement"
+                    | "while_statement"
+                    | "do_statement"
+                    | "switch_statement"
+                    | "class_body"
+            ) {
+                end = enclosing.end_byte();
+            }
+            parent = enclosing.parent();
+        }
+        Self { end, owner }
+    }
+
+    fn may_include(&self, parsed: &ParsedFile, occurrence: Node<'_>) -> bool {
+        occurrence.start_byte() < self.end || execution_owner(parsed, occurrence) != self.owner
+    }
 }
 
-pub(super) fn mapped_write<'a>(
-    parsed: &'a ParsedFile,
-    owner: Node<'a>,
-    position: usize,
-    cache: &mut JsBindingCache<'a>,
-) -> bool {
-    if owner.kind() == "arrow_function"
-        || parsed.js_ts_is_module()
-        || parsed.js_ts_callable_is_strict(&owner)
-        || !owner
-            .child_by_field_name("parameters")
-            .is_some_and(|list| parsed.js_ts_parameters_are_simple(list))
-    {
-        return false;
+fn member_key(parsed: &ParsedFile, member: Node<'_>) -> Option<String> {
+    if let Some(property) = member.child_by_field_name("property") {
+        return param_slot::property_key(parsed, property);
     }
-    if !parsed.source[owner.byte_range()].contains("arguments")
-        && !parsed.source[owner.byte_range()].contains('\\')
-    {
-        return false;
+    let index = member
+        .child_by_field_name("index")
+        .and_then(param_slot::peel)?;
+    if matches!(index.kind(), "number" | "string") {
+        param_slot::property_key(parsed, index)
+    } else {
+        None
     }
-    let key = position.to_string();
-    let mut detached_at = None;
-    let at_live_index =
-        |member_node: Node<'a>| member_key(parsed, member_node).is_none_or(|member| member == key);
-    for operation in descendants(owner) {
-        let detached = detached_at.is_some_and(|at| at <= operation.start_byte())
-            && execution_owner(parsed, operation) == Some(owner.id());
-        if let Some(target) = param_slot::write_target(parsed, operation) {
-            for target in assignment_targets(target)
-                .into_iter()
-                .filter(|target| member(*target))
-            {
-                let Some(object) = target
-                    .child_by_field_name("object")
-                    .and_then(param_slot::peel)
-                else {
-                    continue;
-                };
-                if param_slot::name(parsed, object).as_deref() != Some("arguments")
-                    || !param_slot::arguments_binding(parsed, object, owner, cache)
-                    || !at_live_index(target)
-                {
-                    continue;
-                }
-                if delete(operation) {
-                    if direct_body_statement(operation, owner)
-                        && member_key(parsed, target).as_deref() == Some(key.as_str())
-                    {
-                        detached_at = Some(operation.end_byte());
-                    }
-                } else if !detached {
-                    return true;
+}
+
+fn member(node: Node<'_>) -> bool {
+    matches!(node.kind(), "member_expression" | "subscript_expression")
+}
+
+fn unwrap_use(mut node: Node<'_>) -> Node<'_> {
+    while let Some(parent) = node
+        .parent()
+        .filter(|parent| param_slot::peel(*parent) == Some(node))
+    {
+        node = parent;
+    }
+    node
+}
+
+/// Identify actual lvalue leaves, including targets wrapped in assignment patterns.
+fn write_operation<'a>(parsed: &ParsedFile, mut node: Node<'a>) -> Option<Node<'a>> {
+    while let Some(parent) = node.parent() {
+        let field = match parent.kind() {
+            "array_pattern" | "object_pattern" | "rest_pattern" | "parenthesized_pattern" => {
+                node = parent;
+                continue;
+            }
+            "pair_pattern" => "value",
+            "assignment_pattern" | "object_assignment_pattern" => "left",
+            _ => return (param_slot::write_target(parsed, parent) == Some(node)).then_some(parent),
+        };
+        if parent.child_by_field_name(field) != Some(node) {
+            break;
+        }
+        node = parent;
+    }
+    None
+}
+
+pub(super) type DisjointProof<'a, 'proof> = dyn Fn(&PathUse<'a>, usize) -> bool + 'proof;
+
+pub(super) struct PathUse<'a> {
+    node: Node<'a>,
+    depth: usize,
+    keys: Vec<Option<String>>,
+    selected_depth: usize,
+    disjoint: Option<usize>,
+    prototype_access: bool,
+}
+
+impl<'a> PathUse<'a> {
+    fn new(parsed: &ParsedFile, root: Node<'a>, selected: &[Option<String>]) -> Self {
+        let mut node = unwrap_use(root);
+        let mut depth = 0;
+        let mut keys = Vec::new();
+        let mut disjoint = None;
+        let mut prototype_access = false;
+        while let Some(parent) = node
+            .parent()
+            .filter(|parent| member(*parent) && parent.child_by_field_name("object") == Some(node))
+        {
+            let key = member_key(parsed, parent);
+            if depth < selected.len() && disjoint.is_none() {
+                prototype_access |= key.as_deref() == Some("__proto__");
+                if matches!((&key, &selected[depth]), (Some(key), Some(want)) if key != want) {
+                    disjoint = Some(depth + 1);
                 }
             }
+            depth += 1;
+            keys.push(key);
+            node = unwrap_use(parent);
         }
-        if detached
-            || param_slot::name(parsed, operation).as_deref() != Some("arguments")
-            || parsed.js_ts_identifier_is_not_a_read(operation)
-            || !param_slot::arguments_binding(parsed, operation, owner, cache)
-        {
-            continue;
-        }
-        if escaped_map(parsed, operation, &key, cache) {
-            return true;
+        Self {
+            node,
+            depth,
+            keys,
+            selected_depth: selected.len(),
+            disjoint,
+            prototype_access,
         }
     }
-    false
-}
 
-fn escaped_map<'a>(
-    parsed: &'a ParsedFile,
-    mut node: Node<'a>,
-    position: &str,
-    cache: &mut JsBindingCache<'a>,
-) -> bool {
-    while let Some(parent) = node.parent() {
-        if param_slot::peel(parent) == Some(node) {
-            node = parent;
-            continue;
-        }
-        if member(parent) && parent.child_by_field_name("object") == Some(node) {
-            return false; // The value of an index is not the arguments object.
-        }
-        if parent.kind() == "spread_element"
-            && parent.parent().is_some_and(|container| {
-                matches!(container.kind(), "array" | "object" | "arguments")
-            })
-        {
+    fn preserves(
+        &self,
+        parsed: &ParsedFile,
+        copied_depth: usize,
+        plain_access: &DisjointProof<'a, '_>,
+    ) -> bool {
+        // A method call can mutate its receiver even when its own key is disjoint.
+        let receiver_escapes = self.depth > copied_depth
+            && self.depth <= self.selected_depth
+            && self.disjoint.is_none_or(|depth| self.depth <= depth)
+            && self.node.parent().is_some_and(|parent| {
+                parent.kind() == "call_expression"
+                    && parent.child_by_field_name("function") == Some(self.node)
+            });
+        if self.prototype_access || receiver_escapes {
             return false;
         }
-        if parent.kind() == "arguments" {
-            let Some(call) = parent.parent() else {
-                return true;
-            };
-            let Some(callee) = call
-                .child_by_field_name("function")
-                .and_then(param_slot::peel)
-            else {
-                return true;
-            };
-            let arguments: Vec<_> = param_slot::children(parent).collect();
-            if arguments.first() != Some(&node) || !intrinsic_reflective(parsed, callee, cache) {
-                return true;
-            }
-            let matches_position = arguments
-                .get(1)
-                .and_then(|argument| param_slot::peel(*argument))
-                .filter(|key| matches!(key.kind(), "string" | "number"))
-                .and_then(|key| param_slot::property_key(parsed, key))
-                .is_none_or(|key| key == position);
-            if !matches_position {
-                return false;
-            }
-            if parsed.node_text(&callee) == "Reflect.set" {
-                return arguments
-                    .get(3)
-                    .is_none_or(|receiver| !distinct_receiver(parsed, *receiver, cache));
-            }
-            return true;
+        if self.disjoint.is_some() {
+            return plain_access(self, 0);
         }
-        return !matches!(
-            parent.kind(),
-            "expression_statement" | "unary_expression" | "binary_expression"
-        );
-    }
-    true
-}
-
-fn intrinsic_reflective<'a>(
-    parsed: &'a ParsedFile,
-    callee: Node<'a>,
-    cache: &mut JsBindingCache<'a>,
-) -> bool {
-    if !matches!(
-        parsed.node_text(&callee),
-        "Reflect.set" | "Reflect.defineProperty" | "Object.defineProperty"
-    ) {
-        return false;
-    }
-    let Some(object) = callee.child_by_field_name("object") else {
-        return false;
-    };
-    matches!(
-        parsed.js_ts_binding_walk(object, parsed.node_text(&object), cache),
-        param_slot::Walk::Unbound
-    )
-}
-
-fn distinct_receiver<'a>(
-    parsed: &'a ParsedFile,
-    receiver: Node<'a>,
-    cache: &mut JsBindingCache<'a>,
-) -> bool {
-    let Some(receiver) = param_slot::peel(receiver) else {
-        return false;
-    };
-    if matches!(receiver.kind(), "object" | "array") {
-        return true;
-    }
-    let Some(name) = param_slot::name(parsed, receiver) else {
-        return false;
-    };
-    let Some((scope, declaration)) = parsed.js_ts_site_declaration(receiver, &name, cache) else {
-        return false;
-    };
-    param_slot::is_const(declaration)
-        && identity::initialized_at(parsed, declaration, receiver)
-        && !parsed.js_ts_scoped_written(scope, &name, cache)
-        && declaration
-            .child_by_field_name("value")
-            .and_then(param_slot::peel)
-            .is_some_and(|value| matches!(value.kind(), "object" | "array"))
-}
-
-pub(super) fn selected_path_written<'a>(
-    parsed: &'a ParsedFile,
-    owner: Node<'a>,
-    read: Node<'a>,
-    selected: &[Selection<'a>],
-    cache: &mut JsBindingCache<'a>,
-) -> bool {
-    let Some(name) = param_slot::name(parsed, read) else {
-        return true;
-    };
-    let param_slot::Walk::Found(scope, None) = parsed.js_ts_binding_walk(read, &name, cache) else {
-        return true;
-    };
-    let selected: Vec<_> = selected_keys(selected).collect();
-    let owner_id = execution_owner(parsed, read);
-    descendants(owner)
-        .filter(|node| {
-            node.start_byte() < read.start_byte() || execution_owner(parsed, *node) != owner_id
-        })
-        .any(|node| touches_path(parsed, node, &name, scope, &selected, cache))
-}
-
-/// Entry destructuring reads an aliased prototype only after argument evaluation.
-pub(super) fn later_argument_writes<'a>(
-    parsed: &'a ParsedFile,
-    call: Node<'a>,
-    argument_byte: usize,
-    reference: Node<'a>,
-    key: &str,
-    remaining: &[Selection<'a>],
-    cache: &mut JsBindingCache<'a>,
-) -> bool {
-    let Some(reference) = param_slot::peel(reference) else {
-        return false;
-    };
-    let Some(name) = param_slot::name(parsed, reference) else {
-        return false;
-    };
-    let Some((scope, _)) = parsed.js_ts_site_declaration(reference, &name, cache) else {
-        return false;
-    };
-    let Some(list) = call.child_by_field_name("arguments") else {
-        return false;
-    };
-    let selected: Vec<_> = std::iter::once(Some(key.to_owned()))
-        .chain(selected_keys(remaining))
-        .collect();
-    let owner_id = execution_owner(parsed, call);
-    let later = param_slot::children(list).flat_map(|argument| {
-        if argument.kind() == "spread_element" && argument.byte_range().contains(&argument_byte) {
-            return parsed
-                .spread_argument_operand(&argument.byte_range())
-                .into_iter()
-                .flat_map(param_slot::children)
-                .collect::<Vec<_>>();
-        }
-        vec![argument]
-    });
-    later
-        .filter(|argument| argument.start_byte() > argument_byte)
-        .flat_map(descendants)
-        .filter(|node| execution_owner(parsed, *node) == owner_id)
-        .any(|node| touches_path(parsed, node, &name, scope, &selected, cache))
-}
-
-fn selected_keys<'a>(selected: &'a [Selection<'_>]) -> impl Iterator<Item = Option<String>> + 'a {
-    selected.iter().filter_map(|step| match step {
-        Selection::Object(key) => Some(Some(key.clone())),
-        Selection::Array(index) => Some(Some(index.to_string())),
-        Selection::Computed(_) | Selection::Rest => Some(None),
-        Selection::Default(_) => None,
-    })
-}
-
-fn touches_path<'a>(
-    parsed: &'a ParsedFile,
-    node: Node<'a>,
-    name: &str,
-    scope: Node<'a>,
-    selected: &[Option<String>],
-    cache: &mut JsBindingCache<'a>,
-) -> bool {
-    let mut path_of =
-        |occurrence| rooted_path(parsed, occurrence, name, scope, cache, &mut BTreeSet::new());
-    if let Some(target) = param_slot::write_target(parsed, node) {
-        if assignment_targets(target)
-            .into_iter()
-            .filter_map(&mut path_of)
-            .any(|path| is_prefix(&path, selected))
-        {
-            return true;
-        }
-    }
-    node.kind() == "call_expression"
-        && node
-            .child_by_field_name("arguments")
-            .is_some_and(|arguments| {
-                param_slot::children(arguments)
-                    .filter_map(path_of)
-                    .any(|path| path.len() < selected.len() && is_prefix(&path, selected))
-            })
-}
-
-fn is_prefix(write: &[Option<String>], read: &[Option<String>]) -> bool {
-    write.len() <= read.len()
-        && write
+        if self
+            .keys
             .iter()
-            .zip(read)
-            .all(|(write, read)| write.is_none() || read.is_none() || write == read)
+            .take(self.selected_depth)
+            .any(Option::is_none)
+        {
+            // An unknown key can expose a selected ancestor or invoke an
+            // accessor; its syntax cannot establish a harmless read.
+            return false;
+        }
+        if let Some(write) = write_operation(parsed, self.node) {
+            return (self.depth > 0
+                && self.depth <= copied_depth
+                && write.kind() == "assignment_expression")
+                || self.depth > self.selected_depth;
+        }
+        // Reading the selected value or a descendant cannot replace its slot.
+        self.depth >= self.selected_depth || harmless_use(parsed, self.node)
+    }
 }
 
-fn rooted_path<'a>(
-    parsed: &'a ParsedFile,
-    occurrence: Node<'a>,
-    root: &str,
-    scope: Node<'a>,
-    cache: &mut JsBindingCache<'a>,
-    visited: &mut BTreeSet<usize>,
-) -> Option<Vec<Option<String>>> {
-    let occurrence = param_slot::peel(occurrence)?;
-    if member(occurrence) {
-        let mut path = rooted_path(
-            parsed,
-            occurrence.child_by_field_name("object")?,
-            root,
-            scope,
-            cache,
-            visited,
-        )?;
-        path.push(member_key(parsed, occurrence));
-        return Some(path);
+fn harmless_use(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    if parsed.js_ts_identifier_is_not_a_read(node) {
+        return true;
     }
-    let name = param_slot::name(parsed, occurrence)?;
-    if name == root
-        && matches!(parsed.js_ts_binding_walk(occurrence, &name, cache), param_slot::Walk::Found(found, None) if found == scope)
-    {
-        return Some(Vec::new());
+    let Some(parent) = node.parent() else {
+        return false;
+    };
+    let operator = parent.child_by_field_name("operator");
+    match parent.kind() {
+        "expression_statement" => true,
+        "unary_expression" => {
+            operator.is_some_and(|op| matches!(op.kind(), "typeof" | "void" | "!"))
+        }
+        "binary_expression" => operator.is_some_and(|op| matches!(op.kind(), "===" | "!==")),
+        _ => false,
     }
-    let (_, decl) = parsed.js_ts_site_declaration(occurrence, &name, cache)?;
-    if !param_slot::is_const(decl)
-        || !identity::initialized_at(parsed, decl, occurrence)
-        || !visited.insert(decl.id())
-    {
-        return None;
-    }
-    rooted_path(
-        parsed,
-        decl.child_by_field_name("value")?,
-        root,
-        scope,
-        cache,
-        visited,
-    )
 }

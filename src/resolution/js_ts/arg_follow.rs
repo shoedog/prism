@@ -124,6 +124,7 @@ struct Context<'a> {
 struct FileBindings<'a> {
     cache: Mutex<JsBindingCache<'a>>,
     eval_sites: OnceLock<identity::EvalSites<'a>>,
+    references: OnceLock<stability::References<'a>>,
 }
 
 impl<'a> FileBindings<'a> {
@@ -204,6 +205,7 @@ fn compute_index<'a>(
             FileBindings {
                 cache: Mutex::new(cache),
                 eval_sites: OnceLock::new(),
+                references: OnceLock::new(),
             },
         );
         ordered_candidates.extend(candidates);
@@ -394,6 +396,7 @@ impl<'a> Context<'a> {
             return;
         };
         stack.push(slot.clone());
+        let mut stability = None;
         for call in callers {
             let ground = self.ground(slot, parameter, call);
             let (parsed, node) = match ground {
@@ -403,7 +406,9 @@ impl<'a> Context<'a> {
                     continue;
                 }
             };
-            if let Some(reason) = self.stability(holder_file, caller_file, parameter) {
+            if let Some(reason) = *stability
+                .get_or_insert_with(|| self.stability(holder_file, caller_file, parameter))
+            {
                 refuse(result, Some(call), reason);
                 continue;
             }

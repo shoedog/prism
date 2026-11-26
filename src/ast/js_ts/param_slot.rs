@@ -313,8 +313,9 @@ pub(crate) fn arguments_binding<'a>(
             .is_some_and(|declarations| {
                 declarations.iter().all(|declaration| {
                     Some(*declaration) == list
+                        // A simple sloppy function's `var arguments` reuses
+                        // the implicit binding, including before its initializer.
                         || declaration.kind() == "variable_declarator"
-                            && declaration.child_by_field_name("value").is_none()
                 })
             })
 }

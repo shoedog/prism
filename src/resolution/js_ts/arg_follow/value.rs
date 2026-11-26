@@ -60,14 +60,15 @@ impl<'a> Context<'a> {
             return Some("dynamic_binding");
         }
         if let Some(read) = parameter.body_read {
-            if stability::selected_path_written(
-                parsed,
-                parameter.owner,
-                read,
-                &parameter.selected,
-                &mut cache,
-            ) {
+            let Some(source) = param_slot::name(parsed, read) else {
                 return Some("stale_path");
+            };
+            let Walk::Found(scope, None) = parsed.js_ts_binding_walk(read, &source, &mut cache)
+            else {
+                return Some("stale_path");
+            };
+            if self.dynamic_for(file, scope, &source, &mut cache) {
+                return Some("dynamic_binding");
             }
         }
         None
@@ -77,16 +78,28 @@ impl<'a> Context<'a> {
 impl<'a> Evaluation<'a, '_> {
     fn parameter(&self, parameter: &Parameter<'a>) -> Vec<Arm<'a>> {
         let actual = self.actual(parameter.position);
-        if parameter.body_read.is_none() && matches!(actual, Ok(Value::Node(..) | Value::Props(..)))
-        {
+        let plain_access =
+            |usage: &stability::PathUse<'a>, skip| self.plain_access(actual, usage, skip);
+        if matches!(actual, Ok(Value::Node(..) | Value::Props(..))) {
             let parsed = &self.context.files[self.holder];
-            if stability::mapped_write(
+            let bindings = &self.context.bindings[self.holder];
+            if let Some(reason) = stability::arguments_instability(
                 parsed,
+                bindings,
                 parameter.owner,
                 parameter.position,
-                &mut self.context.bindings[self.holder].cache(),
+                parameter
+                    .body_read
+                    .map(|read| (read, parameter.selected.as_slice())),
+                &plain_access,
+                &mut bindings.cache(),
             ) {
-                return vec![Err("mapped_arguments")];
+                return vec![Err(reason)];
+            }
+        }
+        if let Some(read) = parameter.body_read {
+            if !self.body_path_stable(parameter, read, &plain_access) {
+                return vec![Err("stale_path")];
             }
         }
         let mut values = self.expand_result(actual.map(|value| {
@@ -111,10 +124,12 @@ impl<'a> Evaluation<'a, '_> {
                         Selection::Object(key) => {
                             self.expand_result(self.select_object(value, key, remaining))
                         }
-                        Selection::Computed(key) => self.computed_key(*key).map_or_else(
-                            || vec![Err("path_step")],
-                            |key| self.expand_result(self.select_object(value, &key, remaining)),
-                        ),
+                        Selection::Computed(key) => match self.computed_key(*key, parameter) {
+                            Ok(key) => {
+                                self.expand_result(self.select_object(value, &key, remaining))
+                            }
+                            Err(reason) => vec![Err(reason)],
+                        },
                         Selection::Rest => vec![Err("path_step")],
                     },
                 })
@@ -123,26 +138,98 @@ impl<'a> Evaluation<'a, '_> {
         values
     }
 
-    fn computed_key(&self, key: Node<'a>) -> Option<String> {
+    fn body_path_stable(
+        &self,
+        parameter: &Parameter<'a>,
+        source: Node<'a>,
+        plain_access: &stability::DisjointProof<'a, '_>,
+    ) -> bool {
         let parsed = &self.context.files[self.holder];
+        let bindings = &self.context.bindings[self.holder];
+        let mut cache = bindings.cache();
+        let Some(name) = param_slot::name(parsed, source) else {
+            return false;
+        };
+        let Walk::Found(scope, None) = parsed.js_ts_binding_walk(source, &name, &mut cache) else {
+            return false;
+        };
+        let selected: Vec<_> = stability::selected_keys(&parameter.selected).collect();
+        !stability::path_unstable(
+            parsed,
+            bindings.references(parsed),
+            stability::PathRead {
+                source,
+                scope,
+                observation: source,
+                name: &name,
+                selected: &selected,
+            },
+            plain_access,
+            &mut cache,
+        )
+    }
+
+    fn plain_access(&self, value: Arm<'a>, usage: &stability::PathUse<'a>, skip: usize) -> bool {
+        let Ok(Value::Node(file, root)) = value else {
+            return false;
+        };
+        stability::plain_access(
+            &self.context.files[file],
+            &self.context.bindings[file],
+            root,
+            usage,
+            skip,
+        )
+    }
+
+    fn computed_key(
+        &self,
+        key: Node<'a>,
+        selected: &Parameter<'a>,
+    ) -> Result<String, &'static str> {
+        let parsed = &self.context.files[self.holder];
+        let bindings = &self.context.bindings[self.holder];
+        let mut cache = bindings.cache();
         let occurrence = param_slot::children(key)
             .next()
-            .and_then(param_slot::peel)?;
-        let parameter = param_slot::parameter(
-            parsed,
-            occurrence,
-            &mut self.context.bindings[self.holder].cache(),
-        )?;
-        if parameter.replaced || !parameter.selected.is_empty() {
-            return None;
+            .and_then(param_slot::peel)
+            .ok_or("path_step")?;
+        let name = param_slot::name(parsed, occurrence).ok_or("path_step")?;
+        let parameter = param_slot::parameter(parsed, occurrence, &mut cache).ok_or("path_step")?;
+        if parameter.owner != selected.owner
+            || parameter.binding.end_byte() > occurrence.start_byte()
+            || !parameter.selected.is_empty()
+        {
+            return Err("path_step");
         }
-        let Value::Node(file, argument) = self.actual(parameter.position).ok()? else {
-            return None;
+        if parameter.replaced || parsed.js_ts_scoped_written(parameter.scope, &name, &mut cache) {
+            return Err("entry_write");
+        }
+        if self
+            .context
+            .dynamic_for(self.holder, parameter.scope, &name, &mut cache)
+        {
+            return Err("dynamic_binding");
+        }
+        let Value::Node(file, argument) = self.actual(parameter.position)? else {
+            return Err("path_step");
         };
-        let argument = param_slot::peel(argument)?;
+        if let Some(reason) = stability::arguments_instability(
+            parsed,
+            bindings,
+            parameter.owner,
+            parameter.position,
+            None,
+            &|_, _| false,
+            &mut cache,
+        ) {
+            return Err(reason);
+        }
+        let argument = param_slot::peel(argument).ok_or("path_step")?;
         matches!(argument.kind(), "number" | "string")
             .then(|| param_slot::property_key(&self.context.files[file], argument))
             .flatten()
+            .ok_or("path_step")
     }
 
     fn default(&self, node: Node<'a>) -> Vec<Arm<'a>> {

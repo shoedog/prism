@@ -18,7 +18,7 @@ enum Prototype<'a> {
 struct ObjectRead<'a, 'path> {
     key: &'path str,
     remaining: &'path [Selection<'a>],
-    argument_byte: Option<usize>,
+    observation: Node<'a>,
 }
 
 const OBJECT_PROTOTYPE: &[&str] = &[
@@ -46,16 +46,19 @@ impl<'a> Evaluation<'a, '_> {
         match value {
             Value::Props(file, node) => self.jsx_attribute(file, node, key),
             Value::Node(file, node) if node.kind() == "object" => {
-                let argument_byte = (file == self.caller
-                    && self.node.byte_range().contains(&node.start_byte()))
-                .then_some(node.start_byte());
+                let observation =
+                    if file == self.caller && self.node.byte_range().contains(&node.start_byte()) {
+                        self.node
+                    } else {
+                        node
+                    };
                 self.read_object(
                     file,
                     node,
                     &ObjectRead {
                         key,
                         remaining,
-                        argument_byte,
+                        observation,
                     },
                     &mut BTreeSet::new(),
                 )
@@ -104,21 +107,7 @@ impl<'a> Evaluation<'a, '_> {
                 }
                 Prototype::Ordinary | Prototype::Null => Ok(Value::Undefined),
                 Prototype::Value(Value::Node(file, node)) => {
-                    let value = self.static_object(file, node).ok_or("undefined_lookup")?;
-                    if let Some(argument_byte) = read.argument_byte {
-                        let parsed = &self.context.files[file];
-                        if stability::later_argument_writes(
-                            parsed,
-                            self.node,
-                            argument_byte,
-                            node,
-                            read.key,
-                            read.remaining,
-                            &mut self.context.bindings[file].cache(),
-                        ) {
-                            return Err("stale_path");
-                        }
-                    }
+                    let value = self.static_object(file, node, read)?;
                     match value.kind() {
                         "null" => Ok(Value::Undefined),
                         "object" => self.read_object(file, value, read, visited),
@@ -235,28 +224,70 @@ impl<'a> Evaluation<'a, '_> {
         Some(node.kind())
     }
 
-    fn static_object(&self, file: &'a str, node: Node<'a>) -> Option<Node<'a>> {
+    fn static_object(
+        &self,
+        file: &'a str,
+        node: Node<'a>,
+        read: &ObjectRead<'a, '_>,
+    ) -> Result<Node<'a>, &'static str> {
         let parsed = &self.context.files[file];
-        let node = param_slot::peel(node)?;
+        let node = param_slot::peel(node).ok_or("undefined_lookup")?;
         if matches!(node.kind(), "object" | "array" | "null") {
-            return Some(node);
+            return Ok(node);
         }
-        let name = param_slot::name(parsed, node)?;
-        let mut cache = self.context.bindings[file].cache();
-        let (scope, declaration) = parsed.js_ts_site_declaration(node, &name, &mut cache)?;
+        let name = param_slot::name(parsed, node).ok_or("undefined_lookup")?;
+        let bindings = &self.context.bindings[file];
+        let mut cache = bindings.cache();
+        let (scope, declaration) = parsed
+            .js_ts_site_declaration(node, &name, &mut cache)
+            .ok_or("undefined_lookup")?;
         if !param_slot::is_const(declaration)
             || !initialized_at(parsed, declaration, node)
             || parsed.js_ts_scoped_written(scope, &name, &mut cache)
         {
-            return None;
+            return Err("undefined_lookup");
         }
-        let value = param_slot::peel(declaration.child_by_field_name("value")?)?;
-        matches!(value.kind(), "object" | "array" | "null").then_some(value)
+        let value = declaration
+            .child_by_field_name("value")
+            .and_then(param_slot::peel)
+            .filter(|value| matches!(value.kind(), "object" | "array" | "null"))
+            .ok_or("undefined_lookup")?;
+        let selected: Vec<_> = std::iter::once(Some(read.key.to_owned()))
+            .chain(stability::selected_keys(read.remaining))
+            .collect();
+        let path = stability::PathRead {
+            source: node,
+            scope,
+            observation: read.observation,
+            name: &name,
+            selected: &selected,
+        };
+        let exported = declaration
+            .parent()
+            .and_then(|list| list.parent())
+            .is_some_and(|parent| parent.kind() == "export_statement");
+        if value.kind() != "null"
+            && (exported
+                || self.context.dynamic_for(file, scope, &name, &mut cache)
+                || stability::path_unstable(
+                    parsed,
+                    bindings.references(parsed),
+                    path,
+                    &|usage, skip| stability::plain_access(parsed, bindings, value, usage, skip),
+                    &mut cache,
+                ))
+        {
+            return Err("stale_path");
+        }
+        Ok(value)
     }
 
     fn jsx_attribute(&self, file: &'a str, node: Node<'a>, key: &str) -> Arm<'a> {
         let parsed = &self.context.files[file];
-        if key == "children" && node.kind() == "jsx_opening_element" {
+        // The JSX syntax alone does not prove whether the lowering delivers
+        // reserved attributes in props.
+        if matches!(key, "key" | "ref") || key == "children" && node.kind() == "jsx_opening_element"
+        {
             return Err("jsx_attribute");
         }
         let mut found = Ok(Value::Undefined);
