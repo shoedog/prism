@@ -48,6 +48,23 @@ def trace_settings(values):
     return result
 
 
+def check_env_map(mapping, what, *, reserved=False):
+    """Validate one environment map on its ORIGINAL keys and values.
+
+    Rule: every map whose keys the format defines is validated on its original keys,
+    never on a re-parsed join (a key such as ``PRISM_TRACE=x`` joined with its value
+    would re-parse as the valid name ``PRISM_TRACE``). ``reserved`` admits the kit's
+    own byte switch, which only a recorded command environment may carry.
+    """
+    if not isinstance(mapping, dict):
+        raise ValueError(f"invalid {what} environment")
+    for name, value in mapping.items():
+        if (not isinstance(name, str) or not TRACE_NAME.fullmatch(name)
+                or name == EDGE_BYTES and not reserved
+                or not isinstance(value, str) or "\0" in value):
+            raise ValueError(f"invalid {what} environment key {name!r}")
+
+
 def valid_version_pin(pin):
     return (pin is None or (len(pin) >= 2 and len(pin.split()) == 1 and pin == pin.strip()
             and (not re.fullmatch(r"[0-9a-fA-F]+", pin) or COMMIT_TOKEN.fullmatch(pin))))
@@ -272,7 +289,7 @@ def _admit(directory, selected, entries):
             or options["cache"] != "no-cache" or not isinstance(options["trace_env"], dict)
             or any(not isinstance(value, str) for value in options["trace_env"].values())):
         raise ValueError("invalid measurement options")
-    trace_settings(f"{name}={value}" for name, value in options["trace_env"].items())
+    check_env_map(options["trace_env"], "trace")
 
     expected = analysis_commands(binary["path"], corpus["root"], options)
     artifacts = receipt["artifacts"]
@@ -304,6 +321,7 @@ def _admit(directory, selected, entries):
         raise ValueError("selected measurement output was not requested")
     for command, (name, argv, env, stdout, stderr) in zip(commands, expected):
         closed(command, COMMAND_KEYS, "command")
+        check_env_map(command.get("env"), "command", reserved=True)
         _check_command(command, argv, env, stderr)
         if command.get("id") != name or command.get("output") != stdout:
             raise ValueError("analysis command has the wrong output role")

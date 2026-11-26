@@ -151,11 +151,13 @@ component prefixes ending in `.*`; prefixes require an additional component.
   Additional members are ignored for comparison, and a finite number in
   one (integer or float, of any size) is never converted: only projected
   fields are. A projected integer (`line`, `start_byte`, `end_byte`,
-  `kill_line`) is converted, so one of more than 4,300 decimal digits is
-  refused as `edge input` where the interpreter enforces CPython's integer
-  string conversion limit (3.11 and the 3.7.14, 3.8.14, 3.9.14 and 3.10.7
-  security releases onward); an interpreter without the limit, such as an
-  earlier 3.9 patch release, has no limit and admits it. Resident edge storage is
+  `kill_line`) is converted, so admission follows the interpreter's active
+  integer string conversion limit (3.11 and the 3.7.14, 3.8.14, 3.9.14 and
+  3.10.7 security releases onward). 4,300 digits is CPython's default, not a
+  limit the kit sets: with the limit raised to 5,000 a 4,301-digit `line`
+  passes, and with it lowered to 640 a 641-digit one is refused as
+  `edge input`. An interpreter without the limit, such as an earlier 3.9
+  patch release, has no limit and admits it. Resident edge storage is
   bounded by SQLite caches and the current key's bags and attached records.
 - **Counters.** Each selected stats file is one strict UTF-8 JSON object.
   Descend nested objects and count integer, decimal and exponent tokens.
@@ -203,6 +205,29 @@ component prefixes ending in `.*`; prefixes require an additional component.
   unjoined records and the `nodes(arm, file, start_byte, end_byte, access,
   owner=...)` lookup. Views can be iterated repeatedly. Every context and bound attribute is read-only; assigning or deleting one raises `AttributeError`. A diagnostic from
   validation vetoes credit even when every change has a class.
+
+Every map the comparator reads is either **closed** (an undeclared key is
+refused) or **free-form by format** (the format defines no member list, so
+extras are ignored or carried):
+
+| Map | Keys |
+|---|---|
+| Receipt envelope and fixed subrecords (`binary`, `corpus`, `options`, `version_command`, `guard`, `host`, each command and `guard_status`) | closed keys |
+| `artifacts` (names and `{sha256, bytes}` records) | closed keys |
+| Corpus manifest entries | closed keys |
+| `host.env` | closed keys (the passed host allow-list and `LC_ALL`) |
+| `options.trace_env` and every command `env` | closed keys: each original key must match `PRISM_[A-Z0-9_]+` (the byte switch only in a command `env`), validated before any joining |
+| Trace edge keys and trace endpoint parts | closed keys |
+| Raw edge lines, endpoints and paths | free-form by format (additional members ignored) |
+| Trace payloads and trace node keys | free-form by format |
+| Counter files | free-form by format (arbitrary member names) |
+| Inventory `recorded_path` columns | free-form in S2: FORMATS gives them the `{base, fields}` shape but the parser projects extras away (open-s2-2) |
+
+Known limits of S2: the free-form maps above are not checked for undeclared
+members, and the inventory `recorded_path` shape is not enforced (open-s2-2).
+A lane-side exception raised from a lane-local SQLite connection inside a
+validator's lazily evaluated result can be reported as kit storage failure
+(open-s2-1).
 
 The accept-list has **17 named refusal or failure classes**, grouped below.
 An ignored trace line, a counted unmatched record or a classified ambiguous
