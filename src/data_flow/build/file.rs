@@ -5,8 +5,8 @@ use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::CMacroCensus;
 use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::cpg::{
-    reaching_definitions_with_exact, ElementTrace, FileCfgEdgeIndex, FlowConfidence, FlowDoubt,
-    RdFileStats, RdOutcome,
+    reaching_definitions_with_exact, ElementFinal, ElementTrace, FileCfgEdgeIndex, FlowConfidence,
+    FlowDoubt, RdFileStats, RdOutcome,
 };
 use crate::data_flow::{ExactFlowEdge, FlowEdge, VarAccessKind, VarLocation};
 use std::collections::{BTreeMap, BTreeSet};
@@ -765,6 +765,7 @@ impl Producer {
                     }
                     rd_function_stats.record_fallback_capped(func_name.clone(), start, func_node.start_byte(), emission.count());
                     crate::cpg::record_go_recall_skip(parsed, func_node, &rd_defs, reason, &mut rd_function_stats);
+                    if let Some(t) = element_trace.as_mut() { t.rd(parsed, &func_node, &rd_defs, &[], Some((reason, true))); }
                     continue 'functions;
                 }
             }
@@ -789,6 +790,7 @@ impl Producer {
                 cfg_index,
             ) {
                 RdOutcome::Available(result) => {
+                    if let Some(t) = element_trace.as_mut() { t.rd(parsed, &func_node, &rd_defs, function_edges, None); }
                     if super::owner_labels::reference_paths() {
                         #[cfg(test)]
                         Self::store_supplemental_exact_frozen(
@@ -818,6 +820,7 @@ impl Producer {
                 }
                 RdOutcome::Unavailable(reason) => {
                     crate::cpg::record_go_recall_skip(parsed, func_node, &rd_defs, reason, &mut rd_function_stats);
+                    if let Some(t) = element_trace.as_mut() { t.rd(parsed, &func_node, &rd_defs, function_edges, Some((reason, false))); }
                     if reason.is_def_cap() || reason.is_line_cap() {
                         rd_function_stats.record_over_cap(func_name.clone(), start);
                     } else {
@@ -873,7 +876,7 @@ impl Producer {
         }
 
         if let Some(trace) = element_trace {
-            trace.finish(file_path, parsed, &defs, &uses);
+            trace.finish(file_path, parsed, ElementFinal { defs: &defs, uses: &uses, edges: &edges, labels: &labels, exact: &exact_labels });
         }
         FileRefs {
             file_path: file_path.clone(),

@@ -184,12 +184,20 @@ fn element_join_rejects_missing_or_hidden_endpoint() {
         ..good()
     };
     assert_eq!(verdicts(&anchored).0, Some(Err(J::Collapsed)));
+    let second = (r.0 + 2, r.1 + 2);
     let twice = Row {
+        uses: vec![r, second],
+        ordinary_uses: vec![r, second],
+        ..good()
+    };
+    assert_eq!(verdicts(&twice).1, Some(Err(J::Collapsed)));
+    // The same row recorded twice at one span is one endpoint (`v = take(d)`), by distinct spans.
+    let repeated = Row {
         uses: vec![r, r],
         ordinary_uses: vec![r, r],
         ..good()
     };
-    assert_eq!(verdicts(&twice).1, Some(Err(J::Collapsed)));
+    assert_eq!(verdicts(&repeated).1, Some(Ok(())));
     let unplaced = Row {
         ordinary_defs: vec![w, (w.0 + 2, w.0 + 3)],
         ..good()
@@ -246,7 +254,7 @@ fn joins(records: &[Value]) -> Vec<(String, (usize, usize), String)> {
     };
     records
         .iter()
-        .filter(|r| r["kind"] != "owner")
+        .filter(|r| r["kind"] == "write" || r["kind"] == "node")
         .map(|r| (get(r, "kind"), at(r), get(r, "join")))
         .collect()
 }

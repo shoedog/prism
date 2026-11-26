@@ -3,7 +3,11 @@
 mod join;
 #[cfg(test)]
 mod join_tests;
+mod limits;
 mod loops;
+mod preview;
+#[cfg(test)]
+mod preview_tests;
 mod python;
 mod rebind;
 mod route;
@@ -17,7 +21,7 @@ mod transfer;
 mod transfer_tests;
 
 pub(crate) use python::scan_file;
-pub(crate) use trace::FileTrace;
+pub(crate) use trace::{FileTrace, Final};
 
 /// Half-open UTF-8 byte span of a node plus its 1-indexed start line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

@@ -81,14 +81,19 @@ fn endpoint(
 ) -> Endpoint {
     let (t0, t1) = key.target;
     let path = &key.bucket.3;
-    let rows: Vec<_> = buckets
+    // Identity counts distinct spans (DESIGN section 4): the producer records some reads twice at
+    // one span (`v = take(d)`), and first-wins materialization keeps that one node. Competing
+    // spans, anchors and syntax occurrences still collapse the key; the repeated rows themselves
+    // count toward the raw work of `limits.rs`.
+    let rows: BTreeSet<_> = buckets
         .get(&key.bucket)
         .into_iter()
         .flatten()
         .filter(|l| l.kind == kind && l.line == key.line)
         .map(|l| (l.start_byte, l.end_byte))
         .collect();
-    let ordinary: Vec<_> = ordinary
+    let rows: Vec<_> = rows.into_iter().collect();
+    let ordinary: BTreeSet<_> = ordinary
         .iter()
         .filter(|(p, line, ..)| p == path && *line == key.line)
         .map(|(_, _, s, e)| (*s, *e))

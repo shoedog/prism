@@ -298,6 +298,9 @@ fn bag(stderr: &str) -> BTreeMap<String, Vec<String>> {
     let text = |v: &serde_json::Value| v.as_str().unwrap_or("-").to_string();
     for line in stderr.lines().filter_map(|l| l.strip_prefix(PREFIX)) {
         let r: serde_json::Value = serde_json::from_str(line).unwrap();
+        if r["kind"] == "prediction" {
+            continue; // the prediction bag is checked by its own test
+        }
         let (s, e) = (&r["bytes"][0], &r["bytes"][1]);
         let (path, join) = (text(&r["path"]), text(&r["join"]));
         let file = text(&r["file"]).trim_end_matches(".py").to_string();
@@ -490,4 +493,179 @@ fn element_trace_is_opt_in() {
     assert!(
         matrix.contains("const ENABLED: &[&str] = &[\"control\", \"baseline-gap\", \"boundary\"];")
     );
+}
+
+const ROWS: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/data/subscript_matrix/rows.jsonl"
+);
+
+/// Rows whose matrix expectation is for an injected limit or RD cap. The child process runs the
+/// production constants, which none of these programs reach: every pair of the program is
+/// predicted (Q10.raw-1000001 is 13 raw pairs, not 1,000,001; the Q11 rows inject an RD exit).
+const PRODUCTION_OVERRIDE: &[&str] = &[
+    "Q10.raw-1000001",
+    "Q11.def-cap",
+    "Q11.fallback-cap",
+    "Q11.line-cap",
+    "Q11.without-cfg",
+];
+
+/// The rows call both positional and keyword operands `argument`.
+fn norm(role: &str) -> String {
+    match role.replace(['_', ' '], "").to_lowercase().as_str() {
+        "keyword" => "argument".into(),
+        other => other.into(),
+    }
+}
+
+/// Pairs the design admits that no matrix row marks, written from the program text: another
+/// store of the same storage (a clean overwrite or sibling is kept, never compared by key, DESIGN
+/// section 4) and a whole read the row's boundary is about something else than (`take(d, clean)`
+/// of the first-formal row, `copy = d` of the projected-with-whole row). `(file, W, R, role)`.
+const UNMARKED: &[(&str, &str, &str, &str)] = &[
+    (
+        "Q02.replace-a",
+        "«d[\"a\"]» = \"clean\"",
+        "sink(«d»)",
+        "argument",
+    ),
+    (
+        "Q13.other-slot",
+        "«d[\"b\"]» = \"clean\"",
+        "sink(«d»)",
+        "argument",
+    ),
+    (
+        "Q13.same-slot",
+        "«d[\"a\"]» = \"clean\"",
+        "sink(«d»)",
+        "argument",
+    ),
+    (
+        "Q13.replace-indexed-ancestor",
+        "«d[0]» = [None]",
+        "sink(«d»)",
+        "argument",
+    ),
+    (
+        "Q02.first-formal",
+        "«d[\"a\"]» = t",
+        "take(«d», clean)",
+        "argument",
+    ),
+    (
+        "Q03.projected-with-whole",
+        "«d[\"a\"]» = t",
+        "copy = «d»",
+        "assignmentrhs",
+    ),
+];
+
+/// `file -> sorted "w>r role"` frozen from the T2 matrix rows (`label` set = the pair is an
+/// expected addition), independent of the preview.
+fn frozen_predictions() -> BTreeMap<String, Vec<String>> {
+    let text = std::fs::read_to_string(ROWS).unwrap();
+    let mut want: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for line in text.lines() {
+        let row: serde_json::Value = serde_json::from_str(line).unwrap();
+        let id = row["id"].as_str().unwrap();
+        let Some(file) = id.strip_suffix(".py").filter(|f| f.starts_with('Q')) else {
+            continue;
+        };
+        let all = PRODUCTION_OVERRIDE.contains(&file);
+        let bytes = |v: &serde_json::Value| format!("{}:{}", v["bytes"][0], v["bytes"][1]);
+        let role = |r: &serde_json::Value| {
+            let reads = row["reads"].as_array().unwrap();
+            let hit = reads.iter().find(|x| bytes(x) == bytes(r));
+            norm(hit.map_or("?", |x| x["role"].as_str().unwrap()))
+        };
+        let lines = want.entry(file.to_string()).or_default();
+        for m in row["markers"].as_array().unwrap() {
+            for p in m["pairs"].as_array().unwrap() {
+                if all || !p["label"].is_null() {
+                    let (w, r) = (&p["write"], &p["read"]);
+                    lines.push(format!("{}>{} {}", bytes(w), bytes(r), role(r)));
+                }
+            }
+        }
+    }
+    for (file, w, r, role) in UNMARKED {
+        let text = source(file);
+        let line = format!("{}>{} {role}", span(&text, w), span(&text, r));
+        want.get_mut(*file).expect(file).push(line);
+    }
+    want.values_mut().for_each(|v| v.sort());
+    want
+}
+
+/// `file -> sorted "w>r role"` over the `predicted` prediction records, plus every refusal name.
+fn predictions(stderr: &str) -> (BTreeMap<String, Vec<String>>, BTreeMap<String, usize>) {
+    let (mut got, mut refusals) = (BTreeMap::new(), BTreeMap::new());
+    for line in stderr.lines().filter_map(|l| l.strip_prefix(PREFIX)) {
+        let r: serde_json::Value = serde_json::from_str(line).unwrap();
+        if r["kind"] != "prediction" {
+            continue;
+        }
+        let file = r["file"]
+            .as_str()
+            .unwrap()
+            .trim_end_matches(".py")
+            .to_string();
+        let outcome = r["outcome"].as_str().unwrap();
+        if outcome != "predicted" {
+            *refusals.entry(outcome.to_string()).or_insert(0) += 1;
+            continue;
+        }
+        let ends = format!("{}:{}>{}:{}", r["w"][0], r["w"][1], r["r"][0], r["r"][1]);
+        let role = norm(r["role"].as_str().unwrap());
+        got.entry(file)
+            .or_insert_with(Vec::new)
+            .push(format!("{ends} {role}"));
+    }
+    got.values_mut().for_each(|v: &mut Vec<String>| v.sort());
+    (got, refusals)
+}
+
+#[test]
+fn element_trace_exact_prediction_multiset() {
+    let Some(bin) = binary() else { return };
+    let want = frozen_predictions();
+    // every Q program of the matrix, predictions included only where the frozen rows expect one
+    assert!(want.len() > 170, "the Q matrix: {} programs", want.len());
+    let files: Vec<_> = want.keys().map(String::as_str).collect();
+    let dir = repo(&files);
+    let (_, stderr) = nav(&bin, dir.path(), Some("1"), "1", &[]);
+    let (got, refusals) = predictions(&stderr);
+    let expected: usize = want.values().map(Vec::len).sum();
+    assert!(expected > 150, "frozen {expected} predicted pairs");
+    let mut failures = Vec::new();
+    for (file, lines) in want.iter().filter(|(_, v)| !v.is_empty()) {
+        if got.get(file) != Some(lines) {
+            failures.push(format!(
+                "{file}\n  want {lines:?}\n  got  {:?}",
+                got.get(file)
+            ));
+        }
+    }
+    for file in got
+        .keys()
+        .filter(|f| want.get(*f).is_none_or(|v| v.is_empty()))
+    {
+        failures.push(format!(
+            "unexpected predictions for {file}: {:?}",
+            got[file]
+        ));
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+    // Q09 and Q10 at the production limits: nine sources lose the whole read, 257 pairs the owner
+    assert_eq!(refusals.get("refused:fanin"), Some(&9));
+    assert_eq!(refusals.get("refused:ownercap"), Some(&257));
+    assert!(
+        refusals.keys().all(|k| k.starts_with("refused:")),
+        "{refusals:?}"
+    );
+    // Rayon: the same multiset on four threads
+    let (_, four) = nav(&bin, dir.path(), Some("1"), "4", &[]);
+    assert_eq!(predictions(&four), (got, refusals));
 }
