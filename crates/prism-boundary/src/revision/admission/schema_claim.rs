@@ -2,12 +2,6 @@ use super::{projection::Projection, *};
 use crate::revision::{Blob, DependencyReceipt, Format, ProducerMediaEvidence, ReferenceBlob};
 use std::collections::BTreeSet;
 
-pub(super) struct MediaDecision<'a> {
-    pub receipt_id: &'a str,
-    pub root: Option<MediaRootEvidence>,
-    pub reasons: Vec<Refusal>,
-}
-
 impl<'a> Ledger<'a> {
     pub(super) fn conflicting_configs(&self) -> BTreeMap<&'a str, Refusal> {
         let mut keys = BTreeMap::<_, Vec<_>>::new();
@@ -58,7 +52,7 @@ impl<'a> Ledger<'a> {
         optional_media: &BTreeSet<&str>,
         scope: &Scope,
         claim: &'a AdmissionClaim,
-    ) -> Result<(Projection<'a>, Vec<MediaDecision<'a>>), Refusal> {
+    ) -> Result<(Projection<'a>, BTreeMap<&'a str, ClaimDecision>), Refusal> {
         if input.binding.role != Role::Producer || input.binding.authority != "schema" {
             return Err(Refusal::new("slot_mismatch", &entry.id).dimension("authority"));
         }
@@ -147,19 +141,44 @@ impl<'a> Ledger<'a> {
             .chain(records.iter().copied())
             .flat_map(|record| &record.dependencies)
             .chain(&claim.receipt_ids)
+            .chain(records.iter().map(|record| &record.id))
             .map(String::as_str)
             .filter(|id| optional_media.contains(id))
             .collect();
         let root_inventory = (!proof_ids.is_empty())
             .then(|| crate::index_schema(&output.input()).ok())
             .flatten();
-        let mut decisions = Vec::new();
-        for id in proof_ids {
-            let (proofs, mut reasons) = self.closure([(id, "missing_receipt")]);
+        let mut pending = proof_ids.clone();
+        let mut seen = BTreeSet::new();
+        let mut checks = Vec::new();
+        while let Some(id) = pending.pop_first() {
+            if !seen.insert(id) {
+                continue;
+            }
+            let (proofs, reasons) = self.closure([(id, "missing_receipt")]);
+            let required: Vec<_> = if reasons.is_empty() {
+                proofs
+                    .iter()
+                    .skip(1)
+                    .filter(|record| record.kind == ReceiptKind::Media)
+                    .map(|record| record.id.as_str())
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            pending.extend(required.iter().copied());
+            checks.push((id, proofs, reasons, required));
+        }
+        // In an acyclic closure, descendants have strictly fewer descendants.
+        // The receipt walk has already refused any cyclic closure.
+        checks.sort_by_key(|(_, _, _, required)| required.len());
+        let mut decisions = BTreeMap::new();
+        for (id, proofs, mut reasons, required) in checks {
             let catalog = self
                 .validated_receipt(id)
                 .and_then(|record| self.media_catalog(record).ok());
             let root = catalog.as_ref().and_then(|(_, entry)| media_root(entry));
+            let mut proof_candidate = None;
             if reasons.is_empty() {
                 let proof = catalog
                     .as_ref()
@@ -172,7 +191,7 @@ impl<'a> Ledger<'a> {
                         self.media_proof(input, &output, &proofs, *proof, entry, root_exists)
                     });
                 match proof {
-                    Ok(proof) => output.media_receipts.push(proof),
+                    Ok(proof) => proof_candidate = Some(proof),
                     Err(reason) => reasons.push(reason),
                 }
             }
@@ -181,11 +200,17 @@ impl<'a> Ledger<'a> {
                     reason.evidence.push(id.into());
                 }
             }
-            decisions.push(MediaDecision {
-                receipt_id: id,
-                root,
-                reasons,
-            });
+            let dependencies = required
+                .into_iter()
+                .map(|id| RequiredDependency::new(id, decisions.get(id)));
+            let mut decision =
+                ClaimDecision::from_reasons(Some(&input.binding.input_id), reasons, dependencies);
+            if decision.is_admitted() && proof_ids.contains(id) {
+                output.media_receipts.extend(proof_candidate);
+            }
+            decision.evidence.push(id.into());
+            decision.media_root = root;
+            decisions.insert(id, decision);
         }
         Ok((output, decisions))
     }

@@ -10,12 +10,11 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
         ..Default::default()
     };
     if !serde_json::to_value(doc).is_ok_and(|wire| matches_contract(&wire, Kind::Impact)) {
-        report.insert(
+        report.settle(
             "document-schema",
-            ClaimDecision::from_reasons(
-                None,
-                vec![Refusal::new("invalid_document", &doc.report_id)],
-            ),
+            None,
+            vec![Refusal::new("invalid_document", &doc.report_id)],
+            [],
         );
     }
     let mut inputs = BTreeMap::new();
@@ -25,30 +24,9 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
             duplicates.insert(input.input_id.as_str());
         }
     }
-    let cutoff_reasons = slot_cutoff(doc, &inputs);
-    let cutoff_ok = cutoff_reasons.is_empty();
-    report.insert(
-        "report-cutoff",
-        ClaimDecision::from_reasons(None, cutoff_reasons),
-    );
-
-    let local: BTreeMap<_, _> = inputs
-        .iter()
-        .map(|(&id, input)| {
-            let reasons = if duplicates.contains(id) {
-                vec![Refusal::new("receipt_conflict", id)]
-            } else {
-                input_refusals(doc, input)
-            };
-            (id, reasons)
-        })
-        .collect();
-    for &id in inputs.keys() {
-        report.insert(
-            &format!("input:{id}"),
-            ClaimDecision::from_reasons(Some(id), walk_input(id, &inputs, &local)),
-        );
-    }
+    settle_inputs(doc, &inputs, &duplicates, &mut report);
+    let (reasons, required) = slot_cutoff(doc, &inputs);
+    report.settle("report-cutoff", None, reasons, required);
     validate_slots(doc, &inputs, &mut report);
     validate_status(doc, &inputs, &mut report);
     for (name, metric) in &doc.summary {
@@ -60,9 +38,11 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
             None => reason.is_some_and(|reason| !reason.is_empty()),
         };
         if !valid_total || metric.observed as u64 > MAX_PORTABLE_COUNT {
-            report.insert(
+            report.settle(
                 &format!("metric:{name}"),
-                ClaimDecision::from_reasons(None, vec![Refusal::new("invalid_metric", name)]),
+                None,
+                vec![Refusal::new("invalid_metric", name)],
+                [],
             );
         }
     }
@@ -81,16 +61,10 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
             .count()
             > 1
         {
-            report.insert(
-                &key,
-                ClaimDecision::from_reasons(None, vec![Refusal::new("receipt_conflict", id)]),
-            );
+            report.settle(&key, None, vec![Refusal::new("receipt_conflict", id)], []);
             continue;
         }
         let mut reasons = Vec::new();
-        if !cutoff_ok {
-            reasons.push(Refusal::new("missing_cutoff", "report-cutoff"));
-        }
         for (input, role) in [
             (&comparison.service_input_id, Role::Producer),
             (&comparison.client_input_id, Role::Consumer),
@@ -100,9 +74,7 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
                 Some(input) if input.role != role => {
                     reasons.push(Refusal::new("slot_mismatch", &input.input_id).dimension("role"))
                 }
-                Some(input) => {
-                    reasons.extend(walk_input(&input.input_id, &inputs, &local));
-                }
+                Some(_) => {}
             }
         }
         let expected = pair_for(&doc.change, id);
@@ -139,11 +111,23 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
                 }
             }
         }
-        report.insert(&key, ClaimDecision::from_reasons(None, reasons));
+        let decision = ClaimDecision::from_reasons(
+            None,
+            reasons,
+            [
+                report
+                    .dependency("report-cutoff")
+                    .with_refusal_code("missing_cutoff"),
+                report.dependency(&format!("input:{}", comparison.service_input_id)),
+                report.dependency(&format!("input:{}", comparison.client_input_id)),
+            ],
+        );
+        report.insert(&key, decision);
     }
 
     for (index, usage) in doc.usages.iter().enumerate() {
         let mut reasons = Vec::new();
+        let mut required = Vec::new();
         let id = usage
             .usage_id
             .clone()
@@ -175,13 +159,14 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
             ),
         ] {
             let expected_pair = pair_for(&doc.change, basis);
-            let required = expected_pair.is_some() && presence == "present";
-            if required != reference.is_some() || (presence == "present") != site.is_some() {
+            let match_required = expected_pair.is_some() && presence == "present";
+            if match_required != reference.is_some() || (presence == "present") != site.is_some() {
                 reasons.push(Refusal::new("missing_dependency", basis).dimension("usage_match"));
                 continue;
             }
             if let Some(reference) = reference {
-                check_reference(doc, &report, basis, reference, &mut reasons);
+                check_reference(doc, basis, reference, &mut reasons);
+                required.push(comparison_key(basis));
                 if expected_pair
                     .and_then(|(_, client)| inputs.get(client.as_str()))
                     .zip(site.as_ref())
@@ -219,7 +204,7 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
         {
             reasons.push(Refusal::new("receipt_conflict", &id));
         }
-        report.insert(&key, ClaimDecision::from_reasons(None, reasons));
+        report.settle(&key, None, reasons, required);
     }
 
     if let Some(action) = &doc.change.review_action {
@@ -227,15 +212,8 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
         if action.evidence.is_empty() && action.supporting_row_ids.is_empty() {
             reasons.push(Refusal::new("missing_dependency", &action.claim_id));
         }
-        if !doc
-            .comparisons
-            .iter()
-            .any(|pair| pair.comparison_id == action.comparison_id)
-        {
-            reasons.push(Refusal::new("missing_dependency", &action.comparison_id));
-        }
         for reference in &action.evidence {
-            check_reference(doc, &report, &action.comparison_id, reference, &mut reasons);
+            check_reference(doc, &action.comparison_id, reference, &mut reasons);
         }
         for id in &action.supporting_row_ids {
             if !doc
@@ -253,15 +231,17 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
         } else {
             format!("review-action:{}", action.claim_id)
         };
-        report.insert(&key, ClaimDecision::from_reasons(None, reasons));
+        report.settle(&key, None, reasons, [comparison_key(&action.comparison_id)]);
     }
     validate_auxiliary(doc, &inputs, &mut report);
     validate_links(doc, &mut report);
     for (index, warning) in doc.warnings.iter().enumerate() {
         if let Some(refusal) = &warning.refusal {
-            report.insert(
+            report.settle(
                 &format!("warning:{index}:{}", warning.claim_id),
-                ClaimDecision::from_reasons(None, vec![refusal.clone()]),
+                None,
+                vec![refusal.clone()],
+                [],
             );
         }
     }
@@ -277,6 +257,7 @@ fn validate_auxiliary(
     for (index, call) in doc.change.call_changes.iter().enumerate() {
         let key = format!("call-change:{index}");
         let mut reasons = Vec::new();
+        let mut required = Vec::new();
         if !match call.kind.as_str() {
             "inserted" => call.before_site_id.is_none() && call.after_site_id.is_some(),
             "deleted" => call.before_site_id.is_some() && call.after_site_id.is_none(),
@@ -300,6 +281,7 @@ fn validate_auxiliary(
             ),
         ] {
             if let Some(occurrence) = occurrence {
+                required.extend(input_id.map(|id| format!("input:{id}")));
                 if !input_id
                     .and_then(|id| inputs.get(id.as_str()))
                     .and_then(|input| input.occurrence_ids.as_ref())
@@ -309,7 +291,7 @@ fn validate_auxiliary(
                 }
             }
         }
-        report.insert(&key, ClaimDecision::from_reasons(None, reasons));
+        report.settle(&key, None, reasons, required);
     }
     let rows: BTreeSet<_> = doc
         .change
@@ -325,10 +307,7 @@ fn validate_auxiliary(
             .filter(|id| !rows.contains(id))
             .map(|id| Refusal::new("missing_dependency", id))
             .collect();
-        report.insert(
-            &format!("risk:{index}"),
-            ClaimDecision::from_reasons(None, reasons),
-        );
+        report.settle(&format!("risk:{index}"), None, reasons, []);
     }
     for (index, observation) in doc.unobserved.iter().enumerate() {
         let reasons = observation
@@ -337,9 +316,14 @@ fn validate_auxiliary(
             .filter(|id| !inputs.contains_key(id.as_str()))
             .map(|id| Refusal::new("missing_slot", id))
             .collect();
-        report.insert(
+        report.settle(
             &format!("membership:{index}"),
-            ClaimDecision::from_reasons(None, reasons),
+            None,
+            reasons,
+            observation
+                .membership_basis
+                .iter()
+                .map(|id| format!("input:{id}")),
         );
     }
 }
@@ -378,16 +362,15 @@ fn validate_links(doc: &ImpactDocument, report: &mut AdmissionReport) {
             .map(|link| Refusal::new("missing_dependency", link))
             .collect::<Vec<_>>();
         if !reasons.is_empty() {
-            report.insert(
-                &format!("row:{id}"),
-                ClaimDecision::from_reasons(None, reasons),
-            );
+            report.settle(&format!("row:{id}"), None, reasons, []);
         }
     }
     for id in duplicate_rows {
-        report.insert(
+        report.settle(
             &format!("row-duplicate:{id}"),
-            ClaimDecision::from_reasons(None, vec![Refusal::new("receipt_conflict", id)]),
+            None,
+            vec![Refusal::new("receipt_conflict", id)],
+            [],
         );
     }
     for limit in &doc.coverage {
@@ -449,17 +432,13 @@ fn validate_links(doc: &ImpactDocument, report: &mut AdmissionReport) {
             }
         }
         if !reasons.is_empty() {
-            report.insert(
-                &format!("limit:{id}"),
-                ClaimDecision::from_reasons(None, reasons),
-            );
+            report.settle(&format!("limit:{id}"), None, reasons, []);
         }
     }
 }
 
 fn check_reference(
     doc: &ImpactDocument,
-    report: &AdmissionReport,
     comparison_id: &str,
     reference: &MatchRef,
     reasons: &mut Vec<Refusal>,
@@ -467,12 +446,6 @@ fn check_reference(
     if reference.comparison_id != comparison_id {
         reasons
             .push(Refusal::new("slot_mismatch", &reference.comparison_id).dimension("comparison"));
-    } else if let Some(decision) = report
-        .claims
-        .get(&comparison_key(comparison_id))
-        .filter(|decision| decision.status != "admitted")
-    {
-        reasons.extend(decision.reasons.clone());
     } else if !doc.comparisons.iter().any(|pair| {
         pair.comparison_id == comparison_id && pair.matches.contains_key(&reference.site_id)
     }) {
@@ -509,45 +482,52 @@ fn comparison_key(id: &str) -> String {
     }
 }
 
-fn walk_input<'a>(
-    id: &'a str,
-    inputs: &BTreeMap<&'a str, &'a DocumentInput>,
-    local: &BTreeMap<&str, Vec<Refusal>>,
-) -> Vec<Refusal> {
+fn settle_inputs(
+    doc: &ImpactDocument,
+    inputs: &BTreeMap<&str, &DocumentInput>,
+    duplicates: &BTreeSet<&str>,
+    report: &mut AdmissionReport,
+) {
+    fn dependencies(input: &DocumentInput) -> impl DoubleEndedIterator<Item = &str> {
+        input
+            .dependencies
+            .iter()
+            .chain(
+                input
+                    .config_sources
+                    .iter()
+                    .flat_map(|config| &config.dependencies),
+            )
+            .map(String::as_str)
+    }
     let mut active = BTreeSet::new();
-    let mut visited = BTreeSet::new();
-    let mut steps = vec![(id, true)];
-    let mut reasons = Vec::new();
-    while let Some((key, enter)) = steps.pop() {
-        if !enter {
-            active.remove(key);
-            visited.insert(key);
-        } else if !visited.contains(key) {
-            if !active.insert(key) {
-                reasons.push(Refusal::new("dependency_cycle", key));
-            } else if let Some(input) = inputs.get(key) {
-                reasons.extend(local[key].clone());
-                steps.push((key, false));
-                steps.extend(
-                    input
-                        .dependencies
-                        .iter()
-                        .rev()
-                        .map(|id| (id.as_str(), true)),
-                );
-                steps.extend(
-                    input
-                        .config_sources
-                        .iter()
-                        .flat_map(|config| &config.dependencies)
-                        .map(|id| (id.as_str(), true)),
-                );
-            } else {
-                reasons.push(Refusal::new("missing_dependency", key));
-                active.remove(key);
-                visited.insert(key);
+    let mut steps: Vec<_> = inputs.keys().rev().map(|&id| (id, true)).collect();
+    while let Some((id, enter)) = steps.pop() {
+        let key = format!("input:{id}");
+        let Some(input) = inputs.get(id) else {
+            continue;
+        };
+        if enter {
+            if !report.claims.contains_key(&key) && active.insert(id) {
+                steps.push((id, false));
+                steps.extend(dependencies(input).rev().map(|id| (id, true)));
             }
+        } else {
+            let mut reasons = if duplicates.contains(id) {
+                vec![Refusal::new("receipt_conflict", id)]
+            } else {
+                input_refusals(doc, input)
+            };
+            if let Some(cycle) = dependencies(input).find(|id| active.contains(id)) {
+                reasons.push(Refusal::new("dependency_cycle", cycle));
+            }
+            active.remove(id);
+            report.settle(
+                &key,
+                Some(id),
+                reasons,
+                dependencies(input).map(|id| format!("input:{id}")),
+            );
         }
     }
-    reasons
 }

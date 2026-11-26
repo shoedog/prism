@@ -1,7 +1,7 @@
 use super::*;
 use crate::revision::{
-    exact_tree_at_cutoff, historical_head, instant, selection_conflicts, selection_required,
-    Availability, ClaimDecision, ReceiptOrigin, Refusal, Role, ServiceSide, SnapshotInput,
+    check_merge_head, exact_tree_at_cutoff, historical_head, instant, selection_conflicts,
+    selection_required, Availability, ReceiptOrigin, Refusal, Role, ServiceSide, SnapshotInput,
 };
 use chrono::{DateTime, FixedOffset};
 use std::collections::BTreeSet;
@@ -158,23 +158,44 @@ pub(super) fn validate_slots(
         } else if subject {
             reasons.push(Refusal::new("missing_slot", name));
         }
-        report.insert(
+        report.settle(
             &format!("slots:{name}"),
-            ClaimDecision::from_reasons(None, reasons),
+            None,
+            reasons,
+            slots
+                .iter()
+                .flat_map(|slots| [&slots.before_input_id, &slots.after_input_id])
+                .flatten()
+                .map(|id| format!("input:{id}")),
         );
     }
     if let Some(reference) = &doc.reference {
-        if !inputs.contains_key(reference.as_str()) {
-            report.insert(
+        let key = format!("input:{reference}");
+        if let Some(input) = report.claims.get(&key) {
+            if !input.is_admitted() {
+                report.settle("reference", None, Vec::new(), [key]);
+            }
+        } else {
+            report.settle(
                 "reference",
-                ClaimDecision::from_reasons(None, vec![Refusal::new("missing_slot", reference)]),
+                None,
+                vec![Refusal::new("missing_slot", reference)],
+                [],
             );
         }
     }
 }
 
-pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refusal> {
-    let missing = || vec![Refusal::new("missing_cutoff", "report-cutoff")];
+pub(super) fn slot_cutoff(
+    doc: &ImpactDocument,
+    inputs: &Inputs<'_>,
+) -> (Vec<Refusal>, Vec<String>) {
+    let missing = || {
+        (
+            vec![Refusal::new("missing_cutoff", "report-cutoff")],
+            Vec::new(),
+        )
+    };
     let Some((report_time, cutoff)) = instant(&doc.report_time).zip(instant(&doc.cutoff_at)) else {
         return missing();
     };
@@ -201,27 +222,60 @@ pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refu
         .filter(|(_, subject)| *subject)
         .filter_map(|(slots, _)| slots.as_ref()?.after_input_id.as_deref())
         .collect();
+    let mut computed_after = None;
     let subject = match subject_id {
         Some(id) if subject_after_ids.contains(&id) => inputs.get(id),
-        Some(id) if mode == ReviewMode::HistoricalAsOf => inputs.get(id).filter(|head| {
-            let Some(selection) = selection else { return false };
-            let Some(head_rev) = historical_head(&head.snapshot, cutoff) else { return false };
-            selection.proposed_head.as_deref() == Some(head_rev)
-                && subject_after_ids.iter().filter_map(|id| inputs.get(id)).any(|after| {
-                    matches!(&after.snapshot, SnapshotInput::ComputedTree { tree, merge_receipt, computed_at }
-                        if after.repo == head.repo
-                            && after.role == head.role
-                            && selection.merge_receipt.as_ref() == Some(merge_receipt)
-                            && instant(computed_at).is_some()
-                            && exact_tree_at_cutoff(&after.origin, tree, cutoff))
+        Some(id) if mode == ReviewMode::HistoricalAsOf => {
+            let Some(head) = inputs.get(id) else {
+                return missing();
+            };
+            let Some(receipt) = selection.and_then(|selection| selection.merge_receipt.as_ref())
+            else {
+                return missing();
+            };
+            if roles
+                .iter()
+                .filter_map(|(slots, _)| slots.as_ref())
+                .any(|slots| {
+                    slots.before_input_id.as_deref() == Some(id)
+                        || slots.after_input_id.as_deref() == Some(id)
                 })
-        }),
+            {
+                return missing();
+            }
+            let Some(after) = subject_after_ids.iter().filter_map(|id| inputs.get(id)).find(|after| {
+                matches!(&after.snapshot, SnapshotInput::ComputedTree { tree, merge_receipt, computed_at }
+                    if after.repo == head.repo
+                        && after.role == head.role
+                        && merge_receipt == receipt
+                        && instant(computed_at).is_some()
+                        && exact_tree_at_cutoff(&after.origin, tree, cutoff))
+            }) else { return missing() };
+            let Some(rev) = historical_head(&head.snapshot, cutoff) else {
+                return missing();
+            };
+            if let Err(reason) = check_merge_head(
+                receipt,
+                Some(rev),
+                selection.and_then(|selection| selection.proposed_head.as_deref()),
+            ) {
+                return (vec![reason], Vec::new());
+            }
+            computed_after = Some(after.input_id.as_str());
+            Some(head)
+        }
         None if mode == ReviewMode::HistoricalAsOf => return missing(),
         Some(id) if !inputs.contains_key(id) => {
-            return vec![Refusal::new("missing_slot", id).dimension("subject_head_input_id")];
+            return (
+                vec![Refusal::new("missing_slot", id).dimension("subject_head_input_id")],
+                Vec::new(),
+            );
         }
         Some(id) => {
-            return vec![Refusal::new("slot_mismatch", id).dimension("subject_head_input_id")];
+            return (
+                vec![Refusal::new("slot_mismatch", id).dimension("subject_head_input_id")],
+                Vec::new(),
+            );
         }
         None => subject_after_ids.first().and_then(|id| inputs.get(id)),
     };
@@ -241,6 +295,12 @@ pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refu
         return missing();
     }
     let anchor = subject.map(|head| (head.role, head.repo.as_str()));
+    let mut basis: Vec<_> = subject
+        .map(|head| head.input_id.as_str())
+        .into_iter()
+        .chain(computed_after)
+        .map(|id| format!("input:{id}"))
+        .collect();
     let mut required = BTreeSet::new();
     for (slots, subject) in roles {
         if let Some(slots) = slots {
@@ -280,6 +340,7 @@ pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refu
                     .map(|id| (id, selection.receipt.as_ref())),
             );
         for (id, receipt) in receipts {
+            basis.push(format!("input:{id}"));
             let Some(input) = inputs.get(id.as_str()) else {
                 reasons.push(Refusal::new("missing_slot", id).dimension("selection"));
                 continue;
@@ -304,7 +365,7 @@ pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refu
             reasons.push(Refusal::new("missing_cutoff", id).dimension("selection"));
         }
     }
-    reasons
+    (reasons, basis)
 }
 
 fn check_recorded_selection(selection: &ChangeSelection, inputs: &Inputs<'_>) -> Vec<Refusal> {
@@ -340,13 +401,7 @@ fn check_selection_receipt<'a>(
     let id = &input.input_id;
     let missing = || Refusal::new("missing_cutoff", id).dimension("selection");
     let rev = input.snapshot.identity().and_then(|(_, rev)| rev);
-    let expected_branch = input.branch.as_deref().or_else(|| {
-        if singular {
-            selection.branch.as_deref()
-        } else {
-            None
-        }
-    });
+    let expected_branch = input.branch.as_deref();
     let proof = receipt
         .ok_or_else(missing)?
         .check(mode, cutoff, id, rev, expected_branch)
@@ -402,10 +457,6 @@ pub(super) fn validate_status(
                 ServiceSide::Held => None,
             });
         if selected != Some(&status.selected_input_id)
-            || report
-                .claims
-                .get(&format!("input:{}", status.selected_input_id))
-                .is_none_or(|decision| decision.status != "admitted")
             || inputs
                 .get(status.selected_input_id.as_str())
                 .is_none_or(|input| input.role != Role::Producer)
@@ -481,6 +532,8 @@ pub(super) fn validate_status(
         {
             reasons.push(Refusal::new("slot_mismatch", &key).dimension("binding_status"));
         }
-        report.insert(&key, ClaimDecision::from_reasons(None, reasons));
+        let required = std::iter::once(format!("input:{}", status.selected_input_id))
+            .chain(scan.map(|scan| format!("input:{}", scan.client_input_id)));
+        report.settle(&key, None, reasons, required);
     }
 }

@@ -1,4 +1,4 @@
-use super::{projection::Projection, schema_claim::MediaDecision, selection, slots, *};
+use super::{projection::Projection, selection, slots, *};
 use crate::schema::parse_json;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -403,7 +403,7 @@ impl<'a> Ledger<'a> {
         {
             return Err(Refusal::new("missing_cutoff", &claim.input_id));
         }
-        let mut media = Vec::new();
+        let mut media = BTreeMap::new();
         let mut projection = None;
         let mut reasons = Vec::new();
         let roots = claim
@@ -461,7 +461,12 @@ impl<'a> Ledger<'a> {
                 Err(reason) => reasons.push(reason),
             }
         }
-        let mut decision = ClaimDecision::from_reasons(Some(&claim.input_id), reasons);
+        let dependencies = records
+            .iter()
+            .filter(|record| purpose == ClaimPurpose::Schema && record.kind == ReceiptKind::Media)
+            .map(|record| RequiredDependency::new(&record.id, media.get(record.id.as_str())));
+        let mut decision =
+            ClaimDecision::from_reasons(Some(&claim.input_id), reasons, dependencies);
         decision.evidence = records
             .into_iter()
             .map(|record| record.id.clone())
@@ -471,9 +476,10 @@ impl<'a> Ledger<'a> {
             .as_ref()
             .map(|value| value.requested.clone());
         decision.selection = input.selection.clone();
-        decision.effective_scope = (decision.status == "admitted").then_some(scope);
+        decision.effective_scope = decision.is_admitted().then_some(scope);
         decision.uncovered_scope = remainder;
         decision.dirty = input.dirty;
+        let projection = projection.filter(|_| decision.is_admitted());
         Ok(ResolvedClaim {
             decision,
             projection,
@@ -537,18 +543,13 @@ impl<'a> Ledger<'a> {
                         projections.insert(claim.id.as_str(), projection);
                     }
                     report.insert(&claim.id, resolved.decision);
-                    for media in resolved.media {
-                        let id =
-                            format!("media:{}:{}:{}", claim.id.len(), claim.id, media.receipt_id);
-                        let mut decision =
-                            ClaimDecision::from_reasons(Some(&claim.input_id), media.reasons);
-                        decision.evidence.push(media.receipt_id.into());
-                        decision.media_root = media.root;
+                    for (receipt_id, decision) in resolved.media {
+                        let id = format!("media:{}:{}:{}", claim.id.len(), claim.id, receipt_id);
                         dependent.push((id, decision));
                     }
                 }
                 Err(reason) => {
-                    report.insert(&claim.id, ClaimDecision::from_reasons(None, vec![reason]))
+                    report.settle(&claim.id, None, vec![reason], []);
                 }
             }
         }
@@ -565,7 +566,7 @@ impl<'a> Ledger<'a> {
 struct ResolvedClaim<'a> {
     decision: ClaimDecision,
     projection: Option<Projection<'a>>,
-    media: Vec<MediaDecision<'a>>,
+    media: BTreeMap<&'a str, ClaimDecision>,
 }
 
 fn schema_dialect(json: &serde_json::Value) -> bool {

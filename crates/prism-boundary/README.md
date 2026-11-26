@@ -421,6 +421,8 @@ records its selection time and a pin or first-parent date-rule receipt for
 each selected input in `change.selection.receipts`. Branch-based receipts must
 match the frozen input branch. The singular `change.selection.input_id` and
 `receipt` fields can record one input's proof.
+A claim is admitted only when every required dependency in its closure is admitted,
+including the separately declared topic head for a historical computed after-tree.
 
 `ImpactDocument::validate()` certifies these internal checks on frozen records.
 
@@ -450,7 +452,7 @@ document already records a negative.
 
 Count each refused or withheld claim under its refusal reason, including claims
 withheld at the accept-list boundary. At ingress, count a decoder error as one
-envelope refusal. The seven [known-limit rows](tests/fixtures/p1d_rows/fixtures/known-limits.json)
+envelope refusal. The eight [known-limit rows](tests/fixtures/p1d_rows/fixtures/known-limits.json)
 record where the current APIs can accept or refuse an unsupported input and
 pair each case with a supported control. The standalone Draft 2020-12 schema
 checks count bounds and nullability. The typed validator checks count ordering.

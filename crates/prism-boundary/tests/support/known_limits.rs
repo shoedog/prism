@@ -1,6 +1,7 @@
 // These tests record observable behavior outside the P1d accept-list.
 use crate::doc_admission::supplied_bytes;
 use crate::doc_cases::{fixture, json_fixture, schema, API};
+use prism_boundary::model::{unobserved_elements, MembershipRequest, RoleSlots};
 use prism_boundary::revision::{
     saved_binding_status, AdmissionRequest, AdmittedSchemaInput, Blob, Format, ReferenceBlob,
     SavedScanEvidence, Snapshot,
@@ -274,4 +275,45 @@ fn known_limit_10_unknown_key_refuses_envelope() {
     );
     assert_eq!(report.claims["sibling"].status, "admitted");
     assert_eq!(report.counts.get("unsupported_kind"), Some(&1));
+}
+
+#[test]
+fn known_limit_11_literal_prefix_before_capture() {
+    let row = known("11");
+    let input = &row["input"];
+    let mut change = json_fixture(name(&input["change_fixture"]))["change"].clone();
+    change["after_presence"] = json!("absent");
+    change["after_element_id"] = Value::Null;
+    let mut wire = json_fixture(name(&row["fixture"]));
+    wire["operations"] = json!([]);
+    wire["file_status"][0]["scope"] = input["scope"].clone();
+    let bindings = [serde_json::from_value(wire).unwrap()];
+    let check = |path| {
+        let mut change = change.clone();
+        change["operation_id"] = json!(format!("op:GET {path}"));
+        change["before_element_id"] = json!(format!("field:resp:GET {path}:200#/stamp"));
+        unobserved_elements(&MembershipRequest {
+            change: &serde_json::from_value(change).unwrap(),
+            producer: &RoleSlots {
+                before_input_id: Some("service-before".into()),
+                after_input_id: None,
+                reason: None,
+            },
+            consumer: None,
+            expected_inputs: &["service-before".into()],
+            admitted_bindings: &bindings,
+            membership_evidence: &[
+                json!({"input_id":"service-before","side":"before","complete":true}),
+            ],
+        })
+    };
+    let control = check(name(&row["control"]["input"]["path"]));
+    assert_eq!(control["coverage"], json!([]));
+    assert_eq!(
+        json!(control["unobserved"].as_array().unwrap().len()),
+        row["control"]["observed"]["unobserved_count"]
+    );
+    let limited = check(name(&input["path"]));
+    assert_eq!(limited["coverage"][0]["reason"], row["observed"]["reason"]);
+    assert_eq!(limited["unobserved"], json!([]));
 }

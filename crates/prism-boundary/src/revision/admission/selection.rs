@@ -49,6 +49,18 @@ pub(crate) fn exact_tree_at_cutoff(
         if covered == tree && !evidence.is_empty() && instant(available_at).is_some_and(|at| at <= cutoff))
 }
 
+pub(crate) fn check_merge_head(
+    receipt: &str,
+    topic: Option<&str>,
+    proposed: Option<&str>,
+) -> Result<(), Refusal> {
+    if topic.is_some() && topic == proposed {
+        Ok(())
+    } else {
+        Err(Refusal::new("invalid_merge_proof", receipt).dimension("head"))
+    }
+}
+
 pub(crate) fn selection_required(
     mode: ReviewMode,
     side: Option<ServiceSide>,
@@ -327,14 +339,20 @@ pub(super) fn merge<'a>(
     }
     if request.mode == ReviewMode::HistoricalAsOf {
         let cutoff = cutoff(request).ok_or_else(|| invalid("cutoff_evidence"))?;
-        if slot.service_side == Some(ServiceSide::After)
-            && !subject(request).is_some_and(|topic| {
-                topic.binding.role == slot.role
-                    && topic.binding.repo == slot.repo
-                    && historical_head(&topic.snapshot, cutoff) == merge.head.as_deref()
-            })
-        {
-            return Err(invalid("head"));
+        let topic = subject(request)
+            .filter(|topic| topic.binding.role == slot.role && topic.binding.repo == slot.repo);
+        // Subject merge results have an explicit service After slot or are
+        // sideless computed client-after inputs in the subject repository.
+        // Computed Before/Held inputs carry their own receipts for earlier or
+        // counterpart trees, independently of the subject's merge head.
+        let subject_result = slot.service_side == Some(ServiceSide::After)
+            || (slot.service_side.is_none() && slot.role == Role::Consumer && topic.is_some());
+        if subject_result {
+            check_merge_head(
+                merge_receipt,
+                topic.and_then(|topic| historical_head(&topic.snapshot, cutoff)),
+                merge.head.as_deref(),
+            )?;
         }
         let id = merge
             .cutoff_evidence

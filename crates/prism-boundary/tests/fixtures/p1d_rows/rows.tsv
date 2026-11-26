@@ -111,3 +111,4 @@ known-limit-06	fixtures/producer.json			limit	known_limit
 known-limit-07	fixtures/admission.json			limit	known_limit
 known-limit-09	fixtures/mixed.json			limit	known_limit
 known-limit-10	fixtures/admission.json			limit	known_limit
+known-limit-11	fixtures/producer.json			limit	known_limit

@@ -107,5 +107,21 @@
       "input": "Keep the key known and change /receipts/0/kind to future.",
       "observed": {"schema-claim": "unchecked", "sibling": "admitted", "unsupported_kind": 1}
     }
+  },
+  "known-limit-11": {
+    "finding": "Sol r4, literal prefix before a spelled capture",
+    "fixture": "producer.json",
+    "input": {
+      "change_fixture": "membership.json",
+      "path": "/kiln/{}",
+      "scope": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "kiln"}]]}
+    },
+    "observed": {"reason": "missing_membership_evidence", "unobserved_count": 0},
+    "outside_accept_list": "Scoped coverage does not certify membership absence for a spelled path containing braces, even when its leading literal segments establish inclusion.",
+    "control": {
+      "fixture": "producer.json",
+      "input": {"path": "/kiln/slot"},
+      "observed": {"unobserved_count": 1}
+    }
   }
 }

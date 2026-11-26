@@ -55,6 +55,45 @@ fn fold3_historical_computed_after_and_topic_head() {
     wire["change"]["selection"] = json!({"subject_head_input_id":"service-after"});
     assert!(impact(wire.clone()).validate().counts.is_empty());
 
+    let (request, wire) = historical_computed();
+    let admitted = admission(request);
+    assert_eq!(
+        admitted.claims["effective"].status, "admitted",
+        "{admitted:?}"
+    );
+    assert!(admitted.counts.is_empty(), "{admitted:?}");
+    let encoded = serde_json::to_vec(&wire).unwrap();
+    let decoded = prism_boundary::ImpactDocument::from_json(&encoded).unwrap();
+    let report = decoded.validate();
+    assert!(report.counts.is_empty(), "{:?}", report.counts);
+    for id in ["input:service-after", "input:topic-head", "report-cutoff"] {
+        assert_eq!(report.claims[id].status, "admitted", "{id}: {report:?}");
+    }
+    for (pointer, wrong) in [
+        ("/change/selection/proposed_head", json!("other-topic-rev")),
+        ("/inputs/2/committed_at", json!("2026-11-26T12:00:00Z")),
+        ("/inputs/1/origin/covered_tree", json!("other-result-tree")),
+        (
+            "/inputs/1/origin/available_at",
+            json!("2026-11-26T12:00:00Z"),
+        ),
+        ("/inputs/1/origin/covered_tree", Value::Null),
+    ] {
+        let mut damaged = wire.clone();
+        *damaged.pointer_mut(pointer).unwrap() = wrong;
+        let report = impact(damaged).validate();
+        assert_eq!(
+            report.claims["report-cutoff"].status, "unchecked",
+            "{pointer}"
+        );
+    }
+}
+
+pub(super) fn historical_computed() -> (Value, Value) {
+    let mut wire = json_fixture("operations-only.json");
+    wire["mode"] = json!("historical_as_of");
+    wire["cutoff_at"] = json!(CUTOFF);
+    wire["inputs"][1]["committed_at"] = json!(CUTOFF);
     let tree = "service-after-tree";
     let computed_at = "2026-11-26T11:00:00Z";
     let snapshot = json!({"snapshot_kind":"computed_tree","tree":tree,
@@ -82,6 +121,10 @@ fn fold3_historical_computed_after_and_topic_head() {
         topic_binding[key] = topic[key].clone();
     }
     topic_binding["slot"] = topic["input_id"].clone();
+    topic_binding
+        .as_object_mut()
+        .unwrap()
+        .remove("service_side");
     request["slots"]
         .as_array_mut()
         .unwrap()
@@ -104,13 +147,6 @@ fn fold3_historical_computed_after_and_topic_head() {
         .unwrap()
         .push(json!({"id":"effective","input_id":"service-after",
         "slot":"service-after","purpose":"metadata","receipt_ids":[]}));
-    let admitted = admission(request);
-    assert_eq!(
-        admitted.claims["effective"].status, "admitted",
-        "{admitted:?}"
-    );
-    assert!(admitted.counts.is_empty(), "{admitted:?}");
-
     wire["inputs"].as_array_mut().unwrap().push(topic);
     let after = wire["inputs"][1].as_object_mut().unwrap();
     for key in ["rev", "committed_at", "subject"] {
@@ -120,31 +156,7 @@ fn fold3_historical_computed_after_and_topic_head() {
     after.insert("origin".into(), origin);
     wire["change"]["selection"] = json!({"subject_head_input_id":"topic-head",
         "merge_receipt":"merge-result","proposed_head":"topic-head-rev"});
-    let encoded = serde_json::to_vec(&wire).unwrap();
-    let decoded = prism_boundary::ImpactDocument::from_json(&encoded).unwrap();
-    let report = decoded.validate();
-    assert!(report.counts.is_empty(), "{:?}", report.counts);
-    for id in ["input:service-after", "input:topic-head", "report-cutoff"] {
-        assert_eq!(report.claims[id].status, "admitted", "{id}: {report:?}");
-    }
-    for (pointer, wrong) in [
-        ("/change/selection/proposed_head", json!("other-topic-rev")),
-        ("/inputs/2/committed_at", json!("2026-11-26T12:00:00Z")),
-        ("/inputs/1/origin/covered_tree", json!("other-result-tree")),
-        (
-            "/inputs/1/origin/available_at",
-            json!("2026-11-26T12:00:00Z"),
-        ),
-        ("/inputs/1/origin/covered_tree", Value::Null),
-    ] {
-        let mut damaged = wire.clone();
-        *damaged.pointer_mut(pointer).unwrap() = wrong;
-        let report = impact(damaged).validate();
-        assert_eq!(
-            report.claims["report-cutoff"].status, "unchecked",
-            "{pointer}"
-        );
-    }
+    (request, wire)
 }
 
 #[test]

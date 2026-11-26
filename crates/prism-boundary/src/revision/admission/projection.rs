@@ -70,7 +70,7 @@ pub fn admit_schema_input<'a>(
         _ => None,
     };
     if let Some(failure) = failure {
-        report.insert(claim_id, ClaimDecision::from_reasons(None, vec![failure]));
+        report.settle(claim_id, None, vec![failure], []);
     }
     SchemaAdmission { projection, report }
 }

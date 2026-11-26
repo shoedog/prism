@@ -282,3 +282,6 @@ mod known_limits;
 
 #[path = "support/fold3.rs"]
 mod fold3;
+
+#[path = "support/fold4.rs"]
+mod fold4;
