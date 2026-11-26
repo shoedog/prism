@@ -34,16 +34,31 @@ function memberName(ts, expression) {
 // What the analysed sources write: member names (`x.name = ..`, `x['name'] = ..`,
 // `delete x.name`, destructuring-assignment leaves, `for (x.name of ..)`) and identifier
 // symbols (assignment, update, destructuring and loop-head targets). A written member or
-// symbol may hold a callable other than its declaration. Computed keys, Object.assign
-// and reflective writes are outside the model (README accept-list).
+// symbol may hold a callable other than its declaration. A member written on the global
+// object (`globalThis.f = ..`, `window.f`, `self.f`, `global.f`, `this.f`, or a variable
+// initialised from one of those, chains of eight) is also recorded apart: it replaces a
+// top-level function of a non-module script. Computed keys, Object.assign and reflective
+// writes are outside the model (README accept-list).
 const writeIndex = new WeakMap();
+const globalNames = new Set(['globalThis', 'window', 'self', 'global']);
 
 function writes(context) {
   const { ts, program, checker } = context.public;
   if (writeIndex.has(program)) return writeIndex.get(program);
   const members = new Set();
   const symbols = new Set();
+  const globals = new Set();
   const root = program.getCurrentDirectory() + path.sep;
+  function globalObject(node, depth = 0) {
+    node = strip(ts, unwrap(ts, node));
+    if (!node || depth > maxDepth) return false;
+    if (node.kind === ts.SyntaxKind.ThisKeyword) return true;
+    if (!ts.isIdentifier(node)) return false;
+    if (globalNames.has(node.text)) return true;
+    const symbol = checker.getSymbolAtLocation(node);
+    return Boolean(symbol?.declarations?.some(declaration => ts.isVariableDeclaration(declaration)
+      && declaration.initializer && globalObject(declaration.initializer, depth + 1)));
+  }
   function target(node) {
     node = unwrap(ts, node);
     if (!node) return;
@@ -52,7 +67,10 @@ function writes(context) {
       if (symbol) symbols.add(symbol);
     } else if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
       const name = memberName(ts, node);
-      if (name !== null) members.add(name);
+      if (name !== null) {
+        members.add(name);
+        if (globalObject(node.expression)) globals.add(name);
+      }
     } else if (ts.isArrayLiteralExpression(node)) {
       for (const element of node.elements) target(ts.isSpreadElement(element) ? element.expression : element);
     } else if (ts.isObjectLiteralExpression(node)) {
@@ -82,7 +100,7 @@ function writes(context) {
   for (const sf of program.getSourceFiles()) {
     if (!sf.isDeclarationFile && sf.fileName.startsWith(root)) visit(sf);
   }
-  const index = { members, symbols };
+  const index = { members, symbols, globals };
   writeIndex.set(program, index);
   return index;
 }
@@ -214,7 +232,9 @@ function staticMember(ts, member) {
 // property or an accessor of that name makes the member unproved.
 function memberOrigin(ts, chain, name, isStatic, owner) {
   const method = ts.isMethodDeclaration(owner);
-  const ownsInstance = member => !staticMember(ts, member) && member.name && member.name.text === name;
+  // A computed name may evaluate to the method's name: it is a possible match.
+  const ownsInstance = member => !staticMember(ts, member) && member.name
+    && (ts.isComputedPropertyName(member.name) || member.name.text === name);
   // An instance field or parameter property is an own property of the instance: it wins
   // over a method of the same name anywhere in the chain.
   if (method && !isStatic && chain.some(cls => cls.members.some(member =>
@@ -282,6 +302,55 @@ function uniqueReceiverUse(ts, checker, declaration, receiver) {
   return !distinctUse;
 }
 
+// A `var` binding of the function's name in the function's own var scope (the nearest
+// function, static block, namespace body or file; nested functions are not entered)
+// replaces the function when it assigns: an initializer, a destructuring leaf or a
+// `for..in/of` head. TypeScript gives such a binding a fresh symbol (TS2300), so the
+// function's symbol never lists it. A plain `var f;` assigns nothing and the function stays
+// (a destructuring declaration always has an initializer or a loop head).
+function varReassigns(ts, fn) {
+  const name = fn.name?.text;
+  if (name === undefined) return true;
+  const container = ts.findAncestor(fn.parent, node => ts.isFunctionLike(node) || ts.isSourceFile(node)
+    || ts.isModuleBlock(node) || ts.isClassStaticBlockDeclaration(node));
+  if (!container) return true;
+  function binds(pattern) {
+    if (ts.isIdentifier(pattern)) return pattern.text === name;
+    return pattern.elements.some(element => !ts.isOmittedExpression(element) && binds(element.name));
+  }
+  let found = false;
+  function visit(node) {
+    if (found) return;
+    if (node !== container && (ts.isFunctionLike(node) || ts.isClassStaticBlockDeclaration(node))) return;
+    if (ts.isVariableDeclaration(node) && !(node.parent.flags & ts.NodeFlags.BlockScoped) && binds(node.name)) {
+      const head = ts.isForInStatement(node.parent.parent) || ts.isForOfStatement(node.parent.parent);
+      if (node.initializer || head) found = true;
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(container);
+  return found;
+}
+
+// A top-level function of a non-module script is a property of the global object, so a
+// named member write on that object replaces it. A file with module syntax or CommonJS
+// exports is module-local.
+function globalBacked(ts, fn) {
+  const sf = fn.getSourceFile();
+  return fn.parent === sf && !ts.isExternalModule(sf) && !sf.commonJsModuleIndicator;
+}
+
+// The function symbol's declarations are all function declarations (overloads allowed) with
+// exactly one body, and that body is `body`; no assigning `var` of the name and no named
+// global-object write replaces it.
+function oneFunctionBody(context, declarations, body) {
+  const { ts } = context.public;
+  if (!declarations.length || !declarations.every(ts.isFunctionDeclaration)) return false;
+  const bodies = declarations.filter(d => d.body);
+  return bodies.length === 1 && bodies[0] === body && !varReassigns(ts, body)
+    && !(globalBacked(ts, body) && writes(context).globals.has(body.name.text));
+}
+
 // Callee certificate (a): an identifier bound to the body's declaration, or to an
 // unannotated `const` holding it (alias chains of such consts allowed). A `new` through an
 // identifier needs the certified class whose first constructor is the body.
@@ -296,8 +365,7 @@ function identifierProof(context, call, callee, body, depth = 0) {
   const declarations = valueDeclarations(ts, symbol);
   if (!symbol || writes(context).symbols.has(symbol) || !declarations.length) return null;
   if (declarations.every(ts.isFunctionDeclaration)) {
-    const bodies = declarations.filter(d => d.body);
-    return bodies.length === 1 && bodies[0] === body ? { fresh: false } : null;
+    return oneFunctionBody(context, declarations, body) ? { fresh: false } : null;
   }
   if (declarations.length !== 1) return null;
   const value = constInitializer(ts, declarations[0]);
@@ -327,9 +395,15 @@ function receiverProved(context, expression, owner) {
   // Static access through the class value, or a namespace function.
   if (declarations.length === 1 && (ts.isModuleDeclaration(declarations[0])
       || ts.isNamespaceImport(declarations[0]) || ts.isSourceFile(declarations[0]))) {
+    // The receiver must be unwritten (`N = {..}` replaces every member), and the export a
+    // function symbol with exactly one body, which is the owner, however many diagnostics
+    // are suppressed.
     const exported = bindingSymbol(ts, checker, expression);
-    return ts.isFunctionDeclaration(owner) && exported && !writes(context).symbols.has(exported)
-      ? { fresh: false } : null;
+    const written = writes(context).symbols;
+    const raw = checker.getSymbolAtLocation(receiver);
+    if (written.has(symbol) || (raw && written.has(raw))) return null;
+    return ts.isFunctionDeclaration(owner) && exported && !written.has(exported)
+      && oneFunctionBody(context, valueDeclarations(ts, exported), owner) ? { fresh: false } : null;
   }
   const chain = ts.isIdentifier(receiver) && classChain(context, receiver);
   if (chain) return isStatic && memberOrigin(ts, chain, name, true, owner) ? { fresh: false } : null;

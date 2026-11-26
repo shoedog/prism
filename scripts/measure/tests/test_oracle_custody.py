@@ -130,8 +130,8 @@ class Custody(unittest.TestCase):
         self.assertEqual([case.name for case in cases],
                          ["certificate-callee-origin", "certificate-class-decorator",
                           "certificate-constructor", "certificate-decorators",
-                          "certificate-erroneous", "certificate-member-writes",
-                          "certificate-receiver-wrappers"])
+                          "certificate-erroneous", "certificate-fold4",
+                          "certificate-member-writes", "certificate-receiver-wrappers"])
         for case in cases:
             rows = fixtures.read_jsonl(case / "expected.jsonl")
             with self.subTest(case=case.name):

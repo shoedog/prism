@@ -370,8 +370,15 @@ stripped. The call's body is credited only when the callee is
 (a) an identifier bound to the body's declaration (a function declaration
 with its overloads and one implementation) or to an unannotated `const`
 holding the body, or an alias chain of such consts (depth 8); the symbol must
-never be written; or `new X(..)` with `X` a certified class whose first
-constructor is the body;
+never be written, and a function declaration must be the symbol's only bodied
+declaration, with no `var` binding of its name that assigns in its own var scope
+(an initializer, a destructuring leaf or a `for..in/of` head; nested functions
+are not searched, and a plain `var f;` assigns nothing), and, when it is a
+top-level function of a non-module script (no module syntax, no CommonJS
+exports: a property of the global object), no member of its name written on the
+global object (`globalThis.f = ..`, `window`, `self`, `global`, `this`, or a
+variable initialised from one of them); or `new X(..)` with `X` a certified
+class whose first constructor is the body;
 (b) a member access with a proved receiver: `super`, a private name, a
 namespace function, a static member through a certified class, an object
 literal that owns the member as one plain property (no spread, no computed
@@ -387,8 +394,13 @@ proved owner (one field, or a method with its overloads and exactly one
 bodied declaration); a computed name, parameter property or accessor of that
 name leaves it unproved; an instance field or parameter property of the name
 anywhere in the chain gives an instance method no proof (it is an own property
-and wins), and `super.f` never reaches an instance field; a namespace function
-needs its resolved export symbol never written, as an identifier callee does;
+and wins; a computed-name instance field anywhere in the chain counts as a
+possible match), and `super.f` never reaches an instance field; a namespace
+function (a namespace or namespace import) needs an unwritten namespace
+receiver (`N = {..}` replaces every member), its resolved export symbol never
+written, and exactly one bodied function declaration for the export, which is
+the owner, however many duplicate diagnostics are suppressed (the identifier
+callee rule);
 (c) an immediately invoked body.
 A decorated member (method, accessor or field, reached statically, through a
 private name or through `super`) is never proved: a member decorator may
@@ -404,7 +416,9 @@ implementation), TS2425/TS2426 (property/method conflict across a chain),
 TS2855 (`super` access to a field) or TS2630 (assignment to a function), the
 verdict is UNDECIDED `ambiguous-dispatch`, argument slot and call target
 alike. Only diagnostics the program reports count: a suppressed one
-(`@ts-ignore`) is not seen, and the structural rules above stand alone for it.
+(`@ts-ignore`, `@ts-nocheck`) is not seen, and the structural rules above stand
+alone for it. TS2300 (duplicate identifier) is not in the gate: it would also
+refuse `function q(){} var q;`, which is sound, and the var-scope rule decides it.
 Any assignment, update, `delete`, destructuring-assignment leaf or `for`
 head target naming a member of the called name anywhere in the analysed
 sources leaves the receiver unproved, and a non-`readonly` field arrow is
@@ -427,7 +441,12 @@ case with its UNDECIDED verdict beside a CORRECT control
 typed by a parameter (`cb: typeof a`), a whole-callee assertion
 (`(x as T)(a)`, `<T>x`), a constructor reached through a parameter, a call
 result or a reassigned `let K = class`, a constructor or base constructor
-that returns a value, a class decorator, a decorated member, a program carrying TS2393, TS2425,
+that returns a value, a class decorator, a decorated member, a written namespace
+receiver (`N = {..}`), two bodied exports of one name (diagnostics suppressed), a
+function reassigned by a `var` of its name (initializer, destructuring, `for..of`
+head), a script function named by a global-object member write (`gt.f = ..`
+through `const gt = globalThis`), a computed-name instance field in the chain,
+a program carrying TS2393, TS2425,
 TS2426, TS2855 or TS2630 in the callee's file or class chain, a write to the
 member through
 `[this.m] = [..]`, `[C.prototype.m] = ..`, `({k: C.m} = ..)`,
@@ -438,10 +457,35 @@ of model (see Qualification above).
 
 Lexical binding proves a unique value declaration or write and a read of
 the same binding. Old-value reads in compound/logical assignments and
-updates count as reads. The question does not grade kill order, reachability
-or paths with nonempty fields. Source coordinates use LF-only physical
-lines, full UTF-8 byte boundaries and the formal declaration-header
-exception. A wrong spelling at a proved slot is WRONG.
+updates count as reads. A `delete o.m` operand is not a read (the receiver
+and a computed key are; `void o.m` is). The question does not grade kill order,
+reachability or paths with nonempty fields. Source coordinates use LF-only
+physical lines, full UTF-8 byte boundaries and the formal declaration-header
+exception.
+
+WRONG is returned only when the oracle has proved a different binding or
+position for an endpoint it located at exact identifier bytes AND no other
+occurrence of the claimed base name on that endpoint's physical line could
+serve the endpoint's role (source: a definition or write of the base;
+destination: a read of it). The producer anchors an endpoint by line, so its
+span can land on a neighbour (the key `app:` in `{app: {value: app}}`): that
+is UNDECIDED `endpoint-coordinate-off`, never WRONG. An endpoint that is not
+at exact identifier bytes is UNDECIDED `identifier-unproved`. The rule applies
+to every lexical fault (spelling, role, destination write, `delete` or type
+position, a different binding) and, by the same rule, to the argument slot: a
+wrong actual spelling, or a formal claimed at other bytes, is WRONG only when
+the claimed name is nowhere else on that line in the needed role (actual: a
+read; formal: the proved formal itself, which must share the claimed line).
+FORMATS section 4 is stricter in two places and those rules are kept: a
+different name at exactly the proved formal's bytes, and a signature formal of an
+overload (oracle-032, oracle-037), are WRONG whatever else the line holds.
+Matrix rows oracle-007 (a same-line other declaration) and oracle-010 (a span on
+`other` beside a read of `value`) were WRONG and are UNDECIDED
+`endpoint-coordinate-off` under this rule. Formal bytes that are not an identifier
+are UNDECIDED `identifier-unproved`. Of the 36 Express WRONG verdicts of the
+real-use read, 4 were coordinate-off (a key span next to the value read) and 32
+a variable not defined at the from line; the self-check case
+`lexical-coordinate` pins both shapes with controls.
 
 Call target grading supports explicitly named functions and simple
 identifier-named methods whose name and first non-decorator header token
