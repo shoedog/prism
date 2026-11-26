@@ -320,7 +320,7 @@ rule cases.
 **Element diff.** Emit additions and removals for operations and named fields on established presence/absence at
 the stated authority and scope. Independently emit added and removed success keys at retained operations, even for
 bodyless responses. Compare like message roots. Pair exactly one outgoing and one incoming root with proved equivalent JSON media after excluding proved bodyless or
-ineligible candidates. Calculate ownership on each side by exact, then `2XX`, then `default` precedence over body-eligible 2xx codes; a range or fallback is excluded only when its eligible ownership is proved empty (a fully shadowed fallback cannot block pairing; unknown ownership keeps the scoped limit). A possible extra candidate, overlapping changed range, or transfer of an affected body-eligible
+ineligible candidates. Calculate ownership on each side by exact, then `2XX`, then `default` precedence over body-eligible 2xx codes; when checking transfers, a range or fallback is excluded only when its eligible ownership is proved empty; `default` is never a pair endpoint (a fully shadowed fallback cannot block pairing; unknown ownership keeps the scoped limit). A possible extra candidate, overlapping changed range, or transfer of an affected body-eligible
 code to or from an added, removed or retained range or `default` blocks pairing. Compare typed relative paths with both original IDs and
 limit only affected subtrees. Keep all established status rows and record the reason for an unpaired two-sided
 replacement whenever either side could carry a body. Fields of a whole operation addition/removal are detail. An
