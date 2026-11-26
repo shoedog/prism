@@ -237,8 +237,8 @@ const ENABLED: &[&str] = &["control"];   // "reasons": also check the reasons of
 | w03 | a depth-2 route reaches `join` before a depth-1 route (`diamond`) | BoundaryExited; truth flows; known wrong | walk: Reached d2 |
 | w04 | w03 without the deeper route (`diamond_short`) | Reached d2 | control |
 | w05 | non-simple `return v + '!'` seeded inside the callee (`return_expr`) | NotReached, no reason; known wrong | walk: Reached |
-| w06 | `run(...[], t)` into `run(a, b)`, direct import (`spread_direct`) | Reached at `b`; truth no_flow; known wrong (lane 9 slice A) | walk: BoundaryExited, `unproven_slot` |
-| w07 | w06 through `import { run as go }` (`spread_alias`) | BoundaryExited | spelling: BoundaryExited, `unproven_slot` |
+| w06 | `run(...[], t)` into `run(a, b)`, direct import (`spread_direct`) | Reached at `b`; truth no_flow; known wrong (lane 9 slice A) | walk: NotReached at `b`, `no_graph_edge` on the integrated producer (the empty prefix puts `t` in `a`; no `t`→`b` edge exists); BoundaryExited `unproven_slot` on a constructed wrong edge |
+| w07 | w06 through `import { run as go }` (`spread_alias`) | BoundaryExited | spelling: NotReached at `b` on the integrated producer; BoundaryExited `unproven_slot` on a constructed wrong edge |
 | w08 | `run(t)` (`spread_absent`) | NotReached | control |
 | w09 | a call resolving Exact to two function expressions (`multi_exact`) | Reached | walk: BoundaryExited, `not_exact` (two `local_def` targets) |
 | n01 | `cb(x); handler(0);` on one line, the edge into `cb`'s target name-only with doubt `call_nameonly`, `handler` Exact (lane 9 row h13) | — | guard: BoundaryExited, `not_exact` |
@@ -476,7 +476,7 @@ pub(super) struct State { node: NodeIndex, entered: Vec<Frame>, initial_cfg: boo
 - [ ] Tests first: `return_after_descent_only_through_entered_site` (w01),
       `root_in_callee_returns_to_any_exact_caller`, `deeper_first_route_does_not_block_cheaper_route` (w03),
       `ascent_and_descent_share_the_budget`, `synthetic_return_value_survives_depth_zero_filter` (w05; the §5.2 shape table and new STAGE_D_ROWS fixtures check statement CFG and value role independently, pinning both operand orders, selected branch, intrinsic identity, consumed format field, discarded role, cut, component, Use bytes and the `tr2-js-wrapper` loss),
-      `spread_before_slot_refuses_unproven_slot` (w06), `plain_positional_slot_still_descends` (`run(a0, t)`),
+      `spread_before_slot_refuses_unproven_slot` (w06, on a constructed wrong `t`→`b` edge; the real fixture walk is NotReached at `b`), `fixed_slot_after_known_spread_and_rest_membership_certify` (JS/TS rest and dense-spread certificates of DESIGN 5.2 (iv), rows `tr1-js-rest`, `s3-js-rest-before-inner-call`, `s3-ts-nested-spread-default`; add the variant that changes only `xs[1]` to `xs[0]`), `decorated_method_forward_refuses_unproven_slot` (`d-py-decorated-forward`), `plain_positional_slot_still_descends` (`run(a0, t)`),
       `exact_multi_target_site_follows_stage_d` (w09), `go_interface_pool_descends` (d01),
       `two_site_witness_returns_through_its_own_site` (two separately identifiable multiline sites in `a1-js-equal-budget-return-sites`, querying `exec(first)` and `exec(second)` in separate variants, or constructed frames; assert both destination-specific interior chains),
       `site_cache_key_includes_target_and_slot`, and in `taint_parity_test.rs` `both_clients_pass_ast_site_view`.
