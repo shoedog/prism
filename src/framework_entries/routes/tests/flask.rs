@@ -12,6 +12,7 @@ use crate::{ast::ParsedFile, languages::Language};
 use tree_sitter::Node;
 
 mod import_regressions;
+mod measure;
 mod review;
 mod static_import;
 
