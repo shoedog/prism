@@ -104,7 +104,10 @@ impl CodePropertyGraph {
             )) => {}
             // `not_exact`: the call-binding doubt, and (lane 9) `builtin_callback`, are refused here.
             // Naming the variant keeps a new doubt kind a compile-time decision.
-            Some(FlowConfidence::NameOnly(FlowDoubt::CallNameOnly)) | None => return false,
+            Some(FlowConfidence::NameOnly(
+                FlowDoubt::CallNameOnly | FlowDoubt::BuiltinCallback,
+            ))
+            | None => return false,
         }
 
         let CpgNode::Variable {

@@ -453,3 +453,147 @@ fn bare_bindings_are_identical_across_every_route() {
         edge_multiset(&CodePropertyGraph::build(&edited_files))
     );
 }
+
+#[test]
+fn builtin_label_and_endpoints_are_identical_across_every_route() {
+    use crate::cpg::param_binding_builtin_tests::builtin_edges;
+    let source = "function visit(item) {\n  use(item);\n}\nfunction main() {\nconst items = [1];\nitems.map(value => use(value));\nitems.forEach(visit);\n}\nexport {};\n";
+    let mut sources = BTreeMap::from([
+        ("m.js".to_owned(), source.to_owned()),
+        ("unrelated.js".to_owned(), "const unchanged = 1;".to_owned()),
+    ]);
+    let files = parse(&sources);
+    let cold = CodePropertyGraph::build(&files);
+    let expected = [
+        (
+            "main",
+            "items",
+            source.find("items.map").unwrap(),
+            "<anon@6:11>",
+            "value",
+            source.find("value =>").unwrap(),
+        ),
+        (
+            "main",
+            "items",
+            source.find("items.forEach").unwrap(),
+            "visit",
+            "item",
+            15,
+        ),
+    ];
+    let assert_labels = |cpg: &CodePropertyGraph| {
+        let mut actual = builtin_edges(cpg)
+            .into_iter()
+            .map(|(from, to)| {
+                let from = cpg.to_var_location(from).unwrap();
+                let to = cpg.to_var_location(to).unwrap();
+                assert_eq!(from.file, "m.js");
+                assert_eq!(to.file, "m.js");
+                assert_eq!(from.start_byte, from.end_byte);
+                assert_eq!(
+                    source.get(to.start_byte..to.end_byte),
+                    Some(to.path.base.as_str())
+                );
+                (
+                    from.function,
+                    from.path.base,
+                    from.start_byte,
+                    to.function,
+                    to.path.base,
+                    to.start_byte,
+                )
+            })
+            .collect::<Vec<_>>();
+        actual.sort();
+        let expected = expected.map(|(f, p, a, g, q, b)| {
+            (f.to_owned(), p.to_owned(), a, g.to_owned(), q.to_owned(), b)
+        });
+        assert_eq!(actual, expected);
+        assert_eq!(cpg.dfg_label_stats.dfg_label_nameonly_builtin_callback, 2);
+    };
+    assert_labels(&cold);
+    let cold_edges = edge_multiset(&cold);
+    assert_step5b_parity(&files, &cold, &cold_edges);
+    let legacy = with_legacy(|| CodePropertyGraph::build(&files));
+    let serial = super::step5b_reference::with_serial(|| CodePropertyGraph::build(&files));
+    for twin in [&legacy, &serial] {
+        assert_eq!(edge_multiset(twin), cold_edges);
+        assert_eq!(twin.dfg_label_stats, cold.dfg_label_stats);
+        assert_eq!(twin.return_flow_stats, cold.return_flow_stats);
+        assert_labels(twin);
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&cold, &hashes, false, dir.path()).unwrap();
+    let CacheResult::Hit(hit) = cpg_cache::load_cache(&hashes, false, dir.path()) else {
+        panic!("expected full hit");
+    };
+    assert_eq!(edge_multiset(&hit), cold_edges);
+    assert_eq!(hit.dfg_label_stats, cold.dfg_label_stats);
+    assert_labels(&hit);
+
+    sources.insert("unrelated.js".to_owned(), "const changed = 2;".to_owned());
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    let CacheResult::PartialHit {
+        cached_call_graph,
+        cached_dfg,
+        changed_files,
+    } = cpg_cache::load_cache(&hashes, false, dir.path())
+    else {
+        panic!("expected partial hit");
+    };
+    let files = parse(&sources);
+    let incremental = CodePropertyGraph::build_incremental(
+        cached_call_graph,
+        cached_dfg,
+        &changed_files,
+        &files,
+        None,
+    );
+    let rebuilt = CodePropertyGraph::build(&files);
+    assert_eq!(edge_multiset(&incremental), edge_multiset(&rebuilt));
+    assert_eq!(incremental.dfg_label_stats, rebuilt.dfg_label_stats);
+    assert_labels(&incremental);
+}
+
+#[test]
+fn builtin_route_triggers_original_guard_bucket_removal() {
+    use crate::cpg::param_binding_builtin_tests::builtin_edges;
+    const MAIN: &str = "const origin = arr => {\nfunction handler(v) {\n  freeSink(v);\n}\n  observe(arr);\narr.forEach(handler);\n};\n";
+    const SINK: &str = "export function freeSink(p) {\n  observe(p);\n}\n";
+    let build = |method: &str| {
+        let sources = BTreeMap::from([
+            ("m.js".into(), MAIN.replace("forEach", method)),
+            ("sink.js".into(), SINK.to_string()),
+        ]);
+        CodePropertyGraph::build(&parse(&sources))
+    };
+    let (control, with_d) = (build("forElse"), build("forEach"));
+    let removed_label = |cpg: &CodePropertyGraph| {
+        cpg.graph
+            .edge_references()
+            .filter_map(|edge| {
+                let CpgEdge::DataFlow(label) = *edge.weight() else {
+                    return None;
+                };
+                let from = cpg.to_var_location(edge.source())?;
+                let to = cpg.to_var_location(edge.target())?;
+                (from.function == "origin" && to.function == "origin" && from.path.base == "arr")
+                    .then_some(label)
+            })
+            .collect::<Vec<_>>()
+    };
+    let removed = removed_label(&control);
+    assert_eq!(removed.len(), 2, "{removed:?}");
+    assert!(removed_label(&with_d).is_empty());
+    assert!(builtin_edges(&control).is_empty());
+    assert_eq!(builtin_edges(&with_d).len(), 1);
+    let mut expected = control.dfg_label_stats.clone();
+    for label in removed {
+        *expected.label_count_mut(label) -= 1;
+    }
+    expected.record_label(FlowConfidence::NameOnly(FlowDoubt::BuiltinCallback));
+    assert_eq!(with_d.dfg_label_stats, expected);
+}

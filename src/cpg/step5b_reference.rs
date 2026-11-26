@@ -49,8 +49,21 @@ impl CodePropertyGraph {
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<callee_params::ParamDef>>>> =
             BTreeMap::new();
         let mut rest_cache = BTreeMap::new();
+        let trace_builtin = builtin_callbacks::diagnostic::enabled();
         for (caller_id, sites) in &cg.calls {
             for site in sites {
+                if let Some(parsed) = files.get(&caller_id.file) {
+                    builtin_callbacks::collect(
+                        &mut out,
+                        site,
+                        caller_id,
+                        parsed,
+                        var_index,
+                        &exact_var_index,
+                        graph,
+                        trace_builtin,
+                    );
+                }
                 let resolved_site = cg.resolve_call_site(site);
                 let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
                 let mut call_args = None;
