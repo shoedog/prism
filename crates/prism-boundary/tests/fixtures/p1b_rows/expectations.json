@@ -100,7 +100,7 @@
     {"fixture": "supported.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:resp:POST /probe:200#/x", "field:resp:POST /probe:200#/y"], "observed": []}
   ]},
   "control-s27": {"case": "Supported neighbor of s27", "inputs": [
-    {"fixture": "supported-array.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": "3.0.3"}}}, "fields": ["field:resp:POST /probe:200#/[]/x"], "observed": []},
+    {"fixture": "supported-array.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:resp:POST /probe:200#/[]/x"], "observed": []},
     {"fixture": "supported-swagger.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:resp:POST /probe:200#/x"], "observed": []},
     {"fixture": "supported-3.1.0.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:resp:POST /probe:200#/x"], "observed": []}
   ]},
