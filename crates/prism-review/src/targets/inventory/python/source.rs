@@ -75,6 +75,44 @@ pub(in crate::targets::inventory) fn ungroup(mut node: Node<'_>) -> Node<'_> {
     node
 }
 
+pub(in crate::targets::inventory) fn outer_group(mut node: Node<'_>) -> Node<'_> {
+    while let Some(parent) = node
+        .parent()
+        .filter(|parent| parent.kind() == "parenthesized_expression")
+    {
+        node = parent;
+    }
+    node
+}
+
+pub(in crate::targets::inventory) fn has_comma(node: Node<'_>) -> bool {
+    let mut cursor = node.walk();
+    let has_comma = node.children(&mut cursor).any(|child| child.kind() == ",");
+    has_comma
+}
+
+pub(in crate::targets::inventory) fn scalar_subscript(node: Node<'_>) -> Option<Node<'_>> {
+    if has_comma(node) {
+        return None;
+    }
+    node.child_by_field_name("subscript")
+}
+
+// The assignment grammar represents both grouping and unpacking as tuple_pattern.
+pub(in crate::targets::inventory) fn ungroup_target(mut node: Node<'_>) -> Node<'_> {
+    loop {
+        node = ungroup(node);
+        if node.kind() != "tuple_pattern" || has_comma(node) {
+            return node;
+        }
+        let mut inner = children(node);
+        match (inner.next(), inner.next()) {
+            (Some(child), None) => node = child,
+            _ => return node,
+        }
+    }
+}
+
 pub(super) fn bounds(parsed: &ParsedFile, node: Node<'_>) -> Option<FunctionBounds> {
     let name = identifier(parsed.node_text(&node.child_by_field_name("name")?));
     let end = last_token(node)?;

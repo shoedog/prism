@@ -3,7 +3,7 @@ pub(super) mod source;
 pub(super) mod walk;
 
 use super::{
-    py_receiver::Resolver, Family, FunctionBounds, Grade, InventoryOutput, InventorySite,
+    py_receiver::Resolver, Family, FunctionBounds, InventoryOutput, InventorySite,
     UnsupportedReason, UnsupportedSite,
 };
 use prism::ast::ParsedFile;
@@ -123,6 +123,7 @@ pub(super) fn collect_file(
                 route: result.route.expect("proven inventory identity has a route"),
                 call: super::evidence::Span::new(&source, call.node),
                 callee: super::evidence::Span::new(&source, call.callee),
+                receiver: result.receiver,
             },
         });
 
@@ -134,7 +135,7 @@ pub(super) fn collect_file(
                 family: result.family,
                 resolved_callee,
                 reason,
-                grade: Grade::Exact,
+                grade: result.grade,
             });
         } else if let Some(owner) = owner {
             output.sites.push(InventorySite {
@@ -146,7 +147,7 @@ pub(super) fn collect_file(
                 family: result.family,
                 resolved_callee,
                 source_callee: source.original_text(call.callee).to_owned(),
-                grade: Grade::Exact,
+                grade: result.grade,
             });
         }
     }
