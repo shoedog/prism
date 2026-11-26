@@ -205,8 +205,18 @@ impl CodePropertyGraph {
         return_flow_mode: ReturnFlowMode,
         policy: Option<&TaintCrossingPolicy<'_>>,
     ) -> Trace {
+        self.taint_trace_lines(sources, return_flow_mode, policy, None)
+    }
+
+    fn taint_trace_lines(
+        &self,
+        sources: &[(String, usize)],
+        return_flow_mode: ReturnFlowMode,
+        policy: Option<&TaintCrossingPolicy<'_>>,
+        site_view: Option<&dyn SameLineOrderView>,
+    ) -> Trace {
         let has_cfg = self.has_cfg_edges();
-        let ledger = CrossingLedger::start("primary");
+        let ledger = CrossingLedger::start("primary", site_view);
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();
@@ -350,7 +360,7 @@ impl CodePropertyGraph {
         walk: &'static str,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
-        let ledger = CrossingLedger::start(walk);
+        let ledger = CrossingLedger::start(walk, order);
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();
@@ -439,7 +449,7 @@ impl CodePropertyGraph {
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
         return_flow_mode: ReturnFlowMode,
         policy: Option<&TaintCrossingPolicy<'_>>,
-        ledger: Option<CrossingLedger>,
+        ledger: Option<CrossingLedger<'_>>,
     ) {
         if !matches!(self.graph[root], CpgNode::Variable { .. }) {
             return;
@@ -453,6 +463,7 @@ impl CodePropertyGraph {
         }
 
         let mut logged_crossings = BTreeSet::new();
+        let site_view = ledger.and_then(|ledger| ledger.site_view);
         while let Some(node) = queue.pop_front() {
             let depth = depths[&(root, node)];
             for (next, rel, label, shortcut) in self.taint_neighbors(node, return_flow_mode) {
@@ -461,7 +472,7 @@ impl CodePropertyGraph {
                 }
                 let record_cut = |trace: &mut Trace, reason| {
                     let site = shortcut.map(|site| {
-                        CrossingSite::for_call(site, node, Relation::CallDescent, order)
+                        CrossingSite::for_call(site, node, Relation::CallDescent, site_view)
                     });
                     let first = trace.cuts.insert(TraceCut {
                         root,
@@ -514,11 +525,9 @@ impl CodePropertyGraph {
                         depth,
                         descent_gate_cache,
                         policy,
-                        ledger.is_some(),
-                        order,
                     );
                     if ledger.is_some() {
-                        site = self.crossing_site(node, next, relation, gate, order);
+                        site = self.crossing_site(node, next, relation, gate, site_view);
                     }
                     let location = site.as_ref().map(|site| site.location);
                     if let Err(reason) = gate {
@@ -744,7 +753,19 @@ impl CodePropertyGraph {
         Vec<crate::data_flow::FlowPath>,
         BTreeMap<(crate::data_flow::VarLocation, crate::data_flow::VarLocation), EvidencePath>,
     ) {
-        let trace = self.taint_trace_with_mode_policy(sources, ReturnFlowMode::On, policy);
+        self.taint_forward_cfg_with_return_flow_labeled_with_view(sources, policy, None)
+    }
+
+    pub(super) fn taint_forward_cfg_with_return_flow_labeled_with_view(
+        &self,
+        sources: &[(String, usize)],
+        policy: Option<&TaintCrossingPolicy<'_>>,
+        site_view: Option<&dyn SameLineOrderView>,
+    ) -> (
+        Vec<crate::data_flow::FlowPath>,
+        BTreeMap<(crate::data_flow::VarLocation, crate::data_flow::VarLocation), EvidencePath>,
+    ) {
+        let trace = self.taint_trace_lines(sources, ReturnFlowMode::On, policy, site_view);
         let mut paths = Vec::new();
         let mut evidence = BTreeMap::new();
         for (root, frontier) in &trace.frontier_by_root {

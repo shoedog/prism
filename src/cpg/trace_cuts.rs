@@ -75,19 +75,24 @@ pub struct TraceCut {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct CrossingLedger {
+pub(super) struct CrossingLedger<'a> {
     walk: &'static str,
     id: usize,
+    pub site_view: Option<&'a dyn SameLineOrderView>,
 }
 
-impl CrossingLedger {
-    pub(super) fn start(walk: &'static str) -> Option<Self> {
+impl<'a> CrossingLedger<'a> {
+    pub(super) fn start(
+        walk: &'static str,
+        site_view: Option<&'a dyn SameLineOrderView>,
+    ) -> Option<Self> {
         static NEXT_WALK: AtomicUsize = AtomicUsize::new(0);
         std::env::var_os("PRISM_TAINT_CROSSING_TRACE")
             .is_some_and(|value| value == "1")
             .then(|| Self {
                 walk,
                 id: NEXT_WALK.fetch_add(1, Ordering::Relaxed),
+                site_view,
             })
     }
 }
@@ -140,11 +145,21 @@ impl CodePropertyGraph {
         &self,
         site: &CallSite,
         location: CrossingSite,
+        return_owner: Option<&(String, String, usize)>,
     ) -> Option<SiteEvidence> {
-        let grades: Vec<_> = self
-            .call_graph
-            .resolve_call_site_full(site)
-            .resolved
+        let resolved = self.call_graph.resolve_call_site_full(site).resolved;
+        if let Some((file, name, start)) = return_owner {
+            if !resolved.iter().any(|candidate| {
+                (
+                    &candidate.target.file,
+                    &candidate.target.name,
+                    candidate.target.start_line,
+                ) == (file, name, *start)
+            }) {
+                return None;
+            }
+        }
+        let grades: Vec<_> = resolved
             .into_iter()
             .map(|candidate| candidate.confidence)
             .collect();
@@ -154,7 +169,7 @@ impl CodePropertyGraph {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn log_trace_attempt(
         &self,
-        ledger: CrossingLedger,
+        ledger: CrossingLedger<'_>,
         root: NodeIndex,
         from: NodeIndex,
         to: NodeIndex,
@@ -181,6 +196,12 @@ impl CodePropertyGraph {
             } => format!(" component={child_slot} return={return_start_byte}..{return_end_byte}"),
             _ => String::new(),
         };
+        let missing_site = match (relation, reason, ledger.site_view) {
+            (Relation::ReturnFlow, Some(LossReason::NoMatchingSite), _) => "-",
+            (Relation::ReturnFlow, _, None) => "unavailable(review-mode)",
+            (Relation::ReturnFlow, _, Some(_)) => "unavailable(assignment-proof)",
+            _ => "-",
+        };
         let reason = reason.map_or_else(String::new, |reason| format!(" reason={reason}"));
         let site_grades = site
             .into_iter()
@@ -189,7 +210,7 @@ impl CodePropertyGraph {
             .collect::<Vec<_>>()
             .join(",");
         let site = site.map_or_else(
-            || "-".into(),
+            || missing_site.into(),
             |site| format!("{}..{}", site.location.start_byte, site.location.end_byte),
         );
         // The diagnostic has no bearing on the walk, including when stderr is closed.

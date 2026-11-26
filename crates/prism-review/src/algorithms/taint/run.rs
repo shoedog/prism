@@ -170,16 +170,10 @@ pub(super) fn slice_attributed_impl(
     let framework_source_access_ranges =
         js_ts_framework_source_access_ranges_by_line(ctx.files, &framework_source_set);
 
-    // Forward propagation from each source (CFG-constrained when available)
-    // The two `None` arms are the legacy walks; a crossing ceiling selects the policy-aware form
-    // of the same walk (#602 S3b-R).
+    // Forward propagation from each source (CFG-constrained when available).
+    // An optional crossing ceiling applies the context-entry policy (#602 S3b-R).
     let (mut paths, flow_evidence) = match (taint_config.return_flow, scope.crossing()) {
-        (true, None) => ctx
-            .cpg
-            .taint_forward_cfg_with_return_flow_labeled(&taint_sources),
-        (true, Some(policy)) => ctx
-            .cpg
-            .taint_forward_cfg_with_return_flow_labeled_with_policy(&taint_sources, policy),
+        (true, policy) => ctx.taint_forward_cfg_with_return_flow_labeled(&taint_sources, policy),
         (false, None) => ctx.cpg.taint_forward_cfg_labeled(&taint_sources),
         (false, Some(policy)) => ctx
             .cpg

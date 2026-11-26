@@ -315,16 +315,10 @@ impl CodePropertyGraph {
                 || (site.start_byte <= source_start_byte && source_end_byte <= site.end_byte))
     }
 
-    fn return_flow_ascent(
-        &self,
-        from: NodeIndex,
-        to: NodeIndex,
-        log_crossings: bool,
-        order: Option<&dyn SameLineOrderView>,
-    ) -> Result<Option<&CallSite>, LossReason> {
+    fn return_flow_ascent(&self, from: NodeIndex, to: NodeIndex) -> Result<(), LossReason> {
         let owner = self.node_file_fn(from).ok_or(LossReason::NoMatchingSite)?;
         let mut candidate = false;
-        let mut proofs = self.return_sites(to).filter(|site| {
+        for site in self.return_sites(to) {
             let resolved = self.call_graph.resolve_call_site_full(site);
             let matches_owner = |target: &crate::call_graph::FunctionId| {
                 (&target.file, &target.name, target.start_line) == (&owner.0, &owner.1, owner.2)
@@ -332,48 +326,18 @@ impl CodePropertyGraph {
             if super::build::singleton_exact(&resolved)
                 .is_some_and(|entry| matches_owner(entry.target))
             {
-                return true;
+                return Ok(());
             }
             candidate |= resolved
                 .resolved
                 .iter()
                 .any(|entry| matches_owner(entry.target));
-            false
-        });
-        let Some(first) = proofs.next() else {
-            return Err(if candidate {
-                LossReason::NotExact
-            } else {
-                LossReason::NoMatchingSite
-            });
-        };
-        // The first proof admits the hop. Only the ledger needs to identify the site.
-        if !log_crossings {
-            return Ok(None);
         }
-        let Some(second) = proofs.next() else {
-            return Ok(Some(first));
-        };
-        Ok(Self::assigned_return_site(
-            to,
-            [first, second].into_iter().chain(proofs),
-            order,
-        ))
-    }
-
-    fn assigned_return_site<'a>(
-        to: NodeIndex,
-        sites: impl Iterator<Item = &'a CallSite>,
-        order: Option<&dyn SameLineOrderView>,
-    ) -> Option<&'a CallSite> {
-        let order = order?;
-        let mut assigned = sites.filter(|site| {
-            order
-                .crossing_slot(to, site, Relation::ReturnFlow)
-                .is_some()
-        });
-        let site = assigned.next()?;
-        assigned.next().is_none().then_some(site)
+        Err(if candidate {
+            LossReason::NotExact
+        } else {
+            LossReason::NoMatchingSite
+        })
     }
 
     fn return_sites(&self, to: NodeIndex) -> impl Iterator<Item = &CallSite> {
@@ -422,9 +386,7 @@ impl CodePropertyGraph {
         depth: usize,
         cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
         policy: Option<&super::TaintCrossingPolicy<'_>>,
-        log_crossings: bool,
-        order: Option<&dyn SameLineOrderView>,
-    ) -> Result<Option<&CallSite>, LossReason> {
+    ) -> Result<(), LossReason> {
         use super::BoundaryKind::*;
         match kind {
             SelfFunctionParam => return Err(LossReason::SelfParam),
@@ -435,13 +397,13 @@ impl CodePropertyGraph {
             return Err(LossReason::DepthCap);
         }
         if relation == Relation::ReturnFlow {
-            return self.return_flow_ascent(from, to, log_crossings, order);
+            return self.return_flow_ascent(from, to);
         }
         self.descend_target(from, to, label, cache)?;
         if policy.is_some() && self.admitted_data_flow_label(policy, from, to).is_none() {
             return Err(LossReason::PolicyCeiling);
         }
-        Ok(None)
+        Ok(())
     }
 }
 
@@ -460,23 +422,40 @@ impl CodePropertyGraph {
         from: NodeIndex,
         to: NodeIndex,
         relation: Relation,
-        gate: Result<Option<&CallSite>, LossReason>,
+        gate: Result<(), LossReason>,
         order: Option<&dyn SameLineOrderView>,
     ) -> Option<SiteEvidence> {
         if relation == Relation::ReturnFlow {
-            if let Ok(proof) = gate {
-                return proof.map(|site| {
-                    SiteEvidence::exact(CrossingSite::for_call(site, to, relation, order))
-                });
+            if gate == Err(LossReason::NoMatchingSite) {
+                return None;
             }
-            let site = Self::assigned_return_site(to, self.return_sites(to), order)?;
-            return self.site_evidence(site, CrossingSite::for_call(site, to, relation, order));
+            let order = order?;
+            // An exact call elsewhere in the caller can admit the hop. The ledger names
+            // the call that actually writes this receiving occurrence and binds to this callee.
+            let mut assigned = self.return_sites(to).filter_map(|site| {
+                let slot = order.crossing_slot(to, site, relation)?;
+                Some((site, slot))
+            });
+            let (site, slot) = assigned.next()?;
+            if assigned.next().is_some() {
+                return None;
+            }
+            let location = CrossingSite {
+                start_byte: site.start_byte,
+                end_byte: site.end_byte,
+                slot: Some(slot),
+            };
+            return self.site_evidence(site, location, Some(&self.node_file_fn(from)?));
         }
         let site = self.binding_site(from, to).ok()?;
         let (start, end) = super::trace_cuts::byte_span(self.node(from));
         if !site_contains_occurrence(site, start, end) {
             return None;
         }
-        self.site_evidence(site, CrossingSite::for_call(site, from, relation, order))
+        self.site_evidence(
+            site,
+            CrossingSite::for_call(site, from, relation, order),
+            None,
+        )
     }
 }
