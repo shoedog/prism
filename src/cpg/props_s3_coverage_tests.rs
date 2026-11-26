@@ -53,7 +53,13 @@ fn app(formal: &str, body: &str) -> String {
 fn a_braced_attribute_that_is_not_a_spread_binds_nothing() {
     for ext in EXTS {
         for opening in ["<P {x}/>", "<P {}/>"] {
-            expect(&jsx(P_A, opening), ext, &[("sites_jsx", 1)], 0);
+            // The fold counts the recovered-syntax drop (an admitted site with no entries).
+            expect(
+                &jsx(P_A, opening),
+                ext,
+                &[("sites_jsx", 1), ("refused_jsx_site_syntax", 1)],
+                0,
+            );
         }
         // Control: the braced spread (and a named attribute) is still read.
         let spread = jsx(P_A, "<P {...x} a={x}/>");
@@ -108,7 +114,17 @@ fn a_this_operand_is_a_source_attempt_in_jsx_and_opaque_in_a_literal() {
         );
         // An arrow keeps the method's `this`: the owner walk skips it to the method.
         let arrow = class("const f = () => <P a={this.a}/>;\n    return f();");
-        expect(&arrow, ext, &sited("refused_source_not_found"), 0);
+        // The fold also counts the execution-owner mismatch (arrow vs method) once.
+        expect(
+            &arrow,
+            ext,
+            &[
+                ("sites_jsx", 1),
+                ("refused_jsx_caller_owner", 1),
+                ("refused_source_not_found", 1),
+            ],
+            0,
+        );
         // Control: a string value is opaque data, never a source.
         expect(
             &class("return <P a={'s'}/>;"),
