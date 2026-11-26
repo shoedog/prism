@@ -51,6 +51,7 @@ impl CodePropertyGraph {
         let mut rest_cache = BTreeMap::new();
         let mut pattern_cache = BTreeMap::new();
         let trace_builtin = builtin_callbacks::diagnostic::enabled();
+        let jsx = jsx_props::Collector::new(cg, caller_parsed, graph, var_index, exact_var_index);
         for site in sites {
             if let Some(parsed) = files.get(&caller_id.file) {
                 builtin_callbacks::collect(
@@ -64,17 +65,13 @@ impl CodePropertyGraph {
                     trace_builtin,
                 );
             }
-            let resolved_site = cg.resolve_call_site(site);
-            if jsx_props::collect_site(
+            let Some(resolved_site) = jsx.resolve_site(
+                site,
                 &mut output,
-                jsx_props::JsxSite::new(site, caller_parsed, graph, var_index),
-                cg,
-                &resolved_site,
-                exact_var_index,
                 jsx_props::Patterns::Direct(files, &mut pattern_cache),
-            ) {
+            ) else {
                 continue;
-            }
+            };
             let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
             let mut call_args = None;
             let literals = object_literal_args::inventory(

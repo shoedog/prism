@@ -25,7 +25,7 @@ pub(in crate::cpg::build) use read::{
 pub(in crate::cpg::build) use source::SourceRefusal;
 use syntax::{attributes, entries, opening_at};
 
-pub(super) struct JsxSite<'a> {
+struct JsxSite<'a> {
     call: &'a CallSite,
     caller: &'a ParsedFile,
     graph: &'a DiGraph<CpgNode, CpgEdge>,
@@ -35,7 +35,7 @@ pub(super) struct JsxSite<'a> {
 }
 
 impl<'a> JsxSite<'a> {
-    pub(super) fn new(
+    fn new(
         call: &'a CallSite,
         caller: &'a ParsedFile,
         graph: &'a DiGraph<CpgNode, CpgEdge>,
@@ -65,17 +65,63 @@ pub(super) enum Patterns<'a, 'files> {
     ),
 }
 
-pub(super) fn collect_site(
+pub(super) struct Collector<'a, R> {
+    resolver: &'a R,
+    caller: &'a ParsedFile,
+    graph: &'a DiGraph<CpgNode, CpgEdge>,
+    lookup: &'a VarIndex,
+    exact: &'a ExactVarIndex,
+}
+
+impl<'a, R: CpgCallResolver> Collector<'a, R> {
+    pub(super) fn new(
+        resolver: &'a R,
+        caller: &'a ParsedFile,
+        graph: &'a DiGraph<CpgNode, CpgEdge>,
+        lookup: &'a VarIndex,
+        exact: &'a ExactVarIndex,
+    ) -> Self {
+        Self {
+            resolver,
+            caller,
+            graph,
+            lookup,
+            exact,
+        }
+    }
+
+    /// Resolve once. JSX openings go through props binding, and ordinary sites
+    /// return their targets for the caller's existing argument passes.
+    pub(super) fn resolve_site(
+        &self,
+        call: &CallSite,
+        output: &mut Step5bOutput,
+        patterns: Patterns<'_, '_>,
+    ) -> Option<Vec<ResolvedCallee<'a>>> {
+        let resolved = self.resolver.resolve_call_site(call);
+        if !call.jsx_element {
+            return Some(resolved);
+        }
+        collect_site(
+            output,
+            JsxSite::new(call, self.caller, self.graph, self.lookup),
+            self.resolver,
+            &resolved,
+            self.exact,
+            patterns,
+        );
+        None
+    }
+}
+
+fn collect_site(
     output: &mut Step5bOutput,
     site: JsxSite<'_>,
     resolver: &impl CpgCallResolver,
     resolved: &[ResolvedCallee<'_>],
     exact: &ExactVarIndex,
     patterns: Patterns<'_, '_>,
-) -> bool {
-    if !site.call.jsx_element {
-        return false;
-    }
+) {
     if !site.caller.language.is_js_family()
         || crate::anon_owner::is_module_owner_name(&site.call.caller.name)
         || (site.call.qualifier.is_none()
@@ -85,10 +131,10 @@ pub(super) fn collect_site(
                 .starts_with(|c: char| c.is_ascii_lowercase())
                 || site.call.callee_name.contains(['-', ':'])))
     {
-        return true;
+        return;
     }
     let Some(opening) = opening_at(site.caller, site.span()) else {
-        return true;
+        return;
     };
     if attributes(opening).is_empty()
         || syntax::execution_owner(site.caller, opening).is_none_or(|owner| {
@@ -96,7 +142,7 @@ pub(super) fn collect_site(
                 != Some(&site.call.caller)
         })
     {
-        return true;
+        return;
     }
     output.props.add("sites_jsx", 1);
     let files = match &patterns {
@@ -171,7 +217,6 @@ pub(super) fn collect_site(
         });
     #[cfg(not(test))]
     let _ = exact;
-    true
 }
 
 fn admit_and_collect<T>(
