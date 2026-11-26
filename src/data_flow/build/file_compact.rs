@@ -15,7 +15,22 @@ impl Producer {
         c_census: &CMacroCensus,
     ) -> crate::data_flow::compact::CompactDfg {
         let _profile_file = crate::profile::Phase::file("dfg.file", file);
-        let parts = Self::file_refs_with_census(file, parsed, census, c_census).into_parts();
+        let parts = if parsed.language.is_js_family() && crate::cpg::s1_trace::enabled() {
+            let mut evidence = crate::data_flow::s1_evidence::FileEvidence::new(parsed);
+            let refs = Self::file_refs_impl(
+                file,
+                parsed,
+                Some(super::super::fallback_cap::FALLBACK_EDGE_CAP),
+                census,
+                c_census,
+                Some(&mut evidence),
+            );
+            evidence.finish();
+            crate::cpg::s1_trace::report_projection_demotions(file, &evidence);
+            refs.into_parts()
+        } else {
+            Self::file_refs_with_census(file, parsed, census, c_census).into_parts()
+        };
         #[cfg(test)]
         let legacy_adjacency_rows = parts
             .adjacency

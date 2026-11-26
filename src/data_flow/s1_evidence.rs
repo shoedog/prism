@@ -118,6 +118,41 @@ pub struct Endpoint {
     pub label: Option<FlowConfidence>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionCause {
+    BareOccurrence,
+    Arguments,
+    With,
+    OtherRootStore,
+    SameRootNonComparableStore,
+    SignatureEffect,
+    S2,
+}
+
+impl ProjectionCause {
+    const ALL: [Self; 7] = [
+        Self::BareOccurrence,
+        Self::Arguments,
+        Self::With,
+        Self::OtherRootStore,
+        Self::SameRootNonComparableStore,
+        Self::SignatureEffect,
+        Self::S2,
+    ];
+
+    pub(super) fn bit(self) -> u8 {
+        1 << (self as u8)
+    }
+
+    pub(super) fn from_bits(bits: u8) -> Vec<Self> {
+        Self::ALL
+            .into_iter()
+            .filter(|cause| bits & cause.bit() != 0)
+            .collect()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Attempt {
     pub key: AttemptKey,
@@ -126,6 +161,8 @@ pub struct Attempt {
     pub justifies_def: bool,
     pub endpoint: Option<Endpoint>,
     pub disposition: Disposition,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub projection_causes: Vec<ProjectionCause>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]

@@ -23,6 +23,8 @@ mod census_trace;
 mod d2c;
 mod d3;
 mod preflight;
+#[cfg(test)]
+pub(crate) use preflight::with_availability_limits;
 mod read_index;
 mod refusal_classes;
 pub(crate) use preflight::{

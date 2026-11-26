@@ -543,7 +543,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v191) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v192) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -644,15 +644,23 @@ arrow that reads an eligible local from a completed earlier formal. Both forms u
 bytes with `cfg_incomplete`. The final reader can supply a Use on a named signature line without
 a preferred Use.
 
-Body edges use a separate value proof. A bare signature read or a possible signature alias with
-an overlapping body write selects the base-read behavior. Projections check writes by binding
-and path, including opaque signature effects. A shared representative must belong to the proved
-environment and value version. The body seam checks preferred and fallback bytes for raw writes
-and alias twins. The mixed-line endpoint relocation is the pending DESIGN §7 exception.
+Body edges use a separate value proof. M1 selects base reads when the local occurs as a whole
+value anywhere in the owner, including refused signature reads, or when the owner reads its
+`arguments` object through its lexical environment. W1 requires every member store to have the
+same root binding and a comparable path. A `with` statement withholds projections. S checks
+initializer evaluation, declarative identifier lookup, computed keys, property gets and spreads.
+S2 withholds projections for array bindings, object rest and rest formals. When the binding still
+reaches the read, a withheld projection uses the proved receiver bytes and the base-read label.
+A shared representative must belong to the proved environment and value version. R2.6 relocates
+the witnessed mixed-line signature-closure endpoint for raw writes and alias twins.
 Parameter names and argument slots keep their separate accessors. When S1 alone crosses the
 2,048-Def RD or 1,000,000-pair fallback limit, the file producer replays the owner's legacy facts.
-The uncapped p35 sibling relabel remains. The opt-in S1 ledger records the producer's attempts,
-site and cap decisions before graph deduplication. The CPG cache stays at v191.
+The uncapped p35 sibling relabel and the D3 alias-twin relabel are the bounded legacy label
+exceptions. Changes outside DFG statistics are limited to witnessed Step 5c return inputs,
+return-flow suppression transitions and the ordinary TypeScript argument-slot join in DESIGN
+§5.9. The S1 ledger records attempts, overlapping projection causes and cap decisions before
+deduplication. `PRISM_S1_TRACE=1` emits projection demotions and downstream joins on stderr. A cold run can set
+`PRISM_S1_SUPPRESSION_BASE` to a baseline trace file to report suppression counter transitions.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

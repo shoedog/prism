@@ -6,6 +6,31 @@ use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+#[cfg(test)]
+thread_local! {
+    static TEST_LIMITS: std::cell::Cell<(usize, usize)> =
+        const { std::cell::Cell::new((RD_MAX_DEFS, RD_MAX_LINES)) };
+}
+
+#[cfg(test)]
+pub(crate) fn with_availability_limits<T>(defs: usize, lines: usize, f: impl FnOnce() -> T) -> T {
+    struct Restore((usize, usize));
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            TEST_LIMITS.set(self.0);
+        }
+    }
+    let _restore = Restore(TEST_LIMITS.replace((defs, lines)));
+    f()
+}
+
+fn limits() -> (usize, usize) {
+    #[cfg(test)]
+    return TEST_LIMITS.get();
+    #[cfg(not(test))]
+    (RD_MAX_DEFS, RD_MAX_LINES)
+}
+
 /// The universe an owner's RD availability is decided on, in one place for both seams (the producer preflight and
 /// the solver). Since the final refusal policy a refused loop owner keeps EXACTLY main's geometry (no rewrite, no
 /// admitted `do` condition), so every owner is decided on its standing universe and CFG, as on main.
@@ -56,7 +81,7 @@ pub(crate) fn pattern_one_node_refusal(
     }
     let (mut completed, mut census) =
         super::census_defs::complete_for(true, false, parsed, owner, deduplicate_definitions(defs));
-    census.cap_defs(&mut completed, RD_MAX_DEFS);
+    census.cap_defs(&mut completed, limits().0);
     let count = completed.len();
     census.one_node_admits(&mut completed, |bases| {
         crate::cfg::js_single::single_node_cfg_is_complete(parsed, 1, bases)
@@ -72,7 +97,7 @@ pub(crate) fn census_def_cap_overflow(
 ) -> bool {
     let (mut completed, mut census) =
         super::census_defs::complete_for(true, false, parsed, owner, deduplicate_definitions(defs));
-    census.cap_defs(&mut completed, RD_MAX_DEFS);
+    census.cap_defs(&mut completed, limits().0);
     census.def_cap_forced()
 }
 
@@ -85,12 +110,13 @@ pub(crate) fn unavailable_before_edges(
     // The census never changes availability (#660 S1b-1): this is main's preflight on recorded defs.
     let defs = deduplicate_definitions(defs);
     let count = defs.len();
-    if count > RD_MAX_DEFS {
+    let (max_defs, max_lines) = limits();
+    if count > max_defs {
         return Some(RdUnavailable::DefinitionsCapExceeded { actual: count });
     }
     let (statements, _) = super::rd_statements(parsed, owner);
     let avail = Availability::of(parsed, owner, &statements);
-    if avail.statement_lines > RD_MAX_LINES {
+    if avail.statement_lines > max_lines {
         return Some(RdUnavailable::StatementLinesCapExceeded {
             actual: avail.statement_lines,
         });

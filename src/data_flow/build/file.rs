@@ -605,19 +605,7 @@ impl Producer {
                                 return None;
                             }
                             let preferred = preferred_use_locs.get(&(path.clone(), ref_line));
-                            // Validate the actual preferred or fallback location against the
-                            // admitted body environment. A zero-width point still has a scope.
-                            let invalid = body_scope.is_some_and(|(start, end)| {
-                                let (at, stop) = preferred.map_or_else(|| {
-                                    let anchor = parsed.line_start_byte(ref_line);
-                                    (anchor, anchor)
-                                }, |loc| (loc.start_byte, loc.end_byte));
-                                let scope = parsed.js_ts_def_scope_id(admitted.0, &path.base);
-                                !(start..end).contains(&at) || stop > end || scope.is_none()
-                                    || parsed.js_ts_def_scope_id(at, &path.base) != scope
-                                    || !pattern_values.same_version(path, at.min(admitted.0), at.max(admitted.0))
-                            });
-                            if synthetic || invalid {
+                            if synthetic || super::pattern_seam::relocate(parsed, func_node, path, ref_line, preferred, body_scope) {
                                 if refused_occurrence(path, admitted.0) {
                                     return None;
                                 }
@@ -692,7 +680,7 @@ impl Producer {
                         let def_line = span.line;
                         // R1: every JS/TS Def, including writes, stays in its
                         // binding environment; body vars cannot reach defaults.
-                        let body_scope = body_seam(path, span.start_byte);
+                        let body_scope = use_pattern.then(|| body_seam(path, span.start_byte)).flatten();
                         let def_scope = body_scope.or_else(||
                             crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte));
                         // #761: a parameter-list alias binding's own identifier is no read of it, whatever
@@ -759,7 +747,7 @@ impl Producer {
                         };
                         if let Some(resolved) = twin {
                             if resolved != *path {
-                                let body_scope = body_seam(&resolved, span.start_byte);
+                                let body_scope = use_pattern.then(|| body_seam(&resolved, span.start_byte)).flatten();
                                 let resolved_refs = crate::profile::search_refs(
                                     parsed,
                                     &member_refs,

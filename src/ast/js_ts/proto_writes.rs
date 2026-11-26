@@ -1,6 +1,5 @@
-use crate::ast::{
-    is_js_ts_function_like, member_projection::strip_transparent_wrappers, ParsedFile,
-};
+use super::props_keys::strip_transparent_wrappers;
+use crate::ast::{is_js_ts_function_like, ParsedFile};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 

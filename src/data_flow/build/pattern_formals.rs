@@ -1,11 +1,11 @@
 //! Runtime read and endpoint selection for object-pattern formals.
 
 use crate::access_path::AccessPath;
-use crate::ast::js_ts::props_keys::strip_transparent_wrappers;
 use crate::ast::{ParsedFile, PathSpan};
 use crate::cpg::FlowConfidence;
 use crate::data_flow::s1_evidence::{
-    Admission, Attempt, AttemptKey, Binding, Disposition, Endpoint, FileEvidence, Refusal,
+    Admission, Attempt, AttemptKey, Binding, Disposition, Endpoint, FileEvidence, ProjectionCause,
+    Refusal,
 };
 use crate::data_flow::{VarAccessKind, VarLocation};
 use crate::languages::Language;
@@ -18,14 +18,16 @@ use super::pattern_execution as execution;
 #[path = "pattern_signature.rs"]
 mod signature;
 
-use super::pattern_reads::reads_value;
-use super::pattern_values::Values;
+use super::pattern_projection::{read_operand, reads_owner_arguments};
+#[path = "pattern_endpoints.rs"]
+mod endpoints;
 
 pub(super) struct PatternFormal {
     pub(super) def: VarLocation,
     /// A producer guard (eval, mapped `arguments`, seam) refuses the formal: its reads
     /// stay in the ledger as refusals, and it supplies no Def or endpoint.
     guarded: bool,
+    reads_arguments: bool,
     decl_line: usize,
     reads: BTreeMap<(AccessPath, usize), Vec<Read>>,
 }
@@ -44,6 +46,8 @@ struct Read {
     binding: Binding,
     admission: Admission,
     body_refusal: Cell<Option<Refusal>>,
+    projection_causes: Cell<u8>,
+    projection_write_effect: Cell<bool>,
 }
 
 pub(super) struct Selected<'a> {
@@ -150,6 +154,7 @@ impl PatternFormal {
                 Self {
                     def,
                     guarded,
+                    reads_arguments: false,
                     decl_line: parsed.line_for_byte(start_byte),
                     reads: BTreeMap::new(),
                 },
@@ -215,6 +220,7 @@ impl PatternFormal {
         }
         stack.reverse();
         let callable_kinds = parsed.language.callable_boundary_node_types();
+        let mut reads_arguments = false;
         while let Some((node, mut ancestry)) = stack.pop() {
             if !execution::runtime_node(parsed, node) {
                 continue;
@@ -224,10 +230,11 @@ impl PatternFormal {
                 node.kind(),
                 "identifier" | "undefined" | "shorthand_property_identifier"
             ) {
-                if let Some(formal) = decoded_name(parsed.node_text(&node))
-                    .as_deref()
-                    .and_then(|name| formals.get_mut(name))
-                {
+                let name = decoded_name(parsed.node_text(&node));
+                if name.as_deref() == Some("arguments") && ancestry.region != Region::Other {
+                    reads_arguments |= reads_owner_arguments(parsed, owner, node);
+                }
+                if let Some(formal) = name.as_deref().and_then(|name| formals.get_mut(name)) {
                     let Some((operand, path)) = read_operand(parsed, node, &formal.def.path) else {
                         continue;
                     };
@@ -258,6 +265,8 @@ impl PatternFormal {
                             binding,
                             admission,
                             body_refusal: Cell::new(None),
+                            projection_causes: Cell::new(0),
+                            projection_write_effect: Cell::new(false),
                         });
                 }
             }
@@ -280,7 +289,13 @@ impl PatternFormal {
             }
             stack[first..].reverse();
         }
-        formals.into_values().collect()
+        formals
+            .into_values()
+            .map(|mut formal| {
+                formal.reads_arguments = reads_arguments;
+                formal
+            })
+            .collect()
     }
 
     pub(super) fn guarded(&self) -> bool {
@@ -327,8 +342,11 @@ impl PatternFormal {
         selected: Option<(&VarLocation, Option<FlowConfidence>)>,
     ) {
         let disposition = match (read.admission, selected) {
-            (_, Some((_, Some(_)))) => Disposition::Emitted,
             (_, Some((_, None))) => Disposition::CapWithheld,
+            (Admission::Body, _) if read.projection_write_effect.get() => {
+                Disposition::Refused(Refusal::WriteEffect)
+            }
+            (_, Some((_, Some(_)))) => Disposition::Emitted,
             (Admission::OtherBinding, _) => Disposition::OtherBinding,
             (Admission::Refused(reason), _) => Disposition::Refused(reason),
             _ => Disposition::Refused(read.body_refusal.get().unwrap_or(Refusal::Endpoint)),
@@ -344,146 +362,8 @@ impl PatternFormal {
                 label,
             }),
             disposition,
+            projection_causes: ProjectionCause::from_bits(read.projection_causes.get()),
         });
-    }
-
-    pub(super) fn endpoints(
-        &self,
-        parsed: &ParsedFile,
-        owner: &Node<'_>,
-        preferred: &BTreeMap<(AccessPath, usize), VarLocation>,
-        values: &Values<'_>,
-        synthetic: bool,
-        owner_is_unique: bool,
-    ) -> Vec<Selected<'_>> {
-        let mut endpoints = Vec::new();
-        let mixed = self
-            .reads
-            .values()
-            .flatten()
-            .any(|read| read.admission == Admission::Bare)
-            || self.reads.iter().any(|((path, _), reads)| {
-                reads.iter().any(|read| read.admission == Admission::Body)
-                    && values.signature_alias_overlaps(path, self.def.start_byte)
-            });
-        for (key @ (path, line), reads) in &self.reads {
-            let candidate = preferred.get(key);
-            for read in reads {
-                if read.admission == Admission::Reader
-                    || read.admission == Admission::Bare
-                        && (synthetic || candidate.is_some() || *line > self.decl_line)
-                {
-                    endpoints.push(Selected {
-                        loc: self.use_at(path, *line, read.span),
-                        signature: true,
-                        original_path: path,
-                        covered: vec![read],
-                    });
-                }
-            }
-            let projection = path.has_fields() && !mixed;
-            let selected_path = if projection { path } else { &self.def.path };
-            let body_reads: Vec<_> = reads
-                .iter()
-                .filter(|read| {
-                    if read.admission != Admission::Body {
-                        return false;
-                    }
-                    let refusal =
-                        values.body_refusal(selected_path, self.def.end_byte, read.root.0);
-                    read.body_refusal.set(refusal);
-                    refusal.is_none()
-                })
-                .collect();
-            let Some(&first) = body_reads.first() else {
-                continue;
-            };
-            if projection {
-                endpoints.push(Selected {
-                    loc: self.use_at(path, *line, first.span),
-                    signature: false,
-                    original_path: path,
-                    covered: body_reads
-                        .into_iter()
-                        .filter(|read| read.region == first.region)
-                        .collect(),
-                });
-                continue;
-            }
-            let candidate = preferred.get(&(selected_path.clone(), *line));
-            if !synthetic && candidate.is_none() && *line <= self.decl_line {
-                continue;
-            }
-            let uniform = self
-                .reads
-                .iter()
-                .filter(|((_, at_line), _)| at_line == line)
-                .all(|((other, _), occurrences)| {
-                    other == path
-                        && occurrences.iter().all(|read| {
-                            read.admission == Admission::Body
-                                && read.body_refusal.get().is_none()
-                                && read.region == first.region
-                        })
-                });
-            let representative = candidate.cloned().unwrap_or_else(|| {
-                let anchor = parsed.line_start_byte(*line);
-                self.use_at(selected_path, *line, (anchor, anchor))
-            });
-            let start = representative.start_byte;
-            let end = representative.end_byte;
-            let representative_span = |read: &Read| {
-                if path.has_fields() {
-                    read.root
-                } else {
-                    read.span
-                }
-            };
-            let (loc, covered) = if !synthetic
-                && owner_is_unique
-                && uniform
-                && (start == end
-                    || reads
-                        .iter()
-                        .any(|read| representative_span(read) == (start, end))
-                    || representative_name(parsed, &representative, &body_reads))
-                && representative_in_body(parsed, *owner, &representative, first.region)
-                && values.same_version(
-                    selected_path,
-                    start.min(first.root.0),
-                    start.max(body_reads.last().unwrap().root.0),
-                ) {
-                (representative, body_reads)
-            } else {
-                (
-                    self.use_at(selected_path, *line, representative_span(first)),
-                    vec![first],
-                )
-            };
-            endpoints.push(Selected {
-                loc,
-                signature: false,
-                original_path: path,
-                covered,
-            });
-        }
-        endpoints
-    }
-
-    fn use_at(
-        &self,
-        path: &AccessPath,
-        line: usize,
-        (start_byte, end_byte): (usize, usize),
-    ) -> VarLocation {
-        VarLocation {
-            line,
-            path: path.clone(),
-            start_byte,
-            end_byte,
-            kind: VarAccessKind::Use,
-            ..self.def.clone()
-        }
     }
 }
 
@@ -594,42 +474,6 @@ fn admit(
     }
 }
 
-fn representative_in_body(
-    parsed: &ParsedFile,
-    owner: Node<'_>,
-    loc: &VarLocation,
-    region: Region,
-) -> bool {
-    let Some(body) = owner.child_by_field_name("body") else {
-        return false;
-    };
-    if !body.byte_range().contains(&loc.start_byte) || loc.end_byte > body.end_byte() {
-        return false;
-    }
-    let Some(node) =
-        body.descendant_for_byte_range(loc.start_byte, loc.end_byte.max(loc.start_byte + 1))
-    else {
-        return false;
-    };
-    if parsed.js_ts_def_scope_id(loc.start_byte, &loc.path.base) != Some(owner.id()) {
-        return false;
-    }
-    let mut ancestor = Some(node);
-    let kinds = parsed.language.callable_boundary_node_types();
-    while let Some(node) = ancestor {
-        if node == owner
-            || (kinds.contains(&node.kind())
-                && node
-                    .child_by_field_name("body")
-                    .is_some_and(|body| body.byte_range().contains(&loc.start_byte)))
-        {
-            return region == Region::Body(node.id());
-        }
-        ancestor = node.parent();
-    }
-    false
-}
-
 pub(super) fn in_body_seam(parsed: &ParsedFile, owner: Node<'_>, name: &str, at: usize) -> bool {
     parsed.js_ts_seam_binding(&owner, name)
         && owner
@@ -643,67 +487,6 @@ pub(super) fn decoded_name(text: &str) -> Option<Cow<'_, str>> {
     } else {
         Some(Cow::Borrowed(text))
     }
-}
-
-fn read_operand<'a>(
-    parsed: &ParsedFile,
-    root: Node<'a>,
-    base: &AccessPath,
-) -> Option<(Node<'a>, AccessPath)> {
-    if parsed.js_ts_identifier_is_not_a_read(root) {
-        return None;
-    }
-    let mut operand = root;
-    let mut path = base.clone();
-    let mut receiver = root;
-    while let Some(parent) = receiver.parent() {
-        match parent.kind() {
-            "jsx_closing_element" | "meta_property" => return None,
-            "member_expression" if parent.child_by_field_name("object") == Some(receiver) => {
-                let property = parent.child_by_field_name("property")?;
-                path.fields
-                    .push(decoded_name(parsed.node_text(&property))?.into_owned());
-                operand = parent;
-            }
-            "subscript_expression"
-                if operand == root && parent.child_by_field_name("object") == Some(receiver) =>
-            {
-                if parsed.member_is_write_target(parent) && !reads_value(parent) {
-                    return None;
-                }
-                break;
-            }
-            _ if strip_transparent_wrappers(parent) == Some(operand) => {}
-            _ => break,
-        }
-        receiver = parent;
-    }
-    if operand != root && parsed.member_is_write_target(operand) && !reads_value(operand) {
-        return None;
-    }
-    Some((operand, path))
-}
-
-/// A JSX attribute name stands for a read only when that attribute's own
-/// value holds a certified read (`x={x}`), never a sibling attribute's read.
-fn representative_name(parsed: &ParsedFile, loc: &VarLocation, reads: &[&Read]) -> bool {
-    loc.start_byte < loc.end_byte
-        && parsed
-            .tree
-            .root_node()
-            .descendant_for_byte_range(loc.start_byte, loc.end_byte)
-            .is_some_and(|node| {
-                node.kind() == "property_identifier"
-                    && node
-                        .parent()
-                        .filter(|parent| parent.kind() == "jsx_attribute")
-                        .is_some_and(|attribute| {
-                            reads.iter().any(|read| {
-                                attribute.start_byte() <= read.root.0
-                                    && read.root.1 <= attribute.end_byte()
-                            })
-                        })
-            })
 }
 
 fn uninitialized_body_var(parsed: &ParsedFile, owner: Node<'_>, span: &PathSpan) -> bool {

@@ -1661,7 +1661,9 @@ impl CodePropertyGraph {
                     object_literal_args::collect(&mut out, &inputs, param_nodes, resolve);
                 }
                 for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
-                    let Some(param_target) = slot.and_then(|slot| param_nodes.get(slot)) else {
+                    let Some((slot, param_target)) =
+                        slot.and_then(|slot| param_nodes.get(slot).map(|target| (slot, target)))
+                    else {
                         continue;
                     };
                     let arg_idxs = Self::argument_nodes(
@@ -1678,6 +1680,9 @@ impl CodePropertyGraph {
                         .and_then(|t| t.resolve(var_index, graph))
                     {
                         for from in arg_idxs {
+                            if super::s1_trace::enabled() {
+                                super::s1_trace::argument(graph, site, arg_span, slot, from, to);
+                            }
                             out.push(PendingArgumentFlow {
                                 edge: (
                                     from,

@@ -107,8 +107,10 @@ struct Location {
 enum Label {
     Exact,
     Killed,
+    #[serde(alias = "sameline", alias = "nameonly/sameline")]
     SameLine,
     CfgIncomplete,
+    #[serde(alias = "nameonly/alias_unstable")]
     AliasUnstable,
     CallNameOnly,
 }
@@ -886,6 +888,65 @@ fn props_matrix_s1_controls_for_j25_and_j31() {
                 .unwrap_or_else(|error| panic!("{id}/{case}: {error}"));
         }
     }
+}
+
+#[test]
+fn props_matrix_s1_downstream_pattern_sources() {
+    let rows = |id| {
+        ROWS.lines()
+            .map(|line| serde_json::from_str::<Row>(line).unwrap())
+            .find(|row| row.id == id)
+            .unwrap()
+    };
+    let returns = rows("step5c-pattern-input");
+    for (case, expected) in [("pattern-return/m", 1), ("constant-return/m", 0)] {
+        let graph = build(Language::TypeScript, &[("m", &returns.files[case])], "ts");
+        assert_eq!(
+            graph.return_flow_stats.return_input_edges, expected,
+            "{case}"
+        );
+        let inputs: Vec<_> = graph
+            .graph
+            .edge_references()
+            .filter(|edge| matches!(edge.weight(), CpgEdge::ReturnInput))
+            .collect();
+        assert_eq!(inputs.len(), expected);
+        for input in inputs {
+            assert!(matches!(
+                graph.node(input.source()),
+                CpgNode::Variable {
+                    start_byte: 41,
+                    end_byte: 42,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                graph.node(input.target()),
+                CpgNode::ReturnValue {
+                    start_byte: 41,
+                    end_byte: 46,
+                    ..
+                }
+            ));
+            assert!(graph
+                .graph
+                .edges_directed(input.source(), petgraph::Direction::Incoming)
+                .any(|edge| matches!(edge.weight(), CpgEdge::DataFlow(_))
+                    && matches!(
+                        graph.node(edge.source()),
+                        CpgNode::Variable {
+                            start_byte: 12,
+                            end_byte: 13,
+                            ..
+                        }
+                    )));
+        }
+        crate::navigation::queries::dfg_edge_dump(&graph);
+    }
+    let arguments = rows("ordinary-argument-new-source");
+    assert!(arguments.run().is_empty());
+    let demotion = rows("getter-global");
+    assert!(demotion.run().is_empty());
 }
 
 #[test]

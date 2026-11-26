@@ -2,11 +2,13 @@
 
 use super::pattern_execution as execution;
 use super::pattern_formals::{decoded_name, in_body_seam};
+use super::pattern_projection::Stores;
 use super::pattern_reads;
+use super::pattern_signature_effects::Effects;
 use crate::access_path::AccessPath;
 use crate::ast::js_ts::{formal_binding, props_keys::strip_transparent_wrappers};
 use crate::ast::ParsedFile;
-use crate::data_flow::s1_evidence::Refusal;
+use crate::data_flow::s1_evidence::{ProjectionCause, Refusal};
 use crate::js_write_census::{
     identity::Comp,
     walk::{census_pattern_formals, Census, Site},
@@ -22,6 +24,8 @@ pub(super) struct Values<'a> {
     owner: Node<'a>,
     census: OnceCell<Census>,
     signature: OnceCell<SignatureEffects<'a>>,
+    stores: OnceCell<Stores>,
+    projection_signature: OnceCell<Effects>,
 }
 
 #[derive(Default)]
@@ -39,6 +43,8 @@ impl<'a> Values<'a> {
             owner,
             census: OnceCell::new(),
             signature: OnceCell::new(),
+            stores: OnceCell::new(),
+            projection_signature: OnceCell::new(),
         }
     }
 
@@ -56,6 +62,7 @@ impl<'a> Values<'a> {
         let signature = self.signature();
         let mut sites: BTreeSet<_> = signature.fields.keys().copied().collect();
         sites.extend(signature.aliases.iter().map(|(_, operand)| span(*operand)));
+        sites.extend(self.projection_signature().sites());
         sites.extend(
             self.census()
                 .sites
@@ -66,29 +73,26 @@ impl<'a> Values<'a> {
         sites
     }
 
-    pub(super) fn signature_alias_overlaps(&self, path: &AccessPath, binding_byte: usize) -> bool {
-        if !path.has_fields() {
-            return false;
+    fn projection_signature(&self) -> &Effects {
+        self.projection_signature
+            .get_or_init(|| Effects::collect(self.parsed, self.owner))
+    }
+
+    pub(super) fn projection_effects(&self, path: &AccessPath, binding_end: usize) -> u8 {
+        let stores = self
+            .stores
+            .get_or_init(|| Stores::collect(self.parsed, self.owner));
+        let signature = self.projection_signature();
+        let mut causes = stores
+            .causes(self.owner, path)
+            .fold(0, |bits, cause| bits | cause.bit());
+        if signature.withholds(path, binding_end) {
+            causes |= ProjectionCause::SignatureEffect.bit();
         }
-        self.signature().aliases.iter().any(|(alias, operand)| {
-            if operand.start_byte() < binding_byte
-                || decoded_name(self.parsed.node_text(operand)).as_deref()
-                    != Some(path.base.as_str())
-                || execution::binding_scope(self.parsed, self.owner, *operand, &path.base)
-                    != Some(self.owner.id())
-            {
-                return false;
-            }
-            let Some(name) = decoded_name(self.parsed.node_text(alias)) else {
-                return false;
-            };
-            self.census().sites.iter().any(|site| {
-                !site.region.own_params
-                    && !site.path.comps.is_empty()
-                    && self.bound_write(&name, site, true)
-                    && projection_overlaps(path, site)
-            })
-        })
+        if signature.has_binding_effect() {
+            causes |= ProjectionCause::S2.bit();
+        }
+        causes
     }
 
     pub(super) fn body_refusal(
@@ -97,12 +101,11 @@ impl<'a> Values<'a> {
         binding_end: usize,
         read: usize,
     ) -> Option<Refusal> {
-        if (path.has_fields() && self.signature().fields.values().any(|&at| at > binding_end))
-            || self
-                .signature()
-                .direct_eval
-                .iter()
-                .any(|span| span[1] > binding_end)
+        if self
+            .signature()
+            .direct_eval
+            .iter()
+            .any(|span| span[1] > binding_end)
             || self.census().sites.iter().any(|site| {
                 self.unresolved_signature_write(site)
                     && site.moment > binding_end

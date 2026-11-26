@@ -5,6 +5,7 @@ use crate::resolution::ResolvedCallee;
 use rayon::prelude::*;
 
 pub(super) struct SiteFacts<'a> {
+    pub(super) site: &'a CallSite,
     pub(super) lvalues: Vec<PathSpan>,
     pub(super) resolved: Vec<ResolvedCallee<'a>>,
     pub(super) rhs_uses: Vec<NodeIndex>,
@@ -74,6 +75,7 @@ pub(super) fn collect<'a>(
                                     Vec::new()
                                 };
                                 Some(SiteFacts {
+                                    site,
                                     lvalues: assignment.lvalues,
                                     resolved: outcome.resolved,
                                     rhs_uses,
