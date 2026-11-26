@@ -1,0 +1,121 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wire control",
+    "version": "1"
+  },
+  "components": {
+    "responses": {
+      "WithBody": {
+        "description": "ok",
+        "headers": {},
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "x-control": true
+      },
+      "Bodyless": {
+        "description": "empty",
+        "x-control": true
+      },
+      "MissingDescription": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "WrongDescription": {
+        "description": true
+      },
+      "WrongDialect": {
+        "description": "ok",
+        "schema": {}
+      }
+    },
+    "schemas": {
+      "WithPayload": {
+        "type": "string",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Bare": {
+        "type": "string"
+      },
+      "WithDescription": {
+        "type": "string",
+        "description": "not a response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/p": {
+      "post": {
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WithBody"
+          },
+          "201": {
+            "$ref": "#/components/responses/Bodyless"
+          },
+          "202": {
+            "$ref": "#/components/schemas/WithPayload"
+          },
+          "203": {
+            "$ref": "#/components/schemas/Bare"
+          },
+          "206": {
+            "$ref": "#/components/responses/MissingDescription"
+          },
+          "207": {
+            "$ref": "#/components/responses/WrongDescription"
+          },
+          "208": {
+            "$ref": "#/components/responses/WrongDialect"
+          },
+          "226": {
+            "$ref": "#/components/schemas/WithDescription"
+          }
+        }
+      }
+    }
+  }
+}

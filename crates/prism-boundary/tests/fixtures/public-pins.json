@@ -1,0 +1,14 @@
+{
+  "swagger": {
+    "repository": "apache-answer",
+    "commit": "6744295f",
+    "blob_path": "docs/swagger.json",
+    "env": "PRISM_BOUNDARY_PUBLIC_SWAGGER",
+    "sha256": "e9c2980e65712c2eb154d2bcd76e7644801aaa7d126f955e2c677ab2bf3ba30c"
+  },
+  "ids": {
+    "env": "PRISM_BOUNDARY_PUBLIC_IDS_TSV",
+    "default_path": "/Users/wesleyjinks/prism-evidence/boundary-impact/feasibility/ids.tsv",
+    "sha256": "c57b1af426ffc71da32acd5c48c6b1dd70a3be0bfd08bc74acffbf47bb13ce51"
+  }
+}
