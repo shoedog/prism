@@ -143,7 +143,14 @@ The review layer is the workspace crate `crates/prism-review` (package `prism-re
   the preloaded entries `run_review_authorized` and `run_algorithm_authorized` through the captured inputs. `context_run.rs` owns
   expansion and its completed maps. `context_view.rs` selects them for taint after
   successful admission and union. Other algorithms use the original maps.
-- `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in `inventory/` producer uses Python ASTs to identify root-proven HTTP calls and can run on its own or merge with projected findings. Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses `docs/contracts/targets-1.1.schema.json` (1.1).
+- `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in
+  `inventory/` producer uses same-file Python ASTs to identify listed HTTP calls. Imported roots,
+  direct construction, sole named construction and matching context-bound construction can prove
+  `exact` under the static-binding contract. An eligible annotated assignment or same-file helper
+  with a construction witness can prove `nameonly`. Owning-field ties and other failed tied identities
+  contribute per-file counts by cause. Inventory runs on its own or merges with projected findings.
+  Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses
+  `docs/contracts/targets-1.1.schema.json` (1.1).
   `project_in_context` uses the selected maps for the enclosing site, dependency hint and
   parse grade while keeping the original diff metadata.
 
@@ -564,7 +571,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v190) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v193) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -614,8 +621,8 @@ accepted cost is that a seed on the whole parameter reaches every `p.<field>` re
 bound to the formal suppresses its path for the whole callable (flow-insensitive): plain, compound and
 logical assignment, `++`/`--`, `delete`, array/object/rest pattern targets, `for (p.x of/in ...)`, and
 the same inside nested callables; a write to `p`, to a prefix of the path, or below it (`p.x.y = 1`
-also suppresses `p.x`) all count. `p[k]` counts as a bare read; `this.x`, destructured formals and
-`arguments` are not handled. A bare read in a default of the own parameter list (`u = o`, `u = g(o)`,
+also suppresses `p.x`) all count. `p[k]` counts as a bare read. This member-only rule excludes
+`this.x` and `arguments`. A bare read in a default of the own parameter list (`u = o`, `u = g(o)`,
 `{ k = o } = {}`, a computed pattern key; a nested callable's read counts, as in the body) makes the
 formal mixed, like the same read in the body (#761; `o[k] = v` written in the list is not a read, it
 stays `own-params`' domain). A default that is a plain identifier, or a destructuring pattern with an
@@ -654,6 +661,46 @@ standard array iterator, as slice A offsets do. A replacement of the standard it
 statements after the call needs a second invocation and is not checked (disclosed residual). See the
 known-gaps document for the iteration proof's coverage.
 
+JS/TS/TSX object-pattern formals give each used, eligible local a Def at the callable's start
+line with the binding token's bytes. The pattern walk covers renames, nested objects and rest.
+Array subtrees and non-inert defaults exclude their bindings. Whole-pattern identifier defaults
+use the existing alias producer. The owner-relative runtime walk keeps body captures and fences
+parameter decorators and descendant formal lists. Signature reads require complete-list syntax,
+binding and initialization proofs. The signature can read a completed earlier binding as an
+entire bare key or default. Its final identifier formal can store a synchronous zero-parameter
+arrow that reads an eligible local from a completed earlier formal. Both forms use the operand
+bytes with `cfg_incomplete`. The final reader can supply a Use on a named signature line without
+a preferred Use.
+
+Body edges use a separate value proof. M1 selects base reads when the local occurs as a whole
+value anywhere in the owner, including refused signature reads, or when the owner reads its
+`arguments` object through its lexical environment. W1 requires every member store to have the
+same root binding and a comparable path. A `with` statement withholds projections. S checks
+initializer evaluation, declarative identifier lookup, computed keys, property gets and spreads.
+S2 withholds projections for array bindings, object rest and rest formals. When the binding still
+reaches the read, a withheld projection uses the proved receiver bytes and the base-read label.
+A shared representative must belong to the proved environment and value version. R2.6 relocates
+the witnessed mixed-line signature-closure endpoint for raw writes and alias twins.
+Parameter names and argument slots keep their separate accessors. When S1 alone crosses the
+2,048-Def RD or 1,000,000-pair fallback limit, the file producer replays the owner's legacy facts.
+The bounded legacy changes are the R2.6 endpoint relocation and the uncapped p35 sibling
+relabel. Signature writes and alias twins keep their legacy labels, including D3's
+`alias_unstable`. Changes outside DFG statistics are limited to witnessed Step 5c return
+inputs, return-flow suppression transitions and ordinary argument-slot joins in DESIGN §5.9. The S1 ledger records attempts, overlapping projection causes and cap decisions before
+deduplication. The compact graph's occurrence-label lookup applies only to S1 signature pairs (Go, Python and every legacy pair keep the line-group label); a separate S1 pass relabels a body read that shares a mixed signature/body line at the identifier twin's label. `PRISM_S1_TRACE=1` emits projection demotions and downstream joins on stderr. A cold run can set
+`PRISM_S1_SUPPRESSION_BASE` to a baseline trace file to report suppression counter transitions.
+
+An ordinary JS/TS/TSX bare-arrow argument (lane 9, slice C) binds at its exact runtime offset
+to the entry Def for the identifier's byte span. The locator requires a unique named implementation
+or an independently resolved positional anonymous owner. Exact input needs a complete singleton
+pool, excludes foreign `free_single` targets, and requires a matching value-export witness for
+`import_qualified`. Same-file ordinary NameOnly targets retain the call's label. The
+`inferred_from_enclosing_call` refusal applies because an inferred name from an enclosing call
+does not prove the call returned the callback. A refused incoming transfer leaves its Def
+available. The outgoing source guard also checks each bare literal-leaf edge's read.
+Admitted Exact calls can feed the literal-leaf producer below. Unnamed default exports, escaped
+call spellings and parenthesized arrow IIFEs still have unresolved resolver prerequisites.
+
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals
 flatten to `k.j`) gets `Use(v) -> Use(p.<read>)` edges to the formal's reads that the definition
@@ -665,7 +712,7 @@ fed, and a leaf at or below a written path feeds no read). The label is the call
 the definition edge's. A spread or computed key refuses every key written before it; for duplicate keys the last
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
 non-data values (calls, arithmetic, arrays), a spread argument before the literal, NameOnly or
-multi-target calls, and destructured, rest or bare-arrow formals bind nothing. A mixed formal's reads
+multi-target calls, and destructured or rest formals bind nothing. A mixed formal's reads
 in a declarator initialiser, a condition, a `for-in` head or an `in` test have zero-width base Uses and
 are not fed (known gap).
 

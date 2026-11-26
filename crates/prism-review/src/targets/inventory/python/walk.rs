@@ -48,7 +48,7 @@ pub(in crate::targets::inventory) struct Walk<'tree> {
     pub scopes: Vec<Scope<'tree>>,
     pub nodes: Vec<(Node<'tree>, Context)>,
     pub(super) calls: Vec<Call<'tree>>,
-    postponed: bool,
+    pub(in crate::targets::inventory) postponed: bool,
 }
 
 impl<'tree> Walk<'tree> {

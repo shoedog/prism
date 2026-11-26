@@ -1855,6 +1855,63 @@ the static model in §6.2, with the following recall limit.
 |---|---|---|---|
 | Short-circuit walrus | `import requests` precedes `if True or (requests := None):` with `x = requests.get('u')` in its arm. Python skips the walrus. | `class_body_frame` | `shadowed_root` because the slot model applies the skipped store. |
 
+### 10.2 Accepted limits for S2b receiver routes
+
+The receiver routes use the same-file binding, lookup and ordering rules in §§6.2–6.4 and 10.1.
+Their write-target accept-list is:
+
+- Plain name bindings and comma-free parenthesised targets. Plain and annotated assignments with a
+  value, including direct targets of a chain, can supply construction evidence. Tuple and list
+  destructuring, `for` and comprehension targets, `with` and `async with` targets, `del`, and
+  augmented assignment contribute binding or write vetoes. An annotation without a value adds no
+  write. A simple constructor context target gets a constructed identity for write detection only
+  when R2's entry-slot check proves that it names the constructed object. Otherwise the key-specific
+  unknown-object veto applies. The exit slot still governs the R2 read where exit can reach it.
+- Attribute targets on tracked objects and scalar string-key subscripts on `obj.__dict__`,
+  unshadowed `vars(obj)` and unshadowed zero-argument `globals()`. A comma-free grouped string key
+  is scalar. Tuple keys and computed keys are outside the write index. The index also admits the
+  literal `setattr` and `delattr` calls and the `__builtins__` forms in §10.1.
+- Tuple and list targets are traversed to the supported leaves, including when the tree wraps
+  a leaf in a star node. The `vars` reader also handles a star attached to the callee under
+  `list_pattern`, `pattern_list` or a comma-bearing `tuple_pattern`. Coverage of grouped and starred
+  leaves depends on the parser shape, as described below.
+
+For a returned local, R4/R5 recognize evaluated identifier uses and permit same-scope member bases
+and supported literal member writes that leave the required slots intact. In a `match`, the subject
+and guards are walked as expressions, captures enter the binding census, and bare class-pattern
+heads count as uses. Same-scope dotted patterns are treated like member reads, and keyword pattern
+labels contribute no use. The walk visits ordinary f-string interpolation expressions and nested
+format expressions. Comprehension bodies, filters and subsequent iterables use the comprehension
+scope, and the first iterable uses the enclosing scope. A use in the comprehension scope of the
+helper's returned local defeats the proof. A same-spelled name belonging to a different binding does
+not affect it.
+
+The following forms and diagnostic distinctions are withheld from the S2b contract after round 2.
+The known-limit CLI rows pin the observed outcomes beside controls with a valid proof.
+
+| Withheld class | Reason | Current consequence |
+|---|---|---|
+| Grouped or starred destructuring over dictionary-namespace subscripts (Sol 2, Opus) | Some parser shapes wrap the leaf or attach the star to the reflection callee. The write index handles only the shapes above and can also miss a grouped starred attribute leaf. | An omitted write can leave an emitted `exact` or `nameonly` row. Grouped forms can emit an unsupported `other` row with `parse_error_in_function`. Starred reflection can emit an `external_call` when the write would defeat receiver uniqueness, shadow a root or replace the method. In a helper, a missed member-base shape can instead count `receiver_value_unproven` for a selected write or withhold a row for a sibling write. |
+| F-string `{v:=…}` format-spec lookalike (Sol 3) | Python reads `v` before the `=` format specifier. The parser can recover the interpolation as a walrus and the walk skips that node, losing the read. A parenthesised walrus remains a real assignment expression. | R4/R5 can emit a `nameonly` row where the whole-local read would require `receiver_value_unproven`. |
+| Dotted pattern captures inside nested scopes (Sol 4) | The pattern walk checks bare class heads but does not resolve the dotted bases of value patterns, class heads and mapping keys to their lexical owners. | R4/R5 can emit a `nameonly` row when a nested function or class captures the returned local through a dotted pattern. |
+| R4 helper-eligibility reason precedence (Sol 5) | R4 can take a conflicting annotation from an ineligible helper or skip conflicting constructor and known-`None` evidence from an eligible unannotated helper. A parameter default still cannot prove a reaching `None`. | The row is refused either way. Only the counted refusal reason differs. |
+| Dictionary-entry writes to `__class__` or `__dict__` keys (Sol 6) | The slot index conflates dictionary-entry stores with attribute replacement, although the entry alone leaves the object's class and lookup namespace in place. | `member_rebound` over-refuses and loses an otherwise provable row. The cost is recall only. |
+
+The recorded census across httpie, Saleor, Superset and Black prices the boundary as follows.
+
+| Syntax counted | Occurrences | Exposure in the census |
+|---|---:|---|
+| Starred assignment targets | 47 | None over a dictionary-namespace subscript or a receiver. |
+| Dictionary-namespace subscript writes | 11 | None starred or grouped. |
+| F-string `{name:=` | 1 | One occurrence of the lookalike spelling. |
+| `match` statements | 109 | None capturing a returned local. |
+| `__class__` or `__dict__` string keys | 12 | None a write key on a receiver. |
+
+The four-corpus targets, warnings and G-accept results were identical before and after fold 1 and after the
+context-entry fix (only `producer.build_identity` differs). S2b closes the context-entry veto and leaves the five priced classes as accepted limits.
+Runtime mutation stays out of model under the CLAUDE.md Exact contract and §10.1. A future slice
+may close the five classes.
+
 ## Change log
 
 - 2026-11-21. Folded architecture review round 1, including the plain plan/run live gate.
@@ -1874,6 +1931,8 @@ the static model in §6.2, with the following recall limit.
 - 2026-11-25. The owner directed the r4 fold with K. §§6.4 and 6.7 admit eligible standard-library declarations at `nameonly` and retain the full per-corpus parity floor. §§6.8–6.11 reconcile the K ledger, pins, oracle and census. Both reviewers review this revision once.
 - 2026-11-25. The S2a hybrid fold records the accepted write limits in §10.1, carries class-test
   bindings and nested type-only guards in §6.2, and bounds anchor ties in §6.6.
+- 2026-11-25. The S2b boundary amendment restores the context-entry write veto and records the
+  accepted receiver-route limits, probe outcomes and corpus pricing in §10.2.
 
 ## Changes in r5
 

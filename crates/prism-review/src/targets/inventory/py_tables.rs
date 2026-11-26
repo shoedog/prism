@@ -7,16 +7,11 @@ const VERBS: &[&str] = &[
 pub(super) fn family(path: &str) -> Option<Family> {
     let (owner, member) = path.rsplit_once('.')?;
     let http = match owner {
-        "requests" | "aiohttp.ClientSession" => VERBS.contains(&member),
+        "requests" => VERBS.contains(&member),
         "httpx" => VERBS.contains(&member) || member == "stream",
         "urllib.request" => matches!(member, "urlopen" | "urlretrieve"),
         "urllib3" | "aiohttp" => member == "request",
-        "requests.Session" => VERBS.contains(&member) || member == "send",
-        "httpx.Client" | "httpx.AsyncClient" => {
-            VERBS.contains(&member) || matches!(member, "send" | "stream")
-        }
-        "urllib3.PoolManager" => matches!(member, "request" | "urlopen"),
-        _ => false,
+        _ => constructor_method(owner, member),
     };
     if http {
         return Some(Family::Http);
@@ -29,6 +24,29 @@ pub(super) fn family(path: &str) -> Option<Family> {
     }
 }
 
+pub(super) fn constructor_method(class: &str, method: &str) -> bool {
+    match class {
+        "requests.Session" => VERBS.contains(&method) || method == "send",
+        "httpx.Client" | "httpx.AsyncClient" => {
+            VERBS.contains(&method) || matches!(method, "send" | "stream")
+        }
+        "aiohttp.ClientSession" => VERBS.contains(&method),
+        "urllib3.PoolManager" => matches!(method, "request" | "urlopen"),
+        _ => false,
+    }
+}
+
+pub(super) fn constructor(path: &str) -> bool {
+    matches!(
+        path,
+        "requests.Session"
+            | "httpx.Client"
+            | "httpx.AsyncClient"
+            | "aiohttp.ClientSession"
+            | "urllib3.PoolManager"
+    )
+}
+
 pub(super) fn library(root: &str) -> bool {
     matches!(
         root,
@@ -39,10 +57,39 @@ pub(super) fn library(root: &str) -> bool {
 /// Class namespaces searched for a class-qualified method. The table
 /// records the defining owner and the classes traversed to reach it.
 pub(super) fn method_owners(owner: &str, method: &str) -> &'static [&'static str] {
+    // The Python-level prefixes for the HTTP libraries in eval/uv.lock,
+    // through object, which defines their default allocation and lookup.
+    if matches!(method, "__new__" | "__getattribute__") {
+        return match owner {
+            "requests.Session" => &[
+                "requests.Session",
+                "requests.sessions.SessionRedirectMixin",
+                "builtins.object",
+            ],
+            "httpx.Client" => &[
+                "httpx.Client",
+                "httpx._client.BaseClient",
+                "builtins.object",
+            ],
+            "httpx.AsyncClient" => &[
+                "httpx.AsyncClient",
+                "httpx._client.BaseClient",
+                "builtins.object",
+            ],
+            "aiohttp.ClientSession" => &["aiohttp.ClientSession", "builtins.object"],
+            "urllib3.PoolManager" => &[
+                "urllib3.PoolManager",
+                "urllib3._request_methods.RequestMethods",
+                "builtins.object",
+            ],
+            _ => &[],
+        };
+    }
     match (owner, method) {
         (
             "requests.Session",
-            "get" | "post" | "put" | "patch" | "delete" | "head" | "options" | "request" | "send",
+            "get" | "post" | "put" | "patch" | "delete" | "head" | "options" | "request" | "send"
+            | "__init__" | "__enter__" | "__exit__",
         ) => &["requests.Session"],
         ("httpx.Client", _) => &["httpx.Client"],
         ("httpx.AsyncClient", _) => &["httpx.AsyncClient"],
@@ -51,7 +98,9 @@ pub(super) fn method_owners(owner: &str, method: &str) -> &'static [&'static str
             "urllib3.PoolManager",
             "urllib3._request_methods.RequestMethods",
         ],
-        ("urllib3.PoolManager", "urlopen") => &["urllib3.PoolManager"],
+        ("urllib3.PoolManager", "urlopen" | "__init__" | "__enter__" | "__exit__") => {
+            &["urllib3.PoolManager"]
+        }
         _ => &[],
     }
 }

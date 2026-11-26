@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use tempfile::tempdir;
 
-fn file(input: &str, repo: &Path, families: &[Family]) -> InventoryOutput {
+pub(super) fn file(input: &str, repo: &Path, families: &[Family]) -> InventoryOutput {
     let name = "app/main.py";
     let parsed = ParsedFile::parse(name, input, Language::Python).unwrap();
     let mut out = InventoryOutput::default();

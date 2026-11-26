@@ -97,7 +97,6 @@ impl Arena {
     pub(in crate::data_flow) fn get(&self, id: OccId) -> &VarLocation {
         &self.rows[id.0 as usize]
     }
-    #[cfg(test)]
     pub(in crate::data_flow) fn exact(&self, v: &VarLocation) -> Option<OccId> {
         self.rows
             .binary_search_by(|row| exact_cmp(row, v))
