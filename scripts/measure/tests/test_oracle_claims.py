@@ -126,6 +126,26 @@ class Claims(unittest.TestCase):
         base, head, honest = self.bound_streams("control", [row], [row, row])
         self.assertEqual([c["arm"] for c in self.select_added(honest, head)], ["head"])
 
+    def test_a_moved_label_cannot_be_restreamed_as_a_removed_and_an_added_edge(self):
+        row = self.source_row()
+        soft = dict(row, confidence="nameonly", doubt="alias_unstable")
+        _, head, diff = self.bound_streams("moved", [soft], [row])
+        moved, = read_jsonl(diff / "changes.jsonl")
+        self.assertEqual(moved["kind"], "label_moved")
+        # The genuine movement is not an addition: the selection is empty, and it reconciles.
+        self.assertEqual(self.select_added(diff, head), [])
+        # Same net balance per attribute, a different grouping: S2 reports one label move.
+        removed = dict(moved, id=1, kind="removed", head_bag=[])
+        added = dict(moved, id=2, kind="added", base_bag=[])
+        self.restream(diff, [removed, added])
+        with self.assertRaisesRegex(ValueError, "selector: change stream does not reconcile"):
+            self.select_added(diff, head)
+        # Genuine additions and moves keep their selections in one stream.
+        _, head2, honest = self.bound_streams("mixed", [soft], [row, row])
+        kinds = sorted(c["kind"] for c in read_jsonl(honest / "changes.jsonl"))
+        self.assertEqual(kinds, ["added", "label_moved"])
+        self.assertEqual([c["arm"] for c in self.select_added(honest, head2)], ["head"])
+
     def test_a_stream_that_omits_a_real_residual_does_not_reconcile(self):
         row = self.source_row()
         near, far = (dict(row, to=dict(row["to"], line=row["to"]["line"] + step)) for step in (1, 2))

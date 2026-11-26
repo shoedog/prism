@@ -62,6 +62,26 @@ class Custody(unittest.TestCase):
         h.assert_exit(refused, 1)
         self.assertIn("selfcheck-schema: reserved input-admission label", refused.stderr)
 
+    def test_relation_not_graded_lane_needs_the_coverage_of_any_lane_relation(self):
+        h = self.h
+        # The coverage exception is for the built-in fallback relation. A lane that declares
+        # the same name is an ordinary lane relation and needs every verdict, per property.
+        lane = h.question(dict(verdict="CORRECT", property="custom", why="proof"),
+                          relation="relation-not-graded", name="fallback")
+        h.assert_exit(self.selfcheck(lane), 0)
+        for case in ("oracle-013", "oracle-003", "oracle-004"):
+            shutil.rmtree(lane.parent / "selfcheck" / case)
+        refused = self.selfcheck(lane)
+        h.assert_exit(refused, 1)
+        self.assertIn("selfcheck-coverage: need all verdicts for relation-not-graded/custom", refused.stderr)
+        # The same one-golden lane under another name refuses identically (the control rule).
+        other = h.question(dict(verdict="CORRECT", property="custom", why="proof"), name="named")
+        for case in ("oracle-013", "oracle-003", "oracle-004"):
+            shutil.rmtree(other.parent / "selfcheck" / case)
+        refused = self.selfcheck(other)
+        h.assert_exit(refused, 1)
+        self.assertIn("selfcheck-coverage: need all verdicts for custom/custom", refused.stderr)
+
     def relabel_inadmissible(self, question):
         golden = question.parent / "selfcheck/oracle-004/expected.jsonl"
         row, = fixtures.read_jsonl(golden)
@@ -108,8 +128,10 @@ class Custody(unittest.TestCase):
     def test_certificate_cases_pin_each_undecided_instance_beside_a_control(self):
         cases = sorted((fixtures.KIT / "selfcheck").glob("certificate-*"))
         self.assertEqual([case.name for case in cases],
-                         ["certificate-callee-origin", "certificate-constructor",
-                          "certificate-member-writes", "certificate-receiver-wrappers"])
+                         ["certificate-callee-origin", "certificate-class-decorator",
+                          "certificate-constructor", "certificate-decorators",
+                          "certificate-erroneous", "certificate-member-writes",
+                          "certificate-receiver-wrappers"])
         for case in cases:
             rows = fixtures.read_jsonl(case / "expected.jsonl")
             with self.subTest(case=case.name):

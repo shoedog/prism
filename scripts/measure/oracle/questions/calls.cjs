@@ -52,7 +52,7 @@ function grade(row, context, index, forms) {
   const { ts } = context.public;
   const call = exactCall(row, context);
   if (!call) return result('UNDECIDED', 'whole-call-unproved');
-  const resolution = bodyFor(call, context);
+  const resolution = bodyFor(call, context, { decorated: 'identity' });
   if (!resolution.body) return result('UNDECIDED', resolution.why);
   const expected = identity(ts, resolution.body, context);
   if (!expected || !forms.includes(expected.form)) return result('UNDECIDED', 'target-id-unproved');

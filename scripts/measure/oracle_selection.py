@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from itertools import groupby
 from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
@@ -197,11 +198,16 @@ def validate_change(change, key_mode=None):
     return key, bags
 
 
+def shaped(kind, base, head):
+    """One change row as a comparable value: its kind and both attribute bags."""
+    return kind, tuple(sorted(base.elements())), tuple(sorted(head.elements()))
+
+
 def requests(args, cert, arm):
     require(isinstance(cert["by_class"], dict) and all(name(k) for k in cert["by_class"])
             and set(args.classes) <= cert["by_class"].keys(), "selector: unknown class")
     wanted = defaultdict(list)
-    residual = defaultdict(lambda: dict.fromkeys(ARMS, 0))
+    streamed = defaultdict(Counter)
     path = args.changes
     raw = regular(path)
     require(digest(raw) == cert["changes_sha256"], "certificate: changes digest differs")
@@ -212,14 +218,12 @@ def requests(args, cert, arm):
                 (change["class"] is None or change["class"] in cert["by_class"]),
                 "changes-wire: invalid change id or unregistered class")
         kind = change["kind"]
-        for side in ARMS:
-            for attribute, count in bags[side].items():
-                residual[edges.canonical(key), attribute][side] += count
+        streamed[edges.canonical(key)][shaped(kind, *(bags[side] for side in ARMS))] += 1
         if ((not args.kind or kind in args.kind) and
                 (not args.classes or change["class"] in args.classes)):
             for attribute, count in bags[arm].items():
                 wanted[(edges.canonical(key), attribute)].append((change, count))
-    return wanted, residual
+    return wanted, streamed
 
 
 def edge_population(args, entries, gate):
@@ -239,7 +243,7 @@ def edge_population(args, entries, gate):
     selection["arm"] = arm
     hashes.update(changes_sha256=cert["changes_sha256"], certificate_sha256=cert_sha,
                   certificate_result=cert["result"])
-    wanted, residual = requests(args, cert, arm)
+    wanted, streamed = requests(args, cert, arm)
     candidates = defaultdict(list)
 
     def decoded(arm_run):
@@ -258,22 +262,21 @@ def edge_population(args, entries, gate):
             yield identity
 
     other = ARMS[1 - ARMS.index(arm)]
-    sign = 1 if arm == ARMS[0] else -1
-    # Both arms' complete edge multisets, base minus head per identity, kept on disk.
-    expected = {}
+    # Both arms' complete edge multisets per identity and attribute, kept on disk.
     with TemporaryDirectory(prefix=".tally-") as scratch:
         try:
             database = sqlite3.connect(str(Path(scratch) / "tally.db"))
             database.executescript("PRAGMA journal_mode = OFF; PRAGMA synchronous = OFF; "
-                                   "CREATE TABLE tally (key BLOB, attr BLOB, n INTEGER, "
+                                   "CREATE TABLE tally (key BLOB, attr BLOB, base INTEGER, head INTEGER, "
                                    "PRIMARY KEY (key, attr)) WITHOUT ROWID;")
-            for identities, step in ((selected_identities(), sign),
-                                     ((i for _, _, i in decoded(pair[other])), -sign)):
+            for identities, which in ((selected_identities(), arm), ((i for _, _, i in decoded(pair[other])), other)):
+                column = "base" if which == ARMS[0] else "head"
                 database.executemany(
-                    "INSERT INTO tally VALUES (?, ?, ?) ON CONFLICT (key, attr) DO UPDATE SET n = n + excluded.n",
-                    ((key, attribute, step) for key, attribute in identities))
-            for key, attribute, balance in database.execute("SELECT key, attr, n FROM tally WHERE n != 0"):
-                expected[key, attribute] = dict(base=max(balance, 0), head=max(-balance, 0))
+                    "INSERT INTO tally VALUES (?, ?, ?, ?) ON CONFLICT (key, attr) DO UPDATE SET "
+                    f"{column} = {column} + 1",
+                    ((key, attribute, int(column == "base"), int(column == "head"))
+                     for key, attribute in identities))
+            reconciled = reconcile(database, streamed)
             database.close()
         except sqlite3.Error as error:
             raise OSError(f"tally storage: {type(error).__name__}: {error}") from error
@@ -290,12 +293,29 @@ def edge_population(args, entries, gate):
             occurrences.extend(claim(row, ordinal, arm, change=change)
                                for ordinal, row in group[first:first + copies])
             first += copies
-    # The stream's residual bags must be S2's residual of the two bound runs: per identity,
-    # what one arm holds beyond the other. They are recomputed over every edge of both arms,
-    # so an unlisted real residual and a listed pair over identical arms both fail.
-    require({identity: totals for identity, totals in residual.items() if any(totals.values())} == expected,
-            "selector: change stream does not reconcile with the bound runs")
+    require(reconciled, "selector: change stream does not reconcile with the bound runs")
     return pair, selection, hashes, occurrences
+
+
+def reconcile(database, streamed):
+    """The stream must be S2's residual of the two bound runs, key by key: the change kinds
+    and both bags of each identity equal `edges.residual_rows` of what the arms hold. They are
+    recomputed over every edge of both arms, so an unlisted real residual, a listed pair over
+    identical arms and a regrouping (a label move restreamed as a removal plus an addition)
+    all fail. Returns whether it holds."""
+    source = database.execute("SELECT key, attr, base, head FROM tally ORDER BY key, attr")
+    for key, rows in groupby(source, key=lambda row: row[0]):
+        base, head = Counter(), Counter()
+        for _, attribute, in_base, in_head in rows:
+            if in_base:
+                base[attribute] = in_base
+            if in_head:
+                head[attribute] = in_head
+        _, changes = edges.residual_rows(base, head)
+        expected = Counter(shaped(kind, left, right) for kind, left, right in changes)
+        if streamed.pop(key, Counter()) != expected:
+            return False
+    return not streamed
 
 
 def site_key(row):

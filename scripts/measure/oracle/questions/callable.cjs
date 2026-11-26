@@ -121,6 +121,51 @@ function valueDeclarations(ts, symbol) {
 
 const maxDepth = 8;
 
+// Closed world for erroneous programs. The checker reports these when a class chain or a
+// function is declared in a way no single body certainly runs: duplicate implementations,
+// an instance field shadowing a method across a chain, `super` reaching a field, and an
+// assignment to a function. A callee file or owner class chain that carries one decides
+// nothing. The check reads only the diagnostics the program itself reports (a suppressed
+// diagnostic is not seen; the structural rules of memberOrigin and the write index carry
+// their own proofs for those).
+const gateCodes = new Set([2393, 2425, 2426, 2855, 2630]);
+const diagnosticIndex = new WeakMap();
+
+function carriesDiagnostic(context, sf) {
+  const { program } = context.public;
+  let files = diagnosticIndex.get(program);
+  if (!files) diagnosticIndex.set(program, files = new Map());
+  if (!files.has(sf.fileName)) {
+    files.set(sf.fileName, program.getSemanticDiagnostics(sf).some(d => gateCodes.has(d.code)));
+  }
+  return files.get(sf.fileName);
+}
+
+// The source files of a class and of every class its `extends` chain names.
+function chainFiles(context, cls, found = new Set(), depth = 0) {
+  const { ts, checker } = context.public;
+  if (!cls || depth > maxDepth || found.has(cls.getSourceFile())) return found;
+  found.add(cls.getSourceFile());
+  const extension = cls.heritageClauses?.find(clause => clause.token === ts.SyntaxKind.ExtendsKeyword);
+  const expression = extension && strip(ts, extension.types[0].expression);
+  const symbol = expression && ts.isIdentifier(expression) ? bindingSymbol(ts, checker, expression) : null;
+  for (const declaration of symbol?.declarations ?? []) {
+    if (ts.isClassLike(declaration)) chainFiles(context, declaration, found, depth + 1);
+    else if (constDeclaration(ts, declaration) && declaration.initializer
+        && ts.isClassLike(strip(ts, declaration.initializer))) {
+      chainFiles(context, strip(ts, declaration.initializer), found, depth + 1);
+    }
+  }
+  return found;
+}
+
+function erroneous(context, body) {
+  const { ts } = context.public;
+  const files = chainFiles(context, ts.findAncestor(body, ts.isClassLike));
+  files.add(body.getSourceFile());
+  return [...files].some(sf => carriesDiagnostic(context, sf));
+}
+
 // The class chain `[C, base, ..]` an expression certainly denotes: an identifier bound to
 // one class declaration or to an unannotated `const` holding a class (alias chains of
 // such consts allowed), whose symbol is never written, with no class decorator (a
@@ -168,6 +213,16 @@ function staticMember(ts, member) {
 // proved owner (a method with its overloads, or one field). A computed name, a parameter
 // property or an accessor of that name makes the member unproved.
 function memberOrigin(ts, chain, name, isStatic, owner) {
+  const method = ts.isMethodDeclaration(owner);
+  const ownsInstance = member => !staticMember(ts, member) && member.name && member.name.text === name;
+  // An instance field or parameter property is an own property of the instance: it wins
+  // over a method of the same name anywhere in the chain.
+  if (method && !isStatic && chain.some(cls => cls.members.some(member =>
+    (ts.isPropertyDeclaration(member) && ownsInstance(member))
+      || (ts.isConstructorDeclaration(member) && member.parameters.some(parameter =>
+        ts.getModifiers(parameter)?.length && ts.isIdentifier(parameter.name) && parameter.name.text === name))))) {
+    return false;
+  }
   for (const cls of chain) {
     const same = [];
     for (const member of cls.members) {
@@ -185,9 +240,11 @@ function memberOrigin(ts, chain, name, isStatic, owner) {
       if (member.name.text === name) same.push(member);
     }
     if (!same.length) continue;
+    // One method: its overloads and exactly one implementation.
     return ts.isPropertyDeclaration(owner)
       ? same.length === 1 && same[0] === owner
-      : same.every(ts.isMethodDeclaration) && same.includes(owner);
+      : same.every(ts.isMethodDeclaration) && same.includes(owner)
+        && same.filter(member => member.body).length === 1;
   }
   return false;
 }
@@ -261,6 +318,8 @@ function receiverProved(context, expression, owner) {
     const cls = ts.findAncestor(receiver, ts.isClassLike);
     const extension = cls?.heritageClauses?.find(clause => clause.token === ts.SyntaxKind.ExtendsKeyword);
     const chain = extension && classChain(context, extension.types[0].expression);
+    // `super.f` never reaches an instance field: it is an own property of the instance.
+    if (!isStatic && ts.isPropertyDeclaration(owner)) return null;
     return chain && memberOrigin(ts, chain, name, isStatic, owner) ? { fresh: false } : null;
   }
   const symbol = ts.isIdentifier(receiver) ? bindingSymbol(ts, checker, receiver) : null;
@@ -268,7 +327,9 @@ function receiverProved(context, expression, owner) {
   // Static access through the class value, or a namespace function.
   if (declarations.length === 1 && (ts.isModuleDeclaration(declarations[0])
       || ts.isNamespaceImport(declarations[0]) || ts.isSourceFile(declarations[0]))) {
-    return ts.isFunctionDeclaration(owner) ? { fresh: false } : null;
+    const exported = bindingSymbol(ts, checker, expression);
+    return ts.isFunctionDeclaration(owner) && exported && !writes(context).symbols.has(exported)
+      ? { fresh: false } : null;
   }
   const chain = ts.isIdentifier(receiver) && classChain(context, receiver);
   if (chain) return isStatic && memberOrigin(ts, chain, name, true, owner) ? { fresh: false } : null;
@@ -282,7 +343,9 @@ function receiverProved(context, expression, owner) {
     && memberOrigin(ts, made, name, isStatic, owner) ? { fresh: true } : null;
 }
 
-function bodyFor(call, context) {
+// `options.decorated === 'identity'` keeps a decorated METHOD for call-target identity under
+// a matching qualification (which declaration the checker resolves, not which body runs).
+function bodyFor(call, context, options = {}) {
   const { ts, checker, program } = context.public;
   const expression = unwrap(ts, call.expression);
   const callee = strip(ts, call.expression);
@@ -327,6 +390,13 @@ function bodyFor(call, context) {
   const classField = ts.isPropertyDeclaration(holder) && holder.initializer === top;
   const objectField = ts.isPropertyAssignment(holder) && holder.initializer === top;
   const proofOwner = classField || objectField ? holder : body;
+  if (erroneous(context, body)) return { why: 'ambiguous-dispatch' };
+  // A member decorator may return a replacement implementation: no certificate form
+  // proves a decorated member's body is the one that runs.
+  if (ts.canHaveDecorators(proofOwner) && ts.getDecorators(proofOwner)?.length
+      && !(options.decorated === 'identity' && ts.isMethodDeclaration(proofOwner))) {
+    return { why: 'ambiguous-dispatch' };
+  }
   // Closed world: only a certificate form decides. (c) an immediately invoked body,
   // (a) an identifier bound to the body, (b) a member access with a proved receiver.
   let proof = null;

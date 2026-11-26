@@ -180,7 +180,8 @@ function selfcheck(job, ts, question) {
     const lane = scope.startsWith('lane\0');
     const shared = lane && (permitted.get(relation)?.size > 1 || admission.has(relation));
     const needed = shared ? verdictVocabulary.filter(verdict => verdict !== 'INADMISSIBLE') : verdictVocabulary;
-    if (relation !== fallback && property !== reserved && !needed.every(verdict => verdicts.has(verdict))) {
+    // Only the built-in fallback relation is exempt; a lane that declares the name is not.
+    if ((lane || relation !== fallback) && property !== reserved && !needed.every(verdict => verdicts.has(verdict))) {
       throw Error('selfcheck-coverage: need all verdicts for ' + relation + '/' + property);
     }
   }
@@ -330,7 +331,7 @@ function qualify(job, ts) {
     if (!contexts.has(source.root)) contexts.set(source.root, buildContext(ts, source, job.checker));
     const context = contexts.get(source.root);
     const call = !admitSite(raw, context, [label.form]) && calls.exactCall(raw, context);
-    const body = call && bodyFor(call, context).body;
+    const body = call && bodyFor(call, context, { decorated: 'identity' }).body;
     const proved = body && identity(ts, body, context);
     const point = label.declaration;
     const span = proved && context.span(body.name);
