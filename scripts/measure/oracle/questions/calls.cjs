@@ -13,7 +13,9 @@ function exactCall(row, context) {
   return span && span.start_byte === start && span.end_byte === end ? call : null;
 }
 
-function callerContradicts(row, context) {
+// The caller convention is established per form and build: only a qualified form's caller
+// triple can contradict a claim. Another file for the caller is a contradiction in any case.
+function callerContradicts(row, context, qualified) {
   const { ts } = context.public;
   const { caller, source_span: span } = row;
   if (caller.file !== span.file) return true;
@@ -21,7 +23,8 @@ function callerContradicts(row, context) {
   for (let node = call?.parent; node; node = node.parent) {
     if (ts.isFunctionLike(node)) {
       const owner = identity(ts, node, context);
-      return owner && (owner.name !== caller.name || owner.start_line !== caller.start_line);
+      return Boolean(owner && qualified.includes(owner.form)
+        && (owner.name !== caller.name || owner.start_line !== caller.start_line));
     }
   }
   return false;

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from . import edges, receipt
 from .diff_stats import Run, admit_pair
-from .inputs import json_object, jsonl_objects
+from .inputs import json_object, transport_lines
 from .oracle_inputs import RESULTS, digest, name, regular, safe_path, shape
 
 ARMS = ("base", "head")
@@ -50,7 +50,10 @@ def edge(row):
         endpoint = row[side]
         coordinate(endpoint)
         require(endpoint.get("access") in ("def", "use"), "edge-wire: invalid access")
-        edges.path_fields(endpoint.get("path"))
+        try:
+            edges.path_fields(endpoint.get("path"))
+        except ValueError as error:
+            raise ValueError(f"edge-wire: {error}") from error
     return row
 
 
@@ -95,10 +98,21 @@ def representable(value):
     return value
 
 
+def wire_object(line):
+    """Decode one wire record; JSON, duplicate-member and number failures are `wire-json`."""
+    try:
+        return representable(json_object(line))
+    except ValueError as error:
+        if str(error).startswith("wire-json:"):
+            raise
+        raise ValueError(f"wire-json: {error}") from error
+
+
 def read(run, role):
     require(any(command["id"] == role for command in run.receipt["commands"]),
             f"run binding: missing {role} artifact")
-    return map(representable, jsonl_objects(run.artifact(role, "output"), run.expected(role, "output")))
+    lines = transport_lines(run.artifact(role, "output"), run.expected(role, "output"))
+    return (wire_object(line) for line in lines if line.strip(b" \t\r\n"))
 
 
 def claim(row, ordinal, arm, *, index=None, change=None):
@@ -182,21 +196,25 @@ def requests(args, cert, arm):
     require(isinstance(cert["by_class"], dict) and all(name(k) for k in cert["by_class"])
             and set(args.classes) <= cert["by_class"].keys(), "selector: unknown class")
     wanted = defaultdict(list)
+    residual = defaultdict(lambda: dict.fromkeys(ARMS, 0))
     path = args.changes
     raw = regular(path)
     require(digest(raw) == cert["changes_sha256"], "certificate: changes digest differs")
-    changes = (representable(json_object(line)) for line in raw.split(b"\n") if line.strip(b" \t\r"))
+    changes = (wire_object(line) for line in raw.split(b"\n") if line.strip(b" \t\r"))
     for ident, change in enumerate(changes, 1):
         key, bags = validate_change(change, cert["key_mode"])
         require(change["id"] == ident and
                 (change["class"] is None or change["class"] in cert["by_class"]),
                 "changes-wire: invalid change id or unregistered class")
         kind = change["kind"]
+        for side in ARMS:
+            for attribute, count in bags[side].items():
+                residual[edges.canonical(key), attribute][side] += count
         if ((not args.kind or kind in args.kind) and
                 (not args.classes or change["class"] in args.classes)):
             for attribute, count in bags[arm].items():
                 wanted[(edges.canonical(key), attribute)].append((change, count))
-    return wanted
+    return wanted, residual
 
 
 def edge_population(args, entries, gate):
@@ -216,15 +234,25 @@ def edge_population(args, entries, gate):
     selection["arm"] = arm
     hashes.update(changes_sha256=cert["changes_sha256"], certificate_sha256=cert_sha,
                   certificate_result=cert["result"])
-    wanted = requests(args, cert, arm)
+    wanted, residual = requests(args, cert, arm)
     candidates = defaultdict(list)
-    for ordinal, row in enumerate(read(run, "edges")):
-        try:
-            key, attribute, _ = edges.decode_edge(edge(row), line_mode=cert["key_mode"] == "line")
-        except (ValueError, KeyError, TypeError) as error:
-            raise ValueError(f"edge-wire: {error}") from error
-        if (key, attribute) in wanted:
-            candidates[key, attribute].append((ordinal, row))
+    tally = {side: Counter() for side in ARMS}
+
+    def decoded(arm_run):
+        for ordinal, row in enumerate(read(arm_run, "edges")):
+            try:
+                key, attribute, _ = edges.decode_edge(edge(row), line_mode=cert["key_mode"] == "line")
+            except (ValueError, KeyError, TypeError) as error:
+                raise ValueError(f"edge-wire: {error}") from error
+            yield ordinal, row, (key, attribute)
+
+    for ordinal, row, identity in decoded(run):
+        tally[arm][identity] += identity in residual
+        if identity in wanted:
+            candidates[identity].append((ordinal, row))
+    other = ARMS[1 - ARMS.index(arm)]
+    for _, _, identity in decoded(pair[other]):
+        tally[other][identity] += identity in residual
     occurrences = []
     for key, requests_for_key in wanted.items():
         group = candidates[key]
@@ -238,6 +266,12 @@ def edge_population(args, entries, gate):
             occurrences.extend(claim(row, ordinal, arm, change=change)
                                for ordinal, row in group[first:first + copies])
             first += copies
+    # The stream's residual bags must be the part of each arm that the other arm lacks. A
+    # stream bound to runs it does not describe has a surplus that no occurrence supports.
+    for identity, totals in residual.items():
+        common = tally[arm][identity] - totals[arm]
+        require(common >= 0 and common == tally[other][identity] - totals[other],
+                "selector: change stream does not reconcile with the bound runs")
     return pair, selection, hashes, occurrences
 
 
@@ -319,12 +353,13 @@ def head_surplus(left, right, count):
     return remainder[:count]
 
 
+def counts():
+    return dict.fromkeys((*ARMS, "census", "lost", "gained", "eligible", "graded", *RESULTS), 0)
+
+
 def population(populations, confidence, kind):
-    by_confidence = populations.setdefault(confidence, {"kinds": {}})
-    counts = dict.fromkeys((*ARMS, "census", "lost", "gained", "eligible", "graded", *RESULTS), 0)
-    if kind is None:
-        return by_confidence.setdefault("missing_kind", counts)
-    return by_confidence["kinds"].setdefault(kind, counts)
+    by_confidence = populations.setdefault(confidence, {"kinds": {}, "missing_kind": counts()})
+    return by_confidence["missing_kind"] if kind is None else by_confidence["kinds"].setdefault(kind, counts())
 
 
 def call_population(args, entries):

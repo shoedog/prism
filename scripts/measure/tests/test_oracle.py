@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from contextlib import redirect_stderr, redirect_stdout
 import copy
+import hashlib
 import io
 import json
 import os
@@ -48,6 +49,22 @@ def json_lines(rows):
     return "".join(json.dumps(row) + "\n" for row in rows)
 
 
+def synthetic_evidence(binary, form, raw):
+    """A builder-shaped evidence record with fabricated digests, for test injection only."""
+    def sha(tag):
+        return hashlib.sha256(tag.encode()).hexdigest()
+
+    target = raw["resolved_targets"][0]["function_id"]
+    point = dict(file=target["file"], name=target["name"], start_byte=0, end_byte=1,
+                 line=target["start_line"])
+    label = dict(run_index=0, record_ordinal=0, target_index=0, form=form, declaration=point,
+                 contradiction_line=target["start_line"] + 1)
+    return dict(binary_sha256=binary, form=form, label=label, raw=raw,
+                source_tree_sha256=sha("tree"), source_state_sha256=sha("state"),
+                source_file_sha256=sha("file"), receipt_sha256=sha("receipt"), sites_sha256=sha("sites"),
+                controls={"match": "CORRECT", "contradiction": "WRONG"})
+
+
 class OracleTests(Workbench):
     def setUp(self):
         super().setUp()
@@ -61,9 +78,10 @@ class OracleTests(Workbench):
             self.skipTest("pinned TypeScript unavailable via PRISM_TYPESCRIPT or gate-inputs resolver")
         return path
 
-    def make_run(self, directory, rows, *, sites=False):
+    def make_run(self, directory, rows, *, sites=False, raw=None):
         command = "sites" if sites else "edges"
-        self.make_fake({command: f"print({json_lines(rows)!r}, end='')"})
+        text = json_lines(rows) if raw is None else raw
+        self.make_fake({command: f"print({text!r}, end='')"})
         data = self.fake.read_text()
         placeholder = f"""print({DEFAULT_VERSION!r} if command == "version" else '{{"count":1}}')"""
         self.assertIn(placeholder, data)
@@ -101,7 +119,7 @@ class OracleTests(Workbench):
             return ("ts-calls", "--census", head)
         return ("ts-edges", "--all", "--run", head)
 
-    def synthetic_qualification(self, *runs):
+    def synthetic_qualification(self, *runs, forms=("named-function",)):
         from measure.edges import canonical
         from measure.oracle_inputs import digest
         raw, = read_jsonl(CASES / "oracle-022/probe.jsonl")
@@ -110,11 +128,11 @@ class OracleTests(Workbench):
         for index, run in enumerate(runs):
             record = json.loads((run / "receipt.json").read_bytes())
             binary = record["binary"]["sha256"]
-            evidence = dict(binary_sha256=binary, form="named-function", raw=raw,
-                            controls={"match": "CORRECT", "contradiction": "WRONG"})
-            path, data = f"authored-{index}.json", canonical(evidence)
-            write_tree(self.qualification, {path: data})
-            builds[binary] = {"named-function": dict(path=path, sha256=digest(data))}
+            builds[binary] = {}
+            for form in forms:
+                path, data = f"authored-{index}-{form}.json", canonical(synthetic_evidence(binary, form, raw))
+                write_tree(self.qualification, {path: data})
+                builds[binary][form] = dict(path=path, sha256=digest(data))
         write_tree(self.qualification, {"bundle.json": canonical(
             dict(schema="prism.measure.qualification/1", builds=builds))})
 
@@ -158,8 +176,8 @@ class OracleTests(Workbench):
         self.env["PATH"] = str(self.work) + os.pathsep + self.env["PATH"]
         return log
 
-    def question(self, result):
-        lane = self.work / "lane"
+    def question(self, result, *, relation="custom", prop="custom", name="lane"):
+        lane = self.work / name
         entry = lane / "question.cjs"
         for case in ("oracle-001", "oracle-013", "oracle-003", "oracle-004"):
             source = KIT / "selfcheck" / case
@@ -168,15 +186,15 @@ class OracleTests(Workbench):
             expected = read_jsonl(destination / "expected.jsonl")
             inputs = read_jsonl(destination / "input.jsonl")
             for row in expected:
-                row.update(relation="custom", property="custom")
+                row.update(relation=relation, property=prop)
                 row.pop("why", None)
             for row, input_row in zip(expected, inputs):
-                input_row.update(relation="custom", expected_verdict=row["verdict"])
+                input_row.update(relation=relation, expected_verdict=row["verdict"])
             (destination / "expected.jsonl").write_text(json_lines(expected))
             (destination / "input.jsonl").write_text(json_lines(inputs))
-        entry.write_text("module.exports = {relations:['custom'], grade(row) { return "
+        entry.write_text("module.exports = {relations:['" + relation + "'], grade(row) { return "
                          "{verdict: row.expected_verdict || " + json.dumps(result["verdict"]) +
-                         ", property: row.expected_verdict ? 'custom' : " + json.dumps(result["property"]) +
+                         ", property: row.expected_verdict ? '" + prop + "' : " + json.dumps(result["property"]) +
                          ", why: row.expected_verdict ? 'fixture' : " + json.dumps(result["why"]) + "}; }};")
         return entry
 

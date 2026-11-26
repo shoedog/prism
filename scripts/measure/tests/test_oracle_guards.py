@@ -44,7 +44,7 @@ class WireTests(unittest.TestCase):
             ("invalid file", lambda v: v["from"].update(file="../cases.ts")),
             ("expected integer", lambda v: v["from"].update(start_byte="105")),
             ("invalid access", lambda v: v["from"].update(access="read")),
-            ("structured path", lambda v: v["from"]["path"].update(fields=[None])),
+            ("edge-wire: expected structured path", lambda v: v["from"]["path"].update(fields=[None])),
         ]
         for reason, mutate in variants:
             with self.subTest(reason=reason):
@@ -142,7 +142,7 @@ raise SystemExit(code)
         host = dict(PATH=str(self.stage) + os.pathsep + os.environ["PATH"],
                     NODE_OPTIONS="--require=fake", NODE_PATH="/fake")
         with patch.dict(os.environ, host, clear=True), patch.object(oracle, "DEFAULT_GUARD", self.guard):
-            return oracle.launch({"operation": "selfcheck"}, self.stage)
+            return oracle.launch({"operation": "selfcheck", "kit": {}}, self.stage)
 
     def test_structured_quiet_and_child_75_are_distinct(self):
         with self.assertRaises(OracleError) as quiet:
@@ -306,7 +306,7 @@ class OraclePopulationTests(unittest.TestCase):
         args = self.h.load_case("oracle-001")
         record = json.loads((args[-1] / "receipt.json").read_bytes())
         file = Path(record["corpus"]["root"]) / "cases.ts"
-        fixture = {"operation": "grade", "key": "fixture", "qualification_sha256": None}
+        fixture = {"operation": "grade", "key": "fixture", "qualification_sha256": None, "kit": {}}
         cached = {"runtime": {"node": "fixture", "python": platform.python_version()}, "expected": 1}
         program = """
 import sys

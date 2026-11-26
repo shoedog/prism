@@ -7,6 +7,12 @@ function role(ts, identifier) {
   let p = identifier.parent;
   if (ts.isDeclaration(p) && p.name === identifier && !ts.isShorthandPropertyAssignment(p)) return 'decl';
   for (let node = identifier; p; node = p, p = p.parent) {
+    // A class `extends` expression is evaluated at run time, so it reads the value binding.
+    if (ts.isExpressionWithTypeArguments(p) && ts.isHeritageClause(p.parent)
+        && p.parent.token === ts.SyntaxKind.ExtendsKeyword
+        && (ts.isClassDeclaration(p.parent.parent) || ts.isClassExpression(p.parent.parent))) return 'read';
+    // The default of a shorthand destructuring property is an evaluated read.
+    if (ts.isShorthandPropertyAssignment(p) && p.objectAssignmentInitializer === node) return 'read';
     if (ts.isTypeNode(p) || ts.isTypeQueryNode(p)) return 'type';
     if (ts.isPropertyAccessExpression(p) || ts.isElementAccessExpression(p)) {
       if (!ts.isPropertyAccessExpression(p) || p.name !== node) return 'read';
@@ -33,7 +39,7 @@ function role(ts, identifier) {
 }
 
 function declaration(ts, checker, id) {
-  const symbol = ts.isShorthandPropertyAssignment(id.parent)
+  const symbol = ts.isShorthandPropertyAssignment(id.parent) && id.parent.name === id
     ? checker.getShorthandAssignmentValueSymbol(id.parent)
     : checker.getSymbolAtLocation(id);
   if (!symbol || !(symbol.flags & (ts.SymbolFlags.Value | ts.SymbolFlags.Alias))) return undefined;

@@ -12,7 +12,7 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 from .edges import KINDS, canonical
 from .inputs import json_object, sha256_file
-from .oracle_inputs import KIT, OracleError, cache_path, cached, name, prepare_inputs, source
+from .oracle_inputs import OracleError, cache_path, cached, name, prepare_inputs, source
 from .oracle_selection import call_population, edge_population
 from .receipt import HOST_ENV, gate_binding
 from .run import DEFAULT_GUARD, claim_output, guard_env, guarded
@@ -48,16 +48,28 @@ def report(error, code):
     return code
 
 
+def stage_kit(kit, stage):
+    """Write the kit modules whose digests were verified, so the worker executes those bytes."""
+    root = stage / "kit"
+    for relative, data in kit.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    return root / "ts_oracle.cjs"
+
+
 def launch(request, stage):
     host = {key: os.environ[key] for key in HOST_ENV if key in os.environ}
     host["LC_ALL"] = "C"
+    entry = stage_kit(request["kit"], stage)
+    request = {key: value for key, value in request.items() if key != "kit"}
     job = stage / "job.json"
     with job.open("w", encoding="utf-8") as stream:
         json.dump(request, stream, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     result = stage / "result.json"
     log = stage / "checker.stderr"
     attempt = guarded(DEFAULT_GUARD, 8,
-                      ["node", str(KIT / "ts_oracle.cjs"), str(job), str(stage)],
+                      ["node", str(entry), str(job), str(stage)],
                       guard_env(host, {}, DEFAULT_GUARD), result, log)
     status = attempt["guard_status"]
     if status and status["kind"] == "host_quiet":

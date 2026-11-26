@@ -30,8 +30,8 @@ class BindingRefusals(unittest.TestCase):
 
     def test_qualification_bundle_requires_bound_form_evidence(self):
         binary = "f" * 64
-        point = dict(binary_sha256=binary, form="named-function",
-                     controls={"match": "CORRECT", "contradiction": "WRONG"})
+        raw, = fixtures.read_jsonl(fixtures.CASES / "oracle-022/probe.jsonl")
+        point = fixtures.synthetic_evidence(binary, "named-function", raw)
         blob = canonical(point)
         bundle = dict(schema="prism.measure.qualification/1", builds={
             binary: {"named-function": dict(path="evidence.json", sha256=oracle_inputs.digest(blob))}

@@ -159,6 +159,50 @@ def fixture_set(root, raw, prefix):
     return [cases[key] for key in sorted(cases)]
 
 
+EVIDENCE = ("binary_sha256", "form", "controls", "label", "raw", "source_tree_sha256",
+            "source_state_sha256", "source_file_sha256", "receipt_sha256", "sites_sha256")
+
+
+def labelled(value, run_count=None):
+    """The closed label of a qualification control; `run_count` bounds `run_index` when known."""
+    from .oracle_selection import number, require
+
+    require(shape(value, ("run_index", "record_ordinal", "target_index", "form",
+                          "declaration", "contradiction_line"))
+            and all(number(value[key]) for key in ("run_index", "record_ordinal", "target_index"))
+            and (run_count is None or value["run_index"] < run_count) and value["form"] in FORMS,
+            "qualification-label: invalid index or form")
+    point = value["declaration"]
+    require(shape(point, ("file", "name", "start_byte", "end_byte", "line"))
+            and safe_path(point["file"]) and name(point["name"])
+            and number(point["start_byte"]) and number(point["end_byte"], point["start_byte"] + 1)
+            and number(point["line"], 1) and number(value["contradiction_line"], 1)
+            and point["line"] != value["contradiction_line"], "qualification-label: invalid source label")
+    return value
+
+
+def provenance(record, form):
+    """Evidence must be what the builder writes: labelled source, indexed capture and control results."""
+    from .oracle_selection import require, site
+
+    try:
+        require(shape(record, EVIDENCE)
+                and all(is_digest(record[key]) for key in EVIDENCE if key.endswith("_sha256")),
+                "closed evidence fields")
+        label = labelled(record["label"])
+        point = label["declaration"]
+        require(label["form"] == form, "label form")
+        raw = site(record["raw"])
+        require(raw["record_kind"] == "call_site" and label["target_index"] < len(raw["resolved_targets"]),
+                "indexed capture")
+        target = raw["resolved_targets"][label["target_index"]]
+        require(target["confidence"] == "exact" and target["function_id"]["file"] == point["file"]
+                and target["function_id"]["name"] == point["name"]
+                and target["function_id"]["start_line"] == point["line"], "capture disagrees with label")
+    except (ValueError, KeyError, TypeError) as error:
+        raise ValueError(f"qualification evidence lacks builder provenance: {error}") from error
+
+
 def qualifications(directory):
     if not directory.exists() and not directory.is_symlink():
         return {}, None, {}
@@ -180,6 +224,7 @@ def qualifications(directory):
             if (record.get("binary_sha256") != binary or record.get("form") != form
                     or record.get("controls") != {"match": "CORRECT", "contradiction": "WRONG"}):
                 raise ValueError("qualification evidence does not establish the form")
+            provenance(record, form)
             used.add(evidence["path"])
             builds[binary].append(form)
     if files.keys() != used:
@@ -191,9 +236,12 @@ def prepare_inputs(typescript=None, question=None, *, qualification_dir=None):
     checker = checker_files(checker_path(typescript))
     try:
         question_files = {path.name: regular(path) for path in KIT.glob("*.cjs")}
+        # The worker executes exactly these verified bytes from a staged copy.
+        kit = dict(question_files)
         question_files.update({path.name: regular(path) for path in KIT.parent.glob("oracle*.py")})
-        question_files.update({"questions/" + key: value
-                               for key, value in file_tree(KIT / "questions").items()})
+        built_ins = {"questions/" + key: value for key, value in file_tree(KIT / "questions").items()}
+        question_files.update(built_ins)
+        kit.update(built_ins)
         qdir = QUALIFICATIONS if qualification_dir is None else qualification_dir
         builds, qualification_sha256, evidence = qualifications(qdir)
         question_files.update({"qualifications/" + k: v for k, v in evidence.items()})
@@ -221,6 +269,8 @@ def prepare_inputs(typescript=None, question=None, *, qualification_dir=None):
             cases += fixture_set(root / "selfcheck", lane_fixtures, "lane")
             question_files.update({"lane/" + k: v for k, v in raw.items()})
             fixtures.update({"lane/" + k: v for k, v in lane_fixtures.items()})
+            # The closure is the whole directory, so the key also names which entry graded.
+            question_files["lane-entry"] = absolute.name.encode("utf-8")
         components = dict(checker_tree_sha256=TREE, compiler_options=OPTIONS,
                           default_lib_options=dict(OPTIONS, noLib=False),
                           question_sha256=framed(question_files), fixtures_sha256=framed(fixtures))
@@ -228,7 +278,7 @@ def prepare_inputs(typescript=None, question=None, *, qualification_dir=None):
         if question is not None and cache_path(key).is_relative_to(question.parent.resolve()):
             raise ValueError("self-check cache must be outside question directory")
         return dict(checker=checker, components=components, key=key, cases=cases, module=module,
-                    builds=builds, qualification_sha256=qualification_sha256)
+                    builds=builds, qualification_sha256=qualification_sha256, kit=kit)
     except (ValueError, OSError, KeyError) as error:
         raise OracleError(3, f"selfcheck-binding: {error}") from error
 

@@ -75,9 +75,9 @@ function choose(row, index, explicit, question) {
   return { relation, custom: declared.includes(relation) };
 }
 
-function admitSite(record, context) {
+function admitSite(record, context, qualified) {
   return context.coordinate(record.source_span) ||
-    (calls.callerContradicts(record, context) ? 'caller-identity-mismatch' : null);
+    (calls.callerContradicts(record, context, qualified) ? 'caller-identity-mismatch' : null);
 }
 
 function grade(claim, source, context, question, explicit, permitted, qualified, censusEdges) {
@@ -89,7 +89,7 @@ function grade(claim, source, context, question, explicit, permitted, qualified,
   const target = index !== null;
   let why = null;
   if (!source.matches) why = 'source-digest-mismatch';
-  else if (target) why = admitSite(row, context);
+  else if (target) why = admitSite(row, context, qualified);
   else {
     why = context.coordinate(row.from, row.from.access === 'def')
       || context.coordinate(row.to, row.to.access === 'def');
@@ -146,9 +146,11 @@ function selfcheck(job, ts, question) {
       if (!properties) expectedPairs.set(golden.relation, properties = new Set());
       properties.add(golden.property);
       const k = pair(golden.relation, golden.property);
-      let kinds = coverage.get(k);
-      if (!kinds) coverage.set(k, kinds = new Set());
-      kinds.add(golden.verdict);
+      // Coverage is judged per question set: a lane module cannot borrow the built-in labels.
+      const scope = test.prefix + '\0' + k;
+      let kinds = coverage.get(scope);
+      if (!kinds) coverage.set(scope, kinds = { relation: golden.relation, property: golden.property, verdicts: new Set() });
+      kinds.verdicts.add(golden.verdict);
       if (caseModule) {
         if (!caseModule.relations.includes(golden.relation)) throw Error('selfcheck-schema: undeclared relation');
         let allowed = permitted.get(golden.relation);
@@ -162,11 +164,15 @@ function selfcheck(job, ts, question) {
   for (const rel of question?.relations ?? []) {
     if (!permitted.has(rel)) throw Error('selfcheck-coverage: untested relation');
   }
-  for (const [relation, properties] of expectedPairs) {
-    for (const property of properties) {
-      if (relation !== fallback && coverage.get(pair(relation, property)).size !== verdictVocabulary.length) {
-        throw Error('selfcheck-coverage: need all verdicts for ' + relation + '/' + property);
-      }
+  for (const [scope, { relation, property, verdicts }] of coverage) {
+    // `input-admission` is the reserved label of inadmissible lane claims, never a graded
+    // property. A lane relation with several properties labels them with it, so its real
+    // properties need the three graded verdicts; otherwise all four.
+    const lane = scope.startsWith('lane\0');
+    const shared = lane && permitted.get(relation)?.size > 1;
+    const needed = shared ? verdictVocabulary.filter(verdict => verdict !== 'INADMISSIBLE') : verdictVocabulary;
+    if (relation !== fallback && property !== 'input-admission' && !needed.every(verdict => verdicts.has(verdict))) {
+      throw Error('selfcheck-coverage: need all verdicts for ' + relation + '/' + property);
     }
   }
   for (const { test, inputs, expected, source, caseModule } of fixtures) {
@@ -230,9 +236,12 @@ function grading(job, stage, ts, question, checks) {
   if (job.denominators.mode === 'call-diff') {
     for (const [arm, places] of Object.entries(job.places)) {
       const context = forArm(arm);
-      if (!context) continue;
+      const qualified = job.builds[job.sources[arm].binary] ?? [];
       for (const site of places) {
-        if (!selectedSites.has(pair(arm, site.ordinal)) && admitSite(site, context)) {
+        if (selectedSites.has(pair(arm, site.ordinal))) continue;
+        // An unselected site of an unauthenticated snapshot cannot be shown valid or cancelled.
+        if (!context) return { refusal: 'cancelled-site-coordinate: unauthenticated ungraded raw site' };
+        if (admitSite(site, context, qualified)) {
           return { refusal: 'cancelled-site-coordinate: invalid ungraded raw site' };
         }
       }
@@ -311,7 +320,7 @@ function qualify(job, ts) {
     const { label, raw, source } = candidate;
     if (!contexts.has(source.root)) contexts.set(source.root, buildContext(ts, source, job.checker));
     const context = contexts.get(source.root);
-    const call = !admitSite(raw, context) && calls.exactCall(raw, context);
+    const call = !admitSite(raw, context, [label.form]) && calls.exactCall(raw, context);
     const body = call && bodyFor(call, context).body;
     const proved = body && identity(ts, body, context);
     const point = label.declaration;

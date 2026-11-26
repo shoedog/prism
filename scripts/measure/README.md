@@ -328,9 +328,9 @@ validation apply.
 | Filters | Use `base\|head` and S2 kinds `added,removed,label_moved,ambiguous` only with `--changes`. A class name must occur in the certificate. Union repeated values within a filter and intersect filters. Census and call differential default to all kinds at exact confidence. Target kinds are nonblank original wire names. Request `name_only` only with a checked question and explicit relation. A relation is a declared question name, or a built-in name when there is no module. |
 | Question | Closed CommonJS exports with unique nonblank `relations` and synchronous `grade`. The callback receives the original row and a context with `ts,program,checker,relation,arm,target_index,change,identifier_at_bytes,declarations,enclosing_call,node_at_bytes,program_with_default_lib`. The closed result is `verdict,property,why`. Verdict must be CORRECT, WRONG, UNDECIDED or INADMISSIBLE, both strings must be nonblank, and the relation/property pair must occur in the goldens. Passing a different program or a node from another graph to a lookup is an execution error. |
 | Question closure | Recursively hash all regular files under the entry's parent. The entry must be JS or CJS. Computed CommonJS requires resolve only to in-set JS, CJS or JSON and load digest-checked bytes. The worker also provides the pinned checker, the built-ins `assert,assert/strict,buffer,path,path/posix,path/win32,querystring,string_decoder,url,util` and a read-only `node:fs` interface for declared data. `question-data.json` is a free-form map from logical relative names to digests. Its values authorize only those files at those digests. The module is reviewed trusted code subject to the input-closure rule, including any transitive helper and API access. |
-| Self-check | Per-case regular `repo/`, `input.jsonl`, `expected.jsonl`, with optional bound sibling fixtures. Raw wire rows use automatic dispatch. Closed envelopes use `relation,arm,row` and optional `target_index,change`. The change is null or an S2 change for a base/head envelope. The expected row is closed `key,relation,property,verdict` with optional `why`. The closed key is `{from,to}` with the projected edge endpoint keys above, or `{site,target}` with closed `{file,line,start_byte,end_byte}` and `{file,name,start_line,end_line}` projections. Omitted wire values stay omitted in the projection. Every row must agree in output order by canonical key bytes. Named built-in boundaries require the prescribed reason. Each tested grading property has all four verdicts. |
-| Self-check receipt | Closed §4 receipt plus closed `runtime` with Node and Python versions. `components` is the closed five-member key object. Compiler option records have the fixed §4 options. Check schema, key, components, counts, empty failures, and runtime before relying on the result. The worker independently checks the same current goldens. |
-| Qualification | Optional fixed `oracle/qualifications/bundle.json`. Closed bundle with `schema,builds`. The free-form builds map is keyed by executable digest. Each form map is closed to the supported form names, with closed `{path,sha256}` references. The evidence file is a free-form object whose `binary_sha256,form` must match the reference and whose closed `controls` is `{match:"CORRECT",contradiction:"WRONG"}`. Builder-produced evidence also records the source tree, source state, declaration file, receipt and sites digests, the closed label below, and the original free-form call row. Both the bundle and all referenced evidence bytes enter the self-check key. |
+| Self-check | Per-case regular `repo/`, `input.jsonl`, `expected.jsonl`, with optional bound sibling fixtures. Raw wire rows use automatic dispatch. Closed envelopes use `relation,arm,row` and optional `target_index,change`. The change is null or an S2 change for a base/head envelope. The expected row is closed `key,relation,property,verdict` with optional `why`. The closed key is `{from,to}` with the projected edge endpoint keys above, or `{site,target}` with closed `{file,line,start_byte,end_byte}` and `{file,name,start_line,end_line}` projections. Omitted wire values stay omitted in the projection. Every row must agree in output order by canonical key bytes. Named built-in boundaries require the prescribed reason. Each tested grading property has all four verdicts within its own question set (kit or lane; a lane relation with several properties labels inadmissible claims `input-admission`, which needs no coverage, and its real properties need the three graded verdicts). |
+| Self-check receipt | Closed §4 receipt plus closed `runtime` with Node and Python versions. `components` is the closed five-member key object; `question_sha256` also frames the selected entry's name, so two entries of one directory have distinct keys. The worker executes a staged copy of the kit modules whose digests Python verified, so a built-in cannot change between hashing and loading. Compiler option records have the fixed §4 options. Check schema, key, components, counts, empty failures, and runtime before relying on the result. The worker independently checks the same current goldens. |
+| Qualification | Optional fixed `oracle/qualifications/bundle.json`. Closed bundle with `schema,builds`. The free-form builds map is keyed by executable digest. Each form map is closed to the supported form names, with closed `{path,sha256}` references. The evidence file is the builder's closed record: `binary_sha256,form` must match the reference, closed `controls` is `{match:"CORRECT",contradiction:"WRONG"}`, and it records the source tree, source state, declaration file, receipt and sites digests, the closed label below and the original call row, which must be a valid call site whose indexed exact target agrees with the label. A record without that provenance refuses as `qualification evidence lacks builder provenance`; synthetic records exist only as test injection. Both the bundle and all referenced evidence bytes enter the self-check key. |
 
 The accept-list has 18 refusal classes. A refusal publishes no successful
 receipt or data files. INADMISSIBLE and UNDECIDED are completed grading
@@ -340,16 +340,16 @@ outcomes and can appear on exit 0.
 |---|---|---|
 | 2 | usage | Invalid CLI grammar, option or occupied output. |
 | 2 | run binding | Failed or malformed receipt, absent or altered artifact, invalid transport, incompatible pair. |
-| 2 | wire-json | JSON/type/encoding/number outside the accepted wire representation. |
+| 2 | wire-json | JSON/type/encoding/number outside the accepted wire representation, including a duplicate member. |
 | 2 | wire-coordinate | Unsafe relative file or noninteger/non-null coordinate. |
 | 2 | edge-wire | Missing or malformed edge field, role, confidence, doubt or path. |
 | 2 | sites-wire | Missing or malformed site discriminator, caller, function ID, target confidence or kind. |
 | 2 | certificate | Wrong certificate schema, run reference, digest or gate binding. |
 | 2 | changes-wire | Wrong change, key, bag or attached-record shape. |
-| 2 | selector | Unsupported, unrelated, incomplete or impossible arm, relation, class, confidence, kind or residual selection. |
+| 2 | selector | Unsupported, unrelated, incomplete or impossible arm, relation, class, confidence, kind or residual selection, including a change stream whose residual bags do not reconcile with both bound arms' edge multiplicities. |
 | 2 | ambiguous-occurrence | An unequal set of original contexts prevents a unique residual assignment. |
 | 2 | source-root | The recorded snapshot cannot be located and bound. |
-| 2 | cancelled-site-coordinate | A raw differential site with no emitted verdict fails source or caller admission. |
+| 2 | cancelled-site-coordinate | A raw differential site with no emitted verdict fails source or qualified-caller admission, or belongs to a snapshot that does not match its receipt. |
 | 3 | checker-pin | Checker path, bytes or tree differ from the pin. |
 | 3 | selfcheck-binding / selfcheck-receipt / selfcheck-runtime | Grading cannot establish a current prior receipt, its inputs or Python runtime. |
 | 1 | selfcheck-schema / selfcheck-coverage / selfcheck-disagreement | Fixture shape, coverage, order, cardinality, expected verdict or cached counts fail. An invalid closure during self-check also exits 1. |
@@ -363,7 +363,21 @@ Argument binding proves a whole identifier or primitive literal actual to a
 fixed implementation slot, including compatible overloads, named functions,
 direct functions and immutable arrows, explicit constructors, and proved
 methods and fields. Parentheses, type assertions, non-null assertions and
-`satisfies` preserve an entire actual. Composite expressions, earlier
+`satisfies` preserve an entire actual. A member call needs a receiver proof:
+the receiver is `super`, a private name, a static member through its class or
+namespace, or the value of a fresh `new` or object literal (directly or as a
+unique unannotated `const`). Only parentheses, non-null and `satisfies` are
+transparent for that origin; a type assertion keeps it only when the asserted
+type is the inner expression's own type, because a base-typed assertion
+selects another static signature than the body that runs. Any assignment or
+`delete` of a member with the called name anywhere in the analysed sources
+(`x.m = ..`, `x['m'] = ..`) leaves the receiver unproved, and a parenthesized
+arrow bound by `let` or `var` is a replaceable value. A non-`readonly` field
+arrow is proved only on a fresh `new` receiver whose field has no annotation.
+Computed-key writes, `Object.assign`, `defineProperty` and reflective writes
+are outside the model, as for `Exact`. A class `extends` expression and a
+shorthand destructuring default are reads; `implements` and interface
+`extends` stay type uses. Composite expressions, earlier
 spreads, rest slots and destructured formals lack a built-in fixed-slot
 proof. Annotated, ambient and declaration-only callables and unresolved
 or ambiguous receiver origins remain UNDECIDED.
@@ -378,14 +392,16 @@ exception. A wrong spelling at a proved slot is WRONG.
 Call target grading supports explicitly named functions and simple
 identifier-named methods whose name and first non-decorator header token
 are on the same line. A matching qualification for its executable digest
-and form is required. Constructor, inferred or anonymous, computed and
+and form is required. The caller triple of a site is judged only when the
+caller's own form is qualified for that build (another file for the caller
+always contradicts); an unqualified caller convention is no evidence. Constructor, inferred or anonymous, computed and
 split-header identities remain UNDECIDED. A checked question may establish
 a different property using the source and original record.
 
 `oracle/realuse/repo` supplies a multiline formal, two fixed slots, a
 supplied optional, an explicit inert default, and Unicode with a multiline
 call. `oracle/realuse/truth.jsonl` labels six argument-to-formal bindings and
-twelve lexical def-to-read bindings directly from their source token spans.
+27 lexical def-to-read bindings directly from their source token spans.
 
 Use `measure.oracle.build_qualification(runs, labels, output_dir)` with
 already captured `--sites` run directories. Each closed label has

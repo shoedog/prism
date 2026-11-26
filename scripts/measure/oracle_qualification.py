@@ -8,24 +8,9 @@ from tempfile import TemporaryDirectory
 from .edges import canonical
 from .inputs import jsonl_objects
 from .oracle import launch, recheck
-from .oracle_inputs import FORMS, OracleError, digest, name, prepare_inputs, regular, safe_path, shape, source
-from .oracle_selection import admit, number, read, require, site
+from .oracle_inputs import OracleError, digest, labelled, prepare_inputs, regular, source
+from .oracle_selection import admit, read, require, site
 from .run import claim_output
-
-
-def labelled(value, run_count):
-    require(shape(value, ("run_index", "record_ordinal", "target_index", "form",
-                          "declaration", "contradiction_line"))
-            and all(number(value[key]) for key in ("run_index", "record_ordinal", "target_index"))
-            and value["run_index"] < run_count and value["form"] in FORMS,
-            "qualification-label: invalid index or form")
-    point = value["declaration"]
-    require(shape(point, ("file", "name", "start_byte", "end_byte", "line"))
-            and safe_path(point["file"]) and name(point["name"])
-            and number(point["start_byte"]) and number(point["end_byte"], point["start_byte"] + 1)
-            and number(point["line"], 1) and number(value["contradiction_line"], 1)
-            and point["line"] != value["contradiction_line"], "qualification-label: invalid source label")
-    return value
 
 
 def build(runs, labels, output_dir):

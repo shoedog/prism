@@ -13,6 +13,65 @@ function unwrap(ts, node) {
   return node;
 }
 
+// The value a receiver expression denotes when an assertion does not change its type.
+// A type assertion to a different type selects a different static signature than the
+// runtime body, so it proves nothing about which body runs.
+function origin(ts, checker, node) {
+  while (node) {
+    if (ts.isParenthesizedExpression(node) || ts.isNonNullExpression(node)
+        || ts.isSatisfiesExpression(node)) {
+      node = node.expression;
+    } else if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) {
+      if (checker.getTypeAtLocation(node.expression) !== checker.getTypeAtLocation(node)) return null;
+      node = node.expression;
+    } else {
+      break;
+    }
+  }
+  return node;
+}
+
+function memberName(ts, expression) {
+  if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+  const key = expression.argumentExpression;
+  return key && (ts.isStringLiteral(key) || ts.isNoSubstitutionTemplateLiteral(key)) ? key.text : null;
+}
+
+// Names written through `x.name = ..`, `x['name'] = ..` or `delete x.name` anywhere in the
+// analysed sources. A written member may hold a callable other than its declaration, so
+// no declaration of that name proves the current value. Computed keys, Object.assign and
+// reflective writes are outside the model (README accept-list).
+const writeIndex = new WeakMap();
+
+function writtenMembers(context) {
+  const { ts, program } = context.public;
+  if (writeIndex.has(program)) return writeIndex.get(program);
+  const names = new Set();
+  const root = program.getCurrentDirectory() + path.sep;
+  function record(target) {
+    let node = target;
+    while (node && (ts.isParenthesizedExpression(node) || ts.isNonNullExpression(node)
+        || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node))) {
+      node = node.expression;
+    }
+    if (node && (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))) {
+      const name = memberName(ts, node);
+      if (name !== null) names.add(name);
+    }
+  }
+  function visit(node) {
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+        && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) record(node.left);
+    else if (ts.isDeleteExpression(node)) record(node.expression);
+    ts.forEachChild(node, visit);
+  }
+  for (const sf of program.getSourceFiles()) {
+    if (!sf.isDeclarationFile && sf.fileName.startsWith(root)) visit(sf);
+  }
+  writeIndex.set(program, names);
+  return names;
+}
+
 function bindingSymbol(ts, checker, expression) {
   let symbol = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(expression)
     ? expression.name : expression);
@@ -34,9 +93,14 @@ function escapingImport(ts, checker, call, root) {
   });
 }
 
-function constInitializer(ts, declaration) {
+function constInitializer(ts, checker, declaration) {
   return ts.isVariableDeclaration(declaration) && declaration.parent.flags & ts.NodeFlags.Const
-    && !declaration.type ? unwrap(ts, declaration.initializer) : null;
+    && !declaration.type && declaration.initializer ? origin(ts, checker, declaration.initializer) : null;
+}
+
+function constDeclaration(ts, declaration) {
+  return ts.isVariableDeclaration(declaration) && declaration.parent.flags & ts.NodeFlags.Const
+    && !declaration.type;
 }
 
 function uniqueReceiverUse(ts, checker, declaration, receiver) {
@@ -56,22 +120,31 @@ function uniqueReceiverUse(ts, checker, declaration, receiver) {
   return !distinctUse;
 }
 
-function receiverProved(ts, checker, expression, body) {
-  if (!ts.isPropertyAccessExpression(expression) && !ts.isElementAccessExpression(expression)) return true;
+// Returns null when the receiver does not prove the body, else whether it is a fresh `new`.
+function receiverProved(context, expression, body) {
+  const { ts, checker } = context.public;
+  if (!ts.isPropertyAccessExpression(expression) && !ts.isElementAccessExpression(expression)) {
+    return { fresh: false };
+  }
+  const name = memberName(ts, expression);
+  if (name === null || writtenMembers(context).has(name)) return null;
   const receiver = expression.expression;
   if (body.name && ts.isPrivateIdentifier(body.name)
-      || receiver.kind === ts.SyntaxKind.SuperKeyword) return true;
+      || receiver.kind === ts.SyntaxKind.SuperKeyword) return { fresh: false };
   // Static access through the class value, or a namespace function.
   const symbols = bindingSymbol(ts, checker, receiver)?.declarations ?? [];
   if (symbols.length === 1 && (ts.isClassDeclaration(symbols[0]) || ts.isModuleDeclaration(symbols[0])
       || ts.isNamespaceImport(symbols[0]) || ts.isSourceFile(symbols[0]))) {
-    return ts.isFunctionDeclaration(body) || ts.getModifiers(body)?.some(m => m.kind === ts.SyntaxKind.StaticKeyword);
+    return ts.isFunctionDeclaration(body) || ts.getModifiers(body)?.some(m => m.kind === ts.SyntaxKind.StaticKeyword)
+      ? { fresh: false } : null;
   }
   const declaration = symbols.length === 1 ? symbols[0] : null;
-  const initializer = declaration && constInitializer(ts, declaration);
-  const value = unwrap(ts, receiver);
-  const origin = initializer && uniqueReceiverUse(ts, checker, declaration, value) ? initializer : value;
-  return ts.isNewExpression(origin) || ts.isObjectLiteralExpression(origin);
+  const value = origin(ts, checker, receiver);
+  if (!value) return null;
+  const initializer = declaration && constInitializer(ts, checker, declaration);
+  const root = initializer && uniqueReceiverUse(ts, checker, declaration, value) ? initializer : value;
+  if (!root || !(ts.isNewExpression(root) || ts.isObjectLiteralExpression(root))) return null;
+  return { fresh: ts.isNewExpression(root) };
 }
 
 function bodyFor(call, context) {
@@ -103,22 +176,29 @@ function bodyFor(call, context) {
   if (!bodyKind(selected)) return { why: 'type-only-declaration' };
   let body = selected;
   if (!body.body) {
-    const siblings = ts.isConstructorDeclaration(selected) ? selected.parent.members
+    const siblings = ts.isConstructorDeclaration(selected)
+      ? selected.parent.members.filter(ts.isConstructorDeclaration)
       : (selected.name && checker.getSymbolAtLocation(selected.name)?.declarations) ?? [];
     const bodies = siblings.filter(node => bodyKind(node) && node.body);
     if (bodies.length !== 1) return { why: bodies.length ? 'ambiguous-dispatch' : 'type-only-declaration' };
     [body] = bodies;
   }
   if (!context.span(body)) return { why: 'external-callable' };
-  const classField = ts.isPropertyDeclaration(body.parent) && body.parent.initializer === body;
-  const objectField = ts.isPropertyAssignment(body.parent) && body.parent.initializer === body;
-  const proofOwner = classField || objectField ? body.parent : body;
-  if (!receiverProved(ts, checker, expression, proofOwner)) return { why: 'ambiguous-dispatch' };
+  // A parenthesized or asserted value is the same value for ownership purposes.
+  let top = body;
+  while (wrapper(ts, top.parent)) top = top.parent;
+  const holder = top.parent;
+  const classField = ts.isPropertyDeclaration(holder) && holder.initializer === top;
+  const objectField = ts.isPropertyAssignment(holder) && holder.initializer === top;
+  const proofOwner = classField || objectField ? holder : body;
+  const proof = receiverProved(context, expression, proofOwner);
+  if (!proof) return { why: 'ambiguous-dispatch' };
   if (ts.isArrowFunction(body) || ts.isFunctionExpression(body)) {
-    const owner = body.parent;
-    if (ts.isVariableDeclaration(owner) && !constInitializer(ts, owner)) return { why: 'ambiguous-dispatch' };
-    if (ts.isPropertyDeclaration(owner) &&
-        !ts.getModifiers(owner)?.some(m => m.kind === ts.SyntaxKind.ReadonlyKeyword)) {
+    if (ts.isVariableDeclaration(holder) && !constDeclaration(ts, holder)) return { why: 'ambiguous-dispatch' };
+    // A field arrow is the current value of a fresh instance (no write to that member name
+    // exists); otherwise only a readonly field is stable.
+    if (ts.isPropertyDeclaration(holder) && !ts.getModifiers(holder)?.some(m => m.kind === ts.SyntaxKind.ReadonlyKeyword)
+        && !(proof.fresh && !holder.type)) {
       return { why: 'ambiguous-dispatch' };
     }
   }
