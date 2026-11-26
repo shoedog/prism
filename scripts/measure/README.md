@@ -463,31 +463,40 @@ reachability or paths with nonempty fields. Source coordinates use LF-only
 physical lines, full UTF-8 byte boundaries and the formal declaration-header
 exception.
 
-WRONG is returned only when the oracle has proved a different binding or
-position for an endpoint it located at exact identifier bytes AND no other
-occurrence of the claimed base name on that endpoint's physical line could
-serve the endpoint's role (source: a definition or write of the base;
-destination: a read of it). The producer anchors an endpoint by line, so its
-span can land on a neighbour (the key `app:` in `{app: {value: app}}`): that
-is UNDECIDED `endpoint-coordinate-off`, never WRONG. An endpoint that is not
-at exact identifier bytes is UNDECIDED `identifier-unproved`. The rule applies
-to a lexical spelling mismatch and to a role or position fault (source not a
-definition, destination write, `delete` or type position) and, by the same rule,
-to the argument slot. It does not apply when both endpoints are at exact
-identifier bytes spelled as the claimed base and resolve to different
-declarations: that is a proved different binding, WRONG `different-declaration`
-(matrix row oracle-007). The slot rule: a
-wrong actual spelling, or a formal claimed at other bytes, is WRONG only when
-the claimed name is nowhere else on that line in the needed role (actual: a
-read; formal: the proved formal itself, which must share the claimed line).
-FORMATS section 4 is stricter in two places and those rules are kept: a
-different name at exactly the proved formal's bytes, and a signature formal of an
-overload (oracle-032, oracle-037), are WRONG whatever else the line holds.
-Matrix row oracle-010 (a span on `other` beside a read of `value`) was WRONG and
-is UNDECIDED `endpoint-coordinate-off` under this rule. Formal bytes that are not an identifier
-are UNDECIDED `identifier-unproved`. Of the 36 Express WRONG verdicts of the
-real-use read, 4 were coordinate-off (a key span next to the value read) and 32
-a variable not defined at the from line; the self-check case
+WRONG is returned only for a proved position, role or declaration fault at an
+endpoint spelled as claimed at exact identifier bytes. Lexical cases:
+- A role or position fault (source not a definition, destination write, `delete`
+  or type position) is WRONG only when no other occurrence of the claimed base on
+  that endpoint's physical line could serve the role (source: a definition or
+  write of the base; destination: a read of it). Otherwise the producer's
+  line-anchored span may have landed on a neighbour (the key `app:` in
+  `{app: {value: app}}`): UNDECIDED `endpoint-coordinate-off`. Assignment
+  targets such as `(objectURL = ..)` or the inner `t2` of `t1 = t2 = ..`, with
+  no read of the name on the line, stay WRONG `write-position`.
+- A spelling mismatch (the span is an identifier other than the claimed base) is
+  UNDECIDED `endpoint-spelling-mismatch`, never WRONG, because the producer's
+  alias twins carry the alias variable's span for a def of the base and the
+  oracle cannot prove such an edge wrong. When the claimed base also occurs on
+  that line in the needed role the reason is `endpoint-coordinate-off` (checked
+  first); matrix row oracle-010 (a span on `other` beside a read of `value`) was
+  WRONG and is UNDECIDED `endpoint-coordinate-off`.
+- Both endpoints at exact identifier bytes spelled as the claimed base that
+  resolve to different declarations are a proved different binding, WRONG
+  `different-declaration`, without a neighbour check (matrix row oracle-007).
+- An endpoint that is not at exact identifier bytes is UNDECIDED
+  `identifier-unproved`.
+
+The argument slot follows the same rule where the slot is proved: a wrong
+actual spelling, or a formal claimed at other bytes, is WRONG only when the
+claimed name is nowhere else on that line in the needed role (actual: a read;
+formal: the proved formal itself, which must share the claimed line). FORMATS
+section 4 is stricter in two places and those rules are kept: a different name
+at exactly the proved formal's bytes, and a signature formal of an overload
+(oracle-032, oracle-037), are WRONG whatever else the line holds. Formal bytes
+that are not an identifier are UNDECIDED `identifier-unproved`. Of the 36
+Express WRONG verdicts of the real-use read, 4 were coordinate-off (a key span
+next to the value read) and 32 an alias-twin or other spelling mismatch (the
+from-span is a variable assigned from the claimed base); the self-check case
 `lexical-coordinate` pins both shapes with controls.
 
 Call target grading supports explicitly named functions and simple

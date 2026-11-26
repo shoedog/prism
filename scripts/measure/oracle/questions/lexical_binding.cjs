@@ -113,23 +113,27 @@ function grade(row, context) {
   if (!left || !right) return result('UNDECIDED', 'identifier-unproved');
   const a = role(ts, left);
   const b = role(ts, right);
-  // Proved faults in priority order: a spelling that is not the claimed base, then the
-  // source's role, then the destination's.
-  const faults = [];
-  if (left.text !== from.path.base) faults.push({ end: 'from', why: 'different-identifier' });
-  if (right.text !== to.path.base) faults.push({ end: 'to', why: 'different-identifier' });
-  if (left.text === from.path.base && (a === 'read' || a === 'type' || a === 'delete')) {
-    faults.push({ end: 'from', why: 'not-a-definition' });
-  }
-  if (right.text === to.path.base && (b === 'decl' || b === 'write' || b === 'type' || b === 'delete')) {
-    faults.push({ end: 'to', why: b === 'type' ? 'type-position' : b === 'delete' ? 'delete-position' : 'write-position' });
-  }
+  // A spelling mismatch (the span's identifier is not the claimed base) proves nothing: the
+  // producer's alias twins carry the alias variable's span for a def of the base. It is
+  // UNDECIDED. A role or position fault at an endpoint spelled as claimed is a proof, WRONG
+  // unless another occurrence of the base on that line could serve the role.
   const point = { from: { node: left, wire: from, base: from.path.base }, to: { node: right, wire: to, base: to.path.base } };
   const served = end => neighbour(ts, point[end].node, point[end].wire.line, candidate =>
     ts.isIdentifier(candidate) && candidate.text === point[end].base && needed[end].includes(role(ts, candidate)));
-  if (faults.length) {
-    const proved = faults.find(fault => !served(fault.end));
-    return proved ? result('WRONG', proved.why) : result('UNDECIDED', 'endpoint-coordinate-off');
+  const faults = [];
+  const mismatched = [];
+  if (left.text !== from.path.base) mismatched.push('from');
+  else if (a === 'read' || a === 'type' || a === 'delete') faults.push({ end: 'from', why: 'not-a-definition' });
+  if (right.text !== to.path.base) mismatched.push('to');
+  else if (b === 'decl' || b === 'write' || b === 'type' || b === 'delete') {
+    faults.push({ end: 'to', why: b === 'type' ? 'type-position' : b === 'delete' ? 'delete-position' : 'write-position' });
+  }
+  const proved = faults.find(fault => !served(fault.end));
+  if (proved) return result('WRONG', proved.why);
+  if (faults.length || mismatched.length) {
+    // The neighbour reason comes first when any faulted or mismatched endpoint has one.
+    const off = faults.length || mismatched.some(served);
+    return result('UNDECIDED', off ? 'endpoint-coordinate-off' : 'endpoint-spelling-mismatch');
   }
   const source = declaration(ts, checker, left);
   const read = declaration(ts, checker, right);

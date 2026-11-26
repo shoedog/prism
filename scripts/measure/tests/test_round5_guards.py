@@ -44,12 +44,23 @@ class CoordinateRule(unittest.TestCase):
             self.assertGreater(same_from_same_line[0]["key"]["to"]["start_byte"],
                                key["to"]["start_byte"])
 
-    def test_the_class_b_shapes_stay_wrong_beside_a_control(self):
+    def test_the_class_b_shapes_are_spelling_mismatch_undecided_beside_a_control(self):
+        # The from-span is an identifier X assigned from the claimed base: the producer's alias
+        # twin carries X's span, so the oracle cannot call the edge wrong.
         rows_ = rows("lexical-coordinate")
-        self.assertEqual(len(of(rows_, "wrong36-b.ts", "WRONG")), 4)
-        self.assertEqual(of(rows_, "wrong36-b.ts", "UNDECIDED"), [])
+        mismatch = of(rows_, "wrong36-b.ts", "UNDECIDED")
+        self.assertEqual(len(mismatch), 4)
+        self.assertTrue(all(r["why"] == "endpoint-spelling-mismatch" for r in mismatch))
+        self.assertEqual(of(rows_, "wrong36-b.ts", "WRONG"), [])
         control, = of(rows_, "wrong36-b.ts", "CORRECT")
         self.assertEqual(control["key"]["from"]["base"], control["key"]["to"]["base"])
+
+    def test_write_targets_spelled_as_claimed_stay_wrong_beside_a_read_control(self):
+        # Express blob.ts `(objectURL = ..)` and bounds.ts `t1 = t2 = ..`: the span is exactly
+        # the assignment target and no read of it is on the line.
+        rows_ = rows("lexical-coordinate")
+        self.assertEqual(len(of(rows_, "wrong-write.ts", "WRONG")), 2)
+        self.assertEqual(len(of(rows_, "wrong-write.ts", "CORRECT")), 2)
 
     def test_one_line_a_shape_and_both_endpoint_faults_have_each_outcome(self):
         rows_ = rows("lexical-coordinate")
@@ -85,10 +96,11 @@ class CoordinateRule(unittest.TestCase):
 class RuleText(unittest.TestCase):
     def test_readme_states_the_rule_the_certificate_forms_and_the_formats_exception(self):
         text = " ".join(README.read_text().split())
-        for phrase in ("WRONG is returned only when the oracle has proved a different binding or "
-                       "position for an endpoint it located at exact identifier bytes AND no other "
-                       "occurrence of the claimed base name",
-                       "UNDECIDED `endpoint-coordinate-off`, never WRONG",
+        for phrase in ("WRONG is returned only for a proved position, role or declaration fault "
+                       "at an endpoint spelled as claimed at exact identifier bytes",
+                       "UNDECIDED `endpoint-coordinate-off`.",
+                       "UNDECIDED `endpoint-spelling-mismatch`, never WRONG",
+                       "alias twins carry the alias variable's span",
                        "a different name at exactly the proved formal's bytes, and a signature formal of an overload",
                        "a `delete o.m` operand is not a read".capitalize(),
                        "`N = {..}` replaces every member",
