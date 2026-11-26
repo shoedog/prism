@@ -240,8 +240,8 @@ struct Tree {
     feasible: bool,
     types: u8,
     shape: Option<FieldShape>,
-    type_from_declaration: bool,
-    item_type_from_declaration: bool,
+    type_stopped: bool,
+    item_type_stopped: bool,
     field_definitions: BTreeSet<DefinitionId>,
     declaration_only: bool,
     uncertain_presence: bool,
@@ -268,8 +268,8 @@ impl Tree {
         self.sites.extend(other.sites);
         self.field_definitions.extend(other.field_definitions);
         self.types |= other.types;
-        self.type_from_declaration |= other.type_from_declaration;
-        self.item_type_from_declaration |= other.item_type_from_declaration;
+        self.type_stopped |= other.type_stopped;
+        self.item_type_stopped |= other.item_type_stopped;
         match (&mut self.shape, other.shape) {
             (Some(a), Some(b)) => {
                 merge_property(&mut a.field_type, b.field_type);
@@ -366,11 +366,8 @@ impl Tree {
         }
         if let Some(shape) = self.shape {
             if matches!(pointer.last(), Some(PointerToken::Property(_))) {
-                if self.item_type_from_declaration {
-                    result
-                        .evidence
-                        .item_types_from_declaration
-                        .insert(pointer.clone());
+                if self.item_type_stopped {
+                    result.evidence.stopped_item_types.insert(pointer.clone());
                 }
                 let field = Field {
                     id: FieldId::new(root.clone(), pointer.clone()),
@@ -465,8 +462,8 @@ impl<'r, 'a> Reader<'r, 'a> {
             .retain(|token, _| !result.children.contains_key(token));
         if result.shape.is_some() {
             impossible.shape = None;
-            impossible.type_from_declaration = false;
-            impossible.item_type_from_declaration = false;
+            impossible.type_stopped = false;
+            impossible.item_type_stopped = false;
             impossible.declaration_only = false;
         }
         result.merge(impossible);
@@ -504,6 +501,7 @@ impl<'r, 'a> Reader<'r, 'a> {
         let (mut types, mut field_type) = constraints::types(nodes, self.dialect);
         let multi_type = matches!(&field_type, Property::Known(names) if names.len() > 1);
         let blocked = observed || tree.stops.iter().any(|stop| stop.1 != Effect::Notice);
+        tree.type_stopped = edge.list_item && blocked;
         let feasibility = constraints::feasible(nodes, types, self.dialect);
         if !blocked && feasibility.unknown {
             tree.stops
@@ -539,8 +537,6 @@ impl<'r, 'a> Reader<'r, 'a> {
                 Property::BranchDependent
             };
         }
-        tree.type_from_declaration =
-            edge.list_item && blocked && matches!(field_type, Property::Known(_));
         tree.feasible = !blocked && types & feasibility.witnesses != 0;
         tree.types = types;
         let empty_enum = nodes.iter().any(|node| {

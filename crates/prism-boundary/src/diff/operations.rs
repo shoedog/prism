@@ -20,11 +20,18 @@ struct Side<'a> {
 }
 
 struct Gap {
+    source: GapSource,
     method: Option<String>,
     paths: Option<Vec<CanonicalPath>>,
     sites: Vec<SchemaSite>,
     producer_sites: Vec<ProducerSite>,
     reason: &'static str,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum GapSource {
+    Schema,
+    Producer,
 }
 
 impl<'a> Side<'a> {
@@ -59,6 +66,7 @@ impl<'a> Side<'a> {
                     .is_none_or(|paths| paths.iter().any(|path| in_scope(path, scope)))
                 {
                     gaps.push(Gap {
+                        source: GapSource::Schema,
                         method: gap.method.clone(),
                         paths: gap.paths.clone(),
                         sites: diagnostic_sites(&gap.diagnostic),
@@ -83,6 +91,7 @@ impl<'a> Side<'a> {
                         "producer_evidence_unbound"
                     };
                     gaps.push(Gap {
+                        source: GapSource::Producer,
                         method: Some(op.operation.method().into()),
                         paths: None,
                         sites: Vec::new(),
@@ -142,6 +151,7 @@ impl<'a> Side<'a> {
                 "document" | "paths" | "path_item" | "server" => {
                     let method = diagnostic_method(diagnostic);
                     self.gaps.push(Gap {
+                        source: GapSource::Schema,
                         sites: diagnostic_sites(diagnostic),
                         producer_sites: Vec::new(),
                         reason: diagnostic.code,
@@ -289,6 +299,13 @@ fn compare_operation<'a>(
             })
             .collect::<Vec<_>>()
     });
+    let schema_gaps = gaps
+        .each_ref()
+        .map(|gaps| gaps.iter().any(|(_, gap)| gap.source == GapSource::Schema));
+    let producer_gaps = gaps.each_ref().map(|gaps| {
+        gaps.iter()
+            .any(|(_, gap)| gap.source == GapSource::Producer)
+    });
     let unbound = [0, 1].map(|i| {
         matches!(entries[i].producers.as_slice(), [op]
             if !producer::evidence_bound(&op.declaration.sites, sides[i].bound.basis.tree))
@@ -305,6 +322,7 @@ fn compare_operation<'a>(
                     .producer
                     .is_some_and(|inventory| inventory.coverage != Coverage::Withheld)
         };
+        let schema_only = side.bound.schema.is_some() && schemas[1 - i].is_some();
         let checked = (side.bound.schema.is_some()
             || side.bound.producer.is_some_and(|inventory| {
                 entries[i].producers.is_empty()
@@ -312,7 +330,8 @@ fn compare_operation<'a>(
                     && (matches!(inventory.basis.scope, ComparisonScope::Api)
                         || paths[1 - i].is_some_and(|path| in_scope(path, &inventory.basis.scope)))
             }))
-            && gaps[i].is_empty()
+            && !schema_gaps[i]
+            && (schema_only || !producer_gaps[i])
             && entries[i].producers.len() <= 1;
         if present && typed[i] && !mismatched {
             ElementPresence::present(ElementId::Operation(id.clone()))
@@ -441,7 +460,7 @@ fn compare_operation<'a>(
     };
     if let Some((i, kind)) = whole {
         let mut evidence = evidence;
-        if let Some(op) = schemas[i].filter(|_| gaps[i].is_empty()) {
+        if let Some(op) = schemas[i].filter(|_| !schema_gaps[i]) {
             evidence[i].success_keys = status::established_keys(op);
             evidence[i].fields = entries[i].fields.details(op, None);
         }
@@ -453,7 +472,7 @@ fn compare_operation<'a>(
         .all(|side| side.presence == Presence::Present)
     {
         if let [Some(b), Some(a)] = schemas {
-            if gaps.iter().all(Vec::is_empty) {
+            if schema_gaps == [false; 2] {
                 status::compare(diff, ledger, [b, a], entries.map(|entry| &entry.fields));
             }
         }

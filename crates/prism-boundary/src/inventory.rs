@@ -146,7 +146,7 @@ pub struct MessageCoverage {
 pub(crate) struct WireEvidence {
     pub blocks: Vec<FieldBlock>,
     pub declaration_only: BTreeSet<Vec<PointerToken>>,
-    pub item_types_from_declaration: BTreeSet<Vec<PointerToken>>,
+    pub stopped_item_types: BTreeSet<Vec<PointerToken>>,
     pub empty_projection_with_unproved_media: bool,
 }
 

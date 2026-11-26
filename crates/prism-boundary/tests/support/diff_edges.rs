@@ -332,6 +332,36 @@ fn a_requested_producer_slot_preserves_independent_schema_changes() {
 }
 
 #[test]
+fn fold2_scoped_schema_status_survives_a_producer_gap() {
+    let config = json!({"authority": "route_table"});
+    let old_schema = br#"{"openapi":"3.1.0","paths":{"/kiln":{"get":{"responses":{"200":{"description":"ok"}}}}}}"#;
+    let new_schema = br#"{"openapi":"3.1.0","paths":{"/kiln":{"get":{"responses":{"200":{"description":"ok"},"204":{"description":"no body"}}}}}}"#;
+    let before = schema(old_schema, "test-api", &config, 0);
+    let after = schema(new_schema, "test-api", &config, 1);
+    let checked = json!({"fixture": "producer/baseline.json", "producer": true, "scope": "/kiln"});
+    let withheld = json!({"fixture": "producer/baseline.json", "producer": true, "scope": "/kiln", "declaration_withheld": "route_unreadable"});
+    let after_producer = Input::load(&checked, 1);
+    let compare = |config| {
+        let before_producer = Input::load(config, 0);
+        let before = DiffSide {
+            schema: Some(&before),
+            ..before_producer.side()
+        };
+        let after = DiffSide {
+            schema: Some(&after),
+            ..after_producer.side()
+        };
+        kinds(&diff_boundary(&before, &after).unwrap())
+    };
+    assert_eq!(compare(&checked), [ChangeKind::SuccessStatusAdded]);
+    assert_eq!(
+        compare(&withheld),
+        [ChangeKind::SuccessStatusAdded],
+        "a withheld producer declaration leaves checked schema status evidence intact"
+    );
+}
+
+#[test]
 fn producer_facts_require_the_schema_operations_typed_path() {
     let old = json!({"fixture": "producer/baseline.json", "producer": true});
     let new = json!({"fixture": "producer/retarget.json", "producer": true});

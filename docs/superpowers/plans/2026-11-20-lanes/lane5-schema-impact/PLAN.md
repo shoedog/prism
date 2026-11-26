@@ -662,9 +662,11 @@ pub enum ChangeKind {
 A schema reader produces the applicable operation/status/field variants. The producer diff can add the
 retained-edit variants when both source records exist. A client change is recorded separately as call
 added/removed/retargeted or a one-sided observation with correspondence unknown. Preserve both sides of a mixed
-enum change. Success-key rows include bodyless declarations. Group a replacement that DESIGN §5.1's pairing rule proves unique for body diffing
-by relative path and suppress child churn caused only by the root move. For ambiguous or overlapping ranges retain
-the separate status rows and mark body comparison unchecked. An op addition/removal owns its field details.
+enum change. Emit independent added and removed success-key rows, including bodyless declarations.
+Group those rows as a status change only when DESIGN §5.1 proves exactly one outgoing and one incoming
+root with equivalent JSON media. Compare their fields by relative path, retain both status-bearing IDs,
+and emit no child edits for a root move alone. If §5.1 blocks pairing, retain the separate status rows
+and record why body comparison was unchecked. An operation addition or removal owns its field details.
 
 **Tests and gate**
 

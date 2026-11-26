@@ -241,10 +241,17 @@ def check_p1c_rows():
     fold1 = {row_id for row_id, (_, row) in rows.items() if row["class"] == "fold1"}
     if len(fold1) != 15 or any(not row_id.startswith("fold1-") for row_id in fold1):
         raise ValueError(f"p1c_rows: unexpected fold1 rows {sorted(fold1)}")
-    variants = sum(counts.values()) - counts["control"] - len(minimum) - len(fold1)
+    fold2 = {row_id for row_id, (_, row) in rows.items() if row["class"] == "fold2"}
+    if fold2 != {
+        "fold2-item-type-missing-stop", "fold2-json-scalar-to-object",
+        "fold2-server-document-checked", "fold2-unproved-scalar-to-object",
+    }:
+        raise ValueError(f"p1c_rows: unexpected fold2 rows {sorted(fold2)}")
+    variants = sum(counts.values()) - counts["control"] - len(minimum) - len(fold1) - len(fold2)
     print(f"p1c_rows: {counts['control']} controls, "
           f"{len(minimum)} minimum assertions and {variants} variants — OK")
     print(f"p1c_rows: {len(fold1)} fold1 rows — OK")
+    print(f"p1c_rows: {len(fold2)} fold2 rows — OK")
 
 
 def main():

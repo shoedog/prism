@@ -400,7 +400,7 @@
     "clause": "DESIGN \u00a75.1 Element diff and checked field presence",
     "inputs": [{"fixture": "fold1/json-object-200.json"}, {"fixture": "fold1/scalar-200.json"}],
     "changes": [],
-    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "media_unverified", "pointer": "/x", "presence": [["field:resp:GET /loom:200#/x", "Present"], [null, "Unknown"]]}],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Coverage", "reason": "media_unverified"}, {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "media_unverified", "pointer": "/x", "presence": [["field:resp:GET /loom:200#/x", "Present"], [null, "Unknown"]]}],
     "controls": ["fold1-media-scalar-field-json"]
   },
   "fold1-media-scalar-field-json": {
@@ -415,7 +415,7 @@
     "clause": "DESIGN \u00a75.1 JSON media and response-root pairing",
     "inputs": [{"fixture": "fold1/scalar-200.json"}, {"fixture": "fold1/scalar-201.json"}],
     "changes": [{"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]}, {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}],
-    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "RootPairing", "reason": "media_unverified"}, {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "RootPairing", "reason": "media_unverified"}],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "Coverage", "reason": "media_unverified"}, {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "Coverage", "reason": "media_unverified"}, {"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "RootPairing", "reason": "media_unverified"}, {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "RootPairing", "reason": "media_unverified"}],
     "controls": ["fold1-media-scalar-pair-json"]
   },
   "fold1-media-scalar-pair-json": {
@@ -505,7 +505,40 @@
     "inputs": [{"fixture": "fold1/server-gap-before.json"}, {"fixture": "fold1/server-gap-after.json"}],
     "changes": [],
     "limits": [{"side": "Before", "scope": "op:GET /loom", "claim": "Coverage", "reason": "server_url_unchecked"}, {"side": "Before", "scope": "op:POST /other", "claim": "Coverage", "reason": "server_url_unchecked"}],
-    "controls": ["s5"]
+    "controls": ["s5", "fold2-server-document-checked"]
+  },
+  "fold2-item-type-missing-stop": {
+    "case": "A stopped item has unavailable type authority even when its signed item type is Missing",
+    "clause": "DESIGN §5.1 Element diff and §5.6 signed shape slots",
+    "inputs": [{"fixture": "fold2/items-integer.json", "slots": {"field:resp:GET /loom:200#/x": {"item_type": "integer"}}}, {"fixture": "fold2/items-double-not.json", "slots": {"field:resp:GET /loom:200#/x": {"item_type": "missing"}}}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "unsupported_schema_keyword", "pointer": "/x/[]"}, {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Property(ItemType)", "reason": "unsupported_schema_keyword", "pointer": "/x"}],
+    "reverse": true,
+    "controls": ["control-field-items-only"]
+  },
+  "fold2-unproved-scalar-to-object": {
+    "case": "Both sides count unproved media coverage for a retained scalar-to-object response",
+    "clause": "DESIGN §5.1 Element diff and checked field presence",
+    "inputs": [{"fixture": "fold1/scalar-200.json", "fields": [], "observed": []}, {"fixture": "fold2/object-200.json", "fields": [], "observed": ["field:resp:GET /loom:200#/x"]}],
+    "changes": [],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "Coverage", "reason": "media_unverified"}, {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Coverage", "reason": "media_unverified"}],
+    "reverse": true,
+    "controls": ["fold2-json-scalar-to-object"]
+  },
+  "fold2-json-scalar-to-object": {
+    "case": "Proved JSON establishes the field addition on the same scalar-to-object edit",
+    "clause": "DESIGN §5.1 Element diff and checked field presence",
+    "inputs": [{"fixture": "fold1/json-scalar-200.json"}, {"fixture": "fold1/json-object-200.json"}],
+    "changes": [{"kinds": ["FieldAdded"], "before": [null, "Absent"], "after": ["field:resp:GET /loom:200#/x", "Present"]}],
+    "limits": [],
+    "reverse": true
+  },
+  "fold2-server-document-checked": {
+    "case": "Removing the malformed document server exposes the retained POST status edit",
+    "clause": "DESIGN §5.2 incomplete operation scopes",
+    "inputs": [{"fixture": "fold2/server-checked-before.json"}, {"fixture": "fold1/server-gap-after.json"}],
+    "changes": [{"kinds": ["SuccessStatusRemoved"], "before": ["status:POST /other:201", "Present"], "after": [null, "Absent"]}, {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:POST /other:202", "Present"]}],
+    "limits": []
   },
   "n1": {
     "case": "A rename also preserves checked wire paths under admitted Swagger media proof", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and DESIGN §5.1 definition identity",

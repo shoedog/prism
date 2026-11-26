@@ -96,7 +96,7 @@ pub(super) fn shape_changes(
     if item_type_changed {
         let pointer = &fields[0].id.pointer;
         for (root, side) in roots.iter().zip(SIDES) {
-            if root.item_type_from_declaration(pointer) {
+            if root.item_type_stopped(pointer) {
                 root.limit(
                     side,
                     ledger,

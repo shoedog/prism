@@ -107,9 +107,12 @@ root, and typed path. The signature tuple records five facts about the field.
 - Immediate homogeneous list-item type or type set
 
 Each slot records a known fact, missing fact, branch dependence, or unknown
-fact. The value-level constraints outside the signature are `minimum`,
+fact. In a type slot, `Missing` means the schema was declared without a type
+keyword and leaves the type unconstrained. `Known` → `Missing` records a loss
+of typing evidence. The value-level constraints outside the signature are `minimum`,
 `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`, `minLength`,
-`maxLength`, `pattern`, `minItems`, `maxItems`, `uniqueItems`, and `const`.
+`maxLength`, `pattern`, `minItems`, `maxItems`, `uniqueItems`, `minProperties`,
+`maxProperties`, and `const`.
 `enum` and `format` are unsigned on unnamed list items and map values, and
 where a named field's slot cannot carry the effective value, such as
 branch-specific values. The reader can use constraints to establish
@@ -125,6 +128,7 @@ to `integer`.
 
 A temporary reader probe collected keywords after reference and `allOf` expansion for each public golden field ID, attributing unnamed item and map-value keywords to the enclosing named field and counting only unsigned `enum` and `format` payloads.
 The same probe counted each (fixture file, field ID) once per keyword across 510 OpenAPI 3.x JSON documents in `p1b_rows` and `ids_matrix`, including comparable and observed fields and the fold-6 pair and control.
+The tables retain the original keyword counts and distinct-field subtotals. `minProperties` and `maxProperties` were excluded from that probe and have not been recounted.
 
 **Public Swagger 2.0 golden**
 
@@ -298,15 +302,17 @@ unestablished comparison basis returns `DiffError`.
   status ownership, and incomparable media leave a scoped limit. Exact keys
   own eligible responses before `2XX`, then `default`. Schema-bearing Swagger
   responses with unproved media remain possible body candidates even when
-  their field inventories are empty. They carry a pairing limit and leave
-  named field absence unknown at retained roots.
+  their field inventories are empty. Each affected root carries standing
+  `media_unverified` coverage, and named field absence remains unknown at
+  retained roots. A replacement that cannot be paired carries a pairing limit.
 - Checked named fields compare presence, type, format, requiredness, scalar
   enum, and immediate list-item type. A readable empty enum retains its
   declaration even when the field has no feasible value. Member deltas
   require two readable lists. Checked empty or absent bodies can establish
-  field presence changes at retained roots. A stop that leaves the differing
-  item-type slot signed from its declaration yields a side-local `ItemType`
-  limit. Independently comparable slots still report edits.
+  field presence changes at retained roots. If the reader stops at an item
+  schema, a differing item-type slot yields a side-local `ItemType` limit
+  whether it signs `Known` or `Missing`. Independently comparable slots still
+  report edits.
 - An authored request excluded by its dialect carries a side-local
   `request_dialect_excluded` coverage limit, including when both revisions
   have no projected request message.
@@ -315,7 +321,8 @@ unestablished comparison basis returns `DiffError`.
   site or changing an alias to the same endpoint leaves those facts equal.
 - Producer-only operation presence requires declaration sites bound to the
   inventory tree. Under a path prefix, an unavailable declaration path
-  leaves a method-wide `producer_operation_unscoped` gap. At API scope, a
+  leaves a method-wide `producer_operation_unscoped` gap for producer-backed
+  claims. Checked schema facts remain comparable. At API scope, a
   bound `Checked(None)` declaration counts as operation presence, and a
   transition between `Checked(None)` and `Checked(Some(...))` emits
   `RouteDeclarationChanged`. Changing only a capture name also emits
@@ -330,9 +337,10 @@ projections leave the structural changes empty. Value-only narrowing or
 widening, unsigned union `const` edits, and unsigned item or map facts stay
 silent when the signed projection is unchanged.
 
-A document-level server diagnostic without a method leaves a coverage gap
-for every operation. It can withhold operation absence and suspend status
-and field comparison for retained operations.
+Known limit `fold1-server-document-gap` records that a malformed document-level
+server list gaps every method, including operations with their own server
+lists. This only costs recall by withholding operation absence or suppressing
+otherwise supported status and field edits.
 
 The following P1c rows use `subset_limits`. They assert the listed limits
 and leave extra limits unasserted.

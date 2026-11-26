@@ -101,9 +101,9 @@ impl<'r, 'a> Root<'r, 'a> {
             .is_some_and(|wire| wire.declaration_only.contains(pointer))
     }
 
-    pub(super) fn item_type_from_declaration(&self, pointer: &[PointerToken]) -> bool {
+    pub(super) fn item_type_stopped(&self, pointer: &[PointerToken]) -> bool {
         self.wire
-            .is_some_and(|wire| wire.item_types_from_declaration.contains(pointer))
+            .is_some_and(|wire| wire.stopped_item_types.contains(pointer))
     }
 
     pub(in crate::diff) fn empty_projection_with_unproved_media(&self) -> bool {
@@ -141,6 +141,16 @@ impl<'r, 'a> Root<'r, 'a> {
 
     fn standing(&self, side: ComparisonSide, ledger: &mut Ledger) {
         let Some(message) = self.message else { return };
+        if self.empty_projection_with_unproved_media() {
+            self.limit(
+                side,
+                ledger,
+                &[],
+                ComparisonClaim::Coverage,
+                "media_unverified",
+                None,
+            );
+        }
         for region in &message.limits {
             let blocked = self
                 .blocks()

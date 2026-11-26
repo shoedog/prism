@@ -61,6 +61,10 @@ fold1-producer-unbound	fixtures/producer/baseline.json		producer_evidence_unboun
 fold1-request-authored-excluded	fixtures/wire/string.json		request_dialect_excluded	rule	fold1
 fold1-request-eligible	fixtures/wire/string.json	field:req:GET /loom#/x		rule	fold1
 fold1-server-document-gap	fixtures/fold1/server-gap-before.json		server_url_unchecked	rule	fold1
+fold2-item-type-missing-stop	fixtures/fold2/items-integer.json		unsupported_schema_keyword	rule	fold2
+fold2-json-scalar-to-object	fixtures/fold1/json-scalar-200.json	field:resp:GET /loom:200#/x		rule	fold2
+fold2-server-document-checked	fixtures/fold2/server-checked-before.json			rule	fold2
+fold2-unproved-scalar-to-object	fixtures/fold1/scalar-200.json		media_unverified	rule	fold2
 formatting-only	fixtures/control-formatting-only/before.json			rule	control
 n1	fixtures/control-definition-rename/before.json			rule	neutral
 n2	fixtures/neutral/union-before.json			rule	neutral
