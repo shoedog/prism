@@ -26,6 +26,9 @@ KIT = MEASURE / "oracle"
 TREE_PIN = "7e02162c902e5c29ec19fefc573ad55b8ed15fcbda940e737f297c53e9c41f54"
 MATRIX_ROWS = {row["id"]: row for row in read_jsonl(MATRIX / "rows.jsonl")
                if row["group"] == "oracle"}
+BOUNDARY_REASONS = {"structured-path", "type-only-declaration", "slot-unproved", "ambiguous-dispatch",
+                    "external-callable", "target-id-unproved", "endpoint-coordinate-off",
+                    "endpoint-spelling-mismatch", "delete-operand"}
 DECISIONS = {"oracle-027": [], "oracle-029": ["WRONG"], "oracle-032": ["WRONG"],
              "oracle-034": ["UNDECIDED"]}
 
@@ -346,10 +349,16 @@ if (!row.expected_verdict) {
                                  {"site": dict(file="cases.ts", line=23, start_byte=463, end_byte=470),
                                   "target": dict(file="cases.ts", name="sameB", start_line=22, end_line=22)})
         else:
-            self.assertEqual(Counter(json.dumps((v["key"], v["verdict"]), sort_keys=True)
+            truth_why = {json.dumps(v["key"], sort_keys=True): v.get("why") for v in truth["verdicts"]}
+
+            def shape(row, why):
+                # A truth `why` naming a section-4 boundary is compared literally.
+                return json.dumps((row["key"], row["verdict"],
+                                   why if why in BOUNDARY_REASONS else None), sort_keys=True)
+            self.assertEqual(Counter(shape(v, v["why"] if truth_why.get(json.dumps(v["key"], sort_keys=True))
+                                           in BOUNDARY_REASONS else None)
                                      for v in verdicts),
-                             Counter(json.dumps((v["key"], v["verdict"]), sort_keys=True)
-                                     for v in truth["verdicts"]))
+                             Counter(shape(v, v.get("why")) for v in truth["verdicts"]))
         self.assertTrue(all(v["why"].strip() for v in verdicts))
         deltas = self.out / "deltas.jsonl"
         if "delta_count" in truth:

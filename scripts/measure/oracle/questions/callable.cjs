@@ -31,46 +31,33 @@ function memberName(ts, expression) {
   return key && (ts.isStringLiteral(key) || ts.isNoSubstitutionTemplateLiteral(key)) ? key.text : null;
 }
 
-// What the analysed sources write: member names (`x.name = ..`, `x['name'] = ..`,
-// `delete x.name`, destructuring-assignment leaves, `for (x.name of ..)`) and identifier
-// symbols (assignment, update, destructuring and loop-head targets). A written member or
-// symbol may hold a callable other than its declaration. A member written on the global
-// object (`globalThis.f = ..`, `window.f`, `self.f`, `global.f`, `this.f`, or a variable
-// initialised from one of those, chains of eight) is also recorded apart: it replaces a
-// top-level function of a non-module script. Computed keys, Object.assign and reflective
-// writes are outside the model (README accept-list).
+// What the analysed sources write: member names on ANY receiver (`x.name = ..`,
+// `x['name'] = ..`, `this.name = ..`, `delete x.name`, destructuring-assignment leaves,
+// `for (x.name of ..)`), identifier symbols and identifier NAMES (assignment, update,
+// destructuring and loop-head targets). A written member or symbol may hold a callable
+// other than its declaration. The names are matched across every analysed file by spelling,
+// so a global object reached through any form (a parameter, a later assignment, a nested
+// property) is covered by the member name it writes. Computed keys, Object.assign and
+// reflective writes are outside the model (README accept-list).
 const writeIndex = new WeakMap();
-const globalNames = new Set(['globalThis', 'window', 'self', 'global']);
 
 function writes(context) {
   const { ts, program, checker } = context.public;
   if (writeIndex.has(program)) return writeIndex.get(program);
   const members = new Set();
   const symbols = new Set();
-  const globals = new Set();
+  const names = new Set();
   const root = program.getCurrentDirectory() + path.sep;
-  function globalObject(node, depth = 0) {
-    node = strip(ts, unwrap(ts, node));
-    if (!node || depth > maxDepth) return false;
-    if (node.kind === ts.SyntaxKind.ThisKeyword) return true;
-    if (!ts.isIdentifier(node)) return false;
-    if (globalNames.has(node.text)) return true;
-    const symbol = checker.getSymbolAtLocation(node);
-    return Boolean(symbol?.declarations?.some(declaration => ts.isVariableDeclaration(declaration)
-      && declaration.initializer && globalObject(declaration.initializer, depth + 1)));
-  }
   function target(node) {
     node = unwrap(ts, node);
     if (!node) return;
     if (ts.isIdentifier(node)) {
+      names.add(node.text);
       const symbol = checker.getSymbolAtLocation(node);
       if (symbol) symbols.add(symbol);
     } else if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
       const name = memberName(ts, node);
-      if (name !== null) {
-        members.add(name);
-        if (globalObject(node.expression)) globals.add(name);
-      }
+      if (name !== null) members.add(name);
     } else if (ts.isArrayLiteralExpression(node)) {
       for (const element of node.elements) target(ts.isSpreadElement(element) ? element.expression : element);
     } else if (ts.isObjectLiteralExpression(node)) {
@@ -78,6 +65,7 @@ function writes(context) {
         if (ts.isPropertyAssignment(property)) target(property.initializer);
         else if (ts.isSpreadAssignment(property)) target(property.expression);
         else if (ts.isShorthandPropertyAssignment(property)) {
+          names.add(property.name.text);
           const symbol = checker.getShorthandAssignmentValueSymbol(property);
           if (symbol) symbols.add(symbol);
         }
@@ -97,12 +85,49 @@ function writes(context) {
         && !ts.isVariableDeclarationList(node.initializer)) target(node.initializer);
     ts.forEachChild(node, visit);
   }
+  const scripts = [];
   for (const sf of program.getSourceFiles()) {
-    if (!sf.isDeclarationFile && sf.fileName.startsWith(root)) visit(sf);
+    if (sf.isDeclarationFile || !sf.fileName.startsWith(root)) continue;
+    visit(sf);
+    if (!ts.isExternalModule(sf) && !sf.commonJsModuleIndicator) scripts.push(sf);
   }
-  const index = { members, symbols, globals };
+  const index = { members, symbols, names, scripts };
   writeIndex.set(program, index);
   return index;
+}
+
+// The declarations of `name` made by var, let, const, function, class, namespace or enum
+// anywhere in `container`, without entering nested functions.
+function declaredIn(ts, container, name) {
+  const found = [];
+  function binds(pattern) {
+    if (ts.isIdentifier(pattern)) return pattern.text === name;
+    return pattern.elements.some(element => !ts.isOmittedExpression(element) && binds(element.name));
+  }
+  function visit(node) {
+    if (node !== container && (ts.isFunctionLike(node) || ts.isClassStaticBlockDeclaration(node))) {
+      // The declaration of a nested function is a declaration of its own name here.
+      if (ts.isFunctionDeclaration(node) && node.name?.text === name) found.push(node);
+      return;
+    }
+    if (ts.isVariableDeclaration(node) && binds(node.name)) found.push(node);
+    else if ((ts.isClassDeclaration(node) || ts.isModuleDeclaration(node) || ts.isEnumDeclaration(node))
+        && node.name?.text === name) found.push(node);
+    ts.forEachChild(node, visit);
+  }
+  visit(container);
+  return found;
+}
+
+// Closed world for the global scope: `name` (a script function, or a namespace the script
+// declares) is claimed only when, in every analysed file, it is written by no identifier
+// assignment, no member write on any receiver (`globalThis.name = ..`, `root.name = ..`,
+// `this.name = ..`) and declared in no script file except by the declarations in `own`.
+function globalClosed(context, name, own) {
+  const { ts } = context.public;
+  const index = writes(context);
+  return !index.names.has(name) && !index.members.has(name)
+    && index.scripts.every(sf => declaredIn(ts, sf, name).every(d => own.includes(d)));
 }
 
 function bindingSymbol(ts, checker, expression) {
@@ -333,22 +358,23 @@ function varReassigns(ts, fn) {
 }
 
 // A top-level function of a non-module script is a property of the global object, so a
-// named member write on that object replaces it. A file with module syntax or CommonJS
-// exports is module-local.
+// write by name anywhere in the program may replace it. A file with module syntax or
+// CommonJS exports is module-local.
 function globalBacked(ts, fn) {
   const sf = fn.getSourceFile();
   return fn.parent === sf && !ts.isExternalModule(sf) && !sf.commonJsModuleIndicator;
 }
 
 // The function symbol's declarations are all function declarations (overloads allowed) with
-// exactly one body, and that body is `body`; no assigning `var` of the name and no named
-// global-object write replaces it.
+// exactly one body, and that body is `body`; no assigning `var` of the name in its own var
+// scope replaces it, and a global-scope function is claimed only under the closed world of
+// `globalClosed` (every script file, every receiver).
 function oneFunctionBody(context, declarations, body) {
   const { ts } = context.public;
   if (!declarations.length || !declarations.every(ts.isFunctionDeclaration)) return false;
   const bodies = declarations.filter(d => d.body);
   return bodies.length === 1 && bodies[0] === body && !varReassigns(ts, body)
-    && !(globalBacked(ts, body) && writes(context).globals.has(body.name.text));
+    && (!globalBacked(ts, body) || globalClosed(context, body.name.text, declarations));
 }
 
 // Callee certificate (a): an identifier bound to the body's declaration, or to an
@@ -395,14 +421,20 @@ function receiverProved(context, expression, owner) {
   // Static access through the class value, or a namespace function.
   if (declarations.length === 1 && (ts.isModuleDeclaration(declarations[0])
       || ts.isNamespaceImport(declarations[0]) || ts.isSourceFile(declarations[0]))) {
-    // The receiver must be unwritten (`N = {..}` replaces every member), and the export a
+    // The receiver must be unwritten by name (`N = {..}` replaces every member) and the export a
     // function symbol with exactly one body, which is the owner, however many diagnostics
-    // are suppressed.
+    // are suppressed (the identifier callee rule). The receiver and member names are also
+    // closed over the whole program: no write of either name by any receiver or global
+    // object form, and no other declaration of the receiver name in its scope or in any
+    // script file.
     const exported = bindingSymbol(ts, checker, expression);
-    const written = writes(context).symbols;
-    const raw = checker.getSymbolAtLocation(receiver);
-    if (written.has(symbol) || (raw && written.has(raw))) return null;
-    return ts.isFunctionDeclaration(owner) && exported && !written.has(exported)
+    const index = writes(context);
+    if (index.names.has(receiver.text) || index.members.has(receiver.text) || index.names.has(name)) return null;
+    const own = declarations;
+    const sameFile = declaredIn(ts, receiver.getSourceFile(), receiver.text);
+    if (!sameFile.every(d => own.includes(d)) || !index.scripts.every(sf =>
+      declaredIn(ts, sf, receiver.text).every(d => own.includes(d)))) return null;
+    return ts.isFunctionDeclaration(owner) && exported && !index.symbols.has(exported)
       && oneFunctionBody(context, valueDeclarations(ts, exported), owner) ? { fresh: false } : null;
   }
   const chain = ts.isIdentifier(receiver) && classChain(context, receiver);

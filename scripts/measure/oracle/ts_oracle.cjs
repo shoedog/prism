@@ -123,7 +123,7 @@ function records(bytes) {
 }
 
 const namedBoundary = new Set(['structured-path', 'type-only-declaration', 'slot-unproved',
-  'ambiguous-dispatch', 'external-callable', 'target-id-unproved', 'endpoint-coordinate-off', 'endpoint-spelling-mismatch', fallback]);
+  'ambiguous-dispatch', 'external-callable', 'target-id-unproved', 'endpoint-coordinate-off', 'endpoint-spelling-mismatch', 'delete-operand', fallback]);
 
 function selfcheck(job, ts, question) {
   const permitted = new Map();

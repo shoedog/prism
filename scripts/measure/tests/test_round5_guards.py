@@ -73,11 +73,10 @@ class CoordinateRule(unittest.TestCase):
         for outcome in ("UNDECIDED", "WRONG", "CORRECT"):
             self.assertIn(outcome, {v for *_, v in verdicts})
 
-    def test_delete_is_not_a_read_and_the_reads_around_it_are(self):
+    def test_delete_operands_are_undecided_and_the_void_read_is_correct(self):
         rows_ = rows("lexical-delete")
-        self.assertEqual(sorted(r["verdict"] for r in rows_), ["CORRECT", "CORRECT", "CORRECT", "WRONG"])
-        wrong, = [r for r in rows_ if r["verdict"] == "WRONG"]
-        self.assertEqual(wrong["key"]["to"]["line"], 4)
+        self.assertEqual(sorted(r["verdict"] for r in rows_), ["CORRECT", "CORRECT"] + ["UNDECIDED"] * 5)
+        self.assertTrue(all(r["why"] == "delete-operand" for r in rows_ if r["verdict"] == "UNDECIDED"))
 
     def test_the_argument_slot_follows_the_rule_and_keeps_the_stricter_formats_row(self):
         rows_ = rows("argument-coordinate")
@@ -102,8 +101,8 @@ class RuleText(unittest.TestCase):
                        "UNDECIDED `endpoint-spelling-mismatch`, never WRONG",
                        "alias twins carry the alias variable's span",
                        "a different name at exactly the proved formal's bytes, and a signature formal of an overload",
-                       "a `delete o.m` operand is not a read".capitalize(),
-                       "`N = {..}` replaces every member",
+                                              "`N = {..}` replaces every member",
+                       "Closed global-scope rule",
                        "no `var` binding of its name that assigns in its own var scope",
                        "a computed-name instance field anywhere in the chain counts"):
             self.assertIn(phrase, text)

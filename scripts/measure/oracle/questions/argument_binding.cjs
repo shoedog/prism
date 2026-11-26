@@ -8,7 +8,7 @@ const property = 'implementation-slot';
 const result = (verdict, why = property) => ({ verdict, property, why });
 
 function grade(row, context) {
-  const { ts, program, enclosing_call, node_at_bytes, identifier_at_bytes } = context.public;
+  const { ts, program, checker, enclosing_call, node_at_bytes, identifier_at_bytes } = context.public;
   const { from, to } = row;
   if (from.path.fields.length || to.path.fields.length) return result('UNDECIDED', 'structured-path');
   const call = enclosing_call(from.file, from.start_byte, from.end_byte);
@@ -38,8 +38,8 @@ function grade(row, context) {
   // line in the needed role (from: a read; to: the proved formal itself, which must share
   // the claimed line); otherwise the producer's line-anchored span may have landed on a
   // neighbour, UNDECIDED `endpoint-coordinate-off`. A different name at exactly the
-  // formal's bytes, and a signature formal of an overload, stay WRONG whatever else the
-  // line holds (FORMATS section 4 is stricter there). An endpoint that is not at exact identifier
+  // formal's bytes, and a signature formal of an overload (also on the implementation's own
+  // line), stay WRONG whatever else the line holds (FORMATS section 4 is stricter there). An endpoint that is not at exact identifier
   // bytes is UNDECIDED `identifier-unproved`.
   const status = [];
   const spelled = isIdentifier(ts, actual) ? actual.text : actual.getText();
@@ -53,10 +53,16 @@ function grade(row, context) {
     if (formal.text !== to.path.base) status.push('wrong');
   } else {
     const claimed = identifier_at_bytes(to.file, to.start_byte, to.end_byte);
+    // A formal of an overload signature of the called function is the wrong position
+    // whatever else its line holds, even on the implementation's own line.
+    const siblings = (resolved.body.name && checker.getSymbolAtLocation(resolved.body.name)?.declarations) ?? [];
+    const signatureFormal = claimed && ts.isParameter(claimed.parent) && claimed.parent.name === claimed
+      && claimed.parent.parent !== resolved.body && siblings.includes(claimed.parent.parent);
     if (!claimed) status.push('unproved');
+    else if (signatureFormal) status.push('wrong');
     else {
-      // Only the proved formal itself can serve: a signature formal, or another definition of
-      // the name, is the wrong position FORMATS section 4 (oracle-032, oracle-037) keeps WRONG.
+      // Only the proved formal itself can serve: another definition of the name is the wrong
+      // position FORMATS section 4 (oracle-032, oracle-037) keeps WRONG.
       status.push(formal.text === to.path.base && neighbour(ts, claimed, to.line,
         candidate => candidate === formal) ? 'off' : 'wrong');
     }

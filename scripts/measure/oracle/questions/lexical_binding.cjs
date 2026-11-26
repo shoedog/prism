@@ -66,9 +66,7 @@ function role(ts, identifier) {
       if (!ts.isPropertyAccessExpression(p) || p.name !== node) return 'read';
       continue;
     }
-    // `delete o.m` removes the member and never reads its value (`void o.m` reads it); the
-    // receiver and a computed key are read before this point.
-    if (ts.isDeleteExpression(p) && p.expression === node) return 'delete';
+
     if (ts.isBinaryExpression(p) && p.left === node &&
         p.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
         p.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
@@ -87,6 +85,24 @@ function role(ts, identifier) {
     if (ts.isBinaryExpression(p) && p.right === node) return 'read';
   }
   return 'read';
+}
+
+// An endpoint anywhere inside the operand of a `delete` is graded by no one: `delete o.m`
+// reads nothing of `m`, `delete (c ? x : 0)` evaluates `x`, and a receiver or key is read.
+function insideDelete(ts, node) {
+  for (let p = node.parent; p; p = p.parent) if (ts.isDeleteExpression(p)) return true;
+  return false;
+}
+
+// A declaration that binds a value by its own name (variable, parameter, function, class,
+// import, binding element). A property token (member name, object or pattern key)
+// resolves to a property declaration, which is no binding.
+function valueBinding(ts, declaration) {
+  return ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)
+    || ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration)
+    || ts.isBindingElement(declaration) || ts.isImportClause(declaration)
+    || ts.isImportSpecifier(declaration) || ts.isNamespaceImport(declaration)
+    || ts.isImportEqualsDeclaration(declaration);
 }
 
 function declaration(ts, checker, id) {
@@ -111,6 +127,7 @@ function grade(row, context) {
   const left = identifier_at_bytes(from.file, from.start_byte, from.end_byte);
   const right = identifier_at_bytes(to.file, to.start_byte, to.end_byte);
   if (!left || !right) return result('UNDECIDED', 'identifier-unproved');
+  if (insideDelete(ts, left) || insideDelete(ts, right)) return result('UNDECIDED', 'delete-operand');
   const a = role(ts, left);
   const b = role(ts, right);
   // A spelling mismatch (the span's identifier is not the claimed base) proves nothing: the
@@ -119,14 +136,15 @@ function grade(row, context) {
   // unless another occurrence of the base on that line could serve the role.
   const point = { from: { node: left, wire: from, base: from.path.base }, to: { node: right, wire: to, base: to.path.base } };
   const served = end => neighbour(ts, point[end].node, point[end].wire.line, candidate =>
-    ts.isIdentifier(candidate) && candidate.text === point[end].base && needed[end].includes(role(ts, candidate)));
+    (ts.isIdentifier(candidate) || ts.isPrivateIdentifier(candidate)) && candidate.text === point[end].base
+    && needed[end].includes(role(ts, candidate)));
   const faults = [];
   const mismatched = [];
   if (left.text !== from.path.base) mismatched.push('from');
-  else if (a === 'read' || a === 'type' || a === 'delete') faults.push({ end: 'from', why: 'not-a-definition' });
+  else if (a === 'read' || a === 'type') faults.push({ end: 'from', why: 'not-a-definition' });
   if (right.text !== to.path.base) mismatched.push('to');
-  else if (b === 'decl' || b === 'write' || b === 'type' || b === 'delete') {
-    faults.push({ end: 'to', why: b === 'type' ? 'type-position' : b === 'delete' ? 'delete-position' : 'write-position' });
+  else if (b === 'decl' || b === 'write' || b === 'type') {
+    faults.push({ end: 'to', why: b === 'type' ? 'type-position' : 'write-position' });
   }
   const proved = faults.find(fault => !served(fault.end));
   if (proved) return result('WRONG', proved.why);
@@ -139,8 +157,13 @@ function grade(row, context) {
   const read = declaration(ts, checker, right);
   if (!source || !read) return result('UNDECIDED', 'declaration-unproved');
   if (source === read) return result('CORRECT');
-  // Both endpoints are at exact identifier bytes spelled as the claimed base and resolve to
-  // different declarations: a proved different binding, so no neighbour can rescue it.
+  // Both endpoints at exact identifier bytes spelled as the claimed base and resolving to
+  // different VALUE bindings are a proved different binding, so no neighbour can rescue it.
+  // A property token (member name, object or pattern key) is no binding: its span may be the
+  // line-anchored neighbour of the real one, so a serving neighbour makes it coordinate-off.
+  if (!(valueBinding(ts, source) && valueBinding(ts, read)) && (served('from') || served('to'))) {
+    return result('UNDECIDED', 'endpoint-coordinate-off');
+  }
   return result('WRONG', 'different-declaration');
 }
 

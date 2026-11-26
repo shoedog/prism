@@ -375,10 +375,8 @@ declaration, with no `var` binding of its name that assigns in its own var scope
 (an initializer, a destructuring leaf or a `for..in/of` head; nested functions
 are not searched, and a plain `var f;` assigns nothing), and, when it is a
 top-level function of a non-module script (no module syntax, no CommonJS
-exports: a property of the global object), no member of its name written on the
-global object (`globalThis.f = ..`, `window`, `self`, `global`, `this`, or a
-variable initialised from one of them); or `new X(..)` with `X` a certified
-class whose first constructor is the body;
+exports: a property of the global object), the closed global-scope rule below;
+or `new X(..)` with `X` a certified class whose first constructor is the body;
 (b) a member access with a proved receiver: `super`, a private name, a
 namespace function, a static member through a certified class, an object
 literal that owns the member as one plain property (no spread, no computed
@@ -400,8 +398,24 @@ function (a namespace or namespace import) needs an unwritten namespace
 receiver (`N = {..}` replaces every member), its resolved export symbol never
 written, and exactly one bodied function declaration for the export, which is
 the owner, however many duplicate diagnostics are suppressed (the identifier
-callee rule);
+callee rule), under the same closed global-scope rule;
 (c) an immediately invoked body.
+Closed global-scope rule (amended accept-list, name-based, costs only recall). A
+callable certificate verdict, argument slot or call target through any
+certificate form, for a callee that is (i) a top-level function of a non-module
+script (global-scope backed) or (ii) a namespace or module-namespace member, is
+decided only if, across ALL files of the program and by spelling: the callee
+name and the namespace receiver name occur in no write position (an assignment
+target leaf including destructuring and `for` heads, compound assignment,
+update, `delete`, and a member write on ANY receiver, including `this.f = ..`),
+and no declaration of that name by var, let, const, function, class, namespace
+or enum exists other than the proved declaration (and its overloads) in the same
+scope, or in any other non-module script file. A global object reached through
+any form (`globalThis`, `window`, `self`, `global`, a UMD `(function (root) {
+root.f = .. })(this)` parameter, an alias assigned later, `window.window.f`) is
+covered by the member name it writes. Otherwise UNDECIDED `ambiguous-dispatch`.
+Each reviewer instance is a self-check case (`certificate-fold6`) with its
+UNDECIDED row beside a CORRECT control.
 A decorated member (method, accessor or field, reached statically, through a
 private name or through `super`) is never proved: a member decorator may
 return a replacement and no decorator is accepted as inert, so every
@@ -444,8 +458,11 @@ result or a reassigned `let K = class`, a constructor or base constructor
 that returns a value, a class decorator, a decorated member, a written namespace
 receiver (`N = {..}`), two bodied exports of one name (diagnostics suppressed), a
 function reassigned by a `var` of its name (initializer, destructuring, `for..of`
-head), a script function named by a global-object member write (`gt.f = ..`
-through `const gt = globalThis`), a computed-name instance field in the chain,
+head), a global-scope function or namespace member whose name is written by any
+receiver or declared again in a script file (the closed global-scope rule above:
+`globalThis.N = {..}`, `var N = {..}` replacing a script namespace, a UMD `root`
+parameter, `var gt; gt = globalThis; gt.f = ..`, `window.window.f = ..`, `var f`
+in another script file), a computed-name instance field in the chain,
 a program carrying TS2393, TS2425,
 TS2426, TS2855 or TS2630 in the callee's file or class chain, a write to the
 member through
@@ -457,16 +474,18 @@ of model (see Qualification above).
 
 Lexical binding proves a unique value declaration or write and a read of
 the same binding. Old-value reads in compound/logical assignments and
-updates count as reads. A `delete o.m` operand is not a read (the receiver
-and a computed key are; `void o.m` is). The question does not grade kill order,
+updates count as reads. An endpoint anywhere inside the operand of a `delete`
+(`delete o.m`, `delete o[k]`, `delete (c ? x : 0)`) is UNDECIDED `delete-operand`,
+never WRONG and never CORRECT: `delete o.m` reads nothing of `m`, but the
+receiver, a key and a conditional are evaluated; `void o.m` is a read. The question does not grade kill order,
 reachability or paths with nonempty fields. Source coordinates use LF-only
 physical lines, full UTF-8 byte boundaries and the formal declaration-header
 exception.
 
 WRONG is returned only for a proved position, role or declaration fault at an
 endpoint spelled as claimed at exact identifier bytes. Lexical cases:
-- A role or position fault (source not a definition, destination write, `delete`
-  or type position) is WRONG only when no other occurrence of the claimed base on
+- A role or position fault (source not a definition, destination write or type
+  position) is WRONG only when no other occurrence of the claimed base on
   that endpoint's physical line could serve the role (source: a definition or
   write of the base; destination: a read of it). Otherwise the producer's
   line-anchored span may have landed on a neighbour (the key `app:` in
@@ -481,8 +500,13 @@ endpoint spelled as claimed at exact identifier bytes. Lexical cases:
   first); matrix row oracle-010 (a span on `other` beside a read of `value`) was
   WRONG and is UNDECIDED `endpoint-coordinate-off`.
 - Both endpoints at exact identifier bytes spelled as the claimed base that
-  resolve to different declarations are a proved different binding, WRONG
+  resolve to different VALUE bindings (variable, parameter, function, class,
+  import, binding element by its name) are a proved different binding, WRONG
   `different-declaration`, without a neighbour check (matrix row oracle-007).
+  When either endpoint resolves to a property declaration (a member name, an
+  object or pattern key), it is no binding: a serving neighbour on that line makes
+  it UNDECIDED `endpoint-coordinate-off`, else WRONG. Private names (`#m`) count
+  as occurrences.
 - An endpoint that is not at exact identifier bytes is UNDECIDED
   `identifier-unproved`.
 
@@ -492,7 +516,8 @@ claimed name is nowhere else on that line in the needed role (actual: a read;
 formal: the proved formal itself, which must share the claimed line). FORMATS
 section 4 is stricter in two places and those rules are kept: a different name
 at exactly the proved formal's bytes, and a signature formal of an overload
-(oracle-032, oracle-037), are WRONG whatever else the line holds. Formal bytes
+(oracle-032, oracle-037, also when the overload and its implementation share a
+line), are WRONG whatever else the line holds. Formal bytes
 that are not an identifier are UNDECIDED `identifier-unproved`. Of the 36
 Express WRONG verdicts of the real-use read, 4 were coordinate-off (a key span
 next to the value read) and 32 an alias-twin or other spelling mismatch (the
