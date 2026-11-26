@@ -624,6 +624,8 @@ multi-target calls, and destructured, rest or bare-arrow formals bind nothing. A
 in a declarator initialiser, a condition, a `for-in` head or an `in` test have zero-width base Uses and
 are not fed (known gap).
 
+Element-recall diagnostics (lane 10, #847, stage I0+I1; Python only): with `PRISM_ELEMENT_RECALL_TRACE=1` a cold build writes versioned `element-recall` records to stderr (`src/cpg/reaching/element_recall/`: syntax inventory of value-carrying indexed stores W and whole-operand reads R, physical joins against the final file-wide Def/Use buckets, route phases, binding/storage transfer, caps, `owner` and `prediction` records). It is opt-in and diagnostic: with the variable unset or not `1` no analysis runs, and the graph, stats and review output are byte-identical, there is no cache version or payload change and nothing is published (no edge, no counter); P14 stays RED until I2 publishes. Typed measurement reader: `cargo run --release -p prism --example element_recall_graph -- <repo>` (full typed nodes and edges, arm-neutral, for parent/head differentials). Lane-local scripts in `scripts/subscript_recall/`: `compare.py` (`run`/`zero` arm comparator), `loader_inventory.py` (independent inventory), `admission.py` (prepare/report against the frozen draw), `review_diff.py replay` (seeded review parity: parent vs head default vs trace-on over one-line diff seeds, every DataFlow reader plus `originaldiff`; corpus runs go through `measure`). Publication, review masks and cache persistence are I2.
+
 ### MCP Adapter
 
 > **User-facing install/usage guide:** [`docs/MCP.md`](docs/MCP.md) — `claude mcp add` / Codex / Kiro
