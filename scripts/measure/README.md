@@ -259,3 +259,153 @@ change bag can still pass.
 See [the formats of record](../../docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit/FORMATS.md)
 for the evidence schemas and [R4B](fixtures/repro-4b/README.md) for the
 retained fixture capture and control generator.
+
+## TypeScript oracle
+
+Run the Python commands from `scripts/`.
+
+```text
+python3 -m measure oracle ts-edges (--all | --changes FILE) --run RUN --out DIR
+    [--typescript FILE] [--question FILE] [--relation NAME]
+    [--side base|head] [--kind KIND]... [--class NAME]...
+python3 -m measure oracle ts-calls (--base RUN --head RUN | --census RUN) --out DIR
+    [--typescript FILE] [--question FILE] [--relation NAME]
+    [--target-confidence exact|name_only]... [--target-kind NAME]... [--aggregate-only]
+node measure/oracle/selfcheck.cjs [--typescript FILE] [--question FILE]
+```
+
+TypeScript selection is explicit file, `PRISM_TYPESCRIPT`, then the
+gate-inputs resolver. Supply `lib/typescript.js` from the pinned 5.9.3
+package. The oracle checks both the file and containing package SHA-256
+pins before launching the worker. The worker compiles the verified checker
+bytes and verifies each default library from its actual read. It runs
+inside the 8 GiB memory guard with the §2 host environment allow-list.
+`NODE_OPTIONS` and `NODE_PATH` never reach that worker. When calling the
+small `node` self-check bootstrap directly, the caller controls that
+initial Node process.
+
+The self-check prints and atomically stores its receipt in
+`PRISM_MEASURE_SELFCHECK_DIR`, or `prism/measure/selfcheck` under the XDG
+cache. Grading requires a prior receipt for the complete current input
+key. It replays the goldens in the guarded worker to authenticate that
+they actually pass and records Node and Python versions. Use the same
+versions for both commands. Edited code, unused helpers, data, fixtures or
+qualification evidence requires a new receipt. Keep the question, adjacent
+goldens and declared data in a dedicated directory. Put caches, output,
+gate files, predictions and binary links outside that directory.
+
+The existing Ubuntu measurement CI job discovers these tests. It does not
+install the pinned checker. Real-checker tests skip with
+`pinned TypeScript unavailable via PRISM_TYPESCRIPT or gate-inputs resolver`
+only when both locations are absent. Hermetic protocol and wire tests need
+no compiler. Run these commands from the repository root with the pinned
+install available and a host where the RSS guard can observe Node.
+
+```sh
+python3 -m unittest discover -s scripts/measure -t scripts -p 'test_*.py'
+python3 -m unittest discover -s scripts/memguard -p 'test_*.py'
+node scripts/measure/oracle/selfcheck.cjs --typescript "$PRISM_TYPESCRIPT"
+```
+
+### Accepted inputs and refusals
+
+Records described as closed accept exactly the named keys, with only the
+listed optional keys. Opaque data is allowed only in the free-form
+positions below. Strings and object keys must be Unicode scalars. Integer
+wire values must fit the exact Node integer range. Booleans are separate
+from integers. Digests use lowercase hexadecimal SHA-256. JSON and JSONL
+are strict UTF-8 with unique object keys and no non-finite numbers. JSONL
+uses byte LF delimiters. S1 gzip or plain transport and its stored-byte
+validation apply.
+
+| Accepted input | Shape and use |
+|---|---|
+| Run | Successful S1 `prism.measure.receipt/1` directory with all required artifacts, validated by `receipt.admit`. The receipt and its binary, corpus, prediction, guard, host, options, version command, each analysis command and each guard status use their closed S1 schemas. The closed artifacts map uses the command-derived filenames and closed `{sha256,bytes}` entries. The host environment uses the closed S1 allow-list, each command environment must match its role, and `trace_env` admits string values under allowed `PRISM_*` keys. Check hashes and lengths even for artifacts the oracle does not grade. Only the recorded, still-resolving absolute snapshot path is used. Call arms must satisfy S2 pair admission. |
+| Source | Entire bound §2 snapshot, with regular `.ts,.tsx,.mts,.cts,.js,.jsx,.mjs,.cjs` source files including declarations. The host serves named regular source members and relative in-root resolutions. It omits `.git` and symlink aliases, including paths reached through directory links. A symlink's real target can participate under its own regular in-root name. An authenticated regular non-TS endpoint is out of scope for `ts-edges --all` only, after coordinate checks. The host uses no project config, plugins or external declarations. |
+| Edge row | Free-form object with `from,to,confidence,doubt`, optional consumed `kill_line,relation`. Each endpoint is free-form with relative POSIX `file`, `access=def\|use`, and `line,start_byte,end_byte` integer or null when present. Each `path` is free-form with required string `base` and ordered string `fields`. `confidence=exact\|nameonly`, null `doubt` or a nonblank reason for `nameonly`, and null or positive `kill_line`. Copy original extras, including those on endpoints and paths, to the grade callback and verdict. |
+| Call row | Free-form `call_site` with `caller,source_span,callee_text,origin,resolved_targets,exact_target,drop` and optional `relation`. The free-form span uses relative `file` and optional integer/null `line,start_byte,end_byte`. Caller and target IDs are free-form with relative `file`, nonblank `name`, positive `start_line` and optional null or at-least-start `end_line`. Each target object is free-form with `function_id,confidence` and optional string or null `kind`. Confidence is `exact\|name_only`. `exact_target` is null or a function ID and supplies no claims. `drop` is null or a nonblank string. Keep original extras in the callback and verdict, and include them in full-context cancellation. Free-form `go_level3_b1_candidate` objects are counted separately using just their discriminator. |
+| Change selection | Closed S2 `prism.measure.certificate/1` with the §3 top-level members, verified change stream and both named run receipt hashes. The closed `inputs` map has only `base,head`, each a closed `{run,receipt_sha256}` entry. Free-form `by_class` keys name the allowed classes. Its values and the remaining diagnostic maps and counters are opaque S2 evidence. The closed change row has `id,key,kind,count,base_bag,head_bag,records,class,error`. Each closed key has `from,to`, both closed `{file,line,base,fields,start_byte,end_byte}` endpoints. Each closed bag member has `confidence,doubt,kill_line,from_access,to_access`. Attached `records` are free-form objects passed as part of `ctx.change`. |
+| Filters | Use `base\|head` and S2 kinds `added,removed,label_moved,ambiguous` only with `--changes`. A class name must occur in the certificate. Union repeated values within a filter and intersect filters. Census and call differential default to all kinds at exact confidence. Target kinds are nonblank original wire names. Request `name_only` only with a checked question and explicit relation. A relation is a declared question name, or a built-in name when there is no module. |
+| Question | Closed CommonJS exports with unique nonblank `relations` and synchronous `grade`. The callback receives the original row and a context with `ts,program,checker,relation,arm,target_index,change,identifier_at_bytes,declarations,enclosing_call,node_at_bytes,program_with_default_lib`. The closed result is `verdict,property,why`. Verdict must be CORRECT, WRONG, UNDECIDED or INADMISSIBLE, both strings must be nonblank, and the relation/property pair must occur in the goldens. Passing a different program or a node from another graph to a lookup is an execution error. |
+| Question closure | Recursively hash all regular files under the entry's parent. The entry must be JS or CJS. Computed CommonJS requires resolve only to in-set JS, CJS or JSON and load digest-checked bytes. The worker also provides the pinned checker, the built-ins `assert,assert/strict,buffer,path,path/posix,path/win32,querystring,string_decoder,url,util` and a read-only `node:fs` interface for declared data. `question-data.json` is a free-form map from logical relative names to digests. Its values authorize only those files at those digests. The module is reviewed trusted code subject to the input-closure rule, including any transitive helper and API access. |
+| Self-check | Per-case regular `repo/`, `input.jsonl`, `expected.jsonl`, with optional bound sibling fixtures. Raw wire rows use automatic dispatch. Closed envelopes use `relation,arm,row` and optional `target_index,change`. The change is null or an S2 change for a base/head envelope. The expected row is closed `key,relation,property,verdict` with optional `why`. The closed key is `{from,to}` with the projected edge endpoint keys above, or `{site,target}` with closed `{file,line,start_byte,end_byte}` and `{file,name,start_line,end_line}` projections. Omitted wire values stay omitted in the projection. Every row must agree in output order by canonical key bytes. Named built-in boundaries require the prescribed reason. Each tested grading property has all four verdicts. |
+| Self-check receipt | Closed §4 receipt plus closed `runtime` with Node and Python versions. `components` is the closed five-member key object. Compiler option records have the fixed §4 options. Check schema, key, components, counts, empty failures, and runtime before relying on the result. The worker independently checks the same current goldens. |
+| Qualification | Optional fixed `oracle/qualifications/bundle.json`. Closed bundle with `schema,builds`. The free-form builds map is keyed by executable digest. Each form map is closed to the supported form names, with closed `{path,sha256}` references. The evidence file is a free-form object whose `binary_sha256,form` must match the reference and whose closed `controls` is `{match:"CORRECT",contradiction:"WRONG"}`. Builder-produced evidence also records the source tree, source state, declaration file, receipt and sites digests, the closed label below, and the original free-form call row. Both the bundle and all referenced evidence bytes enter the self-check key. |
+
+The accept-list has 18 refusal classes. A refusal publishes no successful
+receipt or data files. INADMISSIBLE and UNDECIDED are completed grading
+outcomes and can appear on exit 0.
+
+| Exit | Message class | Trigger |
+|---|---|---|
+| 2 | usage | Invalid CLI grammar, option or occupied output. |
+| 2 | run binding | Failed or malformed receipt, absent or altered artifact, invalid transport, incompatible pair. |
+| 2 | wire-json | JSON/type/encoding/number outside the accepted wire representation. |
+| 2 | wire-coordinate | Unsafe relative file or noninteger/non-null coordinate. |
+| 2 | edge-wire | Missing or malformed edge field, role, confidence, doubt or path. |
+| 2 | sites-wire | Missing or malformed site discriminator, caller, function ID, target confidence or kind. |
+| 2 | certificate | Wrong certificate schema, run reference, digest or gate binding. |
+| 2 | changes-wire | Wrong change, key, bag or attached-record shape. |
+| 2 | selector | Unsupported, unrelated, incomplete or impossible arm, relation, class, confidence, kind or residual selection. |
+| 2 | ambiguous-occurrence | An unequal set of original contexts prevents a unique residual assignment. |
+| 2 | source-root | The recorded snapshot cannot be located and bound. |
+| 2 | cancelled-site-coordinate | A raw differential site with no emitted verdict fails source or caller admission. |
+| 3 | checker-pin | Checker path, bytes or tree differ from the pin. |
+| 3 | selfcheck-binding / selfcheck-receipt / selfcheck-runtime | Grading cannot establish a current prior receipt, its inputs or Python runtime. |
+| 1 | selfcheck-schema / selfcheck-coverage / selfcheck-disagreement | Fixture shape, coverage, order, cardinality, expected verdict or cached counts fail. An invalid closure during self-check also exits 1. |
+| 1 | question-closure / question-interface / question-result | Unsupported load/read, module shape, unchecked relation/property pair, result or exception. |
+| 1 | checker-execution / bound-read / source-drift / qualification-control | Guard error, child error, Node runtime mismatch, input drift during execution or a failed qualification control. |
+| 75 | host-quiet | Structured guard refusal before Node launches. A launched child exiting 75 is a checker execution failure. |
+
+### What can be graded
+
+Argument binding proves a whole identifier or primitive literal actual to a
+fixed implementation slot, including compatible overloads, named functions,
+direct functions and immutable arrows, explicit constructors, and proved
+methods and fields. Parentheses, type assertions, non-null assertions and
+`satisfies` preserve an entire actual. Composite expressions, earlier
+spreads, rest slots and destructured formals lack a built-in fixed-slot
+proof. Annotated, ambient and declaration-only callables and unresolved
+or ambiguous receiver origins remain UNDECIDED.
+
+Lexical binding proves a unique value declaration or write and a read of
+the same binding. Old-value reads in compound/logical assignments and
+updates count as reads. The question does not grade kill order, reachability
+or paths with nonempty fields. Source coordinates use LF-only physical
+lines, full UTF-8 byte boundaries and the formal declaration-header
+exception. A wrong spelling at a proved slot is WRONG.
+
+Call target grading supports explicitly named functions and simple
+identifier-named methods whose name and first non-decorator header token
+are on the same line. A matching qualification for its executable digest
+and form is required. Constructor, inferred or anonymous, computed and
+split-header identities remain UNDECIDED. A checked question may establish
+a different property using the source and original record.
+
+`oracle/realuse/repo` supplies a multiline formal, two fixed slots, a
+supplied optional, an explicit inert default, and Unicode with a multiline
+call. `oracle/realuse/truth.jsonl` labels six argument-to-formal bindings and
+twelve lexical def-to-read bindings directly from their source token spans.
+
+Use `measure.oracle.build_qualification(runs, labels, output_dir)` with
+already captured `--sites` run directories. Each closed label has
+`run_index,record_ordinal,target_index,form,declaration,contradiction_line`.
+The closed `declaration` holds `file,name,start_byte,end_byte,line` for
+the source-labelled name token. Forms are `named-function`, `named-method`
+and `decorated-method`. The builder runs the guarded match and wrong-line
+controls before publishing the bundle. It launches no producer. Install
+the reviewed bundle at the fixed kit path and rerun self-check. Synthetic
+test fixture qualification does not qualify an actual product build.
+
+The receipt binds ordered `inputs.runs` entries `{arm,receipt_sha256}`,
+`inputs.runtime`, and `inputs.qualification` as null or `{path,sha256}`.
+Change selections also bind `changes_sha256,certificate_sha256,certificate_result`.
+The closed selection is `{arm,kind,class}` for edges or
+`{arm,target_confidence,target_kind,aggregate_only}` for calls. The
+receipt binds the explicit relation and gate digest/step fields.
+Verdicts sort by canonical UTF-8 key bytes, arm, original record ordinal
+and target index. Calls cancel full raw contexts before assigning projected
+residuals. Census emits no deltas. Call differential emits all site deltas,
+while defaults grade gained exact head claims. Aggregate-only retains
+tuples, denominators and receipt. Edge changes count the selected arm's
+residual occurrences as `selected`, independently of the arm's full size.
