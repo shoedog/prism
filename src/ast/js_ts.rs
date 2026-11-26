@@ -11,6 +11,8 @@ mod params;
 mod props_types;
 pub mod proto_writes;
 #[cfg(test)]
+mod proto_writes_guard_tests;
+#[cfg(test)]
 mod proto_writes_tests;
 mod receiver_evidence;
 mod receiver_writes;

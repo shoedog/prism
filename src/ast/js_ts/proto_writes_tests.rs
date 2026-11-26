@@ -65,6 +65,7 @@ fn matches_target_facts(
     facts: &[&ProtoWrite],
     mut expected: Vec<(usize, usize)>,
     class: ProtoWriteClass,
+    guard: GuardState,
     allowed: &[String],
     required: &[&str],
 ) -> bool {
@@ -91,7 +92,7 @@ fn matches_target_facts(
             let has_witness = !matching.is_empty();
             witnesses.extend(matching);
             fact.class == class
-                && fact.guard == GuardState::None
+                && fact.guard == guard
                 && !selectors.is_empty()
                 && has_witness != required.is_empty()
         })
@@ -118,6 +119,7 @@ fn matrix_assertion_refuses_extra_targets_and_missing_required_witnesses() {
             facts,
             expected,
             ProtoWriteClass::NestedKeys,
+            GuardState::None,
             &allowed,
             &["req"],
         )
@@ -154,18 +156,27 @@ fn matrix_nonrecursive_rows() {
     let mut complete = 0;
     let mut reasons = BTreeMap::<&str, usize>::new();
     let mut designated = BTreeMap::new();
+    let mut guard_rows = [0; 3];
+    let mut guard_facts = [0; 3];
     assert_eq!(rows.lines().count(), 326);
     assert_eq!(requirements.len(), 326);
     for row in rows
         .lines()
         .map(|line| serde_json::from_str::<Row>(line).unwrap())
     {
-        if row.want_class == "recursive_merge" {
-            continue;
-        }
         let (expected_class, expected_guard, witnesses) = &requirements[row.id.as_str()];
         assert_eq!(row.want_class, *expected_class, "{}", row.id);
         assert_eq!(row.want_guard, *expected_guard, "{}", row.id);
+        let (want_guard, guard_index) = match row.want_guard.as_str() {
+            "none" => (GuardState::None, 0),
+            "partial" => (GuardState::Partial, 1),
+            "sufficient" => (GuardState::Sufficient, 2),
+            other => panic!("unknown guard {other}"),
+        };
+        if row.want_class == "recursive_merge" {
+            continue;
+        }
+        guard_rows[guard_index] += 1;
         let source = std::fs::read_to_string(format!("{MATRIX}/{}", row.file)).unwrap();
         let language = if row.file.ends_with(".ts") {
             Language::TypeScript
@@ -183,10 +194,6 @@ fn matrix_nonrecursive_rows() {
         } else if row.want_class != "none" {
             assert_eq!(spans.len(), 1, "{}: designated targets {spans:?}", row.id);
         }
-        assert!(matches!(
-            row.want_guard.as_str(),
-            "none" | "partial" | "sufficient"
-        ));
         let facts = parsed.js_ts_proto_writes();
         let on_line: Vec<_> = facts
             .iter()
@@ -204,6 +211,7 @@ fn matrix_nonrecursive_rows() {
                 .map(|fact| (fact.start_byte, fact.end_byte, fact.class, fact.guard))
                 .collect::<Vec<_>>(),
         );
+        guard_facts[guard_index] += on_line.len();
         let class = match row.want_class.as_str() {
             "nested_keys" => Some(ProtoWriteClass::NestedKeys),
             "path_walk" => Some(ProtoWriteClass::PathWalk),
@@ -223,13 +231,24 @@ fn matrix_nonrecursive_rows() {
                 &on_line,
                 spans.clone(),
                 class,
+                want_guard,
                 &row.attacker_names,
                 &witnesses,
             )
         } else {
             on_line.is_empty()
         };
-        let passed = passed && exclusion_fold::required_matrix_operands(&row.id, &on_line);
+        let pw04_targets_match = row.id != "pw04"
+            || [(31, 114), (67, 71)].into_iter().all(|span| {
+                on_line.iter().any(|fact| {
+                    (fact.start_byte, fact.end_byte) == span
+                        && fact.class == ProtoWriteClass::PathWalk
+                        && fact.guard == want_guard
+                })
+            });
+        let passed = passed
+            && pw04_targets_match
+            && exclusion_fold::required_matrix_operands(&row.id, &on_line);
         let count = counts.entry((row.truth, row.want_class)).or_default();
         count.0 += usize::from(passed);
         count.1 += 1;
@@ -242,11 +261,16 @@ fn matrix_nonrecursive_rows() {
                         .iter()
                         .map(|operand| (operand.role, operand.name.as_str()))
                         .collect();
-                    ((fact.start_byte, fact.end_byte), fact.class, operands)
+                    (
+                        (fact.start_byte, fact.end_byte),
+                        fact.class,
+                        fact.guard,
+                        operands,
+                    )
                 })
                 .collect();
             failures.push(format!(
-                "{} at {spans:?} requires {expected_class} with {witnesses:?}: {observed:?}",
+                "{} at {spans:?} requires {expected_class}/{expected_guard} with {witnesses:?}: {observed:?}",
                 row.id
             ));
         }
@@ -257,7 +281,11 @@ fn matrix_nonrecursive_rows() {
     assert_eq!(complete, 3277);
     eprintln!("matrix complete_reads: {complete}");
     assert_eq!(designated.len(), 302);
-    let mut changed = failures.len();
+    eprintln!("matrix expected guard rows (none/partial/sufficient): {guard_rows:?}");
+    eprintln!("matrix designated facts by expected guard: {guard_facts:?}");
+    assert_eq!(guard_rows, [248, 41, 13]);
+    assert_eq!(guard_facts, [179, 41, 13]);
+    let mut changed = 0;
     if let Some(path) = std::env::var_os("PRISM_FOLD3_BASE_FACTS") {
         let recorded: BTreeMap<String, serde_json::Value> =
             serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
@@ -268,11 +296,27 @@ fn matrix_nonrecursive_rows() {
                 let facts = designated
                     .get(*id)
                     .unwrap_or_else(|| panic!("baseline row {id} is missing from the matrix"));
-                serde_json::to_value(facts).unwrap() != **expected
+                let actual = serde_json::to_value(facts).unwrap();
+                let projection = |fact_list: &serde_json::Value| {
+                    fact_list
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|fact| {
+                            let [start, end, class, _] = fact.as_array().unwrap().as_slice() else {
+                                panic!("invalid designated fact tuple {fact}")
+                            };
+                            [start.clone(), end.clone(), class.clone()]
+                        })
+                        .collect::<Vec<_>>()
+                };
+                projection(&actual) != projection(expected)
             })
             .count();
     }
-    eprintln!("designated_fact_rows_changed: {changed}");
+    if std::env::var_os("PRISM_FOLD3_BASE_FACTS").is_some() {
+        eprintln!("designated_fact_rows_structurally_changed: {changed}");
+    }
     eprintln!("matrix pass/total {counts:?}");
     assert_eq!(counts.values().map(|count| count.1).sum::<usize>(), 302);
     assert!(
@@ -286,106 +330,6 @@ fn matrix_nonrecursive_rows() {
 
 fn js(source: &str) -> ParsedFile {
     ParsedFile::parse("test.js", source, Language::JavaScript).unwrap()
-}
-
-#[test]
-fn same_line_inventory_distinguishes_stable_reads_rebinding_and_owners() {
-    let source = concat!(
-        "function update(root, v, key, next, field) {\n",
-        "  if (key) root[key][field] = other[key]; root[key][field] = key;\n",
-        "  root[key][field] = key; key = next; sink(key);\n",
-        "  [key].map(key => read(key)); read(key); root[key][field] = missing;\n",
-        "  read(key); read(unknown);\n",
-        "}\n"
-    );
-    let file = js(source);
-    let reads = |line| {
-        file.js_ts_name_reads(line)
-            .into_iter()
-            .filter(|read| read.base == "key")
-            .collect::<Vec<_>>()
-    };
-    let stable = reads(2);
-    assert_eq!(stable.len(), 5);
-    assert!(stable.iter().all(|read| {
-        read.binding == stable[0].binding
-            && read.owner == stable[0].owner
-            && read.reaching_versions == stable[0].reaching_versions
-            && read.resolution_complete
-    }));
-    let facts = file.js_ts_proto_writes();
-    assert_eq!(facts.iter().filter(|write| write.line == 2).count(), 2);
-    assert!(facts.iter().filter(|write| write.line == 2).all(|write| {
-        let selector = write
-            .key_operands
-            .iter()
-            .find(|operand| operand.role == KeyRole::Selector)
-            .unwrap();
-        selector.binding == stable[0].binding
-            && selector.reaching_versions == stable[0].reaching_versions
-            && selector.start_byte > stable[0].span.start_byte
-    }));
-    let rebound = reads(3);
-    assert_eq!(rebound.len(), 3);
-    assert_eq!(rebound[0].reaching_versions, rebound[1].reaching_versions);
-    assert_eq!(rebound[0].binding, rebound[2].binding);
-    assert_ne!(rebound[0].reaching_versions, rebound[2].reaching_versions);
-    assert_eq!(
-        rebound[2].reaching_versions[0].start_byte,
-        source.find("key = next").unwrap()
-    );
-
-    let sibling = reads(4);
-    assert_eq!(sibling.len(), 4);
-    assert_ne!(sibling[1].owner, sibling[2].owner);
-    assert_ne!(sibling[1].binding, sibling[2].binding);
-    assert_eq!(sibling[2].binding, sibling[3].binding);
-    assert!(file
-        .js_ts_name_reads(4)
-        .iter()
-        .any(|read| read.path == "missing" && read.binding.is_none() && !read.resolution_complete));
-    assert_eq!(reads(5).len(), 1);
-    assert!(file
-        .js_ts_name_reads(5)
-        .iter()
-        .any(|read| read.path == "unknown" && !read.resolution_complete));
-    assert!(file.js_ts_name_reads(6).is_empty());
-    assert!(file.js_ts_name_reads(0).is_empty());
-}
-
-#[test]
-fn shadowed_or_mutated_reads_remain_in_the_inventory() {
-    let file = js(concat!(
-        "function run(part, one, two, cond) { const opts={key:0};\n",
-        "  const before=opts.key; opts[part] = two; const after=opts.key;\n",
-        "  if (cond) part = one; read(part);\n",
-        "  { read(part); let part = two; read(part); }\n",
-        "}\n"
-    ));
-    let reads = file.js_ts_name_reads(2);
-    let member: Vec<_> = reads
-        .iter()
-        .filter(|read| read.path == "opts.key")
-        .collect();
-    assert_eq!(member.len(), 2);
-    assert!(member[0].resolution_complete);
-    assert!(!member[1].resolution_complete);
-    let join = file
-        .js_ts_name_reads(3)
-        .into_iter()
-        .find(|read| read.base == "part")
-        .unwrap();
-    assert_eq!(join.reaching_versions.len(), 2);
-    let local: Vec<_> = file
-        .js_ts_name_reads(4)
-        .into_iter()
-        .filter(|read| read.base == "part")
-        .collect();
-    assert_eq!(local.len(), 2);
-    assert_ne!(local[0].binding, join.binding);
-    assert_eq!(local[0].binding, local[1].binding);
-    assert!(!local[0].resolution_complete);
-    assert!(local[1].resolution_complete);
 }
 
 #[test]
@@ -528,25 +472,6 @@ fn oversized_owner_does_not_suppress_adjacent_owners() {
 }
 
 #[test]
-fn same_line_unresolved_competitor_retains_its_program_owner() {
-    let source = "function f(o, key, p) { o[key][p] = key; } read(key);";
-    let file = js(source);
-    let reads: Vec<_> = file
-        .js_ts_name_reads(1)
-        .into_iter()
-        .filter(|read| read.base == "key")
-        .collect();
-    assert_eq!(reads.len(), 3);
-    assert_eq!(reads[0].binding, reads[1].binding);
-    assert_eq!(reads[2].owner.end_byte, source.len());
-    assert!(
-        reads[2].binding.is_none()
-            && reads[2].reaching_versions.is_empty()
-            && !reads[2].resolution_complete
-    );
-}
-
-#[test]
 fn finally_restores_the_receiver_on_continue_and_break() {
     let file = js(concat!(
         "function f(root, keys, choose) {\n",
@@ -663,3 +588,6 @@ mod exclusion_fold;
 mod exclusions;
 #[path = "proto_writes_fold_tests.rs"]
 mod fold;
+
+#[path = "proto_writes_name_read_tests.rs"]
+mod name_reads;
