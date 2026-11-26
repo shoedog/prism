@@ -5,12 +5,12 @@ fn compact_codec_rejects_bad_bounds_groups_and_order() {
 }
 #[test]
 fn production_cache_version_activates_compact_codec() {
-    assert_eq!(super::CACHE_VERSION, 194);
+    assert_eq!(super::CACHE_VERSION, 195);
 }
 
 #[test]
 fn production_cache_version_includes_module_owners() {
-    assert_eq!(super::CACHE_VERSION, 194);
+    assert_eq!(super::CACHE_VERSION, 195);
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
     stream::PAYLOAD_DECODES.with(|count| count.set(0));
     assert_stale_version_miss(&hashes, dir.path());
     assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 0);
-    assert_eq!(super::CACHE_VERSION, 194);
+    assert_eq!(super::CACHE_VERSION, 195);
 }
 
 pub(crate) fn assert_stale_version_miss(

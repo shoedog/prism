@@ -1,0 +1,1 @@
+{"openapi": "3.1.0", "paths": {"/loom": {"get": {"responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"type": "object", "properties": {"field": 12, "list": {"type": "array", "items": 12}}}}}}}}}}}

@@ -141,6 +141,25 @@ impl ParsedFile {
         }
     }
 
+    /// Return the declaration behind a successful classification for consumers
+    /// that also need to prove the declaration's value and initialization.
+    pub(crate) fn js_ts_site_declaration<'a>(
+        &'a self,
+        ident: Node<'a>,
+        name: &str,
+        cache: &mut JsBindingCache<'a>,
+    ) -> Option<(Node<'a>, Node<'a>)> {
+        let Walk::Found(scope, None) = self.js_ts_binding_walk(ident, name, cache) else {
+            return None;
+        };
+        let (declarations, annex_b) = self.js_ts_scope_lookup(scope, name, cache);
+        let declarations = declarations.filter(|_| !annex_b)?;
+        let [declaration] = declarations.as_slice() else {
+            return None;
+        };
+        Some((scope, *declaration))
+    }
+
     /// `scope`'s declarations of `name` (memoized per scope) and whether the name is an
     /// unknown-strictness Annex-B name there.
     pub(super) fn js_ts_scope_lookup<'a>(

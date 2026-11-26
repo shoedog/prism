@@ -107,9 +107,12 @@ root, and typed path. The signature tuple records five facts about the field.
 - Immediate homogeneous list-item type or type set
 
 Each slot records a known fact, missing fact, branch dependence, or unknown
-fact. The value-level constraints outside the signature are `minimum`,
+fact. In a type slot, `Missing` means the schema was declared without a type
+keyword and leaves the type unconstrained. `Known` → `Missing` records a loss
+of typing evidence. The value-level constraints outside the signature are `minimum`,
 `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`, `minLength`,
-`maxLength`, `pattern`, `minItems`, `maxItems`, `uniqueItems`, and `const`.
+`maxLength`, `pattern`, `minItems`, `maxItems`, `uniqueItems`, `minProperties`,
+`maxProperties`, and `const`.
 `enum` and `format` are unsigned on unnamed list items and map values, and
 where a named field's slot cannot carry the effective value, such as
 branch-specific values. The reader can use constraints to establish
@@ -125,6 +128,7 @@ to `integer`.
 
 A temporary reader probe collected keywords after reference and `allOf` expansion for each public golden field ID, attributing unnamed item and map-value keywords to the enclosing named field and counting only unsigned `enum` and `format` payloads.
 The same probe counted each (fixture file, field ID) once per keyword across 510 OpenAPI 3.x JSON documents in `p1b_rows` and `ids_matrix`, including comparable and observed fields and the fold-6 pair and control.
+The tables retain the original keyword counts and distinct-field subtotals. `minProperties` and `maxProperties` were excluded from that probe and have not been recounted.
 
 **Public Swagger 2.0 golden**
 
@@ -277,3 +281,82 @@ reports the gate as PENDING and continues.
 The test is `#[ignore]`d so that CI, which has no staged inputs, reports it as ignored rather than
 failing or passing silently; run it with `cargo test -p prism-boundary --test public_ids -- --ignored`.
 With the inputs missing an explicit `--ignored` run fails unless the override above is set.
+
+## P1c structural diff
+
+`diff_schemas(&before, &after)` compares admitted schema inventories. It
+delegates to `diff_boundary(&before, &after)`, which also accepts revision-local
+typed producer inventories and an explicit `DiffBasis`. Both sides need a
+common API, operation authority, and logical scope. An API-wide scope can be
+restricted to a typed path prefix. A contradictory source slot or an
+unestablished comparison basis returns `DiffError`.
+
+- Whole-operation additions and removals carry their side-local status and
+  field detail. A typed collision can establish operation presence. A status
+  claim from a collision requires agreement across all declarations.
+- Explicit success-key changes are independent of body eligibility. Unmatched
+  status rows carry their own field detail, including a retained range's
+  fields when it loses or regains its last body-eligible code.
+- A unique outgoing and incoming JSON response root can pair by typed relative
+  field path, retaining both original IDs. Unknown candidates, overlapping
+  status ownership, and incomparable media leave a scoped limit. Exact keys
+  own eligible responses before `2XX`, then `default`. Schema-bearing Swagger
+  responses with unproved media remain possible body candidates even when
+  their field inventories are empty. Each affected root carries standing
+  `media_unverified` coverage, and named field absence remains unknown at
+  retained roots. A replacement that cannot be paired carries a pairing limit.
+- Checked named fields compare presence, type, format, requiredness, scalar
+  enum, and immediate list-item type. A readable empty enum retains its
+  declaration even when the field has no feasible value. Member deltas
+  require two readable lists. Checked empty or absent bodies can establish
+  field presence changes at retained roots. A type or item-type change is
+  claimed only when both sides have no reader limit at the slot's typed
+  pointer. The diff withholds every other type or item-type comparison and
+  counts a side-local `Type` or `ItemType` limit. Independently comparable
+  slots still report edits.
+- An authored request excluded by its dialect carries a side-local
+  `request_dialect_excluded` coverage limit, including when both revisions
+  have no projected request message.
+- Typed producer facts compare route declarations, validation, resolved
+  handler references, and corresponding endpoint body digests. Moving a
+  site or changing an alias to the same endpoint leaves those facts equal.
+- Producer-only operation presence requires declaration sites bound to the
+  inventory tree. Under a path prefix, an unavailable declaration path
+  leaves a method-wide `producer_operation_unscoped` gap for producer-backed
+  claims. Checked schema facts remain comparable. At API scope, a
+  bound `Checked(None)` declaration counts as operation presence, and a
+  transition between `Checked(None)` and `Checked(Some(...))` emits
+  `RouteDeclarationChanged`. Changing only a capture name also emits
+  `RouteDeclarationChanged` at the same operation ID.
+
+Each side carries its own counted limits and evidence. A missing schema,
+dialect-excluded request root, unproved media selection, partial subtree,
+or unreadable shape slot limits the claims that require it. Checked sibling
+fields and independent producer facts can still compare. The limit ledger
+persists across equal hashes. Formatting, definition renames, and equivalent
+projections leave the structural changes empty. Value-only narrowing or
+widening, unsigned union `const` edits, and unsigned item or map facts stay
+silent when the signed projection is unchanged.
+
+Known limit `fold1-server-document-gap` records that a malformed document-level
+server list gaps every method, including operations with their own server
+lists. This only costs recall by withholding operation absence or suppressing
+otherwise supported status and field edits.
+
+Depth cuts, unsupported assertions, unproved scalar feasibility, and stopped
+references still bound reader coverage. A whole-message refusal or an opaque
+ancestor may leave descendants without a signed slot. The enclosing coverage
+or field-presence limit records those gaps.
+
+The following P1c rows use `subset_limits`. They assert the listed limits
+and leave extra limits unasserted.
+
+- `c1`, `c2`, `c4`, `c5`, `c6`, `c8`, `d1`, `d1-common-status`,
+  `d1-withheld-inventory`, `d2`, `d2-checked-absence`, `d2-literal-capture`,
+  `definition-rename`, `e6`, `evidence-withheld`, `f4-dialect`, `o2`, `o4`.
+- `control-ambiguous-status-root-replacement`, `control-range-status-root-overlap`,
+  `control-retained-route-handler-edit`, `p1`, `p2`, `p2-checked-absence`, `p3`,
+  `p4`, `p5`, `p5-partial`, `p6`, `p6-alias`, `p6-inline-reference`, `p6-withheld`.
+- `r10`, `r6`, `r6-ambiguous`, `r6-proof-withheld`, `r6-wildcard`, `r8`, `r9`,
+  `r9-retained-default`, `r9-unknown-peer`, `s6`, `s7`, `s7-repeated-key`,
+  `s7-repeated-key-added`, `s7-repeated-map`, `u2`, `u3-unknown`.

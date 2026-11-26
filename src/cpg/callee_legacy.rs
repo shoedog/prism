@@ -50,7 +50,20 @@ impl CodePropertyGraph {
             BTreeMap::new();
         let mut rest_cache = BTreeMap::new();
         let mut pattern_cache = BTreeMap::new();
+        let trace_builtin = builtin_callbacks::diagnostic::enabled();
         for site in sites {
+            if let Some(parsed) = files.get(&caller_id.file) {
+                builtin_callbacks::collect(
+                    &mut output.flows,
+                    site,
+                    caller_id,
+                    parsed,
+                    var_index,
+                    exact_var_index,
+                    graph,
+                    trace_builtin,
+                );
+            }
             let resolved_site = cg.resolve_call_site(site);
             let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
             let mut call_args = None;

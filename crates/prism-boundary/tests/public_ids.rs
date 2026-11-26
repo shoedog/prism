@@ -1,10 +1,11 @@
 #[path = "support/admission.rs"]
 mod admission;
 
-use prism_boundary::index_schema;
 use prism_boundary::revision::{Format, Snapshot};
+use prism_boundary::{diff_schemas, index_schema, ComparisonSide, LimitScope, SchemaIndex};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 use std::io::Write;
 use std::path::PathBuf;
 use std::{env, fs, io};
@@ -104,4 +105,59 @@ fn public_ids_match_pinned_bytes() {
     assert!(actual == *golden,
         "public ID bytes must match pinned golden including order and final LF; first difference at byte {difference}, got {} bytes, expected {}",
         actual.len(), golden.len());
+    let ids = actual.split(|byte| *byte == b'\n');
+    assert_eq!(
+        ids.clone()
+            .take_while(|line| line.starts_with(b"op:"))
+            .count(),
+        199
+    );
+    assert_eq!(ids.filter(|line| line.starts_with(b"field:")).count(), 2421);
+    public_self_diff(&index);
+}
+
+fn public_self_diff(index: &SchemaIndex) {
+    let diff = diff_schemas(index, index).expect("public self-comparison has an admitted basis");
+    assert!(diff.changes.is_empty(), "{:?}", diff.changes);
+    assert!(
+        diff.response_root_pairs.is_empty(),
+        "{:?}",
+        diff.response_root_pairs
+    );
+    let expected: BTreeSet<_> = index
+        .limits
+        .iter()
+        .map(|limit| (LimitScope::Schema, &limit.pointer, limit.reason.as_str()))
+        .chain(index.operations.iter().flat_map(|op| {
+            op.messages.iter().flat_map(|message| {
+                message.limits.iter().map(|limit| {
+                    (
+                        LimitScope::Root(op.id.clone(), message.key.clone()),
+                        &limit.pointer,
+                        limit.reason.as_str(),
+                    )
+                })
+            })
+        }))
+        .collect();
+    for (side, count) in [
+        (ComparisonSide::Before, diff.limit_counts.before),
+        (ComparisonSide::After, diff.limit_counts.after),
+    ] {
+        let actual: BTreeSet<_> = diff
+            .limits
+            .iter()
+            .filter(|limit| limit.side == side)
+            .map(|limit| (limit.scope.clone(), &limit.pointer, limit.reason.as_str()))
+            .collect();
+        let new: Vec<_> = actual.difference(&expected).collect();
+        let missing: Vec<_> = expected.difference(&actual).collect();
+        assert!(new.is_empty(), "new {side:?} limits: {new:?}");
+        assert!(missing.is_empty(), "missing {side:?} limits: {missing:?}");
+        assert_eq!(count, expected.len(), "deduplicated {side:?} limits");
+    }
+    println!(
+        "public self-diff: 0 changes, 0 pairs, {} existing limits per side",
+        expected.len()
+    );
 }

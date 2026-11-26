@@ -358,19 +358,22 @@ fn dfg_stats_output(repo: &std::path::Path, edges: bool) -> Output {
 }
 
 fn dfg_fixture(language: &str, case: &str) -> std::path::PathBuf {
-    std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-        .join("eval/fixtures")
-        .join(language)
-        .join(case)
+    let root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+    // Lane 9 slice D: this case lives outside eval/fixtures, whose digest the Tier-A lock pins.
+    if case == "dfg_builtin_callback" {
+        return root.join("tests/fixtures").join(case);
+    }
+    root.join("eval/fixtures").join(language).join(case)
 }
 
-const DFG_CLASS_COUNTERS: [&str; 6] = [
+const DFG_CLASS_COUNTERS: [&str; 7] = [
     "dfg_label_exact",
     "dfg_label_nameonly_killed",
     "dfg_label_nameonly_sameline",
     "dfg_label_nameonly_cfg_incomplete",
     "dfg_label_nameonly_alias_unstable",
     "dfg_label_nameonly_call",
+    "dfg_label_nameonly_builtin_callback",
 ];
 
 #[test]
@@ -393,6 +396,7 @@ fn dfg_stats_empty_repo_emits_all_zero_counters() {
             "dfg_label_nameonly_cfg_incomplete": 0,
             "dfg_label_nameonly_alias_unstable": 0,
             "dfg_label_nameonly_call": 0,
+            "dfg_label_nameonly_builtin_callback": 0,
             "dfg_rd_functions_over_cap": 0,
             "dfg_rd_functions_without_cfg": 0,
             "dfg_fallback_functions_capped": 0,
@@ -474,6 +478,11 @@ fn dfg_stats_each_label_shape_increments_its_counter_and_matches_call_stats() {
             "dfg_reaching_interproc_nameonly",
             "dfg_label_nameonly_call",
         ),
+        (
+            "javascript",
+            "dfg_builtin_callback",
+            "dfg_label_nameonly_builtin_callback",
+        ),
     ];
 
     for (language, case, counter) in cases {
@@ -486,6 +495,11 @@ fn dfg_stats_each_label_shape_increments_its_counter_and_matches_call_stats() {
         );
         let stats: Value = serde_json::from_slice(&stats_output.stdout).unwrap();
         assert!(stats[counter].as_u64().unwrap() > 0, "{case}: {stats:#}");
+        assert_eq!(
+            stats["dfg_label_nameonly_builtin_callback"],
+            json!(u64::from(case == "dfg_builtin_callback")),
+            "{case}"
+        );
         assert!(
             stats["dfg_label_loop_carried"].as_u64().unwrap()
                 <= stats["dfg_label_exact"].as_u64().unwrap(),
@@ -544,9 +558,17 @@ fn dfg_stats_loop_carried_fixture_preserves_partition_identity() {
 
 #[test]
 fn dfg_stats_edges_are_deterministic_sorted_and_use_the_exact_wire_vocabulary() {
-    let repo = dfg_fixture("python", "dfg_reaching_killed_def");
-    let first = dfg_stats_output(&repo, true);
-    let second = dfg_stats_output(&repo, true);
+    for (language, case) in [
+        ("python", "dfg_reaching_killed_def"),
+        ("javascript", "dfg_builtin_callback"),
+    ] {
+        assert_dfg_wire_vocabulary(&dfg_fixture(language, case), case);
+    }
+}
+
+fn assert_dfg_wire_vocabulary(repo: &std::path::Path, case: &str) {
+    let first = dfg_stats_output(repo, true);
+    let second = dfg_stats_output(repo, true);
     assert!(first.status.success(), "{first:?}");
     assert!(second.status.success(), "{second:?}");
     assert_eq!(first.stdout, second.stdout);
@@ -563,6 +585,29 @@ fn dfg_stats_edges_are_deterministic_sorted_and_use_the_exact_wire_vocabulary() 
         .map(|row| serde_json::to_string(&json!([row["from"].clone(), row["to"].clone()])).unwrap())
         .collect();
     assert!(sort_keys.windows(2).all(|pair| pair[0] <= pair[1]));
+
+    let builtin: Vec<_> = rows
+        .iter()
+        .filter(|row| row["doubt"] == "builtin_callback")
+        .collect();
+    assert_eq!(builtin.len(), usize::from(case == "dfg_builtin_callback"));
+    if let [row] = builtin.as_slice() {
+        assert_eq!(row["confidence"], "nameonly");
+        assert_eq!(
+            row["from"],
+            json!({
+                "access": "use", "file": "main.js", "line": 6,
+                "path": {"base": "items", "fields": []}
+            })
+        );
+        assert_eq!(
+            row["to"],
+            json!({
+                "access": "def", "file": "main.js", "line": 1,
+                "path": {"base": "item", "fields": []}
+            })
+        );
+    }
 
     for row in rows {
         assert_eq!(
@@ -582,7 +627,11 @@ fn dfg_stats_edges_are_deterministic_sorted_and_use_the_exact_wire_vocabulary() 
         assert!(row["to"]["path"].is_object());
         match row["doubt"].as_str() {
             Some("killed") => assert!(row.get("kill_line").is_some_and(Value::is_u64)),
-            Some("sameline" | "cfg_incomplete" | "alias_unstable" | "call_nameonly") | None => {
+            Some(
+                "sameline" | "cfg_incomplete" | "alias_unstable" | "call_nameonly"
+                | "builtin_callback",
+            )
+            | None => {
                 assert!(row.get("kill_line").is_none(), "{row:#}")
             }
             other => panic!("unexpected doubt spelling {other:?}: {row:#}"),

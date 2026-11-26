@@ -113,6 +113,7 @@ pub(super) enum Label {
     Killed,
     AliasUnstable,
     CallNameOnly,
+    BuiltinCallback,
 }
 
 impl From<FlowConfidence> for Label {
@@ -124,6 +125,7 @@ impl From<FlowConfidence> for Label {
             FlowConfidence::NameOnly(FlowDoubt::Killed { .. }) => Self::Killed,
             FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => Self::AliasUnstable,
             FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => Self::CallNameOnly,
+            FlowConfidence::NameOnly(FlowDoubt::BuiltinCallback) => Self::BuiltinCallback,
         }
     }
 }

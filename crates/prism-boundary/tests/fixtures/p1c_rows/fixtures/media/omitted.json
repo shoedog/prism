@@ -1,0 +1,1 @@
+{"swagger":"2.0","host":"example.test","schemes":["https"],"paths":{"/loom":{"get":{"responses":{"200":{"description":"ok","schema":{"type":"object","properties":{"x":{"type":"string"}}}}}}}}}

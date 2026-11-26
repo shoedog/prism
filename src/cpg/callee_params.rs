@@ -356,7 +356,15 @@ pub(super) fn compute_param_def_nodes(
     }
 
     let function = locate_function(parsed, callee)?;
-    formal_def_nodes(parsed, callee, &function, var_index, graph)
+    let slots = parsed.function_parameter_slot_occurrences(&function)?;
+    Some(lookup_formal_defs(
+        parsed,
+        callee,
+        &function,
+        slots.into_iter().map(Some),
+        var_index,
+        graph,
+    ))
 }
 
 fn locate_function<'a>(parsed: &'a ParsedFile, callee: &FunctionId) -> Option<Node<'a>> {
@@ -376,16 +384,62 @@ fn locate_function<'a>(parsed: &'a ParsedFile, callee: &FunctionId) -> Option<No
     functions.next().is_none().then_some(function)
 }
 
-fn formal_def_nodes(
+/// Fixed runtime roles of a syntax-proved JS-family implementation.
+/// Destructured and unsupported formals occupy their slots without a target.
+pub(super) fn formal_def_nodes(
+    parsed: &ParsedFile,
+    function: &Node<'_>,
+    owner: &FunctionId,
+    var_index: &VarIndex,
+    graph: &DiGraph<CpgNode, CpgEdge>,
+    admit_bare: bool,
+) -> Option<Vec<Option<NodeIndex>>> {
+    let parameters = parsed.parameter_binding_region(function)?;
+    if !crate::parameter_slots::js_ts_parameter_list_is_clean(parsed, parameters) {
+        return None;
+    }
+    let slots = if parameters.kind() == "identifier" {
+        vec![admit_bare.then_some(parameters)]
+    } else {
+        rest_params::runtime_formals(parameters)
+            .into_iter()
+            .map(|pattern| {
+                let binding = if pattern.kind() == "assignment_pattern" {
+                    pattern.child_by_field_name("left")?
+                } else {
+                    pattern
+                };
+                (binding.kind() == "identifier").then_some(binding)
+            })
+            .collect()
+    };
+    let slots = slots.into_iter().map(|node| {
+        node.map(|node| {
+            (
+                parsed.node_text(&node).to_owned(),
+                node.start_byte(),
+                node.end_byte(),
+            )
+        })
+    });
+    Some(
+        lookup_formal_defs(parsed, owner, function, slots, var_index, graph)
+            .into_iter()
+            .map(|def| def.map(|def| def.node))
+            .collect(),
+    )
+}
+
+fn lookup_formal_defs(
     parsed: &ParsedFile,
     callee: &FunctionId,
     function: &Node<'_>,
+    slots: impl Iterator<Item = Option<crate::ast::ParameterOccurrence>>,
     var_index: &VarIndex,
     graph: &DiGraph<CpgNode, CpgEdge>,
-) -> Option<Vec<Option<ParamDef>>> {
+) -> Vec<Option<ParamDef>> {
     // Unsupported occurrences retain their positional holes. The entry Def
     // must match the runtime slot, and a bare slot must match the identifier.
-    let slots = parsed.function_parameter_slot_occurrences(function)?;
     let supported: BTreeSet<_> = parsed
         .function_parameter_occurrences(function)
         .into_iter()
@@ -410,40 +464,38 @@ fn formal_def_nodes(
                 },
             )
         });
-    Some(
-        slots
-            .into_iter()
-            .map(|slot| {
-                if !supported.contains(&slot)
-                    || bare
-                        .as_ref()
-                        .is_some_and(|(occurrence, _)| occurrence != &slot)
-                {
-                    return None;
-                }
-                let bare = bare.as_ref().map(|(_, marker)| *marker);
-                let path = AccessPath::simple(&slot.0);
-                let node = var_index.get_ref(
-                    graph,
-                    VarKeyRef {
-                        file: &callee.file,
-                        function: &callee.name,
-                        function_start_line: callee.start_line,
-                        line: callee.start_line,
-                        path: &path,
-                        access: VarAccess::Def,
-                    },
-                )?;
-                matches!(graph.node_weight(node), Some(CpgNode::Variable {
-                    file, function, function_start_line, line, path: actual_path,
-                    access: VarAccess::Def, start_byte, end_byte,
-                }) if file == &callee.file && function == &callee.name
-                    && *function_start_line == callee.start_line
-                    && *line == callee.start_line && actual_path == &path
-                    && (*start_byte, *end_byte) == (slot.1, slot.2)
-                )
-                .then_some(ParamDef { node, bare })
-            })
-            .collect(),
-    )
+    slots
+        .map(|slot| {
+            let slot = slot?;
+            if !supported.contains(&slot)
+                || bare
+                    .as_ref()
+                    .is_some_and(|(occurrence, _)| occurrence != &slot)
+            {
+                return None;
+            }
+            let bare = bare.as_ref().map(|(_, marker)| *marker);
+            let path = AccessPath::simple(&slot.0);
+            let node = var_index.get_ref(
+                graph,
+                VarKeyRef {
+                    file: &callee.file,
+                    function: &callee.name,
+                    function_start_line: callee.start_line,
+                    line: callee.start_line,
+                    path: &path,
+                    access: VarAccess::Def,
+                },
+            )?;
+            matches!(graph.node_weight(node), Some(CpgNode::Variable {
+                file, function, function_start_line, line, path: actual_path,
+                access: VarAccess::Def, start_byte, end_byte,
+            }) if file == &callee.file && function == &callee.name
+                && *function_start_line == callee.start_line
+                && *line == callee.start_line && actual_path == &path
+                && (*start_byte, *end_byte) == (slot.1, slot.2)
+            )
+            .then_some(ParamDef { node, bare })
+        })
+        .collect()
 }
