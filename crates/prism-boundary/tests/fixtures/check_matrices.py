@@ -128,6 +128,11 @@ def check_p1b_rows():
                 or control != f"control-{row_id}"
                 or rows[control][1]["class"] != "known_limits_control"):
                 raise ValueError(f"{label}: missing reason or supported control")
+            if row_id.startswith("fold2-") and (
+                not entry["case"].startswith("KNOWN-LIMIT ")
+                or not isinstance(entry.get("counted", True), bool)
+            ):
+                raise ValueError(f"{label}: missing KNOWN-LIMIT tag or invalid counted flag")
             used_controls.add(control)
         elif row["truth"] != "rule":
             raise ValueError(f"{label}: expected rule")
@@ -138,13 +143,19 @@ def check_p1b_rows():
     fold_counts = Counter(rows[row_id][1]["class"] for row_id in fold)
     if fold_counts != {"fold1": 8, "known_limits": 3, "known_limits_control": 3}:
         raise ValueError(f"p1b_rows: fold1 class counts differ: {fold_counts}")
-    new = len(rows.keys() - fold) - len(controls - fold)
+    fold2 = {row_id for row_id in rows if row_id.removeprefix("control-").startswith("fold2-")}
+    fold2_counts = Counter(rows[row_id][1]["class"] for row_id in fold2)
+    if fold2_counts != {"known_limits": 11, "known_limits_control": 11}:
+        raise ValueError(f"p1b_rows: fold2 class counts differ: {fold2_counts}")
+    new = len(rows.keys() - fold - fold2) - len(controls - fold - fold2)
     if new != 76:
         raise ValueError(f"p1b_rows: counted {new} NEW rows, expected 76")
-    print(f"p1b_rows: {new} NEW rows, {counts['known_limits'] - fold_counts['known_limits']} known_limits, "
-          f"{len(controls - fold)} supported control rows — OK")
+    print(f"p1b_rows: {new} NEW rows, "
+          f"{counts['known_limits'] - fold_counts['known_limits'] - fold2_counts['known_limits']} known_limits, "
+          f"{len(controls - fold - fold2)} supported control rows — OK")
     print(f"p1b_rows: fold1 {fold_counts['fold1']} rule rows and "
           f"{fold_counts['known_limits']} known limits with controls — OK")
+    print(f"p1b_rows: fold2 {fold2_counts['known_limits']} known limits with controls — OK")
 
 
 def main():

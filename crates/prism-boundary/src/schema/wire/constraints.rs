@@ -28,7 +28,7 @@ pub(super) fn type_bits(name: &str) -> Option<u8> {
     })
 }
 
-pub(super) fn types(nodes: &[Node<'_, '_>], dialect: Dialect) -> (u8, Property<String>) {
+pub(super) fn types(nodes: &[Node<'_, '_>], dialect: Dialect) -> (u8, Property<Vec<String>>) {
     let mut types = ALL;
     let mut explicit = false;
     let mut inferred = 0;
@@ -71,27 +71,41 @@ pub(super) fn types(nodes: &[Node<'_, '_>], dialect: Dialect) -> (u8, Property<S
     }
     if explicit {
         let nonnull = types & !NULL;
-        return (
-            types,
-            match nonnull {
-                OBJECT => Property::Known("object".into()),
-                ARRAY => Property::Known("array".into()),
-                STRING => Property::Known("string".into()),
-                INTEGER => Property::Known("integer".into()),
-                NUMBER | FRACTION => Property::Known("number".into()),
-                BOOLEAN => Property::Known("boolean".into()),
-                0 if types == NULL => Property::Known("null".into()),
-                _ => Property::BranchDependent,
-            },
-        );
+        let name = match nonnull {
+            OBJECT => "object",
+            ARRAY => "array",
+            STRING => "string",
+            INTEGER => "integer",
+            NUMBER | FRACTION => "number",
+            BOOLEAN => "boolean",
+            0 if types == NULL => "null",
+            _ => return (types, Property::BranchDependent),
+        };
+        return (types, Property::Known(vec![name.into()]));
     }
     let shape = match inferred {
-        OBJECT => Property::Known("object".into()),
-        ARRAY => Property::Known("array".into()),
+        OBJECT => Property::Known(vec!["object".into()]),
+        ARRAY => Property::Known(vec!["array".into()]),
         0 => Property::Missing,
         _ => Property::BranchDependent,
     };
     (types, shape)
+}
+
+pub(super) fn nullable_types(types: u8) -> Vec<String> {
+    [
+        (ARRAY, "array"),
+        (BOOLEAN, "boolean"),
+        (INTEGER, "integer"),
+        (NULL, "null"),
+        (FRACTION, "number"),
+        (OBJECT, "object"),
+        (STRING, "string"),
+    ]
+    .into_iter()
+    .filter(|&(bit, _)| types & bit != 0 && (bit != INTEGER || types & FRACTION == 0))
+    .map(|(_, name)| name.into())
+    .collect()
 }
 
 pub(super) fn limits(nodes: &[Node<'_, '_>], min: &str, max: &str) -> (u64, u64) {

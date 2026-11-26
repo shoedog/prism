@@ -128,7 +128,7 @@ fn stopped_reference_shapes_are_unknown_and_signed_distinctly() {
     };
     assert_eq!(
         indexed(&references[..1]).fields[0].shape.field_type,
-        Property::Known("string".into())
+        Property::Known(vec!["string".into()])
     );
     assert_stopped(indexed(&references), "reference_blob_ambiguous");
 

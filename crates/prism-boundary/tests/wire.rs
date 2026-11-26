@@ -172,7 +172,7 @@ fn fold1() {
 fn known_limits() {
     check_enumeration(
         |row| matches!(row.class, "known_limits" | "known_limits_control"),
-        72 + 6,
+        72 + 6 + 22,
     );
 }
 
@@ -212,20 +212,31 @@ fn check_enumeration(select: impl Fn(&Row<'_>) -> bool, count: usize) {
                 "{} limit reason",
                 row.id
             );
-            if !matches!(row.id, "fold1-union-const" | "fold1-census-scope") {
-                assert!(
-                    wire_cases::names_reason(inputs, row.reason.unwrap()),
-                    "{} counted limit",
-                    row.id
-                );
-            }
+            let counted = entry["counted"].as_bool().unwrap_or(!matches!(
+                row.id,
+                "fold1-union-const" | "fold1-census-scope"
+            ));
+            assert_eq!(
+                wire_cases::names_reason(inputs, row.reason.unwrap()),
+                counted,
+                "{} counted limit",
+                row.id
+            );
             assert!(
                 expectations[control]["inputs"]
                     .as_array()
                     .unwrap()
                     .iter()
-                    .any(|input| !strings(&input["fields"]).is_empty()),
-                "{control} emits a field"
+                    .any(|input| {
+                        !strings(&input["fields"]).is_empty()
+                            || wire_cases::members(&input["shapes"]).next().is_some()
+                            || wire_cases::members(&input["operations"]).any(|(_, op)| {
+                                wire_cases::members(&op["roots"]).any(|(_, root)| {
+                                    root["coverage"] == "checked" && root["feasible"] == false
+                                })
+                            })
+                    }),
+                "{control} checks a field or a certified infeasible root"
             );
         }
         for input in inputs {

@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 
 fn shape() -> FieldShape {
     FieldShape {
-        field_type: Property::Known("string".into()),
+        field_type: Property::Known(vec!["string".into()]),
         format: Property::Missing,
         required: Property::Known(false),
         enum_values: Property::Missing,
@@ -207,17 +207,62 @@ fn empty_inventory_hashes_zero_bytes() {
     );
 }
 
+fn typed_field(version: &str, schema: serde_json::Value) -> SchemaIndex {
+    let bytes = serde_json::to_vec(&serde_json::json!({
+        "openapi":version,"paths":{"/p":{"post":{"responses":{"200":{"content":{
+            "application/json":{"schema":{"properties":{"x":schema}}}
+        }}}}}}
+    }))
+    .unwrap();
+    index(&bytes)
+}
+
+#[test]
+fn nullable_type_edits_change_the_signature_and_hash() {
+    use serde_json::json;
+
+    let mut collisions = Vec::new();
+    for (label, version, before, after) in [
+        (
+            "non-nullable control",
+            "3.1.0",
+            json!({"type":"string"}),
+            json!({"type":"integer"}),
+        ),
+        (
+            "3.1 nullable",
+            "3.1.0",
+            json!({"type":["string","null"]}),
+            json!({"type":["integer","null"]}),
+        ),
+        (
+            "3.0 nullable",
+            "3.0.3",
+            json!({"type":"string","nullable":true}),
+            json!({"type":"integer","nullable":true}),
+        ),
+    ] {
+        let before = typed_field(version, before);
+        let after = typed_field(version, after);
+        let ([before_field], [after_field]) = (before.fields.as_slice(), after.fields.as_slice())
+        else {
+            panic!("{label}: both inventories must contain one comparable field");
+        };
+        assert_eq!(before_field.id, after_field.id, "{label}");
+        let before_signature = signature(&before_field.shape);
+        let after_signature = signature(&after_field.shape);
+        if before_signature == after_signature || before.content_hash == after.content_hash {
+            collisions.push(format!(
+                "{label}: {before_signature} -> {after_signature}, {} -> {}",
+                before.content_hash, after.content_hash
+            ));
+        }
+    }
+    assert!(collisions.is_empty(), "{}", collisions.join("\n"));
+}
+
 #[test]
 fn explicit_nullable_types_change_the_effective_signature() {
-    let document = |version: &str, schema: serde_json::Value| {
-        let bytes = serde_json::to_vec(&serde_json::json!({
-            "openapi":version,"paths":{"/p":{"post":{"requestBody":{"content":{
-                "application/json":{"schema":{"properties":{"x":schema}}}
-            }}}}}
-        }))
-        .unwrap();
-        index(&bytes)
-    };
     for (version, nullable) in [
         ("3.1.0", serde_json::json!({"type":["string","null"]})),
         (
@@ -225,18 +270,43 @@ fn explicit_nullable_types_change_the_effective_signature() {
             serde_json::json!({"type":"string","nullable":true}),
         ),
     ] {
-        let plain = document(version, serde_json::json!({"type":"string"}));
+        let plain = typed_field(version, serde_json::json!({"type":"string"}));
         let mut restricted = nullable.clone();
         restricted["enum"] = serde_json::json!(["a"]);
-        let control = document(version, restricted);
+        let control = typed_field(version, restricted);
         assert_eq!(control.fields[0].shape.field_type, shape().field_type);
-        let mixed = document(version, nullable);
+        let mixed = typed_field(version, nullable);
         assert_ne!(
             mixed.content_hash, plain.content_hash,
             "{version}: an admitted null must change content_hash"
         );
-        assert_eq!(mixed.fields[0].shape.field_type, Property::BranchDependent);
+        assert_eq!(
+            signature(&mixed.fields[0].shape),
+            r#"[["known",["null","string"]],["missing"],["known",false],["missing"],["missing"]]"#
+        );
     }
+
+    let forward = typed_field(
+        "3.1.0",
+        serde_json::json!({"type":["integer","null","string"]}),
+    );
+    let reversed = typed_field(
+        "3.1.0",
+        serde_json::json!({"type":["string","null","integer"]}),
+    );
+    let expected = r#"[["known",["integer","null","string"]],["missing"],["known",false],["missing"],["missing"]]"#;
+    assert_eq!(signature(&forward.fields[0].shape), expected);
+    assert_eq!(signature(&reversed.fields[0].shape), expected);
+    assert_eq!(forward.content_hash, reversed.content_hash);
+
+    let only_null = typed_field(
+        "3.1.0",
+        serde_json::json!({"type":["null","string"],"enum":[null]}),
+    );
+    assert_eq!(
+        signature(&only_null.fields[0].shape),
+        r#"[["known","null"],["missing"],["known",false],["known",[null]],["missing"]]"#
+    );
 }
 
 #[test]

@@ -6,7 +6,7 @@
 //! Comparable fields use supported dialects and feasible required-value witnesses.
 //! Union facts are shared across feasible arms within the per-union budget.
 //! Exact JSON numbers and structural token kinds are preserved; repeated members are counted at their declaration boundary.
-//! Empty enums retain their declarations. Effective nullable type sets use the branch-dependent tag when mixed.
+//! Empty enum declarations and effective nullable type sets contribute to field signatures.
 //! Stopped reference expansions retain edge requiredness and tag unreadable shape slots unknown.
 //! A feasible edge beyond the inventory depth earns a counted cut after object feasibility is checked.
 //! Swagger request omission proof establishes Content-Type selection. Status records use canonical JSON strings.
@@ -501,8 +501,8 @@ impl<'r, 'a> Reader<'r, 'a> {
             }
         }
         if mixed_null && types & NULL != 0 {
-            field_type = if types == NULL {
-                Property::Known("null".into())
+            field_type = if types == NULL || !blocked && !feasibility.unknown {
+                Property::Known(constraints::nullable_types(types))
             } else {
                 Property::BranchDependent
             };

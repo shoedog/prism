@@ -154,7 +154,7 @@ pub enum EnumValue {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FieldShape {
-    pub field_type: Property<String>,
+    pub field_type: Property<Vec<String>>,
     pub format: Property<String>,
     pub required: Property<bool>,
     pub enum_values: Property<Vec<EnumValue>>,

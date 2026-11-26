@@ -243,7 +243,13 @@ pub fn check(row: &Row<'_>, input: &Value, failures: &mut Vec<String>) {
         };
         let shape_found = &field.shape;
         let values = [
-            ("type", property(&shape_found.field_type, |s| json!(s))),
+            (
+                "type",
+                property(&shape_found.field_type, |types| match types.as_slice() {
+                    [name] => json!(name),
+                    _ => json!(types),
+                }),
+            ),
             ("format", property(&shape_found.format, |s| json!(s))),
             ("required", property(&shape_found.required, |b| json!(b))),
             (
@@ -314,13 +320,13 @@ fn check_message(
         limit_counts(&message.limits, true),
         expected_counts(&expected["limits"]),
     );
-    if let Some(feasible) = expected["feasible"].as_bool() {
+    if let Some(feasible) = expected.get("feasible") {
         compare(
             failures,
             label,
             "root feasibility",
             message.feasible,
-            Some(feasible),
+            feasible.as_bool(),
         );
     }
     if let Some(media) = expected.get("declared_media") {

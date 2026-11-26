@@ -4,7 +4,18 @@ use std::fmt::Write;
 
 pub fn signature(shape: &FieldShape) -> String {
     let properties = [
-        tagged(&shape.field_type, |s| string(s)),
+        tagged(&shape.field_type, |types| {
+            let mut names: Vec<_> = types.iter().map(String::as_str).collect();
+            names.sort_unstable();
+            names.dedup();
+            match names.as_slice() {
+                [name] => string(name),
+                _ => {
+                    let encoded: Vec<_> = names.into_iter().map(string).collect();
+                    format!("[{}]", encoded.join(","))
+                }
+            }
+        }),
         tagged(&shape.format, |s| string(s)),
         tagged(&shape.required, bool::to_string),
         tagged(&shape.enum_values, |values| {
