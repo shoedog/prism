@@ -1,12 +1,12 @@
 use super::*;
 
 #[test]
-fn competing_or_cyclic_metadata_writes_are_unknown() {
+fn competing_metadata_writes_are_unknown_and_import_cycles_preserve_source_writes() {
     for (views, local, expected) in [
         ("f.methods = ['PATCH']\n", "", Some("PATCH")),
         ("", "f.methods = ['POST']\n", Some("POST")),
         ("f.methods = ['PATCH']\n", "f.methods = ['POST']\n", None),
-        ("import app\nf.methods = ['PATCH']\n", "", None),
+        ("import app\nf.methods = ['PATCH']\n", "", Some("PATCH")),
     ] {
         let app = format!("{APP}from views import f\n{local}app.add_url_rule('/x', view_func=f)\n");
         let views = format!("def f(): pass\n{views}");

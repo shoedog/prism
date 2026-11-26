@@ -1,15 +1,17 @@
-// STUB: replaced by the implementation
 //! Counted refusals of the Python static import binding rule (DESIGN section 5.3).
-//!
-//! Contract the implementation fulfils: `import_refusals` is valid after `flask_facts` ran on
-//! the bindings and returns the exact multiset of counted refusals, one per distinct refused
-//! capture span (first applicable reason in predicate order) and one per distinct whole-call
-//! span for a refused no-effect callee. Spans are UTF-8 byte ranges of the written text.
-#![allow(dead_code)]
 
-use super::PythonBindings;
+use super::{ParsedFile, PythonBindings};
+use std::{cell::RefCell, collections::BTreeMap};
+use tree_sitter::Node;
 
-/// Counted reasons, declared in predicate order (`class_private_name` before `class_body_import`).
+#[derive(Clone, Copy)]
+pub(super) enum Capture<'a> {
+    Silent,
+    Value,
+    Callee(Node<'a>),
+}
+
+/// Counted reasons in predicate order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum ImportRefusalReason {
     GetattrModule,
@@ -19,10 +21,11 @@ pub(crate) enum ImportRefusalReason {
     NestedSingle,
     SubmoduleShadow,
     ModuleDescriptorName,
-    ClassBodyImport,
     ClassPrivateName,
+    ClassBodyImport,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ImportRefusal {
     pub reason: ImportRefusalReason,
@@ -31,8 +34,35 @@ pub(crate) struct ImportRefusal {
     pub end_byte: usize,
 }
 
+type Span = (String, usize, usize);
+pub(super) type ImportRefusals = RefCell<BTreeMap<Span, ImportRefusalReason>>;
+
 impl PythonBindings<'_> {
+    pub(super) fn record_import_refusal(
+        &self,
+        file: &ParsedFile,
+        span: Node<'_>,
+        reason: ImportRefusalReason,
+    ) {
+        self.refusals
+            .borrow_mut()
+            .entry((file.path.clone(), span.start_byte(), span.end_byte()))
+            .and_modify(|earlier| *earlier = (*earlier).min(reason))
+            .or_insert(reason);
+    }
+
+    /// After fact extraction, return one refusal per capture or no-effect call span.
+    #[allow(dead_code)]
     pub(crate) fn import_refusals(&self) -> Vec<ImportRefusal> {
-        Vec::new()
+        self.refusals
+            .borrow()
+            .iter()
+            .map(|((file, start_byte, end_byte), reason)| ImportRefusal {
+                file: file.clone(),
+                start_byte: *start_byte,
+                end_byte: *end_byte,
+                reason: *reason,
+            })
+            .collect()
     }
 }

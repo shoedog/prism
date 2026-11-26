@@ -145,7 +145,7 @@ impl<'a> PythonBindings<'a> {
                 && scope.kind() == "module"
                 && writes
                     .reach
-                    .member_precedes(&source.path, &file.path, module_before)
+                    .direct_import_precedes(&source.path, &file.path, module_before)
             {
                 Some(0)
             } else {

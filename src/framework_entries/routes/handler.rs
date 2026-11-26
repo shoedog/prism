@@ -23,7 +23,7 @@ pub(crate) fn python_callback<'a>(
         context,
     } = use_site;
     let text = file.node_text(&node).to_owned();
-    let reason = match bindings.value_at(&file.path, node, context) {
+    let reason = match bindings.capture_value(&file.path, node, context) {
         PythonValue::Definition(PythonMember { file, node })
             if node.kind() == "function_definition" =>
         {

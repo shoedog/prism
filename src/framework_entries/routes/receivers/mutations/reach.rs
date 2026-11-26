@@ -1,10 +1,12 @@
 use super::*;
-use crate::framework_entries::routes::receivers::{direct, import_parts};
+use crate::framework_entries::routes::receivers::{
+    direct,
+    imports::{import_items, source_path},
+};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
 pub(super) struct FileReach<'a> {
-    imports: BTreeMap<&'a str, BTreeSet<&'a str>>,
     direct_from: BTreeMap<(&'a str, &'a str), usize>,
     components: BTreeMap<&'a str, &'a str>,
 }
@@ -19,8 +21,7 @@ impl<'a> FileReach<'a> {
                     continue;
                 }
                 let from = node.child_by_field_name("module_name");
-                let module =
-                    from.and_then(|from| bindings.absolute_module(path, file.node_text(&from)));
+                let module = from.and_then(|from| bindings.import_module(file, from));
                 if direct(node, file.tree.root_node()) {
                     if let Some(source) = module
                         .as_deref()
@@ -32,14 +33,13 @@ impl<'a> FileReach<'a> {
                             .or_insert(node.end_byte());
                     }
                 }
-                let members = children(node)
-                    .into_iter()
-                    .filter(|child| Some(*child) != from)
-                    .filter_map(|child| import_parts(child).map(|(name, _)| name))
-                    .map(|name| match &module {
-                        Some(module) => format!("{module}.{}", file.node_text(&name)),
-                        None => file.node_text(&name).into(),
-                    });
+                let members = import_items(node).map(|(name, _)| {
+                    let name = source_path(file, name);
+                    match &module {
+                        Some(module) => format!("{module}.{name}"),
+                        None => name,
+                    }
+                });
                 for name in module.iter().cloned().chain(members) {
                     let prefixes = name.match_indices('.').map(|(end, _)| &name[..end]);
                     for imported in prefixes.chain([name.as_str()]).filter_map(|module| {
@@ -47,7 +47,6 @@ impl<'a> FileReach<'a> {
                     }) {
                         neighbors.entry(path).or_default().insert(imported);
                         neighbors.entry(imported).or_default().insert(path);
-                        reach.imports.entry(path).or_default().insert(imported);
                     }
                 }
             }
@@ -70,31 +69,14 @@ impl<'a> FileReach<'a> {
         self.components.get(path).copied().unwrap_or(path)
     }
 
-    // A directly imported member module has finished its module body before use
-    // unless a static import path can bring execution back to the registrant.
-    pub(super) fn member_precedes(
+    pub(super) fn direct_import_precedes(
         &self,
         source: &'a str,
         registration: &'a str,
         before: usize,
     ) -> bool {
-        if self
-            .direct_from
+        self.direct_from
             .get(&(registration, source))
-            .is_none_or(|&end| end > before)
-        {
-            return false;
-        }
-        let mut visited = BTreeSet::new();
-        let mut pending = vec![source];
-        while let Some(path) = pending.pop() {
-            if path == registration {
-                return false;
-            }
-            if visited.insert(path) {
-                pending.extend(self.imports.get(path).into_iter().flatten().copied());
-            }
-        }
-        true
+            .is_some_and(|&end| end <= before)
     }
 }

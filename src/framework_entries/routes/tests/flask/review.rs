@@ -47,7 +47,7 @@ fn match_capture_invalidates_receiver() {
 }
 
 #[test]
-fn attribute_writes_invalidate_router_and_module_aliases() {
+fn attribute_writes_invalidate_router_aliases_and_preserve_module_source_bindings() {
     for (write, expected) in [
         ("other.get = decorate", true),
         ("alias.get = decorate", false),
@@ -69,10 +69,10 @@ fn attribute_writes_invalidate_router_and_module_aliases() {
             },
         );
     }
-    for (write, expected) in [
-        ("", true),
-        ("routes.bp = routes.other\n", false),
-        ("alias.bp = routes.other\n", false),
+    for write in [
+        "",
+        "routes.bp = routes.other\n",
+        "alias.bp = routes.other\n",
     ] {
         let source = format!(
             "{APP}import routes\nalias = routes\n{write}app.register_blueprint(routes.bp)\n"
@@ -83,11 +83,16 @@ fn attribute_writes_invalidate_router_and_module_aliases() {
         let [FlaskEvent::Mount(mount)] = facts.as_slice() else {
             panic!("expected mount")
         };
-        assert_eq!(proved(&mount.child), expected, "{write}");
+        assert!(
+            matches!(&mount.child,
+                Receiver::Router { identity, .. } if identity.file == "routes.py" && identity.binding == "bp"
+            ),
+            "{write}"
+        );
         assert!(proved(&mount.parent));
     }
 
-    for (write, expected) in [("", true), ("pkg.routes = replacement\n", false)] {
+    for write in ["", "pkg.routes = replacement\n"] {
         let source = format!("{APP}import pkg\nimport pkg.routes as original\nimport replacement\n{write}app.register_blueprint(pkg.routes.bp)\n");
         let files = parsed(&[
             ("app.py", &source),
@@ -105,7 +110,12 @@ fn attribute_writes_invalidate_router_and_module_aliases() {
             panic!("expected namespace-package mount");
         };
         assert!(proved(&mount.parent));
-        assert_eq!(proved(&mount.child), expected, "{write}");
+        assert!(
+            matches!(&mount.child,
+                Receiver::Router { identity, .. } if identity.file == "pkg/routes.py" && identity.binding == "bp"
+            ),
+            "{write}"
+        );
     }
 
     for (write, expected) in [("", true), ("made.get = replace", false)] {

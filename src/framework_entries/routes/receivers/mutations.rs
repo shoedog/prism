@@ -9,7 +9,6 @@ use tree_sitter::Node;
 
 mod escapes;
 mod metadata;
-mod modules;
 mod reach;
 mod values;
 use escapes::ViewArgument;
@@ -22,7 +21,6 @@ type Mounts<'a> = BTreeMap<Allocation<'a>, BTreeSet<Allocation<'a>>>;
 
 #[derive(Default)]
 pub(super) struct AttributeWrites<'a> {
-    pub(super) modules: BTreeSet<String>,
     routers: BTreeSet<Allocation<'a>>,
     converters: BTreeSet<Allocation<'a>>,
     replaced_configs: BTreeSet<Allocation<'a>>,
@@ -114,22 +112,16 @@ impl<'a> AttributeWrites<'a> {
             .record(file, node, object, field, value, &owners);
         let resolved = matches!(
             owners.first(),
-            Some(PythonValue::Module(_) | PythonValue::Router(_) | PythonValue::Definition(_))
+            Some(PythonValue::Module | PythonValue::Router(_) | PythonValue::Definition(_))
         );
         for owner in owners {
-            match owner {
-                PythonValue::Module(module) => {
-                    self.modules.insert(module);
+            if let PythonValue::Router(router) = owner {
+                if field == "config" {
+                    self.replaced_configs.insert(allocation(&router));
                 }
-                PythonValue::Router(router) => {
-                    if field == "config" {
-                        self.replaced_configs.insert(allocation(&router));
-                    }
-                    if !setup_field(field) {
-                        self.routers.insert(allocation(&router));
-                    }
+                if !setup_field(field) {
+                    self.routers.insert(allocation(&router));
                 }
-                _ => {}
             }
         }
         if !matches!(field, "converters" | "url_map") && !route_field(field) {
@@ -169,7 +161,7 @@ impl<'a> AttributeWrites<'a> {
         for (file, owner) in members_named(bindings, file, container, "view_functions") {
             if !matches!(
                 possible_values(bindings, file, owner).first(),
-                Some(PythonValue::Router(_) | PythonValue::Module(_) | PythonValue::Definition(_))
+                Some(PythonValue::Router(_) | PythonValue::Module | PythonValue::Definition(_))
             ) && !is_builtin_object(bindings, file, owner)
             {
                 self.router_belts.insert(self.reach.component(&file.path));
@@ -416,7 +408,7 @@ fn members_named<'a>(
 ) -> Vec<(&'a ParsedFile, Node<'a>)> {
     let object = ungroup(object);
     if object.kind() != "identifier"
-        && !attribute(object).is_some_and(|(_, name)| file.node_text(&name) == field)
+        && attribute(object).is_none_or(|(_, name)| file.node_text(&name) != field)
     {
         return vec![];
     }

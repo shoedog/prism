@@ -181,7 +181,7 @@ pub(crate) fn flask_facts<'a>(
             !context.frames.is_empty() && factory.file.path == path && factory.node == scope
         })
     };
-    let value = |node| bindings.value_at(path, node, context);
+    let value = |node| bindings.capture_value(path, node, context);
     let mut facts = Vec::new();
     // Visit decorator groups in application order, and all other sites in source order.
     let sites = bindings
@@ -240,6 +240,11 @@ pub(crate) fn flask_facts<'a>(
             None
         };
         if !active(scope) && deferred.is_none() {
+            if context.factory.is_none() {
+                // Source captures can be diagnosed without activating a lexical scope.
+                value(object);
+                capture_registration_argument(file, &options, method, value);
+            }
             continue;
         }
         let owner = deferred.map(value).filter(|value| {
@@ -256,6 +261,7 @@ pub(crate) fn flask_facts<'a>(
         if matches!(parent, Receiver::Unproven { .. })
             && !bindings.router_hint(file, object, context)
         {
+            capture_registration_argument(file, &options, method, value);
             continue;
         }
         if !decorator && method == "register_blueprint" {
@@ -291,17 +297,35 @@ pub(crate) fn flask_facts<'a>(
                         node: origin,
                         context,
                     },
-                    parent,
+                    RegistrationReceiver {
+                        parent,
+                        record_once,
+                        default_converters,
+                    },
                     method,
                     options,
                     def,
-                    record_once,
-                    default_converters,
                 ));
             }
         }
     }
     facts
+}
+
+fn capture_registration_argument<'a>(
+    file: &ParsedFile,
+    options: &PythonArgs<'a>,
+    method: &str,
+    capture: impl FnOnce(Node<'a>) -> PythonValue<'a>,
+) {
+    let argument = match method {
+        "register_blueprint" => options.get(file, "blueprint", 0),
+        "add_url_rule" => options.get(file, "view_func", 2),
+        _ => return,
+    };
+    if let Some(node) = argument.written() {
+        capture(node);
+    }
 }
 
 fn accepted_call(
@@ -342,7 +366,7 @@ fn transparent_decorator<'a>(bindings: &PythonBindings<'a>, use_site: PythonUse<
                 && !args.unpacked()
                 && args.get(file, required, 0).written().is_some()
                 && matches!(
-                    bindings.value_at(&file.path, object, context),
+                    bindings.capture_value(&file.path, object, context),
                     PythonValue::Router(_)
                 )
         })
@@ -467,16 +491,25 @@ fn mapping_write<'a>(
     }
 }
 
+struct RegistrationReceiver {
+    parent: Receiver,
+    record_once: bool,
+    default_converters: bool,
+}
+
 fn declaration<'a>(
     bindings: &PythonBindings<'a>,
     use_site: PythonUse<'a, '_>,
-    parent: Receiver,
+    receiver: RegistrationReceiver,
     method: &str,
     options: PythonArgs<'a>,
     def: Option<Node<'a>>,
-    record_once: bool,
-    default_converters: bool,
 ) -> Option<FlaskEvent<'a>> {
+    let RegistrationReceiver {
+        parent,
+        record_once,
+        default_converters,
+    } = receiver;
     let PythonUse {
         file,
         node: origin,

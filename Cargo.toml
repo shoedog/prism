@@ -51,6 +51,7 @@ sha2 = "0.10"
 rayon = "1"
 dirs = "6.0.0"
 libc = "0.2"
+unicode-normalization = "0.1"
 
 [dev-dependencies]
 # Root integration tests exercise the review layer too (S5 test placement T3); a dev-only edge,

@@ -1,27 +1,40 @@
-use super::{modules::relevant_module, *};
+use super::*;
 use crate::framework_entries::routes::receivers::{
-    direct, import_parts, python_scope, targets, PythonMember, SetupContext,
+    direct,
+    imports::{import_items, imported_as, source_path},
+    normalized, python_scope, targets, PythonMember, SetupContext,
 };
+use crate::framework_entries::routes::Reason;
 
 // Mutation indexing has no setup order. Consider earlier reaching bindings
 // when a write is guarded or a nested scope reads an outer name.
 pub(super) fn possible_values<'a>(
     bindings: &PythonBindings<'a>,
     file: &'a ParsedFile,
-    node: Node<'a>,
+    expression: Node<'a>,
 ) -> Vec<PythonValue<'a>> {
-    if !may_resolve(bindings, file, node, 24) {
+    if !may_resolve(bindings, file, expression, 24) {
         return vec![];
     }
     let mut values = Vec::new();
-    let mut pending = vec![ungroup(node)];
+    let root = ungroup(expression);
+    let mut pending = vec![root];
     let mut seen = BTreeSet::new();
     let context = SetupContext::default();
     while let Some(node) = pending.pop() {
         if !seen.insert(node.id()) {
             continue;
         }
-        values.push(bindings.value_at(&file.path, node, &context));
+        let exact = if node == root {
+            bindings.capture_value(&file.path, node, &context)
+        } else {
+            bindings.value_at(&file.path, node, &context)
+        };
+        let refused = matches!(exact, PythonValue::Unknown(Reason::ImportedUnproven));
+        values.push(exact);
+        if refused {
+            values.extend(bindings.possible_imported_views(file, node, &context));
+        }
         if node.kind() != "identifier" {
             continue;
         }
@@ -101,7 +114,7 @@ fn reaching_sources<'a>(
             && bindings
                 .reaching(file, scope, name, scope.end_byte())
                 .is_some()
-            && !bindings.uncertain_global(file, name);
+            && !bindings.has_global_write(file, name);
         if scope.kind() == "module"
             || shadowed
             || parameter(file, scope, name)
@@ -139,27 +152,22 @@ fn relevant_import(
     import: Node<'_>,
     name: &str,
 ) -> bool {
-    let relevant = |module: &str| relevant_module(bindings, module);
+    let relevant = |module: &str| {
+        module == "flask" || module.starts_with("flask.") || bindings.source_module(module)
+    };
     let from = import.child_by_field_name("module_name");
-    children(import)
-        .into_iter()
-        .filter(|child| Some(*child) != from)
-        .filter_map(import_parts)
-        .any(|(path, alias)| {
-            let path = file.node_text(&path);
-            let first = path.split('.').next().unwrap_or(path);
-            if alias.map_or(first, |alias| file.node_text(&alias)) != name {
-                return false;
-            }
-            match from {
-                Some(from) => bindings
-                    .absolute_module(&file.path, file.node_text(&from))
-                    .is_some_and(|module| {
-                        relevant(&module) || relevant(&format!("{module}.{path}"))
-                    }),
-                None => relevant(path) || relevant(first),
-            }
-        })
+    import_items(import).any(|(path, alias)| {
+        if normalized(imported_as(file, path, alias)) != normalized(name) {
+            return false;
+        }
+        let path = source_path(file, path);
+        match from {
+            Some(from) => bindings
+                .import_module(file, from)
+                .is_some_and(|module| relevant(&module) || relevant(&format!("{module}.{path}"))),
+            None => relevant(&path) || path.split_once('.').is_some_and(|(root, _)| relevant(root)),
+        }
+    })
 }
 
 fn parameter(file: &ParsedFile, scope: Node<'_>, name: &str) -> bool {
@@ -169,7 +177,7 @@ fn parameter(file: &ParsedFile, scope: Node<'_>, name: &str) -> bool {
             children(params)
                 .into_iter()
                 .flat_map(targets)
-                .any(|id| file.node_text(&id) == name)
+                .any(|id| normalized(file.node_text(&id)) == normalized(name))
         })
 }
 

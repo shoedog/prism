@@ -215,11 +215,13 @@ use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+mod imports;
 mod mutations;
 pub(crate) mod refusals;
 mod writes;
 use mutations::AttributeWrites;
-use writes::{targets, LexicalWrites};
+use refusals::{Capture, ImportRefusals};
+use writes::{normalized, targets, LexicalWrites};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PythonKind {
@@ -235,11 +237,6 @@ pub(crate) struct PythonMember<'a> {
     pub node: Node<'a>,
 }
 
-pub(crate) struct PythonImport<'a> {
-    pub module: &'a str,
-    pub member: &'a str,
-}
-
 #[derive(Clone)]
 pub(crate) struct PythonRouter<'a> {
     pub kind: PythonKind,
@@ -249,7 +246,7 @@ pub(crate) struct PythonRouter<'a> {
 
 pub(crate) enum PythonValue<'a> {
     Constructor(PythonKind),
-    Module(String),
+    Module,
     Definition(PythonMember<'a>),
     Router(PythonRouter<'a>),
     Opaque(PythonMember<'a>),
@@ -267,6 +264,7 @@ pub(crate) struct PythonBindings<'a> {
     nodes: BTreeMap<&'a str, Vec<Node<'a>>>,
     writes: BTreeMap<&'a str, LexicalWrites<'a>>,
     mutations: Option<AttributeWrites<'a>>,
+    refusals: ImportRefusals,
 }
 
 pub(crate) fn index_python(files: &BTreeMap<String, ParsedFile>) -> PythonBindings<'_> {
@@ -288,6 +286,7 @@ pub(crate) fn index_python(files: &BTreeMap<String, ParsedFile>) -> PythonBindin
         nodes,
         writes,
         mutations: None,
+        refusals: ImportRefusals::default(),
     };
     bindings.mutations = Some(AttributeWrites::index(&bindings));
     bindings
@@ -332,41 +331,6 @@ impl<'a> PythonBindings<'a> {
         self.nodes.get(file).map_or(&[], Vec::as_slice)
     }
 
-    fn module_file(&self, module: &str) -> Option<&'a ParsedFile> {
-        let path = module.replace('.', "/");
-        if path.match_indices('/').any(|(end, _)| {
-            self.files
-                .contains_key(format!("{}.py", &path[..end]).as_str())
-        }) {
-            return None;
-        }
-        let module = self.files.get(format!("{path}.py").as_str());
-        let package = self.files.get(format!("{path}/__init__.py").as_str());
-        if module.is_some() && package.is_some() {
-            return None;
-        }
-        module.or(package).copied()
-    }
-
-    fn absolute_module(&self, origin: &str, module: &str) -> Option<String> {
-        let relative = module.len() - module.trim_start_matches('.').len();
-        if relative == 0 {
-            return Some(module.into());
-        }
-        let (dir, _) = origin.rsplit_once('/')?;
-        let mut package: Vec<_> = dir.split('/').collect();
-        if relative > package.len() {
-            return None;
-        }
-        package.truncate(package.len() + 1 - relative);
-        package.extend(
-            module[relative..]
-                .split('.')
-                .filter(|part| !part.is_empty()),
-        );
-        Some(package.join("."))
-    }
-
     pub(crate) fn reaching(
         &self,
         file: &ParsedFile,
@@ -379,77 +343,6 @@ impl<'a> PythonBindings<'a> {
             .reaching(scope, name, before)
     }
 
-    pub(crate) fn module_member(
-        &self,
-        origin: &str,
-        import: &PythonImport<'_>,
-    ) -> Option<PythonMember<'a>> {
-        let file = self.module_file(&self.absolute_module(origin, import.module)?)?;
-        let root = file.tree.root_node();
-        if self.uncertain_global(file, import.member) {
-            return None;
-        }
-        let node = self.reaching(file, root, import.member, root.end_byte())?;
-        (direct(node, root)
-            && matches!(
-                node.kind(),
-                "assignment" | "function_definition" | "class_definition"
-            ))
-        .then_some(PythonMember { file, node })
-    }
-
-    fn imported(
-        &self,
-        file: &ParsedFile,
-        import: &PythonImport<'_>,
-        depth: usize,
-    ) -> PythonValue<'a> {
-        let unknown = PythonValue::Unknown(Reason::ImportedUnproven);
-        let Some(module) = self.absolute_module(&file.path, import.module) else {
-            return unknown;
-        };
-        if self
-            .mutations
-            .as_ref()
-            .is_some_and(|writes| writes.modules.contains(&module))
-        {
-            return unknown;
-        }
-        let package_path = module.replace('.', "/");
-        let local = self
-            .files
-            .contains_key(format!("{package_path}.py").as_str())
-            || self
-                .files
-                .contains_key(format!("{package_path}/__init__.py").as_str());
-        if !local {
-            let kind = match (module.as_str(), import.member) {
-                ("flask", "Flask") => Some(PythonKind::FlaskApp),
-                ("flask", "Blueprint") => Some(PythonKind::Blueprint),
-                ("flask.views", "View") => Some(PythonKind::View),
-                ("flask.views", "MethodView") => Some(PythonKind::MethodView),
-                _ => None,
-            };
-            if let Some(kind) = kind {
-                return PythonValue::Constructor(kind);
-            }
-        }
-        if let Some(member) = self.module_member(&file.path, import) {
-            let value = self.bound(member, import.member, &SetupContext::default(), depth);
-            return match &value {
-                PythonValue::Router(router) if router.identity.file == member.file.path => value,
-                PythonValue::Definition(def) if def.file.path == member.file.path => value,
-                _ => unknown,
-            };
-        }
-        let submodule = format!("{module}.{}", import.member);
-        if self.module_file(&submodule).is_some() || submodule == "flask.views" {
-            PythonValue::Module(submodule)
-        } else {
-            unknown
-        }
-    }
-
     fn named(
         &self,
         file: &'a ParsedFile,
@@ -460,7 +353,7 @@ impl<'a> PythonBindings<'a> {
     ) -> PythonValue<'a> {
         let unknown = PythonValue::Unknown(Reason::ReceiverUnproven);
         let scope = python_scope(use_node);
-        if depth == 0 || scope.kind() == "lambda" || self.uncertain_global(file, name) {
+        if depth == 0 || scope.kind() == "lambda" || self.has_global_write(file, name) {
             return unknown;
         }
         if let Some(node) = self.reaching(file, scope, name, use_node.start_byte()) {
@@ -473,7 +366,7 @@ impl<'a> PythonBindings<'a> {
             children(p)
                 .into_iter()
                 .flat_map(targets)
-                .any(|id| file.node_text(&id) == name)
+                .any(|id| normalized(file.node_text(&id)) == normalized(name))
         }) || self.reaching(file, scope, name, scope.end_byte()).is_some()
         {
             return unknown;
@@ -499,8 +392,8 @@ impl<'a> PythonBindings<'a> {
         })
     }
 
-    fn uncertain_global(&self, file: &ParsedFile, name: &str) -> bool {
-        self.writes[file.path.as_str()].uncertain_global(name)
+    fn has_global_write(&self, file: &ParsedFile, name: &str) -> bool {
+        self.writes[file.path.as_str()].global_write(&normalized(name))
     }
 
     pub(super) fn module_before(&self, file: &ParsedFile, context: &SetupContext<'_>) -> usize {
@@ -538,38 +431,7 @@ impl<'a> PythonBindings<'a> {
         match node.kind() {
             "function_definition" | "class_definition" => PythonValue::Definition(member),
             "import_statement" | "import_from_statement" => {
-                let module = node.child_by_field_name("module_name");
-                for (path, alias) in children(node)
-                    .into_iter()
-                    .filter(|child| Some(*child) != module)
-                    .filter_map(import_parts)
-                {
-                    let path = file.node_text(&path);
-                    let bound = alias.map_or_else(
-                        || path.split('.').next().unwrap_or(path),
-                        |alias| file.node_text(&alias),
-                    );
-                    if bound == name {
-                        return module.map_or_else(
-                            || {
-                                PythonValue::Module(
-                                    if alias.is_some() { path } else { bound }.into(),
-                                )
-                            },
-                            |module| {
-                                self.imported(
-                                    file,
-                                    &PythonImport {
-                                        module: file.node_text(&module),
-                                        member: path,
-                                    },
-                                    depth - 1,
-                                )
-                            },
-                        );
-                    }
-                }
-                PythonValue::Unknown(Reason::ImportedUnproven)
+                self.imported_binding(member, name, depth - 1)
             }
             "assignment"
                 if node
@@ -603,30 +465,14 @@ impl<'a> PythonBindings<'a> {
         if depth == 0 || value.has_error() {
             return unknown;
         }
+        if let Some(value) = self.imported(file, value, context, depth, Capture::Silent) {
+            return value;
+        }
         match value.kind() {
             "identifier" => self.named(file, value, file.node_text(&value), context, depth),
             "parenthesized_expression" => value.named_child(0).map_or(unknown, |value| {
                 self.evaluate(file, value, binding, context, depth - 1)
             }),
-            "attribute" => {
-                let Some((object, name)) = attribute(value) else {
-                    return unknown;
-                };
-                if let PythonValue::Module(module) =
-                    self.evaluate(file, object, "", context, depth - 1)
-                {
-                    self.imported(
-                        file,
-                        &PythonImport {
-                            module: &module,
-                            member: file.node_text(&name),
-                        },
-                        depth - 1,
-                    )
-                } else {
-                    PythonValue::Opaque(PythonMember { file, node: value })
-                }
-            }
             "call" => {
                 let Some(function) = value.child_by_field_name("function") else {
                     return unknown;
@@ -693,6 +539,22 @@ impl<'a> PythonBindings<'a> {
             return PythonValue::Unknown(Reason::ReceiverUnproven);
         };
         self.checked_router(self.evaluate(file, value, file.node_text(&value), context, 24))
+    }
+
+    pub(crate) fn capture_value(
+        &self,
+        file: &str,
+        value: Node<'a>,
+        context: &SetupContext<'a>,
+    ) -> PythonValue<'a> {
+        let Some(&source) = self.files.get(file) else {
+            return PythonValue::Unknown(Reason::ReceiverUnproven);
+        };
+        self.imported(source, value, context, 24, Capture::Value)
+            .map_or_else(
+                || self.value_at(file, value, context),
+                |value| self.checked_router(value),
+            )
     }
 
     fn factory(
@@ -776,7 +638,9 @@ impl<'a> PythonBindings<'a> {
                 node.start_byte() >= definition.end_byte() && python_scope(*node) == scope
             })
             .all(|node| {
-                if node.kind() != "identifier" || file.node_text(&node) != name {
+                if node.kind() != "identifier"
+                    || normalized(file.node_text(&node)) != normalized(name)
+                {
                     return true;
                 }
                 let Some(parent) = node.parent() else {
@@ -858,7 +722,7 @@ impl<'a> PythonBindings<'a> {
             }
             let root = file.tree.root_node();
             for name in self.writes[path].names(root) {
-                if self.uncertain_global(file, name) {
+                if self.has_global_write(file, name) {
                     continue;
                 }
                 let Some(node) = self.reaching(file, root, name, root.end_byte()) else {

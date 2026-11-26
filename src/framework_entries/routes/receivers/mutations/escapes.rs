@@ -16,21 +16,20 @@ impl<'a> PythonBindings<'a> {
         context: &SetupContext<'a>,
     ) -> Option<&'a str> {
         let writes = self.mutations.as_ref().expect("indexed Python bindings");
-        let default_context = SetupContext::default();
-        writes
-            .view_arguments
-            .get(&definition(member))?
-            .iter()
-            .find_map(|argument| {
-                let ViewArgument { file, call, value } = *argument;
-                // Use the completed mutation index to check the callee and receiver.
-                let proved = native_view_argument(self, file, call, value, context)
-                    || call.child_by_field_name("function").is_some_and(|callee| {
-                        matches!(self.value_at(&file.path, callee, &default_context),
+        let mut escaped = None;
+        for argument in writes.view_arguments.get(&definition(member))? {
+            let ViewArgument { file, call, value } = *argument;
+            // Use the completed mutation index to check the callee and receiver.
+            let proved = native_view_argument(self, file, call, value, context)
+                || call.child_by_field_name("function").is_some_and(|callee| {
+                    matches!(self.direct_callee(file, callee, call),
                         PythonValue::Definition(member) if no_effect_body(member.node))
-                    });
-                (!proved).then(|| file.node_text(&call))
-            })
+                });
+            if !proved && escaped.is_none() {
+                escaped = Some(file.node_text(&call));
+            }
+        }
+        escaped
     }
 }
 
