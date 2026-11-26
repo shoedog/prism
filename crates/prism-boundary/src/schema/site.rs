@@ -31,6 +31,7 @@ pub(crate) struct Diagnostic {
     pub scope: &'static str,
     pub site: Site,
     pub reference_chain: Vec<Site>,
+    pub capture: Option<String>,
 }
 
 impl Diagnostic {
@@ -40,6 +41,7 @@ impl Diagnostic {
             scope,
             site,
             reference_chain: Vec::new(),
+            capture: None,
         }
     }
 }

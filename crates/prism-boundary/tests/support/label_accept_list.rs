@@ -1,0 +1,316 @@
+use crate::schema::Inventory;
+use crate::support::{index, json};
+use prism_boundary::revision::{Blob, Format, ReferenceBlob};
+use serde_json::{json, Value};
+use std::path::Path;
+use std::process::Command;
+
+const CAPTURE_PATH: &str = "/reed/{id}";
+const LABEL_ID: &str = "op:GET /reed/.{}";
+const PLAIN_ID: &str = "op:GET /reed/{}";
+const ENTRY_URI: &str = "https://example.test/openapi.json";
+
+fn label(schema: Value) -> Value {
+    json!({"in": "path", "name": "id", "required": true, "style": "label", "schema": schema})
+}
+
+fn document(parameters: Value) -> Value {
+    json!({
+        "openapi": "3.1.0",
+        "paths": {
+            (CAPTURE_PATH): {"get": {"parameters": parameters, "responses": {"201": {}}}},
+            "/control": {"get": {"responses": {"200": {}}}}
+        }
+    })
+}
+
+fn projection(document: &Value, expected: Option<&str>) {
+    assert_projection(&json(&serde_json::to_vec(document).unwrap()), expected);
+}
+
+fn assert_projection(inventory: &Inventory, expected: Option<&str>) {
+    assert_eq!(
+        inventory
+            .operations
+            .keys()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        ["op:GET /control"]
+            .into_iter()
+            .chain(expected)
+            .collect::<Vec<_>>()
+    );
+    let diagnostics: Vec<_> = inventory
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "path_parameter_style_unchecked")
+        .collect();
+    if expected.is_some() {
+        assert!(inventory.unprojected.is_empty());
+        assert!(diagnostics.is_empty());
+    } else {
+        let [declaration] = inventory.unprojected.as_slice() else {
+            panic!(
+                "expected one withheld operation: {:?}",
+                inventory.unprojected
+            );
+        };
+        assert_eq!(declaration.source_path, CAPTURE_PATH);
+        assert_eq!(declaration.source_method, "get");
+        assert_eq!(declaration.responses.keys().collect::<Vec<_>>(), ["201"]);
+        let [diagnostic] = diagnostics.as_slice() else {
+            panic!(
+                "expected one path style diagnostic: {:?}",
+                inventory.diagnostics
+            );
+        };
+        assert_eq!(diagnostic.site.pointer, ["paths", CAPTURE_PATH]);
+        assert_eq!(diagnostic.capture.as_deref(), Some("id"));
+    }
+}
+
+#[test]
+fn label_schema_scalar_reference_is_withheld() {
+    let mut input = document(json!([label(json!({"type": "string"}))]));
+    input["components"]["schemas"]["Scalar"] = json!({"type": "string"});
+    projection(&input, Some(LABEL_ID));
+    input["paths"][CAPTURE_PATH]["get"]["parameters"][0]["schema"] =
+        json!({"$ref": "#/components/schemas/Scalar"});
+    projection(&input, None);
+}
+
+#[test]
+fn label_parameter_scalar_reference_is_withheld() {
+    let scalar = label(json!({"type": "string"}));
+    let mut input = document(json!([scalar]));
+    input["components"]["parameters"]["Id"] = scalar;
+    projection(&input, Some(LABEL_ID));
+    input["paths"][CAPTURE_PATH]["get"]["parameters"][0] =
+        json!({"$ref": "#/components/parameters/Id"});
+    projection(&input, None);
+}
+
+#[test]
+fn missing_parameter_reference_is_withheld() {
+    let input = document(json!([label(json!({"type": "string"}))]));
+    projection(&input, Some(LABEL_ID));
+    projection(
+        &document(json!([{"$ref": "#/components/parameters/Missing"}])),
+        None,
+    );
+}
+
+#[test]
+fn label_schema_id_changing_reference_base_is_withheld() {
+    let input = document(json!([label(json!({"type": "string"}))]));
+    projection(&input, Some(LABEL_ID));
+    let input = document(json!([label(
+        json!({"$id": "nested/base.json", "$ref": "types.json#/$defs/Id"})
+    )]));
+    let dependencies = [
+        (
+            "https://example.test/types.json",
+            "root-types",
+            br#"{"$defs":{"Id":{"type":"array"}}}"#.as_slice(),
+        ),
+        (
+            "https://example.test/nested/types.json",
+            "nested-types",
+            br#"{"$defs":{"Id":{"type":"string"}}}"#.as_slice(),
+        ),
+    ]
+    .map(|(retrieval_uri, oid, bytes)| ReferenceBlob {
+        retrieval_uri,
+        blob: Blob {
+            path: "types.json",
+            tree: "test-tree",
+            oid,
+            bytes,
+            format: Format::Json,
+        },
+    });
+    let inventory = index(
+        &serde_json::to_vec(&input).unwrap(),
+        Format::Json,
+        "test-api",
+        Some(ENTRY_URI),
+        &dependencies,
+    )
+    .unwrap();
+    assert_projection(&inventory, None);
+}
+
+#[test]
+fn unadmitted_override_does_not_fall_back_to_inherited_label() {
+    let mut input = document(
+        json!([{"in": "path", "name": "id", "required": true, "style": "simple", "schema": {"type": "string"}}]),
+    );
+    input["paths"][CAPTURE_PATH]["parameters"] = json!([label(json!({"type": "string"}))]);
+    projection(&input, Some(PLAIN_ID));
+    input["paths"][CAPTURE_PATH]["get"]["parameters"][0] = json!({"$ref": "unadmitted.json#/Id"});
+    let inventory = index(
+        &serde_json::to_vec(&input).unwrap(),
+        Format::Json,
+        "test-api",
+        Some(ENTRY_URI),
+        &[],
+    )
+    .unwrap();
+    assert_projection(&inventory, None);
+}
+
+#[test]
+fn label_schema_type_sibling_of_reference_is_withheld() {
+    let mut input = document(json!([label(json!({"type": "string"}))]));
+    input["components"]["schemas"]["Mixed"] = json!({"type": ["string", "array"]});
+    projection(&input, Some(LABEL_ID));
+    input["paths"][CAPTURE_PATH]["get"]["parameters"][0]["schema"]["$ref"] =
+        json!("#/components/schemas/Mixed");
+    projection(&input, None);
+}
+
+#[test]
+fn label_type_admits_one_recognized_non_null_member() {
+    for (version, kind, expected) in [
+        ("3.1.0", json!(["null", "string"]), Some(LABEL_ID)),
+        ("3.1.0", json!(["string"]), Some(LABEL_ID)),
+        ("3.0.3", json!("integer"), Some(LABEL_ID)),
+        ("3.1.0", json!("object"), Some(PLAIN_ID)),
+        ("3.1.0", json!(["null", "array"]), Some(PLAIN_ID)),
+        ("3.1.0", json!(["string", "integer"]), None),
+        ("3.1.0", json!(["array", "object"]), None),
+        ("3.1.0", json!(["null", "string", "array"]), None),
+        ("3.1.0", json!(["null"]), None),
+        ("3.1.0", Value::Null, None),
+        ("3.1.0", json!("unknown"), None),
+        ("3.0.3", json!(["string"]), None),
+    ] {
+        let mut input = document(json!([label(json!({"type": kind}))]));
+        input["openapi"] = json!(version);
+        projection(&input, expected);
+    }
+    projection(
+        &document(json!([label(json!({"$ref": "#/missing"}))])),
+        None,
+    );
+}
+
+#[test]
+fn resolution_keywords_anywhere_disqualify_inline_labels_only() {
+    for keyword in ["$id", "$anchor", "$dynamicRef"] {
+        let mut input = document(json!([label(json!({"type": "string"}))]));
+        input["components"]["schemas"]["Other"] = json!({(keyword): "foreign"});
+        projection(&input, None);
+        let parameter = &mut input["paths"][CAPTURE_PATH]["get"]["parameters"][0];
+        parameter["style"] = json!("simple");
+        parameter["schema"] = json!({"$ref": "#/missing"});
+        projection(&input, Some(PLAIN_ID));
+        input["paths"][CAPTURE_PATH]["get"]["parameters"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("style");
+        projection(&input, Some(PLAIN_ID));
+    }
+}
+
+#[test]
+fn label_requires_readable_lists_at_both_precedence_levels() {
+    for bad_list in [json!({}), json!([null]), json!([{"in": "path"}])] {
+        let mut input = document(json!([label(json!({"type": "string"}))]));
+        input["paths"][CAPTURE_PATH]["parameters"] = bad_list;
+        projection(&input, None);
+        input["paths"][CAPTURE_PATH]["get"]["parameters"][0]["style"] = json!("simple");
+        projection(&input, Some(PLAIN_ID));
+    }
+}
+
+#[test]
+fn label_with_an_inline_schema_containing_a_reference_is_withheld() {
+    let mut input = document(json!([label(
+        json!({"type": "string", "allOf": [{"minLength": 1}]})
+    )]));
+    projection(&input, Some(LABEL_ID));
+    input["components"]["schemas"]["Length"] = json!({"minLength": 1});
+    input["paths"][CAPTURE_PATH]["get"]["parameters"][0]["schema"]["allOf"][0] =
+        json!({"$ref": "#/components/schemas/Length"});
+    projection(&input, None);
+}
+
+#[test]
+fn label_inherited_from_another_document_is_withheld() {
+    let scalar = label(json!({"type": "string"}));
+    let mut input = document(json!([scalar]));
+    let parts = serde_json::to_vec(&json!({"item": {"parameters": [scalar]}})).unwrap();
+    let references = [ReferenceBlob {
+        retrieval_uri: "https://example.test/parts.json",
+        blob: Blob {
+            path: "parts.json",
+            tree: "test-tree",
+            oid: "parts",
+            bytes: &parts,
+            format: Format::Json,
+        },
+    }];
+    input["paths"][CAPTURE_PATH]["$ref"] = json!("parts.json#/item");
+    let read = |input: &Value| {
+        index(
+            &serde_json::to_vec(input).unwrap(),
+            Format::Json,
+            "test-api",
+            Some(ENTRY_URI),
+            &references,
+        )
+        .unwrap()
+    };
+    assert_projection(&read(&input), Some(LABEL_ID));
+    input["paths"][CAPTURE_PATH]["get"]["parameters"] = json!([]);
+    assert_projection(&read(&input), None);
+}
+
+#[test]
+fn path_parameter_override_is_keyed_by_name_and_location() {
+    let local = json!({"in": "query", "name": "id", "schema": {"type": "string"}});
+    let mut input = document(json!([local]));
+    input["paths"][CAPTURE_PATH]["parameters"] = json!([label(json!({"type": "string"}))]);
+    projection(&input, Some(LABEL_ID));
+    let override_parameter = &mut input["paths"][CAPTURE_PATH]["get"]["parameters"][0];
+    override_parameter["in"] = json!("path");
+    override_parameter["required"] = json!(true);
+    projection(&input, Some(PLAIN_ID));
+}
+
+#[test]
+fn boundary_has_no_prism_dependency_before_adapters() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let output = Command::new(env!("CARGO"))
+        .args([
+            "metadata",
+            "--offline",
+            "--no-deps",
+            "--format-version=1",
+            "--manifest-path",
+        ])
+        .arg(manifest)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let metadata: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let package = metadata["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|pkg| pkg["name"] == "prism-boundary")
+        .unwrap();
+    assert!(
+        package["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|dep| dep["name"] != "prism"),
+        "add the prism dependency when adapters use prism::api"
+    );
+}

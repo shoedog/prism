@@ -31,6 +31,7 @@ impl<'r, 'a> PathItem<'r, 'a> {
                     scope: "path_item",
                     site,
                     reference_chain: failure.chain,
+                    capture: None,
                 });
                 return None;
             }

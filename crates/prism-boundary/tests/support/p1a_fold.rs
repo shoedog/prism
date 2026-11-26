@@ -2,7 +2,7 @@ use crate::schema::Inventory;
 use crate::support::{index, json, rows};
 use prism_boundary::element::route::{project_route, Limit};
 use prism_boundary::revision::{Blob, Format, ReferenceBlob};
-use serde_json::{json, Value};
+use serde_json::json;
 
 fn ids(inventory: &Inventory) -> Vec<String> {
     inventory
@@ -10,62 +10,6 @@ fn ids(inventory: &Inventory) -> Vec<String> {
         .keys()
         .map(ToString::to_string)
         .collect()
-}
-
-fn label(schema: Value) -> Inventory {
-    json(&serde_json::to_vec(&json!({
-        "openapi": "3.1.0",
-        "components": {"schemas": {"Scalar": {"type": "string"}}},
-        "paths": {
-            "/reed/{label}": {"get": {
-                "parameters": [{"in": "path", "name": "label", "style": "label", "schema": schema}],
-                "responses": {"201": {}}
-            }},
-            "/control": {"get": {"responses": {"200": {}}}}
-        }
-    })).unwrap())
-}
-
-#[test]
-fn label_schema_reference_preserves_scalar_spelling() {
-    assert_eq!(
-        ids(&label(json!({"$ref": "#/components/schemas/Scalar"}))),
-        ["op:GET /control", "op:GET /reed/.{}"]
-    );
-}
-
-#[test]
-fn label_type_array_uses_non_null_members() {
-    for types in [json!(["string"]), json!(["null", "string", "integer"])] {
-        assert_eq!(
-            ids(&label(json!({"type": types}))),
-            ["op:GET /control", "op:GET /reed/.{}"],
-            "{types}"
-        );
-    }
-}
-
-#[test]
-fn unknown_label_type_leaves_only_affected_path_unchecked() {
-    for schema in [
-        json!({"$ref": "#/components/schemas/Missing"}),
-        json!({"type": ["null"]}),
-        json!({"type": ["string", "array"]}),
-    ] {
-        let inventory = label(schema.clone());
-        assert_eq!(ids(&inventory), ["op:GET /control"], "{schema}");
-        assert_eq!(inventory.unprojected[0].source_path, "/reed/{label}");
-        assert!(inventory.diagnostics.iter().any(|d| {
-            d.code == "path_parameter_style_unchecked"
-                && d.site
-                    .pointer
-                    .starts_with(&["paths".into(), "/reed/{label}".into()])
-        }));
-    }
-    assert_eq!(
-        ids(&label(json!({"type": ["object", "array"]}))),
-        ["op:GET /control", "op:GET /reed/{}"]
-    );
 }
 
 #[test]
@@ -89,10 +33,9 @@ fn referring_path_servers_survive_reference() {
 
 #[test]
 fn external_path_item_keeps_each_fields_declaring_document() {
-    let parts = br##"{"reed":{"get":{"parameters":[{"$ref":"#/parameters/Label"}],
-        "servers":[{"url":"api"}],"responses":{"200":{}}}},
-        "parameters":{"Label":{"in":"path","name":"label","style":"label",
-        "schema":{"$ref":"#/scalar"}}},"scalar":{"type":"string"}}"##;
+    let parts = br#"{"reed":{"get":{"parameters":[{"in":"path","name":"label",
+        "style":"label","schema":{"type":"string"}}],
+        "servers":[{"url":"api"}],"responses":{"200":{}}}}}"#;
     let reference = ReferenceBlob {
         retrieval_uri: "https://example.test/root/shared/parts.json",
         blob: Blob {

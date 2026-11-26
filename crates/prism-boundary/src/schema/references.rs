@@ -1,25 +1,15 @@
+mod document;
 mod path_item;
 
+pub(super) use document::{contains_member, Document};
 pub(super) use path_item::{Field, PathItem};
 
 use super::servers::Uri;
 use super::Site;
 use crate::element::decode_fragment_pointer;
-use crate::revision::{AdmittedSchemaInput, Blob, Format};
+use crate::revision::{AdmittedSchemaInput, Format};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
-
-pub(super) struct Document<'a> {
-    pub value: Value,
-    pub base: Option<Uri>,
-    blob: Blob<'a>,
-}
-
-impl Document<'_> {
-    pub fn site(&self, pointer: Vec<String>) -> Site {
-        Site::from_blob(self.blob, pointer)
-    }
-}
 
 pub(super) struct Documents<'a> {
     pub entry: Document<'a>,
@@ -50,11 +40,11 @@ pub(super) struct ReferenceFailure {
 
 impl<'a> Documents<'a> {
     pub fn new(input: &AdmittedSchemaInput<'a>, value: Value) -> Self {
-        let entry = Document {
+        let entry = Document::new(
+            input.entry,
             value,
-            blob: input.entry,
-            base: input.retrieval_uri.and_then(Uri::absolute),
-        };
+            input.retrieval_uri.and_then(Uri::absolute),
+        );
         let mut admitted: BTreeMap<String, Vec<Document<'a>>> = BTreeMap::new();
         for record in input.references {
             let Some(base) = Uri::absolute(record.retrieval_uri) else {
@@ -70,11 +60,7 @@ impl<'a> Documents<'a> {
             } else {
                 Value::Null
             };
-            entries.push(Document {
-                value,
-                base: Some(base),
-                blob: record.blob,
-            });
+            entries.push(Document::new(record.blob, value, Some(base)));
         }
         Self { entry, admitted }
     }
