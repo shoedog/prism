@@ -1,6 +1,45 @@
 # Measurement kit formats of record
 
+> **PROVISIONAL (owner decision, 2026-11-25).** These formats are not a design of record. Six review rounds and four enumeration passes found open-class defects in them that were not folded; the findings are test rows in [FORMATS-OPEN-ROWS.md](FORMATS-OPEN-ROWS.md), each with an owning slice. Each slice freezes the formats it implements, with executable tests, when it lands, and must close or explicitly re-scope every open row it owns. No other lane may depend on a provisional format: lanes 9 and 10 use their own tools until the slice that implements the format they need has landed.
+
+
 Stage D, lane 11. Option B grades the occurrence and property identified by bound evidence. The owner authorised one final targeted fold at `967dd7123`. See the [round-four dispositions](FORMATS-DECISIONS.md#review-round-4-dispositions) and [fixture specifications](FORMATS-LEDGER.md#round-four-fixtures). Adoption requires a measured differential.
+
+**Open rows by owning slice** ([FORMATS-OPEN-ROWS.md](FORMATS-OPEN-ROWS.md), 131 rows, all `open`)
+
+| Slice | Open rows | IDs |
+|---|---:|---|
+| S1 | 29 | f1, f2, f3, f8, f9, n1-1, n1-2, n1-3, n1-4, n1-5, n1-22, n1-23, n2-4, n2-5, n2-6, n2-7, n2-8, n2-9, n2-13, n2-33, n3-1, n3-2, n3-3, n3-15, n3-16, n4-1, n4-11, n4-16, n4-22 |
+| S2 | 15 | f4, f10, f12, n1-6, n1-7, n1-24, n1-25, n2-2, n2-3, n2-15, n2-24, n2-25, n3-4, n4-7, n4-12 |
+| S3 | 18 | f11, n1-8, n1-9, n1-10, n1-11, n1-12, n1-26, n2-10, n2-15, n2-18, n2-23, n2-34, n3-5, n3-6, n3-7, n3-17, n4-13, n4-14 |
+| S4 | 15 | n1-13, n1-27, n1-29, n2-11, n2-16, n2-17, n2-26, n2-27, n3-8, n3-18, n3-19, n3-20, n4-1, n4-2, n4-19 |
+| S5 | 23 | f5, n1-14, n1-15, n1-16, n1-28, n2-1, n2-12, n2-13, n2-14, n2-32, n2-35, n3-9, n3-10, n3-11, n3-12, n3-21, n4-2, n4-3, n4-5, n4-7, n4-13, n4-15, n4-18 |
+| S6a | 6 | f11, n1-17, n1-18, n3-22, n3-23, n4-4 |
+| S6b | 34 | f6, f7, f11, n1-19, n1-20, n1-21, n1-30, n1-31, n1-32, n1-33, n1-34, n2-10, n2-11, n2-19, n2-20, n2-21, n2-22, n2-28, n2-29, n2-31, n3-13, n3-14, n3-24, n3-25, n3-26, n3-27, n4-4, n4-6, n4-8, n4-9, n4-10, n4-17, n4-20, n4-21 |
+| S8 | 2 | n1-35, n2-30 |
+
+**Open rows by FORMATS section** (by the first FORMATS.md line each row cites, mapped to its section heading; DESIGN, PLAN and companion-only rows are grouped apart)
+
+| Section | Open rows | IDs |
+|---|---:|---|
+| other | 12 | f1, f2, f3, f4, f5, f6, f7, f8, f9, f11, f12, n1-22 |
+| 3. Edge difference, trace join and count | 6 | f10, n1-6, n1-7, n1-15, n1-25, n2-25 |
+| 2. Corpora, binding and run receipts | 24 | n1-1, n1-2, n1-3, n1-4, n1-14, n1-18, n1-23, n1-24, n2-4, n2-5, n2-6, n2-9, n2-10, n2-11, n2-13, n2-15, n2-24, n2-33, n3-1, n3-2, n3-3, n3-4, n3-16, n3-21 |
+| 1. Commands and exits | 11 | n1-5, n1-12, n1-21, n1-33, n1-34, n2-7, n2-8, n2-27, n2-31, n3-10, n3-15 |
+| 4. TypeScript oracle | 12 | n1-8, n1-9, n1-10, n1-11, n1-26, n2-18, n2-23, n2-34, n3-5, n3-6, n3-7, n3-17 |
+| 5. Review population and comparison | 12 | n1-13, n1-27, n1-28, n1-29, n2-16, n2-17, n2-26, n3-8, n3-9, n3-18, n3-19, n3-20 |
+| 6. Gate file and report | 9 | n1-16, n1-35, n2-1, n2-12, n2-14, n2-32, n2-35, n3-11, n3-12 |
+| 7. Benchmark outputs and decisions | 20 | n1-17, n1-19, n1-20, n1-30, n1-31, n1-32, n2-19, n2-20, n2-21, n2-22, n2-28, n2-29, n3-13, n3-14, n3-22, n3-23, n3-24, n3-25, n3-26, n3-27 |
+| Amendment text for lane 10's plan | 1 | n2-2 |
+| Accepted losses and deferrals | 1 | n2-3 |
+| PLAN / DESIGN / other | 3 | n2-30, n4-17, n4-18 |
+| §2 (cited by number) | 4 | n4-1, n4-3, n4-11, n4-22 |
+| §5 (cited by number) | 3 | n4-2, n4-6, n4-19 |
+| §7 (cited by number) | 6 | n4-4, n4-8, n4-9, n4-10, n4-20, n4-21 |
+| §6 (cited by number) | 3 | n4-5, n4-13, n4-15 |
+| §3 (cited by number) | 2 | n4-7, n4-12 |
+| §4 (cited by number) | 1 | n4-14 |
+| §1 (cited by number) | 1 | n4-16 |
 
 **Slice reading map**
 

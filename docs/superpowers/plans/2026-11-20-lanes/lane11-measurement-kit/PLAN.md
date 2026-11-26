@@ -1,5 +1,7 @@
 # Lane 11: a shared measurement kit — implementation plan
 
+> **PROVISIONAL (owner decision, 2026-11-25).** These formats are not a design of record. Six review rounds and four enumeration passes found open-class defects in them that were not folded; the findings are test rows in [FORMATS-OPEN-ROWS.md](FORMATS-OPEN-ROWS.md), each with an owning slice. Each slice freezes the formats it implements, with executable tests, when it lands, and must close or explicitly re-scope every open row it owns. No other lane may depend on a provisional format: lanes 9 and 10 use their own tools until the slice that implements the format they need has landed.
+
 > **For agentic workers:** run by an orchestrator under `../ORCHESTRATION.md`. Each task goes to an implementer
 > (Sonnet-5.5, high) with its section and `FORMATS.md` as the brief for S1–S5 and S6a–S6b.
 > Use the slice reading map in FORMATS. Section 8 is in [FORMATS-DECISIONS.md](FORMATS-DECISIONS.md) and section 9 in [FORMATS-LEDGER.md](FORMATS-LEDGER.md). Read DESIGN §§5–6 with the [replacement gate and architecture text](FORMATS.md#changes-to-design-sections-5-and-6). In test listings, a `def` line ending in a comment is a test to write; the comment
