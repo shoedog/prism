@@ -37,6 +37,7 @@ pub(super) struct LiteralAttempt {
 
 #[derive(Debug, Eq, PartialEq)]
 pub(super) struct LiteralWitness {
+    pub kind: crate::ast::js_ts::component_route::SiteKind,
     pub site: (usize, usize),
     pub operand: std::ops::Range<usize>,
     pub keys: Vec<String>,

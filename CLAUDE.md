@@ -740,9 +740,21 @@ the definition edge's. A spread or computed key refuses every key written before
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
 non-data values, a preceding argument spread, NameOnly and multi-target calls, and
 identifier-rest formals supply no hop. Zero-width base Uses in mixed formals remain
-unsupported. S2b (#596, cache v194) adds literal edges to proved object-pattern
-Defs, including object rest, and checks the binding of the selected plain-formal
-Use. The `dfg_props` map records pending binding. JSX attribute flow remains pending.
+unsupported. S2b (#596, cache v195) adds literal edges to proved object-pattern
+Defs, including object rest, and checks the selected plain-formal Use.
+
+S3 (#596, cache v196) binds ordered JSX named data expressions from existing,
+connected same-owner Uses with proved binding and version. Targets require one
+Exact callable with proved direct, alias, value import/export or program-scope
+React `memo`/`forwardRef` operand-zero identity. Early reads require a listed
+function-literal delivery (identifier initializer, return or concise body, or
+named JSX attribute). Slot zero accepts object-pattern Defs with residual rest
+or selected bare and complete dot reads subject to write suppression. Spreads
+and unknown writers mask preceding keys, duplicates replace subtrees, emitted
+children replace the explicit prop, and top-level `key`/`ref` are skipped.
+`dfg_props` counts JSX sites, admission, writer, source and read refusals
+(including bracket and zero-width bare reads), and pending edges by destination
+class. The post-assembly guard and trace boundaries still apply.
 
 ### MCP Adapter
 

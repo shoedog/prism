@@ -20,6 +20,9 @@ mod callee_returns;
 #[path = "e5_trace.rs"]
 mod e5_trace;
 
+#[path = "jsx_props.rs"]
+mod jsx_props;
+
 #[path = "object_literal_args.rs"]
 mod object_literal_args;
 
@@ -1691,6 +1694,16 @@ impl CodePropertyGraph {
                 );
             }
             let resolved_site = cg.resolve_call_site(site);
+            if jsx_props::collect_site(
+                &mut output,
+                jsx_props::JsxSite::new(site, caller_parsed, graph, var_index),
+                cg,
+                &resolved_site,
+                exact_var_index,
+                jsx_props::Patterns::Cached(shared_params),
+            ) {
+                continue;
+            }
             let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
             let mut traced = trace_bare.then(bare_param_admission::TraceKeys::default);
             let mut call_args = None;

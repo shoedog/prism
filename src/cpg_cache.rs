@@ -345,7 +345,7 @@ mod stream;
 /// - v194: Step 5b JS/TS/TSX built-in callback roles add NameOnly receiver edges and a label counter.
 /// - v195: JS/TS/TSX literal arguments bind to proved object-pattern Defs and selected plain-formal reads. Step 5b props inventory, refusals and edge counters are serialized.
 /// - v196: JSX props bind to proved destinations. The statistics record includes JSX site inventory and refusal counts.
-const CACHE_VERSION: u32 = 195;
+const CACHE_VERSION: u32 = 196;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 

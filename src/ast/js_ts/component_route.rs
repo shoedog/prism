@@ -12,7 +12,6 @@ use super::props_keys::{is_transparent_wrapper, strip_transparent_wrappers};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SiteKind {
     Literal,
-    #[allow(dead_code)] // JSX source collection uses this route in S3.
     Jsx,
 }
 

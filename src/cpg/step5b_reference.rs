@@ -72,6 +72,16 @@ impl CodePropertyGraph {
                     );
                 }
                 let resolved_site = cg.resolve_call_site(site);
+                if jsx_props::collect_site(
+                    &mut caller_output,
+                    jsx_props::JsxSite::new(site, caller_parsed, graph, var_index),
+                    cg,
+                    &resolved_site,
+                    exact_var_index,
+                    jsx_props::Patterns::Direct(files, &mut pattern_cache),
+                ) {
+                    continue;
+                }
                 let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
                 let mut call_args = None;
                 let literals = object_literal_args::inventory(
