@@ -8,6 +8,9 @@ mod argument_nodes;
 #[path = "bare_param_admission.rs"]
 pub(in crate::cpg) mod bare_param_admission;
 
+#[path = "builtin_callbacks.rs"]
+mod builtin_callbacks;
+
 #[path = "callee_params.rs"]
 mod callee_params;
 
@@ -68,6 +71,10 @@ mod callee_legacy;
 #[cfg(test)]
 #[path = "param_binding_parity_tests.rs"]
 mod param_binding_parity_tests;
+
+#[cfg(test)]
+#[path = "param_binding_builtin_evidence_tests.rs"]
+mod param_binding_builtin_evidence_tests;
 
 #[cfg(test)]
 #[path = "rest_params_tests.rs"]
@@ -152,6 +159,7 @@ pub struct DfgLabelStats {
     pub dfg_label_nameonly_cfg_incomplete: usize,
     pub dfg_label_nameonly_alias_unstable: usize,
     pub dfg_label_nameonly_call: usize,
+    pub dfg_label_nameonly_builtin_callback: usize,
     pub dfg_rd_functions_over_cap: usize,
     pub dfg_rd_functions_without_cfg: usize,
     pub dfg_fallback_functions_capped: usize,
@@ -191,6 +199,9 @@ impl DfgLabelStats {
                 &mut self.dfg_label_nameonly_alias_unstable
             }
             FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => &mut self.dfg_label_nameonly_call,
+            FlowConfidence::NameOnly(FlowDoubt::BuiltinCallback) => {
+                &mut self.dfg_label_nameonly_builtin_callback
+            }
         }
     }
 
@@ -1613,6 +1624,17 @@ impl CodePropertyGraph {
         let mut param_cache: BTreeMap<FunctionId, callee_params::FactCell> = BTreeMap::new();
         let trace_bare = bare_param_admission::trace_enabled();
         for site in sites {
+            if let Some(parsed) = files.get(&caller_id.file) {
+                builtin_callbacks::collect(
+                    &mut out,
+                    site,
+                    caller_id,
+                    parsed,
+                    var_index,
+                    exact_var_index,
+                    graph,
+                );
+            }
             let resolved_site = cg.resolve_call_site(site);
             let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
             let mut traced = trace_bare.then(bare_param_admission::TraceKeys::default);

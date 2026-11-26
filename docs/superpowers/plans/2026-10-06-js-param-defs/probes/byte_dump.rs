@@ -1,7 +1,7 @@
 // Review-only identity dumper (PR-B: indexes synthetic <cb@L:C> owners). Copy to examples/r1_byte_dump.rs on each pinned
 // archive and build --release --example r1_byte_dump --offline --locked.
 use petgraph::visit::EdgeRef;
-use prism::cpg::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
+use prism::cpg::{CodePropertyGraph, CpgEdge, CpgNode, VarAccess};
 use serde_json::{json, Value};
 fn main() -> anyhow::Result<()> {
     let root = std::env::args().nth(1).expect("repository root");
@@ -44,15 +44,7 @@ fn main() -> anyhow::Result<()> {
     for edge in cpg.graph.edge_references() {
         let CpgEdge::DataFlow(label) = *edge.weight() else { continue; };
         let (Some(from),Some(to)) = (endpoint(cpg.node(edge.source())),endpoint(cpg.node(edge.target()))) else { continue; };
-        let (doubt, kill_line) = match label {
-            FlowConfidence::Exact => (None,None),
-            FlowConfidence::NameOnly(FlowDoubt::Killed {kill_line}) => (Some("killed"),Some(kill_line)),
-            FlowConfidence::NameOnly(FlowDoubt::SameLine) => (Some("sameline"),None),
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => (Some("cfg_incomplete"),None),
-            FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => (Some("alias_unstable"),None),
-            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => (Some("call_nameonly"),None),
-        };
-        rows.push(json!({"from":from,"to":to,"confidence":label.level(),"doubt":doubt,"kill_line":kill_line}).to_string());
+        rows.push(json!({"from":from,"to":to,"confidence":label.level(),"doubt":label.doubt_spelling(),"kill_line":label.kill_line()}).to_string());
     }
     rows.sort();
     use std::io::Write;

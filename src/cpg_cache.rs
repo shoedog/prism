@@ -341,7 +341,8 @@ mod stream;
 /// - v190: JS/TS/TSX positional argument binding uses the call's full span and the runtime offsets of arguments around spreads, changing cross-function DataFlow edges and dependent return-flow certification.
 /// - v191: JS/TS/TSX arguments bind to identifier rest Defs using a runtime offset lower bound and an iteration witness for Exact opaque spreads, changing DataFlow edges and dependent return-flow certification.
 /// - v192: admitted JS/TS/TSX bare-arrow formals receive positional and literal-leaf DataFlow edges, changing dependent return-flow certification.
-const CACHE_VERSION: u32 = 192;
+/// - v193: Step 5b JS/TS/TSX built-in callback roles add NameOnly receiver edges and a label counter.
+const CACHE_VERSION: u32 = 193;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -874,7 +875,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 192);
+        assert_eq!(super::CACHE_VERSION, 193);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

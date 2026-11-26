@@ -306,6 +306,9 @@ index model. Rust std/core/alloc paths, scope-selected imports/aliases and known
 A Rust `pub(in path)` item is visible to call sites inside the named ancestor module: after population `rust_populator/restrict.rs` places the path (`crate`/`self`/`super` anchor, each segment naming the next module on the item's own module chain) and sets the binding's restrict; a path it cannot place (not anchored, not an ancestor, through a re-export, `pub(in ..) use`) stays unknown and refuses as before.
 A Rust self import (`use p::{self}`, `use p::{self as m}`) binds the module in the type namespace only (Rust Reference, "self imports"), and `{self as m}` binds `m` to `p` (the trailing `self` marker is not a path segment; a leading `self::` anchor is kept). A `crate`/`self`/`super::super` prefix written before a macro-argument call (`assert!(super::super::f(x))`) is kept in `CallSite::path_anchor` and read only by the authoritative route (`resolution/rust/path_anchor.rs`); `callee_name`, the span and every other consumer see the chain from its first identifier as before. Qualified paths start at the enclosing module and do not see block-scope imports or modules (#768); the newly admitted forms refuse where that matters: a `{self as m}` path with a block-scope `m` between the site and its module.
 
+Slice D adds receiver-to-callback data flow in Step 5b. The `argument_follow` resolution route
+belongs to slice E.
+
 A Rust `#[path = "x.rs"] mod m;` resolves relative to the DECLARING FILE'S directory, not its `<stem>/` directory (Rust Reference, "Modules", the `path` attribute; #765): `src/a.rs` mounts `src/x.rs`, `src/a/mod.rs` and a crate root mount beside themselves. Inside an inline `mod` block the path is relative to that module's directory (the file's directory for a mod-rs file, `<stem>/` for a non-mod-rs file, plus the inline names); an inline module's own `#[path = "p"]` is the directory its children live in, relative to the file's directory. A `#[path]`-loaded file is treated like a mod-rs file, so its children are its siblings. `.`/`..` segments are normalized, and an absolute or root-escaping path names no file; `#[cfg_attr(.., path = ..)]` is not read (the default `m.rs` location is used). A module declared inside a block (a fn body) drops the pending `<stem>/` of a non-mod-rs file: `fn f() { mod i { #[path = "x.rs"] mod m; } }` in `src/a/b.rs` is `src/a/i/x.rs`; an inline module whose own `#[path]` is absolute or climbs out of the repository leaves its children nothing to find. A file loaded by more than one `mod` item (a plain `mod b;` and `#[path = "b.rs"] mod b;`) is populated once per OCCURRENCE with its own parent and child directory (an active-file stack stops `#[path]` cycles); a site inside such a file (`ScopeGraph::multi_occurrence_files`) cannot be tied to one occurrence and keeps only an unqualified callee whose targets are in its own file (a `crate::`/`super::`/module path can mean a different item per occurrence). Crate roots by convention are the package-level `tests/*.rs`, `benches/*.rs`, `examples/*.rs` (never below a `src/` segment, which holds modules) plus `src/lib.rs`, `src/main.rs`, `src/bin/*`; a real `tests/probe.rs` that is also `#[path]`-mounted is two occurrences. Because the placement is rustc's, no resolution rung guards against a misplaced mount.
 
 A Rust local is in scope only after the statement that binds it: `let report = report(2);`, `for x in x(..)`, `if let Some(x) = x(..)` and a `let .. else` block call the fn, not the new local (#765 PR D). A std expression macro that can introduce no item or binding (`env! option_env! concat! include_str! include_bytes! cfg! line! column! file! module_path! stringify! matches! compile_error!`, unqualified or `std::`/`core::`/`alloc::`) does not poison the lookup of the names after it, unless the repo can bind the spelling to another macro: a `macro_rules!` definition, or a `use` item that can bring a macro under it (a path rooted outside the repo other than the std item of that name, `use other::env;` and `use ext::anything as env;` included, or an in-repo `as <spelling>` alias of an in-repo macro, chains followed; an unaliased in-repo `use super::write;` of a fn and an in-repo alias of a fn taint nothing), or a `#[macro_use] extern crate` of a non-std crate anywhere (an unqualified spelling then; `std::env!` stays trusted). A glob import of a macro named like a prelude macro is rustc error E0659 and cannot occur in a compiling crate, so `use ext::*;` taints nothing. This census applies to the E2 list only: `TRANSPARENT_ARG_MACROS` keeps main's `macro_rules!`-names-only shadow set (a `use pretty_assertions::assert_eq;` must not stop call extraction repo-wide; main's alias hole on that list is #773). `thread_local!`, `include!`, user macros, imported or aliased names and every item-position macro still poison (an item-position `thread_local!` poisoning the fns after it is the largest recall loss, #771). The list is `NON_BINDING_EXPR_MACROS` (`call_graph/rust/macro_args.rs`), separate from `TRANSPARENT_ARG_MACROS` so call extraction does not move. Out of model (owner 2026-11-08, #772): three import-provenance forms under which a user macro reaches a listed spelling that the census still trusts: an external macro re-exported under another name and then aliased to the spelling (`pub use ext::make as bridge;` then `use crate::a::bridge as env;`), a named in-repo import of the spelling from a module whose only source for it is an external glob re-export (`pub use ext::*;` then `use crate::a::env;`), and an external crate whose name also occurs as an unrelated in-repo module spelling (`mod unrelated { pub mod ext {} }` then `use ext::env;`); none occurs on prism's tree or the Tier-A corpora.
@@ -375,15 +378,15 @@ write-back and intrinsic-trusting key domains are deferred. Every fact has
 guard state `none`.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
-`dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
+`dfg_label_loop_carried`, six mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
 two reaching-definition availability counters. RD-unavailable functions with more than
 1,000,000 prospective raw legacy emissions surviving U/D emit no local edges while retaining defs/uses;
 `dfg_fallback_functions_capped` counts omitted functions and `dfg_fallback_edges_capped`
 counts their surviving raw emissions, duplicates included. Omission also removes the capped owner's
 contribution to shared label keys of same-name/same-start-line owners and derived edges,
 such as the #594 object-literal shortcut into a capped callee. Loop-carried is a subset of Exact, so labeled-edge
-count is Exact plus the five NameOnly counters. `--edges` emits sorted JSONL with the doubt
-vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_nameonly`;
+count is Exact plus the six NameOnly counters. `--edges` emits sorted JSONL with the doubt
+vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, `call_nameonly`, and `builtin_callback`;
 `kill_line` is present only for `killed`; on an object-literal shortcut edge (below) it is a line of the
 `to` endpoint's function, the callee. The same counters are nested under `call-stats.dfg_labels`.
 
@@ -663,6 +666,14 @@ does not prove the call returned the callback. A refused incoming transfer leave
 available. The outgoing source guard also checks each bare literal-leaf edge's read.
 Admitted Exact calls can feed the literal-leaf producer below. Unnamed default exports, escaped
 call spellings and parenthesized arrow IIFEs still have unresolved resolver prerequisites.
+
+JS/TS/TSX built-in callbacks (lane 9, slice D) receive `nameonly/builtin_callback` edges from
+a byte-matched receiver Use at attached static table calls. The table feeds the element, reducer
+element, or promise fulfillment formal of callback argument zero. Reducers also feed the first
+accumulator when the caller proves it omitted the initializer. A read entry Def may be bare,
+parenthesized, or a rest identifier covering the role. Inline callables use their own bytes. A named
+value needs a live same-file declaration or a directly initialized immutable local binding.
+`PRISM_D_BUILTIN_TRACE=1` emits keyed admission and omission decisions on stderr.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

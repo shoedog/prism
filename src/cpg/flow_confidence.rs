@@ -32,6 +32,8 @@ pub enum FlowDoubt {
     AliasUnstable,
     /// Step-5b arg→param edge whose resolved callee is NameOnly.
     CallNameOnly,
+    /// Step 5b receiver flow into a callback role selected by method name.
+    BuiltinCallback,
 }
 
 impl FlowConfidence {
@@ -52,6 +54,7 @@ impl FlowConfidence {
             FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => (3, 0),
             FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => (4, 0),
             FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => (5, 0),
+            FlowConfidence::NameOnly(FlowDoubt::BuiltinCallback) => (6, 0),
         }
     }
 
@@ -69,6 +72,27 @@ impl FlowConfidence {
 
     pub fn is_exact(self) -> bool {
         matches!(self, FlowConfidence::Exact)
+    }
+
+    pub fn doubt_spelling(self) -> Option<&'static str> {
+        let Self::NameOnly(doubt) = self else {
+            return None;
+        };
+        Some(match doubt {
+            FlowDoubt::Killed { .. } => "killed",
+            FlowDoubt::SameLine => "sameline",
+            FlowDoubt::CfgIncomplete => "cfg_incomplete",
+            FlowDoubt::AliasUnstable => "alias_unstable",
+            FlowDoubt::CallNameOnly => "call_nameonly",
+            FlowDoubt::BuiltinCallback => "builtin_callback",
+        })
+    }
+
+    pub fn kill_line(self) -> Option<u32> {
+        match self {
+            Self::NameOnly(FlowDoubt::Killed { kill_line }) => Some(kill_line),
+            _ => None,
+        }
     }
 
     pub fn level(self) -> &'static str {
@@ -93,18 +117,20 @@ mod tests {
     use super::*;
     use crate::resolution::ResolutionConfidence;
 
-    const ALL: [FlowConfidence; 6] = [
+    const ALL: [FlowConfidence; 7] = [
         FlowConfidence::Exact,
         FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 7 }),
         FlowConfidence::NameOnly(FlowDoubt::SameLine),
         FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
         FlowConfidence::NameOnly(FlowDoubt::AliasUnstable),
         FlowConfidence::NameOnly(FlowDoubt::CallNameOnly),
+        FlowConfidence::NameOnly(FlowDoubt::BuiltinCallback),
     ];
 
     #[test]
     fn worst_is_commutative_and_associative() {
         for a in ALL {
+            assert_eq!(a.worst(a), a);
             for b in ALL {
                 assert_eq!(a.worst(b), b.worst(a), "{a:?} vs {b:?}");
                 for c in ALL {
@@ -140,14 +166,7 @@ mod tests {
 
     #[test]
     fn doubt_badness_order_is_pinned() {
-        let ordered = [
-            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 7 }),
-            FlowConfidence::NameOnly(FlowDoubt::SameLine),
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
-            FlowConfidence::NameOnly(FlowDoubt::AliasUnstable),
-            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly),
-        ];
-        for pair in ordered.windows(2) {
+        for pair in ALL.windows(2) {
             assert_eq!(pair[0].worst(pair[1]), pair[1]);
             assert_eq!(pair[1].worst(pair[0]), pair[1]);
         }

@@ -1,5 +1,5 @@
 use crate::call_graph::{CallGraph, CallSite, FunctionId};
-use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, FlowDoubt};
+use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode};
 use crate::navigation::dfg_edge_endpoint::dfg_endpoint;
 pub use crate::navigation::dfg_edge_endpoint::DfgEdgeEndpoint;
 use crate::navigation::seed;
@@ -36,26 +36,12 @@ pub fn dfg_edge_dump(cpg: &CodePropertyGraph) -> Vec<DfgEdgeRecord> {
             };
             let from = dfg_endpoint(cpg.node(edge.source()))?;
             let to = dfg_endpoint(cpg.node(edge.target()))?;
-            let (doubt, kill_line) = match confidence {
-                FlowConfidence::Exact => (None, None),
-                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line }) => {
-                    (Some("killed"), Some(kill_line))
-                }
-                FlowConfidence::NameOnly(FlowDoubt::SameLine) => (Some("sameline"), None),
-                FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => {
-                    (Some("cfg_incomplete"), None)
-                }
-                FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => {
-                    (Some("alias_unstable"), None)
-                }
-                FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => (Some("call_nameonly"), None),
-            };
             Some(DfgEdgeRecord {
                 from,
                 to,
                 confidence: confidence.level(),
-                doubt,
-                kill_line,
+                doubt: confidence.doubt_spelling(),
+                kill_line: confidence.kill_line(),
             })
         })
         .collect();

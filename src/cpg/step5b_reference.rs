@@ -51,6 +51,17 @@ impl CodePropertyGraph {
         let mut rest_cache = BTreeMap::new();
         for (caller_id, sites) in &cg.calls {
             for site in sites {
+                if let Some(parsed) = files.get(&caller_id.file) {
+                    builtin_callbacks::collect(
+                        &mut out,
+                        site,
+                        caller_id,
+                        parsed,
+                        var_index,
+                        &exact_var_index,
+                        graph,
+                    );
+                }
                 let resolved_site = cg.resolve_call_site(site);
                 let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
                 let mut call_args = None;

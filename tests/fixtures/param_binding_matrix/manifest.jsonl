@@ -52,8 +52,8 @@
 {"id":"h12a","ordinal":1,"slice":"D","kind":"loss-row","reason":"Emit the name-only table candidate. The installed method delivers 99 and the receiver holds 0. Grade that emitted transfer WRONG."}
 {"id":"h12a","ordinal":2,"slice":"D","kind":"loss","reason":"Emit the name-only table candidate. The installed method delivers 99 and the receiver holds 0. Grade that emitted transfer WRONG."}
 {"id":"h12a","ordinal":2,"slice":"D","kind":"corrected","reason":"Emit the name-only table candidate. The installed method delivers 99 and the receiver holds 0. Grade that emitted transfer WRONG."}
-{"id":"h12b","ordinal":1,"slice":"D","kind":"skip","reason":"The independent checker oracle supplies the builtin-mode UNDECIDED grade outside CPG."}
-{"id":"h12b","ordinal":2,"slice":"D","kind":"skip","reason":"The independent checker oracle supplies the builtin-mode UNDECIDED grade outside CPG."}
+{"id":"h12b","ordinal":1,"slice":"D","kind":"skip","reason":"External builtin-mode oracle: the witnessed override delivers 99 from receiver [0] (WRONG=1, CORRECT=0, UNDECIDED=0). The opaque override companion is the UNDECIDED control."}
+{"id":"h12b","ordinal":2,"slice":"D","kind":"skip","reason":"External builtin-mode oracle: the witnessed override delivers 99 from receiver [0] (WRONG=1, CORRECT=0, UNDECIDED=0). The opaque override companion is the UNDECIDED control."}
 {"id":"h13","ordinal":1,"slice":"D","kind":"set-row","reason":"The original receiver lacks a matching Use. Repair the fixture per the byte receipt below. Assert the doubtful edge and not_exact boundary; run the variable-root x3-8 companion as the integrated D gate."}
 {"id":"h13","ordinal":1,"slice":"D","kind":"corrected","reason":"The original receiver lacks a matching Use. Repair the fixture per the byte receipt below. Assert the doubtful edge and not_exact boundary; run the variable-root x3-8 companion as the integrated D gate."}
 {"id":"h13","ordinal":2,"slice":"D","kind":"corrected","reason":"The original receiver lacks a matching Use. Repair the fixture per the byte receipt below. Assert the doubtful edge and not_exact boundary; run the variable-root x3-8 companion as the integrated D gate."}
