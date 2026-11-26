@@ -233,6 +233,28 @@ fn holder_admission_pins() {
 }
 
 #[test]
+fn s5_5_foreign_name_only_rest() {
+    let row = serde_json::json!({
+          "id":"s5-5-foreign","group":"B","langs":["js","ts","tsx"],
+          "class":"review-companion","truth":"correct",
+          "files":{
+            "m.js":"import { Box } from './box';\nfunction main(receiver, xs) {\n  const value = read();\n  receiver.pack(...xs, 0, value); new Box().pack(0, 0);\n}\n",
+            "box.js":"export class Box {\n  pack(first, ...tail) {\n    use(first, tail);\n  }\n}\n"
+          },
+          "expect":[
+            {"kind":"resolves","call":{"site":"m.js@4:3","callee":"pack","owner":"main"},"targets":["box.js:pack@2"],"confidence":"nameonly","route":"r6_single_owner"},
+            {"kind":"edge","from":"m.js:main:value@4:27","to":"box.js:pack:tail@2:18","label":"nameonly/call_nameonly","multiplicity":1},
+            {"kind":"no_edge","from":"m.js:main:value@4:27","to":"box.js:pack:tail@2:18","label":"exact"},
+            {"kind":"trace_boundary","root":"m.js:main:value@3:9","from":"m.js:main:value@4:27","to":"box.js:pack:tail@2:18"},
+            {"kind":"reaches","from":"m.js:main:value@3:9","to":"box.js:pack:tail@3:16"}
+          ]
+    });
+    let rows = read_rows(&row.to_string()).unwrap();
+    let failures = matrix_failures(&rows, ACTIVE_SLICES, &[]);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn reviewed_companions() {
     let mut rows = read_rows(r#"{"id":"x3-8-indented","group":"D","langs":["js","ts","tsx"],"class":"review-companion","truth":"correct","files":{"m.js":"function visit(item) {\n  use(item);\n}\nfunction main() {\n  const items = [1];\n  const direct = 2;\n  items.forEach(visit); visit(direct);\n}\n"},"expect":[{"kind":"edge","from":"m.js:main:items@7:3","to":"m.js:visit:item@1:16","label":"nameonly/builtin_callback","loss":"Indented receiver has only a line-start Use"},{"kind":"no_edge_into","to":"m.js:visit:item@1:16","label":"nameonly/builtin_callback"},{"kind":"edge","from":"m.js:main:direct@7:31","to":"m.js:visit:item@1:16","label":"exact","multiplicity":1},{"kind":"reaches","from":"m.js:main:direct@6:9","to":"m.js:visit:item@2:7"}]}
 {"id":"s2-15-admitted","group":"E","langs":["js","ts","tsx"],"class":"review-companion","truth":"correct","files":{"m.js":"class Thenable {\n  then(ok, fail) {\n    const reason = read();\n    fail(reason);\n  }\n}\nfunction fulfilled(value) {\n  use(value);\n}\nfunction rejected(reason) {\n  use(reason);\n}\nfunction main() {\n  const thenable = new Thenable();\n  thenable.then(fulfilled, rejected);\n}\n"},"expect":[{"kind":"resolves","call":{"site":"m.js@15:3","callee":"then","owner":"main"},"targets":["m.js:then@2"],"confidence":"exact","route":"constructor_local"},{"kind":"resolves","call":{"site":"m.js@4:5","callee":"fail","owner":"then"},"targets":["m.js:rejected@10"],"confidence":"nameonly","route":"argument_follow"},{"kind":"edge","from":"m.js:then:reason@4:10","to":"m.js:rejected:reason@10:19","label":"nameonly/call_nameonly","multiplicity":1},{"kind":"no_edge","from":"m.js:then:reason@4:10","to":"m.js:rejected:reason@10:19","label":"exact"}]}"#).unwrap();

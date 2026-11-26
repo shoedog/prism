@@ -26,6 +26,7 @@
 
 pub(crate) mod dependency_hint;
 mod dependency_identity;
+pub mod inventory;
 pub mod mapping;
 mod model;
 
@@ -292,22 +293,7 @@ pub(crate) fn project_with_context(
         });
     }
 
-    targets.sort_by(|left, right| {
-        (
-            &left.site.file,
-            left.site.line,
-            &left.source_algorithm,
-            &left.category,
-            &left.id,
-        )
-            .cmp(&(
-                &right.site.file,
-                right.site.line,
-                &right.source_algorithm,
-                &right.category,
-                &right.id,
-            ))
-    });
+    targets.sort_by(target_order);
 
     let build = build_info();
     TargetsDocument {
@@ -336,6 +322,35 @@ pub(crate) fn project_with_context(
         errors: meta.errors.clone(),
         warnings,
     }
+}
+
+pub fn inventory_document(meta: &TargetsMeta, out: &inventory::InventoryOutput) -> TargetsDocument {
+    inventory::inventory_document(meta, out)
+}
+
+pub fn merge_inventory(
+    doc: TargetsDocument,
+    meta: &TargetsMeta,
+    out: &inventory::InventoryOutput,
+) -> TargetsDocument {
+    inventory::merge_inventory(doc, meta, out)
+}
+
+fn target_order(left: &Target, right: &Target) -> std::cmp::Ordering {
+    (
+        &left.site.file,
+        left.site.line,
+        &left.source_algorithm,
+        &left.category,
+        &left.id,
+    )
+        .cmp(&(
+            &right.site.file,
+            right.site.line,
+            &right.source_algorithm,
+            &right.category,
+            &right.id,
+        ))
 }
 
 #[allow(clippy::too_many_arguments)]

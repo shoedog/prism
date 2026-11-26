@@ -17,6 +17,9 @@ mod e5_trace;
 #[path = "object_literal_args.rs"]
 mod object_literal_args;
 
+#[path = "rest_params.rs"]
+mod rest_params;
+
 #[path = "spread_args.rs"]
 mod spread_args;
 
@@ -62,6 +65,10 @@ mod callee_legacy;
 #[cfg(test)]
 #[path = "param_binding_parity_tests.rs"]
 mod param_binding_parity_tests;
+
+#[cfg(test)]
+#[path = "rest_params_tests.rs"]
+mod rest_params_tests;
 
 #[cfg(test)]
 #[path = "callee_identity_tests.rs"]
@@ -1549,6 +1556,7 @@ impl CodePropertyGraph {
                     exact_var_index,
                     graph,
                     &shared_params,
+                    spread_args::for_call,
                 )
             })
             .collect::<Vec<Vec<PendingArgumentFlow>>>()
@@ -1577,6 +1585,7 @@ impl CodePropertyGraph {
             &exact_var_index,
             graph,
             &ParamCache::new(files),
+            spread_args::for_call,
         )
         .into_iter()
         .map(|flow| flow.edge)
@@ -1591,6 +1600,10 @@ impl CodePropertyGraph {
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         shared_params: &ParamCache<'_>,
+        read_arguments: impl Fn(
+            &ParsedFile,
+            &CallSite,
+        ) -> (Vec<spread_args::Argument>, spread_args::Offsets),
     ) -> Vec<PendingArgumentFlow> {
         let files = shared_params.files;
         let mut out = Vec::new();
@@ -1617,7 +1630,7 @@ impl CodePropertyGraph {
                     None => continue,
                 };
                 let (args, offsets) =
-                    call_args.get_or_insert_with(|| spread_args::for_call(caller_parsed, site));
+                    call_args.get_or_insert_with(|| read_arguments(caller_parsed, site));
                 if args.is_empty() {
                     continue;
                 }
@@ -1628,20 +1641,22 @@ impl CodePropertyGraph {
                 let cell = param_cache.entry(callee_id.clone()).or_insert_with(|| {
                     shared_params.get(callee_id, callee_parsed, var_index, graph)
                 });
-                let Some(param_nodes) = cell.get().expect("initialized parameter facts") else {
-                    continue;
+                let param_nodes = cell
+                    .get()
+                    .expect("initialized parameter facts")
+                    .as_deref()
+                    .unwrap_or_default();
+                let inputs = object_literal_args::SiteInputs {
+                    caller_id,
+                    caller_parsed,
+                    callee_parsed,
+                    args,
+                    var_index,
+                    exact_var_index,
+                    graph,
+                    cross_file_free_single_exact,
                 };
                 if literal_ok {
-                    let inputs = object_literal_args::SiteInputs {
-                        caller_id,
-                        caller_parsed,
-                        callee_parsed,
-                        args,
-                        var_index,
-                        exact_var_index,
-                        graph,
-                        cross_file_free_single_exact,
-                    };
                     let resolve = |t: &callee_params::ParamTarget| t.resolve(var_index, graph);
                     object_literal_args::collect(&mut out, &inputs, param_nodes, resolve);
                 }
@@ -1674,6 +1689,22 @@ impl CodePropertyGraph {
                         }
                     }
                 }
+                if !rest_params::admitted(&inputs, site, cg.call_graph(), &resolved, literal_ok) {
+                    continue;
+                }
+                let Some((offset, to)) = shared_params
+                    .rest(callee_id, callee_parsed, var_index, graph)
+                    .and_then(|(offset, target)| Some((offset, target.resolve(var_index, graph)?)))
+                else {
+                    continue;
+                };
+                rest_params::collect(
+                    &mut out,
+                    &inputs,
+                    (offset, to),
+                    offsets,
+                    resolved.confidence.into(),
+                );
             }
         }
         out
