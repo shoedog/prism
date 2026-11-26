@@ -157,6 +157,9 @@ jobs:
       - name: Check default features
         run: cargo check --all-targets
 
+      - name: Check boundary fixture matrices
+        run: python3 crates/prism-boundary/tests/fixtures/check_matrices.py
+
       # nextest does not run doctests; they are fast and uninstrumented.
       - name: Run doctests
         run: cargo test --doc --workspace

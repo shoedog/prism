@@ -637,6 +637,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "prism-boundary"
+version = "4.0.0"
+dependencies = [
+ "clap",
+ "prism",
+ "regex",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "prism-mcp"
 version = "4.0.0"
 dependencies = [
