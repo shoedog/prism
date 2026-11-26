@@ -1691,8 +1691,7 @@ impl CodePropertyGraph {
                             .and_then(Option::as_ref)
                             .filter(|target| admission.ordinary(target.bare))
                             .map(|target| (slot, target))
-                    })
-                    else {
+                    }) else {
                         continue;
                     };
                     let arg_idxs = Self::argument_nodes(
