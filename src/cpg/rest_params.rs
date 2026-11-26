@@ -121,6 +121,7 @@ pub(super) fn collect(
                 out.push(PendingArgumentFlow {
                     edge: (from, to, CpgEdge::DataFlow(label)),
                     cross_file_free_single_exact: site.cross_file_free_single_exact,
+                    bare_literal: false,
                 });
             }
         }

@@ -11,10 +11,11 @@ use petgraph::visit::EdgeRef;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod route_pins;
 mod supplied_site;
 pub(super) use supplied_site::assert_supplied_site_reaches_use;
 
-const ACTIVE_SLICES: &[&str] = &["control", "A", "B"];
+const ACTIVE_SLICES: &[&str] = &["control", "A", "B", "C"];
 type AssertionKey<'a> = (&'a str, &'a str, usize);
 type ExpectedRed<'a> = (AssertionKey<'a>, &'a str);
 
