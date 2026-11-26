@@ -15,6 +15,7 @@ type Graph = DiGraph<CpgNode, CpgEdge>;
 pub(super) struct PreBinding {
     pub graph: Graph,
     pub lookup: BTreeMap<LegacyVarKey, NodeIndex>,
+    pub live_lookup: VarIndex,
     pub exact: ExactVarIndex,
 }
 
@@ -98,6 +99,7 @@ impl Observer {
         capture.pre_binding = Some(PreBinding {
             graph: graph.clone(),
             lookup: lookup.to_map(graph),
+            live_lookup: lookup.clone(),
             exact: exact.clone(),
         });
     }
