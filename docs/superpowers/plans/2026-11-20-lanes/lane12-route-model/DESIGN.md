@@ -131,7 +131,8 @@ Go selector values see 5.6.
 **Reason** is one closed snake_case enum shared by records, exposure cuts, diagnostics and matrix validation. Its variants are
 `receiver_unproven imported_unproven mount_child_unproven table_consumer_unproven no_known_mount variable_prefix
 non_literal_path regex_path mount_cycle expansion_truncated`,
-`getattr_module star_import global_write multi_write nested_single init_order_risk` (new Python import refusals),
+`getattr_module star_import global_write multi_write nested_single init_order_risk` (Python import refusals),
+  `submodule_shadow dynamic_rebind` (new Python import refusals),
 `callback_unproven member_handler wrapper_call inner_decorator class_view anonymous_unindexed spread_callback handler_object`,
 `method_value_receiver_unproven method_value_receiver_shadowed method_value_method_unproven method_value_interface
 method_value_external func_field_value qualified_function_value method_expression`,
@@ -258,9 +259,16 @@ including `callback_unproven`, `wrapper_call`, `anonymous_unindexed`, `member_ha
 `inner_decorator` or `spread_callback` as applicable.
 
 As with `Exact`, arbitrary post-creation replacement or deletion of router/app methods or attributes is out of
-model. This includes `x.get = ...`, reflective replacement and writes through an untraced rebind of a module
-attribute whose name matches a submodule. A direct store of a traced router such as `pkg.routes = app` escapes
-the object and defeats its receiver proof.
+model. This includes `x.get = ...`, reflective replacement and method or attribute mutation through an untraced
+rebind of a module attribute whose name matches a submodule. A direct store of a traced router such as
+`pkg.routes = app` escapes the object and defeats its receiver proof.
+
+The module-namespace checks below cover recognized stores and their unresolved targets. The remaining runtime
+mutation forms follow the `Exact` boundary in [CLAUDE.md](../../../../../CLAUDE.md). These include arbitrary
+monkey-patching through opaque calls or untraced container-held module objects or dictionaries (fk-48),
+`eval` or generated/evaluated code outside a recognized `exec` site, mutations initiated by host globals or native
+extensions, and module acquisition or replacement via opaque dynamic import machinery or custom import hooks.
+A ledger exemption still requires site-level evidence for the named form (§7).
 
 View mutation is out of model when the argument path is untraced. This includes a subscript, a loop or
 comprehension target, a container bound to a name (`vs = [f]` followed by `patch_all(vs)`), a class attribute
@@ -278,29 +286,53 @@ supported view metadata writes, endpoint decorators and Blueprint view-map merge
 pinned as `KNOWN_LIMIT` in fk-26–29.
 
 **Closed-world import proof (controller default pending owner confirmation).** A router (including a mount
-child), view or no-effect callee reached through `from M import N`, `import M[.sub] [as A]` with attribute
-access, or a package member is `PROVEN` only if all six conditions below hold for the requested name in its
-defining module and for every package hop.
+child), view or no-effect callee reached through `from M import N`, a qualified module import or a direct
+package member is `PROVEN` only when the captured value is provably the sole binding of the requested name
+at capture time. Apply that obligation to the terminal name and every package hop, including dotted aliases.
 
-1. The module has exactly one unconditional module-level binding of the name, a direct def, class or simple
-   assignment that passes the value checks above. Count competing writes across the whole module, including
-   later writes, nested module-scope blocks, imports, `del` and walrus assignments. Use `multi_write` for multiple
-   writes and `nested_single` for a sole conditional write.
-2. The module has no module-level `__getattr__`, whether an ordinary module or a package (`getattr_module`).
-3. No star import can supply the name (`star_import`). An unknown source or export set can supply it.
-4. No class or function body writes the name declared `global` (`global_write`). Ordinary class attributes
-   bind in the class namespace.
-5. No `match` pattern captures the name in the module namespace. Count such a capture as a write (`nested_single`
-   if it is the sole write, `multi_write` if it competes with another write).
-6. The defining module does not transitively import the capturing module through module-scope imports
-   (`init_order_risk`). This cycle veto applies even when the direct binding precedes the cyclic import.
+1. Require exactly one unconditional module-level binding, a direct def, class or simple assignment that
+   passes the value checks above. Count competing writes across the whole module, including later writes,
+   nested module-scope blocks, imports, `del`, `for` targets, `with ... as` and `except ... as` targets, and
+   walrus assignments. A walrus in a module-scope comprehension writes the enclosing module name. Conservatively
+   overcount comprehension iteration targets as potential writes in the write index. The index at `56a9a0d4`
+   does not index Python 3.12 `type` alias statements. A possibly affected name needs a separate guard before
+   it can be proved. Use `multi_write` for multiple writes and `nested_single` for a sole conditional write.
+2. Refuse a module-level `__getattr__` on an ordinary module or a package (`getattr_module`).
+3. Refuse a star import that can supply the name (`star_import`). An unknown source or export set can supply it.
+4. Refuse a module name written by a class or function body with a corresponding `global` declaration
+   (`global_write`). Ordinary class attributes bind in the class namespace.
+5. Count every module-level `match` capture of the name as a write. Use `nested_single` for the sole write
+   and `multi_write` for competing writes.
+6. Refuse if the defining module or any package hop can reach the capturing module through imports that
+   can run during initialization (`init_order_risk`). Use an edge from the containing module to each
+   possible imported module for absolute or relative imports in module blocks at any depth, in class bodies,
+   and in functions callable during initialization, including unresolved call order or reachability. Include
+   each possible child target of `from P import sub` and every parent package initializer of each target.
+   For example `import pkg.sub` can run both `pkg/__init__.py` and the initializer or body of `pkg.sub`.
+   An unresolved target supplies possible edges to the compatible in-repo candidates, including when
+   a target or package prefix is ambiguous. Looking up the currently running package as an implicit
+   parent of a child does not re-run it or by itself create an initialization edge. Check every hop for
+   reachability, including through implicit edges. Apply the veto even when the binding precedes the
+   cyclic import. The controller added this condition to the owner's rule.
+7. Refuse a direct package member `P.N` if an eligible in-repo `P/N.py`, `P/N/__init__.py` or namespace
+   directory `P/N/` competes with it (`submodule_shadow`, new). Installing a child writes `P.N` whether
+   the capture crosses a dotted hop or reads the member directly. Withhold on presence of the competing
+   child even when source order suggests the capture could precede installation.
+8. Count recognized module namespace stores from any module as writes of the names they may affect
+   (`dynamic_rebind`, new). This includes a traced module attribute store or deletion,
+   `globals()[key]`, `vars(m)[key]`, `setattr(m, key, value)`, `delattr(m, key)`, `m.__dict__[key]`
+   and their direct mapping mutators. Include `exec` targeting the module namespace, `importlib.reload`
+   and module replacement through `sys.modules` or a traced module's `__class__`. A known name affects that
+   capture, and a known whole-namespace operation withholds all names of its target. An unresolved target or
+   dynamic-name store anywhere in M, or anywhere in a module that imports M at module scope, withholds all
+   names captured from M. Include implicit parent imports in that scope check.
 
-Apply the same rule to `sub` and every package hop in `import pkg.sub; pkg.sub.name`, including dotted aliases.
-For a submodule hop, the import must establish the submodule's binding on its parent at the use. That
-installation counts as the direct binding of the submodule name. A competing initializer binding counts as
-a second write even when it is the only lexical write. Apply the same checks when a package member is itself
-a directly declared value. Python re-exports remain unsupported. Recognized native Flask imports still supply
-`Flask`, `Blueprint`, `View` and `MethodView` under the existing framework constructor and class checks.
+For a submodule hop in `import pkg.sub; pkg.sub.name`, the import must establish the submodule's binding
+on its parent at the use. Treat that installation as the direct binding of `sub`. A lexical import of the
+same child can establish this binding. Count an initializer import binding the hop to a different module
+as a competing write even when it is the only lexical write. Python re-exports remain unsupported.
+Recognized native Flask imports still supply `Flask`, `Blueprint`, `View` and `MethodView` under the existing
+framework constructor and class checks.
 
 Decorators remain subject to the existing transparency checks. Flask accepts a proved `@bp.get('/a')` as in
 fk-c10 and reports `inner_decorator` for bare `@skip('/a')`. Only the no-effect callee must bind directly to
@@ -308,19 +340,23 @@ its undecorated def. An assignment such as `patch = _p` cannot earn that exempti
 `no_effect_body`, which allows comments, `pass`, a bare return and a return of `None` (including grouped
 `None`). A docstring statement fails the predicate.
 
-If proof fails, the router or view-derived metadata is `WITHHELD`. Keep the existing dispositions for an
-unproven receiver or unresolved callback, an unproven mount child, and loss of the no-effect exemption
-at a traced call. For failures of the closed-world checks, record the first applicable reason, ordered from
-`getattr_module` through `star_import`, `global_write`, `multi_write`, `nested_single` and `init_order_risk`.
-Count the reason in the site's disposition even if Flask drops the site for lack of a receiver hint.
+If proof fails, retain any existing record reason and refusal behavior for the receiver, unresolved
+callback or mount child. Withhold any view-derived metadata that depends on a refused no-effect callee.
+For each closed-world refusal, emit exactly one diagnostic with the first applicable counted reason across
+all of the capture's checks, in this order: `getattr_module`, `star_import`, `global_write`, `multi_write`, `nested_single`,
+`submodule_shadow`, `dynamic_rebind`, `init_order_risk`. For a bare from-import capture, the span is the
+imported name in the import statement, before any `as` alias. For a qualified capture, use the full
+attribute expression at the capture. A refused no-effect callee uses the whole callee call span in either
+form. Emit the diagnostic even if Flask drops the record for lack of a receiver hint, and record the
+counted reason in the site disposition.
 
 During escape indexing, retain possible mutation targets when an import fails proof, or conservatively
 withhold their view-derived metadata. The proof gate must preserve mutation evidence. In fk-34, `views.py`
 defines `f` twice, imports a helper that captures and mutates the second `f`, then registers that local `f`.
 The written local callback can stay resolved, but inferred endpoint and effective methods are `WITHHELD`.
 
-This rule proves a strict subset of what the earlier single-write rules proved. Widening it later is additive.
-`init_order_risk` is part of the rule and its measured syntax-only cost (§10). The checks and controls are in
+This rule proves a strict subset of what `56a9a0d4` proves. Section 10 reports its measured syntax-only cost.
+The checks and controls are in
 [STAGE-D-ROWS.md](STAGE-D-ROWS.md#python-router-and-view-value-boundary).
 
 #### FastAPI
@@ -626,8 +662,9 @@ freeze evidence for that site tying it to the named mutation. A fixture pin alon
 exemption. Apply the regular checks to source-only pins and to supported metadata and view-map operations,
 including d2-14.
 
-Count §5.3 import refusals by reason in the site dispositions, including unlisted receiver sites and
-refused no-effect exemptions. These refusals remain in the supported setup model. Record the withheld
+Compare the §5.3 diagnostics at their exact capture or call spans. Count import refusals by reason in
+the site dispositions, including unlisted receiver sites and refused no-effect exemptions. These refusals
+remain in the supported setup model. Record the withheld
 fields and any independently justified partial facts, and count losses in the applicable recall denominators.
 
 Without a field oracle, freeze one stratified source sample per corpus across all dimensions. Label every applicable field at each selected site, including implicit claims in its setup. Rank by SHA-256 of the UTF-8 compact JSON array ["lane12-D3",corpus,revision,split,framework,kind,file,start_byte,end_byte] (no ASCII escaping or whitespace). Break ties by the tuple in byte order.
@@ -697,31 +734,34 @@ The frozen populations, binding floors and ledger dispositions above govern each
   The no-effect predicate found zero duplicates among 168 candidates using direct defs and simple assignments
   for the write count. Its body filter also admits docstrings. Runtime module-attribute rebinding and indirect
   view-map writes are unmeasured.
-- **Closed-world import cost (§5.3).** Use corrected census §4 and its companion `m/VERIFICATION.md`.
-  Sections 2 and 3 are superseded because they flattened imports file-wide. Section 4 reports Flask
-  `36e4a824`, FastAPI `0cb4a8e2` and Apache Superset `ad7fcac1`.
+- **Closed-world import cost (§5.3).** Corrected census §4 and its companion `m/VERIFICATION.md` supersede
+  the earlier file-wide counts. The rerun used Flask `36e4a824`, FastAPI `0cb4a8e2` and Apache Superset
+  `ad7fcac1`. Each registration counts once under its first applicable reason.
 
-  | Corpus | Sites | Real registrations | Import-reached | Unresolved after screening | Static cycle flags |
-  |---|---:|---:|---:|---:|---:|
-  | Flask | 683 | 428 | 8 | 0 | 6 |
-  | FastAPI | 2,142 | 1,510 | 6 | 0 | 0 |
-  | Apache Superset | 678 | 20 | 1 | 0 | 1 |
-  | Total | 3,503 | 1,958 | 15 | 0 | 7 |
+  | Corpus | Sites | Real registrations | Import-reached | Unresolved | `getattr_module` | `star_import` | `global_write` | `multi_write` | `nested_single` | `submodule_shadow` | `dynamic_rebind` | `init_order_risk` | Withheld | Proven |
+  |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | Flask | 683 | 428 | 8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 6 | 2 |
+  | FastAPI | 2,142 | 1,510 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 2 | 4 |
+  | Apache Superset | 678 | 20 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
+  | Total | 3,503 | 1,958 | 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 6 | 9 | 6 |
 
-  The real-registration denominator excludes 1,545 ungrounded `client.get(...)`-style calls from the
-  3,503 sites. Another 413 Superset mock decorators were excluded before the site total. The 15 resolved
-  import-reached sites are 0.77% of real registrations. Including `init_order_risk` in the rule costs
-  **7 of 1,958 real registrations (0.36%), or 7 of 15 import-reached registrations**. The other five reasons
-  cost zero on these three corpora. The syntax-only script reports cycles separately and produced zero
-  withheld rows. Its 17 fixtures alone establish its withhold logic. The corpus runs supply no withheld
-  sample for estimating false positives. Imported no-effect callee captures are unmeasured, including
-  conditional and global variants outside §1's direct-def predicate.
+  The 1,958 real registrations exclude 1,545 source-screened client-like sites from the 3,503 sites.
+  Another 413 Superset mock decorators were excluded before the site total. Import-reached sites are
+  0.77% of real registrations. The expanded rule withholds **9 of 1,958 real registrations (0.46%) and
+  9 of 15 import-reached registrations (60%)**, up from 7 of 1,958 (0.36%) and 7 of 15 (46.67%).
+  The only off-diagonal overlap is one Superset registration with both `dynamic_rebind` and
+  `init_order_risk`. Seven sites have an initialization flag, six as their first reason. FastAPI
+  adds two first-reason flags from unresolved reload targets at a package hop. The increase is small
+  overall and substantial in the import-reached population. Three of the six Flask flags are decorators
+  in the JavaScript example's package-and-views cycle. These corpora supply no general frequency estimate
+  for that application pattern. Imported no-effect callee captures remain unmeasured.
 
-  The script leaves opaque ordinary verb calls without constructor, route-path or immediate decorator
-  evidence, computed or subscripted receiver/child/view roots, argument splats, arbitrary re-export chains,
-  dynamic imports, `exec`, module-dictionary mutation, import hooks, and runtime branch and initialization
-  order unmodelled. Its narrow star count checks explicit writes and unresolved import targets, leaving
-  wildcard export filtering and transitive wildcard re-exports unmodelled.
+  This syntax census conservatively includes function-local imports with unproved initialization reachability
+  and unresolved namespace-store effects. Its counts exclude opaque ordinary verb calls lacking route or
+  constructor evidence, computed or subscripted registration roots, splats, arbitrary re-exports, opaque
+  dynamic imports and hooks, runtime branch and initialization order, and the residual runtime mutations
+  in §5.3. The syntax-only narrow star count checks explicit writes and unresolved import targets.
+  Wildcard export filtering and transitive wildcard re-exports are outside that count.
 - **Two registration facts for Go.** The existing callback-registration edges and the new records describe
   the same calls; the records prefer those facts at the argument's own bytes. Only the two unindexed bare-function positions in 5.1 use the declaration fallback. A Go
   method value (`c.List`) has no such fact; the records resolve it by 5.6 (owner decision 6), and nothing
