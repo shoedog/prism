@@ -568,6 +568,13 @@ the ordered reserves record insufficient evidence without a percentage. Publish 
 and compare this partial population with the S1a-1 projection. Apply decision 11 and repeat at S4 with all
 classes.
 
+**S1a-2 outcome and S1a-3 decision (2026-11-25).** S1a-2 merged reduced to its four closed discharges (install
+identity, numeric record methods, call-result slots, literal domains; PR #935). The other classes (shared-slot,
+private null-table children, intrinsic domains, null-walk, write-back) were priced in issue #938 on the five
+corpora (TypeScript, calcom, directus, excalidraw, express; 162 corpus facts): together they discharge 8 of the
+162 facts in two files (shared-slot 6, private null-table children 2, the rest 0). Slice S1a-3 is not opened.
+Controller decision under the owner's proportionality rule; reopen if a corpus shows the class matters.
+
 ### Slice S1b: guards (3 to 4 days, after S1a-2)
 
 **Files:** create `src/ast/js_ts/proto_writes/guards.rs`; modify `src/ast/js_ts/proto_writes.rs`,
