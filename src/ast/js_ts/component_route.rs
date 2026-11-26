@@ -289,6 +289,22 @@ fn immediately_invoked(file: &ParsedFile, mut callable: Node<'_>) -> bool {
             callable = parent;
             continue;
         }
+        // `f.bind(..)` yields a callable; it runs eagerly only when the bind
+        // call's own result is invoked, so keep walking from the bind call.
+        if parent.kind() == "member_expression"
+            && parent.child_by_field_name("object") == Some(callable)
+            && parent
+                .child_by_field_name("property")
+                .is_some_and(|property| file.node_text(&property) == "bind")
+        {
+            if let Some(bind_call) = parent.parent().filter(|node| {
+                node.kind() == "call_expression"
+                    && node.child_by_field_name("function") == Some(parent)
+            }) {
+                callable = bind_call;
+                continue;
+            }
+        }
         return match parent.kind() {
             "call_expression" => parent.child_by_field_name("function") == Some(callable),
             "new_expression" => parent.child_by_field_name("constructor") == Some(callable),

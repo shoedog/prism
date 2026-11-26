@@ -50,6 +50,10 @@ fn component_route_direct_hoisted_deferred_alias_and_private_self() {
             "function App(x) { return D({a: x}); }",
         ),
         (
+            "const keep = (function Later(x) { return D({a: x}); }).bind(null);",
+            "const D = ({a}) => a;",
+        ),
+        (
             "function D({a}) { return a; } const Alias = D;",
             "function App(x) { return Alias({a: x}); }",
         ),
@@ -104,6 +108,14 @@ fn component_route_refuses_unproved_lexical_value() {
             "const D = ({a}) => a;",
         ),
         ("((x) => D({a: x})).call(null, 1);", "const D = ({a}) => a;"),
+        (
+            "(function Invoke(x) { return D({a: x}); }).bind(null)(1);",
+            "const D = ({a}) => a;",
+        ),
+        (
+            "((x) => D({a: x})).bind(null).call(null, 1);",
+            "const D = ({a}) => a;",
+        ),
         (
             "function D({a}) { return a; } const Pick = factory(D);",
             "function App(x) { return Pick({a: x}); }",
