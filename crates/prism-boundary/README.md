@@ -92,3 +92,6 @@ gate uses `PRISM_BOUNDARY_PUBLIC_IDS_TSV` or the default path in the pin manifes
 and checks both SHA-256 pins before comparing the ordered output and final LF.
 For local runs with missing staged input, `PRISM_BOUNDARY_PUBLIC_PENDING_OK=1`
 reports the gate as PENDING and continues.
+The test is `#[ignore]`d so that CI, which has no staged inputs, reports it as ignored rather than
+failing or passing silently; run it with `cargo test -p prism-boundary --test public_ids -- --ignored`.
+With the inputs missing an explicit `--ignored` run fails unless the override above is set.

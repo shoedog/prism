@@ -58,6 +58,7 @@ fn verify(pin: &Value) -> Pin {
 }
 
 #[test]
+#[ignore = "needs the staged public inputs: run with `-- --ignored` and PRISM_BOUNDARY_PUBLIC_SWAGGER set"]
 fn public_ids_match_pinned_bytes() {
     let manifest: Value = serde_json::from_str(include_str!("fixtures/public-pins.json")).unwrap();
     let swagger = verify(&manifest["swagger"]);
