@@ -56,13 +56,39 @@ impl<'a> Documents<'a> {
             }
             // Keep unread blobs in the URI inventory so a conflicting receipt cannot be ignored.
             let value = if record.blob.format == Format::Json {
-                serde_json::from_slice(record.blob.bytes).unwrap_or(Value::Null)
+                serde_json::from_slice(record.blob.bytes).ok()
             } else {
-                Value::Null
+                None
             };
-            entries.push(Document::new(record.blob, value, Some(base)));
+            let readable = value.is_some();
+            let mut document = Document::new(record.blob, value.unwrap_or(Value::Null), Some(base));
+            document.readable = readable;
+            entries.push(document);
         }
         Self { entry, admitted }
+    }
+
+    pub fn locate(&self, resource: Option<&str>, site: &Site) -> Option<Located<'_, 'a>> {
+        let document = match resource {
+            Some(key) if self.entry.base.as_ref().is_none_or(|uri| uri.key() != key) => {
+                self.admitted.get(key)?.first()?
+            }
+            _ => &self.entry,
+        };
+        Some(Located {
+            value: lookup(&document.value, &site.pointer)?,
+            document,
+            site: site.clone(),
+        })
+    }
+
+    pub fn documents(&self) -> impl Iterator<Item = &Document<'a>> {
+        std::iter::once(&self.entry).chain(self.admitted.values().filter_map(|docs| {
+            match docs.as_slice() {
+                [document] if document.readable => Some(document),
+                _ => None,
+            }
+        }))
     }
 
     pub fn resolve<'r>(
@@ -97,7 +123,7 @@ impl<'a> Documents<'a> {
         Err(Box::new(ReferenceFailure { code, site, chain }))
     }
 
-    fn reference_target<'r>(
+    pub fn reference_target<'r>(
         &'r self,
         document: &'r Document<'a>,
         reference: &Value,
@@ -134,7 +160,7 @@ impl<'a> Documents<'a> {
         match (entry_matches, self.admitted.get(&key).map(Vec::as_slice)) {
             (true, None) => Ok(&self.entry),
             (true, Some([other])) if other.blob == self.entry.blob => Ok(&self.entry),
-            (false, Some([doc])) if doc.value.is_object() => Ok(doc),
+            (false, Some([doc])) if doc.readable => Ok(doc),
             (true, Some(_)) | (false, Some([_, _, ..])) => Err("reference_blob_ambiguous"),
             _ => Err("reference_blob_unchecked"),
         }

@@ -2,7 +2,9 @@
 
 use crate::element::{FieldId, OperationId, PointerToken, SuccessKey};
 use crate::revision::AdmittedSchemaInput;
-use crate::SchemaError;
+pub use crate::schema::site::{Diagnostic as SchemaDiagnostic, Site as SchemaSite};
+use crate::schema::SchemaError;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Default)]
 pub struct SchemaIndex {
@@ -11,10 +13,15 @@ pub struct SchemaIndex {
     pub observed_fields: Vec<Field>,
     pub limits: Vec<RegionLimit>,
     pub warnings: Vec<String>,
+    pub diagnostics: Vec<SchemaDiagnostic>,
     pub source: Option<SchemaSource>,
     pub info_version: Option<String>,
     pub byte_sha256: String,
     pub content_hash: String,
+    pub(crate) reached: BTreeMap<OperationId, (bool, Vec<DefinitionId>)>,
+    pub(crate) inverse: BTreeMap<DefinitionId, Vec<OperationId>>,
+    pub(crate) operation_coverage_incomplete: bool,
+    pub(crate) public_fields: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -33,11 +40,39 @@ pub struct Operation {
     pub success_keys: Vec<SuccessKey>,
     pub response_keys: Vec<String>,
     pub messages: Vec<MessageCoverage>,
+    pub operation_id: Option<String>,
+    pub declarations: Vec<OperationSite>,
+    pub(crate) ranged_responses: bool,
+}
+
+#[derive(Debug)]
+pub struct OperationSite {
+    pub path: String,
+    pub canonical_path: crate::element::CanonicalPath,
+    pub method: String,
+    pub site: SchemaSite,
+    pub referring_site: SchemaSite,
+    pub reference_chain: Vec<SchemaSite>,
 }
 
 impl Operation {
-    pub fn response_key(&self, _code: u16) -> Option<&str> {
-        None
+    pub fn response_key(&self, code: u16) -> Option<&str> {
+        if !(100..=599).contains(&code) {
+            return None;
+        }
+        let find = |key: &str| {
+            self.response_keys
+                .binary_search_by(|value| value.as_str().cmp(key))
+                .ok()
+                .map(|i| self.response_keys[i].as_str())
+        };
+        find(&code.to_string())
+            .or_else(|| {
+                self.ranged_responses
+                    .then(|| find(&format!("{}XX", code / 100)))
+                    .flatten()
+            })
+            .or_else(|| find("default"))
     }
 }
 
@@ -46,6 +81,7 @@ pub struct Field {
     pub id: FieldId,
     pub shape: FieldShape,
     pub definitions: Vec<DefinitionId>,
+    pub sites: Vec<SchemaSite>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -125,31 +161,55 @@ pub struct FieldShape {
     pub item_type: Property<String>,
 }
 
-pub fn index_schema(_input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, SchemaError> {
-    Ok(SchemaIndex::default())
+pub fn index_schema(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, SchemaError> {
+    crate::schema::project(input)
 }
 
 pub fn definitions_of<'a>(
-    _index: &'a SchemaIndex,
-    _operation: &OperationId,
+    index: &'a SchemaIndex,
+    operation: &OperationId,
 ) -> Lookup<'a, DefinitionId> {
-    Lookup::Unknown
+    match index.reached.get(operation) {
+        Some((false, definitions)) => Lookup::Checked(definitions),
+        Some((true, definitions)) => Lookup::Partial(definitions),
+        None => Lookup::Unknown,
+    }
 }
 
 pub fn operations_reaching<'a>(
-    _index: &'a SchemaIndex,
-    _definition: &DefinitionId,
+    index: &'a SchemaIndex,
+    definition: &DefinitionId,
 ) -> Lookup<'a, OperationId> {
-    Lookup::Unknown
+    let Some(operations) = index.inverse.get(definition) else {
+        return Lookup::Unknown;
+    };
+    let incomplete = index.operation_coverage_incomplete
+        || index
+            .reached
+            .iter()
+            .any(|(id, (partial, _))| *partial && operations.binary_search(id).is_err());
+    if incomplete {
+        Lookup::Partial(operations)
+    } else {
+        Lookup::Checked(operations)
+    }
 }
 
-pub fn signature(_shape: &FieldShape) -> String {
-    String::new()
-}
+pub use crate::schema::signature;
 
 impl SchemaIndex {
     /// Canonical public projection, as UTF-8 lines with operations before fields.
     pub fn public_ids_tsv(&self) -> Vec<u8> {
-        Vec::new()
+        let mut bytes = Vec::new();
+        for line in self
+            .operations
+            .iter()
+            .map(|op| op.id.to_string())
+            .chain(self.public_fields.iter().cloned())
+        {
+            bytes.extend_from_slice(line.as_bytes());
+            bytes.push(b'\n');
+        }
+        bytes
     }
 }

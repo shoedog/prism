@@ -1,0 +1,367 @@
+mod media;
+mod response_keys;
+
+use super::openapi::{entry_value, scan_operations};
+use super::references::{Documents, Located};
+use super::{signature, wire, Declaration, Dialect, SchemaError};
+use crate::element::{MessageRoot, SuccessKey};
+use crate::inventory::{
+    Coverage, MessageCoverage, Operation, OperationSite, RegionLimit, RootKey, SchemaIndex,
+    SchemaSource,
+};
+use crate::revision::{AdmittedSchemaInput, Snapshot};
+use media::Message;
+use std::collections::{BTreeMap, BTreeSet};
+
+pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, SchemaError> {
+    let documents = Documents::new(input, entry_value(input)?);
+    let inventory = scan_operations(&documents, input)?;
+    let mut index = SchemaIndex {
+        source: Some(SchemaSource {
+            api: inventory.api,
+            authority: inventory.authority,
+            tree: input.snapshot.tree().into(),
+            commit: match input.snapshot {
+                Snapshot::Commit { commit, .. } => Some(commit.into()),
+                Snapshot::ComputedTree { .. } => None,
+            },
+            path: input.entry.path.into(),
+            blob: input.entry.oid.into(),
+        }),
+        info_version: inventory.info_version,
+        diagnostics: inventory.diagnostics,
+        byte_sha256: inventory
+            .digest
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
+        operation_coverage_incomplete: !inventory.unprojected.is_empty(),
+        ..SchemaIndex::default()
+    };
+    for diagnostic in &index.diagnostics {
+        // These are represented at their message root below.
+        if matches!(diagnostic.code, "fallback_success" | "duplicate_operation") {
+            continue;
+        }
+        if diagnostic.scope == "origin" {
+            continue;
+        }
+        index.operation_coverage_incomplete = true;
+        index.limits.push(RegionLimit {
+            pointer: Vec::new(),
+            reason: diagnostic.code.into(),
+        });
+    }
+    for document in documents.documents() {
+        for definition in wire::declared_definitions(document) {
+            index.inverse.entry(definition).or_default();
+        }
+    }
+    let duplicate_keys = response_keys::DuplicateKeys::new();
+    for (id, operation) in inventory.operations {
+        let declaration = &operation.declarations[0];
+        let location = documents
+            .locate(declaration.resource.as_deref(), &declaration.site)
+            .expect("selected operation has an admitted location");
+        let dialect = operation.dialect;
+        let duplicate = operation.declarations.len() > 1;
+        let mut projected = Operation {
+            id: id.clone(),
+            success_keys: operation.success_keys().to_vec(),
+            response_keys: operation.responses().keys().cloned().collect(),
+            operation_id: operation.operation_id.clone(),
+            declarations: operation
+                .declarations
+                .iter()
+                .map(|declaration| OperationSite {
+                    path: declaration.source_path.clone(),
+                    canonical_path: declaration.path.clone(),
+                    method: declaration.source_method.clone(),
+                    site: declaration.site.clone(),
+                    referring_site: declaration.referring_site.clone(),
+                    reference_chain: declaration.reference_chain.clone(),
+                })
+                .collect(),
+            ranged_responses: dialect != Dialect::Swagger2,
+            messages: Vec::new(),
+        };
+        let mut reached = BTreeSet::new();
+        let mut incomplete = duplicate
+            || location
+                .value
+                .get("responses")
+                .is_some_and(|value| !value.is_object());
+        let mut messages = Vec::new();
+        if let Some(message) = request(&documents, input, &operation, &location) {
+            messages.push((RootKey::Request, message));
+        }
+        for key in operation.success_keys() {
+            let spelling = key.to_string();
+            let message = if duplicate_keys.contains(&location, &spelling) {
+                Message::withheld("response_key_ambiguous")
+            } else if !(200..=299).any(|code| {
+                operation.can_have_body(code) && operation.response_key(code) == Some(&spelling)
+            }) {
+                Message::empty()
+            } else {
+                let raw = location
+                    .child("responses")
+                    .unwrap()
+                    .child(&spelling)
+                    .unwrap();
+                response(&documents, input, &operation, &location, *key, raw)
+            };
+            messages.push((RootKey::Response(*key), message));
+        }
+        if operation.default_response().is_some() {
+            let message = if (200..=299).any(|code| operation.response_key(code) == Some("default"))
+            {
+                Message::withheld("fallback_success")
+            } else {
+                Message::empty()
+            };
+            messages.push((RootKey::Fallback, message));
+        }
+        for (key, mut message) in messages {
+            let root = match key {
+                RootKey::Request => Some(MessageRoot::Request(id.clone())),
+                RootKey::Response(key) => Some(MessageRoot::Response(id.clone(), key)),
+                RootKey::Fallback => None,
+            };
+            let mut feasible = None;
+            if let (Some(schema), Some(root)) = (message.schema.take(), root) {
+                let result = wire::read(&documents, dialect, &root, schema);
+                feasible = result.feasible;
+                if message.coverage == Coverage::ObservedOnly
+                    && result.fields.is_empty()
+                    && result.limits.is_empty()
+                {
+                    message.coverage = Coverage::Checked;
+                    message
+                        .limits
+                        .retain(|limit| limit.reason != "media_unverified");
+                }
+                reached.extend(result.definitions);
+                index.warnings.extend(result.warnings);
+                for (field, comparable) in result.fields {
+                    let blocked = message
+                        .blocks
+                        .iter()
+                        .any(|prefix| field.id.pointer.starts_with(prefix));
+                    if comparable
+                        && !blocked
+                        && !duplicate
+                        && message.coverage != Coverage::Withheld
+                    {
+                        index.public_fields.push(field.id.to_string());
+                    }
+                    if comparable
+                        && !blocked
+                        && !duplicate
+                        && message.coverage != Coverage::Withheld
+                        && message.json_source.is_some()
+                    {
+                        index.fields.push(field);
+                    } else {
+                        index.observed_fields.push(field);
+                    }
+                }
+                if !result.limits.is_empty() && message.coverage != Coverage::Withheld {
+                    message.coverage = Coverage::Partial;
+                }
+                message.limits.extend(result.limits);
+            }
+            if duplicate {
+                message.coverage = Coverage::Withheld;
+                message.limit(Vec::new(), "duplicate_operation");
+            }
+            incomplete |= !matches!(message.coverage, Coverage::Checked)
+                && message.limits.iter().any(|limit| {
+                    !matches!(
+                        limit.reason.as_str(),
+                        "media_unverified" | "non_json_media" | "body_presence_unchecked"
+                    )
+                });
+            projected.messages.push(MessageCoverage {
+                key,
+                coverage: message.coverage,
+                limits: message.limits,
+                feasible,
+                declared_media: message.declared_media,
+                json_source: message.json_source,
+            });
+        }
+        let reached: Vec<_> = reached.into_iter().collect();
+        for definition in &reached {
+            index
+                .inverse
+                .entry(definition.clone())
+                .or_default()
+                .push(id.clone());
+        }
+        index.reached.insert(id, (incomplete, reached));
+        index.operations.push(projected);
+    }
+    index.operations.sort_by_key(|op| op.id.to_string());
+    index.fields.sort_by_key(|field| field.id.to_string());
+    index
+        .observed_fields
+        .sort_by_key(|field| field.id.to_string());
+    index.public_fields.sort();
+    index.public_fields.dedup();
+    index.content_hash = signature::content_hash(&index);
+    Ok(index)
+}
+
+fn request<'r, 'a>(
+    documents: &'r Documents<'a>,
+    input: &AdmittedSchemaInput<'_>,
+    operation: &super::Operation,
+    location: &Located<'r, 'a>,
+) -> Option<Message<'r, 'a>> {
+    let dialect = operation.dialect;
+    if dialect == Dialect::Swagger2 {
+        return match swagger_body(documents, &operation.declarations[0], location) {
+            Ok(Body::None) => None,
+            Ok(Body::Form) => Some(Message::withheld("non_json_media")),
+            Ok(Body::Json(body)) => {
+                Some(media::swagger(input, &operation.id, location, body, None))
+            }
+            Err(reason) => Some(Message::withheld(reason)),
+        };
+    }
+    if operation.id.method() == "TRACE"
+        || dialect == Dialect::OpenApi30
+            && !matches!(operation.id.method(), "POST" | "PUT" | "PATCH")
+    {
+        return None;
+    }
+    let raw = location.child("requestBody")?;
+    Some(
+        match resolve_message(documents, dialect, raw, "request_body_unreadable") {
+            Ok(body) => media::openapi(body, true, dialect),
+            Err(reason) => Message::withheld(reason),
+        },
+    )
+}
+
+fn response<'r, 'a>(
+    documents: &'r Documents<'a>,
+    input: &AdmittedSchemaInput<'_>,
+    operation: &super::Operation,
+    location: &Located<'r, 'a>,
+    key: SuccessKey,
+    raw: Located<'r, 'a>,
+) -> Message<'r, 'a> {
+    let dialect = operation.dialect;
+    let response = match resolve_message(documents, dialect, raw, "response_unreadable") {
+        Ok(response) => response,
+        Err(reason) => return Message::withheld(reason),
+    };
+    if dialect == Dialect::Swagger2 {
+        media::swagger(input, &operation.id, location, response, Some(key))
+    } else {
+        media::openapi(response, false, dialect)
+    }
+}
+
+fn resolve_message<'r, 'a>(
+    documents: &'r Documents<'a>,
+    dialect: Dialect,
+    raw: Located<'r, 'a>,
+    unreadable: &'static str,
+) -> Result<Located<'r, 'a>, &'static str> {
+    if !raw.value.is_object() {
+        return Err(unreadable);
+    }
+    let mut chain = documents
+        .resolve(raw)
+        .map_err(|failure| wire::reference_reason(failure.code))?;
+    if chain.len() > 1
+        && unreadable == "request_body_unreadable"
+        && chain.last().unwrap().value.get("content").is_none()
+    {
+        return Err("reference_unresolved");
+    }
+    if dialect == Dialect::OpenApi31
+        && chain[..chain.len() - 1].iter().any(|node| {
+            node.value
+                .as_object()
+                .unwrap()
+                .keys()
+                .any(|key| !matches!(key.as_str(), "$ref" | "summary" | "description"))
+        })
+    {
+        return Err("reference_siblings_unchecked");
+    }
+    Ok(chain.pop().unwrap())
+}
+
+enum Body<'r, 'a> {
+    None,
+    Form,
+    Json(Located<'r, 'a>),
+}
+
+fn swagger_body<'r, 'a>(
+    documents: &'r Documents<'a>,
+    declaration: &Declaration,
+    operation: &Located<'r, 'a>,
+) -> Result<Body<'r, 'a>, &'static str> {
+    const UNREADABLE: &str = "body_parameters_unreadable";
+    let path = declaration
+        .parameters
+        .as_ref()
+        .map_err(|_| UNREADABLE)?
+        .as_ref()
+        .and_then(|(uri, site)| documents.locate(uri.as_deref(), site));
+    let mut effective = BTreeMap::new();
+    for list in [path, operation.child("parameters")].into_iter().flatten() {
+        let items = list.value.as_array().ok_or(UNREADABLE)?;
+        let mut local = BTreeSet::new();
+        for (i, value) in items.iter().enumerate() {
+            let parameter = resolve_message(
+                documents,
+                Dialect::Swagger2,
+                Located {
+                    value,
+                    document: list.document,
+                    site: list.site.child(&i.to_string()),
+                },
+                UNREADABLE,
+            )
+            .map_err(|_| UNREADABLE)?;
+            let key = (
+                parameter.value["name"].as_str().ok_or(UNREADABLE)?,
+                parameter.value["in"].as_str().ok_or(UNREADABLE)?,
+            );
+            if !local.insert(key) {
+                return Err(UNREADABLE);
+            }
+            effective.insert(key, parameter);
+        }
+    }
+    let has_form = effective
+        .keys()
+        .any(|(_, location)| *location == "formData");
+    let mut bodies = effective
+        .into_iter()
+        .filter_map(|((_, location), parameter)| (location == "body").then_some(parameter));
+    let Some(body) = bodies.next() else {
+        return Ok(if has_form { Body::Form } else { Body::None });
+    };
+    if has_form {
+        return Err("body_form_conflict");
+    }
+    if bodies.next().is_some() {
+        return Err("multiple_request_bodies");
+    }
+    if !body
+        .value
+        .get("schema")
+        .is_some_and(serde_json::Value::is_object)
+    {
+        return Err(UNREADABLE);
+    }
+    Ok(Body::Json(body))
+}

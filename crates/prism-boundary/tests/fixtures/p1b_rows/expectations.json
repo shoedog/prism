@@ -276,8 +276,8 @@
     {"fixture": "supported.json", "operations": {"POST /probe": {"success": ["204"], "responses": ["204"], "roots": {"204": {"coverage": "checked", "limits": {}}, "req": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:req:POST /probe#/x"], "observed": []}
   ]},
   "r04": {"case": "An authored RequestBody.required leaves the whole-body presence claim unchecked", "reason": "body_presence_unchecked", "control": "control-r04", "inputs": [
-    {"fixture": "false.json", "operations": {"POST /probe": {"success": ["204"], "responses": ["204"], "roots": {"204": {"coverage": "checked", "limits": {}}, "req": {"coverage": "partial", "limits": {"|body_presence_unchecked": 1}}}}}, "fields": [], "observed": ["field:req:POST /probe#/x"], "shapes": {"field:req:POST /probe#/x": {"required": true}}},
-    {"fixture": "true.json", "operations": {"POST /probe": {"success": ["204"], "responses": ["204"], "roots": {"204": {"coverage": "checked", "limits": {}}, "req": {"coverage": "partial", "limits": {"|body_presence_unchecked": 1}}}}}, "fields": [], "observed": ["field:req:POST /probe#/x"], "shapes": {"field:req:POST /probe#/x": {"required": true}}}
+    {"fixture": "false.json", "operations": {"POST /probe": {"success": ["204"], "responses": ["204"], "roots": {"204": {"coverage": "checked", "limits": {}}, "req": {"coverage": "partial", "limits": {"|body_presence_unchecked": 1}}}}}, "fields": ["field:req:POST /probe#/x"], "observed": [], "shapes": {"field:req:POST /probe#/x": {"required": true}}},
+    {"fixture": "true.json", "operations": {"POST /probe": {"success": ["204"], "responses": ["204"], "roots": {"204": {"coverage": "checked", "limits": {}}, "req": {"coverage": "partial", "limits": {"|body_presence_unchecked": 1}}}}}, "fields": ["field:req:POST /probe#/x"], "observed": [], "shapes": {"field:req:POST /probe#/x": {"required": true}}}
   ]},
   "r05": {"case": "Null or unreadable requestBody/content withholds the root", "reason": "request_body_unreadable", "control": "control-r05", "inputs": [
     {"fixture": "null.json", "operations": {"POST /probe": {"success": ["204"], "responses": ["204"], "roots": {"204": {"coverage": "checked", "limits": {}}, "req": {"coverage": "withheld", "limits": {"|request_body_unreadable": 1}}}}}, "fields": [], "observed": []},
@@ -296,8 +296,8 @@
     {"fixture": "missing-schema.json", "operations": {"POST /probe": {"success": [], "responses": [], "roots": {"req": {"coverage": "withheld", "limits": {"|body_parameters_unreadable": 1}}}}}, "fields": [], "observed": []}
   ]},
   "r08": {"case": "An authored Swagger body presence flag is independent of schema member requiredness", "reason": "body_presence_unchecked", "control": "control-r08", "inputs": [
-    {"fixture": "optional.json", "operations": {"POST /probe": {"success": [], "responses": [], "roots": {"req": {"coverage": "partial", "limits": {"|body_presence_unchecked": 1}}}}}, "fields": [], "observed": ["field:req:POST /probe#/x"], "shapes": {"field:req:POST /probe#/x": {"required": true}}},
-    {"fixture": "required.json", "operations": {"POST /probe": {"success": [], "responses": [], "roots": {"req": {"coverage": "partial", "limits": {"|body_presence_unchecked": 1}}}}}, "fields": [], "observed": ["field:req:POST /probe#/x"], "shapes": {"field:req:POST /probe#/x": {"required": true}}}
+    {"fixture": "optional.json", "operations": {"POST /probe": {"success": [], "responses": [], "roots": {"req": {"coverage": "partial", "limits": {"|body_presence_unchecked": 1}}}}}, "fields": ["field:req:POST /probe#/x"], "observed": [], "shapes": {"field:req:POST /probe#/x": {"required": true}}},
+    {"fixture": "required.json", "operations": {"POST /probe": {"success": [], "responses": [], "roots": {"req": {"coverage": "partial", "limits": {"|body_presence_unchecked": 1}}}}}, "fields": ["field:req:POST /probe#/x"], "observed": [], "shapes": {"field:req:POST /probe#/x": {"required": true}}}
   ]},
   "r09": {"case": "Swagger body plus formData cannot certify the request", "reason": "body_form_conflict", "control": "control-r09", "inputs": [
     {"fixture": "inherited-form.json", "operations": {"POST /probe": {"success": [], "responses": [], "roots": {"req": {"coverage": "withheld", "limits": {"|body_form_conflict": 1}}}}}, "fields": [], "observed": []},
@@ -316,8 +316,8 @@
     {"fixture": "false-root.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}, "feasible": false}}}}, "fields": [], "observed": []},
     {"fixture": "false-ref.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}, "feasible": false}}}}, "fields": [], "observed": []},
     {"fixture": "false-required.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}, "feasible": false}}}}, "fields": [], "observed": []},
-    {"fixture": "oas30.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"|schema_form_unchecked": 1}}}}}, "fields": [], "observed": ["field:resp:POST /probe:200#/x"]},
-    {"fixture": "swagger.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"|schema_form_unchecked": 1}}}}}, "fields": [], "observed": ["field:resp:POST /probe:200#/x"]}
+    {"fixture": "oas30.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"/x|schema_form_unchecked": 1}}}}}, "fields": [], "observed": ["field:resp:POST /probe:200#/x"]},
+    {"fixture": "swagger.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"/x|schema_form_unchecked": 1}}}}}, "fields": [], "observed": ["field:resp:POST /probe:200#/x"]}
   ]},
   "s03": {"case": "Type branches, absent type and actual type-only changes", "inputs": [
     {"fixture": "absent-type.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:resp:POST /probe:200#/x"], "observed": []},
@@ -367,8 +367,8 @@
     {"fixture": "supported.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "checked", "limits": {}}}}}, "fields": ["field:resp:POST /probe:200#/x"], "observed": []}
   ]},
   "s12": {"case": "Malformed or legacy empty enums cannot certify feasible fields", "reason": "enum_unreadable", "control": "control-s12", "inputs": [
-    {"fixture": "swagger-empty.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"|enum_unreadable": 1}}}}}, "fields": [], "observed": ["field:resp:POST /probe:200#/x"]},
-    {"fixture": "malformed.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"|enum_unreadable": 1}}}}}, "fields": [], "observed": ["field:resp:POST /probe:200#/x"]}
+    {"fixture": "swagger-empty.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"/x|enum_unreadable": 1}}}}}, "fields": [], "observed": ["field:resp:POST /probe:200#/x"]},
+    {"fixture": "malformed.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"/x|enum_unreadable": 1}}}}}, "fields": [], "observed": ["field:resp:POST /probe:200#/x"]}
   ]},
   "s13": {"case": "Const signature semantics stay partial without inventing an enum declaration", "reason": "const_signature_unchecked", "control": "control-s13", "inputs": [
     {"fixture": "a.json", "operations": {"POST /probe": {"success": ["200"], "responses": ["200"], "roots": {"200": {"coverage": "partial", "limits": {"/x|const_signature_unchecked": 1}}}}}, "fields": ["field:resp:POST /probe:200#/stable"], "observed": ["field:resp:POST /probe:200#/x"], "shapes": {"field:resp:POST /probe:200#/x": {"enum": "missing"}}},

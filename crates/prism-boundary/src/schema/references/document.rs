@@ -6,7 +6,8 @@ use std::cell::OnceCell;
 pub(in crate::schema) struct Document<'a> {
     pub value: Value,
     pub base: Option<Uri>,
-    pub(super) blob: Blob<'a>,
+    pub(in crate::schema) blob: Blob<'a>,
+    pub readable: bool,
     schema_resolution_or_dialect_keywords: OnceCell<bool>,
 }
 
@@ -14,6 +15,7 @@ impl<'a> Document<'a> {
     pub(super) fn new(blob: Blob<'a>, value: Value, base: Option<Uri>) -> Self {
         Self {
             blob,
+            readable: true,
             value,
             base,
             schema_resolution_or_dialect_keywords: OnceCell::new(),

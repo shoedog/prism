@@ -58,8 +58,6 @@ that produces zero deployments.
 - A literal `{}` in a schema path prints the same way as a capture and can
   trigger a false `duplicate_operation` diagnostic.
 - `ascii_fold` lowercases the hex digits in percent escapes.
-- `tests/identity.rs` includes `schema/mod.rs` through `#[path]` until P1b
-  publishes `index_schema`.
 
 ## P1b wire accept-list
 
@@ -68,6 +66,20 @@ that produces zero deployments.
 - Exact `application/json`, effective Swagger media lists, or admitted root-scoped Swagger omission proof.
 - Named property and required edges, homogeneous items, and schema-valued map remainders with typed pointers.
 - Feasible scalar, object, array, `allOf`, `anyOf`, and provably disjoint `oneOf` transitions within 16 edges.
+
+The public `index_schema` inventory keeps comparable fields separate from
+structural observations, with typed pointers, declaration sites and counted
+message limits. `definitions_of` and `operations_reaching` return sorted
+relationships and their coverage. The source byte SHA-256 and canonical
+inventory hash are independent.
+
+Known limits include fallback success bodies, non-JSON representations,
+unproved Swagger media, nested schema resources and anchors, recurring
+references, tuples and evaluated tails, arbitrary assertion vocabularies,
+overlapping `oneOf` arms, and unknown scalar or container feasibility.
+Body-presence metadata is tracked separately from requiredness within a body.
+The wire reader retains up to 16 pointer edges and counts unavailable
+constraints at the affected boundary.
 
 Other inputs have counted partial or withheld coverage at the affected scope. The
 `wire` target reads the pinned ID matrix and the separate P1b enumeration. The

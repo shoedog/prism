@@ -14,6 +14,13 @@ const METHODS: &[&str] = &["delete", "get", "head", "options", "patch", "post", 
 
 pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Inventory, SchemaError> {
     let documents = Documents::new(input, entry_value(input)?);
+    scan_operations(&documents, input)
+}
+
+pub(super) fn scan_operations(
+    documents: &Documents<'_>,
+    input: &AdmittedSchemaInput<'_>,
+) -> Result<Inventory, SchemaError> {
     let document = &documents.entry.value;
     let dialect = match document["openapi"].as_str() {
         Some(version) if version.starts_with("3.0.") => Dialect::OpenApi30,
@@ -46,7 +53,7 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
         }
         let site = documents.entry.site(vec!["paths".into(), path.clone()]);
         let Some(item) = PathItem::resolve(
-            &documents,
+            documents,
             Located {
                 value: raw,
                 document: &documents.entry,
@@ -73,7 +80,7 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
                 continue;
             }
             index_declaration(
-                &documents,
+                documents,
                 &item,
                 path,
                 method,
@@ -132,6 +139,23 @@ fn index_declaration(
             .cloned()
             .unwrap_or_else(|| item.site.child(method)),
         site: site.clone(),
+        resource: operation
+            .document
+            .base
+            .as_ref()
+            .map(super::servers::Uri::key),
+        parameters: match item.field("parameters") {
+            Some(Field::Overlap) => Err(()),
+            Some(Field::Declared { location, .. }) => Ok(Some((
+                location
+                    .document
+                    .base
+                    .as_ref()
+                    .map(super::servers::Uri::key),
+                location.site.clone(),
+            ))),
+            None => Ok(None),
+        },
         reference_chain: chain.to_vec(),
         deployments: Vec::new(),
         responses,
@@ -236,7 +260,7 @@ fn empty_list(value: &Value) -> bool {
     value.as_array().is_some_and(Vec::is_empty)
 }
 
-fn entry_value(input: &AdmittedSchemaInput<'_>) -> Result<Value, SchemaError> {
+pub(super) fn entry_value(input: &AdmittedSchemaInput<'_>) -> Result<Value, SchemaError> {
     if input.entry.tree != input.snapshot.tree() {
         return Err(SchemaError::EntryTree);
     }

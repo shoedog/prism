@@ -6,8 +6,9 @@ pub mod revision;
 
 pub use inventory::{
     definitions_of, index_schema, operations_reaching, signature, Coverage, DefinitionId,
-    EnumValue, Field, FieldShape, JsonMediaSource, Lookup, MessageCoverage, Operation, Property,
-    RegionLimit, RootKey, SchemaIndex, SchemaSource,
+    EnumValue, Field, FieldShape, JsonMediaSource, Lookup, MessageCoverage, Operation,
+    OperationSite, Property, RegionLimit, RootKey, SchemaDiagnostic, SchemaIndex, SchemaSite,
+    SchemaSource,
 };
 pub use revision::AdmittedSchemaInput;
 pub use schema::SchemaError;
