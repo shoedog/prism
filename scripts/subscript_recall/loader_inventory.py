@@ -95,11 +95,20 @@ class Parent:
         if access == "def":
             self.defs[owner].add((line, path))
 
+    @staticmethod
+    def bound(read, uses):
+        """Whether one right-hand side read maps to a graph Use (see `value_uses`)."""
+        kind, start, end, what = read
+        if kind == "chain":
+            return any((use[6], use[7], use[5]) == (start, end, what) for use in uses)
+        return any(use[5][0] == what and use[6] < end and start < use[7] for use in uses)
+
     def reaches(self, w_node, r_node, owner, value):
         """Whether the value W stores already reaches R by other data-flow edges.
 
         `True`/`False` when the search finished; `None` (unknown) when it ran out of budget, when W's
-        right-hand side is not known, or when a name it reads has no Use node in the graph. The walk is the
+        right-hand side is not known, or when any read in it (each bound by span and path, `value_uses`)
+        has no Use node in the graph. The walk is the
         production one (`dfg_forward_reachable`): data-flow edges, plus a Use feeds the Defs on its own line
         of the same owner (`d = {"old": t}; d["new"] = t; return d` carries `t` through the same-line Def of
         `d`). W itself is never entered: it is the route being asked about.
@@ -107,10 +116,10 @@ class Parent:
         Use on W's lines: an index (`d[t] = u`) or the container is not the stored value."""
         if value is None:
             return None
-        start, end, first, last, names = value
+        start, end, first, last, reads = value
         uses = [use for line in range(first, last + 1) for use in self.at_line.get((owner, "use", line), ())
                 if start <= use[6] and use[7] <= end]
-        if any(not any(use[5][0] == name for use in uses) for name in names):
+        if any(not self.bound(read, uses) for read in reads):
             return None
         seeds = {pred for use in uses for pred in self.pred.get(use, ())}
         seen, todo = set(seeds), deque(seeds)
@@ -183,24 +192,45 @@ def statement_lines(body):
     return lines
 
 
-def value_names(value):
-    """Roots of the names a store's value reads in its own scope: not a called bare name (a call, not a
-    variable read), nothing inside a lambda, and of a comprehension only the leftmost iterable."""
-    names, todo = set(), [value]
+def value_uses(value, starts):
+    """The reads a store's value makes in its own scope, one entry per occurrence, with their spans.
+
+    Not a called bare name (a call, not a variable read), nothing inside a lambda, and of a comprehension
+    only the leftmost iterable. A plain `a.b.c` chain is `("chain", start, end, (root, "b", "c"))`: the
+    typed graph must hold a Use at exactly that span and path. Any other read of a name (a subscripted or
+    called base, `t[0]`, `t.m()`) is `("name", start, end, root)`: some Use of that root must overlap it."""
+    uses, todo = set(), [(value, False)]
+
+    def span(node):
+        return (starts[node.lineno - 1] + node.col_offset, starts[node.end_lineno - 1] + node.end_col_offset)
+
     while todo:
-        node = todo.pop()
+        node, called = todo.pop()
         if isinstance(node, ast.Lambda):
             continue
         if isinstance(node, COMPREHENSIONS):
-            todo.append(node.generators[0].iter)
+            todo.append((node.generators[0].iter, False))
             continue
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            todo.extend(node.args + [kw.value for kw in node.keywords])
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name):
+                todo.extend((child, False) for child in node.args + [kw.value for kw in node.keywords])
+                continue
+            todo.append((node.func, True))
+            todo.extend((child, False) for child in node.args + [kw.value for kw in node.keywords])
             continue
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            names.add(node.id)
-        todo.extend(ast.iter_child_nodes(node))
-    return names
+        if isinstance(node, (ast.Name, ast.Attribute)) and isinstance(node.ctx, ast.Load):
+            path, base = [], node
+            while isinstance(base, ast.Attribute):
+                path.append(base.attr)
+                base = base.value
+            if isinstance(base, ast.Name) and not called:
+                uses.add(("chain", *span(node), (base.id, *reversed(path))))
+                continue
+            if isinstance(base, ast.Name):
+                uses.add(("name", *span(base), base.id))
+                continue
+        todo.extend((child, False) for child in ast.iter_child_nodes(node))
+    return frozenset(uses)
 
 
 def store_values(parsed, owner):
@@ -215,7 +245,7 @@ def store_values(parsed, owner):
             continue
         value = node.value
         span = (starts[value.lineno - 1] + value.col_offset, starts[value.end_lineno - 1] + value.end_col_offset)
-        info = (*span, value.lineno, value.end_lineno, frozenset(value_names(value)))
+        info = (*span, value.lineno, value.end_lineno, value_uses(value, starts))
         for target in (node.targets if isinstance(node, ast.Assign) else [node.target]):
             if isinstance(target, ast.Subscript):
                 out[(starts[target.lineno - 1] + target.col_offset,

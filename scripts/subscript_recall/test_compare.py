@@ -47,9 +47,12 @@ BYTES = [dict({"from": dict(file="a.py", line=2, access="def", start_byte=5, end
               confidence="exact", doubt=None) for i in (0, 0, 1)]
 
 
-def render(nodes, edges, version="4.0.0"):
+def render(nodes, edges, version="4.0.0", build_identity="abcdef012345"):
     touched = {json.dumps(e[i], sort_keys=True) for e in edges for i in (0, 1)}
-    rows = [dict(kind="meta", schema=compare.READER_SCHEMA, prism_version=version),
+    meta = dict(kind="meta", schema=compare.READER_SCHEMA, prism_version=version)
+    if build_identity is not None:
+        meta["build_identity"] = build_identity
+    rows = [meta,
             dict(kind="file", key="a.py", sha256=hashlib.sha256(SRC).hexdigest())]
     rows += [dict(kind="node", isolated=json.dumps(n, sort_keys=True) not in touched, **n) for n in nodes]
     rows += [dict(kind="edge", **{"from": a, "to": b, "edge": e}) for a, b, e in edges]
@@ -118,9 +121,12 @@ class Harness(unittest.TestCase):
         d.mkdir(exist_ok=True)
         self.worktrees[d.resolve()] = (str(d.resolve()), head)
         for arm in compare.TRACE_BY_ARM:
-            data = dict(version=VERSION, edges=BYTES, graph=render(NODES, EDGES), dfg=stats(3), calls=stats(3, 1),
+            data = dict(version=VERSION, edges=BYTES, graph=None, dfg=stats(3), calls=stats(3, 1),
                         edges_err=[TRACE] if arm == "on" else [], prism_exit=0, reader_exit=0, touch=None)
             data.update(per_arm.get(arm, {}))
+            if data["graph"] is None:  # a reader built with its binary reports that binary's identity
+                data["graph"] = render(NODES, EDGES, build_identity=compare.VERSION_RE.match(data["version"]).group(2)
+                                       + ("-dirty" if "-dirty" in data["version"] else ""))
             (d / f"data-{arm}.json").write_text(json.dumps(data))
         for fname, text in (("prism", PRISM), ("reader", READER)):
             (d / fname).write_text(text.format(py=sys.executable, salt=salt))
@@ -481,6 +487,80 @@ class BaseBindingTests(Harness):
         self.assertEqual(code, 1, err)
         self.assertIn("base arm reader worktree HEAD", err)
         self.assertIn("same worktree HEAD", err)
+
+    def test_a_head_built_reader_under_the_base_checkout_is_refused(self):
+        """Round-3 finding 3: the reader's own build identity, not where it sits, binds it to its arm."""
+        head_identity = "abcdef012345"
+        base = self.tool("ib", salt="base build", head=BASE_EXPECT,
+                         base=dict(version=BASE_VERSION, graph=render(NODES, EDGES, build_identity=head_identity)))
+        head = self.tool("ih", salt="head build")
+        runs = self.tmp / "ident-runs"
+        code, err = self.run_arm(runs, "base", base, expect=BASE_EXPECT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("build identity", err)
+        self.assertTrue((runs / "C" / "base" / "FAILED").exists())
+
+    def test_run_binds_the_reader_to_its_binary_by_build_identity(self):
+        for name, graph, needle in (
+                ("other revision", render(NODES, EDGES, build_identity="123456789abc"), "build identity"),
+                ("unrecorded", render(NODES, EDGES, build_identity=None), "build identity"),
+                ("unknown", render(NODES, EDGES, build_identity="unknown"), "build identity"),
+                ("dirty reader, clean binary", render(NODES, EDGES, build_identity="abcdef012345-dirty"),
+                 "build identity")):
+            with self.subTest(name):
+                tool = self.tool("r-" + name.replace(" ", "_").replace(",", ""), off=dict(graph=graph))
+                code, err = self.run_arm(self.tmp / ("r-runs-" + name.replace(" ", "_").replace(",", "")), "off", tool)
+                self.assertEqual(code, 1, err)
+                self.assertIn(needle, err)
+        tool = self.tool("rd", off=dict(version="slicing 4.0.0 (abcdef012345-dirty)"))
+        code, _ = self.run_arm(self.tmp / "rd-runs", "off", tool, extra=["--allow-dirty"])
+        self.assertEqual(code, 0)
+        m = json.loads((self.tmp / "rd-runs" / "C" / "off" / "manifest.json").read_text())
+        self.assertEqual(m["reader"]["build_identity"], "abcdef012345-dirty")
+
+    def rewrite_graph_identity(self, runs, arm, identity):
+        """Re-label an arm's captured reader stream as built from `identity`, with every digest updated."""
+        d = runs / "C" / arm
+        rows = [json.loads(x) for x in (d / "graph.jsonl").read_text().splitlines()]
+        rows[0]["build_identity"] = identity
+        (d / "graph.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+        m = json.loads((d / "manifest.json").read_text())
+        m["artifacts"]["graph.jsonl"] = compare.sha256_file(d / "graph.jsonl")
+        m["reader"]["build_identity"] = identity
+        (d / "manifest.json").write_text(json.dumps(m))
+
+    def test_zero_rebinds_each_reader_to_its_arm_from_the_stream_it_captured(self):
+        runs = self.bound_runs()
+        self.assertEqual(self.zero(runs, extra=self.STRICT), (0, ""))
+        m = {arm: json.loads((runs / "C" / arm / "manifest.json").read_text()) for arm in compare.TRACE_BY_ARM}
+        self.assertEqual((m["base"]["reader"]["build_identity"], m["on"]["reader"]["build_identity"]),
+                         ("123456789abc", "abcdef012345"))
+        # the base reader's stream says it was built from head code (manifest and digests re-written to agree)
+        fresh = self.bound_runs()
+        self.rewrite_graph_identity(fresh, "base", "abcdef012345")
+        code, err = self.zero(fresh, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("base arm reader build identity abcdef012345 is not the expected base", err)
+        # a head arm whose reader was built elsewhere
+        fresh = self.bound_runs()
+        self.rewrite_graph_identity(fresh, "on", "123456789abc")
+        code, err = self.zero(fresh, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("on arm reader build identity 123456789abc is not the expected head", err)
+        # the manifest's recorded identity must be the stream's
+        fresh = self.bound_runs()
+        self.reader_tamper(fresh, "base", reader=dict(m["base"]["reader"], build_identity="abcdef012345"))
+        code, err = self.zero(fresh, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("build identity", err)
+        # a reader that records no identity is unbound
+        fresh = self.bound_runs()
+        self.rewrite_graph_identity(fresh, "base", None)
+        code, err = self.zero(fresh, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("build identity", err)
+        # smoke runs (one executable) stay allowed
+        self.assertEqual(self.zero(self.three()), (0, ""))
 
     def test_the_base_reader_may_not_share_a_worktree_head_with_the_head_arms(self):
         runs = self.bound_runs()

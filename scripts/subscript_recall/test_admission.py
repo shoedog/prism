@@ -121,19 +121,26 @@ class World:
         self.build(**kw)
         return run_cli(self.argv())
 
-    def precision(self, **over):
-        """A passing section 7 receipt bound to the frozen population (fields overridden by `over`).
-
-        The world holds `population` candidate pairs, all of role `return`; the receipt samples them all."""
-        meta = json.loads((self.root / "adm" / "prepared.json").read_text())
-        population = len(ad.jsonl(self.root / "adm" / "candidates.jsonl"))
-        receipt = dict(schema=ad.PRECISION_SCHEMA, prepared_sha256=meta["prepared_sha256"],
-                       frame_sha256=meta["frame_sha256"], population=population, population_unit="pairs",
-                       n=population, valid=population, stale=0, unknown=0, exhaustive=False,
-                       roles={"return": dict(n=population, witnessed=population)})
-        receipt.update(over)
-        path = self.root / "precision.json"
-        path.write_text(json.dumps(receipt))
+    def precision(self, verdict=None, witnessed=None, **tamper):
+        """The receipt of the derived draw: `draw`, all-valid judgments (`verdict(key, role)` and
+        `witnessed(key)` override one), then `precision`; `tamper` rewrites receipt fields afterwards."""
+        prep = self.root / "adm"
+        draw_path, path = self.root / "draw.json", self.root / "precision.json"
+        assert run_cli(["draw", "--prepared", prep, "--out", draw_path])[0] == 0
+        draw = json.loads(draw_path.read_text())
+        meta = json.loads((prep / "prepared.json").read_text())
+        rows = []
+        for key, role in sorted(draw["keys"].items()):
+            v = verdict(key, role) if verdict else "valid"
+            rows.append(dict(key=key, verdict=v, prepared_sha256=meta["prepared_sha256"],
+                             witnessed=witnessed(key) if witnessed else v == "valid"))
+        (self.root / "judgments.jsonl").write_text(dump_lines(rows))
+        run_cli(["precision", "--prepared", prep, "--draw", draw_path, "--judgments",
+                 self.root / "judgments.jsonl", "--out", path])
+        if tamper:
+            receipt = json.loads(path.read_text())
+            receipt.update(tamper)
+            path.write_text(json.dumps(receipt))
         return path
 
     def report(self, witnesses="all", precision="good"):
@@ -621,7 +628,7 @@ class AdmissionTests(unittest.TestCase):
         self.assertIn("I2: BLOCKED", out)
         self.assertEqual(code, 4)
 
-    def prepared_population(self, count=100):
+    def prepared_population(self, count=130):
         w = self.world
         for i in range(count):
             w.function(f"m{i}.py")
@@ -642,57 +649,74 @@ class AdmissionTests(unittest.TestCase):
 
     def test_i2_needs_a_passing_prospective_precision_receipt(self):
         w = self.prepared_population()
-        ret = lambda n, k: {"return": dict(n=n, witnessed=k)}
+        first_k = lambda k: lambda key, role: "invalid" if key in k else "valid"
+        draw = lambda: json.loads((w.root / "draw.json").read_text())
+        w.precision()
+        core = sorted(draw()["core"])
         cases = {
             "absent": (None, "no precision receipt"),
             "missing file": (str(w.root / "nope.json"), "precision"),
             "other digest": (dict(prepared_sha256="0" * 64), "prepared"),
-            "wilson below .85": (dict(n=100, valid=85), "Wilson"),
-            "stale in the draw": (dict(stale=1), "stale"),
-            "unknown in the draw": (dict(unknown=1), "unknown"),
-            "role short": (dict(roles=ret(100, 89)), "role"),
-            "role missing counts": (dict(roles={"return": dict(n=3)}), "role"),
+            "wilson below .85": (dict(verdict=first_k(set(core[:16]))), "Wilson"),
+            "stale in the draw": (dict(verdict=lambda k, r: "stale" if k == core[0] else "valid"), "stale"),
+            "unknown in the draw": (dict(verdict=lambda k, r: "unknown" if k == core[0] else "valid"), "unknown"),
+            "role short": (dict(witnessed=lambda k: k not in set(core[:11])), "role return"),
+            "role counts forged": (dict(roles={"return": dict(n=3)}), "recomputation"),
         }
         for name, (receipt, needle) in cases.items():
             with self.subTest(name):
                 self.blocked_by(w, receipt, needle)
         with self.subTest("passes"), mock.patch.object(ad, "GATE", 1):
-            for good in (dict(), dict(n=100, valid=94), dict(roles=ret(100, 90)),
-                         dict(n=40, valid=40, roles=ret(40, 40)), dict(exhaustive=True)):
+            for good in (dict(), dict(verdict=first_k(set(core[:6]))), dict(witnessed=lambda k: k not in set(core[:10]))):
                 code, out, _ = w.report(precision=w.precision(**good))
-                self.assertEqual((code, "I2: ADMITTED" in out), (0, True), (good, out))
+                self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
         with self.subTest("exhaustive family needs every judgment valid"):
-            self.blocked_by(w, dict(exhaustive=True, valid=99), "every one must be")
+            small = World(w.root / "small")
+            (w.root / "small").mkdir()
+            for i in range(5):
+                small.function(f"m{i}.py")
+            self.assertEqual(small.prepare()[0], 0)
+            self.blocked_by(small, dict(verdict=lambda k, r: "invalid" if k.endswith("return") and "m0" in k else "valid"),
+                            "every one must be")
 
-    def test_a_precision_receipt_is_bound_to_the_frozen_population(self):
+    def test_a_precision_receipt_is_bound_to_the_derived_draw_and_its_files(self):
         w = self.prepared_population()
-        ret = lambda n, k=None: {"return": dict(n=n, witnessed=n if k is None else k)}
+        w.precision()
+        meta = json.loads((w.root / "adm" / "prepared.json").read_text())
+        good = json.loads((w.root / "precision.json").read_text())
+        self.assertEqual((good["schema"], good["prepared_sha256"], good["n"]),
+                         ("admission_precision/3", meta["prepared_sha256"], 100))
         cases = {
-            "one exhaustive judgment, no roles": (dict(exhaustive=True, n=1, valid=1, roles={}), "exhaustive"),
-            "one sampled judgment, no roles": (dict(n=1, valid=1, roles={}), "role"),
-            "one exhaustive judgment with a role": (dict(exhaustive=True, n=1, valid=1, roles=ret(1)),
-                                                    "exhaustive family: n=1 is not the population 100"),
-            "zero judgments": (dict(n=0, valid=0, roles={}), "judged sample"),
             "other frame": (dict(frame_sha256="0" * 64), "frame"),
             "no frame": (dict(frame_sha256=None), "frame"),
-            "population too small": (dict(population=99), "population"),
-            "population too large": (dict(population=101), "population"),
-            "population unit unknown": (dict(population_unit="rows"), "population_unit"),
-            "more judged than frozen": (dict(n=101, valid=101, roles=ret(101)), "exceeds the population"),
-            "roles absent": (dict(roles=None), "roles"),
-            "roles do not sum to n": (dict(n=100, valid=100, roles=ret(60)), "sum"),
-            "role not in the population": (dict(roles={"arg": dict(n=100, witnessed=100)}), "arg"),
-            "role over its population count": (dict(n=100, valid=100, roles={
-                "return": dict(n=95, witnessed=95), "arg": dict(n=5, witnessed=5)}), "arg"),
-            "witnessed above n": (dict(roles=ret(100, 101)), "witnessed"),
+            "old schema": (dict(schema="admission_precision/2"), "admission_precision/3"),
+            "judgments hash": (dict(judgments_sha256="0" * 64), "judgments_sha256"),
+            "draw hash": (dict(draw_sha256="0" * 64), "draw_sha256"),
+            "a smaller forged sample": (dict(n=22, valid=22, population=22, roles={
+                "return": dict(n=22, witnessed=22)}), "recomputation"),
+            "population forged": (dict(population=99), "recomputation"),
+            "witnessed forged": (dict(roles={"return": dict(n=100, witnessed=101)}), "recomputation"),
+            "draw file gone": (dict(draw_path=str(w.root / "gone.json")), "cannot be recomputed"),
         }
         for name, (receipt, needle) in cases.items():
             with self.subTest(name):
                 self.blocked_by(w, receipt, needle)
-        with self.subTest("owners as the unit"), mock.patch.object(ad, "GATE", 1):
-            code, out, _ = w.report(precision=w.precision(population_unit="owners"))
-            self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
-        self.blocked_by(w, dict(population_unit="owners", population=99), "population")
+
+    def test_precision_judgments_outside_the_draw_are_refused_by_the_cli(self):
+        w = self.prepared_population()
+        prep, draw_path = w.root / "adm", w.root / "draw.json"
+        self.assertEqual(run_cli(["draw", "--prepared", prep, "--out", draw_path])[0], 0)
+        draw = json.loads(draw_path.read_text())
+        meta = json.loads((prep / "prepared.json").read_text())
+        rows = [dict(key=k, verdict="valid", witnessed=True, prepared_sha256=meta["prepared_sha256"])
+                for k in sorted(draw["keys"])[:22]]
+        path = w.root / "short.jsonl"
+        path.write_text(dump_lines(rows))
+        code, _, err = run_cli(["precision", "--prepared", prep, "--draw", draw_path, "--judgments", path,
+                                "--out", w.root / "short-precision.json"])
+        self.assertEqual(code, 3, err)
+        self.assertIn("78 missing", err)
+        self.assertFalse((w.root / "short-precision.json").exists())
 
     def test_i2_needs_flood_evidence_for_every_declared_full_loader_corpus(self):
         w = self.world

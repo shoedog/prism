@@ -404,6 +404,10 @@ def run_arm(a, out):
         graph = load_graph(out / "graph.jsonl", scratch)
     if graph["meta"].get("prism_version") != semver:
         raise Refused("reader and binary report different versions")
+    printed = identity + ("-dirty" if dirty else "")
+    if graph["meta"].get("build_identity") != printed:
+        raise Refused(f"reader build identity {graph['meta'].get('build_identity')!r} is not its binary's {printed!r} "
+                      "(a reader built from other code than the binary cannot stand for it)")
     for key, sha in graph["files"].items():
         if files.get(key) != sha:
             raise Refused(f"reader file hash for {key} disagrees with the source tree")
@@ -418,7 +422,8 @@ def run_arm(a, out):
         schema=SCHEMA, run_id=uuid.uuid4().hex, corpus=a.corpus, repo=str(repo), trace=a.trace,
         expect_version=want, version=dict(semver=semver, identity=identity, dirty=dirty),
         binary=dict(path=str(binary), sha256=sha256_file(binary)),
-        reader=dict(path=str(reader), sha256=sha256_file(reader), schema=graph["meta"]["schema"]),
+        reader=dict(path=str(reader), sha256=sha256_file(reader), schema=graph["meta"]["schema"],
+                    build_identity=graph["meta"]["build_identity"]),
         source=dict(digest=before, files=len(files)),
         options=dict(commands={k: v[0] for k, v in cmds.items()},
                      env=dict(PRISM_ELEMENT_RECALL_TRACE=str(a.trace), edges_PRISM_EDGES_BYTES="1")),
@@ -504,13 +509,16 @@ def same_revision(a, b):
     return a.startswith(b) or b.startswith(a)
 
 
-def binding_problems(ms, bind):
+def binding_problems(ms, bind, streams):
     """Whether base is a different executable (and reader) of a different revision than the head arms.
 
     `bind` holds `expect_base`, `expect_head` (revisions, at least 7 hex digits) and `allow_same_binary`
     (a smoke run whose three arms share one executable). Without the flag, both revisions must be named,
     must differ, must be the ones the arms' `--version` reported, and the base arm's binary and reader must
-    be different files (by sha256) from the head arms'."""
+    be different files (by sha256) from the head arms'. `streams` is each arm's reader meta as re-read from its
+    captured stream: the reader's own `build_identity` must be the one its manifest recorded, equal its arm's
+    binary identity, and be the expected base (base arm) or expected head (off and on arms), so the two
+    typed graphs cannot both come from head code."""
     if bind["allow_same_binary"]:
         return []
     problems = []
@@ -530,10 +538,31 @@ def binding_problems(ms, bind):
             if not same_revision(identity[arm], want["head"]):
                 problems.append(f"{arm} arm identity {identity[arm]} is not the expected head {want['head']}")
     problems += reader_problems(ms, want)
+    problems += identity_problems(ms, want, streams)
     for what, pick in (("executable", lambda m: m["binary"]["sha256"]),
                        ("reader executable", lambda m: m["reader"]["sha256"])):
         if pick(ms["base"]) == pick(ms["off"]):
             problems.append(f"base arm used the same {what} as the head arms (sha256 {pick(ms['base'])[:12]})")
+    return problems
+
+
+def identity_problems(ms, want, streams):
+    """Each reader's embedded build identity against its arm (see `binding_problems`)."""
+    problems = []
+    for arm, side in (("base", "base"), ("off", "head"), ("on", "head")):
+        built = streams[arm].get("build_identity")
+        binary = ms[arm]["version"]["identity"] + ("-dirty" if ms[arm]["version"].get("dirty") else "")
+        if not isinstance(built, str) or not VERSION_RE.match(f"slicing 0 ({built})") or built == "unknown":
+            problems.append(f"{arm} arm: reader build identity {built!r} not recorded in its stream")
+            continue
+        if ms[arm]["reader"].get("build_identity") != built:
+            problems.append(f"{arm} arm: reader build identity {built} is not the manifest's "
+                            f"{ms[arm]['reader'].get('build_identity')!r}")
+        if built != binary:
+            problems.append(f"{arm} arm reader build identity {built} is not its binary's {binary}")
+        if want[side] and REV_RE.fullmatch(want[side].lower()) and not same_revision(
+                built.removesuffix("-dirty"), want[side]):
+            problems.append(f"{arm} arm reader build identity {built} is not the expected {side} {want[side]}")
     return problems
 
 
@@ -585,7 +614,7 @@ def zero_runs(runs_dir, corpus, scratch, bind):
             problems.append(f"off and on arms used different {what}")
     if ms["base"]["reader"]["schema"] != ms["on"]["reader"]["schema"]:
         problems.append("arms used different reader schemas")
-    problems += binding_problems(ms, bind)
+    problems += binding_problems(ms, bind, {arm: r["graph"]["meta"] for arm, r in runs.items()})
     for arm in ("off", "on"):
         problems += [f"base vs {arm}: {p}" for p in compare_runs(runs["base"], runs[arm])]
     return problems

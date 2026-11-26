@@ -13,13 +13,12 @@ I2 is admitted only when A passes, every owner reconciles, flood evidence exists
 the declared full-loader set (`prepare --full-loader-corpora P1,P2,X,G1,G2,R`, the default; the production
 entry point refuses a set that omits one of them; a corpus with no Python owner is an explicit zero row; a
 declared corpus the independent stream lacks blocks I2 and leaves the A decision as it was) and a prospective
-precision receipt (`report --precision precision.json`, schema `admission_precision/2`, the DESIGN section 7
-result) passes: `{schema, prepared_sha256, frame_sha256, population, population_unit, n, valid, stale,
-unknown, exhaustive, roles: {role: {n, witnessed}}}`, bound to the frozen draw: `population` is the number of
-distinct candidate pairs (or owners, `population_unit`) of this prepared receipt, `1 <= n <= population` and
-`n == population` when `exhaustive`, the roles are present and sum to n (for pairs, within the candidates' own
-role counts), no stale or unknown judgment, Wilson lower bound of valid/n at least .85 (every judgment valid
-when `exhaustive`) and each populated role at least max(1, n - max(1, floor(n/10))) witnessed.
+precision receipt passes. The receipt is derived (`precision.py`): `draw --prepared DIR --out DRAW.json`
+derives the DESIGN section 7 pair draw from `candidates.jsonl`; `precision --prepared DIR --draw DRAW.json
+--judgments J.jsonl --out precision.json` checks the judgment keys are exactly the draw's and writes
+`admission_precision/3`, bound by `prepared_sha256`, `draw_sha256` and `judgments_sha256`; `report --precision`
+re-reads the draw and judgments files the receipt names and recomputes everything, so the receipt alone is
+never trusted.
 """
 
 import argparse
@@ -31,6 +30,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import compare
+import precision
 from audit import digest, key as frame_key
 from loader_inventory import DEFAULT_CORPORA as FULL_LOADER_CORPORA
 
@@ -39,14 +39,12 @@ FROZEN = dict(sha="6c1c0998f4f1afa06b95b2dad84f220e71c784d3d1b8ec82e6606029bb05b
               corpora=dict(P1=517, P2=270), rows=1137,
               census=dict(P1="bbff78baaf6161cc6b7038d1315c18f45fef1b3d9c2efca6b1ac84572e8512bd",
                           P2="1f3c4c01d0c2828b247fab6970e85f852bb2acde316be48cbfa65785717d6599"))
-PRECISION_FLOOR = 0.85
 ROLE = dict(Argument="arg", Keyword="arg", Return="return", AssignmentRhs="assign_rhs")
 STAGES = ("admitted", "joined", "bound", "routed", "unoccupied", "distinct", "after_fanin", "published")
 RECON = ("rd", "raw_pairs", "raw_overflow", "raw_capped", "reads_over_fanin", "omitted_fanin_pairs",
          "over_edge_cap", "omitted_cap_pairs")
 FLOOD_CAPS = (256, 4)
-PRECISION_SCHEMA = "admission_precision/2"
-POPULATION_UNITS = ("pairs", "owners")
+PRECISION_SCHEMA = precision.PRECISION_SCHEMA
 
 
 def jsonl(path):
@@ -61,11 +59,7 @@ def pair_key(corpus, file, owner, w, r, role):
     return f"{corpus}|{file}|{owner}|{w[0]}:{w[1]}|{r[0]}:{r[1]}|{role}"
 
 
-def wilson_lower(k, n, z=1.96):
-    if not n:
-        return 0.0
-    p = k / n
-    return (p + z * z / (2 * n) - z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / (1 + z * z / n)
+wilson_lower = precision.wilson_lower
 
 
 def load_frame(draw_path, census_dir, frozen=FROZEN):
@@ -472,65 +466,24 @@ def witnessed(candidates, witnesses, prepared_sha):
     return verdicts, counts
 
 
-def precision_problems(receipt, meta, candidates):
-    """Why a section 7 precision receipt does not clear I2 (empty: it does)."""
-    if not isinstance(receipt, dict) or receipt.get("schema") != PRECISION_SCHEMA:
-        return [f"precision receipt is not an {PRECISION_SCHEMA} document"]
-    out = []
-    if receipt.get("prepared_sha256") != meta["prepared_sha256"]:
-        out.append("precision receipt is not bound to this prepared digest")
-    if receipt.get("frame_sha256") != meta["frame_sha256"]:
-        out.append("precision receipt is not bound to this frame (frame_sha256)")
-    unit = receipt.get("population_unit")
-    pairs = Counter(c["role"] for c in {c["key"]: c for c in candidates}.values())
-    if unit == "pairs":
-        population = sum(pairs.values())
-    elif unit == "owners":
-        population = len({(c["corpus"], c["file"], c["owner"]) for c in candidates})
-    else:
-        population = None
-        out.append(f"precision receipt population_unit {unit!r} is not one of {POPULATION_UNITS}")
-    if population is not None and receipt.get("population") != population:
-        out.append(f"precision receipt population {receipt.get('population')!r} is not the {population} "
-                   f"distinct candidate {unit} of this prepared receipt")
-    n, valid = receipt.get("n"), receipt.get("valid")
-    if not (isinstance(n, int) and isinstance(valid, int) and 0 < n and 0 <= valid <= n):
-        return out + ["precision receipt lacks a judged sample (n, valid)"]
-    if population is not None and n > population:
-        out.append(f"precision receipt n={n} exceeds the population {population}")
-    for what in ("stale", "unknown"):
-        if receipt.get(what) != 0:
-            out.append(f"precision draw has {receipt.get(what)!r} {what} judgments (any {what} fails)")
-    exhaustive = receipt.get("exhaustive")
-    if exhaustive is True:
-        if population is not None and n != population:
-            out.append(f"exhaustive family: n={n} is not the population {population}")
-        if valid != n:
-            out.append(f"exhaustive family: {valid}/{n} judgments valid, every one must be")
-    elif exhaustive is not False:
-        out.append("precision receipt must say whether the family is exhaustive (true or false)")
-    elif wilson_lower(valid, n) < PRECISION_FLOOR:
-        out.append(f"Wilson lower bound {wilson_lower(valid, n):.4f} of {valid}/{n} is below {PRECISION_FLOOR}")
-    roles = receipt.get("roles")
-    if not isinstance(roles, dict) or not roles:
-        return out + ["precision receipt has no roles (the judged sample must be split by role)"]
-    total = 0
-    for role, row in sorted(roles.items()):
-        k, w = (row or {}).get("n"), (row or {}).get("witnessed")
-        if not (isinstance(k, int) and isinstance(w, int)):
-            out.append(f"role {role}: n and witnessed are required")
-            continue
-        total += k
-        if not 0 <= w <= k:
-            out.append(f"role {role}: witnessed {w} is not within 0..{k}")
-        elif k > 0 and w < max(1, k - max(1, k // 10)):
-            out.append(f"role {role}: {w} of {k} witnessed, needs {max(1, k - max(1, k // 10))}")
-        if unit == "pairs" and k > pairs.get(role, 0):
-            out.append(f"role {role}: {k} judged but the population holds {pairs.get(role, 0)} such pairs "
-                       f"(not among the population's roles when 0)")
-    if total != n:
-        out.append(f"role counts sum to {total}, not n={n}")
-    return out
+def make_draw(a):
+    meta, candidates = precision.load_prepared(a.prepared)
+    draw = precision.derive_draw(candidates, meta)
+    Path(a.out).write_text(precision.dump(draw) + "\n")
+    print(f"draw: {len(draw['keys'])} of {draw['population']} pairs (core {len(draw['core'])}, "
+          f"top-up {len(draw['topup'])}, exhaustive {draw['exhaustive']}); roles {draw['role_population']}")
+    return 0
+
+
+def make_precision(a):
+    meta, candidates = precision.load_prepared(a.prepared)
+    receipt, problems = precision.score(meta, candidates, a.draw, a.judgments)
+    Path(a.out).write_text(json.dumps(receipt, indent=1, sort_keys=True) + "\n")
+    print(f"precision: {'PASS' if not problems else 'FAIL'}; n={receipt['n']} valid={receipt['valid']} "
+          f"stale={receipt['stale']} unknown={receipt['unknown']} wilson_core={receipt['wilson_core']}")
+    for p in problems:
+        print("  " + p)
+    return 1 if problems else 0
 
 
 def report(a):
@@ -599,7 +552,7 @@ def report(a):
         reasons.append(f"no flood evidence for full-loader corpora {', '.join(lacking)}")
     if verdict == "PASS":
         reasons += [] if clean else ["unreconciled predictions"]
-        reasons += [receipt_problem] if receipt_problem else precision_problems(receipt, meta, candidates)
+        reasons += [receipt_problem] if receipt_problem else precision.verify(receipt, meta, candidates, Path(a.precision).resolve().parent)
     blocked = bool(reasons)
     print(f"I2: {'BLOCKED by ' + '; '.join(reasons) if blocked else 'ADMITTED' if verdict == 'PASS' else 'NOT ADMITTED'}")
     return 2 if verdict == "INVALID" else 4 if blocked else {"PASS": 0, "STOP": 1}[verdict]
@@ -620,6 +573,14 @@ def main(argv=None, frozen=FROZEN):
     r.add_argument("--witnesses")
     r.add_argument("--precision")
     r.set_defaults(fn=report)
+    d = sub.add_parser("draw")
+    d.add_argument("--prepared", required=True)
+    d.add_argument("--out", required=True)
+    d.set_defaults(fn=make_draw)
+    q = sub.add_parser("precision")
+    for flag in ("prepared", "draw", "judgments", "out"):
+        q.add_argument("--" + flag, required=True)
+    q.set_defaults(fn=make_precision)
     args = cli.parse_args(argv)
     try:
         return args.fn(args, frozen) if args.cmd == "prepare" else args.fn(args)

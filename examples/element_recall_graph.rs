@@ -246,6 +246,8 @@ struct Meta {
     kind: &'static str,
     schema: &'static str,
     prism_version: &'static str,
+    /// The sha the CLI prints inside `slicing <semver> (<sha>)`, of the library linked here.
+    build_identity: &'static str,
 }
 
 #[derive(Serialize)]
@@ -359,6 +361,7 @@ fn write_repo_records<W: Write>(repo: &LoadedRepo, out: &mut W) -> Result<()> {
             kind: "meta",
             schema: SCHEMA,
             prism_version: env!("CARGO_PKG_VERSION"),
+            build_identity: prism::api::build_info().git_sha,
         },
     )?;
     for (key, sha256) in &repo.file_hashes {

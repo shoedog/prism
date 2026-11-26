@@ -277,6 +277,15 @@ fn typed_reader_reads_a_tiny_repo_twice_identically() {
         "{}",
         all[0]
     );
+    let identity = prism::api::build_info().git_sha;
+    assert!(!identity.is_empty());
+    assert_eq!(
+        all[0],
+        format!(
+            r#"{{"kind":"meta","schema":"element_recall_graph/1","prism_version":"{}","build_identity":"{identity}"}}"#,
+            env!("CARGO_PKG_VERSION")
+        )
+    );
     assert_eq!(kind(&all, "file").len(), 1);
     assert!(kind(&all, "file")[0].starts_with(r#"{"kind":"file","key":"m.py","sha256":""#));
     assert!(

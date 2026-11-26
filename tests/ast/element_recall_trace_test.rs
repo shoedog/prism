@@ -32,10 +32,12 @@ fn identity_line(path: &Path) -> Result<String, String> {
 /// The child binary named by `bin`. An unset variable skips the checks unless `require` (the
 /// verification job sets `PRISM_DIAG_REQUIRE=1`), where a missing or unusable binary is an error
 /// and the binary must also print a `slicing` identity line for `--version` (printed, so the
-/// run records which build it exercised).
+/// run records which build it exercised). `expect_sha` (`PRISM_DIAG_EXPECT_SHA`) applies in required
+/// mode only: the identity in the line's parentheses must contain it.
 fn resolve_binary(
     bin: Option<std::ffi::OsString>,
     require: bool,
+    expect_sha: Option<&str>,
 ) -> Result<Option<PathBuf>, String> {
     let Some(path) = bin else {
         return match require {
@@ -47,17 +49,31 @@ fn resolve_binary(
         return Err(format!("PRISM_DIAG_BIN {path:?} is not a file"));
     }
     if require {
-        eprintln!(
-            "PRISM_DIAG_BIN identity: {}",
-            identity_line(Path::new(&path))?
-        );
+        let line = identity_line(Path::new(&path))?;
+        eprintln!("PRISM_DIAG_BIN identity: {line}");
+        if let Some(sha) = expect_sha {
+            let identity = line
+                .rsplit_once('(')
+                .and_then(|(_, rest)| rest.strip_suffix(')'))
+                .unwrap_or("");
+            if sha.is_empty() || !identity.contains(sha) {
+                return Err(format!(
+                    "PRISM_DIAG_EXPECT_SHA {sha:?} is not in the binary's identity {line:?}"
+                ));
+            }
+        }
     }
     Ok(Some(path.into()))
 }
 
 fn binary() -> Option<PathBuf> {
     let require = std::env::var("PRISM_DIAG_REQUIRE").is_ok_and(|v| v == "1");
-    match resolve_binary(std::env::var_os("PRISM_DIAG_BIN"), require) {
+    let expect = std::env::var("PRISM_DIAG_EXPECT_SHA").ok();
+    match resolve_binary(
+        std::env::var_os("PRISM_DIAG_BIN"),
+        require,
+        expect.as_deref(),
+    ) {
         Ok(None) => {
             eprintln!("PRISM_DIAG_BIN is unset: the child-process trace checks are not run");
             None
@@ -71,15 +87,15 @@ fn binary() -> Option<PathBuf> {
 fn child_trace_checks_fail_when_required_and_the_binary_is_missing() {
     use std::ffi::OsString;
     // required: an unset variable and a missing file both fail instead of skipping
-    assert!(resolve_binary(None, true).is_err());
+    assert!(resolve_binary(None, true, None).is_err());
     let gone = Some(OsString::from("/nonexistent/prism-diag-bin"));
-    assert!(resolve_binary(gone.clone(), true).is_err());
+    assert!(resolve_binary(gone.clone(), true, None).is_err());
     // not required: unset skips (the notice is printed by `binary`), a bad path still fails
-    assert_eq!(resolve_binary(None, false), Ok(None));
-    assert!(resolve_binary(gone, false).is_err());
+    assert_eq!(resolve_binary(None, false, None), Ok(None));
+    assert!(resolve_binary(gone, false, None).is_err());
     // not required: an existing file resolves without being run
     let here = std::env::current_exe().unwrap();
-    let got = resolve_binary(Some(here.clone().into_os_string()), false);
+    let got = resolve_binary(Some(here.clone().into_os_string()), false, None);
     assert_eq!(got, Ok(Some(here)));
 }
 
@@ -98,7 +114,7 @@ fn required_mode_demands_a_slicing_identity_line_from_the_binary() {
     let other = script("other", "echo 'rustc 1.80.0'");
     let silent = script("silent", "exit 0");
     let failing = script("failing", "echo 'slicing 4.0.0 (x)'; exit 3");
-    let run = |p: &Path, require| resolve_binary(Some(p.as_os_str().to_owned()), require);
+    let run = |p: &Path, require| resolve_binary(Some(p.as_os_str().to_owned()), require, None);
     assert_eq!(
         identity_line(&good),
         Ok("slicing 4.0.0 (0123456789ab)".to_string())
@@ -109,6 +125,28 @@ fn required_mode_demands_a_slicing_identity_line_from_the_binary() {
         // without `require` the same files still resolve: the identity check is the gate
         assert_eq!(run(bad, false), Ok(Some(bad.clone())), "{bad:?}");
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn required_mode_checks_the_expected_sha_against_the_identity() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("prism");
+    std::fs::write(&path, "#!/bin/sh\necho 'slicing 4.0.0 (0123456789ab)'\n").unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let run = |require, sha| resolve_binary(Some(path.as_os_str().to_owned()), require, sha);
+    // match: a prefix of the identity, and the whole identity
+    assert_eq!(run(true, Some("01234567")), Ok(Some(path.clone())));
+    assert_eq!(run(true, Some("0123456789ab")), Ok(Some(path.clone())));
+    // mismatch (stale revision), empty expectation, and the version number alone
+    assert!(run(true, Some("fedcba987654")).is_err());
+    assert!(run(true, Some("")).is_err());
+    assert!(run(true, Some("4.0.0")).is_err());
+    // unset: the identity line alone is the gate
+    assert_eq!(run(true, None), Ok(Some(path.clone())));
+    // not required: the variable is ignored
+    assert_eq!(run(false, Some("fedcba987654")), Ok(Some(path.clone())));
 }
 
 /// Expected projections of one program: `«x»` marks the span inside its context text.

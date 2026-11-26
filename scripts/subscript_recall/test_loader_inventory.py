@@ -225,6 +225,29 @@ class LoaderInventoryTests(unittest.TestCase):
         pair, = predictions(rows_of(self.fresh_run("T16", {"a.py": lit}, [w, r], [])))
         self.assertEqual(pair["parent_route"], False)
 
+    def test_every_right_hand_side_use_is_bound_by_span_and_path(self):
+        """`d["k"] = t.new + t.old`: a partly bound right-hand side is unknown, whatever the shared root."""
+        src = b'def f(d, t):\n    d["k"] = t.new + t.old\n    return d\n'
+        w = var("a.py", "f", 1, src, "def", b'd["k"]', ("d", "[]"))
+        r = var("a.py", "f", 1, src, "use", b"return d", ("d",), b"d")
+        feed = var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t")
+        new = var("a.py", "f", 1, src, "use", b"t.new +", ("t", "new"), b"t.new")
+        old = var("a.py", "f", 1, src, "use", b"+ t.old", ("t", "old"), b"t.old")
+
+        def parent_route(corpus, nodes, edges):
+            pair, = predictions(rows_of(self.fresh_run(corpus, {"a.py": src}, nodes, edges)))
+            self.assertEqual(pair["outcome"], "predicted")
+            return pair["parent_route"]
+
+        route = [(feed, old), (feed, r)]
+        self.assertIsNone(parent_route("U1", [w, r, feed, new], [(feed, new), (feed, r)]))
+        self.assertIs(parent_route("U2", [w, r, feed, new, old], [(feed, new)] + route), True)
+        # control: every Use bound, no route out of the right-hand side
+        self.assertIs(parent_route("U3", [w, r, feed, new, old], [(feed, new), (feed, old)]), False)
+        # a Use at the span with another path binds nothing
+        wrong = dict(old, path=dict(base="t", fields=[]))
+        self.assertIsNone(parent_route("U4", [w, r, feed, new, wrong], [(feed, new)] + route))
+
     def test_source_hash_must_match_the_loader_manifest(self):
         run = self.run_of(nodes=list(standard_nodes()))
         (Path(self.dir.name) / "repo-P1" / "a.py").write_bytes(SRC + b"# edited\n")

@@ -1,0 +1,180 @@
+"""The DESIGN section 7 pair draw and the precision receipt of the I2 admission check (lane 10, Python).
+
+`draw` derives the pair draw from `candidates.jsonl` alone; `evaluate` scores a judgments file against that
+draw; `verify` recomputes both from the files a receipt names, so a receipt is never trusted for its own
+numbers. Nothing here is hand-written: the draw is a pure function of the candidates and the prepared digest.
+
+Draw: the distinct pair keys (`pair_key`, role last) ordered by sha256 of the key (then the key). The pooled
+core is the first `TARGET` keys of that order (all of them when the population is smaller: exhaustive); then
+each populated role is topped up, in lexical role order and the same key order, to min(`ROLE_FLOOR`, its
+population) members. The draw is core plus top-ups and may exceed `TARGET`. CHOICE: one family (Python), so
+the strata are the roles, pooled over corpora; the draw replaces the design's CPython `random.Random(10)`
+sampling with a hash order that any reader reproduces from the keys.
+
+Judgments: one JSON row per drawn key, `{key, verdict, witnessed, prepared_sha256}`, `verdict` one of
+`valid`, `invalid`, `stale`, `unknown`; a row whose `prepared_sha256` is not the draw's is stale. The key set
+must be exactly the draw's. A pair is witnessed when `witnessed` is true and its verdict is `valid`.
+"""
+
+import json
+import math
+from collections import Counter
+from hashlib import sha256
+from pathlib import Path
+
+DRAW_SCHEMA = "admission_draw/1"
+PRECISION_SCHEMA = "admission_precision/3"
+TARGET, ROLE_FLOOR, FLOOR = 100, 20, 0.85
+VERDICTS = ("valid", "invalid", "stale", "unknown")
+
+
+def digest(data):
+    return sha256(data).hexdigest()
+
+
+def dump(row):
+    return json.dumps(row, sort_keys=True, separators=(",", ":"))
+
+
+def wilson_lower(k, n, z=1.96):
+    if not n:
+        return 0.0
+    p = k / n
+    return (p + z * z / (2 * n) - z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / (1 + z * z / n)
+
+
+def derive_draw(candidates, meta):
+    """The section 7 draw of this prepared receipt's candidates (a pure function of both)."""
+    role_of = {}
+    for c in candidates:
+        role_of.setdefault(c["key"], c["role"])
+    ranked = sorted(role_of, key=lambda k: (digest(k.encode()), k))
+    roles = Counter(role_of.values())
+    core = ranked[:TARGET]
+    chosen, topup = set(core), []
+    for role in sorted(roles):
+        have = sum(role_of[k] == role for k in chosen)
+        for key in ranked:
+            if have >= min(ROLE_FLOOR, roles[role]):
+                break
+            if key not in chosen and role_of[key] == role:
+                chosen.add(key)
+                topup.append(key)
+                have += 1
+    return dict(schema=DRAW_SCHEMA, prepared_sha256=meta["prepared_sha256"],
+                candidates_sha256=meta["candidates_sha256"], target=TARGET, role_floor=ROLE_FLOOR,
+                ordering="sha256(key), then key", population=len(role_of),
+                role_population=dict(sorted(roles.items())), exhaustive=len(chosen) == len(role_of),
+                core=core, topup=topup, keys={k: role_of[k] for k in sorted(chosen)})
+
+
+def evaluate(draw, rows):
+    """`(scored body, problems)` of the judgments against the draw; a key set other than the draw's raises."""
+    keys = draw["keys"]
+    seen = Counter(str(r.get("key")) for r in rows)
+    extra = sorted(k for k in seen if k not in keys)
+    missing = sorted(k for k in keys if k not in seen)
+    duplicated = sorted(k for k, n in seen.items() if n > 1)
+    if extra or missing or duplicated:
+        raise ValueError(f"judgment keys are not the draw's keys: {len(extra)} extra, {len(missing)} missing, "
+                         f"{len(duplicated)} duplicated of {len(keys)} drawn" + "".join(
+                             f"; {name} e.g. {group[0]}" for name, group in
+                             (("extra", extra), ("missing", missing), ("duplicated", duplicated)) if group))
+    verdict = {}
+    for row in rows:
+        v = "stale" if row.get("prepared_sha256") != draw["prepared_sha256"] else row.get("verdict")
+        if v not in VERDICTS:
+            raise ValueError(f"judgment {row['key']}: verdict {v!r} is not one of {VERDICTS}")
+        verdict[row["key"]] = (v, bool(row.get("witnessed")) and v == "valid")
+    core = set(draw["core"])
+    roles = {r: dict(n=0, witnessed=0) for r in sorted(set(keys.values()))}
+    for key, role in keys.items():
+        roles[role]["n"] += 1
+        roles[role]["witnessed"] += verdict[key][1]
+    count = Counter(v for v, _ in verdict.values())
+    body = dict(schema=PRECISION_SCHEMA, prepared_sha256=draw["prepared_sha256"], population=draw["population"],
+                n=len(keys), valid=count["valid"], invalid=count["invalid"], stale=count["stale"],
+                unknown=count["unknown"], exhaustive=draw["exhaustive"],
+                core=dict(n=len(core), valid=sum(verdict[k][0] == "valid" for k in core)), roles=roles)
+    body["wilson_core"] = round(wilson_lower(body["core"]["valid"], body["core"]["n"]), 6)
+    return body, thresholds(body)
+
+
+def thresholds(body):
+    """Why a scored draw does not clear section 7 (empty: it does)."""
+    n, out = body["n"], []
+    if not n:
+        return ["precision draw is empty (no candidate pairs to judge)"]
+    for what in ("stale", "unknown"):
+        if body[what]:
+            out.append(f"precision draw has {body[what]} {what} judgments (any {what} fails)")
+    if body["exhaustive"]:
+        if body["valid"] != n:
+            out.append(f"exhaustive family: {body['valid']}/{n} judgments valid, every one must be")
+    elif wilson_lower(body["core"]["valid"], body["core"]["n"]) < FLOOR:
+        out.append(f"Wilson lower bound {body['wilson_core']:.4f} of the core's {body['core']['valid']}/"
+                   f"{body['core']['n']} is below {FLOOR}")
+    for role, row in sorted(body["roles"].items()):
+        need = max(1, row["n"] - max(1, row["n"] // 10))
+        if row["witnessed"] < need:
+            out.append(f"role {role}: {row['witnessed']} of {row['n']} witnessed, needs {need}")
+    return out
+
+
+def load_prepared(prepared):
+    prep = Path(prepared)
+    meta = json.loads((prep / "prepared.json").read_text())
+    data = (prep / "candidates.jsonl").read_bytes()
+    if digest(data) != meta["candidates_sha256"]:
+        raise ValueError("candidates.jsonl does not match prepared.json")
+    return meta, [json.loads(x) for x in data.decode().splitlines() if x.strip()]
+
+
+def rows_of(data):
+    return [json.loads(x) for x in data.decode("utf-8").splitlines() if x.strip()]
+
+
+def score(meta, candidates, draw_path, judgments_path):
+    """The receipt of two files, after the draw is checked against the derived one (raises ValueError)."""
+    draw_bytes, judgment_bytes = Path(draw_path).read_bytes(), Path(judgments_path).read_bytes()
+    draw = json.loads(draw_bytes)
+    if draw != derive_draw(candidates, meta):
+        raise ValueError("the draw is not the one derived from this prepared receipt's candidates")
+    body, problems = evaluate(draw, rows_of(judgment_bytes))
+    receipt = dict(body, frame_sha256=meta["frame_sha256"], draw_path=str(Path(draw_path).resolve()),
+                   draw_sha256=digest(draw_bytes), judgments_path=str(Path(judgments_path).resolve()),
+                   judgments_sha256=digest(judgment_bytes))
+    return receipt, problems
+
+
+def find(path, base):
+    """A recorded path, else the file of that name beside the receipt (the evidence directory moved)."""
+    p = Path(path)
+    return p if p.is_file() else Path(base) / p.name
+
+
+def verify(receipt, meta, candidates, base):
+    """Why a receipt does not clear I2: every binding is recomputed from the files it names (empty: clear)."""
+    if not isinstance(receipt, dict) or receipt.get("schema") != PRECISION_SCHEMA:
+        return [f"precision receipt is not an {PRECISION_SCHEMA} document"]
+    out = []
+    if receipt.get("prepared_sha256") != meta["prepared_sha256"]:
+        out.append("precision receipt is not bound to this prepared digest")
+    if receipt.get("frame_sha256") != meta["frame_sha256"]:
+        out.append("precision receipt is not bound to this frame (frame_sha256)")
+    try:
+        draw_file = find(receipt.get("draw_path", ""), base)
+        judgment_file = find(receipt.get("judgments_path", ""), base)
+        if digest(draw_file.read_bytes()) != receipt.get("draw_sha256"):
+            out.append("precision receipt draw_sha256 is not the hash of its draw file")
+        if digest(judgment_file.read_bytes()) != receipt.get("judgments_sha256"):
+            out.append("precision receipt judgments_sha256 is not the hash of its judgments file")
+        if out:
+            return out
+        scored, problems = score(meta, candidates, draw_file, judgment_file)
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        return out + [f"precision receipt cannot be recomputed: {e}"]
+    differs = sorted(k for k in scored if k not in ("draw_path", "judgments_path") and scored[k] != receipt.get(k))
+    if differs:
+        out.append(f"precision receipt disagrees with its recomputation in {', '.join(differs)}")
+    return out + problems
