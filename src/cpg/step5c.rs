@@ -38,15 +38,19 @@ impl CodePropertyGraph {
         // Step 5c adds only ReturnValue nodes: Variable Use identities stay fixed.
         let uses = uses::UseIndex::without(graph, hidden);
         let callers = facts::collect(go_satisfiers, files, &uses);
+        #[cfg(test)]
+        crate::cpg::s1_trace::capture::run_after_collect();
         let shared_returns = callee_returns::ReturnCache::new(files);
         let mut stats = ReturnFlowStats::default();
-        let trace = crate::cpg::s1_trace::enabled();
         let mut return_value_index: BTreeMap<
             (String, String, usize, usize, usize, usize),
             NodeIndex,
         > = BTreeMap::new();
 
         for (caller_id, facts, trace_sites) in callers {
+            // The collection-time snapshot, never a fresh `enabled()` read.
+            let trace = trace_sites.is_some();
+            let trace_sites = trace_sites.unwrap_or_default();
             for (index, facts) in facts.into_iter().enumerate() {
                 let facts::SiteFacts {
                     lvalues,

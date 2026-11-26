@@ -13,12 +13,25 @@ type Graph = DiGraph<CpgNode, CpgEdge>;
 const PREFIX: &str = "PRISM_S1 ";
 
 pub(crate) fn enabled() -> bool {
-    #[cfg(test)]
-    if capture::forced() {
-        return true;
-    }
     static ENABLED: OnceLock<bool> = OnceLock::new();
-    *ENABLED.get_or_init(|| std::env::var("PRISM_S1_TRACE").as_deref() == Ok("1"))
+    enabled_from(*ENABLED.get_or_init(|| std::env::var("PRISM_S1_TRACE").as_deref() == Ok("1")))
+}
+
+/// `env_on` is the environment's verdict. In test builds a held capture overrides it
+/// either way: `capture::start()` forces tracing on, `capture::quiet()` forces it off.
+fn enabled_from(env_on: bool) -> bool {
+    #[cfg(test)]
+    match capture::mode() {
+        capture::Mode::On => return true,
+        capture::Mode::Off => return false,
+        capture::Mode::Default => {}
+    }
+    env_on
+}
+
+#[cfg(test)]
+pub(crate) fn enabled_from_for_test(env_on: bool) -> bool {
+    enabled_from(env_on)
 }
 
 fn emit(record: Value) {
@@ -214,7 +227,7 @@ fn suppression_against(
     }
 }
 
-/// Test seams: a process-wide forced `enabled()` and a capture sink. Process-wide
+/// Test seams: a process-wide tracing override and a capture sink. Process-wide
 /// (not thread-local) because the DFG and Step 5c fact collection run on build-pool
 /// workers. One holder at a time; concurrent tests may also deposit records while it
 /// is held, so assertions filter by their own fixture's file names.
@@ -223,20 +236,52 @@ pub(crate) mod capture {
     use serde_json::Value;
     use std::sync::{Mutex, MutexGuard};
 
-    static HOLDER: Mutex<()> = Mutex::new(());
-    static SINK: Mutex<Option<Vec<Value>>> = Mutex::new(None);
+    pub(super) enum Mode {
+        /// No holder: the environment decides.
+        Default,
+        /// `quiet()`: tracing is off whatever the environment says.
+        Off,
+        /// `start()`: tracing is on and records go to the sink.
+        On,
+    }
 
-    pub(super) fn forced() -> bool {
-        SINK.lock().is_ok_and(|sink| sink.is_some())
+    enum State {
+        Default,
+        Off,
+        On(Vec<Value>),
+    }
+
+    static HOLDER: Mutex<()> = Mutex::new(());
+    static SINK: Mutex<State> = Mutex::new(State::Default);
+
+    // Process-wide, like the sink: the build may run Step 5c on a pool thread. Only the
+    // holder sets it, and its drop clears it.
+    type Hook = Box<dyn FnOnce() + Send>;
+    static AFTER_COLLECT: Mutex<Option<Hook>> = Mutex::new(None);
+
+    fn hook() -> MutexGuard<'static, Option<Hook>> {
+        AFTER_COLLECT.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn state() -> MutexGuard<'static, State> {
+        SINK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    pub(super) fn mode() -> Mode {
+        match *state() {
+            State::Default => Mode::Default,
+            State::Off => Mode::Off,
+            State::On(_) => Mode::On,
+        }
     }
 
     pub(super) fn offer(record: &Value) -> bool {
-        match SINK.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
-            Some(sink) => {
+        match &mut *state() {
+            State::On(sink) => {
                 sink.push(record.clone());
                 true
             }
-            None => false,
+            _ => false,
         }
     }
 
@@ -244,30 +289,49 @@ pub(crate) mod capture {
 
     pub(crate) fn start() -> Capture {
         let guard = HOLDER.lock().unwrap_or_else(|e| e.into_inner());
-        *SINK.lock().unwrap_or_else(|e| e.into_inner()) = Some(Vec::new());
+        *state() = State::On(Vec::new());
         Capture(guard)
     }
 
-    /// Hold the capture lock with tracing off, so a control build is never traced.
+    /// Hold the capture lock with tracing forced off (even under `PRISM_S1_TRACE=1`),
+    /// so a control build is never traced.
     pub(crate) fn quiet() -> Capture {
         let guard = HOLDER.lock().unwrap_or_else(|e| e.into_inner());
-        *SINK.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        *state() = State::Off;
         Capture(guard)
     }
 
     impl Capture {
         pub(crate) fn events(&self) -> Vec<Value> {
-            SINK.lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .as_ref()
-                .cloned()
-                .unwrap_or_default()
+            match &*state() {
+                State::On(sink) => sink.clone(),
+                _ => Vec::new(),
+            }
+        }
+
+        /// Run `run` once, right after the next Step 5c fact collection.
+        pub(crate) fn after_collect(&self, run: impl FnOnce() + Send + 'static) {
+            *hook() = Some(Box::new(run));
+        }
+    }
+
+    /// Turn tracing on in place, without the holder lock: what another test's `start()`
+    /// does to a build already under way. The holder's drop restores the default.
+    pub(crate) fn switch_on() {
+        *state() = State::On(Vec::new());
+    }
+
+    pub(in crate::cpg) fn run_after_collect() {
+        let run = hook().take();
+        if let Some(run) = run {
+            run();
         }
     }
 
     impl Drop for Capture {
         fn drop(&mut self) {
-            *SINK.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            hook().take();
+            *state() = State::Default;
         }
     }
 }

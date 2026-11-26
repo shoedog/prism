@@ -285,11 +285,22 @@ fn an_unchanged_or_missing_baseline_row_gives_the_right_transitions() {
     assert_eq!(found[0]["counter"], "return_flow_suppression_certified");
     assert_eq!(found[0]["delta"], 1);
 
-    // No baseline at all: only the state event.
-    let before = cap.events().len();
+    // No baseline at all: only the state event. Select by this fixture's own call key,
+    // since a concurrent build may deposit unrelated records.
+    let ours = |events: &[Value]| -> Vec<Value> {
+        events
+            .iter()
+            .filter(|e| {
+                e["call"]["callee"] == serde_json::json!(callee)
+                    && e["call"]["bytes"] == serde_json::json!([site.start_byte, site.end_byte])
+            })
+            .cloned()
+            .collect()
+    };
+    let before = ours(&cap.events()).len();
     suppression_for_test(None, &site, &callee, (true, true, true));
-    let after = cap.events();
-    assert_eq!(after.len(), before + 1);
+    let after = ours(&cap.events());
+    assert_eq!(after.len(), before + 1, "{after:?}");
     assert_eq!(after.last().unwrap()["event"], "suppression_state");
 }
 
@@ -403,4 +414,39 @@ fn tracing_every_matrix_fixture_leaves_the_graph_unchanged() {
     assert!(count("return_input") > 0);
     assert!(count("suppression_state") > 0);
     assert!(count("ordinary_argument") > 0);
+}
+
+/// A capture another test starts between fact collection and replay must not misalign
+/// the replay: it used to index an empty site list (`trace` true, nothing collected).
+#[test]
+fn tracing_switched_on_between_collection_and_replay_does_not_panic() {
+    let cap = capture::quiet();
+    cap.after_collect(capture::switch_on);
+    let graph = build(Language::TypeScript, &[("s1t_flip", RETURN_USED)], "ts");
+    assert!(graph.return_flow_stats.return_flow_edges > 0);
+    // Collection saw tracing off, so replay emits nothing for this build.
+    let ours: Vec<_> = cap
+        .events()
+        .into_iter()
+        .filter(|e| mentions(e, "s1t_flip.ts"))
+        .filter(|e| e["event"] == "suppression_state")
+        .collect();
+    assert!(ours.is_empty(), "{ours:?}");
+}
+
+/// `quiet()` is the parity control: it must stay off even when the environment asks
+/// for tracing, and `start()` must stay on even when it does not.
+#[test]
+fn the_control_is_off_whatever_the_environment_says() {
+    use super::s1_trace::enabled_from_for_test as enabled_from;
+    {
+        let _quiet = capture::quiet();
+        assert!(!enabled_from(true));
+        assert!(!enabled_from(false));
+    }
+    assert!(enabled_from(true), "no holder: the environment decides");
+    assert!(!enabled_from(false));
+    let _cap = capture::start();
+    assert!(enabled_from(false));
+    assert!(enabled_from(true));
 }
