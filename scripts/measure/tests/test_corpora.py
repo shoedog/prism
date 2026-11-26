@@ -63,7 +63,7 @@ class CorporaTests(Workbench):
         self.assertEqual(registry["T"]["root"], "src")
         self.assertEqual(registry["EX"]["commit"], "18e5985b8a9d5e8423db0a9121f22bdaecd5b120")
         self.assertSetEqual(set(registry), set(
-            "X EX T P1 P2 G1 G2 R RS G GIN D M GO PY C leveldb click httpx clap "
+            "X EX T P1 P2 G1 G2 R RS R4B G GIN D M GO PY C leveldb click httpx clap "
             "apache-answer calcom-cal.com directus-directus miniflux-v2".split()))
 
     def test_sb_registrations_bind_individual_package_roots(self):

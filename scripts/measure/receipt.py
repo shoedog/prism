@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
 import re
 import stat
 
@@ -179,7 +180,7 @@ def _check_output(command, actual, sha_key, size_key):
         raise ValueError("command output digest or size mismatch")
 
 
-def admit(directory, *, selected=(), entries=None):
+def admit(directory, *, selected=(), entries=None, with_digest=False):
     """Read one successful receipt and verify every artifact, plus selected data.
 
     Consumer-specific stream schemas and cross-arm decisions are applied by the
@@ -187,7 +188,8 @@ def admit(directory, *, selected=(), entries=None):
     manifest-bound receipt is checked against the effective corpus registry.
     """
     try:
-        return _admit(directory, selected, entries)
+        record, data = _admit(directory, selected, entries)
+        return (record, hashlib.sha256(data).hexdigest()) if with_digest else record
     except (OSError, KeyError, TypeError, AttributeError) as error:
         raise ValueError(f"invalid measurement receipt: {error}") from error
 
@@ -196,7 +198,8 @@ def _admit(directory, selected, entries):
     path = directory / "receipt.json"
     if not stat.S_ISREG(path.lstat().st_mode):
         raise ValueError("receipt must be a regular file")
-    receipt = json_object(path.read_bytes())
+    data = path.read_bytes()
+    receipt = json_object(data)
     if receipt.get("schema") != SCHEMA or receipt.get("status") != "ok":
         raise ValueError("expected a successful supported measurement receipt")
 
@@ -267,4 +270,4 @@ def _admit(directory, selected, entries):
             else:
                 for _ in jsonl_objects(path):
                     pass
-    return receipt
+    return receipt, data

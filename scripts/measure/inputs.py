@@ -60,7 +60,8 @@ def json_object(data):
     return obj
 
 
-def jsonl_objects(path):
+def transport_lines(path):
+    """Yield byte-LF records, verifying concatenated gzip members through EOF."""
     try:
         with path.open("rb") as raw:
             transport = nullcontext(raw)
@@ -70,11 +71,15 @@ def jsonl_objects(path):
                 raw.seek(0)
                 transport = gzip.GzipFile(fileobj=raw, mode="rb")
             with transport as stream:
-                for line in stream:
-                    if line.strip(b" \t\r\n"):
-                        yield json_object(line)
+                yield from stream
     except (OSError, EOFError, zlib.error) as error:
         raise ValueError(f"cannot decode {path.name}: {error}") from error
+
+
+def jsonl_objects(path):
+    for line in transport_lines(path):
+        if line.strip(b" \t\r\n"):
+            yield json_object(line)
 
 
 def sha256_file(path):

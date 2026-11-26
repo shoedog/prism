@@ -237,7 +237,7 @@ first on `PATH`): above the limit → 137 and one log line; below → the comman
 
 ### S2: `diff-edges`, `diff-stats`, classifiers, G-repro (5 days; G-repro, G-hermetic)
 
-Lane 10 uses `PRISM_SUBSCRIPT_TRACE=all` for the complete def/use inventory from S0 onward. The S0-versus-baseline differential reports edge/counter parity and the unavailable baseline inventory. S1 versus S0 and S2 versus S1 compare both inventories, including isolated nodes. Require the terminal and its independently counted eligible def/use totals on both arms. Lane 10 owns the open S0 amendment in FORMATS. Decode the base and ordered fields in both path columns before testing spelling-leak. Cross-key and orphan-anchor require byte mode and unique endpoint lookup. The value `1` supplies only subscript sites. Implement the exact parser, context and `validate(bound)` interface in FORMATS section 3.
+Lane 10’s recall scope uses its own comparator and trace. The earlier S0 producer and rollout amendment is optional reference material. S2 owns the standalone parser, context, trace joins, complete-inventory admission helper and byte-span index with hermetic tests. A lane that elects the optional inventory profile owns its producer, measured rollout and policy for cross-key, orphan-anchor and spelling-leak. Its validator consumes both decoded path columns, checks every residual occurrence it claims to cover, and requires complete inventories and unique byte-bound candidates for endpoint claims.
 
 **Files:** create `scripts/measure/{edges,diff_edges,diff_stats,classifier,trace}.py`,
 `examples/classify_783_4b.py`, `fixtures/repro-4b/` (`repo/` holds only the measured sources, with M-3's truth and control generator alongside it),
@@ -428,13 +428,7 @@ The cloud launchers are a follow-up issue (DESIGN section 7, decision 3; close-o
 
 ## Close-out (1 day, plus the wait for G-adopt)
 
-- [ ] **G-adopt** (DESIGN section 6): at S2's merge the orchestrator hands lane 10 the commands,
-      the classifier contract and the [exact S0 terminal and rollout amendment](FORMATS.md#amendment-text-for-lane-10s-plan) (its own comparator, recipe, counter diff and
-      trace-join task replaced by a classifier file, gate files and predictions). At S3's merge hand lane 9 its oracle contract and self-check layout. Allowed files: one
-      classifier, at most one oracle question module, gate files, predictions, and census scripts asking a
-      question the kit does not answer. A lane migrating after its stage M first replays its baseline with the
-      kit and shows parity with its existing comparator. Any other comparator, recipe, counter or trace-join
-      script fails G-adopt. Record the actual consuming lane and its decision with the registered scope, decided denominator and limitations. If neither named adopter has taken a decision on kit output by close, report G-adopt unmet and name the blocker. DESIGN section 6's provisional-formats condition concerned having no named consumer before stage D. M-4 secured two.
+- [ ] **G-adopt** (DESIGN section 6). Lane 9 remains the named adopter. Hand it the oracle contract and self-check layout when S3 merges. Lane 10’s recall decision uses its own comparator and trace and gives no G-adopt credit. A later decision by lane 10 can qualify if it uses the kit for its registered population. For an adopter migrating after stage M, first replay the baseline and show parity. Allowed files are one classifier, at most one oracle question, gate files, predictions and census scripts for questions outside the kit. Record the consuming lane, registered scope, decided denominator and limitations. If no eligible lane takes a measured decision on kit output by close, report G-adopt unmet and name the blocker.
 - [ ] Issues (filed, not started), each with the decision it would support: rule-aware finding scoring after
       lane 7 (benchmark rule columns); the cloud launchers (a lane that needs a kit gate in a cloud session);
       `review-diff` as a cross-check for PR #841 (only if #841's merge needs an independent count; same format
