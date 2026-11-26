@@ -38,3 +38,27 @@ fn assignment_target_keys_have_uses_on_the_write_line() {
         }
     }
 }
+
+#[test]
+fn selection_step_keys_have_exact_or_declarator_anchor_uses() {
+    let source = "function put(o, keys, users, id) {\n  for (const s of keys) {\n    o = o[s];\n  }\n  const u = users[id];\n  return u;\n}\n";
+    let file = "key_read.js";
+    let cpg = build_cpg(file, source, Language::JavaScript);
+    let step = source.find("o[s]").unwrap() + 2;
+    let anchor = source.find("  const u").unwrap();
+    for (key, line, start, end) in [("s", 3, step, step + 1), ("id", 5, anchor, anchor)] {
+        let nodes = cpg.nodes_at(file, line);
+        assert!(
+            nodes.iter().any(|&node| matches!(
+                cpg.node(node),
+                CpgNode::Variable {
+                    path, access: VarAccess::Use, function, function_start_line: 1,
+                    line: actual_line, start_byte, end_byte, ..
+                } if path.base == key && function == "put" && *actual_line == line
+                    && (*start_byte, *end_byte) == (start, end)
+            )),
+            "missing {key} Use in put at line {line}, bytes {start}..{end}: {:?}",
+            nodes.iter().map(|&node| cpg.node(node)).collect::<Vec<_>>(),
+        );
+    }
+}

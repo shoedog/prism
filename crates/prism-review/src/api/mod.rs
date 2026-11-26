@@ -73,7 +73,13 @@ pub use run::{
 };
 
 pub use crate::output::sarif::{to_sarif, SarifInputs};
-pub use crate::targets::{project, project_in_context, TargetsDocument, TargetsMeta};
+pub use crate::targets::inventory::{
+    collect, function_bounds, load_python_files, Family, FunctionBounds, Grade, InventoryOptions,
+    InventoryOutput, InventorySite, UnprovenCause, UnsupportedReason, UnsupportedSite,
+};
+pub use crate::targets::{
+    inventory_document, merge_inventory, project, project_in_context, TargetsDocument, TargetsMeta,
+};
 
 /// Run a complete diff-driven review through the stable facade: load inputs, build the CPG,
 /// run the requested algorithms, and return both the inputs and the annotated findings.

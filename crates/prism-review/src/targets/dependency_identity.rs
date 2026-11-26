@@ -60,7 +60,7 @@ fn is_local_module_path(language: Language, module: &str) -> bool {
     }
 }
 
-fn module_root(module: &str) -> &str {
+pub(super) fn module_root(module: &str) -> &str {
     module.split('.').next().unwrap_or(module)
 }
 
@@ -120,12 +120,19 @@ pub(super) fn python_external_path(
     {
         return None;
     }
+    Some(python_dotted_path(module, rest.iter().copied()))
+}
+
+pub(super) fn python_dotted_path<'a>(
+    module: &str,
+    rest: impl IntoIterator<Item = &'a str>,
+) -> String {
     let mut path = module.to_string();
     for segment in rest {
         path.push('.');
         path.push_str(segment);
     }
-    Some(path)
+    path
 }
 
 fn binding_scope<'a>(parsed: &'a ParsedFile, binding: Node<'a>, at: Node<'_>) -> Option<Node<'a>> {
@@ -156,13 +163,15 @@ fn scope_depth(mut node: Node<'_>) -> usize {
 }
 
 /// Source decomposition for one binding in a Python import statement.
-pub(super) struct PythonImport<'a> {
+pub(super) struct PythonImport<'a, 'tree> {
+    pub(super) item: Node<'tree>,
+    pub(super) from: Option<Node<'tree>>,
     pub(super) name: &'a str,
     pub(super) module: Cow<'a, str>,
     pub(super) required_rest: Option<&'a str>,
 }
 
-impl PythonImport<'_> {
+impl PythonImport<'_, '_> {
     fn consumed_rest(&self, rest: &[&str]) -> Option<usize> {
         let mut consumed = 0;
         if let Some(required) = self.required_rest {
@@ -178,7 +187,10 @@ impl PythonImport<'_> {
 }
 
 /// Decompose a statement so callers can apply their own binding admission.
-pub(super) fn python_imports<'a>(parsed: &'a ParsedFile, node: Node<'_>) -> Vec<PythonImport<'a>> {
+pub(super) fn python_imports<'a, 'tree>(
+    parsed: &'a ParsedFile,
+    node: Node<'tree>,
+) -> Vec<PythonImport<'a, 'tree>> {
     let from = match node.kind() {
         "import_statement" => None,
         "import_from_statement" => match node.child_by_field_name("module_name") {
@@ -215,6 +227,8 @@ pub(super) fn python_imports<'a>(parsed: &'a ParsedFile, node: Node<'_>) -> Vec<
                 None => Cow::Borrowed(imported),
             };
             Some(PythonImport {
+                item: child,
+                from,
                 name,
                 module,
                 required_rest,
@@ -322,22 +336,28 @@ fn repo_has_local_module(ctx: &SiteContext<'_>, root: &str) -> bool {
     }
     let mut directory = ctx.file.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
     loop {
-        for suffix in [format!("{root}.py"), format!("{root}/__init__.py")] {
-            let candidate = if directory.is_empty() {
-                suffix
-            } else {
-                format!("{directory}/{suffix}")
-            };
-            if ctx.known_files.contains_key(&candidate) || ctx.repo_root.join(&candidate).is_file()
-            {
-                return true;
-            }
+        if python_module_paths(directory, root)
+            .iter()
+            .any(|candidate| {
+                ctx.known_files.contains_key(candidate) || ctx.repo_root.join(candidate).is_file()
+            })
+        {
+            return true;
         }
         match directory.rsplit_once('/') {
             Some((parent, _)) => directory = parent,
             None if directory.is_empty() => return false,
             None => directory = "",
         }
+    }
+}
+
+pub(super) fn python_module_paths(directory: &str, root: &str) -> [String; 2] {
+    let paths = [format!("{root}.py"), format!("{root}/__init__.py")];
+    if directory.is_empty() {
+        paths
+    } else {
+        paths.map(|suffix| format!("{directory}/{suffix}"))
     }
 }
 

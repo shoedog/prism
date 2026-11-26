@@ -247,6 +247,59 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             }
             Ok(())
         }
+        NavQuery::ProtoWrites { repo, format } => {
+            if format == "json" {
+                let listing = prism::navigation::proto_writes::repo_proto_writes(repo)?;
+                println!("{}", serde_json::to_string_pretty(&listing)?);
+            } else {
+                let listing = prism::navigation::proto_writes::repo_proto_writes_text(repo)?;
+                for row in &listing.facts {
+                    let write = &row.write;
+                    println!(
+                        "{}:{} [{}..{}] {} {} guard={}",
+                        row.file,
+                        write.line,
+                        write.start_byte,
+                        write.end_byte,
+                        write.function,
+                        serde_json::to_value(write.class)?
+                            .as_str()
+                            .expect("serialized class"),
+                        serde_json::to_value(write.guard)?
+                            .as_str()
+                            .expect("serialized guard")
+                    );
+                    for operand in &write.key_operands {
+                        println!(
+                            "  {} {}:{} [{}..{}]",
+                            serde_json::to_value(operand.role)?
+                                .as_str()
+                                .expect("serialized role"),
+                            operand.name,
+                            operand.line,
+                            operand.start_byte,
+                            operand.end_byte
+                        );
+                    }
+                }
+                for line in &listing.name_reads {
+                    for read in &line.reads {
+                        if let Some(reason) = read.incomplete_reason {
+                            println!(
+                                "{}:{} [{}..{}] {} resolution_complete=false incomplete_reason={}",
+                                line.file,
+                                line.line,
+                                read.span.start_byte,
+                                read.span.end_byte,
+                                read.path,
+                                reason
+                            );
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
         NavQuery::DfgStats { repo, edges } => {
             let session = prism::api::nav_session(repo, &nav_options)?;
             if *edges {

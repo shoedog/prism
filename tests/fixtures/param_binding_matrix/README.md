@@ -73,6 +73,10 @@ Ordinary constructor-dependent positives with a missing Source-site or
 Exact-target prerequisite remain mandatory, even where a separate fixed
 slot in the same row carries a loss.
 
+`b06` and `s5-5` require ordinary same-file NameOnly rest edges to be absent.
+The prerequisites module runs `s5-5-foreign` with a labelled edge, reachability
+and trace boundary. The matrix retains its 425 IDs.
+
 For a baseline run, enable `control` and one feature slice in
 `src/cpg/param_binding_matrix_tests.rs`. Run
 `cargo test --lib param_binding_matrix -- --nocapture`.
@@ -279,7 +283,7 @@ and loss reason. Inactive assertions emit no record. Restore
 | `s4-3` | B | `M2/fixed-overload-signatures-with-a-rest-implementation` |
 | `s4-4` | B | `M2/spread-straddling-the-fixed-slot-versus-one-wholly-in-rest` |
 | `s4-5` | B | `M2/object-rest-pattern-index-and-synthesized-length` |
-| `s5-5` | B | `M2/least-offset-rest-edge-retains-nameonly-trace-boundary` |
+| `s5-5` | B | `M2/least-offset-rest-withholds-same-file-nameonly-edge` |
 | `s5-6` | B | `M2/implicit-derived-constructor-forwards-into-base-rest` |
 | `s5-7` | B | `M2/dense-literal-spread-element-enters-rest-after-fixed-slot` |
 | `s5-8` | B | `M2/writing-unmapped-arguments-preserves-entry-rest-binding` |

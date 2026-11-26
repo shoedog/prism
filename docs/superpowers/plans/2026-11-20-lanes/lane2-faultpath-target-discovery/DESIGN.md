@@ -510,6 +510,9 @@ well as in a clean file.
   passes locality and write checks. Different or unresolved alternatives on a tied spelling give
   `shadowed_root` (wildcard still wins). This join handles one conditional import and its fallback;
   it does not coalesce repeated conditional imports under Q12.
+  Apply class-slot bindings in an `if` test before entering either successor. An `elif` test starts
+  with the state of the path that skipped the earlier arms, and its updated state reaches both the
+  arm and the remaining tests. Within a test, use bindings completed before the expression.
   Apply the rule to expressions evaluated in the class, including inner class headers, defaults,
   decorators and comprehension first iterables. Methods and comprehension bodies keep their own
   lookup. See esc11–13 and esc26, with as3-01, sl2-05 and tr7-01 as straight-line controls.
@@ -537,8 +540,11 @@ well as in a clean file.
   Recognize a direct test of `typing.TYPE_CHECKING` or `typing_extensions.TYPE_CHECKING`, including
   verified import aliases, and a direct test of the name `TYPE_CHECKING` whose sole, available
   unconditional binding in the deciding scope is the literal `False`. Resolve the guard where
-  written and check module origin and member writes. Other values, same-spelled parameters,
-  computed tests and unproven wrappers use the ordinary conditional-import rule.
+  written and check module origin and writes to the name and its members. A typing import in a
+  class `if`, `elif` or `else` suite can prove the guard when every reaching binding establishes
+  one of the typing identities. The true arm of an `if` or `elif` also guards imports within nested
+  classes and functions, including imports redirected by `global`. Other values, same-spelled
+  parameters, computed tests and unresolved reaching bindings use the ordinary conditional-import rule.
   Also refuse a sole local value binding textually later than its use in the **same execution scope**.
   These give `binding_unavailable` (o11, sl3-02). This source-order check includes loops. Do not
   order a deferred body against module or enclosing-function initialisation or another function's
@@ -645,8 +651,10 @@ Accept import aliases. For **write detection only**, also recognize a simple nam
 `self` in the same file. Key the alias by lexical binding and the RHS by its own lookup. This one hop
 handles as4-15 and wf05/36/41/45/53. It supplies no new positive call route.
 
-The following mechanisms are outside the inventory write index. A surviving exact grade describes the modelled
-binding. A source-disproved HTTP positive still counts as an error in G-precision.
+The following mechanisms are outside the inventory write index. The
+[accepted limits in §10.1](#101-accepted-limits-for-s2a-write-detection) specify the supported write
+forms and the execution-order boundary. A surviving exact grade describes the modelled binding.
+A source-disproved HTTP positive still counts as an error in G-precision.
 
 1. Other-file writes, attached methods, subclass overrides and descriptor dispatch, including the
    supplied subclass of as1-20. R3 records a field tie and withholds its hint for every owner.
@@ -978,12 +986,19 @@ line, even when the outer grouping starts earlier. A newline inside `requests �
 list alone does not. All calls whose semantic callee covers L compete, including unlisted calls,
 constructors, dynamic callees and calls in a statically discarded operand.
 
-On exact equality of all three 5.4 keys, take the first candidate in Python AST breadth-first field
-order (`ast.walk` on the pinned interpreter, preserving list order). Rust can assign that ordinal
-from AST structure. Hash order, depth-first grammar visitation and the call's absolute end offset
-are unsuitable tie-breaks. On as4-07 the outer `factory(requests.get(u))` and inner `factory`
-tie at (0, 11, −35). The oracle binds the outer expression. The target `requests.get` loses.
-This fixture distinguishes the selected call. It does not identify the consumer's internal algorithm.
+On exact equality of all three 5.4 keys, an ancestor call precedes its descendants in Python 3.11.11
+`ast.walk` order. For calls in separate branches, the listed sibling-field orders cover dictionary
+literal keys versus values, conditional-expression test/body/else, keyword-only versus positional
+defaults in `def` and lambda, and separate chained-assignment targets. That order is usable only
+when both paths below the split have the same depth as in the Python AST. The closed list admits
+calls, attributes, single-index subscripts without a comma, lists, tuples, sets, unary operators
+including `not`, binary operators, `await` and keyword arguments. It also admits the transparent
+parser wrappers handled by the walk and the field wrappers removed by the listed split rules.
+If any pair among the minimum-key candidates falls outside the field or depth list, emit otherwise
+injectable proven calls on that line with `not_line_anchor`. Examples include `with` headers,
+match guards, boolean operators, f-string fragments, multi-index subscripts and dictionary
+comprehensions. In as4-07 the outer call and its inner `factory` call tie at (0, 11, −35). The oracle
+binds the outer expression and `requests.get` loses.
 
 Emit the bare, NFKC-normalized function identifier for the symbol, including `__fetch` as written,
 without class mangling or qualification (as1-38, as2-10). Bounds use the `def`/`async` token and
@@ -1020,9 +1035,9 @@ binder, never as a listed class. There is no PEP 695 matrix row or interpreter-p
 
 | Decision | Option and main cost | Choice |
 |---|---|---|
-| Equal key (Q1) | Refuse ties. This can drop a representable winner. | Declined |
+| Equal key (Q1) | Refuse ties outside the listed sibling-field orders or branch depths. The proven call still gets an unsupported row. | Chosen for S2a |
 | Equal key (Q1) | Compare absolute end offsets. This introduces a line-dependent key absent from the recorded rule. | Declined |
-| Equal key (Q1) | Use stable Python AST order after the three key components. It requires preserving AST field order. | Chosen |
+| Equal key (Q1) | Use Python AST order after the three key components for the supported ties above. | Chosen |
 | Postponement (Q2) | Inventory all syntactic annotation calls. This invents executable sites. | Declined |
 | Postponement (Q2) | Erase annotations entirely. This loses usable static receiver types. | Declined |
 | Postponement (Q2) | Separate executable-site eligibility, line binding and static type lookup. Each uses its stated context. | Chosen |
@@ -1788,9 +1803,8 @@ limits, not reached, patch shadowed by a mock).
 - **The closed-world rule costs recall** where Python code rebinds a name it does not use at the call
   (`try`/`except ImportError` fallbacks, a parameter defaulted and then assigned). Faultpath's own binding
   check can report a different identity or no qualification. Section 6.8 defines how to compare them.
-- **One call per line** is faultpath's binding: a table call that is not its line's anchor is listed as
-  unsupported, not injected. The rule is ported, not approximated, so prism and faultpath agree on which
-  call a line names.
+- **One call per line** is faultpath's binding. Prism uses the anchor key and the supported Python 3.11.11
+  tie orders and branch depths in §6.6. It lists a proven call with no usable anchor as unsupported.
 - **Consumer runtime limits** (decorated functions, comprehension frames on 3.11, dynamic callees, nested
   functions, `with` receivers, annotation witnesses) leave some injectable rows unusable by faultpath today.
   They are counted in the funnel under the consumer's reason, and a lifted limit needs no prism change.
@@ -1801,6 +1815,102 @@ limits, not reached, patch shadowed by a mock).
   and breaks G-byte, so it is filed as a follow-up issue at close-out, not done here.
 - **PR #841** edits `cli.rs` and `main.rs` for targets flags. This lane's CLI change is two options and one
   branch in `run_targets`; rebase over #841 if it merges first.
+
+### 10.1 Accepted limits for S2a write detection
+
+`Exact` is a static-binding grade under the [CLAUDE.md contract](../../../../../CLAUDE.md#architecture).
+The inventory accept-list for detecting writes consists of the explicit same-file forms in §6.2:
+
+- Attribute stores and deletes, including augmented stores and binding targets with independently
+  resolvable bases. Resolve imports, lexical owners and the single-assignment one-hop alias where
+  its right-hand side directly names a tracked object.
+- Unshadowed `setattr` and `delattr` with literal member names, literal keys on `obj.__dict__`,
+  unshadowed `vars(obj)` and `globals()`, and the listed `__builtins__` namespace forms.
+- The bounded ordering checks in §6.2, including a straight-line capture followed by a direct
+  replacement and a write to that replacement. A matching modeled write withholds the affected
+  proof. A write to a provably unrelated object or slot leaves the proof available.
+
+The following are out of model under the `Exact` contract. They require runtime mutation or
+execution-order modeling beyond the accept-list.
+
+- **Target evaluation after an earlier store in the same statement.** A later target can see a
+  changed base in a chain, unpacking or `with` target. Examples include `r = r.get = requests`,
+  `r, r.get = requests, fake`, and `urllib.request = urllib.request.urlopen = Replacement()`
+  after capturing the original module. S2a supplies no sequential target-store proof for these cases.
+- **Captured identity across separately scoped writes or opaque replacements.** The index can
+  withhold a captured call when a class body or comprehension writes a replacement's member, when
+  a local class or its instance supplies an opaque object, or when an earlier conditional prefix
+  effect survives a later definite overwrite. Recovering proof requires establishing execution
+  order and distinct object identities across those scopes or writes.
+- **Computed reflection.** The literal forms above apply under §6.2 exclusion 3. A surviving
+  static identity does not account for a computed `setattr` member or `vars` or `globals` key.
+
+The known-limit tests record the current outcomes and proving controls. S2a adds no write veto
+for these cases. Target-order and computed-reflection cases can retain an incorrect `exact` row,
+which counts against G-precision. Captured-identity cases are withheld with `member_rebound`.
+Class-suite bindings in tests, lexical redirection and type-only guard availability remain within
+the static model in §6.2, with the following recall limit.
+
+| Class-slot limit | Example in a function's class body | Expected row | Current outcome |
+|---|---|---|---|
+| Short-circuit walrus | `import requests` precedes `if True or (requests := None):` with `x = requests.get('u')` in its arm. Python skips the walrus. | `class_body_frame` | `shadowed_root` because the slot model applies the skipped store. |
+
+### 10.2 Accepted limits for S2b receiver routes
+
+The receiver routes use the same-file binding, lookup and ordering rules in §§6.2–6.4 and 10.1.
+Their write-target accept-list is:
+
+- Plain name bindings and comma-free parenthesised targets. Plain and annotated assignments with a
+  value, including direct targets of a chain, can supply construction evidence. Tuple and list
+  destructuring, `for` and comprehension targets, `with` and `async with` targets, `del`, and
+  augmented assignment contribute binding or write vetoes. An annotation without a value adds no
+  write. A simple constructor context target gets a constructed identity for write detection only
+  when R2's entry-slot check proves that it names the constructed object. Otherwise the key-specific
+  unknown-object veto applies. The exit slot still governs the R2 read where exit can reach it.
+- Attribute targets on tracked objects and scalar string-key subscripts on `obj.__dict__`,
+  unshadowed `vars(obj)` and unshadowed zero-argument `globals()`. A comma-free grouped string key
+  is scalar. Tuple keys and computed keys are outside the write index. The index also admits the
+  literal `setattr` and `delattr` calls and the `__builtins__` forms in §10.1.
+- Tuple and list targets are traversed to the supported leaves, including when the tree wraps
+  a leaf in a star node. The `vars` reader also handles a star attached to the callee under
+  `list_pattern`, `pattern_list` or a comma-bearing `tuple_pattern`. Coverage of grouped and starred
+  leaves depends on the parser shape, as described below.
+
+For a returned local, R4/R5 recognize evaluated identifier uses and permit same-scope member bases
+and supported literal member writes that leave the required slots intact. In a `match`, the subject
+and guards are walked as expressions, captures enter the binding census, and bare class-pattern
+heads count as uses. Same-scope dotted patterns are treated like member reads, and keyword pattern
+labels contribute no use. The walk visits ordinary f-string interpolation expressions and nested
+format expressions. Comprehension bodies, filters and subsequent iterables use the comprehension
+scope, and the first iterable uses the enclosing scope. A use in the comprehension scope of the
+helper's returned local defeats the proof. A same-spelled name belonging to a different binding does
+not affect it.
+
+The following forms and diagnostic distinctions are withheld from the S2b contract after round 2.
+The known-limit CLI rows pin the observed outcomes beside controls with a valid proof.
+
+| Withheld class | Reason | Current consequence |
+|---|---|---|
+| Grouped or starred destructuring over dictionary-namespace subscripts (Sol 2, Opus) | Some parser shapes wrap the leaf or attach the star to the reflection callee. The write index handles only the shapes above and can also miss a grouped starred attribute leaf. | An omitted write can leave an emitted `exact` or `nameonly` row. Grouped forms can emit an unsupported `other` row with `parse_error_in_function`. Starred reflection can emit an `external_call` when the write would defeat receiver uniqueness, shadow a root or replace the method. In a helper, a missed member-base shape can instead count `receiver_value_unproven` for a selected write or withhold a row for a sibling write. |
+| F-string `{v:=…}` format-spec lookalike (Sol 3) | Python reads `v` before the `=` format specifier. The parser can recover the interpolation as a walrus and the walk skips that node, losing the read. A parenthesised walrus remains a real assignment expression. | R4/R5 can emit a `nameonly` row where the whole-local read would require `receiver_value_unproven`. |
+| Dotted pattern captures inside nested scopes (Sol 4) | The pattern walk checks bare class heads but does not resolve the dotted bases of value patterns, class heads and mapping keys to their lexical owners. | R4/R5 can emit a `nameonly` row when a nested function or class captures the returned local through a dotted pattern. |
+| R4 helper-eligibility reason precedence (Sol 5) | R4 can take a conflicting annotation from an ineligible helper or skip conflicting constructor and known-`None` evidence from an eligible unannotated helper. A parameter default still cannot prove a reaching `None`. | The row is refused either way. Only the counted refusal reason differs. |
+| Dictionary-entry writes to `__class__` or `__dict__` keys (Sol 6) | The slot index conflates dictionary-entry stores with attribute replacement, although the entry alone leaves the object's class and lookup namespace in place. | `member_rebound` over-refuses and loses an otherwise provable row. The cost is recall only. |
+
+The recorded census across httpie, Saleor, Superset and Black prices the boundary as follows.
+
+| Syntax counted | Occurrences | Exposure in the census |
+|---|---:|---|
+| Starred assignment targets | 47 | None over a dictionary-namespace subscript or a receiver. |
+| Dictionary-namespace subscript writes | 11 | None starred or grouped. |
+| F-string `{name:=` | 1 | One occurrence of the lookalike spelling. |
+| `match` statements | 109 | None capturing a returned local. |
+| `__class__` or `__dict__` string keys | 12 | None a write key on a receiver. |
+
+The four-corpus targets, warnings and G-accept results were identical before and after fold 1 and after the
+context-entry fix (only `producer.build_identity` differs). S2b closes the context-entry veto and leaves the five priced classes as accepted limits.
+Runtime mutation stays out of model under the CLAUDE.md Exact contract and §10.1. A future slice
+may close the five classes.
 
 ## Change log
 
@@ -1819,6 +1929,10 @@ limits, not reached, patch shadowed by a mock).
   review round remained at that revision. Both reviewers subsequently rejected it.
 - 2026-11-25. Proposed the d3 closed-item fold to the owner. §§6.2–6.7 cover receiver-only setup, lookup-slot invalidation, constructed-class precedence, P1 evidence, remapped ties, class fallback and startup precedence. §§6.9–6.11 check all 772 proposed decisions and present the K/W recall and ledger deltas. The eight pins are materialised. esc31–34 are proposed. That proposal awaited the owner’s choice.
 - 2026-11-25. The owner directed the r4 fold with K. §§6.4 and 6.7 admit eligible standard-library declarations at `nameonly` and retain the full per-corpus parity floor. §§6.8–6.11 reconcile the K ledger, pins, oracle and census. Both reviewers review this revision once.
+- 2026-11-25. The S2a hybrid fold records the accepted write limits in §10.1, carries class-test
+  bindings and nested type-only guards in §6.2, and bounds anchor ties in §6.6.
+- 2026-11-25. The S2b boundary amendment restores the context-entry write veto and records the
+  accepted receiver-route limits, probe outcomes and corpus pricing in §10.2.
 
 ## Changes in r5
 

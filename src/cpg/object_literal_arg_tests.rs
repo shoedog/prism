@@ -387,15 +387,18 @@ fn extra_literal_beyond_the_formals_binds_nothing() {
 }
 
 #[test]
-fn destructured_rest_and_bare_arrow_formals_are_out_of_scope() {
-    // Each source pairs the unsupported slot with a supported one (`q`, `g`): the control
-    // edge shows the pass ran and refused only the hole.
+fn bare_arrow_leaf_binds_while_destructured_and_rest_leaves_remain_unsupported() {
+    // The q and g edges control for each fixture’s supported slot.
     let destructured = "function f(q, { a }) {\n  sinkQ(q.b);\n  sinkA(a);\n}\nfunction h(x, y) {\n  f({ b: y }, { a: x });\n}\n";
     check("destructured", destructured, &["h:y@6 -> f:q.b@2"]);
     let rest = "function f(q, ...p) {\n  sinkQ(q.a);\n  sinkA(p[0]);\n  sinkB(p.a);\n}\nfunction h(x, y) {\n  f({ a: y }, { a: x });\n}\n";
     check("rest", rest, &["h:y@7 -> f:q.a@2"]);
     let bare = "const f = p => {\n  sinkA(p.a);\n  sinkB(p.b);\n};\nfunction g(q) {\n  sinkQ(q.a);\n}\nfunction h(x) {\n  f({ a: x });\n  g({ a: x });\n}\n";
-    check("bare-arrow", bare, &["h:x@10 -> g:q.a@6"]);
+    check(
+        "bare-arrow",
+        bare,
+        &["h:x@9 -> f:p.a@2", "h:x@10 -> g:q.a@6"],
+    );
 }
 
 #[test]

@@ -15,14 +15,15 @@ including `sk11` from a source-only seed. Product measurements begin in Stage I.
 | Recorded truth and scope | Fires | Silent | Total |
 |---|---:|---:|---:|
 | In scope, `pollutes` | 138 | 16 | 154 |
-| In scope, `safe` | 47 | 92 | 139 |
-| Outside lane scope, `safe` with a scope note | 22 | 11 | 33 |
-| **All rows** | **207** | **119** | **326** |
+| In scope, `safe` | 69 | 70 | 139 |
+| Outside lane scope, `safe` with a scope note | 23 | 10 | 33 |
+| **All rows** | **230** | **96** | **326** |
 
-Of the 119 silent rows, 96 require no fact, 14 have a sufficient guard and nine have a fact with an
+Of the 96 silent rows, 70 require no fact, 14 have a sufficient guard and 12 have a fact with an
 insufficient guard and no matching selector base. All 33 scope rows have individual decisions. The named
 selector `req` fires in `t3-051`. S2 independently tests its selector source range. The receiver-only
 control `t3-017` stays silent.
+R-DEFERRED-PROOF records a safe row that retains its fact under the reduced S1a-2 proof set.
 [Losses and scope](DESIGN.md#11-accepted-losses-and-scope)
 
 Match the designated AST target by file and half-open UTF-8 byte span before deduplicating findings by line.
@@ -32,6 +33,7 @@ decision. The outer assertion must fail if only the inner fact survives. Across 
 this is the only pair of qualifying targets on one line. The inner replacement in `t2-110` is a one-level
 store. For chained assignments, loop bindings and destructuring, bind the asserted member target
 individually, including the second pattern target on its designated line in `t2-127`.
+On `t3-030`, require the source selector `path`, the direct selector `font` and the property operand `unicode`.
 
 | Row ID | Truth | Required fact class | Required guard | Required sink | Selector witness | Accepted loss or scope |
 |---|---|---|---|---|---|---|
@@ -58,7 +60,7 @@ individually, including the second pattern target on its designated line in `t2-
 | nk08a | safe | nested_keys | none | fires | i | R-ITER |
 | nk08b | safe | nested_keys | none | fires | i | R-ITER |
 | nk08c | safe | nested_keys | none | fires | x | R-ITER |
-| nk09a | safe | none | none | silent | — | — |
+| nk09a | safe | nested_keys | none | fires | a | R-DEFERRED-PROOF |
 | nk09b | safe | none | none | silent | — | — |
 | nk09c | safe | none | none | silent | — | — |
 | nk10 | safe | none | none | silent | — | — |
@@ -139,12 +141,12 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-010 | pollutes | nested_keys | none | fires | selector | — |
 | t2-011 | safe | none | none | silent | — | — |
 | t2-012 | safe | none | none | silent | — | — |
-| t2-013 | pollutes | nested_keys | none | fires | second | — |
+| t2-013 | pollutes | nested_keys | none | fires | first, second | — |
 | t2-014 | safe | nested_keys | none | fires | selector | O-APP |
 | t2-015 | pollutes | nested_keys | none | fires | selector | — |
-| t2-016 | safe | none | none | silent | — | — |
+| t2-016 | safe | nested_keys | none | fires | rowIndex | R-DEFERRED-PROOF |
 | t2-017 | pollutes | nested_keys | none | fires | index | — |
-| t2-018 | safe | none | none | silent | — | — |
+| t2-018 | safe | nested_keys | none | silent | — | — |
 | t2-019 | pollutes | nested_keys | none | fires | selector | — |
 | t2-020 | pollutes | nested_keys | none | fires | selector | — |
 | t2-021 | pollutes | nested_keys | none | fires | selector | — |
@@ -183,7 +185,7 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-054 | pollutes | none | none | silent | — | M-LOOKUP |
 | t2-055 | pollutes | nested_keys | none | fires | selector | — |
 | t2-056 | pollutes | nested_keys | none | fires | key | — |
-| t2-057 | safe | none | none | silent | — | — |
+| t2-057 | safe | nested_keys | none | fires | selector | R-DEFERRED-PROOF |
 | t2-058 | pollutes | nested_keys | none | fires | selector | — |
 | t2-059 | pollutes | nested_keys | none | fires | selector | — |
 | t2-060 | pollutes | nested_keys | none | fires | selector | — |
@@ -194,7 +196,7 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-065 | pollutes | recursive_merge | none | fires | key | — |
 | t2-066 | pollutes | path_walk | none | fires | key | — |
 | t2-067 | pollutes | nested_keys | none | fires | name | — |
-| t2-068 | safe | none | none | silent | — | — |
+| t2-068 | safe | nested_keys | none | fires | index | R-DEFERRED-PROOF |
 | t2-069 | pollutes | nested_keys | none | fires | selector | — |
 | t2-070 | pollutes | none | none | silent | — | M-CALL-WRITE |
 | t2-071 | pollutes | none | none | silent | — | M-CALL-WRITE |
@@ -204,7 +206,7 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-075 | pollutes | path_walk | partial | fires | key | — |
 | t2-076 | safe | none | none | silent | — | — |
 | t2-077 | pollutes | nested_keys | none | fires | section | — |
-| t2-078 | safe | none | none | silent | — | — |
+| t2-078 | safe | nested_keys | none | fires | key | R-KEY-PROOF |
 | t2-079 | safe | none | none | silent | — | — |
 | t2-080 | pollutes | nested_keys | none | fires | section | — |
 | t2-081 | pollutes | path_walk | none | fires | key | — |
@@ -217,14 +219,14 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-088 | pollutes | path_walk | none | fires | key | — |
 | t2-089 | pollutes | path_walk | none | fires | key | — |
 | t2-090 | pollutes | nested_keys | none | fires | key | — |
-| t2-091 | safe | none | none | silent | — | — |
+| t2-091 | safe | nested_keys | none | fires | key | R-DEFERRED-PROOF |
 | t2-092 | safe | none | none | silent | — | — |
-| t2-093 | safe | none | none | silent | — | — |
+| t2-093 | safe | nested_keys | none | fires | section | R-DEFERRED-PROOF |
 | t2-094 | pollutes | nested_keys | none | fires | section | — |
 | t2-095 | pollutes | nested_keys | none | fires | section | — |
 | t2-096 | safe | nested_keys | none | fires | section | O-STRING |
-| t2-097 | safe | none | none | silent | — | — |
-| t2-098 | safe | none | none | silent | — | — |
+| t2-097 | safe | path_walk | none | fires | key | R-DEFERRED-PROOF |
+| t2-098 | safe | nested_keys | none | fires | index | R-DEFERRED-PROOF |
 | t2-099 | safe | none | none | silent | — | — |
 | t2-100 | pollutes | nested_keys | none | fires | section | — |
 | t2-101 | pollutes | path_walk | none | fires | section | — |
@@ -239,11 +241,11 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-110 | safe | nested_keys | none | fires | section | O-APP |
 | t2-111 | safe | nested_keys | none | fires | section | R-TARGET |
 | t2-112 | safe | none | none | silent | — | O-APP |
-| t2-113 | safe | none | none | silent | — | — |
+| t2-113 | safe | nested_keys | none | fires | section | R-DEFERRED-PROOF |
 | t2-114 | safe | nested_keys | partial | fires | label | O-APP |
-| t2-115 | safe | none | none | silent | — | — |
-| t2-116 | safe | none | none | silent | — | — |
-| t2-117 | safe | none | none | silent | — | — |
+| t2-115 | safe | nested_keys | none | fires | key | R-DEFERRED-PROOF |
+| t2-116 | safe | nested_keys | none | fires | index | R-DEFERRED-PROOF |
+| t2-117 | safe | nested_keys | none | fires | index | R-DEFERRED-PROOF |
 | t2-118 | safe | path_walk | sufficient | silent | section | — |
 | t2-119 | safe | path_walk | none | fires | section | R-TARGET |
 | t2-120 | safe | nested_keys | sufficient | silent | key | — |
@@ -251,7 +253,7 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-122 | safe | nested_keys | none | fires | section | O-APP |
 | t2-123 | safe | nested_keys | none | fires | section | O-APP |
 | t2-124 | safe | path_walk | none | fires | section | R-TARGET |
-| t2-125 | safe | none | none | silent | — | — |
+| t2-125 | safe | path_walk | none | silent | — | — |
 | t2-126 | safe | none | none | silent | — | O-APP |
 | t2-127 | safe | nested_keys | none | fires | section | R-TARGET |
 | t2-128 | safe | none | none | silent | — | O-APP |
@@ -266,7 +268,7 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-137 | safe | none | none | silent | — | O-APP |
 | t2-138 | safe | none | none | silent | — | O-APP |
 | t2-139 | safe | nested_keys | partial | fires | section | O-APP |
-| t2-140 | safe | none | none | silent | — | O-APP |
+| t2-140 | safe | nested_keys | none | fires | index | O-APP |
 | t2-141 | safe | nested_keys | partial | fires | section | R-KEY-PROOF |
 | t2-142 | safe | nested_keys | none | fires | section | O-APP |
 | t2-143 | safe | nested_keys | none | fires | section | O-APP |
@@ -281,12 +283,12 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-152 | safe | nested_keys | sufficient | silent | section | — |
 | t2-153 | safe | path_walk | sufficient | silent | key | — |
 | t2-154 | safe | none | none | silent | — | O-APP |
-| t2-155 | safe | none | none | silent | — | — |
+| t2-155 | safe | nested_keys | none | fires | name | R-DEFERRED-PROOF |
 | t2-156 | safe | nested_keys | none | fires | section | R-TARGET |
 | t2-157 | safe | nested_keys | none | silent | — | — |
-| t2-158 | safe | none | none | silent | — | — |
-| t2-159 | safe | none | none | silent | — | — |
-| t2-160 | safe | none | none | silent | — | — |
+| t2-158 | safe | nested_keys | none | silent | — | — |
+| t2-159 | safe | nested_keys | none | fires | slot | R-DEFERRED-PROOF |
+| t2-160 | safe | nested_keys | none | fires | matched | R-DEFERRED-PROOF |
 | t2-161 | safe | none | none | silent | — | — |
 | t2-162 | safe | path_walk | none | fires | selected | O-APP |
 | t2-163 | safe | nested_keys | none | silent | — | — |
@@ -297,7 +299,7 @@ individually, including the second pattern target on its designated line in `t2-
 | t2-168 | safe | path_walk | partial | fires | key | R-KEY-PROOF |
 | t2-169 | safe | nested_keys | none | fires | result | R-ASYNC |
 | t2-170 | safe | nested_keys | sufficient | silent | section | — |
-| t2-171 | safe | none | none | silent | — | — |
+| t2-171 | safe | nested_keys | none | fires | index | R-DEFERRED-PROOF |
 | t2-172 | safe | nested_keys | none | fires | edit | R-TARGET |
 | t2-173 | safe | none | none | silent | — | — |
 | t2-174 | safe | nested_keys | none | fires | position | R-ITER |
@@ -308,12 +310,12 @@ individually, including the second pattern target on its designated line in `t2-
 | t3-001 | safe | nested_keys | none | fires | section | R-TARGET |
 | t3-002 | safe | recursive_merge | none | fires | key | R-TARGET |
 | t3-003 | safe | none | none | silent | — | — |
-| t3-004 | safe | none | none | silent | — | — |
-| t3-005 | safe | none | none | silent | — | — |
-| t3-006 | safe | none | none | silent | — | — |
+| t3-004 | safe | nested_keys | none | fires | index | R-DEFERRED-PROOF |
+| t3-005 | safe | nested_keys | none | fires | index | R-DEFERRED-PROOF |
+| t3-006 | safe | nested_keys | none | fires | position | R-DEFERRED-PROOF |
 | t3-007 | safe | nested_keys | none | fires | group | R-TEMPLATE |
-| t3-008 | safe | none | none | silent | — | — |
-| t3-009 | safe | none | none | silent | — | — |
+| t3-008 | safe | nested_keys | none | fires | group | R-DEFERRED-PROOF |
+| t3-009 | safe | nested_keys | none | fires | group | R-DEFERRED-PROOF |
 | t3-010 | safe | none | none | silent | — | — |
 | t3-011 | safe | nested_keys | none | fires | name | R-KEY-PROOF |
 | t3-012 | safe | nested_keys | none | fires | name | R-KEY-PROOF |

@@ -15,7 +15,7 @@ cargo fmt --all --check  # Check formatting of every workspace crate (must pass 
 cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 30 algorithms
 cargo build -p prism-mcp --bin prism-mcp    # Build the MCP stdio server
-cargo test --workspace                      # Run tests for prism, prism-review and prism-mcp
+cargo test --workspace                      # Run tests for all four workspace crates
 ```
 
 ### Mutation gate
@@ -119,6 +119,10 @@ cargo test --test integration coverage_test::      # Coverage matrix
   `ReviewContextRound` builds a graph from the captured review and the admitted files.
 - `finding_confidence.rs` — Single source for per-finding confidence/tier/parse-quality classification (`classify`, `evidence_files`, `ParseQuality::min_over`), consumed by both prism-review's `output/sarif.rs` and `targets/`.
 
+### Boundary crate (`crates/prism-boundary/`)
+
+P1a adds typed operation and field IDs, route declaration projections, an internal Swagger 2.0 and OpenAPI 3 JSON operation and status reader, and a `prism-boundary` binary with `--help` and `--version`. YAML conversion belongs to the caller. Wire-field inventory, schema diffing, binding documents and source extraction are outside P1a.
+
 ### Review crate (`crates/prism-review/src/`)
 
 The review layer is the workspace crate `crates/prism-review` (package `prism-review`, library `prism_review`, binary `prism`; #734, the 4.0.0 split). It depends on the `prism` core library; the core never depends on it. Its tests are `crates/prism-review/tests/cli/` (the `cli` umbrella target) plus its inline `src/` unit tests.
@@ -139,7 +143,14 @@ The review layer is the workspace crate `crates/prism-review` (package `prism-re
   the preloaded entries `run_review_authorized` and `run_algorithm_authorized` through the captured inputs. `context_run.rs` owns
   expansion and its completed maps. `context_view.rs` selects them for taint after
   successful admission and union. Other algorithms use the original maps.
-- `targets/` — `prism targets`: projects findings into the instrumentation-targets contract (`mod.rs`: `project`/`TargetsMeta`/id/dedupe/warnings; `model.rs`: schema DTOs; `mapping.rs`: category table, hint parsers, language lowering). Schema at `docs/contracts/targets.schema.json`.
+- `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in
+  `inventory/` producer uses same-file Python ASTs to identify listed HTTP calls. Imported roots,
+  direct construction, sole named construction and matching context-bound construction can prove
+  `exact` under the static-binding contract. An eligible annotated assignment or same-file helper
+  with a construction witness can prove `nameonly`. Owning-field ties and other failed tied identities
+  contribute per-file counts by cause. Inventory runs on its own or merges with projected findings.
+  Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses
+  `docs/contracts/targets-1.1.schema.json` (1.1).
   `project_in_context` uses the selected maps for the enclosing site, dependency hint and
   parse grade while keeping the original diff metadata.
 
@@ -344,6 +355,32 @@ cross-package concrete-asserted keys, and package-level `var` receivers.
 classification; `prism nav interface-manifest --repo <dir>` emits the PR-2 in-scope
 interface-dispatch manifest (the §8a denominator for the precision gate report).
 
+`prism nav proto-writes --repo <dir> [--format json|text]` is an unstable JS/TS/TSX
+syntax listing. It reports each nested-key or walked write by target byte span and
+includes the selector sites that supply its receiver. JSON also includes the value
+reads on each target and live selector line, including unresolved reads. Read
+completeness requires proven binding identity and member versions. JSON and text
+show new `incomplete_reason` values for identity escapes, implicit arguments,
+direct eval, possible member aliases, opaque calls, deferred evaluation, accessors
+and unproven control flow. Text prints facts and refusal reasons without expanding
+candidate histories. The listing discharges individual receiver steps for a
+stable own-slot installation with a literal or template-literal key followed by
+a standalone assignment, or for a bounded key on an admitted receiver. Bounded
+keys come from literals, arithmetic, comparisons, numeric counters, numeric
+records with proven writes, closed literal tables, `typeof` expressions,
+dominating `typeof x === "number"` guards, or anchored fragments. Slot proofs
+model standard built-in identity for `Array.from`, `Array(n).fill`,
+`Object.defineProperty` and `Object.create`. Runtime changes to built-ins
+are outside that model. The install proof refuses a dot or quoted-key source write to
+`Object.defineProperty` in the analyzed file; other ways to rebind it are
+outside the model. Script-level `var` and function declaration bindings (a file
+with no top-level `import` or `export`, so a CommonJS file counts as a script
+and loses recall, not soundness) lack the local identity these proofs require,
+including for numeric record collections and their loop items.
+Private table children, null walks, shared-slot proofs, closed-data
+write-back and intrinsic-trusting key domains are deferred. Every fact has
+guard state `none`.
+
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
 two reaching-definition availability counters. RD-unavailable functions with more than
@@ -533,7 +570,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v190) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v192) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -606,8 +643,33 @@ JS/TS/TSX positional bindings read the argument list by the call node's full byt
 callee name, so inner and outer calls in a chain have separate arguments. A dense array-literal
 spread such as `f(...[0, 1], x)` advances the fixed-slot offset by its syntactic length, including
 through parentheses and runtime-transparent TypeScript wrappers. A hole, a spread element in the
-array, or a non-literal spread operand makes later positions unknown. The spread itself contributes
-no argument-to-formal edge. Object-literal field flow retains its spread-argument exclusion.
+array, or a non-literal spread operand makes later positions unknown. A spread operand and its
+elements supply no fixed-slot bindings. Object-literal field flow retains its spread-argument exclusion.
+
+JS/TS/TSX identifier rest formals (lane 9, slice B) receive ordinary Uses and dense spread-element
+Uses whose minimum runtime offset reaches the rest slot. The slot counts defaults and unsupported
+fixed patterns and omits TypeScript `this`. Rest flow uses the implementation's byte-matched entry
+Def, and scoped rebinding can disqualify it. Exact rest edges require a singleton target and,
+for namespace-qualified imports, a matching value export. Cross-file `free_single` Exact targets
+remain ineligible. An opaque spread must start within rest. Its Exact edge also requires a positive
+iteration witness from a bounded literal and evaluation-prefix check. A proved-empty spread
+yields no edge at either confidence. An ordinary NameOnly rest edge uses
+`nameonly/call_nameonly` and requires the call site and target declaration to be in different
+files. Rest transfers that depend on dense-literal iteration or later scalar offsets assume the
+standard array iterator, as slice A offsets do. A replacement of the standard iterator in owner-body
+statements after the call needs a second invocation and is not checked (disclosed residual). See the
+known-gaps document for the iteration proof's coverage.
+
+An ordinary JS/TS/TSX bare-arrow argument (lane 9, slice C) binds at its exact runtime offset
+to the entry Def for the identifier's byte span. The locator requires a unique named implementation
+or an independently resolved positional anonymous owner. Exact input needs a complete singleton
+pool, excludes foreign `free_single` targets, and requires a matching value-export witness for
+`import_qualified`. Same-file ordinary NameOnly targets retain the call's label. The
+`inferred_from_enclosing_call` refusal applies because an inferred name from an enclosing call
+does not prove the call returned the callback. A refused incoming transfer leaves its Def
+available. The outgoing source guard also checks each bare literal-leaf edge's read.
+Admitted Exact calls can feed the literal-leaf producer below. Unnamed default exports, escaped
+call spellings and parenthesized arrow IIFEs still have unresolved resolver prerequisites.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals
@@ -620,7 +682,7 @@ fed, and a leaf at or below a written path feeds no read). The label is the call
 the definition edge's. A spread or computed key refuses every key written before it; for duplicate keys the last
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
 non-data values (calls, arithmetic, arrays), a spread argument before the literal, NameOnly or
-multi-target calls, and destructured, rest or bare-arrow formals bind nothing. A mixed formal's reads
+multi-target calls, and destructured or rest formals bind nothing. A mixed formal's reads
 in a declarator initialiser, a condition, a `for-in` head or an `in` test have zero-width base Uses and
 are not fed (known gap).
 
@@ -865,9 +927,9 @@ Algorithms fall into two categories:
 
 ### Layering and file layout (#701)
 
-The workspace is three crates: `prism` (the core library, root `src/`), `crates/prism-review` (the review
-layer, library `prism_review` plus the `prism` binary) and `crates/prism-mcp`; `default-members` are the root
-and `prism-review` (`prism-mcp` is opt-in with `-p prism-mcp` or `--workspace`). The layering boundary is
+The four workspace crates are `prism` (the core library, root `src/`), `crates/prism-review` (the review
+layer, library `prism_review` plus the `prism` binary), `crates/prism-mcp` and `crates/prism-boundary`.
+The root and `prism-review` are the default members. The other crates join checks via `-p` or `--workspace`. The layering boundary is
 Cargo: the `prism` library cannot name `prism_review` (no dependency) or `algorithms` (the module is not there);
 its `#[cfg(test)]` code could name `prism_review` through the root's dev-dependency, which is what
 `tests/integration/layering_test.rs` closes: it fails on any non-comment line

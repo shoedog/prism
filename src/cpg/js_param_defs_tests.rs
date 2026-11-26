@@ -3,10 +3,11 @@
 //! (`...xs`). SPEC: docs/superpowers/plans/2026-10-06-js-param-defs/SPEC-prA.md.
 
 use super::build::CodePropertyGraph;
-use super::{CpgEdge, CpgNode, VarAccess};
+use super::{CpgEdge, CpgNode, FlowConfidence, VarAccess};
 use crate::ast::ParsedFile;
 use crate::languages::Language;
 use crate::navigation::queries::dfg_edge_dump;
+use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
 
 const JS_TS: [Language; 3] = [Language::JavaScript, Language::TypeScript, Language::Tsx];
@@ -120,11 +121,11 @@ fn bare_arrow_formal_gets_a_def_at_its_identifier_bytes() {
 }
 
 #[test]
-fn identifier_rest_formal_gets_a_def_but_never_a_positional_argument() {
+fn identifier_rest_formal_binds_trailing_arguments() {
     let js = "function collect(first, ...rest) {\n  use(rest);\n  return first;\n}\n\
-              function run(v) {\n  collect(v, v, v);\n}\n";
+              function run(prefix, v, w) {\n  collect(prefix, v, w);\n}\n";
     let ts = "function collect(first: any, ...rest: any[]) {\n  use(rest);\n  return first;\n}\n\
-              function run(v: any) {\n  collect(v, v, v);\n}\n";
+              function run(prefix: any, v: any, w: any) {\n  collect(prefix, v, w);\n}\n";
     for (language, source) in [
         (Language::JavaScript, js),
         (Language::TypeScript, ts),
@@ -137,24 +138,25 @@ fn identifier_rest_formal_gets_a_def_but_never_a_positional_argument() {
             "{language:?}: {:?}",
             defs(&cpg)
         );
-        let edges = argument_edges(&cpg);
-        assert!(
-            edges.contains(&("v".into(), "collect".into(), "first".into())),
-            "{language:?}: {edges:?}"
-        );
-        // Variadic: slots stop at rest, so Step 5b binds no argument to it.
-        assert!(
-            !edges.iter().any(|(_, _, parameter)| parameter == "rest"),
-            "{language:?}: an argument was bound to the rest formal: {edges:?}"
+        let edges: Vec<_> = argument_edges(&cpg)
+            .into_iter()
+            .filter(|(_, callee, _)| callee == "collect")
+            .map(|(source, _, parameter)| (source, parameter))
+            .collect();
+        assert_eq!(
+            edges,
+            [
+                ("prefix".into(), "first".into()),
+                ("v".into(), "rest".into()),
+                ("w".into(), "rest".into())
+            ],
+            "{language:?}"
         );
     }
 }
 
 #[test]
-fn bare_arrow_formal_stays_a_step5b_hole_but_the_parenthesised_control_binds() {
-    // SPEC D12: the call ladder admits name-inferred callables as Exact
-    // `free_single` targets, so PR-A does not bind arguments to the new
-    // bare formal; the pre-existing parenthesised behaviour is unchanged.
+fn bare_arrow_binds_its_byte_identified_formal_and_preserves_parenthesised_binding() {
     let js = "const take = cmd =>\n  exec(cmd);\nconst paren = (cmd) =>\n  exec(cmd);\n\
               function run(v) {\n  take(v);\n  paren(v);\n}\n";
     let ts = "const take = cmd =>\n  exec(cmd);\nconst paren = (cmd: any) =>\n  exec(cmd);\n\
@@ -173,8 +175,17 @@ fn bare_arrow_formal_stays_a_step5b_hole_but_the_parenthesised_control_binds() {
             "{language:?}: parenthesised control lost its argument edge: {edges:?}"
         );
         assert!(
-            !edges.iter().any(|(_, callee, _)| callee == "take"),
-            "{language:?}: an argument was bound to the bare formal: {edges:?}"
+            cpg.graph.edge_references().any(|edge| {
+                matches!(edge.weight(), CpgEdge::DataFlow(FlowConfidence::Exact))
+                    && matches!(&cpg.graph[edge.source()], CpgNode::Variable {
+                        function, path, access: VarAccess::Use, ..
+                    } if function == "run" && path.base == "v")
+                    && matches!(&cpg.graph[edge.target()], CpgNode::Variable {
+                        function, path, access: VarAccess::Def, start_byte, end_byte, ..
+                    } if function == "take" && path.base == "cmd"
+                        && (*start_byte, *end_byte) == (take_cmd, take_cmd + 3))
+            }),
+            "{language:?}: missing edge to bare formal: {edges:?}"
         );
     }
 }

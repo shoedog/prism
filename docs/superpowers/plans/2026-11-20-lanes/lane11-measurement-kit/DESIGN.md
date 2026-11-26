@@ -1,5 +1,7 @@
 # Lane 11: a shared measurement kit — design
 
+> **PROVISIONAL (owner decision, 2026-11-25).** These formats are not a design of record. Six review rounds and four enumeration passes found open-class defects in them that were not folded; the findings are test rows in [FORMATS-OPEN-ROWS.md](FORMATS-OPEN-ROWS.md), each with an owning slice. Each slice freezes the formats it implements, with executable tests, when it lands, and must close or explicitly re-scope every open row it owns. No other lane may depend on a provisional format: lanes 9 and 10 use their own tools until the slice that implements the format they need has landed.
+
 Status: architecture final; the comparison, join, oracle and scoring rules of section 5 were amended by the
 design review (2026-11-21); command names and file formats are fixed at stage D, after the inventory of
 existing scripts (PLAN stage M) and the executed truth matrix (PLAN stages T and E). The plan files a tracking

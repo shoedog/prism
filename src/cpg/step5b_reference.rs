@@ -1,6 +1,24 @@
 //! Serial twin of Step-5b used as the par==serial reference by the parallelization oracles.
-//! Moved out of `build.rs` unchanged (test-only).
+//! Test-only, with a full-assembly path for checking post-collection guards.
 use super::*;
+use std::cell::Cell;
+
+thread_local! { static SERIAL: Cell<bool> = const { Cell::new(false) }; }
+
+pub(super) fn enabled() -> bool {
+    SERIAL.with(Cell::get)
+}
+
+pub(super) fn with_serial<T>(f: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            SERIAL.with(|active| active.set(self.0));
+        }
+    }
+    let _restore = Restore(SERIAL.with(|active| active.replace(true)));
+    f()
+}
 
 impl CodePropertyGraph {
     pub(crate) fn collect_step5b_edges_reference(
@@ -9,18 +27,32 @@ impl CodePropertyGraph {
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
+        Self::collect_step5b_flows_reference(cg, var_index, graph, files)
+            .into_iter()
+            .map(|flow| flow.edge)
+            .collect()
+    }
+
+    pub(super) fn collect_step5b_flows_reference(
+        cg: &CallGraph,
+        var_index: &VarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<PendingArgumentFlow> {
         // Serial twin of Step-5b (global lazy param_cache, no prewarm) — the par==serial
         // reference for the oracle. The arg→param binding mirrors the production helper's
         // field-sensitive logic so the oracle proves the par_iter restructure is faithful
         // (it is no longer a frozen pre-edge-steps original; that byte-identity is
         // intentionally superseded by the field-sensitivity change).
-        let mut out: Vec<PendingEdge> = Vec::new();
+        let mut out = Vec::new();
         let exact_var_index = Self::exact_var_index_from_graph(graph);
-        let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
+        let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<callee_params::ParamDef>>>> =
+            BTreeMap::new();
+        let mut rest_cache = BTreeMap::new();
         for (caller_id, sites) in &cg.calls {
             for site in sites {
                 let resolved_site = cg.resolve_call_site(site);
-                let literal_ok = object_literal_args::exact_singleton(&resolved_site);
+                let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
                 let mut call_args = None;
                 for resolved in resolved_site {
                     // P3 (F1): mirrors step5b_edges_for_caller's skip so this serial
@@ -42,34 +74,52 @@ impl CodePropertyGraph {
                         Some(p) => p,
                         None => continue,
                     };
-                    let param_nodes =
-                        match param_cache.entry(callee_id.clone()).or_insert_with(|| {
+                    let cross_file_free_single_exact = resolved.kind == ResolutionKind::FreeSingle
+                        && resolved.confidence == ResolutionConfidence::Exact
+                        && callee_id.file != caller_id.file;
+                    let param_nodes = param_cache
+                        .entry(callee_id.clone())
+                        .or_insert_with(|| {
                             compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
-                        }) {
-                            Some(nodes) => nodes.as_slice(),
-                            None => continue,
-                        };
-                    // #594: the object-literal edges, at the position the production loop
-                    // emits them (before the positional edges of the same call site).
-                    if literal_ok {
-                        let inputs = object_literal_args::SiteInputs {
-                            caller_id,
-                            caller_parsed,
-                            callee_parsed,
-                            args,
-                            var_index,
-                            exact_var_index: &exact_var_index,
-                            graph,
-                            cross_file_free_single_exact: false,
-                        };
-                        let mut literal = Vec::new();
-                        object_literal_args::collect(&mut literal, &inputs, param_nodes, |&n| {
-                            Some(n)
-                        });
-                        out.extend(literal.into_iter().map(|flow| flow.edge));
-                    }
+                        })
+                        .as_deref()
+                        .unwrap_or_default();
+                    let inputs = object_literal_args::SiteInputs {
+                        caller_id,
+                        caller_parsed,
+                        callee_parsed,
+                        args,
+                        var_index,
+                        exact_var_index: &exact_var_index,
+                        graph,
+                        cross_file_free_single_exact,
+                    };
+                    let bare = param_nodes
+                        .first()
+                        .and_then(Option::as_ref)
+                        .and_then(|t| t.bare);
+                    let admission = bare_param_admission::Admission::new(
+                        bare,
+                        site,
+                        cg,
+                        &resolved,
+                        exact_singleton,
+                        cross_file_free_single_exact,
+                    );
+                    object_literal_args::collect(
+                        &mut out,
+                        &inputs,
+                        param_nodes,
+                        &admission,
+                        |t| t.bare,
+                        |t| Some(t.node),
+                    );
                     for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
-                        let Some(&param_idx) = slot.and_then(|slot| param_nodes.get(slot)) else {
+                        let Some(param) = slot
+                            .and_then(|slot| param_nodes.get(slot))
+                            .and_then(Option::as_ref)
+                            .filter(|target| admission.ordinary(target.bare))
+                        else {
                             continue;
                         };
                         // Field-sensitive arg binding — mirrors the production helper so this
@@ -99,16 +149,38 @@ impl CodePropertyGraph {
                                 )
                             })
                             .collect();
-                        if let Some(to) = param_idx {
-                            for from in arg_idxs {
-                                out.push((
+                        for from in arg_idxs {
+                            out.push(PendingArgumentFlow {
+                                edge: (
                                     from,
-                                    to,
+                                    param.node,
                                     CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
-                                ));
-                            }
+                                ),
+                                cross_file_free_single_exact,
+                                bare_literal: false,
+                            });
                         }
                     }
+                    if !rest_params::admitted(&inputs, site, cg, &resolved, exact_singleton) {
+                        continue;
+                    }
+                    let Some(target) = *rest_cache.entry(callee_id.clone()).or_insert_with(|| {
+                        rest_params::compute_rest_def_node(
+                            callee_parsed,
+                            callee_id,
+                            var_index,
+                            graph,
+                        )
+                    }) else {
+                        continue;
+                    };
+                    rest_params::collect(
+                        &mut out,
+                        &inputs,
+                        target,
+                        offsets,
+                        resolved.confidence.into(),
+                    );
                 }
             }
         }
