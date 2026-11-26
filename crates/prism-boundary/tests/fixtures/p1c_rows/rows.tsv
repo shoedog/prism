@@ -51,7 +51,7 @@ n1	fixtures/control-definition-rename/before.json			rule	neutral
 n2	fixtures/neutral/union-before.json			rule	neutral
 n5	fixtures/neutral/order-before.json			rule	neutral
 n5-typed-control	fixtures/neutral/numeric-enum.json	field:resp:GET /loom:200#/x		rule	neutral
-n8	fixtures/known-limits/fold6-item-value-bounds/narrow.json			rule	neutral
+n8	fixtures/known-limits/fold6-item-value-bounds/narrow.json		scalar_feasibility_unchecked	rule	neutral
 o1	fixtures/operations/none.json	field:resp:GET /loom:200#/x;op:GET /loom		rule	operations
 o2	fixtures/operations/withheld-field.json	field:resp:GET /loom:200#/stable;field:resp:GET /loom:200#/x;op:GET /loom	unsupported_schema_keyword	rule	operations
 o4	fixtures/operations/unreadable-get.json	op:GET /loom;op:POST /neighbor	operation_unreadable	rule	operations

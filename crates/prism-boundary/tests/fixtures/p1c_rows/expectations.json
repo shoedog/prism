@@ -417,10 +417,13 @@
     "limits": []
   },
   "n8": {
-    "case": "Value-only item bounds stay silent after effective-type pruning", "clause": "DESIGN §5.6 and P1b README value-level limits",
+    "case": "Value-only item bounds stay silent after effective-type pruning", "clause": "DESIGN §5.1 scoped comparison and §5.2 coverage, design answer 4, P1b fold6-item-value-bounds",
     "inputs": [{"fixture": "known-limits/fold6-item-value-bounds/narrow.json"}, {"fixture": "known-limits/fold6-item-value-bounds/wide.json"}],
     "changes": [],
-    "limits": [],
+    "limits": [
+      {"side": "Before", "scope": "root:req:POST /p", "claim": "FieldPresence", "reason": "scalar_feasibility_unchecked", "pointer": "/x/[]"},
+      {"side": "After", "scope": "root:req:POST /p", "claim": "FieldPresence", "reason": "scalar_feasibility_unchecked", "pointer": "/x/[]"}
+    ],
     "equal_content": true, "changed_bytes": true, "controls": ["control-field-items-only"]
   },
   "o1": {

@@ -1,6 +1,21 @@
-//! Structural comparison records for admitted boundary inventories.
+//! P1c structural diff claims.
+//! Compare admitted revisions with a common API, operation authority, and logical scope.
+//! Report whole-operation edits with their own statuses and observed field detail.
+//! Report explicit success-key edits independently of response-body eligibility.
+//! Pair unique proved JSON replacements and preserve both original root and field IDs.
+//! Compare named JSON field presence on checked evidence and compare all five signed shape slots.
+//! Keep declaration and member deltas independently for readable enum evidence.
+//! Preserve side-local unknowns, scope, reasons, evidence, and deduplicated limit counts.
+//! Report independently proved producer fact changes through typed revision-local inputs.
+//! Preserve unchanged structural facts through formatting, definition renames, and equivalent projections.
+//! Stay silent on value-only, unsigned union const, and unsigned item/map facts within P1b's known limits.
 
+mod basis;
+mod fields;
+mod limits;
+mod operations;
 mod producer;
+mod status;
 pub use producer::*;
 
 use crate::element::{CanonicalPath, FieldId, OperationId, PointerToken, SuccessKey};
@@ -64,7 +79,7 @@ pub enum Presence {
     Unknown,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ElementPresence {
     pub id: Option<ElementId>,
     pub presence: Presence,
@@ -115,13 +130,13 @@ pub struct ResponseRootPair {
     pub fields: Vec<FieldPair>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ComparisonSide {
     Before,
     After,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ShapeSlot {
     Type,
     Format,
@@ -130,7 +145,7 @@ pub enum ShapeSlot {
     ItemType,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ComparisonClaim {
     OperationPresence,
     StatusMembership,
@@ -141,7 +156,7 @@ pub enum ComparisonClaim {
     Coverage,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LimitScope {
     Schema,
     Operation(Option<OperationId>),
@@ -149,7 +164,7 @@ pub enum LimitScope {
     Root(OperationId, RootKey),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PresenceComparison {
     pub before: ElementPresence,
     pub after: ElementPresence,
@@ -219,9 +234,53 @@ pub fn diff_schemas<'a>(
 }
 
 pub fn diff_boundary<'a>(
-    _before: &DiffSide<'a>,
-    _after: &DiffSide<'a>,
+    before: &DiffSide<'a>,
+    after: &DiffSide<'a>,
 ) -> Result<SchemaDiff<'a>, DiffError> {
-    // Compile-ready default for the P1c RED tests.
-    Ok(SchemaDiff::default())
+    let before = basis::BoundSide::admit(before)?;
+    let after = basis::BoundSide::admit(after)?;
+    let scope = basis::common_scope(&before.basis, &after.basis)?;
+    Ok(operations::compare([before, after], &scope))
+}
+
+const SIDES: [ComparisonSide; 2] = [ComparisonSide::Before, ComparisonSide::After];
+
+impl ElementPresence {
+    fn present(id: ElementId) -> Self {
+        Self {
+            id: Some(id),
+            presence: Presence::Present,
+        }
+    }
+
+    fn without_id(presence: Presence) -> Self {
+        Self { id: None, presence }
+    }
+}
+
+impl<'a> ChangeSide<'a> {
+    fn new(element: ElementPresence) -> Self {
+        Self {
+            element,
+            declaration_id: None,
+            shape: None,
+            sites: Vec::new(),
+            success_keys: Vec::new(),
+            fields: Vec::new(),
+            producer: None,
+        }
+    }
+}
+
+impl<'a> ElementChange<'a> {
+    fn new(operation: &OperationId, [before, after]: [ChangeSide<'a>; 2]) -> Self {
+        Self {
+            operation: operation.clone(),
+            kinds: Vec::new(),
+            before,
+            after,
+            enum_added: Vec::new(),
+            enum_removed: Vec::new(),
+        }
+    }
 }

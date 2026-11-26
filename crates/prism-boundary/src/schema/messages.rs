@@ -5,8 +5,8 @@ use super::references::{Documents, Located};
 use super::{signature, wire, Declaration, Dialect, SchemaError};
 use crate::element::{MessageRoot, SuccessKey};
 use crate::inventory::{
-    Coverage, MessageCoverage, Operation, OperationSite, RegionLimit, RootKey, SchemaIndex,
-    SchemaSource, StatusInventory,
+    BlockEffect, Coverage, FieldBlock, MessageCoverage, Operation, OperationSite, RegionLimit,
+    RootKey, SchemaIndex, SchemaSource, StatusInventory, WireEvidence,
 };
 use crate::revision::{AdmittedSchemaInput, Snapshot};
 use media::Message;
@@ -30,6 +30,7 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
         }),
         info_version: inventory.info_version,
         diagnostics: inventory.diagnostics,
+        operation_gaps: inventory.operation_gaps,
         byte_sha256: inventory
             .digest
             .iter()
@@ -67,6 +68,7 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
             .expect("selected operation has an admitted location");
         let dialect = operation.dialect;
         let duplicate = operation.declarations.len() > 1;
+        let mut status_refusals = BTreeMap::new();
         let mut projected = Operation {
             id: id.clone(),
             success_keys: operation.success_keys().to_vec(),
@@ -75,18 +77,43 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
             declarations: operation
                 .declarations
                 .iter()
-                .map(|declaration| OperationSite {
-                    path: declaration.source_path.clone(),
-                    canonical_path: declaration.path.clone(),
-                    method: declaration.source_method.clone(),
-                    site: declaration.site.clone(),
-                    referring_site: declaration.referring_site.clone(),
-                    reference_chain: declaration.reference_chain.clone(),
-                    // P1c job A leaves declaration-specific status evidence unpopulated.
-                    status_inventory: StatusInventory::Withheld,
+                .map(|declaration| {
+                    let location = documents
+                        .locate(declaration.resource.as_deref(), &declaration.site)
+                        .expect("indexed declaration has an admitted location");
+                    let status_refusal = if location.duplicate("responses") {
+                        Some("duplicate_member")
+                    } else {
+                        match location.value.get("responses") {
+                            Some(value) if value.is_object() => None,
+                            None if dialect == Dialect::OpenApi31 => None,
+                            _ => Some("responses_unreadable"),
+                        }
+                    };
+                    if let Some(reason) = status_refusal {
+                        status_refusals.insert(declaration.site.clone(), reason);
+                    }
+                    OperationSite {
+                        path: declaration.source_path.clone(),
+                        canonical_path: declaration.path.clone(),
+                        method: declaration.source_method.clone(),
+                        site: declaration.site.clone(),
+                        referring_site: declaration.referring_site.clone(),
+                        reference_chain: declaration.reference_chain.clone(),
+                        status_inventory: if status_refusal.is_some() {
+                            StatusInventory::Withheld
+                        } else {
+                            StatusInventory::Readable(
+                                declaration.responses.keys().cloned().collect(),
+                            )
+                        },
+                    }
                 })
                 .collect(),
             ranged_responses: dialect != Dialect::Swagger2,
+            request_eligible: request_eligible(dialect, id.method()),
+            status_refusals,
+            wire_evidence: BTreeMap::new(),
             messages: Vec::new(),
         };
         let mut reached = BTreeSet::new();
@@ -135,6 +162,7 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
             messages.push((RootKey::Fallback, message));
         }
         for (key, mut message) in messages {
+            let mut evidence = WireEvidence::default();
             let root = match key {
                 RootKey::Request => Some(MessageRoot::Request(id.clone())),
                 RootKey::Response(key) => Some(MessageRoot::Response(id.clone(), key)),
@@ -182,10 +210,21 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
                     message.coverage = Coverage::Partial;
                 }
                 message.limits.extend(result.limits);
+                evidence = result.evidence;
             }
             if duplicate {
                 message.coverage = Coverage::Withheld;
                 message.limit(Vec::new(), "duplicate_operation");
+            }
+            for limit in &message.limits {
+                if message.coverage == Coverage::Withheld || message.blocks.contains(&limit.pointer)
+                {
+                    evidence.blocks.push(FieldBlock {
+                        pointer: limit.pointer.clone(),
+                        reason: limit.reason.clone(),
+                        effect: BlockEffect::Field,
+                    });
+                }
             }
             incomplete |= !matches!(message.coverage, Coverage::Checked)
                 && message.limits.iter().any(|limit| {
@@ -194,6 +233,7 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
                         "media_unverified" | "non_json_media" | "body_presence_unchecked"
                     )
                 });
+            projected.wire_evidence.insert(key.clone(), evidence);
             projected.messages.push(MessageCoverage {
                 key,
                 coverage: message.coverage,
@@ -225,6 +265,14 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
     Ok(index)
 }
 
+fn request_eligible(dialect: Dialect, method: &str) -> bool {
+    match dialect {
+        Dialect::Swagger2 => true,
+        Dialect::OpenApi30 => matches!(method, "POST" | "PUT" | "PATCH"),
+        Dialect::OpenApi31 => method != "TRACE",
+    }
+}
+
 fn request<'r, 'a>(
     documents: &'r Documents<'a>,
     input: &AdmittedSchemaInput<'_>,
@@ -242,10 +290,7 @@ fn request<'r, 'a>(
             Err(reason) => Some(Message::withheld(reason)),
         };
     }
-    if operation.id.method() == "TRACE"
-        || dialect == Dialect::OpenApi30
-            && !matches!(operation.id.method(), "POST" | "PUT" | "PATCH")
-    {
+    if !request_eligible(dialect, operation.id.method()) {
         return None;
     }
     if location.duplicate("requestBody") {

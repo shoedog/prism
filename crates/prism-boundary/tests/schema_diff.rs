@@ -20,6 +20,8 @@
 mod admission;
 #[path = "support/diff_audit.rs"]
 mod diff_audit;
+#[path = "support/diff_edges.rs"]
+mod diff_edges;
 #[path = "support/diff_input.rs"]
 mod diff_input;
 #[path = "support/diff_rows.rs"]

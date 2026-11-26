@@ -277,3 +277,40 @@ reports the gate as PENDING and continues.
 The test is `#[ignore]`d so that CI, which has no staged inputs, reports it as ignored rather than
 failing or passing silently; run it with `cargo test -p prism-boundary --test public_ids -- --ignored`.
 With the inputs missing an explicit `--ignored` run fails unless the override above is set.
+
+## P1c structural diff
+
+`diff_schemas(&before, &after)` compares admitted schema inventories. It
+delegates to `diff_boundary(&before, &after)`, which also accepts revision-local
+typed producer inventories and an explicit `DiffBasis`. Both sides need a
+common API, operation authority, and logical scope. An API-wide scope can be
+restricted to a typed path prefix. A contradictory source slot or an
+unestablished comparison basis returns `DiffError`.
+
+- Whole-operation additions and removals carry their side-local status and
+  field detail. A typed collision can establish operation presence. A status
+  claim from a collision requires agreement across all declarations.
+- Explicit success-key changes are independent of body eligibility. Unmatched
+  status rows carry their own field detail, including a retained range's
+  fields when it loses or regains its last body-eligible code.
+- A unique outgoing and incoming JSON response root can pair by typed relative
+  field path, retaining both original IDs. Unknown candidates, overlapping
+  status ownership, and incomparable media leave a scoped limit. Exact keys
+  own eligible responses before `2XX`, then `default`.
+- Checked named fields compare presence, type, format, requiredness, scalar
+  enum, and immediate list-item type. A readable empty enum retains its
+  declaration even when the field has no feasible value. Member deltas
+  require two readable lists. Checked empty or absent bodies can establish
+  field presence changes at retained roots.
+- Typed producer facts compare route declarations, validation, resolved
+  handler references, and corresponding endpoint body digests. Moving a
+  site or changing an alias to the same endpoint leaves those facts equal.
+
+Each side carries its own counted limits and evidence. A missing schema,
+dialect-excluded request root, unproved media selection, partial subtree,
+or unreadable shape slot limits the claims that require it. Checked sibling
+fields and independent producer facts can still compare. The limit ledger
+persists across equal hashes. Formatting, definition renames, and equivalent
+projections leave the structural changes empty. Value-only narrowing or
+widening, unsigned union `const` edits, and unsigned item or map facts stay
+silent when the signed projection is unchanged.

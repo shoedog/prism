@@ -22,6 +22,7 @@ use self::constraints::{ARRAY, NULL, OBJECT};
 use super::references::{Document, Documents, Located};
 use super::{Dialect, Site};
 use crate::element::{FieldId, MessageRoot, PointerToken};
+use crate::inventory::{BlockEffect, FieldBlock, WireEvidence};
 use crate::inventory::{DefinitionId, Field, FieldShape, Property, RegionLimit};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -164,6 +165,7 @@ pub(super) fn reference_reason(reason: &str) -> &'static str {
 pub(super) struct ResultTree {
     pub fields: Vec<(Field, bool)>,
     pub limits: Vec<RegionLimit>,
+    pub evidence: WireEvidence,
     pub warnings: Vec<String>,
     pub definitions: BTreeSet<DefinitionId>,
     pub feasible: Option<bool>,
@@ -190,6 +192,7 @@ pub(super) fn read<'r, 'a>(
     let mut result = ResultTree {
         fields: Vec::new(),
         limits: Vec::new(),
+        evidence: WireEvidence::default(),
         warnings: Vec::new(),
         definitions: BTreeSet::new(),
         feasible: (!tree.has_limits()).then_some(tree.feasible),
@@ -339,13 +342,23 @@ impl Tree {
             .warnings
             .extend(self.warnings.iter().map(|warning| (*warning).into()));
         let mut reasons = BTreeSet::new();
-        for Stop(reason, _) in &self.stops {
+        for Stop(reason, effect) in &self.stops {
             if reasons.insert(*reason) {
                 result.limits.push(RegionLimit {
                     pointer: pointer.clone(),
                     reason: (*reason).into(),
                 });
             }
+            let effect = match effect {
+                Effect::Field => BlockEffect::Field,
+                Effect::Children => BlockEffect::Children,
+                Effect::Notice => continue,
+            };
+            result.evidence.blocks.push(FieldBlock {
+                pointer: pointer.clone(),
+                reason: (*reason).into(),
+                effect,
+            });
         }
         if let Some(shape) = self.shape {
             if matches!(pointer.last(), Some(PointerToken::Property(_))) {
@@ -355,11 +368,15 @@ impl Tree {
                     definitions: self.field_definitions.into_iter().collect(),
                     sites: self.sites.into_iter().collect(),
                 };
-                let own = comparable
-                    && !self.declaration_only
+                let readable = comparable
                     && !self.uncertain_presence
                     && !self.stops.iter().any(|stop| stop.1 == Effect::Field);
-                result.fields.push((field, own));
+                if readable && self.declaration_only {
+                    result.evidence.declaration_only.insert(pointer.clone());
+                }
+                result
+                    .fields
+                    .push((field, readable && !self.declaration_only));
             }
         }
         let descend = comparable
