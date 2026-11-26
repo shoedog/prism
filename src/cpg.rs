@@ -86,9 +86,13 @@ mod props_generated_tests;
 #[cfg(test)]
 mod props_matrix_tests;
 #[cfg(test)]
+mod props_s2_coverage_tests;
+#[cfg(test)]
 mod props_s2_generated_tests;
 #[cfg(test)]
 mod props_s2_matrix_evidence;
+#[cfg(test)]
+mod props_s2_matrix_evidence_tests;
 #[cfg(test)]
 mod props_s2_pending_tests;
 #[cfg(test)]

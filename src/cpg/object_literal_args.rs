@@ -484,3 +484,7 @@ pub(super) fn collect<T, P, F>(
 #[cfg(test)]
 #[path = "object_literal_parity_tests.rs"]
 mod parity_tests;
+
+#[cfg(test)]
+#[path = "object_literal_args_coverage_tests.rs"]
+mod coverage_tests;

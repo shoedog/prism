@@ -3,10 +3,14 @@
 
 pub(crate) mod component_route;
 #[cfg(test)]
+mod component_route_coverage_tests;
+#[cfg(test)]
 mod component_route_tests;
 mod component_route_timing;
 mod exact_reads;
 mod export_facts;
+#[cfg(test)]
+mod export_facts_coverage_tests;
 pub mod exports;
 mod imports;
 mod local_bindings;
