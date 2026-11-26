@@ -27,11 +27,11 @@ fn captured_record_collection_requires_every_insertion_and_update_to_be_numeric(
 }
 
 #[test]
-fn numeric_proofs_keep_rebound_intrinsics_and_visible_shared_slots() {
+fn call_keys_stay_listed_with_or_without_visible_rebinding() {
     for (source, expected) in [
         (
             "function f(rows, key) { rows[Math.floor(key)].field = 1; }",
-            0,
+            1,
         ),
         (
             "Math.floor = identity; function f(rows, key) { rows[Math.floor(key)].field = 1; }",
@@ -39,7 +39,7 @@ fn numeric_proofs_keep_rebound_intrinsics_and_visible_shared_slots() {
         ),
         (
             "function f(key) { const rows = [{}]; rows[Number(key)].field = 1; }",
-            0,
+            1,
         ),
         (
             "function f(key) { const rows = [Object.prototype]; rows[Number(key)].field = 1; }",
@@ -47,7 +47,7 @@ fn numeric_proofs_keep_rebound_intrinsics_and_visible_shared_slots() {
         ),
         (
             "function f(rows, key) { let index = 0; index += Number(key); rows[index].field = 1; }",
-            0,
+            1,
         ),
         (
             "function f(rows, key) { let index = key; index += 0; rows[index].field = 1; }",
@@ -59,9 +59,9 @@ fn numeric_proofs_keep_rebound_intrinsics_and_visible_shared_slots() {
 }
 
 #[test]
-fn private_children_stay_live_after_an_escape_or_an_opaque_store() {
+fn private_table_child_writes_stay_listed() {
     for (prefix, value, expected) in [
-        ("", "value", 0),
+        ("", "value", 1),
         ("consume(table[key]);", "value", 1),
         ("table[key] = external;", "value", 1),
         ("", "(consume(table[key]), value)", 1),
@@ -100,10 +100,10 @@ fn numeric_leaf_omits_its_operand_and_preserves_the_receiver_selector() {
 }
 
 #[test]
-fn own_slot_enumeration_requires_the_same_closed_table() {
+fn own_slot_enumeration_keeps_writes_listed() {
     for (initial, iteration, expected) in [
-        ("{ draft: {} }", "const key of Object.keys(table)", 0),
-        ("{ draft: {} }", "const [key] of Object.entries(table)", 0),
+        ("{ draft: {} }", "const key of Object.keys(table)", 1),
+        ("{ draft: {} }", "const [key] of Object.entries(table)", 1),
         ("{ draft: {} }", "const key of Object.keys(other)", 1),
         ("{ draft: other }", "const key of Object.keys(table)", 1),
     ] {
@@ -125,11 +125,11 @@ fn own_slot_enumeration_requires_the_same_closed_table() {
 }
 
 #[test]
-fn native_offsets_and_loop_counters_require_runtime_proofs() {
+fn native_offsets_stay_listed_and_numeric_counters_discharge() {
     for (source, expected) in [
-        ("function f(rows, input) { const bytes = Uint8Array.from(input); rows[bytes[0]].field = 1; }", 0),
+        ("function f(rows, input) { const bytes = Uint8Array.from(input); rows[bytes[0]].field = 1; }", 1),
         ("function f(rows, bytes) { rows[bytes[0]].field = 1; }", 1),
-        ("function f(rows, values, key) { rows[Array.prototype.indexOf.call(values, key)].field = 1; }", 0),
+        ("function f(rows, values, key) { rows[Array.prototype.indexOf.call(values, key)].field = 1; }", 1),
         ("function f(rows, values, key) { rows[values.indexOf(key)].field = 1; }", 1),
         ("function f(rows, run) { let i = 0; while (run()) { rows[i].field = 1; i += 1; } }", 0),
         ("function f(rows, run, key) { let i = 0; while (run()) { rows[i].field = 1; i = key; } }", 1),

@@ -46,7 +46,7 @@ impl<'a> Classifier<'a, '_> {
                 && field(value, "function").is_some_and(|callee| {
                     ["String", "Number", "Boolean", "BigInt"]
                         .iter()
-                        .any(|name| self.intrinsic(callee, name))
+                        .any(|name| self.unshadowed_name(callee, name))
                 }));
         if !primitive || self.analysis.may_repeat(value) {
             return None;

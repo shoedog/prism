@@ -2,125 +2,6 @@
 use super::*;
 
 pub(super) const SHARED_LINKS: [&str; 3] = ["__proto__", "constructor", "prototype"];
-const INTRINSIC_WALK_LIMIT: usize = 32;
-
-fn intrinsic_name(name: &str) -> bool {
-    matches!(
-        name,
-        "Array"
-            | "BigInt"
-            | "Boolean"
-            | "Function"
-            | "Map"
-            | "Math"
-            | "Number"
-            | "Object"
-            | "Reflect"
-            | "RegExp"
-            | "String"
-            | "Symbol"
-            | "parseInt"
-            | "Int8Array"
-            | "Uint8Array"
-            | "Uint8ClampedArray"
-            | "Int16Array"
-            | "Uint16Array"
-            | "Int32Array"
-            | "Uint32Array"
-            | "Float16Array"
-            | "Float32Array"
-            | "Float64Array"
-            | "BigInt64Array"
-            | "BigUint64Array"
-    )
-}
-
-#[derive(Default)]
-pub(super) struct IntrinsicCensus<'a> {
-    pub(super) work: usize,
-    refused: bool,
-    unknown_rebinding: bool,
-    rebound: BTreeSet<&'a str>,
-}
-
-impl<'a> IntrinsicCensus<'a> {
-    pub(super) fn observe(&mut self, file: &'a ParsedFile, node: Node<'a>) {
-        if self.refused {
-            return;
-        }
-        if identifier(node) || node.kind() == "property_identifier" {
-            self.refused = file.node_text(&node).contains('\\');
-            if self.refused {
-                return;
-            }
-        }
-        let name = if identifier(node) {
-            Some(file.node_text(&node))
-        } else if matches!(node.kind(), "member_expression" | "subscript_expression")
-            && field(node, "object").map(peel).is_some_and(|base| {
-                matches!(
-                    file.node_text(&base),
-                    "globalThis" | "window" | "self" | "global"
-                )
-            })
-        {
-            field(node, "property")
-                .map(|property| file.node_text(&property))
-                .or_else(|| field(node, "index").and_then(|key| global_key(file, peel(key))))
-        } else {
-            return;
-        };
-        if name.is_some_and(|name| !intrinsic_name(name)) {
-            return;
-        }
-        self.work += INTRINSIC_WALK_LIMIT;
-        self.refused = self.work >= FILE_WORK_LIMIT / 4;
-        if may_change_intrinsic(file, node) {
-            if let Some(name) = name {
-                self.rebound.insert(name);
-            } else {
-                self.unknown_rebinding = true;
-            }
-        }
-    }
-}
-
-fn global_key<'a>(file: &'a ParsedFile, key: Node<'_>) -> Option<&'a str> {
-    let raw = file.node_text(&key);
-    match key.kind() {
-        "string" if raw.len() <= INTRINSIC_WALK_LIMIT => raw
-            .get(1..raw.len().checked_sub(1)?)
-            .filter(|text| !text.contains('\\')),
-        "number" | "true" | "false" | "null" => Some(raw),
-        _ => None,
-    }
-}
-
-// Observe direct stores and aliases of intrinsic objects while collecting
-// targets. The bounded walk never relies on an unexamined long member path.
-fn may_change_intrinsic(file: &ParsedFile, mut node: Node<'_>) -> bool {
-    for _ in 0..INTRINSIC_WALK_LIMIT {
-        let Some(parent) = node.parent() else {
-            return false;
-        };
-        let occupies = |part| field(parent, part) == Some(node);
-        match parent.kind() {
-            "member_expression" | "subscript_expression" if occupies("object") => node = parent,
-            "parenthesized_expression" | "as_expression" | "non_null_expression" => node = parent,
-            "assignment_expression" | "augmented_assignment_expression" => return true,
-            "for_in_statement" => return occupies("left"),
-            "update_expression" | "array_pattern" | "object_pattern" | "rest_pattern" => {
-                return true
-            }
-            "unary_expression" => return operator(parent, file) == "delete",
-            "variable_declarator" | "pair" | "array" | "return_statement" | "arguments" => {
-                return true
-            }
-            _ => return false,
-        }
-    }
-    true
-}
 
 impl<'a> Classifier<'a, '_> {
     pub(super) fn proof_charge(&self, work: usize) -> bool {
@@ -128,7 +9,7 @@ impl<'a> Classifier<'a, '_> {
         // an optional proof must not exhaust the candidate's work budget.
         let proof = self.proof_work.get().saturating_add(work);
         let file = self.file_work.get().saturating_add(work);
-        if self.intrinsics.refused || proof > TARGET_WORK_LIMIT / 2 || file > FILE_WORK_LIMIT / 4 {
+        if proof > TARGET_WORK_LIMIT / 2 || file > FILE_WORK_LIMIT / 4 {
             return false;
         }
         self.proof_work.set(proof);
@@ -149,19 +30,10 @@ impl<'a> Classifier<'a, '_> {
         (node.start_byte() == span.start_byte && node.end_byte() == span.end_byte).then_some(node)
     }
 
-    pub(super) fn intrinsic(&self, node: Node<'a>, name: &str) -> bool {
+    // Recognize the spelling and lexical binding of a modeled operation.
+    pub(super) fn unshadowed_name(&self, node: Node<'a>, name: &str) -> bool {
         let node = peel(node);
-        self.trusted_intrinsic(name)
-            && identifier(node)
-            && self.text(node) == name
-            && !self.analysis.has_binding(node)
-    }
-
-    pub(super) fn trusted_intrinsic(&self, name: &str) -> bool {
-        !self.intrinsics.refused
-            && !self.intrinsics.unknown_rebinding
-            && !self.analysis.dynamic_eval()
-            && !self.intrinsics.rebound.contains(name)
+        identifier(node) && self.text(node) == name && !self.analysis.has_binding(node)
     }
 
     pub(super) fn method(&self, call: Node<'a>, name: &str) -> Option<Node<'a>> {
@@ -176,7 +48,7 @@ impl<'a> Classifier<'a, '_> {
 
     pub(super) fn static_call(&self, call: Node<'a>, namespace: &str, method: &str) -> bool {
         self.method(call, method)
-            .is_some_and(|base| self.intrinsic(base, namespace))
+            .is_some_and(|base| self.unshadowed_name(base, namespace))
     }
 
     pub(super) fn args<const N: usize>(&self, call: Node<'a>) -> Option<[Node<'a>; N]> {

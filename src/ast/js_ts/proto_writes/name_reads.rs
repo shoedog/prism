@@ -453,10 +453,6 @@ impl<'a> Analysis<'a> {
         self.effects.known.get(&id)
     }
 
-    pub(super) fn dynamic_eval(&self) -> bool {
-        self.effects.direct_eval
-    }
-
     fn read_path(
         &mut self,
         node: Node<'a>,

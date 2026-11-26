@@ -2,22 +2,18 @@
 use super::{proofs::SHARED_LINKS, *};
 
 mod collections;
-mod native;
+mod type_tests;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Domain {
     Numeric,
-    NumericString,
     String,
     Benign,
 }
 
 impl<'a> Classifier<'a, '_> {
     pub(super) fn numeric_key(&self, node: Node<'a>) -> bool {
-        matches!(
-            self.key_domain(node, 0),
-            Some(Domain::Numeric | Domain::NumericString)
-        )
+        matches!(self.key_domain(node, 0), Some(Domain::Numeric))
     }
 
     pub(super) fn benign_key(&self, node: Node<'a>) -> bool {
@@ -77,7 +73,6 @@ impl<'a> Classifier<'a, '_> {
                 next(tail?)
             }
             "assignment_expression" => next(field(node, "right")?),
-            "call_expression" => self.call_domain(node, depth + 1),
             "member_expression" | "subscript_expression" => self.member_domain(node, depth + 1),
             _ => None,
         }
@@ -88,7 +83,7 @@ impl<'a> Classifier<'a, '_> {
         if !read.resolution_complete {
             return self.numeric_counter(node, depth).then_some(Domain::Numeric);
         }
-        if self.integer_test_dominates(node) {
+        if self.numeric_type_test_dominates(node) {
             return Some(Domain::Numeric);
         }
         let mut result = None;
@@ -98,14 +93,9 @@ impl<'a> Classifier<'a, '_> {
             }
             let domain = match self.origin(site) {
                 Origin::Value(value) => self.key_domain(value, depth),
-                Origin::Element(source) => self.iteration_domain(site, source),
                 Origin::Unknown => self.numeric_store(site, depth).then_some(Domain::Numeric),
                 _ => None,
-            }
-            .or_else(|| {
-                self.native_callback_position(site)
-                    .then_some(Domain::Numeric)
-            })?;
+            }?;
             result = Some(result.map_or(domain, |prior| join(prior, domain)));
         }
         result

@@ -352,11 +352,14 @@ completeness requires proven binding identity and member versions. JSON and text
 show new `incomplete_reason` values for identity escapes, implicit arguments,
 direct eval, possible member aliases, opaque calls, deferred evaluation, accessors
 and unproven control flow. Text prints facts and refusal reasons without expanding
-candidate histories. The listing discharges individual receiver steps with a proven
-key domain, a private child or a completed installation of the same stable own slot.
-Key-domain proofs include finite tables and anchored templates, and preserve steps
-that visibly select a shared link or a slot holding a shared prototype.
-Every fact has guard state `none`.
+candidate histories. The listing discharges individual receiver steps for a
+stable own-slot installation followed by a standalone assignment, or for a
+bounded key on an admitted receiver. Bounded keys come from literals,
+arithmetic, comparisons, numeric records with proven writes, closed literal
+tables, `typeof`, or anchored fragments. Call-result slots use a closed
+allow-list. Private table children, null walks, shared-slot proofs, closed-data
+write-back and intrinsic-trusting key domains are deferred. Every fact has
+guard state `none`.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the

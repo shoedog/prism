@@ -66,9 +66,7 @@ pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<Pr
     let root = file.tree.root_node();
     let mut work = vec![(root, root)];
     let mut targets = BTreeMap::new();
-    let mut intrinsics = proofs::IntrinsicCensus::default();
     while let Some((node, previous_owner)) = work.pop() {
-        intrinsics.observe(file, node);
         let owner = if is_owner(node) { node } else { previous_owner };
         let target = match node.kind() {
             "assignment_expression" | "augmented_assignment_expression" => field(node, "left"),
@@ -100,10 +98,9 @@ pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<Pr
         file,
         analysis,
         receivers: RefCell::default(),
-        file_work: Cell::new(intrinsics.work),
+        file_work: Cell::new(0),
         target_work: Cell::new(0),
         proof_work: Cell::new(0),
-        intrinsics,
     };
     let mut result = Vec::new();
     for (owner, mut members) in targets.into_values() {
@@ -139,7 +136,6 @@ struct Classifier<'a, 'b> {
     file_work: Cell<usize>,
     target_work: Cell<usize>,
     proof_work: Cell<usize>,
-    intrinsics: proofs::IntrinsicCensus<'a>,
 }
 
 impl<'a> Classifier<'a, '_> {

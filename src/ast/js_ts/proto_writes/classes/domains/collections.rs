@@ -2,50 +2,33 @@
 use super::*;
 
 impl<'a> Classifier<'a, '_> {
-    pub(super) fn finite_map(&self, call: Node<'a>, depth: usize) -> Option<Domain> {
-        let map = self.method(call, "get")?;
-        let value = self.closed_native_value(map, &["get"], |node| {
-            node.kind() == "new_expression"
-                && field(node, "constructor").is_some_and(|name| self.intrinsic(name, "Map"))
-        })?;
-        let [entries] = self.args(value)?;
-        if entries.kind() != "array" {
-            return None;
-        }
-        for entry in children(entries) {
-            if !self.proof_charge(1) || entry.kind() != "array" {
-                return None;
+    pub(super) fn member_domain(&self, member: Node<'a>, depth: usize) -> Option<Domain> {
+        let receiver = field(member, "object").map(peel)?;
+        if let Some(property) = field(member, "property") {
+            if self.numeric_record_field(receiver, self.text(property), depth) {
+                return Some(Domain::Numeric);
             }
-            let mut pair = children(entry);
-            let key = pair.next()?;
-            let value = pair.next()?;
-            if pair.next().is_some()
-                || self.plain_string(key).is_none()
-                || self.key_domain(value, depth) != Some(Domain::String)
-                || self.plain_string(value).is_none()
+        }
+        self.finite_member(member, receiver, depth)
+    }
+
+    fn finite_member(&self, member: Node<'a>, receiver: Node<'a>, depth: usize) -> Option<Domain> {
+        let table = if identifier(receiver) {
+            let binding = self.analysis.read(receiver)?.binding.as_ref()?;
+            let statement = self.node_at(binding)?.parent()?.parent()?;
+            if statement.kind() != "lexical_declaration"
+                || !super::super::super::has_token(statement, "const")
+                || statement
+                    .parent()
+                    .is_some_and(|parent| parent.kind() == "export_statement")
+                || !self.analysis.unmutated_receiver(receiver)
+                || self.binding_references(binding)? != [receiver]
             {
                 return None;
             }
-            if !dense_array(entry) {
-                return None;
-            }
-        }
-        dense_array(entries).then_some(Domain::Benign)
-    }
-
-    pub(super) fn finite_member(
-        &self,
-        member: Node<'a>,
-        receiver: Node<'a>,
-        depth: usize,
-    ) -> Option<Domain> {
-        let table = self.closed_native_value(receiver, &[], |node| {
-            node.kind() == "object" || self.static_call(node, "Object", "freeze")
-        })?;
-        let table = if table.kind() == "object" {
-            table
+            self.initializer(receiver)?
         } else {
-            peel(self.args::<1>(table)?[0])
+            receiver
         };
         if table.kind() != "object" {
             return None;
@@ -86,7 +69,7 @@ impl<'a> Classifier<'a, '_> {
         Some(Domain::Benign)
     }
 
-    pub(super) fn numeric_record_field(&self, record: Node<'a>, name: &str, depth: usize) -> bool {
+    fn numeric_record_field(&self, record: Node<'a>, name: &str, depth: usize) -> bool {
         if !identifier(record) || SHARED_LINKS.contains(&name) {
             return false;
         }
@@ -226,6 +209,23 @@ impl<'a> Classifier<'a, '_> {
             }
         }
         initialized
+    }
+
+    fn is_modified(&self, node: Node<'a>) -> bool {
+        let Some(parent) = self.expression_use(node) else {
+            return true;
+        };
+        let in_field = |name| field(parent, name).map(peel) == Some(peel(node));
+        match parent.kind() {
+            "assignment_expression" | "augmented_assignment_expression" | "for_in_statement" => {
+                in_field("left")
+            }
+            "update_expression" => true,
+            "unary_expression" => operator(parent, self.file) == "delete",
+            "array_pattern" | "object_pattern" | "assignment_pattern" | "pair_pattern"
+            | "rest_pattern" => true,
+            _ => false,
+        }
     }
 
     fn record_references(

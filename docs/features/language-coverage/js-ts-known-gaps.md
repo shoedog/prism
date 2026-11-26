@@ -278,21 +278,29 @@ callback store at `[67, 71)`. Captured-cursor transfer uses synchronous
 callback literals in supported iteration calls. Guard recognition, recursive
 descent and review-taint matching are later slices.
 
-Receiver exclusions require local source evidence. The listing checks numeric and
-finite key domains, anchored template fragments, private children of a local
-null-prototype table, and an earlier own-slot installation with the same primitive
-key. An interior-only template remains eligible. A fixed interior field breaks a
-receiver chain except for the explicit shared-base links. Numeric property operands
-are omitted, and the fact can still carry an earlier receiver selector.
+Receiver exclusions require local source evidence. A completed own-slot
+installation can discharge the lookup in the next standalone assignment
+when it uses the same stable primitive key. Bounded keys come from literals,
+arithmetic, comparisons, `typeof`, anchored fragments, closed literal tables,
+and numeric fields of closed record collections with proven numeric writes.
+Calls through a record invalidate its numeric-field proof. A named finite
+table must be a file-local constant with a single direct reference.
+A bounded key can
+discharge a receiver step for a modeled input, a direct data literal, or an
+admitted call-result slot. The call-result forms are `Object.create(null)`,
+`Array.from` over a length record with a literal-producing mapper, and
+`Array(n).fill` with a closed data value. These are syntax models for the
+standard operations. Other factories, indirect receiver aliases and
+unproved receiver versions keep their steps. The explicit shared-link steps
+also stay in the listing.
 
-The proofs use a bounded set of standard intrinsic calls and local allocations.
-Shadowing and visible direct rebinding disable their intrinsic proofs. The scan is
-file-local. Intrinsics rebound in another file and indirect runtime mutations such
-as `Object.getPrototypeOf([]).indexOf = …` are outside its model. Unknown
-receivers, opaque child stores, escaping children, and unsupported builder or
-key-coercion paths leave the candidate eligible. Own-key enumeration of an opaque
-object alone supplies no private-child proof. Recursion through own slots is handled
-with the recursive class.
+Private table children, null walks, shared-slot proofs, closed-data
+write-back and intrinsic-trusting key domains are deferred. Global
+conversions, native method results, and intrinsic type predicates supply
+no key domain. Own-key enumeration supplies no private-child proof.
+Interior-only templates remain eligible. A fixed interior field breaks a
+receiver chain except for the explicit shared links. Proven numeric
+property operands are omitted while earlier receiver selectors can remain.
 
 The name-read inventory certifies a reaching set for straight-line evaluation,
 plain assignments, if/else, short-circuit and conditional joins

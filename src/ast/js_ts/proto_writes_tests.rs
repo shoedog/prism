@@ -229,7 +229,7 @@ fn matrix_nonrecursive_rows() {
         } else {
             on_line.is_empty()
         };
-        let passed = passed && (row.id != "nk04" || exclusion_fold::nk04_operands(&on_line));
+        let passed = passed && exclusion_fold::required_matrix_operands(&row.id, &on_line);
         let count = counts.entry((row.truth, row.want_class)).or_default();
         count.0 += usize::from(passed);
         count.1 += 1;
