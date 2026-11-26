@@ -52,3 +52,59 @@ fn witness_boundary_warnings_keep_target_location_for_each_sink_verdict() {
         assert_eq!(details["reason"], "depth_cap");
     }
 }
+
+#[test]
+fn text_render_shows_refusal_reason_beside_the_boundary_warning() {
+    use prism::navigation::render::render;
+    use prism::navigation::types::{Evidence, Warning};
+
+    let fixture = fixture(&[(
+        "a.js",
+        "function main(req) {\n  const t = req.body;\n  h1(t);\n}\n\
+         function h1(x) { h2(x); }\nfunction h2(y) { h3(y); }\n\
+         function h3(p) {\n  exec(p);\n}\n",
+    )]);
+    let seed = |line| SeedSpec::Loc {
+        file: "a.js".into(),
+        line,
+    };
+    let evidence = taint_reaches(&fixture.session, &[seed(2)], Some(&[seed(8)])).unwrap();
+    let text = render(&evidence, "text");
+    let boundary: Vec<_> = text
+        .lines()
+        .filter(|line| line.contains("InterproceduralBoundary"))
+        .collect();
+    assert_eq!(
+        boundary,
+        ["  ! Reasoning(InterproceduralBoundary { sink: \"p\" }): \
+             taint reached a cross-function boundary at p (depth_cap)"]
+    );
+
+    // Controls: no reason means no suffix, and other warnings keep the Debug rendering.
+    let warning = |kind, message: &str| Warning {
+        kind,
+        message: message.into(),
+        location: None,
+    };
+    let plain = Evidence {
+        query: "q".into(),
+        items: vec![],
+        truncated: false,
+        warnings: vec![
+            warning(
+                WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary {
+                    sink: "p".into(),
+                    reason: None,
+                }),
+                "boundary",
+            ),
+            warning(WarningKind::StaleIndex, "stale"),
+        ],
+        graph: None,
+        reasoning: None,
+    };
+    assert_eq!(
+        render(&plain, "text"),
+        "q\n  ! Reasoning(InterproceduralBoundary { sink: \"p\" }): boundary\n  ! StaleIndex: stale\n"
+    );
+}

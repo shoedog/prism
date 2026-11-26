@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use petgraph::graph::NodeIndex;
 
 use super::object_literal_arg_tests::build;
@@ -546,4 +548,411 @@ fn crossing_trace_separates_traversed_return_input_from_crossings() {
     for field in ["relation=ReturnInput", "component=0", "return=", "depth=1"] {
         assert!(inputs[0].contains(field), "{stderr}");
     }
+}
+
+#[test]
+fn loss_reason_display_is_its_wire_name() {
+    use LossReason::*;
+    let all = [
+        SelfParam,
+        SelfReturn,
+        ReturnNotEnteredSite,
+        DepthCap,
+        TargetNotBinding,
+        NoMatchingSite,
+        AmbiguousSite,
+        NotExact,
+        UnprovenSlot,
+        PolicyCeiling,
+        UnprovenReturnInput,
+        ShortcutSuppressed,
+        CfgPruned,
+        Unmodelled,
+        NoGraphEdge,
+        ReviewNoReturnFlow,
+        ReviewNoRecoveredDefUse,
+        ReviewCfgFilter,
+        ReviewContextPolicy,
+        SanitizerModel,
+        OperandGranularity,
+        UncertifiedFlow,
+        MatcherAdmission,
+    ];
+    // The match is exhaustive (no wildcard arm), so a new variant forces this list to be extended.
+    for reason in all {
+        let _: () = match reason {
+            SelfParam
+            | SelfReturn
+            | ReturnNotEnteredSite
+            | DepthCap
+            | TargetNotBinding
+            | NoMatchingSite
+            | AmbiguousSite
+            | NotExact
+            | UnprovenSlot
+            | PolicyCeiling
+            | UnprovenReturnInput
+            | ShortcutSuppressed
+            | CfgPruned
+            | Unmodelled
+            | NoGraphEdge
+            | ReviewNoReturnFlow
+            | ReviewNoRecoveredDefUse
+            | ReviewCfgFilter
+            | ReviewContextPolicy
+            | SanitizerModel
+            | OperandGranularity
+            | UncertifiedFlow
+            | MatcherAdmission => (),
+        };
+        let wire = serde_json::to_value(reason).unwrap();
+        assert_eq!(wire.as_str().unwrap(), reason.to_string(), "{reason:?}");
+    }
+    let names: std::collections::BTreeSet<_> = all.iter().map(ToString::to_string).collect();
+    assert_eq!(names.len(), all.len(), "display names must be distinct");
+}
+
+const ASCENT_EXACT: &str = "function f(p) {\n  const v = p;\n  return v;\n}\nfunction entry(y) {\n  const out = f(y);\n  exec(out);\n}\n";
+const ASCENT_NAMEONLY: &str = "class K {\n  f(p) {\n    const v = p;\n    return v;\n  }\n}\nfunction entry(obj, y) {\n  const out = obj.f(y);\n  exec(out);\n}\n";
+
+/// The ascent is judged from the call site alone: the same return edge ascends when its site is
+/// a singleton Exact and is refused as `not_exact` when the site only demotes to the owner.
+#[test]
+fn return_ascent_through_a_nameonly_site_is_refused_as_not_exact() {
+    let ascend = |source: &str, drawn: bool| {
+        let mut cpg = build(Language::JavaScript, &[("a", source)], "js");
+        let from = occurrence(&cpg, source.find("return v").unwrap() + 7, VarAccess::Use);
+        let to = occurrence(&cpg, source.find("out =").unwrap(), VarAccess::Def);
+        let has_edge = cpg
+            .graph
+            .edges_connecting(from, to)
+            .any(|edge| matches!(edge.weight(), CpgEdge::ReturnFlow { .. }));
+        assert_eq!(has_edge, drawn, "only an Exact site has a drawn edge");
+        if !has_edge {
+            cpg.graph.add_edge(
+                from,
+                to,
+                CpgEdge::ReturnFlow {
+                    suppress_shortcut: true,
+                },
+            );
+        }
+        let trace = cpg.taint_trace_nodes_with_mode(&[from], None, ReturnFlowMode::On);
+        (from, to, trace)
+    };
+
+    let (from, to, exact) = ascend(ASCENT_EXACT, true);
+    assert!(exact.frontier_by_root[&from].contains(&to));
+    assert!(!exact.boundary.iter().any(|edge| edge.to == to));
+
+    let (from, to, demoted) = ascend(ASCENT_NAMEONLY, false);
+    assert!(!demoted.frontier_by_root[&from].contains(&to));
+    assert!(
+        demoted.boundary.iter().any(
+            |edge| (edge.root, edge.from, edge.to, edge.kind, edge.reason)
+                == (
+                    from,
+                    from,
+                    to,
+                    BoundaryKind::CrossFunction,
+                    LossReason::NotExact
+                )
+        ),
+        "{:?}",
+        demoted.boundary
+    );
+}
+
+/// A hop whose origin is not a variable occurrence has no byte span to place in a call site, so it
+/// is refused as `target_not_binding`; the same hop from a variable is judged by the site proof.
+#[test]
+fn descent_from_a_return_value_is_refused_as_target_not_binding() {
+    let source = include_str!("../../tests/taint_parity/w05/a.js");
+    let refused = |from_return_value: bool| {
+        let mut cpg = build(Language::JavaScript, &[("a", source)], "js");
+        let root = occurrence(&cpg, source.find("f(y)").unwrap() + 2, VarAccess::Use);
+        let returned = occurrence(&cpg, source.find("return v").unwrap() + 7, VarAccess::Use);
+        let ret = cpg
+            .graph
+            .node_indices()
+            .find(|&id| matches!(cpg.node(id), CpgNode::ReturnValue { .. }))
+            .expect("composite return has a return value node");
+        let to = occurrence(&cpg, source.find("out =").unwrap(), VarAccess::Def);
+        let from = if from_return_value { ret } else { returned };
+        add_binding(&mut cpg, from, to, FlowConfidence::Exact);
+        let trace = cpg.taint_trace_nodes_with_mode(&[root], None, ReturnFlowMode::On);
+        let reasons: Vec<_> = trace
+            .boundary
+            .iter()
+            .filter(|edge| (edge.from, edge.to) == (from, to))
+            .map(|edge| (edge.kind, edge.reason))
+            .collect();
+        (trace, ret, reasons)
+    };
+
+    let (trace, ret, reasons) = refused(true);
+    let root = *trace.frontier_by_root.keys().next().unwrap();
+    assert!(
+        trace.frontier_by_root[&root].contains(&ret),
+        "the return value must be walked for its hop to be judged"
+    );
+    assert_eq!(
+        reasons,
+        [(BoundaryKind::CrossFunction, LossReason::TargetNotBinding)]
+    );
+
+    let (_, _, reasons) = refused(false);
+    assert_eq!(
+        reasons,
+        [(BoundaryKind::CrossFunction, LossReason::NoMatchingSite)]
+    );
+}
+
+#[test]
+fn crossing_slot_needs_a_view_that_proves_it_and_a_site_of_the_same_file() {
+    use super::{OrderingDecision, SameLineOrderView};
+    struct Unproven;
+    impl SameLineOrderView for Unproven {
+        fn admit_same_line_recovered_def_use(
+            &self,
+            _def: NodeIndex,
+            _use: NodeIndex,
+        ) -> OrderingDecision {
+            OrderingDecision::Admit
+        }
+    }
+
+    let source = include_str!("../../tests/taint_parity/w05/a.js");
+    let cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let out = occurrence(&cpg, source.find("out =").unwrap(), VarAccess::Def);
+    let site = cpg
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.callee_name == "f")
+        .expect("f(y) call site")
+        .clone();
+    let parsed = crate::ast::ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+    let files = [("a.js".to_string(), parsed)].into();
+    let proven = crate::reasoning::order::AstOrderView::new(&cpg, &files);
+
+    assert_eq!(
+        proven.crossing_slot(out, &site, Relation::ReturnFlow),
+        Some(0)
+    );
+    assert_eq!(
+        Unproven.crossing_slot(out, &site, Relation::ReturnFlow),
+        None
+    );
+
+    let mut elsewhere = site.clone();
+    elsewhere.caller.file = "b.js".into();
+    assert_eq!(
+        proven.crossing_slot(out, &elsewhere, Relation::ReturnFlow),
+        None
+    );
+}
+
+#[test]
+fn excluding_wrapper_skips_the_excluded_hop_and_matches_the_mode_variant() {
+    let source = include_str!("../../tests/taint_parity/w05/a.js");
+    let cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let root = occurrence(&cpg, source.find("f(y)").unwrap() + 2, VarAccess::Use);
+    let formal = occurrence(&cpg, source.find("f(p)").unwrap() + 2, VarAccess::Def);
+
+    let whole = cpg.taint_trace_nodes(&[root], None);
+    assert!(whole.frontier_by_root[&root].contains(&formal));
+
+    let none = BTreeSet::new();
+    let unexcluded = cpg.taint_trace_nodes_excluding(&[root], None, &none);
+    assert_eq!(unexcluded.frontier_by_root, whole.frontier_by_root);
+
+    let excluded: BTreeSet<_> = [(root, formal)].into();
+    let trace = cpg.taint_trace_nodes_excluding(&[root], None, &excluded);
+    assert!(!trace.frontier_by_root[&root].contains(&formal));
+    assert!(!trace.boundary.iter().any(|edge| edge.to == formal));
+    let with_mode =
+        cpg.taint_trace_nodes_excluding_with_mode(&[root], None, &excluded, ReturnFlowMode::Off);
+    assert_eq!(trace.frontier_by_root, with_mode.frontier_by_root);
+}
+
+#[test]
+fn byte_span_reads_the_span_of_every_node_kind() {
+    let source = include_str!("../../tests/taint_parity/w05/a.js");
+    let cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let mut kinds = BTreeSet::new();
+    for id in cpg.graph.node_indices() {
+        let (expected, kind) = match cpg.node(id) {
+            CpgNode::Function {
+                start_byte,
+                end_byte,
+                ..
+            } => ((*start_byte, *end_byte), "function"),
+            CpgNode::Statement {
+                start_byte,
+                end_byte,
+                ..
+            } => ((*start_byte, *end_byte), "statement"),
+            CpgNode::Variable {
+                start_byte,
+                end_byte,
+                ..
+            } => ((*start_byte, *end_byte), "variable"),
+            CpgNode::ReturnValue {
+                start_byte,
+                end_byte,
+                ..
+            } => ((*start_byte, *end_byte), "return_value"),
+        };
+        assert_eq!(super::trace_cuts::byte_span(cpg.node(id)), expected);
+        assert!(expected.0 <= expected.1, "{kind} span is ordered");
+        kinds.insert(kind);
+    }
+    assert_eq!(
+        kinds.len(),
+        4,
+        "fixture must hold every node kind: {kinds:?}"
+    );
+}
+
+#[test]
+fn return_neighbours_list_return_inputs_before_return_flows() {
+    let returned_with = |mode| {
+        let mut cpg = build(Language::JavaScript, &[("a", ASCENT_EXACT)], "js");
+        let from = occurrence(
+            &cpg,
+            ASCENT_EXACT.find("return v").unwrap() + 7,
+            VarAccess::Use,
+        );
+        let flow = occurrence(&cpg, ASCENT_EXACT.find("out =").unwrap(), VarAccess::Def);
+        // A later node than the flow target: only the relation rank can put it first.
+        let input = occurrence(&cpg, ASCENT_EXACT.find("f(y)").unwrap() + 2, VarAccess::Use);
+        assert!(flow.index() < input.index());
+        cpg.graph.add_edge(from, input, CpgEdge::ReturnInput);
+        let returned: Vec<_> = cpg
+            .taint_neighbors(from, mode)
+            .into_iter()
+            .filter(|(_, relation, _, _)| {
+                matches!(relation, Relation::ReturnInput | Relation::ReturnFlow)
+            })
+            .map(|(target, relation, _, _)| (target, relation))
+            .collect();
+        (flow, input, returned)
+    };
+
+    let (flow, input, on) = returned_with(ReturnFlowMode::On);
+    assert_eq!(
+        on,
+        [(input, Relation::ReturnInput), (flow, Relation::ReturnFlow)]
+    );
+    let (_, _, off) = returned_with(ReturnFlowMode::Off);
+    assert!(off.is_empty(), "{off:?}");
+}
+
+fn call_site_bytes(cpg: &CodePropertyGraph, callee: &str) -> (usize, usize) {
+    let site = cpg
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .find(|site| site.callee_name == callee)
+        .expect("call site");
+    (site.start_byte, site.end_byte)
+}
+
+/// A refused return hop still names its call site, but only when the syntax view proves which
+/// call assigns the target.
+#[test]
+fn refused_return_hop_names_its_site_only_with_a_proving_view() {
+    let source = include_str!("../../tests/taint_parity/w05/a.js");
+    let cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let from = occurrence(&cpg, source.find("return v").unwrap() + 7, VarAccess::Use);
+    let to = occurrence(&cpg, source.find("out =").unwrap(), VarAccess::Def);
+    let parsed = crate::ast::ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+    let files = [("a.js".to_string(), parsed)].into();
+    let order = crate::reasoning::order::AstOrderView::new(&cpg, &files);
+    let gate = || Err(LossReason::NotExact);
+
+    let (start_byte, end_byte) = call_site_bytes(&cpg, "f");
+    let evidence = cpg
+        .crossing_site(from, to, Relation::ReturnFlow, gate(), Some(&order))
+        .expect("an assigned call is named");
+    assert_eq!(
+        evidence.location,
+        super::CrossingSite {
+            start_byte,
+            end_byte,
+            slot: Some(0)
+        }
+    );
+    assert!(cpg
+        .crossing_site(from, to, Relation::ReturnFlow, gate(), None)
+        .is_none());
+}
+
+/// Site evidence for a call hop needs variable endpoints; any other endpoint yields none, never a
+/// guess.
+#[test]
+fn call_hop_site_evidence_needs_variable_endpoints() {
+    let source = include_str!("../../tests/taint_parity/w05/a.js");
+    let cpg = build(Language::JavaScript, &[("a", source)], "js");
+    let from = occurrence(&cpg, source.find("f(y)").unwrap() + 2, VarAccess::Use);
+    let to = occurrence(&cpg, source.find("f(p)").unwrap() + 2, VarAccess::Def);
+    let ret = cpg
+        .graph
+        .node_indices()
+        .find(|&id| matches!(cpg.node(id), CpgNode::ReturnValue { .. }))
+        .expect("composite return has a return value node");
+    let gate = || Err(LossReason::TargetNotBinding);
+
+    let (start_byte, end_byte) = call_site_bytes(&cpg, "f");
+    let evidence = cpg
+        .crossing_site(from, to, Relation::CallDescent, gate(), None)
+        .expect("a variable hop is named by its call");
+    assert_eq!(
+        (evidence.location.start_byte, evidence.location.end_byte),
+        (start_byte, end_byte)
+    );
+    for (origin, target) in [(ret, to), (from, ret)] {
+        assert!(
+            cpg.crossing_site(origin, target, Relation::CallDescent, gate(), None)
+                .is_none(),
+            "{origin:?} -> {target:?}"
+        );
+    }
+}
+
+/// A return edge whose source has no owning function cannot witness a suppressed shortcut, and
+/// does not hide the one that can.
+#[test]
+fn shortcut_witness_skips_a_return_edge_without_an_owner() {
+    let shortcut = |source: &str| {
+        let mut cpg = build(Language::JavaScript, &[("a", source)], "js");
+        let use_ = occurrence(&cpg, source.find("f(y)").unwrap() + 2, VarAccess::Use);
+        let def = occurrence(&cpg, source.find("out =").unwrap(), VarAccess::Def);
+        let statement = cpg
+            .graph
+            .node_indices()
+            .find(|&id| matches!(cpg.node(id), CpgNode::Statement { .. }))
+            .expect("statement node");
+        cpg.graph.add_edge(
+            statement,
+            def,
+            CpgEdge::ReturnFlow {
+                suppress_shortcut: true,
+            },
+        );
+        cpg.taint_neighbors(use_, ReturnFlowMode::On)
+            .into_iter()
+            .find(|(target, relation, _, _)| {
+                *target == def && *relation == Relation::AssignmentPropagation
+            })
+            .map(|(_, _, _, site)| site.map(|site| (site.start_byte, site.end_byte)))
+            .expect("assignment propagation to the call's result")
+    };
+
+    let exact = shortcut(ASCENT_EXACT);
+    assert!(exact.is_some(), "the real return edge still witnesses");
+    assert_eq!(shortcut(ASCENT_NAMEONLY), None);
 }
