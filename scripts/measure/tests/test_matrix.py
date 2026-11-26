@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import re
 import unittest
@@ -13,15 +14,51 @@ from .test_syntax import parse_as_python_39
 ENABLED_GROUPS = {"run"}
 
 
+# Ledger "Materialize" IDs of the run group that the enabled matrix does not
+# carry as rows, mapped to the named executable tests of this slice.
+S1_TESTS = {
+    "run-019": [("test_run", "RunTests", "test_guard_refusal_exits_75"),
+                ("test_run", "RunTests", "test_late_quiet_preserves_failed_receipt"),
+                ("test_run", "RunTests", "test_bad_guard_status_never_yields_quiet")],
+    "run-020": [("test_corpora", "CorporaTests",
+                 "test_tree_pin_detects_link_changes_with_same_perf_manifest")],
+    "run-021": [("test_corpora", "CorporaTests", "test_links_into_git_refuse_and_tracked_target_admits"),
+                ("test_corpora", "CorporaTests", "test_git_blob_binding_ignores_index_flags"),
+                ("test_run", "RunTests", "test_snapshot_excludes_repository_metadata_and_sibling_sources")],
+    "run-022": [("test_run", "RunTests", "test_link_resolution_change_invalidates_run"),
+                ("test_corpora", "CorporaTests", "test_link_hops_refuse_even_when_dangling")],
+    "run-023": [("test_corpora", "CorporaTests", "test_link_cycles_and_ancestor_directories_refuse"),
+                ("test_corpora", "CorporaTests", "test_link_hops_refuse_even_when_dangling")],
+}
+# Round-four IDs owned by later slices, with their owning group.
+LATER_SLICE_IDS = {"gate-026": "gate", "oracle-065": "oracle", "oracle-066": "oracle",
+                   "cmp-061": "comparator", "review-019": "review"}
+
+
 class MatrixLedgerTests(unittest.TestCase):
+    def ledger(self):
+        return (REPO / "docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit"
+                / "FORMATS-LEDGER.md").read_text(encoding="utf-8")
+
     def test_round_four_handoff_covers_all_eight_fixture_ids(self):
-        ledger = (REPO / "docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit"
-                  / "FORMATS-LEDGER.md").read_text(encoding="utf-8")
-        section = ledger.split("Materialise the following eight new IDs", 1)[1]
+        section = self.ledger().split("Materialise the following eight new IDs", 1)[1]
         table, handoff = section.split("**Existing controls to extend.**", 1)
         ids = re.findall(r"^\| ([a-z]+-[0-9]+) \| Materialize", table, flags=re.MULTILINE)
         self.assertEqual(len(set(ids)), 8)
         self.assertIn("adds all eight IDs", handoff.split("**Handoff.**", 1)[1])
+        # Every ID is executed here or assigned to a later slice, none dropped.
+        self.assertEqual(set(ids), {i for i in S1_TESTS if i >= "run-021"} | set(LATER_SLICE_IDS))
+
+    def test_every_run_materialize_id_is_a_matrix_row_or_a_named_test(self):
+        ledger = self.ledger()
+        wanted = set(re.findall(r"^\| (run-[0-9]+) \| Materialize", ledger, flags=re.MULTILINE))
+        rows = {row["id"] for row in read_jsonl(MATRIX / "rows.jsonl") if row["group"] == "run"}
+        self.assertEqual(wanted - rows, set(S1_TESTS))
+        for ident, tests in S1_TESTS.items():
+            for module, name, method in tests:
+                with self.subTest(id=ident, test=method):
+                    owner = getattr(importlib.import_module(f"measure.tests.{module}"), name)
+                    self.assertTrue(callable(getattr(owner, method, None)))
 
 
 class MatrixTests(Workbench):

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import dataclasses
 import gzip
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
+from unittest.mock import patch
 
-from .helpers import MEASURE, Workbench, sha256_of, write_tree
+from .helpers import MEASURE, REPO, Workbench, sha256_of, write_tree
 
 
 QUIET = {"kind": "host_quiet", "launched": False, "child_exit": None}
@@ -227,6 +231,105 @@ class RunTests(Workbench):
                 self.assert_exit(self.run_kit("--expect-version", pin), 3)
                 self.assertIsNone(self.receipt())
         self.assert_exit(self.run_kit("--expect-version", "DEF5678"), 0)
+
+    def test_short_version_pin_is_rejected_before_version_launches(self):
+        # Each banner's version token equals the pin exactly, so only the
+        # minimum-length rule (checked before any launch) can refuse it.
+        for banner, pin in (("prism x", "x"), ("prism abcd", "abcd"), ("a", "a"), ("1", "1")):
+            with self.subTest(pin=pin):
+                self.log.unlink(missing_ok=True)
+                self.make_fake(version=banner)
+                self.assert_exit(self.run_kit("--expect-version", pin), 3)
+                self.assertEqual(self.fake_log(), [])
+                self.assertIsNone(self.receipt())
+        self.make_fake(version="prism 1.2.3 commit def5678aa-dirty")
+        self.assert_exit(self.run_kit("--expect-version", "def5678", out=self.work / "dirty"), 3)
+
+    def test_artifact_drift_after_capture_retains_failed_receipt(self):
+        # The edges command rewrites an artifact a previous command produced.
+        self.make_fake({"edges": "(next(root.parent.glob('.stage-*')) / 'dfg-stats.json')"
+                                  ".write_text('{\"count\":2}\\n')"})
+        self.assert_exit(self.run_kit(), 4)
+        receipt = self.receipt()
+        self.assertEqual(receipt["status"], "failed")
+        for name, artifact in receipt["artifacts"].items():
+            with self.subTest(artifact=name):
+                path = self.out / name
+                self.assertEqual(artifact, {"sha256": sha256_of(path), "bytes": path.stat().st_size})
+        from measure.receipt import admit
+        with self.assertRaises(ValueError):
+            admit(self.out)
+
+    def test_snapshot_cleanup_handles_unwritable_directories(self):
+        self.fresh_tree(files={"a.ts": "a", "locked/inner/file": "x"})
+        locked = self.source / "locked"
+        for path in (locked / "inner", locked):
+            path.chmod(0o555)
+        self.addCleanup(lambda: [path.chmod(0o755) for path in (locked, locked / "inner")])
+        self.make_fake(version="prism 1.2.3")
+        self.assert_exit(self.run_kit("--expect-version", "other-version"), 3)
+        self.assertFalse((self.out / "snapshot").exists())
+        self.assertEqual([c["command"] for c in self.fake_log()], ["version"])
+        self.make_guard({"version": (75, QUIET)})
+        self.assert_exit(self.run_kit(out=self.work / "quiet"), 75)
+        self.assertFalse((self.work / "quiet" / "snapshot").exists())
+
+    def test_receipt_records_guard_hash_and_kit_state(self):
+        from measure.receipt import admit
+        from measure.run import kit_dirty
+        self.assert_exit(self.run_kit(), 0)
+        receipt = self.receipt()
+        self.assertEqual(receipt["guard"]["sha256"], sha256_of(self.guard))
+        self.assertIsInstance(receipt["kit_dirty"], bool)
+        self.assertEqual(admit(self.out)["status"], "ok")
+        path = self.out / "receipt.json"
+        for mutate in (lambda r: r["guard"].update(sha256="short"),
+                       lambda r: r.update(kit_dirty="no")):
+            record = json.loads(json.dumps(receipt))
+            mutate(record)
+            path.write_text(json.dumps(record), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                admit(self.out)
+        # The dirty flag follows tracked edits and untracked files in the kit.
+        repo = self.work / "kit"
+        write_tree(repo, {"scripts/measure/m.py": "a", "scripts/memguard/g.sh": "a", "other": "a"})
+        git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], env=self.env, check=True,
+                                        capture_output=True)
+        git("init", "-q")
+        git("add", "-A")
+        git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", "x")
+        self.assertFalse(kit_dirty(repo))
+        write_tree(repo, {"other": "changed"})
+        self.assertFalse(kit_dirty(repo))
+        write_tree(repo, {"scripts/memguard/g.sh": "changed"})
+        self.assertTrue(kit_dirty(repo))
+        git("checkout", "--", "scripts")
+        write_tree(repo, {"scripts/measure/new.py": "x"})
+        self.assertTrue(kit_dirty(repo))
+
+    def test_link_state_is_bound_apart_from_directories_and_files(self):
+        # Only the reported resolution differs; inventory, modes and bytes are equal.
+        from measure.inputs import bind_tree
+        self.fresh_tree(files={"d/f": "a"}, links={"alias": "d"})
+        base = bind_tree(self.source)
+        with patch("measure.inputs.link_states", return_value={(b"alias",): (b"missing", ())}):
+            changed = bind_tree(self.source)
+        self.assertEqual(base.sha256, changed.sha256)
+        self.assertNotEqual(base.state_sha256, changed.state_sha256)
+
+    def test_completion_check_compares_link_state_alone(self):
+        from measure.inputs import bind_tree
+        from measure.run import check_completion
+        self.fresh_tree(files={"d/f": "a"}, links={"alias": "d"})
+        binding = bind_tree(self.source)
+        corpus = SimpleNamespace(root=self.source, binding=binding)
+        sha = sha256_of(self.fake)
+        self.assertEqual(check_completion(corpus, self.source, self.fake, sha, "ok", 0)[:2], ("ok", 0))
+        moved = dataclasses.replace(binding, state_sha256="0" * 64)
+        for which, patched in (("snapshot", [moved, binding]), ("original", [binding, moved])):
+            with self.subTest(changed=which), patch("measure.run.bind_tree", side_effect=patched):
+                status, code, final, _ = check_completion(corpus, self.source, self.fake, sha, "ok", 0)
+                self.assertEqual((status, code, final), ("input_changed", 4, binding.sha256))
 
     def test_missing_unreadable_or_nonexecutable_binary_exits_four(self):
         self.assert_exit(self.run_kit(binary=self.work / "missing"), 4)

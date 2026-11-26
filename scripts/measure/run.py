@@ -19,9 +19,10 @@ from tempfile import TemporaryDirectory
 from . import receipt
 from .corpora import REPO, verify
 from .inputs import (DIRECTORY, AliasedInput, PinError, UnboundLink, bind_tree,
-                     copy_snapshot, git, sha256_file)
+                     copy_snapshot, git, remove_tree, sha256_file)
 
 DEFAULT_GUARD = REPO / "scripts" / "memguard" / "memguard.sh"
+KIT_PATHS = ("scripts/measure", "scripts/memguard", "scripts/hostquiet")
 MAX_STATUS_BYTES = 4096
 
 
@@ -106,6 +107,12 @@ def guarded(guard, limit, argv, env, stdout, stderr):
     if error:
         diagnostic(error, 4)
     return {"argv": argv, "exit": code, "guard_status": status, "start": start, "end": now()}
+
+
+def kit_dirty(repo=REPO):
+    """True when tracked kit files differ from HEAD or kit files are untracked."""
+    return bool(git(repo, "--literal-pathspecs", "status", "--porcelain=v1", "-z",
+                    "--untracked-files=all", "--", *KIT_PATHS))
 
 
 def executable_hash(path):
@@ -202,13 +209,15 @@ def run(args, entry, trace, *, gate_sha256=None, gate_step_id=None, prediction_s
             "schema": receipt.SCHEMA,
             "start": start,
             "kit_commit": git(REPO, "rev-parse", "HEAD").decode().strip(),
+            "kit_dirty": kit_dirty(),
             "binary": {"path": str(binary), "sha256": binary_sha},
             "prediction": prediction,
             "gate_sha256": gate_sha256,
             "gate_step_id": gate_step_id,
             "options": {"bytes": not args.no_bytes, "sites": args.sites, "cache": "no-cache",
                         "trace_env": trace},
-            "guard": {"path": str(guard), "limit_gb": args.limit_gb},
+            "guard": {"path": str(guard), "limit_gb": args.limit_gb,
+                      "sha256": sha256_file(guard)},
             "host": {"platform": sys.platform, "cpus": os.cpu_count(), "env": host},
             "commands": [],
             "artifacts": {},
@@ -284,6 +293,7 @@ def measure(expect_version, corpus, out, stage, binary, guard, record):
             return code
         status, code, final_digest, final_state = check_completion(
             corpus, root, binary, expected_binary, status, code)
+        status, code = check_artifacts(stage, artifacts, status, code)
         entry = corpus.entry
         record["corpus"] = {"key": corpus.key, "commit": entry["commit"], "root": str(root),
                             "pin_check": corpus.pin_check, "manifest_sha256": entry["manifest_sha256"],
@@ -299,7 +309,21 @@ def measure(expect_version, corpus, out, stage, binary, guard, record):
             if root.is_symlink():
                 root.unlink()
             elif root.is_dir():
-                shutil.rmtree(root)
+                remove_tree(root)
+
+
+def check_artifacts(stage, artifacts, status, code):
+    """A later command may rewrite an earlier artifact; publish what is on disk."""
+    drifted = []
+    for name in artifacts:
+        actual = receipt.artifact(stage / name)
+        if actual != artifacts[name]:
+            drifted.append(name)
+            artifacts[name] = actual
+    if drifted:
+        diagnostic(f"artifact changed after capture: {', '.join(drifted)}", 4)
+        return ("failed" if status == "ok" else status), code or 4
+    return status, code
 
 
 def check_completion(corpus, root, binary, expected_binary, status, code):

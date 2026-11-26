@@ -6,6 +6,8 @@ from pathlib import Path
 import shutil
 from unittest.mock import patch
 
+from measure.inputs import UnboundLink
+
 from .helpers import MEASURE, Workbench, fixture_digest, write_tree
 
 
@@ -82,6 +84,14 @@ class CorporaTests(Workbench):
         self.write_manifest(entries)
         self.assert_exit(self.verify(self.key), 2)
 
+    def test_list_shows_the_pin_each_kind_verifies(self):
+        pinned = fixture_digest(self.source)
+        self.write_manifest({
+            "G": self.entry, "T": dict(self.entry, kind="tree", tree_sha256=pinned)})
+        listed = {line.split("\t")[0]: line.split("\t")[3]
+                  for line in self.kit("corpora", "list").stdout.splitlines()[1:]}
+        self.assertEqual(listed, {"G": self.commit, "T": pinned})
+
     def test_list_and_first_existing_candidate(self):
         self.assertIn("Z\tFixture\tgit\t" + self.commit, self.kit("corpora", "list").stdout)
         fallback = self.work / "fallback"
@@ -152,16 +162,52 @@ class CorporaTests(Workbench):
                 self.assertIn("unbound-link", result.stdout)
                 link.unlink()
 
+    def rebuild(self, files, links):
+        shutil.rmtree(self.source, ignore_errors=True)
+        self.fresh_tree(files=files, links=links)
+
+    def resolve_links(self, files, links):
+        from measure.inputs import link_states, tree_members
+
+        self.rebuild(files, links)
+        return link_states(self.source, tree_members(self.source))
+
     def test_parent_after_link_uses_filesystem_resolution(self):
-        self.fresh_tree(files={"sub/nested/file": "a", "sub/one": "b"}, links={
-            "b": "sub/nested", "x": "b/../one",
-        })
-        self.assert_exit(self.verify(), 0)
-        (self.source / "x").unlink()
-        (self.source / "x").symlink_to("b/../../../outside")
-        self.entry["tree_sha256"] = fixture_digest(self.source)
-        self.write_manifest()
+        # Each case separates filesystem resolution from lexical `..`.
+        # Inside the root lexically but outside after expanding the link: refuse.
+        with self.assertRaises(UnboundLink):
+            self.resolve_links({"c/file": "a", "sub/y": "b"},
+                               {"sub/b": "../c", "sub/x": "b/../../outside"})
         self.assert_exit(self.verify(), 3)
+        self.assert_exit(self.run_kit(), 3)
+        self.assertEqual(self.fake_log(), [])
+        # Outside the root lexically but inside after expansion: admit, exact referent.
+        states = self.resolve_links({"sub/nested/file": "a", "one": "b"},
+                                    {"b": "sub/nested", "x": "b/../../one"})
+        self.assertEqual(states[(b"x",)], (b"F", (b"one",)))
+        self.assert_exit(self.verify(), 0)
+        # The parent hop applies to the link's referent, not the link's own directory.
+        states = self.resolve_links({"sub/nested/file": "a", "sub/one": "b"},
+                                    {"b": "sub/nested", "x": "b/../one"})
+        self.assertEqual(states[(b"x",)], (b"F", (b"sub", b"one")))
+        self.assert_exit(self.verify(), 0)
+        # Escaping after expansion refuses.
+        self.rebuild({"sub/nested/file": "a"}, {"b": "sub/nested", "x": "b/../../../outside"})
+        self.assert_exit(self.verify(), 3)
+
+    def test_link_hop_expansion_is_capped(self):
+        # l0 -> d and l(i) -> l(i-1)/../l(i-1): no cycle, 2**i hops for l(i).
+        links = {"l0": "d", **{f"l{i}": f"l{i - 1}/../l{i - 1}" for i in range(1, 27)}}
+        self.fresh_tree(files={"d/f": "a"}, links=links)
+        result = self.verify()
+        self.assert_exit(result, 3)
+        self.assertIn("unbound-link", result.stdout)
+        self.assert_exit(self.run_kit(), 3)
+        self.assertEqual(self.fake_log(), [])
+        # A realistic chain stays admitted.
+        shutil.rmtree(self.source)
+        self.fresh_tree(files={"d/f": "a"}, links={f"l{i}": f"l{i - 1}" if i else "d" for i in range(8)})
+        self.assert_exit(self.verify(), 0)
 
     def test_link_state_binds_case_alias_resolution(self):
         from measure.inputs import bind_tree
@@ -195,6 +241,66 @@ class CorporaTests(Workbench):
                 self.assert_exit(self.verify(), 3)
                 self.assert_exit(self.run_kit(), 3)
                 self.assertEqual(self.fake_log(), [])
+
+    def test_intermediate_root_component_link_refuses(self):
+        # `src` links outside the checkout; the pinned root `src/sub` is a
+        # plain directory name, and the target tree has the registered digest.
+        self.fresh_tree()
+        elsewhere = self.work / "elsewhere"
+        write_tree(elsewhere / "sub", {"a.ts": "x"})
+        (self.source / "src").symlink_to(elsewhere, target_is_directory=True)
+        self.entry.update(root="src/sub", tree_sha256=fixture_digest(elsewhere / "sub"))
+        self.write_manifest()
+        result = self.verify()
+        self.assert_exit(result, 3)
+        self.assertIn("linked query root", result.stdout)
+        self.assert_exit(self.run_kit(), 3)
+        self.assertEqual(self.fake_log(), [])
+
+    def test_git_metadata_in_extraction_refuses_with_perf_manifest(self):
+        from measure.inputs import manifest_hash
+        from perf.cloud.fetch_corpora import manifest_hash as perf_hash
+
+        self.fresh_tree(files={"a.ts": "a"})
+        self.entry["manifest_sha256"] = perf_hash(self.source)
+        self.write_manifest()
+        self.assert_exit(self.verify(), 0)
+        write_tree(self.source, {".git/note": "metadata"})
+        # The section 2 digest and the kit checksum skip the file; the
+        # reference population does not.
+        self.assertEqual(fixture_digest(self.source), self.entry["tree_sha256"])
+        self.assertEqual(manifest_hash(self.source), self.entry["manifest_sha256"])
+        self.assertNotEqual(perf_hash(self.source), self.entry["manifest_sha256"])
+        result = self.verify()
+        self.assert_exit(result, 3)
+        self.assertIn("Git metadata", result.stdout)
+        self.assert_exit(self.run_kit(), 3)
+        self.assertEqual(self.fake_log(), [])
+
+    def test_links_into_git_refuse_and_tracked_target_admits(self):
+        for target in (".git/provider", "mid/provider"):
+            with self.subTest(target=target):
+                write_tree(self.source, {"a.h": "a\n"})
+                (self.source / "alias.h").unlink(missing_ok=True)
+                (self.source / "mid").unlink(missing_ok=True)
+                (self.source / "mid").symlink_to(".git")
+                (self.source / "alias.h").symlink_to(target)
+                self.entry["commit"] = self.commit_files({})
+                self.write_manifest()
+                for provider in ("one", "two"):
+                    write_tree(self.source, {".git/provider": provider})
+                    result = self.verify()
+                    self.assert_exit(result, 3)
+                    self.assertIn("unbound-link", result.stdout)
+                    self.assert_exit(self.run_kit(), 3)
+                    self.assertEqual(self.fake_log(), [])
+        (self.source / "alias.h").unlink()
+        (self.source / "mid").unlink()
+        (self.source / "alias.h").symlink_to("a.h")
+        self.entry["commit"] = self.commit_files({})
+        self.write_manifest()
+        self.assert_exit(self.verify(), 0)
+        self.assert_exit(self.run_kit(), 0)
 
     def test_gitlinks_refuse(self):
         self.git("update-index", "--add", "--cacheinfo", f"160000,{self.commit},submodule")

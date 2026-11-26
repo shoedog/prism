@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 import re
 
 from .inputs import (PinError, SHA256, TreeBinding, bind_tree, git, git_tree_digest,
-                     json_object, manifest_hash)
+                     has_git_member, json_object, manifest_hash)
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_MANIFEST = Path(__file__).with_name("corpora.json")
@@ -134,6 +134,9 @@ def verify(key, entry, search_roots):
             if status:
                 raise PinError("dirty Git query root")
         if entry["manifest_sha256"] is not None:
+            if not git_checkout and has_git_member(root):
+                # The section 2 digest skips `.git`; the reference checksum does not.
+                raise PinError("Git metadata in an extracted tree with a perf-cloud manifest")
             actual = manifest_hash(root, binding.members)
             if actual != entry["manifest_sha256"]:
                 raise PinError("perf-cloud manifest digest mismatch")
@@ -145,7 +148,8 @@ def verify(key, entry, search_roots):
 def list_corpora(entries):
     print("key\tname\tkind\tpin\thistory\tcloud_asset")
     for key, entry in sorted(entries.items()):
-        print(key, entry["name"], entry["kind"], entry["commit"] or entry["tree_sha256"] or "",
+        pin = entry["commit"] if entry["kind"] == "git" else entry["tree_sha256"]
+        print(key, entry["name"], entry["kind"], pin or "",
               str(entry["history"]).lower(), entry["cloud_asset"] or "", sep="\t")
     return 0
 

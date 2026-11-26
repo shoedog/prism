@@ -138,6 +138,11 @@ def _check_provenance(record):
         raise ValueError("invalid kit commit")
     guard, host, prediction = (record[key] for key in ("guard", "host", "prediction"))
     env = host["env"]
+    # Additive fields: validated when present.
+    if "sha256" in guard and not is_digest(guard["sha256"]):
+        raise ValueError("invalid guard digest")
+    if "kit_dirty" in record and type(record["kit_dirty"]) is not bool:
+        raise ValueError("invalid kit dirty flag")
     if (not isinstance(guard["path"], str) or not guard["path"]
             or type(guard["limit_gb"]) is not int or guard["limit_gb"] < 1
             or not isinstance(host["platform"], str) or not host["platform"]

@@ -19,6 +19,9 @@ import zlib
 SHA256 = re.compile(r"[0-9a-f]{64}")
 CHUNK = 1024 * 1024
 DIRECTORY = os.O_DIRECTORY | os.O_NOFOLLOW | os.O_RDONLY
+# Hosts refuse paths that expand more than a few dozen links (ELOOP). A tree
+# whose links expand past this many hops cannot be resolved boundedly.
+MAX_LINK_HOPS = 256
 
 
 class PinError(ValueError):
@@ -189,9 +192,12 @@ def link_states(root, members):
         pending = deque()
         active = set()
         dangling = False
+        hops = 0
 
         def expand(parts, target):
-            if parts in active or target.startswith(b"/") or not target:
+            nonlocal hops
+            hops += 1
+            if parts in active or target.startswith(b"/") or not target or hops > MAX_LINK_HOPS:
                 refuse(link)
             active.add(parts)
             pending.extendleft(reversed([*target.split(b"/"), parts]))
@@ -259,6 +265,25 @@ def link_states(root, members):
     if directories:
         raise UnboundLink("unbound-link: cyclic or ancestor directory link")
     return states
+
+
+def has_git_member(root):
+    """True when any file, link or directory of the tree is named `.git`."""
+    return any(".git" in (*directories, *names)
+               for _, directories, names in os.walk(root, followlinks=False))
+
+
+def remove_tree(path):
+    """Delete a private snapshot whose directories may be read-only."""
+    def unlock(directory):
+        os.chmod(directory, 0o700)
+        with os.scandir(directory) as entries:
+            children = [entry.path for entry in entries if entry.is_dir(follow_symlinks=False)]
+        for child in children:
+            unlock(child)
+
+    unlock(path)
+    shutil.rmtree(path)
 
 
 def manifest_hash(root, members=None):

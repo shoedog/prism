@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -112,6 +113,35 @@ else:
 
     def sleeping_child(self):
         return ["sh", "-c", 'printf "%s" "$$" > "$1"; exec sleep 8', "test", str(self.child_pid)]
+
+    def test_surviving_worker_is_terminated_and_reported(self):
+        # The leader exits 0 while a worker of its process group still runs.
+        worker = self.root / "worker.pid"
+        code = ("import os, subprocess, sys\n"
+                "from pathlib import Path\n"
+                "Path(os.environ['FAKE_CHILD_PID']).write_text(str(os.getpid()))\n"
+                f"w = subprocess.Popen(['sleep', '7']); Path({str(worker)!r}).write_text(str(w.pid))\n"
+                "sys.exit(0)")
+        result, raw = self.guarded([sys.executable, "-c", code])
+        self.assert_status(result, raw, 1, "guard_error", True, 0)
+        self.assertIn(b"still running", result.stderr)
+        survivor = int(worker.read_text())
+        for _ in range(50):
+            try:
+                os.kill(survivor, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.1)
+        else:
+            self.fail("worker survived the guard")
+
+    def test_joined_workers_keep_the_child_exit(self):
+        code = ("import os, subprocess, sys\n"
+                "from pathlib import Path\n"
+                "Path(os.environ['FAKE_CHILD_PID']).write_text(str(os.getpid()))\n"
+                "sys.exit(subprocess.call(['sh', '-c', 'exit 3']))")
+        result, raw = self.guarded([sys.executable, "-c", code])
+        self.assert_status(result, raw, 3, "child", True, 3)
 
     def test_bad_limit_is_guard_error(self):
         result, raw = self.guarded(["true"], limit="0")

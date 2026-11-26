@@ -24,9 +24,14 @@ perf-cloud manifest is an additional check when supplied. `RS` and `R`
 select the same ripgrep registration. `GIN` selects gin and `G` selects guava.
 
 Register each `SB.<class>.<entry>` with the acquired package's own tree digest
-and package path. The registry ships the public Git pins. The source-only
+and package path. The registry ships the public Git pins only: it holds no `SB`
+entries, so `run --corpus SB.<class>.<entry>` against it exits 2 (unknown key)
+until S1b/S6b register digests computed from the authenticated acquired trees.
+A manifest supplied with `--manifest` can register them earlier. The source-only
 `R4B` fixture is registered in S2, and package and extraction registrations
-require digests from the actual acquired trees.
+require digests from the actual acquired trees. An extracted tree with a
+perf-cloud `manifest_sha256` must hold no `.git` file or directory, because the
+reference checksum counts them and the section 2 digest does not.
 
 `run` requires an absent or empty output directory outside the query root.
 It retains a private source snapshot without Git administrative files or
@@ -40,7 +45,10 @@ qualification of ambient inputs belong to the consuming gate.
 By default the guard uses an 8 GiB RSS limit. `--no-bytes` disables the edge
 byte switch, `--sites` adds the call-site dump, and repeatable
 `--trace-env NAME=VALUE` applies only to the edge command. Version pins match
-the version token or at least seven hex digits of the reported commit.
+the version token or at least seven hex digits of the reported commit. A
+build whose commit token carries a `-dirty` suffix cannot match a commit pin;
+pin its version token or build from a clean tree. The receipt also records the
+guard's SHA-256 and `kit_dirty`, which marks a kit checkout with edits.
 See `run --help` for the full interface.
 
 Successful runs return 0. Usage and occupied output errors return 2, corpus
@@ -51,6 +59,9 @@ guard exit and structured status for each attempt, and the prediction digest
 captured before version. A refusal before an analysis launches leaves no
 measurement receipt. Once analysis starts, a failure retains partial
 artifacts and publishes the failed receipt last.
+
+A worker still running in the command's process group after the command exits is
+terminated and reported as `guard_error` (exit 1), never as completion.
 
 The guard also runs directly as `scripts/memguard/memguard.sh LIMIT COMMAND ...`
 from the repository root. `--status-fd FD` precedes the limit when a caller

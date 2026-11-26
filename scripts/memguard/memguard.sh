@@ -140,4 +140,16 @@ done
 
 wait "$child"
 child_exit=$?
+# A worker the command left behind in its process group would outlive the
+# measurement: terminate it and report a guard error, never completion.
+if kill -0 -- "-$child" 2>/dev/null; then
+    echo "memguard: a worker of the command is still running after it exited; terminating it" >&2
+    kill -TERM -- "-$child" 2>/dev/null || :
+    for i in 1 2 3; do
+        kill -0 -- "-$child" 2>/dev/null || break
+        sleep 1
+    done
+    kill -KILL -- "-$child" 2>/dev/null || :
+    finish 1 guard_error true "$child_exit"
+fi
 finish "$child_exit" child true "$child_exit"
