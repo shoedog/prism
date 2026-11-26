@@ -240,10 +240,11 @@ children of `register_blueprint`, `include_router` and `mount`, and the view sup
   aliases), and attribute chains through resolved modules to a proved definition or allocation. Admit calls to
   import-proved framework constructors (`Flask`, `Blueprint` here), and zero-argument calls to proved synchronous,
   parameterless factories without decorators whose sole return is the final direct statement and resolves to a
-  named router in the invocation frames. Ordinary grouped value expressions are normalized. The alias write/use
-  check applies to `alias = app` and skips `alias = (app)`. The Flask `record_once` setup-state matcher
-  derives its owner from the proved Blueprint for a bare `state.add_url_rule(...)` receiver. It leaves
-  `(state).add_url_rule(...)` untraced because it compares the receiver's written text to the formal.
+  named router in the invocation frames. Ordinary grouped value expressions are normalized. The following
+  are disclosed residuals at `56a9a0d4`. The alias write/use check handles `alias = app` and skips
+  `alias = (app)`. The Flask `record_once` setup-state matcher gets the owner of a bare
+  `state.add_url_rule(...)` from the proved Blueprint. Comparing the receiver's written text to
+  the formal leaves `(state).add_url_rule(...)` untraced.
   S2b retains the built-in FastAPI `.router` case below.
 - **View values.** Admit the function definition at a route decorator with no opaque decorator beneath it, or a
   bare function name reached directly or through the same assignment, import/alias and module-member forms.
@@ -290,54 +291,90 @@ that it withholds 100 of 115 import-reached registration and mount sites, includ
 in that population, on evidence unrelated to module mutation. Option 1 applies the repository's
 standing static-binding contract as written. §10 reports the measured change.
 
-Require one eligible in-repo source module and a syntactically established binding at **every**
-package hop, including dotted aliases. A source import naming the child itself can establish the
-binding (`import pkg.routes`, `import pkg.routes as r`, or `from pkg import routes` when it imports
-the child). A lexical binding in the initializer, from an import, definition or assignment, can also
-establish a member. Apply lexical scope, alias and shadow checks and follow a hop as a module only
-when the syntax establishes that module. `import pkg` and an empty initializer leave `pkg.routes.bp`
-unproved even when `pkg/routes.py` exists. Refuse re-exported router or callable terminals.
-Recognized native Flask imports continue to supply `Flask`, `Blueprint`, `View` and `MethodView`
-under the existing framework checks.
+Require one eligible in-repo source module. Resolve the `P.N` module path in `from P.N import x`
+through import syntax. Python loads that module without reading `P.N` as a package attribute. Apply
+the hop predicates only where the capture reads a package member, including `import P.N as r`,
+qualified access such as `P.N.x`, and selection of `N` in `from P import N`. Apply the terminal
+predicates to the captured member `x`. The import-machinery veto also checks source initializers on
+the module path.
 
-Require one unconditional eligible terminal binding. Apply these predicates in order across the
-terminal and all package hops.
+Each attribute-path hop needs a syntactically established binding. A child-naming import
+(`import P.N`, `import P.N as r`, or `from P import N` when it imports the child) must occur in
+the capture's own lexical scope in the capture module, at or before the capture in that scope's
+source text. The dotted aliased import itself supplies that evidence for its attribute reads.
+`from P import N` imports the child under this rule when an eligible child exists, `P` has no
+lexical value write to `N`, and `P` has no module-scope `__getattr__` binding. A lexical binding
+of `N` in the package initializer, by import, definition or assignment, also establishes a member.
+Follow it as a module only when the syntax identifies an eligible module, including an explicit
+initializer alias such as `from . import real as routes`. The initializer's `from . import N`
+is the explicit same-child binding in predicate 6. An empty initializer and `import P` leave
+`P.N.x` unproved even if `P/N.py` exists or an unrelated module imports `P.N`. Keep the lexical
+alias and shadow checks. Refuse a router or callable terminal re-export such as `from pkg import bp`
+when the initializer obtains `bp` via `from .base import bp`. Recognized native Flask imports
+continue to supply `Flask`, `Blueprint`, `View` and `MethodView` under the existing framework checks.
 
-1. `getattr_module` applies when an ordinary module or package declares a module-level `__getattr__`.
+Require one unconditional eligible terminal binding. Use Python's NFKC-normalised identifiers as
+binding and predicate keys. Keep original UTF-8 byte spans and spellings in diagnostics. Apply
+the following predicates in order across the terminal and applicable attribute-path hops.
+
+1. `getattr_module` applies to any module-scope lexical binding of `__getattr__`, conditional
+   or unconditional. Count imports (including aliases), defs, classes, assignment targets
+   including tuples, `for`, `with`, `except` and `except*` targets, match captures and walrus
+   targets. A binding through `global __getattr__` in a nested scope also counts. A nested
+   scope's own local binding or an unwritten `global` declaration does not trigger the veto.
 2. `star_import` applies when a wildcard import could supply the name, including an unknown source or export set.
 3. `global_write` applies when a class or function body writes the module name through `global`.
    An ordinary class attribute binds in the class namespace.
 4. `multi_write` applies to competing lexical binding or deletion sites across the defining module,
    including later writes, imports, `del`, `match` captures, `for` targets, `with ... as`,
-   `except ... as` and walrus writes to the enclosing scope. An explicit child import supplies a
-   competing binding if the initializer imports a different value under that name. Conservatively
-   count comprehension iteration targets in the write index. The index at `56a9a0d4` omits Python
-   3.12 `type` aliases, so a name that may be affected needs a separate guard before proving it.
-5. `nested_single` applies when the sole write is nested in conditional or control-flow syntax.
-6. `submodule_shadow` applies when a package member competes with an eligible same-named in-repo
-   source child (`P/N.py`, `P/N/__init__.py` or a source namespace directory `P/N/`). At a hop,
-   an explicitly imported child alone clears the check. Use source candidates independently
-   of installation order.
-7. `module_descriptor_name` is a spelling-only veto for `__dict__` and `__class__`. On CPython 3.9.6,
-   3.11.15, 3.12.13, 3.13.13 and 3.14.4, both from-import and qualified lookup return the module
-   dictionary or type even with an explicit same-named def. The tested `__annotations__` and
-   `__annotate__` lookups preserve an explicit declaration, including on versions exposing the
-   corresponding descriptors. They are outside the veto. The `def __dict__` pin is `WITHHELD` (fk-52).
+   `except ... as`, `except* ... as`, walrus writes to the enclosing scope and Python 3.12
+   `type` statement names (including generic aliases). Count an annotated assignment with a
+   value as a write. An annotation without a value (`f: object`) writes no value and can still
+   affect function-local name resolution. Conservatively count comprehension iteration targets
+   for `multi_write` and `nested_single`.
+5. `nested_single` applies when the sole counted write, including a `type` statement, is nested
+   in conditional or control-flow syntax.
+6. `submodule_shadow` applies when the hop or terminal module binds `N` by a lexical write
+   other than an import of that same child (for example, the initializer's `from . import N`),
+   while an eligible same-named in-repo child `N` exists (`P/N.py`, `P/N/__init__.py` or
+   a source namespace directory `P/N/`). A capture-side import of the child does not clear
+   the veto. Use source candidates independently of installation order.
+7. `module_descriptor_name` is a spelling-only veto for the closed list `__dict__` and
+   `__class__`. On CPython 3.9.6, 3.11.15, 3.12.13, 3.13.13 and 3.14.4, from-import and a
+   first qualified lookup return the module dictionary or type in place of a same-named
+   def. On 3.11+ a repeated qualified lookup may return the def after specialization. The veto
+   applies in both cases. The tested `__annotations__` and `__annotate__` lookups preserve an
+   explicit declaration, including on versions exposing the corresponding descriptors.
+8. `import_dunder` applies to a module-scope lexical write to `__path__`, `__name__`, `__spec__`,
+   `__package__` or `__loader__`, including a nested write directed there through `global`.
+   This spelling veto covers the terminal module, packages read at attribute hops and source
+   initializers on an import module path. It does not simulate native import machinery.
 
-Keep the existing decorator transparency checks. Flask accepts a proved `@bp.get('/a')` (fk-c10)
-and reports `inner_decorator` for bare `@skip('/a')`. A no-effect callee must bind to its direct,
-undecorated def. Assignment aliases of that def cannot earn the exemption. Use `no_effect_body`.
-Comments, `pass`, a bare return and a return of `None` (including grouped `None`) pass. A docstring
-statement fails.
+Keep the existing decorator transparency checks. Flask accepts a proved `@bp.get('/a')` (fk-c10).
+For the following stack, keep the admitted route and mark its written callback unresolved with
+`inner_decorator`.
 
-On refusal, preserve the independently established literals, written callback and role-specific
-receiver, callback or mount behavior. A failed callee check withholds dependent inferred metadata.
-Emit one diagnostic per refused capture for the first applicable counted predicate. Use the
-imported name before `as` in a bare from-import, the full qualified expression at a qualified
-capture, or the whole call for a refused no-effect callee. Emit the counted diagnostic even when
-Flask drops a site for lack of a receiver hint. An unsupported form without a counted predicate,
-including an unestablished child hop or a terminal re-export, keeps only its role-specific refusal.
-The census tracks `unestablished_hop` separately from the diagnostic reasons.
+```python
+@bp.get('/a')
+@skip('/a')
+def f():
+    pass
+```
+
+A no-effect callee must bind to its direct, undecorated def. Assignment aliases of that def cannot
+earn the exemption. Use `no_effect_body`. Comments, `pass`, a bare return and a return of `None`
+(including grouped `None`) pass. A docstring statement fails.
+
+Evaluate imported captures used by registration or mount proofs, by the no-effect check, or reached
+during escape indexing (fk-34). On refusal preserve independently established literals, the written
+callback and the role-specific receiver, callback or mount behavior. A failed callee check withholds
+dependent inferred metadata. Emit only the first applicable counted predicate per distinct refused
+capture span. Use the imported name before `as` for a bare from-import and the full expression for
+a qualified capture. For a refused no-effect callee, emit once at each distinct whole-call span
+(fk-65). Emit the diagnostic even when Flask drops a site for lack of a receiver hint. An unsupported
+form with no counted predicate, including an unestablished child hop or terminal re-export, keeps
+only its role-specific refusal. The estimator records `unestablished_hop` and `terminal_reexport`
+as separate site outcomes.
 
 During escape indexing, keep possible targets when an import proof fails and withhold their
 view-derived metadata if the escape cannot be cleared. In fk-34, the helper captures and mutates
@@ -357,10 +394,10 @@ at `56a9a0d4`, `setup.unused = _mut` invalidated the entire module for the no-ef
 
 For these Python imports, out-of-model behavior includes runtime module-object mutation (reflective
 writes and direct attribute stores, `globals()`, `vars()`, `setattr` and `__dict__` stores,
-`importlib.reload`, `sys.modules` replacement and `exec`), dynamic lookup without a declared
-module `__getattr__`, import machinery such as `__path__` changes or non-source children,
-initialization order and timing, and native descriptor precedence. The finite spelling veto
-above applies without simulating descriptor lookup. Supported view and router escape checks and
+`importlib.reload`, `sys.modules` replacement (fk-66) and `exec`), dynamic lookup without a
+lexical module `__getattr__` binding, dynamic import machinery changes and non-source children,
+initialization order and timing, and native descriptor precedence. The closed descriptor veto
+is a conservative belt based on source spelling. Supported view and router escape checks and
 explicit view metadata writes remain part of the setup model. The [Stage D pins](STAGE-D-ROWS.md#python-router-and-view-value-boundary)
 record emitted fields beside native observations. Each `KNOWN_LIMIT` pin makes no claim about
 the native object and earns zero runtime credit for the affected fields.
@@ -735,7 +772,8 @@ The frozen populations, binding floors and ledger dispositions above govern each
   views are unresolved with a reason. Request-source coverage built on the listing pays for this.
 - **Python router/view boundary (§5.3).** Section 1 of `~/prism-evidence/routes/m/UNTRACED-FORMS-CENSUS.md`
   used Flask `36e4a824f340`, FastAPI `0cb4a8e284b4` and Apache Superset `7519fa8b6f5a` for a separate set
-  of syntax-only raw tallies. It counted 2,206 candidate registrations and mounts, including two
+  of syntax-only raw tallies. Section 4 instead used Superset `ad7fcac1` for the import-binding census.
+  Section 1 counted 2,206 candidate registrations and mounts, including two
   receiver calls and four child-router calls with non-constructor spellings. It counted zero subscript or
   conditional shapes among the classified receivers and child arguments, and three lambdas among 58 explicit
   view arguments. The mutation predicates returned eight method-attribute write hits, zero router/app
@@ -743,52 +781,63 @@ The frozen populations, binding floors and ledger dispositions above govern each
   The no-effect predicate found zero duplicates among 168 candidates using direct defs and simple assignments
   for the write count. Its body filter also admits docstrings. Runtime module-attribute rebinding and indirect
   view-map writes are unmeasured.
-- **Static import cost (§5.3).** The reruns in `~/prism-evidence/routes/m/UNTRACED-FORMS-CENSUS.md`
-  §4 supersede the earlier file-wide counts. Twenty source checks trace the capture to its import
-  and declaration, ten per population.
+- **Static import cost (§5.3).** DESIGN specifies the rule. Section 4 of
+  `~/prism-evidence/routes/m/UNTRACED-FORMS-CENSUS.md` estimates its costs and supersedes the earlier
+  file-wide counts. Twenty source checks trace the import and destination, ten per population.
 
-  R and M denote registrations and mounts. The framework and Superset columns use the retained
-  source screen, which excludes 1,545 client-like sites from 3,503 scanner sites. The 413 Superset
-  mock decorators were excluded before that scanner count. The five-app denominator retains all
-  340 scanner sites. All old and new site keys and import-reached keys agree within each corpus.
+  R and M denote registrations and mounts. For the frameworks and Superset, the source screen
+  excludes 1,545 client-like sites from 3,503 scanner sites. The scanner excludes 413 Superset mock
+  decorators before that site count. The five-app denominator includes all 340 scanner sites.
+  Site keys and import-reached keys match the preceding rerun. The columns are exclusive, with
+  the first counted reason taking precedence.
 
-  | Framework or corpus | Revision | Scanner sites | R | M | Import-reached R / M | Static census proven R / M | Counted refusals R / M | Unestablished hops R / M | Former rule flagged R / M |
-  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-  | Flask | `36e4a824` | 683 | 354 | 74 | 3 / 5 | 3 / 5 | 0 / 0 | 0 / 0 | 3 / 3 |
-  | FastAPI | `0cb4a8e2` | 2,142 | 1,358 | 152 | 1 / 5 | 1 / 5 | 0 / 0 | 0 / 0 | 0 / 2 |
-  | Apache Superset | `ad7fcac1` | 678 | 14 | 6 | 0 / 1 | 0 / 1 | 0 / 0 | 0 / 0 | 0 / 1 |
-  | Total | | 3,503 | 1,726 | 232 | 4 / 11 | 4 / 11 | 0 / 0 | 0 / 0 | 3 / 6 |
-
-  | Application | Revision | Scanner sites | R | M | Import-reached R / M | Static census proven R / M | Counted refusals R / M | Unestablished hops R / M | Former rule flagged R / M |
+  | Framework or corpus | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | Former rule flagged R / M |
   |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-  | full-stack-fastapi-template | `77e550a7` | 29 | 23 | 6 | 0 / 6 | 0 / 6 | 0 / 0 | 0 / 0 | 0 / 0 |
-  | fastapi-realworld-example-app | `029eb778` | 29 | 20 | 9 | 0 / 9 | 0 / 9 | 0 / 0 | 0 / 0 | 0 / 0 |
-  | microblog | `a975ef64` | 32 | 27 | 5 | 27 / 5 | 27 / 5 | 0 / 0 | 0 / 0 | 27 / 5 |
-  | redash | `f561a53d` | 66 | 60 | 6 | 21 / 1 | 21 / 1 | 0 / 0 | 0 / 0 | 21 / 1 |
-  | CTFd | `b88e0bf7` | 184 | 171 | 13 | 34 / 12 | 34 / 12 | 0 / 0 | 0 / 0 | 34 / 12 |
-  | Total | | 340 | 301 | 39 | 82 / 33 | 82 / 33 | 0 / 0 | 0 / 0 | 82 / 18 |
+  | Flask | `36e4a824` | 683 | 354 | 74 | 3 / 5 | 3 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 3 |
+  | FastAPI | `0cb4a8e2` | 2,142 | 1,358 | 152 | 1 / 5 | 1 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 2 |
+  | Apache Superset | `ad7fcac1` | 678 | 14 | 6 | 0 / 1 | 0 / 1 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 1 |
+  | Total |  | 3,503 | 1,726 | 232 | 4 / 11 | 4 / 11 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 6 |
 
-  Each first-reason count for `getattr_module`, `star_import`, `global_write`, `multi_write`,
-  `nested_single`, `submodule_shadow` and `module_descriptor_name` is zero for registrations and
-  mounts in both populations. Every pairwise overlap in the current rule is zero. No other unresolved
-  case occurs among the import-reached sites.
+  | Application | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | Former rule flagged R / M |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | full-stack-fastapi-template | `77e550a7` | 29 | 23 | 6 | 0 / 6 | 0 / 6 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+  | fastapi-realworld-example-app | `029eb778` | 29 | 20 | 9 | 0 / 9 | 0 / 9 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+  | microblog | `a975ef64` | 32 | 27 | 5 | 27 / 5 | 27 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 27 / 5 |
+  | redash | `f561a53d` | 66 | 60 | 6 | 21 / 1 | 4 / 1 | 17 / 0 | 0 / 0 | 0 / 0 | 21 / 1 |
+  | CTFd | `b88e0bf7` | 184 | 171 | 13 | 34 / 12 | 34 / 12 | 0 / 0 | 0 / 0 | 0 / 0 | 34 / 12 |
+  | Total |  | 340 | 301 | 39 | 82 / 33 | 65 / 33 | 17 / 0 | 0 / 0 | 0 / 0 | 82 / 18 |
 
-  The historical rerun flagged 9/15 import-reached sites across the frameworks and Superset
-  (9/1,958, 0.46% overall). The first reason was the former mutation check on three mounts and the
-  former initialization check on three registrations and three mounts. The two checks overlapped on
-  one Superset mount. It flagged 100/115 in the applications (100/340, 29.41% overall), including all
-  100 import-reached Flask sites and all 18 import-reached Flask mounts. The first reason was the
-  former mutation check at all 100 sites, and the former initialization check overlapped at 99.
-  The application flags came from `setattr` on ordinary objects or `exec` on private dictionaries.
-  The larger import-reached population in the applications, and what triggered those flags, changed
-  the cost assessment. The static import checks retain all 15 and 115 sites in the two census populations.
+  Every first-reason count and pairwise overlap is zero for both populations and both site kinds
+  (`getattr_module`, `star_import`, `global_write`, `multi_write`, `nested_single`, `submodule_shadow`,
+  `module_descriptor_name` and `import_dunder`). Other unresolved cases among the import-reached sites
+  are also zero. The lexical import-machinery veto adds zero flags. Skipping the attribute-hop
+  predicates on the module path of a from-import removes 18 check entries in the frameworks and
+  Superset and 157 in the apps, with zero change to site classifications or counts.
 
-  The census estimates import-binding flags from syntax. It omits opaque ordinary verb calls without
-  constructor or route evidence, computed or subscripted roots, argument splats, re-export chains,
-  dynamic imports and hooks, and runtime branch or initialization order. The lexical write inventory
-  omits Python 3.12 `type` aliases. The star-import screen conservatively treats export sets as
-  unknown and omits transitive wildcard export analysis. Imported no-effect callees, exact adapter
-  yield and downstream paths lost per mount remain unmeasured.
+  The withdrawn rule flagged 9 of 15 import-reached sites across the frameworks and Superset
+  (9 of 1,958 source-screened sites). The former mutation check was first on three mounts and the
+  former initialization check was first on three registrations and three mounts. Those checks
+  overlapped on one Superset mount. The withdrawn rule flagged 100 of 115 in the applications,
+  including every import-reached Flask site. Its mutation check was first at all 100 sites, and
+  the former initialization check overlapped at 99. The application flags came from `setattr`
+  on ordinary objects or `exec` on private dictionaries.
+
+  This fold raises the estimator's refusal count in the apps from zero to 17. All 17 are Redash
+  registrations that import the Blueprint through a terminal re-export. Redash now has four
+  import-reached registrations and one mount with no counted predicate flagged for the site.
+  One follow-up worth measuring is admitting one explicit terminal re-export hop, given the
+  17 Redash registrations affected. The current rule refuses the hop.
+
+  The scanner estimates flags from Tree-sitter syntax. Its lexical inventory now normalises
+  NFKC identifiers, distinguishes annotation-only declarations from value writes, counts Python 3.12
+  type statements and screens lexical import-machinery dunders. It preserves raw source text.
+  It can skip opaque ordinary verb calls, computed or subscripted roots, splatted arguments and
+  module-valued assignments it cannot trace. It flags explicit terminal imports without tracing
+  re-exported objects, uses source-only module candidates and does not model transitive wildcard
+  exports, arbitrary import lookup, dynamic hooks, reflective writes, or runtime branch and
+  initialization order. Static hook bindings are screened by name. The wildcard screen is broader
+  than the rule when a known export set excludes the name. Imported no-effect callees, decorator and
+  escape proofs, exact adapter yield and downstream paths lost per mount remain unmeasured.
 - **Two registration facts for Go.** The existing callback-registration edges and the new records describe
   the same calls; the records prefer those facts at the argument's own bytes. Only the two unindexed bare-function positions in 5.1 use the declaration fallback. A Go
   method value (`c.List`) has no such fact; the records resolve it by 5.6 (owner decision 6), and nothing
@@ -801,8 +850,8 @@ The frozen populations, binding floors and ledger dispositions above govern each
   method's own receiver `a` either, so the route table can bind handlers that `nav callees` cannot. The rule
   reads only the method's declaration; carrying it into call resolution is outside this lane (a resolution
   change with its own corpus measurement).
-- **Strict receiver and import proof costs recall** (factory apps, re-exported routers); each refusal is a
-  counted reason, and the stage D recall floor is set knowing it.
+- **Strict receiver and import proof costs recall** (factory apps, re-exported routers); include each refusal in the
+  applicable recall denominator, including role-specific refusals with no counted diagnostic.
 - **Out of model:** routes added at run time in loops over data, plugin systems other than the Hapi plugin
   adapter (section 11), reflection.
 
