@@ -14,6 +14,7 @@ from . import test_oracle as fixtures
 README = REPO / "scripts/measure/README.md"
 FORMATS = REPO / "docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit/FORMATS.md"
 OFF = "endpoint-coordinate-off"
+MEMBER = "member-path-not-judged"
 
 
 def rows(case):
@@ -31,7 +32,7 @@ class CoordinateRule(unittest.TestCase):
         rows_ = rows("lexical-coordinate")
         off = of(rows_, "wrong36-a.ts", "UNDECIDED")
         self.assertEqual(len(off), 4)  # `app:` twice, `engines:`, `method:`
-        self.assertTrue(all(r["why"] == OFF for r in off))
+        self.assertTrue(all(r["why"] == MEMBER for r in off))
         controls = of(rows_, "wrong36-a.ts", "CORRECT")
         self.assertEqual(len(controls), len(off))
         for row in off:
@@ -75,8 +76,9 @@ class CoordinateRule(unittest.TestCase):
 
     def test_delete_operands_are_undecided_and_the_void_read_is_correct(self):
         rows_ = rows("lexical-delete")
-        self.assertEqual(sorted(r["verdict"] for r in rows_), ["CORRECT", "CORRECT"] + ["UNDECIDED"] * 5)
-        self.assertTrue(all(r["why"] == "delete-operand" for r in rows_ if r["verdict"] == "UNDECIDED"))
+        self.assertEqual(sorted(r["verdict"] for r in rows_), ["CORRECT"] + ["UNDECIDED"] * 6)
+        self.assertCountEqual([r["why"] for r in rows_ if r["verdict"] == "UNDECIDED"],
+                              ["delete-operand"] * 4 + [MEMBER] * 2)
 
     def test_the_argument_slot_follows_the_rule_and_keeps_the_stricter_formats_row(self):
         rows_ = rows("argument-coordinate")

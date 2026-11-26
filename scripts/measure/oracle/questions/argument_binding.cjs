@@ -10,7 +10,7 @@ const result = (verdict, why = property) => ({ verdict, property, why });
 function grade(row, context) {
   const { ts, program, checker, enclosing_call, node_at_bytes, identifier_at_bytes } = context.public;
   const { from, to } = row;
-  if (from.path.fields.length || to.path.fields.length) return result('UNDECIDED', 'structured-path');
+  if (from.path.fields.length || to.path.fields.length) return result('UNDECIDED', 'member-path-not-judged');
   const call = enclosing_call(from.file, from.start_byte, from.end_byte);
   const actual = node_at_bytes(program, from.file, from.start_byte, from.end_byte);
   if (!call || !actual) return result('UNDECIDED', 'slot-unproved');

@@ -11,25 +11,19 @@ from .test_oracle import KIT, read_jsonl
 
 
 DECIDED = {"CORRECT", "WRONG"}
+FORMER_CLASSES = {"property-origin", "receiver-dispatch", "member-order"}
 DETECTORS = {
     "annex-b": {"annexb": "reliable-detector"},
     "direct-eval": {"eval": "reliable-detector"},
     "catch-var": {"catch-var": "reliable-detector"},
     "host-mode": {"host-mode": "proxy"},
-    "property-origin": {
-        "property-origin": "proxy",
-        "spread-getter/__proto__": "reliable-detector",
-        "declare/merged": "reliable-detector",
-    },
     "parameter-default": {"param-default-closure": "reliable-detector"},
     "for-let-init": {"for-let-init": "reliable-detector"},
     "for-in-of-head": {"for-in-of-head": "reliable-detector"},
     "module-resolution": {"ext-substitution": "reliable-detector", "package-main/json/d.ts": "proxy"},
     "html-comment": {"html-comment": "reliable-detector"},
-    "receiver-dispatch": {"receiver-override": "proxy"},
     "computed-member-name": {"computed-name": "reliable-detector"},
     "static-initialization": {"static-init": "proxy"},
-    "member-order": {"member-order": "proxy"},
     "ambient-erasure": {"ambient-erased": "reliable-detector"},
 }
 
@@ -57,19 +51,33 @@ class OracleKnownLimitsTests(unittest.TestCase):
         root = KIT / "selfcheck"
         cases = {path.name.removeprefix("known-limit-"): path
                  for path in root.glob("known-limit-*") if path.is_dir()}
-        self.assertEqual(set(cases), set(registry["classes"]))
+        self.assertEqual(set(cases), set(registry["classes"]) | FORMER_CLASSES)
+        self.assertTrue(FORMER_CLASSES.isdisjoint(registry["classes"]))
         self.assertEqual({slug: entry["prevalence"] for slug, entry in registry["classes"].items()},
                          DETECTORS)
 
         programs = Counter((entry["source_pass"], entry["id"]) for entry in registry["unrecovered"])
         members = Counter(entry["source_pass"] for entry in registry["unrecovered"])
-        for slug, entry in registry["classes"].items():
+        totals = Counter()
+        for slug, case in cases.items():
             with self.subTest(known_limit=slug):
-                case = cases[slug]
+                entry = registry["classes"].get(slug)
                 goldens = read_jsonl(case / "expected.jsonl")
+                decided = Counter()
+                moved_programs = set()
+                for i, golden in enumerate(goldens, 1):
+                    if golden["verdict"] in DECIDED:
+                        decided[i] += 1
+                    else:
+                        self.assertEqual((golden["relation"], golden["verdict"], golden["why"]),
+                                         ("lexical_binding", "UNDECIDED", "member-path-not-judged"))
+                        moved_programs.add(golden["key"]["from"]["file"].split("/", 1)[0])
+                        totals["moved"] += 1
+                if entry is None:
+                    self.assertFalse(decided)
                 claimed_rows = Counter()
                 claimed_files = Counter()
-                for program in entry["programs"]:
+                for program in entry["programs"] if entry else ():
                     programs[program["source_pass"], program["id"]] += 1
                     if program["pinned"]:
                         members[program["source_pass"]] += 1
@@ -77,6 +85,9 @@ class OracleKnownLimitsTests(unittest.TestCase):
                     self.assertTrue(program["reason"].strip())
                     self.assertEqual(program["node"]["status"], 0)
                     claimed_files.update(program["files"])
+                    for kind in ("pinned", "controls"):
+                        totals[kind] += sum(len(ordinals) for verdicts in program[kind].values()
+                                            for ordinals in verdicts.values())
                     for relation_map in (program["pinned"], program["controls"]):
                         for relation, verdicts in relation_map.items():
                             for verdict, ordinals in verdicts.items():
@@ -92,11 +103,16 @@ class OracleKnownLimitsTests(unittest.TestCase):
                                         self.assertTrue(endpoint["file"].startswith(program["id"] + "/"))
                                         self.assertIn("repo/" + endpoint["file"], program["files"])
 
-                self.assertTrue(any(program["pinned"] for program in entry["programs"]))
-                self.assertTrue(any(program["controls"] for program in entry["programs"]))
-                self.assertEqual(claimed_rows, Counter(range(1, len(goldens) + 1)))
-                self.assertEqual(claimed_files,
-                                 Counter(p.relative_to(case).as_posix() for p in case.rglob("*")
-                                         if p.is_file() and p.parent != case))
+                if entry:
+                    self.assertTrue(any(program["pinned"] for program in entry["programs"]))
+                    self.assertTrue(any(program["controls"] for program in entry["programs"]))
+                self.assertEqual(claimed_rows, decided)
+                files = Counter(p.relative_to(case).as_posix() for p in case.rglob("*")
+                                if p.is_file() and p.parent != case)
+                self.assertEqual(claimed_files, Counter({p: count for p, count in files.items()
+                                                       if p in claimed_files}))
+                self.assertTrue(all(path.split("/", 2)[1] in moved_programs
+                                    for path in files - claimed_files))
         self.assertEqual(set(programs.values()), {1})
-        self.assertEqual(members, {1: 67, 2: 19, 3: 24, "round-7-opus": 3})
+        self.assertEqual(members, {1: 59, 2: 13, 3: 14, "round-7-opus": 2})
+        self.assertEqual(totals, {"pinned": 310, "controls": 36, "moved": 52})

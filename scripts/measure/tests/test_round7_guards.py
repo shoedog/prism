@@ -10,6 +10,7 @@ README = REPO / "scripts/measure/README.md"
 FORMATS = REPO / "docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit/FORMATS.md"
 MUTATION = "out-of-model-module-mutation"
 SUPPRESSION = "out-of-model-suppression"
+MEMBER = "member-path-not-judged"
 
 
 def rows(case):
@@ -95,11 +96,11 @@ class Suppression(unittest.TestCase):
 
 
 class BoundedItems(unittest.TestCase):
-    def test_property_tokens_by_syntax_take_the_neighbour_rule(self):
+    def test_property_tokens_by_syntax_are_outside_the_judged_scope(self):
         # r6-3: `[req.app, app]` with a parameter property and a namespace-exported const.
         off = [r for r in by_file("lexical-fold7")["props.ts"] if r["verdict"] == "UNDECIDED"]
         self.assertEqual(len(off), 2)
-        self.assertTrue(all(r["why"] == "endpoint-coordinate-off" for r in off))
+        self.assertTrue(all(r["why"] == MEMBER for r in off))
         self.assertEqual(len([r for r in by_file("lexical-fold7")["props.ts"] if r["verdict"] == "CORRECT"]), 2)
 
     def test_type_only_mentions_are_the_type_role_beside_evaluated_controls(self):
@@ -108,16 +109,10 @@ class BoundedItems(unittest.TestCase):
         verdicts = sorted((r["key"]["to"]["line"], r["verdict"]) for r in by_file("lexical-fold7")["types.ts"])
         self.assertEqual(verdicts, [(4, "WRONG"), (5, "CORRECT"), (7, "WRONG"), (8, "CORRECT"), (9, "WRONG")])
 
-    def test_two_instances_sharing_a_member_declaration_are_not_one_slot(self):
-        # r6-5.
-        found = sorted(r["verdict"] for r in by_file("lexical-fold7")["slots.ts"])
-        self.assertEqual(found, ["CORRECT", "UNDECIDED"])
-        why = [r["why"] for r in by_file("lexical-fold7")["slots.ts"] if r["verdict"] == "UNDECIDED"]
-        self.assertEqual(why, ["receiver-identity-unproved"])
-        # `this` is one receiver only within one function: two methods are two slots.
-        this = sorted((r["key"]["from"]["line"], r["key"]["to"]["line"], r["verdict"])
-                      for r in by_file("lexical-fold7")["thisrecv.ts"])
-        self.assertEqual(this, [(4, 5, "UNDECIDED"), (6, 6, "CORRECT")])
+    def test_receiver_edges_are_withheld_for_each_original_receiver_shape(self):
+        for name in ("slots.ts", "thisrecv.ts"):
+            found = [(r["verdict"], r["why"]) for r in by_file("lexical-fold7")[name]]
+            self.assertEqual(found, [("UNDECIDED", MEMBER)] * 2)
 
     def test_a_constructor_signature_formal_on_the_implementations_line_is_wrong(self):
         # r6-6.
@@ -133,7 +128,7 @@ class RuleText(unittest.TestCase):
                        "UNDECIDED `out-of-model-suppression`",
                        "The suppression check applies to every callee.",
                        "`const alias = module; alias.exports = {..}`",
-                       "UNDECIDED `receiver-identity-unproved`",
+                       "UNDECIDED `member-path-not-judged`",
                        "property token BY SYNTAX",
                        "Erased computed keys of accessor signatures",
                        "constructors, whose overloads are the containing class's"):
@@ -141,8 +136,19 @@ class RuleText(unittest.TestCase):
 
     def test_formats_lists_the_new_named_reasons(self):
         text = FORMATS.read_text()
-        for name in (MUTATION, SUPPRESSION, "receiver-identity-unproved", "erased-computed-key"):
+        for name in (MUTATION, SUPPRESSION, MEMBER, "erased-computed-key"):
             self.assertIn(f"`{name}`", text)
+
+    def test_both_contracts_state_the_scope_and_evidence(self):
+        for path in (README, FORMATS):
+            with self.subTest(path=path.name):
+                text = " ".join(path.read_text().split())
+                for phrase in ("0 decided member-path edges", "1,409", "6,651",
+                               "shorthand keys", "destructuring elements", "computed-key identifiers",
+                               "positive receiver rule", "RULE-R.md",
+                               "233 of 19,343", "30 kept and 30 discarded", "summary.md",
+                               "can miss indirect calls"):
+                    self.assertIn(phrase, text)
 
 
 if __name__ == "__main__":

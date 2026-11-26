@@ -284,9 +284,11 @@ inside the 8 GiB memory guard with the §2 host environment allow-list.
 small `node` self-check bootstrap directly, the caller controls that
 initial Node process.
 
-The built-in self-check has 742 golden rows in 75 cases. Each
+The built-in self-check has 812 golden rows in 79 cases. Each
 `known-limit-*` case groups programs in separate `repo/<id>/`
 directories. The worker grades each program in its own checker graph.
+The case names persist for the 52 member-boundary rows that now sit
+outside the decided known-limit registry.
 
 The self-check prints and atomically stores its receipt in
 `PRISM_MEASURE_SELFCHECK_DIR`, or `prism/measure/selfcheck` under the XDG
@@ -368,7 +370,7 @@ checker's verdicts under the static-binding model at exact identifier bytes.
 For call targets the checker-resolved body is mapped to the qualified producer
 triple. CORRECT means the binding, slot or target agrees with the claim.
 WRONG means the checker binds elsewhere or the exact bytes contradict the
-claimed role or position. Runtime behavior can differ in the cases below.
+claimed role or position. The table describes measured cases where runtime behavior can differ.
 Hand-read every WRONG against the source before attributing it to the product.
 The four Excalidraw WRONGs at this revision were assignment-target anchors
 tracked in #961. UNDECIDED earns no credit either way and names the missing
@@ -379,14 +381,32 @@ decisions. With the empty production qualification pin, every otherwise
 decidable call-target row is UNDECIDED `target-id-unproved`. Slot and lexical
 verdicts require no producer qualification.
 
+S3 withholds lexical member-path edges as UNDECIDED `member-path-not-judged`.
+Either endpoint triggers the boundary if its `path.fields` is nonempty or its
+identifier is a property token BY SYNTAX. This includes a member-access name,
+the right side of a qualified name, a class or interface member name, and an
+object or explicit pattern key, including nested, array and default assignment
+patterns. Private names (`#m`) count as occurrences. The boundary precedes role
+and declaration checks. Plain-name edges through shorthand keys,
+destructuring elements and computed-key identifiers keep their value roles
+and existing verdicts.
+
+The receiver study found 0 decided member-path edges on the authored real-use
+set, Express, the Excalidraw slice and whole Excalidraw. The oracle already
+withheld 1,409 such edges on Express and 6,651 on whole Excalidraw. Rounds 7 and
+8 kept finding new receiver and pattern-key cases, so S3 withholds the family
+at no measured cost in decided edges. A later slice would need a positive receiver rule
+and its own enumeration. The starting point is `enum-r8/price-receiver/RULE-R.md`
+in the external evidence, alongside the measurements in `PRICE.md`.
+
 **Known limits and measured exposure.** The registry
 [known_limits.json](oracle/known_limits.json) pins the checker's verdicts where Node
 differs. The table gives decided edges at `d0a2b9c3` whose route touches the
-listed syntactic detector. Proxies overcount and have no reliable detector for
-the full class. The counts measure syntactic exposure. They give no estimate
-of false verdicts. A zero with unrecovered dependencies cannot establish
-absence. For both Annex B and eval, 4,632 Express edges and 5,775 Excalidraw
-edges had unrecovered dependencies.
+listed detector or proxy. A proxy can include unrelated occurrences. The
+static-initialization proxy can miss indirect calls made during initialization.
+These counts measure syntactic exposure. A zero with unrecovered dependencies
+leaves absence unproved. For both Annex B and eval, 4,632 Express edges and
+5,775 Excalidraw edges had unrecovered dependencies.
 Source measurements are in `enum-r8/price/classify-receipts.tgz` (`summary.md`).
 
 | Known limit (example) | Measurement | Authored real-use (14 decided) | Express (5,040 CORRECT, 0 WRONG) | Excalidraw slice (14,285 CORRECT, 4 WRONG) |
@@ -395,33 +415,30 @@ Source measurements are in `enum-r8/price/classify-receipts.tgz` (`summary.md`).
 | Sloppy direct eval (E01) | Detector | 0 | 0 | 0 |
 | Catch-parameter var redirection (R14) | Detector | 0 | 0 | 0 |
 | Host and script vs. module bindings (M09) | Proxy | 0 | 3,694 | 661 |
-| Property origin and structural lending (P02) | Proxy | 0 | 2 | 351 |
-| Property origin, spread getter and noncomputed `__proto__` (T05) | Detector | 0 | 5 | 132 |
-| Property origin, declare fields and merged interfaces (N30) | Detector | 0 | 0 | 0 |
 | Parameter-default closure scope (N03) | Detector | 0 | 0 | 0 |
 | For-let initializer environment (N10) | Detector | 0 | 0 | 0 |
 | For-in/of head environment (B07, pass 3) | Detector | 0 | 0 | 0 |
 | Module resolution, extension substitution (N20) | Detector | 0 | 1,289 | 3,326 |
 | Module resolution, package main, JSON and declaration files (A14) | Proxy | 0 | 3,682 | 5,821 |
 | HTML-like comment tokenization (N80) | Detector | 0 | 0 | 17 |
-| Receiver override and detached dispatch (N40) | Proxy | 0 | 376 | 137 |
-| Computed member names (C05) | Detector | 0 | 0 | 11 |
+| Scope of computed-key expressions (C05) | Detector | 0 | 0 | 11 |
 | Static initialization order (C01) | Proxy | 0 | 0 | 0 |
-| Member definition order (A22) | Proxy | 0 | 0 | 44 |
 | Erased ambient declarations (B19, pass 3) | Detector | 0 | 0 | 5 |
 
+The historical T05 count is a proxy for spread/getter and noncomputed
+`__proto__` exposure (0 authored, 5 Express, 132 Excalidraw slice). A visible
+spread leaves getter origin unproved. The receipts archive records the count.
+
 The spot check reproduced all 14 enum-r8 programs it sampled
-(`SPOT.md` in `enum-r8/price/spot-receipts.tgz`). A separate random hand-read
-found all 60 sampled decided occurrences sound against runtime. All were
-CORRECT, with 30 kept by accept-list A and 30 discarded
-(`enum-r8/price/HANDREAD.md`).
-Accept-list A was a positive list of simple routes and kept 233 of 19,343
-decided edges (1.2%, with 0 authored, 233 Express and 0 Excalidraw). It was
-rejected because all 30 sampled losses were sound (`enum-r8/price/ACCEPT-A.md`
-and `HANDREAD.md`).
+(`SPOT.md` in `enum-r8/price/spot-receipts.tgz`). Accept-list A kept 233 of 19,343
+decided edges (1.2%, all 233 in Express), according to `summary.md` in
+`enum-r8/price/classify-receipts.tgz`. Its stratified hand-read sampled
+30 kept and 30 discarded CORRECT occurrences. All 60 were sound against runtime
+(`summary.md` for the split and `enum-r8/price/HANDREAD.md` for the readings).
 
 Argument binding checks a whole identifier or primitive literal actual against a
-fixed implementation slot. Parentheses, type assertions, non-null assertions
+fixed implementation slot. An edge with nonempty fields at either endpoint is
+UNDECIDED `member-path-not-judged`. Parentheses, type assertions, non-null assertions
 and `satisfies` preserve an entire actual. The checker-selected body needs a
 positive value-origin certificate; anything outside it is UNDECIDED
 `ambiguous-dispatch` (closed world). Only parentheses, `!` and `satisfies`
@@ -582,14 +599,12 @@ the inner expression's own type. Hand-written qualification evidence is out
 of model (see Qualification above).
 
 Lexical binding checks whether the checker resolves a declaration or write
-and a read to the same unique value binding. Old-value reads in compound/logical assignments and
-updates count as reads. An endpoint anywhere inside the operand of a `delete`
-(`delete o.m`, `delete o[k]`, `delete (c ? x : 0)`) is UNDECIDED `delete-operand`,
-never WRONG and never CORRECT: `delete o.m` reads nothing of `m`, but the
-receiver, a key and a conditional are evaluated; `void o.m` is a read. The question does not grade kill order,
-reachability or paths with nonempty fields. Source coordinates use LF-only
-physical lines, full UTF-8 byte boundaries and the formal declaration-header
-exception.
+and a read to the same unique value binding. Old-value reads in compound and
+logical assignments and updates count as reads. An otherwise admitted
+endpoint inside a `delete` operand is UNDECIDED `delete-operand`. The scope
+covers binding identity irrespective of kill order or reachability. Source
+coordinates use LF-only physical lines, full UTF-8 byte boundaries and the
+formal declaration-header exception.
 
 WRONG is returned only for a proved position, role or declaration fault at an
 endpoint spelled as claimed at exact identifier bytes. Lexical cases:
@@ -597,8 +612,8 @@ endpoint spelled as claimed at exact identifier bytes. Lexical cases:
   position) is WRONG only when no other occurrence of the claimed base on
   that endpoint's physical line could serve the role (source: a definition or
   write of the base; destination: a read of it). Otherwise the producer's
-  line-anchored span may have landed on a neighbour (the key `app:` in
-  `{app: {value: app}}`): UNDECIDED `endpoint-coordinate-off`. Assignment
+  line-anchored span may have landed on a neighbouring occurrence, yielding
+  UNDECIDED `endpoint-coordinate-off`. Assignment
   targets such as `(objectURL = ..)` or the inner `t2` of `t1 = t2 = ..`, with
   no read of the name on the line, stay WRONG `write-position`.
 - A spelling mismatch (the span is an identifier other than the claimed base) is
@@ -612,25 +627,12 @@ endpoint spelled as claimed at exact identifier bytes. Lexical cases:
   resolve to different VALUE bindings (variable, parameter, function, class,
   import, binding element by its name) are a proved different binding, WRONG
   `different-declaration`, without a neighbour check (matrix row oracle-007).
-  When either endpoint is a property token BY SYNTAX (the name of a member
-  access or qualified name, an object or pattern key) or resolves to a property
-  declaration, it is no binding whatever it resolves to (`req.app` resolves to a
-  constructor parameter property or a namespace-exported const, still a member
-  name): a serving neighbour on that line makes it UNDECIDED
-  `endpoint-coordinate-off`, else WRONG. Private names (`#m`) count as
-  occurrences.
 - `implements`, interface `extends` and computed property/method signatures
   in interfaces and type literals take the type role (WRONG `type-position`
   unless a neighbour serves). Erased computed keys of accessor signatures,
   abstract members and body-less method overloads are UNDECIDED
   `erased-computed-key`. Evaluated computed keys and class `extends` remain
   reads. Ambient and `declare`-field cases are recorded in the known-limit ledger.
-- A member write and read resolved to the same declaration by the checker
-  need matching receiver identity. The receiver must resolve to the same
-  identifier symbol with no indexed assignments, or to `this` in the same
-  function or class. The read may be the key of a direct object binding or
-  assignment pattern with a proved receiver. Other receiver evidence gives
-  UNDECIDED `receiver-identity-unproved`.
 - An endpoint that is not at exact identifier bytes is UNDECIDED
   `identifier-unproved`.
 
@@ -644,11 +646,11 @@ at exactly the proved formal's bytes, and a signature formal of an overload
 line and also for constructors, whose overloads are the containing class's
 constructor declarations; `argument-fold7`), are WRONG whatever else the line
 holds. Formal bytes
-that are not an identifier are UNDECIDED `identifier-unproved`. Of the 36
-Express WRONG verdicts of the real-use read, 4 were coordinate-off (a key span
-next to the value read) and 32 an alias-twin or other spelling mismatch (the
-from-span is a variable assigned from the claimed base); the self-check case
-`lexical-coordinate` pins both shapes with controls.
+that are not an identifier are UNDECIDED `identifier-unproved`. Of the 36 historical Express WRONG
+verdicts sampled, four landed on property keys beside the value reads and now
+have reason `member-path-not-judged`. The other 32 involved alias twins or other
+spelling mismatches. The `lexical-coordinate` self-check pins the shapes beside
+value controls.
 
 Call target grading supports explicitly named functions and simple
 identifier-named methods whose name and first non-decorator header token

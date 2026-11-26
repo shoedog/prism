@@ -26,10 +26,10 @@ KIT = MEASURE / "oracle"
 TREE_PIN = "7e02162c902e5c29ec19fefc573ad55b8ed15fcbda940e737f297c53e9c41f54"
 MATRIX_ROWS = {row["id"]: row for row in read_jsonl(MATRIX / "rows.jsonl")
                if row["group"] == "oracle"}
-BOUNDARY_REASONS = {"structured-path", "type-only-declaration", "slot-unproved", "ambiguous-dispatch",
+BOUNDARY_REASONS = {"member-path-not-judged", "type-only-declaration", "slot-unproved", "ambiguous-dispatch",
                     "external-callable", "target-id-unproved", "endpoint-coordinate-off",
                     "endpoint-spelling-mismatch", "delete-operand", "out-of-model-module-mutation",
-                    "out-of-model-suppression", "receiver-identity-unproved", "erased-computed-key"}
+                    "out-of-model-suppression", "erased-computed-key"}
 DECISIONS = {"oracle-027": [], "oracle-029": ["WRONG"], "oracle-032": ["WRONG"],
              "oracle-034": ["UNDECIDED"]}
 

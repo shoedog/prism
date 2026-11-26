@@ -43,12 +43,13 @@ class GlobalScope(unittest.TestCase):
 class PropertyTokens(unittest.TestCase):
     def test_property_tokens_are_undecided_beside_exact_byte_controls(self):
         rows_ = rows("lexical-fold6")
-        off = [r for r in rows_ if r["verdict"] == "UNDECIDED"]
+        off = [r for r in rows_ if r.get("why") == "member-path-not-judged"]
         self.assertEqual(len(off), 7)
-        self.assertTrue(all(r["why"] == OFF for r in off))
-        self.assertEqual(len([r for r in rows_ if r["verdict"] == "CORRECT"]), 7)
+        self.assertTrue(all(r["verdict"] == "UNDECIDED" for r in off))
+        self.assertEqual(len([r for r in rows_ if r["verdict"] == "CORRECT"]), 6)
+        self.assertEqual(len([r for r in rows_ if r.get("why") == OFF]), 1)
         self.assertEqual({r["key"]["from"]["file"] for r in off},
-                         {"l1.ts", "l2.ts", "l3.ts", "l4.ts", "private.ts", "mismatch.ts"})
+                         {"l1.ts", "l2.ts", "l3.ts", "l4.ts", "private.ts"})
 
     def test_a_signature_formal_on_the_implementations_line_stays_wrong(self):
         verdicts = sorted(r["verdict"] for r in rows("argument-overload"))
