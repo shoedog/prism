@@ -123,8 +123,11 @@ pub(super) const SHAPES: &[Shape] = &[
         form: "own_closed_slots",
         class: NestedKeys,
         store: "table[key][field] = value",
-        state: Sufficient,
-        refusal: None,
+        // Known limit (controller, 2026-11-26): this authored variant executes safe
+        // (own-check plus fresh fallback on a null-prototype table), but the closed
+        // accept-list admits only the t2-120/166/170 shapes, so it stays partial.
+        state: Partial,
+        refusal: Some("unproved_child"),
         edits: &[],
         variants: [
             ("own-fallback-js", JavaScript, (184, 201)),

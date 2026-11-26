@@ -115,8 +115,8 @@ fn grammar_rows_cover_each_enabled_form_in_each_language() {
     assert_eq!(forms.len(), 12);
     assert!(forms.values().all(|coverage| *coverage == [true; 3]));
     assert_eq!(counts[&GuardState::None], [23; 3]);
-    assert_eq!(counts[&GuardState::Partial], [21; 3]);
-    assert_eq!(counts[&GuardState::Sufficient], [15; 3]);
+    assert_eq!(counts[&GuardState::Partial], [25; 3]);
+    assert_eq!(counts[&GuardState::Sufficient], [16; 3]);
 }
 
 fn parse_variant(shape: &Shape, (id, language, (start, end)): Variant) -> ParsedFile {
@@ -198,4 +198,107 @@ fn grammar_rows_classify_the_designated_facts() {
         failures.len(),
         failures.join("\n")
     );
+}
+
+#[test]
+fn intrinsic_refusals_count_the_conversion_occurrence_and_retain_the_fact() {
+    const CONTROLS: &[&str] = &["deny-native-", "deny-runtime-", "deny-unrelated-member-"];
+    let mut checked = 0;
+    for shape in names::SHAPES {
+        for (id, language, (start, end)) in shape.variants {
+            let refused = id.starts_with("deny-") && shape.refusal == Some("intrinsic_rebound");
+            if !refused && !CONTROLS.iter().any(|prefix| id.starts_with(prefix)) {
+                continue;
+            }
+            let parsed = parse_variant(shape, (id, language, (start, end)));
+            let facts = parsed.js_ts_proto_writes();
+            let designated = facts.iter().find(|fact| {
+                (fact.start_byte, fact.end_byte, fact.class) == (start, end, shape.class)
+            });
+            assert_eq!(designated.map(|fact| fact.guard), Some(shape.state), "{id}");
+            assert_eq!(
+                parsed
+                    .js_ts_proto_write_guard_refusals()
+                    .get("intrinsic_rebound")
+                    .copied(),
+                refused.then_some(1),
+                "{id}"
+            );
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 24);
+}
+
+#[test]
+fn grammar_rows_count_the_expected_refusals() {
+    let mut failures = Vec::new();
+    for shape in shapes() {
+        let Some(expected) = shape.refusal else {
+            continue;
+        };
+        for variant in shape.variants {
+            let parsed = parse_variant(shape, variant);
+            let actual = parsed.js_ts_proto_write_guard_refusals();
+            if !actual.contains_key(expected) {
+                failures.push(format!(
+                    "{} expects {expected}, observed {actual:?}",
+                    variant.0
+                ));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{}\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn a_visible_shared_receiver_defeats_the_name_proof() {
+    let control = "function set(raw, field) {
+        const table = { draft: {} };
+        const key = String(raw);
+        if (key === '__proto__' || key === 'constructor') return;
+        table[key][field] = 1;
+    }";
+    for (child, state) in [
+        ("{}", GuardState::Sufficient),
+        ("Object.prototype", GuardState::Partial),
+        ("Object['prototype']", GuardState::Partial),
+        ("globalThis.Object['prototype']", GuardState::Partial),
+    ] {
+        let source = control.replace("draft: {}", &format!("draft: {child}"));
+        let file = ParsedFile::parse("shared.js", &source, Language::JavaScript).unwrap();
+        let facts = file.js_ts_proto_writes();
+        let [fact] = facts.as_slice() else {
+            panic!("{child}: {facts:?}")
+        };
+        assert_eq!(fact.guard, state, "{child}");
+        if state == GuardState::Partial {
+            assert!(
+                file.js_ts_proto_write_guard_refusals()
+                    .contains_key("unproved_child"),
+                "{child}"
+            );
+        }
+    }
+}
+
+#[test]
+fn unrelated_try_does_not_create_a_guard_refusal() {
+    for statements in [
+        "try { observe(); } catch (error) { record(error); } child[field] = 1;",
+        "try { observe(); } finally { child[field] = 1; }",
+    ] {
+        let source =
+            format!("function f(root, key, field) {{ const child = root[key]; {statements} }}");
+        let file = ParsedFile::parse("try.js", &source, Language::JavaScript).unwrap();
+        let facts = file.js_ts_proto_writes();
+        assert_eq!(facts.len(), 1);
+        assert_eq!(facts[0].guard, GuardState::None);
+        assert!(file.js_ts_proto_write_guard_refusals().is_empty());
+    }
 }

@@ -71,7 +71,12 @@ fn json_has_two_empty_arrays_for_other_languages() {
     .unwrap();
     assert_eq!(
         listing(root.path()),
-        json!({ "facts": [], "name_reads": [] })
+        json!({
+            "facts": [], "name_reads": [],
+            "guard_counts": { "none": 0, "partial": 0, "sufficient": 0 },
+            "discharged_by_form": {}, "discharged_with_multiple_forms": 0,
+            "guard_refusals": {}
+        })
     );
 }
 
@@ -168,4 +173,75 @@ fn unclosed_interface_with_error_recovery_does_not_panic() {
     .unwrap();
     let value = listing(root.path());
     assert!(value["facts"].as_array().is_some());
+}
+
+#[test]
+fn guard_forms_states_and_refusals_agree_in_json_and_text() {
+    let root = tempfile::tempdir().unwrap();
+    let source = "function put(root, part, field) {
+        const key = String(part);
+        if (key === '__proto__' || key === 'constructor') return;
+        root[key][field] = 1;
+    }";
+    fs::write(root.path().join("guarded.js"), source).unwrap();
+    fs::write(
+        root.path().join("mixed.js"),
+        "function set(root, raw, other, field) {
+        function assertSafe(key) { if (key !== 'ok') throw new Error(); }
+        const key = String(raw);
+        if (key === '__proto__' || key === 'constructor') return;
+        assertSafe(other);
+        root[key][other][field] = 1;
+    }",
+    )
+    .unwrap();
+    fs::write(
+        root.path().join("partial.js"),
+        format!("globalThis.String = part => part;\n{source}"),
+    )
+    .unwrap();
+    fs::write(
+        root.path().join("plain.js"),
+        "function put(root, key, field) { root[key][field] = 1; }",
+    )
+    .unwrap();
+
+    let json = listing(root.path());
+    assert_eq!(
+        json["guard_counts"],
+        json!({ "none": 1, "partial": 1, "sufficient": 2 })
+    );
+    assert_eq!(
+        json["discharged_by_form"],
+        json!({ "deny_names": 2, "allow_assertion": 1 })
+    );
+    assert_eq!(json["discharged_with_multiple_forms"], 1);
+    assert_eq!(
+        json["guard_refusals"]["guard_unrecognised:intrinsic_rebound"],
+        1
+    );
+    let facts = json["facts"].as_array().unwrap();
+    assert_eq!(facts[0]["guard_forms"], json!(["deny_names"]));
+    assert_eq!(
+        facts[1]["guard_forms"],
+        json!(["deny_names", "allow_assertion"])
+    );
+    assert!(facts[2].get("guard_forms").is_none());
+    assert!(facts[3].get("guard_forms").is_none());
+
+    let out = crate::prism_bin()
+        .unwrap()
+        .args(["nav", "proto-writes", "--repo"])
+        .arg(root.path())
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains("guard=sufficient forms=deny_names"));
+    assert!(text.contains("guard_counts none=1 partial=1 sufficient=2"));
+    assert!(text.contains("discharged_by_form deny_names=2 allow_assertion=1"));
+    assert!(text.contains("discharged_with_multiple_forms=1"));
+    assert!(text.contains("guard_unrecognised:intrinsic_rebound=1"));
 }

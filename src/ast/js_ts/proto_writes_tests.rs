@@ -1,4 +1,4 @@
-use super::proto_writes::{GuardState, KeyRole, ProtoWrite, ProtoWriteClass};
+use super::proto_writes::{GuardForm, GuardState, KeyRole, ProtoWrite, ProtoWriteClass};
 use crate::{ast::ParsedFile, languages::Language};
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -155,6 +155,8 @@ fn matrix_nonrecursive_rows() {
     let mut failures = Vec::new();
     let mut complete = 0;
     let mut reasons = BTreeMap::<&str, usize>::new();
+    let mut guard_refusals = BTreeMap::<&str, usize>::new();
+    let mut discharged_by_form = BTreeMap::<GuardForm, usize>::new();
     let mut designated = BTreeMap::new();
     let mut guard_rows = [0; 3];
     let mut guard_facts = [0; 3];
@@ -203,6 +205,16 @@ fn matrix_nonrecursive_rows() {
         complete += file_complete;
         for (reason, count) in file_reasons {
             *reasons.entry(reason).or_default() += count;
+        }
+        for (reason, count) in parsed.js_ts_proto_write_guard_refusals() {
+            *guard_refusals.entry(reason).or_default() += count;
+        }
+        for fact in &on_line {
+            if fact.guard == GuardState::Sufficient {
+                for form in &fact.guard_forms {
+                    *discharged_by_form.entry(*form).or_default() += 1;
+                }
+            }
         }
         designated.insert(
             row.id.clone(),
@@ -285,6 +297,10 @@ fn matrix_nonrecursive_rows() {
     eprintln!("matrix designated facts by expected guard: {guard_facts:?}");
     assert_eq!(guard_rows, [248, 41, 13]);
     assert_eq!(guard_facts, [179, 41, 13]);
+    eprintln!("matrix discharged_by_form: {discharged_by_form:?}");
+    for (reason, count) in &guard_refusals {
+        eprintln!("guard_unrecognised:{reason}={count}");
+    }
     let mut changed = 0;
     if let Some(path) = std::env::var_os("PRISM_FOLD3_BASE_FACTS") {
         let recorded: BTreeMap<String, serde_json::Value> =
@@ -325,6 +341,9 @@ fn matrix_nonrecursive_rows() {
         failures.len(),
         failures.join("\n")
     );
+    assert_eq!(discharged_by_form.remove(&GuardForm::DenyNames), Some(2));
+    assert_eq!(discharged_by_form.len(), 11);
+    assert!(discharged_by_form.values().all(|&count| count == 1));
     assert_eq!(changed, 0);
 }
 

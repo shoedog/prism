@@ -499,6 +499,7 @@ mutation of module objects (monkey-patching, reflective writes, `eval`, host glo
 (replan probes, 2026-09-25). Producer-side mutation is modeled only where mutation is the construction
 idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
 mutation proposes it as a new contract, not as a precision fix to an existing rung.
+JS-family property-write guards assume an intrinsic is intact unless the analyzed file rebinds, assigns, deletes or shadows its name or a global-object alias of it, with replacement through input data, another script or an accessor outside the proof model.
 Rust Exact does not depend on build configuration: a site is Exact only if, in every configuration in
 which the site itself compiles, it binds the same callable; conditions implied by the caller's own `#[cfg]`
 context are assumed true. Rungs do not evaluate `#[cfg]`/`#[cfg_attr]`: every cfg-gated item is a candidate,

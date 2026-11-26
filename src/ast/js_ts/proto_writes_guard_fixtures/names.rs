@@ -123,6 +123,24 @@ pub(super) const SHAPES: &[Shape] = &[
             ("deny-native-tsx", Tsx, (281, 303)),
         ],
     },
+    // Disclosed out-of-model limit: the runtime driver passes a first part
+    // whose Symbol.toPrimitive replaces global String. The analyzed module
+    // stays byte-identical, and the retained write still receives sufficient credit.
+    Shape {
+        source: witness!("t2-048.js"),
+        witness: "t2-048",
+        form: "deny_names",
+        class: PathWalk,
+        store: "cursor[last] = value",
+        state: Sufficient,
+        refusal: None,
+        edits: &[],
+        variants: [
+            ("deny-runtime-replacement-limit-js", JavaScript, (272, 284)),
+            ("deny-runtime-replacement-limit-ts", TypeScript, (272, 294)),
+            ("deny-runtime-replacement-limit-tsx", Tsx, (281, 303)),
+        ],
+    },
     Shape {
         source: witness!("t2-048.js"),
         witness: "t2-048",
@@ -130,7 +148,7 @@ pub(super) const SHAPES: &[Shape] = &[
         class: PathWalk,
         store: "cursor[last] = value",
         state: Partial,
-        refusal: Some("unproved_native_identity"),
+        refusal: Some("intrinsic_rebound"),
         edits: &[
             ("  let cursor = root;", "  const String = x => x;\n  let cursor = root;"),
         ],
@@ -138,6 +156,74 @@ pub(super) const SHAPES: &[Shape] = &[
             ("deny-shadowed-native-js", JavaScript, (297, 309)),
             ("deny-shadowed-native-ts", TypeScript, (297, 319)),
             ("deny-shadowed-native-tsx", Tsx, (306, 328)),
+        ],
+    },
+    Shape {
+        source: witness!("t2-048.js"),
+        witness: "t2-048",
+        form: "deny_names",
+        class: PathWalk,
+        store: "cursor[last] = value",
+        state: Partial,
+        refusal: Some("intrinsic_rebound"),
+        edits: &[
+            ("  let cursor = root;", "  String = value => value;\n  let cursor = root;"),
+        ],
+        variants: [
+            ("deny-assigned-native-js", JavaScript, (299, 311)),
+            ("deny-assigned-native-ts", TypeScript, (299, 321)),
+            ("deny-assigned-native-tsx", Tsx, (308, 330)),
+        ],
+    },
+    Shape {
+        source: witness!("t2-048.js"),
+        witness: "t2-048",
+        form: "deny_names",
+        class: PathWalk,
+        store: "cursor[last] = value",
+        state: Partial,
+        refusal: Some("intrinsic_rebound"),
+        edits: &[
+            ("  let cursor = root;", "  delete globalThis.String;\n  let cursor = root;"),
+        ],
+        variants: [
+            ("deny-deleted-native-js", JavaScript, (300, 312)),
+            ("deny-deleted-native-ts", TypeScript, (300, 322)),
+            ("deny-deleted-native-tsx", Tsx, (309, 331)),
+        ],
+    },
+    Shape {
+        source: witness!("t2-048.js"),
+        witness: "t2-048",
+        form: "deny_names",
+        class: PathWalk,
+        store: "cursor[last] = value",
+        state: Partial,
+        refusal: Some("intrinsic_rebound"),
+        edits: &[
+            ("  let cursor = root;", "  const globals = globalThis;\n  const alias = globals;\n  alias[\"String\"] = value => value;\n  let cursor = root;"),
+        ],
+        variants: [
+            ("deny-global-alias-js", JavaScript, (363, 375)),
+            ("deny-global-alias-ts", TypeScript, (363, 385)),
+            ("deny-global-alias-tsx", Tsx, (372, 394)),
+        ],
+    },
+    Shape {
+        source: witness!("t2-048.js"),
+        witness: "t2-048",
+        form: "deny_names",
+        class: PathWalk,
+        store: "cursor[last] = value",
+        state: Sufficient,
+        refusal: None,
+        edits: &[
+            ("  let cursor = root;", "  const globals = {};\n  globals.String = value => value;\n  let cursor = root;"),
+        ],
+        variants: [
+            ("deny-unrelated-member-js", JavaScript, (329, 341)),
+            ("deny-unrelated-member-ts", TypeScript, (329, 351)),
+            ("deny-unrelated-member-tsx", Tsx, (338, 360)),
         ],
     },
     Shape {
@@ -228,7 +314,7 @@ pub(super) const SHAPES: &[Shape] = &[
         class: PathWalk,
         store: "cursor[field] = value",
         state: Partial,
-        refusal: Some("unproved_native_identity"),
+        refusal: Some("intrinsic_rebound"),
         edits: &[
             ("  let cursor = root;", "  String.prototype.split = custom;\n  let cursor = root;"),
         ],
