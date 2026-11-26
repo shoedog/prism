@@ -410,7 +410,33 @@ fn dfg_stats_empty_repo_emits_all_zero_counters() {
             "dfg_recall_receiver_field_refused": 0,
             // The JS/TS/TSX loop-plan counters (#693/#697 slice 2): an empty map when no file has a loop.
             "dfg_loop_plan": {},
+            "dfg_props": {},
         })
+    );
+}
+
+#[test]
+fn dfg_stats_literal_props_map_matches_call_stats() {
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        repo.path().join("props.ts"),
+        "function D({a}: {a: string}) {\n  sink(a);\n}\nexport function App(x: string) {\n  D({a: x, extra: x});\n}\n",
+    ).unwrap();
+    let dfg = dfg_stats_output(repo.path(), false);
+    assert!(dfg.status.success(), "{dfg:?}");
+    let call = crate::prism_bin()
+        .unwrap()
+        .args(["nav", "--no-cache", "call-stats", "--repo"])
+        .arg(repo.path())
+        .output()
+        .unwrap();
+    assert!(call.status.success(), "{call:?}");
+    let dfg: Value = serde_json::from_slice(&dfg.stdout).unwrap();
+    let call: Value = serde_json::from_slice(&call.stdout).unwrap();
+    assert_eq!(dfg["dfg_props"], call["dfg_labels"]["dfg_props"]);
+    assert_eq!(
+        dfg["dfg_props"],
+        json!({"sites_literal": 1, "edges_to_def": 1, "refused_key_not_read": 1})
     );
 }
 

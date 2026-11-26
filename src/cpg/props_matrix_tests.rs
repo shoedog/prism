@@ -13,7 +13,7 @@ use petgraph::visit::EdgeRef;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-const ENABLED: &[&str] = &["control", "S1"];
+const ENABLED: &[&str] = &["control", "S1", "S2"];
 const ROWS: &str = include_str!("../../tests/fixtures/props_matrix/rows.jsonl");
 
 #[derive(Deserialize)]
@@ -506,10 +506,7 @@ impl<'a> Fixture<'a> {
                 }
             }
             Assertion::Counter { key, count } => {
-                let actual = self.stats["dfg_props"][key].as_u64().unwrap_or(0);
-                if actual != *count {
-                    return Err(format!("observed {actual}"));
-                }
+                super::props_s2_test_support::check_counter(&self.stats, key, *count)?;
             }
             Assertion::S1Counter { key, count } => {
                 check_s1_counter(COUNTER_KEYS, &self.s1_counters, key, *count)?;
@@ -646,10 +643,45 @@ impl Row {
                 };
                 // The shared builder panics on parser errors. Continue collecting rows if a
                 // fixture is malformed, and distinguish that from an assertion failure.
-                let Ok(graph) = std::panic::catch_unwind(|| build(language, &files, ext)) else {
+                let Ok((graph, assembly)) = std::panic::catch_unwind(|| {
+                    let build = || build(language, &files, ext);
+                    if super::props_s2_matrix_evidence::needs_capture(&self.id) {
+                        let (graph, observed) = super::props_s2_test_support::capture(build);
+                        (graph, Some(observed))
+                    } else {
+                        (build(), None)
+                    }
+                }) else {
                     failures.push(format!("{tag}: fixture build failed (see panic above)"));
                     continue;
                 };
+                if let Some(result) = super::props_s2_matrix_evidence::check(
+                    &self.id,
+                    case,
+                    ext,
+                    &graph,
+                    assembly.as_ref(),
+                ) {
+                    match result {
+                        Ok(evidence) => {
+                            println!("PROPS_PRECONDITION {} {tag} PASS {evidence}", self.id);
+                            if let Some(Err(detail)) =
+                                super::props_s2_matrix_evidence::guard_counterfactual(
+                                    &self.id,
+                                    case,
+                                    &graph,
+                                    assembly.as_ref(),
+                                )
+                            {
+                                failures.push(format!("{tag}: guard counterfactual: {detail}"));
+                            }
+                        }
+                        Err(detail) => {
+                            println!("PROPS_PRECONDITION {} {tag} UNMET {detail}", self.id);
+                            failures.push(format!("{tag}: evidence precondition unmet: {detail}"));
+                        }
+                    }
+                }
                 let parsed = files
                     .iter()
                     .map(|(stem, source)| {
@@ -667,10 +699,20 @@ impl Row {
                 fixture.s1_evidence = Some(&evidence);
                 fixture.s1_counters =
                     serde_json::to_value(evidence.counters()).expect("serialize S1 counters");
-                for check in &checks {
-                    if let Err(detail) = fixture.check(&check.assertion) {
+                let mut failed = 0;
+                for (index, check) in checks.iter().enumerate() {
+                    let result = fixture.check(&check.assertion);
+                    if self.group == "S2" {
+                        let status = if result.is_ok() { "PASS" } else { "FAIL" };
+                        println!("PROPS_ASSERT {} {tag} {index} {status}", self.id);
+                    }
+                    if let Err(detail) = result {
+                        failed += 1;
                         failures.push(format!("{tag}: {:?}: {detail}", check.assertion));
                     }
+                }
+                if self.group == "S2" {
+                    println!("PROPS_CASE {} {tag} {} {failed}", self.id, checks.len());
                 }
             }
             if !fixed_exts.is_empty()

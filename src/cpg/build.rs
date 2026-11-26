@@ -21,7 +21,7 @@ mod e5_trace;
 mod object_literal_args;
 
 #[path = "props_binding.rs"]
-mod props_binding;
+pub(super) mod props_binding;
 
 #[path = "rest_params.rs"]
 mod rest_params;
@@ -131,7 +131,7 @@ use crate::ast::ParsedFile;
 
 pub(super) use super::var_index::LegacyVarKey;
 use super::var_index::{VarIndex, VarKeyRef};
-type ExactVarIndex = BTreeMap<LegacyVarKey, BTreeMap<(usize, usize), Vec<NodeIndex>>>;
+pub(super) type ExactVarIndex = BTreeMap<LegacyVarKey, BTreeMap<(usize, usize), Vec<NodeIndex>>>;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ReturnFlowStats {
@@ -177,6 +177,8 @@ pub struct DfgLabelStats {
     /// JS/TS/TSX loop-plan counters summed over the files (#693, #697): `trees`, `admitted`,
     /// `refused.<reason>`, `overlap.<class>`, `owners_refused`. Empty when no file has a loop.
     pub dfg_loop_plan: BTreeMap<String, usize>,
+    // S2b-STUB: the binder does not yet populate this map.
+    pub dfg_props: BTreeMap<String, usize>,
 }
 
 impl DfgLabelStats {
@@ -1157,6 +1159,8 @@ impl CodePropertyGraph {
 
         profile.next("cpg.step5b");
         // --- Step 5b: Interprocedural data flow edges ---
+        #[cfg(test)]
+        super::props_s2_test_support::observe_pre_binding(&graph, lookup, exact_lookup);
         let mut argument_seeds = Vec::new();
         let mut bare_literal_edges = BTreeSet::new();
         for flow in Self::collect_step5b_edges_with_exact(
@@ -1166,6 +1170,12 @@ impl CodePropertyGraph {
             &graph,
             files,
         ) {
+            #[cfg(test)]
+            super::props_s2_test_support::observe_pending(
+                &flow.edge,
+                flow.cross_file_free_single_exact,
+                flow.bare_literal,
+            );
             let (from, to, w) = flow.edge;
             if flow.cross_file_free_single_exact {
                 argument_seeds.push(from);
@@ -1200,6 +1210,13 @@ impl CodePropertyGraph {
         // D12 incoming holes do not isolate outgoing E5 paths. After all flow
         // construction, guard the new Defs and bare literal-leaf destinations
         // against paths to cross-file Exact free_single argument edges.
+        #[cfg(test)]
+        super::props_s2_test_support::observe_guard_input(
+            &graph,
+            &argument_seeds,
+            &bare_literal_edges,
+            &dfg_label_stats.dfg_props,
+        );
         Self::refuse_new_sources_exposing_free_single_calls(
             &mut graph,
             files,
@@ -1759,7 +1776,7 @@ impl CodePropertyGraph {
     /// the legacy first-wins line key. A zero or multi-match is ambiguous and
     /// fails closed.
     #[cfg(test)]
-    fn argument_var_node_in_span(
+    pub(super) fn argument_var_node_in_span(
         caller_id: &FunctionId,
         caller_parsed: &ParsedFile,
         arg_path: &AccessPath,

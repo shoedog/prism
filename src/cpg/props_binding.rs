@@ -4,6 +4,22 @@ use super::{
 };
 use tree_sitter::Node;
 
+// S2b-STUB: test seam for one site's ordered, safe-position refusal choice.
+#[cfg(test)]
+pub(in crate::cpg) fn literal_site_refusal(
+    _failures: &[(usize, bool, u8, &'static str)],
+) -> Option<&'static str> {
+    None
+}
+
+// S2b-STUB: test seam for caller-local concrete pairs and container subcounts.
+#[cfg(test)]
+pub(in crate::cpg) fn literal_pattern_pairs(
+    _witnesses: &[(NodeIndex, NodeIndex, bool)],
+) -> (Vec<(NodeIndex, NodeIndex)>, BTreeMap<String, usize>) {
+    (Vec::new(), BTreeMap::new())
+}
+
 /// A data-carrying leaf of an object literal: its static key path and value span.
 pub(super) struct Leaf {
     pub(super) keys: Vec<String>,

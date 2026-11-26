@@ -83,6 +83,18 @@ mod parameter_slots_parity_tests;
 mod props_generated_tests;
 #[cfg(test)]
 mod props_matrix_tests;
+#[cfg(test)]
+mod props_s2_generated_tests;
+#[cfg(test)]
+mod props_s2_matrix_evidence;
+#[cfg(test)]
+mod props_s2_pending_tests;
+#[cfg(test)]
+mod props_s2_refusal_tests;
+#[cfg(test)]
+mod props_s2_selected_tests;
+#[cfg(test)]
+mod props_s2_test_support;
 pub mod query;
 mod reaching;
 #[cfg(test)]

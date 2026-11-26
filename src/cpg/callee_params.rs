@@ -74,6 +74,35 @@ type Facts = Option<Vec<Option<ParamTarget>>>;
 pub(super) type FactCell = Arc<OnceLock<Facts>>;
 type RestCell = Arc<OnceLock<Option<(usize, ParamTarget)>>>;
 
+// S2b-STUB: pattern targets must resolve through the masked exact occurrence index.
+#[cfg(test)]
+struct PatternTarget(#[allow(dead_code)] ParamTarget);
+
+#[cfg(test)]
+impl PatternTarget {
+    fn from_node(node: &CpgNode) -> Self {
+        Self(ParamTarget::from_node(node, None))
+    }
+
+    fn resolve(&self, _: &ExactVarIndex, _: &DiGraph<CpgNode, CpgEdge>) -> Option<NodeIndex> {
+        None
+    }
+}
+
+// S2b-STUB: the real demand cell preserves the syntax facts beside optional targets.
+#[cfg(test)]
+impl ParamCache<'_> {
+    fn pattern_positions(
+        &self,
+        _: &FunctionId,
+        _: &ParsedFile,
+        _: &ExactVarIndex,
+        _: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Vec<(usize, bool, Vec<PatternTarget>)> {
+        Vec::new()
+    }
+}
+
 pub(super) struct ParamCache<'a> {
     pub(super) files: &'a BTreeMap<String, ParsedFile>,
     entries: Mutex<BTreeMap<FunctionId, FactCell>>,
