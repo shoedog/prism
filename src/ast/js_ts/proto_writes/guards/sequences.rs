@@ -110,10 +110,11 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
     }
 
     pub(super) fn sequence_sources(&mut self, key: Node<'a>) -> Vec<Node<'a>> {
+        let key = peel(key);
         if key.kind() == "subscript_expression" {
             return field(key, "object").into_iter().collect();
         }
-        let Some(read) = self.analysis.read(key) else {
+        let Some(read) = self.bindings.bare_read(key) else {
             return Vec::new();
         };
         if !self.spend(read.reaching_versions.len()) {
@@ -121,10 +122,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         }
         read.reaching_versions
             .iter()
-            .filter_map(|site| match self.analysis.origins.get(&site.start_byte)? {
-                Origin::Element(sequence) => Some(peel(*sequence)),
-                _ => None,
-            })
+            .filter_map(|site| self.bindings.element_origin(site))
             .collect()
     }
 
@@ -237,19 +235,9 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
 
     fn predicate_callback(&mut self, callback: Node<'a>, method: &str) -> bool {
         let callback = if identifier(callback) {
-            let Some(binding) = self
-                .analysis
-                .read(callback)
-                .and_then(|read| read.binding.as_ref())
-            else {
-                return false;
-            };
             let Some(decl) = self
-                .file
-                .tree
-                .root_node()
-                .descendant_for_byte_range(binding.start_byte, binding.end_byte)
-                .and_then(|name| name.parent())
+                .bare_declaration(callback)
+                .and_then(|(_, name)| name.parent())
                 .filter(|decl| decl.kind() == "function_declaration")
             else {
                 return false;
@@ -301,7 +289,9 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             method == "includes"
                 && self.literal_block(receiver, 0)
                 && self.args::<1>(call).is_some_and(|[value]| {
-                    self.bare_read(value).and_then(|read| read.binding.as_ref())
+                    self.bindings
+                        .bare_read(value)
+                        .and_then(|read| read.binding.as_ref())
                         == Some(&AstSpan::from(param))
                 })
         })
@@ -442,8 +432,8 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         let Some([argument]) = self.args(body) else {
             return false;
         };
-        self.analysis
-            .read(argument)
+        self.bindings
+            .bare_read(argument)
             .and_then(|read| read.binding.as_ref())
             == Some(&AstSpan::from(parameter))
             && self.initializer(set).is_some_and(|value| {

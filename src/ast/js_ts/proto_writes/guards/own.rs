@@ -181,7 +181,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
     }
 
     fn reflect_key(&mut self, key: Node<'a>) -> bool {
-        let Some((_, declaration)) = self.declaration(key) else {
+        let Some((_, declaration)) = self.bare_declaration(key) else {
             return false;
         };
         let Some(pattern) = declaration

@@ -148,7 +148,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         }
         let value = peel(value);
         if identifier(value) {
-            let Some((binding, _)) = self.declaration(value) else {
+            let Some((binding, _)) = self.bare_declaration(value) else {
                 return false;
             };
             let Some(origin) = self.initializer(value) else {

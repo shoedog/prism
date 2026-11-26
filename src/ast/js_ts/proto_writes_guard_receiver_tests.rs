@@ -163,3 +163,37 @@ fn one_identity_compares_the_bare_receiver() {
     ];
     run("one_identity bare receiver", &base, &cases);
 }
+
+#[test]
+fn one_identity_requires_a_bare_write_receiver() {
+    let base = r#"function set(obj, path, ns, v) {
+  const keys = path.split(".");
+  let o = obj;
+  for (const k of keys.slice(0, -1)) {
+    o = o[k] = o[k] || {};
+    if (o === Object.prototype) return;
+  }
+  o[keys[keys.length - 1]] = v;
+}"#;
+    let cases = [
+        Case {
+            label: "ctl bare receiver",
+            edits: &[],
+            states: "PP",
+            refusals: &[("incomplete_coverage", 2)],
+        },
+        Case {
+            label: "neg subscript receiver",
+            edits: &[("o = o[k] = o[k]", "o = o[ns][k] = o[ns][k]")],
+            states: "NN",
+            refusals: &[],
+        },
+        Case {
+            label: "neg member receiver",
+            edits: &[("o = o[k] = o[k]", "o = o.child[k] = o.child[k]")],
+            states: "NN",
+            refusals: &[],
+        },
+    ];
+    run("one_identity write receiver", base, &cases);
+}

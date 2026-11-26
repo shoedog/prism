@@ -171,7 +171,8 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         } else {
             (second, first)
         };
-        let (Some(a_read), Some(b_read)) = (self.analysis.read(a), self.analysis.read(b)) else {
+        let (Some(a_read), Some(b_read)) = (self.bindings.bare_read(a), self.bindings.bare_read(b))
+        else {
             return false;
         };
         let Some(binding) = a_read.binding.as_ref() else {
@@ -202,7 +203,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             child = parent;
         }
         if !self
-            .analysis
+            .bindings
             .correlated_before_stores(a_read, b_read, &pending_stores)
         {
             return false;
@@ -212,7 +213,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         }
         // A predicate outside a repeated step can prove a stable outer
         // binding only if the census sees a single assignment in the file.
-        self.analysis
+        self.bindings
             .proof_writes(binding)
             .is_some_and(|sites| sites.len() == 1)
     }
@@ -222,11 +223,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             return true;
         }
         if identifier(checked) && identifier(key) {
-            let a = self.analysis.read(checked);
-            let b = self.analysis.read(key);
-            if a.zip(b)
-                .is_some_and(|(a, b)| a.binding.is_some() && a.binding == b.binding)
-            {
+            if self.same_binding(checked, key) {
                 self.refuse(candidate, "wrong_version");
             } else if self.rereads_member(checked, key) {
                 self.refuse(candidate, "unstable_key");
@@ -239,22 +236,10 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         false
     }
 
-    /// The read of `node`, only when it is the bare variable (through erased
-    /// wrappers). A member or index read carries its BASE's binding and
-    /// versions, so using that read to prove something about the variable
-    /// itself would credit `k.name` as `k`.
-    pub(super) fn bare_read(&self, node: Node<'a>) -> Option<&super::super::NameRead> {
-        if identifier(peel(node)) {
-            self.analysis.read(node)
-        } else {
-            None
-        }
-    }
-
     pub(super) fn same_binding(&self, first: Node<'a>, second: Node<'a>) -> bool {
-        self.analysis
-            .read(peel(first))
-            .zip(self.analysis.read(peel(second)))
+        self.bindings
+            .bare_read(first)
+            .zip(self.bindings.bare_read(second))
             .is_some_and(|(a, b)| a.binding.is_some() && a.binding == b.binding)
     }
 
@@ -276,7 +261,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
     }
 
     pub(super) fn origin_values(&mut self, node: Node<'a>, complete: bool) -> Vec<Node<'a>> {
-        let Some(read) = self.analysis.read(peel(node)) else {
+        let Some(read) = self.bindings.bare_read(node) else {
             return Vec::new();
         };
         if !self.spend(read.reaching_versions.len() + 1) || complete && !read.resolution_complete {
@@ -284,22 +269,12 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         }
         read.reaching_versions
             .iter()
-            .filter_map(|site| {
-                if self.analysis.deferred_definition(read, site)
-                    || self.analysis.defaults.contains_key(&site.start_byte)
-                {
-                    return None;
-                }
-                match self.analysis.origins.get(&site.start_byte)? {
-                    Origin::Value(value) => Some(peel(*value)),
-                    _ => None,
-                }
-            })
+            .filter_map(|site| self.bindings.value_origin(read, site))
             .collect()
     }
 
     pub(super) fn initializer(&mut self, node: Node<'a>) -> Option<Node<'a>> {
-        if self.analysis.read(peel(node))?.reaching_versions.len() != 1 {
+        if self.bindings.bare_read(node)?.reaching_versions.len() != 1 {
             return None;
         }
         let [value] = self.origin_values(node, true).try_into().ok()?;
@@ -318,7 +293,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         };
         if value.kind() != "call_expression"
             || !identifier(callee)
-            || self.analysis.lexical.canonical(self.text(callee)) != "String"
+            || self.bindings.canonical(self.text(callee)) != "String"
             || field(value, "optional_chain").is_some()
             || self.args::<1>(value).is_none()
             || self.frame(value) != self.frame(key)
@@ -367,7 +342,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         };
         if identifier(base) {
             return matches!(self.text(base), "Object" | "Function" | "Array")
-                && !self.analysis.has_binding(base);
+                && !self.bindings.is_shadowed(base);
         }
         matches!(property(base), Some("Object" | "Function" | "Array"))
             && field(base, "object").map(peel).is_some_and(|global| {
@@ -376,7 +351,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                         self.text(global),
                         "globalThis" | "global" | "window" | "self"
                     )
-                    && !self.analysis.has_binding(global)
+                    && !self.bindings.is_shadowed(global)
             })
     }
 
@@ -532,19 +507,9 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         let Some(callee) = field(call, "function").filter(|callee| identifier(*callee)) else {
             return false;
         };
-        let Some(binding) = self
-            .analysis
-            .read(callee)
-            .and_then(|read| read.binding.as_ref())
-        else {
-            return false;
-        };
         let Some(decl) = self
-            .file
-            .tree
-            .root_node()
-            .descendant_for_byte_range(binding.start_byte, binding.end_byte)
-            .and_then(|name| name.parent())
+            .bare_declaration(callee)
+            .and_then(|(_, name)| name.parent())
         else {
             return false;
         };

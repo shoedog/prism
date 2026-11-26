@@ -199,6 +199,24 @@ fn checked_before_await_premises() {
             refusals: &[("wrong_version", 1)],
         },
         Case {
+            label: "neg every checks a member of the element",
+            edits: &[("allowed.has(key)", "allowed.has(key.name)")],
+            states: "N",
+            refusals: &[],
+        },
+        Case {
+            label: "neg every checks an index of the element",
+            edits: &[("allowed.has(key)", "allowed.has(key[0])")],
+            states: "N",
+            refusals: &[],
+        },
+        Case {
+            label: "neg every checks an optional member of the element",
+            edits: &[("allowed.has(key)", "allowed.has(key?.name)")],
+            states: "N",
+            refusals: &[],
+        },
+        Case {
             label: "var callback is not inline",
             edits: &[(
                 r#"keys.every(key => allowed.has(key))"#,

@@ -279,30 +279,15 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         self.string(key)
     }
 
-    pub(super) fn declaration(&self, node: Node<'a>) -> Option<(AstSpan, Node<'a>)> {
-        let binding = self.analysis.read(peel(node))?.binding.as_ref()?;
-        let declaration = self
-            .file
-            .tree
-            .root_node()
-            .descendant_for_byte_range(binding.start_byte, binding.end_byte)?;
-        (AstSpan::from(declaration) == *binding).then_some((binding.clone(), declaration))
-    }
-
     pub(super) fn only_references(
         &mut self,
         reference: Node<'a>,
         mut allow: impl FnMut(&mut Self, Node<'a>) -> bool,
     ) -> bool {
-        let Some((binding, declaration)) = self.declaration(reference) else {
+        let Some((binding, declaration)) = self.bare_declaration(reference) else {
             return false;
         };
-        let Some(owner_span) = self
-            .analysis
-            .lexical
-            .binding_owners
-            .get(&binding.start_byte)
-        else {
+        let Some(owner_span) = self.bindings.binding_owner(&binding) else {
             return false;
         };
         let Some(owner) = self
@@ -314,13 +299,13 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             return false;
         };
         if self
-            .analysis
+            .bindings
             .proof_writes(&binding)
             .is_none_or(|writes| writes.len() != 1)
         {
             return false;
         }
-        let name = self.analysis.lexical.canonical(self.text(declaration));
+        let name = self.bindings.canonical(self.text(declaration));
         let mut nodes = vec![owner];
         while let Some(node) = nodes.pop() {
             if !self.spend(node.named_child_count() + 1) {
@@ -328,7 +313,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             }
             if identifier(node)
                 && node != declaration
-                && self.analysis.lexical.canonical(self.text(node)) == name
+                && self.bindings.canonical(self.text(node)) == name
             {
                 let Some(scope) = std::iter::successors(Some(node), Node::parent)
                     .take(128)
@@ -336,7 +321,11 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                 else {
                     return false;
                 };
-                if self.analysis.lexical.binding(scope, name).as_ref() == Some(&binding)
+                if self
+                    .bindings
+                    .lexical_entry(scope, node, name)
+                    .and_then(Option::as_ref)
+                    == Some(&binding)
                     && !allow(self, node)
                 {
                     return false;

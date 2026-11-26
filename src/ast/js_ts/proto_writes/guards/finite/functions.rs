@@ -113,9 +113,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                     source = Some(checked_arg);
                     return true;
                 }
-                let reason = if proof.declaration(checked_arg).map(|(binding, _)| binding)
-                    == proof.declaration(argument).map(|(binding, _)| binding)
-                {
+                let reason = if proof.same_binding(checked_arg, argument) {
                     "wrong_version"
                 } else {
                     "wrong_binding"
@@ -185,8 +183,8 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         if !identifier(callee) {
             return None;
         }
-        let (binding, decl) = self.declaration(callee)?;
-        if self.analysis.proof_writes(&binding)?.len() != 1 {
+        let (binding, decl) = self.bare_declaration(callee)?;
+        if self.bindings.proof_writes(&binding)?.len() != 1 {
             return None;
         }
         let function = match decl.parent()?.kind() {
@@ -201,7 +199,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         {
             return None;
         }
-        let name = self.analysis.lexical.canonical(self.text(callee));
+        let name = self.bindings.canonical(self.text(callee));
         if self.natives.written(&[name]) {
             self.refuse(call, "wrong_version");
             return None;
@@ -250,7 +248,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
     /// and erased wrappers): a member, index or call over it says nothing about
     /// the value the caller passes.
     fn parameter_use(&self, value: Node<'a>, param: Node<'a>) -> bool {
-        let Some(read) = self.bare_read(value) else {
+        let Some(read) = self.bindings.bare_read(value) else {
             return false;
         };
         read.binding.as_ref() == Some(&AstSpan::from(param))

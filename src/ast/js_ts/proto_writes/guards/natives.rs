@@ -21,7 +21,7 @@ impl NativeWrites {
     ) -> Self {
         let mut census = Census {
             file,
-            analysis,
+            bindings: Bindings::new(analysis),
             charge: &mut charge,
         };
         census.collect().unwrap_or_else(|| Self {
@@ -51,7 +51,7 @@ impl NativeWrites {
 
 struct Census<'a, 'b, F> {
     file: &'a ParsedFile,
-    analysis: &'b Analysis<'a>,
+    bindings: Bindings<'a, 'b>,
     charge: &'b mut F,
 }
 
@@ -99,10 +99,10 @@ impl<'a, F: FnMut(usize) -> bool> Census<'a, '_, F> {
                 if !(self.charge)(1) {
                     return None;
                 }
-                let left = peel(left);
-                let Some(binding) = identifier(left).then(|| self.binding(left)).flatten() else {
+                let Some(Some(binding)) = self.lexical_entry(left) else {
                     continue;
                 };
+                let binding = binding.start_byte;
                 let values = self.paths(right, &aliases, 0)?;
                 if !values.is_empty() {
                     let entry = aliases.entry(binding).or_default();
@@ -122,7 +122,7 @@ impl<'a, F: FnMut(usize) -> bool> Census<'a, '_, F> {
                 return None;
             }
             if identifier(target) {
-                if self.lookup(target).is_none() {
+                if self.lexical_entry(target).is_none() {
                     writes
                         .paths
                         .insert(vec![Some(self.name(target).to_owned())]);
@@ -140,18 +140,15 @@ impl<'a, F: FnMut(usize) -> bool> Census<'a, '_, F> {
     }
 
     fn name(&self, node: Node<'a>) -> &str {
-        self.analysis.lexical.canonical(self.file.node_text(&node))
+        self.bindings.canonical(self.file.node_text(&node))
     }
 
-    fn lookup(&self, node: Node<'a>) -> Option<&Option<AstSpan>> {
+    fn lexical_entry(&self, node: Node<'a>) -> Option<&Option<AstSpan>> {
+        let node = peel(node);
         let scope = std::iter::successors(Some(node), Node::parent)
             .take(128)
             .find(|n| is_scope(*n))?;
-        self.analysis.lexical.lookup(scope, self.name(node))
-    }
-
-    fn binding(&self, node: Node<'a>) -> Option<usize> {
-        Some(self.lookup(node)?.as_ref()?.start_byte)
+        self.bindings.lexical_entry(scope, node, self.name(node))
     }
 
     fn key(&self, node: Node<'a>) -> Option<String> {
@@ -179,7 +176,7 @@ impl<'a, F: FnMut(usize) -> bool> Census<'a, '_, F> {
         }
         let node = peel(node);
         if identifier(node) {
-            return Some(match self.lookup(node) {
+            return Some(match self.lexical_entry(node) {
                 None => match self.name(node) {
                     "globalThis" | "global" | "window" | "self" => vec![Vec::new()],
                     name => vec![vec![Some(name.to_owned())]],
@@ -208,7 +205,7 @@ impl<'a, F: FnMut(usize) -> bool> Census<'a, '_, F> {
                 paths
             }
             "this"
-                if !self.analysis.lexical.module_syntax
+                if !self.bindings.in_module()
                     && !std::iter::successors(node.parent(), Node::parent).any(|owner| {
                         is_owner(owner) && !matches!(owner.kind(), "arrow_function" | "program")
                     }) =>

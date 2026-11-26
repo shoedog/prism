@@ -12,7 +12,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         {
             return false;
         }
-        let Some((binding, _)) = self.declaration(input.receiver) else {
+        let Some((binding, _)) = self.bare_declaration(input.receiver) else {
             return false;
         };
         let routes = self.route(step.effect);
@@ -120,7 +120,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             AstSpan::from(redirected),
             AstSpan::from(advanced),
         ]);
-        if self.analysis.proof_writes(&binding) != Some(&admitted) {
+        if self.bindings.proof_writes(&binding) != Some(&admitted) {
             self.refuse(check, "wrong_version");
             return false;
         }

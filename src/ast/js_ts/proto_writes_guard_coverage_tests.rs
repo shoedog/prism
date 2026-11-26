@@ -73,6 +73,7 @@ pub(super) fn run_ts(family: &str, base: &str, cases: &[Case]) {
 }
 
 fn run_in(languages: &[(&str, Language)], family: &str, base: &str, cases: &[Case]) {
+    let mut failures = Vec::new();
     for case in cases {
         let mut source = base.to_owned();
         for (before, after) in case.edits {
@@ -85,18 +86,22 @@ fn run_in(languages: &[(&str, Language)], family: &str, base: &str, cases: &[Cas
         }
         for &(ext, language) in languages {
             let (states, refusals) = observe(&source, ext, language);
-            let at = format!("{family}/{} [{ext}]\n{source}", case.label);
             let sufficient = states.contains('S');
-            match case.label.split(' ').next().unwrap() {
-                "control" | "pos" => assert!(sufficient, "{at}: {states}"),
-                "neg" => assert!(!sufficient, "{at}: {states}"),
-                _ => {}
-            }
-            assert_eq!(states, case.states, "{at}");
+            let level_matches = match case.label.split(' ').next().unwrap() {
+                "control" | "pos" => sufficient,
+                "neg" => !sufficient,
+                _ => true,
+            };
             let want: BTreeMap<_, _> = case.refusals.iter().copied().collect();
-            assert_eq!(refusals, want, "{at}");
+            if !level_matches || states != case.states || refusals != want {
+                failures.push(format!(
+                    "{family}/{} [{ext}]: got {states} {refusals:?}, want {} {want:?}\n{source}",
+                    case.label, case.states
+                ));
+            }
         }
     }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 /// Every premise of the header redirect, one at a time.

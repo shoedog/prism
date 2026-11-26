@@ -395,6 +395,7 @@ after the effect, in another binding or version, or across a catch or finalizer 
 ignored. Intrinsics (`String`, `Object.hasOwn`, `WeakSet.prototype.has`, ...) are trusted
 only when the file neither shadows nor writes them (assignment, delete, `Object.assign`,
 `defineProperty(ies)`, `setPrototypeOf`, `Reflect.set`/`deleteProperty`, a global alias).
+Guard proofs obtain reaching binding evidence through `bare_read`, which requires an identifier after peeling parentheses and erased TypeScript wrappers.
 The listing adds `guard_counts` (fact totals per state), `discharged_by_form` (facts
 per form), `discharged_with_multiple_forms` and `guard_unrecognised:<reason>` counters
 (`unsupported_predicate`, `absent_domain`, `incomplete_coverage`, `wrong_exit`,

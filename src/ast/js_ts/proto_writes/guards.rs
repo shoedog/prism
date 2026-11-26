@@ -8,6 +8,7 @@ use crate::ast::ParsedFile;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
+mod bindings;
 mod finite;
 mod flow;
 mod names;
@@ -15,7 +16,12 @@ mod natives;
 mod own;
 mod receiver;
 mod sequences;
+use bindings::Bindings;
 pub(super) use natives::NativeWrites;
+
+#[cfg(test)]
+#[path = "guard_binding_tests.rs"]
+mod guard_binding_tests;
 
 #[derive(Clone, Copy)]
 pub(super) struct Selection<'a> {
@@ -42,7 +48,7 @@ pub(super) struct GuardDecision {
 
 struct Proof<'a, 'b, F> {
     file: &'a ParsedFile,
-    analysis: &'b Analysis<'a>,
+    bindings: Bindings<'a, 'b>,
     natives: &'b NativeWrites,
     charge: F,
     exhausted: bool,
@@ -58,7 +64,7 @@ pub(super) fn classify<'a>(
 ) -> GuardDecision {
     let mut proof = Proof {
         file,
-        analysis,
+        bindings: Bindings::new(analysis),
         natives,
         charge,
         exhausted: false,
@@ -125,12 +131,12 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
     }
 
     fn native(&mut self, site: Node<'a>, binding: Node<'a>, path: &[&str]) -> bool {
-        let name = self.analysis.lexical.canonical(self.text(binding));
+        let name = self.bindings.canonical(self.text(binding));
         if name != path[0] {
             self.refuse(site, "unproved_native_identity");
             return false;
         }
-        if self.analysis.has_binding(binding) {
+        if self.bindings.is_shadowed(binding) {
             self.refuse(site, "intrinsic_rebound");
             return false;
         }

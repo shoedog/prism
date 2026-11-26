@@ -179,8 +179,8 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                 && node != name
                 && self.text(node) == self.text(name)
                 && self
-                    .analysis
-                    .read(node)
+                    .bindings
+                    .bare_read(node)
                     .and_then(|read| read.binding.as_ref())
                     == Some(&id)
             {
@@ -211,8 +211,8 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         construction
             && invocation
             && reference.is_some_and(|node| {
-                self.declaration(node).is_some_and(|(binding, _)| {
-                    self.analysis
+                self.bare_declaration(node).is_some_and(|(binding, _)| {
+                    self.bindings
                         .proof_writes(&binding)
                         .is_some_and(|writes| writes.len() == 1)
                 })
@@ -220,13 +220,23 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
     }
 
     fn one_identity(&mut self, input: &GuardInput<'a>, step: Selection<'a>) -> bool {
-        let Some((binding, _)) = self.declaration(input.receiver) else {
+        // A downstream write can have a bare receiver after a member-selection step.
+        if !identifier(peel(step.object)) {
+            return false;
+        }
+        let Some((binding, _)) = self.bare_declaration(input.receiver) else {
             return false;
         };
         let mut node = step.effect;
         let mut cursor = None;
         while let Some(parent) = node.parent() {
             if !self.spend(1) {
+                return false;
+            }
+            if matches!(parent.kind(), "member_expression" | "subscript_expression")
+                && field(parent, "object") == Some(node)
+            {
+                // This selection supplies a receiver for another lookup before advancing the cursor.
                 return false;
             }
             if parent.kind() == "assignment_expression" && field(parent, "right") == Some(node) {
@@ -260,7 +270,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         {
             return false;
         }
-        let Some(read) = self.bare_read(left) else {
+        let Some(read) = self.bindings.bare_read(left) else {
             return false;
         };
         if read.binding.as_ref() == Some(&binding)
