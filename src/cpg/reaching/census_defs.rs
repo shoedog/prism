@@ -123,6 +123,11 @@ impl CensusFacts {
         }
     }
 
+    /// Whether the completed list overflowed the def cap while the recorded one fit (label refusal).
+    pub(super) fn def_cap_forced(&self) -> bool {
+        self.forced == Some("owner-refuse:def-cap")
+    }
+
     /// The one-node distinct-bases belt on the recorded bases, as main runs it (`false`: refuse
     /// availability). When only the completed bases fail it, the list is cut back to the recorded defs
     /// and the owner refused by label (`owner-refuse:one-node`).
@@ -318,6 +323,7 @@ pub(super) fn complete_with(
             line: k.line,
             start_byte: k.start_byte,
             alias_derived: false,
+            s1_entry: false,
         });
         next += 1;
     }

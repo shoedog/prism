@@ -241,7 +241,7 @@ fn retained_sites_exclude_assignment_rejections() {
     let resolver = crate::resolution::go::satisfiers::GoSatisfierMemo::new(&cg);
     let index = uses::UseIndex::new(&DiGraph::new());
     let mut rejected = 0;
-    for (caller, facts) in facts::collect(&resolver, &files, &index) {
+    for (caller, facts, _) in facts::collect(&resolver, &files, &index) {
         let parsed = &files[&caller.file];
         let sites = &cg.calls[caller];
         let expected = sites
@@ -263,5 +263,5 @@ fn retained_sites_exclude_assignment_rejections() {
     // Missing parsed files reject every site without resolution or replay work.
     assert!(facts::collect(&resolver, &BTreeMap::new(), &index)
         .iter()
-        .all(|(_, facts)| facts.is_empty()));
+        .all(|(_, facts, _)| facts.is_empty()));
 }

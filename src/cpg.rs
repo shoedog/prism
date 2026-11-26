@@ -80,6 +80,8 @@ mod param_binding_matrix_tests;
 #[cfg(test)]
 mod parameter_slots_parity_tests;
 #[cfg(test)]
+mod props_generated_tests;
+#[cfg(test)]
 mod props_matrix_tests;
 pub mod query;
 mod reaching;
@@ -87,6 +89,9 @@ mod reaching;
 mod recorded_kill_tests;
 #[cfg(test)]
 mod required_parameter_tests;
+pub(crate) mod s1_trace;
+#[cfg(test)]
+mod s1_trace_tests;
 #[cfg(test)]
 mod s1c_label_tests;
 #[cfg(test)]
@@ -130,11 +135,12 @@ pub(crate) use reaching::loop_plan_tests;
 #[cfg(test)]
 pub(crate) use reaching::with_recall_cap;
 pub(crate) use reaching::{
-    placed_lines, reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges,
-    DefId, DefSite, FileCfgEdgeIndex, RdOutcome,
+    census_def_cap_overflow, pattern_one_node_refusal, placed_lines,
+    reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges, DefId,
+    DefSite, FileCfgEdgeIndex, RdOutcome, RdUnavailable,
 };
 #[cfg(test)]
-pub(crate) use reaching::{RD_MAX_DEFS, RD_MAX_LINES};
+pub(crate) use reaching::{with_availability_limits, RD_MAX_DEFS, RD_MAX_LINES};
 pub use taint_policy::{CrossingCeiling, TaintCrossingPolicy};
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,

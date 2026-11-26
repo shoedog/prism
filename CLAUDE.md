@@ -570,7 +570,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v192) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v193) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -620,8 +620,8 @@ accepted cost is that a seed on the whole parameter reaches every `p.<field>` re
 bound to the formal suppresses its path for the whole callable (flow-insensitive): plain, compound and
 logical assignment, `++`/`--`, `delete`, array/object/rest pattern targets, `for (p.x of/in ...)`, and
 the same inside nested callables; a write to `p`, to a prefix of the path, or below it (`p.x.y = 1`
-also suppresses `p.x`) all count. `p[k]` counts as a bare read; `this.x`, destructured formals and
-`arguments` are not handled. A bare read in a default of the own parameter list (`u = o`, `u = g(o)`,
+also suppresses `p.x`) all count. `p[k]` counts as a bare read. This member-only rule excludes
+`this.x` and `arguments`. A bare read in a default of the own parameter list (`u = o`, `u = g(o)`,
 `{ k = o } = {}`, a computed pattern key; a nested callable's read counts, as in the body) makes the
 formal mixed, like the same read in the body (#761; `o[k] = v` written in the list is not a read, it
 stays `own-params`' domain). A default that is a plain identifier, or a destructuring pattern with an
@@ -659,6 +659,35 @@ files. Rest transfers that depend on dense-literal iteration or later scalar off
 standard array iterator, as slice A offsets do. A replacement of the standard iterator in owner-body
 statements after the call needs a second invocation and is not checked (disclosed residual). See the
 known-gaps document for the iteration proof's coverage.
+
+JS/TS/TSX object-pattern formals give each used, eligible local a Def at the callable's start
+line with the binding token's bytes. The pattern walk covers renames, nested objects and rest.
+Array subtrees and non-inert defaults exclude their bindings. Whole-pattern identifier defaults
+use the existing alias producer. The owner-relative runtime walk keeps body captures and fences
+parameter decorators and descendant formal lists. Signature reads require complete-list syntax,
+binding and initialization proofs. The signature can read a completed earlier binding as an
+entire bare key or default. Its final identifier formal can store a synchronous zero-parameter
+arrow that reads an eligible local from a completed earlier formal. Both forms use the operand
+bytes with `cfg_incomplete`. The final reader can supply a Use on a named signature line without
+a preferred Use.
+
+Body edges use a separate value proof. M1 selects base reads when the local occurs as a whole
+value anywhere in the owner, including refused signature reads, or when the owner reads its
+`arguments` object through its lexical environment. W1 requires every member store to have the
+same root binding and a comparable path. A `with` statement withholds projections. S checks
+initializer evaluation, declarative identifier lookup, computed keys, property gets and spreads.
+S2 withholds projections for array bindings, object rest and rest formals. When the binding still
+reaches the read, a withheld projection uses the proved receiver bytes and the base-read label.
+A shared representative must belong to the proved environment and value version. R2.6 relocates
+the witnessed mixed-line signature-closure endpoint for raw writes and alias twins.
+Parameter names and argument slots keep their separate accessors. When S1 alone crosses the
+2,048-Def RD or 1,000,000-pair fallback limit, the file producer replays the owner's legacy facts.
+The bounded legacy changes are the R2.6 endpoint relocation and the uncapped p35 sibling
+relabel. Signature writes and alias twins keep their legacy labels, including D3's
+`alias_unstable`. Changes outside DFG statistics are limited to witnessed Step 5c return
+inputs, return-flow suppression transitions and ordinary argument-slot joins in DESIGN §5.9. The S1 ledger records attempts, overlapping projection causes and cap decisions before
+deduplication. The compact graph's occurrence-label lookup applies only to S1 signature pairs (Go, Python and every legacy pair keep the line-group label); a separate S1 pass relabels a body read that shares a mixed signature/body line at the identifier twin's label. `PRISM_S1_TRACE=1` emits projection demotions and downstream joins on stderr. A cold run can set
+`PRISM_S1_SUPPRESSION_BASE` to a baseline trace file to report suppression counter transitions.
 
 An ordinary JS/TS/TSX bare-arrow argument (lane 9, slice C) binds at its exact runtime offset
 to the entry Def for the identifier's byte span. The locator requires a unique named implementation

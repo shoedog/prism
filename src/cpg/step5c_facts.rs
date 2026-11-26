@@ -10,7 +10,8 @@ pub(super) struct SiteFacts<'a> {
     pub(super) rhs_uses: Vec<NodeIndex>,
 }
 
-pub(super) type CallerFacts<'a> = (&'a FunctionId, Vec<SiteFacts<'a>>);
+/// The third member holds each site only while `PRISM_S1_TRACE` is on (empty otherwise).
+pub(super) type CallerFacts<'a> = (&'a FunctionId, Vec<SiteFacts<'a>>, Vec<&'a CallSite>);
 
 /// Slice-taking twin of build::singleton_exact; replay needs no other outcome facts.
 pub(super) fn singleton_exact<'a>(
@@ -48,7 +49,8 @@ pub(super) fn collect<'a>(
                     .iter()
                     .map(|&(caller, sites)| {
                         let parsed = files.get(&caller.file);
-                        let facts = sites
+                        let trace = crate::cpg::s1_trace::enabled();
+                        let (traced, facts): (Vec<_>, Vec<_>) = sites
                             .iter()
                             .filter_map(|site| {
                                 let assignment = parsed?
@@ -73,14 +75,17 @@ pub(super) fn collect<'a>(
                                 } else {
                                     Vec::new()
                                 };
-                                Some(SiteFacts {
-                                    lvalues: assignment.lvalues,
-                                    resolved: outcome.resolved,
-                                    rhs_uses,
-                                })
+                                Some((
+                                    trace.then_some(site),
+                                    SiteFacts {
+                                        lvalues: assignment.lvalues,
+                                        resolved: outcome.resolved,
+                                        rhs_uses,
+                                    },
+                                ))
                             })
-                            .collect();
-                        (caller, facts)
+                            .unzip();
+                        (caller, facts, traced.into_iter().flatten().collect())
                     })
                     .collect()
             })

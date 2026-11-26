@@ -8,6 +8,11 @@ mod imports;
 mod local_bindings;
 mod param_alias;
 mod params;
+mod pattern_params;
+pub(crate) use pattern_params::formal_binding;
+#[cfg(test)]
+mod pattern_params_tests;
+pub(crate) mod props_keys;
 mod props_types;
 pub mod proto_writes;
 #[cfg(test)]
