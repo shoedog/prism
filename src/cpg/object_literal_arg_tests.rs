@@ -20,6 +20,14 @@ pub(super) const LANGS: [(Language, &str); 3] = [
 ];
 
 pub(super) fn build(language: Language, files: &[(&str, &str)], ext: &str) -> CodePropertyGraph {
+    CodePropertyGraph::build(&parse_files(language, files, ext))
+}
+
+pub(super) fn parse_files(
+    language: Language,
+    files: &[(&str, &str)],
+    ext: &str,
+) -> BTreeMap<String, ParsedFile> {
     let mut parsed = BTreeMap::new();
     for (stem, source) in files {
         let name = format!("{stem}.{ext}");
@@ -27,7 +35,7 @@ pub(super) fn build(language: Language, files: &[(&str, &str)], ext: &str) -> Co
         assert_eq!(file.parse_error_count, 0, "{name}: {source}");
         parsed.insert(name, file);
     }
-    CodePropertyGraph::build(&parsed)
+    parsed
 }
 
 pub(super) fn spell(

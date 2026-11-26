@@ -342,7 +342,8 @@ mod stream;
 /// - v191: JS/TS/TSX arguments bind to identifier rest Defs using a runtime offset lower bound and an iteration witness for Exact opaque spreads, changing DataFlow edges and dependent return-flow certification.
 /// - v192: admitted JS/TS/TSX bare-arrow formals receive positional and literal-leaf DataFlow edges, changing dependent return-flow certification.
 /// - v193: JS/TS/TSX object-pattern formals register Defs for used, admitted locals. Their reads and initializer captures connect at binding-proved endpoints. M1, W1, S and S2 select base reads when an entry projection is unproved.
-const CACHE_VERSION: u32 = 193;
+/// - v194: JS/TS/TSX literal arguments bind to proved object-pattern Defs and selected plain-formal reads. Step 5b props inventory, refusals and edge counters are serialized.
+const CACHE_VERSION: u32 = 194;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 

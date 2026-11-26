@@ -285,7 +285,7 @@ fn props_s2_pattern_formal_graph_and_pending_parity() {
 
     let inputs = pattern_sources(false);
     let files = parse(&inputs);
-    let (cold, production) = capture(|| CodePropertyGraph::build(&files));
+    let (cold, production) = capture(&files, || CodePropertyGraph::build(&files));
     let assemble = || {
         CodePropertyGraph::assemble_graph(
             CallGraph::build(&files),
@@ -294,9 +294,10 @@ fn props_s2_pattern_formal_graph_and_pending_parity() {
             None,
         )
     };
-    let (legacy, legacy_pending) = capture(|| with_legacy(assemble));
-    let (serial, serial_pending) =
-        capture(|| super::super::step5b_reference::with_serial(assemble));
+    let (legacy, legacy_pending) = capture(&files, || with_legacy(assemble));
+    let (serial, serial_pending) = capture(&files, || {
+        super::super::step5b_reference::with_serial(assemble)
+    });
     let compare_pending = |other: Assembly| {
         let base = production.pre_binding.as_ref().unwrap();
         let input = other.pre_binding.unwrap();
@@ -322,12 +323,19 @@ fn props_s2_pattern_formal_graph_and_pending_parity() {
             production.pending, other.pending,
             "same pending order, labels and guard flags"
         );
+        assert_eq!(production.literal_attempts, other.literal_attempts);
+        assert_eq!(production.literal_witnesses, other.literal_witnesses);
         let before_guard = production.guard_input.as_ref().unwrap();
         let other_guard = other.guard_input.unwrap();
         assert_eq!(before_guard.counters, other_guard.counters);
         assert_eq!(before_guard.seeds, other_guard.seeds);
         assert_eq!(before_guard.bare_literals, other_guard.bare_literals);
     };
+    assert_eq!(production.literal_attempts.len(), 5);
+    assert!(production
+        .literal_witnesses
+        .iter()
+        .any(|witness| witness.class == "edges_to_def"));
     compare_pending(legacy_pending);
     compare_pending(serial_pending);
     let same_final = |actual: &CodePropertyGraph, expected: &CodePropertyGraph| {

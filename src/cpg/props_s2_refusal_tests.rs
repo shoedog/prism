@@ -266,6 +266,134 @@ fn props_s2_namespace_export_query_refuses_injected_impostor() {
 }
 
 #[test]
+fn props_s2_namespace_proof_is_specific_to_the_spelled_export() {
+    let caller = "import * as api from './service';\nfunction App(x, y) {\n return api.D({a: x}, {b: y});\n}\n";
+    let mut failures = Vec::new();
+    for (case, extra, binds_pattern) in [
+        ("other skipped name", "export const api = { D };", true),
+        ("same skipped name", "export const D = { other: 0 };", false),
+        (
+            "other namespace export",
+            "export * as extra from './other';",
+            true,
+        ),
+        (
+            "same namespace export",
+            "export * as D from './other';",
+            false,
+        ),
+        (
+            "same dotted namespace declaration",
+            "export namespace D.Extra { export const flag = 0; }",
+            false,
+        ),
+        (
+            "same named re-export",
+            "export { other as D } from './other';",
+            false,
+        ),
+        ("possible star export", "export * from './other';", false),
+        (
+            "unresolved star export",
+            "export * from './missing';",
+            false,
+        ),
+    ] {
+        let service = format!(
+            "export function D(p, {{b}}) {{\n observe(p.a);\n return use(b);\n}}\n{extra}\n"
+        );
+        let built = build(
+            Language::TypeScript,
+            &[
+                ("m", caller),
+                ("service", &service),
+                ("other", "export const D = 0, other = 1;\n"),
+            ],
+            "ts",
+        );
+        let sites = recorded(&built, "App", "D");
+        assert_eq!(sites.len(), 1, "{case}");
+        let resolved = built.call_graph.resolve_call_site(sites[0]);
+        assert_eq!(resolved.len(), 1, "{case}: {resolved:?}");
+        assert_eq!(
+            resolved[0].confidence,
+            ResolutionConfidence::Exact,
+            "{case}"
+        );
+        assert_eq!(resolved[0].kind, ResolutionKind::ImportQualified, "{case}");
+        assert_eq!(resolved[0].target.file, "service.ts", "{case}");
+        assert_eq!(resolved[0].target.name, "D", "{case}");
+        assert_eq!(
+            (resolved[0].target.start_line, resolved[0].target.end_line),
+            (1, 4),
+            "{case}"
+        );
+
+        let mut edges = vec!["App:x@3 -> D:p.a@2(use)"];
+        if binds_pattern {
+            edges.push("App:y@3 -> D:b@1(def)");
+        }
+        let counts = [
+            ("refused_member_qualifier", 0),
+            ("refused_member_not_export", u64::from(!binds_pattern)),
+        ];
+        if let Err(detail) = check(&built, &edges, &counts) {
+            failures.push(format!("{case}: {detail}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn props_s2_namespace_preserves_proved_reexports() {
+    let caller =
+        "import * as api from './service';\nfunction App(x) {\n return api.D({a: x});\n}\n";
+    let target = "export function D({a}) {\n return use(a);\n}\n";
+    for (barrel, binds_pattern) in [
+        ("export { D } from './service/leaf';", true),
+        ("export * from './service/leaf';", true),
+        (
+            "export { D } from './service/leaf'; export * from './missing';",
+            false,
+        ),
+    ] {
+        let built = build(
+            Language::TypeScript,
+            &[("m", caller), ("service", barrel), ("service/leaf", target)],
+            "ts",
+        );
+        let sites = recorded(&built, "App", "D");
+        assert_eq!(sites.len(), 1, "{barrel}");
+        let graph = &built.call_graph;
+        let resolved = graph.resolve_call_site(sites[0]);
+        assert_eq!(resolved.len(), 1, "{barrel}: {resolved:?}");
+        assert_eq!(
+            resolved[0].confidence,
+            ResolutionConfidence::Exact,
+            "{barrel}"
+        );
+        assert_eq!(
+            resolved[0].kind,
+            ResolutionKind::ImportQualified,
+            "{barrel}"
+        );
+        assert_eq!(resolved[0].target.file, "service/leaf.ts", "{barrel}");
+        assert!(graph.js_ts_namespace_export_matches(sites[0], resolved[0].target));
+        let edges: &[_] = if binds_pattern {
+            &["App:x@3 -> D:a@1(def)"]
+        } else {
+            &[]
+        };
+        check(
+            &built,
+            edges,
+            &[("refused_member_not_export", u64::from(!binds_pattern))],
+        )
+        .unwrap_or_else(|failure| panic!("{barrel}: {failure}"));
+    }
+}
+
+#[test]
 fn props_s2_recovered_literal_contributes_only_inventory() {
     let target = "export function D({a}) {\n return use(a);\n}\n";
     let mut failures = Vec::new();

@@ -710,10 +710,11 @@ suppression applied: a read whose path is written, or has a written prefix or a 
 fed, and a leaf at or below a written path feeds no read). The label is the call's label joined with
 the definition edge's. A spread or computed key refuses every key written before it; for duplicate keys the last
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
-non-data values (calls, arithmetic, arrays), a spread argument before the literal, NameOnly or
-multi-target calls, and destructured or rest formals bind nothing. A mixed formal's reads
-in a declarator initialiser, a condition, a `for-in` head or an `in` test have zero-width base Uses and
-are not fed (known gap).
+non-data values, a preceding argument spread, NameOnly and multi-target calls, and
+identifier-rest formals supply no hop. Zero-width base Uses in mixed formals remain
+unsupported. S2b (#596, cache v194) adds literal edges to proved object-pattern
+Defs, including object rest, and checks the binding of the selected plain-formal
+Use. The `dfg_props` map records pending binding. JSX attribute flow remains pending.
 
 ### MCP Adapter
 

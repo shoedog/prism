@@ -337,7 +337,7 @@ fn props_s2_generated_collision_and_replacement_cells() {
             let file = &parsed[&format!("case.{}", cell.grammar)];
             assert!(!file.tree.root_node().has_error() && file.parse_error_count == 0);
             receipt.parsed += 1;
-            let (graph, observed) = capture(|| CodePropertyGraph::build(&parsed));
+            let (graph, observed) = capture(&parsed, || CodePropertyGraph::build(&parsed));
             evidence(file, &graph, &observed.pre_binding.unwrap(), &cell);
             graph
         }));

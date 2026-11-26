@@ -1,8 +1,7 @@
 //! JavaScript/TypeScript/TSX parts of `ParsedFile`, and the JS/TS export and return fact models
 //! (`exports`, `returns`).
 
-// S2b-STUB: route proof is supplied by the implementation slice.
-mod component_route;
+pub(crate) mod component_route;
 #[cfg(test)]
 mod component_route_tests;
 mod exact_reads;
@@ -13,7 +12,7 @@ mod local_bindings;
 mod param_alias;
 mod params;
 mod pattern_params;
-pub(crate) use pattern_params::formal_binding;
+pub(crate) use pattern_params::{formal_binding, PatternParam};
 #[cfg(test)]
 mod pattern_params_tests;
 pub(crate) mod props_keys;

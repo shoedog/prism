@@ -527,8 +527,9 @@ fn generated_pattern_default_cells() {
             let file = &parsed[&format!("case.{grammar}")];
             assert!(!file.tree.root_node().has_error(), "unexpected recovery");
             receipt.parsed += 1;
-            let (graph, observed) =
-                super::props_s2_test_support::capture(|| CodePropertyGraph::build(&parsed));
+            let (graph, observed) = super::props_s2_test_support::capture(&parsed, || {
+                CodePropertyGraph::build(&parsed)
+            });
             observe_evidence(file, &graph, &evidence);
             let pre = observed.pre_binding.as_ref().unwrap();
             outcome::observe_literal_sources(pre, &evidence);

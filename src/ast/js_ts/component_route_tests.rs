@@ -100,6 +100,11 @@ fn component_route_refuses_unproved_lexical_value() {
         ),
         ("const premature = D({a: x});", "const D = ({a}) => a;"),
         (
+            "(function Run(x) { D({a: x}); })(1);",
+            "const D = ({a}) => a;",
+        ),
+        ("((x) => D({a: x})).call(null, 1);", "const D = ({a}) => a;"),
+        (
             "function D({a}) { return a; } const Pick = factory(D);",
             "function App(x) { return Pick({a: x}); }",
         ),

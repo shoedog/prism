@@ -65,7 +65,7 @@ fn props_s2_selected_read_does_not_borrow_a_formal_witness() {
                 parsed.js_ts_occurrence_binds_formal(&owner, "p", formal_at),
                 "{scope}: {formal_at}"
             );
-            let (cpg, observed) = capture(|| CodePropertyGraph::build(&inputs));
+            let (cpg, observed) = capture(&inputs, || CodePropertyGraph::build(&inputs));
             let pre = observed.pre_binding.unwrap().graph;
             let formal_defs: Vec<_> = pre
                 .node_indices()
@@ -116,7 +116,7 @@ fn props_s2_selected_read_does_not_borrow_a_formal_witness() {
 fn props_s2_literal_preserves_the_inherited_callee_kill_line() {
     let source = "function D(p) {\n  use(p);\n  use(p.a);\n}\nfunction App(x) {\n  D({a: x});\n}\n";
     let inputs = parse(source);
-    let (cpg, observed) = capture(|| CodePropertyGraph::build(&inputs));
+    let (cpg, observed) = capture(&inputs, || CodePropertyGraph::build(&inputs));
     let mut pre = observed.pre_binding.unwrap();
     let use_at = source.find("use(p.a)").unwrap() + "use(".len();
     let inherited: Vec<_> = pre
