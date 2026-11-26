@@ -5,6 +5,8 @@ use prism::ast::ParsedFile;
 use prism::rule_registry::{RuleInfo, CONFIGURED_SINK, FORMAT_WRAPPER};
 use std::collections::BTreeSet;
 
+#[cfg_attr(not(test), allow(dead_code))]
+mod certificate;
 mod evidence;
 use evidence::{Detector, Occurrence, Role};
 
@@ -79,6 +81,9 @@ fn collect_rules<'a, 'p>(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod price;
 
 #[cfg(test)]
 pub(super) mod old_visits;

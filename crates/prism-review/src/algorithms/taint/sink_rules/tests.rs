@@ -556,6 +556,7 @@ fn receipt_checks_parse_key_range_owner_and_operand_membership() {
 }
 
 mod callee;
+mod certificate_rows;
 mod fixtures;
 mod receipt;
 mod routes;

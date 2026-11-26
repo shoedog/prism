@@ -43,6 +43,7 @@ fn wrong_rows(language: Language, file: &str, source: &str, rows: &[Row]) -> Vec
 fn python_callee_shapes() {
     let source = "def f(x):\n    (lambda: f)(x)\n    (k if c else f)(x)\n    (g, f)(x)\n    f()(x)\n    (f)(x)\n    a.f(x)\n    a[\"f\"](x)\n    a[k](x)\n    (a.f)(x)\n";
     let rows: &[Row] = &[
+        // control of the owner check (evidence.rs), not a table refusal
         ("(lambda: f)(x)", "f", false),
         ("(k if c else f)(x)", "f", false),
         ("(g, f)(x)", "f", false),
@@ -63,6 +64,7 @@ fn python_callee_shapes() {
 fn javascript_callee_shapes() {
     let source = "async function f(x) {\n  (() => f)(x);\n  (function () { return f; })(x);\n  (c ? g : f)(x);\n  (g, f)(x);\n  f()(x);\n  (await f)(x);\n  (f)(x);\n  a.f(x);\n  a?.f(x);\n  a[\"f\"](x);\n  a[k](x);\n  new a.f(x);\n}\n";
     let rows: &[Row] = &[
+        // control of the owner check (evidence.rs), not a table refusal
         ("(() => f)(x)", "f", false),
         ("(function () { return f; })(x)", "f", false),
         ("(c ? g : f)(x)", "f", false),
@@ -105,6 +107,7 @@ fn typescript_callee_shapes() {
 fn go_callee_shapes() {
     let source = "package p\nfunc f(x int) {\n\tfunc() T { return f }(x)\n\tf()(x)\n\t(f)(x)\n\ta.f(x)\n\t(*p).f(x)\n\tF[int](x)\n}\n";
     let rows: &[Row] = &[
+        // control of the owner check (evidence.rs), not a table refusal
         ("func() T { return f }(x)", "f", false),
         ("f()(x)", "f", false),
         ("(f)(x)", "f", true),
