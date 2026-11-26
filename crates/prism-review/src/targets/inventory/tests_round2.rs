@@ -1,6 +1,9 @@
 use super::{file, Family, Grade, UnprovenCause, UnsupportedReason};
 use tempfile::tempdir;
 
+#[path = "tests_coverage.rs"]
+mod coverage;
+
 fn assert_http_cases(cases: &[(&str, &str, Option<UnprovenCause>)], callee: &str) {
     let repo = tempdir().unwrap();
     let mut failures = Vec::new();

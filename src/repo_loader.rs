@@ -502,6 +502,8 @@ mod freshness_paths;
 mod js_priming;
 #[cfg(test)]
 mod skip_tests;
+#[cfg(test)]
+mod tests_coverage;
 use bin_roots::{collect_binary_library_deps, collect_member_bin_roots};
 pub use freshness_paths::collect_freshness_source_paths;
 
