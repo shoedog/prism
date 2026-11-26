@@ -560,6 +560,13 @@ pub enum NavQuery {
         #[arg(long)]
         dump_sites: bool,
     },
+    /// List prototype-capable JS/TS writes and their selector reads (unstable).
+    ProtoWrites {
+        #[arg(long)]
+        repo: std::path::PathBuf,
+        #[arg(long, default_value = "text", value_parser = ["json", "text"])]
+        format: String,
+    },
     /// Whole-repo DataFlow confidence telemetry.
     DfgStats {
         #[arg(long)]

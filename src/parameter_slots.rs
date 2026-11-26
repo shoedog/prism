@@ -32,7 +32,7 @@ pub(crate) fn typescript_parameter_bindings(
     }
     if params.kind() == "identifier" {
         let name = parsed.node_text(&params);
-        if name.contains('\\') || parsed.js_ts_nested_callable_binds_formal(function, name) {
+        if name.contains('\\') || parsed.js_ts_nested_callable_binds_formal(function, params) {
             return Vec::new();
         }
         return vec![(name.to_string(), params.start_byte(), params.end_byte())];
@@ -70,14 +70,14 @@ pub(crate) fn typescript_parameter_bindings(
             let pattern = parameter.child_by_field_name("pattern")?;
             // js-param-defs PR-A: `...name: T[]` binds the engine-created
             // array under `name`; destructured rest stays refused. Positional
-            // slots still stop at rest (`typescript_slots`), so no argument
-            // ever binds to this Def through Step 5b.
+            // slots still stop at rest (`typescript_slots`). Step 5b finds
+            // this Def separately when binding rest elements.
             let rest_identifier = (!is_optional && js_ts_is_last_parameter(params, parameter))
                 .then(|| parsed.js_ts_rest_identifier(pattern))
                 .flatten();
-            if rest_identifier.is_some_and(|rest| {
-                parsed.js_ts_nested_callable_binds_formal(function, parsed.node_text(&rest))
-            }) {
+            if rest_identifier
+                .is_some_and(|rest| parsed.js_ts_nested_callable_binds_formal(function, rest))
+            {
                 return None;
             }
             if pattern.kind() != "identifier" && rest_identifier.is_none() {

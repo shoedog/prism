@@ -14,6 +14,9 @@ pub(crate) use pattern_params::formal_binding;
 mod pattern_params_tests;
 pub(crate) mod props_keys;
 mod props_types;
+pub mod proto_writes;
+#[cfg(test)]
+mod proto_writes_tests;
 mod receiver_evidence;
 mod receiver_writes;
 pub mod returns;

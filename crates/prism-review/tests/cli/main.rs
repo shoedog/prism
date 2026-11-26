@@ -16,6 +16,7 @@ mod member_only_param_test;
 mod min_confidence_admission_test;
 mod min_confidence_test;
 mod nav_compat_test;
+mod nav_proto_writes_test;
 mod nav_sidecar_cache_parity_test;
 mod output_test;
 mod owner_activation_test;
