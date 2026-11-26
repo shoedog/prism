@@ -14,6 +14,7 @@ use tree_sitter::Node;
 mod import_regressions;
 mod measure;
 mod review;
+mod source_fact_gaps;
 mod static_import;
 
 fn parsed(sources: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
