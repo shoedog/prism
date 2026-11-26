@@ -8,9 +8,9 @@
 
 Stage D, lane 11. Option B grades the occurrence and property identified by bound evidence. The owner authorised one final targeted fold at `967dd7123`. See the [round-four dispositions](FORMATS-DECISIONS.md#review-round-4-dispositions) and [fixture specifications](FORMATS-LEDGER.md#round-four-fixtures). Adoption requires a measured differential.
 
-**Open rows by owning slice** ([FORMATS-OPEN-ROWS.md](FORMATS-OPEN-ROWS.md), 133 rows; each row carries its own status, `open`, `closed` or `re-scoped`)
+**Rows by owning slice** ([FORMATS-OPEN-ROWS.md](FORMATS-OPEN-ROWS.md), 133 rows; the tables list every row by owner, and each row carries its own status, `open`, `closed` or `re-scoped`)
 
-| Slice | Open rows | IDs |
+| Slice | Rows | IDs |
 |---|---:|---|
 | S1 | 29 | f1, f2, f3, f8, f9, n1-1, n1-2, n1-3, n1-4, n1-5, n1-22, n1-23, n2-4, n2-5, n2-6, n2-7, n2-8, n2-9, n2-13, n2-33, n3-1, n3-2, n3-3, n3-15, n3-16, n4-1, n4-11, n4-16, n4-22 |
 | S2 | 15 | f4, f10, f12, n1-6, n1-7, n1-24, n1-25, n2-2, n2-3, n2-15, n2-24, n2-25, n3-4, n4-7, n4-12 |
@@ -21,9 +21,9 @@ Stage D, lane 11. Option B grades the occurrence and property identified by boun
 | S6b | 34 | f6, f7, f11, n1-19, n1-20, n1-21, n1-30, n1-31, n1-32, n1-33, n1-34, n2-10, n2-11, n2-19, n2-20, n2-21, n2-22, n2-28, n2-29, n2-31, n3-13, n3-14, n3-24, n3-25, n3-26, n3-27, n4-4, n4-6, n4-8, n4-9, n4-10, n4-17, n4-20, n4-21 |
 | S8 | 2 | n1-35, n2-30 |
 
-**Open rows by FORMATS section** (by the first FORMATS.md line each row cites, mapped to its section heading; DESIGN, PLAN and companion-only rows are grouped apart)
+**Rows by FORMATS section** (by the first FORMATS.md line each row cites, mapped to its section heading; DESIGN, PLAN and companion-only rows are grouped apart)
 
-| Section | Open rows | IDs |
+| Section | Rows | IDs |
 |---|---:|---|
 | other | 13 | f1, f2, f3, f4, f5, f6, f7, f8, f9, f11, f12, n1-22, s2-1 |
 | 3. Edge difference, trace join and count | 7 | f10, n1-6, n1-7, n1-15, n1-25, n2-25, s2-2 |

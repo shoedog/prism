@@ -222,7 +222,7 @@ extras are ignored or carried):
 | Trace payloads and trace node keys | free-form by format |
 | Counter files | free-form by format (arbitrary member names) |
 | `prediction` record | closed keys |
-| Corpus manifest envelope | closed keys; its `corpora` map is keyed by registered corpus names |
+| Corpus manifest envelope | closed keys; its `corpora` map is keyed by corpus keys matching `[A-Za-z0-9_@+~-]+(\.[A-Za-z0-9_@+~-]+)*` (the `name` member is free text) |
 | Classifier `LEGACY_MECHANISM_ORDER` | free-form by classifier: corpus key to a list of distinct tags |
 | Inventory `recorded_path` and `chain_path` columns | free-form in S2: FORMATS gives both the `{base, fields}` shape but the parser projects extras away (open-s2-2) |
 
