@@ -1,0 +1,585 @@
+{
+  "A18": {
+    "variants": [
+      {
+        "name": "cross-repo",
+        "patches": [],
+        "files": {"schema": "external.json", "parts": "parts.json"},
+        "project": {"ids": ["op:GET /kiln", "field:resp:GET /kiln:200#/stamp"]},
+        "admitted": true
+      },
+      {
+        "name": "missing-edge",
+        "patches": [
+          {"path": "/receipts/0/dependencies/1"}
+        ],
+        "files": {"schema": "external.json", "parts": "parts.json"},
+        "project": {"ids": ["op:GET /kiln"], "reasons": ["reference_blob_unavailable"]},
+        "admitted": true
+      },
+      {
+        "name": "unbound-alias",
+        "patches": [
+          {"path": "/receipts/11/retrieval_uri", "value": "https://pilot.invalid/schemas/alias.json"}
+        ],
+        "files": {"schema": "external.json", "parts": "parts.json"},
+        "project": {"ids": ["op:GET /kiln"], "reasons": ["reference_blob_unavailable"]},
+        "admitted": true
+      }
+    ],
+    "base_patches": [
+      {"path": "/receipts/0/digest/value", "value": "8d2b762fc8b39017289b4c324c283081246004a35770cd234587fefe7ce48ee2"},
+      {
+        "path": "/slots/-",
+        "value": {
+          "slot": "external",
+          "input_id": "external",
+          "api": "pilot-api",
+          "role": "producer",
+          "repo": "pilot-dependency",
+          "authority": "schema",
+          "scope": {"kind": "api"},
+          "rev": "parts-rev",
+          "tree": "parts-tree",
+          "config": {
+            "tree": "service-before-tree",
+            "path": "prism-boundary.toml",
+            "blob": "config-blob",
+            "entry": 1,
+            "era": "v1",
+            "defaults": "driver-defaults",
+            "export": "pilotClient",
+            "mount": "/api",
+            "strip": "",
+            "add": "",
+            "api": "pilot-api",
+            "dependencies": ["mapping"],
+            "hook": "usePilot",
+            "delegate": "pilotClient"
+          },
+          "branch": "main"
+        }
+      },
+      {
+        "path": "/inputs/-",
+        "value": {
+          "binding": {
+            "slot": "external",
+            "input_id": "external",
+            "api": "pilot-api",
+            "role": "producer",
+            "repo": "pilot-dependency",
+            "authority": "schema",
+            "scope": {"kind": "api"},
+            "rev": "parts-rev",
+            "tree": "parts-tree",
+            "config": {
+              "tree": "service-before-tree",
+              "path": "prism-boundary.toml",
+              "blob": "config-blob",
+              "entry": 1,
+              "era": "v1",
+              "defaults": "driver-defaults",
+              "export": "pilotClient",
+              "mount": "/api",
+              "strip": "",
+              "add": "",
+              "api": "pilot-api",
+              "dependencies": ["mapping"],
+              "hook": "usePilot",
+              "delegate": "pilotClient"
+            },
+            "branch": "main"
+          },
+          "snapshot": {
+            "snapshot_kind": "commit",
+            "rev": "parts-rev",
+            "tree": "parts-tree",
+            "subject": null,
+            "committed_at": "2026-11-25T12:00:00Z"
+          },
+          "dirty": null,
+          "selection": null
+        }
+      },
+      {"path": "/receipts/0/retrieval_uri", "value": "https://pilot.invalid/schemas/openapi.json"},
+      {"path": "/receipts/0/dependencies/-", "value": "parts"},
+      {
+        "path": "/receipts/-",
+        "value": {
+          "id": "parts",
+          "kind": "blob",
+          "origin": {
+            "kind": "named_tree",
+            "input_id": "external",
+            "repo": "pilot-dependency",
+            "tree": "parts-tree",
+            "path": "parts.json",
+            "blob": "parts-blob",
+            "availability": "available"
+          },
+          "dependencies": [],
+          "format": "json",
+          "retrieval_uri": "https://pilot.invalid/schemas/parts.json",
+          "digest": {"algorithm": "sha256", "framing": "raw_bytes", "value": "50eb45c4e4700c966710edf679b6ac439c2faa2bf67df02fe1bfaee0513fa93b"}
+        }
+      }
+    ]
+  },
+  "A19": {
+    "variants": [
+      {
+        "name": "competing-uri",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "8d2b762fc8b39017289b4c324c283081246004a35770cd234587fefe7ce48ee2"},
+          {
+            "path": "/slots/-",
+            "value": {
+              "slot": "external",
+              "input_id": "external",
+              "api": "pilot-api",
+              "role": "producer",
+              "repo": "pilot-dependency",
+              "authority": "schema",
+              "scope": {"kind": "api"},
+              "rev": "parts-rev",
+              "tree": "parts-tree",
+              "config": {
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "entry": 1,
+                "era": "v1",
+                "defaults": "driver-defaults",
+                "export": "pilotClient",
+                "mount": "/api",
+                "strip": "",
+                "add": "",
+                "api": "pilot-api",
+                "dependencies": ["mapping"],
+                "hook": "usePilot",
+                "delegate": "pilotClient"
+              },
+              "branch": "main"
+            }
+          },
+          {
+            "path": "/inputs/-",
+            "value": {
+              "binding": {
+                "slot": "external",
+                "input_id": "external",
+                "api": "pilot-api",
+                "role": "producer",
+                "repo": "pilot-dependency",
+                "authority": "schema",
+                "scope": {"kind": "api"},
+                "rev": "parts-rev",
+                "tree": "parts-tree",
+                "config": {
+                  "tree": "service-before-tree",
+                  "path": "prism-boundary.toml",
+                  "blob": "config-blob",
+                  "entry": 1,
+                  "era": "v1",
+                  "defaults": "driver-defaults",
+                  "export": "pilotClient",
+                  "mount": "/api",
+                  "strip": "",
+                  "add": "",
+                  "api": "pilot-api",
+                  "dependencies": ["mapping"],
+                  "hook": "usePilot",
+                  "delegate": "pilotClient"
+                },
+                "branch": "main"
+              },
+              "snapshot": {
+                "snapshot_kind": "commit",
+                "rev": "parts-rev",
+                "tree": "parts-tree",
+                "subject": null,
+                "committed_at": "2026-11-25T12:00:00Z"
+              },
+              "dirty": null,
+              "selection": null
+            }
+          },
+          {"path": "/receipts/0/retrieval_uri", "value": "https://pilot.invalid/schemas/openapi.json"},
+          {"path": "/receipts/0/dependencies/-", "value": "parts"},
+          {
+            "path": "/receipts/-",
+            "value": {
+              "id": "parts",
+              "kind": "blob",
+              "origin": {
+                "kind": "named_tree",
+                "input_id": "external",
+                "repo": "pilot-dependency",
+                "tree": "parts-tree",
+                "path": "parts.json",
+                "blob": "parts-blob",
+                "availability": "available"
+              },
+              "dependencies": [],
+              "format": "json",
+              "retrieval_uri": "https://pilot.invalid/schemas/parts.json",
+              "digest": {
+                "algorithm": "sha256",
+                "framing": "raw_bytes",
+                "value": "50eb45c4e4700c966710edf679b6ac439c2faa2bf67df02fe1bfaee0513fa93b"
+              }
+            }
+          },
+          {
+            "path": "/receipts/-",
+            "value": {
+              "id": "other-parts",
+              "kind": "blob",
+              "origin": {
+                "kind": "named_tree",
+                "input_id": "external",
+                "repo": "pilot-dependency",
+                "tree": "parts-tree",
+                "path": "another/parts.json",
+                "blob": "other-parts-blob",
+                "availability": "available"
+              },
+              "dependencies": [],
+              "format": "json",
+              "retrieval_uri": "https://pilot.invalid/schemas/parts.json",
+              "digest": {
+                "algorithm": "sha256",
+                "framing": "raw_bytes",
+                "value": "16939d84ae2d2346cbc201a78725d4e05a8b384036964776928176d90c7005d3"
+              }
+            }
+          },
+          {"path": "/receipts/0/dependencies/-", "value": "other-parts"}
+        ],
+        "files": {"schema": "external.json", "parts": "parts.json", "other-parts": "other-parts.json"},
+        "project": {"ids": ["op:GET /kiln"], "reasons": ["reference_blob_ambiguous"]},
+        "admitted": true
+      }
+    ]
+  },
+  "A23": {
+    "variants": [
+      {
+        "name": "valid-media",
+        "patches": [],
+        "files": {"schema": "swagger.json", "media": "media.json"},
+        "project": {
+          "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok", "field:resp:GET /kiln:200#/stamp"],
+          "success": {"op:GET /kiln": ["200", "204"]}
+        },
+        "admitted": true
+      },
+      {
+        "name": "api",
+        "patches": [],
+        "files": {"schema": "swagger.json", "media": "media.json"},
+        "mutate_bytes": {"id": "media", "patches": [{"path": "/0/api", "value": "other-api"}]},
+        "project": {
+          "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "reasons": ["media_unverified"],
+          "success": {"op:GET /kiln": ["200", "204"]}
+        },
+        "admitted": true
+      },
+      {
+        "name": "tree",
+        "patches": [],
+        "files": {"schema": "swagger.json", "media": "media.json"},
+        "mutate_bytes": {"id": "media", "patches": [{"path": "/0/producer_tree", "value": "other-tree"}]},
+        "project": {
+          "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "reasons": ["media_unverified"],
+          "success": {"op:GET /kiln": ["200", "204"]}
+        },
+        "admitted": true
+      },
+      {
+        "name": "blob",
+        "patches": [],
+        "files": {"schema": "swagger.json", "media": "media.json"},
+        "mutate_bytes": {"id": "media", "patches": [{"path": "/0/schema_blob", "value": "other-blob"}]},
+        "project": {
+          "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "reasons": ["media_unverified"],
+          "success": {"op:GET /kiln": ["200", "204"]}
+        },
+        "admitted": true
+      },
+      {
+        "name": "direction",
+        "patches": [],
+        "files": {"schema": "swagger.json", "media": "media.json"},
+        "mutate_bytes": {"id": "media", "patches": [{"path": "/0/direction", "value": "request"}]},
+        "project": {
+          "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "reasons": ["media_unverified"],
+          "success": {"op:GET /kiln": ["200", "204"]}
+        },
+        "admitted": true
+      },
+      {
+        "name": "status",
+        "patches": [],
+        "files": {"schema": "swagger.json", "media": "media.json"},
+        "mutate_bytes": {"id": "media", "patches": [{"path": "/0/status", "value": "201"}]},
+        "project": {
+          "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "reasons": ["media_unverified"],
+          "success": {"op:GET /kiln": ["200", "204"]}
+        },
+        "admitted": true
+      },
+      {
+        "name": "path",
+        "patches": [],
+        "files": {"schema": "swagger.json", "media": "media.json"},
+        "mutate_bytes": {"id": "media", "patches": [{"path": "/0/coverage/paths/0/file", "value": "other-handler.go"}]},
+        "project": {
+          "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "reasons": ["media_unverified"],
+          "success": {"op:GET /kiln": ["200", "204"]}
+        },
+        "admitted": true
+      },
+      {
+        "name": "empty-media",
+        "patches": [],
+        "files": {"schema": "swagger.json", "media": "media.json"},
+        "mutate_bytes": {"id": "media", "patches": [{"path": "/0/media_type", "value": ""}]},
+        "project": {
+          "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "reasons": ["media_unverified"],
+          "success": {"op:GET /kiln": ["200", "204"]}
+        },
+        "admitted": true
+      },
+      {
+        "name": "non-json-media",
+        "patches": [],
+        "files": {"schema": "swagger.json", "media": "media.json"},
+        "mutate_bytes": {"id": "media", "patches": [{"path": "/0/media_type", "value": "text/plain"}]},
+        "project": {
+          "ids": ["op:GET /kiln", "op:GET /neighbor", "field:resp:GET /neighbor:200#/ok"],
+          "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok"],
+          "reasons": ["media_unverified"],
+          "success": {"op:GET /kiln": ["200", "204"]}
+        },
+        "admitted": true
+      }
+    ],
+    "base_patches": [
+      {"path": "/receipts/0/digest/value", "value": "934aa775e9bb2c9417b2fb478682b4796f971413e273b8fc47a0858a5c8fee62"},
+      {
+        "path": "/receipts/-",
+        "value": {
+          "id": "media",
+          "kind": "media",
+          "origin": {
+            "kind": "named_tree",
+            "input_id": "service-before",
+            "repo": "pilot-producer",
+            "tree": "service-before-tree",
+            "path": "media.json",
+            "blob": "media-blob",
+            "availability": "available"
+          },
+          "dependencies": ["handler-source", "import"],
+          "format": "json",
+          "digest": {"algorithm": "sha256", "framing": "raw_bytes", "value": "9e5922d3c79351ab151d915939a8c4232a4281b5cfd6011a1101438695196769"}
+        }
+      },
+      {
+        "path": "/receipts/-",
+        "value": {
+          "id": "handler-source",
+          "kind": "source",
+          "origin": {
+            "kind": "named_tree",
+            "input_id": "service-before",
+            "repo": "pilot-producer",
+            "tree": "service-before-tree",
+            "path": "handler.go",
+            "blob": "handler-blob",
+            "availability": "available"
+          },
+          "dependencies": []
+        }
+      },
+      {"path": "/receipts/0/dependencies/-", "value": "media"}
+    ]
+  },
+  "A27": {
+    "variants": [
+      {
+        "name": "swagger.json",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "934aa775e9bb2c9417b2fb478682b4796f971413e273b8fc47a0858a5c8fee62"}
+        ],
+        "files": {"schema": "swagger.json"},
+        "project": {"ids": ["op:GET /kiln"], "subset": true},
+        "admitted": true
+      },
+      {
+        "name": "oas30.json",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "92a6a163062587e1d109646907d5c4a118fa71dc97f12f5613f135601b6c0296"}
+        ],
+        "files": {"schema": "oas30.json"},
+        "project": {"ids": ["op:GET /kiln", "field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:200#/color"], "subset": false},
+        "admitted": true
+      },
+      {
+        "name": "inventory.json",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "a373f8913c85c37b1ca59747d076c2c119dad269ae42a46e90ef3bdbd7266785"}
+        ],
+        "files": {"schema": "inventory.json"},
+        "project": {"ids": ["op:GET /kiln", "field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:200#/color"], "subset": false},
+        "admitted": true
+      },
+      {
+        "name": "malformed.txt",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "021fb596db81e6d02bf3d2586ee3981fe519f275c0ac9ca76bbcf2ebb4097d96"}
+        ],
+        "files": {"schema": "malformed.txt"},
+        "project": null,
+        "refusal": {"code": "invalid_json", "record_id": "schema"}
+      },
+      {
+        "name": "nonobject.txt",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}
+        ],
+        "files": {"schema": "nonobject.txt"},
+        "project": null,
+        "refusal": {"code": "unsupported_schema_dialect", "record_id": "schema"}
+      },
+      {
+        "name": "no-version.txt",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "42c15180e501471c3c98c257896b58e5979c81af7bfeb32c6976ca97b4017d47"}
+        ],
+        "files": {"schema": "no-version.txt"},
+        "project": null,
+        "refusal": {"code": "unsupported_schema_dialect", "record_id": "schema"}
+      },
+      {
+        "name": "conflicting.txt",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "70d36e809d0619047ed7029b327a740181ddde5752bd48376b069a453f8cc56e"}
+        ],
+        "files": {"schema": "conflicting.txt"},
+        "project": null,
+        "refusal": {"code": "unsupported_schema_dialect", "record_id": "schema"}
+      },
+      {
+        "name": "unsupported.txt",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "c9d9fd9b81f1ebd27a1afae98d766653d792b94df37c2d6b64f71bc72f706131"}
+        ],
+        "files": {"schema": "unsupported.txt"},
+        "project": null,
+        "refusal": {"code": "unsupported_schema_dialect", "record_id": "schema"}
+      },
+      {
+        "name": "yaml",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "591376d036294574c649b1eef67413f22425b7d3692c95242c5ab4699b6fef8a"},
+          {"path": "/receipts/0/format", "value": "yaml"}
+        ],
+        "files": {"schema": "format.yaml"},
+        "project": null,
+        "refusal": {"code": "yaml_format", "record_id": "schema"}
+      }
+    ]
+  },
+  "A28": {
+    "variants": [
+      {
+        "name": "missing-schema",
+        "expect": {
+          "/schema/source/kind": "missing_expected_schema",
+          "/schema/source/reason": "missing_receipt",
+          "/operations": []
+        },
+        "patches": [
+          {
+            "path": "/schema",
+            "value": {
+              "source": {
+                "kind": "missing_expected_schema",
+                "repo": "pilot-producer",
+                "tree": "service-before-tree",
+                "path": "openapi.json",
+                "reason": "missing_receipt"
+              },
+              "content_hash": null,
+              "info_version": null
+            }
+          },
+          {
+            "path": "/origin",
+            "value": {
+              "kind": "named_tree",
+              "input_id": "service-before",
+              "repo": "pilot-producer",
+              "tree": "service-before-tree",
+              "path": "manifest.json",
+              "blob": "manifest-blob",
+              "availability": "available"
+            }
+          },
+          {"path": "/operations", "value": []}
+        ]
+      },
+      {
+        "name": "intentional-route-table",
+        "expect": {
+          "/schema/source/kind": "route_table",
+          "/operations/0/operation_id": "op:GET /kiln",
+          "/operations/0/fields": []
+        },
+        "patches": [
+          {
+            "path": "/schema",
+            "value": {
+              "source": {"kind": "route_table", "repo": "pilot-producer", "tree": "service-before-tree", "input_id": "routes"},
+              "content_hash": null,
+              "info_version": null
+            }
+          },
+          {"path": "/operation_authority", "value": "route_table"},
+          {
+            "path": "/origin",
+            "value": {
+              "kind": "named_tree",
+              "input_id": "service-before",
+              "repo": "pilot-producer",
+              "tree": "service-before-tree",
+              "path": "routes.js",
+              "blob": "route-blob",
+              "availability": "available"
+            }
+          },
+          {"path": "/operations/0/fields", "value": []},
+          {"path": "/operations/0/message_roots", "value": []},
+          {"path": "/operations/0/success_statuses", "value": []}
+        ]
+      }
+    ]
+  }
+}

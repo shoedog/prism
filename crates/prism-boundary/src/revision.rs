@@ -1,5 +1,12 @@
 //! Inputs already admitted by the caller. Readers use supplied bytes and receipts.
 
+mod admission;
+mod staleness;
+pub use admission::*;
+pub use staleness::*;
+
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Snapshot<'a> {
     Commit {
@@ -21,6 +28,46 @@ impl<'a> Snapshot<'a> {
             Self::Commit { tree, .. } | Self::ComputedTree { tree, .. } => tree,
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(tag = "snapshot_kind", rename_all = "snake_case")]
+pub enum SnapshotInput {
+    Commit {
+        rev: String,
+        tree: String,
+        subject: Option<String>,
+        committed_at: Option<String>,
+    },
+    ComputedTree {
+        tree: String,
+        computed_at: String,
+        merge_receipt: String,
+    },
+    #[serde(other)]
+    Unsupported,
+}
+
+impl Serialize for SnapshotInput {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        // P1d RED stub. The computed variant must project three explicit nulls.
+        serializer.serialize_unit()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Role {
+    Producer,
+    Consumer,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewMode {
+    Live,
+    HistoricalAsOf,
+    VersionComparison,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -1,0 +1,399 @@
+{
+  "schema_version": "0.1",
+  "report_id": "pilot-impact",
+  "api": "pilot-api",
+  "mode": "live",
+  "report_time": "2026-11-26T12:00:00Z",
+  "cutoff_at": "2026-11-26T12:00:00Z",
+  "inputs": [
+    {
+      "input_id": "service-before",
+      "api": "pilot-api",
+      "repo": "pilot-producer",
+      "role": "producer",
+      "snapshot_kind": "commit",
+      "rev": "service-before-rev",
+      "tree": "service-before-tree",
+      "subject": null,
+      "committed_at": null,
+      "dirty": null,
+      "tool": {
+        "name": "prism-boundary",
+        "build": "fixture-build"
+      },
+      "operation_authority": "schema",
+      "scope": {
+        "kind": "api"
+      },
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "service-before",
+        "repo": "pilot-producer",
+        "tree": "service-before-tree",
+        "path": "openapi.json",
+        "blob": "schema-blob",
+        "availability": "available"
+      },
+      "dependencies": [],
+      "config_sources": [],
+      "schema": null
+    },
+    {
+      "input_id": "service-after",
+      "api": "pilot-api",
+      "repo": "pilot-producer",
+      "role": "producer",
+      "snapshot_kind": "commit",
+      "rev": "service-after-rev",
+      "tree": "service-after-tree",
+      "subject": null,
+      "committed_at": null,
+      "dirty": null,
+      "tool": {
+        "name": "prism-boundary",
+        "build": "fixture-build"
+      },
+      "operation_authority": "schema",
+      "scope": {
+        "kind": "api"
+      },
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "service-after",
+        "repo": "pilot-producer",
+        "tree": "service-after-tree",
+        "path": "openapi.json",
+        "blob": "schema-blob",
+        "availability": "available"
+      },
+      "dependencies": [],
+      "config_sources": [],
+      "schema": null
+    },
+    {
+      "input_id": "client-before",
+      "api": "pilot-api",
+      "repo": "pilot-consumer",
+      "role": "consumer",
+      "snapshot_kind": "commit",
+      "rev": "client-before-rev",
+      "tree": "client-before-tree",
+      "subject": null,
+      "committed_at": null,
+      "dirty": null,
+      "tool": {
+        "name": "prism-boundary",
+        "build": "fixture-build"
+      },
+      "operation_authority": "calls",
+      "scope": {
+        "kind": "api"
+      },
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "client-before",
+        "repo": "pilot-consumer",
+        "tree": "client-before-tree",
+        "path": "sender.js",
+        "blob": "client-blob",
+        "availability": "available"
+      },
+      "dependencies": [],
+      "config_sources": [],
+      "schema": null
+    },
+    {
+      "input_id": "client-after",
+      "api": "pilot-api",
+      "repo": "pilot-consumer",
+      "role": "consumer",
+      "snapshot_kind": "commit",
+      "rev": "client-after-rev",
+      "tree": "client-after-tree",
+      "subject": null,
+      "committed_at": null,
+      "dirty": null,
+      "tool": {
+        "name": "prism-boundary",
+        "build": "fixture-build"
+      },
+      "operation_authority": "calls",
+      "scope": {
+        "kind": "api"
+      },
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "client-after",
+        "repo": "pilot-consumer",
+        "tree": "client-after-tree",
+        "path": "sender.js",
+        "blob": "client-blob",
+        "availability": "available"
+      },
+      "dependencies": [],
+      "config_sources": [],
+      "schema": null
+    }
+  ],
+  "reference": null,
+  "comparisons": [
+    {
+      "comparison_id": "actual_before",
+      "purpose": "actual_before",
+      "service_input_id": "service-before",
+      "client_input_id": "client-before",
+      "matches": {
+        "call-before": {
+          "service_input_id": "service-before",
+          "client_input_id": "client-before",
+          "status": "checked",
+          "grade": "bound",
+          "reason": null,
+          "mapping": null,
+          "target_ids": [
+            "op:GET /kiln"
+          ],
+          "alternates": [],
+          "overlaps": [],
+          "prefix_hints": []
+        }
+      },
+      "unchecked_count": 0
+    },
+    {
+      "comparison_id": "actual_after",
+      "purpose": "actual_after",
+      "service_input_id": "service-after",
+      "client_input_id": "client-after",
+      "matches": {
+        "call-after": {
+          "service_input_id": "service-after",
+          "client_input_id": "client-after",
+          "status": "checked",
+          "grade": "bound",
+          "reason": null,
+          "mapping": null,
+          "target_ids": [
+            "op:GET /forge"
+          ],
+          "alternates": [],
+          "overlaps": [],
+          "prefix_hints": []
+        }
+      },
+      "unchecked_count": 0
+    },
+    {
+      "comparison_id": "service_first",
+      "purpose": "service_first",
+      "service_input_id": "service-after",
+      "client_input_id": "client-before",
+      "matches": {
+        "call-before": {
+          "service_input_id": "service-after",
+          "client_input_id": "client-before",
+          "status": "checked",
+          "grade": "unbound",
+          "reason": "no_operation",
+          "mapping": null,
+          "target_ids": [],
+          "alternates": [],
+          "overlaps": [],
+          "prefix_hints": []
+        }
+      },
+      "unchecked_count": 0
+    },
+    {
+      "comparison_id": "client_first",
+      "purpose": "client_first",
+      "service_input_id": "service-before",
+      "client_input_id": "client-after",
+      "matches": {
+        "call-after": {
+          "service_input_id": "service-before",
+          "client_input_id": "client-after",
+          "status": "checked",
+          "grade": "unbound",
+          "reason": "no_operation",
+          "mapping": null,
+          "target_ids": [],
+          "alternates": [],
+          "overlaps": [],
+          "prefix_hints": []
+        }
+      },
+      "unchecked_count": 0
+    }
+  ],
+  "change": {
+    "subject_role": "both",
+    "producer": {
+      "before_input_id": "service-before",
+      "after_input_id": "service-after"
+    },
+    "consumer": {
+      "before_input_id": "client-before",
+      "after_input_id": "client-after"
+    },
+    "elements": [
+      {
+        "row_id": "kiln-removed",
+        "operation_id": "op:GET /kiln",
+        "before_element_id": "op:GET /kiln",
+        "after_element_id": null,
+        "change_kinds": [
+          "op_removed"
+        ],
+        "before_presence": "present",
+        "after_presence": "absent",
+        "before_shape": null,
+        "after_shape": null,
+        "coverage_limits": []
+      },
+      {
+        "row_id": "forge-added",
+        "operation_id": "op:GET /forge",
+        "before_element_id": null,
+        "after_element_id": "op:GET /forge",
+        "change_kinds": [
+          "op_added"
+        ],
+        "before_presence": "absent",
+        "after_presence": "present",
+        "before_shape": null,
+        "after_shape": null,
+        "coverage_limits": []
+      }
+    ],
+    "status_additions": [],
+    "status_removals": [],
+    "response_root_pairs": [],
+    "call_changes": [
+      {
+        "kind": "retargeted",
+        "before_site_id": "call-before",
+        "after_site_id": "call-after"
+      }
+    ],
+    "producer_sites": [],
+    "risks": [],
+    "review_action": null,
+    "selection": null
+  },
+  "impacts": [],
+  "usages": [
+    {
+      "site_id": "call-after",
+      "before_site": {
+        "tree": "client-before-tree",
+        "file": "sender.js",
+        "blob": "client-blob",
+        "line": 1,
+        "span": [0, 8]
+      },
+      "after_site": {
+        "tree": "client-after-tree",
+        "file": "sender.js",
+        "blob": "client-blob",
+        "line": 1,
+        "span": [0, 8]
+      },
+      "before_presence": "present",
+      "after_presence": "present",
+      "requested_target": {
+        "before": {
+          "method": "GET",
+          "path": "/kiln"
+        },
+        "after": {
+          "method": "GET",
+          "path": "/forge"
+        }
+      },
+      "match_before": {
+        "comparison_id": "actual_before",
+        "site_id": "call-before"
+      },
+      "match_after": {
+        "comparison_id": "actual_after",
+        "site_id": "call-after"
+      },
+      "match_service_first": {
+        "comparison_id": "service_first",
+        "site_id": "call-before"
+      },
+      "match_client_first": {
+        "comparison_id": "client_first",
+        "site_id": "call-after"
+      },
+      "reason": null,
+      "usage_id": "usage-1",
+      "correspondence_evidence": {
+        "kind": "single_target_edit",
+        "file": "sender.js"
+      }
+    }
+  ],
+  "binding_status": [],
+  "coverage": [],
+  "warnings": [],
+  "standing_mismatches": [],
+  "summary": {
+    "operation_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 2,
+      "total": 2,
+      "reason": null
+    },
+    "changed_field_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": 0,
+      "reason": null
+    },
+    "listed_usage_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 1,
+      "total": 1,
+      "reason": null
+    },
+    "possible_only_usage_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": 0,
+      "reason": null
+    },
+    "known_unmatched_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": 0,
+      "reason": null
+    },
+    "unknown_target_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": 0,
+      "reason": null
+    }
+  },
+  "unobserved": []
+}

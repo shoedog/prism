@@ -8,6 +8,6 @@ description = "Typed service boundary identities and schema declarations"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 regex = "1"
-serde = "1"
+serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["arbitrary_precision", "raw_value"] }
 sha2 = "0.10"

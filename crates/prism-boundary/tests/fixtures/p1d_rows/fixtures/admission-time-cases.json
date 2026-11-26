@@ -1,0 +1,557 @@
+{
+  "A31": {
+    "variants": [
+      {
+        "name": "newer-live-tip",
+        "patches": [
+          {"path": "/claims/0/requires_selection", "value": true},
+          {
+            "path": "/inputs/0/selection",
+            "value": {"kind": "live_ref", "branch": "main", "rev": "service-before-rev", "observed_at": "2026-11-26T12:00:00Z"}
+          },
+          {"path": "/inputs/0/snapshot/committed_at", "value": "2026-11-26T11:00:00Z"}
+        ],
+        "expect": {
+          "/mode": "live"
+        },
+        "admitted": true
+      }
+    ]
+  },
+  "A32": {
+    "variants": [
+      {
+        "name": "missing",
+        "patches": [
+          {"path": "/inputs/0/selection", "value": null}
+        ],
+        "expect": {
+          "/mode": "live"
+        },
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "wrong-branch",
+        "patches": [
+          {
+            "path": "/inputs/0/selection",
+            "value": {"kind": "live_ref", "branch": "side", "rev": "service-before-rev", "observed_at": "2026-11-26T12:00:00Z"}
+          }
+        ],
+        "expect": {
+          "/mode": "live"
+        },
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "later-only",
+        "patches": [
+          {
+            "path": "/inputs/0/selection",
+            "value": {"kind": "live_ref", "branch": "main", "rev": "service-before-rev", "observed_at": "2026-11-27T00:00:00Z"}
+          }
+        ],
+        "expect": {
+          "/mode": "live"
+        },
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      }
+    ],
+    "base_patches": [{"path": "/claims/0/requires_selection", "value": true}, {"path": "/slots/0/branch", "value": "main"}]
+  },
+  "A33": {
+    "variants": [
+      {
+        "name": "historical-pin",
+        "patches": [
+          {"path": "/claims/0/requires_selection", "value": true},
+          {"path": "/mode", "value": "historical_as_of"},
+          {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "historical_pin",
+              "branch": "main",
+              "rev": "service-before-rev",
+              "available_at": "2026-11-25T12:00:00Z",
+              "evidence": "review-pin-at-cutoff"
+            }
+          }
+        ],
+        "expect": {
+          "/mode": "historical_as_of"
+        },
+        "admitted": true
+      }
+    ]
+  },
+  "A34": {
+    "variants": [
+      {
+        "name": "date-only",
+        "patches": [
+          {"path": "/inputs/0/selection", "value": null},
+          {"path": "/inputs/0/snapshot/committed_at", "value": "2026-11-25T12:00:00Z"}
+        ],
+        "expect": {
+          "/mode": "historical_as_of"
+        },
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "backdated",
+        "patches": [
+          {"path": "/inputs/0/selection", "value": null},
+          {"path": "/inputs/0/snapshot/committed_at", "value": "2026-01-01T00:00:00Z"}
+        ],
+        "expect": {
+          "/mode": "historical_as_of"
+        },
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "late-pin",
+        "patches": [
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "historical_pin",
+              "branch": "main",
+              "rev": "service-before-rev",
+              "available_at": "2026-11-26T12:00:00Z",
+              "evidence": "review-pin-at-cutoff"
+            }
+          },
+          {"path": "/inputs/0/snapshot/committed_at", "value": "2026-11-25T12:00:00Z"}
+        ],
+        "expect": {
+          "/mode": "historical_as_of"
+        },
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "moved-ref",
+        "patches": [
+          {
+            "path": "/inputs/0/selection",
+            "value": {"kind": "live_ref", "branch": "main", "rev": "service-before-rev", "observed_at": "2026-11-26T12:00:00Z"}
+          },
+          {"path": "/inputs/0/snapshot/committed_at", "value": "2026-11-25T12:00:00Z"}
+        ],
+        "expect": {
+          "/mode": "historical_as_of"
+        },
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "unsubstantiated-pin",
+        "patches": [
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "historical_pin",
+              "branch": "main",
+              "rev": "service-before-rev",
+              "available_at": "2026-11-25T12:00:00Z",
+              "evidence": ""
+            }
+          },
+          {"path": "/inputs/0/snapshot/committed_at", "value": "2026-11-25T12:00:00Z"}
+        ],
+        "expect": {
+          "/mode": "historical_as_of"
+        },
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      }
+    ],
+    "base_patches": [
+      {"path": "/claims/0/requires_selection", "value": true},
+      {"path": "/mode", "value": "historical_as_of"},
+      {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"}
+    ]
+  },
+  "A35": {
+    "variants": [
+      {
+        "name": "unreadable",
+        "patches": [
+          {"path": "/receipts/0/origin/availability", "value": "unreadable"},
+          {
+            "path": "/claims/-",
+            "value": {"id": "revision-fact", "input_id": "service-before", "slot": "service-before", "receipt_ids": [], "projection": null}
+          }
+        ],
+        "expect": {
+          "/claims/revision-fact/status": "admitted"
+        },
+        "refusal": {"code": "unreadable_bytes", "record_id": "schema"}
+      },
+      {
+        "name": "missing-head-date",
+        "patches": [
+          {"path": "/subject_head_committed_at", "value": null}
+        ],
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      }
+    ],
+    "base_patches": [
+      {"path": "/claims/0/requires_selection", "value": true},
+      {"path": "/mode", "value": "historical_as_of"},
+      {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
+      {
+        "path": "/inputs/0/selection",
+        "value": {
+          "kind": "historical_pin",
+          "branch": "main",
+          "rev": "service-before-rev",
+          "available_at": "2026-11-25T12:00:00Z",
+          "evidence": "review-pin-at-cutoff"
+        }
+      }
+    ]
+  },
+  "A36": {
+    "variants": [
+      {
+        "name": "explicit_pin",
+        "patches": [
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "explicit_pin",
+              "rev": "service-before-rev",
+              "selection_time": "2026-11-26T12:00:00Z",
+              "selected_by": "pilot-reviewer",
+              "selection_reason": "release"
+            }
+          }
+        ],
+        "expect": {
+          "/mode": "version_comparison"
+        },
+        "admitted": true
+      },
+      {
+        "name": "date_rule",
+        "patches": [
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "date_rule",
+              "rev": "service-before-rev",
+              "selection_time": "2026-11-26T12:00:00Z",
+              "selected_by": "pilot-reviewer",
+              "selection_reason": "date reconstruction",
+              "rule": "last_qualifying_first_parent",
+              "history_tip": "frozen-tip"
+            }
+          }
+        ],
+        "expect": {
+          "/mode": "version_comparison"
+        },
+        "admitted": true
+      }
+    ],
+    "base_patches": [
+      {"path": "/claims/0/requires_selection", "value": true},
+      {"path": "/mode", "value": "version_comparison"},
+      {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"}
+    ]
+  },
+  "A38": {
+    "variants": [
+      {
+        "name": "selected_by",
+        "patches": [
+          {"path": "/mode", "value": "version_comparison"},
+          {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "explicit_pin",
+              "rev": "service-before-rev",
+              "selection_time": "2026-11-26T12:00:00Z",
+              "selected_by": null,
+              "selection_reason": "release"
+            }
+          }
+        ],
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "selection_time",
+        "patches": [
+          {"path": "/mode", "value": "version_comparison"},
+          {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "explicit_pin",
+              "rev": "service-before-rev",
+              "selection_time": null,
+              "selected_by": "pilot-reviewer",
+              "selection_reason": "release"
+            }
+          }
+        ],
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "history_tip",
+        "patches": [
+          {"path": "/mode", "value": "version_comparison"},
+          {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "date_rule",
+              "rev": "service-before-rev",
+              "selection_time": "2026-11-26T12:00:00Z",
+              "selected_by": "pilot-reviewer",
+              "selection_reason": "date reconstruction",
+              "rule": "last_qualifying_first_parent",
+              "history_tip": null
+            }
+          }
+        ],
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "rule",
+        "patches": [
+          {"path": "/mode", "value": "version_comparison"},
+          {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "date_rule",
+              "rev": "service-before-rev",
+              "selection_time": "2026-11-26T12:00:00Z",
+              "selected_by": "pilot-reviewer",
+              "selection_reason": "date reconstruction",
+              "rule": null,
+              "history_tip": "frozen-tip"
+            }
+          }
+        ],
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "wrong-revision",
+        "patches": [
+          {"path": "/mode", "value": "version_comparison"},
+          {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "explicit_pin",
+              "rev": "other-rev",
+              "selection_time": "2026-11-26T12:00:00Z",
+              "selected_by": "pilot-reviewer",
+              "selection_reason": "release"
+            }
+          }
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "rev"}
+      },
+      {
+        "name": "live-mislabel",
+        "patches": [
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "explicit_pin",
+              "rev": "service-before-rev",
+              "selection_time": "2026-11-26T12:00:00Z",
+              "selected_by": "pilot-reviewer",
+              "selection_reason": "release"
+            }
+          }
+        ],
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      },
+      {
+        "name": "historical-mislabel",
+        "patches": [
+          {"path": "/mode", "value": "historical_as_of"},
+          {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
+          {
+            "path": "/inputs/0/selection",
+            "value": {
+              "kind": "explicit_pin",
+              "rev": "service-before-rev",
+              "selection_time": "2026-11-26T12:00:00Z",
+              "selected_by": "pilot-reviewer",
+              "selection_reason": "release"
+            }
+          }
+        ],
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+      }
+    ],
+    "base_patches": [{"path": "/claims/0/requires_selection", "value": true}]
+  },
+  "A41": {
+    "variants": [
+      {"name": "valid-merge", "patches": [], "admitted": true},
+      {
+        "name": "base-missing",
+        "patches": [
+          {"path": "/merge/base", "value": null}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "base", "record_id": "merge-result"}
+      },
+      {
+        "name": "base-wrong",
+        "patches": [
+          {"path": "/merge/base", "value": "incorrect"}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "base", "record_id": "merge-result"}
+      },
+      {
+        "name": "head-missing",
+        "patches": [
+          {"path": "/merge/head", "value": null}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "head", "record_id": "merge-result"}
+      },
+      {
+        "name": "head-wrong",
+        "patches": [
+          {"path": "/merge/head", "value": "incorrect"}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "head", "record_id": "merge-result"}
+      },
+      {
+        "name": "target-missing",
+        "patches": [
+          {"path": "/merge/target", "value": null}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "target", "record_id": "merge-result"}
+      },
+      {
+        "name": "target-wrong",
+        "patches": [
+          {"path": "/merge/target", "value": "incorrect"}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "target", "record_id": "merge-result"}
+      },
+      {
+        "name": "procedure-missing",
+        "patches": [
+          {"path": "/merge/procedure", "value": null}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "procedure", "record_id": "merge-result"}
+      },
+      {
+        "name": "procedure-wrong",
+        "patches": [
+          {"path": "/merge/procedure", "value": "incorrect"}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "procedure", "record_id": "merge-result"}
+      },
+      {
+        "name": "result_tree-missing",
+        "patches": [
+          {"path": "/merge/result_tree", "value": null}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "result_tree", "record_id": "merge-result"}
+      },
+      {
+        "name": "result_tree-wrong",
+        "patches": [
+          {"path": "/merge/result_tree", "value": "incorrect"}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "result_tree", "record_id": "merge-result"}
+      },
+      {
+        "name": "computed_at-missing",
+        "patches": [
+          {"path": "/merge/computed_at", "value": null}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "computed_at", "record_id": "merge-result"}
+      },
+      {
+        "name": "computed_at-wrong",
+        "patches": [
+          {"path": "/merge/computed_at", "value": "incorrect"}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "computed_at", "record_id": "merge-result"}
+      },
+      {
+        "name": "exact-historical-result",
+        "patches": [
+          {"path": "/mode", "value": "historical_as_of"},
+          {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
+          {
+            "path": "/receipts/-",
+            "value": {
+              "id": "independent-exact-result",
+              "kind": "source",
+              "origin": {
+                "kind": "independent_cutoff",
+                "evidence": "captured-at-cutoff",
+                "available_at": "2026-11-25T12:00:00Z",
+                "covered_tree": "service-before-tree"
+              },
+              "dependencies": []
+            }
+          }
+        ],
+        "admitted": true
+      },
+      {
+        "name": "historical-without-exact-result",
+        "patches": [
+          {"path": "/mode", "value": "historical_as_of"},
+          {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
+          {"path": "/merge/cutoff_evidence", "value": null}
+        ],
+        "refusal": {"code": "invalid_merge_proof", "dimension": "cutoff_evidence", "record_id": "merge-result"}
+      }
+    ],
+    "base_patches": [
+      {"path": "/slots/0/rev", "value": null},
+      {"path": "/inputs/0/binding/rev", "value": null},
+      {
+        "path": "/inputs/0/snapshot",
+        "value": {
+          "snapshot_kind": "computed_tree",
+          "rev": null,
+          "subject": null,
+          "committed_at": null,
+          "tree": "service-before-tree",
+          "computed_at": "2026-11-26T12:00:00Z",
+          "merge_receipt": "merge-result"
+        }
+      },
+      {
+        "path": "/merge",
+        "value": {
+          "id": "merge-result",
+          "base": "proposal-base",
+          "head": "proposal-head",
+          "target": "target-head",
+          "procedure": "merge-ort/v1",
+          "result_tree": "service-before-tree",
+          "computed_at": "2026-11-26T12:00:00Z",
+          "cutoff_evidence": "independent-exact-result"
+        }
+      },
+      {
+        "path": "/expected_merge",
+        "value": {
+          "id": "merge-result",
+          "base": "proposal-base",
+          "head": "proposal-head",
+          "target": "target-head",
+          "procedure": "merge-ort/v1",
+          "result_tree": "service-before-tree",
+          "computed_at": "2026-11-26T12:00:00Z",
+          "cutoff_evidence": "independent-exact-result"
+        }
+      }
+    ]
+  }
+}

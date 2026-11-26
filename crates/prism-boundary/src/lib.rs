@@ -3,6 +3,7 @@
 mod diff;
 pub mod element;
 mod inventory;
+pub mod model;
 pub mod revision;
 
 pub use diff::*;
@@ -12,7 +13,8 @@ pub use inventory::{
     OperationSite, Property, RegionLimit, RootKey, SchemaDiagnostic, SchemaIndex, SchemaSite,
     SchemaSource, StatusInventory,
 };
-pub use revision::AdmittedSchemaInput;
+pub use model::{Binding, BindingStatus, BindingsDocument, ImpactDocument, Unbound};
+pub use revision::{admit_inputs, admit_schema_input, AdmittedSchemaInput, SnapshotInput};
 pub use schema::SchemaError;
 
 // The operation reader remains internal.

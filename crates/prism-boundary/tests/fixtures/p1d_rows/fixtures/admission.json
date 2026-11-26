@@ -1,0 +1,386 @@
+{
+  "mode": "live",
+  "report_time": "2026-11-26T12:00:00Z",
+  "cutoff_at": "2026-11-26T12:00:00Z",
+  "selection_time": null,
+  "subject_head_committed_at": "2026-11-25T12:00:00Z",
+  "slots": [
+    {
+      "slot": "service-before",
+      "input_id": "service-before",
+      "api": "pilot-api",
+      "role": "producer",
+      "repo": "pilot-producer",
+      "authority": "schema",
+      "scope": {
+        "kind": "api"
+      },
+      "rev": "service-before-rev",
+      "tree": "service-before-tree",
+      "config": {
+        "tree": "service-before-tree",
+        "path": "prism-boundary.toml",
+        "blob": "config-blob",
+        "entry": 1,
+        "era": "v1",
+        "defaults": "driver-defaults",
+        "export": "pilotClient",
+        "mount": "/api",
+        "strip": "",
+        "add": "",
+        "api": "pilot-api",
+        "dependencies": [
+          "mapping"
+        ],
+        "hook": "usePilot",
+        "delegate": "pilotClient"
+      },
+      "branch": "main"
+    },
+    {
+      "slot": "client-before",
+      "input_id": "client-before",
+      "api": "pilot-api",
+      "role": "consumer",
+      "repo": "pilot-consumer",
+      "authority": "calls",
+      "scope": {
+        "kind": "api"
+      },
+      "rev": "client-before-rev",
+      "tree": "client-before-tree",
+      "config": null,
+      "branch": "main"
+    },
+    {
+      "slot": "service-after",
+      "input_id": "service-after",
+      "api": "pilot-api",
+      "role": "producer",
+      "repo": "pilot-producer",
+      "authority": "schema",
+      "scope": {
+        "kind": "api"
+      },
+      "rev": "service-after-rev",
+      "tree": "service-after-tree",
+      "config": null,
+      "branch": "main"
+    },
+    {
+      "slot": "service-held",
+      "input_id": "service-held",
+      "api": "pilot-api",
+      "role": "producer",
+      "repo": "pilot-producer",
+      "authority": "schema",
+      "scope": {
+        "kind": "api"
+      },
+      "rev": "service-held-rev",
+      "tree": "service-held-tree",
+      "config": null,
+      "branch": "main"
+    }
+  ],
+  "inputs": [
+    {
+      "binding": {
+        "slot": "service-before",
+        "input_id": "service-before",
+        "api": "pilot-api",
+        "role": "producer",
+        "repo": "pilot-producer",
+        "authority": "schema",
+        "scope": {
+          "kind": "api"
+        },
+        "rev": "service-before-rev",
+        "tree": "service-before-tree",
+        "config": {
+          "tree": "service-before-tree",
+          "path": "prism-boundary.toml",
+          "blob": "config-blob",
+          "entry": 1,
+          "era": "v1",
+          "defaults": "driver-defaults",
+          "export": "pilotClient",
+          "mount": "/api",
+          "strip": "",
+          "add": "",
+          "api": "pilot-api",
+          "dependencies": [
+            "mapping"
+          ],
+          "hook": "usePilot",
+          "delegate": "pilotClient"
+        },
+        "branch": "main"
+      },
+      "snapshot": {
+        "snapshot_kind": "commit",
+        "rev": "service-before-rev",
+        "tree": "service-before-tree",
+        "subject": null,
+        "committed_at": "2026-11-25T12:00:00Z"
+      },
+      "dirty": null,
+      "selection": null
+    },
+    {
+      "binding": {
+        "slot": "client-before",
+        "input_id": "client-before",
+        "api": "pilot-api",
+        "role": "consumer",
+        "repo": "pilot-consumer",
+        "authority": "calls",
+        "scope": {
+          "kind": "api"
+        },
+        "rev": "client-before-rev",
+        "tree": "client-before-tree",
+        "config": null,
+        "branch": "main"
+      },
+      "snapshot": {
+        "snapshot_kind": "commit",
+        "rev": "client-before-rev",
+        "tree": "client-before-tree",
+        "subject": null,
+        "committed_at": "2026-11-25T12:00:00Z"
+      },
+      "dirty": null,
+      "selection": null
+    },
+    {
+      "binding": {
+        "slot": "service-after",
+        "input_id": "service-after",
+        "api": "pilot-api",
+        "role": "producer",
+        "repo": "pilot-producer",
+        "authority": "schema",
+        "scope": {
+          "kind": "api"
+        },
+        "rev": "service-after-rev",
+        "tree": "service-after-tree",
+        "config": null,
+        "branch": "main"
+      },
+      "snapshot": {
+        "snapshot_kind": "commit",
+        "rev": "service-after-rev",
+        "tree": "service-after-tree",
+        "subject": null,
+        "committed_at": "2026-11-25T12:00:00Z"
+      },
+      "dirty": null,
+      "selection": null
+    },
+    {
+      "binding": {
+        "slot": "service-held",
+        "input_id": "service-held",
+        "api": "pilot-api",
+        "role": "producer",
+        "repo": "pilot-producer",
+        "authority": "schema",
+        "scope": {
+          "kind": "api"
+        },
+        "rev": "service-held-rev",
+        "tree": "service-held-tree",
+        "config": null,
+        "branch": "main"
+      },
+      "snapshot": {
+        "snapshot_kind": "commit",
+        "rev": "service-held-rev",
+        "tree": "service-held-tree",
+        "subject": null,
+        "committed_at": "2026-11-25T12:00:00Z"
+      },
+      "dirty": null,
+      "selection": null
+    }
+  ],
+  "receipts": [
+    {
+      "id": "schema",
+      "kind": "blob",
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "service-before",
+        "repo": "pilot-producer",
+        "tree": "service-before-tree",
+        "path": "openapi.json",
+        "blob": "schema-blob",
+        "availability": "available"
+      },
+      "dependencies": [
+        "config"
+      ],
+      "format": "json",
+      "digest": {
+        "algorithm": "sha256",
+        "framing": "raw_bytes",
+        "value": "a373f8913c85c37b1ca59747d076c2c119dad269ae42a46e90ef3bdbd7266785"
+      }
+    },
+    {
+      "id": "config",
+      "kind": "config",
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "service-before",
+        "repo": "pilot-producer",
+        "tree": "service-before-tree",
+        "path": "prism-boundary.toml",
+        "blob": "config-blob",
+        "availability": "available"
+      },
+      "dependencies": [
+        "mapping"
+      ]
+    },
+    {
+      "id": "mapping",
+      "kind": "mapping",
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "service-before",
+        "repo": "pilot-producer",
+        "tree": "service-before-tree",
+        "path": "prism-boundary.toml",
+        "blob": "config-blob",
+        "availability": "available"
+      },
+      "dependencies": [
+        "settings",
+        "driver-defaults",
+        "route-spec",
+        "import"
+      ]
+    },
+    {
+      "id": "settings",
+      "kind": "source",
+      "origin": {
+        "kind": "independent_cutoff",
+        "evidence": "captured-at-cutoff",
+        "available_at": "2026-11-25T12:00:00Z"
+      },
+      "dependencies": []
+    },
+    {
+      "id": "driver-defaults",
+      "kind": "source",
+      "origin": {
+        "kind": "independent_cutoff",
+        "evidence": "captured-at-cutoff",
+        "available_at": "2026-11-25T12:00:00Z"
+      },
+      "dependencies": []
+    },
+    {
+      "id": "route-spec",
+      "kind": "source",
+      "origin": {
+        "kind": "independent_cutoff",
+        "evidence": "captured-at-cutoff",
+        "available_at": "2026-11-25T12:00:00Z"
+      },
+      "dependencies": []
+    },
+    {
+      "id": "import",
+      "kind": "source",
+      "origin": {
+        "kind": "independent_cutoff",
+        "evidence": "captured-at-cutoff",
+        "available_at": "2026-11-25T12:00:00Z"
+      },
+      "dependencies": []
+    },
+    {
+      "id": "raw-client",
+      "kind": "source",
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "client-before",
+        "repo": "pilot-consumer",
+        "tree": "client-before-tree",
+        "path": "sender.js",
+        "blob": "client-blob",
+        "availability": "available"
+      },
+      "dependencies": []
+    },
+    {
+      "id": "scan-origin",
+      "kind": "source",
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "client-before",
+        "repo": "pilot-consumer",
+        "tree": "client-before-tree",
+        "path": "sender.js",
+        "blob": "client-blob",
+        "availability": "available"
+      },
+      "dependencies": [
+        "coverage"
+      ]
+    },
+    {
+      "id": "coverage",
+      "kind": "source",
+      "origin": {
+        "kind": "independent_cutoff",
+        "evidence": "captured-at-cutoff",
+        "available_at": "2026-11-25T12:00:00Z"
+      },
+      "dependencies": []
+    },
+    {
+      "id": "inventory-before",
+      "kind": "inventory",
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "service-before",
+        "repo": "pilot-producer",
+        "tree": "service-before-tree",
+        "path": "openapi.json",
+        "blob": "schema-blob",
+        "availability": "available"
+      },
+      "dependencies": [
+        "schema"
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "id": "schema-claim",
+      "input_id": "service-before",
+      "slot": "service-before",
+      "receipt_ids": [
+        "schema"
+      ],
+      "projection": null
+    },
+    {
+      "id": "sibling",
+      "input_id": "client-before",
+      "slot": "client-before",
+      "receipt_ids": [
+        "raw-client"
+      ],
+      "projection": null
+    }
+  ],
+  "merge": null,
+  "expected_merge": null
+}

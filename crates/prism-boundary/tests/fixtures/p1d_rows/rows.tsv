@@ -1,0 +1,106 @@
+id	fixture	expected_ids	expected_warnings	truth	class
+A01	fixtures/admission.json	field:resp:GET /kiln:200#/color;field:resp:GET /kiln:200#/stamp;op:GET /kiln		rule	minimum
+A02	fixtures/admission.json		slot_mismatch	rule	minimum
+A03	fixtures/admission.json		slot_mismatch	rule	minimum
+A04	fixtures/admission.json		slot_mismatch	rule	minimum
+A05	fixtures/admission.json		slot_mismatch	rule	minimum
+A06	fixtures/admission.json		slot_mismatch	rule	minimum
+A07	fixtures/admission.json		slot_mismatch	rule	minimum
+A08	fixtures/admission.json		slot_mismatch	rule	minimum
+A09	fixtures/admission.json		slot_mismatch	rule	minimum
+A10	fixtures/admission.json		slot_mismatch	rule	minimum
+A11	fixtures/admission.json		missing_slot	rule	minimum
+A12	fixtures/admission.json		digest_mismatch;missing_receipt;slot_mismatch;unreadable_bytes;unsupported_kind	rule	minimum
+A13	fixtures/admission.json		missing_dependency	rule	minimum
+A14	fixtures/admission.json			rule	minimum
+A15	fixtures/admission.json		receipt_conflict;unsupported_kind	rule	minimum
+A16	fixtures/admission.json		dependency_cycle	rule	minimum
+A18	fixtures/admission.json	field:resp:GET /kiln:200#/stamp;op:GET /kiln	reference_blob_unavailable	rule	minimum
+A19	fixtures/admission.json	op:GET /kiln	reference_blob_ambiguous	rule	minimum
+A23	fixtures/admission.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /neighbor:200#/ok;op:GET /kiln;op:GET /neighbor	media_unverified	rule	minimum
+A27	fixtures/admission.json	field:resp:GET /kiln:200#/stamp;op:GET /kiln	invalid_json;unsupported_schema_dialect;yaml_format	rule	minimum
+A28	fixtures/producer.json	op:GET /kiln		rule	minimum
+A31	fixtures/admission.json			rule	minimum
+A32	fixtures/admission.json		missing_cutoff	rule	minimum
+A33	fixtures/admission.json			rule	minimum
+A34	fixtures/admission.json		missing_cutoff	rule	minimum
+A35	fixtures/admission.json		missing_cutoff;unreadable_bytes	rule	minimum
+A36	fixtures/admission.json			rule	minimum
+A38	fixtures/admission.json		missing_cutoff;slot_mismatch	rule	minimum
+A41	fixtures/admission.json		invalid_merge_proof	rule	minimum
+B01	fixtures/producer.json			rule	minimum
+B02	fixtures/producer.json			rule	minimum
+B04	fixtures/producer.json			rule	minimum
+B05	fixtures/producer.json			rule	minimum
+B06	fixtures/mixed.json			rule	minimum
+B07	fixtures/producer.json			rule	minimum
+B08	fixtures/producer.json			rule	minimum
+B10	fixtures/producer.json			rule	minimum
+B12	fixtures/producer.json	op:GET /kiln		rule	minimum
+B13	fixtures/consumer.json			rule	minimum
+B17	fixtures/producer.json			rule	minimum
+B19	fixtures/producer.json	field:resp:GET /loom:200#/x		rule	minimum
+B20	fixtures/producer.json	field:resp:GET /kiln:200#/stamp		rule	minimum
+B22	fixtures/mixed.json	field:resp:GET /kiln:200#/stamp		rule	minimum
+B23	fixtures/mixed.json	field:resp:GET /kiln:200#/color;op:GET /kiln		rule	minimum
+B24	fixtures/mixed.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:201#/stamp;op:GET /kiln		rule	minimum
+B27	fixtures/mixed.json	field:resp:GET /kiln:200#/stamp	operation_unreadable;type_unreadable	rule	minimum
+B28	fixtures/mixed.json			rule	minimum
+B29	fixtures/mixed.json			rule	minimum
+B32	fixtures/joint-matches.json			rule	minimum
+B33	fixtures/joint-matches.json			rule	minimum
+B35	fixtures/joint-matches.json			rule	minimum
+B36	fixtures/joint-matches.json			rule	minimum
+B37	fixtures/mixed.json	field:resp:GET /kiln:200#/stamp		rule	minimum
+B38	fixtures/joint-matches.json			rule	minimum
+B39	fixtures/mixed.json			rule	minimum
+B41	fixtures/client-only.json			rule	minimum
+B42	fixtures/joint-matches.json		missing_dependency;slot_mismatch	rule	minimum
+B46	fixtures/operations-only.json	op:GET /kiln		rule	minimum
+C01	fixtures/scan.json		missing_saved_scan	rule	minimum
+C03	fixtures/scan.json		scope_unchecked	rule	minimum
+C05	fixtures/scan.json		missing_dependency	rule	minimum
+C06	fixtures/scan.json		slot_mismatch	rule	minimum
+C07	fixtures/scan.json		missing_dependency;receipt_conflict	rule	minimum
+C08	fixtures/scan.json		membership_unchecked	rule	minimum
+C09	fixtures/scan.json			rule	minimum
+C10	fixtures/scan.json	field:resp:GET /kiln:200#/stamp		rule	minimum
+C11	fixtures/scan.json	field:resp:GET /kiln:200#/stamp		rule	minimum
+C12	fixtures/scan.json	op:GET /kiln		rule	minimum
+C13	fixtures/scan.json	op:GET /kiln		rule	minimum
+C14	fixtures/scan.json		shape_incomparable	rule	minimum
+C15	fixtures/scan.json		shape_incomparable	rule	minimum
+C16	fixtures/scan.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:201#/stamp	shape_incomparable	rule	minimum
+C17	fixtures/scan.json	field:resp:GET /kiln:200#/stamp		rule	minimum
+C18	fixtures/scan.json	field:resp:GET /kiln:200#/stamp	saved_signature_mismatch	rule	minimum
+C21	fixtures/membership.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:201#/stamp		rule	minimum
+C22	fixtures/membership.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:201#/stamp		rule	minimum
+C24	fixtures/membership.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:201#/stamp		rule	minimum
+D01	fixtures/producer.json			rule	minimum
+D02	fixtures/producer.json			rule	minimum
+D03	fixtures/producer.json			rule	minimum
+D04	fixtures/producer.json			rule	minimum
+D05	fixtures/producer.json			rule	minimum
+D06	fixtures/mixed.json			rule	minimum
+D07	fixtures/producer.json			rule	minimum
+D08	fixtures/producer.json			rule	minimum
+D09	fixtures/consumer.json			rule	minimum
+D10	fixtures/producer.json			rule	minimum
+D11	fixtures/mixed.json			rule	minimum
+D12	fixtures/mixed.json			rule	minimum
+D13	fixtures/producer.json			rule	minimum
+D14	fixtures/mixed.json		missing_cutoff;missing_dependency;receipt_conflict;slot_mismatch	rule	minimum
+D16	fixtures/inventory.json			rule	minimum
+D17	fixtures/producer.json			rule	minimum
+D18	fixtures/producer.json			rule	minimum
+control-document-client-only-held-service	fixtures/client-only.json			rule	control
+control-document-computed-tree-borrowed-date	fixtures/producer.json			rule	control
+control-document-computed-tree-null-metadata	fixtures/producer.json			rule	control
+control-document-configured-provenance	fixtures/producer.json	op:GET /api/kiln		rule	control
+control-document-joint-edit-four-comparisons	fixtures/joint-matches.json	op:GET /forge;op:GET /kiln		rule	control
+control-document-keyless-coverage	fixtures/producer.json			rule	control
+control-document-saved-inventory-withheld	fixtures/scan.json		missing_inventory	rule	control
+control-document-side-presence	fixtures/mixed.json			rule	control
+control-document-tracked-dirtiness	fixtures/admission.json	op:GET /kiln		rule	control
+control-document-unbound-raw-call	fixtures/consumer.json			rule	control
+control-document-zero-saved-matches	fixtures/scan.json	op:GET /kiln		rule	control

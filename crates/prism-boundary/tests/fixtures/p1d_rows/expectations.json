@@ -1,0 +1,653 @@
+{
+  "A01": {
+    "case": "Admit exact named-tree bytes and bind the actual projected operation", "clause": "Design answer 1",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "expected_ids": ["field:resp:GET /kiln:200#/color", "field:resp:GET /kiln:200#/stamp", "op:GET /kiln"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A02": {
+    "case": "Refuse the independent api slot mismatch", "clause": "Design answer 2 and 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A03": {
+    "case": "Refuse the independent role slot mismatch", "clause": "Design answer 2 and 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A04": {
+    "case": "Refuse the independent repo slot mismatch", "clause": "Design answer 2 and 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A05": {
+    "case": "Refuse the independent rev slot mismatch", "clause": "Design answer 2 and 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A06": {
+    "case": "Refuse the independent tree slot mismatch", "clause": "Design answer 2 and 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A07": {
+    "case": "Refuse the independent authority slot mismatch", "clause": "Design answer 2 and 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A08": {
+    "case": "Explicit typed projection records overlap and leaves disjoint scope unchecked", "clause": "Design answer 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A09": {
+    "case": "Independently invalidate each selected config dimension", "clause": "Design answer 2 and 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A10": {
+    "case": "Refuse the wrong assignment and reuse the actual held input ID", "clause": "Design answer 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A11": {
+    "case": "Missing slot or input affects its claims only", "clause": "Design answer 2 and 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["missing_slot"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A12": {
+    "case": "Named-tree provenance, byte availability and digest each gate claims", "clause": "Design answer 1 and 2",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["digest_mismatch", "missing_receipt", "slot_mismatch", "unreadable_bytes", "unsupported_kind"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A13": {
+    "case": "Withhold each leaf independently and retain the sibling claim", "clause": "Design answer 1 and 2",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["missing_dependency"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A14": {
+    "case": "Coalesce identical receipts for the same key", "clause": "Design answer 2",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A15": {
+    "case": "Conflicting receipts refuse every dependent claim and are counted once per claim", "clause": "Design answer 2",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["receipt_conflict", "unsupported_kind"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A16": {
+    "case": "Refuse a receipt cycle even with an independent sibling fact about the same input", "clause": "Design answer 2",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["dependency_cycle"],
+    "variants_fixture": "admission-slots-cases.json"
+  },
+  "A18": {
+    "case": "Bind a cross-repo retrieval URI using its own snapshot and explicit edge", "clause": "Design answer 1",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp", "op:GET /kiln"],
+    "expected_reasons": ["reference_blob_unavailable"],
+    "variants_fixture": "admission-sources-cases.json"
+  },
+  "A19": {
+    "case": "Competing admitted URI targets give a scoped ambiguity and keep readable operations", "clause": "Design answer 1",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A18"],
+    "expected_ids": ["op:GET /kiln"],
+    "expected_reasons": ["reference_blob_ambiguous"],
+    "variants_fixture": "admission-sources-cases.json"
+  },
+  "A23": {
+    "case": "Only correctly scoped Swagger omission proof promotes the target root", "clause": "Design answer 1 and DESIGN §5.1",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /neighbor:200#/ok", "op:GET /kiln", "op:GET /neighbor"],
+    "expected_reasons": ["media_unverified"],
+    "variants_fixture": "admission-sources-cases.json"
+  },
+  "A27": {
+    "case": "Refuse unsupported format and invalid or unsupported schema version declarations", "clause": "Design answer 2 and DESIGN §9",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp", "op:GET /kiln"],
+    "expected_reasons": ["invalid_json", "unsupported_schema_dialect", "yaml_format"],
+    "variants_fixture": "admission-sources-cases.json"
+  },
+  "A28": {
+    "case": "Missing expected OpenAPI and intentional route-table authority remain distinct", "clause": "Design answer 5",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "expected_ids": ["op:GET /kiln"],
+    "variants_fixture": "admission-sources-cases.json"
+  },
+  "A31": {
+    "case": "A report-time live ref can postdate the subject head", "clause": "Design answer 4",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "variants_fixture": "admission-time-cases.json"
+  },
+  "A32": {
+    "case": "Missing, wrong-branch and later-only live observations preserve requested mode", "clause": "Design answer 4",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A31"],
+    "expected_reasons": ["missing_cutoff"],
+    "variants_fixture": "admission-time-cases.json"
+  },
+  "A33": {
+    "case": "Admit independently evidenced historical availability at subject head time", "clause": "Design answer 4",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A31"],
+    "variants_fixture": "admission-time-cases.json"
+  },
+  "A34": {
+    "case": "A date, backdated commit, later pin or moved ref cannot establish availability", "clause": "Design answer 4",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A33"],
+    "expected_reasons": ["missing_cutoff"],
+    "variants_fixture": "admission-time-cases.json"
+  },
+  "A35": {
+    "case": "Keep independently admitted revision facts when bytes or subject time are unavailable", "clause": "Design answer 4",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A33"],
+    "expected_reasons": ["missing_cutoff", "unreadable_bytes"],
+    "variants_fixture": "admission-time-cases.json"
+  },
+  "A36": {
+    "case": "An explicit pin or frozen date-rule record qualifies only with selection-time binding", "clause": "Design answer 4",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "variants_fixture": "admission-time-cases.json"
+  },
+  "A38": {
+    "case": "Refuse missing selection evidence and selections mislabeled live or historical", "clause": "Design answer 4",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A36"],
+    "expected_reasons": ["missing_cutoff", "slot_mismatch"],
+    "variants_fixture": "admission-time-cases.json"
+  },
+  "A41": {
+    "case": "Validate each merge receipt dimension and independent historical result evidence", "clause": "Design answer 4",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "expected_reasons": ["invalid_merge_proof"],
+    "variants_fixture": "admission-time-cases.json"
+  },
+  "B01": {
+    "case": "One typed binding per role snapshot and one versioned review", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "round_trip",
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B02": {
+    "case": "Commit keeps identity and uses explicit nulls for unavailable metadata", "clause": "Design answer 5",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B04": {
+    "case": "Source variants preserve independent format, revision, authority and hashes", "clause": "Design answer 5",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B05": {
+    "case": "Configured identity mapping retains numbered source, defaults, era, and hook delegation", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B06": {
+    "case": "Freeze review lifecycle, effective role slots, reference and selection receipt", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B07": {
+    "case": "Freeze tree and independent cutoff origins and dependency edges", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B08": {
+    "case": "Extraction keeps all five distinct states and defaults missing status to unknown", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B10": {
+    "case": "Message coverage keeps checked, observed-only, partial and withheld separate from extraction", "clause": "Design answer 5",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B12": {
+    "case": "Bindings record producer declarations, optional saved consumer matches, and raw calls", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "expected_ids": ["op:GET /kiln"],
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B13": {
+    "case": "Raw checked miss, dynamic target and scoped unchecked call stay counted, excluded transport does not", "clause": "DESIGN §§5.4–5.5, §9 E-2",
+    "inputs": [{"fixture": "consumer.json"}], "scenario": "bindings",
+    "matrix_controls": ["control-s01-mapping-withheld", "t1-expand-ky-prefix"],
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B17": {
+    "case": "Preserve media provenance, request, range, fallback, and bodyless success keys", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B19": {
+    "case": "Partially evidenced fields remain declarations until comparable", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "expected_ids": ["field:resp:GET /loom:200#/x"],
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B20": {
+    "case": "All five shape slots are tagged, including known empty and typed null enum members", "clause": "Design answer 5 and 6",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp"],
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B22": {
+    "case": "Side-local wire ID is null for an empty domain, retaining the independent declaration ID", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp"],
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B23": {
+    "case": "Real diff keeps operation-owned details and independent bodyless status rows", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "expected_ids": ["field:resp:GET /kiln:200#/color", "op:GET /kiln"],
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B24": {
+    "case": "Pair side-local status and field IDs, with or without an actual child edit", "clause": "Design answer 6 and DESIGN §5.1",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:201#/stamp", "op:GET /kiln"],
+    "variants_fixture": "bindings-wire-cases.json"
+  },
+  "B27": {
+    "case": "Preserve checked format edit and independent type and keyless comparison limits", "clause": "Design answer 9",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp"],
+    "expected_reasons": ["operation_unreadable", "type_unreadable"],
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B28": {
+    "case": "Side-local standing input limits remain distinct from a linked comparison limit", "clause": "Design answer 9",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B29": {
+    "case": "Store once with stable many-to-many links, and keep a blocked claim with zero certified changes", "clause": "Design answer 9",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B32": {
+    "case": "Inserted/deleted occurrence links only to its two extant pair maps", "clause": "Design answer 6",
+    "inputs": [{"fixture": "joint-matches.json"}], "scenario": "impact",
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B33": {
+    "case": "Ambiguous correspondence keeps one-sided observations without shared usage ID", "clause": "Design answer 6",
+    "inputs": [{"fixture": "joint-matches.json"}], "scenario": "impact",
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B35": {
+    "case": "Every match reference resolves in exactly its own comparison and occurrence", "clause": "Design answer 6",
+    "inputs": [{"fixture": "joint-matches.json"}], "scenario": "impact",
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B36": {
+    "case": "The map retains bound, candidate, checked miss and scoped unchecked evidence", "clause": "Design answer 6 and DESIGN §§5.4–5.5",
+    "inputs": [{"fixture": "joint-matches.json"}], "scenario": "impact",
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B37": {
+    "case": "One mixed report preserves real service diff and client retarget with all four pair maps", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp"],
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B38": {
+    "case": "Proved call deletion and unreadable side have distinct presence", "clause": "Design answer 6",
+    "inputs": [{"fixture": "joint-matches.json"}], "scenario": "impact",
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B39": {
+    "case": "All six metrics distinguish checked zero from an unmeasured total", "clause": "Design answer 8",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B41": {
+    "case": "Readable unmapped, unreadable target, checked miss and checked other API have independent counts", "clause": "Design answer 8",
+    "inputs": [{"fixture": "client-only.json"}], "scenario": "impact",
+    "matrix_controls": ["control-s01-mapping-withheld"],
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B42": {
+    "case": "Actions may cite only real evidence admitted in their own comparison", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "joint-matches.json"}], "scenario": "semantic",
+    "expected_reasons": ["missing_dependency", "slot_mismatch"],
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "B46": {
+    "case": "Operations-only review retains declarations when counterpart or schema is unavailable", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "operations-only.json"}], "scenario": "impact",
+    "expected_ids": ["op:GET /kiln"],
+    "variants_fixture": "impact-wire-cases.json"
+  },
+  "C01": {
+    "case": "Raw inventory survives without a saved scan; earlier status is unchecked", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["control-document-zero-saved-matches"],
+    "expected_reasons": ["missing_saved_scan"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C03": {
+    "case": "A checked negative differs from an out-of-scope element", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["control-document-zero-saved-matches"],
+    "expected_reasons": ["scope_unchecked"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C05": {
+    "case": "Withhold each saved proof independently, including transitive configuration", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["control-document-zero-saved-matches"],
+    "expected_reasons": ["missing_dependency"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C06": {
+    "case": "Independently refuse a contradictory saved or selected slot dimension", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["control-document-zero-saved-matches"],
+    "expected_reasons": ["slot_mismatch"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C07": {
+    "case": "Missing match segment or conflicting receipt cannot prove no saved location", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["control-document-zero-saved-matches"],
+    "expected_reasons": ["missing_dependency", "receipt_conflict"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C08": {
+    "case": "Partial membership relevant to the queried key prevents a negative", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["control-document-zero-saved-matches"],
+    "expected_reasons": ["membership_unchecked"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C09": {
+    "case": "An unrelated partial region does not prevent proved no saved match", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["control-document-zero-saved-matches"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C10": {
+    "case": "A bound saved field is current only when it agrees with real comparable inventory", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["control-document-zero-saved-matches"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C11": {
+    "case": "Select before, after, or held by ID and compare that side", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["C10"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C12": {
+    "case": "Operation shape compares sorted field-ID/signature records independently of order", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["C10"],
+    "expected_ids": ["op:GET /kiln"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C13": {
+    "case": "Bodyless status, formatting, unsigned constraint and definition edits leave saved operation shape current", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["C12"],
+    "expected_ids": ["op:GET /kiln"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C14": {
+    "case": "Equal incomplete shapes cannot establish a bound status", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["C10"],
+    "expected_reasons": ["shape_incomparable"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C15": {
+    "case": "Checked deletion and unreadable selected shape preserve different side presence", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["C10"],
+    "expected_reasons": ["shape_incomparable"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C16": {
+    "case": "A paired root cannot substitute a different field ID for saved staleness", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["C10"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:201#/stamp"],
+    "expected_reasons": ["shape_incomparable"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C17": {
+    "case": "Independent schema mismatch names both versions while element remains current", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["C10"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C18": {
+    "case": "A saved location contradicting its own exact inventory earns no bound status", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["C10"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp"],
+    "expected_reasons": ["saved_signature_mismatch"],
+    "variants_fixture": "saved-cases.json"
+  },
+  "C21": {
+    "case": "All applicable live producer and consumer inputs prove negative membership on both sides", "clause": "Design answer 8",
+    "inputs": [{"fixture": "membership.json"}], "scenario": "membership",
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:201#/stamp"],
+    "variants_fixture": "membership-cases.json"
+  },
+  "C22": {
+    "case": "Independent producer membership or incomplete evidence excludes unobserved", "clause": "Design answer 8",
+    "inputs": [{"fixture": "membership.json"}], "scenario": "membership",
+    "controls": ["C21"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:201#/stamp"],
+    "variants_fixture": "membership-cases.json"
+  },
+  "C24": {
+    "case": "Candidate, overlap and missing field-use proof preserve possible membership; either paired side can bind", "clause": "Design answer 8",
+    "inputs": [{"fixture": "membership.json"}], "scenario": "membership",
+    "controls": ["C21"],
+    "expected_ids": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:201#/stamp"],
+    "variants_fixture": "membership-cases.json"
+  },
+  "D01": {
+    "case": "Published version is a string on both document kinds", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-types-cases.json"
+  },
+  "D02": {
+    "case": "Bundled schema metaschemas use Draft 2020-12 and stable IDs", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-types-cases.json"
+  },
+  "D03": {
+    "case": "Require supported schema version and reject other versions and types", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-types-cases.json"
+  },
+  "D04": {
+    "case": "Close both envelope types", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-types-cases.json"
+  },
+  "D05": {
+    "case": "Close nested file schema, origin, config, site, comparison, coverage and summary records", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-types-cases.json"
+  },
+  "D06": {
+    "case": "Match maps accept opaque nonempty keys but require closed typed values", "clause": "Design answer 10",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "schema",
+    "variants_fixture": "schema-types-cases.json"
+  },
+  "D07": {
+    "case": "Computed metadata, unknown side IDs and unmeasured totals require explicit nulls", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-types-cases.json"
+  },
+  "D08": {
+    "case": "Required nullable fields differ from omitted variant-inapplicable keys", "clause": "Design answers 5 and 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "D09": {
+    "case": "Unknown raw call values use explicit nulls and absent preview is optional", "clause": "Design answers 5 and 10",
+    "inputs": [{"fixture": "consumer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "D10": {
+    "case": "Computed and commit variants are exclusive and payloads are role specific", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "D11": {
+    "case": "Known state tags are enforced and unchecked match requires a reason", "clause": "Design answer 10",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "schema",
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "D12": {
+    "case": "Preserve typed JSON scalars, explicit/range status tags, nonempty occurrence keys and half-open spans", "clause": "Design answer 10",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "schema",
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "D13": {
+    "case": "Reject duplicate JSON members at root, nested receipt and dynamic match-map key", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "decode",
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "D14": {
+    "case": "Typed admission checks cross-record identity, uniqueness, cutoff and references", "clause": "Design answers 2, 6 and 10",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "semantic",
+    "expected_reasons": ["missing_cutoff", "missing_dependency", "receipt_conflict", "slot_mismatch"],
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "D16": {
+    "case": "Preserve raw and structural hashes, scalar normalization and bodyless status framing", "clause": "Design answer 10",
+    "inputs": [{"fixture": "inventory.json"}], "scenario": "hashes",
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "D17": {
+    "case": "Neither versioned schema accepts the other document kind", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "D18": {
+    "case": "Both schema files validate the serialized producer, consumer, mixed and client-only DTO goldens", "clause": "Design answer 10",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "schema",
+    "variants_fixture": "schema-validation-cases.json"
+  },
+  "control-document-client-only-held-service": {
+    "case": "Client-only review has precisely two actual maps and one held service ID", "clause": "Design answers 3 and 6",
+    "inputs": [{"fixture": "client-only.json"}], "scenario": "impact",
+    "pinned": "client-only-held-service",
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-computed-tree-borrowed-date": {
+    "case": "Computed results reject borrowed date, ID, and subject", "clause": "Design answers 4 and 5",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "decode",
+    "pinned": "computed-tree-borrowed-date",
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-computed-tree-null-metadata": {
+    "case": "Computed tree emits null commit fields and separate merge receipt/time", "clause": "Design answers 4 and 5",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "pinned": "computed-tree-null-metadata",
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-configured-provenance": {
+    "case": "Mount retains suffix, plugin, source entry and configured provenance", "clause": "DESIGN §5.2 and A1",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "pinned": "configured-provenance",
+    "expected_ids": ["op:GET /api/kiln"],
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-joint-edit-four-comparisons": {
+    "case": "Each joint match map belongs to its own revision-local client", "clause": "Design answer 6",
+    "inputs": [{"fixture": "joint-matches.json"}], "scenario": "impact",
+    "pinned": "joint-edit-four-comparisons",
+    "expected_ids": ["op:GET /forge", "op:GET /kiln"],
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-keyless-coverage": {
+    "case": "An unreadable region with no possible keys is preserved", "clause": "Design answer 5",
+    "inputs": [{"fixture": "producer.json"}], "scenario": "bindings",
+    "pinned": "keyless-coverage",
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-saved-inventory-withheld": {
+    "case": "The same scan and empty saved list cannot check without inventory bytes", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "controls": ["control-document-zero-saved-matches"],
+    "pinned": "saved-inventory-withheld",
+    "expected_reasons": ["missing_inventory"],
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-side-presence": {
+    "case": "Checked empty and unknown empty retain null wire IDs and no certified edit", "clause": "Design answer 6",
+    "inputs": [{"fixture": "mixed.json"}], "scenario": "impact",
+    "pinned": "side-presence",
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-tracked-dirtiness": {
+    "case": "Tracked dirtiness leaves the tree blob selection intact", "clause": "Design answer 3",
+    "inputs": [{"fixture": "admission.json"}], "scenario": "admission",
+    "controls": ["A01"],
+    "pinned": "tracked-dirtiness",
+    "expected_ids": ["op:GET /kiln"],
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-unbound-raw-call": {
+    "case": "Raw GET, original dynamic expression, site and unknown mapped path survive", "clause": "Design answer 5",
+    "inputs": [{"fixture": "consumer.json"}], "scenario": "bindings",
+    "pinned": "unbound-raw-call",
+    "variants_fixture": "control-cases.json"
+  },
+  "control-document-zero-saved-matches": {
+    "case": "Real inventory with complete match evidence and zero saved locations establishes no saved match", "clause": "Design answer 7 and DESIGN §5.6",
+    "inputs": [{"fixture": "scan.json"}], "scenario": "saved",
+    "pinned": "zero-saved-matches",
+    "expected_ids": ["op:GET /kiln"],
+    "variants_fixture": "control-cases.json"
+  }
+}

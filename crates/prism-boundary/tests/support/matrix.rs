@@ -29,6 +29,11 @@ pub fn p1c_rows() -> impl Iterator<Item = Row<'static>> {
     matrix_rows("p1c_rows", include_str!("../fixtures/p1c_rows/rows.tsv"))
 }
 
+#[allow(dead_code)]
+pub fn p1d_rows() -> impl Iterator<Item = Row<'static>> {
+    matrix_rows("p1d_rows", include_str!("../fixtures/p1d_rows/rows.tsv"))
+}
+
 fn matrix_rows(matrix: &'static str, tsv: &'static str) -> impl Iterator<Item = Row<'static>> {
     tsv.lines().skip(1).map(move |line| {
         let [id, fixture, ids, warnings, truth, class] =

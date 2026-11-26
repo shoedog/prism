@@ -1,0 +1,58 @@
+{
+  "change": {
+    "row_id": "changed-stamp",
+    "operation_id": "op:GET /kiln",
+    "before_element_id": "field:resp:GET /kiln:200#/stamp",
+    "after_element_id": "field:resp:GET /kiln:201#/stamp",
+    "change_kinds": [
+      "field_type_changed"
+    ],
+    "before_presence": "present",
+    "after_presence": "present",
+    "before_shape": [
+      [
+        "known",
+        "string"
+      ],
+      [
+        "missing"
+      ],
+      [
+        "known",
+        false
+      ],
+      [
+        "missing"
+      ],
+      [
+        "missing"
+      ]
+    ],
+    "after_shape": [
+      [
+        "known",
+        "integer"
+      ],
+      [
+        "missing"
+      ],
+      [
+        "known",
+        false
+      ],
+      [
+        "missing"
+      ],
+      [
+        "missing"
+      ]
+    ],
+    "coverage_limits": []
+  },
+  "expected_inputs": [
+    "service-before",
+    "service-after",
+    "client-before",
+    "client-after"
+  ]
+}
