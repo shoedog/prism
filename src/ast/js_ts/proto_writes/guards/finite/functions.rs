@@ -241,7 +241,13 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         identifier(param).then_some(param)
     }
 
+    /// The checked expression must be the parameter itself (through parentheses
+    /// and erased wrappers): a member, index or call over it says nothing about
+    /// the value the caller passes.
     fn parameter_use(&self, value: Node<'a>, param: Node<'a>) -> bool {
+        if !identifier(peel(value)) {
+            return false;
+        }
         let Some(read) = self.analysis.read(value) else {
             return false;
         };

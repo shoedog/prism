@@ -16,6 +16,8 @@ pub(crate) mod props_keys;
 mod props_types;
 pub mod proto_writes;
 #[cfg(test)]
+mod proto_writes_guard_assertion_member_tests;
+#[cfg(test)]
 mod proto_writes_guard_coverage_tests;
 #[cfg(test)]
 mod proto_writes_guard_function_tests;
