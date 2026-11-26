@@ -221,10 +221,13 @@ extras are ignored or carried):
 | Raw edge lines, endpoints and paths | free-form by format (additional members ignored) |
 | Trace payloads and trace node keys | free-form by format |
 | Counter files | free-form by format (arbitrary member names) |
-| Inventory `recorded_path` columns | free-form in S2: FORMATS gives them the `{base, fields}` shape but the parser projects extras away (open-s2-2) |
+| `prediction` record | closed keys |
+| Corpus manifest envelope | closed keys; its `corpora` map is keyed by registered corpus names |
+| Classifier `LEGACY_MECHANISM_ORDER` | free-form by classifier: corpus key to a list of distinct tags |
+| Inventory `recorded_path` and `chain_path` columns | free-form in S2: FORMATS gives both the `{base, fields}` shape but the parser projects extras away (open-s2-2) |
 
 Known limits of S2: the free-form maps above are not checked for undeclared
-members, and the inventory `recorded_path` shape is not enforced (open-s2-2).
+members, and the inventory `recorded_path` and `chain_path` shapes are not enforced (open-s2-2).
 A lane-side exception raised from a lane-local SQLite connection inside a
 validator's lazily evaluated result can be reported as kit storage failure
 (open-s2-1).

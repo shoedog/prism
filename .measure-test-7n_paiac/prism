@@ -1,0 +1,17 @@
+#!/Library/Developer/CommandLineTools/usr/bin/python3
+
+import json
+import os
+from pathlib import Path
+import sys
+args = sys.argv[1:]
+command = ("version" if args == ["--version"] else
+           "edges" if "--edges" in args else "sites" if "--dump-sites" in args else args[2])
+root = Path(args[args.index("--repo") + 1]) if "--repo" in args else None
+with open('/Users/wesleyjinks/code/prism-measure-kit-s2/.measure-test-7n_paiac/product.jsonl', "a", encoding="utf-8") as stream:
+    print(json.dumps({"argv": args, "env": dict(os.environ), "command": command}), file=stream)
+print('9d1a7d06f653' if command == "version" else '{"count":1}')
+print(command, file=sys.stderr)
+cases = {'call-stats': 'sys.exit(75)'}
+exec(cases.get(command, ""))
+sys.exit(0)

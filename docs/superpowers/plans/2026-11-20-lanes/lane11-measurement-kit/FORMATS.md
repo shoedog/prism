@@ -8,7 +8,7 @@
 
 Stage D, lane 11. Option B grades the occurrence and property identified by bound evidence. The owner authorised one final targeted fold at `967dd7123`. See the [round-four dispositions](FORMATS-DECISIONS.md#review-round-4-dispositions) and [fixture specifications](FORMATS-LEDGER.md#round-four-fixtures). Adoption requires a measured differential.
 
-**Open rows by owning slice** ([FORMATS-OPEN-ROWS.md](FORMATS-OPEN-ROWS.md), 133 rows, all `open`)
+**Open rows by owning slice** ([FORMATS-OPEN-ROWS.md](FORMATS-OPEN-ROWS.md), 133 rows; each row carries its own status, `open`, `closed` or `re-scoped`)
 
 | Slice | Open rows | IDs |
 |---|---:|---|
