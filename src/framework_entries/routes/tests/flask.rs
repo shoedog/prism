@@ -12,6 +12,7 @@ use crate::{ast::ParsedFile, languages::Language};
 use tree_sitter::Node;
 
 mod review;
+mod static_import;
 
 fn parsed(sources: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
     sources
