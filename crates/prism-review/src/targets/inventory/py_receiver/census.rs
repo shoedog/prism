@@ -1,6 +1,7 @@
+use super::context::ContextUse;
 use crate::targets::dependency_identity::python_imports;
 use crate::targets::inventory::python::{
-    source::{children, name, ungroup},
+    source::{children, name, ungroup, ungroup_target},
     walk::{ScopeId, ScopeKind, Walk},
 };
 use prism::ast::ParsedFile;
@@ -19,6 +20,8 @@ pub(super) struct Import {
 pub(super) enum Kind<'tree> {
     Import(Import),
     Assigned(Option<Node<'tree>>),
+    Context,
+    Parameter,
     Delete,
     Annotation,
     Other,
@@ -36,11 +39,16 @@ pub(super) struct Namespace<'tree> {
     pub bindings: BTreeMap<String, Vec<Binding<'tree>>>,
     pub globals: BTreeSet<String>,
     pub nonlocals: BTreeSet<String>,
+    pub returns: Vec<Node<'tree>>,
+    pub yields: bool,
 }
 
 pub(super) struct Census<'tree> {
     pub spaces: Vec<Namespace<'tree>>,
     pub wildcard: bool,
+    pub field_stores: Vec<(ScopeId, Node<'tree>, Node<'tree>)>,
+    pub definition_scopes: BTreeMap<usize, ScopeId>,
+    pub context_uses: Vec<ContextUse<'tree>>,
 }
 
 impl<'tree> Census<'tree> {
@@ -48,13 +56,19 @@ impl<'tree> Census<'tree> {
         let mut this = Self {
             spaces: walk.scopes.iter().map(|_| Namespace::default()).collect(),
             wildcard: false,
+            field_stores: Vec::new(),
+            definition_scopes: BTreeMap::new(),
+            context_uses: Vec::new(),
         };
         for (scope, block) in walk.scopes.iter().enumerate() {
+            if block.kind == ScopeKind::Function {
+                this.definition_scopes.insert(block.node.id(), scope);
+            }
             if block.kind.is_function() {
                 if let Some(params) = block.node.child_by_field_name("parameters") {
                     for parameter in children(params) {
                         if let Some(target) = parameter_name(parameter) {
-                            this.add(parsed, walk, scope, target, parameter, Kind::Other);
+                            this.add(parsed, walk, scope, target, parameter, Kind::Parameter);
                         }
                     }
                 }
@@ -63,6 +77,11 @@ impl<'tree> Census<'tree> {
         for &(node, context) in &walk.nodes {
             let scope = context.scope;
             match node.kind() {
+                "with_item" if context.evaluated => {
+                    this.context_uses.extend(ContextUse::from_item(node, scope));
+                }
+                "return_statement" => this.spaces[scope].returns.push(node),
+                "yield" => this.spaces[scope].yields = true,
                 "function_definition" | "class_definition" => {
                     if let Some(target) = node.child_by_field_name("name") {
                         this.add(parsed, walk, scope, target, node, Kind::Other);
@@ -116,6 +135,12 @@ impl<'tree> Census<'tree> {
                     let annotation = node.child_by_field_name("type").is_some();
                     let right = node.child_by_field_name("right");
                     if let Some(left) = node.child_by_field_name("left") {
+                        let target = ungroup_target(left);
+                        if let Some(value) = right
+                            .filter(|_| node.kind() == "assignment" && target.kind() == "attribute")
+                        {
+                            this.field_stores.push((scope, target, value));
+                        }
                         if annotation && walk.scopes[scope].kind == ScopeKind::Class {
                             this.insert(
                                 scope,
@@ -131,12 +156,12 @@ impl<'tree> Census<'tree> {
                         if !annotation || right.is_some() || left.kind() == "identifier" {
                             let kind = if annotation && right.is_none() {
                                 Kind::Annotation
-                            } else if node.kind() == "assignment" && left.kind() == "identifier" {
+                            } else if node.kind() == "assignment" && target.kind() == "identifier" {
                                 Kind::Assigned(right)
                             } else {
                                 Kind::Other
                             };
-                            this.targets(parsed, walk, scope, left, node, kind);
+                            this.targets(parsed, walk, scope, target, node, kind);
                         }
                     }
                 }
@@ -170,6 +195,16 @@ impl<'tree> Census<'tree> {
                 }
                 "as_pattern" => {
                     if let Some(alias) = node.child_by_field_name("alias") {
+                        let target = children(alias).next().map(ungroup);
+                        if let Some(target) = target.filter(|target| {
+                            target.kind() == "identifier"
+                                && std::iter::successors(node.parent(), Node::parent)
+                                    .find(|parent| parent.kind() != "parenthesized_expression")
+                                    .is_some_and(|parent| parent.kind() == "with_item")
+                        }) {
+                            this.add(parsed, walk, scope, target, node, Kind::Context);
+                            continue;
+                        }
                         this.targets(parsed, walk, scope, alias, node, Kind::Other);
                     }
                 }
@@ -305,7 +340,7 @@ impl<'tree> Census<'tree> {
     }
 }
 
-fn parameter_name(node: Node<'_>) -> Option<Node<'_>> {
+pub(super) fn parameter_name(node: Node<'_>) -> Option<Node<'_>> {
     match node.kind() {
         "identifier" => Some(node),
         "default_parameter" | "typed_default_parameter" => node.child_by_field_name("name"),
