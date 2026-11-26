@@ -16,9 +16,16 @@ declared corpus the independent stream lacks blocks I2 and leaves the A decision
 precision receipt passes. The receipt is derived (`precision.py`): `draw --prepared DIR --out DRAW.json`
 derives the DESIGN section 7 pair draw from `candidates.jsonl`; `precision --prepared DIR --draw DRAW.json
 --judgments J.jsonl --out precision.json` checks the judgment keys are exactly the draw's and writes
-`admission_precision/3`, bound by `prepared_sha256`, `draw_sha256` and `judgments_sha256`; `report --precision`
+`admission_precision/4`, bound by `prepared_sha256`, `draw_sha256` and `judgments_sha256`; `report --precision`
 re-reads the draw and judgments files the receipt names and recomputes everything, so the receipt alone is
 never trusted.
+
+Two precision populations exist and `report` scores neither by choice: `a-credit` (`candidates.jsonl`, the
+pairs credited to A) and `all-survivors` (`survivors.jsonl`, every pair both sides agree on, the method-call
+predictions the head excludes included). `draw`/`precision` take `--population`; `report` prints both
+side by side and can print `I2: ADMITTED` only when `--approved-population` names one of them and that
+population's receipt clears (`--precision` for a-credit, `--precision-all-survivors` for all-survivors).
+Without the flag I2 is BLOCKED: the population is an open owner decision.
 """
 
 import argparse
@@ -310,11 +317,15 @@ def corpus_pass(corpus, fr, ind, product, problems, acc):
             acc["agreed"][corpus].append(dict(file=i["file"], owner=i["owner"], r=r, raw=i["raw_pairs"]))
             # CHOICE: an owner with any residual earns nothing, even for a pair both sides predict.
             # An unknown parent route (`None`: the search ran out of budget) is no proof of absence: no credit.
-            if where == "c3" and not res and not pred["occupied"] and pred.get("parent_route") is False:
-                acc["candidates"].append(dict(
-                    key=pair_key(corpus, i["file"], i["owner"], w, r, role), corpus=corpus, file=i["file"],
-                    owner=i["owner"], w=list(w), r=list(r), role=role, recorded_w=sorted(c3[(r[0], r[1], role)]),
-                    route=pred["route"]))
+            credited = where == "c3" and not res and not pred["occupied"] and pred.get("parent_route") is False
+            row = dict(key=pair_key(corpus, i["file"], i["owner"], w, r, role), corpus=corpus, file=i["file"],
+                       owner=i["owner"], w=list(w), r=list(r), role=role,
+                       recorded_w=sorted(c3.get((r[0], r[1], role), ())), route=pred["route"])
+            acc["survivors"].append(dict(row, where=where, occupied=pred["occupied"],
+                                         parent_route=pred.get("parent_route"), residual=bool(res),
+                                         credited=credited))
+            if credited:
+                acc["candidates"].append(row)
         if res:
             acc["residuals"].append(dict(corpus=corpus, file=i["file"], owner=i["owner"], residual=res))
         acc["stats"][corpus].update(product_predicted=len(prod_set), independent_predicted=len(ind_set),
@@ -390,7 +401,7 @@ def prepare(a, frozen=FROZEN):
     problems = []
     independent = load_independent(a.independent, problems)
     acc = dict(categories=defaultdict(lambda: dict(pairs=0, by_owner=Counter())), owners={}, candidates=[],
-               residuals=[], stats=defaultdict(Counter), agreed=defaultdict(list))
+               residuals=[], stats=defaultdict(Counter), agreed=defaultdict(list), survivors=[])
     runs, dups = {}, set()
     # A is the frame's (P1, P2); flood accounting covers every declared full-loader corpus, evidence or not.
     missing = []
@@ -416,6 +427,7 @@ def prepare(a, frozen=FROZEN):
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     for name, items in (("owners", rows), ("candidates", sorted(acc["candidates"], key=lambda c: c["key"])),
+                        ("survivors", sorted(acc["survivors"], key=lambda c: c["key"])),
                         ("residuals", acc["residuals"])):
         (out / f"{name}.jsonl").write_text("".join(dump(r) + "\n" for r in items))
     cats = [dict(corpus=k[0], role=k[1], where=k[2], pairs=v["pairs"], owners=len(v["by_owner"]),
@@ -425,6 +437,7 @@ def prepare(a, frozen=FROZEN):
                 independent_sha256=digest(Path(a.independent).read_bytes()), runs=runs,
                 frame_owners=len(fr["frame"]), frame_by_corpus=dict(Counter(k[0] for k in fr["frame"])),
                 candidates_sha256=digest((out / "candidates.jsonl").read_bytes()),
+                survivors_sha256=digest((out / "survivors.jsonl").read_bytes()),
                 stats={c: dict(v) for c, v in acc["stats"].items()}, categories=cats,
                 flood=flood(acc["agreed"], [c for c in declared if c in independent]),
                 full_loader_corpora=declared, full_loader_missing=sorted(missing),
@@ -467,23 +480,45 @@ def witnessed(candidates, witnesses, prepared_sha):
 
 
 def make_draw(a):
-    meta, candidates = precision.load_prepared(a.prepared)
+    meta, candidates = precision.load_prepared(a.prepared, a.population)
     draw = precision.derive_draw(candidates, meta)
     Path(a.out).write_text(precision.dump(draw) + "\n")
-    print(f"draw: {len(draw['keys'])} of {draw['population']} pairs (core {len(draw['core'])}, "
+    print(f"draw ({a.population}): {len(draw['keys'])} of {draw['population']} pairs (core {len(draw['core'])}, "
           f"top-up {len(draw['topup'])}, exhaustive {draw['exhaustive']}); roles {draw['role_population']}")
     return 0
 
 
 def make_precision(a):
-    meta, candidates = precision.load_prepared(a.prepared)
-    receipt, problems = precision.score(meta, candidates, a.draw, a.judgments)
+    meta, candidates = precision.load_prepared(a.prepared, a.population)
+    receipt, problems = precision.score(meta, candidates, a.draw, a.judgments, a.population)
     Path(a.out).write_text(json.dumps(receipt, indent=1, sort_keys=True) + "\n")
-    print(f"precision: {'PASS' if not problems else 'FAIL'}; n={receipt['n']} valid={receipt['valid']} "
+    print(f"precision ({a.population}): {'PASS' if not problems else 'FAIL'}; n={receipt['n']} valid={receipt['valid']} "
           f"witnessed={receipt['witnessed']} stale={receipt['stale']} unknown={receipt['unknown']} wilson_core={receipt['wilson_core']}")
     for p in problems:
         print("  " + p)
     return 1 if problems else 0
+
+
+def population_line(name, rows, receipt_path, meta, candidates, survivors):
+    """`(printed line, problems or None)` of one precision population: `None` problems means no judgments."""
+    if not receipt_path:
+        return f"  population {name}: no judgments supplied", None
+    try:
+        receipt = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return f"  population {name}: precision receipt unreadable: {e}", [f"precision receipt unreadable: {e}"]
+    scored, problems = precision.verify_scored(receipt, meta, candidates, Path(receipt_path).resolve().parent,
+                                               survivors)
+    if scored is None:
+        return f"  population {name}: receipt not scored; verdict FAIL ({'; '.join(problems)})", problems
+    if scored["population_name"] != name:
+        problems = [f"the receipt is for population {scored['population_name']}, not {name}"] + problems
+    lo, hi = precision.wilson_interval(scored["core"]["witnessed"], scored["core"]["n"])
+    verdict = "PASS" if not problems else f"FAIL ({'; '.join(problems)})"
+    return (f"  population {name}: count {len(rows)} drawn {scored['n']} valid {scored['valid']} "
+            f"invalid {scored['invalid']} unknown {scored['unknown']} stale {scored['stale']}; witnessed core "
+            f"{scored['core']['witnessed']}/{scored['core']['n']} Wilson95 [{lo:.4f}, {hi:.4f}]; "
+            f"verdict {verdict}"), problems
 
 
 def report(a):
@@ -493,12 +528,6 @@ def report(a):
     if digest((prep / "candidates.jsonl").read_bytes()) != meta["candidates_sha256"]:
         raise ValueError("candidates.jsonl does not match prepared.json")
     witnesses = jsonl(a.witnesses) if a.witnesses and Path(a.witnesses).exists() else []
-    receipt, receipt_problem = None, "no precision receipt (pass --precision precision.json)"
-    if a.precision:
-        try:
-            receipt, receipt_problem = json.loads(Path(a.precision).read_text(encoding="utf-8")), None
-        except (OSError, ValueError) as e:
-            receipt_problem = f"precision receipt unreadable: {e}"
     verdicts, counts = witnessed(candidates, witnesses, meta["prepared_sha256"])
     owners = jsonl(prep / "owners.jsonl")
     total = len(owners)
@@ -550,14 +579,28 @@ def report(a):
         reasons.append("prepared receipt declares no full-loader corpus set")
     elif lacking := sorted(set(declared) - set(meta["flood"])):
         reasons.append(f"no flood evidence for full-loader corpora {', '.join(lacking)}")
+    survivors = jsonl(prep / "survivors.jsonl") if (prep / "survivors.jsonl").exists() else None
+    print("precision populations (owner decision pending; neither is selected here):")
+    lines = {}
+    for name, rows, path in (("a-credit", candidates, a.precision),
+                             ("all-survivors", survivors or [], a.precision_all_survivors)):
+        lines[name] = population_line(name, rows, path, meta, candidates, survivors)
+        print(lines[name][0])
+    unapproved = not a.approved_population
     if verdict == "PASS":
         reasons += [] if clean else ["unreconciled predictions"]
-        reasons += [receipt_problem] if receipt_problem else precision.verify(receipt, meta, candidates, Path(a.precision).resolve().parent)
-    blocked = bool(reasons)
-    print(f"I2: {'BLOCKED by ' + '; '.join(reasons) if blocked else 'ADMITTED' if verdict == 'PASS' else 'NOT ADMITTED'}")
-    print("  precision population = A-credit candidates (CHOICE: section 7 may require all agreed survivors; "
-          "owner/design decision pending)")
-    return 2 if verdict == "INVALID" else 4 if blocked else {"PASS": 0, "STOP": 1}[verdict]
+        if not unapproved:
+            problems = lines[a.approved_population][1]
+            reasons += problems if problems is not None else [
+                f"no precision receipt for the approved population {a.approved_population} "
+                "(pass --precision or --precision-all-survivors)"]
+    if unapproved:
+        print("I2: BLOCKED (precision population not approved)")
+        if reasons:
+            print(f"  also blocked by {'; '.join(reasons)}")
+    else:
+        print(f"I2: {'BLOCKED by ' + '; '.join(reasons) if reasons else 'ADMITTED' if verdict == 'PASS' else 'NOT ADMITTED'}")
+    return 2 if verdict == "INVALID" else 4 if reasons or unapproved else {"PASS": 0, "STOP": 1}[verdict]
 
 
 def main(argv=None, frozen=FROZEN):
@@ -573,15 +616,20 @@ def main(argv=None, frozen=FROZEN):
     r = sub.add_parser("report")
     r.add_argument("--prepared", required=True)
     r.add_argument("--witnesses")
-    r.add_argument("--precision")
+    r.add_argument("--precision", help="a-credit population receipt (`precision --population a-credit`)")
+    r.add_argument("--precision-all-survivors", help="all-survivors population receipt")
+    r.add_argument("--approved-population", choices=sorted(precision.POPULATIONS),
+                   help="the owner-approved precision population; without it I2 stays BLOCKED")
     r.set_defaults(fn=report)
     d = sub.add_parser("draw")
     d.add_argument("--prepared", required=True)
     d.add_argument("--out", required=True)
+    d.add_argument("--population", choices=sorted(precision.POPULATIONS), default="a-credit")
     d.set_defaults(fn=make_draw)
     q = sub.add_parser("precision")
     for flag in ("prepared", "draw", "judgments", "out"):
         q.add_argument("--" + flag, required=True)
+    q.add_argument("--population", choices=sorted(precision.POPULATIONS), default="a-credit")
     q.set_defaults(fn=make_precision)
     args = cli.parse_args(argv)
     try:

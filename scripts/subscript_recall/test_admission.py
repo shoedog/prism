@@ -121,12 +121,15 @@ class World:
         self.build(**kw)
         return run_cli(self.argv())
 
-    def precision(self, verdict=None, witnessed=None, **tamper):
+    def precision(self, verdict=None, witnessed=None, which="a-credit", **tamper):
         """The receipt of the derived draw: `draw`, all-valid judgments (`verdict(key, role)` and
-        `witnessed(key)` override one), then `precision`; `tamper` rewrites receipt fields afterwards."""
+        `witnessed(key)` override one), then `precision`; `tamper` rewrites receipt fields afterwards.
+        `which` names the scored population (the all-survivors files carry an `-all` suffix)."""
         prep = self.root / "adm"
-        draw_path, path = self.root / "draw.json", self.root / "precision.json"
-        assert run_cli(["draw", "--prepared", prep, "--out", draw_path])[0] == 0
+        tag = "" if which == "a-credit" else "-all"
+        draw_path, path = self.root / f"draw{tag}.json", self.root / f"precision{tag}.json"
+        pop = ["--population", which]
+        assert run_cli(["draw", "--prepared", prep, "--out", draw_path, *pop])[0] == 0
         draw = json.loads(draw_path.read_text())
         meta = json.loads((prep / "prepared.json").read_text())
         rows = []
@@ -134,16 +137,18 @@ class World:
             v = verdict(key, role) if verdict else "valid"
             rows.append(dict(key=key, verdict=v, prepared_sha256=meta["prepared_sha256"],
                              witnessed=witnessed(key) if witnessed else v == "valid"))
-        (self.root / "judgments.jsonl").write_text(dump_lines(rows))
+        (self.root / f"judgments{tag}.jsonl").write_text(dump_lines(rows))
         run_cli(["precision", "--prepared", prep, "--draw", draw_path, "--judgments",
-                 self.root / "judgments.jsonl", "--out", path])
+                 self.root / f"judgments{tag}.jsonl", "--out", path, *pop])
         if tamper:
             receipt = json.loads(path.read_text())
             receipt.update(tamper)
             path.write_text(json.dumps(receipt))
         return path
 
-    def report(self, witnesses="all", precision="good"):
+    def report(self, witnesses="all", precision="good", approved="a-credit", all_survivors=None):
+        """`approved`: the `--approved-population` value (None: the flag is absent); `all_survivors`: the
+        all-survivors receipt path, or "good" for a passing one."""
         meta = json.loads((self.root / "adm" / "prepared.json").read_text())
         cands = ad.jsonl(self.root / "adm" / "candidates.jsonl")
         rows = witnesses
@@ -156,6 +161,12 @@ class World:
             precision = self.precision()
         if precision:
             argv += ["--precision", precision]
+        if all_survivors == "good":
+            all_survivors = self.precision(which="all-survivors")
+        if all_survivors:
+            argv += ["--precision-all-survivors", all_survivors]
+        if approved:
+            argv += ["--approved-population", approved]
         return run_cli(argv)
 
 
@@ -686,11 +697,11 @@ class AdmissionTests(unittest.TestCase):
         meta = json.loads((w.root / "adm" / "prepared.json").read_text())
         good = json.loads((w.root / "precision.json").read_text())
         self.assertEqual((good["schema"], good["prepared_sha256"], good["n"]),
-                         ("admission_precision/3", meta["prepared_sha256"], 100))
+                         ("admission_precision/4", meta["prepared_sha256"], 100))
         cases = {
             "other frame": (dict(frame_sha256="0" * 64), "frame"),
             "no frame": (dict(frame_sha256=None), "frame"),
-            "old schema": (dict(schema="admission_precision/2"), "admission_precision/3"),
+            "old schema": (dict(schema="admission_precision/3"), "schema mismatch"),
             "judgments hash": (dict(judgments_sha256="0" * 64), "judgments_sha256"),
             "draw hash": (dict(draw_sha256="0" * 64), "draw_sha256"),
             "a smaller forged sample": (dict(n=22, valid=22, population=22, roles={
@@ -718,6 +729,146 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(code, 3, err)
         self.assertIn("78 missing", err)
         self.assertFalse((w.root / "short-precision.json").exists())
+
+    def method_call_world(self, root, finished_search):
+        """One owner whose single predicted pair has an unknown parent route (`None`: the search budget ran
+        out, the shape of a method-call RHS) unless `finished_search`; returns the World."""
+        src = b'def f(d, t):\n    d["k"] = t\n    return d\n'
+        nodes = [var("a.py", "f", 1, src, "def", b'd["k"]', ("d", "[]")),
+                 var("a.py", "f", 1, src, "use", b"return d", ("d",), b"d"),
+                 var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t"),
+                 var("a.py", "f", 1, src, "use", b"= t", ("t",), b"t")]
+        junk = [dict(nodes[3], start_byte=900 + i, end_byte=901 + i) for i in range(8)]
+        w = World(root)
+        w.function("a.py", src, nodes=nodes)
+        w.edges = [(nodes[2], nodes[3])] + ([] if finished_search else [(nodes[2], j) for j in junk])
+        with mock.patch.object(li, "ROUTE_BUDGET", 4 if not finished_search else li.ROUTE_BUDGET):
+            self.assertEqual(w.prepare()[0], 0)
+        return w
+
+    def test_survivors_hold_every_agreed_pair_and_a_credit_is_the_subset_the_head_scores(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            unknown = self.method_call_world(tmp, finished_search=False)
+            meta = json.loads((unknown.root / "adm" / "prepared.json").read_text())
+            surv = ad.jsonl(unknown.root / "adm" / "survivors.jsonl")
+            self.assertEqual(ad.jsonl(unknown.root / "adm" / "candidates.jsonl"), [])
+            self.assertEqual([(r["role"], r["parent_route"], r["credited"]) for r in surv],
+                             [("return", None, False)])
+            self.assertEqual(meta["survivors_sha256"],
+                             ad.digest((unknown.root / "adm" / "survivors.jsonl").read_bytes()))
+        with tempfile.TemporaryDirectory() as tmp:  # control: the finished search credits the same pair
+            known = self.method_call_world(tmp, finished_search=True)
+            cands = ad.jsonl(known.root / "adm" / "candidates.jsonl")
+            surv = ad.jsonl(known.root / "adm" / "survivors.jsonl")
+            self.assertEqual([c["key"] for c in cands], [r["key"] for r in surv])
+            self.assertEqual([r["credited"] for r in surv], [True])
+
+    def test_report_prints_both_populations_side_by_side_and_selects_neither(self):
+        w = self.prepared_population()
+        with mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report(approved=None, all_survivors=None)
+        self.assertIn("population a-credit", out)
+        self.assertIn("population all-survivors: no judgments supplied", out)
+        code, out, _ = w.report(approved=None, all_survivors="good")
+        for line in (l for l in out.splitlines() if l.startswith("  population ")):
+            self.assertNotIn("no judgments supplied", line)
+        a, b = [l for l in out.splitlines() if l.startswith("  population ")]
+        for line in (a, b):
+            for field in ("count 130", "drawn 100", "valid 100", "invalid 0", "unknown 0", "Wilson95 [0.96",
+                          "verdict PASS"):
+                self.assertIn(field, line)
+        with self.subTest("a failing population reads FAIL with its reason, beside a passing one"):
+            bad = w.precision(verdict=lambda k, r: "unknown" if "m1" in k else "valid", which="all-survivors")
+            _, out, _ = w.report(approved=None, all_survivors=str(bad))
+            lines = {l.split()[1].rstrip(":"): l for l in out.splitlines() if l.startswith("  population ")}
+            self.assertIn("verdict PASS", lines["a-credit"])
+            self.assertIn("verdict FAIL", lines["all-survivors"])
+            self.assertIn("unknown", lines["all-survivors"])
+
+    def test_i2_is_blocked_unless_an_approved_population_is_named(self):
+        w = self.prepared_population()
+        good, good_all = w.precision(), w.precision(which="all-survivors")
+        with mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report(precision=good, approved=None, all_survivors=good_all)
+            self.assertEqual(code, 4, out)
+            self.assertIn("I2: BLOCKED (precision population not approved)", out)
+            self.assertNotIn("ADMITTED", out.replace("NOT ADMITTED", ""))
+            for approved, others in (("a-credit", dict(all_survivors=None)), ("all-survivors", dict(all_survivors=good_all)),
+                                     ("all-survivors", dict(all_survivors=good_all))):
+                code, out, _ = w.report(precision=good, approved=approved, **others)
+                self.assertEqual((code, "I2: ADMITTED" in out), (0, True), (approved, out))
+
+    def test_an_approved_population_that_fails_or_has_no_receipt_blocks_i2(self):
+        w = self.prepared_population()
+        good = w.precision()
+        bad_all = w.precision(verdict=lambda k, r: "invalid" if "m1" in k else "valid", which="all-survivors")
+        with mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report(precision=good, approved="all-survivors", all_survivors=str(bad_all))
+            self.assertEqual(code, 4, out)
+            self.assertIn("I2: BLOCKED by", out)
+            self.assertIn("Wilson", out.split("I2: BLOCKED")[1])
+            code, out, _ = w.report(precision=good, approved="all-survivors", all_survivors=None)
+            self.assertEqual(code, 4, out)
+            self.assertIn("no precision receipt for the approved population all-survivors",
+                          out.split("I2: BLOCKED")[1])
+            # control: the other population's failing receipt does not matter once it is not the approved one
+            code, out, _ = w.report(precision=good, approved="a-credit", all_survivors=str(bad_all))
+            self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
+
+    def test_other_gates_still_block_an_approved_population(self):
+        w = self.prepared_population()
+        good = w.precision()
+        code, out, _ = w.report(precision=good, approved="a-credit")  # control at the real gate (A=130 >= 100)
+        self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
+        code, out, _ = w.report(witnesses=[], precision=good, approved="a-credit")
+        self.assertEqual((code, "I2: ADMITTED" in out), (1, False), out)
+        meta_path = w.root / "adm" / "prepared.json"
+        meta = json.loads(meta_path.read_text())
+        meta["residual_owners"] = 1
+        meta_path.write_text(json.dumps(meta))
+        code, out, _ = w.report(precision=good, approved="a-credit")
+        self.assertEqual(code, 4, out)
+        self.assertIn("I2: BLOCKED by unreconciled predictions", out)
+        self.assertNotIn("I2: ADMITTED", out)
+        with self.subTest("unapproved: the approval line comes first and the other block is named after it"):
+            code, out, _ = w.report(precision=good, approved=None)
+            self.assertEqual(code, 4, out)
+            self.assertIn("I2: BLOCKED (precision population not approved)\n  also blocked by unreconciled predictions",
+                          out)
+
+    def test_a_receipt_for_the_other_population_or_a_stale_schema_or_a_lost_file_scores_nothing(self):
+        w = self.prepared_population()
+        good, good_all = w.precision(), w.precision(which="all-survivors")
+        with mock.patch.object(ad, "GATE", 1):
+            with self.subTest("a-credit receipt passed as the all-survivors one"):
+                code, out, _ = w.report(precision=good, approved="all-survivors", all_survivors=str(good))
+                self.assertEqual(code, 4, out)
+                self.assertIn("is for population a-credit, not all-survivors", out)
+            with self.subTest("an unreadable receipt"):
+                code, out, _ = w.report(precision=str(w.root / "nope.json"), approved="a-credit")
+                self.assertEqual(code, 4, out)
+                self.assertIn("population a-credit: precision receipt unreadable", out)
+            with self.subTest("a /3 receipt"):
+                old = w.precision(schema="admission_precision/3")
+                code, out, _ = w.report(precision=old, approved="a-credit")
+                self.assertEqual(code, 4, out)
+                self.assertIn("population a-credit: receipt not scored; verdict FAIL (precision receipt schema mismatch",
+                              out)
+            with self.subTest("survivors.jsonl lost after the receipt was made"):
+                (w.root / "adm" / "survivors.jsonl").rename(w.root / "survivors.moved")
+                code, out, _ = w.report(precision=good, approved="all-survivors", all_survivors=str(good_all))
+                self.assertEqual(code, 4, out)
+                self.assertIn("has no survivors.jsonl", out)
+                (w.root / "survivors.moved").rename(w.root / "adm" / "survivors.jsonl")
+            with self.subTest("control: every receipt in place"):
+                code, out, _ = w.report(precision=good, approved="all-survivors", all_survivors=str(good_all))
+                self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
+
+    def test_approved_population_flag_accepts_only_the_two_populations(self):
+        w = self.prepared_population()
+        with self.assertRaises(SystemExit):
+            with contextlib.redirect_stderr(io.StringIO()):
+                w.report(precision=w.precision(), approved="everything")
 
     def test_i2_needs_flood_evidence_for_every_declared_full_loader_corpus(self):
         w = self.world

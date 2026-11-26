@@ -65,9 +65,9 @@ class PrecisionTests(unittest.TestCase):
         path.write_text("".join(ad.dump(r) + "\n" for r in rows + list(extra)))
         return path
 
-    def precision(self, d, draw_path, judgments, out="precision.json"):
+    def precision(self, d, draw_path, judgments, out="precision.json", *extra):
         return cli("precision", "--prepared", d, "--draw", draw_path, "--judgments", judgments,
-                   "--out", self.root / out)
+                   "--out", self.root / out, *extra)
 
     def test_the_draw_is_derived_deterministically_from_the_candidates(self):
         d, rows = self.prepared({"arg": 130, "return": 300, "assign_rhs": 3})
@@ -106,7 +106,7 @@ class PrecisionTests(unittest.TestCase):
         code, out, err = self.precision(d, draw_path, j)
         self.assertEqual(code, 0, err)
         receipt = json.loads((self.root / "precision.json").read_text())
-        self.assertEqual(receipt["schema"], "admission_precision/3")
+        self.assertEqual((receipt["schema"], receipt["population_name"]), ("admission_precision/4", "a-credit"))
         self.assertEqual((receipt["prepared_sha256"], receipt["draw_sha256"], receipt["judgments_sha256"]),
                          (PREPARED_SHA, ad.digest(draw_path.read_bytes()), ad.digest(j.read_bytes())))
         self.assertEqual((receipt["n"], receipt["valid"], receipt["stale"], receipt["unknown"]),
@@ -273,7 +273,7 @@ class PrecisionTests(unittest.TestCase):
             "draw hash": dict(good, draw_sha256="0" * 64),
             "prepared": dict(good, prepared_sha256="0" * 64),
             "frame": dict(good, frame_sha256="0" * 64),
-            "schema": dict(good, schema="admission_precision/2"),
+            "schema": dict(good, schema="admission_precision/3"),
             "missing draw file": dict(good, draw_path=str(self.root / "gone.json")),
         }
         for name, receipt in forged.items():
@@ -288,6 +288,88 @@ class PrecisionTests(unittest.TestCase):
         small = dict(draw, keys=dict(list(sorted(draw["keys"].items()))[:22]))
         draw_path.write_text(json.dumps(small))
         self.assertTrue(verify(dict(good, draw_sha256=ad.digest(draw_path.read_bytes()))))
+
+
+    def with_survivors(self):
+        """A prepared directory whose survivors extend the candidates by 30 pairs (the excluded method calls)."""
+        d, rows = self.prepared({"return": 40, "arg": 70})
+        extra = [dict(candidate(1000 + i, "return"), credited=False) for i in range(30)]
+        text = "".join(ad.dump(r) + "\n" for r in rows + extra)
+        (d / "survivors.jsonl").write_text(text)
+        meta = json.loads((d / "prepared.json").read_text())
+        meta["survivors_sha256"] = ad.digest(text.encode())
+        (d / "prepared.json").write_text(json.dumps(meta))
+        return d, rows, extra
+
+    def test_an_old_schema_receipt_fails_naming_the_schema_not_the_recomputation(self):
+        d, _ = self.prepared({"return": 300, "arg": 40})
+        draw_path, draw = self.draw(d)
+        self.assertEqual(self.precision(d, draw_path, self.judge(draw))[0], 0)
+        good = json.loads((self.root / "precision.json").read_text())
+        meta, cands = json.loads((d / "prepared.json").read_text()), ad.jsonl(d / "candidates.jsonl")
+        old = ad.precision.verify(dict(good, schema="admission_precision/3"), meta, cands, self.root)
+        self.assertEqual(len(old), 1, old)
+        self.assertIn("schema mismatch", old[0])
+        self.assertIn("admission_precision/3", old[0])
+        self.assertIn("admission_precision/4", old[0])
+        self.assertNotIn("recomputation", old[0])
+        other = ad.precision.verify(dict(good, schema="something/else"), meta, cands, self.root)
+        self.assertIn("not an admission_precision/4 document", other[0])  # control: not a schema-family document
+        self.assertEqual(ad.precision.verify(good, meta, cands, self.root), [])
+
+    def test_the_all_survivors_population_is_drawn_and_verified_from_the_survivors_file(self):
+        d, rows, extra = self.with_survivors()
+        out = self.root / "draw-all.json"
+        self.assertEqual(cli("draw", "--prepared", d, "--out", out, "--population", "all-survivors")[0], 0)
+        draw_all = json.loads(out.read_text())
+        self.assertEqual(draw_all["population"], 140)
+        _, draw_a = self.draw(d)
+        self.assertEqual(draw_a["population"], 110)
+        j = self.judge(draw_all)
+        self.assertEqual(self.precision(d, out, j, "p-all.json", "--population", "all-survivors")[0], 0)
+        receipt = json.loads((self.root / "p-all.json").read_text())
+        self.assertEqual(receipt["population_name"], "all-survivors")
+        meta = json.loads((d / "prepared.json").read_text())
+        cands, surv = ad.jsonl(d / "candidates.jsonl"), ad.jsonl(d / "survivors.jsonl")
+        verify = lambda r, s=surv: ad.precision.verify(r, meta, cands, self.root, survivors=s)
+        self.assertEqual(verify(receipt), [])
+        self.assertTrue(any("survivors" in p for p in verify(receipt, None)))  # an old prepared dir has none
+        # the same draw named as the a-credit population is not derived from the candidates
+        self.assertTrue(verify(dict(receipt, population_name="a-credit")))
+        self.assertTrue(verify(dict(receipt, population_name="nonsense")))
+
+    def test_a_prepared_receipt_without_a_survivors_digest_cannot_verify_an_all_survivors_receipt(self):
+        d, rows, extra = self.with_survivors()
+        out = self.root / "draw-all.json"
+        self.assertEqual(cli("draw", "--prepared", d, "--out", out, "--population", "all-survivors")[0], 0)
+        self.assertEqual(self.precision(d, out, self.judge(json.loads(out.read_text())), "p-all.json",
+                                        "--population", "all-survivors")[0], 0)
+        receipt = json.loads((self.root / "p-all.json").read_text())
+        meta = json.loads((d / "prepared.json").read_text())
+        cands, surv = ad.jsonl(d / "candidates.jsonl"), ad.jsonl(d / "survivors.jsonl")
+        self.assertEqual(ad.precision.verify(receipt, meta, cands, self.root, surv), [])  # control
+        del meta["survivors_sha256"]
+        problems = ad.precision.verify(receipt, meta, cands, self.root, surv)
+        self.assertTrue(any("cannot be recomputed" in p and "survivors.jsonl" in p for p in problems), problems)
+        with self.assertRaises(ValueError):
+            ad.precision.population_meta(meta, "nonsense")
+        self.assertEqual(ad.precision.verify("not a dict", meta, cands, self.root),
+                         ["precision receipt is not an admission_precision/4 document"])
+
+    def test_all_survivors_without_a_survivors_file_is_refused_by_the_cli(self):
+        d, _ = self.prepared({"return": 5})
+        code, _, err = cli("draw", "--prepared", d, "--out", self.root / "x.json", "--population", "all-survivors")
+        self.assertEqual(code, 3, err)
+        self.assertIn("survivors.jsonl", err)
+        self.assertFalse((self.root / "x.json").exists())
+
+    def test_wilson_interval_brackets_the_lower_bound(self):
+        lo, hi = ad.precision.wilson_interval(100, 100)
+        self.assertAlmostEqual(lo, ad.precision.wilson_lower(100, 100))
+        self.assertAlmostEqual(hi, 1.0, places=6)
+        self.assertEqual(ad.precision.wilson_interval(0, 0), (0.0, 0.0))
+        lo, hi = ad.precision.wilson_interval(90, 100)
+        self.assertTrue(lo < 0.9 < hi < 1.0)
 
 
 if __name__ == "__main__":
