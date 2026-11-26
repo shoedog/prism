@@ -1,6 +1,7 @@
 mod openapi;
 mod references;
 mod servers;
+mod site;
 mod status;
 
 use crate::element::{CanonicalPath, OperationId, SuccessKey};
@@ -10,12 +11,14 @@ use std::fmt;
 
 pub(super) use openapi::read_operations;
 use servers::Deployment;
+use site::{Diagnostic, Site};
 use status::Response;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Dialect {
     Swagger2,
-    OpenApi3,
+    OpenApi30,
+    OpenApi31,
 }
 
 #[derive(Debug)]
@@ -34,8 +37,6 @@ pub(super) struct Operation {
     pub id: OperationId,
     pub operation_id: Option<String>,
     pub declarations: Vec<Declaration>,
-    pub responses: BTreeMap<String, Response>,
-    pub success_keys: Vec<SuccessKey>,
     dialect: Dialect,
 }
 
@@ -48,30 +49,9 @@ pub(super) struct Declaration {
     pub site: Site,
     pub reference_chain: Vec<Site>,
     pub deployments: Vec<Deployment>,
+    pub responses: BTreeMap<String, Response>,
+    pub success_keys: Vec<SuccessKey>,
     pub value: Value,
-}
-
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(super) struct Site {
-    pub file: String,
-    pub tree: String,
-    pub blob: String,
-    pub pointer: Vec<String>,
-}
-
-impl Site {
-    fn child(&self, member: &str) -> Self {
-        let mut site = self.clone();
-        site.pointer.push(member.into());
-        site
-    }
-}
-
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(super) struct Diagnostic {
-    pub code: &'static str,
-    pub scope: &'static str,
-    pub site: Site,
 }
 
 #[derive(Debug)]

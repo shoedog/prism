@@ -57,7 +57,7 @@ oas-server-variable-collapse	200,200
 oas-server-variable-distinct-operations	200,200
 oas-significant-repeated-slash	200
 oas-significant-trailing-slash	200
-oas-uppercase-key	
+oas-uppercase-key	[]
 oneof-choice	200
 s1-field-control-characters	200
 s1-oas30-get-request-body	200
@@ -102,7 +102,7 @@ swagger-root	200
 swagger-root-base	200
 swagger-root-with-base	200
 swagger-success-boundaries	199/200/299/300
-swagger-trace-key	
+swagger-trace-key	[]
 t1-allof-closed-intersection	200
 t1-anchor-ref	200
 t1-array-of-map	200

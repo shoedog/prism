@@ -51,11 +51,11 @@ pub(super) fn swagger(
         origins.push(None);
     }
     if host.is_none() || origins.contains(&None) {
-        diagnostics.push(Diagnostic {
-            code: "server_origin_unchecked",
-            scope: "origin",
-            site: site.clone(),
-        });
+        diagnostics.push(Diagnostic::new(
+            "server_origin_unchecked",
+            "origin",
+            site.clone(),
+        ));
     }
     origins
         .into_iter()
@@ -84,23 +84,18 @@ pub(super) fn openapi(
 ) -> Vec<Deployment> {
     let mut deployments = Vec::new();
     let Some(servers) = list.as_array() else {
-        diagnostics.push(Diagnostic {
-            code: "server_list_unchecked",
-            scope: "server",
-            site: site.clone(),
-        });
+        diagnostics.push(Diagnostic::new(
+            "server_list_unchecked",
+            "server",
+            site.clone(),
+        ));
         return deployments;
     };
     for (position, server) in servers.iter().enumerate() {
         let mut site = site.clone();
         site.pointer.push(position.to_string());
-        let mut deployments_for_server = |code, scope| {
-            diagnostics.push(Diagnostic {
-                code,
-                scope,
-                site: site.clone(),
-            })
-        };
+        let mut deployments_for_server =
+            |code, scope| diagnostics.push(Diagnostic::new(code, scope, site.clone()));
         let Some(raw) = server["url"].as_str() else {
             deployments_for_server("server_url_unchecked", "server");
             continue;
@@ -125,6 +120,13 @@ pub(super) fn openapi(
                 expanded_url: expanded,
             });
         }
+    }
+    if deployments.is_empty() && !servers.is_empty() {
+        diagnostics.push(Diagnostic::new(
+            "server_deployments_unchecked",
+            "server",
+            site.clone(),
+        ));
     }
     deployments
 }

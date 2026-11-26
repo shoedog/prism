@@ -1,10 +1,10 @@
 mod parameters;
 
 use self::parameters::labels;
-use super::references::{Documents, Resolved};
-use super::status::{responses, success_key};
+use super::references::{Documents, Field, Located, PathItem};
+use super::status::read_statuses;
 use super::{servers, Declaration, Diagnostic, Dialect, Inventory, Operation, SchemaError, Site};
-use crate::element::{schema_path, OperationId, SuccessKey};
+use crate::element::{schema_path, OperationId};
 use crate::revision::AdmittedSchemaInput;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -16,9 +16,8 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
     let documents = Documents::new(input, entry_value(input)?);
     let document = &documents.entry.value;
     let dialect = match document["openapi"].as_str() {
-        Some(version) if version.starts_with("3.0.") || version.starts_with("3.1.") => {
-            Dialect::OpenApi3
-        }
+        Some(version) if version.starts_with("3.0.") => Dialect::OpenApi30,
+        Some(version) if version.starts_with("3.1.") => Dialect::OpenApi31,
         _ if document["swagger"] == "2.0" => Dialect::Swagger2,
         _ => return Err(SchemaError::Dialect),
     };
@@ -33,11 +32,11 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
     };
     let Some(paths) = document["paths"].as_object() else {
         if document.get("paths").is_some() {
-            inventory.diagnostics.push(Diagnostic {
-                code: "paths_unreadable",
-                scope: "paths",
-                site: documents.entry.site(vec!["paths".into()]),
-            });
+            inventory.diagnostics.push(Diagnostic::new(
+                "paths_unreadable",
+                "paths",
+                documents.entry.site(vec!["paths".into()]),
+            ));
         }
         return Ok(inventory);
     };
@@ -46,11 +45,13 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
             continue;
         }
         let site = documents.entry.site(vec!["paths".into(), path.clone()]);
-        let Some(item) = documents.resolve(
-            &documents.entry,
-            raw,
-            site.clone(),
-            "path_item",
+        let Some(item) = PathItem::resolve(
+            &documents,
+            Located {
+                value: raw,
+                document: &documents.entry,
+                site,
+            },
             &mut inventory.diagnostics,
         ) else {
             continue;
@@ -58,27 +59,26 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
         for method in METHODS
             .iter()
             .copied()
-            .chain((dialect == Dialect::OpenApi3).then_some("trace"))
+            .chain((dialect != Dialect::Swagger2).then_some("trace"))
         {
-            let Some(value) = item.value.get(method) else {
+            let Some(Field::Declared { location, chain }) = item.field(method) else {
                 continue;
             };
-            let operation_site = item.site.child(method);
-            if !value.is_object() {
-                inventory.diagnostics.push(Diagnostic {
-                    code: "operation_unreadable",
-                    scope: "operation",
-                    site: operation_site,
-                });
+            if !location.value.is_object() {
+                inventory.diagnostics.push(Diagnostic::new(
+                    "operation_unreadable",
+                    "operation",
+                    location.site.clone(),
+                ));
                 continue;
             }
             index_declaration(
                 &documents,
                 &item,
-                &site,
                 path,
                 method,
-                value,
+                location,
+                chain,
                 dialect,
                 &mut inventory,
             );
@@ -92,71 +92,68 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
 #[allow(clippy::too_many_arguments)]
 fn index_declaration(
     documents: &Documents<'_>,
-    item: &Resolved<'_, '_>,
-    referring: &Site,
+    item: &PathItem<'_, '_>,
     raw_path: &str,
     method: &str,
-    value: &Value,
+    operation: &Located<'_, '_>,
+    chain: &[Site],
     dialect: Dialect,
     inventory: &mut Inventory,
 ) {
-    let site = item.site.child(method);
+    let Located { value, site, .. } = operation;
+    let (responses, success_keys) = read_statuses(value, site, dialect, &mut inventory.diagnostics);
     let deployments = deployments(
         documents,
         item,
-        value,
-        &site,
+        operation,
         dialect,
         &mut inventory.diagnostics,
     );
-    let label_names = if dialect == Dialect::OpenApi3 && raw_path.contains('{') {
-        labels(documents, item, value, &site, &mut inventory.diagnostics)
+    let raw = schema_path(raw_path, "", &[]);
+    let label_names = if dialect != Dialect::Swagger2 && raw.captures().next().is_some() {
+        labels(
+            documents,
+            item,
+            operation,
+            &raw,
+            dialect,
+            &mut inventory.diagnostics,
+        )
     } else {
-        BTreeSet::new()
+        Some(Vec::new())
     };
-    let label_names = label_names.iter().map(String::as_str).collect::<Vec<_>>();
+    let labels = label_names.as_deref().unwrap_or_default();
     let declaration = Declaration {
         source_path: raw_path.into(),
         source_method: method.into(),
-        path: schema_path(raw_path, "", &label_names),
-        referring_site: item
-            .chain
+        path: schema_path(raw_path, "", labels),
+        referring_site: chain
             .first()
             .cloned()
-            .unwrap_or_else(|| referring.child(method)),
+            .unwrap_or_else(|| item.site.child(method)),
         site: site.clone(),
-        reference_chain: item.chain.clone(),
+        reference_chain: chain.to_vec(),
         deployments: Vec::new(),
-        value: value.clone(),
+        responses,
+        success_keys,
+        value: (*value).clone(),
     };
-    if deployments.is_empty() {
-        inventory.unprojected.push(declaration);
+    if deployments.is_empty() || label_names.is_none() {
+        inventory.unprojected.push(Declaration {
+            deployments,
+            ..declaration
+        });
         return;
     }
     let mut paths = BTreeMap::new();
     for deployment in deployments {
-        let path = schema_path(raw_path, &deployment.path, &label_names);
+        let path = schema_path(raw_path, &deployment.path, labels);
         let id = OperationId::new(&method.to_ascii_uppercase(), &path);
         paths
             .entry(id)
             .or_insert_with(|| (path, BTreeSet::new()))
             .1
             .insert(deployment);
-    }
-    let responses = responses(value, &site, &mut inventory.diagnostics);
-    let success_keys = responses
-        .keys()
-        .filter_map(|key| success_key(key, dialect))
-        .collect::<Vec<_>>();
-    if responses.contains_key("default")
-        && !success_keys.contains(&SuccessKey::Range)
-        && success_keys.len() < 100
-    {
-        inventory.diagnostics.push(Diagnostic {
-            code: "fallback_success",
-            scope: "response_body",
-            site: responses["default"].site.clone(),
-        });
     }
     for (id, (path, deployments)) in paths {
         let declaration = Declaration {
@@ -170,17 +167,15 @@ fn index_declaration(
                     id,
                     operation_id: value["operationId"].as_str().map(str::to_owned),
                     declarations: vec![declaration],
-                    responses: responses.clone(),
-                    success_keys: success_keys.clone(),
                     dialect,
                 });
             }
             std::collections::btree_map::Entry::Occupied(mut entry) => {
-                inventory.diagnostics.push(Diagnostic {
-                    code: "duplicate_operation",
-                    scope: "operation",
-                    site: declaration.referring_site.clone(),
-                });
+                inventory.diagnostics.push(Diagnostic::new(
+                    "duplicate_operation",
+                    "operation",
+                    declaration.referring_site.clone(),
+                ));
                 entry.get_mut().declarations.push(declaration);
             }
         }
@@ -189,9 +184,8 @@ fn index_declaration(
 
 fn deployments(
     documents: &Documents<'_>,
-    item: &Resolved<'_, '_>,
-    operation: &Value,
-    site: &Site,
+    item: &PathItem<'_, '_>,
+    operation: &Located<'_, '_>,
     dialect: Dialect,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<servers::Deployment> {
@@ -199,39 +193,47 @@ fn deployments(
     if dialect == Dialect::Swagger2 {
         return servers::swagger(
             &entry.value,
-            operation,
+            operation.value,
             entry.base.as_ref(),
-            site,
+            &operation.site,
             diagnostics,
         );
     }
-    if let Some(servers) = operation.get("servers") {
+    if let Some(servers) = operation
+        .child("servers")
+        .filter(|list| !empty_list(list.value))
+    {
         return servers::openapi(
-            servers,
-            item.document.base.as_ref(),
-            &site.child("servers"),
+            servers.value,
+            servers.document.base.as_ref(),
+            &servers.site,
             diagnostics,
         );
     }
-    if let Some(servers) = item.value.get("servers") {
-        return servers::openapi(
-            servers,
-            item.document.base.as_ref(),
-            &item.site.child("servers"),
-            diagnostics,
-        );
+    match item.field("servers") {
+        Some(Field::Overlap) => return Vec::new(),
+        Some(Field::Declared { location, .. }) if !empty_list(location.value) => {
+            return servers::openapi(
+                location.value,
+                location.document.base.as_ref(),
+                &location.site,
+                diagnostics,
+            );
+        }
+        _ => {}
     }
     let implicit = serde_json::json!([{"url": "/"}]);
-    let servers = entry
-        .value
-        .get("servers")
-        .filter(|list| list.as_array().is_none_or(|list| !list.is_empty()));
+    let servers = entry.value.get("servers").filter(|list| !empty_list(list));
     servers::openapi(
         servers.unwrap_or(&implicit),
         entry.base.as_ref(),
         &entry.site(vec!["servers".into()]),
         diagnostics,
     )
+}
+
+fn empty_list(value: &Value) -> bool {
+    value.as_array().is_some_and(Vec::is_empty)
 }
 
 fn entry_value(input: &AdmittedSchemaInput<'_>) -> Result<Value, SchemaError> {

@@ -12,6 +12,13 @@ pub(super) fn paths(
     if joined.is_empty() || !joined.starts_with('/') || joined.chars().any(char::is_control) {
         return vec![Err(Limit::PathUnchecked)];
     }
+    if declaration.dialect == Dialect::Gin
+        && joined
+            .rsplit_once('/')
+            .is_some_and(|(parent, _)| parent.contains('*'))
+    {
+        return vec![Err(Limit::PathUnchecked)];
+    }
     let expanded = if declaration.dialect == Dialect::Express5 {
         expand_optional_literals(&joined)
     } else {
@@ -25,26 +32,11 @@ pub(super) fn paths(
 
 fn join(dialect: Dialect, prefixes: &[String], suffix: &str) -> String {
     if dialect == Dialect::Gin {
-        let mut parts = Vec::new();
-        for part in prefixes
+        return prefixes
             .iter()
             .map(String::as_str)
             .chain([suffix])
-            .flat_map(|path| path.split('/'))
-        {
-            match part {
-                "" | "." => {}
-                ".." => {
-                    parts.pop();
-                }
-                part => parts.push(part),
-            }
-        }
-        let mut path = format!("/{}", parts.join("/"));
-        if path != "/" && suffix.ends_with('/') {
-            path.push('/');
-        }
-        return path;
+            .fold("/".into(), gin_join);
     }
     let mut base = String::new();
     for prefix in prefixes {
@@ -61,6 +53,27 @@ fn join(dialect: Dialect, prefixes: &[String], suffix: &str) -> String {
         return base;
     }
     format!("{base}/{}", suffix.strip_prefix('/').unwrap_or(suffix))
+}
+
+fn gin_join(base: String, relative: &str) -> String {
+    if relative.is_empty() {
+        return base;
+    }
+    let mut parts = Vec::new();
+    for part in base.split('/').chain(relative.split('/')) {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            part => parts.push(part),
+        }
+    }
+    let mut path = format!("/{}", parts.join("/"));
+    if path != "/" && relative.ends_with('/') {
+        path.push('/');
+    }
+    path
 }
 
 fn expand_optional_literals(path: &str) -> Result<Vec<String>, Limit> {

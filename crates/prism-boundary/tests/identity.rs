@@ -6,6 +6,8 @@ use std::process::Command;
 
 #[path = "support/deployments.rs"]
 mod deployments;
+#[path = "support/p1a_fold.rs"]
+mod p1a_fold;
 #[path = "support/routes.rs"]
 mod routes;
 #[allow(dead_code)]
@@ -119,7 +121,7 @@ fn json_matrix_operation_and_status_census() {
             row.id
         );
         let expected = status.remove(row.id).unwrap();
-        let expected = if expected.is_empty() {
+        let expected = if expected == "[]" {
             vec![]
         } else {
             expected
@@ -135,7 +137,7 @@ fn json_matrix_operation_and_status_census() {
         };
         assert_eq!(inventory.len(), expected.len(), "{}", row.id);
         for (op, keys) in inventory.iter().zip(expected) {
-            let observed: Vec<_> = op.responses.keys().map(String::as_str).collect();
+            let observed: Vec<_> = op.responses().keys().map(String::as_str).collect();
             assert_eq!(observed, keys, "{}", row.id);
             let success: Vec<_> = keys
                 .iter()
@@ -148,7 +150,7 @@ fn json_matrix_operation_and_status_census() {
                 })
                 .collect();
             assert_eq!(
-                op.success_keys
+                op.success_keys()
                     .iter()
                     .map(ToString::to_string)
                     .collect::<Vec<_>>(),
@@ -253,13 +255,13 @@ fn schema_proto_operation_controls() {
                 .find(|op| op.operation_id.as_deref() == Some("getItem"))
                 .unwrap();
             assert_eq!(op.declarations[0].source_path, "/item/{id}");
-            assert_eq!(op.success_keys, [SuccessKey::Exact(200)]);
+            assert_eq!(op.success_keys(), [SuccessKey::Exact(200)]);
         }
         if source == "duplicate.json" {
             let op = index.operations.values().next().unwrap();
             assert_eq!(op.declarations[0].source_path, "/a/{id}");
-            assert!(op.responses["200"].value.to_string().contains("first"));
-            assert!(!op.responses["200"].value.to_string().contains("second"));
+            assert!(op.responses()["200"].value.to_string().contains("first"));
+            assert!(!op.responses()["200"].value.to_string().contains("second"));
         }
     }
 }
@@ -273,7 +275,7 @@ fn status_precedence_and_bodyless_declarations() {
     );
     let get = index.operations.values().next().unwrap();
     assert_eq!(
-        get.success_keys,
+        get.success_keys(),
         [
             SuccessKey::Exact(201),
             SuccessKey::Exact(204),
@@ -288,7 +290,7 @@ fn status_precedence_and_bodyless_declarations() {
     assert!(get.can_have_body(201));
     let head = index.operations.values().last().unwrap();
     assert_eq!(
-        head.success_keys,
+        head.success_keys(),
         [
             SuccessKey::Exact(204),
             SuccessKey::Exact(205),

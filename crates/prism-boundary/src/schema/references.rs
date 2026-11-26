@@ -1,5 +1,9 @@
+mod path_item;
+
+pub(super) use path_item::{Field, PathItem};
+
 use super::servers::Uri;
-use super::{Diagnostic, Site};
+use super::Site;
 use crate::element::decode_fragment_pointer;
 use crate::revision::{AdmittedSchemaInput, Blob, Format};
 use serde_json::Value;
@@ -13,12 +17,7 @@ pub(super) struct Document<'a> {
 
 impl Document<'_> {
     pub fn site(&self, pointer: Vec<String>) -> Site {
-        Site {
-            file: self.blob.path.into(),
-            tree: self.blob.tree.into(),
-            blob: self.blob.oid.into(),
-            pointer,
-        }
+        Site::from_blob(self.blob, pointer)
     }
 }
 
@@ -27,9 +26,24 @@ pub(super) struct Documents<'a> {
     admitted: BTreeMap<String, Vec<Document<'a>>>,
 }
 
-pub(super) struct Resolved<'r, 'a> {
+pub(super) struct Located<'r, 'a> {
     pub value: &'r Value,
     pub document: &'r Document<'a>,
+    pub site: Site,
+}
+
+impl<'r, 'a> Located<'r, 'a> {
+    pub fn child(&self, key: &str) -> Option<Self> {
+        Some(Self {
+            value: self.value.get(key)?,
+            document: self.document,
+            site: self.site.child(key),
+        })
+    }
+}
+
+pub(super) struct ReferenceFailure {
+    pub code: &'static str,
     pub site: Site,
     pub chain: Vec<Site>,
 }
@@ -67,58 +81,53 @@ impl<'a> Documents<'a> {
 
     pub fn resolve<'r>(
         &'r self,
-        mut document: &'r Document<'a>,
-        mut value: &'r Value,
-        mut site: Site,
-        scope: &'static str,
-        diagnostics: &mut Vec<Diagnostic>,
-    ) -> Option<Resolved<'r, 'a>> {
-        let mut chain = Vec::new();
+        mut current: Located<'r, 'a>,
+    ) -> Result<Vec<Located<'r, 'a>>, Box<ReferenceFailure>> {
+        let mut locations = Vec::new();
         let mut visited = BTreeSet::new();
-        let code = loop {
-            if !visited.insert((document.base.as_ref().map(Uri::key), site.clone())) {
-                break "recursive_reference";
+        let (code, site) = loop {
+            let base = current.document.base.as_ref().map(Uri::key);
+            if !visited.insert((base, current.site.clone())) {
+                break ("recursive_reference", current.site);
             }
-            if !value.is_object() {
-                break "declaration_unreadable";
+            if !current.value.is_object() {
+                break ("declaration_unreadable", current.site);
             }
-            let Some(reference) = value.get("$ref") else {
-                return Some(Resolved {
-                    value,
-                    document,
-                    site,
-                    chain,
-                });
-            };
-            if scope == "path_item" && value.as_object().is_some_and(|members| members.len() > 1) {
-                diagnostics.push(Diagnostic {
-                    code: "path_item_reference_siblings",
-                    scope,
-                    site: site.clone(),
-                });
+            let target = current
+                .value
+                .get("$ref")
+                .map(|reference| self.reference_target(current.document, reference));
+            locations.push(current);
+            match target {
+                None => return Ok(locations),
+                Some(Ok(target)) => current = target,
+                Some(Err(code)) => break (code, locations.last().unwrap().site.clone()),
             }
-            let Some(reference) = reference.as_str() else {
-                break "reference_pointer_unchecked";
-            };
-            let (address, fragment) = reference.split_once('#').unwrap_or((reference, ""));
-            let pointer = match decode_fragment_pointer(fragment) {
-                Ok(pointer) => pointer,
-                Err(_) => break "reference_pointer_unchecked",
-            };
-            let target = match self.document_for(document, address) {
-                Ok(doc) => doc,
-                Err(code) => break code,
-            };
-            let Some(resolved) = lookup(&target.value, &pointer) else {
-                break "reference_pointer_unchecked";
-            };
-            chain.push(site.child("$ref"));
-            site = target.site(pointer);
-            document = target;
-            value = resolved;
         };
-        diagnostics.push(Diagnostic { code, scope, site });
-        None
+        let chain = locations
+            .iter()
+            .map(|node| node.site.child("$ref"))
+            .collect();
+        Err(Box::new(ReferenceFailure { code, site, chain }))
+    }
+
+    fn reference_target<'r>(
+        &'r self,
+        document: &'r Document<'a>,
+        reference: &Value,
+    ) -> Result<Located<'r, 'a>, &'static str> {
+        let reference = reference.as_str().ok_or("reference_pointer_unchecked")?;
+        let (address, fragment) = reference.split_once('#').unwrap_or((reference, ""));
+        let pointer =
+            decode_fragment_pointer(fragment).map_err(|_| "reference_pointer_unchecked")?;
+        let document = self.document_for(document, address)?;
+        let value = lookup(&document.value, &pointer).ok_or("reference_pointer_unchecked")?;
+        let site = document.site(pointer);
+        Ok(Located {
+            value,
+            document,
+            site,
+        })
     }
 
     fn document_for<'r>(
@@ -132,10 +141,8 @@ impl<'a> Documents<'a> {
         let uri = Uri::parse(address)
             .ok_or("reference_uri_unchecked")?
             .resolve(current.base.as_ref())
+            .filter(|uri| uri.origin.scheme.is_some())
             .ok_or("retrieval_base_unchecked")?;
-        if uri.origin.scheme.is_none() {
-            return Err("retrieval_base_unchecked");
-        }
         let key = uri.key();
         let entry_matches = self.entry.base.as_ref().is_some_and(|uri| uri.key() == key);
         match (entry_matches, self.admitted.get(&key).map(Vec::as_slice)) {

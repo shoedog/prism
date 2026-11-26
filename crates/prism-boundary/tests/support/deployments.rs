@@ -107,7 +107,7 @@ fn authority_and_server_alternatives_preserve_provenance() {
             Some(api)
         );
         assert_eq!(
-            op.success_keys,
+            op.success_keys(),
             [prism_boundary::element::SuccessKey::Exact(200)]
         );
         ids.push(op.id.to_string());
