@@ -359,4 +359,9 @@ ordinary-argument-new-source | add: Pin the reached argument Use and its edge to
 same-root-non-comparable-store | add: The shared-child, private-setter and reference-copy witnesses withhold the non-comparable entry projection under W1 as write_effect and retain the base read. | 5.1.2
 owner-with-statement | add: The sloppy-JavaScript with statement withholds all projections as write_effect. Keep the base return read. The no-with control retains its exact projection. | 5.1.2
 signature-binding-effects | add: An array binding pattern, object rest and rest formal each withhold the projection under S2 as write_effect and retain the base read. The plain-formal control retains its exact projection. | 5.1.2
-pattern-optional-slot-hole | add: Give the read optional binding a Def at its identifier bytes. Keep the edge into a and the slot-compression assertion excluding the edge from third to c. | 5.1.2
+pattern-optional-slot-hole | add: Give both read bindings, optional in mixed and field in destructured, one Def each at their identifier bytes. Keep the edge into a and the slot-compression assertion excluding the edge from third to c. | 5.1.2
+getter-global | add: The global accessor for q runs in the later default. Withhold the field projection under S as write_effect and keep the base read. | 5.1.2
+with-enclosed | add: The later default looks up q through an enclosing with in sloppy JavaScript. Withhold the field projection under S as write_effect and keep the base read. | 5.1.2
+lexical-identifier | add: A completed earlier formal and an outer lexical binding supply inert identifier defaults. Retain the exact projection with zero write-effect refusals. | 5.1.2
+object-spread-getter | add: Object spread invokes the literal operand's getter during binding. Withhold the field projection under S as write_effect and keep the base read. | 5.1.2
+array-spread-iterator | add: Array spread invokes the iterator even for an empty literal. Withhold the field projection under S as write_effect and keep the base read. | 5.1.2
