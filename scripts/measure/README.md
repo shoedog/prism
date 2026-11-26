@@ -49,12 +49,14 @@ byte switch, `--sites` adds the call-site dump, and repeatable
 the version token or at least seven hex digits of the reported commit. A
 build whose commit token carries a `-dirty` suffix cannot match a commit pin;
 pin its version token or build from a clean tree. The receipt also records the
-guard's SHA-256, the SHA-256 of the host-quiet helper beside it (null when absent) and
-`kit_dirty`, which marks a kit checkout with edits, including edits that
-`assume-unchanged` or `skip-worktree` index flags hide from `git status` (working kit
-files are compared with the recorded commit's blobs). The guard and its helper
+guard's SHA-256, the SHA-256 of the host-quiet helper at `../hostquiet/host_quiet.py` relative to the guard file (null when absent or not a regular file; other dependencies of a custom guard are not bound, see open-n3-21) and
+`kit_dirty`, which marks Git-visible edits to the kit (tracked changes and untracked
+non-ignored files under the kit directories) and, as a fallback for tracked edits that
+`assume-unchanged` or `skip-worktree` index flags hide, byte or symlink-target differences from the
+recorded commit's blobs. Mode-only edits under those flags and ignored untracked files are not
+seen (known-s1-2). The guard and its helper
 are rechecked before each launch and after the last command; a change fails the
-run (exit 4); once an analysis has launched the failed receipt is retained, before that there is none. The guard must be a readable
+run (exit 4; 75 when a later attempt reports host quiet after an analysis has launched); once an analysis has launched the failed receipt is retained, before that there is none. The guard must be a readable
 executable regular file. If a command changes or deletes an artifact after
 capture, the failed receipt lists `artifact_drift` entries with the captured and
 retained digests (retained is null when the file is gone) and publishes the
