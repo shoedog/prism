@@ -51,6 +51,7 @@ class World:
         self.witness_all = True
         self.extra = {}
         self.frozen = None
+        self.declared = None  # None: the CLI default; else the --full-loader-corpora value
 
     def function(self, file="a.py", src=SRC, nodes=None, owner="f", line=1, def_line=1):
         """One function owner; its recorded C3 read is `return d` and its W the first store.
@@ -107,21 +108,29 @@ class World:
         (r / "maud" / "sample-inventory.jsonl").write_text(dump_lines([
             dict(owners[0], counts=dict(would_add_at_c3=1))]))
 
-    def argv(self, out="adm"):
+    def argv(self, out="adm", corpora="own"):
+        """`corpora`: "own" declares exactly the corpora this world built, None leaves the CLI default."""
         r = self.root
-        return ["prepare", "--draw", r / "draw.json", "--census-dir", r / "census", "--m-audit", r / "maud",
+        argv = ["prepare", "--draw", r / "draw.json", "--census-dir", r / "census", "--m-audit", r / "maud",
                 "--runs", r / "OUT", "--independent", r / "ind.jsonl", "--out", r / out]
+        if corpora == "own":
+            corpora = ",".join(["P1", *self.extra])
+        return argv + (["--full-loader-corpora", corpora] if corpora else [])
 
     def prepare(self, **kw):
         self.build(**kw)
         return run_cli(self.argv())
 
     def precision(self, **over):
-        """A passing section 7 receipt bound to the prepared digest (fields overridden by `over`)."""
+        """A passing section 7 receipt bound to the frozen population (fields overridden by `over`).
+
+        The world holds `population` candidate pairs, all of role `return`; the receipt samples them all."""
         meta = json.loads((self.root / "adm" / "prepared.json").read_text())
-        receipt = dict(schema=ad.PRECISION_SCHEMA, prepared_sha256=meta["prepared_sha256"], n=100, valid=100,
-                       stale=0, unknown=0, exhaustive=False, roles=dict(arg=dict(n=50, witnessed=50),
-                                                                       **{"return": dict(n=50, witnessed=50)}))
+        population = len(ad.jsonl(self.root / "adm" / "candidates.jsonl"))
+        receipt = dict(schema=ad.PRECISION_SCHEMA, prepared_sha256=meta["prepared_sha256"],
+                       frame_sha256=meta["frame_sha256"], population=population, population_unit="pairs",
+                       n=population, valid=population, stale=0, unknown=0, exhaustive=False,
+                       roles={"return": dict(n=population, witnessed=population)})
         receipt.update(over)
         path = self.root / "precision.json"
         path.write_text(json.dumps(receipt))
@@ -166,7 +175,9 @@ class AdmissionTests(unittest.TestCase):
             var("a.py", "f", 1, TWO, "def", b'd["a"]', ("d", "[]")),
             var("a.py", "f", 1, TWO, "def", b'd["b"]', ("d", "[]")),
             var("a.py", "f", 1, TWO, "use", b"sink(d)", ("d",), b"d"),
-            var("a.py", "f", 1, TWO, "use", b"return d", ("d",), b"d")])
+            var("a.py", "f", 1, TWO, "use", b"return d", ("d",), b"d"),
+            var("a.py", "f", 1, TWO, "use", b'd["a"] = v', ("v",), b"v"),
+            var("a.py", "f", 1, TWO, "use", b'd["b"] = v', ("v",), b"v")])
         # g: its recorded read has no Use node, so only the non-C3 `sink(d)` survives.
         g = TWO.replace(b"def f", b"def g")
         w.function("b.py", g, owner="g", nodes=[
@@ -188,7 +199,9 @@ class AdmissionTests(unittest.TestCase):
             var("a.py", "f", 1, TWO, "def", b'd["a"]', ("d", "[]")),
             var("a.py", "f", 1, TWO, "def", b'd["b"]', ("d", "[]")),
             var("a.py", "f", 1, TWO, "use", b"sink(d)", ("d",), b"d"),
-            var("a.py", "f", 1, TWO, "use", b"return d", ("d",), b"d")])
+            var("a.py", "f", 1, TWO, "use", b"return d", ("d",), b"d"),
+            var("a.py", "f", 1, TWO, "use", b'd["a"] = v', ("v",), b"v"),
+            var("a.py", "f", 1, TWO, "use", b'd["b"] = v', ("v",), b"v")])
         w.limits = (1_000_000, 8, 3)  # two C3 pairs plus two non-C3 pairs: over the owner cap
         self.assertEqual(w.prepare()[0], 0)
         self.assertEqual(ad.jsonl(w.root / "adm" / "candidates.jsonl"), [])
@@ -220,7 +233,7 @@ class AdmissionTests(unittest.TestCase):
                 other = World(tmp)
                 other.function("a.py", SRC, nodes=nodes_)
                 if edges:
-                    other.edges = [tuple(standard_nodes())]
+                    other.edges = [tuple(standard_nodes()[:2])]
                 self.assertEqual(other.prepare()[0], 0, name)
                 self.assertEqual(ad.jsonl(Path(tmp, "adm", "candidates.jsonl")), [], name)
 
@@ -301,7 +314,9 @@ class AdmissionTests(unittest.TestCase):
         w.function("a.py", TWO, nodes=[
             var("a.py", "f", 1, TWO, "def", b'd["a"]', ("d", "[]")),
             var("a.py", "f", 1, TWO, "use", b"sink(d)", ("d",), b"d"),
-            var("a.py", "f", 1, TWO, "use", b"return d", ("d",), b"d")])
+            var("a.py", "f", 1, TWO, "use", b"return d", ("d",), b"d"),
+            var("a.py", "f", 1, TWO, "use", b'd["a"] = v', ("v",), b"v"),
+            var("a.py", "f", 1, TWO, "use", b'd["b"] = v', ("v",), b"v")])
         w.function("b.py")
 
         def drop_non_c3(records):
@@ -543,7 +558,9 @@ class AdmissionTests(unittest.TestCase):
             var("a.py", "f", 1, TWO, "def", b'd["a"]', ("d", "[]")),
             var("a.py", "f", 1, TWO, "def", b'd["b"]', ("d", "[]")),
             var("a.py", "f", 1, TWO, "use", b"sink(d)", ("d",), b"d"),
-            var("a.py", "f", 1, TWO, "use", b"return d", ("d",), b"d")])
+            var("a.py", "f", 1, TWO, "use", b"return d", ("d",), b"d"),
+            var("a.py", "f", 1, TWO, "use", b'd["a"] = v', ("v",), b"v"),
+            var("a.py", "f", 1, TWO, "use", b'd["b"] = v', ("v",), b"v")])
         self.assertEqual(w.prepare()[0], 0)
         cands = {c["w"][0]: c for c in ad.jsonl(w.root / "adm" / "candidates.jsonl")}
         early, late = span(TWO, b'd["a"]')[0], span(TWO, b'd["b"]')[0]
@@ -567,6 +584,7 @@ class AdmissionTests(unittest.TestCase):
     def five_stores(self, world):
         nodes = [var("a.py", "f", 1, FIVE, "def", b'd["%d"]' % i, ("d", "[]")) for i in range(5)]
         nodes.append(var("a.py", "f", 1, FIVE, "use", b"return d", ("d",), b"d"))
+        nodes += [var("a.py", "f", 1, FIVE, "use", b'd["%d"] = v' % i, ("v",), b"v") for i in range(5)]
         world.function("a.py", FIVE, nodes=nodes)
         return nodes
 
@@ -603,11 +621,28 @@ class AdmissionTests(unittest.TestCase):
         self.assertIn("I2: BLOCKED", out)
         self.assertEqual(code, 4)
 
-    def test_i2_needs_a_passing_prospective_precision_receipt(self):
+    def prepared_population(self, count=100):
         w = self.world
-        w.function()
+        for i in range(count):
+            w.function(f"m{i}.py")
         self.assertEqual(w.prepare()[0], 0)
-        roles = lambda a, b: {"arg": dict(n=a, witnessed=b), "return": dict(n=10, witnessed=10)}
+        return w
+
+    def blocked_by(self, w, receipt, needle):
+        with mock.patch.object(ad, "GATE", 1):
+            if receipt is None:
+                code, out, _ = w.report(precision=None)
+            elif isinstance(receipt, str):
+                code, out, _ = w.report(precision=receipt)
+            else:
+                code, out, _ = w.report(precision=w.precision(**receipt))
+        self.assertEqual(code, 4, out)
+        self.assertIn("I2: BLOCKED", out)
+        self.assertIn(needle, out.split("I2: BLOCKED")[1])
+
+    def test_i2_needs_a_passing_prospective_precision_receipt(self):
+        w = self.prepared_population()
+        ret = lambda n, k: {"return": dict(n=n, witnessed=k)}
         cases = {
             "absent": (None, "no precision receipt"),
             "missing file": (str(w.root / "nope.json"), "precision"),
@@ -615,28 +650,116 @@ class AdmissionTests(unittest.TestCase):
             "wilson below .85": (dict(n=100, valid=85), "Wilson"),
             "stale in the draw": (dict(stale=1), "stale"),
             "unknown in the draw": (dict(unknown=1), "unknown"),
-            "role short": (dict(roles=roles(20, 17)), "role"),
-            "role missing counts": (dict(roles={"arg": dict(n=3)}), "role"),
+            "role short": (dict(roles=ret(100, 89)), "role"),
+            "role missing counts": (dict(roles={"return": dict(n=3)}), "role"),
         }
         for name, (receipt, needle) in cases.items():
-            with self.subTest(name), mock.patch.object(ad, "GATE", 1):
-                if receipt is None:
-                    code, out, _ = w.report(precision=None)
-                elif isinstance(receipt, str):
-                    code, out, _ = w.report(precision=receipt)
-                else:
-                    code, out, _ = w.report(precision=w.precision(**receipt))
-                self.assertEqual(code, 4, out)
-                self.assertIn("I2: BLOCKED", out)
-                self.assertIn(needle, out.split("I2: BLOCKED")[1])
+            with self.subTest(name):
+                self.blocked_by(w, receipt, needle)
         with self.subTest("passes"), mock.patch.object(ad, "GATE", 1):
-            for good in (dict(), dict(n=100, valid=94), dict(roles=roles(20, 18)),
-                         dict(exhaustive=True, n=7, valid=7, roles=roles(1, 1))):
+            for good in (dict(), dict(n=100, valid=94), dict(roles=ret(100, 90)),
+                         dict(n=40, valid=40, roles=ret(40, 40)), dict(exhaustive=True)):
                 code, out, _ = w.report(precision=w.precision(**good))
                 self.assertEqual((code, "I2: ADMITTED" in out), (0, True), (good, out))
-        with self.subTest("exhaustive family needs every judgment valid"), mock.patch.object(ad, "GATE", 1):
-            code, out, _ = w.report(precision=w.precision(exhaustive=True, n=7, valid=6, roles=roles(1, 1)))
-            self.assertEqual(code, 4, out)
+        with self.subTest("exhaustive family needs every judgment valid"):
+            self.blocked_by(w, dict(exhaustive=True, valid=99), "every one must be")
+
+    def test_a_precision_receipt_is_bound_to_the_frozen_population(self):
+        w = self.prepared_population()
+        ret = lambda n, k=None: {"return": dict(n=n, witnessed=n if k is None else k)}
+        cases = {
+            "one exhaustive judgment, no roles": (dict(exhaustive=True, n=1, valid=1, roles={}), "exhaustive"),
+            "one sampled judgment, no roles": (dict(n=1, valid=1, roles={}), "role"),
+            "one exhaustive judgment with a role": (dict(exhaustive=True, n=1, valid=1, roles=ret(1)),
+                                                    "exhaustive family: n=1 is not the population 100"),
+            "zero judgments": (dict(n=0, valid=0, roles={}), "judged sample"),
+            "other frame": (dict(frame_sha256="0" * 64), "frame"),
+            "no frame": (dict(frame_sha256=None), "frame"),
+            "population too small": (dict(population=99), "population"),
+            "population too large": (dict(population=101), "population"),
+            "population unit unknown": (dict(population_unit="rows"), "population_unit"),
+            "more judged than frozen": (dict(n=101, valid=101, roles=ret(101)), "exceeds the population"),
+            "roles absent": (dict(roles=None), "roles"),
+            "roles do not sum to n": (dict(n=100, valid=100, roles=ret(60)), "sum"),
+            "role not in the population": (dict(roles={"arg": dict(n=100, witnessed=100)}), "arg"),
+            "role over its population count": (dict(n=100, valid=100, roles={
+                "return": dict(n=95, witnessed=95), "arg": dict(n=5, witnessed=5)}), "arg"),
+            "witnessed above n": (dict(roles=ret(100, 101)), "witnessed"),
+        }
+        for name, (receipt, needle) in cases.items():
+            with self.subTest(name):
+                self.blocked_by(w, receipt, needle)
+        with self.subTest("owners as the unit"), mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report(precision=w.precision(population_unit="owners"))
+            self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
+        self.blocked_by(w, dict(population_unit="owners", population=99), "population")
+
+    def test_i2_needs_flood_evidence_for_every_declared_full_loader_corpus(self):
+        w = self.world
+        w.function()
+        other = World(self.world.root / "other")
+        (self.world.root / "other").mkdir()
+        self.five_stores(other)
+        w.extra = {"X1": (other.files, other.nodes),
+                   "Z0": ({"b.py": b"def h():\n    return 1\n"}, [])}  # a corpus with no Python owner
+        self.assertEqual(w.prepare()[0], 0)
+        meta = json.loads((w.root / "adm" / "prepared.json").read_text())
+        self.assertEqual(meta["full_loader_corpora"], ["P1", "X1", "Z0"])
+        self.assertEqual(meta["full_loader_missing"], [])
+        self.assertEqual(meta["flood"]["Z0"], dict(predicted_edges=0, bound=0, ok=True, reads=0, owners=0))
+        # the default declaration names six corpora; the frame's P1 is one, the rest are absent from the stream
+        code, _, err = run_cli(w.argv("adm-default", corpora=None))
+        self.assertEqual(code, 0, err)
+        meta = json.loads((w.root / "adm-default" / "prepared.json").read_text())
+        self.assertEqual(meta["full_loader_corpora"], sorted(ad.FULL_LOADER_CORPORA))
+        self.assertEqual(meta["full_loader_missing"], ["G1", "G2", "P2", "R", "X"])
+        self.assertTrue(meta["valid"])
+
+    def test_a_missing_full_loader_corpus_blocks_i2_but_leaves_the_a_decision(self):
+        w = self.world
+        w.function()
+        w.build()
+        self.assertEqual(run_cli(w.argv(corpora=None))[0], 0)
+        with mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report()
+        self.assertIn("GATE A >= 1 of 1: PASS (A=1)", out)
+        self.assertEqual(code, 4, out)
+        blocked = out.split("I2: BLOCKED")[1]
+        for name in ("G1", "G2", "P2", "R", "X"):
+            self.assertIn(name, blocked)
+        self.assertIn("full-loader", blocked)
+        self.assertNotIn("ADMITTED", out)
+
+    def test_a_prepared_receipt_that_declares_no_corpus_set_blocks_i2(self):
+        w = self.world
+        w.function()
+        self.assertEqual(w.prepare()[0], 0)
+        path = w.root / "adm" / "prepared.json"
+        meta = json.loads(path.read_text())
+        for field in ("full_loader_corpora", "full_loader_missing"):
+            del meta[field]
+        path.write_text(json.dumps(meta))
+        with mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report(precision=None)
+        self.assertEqual(code, 4, out)
+        self.assertIn("declares no full-loader corpus set", out)
+
+    def test_the_production_entry_point_requires_the_six_corpora_and_a_declared_set(self):
+        w = self.world
+        w.function()
+        w.build()
+        six = ",".join(ad.FULL_LOADER_CORPORA)
+        self.assertEqual(sorted(ad.FULL_LOADER_CORPORA), sorted("P1 P2 X G1 G2 R".split()))
+        # a narrowed declaration is refused under a frozen frame, accepted only without one (tests)
+        code, _, err = run_cli(w.argv("adm-narrow", corpora="P1,P2"), frozen=w.frozen_of())
+        self.assertEqual(code, 3, err)
+        self.assertIn("full-loader", err)
+        self.assertEqual(run_cli(w.argv("adm-six", corpora=six), frozen=w.frozen_of())[0], 0)
+        self.assertEqual(run_cli(w.argv("adm-extra", corpora=six + ",Q"), frozen=w.frozen_of())[0], 0)
+        for bad in (",", " , ", "P1,,P2"):
+            with self.subTest(bad):
+                code, _, err = run_cli(w.argv("adm-bad", corpora=bad))
+                self.assertEqual(code, 3, err)
 
     def test_duplicate_pair_keys_are_residuals_and_invalidate_the_run(self):
         def dup_product(records):
@@ -681,7 +804,7 @@ class AdmissionTests(unittest.TestCase):
                          (787, dict(P1=517, P2=270), 1137))
         self.assertEqual(set(ad.FROZEN["census"]), {"P1", "P2"})
         # an injected frame (test-only parameter) that matches the inputs is accepted ...
-        self.assertEqual(run_cli(w.argv("adm-inj"), frozen=w.frozen_of())[0], 0)
+        self.assertEqual(run_cli(w.argv("adm-inj", corpora=",".join(ad.FULL_LOADER_CORPORA)), frozen=w.frozen_of())[0], 0)
         # ... and each pinned property refuses on its own
         for name, over in (("sha", dict(sha="0" * 64)), ("owners", dict(owners=2)),
                            ("corpora", dict(corpora=dict(P1=2))), ("rows", dict(rows=9)),

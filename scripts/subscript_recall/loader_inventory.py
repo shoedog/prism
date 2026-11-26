@@ -21,9 +21,11 @@ from pathlib import Path
 
 import flow
 from flow import INDEX, MAX_COUNTER
-from python_frontend import PythonFile
+from python_frontend import CALLABLES, COMPREHENSIONS, PythonFile, walk
 
 SCHEMA = "element_recall_independent/1"
+# The six corpora of the I2 measurement; a Go or JavaScript corpus holds no Python owner and gets zero rows.
+DEFAULT_CORPORA = ("P1", "P2", "X", "G1", "G2", "R")
 LIMITS = (flow.RAW_LIMIT, flow.READ_LIMIT, flow.OWNER_LIMIT)
 RD_MAX_DEFS, RD_MAX_LINES = 2048, 4096
 ROUTE_BUDGET = 5000
@@ -93,16 +95,24 @@ class Parent:
         if access == "def":
             self.defs[owner].add((line, path))
 
-    def reaches(self, w_node, r_node, owner, lines, root):
-        """Whether a value feeding W's statement already reaches R by other data-flow edges.
+    def reaches(self, w_node, r_node, owner, value):
+        """Whether the value W stores already reaches R by other data-flow edges.
 
-        `True`/`False` when the search finished; `None` (unknown) when it ran out of budget. The walk is the
+        `True`/`False` when the search finished; `None` (unknown) when it ran out of budget, when W's
+        right-hand side is not known, or when a name it reads has no Use node in the graph. The walk is the
         production one (`dfg_forward_reachable`): data-flow edges, plus a Use feeds the Defs on its own line
         of the same owner (`d = {"old": t}; d["new"] = t; return d` carries `t` through the same-line Def of
         `d`). W itself is never entered: it is the route being asked about.
-        Uses of the container's own root are not the stored value and seed nothing."""
-        seeds = {pred for line in lines for use in self.at_line.get((owner, "use", line), ())
-                 if use[5][0] != root for pred in self.pred.get(use, ())}
+        It is seeded from the Uses inside W's right-hand side (`value`, see `store_values`) and from no other
+        Use on W's lines: an index (`d[t] = u`) or the container is not the stored value."""
+        if value is None:
+            return None
+        start, end, first, last, names = value
+        uses = [use for line in range(first, last + 1) for use in self.at_line.get((owner, "use", line), ())
+                if start <= use[6] and use[7] <= end]
+        if any(not any(use[5][0] == name for use in uses) for name in names):
+            return None
+        seeds = {pred for use in uses for pred in self.pred.get(use, ())}
         seen, todo = set(seeds), deque(seeds)
         while todo:
             if len(seen) > ROUTE_BUDGET:
@@ -141,8 +151,9 @@ def storage_key(owner, access, point):
 class Candidate:
     """One owner with at least one indexed-store endpoint in the M inventory."""
 
-    def __init__(self, file, key, node, ident, graph, entry, ambiguous):
+    def __init__(self, file, key, node, ident, graph, entry, ambiguous, values=None):
         self.file, self.key, self.node, self.graph, self.entry = file, key, node, graph, entry
+        self.values = values or {}
         self.ident, self.span = ident, ident.span
         self.name = node.name
         # An owner whose product start line cannot be read off the source joins nothing.
@@ -170,6 +181,46 @@ def statement_lines(body):
         elif isinstance(node, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.With, ast.AsyncWith)):
             lines.update(statement_lines(node.body + getattr(node, "orelse", [])))
     return lines
+
+
+def value_names(value):
+    """Roots of the names a store's value reads in its own scope: not a called bare name (a call, not a
+    variable read), nothing inside a lambda, and of a comprehension only the leftmost iterable."""
+    names, todo = set(), [value]
+    while todo:
+        node = todo.pop()
+        if isinstance(node, ast.Lambda):
+            continue
+        if isinstance(node, COMPREHENSIONS):
+            todo.append(node.generators[0].iter)
+            continue
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            todo.extend(node.args + [kw.value for kw in node.keywords])
+            continue
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            names.add(node.id)
+        todo.extend(ast.iter_child_nodes(node))
+    return names
+
+
+def store_values(parsed, owner):
+    """`target span -> (value start, end, first line, last line, names read)` for the owner's own plain
+    stores (`t[k] = v`, `t[k] += v`, `t[k] = u[j] = v`): the right-hand side whose Uses are the stored value.
+    A target inside an unpacking, or of a statement with no value, has none (the route is then unknown)."""
+    starts, out = parsed.starts, {}
+    for node in (n for stmt in owner.body for n in walk(stmt, CALLABLES + (ast.ClassDef,))):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            continue
+        if node.value is None:
+            continue
+        value = node.value
+        span = (starts[value.lineno - 1] + value.col_offset, starts[value.end_lineno - 1] + value.end_col_offset)
+        info = (*span, value.lineno, value.end_lineno, frozenset(value_names(value)))
+        for target in (node.targets if isinstance(node, ast.Assign) else [node.target]):
+            if isinstance(target, ast.Subscript):
+                out[(starts[target.lineno - 1] + target.col_offset,
+                     starts[target.end_lineno - 1] + target.end_col_offset)] = info
+    return out
 
 
 def rd_exit(parent, cand):
@@ -254,9 +305,8 @@ def predict(cand, parent, limits=LIMITS):
         elif row["over_edge_cap"]:
             emit(w, r, "refused:ownercap", "ownercap")
         else:
-            lines = {w.line, w.statement_line}
             parent_route = parent.reaches(storage_key(owner, "def", w), storage_key(owner, "use", r),
-                                          owner, lines, w.path[0])
+                                          owner, cand.values.get(w.span))
             emit(w, r, "predicted", route=route, occupied=False, parent_route=parent_route)
     row["attrition"] = dict(admitted=len(pairs), routed=len(survivors), after_fanin=len(rest),
                             published=0 if row["over_edge_cap"] else len(rest))
@@ -360,7 +410,8 @@ def scan_corpus(corpus, run_dir):
                               list(ident.def_span), int(ambiguous), ident.end_max])
             graph, entry = parsed.compile(node)
             if graph.writes:
-                found.append((digest, Candidate(name, key, node, ident, graph, entry, ambiguous)))
+                found.append((digest, Candidate(name, key, node, ident, graph, entry, ambiguous,
+                                                   store_values(parsed, node))))
         records.append(dict(kind="file", corpus=corpus, file=name, sha256=digest, status="parsed",
                             owners=len(functions), functions=functions))
     return manifest, records, found
@@ -402,12 +453,13 @@ def main(argv=None):
     cli = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     cli.add_argument("--runs", type=Path, required=True)
     cli.add_argument("--out", type=Path, required=True)
-    cli.add_argument("--corpora", nargs="+")
+    cli.add_argument("--corpora", nargs="+", default=list(DEFAULT_CORPORA),
+                     help="corpora with a base run under --runs (default: all six)")
     args = cli.parse_args(argv)
-    corpora = args.corpora or sorted(p.name for p in args.runs.iterdir()
-                                     if (p / "base" / "manifest.json").is_file())
-    if not corpora:
-        cli.error("no corpus with a base run under --runs")
+    corpora = args.corpora
+    absent = [c for c in corpora if not (args.runs / c / "base" / "manifest.json").is_file()]
+    if absent:
+        cli.error(f"no base run under --runs for {', '.join(absent)}")
     rows = []
     for corpus in corpora:
         rows.extend(corpus_records(corpus, args.runs / corpus / "base"))

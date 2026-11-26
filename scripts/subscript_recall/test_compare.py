@@ -5,6 +5,7 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import tracemalloc
@@ -99,14 +100,23 @@ class Harness(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp)
+        # The fake tools are plain directories; each stands for a worktree whose HEAD the test names.
+        self.real_worktree_of = compare.worktree_of
+        self.worktrees = {}
+        patch = mock.patch.object(compare, "worktree_of", lambda p: self.worktrees.get(
+            Path(p).resolve().parent, (None, None)))
+        patch.start()
+        self.addCleanup(patch.stop)
         self.repo = self.tmp / "repo"
         self.repo.mkdir()
         (self.repo / "a.py").write_bytes(SRC)
 
-    def tool(self, name, salt="", **per_arm):
-        """A fake prism and typed reader; `per_arm` maps an arm to the canned fields it overrides."""
+    def tool(self, name, salt="", head=EXPECT, **per_arm):
+        """A fake prism and typed reader in a worktree whose HEAD is `head`; `per_arm` maps an arm to the
+        canned fields it overrides."""
         d = self.tmp / name
         d.mkdir(exist_ok=True)
+        self.worktrees[d.resolve()] = (str(d.resolve()), head)
         for arm in compare.TRACE_BY_ARM:
             data = dict(version=VERSION, edges=BYTES, graph=render(NODES, EDGES), dfg=stats(3), calls=stats(3, 1),
                         edges_err=[TRACE] if arm == "on" else [], prism_exit=0, reader_exit=0, touch=None)
@@ -144,7 +154,8 @@ class Harness(unittest.TestCase):
         """base from one executable (version BASE_VERSION), off and on from another."""
         self.n = getattr(self, "n", 0) + 1
         runs = self.tmp / f"bound{self.n}"
-        base = base_tool or self.tool(f"base{self.n}", salt="base build", base=dict(version=BASE_VERSION))
+        base = base_tool or self.tool(f"base{self.n}", salt="base build", head=BASE_EXPECT,
+                                      base=dict(version=BASE_VERSION))
         head = head_tool or self.tool(f"head{self.n}", salt="head build")
         self.assertEqual(self.run_arm(runs, "base", base, expect=base_expect)[0], 0)
         for arm in ("off", "on"):
@@ -350,7 +361,7 @@ class BaseBindingTests(Harness):
 
     def test_head_reader_supplied_for_the_base_arm_is_refused(self):
         runs = self.tmp / "reader-swap"
-        base = self.tool("b", salt="base build", base=dict(version=BASE_VERSION))
+        base = self.tool("b", salt="base build", head=BASE_EXPECT, base=dict(version=BASE_VERSION))
         head = self.tool("h", salt="head build")
         self.assertEqual(self.run_arm(runs, "base", base, expect=BASE_EXPECT)[0], 0)
         for arm in ("off", "on"):
@@ -359,6 +370,7 @@ class BaseBindingTests(Harness):
         shutil.rmtree(runs / "C" / "base")
         mixed = self.tmp / "mixed"
         shutil.copytree(base, mixed)
+        self.worktrees[mixed.resolve()] = (str(mixed.resolve()), BASE_EXPECT)
         shutil.copy(head / "reader", mixed / "reader")
         self.assertEqual(self.run_arm(runs, "base", mixed, expect=BASE_EXPECT)[0], 0)
         code, err = self.zero(runs, extra=self.STRICT)
@@ -387,6 +399,107 @@ class BaseBindingTests(Harness):
         del m["reader"]["sha256"]
         path.write_text(json.dumps(m))
         self.assertEqual(self.zero(runs, extra=self.STRICT)[0], 1)
+
+    def reader_tamper(self, runs, arm, **fields):
+        path = runs / "C" / arm / "manifest.json"
+        m = json.loads(path.read_text())
+        for key, value in fields.items():
+            if value is None:
+                m.pop(key, None)
+            else:
+                m[key] = value
+        path.write_text(json.dumps(m))
+
+    def test_run_captures_the_binary_and_reader_worktree_heads_from_git(self):
+        tool = self.tool("g")
+        git = lambda *a: subprocess.run(["git", "-C", str(tool), "-c", "user.email=t@t", "-c", "user.name=t", *a],
+                                        capture_output=True, text=True, check=True).stdout.strip()
+        git("init", "-q")
+        git("add", "-A")
+        git("commit", "-q", "-m", "x")
+        with mock.patch.object(compare, "worktree_of", self.real_worktree_of):
+            self.assertEqual(self.run_arm(self.tmp / "g-runs", "off", tool)[0], 0)
+        m = json.loads((self.tmp / "g-runs" / "C" / "off" / "manifest.json").read_text())
+        head = git("rev-parse", "HEAD")
+        self.assertEqual((m["reader_worktree_head"], m["binary_worktree_head"]), (head, head))
+        self.assertEqual((m["reader_worktree"], m["binary_worktree"]), (str(tool.resolve()),) * 2)
+        # outside any worktree nothing is recorded (and `zero` then refuses)
+        plain = self.tool("plain")
+        with mock.patch.object(compare, "worktree_of", self.real_worktree_of), mock.patch.dict(
+                os.environ, {"GIT_CEILING_DIRECTORIES": str(self.tmp)}):
+            self.assertEqual(self.run_arm(self.tmp / "p-runs", "off", plain)[0], 0)
+        m = json.loads((self.tmp / "p-runs" / "C" / "off" / "manifest.json").read_text())
+        self.assertEqual((m["reader_worktree"], m["reader_worktree_head"]), (None, None))
+
+    def test_a_reader_whose_worktree_head_is_not_recorded_is_refused(self):
+        runs = self.bound_runs()
+        self.assertEqual(self.zero(runs, extra=self.STRICT), (0, ""))
+        for arm in ("base", "off", "on"):
+            for field in ("reader_worktree_head", "reader_worktree"):
+                with self.subTest(arm=arm, field=field):
+                    fresh = self.bound_runs()
+                    self.reader_tamper(fresh, arm, **{field: None})
+                    code, err = self.zero(fresh, extra=self.STRICT)
+                    self.assertEqual(code, 1, err)
+                    self.assertIn("reader worktree", err)
+        self.reader_tamper(runs, "base", reader_worktree_head="not-a-revision")
+        self.assertEqual(self.zero(runs, extra=self.STRICT)[0], 1)
+
+    def test_each_reader_is_bound_to_the_revision_of_its_arm(self):
+        base = self.tool("rb", salt="base build", head="fedcba9876543210", base=dict(version=BASE_VERSION))
+        runs = self.bound_runs(base_tool=base)
+        code, err = self.zero(runs, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("base arm reader worktree HEAD fedcba9876543210 is not the expected base", err)
+        head = self.tool("rh", salt="head build", head="fedcba9876543210")
+        runs = self.bound_runs(head_tool=head)
+        code, err = self.zero(runs, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("off arm reader worktree HEAD fedcba9876543210 is not the expected head", err)
+        self.assertIn("on arm reader worktree HEAD", err)
+
+    def test_a_different_build_of_the_head_reader_cannot_stand_for_the_base_reader(self):
+        """Correct Prism revisions, one package version, a reader digest of its own: still the head's reader."""
+        base = self.tool("pb", salt="base build", head=BASE_EXPECT, base=dict(version=BASE_VERSION))
+        head = self.tool("ph", salt="head build")
+        runs = self.tmp / "swap-runs"
+        self.assertEqual(self.run_arm(runs, "base", base, expect=BASE_EXPECT)[0], 0)
+        for arm in ("off", "on"):
+            self.assertEqual(self.run_arm(runs, arm, head)[0], 0)
+        self.assertEqual(self.zero(runs, extra=self.STRICT), (0, ""))
+        shutil.rmtree(runs / "C" / "base")
+        mixed = self.tmp / "swap-mixed"
+        shutil.copytree(base, mixed)
+        self.worktrees[mixed.resolve()] = (str(mixed.resolve()), EXPECT)  # built from the head revision
+        (mixed / "reader").write_text((head / "reader").read_text().replace("head build", "another head build"))
+        (mixed / "reader").chmod(0o755)
+        self.assertEqual(self.run_arm(runs, "base", mixed, expect=BASE_EXPECT)[0], 0)
+        m = {arm: json.loads((runs / "C" / arm / "manifest.json").read_text()) for arm in compare.TRACE_BY_ARM}
+        self.assertNotEqual(m["base"]["reader"]["sha256"], m["off"]["reader"]["sha256"])
+        self.assertEqual(m["base"]["version"]["semver"], m["off"]["version"]["semver"])
+        code, err = self.zero(runs, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("base arm reader worktree HEAD", err)
+        self.assertIn("same worktree HEAD", err)
+
+    def test_the_base_reader_may_not_share_a_worktree_head_with_the_head_arms(self):
+        runs = self.bound_runs()
+        self.reader_tamper(runs, "base", reader_worktree_head=EXPECT)
+        code, err = self.zero(runs, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("same worktree HEAD", err)
+
+    def test_a_reader_outside_its_recorded_worktree_is_refused(self):
+        runs = self.bound_runs()
+        self.reader_tamper(runs, "base", reader_worktree=str(self.tmp / "elsewhere"))
+        code, err = self.zero(runs, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("is not under its worktree", err)
+
+    def test_smoke_runs_need_no_worktree_binding(self):
+        runs = self.three()
+        self.reader_tamper(runs, "base", reader_worktree_head=None, reader_worktree=None)
+        self.assertEqual(self.zero(runs), (0, ""))
 
 
 class StreamingTests(Harness):

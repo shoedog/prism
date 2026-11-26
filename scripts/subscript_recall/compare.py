@@ -351,6 +351,19 @@ def spawn(argv, env, out_path, err_path):
         raise Refused(f"{Path(argv[0]).name} exited {code}: {' '.join(argv[1:])}")
 
 
+def worktree_of(path):
+    """`(top level, HEAD)` of the git worktree that holds `path`; `(None, None)` outside one.
+
+    The reader prints no revision of its own, so its identity is where it was built: the worktree it lives in."""
+    where = str(Path(path).resolve().parent)
+
+    def git(*args):
+        done = subprocess.run(["git", "-C", where, *args], capture_output=True, text=True, check=False)
+        return done.stdout.strip() if done.returncode == 0 else None
+    top, head = git("rev-parse", "--show-toplevel"), git("rev-parse", "HEAD")
+    return (str(Path(top).resolve()), head) if top and head else (None, None)
+
+
 def run_arm(a, out):
     binary, reader, repo = (Path(p).resolve() for p in (a.binary, a.reader, a.repo))
     if not (binary.is_file() and reader.is_file() and repo.is_dir()):
@@ -397,7 +410,11 @@ def run_arm(a, out):
     after, _ = tree_digest(repo)
     if after != before:
         raise Refused("source tree changed during the run")
+    binary_tree, binary_head = worktree_of(binary)
+    reader_tree, reader_head = worktree_of(reader)
     return dict(
+        binary_worktree=binary_tree, binary_worktree_head=binary_head,
+        reader_worktree=reader_tree, reader_worktree_head=reader_head,
         schema=SCHEMA, run_id=uuid.uuid4().hex, corpus=a.corpus, repo=str(repo), trace=a.trace,
         expect_version=want, version=dict(semver=semver, identity=identity, dirty=dirty),
         binary=dict(path=str(binary), sha256=sha256_file(binary)),
@@ -512,10 +529,39 @@ def binding_problems(ms, bind):
         for arm in ("off", "on"):
             if not same_revision(identity[arm], want["head"]):
                 problems.append(f"{arm} arm identity {identity[arm]} is not the expected head {want['head']}")
+    problems += reader_problems(ms, want)
     for what, pick in (("executable", lambda m: m["binary"]["sha256"]),
                        ("reader executable", lambda m: m["reader"]["sha256"])):
         if pick(ms["base"]) == pick(ms["off"]):
             problems.append(f"base arm used the same {what} as the head arms (sha256 {pick(ms['base'])[:12]})")
+    return problems
+
+
+def reader_problems(ms, want):
+    """Each arm's typed reader against the worktree it was built in.
+
+    The reader (`examples/element_recall_graph.rs`) carries the package version, not a revision, so two builds
+    of different code can both report it. `run` records the git worktree holding the reader and that
+    worktree's HEAD; the reader's path must lie under it, the base arm's HEAD must be the expected base
+    revision, the off and on arms' the expected head revision, and the base reader may not come from the
+    head arms' worktree HEAD."""
+    problems, heads = [], {}
+    for arm in TRACE_BY_ARM:
+        m = ms[arm]
+        tree, head = m.get("reader_worktree"), m.get("reader_worktree_head")
+        if not tree or not isinstance(head, str) or not REV_RE.fullmatch(head.lower()):
+            problems.append(f"{arm} arm: reader worktree HEAD not recorded (run inside a git worktree)")
+        elif not Path(m["reader"]["path"]).is_relative_to(tree):
+            problems.append(f"{arm} arm: reader {m['reader']['path']} is not under its worktree {tree}")
+        else:
+            heads[arm] = head
+    if "base" in heads:
+        for arm in ("off", "on"):
+            if arm in heads and same_revision(heads["base"], heads[arm]):
+                problems.append(f"base arm reader has the same worktree HEAD ({heads['base']}) as the {arm} arm's")
+    for arm, rev, side in (("base", want["base"], "base"), ("off", want["head"], "head"), ("on", want["head"], "head")):
+        if arm in heads and rev and REV_RE.fullmatch(rev.lower()) and not same_revision(heads[arm], rev):
+            problems.append(f"{arm} arm reader worktree HEAD {heads[arm]} is not the expected {side} {rev}")
     return problems
 
 

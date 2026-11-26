@@ -12,8 +12,27 @@ const CASES: &str = concat!(
 );
 const PREFIX: &str = "element-recall\tv1\t";
 
+/// The `slicing` identity line a binary prints for `--version`, or why it is not one.
+fn identity_line(path: &Path) -> Result<String, String> {
+    let out = Command::new(path)
+        .arg("--version")
+        .output()
+        .map_err(|e| format!("{path:?} --version did not run: {e}"))?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let line = text.lines().next().unwrap_or("").trim().to_string();
+    match out.status.success() && line.starts_with("slicing ") {
+        true => Ok(line),
+        false => Err(format!(
+            "{path:?} --version is not a `slicing` identity line: status {:?}, stdout {line:?}",
+            out.status.code()
+        )),
+    }
+}
+
 /// The child binary named by `bin`. An unset variable skips the checks unless `require` (the
-/// verification job sets `PRISM_DIAG_REQUIRE=1`), where a missing or unusable binary is an error.
+/// verification job sets `PRISM_DIAG_REQUIRE=1`), where a missing or unusable binary is an error
+/// and the binary must also print a `slicing` identity line for `--version` (printed, so the
+/// run records which build it exercised).
 fn resolve_binary(
     bin: Option<std::ffi::OsString>,
     require: bool,
@@ -24,10 +43,16 @@ fn resolve_binary(
             false => Ok(None),
         };
     };
-    match Path::new(&path).is_file() {
-        true => Ok(Some(path.into())),
-        false => Err(format!("PRISM_DIAG_BIN {path:?} is not a file")),
+    if !Path::new(&path).is_file() {
+        return Err(format!("PRISM_DIAG_BIN {path:?} is not a file"));
     }
+    if require {
+        eprintln!(
+            "PRISM_DIAG_BIN identity: {}",
+            identity_line(Path::new(&path))?
+        );
+    }
+    Ok(Some(path.into()))
 }
 
 fn binary() -> Option<PathBuf> {
@@ -52,11 +77,37 @@ fn child_trace_checks_fail_when_required_and_the_binary_is_missing() {
     // not required: unset skips (the notice is printed by `binary`), a bad path still fails
     assert_eq!(resolve_binary(None, false), Ok(None));
     assert!(resolve_binary(gone, false).is_err());
-    // a usable binary resolves either way
+    // not required: an existing file resolves without being run
     let here = std::env::current_exe().unwrap();
-    for require in [false, true] {
-        let got = resolve_binary(Some(here.clone().into_os_string()), require);
-        assert_eq!(got, Ok(Some(here.clone())));
+    let got = resolve_binary(Some(here.clone().into_os_string()), false);
+    assert_eq!(got, Ok(Some(here)));
+}
+
+#[cfg(unix)]
+#[test]
+fn required_mode_demands_a_slicing_identity_line_from_the_binary() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let script = |name: &str, body: &str| {
+        let path = dir.path().join(name);
+        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path
+    };
+    let good = script("good", "echo 'slicing 4.0.0 (0123456789ab)'");
+    let other = script("other", "echo 'rustc 1.80.0'");
+    let silent = script("silent", "exit 0");
+    let failing = script("failing", "echo 'slicing 4.0.0 (x)'; exit 3");
+    let run = |p: &Path, require| resolve_binary(Some(p.as_os_str().to_owned()), require);
+    assert_eq!(
+        identity_line(&good),
+        Ok("slicing 4.0.0 (0123456789ab)".to_string())
+    );
+    assert_eq!(run(&good, true), Ok(Some(good.clone())));
+    for bad in [&other, &silent, &failing, &std::env::current_exe().unwrap()] {
+        assert!(run(bad, true).is_err(), "{bad:?}");
+        // without `require` the same files still resolve: the identity check is the gate
+        assert_eq!(run(bad, false), Ok(Some(bad.clone())), "{bad:?}");
     }
 }
 

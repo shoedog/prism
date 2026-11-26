@@ -43,21 +43,66 @@ fn literal_truth(n: Node, src: &str) -> Option<bool> {
     }
 }
 
-/// Nonzero-ness of an integer or float literal; complex and unreadable spellings are unknown.
-fn number_truth(raw: &str) -> Option<bool> {
-    let low: String = raw
-        .chars()
-        .filter(|c| *c != '_')
-        .collect::<String>()
-        .to_lowercase();
-    let radix = ["0x", "0o", "0b"].iter().any(|p| low.starts_with(p));
-    let digits = match radix {
-        true => &low[2..],
-        false => low.split('e').next().unwrap_or(""),
+/// Nonzero-ness of an integer, float or imaginary literal, read as CPython reads it (IEEE
+/// round-to-nearest, so `1e-999` is `0.0` and `1e999` is `inf`). Any spelling that is not a
+/// well-formed Python 3 literal (Python 2 `0777`/`10L`, misplaced underscores, `0x1j`) is `None`.
+pub(super) fn number_truth(raw: &str) -> Option<bool> {
+    let low = raw.to_ascii_lowercase();
+    let radix = [("0x", 16), ("0o", 8), ("0b", 2)]
+        .into_iter()
+        .find(|(p, _)| low.starts_with(p));
+    if let Some((prefix, base)) = radix {
+        let body = &low[prefix.len()..];
+        let ok = |c: char| c.is_digit(base);
+        let body = body.strip_prefix('_').unwrap_or(body);
+        return (underscores_ok(body, ok)
+            && !body.is_empty()
+            && body.chars().all(|c| ok(c) || c == '_'))
+        .then(|| body.chars().any(|c| c != '_' && c != '0'));
+    }
+    let (body, imaginary) = match low.strip_suffix('j') {
+        Some(b) => (b, true),
+        None => (low.as_str(), false),
     };
-    let plain = |c: char| c.is_ascii_alphanumeric() || c == '.';
-    let readable = !digits.is_empty() && digits.chars().all(plain) && !low.ends_with('j');
-    readable.then(|| digits.chars().any(|c| c != '0' && c != '.'))
+    let digit = |c: char| c.is_ascii_digit();
+    if !underscores_ok(body, digit) || body.starts_with('_') {
+        return None;
+    }
+    let clean: String = body.chars().filter(|c| *c != '_').collect();
+    if clean.chars().all(digit) && !clean.is_empty() {
+        // `0`+ or a nonzero first digit; a leading zero before a nonzero digit is Python 2
+        let nonzero = clean.chars().any(|c| c != '0');
+        return (imaginary || !nonzero || !clean.starts_with('0')).then_some(nonzero);
+    }
+    float_nonzero(&clean)
+}
+
+/// Every underscore sits between two characters accepted by `digit`.
+fn underscores_ok(s: &str, digit: impl Fn(char) -> bool) -> bool {
+    let cs: Vec<char> = s.chars().collect();
+    cs.iter().enumerate().all(|(i, c)| {
+        *c != '_' || (i > 0 && i + 1 < cs.len() && digit(cs[i - 1]) && digit(cs[i + 1]))
+    })
+}
+
+/// `digits [. digits] [e [+-] digits]` (at least one mantissa digit), parsed by Rust's correctly
+/// rounded `f64` reader; the text is validated first so `inf` and `nan` never reach it.
+fn float_nonzero(s: &str) -> Option<bool> {
+    let (mant, exp) = match s.split_once('e') {
+        Some((m, e)) => (m, Some(e)),
+        None => (s, None),
+    };
+    let dots = mant.matches('.').count();
+    let mant_ok = dots <= 1
+        && mant.chars().any(|c| c.is_ascii_digit())
+        && mant.chars().all(|c| c.is_ascii_digit() || c == '.');
+    let exp_ok = exp.is_none_or(|e| {
+        let d = e.strip_prefix(['+', '-']).unwrap_or(e);
+        !d.is_empty() && d.chars().all(|c| c.is_ascii_digit())
+    });
+    (mant_ok && exp_ok)
+        .then(|| s.parse::<f64>().ok().map(|v| v != 0.0))
+        .flatten()
 }
 
 /// True for the named child that may not execute: conditional-expression arms, the right

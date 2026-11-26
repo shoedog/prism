@@ -9,12 +9,17 @@ no equivalent parent value route, reaches a recorded C3 read (owner, exact r_sta
 with an empty reconciliation residual and a feasible witness bound to the prepared digest. Conservative
 readings are marked CHOICE.
 
-I2 is admitted only when A passes, every owner reconciles, the flood bound holds for every full-loader corpus
-given (not only the frame's) and a prospective precision receipt (`report --precision precision.json`, schema
-`admission_precision/1`, the DESIGN section 7 result) passes: `{schema, prepared_sha256, n, valid, stale,
-unknown, exhaustive, roles: {role: {n, witnessed}}}` with no stale or unknown judgment, Wilson lower bound of
-valid/n at least .85 (every judgment valid when `exhaustive`) and each populated role at least
-max(1, n - max(1, floor(n/10))) witnessed.
+I2 is admitted only when A passes, every owner reconciles, flood evidence exists and holds for EVERY corpus of
+the declared full-loader set (`prepare --full-loader-corpora P1,P2,X,G1,G2,R`, the default; the production
+entry point refuses a set that omits one of them; a corpus with no Python owner is an explicit zero row; a
+declared corpus the independent stream lacks blocks I2 and leaves the A decision as it was) and a prospective
+precision receipt (`report --precision precision.json`, schema `admission_precision/2`, the DESIGN section 7
+result) passes: `{schema, prepared_sha256, frame_sha256, population, population_unit, n, valid, stale,
+unknown, exhaustive, roles: {role: {n, witnessed}}}`, bound to the frozen draw: `population` is the number of
+distinct candidate pairs (or owners, `population_unit`) of this prepared receipt, `1 <= n <= population` and
+`n == population` when `exhaustive`, the roles are present and sum to n (for pairs, within the candidates' own
+role counts), no stale or unknown judgment, Wilson lower bound of valid/n at least .85 (every judgment valid
+when `exhaustive`) and each populated role at least max(1, n - max(1, floor(n/10))) witnessed.
 """
 
 import argparse
@@ -27,6 +32,7 @@ from pathlib import Path
 
 import compare
 from audit import digest, key as frame_key
+from loader_inventory import DEFAULT_CORPORA as FULL_LOADER_CORPORA
 
 GATE = 100
 FROZEN = dict(sha="6c1c0998f4f1afa06b95b2dad84f220e71c784d3d1b8ec82e6606029bb05b818", owners=787,
@@ -39,7 +45,8 @@ STAGES = ("admitted", "joined", "bound", "routed", "unoccupied", "distinct", "af
 RECON = ("rd", "raw_pairs", "raw_overflow", "raw_capped", "reads_over_fanin", "omitted_fanin_pairs",
          "over_edge_cap", "omitted_cap_pairs")
 FLOOD_CAPS = (256, 4)
-PRECISION_SCHEMA = "admission_precision/1"
+PRECISION_SCHEMA = "admission_precision/2"
+POPULATION_UNITS = ("pairs", "owners")
 
 
 def jsonl(path):
@@ -265,10 +272,15 @@ def duplicate_pair_keys(survivor_sets):
     return [(side, key) for side, items in survivor_sets for key, rows in sorted(items.items()) if len(rows) > 1]
 
 
-def flood(agreed):
-    """predicted_edges_c <= min(P_c, 256 x O_c, 4 x R_c) per corpus (P_c, O_c, R_c over agreed survivors)."""
+def flood(agreed, corpora=()):
+    """predicted_edges_c <= min(P_c, 256 x O_c, 4 x R_c) per corpus (P_c, O_c, R_c over agreed survivors).
+
+    Every corpus in `corpora` has a row, a corpus with no agreed survivor an explicit zero row."""
     rows = {}
-    for corpus, items in defaultdict(list, agreed).items():
+    pools = defaultdict(list, agreed)
+    for corpus in corpora:
+        pools[corpus]
+    for corpus, items in pools.items():
         reads = {(i["file"], i["owner"], tuple(i["r"])) for i in items}
         owners = {(i["file"], i["owner"]) for i in items}
         bound = min(sum(i["raw"] or 0 for i in {(x["file"], x["owner"]): x for x in items}.values()),
@@ -362,8 +374,22 @@ def status_rows(fr, m, independent, acc, dups, problems):
     return rows
 
 
+def declared_corpora(text, frozen):
+    """The `--full-loader-corpora` set (sorted, distinct). A frozen (production) run must name at least the
+    six corpora of the I2 measurement; a narrower set is the way to skip flood evidence, so it is refused."""
+    names = [n.strip() for n in str(text).split(",")]
+    if not names or any(not n for n in names):
+        raise ValueError(f"--full-loader-corpora {text!r}: empty corpus name")
+    declared = sorted(set(names))
+    if frozen is not None and not set(FULL_LOADER_CORPORA) <= set(declared):
+        raise ValueError("--full-loader-corpora must include every full-loader corpus "
+                         f"({','.join(FULL_LOADER_CORPORA)}), missing {sorted(set(FULL_LOADER_CORPORA) - set(declared))}")
+    return declared
+
+
 def prepare(a, frozen=FROZEN):
     fr = load_frame(a.draw, a.census_dir, frozen)
+    declared = declared_corpora(a.full_loader_corpora, frozen)
     m = load_m_audit(a.m_audit)
     if m["owners"] != set(fr["frame"]):
         raise ValueError("M's frame owners disagree with the census frame")
@@ -372,11 +398,15 @@ def prepare(a, frozen=FROZEN):
     acc = dict(categories=defaultdict(lambda: dict(pairs=0, by_owner=Counter())), owners={}, candidates=[],
                residuals=[], stats=defaultdict(Counter), agreed=defaultdict(list))
     runs, dups = {}, set()
-    # A is the frame's (P1, P2); flood accounting covers every full-loader corpus the independent stream holds.
-    for corpus in sorted(set(fr["census_sha"]) | set(independent)):
+    # A is the frame's (P1, P2); flood accounting covers every declared full-loader corpus, evidence or not.
+    missing = []
+    for corpus in sorted(set(fr["census_sha"]) | set(declared) | set(independent)):
         ind = independent.get(corpus)
         if ind is None:
-            problems.append(f"{corpus}: no independent records")
+            if corpus in fr["census_sha"]:
+                problems.append(f"{corpus}: no independent records")
+            else:
+                missing.append(corpus)  # no A is lost, but I2 has no flood evidence for it
             continue
         product, manifest, dup = load_trace(Path(a.runs) / corpus / "on", problems, corpus)
         dups |= {(corpus, d) for d in dup}
@@ -402,7 +432,9 @@ def prepare(a, frozen=FROZEN):
                 frame_owners=len(fr["frame"]), frame_by_corpus=dict(Counter(k[0] for k in fr["frame"])),
                 candidates_sha256=digest((out / "candidates.jsonl").read_bytes()),
                 stats={c: dict(v) for c, v in acc["stats"].items()}, categories=cats,
-                flood=flood(acc["agreed"]), residual_owners=len(acc["residuals"]),
+                flood=flood(acc["agreed"], [c for c in declared if c in independent]),
+                full_loader_corpora=declared, full_loader_missing=sorted(missing),
+                residual_owners=len(acc["residuals"]),
                 raters={n: dict(valid=sum(bool(r["a"]) for r in rs), addressable=sum(bool(r["b"]) for r in rs),
                                 n=len(rs)) for n, rs in m["raters"].items()})
     meta["prepared_sha256"] = digest(dump(meta).encode())
@@ -440,30 +472,64 @@ def witnessed(candidates, witnesses, prepared_sha):
     return verdicts, counts
 
 
-def precision_problems(receipt, prepared_sha):
+def precision_problems(receipt, meta, candidates):
     """Why a section 7 precision receipt does not clear I2 (empty: it does)."""
     if not isinstance(receipt, dict) or receipt.get("schema") != PRECISION_SCHEMA:
-        return ["precision receipt is not an admission_precision/1 document"]
+        return [f"precision receipt is not an {PRECISION_SCHEMA} document"]
     out = []
-    if receipt.get("prepared_sha256") != prepared_sha:
+    if receipt.get("prepared_sha256") != meta["prepared_sha256"]:
         out.append("precision receipt is not bound to this prepared digest")
+    if receipt.get("frame_sha256") != meta["frame_sha256"]:
+        out.append("precision receipt is not bound to this frame (frame_sha256)")
+    unit = receipt.get("population_unit")
+    pairs = Counter(c["role"] for c in {c["key"]: c for c in candidates}.values())
+    if unit == "pairs":
+        population = sum(pairs.values())
+    elif unit == "owners":
+        population = len({(c["corpus"], c["file"], c["owner"]) for c in candidates})
+    else:
+        population = None
+        out.append(f"precision receipt population_unit {unit!r} is not one of {POPULATION_UNITS}")
+    if population is not None and receipt.get("population") != population:
+        out.append(f"precision receipt population {receipt.get('population')!r} is not the {population} "
+                   f"distinct candidate {unit} of this prepared receipt")
     n, valid = receipt.get("n"), receipt.get("valid")
     if not (isinstance(n, int) and isinstance(valid, int) and 0 < n and 0 <= valid <= n):
         return out + ["precision receipt lacks a judged sample (n, valid)"]
+    if population is not None and n > population:
+        out.append(f"precision receipt n={n} exceeds the population {population}")
     for what in ("stale", "unknown"):
         if receipt.get(what) != 0:
             out.append(f"precision draw has {receipt.get(what)!r} {what} judgments (any {what} fails)")
-    if receipt.get("exhaustive") is True:
+    exhaustive = receipt.get("exhaustive")
+    if exhaustive is True:
+        if population is not None and n != population:
+            out.append(f"exhaustive family: n={n} is not the population {population}")
         if valid != n:
             out.append(f"exhaustive family: {valid}/{n} judgments valid, every one must be")
+    elif exhaustive is not False:
+        out.append("precision receipt must say whether the family is exhaustive (true or false)")
     elif wilson_lower(valid, n) < PRECISION_FLOOR:
         out.append(f"Wilson lower bound {wilson_lower(valid, n):.4f} of {valid}/{n} is below {PRECISION_FLOOR}")
-    for role, row in sorted((receipt.get("roles") or {}).items()):
+    roles = receipt.get("roles")
+    if not isinstance(roles, dict) or not roles:
+        return out + ["precision receipt has no roles (the judged sample must be split by role)"]
+    total = 0
+    for role, row in sorted(roles.items()):
         k, w = (row or {}).get("n"), (row or {}).get("witnessed")
         if not (isinstance(k, int) and isinstance(w, int)):
             out.append(f"role {role}: n and witnessed are required")
+            continue
+        total += k
+        if not 0 <= w <= k:
+            out.append(f"role {role}: witnessed {w} is not within 0..{k}")
         elif k > 0 and w < max(1, k - max(1, k // 10)):
             out.append(f"role {role}: {w} of {k} witnessed, needs {max(1, k - max(1, k // 10))}")
+        if unit == "pairs" and k > pairs.get(role, 0):
+            out.append(f"role {role}: {k} judged but the population holds {pairs.get(role, 0)} such pairs "
+                       f"(not among the population's roles when 0)")
+    if total != n:
+        out.append(f"role counts sum to {total}, not n={n}")
     return out
 
 
@@ -526,9 +592,14 @@ def report(a):
     print(f"GATE A >= {GATE} of {total}: {verdict} (A={A})")
     flood_failed = sorted(c for c, f in meta["flood"].items() if not f["ok"])
     reasons = [f"flood bound failed in {', '.join(flood_failed)}"] if flood_failed else []
+    declared = meta.get("full_loader_corpora")
+    if not declared:
+        reasons.append("prepared receipt declares no full-loader corpus set")
+    elif lacking := sorted(set(declared) - set(meta["flood"])):
+        reasons.append(f"no flood evidence for full-loader corpora {', '.join(lacking)}")
     if verdict == "PASS":
         reasons += [] if clean else ["unreconciled predictions"]
-        reasons += [receipt_problem] if receipt_problem else precision_problems(receipt, meta["prepared_sha256"])
+        reasons += [receipt_problem] if receipt_problem else precision_problems(receipt, meta, candidates)
     blocked = bool(reasons)
     print(f"I2: {'BLOCKED by ' + '; '.join(reasons) if blocked else 'ADMITTED' if verdict == 'PASS' else 'NOT ADMITTED'}")
     return 2 if verdict == "INVALID" else 4 if blocked else {"PASS": 0, "STOP": 1}[verdict]
@@ -541,6 +612,8 @@ def main(argv=None, frozen=FROZEN):
     p = sub.add_parser("prepare")
     for flag in ("draw", "census-dir", "m-audit", "runs", "independent", "out"):
         p.add_argument("--" + flag, required=True)
+    p.add_argument("--full-loader-corpora", default=",".join(FULL_LOADER_CORPORA),
+                   help="corpora whose independent stream and flood row I2 requires (default: all six)")
     p.set_defaults(fn=prepare)
     r = sub.add_parser("report")
     r.add_argument("--prepared", required=True)

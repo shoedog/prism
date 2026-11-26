@@ -252,6 +252,72 @@ fn element_preview_follows_literal_boolean_and_ternary_operands() {
     }
 }
 
+#[test]
+fn element_preview_certifies_number_literal_truth() {
+    // a falsy literal on the left of `and` never runs the clear; a truthy one always does.
+    // Floats follow CPython's rounding: 1e-999 underflows to 0.0, 1e999 is inf.
+    for (lit, truthy) in [
+        ("1e-999", false),
+        ("1e-325", false),
+        ("0.0", false),
+        ("0e0", false),
+        (".0", false),
+        ("0.", false),
+        ("0j", false),
+        ("0.0j", false),
+        ("00j", false),
+        ("1e-999j", false),
+        ("0x0", false),
+        ("0X0_0", false),
+        ("0o0", false),
+        ("0b0", false),
+        ("0_0", false),
+        ("00", false),
+        ("0b_0", false),
+        ("1e999", true),
+        ("1e999j", true),
+        ("5e-324", true),
+        ("1e-300", true),
+        ("0.5", true),
+        (".5", true),
+        ("1.", true),
+        ("1_0.0_1", true),
+        ("1j", true),
+        ("01j", true),
+        ("0x1", true),
+        ("0xf_f", true),
+        ("0o7", true),
+        ("0b1", true),
+        ("1_0", true),
+        ("10", true),
+    ] {
+        for (expr, runs) in [
+            (format!("{lit} and d.clear()"), truthy),
+            (format!("{lit} or d.clear()"), !truthy),
+        ] {
+            assert_eq!(between_reached(&expr), !runs, "{expr}");
+        }
+    }
+}
+
+#[test]
+fn number_truth_is_unknown_for_forms_it_cannot_certify() {
+    use super::rebind::number_truth;
+    for raw in [
+        "0777", "01", "0l", "10L", "0x", "0xg", "0b2", "0o8", "0b1j", "0x1j", "1__0", "1_", "_1",
+        "1e", "1e+", "1e_5", "1._5", "1_.5", "inf", "nan", "infj", "1e5e5", "1.2.3", "", "j", "e5",
+        "0x1.8", "1ee5", "-1", "+1", "1 0",
+    ] {
+        assert_eq!(number_truth(raw), None, "{raw:?}");
+    }
+    assert_eq!(number_truth("1e-999"), Some(false));
+    assert_eq!(number_truth("1e999"), Some(true));
+    assert_eq!(number_truth("0_0"), Some(false));
+    assert_eq!(number_truth("0x_ff"), Some(true));
+    assert_eq!(number_truth("0J"), Some(false));
+    assert_eq!(number_truth("2J"), Some(true));
+}
+
 fn leak(s: String) -> &'static str {
     Box::leak(s.into_boxed_str())
 }

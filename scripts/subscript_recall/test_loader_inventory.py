@@ -25,9 +25,11 @@ def var(file, owner, olines, src, access, context, path, target=None):
                 path=dict(base=path[0], fields=list(path[1:])), start_byte=start, end_byte=end, isolated=False)
 
 
-def standard_nodes(src=SRC, file="a.py", owner="f", line=1):
+def standard_nodes(src=SRC, file="a.py", owner="f", line=1, rhs=b"v"):
+    """The store W, the recorded read, and the Use of the stored value (the store's right-hand side)."""
     return (var(file, owner, line, src, "def", b'd["k"]', ("d", "[]")),
-            var(file, owner, line, src, "use", b"return d", ("d",), b"d"))
+            var(file, owner, line, src, "use", b"return d", ("d",), b"d"),
+            var(file, owner, line, src, "use", b"= " + rhs, (rhs.decode(),), rhs))
 
 
 def write_run(root, corpus, files, skips=(), nodes=(), edges=(), complete=True):
@@ -107,7 +109,7 @@ class LoaderInventoryTests(unittest.TestCase):
         return write_run(self.dir.name, corpus, {"a.py": SRC}, nodes=list(nodes))
 
     def test_truncated_and_mismatched_def_nodes(self):
-        w, r = standard_nodes()
+        w, r, v = standard_nodes()
         short = dict(w, end_byte=w["end_byte"] - 1)
         pair, = predictions(rows_of(self.fresh("T1", short, r)))
         self.assertEqual(pair["outcome"], "refused:join:truncated")
@@ -119,12 +121,12 @@ class LoaderInventoryTests(unittest.TestCase):
         self.assertEqual(pair["outcome"], "refused:join:mismatched")
 
     def test_other_owner_node_does_not_join(self):
-        w, r = standard_nodes()
+        w, r, v = standard_nodes()
         pair, = predictions(rows_of(self.run_of(nodes=[w, dict(r, owner="other")])))
         self.assertEqual(pair["outcome"], "refused:join:missing")
 
     def test_parent_edge_occupies_the_pair(self):
-        w, r = standard_nodes()
+        w, r, v = standard_nodes()
         pair, = predictions(rows_of(self.run_of(nodes=[w, r], edges=[(w, r)])))
         self.assertEqual(pair["outcome"], "refused:occupied")
 
@@ -135,7 +137,8 @@ class LoaderInventoryTests(unittest.TestCase):
         r = var("a.py", "f", 1, src, "use", b"return d", ("d",), b"d")
         feed = var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t")
         use = var("a.py", "f", 1, src, "use", b'"a"] = t', ("t",), b"t")
-        run = self.run_of({"a.py": src}, nodes=[w1, w2, r, feed, use], edges=[(feed, use), (feed, r)])
+        use_b = var("a.py", "f", 1, src, "use", b'"b"] = t', ("t",), b"t")
+        run = self.run_of({"a.py": src}, nodes=[w1, w2, r, feed, use, use_b], edges=[(feed, use), (feed, r)])
         got = {tuple(p["w"]): p["parent_route"] for p in predictions(rows_of(run))
                if p["outcome"] == "predicted"}
         self.assertEqual(got, {span(src, b'd["b"]'): False, span(src, b'd["a"]'): True})
@@ -160,9 +163,8 @@ class LoaderInventoryTests(unittest.TestCase):
 
     def test_exhausted_route_search_is_unknown_not_false(self):
         src = b'def f(d, t):\n    d["k"] = t\n    return d\n'
-        w, r = standard_nodes(src)
+        w, r, use = standard_nodes(src, rhs=b"t")
         feed = var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t")
-        use = var("a.py", "f", 1, src, "use", b"= t", ("t",), b"t")
         junk = [dict(use, start_byte=900 + i, end_byte=901 + i) for i in range(8)]
         run = self.run_of({"a.py": src}, nodes=[w, r, feed, use], edges=[(feed, use)] + [(feed, j) for j in junk])
         with mock.patch.object(li, "ROUTE_BUDGET", 4):
@@ -175,12 +177,53 @@ class LoaderInventoryTests(unittest.TestCase):
         return write_run(self.dir.name, corpus, files, nodes=nodes, edges=edges)
 
     def test_container_root_uses_are_not_the_stored_value(self):
-        w, r = standard_nodes()
+        w, r, v = standard_nodes()
         recv = var("a.py", "f", 1, SRC, "use", b'd["k"] = v', ("d",), b"d")
         param = var("a.py", "f", 1, SRC, "def", b"f(d, v)", ("d",), b"d")
-        run = self.run_of(nodes=[w, r, recv, param], edges=[(param, recv), (param, r)])
+        run = self.run_of(nodes=[w, r, v, recv, param], edges=[(param, recv), (param, r)])
         pair, = predictions(rows_of(run))
         self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", False))
+        # the root's own Use is not the stored value even when the value is the container itself
+        src = b'def f(d):\n    d["k"] = d\n    return d\n'
+        w, r, own = standard_nodes(src, rhs=b"d")
+        param = var("a.py", "f", 1, src, "def", b"f(d)", ("d",), b"d")
+        run = self.fresh_run("T11", {"a.py": src}, [w, r, own, param], [(param, own), (param, r)])
+        pair, = [p for p in predictions(rows_of(run)) if p["role"] == "return"]
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", True))
+
+    def test_the_index_use_is_not_the_stored_value_so_it_makes_no_parent_route(self):
+        """`d = {"old": t}; d[t] = u; return d`: the index `t` reaches `d` through the initializer; `u` does not."""
+        src = b'def f(d, t, u):\n    d = {"old": t}\n    d[t] = u\n    return d\n'
+        w = var("a.py", "f", 1, src, "def", b"d[t]", ("d", "[]"))
+        r = var("a.py", "f", 1, src, "use", b"return d", ("d",), b"d")
+        feed_t = var("a.py", "f", 1, src, "def", b"d, t, u", ("t",), b"t")
+        feed_u = var("a.py", "f", 1, src, "def", b"d, t, u", ("u",), b"u")
+        init_t = var("a.py", "f", 1, src, "use", b'"old": t', ("t",), b"t")
+        index_t = var("a.py", "f", 1, src, "use", b"d[t]", ("t",), b"t")
+        value_u = var("a.py", "f", 1, src, "use", b"= u", ("u",), b"u")
+        rebind = var("a.py", "f", 1, src, "def", b"d = {", ("d",), b"d")
+        nodes = [w, r, feed_t, feed_u, init_t, index_t, value_u, rebind]
+        edges = [(feed_t, init_t), (feed_t, index_t), (feed_u, value_u), (rebind, r)]
+        pair, = predictions(rows_of(self.fresh_run("T12", {"a.py": src}, nodes, edges)))
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", False))
+        # control: the stored value `u` itself reaching the initializer's Def is a parent route
+        feed_u_init = (feed_u, init_t)
+        pair, = predictions(rows_of(self.fresh_run("T13", {"a.py": src}, nodes, edges + [feed_u_init])))
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", True))
+
+    def test_a_right_hand_side_use_without_a_graph_node_leaves_the_route_unknown(self):
+        src = b'def f(d, t, u):\n    d["k"] = u\n    return d\n'
+        w, r, value = standard_nodes(src, rhs=b"u")
+        pair, = predictions(rows_of(self.fresh_run("T14", {"a.py": src}, [w, r, value], [])))
+        self.assertEqual(pair["parent_route"], False)
+        pair, = predictions(rows_of(self.fresh_run("T15", {"a.py": src}, [w, r], [])))
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", None))
+        # a right-hand side with no name to bind (a literal) is not unknown
+        lit = b'def f(d):\n    d["k"] = 1\n    return d\n'
+        w = var("a.py", "f", 1, lit, "def", b'd["k"]', ("d", "[]"))
+        r = var("a.py", "f", 1, lit, "use", b"return d", ("d",), b"d")
+        pair, = predictions(rows_of(self.fresh_run("T16", {"a.py": lit}, [w, r], [])))
+        self.assertEqual(pair["parent_route"], False)
 
     def test_source_hash_must_match_the_loader_manifest(self):
         run = self.run_of(nodes=list(standard_nodes()))
@@ -237,7 +280,7 @@ class LoaderInventoryTests(unittest.TestCase):
         self.assertEqual(owner["owner_span"][1], owner["span"][1])
         pair, = predictions(rows)
         self.assertEqual(pair["outcome"], "predicted")
-        self.assertEqual((owner["joined_writes"], owner["joined_reads"]), (1, 1))
+        self.assertEqual((owner["joined_writes"], owner["joined_reads"]), (1, 2))
 
     def test_decorated_owner_keyed_by_the_def_line_does_not_join(self):
         src = b"@deco\n" + SRC
@@ -286,20 +329,42 @@ class LoaderInventoryTests(unittest.TestCase):
         self.assertEqual(owner["rd"], "available")
 
     def test_raw_work_bounds_count_join_refused_endpoints_only_in_the_maximum(self):
-        w, r = standard_nodes()
+        w, r, v = standard_nodes()
         moved = dict(r, start_byte=r["start_byte"] - 1, end_byte=r["end_byte"] + 1)
         owner, = [x for x in rows_of(self.run_of(nodes=[w, moved])) if x["kind"] == "owner"]
         self.assertEqual((owner["raw_pairs"], owner["raw_pairs_max"]), (0, 1))
         owner, = [x for x in rows_of(self.fresh("T9", w, r)) if x["kind"] == "owner"]
         self.assertEqual((owner["raw_pairs"], owner["raw_pairs_max"]), (1, 1))
 
-    def test_cli_writes_one_stream_for_every_corpus_with_a_base_run(self):
+    def test_cli_writes_one_stream_for_every_named_corpus(self):
         write_run(self.dir.name, "P1", {"a.py": SRC}, nodes=list(standard_nodes()))
         write_run(self.dir.name, "P2", {"a.py": SRC}, nodes=list(standard_nodes()))
         out = Path(self.dir.name, "independent.jsonl")
-        self.assertEqual(li.main(["--runs", str(Path(self.dir.name, "OUT")), "--out", str(out)]), 0)
+        runs = str(Path(self.dir.name, "OUT"))
+        self.assertEqual(li.main(["--runs", runs, "--out", str(out), "--corpora", "P1", "P2"]), 0)
         rows = [json.loads(line) for line in out.read_text().splitlines()]
         self.assertEqual([r["corpus"] for r in rows if r["kind"] == "end"], ["P1", "P2"])
+
+    def test_cli_defaults_to_the_six_corpora_and_gives_a_corpus_without_python_zero_rows(self):
+        self.assertEqual(li.DEFAULT_CORPORA, ("P1", "P2", "X", "G1", "G2", "R"))
+        for name in li.DEFAULT_CORPORA:
+            # the Go and JavaScript corpora hold no `.py` file: the loader lists nothing the inventory reads
+            files = {"a.py": SRC} if name in ("P1", "P2") else {"main.go": b"package main\n"}
+            write_run(self.dir.name, name, files, nodes=list(standard_nodes()) if name in ("P1", "P2") else ())
+        out = Path(self.dir.name, "independent.jsonl")
+        runs = Path(self.dir.name, "OUT")
+        self.assertEqual(li.main(["--runs", str(runs), "--out", str(out)]), 0)
+        rows = [json.loads(line) for line in out.read_text().splitlines()]
+        ends = {r["corpus"]: r for r in rows if r["kind"] == "end"}
+        self.assertEqual(sorted(ends), sorted(li.DEFAULT_CORPORA))
+        for name in ("X", "G1", "G2", "R"):
+            self.assertEqual((ends[name]["owners"], ends[name]["predictions"], ends[name]["files"]), (0, 0, 0))
+            self.assertEqual([r["kind"] for r in rows if r["corpus"] == name], ["run", "end"])
+        # a corpus of the six without a base run is an error, never a silent omission
+        import shutil
+        shutil.rmtree(runs / "R")
+        with self.assertRaises(SystemExit):
+            li.main(["--runs", str(runs), "--out", str(out)])
 
 
 if __name__ == "__main__":
