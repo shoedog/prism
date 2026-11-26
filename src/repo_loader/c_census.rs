@@ -69,6 +69,7 @@ fn is_loss(s: &SkippedFile) -> bool {
         SkipReason::ParseFailed => is_c_family_path(&s.path),
         SkipReason::Symlink => is_c_like(&s.path),
         SkipReason::NotUtf8
+        | SkipReason::UnrepresentablePath
         | SkipReason::TooLarge { .. }
         | SkipReason::Unsupported
         | SkipReason::Ignored

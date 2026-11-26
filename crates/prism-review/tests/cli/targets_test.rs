@@ -13,6 +13,7 @@
 //! change; line 15 is the user-input origin, line 16 the unreleased open, and
 //! line 20 changes only `serialize_x`, leaving `deserialize_x` unchanged.
 
+use super::schema_support::{check_against_schema, contract_schema};
 use assert_cmd::Command;
 use serde_json::Value;
 use std::fs;
@@ -83,99 +84,6 @@ fn target<'a>(doc: &'a Value, algorithm: &str) -> &'a Value {
         .iter()
         .find(|target| target["source_algorithm"] == algorithm)
         .unwrap_or_else(|| panic!("missing {algorithm} target in {doc:#}"))
-}
-
-/// Small in-repo Draft 2020-12 structural checker. It deliberately implements
-/// only the schema features the targets contract uses: required/property
-/// closure, const/enum, arrays, integer minima, the id/hash pattern, and local
-/// `$ref` resolution into `$defs`.
-fn check_against_schema(doc: &Value, schema: &Value) {
-    fn resolve<'a>(root: &'a Value, node: &'a Value) -> &'a Value {
-        match node.get("$ref").and_then(Value::as_str) {
-            Some(reference) => root
-                .pointer(reference.strip_prefix('#').expect("local $ref"))
-                .unwrap_or_else(|| panic!("unresolved schema ref {reference}")),
-            None => node,
-        }
-    }
-
-    fn walk(value: &Value, raw_schema: &Value, root: &Value, path: &str) {
-        let schema = resolve(root, raw_schema);
-        if let Some(expected) = schema.get("const") {
-            assert_eq!(value, expected, "const mismatch at {path}");
-        }
-        if let Some(values) = schema.get("enum").and_then(Value::as_array) {
-            assert!(values.contains(value), "enum mismatch at {path}: {value}");
-        }
-        if schema.get("pattern").and_then(Value::as_str) == Some("^[0-9a-f]{64}$") {
-            let text = value
-                .as_str()
-                .unwrap_or_else(|| panic!("non-string hash at {path}"));
-            assert_eq!(text.len(), 64, "hash length at {path}");
-            assert!(
-                text.bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
-                "hash alphabet at {path}: {text}"
-            );
-        }
-
-        match schema.get("type").and_then(Value::as_str) {
-            Some("object") => {
-                let object = value
-                    .as_object()
-                    .unwrap_or_else(|| panic!("non-object at {path}"));
-                let properties = schema["properties"].as_object().unwrap();
-                for key in schema["required"].as_array().into_iter().flatten() {
-                    let key = key.as_str().unwrap();
-                    assert!(object.contains_key(key), "missing {path}.{key}");
-                }
-                if schema["additionalProperties"] == false {
-                    for key in object.keys() {
-                        assert!(properties.contains_key(key), "unknown {path}.{key}");
-                    }
-                }
-                for (key, child) in object {
-                    if let Some(child_schema) = properties.get(key) {
-                        walk(child, child_schema, root, &format!("{path}.{key}"));
-                    }
-                }
-            }
-            Some("array") => {
-                let array = value
-                    .as_array()
-                    .unwrap_or_else(|| panic!("non-array at {path}"));
-                if let Some(item_schema) = schema.get("items") {
-                    for (index, item) in array.iter().enumerate() {
-                        walk(item, item_schema, root, &format!("{path}[{index}]"));
-                    }
-                }
-            }
-            Some("string") => assert!(value.is_string(), "non-string at {path}"),
-            Some("integer") => {
-                let integer = value
-                    .as_u64()
-                    .unwrap_or_else(|| panic!("non-integer at {path}"));
-                if let Some(minimum) = schema.get("minimum").and_then(Value::as_u64) {
-                    assert!(integer >= minimum, "{path} below minimum {minimum}");
-                }
-            }
-            Some(other) => panic!("unsupported schema type {other} at {path}"),
-            None => {}
-        }
-    }
-
-    walk(doc, schema, schema, "$");
-}
-
-fn contract_schema() -> Value {
-    serde_json::from_str(
-        &fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../docs/contracts/targets.schema.json"
-        ))
-        .unwrap(),
-    )
-    .unwrap()
 }
 
 #[test]
@@ -320,7 +228,7 @@ fn default_run_emits_all_five_producers_and_live_mappings() {
         .unwrap()
         .contains("origin at use site"));
 
-    check_against_schema(&doc, &contract_schema());
+    check_against_schema(&doc, &contract_schema("targets.schema.json"));
 }
 
 /// Roadmap `03-tooling-plan-roadmap.md` §3 Phase 1 / controller ruling
@@ -353,7 +261,7 @@ fn echo_external_call_gains_ast_recovered_callee_but_not_a_shadowed_kind() {
         "a repo-local requests.py is not the requests library: {}",
         echo["dependency_hint"]
     );
-    check_against_schema(&doc, &contract_schema());
+    check_against_schema(&doc, &contract_schema("targets.schema.json"));
 }
 
 #[test]
@@ -380,7 +288,7 @@ fn symmetry_uses_enclosing_function_bounds_and_warns_on_name_disagreement() {
             .unwrap()
             .contains("symbol fetch differs from finding's function serialize_x")
     }));
-    check_against_schema(&doc, &contract_schema());
+    check_against_schema(&doc, &contract_schema("targets.schema.json"));
 }
 
 #[test]
@@ -392,7 +300,7 @@ fn ids_are_deterministic_and_filters_apply() {
         "same input must be byte deterministic"
     );
     let first_doc = json(&first);
-    check_against_schema(&first_doc, &contract_schema());
+    check_against_schema(&first_doc, &contract_schema("targets.schema.json"));
     for target in targets(&first_doc) {
         let id = target["id"].as_str().unwrap();
         assert_eq!(id.len(), 64);
@@ -411,7 +319,7 @@ fn ids_are_deterministic_and_filters_apply() {
     assert!(targets(&asserted)
         .iter()
         .all(|value| value["tier"] == "asserted"));
-    check_against_schema(&asserted, &contract_schema());
+    check_against_schema(&asserted, &contract_schema("targets.schema.json"));
 
     let concern = json(&fixture_run(
         DEFAULT_ALGORITHMS,
@@ -420,7 +328,7 @@ fn ids_are_deterministic_and_filters_apply() {
     assert!(targets(&concern)
         .iter()
         .all(|value| value["source_algorithm"] != "absence"));
-    check_against_schema(&concern, &contract_schema());
+    check_against_schema(&concern, &contract_schema("targets.schema.json"));
 }
 
 #[test]
@@ -446,7 +354,7 @@ fn acceptance_table_and_strict_without_errors_exit_codes() {
     assert!(angle.status.success());
     let angle_doc = json(&angle);
     assert!(targets(&angle_doc).is_empty());
-    check_against_schema(&angle_doc, &contract_schema());
+    check_against_schema(&angle_doc, &contract_schema("targets.schema.json"));
     assert!(String::from_utf8_lossy(&angle.stderr)
         .contains("targets: angle produces no findings at this version"));
 
@@ -458,7 +366,7 @@ fn acceptance_table_and_strict_without_errors_exit_codes() {
     assert_eq!(strict.status.code(), Some(0));
     let strict_doc = json(&strict);
     assert!(strict_doc.get("errors").is_none());
-    check_against_schema(&strict_doc, &contract_schema());
+    check_against_schema(&strict_doc, &contract_schema("targets.schema.json"));
 
     let invalid_format = fixture_run("absence", &["--format", "yaml"]);
     assert_eq!(invalid_format.status.code(), Some(2));
@@ -469,7 +377,7 @@ fn acceptance_table_and_strict_without_errors_exit_codes() {
 fn out_file_matches_stdout_document_bytes() {
     let expected = fixture_run("absence", &[]);
     assert!(expected.status.success());
-    check_against_schema(&json(&expected), &contract_schema());
+    check_against_schema(&json(&expected), &contract_schema("targets.schema.json"));
     let temp = TempDir::new().unwrap();
     let out_path = temp.path().join("targets.json");
     let actual = fixture_run("absence", &["--out", out_path.to_str().unwrap()]);
@@ -494,7 +402,7 @@ fn load_warnings_fatal_reads_and_escaping_paths_are_visible() {
         .any(|warning| {
             warning == "skipped unsupported file: notes.txt (unsupported language)"
         }));
-    check_against_schema(&unsupported_doc, &contract_schema());
+    check_against_schema(&unsupported_doc, &contract_schema("targets.schema.json"));
 
     let temp = TempDir::new().unwrap();
     let repo = temp.path().join("repo");
@@ -542,5 +450,5 @@ fn load_warnings_fatal_reads_and_escaping_paths_are_visible() {
                 .unwrap()
                 .contains("dropped finding with path escaping repo root")
         }));
-    check_against_schema(&absolute_doc, &contract_schema());
+    check_against_schema(&absolute_doc, &contract_schema("targets.schema.json"));
 }
