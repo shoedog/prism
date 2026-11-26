@@ -1016,7 +1016,8 @@ fn same_line_occurrence_o10_slot_barriers_do_not_compress_arguments() {
             "rest-barrier",
             "export function take(...items){return items;}",
             "import {take} from './origin';\nfunction outer(value){return take(value);}",
-            0,
+            // Slice B (lane 9): the rest formal receives the trailing argument.
+            1,
         ),
         (
             "unsupported-computed-member",

@@ -15,7 +15,7 @@ cargo fmt --all --check  # Check formatting of every workspace crate (must pass 
 cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 30 algorithms
 cargo build -p prism-mcp --bin prism-mcp    # Build the MCP stdio server
-cargo test --workspace                      # Run tests for prism, prism-review and prism-mcp
+cargo test --workspace                      # Run tests for all four workspace crates
 ```
 
 ### Mutation gate
@@ -121,6 +121,10 @@ cargo test --test integration coverage_test::      # Coverage matrix
   `ReviewContextRound` builds a graph from the captured review and the admitted files.
 - `finding_confidence.rs` — Single source for per-finding confidence/tier/parse-quality classification (`classify`, `evidence_files`, `ParseQuality::min_over`), consumed by both prism-review's `output/sarif.rs` and `targets/`.
 
+### Boundary crate (`crates/prism-boundary/`)
+
+P1a adds typed operation and field IDs, route declaration projections, an internal Swagger 2.0 and OpenAPI 3 JSON operation and status reader, and a `prism-boundary` binary with `--help` and `--version`. YAML conversion belongs to the caller. Wire-field inventory, schema diffing, binding documents and source extraction are outside P1a.
+
 ### Review crate (`crates/prism-review/src/`)
 
 The review layer is the workspace crate `crates/prism-review` (package `prism-review`, library `prism_review`, binary `prism`; #734, the 4.0.0 split). It depends on the `prism` core library; the core never depends on it. Its tests are `crates/prism-review/tests/cli/` (the `cli` umbrella target) plus its inline `src/` unit tests.
@@ -141,7 +145,7 @@ The review layer is the workspace crate `crates/prism-review` (package `prism-re
   the preloaded entries `run_review_authorized` and `run_algorithm_authorized` through the captured inputs. `context_run.rs` owns
   expansion and its completed maps. `context_view.rs` selects them for taint after
   successful admission and union. Other algorithms use the original maps.
-- `targets/` — `prism targets`: projects findings into the instrumentation-targets contract (`mod.rs`: `project`/`TargetsMeta`/id/dedupe/warnings; `model.rs`: schema DTOs; `mapping.rs`: category table, hint parsers, language lowering). Schema at `docs/contracts/targets.schema.json`.
+- `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in `inventory/` producer uses Python ASTs to identify root-proven HTTP calls and can run on its own or merge with projected findings. Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses `docs/contracts/targets-1.1.schema.json` (1.1).
   `project_in_context` uses the selected maps for the enclosing site, dependency hint and
   parse grade while keeping the original diff metadata.
 
@@ -345,6 +349,16 @@ cross-package concrete-asserted keys, and package-level `var` receivers.
 `prism nav call-stats --repo <dir>` reports the resolution-kind histogram and drop
 classification; `prism nav interface-manifest --repo <dir>` emits the PR-2 in-scope
 interface-dispatch manifest (the §8a denominator for the precision gate report).
+
+`prism nav proto-writes --repo <dir> [--format json|text]` is an unstable JS/TS/TSX
+syntax listing. It reports each nested-key or walked write by target byte span and
+includes the selector sites that supply its receiver. JSON also includes the value
+reads on each target and live selector line, including unresolved reads. Read
+completeness requires proven binding identity and member versions. JSON and text
+show new `incomplete_reason` values for identity escapes, implicit arguments,
+direct eval, possible member aliases, opaque calls, deferred evaluation, accessors
+and unproven control flow. Text prints facts and refusal reasons without expanding
+candidate histories. This slice reports guard state `none` for every fact.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
@@ -608,8 +622,22 @@ JS/TS/TSX positional bindings read the argument list by the call node's full byt
 callee name, so inner and outer calls in a chain have separate arguments. A dense array-literal
 spread such as `f(...[0, 1], x)` advances the fixed-slot offset by its syntactic length, including
 through parentheses and runtime-transparent TypeScript wrappers. A hole, a spread element in the
-array, or a non-literal spread operand makes later positions unknown. The spread itself contributes
-no argument-to-formal edge. Object-literal field flow retains its spread-argument exclusion.
+array, or a non-literal spread operand makes later positions unknown. A spread operand and its
+elements supply no fixed-slot bindings. Object-literal field flow retains its spread-argument exclusion.
+
+JS/TS/TSX identifier rest formals (lane 9, slice B) receive ordinary Uses and dense spread-element
+Uses whose minimum runtime offset reaches the rest slot. The slot counts defaults and unsupported
+fixed patterns and omits TypeScript `this`. Rest flow uses the implementation's byte-matched entry
+Def, and scoped rebinding can disqualify it. Exact rest edges require a singleton target and,
+for namespace-qualified imports, a matching value export. Cross-file `free_single` Exact targets
+remain ineligible. An opaque spread must start within rest. Its Exact edge also requires a positive
+iteration witness from a bounded literal and evaluation-prefix check. A proved-empty spread
+yields no edge at either confidence. An ordinary NameOnly rest edge uses
+`nameonly/call_nameonly` and requires the call site and target declaration to be in different
+files. Rest transfers that depend on dense-literal iteration or later scalar offsets assume the
+standard array iterator, as slice A offsets do. A replacement of the standard iterator in owner-body
+statements after the call needs a second invocation and is not checked (disclosed residual). See the
+known-gaps document for the iteration proof's coverage.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals
@@ -865,9 +893,9 @@ Algorithms fall into two categories:
 
 ### Layering and file layout (#701)
 
-The workspace is three crates: `prism` (the core library, root `src/`), `crates/prism-review` (the review
-layer, library `prism_review` plus the `prism` binary) and `crates/prism-mcp`; `default-members` are the root
-and `prism-review` (`prism-mcp` is opt-in with `-p prism-mcp` or `--workspace`). The layering boundary is
+The four workspace crates are `prism` (the core library, root `src/`), `crates/prism-review` (the review
+layer, library `prism_review` plus the `prism` binary), `crates/prism-mcp` and `crates/prism-boundary`.
+The root and `prism-review` are the default members. The other crates join checks via `-p` or `--workspace`. The layering boundary is
 Cargo: the `prism` library cannot name `prism_review` (no dependency) or `algorithms` (the module is not there);
 its `#[cfg(test)]` code could name `prism_review` through the root's dev-dependency, which is what
 `tests/integration/layering_test.rs` closes: it fails on any non-comment line

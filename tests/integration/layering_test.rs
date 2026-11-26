@@ -108,6 +108,23 @@ fn core_modules_do_not_import_algorithms() {
 }
 
 #[test]
+fn boundary_production_sources_do_not_name_review() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/prism-boundary/src");
+    let mut files = Vec::new();
+    collect_rs(&root, &mut files);
+    assert!(!files.is_empty(), "no boundary sources found");
+    let offenders: Vec<_> = files
+        .into_iter()
+        .filter(|path| !is_test_file(path.to_str().unwrap()))
+        .filter(|path| fs::read_to_string(path).unwrap().contains("prism_review"))
+        .collect();
+    assert!(
+        offenders.is_empty(),
+        "boundary sources name the review layer: {offenders:?}"
+    );
+}
+
+#[test]
 fn review_layer_and_test_paths_are_classified() {
     assert!(is_test_file("src/foo/bar_tests.rs"));
     assert!(is_test_file(

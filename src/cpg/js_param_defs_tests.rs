@@ -120,11 +120,11 @@ fn bare_arrow_formal_gets_a_def_at_its_identifier_bytes() {
 }
 
 #[test]
-fn identifier_rest_formal_gets_a_def_but_never_a_positional_argument() {
+fn identifier_rest_formal_binds_trailing_arguments() {
     let js = "function collect(first, ...rest) {\n  use(rest);\n  return first;\n}\n\
-              function run(v) {\n  collect(v, v, v);\n}\n";
+              function run(prefix, v, w) {\n  collect(prefix, v, w);\n}\n";
     let ts = "function collect(first: any, ...rest: any[]) {\n  use(rest);\n  return first;\n}\n\
-              function run(v: any) {\n  collect(v, v, v);\n}\n";
+              function run(prefix: any, v: any, w: any) {\n  collect(prefix, v, w);\n}\n";
     for (language, source) in [
         (Language::JavaScript, js),
         (Language::TypeScript, ts),
@@ -137,15 +137,19 @@ fn identifier_rest_formal_gets_a_def_but_never_a_positional_argument() {
             "{language:?}: {:?}",
             defs(&cpg)
         );
-        let edges = argument_edges(&cpg);
-        assert!(
-            edges.contains(&("v".into(), "collect".into(), "first".into())),
-            "{language:?}: {edges:?}"
-        );
-        // Variadic: slots stop at rest, so Step 5b binds no argument to it.
-        assert!(
-            !edges.iter().any(|(_, _, parameter)| parameter == "rest"),
-            "{language:?}: an argument was bound to the rest formal: {edges:?}"
+        let edges: Vec<_> = argument_edges(&cpg)
+            .into_iter()
+            .filter(|(_, callee, _)| callee == "collect")
+            .map(|(source, _, parameter)| (source, parameter))
+            .collect();
+        assert_eq!(
+            edges,
+            [
+                ("prefix".into(), "first".into()),
+                ("v".into(), "rest".into()),
+                ("w".into(), "rest".into())
+            ],
+            "{language:?}"
         );
     }
 }
