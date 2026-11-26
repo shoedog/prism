@@ -285,7 +285,9 @@ receiver chain except for the explicit shared-base links. Numeric property opera
 are omitted, and the fact can still carry an earlier receiver selector.
 
 The proofs use a bounded set of standard intrinsic calls and local allocations.
-Shadowing and visible direct rebinding disable their intrinsic proofs. Unknown
+Shadowing and visible direct rebinding disable their intrinsic proofs. The scan is
+file-local. Intrinsics rebound in another file and indirect runtime mutations such
+as `Object.getPrototypeOf([]).indexOf = …` are outside its model. Unknown
 receivers, opaque child stores, escaping children, and unsupported builder or
 key-coercion paths leave the candidate eligible. Own-key enumeration of an opaque
 object alone supplies no private-child proof. Recursion through own slots is handled

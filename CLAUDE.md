@@ -354,6 +354,8 @@ direct eval, possible member aliases, opaque calls, deferred evaluation, accesso
 and unproven control flow. Text prints facts and refusal reasons without expanding
 candidate histories. The listing discharges individual receiver steps with a proven
 key domain, a private child or a completed installation of the same stable own slot.
+Key-domain proofs include finite tables and anchored templates, and preserve steps
+that visibly select a shared link or a slot holding a shared prototype.
 Every fact has guard state `none`.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,

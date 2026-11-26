@@ -229,6 +229,7 @@ fn matrix_nonrecursive_rows() {
         } else {
             on_line.is_empty()
         };
+        let passed = passed && (row.id != "nk04" || exclusion_fold::nk04_operands(&on_line));
         let count = counts.entry((row.truth, row.want_class)).or_default();
         count.0 += usize::from(passed);
         count.1 += 1;
@@ -252,7 +253,8 @@ fn matrix_nonrecursive_rows() {
     }
     let total = reasons.values().sum::<usize>();
     eprintln!("fail_closed_reads: total={total} by_reason={reasons:?}");
-    // S1a-1 pinned `1722 - complete == total` against c21952a8; S1a-2 adds receiver steps.
+    assert_eq!(total, 438);
+    assert_eq!(complete, 3277);
     eprintln!("matrix complete_reads: {complete}");
     assert_eq!(designated.len(), 302);
     let mut changed = failures.len();
@@ -260,14 +262,17 @@ fn matrix_nonrecursive_rows() {
         let recorded: BTreeMap<String, serde_json::Value> =
             serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         assert_eq!(recorded.len(), 134);
-        changed = designated
+        changed = recorded
             .iter()
-            .filter(|(id, _)| recorded.contains_key(*id))
-            .filter(|(id, facts)| recorded.get(*id) != serde_json::to_value(facts).ok().as_ref())
+            .filter(|(id, expected)| {
+                let facts = designated
+                    .get(*id)
+                    .unwrap_or_else(|| panic!("baseline row {id} is missing from the matrix"));
+                serde_json::to_value(facts).unwrap() != **expected
+            })
             .count();
     }
     eprintln!("designated_fact_rows_changed: {changed}");
-    assert_eq!(changed, 0);
     eprintln!("matrix pass/total {counts:?}");
     assert_eq!(counts.values().map(|count| count.1).sum::<usize>(), 302);
     assert!(
@@ -276,6 +281,7 @@ fn matrix_nonrecursive_rows() {
         failures.len(),
         failures.join("\n")
     );
+    assert_eq!(changed, 0);
 }
 
 fn js(source: &str) -> ParsedFile {
@@ -651,6 +657,8 @@ fn iteration_requires_a_synchronous_callback_in_the_callback_position() {
     assert_eq!(facts.iter().map(|fact| fact.line).collect::<Vec<_>>(), [8]);
 }
 
+#[path = "proto_writes_exclusion_fold_tests.rs"]
+mod exclusion_fold;
 #[path = "proto_writes_exclusion_tests.rs"]
 mod exclusions;
 #[path = "proto_writes_fold_tests.rs"]

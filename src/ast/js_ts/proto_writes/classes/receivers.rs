@@ -11,95 +11,17 @@ impl<'a> Classifier<'a, '_> {
         if step.shared_link || !self.proof_charge(1) {
             return false;
         }
-        (self.benign_key(step.key) && self.no_visible_shared_slot(step.object))
-            || self.installed_slot(step, target)
+        (self.benign_key(step.key) && self.no_visible_shared_slot(step.object, target))
+            || self.installed_slot(step, target, store)
             || self.private_table_child(step, target, store)
             || self.private_null_walk(step, target)
     }
 
-    fn no_visible_shared_slot(&self, receiver: Node<'a>) -> bool {
-        let receiver = peel(receiver);
-        let Some(binding) = self
-            .analysis
-            .read(receiver)
-            .and_then(|read| read.binding.as_ref())
-        else {
-            return self.no_prototype_value(receiver, 0);
-        };
-        if let Some(initial) = self.initializer(receiver) {
-            if !self.no_prototype_value(initial, 0) {
-                return false;
-            }
-        }
-        let Some(references) = self.binding_references(binding) else {
-            return false;
-        };
-        references.into_iter().all(|reference| {
-            let Some(parent) = self.expression_use(reference) else {
-                return false;
-            };
-            let container = if matches!(parent.kind(), "member_expression" | "subscript_expression")
-            {
-                self.expression_use(parent).unwrap_or(parent)
-            } else if parent.kind() == "arguments" {
-                parent.parent().unwrap_or(parent)
-            } else {
-                parent
-            };
-            match container.kind() {
-                "variable_declarator" if field(container, "value").map(peel) == Some(reference) => {
-                    false
-                }
-                "assignment_expression" | "augmented_assignment_expression" => {
-                    field(container, "right").is_some_and(|right| self.no_prototype_value(right, 0))
-                }
-                "call_expression" if parent.kind() == "arguments" => {
-                    children(parent).all(|arg| arg == reference || self.no_prototype_value(arg, 0))
-                }
-                _ => true,
-            }
-        })
-    }
-
-    fn no_prototype_value(&self, node: Node<'a>, depth: usize) -> bool {
-        if depth == 24 || !self.proof_charge(1) {
+    fn installed_slot(&self, step: Selection<'a>, target: Node<'a>, store: Node<'a>) -> bool {
+        if store.kind() != "assignment_expression" || field(store, "left").map(peel) != Some(target)
+        {
             return false;
         }
-        let node = peel(node);
-        match node.kind() {
-            "member_expression" | "subscript_expression" => {
-                !self.shared_link(node)
-                    && field(node, "object")
-                        .is_some_and(|base| self.no_prototype_value(base, depth + 1))
-            }
-            "identifier" => self
-                .initializer(node)
-                .is_none_or(|value| self.no_prototype_value(value, depth + 1)),
-            "object"
-            | "array"
-            | "pair"
-            | "spread_element"
-            | "ternary_expression"
-            | "binary_expression"
-            | "assignment_expression"
-            | "sequence_expression" => {
-                children(node).all(|child| self.no_prototype_value(child, depth + 1))
-            }
-            "call_expression" => {
-                if self.static_call(node, "Object", "getPrototypeOf")
-                    || self.static_call(node, "Reflect", "getPrototypeOf")
-                {
-                    return false;
-                }
-                field(node, "arguments").is_some_and(|args| {
-                    children(args).all(|arg| self.no_prototype_value(arg, depth + 1))
-                })
-            }
-            _ => true,
-        }
-    }
-
-    fn installed_slot(&self, step: Selection<'a>, target: Node<'a>) -> bool {
         let base = peel(step.object);
         let key = self.primitive_identity(&AstSpan::from(step.key));
         let Some(key) = key else { return false };
@@ -117,16 +39,12 @@ impl<'a> Classifier<'a, '_> {
         {
             return false;
         }
-        let Some(statement) = self.enclosing(target, |kind| {
-            kind == "expression_statement" || kind == "statement_block"
-        }) else {
+        let Some(statement) = self
+            .expression_use(store)
+            .filter(|node| node.kind() == "expression_statement")
+        else {
             return false;
         };
-        if statement.kind() != "expression_statement"
-            || step.key.start_byte() < statement.start_byte()
-        {
-            return false;
-        }
         let Some(previous) = statement
             .prev_named_sibling()
             .filter(|node| node.kind() == "expression_statement")
@@ -222,7 +140,13 @@ impl<'a> Classifier<'a, '_> {
                 limit = node.end_byte()
             }
             if is_owner(node) {
-                return Some((node, limit));
+                // A later store or returned accumulator can affect the next
+                // invocation. These proofs require a non-inline owner.
+                return (!self
+                    .analysis
+                    .inline_owners
+                    .contains_key(&AstSpan::from(node)))
+                .then_some((node, limit));
             }
         }
         None
@@ -421,7 +345,7 @@ impl<'a> Classifier<'a, '_> {
         !null_literal || null_proto
     }
 
-    fn private_literal(&self, value: Node<'a>, depth: usize) -> bool {
+    pub(super) fn private_literal(&self, value: Node<'a>, depth: usize) -> bool {
         if depth == 24 || !self.proof_charge(1) {
             return false;
         }
@@ -457,6 +381,7 @@ impl<'a> Classifier<'a, '_> {
     }
 
     fn null_walk(&self, step: Selection<'a>, target: Node<'a>) -> Option<()> {
+        let (owner, limit) = self.repeat_limit(target)?;
         let cursor = peel(step.object);
         let binding = self.analysis.read(cursor)?.binding.as_ref()?;
         let lookup = self.expression_use(cursor)?;
@@ -530,10 +455,13 @@ impl<'a> Classifier<'a, '_> {
             .into_iter()
             .all(|reference| {
                 reference == root
-                    || reference.start_byte() >= target.end_byte()
+                    || reference.start_byte() >= limit
                         && self
                             .expression_use(reference)
                             .is_some_and(|parent| parent.kind() == "return_statement")
+                        && self.enclosing(reference, |kind| {
+                            kind == "program" || crate::ast::is_js_ts_function_like(kind)
+                        }) == Some(owner)
             })
         {
             return None;

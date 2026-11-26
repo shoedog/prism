@@ -2,9 +2,9 @@
 use super::*;
 
 pub(super) const SHARED_LINKS: [&str; 3] = ["__proto__", "constructor", "prototype"];
-pub(super) const INTRINSIC_WALK_LIMIT: usize = 32;
+const INTRINSIC_WALK_LIMIT: usize = 32;
 
-pub(super) fn intrinsic_name(name: &str) -> bool {
+fn intrinsic_name(name: &str) -> bool {
     matches!(
         name,
         "Array"
@@ -35,19 +35,70 @@ pub(super) fn intrinsic_name(name: &str) -> bool {
     )
 }
 
+#[derive(Default)]
+pub(super) struct IntrinsicCensus<'a> {
+    pub(super) work: usize,
+    refused: bool,
+    unknown_rebinding: bool,
+    rebound: BTreeSet<&'a str>,
+}
+
+impl<'a> IntrinsicCensus<'a> {
+    pub(super) fn observe(&mut self, file: &'a ParsedFile, node: Node<'a>) {
+        if self.refused {
+            return;
+        }
+        if identifier(node) || node.kind() == "property_identifier" {
+            self.refused = file.node_text(&node).contains('\\');
+            if self.refused {
+                return;
+            }
+        }
+        let name = if identifier(node) {
+            Some(file.node_text(&node))
+        } else if matches!(node.kind(), "member_expression" | "subscript_expression")
+            && field(node, "object").map(peel).is_some_and(|base| {
+                matches!(
+                    file.node_text(&base),
+                    "globalThis" | "window" | "self" | "global"
+                )
+            })
+        {
+            field(node, "property")
+                .map(|property| file.node_text(&property))
+                .or_else(|| field(node, "index").and_then(|key| global_key(file, peel(key))))
+        } else {
+            return;
+        };
+        if name.is_some_and(|name| !intrinsic_name(name)) {
+            return;
+        }
+        self.work += INTRINSIC_WALK_LIMIT;
+        self.refused = self.work >= FILE_WORK_LIMIT / 4;
+        if may_change_intrinsic(file, node) {
+            if let Some(name) = name {
+                self.rebound.insert(name);
+            } else {
+                self.unknown_rebinding = true;
+            }
+        }
+    }
+}
+
+fn global_key<'a>(file: &'a ParsedFile, key: Node<'_>) -> Option<&'a str> {
+    let raw = file.node_text(&key);
+    match key.kind() {
+        "string" if raw.len() <= INTRINSIC_WALK_LIMIT => raw
+            .get(1..raw.len().checked_sub(1)?)
+            .filter(|text| !text.contains('\\')),
+        "number" | "true" | "false" | "null" => Some(raw),
+        _ => None,
+    }
+}
+
 // Observe direct stores and aliases of intrinsic objects while collecting
 // targets. The bounded walk never relies on an unexamined long member path.
-pub(super) fn may_change_intrinsic(file: &ParsedFile, mut node: Node<'_>) -> bool {
-    if node.kind() == "property_identifier" {
-        let Some(member) = node.parent().filter(|parent| {
-            field(*parent, "property") == Some(node)
-                && field(*parent, "object")
-                    .is_some_and(|base| file.node_text(&base) == "globalThis")
-        }) else {
-            return false;
-        };
-        node = member;
-    }
+fn may_change_intrinsic(file: &ParsedFile, mut node: Node<'_>) -> bool {
     for _ in 0..INTRINSIC_WALK_LIMIT {
         let Some(parent) = node.parent() else {
             return false;
@@ -57,6 +108,7 @@ pub(super) fn may_change_intrinsic(file: &ParsedFile, mut node: Node<'_>) -> boo
             "member_expression" | "subscript_expression" if occupies("object") => node = parent,
             "parenthesized_expression" | "as_expression" | "non_null_expression" => node = parent,
             "assignment_expression" | "augmented_assignment_expression" => return true,
+            "for_in_statement" => return occupies("left"),
             "update_expression" | "array_pattern" | "object_pattern" | "rest_pattern" => {
                 return true
             }
@@ -76,7 +128,7 @@ impl<'a> Classifier<'a, '_> {
         // an optional proof must not exhaust the candidate's work budget.
         let proof = self.proof_work.get().saturating_add(work);
         let file = self.file_work.get().saturating_add(work);
-        if self.proof_refused || proof > TARGET_WORK_LIMIT / 2 || file > FILE_WORK_LIMIT / 4 {
+        if self.intrinsics.refused || proof > TARGET_WORK_LIMIT / 2 || file > FILE_WORK_LIMIT / 4 {
             return false;
         }
         self.proof_work.set(proof);
@@ -106,9 +158,10 @@ impl<'a> Classifier<'a, '_> {
     }
 
     pub(super) fn trusted_intrinsic(&self, name: &str) -> bool {
-        !self.proof_refused
+        !self.intrinsics.refused
+            && !self.intrinsics.unknown_rebinding
             && !self.analysis.dynamic_eval()
-            && !self.rebound_intrinsics.contains(name)
+            && !self.intrinsics.rebound.contains(name)
     }
 
     pub(super) fn method(&self, call: Node<'a>, name: &str) -> Option<Node<'a>> {

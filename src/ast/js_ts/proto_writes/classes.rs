@@ -16,6 +16,7 @@ mod domains;
 mod operands;
 mod proofs;
 mod receivers;
+mod slots;
 mod store;
 const TARGET_WORK_LIMIT: usize = 16_384;
 const FILE_WORK_LIMIT: usize = 2_000_000;
@@ -65,20 +66,9 @@ pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<Pr
     let root = file.tree.root_node();
     let mut work = vec![(root, root)];
     let mut targets = BTreeMap::new();
-    let mut escaped_names = false;
-    let mut rebound_intrinsics = BTreeSet::new();
-    let mut intrinsic_work = 0usize;
+    let mut intrinsics = proofs::IntrinsicCensus::default();
     while let Some((node, previous_owner)) = work.pop() {
-        if identifier(node) || node.kind() == "property_identifier" {
-            let name = file.node_text(&node);
-            escaped_names |= name.contains('\\');
-            if intrinsic_work < FILE_WORK_LIMIT / 4 && proofs::intrinsic_name(name) {
-                intrinsic_work += proofs::INTRINSIC_WALK_LIMIT;
-                if proofs::may_change_intrinsic(file, node) {
-                    rebound_intrinsics.insert(name);
-                }
-            }
-        }
+        intrinsics.observe(file, node);
         let owner = if is_owner(node) { node } else { previous_owner };
         let target = match node.kind() {
             "assignment_expression" | "augmented_assignment_expression" => field(node, "left"),
@@ -110,11 +100,10 @@ pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<Pr
         file,
         analysis,
         receivers: RefCell::default(),
-        file_work: Cell::new(intrinsic_work),
+        file_work: Cell::new(intrinsics.work),
         target_work: Cell::new(0),
         proof_work: Cell::new(0),
-        proof_refused: escaped_names || intrinsic_work >= FILE_WORK_LIMIT / 4,
-        rebound_intrinsics,
+        intrinsics,
     };
     let mut result = Vec::new();
     for (owner, mut members) in targets.into_values() {
@@ -150,8 +139,7 @@ struct Classifier<'a, 'b> {
     file_work: Cell<usize>,
     target_work: Cell<usize>,
     proof_work: Cell<usize>,
-    proof_refused: bool,
-    rebound_intrinsics: BTreeSet<&'a str>,
+    intrinsics: proofs::IntrinsicCensus<'a>,
 }
 
 impl<'a> Classifier<'a, '_> {

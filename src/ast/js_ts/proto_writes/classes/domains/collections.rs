@@ -257,15 +257,21 @@ impl<'a> Classifier<'a, '_> {
             if SHARED_LINKS.contains(&property) {
                 return false;
             }
+            let Some(use_node) = self.expression_use(access) else {
+                return false;
+            };
+            if use_node.kind() == "call_expression"
+                && field(use_node, "function").map(peel) == Some(access)
+            {
+                return false;
+            }
             if !self.is_modified(access) || property != name {
                 return true;
             }
-            let Some(store) = self.expression_use(access) else {
-                return false;
-            };
-            store.kind() == "update_expression"
-                || (store.kind() == "assignment_expression" || operator(store, self.file) == "+=")
-                    && field(store, "right")
+            use_node.kind() == "update_expression"
+                || (use_node.kind() == "assignment_expression"
+                    || operator(use_node, self.file) == "+=")
+                    && field(use_node, "right")
                         .is_some_and(|rhs| self.key_domain(rhs, depth) == Some(Domain::Numeric))
         })
     }
