@@ -64,6 +64,14 @@ pub(super) fn unconditional_key_write(parsed: &ParsedFile, site: &Site) -> bool 
                     return false;
                 }
             }
+            "augmented_assignment_expression" => {
+                let logical = parent
+                    .child_by_field_name("operator")
+                    .is_some_and(|op| matches!(op.kind(), "||=" | "&&=" | "??="));
+                if logical || parent.child_by_field_name("left") != Some(node) {
+                    return false;
+                }
+            }
             "sequence_expression" => {}
             _ => return false,
         }

@@ -663,7 +663,7 @@ The bounded legacy changes are the R2.6 endpoint relocation and the uncapped p35
 relabel. Signature writes and alias twins keep their legacy labels, including D3's
 `alias_unstable`. Changes outside DFG statistics are limited to witnessed Step 5c return
 inputs, return-flow suppression transitions and ordinary argument-slot joins in DESIGN §5.9. The S1 ledger records attempts, overlapping projection causes and cap decisions before
-deduplication. `PRISM_S1_TRACE=1` emits projection demotions and downstream joins on stderr. A cold run can set
+deduplication. The compact graph's occurrence-label lookup applies only to S1 signature pairs (Go, Python and every legacy pair keep the line-group label); a separate S1 pass relabels a body read that shares a mixed signature/body line at the identifier twin's label. `PRISM_S1_TRACE=1` emits projection demotions and downstream joins on stderr. A cold run can set
 `PRISM_S1_SUPPRESSION_BASE` to a baseline trace file to report suppression counter transitions.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively

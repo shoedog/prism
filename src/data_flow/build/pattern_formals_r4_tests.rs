@@ -201,6 +201,25 @@ fn check_logical_key(operator: &str, first: &str, second: &str) {
 }
 
 #[test]
+fn arithmetic_and_bitwise_compound_key_writes_replace_the_entry() {
+    for operator in [
+        "+=", "-=", "*=", "/=", "%=", "**=", "<<=", ">>=", ">>>=", "&=", "^=", "|=",
+    ] {
+        let source = format!(
+            "function C({{o}}, {{[(o {operator} 5)]: y}}) {{\n  return o;\n}}\nC({{o:7}}, {{}});"
+        );
+        let receipt = evidence(&source, Language::JavaScript);
+        let at = source.find("return o").unwrap() + "return ".len();
+        let read = receipt.files["test"]
+            .attempts
+            .iter()
+            .find(|attempt| attempt.key.operand == [at, at + 1])
+            .unwrap();
+        assert_eq!(read.disposition.as_str(), "refused_s1_replaced", "{source}");
+    }
+}
+
+#[test]
 fn logical_or_key_keeps_the_entry_when_truthy() {
     check_logical_key("||=", "7", "0");
 }
