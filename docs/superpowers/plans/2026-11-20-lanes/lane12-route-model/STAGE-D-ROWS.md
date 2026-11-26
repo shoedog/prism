@@ -94,6 +94,8 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | class_view | fl13, cx05, es1-51 |
 | expansion_truncated | es2-34 |
 | func_field_value | gm14 |
+| getattr_module | fk-31, fk-32 |
+| global_write | fk-35 |
 | handler_object | nh03, es5-16 |
 | hapi_handler_conflict | hp20 (failed root) |
 | hapi_handler_object | hp11 |
@@ -102,6 +104,7 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | hapi_registration_unproven | hp10/22, cx07, es1-32, d1-03/04/09, d2-04/12 |
 | hapi_route_not_literal | cx47, cx48 |
 | hapi_server_param_unproven | hp17, hp18, es1-33 |
+| init_order_risk | fk-30 |
 | inner_decorator | fl20, es2-29, es3-06 |
 | member_handler | hp11, cx27, cx50, cx58 |
 | method_expression | gm15 |
@@ -110,14 +113,17 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | method_value_method_unproven | et4-02, d2-19 |
 | method_value_receiver_shadowed | gm11, gm12, es5-07, es7-03 |
 | method_value_receiver_unproven | et3-03, et4-01, es4-10, gm13, gm17, es1-40, es1-42, es1-43, es1-44, es1-46, es2-16, es2-18, es3-14, es3-15, d2-19 |
-| mount_child_unproven | fa13, cx01, es1-05, es1-06, es1-15, es1-16, es3-19, es6-05 |
+| mount_child_unproven | fa13, cx01, es1-05, es1-06, es1-15, es1-16, es3-19, es6-05, fk-14, fk-24, fk-30, fk-32 |
 | mount_cycle | es1-02 |
+| multi_write | fk-24, fk-34, fk-36 |
+| nested_single | fk-37 |
 | no_known_mount | ex29, gn05, hp22, fa14, cx01, cx07, es1-04, es1-05, es1-06, es1-15, es1-16, es1-17, es4-02, es6-04, es6-05, es6-09, d2-01/02/05/08/09 |
 | non_literal_path | ex12, nh07, fl14, fa07, cx34, es1-68, es2-18, es2-28 |
 | qualified_function_value | gm15, es1-47 |
 | receiver_unproven | fl15, fl21 |
 | regex_path | ex13, cx52, es5-13 |
 | runtime_generated_registration | et1-10, es1-20 |
+| star_import | fk-33 |
 | table_consumer_unproven | ol05, hp12, es1-26 |
 | unsupported_registration | fa12, et1-12, es2-30, es3-07, es3-08 |
 | variable_prefix | ex23, gn06, nh08, fl08, fa10, cx55, es1-03, es2-05, es4-15, es4-17 |
@@ -658,7 +664,7 @@ Author the 18 retained round-two rows after approval. Pin root by independent co
 
 Use fresh Flask apps with `static_folder=None`. The module-attribute cases use `pkg/routes.py` and a rebound
 attribute named `routes`. For fk-01–06 and fk-17, a namespace package or a regular package with an empty
-`pkg/__init__.py` exercises the same mechanism. fk-24 tests a binding in the package initializer itself.
+`pkg/__init__.py` exercises the same mechanism.
 `skip(rule)` returns an identity decorator. A mutating `patch(view)` sets `view.__name__ = 'renamed'` and
 `view.methods = ['POST']`. `f`, `g`, `a` and `b` are plain defs unless the row specifies a decorator.
 
@@ -666,14 +672,16 @@ Each `KNOWN_LIMIT` row is a pinned fixture-matrix disposition under §7. Compare
 written callback, emitted exposure and emitted binding. Freeze evidence tying its runtime discrepancy to the
 named out-of-model mutation, with zero runtime installation or dispatch credit for the affected claims.
 Every frozen-ledger site needs its own disposition.
-`WITHHELD` pins the indicated missing proof. For the `add_url_rule` callee-escape refusals, keep the literal
-path and resolved `f` or `g`, leave omitted declared/default methods null, and withhold effective methods
-and inferred endpoint. Apply the regular checks to source-only pins and to explicit supported metadata and
-view-map operations, including d2-14.
+`WITHHELD` pins the indicated missing proof. For the `add_url_rule` escape and mutation-indexing refusals,
+keep the grounded app, literal path and resolved written view, leave omitted declared/default methods null, and withhold effective
+methods, the inferred endpoint and any binding that depends on them. For the imported child refusals, retain
+the grounded parent and independent child declarations, report `mount_child_unproven`, and give no full
+exposure or binding through the refused mount. Apply the regular checks to source-only pins and to explicit
+supported metadata and view-map operations, including d2-14.
 
-In fk-23 and fk-30, `from setup import f` and `from setup import bp` require exactly one module-level write
-of the callback or router name over all of `setup.py`. The same check applies to `setup.f` and `setup.bp`
-after `import setup`. The second write counts even though it follows the registration during native setup.
+The closed-world import proof in DESIGN §5.3 governs the nine import and escape refusal rows below. Each
+pins its counted reason and has one `PROVEN` control. Across this section there are 43 rows, with 14
+`KNOWN_LIMIT`, 15 `WITHHELD` and 14 `PROVEN`.
 
 | ID | Fixture shape | Expected record | Control |
 |---|---|---|---|
@@ -687,36 +695,39 @@ after `import setup`. The second write counts even though it follows the registr
 | fk-08 | `from functools import partial`<br>`import setup` with mutating `patch`, `from views import f`<br>`partial(setup.patch, f)()`<br>`app.add_url_rule('/x', view_func=f)` | WITHHELD. The visible argument `f` to the opaque `partial` callee triggers the existing metadata refusal. | fk-c06 |
 | fk-09 | `from views import f` and `import setup`<br>`@setup.touch` above `class Holder: view = f`<br>`setup.touch(cls)` sets `cls.view.methods = ['POST']` and returns `cls`<br>`app.add_url_rule('/x', view_func=f)` | KNOWN_LIMIT. Emitted full `/x` on app and binding to written callback `views.f`. Declared methods null, inferred endpoint `f`, effective GET/HEAD/OPTIONS. The class decorator mutates the view through a class attribute, giving runtime POST/OPTIONS. | fk-c02 |
 | fk-10 | `from views import f`<br>`app.add_url_rule('/x', view_func=f)`<br>`def wrap(): return f()`<br>`maps = (app.view_functions,)`<br>`maps[0]['f'] = wrap` | KNOWN_LIMIT. Emitted full `/x` on app and binding to written callback `views.f`. The tuple-mediated map write replaces the runtime callable with `wrap`. | fk-c02 |
-| fk-11 | Start by importing `setup`<br>`setup.py` defines mutating `patch`<br>then `import app`, then `def patch(view): pass`<br>`app.py` imports `patch` from `setup` and `f` from `views`<br>`patch(f)` then `app.add_url_rule('/x', view_func=f)` | WITHHELD. The first definition was captured. No default methods or inferred endpoint proof after the uniqueness fix. | fk-c03 |
-| fk-12 | Start by importing `setup`<br>`setup.py` defines mutating `patch`, imports `early`, redefines `patch` as `pass`, imports `late`<br>`early.py` captures `from setup import patch as first` and calls `first(f)`<br>`late.py` separately captures `from setup import patch as second` and calls `second(g)`<br>Both import their views from `views.py`<br>`app.py` imports `setup` and both views, and registers `f` at `/x`, `g` at `/y` | WITHHELD. Both registrations keep their own callback and path. Neither capture earns the exemption when the defining name has two bindings. | fk-c04 |
 | fk-13 | Construct `app`<br>`@((app,)[0]).get('/x')`<br>`def f(): pass` | WITHHELD. No receiver proof. Flask has no receiver hint and omits the site. | fk-c01 |
 | fk-14 | Construct `bp = Blueprint('b', __name__)`<br>`@bp.get('/x')` above `def f`<br>`app.register_blueprint((bp,)[0])` | WITHHELD. Keep the Blueprint declaration, report `mount_child_unproven`, and withhold the mount proof. | fk-c05 |
 | fk-15 | `from views import f`<br>Construct `app`<br>`app.add_url_rule('/x', view_func=(f,)[0])` | WITHHELD. Literal `/x`, receiver proved, callback unresolved with `callback_unproven`. Effective methods and inferred endpoint unknown. | fk-c02 |
 | fk-16 | `import setup` with mutating `patch`<br>`from views import f`<br>`setup.patch(f)`<br>`app.add_url_rule('/x', view_func=f)` | WITHHELD. The direct opaque call triggers the existing metadata refusal. | fk-c06 |
 | fk-17 | As in fk-01, with `pkg.routes = app` as the rebind. | WITHHELD. The direct store escapes the traced app. Retain the source as `receiver_unproven` with empty exposures, unresolved callback and no binding. | fk-c01 |
-| fk-18 | As in fk-11, with the first mutating `def patch` inside a module-level `if True:` block. | WITHHELD. The conditional def counts as a write. The early capture keeps the route's path and written callback and cannot prove view-derived metadata. | fk-c03 |
-| fk-19 | As in fk-11, with the first mutating `def patch` inside a module-level `try:` block followed by `except Exception: pass`. | WITHHELD. The def in the try body counts as a write. Withhold view-derived metadata on the early capture. | fk-c03 |
-| fk-20 | In fk-11's `setup.py`, define `def patch(view): pass` and a mutating `_mut(view)`. Define `replace()` with `global patch` and `patch = _mut` in its body. Call `replace()` before `import app`. Keep fk-11's `app.py`. | WITHHELD. The function writes the module's `patch`. The captured callee earns no exemption and view-derived metadata is withheld. | fk-c03 |
-| fk-21 | In fk-11's `setup.py`, define `def patch(view): pass`, execute `from other import patch`, then `import app`. `other.py` defines a mutating `patch`. Keep fk-11's `app.py`. | WITHHELD. The import rebinds `setup.patch`. The capture earns no exemption and view-derived metadata is withheld. | fk-c03 |
-| fk-22 | In fk-11's `setup.py`, define mutating `_mut(view)` and no-effect `_p(view)`, then execute `patch = _mut`, `import app`, `patch = _p` in that order. Keep fk-11's `app.py`. | WITHHELD. Both assignments count and the imported name binds through aliases. The early capture earns no exemption and view-derived metadata is withheld. | fk-c03 |
-| fk-23 | Start by importing `setup`. In `setup.py`, define `f` to return `'first'`, then `import app`, then redefine `f` to return `'second'`. In `app.py`, use `from setup import f` and `app.add_url_rule('/x', view_func=f)`. | WITHHELD. Native capture uses the first def. Both writes count. Keep grounded app and the literal `/x` declaration. Report unresolved `f` with `imported_unproven` and withhold view-derived metadata and dispatch binding. | fk-c07 |
-| fk-24 | `pkg/routes.py` and `pkg/replacement.py` each define `bp = Blueprint(...)` with distinct names and a route (`/x` and `/y`, respectively). In `pkg/__init__.py`, write `from . import routes`, then `if True: from . import replacement as routes`. In `app.py`, use `import pkg` and `app.register_blueprint(pkg.routes.bp)`. | WITHHELD. Native setup mounts `replacement.bp`. The package hop `routes` has a conditional rebind, so it cannot prove either child. Keep the app parent and independent child declarations. Count `mount_child_unproven` and emit no full exposure or binding through this mount. | fk-c08 |
+| fk-24 | With an empty `pkg/__init__.py`, bind `bp` twice in `pkg/routes.py` to distinct Blueprints serving `/first` and `/second`. In app use `import pkg.routes` and `app.register_blueprint(pkg.routes.bp)`. At a separate mount, use `import shadowed` and `app.register_blueprint(shadowed.routes.bp)`, where `shadowed/__init__.py` does `from . import routes` then `if True: from . import replacement as routes`, with distinct children in those modules. Also pin that hop with only the competing initializer alias and an explicit dotted alias import `import shadowed.routes as selected` before reading `selected.bp`. | WITHHELD (`multi_write`). Count both writes to `bp` at the first mount and the competing writes to the package hop at the second. Native setup uses the later `bp` in the first case and `replacement.bp` in the conditional initializer case. The mount remains unproven in each case. | fk-c14 |
 | fk-25 | As in fk-c02, with `vs = [f]` and `patch_all(vs)` before registration. `patch_all` iterates its argument and applies the name and method changes of `patch` to each view. | KNOWN_LIMIT. Emitted full `/x` on app and binding to written callback `views.f`. Declared methods null, inferred endpoint `f`, effective GET/HEAD/OPTIONS. Mutation through the container bound to `vs` gives runtime endpoint `renamed` and POST/OPTIONS. | fk-c02 |
 | fk-26 | After fk-c09's registration, run `app.view_functions.update({'shared': b})`. | KNOWN_LIMIT. Emitted full `/x` on app and binding to written callback `a`. The map update replaces the runtime callable with `b`. | fk-c09 |
 | fk-27 | After fk-c09's registration, write `m = app.view_functions` then `m['shared'] = b`. | KNOWN_LIMIT. Emitted full `/x` on app and binding to written callback `a`. Assignment through the map alias replaces the runtime callable with `b`. | fk-c09 |
 | fk-28 | After fk-c09's registration, run `app.view_functions.pop('shared')`. | KNOWN_LIMIT. Emitted full `/x` on app and binding to written callback `a`. The runtime URL rule survives and the map pop removes its dispatch target. | fk-c09 |
 | fk-29 | After fk-c09's registration, run `del app.view_functions['shared']`. | KNOWN_LIMIT. Emitted full `/x` on app and binding to written callback `a`. The runtime URL rule survives and the deletion removes its dispatch target. | fk-c09 |
-| fk-30 | Start by importing `setup`. In `setup.py`, bind `bp = Blueprint('first', __name__)`, register `/first` on `bp`, then `import app`. Rebind `bp = Blueprint('second', __name__)` and register `/second` on it. In `app.py`, use `from setup import bp` and `app.register_blueprint(bp)`. | WITHHELD. Native setup mounts the first Blueprint at `/first`. Both `bp` writes count. Keep the grounded app parent and both Blueprint declarations, count `mount_child_unproven`, and emit no full exposure or binding through this mount. | fk-c08 |
+| fk-30 | Start by importing `setup`. In `setup.py`, define one `bp = Blueprint('child', __name__)`, register `/first` on `bp`, then `import bridge`. In `bridge.py`, `import app`. In `app.py`, use `from setup import bp` and `app.register_blueprint(bp)`. | WITHHELD (`init_order_risk`). The module-scope path `setup → bridge → app` closes the cycle. Native setup mounts `/first` even though the static rule refuses the mount. | fk-c07 |
+| fk-31 | Use fk-c03 and add module-level `__getattr__` to ordinary `setup.py`. Have it return a mutating callable for `patch` and raise `AttributeError` for other names. Keep the direct no-effect def and the acyclic `from setup import patch` in app. | WITHHELD (`getattr_module`). The hook veto applies even though the direct def is already present. The imported callee earns no exemption and view-derived metadata is withheld. | fk-c03 |
+| fk-32 | Use fk-c08 and add module-level `__getattr__` to `pkg/__init__.py`. Have it raise `AttributeError` for every name. Keep the explicit submodule import and the only `bp` binding in `pkg/routes.py`. | WITHHELD (`getattr_module`). The package hook veto applies at the `routes` hop even though the import installs the submodule in native setup. | fk-c08 |
+| fk-33 | Use fk-c11 and add `from support import *` in `setup.py` after the direct no-effect def. `support.py` exports a mutating `patch`. | WITHHELD (`star_import`). The star can supply `patch`. The imported callee earns no exemption and view-derived metadata is withheld. | fk-c11 |
+| fk-34 | In `views.py`, define `f` twice with different bodies, `import helper`, then register local `f` at `/x` with `app.add_url_rule`. In `helper.py`, use `from views import f` and set `f.__name__ = 'renamed'` and `f.methods = ['POST']`. Start by importing `views`. | WITHHELD (`multi_write` on the helper's capture, which also has `init_order_risk`). Native setup uses the second def at endpoint `renamed` with POST/OPTIONS. Keep the written local callback at that second def and withhold its view-derived metadata. Escape indexing must retain possible mutation targets or withhold their metadata. | fk-c15 |
+| fk-35 | Use fk-c12, but put `global patch` in `Holder` before `patch = _mut`. | WITHHELD (`global_write`). The class body replaces the module callee. The imported callee earns no exemption and view-derived metadata is withheld. | fk-c12 |
+| fk-36 | Use fk-c13, but change `case other:` to `case patch:`. | WITHHELD (`multi_write`). The bare match capture overwrites the direct no-effect def. The imported callee earns no exemption and view-derived metadata is withheld. | fk-c13 |
+| fk-37 | Use fk-c06, but put the only `def patch(view): pass` in `setup.py` under a module-level `if True:`. | WITHHELD (`nested_single`). The sole def is conditional by shape. The imported callee earns no exemption and view-derived metadata is withheld. | fk-c06 |
 
 | Control ID | Fixture shape | Required proof |
 |---|---|---|
-| fk-c01 | `import pkg.routes`<br>`@app.get('/x')` on the constructor-bound `app`<br>`def f(): pass` | Grounded receiver, declared GET `/x`, callback and inferred endpoint `f`, effective GET/HEAD/OPTIONS. |
-| fk-c02 | `views.py` defines `f`<br>`app.py` imports `f` directly<br>`app.add_url_rule('/x', view_func=f)` | Grounded `/x`, callback `views.f`, inferred endpoint `f` and effective GET/HEAD/OPTIONS. |
-| fk-c03 | Start by importing `setup`<br>`setup.py` defines `def patch(view): pass` then imports `app`<br>`app.py` imports `patch` and `f` as in fk-11<br>`patch(f)` then a plain `add_url_rule` for `f` | Same proof as fk-c02 through one stable binding and one capture. |
-| fk-c04 | Start by importing `setup`<br>`setup.py` defines `def patch(view): pass` then imports `early` and `late`<br>Keep both `from` captures, the calls on `f` and `g`, and the registrations as in fk-12 | Both literal paths, their separate callbacks and inferred endpoint names, and effective GET/HEAD/OPTIONS for each. |
-| fk-c05 | Construct `bp = Blueprint('b', __name__)`<br>`@bp.get('/x')` above `def f`<br>`app.register_blueprint(bp)` | Grounded parent, proved Blueprint mount and GET `/x` with callback `f`. |
-| fk-c06 | `setup.py` defines `def patch(view): pass`<br>`app.py` uses `import setup` and `from views import f`<br>`setup.patch(f)`<br>`app.add_url_rule('/x', view_func=f)` | Same proof as fk-c02 through a direct call to the once-bound no-effect def. |
-| fk-c07 | Use fk-23 with only the first `f` definition, keeping the circular import and registration. | Grounded app, full `/x`, callback and binding to the first def's exact span, inferred endpoint `f` and effective GET/HEAD/OPTIONS. |
-| fk-c08 | Use fk-24's child modules with an empty `pkg/__init__.py`. In `app.py`, use `import pkg.routes` before the same mount call. | The initializer leaves `routes` absent and the explicit submodule import establishes it. Prove the mount to `pkg/routes.py`'s Blueprint and the resulting full `/x` and binding on app. |
-| fk-c09 | Define different plain views `a` and `b`, then register `app.add_url_rule('/x', 'shared', a)`. | Grounded app, full `/x` at endpoint `shared`, written callback and binding to `a`, effective GET/HEAD/OPTIONS. |
-| fk-c10 | In `views.py`, construct `bp = Blueprint('views', __name__)` and define `f` once under `@bp.get('/a')`. In `app.py`, use `from views import f` and `app.add_url_rule('/x', view_func=f)`. | The direct imported def passes the single-write check and the native decorator passes the existing transparency check. On app, prove full `/x`, callback and dispatch binding to `views.f`, inferred endpoint `f` and effective GET/HEAD/OPTIONS. |
+| fk-c01 | `import pkg.routes`<br>`@app.get('/x')` on the constructor-bound `app`<br>`def f(): pass` | PROVEN. Grounded receiver, declared GET `/x`, callback and inferred endpoint `f`, effective GET/HEAD/OPTIONS. |
+| fk-c02 | `views.py` defines `f`<br>`app.py` imports `f` directly<br>`app.add_url_rule('/x', view_func=f)` | PROVEN. Grounded `/x`, callback `views.f`, inferred endpoint `f` and effective GET/HEAD/OPTIONS. |
+| fk-c03 | Use fk-c02 with `def patch(view): pass` in `setup.py`. In app, use `from setup import patch` and call `patch(f)` before the registration. | PROVEN. The direct import earns the no-effect exemption. Same proof as fk-c02. |
+| fk-c05 | Construct `bp = Blueprint('b', __name__)`<br>`@bp.get('/x')` above `def f`<br>`app.register_blueprint(bp)` | PROVEN. Grounded parent, proved Blueprint mount and GET `/x` with callback `f`. |
+| fk-c06 | `setup.py` defines `def patch(view): pass`<br>`app.py` uses `import setup` and `from views import f`<br>`setup.patch(f)`<br>`app.add_url_rule('/x', view_func=f)` | PROVEN. The qualified import earns the no-effect exemption. Same proof as fk-c02. |
+| fk-c07 | Use fk-30 without `import bridge` in `setup.py`. Start by importing `bridge`, which imports app, which captures `bp` from `setup`. | PROVEN. Mount the child and give full `/first` and binding on app. |
+| fk-c08 | With an empty `pkg/__init__.py`, `pkg/routes.py` defines one `bp` serving `/x`. App uses `import pkg.routes` then `app.register_blueprint(pkg.routes.bp)`. | PROVEN. The explicit submodule import establishes the package hop. Prove the mount, full `/x` and binding on app. |
+| fk-c09 | Define different plain views `a` and `b`, then register `app.add_url_rule('/x', 'shared', a)`. | PROVEN. Grounded app, full `/x` at endpoint `shared`, written callback and binding to `a`, effective GET/HEAD/OPTIONS. |
+| fk-c10 | In `views.py`, construct `bp = Blueprint('views', __name__)` and define `f` once under `@bp.get('/a')`. In `app.py`, use `from views import f` and `app.add_url_rule('/x', view_func=f)`. | PROVEN. The imported def passes the closed-world check and the native decorator passes the existing transparency check. On app, prove full `/x`, callback and dispatch binding to `views.f`, inferred endpoint `f` and effective GET/HEAD/OPTIONS. |
+| fk-c11 | Use fk-c06 with `import setup as rules` and `rules.patch(f)` in app. | PROVEN. The aliased module resolves the direct no-effect callee. Same proof as fk-c02. |
+| fk-c12 | Use fk-c03 and add a mutating `_mut(view)` and `class Holder` with `patch = _mut` in the class body in `setup.py`. | PROVEN. The class attribute leaves the module callee intact. Same proof as fk-c02. |
+| fk-c13 | Use fk-c03 and add a mutating `_mut(view)` and `match _mut:` with a sole `case other: pass` at module scope in `setup.py`. | PROVEN. The match capture leaves the module callee intact. Same proof as fk-c02. |
+| fk-c14 | Use fk-24 with only the first `bp` in `pkg/routes.py`, an empty `shadowed/__init__.py`, and `import shadowed.routes as selected` at the second mount using `selected.bp`. | PROVEN. Each dotted chain yields its own child, full path and dispatch binding on app. |
+| fk-c15 | In fk-34, keep only the second `f` def and use an acyclic `helper.py` with `def patch(view): pass`. In `views.py`, call `helper.patch(f)` before the same registration. | PROVEN. The imported callee earns the no-effect exemption. Keep full `/x`, binding to the local callback, endpoint `f` and effective GET/HEAD/OPTIONS. |
